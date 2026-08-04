@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -264,11 +264,15 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 
 ## 9. 任务与事务
 
-- 普通导入、计算和渲染可并发；Origin 导出串行。
-- 每个任务持久化 `queued/running/paused/cancelling/succeeded/partial/failed/cancelled` 状态。
-- 阶段输出先写临时对象，只有完整阶段通过校验后才注册正式对象。
-- 批量任务允许成功项提交和失败项保留，但整个批次命令作为一个可审计事务。
-- 取消和崩溃后保留完成项，未完成项明确标记；恢复由用户手动触发。
+- InteractionRun 负责模型规划和停止生成；ExecutionTask 负责可取消的本地执行。NeedsInput 结束 InteractionRun，不创建后台任务。
+- ExecutionTask 使用 `queued/preparing/running/committing/succeeded` 主链，并支持 `cancelling/cancelled/failed/partially_succeeded/interrupted`；`committing` 不可取消，第一轮没有暂停。
+- 控制与 SQLite 提交由 Core 单写入器负责；计算默认最多 2 个隔离进程并可因内存压力降为 1；Origin 严格串行。
+- 交互预览高优先级，同一图的新预览可替代尚未开始的旧预览。
+- 单图、改图、分析、派生数据和多文件导入会话按各自契约原子提交；批量保留完成项；每个导出文件临时写入、校验后原子替换。
+- 取消先使用 cooperative token，宽限期后只终止隔离工作进程；Origin 无响应时重建 PlotAgent 管理实例，不强杀 Core。
+- 每个任务固定输入版本并使用 expected version 与 `(task_id, action_id, output_slot)` 幂等键；活跃任务引用阻止对象删除。
+- Electron 监督 Core 心跳；任务预先持久化并只在阶段边界写恢复点。遗留任务标记为 interrupted，正式任务不自动重试。
+- 详细状态、取消、调度、提交、恢复和关闭流程以 [任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md) 为准。
 
 ## 10. 安全与隐私
 

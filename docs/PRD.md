@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -435,15 +435,18 @@ Origin 能力分级：
 
 ## 12. 后台任务
 
-- 绘图、重新渲染和 `.opju` 导出均作为后台任务。
-- 对话内显示任务卡片，左侧栏提供统一任务中心。
-- 阶段包括读取、校验、处理、绘制、Origin 转换和导出验证。
-- 支持暂停、取消、重试失败项。
-- 普通绘图可并行，Origin 导出顺序执行。
-- 项目只保存结构化任务日志，不保存冗长控制台输出。
-- 批量任务部分失败时保留成功结果，失败项可以单独重试。
-- 应用关闭或任务中断时保留已完成项，未完成项明确标记；恢复必须由用户手动触发，不静默自动继续。
-- 关闭应用时如果仍有后台任务，提示等待或取消。
+- 模型规划使用 InteractionRun；本地导入、分析、绘图、渲染和导出使用 ExecutionTask。NeedsInput 结束当前 InteractionRun，不创建后台任务。
+- ExecutionTask 状态为 `queued`、`preparing`、`running`、`committing`、`succeeded`、`cancelling`、`cancelled`、`failed`、`partially_succeeded` 或 `interrupted`。
+- `committing` 短暂且不可取消；第一轮不提供暂停或继续。失败任务可由用户明确重跑，正式任务不自动重试。
+- 控制与 SQLite 写入单通道执行；普通计算默认最多 2 个隔离进程，内存压力时降为 1；Origin 严格串行。
+- 交互预览优先，同一图的新预览可替代尚未开始的旧预览；预览和缓存可以按固定输入自动重建。
+- 取消先发送 cooperative token 并等待安全边界；宽限期后只终止隔离计算进程。Origin 无响应时只重建 PlotAgent 管理的实例，不强杀 Core。
+- 每个任务固定输入版本和 expected version；冲突不静默覆盖。活跃任务引用阻止对象删除，输出使用 `(task_id, action_id, output_slot)` 幂等键。
+- Electron 监督 Core 心跳；任务预先持久化输入、计划、阶段、尝试和暂存目录，只在阶段边界写恢复点。遗留任务标为 interrupted。
+- 批量任务保留已完成结果并形成已取消或部分成功批次；PNG、SVG、OPJU 每个文件临时写入、验证并原子替换。
+- 任务卡留在来源对话，项目标题显示全局后台任务数；进度使用实际单位，第一轮不发送 Windows 通知。
+- 关闭应用时提供“等待完成”“取消并退出”“返回”；取消并退出仍须等待不可取消的 committing 阶段结束。
+- 详细契约见 [任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)。
 
 ## 13. 数据格式
 
@@ -598,6 +601,7 @@ Origin 能力分级：
 - 普通数据图的 OPJU 达到 O1；受控 Origin 实例重新打开后核心对象仍可编辑。
 - Origin 不可用时只禁用 `.opju`，不阻断其他功能。
 - 重新打开 `.plotproj` 后，对话、数据、批次、图表版本和任务状态完整恢复。
+- Core 异常退出后遗留任务标为 interrupted，正式任务不会静默自动重试，用户可以从来源对话进入恢复或重跑。
 - 源数据重新导入、从旧版本继续、发表规格变化和外部 OPJU 修改均不会静默覆盖既有结果。
 - 离线时除自然语言 Agent 外，导入、手动绘图、编辑和导出仍可用。
 - 匿名诊断默认关闭，预览中不包含原始数据、任何用户提示、文件名或列值。
