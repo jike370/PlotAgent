@@ -30,18 +30,18 @@ description: 面向通用科研用户的对话式本地绘图工作台
 
 ### Primary
 
-- **校准苔绿** `[to be resolved during implementation]`：仅用于主操作、选中状态和成功反馈，不承担大面积装饰。
+- **校准苔绿** `oklch(0.42 0.09 155)`：仅用于主操作、选中状态和成功反馈，不承担大面积装饰。
 
 ### Secondary
 
-- **仪器靛蓝** `[to be resolved during implementation]`：用于链接、键盘焦点和辅助强调，必须与信息、警告、错误等语义状态颜色区分。
+- **仪器靛蓝** `oklch(0.47 0.14 267)`：用于链接、键盘焦点和辅助强调，必须与信息、警告、错误等语义状态颜色区分。
 
 ### Neutral
 
-- **画布白** `[to be resolved during implementation]`：对话主区与科研图表的默认背景。
-- **工作台表面** `[to be resolved during implementation]`：左侧栏、工具栏和次级区域的低色度背景。
-- **校准墨色** `[to be resolved during implementation]`：正文、标题和数据标签，正文对比度必须达到 WCAG AA，优先达到 7:1。
-- **结构边界** `[to be resolved during implementation]`：用于分区、输入框与结构化对象边界，不与宽阴影叠加。
+- **画布白** `oklch(1 0 0)`：对话主区与科研图表的默认背景。
+- **工作台表面** `oklch(0.972 0.008 155)`：左侧栏、工具栏和次级区域的低色度背景。
+- **校准墨色** `oklch(0.26 0.018 155)`：正文、标题和数据标签，正文对比度必须达到 WCAG AA，优先达到 7:1。
+- **结构边界** `oklch(0.885 0.011 155)`：用于分区、输入框与结构化对象边界，不与宽阴影叠加。
 
 **The Quiet Instrument Rule.** 品牌色只表达操作与状态，绝不与科研图表争夺注意力。
 
@@ -49,8 +49,8 @@ description: 面向通用科研用户的对话式本地绘图工作台
 
 ## 3. Typography
 
-**Display Font:** Windows system sans `[font stack to be chosen at implementation]`
-**Body Font:** Windows system sans with Simplified Chinese UI fallback `[font stack to be chosen at implementation]`
+**Display Font:** `Segoe UI Variable Text`, `Segoe UI`, `Microsoft YaHei UI`, `system-ui`, `sans-serif`
+**Body Font:** `Segoe UI Variable Text`, `Segoe UI`, `Microsoft YaHei UI`, `system-ui`, `sans-serif`
 
 **Character:** 单一、清晰、接近原生 Windows 工具的无衬线体系。界面字体服务于长时间阅读、数字比较和中英文混排，不使用展示字体制造品牌感。图表字体由项目发表规格独立控制。
 
