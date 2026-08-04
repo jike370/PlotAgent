@@ -3,7 +3,7 @@
 > 状态：第一轮契约基线已确认  
 > 日期：2026-08-05  
 > 适用范围：DatasetVersion、TransformSpec、PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及其跨进程 Schema  
-> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 契约原则
 
@@ -376,7 +376,16 @@ validation: info | warning | blocked
 - Redeem、refresh、quota、reserve/settle/cancel、config/update 使用统一 Request/ResponseEnvelope 与稳定错误，不把供应商部署细节写进领域 Schema。
 - 完整字段、状态机与测试矩阵见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
 
-## 11. Schema 发布与兼容
+## 11. 本地安全与生命周期对象
+
+- `NetworkMode` 是 `builtin_proxy | custom_provider | local_only` 的严格持久联合；它是本机服务模式而非项目字段或启动工作入口。`OneTimeUpdateGrant` 是不持久化的 transient capability，生效时 effective policy 为 `update_only`，终止即恢复 local_only。
+- `DiagnosticBundleManifest` 逐文件保存 logical name、schema ID、size/hash 与确认时间；未知/禁止字段阻止生成。
+- `MigrationPlan/Step/Record` 固定源/目标 schema、逐步实现版本、backup/hash、validation 与 semantic hashes。
+- `BackupRecord/RecoveryRecord` 固定来源、schema、snapshot/CAS set hash、验证、状态、时间与原因；恢复不覆盖当前对象。
+- `TempCleanupState`、`BackupState` 与 `RecoveryState` 是封闭状态机；日志/analytics event 使用 allowlist schema。
+- 完整字段、retention、稳定错误和安全测试见 [本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
+
+## 12. Schema 发布与兼容
 
 - 每个发布版本输出 `schemas/` 包，包含 PlotSpec、PatchTransaction、ActionPlan、RPC 和事件 Schema。
 - Schema 使用固定 `$id` 和 Draft 2020-12 `$schema`。
@@ -385,7 +394,7 @@ validation: info | warning | blocked
 - 迁移不得静默改变图形类型、数据版本、统计方法、单位或视觉结果。
 - 未知新版本返回“需要升级应用”，不能以忽略字段的方式继续写入。
 
-## 12. 第一轮契约测试
+## 13. 第一轮契约测试
 
 - 所有 discriminator 联合的合法与非法变体。
 - `extra` 字段拒绝、严格数值和单位校验。
@@ -402,3 +411,4 @@ validation: info | warning | blocked
 - FigureSpec 固定版本引用。
 - 旧 Schema 迁移与未知新版本拒绝。
 - InviteGrant/DeviceCredential、QuotaSnapshot、ModelRun reserve/settle 幂等、签名 config/update envelope 与稳定错误。
+- NetworkMode/local_only、DiagnosticBundle、MigrationPlan/Record、Backup/RecoveryRecord、cleanup/retention 状态与禁止字段。

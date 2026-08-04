@@ -3,7 +3,7 @@
 > 状态：第一轮云控制面协议基线已确认
 > 日期：2026-08-05
 > 适用范围：InviteGrant、DeviceCredential、QuotaLedger、内置 Model Proxy、签名配置与软件更新
-> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 核心原则与边界
 
@@ -247,7 +247,8 @@ Remote config 不能改变：
 ### 10.1 与邀请解耦
 
 - 更新资格不要求邀请码、设备 token、账号或内置 provider；使用自定义 provider 或不使用模型的用户同样有资格取得更新。
-- `NetworkMode=local_only` 激活期间绝不检查、下载或请求更新 manifest。用户只有显式退出 local_only、对本次更新允许一次联网，或人工取得已签名离线安装包，才可更新。
+- `NetworkMode=local_only` 严格激活期间绝不检查、下载或请求更新 manifest。用户只有显式退出 local_only、创建内存态 `OneTimeUpdateGrant`，或人工取得已签名离线安装包，才可更新。
+- OneTimeUpdateGrant 生效期间，持久 NetworkMode 仍为 local_only，但 transient `effective_network_policy=update_only`，严格 local_only 暂时不处于激活态。update_only 只允许当前 update manifest check/package download，不能授权 Agent、token/quota、analytics、diagnostics、remote config、release notes 或任意 URL；完成、失败、取消、过期或应用退出后立即回到严格 local_only。
 - 允许联网更新的模式下，启动完成后异步检查；之后最多每 24 小时一次。检查失败不阻塞应用。
 - Manifest 与 package 仅通过 HTTPS；Authorization 不跨 origin redirect。
 
@@ -341,7 +342,7 @@ awaiting_user_restart -> preflight_deferred | installing_on_explicit_restart
 | 控制面不可达 | 应用启动并打开项目 | DNS/timeout/5xx/离线启动 |
 | 云失败无项目事务 | project DB 无对应写事务 | redeem/refresh/quota 每阶段失败 |
 | Proxy 无 payload 日志 | 日志 allowlist 扫描 | prompt/sample/reasoning 注入 |
-| 更新资格与网络模式 | 无邀请码可更新；local_only 零更新请求；离线包完整验签 | revoked invite、custom provider only、local_only 抓包、篡改离线包 |
+| 更新资格与网络模式 | 无邀请码可更新；严格 local_only 零请求；update_only 仅 manifest/package；离线包完整验签 | revoked invite、custom provider、local_only/update_only 抓包、取消/失败/重启、篡改离线包 |
 | 更新安装闸门 | 活跃任务/Origin/committing 时只 deferred | 每个阶段触发“重启并更新” |
 | 更新完整性 | manifest signature、包 hash/code signature 全通过 | 篡改清单/包、错误证书、非法 redirect |
 | 更新中断安全 | 当前安装和项目仍可用 | 下载/校验/启动安装前断电 |

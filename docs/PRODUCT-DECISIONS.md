@@ -139,9 +139,9 @@
 - **PD-J05 不做解释写作。** Agent 不生成论文式解释、图注、方法摘要或结论。
 - **PD-J06 默认模型负载。** 默认只发送指令、相关字段元数据、统计摘要和确定性小样本，硬上限为 20 行、12 个字段和 200 个 scalar；不发送原始文件、路径、SQLite、OPJU、完整表或完整对话。扩大范围必须通过 NeedsInput 展示用途与数量并取得作用域授权。
 - **PD-J07 原始数据本地。** 云端控制面不保存原始数据、项目、图表或完整对话历史。
-- **PD-J08 离线能力。** 离线时导入、手动选图、字段映射、参数编辑、重绘和导出可用；只有自然语言 Agent 不可用。
+- **PD-J08 local_only。** `NetworkMode=local_only` 零远程出站；导入、手动 ActionPlan、字段映射、变换/分析/拟合、绘图/批量/组合和 PNG/SVG/OPJU 均本地可用。localhost 模型属于 custom provider，不属于 local_only。
 - **PD-J09 自定义模型。** 用户可以配置 OpenAI-compatible base URL、model ID 与可选 API key；非 loopback 强制 HTTPS，连接测试只用合成内容，凭据只存 Windows Credential Manager。
-- **PD-J10 匿名分析。** 匿名使用分析与诊断默认关闭，只有用户主动开启；不得包含原始数据、任何用户提示、文件名或列值；提交前可预览内容。
+- **PD-J10 分析与诊断。** 匿名 usage analytics 默认关闭且只用预定义无 free-text schema；DiagnosticBundle 每次由用户主动生成、逐文件与 exact JSON 预览后发送。两者禁止数据、prompt、文件名、路径、列名、值与 secret，local_only 强制零发送。
 
 ## K. Origin 与文件导出
 
@@ -168,7 +168,7 @@
 - **PD-L04 不限设备。** 同一 InviteGrant 可在不限数量设备兑换；额度归 InviteGrant 并由所有设备共享，设备只承担鉴权及设备级并发/短时限流，重装或增加设备不能获得新额度。
 - **PD-L05 撤销邀请码不破坏本地能力。** 邀请码被撤销后可停止云端模型额度，但不能锁定本地项目或禁用本地绘图与导出。
 - **PD-L06 最小云端。** 云端只负责邀请兑换/令牌刷新、内置模型 proxy、共享额度/限流/幂等账本、签名配置与更新清单，以及用户主动提交的诊断；不保存项目或执行远程科研计算。
-- **PD-L07 本地权限。** 第一轮不做应用级项目加密，依赖 Windows 文件权限与磁盘加密；凭据进入 Windows Credential Manager，临时文件隔离并清理。
+- **PD-L07 本地权限。** 第一轮不做应用级项目加密，依赖 Windows account ACL 并建议敏感用户启用 BitLocker；凭据只进 Credential Manager。每任务临时目录使用当前用户 ACL 并清理，但不承诺 secure erase。
 - **PD-L08 后续加密。** 后续可评估密码加密 `.plotproj`；无账号体系意味着不提供云端找回密码。
 - **PD-L09 本地缓存。** 缓存键包含内容哈希、绘图规格、渲染器和主题版本；支持增量失效并可由用户清除。
 
@@ -463,7 +463,7 @@
 - **PD-Y12 Proxy 日志。** Proxy 不记录 prompt、request/response body 或原始数据；只记录 run、invite/device 伪名、profile/config、usage、latency、稳定错误、时间和幂等/额度状态。
 - **PD-Y13 Lazy 云连接。** 应用启动不依赖控制面，不强制刷新/查额度；只在内置 Agent 调用时 lazy refresh/status check。云端不可达不影响项目、手动 ActionPlan、自定义 provider 或导出。
 - **PD-Y14 云重试。** 瞬时连接/5xx 自动重试最多两次并复用 request/client_run/idempotency lineage；用户取消与确定性 4xx 不重试，云失败不进入项目事务。
-- **PD-Y15 更新资格与网络模式。** 更新资格不依赖邀请码、账号或 provider；但 `NetworkMode=local_only` 期间绝不检查或下载更新。用户须显式退出/允许本次联网，或使用执行同等验签的人工离线安装包；允许联网时启动后异步检查且此后最多每 24 小时一次。
+- **PD-Y15 更新资格与网络模式。** 更新资格不依赖邀请码、账号或 provider；严格 local_only 零更新出站。一次联网更新创建内存态 OneTimeUpdateGrant，并暂时标记 `effective_network_policy=update_only`，只允许 manifest/package，终止即恢复 local_only；也可使用执行同等验签的人工离线包。
 - **PD-Y16 更新完整性。** UpdateManifest/package 只经 HTTPS；manifest 用内置 public key 验签，package 校验 size、SHA-256 与 Windows code signature，篡改/证书/重定向异常全部阻断。
 - **PD-Y17 更新 UX。** 可后台下载，但活动任务、Origin 导出和项目 committing 期间不得安装；必须用户点击“重启并更新”，普通更新可延后。
 - **PD-Y18 云版本隔离。** `min_cloud_version` 只阻止旧客户端调用内置云服务；remote config 只能声明 profiles、quota display、protocol 与 availability，不能改变项目、渲染/分析语义或 publication snapshot。
@@ -471,3 +471,28 @@
 - **PD-Y20 协议与验收。** Redeem、refresh、quota、reserve/settle/cancel、signed config/update check 使用稳定 envelope、状态机与错误，验收覆盖多设备、幂等扣费、云断连、本地降级与更新篡改/中断。
 
 完整 InviteGrant、DeviceCredential、QuotaLedger、CloudConfig、UpdateManifest、状态机与故障注入契约见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
+
+## Z. 离线模式、本地安全、诊断、迁移与恢复备份
+
+- **PD-Z01 两组三入口。** 启动空状态保持“用示例项目试用 / 导入自己的数据 / 打开已有 `.plotproj`”；builtin invite、custom provider、local_only 只是首次需要 Agent 或模型设置中的服务模式，不替代工作入口。
+- **PD-Z02 NetworkMode。** `builtin_proxy | custom_provider | local_only` 可显式切换且不修改项目；localhost endpoint 属于 custom provider，不能借此绕过 local_only 语义。
+- **PD-Z03 local_only 零出站。** 严格 local_only 不兑换/刷新 token、不查 quota、不请求模型/更新/config、不发 analytics/diagnostics、不访问远程 URL；一次更新须以 transient update_only 暂停严格 local_only，终止即恢复。手动本地功能与三种正式导出完整可用。
+- **PD-Z04 无项目加密。** 第一轮依赖 Windows account ACL 并建议 BitLocker；`.plotproj`、Parquet、OPJU 和结果包可能含敏感科研数据，均不得宣传匿名或隐私安全。
+- **PD-Z05 Temp 安全。** 每任务随机隔离 temp、当前用户专属 ACL，成功/失败/取消/启动恢复清理；删除为 best effort，不承诺 secure erase。
+- **PD-Z06 固定磁盘工作区。** 活动 workspace 只允许本机固定磁盘，拒绝在网络共享或不可靠同步占位目录直接运行 SQLite/WAL；外部 `.plotproj` 先导入本机副本。
+- **PD-Z07 Archive 防护。** `.plotproj` 解包前/流式中校验 manifest/hash、entry/file/expanded size 与 ratio；拒绝绝对/`..`/重复规范化路径、link/junction/reparse/special entry 与 archive bomb。
+- **PD-Z08 表格不执行。** Excel 宏/VBA/外链/公式不执行或刷新；公式仅导入已有缓存值并记录 provenance，无缓存为 missing/NeedsInput。CSV/worksheet text 永远只是 data。
+- **PD-Z09 Electron 边界。** Renderer sandbox+contextIsolation、Node integration off、preload 强类型窄 API；聊天/数据不执行 HTML/JS，不自动打开 data URL 或数据链接，模型无任意 path/URL/file access。
+- **PD-Z10 本地日志。** 日志 allowlist 保留 14 天或 100 MB；只含版本、状态、对象/chart ID、timing/buckets、稳定错误，禁止 prompt、文件/路径、列名/值/摘要、secret 和模型 body；stack 落盘前 scrub，第一轮无 memory dump。
+- **PD-Z11 Usage analytics。** 默认 off，opt-in 页展示完整无 free-text event schema；原始事件最多 30 天后仅无设备标识 aggregate，local_only 强停且不延后补传。
+- **PD-Z12 DiagnosticBundle。** 每次主动生成、逐文件与 exact JSON 预览并明确发送；仅含版本/capability/error/task/performance/scrubbed stack/config/log excerpts，禁止任何项目内容、标识数据、secret 与 memory dump，服务端原始包 30 天删除。
+- **PD-Z13 迁移预检。** 只读校验 manifest/schema/integrity 后生成可见 MigrationPlan；确认后用 SQLite Online Backup，在新 temp workspace 只按确定性 N→N+1 steps 迁移。
+- **PD-Z14 迁移原子性。** 验证 object counts/refs/hashes、rows/columns、version DAG/current pointers 与语义 hash 后才原子切换；失败/取消继续使用原项目且无半迁移状态。
+- **PD-Z15 迁移不改语义。** Migration 只能改变存储表示，不得改变 chart/mapping/unit/analysis/fit/style/visual；新科学/渲染版本须用户 adopt 并创建新对象。
+- **PD-Z16 兼容规则。** 旧组件缺失可显示已有结果但重绘返回 `LEGACY_COMPONENT_MISSING`，不得换算法；未来 schema 拒绝编辑并提示升级，第一轮无 save-as-old/downgrade writer。
+- **PD-Z17 每日恢复备份。** 日常依赖 SQLite transaction+immutable CAS；每项目每日最多一次 Online Backup、保留最近三份，迁移成功前保留旧对象，不能宣传为 cloud backup。
+- **PD-Z18 显式恢复。** Restore 必须用户确认，在新 recovery candidate/workspace 验证并生成 RecoveryRecord，不静默 rollback 或覆盖当前项目。
+- **PD-Z19 领域与错误。** 固定 NetworkMode、transient OneTimeUpdateGrant/update_only、DiagnosticBundleManifest、MigrationPlan/Step/Record、Backup/RecoveryRecord 与 cleanup states；archive/formula/network/log/diagnostic/migration/legacy/backup 使用稳定错误。
+- **PD-Z20 安全验收。** 验收覆盖 local_only 零出站、断网本地闭环、恶意 archive/Excel、日志/诊断禁止字段、迁移逐阶段崩溃、语义不变、新旧 schema/组件和非覆盖式恢复。
+
+完整 NetworkMode、本地权限、不可信导入、日志/分析/诊断、迁移、兼容与恢复备份契约见 [本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。

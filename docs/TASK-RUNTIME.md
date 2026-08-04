@@ -3,7 +3,7 @@
 > 状态：第一轮任务运行时基线已确认  
 > 日期：2026-08-05  
 > 适用范围：InteractionRun、ExecutionTask、三通道调度、提交边界、取消、版本冲突、崩溃恢复与桌面任务体验  
-> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 两类运行对象
 
@@ -202,3 +202,6 @@ ExecutionTask 进入队列前，Python Core 持久化：
 - expected-version 冲突、活跃引用删除保护和幂等输出槽。
 - Core 心跳丢失、阶段恢复点、interrupted 标记和崩溃循环停止。
 - 实际单位进度、任务来源定位和三选项关闭流程。
+- 每任务随机 temp/ACL 与 success/failure/cancel/startup recovery 清理；清理失败不越界扫描目录。
+- Migration/Backup/Recovery 阶段崩溃时原 workspace/current project 不变；恢复必须有记录且不静默 rollback。
+- local_only 中 InteractionRun 不发网络请求，手动 ActionPlan 仍可创建正常 ExecutionTask。

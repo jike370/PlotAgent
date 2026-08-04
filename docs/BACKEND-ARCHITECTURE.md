@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -315,7 +315,15 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 
 在实现顺序之外，最小云控制面是独立外部边界：InviteGrant 拥有共享额度，随机设备只承担鉴权/限流；ModelRun 使用持久化 reserve/settle 幂等账本。应用启动与项目事务不依赖云端，更新无需邀请码并经过 manifest 签名、package hash/code signature 和用户显式重启闸门。完整 API、状态机、降级与更新契约见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
 
-## 12. 推荐实现顺序
+## 12. 本地安全与项目生命周期
+
+- NetworkMode 明确区分 builtin proxy、custom provider 与 local_only；local_only 由网络策略层阻止全部远程出站，手动 ActionPlan 和本地三格式导出链保持不变。
+- 不可信 `.plotproj`/archive、Excel/CSV、对话/模型文本和 Electron IPC 都在进入权威对象前执行类型化安全校验；活动 SQLite/WAL 只在本机固定磁盘。
+- 本地日志/analytics/DiagnosticBundle 各有独立 allowlist、opt-in 与 retention；项目内容、prompt、路径、字段和值不得泄露。
+- Migration 使用 Online Backup、新临时 workspace、逐步迁移、语义验证与原子 pointer switch；每日恢复备份不覆盖当前项目。
+- 详细 NetworkMode、安全导入、日志诊断、迁移、兼容、错误与恢复规则见 [本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
+
+## 13. 推荐实现顺序
 
 1. 定义协议版本、错误码、Pydantic RPC 模型和 TypeScript 镜像类型。
 2. 实现 Electron PythonSupervisor、健康检查、stdio framing 和安全 preload API。

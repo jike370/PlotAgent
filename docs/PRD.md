@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -282,6 +282,9 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 原始数据和命名版本不自动删除。
 - `.plotproj` 导入为 `%LOCALAPPDATA%` 下的事务工作副本，不依赖原包路径；导出项目副本时可选择完整项目包或结果项目包。
 - 不完整事务、临时导出文件和崩溃中间态不得成为当前版本。
+- 每个活动项目每日最多一次 SQLite Online Backup，保留最近三份；恢复在新候选 workspace 验证并生成 RecoveryRecord，必须用户确认且不覆盖当前项目。
+- Schema migration 只读预检并展示 MigrationPlan，确认后在新 temp workspace 执行逐步 N→N+1；完整验证后原子切换，失败/取消继续使用原项目。
+- Migration 不能改变图形、mapping、unit、analysis/fit、style 或 visual semantics；科研/渲染新版本必须由用户明确 adopt 并创建新对象。
 
 ### 7.5 项目存储与项目包
 
@@ -291,6 +294,8 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 结果项目包不能宣称隐私安全，依赖原始数据的重算不可用。
 - 项目包通过 SQLite Online Backup、manifest、checksums 和原子替换生成，禁止复制活动 WAL 数据库。
 - SQLite WAL 仅用于本机活动工作区，由 Python Core 单写入器管理；活动数据库和项目包不放在网络文件系统。
+- 活动 workspace 只允许本机固定磁盘；`.plotproj` 始终先在随机隔离 temp 中验证 archive path/link/size/hash 后导入本机副本。
+- 第一轮不加密项目；`.plotproj`、Parquet、OPJU 和结果包都可能含敏感科研数据，依赖 Windows account ACL，并建议敏感环境启用 BitLocker。
 - 详细约束见 [项目存储、项目包与数据导入](./PROJECT-STORAGE.md)。
 
 ## 8. 样式、发表规格与标注
@@ -505,6 +510,8 @@ Origin 能力分级：
 - 文件夹和 ZIP 批量导入。
 - 分隔符、编码、表头、小数格式和缺失值识别。
 - 所有第一轮输入均为数值或分类表格数据，不接收科研图像。
+- Excel 宏、VBA、公式和外链不执行/刷新；公式只使用文件内已有缓存值并记录 provenance，无缓存结果为 missing/NeedsInput。CSV/worksheet text 永远按 data 处理。
+- `.plotproj`/ZIP 拒绝 absolute/`..`/重复规范化路径、symlink/junction/reparse point、超 entry/file/expanded size 与 archive bomb；全部验证后才注册。
 
 ### 13.2 第二轮
 
@@ -550,6 +557,9 @@ Origin 能力分级：
 - 自然语言 Agent 需要在线模型或用户配置的兼容模型服务。
 - 用户可以配置 OpenAI-compatible base URL、model ID 与可选 API key；连接测试只发合成内容，凭据只存 Windows Credential Manager。
 - 临时文件在隔离目录中创建并在任务结束后清理。
+- 主窗口工作入口始终是“用示例项目试用 / 导入自己的数据 / 打开已有 `.plotproj`”。builtin invite、custom provider、local_only 是首次需要 Agent 或模型设置中的服务模式，不是启动入口。
+- `NetworkMode=local_only` 禁止 token/quota/model/config/update/analytics/diagnostics/远程 URL 全部出站；localhost provider 仍属于 custom provider。模式切换不修改项目。
+- local_only/断网时手动 UI 仍生成同一种 ActionPlan，导入、变换、分析、31 图、批量/组合和 PNG/SVG/OPJU 全部本地可用。
 
 ### 14.4 最小云端控制面
 
@@ -563,18 +573,22 @@ Origin 能力分级：
 
 内置 provider 通过设备令牌访问 PlotAgent proxy，平台供应商 key 只在服务端；用户配置自有兼容模型后桌面端直连。非 loopback endpoint 强制 HTTPS，TLS 校验不可关闭，禁止携带 Authorization 跨 origin redirect。
 
-更新资格与邀请码、账号和 provider 解耦；但 `NetworkMode=local_only` 期间应用绝不检查或下载更新。用户须显式退出 local_only/允许本次联网，或使用人工取得且执行同等验签的离线安装包。允许联网时启动后异步检查且之后最多每 24 小时一次。Manifest 由应用内置 public key 验签，包校验 SHA-256 与 Windows code signature；活动任务、Origin 导出或项目 committing 时不安装，必须由用户点击“重启并更新”。`min_cloud_version` 只阻止内置云服务，不阻止本地能力。
+更新资格与邀请码、账号和 provider 解耦；但严格 `NetworkMode=local_only` 期间应用绝不检查或下载更新。一次联网更新须创建内存态 OneTimeUpdateGrant，生效时 transient `effective_network_policy=update_only`，只允许本次 manifest/package，请求结束/失败/取消/过期/退出后立即恢复严格 local_only；它不能授权 Agent、quota、analytics、diagnostics、remote config 或任意 URL。也可使用人工取得且执行同等验签的离线安装包。允许常规联网时启动后异步检查且之后最多每 24 小时一次。Manifest 由应用内置 public key 验签，包校验 SHA-256 与 Windows code signature；活动任务、Origin 导出或项目 committing 时不安装，必须由用户点击“重启并更新”。`min_cloud_version` 只阻止内置云服务，不阻止本地能力。
 
 完整协议、账本、日志、状态机、稳定错误与更新验证见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
 
 ### 14.5 隐私、安全与诊断
 
-- 匿名使用分析和诊断默认关闭，只有用户主动开启。
-- 诊断不得包含原始数据、任何用户提示、文件名或列值；发送前允许预览。
+- 匿名 usage analytics 默认关闭，只有用户 opt-in 后发送；DiagnosticBundle 不设后台自动发送，每次都由用户主动生成、预览和明确提交。
+- 诊断不得包含原始数据、任何用户提示、文件名、路径、列名或列值；发送前逐文件和 exact JSON 预览。
 - 第一轮不提供应用级项目加密，依赖 Windows 文件权限与用户选择的磁盘加密。
 - 后续可评估密码加密 `.plotproj`；无账号体系，因此不提供云端密码找回。
 - ModelRunAudit 只记录 provider/model/profile、版本、origin、request/run ID、耗时、usage、稳定错误、DataDisclosure 类别/计数和 context hash，不记录 secret、隐藏推理或完整 request/response body。
 - 内置 proxy 只承诺自身不记录 payload，并准确展示底层供应商政策；OpenAI API 不宣传默认零保留，第三方兼容 provider 首次使用前必须确认其保留政策。
+- 本地日志按 allowlist 保留 14 天或 100 MB，禁止 prompt、文件/路径、列名/值/摘要、secret 与模型 body；stack scrub 用户路径，第一轮不收集 memory dump。
+- Usage analytics 默认 off 且只允许预定义无 free-text event schema；DiagnosticBundle 每次主动生成、逐文件与 exact JSON 预览后明确发送。二者在 local_only 中零发送。
+- DiagnosticBundle 禁止项目 DB/数据/preview/OPJU/prompt/文件名/路径/列名/值/secret；上传返回 diagnostic ID，服务端原始包 30 天删除。
+- 完整安全、日志、诊断、迁移、兼容与恢复备份契约见 [本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
 
 ## 15. 语言、视觉与无障碍
 
@@ -660,6 +674,8 @@ Origin 能力分级：
 - Core 异常退出后遗留任务标为 interrupted，正式任务不会静默自动重试，用户可以从来源对话进入恢复或重跑。
 - 源数据重新导入、从旧版本继续、发表规格变化和外部 OPJU 修改均不会静默覆盖既有结果。
 - 离线时除自然语言 Agent 外，导入、手动绘图、编辑和导出仍可用。
-- 匿名诊断默认关闭，预览中不包含原始数据、任何用户提示、文件名或列值。
+- Usage analytics 默认关闭；DiagnosticBundle 仅用户主动生成/预览/提交，内容不包含项目数据、提示、文件/路径、列名或值。
 - 多设备共享 InviteGrant 额度，重装、超时、重试和服务重启不会获得新额度或重复扣费；控制面完全不可达时仍可启动、打开项目并使用全部本地手动能力。
-- 更新资格不依赖邀请码；local_only 保持零更新出站，只有退出/一次性允许联网或使用完整验签的离线包才更新。签名、哈希或证书异常的 manifest/package 被阻止，更新不在活动任务或 Origin 导出期间安装。
+- 更新资格不依赖邀请码；严格 local_only 抓包为零。OneTimeUpdateGrant 期间只允许 update_only manifest/package，终止即恢复 local_only；或使用完整验签离线包。签名、哈希或证书异常被阻止，更新不在活动任务或 Origin 导出期间安装。
+- local_only 全进程抓包为零出站；断网仍可完成手动绘图、批量/组合和 PNG/SVG/OPJU。恶意 archive、宏/外链/公式、日志/诊断泄露与 Electron 注入均被阻止。
+- Migration 每个阶段崩溃后原项目仍可打开且科学/视觉语义不变；未来 schema 明确拒绝，旧组件缺失不静默换算法；backup restore 不覆盖当前项目并保存记录。
