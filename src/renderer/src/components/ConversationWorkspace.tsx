@@ -19,6 +19,7 @@ import {
   Images,
   Layers3,
   Library,
+  ListChecks,
   LoaderCircle,
   MoreHorizontal,
   MousePointer2,
@@ -42,6 +43,7 @@ interface ConversationWorkspaceProps {
   onOpenLibrary: () => void
   onOpenFocus: (index: number) => void
   onOpenCompose: () => void
+  onOpenBatchInspect: () => void
   onOpenTasks: () => void
   onOpenSample: () => void
   onOpenResources: () => void
@@ -145,9 +147,10 @@ function MappingObject({ selectedChartName }: { selectedChartName: string }): Re
 interface BatchObjectProps {
   onOpenFocus: (index: number) => void
   onOpenCompose: () => void
+  onOpenBatchInspect: () => void
 }
 
-function BatchObject({ onOpenFocus, onOpenCompose }: BatchObjectProps): React.JSX.Element {
+function BatchObject({ onOpenFocus, onOpenCompose, onOpenBatchInspect }: BatchObjectProps): React.JSX.Element {
   const [selected, setSelected] = useState<number[]>([0])
 
   const toggleSelection = (index: number): void => {
@@ -163,6 +166,7 @@ function BatchObject({ onOpenFocus, onOpenCompose }: BatchObjectProps): React.JS
           <p>线点图 · 统一样式 · 各图独立坐标范围</p>
         </div>
         <span className="status-label status-label--warning"><CircleAlert size={13} />部分完成</span>
+        <button className="text-button" type="button" onClick={onOpenBatchInspect}><ListChecks size={15} />批次检查</button>
         <button className="text-button" type="button" onClick={onOpenCompose}><Columns3 size={15} />创建组合图</button>
       </header>
 
@@ -369,6 +373,7 @@ export function ConversationWorkspace({
   onOpenLibrary,
   onOpenFocus,
   onOpenCompose,
+  onOpenBatchInspect,
   onOpenTasks,
   onOpenSample,
   onOpenResources,
@@ -411,7 +416,7 @@ export function ConversationWorkspace({
                 <p>已按你的明确指令选择线点图，并预填一次映射。请确认后应用到整个批次。</p>
                 <MappingObject selectedChartName={selectedChartName} />
                 <div className="inline-confirmation"><CheckCircle2 size={15} /><span>你已确认映射</span><time>14:33</time></div>
-                <BatchObject onOpenFocus={onOpenFocus} onOpenCompose={onOpenCompose} />
+                <BatchObject onOpenFocus={onOpenFocus} onOpenCompose={onOpenCompose} onOpenBatchInspect={onOpenBatchInspect} />
                 <div className="agent-note agent-note--warning">
                   <TriangleAlert size={16} />
                   <div><strong>批次部分完成</strong><p>sample_D_50C.csv 的 fluorescence 列含 7 个文本值。成功结果已保留，你可以修复后单独重试失败项。</p></div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, FlaskConical } from 'lucide-react'
 
 import { chartCatalog, type ChartType } from './data/chartCatalog'
+import { BatchInspector } from './components/BatchInspector'
 import { ChartLibrary } from './components/ChartLibrary'
 import { CompositionEditor } from './components/CompositionEditor'
 import { ConversationWorkspace } from './components/ConversationWorkspace'
@@ -10,7 +11,7 @@ import { ProjectResourceLibrary } from './components/ProjectResourceLibrary'
 import { Sidebar, type ConversationId } from './components/Sidebar'
 import { TaskDrawer } from './components/TaskDrawer'
 
-type Screen = 'workspace' | 'focus' | 'composition'
+type Screen = 'workspace' | 'focus' | 'composition' | 'batch-inspector'
 
 export function App(): React.JSX.Element {
   const [screen, setScreen] = useState<Screen>('workspace')
@@ -79,6 +80,7 @@ export function App(): React.JSX.Element {
               onOpenLibrary={() => setLibraryOpen(true)}
               onOpenFocus={openFocus}
               onOpenCompose={() => setScreen('composition')}
+              onOpenBatchInspect={() => setScreen('batch-inspector')}
               onOpenTasks={() => setTasksOpen(true)}
               onOpenSample={() => setActiveConversation('batch')}
               onOpenResources={() => setResourcesOpen(true)}
@@ -87,6 +89,7 @@ export function App(): React.JSX.Element {
         )}
         {screen === 'focus' && <FocusEditor initialIndex={focusIndex} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && <CompositionEditor onClose={() => setScreen('workspace')} />}
+        {screen === 'batch-inspector' && <BatchInspector onClose={() => setScreen('workspace')} />}
       </div>
 
       {libraryOpen && <ChartLibrary currentChartId={selectedChart.id} onClose={() => setLibraryOpen(false)} onSelect={chooseChart} />}
