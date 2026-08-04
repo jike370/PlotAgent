@@ -3,7 +3,7 @@
 > 状态：第一轮分析计算基线已确认  
 > 日期：2026-08-05  
 > 适用范围：数值数据的绘图计算、科学分析、显著性检验、AnalysisSpec、AnalysisResult 与批量一致性  
-> 相关文档：[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[拟合系统契约](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 三层计算模型
 
@@ -73,9 +73,8 @@ Agent 可以解析用户已经明确表达的方法与参数，但不能替用�
 | 区间估计 | t interval、Bootstrap interval | `estimate`、`lower`、`upper`、`diagnostics` |
 | 分布几何 | histogram、Tukey box、KDE | `bins`、`box_stats`、`density` |
 | 相关 | Pearson、Spearman | `coefficient`、`p_value`、`n`、`matrix` |
-| 回归 | OLS、WLS、显式阶数的 polynomial regression | `prediction`、`coefficients`、`intervals`、`residuals`、`diagnostics` |
+| 拟合 | linear OLS/WLS、Huber robust、degree 2/3 polynomial、exponential、power law、4PL、5PL | `parameters`、`curve`、`bands`、`prediction`、`residuals`、`metrics`、`solver_diagnostics` |
 | 平滑 | moving average、Savitzky-Golay、LOWESS | `smoothed_series`、`diagnostics` |
-| 剂量反应 | 4PL、5PL | `fitted_curve`、`parameters`、`intervals`、`residuals`、`diagnostics` |
 | 生存分析 | 右删失 KM、风险人数、Greenwood CI、用户显式选择的 Log-rank | `survival_curve`、`risk_table`、`confidence_band`、`test_result` |
 | 混淆矩阵 | count、按真实类别归一化、按预测类别归一化、全局归一化 | `matrix`、`class_totals`、`normalization_metadata` |
 
@@ -116,8 +115,9 @@ Agent 可以解析用户已经明确表达的方法与参数，但不能替用�
 
 ### 5.3 回归、剂量反应与混淆矩阵
 
-- 回归只允许 OLS、WLS 和用户明确给出阶数的多项式模型；不接受任意公式或 Python 代码。
-- 剂量反应只允许注册表中的 4PL 和 5PL；不自动选择模型、初值、边界或权重策略。
+- 拟合只允许 linear OLS/WLS、显式 Huber robust、degree 2/3 polynomial、exponential、power law、4PL 和 5PL；不接受任意公式或 Python 代码，不自动选择阶数、模型、初值、边界或权重策略。
+- FitSpec 必须显式记录原始观测、按 X 汇总中心、用户提供汇总+误差或按 replicate/group 分别拟合之一，不自动折叠重复或平均 replicate 参数。
+- 权重语义、4PL/5PL 公式、确定性多起点、区间、外推、失败与持久化曲线表以 [拟合系统契约](./FITTING-SYSTEM.md) 为准。
 - 混淆矩阵可以从真实标签与预测标签计算计数及三种归一化，也可以显示已提供矩阵；不训练模型、不比较模型优劣、不生成科研结论。
 
 ## 6. AnalysisSpec
@@ -212,7 +212,7 @@ DatasetVersion 更新不会自动重算旧结果：
 - 同卡字段映射和计算确认、模板透明参数与 NeedsInput。
 - 每个注册方法的合法输入、非法输入和输出端口。
 - 显著性白名单、比较集合、校正与不校正强警告。
-- 森林图、Nyquist、KM、回归、4PL/5PL 和混淆矩阵硬边界。
+- 森林图、Nyquist、KM、拟合与混淆矩阵硬边界。
 - complete-case、fail、相关矩阵 pairwise、无插补和无自动离群排除。
 - float64、固定种子、完整数据计算和依赖版本记录。
 - stale 标记、显式重算、PlotSpec 引用切换和完全同构批次部分失败。

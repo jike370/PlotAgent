@@ -4,7 +4,7 @@
 
 当前仓库包含一个可运行的 Windows 桌面交互原型。界面覆盖项目与对话、结构化数据对象、批量图集、首轮 31 项纯数值数据图形目录、聚焦编辑、固定布局组合图、任务状态与 Origin 不可用降级。真实 Agent、Python 绘图工作进程和 Origin 自动化尚未接入。
 
-产品范围以 [`docs/PRODUCT-DECISIONS.md`](docs/PRODUCT-DECISIONS.md) 的已确认决策基线和 [`docs/PRD.md`](docs/PRD.md) 的可实施需求为准；后端进程与 Agent 执行链见 [`docs/BACKEND-ARCHITECTURE.md`](docs/BACKEND-ARCHITECTURE.md)，PlotSpec、PlotPatch 和 ActionPlan 见 [`docs/DOMAIN-CONTRACTS.md`](docs/DOMAIN-CONTRACTS.md)，运行态工作区、`.plotproj` 与导入流水线见 [`docs/PROJECT-STORAGE.md`](docs/PROJECT-STORAGE.md)，任务调度、取消和崩溃恢复见 [`docs/TASK-RUNTIME.md`](docs/TASK-RUNTIME.md)，分析注册表、AnalysisSpec/Result 与科学边界见 [`docs/ANALYSIS-ENGINE.md`](docs/ANALYSIS-ENGINE.md)。
+产品范围以 [`docs/PRODUCT-DECISIONS.md`](docs/PRODUCT-DECISIONS.md) 的已确认决策基线和 [`docs/PRD.md`](docs/PRD.md) 的可实施需求为准；后端进程与 Agent 执行链见 [`docs/BACKEND-ARCHITECTURE.md`](docs/BACKEND-ARCHITECTURE.md)，PlotSpec、PlotPatch 和 ActionPlan 见 [`docs/DOMAIN-CONTRACTS.md`](docs/DOMAIN-CONTRACTS.md)，运行态工作区、`.plotproj` 与导入流水线见 [`docs/PROJECT-STORAGE.md`](docs/PROJECT-STORAGE.md)，任务调度、取消和崩溃恢复见 [`docs/TASK-RUNTIME.md`](docs/TASK-RUNTIME.md)，分析注册表、AnalysisSpec/Result 与科学边界见 [`docs/ANALYSIS-ENGINE.md`](docs/ANALYSIS-ENGINE.md)，FitSpec/FitResult、非线性公式与导出契约见 [`docs/FITTING-SYSTEM.md`](docs/FITTING-SYSTEM.md)。
 
 ## 桌面端开发
 

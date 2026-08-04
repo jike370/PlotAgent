@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -212,7 +212,9 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 - AnalysisResult 保存规格与输入哈希、样本纳入排除、统计结果、区间、诊断、收敛、结果表和依赖库版本。
 - PlotSpec 只引用 AnalysisResult 的命名输出端口；renderer、Matplotlib 和 Origin 均不重新计算分析。
 - 数值计算使用完整数据、float64 和固定随机种子，不插补、不自动排除离群值；数据更新只把旧结果标为 stale。
+- FitSpec 使用版本化模型白名单、显式输入层级与权重语义、有界确定性 multistart；FitResult 持久化曲线、区间、残差、mask 与全部求解诊断，导出端不重新拟合。
 - 方法注册表、显著性白名单、学科图形边界与批量一致性以 [分析计算层与科学边界](./ANALYSIS-ENGINE.md) 为准。
+- 完整拟合公式、失败边界与导出约束以 [拟合系统契约](./FITTING-SYSTEM.md) 为准。
 
 ## 7. 数据与持久化
 

@@ -109,7 +109,7 @@
 - **PD-H04 非有限值。** NaN、无穷和缺失值必须统计并呈现处理结果；对数轴遇到非正值时阻止执行。
 - **PD-H05 坐标中断。** 断轴必须由用户明确选择并在图中清楚标识。
 - **PD-H06 误差棒。** 必须明确 SD、SE、CI 或其他语义；CI 记录置信水平和来源。语义缺失时返回 NeedsInput，不绘制误差棒或创建执行任务。
-- **PD-H07 拟合。** 保存模型、初值、边界、权重、算法、收敛状态、残差和指标；原始数据始终保留，不默认外推；随机过程记录种子；失败时保留原始图与失败信息。
+- **PD-H07 拟合。** 保存模型与实现版本、输入层级、初值、边界、权重语义、算法、全部起点、收敛、残差、mask 和指标；原始数据始终保留，不默认外推；失败时保留原始图且不画伪曲线。
 - **PD-H08 数据处理。** 平滑、基线和归一化必须显式执行并记录参数，不能自动归一化或覆盖原始数据。
 - **PD-H09 显著性。** 用户指定检验、配对、单双尾和比较集合；不自动切换参数或非参数方法；多重比较校正必须明确；默认显示精确 p 值，星号为可选并记录阈值；数据变化后旧标记变为过期状态。
 - **PD-H10 单位。** 从表头或单位行解析单位，不隐式换算；不兼容单位禁止共享坐标轴；单位转换生成派生数据；数据精度与显示精度分离。
@@ -305,13 +305,13 @@
 - **PD-S04 方法由用户指定。** Agent 不替用户选择统计方法；误差语义、CI 定义或必要分析设置缺失时返回 NeedsInput，不创建 ExecutionTask。
 - **PD-S05 汇总与区间注册表。** 第一轮支持用户显式选择的描述汇总、t interval 和固定种子的 Bootstrap interval。
 - **PD-S06 分布与平滑注册表。** 第一轮支持 histogram、Tukey box、KDE、moving average、Savitzky-Golay 和 LOWESS。
-- **PD-S07 相关与回归注册表。** 第一轮支持 Pearson、Spearman、OLS、WLS 和显式阶数的 polynomial regression，不自动选择方法或阶数。
+- **PD-S07 相关与拟合注册表。** 第一轮支持 Pearson、Spearman，以及 linear OLS/WLS、显式 Huber robust、degree 2/3 polynomial、exponential、power law、4PL 和 5PL；不自动选择方法、阶数或模型。
 - **PD-S08 学科分析注册表。** 第一轮支持 4PL/5PL、右删失 KM、风险人数、Greenwood CI、显式 Log-rank，以及混淆矩阵计数和三种归一化。
 - **PD-S09 显著性白名单。** 检验只允许 Student/Welch/paired t、Mann-Whitney/Wilcoxon、one-way/Welch ANOVA/Kruskal-Wallis、chi-square/Fisher、Pearson/Spearman 和 Log-rank。
 - **PD-S10 校正与比较集合。** 多重比较校正只允许 Bonferroni、Holm 和 BH；多组必须指定比较集合，明确不校正可以执行但必须显示强警告并记录选择。
 - **PD-S11 森林图与 Nyquist 边界。** 森林图只绘制用户提供的 effect、CI 和 weight，不做 Meta 合并；Nyquist 不做等效电路拟合。
 - **PD-S12 KM 边界。** KM 仅支持右删失，不支持竞争风险、区间删失、左删失、Cox 或其他生存模型。
-- **PD-S13 模型与混淆矩阵边界。** 回归和 4PL/5PL 只使用白名单模型，不接受任意公式或 Python 代码；混淆矩阵不训练模型、不比较模型优劣、不生成结论。
+- **PD-S13 模型与混淆矩阵边界。** 拟合只使用版本化白名单模型，不接受任意公式或 Python 代码；混淆矩阵不训练模型、不比较模型优劣、不生成结论。
 - **PD-S14 AnalysisSpec。** AnalysisSpec 固定 kind、method 与实现版本、输入 DatasetVersion、字段/分组/设计、缺失策略、参数/边界/权重、区间、比较/校正、种子和命名输出端口。
 - **PD-S15 AnalysisResult。** AnalysisResult 保存规格与输入哈希、样本纳入排除、统计量与区间、结果表、诊断、收敛、输出端口、种子和依赖库版本。
 - **PD-S16 PlotSpec 只引用结果。** PlotSpec 只引用确定 AnalysisResult 版本的命名 output port；renderer、Matplotlib 和 Origin 不在预览或导出阶段重新计算分析。
@@ -321,3 +321,28 @@
 - **PD-S20 批量一致性。** 完全同构批次使用规范化后完全相同的 AnalysisSpec，不允许逐文件例外；单项失败可形成部分成功，但不会自动换方法或参数。
 
 完整分层、方法注册表、对象字段和执行边界见 [分析计算层与科学边界](./ANALYSIS-ENGINE.md)。
+
+## T. 拟合系统契约
+
+- **PD-T01 FitSpec 模型白名单。** FitSpec 是 AnalysisSpec 专用变体，第一轮只允许 linear OLS、WLS、显式 Huber robust、degree 2/3 polynomial、exponential、power law、4PL 和 5PL；linear 模型截距必须显式。
+- **PD-T02 禁止自动选模。** 第一轮不接受任意公式、Python 或自定义目标函数，不自动选阶、比较模型或在失败后切换模型。
+- **PD-T03 输入层级。** FitSpec 必须显式选择全部原始观测、按 X 汇总中心、用户提供汇总+误差或按 replicate/group 分别拟合之一。
+- **PD-T04 不自动折叠。** 系统不折叠相同 X 的重复观测，不自动平均 replicate/group 参数；需要汇总时另建显式分析对象。
+- **PD-T05 权重语义。** WLS 权重语义只允许 direct weight、variance、SD 或 SE，并分别记录直接使用、`1/variance`、`1/SD²` 或 `1/SE²` 的转换；不猜列名或静默退化为 OLS。
+- **PD-T06 尺度与变换分离。** 轴尺度不改变模型数学定义；模型 log 域独立校验，非正值不静默删除或平移。
+- **PD-T07 Control 与归一化。** zero dose 只有显式标为 control 时可以显示但不参加 log-dose 拟合；归一化必须生成派生 DatasetVersion。
+- **PD-T08 固定 4PL。** 4PL 使用版本化 log-dose 公式，保留 slope 正负方向，50% response dose 为 `x_unit × 10^log_midpoint`。
+- **PD-T09 固定 5PL。** 5PL 使用版本化非对称 log-dose 公式，分别输出模型中点参数与实际 50% response dose；asymmetry 为 1 时才与 4PL 中点一致。
+- **PD-T10 标签与单位。** IC50、EC50、ED50 或中性标签由用户明确选择；剂量结果继承 X 单位，超出 observed range 时标为 extrapolated。
+- **PD-T11 确定性求解。** 非线性模型使用版本化 deterministic initializer 与 bounded deterministic multistart，FitResult 保存每个起点、目标、终止和选中解。
+- **PD-T12 失败不改规格。** 高级用户可以显式覆盖初值和边界；系统绝不因失败自动换模型、删点、放宽边界、改权重或改输入层级。
+- **PD-T13 批次初始化。** 完全同构批次使用同一初始化算法与版本，数值初值可由该算法按各自数据确定性生成，不允许逐文件手工例外。
+- **PD-T14 三类区间。** parameter CI、mean confidence band 和 new-observation prediction interval 使用不同设置、标签和输出端口，不能混称或互相替代。
+- **PD-T15 非线性不确定性。** 非线性区间只允许明确选择 Jacobian/covariance 或 Bootstrap；Bootstrap unit 必须是 row、replicate 或 subject，并保存固定 seed。
+- **PD-T16 曲线与外推。** 默认曲线只覆盖 observed X range；显式外推必须给出范围、持久化标记并视觉区分，正式导出不得扩大范围。
+- **PD-T17 失败与警告。** 不可识别、定义域非法、边界无可行区、全部起点不收敛或非有限输出判为失败；边界触达、病态、区间不稳定和超范围等形成结构化 warning。
+- **PD-T18 FitResult 输出。** FitResult 提供 parameters、intervals、curve、bands、prediction、residuals、fitted、metrics、solver diagnostics、mask 和 warnings，并保存全部实现与输入哈希。
+- **PD-T19 不伪造成功。** 拟合失败保留 raw points、mask 和诊断，不绘制最后迭代或替代模型的伪曲线；R² 不作为通用成功标准。
+- **PD-T20 持久化曲线导出。** PlotSpec 与正式导出只引用 FitResult 的持久化曲线和区间表；renderer、Matplotlib 与 Origin 均不重新拟合。
+
+完整模型公式、输入、权重、求解、区间、失败和导出契约见 [拟合系统契约](./FITTING-SYSTEM.md)。

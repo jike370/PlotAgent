@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -238,7 +238,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 - 不提供任意单元格编辑。
 - 原始数据只读。
-- 筛选、归一化、平滑、聚合、对数、拟合等操作生成派生数据。
+- 筛选、归一化、聚合、对数等确定性表变换生成派生数据；平滑和拟合生成 AnalysisResult，不把结果隐藏在 renderer 中。
 - 宽表转长表、合并、透视等结构变化不得静默发生。
 - 每个步骤记录参数、顺序、输入和输出。
 - 源文件内容改变后重新导入会创建新的数据集版本，不覆盖旧版本。
@@ -350,21 +350,30 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 计算分为直接绘图、绘图计算和科学分析三层。直接绘图不创建隐藏统计量；所有绘图计算和科学分析都持久化 AnalysisSpec 与 AnalysisResult。
 - 字段映射与计算设置在同一确认卡完成，不进行第二轮字段映射。模板可以预填并展示透明参数，用户点击执行即视为确认。
 - 描述统计、误差、拟合、平滑和检验只在用户明确指定时执行。Agent 不主动选择统计方法，不自动生成科研结论。
-- 第一轮注册表包含描述汇总；t/Bootstrap 区间；histogram/Tukey box/KDE；Pearson/Spearman/OLS/WLS/显式多项式；moving average/Savitzky-Golay/LOWESS；4PL/5PL；右删失 KM、风险人数、Greenwood CI、显式 Log-rank；混淆矩阵计数和三种归一化。
+- 第一轮注册表包含描述汇总；t/Bootstrap 区间；histogram/Tukey box/KDE；Pearson/Spearman；linear OLS/WLS、显式 Huber robust、degree 2/3 polynomial、exponential、power law、4PL/5PL；moving average/Savitzky-Golay/LOWESS；右删失 KM、风险人数、Greenwood CI、显式 Log-rank；混淆矩阵计数和三种归一化。
 - 显著性检验限于 Student/Welch/paired t、Mann-Whitney/Wilcoxon、one-way/Welch ANOVA/Kruskal-Wallis、chi-square/Fisher、Pearson/Spearman 和 Log-rank；校正限于 Bonferroni、Holm 和 BH。
 - 多组分析必须指定比较集合；明确选择不校正时允许执行但显示强警告。执行前验证数据、单位、设计、参数和必要前提。
 
 误差棒、拟合与显著性遵循以下规则：
 
 - 误差棒必须明确 SD、SE、CI 或其他语义；CI 同时记录置信水平与来源，语义缺失时返回 NeedsInput，不创建任务。
-- 拟合记录模型、初值、边界、权重、算法、收敛状态、残差和评价指标；不默认外推，随机过程记录种子。
+- 拟合记录模型与实现版本、显式截距、输入层级、初值、边界、权重语义、算法、全部 multistart、收敛状态、残差、mask 和指标；不默认外推，随机过程记录种子。
 - 拟合失败保留原始数据图和失败信息，不用不可靠曲线替换结果。
+- 相同 X 的重复观测不自动折叠，replicate/group 参数不自动平均；按 X 汇总或归一化必须成为显式上游对象。
+- WLS 权重只允许 direct weight、variance、SD 或 SE 语义并记录转换，不猜列名，也不静默退化为 OLS。
+- 轴尺度不改变模型；log 域单独校验。zero dose 只有显式标为 control 时可显示但不参加 log-dose 拟合。
+- 4PL/5PL 使用固定版本化 log-dose 公式，斜率符号保留方向；IC50/EC50/ED50 标签由用户明确，5PL 区分模型中点参数和实际 50% response dose。
+- 非线性拟合使用 deterministic initializer 与 bounded deterministic multistart；失败时不换模型、删点或放宽边界。
+- parameter CI、mean confidence band 和 new-observation prediction interval 分开配置与保存；非线性使用 Jacobian/covariance 或固定种子的 Bootstrap，Bootstrap unit 必须是 row、replicate 或 subject。
+- 曲线默认只覆盖 observed X range；显式外推必须给出范围并视觉区分，超范围的中点或 IC50 等标为 extrapolated。
+- FitResult 持久化 parameters、intervals、curve、bands、prediction、residuals、fitted、metrics、solver diagnostics、mask 和 warnings；R² 不是通用成功标准。
+- 正式导出引用 FitResult 持久化曲线表，renderer、Matplotlib 和 Origin 不重新拟合。完整契约见 [拟合系统契约](./FITTING-SYSTEM.md)。
 - 平滑、基线和归一化必须由用户明确执行并记录参数，不自动归一化。
 - 显著性比较由用户指定检验、配对、单双尾和比较集合，不自动切换参数或非参数方法。
 - 多重比较校正必须明确；默认显示精确 p 值，星号为可选并记录阈值。
 - 数据变化后，基于旧数据的显著性标记进入过期状态，不能继续当作当前结果。
 - 森林图只绘制已提供的 effect/CI/weight，不做 Meta 合并；Nyquist 不做等效电路拟合。
-- KM 仅支持右删失，不支持竞争风险、区间删失或 Cox；回归和 4PL/5PL 只使用白名单模型，不接受任意 Python 或公式代码。
+- KM 仅支持右删失，不支持竞争风险、区间删失或 Cox；拟合只使用版本化白名单模型，不接受任意 Python 或公式代码。
 - 混淆矩阵不训练模型、不比较模型优劣，也不生成结论。
 - 分析不插补、不自动排除离群值，使用完整数据与 float64；随机过程固定种子。缺失策略为 complete-case 或 fail，只有相关矩阵可明确选择 pairwise。
 - PlotSpec 只引用持久化 AnalysisResult 的命名输出端口，渲染时不重算；数据更新只把旧结果标为 stale，不自动重算或替换。
