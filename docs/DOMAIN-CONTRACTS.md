@@ -3,7 +3,7 @@
 > 状态：第一轮契约基线已确认  
 > 日期：2026-08-05  
 > 适用范围：DatasetVersion、TransformSpec、PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及其跨进程 Schema  
-> 相关文档：[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 契约原则
 
@@ -50,6 +50,10 @@ FigureSpec
 
 ExportSpec
 └─ PNG、SVG 或 OPJU 的目标、命名、ResolvedRenderPlan hash 和验证要求
+
+OriginExportPlan
+├─ target-scoped 数据布局、原生对象和 typed property map
+└─ OriginAdapter、template、capability 与两阶段验证计划
 ```
 
 约束：
@@ -74,6 +78,7 @@ ObjectVersionRef     对象 ID + expected version
 Quantity             数值 + 明确单位
 PhysicalLength       数值 + mm 或 pt 等受限物理单位
 RenderPlanHash       规范化 ResolvedRenderPlan 的 SHA-256
+OriginCapability     O1 | O2 | O3 | O0
 FieldId              跨 rename/reorder 稳定的字段 ID
 RowId                基于源位置或父行组合的稳定行 ID
 UnitSpec             原文 + 规范单位 + 维度 + kind + registry version
@@ -177,6 +182,12 @@ TransformStep 使用 Pydantic discriminated union 和类型化 AST，禁止 SQL�
 Render Resolver 把 PlotSpec/FigureSpec、不可变数据与分析引用、resolved style、publication profile 和 quality tier 解析为 ResolvedRenderPlan。Plan 固定物理画布与 subplot、图层顺序、数据表引用、字体与样式、坐标 range/ticks/labels、图例与标注位置、数据完整性/降采样状态以及所有 hash/version。
 
 Matplotlib 与 Origin adapter 不得自行 autoscale、选择 ticks、重算统计或替换字体。正式 ExportSpec 保存 `render_plan_hash`；完整坐标、文本、质量层级、容差和验证契约见 [渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)。
+
+### 4.6 OriginExportPlan
+
+OPJU ExportSpec、ResolvedRenderPlan 与版本化 OriginAdapter 在本地解析为 typed OriginExportPlan。它固定 target scope、Data/Analysis/Graphs/Metadata 布局、ASCII internal names、Long Names、数据对象、原生 graph/layer/plot、typed properties、template/capability 和 live/reopen validation。
+
+Origin Worker 不接受任意 property/path/script 字符串。第一轮 OriginAdapter 只通过 `originpro`/Python 类型化固定映射工作，任何 LabTalk 都被 Schema/策略阻止。31 项正式图形只在 adapter 达到 O1 时开放 OPJU；整份 OPJU 原子成功或失败。完整契约见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
 
 ## 5. BatchSpec 与 FigureSpec
 
@@ -378,6 +389,7 @@ validation: info | warning | blocked
 - UnitSpec、对象/字段/行 lineage 与 TransformStep discriminated union。
 - ResolvedRenderPlan 规范化 hash、正式 ExportSpec 绑定与 Matplotlib/Origin adapter 禁止重新解析。
 - 坐标、ticks、SafeRichText、物理尺寸、quality tier 与跨 renderer 容差。
+- OriginExportPlan、O1 准入、最小自包含数据、两阶段读回、整文件原子性和稳定错误。
 - BatchSpec 完全同构签名。
 - FigureSpec 固定版本引用。
 - 旧 Schema 迁移与未知新版本拒绝。

@@ -3,7 +3,7 @@
 > 状态：第一轮渲染基线已确认  
 > 日期：2026-08-05  
 > 适用范围：ResolvedRenderPlan、质量层级、坐标范围、刻度、物理尺寸、安全文本、Matplotlib/Origin 语义一致性与导出验证  
-> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 单一解析链
 
@@ -211,6 +211,8 @@ O1 输出必须用 Origin 原生、链接的数据对象表达：
 - 不把 Matplotlib raster、整图 SVG 或其他嵌入对象作为“原生”fallback。
 
 如果 Origin adapter 无法表达关键语义或无法在重新打开后读回验证，OPJU 导出必须阻止。非关键可接受差异只有在能力契约明确允许并披露时才可进入其他能力等级；不能由运行时临时降级。
+
+第一轮 31 项正式图形的 OPJU 能力全部要求 O1。具体 target scope、数据布局、OriginAdapter、manifest、两阶段读回与整文件原子性见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
 
 ## 12. 正式产物验证
 

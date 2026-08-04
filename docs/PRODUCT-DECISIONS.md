@@ -148,15 +148,15 @@
 - **PD-K01 正式格式。** 正式导出只提供 PNG、SVG 和 OPJU；不提供 PDF、EPS、EMF 等正式导出入口。
 - **PD-K02 快速复制。** 剪贴板 PNG/SVG 可作为快捷操作，但不生成正式导出记录。
 - **PD-K03 OPJU 技术路径。** Windows 本地通过 `originpro` 与 Origin COM 自动化生成 `.opju`，目标兼容 Origin 2021 及以上。
-- **PD-K04 能力等级。** O1 为原生数据图；O2 为原生组合与布局；O3 为仅嵌入；O0 为不支持。正式库允许明确标注的 O1/O2；普通数据图必须达到 O1；O3/O0 不显示 OPJU 导出按钮。
-- **PD-K05 三格式验证。** 正式图形必须完成 PNG、SVG、OPJU 生成，并用新的受控 Origin 实例重新打开验证数据、图层、轴、图例、文字和标注可编辑。
+- **PD-K04 能力等级。** O1 为 full native semantic parity；O2 为原生 linked/editable 但有已声明非关键差异；O3 为 embedded/unlinked；O0 为 unavailable。第一轮 31 项必须 O1，O2 只为未来能力保留。
+- **PD-K05 三格式验证。** 正式图形必须完成 PNG、SVG、OPJU 验证；OPJU 在构建实例 live validation 后由新的空白受控实例重新打开并读回数据、链接、图层、轴/ticks、图例、page/style 和 missing 语义。
 - **PD-K06 独立 Origin 实例。** 不连接用户当前打开的 Origin，不使用 `op.attach()`；从空白项目启动专用受控实例。
 - **PD-K07 原子导出。** 先写临时文件，验证成功后原子移动到目标路径；无论成功或失败都清理临时资源并退出受控实例。
-- **PD-K08 安全边界。** 不执行第三方自动运行脚本，不把嵌入图片伪装成原生数据图。
-- **PD-K09 单图内容。** OPJU 包含源数据与派生数据、字段映射、原生图层、坐标轴、图例、标注和分析结果。
-- **PD-K10 批次内容。** 批次默认生成一个 OPJU，每个来源文件一个 Project Explorer 文件夹，并在根目录保存来源、处理、参数和失败摘要；可选输出多个 OPJU 并打包 ZIP。
-- **PD-K11 打开与外部修改。** 导出完成后，只有用户明确点击才在 Origin 打开；外部编辑不回写 PlotAgent；通过文件哈希提示导出文件已变化，重新导出创建新文件。
-- **PD-K12 环境检测。** 启动时只做轻量 Origin 可用性检测；首次 OPJU 导出或设置中的自检才运行完整验证，并按 Origin 版本缓存状态。
+- **PD-K08 安全边界。** 第一轮不执行任何 LabTalk、Python 或其他脚本字符串；OriginAdapter 只用 `originpro`/Python 类型化固定映射，不把 raster/SVG 嵌入伪装成原生图。
+- **PD-K09 单图内容。** OPJU 只包含目标图直接使用的数据/分析端口、原生图层/轴/ticks/图例/标注和 manifest，不复制无关列、对话、secret 或路径。
+- **PD-K10 批次内容。** Selected/batch 在一个 OPJU 中包含多个 graph 并去重共享 Data/Analysis；固定 Data/Analysis/Graphs/Metadata folders，一个目标失败使整文件失败。
+- **PD-K11 打开与外部修改。** 导出完成后只有用户明确点击才在 Origin 打开；外部编辑不回写；同路径覆盖前比较 hash/size/mtime，变化时要求确认或 Save As。
+- **PD-K12 环境检测。** 启动只做轻量检测；正式 preflight 检查 Origin≥2021、license、bitness、originpro、字体、签名 template、adapter、目录和文件锁。
 - **PD-K13 降级。** Origin 不可用时只禁用 OPJU，PNG、SVG、项目和其他本地能力继续可用。
 - **PD-K14 不导入 OPJU。** 第一轮只导出，不反向导入或同步现有 `.opju`。
 
@@ -396,3 +396,28 @@
 - **PD-V20 原子正式导出。** 每个正式产物先写同文件系统临时路径，按 RenderPlan 验证后原子替换；记录 ExportSpec、plan、输出与验证报告 hash。
 
 完整 resolver、autoscale、ticks、文本、物理尺寸、容差与验证契约见 [渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)。
+
+## W. 原生 Origin OPJU 导出
+
+- **PD-W01 交付边界。** OPJU 是 target-scoped self-contained editable delivery，不是 `.plotproj`；不包含无关数据、对话、secret、绝对路径或外部依赖。
+- **PD-W02 Target scope。** Current chart 为一个 graph+所需数据；selected/batch 为多个 graph+共享数据去重；Figure 为一个原生 editable multi-layer graph。
+- **PD-W03 文件夹与命名。** Project Explorer 固定 Data/Analysis/Graphs/Metadata；内部名稳定 ASCII，Long Name 保留可读名称。
+- **PD-W04 最小数据。** 只包含直接绘制的 X/Y/group/error/interval、引用 AnalysisResult outputs 和 visibly plotted raw observations，不包含 unused columns。
+- **PD-W05 Origin 元数据。** Worksheet 保留 Long Name、Units、Comments 和 designations；matrix chart 可用保持坐标/单位/链接的 Matrixbook。
+- **PD-W06 Manifest。** Manifest 保存 PlotAgent↔Origin object map、所有 version/hash、chart/style/profile、adapter/template/originpro/Origin version、export time、capability 与 O2 known differences。
+- **PD-W07 能力定义。** O1 为 full native semantic parity；O2 为 native linked/editable with declared noncritical differences；O3 为 visual embedded/unlinked；O0 为 unavailable。
+- **PD-W08 第一轮 O1。** 第一轮 31 项正式图形全部要求 O1 才开放 OPJU；未来高级图形可经产品准入使用 O2 并预先披露，不允许运行时降级。
+- **PD-W09 OriginAdapter。** 版本化 adapter 固定 chart type、Origin range、template hash、capability、data layout、typed property map、validation 与 differences。
+- **PD-W10 Typed Plan。** Adapter 只接收本地生成的 typed OriginExportPlan，并只用 `originpro`/Python 类型化固定映射；模型、数据和应用均不得注入或执行 LabTalk/Python/property/path string。
+- **PD-W11 Template 安全。** 官方 template 签名并版本化，任务只复制所需文件到隔离临时目录，不读取或修改用户全局 templates。
+- **PD-W12 Preflight。** 正式导出检查 Origin≥2021、license、bitness、originpro、font、template、adapter、target directory 和 file lock。
+- **PD-W13 实例隔离。** 构建与 reopen 各用新的 dedicated blank managed instance，永不 `op.attach()`，也不触碰或终止用户 Origin。
+- **PD-W14 Live 验证。** 构建实例验证 folders/books/sheets/matrix/rows/columns/designations/Units/pages/layers/plots/data links/axes/ticks/legend/page/style 与数值/missing 语义。
+- **PD-W15 Fresh reopen。** 临时 OPJU 保存后退出构建实例，由新实例打开并重新枚举读回全部关键对象、链接、值与无 external links。
+- **PD-W16 整文件原子性。** 一个 OPJU 全部目标成功才原子移动；任一目标失败不发布，排除失败目标必须创建新 ExportSpec，绝不静默跳过。
+- **PD-W17 ExportRecord。** 记录外部 path/hash/size/mtime、ExportSpec/RenderPlan/OriginExportPlan/validation hash、adapter/template/Origin version 与 targets。
+- **PD-W18 外部修改与无回写。** Origin 编辑不回写；同路径覆盖前检测 EXTERNAL_MODIFIED 并要求确认或 Save As；第一轮无 OPJU import/round-trip。
+- **PD-W19 稳定错误。** 错误码覆盖 NOT_INSTALLED、VERSION_UNSUPPORTED、LICENSE_UNAVAILABLE、CAPABILITY_MISSING、TEMPLATE_OR_FONT_MISSING、START_FAILURE、BUILD_FAILURE、SAVE_FAILURE、REOPEN_FAILURE、VALIDATION_FAILURE、TARGET_LOCKED、EXTERNAL_MODIFIED、CANCELLED。
+- **PD-W20 恢复不改规格。** 错误提供安装/授权/版本/字体模板/目录锁/Save As 等明确动作；恢复不自动换 adapter、template、删目标或降级 capability。
+
+完整 target 内容、adapter、安全、两阶段验证、原子性、外部修改与错误契约见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。

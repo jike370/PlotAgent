@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -424,29 +424,36 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 Origin 能力分级：
 
-- O1：原生数据图，数据、plot、坐标轴、图例和标注可继续编辑。
-- O2：原生组合或布局，主要图形对象可编辑，组合关系通过 Origin 图层或布局表达。
-- O3：仅嵌入对象；O0：不支持。
-- 正式库允许明确标注的 O1 与 O2；普通数据图必须达到 O1；O3/O0 不显示 OPJU 导出按钮。
+- O1：full native semantic parity，数据 linked，graph/layer/plot、axis/ticks、legend/annotation/page 原生可编辑。
+- O2：数据仍 linked 且对象原生可编辑，但有预先声明的非关键视觉差异。
+- O3：visual embedded/unlinked；O0：unavailable。
+- 第一轮 31 项正式图形全部必须达到 O1 才显示 OPJU；O2 只为未来高级图形保留并需执行前披露，O3/O0 不生成第一轮正式 OPJU。
 
 ### 10.2 `.opju` 内容
 
-- 单图包含数据表、字段映射、原生图层、坐标轴、图例、标注和分析结果。
-- 同时包含被使用的源数据与派生数据、处理步骤和版本来源。
-- 批次默认导出为一个 `.opju`，每个来源文件对应一个 Project Explorer 文件夹。
-- 批次根目录包含来源、处理步骤、参数和失败项摘要。
-- 可选“每张图单独导出”，输出多个 `.opju` 并打包 ZIP。
+- OPJU 是 target-scoped self-contained editable delivery，不是 `.plotproj`，不包含无关对话、数据、secret 或绝对路径。
+- current chart 为一个 graph 与所需数据；selected/batch 为多个 graph 并去重共享数据；Figure 为一个原生可编辑 multi-layer graph。
+- Project Explorer 固定 Data/Analysis/Graphs/Metadata；内部名为稳定 ASCII，Long Name 保留可读名称。
+- 只包含直接绘制的 X/Y/group/error/interval、引用的 AnalysisResult outputs，以及 raw points 可见时的原始观测；不复制未使用列。
+- Worksheet 保存 Long Name、Units、Comments 和 designations；matrix chart 可用 Matrixbook。
+- Manifest 保存 PlotAgent↔Origin object map、全部 version/hash、chart/style/profile、adapter/template/originpro/Origin version、export time、capability 与 O2 known differences。
+- 一个 OPJU 是原子产物；任一目标失败不生成最终文件。排除失败目标必须创建新的显式 ExportSpec。
 - 不支持反向导入现有 `.opju`。
 
 ### 10.3 Origin 自动化隔离
 
 - 目标为 Windows 上安装并授权可用的 Origin 2021 及以上，通过 `originpro` 和 COM 自动化。
-- 不连接用户当前打开的 Origin，不调用 `op.attach()`；每次从空白项目启动专用受控实例。
-- 先写临时 OPJU，再在新的受控实例中重新打开验证；成功后原子移动到目标路径。
-- 成功或失败均清理临时资源并退出受控实例，不执行第三方自动运行脚本。
+- Preflight 检查安装/版本/license/bitness/originpro/font/template/adapter/目录/锁；失败不启动实例。
+- 不连接用户当前打开的 Origin，不调用 `op.attach()`；构建和验证各自从空白 dedicated managed instance 开始，不终止用户实例。
+- OriginAdapter 只接收 typed OriginExportPlan，并只通过 `originpro`/Python 类型化固定映射构建对象；第一轮模型、数据和应用均不得注入或执行任何 LabTalk/Python/script/property string。
+- 签名 template 复制到任务临时目录，不读取或修改用户全局 template。
+- 构建实例做 live structural validation，保存同目录临时文件后退出；新实例打开临时文件并重新枚举/读回数据对象、链接、轴、ticks、图例、page、style 与数值/missing 语义。
+- 两阶段通过后才原子移动；成功或失败均清理临时资源和 PlotAgent 管理实例。
 - 导出完成后只有用户明确点击才在 Origin 打开；外部编辑不回写 PlotAgent。
-- 通过文件哈希提示导出文件被外部修改；重新导出创建新文件，不覆盖外部修改。
+- ExportRecord 保存外部 path/hash/size/mtime 与 spec/plan hash；同路径覆盖前检测外部修改并要求确认或 Save As。
 - 启动时只做轻量 Origin 检测；首次 OPJU 导出或设置中的自检才执行完整验证，并按 Origin 版本缓存结果。
+- 稳定错误包括 NOT_INSTALLED、VERSION_UNSUPPORTED、LICENSE_UNAVAILABLE、CAPABILITY_MISSING、TEMPLATE_OR_FONT_MISSING、START_FAILURE、BUILD_FAILURE、SAVE_FAILURE、REOPEN_FAILURE、VALIDATION_FAILURE、TARGET_LOCKED、EXTERNAL_MODIFIED 和 CANCELLED。
+- 完整内容、安全、两阶段验证、原子性和恢复动作见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
 
 ### 10.4 文件导出
 

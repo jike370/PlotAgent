@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -200,7 +200,7 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 - `BatchService`：完全同构验证、任务展开、部分失败和事务撤销。
 - `CompositionService`：固定数值面板布局和源图版本引用。
 - `ExportService`：PNG、SVG、OPJU 和正式导出记录。
-- `OriginService`：受控实例、原生对象重建和重新打开验证。
+- `OriginService`：OriginAdapter/OriginExportPlan、preflight、隔离实例、原生对象重建、两阶段验证和整文件原子提交。
 - `TaskService`：队列、阶段、取消、重试、恢复和事件。
 
 模型只能选择这些服务提供的高层操作，不能直接传任意路径、SQL、Python、命令行或 Origin 脚本。
@@ -279,10 +279,16 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 ### 8.2 Origin Worker
 
 - Origin 任务进入单独串行队列。
-- 不连接用户当前 Origin，不调用 `op.attach()`。
-- 每次从空白项目启动受控实例，依据 ResolvedRenderPlan 创建工作表、图层、轴、图例和标注；Origin 不再次解析 PlotSpec 默认值。
-- 保存临时 OPJU 后，在新的受控实例中重新打开验证；成功后原子移动。
-- 异常和正常结束都调用 `op.exit()` 并清理临时资源。
+- OPJU 是 target-scoped self-contained editable delivery，不是 `.plotproj`；只带目标图实际使用的数据、分析端口和 metadata，不带对话、secret 或绝对路径。
+- OriginExportPlan 由 ExportSpec、ResolvedRenderPlan 和版本化 OriginAdapter 本地生成；Worker 不接受模型脚本、任意 property string 或模板路径。
+- 第一轮 OriginAdapter 只使用 `originpro`/Python 类型化固定映射，禁止模型、数据或 app-owned LabTalk；需要 LabTalk 的能力判为缺失。
+- 第一轮 31 项正式图形都要求 O1 full native semantic parity；不能用 raster/SVG 嵌入或运行时降级冒充原生。
+- Preflight 检查 Origin ≥2021、license、bitness、originpro、字体、签名 template、adapter、目录和文件锁。
+- 不连接用户当前 Origin，不调用 `op.attach()`；构建和验证分别从新的 dedicated blank instance 开始，也不终止用户实例。
+- Live structural validation 通过后保存同目录临时 OPJU；退出，再用新实例打开并读回 books/sheets/rows/columns/designations/Units、pages/layers/plots/data links、axes/ticks/legend/page/style 与数值/missing 语义。
+- 一个 OPJU 整体原子；任一目标失败不发布。排除目标必须由用户创建新 ExportSpec，不能静默跳过。
+- 成功后记录外部 path/hash/size/mtime 与 spec/plan hash；外部修改不回写，同路径覆盖前检测并要求确认或 Save As。
+- 异常和正常结束都清理 PlotAgent 管理实例与临时资源；完整内容、adapter、安全、错误与恢复规则见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
 
 Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持 Windows，并要求安装 Origin 2021 或更高版本：
 
