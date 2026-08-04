@@ -147,7 +147,7 @@
 
 - **PD-K01 正式格式。** 正式导出只提供 PNG、SVG 和 OPJU；不提供 PDF、EPS、EMF 等正式导出入口。
 - **PD-K02 快速复制。** 剪贴板 PNG/SVG 可作为快捷操作，但不生成正式导出记录。
-- **PD-K03 OPJU 技术路径。** Windows 本地通过 `originpro` 与 Origin COM 自动化生成 `.opju`，目标兼容 Origin 2021 及以上。
+- **PD-K03 OPJU 技术路径。** Windows 本地通过 `originpro` 与 Origin COM 自动化生成 `.opju`；Origin 2021 是最低技术基线，但只声明当前 release manifest 中已完成完整 qualification 的明确版本范围。
 - **PD-K04 能力等级。** O1 为 full native semantic parity；O2 为原生 linked/editable 但有已声明非关键差异；O3 为 embedded/unlinked；O0 为 unavailable。第一轮 31 项必须 O1，O2 只为未来能力保留。
 - **PD-K05 三格式验证。** 正式图形必须完成 PNG、SVG、OPJU 验证；OPJU 在构建实例 live validation 后由新的空白受控实例重新打开并读回数据、链接、图层、轴/ticks、图例、page/style 和 missing 语义。
 - **PD-K06 独立 Origin 实例。** 不连接用户当前打开的 Origin，不使用 `op.attach()`；从空白项目启动专用受控实例。
@@ -156,7 +156,7 @@
 - **PD-K09 单图内容。** OPJU 只包含目标图直接使用的数据/分析端口、原生图层/轴/ticks/图例/标注和 manifest，不复制无关列、对话、secret 或路径。
 - **PD-K10 批次内容。** Selected/batch 在一个 OPJU 中包含多个 graph 并去重共享 Data/Analysis；固定 Data/Analysis/Graphs/Metadata folders，一个目标失败使整文件失败。
 - **PD-K11 打开与外部修改。** 导出完成后只有用户明确点击才在 Origin 打开；外部编辑不回写；同路径覆盖前比较 hash/size/mtime，变化时要求确认或 Save As。
-- **PD-K12 环境检测。** 启动只做轻量检测；正式 preflight 检查 Origin≥2021、license、bitness、originpro、字体、签名 template、adapter、目录和文件锁。
+- **PD-K12 环境检测。** 启动只做轻量检测；正式 preflight 检查 Origin≥2021 且属于当前 adapter/release 已 qualification 的明确范围，以及 license、bitness、originpro、字体、签名 template、adapter、目录和文件锁；未验证版本返回 VERSION_UNSUPPORTED。
 - **PD-K13 降级。** Origin 不可用时只禁用 OPJU，PNG、SVG、项目和其他本地能力继续可用。
 - **PD-K14 不导入 OPJU。** 第一轮只导出，不反向导入或同步现有 `.opju`。
 
@@ -410,7 +410,7 @@
 - **PD-W09 OriginAdapter。** 版本化 adapter 固定 chart type、Origin range、template hash、capability、data layout、typed property map、validation 与 differences。
 - **PD-W10 Typed Plan。** Adapter 只接收本地生成的 typed OriginExportPlan，并只用 `originpro`/Python 类型化固定映射；模型、数据和应用均不得注入或执行 LabTalk/Python/property/path string。
 - **PD-W11 Template 安全。** 官方 template 签名并版本化，任务只复制所需文件到隔离临时目录，不读取或修改用户全局 templates。
-- **PD-W12 Preflight。** 正式导出检查 Origin≥2021、license、bitness、originpro、font、template、adapter、target directory 和 file lock。
+- **PD-W12 Preflight。** 正式导出检查 Origin≥2021 且命中明确 qualification range，并检查 license、bitness、originpro、font、template、adapter、target directory 和 file lock；不能用“2021+”覆盖未测版本。
 - **PD-W13 实例隔离。** 构建与 reopen 各用新的 dedicated blank managed instance，永不 `op.attach()`，也不触碰或终止用户 Origin。
 - **PD-W14 Live 验证。** 构建实例验证 folders/books/sheets/matrix/rows/columns/designations/Units/pages/layers/plots/data links/axes/ticks/legend/page/style 与数值/missing 语义。
 - **PD-W15 Fresh reopen。** 临时 OPJU 保存后退出构建实例，由新实例打开并重新枚举读回全部关键对象、链接、值与无 external links。
@@ -496,3 +496,28 @@
 - **PD-Z20 安全验收。** 验收覆盖 local_only 零出站、断网本地闭环、恶意 archive/Excel、日志/诊断禁止字段、迁移逐阶段崩溃、语义不变、新旧 schema/组件和非覆盖式恢复。
 
 完整 NetworkMode、本地权限、不可信导入、日志/分析/诊断、迁移、兼容与恢复备份契约见 [本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
+
+## AA. 性能测试与发布门禁
+
+- **PD-AA01 Windows 支持。** 正式邀请内测只支持发布时仍在 Microsoft 支持周期的 Windows 11 x64；当前参考 25H2。Windows 10 22H2 仅观察，LTSC 只有明确列入并同等 qualification 才声明。
+- **PD-AA02 测试机器。** Reference 为 Win11 x64/6C/16GB/NVMe/1920×1080 100或125%；minimum beta 为受支持 Win11 x64/4C/8GB/SSD/1366×768；显示覆盖 100/125/150/200%。
+- **PD-AA03 Origin qualification。** Origin 2021 是最低基线；adapter/release 只声明已测试的明确版本范围，每个 RC 至少覆盖 2021 与发布日当前声明版本，所有声明版本重复完整 31 图 O1 矩阵。
+- **PD-AA04 规模等级。** Regular=100k×20/10 charts，large=1M×20/100 files或charts，boundary=10M numeric cells/1000 objects；它们是 qualification 规模而非静默硬上限，超出先 resource preflight。
+- **PD-AA05 Preview 与 formal。** Thumbnail≤5k visible primitives，interactive≤50k/axes，range/stats 用 full data且显示预览简化；formal 三格式 full data。SVG 预计>200MB或>2M primitives 强警告并明确确认，不自动栅格/抽稀。
+- **PD-AA06 启动预算。** Reference P95：shell interactive≤2s、Python Core ready≤5s、large project metadata open≤2s。
+- **PD-AA07 导入预算。** Reference P95：100MB CSV≤12s、1GB CSV≤90s、50MB XLSX≤30s，包含安全复制/hash、完整解析、内部格式、摘要与事务提交。
+- **PD-AA08 绘图导出预算。** Reference P95：100k preview≤3s、1M simplified≤5s、style patch≤2s、20×10k batch≤30s、100k PNG≤5s、SVG≤10s、single OPJU≤60s、20-chart OPJU≤180s。
+- **PD-AA09 Agent 与反馈预算。** ContextEnvelope build P95≤1s；内置 structured decision P50≤8s/P95≤20s并单列 provider latency；输入/点击/任务卡反馈≤100ms，>2s 展示真实阶段。
+- **PD-AA10 Memory。** Idle Electron+Core≤700MB、regular peak≤2GB、large peak≤6GB；available<15%或2GB时并发降1，预计启动后<10%或1GB时以 RESOURCE_LIMIT 拒绝。
+- **PD-AA11 Disk。** 导入前 free disk≥estimated landed bytes×2.5，不足在复制前返回 DISK_SPACE_INSUFFICIENT；导出/更新也预留 temp+final+validation 空间。
+- **PD-AA12 31图 Fixtures。** 每图至少 minimal valid、representative research、edge/error 三 fixture；基础 formal PNG/formal SVG/O1 OPJU 为31×3×3=279 paths，preview/interactive 另测不计入。93条OPJU对每个声明 Origin exact version完整重跑；edge_error可用预期稳定错误证据。
+- **PD-AA13 机器可统计证据。** MatrixKey 固定 RC/chart/fixture/artifact/quality/adapter-or-renderer/Origin/OS/locale/case，证据名与 record 保存所有 input/spec/plan/artifact/validator hash、资源和版本。
+- **PD-AA14 测试层。** Gate 覆盖 schema/domain、import/transform/unit/lineage、scientific reference、render/parity、Origin O1、Electron↔Python E2E、fault injection、安全/迁移/零出站、performance/soak、installer/update/SBOM/license。
+- **PD-AA15 可复现性能协议。** 固定 cold/warm、dataset hash、非身份性本地 machine profile、sample count、nearest-rank P50/P95、cache policy；P95退化>10%或越绝对预算即阻断。
+- **PD-AA16 Severity 与 waiver。** Blocker/critical/major/minor 有唯一 owner、evidence 与 disposition；不可豁免清单没有 waiver，其他例外须书面范围、到期 RC 与批准者。
+- **PD-AA17 不可豁免阻断。** 数据损坏、错误科学、静默 mapping/unit/method/formula/algorithm/formal降采样、假 O1、敏感泄露、31图声明失败、签名绕过、已知 blocker/critical 与靠 retry 变绿均阻止发布。
+- **PD-AA18 RC Evidence。** 每个 RC 提交 automation、31图、Origin、scientific、performance、安全/隐私、migration fault、SBOM/licenses、signed installer 与 known issues 证据。
+- **PD-AA19 首批成功门禁。** 第二批 go/no-go：sample 首图独立≥80%，真实数据首图无 staff takeover≥60%，愿再用真实数据≥60%，至少1人 batch、至少1名 Origin 用户继续编辑 OPJU；不靠默认关闭 telemetry 猜测。
+- **PD-AA20 门禁语义。** 本节是未来 RC qualification，不表示当前实现已通过；post-sign 修改生成新 RC。Release approval 固定 commit/installer hash/Decision baseline/evidence，由产品、工程、科学、Origin、安全与 QA owner 签署。
+
+完整平台、规模、预算、31图 MatrixKey、severity、不可豁免 blocker、RC evidence 与测量协议见 [性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。

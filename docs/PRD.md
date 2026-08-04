@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与三层血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -451,8 +451,8 @@ Origin 能力分级：
 
 ### 10.3 Origin 自动化隔离
 
-- 目标为 Windows 上安装并授权可用的 Origin 2021 及以上，通过 `originpro` 和 COM 自动化。
-- Preflight 检查安装/版本/license/bitness/originpro/font/template/adapter/目录/锁；失败不启动实例。
+- Origin 2021 是最低技术基线；产品只支持当前 release manifest 与 adapter 明确列出并完成完整 O1 qualification 的版本范围，不能用“2021+”覆盖未验证版本。
+- Preflight 检查安装版本命中 qualification range，并检查 license/bitness/originpro/font/template/adapter/目录/锁；未验证版本返回 VERSION_UNSUPPORTED，失败不启动实例。
 - 不连接用户当前打开的 Origin，不调用 `op.attach()`；构建和验证各自从空白 dedicated managed instance 开始，不终止用户实例。
 - OriginAdapter 只接收 typed OriginExportPlan，并只通过 `originpro`/Python 类型化固定映射构建对象；第一轮模型、数据和应用均不得注入或执行任何 LabTalk/Python/script/property string。
 - 签名 template 复制到任务临时目录，不读取或修改用户全局 template。
@@ -679,3 +679,15 @@ Origin 能力分级：
 - 更新资格不依赖邀请码；严格 local_only 抓包为零。OneTimeUpdateGrant 期间只允许 update_only manifest/package，终止即恢复 local_only；或使用完整验签离线包。签名、哈希或证书异常被阻止，更新不在活动任务或 Origin 导出期间安装。
 - local_only 全进程抓包为零出站；断网仍可完成手动绘图、批量/组合和 PNG/SVG/OPJU。恶意 archive、宏/外链/公式、日志/诊断泄露与 Electron 注入均被阻止。
 - Migration 每个阶段崩溃后原项目仍可打开且科学/视觉语义不变；未来 schema 明确拒绝，旧组件缺失不静默换算法；backup restore 不覆盖当前项目并保存记录。
+
+## 20. 性能与发布 Qualification
+
+- 正式邀请内测只支持发布时仍在 Microsoft 支持周期的 Windows 11 x64，当前参考 25H2；Windows 10 22H2 只观察，不形成承诺。Reference/minimum beta 机器与 100/125/150/200% 显示矩阵固定。
+- Qualification 规模为 regular 100k×20/10 charts、large 1M×20/100 files或charts、boundary 10M numeric cells/1000 objects；超出不是静默拒绝，但须 resource preflight，失败返回 RESOURCE_LIMIT。
+- Thumbnail≤5k visible primitives、interactive≤50k/axes 且明示简化；range/stats/full analysis 使用完整数据，formal PNG/SVG/OPJU 一律 full data。大 SVG >200MB或>2M primitives 强警告并明确确认。
+- P95 gate 固定启动/Core/项目、CSV/XLSX 导入、preview/patch/batch、PNG/SVG/OPJU、ContextEnvelope/Agent 与≤100ms交互反馈预算；memory、并发与 `2.5×` disk preflight 同样阻断。
+- 31图每图至少 minimal/representative/edge 三 fixture，基础 formal PNG/formal SVG/O1 OPJU 共279 paths；preview/interactive 另测且不计入279。每个声明 Origin exact version分别完整重跑93条 O1 live+fresh-reopen 路径；edge_error可记录预期稳定错误而不强制二进制。
+- 每个 performance case 固定 cold/warm、dataset hash、machine profile、sample count、nearest-rank P50/P95 与 cache policy；相对 P95 退化>10%或越绝对预算阻断。
+- Data corruption、silent wrong science/semantic change、formal简化/算法替换、假O1、敏感泄露、声明图形失败、签名绕过、已知 blocker/critical 或靠 retry 变绿均不可 waiver。
+- 每个 RC 提交 automation、31图、Origin、scientific、performance、安全/隐私/migration fault、SBOM/licenses、signed installer 和 known issues evidence。首批10–15人的完成/继续意愿指标决定第二批 go/no-go，不用默认关闭 telemetry 猜测。
+- 完整预算、MatrixKey、artifact naming、severity/owner/waiver 与审批契约见 [性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。这些是未来 release gate，当前文档不表示真实实现或测试已通过。

@@ -3,7 +3,7 @@
 > 状态：第一轮 OPJU 导出基线已确认  
 > 日期：2026-08-05  
 > 适用范围：OPJU 内容边界、OriginExportPlan、能力准入、OriginAdapter、两阶段验证、原子提交、外部修改和稳定错误  
-> 相关文档：[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 产品边界
 
@@ -162,7 +162,7 @@ Origin Worker 只执行该 Plan，不重新读取未声明项目对象，也不�
 
 正式任务开始前依次检查：
 
-1. Windows 中已安装 Origin，版本不低于 2021 且落在 adapter range。
+1. Windows 中已安装 Origin，版本不低于 2021，且精确落在当前 release manifest/adapter 已完成完整 31 图 O1 qualification 的范围；未测试的更高版本同样返回 VERSION_UNSUPPORTED。
 2. Origin license 当前可用。
 3. Electron/Python/Origin 的 bitness 组合受支持。
 4. `originpro` 可导入且版本落在验证范围。
