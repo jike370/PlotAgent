@@ -1,6 +1,6 @@
 # PlotAgent 已确认产品决策基线
 
-> 状态：已确认，作为邀请制第一轮内测的产品边界  
+> 状态：v1 implementation-ready design baseline；产品/跨模块契约已冻结，真实功能与 release qualification 尚未完成
 > 产品代号：PlotAgent  
 > 基线日期：2026-08-05  
 > 适用关系：本文件记录全部已确认细节；[PRD](./PRD.md) 将其组织为可实施需求；[DESIGN](../DESIGN.md) 约束视觉与交互表达。三者发生冲突时，应先记录新的用户确认，再同时更新相关文件，不得由实现自行改变产品边界。
@@ -521,3 +521,28 @@
 - **PD-AA20 门禁语义。** 本节是未来 RC qualification，不表示当前实现已通过；post-sign 修改生成新 RC。Release approval 固定 commit/installer hash/Decision baseline/evidence，由产品、工程、科学、Origin、安全与 QA owner 签署。
 
 完整平台、规模、预算、31图 MatrixKey、severity、不可豁免 blocker、RC evidence 与测量协议见 [性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。
+
+## AB. 实施拆分与设计冻结
+
+- **PD-AB01 Workstream 边界。** v1实施固定拆为W0 Contracts、W1 Desktop、W2 Data、W3 Scientific、W4 Rendering、W5 Workflow、W6 Origin、W7 Agent、W8 Cloud、W9 Local lifecycle、W10 Release，不设模糊“实现后端”总任务。
+- **PD-AB02 W0 先行。** Pydantic/JSON Schema/generated TS types、RPC/event、stable error registry、golden fixtures和evidence harness是所有跨模块实现前置。
+- **PD-AB03 W1 Desktop。** Electron Main/preload/PythonSupervisor/single-instance/task events与Credential facade由Desktop Platform负责，不承载领域计算。
+- **PD-AB04 W2 Data。** Storage/import/DatasetVersion/Transform/Unit/Lineage统一由Data Platform负责，保持single writer、immutable、atomic与安全导入。
+- **PD-AB05 W3 Scientific。** AnalysisSpec/Result和FitSpec/Result由Scientific Computing实现，白名单、版本、reference与失败边界先于analysis-backed charts。
+- **PD-AB06 W4 Rendering。** 31 chart registry、PlotSpec/Patch、Resolver、Matplotlib与formal PNG/SVG由Rendering负责，不隐藏analysis或Origin逻辑。
+- **PD-AB07 W5 Workflow。** 完全同构Batch/review与numeric-only Figure由Workflow负责，临时比较与正式版本严格分离。
+- **PD-AB08 W6 Origin。** OriginAdapter/O1 OPJU/两阶段验证独立成高风险workstream；K01 O1 spike前置，不等31图完成才验证技术路径。
+- **PD-AB09 W7 Agent。** ContextBuilder/Provider/four-way AgentDecision/local validator由Agent Runtime负责；自然语言支持中英混合，但禁止本地任意命令/正则解析器绕过结构化链。
+- **PD-AB10 W8 Cloud。** Invite/token/shared quota proxy/signed config/update由Cloud+Desktop Update负责，不扩展账号、同步或远程科研边界。
+- **PD-AB11 W9 Local lifecycle。** local_only/安全导入/log/diagnostic/migration/backup由Local Security+Lifecycle负责，严格零出站与原项目不受损是完成条件。
+- **PD-AB12 W10 Release。** E2E/performance/security/installer/release gate由QA/Release聚合，但领域错误仍回到唯一owner，不在gate层掩盖或修补。
+- **PD-AB13 依赖DAG。** W0→W1/W2；W2→W3/W4/W7/W9；W3→W4；W4→W5/W6；W1→W7/W9；W7→W8；W5/W6/W8/W9→W10。
+- **PD-AB14 并行边界。** W1/W2在W0后并行，W5/W6在stable K01 Plan后并行；W10 harness从W0开始，但final qualification等待W5/W6/W8/W9。
+- **PD-AB15 四个Risk Spikes。** 全面编码前验证K01 import→O1 fresh reopen、1M preview+formal SVG preflight、Core crash/SQLite boundary recovery、custom provider P1/P2 exactly-one-repair/no-tool-loop。
+- **PD-AB16 垂直优先里程碑。** M0 contracts/spikes→M1 manual K01→M2 data/analysis+31 PNG/SVG→M3 batch/Figure→M4 Agent→M5 all O1→M6 cloud/security/migration→M7 RC。
+- **PD-AB17 Evidence 完成。** Workstream和milestone只有scope/out-of-scope、inputs、deliverables、dependencies、parallel boundary、acceptance evidence、error owner与done definition全部满足才完成，不按“代码写完”。
+- **PD-AB18 规格索引。** SPEC-INDEX记录每份文档权威范围、冲突优先级、Requirement→Workstream→entry→future evidence映射与readiness checklist。
+- **PD-AB19 冻结含义。** Implementation-ready只表示产品行为和跨模块契约可直接实施，不表示真实后端/云/OPJU/测试已实现，也不伪造每图/每算法完整参数表。
+- **PD-AB20 变更控制。** 后续产品/跨模块变化必须新增或更新Decision ID，同步PRD/专门契约/SPEC-INDEX与fixtures/evidence影响；实现层不得以便利为由静默偏离。
+
+完整W0–W10范围、依赖、spikes与M0–M7见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；权威范围、Requirement/Evidence Matrix与冻结审计见 [规格索引与设计冻结基线](./SPEC-INDEX.md)。

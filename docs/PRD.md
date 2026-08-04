@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与三层血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[规格索引与设计冻结基线](./SPEC-INDEX.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与三层血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -211,7 +211,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 正式界面只展示已经通过准入验证的图形，不放置“即将推出”占位项。
 - 图形能力通过签名、版本化的官方核心包与官方学科包交付；第一轮不开放第三方插件。
 
-完整分类以 [科研图形库调研](./chart-library-research.md) 的 157 个稳定条目为上限框架：核心高频 25、扩展常用 34、学科专用 70、进阶分析 28。
+完整分类以 [科研图形库调研](./chart-library-research.md) 的 157 个稳定条目为长期上限框架：研究 taxonomy 为核心高频 25、扩展常用 34、学科专用 70、进阶分析 28；这不改变第一轮正式准入的 24 个核心层 + 7 个跨学科验证层，共 31 个纯数值数据图表。
 
 ### 6.3 Agent 回复
 
@@ -691,3 +691,4 @@ Origin 能力分级：
 - Data corruption、silent wrong science/semantic change、formal简化/算法替换、假O1、敏感泄露、声明图形失败、签名绕过、已知 blocker/critical 或靠 retry 变绿均不可 waiver。
 - 每个 RC 提交 automation、31图、Origin、scientific、performance、安全/隐私/migration fault、SBOM/licenses、signed installer 和 known issues evidence。首批10–15人的完成/继续意愿指标决定第二批 go/no-go，不用默认关闭 telemetry 猜测。
 - 完整预算、MatrixKey、artifact naming、severity/owner/waiver 与审批契约见 [性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。这些是未来 release gate，当前文档不表示真实实现或测试已通过。
+- 实施按W0–W10依赖与M0–M7 evidence里程碑执行，详见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；需求权威、实现入口和future evidence映射见 [规格索引与设计冻结基线](./SPEC-INDEX.md)。

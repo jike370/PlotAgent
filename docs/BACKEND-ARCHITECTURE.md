@@ -327,12 +327,4 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 
 ## 13. 推荐实现顺序
 
-1. 定义协议版本、错误码、Pydantic RPC 模型和 TypeScript 镜像类型。
-2. 实现 Electron PythonSupervisor、健康检查、stdio framing 和安全 preload API。
-3. 实现 SQLite 项目存储、内容对象存储、事务和数据版本。
-4. 实现数据导入、DatasetSignature、摘要与完全同构判断。
-5. 实现 PlotSpec、PlotPatch、K01–K03 最小渲染垂直切片。
-6. 接入任务事件、取消、失败恢复和批量事务。
-7. 接入 ModelProvider 与单 Agent ActionPlan。
-8. 扩展 31 项图形 renderer 与科研校验。
-9. 最后接入独立 Origin Worker 和 OPJU 重新打开验证。
+实施按W0–W10依赖DAG和M0–M7 evidence里程碑推进。先完成contracts/tooling与四个risk spikes，再做manual K01垂直切片；Origin K01 O1验证必须在M0前置，不能作为31图完成后的最后接入项。完整workstream范围、并行边界、错误归属与完成定义见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)，权威文档与requirement/evidence映射见 [规格索引与设计冻结基线](./SPEC-INDEX.md)。
