@@ -128,25 +128,21 @@ const nyquistPlot = (
   </>
 )
 
-const mapPlot = (
+const confusionMatrixPlot = (
   <>
-    <rect className="map-water" x="28" y="14" width="176" height="91" />
-    <g className="map-regions">
-      <path d="M37 30L72 18L94 34L87 55L53 59Z" /><path d="M96 35L130 19L151 38L132 59L88 55Z" />
-      <path d="M53 60L88 56L105 80L83 102L43 88Z" /><path d="M89 57L132 60L145 90L107 102L104 80Z" />
-      <path d="M151 39L194 29L199 69L176 94L145 89L132 59Z" />
+    <g className="confusion-grid">
+      {Array.from({ length: 4 }, (_, row) => Array.from({ length: 4 }, (_, col) => (
+        <rect
+          key={`${row}-${col}`}
+          x={51 + col * 33}
+          y={12 + row * 24}
+          width="31"
+          height="22"
+          style={{ opacity: row === col ? 0.86 - row * 0.08 : 0.12 + ((row + col) % 3) * 0.07 }}
+        />
+      )))}
     </g>
-    <path className="map-scale" d="M40 96H79M40 93V99M79 93V99" />
-  </>
-)
-
-const imagePlot = (
-  <>
-    <rect className="image-field" x="28" y="14" width="176" height="91" />
-    <g className="image-cells">
-      {[[48,34,10],[81,52,14],[117,30,9],[152,62,16],[183,35,11],[58,83,13],[111,83,10],[183,84,8]].map(([cx,cy,r]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} />)}
-    </g>
-    <path className="image-scale" d="M158 95H191" />
+    <path className="matrix-axis" d="M47 12V108H184" />
   </>
 )
 
@@ -164,8 +160,7 @@ export function ChartPreview({ chart, label }: ChartPreviewProps): React.JSX.Ele
   if (chart.family === 'spectrum') graphic = spectrumPlot()
   if (chart.family === 'xrd') graphic = spectrumPlot(true)
   if (chart.family === 'nyquist') graphic = nyquistPlot
-  if (chart.family === 'map') graphic = mapPlot
-  if (chart.family === 'image') graphic = imagePlot
+  if (chart.family === 'confusion-matrix') graphic = confusionMatrixPlot
   if (chart.family === 'multi-panel' || chart.family === 'facet') {
     graphic = <><g transform="translate(0 0) scale(.48 .9)">{linePlot}</g><g transform="translate(113 0) scale(.48 .9)">{barPlot}</g></>
   }

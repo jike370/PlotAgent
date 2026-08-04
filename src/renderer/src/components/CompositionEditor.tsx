@@ -6,9 +6,7 @@ import {
   ChevronDown,
   Columns2,
   Download,
-  FileImage,
   Grid2X2,
-  Image as ImageIcon,
   Layers3,
   Link2,
   Lock,
@@ -17,6 +15,7 @@ import {
   RectangleHorizontal,
   Rows2,
   Settings2,
+  Table2,
   Type,
   X,
 } from 'lucide-react'
@@ -37,18 +36,18 @@ export function CompositionEditor({ onClose }: CompositionEditorProps): React.JS
   const [selectedPanel, setSelectedPanel] = useState('A')
   const line = chartCatalog.find((chart) => chart.id === 'K02')!
   const bar = chartCatalog.find((chart) => chart.id === 'K09')!
-  const image = chartCatalog.find((chart) => chart.id === 'K23')!
   const heatmap = chartCatalog.find((chart) => chart.id === 'K20')!
+  const confusion = chartCatalog.find((chart) => chart.id === 'S61')!
 
   const panels = layout === '1x2'
-    ? [{ id: 'A', chart: line, source: 'Sample A · v3' }, { id: 'B', chart: image, source: 'Microscopy · image-01' }]
+    ? [{ id: 'A', chart: line, source: 'Sample A · v3' }, { id: 'B', chart: bar, source: 'Group summary · v2' }]
     : layout === '2x1'
-      ? [{ id: 'A', chart: line, source: 'Sample A · v3' }, { id: 'B', chart: bar, source: 'Group summary · v2' }]
+      ? [{ id: 'A', chart: line, source: 'Sample A · v3' }, { id: 'B', chart: heatmap, source: 'Fluorescence matrix · v1' }]
       : [
           { id: 'A', chart: line, source: 'Sample A · v3' },
           { id: 'B', chart: bar, source: 'Group summary · v2' },
-          { id: 'C', chart: image, source: 'Microscopy · image-01' },
-          { id: 'D', chart: heatmap, source: 'Correlation · v1' },
+          { id: 'C', chart: heatmap, source: 'Correlation · v1' },
+          { id: 'D', chart: confusion, source: 'Classifier validation · v2' },
         ]
 
   return (
@@ -119,29 +118,22 @@ export function CompositionEditor({ onClose }: CompositionEditorProps): React.JS
               )}
             </div>
           </div>
-          <div className="composition-validation"><Check size={14} />面板编号、字体与间距符合当前发表规格<span>SVG 中的图像面板将保留为栅格</span></div>
+          <div className="composition-validation"><Check size={14} />面板编号、字体与间距符合当前发表规格<span>所有面板均为可编辑的数值数据图表</span></div>
         </main>
 
-        <aside className="asset-tray" aria-label="可用图表与图片">
-          <header><div><strong>项目资产</strong><span>温度响应实验</span></div><button type="button" aria-label="项目资产更多操作"><MoreHorizontal size={17} /></button></header>
-          <div className="asset-tabs"><button className="is-active" type="button">图表</button><button type="button">图片</button></div>
-          <label className="asset-search"><span className="sr-only">搜索项目资产</span><input placeholder="搜索图表或图片" /></label>
+        <aside className="asset-tray" aria-label="可用数值图表">
+          <header><div><strong>项目图表</strong><span>温度响应实验</span></div><button type="button" aria-label="项目图表更多操作"><MoreHorizontal size={17} /></button></header>
+          <label className="asset-search"><span className="sr-only">搜索项目图表</span><input placeholder="搜索数值图表" /></label>
           <div className="asset-list">
-            {[line, bar, heatmap].map((chart, index) => (
+            {[line, bar, heatmap, confusion].map((chart, index) => (
               <button type="button" key={chart.id}>
                 <span><ChartPreview chart={chart} /></span>
-                <div><strong>{chart.name}</strong><small>{index === 0 ? 'Sample B · v3' : index === 1 ? 'Group summary · v2' : 'Correlation · v1'}</small></div>
+                <div><strong>{chart.name}</strong><small>{index === 0 ? 'Sample B · v3' : index === 1 ? 'Group summary · v2' : index === 2 ? 'Correlation · v1' : 'Classifier validation · v2'}</small></div>
                 <Plus size={15} />
               </button>
             ))}
-            <button type="button">
-              <span><ChartPreview chart={image} /></span>
-              <div><strong>显微图像</strong><small>image-01.tif · 2048 px</small></div>
-              <Plus size={15} />
-            </button>
           </div>
-          <button className="import-asset" type="button"><ImageIcon size={15} />导入图片面板</button>
-          <div className="mixed-export-note"><FileImage size={15} /><p>当前组合包含矢量图与图片面板，PNG 完整支持，SVG 为混合内容。</p></div>
+          <div className="numeric-composition-note"><Table2 size={15} /><p>第一轮组合图只使用项目内数值数据图表，导出保持矢量结构。</p></div>
         </aside>
       </div>
     </div>

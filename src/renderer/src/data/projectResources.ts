@@ -172,7 +172,7 @@ export const projectResources: ProjectResource[] = [
     id: 'COMP-001',
     kind: 'composition',
     name: 'Figure 1 · 温度响应总览',
-    summary: '2×2 面板，公共图例，含 3 张图表与 1 张显微图片',
+    summary: '2×2 面板，公共图例，含 4 张数值数据图表',
     updatedAt: '今天 15:12',
     format: '组合图',
     parentIds: ['BATCH-024', 'CHART-001', 'CHART-002'],

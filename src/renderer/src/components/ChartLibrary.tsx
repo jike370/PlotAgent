@@ -49,14 +49,16 @@ const batchLabels = {
 const compositionLabels = {
   layer: '同层组合',
   panel: '面板组合',
-  mixed: '混合面板',
 }
+
+const coreChartCount = chartCatalog.filter((chart) => chart.layer === 'core').length
+const validationChartCount = chartCatalog.filter((chart) => chart.layer === 'validation').length
 
 const compatibleWithActiveDataset = new Set(['K01', 'K02', 'K03', 'K04', 'K07', 'K18', 'K19', 'K24'])
 
 function incompatibilityMessage(chart: ChartType): string {
   if (chart.id === 'S01') return '缺少随访时间与事件/删失列。不会自动替换为其他图形。'
-  if (chart.id === 'S45') return '缺少几何字段与 CRS。不会自动替换为其他图形。'
+  if (chart.id === 'S61') return '缺少真实类别与预测类别字段。不会自动替换为其他图形。'
   return `当前数据缺少 ${chart.requiredFields.slice(0, 2).join('、')} 所需结构。不会自动替换图形。`
 }
 
@@ -81,13 +83,14 @@ export function ChartLibrary({ currentChartId, onClose, onSelect }: ChartLibrary
         <button className="back-button" type="button" onClick={onClose}><ChevronLeft size={18} />返回对话</button>
         <div>
           <h2 id="library-title">图形库</h2>
-          <p>首轮正式目标 32 项 · 由你明确选择</p>
+          <p>首轮正式目标 31 项 · 全部为数值数据图表 · 由你明确选择</p>
         </div>
         <label className="library-search">
           <Search size={17} aria-hidden="true" />
           <span className="sr-only">搜索图形库</span>
           <input
             autoFocus
+            aria-label="搜索图形库"
             value={filters.query}
             onChange={(event) => updateFilter('query', event.target.value)}
             placeholder="搜索名称、缩写、学科、数据形状或稳定 ID"
@@ -102,15 +105,15 @@ export function ChartLibrary({ currentChartId, onClose, onSelect }: ChartLibrary
         <aside className="library-sidebar" aria-label="图形库分类">
           <div className="library-nav-group">
             <span className="section-label">集合</span>
-            <button className={filters.collection === 'all' ? 'is-active' : ''} type="button" onClick={() => updateFilter('collection', 'all')}><Library size={15} />全部图形<span>32</span></button>
+            <button className={filters.collection === 'all' ? 'is-active' : ''} type="button" onClick={() => updateFilter('collection', 'all')}><Library size={15} />全部图形<span>{chartCatalog.length}</span></button>
             <button className={filters.collection === 'recent' ? 'is-active' : ''} type="button" onClick={() => updateFilter('collection', 'recent')}><Clock3 size={15} />最近使用</button>
             <button className={filters.collection === 'favorites' ? 'is-active' : ''} type="button" onClick={() => updateFilter('collection', 'favorites')}><Star size={15} />收藏</button>
           </div>
           <div className="library-nav-group">
             <span className="section-label">产品分层</span>
             <button className={filters.layer === 'all' ? 'is-active' : ''} type="button" onClick={() => updateFilter('layer', 'all')}><Grid2X2 size={15} />全部层级</button>
-            <button className={filters.layer === 'core' ? 'is-active' : ''} type="button" onClick={() => updateFilter('layer', 'core')}><Layers3 size={15} />核心 K01–K25<span>25</span></button>
-            <button className={filters.layer === 'validation' ? 'is-active' : ''} type="button" onClick={() => updateFilter('layer', 'validation')}><Bookmark size={15} />跨学科验证<span>7</span></button>
+            <button className={filters.layer === 'core' ? 'is-active' : ''} type="button" onClick={() => updateFilter('layer', 'core')}><Layers3 size={15} />核心数值图表<span>{coreChartCount}</span></button>
+            <button className={filters.layer === 'validation' ? 'is-active' : ''} type="button" onClick={() => updateFilter('layer', 'validation')}><Bookmark size={15} />跨学科验证<span>{validationChartCount}</span></button>
           </div>
           <div className="library-nav-group library-category-tree">
             <span className="section-label">用途与领域</span>
@@ -123,7 +126,7 @@ export function ChartLibrary({ currentChartId, onClose, onSelect }: ChartLibrary
           </div>
           <div className="library-scope-note">
             <CircleAlert size={15} />
-            <p>当前目录只承诺首轮 32 项。其他图形将在导出契约验证后分批开放。</p>
+            <p>核心层为 K01–K22、K24–K25，验证层 7 项。科研图像与地图不进入第一轮。</p>
           </div>
         </aside>
 
@@ -204,7 +207,7 @@ export function ChartLibrary({ currentChartId, onClose, onSelect }: ChartLibrary
               <strong>导出能力</strong>
               <div>
                 <span><Download size={14} />PNG</span>
-                <span><Combine size={14} />SVG {selectedChart.export.svg === 'vector' ? '矢量' : '混合'}</span>
+                <span><Combine size={14} />SVG 矢量</span>
                 <span><Layers3 size={14} />OPJU {selectedChart.export.opju}</span>
               </div>
               <p>{selectedChart.export.opju === 'O1' ? '可在 Origin 中继续编辑数据、坐标轴与 plot。' : selectedChart.export.opju === 'O2' ? '主要对象可编辑，部分布局依赖模板或组合层。' : '仅可在项目中查看与排版，非原生数据图。'}</p>

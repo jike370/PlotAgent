@@ -30,7 +30,33 @@ describe('PlotAgent desktop prototype', () => {
     await user.click(screen.getByRole('button', { name: '图形库' }))
 
     expect(screen.getByRole('heading', { name: '图形库' })).toBeInTheDocument()
-    expect(screen.getByText('首轮正式目标 32 项 · 由你明确选择')).toBeInTheDocument()
+    expect(screen.getByText('首轮正式目标 31 项 · 全部为数值数据图表 · 由你明确选择')).toBeInTheDocument()
+  })
+
+  it('shows S61 numeric compatibility without first-release image or map entries', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: '图形库' }))
+    await user.type(screen.getByPlaceholderText('搜索名称、缩写、学科、数据形状或稳定 ID'), 'S61')
+    await user.click(screen.getByRole('button', { name: /S61.*混淆矩阵/ }))
+
+    expect(screen.getByText('缺少真实类别与预测类别字段。不会自动替换为其他图形。')).toBeInTheDocument()
+    expect(screen.queryByText('科学图像面板')).not.toBeInTheDocument()
+    expect(screen.queryByText('专题地图')).not.toBeInTheDocument()
+  })
+
+  it('builds compositions from numeric charts only', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: '创建组合图' }))
+    expect(screen.getByLabelText('可用数值图表')).toBeInTheDocument()
+    expect(screen.getByText('第一轮组合图只使用项目内数值数据图表，导出保持矢量结构。')).toBeInTheDocument()
+    expect(screen.queryByText('导入图片面板')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '2 × 2' }))
+    expect(screen.getByLabelText('面板 D 混淆矩阵')).toBeInTheDocument()
   })
 
   it('opens the project resource library from the project heading and blocks referenced raw data deletion', async () => {

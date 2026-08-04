@@ -1263,46 +1263,16 @@ input[type="checkbox"] {
   stroke-width: 1.3;
 }
 
-.map-water {
-  fill: oklch(0.96 0.025 240);
-}
-
-.map-regions {
-  fill: oklch(0.76 0.1 155);
+.confusion-grid {
+  fill: var(--plot-blue);
   stroke: var(--canvas);
-  stroke-width: 1.3;
+  stroke-width: 1;
 }
 
-.map-regions path:nth-child(2),
-.map-regions path:nth-child(4) {
-  fill: oklch(0.61 0.11 155);
-}
-
-.map-regions path:nth-child(3) {
-  fill: oklch(0.84 0.075 155);
-}
-
-.map-scale {
-  stroke: var(--ink);
-  stroke-width: 2;
-}
-
-.image-field {
-  fill: oklch(0.25 0.02 260);
-}
-
-.image-cells {
-  fill: oklch(0.74 0.14 175);
-  opacity: 0.75;
-}
-
-.image-cells circle:nth-child(even) {
-  fill: oklch(0.72 0.16 340);
-}
-
-.image-scale {
-  stroke: oklch(1 0 0);
-  stroke-width: 3;
+.matrix-axis {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1;
 }
 
 .plot-ribbon {
@@ -2988,8 +2958,7 @@ input[type="checkbox"] {
   font-size: 7.5px;
 }
 
-.wide-secondary,
-.import-asset {
+.wide-secondary {
   width: 100%;
   min-height: 29px;
   margin-top: 7px;
@@ -3000,7 +2969,7 @@ input[type="checkbox"] {
 }
 
 .source-contract,
-.mixed-export-note {
+.numeric-composition-note {
   display: flex;
   gap: 7px;
   margin: 11px;
@@ -3011,7 +2980,7 @@ input[type="checkbox"] {
 }
 
 .source-contract p,
-.mixed-export-note p {
+.numeric-composition-note p {
   margin: 0;
   color: var(--muted);
   font-size: 7.5px;
@@ -3213,27 +3182,6 @@ input[type="checkbox"] {
   background: transparent;
 }
 
-.asset-tabs {
-  display: flex;
-  padding: 0 9px;
-  border-bottom: 1px solid var(--border);
-}
-
-.asset-tabs button {
-  min-height: 31px;
-  padding: 0 9px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  color: var(--muted);
-  background: transparent;
-  font-size: 8.5px;
-}
-
-.asset-tabs button.is-active {
-  border-color: var(--primary);
-  color: var(--primary-hover);
-}
-
 .asset-search {
   display: block;
   padding: 8px;
@@ -3302,15 +3250,6 @@ input[type="checkbox"] {
 .asset-list small {
   color: var(--muted);
   font-size: 7px;
-}
-
-.import-asset {
-  width: calc(100% - 16px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  margin: 8px;
 }
 
 /* Project resource library */

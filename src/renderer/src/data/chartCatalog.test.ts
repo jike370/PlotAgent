@@ -11,15 +11,19 @@ const baseFilters = {
 }
 
 describe('chart catalog', () => {
-  it('contains the 32 confirmed first-release chart types', () => {
-    expect(chartCatalog).toHaveLength(32)
-    expect(chartCatalog.filter((chart) => chart.layer === 'core')).toHaveLength(25)
+  it('contains the 31 confirmed numeric first-release chart types', () => {
+    expect(chartCatalog).toHaveLength(31)
+    expect(chartCatalog.filter((chart) => chart.layer === 'core')).toHaveLength(24)
     expect(chartCatalog.filter((chart) => chart.layer === 'validation')).toHaveLength(7)
+    expect(chartCatalog.some((chart) => chart.id === 'S61')).toBe(true)
+    expect(chartCatalog.some((chart) => chart.id === 'K23' || chart.id === 'S45')).toBe(false)
+    expect(chartCatalog.every((chart) => chart.export.svg === 'vector')).toBe(true)
   })
 
   it('searches aliases and stable IDs', () => {
     expect(filterCharts(chartCatalog, { ...baseFilters, query: 'EIS' })[0]?.id).toBe('S34')
     expect(filterCharts(chartCatalog, { ...baseFilters, query: 'K21' })[0]?.name).toBe('相关矩阵图')
+    expect(filterCharts(chartCatalog, { ...baseFilters, query: '分类性能' })[0]?.id).toBe('S61')
   })
 
   it('filters user-owned collections without adding recommendations', () => {
