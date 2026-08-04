@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -347,19 +347,28 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 ### 9.2 统计边界
 
-- 描述统计、误差、拟合、平滑和检验只在用户明确指定时执行。
-- Agent 不主动选择统计方法，不自动生成科研结论。
-- 执行前验证数据、单位、参数和必要前提。
+- 计算分为直接绘图、绘图计算和科学分析三层。直接绘图不创建隐藏统计量；所有绘图计算和科学分析都持久化 AnalysisSpec 与 AnalysisResult。
+- 字段映射与计算设置在同一确认卡完成，不进行第二轮字段映射。模板可以预填并展示透明参数，用户点击执行即视为确认。
+- 描述统计、误差、拟合、平滑和检验只在用户明确指定时执行。Agent 不主动选择统计方法，不自动生成科研结论。
+- 第一轮注册表包含描述汇总；t/Bootstrap 区间；histogram/Tukey box/KDE；Pearson/Spearman/OLS/WLS/显式多项式；moving average/Savitzky-Golay/LOWESS；4PL/5PL；右删失 KM、风险人数、Greenwood CI、显式 Log-rank；混淆矩阵计数和三种归一化。
+- 显著性检验限于 Student/Welch/paired t、Mann-Whitney/Wilcoxon、one-way/Welch ANOVA/Kruskal-Wallis、chi-square/Fisher、Pearson/Spearman 和 Log-rank；校正限于 Bonferroni、Holm 和 BH。
+- 多组分析必须指定比较集合；明确选择不校正时允许执行但显示强警告。执行前验证数据、单位、设计、参数和必要前提。
 
 误差棒、拟合与显著性遵循以下规则：
 
-- 误差棒必须明确 SD、SE、CI 或其他语义；CI 同时记录置信水平与来源，语义缺失时不绘制。
+- 误差棒必须明确 SD、SE、CI 或其他语义；CI 同时记录置信水平与来源，语义缺失时返回 NeedsInput，不创建任务。
 - 拟合记录模型、初值、边界、权重、算法、收敛状态、残差和评价指标；不默认外推，随机过程记录种子。
 - 拟合失败保留原始数据图和失败信息，不用不可靠曲线替换结果。
 - 平滑、基线和归一化必须由用户明确执行并记录参数，不自动归一化。
 - 显著性比较由用户指定检验、配对、单双尾和比较集合，不自动切换参数或非参数方法。
 - 多重比较校正必须明确；默认显示精确 p 值，星号为可选并记录阈值。
 - 数据变化后，基于旧数据的显著性标记进入过期状态，不能继续当作当前结果。
+- 森林图只绘制已提供的 effect/CI/weight，不做 Meta 合并；Nyquist 不做等效电路拟合。
+- KM 仅支持右删失，不支持竞争风险、区间删失或 Cox；回归和 4PL/5PL 只使用白名单模型，不接受任意 Python 或公式代码。
+- 混淆矩阵不训练模型、不比较模型优劣，也不生成结论。
+- 分析不插补、不自动排除离群值，使用完整数据与 float64；随机过程固定种子。缺失策略为 complete-case 或 fail，只有相关矩阵可明确选择 pairwise。
+- PlotSpec 只引用持久化 AnalysisResult 的命名输出端口，渲染时不重算；数据更新只把旧结果标为 stale，不自动重算或替换。
+- 完整注册表、AnalysisSpec/Result 字段和批量一致性见 [分析计算层与科学边界](./ANALYSIS-ENGINE.md)。
 
 ### 9.3 三级校验
 

@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -195,7 +195,7 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 - `DatasetService`：导入、摘要、数据签名、数据版本和只读访问。
 - `TransformService`：受限表达式、筛选、聚合、单位转换和派生数据。
 - `PlotService`：PlotSpec 创建、Patch、验证和版本。
-- `AnalysisService`：用户明确指定的误差、拟合、检验和统计。
+- `AnalysisService`：按版本化白名单执行用户明确指定的绘图计算与科学分析，持久化 AnalysisSpec、AnalysisResult 和命名输出端口。
 - `BatchService`：完全同构验证、任务展开、部分失败和事务撤销。
 - `CompositionService`：固定数值面板布局和源图版本引用。
 - `ExportService`：PNG、SVG、OPJU 和正式导出记录。
@@ -203,6 +203,16 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 - `TaskService`：队列、阶段、取消、重试、恢复和事件。
 
 模型只能选择这些服务提供的高层操作，不能直接传任意路径、SQL、Python、命令行或 Origin 脚本。
+
+### 6.1 分析计算边界
+
+- 直接绘图不创建隐藏统计量；分箱、箱线统计、KDE、平滑、拟合、区间、检验和混淆矩阵归一化均产生 AnalysisResult。
+- 字段映射与计算设置在同一确认卡完成；模板只能预填可见参数，Agent 不替用户选择方法，误差语义缺失时返回 NeedsInput。
+- AnalysisSpec 固定方法与实现版本、DatasetVersion、字段与设计、缺失策略、参数、权重、区间、比较、校正、种子和输出端口。
+- AnalysisResult 保存规格与输入哈希、样本纳入排除、统计结果、区间、诊断、收敛、结果表和依赖库版本。
+- PlotSpec 只引用 AnalysisResult 的命名输出端口；renderer、Matplotlib 和 Origin 均不重新计算分析。
+- 数值计算使用完整数据、float64 和固定随机种子，不插补、不自动排除离群值；数据更新只把旧结果标为 stale。
+- 方法注册表、显著性白名单、学科图形边界与批量一致性以 [分析计算层与科学边界](./ANALYSIS-ENGINE.md) 为准。
 
 ## 7. 数据与持久化
 
