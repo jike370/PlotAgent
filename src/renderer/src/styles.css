@@ -1,0 +1,51 @@
+:root {
+  font-family:
+    "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui,
+    sans-serif;
+  color: oklch(0.25 0.018 155);
+  background: oklch(1 0 0);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.scaffold {
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  background: oklch(0.974 0.006 155);
+}
+
+.scaffold__mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 12px;
+  color: oklch(0.39 0.09 155);
+  background: oklch(0.92 0.025 155);
+}
+
+.scaffold p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}

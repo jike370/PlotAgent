@@ -1,0 +1,6 @@
+allowBuilds:
+  electron-winstaller: false
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@testing-library/user-event@14.6.3'
+  - electron@43.3.0
