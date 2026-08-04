@@ -1,0 +1,90 @@
+<!-- SEED: re-run $impeccable document once there's code to capture the actual tokens and components. -->
+---
+name: PlotAgent
+description: 面向通用科研用户的对话式本地绘图工作台
+---
+
+# Design System: PlotAgent
+
+## 1. Overview
+
+**Creative North Star: “校准工作台”**
+
+界面像白昼实验室里整理干净、经过校准的仪器工作台。信息密度可以高，但每个对象都有明确归属；图表与数据是视觉主角，产品界面退居其后。整体气质严谨、清晰、有探索感，操作反馈直接而克制。
+
+产品采用接近 ChatGPT 的项目与对话结构，但数据集、绘图批次、图表版本和导出结果必须以明确的结构化对象出现。默认界面保持轻量，需要精确控制时才进入聚焦编辑，不让专业参数长期占据主对话。
+
+产品明确拒绝传统后台管理系统的卡片堆叠、默认展开的复杂参数面板、过度科幻的深色界面，以及缺少数据与图形上下文的通用聊天机器人形态。
+
+**Key Characteristics:**
+
+- 纯白图表画布与低干扰工作区
+- 对话优先、对象明确、复杂度逐步展开
+- 密集但有秩序的科研信息
+- 状态变化驱动的克制动效
+- 图表配色与产品界面配色相互独立
+
+## 2. Colors
+
+采用 Restrained 色彩策略：纯白背景、向品牌绿色轻微偏移的中性表面、深色正文，以及少量苔绿色与深靛蓝强调。具体色值将在首个界面实现中解析为正式 OKLCH tokens。
+
+### Primary
+
+- **校准苔绿** `[to be resolved during implementation]`：仅用于主操作、选中状态和成功反馈，不承担大面积装饰。
+
+### Secondary
+
+- **仪器靛蓝** `[to be resolved during implementation]`：用于链接、键盘焦点和辅助强调，必须与信息、警告、错误等语义状态颜色区分。
+
+### Neutral
+
+- **画布白** `[to be resolved during implementation]`：对话主区与科研图表的默认背景。
+- **工作台表面** `[to be resolved during implementation]`：左侧栏、工具栏和次级区域的低色度背景。
+- **校准墨色** `[to be resolved during implementation]`：正文、标题和数据标签，正文对比度必须达到 WCAG AA，优先达到 7:1。
+- **结构边界** `[to be resolved during implementation]`：用于分区、输入框与结构化对象边界，不与宽阴影叠加。
+
+**The Quiet Instrument Rule.** 品牌色只表达操作与状态，绝不与科研图表争夺注意力。
+
+**The Independent Plot Rule.** 产品界面颜色不得自动成为图表调色板；图表使用独立、色盲友好的科研配色体系。
+
+## 3. Typography
+
+**Display Font:** Windows system sans `[font stack to be chosen at implementation]`
+**Body Font:** Windows system sans with Simplified Chinese UI fallback `[font stack to be chosen at implementation]`
+
+**Character:** 单一、清晰、接近原生 Windows 工具的无衬线体系。界面字体服务于长时间阅读、数字比较和中英文混排，不使用展示字体制造品牌感。图表字体由项目发表规格独立控制。
+
+### Hierarchy
+
+- **Display:** 仅用于首次空状态的短标题，固定尺寸，不使用夸张的响应式字号。
+- **Headline:** 用于项目、聚焦编辑和关键对话阶段标题。
+- **Title:** 用于数据集、批次、图表和任务对象名称。
+- **Body:** 用于对话与说明，长文本限制在可读行宽内。
+- **Label:** 用于字段、状态、参数和元数据，不使用全大写中文或过度字距。
+
+**The Data First Rule.** 界面标题不能比图表标题和关键数据更抢眼；层级依靠字重与间距，而不是超大字号。
+
+## 4. Elevation
+
+系统默认扁平，通过背景明度和清晰边界区分左侧栏、对话区、图表对象和参数面板。阴影只用于必须脱离文档流的菜单、浮层和拖拽对象；静态卡片不使用宽而柔的装饰阴影。
+
+**The Flat-by-Default Rule.** 静态表面没有装饰性悬浮感，层级来自结构；阴影只证明一个对象当前确实位于另一个对象上方。
+
+## 6. Do's and Don'ts
+
+### Do:
+
+- **Do** 使用纯白图表画布和低色度工作区，让科研图形成为视觉主角。
+- **Do** 让项目、数据集、批次、图表版本和导出结果拥有一致的对象语法。
+- **Do** 使用清晰焦点、键盘路径、色盲友好状态和 `prefers-reduced-motion`。
+- **Do** 把常用操作放在对话中，把精确参数逐步展开到聚焦编辑。
+- **Do** 使用 8–12px 的克制圆角，并保持按钮、输入框和对象容器的一致性。
+
+### Don't:
+
+- **Don't** 采用传统后台管理系统的卡片堆叠。
+- **Don't** 把复杂参数面板作为默认入口。
+- **Don't** 采用过度科幻的深色界面、霓虹渐变或装饰性玻璃效果。
+- **Don't** 把产品做成缺少数据与图形上下文的通用聊天机器人。
+- **Don't** 在同一静态容器上同时使用 1px 边框和大范围柔和阴影。
+- **Don't** 使用渐变文字、彩色侧边条、超大圆角或没有状态意义的动画。
