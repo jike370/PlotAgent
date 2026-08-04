@@ -3,7 +3,7 @@
 > 状态：第一轮契约基线已确认  
 > 日期：2026-08-05  
 > 适用范围：DatasetVersion、TransformSpec、PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及其跨进程 Schema  
-> 相关文档：[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 契约原则
 
@@ -36,6 +36,10 @@ PlotSpec
 ├─ 一张独立图的结构化定义
 └─ 引用 DatasetVersion 与 AnalysisResult
 
+ResolvedRenderPlan
+├─ 已解析坐标、刻度、物理布局、样式、文本与数据完整性
+└─ Matplotlib 与 Origin adapter 的共同只读输入
+
 BatchSpec
 ├─ 完全同构数据上的共享 PlotSpec 模板
 └─ 共享样式、字段映射与各图覆盖
@@ -45,15 +49,16 @@ FigureSpec
 └─ 引用明确的 PlotSpec 版本
 
 ExportSpec
-└─ PNG、SVG 或 OPJU 的目标、尺寸、命名和验证要求
+└─ PNG、SVG 或 OPJU 的目标、命名、ResolvedRenderPlan hash 和验证要求
 ```
 
 约束：
 
 - PlotSpec 不保存原始表格数组，只引用数据版本。
 - PlotSpec 不在渲染时临时计算统计量，只引用已持久化的分析结果。
+- Matplotlib 与 Origin 不直接解释 PlotSpec 的未解析默认值，只消费同一 ResolvedRenderPlan。
 - FigureSpec 与 BatchSpec 是独立对象，不通过给 PlotSpec 增加任意布局字段来模拟。
-- ExportSpec 不改变 PlotSpec，只描述如何从特定版本生成正式产物。
+- ExportSpec 不改变 PlotSpec，只描述如何从特定版本和固定 RenderPlan 生成正式产物。
 
 ## 3. 公共基础类型
 
@@ -67,6 +72,8 @@ SemanticTargetId     例如 series:control、axis:y-left
 DatasetVersionRef    数据集 ID + 版本 + 内容哈希
 ObjectVersionRef     对象 ID + expected version
 Quantity             数值 + 明确单位
+PhysicalLength       数值 + mm 或 pt 等受限物理单位
+RenderPlanHash       规范化 ResolvedRenderPlan 的 SHA-256
 FieldId              跨 rename/reorder 稳定的字段 ID
 RowId                基于源位置或父行组合的稳定行 ID
 UnitSpec             原文 + 规范单位 + 维度 + kind + registry version
@@ -164,6 +171,12 @@ TransformStep 使用 Pydantic discriminated union 和类型化 AST，禁止 SQL�
 - `resolved_style` 保存最终字体、线宽、颜色、标记、间距和画布参数。
 - 全局样式或发表规格更新不会改变既有 PlotSpec。
 - 用户迁移样式时生成新 PlotSpec 版本。
+
+### 4.5 ResolvedRenderPlan
+
+Render Resolver 把 PlotSpec/FigureSpec、不可变数据与分析引用、resolved style、publication profile 和 quality tier 解析为 ResolvedRenderPlan。Plan 固定物理画布与 subplot、图层顺序、数据表引用、字体与样式、坐标 range/ticks/labels、图例与标注位置、数据完整性/降采样状态以及所有 hash/version。
+
+Matplotlib 与 Origin adapter 不得自行 autoscale、选择 ticks、重算统计或替换字体。正式 ExportSpec 保存 `render_plan_hash`；完整坐标、文本、质量层级、容差和验证契约见 [渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)。
 
 ## 5. BatchSpec 与 FigureSpec
 
@@ -363,6 +376,8 @@ validation: info | warning | blocked
 - ActionPlan 最大 8 步、无环依赖和禁止 Action。
 - TransformPipeline 最大 16 步、只发布最终 DatasetVersion，ActionPlan 的 `materialize_analysis_output` 不重算分析。
 - UnitSpec、对象/字段/行 lineage 与 TransformStep discriminated union。
+- ResolvedRenderPlan 规范化 hash、正式 ExportSpec 绑定与 Matplotlib/Origin adapter 禁止重新解析。
+- 坐标、ticks、SafeRichText、物理尺寸、quality tier 与跨 renderer 容差。
 - BatchSpec 完全同构签名。
 - FigureSpec 固定版本引用。
 - 旧 Schema 迁移与未知新版本拒绝。

@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -13,7 +13,7 @@
 - 一个由 Electron 主进程监管的常驻 Python Core。
 - Electron 与 Python 通过带版本的 JSON-RPC over stdio 通信，不开放本地 HTTP 端口。
 - Agent 只输出符合 JSON Schema 的 ActionPlan，不生成或执行任意 Python、Matplotlib、Origin 或文件系统代码。
-- 版本化 PlotSpec 是图表唯一结构化真值；Matplotlib 与 Origin 都是 PlotSpec 的下游适配器。
+- 版本化 PlotSpec 是图表结构化真值；单一 resolver 把它与固定数据、分析、样式和发表规格解析为 ResolvedRenderPlan，Matplotlib 与 Origin 都只适配该 Plan。
 - 手动界面操作与自然语言操作进入同一套计划、校验、执行、验证和事务链。
 - Matplotlib 是第一轮唯一正式预览、PNG 和 SVG 渲染器；Plotly/Kaleido 不进入第一轮正式渲染链。
 - Origin 导出使用单独的串行受控 Worker。
@@ -195,6 +195,7 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 - `DatasetService`：导入、摘要、数据签名、数据版本和只读访问。
 - `TransformService`：执行 Pydantic discriminated union 白名单步骤、单位运算、预检和三层 lineage，原子创建派生 DatasetVersion。
 - `PlotService`：PlotSpec 创建、Patch、验证和版本。
+- `RenderService`：解析版本化坐标、ticks、物理布局、字体、样式、数据完整性与 ResolvedRenderPlan hash。
 - `AnalysisService`：按版本化白名单执行用户明确指定的绘图计算与科学分析，持久化 AnalysisSpec、AnalysisResult 和命名输出端口。
 - `BatchService`：完全同构验证、任务展开、部分失败和事务撤销。
 - `CompositionService`：固定数值面板布局和源图版本引用。
@@ -267,16 +268,19 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 
 ### 8.1 Matplotlib Renderer
 
-- PlotSpec 到 Matplotlib 的转换按图形类型注册 renderer。
-- 界面正式预览、PNG 与 SVG 使用同一渲染链，避免预览和导出采用不同图形系统。
-- renderer 返回输出文件、尺寸、DPI、字体、警告和验证结果，不返回不可追溯的全局 pyplot 状态。
+- Render Resolver 先把 PlotSpec/FigureSpec 与固定引用解析为 ResolvedRenderPlan；Matplotlib adapter 不自行 autoscale、选择 ticks、换单位、fallback 字体或重算分析。
+- thumbnail、interactive 与 formal 使用同一语义 resolver；前两者可记录并显示确定性视觉降采样，formal PNG/SVG 使用完整数据。
+- Plan 固定 mm/pt 物理尺寸、sRGB、SafeRichText AST、六类第一轮 axis、range、ticks、legend/annotation placement 与 font file hash。
+- PNG、SVG 和 Origin 使用同一 Plan 与语义容差；目标是 semantic parity，不要求 pixel identity。
+- renderer 返回输出文件、plan hash、尺寸、DPI、字体、警告和验证结果，不返回不可追溯的全局 pyplot 状态。
 - CPU 密集型渲染可进入受控进程池，任务提交仍由 Python Core 协调。
+- 完整 resolver、autoscale、tick、SVG 和验证规则以 [渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md) 为准。
 
 ### 8.2 Origin Worker
 
 - Origin 任务进入单独串行队列。
 - 不连接用户当前 Origin，不调用 `op.attach()`。
-- 每次从空白项目启动受控实例，依据 PlotSpec 创建工作表、图层、轴、图例和标注。
+- 每次从空白项目启动受控实例，依据 ResolvedRenderPlan 创建工作表、图层、轴、图例和标注；Origin 不再次解析 PlotSpec 默认值。
 - 保存临时 OPJU 后，在新的受控实例中重新打开验证；成功后原子移动。
 - 异常和正常结束都调用 `op.exit()` 并清理临时资源。
 

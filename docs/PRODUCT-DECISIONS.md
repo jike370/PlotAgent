@@ -113,16 +113,16 @@
 - **PD-H08 数据处理。** 平滑、基线和归一化必须显式执行并记录参数，不能自动归一化或覆盖原始数据。
 - **PD-H09 显著性。** 用户指定检验、配对、单双尾和比较集合；不自动切换参数或非参数方法；多重比较校正必须明确；默认显示精确 p 值，星号为可选并记录阈值；数据变化后旧标记变为过期状态。
 - **PD-H10 单位。** 从表头或单位行解析单位，不隐式换算；不兼容单位禁止共享坐标轴；单位转换生成派生数据；数据精度与显示精度分离。
-- **PD-H11 大数据。** 统计和分析使用完整数据；屏幕预览可做明确标识的视觉降采样；正式导出默认使用完整数据，抽稀必须由用户明确指定。
+- **PD-H11 大数据。** 统计和分析使用完整数据；thumbnail/interactive 可做明确标识的确定性视觉降采样；第一轮 formal PNG/SVG/OPJU 始终使用完整数据。
 
 ## I. 样式、尺寸、标注与发表规格
 
-- **PD-I01 物理尺寸为真值。** 图表创建时即确定 mm 或 inch 尺寸与 DPI；聚焦编辑缩放只影响查看，不改变字体、线宽或导出尺寸。
+- **PD-I01 物理尺寸为真值。** 图表创建时即确定物理尺寸与 DPI；用户可输入 mm 或 inch，Resolver 规范化为 mm，聚焦编辑缩放只影响查看。
 - **PD-I02 无默认大标题。** 默认画布不添加图题；批量来源名称显示在画布外的审阅界面；坐标轴标题由变量名和单位组成。
 - **PD-I03 配色语义。** 调色板区分类别、连续、发散、循环和灰度；不默认使用 jet；类别到颜色的映射在项目内稳定，类别缺失不触发重新分配。
 - **PD-I04 可访问性预览。** 提供色盲和灰度预览，重要差异不能只依靠颜色表达。
-- **PD-I05 富文本范围。** 图表文字支持 Unicode、希腊字母、上下标和常见 TeX 风格输入，不实现完整 LaTeX 排版系统。
-- **PD-I06 SVG 文字。** SVG 可选择保留文字或转路径；OPJU 中的文字保持可编辑。
+- **PD-I05 富文本范围。** 图表文字只保存 SafeRichText AST：plain/newline/sub/sup/bold/italic、Unicode Greek/常用符号和有限 fraction；不接受任意 LaTeX、HTML 或 script。
+- **PD-I06 SVG 文字。** SVG 默认 text-to-path；可选 editable text 并显示字体可移植性 warning；OPJU 文字保持原生可编辑。
 - **PD-I07 结构化标注。** 第一轮包括文本、箭头、线、矩形、参考线、参考区间、峰标签、显著性括号和面板编号；图例和标注支持直接拖动。
 - **PD-I08 图像标注排除。** ROI、通道、比例尺等图像专用标注不进入第一轮。
 - **PD-I09 首批发表规格。** Nature、JACS、IEEE Journals、Physical Review、PLOS Biology、AIP Journals 和 Elsevier Default。
@@ -207,7 +207,7 @@
 - **PD-O06 本地协议。** Electron 与 Python 使用版本化 JSON-RPC over stdio，不开放本地 HTTP 端口；大型数据只通过对象 ID 或受控资源引用传递。
 - **PD-O07 Electron 权限边界。** React renderer 保持 sandbox、context isolation 和关闭 Node integration；preload 只暴露逐项、参数受限的强类型 IPC 方法。
 - **PD-O08 主进程职责。** Electron Main 管理窗口、文件授权、单实例、系统凭据、Python 生命周期和任务事件转发。
-- **PD-O09 PlotSpec 真值。** 版本化 PlotSpec 是图表唯一结构化真值，Matplotlib 预览、PNG、SVG、Origin 重建、版本比较与自然语言改图均依赖它。
+- **PD-O09 PlotSpec 与 RenderPlan。** 版本化 PlotSpec 是图表结构化真值；Matplotlib、PNG、SVG 与 Origin 使用由固定数据、分析、样式和发表规格解析出的同一 ResolvedRenderPlan。
 - **PD-O10 PlotPatch。** 改图使用面向稳定语义 ID 的白名单 PlotPatch，并通过 expected version 防止覆盖并发或旧版本修改。
 - **PD-O11 单一正式渲染器。** Matplotlib 是第一轮正式预览、PNG 和 SVG 渲染器；不同时维护 Plotly 与 Matplotlib 两套正式视觉结果。
 - **PD-O12 模型适配层。** 内部只依赖供应商无关的 ModelProvider；OpenAI 使用 Responses API 结构化工具调用，OpenAI-compatible 服务先进行能力探测再选择协议。
@@ -217,7 +217,7 @@
 - **PD-O16 Pandas 边界。** Pandas 用于 Excel、SciPy、Matplotlib 与 Origin 兼容，不作为唯一存储真值。
 - **PD-O17 项目包。** 活跃项目使用事务化工作目录；`.plotproj` 是经过 manifest 与哈希校验后原子生成的导入导出包，不在每次操作后重写整个包。
 - **PD-O18 任务模型。** 普通数据与渲染任务可以并发，Origin 队列串行；每个写操作使用 request ID、幂等键、项目 ID 与 expected version。
-- **PD-O19 Origin Worker。** Origin 在独立串行 Worker 中从 PlotSpec 重建原生对象，临时保存、全新实例重新打开验证、原子移动并确保 `op.exit()` 清理。
+- **PD-O19 Origin Worker。** Origin 在独立串行 Worker 中从 ResolvedRenderPlan 重建原生对象，临时保存、全新实例重新打开验证、原子移动并确保 `op.exit()` 清理。
 - **PD-O20 运行时依赖方向。** 第一轮核心不需要本地 FastAPI/Uvicorn HTTP 服务，也不需要 Plotly/Kaleido 正式渲染链；具体依赖移除由实现阶段测试确认。
 
 完整技术结构见 [后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)。
@@ -371,3 +371,28 @@
 - **PD-U20 同构批次。** 批次使用完全相同 TransformSpec；reference rule 可按同一语义逐项求值，不允许逐文件字段/单位/formula/error policy 例外，单项可部分成功。
 
 完整步骤注册表、单位代数、血缘、预检与批量契约见 [派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)。
+
+## V. 渲染管线、坐标与一致性
+
+- **PD-V01 单一 Resolver。** PlotSpec/FigureSpec、不可变数据/分析引用、resolved style 和 publication profile 只经一套版本化 resolver 生成 ResolvedRenderPlan。
+- **PD-V02 Adapter 无默认决策。** Matplotlib 与 Origin 只消费 RenderPlan，不自行 autoscale、选择 ticks、重算统计、换单位、fallback 字体或重新布局。
+- **PD-V03 RenderPlan 内容与哈希。** Plan 固定物理画布/subplot、图层顺序、数据表引用、样式/font、axis range/ticks/labels、legend/annotation/panel、数据完整性和全部 hash/version；正式 ExportSpec 记录 plan hash。
+- **PD-V04 三质量层。** 第一轮 quality tier 为 thumbnail、interactive 和 formal，三者使用同一语义 resolver。
+- **PD-V05 降采样边界。** thumbnail/interactive 可记录并显示确定性视觉降采样；formal PNG/SVG/OPJU 使用完整数据，SVG 不静默抽稀或栅格化。
+- **PD-V06 坐标白名单。** 第一轮只支持 linear、log2、ln、log10、datetime 和 categorical，不包含 symlog、probability 或 probit。
+- **PD-V07 范围输入。** Autoscale 使用完整可见数据、error、interval 和持久化 fit curve；离群值包含，NaN/Inf 排除并计数，legend/annotation 不影响范围，reference 由 `affect_range` 决定。
+- **PD-V08 家族与 Log 规则。** bar/stack/area 包含零，line/scatter/distribution 不强制零；log 可见数据含非正值时阻止渲染。
+- **PD-V09 Padding 与边界。** 连续轴在变换空间加 5% padding，类别轴首尾半 slot，zero-span 规则版本化；上下界分别 auto/fixed，reverse 必须显式。
+- **PD-V10 批次统一范围。** Unified scale 先 union 各图未 padding raw candidate，再只执行一次 padding 与 zero-span 规则。
+- **PD-V11 Tick 真值。** Resolver 用版本化 nice-number 算法生成 exact values/labels/exponent/precision 并确定性消减碰撞；单位前缀只来自确认后的派生单位转换。
+- **PD-V12 物理尺寸与色彩。** Canvas/margin/subplot 用 mm，font/line/marker 用 pt；PNG 固定像素与 DPI，SVG 固定物理 size/viewBox，Origin 同 page 尺寸；第一轮仅 sRGB。
+- **PD-V13 安全文本与字体。** SafeRichText AST 禁止任意 LaTeX/HTML/script；默认 font stack 为 Arial→Microsoft YaHei→DejaVu Sans，resolver 固定并验证实际 font file。
+- **PD-V14 SVG 模式。** SVG 默认 text-to-path；editable text 为显式选项并带可移植性 warning，两者禁止 script 与 external refs。
+- **PD-V15 语义而非像素一致。** Matplotlib 与 Origin 必须保持数据、坐标、ticks、布局、样式、图例和标注 semantic parity，不要求 pixel identity；font hinting、AA 与极短 dash cap 差异不是缺陷。
+- **PD-V16 Parity 容差。** Canvas ±0.2 mm、subplot ±1 mm、font/line ±0.1 pt、marker ±0.25 pt、8-bit RGB 精确、alpha ±0.01、range/tick 容差为 `1e-10 × max(1, abs(value))`。
+- **PD-V17 O1 原生语义。** O1 必须使用 Origin 原生 linked worksheet/matrix、plot、axis、legend、annotation 与 page，不嵌入 Matplotlib raster 作为原生 fallback。
+- **PD-V18 关键语义阻止。** Origin 无法表达或重新打开读回关键语义时阻止 OPJU；adapter 不能运行时临时降级能力。
+- **PD-V19 格式验证。** PNG 校验 signature/pixel/DPI/content；SVG 校验 parse/viewBox/size、无 script/external refs 与 element count；OPJU 在新空白受控实例中重新打开读回核心对象。
+- **PD-V20 原子正式导出。** 每个正式产物先写同文件系统临时路径，按 RenderPlan 验证后原子替换；记录 ExportSpec、plan、输出与验证报告 hash。
+
+完整 resolver、autoscale、ticks、文本、物理尺寸、容差与验证契约见 [渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)。

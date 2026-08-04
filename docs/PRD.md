@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -267,9 +267,8 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 ### 7.3 大数据
 
 - 统计、拟合和误差计算默认使用完整数据。
-- 屏幕交互预览允许显式视觉降采样，并显示实际点数。
-- PNG、SVG 和 `.opju` 默认使用完整数据。
-- 导出抽稀必须由用户明确选择，并记录方法与参数。
+- thumbnail 与 interactive 允许确定性视觉降采样，并显示完整点数、显示点数、方法和状态。
+- formal PNG、SVG 和 `.opju` 第一轮一律使用完整数据与持久化 AnalysisResult 表；SVG 不静默抽稀或栅格化。
 - 并发根据本机内存控制。
 - 屏幕降采样必须明确标注完整点数与当前显示点数。
 - 本地缓存键包含内容哈希、绘图规格、渲染器和主题版本；支持增量失效和用户清除。
@@ -306,7 +305,9 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 图表创建时以物理尺寸为真值：
 
-- 使用 mm 或 inch 保存画布尺寸，并记录 DPI。
+- canvas、margin、gutter 与 subplot 使用 mm；font、line 和 marker 使用 pt。
+- PNG 用物理尺寸和 DPI 确定像素并写 DPI metadata；SVG 写物理 width/height 与 viewBox；Origin 使用相同 page 尺寸。
+- 第一轮正式渲染只使用 sRGB。
 - 聚焦编辑的缩放只影响查看，不改变字体、线宽或导出尺寸。
 - 默认画布不添加大标题；批量来源名称显示在画布外的审阅界面。
 - 坐标轴标题默认由变量名与单位组成。
@@ -334,9 +335,12 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 ### 8.4 坐标与配色
 
-- 柱状图和面积图默认包含零；折线图、散点图等默认根据数据范围缩放。
-- 不静默排除离群值；必须统计并显示缺失值、NaN 和无穷值的处理结果。
-- 对数轴遇到非正值时阻止执行；断轴必须由用户明确选择并在图中清楚标识。
+- 第一轮 axis 只支持 linear、log2、ln、log10、datetime 和 categorical；不支持 symlog、probability 或 probit。
+- autoscale 使用完整可见数据、误差、区间与持久化 fit curve；bar/stack/area 包含零，line/scatter/distribution 不强制零。
+- 不静默排除离群值；NaN/Inf 不参与范围但记录计数。图例和标注不扩大范围，reference 只有显式 `affect_range` 才参与。
+- 连续轴在变换空间加 5% padding，类别轴首尾各半 slot，zero-span 使用版本化规则；log 可见数据含非正值时阻止。
+- lower/upper bound 可分别 auto/fixed，reverse 必须显式。批次 unified scale 先 union 未 padding 候选再只 padding 一次。
+- exact tick values/labels/exponent/precision 由版本化 nice-number algorithm 产生；碰撞消减确定性。单位前缀只能来自已确认的派生单位转换。
 - 批次坐标默认按图独立缩放，跨图统一范围只在用户明确开启时生效。
 - 调色板区分类别、连续、发散、循环和灰度，不默认使用 jet。
 - 类别到颜色的映射在项目内保持稳定，类别缺失不导致其余颜色重新分配。
@@ -344,8 +348,10 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 ### 8.5 图表文字
 
-- 支持 Unicode、希腊字母、上下标和常见 TeX 风格输入，不实现完整 LaTeX 排版。
-- SVG 可选择保留文字或转路径；OPJU 中的图表文字保持可编辑。
+- SafeRichText AST 只支持 plain/newline/sub/sup/bold/italic、Unicode Greek/常用符号和有限 fraction；不接受任意 LaTeX、HTML 或 script。
+- 默认 font stack 为 Arial → Microsoft YaHei → DejaVu Sans；resolver 固定并验证实际字体与 file hash。
+- SVG 默认 text-to-path；可选 editable text 并显示字体可移植性 warning。OPJU 中的图表文字保持原生可编辑。
+- 完整坐标、文本、物理尺寸与跨 renderer 契约见 [渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)。
 
 ## 9. Agent 行为与科研护栏
 
@@ -412,6 +418,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 正式图形必须通过 PNG、SVG 和 `.opju` 三种导出测试。
 - `.opju` 重新打开后，数据、图层、轴、图例和标注仍可编辑。
 - 软件内预览与 Origin 要求视觉等价，不承诺逐像素一致。
+- 跨 renderer 要求 semantic parity；canvas ±0.2 mm、subplot ±1 mm、font/line ±0.1 pt、marker ±0.25 pt、RGB 精确、alpha ±0.01、range/tick 按 `1e-10 × max(1, abs(value))` 校验。
 - 无法映射为 Origin 原生对象时，必须提前提示，不能静默嵌入图片。
 - 尚未通过完整测试的图形只进入实验性目录，不进入正式内测图形库。
 
@@ -446,8 +453,9 @@ Origin 能力分级：
 - 支持当前图、选中图、整个批次和组合图。
 - 文件名模板支持来源、图形类型和版本。
 - 默认不覆盖已有文件，自动追加版本号。
-- PNG 支持尺寸、DPI、透明背景和颜色模式。
-- SVG 保留矢量对象，并提供文字转路径选项。
+- PNG 支持尺寸、DPI 和透明背景，第一轮颜色固定为 sRGB；SVG 保留矢量对象，默认文字转路径，可选 editable text。
+- PNG 校验 signature/pixel/DPI/content；SVG 校验 parse/viewBox/size、无 script/external refs 和预期 element count；OPJU 在新受控实例中重新打开读回对象。
+- 每个正式 ExportSpec 固定 ResolvedRenderPlan hash，临时产物验证通过后才原子移动。
 - 批量导出生成清单，记录来源、版本、参数与失败项。
 - 正式导出仅提供 PNG、SVG 和 OPJU；不提供 PDF、EPS、EMF。
 - 剪贴板 PNG/SVG 是快捷复制，不生成正式导出记录。
@@ -516,8 +524,8 @@ Origin 能力分级：
 
 - 第一轮采用单 Agent 有界规划，不使用多 Agent 或开放式自主循环。
 - Agent 只生成符合 JSON Schema 的 ActionPlan；手动 UI 生成相同计划并复用同一执行链。
-- 版本化 PlotSpec 是 Matplotlib、PNG、SVG、Origin、改图与版本比较的共同真值。
-- Matplotlib 是第一轮唯一正式预览、PNG 和 SVG 渲染器；Origin 由独立串行 Worker 从 PlotSpec 重建原生对象。
+- 版本化 PlotSpec 与不可变引用是结构化真值，单一 resolver 生成带 hash 的 ResolvedRenderPlan；Matplotlib、PNG、SVG 和 Origin 不再各自解析坐标或默认样式。
+- Matplotlib 是第一轮唯一正式预览、PNG 和 SVG adapter；Origin 由独立串行 Worker 从同一 ResolvedRenderPlan 重建原生对象。
 - Python Core 按 Project、Dataset、Transform、Plot、Analysis、Batch、Composition、Export、Origin 和 Task 领域服务拆分。
 - 详细协议、数据结构、任务状态与实现顺序以 [后端与 Agent 架构](./BACKEND-ARCHITECTURE.md) 为准。
 - PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 和 Schema 兼容规则以 [领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md) 为准。
