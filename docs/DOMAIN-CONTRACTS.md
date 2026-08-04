@@ -3,7 +3,7 @@
 > 状态：第一轮契约基线已确认  
 > 日期：2026-08-05  
 > 适用范围：DatasetVersion、TransformSpec、PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及其跨进程 Schema  
-> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 契约原则
 
@@ -367,7 +367,16 @@ validation: info | warning | blocked
 - 数学不可执行、数据结构不满足或违反产品硬规则时由本地 validator 阻止并返回稳定错误，不要求模型自我判断。
 - 永久删除、覆盖外部文件等破坏性操作不进入普通 ActionPlan，必须通过专门 UI 确认。
 
-## 10. Schema 发布与兼容
+## 10. 云控制面协议对象
+
+- `InviteGrant` 拥有 status、expiry、quota policy、allowed profiles 与 release channel；设备只通过随机 ID 和最小 scope token 引用 grant。
+- `QuotaSnapshot` 字段固定为 period start/end、granted、reserved、consumed、remaining、reset/server time。
+- `ModelRunLedger` 以 `(invite_id, client_run_id)` 唯一，状态覆盖 reserve、upstream usage、settle、release 与 cancel；幂等冲突必须阻止。
+- `CloudConfig` 与 `UpdateManifest` 都是版本化、签名、拒绝 extra field 的严格结构；远程配置不能承载 PlotSpec、分析或渲染默认值。
+- Redeem、refresh、quota、reserve/settle/cancel、config/update 使用统一 Request/ResponseEnvelope 与稳定错误，不把供应商部署细节写进领域 Schema。
+- 完整字段、状态机与测试矩阵见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
+
+## 11. Schema 发布与兼容
 
 - 每个发布版本输出 `schemas/` 包，包含 PlotSpec、PatchTransaction、ActionPlan、RPC 和事件 Schema。
 - Schema 使用固定 `$id` 和 Draft 2020-12 `$schema`。
@@ -376,7 +385,7 @@ validation: info | warning | blocked
 - 迁移不得静默改变图形类型、数据版本、统计方法、单位或视觉结果。
 - 未知新版本返回“需要升级应用”，不能以忽略字段的方式继续写入。
 
-## 11. 第一轮契约测试
+## 12. 第一轮契约测试
 
 - 所有 discriminator 联合的合法与非法变体。
 - `extra` 字段拒绝、严格数值和单位校验。
@@ -392,3 +401,4 @@ validation: info | warning | blocked
 - BatchSpec 完全同构签名。
 - FigureSpec 固定版本引用。
 - 旧 Schema 迁移与未知新版本拒绝。
+- InviteGrant/DeviceCredential、QuotaSnapshot、ModelRun reserve/settle 幂等、签名 config/update envelope 与稳定错误。

@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -121,9 +121,9 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 ### 5.1 首次使用
 
-1. 用户输入邀请码完成激活，不注册账号、不填写个人资料。
-2. 软件检查模型服务与存储空间，只对 Origin 做轻量可用性检测，不阻塞 PNG/SVG 绘图。
-3. 激活后直接进入主窗口启动空状态，不使用多页向导或强制教学弹窗。
+1. 应用无需账号、邀请码或联网即可进入主窗口，不使用多页向导或强制教学弹窗。
+2. 软件检查本地存储空间，只对 Origin 做轻量可用性检测，不阻塞 PNG/SVG 绘图；云状态不在启动关键路径。
+3. 用户首次需要内置 Agent 时再输入邀请码兑换设备令牌；也可选择自定义 provider，任何服务选择都不阻止本地工作入口。
 4. 启动空状态提供三个入口：主按钮“用示例项目试用”、次按钮“导入自己的数据”、文字入口“打开已有 `.plotproj`”。
 5. 打开示例项目时创建本地副本；示例使用合成数值数据，可离线修改，不改变内置模板。
 6. 示例项目包含时间序列、分组实验、材料连续谱与 2×2 数值组合图三个对话，示例指令明确指定图形类型。
@@ -553,15 +553,19 @@ Origin 能力分级：
 
 ### 14.4 最小云端控制面
 
-- 邀请码激活与每设备技术令牌，不要求注册账号。
-- 模型额度、限流和请求转发。
-- 应用更新信息。
-- 用户主动提交的反馈与诊断包。
-- 不保存项目、图表、原始数据或完整对话历史。
-- 同一邀请码不限制设备数量，各设备共享邀请码的模型额度和限流。
-- 邀请码被撤销后可以停止云端模型额度，但不能锁定本地项目或禁用本地绘图与导出。
+- 邀请码对应 InviteGrant，不是账号；不采集邮箱、密码、个人资料或硬件指纹。同一有效邀请码可在不限数量设备重复兑换，额度归 InviteGrant 并由所有设备共享。
+- 设备使用随机 installation ID、默认 15 分钟 access token 与长期 refresh token；设备只承担鉴权和设备级并发/短时限流。邀请码成功后不在本地保存，refresh token 只进 Credential Manager。
+- 模型请求用唯一 client_run_id/Idempotency-Key 先 reserve 再按实际 usage settle；超时、重试和重启不能重复扣费。自定义 provider 不消耗 PlotAgent 额度。
+- QuotaSnapshot 固定展示 period、granted/reserved/consumed/remaining、reset/server time；额度耗尽只禁用内置 Agent，手动能力和自定义 provider 不受影响。
+- 云端仅提供兑换/refresh、内置模型 proxy、额度/限流/幂等 ledger、签名 config/update manifest 和用户主动诊断，不保存项目、图表、原始数据或完整对话，也不运行远程科研计算/Origin。
+- 应用启动不依赖控制面，内置 Agent 调用时才 lazy refresh/status check。瞬时连接/5xx 最多重试两次并复用幂等 lineage；4xx 与用户取消不重试，云失败不进入项目事务。
+- InviteGrant 撤销或单设备封禁只能停止相应内置 Agent 权限，不能锁定本地项目或禁用本地绘图、分析与导出。
 
 内置 provider 通过设备令牌访问 PlotAgent proxy，平台供应商 key 只在服务端；用户配置自有兼容模型后桌面端直连。非 loopback endpoint 强制 HTTPS，TLS 校验不可关闭，禁止携带 Authorization 跨 origin redirect。
+
+更新资格与邀请码、账号和 provider 解耦；但 `NetworkMode=local_only` 期间应用绝不检查或下载更新。用户须显式退出 local_only/允许本次联网，或使用人工取得且执行同等验签的离线安装包。允许联网时启动后异步检查且之后最多每 24 小时一次。Manifest 由应用内置 public key 验签，包校验 SHA-256 与 Windows code signature；活动任务、Origin 导出或项目 committing 时不安装，必须由用户点击“重启并更新”。`min_cloud_version` 只阻止内置云服务，不阻止本地能力。
+
+完整协议、账本、日志、状态机、稳定错误与更新验证见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
 
 ### 14.5 隐私、安全与诊断
 
@@ -657,3 +661,5 @@ Origin 能力分级：
 - 源数据重新导入、从旧版本继续、发表规格变化和外部 OPJU 修改均不会静默覆盖既有结果。
 - 离线时除自然语言 Agent 外，导入、手动绘图、编辑和导出仍可用。
 - 匿名诊断默认关闭，预览中不包含原始数据、任何用户提示、文件名或列值。
+- 多设备共享 InviteGrant 额度，重装、超时、重试和服务重启不会获得新额度或重复扣费；控制面完全不可达时仍可启动、打开项目并使用全部本地手动能力。
+- 更新资格不依赖邀请码；local_only 保持零更新出站，只有退出/一次性允许联网或使用完整验签的离线包才更新。签名、哈希或证书异常的 manifest/package 被阻止，更新不在活动任务或 Origin 导出期间安装。

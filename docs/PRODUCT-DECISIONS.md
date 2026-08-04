@@ -21,7 +21,7 @@
 - **PD-B01 对话驱动。** 整体结构接近 ChatGPT：左侧管理项目与对话，中央对话流驱动导入、映射、绘图、修改、组合和导出。
 - **PD-B02 无常驻右栏。** 主对话不放置长期占用空间的参数栏；精确控制进入全窗口聚焦编辑，检查器按需出现。
 - **PD-B03 一段对话可产生多个结果。** 对话不等于一张图，可以包含多个数据集、多个绘图批次、多个单图和组合图。
-- **PD-B04 首次启动不用向导。** 完成邀请码激活后，直接进入主窗口的启动空状态，不使用多页引导、账号表单或强制教学弹窗。
+- **PD-B04 首次启动不用向导。** 应用无需账号、邀请码或联网即可进入主窗口启动空状态，不使用多页引导、账号表单或强制教学弹窗；内置模型服务在首次需要时单独兑换。
 - **PD-B05 三个首次启动入口。** 启动空状态提供：主按钮“用示例项目试用”，次按钮“导入自己的数据”，文字入口“打开已有 `.plotproj`”。
 - **PD-B06 示例项目。** 示例项目完全本地、使用合成数值数据、可离线运行；打开时创建可自由修改的本地副本，不改变内置模板。
 - **PD-B07 示例内容。** 示例覆盖三个对话：时间序列、分组实验、材料连续谱与 2×2 数值组合图；指令明确指定图形，不构成 Agent 推荐。
@@ -164,10 +164,10 @@
 
 - **PD-L01 单实例。** 应用采用单实例；第二次启动时聚焦已有窗口，并转发 `.plotproj` 或数据文件参数。
 - **PD-L02 单主窗口。** 不提供多主窗口，不驻留系统托盘；关闭主窗口即退出应用。
-- **PD-L03 邀请制无账号。** 邀请码用于内测激活，不要求注册账号、邮箱或个人资料。
-- **PD-L04 不限设备。** 同一邀请码可在不限数量设备使用；每台设备获得技术令牌，共享该邀请码的模型额度和限流。
+- **PD-L03 邀请制无账号。** 邀请码只授权内置模型服务，不是使用本地应用的前置激活；不要求注册账号、邮箱、密码、个人资料或云端找回。
+- **PD-L04 不限设备。** 同一 InviteGrant 可在不限数量设备兑换；额度归 InviteGrant 并由所有设备共享，设备只承担鉴权及设备级并发/短时限流，重装或增加设备不能获得新额度。
 - **PD-L05 撤销邀请码不破坏本地能力。** 邀请码被撤销后可停止云端模型额度，但不能锁定本地项目或禁用本地绘图与导出。
-- **PD-L06 最小云端。** 云端只负责邀请激活、模型额度与限流、请求代理、更新信息和用户主动提交的诊断。
+- **PD-L06 最小云端。** 云端只负责邀请兑换/令牌刷新、内置模型 proxy、共享额度/限流/幂等账本、签名配置与更新清单，以及用户主动提交的诊断；不保存项目或执行远程科研计算。
 - **PD-L07 本地权限。** 第一轮不做应用级项目加密，依赖 Windows 文件权限与磁盘加密；凭据进入 Windows Credential Manager，临时文件隔离并清理。
 - **PD-L08 后续加密。** 后续可评估密码加密 `.plotproj`；无账号体系意味着不提供云端找回密码。
 - **PD-L09 本地缓存。** 缓存键包含内容哈希、绘图规格、渲染器和主题版本；支持增量失效并可由用户清除。
@@ -446,3 +446,28 @@
 - **PD-X20 错误与验收。** Provider 连接/TLS/auth/rate/quota/timeout/cancel、schema/repair、context、出境、stale target 和 retention acknowledgment 使用稳定错误，并提供契约测试与故障注入矩阵。
 
 完整上下文、供应商、出境、审计、保留与故障注入契约见 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)。
+
+## Y. 邀请、共享额度、最小云控制面与软件更新
+
+- **PD-Y01 InviteGrant 归属。** 邀请码对应可撤销、可过期的 InviteGrant；服务端只存高熵 secret 的版本化 hash，grant 固定 quota policy、允许 model profiles、release channel 与时间戳。
+- **PD-Y02 不限设备共享额度。** 同一有效邀请码可重复兑换且不限制设备数；所有设备共享 InviteGrant 总额度，设备不获得安装级赠送额度。
+- **PD-Y03 无硬件指纹。** 客户端生成随机 installation ID，不采集硬盘序列号、MAC、Windows 用户名、主机名或其他硬件身份；服务端设备记录不得反推出硬件身份。
+- **PD-Y04 设备令牌。** 兑换返回默认 15 分钟 access token 与长期 refresh token；refresh token/设备凭据只进 Credential Manager，邀请码成功后不在本地持久化，丢失凭据用原邀请码重兑。
+- **PD-Y05 最小 scope。** Token 只授权 invitation status、model proxy、quota 与 config；不得读取项目/文件。401 区分 token expired、invite revoked/expired 与 device blocked。
+- **PD-Y06 撤销边界。** 管理端可撤销整个 InviteGrant 或封禁单个 device；两者只影响内置 Agent，不锁定项目、自定义 provider 或本地绘图/分析/导出。
+- **PD-Y07 额度幂等键。** 每次用户模型请求使用唯一 client_run_id/Idempotency-Key；`(invite_id, client_run_id)` 唯一，重试、超时和重启不得重复 reserve、调用或扣费。
+- **PD-Y08 Reserve/settle。** 请求前 reserve，供应商完成后按实际 input/output/repair usage settle 并释放 unused；上游已消费而 schema/业务校验失败仍按实际记账，UI 按一次用户任务汇总。
+- **PD-Y09 QuotaSnapshot。** 固定字段为 period_start/end、granted、reserved、consumed、remaining、reset_at、server_time；具体额度、周期和限流数字属于版本化服务策略。
+- **PD-Y10 限流与耗尽。** 每设备可有并发/短时速率限制且 429 返回 retry_after；额度耗尽只禁用内置 Agent并提供自定义 provider，本地能力不受影响。
+- **PD-Y11 最小云边界。** 云端只有兑换/refresh、模型 proxy、额度/限流/幂等 ledger、签名 config/update manifest 和主动诊断；不增加账号、同步、原始文件存储、远程科研计算或远程 Origin。
+- **PD-Y12 Proxy 日志。** Proxy 不记录 prompt、request/response body 或原始数据；只记录 run、invite/device 伪名、profile/config、usage、latency、稳定错误、时间和幂等/额度状态。
+- **PD-Y13 Lazy 云连接。** 应用启动不依赖控制面，不强制刷新/查额度；只在内置 Agent 调用时 lazy refresh/status check。云端不可达不影响项目、手动 ActionPlan、自定义 provider 或导出。
+- **PD-Y14 云重试。** 瞬时连接/5xx 自动重试最多两次并复用 request/client_run/idempotency lineage；用户取消与确定性 4xx 不重试，云失败不进入项目事务。
+- **PD-Y15 更新资格与网络模式。** 更新资格不依赖邀请码、账号或 provider；但 `NetworkMode=local_only` 期间绝不检查或下载更新。用户须显式退出/允许本次联网，或使用执行同等验签的人工离线安装包；允许联网时启动后异步检查且此后最多每 24 小时一次。
+- **PD-Y16 更新完整性。** UpdateManifest/package 只经 HTTPS；manifest 用内置 public key 验签，package 校验 size、SHA-256 与 Windows code signature，篡改/证书/重定向异常全部阻断。
+- **PD-Y17 更新 UX。** 可后台下载，但活动任务、Origin 导出和项目 committing 期间不得安装；必须用户点击“重启并更新”，普通更新可延后。
+- **PD-Y18 云版本隔离。** `min_cloud_version` 只阻止旧客户端调用内置云服务；remote config 只能声明 profiles、quota display、protocol 与 availability，不能改变项目、渲染/分析语义或 publication snapshot。
+- **PD-Y19 固定运行配置。** 每次 ModelRun 固定 model/profile/config version 并审计，运行中不得静默换模型；更新和 cloud config 都使用版本化、签名 envelope。
+- **PD-Y20 协议与验收。** Redeem、refresh、quota、reserve/settle/cancel、signed config/update check 使用稳定 envelope、状态机与错误，验收覆盖多设备、幂等扣费、云断连、本地降级与更新篡改/中断。
+
+完整 InviteGrant、DeviceCredential、QuotaLedger、CloudConfig、UpdateManifest、状态机与故障注入契约见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
