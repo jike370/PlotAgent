@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -208,10 +208,11 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 
 ### 7.1 存储职责
 
-- SQLite：项目索引、对话、对象引用、版本 DAG、任务、操作日志和导出记录。
-- 内容寻址对象存储：原始文件副本、派生表、预览、PlotSpec 和导出缓存。
-- Arrow/Parquet：派生数据和内部表格交换格式。
-- 原始文件：保持原格式、只读复制和内容哈希。
+- `%LOCALAPPDATA%\PlotAgent\catalog.sqlite3` 只保存项目目录、最近打开和应用设置。
+- 每个 `projects/<uuid>/project.sqlite3` 保存对话、对象关系、版本 DAG、任务、PlotSpec、AnalysisSpec 和操作记录。
+- `objects/sha256` 保存原始副本、Parquet、持久化规格与导出等不可变大对象；原始数据不可变。
+- `cache` 只保存可再生内容，不进入项目包；`tmp` 和 `project.lock` 分别管理未提交产物和单写入工作区。
+- SQLite WAL 仅用于本机活动工作区，由 Python Core 单写入器管理。
 
 ### 7.2 Python 数据栈
 
@@ -225,9 +226,19 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 
 ### 7.3 `.plotproj`
 
-- 活跃项目使用本地工作目录、SQLite 和内容对象存储，以支持事务与增量保存。
-- `.plotproj` 是可校验、可导入导出的项目包，不在每次细小操作后重写整个压缩包。
-- 导出项目副本时生成临时包、校验 manifest 与哈希，再原子移动到目标路径。
+- 活跃项目使用本机事务工作区持续自动保存；`.plotproj` 是可搬运快照，不是实时数据库。
+- 打开项目包时导入本机工作副本，后续不修改原包；同一包默认回到已有副本，也可明确“作为新副本导入”。
+- 包含 `manifest.json`、SQLite Online Backup 快照、`objects/sha256` 和 `checksums.sha256`；禁止直接复制活动 WAL 数据库。
+- 完整项目包包含原始、派生与历史；结果项目包省略原始但保留改图和导出所需派生数值，并明确限制依赖原始数据的重算。
+- 项目包、活动数据库和 WAL 不在网络文件系统中直接打开或持续写入。
+
+### 7.4 数据导入
+
+- 文件授权后先在 `tmp` 复制并哈希，再识别格式、编码、工作表和表头。
+- 必要问题解决后完整分块解析为 Arrow/Parquet，生成质量摘要和同构候选。
+- 校验成功后移动不可变对象，并在单个 SQLite 事务中注册 ImportRecipe 与 DatasetVersion；失败不污染正式项目。
+- 系统先形成结构候选，再只进行一次用户字段映射；最终语义签名包含字段集合、逻辑类型、单位、语义和映射。
+- 详细目录、包模式、快照、ImportRecipe、同构与 SQLite 约束以 [项目存储、项目包与数据导入](./PROJECT-STORAGE.md) 为准。
 
 ## 8. 渲染与 Origin
 
