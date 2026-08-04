@@ -22,6 +22,7 @@ interface SidebarProps {
   onConversationChange: (id: ConversationId) => void
   onNewConversation: () => void
   onTaskCenter: () => void
+  onOpenResources: () => void
 }
 
 const conversations = [
@@ -34,6 +35,7 @@ export function Sidebar({
   onConversationChange,
   onNewConversation,
   onTaskCenter,
+  onOpenResources,
 }: SidebarProps): React.JSX.Element {
   return (
     <aside className="sidebar" aria-label="项目与对话">
@@ -59,7 +61,7 @@ export function Sidebar({
       <nav className="project-nav" aria-label="项目列表">
         <div className="section-label">本机项目</div>
         <section className="project-group project-group--active">
-          <button className="project-row" type="button" aria-expanded="true">
+          <button className="project-row" type="button" aria-expanded="true" onClick={onOpenResources} aria-label="打开温度响应实验项目资源库">
             <ChevronDown size={15} aria-hidden="true" />
             <FolderKanban size={16} aria-hidden="true" />
             <span>温度响应实验</span>

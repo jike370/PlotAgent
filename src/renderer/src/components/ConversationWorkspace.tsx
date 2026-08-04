@@ -44,6 +44,7 @@ interface ConversationWorkspaceProps {
   onOpenCompose: () => void
   onOpenTasks: () => void
   onOpenSample: () => void
+  onOpenResources: () => void
 }
 
 const scopeLabels: Record<ScopeMode, string> = {
@@ -277,9 +278,10 @@ function EmptyConversation({ onOpenSample }: { onOpenSample: () => void }): Reac
 interface ComposerProps {
   selectedChartName: string
   onOpenLibrary: () => void
+  onOpenResources: () => void
 }
 
-function Composer({ selectedChartName, onOpenLibrary }: ComposerProps): React.JSX.Element {
+function Composer({ selectedChartName, onOpenLibrary, onOpenResources }: ComposerProps): React.JSX.Element {
   const [scope, setScope] = useState<ScopeMode>('batch')
   const [value, setValue] = useState('')
   const [referencesOpen, setReferencesOpen] = useState(false)
@@ -334,6 +336,9 @@ function Composer({ selectedChartName, onOpenLibrary }: ComposerProps): React.JS
         {referencesOpen && (
           <div className="reference-menu" role="listbox" aria-label="引用对象">
             <div>引用项目对象</div>
+            <button className="reference-library-entry" type="button" role="option" aria-selected="false" onClick={() => { setReferencesOpen(false); onOpenResources() }}>
+              <Library size={15} /><span><strong>浏览项目资源库</strong><small>搜索全部项目对象</small></span><ArrowRight size={14} />
+            </button>
             {[
               ['temperature_series.zip', '数据集', FileSpreadsheet],
               ['温度响应 · B-024', '绘图批次', Images],
@@ -366,6 +371,7 @@ export function ConversationWorkspace({
   onOpenCompose,
   onOpenTasks,
   onOpenSample,
+  onOpenResources,
 }: ConversationWorkspaceProps): React.JSX.Element {
   const isEmpty = activeConversation === 'empty'
   const title = activeConversation === 'dose' ? '剂量反应曲线' : activeConversation === 'empty' ? '新对话' : '温度响应批量绘图'
@@ -374,7 +380,9 @@ export function ConversationWorkspace({
     <main className="workspace-main">
       <header className="workspace-header">
         <div className="workspace-heading">
-          <span>温度响应实验</span>
+          <button className="project-resource-trigger" type="button" onClick={onOpenResources} aria-label="打开项目资源库：温度响应实验">
+            <span>温度响应实验</span><Library size={12} />
+          </button>
           <h1>{title}</h1>
         </div>
         <div className="workspace-header__actions">
@@ -415,7 +423,7 @@ export function ConversationWorkspace({
         )}
       </div>
 
-      {!isEmpty && <Composer selectedChartName={selectedChartName} onOpenLibrary={onOpenLibrary} />}
+      {!isEmpty && <Composer selectedChartName={selectedChartName} onOpenLibrary={onOpenLibrary} onOpenResources={onOpenResources} />}
       {isEmpty && (
         <div className="empty-composer">
           <button type="button"><Paperclip size={17} />导入数据</button>

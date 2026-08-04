@@ -6,6 +6,7 @@ import { ChartLibrary } from './components/ChartLibrary'
 import { CompositionEditor } from './components/CompositionEditor'
 import { ConversationWorkspace } from './components/ConversationWorkspace'
 import { FocusEditor } from './components/FocusEditor'
+import { ProjectResourceLibrary } from './components/ProjectResourceLibrary'
 import { Sidebar, type ConversationId } from './components/Sidebar'
 import { TaskDrawer } from './components/TaskDrawer'
 
@@ -15,6 +16,7 @@ export function App(): React.JSX.Element {
   const [screen, setScreen] = useState<Screen>('workspace')
   const [activeConversation, setActiveConversation] = useState<ConversationId>('batch')
   const [libraryOpen, setLibraryOpen] = useState(false)
+  const [resourcesOpen, setResourcesOpen] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
   const [focusIndex, setFocusIndex] = useState(0)
   const [selectedChart, setSelectedChart] = useState<ChartType>(() => chartCatalog.find((chart) => chart.id === 'K02')!)
@@ -28,14 +30,15 @@ export function App(): React.JSX.Element {
         setActiveConversation('empty')
       }
       if (event.key === 'Escape') {
-        if (libraryOpen) setLibraryOpen(false)
+        if (resourcesOpen) setResourcesOpen(false)
+        else if (libraryOpen) setLibraryOpen(false)
         else if (tasksOpen) setTasksOpen(false)
         else if (screen !== 'workspace') setScreen('workspace')
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [libraryOpen, screen, tasksOpen])
+  }, [libraryOpen, resourcesOpen, screen, tasksOpen])
 
   const chooseChart = (chart: ChartType): void => {
     setSelectedChart(chart)
@@ -68,6 +71,7 @@ export function App(): React.JSX.Element {
               }}
               onNewConversation={() => setActiveConversation('empty')}
               onTaskCenter={() => setTasksOpen(true)}
+              onOpenResources={() => setResourcesOpen(true)}
             />
             <ConversationWorkspace
               activeConversation={activeConversation}
@@ -77,6 +81,7 @@ export function App(): React.JSX.Element {
               onOpenCompose={() => setScreen('composition')}
               onOpenTasks={() => setTasksOpen(true)}
               onOpenSample={() => setActiveConversation('batch')}
+              onOpenResources={() => setResourcesOpen(true)}
             />
           </>
         )}
@@ -85,6 +90,7 @@ export function App(): React.JSX.Element {
       </div>
 
       {libraryOpen && <ChartLibrary currentChartId={selectedChart.id} onClose={() => setLibraryOpen(false)} onSelect={chooseChart} />}
+      {resourcesOpen && <ProjectResourceLibrary onClose={() => setResourcesOpen(false)} />}
       {tasksOpen && <TaskDrawer onClose={() => setTasksOpen(false)} />}
       {toast && <div className="toast" role="status"><Check size={15} />{toast}</div>}
     </div>
