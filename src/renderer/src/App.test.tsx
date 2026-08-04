@@ -5,18 +5,49 @@ import { describe, expect, it } from 'vitest'
 import { App } from './App'
 
 describe('PlotAgent desktop prototype', () => {
-  it('renders structured scientific conversation objects', () => {
+  const openSampleProject = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+    await user.click(screen.getByRole('button', { name: /用示例项目试用/ }))
+  }
+
+  it('starts with three clearly weighted first-use paths', () => {
     render(<App />)
+
+    expect(screen.getByRole('heading', { name: '从第一份数值数据开始' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /用示例项目试用/ })).toHaveClass('startup-action--primary')
+    expect(screen.getByRole('button', { name: /导入自己的数据/ })).toHaveClass('startup-action--secondary')
+    expect(screen.getByRole('button', { name: '打开已有 .plotproj' })).toHaveClass('startup-project-link')
+    expect(screen.getByText('还没有本机项目')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '浏览图形库' })).not.toBeInTheDocument()
+  })
+
+  it('keeps import and existing-project entry points local and interactive', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /导入自己的数据/ }))
+    expect(screen.getByText(/已打开数值数据选择器/)).toHaveClass('toast')
+
+    await user.click(screen.getByRole('button', { name: '打开已有 .plotproj' }))
+    expect(screen.getByText('已打开 .plotproj 项目选择器')).toHaveClass('toast')
+  })
+
+  it('opens a modifiable local copy of the numeric sample project', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await openSampleProject(user)
 
     expect(screen.getByText('temperature_series.zip')).toBeInTheDocument()
     expect(screen.getByText('温度响应 · 批次 B-024')).toBeInTheDocument()
     expect(screen.getByText('.opju 未导出')).toBeInTheDocument()
+    expect(screen.getByText(/已创建“温度响应实验”本地副本/)).toHaveClass('toast')
   })
 
   it('opens the first-use empty conversation', async () => {
     const user = userEvent.setup()
     render(<App />)
 
+    await openSampleProject(user)
     await user.click(screen.getByRole('button', { name: /新建对话/ }))
 
     expect(screen.getByRole('heading', { name: '从一份真实数据开始' })).toBeInTheDocument()
@@ -27,6 +58,7 @@ describe('PlotAgent desktop prototype', () => {
     const user = userEvent.setup()
     render(<App />)
 
+    await openSampleProject(user)
     await user.click(screen.getByRole('button', { name: '图形库' }))
 
     expect(screen.getByRole('heading', { name: '图形库' })).toBeInTheDocument()
@@ -37,6 +69,7 @@ describe('PlotAgent desktop prototype', () => {
     const user = userEvent.setup()
     render(<App />)
 
+    await openSampleProject(user)
     await user.click(screen.getByRole('button', { name: '图形库' }))
     await user.type(screen.getByPlaceholderText('搜索名称、缩写、学科、数据形状或稳定 ID'), 'S61')
     await user.click(screen.getByRole('button', { name: /S61.*混淆矩阵/ }))
@@ -50,6 +83,7 @@ describe('PlotAgent desktop prototype', () => {
     const user = userEvent.setup()
     render(<App />)
 
+    await openSampleProject(user)
     await user.click(screen.getByRole('button', { name: '创建组合图' }))
     expect(screen.getByLabelText('可用数值图表')).toBeInTheDocument()
     expect(screen.getByText('第一轮组合图只使用项目内数值数据图表，导出保持矢量结构。')).toBeInTheDocument()
@@ -63,6 +97,7 @@ describe('PlotAgent desktop prototype', () => {
     const user = userEvent.setup()
     render(<App />)
 
+    await openSampleProject(user)
     await user.click(screen.getByRole('button', { name: '打开项目资源库：温度响应实验' }))
 
     expect(screen.getByRole('dialog', { name: '项目资源库' })).toBeInTheDocument()
@@ -80,6 +115,7 @@ describe('PlotAgent desktop prototype', () => {
     const user = userEvent.setup()
     render(<App />)
 
+    await openSampleProject(user)
     await user.click(screen.getByRole('button', { name: '打开项目资源库：温度响应实验' }))
     await user.click(screen.getByRole('tab', { name: /派生数据/ }))
 
@@ -92,6 +128,7 @@ describe('PlotAgent desktop prototype', () => {
     const user = userEvent.setup()
     render(<App />)
 
+    await openSampleProject(user)
     await user.click(screen.getByRole('button', { name: '打开项目资源库：温度响应实验' }))
     await user.type(screen.getByRole('textbox', { name: '搜索项目资源' }), 'Figure 1')
 
@@ -104,6 +141,7 @@ describe('PlotAgent desktop prototype', () => {
     const user = userEvent.setup()
     render(<App />)
 
+    await openSampleProject(user)
     await user.click(screen.getByRole('button', { name: '引用' }))
     await user.click(screen.getByRole('option', { name: /浏览项目资源库/ }))
     await user.click(screen.getByRole('tab', { name: /导出/ }))
@@ -117,6 +155,7 @@ describe('PlotAgent desktop prototype', () => {
     const user = userEvent.setup()
     render(<App />)
 
+    await openSampleProject(user)
     await user.click(screen.getByRole('button', { name: '打开项目资源库：温度响应实验' }))
     await user.click(screen.getByRole('button', { name: '重命名' }))
     const nameInput = screen.getByRole('textbox', { name: '资源名称' })

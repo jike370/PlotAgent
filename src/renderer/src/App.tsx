@@ -15,7 +15,7 @@ type Screen = 'workspace' | 'focus' | 'composition' | 'batch-inspector'
 
 export function App(): React.JSX.Element {
   const [screen, setScreen] = useState<Screen>('workspace')
-  const [activeConversation, setActiveConversation] = useState<ConversationId>('batch')
+  const [activeConversation, setActiveConversation] = useState<ConversationId>('startup')
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [resourcesOpen, setResourcesOpen] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
@@ -53,6 +53,16 @@ export function App(): React.JSX.Element {
     setScreen('focus')
   }
 
+  const announce = (message: string): void => {
+    setToast(message)
+    window.setTimeout(() => setToast(''), 3200)
+  }
+
+  const openSampleProject = (): void => {
+    setActiveConversation('batch')
+    announce('已创建“温度响应实验”本地副本，内置示例保持不变')
+  }
+
   return (
     <div className="app-shell">
       <div className="app-titlebar" aria-hidden="true">
@@ -66,6 +76,7 @@ export function App(): React.JSX.Element {
           <>
             <Sidebar
               activeConversation={activeConversation}
+              startupMode={activeConversation === 'startup'}
               onConversationChange={(id) => {
                 setActiveConversation(id)
                 setScreen('workspace')
@@ -82,7 +93,9 @@ export function App(): React.JSX.Element {
               onOpenCompose={() => setScreen('composition')}
               onOpenBatchInspect={() => setScreen('batch-inspector')}
               onOpenTasks={() => setTasksOpen(true)}
-              onOpenSample={() => setActiveConversation('batch')}
+              onOpenSample={openSampleProject}
+              onImportData={() => announce('已打开数值数据选择器；导入后将创建本机项目')}
+              onOpenProject={() => announce('已打开 .plotproj 项目选择器')}
               onOpenResources={() => setResourcesOpen(true)}
             />
           </>

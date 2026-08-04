@@ -14,6 +14,7 @@ import {
   FileChartColumn,
   FileOutput,
   FileSpreadsheet,
+  FlaskConical,
   FolderOpen,
   History,
   Images,
@@ -46,6 +47,8 @@ interface ConversationWorkspaceProps {
   onOpenBatchInspect: () => void
   onOpenTasks: () => void
   onOpenSample: () => void
+  onImportData: () => void
+  onOpenProject: () => void
   onOpenResources: () => void
 }
 
@@ -279,6 +282,46 @@ function EmptyConversation({ onOpenSample }: { onOpenSample: () => void }): Reac
   )
 }
 
+interface StartupEmptyStateProps {
+  onOpenSample: () => void
+  onImportData: () => void
+  onOpenProject: () => void
+}
+
+function StartupEmptyState({ onOpenSample, onImportData, onOpenProject }: StartupEmptyStateProps): React.JSX.Element {
+  return (
+    <section className="startup-empty" aria-labelledby="startup-title">
+      <div className="startup-kicker"><CheckCircle2 size={14} />邀请已激活</div>
+      <div className="startup-mark" aria-hidden="true"><FlaskConical size={27} /></div>
+      <h2 id="startup-title">从第一份数值数据开始</h2>
+      <p>先用完全本地的合成数据，在约 2 分钟内看完明确选图、批量结果与 2 × 2 数值组合图；也可以直接使用自己的数据。</p>
+
+      <div className="startup-actions">
+        <button className="startup-action startup-action--primary" type="button" onClick={onOpenSample}>
+          <span className="startup-action__icon"><Play size={18} /></span>
+          <span><strong>用示例项目试用</strong><small>创建可修改的本地副本，不改变内置示例</small></span>
+          <ArrowRight size={17} />
+        </button>
+        <button className="startup-action startup-action--secondary" type="button" onClick={onImportData}>
+          <span className="startup-action__icon"><FileSpreadsheet size={18} /></span>
+          <span><strong>导入自己的数据</strong><small>CSV、TSV、TXT、DAT、XLSX、文件夹或 ZIP</small></span>
+          <ArrowRight size={17} />
+        </button>
+      </div>
+
+      <button className="startup-project-link" type="button" onClick={onOpenProject}>
+        <FolderOpen size={15} />打开已有 .plotproj
+      </button>
+
+      <div className="startup-assurances" aria-label="本地环境状态">
+        <span><CircleCheck size={14} />项目默认只保存在本机</span>
+        <span><CircleCheck size={14} />原始数据保持只读</span>
+        <span className="is-warning"><TriangleAlert size={14} />Origin 不可用仅影响 OPJU</span>
+      </div>
+    </section>
+  )
+}
+
 interface ComposerProps {
   selectedChartName: string
   onOpenLibrary: () => void
@@ -376,30 +419,41 @@ export function ConversationWorkspace({
   onOpenBatchInspect,
   onOpenTasks,
   onOpenSample,
+  onImportData,
+  onOpenProject,
   onOpenResources,
 }: ConversationWorkspaceProps): React.JSX.Element {
+  const isStartup = activeConversation === 'startup'
   const isEmpty = activeConversation === 'empty'
-  const title = activeConversation === 'dose' ? '剂量反应曲线' : activeConversation === 'empty' ? '新对话' : '温度响应批量绘图'
+  const title = activeConversation === 'dose' ? '剂量反应曲线' : isStartup ? '开始使用' : isEmpty ? '新对话' : '温度响应批量绘图'
 
   return (
     <main className="workspace-main">
       <header className="workspace-header">
         <div className="workspace-heading">
-          <button className="project-resource-trigger" type="button" onClick={onOpenResources} aria-label="打开项目资源库：温度响应实验">
-            <span>温度响应实验</span><Library size={12} />
-          </button>
+          {!isStartup && (
+            <button className="project-resource-trigger" type="button" onClick={onOpenResources} aria-label="打开项目资源库：温度响应实验">
+              <span>温度响应实验</span><Library size={12} />
+            </button>
+          )}
           <h1>{title}</h1>
         </div>
-        <div className="workspace-header__actions">
-          <button type="button"><FileChartColumn size={15} />Nature · 双栏<ChevronDown size={14} /></button>
-          <button type="button" onClick={onOpenTasks}><Activity size={15} /><span className="live-dot" />2 个后台任务</button>
-          <span className="autosave-status"><CircleCheck size={14} />已自动保存</span>
-          <button className="icon-button" type="button" aria-label="对话更多操作"><MoreHorizontal size={18} /></button>
-        </div>
+        {isStartup ? (
+          <div className="workspace-startup-status"><CircleCheck size={14} />本地环境已就绪</div>
+        ) : (
+          <div className="workspace-header__actions">
+            <button type="button"><FileChartColumn size={15} />Nature · 双栏<ChevronDown size={14} /></button>
+            <button type="button" onClick={onOpenTasks}><Activity size={15} /><span className="live-dot" />2 个后台任务</button>
+            <span className="autosave-status"><CircleCheck size={14} />已自动保存</span>
+            <button className="icon-button" type="button" aria-label="对话更多操作"><MoreHorizontal size={18} /></button>
+          </div>
+        )}
       </header>
 
-      <div className={`conversation-scroll${isEmpty ? ' conversation-scroll--empty' : ''}`}>
-        {isEmpty ? (
+      <div className={`conversation-scroll${isEmpty || isStartup ? ' conversation-scroll--empty' : ''}`}>
+        {isStartup ? (
+          <StartupEmptyState onOpenSample={onOpenSample} onImportData={onImportData} onOpenProject={onOpenProject} />
+        ) : isEmpty ? (
           <EmptyConversation onOpenSample={onOpenSample} />
         ) : (
           <div className="conversation-feed">
@@ -428,7 +482,7 @@ export function ConversationWorkspace({
         )}
       </div>
 
-      {!isEmpty && <Composer selectedChartName={selectedChartName} onOpenLibrary={onOpenLibrary} onOpenResources={onOpenResources} />}
+      {!isEmpty && !isStartup && <Composer selectedChartName={selectedChartName} onOpenLibrary={onOpenLibrary} onOpenResources={onOpenResources} />}
       {isEmpty && (
         <div className="empty-composer">
           <button type="button"><Paperclip size={17} />导入数据</button>
@@ -436,6 +490,7 @@ export function ConversationWorkspace({
           <span>导入数据后可在此输入绘图指令</span>
         </div>
       )}
+      {isStartup && <div className="startup-footer"><span>所有项目、数据与图表默认保存在这台电脑上</span><span>PlotAgent 0.1.0 · 邀请制内测</span></div>}
     </main>
   )
 }

@@ -15,10 +15,11 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 
-export type ConversationId = 'batch' | 'dose' | 'empty'
+export type ConversationId = 'batch' | 'dose' | 'empty' | 'startup'
 
 interface SidebarProps {
   activeConversation: ConversationId
+  startupMode: boolean
   onConversationChange: (id: ConversationId) => void
   onNewConversation: () => void
   onTaskCenter: () => void
@@ -32,6 +33,7 @@ const conversations = [
 
 export function Sidebar({
   activeConversation,
+  startupMode,
   onConversationChange,
   onNewConversation,
   onTaskCenter,
@@ -60,53 +62,63 @@ export function Sidebar({
 
       <nav className="project-nav" aria-label="项目列表">
         <div className="section-label">本机项目</div>
-        <section className="project-group project-group--active">
-          <button className="project-row" type="button" aria-expanded="true" onClick={onOpenResources} aria-label="打开温度响应实验项目资源库">
-            <ChevronDown size={15} aria-hidden="true" />
-            <FolderKanban size={16} aria-hidden="true" />
-            <span>温度响应实验</span>
-            <span className="project-count">2</span>
-          </button>
-          <div className="conversation-list">
-            {conversations.map((conversation) => (
-              <button
-                className={`conversation-row${activeConversation === conversation.id ? ' is-active' : ''}`}
-                key={conversation.id}
-                type="button"
-                onClick={() => onConversationChange(conversation.id)}
-                aria-current={activeConversation === conversation.id ? 'page' : undefined}
-              >
-                <MessageSquare size={14} aria-hidden="true" />
-                <span>{conversation.label}</span>
-                <time>{conversation.meta}</time>
-              </button>
-            ))}
+        {startupMode ? (
+          <div className="sidebar-startup-empty">
+            <FolderKanban size={20} aria-hidden="true" />
+            <strong>还没有本机项目</strong>
+            <span>试用示例或导入数值数据后，项目会显示在这里。</span>
           </div>
-        </section>
+        ) : (
+          <>
+            <section className="project-group project-group--active">
+              <button className="project-row" type="button" aria-expanded="true" onClick={onOpenResources} aria-label="打开温度响应实验项目资源库">
+                <ChevronDown size={15} aria-hidden="true" />
+                <FolderKanban size={16} aria-hidden="true" />
+                <span>温度响应实验</span>
+                <span className="project-count">2</span>
+              </button>
+              <div className="conversation-list">
+                {conversations.map((conversation) => (
+                  <button
+                    className={`conversation-row${activeConversation === conversation.id ? ' is-active' : ''}`}
+                    key={conversation.id}
+                    type="button"
+                    onClick={() => onConversationChange(conversation.id)}
+                    aria-current={activeConversation === conversation.id ? 'page' : undefined}
+                  >
+                    <MessageSquare size={14} aria-hidden="true" />
+                    <span>{conversation.label}</span>
+                    <time>{conversation.meta}</time>
+                  </button>
+                ))}
+              </div>
+            </section>
 
-        <section className="project-group">
-          <button className="project-row" type="button" aria-expanded="false">
-            <ChevronRight size={15} aria-hidden="true" />
-            <Beaker size={16} aria-hidden="true" />
-            <span>细胞活性筛选</span>
-            <span className="project-count">3</span>
-          </button>
-        </section>
-        <section className="project-group">
-          <button className="project-row" type="button" aria-expanded="false">
-            <ChevronRight size={15} aria-hidden="true" />
-            <FileChartColumn size={16} aria-hidden="true" />
-            <span>电化学循环测试</span>
-            <span className="project-count">1</span>
-          </button>
-        </section>
+            <section className="project-group">
+              <button className="project-row" type="button" aria-expanded="false">
+                <ChevronRight size={15} aria-hidden="true" />
+                <Beaker size={16} aria-hidden="true" />
+                <span>细胞活性筛选</span>
+                <span className="project-count">3</span>
+              </button>
+            </section>
+            <section className="project-group">
+              <button className="project-row" type="button" aria-expanded="false">
+                <ChevronRight size={15} aria-hidden="true" />
+                <FileChartColumn size={16} aria-hidden="true" />
+                <span>电化学循环测试</span>
+                <span className="project-count">1</span>
+              </button>
+            </section>
+          </>
+        )}
       </nav>
 
       <div className="sidebar__footer">
         <button type="button" onClick={onTaskCenter}>
           <Activity size={16} aria-hidden="true" />
           <span>任务中心</span>
-          <span className="task-count">2</span>
+          <span className="task-count">{startupMode ? 0 : 2}</span>
         </button>
         <button type="button">
           <SlidersHorizontal size={16} aria-hidden="true" />
