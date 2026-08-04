@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -193,7 +193,7 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 
 - `ProjectService`：项目、事务、资源、版本和回收站。
 - `DatasetService`：导入、摘要、数据签名、数据版本和只读访问。
-- `TransformService`：受限表达式、筛选、聚合、单位转换和派生数据。
+- `TransformService`：执行 Pydantic discriminated union 白名单步骤、单位运算、预检和三层 lineage，原子创建派生 DatasetVersion。
 - `PlotService`：PlotSpec 创建、Patch、验证和版本。
 - `AnalysisService`：按版本化白名单执行用户明确指定的绘图计算与科学分析，持久化 AnalysisSpec、AnalysisResult 和命名输出端口。
 - `BatchService`：完全同构验证、任务展开、部分失败和事务撤销。
@@ -204,7 +204,17 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 
 模型只能选择这些服务提供的高层操作，不能直接传任意路径、SQL、Python、命令行或 Origin 脚本。
 
-### 6.1 分析计算边界
+### 6.1 数据变换、单位与血缘
+
+- 一次 `create_derived_dataset` 最多执行 16 步线性 TransformPipeline，只发布最终 DatasetVersion；Join/Concat 可以有多个精确父级。
+- TransformStep 只接受带 discriminator 的白名单结构与类型化 AST，不接收 SQL、Python、字符串表达式或 UDF。
+- TransformSpec 只做确定性表变换；统计、拟合、KDE、平滑和检验由 AnalysisSpec 产生 AnalysisResult。普通表只通过 `materialize_analysis_output` 显式物化结果端口。
+- UnitSpec 由项目数据库权威保存，Parquet metadata 只镜像；Core 使用 pinned Pint registry，单位换算与 plot-local 换算都创建派生版本。
+- 对象级 parent/recipe/hash、字段级稳定 ID/expression AST 和行级 source/composite/member lineage 全部持久化。
+- 正式 apply 前展示行列变化、字段与单位、非有限值、Join expansion 和 before/after sample；歧义返回 NeedsInput。
+- 完整步骤注册表、单位代数、异常策略与批量规则以 [派生数据、单位与血缘契约](./DATA-TRANSFORMS.md) 为准。
+
+### 6.2 分析计算边界
 
 - 直接绘图不创建隐藏统计量；分箱、箱线统计、KDE、平滑、拟合、区间、检验和混淆矩阵归一化均产生 AnalysisResult。
 - 字段映射与计算设置在同一确认卡完成；模板只能预填可见参数，Agent 不替用户选择方法，误差语义缺失时返回 NeedsInput。
@@ -233,6 +243,7 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 - NumPy/SciPy：数值计算及用户明确指定的统计与拟合。
 - OpenPyXL：XLSX 与多工作表解析。
 - Matplotlib：第一轮正式预览、PNG 和 SVG。
+- Pint：使用固定 registry version 解析 UnitSpec 与执行单位代数；项目 alias 不修改标准单位定义。
 
 第一轮不需要 FastAPI、Uvicorn、python-multipart、Plotly 或 Kaleido 进入运行时核心依赖；是否彻底移除由实现任务在依赖审计时确认。
 

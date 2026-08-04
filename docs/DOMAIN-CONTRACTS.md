@@ -2,8 +2,8 @@
 
 > 状态：第一轮契约基线已确认  
 > 日期：2026-08-05  
-> 适用范围：PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及其跨进程 Schema  
-> 相关文档：[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 适用范围：DatasetVersion、TransformSpec、PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及其跨进程 Schema  
+> 相关文档：[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 契约原则
 
@@ -26,7 +26,7 @@ Pydantic 官方支持从模型生成 JSON Schema Draft 2020-12，并建议对多
 ```text
 DatasetVersion
 ├─ 原始或派生数据的不可变版本
-└─ 模式、单位、哈希、来源和统计摘要
+└─ 父级、TransformSpec、模式、UnitSpec、哈希、三层血缘和质量摘要
 
 AnalysisSpec / AnalysisResult
 ├─ 用户明确指定的分析参数
@@ -67,6 +67,9 @@ SemanticTargetId     例如 series:control、axis:y-left
 DatasetVersionRef    数据集 ID + 版本 + 内容哈希
 ObjectVersionRef     对象 ID + expected version
 Quantity             数值 + 明确单位
+FieldId              跨 rename/reorder 稳定的字段 ID
+RowId                基于源位置或父行组合的稳定行 ID
+UnitSpec             原文 + 规范单位 + 维度 + kind + registry version
 ColorValue           标准颜色表达，不接受任意 CSS
 ResourceRef          主进程授权的资源 ID，不是任意路径
 ```
@@ -75,6 +78,12 @@ ResourceRef          主进程授权的资源 ID，不是任意路径
 
 - `dataset:`、`analysis:`、`plot:`、`batch:`、`figure:`、`export:`
 - `series:`、`axis:`、`legend:`、`annotation:`、`panel:`
+
+### 3.1 DatasetVersion 与 TransformSpec
+
+DatasetVersion 保存 parent refs、ImportRecipe 或 TransformSpec、schema/UnitSpec、数据哈希、row lineage ref、field lineage 和 quality summary。一次 `create_derived_dataset` 使用最多 16 步线性 TransformPipeline，只原子发布最终 DatasetVersion；Join/Concat 可声明多个父级。
+
+TransformStep 使用 Pydantic discriminated union 和类型化 AST，禁止 SQL、Python、字符串表达式与 UDF。第一轮白名单、异常策略、UnitSpec 运算、三层 lineage 与预检以 [派生数据、单位与血缘契约](./DATA-TRANSFORMS.md) 为准。
 
 ## 4. PlotSpec
 
@@ -144,8 +153,9 @@ ResourceRef          主进程授权的资源 ID，不是任意路径
 ### 4.3 数据与分析分离
 
 - 字段角色引用稳定列 ID，并附带名称、数据类型和单位快照用于审计。
-- 数据转换生成新的 DatasetVersion，不把转换表达式藏在 renderer 中。
+- TransformSpec 表达确定性表变换并生成新的 DatasetVersion，不把转换表达式藏在 renderer 中。
 - 拟合、误差、平滑、检验、直方分箱和 KDE 等计算生成 AnalysisResult。
+- AnalysisResult 表格端口只有通过独立 `materialize_analysis_output` Action 才成为 DatasetVersion；物化复制持久化结果，不重新计算分析。
 - PlotSpec 只描述如何显示 AnalysisResult；重新计算会生成新分析版本和新 PlotSpec 版本。
 
 ### 4.4 样式快照
@@ -288,6 +298,7 @@ PatchTransaction
 ### 7.3 Action 联合
 
 - `create_derived_dataset`
+- `materialize_analysis_output`
 - `run_analysis`
 - `create_plot`
 - `patch_plot`
@@ -327,7 +338,7 @@ validation: info | warning | blocked
 规则：
 
 - 明确、可逆的样式修改直接执行并创建版本。
-- 用户已经明确给出全部参数的数据变换或分析可以生成派生对象后执行，并展示参数与警告。
+- 用户已经明确给出全部参数的数据变换可以生成派生 DatasetVersion，分析可以生成 AnalysisResult；两者执行前都展示参数与警告。
 - 字段映射遵循一次映射规则；精确、无歧义指令可以跳过确认。
 - 参数缺失、目标歧义、统计方法未指定时返回 NeedsInput。
 - 数学不可执行、数据结构不满足或违反产品硬规则时返回 BlockedPlan。
@@ -350,6 +361,8 @@ validation: info | warning | blocked
 - Pydantic Schema 与生成 TypeScript 类型的一致性。
 - PatchTransaction 原子性与版本冲突。
 - ActionPlan 最大 8 步、无环依赖和禁止 Action。
+- TransformPipeline 最大 16 步、只发布最终 DatasetVersion，ActionPlan 的 `materialize_analysis_output` 不重算分析。
+- UnitSpec、对象/字段/行 lineage 与 TransformStep discriminated union。
 - BatchSpec 完全同构签名。
 - FigureSpec 固定版本引用。
 - 旧 Schema 迁移与未知新版本拒绝。

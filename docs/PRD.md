@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -238,18 +238,29 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 - 不提供任意单元格编辑。
 - 原始数据只读。
-- 筛选、归一化、聚合、对数等确定性表变换生成派生数据；平滑和拟合生成 AnalysisResult，不把结果隐藏在 renderer 中。
-- 宽表转长表、合并、透视等结构变化不得静默发生。
-- 每个步骤记录参数、顺序、输入和输出。
+- DatasetVersion 保存 parent refs、TransformSpec、schema/UnitSpec、数据哈希、row lineage ref、field lineage 和 quality summary。
+- 一次派生数据操作最多包含 16 步线性 TransformPipeline，只发布最终 DatasetVersion；Join/Concat 可以有多父级。
+- 所有步骤是 Pydantic discriminated union 和类型化 AST，不接受 SQL、Python、字符串表达式或 UDF。
+- 第一轮支持字段选择/重命名/重排/cast/单位声明与转换，filter/sort/range/显式 dedupe，精确类别 recode/order/merge，算术/power/abs/sqrt/log/exp/rounding，baseline/reference/percent/min-max/zscore，melt/pivot/transpose，同构 concat、cardinality-checked join，以及显式 datetime/timezone/difference。
+- many-to-many join 阻止；pivot duplicate keys 必须指定 aggregate；不支持 row-index cell editing。
+- 异常策略为 fail、set missing 或 filter rows，默认 fail；不自动 clipping、winsorization、imputation 或删除离群值。
+- TransformSpec 生成 DatasetVersion；统计、拟合、KDE、平滑和检验使用 AnalysisSpec 生成 AnalysisResult。需要普通表时显式执行 `materialize_analysis_output`，不得重算分析。
+- 对象级保存父级/recipe/hash，字段级保存稳定 field_id 与 expression AST，行级保存源 row ID、组合关系或压缩成员关系。
+- apply 前展示 row/column delta、字段和单位、新 missing/NaN/Inf、join unmatched/expansion 与少量 before/after sample；歧义返回 NeedsInput。
 - 源文件内容改变后重新导入会创建新的数据集版本，不覆盖旧版本。
 - 完全相同的数据在同一项目内按内容哈希去重，不跨项目共享对象。
+- 同构批次使用完全相同 TransformSpec；reference rule 可按相同语义逐数据求值，但不允许逐文件字段、单位、公式或异常策略例外，单项可部分失败。
+- 完整注册表和 lineage 契约见 [派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)。
 
 ### 7.2 单位与显示精度
 
-- 从列名、单位行和 Excel 表头识别单位。
+- UnitSpec 保存 source text、canonical unit、dimensionality、physical/dimensionless/opaque kind 和 registry version。
+- 从列名、单位行和 Excel 表头识别的单位只是建议，确认后的数据库 UnitSpec 才是权威；Parquet metadata 只镜像。
 - 字段映射同时展示名称、数据类型和单位。
 - 同一坐标轴出现不兼容单位时阻止执行。
-- 单位转换生成派生列，记录原单位、目标单位和公式。
+- 单位转换生成派生数据；plot-only 转换也生成默认折叠但可审计的 plot-local DatasetVersion。
+- 加减要求兼容维度，乘除生成复合单位，log/exp 要求无量纲；温度区分 offset 与 delta，opaque 仅同名兼容。
+- Python Core 使用 pinned Pint registry；项目 alias 可以映射单位文本，但不能重定义标准单位。
 - 数据精度与显示精度分离。
 - 系统不根据数值大小擅自换算单位。
 
@@ -342,7 +353,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 - 模型只能调用白名单数据处理、统计、绘图和导出工具。
 - 不直接生成并执行任意 Python。
-- 公式使用受限制表达式系统。
+- 表变换只使用白名单 discriminated union 与类型化表达式 AST，不接收字符串公式。
 - 首版不支持自定义 Python 节点。
 
 ### 9.2 统计边界

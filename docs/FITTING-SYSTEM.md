@@ -3,7 +3,7 @@
 > 状态：第一轮拟合系统基线已确认  
 > 日期：2026-08-05  
 > 适用范围：FitSpec、线性与非线性白名单模型、输入层级、权重、初始化、区间、外推、FitResult 与正式导出  
-> 相关文档：[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 契约位置
 
@@ -53,9 +53,9 @@ FitSpec 必须通过 `input_level` 明确记录以下四类之一：
 
 ### 3.2 `x_center_summary`
 
-- 先按 X 形成显式中心汇总，再对汇总结果拟合。
-- 汇总方法、分组键、每个 X 的样本数和生成的结果表引用必须记录。
-- 该汇总是明确的上游绘图计算，不得由拟合器临时隐藏执行。
+- 先用显式 AnalysisSpec 按 X 形成中心汇总，再通过 `materialize_analysis_output` 创建输入 DatasetVersion，最后对该版本拟合。
+- 汇总方法、分组键、每个 X 的样本数、AnalysisResult 端口和物化 lineage 必须记录。
+- 该汇总是明确的上游分析与物化链，不得由拟合器临时隐藏执行。
 
 ### 3.3 `provided_summary_error`
 

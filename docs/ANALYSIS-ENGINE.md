@@ -3,7 +3,7 @@
 > 状态：第一轮分析计算基线已确认  
 > 日期：2026-08-05  
 > 适用范围：数值数据的绘图计算、科学分析、显著性检验、AnalysisSpec、AnalysisResult 与批量一致性  
-> 相关文档：[拟合系统契约](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 三层计算模型
 
@@ -151,6 +151,8 @@ AnalysisResult 是 AnalysisSpec 在固定输入上的不可变执行结果，至
 - 运行种子、完成状态、警告、失败代码和任务来源。
 
 Result 哈希覆盖规格哈希、输入哈希、实现版本和输出对象哈希。显示文本不是科学真值；界面回复和导出摘要必须由结构化结果生成。
+
+AnalysisResult 不自动成为普通 DatasetVersion。只有用户显式执行 `materialize_analysis_output`，才能把一个持久化表格 output port 复制为派生 DatasetVersion；该动作不重算分析，并按 [派生数据、单位与血缘契约](./DATA-TRANSFORMS.md) 保存 UnitSpec 与三层 lineage。
 
 ## 8. PlotSpec 引用规则
 

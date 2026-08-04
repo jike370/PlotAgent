@@ -47,7 +47,7 @@
 ## D. 数据、字段映射与批量
 
 - **PD-D01 原始数据只读。** 不支持任意改单元格；原始数据永远不可被绘图操作改写。
-- **PD-D02 派生数据。** 筛选、转换、归一化、平滑、聚合、透视、宽长表变化、单位转换和拟合输入等操作生成派生数据，并记录公式、参数、顺序、输入和输出。
+- **PD-D02 派生数据。** 确定性表变换生成 DatasetVersion 并保存 TransformSpec 与 lineage；拟合、平滑、KDE 和检验生成 AnalysisResult，不混入表变换。
 - **PD-D03 数据集版本。** 源文件重新导入且内容改变时创建新的数据集版本；已有图表继续绑定旧版本，重新运行时才生成新的图表版本。
 - **PD-D04 一轮字段映射。** 系统根据名称、类型、单位和结构预填高置信度映射，用户只确认或调整一次；明确且无歧义的指令可以跳过确认。
 - **PD-D05 两轮方案不并存。** 不再设计“预映射一轮、绘图前再映射一轮”的流程；所有字段角色在同一映射对象中完成确认。
@@ -133,7 +133,7 @@
 ## J. Agent、模型与隐私
 
 - **PD-J01 在线规划、本地执行。** 在线模型负责理解指令和规划，数据、统计、绘图、文件与 Origin 操作由本地白名单工具完成。
-- **PD-J02 禁止任意代码。** 第一轮不允许模型直接运行任意 Python，不提供自定义 Python 节点；公式使用受限表达式。
+- **PD-J02 禁止任意代码。** 第一轮不允许模型直接运行任意 Python，不提供自定义 Python 节点；表变换只接受白名单 discriminated union 与类型化 AST，不接受字符串表达式或 UDF。
 - **PD-J03 回复契约。** 对话显示任务阶段，但不展示内部推理或工具控制台；结果对象优先，正文只写结果范围、必要警告和后续动作，详细参数折叠显示。
 - **PD-J04 追问原则。** 只在缺少必要信息或目标歧义时追问，不为展示 Agent 能力制造问题。
 - **PD-J05 不做解释写作。** Agent 不生成论文式解释、图注、方法摘要或结论。
@@ -237,7 +237,7 @@
 - **PD-P11 领域 PlotPatch。** 改图只使用带 `operation` discriminator 的白名单领域 Patch，不向模型暴露通用 JSON Patch 或 `set_property(path, value)`。
 - **PD-P12 Patch 事务。** 多项修改进入 PatchTransaction，先完整校验再原子应用，并使用 expected version 防止覆盖新修改。
 - **PD-P13 五类计划结果。** 模型只能返回 ExecutablePlan、NeedsInput、BlockedPlan、UnsupportedRequest 或 NoChange 之一。
-- **PD-P14 九类 Action。** 第一轮 Action 仅为创建派生数据、运行分析、创建/修改图、创建/修改批次、创建/修改组合图和导出产物。
+- **PD-P14 十类 Action。** 第一轮 Action 仅为创建派生数据、物化分析输出、运行分析、创建/修改图、创建/修改批次、创建/修改组合图和导出产物。
 - **PD-P15 计划上限。** 一个 ActionPlan 最多 8 个 Action，可以有无环依赖，不允许循环、条件脚本或运行时创建额外 Action。
 - **PD-P16 批次内部展开。** 多文件 fan-out 由 BatchService 根据 BatchSpec 完成，不让模型逐文件生成 Action。
 - **PD-P17 模型无直接执行工具。** 模型不直接调用领域服务、文件系统或 Origin，只提交一个结构化计划候选，由本地校验器映射到执行器。
@@ -346,3 +346,28 @@
 - **PD-T20 持久化曲线导出。** PlotSpec 与正式导出只引用 FitResult 的持久化曲线和区间表；renderer、Matplotlib 与 Origin 均不重新拟合。
 
 完整模型公式、输入、权重、求解、区间、失败和导出契约见 [拟合系统契约](./FITTING-SYSTEM.md)。
+
+## U. 派生数据、单位与三层血缘
+
+- **PD-U01 DatasetVersion 内容。** DatasetVersion 保存 parent refs、ImportRecipe/TransformSpec、schema/UnitSpec、data hash、row lineage ref、field lineage、quality summary 和审计版本。
+- **PD-U02 线性 Pipeline。** 一次 `create_derived_dataset` 最多包含 16 个线性 TransformStep，只原子发布最终 DatasetVersion；需要中间对象时拆成多个 Action。
+- **PD-U03 多父级。** Join 和 Concat 可以声明多个精确父级，最终对象保留全部 parent refs、版本与哈希。
+- **PD-U04 类型安全变换。** 所有 TransformStep 使用 Pydantic discriminated union 与类型化 AST，禁止 SQL、Python、字符串表达式、UDF 和动态步骤。
+- **PD-U05 字段、行与类别白名单。** 第一轮支持 select/rename/reorder/cast/unit declaration/conversion，filter/sort/range/explicit dedupe，以及 exact category recode/order/merge。
+- **PD-U06 数值白名单。** 第一轮支持算术、power、abs、sqrt、log、exp、显式 rounding、baseline subtraction、reference division、percent、min-max 和 zscore。
+- **PD-U07 结构与时间白名单。** 第一轮支持 melt/pivot/transpose、完全同构 concat、cardinality-checked join，以及显式 datetime parsing/timezone/difference。
+- **PD-U08 结构硬边界。** 第一轮不支持 row-index cell editing 和 many-to-many join；pivot duplicate keys 必须明确选择注册 aggregate，不能静默取值。
+- **PD-U09 异常策略。** 变换异常策略只允许 fail、set_missing 或 filter_rows，默认 fail；不自动 clipping、winsorization、imputation 或删除离群值。
+- **PD-U10 变换与分析分离。** TransformSpec 只表达确定性表变换并输出 DatasetVersion；统计、fit、KDE、smoothing 和 test 使用 AnalysisSpec 输出 AnalysisResult。
+- **PD-U11 显式物化。** AnalysisResult 表格端口只有通过独立 `materialize_analysis_output` Action 才成为 DatasetVersion，物化复制持久化端口且不重新分析。
+- **PD-U12 UnitSpec。** UnitSpec 保存 source_text、canonical_unit、dimensionality、physical/dimensionless/opaque kind 和 registry_version；表头识别只提出建议。
+- **PD-U13 单位转换版本。** 单位转换创建派生 DatasetVersion；plot-only 转换也创建默认折叠但可在血缘与导出中审计的 plot-local 版本。
+- **PD-U14 单位代数。** 加减要求维度兼容，乘除生成复合单位，log/exp 要求无量纲，温度区分 offset/delta，opaque 只与同名 opaque 兼容。
+- **PD-U15 Registry 权威。** Python Core 使用进程内 pinned Pint registry；项目 alias 不得重定义标准单位，数据库 UnitSpec 权威且 Parquet metadata 只镜像。
+- **PD-U16 对象与字段血缘。** 对象级保存 parent/recipe/hash；rename/reorder 保留稳定 field_id，新字段保存引用父字段的类型化 expression AST。
+- **PD-U17 行级血缘。** 原始 row ID 由 source hash、sheet/table 和 source row index 生成；filter/sort 保留，concat/join 组合，dedupe/aggregate/pivot 引用压缩成员关系对象。
+- **PD-U18 变换预检。** apply 前展示 row/column delta、字段/单位变化、新 missing/NaN/Inf、join unmatched/expansion 和少量 before/after sample；歧义返回 NeedsInput。
+- **PD-U19 非破坏性确认。** 普通变换因父数据不可变而无需破坏性确认；硬规则阻止，warning 继续选择写入操作记录。
+- **PD-U20 同构批次。** 批次使用完全相同 TransformSpec；reference rule 可按同一语义逐项求值，不允许逐文件字段/单位/formula/error policy 例外，单项可部分成功。
+
+完整步骤注册表、单位代数、血缘、预检与批量契约见 [派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)。
