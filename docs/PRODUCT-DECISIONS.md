@@ -132,15 +132,15 @@
 
 ## J. Agent、模型与隐私
 
-- **PD-J01 在线规划、本地执行。** 在线模型负责理解指令和规划，数据、统计、绘图、文件与 Origin 操作由本地白名单工具完成。
+- **PD-J01 在线规划、本地执行。** 在线模型只返回一个结构化 AgentDecision 候选；数据、统计、绘图、文件与 Origin 操作由本地 Executor 在完整校验后调用领域服务，模型没有任何本地工具或 tool loop。
 - **PD-J02 禁止任意代码。** 第一轮不允许模型直接运行任意 Python，不提供自定义 Python 节点；表变换只接受白名单 discriminated union 与类型化 AST，不接受字符串表达式或 UDF。
-- **PD-J03 回复契约。** 对话显示任务阶段，但不展示内部推理或工具控制台；结果对象优先，正文只写结果范围、必要警告和后续动作，详细参数折叠显示。
-- **PD-J04 追问原则。** 只在缺少必要信息或目标歧义时追问，不为展示 Agent 能力制造问题。
+- **PD-J03 回复契约。** 对话显示本地任务阶段，但不展示内部推理或供应商传输细节；结果对象优先，正文只写结果范围、必要警告和后续动作，详细参数折叠显示。
+- **PD-J04 追问原则。** 只在对象不明、字段映射同等候选、科研语义会实质改变结论、需要扩大出境或本地校验缺少必要信息时追问；一次最多一张卡、卡内最多三个问题。
 - **PD-J05 不做解释写作。** Agent 不生成论文式解释、图注、方法摘要或结论。
-- **PD-J06 默认模型负载。** 默认只发送指令、列名、类型、单位、统计摘要和少量样本；需要更多数据时展示范围并取得用户授权。
+- **PD-J06 默认模型负载。** 默认只发送指令、相关字段元数据、统计摘要和确定性小样本，硬上限为 20 行、12 个字段和 200 个 scalar；不发送原始文件、路径、SQLite、OPJU、完整表或完整对话。扩大范围必须通过 NeedsInput 展示用途与数量并取得作用域授权。
 - **PD-J07 原始数据本地。** 云端控制面不保存原始数据、项目、图表或完整对话历史。
 - **PD-J08 离线能力。** 离线时导入、手动选图、字段映射、参数编辑、重绘和导出可用；只有自然语言 Agent 不可用。
-- **PD-J09 自定义模型。** 用户可以配置 OpenAI-compatible 模型端点，凭据保存在 Windows Credential Manager。
+- **PD-J09 自定义模型。** 用户可以配置 OpenAI-compatible base URL、model ID 与可选 API key；非 loopback 强制 HTTPS，连接测试只用合成内容，凭据只存 Windows Credential Manager。
 - **PD-J10 匿名分析。** 匿名使用分析与诊断默认关闭，只有用户主动开启；不得包含原始数据、任何用户提示、文件名或列值；提交前可预览内容。
 
 ## K. Origin 与文件导出
@@ -200,8 +200,8 @@
 ## O. 后端与 Agent 架构
 
 - **PD-O01 单 Agent。** 第一轮使用一个规划 Agent，不采用多 Agent 协作或子 Agent 系统。
-- **PD-O02 有界规划。** Agent 使用固定上限的“上下文、计划、策略校验、科研校验、执行、验证、事务提交、结果回复”流程，不运行开放式自主循环。
-- **PD-O03 结构化计划。** 模型只输出符合 JSON Schema 的 ActionPlan，不生成或执行任意 Python、Matplotlib、Origin、SQL、命令行或文件系统代码。
+- **PD-O02 有界规划。** Agent 使用固定上限的“本地上下文、单个结构化决策、本地校验、执行、验证、事务提交、状态归约与结果回复”流程，不运行开放式自主循环或工具循环。
+- **PD-O03 结构化决策。** 模型只输出符合 JSON Schema 的 AgentDecision 候选，不生成或执行任意 Python、Matplotlib、Origin、SQL、命令行、URL 或文件系统操作。
 - **PD-O04 同一执行链。** 手动 UI 与自然语言操作生成同一种 ActionPlan，离线模式绕过模型但复用完整本地执行链。
 - **PD-O05 常驻 Python Core。** Electron 主进程启动并监管一个常驻 Python 3.12 Core，避免按任务重复启动科学计算环境。
 - **PD-O06 本地协议。** Electron 与 Python 使用版本化 JSON-RPC over stdio，不开放本地 HTTP 端口；大型数据只通过对象 ID 或受控资源引用传递。
@@ -210,8 +210,8 @@
 - **PD-O09 PlotSpec 与 RenderPlan。** 版本化 PlotSpec 是图表结构化真值；Matplotlib、PNG、SVG 与 Origin 使用由固定数据、分析、样式和发表规格解析出的同一 ResolvedRenderPlan。
 - **PD-O10 PlotPatch。** 改图使用面向稳定语义 ID 的白名单 PlotPatch，并通过 expected version 防止覆盖并发或旧版本修改。
 - **PD-O11 单一正式渲染器。** Matplotlib 是第一轮正式预览、PNG 和 SVG 渲染器；不同时维护 Plotly 与 Matplotlib 两套正式视觉结果。
-- **PD-O12 模型适配层。** 内部只依赖供应商无关的 ModelProvider；OpenAI 使用 Responses API 结构化工具调用，OpenAI-compatible 服务先进行能力探测再选择协议。
-- **PD-O13 严格写操作。** 无法稳定返回严格结构化输出的模型不得直接执行写操作，只能生成经本地完整解析和校验的草案。
+- **PD-O12 模型适配层。** 内部只依赖 capability-based ModelProvider；OpenAI-compatible 服务以合成内容依次探测 Responses 与 Chat Completions 的结构化输出能力。response format/function-calling 仅是单个 AgentDecision 的传输约束，不提供工具授权。
+- **PD-O13 输出能力等级。** P1 可稳定返回严格 JSON Schema；P2 仅 JSON 并在本地校验失败后最多 repair 一次；P0 不准入。任何等级都必须通过本地 schema、版本、能力、权限和业务校验。
 - **PD-O14 领域服务。** Python Core 按 Project、Dataset、Transform、Plot、Analysis、Batch、Composition、Export、Origin 和 Task 服务划分，不把业务逻辑集中在模型提示中。
 - **PD-O15 持久化。** SQLite 保存元数据、引用、版本 DAG、任务和日志；内容寻址存储保存原始副本、派生数据、PlotSpec、预览与缓存；Arrow/Parquet 为内部表格交换与派生格式。
 - **PD-O16 Pandas 边界。** Pandas 用于 Excel、SciPy、Matplotlib 与 Origin 兼容，不作为唯一存储真值。
@@ -236,13 +236,13 @@
 - **PD-P10 FigureSpec 独立。** FigureSpec 保存固定布局并引用明确 PlotSpec 版本；源图更新只提示，不自动替换。
 - **PD-P11 领域 PlotPatch。** 改图只使用带 `operation` discriminator 的白名单领域 Patch，不向模型暴露通用 JSON Patch 或 `set_property(path, value)`。
 - **PD-P12 Patch 事务。** 多项修改进入 PatchTransaction，先完整校验再原子应用，并使用 expected version 防止覆盖新修改。
-- **PD-P13 五类计划结果。** 模型只能返回 ExecutablePlan、NeedsInput、BlockedPlan、UnsupportedRequest 或 NoChange 之一。
+- **PD-P13 四类 AgentDecision。** 模型只能返回 ActionPlan、NeedsInput、Unsupported 或 NoChange 之一；不从自然语言或传输 transcript 猜命令。
 - **PD-P14 十类 Action。** 第一轮 Action 仅为创建派生数据、物化分析输出、运行分析、创建/修改图、创建/修改批次、创建/修改组合图和导出产物。
 - **PD-P15 计划上限。** 一个 ActionPlan 最多 8 个 Action，可以有无环依赖，不允许循环、条件脚本或运行时创建额外 Action。
 - **PD-P16 批次内部展开。** 多文件 fan-out 由 BatchService 根据 BatchSpec 完成，不让模型逐文件生成 Action。
-- **PD-P17 模型无直接执行工具。** 模型不直接调用领域服务、文件系统或 Origin，只提交一个结构化计划候选，由本地校验器映射到执行器。
+- **PD-P17 模型无执行工具。** 模型没有领域服务、文件系统、数据库、Origin 或 URL 工具，也没有 tool loop；只提交一个结构化 AgentDecision 候选，由本地校验器决定是否交给执行器。
 - **PD-P18 Context Builder。** 模型调用前由本地系统准备当前目标、引用对象、字段、单位、摘要、图形能力与项目规则；不足时模型返回 NeedsInput。
-- **PD-P19 确认与校验分离。** 可逆明确修改直接执行；参数缺失或歧义返回 NeedsInput；硬规则返回 BlockedPlan；科研 warning 不等同于确认弹窗。
+- **PD-P19 确认与校验分离。** 可逆明确修改直接执行；必要信息缺失或歧义返回 NeedsInput；数学、安全、版本与产品硬规则由本地 validator 产生稳定阻断错误；科研 warning 不等同于确认弹窗。
 - **PD-P20 破坏性操作隔离。** 永久删除、清空回收站、覆盖外部文件、凭据与隐私设置不进入普通 Agent ActionPlan，只能通过专门 UI 确认。
 
 完整 Schema 结构见 [领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)。
@@ -421,3 +421,28 @@
 - **PD-W20 恢复不改规格。** 错误提供安装/授权/版本/字体模板/目录锁/Save As 等明确动作；恢复不自动换 adapter、template、删目标或降级 capability。
 
 完整 target 内容、adapter、安全、两阶段验证、原子性、外部修改与错误契约见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
+
+## X. Agent 上下文、模型供应商与数据出境
+
+- **PD-X01 本地权威链。** 固定链路为本地 ContextBuilder → ModelProvider → 本地 AgentDecision 校验 → 本地 ActionPlan 执行 → 权威对象与 ConversationState reducer；模型不拥有工具循环或执行权。
+- **PD-X02 不可信数据。** 列名、单元格、元数据和其中 URL 均是不可信 data，不进入指令区、不解释为 instructions、不抓取链接。
+- **PD-X03 无供应商会话。** 每次从本地权威状态重建最小 ContextEnvelope，不使用供应商 Conversation、`previous_response_id` 或隐藏会话状态；官方 OpenAI adapter 固定 `store:false`。
+- **PD-X04 ConversationState。** 本地结构化状态保存目标、确认选择、带版本引用、映射、偏好、未决问题和最近结果，只由权威对象与执行结果 reducer 更新；不建立隐藏跨项目记忆。
+- **PD-X05 ContextEnvelope。** Envelope 至少包含 schema/prompt 版本、locale、指令、target snapshot、conversation state、图形能力、selected context、DataDisclosure 和 context hash；所有引用带 object ID 与 version。
+- **PD-X06 首次出境同意。** 每个 provider 首次处理项目内容前明确说明默认发送类别；默认不发送原始文件、工作区路径、SQLite、OPJU、完整表、完整项目或完整对话。
+- **PD-X07 小样本与宽表。** 每次默认小样本最多 20 行、12 个相关字段和 200 个 scalar，使用版本化确定性选择；超过 200 列先由本地字段索引筛选候选，不发送全量 schema。
+- **PD-X08 扩大出境。** 扩大数据范围只能由 NeedsInput 请求并显示对象、字段、规模和用途；授权仅为本次或本对话同类请求，可撤销且没有永久全局放行。
+- **PD-X09 DataDisclosure。** 本地只保存 provider、对象版本、授权作用域、类别/数量、disclosure/context hash 与撤销状态，不为审计保存未展示的完整网络请求副本。
+- **PD-X10 Provider 类型。** 内置 provider 通过邀请设备令牌访问 PlotAgent proxy，平台 key 仅服务端持有；自定义 OpenAI-compatible 先探测 Responses、再回退 Chat Completions，连接测试只发合成内容。
+- **PD-X11 凭据与网络。** API key/设备令牌只存 Windows Credential Manager；非 loopback 强制 HTTPS、TLS 不可关闭，拒绝非 HTTP(S) 与带 Authorization 的跨 origin redirect；provider 配置不随项目包导出。
+- **PD-X12 输出能力。** P1 为严格 JSON Schema；P2 为 JSON 且最多一次 repair；P0 不支持。所有等级都经过相同本地校验。
+- **PD-X13 唯一决策联合。** Provider 只返回 ActionPlan、NeedsInput、Unsupported 或 NoChange；硬规则由本地 validator 阻断，不设置模型自报的 blocked 分支。
+- **PD-X14 澄清上限。** 仅在对象、同等映射候选、影响科研结论的语义、扩大出境或本地校验无法成立时询问；一次一张卡且最多三个独立问题。
+- **PD-X15 续接失效。** 澄清续接固定 target versions 与 context hash；目标变化使旧 draft 失效并基于最新权威状态重规划。
+- **PD-X16 ModelRunAudit。** 审计保存 provider 类型/origin、model/profile/config、prompt/schema、request/run ID、耗时、usage、状态、DataDisclosure 计数与 context hash，不保存 secret、隐藏推理或完整 payload。
+- **PD-X17 保留说明。** 内置 proxy 只承诺自身不记录 payload，并准确展示底层供应商政策；OpenAI API 不宣传零保留，第三方 provider 的保留政策必须由用户确认。
+- **PD-X18 完整决策后执行。** Streaming 只降低网络等待，UI 只显示本地阶段；完整 plan 校验前不展示/执行 partial plan，取消立即中止 HTTP 请求且不暴露 chain-of-thought。
+- **PD-X19 固定模型配置。** 每次 ModelRun 固定 model/profile/config version 并写入审计，运行中不得静默切换或 fallback 模型。
+- **PD-X20 错误与验收。** Provider 连接/TLS/auth/rate/quota/timeout/cancel、schema/repair、context、出境、stale target 和 retention acknowledgment 使用稳定错误，并提供契约测试与故障注入矩阵。
+
+完整上下文、供应商、出境、审计、保留与故障注入契约见 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)。

@@ -3,7 +3,7 @@
 > 状态：第一轮契约基线已确认  
 > 日期：2026-08-05  
 > 适用范围：DatasetVersion、TransformSpec、PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及其跨进程 Schema  
-> 相关文档：[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 契约原则
 
@@ -287,22 +287,21 @@ PatchTransaction
 
 ### 7.1 结果联合
 
-模型只能返回以下五类结果之一：
+模型只能返回以下四类 `AgentDecision` 之一：
 
-- `ExecutablePlan`：计划完整且允许本地校验。
+- `ActionPlan`：完整的白名单计划候选，仍须本地校验。
 - `NeedsInput`：缺少必要参数或目标存在歧义。
-- `BlockedPlan`：数学、结构、安全或产品硬规则禁止执行。
-- `UnsupportedRequest`：第一轮没有对应能力。
+- `Unsupported`：第一轮或当前 provider 没有合法能力路径。
 - `NoChange`：请求已经满足或不会产生状态变化。
 
-每种结果都使用 `result_type` discriminator，不依赖自然语言判断结果类型。
+每种结果都使用 `decision_type` discriminator，不依赖自然语言、Markdown 或 tool transcript 判断结果类型。数学、结构、安全、版本或产品硬规则由本地 validator 拒绝并产生稳定错误，不由模型返回“已阻止”结果。
 
-### 7.2 ExecutablePlan
+### 7.2 ActionPlan
 
 ```json
 {
   "schema_version": "1.0",
-  "result_type": "executable",
+  "decision_type": "action_plan",
   "plan_id": "plan:001",
   "project_id": "project:001",
   "expected_versions": {},
@@ -348,7 +347,7 @@ PatchTransaction
 - 校验通过后，Local Executor 才把 Action 映射到领域服务。
 - 信息不足时返回 NeedsInput，不让模型自行遍历项目、猜测字段或尝试执行。
 
-供应商工具调用能力可以用于约束 `ActionPlan` 输出，但不等于把本地执行工具直接交给模型。
+供应商的 JSON Schema、response format 或 function-calling 只能约束单个 `AgentDecision` 的传输格式；第一轮不提供工具循环，也不把任何本地工具交给模型。ContextEnvelope、AgentDecision、provider 能力级别和数据出境以 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md) 为准。
 
 ## 9. 确认与风险
 
@@ -365,7 +364,7 @@ validation: info | warning | blocked
 - 用户已经明确给出全部参数的数据变换可以生成派生 DatasetVersion，分析可以生成 AnalysisResult；两者执行前都展示参数与警告。
 - 字段映射遵循一次映射规则；精确、无歧义指令可以跳过确认。
 - 参数缺失、目标歧义、统计方法未指定时返回 NeedsInput。
-- 数学不可执行、数据结构不满足或违反产品硬规则时返回 BlockedPlan。
+- 数学不可执行、数据结构不满足或违反产品硬规则时由本地 validator 阻止并返回稳定错误，不要求模型自我判断。
 - 永久删除、覆盖外部文件等破坏性操作不进入普通 ActionPlan，必须通过专门 UI 确认。
 
 ## 10. Schema 发布与兼容

@@ -78,7 +78,7 @@ Agent 可以解析用户已经明确表达的方法与参数，但不能替用�
 | 生存分析 | 右删失 KM、风险人数、Greenwood CI、用户显式选择的 Log-rank | `survival_curve`、`risk_table`、`confidence_band`、`test_result` |
 | 混淆矩阵 | count、按真实类别归一化、按预测类别归一化、全局归一化 | `matrix`、`class_totals`、`normalization_metadata` |
 
-“第一轮注册表”是能力上限，不是默认执行清单。图形模板只能预填其中的方法；未在注册表中的方法返回 UnsupportedRequest，不能由 Agent 换成“相近方法”。
+“第一轮注册表”是能力上限，不是默认执行清单。图形模板只能预填其中的方法；未在注册表中的方法返回 `Unsupported`，不能由 Agent 换成“相近方法”。
 
 ## 4. 显著性检验白名单
 

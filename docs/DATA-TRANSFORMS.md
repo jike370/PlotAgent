@@ -258,7 +258,7 @@ TransformSpec 正式执行前展示基于完整 schema 和受控样本/扫描得
 普通变换因为父版本不可变且结果是新 DatasetVersion，不需要破坏性确认。以下情况仍不执行：
 
 - 字段、单位、日期格式、reference rule 或目标语义有歧义时返回 NeedsInput。
-- 违反 join cardinality、单位维度、Pipeline 上限或禁止能力时返回 BlockedPlan。
+- 违反 join cardinality、单位维度、Pipeline 上限或禁止能力时由本地 validator 阻止并返回稳定错误。
 - 预检 warning 的继续选择写入操作记录，但 warning 不等同于破坏性确认。
 
 完整执行可能发现样本预检未覆盖的问题；此时按 error policy 原子失败或记录，不能使用样本结果强行提交。

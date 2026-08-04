@@ -3,7 +3,7 @@
 > 状态：第一轮任务运行时基线已确认  
 > 日期：2026-08-05  
 > 适用范围：InteractionRun、ExecutionTask、三通道调度、提交边界、取消、版本冲突、崩溃恢复与桌面任务体验  
-> 相关文档：[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 两类运行对象
 
@@ -11,11 +11,11 @@
 
 `InteractionRun` 表示一次模型交互与结构化规划：
 
-- 构建上下文、调用模型并校验 ActionPlan 结果。
+- 构建 ContextEnvelope、调用模型并校验唯一 AgentDecision 结果。
 - 用户可以停止模型生成；停止只结束当前规划，不代表取消已经存在的本地任务。
-- `NeedsInput`、`BlockedPlan`、`UnsupportedRequest` 和 `NoChange` 都结束当前 InteractionRun。
+- `NeedsInput`、`Unsupported` 和 `NoChange` 都结束当前 InteractionRun；本地 validator 拒绝的 ActionPlan 也以稳定错误结束。
 - `NeedsInput` 只在来源对话中展示必要问题，不创建 ExecutionTask，不进入任务中心，也不计入后台任务数。
-- 只有通过本地校验并被接受的 `ExecutablePlan` 才能展开为一个或多个 ExecutionTask。
+- 只有通过本地校验并被接受的 `ActionPlan` 才能展开为一个或多个 ExecutionTask。
 
 ### 1.2 ExecutionTask
 

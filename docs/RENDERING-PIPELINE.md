@@ -77,7 +77,7 @@ Axis scale 只允许：
 - `datetime`
 - `categorical`
 
-第一轮不包含 symlog、probability 或 probit axis。请求未支持 scale 时返回 UnsupportedRequest，不能回退为 linear。
+第一轮不包含 symlog、probability 或 probit axis。请求未支持 scale 时返回 `Unsupported`，不能回退为 linear。
 
 坐标显示 scale 与 [拟合系统契约](./FITTING-SYSTEM.md) 中的模型变换彼此独立。改变 axis scale 不会重算 FitSpec 或其他 AnalysisSpec。
 

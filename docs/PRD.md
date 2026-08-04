@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -215,9 +215,9 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 ### 6.3 Agent 回复
 
-- 任务回复展示阶段与结构化结果对象，不展示内部推理、工具调用细节或冗长控制台输出。
+- 任务回复展示本地阶段与结构化结果对象，不展示内部推理、供应商传输细节或冗长控制台输出。
 - 结果对象优先；正文只说明结果范围、必要警告和可执行下一步，详细参数折叠显示。
-- 只在缺少必要信息或作用目标歧义时追问。
+- 只在对象不明、字段映射同等候选、分析/误差语义实质影响科研结果、需要扩大数据出境或本地校验缺少必要信息时追问；一次最多一张卡、卡内最多三个问题。
 - 不生成论文式解释、图注、方法摘要或科研结论。
 
 ### 6.4 批量审阅
@@ -357,8 +357,9 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 ### 9.1 执行模型
 
-- 模型只能调用白名单数据处理、统计、绘图和导出工具。
-- 不直接生成并执行任意 Python。
+- 模型没有数据处理、统计、绘图、导出、文件、数据库、Origin 或 URL 工具，也没有 tool loop；只返回一个结构化 AgentDecision 候选。
+- ActionPlan 候选必须通过本地 Schema、对象版本、capability、permission 与科研业务校验，之后才由本地 Executor 映射到领域服务。
+- 模型不生成或执行任意 Python、LabTalk、SQL、命令行或脚本。
 - 表变换只使用白名单 discriminated union 与类型化表达式 AST，不接收字符串公式。
 - 首版不支持自定义 Python 节点。
 
@@ -406,10 +407,13 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 ### 9.4 模型数据边界
 
-- 在线模型负责理解与规划，本地引擎负责数据、统计、绘图、文件和 Origin 操作。
-- 默认模型负载只包含指令、列名、类型、单位、统计摘要和少量样本。
-- 需要更多数据时，界面必须展示发送范围并取得用户授权。
+- 本地 ContextBuilder 从权威对象与 ConversationState 构建版本化 ContextEnvelope；在线模型只返回 AgentDecision，本地引擎负责所有数据、统计、绘图、文件和 Origin 操作。
+- 每个 provider 首次处理项目内容前取得一次明确同意。默认只发送指令、相关字段元数据、统计摘要和确定性小样本；小样本硬上限为 20 行、12 个字段和 200 个 scalar。
+- 默认不发送原始文件、工作区路径、SQLite、OPJU、完整表、完整项目或完整对话。超过 200 列时先在本地按名称/类型/单位筛选相关字段，不发送全量 schema。
+- 需要更多数据时只能返回 NeedsInput；界面展示 DatasetVersion、字段、规模和用途。授权只允许本次或本对话同类请求，可撤销且不提供永久全局放行。
 - 离线时手动选图、字段映射、参数编辑、重绘和导出继续可用，只有自然语言 Agent 不可用。
+- 模型不使用供应商托管 Conversation 或 `previous_response_id`；官方 OpenAI adapter 固定 `store:false`。列名、单元格和其中 URL 均按不可信 data 处理，不解释为指令或抓取链接。
+- 完整 ContextEnvelope、DataDisclosure、provider 能力级别、凭据、审计和保留说明见 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)。
 
 ## 10. 绘图与导出契约
 
@@ -530,19 +534,21 @@ Origin 能力分级：
 ### 14.2 Agent 与绘图核心
 
 - 第一轮采用单 Agent 有界规划，不使用多 Agent 或开放式自主循环。
-- Agent 只生成符合 JSON Schema 的 ActionPlan；手动 UI 生成相同计划并复用同一执行链。
+- Provider 只返回 `ActionPlan | NeedsInput | Unsupported | NoChange` 四类 AgentDecision；ActionPlan 是本地校验前的候选，手动 UI 直接生成相同 ActionPlan 并复用本地执行链。
+- 数学、安全、对象版本和产品硬规则由本地 validator 产生稳定阻断错误，不设置模型自报的 blocked 分支。
 - 版本化 PlotSpec 与不可变引用是结构化真值，单一 resolver 生成带 hash 的 ResolvedRenderPlan；Matplotlib、PNG、SVG 和 Origin 不再各自解析坐标或默认样式。
 - Matplotlib 是第一轮唯一正式预览、PNG 和 SVG adapter；Origin 由独立串行 Worker 从同一 ResolvedRenderPlan 重建原生对象。
 - Python Core 按 Project、Dataset、Transform、Plot、Analysis、Batch、Composition、Export、Origin 和 Task 领域服务拆分。
 - 详细协议、数据结构、任务状态与实现顺序以 [后端与 Agent 架构](./BACKEND-ARCHITECTURE.md) 为准。
 - PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 和 Schema 兼容规则以 [领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md) 为准。
+- ContextEnvelope、ConversationState、AgentDecision、Provider、DataDisclosure 与 ModelRunAudit 以 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md) 为准。
 
 ### 14.3 本地优先
 
 - 项目、数据、图表和历史默认只保存在本机。
 - 无网络时可导入、查看、手动选图、字段映射、参数编辑、重绘和重新导出。
 - 自然语言 Agent 需要在线模型或用户配置的兼容模型服务。
-- 用户可以配置 OpenAI-compatible 模型端点，凭据保存在 Windows Credential Manager。
+- 用户可以配置 OpenAI-compatible base URL、model ID 与可选 API key；连接测试只发合成内容，凭据只存 Windows Credential Manager。
 - 临时文件在隔离目录中创建并在任务结束后清理。
 
 ### 14.4 最小云端控制面
@@ -555,7 +561,7 @@ Origin 能力分级：
 - 同一邀请码不限制设备数量，各设备共享邀请码的模型额度和限流。
 - 邀请码被撤销后可以停止云端模型额度，但不能锁定本地项目或禁用本地绘图与导出。
 
-模型默认只接收用户指令、列名、类型、统计摘要和少量样本。需要更多数据时必须显示发送范围并取得授权。用户配置自有兼容模型后，桌面端直接连接该服务。
+内置 provider 通过设备令牌访问 PlotAgent proxy，平台供应商 key 只在服务端；用户配置自有兼容模型后桌面端直连。非 loopback endpoint 强制 HTTPS，TLS 校验不可关闭，禁止携带 Authorization 跨 origin redirect。
 
 ### 14.5 隐私、安全与诊断
 
@@ -563,6 +569,8 @@ Origin 能力分级：
 - 诊断不得包含原始数据、任何用户提示、文件名或列值；发送前允许预览。
 - 第一轮不提供应用级项目加密，依赖 Windows 文件权限与用户选择的磁盘加密。
 - 后续可评估密码加密 `.plotproj`；无账号体系，因此不提供云端密码找回。
+- ModelRunAudit 只记录 provider/model/profile、版本、origin、request/run ID、耗时、usage、稳定错误、DataDisclosure 类别/计数和 context hash，不记录 secret、隐藏推理或完整 request/response body。
+- 内置 proxy 只承诺自身不记录 payload，并准确展示底层供应商政策；OpenAI API 不宣传默认零保留，第三方兼容 provider 首次使用前必须确认其保留政策。
 
 ## 15. 语言、视觉与无障碍
 

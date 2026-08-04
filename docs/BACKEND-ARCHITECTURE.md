@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -12,7 +12,7 @@
 - 单 Agent 规划，不采用多 Agent 系统。
 - 一个由 Electron 主进程监管的常驻 Python Core。
 - Electron 与 Python 通过带版本的 JSON-RPC over stdio 通信，不开放本地 HTTP 端口。
-- Agent 只输出符合 JSON Schema 的 ActionPlan，不生成或执行任意 Python、Matplotlib、Origin 或文件系统代码。
+- Agent 只输出符合 JSON Schema 的 `AgentDecision`；其中 `ActionPlan` 也只是候选，必须经过本地校验后执行。模型没有工具循环、文件/数据库/Origin/URL 访问或任意代码执行能力。
 - 版本化 PlotSpec 是图表结构化真值；单一 resolver 把它与固定数据、分析、样式和发表规格解析为 ResolvedRenderPlan，Matplotlib 与 Origin 都只适配该 Plan。
 - 手动界面操作与自然语言操作进入同一套计划、校验、执行、验证和事务链。
 - Matplotlib 是第一轮唯一正式预览、PNG 和 SVG 渲染器；Plotly/Kaleido 不进入第一轮正式渲染链。
@@ -159,14 +159,12 @@ ActionPlan
 
 第一轮不使用多 Agent，也不建立开放式自主循环。一次请求采用固定上限流程：
 
-1. Context Builder 读取目标对象、项目规则、字段结构、单位、摘要和少量样本。
-2. Model Provider 返回符合 JSON Schema 的 ActionPlan。
-3. Policy Engine 检查用户是否明确选择图形、统计方法和作用目标。
-4. Scientific Validator 检查字段、单位、完全同构条件、坐标和统计参数。
-5. Executor 调用白名单领域服务。
-6. Verifier 检查生成对象、科研约束和导出契约。
-7. Transaction Manager 原子提交对象与版本。
-8. Response Builder 根据结构化结果生成界面回复。
+1. 本地 ContextBuilder 从权威对象、ConversationState 与用户授权的数据范围构建最小 ContextEnvelope。
+2. ModelProvider 返回唯一 `AgentDecision = ActionPlan | NeedsInput | Unsupported | NoChange` 候选。
+3. 本地 validator 检查 Schema、对象版本、图形能力、权限、数据出境与科研业务规则。
+4. 被接受的 ActionPlan 才由 Executor 映射到白名单领域服务；模型从不获得这些服务的调用权。
+5. Verifier 检查生成对象、科研约束和导出契约，Transaction Manager 原子提交对象与版本。
+6. ConversationState reducer 只根据权威对象和执行结果归约本地状态，Response Builder 生成界面结果。
 
 ### 5.2 失败与重试
 
@@ -178,14 +176,9 @@ ActionPlan
 
 ### 5.3 模型适配层
 
-内部只依赖 `ModelProvider.plan(context, schema)` 抽象：
+内部只依赖 capability-based `ModelProvider` 抽象。自定义 OpenAI-compatible endpoint 先探测 `/v1/responses`，再回退 `/v1/chat/completions`；探测只使用合成数据。P1 支持严格 JSON Schema，P2 仅支持 JSON 并在本地失败后最多 repair 一次，P0 不准入。
 
-- OpenAI Adapter：使用 Responses API 的函数调用或结构化输出。
-- OpenAI-compatible Adapter：启动时探测 Responses、Chat Completions、JSON Schema 和工具调用能力，再选择兼容路径。
-- 不支持严格结构化输出的模型不得直接执行写操作，只能返回草案并经过本地解析与完整校验。
-- 模型供应商的会话 ID、推理项或工具格式不能进入 PlotSpec 和项目核心对象。
-
-OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAgent 的 ActionPlan 和工具协议保持供应商无关：[OpenAI Model Guidance](https://developers.openai.com/api/docs/guides/latest-model)
+Provider 的 response format 或 function-calling 只作为单次结构化传输机制，不能形成工具循环。模型不接收本地工具、任意路径或 URL，也不使用供应商托管 conversation、`previous_response_id` 或隐藏 server state；官方 OpenAI adapter 固定 `store:false`。完整 ContextEnvelope、DataDisclosure、凭据、网络、审计、保留说明与错误契约见 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)。
 
 ## 6. 白名单领域服务
 
@@ -203,7 +196,7 @@ OpenAI 当前建议通过 Responses API 处理推理与工具调用，但 PlotAg
 - `OriginService`：OriginAdapter/OriginExportPlan、preflight、隔离实例、原生对象重建、两阶段验证和整文件原子提交。
 - `TaskService`：队列、阶段、取消、重试、恢复和事件。
 
-模型只能选择这些服务提供的高层操作，不能直接传任意路径、SQL、Python、命令行或 Origin 脚本。
+本地 Executor 只能把已通过校验的 Action 映射到这些服务；模型不能直接选择/调用服务，也不能传任意路径、URL、SQL、Python、命令行或 Origin 脚本。
 
 ### 6.1 数据变换、单位与血缘
 
@@ -311,11 +304,12 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 
 - Renderer 保持 sandbox、context isolation 和关闭 Node integration。
 - preload 每个方法单独暴露并验证参数，不暴露通用 IPC 发送器。
-- 模型只能看到产品允许的数据摘要和用户授权样本。
+- 模型只能看到 ContextEnvelope 明示的字段元数据、摘要与用户授权样本；默认样本不超过 20 行、12 个字段和 200 个 scalar，超宽表先在本地筛选候选字段。
 - 文件路径由 Electron 文件选择器授权，模型只引用资源 ID。
-- 凭据存入 Windows Credential Manager，不进入项目、日志或模型上下文。
+- 自定义 API key 与内置设备令牌只存 Windows Credential Manager，不进入 renderer、项目、`.plotproj`、SQLite 普通字段、日志、诊断、命令行或模型上下文。
 - 日志和诊断不记录原始数据、任何用户提示、文件名或列值。
 - 所有派生变换、统计和导出保留操作记录与输入版本。
+- 数据、列名和单元格文本是不可信 data；其中 URL 不抓取，其中指令不执行。非 loopback provider 强制 HTTPS，TLS 不可关闭，带凭据的跨 origin redirect 被阻止。
 
 ## 11. 推荐实现顺序
 
