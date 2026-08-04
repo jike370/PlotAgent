@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -472,6 +472,7 @@ Origin 能力分级：
 - Matplotlib 是第一轮唯一正式预览、PNG 和 SVG 渲染器；Origin 由独立串行 Worker 从 PlotSpec 重建原生对象。
 - Python Core 按 Project、Dataset、Transform、Plot、Analysis、Batch、Composition、Export、Origin 和 Task 领域服务拆分。
 - 详细协议、数据结构、任务状态与实现顺序以 [后端与 Agent 架构](./BACKEND-ARCHITECTURE.md) 为准。
+- PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 和 Schema 兼容规则以 [领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md) 为准。
 
 ### 14.3 本地优先
 

@@ -221,3 +221,28 @@
 - **PD-O20 运行时依赖方向。** 第一轮核心不需要本地 FastAPI/Uvicorn HTTP 服务，也不需要 Plotly/Kaleido 正式渲染链；具体依赖移除由实现阶段测试确认。
 
 完整技术结构见 [后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)。
+
+## P. PlotSpec、PlotPatch 与 ActionPlan 契约
+
+- **PD-P01 对象拆分。** DatasetVersion、AnalysisSpec/Result、PlotSpec、BatchSpec、FigureSpec 和 ExportSpec 是独立领域对象，不用一个超大 PlotSpec 表达全部状态。
+- **PD-P02 Schema 单一源头。** Python/Pydantic 模型是领域 Schema 唯一源头，自动生成 JSON Schema Draft 2020-12 与 TypeScript 类型。
+- **PD-P03 严格输入。** 所有跨进程模型拒绝未知字段，使用严格基础类型，不接受额外属性、任意代码或任意路径。
+- **PD-P04 PlotSpec 公共外壳。** PlotSpec 使用公共元数据、数据引用、字段映射、分析引用、坐标、系列、标注、样式快照、发表规格与来源结构。
+- **PD-P05 图形家族联合。** 第一轮采用 `xy`、`categorical`、`distribution`、`matrix`、`survival`、`dose_response`、`forest`、`facet` 八个带 discriminator 的家族。
+- **PD-P06 图形注册表约束。** `chart_type_id` 在图形注册表中约束家族、字段、geometry、分析、坐标、标注、组合和导出能力。
+- **PD-P07 数据分析分离。** PlotSpec 只引用确定的 DatasetVersion 与 AnalysisResult，不在渲染器中隐藏转换、拟合、误差、分箱或检验计算。
+- **PD-P08 样式快照。** PlotSpec 同时记录样式来源和解析后的完整样式快照，项目或期刊规格更新不会改变既有版本。
+- **PD-P09 BatchSpec 独立。** BatchSpec 保存完全同构签名、共享映射、PlotSpec 模板、样式、坐标策略和单图覆盖；批次展开由 BatchService 完成。
+- **PD-P10 FigureSpec 独立。** FigureSpec 保存固定布局并引用明确 PlotSpec 版本；源图更新只提示，不自动替换。
+- **PD-P11 领域 PlotPatch。** 改图只使用带 `operation` discriminator 的白名单领域 Patch，不向模型暴露通用 JSON Patch 或 `set_property(path, value)`。
+- **PD-P12 Patch 事务。** 多项修改进入 PatchTransaction，先完整校验再原子应用，并使用 expected version 防止覆盖新修改。
+- **PD-P13 五类计划结果。** 模型只能返回 ExecutablePlan、NeedsInput、BlockedPlan、UnsupportedRequest 或 NoChange 之一。
+- **PD-P14 九类 Action。** 第一轮 Action 仅为创建派生数据、运行分析、创建/修改图、创建/修改批次、创建/修改组合图和导出产物。
+- **PD-P15 计划上限。** 一个 ActionPlan 最多 8 个 Action，可以有无环依赖，不允许循环、条件脚本或运行时创建额外 Action。
+- **PD-P16 批次内部展开。** 多文件 fan-out 由 BatchService 根据 BatchSpec 完成，不让模型逐文件生成 Action。
+- **PD-P17 模型无直接执行工具。** 模型不直接调用领域服务、文件系统或 Origin，只提交一个结构化计划候选，由本地校验器映射到执行器。
+- **PD-P18 Context Builder。** 模型调用前由本地系统准备当前目标、引用对象、字段、单位、摘要、图形能力与项目规则；不足时模型返回 NeedsInput。
+- **PD-P19 确认与校验分离。** 可逆明确修改直接执行；参数缺失或歧义返回 NeedsInput；硬规则返回 BlockedPlan；科研 warning 不等同于确认弹窗。
+- **PD-P20 破坏性操作隔离。** 永久删除、清空回收站、覆盖外部文件、凭据与隐私设置不进入普通 Agent ActionPlan，只能通过专门 UI 确认。
+
+完整 Schema 结构见 [领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)。
