@@ -196,3 +196,28 @@
 - **PD-N04 失败可理解。** 字段不兼容、科研校验、任务部分失败和 Origin 不可用都必须给出具体原因与可执行下一步。
 - **PD-N05 数据可复现。** 原始数据、派生步骤、字段映射、图形规格、版本、渲染版本和导出记录可追溯。
 - **PD-N06 无隐式改变。** 图形类型、统计方法、单位、数据版本、坐标统一、源图替换和云端数据范围均不得静默改变。
+
+## O. 后端与 Agent 架构
+
+- **PD-O01 单 Agent。** 第一轮使用一个规划 Agent，不采用多 Agent 协作或子 Agent 系统。
+- **PD-O02 有界规划。** Agent 使用固定上限的“上下文、计划、策略校验、科研校验、执行、验证、事务提交、结果回复”流程，不运行开放式自主循环。
+- **PD-O03 结构化计划。** 模型只输出符合 JSON Schema 的 ActionPlan，不生成或执行任意 Python、Matplotlib、Origin、SQL、命令行或文件系统代码。
+- **PD-O04 同一执行链。** 手动 UI 与自然语言操作生成同一种 ActionPlan，离线模式绕过模型但复用完整本地执行链。
+- **PD-O05 常驻 Python Core。** Electron 主进程启动并监管一个常驻 Python 3.12 Core，避免按任务重复启动科学计算环境。
+- **PD-O06 本地协议。** Electron 与 Python 使用版本化 JSON-RPC over stdio，不开放本地 HTTP 端口；大型数据只通过对象 ID 或受控资源引用传递。
+- **PD-O07 Electron 权限边界。** React renderer 保持 sandbox、context isolation 和关闭 Node integration；preload 只暴露逐项、参数受限的强类型 IPC 方法。
+- **PD-O08 主进程职责。** Electron Main 管理窗口、文件授权、单实例、系统凭据、Python 生命周期和任务事件转发。
+- **PD-O09 PlotSpec 真值。** 版本化 PlotSpec 是图表唯一结构化真值，Matplotlib 预览、PNG、SVG、Origin 重建、版本比较与自然语言改图均依赖它。
+- **PD-O10 PlotPatch。** 改图使用面向稳定语义 ID 的白名单 PlotPatch，并通过 expected version 防止覆盖并发或旧版本修改。
+- **PD-O11 单一正式渲染器。** Matplotlib 是第一轮正式预览、PNG 和 SVG 渲染器；不同时维护 Plotly 与 Matplotlib 两套正式视觉结果。
+- **PD-O12 模型适配层。** 内部只依赖供应商无关的 ModelProvider；OpenAI 使用 Responses API 结构化工具调用，OpenAI-compatible 服务先进行能力探测再选择协议。
+- **PD-O13 严格写操作。** 无法稳定返回严格结构化输出的模型不得直接执行写操作，只能生成经本地完整解析和校验的草案。
+- **PD-O14 领域服务。** Python Core 按 Project、Dataset、Transform、Plot、Analysis、Batch、Composition、Export、Origin 和 Task 服务划分，不把业务逻辑集中在模型提示中。
+- **PD-O15 持久化。** SQLite 保存元数据、引用、版本 DAG、任务和日志；内容寻址存储保存原始副本、派生数据、PlotSpec、预览与缓存；Arrow/Parquet 为内部表格交换与派生格式。
+- **PD-O16 Pandas 边界。** Pandas 用于 Excel、SciPy、Matplotlib 与 Origin 兼容，不作为唯一存储真值。
+- **PD-O17 项目包。** 活跃项目使用事务化工作目录；`.plotproj` 是经过 manifest 与哈希校验后原子生成的导入导出包，不在每次操作后重写整个包。
+- **PD-O18 任务模型。** 普通数据与渲染任务可以并发，Origin 队列串行；每个写操作使用 request ID、幂等键、项目 ID 与 expected version。
+- **PD-O19 Origin Worker。** Origin 在独立串行 Worker 中从 PlotSpec 重建原生对象，临时保存、全新实例重新打开验证、原子移动并确保 `op.exit()` 清理。
+- **PD-O20 运行时依赖方向。** 第一轮核心不需要本地 FastAPI/Uvicorn HTTP 服务，也不需要 Plotly/Kaleido 正式渲染链；具体依赖移除由实现阶段测试确认。
+
+完整技术结构见 [后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)。

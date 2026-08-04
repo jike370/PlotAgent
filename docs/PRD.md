@@ -3,7 +3,7 @@
 > 状态：邀请制内测范围已确认  
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -459,12 +459,21 @@ Origin 能力分级：
 - 采用单实例、单主窗口结构；第二次启动聚焦已有窗口，并转发 `.plotproj` 或数据文件参数。
 - 不驻留系统托盘；关闭主窗口即退出应用。
 - Electron + React + TypeScript 负责界面。
-- Python 3.12 工作进程负责数据、绘图、统计和 Origin 自动化。
-- Electron 与 Python 使用本机进程间结构化消息，不开放本地 HTTP 端口。
+- Electron 主进程监管一个常驻 Python 3.12 Core，后者负责数据、绘图、统计和 Origin 自动化。
+- Electron 与 Python 使用版本化 JSON-RPC over stdio，不开放本地 HTTP 端口；大型数据只传对象引用。
 - SQLite 保存索引、对话与版本元数据。
 - Python 引擎随安装包分发，用户无需单独安装 Python。
 
-### 14.2 本地优先
+### 14.2 Agent 与绘图核心
+
+- 第一轮采用单 Agent 有界规划，不使用多 Agent 或开放式自主循环。
+- Agent 只生成符合 JSON Schema 的 ActionPlan；手动 UI 生成相同计划并复用同一执行链。
+- 版本化 PlotSpec 是 Matplotlib、PNG、SVG、Origin、改图与版本比较的共同真值。
+- Matplotlib 是第一轮唯一正式预览、PNG 和 SVG 渲染器；Origin 由独立串行 Worker 从 PlotSpec 重建原生对象。
+- Python Core 按 Project、Dataset、Transform、Plot、Analysis、Batch、Composition、Export、Origin 和 Task 领域服务拆分。
+- 详细协议、数据结构、任务状态与实现顺序以 [后端与 Agent 架构](./BACKEND-ARCHITECTURE.md) 为准。
+
+### 14.3 本地优先
 
 - 项目、数据、图表和历史默认只保存在本机。
 - 无网络时可导入、查看、手动选图、字段映射、参数编辑、重绘和重新导出。
@@ -472,7 +481,7 @@ Origin 能力分级：
 - 用户可以配置 OpenAI-compatible 模型端点，凭据保存在 Windows Credential Manager。
 - 临时文件在隔离目录中创建并在任务结束后清理。
 
-### 14.3 最小云端控制面
+### 14.4 最小云端控制面
 
 - 邀请码激活与每设备技术令牌，不要求注册账号。
 - 模型额度、限流和请求转发。
@@ -484,7 +493,7 @@ Origin 能力分级：
 
 模型默认只接收用户指令、列名、类型、统计摘要和少量样本。需要更多数据时必须显示发送范围并取得授权。用户配置自有兼容模型后，桌面端直接连接该服务。
 
-### 14.4 隐私、安全与诊断
+### 14.5 隐私、安全与诊断
 
 - 匿名使用分析和诊断默认关闭，只有用户主动开启。
 - 诊断不得包含原始数据、任何用户提示、文件名或列值；发送前允许预览。
