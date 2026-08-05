@@ -1,0 +1,220 @@
+{
+  "schema_version": "import-golden-manifest-v1",
+  "oracle_policy": "frozen; tests never derive expected outcomes from parser output",
+  "fixtures": [
+    {
+      "id": "clarify-decimal",
+      "file": "clarify_decimal.txt",
+      "sha256": "8b144b441bb6a0a6932957f100e7042d2472e4fa7a482d73666717dc5cc80e2f",
+      "expected": {"kind": "clarification", "code": "IMPORT_DECIMAL_AMBIGUOUS"}
+    },
+    {
+      "id": "clarify-delimiter",
+      "file": "clarify_delimiter.txt",
+      "sha256": "6563b360dcc75de93cd221ef663f2f5299f296fbc632472ff91f686b0cc0dfb1",
+      "expected": {"kind": "clarification", "code": "IMPORT_DELIMITER_AMBIGUOUS"}
+    },
+    {
+      "id": "clarify-header-text",
+      "file": "clarify_header.csv",
+      "sha256": "6977686bcd84e8bb7f263df1d8cf0dd684ddec524e45093f401076da43821cb6",
+      "expected": {"kind": "clarification", "code": "IMPORT_HEADER_AMBIGUOUS"}
+    },
+    {
+      "id": "csv-basic",
+      "file": "csv_basic.csv",
+      "sha256": "c370967eecba7802207ca999f261025165159e98a1c3f3818fb8986b2d7225e4",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "encoding": "utf-8"}
+    },
+    {
+      "id": "csv-cp1252",
+      "file": "csv_cp1252.csv",
+      "sha256": "85225a21995eef8ff62c22f4498b608069a1f459ab221e689b0b40a82e616e13",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "encoding": "cp1252"}
+    },
+    {
+      "id": "csv-decimal-comma",
+      "file": "csv_decimal_comma.csv",
+      "sha256": "adb2695102c2d37698e659d59a53c1521e8a11e8377f7f5d4e21a106955f821c",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "decimal_mark": ","}
+    },
+    {
+      "id": "csv-nonfinite",
+      "file": "csv_nonfinite.csv",
+      "sha256": "4e5a767063640be24aa3cd930452bb36b39def3a73fccb14cd92f2fdd851d481",
+      "expected": {
+        "kind": "imported",
+        "candidates": 1,
+        "rows": [4],
+        "quality": {"missing": 1, "nan": 1, "positive_inf": 1, "negative_inf": 1}
+      }
+    },
+    {
+      "id": "csv-numeric-no-header",
+      "file": "csv_numeric_no_header.csv",
+      "sha256": "721f17475d3a4a4a768548bc56c364cf412000a5732a3b688c4c7c6ab83a8a55",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [3], "header_row": null}
+    },
+    {
+      "id": "csv-quoted",
+      "file": "csv_quoted.csv",
+      "sha256": "2e918da09bc5846285492a4f32f6acb56326168806ffb2a42b474a2ea9cfeb51",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2]}
+    },
+    {
+      "id": "csv-unicode-header",
+      "file": "csv_unicode_header.csv",
+      "sha256": "84eeedc0cd13d0244af80f6093ced5e31e4da76fe92ccb3d7d315b83235dcee8",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "first_header": "Café"}
+    },
+    {
+      "id": "csv-utf16le",
+      "file": "csv_utf16le.csv",
+      "sha256": "d87affa6ba083b26c2b186a422376a5e82f0f9fe54ac94d890e9bc4cabe3d672",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "encoding": "utf-16-le"}
+    },
+    {
+      "id": "csv-utf8-bom",
+      "file": "csv_utf8_bom.csv",
+      "sha256": "9917ad9b2d000384343cfa636d815f5ed62a14658ad3f2ede09a954ae8bc3dfa",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "encoding": "utf-8-sig"}
+    },
+    {
+      "id": "dat-pipe",
+      "file": "dat_pipe.dat",
+      "sha256": "24e1591db978a621864ee639ae1f4dabbb0bb658afdb8a919bf198312b597da5",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "delimiter": "|"}
+    },
+    {
+      "id": "excel-duplicate-headers",
+      "file": "excel_duplicate_headers.xlsx",
+      "sha256": "518731b1988acd4e635b2105ce7fc2273dd0668831adc8f56525d6bad9cda9a8",
+      "expected": {"kind": "rejection", "code": "IMPORT_DUPLICATE_HEADERS"}
+    },
+    {
+      "id": "excel-empty",
+      "file": "excel_empty.xlsx",
+      "sha256": "af13d5c64eda9c3f616b53d0aeadf2c37433fa4be2c481646d7af5abc3e31f2a",
+      "expected": {"kind": "rejection", "code": "IMPORT_NO_DATA"}
+    },
+    {
+      "id": "excel-formula-cache",
+      "file": "excel_formula.xlsx",
+      "sha256": "9a4aa224ba0d9a9d1ca21f110a316afa0e010e85d390a8439448768c71fba144",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "provenance": "cached_formula_value"}
+    },
+    {
+      "id": "excel-header-ambiguous",
+      "file": "excel_header_ambiguous.xlsx",
+      "sha256": "9a50c0da3068e64763e9396bbdac60e61699e5fbc87d45723bcfe358439421a0",
+      "expected": {"kind": "clarification", "code": "IMPORT_HEADER_AMBIGUOUS"}
+    },
+    {
+      "id": "excel-nonfinite",
+      "file": "excel_nonfinite.xlsx",
+      "sha256": "3d89a77a5dd71bece650ebdfe9f5a7aa0694cc5fa33f9a4b7202d83b38c1e8a3",
+      "expected": {
+        "kind": "imported",
+        "candidates": 1,
+        "rows": [4],
+        "quality": {"missing": 1, "nan": 1, "positive_inf": 1, "negative_inf": 1}
+      }
+    },
+    {
+      "id": "excel-numeric-no-header",
+      "file": "excel_numeric_no_header.xlsx",
+      "sha256": "d4d94d409405eb07a4f7ab3b4277455e55424982eb19ef8d756de28bd1695a53",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [3], "header_row": null}
+    },
+    {
+      "id": "excel-xlsm-readonly",
+      "file": "excel_readonly.xlsm",
+      "sha256": "86f31bca7baefad5aec34fada562e27fe278d48e46ba304c90e840209de4c898",
+      "expected": {"kind": "imported", "candidates": 2, "rows": [2, 2], "provenance": "macro_ignored"}
+    },
+    {
+      "id": "excel-title-header",
+      "file": "excel_title_header.xlsx",
+      "sha256": "df113869054d92aeff03f7a64d7345e96083bb2ec3f7b9ffcbffb284a6cc1324",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "header_row": 2}
+    },
+    {
+      "id": "excel-two-regions",
+      "file": "excel_two_regions.xlsx",
+      "sha256": "49086c62f2bc96a765de061324aac97a5b6d09b7f0af1543fc7bc084904efd00",
+      "expected": {"kind": "clarification", "code": "IMPORT_REGION_AMBIGUOUS"}
+    },
+    {
+      "id": "excel-two-sheets",
+      "file": "excel_two_sheets.xlsx",
+      "sha256": "86f31bca7baefad5aec34fada562e27fe278d48e46ba304c90e840209de4c898",
+      "expected": {"kind": "imported", "candidates": 2, "rows": [2, 2], "first_value": 0, "first_boolean": false}
+    },
+    {
+      "id": "excel-unicode-header",
+      "file": "excel_unicode_headers.xlsx",
+      "sha256": "4de717b4670106a9fdfcd4cd2ca9260824d35992bf13f4cb63a5cb74c89655f4",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "first_header": "Café"}
+    },
+    {
+      "id": "reject-binary",
+      "file": "reject_binary.csv",
+      "sha256": "85700a3684a8bca441769853a090eba12a7ddb3385e87d938b5ed28e9b1c2a95",
+      "expected": {"kind": "rejection", "code": "IMPORT_BINARY_UNSUPPORTED"}
+    },
+    {
+      "id": "reject-duplicate-text",
+      "file": "reject_duplicate.csv",
+      "sha256": "47eb599e576c0348a51cee48ffeb7dba6742770a44b7e93b351872846ea22922",
+      "expected": {"kind": "rejection", "code": "IMPORT_DUPLICATE_HEADERS"}
+    },
+    {
+      "id": "reject-no-data",
+      "file": "reject_no_data.txt",
+      "sha256": "2daf44c89dab54b398046f7bd010d634210ab3964bfea99e2ca924abc4ad49bf",
+      "expected": {"kind": "rejection", "code": "IMPORT_NO_DATA"}
+    },
+    {
+      "id": "reject-ragged",
+      "file": "reject_ragged.csv",
+      "sha256": "8ee182af031f4a29ce35ca4bbccaa8da58351416bcf89dcc346e131770806428",
+      "expected": {"kind": "rejection", "code": "IMPORT_ROW_WIDTH_MISMATCH"}
+    },
+    {
+      "id": "reject-unsupported",
+      "file": "reject_unsupported.json",
+      "sha256": "2d6d70ad3a33030af44a73b0c9e5b72fe6fd7a44a805a5dbef9016f3701320c5",
+      "expected": {"kind": "rejection", "code": "IMPORT_FORMAT_UNSUPPORTED"}
+    },
+    {
+      "id": "tsv-zero-false",
+      "file": "tsv_zero_false.tsv",
+      "sha256": "ece3d60ca4e55d59e4ef39de127090b703d07cce9450b4e7d5a58ae87496f605",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "first_value": 0, "first_boolean": false}
+    },
+    {
+      "id": "txt-channel-sweep",
+      "file": "txt_channel_sweep.txt",
+      "sha256": "523decbccc89b99b78bdfd2c27c0fd67b5e2ac03f8facef6501352a9f07e32bb",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "channel": "A", "sweep": "3"}
+    },
+    {
+      "id": "txt-metadata",
+      "file": "txt_metadata.txt",
+      "sha256": "753d220c4aaeecdc9a700bdebd7a3a4dc69e29ac1673c41958c97af74fa0052d",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "metadata_key": "Instrument", "postamble": 1}
+    },
+    {
+      "id": "txt-multi-block",
+      "file": "txt_multi_block.txt",
+      "sha256": "caade5c9766ff1ec3ab1dd54583d802744c3eae8fdea392a38fbf8a7ae6b6f41",
+      "expected": {"kind": "imported", "candidates": 2, "rows": [2, 2]}
+    },
+    {
+      "id": "txt-postamble",
+      "file": "txt_postamble.txt",
+      "sha256": "7b1afc7c9a0e47c40eace3c60a2bd3c41a21f7dd6f476f35fb68cee8be4653d1",
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2], "postamble": 2}
+    }
+  ]
+}

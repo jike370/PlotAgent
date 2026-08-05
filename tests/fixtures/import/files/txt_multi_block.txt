@@ -1,0 +1,9 @@
+Instrument=Scope
+x,y
+0,1
+1,2
+
+x,y
+2,3
+3,4
+End

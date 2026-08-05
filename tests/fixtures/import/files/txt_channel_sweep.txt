@@ -1,0 +1,5 @@
+Channel: A
+Sweep: 3
+time,value
+0,1
+1,2
