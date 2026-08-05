@@ -1,0 +1,26 @@
+"""Stable errors for the lightweight project storage boundary."""
+
+from __future__ import annotations
+
+from enum import StrEnum
+
+
+class StorageErrorCode(StrEnum):
+    WORKSPACE_FILESYSTEM_UNSUPPORTED = "WORKSPACE_FILESYSTEM_UNSUPPORTED"
+    PROJECT_ALREADY_EXISTS = "PROJECT_STORAGE_ALREADY_EXISTS"
+    PROJECT_NOT_FOUND = "PROJECT_STORAGE_NOT_FOUND"
+    PROJECT_ALREADY_OPEN = "PROJECT_STORAGE_ALREADY_OPEN"
+    PROJECT_WRITER_THREAD = "PROJECT_STORAGE_WRITER_THREAD"
+    PROJECT_CLOSED = "PROJECT_STORAGE_CLOSED"
+    SCHEMA_VERSION_UNSUPPORTED = "SCHEMA_VERSION_UNSUPPORTED"
+    STAGED_OBJECT_INVALID = "PROJECT_STORAGE_STAGED_OBJECT_INVALID"
+    SOURCE_OBJECT_MISSING = "PROJECT_STORAGE_SOURCE_OBJECT_MISSING"
+    COMMIT_FAILED = "PROJECT_STORAGE_COMMIT_FAILED"
+    CATALOG_FAILED = "PROJECT_STORAGE_CATALOG_FAILED"
+
+
+class StorageProblem(Exception):
+    def __init__(self, code: StorageErrorCode, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message

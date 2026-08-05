@@ -183,6 +183,76 @@
       "retryable": false
     },
     {
+      "code": "WORKSPACE_FILESYSTEM_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "An active SQLite/WAL workspace must use a local fixed disk.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PROJECT_STORAGE_ALREADY_EXISTS",
+      "default_severity": "blocked",
+      "description": "The requested project workspace already exists.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PROJECT_STORAGE_NOT_FOUND",
+      "default_severity": "blocked",
+      "description": "The requested project workspace does not exist.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PROJECT_STORAGE_ALREADY_OPEN",
+      "default_severity": "blocked",
+      "description": "The project workspace already has an active writer.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "PROJECT_STORAGE_WRITER_THREAD",
+      "default_severity": "blocked",
+      "description": "A project mutation was attempted outside its single writer thread.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PROJECT_STORAGE_CLOSED",
+      "default_severity": "blocked",
+      "description": "A project mutation was attempted after storage was closed.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PROJECT_STORAGE_STAGED_OBJECT_INVALID",
+      "default_severity": "blocked",
+      "description": "A staged object's path, size, or SHA-256 did not validate.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "PROJECT_STORAGE_SOURCE_OBJECT_MISSING",
+      "default_severity": "blocked",
+      "description": "A dataset was not bound to its staged immutable source object.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "PROJECT_STORAGE_COMMIT_FAILED",
+      "default_severity": "blocked",
+      "description": "Atomic project registration failed without publishing partial state.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "PROJECT_STORAGE_CATALOG_FAILED",
+      "default_severity": "blocked",
+      "description": "Minimal catalog registration failed.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
       "code": "PLOTSPEC_CALCULATION_UNSUPPORTED",
       "default_severity": "blocked",
       "description": "The chart registry does not allow this fixed plot calculation.",
