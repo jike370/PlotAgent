@@ -253,6 +253,76 @@
       "retryable": true
     },
     {
+      "code": "ARCHIVE_UNSAFE_PATH",
+      "default_severity": "blocked",
+      "description": "A package entry has an absolute, traversing, reserved, or unknown path.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "ARCHIVE_LINK_REJECTED",
+      "default_severity": "blocked",
+      "description": "A package contains a link, reparse point, or special entry.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "ARCHIVE_DUPLICATE_PATH",
+      "default_severity": "blocked",
+      "description": "A package contains duplicate normalized paths.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "ARCHIVE_LIMIT_EXCEEDED",
+      "default_severity": "blocked",
+      "description": "A package exceeds an entry count or expanded-size limit.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "ARCHIVE_BOMB_SUSPECTED",
+      "default_severity": "blocked",
+      "description": "A package has an unsafe per-entry or total compression ratio.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PROJECT_PACKAGE_HASH_INVALID",
+      "default_severity": "blocked",
+      "description": "A package file or referenced object failed SHA-256 verification.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PROJECT_PACKAGE_MANIFEST_INVALID",
+      "default_severity": "blocked",
+      "description": "Package manifest, structure, SQLite snapshot, or references are inconsistent.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PROJECT_PACKAGE_TYPE_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "This build supports only full project packages.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PROJECT_PACKAGE_EXPORT_FAILED",
+      "default_severity": "blocked",
+      "description": "Package export failed before atomic target replacement.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "PROJECT_PACKAGE_IMPORT_FAILED",
+      "default_severity": "blocked",
+      "description": "Package import failed without catalog or formal-workspace publication.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
       "code": "PLOTSPEC_CALCULATION_UNSUPPORTED",
       "default_severity": "blocked",
       "description": "The chart registry does not allow this fixed plot calculation.",

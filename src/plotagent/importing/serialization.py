@@ -6,8 +6,8 @@ import io
 import json
 from datetime import date, datetime
 
-import pyarrow as pa  # type: ignore[import-untyped]
-import pyarrow.parquet as pq  # type: ignore[import-untyped]
+import pyarrow as pa  # type: ignore
+import pyarrow.parquet as pq  # type: ignore
 
 from plotagent.contracts.datasets import (
     DataQualitySummary,

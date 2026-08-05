@@ -10,7 +10,7 @@ import sqlite3
 import threading
 import uuid
 from collections.abc import Callable, Iterable
-from contextlib import suppress
+from contextlib import closing, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Self
@@ -168,6 +168,19 @@ class ProjectStore:
 
     def journal_mode(self) -> str:
         return str(self._assert_writer().execute("PRAGMA journal_mode").fetchone()[0])
+
+    def backup_database(self, destination: Path) -> None:
+        """Create a consistent package snapshot with SQLite Online Backup."""
+
+        source = self._assert_writer()
+        if destination.exists():
+            raise FileExistsError(destination)
+        with closing(sqlite3.connect(destination)) as target:
+            source.backup(target)
+            target.execute("PRAGMA journal_mode = DELETE")
+            result = target.execute("PRAGMA quick_check").fetchone()
+            if result is None or str(result[0]) != "ok":
+                raise sqlite3.DatabaseError("SQLite snapshot integrity check failed")
 
     def _new_task_dir(self) -> Path:
         self._assert_writer()

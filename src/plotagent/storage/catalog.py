@@ -93,6 +93,8 @@ class Catalog:
         project_id: str,
         workspace_path: str | Path,
         display_name: str | None = None,
+        source_project_id: str | None = None,
+        package_sha256: str | None = None,
     ) -> CatalogProject:
         connection = self._connection_for_write()
         now = _utc_now()
@@ -102,10 +104,19 @@ class Catalog:
             connection.execute(
                 """
                 INSERT INTO projects(
-                    project_id, workspace_path, display_name, created_at, last_opened_at
-                ) VALUES (?, ?, ?, ?, ?)
+                    project_id, workspace_path, display_name, source_project_id,
+                    package_sha256, created_at, last_opened_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (project_id, resolved, display_name, now, now),
+                (
+                    project_id,
+                    resolved,
+                    display_name,
+                    source_project_id,
+                    package_sha256,
+                    now,
+                    now,
+                ),
             )
             connection.commit()
         except sqlite3.DatabaseError as exc:
@@ -119,8 +130,48 @@ class Catalog:
             project_id=project_id,
             workspace_path=resolved,
             display_name=display_name,
+            source_project_id=source_project_id,
+            package_sha256=package_sha256,
             created_at=now,
             last_opened_at=now,
+        )
+
+    def find_imported_project(
+        self, *, package_sha256: str, source_project_id: str
+    ) -> CatalogProject | None:
+        connection = self._connection_for_write()
+        row = connection.execute(
+            """
+            SELECT project_id, workspace_path, display_name, source_project_id,
+                   package_sha256, created_at, last_opened_at
+            FROM projects
+            WHERE package_sha256 = ? OR source_project_id = ? OR project_id = ?
+            ORDER BY
+                CASE WHEN project_id = ? THEN 0
+                     WHEN package_sha256 = ? THEN 1
+                     ELSE 2 END,
+                last_opened_at DESC,
+                project_id
+            LIMIT 1
+            """,
+            (
+                package_sha256,
+                source_project_id,
+                source_project_id,
+                source_project_id,
+                package_sha256,
+            ),
+        ).fetchone()
+        if row is None:
+            return None
+        return CatalogProject(
+            project_id=str(row[0]),
+            workspace_path=str(row[1]),
+            display_name=row[2],
+            source_project_id=row[3],
+            package_sha256=row[4],
+            created_at=str(row[5]),
+            last_opened_at=str(row[6]),
         )
 
     def touch_project(self, project_id: str) -> None:
@@ -139,6 +190,8 @@ class Catalog:
                 project_id=project_id,
                 workspace_path=workspace_path,
                 display_name=display_name,
+                source_project_id=source_project_id,
+                package_sha256=package_sha256,
                 created_at=created_at,
                 last_opened_at=last_opened_at,
             )
@@ -146,11 +199,14 @@ class Catalog:
                 project_id,
                 workspace_path,
                 display_name,
+                source_project_id,
+                package_sha256,
                 created_at,
                 last_opened_at,
             ) in connection.execute(
                 """
-                SELECT project_id, workspace_path, display_name, created_at, last_opened_at
+                SELECT project_id, workspace_path, display_name, source_project_id,
+                       package_sha256, created_at, last_opened_at
                 FROM projects ORDER BY last_opened_at DESC, project_id
                 """
             )

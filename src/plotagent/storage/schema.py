@@ -7,7 +7,7 @@ import sqlite3
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 
 PROJECT_SCHEMA_VERSION = 1
-CATALOG_SCHEMA_VERSION = 1
+CATALOG_SCHEMA_VERSION = 2
 
 PROJECT_SCHEMA = """
 CREATE TABLE schema_info (
@@ -82,9 +82,14 @@ CREATE TABLE projects (
     project_id TEXT PRIMARY KEY,
     workspace_path TEXT NOT NULL UNIQUE,
     display_name TEXT,
+    source_project_id TEXT,
+    package_sha256 TEXT,
     created_at TEXT NOT NULL,
     last_opened_at TEXT NOT NULL
 ) STRICT;
+
+CREATE INDEX projects_package_sha_idx ON projects(package_sha256);
+CREATE INDEX projects_source_project_idx ON projects(source_project_id);
 
 CREATE TABLE settings (
     key TEXT PRIMARY KEY,
