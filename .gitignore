@@ -24,6 +24,8 @@ dist/
 data/private/
 uploads/
 exports/
+!src/plotagent/exports/
+!src/plotagent/exports/**
 *.opju
 
 # Frontend artifacts
