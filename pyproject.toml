@@ -48,6 +48,9 @@ packages = ["src/plotagent"]
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+  "origin_live: requires the build-pinned local Origin and PLOTAGENT_RUN_ORIGIN_LIVE=1",
+]
 
 [tool.ruff]
 line-length = 100

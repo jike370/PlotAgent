@@ -1,6 +1,6 @@
 # PlotAgent v1 实施拆分与里程碑计划
 
-> 状态：implementation-ready backlog；尚未实施真实后端/云/Origin qualification
+> 状态：implementation-ready backlog；M0 K01 Origin O1 风险路径已实机验证，完整后端/云/31图 Origin qualification 尚未完成
 > 日期：2026-08-05
 > 适用范围：W0–W10 workstreams、依赖、风险 spikes、里程碑、验收证据与错误归属
 > 相关文档：[规格索引与 Beta 设计基线](./SPEC-INDEX.md)、[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)
@@ -216,6 +216,16 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Purpose:** 最早验证核心对象边界、formal parity、originpro typed mapping、进程生命周期和O1 readback。
 - **Evidence:** fixed dataset hash；all spec/plan/artifact hashes；PNG/SVG validators；当前Beta唯一Origin exact version live+fresh report；no LabTalk/raster/user instance；atomic failure injection。
 - **Decision:** O1失败必须调整adapter/contract或产品范围并新增Decision，不能把失败留到W6末期。
+
+#### 2026-08-05 实机 spike 状态
+
+- **结论：** K01 direct Raw Data → native line graph → 临时 OPJU → 退出构建实例 → 新空白受控实例 fresh reopen/readback → 原子发布的技术路径已验证可行；这是单个 K01 minimal fixture 的 M0 风险证据，不表示 M0 全部 exit evidence、31 图或 93 条 OPJU path 已完成。
+- **冻结环境：** Origin2024 SR1，注册表 `DisplayVersion=10.10.178`，runtime `10.100178`，`Origin64.exe`/Python 均为 64-bit，Python 3.12.13，`originpro=1.1.15`，Origin `origin.otp` SHA-256 `588d94a13eee1140e55ff3edf04bc84e955b9c2c1dc3a40fc7b4a3932572d254`。当前 build 只声明该 exact Origin/originpro/bitness 组合；其他 Origin 版本稳定返回 `VERSION_UNSUPPORTED`。
+- **实现入口：** `src/plotagent/origin/` 提供 typed K01 plan/result/error、精确 preflight、独立 `probe/build/reopen` worker、30 秒默认阶段超时、只终止 worker PID 进程树的恢复清理、live/fresh validator 与同盘临时文件原子发布。应用代码没有 `attach`、LabTalk/脚本、worksheet formula、Origin analysis chain 或 raster/SVG fallback；普通 pytest 通过 marker/环境变量隔离真实 Origin。
+- **实跑命令：** `$env:PYTHONPATH=(Join-Path (Get-Location) 'src'); D:\plotv3\.venv\Scripts\python.exe -m plotagent.origin.cli export-k01 "$env:TEMP\plotagent-k01-origin-10.10.178-o1.opju" --timeout 30`。
+- **实跑结果：** 32.188 秒成功；OPJU 32,687 bytes，SHA-256 `6863110d95def7a3cfac02d83c614cc5c0722f23ee55c968763cadfe0e214e59`；RenderPlan SHA-256 `e61424e918f5e42f0970cbe629489cf3b63ea7fe5d4e60854ff1f5d9fbca542e`；live 与 fresh-reopen report 完全相同，SHA-256 `adaffc8d0faf812819b1ea609a3d359c681a2cfd478822822a8bf80636b75a2d`。读回覆盖 Data/Analysis/Graphs/Metadata、6×2 Raw Data/values/Units/Comments/designations、1 native linked plot、layer、linear axes/range/tick increment、axis titles、legend、模板物理 page size `272.288 × 208.407 mm`、manifest/object map 与无 external links。发布后无残留 `Origin64` 进程或任务 temp 目录；二进制证据保留在系统 temp，不提交 Git。
+- **本 spike 已验证的失败边界：** 两次 page-size mismatch 均在 live validation 阶段稳定返回 `VALIDATION_FAILURE`，未生成目标文件；单元测试覆盖 fresh-reopen 失败不替换既有目标、未知 plan 字段拒绝、目标后缀/既有 hash 与版本拒绝、源码无 attach/script/formula 调用。
+- **明确后续：** M0 上游 deterministic import/SourceDataset/PlotSpec/PNG/SVG 尚未接入；本地 dataclass plan/error 需在 W0 Schema/error registry 成熟后并入唯一 Pydantic/generated types；任意 publication page/subplot layout、resolved font、签名随包 template、真实 lock/cancel/hang/external-modification fault matrix、missing/datetime/category readback、K01 representative/edge fixtures及其余 30 图/92 条 OPJU path 留给 W4/W6/W10，不由本次结果扩大声明。
 
 ### Spike 2 — 100k preview 与 formal SVG resource preflight
 
