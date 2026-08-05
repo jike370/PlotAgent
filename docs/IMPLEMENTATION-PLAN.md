@@ -65,7 +65,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Inputs/contracts:** BACKEND-ARCHITECTURE、TASK-RUNTIME、LOCAL-SECURITY、W0 RPC/event/schema/errors。
 - **Planned entries:** `src/main/`、`src/preload/`、`src/shared/generated/`、desktop E2E harness。
 - **Deliverables:** PythonSupervisor state machine；narrow IPC allowlist；single-instance routing；heartbeat/crash-loop recovery；task/close events；security headers/link policy。
-- **骨架实现选择（2026-08-05）：** Core 入口固定为 `python -m plotagent.desktop_core`（W1 不实现该模块），wire protocol 为 1 MiB 上限的 UTF-8 单行 JSON + `\n`、`protocol_version=1.0`；启动/心跳/请求/退出超时分别为 10s/7.5s/10s/5s，心跳间隔 2.5s，60s 内最多自动重启 3 次（250/500/1000ms）。单实例只接收 `.plotproj` 并在 Main 内换成 `resourceId`；preload 不暴露 path、stdio、secret 或通用 IPC。当前手写 desktop contract 待 W0 发布 Schema 后以 generated TS 同形替换并执行 no-diff 检查。
+- **骨架实现选择（2026-08-05）：** Core 入口固定为 `python -m plotagent.desktop_core`，现已实现常驻同步控制循环、有界 worker/task registry、1 MiB/32 层限制的 UTF-8 单行 JSON + `\n`、`protocol_version=1.0`、严格 ID/幂等冲突/净化错误、initialize/ready/heartbeat/health/shutdown 与 task snapshot/cancel/event；启动/心跳/请求/退出超时分别为 10s/7.5s/10s/5s，心跳间隔 2.5s，60s 内最多自动重启 3 次（250/500/1000ms）。单实例只接收 `.plotproj` 并在 Main 内换成 `resourceId`；preload 不暴露 path、stdio、secret 或通用 IPC。当前手写 desktop contract 待 W0 发布 Schema 后以 generated TS 同形替换并执行 no-diff 检查。
 - **Dependencies/parallel:** W0→W1。Supervisor可与preload并行；task events等待W0 event schema；W7/W9复用网络/credential/安全边界。
 - **Acceptance evidence:** Electron security assertion；IPC negative/fuzz；partial/malformed stdio framing；Core crash/heartbeat/restart loop；single-instance/open-file；active-task close三选项；renderer secret scan。
 - **Stable error ownership:** `CORE_*`、`IPC_*`、`SINGLE_INSTANCE_*`、`CREDENTIAL_ACCESS_*`、`EXTERNAL_LINK_BLOCKED`。
