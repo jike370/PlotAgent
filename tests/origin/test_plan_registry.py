@@ -44,8 +44,7 @@ def test_origin_registry_is_exactly_the_frozen_31_o1_surface() -> None:
     assert len(ORIGIN_ADAPTERS) == 31
     assert {entry.chart_type_id for entry in ORIGIN_ADAPTERS} == EXPECTED_CHART_IDS
     assert all(
-        entry.capability == "O1" and not entry.known_differences
-        for entry in ORIGIN_ADAPTERS
+        entry.capability == "O1" and not entry.known_differences for entry in ORIGIN_ADAPTERS
     )
     for rejected in ("K23", "S45", "K26", "unknown"):
         with pytest.raises(OriginAdapterNotFoundError, match="no qualified"):
@@ -104,9 +103,7 @@ def test_plan_rejects_hash_drift_unknown_fields_and_nonformal_input() -> None:
     resolved = resolve_chart("K01")
     export = build_origin_export_spec((resolved,))
     with pytest.raises(OriginPlanError, match="hash does not match"):
-        compile_origin_plan(
-            (resolved,), export.model_copy(update={"render_plan_hash": "0" * 64})
-        )
+        compile_origin_plan((resolved,), export.model_copy(update={"render_plan_hash": "0" * 64}))
 
     plan = compile_origin_plan((resolved,), export)
     with pytest.raises(ValidationError):

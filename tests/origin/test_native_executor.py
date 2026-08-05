@@ -26,6 +26,9 @@ class _RecordingBackend:
     plan: OriginExportPlan
     calls: list[tuple[str, str]] = field(default_factory=list)
 
+    def set_plan(self, plan: OriginExportPlan) -> None:
+        self.calls.append(("plan", plan.origin_plan_id))
+
     def ensure_blank(self) -> None:
         self.calls.append(("blank", ""))
 
@@ -80,6 +83,11 @@ def test_all_31_plans_normalize_to_fixed_native_primitives(chart_id: str) -> Non
         "line_symbol",
         "scatter",
         "column",
+        "area",
+        "fill_area",
+        "floating_column",
+        "bubble",
+        "bubble_color",
         "heatmap",
         "contour",
     }
@@ -92,9 +100,10 @@ def test_closed_executor_orders_native_objects_before_validation_and_save() -> N
     report = build_native_project(backend, plan, "temporary.opju")
 
     assert report == expected_validation_report(plan)
-    assert backend.calls[:5] == [
+    assert backend.calls[:6] == [
+        ("plan", plan.origin_plan_id),
         ("blank", ""),
-        *(('folder', folder) for folder in PROJECT_FOLDERS),
+        *(("folder", folder) for folder in PROJECT_FOLDERS),
     ]
     assert backend.calls[-2:] == [
         ("inspect", plan.origin_plan_id),
@@ -111,3 +120,33 @@ def test_fresh_inspection_rejects_report_drift() -> None:
 
     with pytest.raises(ValueError, match="fresh native Origin report differs"):
         inspect_native_project(backend, plan)
+
+
+@pytest.mark.parametrize(
+    ("chart_id", "transforms", "plot_count"),
+    [
+        ("K06", {"interval_connector", "direct"}, 4),
+        ("K07", {"direct", "band"}, 2),
+        ("K13", {"box_outline", "direct"}, 2),
+        ("K14", {"violin_polygon"}, 1),
+        ("S21", {"forest_interval", "forest_symbol"}, 2),
+    ],
+)
+def test_interval_distribution_and_band_geometry_is_not_collapsed(
+    chart_id: str,
+    transforms: set[str],
+    plot_count: int,
+) -> None:
+    plan = _plan(chart_id)
+    primitives = [
+        primitive
+        for graph in plan.graph_objects
+        for layer in graph.layers
+        for plot in layer.plots
+        for primitive in native_primitives(plot)
+    ]
+
+    assert {item.transform for item in primitives} == transforms
+    assert len(primitives) == plot_count
+    if chart_id == "K07":
+        assert any(item.plot_type == "fill_area" for item in primitives)

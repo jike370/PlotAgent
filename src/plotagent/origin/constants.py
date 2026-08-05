@@ -1,5 +1,7 @@
 """Build-pinned Origin qualification declaration for the M0 K01 spike."""
 
+from pathlib import Path
+
 DECLARED_ORIGIN_DISPLAY_NAME = "Origin2024 SR1"
 DECLARED_ORIGIN_DISPLAY_VERSION = "10.10.178"
 DECLARED_ORIGIN_RUNTIME_VERSION = 10.100178
@@ -7,9 +9,15 @@ DECLARED_ORIGIN_BITNESS = 64
 DECLARED_ORIGINPRO_VERSION = "1.1.15"
 
 ORIGIN_EXECUTABLE = "Origin64.exe"
-ORIGIN_TEMPLATE_FILENAME = "origin.otp"
-ORIGIN_TEMPLATE_ID = "origin-10.10.178-default-line"
-ORIGIN_TEMPLATE_SHA256 = "588d94a13eee1140e55ff3edf04bc84e955b9c2c1dc3a40fc7b4a3932572d254"
+ORIGIN_TEMPLATE_FILENAME = "PlotAgent89x60.otpu"
+ORIGIN_TEMPLATE_ID = "plotagent-10.10.178-89x60"
+ORIGIN_TEMPLATE_SHA256 = "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf"
+
+
+def qualified_template_path() -> Path:
+    """Return the build-owned template path; callers cannot supply another path."""
+
+    return Path(__file__).resolve().parent / "assets" / ORIGIN_TEMPLATE_FILENAME
 
 K01_ADAPTER_ID = "plotagent.origin.k01.line"
 K01_ADAPTER_VERSION = "0.1.0-m0"
@@ -17,10 +25,9 @@ K01_CAPABILITY = "O1"
 K01_CHART_TYPE_ID = "K01"
 ORIGIN_EXPORT_SCHEMA_VERSION = "1.0"
 
-# Origin 2024 SR1's qualified origin.otp page size. M0 binds this native template
-# size; arbitrary publication-layout resolution remains a later W4/W6 task.
-K01_PAGE_WIDTH_MM = 272.288
-K01_PAGE_HEIGHT_MM = 208.407
+# Build-owned Origin 2024 SR1 template physical page size.
+K01_PAGE_WIDTH_MM = 89.0
+K01_PAGE_HEIGHT_MM = 60.0
 
 PROJECT_FOLDERS = ("Data", "Analysis", "Graphs", "Metadata")
 RAW_BOOK_NAME = "PARAWK01"

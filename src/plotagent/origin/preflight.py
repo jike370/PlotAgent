@@ -22,9 +22,9 @@ from .constants import (
     DECLARED_ORIGINPRO_VERSION,
     MIN_FREE_TARGET_BYTES,
     ORIGIN_EXECUTABLE,
-    ORIGIN_TEMPLATE_FILENAME,
     ORIGIN_TEMPLATE_SHA256,
     WORKER_DEFAULT_TIMEOUT_SECONDS,
+    qualified_template_path,
 )
 from .models import (
     JsonValue,
@@ -110,9 +110,7 @@ def _find_installations() -> list[_Installation]:
                     )
                     if identity not in seen:
                         seen.add(identity)
-                        locations.append(
-                            _Installation(display_name, display_version, install_dir)
-                        )
+                        locations.append(_Installation(display_name, display_version, install_dir))
     return sorted(
         locations,
         key=lambda item: (item.display_version, str(item.install_dir)),
@@ -244,9 +242,7 @@ def preflight_origin(
     timeout_seconds: float = WORKER_DEFAULT_TIMEOUT_SECONDS,
 ) -> OriginPreflightResult:
     target = Path(target_path).expanduser().resolve(strict=False)
-    target_failure = validate_target(
-        target, expected_existing_sha256=expected_existing_sha256
-    )
+    target_failure = validate_target(target, expected_existing_sha256=expected_existing_sha256)
     if target_failure is not None:
         return target_failure
     installations = _find_installations()
@@ -319,19 +315,19 @@ def preflight_origin(
             f"this build supports only originpro {DECLARED_ORIGINPRO_VERSION}",
             details={"detected_originpro_version": originpro_version},
         )
-    template = installation.install_dir / ORIGIN_TEMPLATE_FILENAME
+    template = qualified_template_path()
     if not template.is_file():
         return _error(
             target,
             OriginErrorCode.TEMPLATE_OR_FONT_MISSING,
-            "the qualified Origin line template is missing",
+            "the build-owned qualified Origin template is missing",
         )
     template_hash = _sha256_file(template)
     if template_hash.lower() != ORIGIN_TEMPLATE_SHA256:
         return _error(
             target,
             OriginErrorCode.TEMPLATE_OR_FONT_MISSING,
-            "the Origin line template does not match the qualified content hash",
+            "the build-owned Origin template does not match the qualified content hash",
             details={"detected_template_sha256": template_hash},
         )
     probe = run_worker(
@@ -382,6 +378,4 @@ def preflight_origin(
         template_sha256=template_hash,
         license_available=True,
     )
-    return OriginPreflightSuccess(
-        status="ready", target_path=str(target), environment=environment
-    )
+    return OriginPreflightSuccess(status="ready", target_path=str(target), environment=environment)

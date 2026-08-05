@@ -25,9 +25,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "preflight":
         preflight_result = preflight_origin(args.target, timeout_seconds=args.timeout)
-        print(
-            json.dumps(preflight_result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True)
-        )
+        print(json.dumps(preflight_result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
         return 2 if isinstance(preflight_result, OriginPreflightFailure) else 0
     export_result = export_k01(args.target, timeout_seconds=args.timeout)
     print(json.dumps(export_result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))

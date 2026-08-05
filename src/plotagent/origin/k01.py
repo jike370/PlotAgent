@@ -395,5 +395,5 @@ def qualification_constants_are_consistent() -> bool:
         and math.isclose(DECLARED_ORIGIN_RUNTIME_VERSION, 10.100178, abs_tol=1e-12)
         and DECLARED_ORIGINPRO_VERSION == "1.1.15"
         and ORIGIN_TEMPLATE_SHA256
-        == "588d94a13eee1140e55ff3edf04bc84e955b9c2c1dc3a40fc7b4a3932572d254"
+        == "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf"
     )

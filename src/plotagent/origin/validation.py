@@ -7,12 +7,23 @@ from typing import cast
 from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.rendering import OriginExportPlan
 
+from .native import (
+    materialize_primitive,
+    native_primitives,
+    physical_plot_count,
+    primitive_book_name,
+)
+
 
 def primitive_count(native_kind: str) -> int:
     """Return the fixed number of native Origin primitives used by one plan plot."""
 
-    if native_kind in {"band", "box", "forest_interval"}:
-        return {"band": 2, "box": 5, "forest_interval": 3}[native_kind]
+    if native_kind in {"error_bar", "box", "forest_interval"}:
+        return {
+            "error_bar": 4,
+            "box": 2,
+            "forest_interval": 2,
+        }[native_kind]
     return 1
 
 
@@ -41,17 +52,86 @@ def expected_validation_report(plan: OriginExportPlan) -> dict[str, JsonValue]:
         )
     graphs: list[JsonValue] = []
     for graph in plan.graph_objects:
+        layers: list[JsonValue] = []
+        primitive_data_pages: list[JsonValue] = []
+        data_by_id = {item.object_id: item for item in plan.data_objects}
+        for layer_index, layer in enumerate(graph.layers):
+            primitive_bindings: list[JsonValue] = []
+            for plot_index, plot in enumerate(layer.plots):
+                data = data_by_id[plot.data_object_id]
+                for primitive_index, primitive in enumerate(native_primitives(plot)):
+                    table = materialize_primitive(primitive, data)
+                    page_name = None
+                    if table is not None:
+                        page_name = primitive_book_name(
+                            graph.internal_name,
+                            layer_index,
+                            plot_index,
+                            primitive_index,
+                        )
+                        primitive_data_pages.append(
+                            {
+                                "origin_name": page_name,
+                                "row_count": len(table.x),
+                                "content_sha256": canonical_hash(
+                                    cast(
+                                        JsonValue,
+                                        {
+                                            "x": list(table.x),
+                                            "y": list(table.y),
+                                            "y2": (
+                                                list(table.y2)
+                                                if table.y2 is not None
+                                                else None
+                                            ),
+                                        },
+                                    )
+                                ),
+                            }
+                        )
+                    primitive_bindings.append(
+                        {
+                            "plot_id": plot.plot_id,
+                            "data_object_id": plot.data_object_id,
+                            "primitive_index": primitive_index,
+                            "plot_type": primitive.plot_type,
+                            "transform": primitive.transform,
+                            "x_role": primitive.x_role,
+                            "y_role": primitive.y_role,
+                            "error_role": primitive.error_role,
+                            "y2_role": primitive.y2_role,
+                            "size_role": primitive.size_role,
+                            "color_role": primitive.color_role,
+                            "primitive_data_page": page_name,
+                        }
+                    )
+            layers.append(
+                {
+                    "layer_id": layer.layer_id,
+                    "panel_id": layer.panel_id,
+                    "frame_mm": [
+                        layer.left_mm,
+                        layer.top_mm,
+                        layer.width_mm,
+                        layer.height_mm,
+                    ],
+                    "primitive_bindings": primitive_bindings,
+                }
+            )
         graphs.append(
             {
                 "graph_id": graph.graph_id,
                 "origin_name": graph.internal_name,
                 "layer_count": len(graph.layers),
                 "native_plot_count": sum(
-                    primitive_count(plot.native_kind)
+                    physical_plot_count(primitive)
                     for layer in graph.layers
                     for plot in layer.plots
+                    for primitive in native_primitives(plot)
                 ),
                 "data_object_ids": list(graph.data_object_ids),
+                "layers": layers,
+                "primitive_data_pages": primitive_data_pages,
                 "axes": [
                     {
                         "axis_id": axis.axis_id,

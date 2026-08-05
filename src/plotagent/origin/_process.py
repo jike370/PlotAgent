@@ -6,6 +6,8 @@ import json
 import os
 import subprocess
 import sys
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -17,15 +19,14 @@ class WorkerInvocation:
     payload: dict[str, Any] | None
     stderr: str
     timed_out: bool = False
+    cancelled: bool = False
 
 
 def _worker_environment() -> dict[str, str]:
     environment = os.environ.copy()
     source_root = str(Path(__file__).resolve().parents[2])
     existing = environment.get("PYTHONPATH")
-    environment["PYTHONPATH"] = (
-        source_root if not existing else source_root + os.pathsep + existing
-    )
+    environment["PYTHONPATH"] = source_root if not existing else source_root + os.pathsep + existing
     return environment
 
 
@@ -49,8 +50,14 @@ def _terminate_worker_tree(process: subprocess.Popen[str]) -> None:
         process.kill()
 
 
-def run_worker(mode: str, payload: dict[str, Any], timeout_seconds: float) -> WorkerInvocation:
-    if mode not in {"probe", "build", "reopen"}:
+def run_worker(
+    mode: str,
+    payload: dict[str, Any],
+    timeout_seconds: float,
+    *,
+    cancel_requested: Callable[[], bool] | None = None,
+) -> WorkerInvocation:
+    if mode not in {"probe", "build", "reopen", "build-plan", "reopen-plan"}:
         raise ValueError(f"unsupported Origin worker mode: {mode}")
     command = [sys.executable, "-m", "plotagent.origin._worker", mode]
     process = subprocess.Popen(
@@ -63,13 +70,43 @@ def run_worker(mode: str, payload: dict[str, Any], timeout_seconds: float) -> Wo
         env=_worker_environment(),
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
-    try:
-        stdout, stderr = process.communicate(
-            json.dumps(payload, ensure_ascii=False), timeout=timeout_seconds
-        )
-    except subprocess.TimeoutExpired:
-        _terminate_worker_tree(process)
-        return WorkerInvocation(ok=False, payload=None, stderr="worker timed out", timed_out=True)
+    if cancel_requested is None:
+        try:
+            stdout, stderr = process.communicate(
+                json.dumps(payload, ensure_ascii=False), timeout=timeout_seconds
+            )
+        except subprocess.TimeoutExpired:
+            _terminate_worker_tree(process)
+            return WorkerInvocation(
+                ok=False, payload=None, stderr="worker timed out", timed_out=True
+            )
+    else:
+        if process.stdin is None or process.stdout is None or process.stderr is None:
+            _terminate_worker_tree(process)
+            return WorkerInvocation(ok=False, payload=None, stderr="worker pipes unavailable")
+        process.stdin.write(json.dumps(payload, ensure_ascii=False))
+        process.stdin.close()
+        started = time.monotonic()
+        while process.poll() is None:
+            if cancel_requested():
+                _terminate_worker_tree(process)
+                return WorkerInvocation(
+                    ok=False,
+                    payload=None,
+                    stderr="worker cancelled",
+                    cancelled=True,
+                )
+            if time.monotonic() - started >= timeout_seconds:
+                _terminate_worker_tree(process)
+                return WorkerInvocation(
+                    ok=False,
+                    payload=None,
+                    stderr="worker timed out",
+                    timed_out=True,
+                )
+            time.sleep(0.05)
+        stdout = process.stdout.read()
+        stderr = process.stderr.read()
 
     lines = [line for line in stdout.splitlines() if line.strip()]
     if not lines:

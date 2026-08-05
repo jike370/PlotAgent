@@ -33,9 +33,7 @@ def test_k01_plan_is_canonical_and_contains_no_local_path() -> None:
     assert K01OriginPlan.from_dict(plan.to_dict()) == plan
     assert plan.capability == "O1"
     assert plan.manifest["object_map"] == plan.object_map
-    assert plan.manifest["hashes"]["validation_report_sha256"] == (
-        plan.validation_report_sha256
-    )
+    assert plan.manifest["hashes"]["validation_report_sha256"] == (plan.validation_report_sha256)
     manifest_text = str(plan.manifest).lower()
     assert "d:\\" not in manifest_text
     assert "secret" not in manifest_text

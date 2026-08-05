@@ -21,9 +21,7 @@ def test_existing_target_requires_expected_hash(tmp_path: Path) -> None:
     assert failure.error.code is OriginErrorCode.EXTERNAL_MODIFIED
 
 
-def test_other_origin_versions_are_stably_unsupported(
-    tmp_path: Path, monkeypatch: object
-) -> None:
+def test_other_origin_versions_are_stably_unsupported(tmp_path: Path, monkeypatch: object) -> None:
     monkeypatch.setattr(preflight, "validate_target", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         preflight,

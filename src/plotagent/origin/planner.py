@@ -380,9 +380,7 @@ def compile_origin_plan(
                     matrix = (
                         _matrix_plan(layer, table, axes) if object_kind == "matrixbook" else None
                     )
-                    columns = (
-                        () if matrix is not None else _column_plans(layer, table, axes)
-                    )
+                    columns = () if matrix is not None else _column_plans(layer, table, axes)
                     data_objects.append(
                         OriginDataObject(
                             object_id=data_id,
@@ -390,8 +388,7 @@ def compile_origin_plan(
                             folder=cast(Any, folder),
                             internal_name=internal_name,
                             long_name=(
-                                f"{plan.chart_type_id} "
-                                f"{chain.replace('_', ' ').title()} Data"
+                                f"{plan.chart_type_id} {chain.replace('_', ' ').title()} Data"
                             ),
                             data_chain=cast(Any, chain),
                             data_ref=layer.data_ref,
@@ -447,8 +444,7 @@ def compile_origin_plan(
                     width_mm=panel.width.value,
                     height_mm=panel.height.value,
                     axes=tuple(
-                        _axis_plan(axis)
-                        for axis in sorted(axes, key=lambda item: item.orientation)
+                        _axis_plan(axis) for axis in sorted(axes, key=lambda item: item.orientation)
                     ),
                     plots=tuple(plot_plans),
                 )

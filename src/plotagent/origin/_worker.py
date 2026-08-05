@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
+from plotagent.contracts.rendering import OriginExportPlan
+
 from .constants import (
     GRAPH_LAYER_LONG_NAME,
     GRAPH_PAGE_LONG_NAME,
@@ -25,12 +27,12 @@ from .constants import (
     MANIFEST_SHEET_NAME,
     METADATA_BOOK_LONG_NAME,
     METADATA_BOOK_NAME,
-    ORIGIN_TEMPLATE_FILENAME,
     PROJECT_FOLDERS,
     RAW_BOOK_LONG_NAME,
     RAW_BOOK_NAME,
     RAW_SHEET_LONG_NAME,
     RAW_SHEET_NAME,
+    qualified_template_path,
 )
 from .k01 import K01OriginPlan, canonical_json, sha256_json, validation_report_for_plan
 
@@ -190,8 +192,15 @@ def _inspect_project(op: Any, plan: K01OriginPlan) -> dict[str, Any]:
         "legend": plan.legend_text,
     }:
         _fail("VALIDATION_FAILURE", "axis title or legend text differs", actual=labels)
-    page_width_mm = float(graph.obj.GetWidth()) * 25.4
-    page_height_mm = float(graph.obj.GetHeight()) * 25.4
+    page_units = int(graph.obj.GetUnits())
+    if page_units != 2:
+        _fail(
+            "VALIDATION_FAILURE",
+            "qualified K01 graph template must use millimetres",
+            actual_units=page_units,
+        )
+    page_width_mm = float(graph.obj.GetWidth())
+    page_height_mm = float(graph.obj.GetHeight())
     if not _close_enough(page_width_mm, plan.page_width_mm, 0.2) or not _close_enough(
         page_height_mm, plan.page_height_mm, 0.2
     ):
@@ -288,8 +297,8 @@ def _build(payload: dict[str, Any]) -> dict[str, Any]:
         _fail("BUILD_FAILURE", "build payload contains missing or unknown fields")
     plan = K01OriginPlan.from_dict(cast(dict[str, Any], payload["plan"]))
     temporary_path = Path(str(payload["temporary_opju_path"])).resolve(strict=False)
-    install_dir = Path(str(payload["install_dir"])).resolve(strict=True)
-    template = install_dir / ORIGIN_TEMPLATE_FILENAME
+    Path(str(payload["install_dir"])).resolve(strict=True)
+    template = qualified_template_path()
     import originpro as op
 
     try:
@@ -441,8 +450,90 @@ def _reopen(payload: dict[str, Any]) -> dict[str, Any]:
         op.exit()
 
 
+def _build_plan(payload: dict[str, Any]) -> dict[str, Any]:
+    if set(payload) != {"plan", "install_dir", "temporary_opju_path"}:
+        _fail("BUILD_FAILURE", "typed-plan build payload contains missing or unknown fields")
+    plan = OriginExportPlan.model_validate_json(
+        json.dumps(payload["plan"], ensure_ascii=False)
+    )
+    temporary_path = Path(str(payload["temporary_opju_path"])).resolve(strict=False)
+    Path(str(payload["install_dir"])).resolve(strict=True)
+    template = qualified_template_path()
+    import originpro as op
+
+    from ._origin_backend import OriginProBackend
+    from .native import build_native_project
+    from .validation import expected_validation_sha256
+
+    try:
+        backend = OriginProBackend(op, template)
+        report = build_native_project(backend, plan, str(temporary_path))
+        return {
+            "status": "ok",
+            "runtime_version": float(op.org_ver()),
+            "validation": {
+                "report": report,
+                "report_sha256": expected_validation_sha256(plan),
+            },
+            "temporary_size": temporary_path.stat().st_size,
+        }
+    except WorkerFailure:
+        raise
+    except Exception as exc:
+        _fail("BUILD_FAILURE", "typed native Origin construction failed", error=str(exc))
+    finally:
+        gc.collect()
+        op.exit()
+
+
+def _reopen_plan(payload: dict[str, Any]) -> dict[str, Any]:
+    if set(payload) != {"plan", "install_dir", "temporary_opju_path"}:
+        _fail("REOPEN_FAILURE", "typed-plan reopen payload contains missing or unknown fields")
+    plan = OriginExportPlan.model_validate_json(
+        json.dumps(payload["plan"], ensure_ascii=False)
+    )
+    temporary_path = Path(str(payload["temporary_opju_path"])).resolve(strict=True)
+    Path(str(payload["install_dir"])).resolve(strict=True)
+    template = qualified_template_path()
+    import originpro as op
+
+    from ._origin_backend import OriginProBackend
+    from .native import inspect_native_project
+    from .validation import expected_validation_sha256
+
+    try:
+        root = op.root_folder()
+        if root.obj.Folders.GetCount() != 0 or root.obj.PageBases().GetCount() != 0:
+            _fail("REOPEN_FAILURE", "fresh validation instance was not blank before load")
+        if not op.open(str(temporary_path), readonly=True, asksave=False):
+            _fail("REOPEN_FAILURE", "fresh Origin instance could not open the temporary OPJU")
+        backend = OriginProBackend(op, template)
+        report = inspect_native_project(backend, plan)
+        return {
+            "status": "ok",
+            "runtime_version": float(op.org_ver()),
+            "validation": {
+                "report": report,
+                "report_sha256": expected_validation_sha256(plan),
+            },
+        }
+    except WorkerFailure:
+        raise
+    except Exception as exc:
+        _fail("REOPEN_FAILURE", "typed native Origin fresh reopen failed", error=str(exc))
+    finally:
+        gc.collect()
+        op.exit()
+
+
 def _main() -> int:
-    if len(sys.argv) != 2 or sys.argv[1] not in {"probe", "build", "reopen"}:
+    if len(sys.argv) != 2 or sys.argv[1] not in {
+        "probe",
+        "build",
+        "reopen",
+        "build-plan",
+        "reopen-plan",
+    }:
         print(
             json.dumps(
                 {
@@ -456,7 +547,13 @@ def _main() -> int:
         payload = json.load(sys.stdin)
         if not isinstance(payload, dict):
             _fail("START_FAILURE", "worker payload must be a JSON object")
-        result = {"probe": _probe, "build": _build, "reopen": _reopen}[sys.argv[1]](payload)
+        result = {
+            "probe": _probe,
+            "build": _build,
+            "reopen": _reopen,
+            "build-plan": _build_plan,
+            "reopen-plan": _reopen_plan,
+        }[sys.argv[1]](payload)
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0
     except WorkerFailure as exc:
