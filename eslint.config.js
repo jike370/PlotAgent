@@ -18,6 +18,16 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: {
+        Buffer: 'readonly',
+        console: 'readonly',
+        process: 'readonly',
+      },
+    },
+  },
+  {
     files: ['src/renderer/src/**/*.{ts,tsx}'],
     plugins: {
       'react-hooks': reactHooks,
