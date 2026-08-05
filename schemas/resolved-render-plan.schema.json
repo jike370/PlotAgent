@@ -152,6 +152,83 @@
       "title": "PhysicalSize",
       "type": "object"
     },
+    "ResolvedAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "affect_range": {
+          "default": false,
+          "title": "Affect Range",
+          "type": "boolean"
+        },
+        "annotation_id": {
+          "pattern": "^annotation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Annotation Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "arrow",
+            "line",
+            "rectangle",
+            "reference_line",
+            "reference_band",
+            "peak_label",
+            "significance_bracket",
+            "panel_label"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "panel_id": {
+          "default": "panel:main",
+          "pattern": "^panel:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Panel Id",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "x": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X"
+        },
+        "y": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y"
+        }
+      },
+      "required": [
+        "annotation_id",
+        "kind"
+      ],
+      "title": "ResolvedAnnotation",
+      "type": "object"
+    },
     "ResolvedAxis": {
       "additionalProperties": false,
       "properties": {
@@ -159,6 +236,11 @@
           "pattern": "^axis:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Axis Id",
           "type": "string"
+        },
+        "exponent": {
+          "default": 0,
+          "title": "Exponent",
+          "type": "integer"
         },
         "label": {
           "$ref": "#/$defs/SafeRichText"
@@ -186,6 +268,40 @@
           ],
           "default": null,
           "title": "Minimum"
+        },
+        "orientation": {
+          "default": "x",
+          "enum": [
+            "x",
+            "y",
+            "color"
+          ],
+          "title": "Orientation",
+          "type": "string"
+        },
+        "panel_id": {
+          "default": "panel:main",
+          "pattern": "^panel:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Panel Id",
+          "type": "string"
+        },
+        "position": {
+          "default": "bottom",
+          "enum": [
+            "bottom",
+            "top",
+            "left",
+            "right",
+            "none"
+          ],
+          "title": "Position",
+          "type": "string"
+        },
+        "precision": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Precision",
+          "type": "integer"
         },
         "reverse": {
           "default": false,
@@ -217,6 +333,27 @@
         "label"
       ],
       "title": "ResolvedAxis",
+      "type": "object"
+    },
+    "ResolvedFieldBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "field_id"
+      ],
+      "title": "ResolvedFieldBinding",
       "type": "object"
     },
     "ResolvedFont": {
@@ -259,8 +396,57 @@
           ],
           "default": null
         },
+        "color_maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color Maximum"
+        },
+        "color_minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color Minimum"
+        },
         "data_ref": {
           "$ref": "#/$defs/ContentTableRef"
+        },
+        "data_source_kind": {
+          "default": "direct",
+          "enum": [
+            "direct",
+            "fixed",
+            "user_precomputed",
+            "panel_plan"
+          ],
+          "title": "Data Source Kind",
+          "type": "string"
+        },
+        "displayed_row_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Displayed Row Count",
+          "type": "integer"
+        },
+        "field_bindings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResolvedFieldBinding"
+          },
+          "title": "Field Bindings",
+          "type": "array"
         },
         "field_ids": {
           "items": {
@@ -270,15 +456,40 @@
           "title": "Field Ids",
           "type": "array"
         },
+        "full_row_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Full Row Count",
+          "type": "integer"
+        },
         "geometry": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
           "title": "Geometry",
           "type": "string"
         },
+        "label": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "layer_id": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
           "title": "Layer Id",
           "type": "string"
+        },
+        "levels": {
+          "default": [],
+          "items": {
+            "type": "number"
+          },
+          "title": "Levels",
+          "type": "array"
         },
         "line_width": {
           "anyOf": [
@@ -302,6 +513,20 @@
           ],
           "default": null
         },
+        "palette": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ColorValue"
+          },
+          "title": "Palette",
+          "type": "array"
+        },
+        "panel_id": {
+          "default": "panel:main",
+          "pattern": "^panel:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Panel Id",
+          "type": "string"
+        },
         "target_id": {
           "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
@@ -321,6 +546,42 @@
         "z_order"
       ],
       "title": "ResolvedLayer",
+      "type": "object"
+    },
+    "ResolvedLegend": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_x": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Anchor X",
+          "type": "number"
+        },
+        "anchor_y": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Anchor Y",
+          "type": "number"
+        },
+        "placement": {
+          "default": "inside",
+          "enum": [
+            "inside",
+            "outside_right",
+            "outside_bottom"
+          ],
+          "title": "Placement",
+          "type": "string"
+        },
+        "visible": {
+          "default": false,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "title": "ResolvedLegend",
       "type": "object"
     },
     "ResolvedPanel": {
@@ -459,6 +720,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "annotations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ResolvedAnnotation"
+      },
+      "title": "Annotations",
+      "type": "array"
+    },
     "axes": {
       "items": {
         "$ref": "#/$defs/ResolvedAxis"
@@ -467,8 +736,59 @@
       "title": "Axes",
       "type": "array"
     },
+    "background": {
+      "$ref": "#/$defs/ColorValue",
+      "default": {
+        "value": "#FFFFFF"
+      }
+    },
     "canvas": {
       "$ref": "#/$defs/PhysicalSize"
+    },
+    "chart_type_id": {
+      "anyOf": [
+        {
+          "enum": [
+            "K01",
+            "K02",
+            "K03",
+            "K04",
+            "K05",
+            "K06",
+            "K07",
+            "K08",
+            "K09",
+            "K10",
+            "K11",
+            "K12",
+            "K13",
+            "K14",
+            "K15",
+            "K16",
+            "K17",
+            "K18",
+            "K19",
+            "K20",
+            "K21",
+            "K22",
+            "K24",
+            "K25",
+            "S01",
+            "S05",
+            "S21",
+            "S25",
+            "S31",
+            "S34",
+            "S61"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Chart Type Id"
     },
     "color_space": {
       "const": "sRGB",
@@ -478,6 +798,13 @@
     },
     "data_integrity": {
       "$ref": "#/$defs/DataIntegritySnapshot"
+    },
+    "dpi": {
+      "default": 300,
+      "maximum": 2400,
+      "minimum": 72,
+      "title": "Dpi",
+      "type": "integer"
     },
     "fonts": {
       "items": {
@@ -494,6 +821,15 @@
       "minItems": 1,
       "title": "Layers",
       "type": "array"
+    },
+    "legend": {
+      "$ref": "#/$defs/ResolvedLegend",
+      "default": {
+        "anchor_x": 1.0,
+        "anchor_y": 1.0,
+        "placement": "inside",
+        "visible": false
+      }
     },
     "panels": {
       "items": {
@@ -549,6 +885,15 @@
       "minItems": 1,
       "title": "Source Refs",
       "type": "array"
+    },
+    "svg_text_mode": {
+      "default": "text_to_path",
+      "enum": [
+        "text_to_path",
+        "editable_text"
+      ],
+      "title": "Svg Text Mode",
+      "type": "string"
     },
     "warnings": {
       "default": [],

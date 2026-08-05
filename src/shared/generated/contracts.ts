@@ -1125,14 +1125,34 @@ export type RemoveAnnotationPatch = {
   readonly annotation_id: string;
 }
 
+export type ResolvedAnnotation = {
+  readonly annotation_id: string;
+  readonly panel_id?: string;
+  readonly kind: "text" | "arrow" | "line" | "rectangle" | "reference_line" | "reference_band" | "peak_label" | "significance_bracket" | "panel_label";
+  readonly text?: SafeRichText | null;
+  readonly x?: number | null;
+  readonly y?: number | null;
+  readonly affect_range?: boolean;
+}
+
 export type ResolvedAxis = {
   readonly axis_id: string;
+  readonly panel_id?: string;
+  readonly orientation?: "x" | "y" | "color";
+  readonly position?: "bottom" | "top" | "left" | "right" | "none";
   readonly scale: "linear" | "log10" | "datetime" | "categorical";
   readonly minimum?: number | null;
   readonly maximum?: number | null;
   readonly reverse?: boolean;
   readonly ticks?: ReadonlyArray<ResolvedTick>;
+  readonly exponent?: number;
+  readonly precision?: number;
   readonly label: SafeRichText;
+}
+
+export type ResolvedFieldBinding = {
+  readonly role: string;
+  readonly field_id: string;
 }
 
 export type ResolvedFont = {
@@ -1144,13 +1164,30 @@ export type ResolvedFont = {
 export type ResolvedLayer = {
   readonly layer_id: string;
   readonly target_id: string;
+  readonly panel_id?: string;
   readonly geometry: string;
+  readonly data_source_kind?: "direct" | "fixed" | "user_precomputed" | "panel_plan";
   readonly data_ref: ContentTableRef;
   readonly field_ids: ReadonlyArray<string>;
+  readonly field_bindings?: ReadonlyArray<ResolvedFieldBinding>;
+  readonly full_row_count?: number;
+  readonly displayed_row_count?: number;
   readonly z_order: number;
+  readonly label?: SafeRichText | null;
   readonly color?: ColorValue | null;
+  readonly palette?: ReadonlyArray<ColorValue>;
+  readonly levels?: ReadonlyArray<number>;
+  readonly color_minimum?: number | null;
+  readonly color_maximum?: number | null;
   readonly line_width?: PhysicalLength | null;
   readonly marker_size?: PhysicalLength | null;
+}
+
+export type ResolvedLegend = {
+  readonly visible?: boolean;
+  readonly placement?: "inside" | "outside_right" | "outside_bottom";
+  readonly anchor_x?: number;
+  readonly anchor_y?: number;
 }
 
 export type ResolvedPanel = {
@@ -1165,16 +1202,22 @@ export type ResolvedRenderPlan = {
   readonly schema_version?: "1.0";
   readonly render_plan_id: string;
   readonly render_plan_version: number;
+  readonly chart_type_id?: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | null;
   readonly resolver_version: string;
   readonly source_refs: ReadonlyArray<ObjectVersionRef>;
   readonly source_content_hashes: ReadonlyArray<string>;
   readonly quality_tier: "thumbnail" | "interactive" | "formal";
   readonly canvas: PhysicalSize;
+  readonly dpi?: number;
+  readonly background?: ColorValue;
   readonly color_space?: "sRGB";
+  readonly svg_text_mode?: "text_to_path" | "editable_text";
   readonly panels: ReadonlyArray<ResolvedPanel>;
   readonly axes: ReadonlyArray<ResolvedAxis>;
   readonly layers: ReadonlyArray<ResolvedLayer>;
   readonly fonts: ReadonlyArray<ResolvedFont>;
+  readonly legend?: ResolvedLegend;
+  readonly annotations?: ReadonlyArray<ResolvedAnnotation>;
   readonly data_integrity: DataIntegritySnapshot;
   readonly warnings?: ReadonlyArray<WarningRecord>;
 }

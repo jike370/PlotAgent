@@ -8,9 +8,11 @@ from pydantic import Field, StringConstraints, model_validator
 
 from plotagent.contracts.base import (
     SCHEMA_VERSION,
+    ChartTypeId,
     ColorValue,
     ContentTableRef,
     ExportSpecRef,
+    FieldId,
     FiniteNumber,
     NonNegativeInt,
     ObjectVersionRef,
@@ -70,11 +72,19 @@ class ResolvedAxis(StrictModel):
         str,
         StringConstraints(pattern=r"^axis:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
     ]
+    panel_id: Annotated[
+        str,
+        StringConstraints(pattern=r"^panel:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
+    ] = "panel:main"
+    orientation: Literal["x", "y", "color"] = "x"
+    position: Literal["bottom", "top", "left", "right", "none"] = "bottom"
     scale: Literal["linear", "log10", "datetime", "categorical"]
     minimum: FiniteNumber | None = None
     maximum: FiniteNumber | None = None
     reverse: bool = False
     ticks: tuple[ResolvedTick, ...] = ()
+    exponent: int = 0
+    precision: NonNegativeInt = 0
     label: SafeRichText
 
     @model_validator(mode="after")
@@ -101,16 +111,81 @@ class ResolvedPanel(StrictModel):
     height: PhysicalLength
 
 
+class ResolvedFieldBinding(StrictModel):
+    role: Token
+    field_id: FieldId
+
+
 class ResolvedLayer(StrictModel):
     layer_id: Token
     target_id: SemanticTargetId
+    panel_id: Annotated[
+        str,
+        StringConstraints(pattern=r"^panel:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
+    ] = "panel:main"
     geometry: Token
+    data_source_kind: Literal["direct", "fixed", "user_precomputed", "panel_plan"] = "direct"
     data_ref: ContentTableRef
     field_ids: Annotated[tuple[str, ...], Field(min_length=1)]
+    field_bindings: tuple[ResolvedFieldBinding, ...] = ()
+    full_row_count: NonNegativeInt = 0
+    displayed_row_count: NonNegativeInt = 0
     z_order: int
+    label: SafeRichText | None = None
     color: ColorValue | None = None
+    palette: tuple[ColorValue, ...] = ()
+    levels: tuple[FiniteNumber, ...] = ()
+    color_minimum: FiniteNumber | None = None
+    color_maximum: FiniteNumber | None = None
     line_width: PhysicalLength | None = None
     marker_size: PhysicalLength | None = None
+
+    @model_validator(mode="after")
+    def valid_resolved_data(self) -> ResolvedLayer:
+        if self.full_row_count and self.displayed_row_count > self.full_row_count:
+            raise ValueError("displayed rows cannot exceed full rows")
+        if self.displayed_row_count and self.displayed_row_count != self.data_ref.row_count:
+            raise ValueError("displayed rows must match the resolved data reference")
+        if self.field_bindings:
+            binding_fields = tuple(item.field_id for item in self.field_bindings)
+            if binding_fields != self.field_ids:
+                raise ValueError("field bindings must preserve the resolved field order")
+            if len({item.role for item in self.field_bindings}) != len(self.field_bindings):
+                raise ValueError("resolved field roles must be unique")
+        return self
+
+
+class ResolvedLegend(StrictModel):
+    visible: bool = False
+    placement: Literal["inside", "outside_right", "outside_bottom"] = "inside"
+    anchor_x: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
+    anchor_y: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
+
+
+class ResolvedAnnotation(StrictModel):
+    annotation_id: Annotated[
+        str,
+        StringConstraints(pattern=r"^annotation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
+    ]
+    panel_id: Annotated[
+        str,
+        StringConstraints(pattern=r"^panel:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
+    ] = "panel:main"
+    kind: Literal[
+        "text",
+        "arrow",
+        "line",
+        "rectangle",
+        "reference_line",
+        "reference_band",
+        "peak_label",
+        "significance_bracket",
+        "panel_label",
+    ]
+    text: SafeRichText | None = None
+    x: FiniteNumber | None = None
+    y: FiniteNumber | None = None
+    affect_range: bool = False
 
 
 class DataIntegritySnapshot(StrictModel):
@@ -135,16 +210,22 @@ class ResolvedRenderPlan(StrictModel):
         StringConstraints(pattern=r"^renderplan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
     ]
     render_plan_version: VersionId
+    chart_type_id: ChartTypeId | None = None
     resolver_version: Token
     source_refs: Annotated[tuple[ObjectVersionRef, ...], Field(min_length=1)]
     source_content_hashes: Annotated[tuple[Sha256, ...], Field(min_length=1)]
     quality_tier: Literal["thumbnail", "interactive", "formal"]
     canvas: PhysicalSize
+    dpi: Annotated[int, Field(ge=72, le=2400)] = 300
+    background: ColorValue = ColorValue(value="#FFFFFF")
     color_space: Literal["sRGB"] = "sRGB"
+    svg_text_mode: Literal["text_to_path", "editable_text"] = "text_to_path"
     panels: Annotated[tuple[ResolvedPanel, ...], Field(min_length=1)]
     axes: Annotated[tuple[ResolvedAxis, ...], Field(min_length=1)]
     layers: Annotated[tuple[ResolvedLayer, ...], Field(min_length=1)]
     fonts: Annotated[tuple[ResolvedFont, ...], Field(min_length=1)]
+    legend: ResolvedLegend = ResolvedLegend()
+    annotations: tuple[ResolvedAnnotation, ...] = ()
     data_integrity: DataIntegritySnapshot
     warnings: tuple[WarningRecord, ...] = ()
 
