@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable
 from contextlib import closing, suppress
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 
 from pydantic import BaseModel
 
@@ -33,6 +33,7 @@ from plotagent.storage.schema import (
 from plotagent.storage.workspace import ensure_local_fixed_workspace
 
 type FaultInjector = Callable[[str], None]
+type ImportResponseFactory = Callable[[ImportCommitResult, int], dict[str, Any]]
 
 
 def _utc_now() -> str:
@@ -317,6 +318,10 @@ class ProjectStore:
         source_object: StagedObject,
         registrations: Iterable[DatasetRegistration],
         fault_injector: FaultInjector | None = None,
+        expected_revision: int | None = None,
+        idempotency_key: str | None = None,
+        request_hash: str | None = None,
+        response_factory: ImportResponseFactory | None = None,
     ) -> ImportCommitResult:
         """Promote immutable objects and register every dataset in one SQLite transaction."""
 
@@ -352,6 +357,13 @@ class ProjectStore:
                 fault_injector("after_promote")
 
             connection.execute("BEGIN IMMEDIATE")
+            if expected_revision is not None:
+                row = connection.execute("SELECT revision FROM project_meta").fetchone()
+                if row is None or int(row[0]) != expected_revision:
+                    raise StorageProblem(
+                        StorageErrorCode.VERSION_CONFLICT,
+                        "The project changed after the import request was created.",
+                    )
             for _path, _created, staged in promoted.values():
                 connection.execute(
                     """
@@ -448,6 +460,41 @@ class ProjectStore:
             if fault_injector:
                 fault_injector("after_dataset_rows")
                 fault_injector("before_commit")
+            result = ImportCommitResult(
+                session_id=session_id,
+                datasets=tuple(records),
+            )
+            idempotency_values = (
+                idempotency_key,
+                request_hash,
+                response_factory,
+            )
+            if any(value is not None for value in idempotency_values):
+                if (
+                    expected_revision is None
+                    or idempotency_key is None
+                    or request_hash is None
+                    or response_factory is None
+                ):
+                    raise ValueError("incomplete import idempotency arguments")
+                cursor = connection.execute(
+                    "UPDATE project_meta SET revision = revision + 1 WHERE revision = ?",
+                    (expected_revision,),
+                )
+                if cursor.rowcount != 1:
+                    raise StorageProblem(
+                        StorageErrorCode.VERSION_CONFLICT,
+                        "The project changed during import commit.",
+                    )
+                response = response_factory(result, expected_revision + 1)
+                connection.execute(
+                    """
+                    INSERT INTO idempotency_records(
+                        operation, idempotency_key, request_hash, response_json, created_at
+                    ) VALUES ('datasets.import', ?, ?, ?, ?)
+                    """,
+                    (idempotency_key, request_hash, _json(response), now),
+                )
             connection.commit()
         except Exception as exc:
             if connection.in_transaction:
@@ -469,10 +516,7 @@ class ProjectStore:
 
         for staged in staged_objects:
             self.cleanup_staged_task(staged.task_dir)
-        return ImportCommitResult(
-            session_id=session_id,
-            datasets=tuple(records),
-        )
+        return result
 
     def list_source_datasets(
         self, logical_source_id: str | None = None

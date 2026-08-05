@@ -11,4 +11,13 @@ def test_packaging_entry_uses_the_real_desktop_core_runtime() -> None:
     assert "plotagent.desktop_core.__main__ import main" in source
     assert "transport_smoke_stub" not in source
     assert boundary["implementation"] == "bounded_rpc_runtime"
-    assert boundary["domain_capabilities"] == ["task-control"]
+    assert boundary["domain_capabilities"] == [
+        "projects",
+        "datasets",
+        "plots",
+        "batch",
+        "figures",
+        "agent",
+        "exports",
+        "task-control",
+    ]

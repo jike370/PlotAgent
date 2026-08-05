@@ -5,6 +5,7 @@ from __future__ import annotations
 import signal
 from types import FrameType
 
+from plotagent.desktop_core.application import DesktopApplication
 from plotagent.desktop_core.runtime import CoreRuntime
 
 
@@ -13,7 +14,8 @@ class _SignalExit(BaseException):
 
 
 def main() -> int:
-    runtime = CoreRuntime()
+    application = DesktopApplication()
+    runtime = CoreRuntime(configure_services=application.configure_services)
 
     def handle_signal(_signum: int, _frame: FrameType | None) -> None:
         raise _SignalExit
@@ -32,6 +34,7 @@ def main() -> int:
         runtime.close()
         return 1
     finally:
+        application.close()
         for item, handler in previous.items():
             signal.signal(item, handler)
 

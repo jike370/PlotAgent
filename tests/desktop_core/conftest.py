@@ -14,7 +14,7 @@ import pytest
 
 
 class SidecarProcess:
-    def __init__(self) -> None:
+    def __init__(self, local_app_data: Path) -> None:
         root = Path(__file__).resolve().parents[2]
         env = os.environ.copy()
         existing_pythonpath = env.get("PYTHONPATH")
@@ -24,6 +24,7 @@ class SidecarProcess:
             if existing_pythonpath is None
             else os.pathsep.join((source, existing_pythonpath))
         )
+        env["LOCALAPPDATA"] = str(local_app_data)
         self.process = subprocess.Popen(
             [sys.executable, "-m", "plotagent.desktop_core"],
             cwd=root,
@@ -130,8 +131,8 @@ class SidecarProcess:
 
 
 @pytest.fixture
-def sidecar() -> SidecarProcess:
-    process = SidecarProcess()
+def sidecar(tmp_path: Path) -> SidecarProcess:
+    process = SidecarProcess(tmp_path / "local-app-data")
     try:
         yield process
     finally:

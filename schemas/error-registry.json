@@ -253,6 +253,27 @@
       "retryable": true
     },
     {
+      "code": "PROJECT_STORAGE_OBJECT_NOT_FOUND",
+      "default_severity": "blocked",
+      "description": "The requested immutable project object does not exist.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "VERSION_CONFLICT",
+      "default_severity": "blocked",
+      "description": "The project or object version changed before the operation committed.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "IDEMPOTENCY_CONFLICT",
+      "default_severity": "blocked",
+      "description": "An idempotency key was reused for a different request.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
       "code": "ARCHIVE_UNSAFE_PATH",
       "default_severity": "blocked",
       "description": "A package entry has an absolute, traversing, reserved, or unknown path.",

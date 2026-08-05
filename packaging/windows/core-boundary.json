@@ -3,6 +3,6 @@
   "development_entrypoint": "python -m plotagent.desktop_core",
   "packaged_executable": "resources/core/plotagent-core/plotagent-core.exe",
   "implementation": "bounded_rpc_runtime",
-  "domain_capabilities": ["task-control"],
-  "disclaimer": "The packaged sidecar and development entry use the same bounded RPC runtime; domain handlers are registered separately through ServiceRegistry."
+  "domain_capabilities": ["projects", "datasets", "plots", "batch", "figures", "agent", "exports", "task-control"],
+  "disclaimer": "The packaged sidecar and development entry use the same bounded RPC runtime and explicit product ServiceRegistry allowlist."
 }

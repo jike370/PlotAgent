@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from plotagent.contracts.base import ContentTableRef
@@ -14,7 +15,7 @@ from plotagent.storage.models import (
     ImportResource,
     ProjectImportOutcome,
 )
-from plotagent.storage.project import FaultInjector, ProjectStore
+from plotagent.storage.project import FaultInjector, ImportResponseFactory, ProjectStore
 
 
 def _logical_source_id(resource_id: str, artifact: SourceDatasetArtifact) -> str:
@@ -47,6 +48,11 @@ class ProjectImportService:
         decimal_mark: str | None = None,
         header_row: int | None = None,
         sheet: str | None = None,
+        expected_revision: int | None = None,
+        idempotency_key: str | None = None,
+        request_hash: str | None = None,
+        response_factory: ImportResponseFactory | None = None,
+        before_commit: Callable[[], None] | None = None,
     ) -> ProjectImportOutcome:
         """Copy, inspect, serialize, and atomically register one authorized resource."""
 
@@ -114,11 +120,17 @@ class ProjectImportService:
                         table_object=table_object,
                     )
                 )
+            if before_commit is not None:
+                before_commit()
             return self._project.commit_import(
                 resource_id=resource.resource_id,
                 source_object=staged_source,
                 registrations=registrations,
                 fault_injector=self._fault_injector,
+                expected_revision=expected_revision,
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+                response_factory=response_factory,
             )
         except Exception:
             self._project.cleanup_staged_task(staged_source.task_dir)

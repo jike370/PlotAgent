@@ -1,6 +1,7 @@
 """Lightweight per-project SQLite metadata and immutable object storage."""
 
 from plotagent.storage.catalog import Catalog
+from plotagent.storage.domain import ProjectDomainRepository, StoredExport, StoredPlot
 from plotagent.storage.import_service import ProjectImportService
 from plotagent.storage.models import (
     CatalogProject,
@@ -21,6 +22,7 @@ __all__ = [
     "ImportCommitResult",
     "ImportResource",
     "OpenedProjectPackage",
+    "ProjectDomainRepository",
     "ProjectImportService",
     "ProjectPackageExportResult",
     "ProjectPackageImportResult",
@@ -29,4 +31,6 @@ __all__ = [
     "ProjectPackageType",
     "ProjectStore",
     "SourceDatasetRecord",
+    "StoredExport",
+    "StoredPlot",
 ]

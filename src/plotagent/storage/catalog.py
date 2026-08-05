@@ -211,3 +211,22 @@ class Catalog:
                 """
             )
         )
+
+    def get_project(self, project_id: str) -> CatalogProject:
+        connection = self._connection_for_write()
+        row = connection.execute(
+            """
+            SELECT project_id, workspace_path, display_name, created_at, last_opened_at
+            FROM projects WHERE project_id = ?
+            """,
+            (project_id,),
+        ).fetchone()
+        if row is None:
+            raise StorageProblem(StorageErrorCode.PROJECT_NOT_FOUND, "catalog 中没有该项目。")
+        return CatalogProject(
+            project_id=str(row[0]),
+            workspace_path=str(row[1]),
+            display_name=None if row[2] is None else str(row[2]),
+            created_at=str(row[3]),
+            last_opened_at=str(row[4]),
+        )

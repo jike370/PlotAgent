@@ -306,6 +306,27 @@ STABLE_ERROR_REGISTRY = ErrorRegistry(
             "Minimal catalog registration failed.",
         ),
         _error(
+            "PROJECT_STORAGE_OBJECT_NOT_FOUND",
+            "W2_DATA",
+            False,
+            "blocked",
+            "The requested immutable project object does not exist.",
+        ),
+        _error(
+            "VERSION_CONFLICT",
+            "W2_DATA",
+            True,
+            "blocked",
+            "The project or object version changed before the operation committed.",
+        ),
+        _error(
+            "IDEMPOTENCY_CONFLICT",
+            "W2_DATA",
+            False,
+            "blocked",
+            "An idempotency key was reused for a different request.",
+        ),
+        _error(
             "ARCHIVE_UNSAFE_PATH",
             "W2_DATA",
             False,

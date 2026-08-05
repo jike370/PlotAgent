@@ -153,6 +153,11 @@ class CoreRuntime:
     def _dispatch(self, request: RpcRequest) -> tuple[bytes, bool]:
         context = RpcContext(request_id=request.request_id, tasks=self.tasks, workers=self.workers)
         try:
+            if not self._initialized and not request.method.startswith("system."):
+                raise RpcServiceError(
+                    "CORE_NOT_INITIALIZED",
+                    "The Core handshake was not completed.",
+                )
             result = self.services.dispatch(request.method, context, request.params)
             return self._writer.success(request.request_id, result), True
         except (RpcServiceError, TaskControlError) as error:

@@ -165,6 +165,14 @@ class TaskRegistry:
                 ),
             }
 
+    def token(self, task_id: str) -> CancellationToken:
+        with self._lock:
+            return self._require(task_id).token
+
+    def state(self, task_id: str) -> str:
+        with self._lock:
+            return self._require(task_id).state
+
     def _require(self, task_id: str) -> TaskRecord:
         record = self._records.get(task_id)
         if record is None:

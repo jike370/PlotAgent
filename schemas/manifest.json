@@ -22,7 +22,7 @@
     },
     {
       "path": "schemas/error-registry.json",
-      "sha256": "e201c6de53765ff1744187be60a8268d3b0ea3c07dfb7cce81e871910d3aac5d"
+      "sha256": "fbf58ea8f917ffee82ab3bdba6fa8e3719f8ebc60d6ff0c84dcaeb0b86e1208c"
     },
     {
       "path": "schemas/error-registry.schema.json",
