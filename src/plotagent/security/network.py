@@ -9,14 +9,33 @@ transports must surface redirects instead of following them so each hop is gated
 from __future__ import annotations
 
 import ipaddress
+import ssl
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Protocol
+from typing import Final, Protocol
 from urllib.parse import SplitResult, unquote, urlsplit, urlunsplit
 
+import httpx
+
 from plotagent.security.errors import LocalSecurityError
+
+CONNECT_TIMEOUT_SECONDS: Final = 5.0
+READ_TIMEOUT_SECONDS: Final = 60.0
+WRITE_TIMEOUT_SECONDS: Final = 30.0
+POOL_TIMEOUT_SECONDS: Final = 5.0
+DEFAULT_MAX_RESPONSE_BYTES: Final = 4 * 1024 * 1024
+
+# This governs application-controlled headers.  httpx still emits protocol
+# necessities such as Host and Content-Length.
+_REQUEST_HEADER_ALLOWLIST: Final = frozenset(
+    {"accept", "content-type", "idempotency-key", "user-agent"}
+)
+_RESPONSE_HEADER_ALLOWLIST: Final = frozenset(
+    {"content-type", "location", "retry-after", "x-request-id"}
+)
+_REDIRECT_STATUS_CODES: Final = frozenset({301, 302, 303, 307, 308})
 
 
 class NetworkMode(StrEnum):
@@ -62,6 +81,10 @@ class NetworkResponse:
     status_code: int
     body: bytes = b""
     redirect_url: str | None = None
+    headers: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "headers", MappingProxyType(dict(self.headers)))
 
 
 class NetworkGate(Protocol):
@@ -72,6 +95,128 @@ class RawTransport(Protocol):
     """A transport that returns redirects without automatically following them."""
 
     def send(self, request: NetworkRequest) -> NetworkResponse: ...
+
+
+class BearerTokenProvider(Protocol):
+    """Resolve a bearer secret immediately before an HTTP request is emitted."""
+
+    def __call__(self, request: NetworkRequest) -> str | None: ...
+
+
+class HttpxRawTransport:
+    """Synchronous production transport with fixed, payload-free failure semantics."""
+
+    def __init__(
+        self,
+        *,
+        bearer_token_provider: BearerTokenProvider | None = None,
+        bearer_required_purposes: frozenset[NetworkPurpose] = frozenset(),
+        max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES,
+    ) -> None:
+        if max_response_bytes <= 0:
+            raise ValueError("max_response_bytes must be positive")
+        self._bearer_token_provider = bearer_token_provider
+        self._bearer_required_purposes = bearer_required_purposes
+        self._max_response_bytes = max_response_bytes
+        timeout = httpx.Timeout(
+            connect=CONNECT_TIMEOUT_SECONDS,
+            read=READ_TIMEOUT_SECONDS,
+            write=WRITE_TIMEOUT_SECONDS,
+            pool=POOL_TIMEOUT_SECONDS,
+        )
+        # HTTPTransport retries default to zero; make that production boundary explicit.
+        raw_http = httpx.HTTPTransport(verify=True, retries=0)
+        self._client = httpx.Client(
+            timeout=timeout,
+            follow_redirects=False,
+            transport=raw_http,
+            trust_env=False,
+        )
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> HttpxRawTransport:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+    def send(self, request: NetworkRequest) -> NetworkResponse:
+        headers = self._request_headers(request)
+        try:
+            with self._client.stream(
+                request.method.value,
+                request.url,
+                headers=headers,
+                content=request.body,
+            ) as response:
+                body = bytearray()
+                for chunk in response.iter_bytes():
+                    if len(body) + len(chunk) > self._max_response_bytes:
+                        raise LocalSecurityError(
+                            "NETWORK_RESPONSE_TOO_LARGE", category="network_transport"
+                        )
+                    body.extend(chunk)
+                response_headers = {
+                    name.lower(): value
+                    for name, value in response.headers.items()
+                    if name.lower() in _RESPONSE_HEADER_ALLOWLIST
+                }
+                redirect_url = (
+                    response.headers.get("location")
+                    if response.status_code in _REDIRECT_STATUS_CODES
+                    else None
+                )
+                return NetworkResponse(
+                    status_code=response.status_code,
+                    body=bytes(body),
+                    redirect_url=redirect_url,
+                    headers=response_headers,
+                )
+        except LocalSecurityError:
+            raise
+        except httpx.TimeoutException:
+            raise LocalSecurityError("REQUEST_TIMEOUT", category="network_transport") from None
+        except httpx.ConnectError as error:
+            if _caused_by_tls(error):
+                raise LocalSecurityError(
+                    "TLS_VALIDATION_FAILED", category="network_transport"
+                ) from None
+            raise LocalSecurityError(
+                "PROVIDER_CONNECTION_FAILED", category="network_transport"
+            ) from None
+        except httpx.HTTPError:
+            raise LocalSecurityError(
+                "PROVIDER_CONNECTION_FAILED", category="network_transport"
+            ) from None
+
+    def _request_headers(self, request: NetworkRequest) -> dict[str, str]:
+        headers: dict[str, str] = {}
+        for name, value in request.headers.items():
+            normalized = name.lower()
+            if (
+                normalized not in _REQUEST_HEADER_ALLOWLIST
+                or "\r" in name
+                or "\n" in name
+                or "\r" in value
+                or "\n" in value
+            ):
+                raise LocalSecurityError("NETWORK_HEADER_BLOCKED", category="network_transport")
+            headers[name] = value
+
+        token = (
+            self._bearer_token_provider(request)
+            if self._bearer_token_provider is not None
+            else None
+        )
+        if token is not None:
+            if not token or "\r" in token or "\n" in token:
+                raise LocalSecurityError("CREDENTIAL_INVALID", category="credential_store")
+            headers["Authorization"] = f"Bearer {token}"
+        elif request.purpose in self._bearer_required_purposes:
+            raise LocalSecurityError("CREDENTIAL_NOT_FOUND", category="credential_store")
+        return headers
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,7 +287,7 @@ class NetworkPolicyGate:
     ) -> None:
         self.mode = mode
         self._builtin_endpoints = tuple(
-            _Endpoint.parse(endpoint, allow_loopback_http=False)
+            _Endpoint.parse(endpoint, allow_loopback_http=True)
             for endpoint in builtin_endpoints
         )
         self._custom_endpoint = (
@@ -207,7 +352,11 @@ class PolicyTransport:
                 return response
             if redirect_count == self._max_redirects:
                 raise LocalSecurityError("NETWORK_REDIRECT_LIMIT", category="endpoint_policy")
-            current = replace(current, url=_resolve_redirect(current.url, response.redirect_url))
+            try:
+                redirect_url = _resolve_redirect(current.url, response.redirect_url)
+            except ValueError:
+                raise LocalSecurityError("REDIRECT_BLOCKED", category="endpoint_policy") from None
+            current = replace(current, url=redirect_url)
         raise AssertionError("redirect loop must return or raise")
 
 
@@ -247,6 +396,18 @@ def _canonical_path(path: str) -> str:
 
 
 def _resolve_redirect(source_url: str, redirect_url: str) -> str:
+    del source_url
     redirect = _parse_http_url(redirect_url)
     # Redirects must be absolute.  This keeps every next hop explicit and auditable.
     return urlunsplit(redirect)
+
+
+def _caused_by_tls(error: BaseException) -> bool:
+    current: BaseException | None = error
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, ssl.SSLError):
+            return True
+        current = current.__cause__ or current.__context__
+    return False

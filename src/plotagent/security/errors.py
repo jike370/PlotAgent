@@ -10,6 +10,8 @@ _SAFE_DETAIL_VALUES: Final = frozenset(
     {
         "network_policy",
         "endpoint_policy",
+        "network_transport",
+        "credential_store",
         "log_schema",
         "diagnostic_schema",
         "diagnostic_consent",

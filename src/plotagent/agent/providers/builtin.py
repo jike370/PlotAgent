@@ -19,6 +19,7 @@ from plotagent.agent.providers.base import (
     normalize_endpoint_origin,
 )
 from plotagent.contracts.canonical import canonical_json
+from plotagent.control_plane.client import ControlPlaneClientError
 from plotagent.control_plane.models import ModelInvokeRequest
 
 
@@ -35,7 +36,7 @@ class BuiltinProviderConfig:
     model_profile_id: str
     model_id: str
     deployment_id: str
-    protocol_version: str = "1.0"
+    protocol_version: str = "1"
 
 
 class BuiltinProxyProvider:
@@ -76,7 +77,10 @@ class BuiltinProxyProvider:
             },
             protocol_version=self._config.protocol_version,
         )
-        response = await self._client.invoke_model(invoke)
+        try:
+            response = await self._client.invoke_model(invoke)
+        except ControlPlaneClientError as error:
+            raise AgentRuntimeError(error.code) from None
         payload = _response_payload(response)
         output = payload.get("decision", payload.get("output_text"))
         if isinstance(output, dict):

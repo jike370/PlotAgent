@@ -168,6 +168,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - Builtin provider 仅通过可注入 cloud client 使用 W8 `ModelInvokeRequest` 边界；custom provider 先探测 Responses strict structured output，再回退 Chat strict/JSON-only。P1 结构失败直接拒绝，P2 最多一次固定 context/schema 的 repair，P0 与第二次失败不进入本地执行链。
 - Provider 输出先做完整 JSON 与四类 union 校验，再做 tool/code/path/URL/SQL/renderer/处理步骤载荷拒绝，最后一次性执行 target/version/stale/capability/permission/action-scope/no-partial validator；模型不承担图形推荐、替代或本地命令解析。
 - Prompt template、每次 provider response、ContextEnvelope、DataDisclosure、AgentDecision 与 ModelRunAudit 均有 SHA-256 metadata；audit 只保存 provider/model/schema/usage/target/version/count/hash/稳定错误，不保存 secret、reasoning、消息、字段值或样本。测试全部使用 fake client/transport 与 synthetic payload，覆盖 P1/P2/P0、Responses→Chat、timeout/cancel、stale/no-partial、egress budget/Disclosure 和 local_only zero-call。
+- 生产 provider factory 现在按 `builtin_proxy/custom_provider/local_only` 构造唯一允许的 adapter；`local_only` 在创建任何 RawTransport 前返回零网络 provider。custom API key 不进入 `CustomProviderConfig`、Context 或 audit，而由 credential resolver 在 HTTP 发包边界注入 `Authorization`。built-in 桌面客户端覆盖 redeem、credential verify/revoke、quota、model-run invoke/status；同步 HTTP 通过 `asyncio.to_thread` 适配现有 async provider 接口，显式重试必须复用同一 `client_run_id`，客户端不自动重放业务请求。
 
 ### W8 — Invite、DeviceCredential、共享计数与 built-in proxy
 
@@ -213,6 +214,11 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Acceptance evidence:** strict local_only zero packet；offline manual/3 exports；ACL/cleanup；archive/macro/formula；logs/bundle forbidden-field scan且bundle仅本地保存；未知schema稳定拒绝；known-pair每阶段crash保持源项目和semantic hash。
 - **Stable error ownership:** `NETWORK_BLOCKED_LOCAL_ONLY`、`WORKSPACE_*`、`TEMP_*`、`LOG/DIAGNOSTIC_*`、`SCHEMA_VERSION_UNSUPPORTED`、`KNOWN_MIGRATION_*`、`LEGACY_COMPONENT_MISSING`。
 - **Done:** Security/zero-egress/schema/diagnostic矩阵通过；任何失败保持原项目，日志与本地Bundle无禁止内容，任务崩溃后temp可清理且用户可明确重试。
+
+#### W9/M6 生产网络与凭据边界补充（2026-08-05）
+
+- `HttpxRawTransport` 使用同步 `httpx.Client`，固定 connect/read/write/pool timeout、`follow_redirects=False`、TLS/hostname 校验开启、HTTP 自动重试为零，并在流式读取时执行 response body 上限；request/response header 均经窄 allowlist，异常只暴露稳定错误，不拼接 URL、header、body 或底层异常文本。`PolicyTransport` 继续在每个 redirect hop 发包前重新 gate，绝对 redirect 越出配置 endpoint 时第二个 server 收不到请求。
+- Windows 仅通过 ctypes 的 Credential Manager generic credential adapter 保存固定 DeviceCredential target 与按受限 provider config ID 派生的 custom API key target；无账号、用户名、硬件指纹、项目密钥或任意 target API。非 Windows 与测试使用 process-local in-memory adapter。loopback fake-server evidence 覆盖 custom endpoint、越界 redirect、strict local-only 零调用、remote HTTP 配置拒绝、Bearer 日志/异常扫描及显式请求不自动重试。
 
 ### W10 — E2E、reference性能、安全、打包与 Beta gates
 

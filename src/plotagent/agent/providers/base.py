@@ -35,7 +35,7 @@ class ProviderCapabilities:
 
 @dataclass(frozen=True, slots=True)
 class ProviderIdentity:
-    provider_type: Literal["builtin", "custom"]
+    provider_type: Literal["builtin", "custom", "local_only"]
     provider_config_id: str
     endpoint_origin: str
     model_id: str

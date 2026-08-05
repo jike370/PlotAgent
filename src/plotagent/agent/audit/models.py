@@ -30,7 +30,7 @@ class ModelRunAudit(StrictModel):
         str,
         StringConstraints(min_length=1, max_length=128, strict=True),
     ]
-    provider_type: Literal["builtin", "custom"]
+    provider_type: Literal["builtin", "custom", "local_only"]
     provider_config_id: str
     endpoint_origin: str
     model_id: str

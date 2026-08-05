@@ -17,6 +17,7 @@ from plotagent.agent.providers.builtin import (
     BuiltinProxyProvider,
 )
 from plotagent.agent.providers.custom import CustomProviderConfig, OpenAICompatibleProvider
+from plotagent.agent.providers.factory import LocalOnlyProvider, create_provider
 
 __all__ = [
     "BuiltinCloudClient",
@@ -24,6 +25,7 @@ __all__ = [
     "BuiltinProxyProvider",
     "CustomProviderConfig",
     "ModelProvider",
+    "LocalOnlyProvider",
     "OpenAICompatibleProvider",
     "OutputCapability",
     "PromptTemplate",
@@ -33,4 +35,5 @@ __all__ = [
     "ProviderProtocol",
     "ProviderUsage",
     "ProviderWireResponse",
+    "create_provider",
 ]
