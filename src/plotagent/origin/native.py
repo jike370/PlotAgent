@@ -57,7 +57,7 @@ _LINE_KINDS = {
     "nyquist",
     "facet_line",
 }
-_SYMBOL_KINDS = {"scatter", "bubble", "strip", "forest_symbol", "risk_table"}
+_SYMBOL_KINDS = {"scatter", "bubble", "strip", "risk_table"}
 _BAR_KINDS = {"bar", "grouped_bar", "stacked_bar", "percent_bar", "histogram"}
 
 
@@ -111,7 +111,7 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
     if plot.native_kind == "bubble":
         return (
             NativePrimitive(
-                "bubble_color",
+                "scatter",
                 x_role,
                 y_role,
                 size_role=_first_role(plot, ("size", "marker_area")),
@@ -121,7 +121,10 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
     if plot.native_kind in _SYMBOL_KINDS:
         return (NativePrimitive("scatter", x_role, y_role),)
     if plot.native_kind in _BAR_KINDS:
-        bar = NativePrimitive("floating_column", x_role, "bottom", y2_role="top")
+        if plot.native_kind in {"bar", "grouped_bar", "histogram"}:
+            bar = NativePrimitive("column", x_role, "height")
+        else:
+            bar = NativePrimitive("floating_column", x_role, "bottom", y2_role="top")
         roles = {item.role for item in plot.role_columns}
         if {"lower", "upper"}.issubset(roles):
             return (
@@ -156,18 +159,17 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
     if plot.native_kind == "violin":
         return (NativePrimitive("area", x_role, y_role, transform="violin_polygon"),)
     if plot.native_kind == "forest_interval":
+        return (NativePrimitive("line", "effect", "label", transform="forest_interval"),)
+    if plot.native_kind == "forest_symbol":
         return (
-            NativePrimitive("line", "effect", "label", transform="forest_interval"),
             NativePrimitive(
-                "bubble",
+                "scatter",
                 "effect",
                 "label",
                 size_role="weight",
                 transform="forest_symbol",
             ),
         )
-    if plot.native_kind == "forest_symbol":
-        return (NativePrimitive("scatter", "effect", "label", transform="forest_symbol"),)
     if plot.native_kind in {"heatmap", "contour"}:
         return (NativePrimitive(plot.native_kind, None, None),)
     raise ValueError(f"unsupported typed Origin native kind: {plot.native_kind}")
@@ -353,8 +355,8 @@ def materialize_primitive(
         output_x: list[OriginScalar] = []
         output_y: list[OriginScalar] = []
         for position, low, high in zip(labels, lower, upper, strict=True):
-            output_x.extend((low, high, None))
-            output_y.extend((position, position, None))
+            output_x.extend((low, high))
+            output_y.extend((position, position))
         return NativePrimitiveTable(tuple(output_x), tuple(output_y))
     if primitive.transform == "forest_symbol":
         return NativePrimitiveTable(

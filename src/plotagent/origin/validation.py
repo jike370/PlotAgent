@@ -18,11 +18,10 @@ from .native import (
 def primitive_count(native_kind: str) -> int:
     """Return the fixed number of native Origin primitives used by one plan plot."""
 
-    if native_kind in {"error_bar", "box", "forest_interval"}:
+    if native_kind in {"error_bar", "box"}:
         return {
             "error_bar": 4,
             "box": 2,
-            "forest_interval": 2,
         }[native_kind]
     return 1
 

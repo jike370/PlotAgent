@@ -25,6 +25,7 @@ interface SidebarProps {
   onNewProject: () => void
   onTaskCenter: () => void
   onOpenResources: () => void
+  onConfigureAgent: () => void
 }
 
 const originLabels = {
@@ -44,6 +45,7 @@ export function Sidebar({
   onNewProject,
   onTaskCenter,
   onOpenResources,
+  onConfigureAgent,
 }: SidebarProps): React.JSX.Element {
   const origin = originLabels[originStatus]
   return (
@@ -106,7 +108,7 @@ export function Sidebar({
           <Activity size={16} aria-hidden="true" />
           <span>任务中心</span><span className="task-count">{taskCount}</span>
         </button>
-        <button type="button">
+        <button type="button" onClick={onConfigureAgent}>
           <SlidersHorizontal size={16} aria-hidden="true" />
           <span>Agent 服务</span>
           <span className={`status-dot status-dot--${core.phase === 'ready' ? 'online' : 'offline'}`} aria-label={core.phase === 'ready' ? 'Core 已连接' : 'Core 未连接'} />

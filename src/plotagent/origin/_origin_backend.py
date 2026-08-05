@@ -282,10 +282,6 @@ class OriginProBackend:
         y_indexes: tuple[int, ...] = (y_index,)
         if primitive.y2_role is not None:
             y_indexes += (_role_index(data, plot_plan, primitive.y2_role),)
-        if primitive.size_role is not None:
-            y_indexes += (_role_index(data, plot_plan, primitive.size_role),)
-        if primitive.color_role is not None:
-            y_indexes += (_role_index(data, plot_plan, primitive.color_role),)
         data_range = self._data_range(sheet, x_index, *y_indexes)
         native_plot = layer.obj.AddPlot(data_range, _PLOT_TYPE[primitive.plot_type], True)
         if native_plot is None or not native_plot.IsValid():
@@ -298,6 +294,28 @@ class OriginProBackend:
             "line_symbol",
         }:
             plot.symbol_size = plot_plan.marker_size_pt
+        if primitive.plot_type in {"scatter", "line_symbol"}:
+            plot.symbol_kind = 2
+        if primitive.size_role is not None:
+            size_index = _role_index(data, plot_plan, primitive.size_role)
+            plot.symbol_size = self._op.modi_col(size_index - y_index)
+            # Origin's modifier values are interpreted in points. The fixed factor
+            # keeps the PlotSpec's scientific bubble weights legible without turning
+            # one large observation into a page-sized symbol.
+            plot.symbol_sizefactor = 0.25
+        if primitive.color_role is not None:
+            color_index = _role_index(data, plot_plan, primitive.color_role)
+            plot.color = self._op.color_col(color_index - y_index, "m")
+        if primitive.transform == "forest_interval":
+            # Origin exposes 2-point-segment connection through the fixed Set -l
+            # option. The Plot property-tree path is not reliable for this control
+            # across supported Origin builds. Keep the command literal and
+            # allowlisted: no user or Agent content enters it.
+            plot.set_cmd("-l 2")
+        if plot_plan.native_kind == "grouped_bar" and primitive.plot_type == "column":
+            # Origin has no stable property path for this Spacing-tab control.
+            # Keep the command fully allowlisted and literal; no user text enters it.
+            plot.set_cmd("-vg 70")
         if plot_plan.line_width_pt is not None and primitive.plot_type in {
             "line",
             "line_symbol",
@@ -352,6 +370,10 @@ class OriginProBackend:
             raise NativeOriginError(f"could not create graph {graph_plan.internal_name}")
         graph.name = graph_plan.internal_name
         graph.lname = graph_plan.long_name
+        # Derived interval, outline, and polygon tables use missing rows as explicit
+        # segment boundaries. The qualified template may retain the user's global
+        # Origin preference, so freeze the safe scientific default on every page.
+        graph.set_int("connect", 0)
         # The qualified base template has printer-derived sizing disabled, so the
         # typed physical canvas can be applied through the native page API.
         graph.obj.SetWidth(graph_plan.page_width_mm)
@@ -369,8 +391,6 @@ class OriginProBackend:
                 layer = self._op.GLayer(native_layer)
             layer.lname = layer_plan.panel_id
             self._configure_layer_frame(graph_plan, layer_plan, layer)
-            for axis in layer_plan.axes:
-                self._configure_axis(layer, axis)
             for plot_index, plot_plan in enumerate(layer_plan.plots):
                 data = next(
                     item
@@ -388,6 +408,19 @@ class OriginProBackend:
                         )
                         if native_plot is None or not native_plot.IsValid():
                             raise NativeOriginError("could not add native matrix plot")
+                        # A generic qualified template has no initialized color-map
+                        # range. Native rescale initializes it from the matrix before
+                        # typed levels and axes are applied.
+                        layer.rescale()
+                        plot = self._op.Plot(native_plot, layer.obj)
+                        if plot_plan.levels:
+                            plot.zlevels = {
+                                "minors": 0,
+                                "levels": list(plot_plan.levels),
+                            }
+                        if primitive.plot_type == "contour":
+                            plot.colormap = "Viridis.pal"
+                            layer.set_int("cmap.flippal", 1)
                         continue
                     table = materialize_primitive(primitive, data)
                     plot_sheet = source_sheet
@@ -415,6 +448,7 @@ class OriginProBackend:
                                 and primitive.y2_role is None
                                 else None
                             ),
+                            transform=primitive.transform,
                         )
                         x_column = data.columns[0].model_copy(
                             update={
@@ -484,6 +518,8 @@ class OriginProBackend:
                             data,
                             plot_sheet,
                         )
+            for axis in layer_plan.axes:
+                self._configure_axis(layer, axis)
             labels = [plot.label for plot in layer_plan.plots if plot.label]
             legend = layer.label("legend")
             if legend is not None:

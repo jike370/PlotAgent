@@ -27,6 +27,7 @@ from plotagent.desktop_core.services import RpcContext, ServiceRegistry
 from plotagent.desktop_core.tasks import BoundedWorkerExecutor, TaskRegistry
 from plotagent.origin.models import OriginEnvironment, OriginExportSuccess
 from plotagent.security.credentials import InMemoryCredentialStore
+from plotagent.security.network import NetworkMode
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "import" / "files"
 
@@ -331,6 +332,21 @@ def test_custom_provider_configuration_is_persisted_without_exposing_secret(
     assert configured["mode"] == "custom_provider"
     assert "api_key" not in configured
     assert harness.credentials.get_custom_api_key("custom.default") == "test-secret-key"
+
+    saved_config = harness.application._saved_provider_config()
+    assert saved_config is not None
+    runtime_provider = harness.application._create_production_provider(
+        NetworkMode.CUSTOM_PROVIDER,
+        saved_config,
+    )
+    assert runtime_provider.identity.model_id == "science-model"
+    assert (
+        harness.application._create_production_provider(
+            NetworkMode.CUSTOM_PROVIDER,
+            saved_config,
+        )
+        is runtime_provider
+    )
 
     cleared = harness.call("provider.clear", {})
     assert cleared["mode"] == "local_only"

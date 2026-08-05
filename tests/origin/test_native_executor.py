@@ -129,7 +129,7 @@ def test_fresh_inspection_rejects_report_drift() -> None:
         ("K07", {"direct", "band"}, 2),
         ("K13", {"box_outline", "direct"}, 2),
         ("K14", {"violin_polygon"}, 1),
-        ("S21", {"forest_interval", "forest_symbol"}, 2),
+        ("S21", {"forest_interval"}, 1),
     ],
 )
 def test_interval_distribution_and_band_geometry_is_not_collapsed(
@@ -150,3 +150,42 @@ def test_interval_distribution_and_band_geometry_is_not_collapsed(
     assert len(primitives) == plot_count
     if chart_id == "K07":
         assert any(item.plot_type == "fill_area" for item in primitives)
+
+
+def test_bubble_uses_scatter_with_native_column_modifiers() -> None:
+    plan = _plan("K04")
+    primitive = native_primitives(plan.graph_objects[0].layers[0].plots[0])[0]
+
+    assert primitive.plot_type == "scatter"
+    assert primitive.size_role == "size"
+    assert primitive.color_role == "color"
+
+
+def test_forest_symbol_is_one_weight_sized_scatter_primitive() -> None:
+    plan = _plan("S21")
+    interval = plan.graph_objects[0].layers[0].plots[0]
+    symbol = interval.model_copy(update={"native_kind": "forest_symbol"})
+
+    primitives = native_primitives(symbol)
+
+    assert len(primitives) == 1
+    assert primitives[0].plot_type == "scatter"
+    assert primitives[0].x_role == "effect"
+    assert primitives[0].y_role == "label"
+    assert primitives[0].size_role == "weight"
+    assert primitives[0].transform == "forest_symbol"
+
+
+@pytest.mark.parametrize("chart_id", ["K08", "K09", "K15"])
+def test_non_stacked_bars_use_visible_native_columns(chart_id: str) -> None:
+    plan = _plan(chart_id)
+    primitives = [
+        primitive
+        for layer in plan.graph_objects[0].layers
+        for plot in layer.plots
+        for primitive in native_primitives(plot)
+    ]
+
+    assert primitives[0].plot_type == "column"
+    assert primitives[0].y_role == "height"
+    assert primitives[0].y2_role is None

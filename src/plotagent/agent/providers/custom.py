@@ -193,6 +193,11 @@ class OpenAICompatibleProvider:
             "context_hash": request.envelope.context_hash,
             "agent_decision_schema_hash": request.decision_schema_hash,
         }
+        if not strict:
+            # JSON-object mode cannot carry a schema in response_format. Include the
+            # same public contract in the prompt payload so P2 providers do not have
+            # to guess the AgentDecision shape from its hash.
+            data["agent_decision_schema"] = request.decision_schema
         if repair_candidate is not None:
             data["repair"] = {
                 "candidate": repair_candidate,
@@ -251,6 +256,8 @@ class OpenAICompatibleProvider:
             "json_schema_unsupported",
         }:
             raise _StructuredOutputUnsupported
+        if strict and _describes_structured_output_error(response.body):
+            raise _StructuredOutputUnsupported
         raise AgentRuntimeError("PROVIDER_CONNECTION_FAILED")
 
     def _extract(
@@ -297,6 +304,33 @@ def _error_code(body: bytes) -> str | None:
         if isinstance(error_code, str):
             return error_code
     return None
+
+
+def _describes_structured_output_error(body: bytes) -> bool:
+    """Recognize providers that report schema incompatibility with a generic code."""
+
+    try:
+        payload = json.loads(body)
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return False
+    error_type = error.get("type")
+    error_code = error.get("code")
+    if error_type != "invalid_request_error" and error_code != "invalid_request_error":
+        return False
+    details = " ".join(
+        value.casefold()
+        for key in ("message", "param")
+        if isinstance((value := error.get(key)), str)
+    )
+    return any(
+        marker in details
+        for marker in ("json schema", "json_schema", "response_format", "structured output")
+    )
 
 
 def _responses_text(payload: dict[str, Any]) -> str | None:

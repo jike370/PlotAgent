@@ -116,6 +116,13 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.queryByText(/邀请已激活/)).not.toBeInTheDocument()
   })
 
+  it('opens model service settings from the persistent sidebar entry', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: /Agent 服务/ }))
+    expect(screen.getByRole('dialog', { name: '模型服务' })).toBeInTheDocument()
+  })
+
   it('imports real Core fields, confirms one mapping, and displays a controlled preview resource', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop()

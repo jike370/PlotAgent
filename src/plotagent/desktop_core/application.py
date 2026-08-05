@@ -250,6 +250,7 @@ class DesktopApplication:
         self._packages = ProjectPackageService(self.catalog, self.projects_root)
         self._credential_store = credential_store or create_credential_store()
         self._provider_factory = provider_factory or self._create_production_provider
+        self._production_provider_cache: dict[tuple[str, ...], ModelProvider] = {}
         self._closed = False
 
     @staticmethod
@@ -296,7 +297,7 @@ class DesktopApplication:
             config_values = _object(
                 cast(RpcJsonValue, values),
                 required={"provider_config_id", "base_url", "model_id"},
-                optional={"model_profile"},
+                optional={"model_profile", "retention_acknowledged"},
             )
             custom_config = CustomProviderConfig(
                 provider_config_id=_text(config_values["provider_config_id"], "provider_config_id"),
@@ -305,12 +306,24 @@ class DesktopApplication:
                 model_profile=_optional_text(config_values.get("model_profile"), "model_profile")
                 or "custom-fixed",
             )
-            return create_provider(
+            cache_key = (
+                mode.value,
+                custom_config.provider_config_id,
+                custom_config.base_url,
+                custom_config.model_id,
+                custom_config.model_profile,
+            )
+            cached = self._production_provider_cache.get(cache_key)
+            if cached is not None:
+                return cached
+            provider = create_provider(
                 mode,
                 credential_store=self._credential_store,
                 app_build=__version__,
                 custom_config=custom_config,
             )
+            self._production_provider_cache[cache_key] = provider
+            return provider
         return create_provider(
             mode,
             credential_store=self._credential_store,
@@ -411,6 +424,7 @@ class DesktopApplication:
         api_key = _optional_text(values.get("api_key"), "api_key")
         if api_key is not None:
             self._credential_store.set_custom_api_key(config_id, api_key)
+            self._production_provider_cache.clear()
         if self._credential_store.get_custom_api_key(config_id) is None:
             raise RpcServiceError(
                 "PROVIDER_NOT_CONFIGURED", "A custom provider API key is required."
@@ -443,6 +457,7 @@ class DesktopApplication:
         if config is not None:
             config_id = _text(config["provider_config_id"], "provider_config_id")
             self._credential_store.delete_custom_api_key(config_id)
+        self._production_provider_cache.clear()
         self.catalog.delete_setting(_PROVIDER_SETTING_KEY)
         return self._provider_status(_context, {})
 

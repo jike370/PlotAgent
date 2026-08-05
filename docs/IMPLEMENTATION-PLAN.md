@@ -265,7 +265,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 - **结论：** K01 风险路径已经扩展为完整 31 图 registry 的 typed O1 adapter；代表性数据矩阵全部通过临时 OPJU build、退出构建实例、新空白受控实例 fresh reopen/readback 与原子发布。
 - **冻结环境：** Origin 2024 SR1，注册表 `DisplayVersion=10.10.178`，runtime `10.100178`，`Origin64.exe`/Python 均为 64-bit，`originpro=1.1.15`，随包 `PlotAgent89x60.otpu` SHA-256 `08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf`。当前 build 只声明该 exact Origin/originpro/bitness 组合；其他 Origin 版本稳定返回 `VERSION_UNSUPPORTED`。
-- **实现入口：** `src/plotagent/origin/` 提供 typed plan/result/error、精确 preflight、独立 `probe/build/reopen` worker、按图数量封顶 300 秒的阶段 timeout、live/fresh validator 与同盘临时文件原子发布。应用代码没有 user attach、LabTalk/脚本、worksheet formula、Origin analysis chain 或 raster/SVG fallback。
+- **实现入口：** `src/plotagent/origin/` 提供 typed plan/result/error、精确 preflight、独立 `probe/build/reopen` worker、按图数量封顶 300 秒的阶段 timeout、live/fresh validator 与同盘临时文件原子发布。应用代码没有 user attach、用户提供或动态生成的 LabTalk/脚本、worksheet formula、Origin analysis chain 或 raster/SVG fallback；仅使用两个固定 set command：分组柱 Spacing 控件的 `-vg 70`，以及森林图区间的 2-point-segment `-l 2`；参数均不可由用户或 Agent 改写。
 - **实跑命令与结果：** `$env:PLOTAGENT_RUN_ORIGIN_LIVE_MATRIX='1'; .\.venv\Scripts\python.exe -m pytest tests/origin/test_live_matrix.py -q`，31/31 通过，用时 1158.39 秒。动态画布 178×120 mm 另经 build 与 fresh reopen 验证。
 - **失败边界：** 单元与 fault 测试覆盖 fresh-reopen 失败不替换既有目标、未知 plan 字段拒绝、目标后缀/既有 hash 与版本拒绝、取消、阶段 timeout、外部修改和源码无 attach/script/formula 调用。minimal/edge/error 采用离线契约与稳定错误测试，不把工程成熟度扩大为 93 次昂贵 Origin 实跑。
 
@@ -321,7 +321,14 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Entry:** M4 fixed run/usage；W1/W2 lifecycle稳定。
 - **Exit evidence:** DeviceCredential、shared atomic quota/client-run idempotency、cloud-offline degradation、strict local_only、local diagnostic privacy、未知schema拒绝/已知pair迁移、人工安装包签名/hash/code-sign matrices。
 - **当前实现（2026-08-05）：** 已具备完整本地 Core、真实桌面 typed IPC、31 图/批量/Figure/Agent/PNG/SVG/OPJU 工作流，以及可执行 unsigned development 构建、显式可选签名入口、精确 SHA-256 manifest 与离线稳定阻断测试。邀请制 built-in cloud 保留为轻量独立控制面；无账号、无设备数限制。仓库未持有生产证书，因此 M6 完成指工程能力收口，不宣称签名 RC 或 M7 Beta qualification。
-- **当前回归证据（2026-08-06）：** Python 常规门禁为 436 passed、32 个真实 Origin marker skipped，Ruff 与 mypy 全通过；Node/Electron 为 16 files、66 tests，lint、两套 TypeScript typecheck 与 production build 全通过；Windows release tools 离线测试通过。31 图 Origin marker 已在冻结环境单独 31/31 实跑，动态画布修改后又独立复跑 K01 build+fresh reopen。in-app browser 当时没有可用 browser instance，因此未声称真实窗口截图巡检；DOM 交互测试和 production build 是本节点的 UI 证据。
+- **当前回归证据（2026-08-06）：** Python 常规门禁为 443 passed、32 个真实 Origin marker skipped，Ruff 与 mypy 全通过；Node/Electron 为 16 files、67 tests，lint、两套 TypeScript typecheck 与 production build 全通过；Windows release tools 离线测试通过。31 图 Origin marker 已在冻结环境单独 31/31 实跑，动态画布修改后又独立复跑 K01 build+fresh reopen。in-app browser 当时没有可用 browser instance，因此未声称真实窗口截图巡检；DOM 交互测试和 production build 是本节点的 UI 证据。
+
+#### M6 真实 Provider 与视觉审计实现说明（2026-08-06）
+
+- 桌面配置入口常驻左侧栏；custom provider 配置与 API key 分离，endpoint/model/留存确认写入本机配置，key 仅写 Windows Credential Manager。单实例进程复用 capability probe 结果，保存或清除凭据时失效缓存；重启不会丢配置，也不会把 secret 写入项目、仓库或诊断包。
+- DeepSeek `deepseek-v4-flash` 的生产链路采用 P1 strict structured output，遇到服务端不支持 strict JSON Schema 的通用 `invalid_request_error` 时降级到 P2 JSON object；P2 请求携带完整 `agent_decision_schema`，仍经本地 Pydantic、精确 target alias/field alias 和 ActionPlan 执行器验证，不增加 tool loop 或通用数据处理权限。
+- `scripts/run_real_llm_visual_audit.py` 固定执行 import → 真实自然语言 create → 真实自然语言 edit → formal Matplotlib PNG → native OPJU → fresh Origin reopen → Origin PNG，并明确标注独立参考图与仅用于回归的 v2 target。`scripts/rebuild_visual_audit_origin.py` 只复用已经接受并落盘的 PlotSpec 重建渲染器产物，不读取凭据、不重复调用模型。
+- 本轮真实链路覆盖 K01/K03/K04/K09/K22/S21。Origin 视觉修复保持 native data binding：气泡用 scatter 的 size/color column modifier；普通/分组柱用 Column，分组柱固定 70% gap；森林图区间用 2-point segment、权重符号用 size modifier；矩阵图先按原生数据初始化 colormap range，再写 typed levels，K22 固定 Viridis 并翻转为低值深色。所有产物继续通过 fresh reopen/readback，未加入 raster fallback。
 
 ### M7 — Beta Qualification
 

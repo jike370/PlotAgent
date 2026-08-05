@@ -132,6 +132,41 @@ def test_custom_probe_degrades_to_p2_json_only_after_strict_is_unsupported() -> 
     assert capabilities.protocol is ProviderProtocol.CHAT_COMPLETIONS
     json_mode = json.loads(raw.requests[-1].body or b"{}")
     assert json_mode["response_format"] == {"type": "json_object"}
+    prompt_payload = json.loads(json_mode["messages"][1]["content"])
+    assert prompt_payload["agent_decision_schema"]
+    assert prompt_payload["agent_decision_schema_hash"]
+
+
+def test_custom_probe_degrades_when_provider_uses_generic_schema_error() -> None:
+    generic_schema_error = NetworkResponse(
+        400,
+        json.dumps(
+            {
+                "error": {
+                    "type": "invalid_request_error",
+                    "code": "invalid_request_error",
+                    "message": "Invalid json schema: one of type, anyOf, or ref is required",
+                }
+            }
+        ).encode(),
+    )
+    raw = RecordingRawTransport(
+        [generic_schema_error, generic_schema_error, chat_success()]
+    )
+
+    capabilities = asyncio.run(custom_provider(raw).resolve_capabilities())
+
+    assert capabilities.output_capability is OutputCapability.P2
+    assert capabilities.protocol is ProviderProtocol.CHAT_COMPLETIONS
+    assert [request.url.rsplit("/", 2)[-2:] for request in raw.requests] == [
+        ["v1", "responses"],
+        ["chat", "completions"],
+        ["chat", "completions"],
+    ]
+    json_mode = json.loads(raw.requests[-1].body or b"{}")
+    assert json_mode["response_format"] == {"type": "json_object"}
+    prompt_payload = json.loads(json_mode["messages"][1]["content"])
+    assert prompt_payload["agent_decision_schema"]
 
 
 @dataclass
