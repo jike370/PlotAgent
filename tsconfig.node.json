@@ -12,6 +12,7 @@
     "electron.vite.config.ts",
     "vitest.config.ts",
     "vite.web.config.ts",
+    "src/shared/desktop-contract.ts",
     "src/main/**/*.ts",
     "src/preload/**/*.ts"
   ]
