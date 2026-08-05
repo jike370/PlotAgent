@@ -164,8 +164,8 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 #### W8/M6 最小实现说明（2026-08-05）
 
-仓库现已提供 `src/plotagent/control_plane/` 的独立 FastAPI + SQLite Beta 控制面切片及
-`services/control-plane/README.md` 运行说明；这不表示真实云部署、W7 桌面接入或完整 M6 已完成。
+仓库现已提供 `src/plotagent/control_plane/` 的独立 FastAPI + SQLite Beta 控制面切片；
+运行入口为 `python -m plotagent.control_plane`，这不表示真实云部署、W7 桌面接入或完整 M6 已完成。
 
 - SQLite 使用 `BEGIN IMMEDIATE` 在同一事务内检查 `(invite_id, client_run_id)`、校验
   grant/device/profile、插入 run 并扣减 InviteGrant 共享额度；并发测试覆盖不超扣与同 ID

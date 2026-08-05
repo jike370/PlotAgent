@@ -47,5 +47,3 @@ python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-最小 Beta 云控制面的配置、运行入口、API 与故障语义见
-[`services/control-plane/README.md`](services/control-plane/README.md)。
