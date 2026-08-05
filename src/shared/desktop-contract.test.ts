@@ -5,6 +5,7 @@ import {
   parseAgentDecideInput,
   parseCloseResponse,
   parseCoreProtocolMessage,
+  parseCustomProviderConfigureInput,
   parsePlotPatchInput,
   parseProjectResourceInput,
   parseTaskEvent,
@@ -87,5 +88,39 @@ describe('desktop contract validation', () => {
       scope: 'current',
       utterance: 'Y axis 改成 log10，图例放到左上角',
     })).not.toBeNull()
+  })
+
+  it('accepts HTTPS and loopback HTTP custom-provider configuration', () => {
+    expect(parseCustomProviderConfigureInput({
+      baseUrl: 'https://provider.example/v1',
+      modelId: 'research-model',
+      apiKey: 'secret-value',
+      retentionAcknowledged: true,
+    })).toMatchObject({ baseUrl: 'https://provider.example/v1', modelId: 'research-model' })
+    expect(parseCustomProviderConfigureInput({
+      baseUrl: 'http://localhost:11434/v1',
+      modelId: 'local-model',
+      retentionAcknowledged: true,
+    })).toMatchObject({ baseUrl: 'http://localhost:11434/v1', modelId: 'local-model' })
+    expect(parseCustomProviderConfigureInput({
+      baseUrl: 'http://127.0.0.1:8000/v1',
+      modelId: 'local-model',
+      retentionAcknowledged: true,
+    })).toMatchObject({ baseUrl: 'http://127.0.0.1:8000/v1', modelId: 'local-model' })
+    expect(parseCustomProviderConfigureInput({
+      baseUrl: 'http://[::1]:8000/v1',
+      modelId: 'local-model',
+      retentionAcknowledged: true,
+    })).toMatchObject({ baseUrl: 'http://[::1]:8000/v1', modelId: 'local-model' })
+    expect(parseCustomProviderConfigureInput({
+      baseUrl: 'http://provider.example/v1',
+      modelId: 'research-model',
+      retentionAcknowledged: true,
+    })).toBeNull()
+    expect(parseCustomProviderConfigureInput({
+      baseUrl: 'https://user:secret@provider.example/v1',
+      modelId: 'research-model',
+      retentionAcknowledged: true,
+    })).toBeNull()
   })
 })

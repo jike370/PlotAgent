@@ -36,6 +36,7 @@ import { BatchPlot } from './PlotVisuals'
 
 interface FocusEditorProps {
   initialIndex: number
+  plot?: { title: string; plotId: string; version: number; previewUrl?: string }
   onClose: () => void
 }
 
@@ -50,7 +51,7 @@ interface Position {
   y: number
 }
 
-export function FocusEditor({ initialIndex, onClose }: FocusEditorProps): React.JSX.Element {
+export function FocusEditor({ initialIndex, plot, onClose }: FocusEditorProps): React.JSX.Element {
   const [activeIndex, setActiveIndex] = useState(Math.min(initialIndex, 2))
   const [selected, setSelected] = useState<number[]>([Math.min(initialIndex, 2)])
   const [scope, setScope] = useState<ScopeMode>('current')
@@ -96,7 +97,8 @@ export function FocusEditor({ initialIndex, onClose }: FocusEditorProps): React.
     else setAnnotationPosition(update)
   }
 
-  const active = focusItems[activeIndex]
+  const availableItems = plot ? [{ title: plot.title, file: plot.plotId, series: 'control' as const }] : focusItems
+  const active = availableItems[Math.min(activeIndex, availableItems.length - 1)]
 
   return (
     <div className="focus-editor" role="dialog" aria-modal="true" aria-label="聚焦编辑">
@@ -104,7 +106,7 @@ export function FocusEditor({ initialIndex, onClose }: FocusEditorProps): React.
         <button className="back-button" type="button" onClick={onClose}><ArrowLeft size={18} />返回对话</button>
         <div className="focus-title">
           <h2>{active.title}</h2>
-          <span>线点图 · v3</span>
+          <span>{plot ? `${plot.plotId} · v${plot.version}` : '线点图 · v3'}</span>
         </div>
         <div className="focus-history-tools">
           <button type="button" aria-label="撤销"><Undo2 size={17} /></button>
@@ -164,10 +166,10 @@ export function FocusEditor({ initialIndex, onClose }: FocusEditorProps): React.
               <div className="compare-label compare-label--left"><span>v2</span>修改前</div>
             )}
             <div className="canvas-paper canvas-paper--previous" aria-hidden={!compareOpen}>
-              {compareOpen && <BatchPlot title={active.title} series={active.series} />}
+              {compareOpen && (plot?.previewUrl ? <img className="focus-real-preview" src={plot.previewUrl} alt={`${plot.title} 上一版本预览`} /> : <BatchPlot title={active.title} series={active.series} />)}
             </div>
             <div className="canvas-paper canvas-paper--current">
-              <BatchPlot title={active.title} series={active.series} />
+              {plot?.previewUrl ? <img className="focus-real-preview" src={plot.previewUrl} alt={`${plot.title} Core 预览`} /> : <BatchPlot title={active.title} series={active.series} />}
               <button
                 className="draggable-legend"
                 type="button"
@@ -232,9 +234,9 @@ export function FocusEditor({ initialIndex, onClose }: FocusEditorProps): React.
       <footer className="thumbnail-dock">
         <div className="thumbnail-dock__label"><Image size={15} /><span>批次 B-024</span><strong>{selected.length} 张已选</strong></div>
         <div className="thumbnail-strip">
-          {focusItems.map((item, index) => (
+          {availableItems.map((item, index) => (
             <article className={`${activeIndex === index ? 'is-active' : ''}${selected.includes(index) ? ' is-selected' : ''}`} key={item.file}>
-              <button className="thumb-open" type="button" onClick={() => setActiveIndex(index)} aria-label={`打开 ${item.title}`}><BatchPlot compact title={item.title} series={item.series} /></button>
+              <button className="thumb-open" type="button" onClick={() => setActiveIndex(index)} aria-label={`打开 ${item.title}`}>{plot?.previewUrl ? <img className="focus-real-thumb" src={plot.previewUrl} alt="" /> : <BatchPlot compact title={item.title} series={item.series} />}</button>
               <label><input type="checkbox" checked={selected.includes(index)} onChange={() => setSelected((current) => current.includes(index) ? current.filter((value) => value !== index) : [...current, index])} /><span>{index + 1}</span></label>
               <small>{item.file.replace('sample_', '').replace('.csv', '')}</small>
             </article>

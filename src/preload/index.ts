@@ -6,6 +6,7 @@ import {
   type CloseRequest,
   type CloseResponse,
   type CoreStatus,
+  type CustomProviderConfigureInput,
   type AgentDecideInput,
   type BatchCreateInput,
   type BatchIdInput,
@@ -62,8 +63,13 @@ const desktop = {
   getTasks: () => ipcRenderer.invoke(IPC_CHANNELS.getTasks),
   cancelTask: (taskId: string) => ipcRenderer.invoke(IPC_CHANNELS.cancelTask, { taskId }),
   retryCore: () => ipcRenderer.invoke(IPC_CHANNELS.retryCore),
+  getProviderStatus: () => ipcRenderer.invoke(IPC_CHANNELS.providerStatus),
+  configureCustomProvider: (input: CustomProviderConfigureInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.providerConfigure, input),
+  clearProvider: () => ipcRenderer.invoke(IPC_CHANNELS.providerClear),
   listProjects: () => ipcRenderer.invoke(IPC_CHANNELS.projectList),
   createProject: (input: ProjectCreateInput) => ipcRenderer.invoke(IPC_CHANNELS.projectCreate, input),
+  activateProject: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.projectActivate, input),
   openProject: () => ipcRenderer.invoke(IPC_CHANNELS.projectOpen),
   openProjectResource: (input: ProjectResourceInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.projectOpenResource, input),

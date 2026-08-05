@@ -1,172 +1,312 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import {
+  DESKTOP_API_VERSION,
+  type DesktopActionResult,
+  type DesktopBootstrap,
+  type DesktopDataResult,
+  type JsonValue,
+  type PlotAgentDesktopApi,
+  type TaskEvent,
+} from '../../shared/desktop-contract'
 import { App } from './App'
 
-describe('PlotAgent desktop prototype', () => {
-  const openSampleProject = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-    await user.click(screen.getByRole('button', { name: /用示例项目试用/ }))
+const ok = (value: JsonValue): DesktopDataResult => ({ ok: true, value })
+const actionOk = async (): Promise<DesktopActionResult> => ({ ok: true })
+const readyBootstrap = async (): Promise<DesktopBootstrap> => ({
+  apiVersion: DESKTOP_API_VERSION,
+  platform: 'win32',
+  core: { phase: 'ready', restartAttempt: 0 },
+  tasks: { tasks: [], activeTaskCount: 0, hasCommittingTask: false },
+})
+
+const dataset = {
+  source_dataset_id: 'source:temperature',
+  source_version: 1,
+  row_count: 12,
+  field_count: 3,
+  fields: [
+    { field_id: 'field:time', name: 'time_min', logical_type: 'numeric', physical_type: 'float64', unit: { symbol: 'min' } },
+    { field_id: 'field:signal', name: 'fluorescence_au', logical_type: 'numeric', physical_type: 'float64', unit: { symbol: 'a.u.' } },
+    { field_id: 'field:condition', name: 'condition', logical_type: 'categorical', physical_type: 'string', unit: null },
+  ],
+  quality: { missing_count: 0, nonfinite_count: 0 },
+  source_coordinate_kinds: ['text_row'],
+}
+
+let taskListener: ((event: TaskEvent) => void) | undefined
+
+function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDesktopApi {
+  const api: PlotAgentDesktopApi = {
+    apiVersion: DESKTOP_API_VERSION,
+    getBootstrap: vi.fn(readyBootstrap),
+    getTasks: vi.fn(async () => ({ tasks: [], activeTaskCount: 0, hasCommittingTask: false })),
+    cancelTask: vi.fn(actionOk),
+    retryCore: vi.fn(actionOk),
+    getProviderStatus: vi.fn(async () => ok({ configured: true, mode: 'custom_provider' })),
+    configureCustomProvider: vi.fn(async () => ok({ configured: true, mode: 'custom_provider' })),
+    clearProvider: vi.fn(async () => ok({ configured: false, mode: 'local_only' })),
+    listProjects: vi.fn(async () => ok({ projects: [] })),
+    createProject: vi.fn(async () => ok({ project_id: 'project:test', display_name: '新建科研绘图项目', is_open: false })),
+    activateProject: vi.fn(async () => ok({ project_id: 'project:test', project_version: 0, status: 'open' })),
+    openProject: vi.fn(async () => ok({ project_id: 'project:opened', display_name: '已打开项目', project_version: 2, status: 'open' })),
+    openProjectResource: vi.fn(async () => ok({ project_id: 'project:opened', display_name: '已打开项目', project_version: 2, status: 'open' })),
+    openSampleProject: vi.fn(async () => ok({
+      project: { project_id: 'project:sample', display_name: '温度响应示例', is_open: false },
+      opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+      imported: { kind: 'committed', project_version: 1, datasets: [dataset] },
+    })),
+    closeProject: vi.fn(async () => ok({ status: 'closed' })),
+    importDatasets: vi.fn(async () => ok({ imports: [{ kind: 'committed', project_version: 1, datasets: [dataset] }], project_version: 1 })),
+    listDatasets: vi.fn(async () => ok({ project_id: 'project:test', project_version: 1, datasets: [dataset] })),
+    describeDataset: vi.fn(async () => ok({ dataset })),
+    createPlot: vi.fn(async (input) => ok({ project_id: input.projectId, project_version: 2, plot_id: 'plot:one', plot_version: 1, chart_type_id: input.chartId })),
+    patchPlot: vi.fn(async () => ok({ project_version: 3, plot_id: 'plot:one', plot_version: 2, chart_type_id: 'K01' })),
+    getPlot: vi.fn(async () => ok({ project_version: 2, plot_id: 'plot:one', plot_version: 1, chart_type_id: 'K01' })),
+    renderPlot: vi.fn(async (input) => ok({ plot_id: input.plotId, plot_version: input.plotVersion, artifact: { resource: { resourceId: 'resource:preview', kind: 'preview', url: 'plotagent-resource://local/00000000-0000-0000-0000-000000000001', mimeType: 'image/png' } } })),
+    createBatch: vi.fn(async () => ok({ task_id: 'task:batch', batch_id: 'batch:one', state: 'queued', project_version: 2 })),
+    runBatch: vi.fn(async () => ok({ task_id: 'task:batch', batch_id: 'batch:one', state: 'succeeded', project_version: 4, items: [{ item_id: 'item.1', state: 'succeeded' }] })),
+    getBatch: vi.fn(async () => ok({ batch_id: 'batch:one', state: 'succeeded' })),
+    createFigure: vi.fn(async () => ok({ project_version: 5, figure: { figure_id: 'figure:one', figure_version: 1 } })),
+    getFigure: vi.fn(async () => ok({ figure: { figure_id: 'figure:one', figure_version: 1 } })),
+    renderFigure: vi.fn(async () => ok({ figure_id: 'figure:one', figure_version: 1, artifact: { resource: { resourceId: 'resource:figure', kind: 'preview', url: 'plotagent-resource://local/00000000-0000-0000-0000-000000000002' } } })),
+    decideAgent: vi.fn(async () => ok({ accepted: true, decision: { decision_type: 'action_plan', plan_id: 'plan:one', actions: [] }, execution: { project_version: 3, plot_id: 'plot:one', plot_version: 2, chart_type_id: 'K01' } })),
+    exportPngSvg: vi.fn(async () => ok({ export_id: 'export:one', artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: 'plot.png' } } })),
+    exportOrigin: vi.fn(async () => ok({ export_id: 'export:origin', result: { status: 'succeeded' } })),
+    respondToCloseRequest: vi.fn(actionOk),
+    onCoreStatus: vi.fn(() => () => undefined),
+    onTaskEvent: vi.fn((listener) => { taskListener = listener; return () => { taskListener = undefined } }),
+    onOpenResourceRequested: vi.fn(() => () => undefined),
+    onCloseRequested: vi.fn(() => () => undefined),
+    ...overrides,
   }
+  return api
+}
 
-  it('starts with three clearly weighted first-use paths', () => {
+function installApi(api: PlotAgentDesktopApi): void {
+  Object.defineProperty(window, 'plotAgentDesktop', { value: api, configurable: true })
+}
+
+async function openSampleAndCreatePlot(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(await screen.findByRole('button', { name: /用示例项目试用/ }))
+  expect(await screen.findByText('source:temperature')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: '选择图形' }))
+  await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+  await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+  await user.click(screen.getByRole('button', { name: '选择此图形' }))
+  await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
+  expect(await screen.findByRole('img', { name: '折线图 真实渲染预览' })).toHaveAttribute('src', expect.stringMatching(/^plotagent-resource:/))
+}
+
+beforeEach(() => {
+  taskListener = undefined
+  installApi(fakeDesktop())
+})
+
+describe('PlotAgent real desktop workflow', () => {
+  it('starts with three local entry points and no account or invitation gate', async () => {
     render(<App />)
-
-    expect(screen.getByRole('heading', { name: '从第一份数值数据开始' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /用示例项目试用/ })).toHaveClass('startup-action--primary')
-    expect(screen.getByRole('button', { name: /导入自己的数据/ })).toHaveClass('startup-action--secondary')
-    expect(screen.getByRole('button', { name: '打开已有 .plotproj' })).toHaveClass('startup-project-link')
-    expect(screen.getByText('还没有本机项目')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '浏览图形库' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '从第一份数值数据开始' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /用示例项目试用/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /导入自己的数据/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '打开已有 .plotproj' })).toBeEnabled()
+    expect(screen.getByText(/无需账号或注册/)).toBeInTheDocument()
+    expect(screen.queryByText(/邀请已激活/)).not.toBeInTheDocument()
   })
 
-  it('keeps import and existing-project entry points local and interactive', async () => {
+  it('imports real Core fields, confirms one mapping, and displays a controlled preview resource', async () => {
     const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
     render(<App />)
-
-    await user.click(screen.getByRole('button', { name: /导入自己的数据/ }))
-    expect(screen.getByText(/已打开数值数据选择器/)).toHaveClass('toast')
-
-    await user.click(screen.getByRole('button', { name: '打开已有 .plotproj' }))
-    expect(screen.getByText('已打开 .plotproj 项目选择器')).toHaveClass('toast')
+    await user.click(await screen.findByRole('button', { name: /导入自己的数据/ }))
+    expect(await screen.findByText('fluorescence_au')).toBeInTheDocument()
+    expect(screen.getAllByText('float64', { exact: true })).toHaveLength(2)
+    expect(screen.getByText('a.u.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    expect(screen.getByRole('heading', { name: '确认字段映射' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
+    expect(api.createPlot).toHaveBeenCalledWith(expect.objectContaining({ chartId: 'K01', fieldMapping: { roles: { x: 'field:time', y: 'field:signal' } } }))
+    expect(await screen.findByRole('img')).toHaveAttribute('src', expect.stringMatching(/^plotagent-resource:/))
   })
 
-  it('opens a modifiable local copy of the numeric sample project', async () => {
+  it.each([
+    ['clarification', { kind: 'clarification', prompt: '第 3 行和第 4 行都可能是表头，请选择后重新导入。' }, '导入需要确认'],
+    ['rejection', { kind: 'rejection', message: '文件中没有可识别的数值数据块。' }, '数据未导入'],
+  ])('renders an actionable import %s instead of fake data', async (_kind, result, expectedTitle) => {
     const user = userEvent.setup()
+    installApi(fakeDesktop({ importDatasets: vi.fn(async () => ok(result)) }))
     render(<App />)
-
-    await openSampleProject(user)
-
-    expect(screen.getByText('temperature_series.zip')).toBeInTheDocument()
-    expect(screen.getByText('温度响应 · 批次 B-024')).toBeInTheDocument()
-    expect(screen.getByText('.opju 未导出')).toBeInTheDocument()
-    expect(screen.getByText(/已创建“温度响应实验”本地副本/)).toHaveClass('toast')
+    await user.click(await screen.findByRole('button', { name: /导入自己的数据/ }))
+    expect(await screen.findByText(expectedTitle)).toBeInTheDocument()
+    expect(screen.queryByText('source:temperature')).not.toBeInTheDocument()
   })
 
-  it('opens the first-use empty conversation', async () => {
-    const user = userEvent.setup()
+  it('keeps the three entry points visible but disabled while Core is offline', async () => {
+    installApi(fakeDesktop({ getBootstrap: vi.fn(async (): Promise<DesktopBootstrap> => ({ apiVersion: DESKTOP_API_VERSION, platform: 'win32', core: { phase: 'failed', restartAttempt: 3, error: { code: 'CORE_START_FAILED', message: '本地 Core 无法启动。', retryable: true } }, tasks: { tasks: [], activeTaskCount: 0, hasCommittingTask: false } })) }))
     render(<App />)
-
-    await openSampleProject(user)
-    await user.click(screen.getByRole('button', { name: /新建对话/ }))
-
-    expect(screen.getByRole('heading', { name: '从一份真实数据开始' })).toBeInTheDocument()
-    expect(screen.getByText('原始内容保持只读。', { exact: false })).toBeInTheDocument()
+    expect(await screen.findByText('本地 Core 启动失败')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /导入自己的数据/ })).toBeDisabled()
   })
 
-  it('opens the explicit chart selection library', async () => {
+  it('exports PNG through the narrow desktop API without exposing a path', async () => {
     const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
     render(<App />)
-
-    await openSampleProject(user)
-    await user.click(screen.getByRole('button', { name: '图形库' }))
-
-    expect(screen.getByRole('heading', { name: '图形库' })).toBeInTheDocument()
-    expect(screen.getByText('首轮正式目标 31 项 · 全部为数值数据图表 · 由你明确选择')).toBeInTheDocument()
+    await openSampleAndCreatePlot(user)
+    await user.click(screen.getByRole('button', { name: '导出 PNG' }))
+    expect(api.exportPngSvg).toHaveBeenCalledWith({ projectId: 'project:sample', target: { kind: 'plot', id: 'plot:one', version: 1 }, format: 'png' })
+    expect(await screen.findAllByText('已导出 PNG')).not.toHaveLength(0)
+    expect(document.body.textContent).not.toMatch(/[A-Za-z]:\\/)
   })
 
-  it('shows S61 numeric compatibility without first-release image or map entries', async () => {
+  it('reuses the confirmed mapping unchanged for a batch and exports the real batch target', async () => {
     const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
     render(<App />)
+    await openSampleAndCreatePlot(user)
 
-    await openSampleProject(user)
-    await user.click(screen.getByRole('button', { name: '图形库' }))
-    await user.type(screen.getByPlaceholderText('搜索名称、缩写、学科、数据形状或稳定 ID'), 'S61')
-    await user.click(screen.getByRole('button', { name: /S61.*混淆矩阵/ }))
+    await user.click(screen.getByRole('button', { name: /创建批次/ }))
+    expect(api.createBatch).toHaveBeenCalledWith(expect.objectContaining({
+      chartId: 'K01',
+      fieldMapping: { roles: { x: 'field:time', y: 'field:signal' } },
+    }))
+    expect(await screen.findByText(/批次 batch:one/)).toBeInTheDocument()
 
-    expect(screen.getByText('缺少真实类别与预测类别字段。不会自动替换为其他图形。')).toBeInTheDocument()
-    expect(screen.queryByText('科学图像面板')).not.toBeInTheDocument()
-    expect(screen.queryByText('专题地图')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /导出批次 OPJU/ }))
+    expect(api.exportOrigin).toHaveBeenCalledWith({
+      projectId: 'project:sample',
+      target: { kind: 'batch', id: 'batch:one', version: 1 },
+    })
   })
 
-  it('builds compositions from numeric charts only', async () => {
+  it('sends a batch Agent instruction to the batch target without changing the current plot', async () => {
     const user = userEvent.setup()
+    const decideAgent = vi.fn(async () => ok({
+      accepted: true,
+      decision: { decision_type: 'action_plan', plan_id: 'plan:batch', actions: [] },
+      executions: [
+        { plot_id: 'plot:one', plot_version: 2, chart_type_id: 'K01' },
+        { plot_id: 'plot:two', plot_version: 2, chart_type_id: 'K01' },
+      ],
+      scope_execution: {
+        target_kind: 'batch',
+        target_id: 'batch:one',
+        target_version: 2,
+        project_version: 6,
+        updated_plot_count: 2,
+        batch: { item_states: [{ item_id: 'item.1', state: 'succeeded' }] },
+      },
+    }))
+    const api = fakeDesktop({ decideAgent })
+    installApi(api)
     render(<App />)
+    await openSampleAndCreatePlot(user)
+    await user.click(screen.getByRole('button', { name: /创建批次/ }))
+    await screen.findByText(/批次 batch:one/)
 
-    await openSampleProject(user)
+    await user.click(screen.getByRole('button', { name: '整个批次' }))
+    await user.type(screen.getByRole('textbox', { name: '描述绘图修改要求' }), '统一 line width 为 1.5 pt')
+    await user.click(screen.getByRole('button', { name: '发送绘图指令' }))
+
+    expect(decideAgent).toHaveBeenCalledWith(expect.objectContaining({
+      target: { kind: 'batch', id: 'batch:one' },
+      scope: 'batch',
+    }))
+    expect(await screen.findByText(/共创建 2 个可追溯版本/)).toBeInTheDocument()
+    expect(api.renderPlot).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('button', { name: '检查批次' }))
+    expect(await screen.findByText('批次 batch:one · 版本 2')).toBeInTheDocument()
+  })
+
+  it('keeps K25 out of field mapping and asks for two existing plot versions', async () => {
+    const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '选择其他图形' }))
+    await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K25')
+    await user.click(screen.getByRole('button', { name: /K25.*多面板复合图/ }))
+    expect(screen.getByText(/不进入数据字段映射或 plots.create/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '创建组合图' }))
-    expect(screen.getByLabelText('可用数值图表')).toBeInTheDocument()
-    expect(screen.getByText('第一轮组合图只使用项目内数值数据图表，导出保持矢量结构。')).toBeInTheDocument()
-    expect(screen.queryByText('导入图片面板')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '2 × 2' }))
-    expect(screen.getByLabelText('面板 D 混淆矩阵')).toBeInTheDocument()
+    expect(await screen.findByText('还需要一张图')).toBeInTheDocument()
+    expect(api.createPlot).toHaveBeenCalledTimes(1)
+    expect(api.createFigure).not.toHaveBeenCalled()
   })
 
-  it('opens the project resource library from the project heading and blocks referenced raw data deletion', async () => {
+  it('creates K25 from two fixed plot versions instead of calling plots.create', async () => {
     const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
     render(<App />)
+    await openSampleAndCreatePlot(user)
+    await user.type(screen.getByRole('textbox', { name: '描述绘图修改要求' }), '把线宽改为 1.5 pt')
+    await user.click(screen.getByRole('button', { name: '发送绘图指令' }))
+    await screen.findByText('修改已通过本地校验')
 
-    await openSampleProject(user)
-    await user.click(screen.getByRole('button', { name: '打开项目资源库：温度响应实验' }))
+    await user.click(screen.getByRole('button', { name: '选择其他图形' }))
+    await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K25')
+    await user.click(screen.getByRole('button', { name: /K25.*多面板复合图/ }))
+    await user.click(screen.getByRole('button', { name: '创建组合图' }))
 
-    expect(screen.getByRole('dialog', { name: '项目资源库' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /原始数据/ })).toHaveAttribute('aria-selected', 'true')
-
-    await user.click(screen.getByRole('button', { name: '删除' }))
-
-    const blocker = screen.getByRole('alert')
-    expect(blocker).toHaveTextContent('无法直接删除原始数据')
-    expect(blocker).toHaveTextContent('7 个下游对象仍依赖')
-    expect(screen.getByRole('button', { name: '删除原始数据' })).toBeDisabled()
+    expect(api.createFigure).toHaveBeenCalledWith(expect.objectContaining({
+      plotRefs: [
+        { plotId: 'plot:one', plotVersion: 1 },
+        { plotId: 'plot:one', plotVersion: 2 },
+      ],
+      layout: '1x2',
+    }))
+    expect(api.createPlot).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText(/组合图 figure:one/)).toBeInTheDocument()
   })
 
-  it('shows the upstream operation chain for derived data', async () => {
+  it.each([
+    ['action_plan', { accepted: true, decision: { decision_type: 'action_plan', plan_id: 'plan:one', actions: [] }, execution: { project_version: 3, plot_id: 'plot:one', plot_version: 2, chart_type_id: 'K01' } }, '修改已通过本地校验'],
+    ['needs_input', { accepted: true, decision: { decision_type: 'needs_input', questions: [{ prompt: '“上面”是指图内还是图外？' }] } }, '需要补充信息'],
+    ['unsupported', { accepted: true, decision: { decision_type: 'unsupported', message: '不提供通用非线性拟合。' } }, '当前不支持'],
+    ['rejected', { accepted: false, error: { code: 'AGENT_OUTPUT_REJECTED', message: '结果未通过本地权限校验。' } }, '指令未执行'],
+  ])('shows the Agent %s outcome', async (_kind, decision, expectedTitle) => {
     const user = userEvent.setup()
+    installApi(fakeDesktop({ decideAgent: vi.fn(async () => ok(decision)) }))
     render(<App />)
-
-    await openSampleProject(user)
-    await user.click(screen.getByRole('button', { name: '打开项目资源库：温度响应实验' }))
-    await user.click(screen.getByRole('tab', { name: /派生数据/ }))
-
-    expect(screen.getByRole('heading', { name: '上游操作链' })).toBeInTheDocument()
-    expect(screen.getByText('移除无效观测')).toBeInTheDocument()
-    expect(screen.getByText('删除 7 个无法解析的 fluorescence 值')).toBeInTheDocument()
+    await openSampleAndCreatePlot(user)
+    await user.type(screen.getByRole('textbox', { name: '描述绘图修改要求' }), 'Y axis 改为 log10')
+    await user.click(screen.getByRole('button', { name: '发送绘图指令' }))
+    expect(await screen.findByText(expectedTitle)).toBeInTheDocument()
   })
 
-  it('searches across all project resource categories', async () => {
+  it('blocks Agent until a custom provider is explicitly configured', async () => {
     const user = userEvent.setup()
+    const api = fakeDesktop({ getProviderStatus: vi.fn(async () => ok({ configured: false, mode: 'local_only' })) })
+    installApi(api)
     render(<App />)
-
-    await openSampleProject(user)
-    await user.click(screen.getByRole('button', { name: '打开项目资源库：温度响应实验' }))
-    await user.type(screen.getByRole('textbox', { name: '搜索项目资源' }), 'Figure 1')
-
-    expect(screen.getByLabelText('项目资源搜索结果')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Figure 1 · 温度响应总览' })).toBeInTheDocument()
-    expect(screen.getByText('组合图 · COMP-001')).toBeInTheDocument()
+    await openSampleAndCreatePlot(user)
+    expect(screen.getByRole('textbox', { name: '描述绘图修改要求' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '配置模型服务' }))
+    const dialog = screen.getByRole('dialog', { name: '模型服务' })
+    await user.type(within(dialog).getByLabelText('Base URL'), 'https://provider.example/v1')
+    await user.type(within(dialog).getByLabelText('Model ID'), 'research-model')
+    await user.click(within(dialog).getByRole('checkbox'))
+    await user.click(within(dialog).getByRole('button', { name: '保存模型服务' }))
+    expect(api.configureCustomProvider).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: 'https://provider.example/v1', modelId: 'research-model', retentionAcknowledged: true }))
   })
 
-  it('opens the resource library from the reference selector and treats exports as external location records', async () => {
-    const user = userEvent.setup()
+  it('updates task count from real task events', async () => {
     render(<App />)
-
-    await openSampleProject(user)
-    await user.click(screen.getByRole('button', { name: '引用' }))
-    await user.click(screen.getByRole('option', { name: /浏览项目资源库/ }))
-    await user.click(screen.getByRole('tab', { name: /导出/ }))
-
-    expect(screen.getByRole('heading', { name: '外部文件定位记录' })).toBeInTheDocument()
-    expect(screen.getByText('D:\\exports\\temperature_series')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '在资源管理器中定位' })).toBeInTheDocument()
-  })
-
-  it('renames and archives a project resource with accessible controls', async () => {
-    const user = userEvent.setup()
-    render(<App />)
-
-    await openSampleProject(user)
-    await user.click(screen.getByRole('button', { name: '打开项目资源库：温度响应实验' }))
-    await user.click(screen.getByRole('button', { name: '重命名' }))
-    const nameInput = screen.getByRole('textbox', { name: '资源名称' })
-    await user.clear(nameInput)
-    await user.type(nameInput, 'temperature_series_original.zip')
-    await user.click(screen.getByRole('button', { name: '保存名称' }))
-
-    expect(screen.getByRole('heading', { name: 'temperature_series_original.zip' })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '归档' }))
-    expect(screen.getByText('已归档', { selector: '.status-label' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '恢复资源' })).toBeInTheDocument()
+    await screen.findByRole('heading', { name: '从第一份数值数据开始' })
+    act(() => taskListener?.({ schemaVersion: DESKTOP_API_VERSION, eventType: 'task.state', taskId: 'task:one', sequence: 1, state: 'running', progress: { completed: 1, total: 3, unit: 'plots' } }))
+    expect(screen.getByRole('button', { name: /任务中心.*1/ })).toBeInTheDocument()
   })
 })

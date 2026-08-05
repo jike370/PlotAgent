@@ -26,10 +26,11 @@ import { ChartPreview } from './PlotVisuals'
 type Layout = '1x2' | '2x1' | '2x2'
 
 interface CompositionEditorProps {
+  figure?: { figureId: string; version: number; previewUrl?: string }
   onClose: () => void
 }
 
-export function CompositionEditor({ onClose }: CompositionEditorProps): React.JSX.Element {
+export function CompositionEditor({ figure, onClose }: CompositionEditorProps): React.JSX.Element {
   const [layout, setLayout] = useState<Layout>('1x2')
   const [commonLegend, setCommonLegend] = useState(true)
   const [labels, setLabels] = useState(true)
@@ -38,6 +39,21 @@ export function CompositionEditor({ onClose }: CompositionEditorProps): React.JS
   const bar = chartCatalog.find((chart) => chart.id === 'K09')!
   const heatmap = chartCatalog.find((chart) => chart.id === 'K20')!
   const confusion = chartCatalog.find((chart) => chart.id === 'S61')!
+
+  if (figure) {
+    return (
+      <div className="composition-editor" role="dialog" aria-modal="true" aria-label="组合图编辑">
+        <header className="focus-header composition-header">
+          <button className="back-button" type="button" onClick={onClose}><ArrowLeft size={18} />返回对话</button>
+          <div className="focus-title"><h2>{figure.figureId}</h2><span>固定源版本 · FigureSpec v{figure.version}</span></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="关闭组合图编辑"><X size={19} /></button>
+        </header>
+        <main className="composition-real-stage">
+          {figure.previewUrl ? <img src={figure.previewUrl} alt={`${figure.figureId} Core 组合图预览`} /> : <div><strong>组合图预览尚未返回</strong><span>源 PlotSpec 固定版本不会被替换。</span></div>}
+        </main>
+      </div>
+    )
+  }
 
   const panels = layout === '1x2'
     ? [{ id: 'A', chart: line, source: 'Sample A · v3' }, { id: 'B', chart: bar, source: 'Group summary · v2' }]

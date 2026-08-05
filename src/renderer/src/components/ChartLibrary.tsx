@@ -28,6 +28,12 @@ import { ChartPreview } from './PlotVisuals'
 
 interface ChartLibraryProps {
   currentChartId?: string
+  availablePlotCount?: number
+  datasetCompatibility?: {
+    numericFieldCount: number
+    categoricalFieldCount: number
+    totalFieldCount: number
+  }
   onClose: () => void
   onSelect: (chart: ChartType) => void
 }
@@ -54,24 +60,43 @@ const compositionLabels = {
 const coreChartCount = chartCatalog.filter((chart) => chart.layer === 'core').length
 const validationChartCount = chartCatalog.filter((chart) => chart.layer === 'validation').length
 
-const compatibleWithActiveDataset = new Set(['K01', 'K02', 'K03', 'K04', 'K07', 'K18', 'K19', 'K24'])
-
-function incompatibilityMessage(chart: ChartType): string {
-  if (chart.id === 'S01') return '缺少随访时间与事件/删失列。不会自动替换为其他图形。'
-  if (chart.id === 'S61') return '缺少真实类别与预测类别字段。不会自动替换为其他图形。'
-  return `当前数据缺少 ${chart.requiredFields.slice(0, 2).join('、')} 所需结构。不会自动替换图形。`
+function compatibilityMessage(
+  chart: ChartType,
+  summary: ChartLibraryProps['datasetCompatibility'],
+  availablePlotCount: number,
+): { compatible: boolean; message: string } {
+  if (chart.id === 'K25') return availablePlotCount >= 2
+    ? { compatible: true, message: `当前项目已有 ${availablePlotCount} 个固定 PlotSpec 版本，可直接创建组合图。` }
+    : { compatible: false, message: `K25 需要至少两个已生成的固定 PlotSpec 版本；当前只有 ${availablePlotCount} 个。` }
+  if (!summary || summary.totalFieldCount === 0) return { compatible: false, message: '尚无 Core 数据字段可校验。不会自动替换图形。' }
+  const numericRequirements: Record<string, number> = {
+    K04: 3, K06: 3, K07: 4, K20: 1, K21: 2, K22: 3,
+    S01: 1, S21: 3, S61: 0,
+  }
+  const totalRequirements: Record<string, number> = {
+    K04: 3, K06: 3, K07: 4, K09: 3, K10: 3, K11: 3, K20: 3, K22: 3,
+    K24: 3, S01: 2, S21: 4, S61: 2,
+  }
+  const numericNeeded = numericRequirements[chart.id] ?? (['K08', 'K12', 'K13', 'K14', 'K15', 'K16', 'K17'].includes(chart.id) ? 1 : 2)
+  const totalNeeded = totalRequirements[chart.id] ?? Math.max(numericNeeded, Math.min(chart.requiredFields.length, 4))
+  const compatible = summary.numericFieldCount >= numericNeeded && summary.totalFieldCount >= totalNeeded
+  return compatible
+    ? { compatible: true, message: `Core 数据包含 ${summary.numericFieldCount} 个数值字段、${summary.categoricalFieldCount} 个分类字段，可进入字段映射确认。` }
+    : { compatible: false, message: `当前数据至少需要 ${numericNeeded} 个数值字段、共 ${totalNeeded} 个字段；实际为 ${summary.numericFieldCount} 个数值字段、共 ${summary.totalFieldCount} 个。不会自动替换图形。` }
 }
 
 function CapabilityBadge({ children }: { children: React.ReactNode }): React.JSX.Element {
   return <span className="capability-badge">{children}</span>
 }
 
-export function ChartLibrary({ currentChartId, onClose, onSelect }: ChartLibraryProps): React.JSX.Element {
+export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCompatibility, onClose, onSelect }: ChartLibraryProps): React.JSX.Element {
   const [filters, setFilters] = useState(initialFilters)
   const [selectedId, setSelectedId] = useState(currentChartId ?? 'K02')
   const filteredCharts = useMemo(() => filterCharts(chartCatalog, filters), [filters])
   const selectedChart = filteredCharts.find((item) => item.id === selectedId) ?? filteredCharts[0]
-  const selectedIsCompatible = selectedChart ? compatibleWithActiveDataset.has(selectedChart.id) : false
+  const compatibility = selectedChart
+    ? compatibilityMessage(selectedChart, datasetCompatibility, availablePlotCount)
+    : { compatible: false, message: '没有选中图形。' }
 
   const updateFilter = <Key extends keyof ChartFilters>(key: Key, value: ChartFilters[Key]): void => {
     setFilters((current) => ({ ...current, [key]: value }))
@@ -213,16 +238,18 @@ export function ChartLibrary({ currentChartId, onClose, onSelect }: ChartLibrary
               <p>{selectedChart.export.opju === 'O1' ? '可在 Origin 中继续编辑数据、坐标轴与 plot。' : selectedChart.export.opju === 'O2' ? '主要对象可编辑，部分布局依赖模板或组合层。' : '仅可在项目中查看与排版，非原生数据图。'}</p>
             </div>
 
-            <div className={`compatibility-check${selectedIsCompatible ? '' : ' is-incompatible'}`}>
-              {selectedIsCompatible ? <Check size={16} /> : <CircleAlert size={16} />}
+            <div className={`compatibility-check${compatibility.compatible ? '' : ' is-incompatible'}`}>
+              {compatibility.compatible ? <Check size={16} /> : <CircleAlert size={16} />}
               <div>
-                <strong>{selectedIsCompatible ? '当前数据可映射' : '当前数据不兼容'}</strong>
-                <p>{selectedIsCompatible ? `已找到 ${selectedChart.requiredFields.slice(0, 2).join('、')} 的候选字段。` : incompatibilityMessage(selectedChart)}</p>
+                <strong>{compatibility.compatible ? '当前数据可进入映射' : '当前数据尚不兼容'}</strong>
+                <p>{compatibility.message}</p>
               </div>
             </div>
 
-            <button className="select-chart-button" type="button" onClick={() => onSelect(selectedChart)}>选择此图形</button>
-            <p className="explicit-choice-note">选择后将写入稳定类型 {selectedChart.id}，你仍需确认字段映射。</p>
+            <button className="select-chart-button" type="button" onClick={() => onSelect(selectedChart)}>{selectedChart.id === 'K25' ? '创建组合图' : '选择此图形'}</button>
+            <p className="explicit-choice-note">{selectedChart.id === 'K25'
+              ? 'K25 固定引用已有 PlotSpec 版本，不进入数据字段映射或 plots.create。'
+              : `选择后将写入稳定类型 ${selectedChart.id}，你仍需确认字段映射。`}</p>
           </aside>
         )}
       </div>

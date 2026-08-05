@@ -31,8 +31,12 @@ export const IPC_CHANNELS = {
   plotGet: 'plotagent:plots:get',
   plotPatch: 'plotagent:plots:patch',
   plotRender: 'plotagent:plots:render',
+  providerClear: 'plotagent:provider:clear',
+  providerConfigure: 'plotagent:provider:configure',
+  providerStatus: 'plotagent:provider:status',
   projectClose: 'plotagent:projects:close',
   projectCreate: 'plotagent:projects:create',
+  projectActivate: 'plotagent:projects:activate',
   projectList: 'plotagent:projects:list',
   projectOpen: 'plotagent:projects:open',
   projectOpenResource: 'plotagent:projects:open-resource',
@@ -172,6 +176,13 @@ export interface ProjectCreateInput {
   readonly name: string
 }
 
+export interface CustomProviderConfigureInput {
+  readonly baseUrl: string
+  readonly modelId: string
+  readonly apiKey?: string
+  readonly retentionAcknowledged: true
+}
+
 export interface DatasetDescribeInput extends ProjectIdInput {
   readonly datasetId: string
   readonly sourceVersion: number
@@ -283,8 +294,12 @@ export interface PlotAgentDesktopApi {
   getTasks(): Promise<TaskSnapshot>
   cancelTask(taskId: string): Promise<DesktopActionResult>
   retryCore(): Promise<DesktopActionResult>
+  getProviderStatus(): Promise<DesktopDataResult>
+  configureCustomProvider(input: CustomProviderConfigureInput): Promise<DesktopDataResult>
+  clearProvider(): Promise<DesktopDataResult>
   listProjects(): Promise<DesktopDataResult>
   createProject(input: ProjectCreateInput): Promise<DesktopDataResult>
+  activateProject(input: ProjectIdInput): Promise<DesktopDataResult>
   openProject(): Promise<DesktopDataResult>
   openProjectResource(input: ProjectResourceInput): Promise<DesktopDataResult>
   openSampleProject(): Promise<DesktopDataResult>
@@ -410,6 +425,10 @@ export function isJsonValue(value: unknown, depth = 0): value is JsonValue {
   )
 }
 
+function hasControlCharacter(value: string): boolean {
+  return [...value].some((character) => character.charCodeAt(0) < 32)
+}
+
 export function isSafeRendererPayload(value: unknown, depth = 0): value is JsonValue {
   if (depth > 12 || !isJsonValue(value, depth)) return false
   if (typeof value === 'string') return value.length <= 16_384 && !ABSOLUTE_PATH_VALUE.test(value)
@@ -464,6 +483,30 @@ export function parseProjectCreateInput(value: unknown): ProjectCreateInput | nu
   const name = value.name.trim()
   if (name.length === 0 || name.length > 120 || [...name].some((character) => character.charCodeAt(0) < 32)) return null
   return { name }
+}
+
+export function parseCustomProviderConfigureInput(value: unknown): CustomProviderConfigureInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['baseUrl', 'modelId', 'retentionAcknowledged'], ['apiKey'])) return null
+  if (value.retentionAcknowledged !== true || typeof value.baseUrl !== 'string' || typeof value.modelId !== 'string') return null
+  let endpoint: URL
+  try {
+    endpoint = new URL(value.baseUrl)
+  } catch {
+    return null
+  }
+  const hostname = endpoint.hostname.toLocaleLowerCase('en-US')
+  const loopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1'
+  const allowedTransport = endpoint.protocol === 'https:' || (endpoint.protocol === 'http:' && loopback)
+  if (!allowedTransport || endpoint.username || endpoint.password || endpoint.hash || endpoint.search) return null
+  const modelId = value.modelId.trim()
+  if (modelId.length === 0 || modelId.length > 128 || hasControlCharacter(modelId)) return null
+  if (value.apiKey !== undefined && (typeof value.apiKey !== 'string' || value.apiKey.length < 8 || value.apiKey.length > 4096 || hasControlCharacter(value.apiKey))) return null
+  return {
+    baseUrl: endpoint.toString().replace(/\/$/, ''),
+    modelId,
+    ...(typeof value.apiKey === 'string' ? { apiKey: value.apiKey } : {}),
+    retentionAcknowledged: true,
+  }
 }
 
 export function parseProjectIdInput(value: unknown): ProjectIdInput | null {
