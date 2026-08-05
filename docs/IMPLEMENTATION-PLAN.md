@@ -162,6 +162,25 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Stable error ownership:** `INVITE_*`、`DEVICE_CREDENTIAL_INVALID`、`DEVICE_BLOCKED`、`QUOTA_*`、`RATE_LIMITED`、`IDEMPOTENCY_CONFLICT`、`RUN_OUTCOME_UNKNOWN`、cloud `PROVIDER_UNAVAILABLE`；`INSTALLER_*`由W10拥有。
 - **Done:** Beta最小控制面通过共享计数/幂等/降级/日志矩阵；无账号、硬件身份、项目依赖或隐藏第二次扣费，strict local_only不访问控制面。
 
+#### W8/M6 最小实现说明（2026-08-05）
+
+仓库现已提供 `src/plotagent/control_plane/` 的独立 FastAPI + SQLite Beta 控制面切片及
+`services/control-plane/README.md` 运行说明；这不表示真实云部署、W7 桌面接入或完整 M6 已完成。
+
+- SQLite 使用 `BEGIN IMMEDIATE` 在同一事务内检查 `(invite_id, client_run_id)`、校验
+  grant/device/profile、插入 run 并扣减 InviteGrant 共享额度；并发测试覆盖不超扣与同 ID
+  不双扣。installation ID 仅校验为随机 UUID 形态，不持久化，不建立设备数限制或硬件身份。
+- 接受事务一旦提交就消耗固定 quota unit，不做 release/settle/reconcile。上游 timeout、服务进程在
+  accepted/invoking 后重启或短期幂等响应过期时固定为 `RUN_OUTCOME_UNKNOWN`，不得用新 ID
+  静默重放；可证明的 provider 不可用固定为 `PROVIDER_UNAVAILABLE`。控制面请求若根本未到达
+  服务端则没有记录或扣减，客户端应复用原 `client_run_id` 重试。
+- 完成响应默认保留 24 小时，可通过经校验的环境配置在 60 秒至 7 天之间固定；启动和后续
+  model-run 请求清理到期 body，只保留无 payload 的 run/额度元数据。默认 access log 关闭，应用日志
+  只接受 allowlist 元数据；验证错误、adapter 异常与 5xx 不回显 token、prompt、字段或样本。
+- custom provider 没有本控制面的端点或账本路径，额度耗尽、grant/device 撤销只影响 built-in
+  model-run API。当前凭据可自助撤销；grant revoke/device block 作为 operator store hook，不引入账号或
+  admin profile。上游只通过 `ProviderAdapter` 注入，测试与默认入口不发真实网络请求。
+
 ### W9 — local_only、安全导入、本地诊断与已知版本兼容
 
 - **Owner:** Local Security + Project Lifecycle。

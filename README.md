@@ -2,7 +2,7 @@
 
 面向通用科研用户的对话式绘图 Agent。用户上传数据并明确选择图形，Agent 生成结果、接受自然语言修改，并导出 PNG、SVG 和 Origin `.opju` 文件。
 
-当前仓库包含一个可运行的 Windows 桌面交互原型。界面覆盖项目与对话、结构化数据对象、批量图集、首轮 31 项纯数值数据图形目录、聚焦编辑、固定布局组合图、任务状态与 Origin 不可用降级。真实 Agent、Python 绘图工作进程和 Origin 自动化尚未接入。
+当前仓库包含一个可运行的 Windows 桌面交互原型，以及 W8/M6 的最小 Beta 云控制面实现。界面覆盖项目与对话、结构化数据对象、批量图集、首轮 31 项纯数值数据图形目录、聚焦编辑、固定布局组合图、任务状态与 Origin 不可用降级。真实 Agent、Python 绘图工作进程和 Origin 自动化尚未接入；控制面也未部署真实云或接入真实上游 provider。
 
 v1 基线面向小规模邀请制 Beta：保留 31 种数值科研图形、同构批量/固定组合和 PNG/SVG/O1 OPJU，但数据能力收敛为确定性 Excel/TXT/CSV 导入、一次字段语义映射、受控 PreparationSpec 与九类固定 PlotCalculation。需要回归、相关、KM、剂量反应等分析的图形只接受预计算字段；通用数据变换、AnalysisSpec/FitSpec 与科学分析/拟合引擎均为后续阶段。这不表示真实后端、云服务、Origin 自动化或 Beta qualification 已完成。
 
@@ -46,3 +46,6 @@ python -m pip install -e ".[dev]"
 ```powershell
 python -m pytest
 ```
+
+最小 Beta 云控制面的配置、运行入口、API 与故障语义见
+[`services/control-plane/README.md`](services/control-plane/README.md)。
