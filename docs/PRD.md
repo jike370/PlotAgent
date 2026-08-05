@@ -628,7 +628,7 @@ Origin 能力分级：
 
 ## 18. 已知风险与阻塞
 
-1. **Origin 环境。** 当前开发机器的 `originpro` Python 包可导入，但 Origin 安装或 COM 注册不完整，真实 `.opju` 生成和重新打开校验尚不可执行。
+1. **Origin 环境。** 当前开发机器已冻结并实机验证 Origin 2024 SR1（10.10.178/runtime 10.100178，64-bit，`originpro=1.1.15`）；31 图代表性 OPJU 均已完成 build 与 fresh reopen。其他版本仍明确 `VERSION_UNSUPPORTED`。
 2. **图形覆盖与原生导出。** 调研目录有 157 个条目，但正式库只能逐个通过三格式导出契约后开放。
 3. **期刊规则变化。** 发表规格必须版本化，并记录官方来源与更新时间。
 4. **模型隐私。** 桌面端必须清楚展示实际发送的数据摘要，服务端不得记录科研数据正文。
@@ -670,9 +670,9 @@ Origin 能力分级：
 - 唯一正式规模为100k rows×20 columns、常规10 charts、单图≤100k plotted primitives、批量20 files/charts×每图10k、项目≤100 charts。超范围显示“超出Beta已验证范围”后best effort，资源不足稳定拒绝并建议外部准备较小数据或缩小批次，不暴露隐藏筛选/聚合。
 - Thumbnail≤5k、interactive≤20k visible primitives；100k preview P95≤3s且range/PlotCalculation full data。声明规模内formal PNG/SVG/OPJU一律full data，不静默抽稀、栅格或换算法。
 - 导入只qualification 100MB CSV≤12s、50MB XLSX≤30s；常规峰值内存≤2GB。100k PNG≤5s、SVG≤10s、single OPJU≤60s、20-chart OPJU≤180s。
-- 31图每图minimal/representative/edge三fixture，formal PNG/formal SVG/O1 OPJU共279 paths；preview另测。每个build只声明一个Origin exact version，其OPJU 93条完整运行；其他版本`VERSION_UNSUPPORTED`。
+- 31 图的 formal PNG/SVG 以 minimal/representative/edge 离线矩阵覆盖；preview 另测。每个 build 只声明一个 Origin exact version，其 OPJU 对 31 图各运行一份代表性 live+fresh-reopen，minimal/edge/error 使用离线 contract、validator 与稳定失败测试；其他版本 `VERSION_UNSUPPORTED`。
 - Data corruption、silent wrong science/semantic change、formal抽稀/算法替换、假O1、secret泄漏、声明图形失败、签名绕过、已知blocker/critical或靠retry变绿仍不可豁免。
-- 每个Beta build固定manifest/source/test-runner/app/PlotSpec/model/prompt/Unicode/dependency/fixture hashes，提交约30个导入golden、279、单Origin 93、固定计算/预计算、reference performance、local security、quota幂等、签名安装包和known issues检查单；不要求商业级SBOM流程、多角色签署、长soak或全OS/云攻击矩阵。
+- 每个 Beta build 固定 manifest/source/test-runner/app/PlotSpec/model/prompt/Unicode/dependency/fixture hashes，提交导入 golden、31 图 PNG/SVG 离线矩阵、单 Origin 31 图代表性实跑、固定计算/预计算、local security、quota 幂等、安装包 hash 和 known issues 检查单；不要求商业级 SBOM、多角色签署、长 soak、每图三次昂贵 Origin 自动化或全 OS/云攻击矩阵。
 - 首批10–15人的80%/60%/60%、至少一名batch与一名Origin继续编辑指标仍决定第二批go/no-go，使用经同意观察/访谈而非analytics。
 - 完整预算、MatrixKey、检查单与后续工程边界见 [小规模邀请制 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。这些是未来Beta gate，当前文档不表示真实实现或测试已通过。
 - 实施按W0–W10依赖与M0–M7 evidence里程碑执行，详见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；需求权威、实现入口和future evidence映射见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。

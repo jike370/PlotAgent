@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import uuid
 from collections.abc import Iterator
@@ -24,6 +25,7 @@ from plotagent.desktop_core.application import DesktopApplication
 from plotagent.desktop_core.protocol import JsonValue
 from plotagent.desktop_core.services import RpcContext, ServiceRegistry
 from plotagent.desktop_core.tasks import BoundedWorkerExecutor, TaskRegistry
+from plotagent.origin.models import OriginEnvironment, OriginExportSuccess
 from plotagent.security.credentials import InMemoryCredentialStore
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "import" / "files"
@@ -132,6 +134,47 @@ def _import(
             "options": {},
         },
     )
+
+
+def _install_fake_origin_export(
+    monkeypatch: pytest.MonkeyPatch,
+    captured: list[Any],
+    *,
+    on_export: Any | None = None,
+) -> None:
+    def fake_export(plan: Any, destination: Path, **_kwargs: Any) -> OriginExportSuccess:
+        captured.append(plan)
+        if on_export is not None:
+            on_export()
+        payload = b"PlotAgent native Origin test project"
+        destination.write_bytes(payload)
+        digest = hashlib.sha256(payload).hexdigest()
+        environment = OriginEnvironment(
+            display_name="Origin2024 SR1",
+            display_version="10.10.178",
+            install_dir=r"D:\origin",
+            executable_path=r"D:\origin\Origin64.exe",
+            origin_bitness=64,
+            python_bitness=64,
+            originpro_version="1.1.15",
+            runtime_version=10.100178,
+            template_sha256="0" * 64,
+            license_available=True,
+        )
+        return OriginExportSuccess(
+            status="succeeded",
+            target_path=str(destination),
+            file_sha256=digest,
+            file_size=len(payload),
+            render_plan_sha256=plan.render_plan_hash,
+            validation_report_sha256="1" * 64,
+            build_validation={},
+            reopen_validation={},
+            environment=environment,
+            elapsed_seconds=0.01,
+        )
+
+    monkeypatch.setattr("plotagent.desktop_core.application.export_origin", fake_export)
 
 
 def test_project_import_describe_k01_patch_render_and_exports(
@@ -341,6 +384,28 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
                     ],
                 }
             ),
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "decision_type": "action_plan",
+                    "plan_id": "plan:edit-batch",
+                    "target_alias": "active_target",
+                    "actions": [
+                        {
+                            "action_type": "patch_plot",
+                            "action_id": "action:batch-label",
+                            "target_alias": "active_target",
+                            "patches": [
+                                {
+                                    "operation": "set_axis_label",
+                                    "target_alias": "y_axis",
+                                    "label": "Shared batch signal",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ),
         ]
     )
     app = ApplicationHarness(tmp_path / "agent-app", provider)
@@ -379,6 +444,7 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
                 "client_model_run_id": "model-run:edit",
                 "expected_version": execution["project_version"],
                 "target": {"kind": "plot", "id": execution["plot_id"]},
+                "scope": "current",
             },
         )
         assert edited["accepted"] is True
@@ -388,13 +454,84 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
             {"project_id": project_id, "plot_id": execution["plot_id"]},
         )
         assert stored["spec"]["axes"][1]["label"]["nodes"][0]["text"] == ("Normalized signal")
+
+        described = app.call(
+            "datasets.describe",
+            {
+                "project_id": project_id,
+                "source_dataset_id": dataset["source_dataset_id"],
+                "source_version": dataset["source_version"],
+            },
+        )
+        numeric = [
+            field["field_id"]
+            for field in described["dataset"]["fields"]
+            if field["logical_type"] == "numeric"
+        ]
+        batch_created = app.call(
+            "batch.create",
+            {
+                "project_id": project_id,
+                "task_id": "task:agent-batch",
+                "batch_id": "batch:agent",
+                "source_datasets": [
+                    {
+                        "source_dataset_id": item["source_dataset_id"],
+                        "source_version": item["source_version"],
+                    }
+                    for item in imported["datasets"]
+                ],
+                "chart_type_id": "K01",
+                "field_mapping": {"x": numeric[0], "y": numeric[1]},
+                "idempotency_key": "agent-batch-create",
+                "expected_version": edited["execution"]["project_version"],
+            },
+        )
+        completed = app.call(
+            "batch.run",
+            {
+                "project_id": project_id,
+                "task_id": batch_created["task_id"],
+                "idempotency_key": "agent-batch-run",
+                "expected_version": batch_created["project_version"],
+            },
+        )
+        batch_edited = app.call(
+            "agent.decide",
+            {
+                **common,
+                "user_instruction": "把整个批次的 y 轴标题统一为 Shared batch signal",
+                "client_model_run_id": "model-run:batch-edit",
+                "expected_version": completed["project_version"],
+                "target": {"kind": "batch", "id": "batch:agent"},
+                "scope": "batch",
+            },
+        )
+        assert batch_edited["accepted"] is True
+        assert len(batch_edited["executions"]) == 2
+        assert {item["plot_version"] for item in batch_edited["executions"]} == {2}
+        assert batch_edited["scope_execution"]["target_version"] == 2
+        updated_batch = app.call(
+            "batch.get",
+            {"project_id": project_id, "batch_id": "batch:agent"},
+        )
+        assert updated_batch["batch"]["batch_version"] == 2
+        assert {
+            item["plot_version_ref"]["plot_version"]
+            for item in updated_batch["batch"]["item_states"]
+        } == {2}
+        assert provider.requests[2].envelope.target_snapshot.object_type == "batch"
     finally:
         app.close()
 
 
 def test_desktop_application_creates_and_renders_exact_31_chart_surface(
-    harness: ApplicationHarness, tmp_path: Path
+    harness: ApplicationHarness,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    origin_plans: list[Any] = []
+    _install_fake_origin_export(monkeypatch, origin_plans)
     categorical_roles = {
         "group",
         "category",
@@ -526,10 +663,48 @@ def test_desktop_application_creates_and_renders_exact_31_chart_surface(
     assert Path(preview["artifact"]["path"]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert len(plot_refs) + 1 == 31
 
+    plot_destination = tmp_path / "non-k01.opju"
+    exported_plot = harness.call(
+        "exports.origin",
+        {
+            "project_id": project_id,
+            "plot_id": plot_refs[2]["plot_id"],
+            "plot_version": plot_refs[2]["plot_version"],
+            "target_kind": "plot",
+            "destination_resource_id": "resource:origin-plot",
+            "destination_path": str(plot_destination),
+            "idempotency_key": "origin-plot",
+            "expected_version": plot_refs[2]["plot_version"],
+        },
+    )
+    assert exported_plot["target_kind"] == "plot"
+    assert origin_plans[-1].manifest.chart_type_ids == ("K03",)
+
+    figure_destination = tmp_path / "figure.opju"
+    exported_figure = harness.call(
+        "exports.origin",
+        {
+            "project_id": project_id,
+            "plot_id": "figure:matrix.k25",
+            "plot_version": figure["figure"]["figure_version"],
+            "target_kind": "figure",
+            "destination_resource_id": "resource:origin-figure",
+            "destination_path": str(figure_destination),
+            "idempotency_key": "origin-figure",
+            "expected_version": figure["figure"]["figure_version"],
+        },
+    )
+    assert exported_figure["target_scope"] == "figure"
+    assert origin_plans[-1].manifest.chart_type_ids == ("K25",)
+
 
 def test_isomorphic_batch_runs_from_one_confirmed_mapping(
     harness: ApplicationHarness,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    origin_plans: list[Any] = []
+    _install_fake_origin_export(monkeypatch, origin_plans)
     project_id, revision = _create_open(harness)
     imported = _import(harness, project_id, revision, "excel_two_sheets.xlsx", "batch")
     datasets = imported["datasets"]
@@ -580,3 +755,92 @@ def test_isomorphic_batch_runs_from_one_confirmed_mapping(
     assert [item["state"] for item in completed["items"]] == ["succeeded", "succeeded"]
     stored = harness.call("batch.get", {"project_id": project_id, "batch_id": "batch:test"})
     assert len(stored["batch"]["item_states"]) == 2
+    destination = tmp_path / "batch.opju"
+    exported = harness.call(
+        "exports.origin",
+        {
+            "project_id": project_id,
+            "plot_id": "batch:test",
+            "plot_version": stored["batch"]["batch_version"],
+            "target_kind": "batch",
+            "destination_resource_id": "resource:origin-batch",
+            "destination_path": str(destination),
+            "idempotency_key": "origin-batch",
+            "expected_version": stored["batch"]["batch_version"],
+        },
+    )
+    assert exported["target_scope"] == "batch"
+    assert exported["graph_count"] == 2
+    assert origin_plans[-1].manifest.chart_type_ids == ("K01", "K01")
+
+
+def test_origin_publication_race_finishes_the_export_record(
+    harness: ApplicationHarness,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import(harness, project_id, revision, "csv_basic.csv", "origin-race")
+    dataset = imported["datasets"][0]
+    described = harness.call(
+        "datasets.describe",
+        {
+            "project_id": project_id,
+            "source_dataset_id": dataset["source_dataset_id"],
+            "source_version": dataset["source_version"],
+        },
+    )
+    numeric = [
+        field["field_id"]
+        for field in described["dataset"]["fields"]
+        if field["logical_type"] == "numeric"
+    ]
+    created = harness.call(
+        "plots.create",
+        {
+            "project_id": project_id,
+            "plot_id": "plot:origin-race",
+            "chart_type_id": "K01",
+            "source_dataset_id": dataset["source_dataset_id"],
+            "source_version": dataset["source_version"],
+            "field_mapping": {"x": numeric[0], "y": numeric[1]},
+            "idempotency_key": "plot-origin-race",
+            "expected_version": imported["project_version"],
+        },
+    )
+
+    def cancel_after_publication() -> None:
+        running = [
+            item
+            for item in harness.tasks.snapshot()["tasks"]
+            if item["state"] == "running"
+        ]
+        assert len(running) == 1
+        harness.tasks.cancel(cast(str, running[0]["task_id"]))
+
+    captured: list[Any] = []
+    _install_fake_origin_export(
+        monkeypatch,
+        captured,
+        on_export=cancel_after_publication,
+    )
+    exported = harness.call(
+        "exports.origin",
+        {
+            "project_id": project_id,
+            "plot_id": "plot:origin-race",
+            "plot_version": created["plot_version"],
+            "destination_resource_id": "resource:origin-race",
+            "destination_path": str(tmp_path / "origin-race.opju"),
+            "idempotency_key": "origin-race-export",
+            "expected_version": created["plot_version"],
+        },
+    )
+    task = next(
+        item
+        for item in harness.tasks.snapshot()["tasks"]
+        if item["task_id"] == exported["task_id"]
+    )
+    assert task["state"] == "succeeded"
+    assert exported["export_id"] is not None
+    assert captured

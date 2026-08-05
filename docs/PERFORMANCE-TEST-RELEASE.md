@@ -27,8 +27,8 @@
 - 每个 Beta build 只声明一个已完成完整 qualification 的 Origin exact version/build/bitness 组合。
 - 该 exact version 必须完成 31 图全部 O1 OPJU 路径、live validation 和 fresh blank managed instance reopen/readback。
 - 其他所有 Origin 版本一律在 preflight 返回 `VERSION_UNSUPPORTED`；不能以“2021+”、major range、相邻版本推断或 O2 降级代替 qualification。
-- `originpro`、adapter、template、font、Windows build、license mode 与 93 条 OPJU evidence 都固定到该声明版本。
-- 架构仍允许后续增加 adapter/version qualification；增加版本时必须建立新的 Beta build 声明和完整 93 条 evidence，不能沿用当前版本结论。
+- `originpro`、adapter、template、font、Windows build、license mode 与 31 图代表性 live OPJU evidence 都固定到该声明版本；每图 minimal/edge 的 OPJU 逻辑路径由离线 contract、validator 与稳定错误 evidence 覆盖。
+- 架构仍允许后续增加 adapter/version qualification；增加版本时必须建立新的 Beta build 声明和 31 图代表性实机 evidence，不能沿用当前版本结论。
 
 ## 3. 唯一正式规模基线
 
@@ -138,7 +138,7 @@ Provider latency单独记录 DNS/connect/TLS/TTFB/complete，不删除慢样本�
 
 - formal PNG：93 条。
 - formal SVG：93 条。
-- O1 OPJU：93 条，只在当前 Beta build 声明的唯一 Origin exact version 完整运行一次。
+- O1 OPJU：93 个逻辑 MatrixKey，其中 31 个 representative research 在当前 Beta build 声明的唯一 Origin exact version 完成 live+fresh-reopen；31 个 minimal valid 与 31 个 edge/error 通过同一 typed plan 的离线 contract/validator 和预期稳定错误 evidence，不重复启动 62 次 Origin COM。
 
 Preview/interactive 是另外的必测路径，不计入 279。`edge_error` 可由匹配预期 code/schema/details 的稳定错误证据通过，不要求生成二进制；不得把应成功路径重标为预期失败。
 
@@ -228,8 +228,8 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 ## 11. 每个 Beta build 发布检查单
 
 1. 固定 commit、build、dependency lock/hash、fixture/golden 与 Decision baseline。
-2. 31 图 279 MatrixKey coverage 和额外 preview/interactive coverage 零缺口。
-3. 当前 build 唯一 Origin exact version 的完整 93 条 O1 live+fresh-reopen report。
+2. 31 图 279 个逻辑 MatrixKey coverage 和额外 preview/interactive coverage 零缺口；其中昂贵 Origin 自动化按 representative 实跑、其余离线验证拆分记录。
+3. 当前 build 唯一 Origin exact version 的完整 31 图 representative O1 live+fresh-reopen report，以及 minimal/edge 的离线 contract/error report。
 4. 约30个导入 golden、31图字段/准备/固定计算/预计算契约与 full-data formal assertions。
 5. Reference profile 性能、≤2 GB peak、磁盘/resource preflight 结果。
 6. strict local_only、credential/log/DiagnosticBundle 禁止字段和恶意导入检查。

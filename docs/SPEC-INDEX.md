@@ -1,6 +1,6 @@
 # PlotAgent v1 规格索引与小规模邀请制 Beta 设计基线
 
-> 状态：v1 数据/计算范围收敛、工程成熟度面向小规模邀请制 Beta（功能尚未实现或 qualification）
+> 状态：v1 数据/计算范围收敛，M0–M6 工程切片已实现；M7 小规模邀请制 Beta qualification 尚未执行
 > 基线日期：2026-08-05
 > 适用范围：权威文档、冲突优先级、requirement/evidence matrix、workstream 入口与冻结变更流程
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
@@ -17,9 +17,9 @@
 
 它不表示：
 
-- 真实 Python Core、Agent、ModelProvider、云服务、OriginAdapter、已知版本迁移或安全功能已经实现。
+- M7 的真实用户成功指标、生产签名发布、reference 性能与完整邀请制 Beta gate 已经通过。
 - 31 图/固定计算/Origin 每个 adapter 的完整参数表已经在本文伪造完成，或后续 AnalysisSpec/FitSpec 已经可用。
-- 279基础矩阵、单一Origin exact version 93 paths、reference性能、安全或人工安装包 Beta gates 已经运行通过。
+- 单一 Origin exact version 的 31 图代表性矩阵已实跑；这不表示 reference 性能、安全或生产签名安装包 Beta gate 已通过。
 - 当前 UI prototype 的种子数据或模拟交互是后端行为证据。
 
 每图/每算法完整参数、property map 和fixture细节由W3/W4/W6 backlog在现有公共契约内细化；如果细化会改变用户选择、科学语义、对象版本、formal完整性或O1能力，必须回到Decision变更。
@@ -58,7 +58,7 @@
 | [AGENT-CONTEXT](./AGENT-CONTEXT-AND-PROVIDERS.md) | Context/Provider/Disclosure/AgentDecision/audit | W7 | agent/provider packages | provider/security matrix |
 | [CLOUD-CONTROL-PLANE](./CLOUD-CONTROL-PLANE.md) | Invite/长期凭据/原子共享计数/proxy/人工包 | W8 | Beta control plane | idempotency/degrade/package verify |
 | [LOCAL-SECURITY](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md) | local_only、安全、日志/本地诊断、known-pair兼容 | W9 | security/compatibility packages | zero-egress/fault/privacy |
-| [PERFORMANCE-TEST-RELEASE](./PERFORMANCE-TEST-RELEASE.md) | 单一平台/规模/Origin、预算、279、Beta blockers/checklist | W10 | release/evidence harness | Beta build checklist |
+| [PERFORMANCE-TEST-RELEASE](./PERFORMANCE-TEST-RELEASE.md) | 单一平台/规模/Origin、逻辑 MatrixKey、Beta blockers/checklist | W10 | release/evidence harness | Beta build checklist |
 | [IMPLEMENTATION-PLAN](./IMPLEMENTATION-PLAN.md) | W0–W10、依赖、spikes、milestones | All owners | proposed entries per W | milestone exit evidence |
 | [chart-library-research](./chart-library-research.md) | 157长期taxonomy与研究建议 | W4 research | registry backlog input | 仅研究，不等于准入 |
 | [README](../README.md) | 仓库导航、当前prototype运行 | Repository maintainers | existing app skeleton | commands/current status |
@@ -91,7 +91,7 @@
 | R-EXPORT3 | 正式导出仅PNG/SVG/OPJU；clipboard非正式 | PD-K01/K02；PRD 10.4 | W4/W6 | ExportService | format allowlist/records | frozen-design |
 | R-FORMAL | 声明规模内Formal三格式full data；preview≤5k/20k且range/PlotCalculation full | PD-H11,V04/V05,AA05/AA06；RENDER §2；PERF §3–4 | W4/W6 | resolver/adapters | count/assertion/resource preflight | frozen-design |
 | R-RENDER | 单一ResolvedRenderPlan、deterministic axes/ticks/layout/text | PD-V01–V20；RENDER | W4/W6 | resolver | plan golden/parity tolerance | frozen-design |
-| R-OPJU | 31图v1 OPJU全部O1；无LabTalk/raster fallback；两阶段原子 | PD-K04,W01–W20；ORIGIN | W6 | origin adapters/worker | 单一exact version 93 paths | frozen-design |
+| R-OPJU | 31图v1 OPJU全部O1；无LabTalk/raster fallback；两阶段原子 | PD-K04,W01–W20；ORIGIN | W6 | origin adapters/worker | 单一 exact version 31 representative live + 离线 edge/error | implemented |
 | R-ORIGIN-V | 每Beta build只声明一个qualified Origin exact version；其他unsupported | PD-K03/K12,W12,AA03；PERF §2 | W6/W10 | build declaration/preflight | one exact-version matrix | frozen-design |
 | R-TASK | Interaction≠Execution；提交/取消/幂等；崩溃不损坏且用户明确重试 | PD-R01–R20,Z18；TASK | W1/W2 | scheduler/events | state/fault/commit E2E | frozen-design |
 | R-LOCAL-PRIV | 无项目加密承诺；ACL/BitLocker；temp ACL；无secure erase宣称 | PD-L07/L08,Z04/Z05；LOCAL §3–4 | W9 | temp/security UI | ACL/wording/cleanup tests | frozen-design |
@@ -100,7 +100,7 @@
 | R-CLOUD-MIN | 云仅redeem/credential/proxy/atomic quota/idempotency；无sync/config/update/diag | PD-L06,Y11–Y14；CLOUD §1–8 | W8 | Beta control plane | API/log/degrade tests | frozen-design |
 | R-DISTRIBUTION | 无应用内更新；人工包验证发布签名/hash/code-sign | PD-Y15–Y19；CLOUD §10 | W8/W10 | package verification | three tamper blocks | frozen-design |
 | R-PERF | 单一Win11 profile、100k正式规模、5k/20k preview、≤2GB与固定P95 | PD-AA01–AA11/AA15；PERF §1–6/9 | W10 | performance harness | reference baseline reports | frozen-design |
-| R-MATRIX | 31×3×(PNG/SVG/OPJU)=279；preview另测；单一Origin版OPJU 93 | PD-AA12/AA13；PERF §7 | W0/W4/W6/W10 | MatrixKey/evidence | zero-gap coverage reports | frozen-design |
+| R-MATRIX | 31×3×(PNG/SVG/OPJU)=279 个逻辑 MatrixKey；preview另测；Origin 31 representative live，其余 OPJU 离线 contract/error | PD-AA12/AA13；PERF §7 | W0/W4/W6/W10 | MatrixKey/evidence | zero-gap coverage reports | implemented |
 | R-RELEASE | 不可豁免底线、Beta checklist、first-beta go/no-go | PD-AA16–AA20；PERF §10–12 | W10/all | release/evidence | fixed hashes/checklist/user study | frozen-design |
 | R-UI | 浅色克制、无卡片堆叠/玻璃/深色科幻/渐变文字，键盘/a11y/reduced motion | DESIGN；PD-D/F/L | W1/W5 | renderer design system | visual/a11y/display matrix | frozen-design |
 
@@ -132,7 +132,7 @@
 | W3 | PLOTCALC/FITTING-BOUNDARY | W2 | fixed calculations/precomputed validators | nine kinds after envelope | algorithm/field golden | yes | explicit | yes |
 | W4 | RENDER/DOMAIN | W2,W3 | 31 charts/resolver/PNG/SVG | resolver/adapters | 186 formal+preview | yes | explicit | yes |
 | W5 | PRD/DOMAIN/TASK | W4 | batch/review/Figure | Core/UI | isomorphic/E2E | yes | explicit | yes |
-| W6 | ORIGIN/RENDER/PERF | W4; spike early | O1 adapters/worker/reopen | chart families after K01 | one-version93 | yes | explicit | yes |
+| W6 | ORIGIN/RENDER/PERF | W4; spike early | O1 adapters/worker/reopen | chart families after K01 | one-version31 representative + offline edge | yes | explicit | yes |
 | W7 | AGENT/DOMAIN | W1,W2 | context/provider/decision/validator | context/probe | privacy/provider matrix | yes | explicit | yes |
 | W8 | CLOUD/AGENT/LOCAL | W7 | invite/credential/counter/proxy | redeem vs invoke | idempotency/degrade | yes | explicit | yes |
 | W9 | LOCAL/STORAGE/TASK | W1,W2 | zero-egress/log/local diag/known compatibility | policy vs lifecycle | packet/fault/privacy | yes | explicit | yes |
@@ -157,7 +157,7 @@
 | Formal formats | 仅PNG/SVG/OPJU | 无PDF/EPS/EMF正式入口 | pass-design |
 | Identity/quota | 无账号、InviteGrant不限设备共享额度 | 无per-install新额度/硬件指纹 | pass-design |
 | local_only | strict零出站；无update_only | 无strict local_only例外联网 | pass-design |
-| 279 matrix | formal PNG/SVG/O1 OPJU；preview另测 | 无preview+PNG+SVG=279口径 | pass-design |
+| 279 logical matrix | formal PNG/SVG/O1 OPJU；preview另测；昂贵 Origin 仅 representative 实跑 | 无把 279 全解释为 Origin COM 实跑 | pass-design |
 | Origin versions | 每build唯一exact version | 无“2021+”或多版本当前门禁 | pass-design |
 | Beta规模 | 100k×20、单图100k、20×10k、项目100、≤2GB | 无1M/10M/1000对象/6GB当前门禁 | pass-design |
 | Cloud复杂度 | 长期凭据+原子共享计数+client_run幂等 | 无refresh/reserve/settle/config/update | pass-design |

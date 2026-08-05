@@ -103,6 +103,7 @@ from plotagent.contracts.plots import (
     AxisScaleKind,
     AxisSpec,
     BatchExecutionSignature,
+    BatchItemState,
     BatchSpec,
     CalculatedSeriesData,
     CategoricalFamily,
@@ -111,6 +112,7 @@ from plotagent.contracts.plots import (
     DistributionFamily,
     DoseResponseFamily,
     FacetFamily,
+    FigurePanel,
     FigureSpec,
     ForestFamily,
     MatrixFamily,
@@ -153,7 +155,7 @@ from plotagent.figures.models import (
 )
 from plotagent.figures.protocols import FigureRepository
 from plotagent.importing.models import Clarification, Rejection
-from plotagent.origin import K01Data, export_k01
+from plotagent.origin import build_origin_export_spec, compile_origin_plan, export_origin
 from plotagent.origin.models import OriginExportSuccess
 from plotagent.plot_calculations import ALGORITHM_VERSION, PlotCalculationInput, calculate_plot
 from plotagent.plots.validation import PlotValidationError, validate_plot_patch
@@ -1073,49 +1075,112 @@ class DesktopApplication:
                 "idempotency_key",
                 "expected_version",
             },
+            optional={"target_kind", "expected_existing_sha256"},
         )
         session = self._session(_text(values["project_id"], "project_id"))
-        plot_id = _text(values["plot_id"], "plot_id")
-        plot_version = _integer(values["plot_version"], "plot_version", minimum=1)
+        target_id = _text(values["plot_id"], "plot_id")
+        target_version = _integer(values["plot_version"], "plot_version", minimum=1)
+        target_kind = _text(values.get("target_kind", "plot"), "target_kind")
+        if target_kind not in {"plot", "batch", "figure"}:
+            raise RpcServiceError("INVALID_PARAMS", "Origin export target kind is invalid.")
         expected = _integer(values["expected_version"], "expected_version", minimum=1)
-        if plot_version != expected:
+        if target_version != expected:
             raise RpcServiceError("VERSION_CONFLICT", "The export input version is stale.")
         destination = Path(_text(values["destination_path"], "destination_path"))
         resource_id = _text(values["destination_resource_id"], "destination_resource_id")
         key = _text(values["idempotency_key"], "idempotency_key")
+        expected_existing_sha256 = values.get("expected_existing_sha256")
+        if expected_existing_sha256 is not None:
+            expected_existing_sha256 = _text(
+                expected_existing_sha256,
+                "expected_existing_sha256",
+            )
         request_hash = canonical_hash(
             cast(
                 JsonValue,
                 {
-                    "plot_id": plot_id,
-                    "plot_version": plot_version,
+                    "target_kind": target_kind,
+                    "target_id": target_id,
+                    "target_version": target_version,
                     "destination_resource_id": resource_id,
                     "destination_path_hash": hashlib.sha256(
                         str(destination).encode("utf-8")
                     ).hexdigest(),
+                    "expected_existing_sha256": expected_existing_sha256,
                 },
             )
         )
         replay = session.domain.replay("exports.origin", key, request_hash)
         if replay is not None:
             return {**replay, "replayed": True}
-        stored = session.domain.get_plot(plot_id, plot_version)
-        if stored.plot.chart_type_id != "K01":
-            raise RpcServiceError(
-                "CAPABILITY_MISSING",
-                "The current Origin desktop slice supports K01 only.",
+        resolved_plots: tuple[ResolvedPlot, ...]
+        target_scope: Literal["current_plot", "batch", "figure"]
+        if target_kind == "plot":
+            stored = session.domain.get_plot(target_id, target_version)
+            resolved_plots = (self._resolve_plot(session, stored, quality_tier="formal"),)
+            target_scope = "current_plot"
+            record_plot_id = target_id
+            record_plot_version = target_version
+        elif target_kind == "batch":
+            batch, _state = session.domain.get_batch(target_id)
+            if batch.batch_version != target_version:
+                raise RpcServiceError("VERSION_CONFLICT", "The batch version is stale.")
+            refs = tuple(
+                item.plot_version_ref
+                for item in batch.item_states
+                if item.state == "succeeded" and item.plot_version_ref is not None
             )
+            if not refs:
+                raise RpcServiceError(
+                    "BATCH_EXPORT_SCOPE_EMPTY",
+                    "The batch contains no succeeded plots to export.",
+                )
+            resolved_plots = tuple(
+                self._resolve_plot(
+                    session,
+                    session.domain.get_plot(ref.plot_id, ref.plot_version),
+                    quality_tier="formal",
+                )
+                for ref in refs
+            )
+            target_scope = "batch"
+            record_plot_id = refs[0].plot_id
+            record_plot_version = refs[0].plot_version
+        else:
+            figure = session.domain.get_figure(target_id)
+            if figure.figure_version != target_version:
+                raise RpcServiceError("VERSION_CONFLICT", "The figure version is stale.")
+            resolved_plots = (
+                self._resolve_figure(session, figure, quality_tier="formal"),
+            )
+            target_scope = "figure"
+            record_plot_id = figure.panels[0].plot_version_ref.plot_id
+            record_plot_version = figure.panels[0].plot_version_ref.plot_version
         task_id = self._begin_task(context, "origin")
         try:
             context.tasks.transition(task_id, "running")
-            source = session.domain.prepared_table(stored.prepared_dataset)
-            x_field, y_field = stored.plot.series[0].data.role_fields[:2]
-            x_values = tuple(_float_value(value) for value in source[x_field])
-            y_values = tuple(_float_value(value) for value in source[y_field])
-            data = K01Data(x=x_values, y=y_values)
-            outcome = context.workers.submit(export_k01, destination, data).result()
+            export_spec = build_origin_export_spec(
+                resolved_plots,
+                export_id="export:" + request_hash[:24],
+                target_scope=target_scope,
+                output_name=destination.name,
+            )
+            origin_plan = compile_origin_plan(resolved_plots, export_spec)
+            token = self._task_token(context.tasks, task_id)
+            timeout_seconds = min(300.0, 30.0 + 5.0 * len(resolved_plots))
+            outcome = context.workers.submit(
+                export_origin,
+                origin_plan,
+                destination,
+                expected_existing_sha256=expected_existing_sha256,
+                timeout_seconds=timeout_seconds,
+                cancel_requested=lambda: token.is_cancelled,
+            ).result()
             if not isinstance(outcome, OriginExportSuccess):
-                context.tasks.transition(task_id, "failed")
+                if outcome.error.code.value == "CANCELLED":
+                    self._cancel_task(context.tasks, task_id)
+                else:
+                    context.tasks.transition(task_id, "failed")
                 return cast(
                     RpcJsonValue,
                     {
@@ -1124,13 +1189,15 @@ class DesktopApplication:
                         "result": outcome.to_dict(),
                     },
                 )
-            self._task_token(context.tasks, task_id).raise_if_cancelled()
             export_id = "export:" + request_hash[:24]
             response: dict[str, RpcJsonValue] = {
                 "task_id": task_id,
                 "export_id": export_id,
-                "plot_id": plot_id,
-                "plot_version": plot_version,
+                "target_kind": target_kind,
+                "target_id": target_id,
+                "target_version": target_version,
+                "target_scope": target_scope,
+                "graph_count": len(origin_plan.graph_objects),
                 "format": "opju",
                 "artifact": {
                     "resource_id": resource_id,
@@ -1140,12 +1207,15 @@ class DesktopApplication:
                     "render_plan_hash": outcome.render_plan_sha256,
                 },
             }
+            # OriginExportSuccess means the validated OPJU has crossed its atomic
+            # publication point. A cancellation racing after that point must finish
+            # the authoritative export record instead of leaving an untracked file.
             context.tasks.transition(task_id, "committing")
             session.domain.save_export(
                 StoredExport(
                     export_id=export_id,
-                    plot_id=plot_id,
-                    plot_version=plot_version,
+                    plot_id=record_plot_id,
+                    plot_version=record_plot_version,
                     format="opju",
                     destination_path=str(destination.resolve()),
                     artifact_hash=outcome.file_sha256,
@@ -1471,6 +1541,7 @@ class DesktopApplication:
                 "provider",
                 "retention_acknowledged",
                 "target",
+                "scope",
             },
         )
         session = self._session(_text(values["project_id"], "project_id"))
@@ -1517,7 +1588,11 @@ class DesktopApplication:
             _integer(values["source_version"], "source_version", minimum=1),
         )
         source_table = session.domain.resolve_source(source)
-        target, selected_objects, target_plot = self._agent_target(session, source, values)
+        target, selected_objects, target_plots, plots_by_alias = self._agent_target(
+            session,
+            source,
+            values,
+        )
         fields, alias_to_field = self._agent_fields(source, source_table.rows)
         sample_rows = tuple(
             AuthoritativeSampleRow(
@@ -1633,7 +1708,8 @@ class DesktopApplication:
         if isinstance(decision, ActionPlan):
             executions: list[RpcJsonValue] = []
             project_revision = expected
-            current_plot = target_plot
+            current_plots = list(target_plots)
+            scope_patched = False
             for index, action in enumerate(decision.actions):
                 if isinstance(action, CreatePlotAction):
                     mapping = {
@@ -1669,60 +1745,203 @@ class DesktopApplication:
                         "project_version",
                         minimum=1,
                     )
-                    current_plot = session.domain.get_plot(plot_id)
+                    current_plots = [session.domain.get_plot(plot_id)]
+                    plots_by_alias["active_target"] = current_plots[0]
                     executions.append(execution)
                     continue
                 if isinstance(action, PatchPlotAction):
-                    if current_plot is None:
+                    scope_patched = True
+                    action_plots = (
+                        current_plots
+                        if action.target_alias == "active_target"
+                        else [plots_by_alias[action.target_alias]]
+                        if action.target_alias in plots_by_alias
+                        else []
+                    )
+                    if not action_plots:
                         raise RpcServiceError(
                             "AGENT_ACTION_SCOPE_INVALID",
                             "A patch action requires an active plot target.",
                         )
-                    for patch_index, intent in enumerate(action.patches):
-                        patch = self._agent_patch_payload(current_plot, intent)
-                        execution = self._plots_patch(
-                            context,
-                            cast(
-                                RpcJsonValue,
-                                {
-                                    "project_id": session.project_id,
-                                    "plot_id": current_plot.plot.plot_id,
-                                    "expected_version": current_plot.plot.plot_version,
-                                    "idempotency_key": (
-                                        f"{decision.plan_id}:{action.action_id}:{patch_index}"
-                                    ),
-                                    "patch": patch,
-                                },
-                            ),
-                        )
-                        execution_values = _object(
-                            execution, required={"project_version"}, optional=None
-                        )
-                        project_revision = _integer(
-                            execution_values["project_version"],
-                            "project_version",
-                            minimum=1,
-                        )
-                        current_plot = session.domain.get_plot(current_plot.plot.plot_id)
-                        executions.append(execution)
+                    updated_plots: list[StoredPlot] = []
+                    for plot_index, active_plot in enumerate(action_plots):
+                        for patch_index, intent in enumerate(action.patches):
+                            patch = self._agent_patch_payload(active_plot, intent)
+                            execution = self._plots_patch(
+                                context,
+                                cast(
+                                    RpcJsonValue,
+                                    {
+                                        "project_id": session.project_id,
+                                        "plot_id": active_plot.plot.plot_id,
+                                        "expected_version": active_plot.plot.plot_version,
+                                        "idempotency_key": (
+                                            f"{decision.plan_id}:{action.action_id}:"
+                                            f"{plot_index}:{patch_index}"
+                                        ),
+                                        "patch": patch,
+                                    },
+                                ),
+                            )
+                            execution_values = _object(
+                                execution, required={"project_version"}, optional=None
+                            )
+                            project_revision = _integer(
+                                execution_values["project_version"],
+                                "project_version",
+                                minimum=1,
+                            )
+                            active_plot = session.domain.get_plot(active_plot.plot.plot_id)
+                            executions.append(execution)
+                        updated_plots.append(active_plot)
+                    current_plots = updated_plots
                     continue
                 raise RpcServiceError(
                     "AGENT_CAPABILITY_UNSUPPORTED",
                     "The Agent action is outside the enabled desktop surface.",
                 )
+            if scope_patched and target.object_type in {"batch", "figure"}:
+                scope_execution, project_revision = self._commit_agent_scope_update(
+                    session,
+                    target,
+                    tuple(current_plots),
+                    project_revision,
+                    decision,
+                )
+                payload["scope_execution"] = scope_execution
+                payload["project_version"] = project_revision
             payload["executions"] = executions
             if len(executions) == 1:
                 payload["execution"] = executions[0]
         return payload
+
+    def _commit_agent_scope_update(
+        self,
+        session: ProjectSession,
+        target: ContextObjectRef,
+        updated_plots: tuple[StoredPlot, ...],
+        project_revision: int,
+        decision: ActionPlan,
+    ) -> tuple[RpcJsonValue, int]:
+        latest_refs = {
+            item.plot.plot_id: PlotSpecRef(
+                plot_id=item.plot.plot_id,
+                plot_version=item.plot.plot_version,
+                content_hash=item.content_hash,
+            )
+            for item in updated_plots
+        }
+        idempotency_key = f"{decision.plan_id}:scope-update"
+        if target.object_type == "batch":
+            batch, state = session.domain.get_batch(target.object_id)
+            item_states = tuple(
+                BatchItemState.model_validate(
+                    {
+                        **item.model_dump(mode="python"),
+                        "plot_version_ref": (
+                            None
+                            if item.plot_version_ref is None
+                            else latest_refs.get(
+                                item.plot_version_ref.plot_id,
+                                item.plot_version_ref,
+                            )
+                        ),
+                    }
+                )
+                for item in batch.item_states
+            )
+            updated_batch = BatchSpec.model_validate(
+                {
+                    **batch.model_dump(mode="python"),
+                    "batch_version": batch.batch_version + 1,
+                    "item_states": item_states,
+                }
+            )
+            request_hash = canonical_hash(updated_batch)
+            response: dict[str, RpcJsonValue] = {
+                "target_kind": "batch",
+                "target_id": updated_batch.batch_id,
+                "target_version": updated_batch.batch_version,
+                "project_version": project_revision + 1,
+                "updated_plot_count": len(updated_plots),
+                "batch": updated_batch.model_dump(mode="json"),
+            }
+            session.domain.save_batch(
+                updated_batch,
+                state,
+                expected_revision=project_revision,
+                operation="agent.batch.patch",
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+                response=response,
+            )
+            return cast(RpcJsonValue, response), project_revision + 1
+        if target.object_type == "figure":
+            figure = session.domain.get_figure(target.object_id)
+            panels = tuple(
+                FigurePanel.model_validate(
+                    {
+                        **panel.model_dump(mode="python"),
+                        "plot_version_ref": latest_refs.get(
+                            panel.plot_version_ref.plot_id,
+                            panel.plot_version_ref,
+                        ),
+                    }
+                )
+                for panel in figure.panels
+            )
+            updated_figure = FigureSpec.model_validate(
+                {
+                    **figure.model_dump(mode="python"),
+                    "figure_version": figure.figure_version + 1,
+                    "parent_figure_version": figure.figure_version,
+                    "panels": panels,
+                }
+            )
+            request_hash = canonical_hash(updated_figure)
+            response = {
+                "target_kind": "figure",
+                "target_id": updated_figure.figure_id,
+                "target_version": updated_figure.figure_version,
+                "project_version": project_revision + 1,
+                "updated_plot_count": len(updated_plots),
+                "figure": updated_figure.model_dump(mode="json"),
+            }
+            session.domain.save_figure(
+                updated_figure,
+                expected_revision=project_revision,
+                operation="agent.figure.patch",
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+                response=response,
+            )
+            return cast(RpcJsonValue, response), project_revision + 1
+        raise RpcServiceError(
+            "AGENT_ACTION_SCOPE_INVALID",
+            "The Agent scope update target is invalid.",
+        )
 
     def _agent_target(
         self,
         session: ProjectSession,
         source: SourceDataset,
         values: Mapping[str, RpcJsonValue],
-    ) -> tuple[ContextObjectRef, tuple[ContextObjectRef, ...], StoredPlot | None]:
+    ) -> tuple[
+        ContextObjectRef,
+        tuple[ContextObjectRef, ...],
+        tuple[StoredPlot, ...],
+        dict[str, StoredPlot],
+    ]:
+        scope = _optional_text(values.get("scope"), "scope") or "current"
+        if scope not in {"current", "selected", "batch", "figure"}:
+            raise RpcServiceError("INVALID_PARAMS", "The Agent scope is invalid.")
         target_value = values.get("target")
         if target_value is None:
+            if scope not in {"current", "selected"}:
+                raise RpcServiceError(
+                    "AGENT_ACTION_SCOPE_INVALID",
+                    "The requested Agent scope has no matching target object.",
+                )
             return (
                 ContextObjectRef(
                     object_alias="active_target",
@@ -1732,47 +1951,101 @@ class DesktopApplication:
                     content_hash=source.content_hash,
                 ),
                 (),
-                None,
+                (),
+                {},
             )
         target_input = _object(target_value, required={"kind", "id"})
         kind = _text(target_input["kind"], "target.kind")
-        if kind != "plot":
+        expected_kind = "plot" if scope in {"current", "selected"} else scope
+        if kind != expected_kind:
             raise RpcServiceError(
-                "AGENT_CAPABILITY_UNSUPPORTED",
-                "Natural-language editing currently targets a plot.",
+                "AGENT_ACTION_SCOPE_INVALID",
+                "The requested Agent scope does not match its target object.",
             )
-        stored = session.domain.get_plot(_text(target_input["id"], "target.id"))
+        target_id = _text(target_input["id"], "target.id")
+        stored_plots: tuple[StoredPlot, ...]
+        if kind == "plot":
+            stored_plots = (session.domain.get_plot(target_id),)
+            object_version = stored_plots[0].plot.plot_version
+            content_hash = stored_plots[0].content_hash
+        elif kind == "batch":
+            batch, _state = session.domain.get_batch(target_id)
+            refs = tuple(
+                item.plot_version_ref
+                for item in batch.item_states
+                if item.state == "succeeded" and item.plot_version_ref is not None
+            )
+            if not refs:
+                raise RpcServiceError(
+                    "BATCH_SCOPE_EMPTY",
+                    "The batch contains no succeeded plots to edit.",
+                )
+            stored_plots = tuple(
+                session.domain.get_plot(ref.plot_id, ref.plot_version) for ref in refs
+            )
+            object_version = batch.batch_version
+            content_hash = canonical_hash(batch)
+        elif kind == "figure":
+            figure = session.domain.get_figure(target_id)
+            stored_plots = tuple(
+                session.domain.get_plot(
+                    panel.plot_version_ref.plot_id,
+                    panel.plot_version_ref.plot_version,
+                )
+                for panel in figure.panels
+            )
+            object_version = figure.figure_version
+            content_hash = canonical_hash(figure)
+        else:
+            raise RpcServiceError("INVALID_PARAMS", "The Agent target kind is invalid.")
         target = ContextObjectRef(
             object_alias="active_target",
-            object_id=stored.plot.plot_id,
-            object_version=stored.plot.plot_version,
-            object_type="plot",
-            content_hash=stored.content_hash,
+            object_id=target_id,
+            object_version=object_version,
+            object_type=cast(Any, kind),
+            content_hash=content_hash,
         )
-        aliases = (
+        primary = stored_plots[0]
+        aliases: tuple[ContextObjectRef, ...] = (
             ContextObjectRef(
                 object_alias="x_axis",
-                object_id=stored.plot.plot_id,
-                object_version=stored.plot.plot_version,
+                object_id=primary.plot.plot_id,
+                object_version=primary.plot.plot_version,
                 object_type="plot",
-                content_hash=stored.content_hash,
+                content_hash=primary.content_hash,
             ),
             ContextObjectRef(
                 object_alias="y_axis",
-                object_id=stored.plot.plot_id,
-                object_version=stored.plot.plot_version,
+                object_id=primary.plot.plot_id,
+                object_version=primary.plot.plot_version,
                 object_type="plot",
-                content_hash=stored.content_hash,
+                content_hash=primary.content_hash,
             ),
             ContextObjectRef(
                 object_alias="series_1",
-                object_id=stored.plot.plot_id,
-                object_version=stored.plot.plot_version,
+                object_id=primary.plot.plot_id,
+                object_version=primary.plot.plot_version,
                 object_type="plot",
-                content_hash=stored.content_hash,
+                content_hash=primary.content_hash,
             ),
         )
-        return target, aliases, stored
+        plots_by_alias: dict[str, StoredPlot] = {"active_target": primary}
+        if len(stored_plots) > 1:
+            plot_aliases = tuple(
+                ContextObjectRef(
+                    object_alias=f"plot_{index + 1}",
+                    object_id=item.plot.plot_id,
+                    object_version=item.plot.plot_version,
+                    object_type="plot",
+                    content_hash=item.content_hash,
+                )
+                for index, item in enumerate(stored_plots[:8])
+            )
+            aliases += plot_aliases
+            plots_by_alias.update(
+                {f"plot_{index + 1}": item for index, item in enumerate(stored_plots[:8])}
+            )
+        return target, aliases, stored_plots, plots_by_alias
 
     @staticmethod
     def _agent_patch_payload(previous: StoredPlot, intent: Any) -> RpcJsonValue:
@@ -2222,7 +2495,13 @@ class DesktopApplication:
             quality_tier=quality_tier,
         )
 
-    def _resolve_figure(self, session: ProjectSession, figure: FigureSpec) -> ResolvedPlot:
+    def _resolve_figure(
+        self,
+        session: ProjectSession,
+        figure: FigureSpec,
+        *,
+        quality_tier: Literal["interactive", "formal"] = "interactive",
+    ) -> ResolvedPlot:
         if len(figure.panels) > 4:
             raise RpcServiceError(
                 "FIGURE_LAYOUT_UNSUPPORTED",
@@ -2236,7 +2515,7 @@ class DesktopApplication:
             for panel in figure.panels
         )
         children = tuple(
-            self._resolve_plot(session, item, quality_tier="interactive") for item in stored
+            self._resolve_plot(session, item, quality_tier=quality_tier) for item in stored
         )
         first = stored[0]
         placeholder = first.prepared_dataset.as_ref()
@@ -2269,7 +2548,7 @@ class DesktopApplication:
         return PlotResolver().resolve_panel_plans(
             parent,
             placements,
-            quality_tier="interactive",
+            quality_tier=quality_tier,
         )
 
     def _figure_placements(
@@ -2509,7 +2788,9 @@ class DesktopApplication:
 
     @staticmethod
     def _begin_task(context: RpcContext, prefix: str) -> str:
-        suffix = hashlib.sha256(f"{prefix}\0{context.request_id}".encode()).hexdigest()[:24]
+        suffix = hashlib.sha256(
+            f"{prefix}\0{context.request_id}\0{uuid.uuid4().hex}".encode()
+        ).hexdigest()[:24]
         task_id = f"task:{suffix}"
         context.tasks.register(task_id)
         context.tasks.transition(task_id, "preparing")

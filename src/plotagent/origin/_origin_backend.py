@@ -352,6 +352,10 @@ class OriginProBackend:
             raise NativeOriginError(f"could not create graph {graph_plan.internal_name}")
         graph.name = graph_plan.internal_name
         graph.lname = graph_plan.long_name
+        # The qualified base template has printer-derived sizing disabled, so the
+        # typed physical canvas can be applied through the native page API.
+        graph.obj.SetWidth(graph_plan.page_width_mm)
+        graph.obj.SetHeight(graph_plan.page_height_mm)
         data_by_id = {
             object_id: self._data_sheets[object_id] for object_id in graph_plan.data_object_ids
         }
@@ -491,6 +495,12 @@ class OriginProBackend:
                 label = layer.add_label(text, annotation.x, annotation.y)
                 if label is None:
                     raise NativeOriginError("could not create native text annotation")
+        # Origin may defer one dimension while layers and plots are being created.
+        # Reapply both typed dimensions after construction so inspection and save see
+        # the final physical canvas.
+        graph.obj.Activate()
+        graph.obj.PutWidth(graph_plan.page_width_mm)
+        graph.obj.PutHeight(graph_plan.page_height_mm)
 
     def write_manifest(self, plan: OriginExportPlan) -> None:
         self._active_plan = plan

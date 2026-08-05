@@ -1,4 +1,6 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
+import { createReadStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
 
 import type { BrowserWindow, Dialog, IpcMain } from 'electron'
 
@@ -10,6 +12,7 @@ import {
   parseBatchIdInput,
   parseBatchRunInput,
   parseCloseResponse,
+  parseCustomProviderConfigureInput,
   parseDatasetDescribeInput,
   parseFigureCreateInput,
   parseFigureIdInput,
@@ -74,6 +77,22 @@ function cancelled(): DesktopDataResult {
     ok: false,
     error: { code: 'DIALOG_CANCELLED', message: '操作已取消。', retryable: false },
   }
+}
+
+async function existingFileSha256(path: string): Promise<string | undefined> {
+  try {
+    const metadata = await stat(path)
+    if (!metadata.isFile()) return undefined
+  } catch {
+    return undefined
+  }
+  return await new Promise<string>((resolve, reject) => {
+    const digest = createHash('sha256')
+    const stream = createReadStream(path)
+    stream.on('data', (chunk) => digest.update(chunk))
+    stream.on('error', reject)
+    stream.on('end', () => resolve(digest.digest('hex')))
+  })
 }
 
 function resourceInvalid(): DesktopDataResult {
@@ -220,6 +239,26 @@ export function registerDesktopIpc({
     return { ok: true } satisfies DesktopActionResult
   })
 
+  ipcMain.handle(IPC_CHANNELS.providerStatus, () => (
+    requestCoreData(supervisor, resources, 'provider.status')
+  ))
+  ipcMain.handle(IPC_CHANNELS.providerConfigure, (_event, value: unknown) => {
+    const input = parseCustomProviderConfigureInput(value)
+    return input === null
+      ? invalidDataArgument('模型服务配置无效。仅接受 HTTPS 地址和有效模型 ID。')
+      : requestCoreData(supervisor, resources, 'provider.configure', {
+        mode: 'custom_provider',
+        provider_config_id: 'custom.default',
+        base_url: input.baseUrl,
+        model_id: input.modelId,
+        ...(input.apiKey === undefined ? {} : { api_key: input.apiKey }),
+        retention_acknowledged: true,
+      })
+  })
+  ipcMain.handle(IPC_CHANNELS.providerClear, () => (
+    requestCoreData(supervisor, resources, 'provider.clear')
+  ))
+
   ipcMain.handle(IPC_CHANNELS.closeResponse, async (_event, value: unknown) => {
     const response = parseCloseResponse(value)
     return response === null
@@ -238,6 +277,12 @@ export function registerDesktopIpc({
         idempotency_key: `project-create:${randomUUID()}`,
         display_name: input.name,
       })
+  })
+  ipcMain.handle(IPC_CHANNELS.projectActivate, (_event, value: unknown) => {
+    const input = parseProjectIdInput(value)
+    return input === null
+      ? invalidDataArgument('项目 ID 无效。')
+      : requestCoreData(supervisor, resources, 'projects.open', { project_id: input.projectId })
   })
   ipcMain.handle(IPC_CHANNELS.projectOpen, async () => {
     const owner = getWindow()
@@ -479,8 +524,6 @@ export function registerDesktopIpc({
         source_version: input.sourceVersion,
         user_instruction: input.utterance,
         client_model_run_id: `model-run:${randomUUID()}`,
-        network_mode: 'online',
-        provider: { kind: 'builtin' },
         expected_version: input.expectedVersion,
         locale: 'zh-CN',
         target: input.target,
@@ -519,14 +562,19 @@ export function registerDesktopIpc({
       filters: [{ name: 'Origin 项目', extensions: ['opju'] }],
     })
     if (choice.canceled || choice.filePath === undefined) return cancelled()
+    const expectedExistingSha256 = await existingFileSha256(choice.filePath)
     return requestCoreData(supervisor, resources, 'exports.origin', {
       project_id: input.projectId,
       plot_id: input.target.id,
       plot_version: input.target.version,
+      target_kind: input.target.kind,
       destination_resource_id: resources.registerFile(choice.filePath, 'export').resourceId,
       destination_path: choice.filePath,
       idempotency_key: `export-origin:${randomUUID()}`,
       expected_version: input.target.version,
+      ...(expectedExistingSha256 === undefined
+        ? {}
+        : { expected_existing_sha256: expectedExistingSha256 }),
     }, 'export')
   })
 

@@ -1,6 +1,6 @@
 # PlotAgent v1 实施拆分与里程碑计划
 
-> 状态：implementation-ready backlog；M0 K01 Origin O1 风险路径已实机验证，完整后端/云/31图 Origin qualification 尚未完成
+> 状态：M0–M6 工程切片已实现；31 图代表性 Origin O1 矩阵已实机通过，M7 邀请制 Beta qualification 尚未执行
 > 日期：2026-08-05
 > 适用范围：W0–W10 workstreams、依赖、风险 spikes、里程碑、验收证据与错误归属
 > 相关文档：[规格索引与 Beta 设计基线](./SPEC-INDEX.md)、[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)
@@ -130,8 +130,8 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
   `(task_id, action_id, output_slot)` 幂等键；Selected/All export scope 默认排除失败、取消、未确认和
   审阅排除项。`src/plotagent/figures/` 仅组合 repository 声明为 numeric-only 的明确 PlotSpec
   版本，支持有限 1×N/N×1/2×2/2×3 布局、对齐、共享/独立轴和公共图例；源图更新只返回提示，
-  显式升级以 expected version 原子创建新 Figure version。当前不含 renderer/import/Origin/Agent、
-  React IPC 或开放式布局；这些边界保留给后续 vertical slice。
+  显式升级以 expected version 原子创建新 Figure version。该底层模块本身不反向依赖
+  renderer/import/Origin/Agent；DesktopApplication 与 typed React IPC 已在上层完成组合，开放式布局仍不进入首轮。
 - **Dependencies/parallel:** W4→W5；isomorphism from W2。Core fan-out与UI review可并行，shared scope/event schemas由W0/W1先行。
 - **Acceptance evidence:** identical signature allowed/different blocked；single mapping；partial/cancel/retry；grid/list/carousel keyboard/accessibility；filter anomalies/fail/warn；temporary no-version then save-new；Figure version pins/common legend/numbering。
 - **Stable error ownership:** `BATCH_*`、`ISOMORPHIC_*`、`REVIEW_*`、`FIGURE_*`、`SELECTION_SCOPE_*`。
@@ -146,9 +146,17 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Planned entries:** `src/plotagent/origin/plan/`、`adapters/`、`worker/`、`validation/`、Origin qualification harness。
 - **Deliverables:** K01 spike adapter first；单一exact-version adapter声明；preflight；managed process lifecycle；typed property maps；31 O1 adapters；fresh reopen validator；manifest/atomic export。
 - **Dependencies/parallel:** W4→W6 for production, but M0 K01 risk spike begins as soon as minimal W0/W2/W4 slice exists。Adapter families可并行 only after K01 O1 proof and property map rules。
-- **Acceptance evidence:** 当前Beta build唯一declared Origin exact version的93条O1 paths；direct/fixed/precomputed data-link/manifest；Raw改动不重算声明；edge expected errors；live+fresh readback；no Analysis Template/formula/LabTalk/raster/global template/user instance；cancel/hang/lock/external modification/atomic failure；P95 budgets。
+- **Acceptance evidence:** 当前 Beta build 唯一 declared Origin exact version 的 31 图代表性 O1 live+fresh-reopen matrix；minimal/edge/error 由离线 contract、validator 与稳定错误测试覆盖；direct/fixed/precomputed data-link/manifest；Raw 改动不重算声明；无 Analysis Template/formula/LabTalk/raster/global template/user instance；cancel/hang/lock/external modification/atomic failure。
 - **Stable error ownership:** `NOT_INSTALLED`、`VERSION_UNSUPPORTED`、`LICENSE_UNAVAILABLE`、`CAPABILITY_MISSING`、`TEMPLATE_OR_FONT_MISSING`、`START/BUILD/SAVE/REOPEN/VALIDATION_FAILURE`、`TARGET_LOCKED`、`EXTERNAL_MODIFIED`、Origin `CANCELLED`。
-- **Done:** Beta build唯一声明Origin exact version的31图均O1 qualification、93 paths零缺口；其他版本稳定`VERSION_UNSUPPORTED`，失败绝不发布文件/降级，实例与temp清理通过fault evidence。
+- **Done:** Beta build 唯一声明 Origin exact version 的 31 图代表性数据均完成 O1 live+fresh-reopen qualification；其他版本稳定 `VERSION_UNSUPPORTED`，minimal/edge/error 不重复启动 62 次 Origin，而由离线契约、验证器和 fault evidence 覆盖；失败绝不发布文件或降级。
+
+#### W6/M5 实现说明（2026-08-05）
+
+- 31 个 registry chart ID 统一编译为 typed `OriginExportPlan`，由独立 build/reopen worker 调用 `originpro` 原生对象 API；实机矩阵为 31/31 通过，用时约 19 分钟。静态测试禁止 LabTalk、脚本、公式、raster/SVG fallback 与任意用户模板路径。
+- 冻结环境为 Origin 2024 SR1，`DisplayVersion=10.10.178`、runtime `10.100178`、64-bit `Origin64.exe`、`originpro=1.1.15`。随包模板为 `PlotAgent89x60.otpu`，SHA-256 `08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf`。
+- GraphPage 必须先激活，再通过 typed `PutWidth/PutHeight` 重申解析后的物理画布尺寸；这是 Origin 在创建 layer/plot 后可能延迟尺寸的兼容处理。该顺序已用非模板尺寸 178×120 mm 的 build 与 fresh reopen 实机验证。
+- 桌面 Core 对 plot、batch、figure 使用同一 export compiler。为避免 M6 引入数据库迁移，现有 `export_records` 外键仍以目标中的首个 plot 作为内部归属；API 响应和 OPJU manifest 始终保存真实 target kind/id/version/scope。该实现不改变用户可见导出范围，未来若需要按 batch/figure 查询导出历史，再升级为通用 target foreign key。
+- `OriginExportSuccess` 表示临时文件已经通过 fresh reopen 并跨过原子发布点；若取消请求恰好在该点后到达，Core 必须进入 committing、写入导出记录并标记成功，不能留下“文件已发布但项目无记录”的裂缝。发布点前的取消仍由 worker cooperative cancellation 稳定终止。
 
 ### W7 — ContextBuilder、ModelProvider、AgentDecision 与本地 validator
 
@@ -171,6 +179,8 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - Provider 输出先做完整 JSON 与四类 union 校验，再做 tool/code/path/URL/SQL/renderer/处理步骤载荷拒绝，最后一次性执行 target/version/stale/capability/permission/action-scope/no-partial validator；模型不承担图形推荐、替代或本地命令解析。
 - Prompt template、每次 provider response、ContextEnvelope、DataDisclosure、AgentDecision 与 ModelRunAudit 均有 SHA-256 metadata；audit 只保存 provider/model/schema/usage/target/version/count/hash/稳定错误，不保存 secret、reasoning、消息、字段值或样本。测试全部使用 fake client/transport 与 synthetic payload，覆盖 P1/P2/P0、Responses→Chat、timeout/cancel、stale/no-partial、egress budget/Disclosure 和 local_only zero-call。
 - 生产 provider factory 现在按 `builtin_proxy/custom_provider/local_only` 构造唯一允许的 adapter；`local_only` 在创建任何 RawTransport 前返回零网络 provider。custom API key 不进入 `CustomProviderConfig`、Context 或 audit，而由 credential resolver 在 HTTP 发包边界注入 `Authorization`。built-in 桌面客户端覆盖 redeem、credential verify/revoke、quota、model-run invoke/status；同步 HTTP 通过 `asyncio.to_thread` 适配现有 async provider 接口，显式重试必须复用同一 `client_run_id`，客户端不自动重放业务请求。
+- Desktop renderer 只提交 instruction、稳定 target/scope 与当前对象版本；Electron Main 不覆盖 `network_mode` 或临时伪造 provider。Core 从本机已保存配置选择 custom/builtin/local-only provider，因此配置与执行只有一个权威来源，断网或未配置时返回明确 NeedsInput/阻断，不悄悄回退到另一服务。
+- `scope` 与 target kind 在 Core 白名单内成对校验：current/selected 对应 plot，batch 对应 BatchSpec，figure 对应 FigureSpec。对 batch/Figure 的同类 plot patch 由一个已校验 ActionPlan 在本地展开到其固定 plot refs，逐个创建新 PlotSpec 版本，再原子保存引用这些新版本的 BatchSpec/FigureSpec 新版本；任一别名越界或目标/范围不匹配均在执行前拒绝。任务 ID 加入进程内随机 nonce，保证一次多目标计划可创建多个独立 task record，幂等业务键仍由 plan/action/plot/patch 位置固定。
 
 ### W8 — Invite、DeviceCredential、共享计数与 built-in proxy
 
@@ -229,7 +239,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Out of scope:** 修复归属领域的业务缺陷、缩减声明逃避gate、多OS/DPI/minimum-machine qualification、长soak、SBOM流程、完整云攻击矩阵、商业级多角色签署。
 - **Inputs/contracts:** PERFORMANCE-TEST-RELEASE、SPEC-INDEX、W0 harness、W5/W6/W8/W9 deliverables及所有W evidence。
 - **Planned entries:** `tests/e2e/`、`tests/performance/`、`tests/security/`、`tests/origin/`、`release/evidence/`、installer pipeline。
-- **Deliverables:** deterministic program tests、fixed-model contract tests、real-model quality eval 分离；导入分层快照/回放；单一Windows reference profile；279 formal基础矩阵报告；独立preview/interactive报告；单一Origin exact version完整93条OPJU报告；reference performance；fault/security；人工签名安装包证据；Beta checklist/known issues。
+- **Deliverables:** deterministic program tests、fixed-model contract tests、real-model quality eval 分离；导入分层快照/回放；单一 Windows reference profile；31 图 formal PNG/SVG 的 minimal/representative/edge 离线矩阵；独立 preview/interactive 报告；单一 Origin exact version 的 31 图代表性 live+fresh-reopen 与离线 edge/error 报告；reference performance；fault/security；人工签名安装包证据；Beta checklist/known issues。
 - **Dependencies/parallel:** W5/W6/W8/W9→final W10；harness/performance fixtures从W0持续并行。失败回流到唯一owner，不在gate层打补丁。
 - **Acceptance evidence:** 本workstream产物就是PERFORMANCE §11 Beta build checklist；另需first 10–15 user success structured results for second-batch go/no-go。
 - **Stable error ownership:** `TEST_HARNESS_*`、`EVIDENCE_*`、`INSTALLER_*`；领域失败code仍由原W拥有，W10只验证与聚合。
@@ -253,13 +263,11 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 #### 2026-08-05 实机 spike 状态
 
-- **结论：** K01 direct Raw Data → native line graph → 临时 OPJU → 退出构建实例 → 新空白受控实例 fresh reopen/readback → 原子发布的技术路径已验证可行；这是单个 K01 minimal fixture 的 M0 风险证据，不表示 M0 全部 exit evidence、31 图或 93 条 OPJU path 已完成。
-- **冻结环境：** Origin2024 SR1，注册表 `DisplayVersion=10.10.178`，runtime `10.100178`，`Origin64.exe`/Python 均为 64-bit，Python 3.12.13，`originpro=1.1.15`，Origin `origin.otp` SHA-256 `588d94a13eee1140e55ff3edf04bc84e955b9c2c1dc3a40fc7b4a3932572d254`。当前 build 只声明该 exact Origin/originpro/bitness 组合；其他 Origin 版本稳定返回 `VERSION_UNSUPPORTED`。
-- **实现入口：** `src/plotagent/origin/` 提供 typed K01 plan/result/error、精确 preflight、独立 `probe/build/reopen` worker、30 秒默认阶段超时、只终止 worker PID 进程树的恢复清理、live/fresh validator 与同盘临时文件原子发布。应用代码没有 `attach`、LabTalk/脚本、worksheet formula、Origin analysis chain 或 raster/SVG fallback；普通 pytest 通过 marker/环境变量隔离真实 Origin。
-- **实跑命令：** `$env:PYTHONPATH=(Join-Path (Get-Location) 'src'); D:\plotv3\.venv\Scripts\python.exe -m plotagent.origin.cli export-k01 "$env:TEMP\plotagent-k01-origin-10.10.178-o1.opju" --timeout 30`。
-- **实跑结果：** 32.188 秒成功；OPJU 32,687 bytes，SHA-256 `6863110d95def7a3cfac02d83c614cc5c0722f23ee55c968763cadfe0e214e59`；RenderPlan SHA-256 `e61424e918f5e42f0970cbe629489cf3b63ea7fe5d4e60854ff1f5d9fbca542e`；live 与 fresh-reopen report 完全相同，SHA-256 `adaffc8d0faf812819b1ea609a3d359c681a2cfd478822822a8bf80636b75a2d`。读回覆盖 Data/Analysis/Graphs/Metadata、6×2 Raw Data/values/Units/Comments/designations、1 native linked plot、layer、linear axes/range/tick increment、axis titles、legend、模板物理 page size `272.288 × 208.407 mm`、manifest/object map 与无 external links。发布后无残留 `Origin64` 进程或任务 temp 目录；二进制证据保留在系统 temp，不提交 Git。
-- **本 spike 已验证的失败边界：** 两次 page-size mismatch 均在 live validation 阶段稳定返回 `VALIDATION_FAILURE`，未生成目标文件；单元测试覆盖 fresh-reopen 失败不替换既有目标、未知 plan 字段拒绝、目标后缀/既有 hash 与版本拒绝、源码无 attach/script/formula 调用。
-- **明确后续：** M0 上游 deterministic import/SourceDataset/PlotSpec/PNG/SVG 尚未接入；本地 dataclass plan/error 需在 W0 Schema/error registry 成熟后并入唯一 Pydantic/generated types；任意 publication page/subplot layout、resolved font、签名随包 template、真实 lock/cancel/hang/external-modification fault matrix、missing/datetime/category readback、K01 representative/edge fixtures及其余 30 图/92 条 OPJU path 留给 W4/W6/W10，不由本次结果扩大声明。
+- **结论：** K01 风险路径已经扩展为完整 31 图 registry 的 typed O1 adapter；代表性数据矩阵全部通过临时 OPJU build、退出构建实例、新空白受控实例 fresh reopen/readback 与原子发布。
+- **冻结环境：** Origin 2024 SR1，注册表 `DisplayVersion=10.10.178`，runtime `10.100178`，`Origin64.exe`/Python 均为 64-bit，`originpro=1.1.15`，随包 `PlotAgent89x60.otpu` SHA-256 `08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf`。当前 build 只声明该 exact Origin/originpro/bitness 组合；其他 Origin 版本稳定返回 `VERSION_UNSUPPORTED`。
+- **实现入口：** `src/plotagent/origin/` 提供 typed plan/result/error、精确 preflight、独立 `probe/build/reopen` worker、按图数量封顶 300 秒的阶段 timeout、live/fresh validator 与同盘临时文件原子发布。应用代码没有 user attach、LabTalk/脚本、worksheet formula、Origin analysis chain 或 raster/SVG fallback。
+- **实跑命令与结果：** `$env:PLOTAGENT_RUN_ORIGIN_LIVE_MATRIX='1'; .\.venv\Scripts\python.exe -m pytest tests/origin/test_live_matrix.py -q`，31/31 通过，用时 1158.39 秒。动态画布 178×120 mm 另经 build 与 fresh reopen 验证。
+- **失败边界：** 单元与 fault 测试覆盖 fresh-reopen 失败不替换既有目标、未知 plan 字段拒绝、目标后缀/既有 hash 与版本拒绝、取消、阶段 timeout、外部修改和源码无 attach/script/formula 调用。minimal/edge/error 采用离线契约与稳定错误测试，不把工程成熟度扩大为 93 次昂贵 Origin 实跑。
 
 ### Spike 2 — 100k preview 与 formal SVG resource preflight
 
@@ -306,13 +314,14 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 ### M5 — 全部 O1 Origin
 
 - **Entry:** K01 spike通过，M2 31 RenderPlans稳定。
-- **Exit evidence:** 当前Beta build唯一Origin exact version的93条OPJU O1；其他版本`VERSION_UNSUPPORTED`；live+fresh reopen、atomic/cancel/hang/external modification、P95 budgets。
+- **Exit evidence:** 当前 Beta build 唯一 Origin exact version 的 31 图代表性 OPJU O1 live+fresh reopen；其他版本 `VERSION_UNSUPPORTED`；minimal/edge/error 离线契约与稳定失败测试；atomic/cancel/hang/external modification。
 
 ### M6 — 简化 Cloud、Local Security、人工安装包与兼容
 
 - **Entry:** M4 fixed run/usage；W1/W2 lifecycle稳定。
 - **Exit evidence:** DeviceCredential、shared atomic quota/client-run idempotency、cloud-offline degradation、strict local_only、local diagnostic privacy、未知schema拒绝/已知pair迁移、人工安装包签名/hash/code-sign matrices。
-- **当前人工包切片（2026-08-05）：** 已具备可执行的 unsigned development 构建、显式可选签名入口、精确 SHA-256 manifest 与离线三类稳定阻断测试；未持有/提交生产证书，未声称签名 RC、完整 Core 或 M6 其余 exit evidence 已完成。
+- **当前实现（2026-08-05）：** 已具备完整本地 Core、真实桌面 typed IPC、31 图/批量/Figure/Agent/PNG/SVG/OPJU 工作流，以及可执行 unsigned development 构建、显式可选签名入口、精确 SHA-256 manifest 与离线稳定阻断测试。邀请制 built-in cloud 保留为轻量独立控制面；无账号、无设备数限制。仓库未持有生产证书，因此 M6 完成指工程能力收口，不宣称签名 RC 或 M7 Beta qualification。
+- **当前回归证据（2026-08-06）：** Python 常规门禁为 436 passed、32 个真实 Origin marker skipped，Ruff 与 mypy 全通过；Node/Electron 为 16 files、66 tests，lint、两套 TypeScript typecheck 与 production build 全通过；Windows release tools 离线测试通过。31 图 Origin marker 已在冻结环境单独 31/31 实跑，动态画布修改后又独立复跑 K01 build+fresh reopen。in-app browser 当时没有可用 browser instance，因此未声称真实窗口截图巡检；DOM 交互测试和 production build 是本节点的 UI 证据。
 
 ### M7 — Beta Qualification
 

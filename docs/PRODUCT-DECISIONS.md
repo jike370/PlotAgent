@@ -1,6 +1,6 @@
 # PlotAgent 已确认产品决策基线
 
-> 状态：v1 专业能力范围完整、工程成熟度面向小规模邀请制 Beta；真实功能与 Beta qualification 尚未完成
+> 状态：v1 专业能力与 M0–M6 工程切片已实现；M7 小规模邀请制 Beta qualification 尚未执行
 > 产品代号：PlotAgent  
 > 基线日期：2026-08-05  
 > 适用关系：本文件记录全部已确认细节；[PRD](./PRD.md) 将其组织为可实施需求；[DESIGN](../DESIGN.md) 约束视觉与交互表达。三者发生冲突时，应先记录新的用户确认，再同时更新相关文件，不得由实现自行改变产品边界。
@@ -501,7 +501,7 @@
 
 - **PD-AA01 单一 Windows profile。** 每个 Beta build 只在一个发布时仍受支持的 Windows 11 x64 reference profile 正式 qualification；当前为 Windows 11 25H2/6C/16GB/NVMe/1920×1080，DPI 只测 100% 与 150%。
 - **PD-AA02 后续平台。** Windows 10、LTSC、ARM64、minimum machine、125%/200% DPI 与多 OS 矩阵不属于当前 Beta 声明；其他环境可尝试但必须标“未完成 Beta qualification”。
-- **PD-AA03 单一 Origin version。** 每个 Beta build 只声明一个完成完整 qualification 的 Origin exact version/build/bitness；其他版本全部 `VERSION_UNSUPPORTED`。该版本独立完成 31 图 O1 与 93 条 OPJU live+fresh-reopen evidence。
+- **PD-AA03 单一 Origin version。** 每个 Beta build 只声明一个完成 qualification 的 Origin exact version/build/bitness；其他版本全部 `VERSION_UNSUPPORTED`。该版本独立完成 31 图各一份代表性 O1 live+fresh-reopen；minimal/edge/error 由离线契约、验证器和稳定错误 evidence 覆盖。
 - **PD-AA04 唯一规模基线。** 正式 qualification 为 100k rows×20 columns、常规 10 charts、单图≤100k plotted primitives、批量20 files/charts×每图10k、项目≤100 charts；不再设 large/boundary 门禁。
 - **PD-AA05 超范围 best effort。** 超出已验证范围先显示“超出 Beta 已验证范围”与 resource preflight；成功不扩大声明。资源不足稳定拒绝并建议用户在外部显式准备较小数据或缩小批次，formal 不静默抽稀、换算法或借机执行隐藏筛选/聚合。
 - **PD-AA06 Preview 与 formal。** Thumbnail≤5k、interactive≤20k visible primitives；100k preview P95≤3s，range/PlotCalculation 使用 full data并显示简化。声明规模内 formal PNG/SVG/OPJU 全部 full data。
@@ -510,13 +510,13 @@
 - **PD-AA09 Agent 与反馈预算。** ContextEnvelope build P95≤1s；内置 structured decision P50≤8s/P95≤20s并单列 provider latency；输入/点击/任务卡反馈≤100ms，>2s 展示真实阶段。
 - **PD-AA10 Memory。** Idle Electron+Core≤700MB，正式 qualification workload peak≤2GB；资源预检不足时以 `RESOURCE_LIMIT` 拒绝，可把新任务并发降为1但不改算法或提交半对象。
 - **PD-AA11 Disk 与 SVG preflight。** 导入前 free disk≥estimated landed bytes×2.5；formal按实际100k声明范围估计primitive/file/memory/disk并告警或拒绝，不使用2M primitives/200MB商业级固定门槛，不自动栅格或抽稀。
-- **PD-AA12 31图 Fixtures。** 每图至少 minimal valid、representative research、edge/error 三 fixture；formal PNG/formal SVG/O1 OPJU 为31×3×3=279 paths，preview/interactive另测。OPJU 93条只在当前 build 唯一 Origin exact version完整运行；edge_error可用预期稳定错误证据。
+- **PD-AA12 31图 Fixtures。** 每图保留 minimal valid、representative research、edge/error 三类 fixture；formal PNG/SVG 运行离线矩阵，preview/interactive 另测。OPJU 在当前 build 唯一 Origin exact version 对每图运行一份 representative live+fresh-reopen；minimal 与 edge/error 复用同一 typed plan 的离线 contract/validator 与预期稳定错误，不重复进行昂贵 COM 实跑。
 - **PD-AA13 机器可统计证据。** MatrixKey 固定 build/chart/fixture/artifact/adapter-or-renderer/唯一Origin/Windows profile/locale/case，记录 input/spec/plan/artifact/validator/dependency/fixture hashes、资源和稳定错误。
 - **PD-AA14 Beta 测试层。** Gate 覆盖schema/domain、约30个import golden、mapping/preparation/unit/provenance、九类PlotCalculation与预计算字段、render/parity、单Origin O1、Electron↔Python E2E、cancel/crash/idempotency、安全/零出站、reference性能和签名安装包；程序/固定模型契约/真实模型质量三层分离。
 - **PD-AA15 可复现性能协议。** 固定cold/warm、dataset hash、reference profile、sample count、nearest-rank P50/P95和cache policy；普通路径≥10次、昂贵OPJU≥5次，P95退化>15%或越绝对预算即调查并阻断。
 - **PD-AA16 Beta 缺陷处理。** 每个 blocker/critical/known issue 有唯一 owner、affected MatrixKeys、影响和恢复动作；不影响正确性/安全/可追溯/完成路径的问题可进入 Beta known issues，不建设商业级 waiver 审批链。
 - **PD-AA17 不可豁免阻断。** 数据损坏、静默导入区域/mapping/unit/preparation/PlotCalculation/预计算字段变化、formal降采样、假O1、secret泄漏、31图声明失败、签名绕过、已知blocker/critical与靠retry变绿均阻止分发。
-- **PD-AA18 Beta Evidence。** 每个 build 固定manifest/source/test-runner/app/PlotSpec/model/prompt/Unicode/dependency/fixture hashes，提交导入golden、279、额外preview、单Origin 93、固定计算/预计算、reference performance、local security、简化quota幂等、签名安装包和known issues检查单。
+- **PD-AA18 Beta Evidence。** 每个 build 固定 manifest/source/test-runner/app/PlotSpec/model/prompt/Unicode/dependency/fixture hashes，提交导入 golden、31 图 PNG/SVG 离线矩阵、额外 preview、单 Origin 31 图 representative 实跑、固定计算/预计算、local security、简化 quota 幂等、安装包 hash 和 known issues 检查单。
 - **PD-AA19 首批成功门禁。** 第二批 go/no-go：sample 首图独立≥80%，真实数据首图无staff takeover≥60%，愿再用真实数据≥60%，至少1人batch、至少1名Origin用户继续编辑OPJU；第一轮无analytics，使用经同意观察/访谈。
 - **PD-AA20 门禁语义。** 本节只定义小规模邀请制 Beta qualification，不表示当前实现已通过；单一 Beta release owner 汇总checklist并由科学/Origin负责人复核专业证据，不要求商业级多角色签署。
 
