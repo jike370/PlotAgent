@@ -85,6 +85,62 @@
       "retryable": false
     },
     {
+      "code": "PLOTSPEC_CALCULATION_VERSION_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "The fixed calculation algorithm version is not supported by this build.",
+      "owner": "W3_CALCULATIONS",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_CALCULATION_SHAPE_INVALID",
+      "default_severity": "blocked",
+      "description": "Calculation columns, matrix shape, row ids, or field types are invalid.",
+      "owner": "W3_CALCULATIONS",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_CALCULATION_NONFINITE",
+      "default_severity": "blocked",
+      "description": "Missing or non-finite calculation input is forbidden by the selected policy.",
+      "owner": "W3_CALCULATIONS",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_CALCULATION_LOG10_NONPOSITIVE",
+      "default_severity": "blocked",
+      "description": "A Log10 field contains a non-positive plotted value.",
+      "owner": "W3_CALCULATIONS",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_CALCULATION_INSUFFICIENT_DATA",
+      "default_severity": "blocked",
+      "description": "The fixed algorithm does not have enough valid observations.",
+      "owner": "W3_CALCULATIONS",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_CALCULATION_DOMAIN_INVALID",
+      "default_severity": "blocked",
+      "description": "Input violates a frozen calculation domain rule.",
+      "owner": "W3_CALCULATIONS",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_CALCULATION_DUPLICATE_COORDINATE",
+      "default_severity": "blocked",
+      "description": "Heatmap XY coordinates are not unique.",
+      "owner": "W3_CALCULATIONS",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_CALCULATION_DUPLICATE_CELL",
+      "default_severity": "blocked",
+      "description": "An input contains duplicate semantic cells that would require implicit aggregation.",
+      "owner": "W3_CALCULATIONS",
+      "retryable": false
+    },
+    {
       "code": "PLOTSPEC_PRECOMPUTED_INPUT_REQUIRED",
       "default_severity": "blocked",
       "description": "A required user-provided precomputed input is missing.",

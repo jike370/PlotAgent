@@ -737,6 +737,53 @@
       "title": "CalculatedSeriesData",
       "type": "object"
     },
+    "CalculationTable": {
+      "additionalProperties": false,
+      "description": "Self-contained renderer geometry with a content-addressed strict shape.",
+      "properties": {
+        "field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Field Ids",
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "field_ids",
+        "rows"
+      ],
+      "title": "CalculationTable",
+      "type": "object"
+    },
     "CanvasSizeIntent": {
       "additionalProperties": false,
       "properties": {
@@ -1028,6 +1075,13 @@
           "title": "Category Count",
           "type": "integer"
         },
+        "category_order": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Category Order",
+          "type": "array"
+        },
         "excluded_row_count": {
           "minimum": 0,
           "title": "Excluded Row Count",
@@ -1041,10 +1095,31 @@
           "title": "Exclusions",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "included_row_count": {
           "minimum": 0,
           "title": "Included Row Count",
           "type": "integer"
+        },
+        "included_row_ids": {
+          "items": {
+            "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "title": "Included Row Ids",
+          "type": "array"
         },
         "input_hash": {
           "pattern": "^[0-9a-f]{64}$",
@@ -1065,6 +1140,15 @@
           "title": "Missing Policy",
           "type": "string"
         },
+        "nonfinite_counts": {
+          "$ref": "#/$defs/NonFiniteCounts",
+          "default": {
+            "missing": 0,
+            "nan": 0,
+            "negative_inf": 0,
+            "positive_inf": 0
+          }
+        },
         "normalization": {
           "enum": [
             "count",
@@ -1081,6 +1165,9 @@
           "pattern": "^[0-9a-f]{64}$",
           "title": "Output Hash",
           "type": "string"
+        },
+        "output_table": {
+          "$ref": "#/$defs/CalculationTable"
         },
         "prepared_dataset_ref": {
           "$ref": "#/$defs/PreparedDatasetRef"
@@ -1128,12 +1215,15 @@
         "input_hash",
         "output_hash",
         "output_data_ref",
+        "output_table",
         "total_row_count",
         "included_row_count",
         "excluded_row_count",
+        "included_row_ids",
         "producer_build_hash",
         "normalization",
-        "category_count"
+        "category_count",
+        "category_order"
       ],
       "title": "ConfusionCountResult",
       "type": "object"
@@ -1175,11 +1265,33 @@
           "title": "Category Order",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "kind": {
           "const": "confusion_count",
           "default": "confusion_count",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -1669,6 +1781,13 @@
           "title": "Algorithm Version",
           "type": "string"
         },
+        "bandwidths": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Bandwidths",
+          "type": "array"
+        },
         "calculation_id": {
           "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Calculation Id",
@@ -1687,6 +1806,19 @@
           "title": "Exclusions",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "grid_points": {
           "const": 256,
           "default": 256,
@@ -1702,6 +1834,14 @@
           "minimum": 0,
           "title": "Included Row Count",
           "type": "integer"
+        },
+        "included_row_ids": {
+          "items": {
+            "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "title": "Included Row Ids",
+          "type": "array"
         },
         "input_hash": {
           "pattern": "^[0-9a-f]{64}$",
@@ -1722,6 +1862,15 @@
           "title": "Missing Policy",
           "type": "string"
         },
+        "nonfinite_counts": {
+          "$ref": "#/$defs/NonFiniteCounts",
+          "default": {
+            "missing": 0,
+            "nan": 0,
+            "negative_inf": 0,
+            "positive_inf": 0
+          }
+        },
         "output_data_ref": {
           "$ref": "#/$defs/ContentTableRef"
         },
@@ -1729,6 +1878,9 @@
           "pattern": "^[0-9a-f]{64}$",
           "title": "Output Hash",
           "type": "string"
+        },
+        "output_table": {
+          "$ref": "#/$defs/CalculationTable"
         },
         "prepared_dataset_ref": {
           "$ref": "#/$defs/PreparedDatasetRef"
@@ -1776,11 +1928,14 @@
         "input_hash",
         "output_hash",
         "output_data_ref",
+        "output_table",
         "total_row_count",
         "included_row_count",
         "excluded_row_count",
+        "included_row_ids",
         "producer_build_hash",
-        "group_count"
+        "group_count",
+        "bandwidths"
       ],
       "title": "DensityKDEResult",
       "type": "object"
@@ -1809,6 +1964,19 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "grid_points": {
           "const": 256,
           "default": 256,
@@ -1833,6 +2001,15 @@
           "default": "density_kde",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -1961,10 +2138,31 @@
           "title": "Exclusions",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "included_row_count": {
           "minimum": 0,
           "title": "Included Row Count",
           "type": "integer"
+        },
+        "included_row_ids": {
+          "items": {
+            "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "title": "Included Row Ids",
+          "type": "array"
         },
         "input_hash": {
           "pattern": "^[0-9a-f]{64}$",
@@ -1993,6 +2191,15 @@
           "title": "Mode",
           "type": "string"
         },
+        "nonfinite_counts": {
+          "$ref": "#/$defs/NonFiniteCounts",
+          "default": {
+            "missing": 0,
+            "nan": 0,
+            "negative_inf": 0,
+            "positive_inf": 0
+          }
+        },
         "output_data_ref": {
           "$ref": "#/$defs/ContentTableRef"
         },
@@ -2000,6 +2207,9 @@
           "pattern": "^[0-9a-f]{64}$",
           "title": "Output Hash",
           "type": "string"
+        },
+        "output_table": {
+          "$ref": "#/$defs/CalculationTable"
         },
         "prepared_dataset_ref": {
           "$ref": "#/$defs/PreparedDatasetRef"
@@ -2047,9 +2257,11 @@
         "input_hash",
         "output_hash",
         "output_data_ref",
+        "output_table",
         "total_row_count",
         "included_row_count",
         "excluded_row_count",
+        "included_row_ids",
         "producer_build_hash",
         "mode"
       ],
@@ -2080,11 +2292,33 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "kind": {
           "const": "ecdf",
           "default": "ecdf",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -2850,6 +3084,15 @@
           "title": "Bin Count",
           "type": "integer"
         },
+        "binning_rule": {
+          "enum": [
+            "freedman_diaconis",
+            "sturges",
+            "constant"
+          ],
+          "title": "Binning Rule",
+          "type": "string"
+        },
         "calculation_id": {
           "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Calculation Id",
@@ -2868,10 +3111,31 @@
           "title": "Exclusions",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "included_row_count": {
           "minimum": 0,
           "title": "Included Row Count",
           "type": "integer"
+        },
+        "included_row_ids": {
+          "items": {
+            "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "title": "Included Row Ids",
+          "type": "array"
         },
         "input_hash": {
           "pattern": "^[0-9a-f]{64}$",
@@ -2892,6 +3156,15 @@
           "title": "Missing Policy",
           "type": "string"
         },
+        "nonfinite_counts": {
+          "$ref": "#/$defs/NonFiniteCounts",
+          "default": {
+            "missing": 0,
+            "nan": 0,
+            "negative_inf": 0,
+            "positive_inf": 0
+          }
+        },
         "normalization": {
           "enum": [
             "count",
@@ -2907,6 +3180,9 @@
           "pattern": "^[0-9a-f]{64}$",
           "title": "Output Hash",
           "type": "string"
+        },
+        "output_table": {
+          "$ref": "#/$defs/CalculationTable"
         },
         "prepared_dataset_ref": {
           "$ref": "#/$defs/PreparedDatasetRef"
@@ -2954,12 +3230,15 @@
         "input_hash",
         "output_hash",
         "output_data_ref",
+        "output_table",
         "total_row_count",
         "included_row_count",
         "excluded_row_count",
+        "included_row_ids",
         "producer_build_hash",
         "bin_count",
-        "normalization"
+        "normalization",
+        "binning_rule"
       ],
       "title": "HistogramBinningResult",
       "type": "object"
@@ -2988,11 +3267,33 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "kind": {
           "const": "histogram_binning",
           "default": "histogram_binning",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -3342,6 +3643,10 @@
           "title": "Calculation Id",
           "type": "string"
         },
+        "complete_grid": {
+          "title": "Complete Grid",
+          "type": "boolean"
+        },
         "excluded_row_count": {
           "minimum": 0,
           "title": "Excluded Row Count",
@@ -3355,10 +3660,31 @@
           "title": "Exclusions",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "included_row_count": {
           "minimum": 0,
           "title": "Included Row Count",
           "type": "integer"
+        },
+        "included_row_ids": {
+          "items": {
+            "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "title": "Included Row Ids",
+          "type": "array"
         },
         "input_hash": {
           "pattern": "^[0-9a-f]{64}$",
@@ -3389,6 +3715,15 @@
           "title": "Missing Policy",
           "type": "string"
         },
+        "nonfinite_counts": {
+          "$ref": "#/$defs/NonFiniteCounts",
+          "default": {
+            "missing": 0,
+            "nan": 0,
+            "negative_inf": 0,
+            "positive_inf": 0
+          }
+        },
         "output_data_ref": {
           "$ref": "#/$defs/ContentTableRef"
         },
@@ -3396,6 +3731,9 @@
           "pattern": "^[0-9a-f]{64}$",
           "title": "Output Hash",
           "type": "string"
+        },
+        "output_table": {
+          "$ref": "#/$defs/CalculationTable"
         },
         "prepared_dataset_ref": {
           "$ref": "#/$defs/PreparedDatasetRef"
@@ -3443,12 +3781,15 @@
         "input_hash",
         "output_hash",
         "output_data_ref",
+        "output_table",
         "total_row_count",
         "included_row_count",
         "excluded_row_count",
+        "included_row_ids",
         "producer_build_hash",
         "matrix_rows",
-        "matrix_columns"
+        "matrix_columns",
+        "complete_grid"
       ],
       "title": "MatrixProjectionResult",
       "type": "object"
@@ -3477,6 +3818,19 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "input_mode": {
           "enum": [
             "regular_matrix",
@@ -3490,6 +3844,15 @@
           "default": "matrix_projection",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "matrix_value_fields": {
           "default": [],
@@ -3694,6 +4057,37 @@
         "explanation"
       ],
       "title": "NoChange",
+      "type": "object"
+    },
+    "NonFiniteCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "missing": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Missing",
+          "type": "integer"
+        },
+        "nan": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Nan",
+          "type": "integer"
+        },
+        "negative_inf": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Negative Inf",
+          "type": "integer"
+        },
+        "positive_inf": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Positive Inf",
+          "type": "integer"
+        }
+      },
+      "title": "NonFiniteCounts",
       "type": "object"
     },
     "ObjectVersionRef": {
@@ -4490,6 +4884,11 @@
           "title": "Category Count",
           "type": "integer"
         },
+        "component_count": {
+          "minimum": 1,
+          "title": "Component Count",
+          "type": "integer"
+        },
         "excluded_row_count": {
           "minimum": 0,
           "title": "Excluded Row Count",
@@ -4503,10 +4902,31 @@
           "title": "Exclusions",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "included_row_count": {
           "minimum": 0,
           "title": "Included Row Count",
           "type": "integer"
+        },
+        "included_row_ids": {
+          "items": {
+            "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "title": "Included Row Ids",
+          "type": "array"
         },
         "input_hash": {
           "pattern": "^[0-9a-f]{64}$",
@@ -4527,6 +4947,15 @@
           "title": "Missing Policy",
           "type": "string"
         },
+        "nonfinite_counts": {
+          "$ref": "#/$defs/NonFiniteCounts",
+          "default": {
+            "missing": 0,
+            "nan": 0,
+            "negative_inf": 0,
+            "positive_inf": 0
+          }
+        },
         "output_data_ref": {
           "$ref": "#/$defs/ContentTableRef"
         },
@@ -4534,6 +4963,9 @@
           "pattern": "^[0-9a-f]{64}$",
           "title": "Output Hash",
           "type": "string"
+        },
+        "output_table": {
+          "$ref": "#/$defs/CalculationTable"
         },
         "prepared_dataset_ref": {
           "$ref": "#/$defs/PreparedDatasetRef"
@@ -4581,11 +5013,14 @@
         "input_hash",
         "output_hash",
         "output_data_ref",
+        "output_table",
         "total_row_count",
         "included_row_count",
         "excluded_row_count",
+        "included_row_ids",
         "producer_build_hash",
-        "category_count"
+        "category_count",
+        "component_count"
       ],
       "title": "PercentStackResult",
       "type": "object"
@@ -4624,11 +5059,33 @@
           "title": "Component Field",
           "type": "string"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "kind": {
           "const": "percent_stack",
           "default": "percent_stack",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -6243,6 +6700,19 @@
     "RowExclusion": {
       "additionalProperties": false,
       "properties": {
+        "field_id": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field Id"
+        },
         "reason": {
           "enum": [
             "missing",
@@ -7183,6 +7653,19 @@
           "title": "Exclusions",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "group_count": {
           "minimum": 1,
           "title": "Group Count",
@@ -7192,6 +7675,14 @@
           "minimum": 0,
           "title": "Included Row Count",
           "type": "integer"
+        },
+        "included_row_ids": {
+          "items": {
+            "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "title": "Included Row Ids",
+          "type": "array"
         },
         "input_hash": {
           "pattern": "^[0-9a-f]{64}$",
@@ -7225,6 +7716,15 @@
           "title": "Missing Policy",
           "type": "string"
         },
+        "nonfinite_counts": {
+          "$ref": "#/$defs/NonFiniteCounts",
+          "default": {
+            "missing": 0,
+            "nan": 0,
+            "negative_inf": 0,
+            "positive_inf": 0
+          }
+        },
         "output_data_ref": {
           "$ref": "#/$defs/ContentTableRef"
         },
@@ -7232,6 +7732,9 @@
           "pattern": "^[0-9a-f]{64}$",
           "title": "Output Hash",
           "type": "string"
+        },
+        "output_table": {
+          "$ref": "#/$defs/CalculationTable"
         },
         "prepared_dataset_ref": {
           "$ref": "#/$defs/PreparedDatasetRef"
@@ -7279,9 +7782,11 @@
         "input_hash",
         "output_hash",
         "output_data_ref",
+        "output_table",
         "total_row_count",
         "included_row_count",
         "excluded_row_count",
+        "included_row_ids",
         "producer_build_hash",
         "method",
         "group_count"
@@ -7326,6 +7831,19 @@
           "default": null,
           "title": "Center Field"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "group_fields": {
           "default": [],
           "items": {
@@ -7340,6 +7858,15 @@
           "default": "summary_error",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "lower_field": {
           "anyOf": [
@@ -7580,6 +8107,19 @@
           "title": "Exclusions",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "group_count": {
           "minimum": 1,
           "title": "Group Count",
@@ -7589,6 +8129,14 @@
           "minimum": 0,
           "title": "Included Row Count",
           "type": "integer"
+        },
+        "included_row_ids": {
+          "items": {
+            "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "title": "Included Row Ids",
+          "type": "array"
         },
         "input_hash": {
           "pattern": "^[0-9a-f]{64}$",
@@ -7609,6 +8157,15 @@
           "title": "Missing Policy",
           "type": "string"
         },
+        "nonfinite_counts": {
+          "$ref": "#/$defs/NonFiniteCounts",
+          "default": {
+            "missing": 0,
+            "nan": 0,
+            "negative_inf": 0,
+            "positive_inf": 0
+          }
+        },
         "output_data_ref": {
           "$ref": "#/$defs/ContentTableRef"
         },
@@ -7616,6 +8173,9 @@
           "pattern": "^[0-9a-f]{64}$",
           "title": "Output Hash",
           "type": "string"
+        },
+        "output_table": {
+          "$ref": "#/$defs/CalculationTable"
         },
         "prepared_dataset_ref": {
           "$ref": "#/$defs/PreparedDatasetRef"
@@ -7663,9 +8223,11 @@
         "input_hash",
         "output_hash",
         "output_data_ref",
+        "output_table",
         "total_row_count",
         "included_row_count",
         "excluded_row_count",
+        "included_row_ids",
         "producer_build_hash",
         "group_count"
       ],
@@ -7696,6 +8258,19 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "group_field": {
           "anyOf": [
             {
@@ -7714,6 +8289,15 @@
           "default": "tukey_box",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -7894,6 +8478,13 @@
           "title": "Algorithm Version",
           "type": "string"
         },
+        "bandwidths": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Bandwidths",
+          "type": "array"
+        },
         "calculation_id": {
           "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Calculation Id",
@@ -7912,6 +8503,19 @@
           "title": "Exclusions",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "grid_points": {
           "const": 256,
           "default": 256,
@@ -7927,6 +8531,14 @@
           "minimum": 0,
           "title": "Included Row Count",
           "type": "integer"
+        },
+        "included_row_ids": {
+          "items": {
+            "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "title": "Included Row Ids",
+          "type": "array"
         },
         "input_hash": {
           "pattern": "^[0-9a-f]{64}$",
@@ -7947,6 +8559,15 @@
           "title": "Missing Policy",
           "type": "string"
         },
+        "nonfinite_counts": {
+          "$ref": "#/$defs/NonFiniteCounts",
+          "default": {
+            "missing": 0,
+            "nan": 0,
+            "negative_inf": 0,
+            "positive_inf": 0
+          }
+        },
         "output_data_ref": {
           "$ref": "#/$defs/ContentTableRef"
         },
@@ -7954,6 +8575,9 @@
           "pattern": "^[0-9a-f]{64}$",
           "title": "Output Hash",
           "type": "string"
+        },
+        "output_table": {
+          "$ref": "#/$defs/CalculationTable"
         },
         "prepared_dataset_ref": {
           "$ref": "#/$defs/PreparedDatasetRef"
@@ -8001,11 +8625,14 @@
         "input_hash",
         "output_hash",
         "output_data_ref",
+        "output_table",
         "total_row_count",
         "included_row_count",
         "excluded_row_count",
+        "included_row_ids",
         "producer_build_hash",
-        "group_count"
+        "group_count",
+        "bandwidths"
       ],
       "title": "ViolinKDEResult",
       "type": "object"
@@ -8034,6 +8661,19 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "grid_points": {
           "const": 256,
           "default": 256,
@@ -8058,6 +8698,15 @@
           "default": "violin_kde",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [

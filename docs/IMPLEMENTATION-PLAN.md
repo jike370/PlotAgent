@@ -92,6 +92,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Inputs/contracts:** ANALYSIS-ENGINE、FITTING-SYSTEM、DATA-TRANSFORMS、DOMAIN-CONTRACTS、W2 PreparedDataset/Unit/source refs、W0 fixtures。
 - **Planned entries:** `src/plotagent/plot_calculations/`、`precomputed_inputs/`、calculation golden tests。
 - **Deliverables:** strict union/registry；versioned deterministic algorithms；PlotCalculationResult tables/masks/hashes；precomputed requirements/validators；failure/warning taxonomy。
+- **实现选择（2026-08-05）：** 九类固定计算统一使用无 I/O 的 `PlotCalculationService` 与 `algorithm_version=1.0.0`，仅依赖 NumPy/SciPy；完整行对齐列/规则矩阵经 `fail|exclude_with_report`、Log10 与领域约束校验后生成内嵌 strict geometry table，table 与外部 `ContentTableRef` 以 canonical SHA-256 强绑定，并持久化 included mask、逐行排除、非有限计数、算法分支/带宽/类别顺序等 renderer 所需元数据，Matplotlib/SVG/Origin 只消费该结果。
 - **Dependencies/parallel:** W2→W3。九个 kind 可在 result envelope/hash/missing policy 冻结后并行；W4/W6只消费持久化结果。
 - **Acceptance evidence:** 每个 kind golden/edge；完整数据与 hash 可复现；Log10/duplicates/nonnegative/n≥2 等阻断；预计算九图有效/缺失/非法；batch same-spec partial；renderer/origin no-recompute。
 - **Stable error ownership:** `PLOTSPEC_CALCULATION_*`、`PLOTSPEC_PRECOMPUTED_*`、`MISSING_SEMANTICS_*`；`PREPARE_*`仍归W2。

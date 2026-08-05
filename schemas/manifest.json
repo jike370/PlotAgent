@@ -14,11 +14,11 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "4c59cb6f76a4e7091e4679bea5125cd5bdf65926109945b8d58b48179b78dc97"
+      "sha256": "09433ac9ccadcb2553a57be9fbdb31eed5d223a2144232793ae7844d5f19c3d0"
     },
     {
       "path": "schemas/error-registry.json",
-      "sha256": "5243a7fb46f8fe5bf43b4f1590d9a5c16ec058a4a60a5344363d4de8a3c2e2aa"
+      "sha256": "e8a733d0939d1a5acc9d90b185720864f74f745b202986aa6a54d35b903b6e04"
     },
     {
       "path": "schemas/error-registry.schema.json",
@@ -50,11 +50,11 @@
     },
     {
       "path": "schemas/plot-calculation-result.schema.json",
-      "sha256": "22893405c765d3464731853b1414ffd0ae66cb277fb65716b6c9f232c7f22c13"
+      "sha256": "6f8450e4c81e147ce9c17797730b0f5f5c9bf83b3202b207f5b7267197eea28c"
     },
     {
       "path": "schemas/plot-calculation-spec.schema.json",
-      "sha256": "b1da44feea2f0f34f9b1402f30e556db9539221f775c6a19fdac35e3af4adbd7"
+      "sha256": "08a27d0ef98a4c55eff7a6bc299361c6601f3fa7ed0215a7ed8ca0c7a6347395"
     },
     {
       "path": "schemas/plot-patch.schema.json",
@@ -82,7 +82,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "8d547e4b2b0f20c9c0cc178c9b5751a6fa8967b04b327eba07c1cadad0ac3fdb"
+      "sha256": "b12858b4455fe263e3efe719475c99e95d9914fb567f0c09b7e761bebcd8620c"
     }
   ],
   "generator": "plotagent.contracts.codegen",

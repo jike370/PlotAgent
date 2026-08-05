@@ -268,4 +268,12 @@ class WarningRecord(StrictModel):
 
 class RowExclusion(StrictModel):
     row_id: RowId
+    field_id: FieldId | None = None
     reason: Literal["missing", "nan", "positive_inf", "negative_inf"]
+
+
+class NonFiniteCounts(StrictModel):
+    missing: NonNegativeInt = 0
+    nan: NonNegativeInt = 0
+    positive_inf: NonNegativeInt = 0
+    negative_inf: NonNegativeInt = 0

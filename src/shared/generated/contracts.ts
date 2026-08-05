@@ -116,6 +116,11 @@ export type CalculatedSeriesData = {
   readonly role_fields: ReadonlyArray<string>;
 }
 
+export type CalculationTable = {
+  readonly field_ids: ReadonlyArray<string>;
+  readonly rows: ReadonlyArray<ReadonlyArray<string | boolean | number | null>>;
+}
+
 export type CanvasSizeIntent = {
   readonly operation?: "set_canvas_size";
   readonly target_alias: string;
@@ -160,16 +165,21 @@ export type ConfusionCountResult = {
   readonly input_hash: string;
   readonly output_hash: string;
   readonly output_data_ref: ContentTableRef;
+  readonly output_table: CalculationTable;
   readonly total_row_count: number;
   readonly included_row_count: number;
   readonly excluded_row_count: number;
+  readonly included_row_ids: ReadonlyArray<string>;
   readonly exclusions?: ReadonlyArray<RowExclusion>;
+  readonly nonfinite_counts?: NonFiniteCounts;
+  readonly fixed_seed?: number | null;
   readonly warnings?: ReadonlyArray<WarningRecord>;
   readonly producer_build_hash: string;
   readonly kind?: "confusion_count";
   readonly algorithm_id?: "fixed_confusion_count";
   readonly normalization: "count" | "true_class" | "predicted_class";
   readonly category_count: number;
+  readonly category_order: ReadonlyArray<string>;
 }
 
 export type ConfusionCountSpec = {
@@ -179,6 +189,8 @@ export type ConfusionCountSpec = {
   readonly prepared_dataset_ref: PreparedDatasetRef;
   readonly algorithm_version: string;
   readonly missing_policy: "fail" | "exclude_with_report";
+  readonly log10_fields?: ReadonlyArray<string>;
+  readonly fixed_seed?: number | null;
   readonly kind?: "confusion_count";
   readonly algorithm_id?: "fixed_confusion_count";
   readonly actual_field: string;
@@ -264,16 +276,21 @@ export type DensityKDEResult = {
   readonly input_hash: string;
   readonly output_hash: string;
   readonly output_data_ref: ContentTableRef;
+  readonly output_table: CalculationTable;
   readonly total_row_count: number;
   readonly included_row_count: number;
   readonly excluded_row_count: number;
+  readonly included_row_ids: ReadonlyArray<string>;
   readonly exclusions?: ReadonlyArray<RowExclusion>;
+  readonly nonfinite_counts?: NonFiniteCounts;
+  readonly fixed_seed?: number | null;
   readonly warnings?: ReadonlyArray<WarningRecord>;
   readonly producer_build_hash: string;
   readonly kind?: "density_kde";
   readonly algorithm_id?: "gaussian_scott_three_bandwidth";
   readonly group_count: number;
   readonly grid_points?: 256;
+  readonly bandwidths: ReadonlyArray<number>;
 }
 
 export type DensityKDESpec = {
@@ -283,6 +300,8 @@ export type DensityKDESpec = {
   readonly prepared_dataset_ref: PreparedDatasetRef;
   readonly algorithm_version: string;
   readonly missing_policy: "fail" | "exclude_with_report";
+  readonly log10_fields?: ReadonlyArray<string>;
+  readonly fixed_seed?: number | null;
   readonly kind?: "density_kde";
   readonly algorithm_id?: "gaussian_scott_three_bandwidth";
   readonly value_field: string;
@@ -311,10 +330,14 @@ export type ECDFResult = {
   readonly input_hash: string;
   readonly output_hash: string;
   readonly output_data_ref: ContentTableRef;
+  readonly output_table: CalculationTable;
   readonly total_row_count: number;
   readonly included_row_count: number;
   readonly excluded_row_count: number;
+  readonly included_row_ids: ReadonlyArray<string>;
   readonly exclusions?: ReadonlyArray<RowExclusion>;
+  readonly nonfinite_counts?: NonFiniteCounts;
+  readonly fixed_seed?: number | null;
   readonly warnings?: ReadonlyArray<WarningRecord>;
   readonly producer_build_hash: string;
   readonly kind?: "ecdf";
@@ -329,6 +352,8 @@ export type ECDFSpec = {
   readonly prepared_dataset_ref: PreparedDatasetRef;
   readonly algorithm_version: string;
   readonly missing_policy: "fail" | "exclude_with_report";
+  readonly log10_fields?: ReadonlyArray<string>;
+  readonly fixed_seed?: number | null;
   readonly kind?: "ecdf";
   readonly algorithm_id?: "right_continuous_empirical_cdf";
   readonly value_field: string;
@@ -473,16 +498,21 @@ export type HistogramBinningResult = {
   readonly input_hash: string;
   readonly output_hash: string;
   readonly output_data_ref: ContentTableRef;
+  readonly output_table: CalculationTable;
   readonly total_row_count: number;
   readonly included_row_count: number;
   readonly excluded_row_count: number;
+  readonly included_row_ids: ReadonlyArray<string>;
   readonly exclusions?: ReadonlyArray<RowExclusion>;
+  readonly nonfinite_counts?: NonFiniteCounts;
+  readonly fixed_seed?: number | null;
   readonly warnings?: ReadonlyArray<WarningRecord>;
   readonly producer_build_hash: string;
   readonly kind?: "histogram_binning";
   readonly algorithm_id?: "freedman_diaconis_sturges";
   readonly bin_count: number;
   readonly normalization: "count" | "density";
+  readonly binning_rule: "freedman_diaconis" | "sturges" | "constant";
 }
 
 export type HistogramBinningSpec = {
@@ -492,6 +522,8 @@ export type HistogramBinningSpec = {
   readonly prepared_dataset_ref: PreparedDatasetRef;
   readonly algorithm_version: string;
   readonly missing_policy: "fail" | "exclude_with_report";
+  readonly log10_fields?: ReadonlyArray<string>;
+  readonly fixed_seed?: number | null;
   readonly kind?: "histogram_binning";
   readonly algorithm_id?: "freedman_diaconis_sturges";
   readonly value_field: string;
@@ -562,16 +594,21 @@ export type MatrixProjectionResult = {
   readonly input_hash: string;
   readonly output_hash: string;
   readonly output_data_ref: ContentTableRef;
+  readonly output_table: CalculationTable;
   readonly total_row_count: number;
   readonly included_row_count: number;
   readonly excluded_row_count: number;
+  readonly included_row_ids: ReadonlyArray<string>;
   readonly exclusions?: ReadonlyArray<RowExclusion>;
+  readonly nonfinite_counts?: NonFiniteCounts;
+  readonly fixed_seed?: number | null;
   readonly warnings?: ReadonlyArray<WarningRecord>;
   readonly producer_build_hash: string;
   readonly kind?: "matrix_projection";
   readonly algorithm_id?: "regular_or_unique_xy_projection";
   readonly matrix_rows: number;
   readonly matrix_columns: number;
+  readonly complete_grid: boolean;
 }
 
 export type MatrixProjectionSpec = {
@@ -581,6 +618,8 @@ export type MatrixProjectionSpec = {
   readonly prepared_dataset_ref: PreparedDatasetRef;
   readonly algorithm_version: string;
   readonly missing_policy: "fail" | "exclude_with_report";
+  readonly log10_fields?: ReadonlyArray<string>;
+  readonly fixed_seed?: number | null;
   readonly kind?: "matrix_projection";
   readonly algorithm_id?: "regular_or_unique_xy_projection";
   readonly input_mode: "regular_matrix" | "unique_xy";
@@ -612,6 +651,13 @@ export type NoChange = {
   readonly decision_type?: "no_change";
   readonly target_alias: string;
   readonly explanation: string;
+}
+
+export type NonFiniteCounts = {
+  readonly missing?: number;
+  readonly nan?: number;
+  readonly positive_inf?: number;
+  readonly negative_inf?: number;
 }
 
 export type ObjectVersionRef = {
@@ -747,15 +793,20 @@ export type PercentStackResult = {
   readonly input_hash: string;
   readonly output_hash: string;
   readonly output_data_ref: ContentTableRef;
+  readonly output_table: CalculationTable;
   readonly total_row_count: number;
   readonly included_row_count: number;
   readonly excluded_row_count: number;
+  readonly included_row_ids: ReadonlyArray<string>;
   readonly exclusions?: ReadonlyArray<RowExclusion>;
+  readonly nonfinite_counts?: NonFiniteCounts;
+  readonly fixed_seed?: number | null;
   readonly warnings?: ReadonlyArray<WarningRecord>;
   readonly producer_build_hash: string;
   readonly kind?: "percent_stack";
   readonly algorithm_id?: "category_nonnegative_percent";
   readonly category_count: number;
+  readonly component_count: number;
 }
 
 export type PercentStackSpec = {
@@ -765,6 +816,8 @@ export type PercentStackSpec = {
   readonly prepared_dataset_ref: PreparedDatasetRef;
   readonly algorithm_version: string;
   readonly missing_policy: "fail" | "exclude_with_report";
+  readonly log10_fields?: ReadonlyArray<string>;
+  readonly fixed_seed?: number | null;
   readonly kind?: "percent_stack";
   readonly algorithm_id?: "category_nonnegative_percent";
   readonly category_field: string;
@@ -1020,6 +1073,7 @@ export type ResourceRef = {
 
 export type RowExclusion = {
   readonly row_id: string;
+  readonly field_id?: string | null;
   readonly reason: "missing" | "nan" | "positive_inf" | "negative_inf";
 }
 
@@ -1187,10 +1241,14 @@ export type SummaryErrorResult = {
   readonly input_hash: string;
   readonly output_hash: string;
   readonly output_data_ref: ContentTableRef;
+  readonly output_table: CalculationTable;
   readonly total_row_count: number;
   readonly included_row_count: number;
   readonly excluded_row_count: number;
+  readonly included_row_ids: ReadonlyArray<string>;
   readonly exclusions?: ReadonlyArray<RowExclusion>;
+  readonly nonfinite_counts?: NonFiniteCounts;
+  readonly fixed_seed?: number | null;
   readonly warnings?: ReadonlyArray<WarningRecord>;
   readonly producer_build_hash: string;
   readonly kind?: "summary_error";
@@ -1206,6 +1264,8 @@ export type SummaryErrorSpec = {
   readonly prepared_dataset_ref: PreparedDatasetRef;
   readonly algorithm_version: string;
   readonly missing_policy: "fail" | "exclude_with_report";
+  readonly log10_fields?: ReadonlyArray<string>;
+  readonly fixed_seed?: number | null;
   readonly kind?: "summary_error";
   readonly algorithm_id?: "fixed_summary_error";
   readonly method: "mean_sd" | "mean_sem" | "mean_95_t_ci" | "median_iqr" | "median_range" | "direct_bounds" | "direct_symmetric_error";
@@ -1245,10 +1305,14 @@ export type TukeyBoxResult = {
   readonly input_hash: string;
   readonly output_hash: string;
   readonly output_data_ref: ContentTableRef;
+  readonly output_table: CalculationTable;
   readonly total_row_count: number;
   readonly included_row_count: number;
   readonly excluded_row_count: number;
+  readonly included_row_ids: ReadonlyArray<string>;
   readonly exclusions?: ReadonlyArray<RowExclusion>;
+  readonly nonfinite_counts?: NonFiniteCounts;
+  readonly fixed_seed?: number | null;
   readonly warnings?: ReadonlyArray<WarningRecord>;
   readonly producer_build_hash: string;
   readonly kind?: "tukey_box";
@@ -1263,6 +1327,8 @@ export type TukeyBoxSpec = {
   readonly prepared_dataset_ref: PreparedDatasetRef;
   readonly algorithm_version: string;
   readonly missing_policy: "fail" | "exclude_with_report";
+  readonly log10_fields?: ReadonlyArray<string>;
+  readonly fixed_seed?: number | null;
   readonly kind?: "tukey_box";
   readonly algorithm_id?: "linear_quantile_tukey_1_5_iqr";
   readonly value_field: string;
@@ -1304,16 +1370,21 @@ export type ViolinKDEResult = {
   readonly input_hash: string;
   readonly output_hash: string;
   readonly output_data_ref: ContentTableRef;
+  readonly output_table: CalculationTable;
   readonly total_row_count: number;
   readonly included_row_count: number;
   readonly excluded_row_count: number;
+  readonly included_row_ids: ReadonlyArray<string>;
   readonly exclusions?: ReadonlyArray<RowExclusion>;
+  readonly nonfinite_counts?: NonFiniteCounts;
+  readonly fixed_seed?: number | null;
   readonly warnings?: ReadonlyArray<WarningRecord>;
   readonly producer_build_hash: string;
   readonly kind?: "violin_kde";
   readonly algorithm_id?: "gaussian_scott_observed_range";
   readonly group_count: number;
   readonly grid_points?: 256;
+  readonly bandwidths: ReadonlyArray<number>;
 }
 
 export type ViolinKDESpec = {
@@ -1323,6 +1394,8 @@ export type ViolinKDESpec = {
   readonly prepared_dataset_ref: PreparedDatasetRef;
   readonly algorithm_version: string;
   readonly missing_policy: "fail" | "exclude_with_report";
+  readonly log10_fields?: ReadonlyArray<string>;
+  readonly fixed_seed?: number | null;
   readonly kind?: "violin_kde";
   readonly algorithm_id?: "gaussian_scott_observed_range";
   readonly value_field: string;

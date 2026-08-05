@@ -6,8 +6,9 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from plotagent.contracts.calculations import PlotCalculationResult, PlotCalculationSpec
+from plotagent.contracts.canonical import canonical_hash
 
-from .helpers import HASH_A, HASH_B, HASH_C, prepared_ref
+from .helpers import HASH_A, HASH_C, prepared_ref
 
 SPEC_CASES: tuple[tuple[str, dict[str, object]], ...] = (
     ("histogram_binning", {"value_field": "field:value", "normalization": "count"}),
@@ -84,18 +85,32 @@ def test_nine_calculation_specs_accept_only_their_closed_shape(
 @pytest.mark.parametrize(
     ("kind", "specific"),
     (
-        ("histogram_binning", {"bin_count": 3, "normalization": "count"}),
+        (
+            "histogram_binning",
+            {"bin_count": 3, "normalization": "count", "binning_rule": "freedman_diaconis"},
+        ),
         ("tukey_box", {"group_count": 1}),
-        ("violin_kde", {"group_count": 1, "grid_points": 256}),
-        ("density_kde", {"group_count": 1, "grid_points": 256}),
+        ("violin_kde", {"group_count": 1, "grid_points": 256, "bandwidths": [1.0]}),
+        ("density_kde", {"group_count": 1, "grid_points": 256, "bandwidths": [1.0]}),
         ("ecdf", {"mode": "ecdf"}),
         ("summary_error", {"method": "mean_sd", "group_count": 1}),
-        ("percent_stack", {"category_count": 2}),
-        ("matrix_projection", {"matrix_rows": 2, "matrix_columns": 2}),
-        ("confusion_count", {"normalization": "count", "category_count": 2}),
+        ("percent_stack", {"category_count": 2, "component_count": 2}),
+        (
+            "matrix_projection",
+            {"matrix_rows": 2, "matrix_columns": 2, "complete_grid": True},
+        ),
+        (
+            "confusion_count",
+            {"normalization": "count", "category_count": 2, "category_order": ["a", "b"]},
+        ),
     ),
 )
 def test_nine_calculation_results_are_hash_bound(kind: str, specific: dict[str, object]) -> None:
+    output_table = {
+        "field_ids": ["field:result"],
+        "rows": [[1], [2]],
+    }
+    output_hash = canonical_hash(output_table)
     payload = {
         "schema_version": "1.0",
         "calculation_id": f"plotcalc:{kind}",
@@ -110,15 +125,17 @@ def test_nine_calculation_results_are_hash_bound(kind: str, specific: dict[str, 
         "algorithm_version": "algorithm.v1",
         "missing_policy": "fail",
         "input_hash": HASH_A,
-        "output_hash": HASH_B,
+        "output_hash": output_hash,
         "output_data_ref": {
-            "object_hash": HASH_B,
+            "object_hash": output_hash,
             "row_count": 2,
             "field_ids": ["field:result"],
         },
+        "output_table": output_table,
         "total_row_count": 4,
         "included_row_count": 4,
         "excluded_row_count": 0,
+        "included_row_ids": ["row:1", "row:2", "row:3", "row:4"],
         "producer_build_hash": HASH_C,
         "kind": kind,
         "algorithm_id": ALGORITHMS[kind],

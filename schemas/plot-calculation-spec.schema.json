@@ -37,11 +37,33 @@
           "title": "Category Order",
           "type": "array"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "kind": {
           "const": "confusion_count",
           "default": "confusion_count",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -112,6 +134,19 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "grid_points": {
           "const": 256,
           "default": 256,
@@ -136,6 +171,15 @@
           "default": "density_kde",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -195,11 +239,33 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "kind": {
           "const": "ecdf",
           "default": "ecdf",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -268,11 +334,33 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "kind": {
           "const": "histogram_binning",
           "default": "histogram_binning",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -341,6 +429,19 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "input_mode": {
           "enum": [
             "regular_matrix",
@@ -354,6 +455,15 @@
           "default": "matrix_projection",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "matrix_value_fields": {
           "default": [],
@@ -466,11 +576,33 @@
           "title": "Component Field",
           "type": "string"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "kind": {
           "const": "percent_stack",
           "default": "percent_stack",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -572,6 +704,19 @@
           "default": null,
           "title": "Center Field"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "group_fields": {
           "default": [],
           "items": {
@@ -586,6 +731,15 @@
           "default": "summary_error",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "lower_field": {
           "anyOf": [
@@ -705,6 +859,19 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "group_field": {
           "anyOf": [
             {
@@ -723,6 +890,15 @@
           "default": "tukey_box",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [
@@ -782,6 +958,19 @@
           "title": "Calculation Version",
           "type": "integer"
         },
+        "fixed_seed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Seed"
+        },
         "grid_points": {
           "const": 256,
           "default": 256,
@@ -806,6 +995,15 @@
           "default": "violin_kde",
           "title": "Kind",
           "type": "string"
+        },
+        "log10_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Log10 Fields",
+          "type": "array"
         },
         "missing_policy": {
           "enum": [

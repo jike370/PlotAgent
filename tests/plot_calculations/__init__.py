@@ -1,0 +1,1 @@
+"""Fixed plot-calculation tests."""
