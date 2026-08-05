@@ -30,12 +30,19 @@ from plotagent.contracts.rendering import (
     DataIntegritySnapshot,
     ExportSpec,
     ExportValidationRequirements,
+    OriginAxisPlan,
+    OriginColumnPlan,
     OriginDataObject,
     OriginExactVersion,
     OriginExportPlan,
     OriginGraphObject,
-    OriginNumericProperty,
+    OriginLayerPlan,
+    OriginManifestPlan,
+    OriginObjectMapEntry,
+    OriginPlotPlan,
+    OriginRoleColumn,
     OriginTemplateRef,
+    OriginTickPlan,
     ResolvedAxis,
     ResolvedFont,
     ResolvedLayer,
@@ -280,10 +287,29 @@ def test_export_and_origin_plans_never_carry_paths_or_arbitrary_properties() -> 
                 folder="Data",
                 internal_name="DataMain",
                 long_name="Data Main",
+                data_chain="direct",
                 data_ref=ContentTableRef(
                     object_hash=HASH_C,
                     row_count=4,
                     field_ids=("field:x", "field:y"),
+                ),
+                columns=(
+                    OriginColumnPlan(
+                        field_id="field:x",
+                        role="x",
+                        designation="X",
+                        logical_type="numeric",
+                        long_name="X",
+                        values=(0.0, 1.0, 2.0, 3.0),
+                    ),
+                    OriginColumnPlan(
+                        field_id="field:y",
+                        role="y",
+                        designation="Y",
+                        logical_type="numeric",
+                        long_name="Y",
+                        values=(1.0, 2.0, 3.0, 4.0),
+                    ),
                 ),
             ),
         ),
@@ -292,29 +318,87 @@ def test_export_and_origin_plans_never_carry_paths_or_arbitrary_properties() -> 
                 graph_id="graph.main",
                 internal_name="GraphMain",
                 long_name="Graph Main",
-                layer_ids=("layer.main",),
+                page_width_mm=89.0,
+                page_height_mm=60.0,
+                font_family="Arial",
+                font_size_pt=8.0,
+                legend_visible=False,
+                layers=(
+                    OriginLayerPlan(
+                        layer_id="originlayer.main",
+                        panel_id="panel:main",
+                        left_mm=10.0,
+                        top_mm=5.0,
+                        width_mm=70.0,
+                        height_mm=45.0,
+                        axes=(
+                            OriginAxisPlan(
+                                axis_id="axis:x",
+                                orientation="x",
+                                scale="linear",
+                                minimum=0.0,
+                                maximum=3.0,
+                                ticks=(
+                                    OriginTickPlan(value=0.0, label="0"),
+                                    OriginTickPlan(value=3.0, label="3"),
+                                ),
+                            ),
+                            OriginAxisPlan(
+                                axis_id="axis:y",
+                                orientation="y",
+                                scale="linear",
+                                minimum=1.0,
+                                maximum=4.0,
+                                ticks=(
+                                    OriginTickPlan(value=1.0, label="1"),
+                                    OriginTickPlan(value=4.0, label="4"),
+                                ),
+                            ),
+                        ),
+                        plots=(
+                            OriginPlotPlan(
+                                plot_id="plot.main",
+                                source_layer_id="layer.main",
+                                native_kind="line",
+                                data_object_id="data.main",
+                                role_columns=(
+                                    OriginRoleColumn(role="x", field_id="field:x"),
+                                    OriginRoleColumn(role="y", field_id="field:y"),
+                                ),
+                                z_order=1,
+                            ),
+                        ),
+                    ),
+                ),
                 data_object_ids=("data.main",),
             ),
         ),
-        property_assignments=(
-            OriginNumericProperty(
-                target_id="graph.main",
-                property_name="page.width_mm",
-                value=89.0,
+        manifest=OriginManifestPlan(
+            chart_type_ids=("K01",),
+            target_scope="current_plot",
+            object_map=(
+                OriginObjectMapEntry(
+                    plotagent_object_id="data.main", origin_object_ref="Data/DataMain"
+                ),
+                OriginObjectMapEntry(
+                    plotagent_object_id="graph.main", origin_object_ref="Graphs/GraphMain"
+                ),
+                OriginObjectMapEntry(
+                    plotagent_object_id="plot.main",
+                    origin_object_ref="Graphs/GraphMain/L00/P00",
+                ),
             ),
+            render_plan_hashes=(HASH_A,),
+            data_chains=("direct",),
+            resolver_versions=("resolver.v1",),
         ),
     )
     assert origin.capability == "O1"
     assert "path" not in json.dumps(origin.model_dump(mode="json"), sort_keys=True)
 
     with pytest.raises(ValidationError):
-        OriginNumericProperty.model_validate(
-            {
-                "value_kind": "number",
-                "target_id": "graph.main",
-                "property_name": "worksheet.formula",
-                "value": 1.0,
-            }
+        OriginExportPlan.model_validate(
+            {**origin.model_dump(), "property_assignments": [{"property_name": "formula"}]}
         )
 
 

@@ -254,6 +254,51 @@ class OriginTemplateRef(StrictModel):
     signature_hash: Sha256
 
 
+type OriginScalar = str | int | float | bool | None
+
+
+class OriginColumnPlan(StrictModel):
+    """One persisted worksheet column with no formula or executable property surface."""
+
+    field_id: FieldId
+    role: Token
+    designation: Literal["X", "Y", "Z", "XError", "YError", "Label", "Group", "None"]
+    logical_type: Literal["numeric", "categorical", "datetime", "text"]
+    long_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    units: Annotated[str, StringConstraints(max_length=128, strict=True)] = ""
+    comments: Annotated[str, StringConstraints(max_length=512, strict=True)] = ""
+    values: tuple[OriginScalar, ...]
+
+
+class OriginMatrixPlan(StrictModel):
+    """Native matrix values and coordinate mapping; raster payloads are impossible by type."""
+
+    row_count: NonNegativeInt
+    column_count: NonNegativeInt
+    x_coordinates: tuple[FiniteNumber, ...]
+    y_coordinates: tuple[FiniteNumber, ...]
+    x_labels: tuple[str, ...] = ()
+    y_labels: tuple[str, ...] = ()
+    values: tuple[tuple[FiniteNumber | None, ...], ...]
+    units: Annotated[str, StringConstraints(max_length=128, strict=True)] = ""
+
+    @model_validator(mode="after")
+    def valid_matrix_shape(self) -> OriginMatrixPlan:
+        if len(self.x_coordinates) != self.column_count:
+            raise ValueError("Origin matrix X coordinates must match the column count")
+        if len(self.y_coordinates) != self.row_count:
+            raise ValueError("Origin matrix Y coordinates must match the row count")
+        if len(self.values) != self.row_count or any(
+            len(row) != self.column_count for row in self.values
+        ):
+            raise ValueError("Origin matrix values must match the declared shape")
+        if self.x_labels and len(self.x_labels) != self.column_count:
+            raise ValueError("Origin matrix X labels must match the column count")
+        if self.y_labels and len(self.y_labels) != self.row_count:
+            raise ValueError("Origin matrix Y labels must match the row count")
+        return self
+
+
 class OriginDataObject(StrictModel):
     object_id: Token
     object_kind: Literal["worksheet", "matrixbook"]
@@ -263,7 +308,109 @@ class OriginDataObject(StrictModel):
         StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,31}$", strict=True),
     ]
     long_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    data_chain: Literal["direct", "fixed_plot_calculation", "user_provided_precomputed"]
     data_ref: ContentTableRef
+    columns: tuple[OriginColumnPlan, ...] = ()
+    matrix: OriginMatrixPlan | None = None
+
+    @model_validator(mode="after")
+    def valid_data_layout(self) -> OriginDataObject:
+        if self.object_kind == "worksheet":
+            if not self.columns or self.matrix is not None:
+                raise ValueError("Origin worksheets require columns and cannot contain a matrix")
+            row_counts = {len(column.values) for column in self.columns}
+            if row_counts != {self.data_ref.row_count}:
+                raise ValueError("Origin worksheet column rows must match the content table")
+            if tuple(column.field_id for column in self.columns) != self.data_ref.field_ids:
+                raise ValueError("Origin worksheet columns must preserve content-table field order")
+        elif self.matrix is None or self.columns:
+            raise ValueError("Origin matrixbooks require one matrix and cannot contain columns")
+        return self
+
+
+class OriginTickPlan(StrictModel):
+    value: FiniteNumber
+    label: Annotated[str, StringConstraints(max_length=256, strict=True)]
+
+
+class OriginAxisPlan(StrictModel):
+    axis_id: Token
+    orientation: Literal["x", "y"]
+    scale: Literal["linear", "log10", "datetime", "categorical"]
+    minimum: FiniteNumber
+    maximum: FiniteNumber
+    reverse: bool = False
+    ticks: Annotated[tuple[OriginTickPlan, ...], Field(min_length=1)]
+    title: Annotated[str, StringConstraints(max_length=512, strict=True)] = ""
+
+    @model_validator(mode="after")
+    def valid_axis(self) -> OriginAxisPlan:
+        if self.minimum >= self.maximum:
+            raise ValueError("Origin axis minimum must be lower than maximum")
+        tick_values = tuple(tick.value for tick in self.ticks)
+        if tuple(sorted(tick_values)) != tick_values or len(set(tick_values)) != len(tick_values):
+            raise ValueError("Origin axis ticks must be strictly increasing")
+        return self
+
+
+class OriginRoleColumn(StrictModel):
+    role: Token
+    field_id: FieldId
+
+
+class OriginPlotPlan(StrictModel):
+    plot_id: Token
+    source_layer_id: Token
+    native_kind: Literal[
+        "line",
+        "line_symbol",
+        "scatter",
+        "bubble",
+        "error_bar",
+        "band",
+        "area",
+        "bar",
+        "grouped_bar",
+        "stacked_bar",
+        "percent_bar",
+        "strip",
+        "box",
+        "violin",
+        "histogram",
+        "density",
+        "step",
+        "heatmap",
+        "contour",
+        "survival_step",
+        "survival_band",
+        "risk_table",
+        "forest_interval",
+        "forest_symbol",
+        "spectrum",
+        "nyquist",
+        "facet_line",
+    ]
+    data_object_id: Token
+    role_columns: Annotated[tuple[OriginRoleColumn, ...], Field(min_length=1)]
+    z_order: int
+    label: Annotated[str, StringConstraints(max_length=512, strict=True)] = ""
+    color: ColorValue | None = None
+    palette: tuple[ColorValue, ...] = ()
+    levels: tuple[FiniteNumber, ...] = ()
+    line_width_pt: FiniteNumber | None = None
+    marker_size_pt: FiniteNumber | None = None
+    alpha: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
+
+
+class OriginLayerPlan(StrictModel):
+    layer_id: Token
+    panel_id: Token
+    left_mm: FiniteNumber
+    top_mm: FiniteNumber
+    width_mm: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    height_mm: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    axes: Annotated[tuple[OriginAxisPlan, ...], Field(min_length=2, max_length=2)]
+    plots: Annotated[tuple[OriginPlotPlan, ...], Field(min_length=1)]
 
 
 class OriginGraphObject(StrictModel):
@@ -274,60 +421,48 @@ class OriginGraphObject(StrictModel):
         StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,31}$", strict=True),
     ]
     long_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
-    layer_ids: Annotated[tuple[Token, ...], Field(min_length=1)]
+    page_width_mm: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    page_height_mm: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    font_family: Annotated[str, StringConstraints(min_length=1, max_length=128, strict=True)]
+    font_size_pt: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    legend_visible: bool
+    legend_anchor_x: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
+    legend_anchor_y: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
+    layers: Annotated[tuple[OriginLayerPlan, ...], Field(min_length=1)]
     data_object_ids: Annotated[tuple[Token, ...], Field(min_length=1)]
+    annotations: tuple[ResolvedAnnotation, ...] = ()
+
+    @model_validator(mode="after")
+    def unique_graph_parts(self) -> OriginGraphObject:
+        if len({layer.layer_id for layer in self.layers}) != len(self.layers):
+            raise ValueError("Origin graph layer ids must be unique")
+        plot_ids = [plot.plot_id for layer in self.layers for plot in layer.plots]
+        if len(set(plot_ids)) != len(plot_ids):
+            raise ValueError("Origin graph plot ids must be unique")
+        return self
 
 
-OriginNumericPropertyName = Literal[
-    "page.width_mm",
-    "page.height_mm",
-    "layer.left_mm",
-    "layer.top_mm",
-    "layer.width_mm",
-    "layer.height_mm",
-    "axis.minimum",
-    "axis.maximum",
-    "plot.line_width_pt",
-    "plot.marker_size_pt",
-]
-OriginBooleanPropertyName = Literal[
-    "axis.reverse",
-    "legend.visible",
-]
+class OriginObjectMapEntry(StrictModel):
+    plotagent_object_id: Token
+    origin_object_ref: Annotated[
+        str,
+        StringConstraints(pattern=r"^(Data|Analysis|Graphs|Metadata)/[A-Za-z0-9_/]+$", strict=True),
+    ]
 
 
-class OriginNumericProperty(StrictModel):
-    value_kind: Literal["number"] = "number"
-    target_id: Token
-    property_name: OriginNumericPropertyName
-    value: FiniteNumber
-
-
-class OriginBooleanProperty(StrictModel):
-    value_kind: Literal["boolean"] = "boolean"
-    target_id: Token
-    property_name: OriginBooleanPropertyName
-    value: bool
-
-
-class OriginScaleProperty(StrictModel):
-    value_kind: Literal["scale"] = "scale"
-    target_id: Token
-    property_name: Literal["axis.scale"] = "axis.scale"
-    value: Literal["linear", "log10", "datetime", "categorical"]
-
-
-class OriginColorProperty(StrictModel):
-    value_kind: Literal["color"] = "color"
-    target_id: Token
-    property_name: Literal["plot.color"] = "plot.color"
-    value: ColorValue
-
-
-OriginPropertyAssignment = Annotated[
-    OriginNumericProperty | OriginBooleanProperty | OriginScaleProperty | OriginColorProperty,
-    Field(discriminator="value_kind"),
-]
+class OriginManifestPlan(StrictModel):
+    chart_type_ids: Annotated[tuple[ChartTypeId, ...], Field(min_length=1)]
+    target_scope: Literal["current_plot", "selected_plots", "batch", "figure"]
+    object_map: Annotated[tuple[OriginObjectMapEntry, ...], Field(min_length=1)]
+    render_plan_hashes: Annotated[tuple[RenderPlanHash, ...], Field(min_length=1)]
+    data_chains: Annotated[
+        tuple[Literal["direct", "fixed_plot_calculation", "user_provided_precomputed"], ...],
+        Field(min_length=1),
+    ]
+    resolver_versions: Annotated[tuple[Token, ...], Field(min_length=1)]
+    raw_data_triggers_plotagent_recalculation: Literal[False] = False
+    external_links: Literal[False] = False
+    known_differences: tuple[str, ...] = ()
 
 
 class OriginValidationPlan(StrictModel):
@@ -354,7 +489,7 @@ class OriginExportPlan(StrictModel):
     project_folders: Literal["Data/Analysis/Graphs/Metadata"] = "Data/Analysis/Graphs/Metadata"
     data_objects: Annotated[tuple[OriginDataObject, ...], Field(min_length=1)]
     graph_objects: Annotated[tuple[OriginGraphObject, ...], Field(min_length=1)]
-    property_assignments: tuple[OriginPropertyAssignment, ...] = ()
+    manifest: OriginManifestPlan
     validation: OriginValidationPlan = OriginValidationPlan()
 
     @model_validator(mode="after")
@@ -366,4 +501,23 @@ class OriginExportPlan(StrictModel):
             raise ValueError("Origin graph ids must be unique")
         if any(not set(graph.data_object_ids).issubset(data_ids) for graph in self.graph_objects):
             raise ValueError("Origin graphs must reference declared data objects")
+        plot_ids = {
+            plot.plot_id
+            for graph in self.graph_objects
+            for layer in graph.layers
+            for plot in layer.plots
+        }
+        if any(
+            plot.data_object_id not in data_ids
+            for graph in self.graph_objects
+            for layer in graph.layers
+            for plot in layer.plots
+        ):
+            raise ValueError("Origin plots must reference declared data objects")
+        mapped = {entry.plotagent_object_id for entry in self.manifest.object_map}
+        required = data_ids | {graph.graph_id for graph in self.graph_objects} | plot_ids
+        if not required.issubset(mapped):
+            raise ValueError("Origin manifest must map every data, graph, and plot object")
+        if self.capability == "O1" and self.manifest.known_differences:
+            raise ValueError("O1 Origin plans cannot declare known differences")
         return self

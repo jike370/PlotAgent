@@ -1,7 +1,4 @@
-"""Native Origin export support.
-
-The M0 implementation intentionally exposes only the qualified K01 vertical slice.
-"""
+"""Native Origin O1 planning and export support."""
 
 from .exporter import export_k01
 from .k01 import K01Data, K01OriginPlan, compile_k01_plan
@@ -16,7 +13,9 @@ from .models import (
     OriginPreflightResult,
     OriginPreflightSuccess,
 )
+from .planner import OriginPlanError, build_origin_export_spec, compile_origin_plan
 from .preflight import preflight_origin
+from .registry import ORIGIN_ADAPTERS, OriginAdapterNotFoundError, get_origin_adapter
 
 __all__ = [
     "K01Data",
@@ -30,7 +29,13 @@ __all__ = [
     "OriginPreflightFailure",
     "OriginPreflightResult",
     "OriginPreflightSuccess",
+    "OriginPlanError",
+    "ORIGIN_ADAPTERS",
+    "OriginAdapterNotFoundError",
+    "build_origin_export_spec",
     "compile_k01_plan",
+    "compile_origin_plan",
     "export_k01",
+    "get_origin_adapter",
     "preflight_origin",
 ]

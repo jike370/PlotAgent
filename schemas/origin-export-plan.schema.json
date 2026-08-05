@@ -73,75 +73,166 @@
       "title": "ExportSpecRef",
       "type": "object"
     },
-    "OriginBooleanProperty": {
+    "OriginAxisPlan": {
       "additionalProperties": false,
       "properties": {
-        "property_name": {
-          "enum": [
-            "axis.reverse",
-            "legend.visible"
-          ],
-          "title": "Property Name",
-          "type": "string"
-        },
-        "target_id": {
+        "axis_id": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-          "title": "Target Id",
+          "title": "Axis Id",
           "type": "string"
         },
-        "value": {
-          "title": "Value",
+        "maximum": {
+          "title": "Maximum",
+          "type": "number"
+        },
+        "minimum": {
+          "title": "Minimum",
+          "type": "number"
+        },
+        "orientation": {
+          "enum": [
+            "x",
+            "y"
+          ],
+          "title": "Orientation",
+          "type": "string"
+        },
+        "reverse": {
+          "default": false,
+          "title": "Reverse",
           "type": "boolean"
         },
-        "value_kind": {
-          "const": "boolean",
-          "default": "boolean",
-          "title": "Value Kind",
+        "scale": {
+          "enum": [
+            "linear",
+            "log10",
+            "datetime",
+            "categorical"
+          ],
+          "title": "Scale",
+          "type": "string"
+        },
+        "ticks": {
+          "items": {
+            "$ref": "#/$defs/OriginTickPlan"
+          },
+          "minItems": 1,
+          "title": "Ticks",
+          "type": "array"
+        },
+        "title": {
+          "default": "",
+          "maxLength": 512,
+          "title": "Title",
           "type": "string"
         }
       },
       "required": [
-        "target_id",
-        "property_name",
-        "value"
+        "axis_id",
+        "orientation",
+        "scale",
+        "minimum",
+        "maximum",
+        "ticks"
       ],
-      "title": "OriginBooleanProperty",
+      "title": "OriginAxisPlan",
       "type": "object"
     },
-    "OriginColorProperty": {
+    "OriginColumnPlan": {
       "additionalProperties": false,
+      "description": "One persisted worksheet column with no formula or executable property surface.",
       "properties": {
-        "property_name": {
-          "const": "plot.color",
-          "default": "plot.color",
-          "title": "Property Name",
+        "comments": {
+          "default": "",
+          "maxLength": 512,
+          "title": "Comments",
           "type": "string"
         },
-        "target_id": {
+        "designation": {
+          "enum": [
+            "X",
+            "Y",
+            "Z",
+            "XError",
+            "YError",
+            "Label",
+            "Group",
+            "None"
+          ],
+          "title": "Designation",
+          "type": "string"
+        },
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "logical_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "text"
+          ],
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "long_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Long Name",
+          "type": "string"
+        },
+        "role": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-          "title": "Target Id",
+          "title": "Role",
           "type": "string"
         },
-        "value": {
-          "$ref": "#/$defs/ColorValue"
-        },
-        "value_kind": {
-          "const": "color",
-          "default": "color",
-          "title": "Value Kind",
+        "units": {
+          "default": "",
+          "maxLength": 128,
+          "title": "Units",
           "type": "string"
+        },
+        "values": {
+          "items": {
+            "$ref": "#/$defs/OriginScalar"
+          },
+          "title": "Values",
+          "type": "array"
         }
       },
       "required": [
-        "target_id",
-        "value"
+        "field_id",
+        "role",
+        "designation",
+        "logical_type",
+        "long_name",
+        "values"
       ],
-      "title": "OriginColorProperty",
+      "title": "OriginColumnPlan",
       "type": "object"
     },
     "OriginDataObject": {
       "additionalProperties": false,
       "properties": {
+        "columns": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OriginColumnPlan"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "data_chain": {
+          "enum": [
+            "direct",
+            "fixed_plot_calculation",
+            "user_provided_precomputed"
+          ],
+          "title": "Data Chain",
+          "type": "string"
+        },
         "data_ref": {
           "$ref": "#/$defs/ContentTableRef"
         },
@@ -164,6 +255,17 @@
           "title": "Long Name",
           "type": "string"
         },
+        "matrix": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OriginMatrixPlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "object_id": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
           "title": "Object Id",
@@ -184,6 +286,7 @@
         "folder",
         "internal_name",
         "long_name",
+        "data_chain",
         "data_ref"
       ],
       "title": "OriginDataObject",
@@ -219,6 +322,14 @@
     "OriginGraphObject": {
       "additionalProperties": false,
       "properties": {
+        "annotations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResolvedAnnotation"
+          },
+          "title": "Annotations",
+          "type": "array"
+        },
         "data_object_ids": {
           "items": {
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
@@ -234,6 +345,17 @@
           "title": "Folder",
           "type": "string"
         },
+        "font_family": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Font Family",
+          "type": "string"
+        },
+        "font_size_pt": {
+          "exclusiveMinimum": 0,
+          "title": "Font Size Pt",
+          "type": "number"
+        },
         "graph_id": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
           "title": "Graph Id",
@@ -244,112 +366,528 @@
           "title": "Internal Name",
           "type": "string"
         },
-        "layer_ids": {
+        "layers": {
           "items": {
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-            "type": "string"
+            "$ref": "#/$defs/OriginLayerPlan"
           },
           "minItems": 1,
-          "title": "Layer Ids",
+          "title": "Layers",
           "type": "array"
+        },
+        "legend_anchor_x": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Legend Anchor X",
+          "type": "number"
+        },
+        "legend_anchor_y": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Legend Anchor Y",
+          "type": "number"
+        },
+        "legend_visible": {
+          "title": "Legend Visible",
+          "type": "boolean"
         },
         "long_name": {
           "maxLength": 256,
           "minLength": 1,
           "title": "Long Name",
           "type": "string"
+        },
+        "page_height_mm": {
+          "exclusiveMinimum": 0,
+          "title": "Page Height Mm",
+          "type": "number"
+        },
+        "page_width_mm": {
+          "exclusiveMinimum": 0,
+          "title": "Page Width Mm",
+          "type": "number"
         }
       },
       "required": [
         "graph_id",
         "internal_name",
         "long_name",
-        "layer_ids",
+        "page_width_mm",
+        "page_height_mm",
+        "font_family",
+        "font_size_pt",
+        "legend_visible",
+        "layers",
         "data_object_ids"
       ],
       "title": "OriginGraphObject",
       "type": "object"
     },
-    "OriginNumericProperty": {
+    "OriginLayerPlan": {
       "additionalProperties": false,
       "properties": {
-        "property_name": {
-          "enum": [
-            "page.width_mm",
-            "page.height_mm",
-            "layer.left_mm",
-            "layer.top_mm",
-            "layer.width_mm",
-            "layer.height_mm",
-            "axis.minimum",
-            "axis.maximum",
-            "plot.line_width_pt",
-            "plot.marker_size_pt"
-          ],
-          "title": "Property Name",
-          "type": "string"
+        "axes": {
+          "items": {
+            "$ref": "#/$defs/OriginAxisPlan"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Axes",
+          "type": "array"
         },
-        "target_id": {
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-          "title": "Target Id",
-          "type": "string"
-        },
-        "value": {
-          "title": "Value",
+        "height_mm": {
+          "exclusiveMinimum": 0,
+          "title": "Height Mm",
           "type": "number"
         },
-        "value_kind": {
-          "const": "number",
-          "default": "number",
-          "title": "Value Kind",
+        "layer_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Layer Id",
           "type": "string"
+        },
+        "left_mm": {
+          "title": "Left Mm",
+          "type": "number"
+        },
+        "panel_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Panel Id",
+          "type": "string"
+        },
+        "plots": {
+          "items": {
+            "$ref": "#/$defs/OriginPlotPlan"
+          },
+          "minItems": 1,
+          "title": "Plots",
+          "type": "array"
+        },
+        "top_mm": {
+          "title": "Top Mm",
+          "type": "number"
+        },
+        "width_mm": {
+          "exclusiveMinimum": 0,
+          "title": "Width Mm",
+          "type": "number"
         }
       },
       "required": [
-        "target_id",
-        "property_name",
-        "value"
+        "layer_id",
+        "panel_id",
+        "left_mm",
+        "top_mm",
+        "width_mm",
+        "height_mm",
+        "axes",
+        "plots"
       ],
-      "title": "OriginNumericProperty",
+      "title": "OriginLayerPlan",
       "type": "object"
     },
-    "OriginScaleProperty": {
+    "OriginManifestPlan": {
       "additionalProperties": false,
       "properties": {
-        "property_name": {
-          "const": "axis.scale",
-          "default": "axis.scale",
-          "title": "Property Name",
-          "type": "string"
+        "chart_type_ids": {
+          "items": {
+            "enum": [
+              "K01",
+              "K02",
+              "K03",
+              "K04",
+              "K05",
+              "K06",
+              "K07",
+              "K08",
+              "K09",
+              "K10",
+              "K11",
+              "K12",
+              "K13",
+              "K14",
+              "K15",
+              "K16",
+              "K17",
+              "K18",
+              "K19",
+              "K20",
+              "K21",
+              "K22",
+              "K24",
+              "K25",
+              "S01",
+              "S05",
+              "S21",
+              "S25",
+              "S31",
+              "S34",
+              "S61"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Chart Type Ids",
+          "type": "array"
         },
-        "target_id": {
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-          "title": "Target Id",
-          "type": "string"
+        "data_chains": {
+          "items": {
+            "enum": [
+              "direct",
+              "fixed_plot_calculation",
+              "user_provided_precomputed"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Data Chains",
+          "type": "array"
         },
-        "value": {
+        "external_links": {
+          "const": false,
+          "default": false,
+          "title": "External Links",
+          "type": "boolean"
+        },
+        "known_differences": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Known Differences",
+          "type": "array"
+        },
+        "object_map": {
+          "items": {
+            "$ref": "#/$defs/OriginObjectMapEntry"
+          },
+          "minItems": 1,
+          "title": "Object Map",
+          "type": "array"
+        },
+        "raw_data_triggers_plotagent_recalculation": {
+          "const": false,
+          "default": false,
+          "title": "Raw Data Triggers Plotagent Recalculation",
+          "type": "boolean"
+        },
+        "render_plan_hashes": {
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Render Plan Hashes",
+          "type": "array"
+        },
+        "resolver_versions": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Resolver Versions",
+          "type": "array"
+        },
+        "target_scope": {
           "enum": [
-            "linear",
-            "log10",
-            "datetime",
-            "categorical"
+            "current_plot",
+            "selected_plots",
+            "batch",
+            "figure"
           ],
-          "title": "Value",
-          "type": "string"
-        },
-        "value_kind": {
-          "const": "scale",
-          "default": "scale",
-          "title": "Value Kind",
+          "title": "Target Scope",
           "type": "string"
         }
       },
       "required": [
-        "target_id",
-        "value"
+        "chart_type_ids",
+        "target_scope",
+        "object_map",
+        "render_plan_hashes",
+        "data_chains",
+        "resolver_versions"
       ],
-      "title": "OriginScaleProperty",
+      "title": "OriginManifestPlan",
       "type": "object"
+    },
+    "OriginMatrixPlan": {
+      "additionalProperties": false,
+      "description": "Native matrix values and coordinate mapping; raster payloads are impossible by type.",
+      "properties": {
+        "column_count": {
+          "minimum": 0,
+          "title": "Column Count",
+          "type": "integer"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "units": {
+          "default": "",
+          "maxLength": 128,
+          "title": "Units",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "title": "Values",
+          "type": "array"
+        },
+        "x_coordinates": {
+          "items": {
+            "type": "number"
+          },
+          "title": "X Coordinates",
+          "type": "array"
+        },
+        "x_labels": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "X Labels",
+          "type": "array"
+        },
+        "y_coordinates": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Y Coordinates",
+          "type": "array"
+        },
+        "y_labels": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Y Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "row_count",
+        "column_count",
+        "x_coordinates",
+        "y_coordinates",
+        "values"
+      ],
+      "title": "OriginMatrixPlan",
+      "type": "object"
+    },
+    "OriginObjectMapEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "origin_object_ref": {
+          "pattern": "^(Data|Analysis|Graphs|Metadata)/[A-Za-z0-9_/]+$",
+          "title": "Origin Object Ref",
+          "type": "string"
+        },
+        "plotagent_object_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Plotagent Object Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plotagent_object_id",
+        "origin_object_ref"
+      ],
+      "title": "OriginObjectMapEntry",
+      "type": "object"
+    },
+    "OriginPlotPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "alpha": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "data_object_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Data Object Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 512,
+          "title": "Label",
+          "type": "string"
+        },
+        "levels": {
+          "default": [],
+          "items": {
+            "type": "number"
+          },
+          "title": "Levels",
+          "type": "array"
+        },
+        "line_width_pt": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Width Pt"
+        },
+        "marker_size_pt": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Size Pt"
+        },
+        "native_kind": {
+          "enum": [
+            "line",
+            "line_symbol",
+            "scatter",
+            "bubble",
+            "error_bar",
+            "band",
+            "area",
+            "bar",
+            "grouped_bar",
+            "stacked_bar",
+            "percent_bar",
+            "strip",
+            "box",
+            "violin",
+            "histogram",
+            "density",
+            "step",
+            "heatmap",
+            "contour",
+            "survival_step",
+            "survival_band",
+            "risk_table",
+            "forest_interval",
+            "forest_symbol",
+            "spectrum",
+            "nyquist",
+            "facet_line"
+          ],
+          "title": "Native Kind",
+          "type": "string"
+        },
+        "palette": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ColorValue"
+          },
+          "title": "Palette",
+          "type": "array"
+        },
+        "plot_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "role_columns": {
+          "items": {
+            "$ref": "#/$defs/OriginRoleColumn"
+          },
+          "minItems": 1,
+          "title": "Role Columns",
+          "type": "array"
+        },
+        "source_layer_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Source Layer Id",
+          "type": "string"
+        },
+        "z_order": {
+          "title": "Z Order",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "plot_id",
+        "source_layer_id",
+        "native_kind",
+        "data_object_id",
+        "role_columns",
+        "z_order"
+      ],
+      "title": "OriginPlotPlan",
+      "type": "object"
+    },
+    "OriginRoleColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "field_id"
+      ],
+      "title": "OriginRoleColumn",
+      "type": "object"
+    },
+    "OriginScalar": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "OriginTemplateRef": {
       "additionalProperties": false,
@@ -374,6 +912,26 @@
         "signature_hash"
       ],
       "title": "OriginTemplateRef",
+      "type": "object"
+    },
+    "OriginTickPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 256,
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "title": "OriginTickPlan",
       "type": "object"
     },
     "OriginValidationPlan": {
@@ -407,6 +965,83 @@
       "title": "OriginValidationPlan",
       "type": "object"
     },
+    "ResolvedAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "affect_range": {
+          "default": false,
+          "title": "Affect Range",
+          "type": "boolean"
+        },
+        "annotation_id": {
+          "pattern": "^annotation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Annotation Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "arrow",
+            "line",
+            "rectangle",
+            "reference_line",
+            "reference_band",
+            "peak_label",
+            "significance_bracket",
+            "panel_label"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "panel_id": {
+          "default": "panel:main",
+          "pattern": "^panel:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Panel Id",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "x": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X"
+        },
+        "y": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y"
+        }
+      },
+      "required": [
+        "annotation_id",
+        "kind"
+      ],
+      "title": "ResolvedAnnotation",
+      "type": "object"
+    },
     "ResourceRef": {
       "additionalProperties": false,
       "description": "An Electron-authorized resource reference, never a filesystem path.",
@@ -431,6 +1066,66 @@
         "resource_kind"
       ],
       "title": "ResourceRef",
+      "type": "object"
+    },
+    "SafeRichText": {
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/SafeTextNode"
+          },
+          "minItems": 1,
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "nodes"
+      ],
+      "title": "SafeRichText",
+      "type": "object"
+    },
+    "SafeTextNode": {
+      "additionalProperties": false,
+      "properties": {
+        "denominator": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Denominator"
+        },
+        "kind": {
+          "enum": [
+            "plain",
+            "newline",
+            "sub",
+            "sup",
+            "bold",
+            "italic",
+            "fraction"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "default": "",
+          "maxLength": 512,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SafeTextNode",
       "type": "object"
     }
   },
@@ -473,6 +1168,9 @@
       "title": "Graph Objects",
       "type": "array"
     },
+    "manifest": {
+      "$ref": "#/$defs/OriginManifestPlan"
+    },
     "origin_plan_id": {
       "pattern": "^originplan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
       "title": "Origin Plan Id",
@@ -491,36 +1189,6 @@
       "default": "Data/Analysis/Graphs/Metadata",
       "title": "Project Folders",
       "type": "string"
-    },
-    "property_assignments": {
-      "default": [],
-      "items": {
-        "discriminator": {
-          "mapping": {
-            "boolean": "#/$defs/OriginBooleanProperty",
-            "color": "#/$defs/OriginColorProperty",
-            "number": "#/$defs/OriginNumericProperty",
-            "scale": "#/$defs/OriginScaleProperty"
-          },
-          "propertyName": "value_kind"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/$defs/OriginNumericProperty"
-          },
-          {
-            "$ref": "#/$defs/OriginBooleanProperty"
-          },
-          {
-            "$ref": "#/$defs/OriginScaleProperty"
-          },
-          {
-            "$ref": "#/$defs/OriginColorProperty"
-          }
-        ]
-      },
-      "title": "Property Assignments",
-      "type": "array"
     },
     "render_plan_hash": {
       "pattern": "^[0-9a-f]{64}$",
@@ -556,7 +1224,8 @@
     "origin_version",
     "template",
     "data_objects",
-    "graph_objects"
+    "graph_objects",
+    "manifest"
   ],
   "title": "OriginExportPlan",
   "type": "object"

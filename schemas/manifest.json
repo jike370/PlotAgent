@@ -18,7 +18,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "157c4de9754c2796a88c93013260aca5c209181d9dfecf25f9062f6256a2989b"
+      "sha256": "dee61ef5831c3d6e3de5c5374b0d73dbde0b2186f9fc3bc1872a0922b6dab228"
     },
     {
       "path": "schemas/error-registry.json",
@@ -46,7 +46,7 @@
     },
     {
       "path": "schemas/origin-export-plan.schema.json",
-      "sha256": "35148a738679cb53dc03428a1ea3f070cd4bc7c50152a7bf7b6e4190e4208b4a"
+      "sha256": "ec11d6c8c877ae7f448db30fe9e9850ec4f794d75a3c46f1760d9481f0010678"
     },
     {
       "path": "schemas/patch-transaction.schema.json",
@@ -86,7 +86,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "74e84e183131f7a325c48260c18ef2c0ec11707f941433b35e7b49c3b9792b59"
+      "sha256": "aad4d1b2d9c53f656949706bc0ddf29f21a18f17ea21ff64fac95facce2284f0"
     }
   ],
   "generator": "plotagent.contracts.codegen",

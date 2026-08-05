@@ -791,18 +791,26 @@ export type ObjectVersionRef = {
   readonly expected_version: number;
 }
 
-export type OriginBooleanProperty = {
-  readonly value_kind?: "boolean";
-  readonly target_id: string;
-  readonly property_name: "axis.reverse" | "legend.visible";
-  readonly value: boolean;
+export type OriginAxisPlan = {
+  readonly axis_id: string;
+  readonly orientation: "x" | "y";
+  readonly scale: "linear" | "log10" | "datetime" | "categorical";
+  readonly minimum: number;
+  readonly maximum: number;
+  readonly reverse?: boolean;
+  readonly ticks: ReadonlyArray<OriginTickPlan>;
+  readonly title?: string;
 }
 
-export type OriginColorProperty = {
-  readonly value_kind?: "color";
-  readonly target_id: string;
-  readonly property_name?: "plot.color";
-  readonly value: ColorValue;
+export type OriginColumnPlan = {
+  readonly field_id: string;
+  readonly role: string;
+  readonly designation: "X" | "Y" | "Z" | "XError" | "YError" | "Label" | "Group" | "None";
+  readonly logical_type: "numeric" | "categorical" | "datetime" | "text";
+  readonly long_name: string;
+  readonly units?: string;
+  readonly comments?: string;
+  readonly values: ReadonlyArray<OriginScalar>;
 }
 
 export type OriginDataObject = {
@@ -811,7 +819,10 @@ export type OriginDataObject = {
   readonly folder: "Data" | "Analysis";
   readonly internal_name: string;
   readonly long_name: string;
+  readonly data_chain: "direct" | "fixed_plot_calculation" | "user_provided_precomputed";
   readonly data_ref: ContentTableRef;
+  readonly columns?: ReadonlyArray<OriginColumnPlan>;
+  readonly matrix?: OriginMatrixPlan | null;
 }
 
 export type OriginExactVersion = {
@@ -834,7 +845,7 @@ export type OriginExportPlan = {
   readonly project_folders?: "Data/Analysis/Graphs/Metadata";
   readonly data_objects: ReadonlyArray<OriginDataObject>;
   readonly graph_objects: ReadonlyArray<OriginGraphObject>;
-  readonly property_assignments?: ReadonlyArray<OriginNumericProperty | OriginBooleanProperty | OriginScaleProperty | OriginColorProperty>;
+  readonly manifest: OriginManifestPlan;
   readonly validation?: OriginValidationPlan;
 }
 
@@ -843,28 +854,89 @@ export type OriginGraphObject = {
   readonly folder?: "Graphs";
   readonly internal_name: string;
   readonly long_name: string;
-  readonly layer_ids: ReadonlyArray<string>;
+  readonly page_width_mm: number;
+  readonly page_height_mm: number;
+  readonly font_family: string;
+  readonly font_size_pt: number;
+  readonly legend_visible: boolean;
+  readonly legend_anchor_x?: number;
+  readonly legend_anchor_y?: number;
+  readonly layers: ReadonlyArray<OriginLayerPlan>;
   readonly data_object_ids: ReadonlyArray<string>;
+  readonly annotations?: ReadonlyArray<ResolvedAnnotation>;
 }
 
-export type OriginNumericProperty = {
-  readonly value_kind?: "number";
-  readonly target_id: string;
-  readonly property_name: "page.width_mm" | "page.height_mm" | "layer.left_mm" | "layer.top_mm" | "layer.width_mm" | "layer.height_mm" | "axis.minimum" | "axis.maximum" | "plot.line_width_pt" | "plot.marker_size_pt";
-  readonly value: number;
+export type OriginLayerPlan = {
+  readonly layer_id: string;
+  readonly panel_id: string;
+  readonly left_mm: number;
+  readonly top_mm: number;
+  readonly width_mm: number;
+  readonly height_mm: number;
+  readonly axes: ReadonlyArray<OriginAxisPlan>;
+  readonly plots: ReadonlyArray<OriginPlotPlan>;
 }
 
-export type OriginScaleProperty = {
-  readonly value_kind?: "scale";
-  readonly target_id: string;
-  readonly property_name?: "axis.scale";
-  readonly value: "linear" | "log10" | "datetime" | "categorical";
+export type OriginManifestPlan = {
+  readonly chart_type_ids: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61">;
+  readonly target_scope: "current_plot" | "selected_plots" | "batch" | "figure";
+  readonly object_map: ReadonlyArray<OriginObjectMapEntry>;
+  readonly render_plan_hashes: ReadonlyArray<string>;
+  readonly data_chains: ReadonlyArray<"direct" | "fixed_plot_calculation" | "user_provided_precomputed">;
+  readonly resolver_versions: ReadonlyArray<string>;
+  readonly raw_data_triggers_plotagent_recalculation?: false;
+  readonly external_links?: false;
+  readonly known_differences?: ReadonlyArray<string>;
 }
+
+export type OriginMatrixPlan = {
+  readonly row_count: number;
+  readonly column_count: number;
+  readonly x_coordinates: ReadonlyArray<number>;
+  readonly y_coordinates: ReadonlyArray<number>;
+  readonly x_labels?: ReadonlyArray<string>;
+  readonly y_labels?: ReadonlyArray<string>;
+  readonly values: ReadonlyArray<ReadonlyArray<number | null>>;
+  readonly units?: string;
+}
+
+export type OriginObjectMapEntry = {
+  readonly plotagent_object_id: string;
+  readonly origin_object_ref: string;
+}
+
+export type OriginPlotPlan = {
+  readonly plot_id: string;
+  readonly source_layer_id: string;
+  readonly native_kind: "line" | "line_symbol" | "scatter" | "bubble" | "error_bar" | "band" | "area" | "bar" | "grouped_bar" | "stacked_bar" | "percent_bar" | "strip" | "box" | "violin" | "histogram" | "density" | "step" | "heatmap" | "contour" | "survival_step" | "survival_band" | "risk_table" | "forest_interval" | "forest_symbol" | "spectrum" | "nyquist" | "facet_line";
+  readonly data_object_id: string;
+  readonly role_columns: ReadonlyArray<OriginRoleColumn>;
+  readonly z_order: number;
+  readonly label?: string;
+  readonly color?: ColorValue | null;
+  readonly palette?: ReadonlyArray<ColorValue>;
+  readonly levels?: ReadonlyArray<number>;
+  readonly line_width_pt?: number | null;
+  readonly marker_size_pt?: number | null;
+  readonly alpha?: number;
+}
+
+export type OriginRoleColumn = {
+  readonly role: string;
+  readonly field_id: string;
+}
+
+export type OriginScalar = string | number | boolean | null
 
 export type OriginTemplateRef = {
   readonly template_resource: ResourceRef;
   readonly template_hash: string;
   readonly signature_hash: string;
+}
+
+export type OriginTickPlan = {
+  readonly value: number;
+  readonly label: string;
 }
 
 export type OriginValidationPlan = {
