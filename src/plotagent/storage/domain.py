@@ -172,7 +172,9 @@ class ProjectDomainRepository:
             table = pq.read_table(self.project.object_path(object_hash))
             values = table.to_pydict()
             tables[binding_hash] = {
-                field_id: tuple(column) for field_id, column in values.items()
+                field_id: tuple(column)
+                for field_id, column in values.items()
+                if field_id.startswith("field:")
             }
         return tables
 

@@ -1,23 +1,82 @@
 from __future__ import annotations
 
+import csv
+import json
 import uuid
 from collections.abc import Iterator
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
+from plotagent.agent.providers import (
+    OutputCapability,
+    ProviderCapabilities,
+    ProviderDecisionRequest,
+    ProviderIdentity,
+    ProviderProtocol,
+    ProviderUsage,
+    ProviderWireResponse,
+)
+from plotagent.contracts.registry import CHART_REGISTRY
 from plotagent.desktop_core.application import DesktopApplication
 from plotagent.desktop_core.protocol import JsonValue
 from plotagent.desktop_core.services import RpcContext, ServiceRegistry
 from plotagent.desktop_core.tasks import BoundedWorkerExecutor, TaskRegistry
+from plotagent.security.credentials import InMemoryCredentialStore
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "import" / "files"
 
 
+@dataclass
+class FakeProvider:
+    responses: list[str]
+    requests: list[ProviderDecisionRequest] = field(default_factory=list)
+
+    @property
+    def identity(self) -> ProviderIdentity:
+        return ProviderIdentity(
+            provider_type="custom",
+            provider_config_id="custom-test",
+            endpoint_origin="https://models.example.test:443",
+            model_id="synthetic-model",
+            model_profile="fixed-test",
+        )
+
+    async def resolve_capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(OutputCapability.P1, ProviderProtocol.RESPONSES)
+
+    async def decide(self, request: ProviderDecisionRequest) -> ProviderWireResponse:
+        self.requests.append(request)
+        return ProviderWireResponse(
+            provider_request_id=f"request-{len(self.requests)}",
+            output_text=self.responses.pop(0),
+            usage=ProviderUsage(10, 5, "provider"),
+        )
+
+    async def repair(
+        self,
+        request: ProviderDecisionRequest,
+        *,
+        invalid_candidate: str,
+        schema_error_categories: tuple[str, ...],
+    ) -> ProviderWireResponse:
+        del request, invalid_candidate, schema_error_categories
+        raise AssertionError("P1 must not repair")
+
+    async def cancel(self, client_model_run_id: str) -> None:
+        del client_model_run_id
+
+
 class ApplicationHarness:
-    def __init__(self, root: Path) -> None:
-        self.application = DesktopApplication(root)
+    def __init__(self, root: Path, provider: FakeProvider | None = None) -> None:
+        self.credentials = InMemoryCredentialStore()
+        self.application = DesktopApplication(
+            root,
+            provider_factory=(None if provider is None else lambda _mode, _params: provider),
+            credential_store=self.credentials,
+        )
         self.registry = ServiceRegistry()
         self.workers = BoundedWorkerExecutor(max_workers=2, maximum_pending=4)
         self.tasks = TaskRegistry(lambda _event: None)
@@ -164,3 +223,360 @@ def test_text_import_is_committed_and_listed(harness: ApplicationHarness) -> Non
     listed = harness.call("datasets.list", {"project_id": project_id})
     assert len(listed["datasets"]) == len(imported["datasets"])
     assert listed["project_version"] == imported["project_version"]
+
+
+def test_authorized_plotproj_is_verified_imported_and_opened(
+    harness: ApplicationHarness, tmp_path: Path
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import(harness, project_id, revision, "txt_metadata.txt", "package-source")
+    assert imported["kind"] == "committed"
+    package_path = tmp_path / "transfer.plotproj"
+    source_session = harness.application._sessions[project_id]
+    harness.application._packages.pack(source_session.store, package_path)
+
+    recipient = ApplicationHarness(tmp_path / "recipient")
+    try:
+        opened = recipient.call(
+            "projects.open",
+            {
+                "resource_id": "resource:authorized-package",
+                "source_path": str(package_path),
+            },
+        )
+        assert opened["project_id"] == project_id
+        assert opened["status"] == "open"
+        assert opened["package"]["reused"] is False
+        listed = recipient.call("datasets.list", {"project_id": project_id})
+        assert len(listed["datasets"]) == 1
+
+        replayed = recipient.call(
+            "projects.open",
+            {
+                "resource_id": "resource:authorized-package-again",
+                "source_path": str(package_path),
+            },
+        )
+        assert replayed["project_id"] == project_id
+        assert replayed["package"]["reused"] is True
+    finally:
+        recipient.close()
+
+
+def test_custom_provider_configuration_is_persisted_without_exposing_secret(
+    harness: ApplicationHarness,
+) -> None:
+    initial = harness.call("provider.status", {})
+    assert initial == {
+        "mode": "local_only",
+        "configured": False,
+        "retention_acknowledged": False,
+    }
+
+    configured = harness.call(
+        "provider.configure",
+        {
+            "mode": "custom_provider",
+            "provider_config_id": "custom.default",
+            "base_url": "https://models.example.test/v1",
+            "model_id": "science-model",
+            "api_key": "test-secret-key",
+            "retention_acknowledged": True,
+        },
+    )
+    assert configured["configured"] is True
+    assert configured["mode"] == "custom_provider"
+    assert "api_key" not in configured
+    assert harness.credentials.get_custom_api_key("custom.default") == "test-secret-key"
+
+    cleared = harness.call("provider.clear", {})
+    assert cleared["mode"] == "local_only"
+    assert harness.credentials.get_custom_api_key("custom.default") is None
+
+
+def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
+    tmp_path: Path,
+) -> None:
+    provider = FakeProvider(
+        responses=[
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "decision_type": "action_plan",
+                    "plan_id": "plan:create-k02",
+                    "target_alias": "active_target",
+                    "actions": [
+                        {
+                            "action_type": "create_plot",
+                            "action_id": "action:create",
+                            "target_alias": "active_target",
+                            "chart_type_id": "K02",
+                            "field_selections": [
+                                {"role": "x", "context_field_alias": "x_field"},
+                                {"role": "y", "context_field_alias": "y_field"},
+                            ],
+                        }
+                    ],
+                }
+            ),
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "decision_type": "action_plan",
+                    "plan_id": "plan:edit-k02",
+                    "target_alias": "active_target",
+                    "actions": [
+                        {
+                            "action_type": "patch_plot",
+                            "action_id": "action:label",
+                            "target_alias": "active_target",
+                            "patches": [
+                                {
+                                    "operation": "set_axis_label",
+                                    "target_alias": "y_axis",
+                                    "label": "Normalized signal",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ),
+        ]
+    )
+    app = ApplicationHarness(tmp_path / "agent-app", provider)
+    try:
+        project_id, revision = _create_open(app)
+        imported = _import(app, project_id, revision, "excel_two_sheets.xlsx", "agent")
+        dataset = imported["datasets"][0]
+        revision = imported["project_version"]
+        common = {
+            "project_id": project_id,
+            "source_dataset_id": dataset["source_dataset_id"],
+            "source_version": dataset["source_version"],
+            "network_mode": "custom_provider",
+            "provider": {},
+            "retention_acknowledged": True,
+        }
+        created = app.call(
+            "agent.decide",
+            {
+                **common,
+                "user_instruction": "用第二列对第一列画散点图",
+                "client_model_run_id": "model-run:create",
+                "expected_version": revision,
+            },
+        )
+        assert created["accepted"] is True
+        execution = created["execution"]
+        assert execution["chart_type_id"] == "K02"
+        assert len(provider.requests[0].envelope.chart_capabilities.allowed_chart_type_ids) == 30
+
+        edited = app.call(
+            "agent.decide",
+            {
+                **common,
+                "user_instruction": "把 y 轴标题改成 Normalized signal",
+                "client_model_run_id": "model-run:edit",
+                "expected_version": execution["project_version"],
+                "target": {"kind": "plot", "id": execution["plot_id"]},
+            },
+        )
+        assert edited["accepted"] is True
+        assert edited["execution"]["plot_version"] == 2
+        stored = app.call(
+            "plots.get",
+            {"project_id": project_id, "plot_id": execution["plot_id"]},
+        )
+        assert stored["spec"]["axes"][1]["label"]["nodes"][0]["text"] == ("Normalized signal")
+    finally:
+        app.close()
+
+
+def test_desktop_application_creates_and_renders_exact_31_chart_surface(
+    harness: ApplicationHarness, tmp_path: Path
+) -> None:
+    categorical_roles = {
+        "group",
+        "category",
+        "component",
+        "event",
+        "row",
+        "column",
+        "row_label",
+        "column_label",
+        "facet",
+        "panel",
+        "label",
+        "parameter",
+        "peak_label",
+        "actual",
+        "predicted",
+    }
+    roles = sorted(
+        {
+            role
+            for chart in CHART_REGISTRY
+            if chart.chart_type_id != "K25"
+            for role in chart.required_roles
+        }
+    )
+    source_path = tmp_path / "all-charts.csv"
+    with source_path.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=roles)
+        writer.writeheader()
+        for index in range(12):
+            row: dict[str, object] = {}
+            for role in roles:
+                if role in categorical_roles:
+                    if role == "category":
+                        row[role] = f"C{index + 1}"
+                    elif role in {"row", "row_label"}:
+                        row[role] = f"R{index // 3 + 1}"
+                    elif role in {"column", "column_label"}:
+                        row[role] = f"C{index % 3 + 1}"
+                    elif role in {"component", "predicted"}:
+                        row[role] = "A" if index % 2 == 0 else "B"
+                    else:
+                        row[role] = "A" if (index // 2) % 2 == 0 else "B"
+                elif role == "lower":
+                    row[role] = 0.5 + index
+                elif role == "upper":
+                    row[role] = 1.5 + index
+                elif role in {"dose", "frequency"}:
+                    row[role] = 10 ** ((index % 4) - 1)
+                elif role == "survival":
+                    row[role] = max(0.05, 1.0 - index * 0.07)
+                elif role == "x":
+                    row[role] = float(index // 3)
+                elif role == "y":
+                    row[role] = float(index % 3)
+                else:
+                    row[role] = 1.0 + index
+            writer.writerow(row)
+
+    project_id, revision = _create_open(harness)
+    imported = harness.call(
+        "datasets.import",
+        {
+            "project_id": project_id,
+            "resource_id": "resource:all-charts",
+            "source_path": str(source_path),
+            "idempotency_key": "all-charts-import",
+            "expected_version": revision,
+            "options": {},
+        },
+    )
+    dataset = imported["datasets"][0]
+    revision = imported["project_version"]
+    described = harness.call(
+        "datasets.describe",
+        {
+            "project_id": project_id,
+            "source_dataset_id": dataset["source_dataset_id"],
+            "source_version": dataset["source_version"],
+        },
+    )
+    field_by_name = {field["name"]: field["field_id"] for field in described["dataset"]["fields"]}
+    plot_refs: list[dict[str, object]] = []
+    for chart in CHART_REGISTRY:
+        if chart.chart_type_id == "K25":
+            continue
+        plot_id = f"plot:matrix.{chart.chart_type_id.lower()}"
+        created = harness.call(
+            "plots.create",
+            {
+                "project_id": project_id,
+                "plot_id": plot_id,
+                "chart_type_id": chart.chart_type_id,
+                "source_dataset_id": dataset["source_dataset_id"],
+                "source_version": dataset["source_version"],
+                "field_mapping": {
+                    role: field_by_name[role]
+                    for role in (*chart.required_roles, *chart.optional_roles)
+                    if role in field_by_name
+                },
+                "idempotency_key": f"create-{chart.chart_type_id}",
+                "expected_version": revision,
+            },
+        )
+        revision = created["project_version"]
+        preview = harness.call(
+            "plots.render",
+            {"project_id": project_id, "plot_id": plot_id, "plot_version": 1},
+        )
+        assert Path(preview["artifact"]["path"]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+        plot_refs.append({"plot_id": plot_id, "plot_version": 1})
+
+    figure = harness.call(
+        "figures.create",
+        {
+            "project_id": project_id,
+            "figure_id": "figure:matrix.k25",
+            "plot_refs": plot_refs[:2],
+            "layout": "1x2",
+            "idempotency_key": "create-K25",
+            "expected_version": revision,
+        },
+    )
+    assert len(figure["figure"]["panels"]) == 2
+    preview = harness.call(
+        "figures.render",
+        {"project_id": project_id, "figure_id": "figure:matrix.k25"},
+    )
+    assert Path(preview["artifact"]["path"]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert len(plot_refs) + 1 == 31
+
+
+def test_isomorphic_batch_runs_from_one_confirmed_mapping(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import(harness, project_id, revision, "excel_two_sheets.xlsx", "batch")
+    datasets = imported["datasets"]
+    assert len(datasets) == 2
+    first = harness.call(
+        "datasets.describe",
+        {
+            "project_id": project_id,
+            "source_dataset_id": datasets[0]["source_dataset_id"],
+            "source_version": datasets[0]["source_version"],
+        },
+    )
+    numeric = [
+        field["field_id"]
+        for field in first["dataset"]["fields"]
+        if field["logical_type"] == "numeric"
+    ]
+    submitted = harness.call(
+        "batch.create",
+        {
+            "project_id": project_id,
+            "task_id": "task:batch-test",
+            "batch_id": "batch:test",
+            "source_datasets": [
+                {
+                    "source_dataset_id": item["source_dataset_id"],
+                    "source_version": item["source_version"],
+                }
+                for item in datasets
+            ],
+            "chart_type_id": "K01",
+            "field_mapping": {"x": numeric[0], "y": numeric[1]},
+            "idempotency_key": "batch-create",
+            "expected_version": imported["project_version"],
+        },
+    )
+    assert submitted["state"] == "queued"
+    completed = harness.call(
+        "batch.run",
+        {
+            "project_id": project_id,
+            "task_id": "task:batch-test",
+            "idempotency_key": "batch-run",
+            "expected_version": imported["project_version"],
+        },
+    )
+    assert completed["state"] == "succeeded"
+    assert [item["state"] for item in completed["items"]] == ["succeeded", "succeeded"]
+    stored = harness.call("batch.get", {"project_id": project_id, "batch_id": "batch:test"})
+    assert len(stored["batch"]["item_states"]) == 2

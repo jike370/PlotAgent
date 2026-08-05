@@ -89,11 +89,18 @@ from plotagent.contracts.datasets import (
 )
 from plotagent.contracts.decisions import (
     ActionPlan,
+    AxisLabelIntent,
+    AxisRangeIntent,
+    AxisScaleIntent,
+    CanvasSizeIntent,
     CreatePlotAction,
     NeedsInput,
+    PatchPlotAction,
+    SeriesStyleIntent,
     Unsupported,
 )
 from plotagent.contracts.plots import (
+    AxisScaleKind,
     AxisSpec,
     BatchExecutionSignature,
     BatchSpec,
@@ -166,6 +173,7 @@ from plotagent.storage import (
     ImportResource,
     ProjectDomainRepository,
     ProjectImportService,
+    ProjectPackageService,
     ProjectStore,
     StoredExport,
     StoredPlot,
@@ -181,6 +189,8 @@ _PATCH_ADAPTER: TypeAdapter[PlotPatch] = TypeAdapter(PlotPatch)
 _ENGINE_HASH = hashlib.sha256(b"plotagent.desktop-application.v1").hexdigest()
 _STYLE_HASH = hashlib.sha256(b"plotagent.default-style.v1").hexdigest()
 _PROFILE_HASH = hashlib.sha256(b"plotagent.default-profile.v1").hexdigest()
+_PROVIDER_SETTING_KEY = "agent.provider.active"
+_CUSTOM_PROVIDER_CONFIG_ID = "custom.default"
 
 
 @dataclass(slots=True)
@@ -216,6 +226,7 @@ class DesktopApplication:
         root: str | Path | None = None,
         *,
         provider_factory: ProviderFactory | None = None,
+        credential_store: CredentialStore | None = None,
     ) -> None:
         self.root = self._default_root() if root is None else Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
@@ -234,7 +245,8 @@ class DesktopApplication:
             self.catalog = Catalog.create(catalog_path)
         self._sessions: dict[str, ProjectSession] = {}
         self._batch_runtime: dict[str, _BatchRuntime] = {}
-        self._credential_store: CredentialStore = create_credential_store()
+        self._packages = ProjectPackageService(self.catalog, self.projects_root)
+        self._credential_store = credential_store or create_credential_store()
         self._provider_factory = provider_factory or self._create_production_provider
         self._closed = False
 
@@ -262,19 +274,11 @@ class DesktopApplication:
                 optional={"protocol_version"},
             )
             builtin_config = BuiltinProviderConfig(
-                provider_config_id=_text(
-                    config_values["provider_config_id"], "provider_config_id"
-                ),
-                endpoint_origin=_text(
-                    config_values["endpoint_origin"], "endpoint_origin"
-                ),
-                model_profile_id=_text(
-                    config_values["model_profile_id"], "model_profile_id"
-                ),
+                provider_config_id=_text(config_values["provider_config_id"], "provider_config_id"),
+                endpoint_origin=_text(config_values["endpoint_origin"], "endpoint_origin"),
+                model_profile_id=_text(config_values["model_profile_id"], "model_profile_id"),
                 model_id=_text(config_values["model_id"], "model_id"),
-                deployment_id=_text(
-                    config_values["deployment_id"], "deployment_id"
-                ),
+                deployment_id=_text(config_values["deployment_id"], "deployment_id"),
                 protocol_version=_optional_text(
                     config_values.get("protocol_version"), "protocol_version"
                 )
@@ -293,14 +297,10 @@ class DesktopApplication:
                 optional={"model_profile"},
             )
             custom_config = CustomProviderConfig(
-                provider_config_id=_text(
-                    config_values["provider_config_id"], "provider_config_id"
-                ),
+                provider_config_id=_text(config_values["provider_config_id"], "provider_config_id"),
                 base_url=_text(config_values["base_url"], "base_url"),
                 model_id=_text(config_values["model_id"], "model_id"),
-                model_profile=_optional_text(
-                    config_values.get("model_profile"), "model_profile"
-                )
+                model_profile=_optional_text(config_values.get("model_profile"), "model_profile")
                 or "custom-fixed",
             )
             return create_provider(
@@ -339,12 +339,122 @@ class DesktopApplication:
             "figures.create": self._figures_create,
             "figures.get": self._figures_get,
             "figures.render": self._figures_render,
+            "provider.status": self._provider_status,
+            "provider.configure": self._provider_configure,
+            "provider.clear": self._provider_clear,
             "agent.decide": self._agent_decide,
             "exports.png_svg": self._exports_png_svg,
             "exports.origin": self._exports_origin,
         }
         for method, handler in handlers.items():
             registry.register(method, self._guard(handler))
+
+    def _provider_status(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        _object(params, required=set())
+        config = self._saved_provider_config()
+        if config is None:
+            return {
+                "mode": NetworkMode.LOCAL_ONLY.value,
+                "configured": False,
+                "retention_acknowledged": False,
+            }
+        config_id = _text(config["provider_config_id"], "provider_config_id")
+        return {
+            "mode": NetworkMode.CUSTOM_PROVIDER.value,
+            "configured": self._credential_store.get_custom_api_key(config_id) is not None,
+            "provider_config_id": config_id,
+            "endpoint_origin": _text(config["base_url"], "base_url"),
+            "model_id": _text(config["model_id"], "model_id"),
+            "model_profile": _optional_text(config.get("model_profile"), "model_profile")
+            or "custom-fixed",
+            "retention_acknowledged": bool(config.get("retention_acknowledged", False)),
+        }
+
+    def _provider_configure(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "mode",
+                "provider_config_id",
+                "base_url",
+                "model_id",
+                "retention_acknowledged",
+            },
+            optional={"api_key", "model_profile"},
+        )
+        if _text(values["mode"], "mode") != NetworkMode.CUSTOM_PROVIDER.value:
+            raise RpcServiceError(
+                "INVALID_PARAMS", "Only a custom provider can be configured locally."
+            )
+        config_id = _text(values["provider_config_id"], "provider_config_id")
+        if config_id != _CUSTOM_PROVIDER_CONFIG_ID:
+            raise RpcServiceError("INVALID_PARAMS", "The provider config ID is not allowed.")
+        if values["retention_acknowledged"] is not True:
+            raise RpcServiceError(
+                "PROVIDER_RETENTION_UNACKNOWLEDGED",
+                "The provider retention disclosure must be acknowledged.",
+            )
+        config: dict[str, RpcJsonValue] = {
+            "provider_config_id": config_id,
+            "base_url": _text(values["base_url"], "base_url"),
+            "model_id": _text(values["model_id"], "model_id"),
+            "model_profile": _optional_text(values.get("model_profile"), "model_profile")
+            or "custom-fixed",
+            "retention_acknowledged": True,
+        }
+        # Constructing the adapter performs the same endpoint-origin validation used
+        # at request time, before either the non-secret config or credential is saved.
+        api_key = _optional_text(values.get("api_key"), "api_key")
+        if api_key is not None:
+            self._credential_store.set_custom_api_key(config_id, api_key)
+        if self._credential_store.get_custom_api_key(config_id) is None:
+            raise RpcServiceError(
+                "PROVIDER_NOT_CONFIGURED", "A custom provider API key is required."
+            )
+        try:
+            self._create_production_provider(
+                NetworkMode.CUSTOM_PROVIDER,
+                {
+                    "provider_config_id": config["provider_config_id"],
+                    "base_url": config["base_url"],
+                    "model_id": config["model_id"],
+                    "model_profile": config["model_profile"],
+                },
+            )
+        except Exception:
+            if api_key is not None:
+                self._credential_store.delete_custom_api_key(config_id)
+            raise RpcServiceError(
+                "PROVIDER_NOT_CONFIGURED", "The custom provider configuration is invalid."
+            ) from None
+        self.catalog.set_setting(
+            _PROVIDER_SETTING_KEY,
+            json.dumps(config, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        )
+        return self._provider_status(_context, {})
+
+    def _provider_clear(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        _object(params, required=set())
+        config = self._saved_provider_config()
+        if config is not None:
+            config_id = _text(config["provider_config_id"], "provider_config_id")
+            self._credential_store.delete_custom_api_key(config_id)
+        self.catalog.delete_setting(_PROVIDER_SETTING_KEY)
+        return self._provider_status(_context, {})
+
+    def _saved_provider_config(self) -> dict[str, RpcJsonValue] | None:
+        encoded = self.catalog.get_setting(_PROVIDER_SETTING_KEY)
+        if encoded is None:
+            return None
+        try:
+            parsed = json.loads(encoded)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(parsed, dict) or not all(isinstance(key, str) for key in parsed):
+            return None
+        return cast(dict[str, RpcJsonValue], parsed)
 
     def close(self) -> None:
         if self._closed:
@@ -426,9 +536,7 @@ class DesktopApplication:
             "replayed": False,
         }
 
-    def _projects_open(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
-        values = _object(params, required={"project_id"})
-        project_id = _text(values["project_id"], "project_id")
+    def _open_project_id(self, project_id: str, *, replayed: bool = False) -> RpcJsonValue:
         existing = self._sessions.get(project_id)
         if existing is not None:
             return self._session_summary(existing, replayed=True)
@@ -441,7 +549,49 @@ class DesktopApplication:
         )
         self._sessions[project_id] = session
         self.catalog.touch_project(project_id)
-        return self._session_summary(session, replayed=False)
+        return self._session_summary(session, replayed=replayed)
+
+    def _projects_open(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(
+            params,
+            required=set(),
+            optional={"project_id", "resource_id", "source_path", "as_new_copy"},
+        )
+        if "project_id" in values:
+            if set(values) != {"project_id"}:
+                raise RpcServiceError(
+                    "INVALID_PARAMS", "Catalog project open accepts only project_id."
+                )
+            return self._open_project_id(_text(values["project_id"], "project_id"))
+        if set(values) - {"resource_id", "source_path", "as_new_copy"} or not {
+            "resource_id",
+            "source_path",
+        }.issubset(values):
+            raise RpcServiceError(
+                "INVALID_PARAMS",
+                "Project package open requires an authorized resource and source path.",
+            )
+        # ``resource_id`` is retained in the request/audit boundary while the Main-owned
+        # resource registry remains authoritative for the path. Core still revalidates the
+        # package bytes, manifest, archive entries, checksums, SQLite and CAS before import.
+        _text(values["resource_id"], "resource_id")
+        source_path = Path(_text(values["source_path"], "source_path"))
+        as_new_copy = values.get("as_new_copy", False)
+        if not isinstance(as_new_copy, bool):
+            raise RpcServiceError("INVALID_PARAMS", "as_new_copy was invalid.")
+        imported = self._packages.import_package(source_path, as_new_copy=as_new_copy)
+        opened = self._open_project_id(imported.project_id, replayed=imported.reused)
+        if not isinstance(opened, dict):
+            raise RpcServiceError("INTERNAL_ERROR", "Project session response was invalid.")
+        return {
+            **opened,
+            "package": {
+                "package_sha256": imported.package_sha256,
+                "source_project_id": imported.source_project_id,
+                "reused": imported.reused,
+                "as_new_copy": imported.as_new_copy,
+            },
+        }
 
     def _projects_close(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(params, required={"project_id"})
@@ -469,15 +619,22 @@ class DesktopApplication:
         source_path = Path(_text(values["source_path"], "source_path"))
         key = _text(values["idempotency_key"], "idempotency_key")
         expected = _integer(values["expected_version"], "expected_version", minimum=0)
-        options = _object(values.get("options"), required=set(), optional={
-            "encoding", "delimiter", "decimal_mark", "header_row", "sheet"
-        })
-        request_hash = canonical_hash(cast(JsonValue, {
-            "resource_id": resource_id,
-            "source_path_hash": hashlib.sha256(str(source_path).encode()).hexdigest(),
-            "expected_version": expected,
-            "options": options,
-        }))
+        options = _object(
+            values.get("options"),
+            required=set(),
+            optional={"encoding", "delimiter", "decimal_mark", "header_row", "sheet"},
+        )
+        request_hash = canonical_hash(
+            cast(
+                JsonValue,
+                {
+                    "resource_id": resource_id,
+                    "source_path_hash": hashlib.sha256(str(source_path).encode()).hexdigest(),
+                    "expected_version": expected,
+                    "options": options,
+                },
+            )
+        )
         replay = session.domain.replay("datasets.import", key, request_hash)
         if replay is not None:
             return {**replay, "replayed": True}
@@ -516,11 +673,14 @@ class DesktopApplication:
             )
             if isinstance(outcome, (Clarification, Rejection)):
                 context.tasks.transition(task_id, "failed")
-                return cast(RpcJsonValue, {
-                    **outcome.model_dump(mode="json"),
-                    "task_id": task_id,
-                    "project_version": expected,
-                })
+                return cast(
+                    RpcJsonValue,
+                    {
+                        **outcome.model_dump(mode="json"),
+                        "task_id": task_id,
+                        "project_version": expected,
+                    },
+                )
             context.tasks.transition(
                 task_id,
                 "succeeded",
@@ -720,14 +880,17 @@ class DesktopApplication:
             context.tasks.transition(task_id, "running")
             future = context.workers.submit(self._apply_patch, previous, patch)
             plot = future.result()
-            resolved = self._resolve_plot(session, StoredPlot(
-                plot=plot,
-                field_mapping=previous.field_mapping,
-                preparation_spec=previous.preparation_spec,
-                prepared_dataset=previous.prepared_dataset,
-                render_bindings=previous.render_bindings,
-                content_hash=canonical_hash(plot),
-            ))
+            resolved = self._resolve_plot(
+                session,
+                StoredPlot(
+                    plot=plot,
+                    field_mapping=previous.field_mapping,
+                    preparation_spec=previous.preparation_spec,
+                    prepared_dataset=previous.prepared_dataset,
+                    render_bindings=previous.render_bindings,
+                    content_hash=canonical_hash(plot),
+                ),
+            )
             del resolved
             self._task_token(context.tasks, task_id).raise_if_cancelled()
             response = self._plot_response(
@@ -785,9 +948,7 @@ class DesktopApplication:
         try:
             context.tasks.transition(task_id, "running")
             resolved = self._resolve_plot(session, stored, quality_tier="interactive")
-            output_name = (
-                f"{stored.plot.plot_id.replace(':', '-')}-v{stored.plot.plot_version}.png"
-            )
+            output_name = f"{stored.plot.plot_id.replace(':', '-')}-v{stored.plot.plot_version}.png"
             path = session.store.cache_root / output_name
             descriptor = context.workers.submit(_render_preview, path, resolved).result()
             self._task_token(context.tasks, task_id).raise_if_cancelled()
@@ -806,9 +967,7 @@ class DesktopApplication:
             self._fail_task(context.tasks, task_id)
             raise
 
-    def _exports_png_svg(
-        self, context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
+    def _exports_png_svg(self, context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(
             params,
             required={
@@ -1166,9 +1325,7 @@ class DesktopApplication:
                 request_hash=request_hash,
                 response=response,
             )
-            terminal = (
-                "succeeded" if task.state == "succeeded" else "partially_succeeded"
-            )
+            terminal = "succeeded" if task.state == "succeeded" else "partially_succeeded"
             context.tasks.transition(task_id, terminal)
             return response
         except TaskControlError:
@@ -1210,8 +1367,7 @@ class DesktopApplication:
         layout = _text(values["layout"], "layout")
         key = _text(values["idempotency_key"], "idempotency_key")
         refs = tuple(
-            self._plot_ref_value(session, item)
-            for item in _list(values["plot_refs"], "plot_refs")
+            self._plot_ref_value(session, item) for item in _list(values["plot_refs"], "plot_refs")
         )
         request_hash = canonical_hash(
             cast(
@@ -1307,19 +1463,32 @@ class DesktopApplication:
                 "source_version",
                 "user_instruction",
                 "client_model_run_id",
-                "network_mode",
-                "provider",
                 "expected_version",
             },
-            optional={"locale", "retention_acknowledged"},
+            optional={
+                "locale",
+                "network_mode",
+                "provider",
+                "retention_acknowledged",
+                "target",
+            },
         )
         session = self._session(_text(values["project_id"], "project_id"))
         expected = _integer(values["expected_version"], "expected_version", minimum=0)
         session.domain.require_revision(expected)
-        try:
-            mode = NetworkMode(_text(values["network_mode"], "network_mode"))
-        except ValueError:
-            raise RpcServiceError("INVALID_PARAMS", "The network mode was invalid.") from None
+        saved_provider = self._saved_provider_config()
+        mode_value = values.get("network_mode")
+        if mode_value is None:
+            mode = (
+                NetworkMode.CUSTOM_PROVIDER
+                if saved_provider is not None
+                else NetworkMode.LOCAL_ONLY
+            )
+        else:
+            try:
+                mode = NetworkMode(_text(mode_value, "network_mode"))
+            except ValueError:
+                raise RpcServiceError("INVALID_PARAMS", "The network mode was invalid.") from None
         if mode is NetworkMode.LOCAL_ONLY:
             return {
                 "accepted": False,
@@ -1328,7 +1497,10 @@ class DesktopApplication:
                     "message": "Agent provider calls are disabled in local-only mode.",
                 },
             }
-        provider_values = _object(values["provider"], required=set(), optional=None)
+        if values.get("provider") is None:
+            provider_values = saved_provider or {}
+        else:
+            provider_values = _object(values["provider"], required=set(), optional=None)
         try:
             provider = self._provider_factory(mode, provider_values)
             identity = provider.identity
@@ -1345,13 +1517,7 @@ class DesktopApplication:
             _integer(values["source_version"], "source_version", minimum=1),
         )
         source_table = session.domain.resolve_source(source)
-        target = ContextObjectRef(
-            object_alias="active_target",
-            object_id=source.source_dataset_id,
-            object_version=source.source_version,
-            object_type="source_dataset",
-            content_hash=source.content_hash,
-        )
+        target, selected_objects, target_plot = self._agent_target(session, source, values)
         fields, alias_to_field = self._agent_fields(source, source_table.rows)
         sample_rows = tuple(
             AuthoritativeSampleRow(
@@ -1388,13 +1554,25 @@ class DesktopApplication:
                 dataset_content_hash=source.content_hash,
                 fields=fields,
                 sample_rows=sample_rows,
+                selected_objects=selected_objects,
                 explicit_field_aliases=tuple(alias_to_field),
             ),
-            conversation_state=ConversationState(current_target=target),
+            conversation_state=ConversationState(
+                current_target=target, selected_objects=selected_objects
+            ),
             chart_capabilities=ChartCapabilities(
-                capability_version="desktop-k01-v1",
-                allowed_chart_type_ids=("K01",),
-                allowed_action_types=("create_plot",),
+                capability_version="desktop-31-v1",
+                allowed_chart_type_ids=tuple(
+                    chart_id for chart_id in CONTRACT_CHARTS_BY_ID if chart_id != "K25"
+                ),
+                allowed_action_types=("create_plot", "patch_plot"),
+                allowed_patch_operations=(
+                    "set_axis_range",
+                    "set_axis_scale",
+                    "set_axis_label",
+                    "set_series_style",
+                    "set_canvas_size",
+                ),
             ),
             disclosure_grant=DisclosureGrant(
                 provider_type=identity.provider_type,
@@ -1406,12 +1584,24 @@ class DesktopApplication:
         )
         authority = ValidationAuthority(
             current_target=target,
-            allowed_target_aliases=frozenset({"active_target"}),
+            allowed_target_aliases=frozenset(
+                {"active_target", *(item.object_alias for item in selected_objects)}
+            ),
             allowed_field_aliases=frozenset(alias_to_field),
-            allowed_action_types=frozenset({"create_plot"}),
-            allowed_chart_type_ids=frozenset({"K01"}),
-            allowed_patch_operations=frozenset(),
-            permission_grants=frozenset({"create_plot"}),
+            allowed_action_types=frozenset({"create_plot", "patch_plot"}),
+            allowed_chart_type_ids=frozenset(
+                chart_id for chart_id in CONTRACT_CHARTS_BY_ID if chart_id != "K25"
+            ),
+            allowed_patch_operations=frozenset(
+                {
+                    "set_axis_range",
+                    "set_axis_scale",
+                    "set_axis_label",
+                    "set_series_style",
+                    "set_canvas_size",
+                }
+            ),
+            permission_grants=frozenset({"create_plot", "patch_plot"}),
         )
         orchestrator = SingleAgentOrchestrator(
             network_mode=mode,
@@ -1422,9 +1612,7 @@ class DesktopApplication:
         )
         result = asyncio.run(
             orchestrator.run(
-                client_model_run_id=_text(
-                    values["client_model_run_id"], "client_model_run_id"
-                ),
+                client_model_run_id=_text(values["client_model_run_id"], "client_model_run_id"),
                 context_request=context_request,
                 validation_authority=authority,
             )
@@ -1443,39 +1631,188 @@ class DesktopApplication:
             "decision": decision.model_dump(mode="json"),
         }
         if isinstance(decision, ActionPlan):
-            if len(decision.actions) != 1 or not isinstance(
-                decision.actions[0], CreatePlotAction
-            ):
+            executions: list[RpcJsonValue] = []
+            project_revision = expected
+            current_plot = target_plot
+            for index, action in enumerate(decision.actions):
+                if isinstance(action, CreatePlotAction):
+                    mapping = {
+                        selection.role: alias_to_field[selection.context_field_alias]
+                        for selection in action.field_selections
+                    }
+                    plot_id = (
+                        "plot:agent." + decision.plan_id.removeprefix("plan:") + f".{index + 1}"
+                    )
+                    execution = self._plots_create(
+                        context,
+                        cast(
+                            RpcJsonValue,
+                            {
+                                "project_id": session.project_id,
+                                "plot_id": plot_id,
+                                "chart_type_id": action.chart_type_id,
+                                "source_dataset_id": source.source_dataset_id,
+                                "source_version": source.source_version,
+                                "field_mapping": mapping,
+                                "idempotency_key": f"{decision.plan_id}:{action.action_id}",
+                                "expected_version": project_revision,
+                            },
+                        ),
+                        provenance_origin="agent_plan",
+                        plan_id=decision.plan_id,
+                    )
+                    execution_values = _object(
+                        execution, required={"project_version"}, optional=None
+                    )
+                    project_revision = _integer(
+                        execution_values["project_version"],
+                        "project_version",
+                        minimum=1,
+                    )
+                    current_plot = session.domain.get_plot(plot_id)
+                    executions.append(execution)
+                    continue
+                if isinstance(action, PatchPlotAction):
+                    if current_plot is None:
+                        raise RpcServiceError(
+                            "AGENT_ACTION_SCOPE_INVALID",
+                            "A patch action requires an active plot target.",
+                        )
+                    for patch_index, intent in enumerate(action.patches):
+                        patch = self._agent_patch_payload(current_plot, intent)
+                        execution = self._plots_patch(
+                            context,
+                            cast(
+                                RpcJsonValue,
+                                {
+                                    "project_id": session.project_id,
+                                    "plot_id": current_plot.plot.plot_id,
+                                    "expected_version": current_plot.plot.plot_version,
+                                    "idempotency_key": (
+                                        f"{decision.plan_id}:{action.action_id}:{patch_index}"
+                                    ),
+                                    "patch": patch,
+                                },
+                            ),
+                        )
+                        execution_values = _object(
+                            execution, required={"project_version"}, optional=None
+                        )
+                        project_revision = _integer(
+                            execution_values["project_version"],
+                            "project_version",
+                            minimum=1,
+                        )
+                        current_plot = session.domain.get_plot(current_plot.plot.plot_id)
+                        executions.append(execution)
+                    continue
                 raise RpcServiceError(
                     "AGENT_CAPABILITY_UNSUPPORTED",
-                    "The current desktop Agent slice executes one K01 create action.",
+                    "The Agent action is outside the enabled desktop surface.",
                 )
-            action = decision.actions[0]
-            mapping = {
-                selection.role: alias_to_field[selection.context_field_alias]
-                for selection in action.field_selections
-            }
-            plot_id = "plot:agent." + decision.plan_id.removeprefix("plan:")
-            execution = self._plots_create(
-                context,
-                cast(
-                    RpcJsonValue,
-                    {
-                        "project_id": session.project_id,
-                        "plot_id": plot_id,
-                        "chart_type_id": action.chart_type_id,
-                        "source_dataset_id": source.source_dataset_id,
-                        "source_version": source.source_version,
-                        "field_mapping": mapping,
-                        "idempotency_key": f"{decision.plan_id}:{action.action_id}",
-                        "expected_version": expected,
-                    },
-                ),
-                provenance_origin="agent_plan",
-                plan_id=decision.plan_id,
-            )
-            payload["execution"] = execution
+            payload["executions"] = executions
+            if len(executions) == 1:
+                payload["execution"] = executions[0]
         return payload
+
+    def _agent_target(
+        self,
+        session: ProjectSession,
+        source: SourceDataset,
+        values: Mapping[str, RpcJsonValue],
+    ) -> tuple[ContextObjectRef, tuple[ContextObjectRef, ...], StoredPlot | None]:
+        target_value = values.get("target")
+        if target_value is None:
+            return (
+                ContextObjectRef(
+                    object_alias="active_target",
+                    object_id=source.source_dataset_id,
+                    object_version=source.source_version,
+                    object_type="source_dataset",
+                    content_hash=source.content_hash,
+                ),
+                (),
+                None,
+            )
+        target_input = _object(target_value, required={"kind", "id"})
+        kind = _text(target_input["kind"], "target.kind")
+        if kind != "plot":
+            raise RpcServiceError(
+                "AGENT_CAPABILITY_UNSUPPORTED",
+                "Natural-language editing currently targets a plot.",
+            )
+        stored = session.domain.get_plot(_text(target_input["id"], "target.id"))
+        target = ContextObjectRef(
+            object_alias="active_target",
+            object_id=stored.plot.plot_id,
+            object_version=stored.plot.plot_version,
+            object_type="plot",
+            content_hash=stored.content_hash,
+        )
+        aliases = (
+            ContextObjectRef(
+                object_alias="x_axis",
+                object_id=stored.plot.plot_id,
+                object_version=stored.plot.plot_version,
+                object_type="plot",
+                content_hash=stored.content_hash,
+            ),
+            ContextObjectRef(
+                object_alias="y_axis",
+                object_id=stored.plot.plot_id,
+                object_version=stored.plot.plot_version,
+                object_type="plot",
+                content_hash=stored.content_hash,
+            ),
+            ContextObjectRef(
+                object_alias="series_1",
+                object_id=stored.plot.plot_id,
+                object_version=stored.plot.plot_version,
+                object_type="plot",
+                content_hash=stored.content_hash,
+            ),
+        )
+        return target, aliases, stored
+
+    @staticmethod
+    def _agent_patch_payload(previous: StoredPlot, intent: Any) -> RpcJsonValue:
+        target_by_alias = {
+            "x_axis": "axis:x",
+            "y_axis": "axis:y",
+            "series_1": previous.plot.series[0].series_id,
+        }
+        target_id = target_by_alias.get(intent.target_alias)
+        if isinstance(intent, CanvasSizeIntent):
+            target_id = previous.plot.plot_id
+        if target_id is None:
+            raise RpcServiceError(
+                "AGENT_ACTION_SCOPE_INVALID", "The patch target alias is not editable."
+            )
+        common: dict[str, RpcJsonValue] = {
+            "operation": intent.operation,
+            "target_id": target_id,
+            "expected_plot_version": previous.plot.plot_version,
+        }
+        if isinstance(intent, AxisRangeIntent):
+            common.update({"minimum": intent.minimum, "maximum": intent.maximum})
+        elif isinstance(intent, AxisScaleIntent):
+            common["scale"] = intent.scale
+        elif isinstance(intent, AxisLabelIntent):
+            common["label"] = {"nodes": [{"kind": "plain", "text": intent.label}]}
+        elif isinstance(intent, SeriesStyleIntent):
+            if intent.color is not None:
+                common["color"] = cast(RpcJsonValue, intent.color.model_dump(mode="json"))
+            if intent.line_width_pt is not None:
+                common["line_width"] = {"value": intent.line_width_pt, "unit": "pt"}
+            if intent.marker_size_pt is not None:
+                common["marker_size"] = {"value": intent.marker_size_pt, "unit": "pt"}
+        elif isinstance(intent, CanvasSizeIntent):
+            common["physical_size"] = intent.physical_size.model_dump(mode="json")
+        else:
+            raise RpcServiceError(
+                "PATCH_OPERATION_UNSUPPORTED", "The Agent patch operation is not enabled."
+            )
+        return cast(RpcJsonValue, common)
 
     def _compile_plot_bundle(
         self,
@@ -1545,9 +1882,8 @@ class DesktopApplication:
                         source_dataset_ref=source_ref,
                     ),
                 )
-                for role in registration.required_roles + tuple(
-                    role for role in registration.optional_roles if role in bindings
-                )
+                for role in registration.required_roles
+                + tuple(role for role in registration.optional_roles if role in bindings)
             ),
             content_hash=canonical_hash(mapping_payload),
         )
@@ -1631,9 +1967,7 @@ class DesktopApplication:
             )
             data_store[calculation_ref.content_hash] = calculation_table
         if precomputed_ref is not None:
-            data_store[precomputed_ref.data_ref_hash] = RenderTable.from_columns(
-                prepared_columns
-            )
+            data_store[precomputed_ref.data_ref_hash] = RenderTable.from_columns(prepared_columns)
 
         for index, geometry in enumerate(registration.geometries):
             rule = get_series_rule(cast(Any, chart_type_id), geometry)
@@ -1658,18 +1992,17 @@ class DesktopApplication:
                 )
             elif "prepared" in rule.data_kinds:
                 roles = _matching_roles(rule.role_signatures, bindings)
-                if chart_type_id == "K06" and roles is None:
+                if chart_type_id == "K06" and geometry == "symbol" and roles is None:
                     roles = ("x", "center")
-                    prepared_columns["field:plotagent.row_index"] = tuple(
-                        range(len(prepared.rows))
-                    )
+                    prepared_columns["field:plotagent.row_index"] = tuple(range(len(prepared.rows)))
                     data_store[prepared_ref.content_hash] = RenderTable.from_columns(
                         prepared_columns
                     )
                 if roles is None:
                     continue
                 role_fields = tuple(
-                    "field:plotagent.row_index" if role == "x" and role not in bindings
+                    "field:plotagent.row_index"
+                    if role == "x" and role not in bindings
                     else bindings[role]
                     for role in roles
                 )
@@ -1693,6 +2026,7 @@ class DesktopApplication:
             )
 
         x_label, y_label = _axis_labels(registration.required_roles, bindings, fields)
+        x_scale_kind, y_scale_kind = _axis_scale_kinds(chart_type_id, bindings, fields)
         plot = PlotSpec(
             plot_id=plot_id,
             plot_version=1,
@@ -1702,8 +2036,8 @@ class DesktopApplication:
             precomputed_data_refs=(() if precomputed_ref is None else (precomputed_ref,)),
             plot_calculation_refs=(() if calculation_ref is None else (calculation_ref,)),
             scales=(
-                ScaleSpec(scale_id="scale:x", kind="linear"),
-                ScaleSpec(scale_id="scale:y", kind="linear"),
+                ScaleSpec(scale_id="scale:x", kind=x_scale_kind),
+                ScaleSpec(scale_id="scale:y", kind=y_scale_kind),
             ),
             axes=(
                 AxisSpec(
@@ -1878,11 +2212,13 @@ class DesktopApplication:
         *,
         quality_tier: Literal["interactive", "formal"] = "formal",
     ) -> ResolvedPlot:
-        columns = session.domain.prepared_table(stored.prepared_dataset)
-        table = RenderTable.from_columns(columns)
+        tables = {
+            binding_hash: RenderTable.from_columns(columns)
+            for binding_hash, columns in session.domain.render_tables(stored).items()
+        }
         return PlotResolver().resolve(
             stored.plot,
-            RenderDataStore({stored.prepared_dataset.output_hash: table}),
+            RenderDataStore(tables),
             quality_tier=quality_tier,
         )
 
@@ -2226,9 +2562,7 @@ class _SessionBatchRepository:
 
     def add_task(self, task: BatchTaskRecord) -> None:
         self.tasks[task.request.task_id] = task
-        self.keys[(task.request.project_id, task.request.idempotency_key)] = (
-            task.request.task_id
-        )
+        self.keys[(task.request.project_id, task.request.idempotency_key)] = task.request.task_id
 
     def get_task(self, task_id: str) -> BatchTaskRecord:
         return self.tasks[task_id]
@@ -2236,9 +2570,7 @@ class _SessionBatchRepository:
     def save_task(self, task: BatchTaskRecord) -> None:
         self.tasks[task.request.task_id] = task
 
-    def commit_item(
-        self, key: OutputKey, item_id: str, staged: StagedPlot
-    ) -> PlotSpecRef:
+    def commit_item(self, key: OutputKey, item_id: str, staged: StagedPlot) -> PlotSpecRef:
         existing = self.item_outputs.get(key)
         if existing is not None:
             return existing
@@ -2251,9 +2583,7 @@ class _SessionBatchRepository:
             plot,
             _resolved,
             render_artifacts,
-        ) = self.executor.bundle(
-            staged.staging_id
-        )
+        ) = self.executor.bundle(staged.staging_id)
         request_hash = canonical_hash(
             cast(
                 JsonValue,
@@ -2344,8 +2674,7 @@ class _SessionBatchExecutor:
         )
         table = self.session.domain.resolve_source(source)
         plot_id = (
-            f"plot:{self.batch_id.removeprefix('batch:')}."
-            f"{item.item_id.removeprefix('item.')}"
+            f"plot:{self.batch_id.removeprefix('batch:')}.{item.item_id.removeprefix('item.')}"
         )
         bundle = self.application._compile_plot_bundle(
             plot_id,
@@ -2469,6 +2798,23 @@ def _plot_family(family: str, geometries: tuple[str, ...]) -> Any:
     return families[family](geometry=unique)
 
 
+def _axis_scale_kinds(
+    chart_type_id: str, bindings: Mapping[str, str], fields: Mapping[str, Any]
+) -> tuple[AxisScaleKind, AxisScaleKind]:
+    if chart_type_id in {"K08", "K09", "K10", "K11", "K12", "K13", "K14"}:
+        return "categorical", "linear"
+    if chart_type_id in {"K20", "K21", "S61"}:
+        return "categorical", "categorical"
+    if chart_type_id == "S21":
+        return "linear", "categorical"
+    if chart_type_id == "S05":
+        return "log10", "linear"
+    if chart_type_id == "K19":
+        time_field = fields[bindings["time"]]
+        return ("datetime" if time_field.logical_type == "datetime" else "linear"), "linear"
+    return "linear", "linear"
+
+
 def _matching_roles(
     signatures: tuple[tuple[str, ...], ...], bindings: Mapping[str, str]
 ) -> tuple[str, ...] | None:
@@ -2480,7 +2826,7 @@ _CALCULATED_FIELDS: dict[str, dict[str, str]] = {
     "K11": {
         "category": "__binding_category__",
         "component": "__binding_component__",
-        "value": "field:plotcalc.percent",
+        "value": "field:plotcalc.proportion",
     },
     "K13": {
         "group": "field:plotcalc.group",
@@ -2556,8 +2902,7 @@ def _calculation_columns(
         record_index = field_ids.index("field:plotcalc.record_kind")
         rows = tuple(row for row in rows if row[record_index] == "summary")
     columns: dict[str, tuple[object, ...]] = {
-        field_id: tuple(row[index] for row in rows)
-        for index, field_id in enumerate(field_ids)
+        field_id: tuple(row[index] for row in rows) for index, field_id in enumerate(field_ids)
     }
     return columns
 
@@ -2663,9 +3008,7 @@ def _integer(value: RpcJsonValue | None, name: str, *, minimum: int) -> int:
     return value
 
 
-def _optional_integer(
-    value: RpcJsonValue | None, name: str, *, minimum: int
-) -> int | None:
+def _optional_integer(value: RpcJsonValue | None, name: str, *, minimum: int) -> int | None:
     return None if value is None else _integer(value, name, minimum=minimum)
 
 

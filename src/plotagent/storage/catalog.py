@@ -230,3 +230,27 @@ class Catalog:
             created_at=str(row[3]),
             last_opened_at=str(row[4]),
         )
+
+    def get_setting(self, key: str) -> str | None:
+        """Return one application-scoped JSON setting without interpreting it."""
+
+        connection = self._connection_for_write()
+        row = connection.execute("SELECT value_json FROM settings WHERE key = ?", (key,)).fetchone()
+        return None if row is None else str(row[0])
+
+    def set_setting(self, key: str, value_json: str) -> None:
+        """Atomically replace one application-scoped JSON setting."""
+
+        connection = self._connection_for_write()
+        connection.execute(
+            """
+            INSERT INTO settings(key, value_json) VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json
+            """,
+            (key, value_json),
+        )
+
+    def delete_setting(self, key: str) -> None:
+        """Remove one application-scoped setting if it exists."""
+
+        self._connection_for_write().execute("DELETE FROM settings WHERE key = ?", (key,))
