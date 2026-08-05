@@ -3,7 +3,7 @@
 > 状态：第一轮存储与导入基线已确认  
 > 日期：2026-08-05  
 > 适用范围：本机事务工作区、SQLite、内容寻址对象存储、`.plotproj`、数据导入、完全同构判断与单轮字段映射  
-> 相关文档：[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 核心结论
 
@@ -216,14 +216,15 @@ project.plotproj
 - `.plotproj` 不在网络共享中直接打开或持续写入；需要使用时先复制到本地，再导入为本机工作副本。
 - 项目包中的 SQLite 快照不包含 WAL 状态；导入完成后由本机工作区按当前受控版本重新启用 WAL。
 
-相关实现必须覆盖：单写入器、进程崩溃、幂等重试、Online Backup、包校验、版本不兼容和网络路径拒绝测试。
+相关实现必须覆盖：单写入器、进程崩溃、幂等重试、项目包Online Backup、包校验、版本不兼容稳定拒绝和网络路径拒绝测试。
 
-## 9. 安全导入、迁移与恢复备份
+## 9. 安全导入与 Beta Schema 兼容
 
 - 活动 workspace 只允许本机固定磁盘；外部 `.plotproj` 始终先进入当前用户 ACL 的随机 temp workspace。
 - 解包前和流式解包中校验 manifest/hash、entry count、单文件/总 expanded size 与压缩比；拒绝 absolute/`..`/重复规范化路径、link/junction/reparse/special entry 和 archive bomb。
 - Excel 宏/VBA/外链/公式不执行或刷新；只导入已有缓存公式值并记录 provenance，无缓存结果为 missing/NeedsInput。所有文本只作 data。
 - 每任务 temp 独立并在 success/failure/cancel/startup recovery 清理；普通删除为 best effort，不承诺 secure erase。
-- Migration 只在 Online Backup 后的新 temp workspace 按 N→N+1 执行；对象/引用/hash/DAG/current pointer 与科学/视觉语义全部验证后原子切换。
-- 每项目每日最多一次 SQLite Online Backup、保留最近三份；恢复创建新候选并保存 RecoveryRecord，不覆盖当前 workspace。
-- 完整边界、领域对象、稳定错误和故障注入见 [本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
+- 不兼容 schema 默认返回 `SCHEMA_VERSION_UNSUPPORTED` 并保持原项目不变；第一轮不建设通用 N→N+1 migration framework。
+- 确需升级时只为明确 source→target 版本对实现一次性迁移：用 SQLite Online Backup 创建一致输入，在新 temp workspace 验证对象/引用/hash/DAG/current pointer 与科学/视觉语义后原子切换。
+- 第一轮无每日自动 Online Backup、最近三份保留、恢复分支或恢复 UI。用户主动导出的 `.plotproj` 是可搬运快照，仍按第4节使用 Online Backup 创建一致数据库快照。
+- 完整边界、领域对象、稳定错误和故障注入见 [本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。

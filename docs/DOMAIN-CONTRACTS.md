@@ -3,7 +3,7 @@
 > 状态：第一轮契约基线已确认  
 > 日期：2026-08-05  
 > 适用范围：DatasetVersion、TransformSpec、PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及其跨进程 Schema  
-> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 契约原则
 
@@ -369,30 +369,29 @@ validation: info | warning | blocked
 
 ## 10. 云控制面协议对象
 
-- `InviteGrant` 拥有 status、expiry、quota policy、allowed profiles 与 release channel；设备只通过随机 ID 和最小 scope token 引用 grant。
-- `QuotaSnapshot` 字段固定为 period start/end、granted、reserved、consumed、remaining、reset/server time。
-- `ModelRunLedger` 以 `(invite_id, client_run_id)` 唯一，状态覆盖 reserve、upstream usage、settle、release 与 cancel；幂等冲突必须阻止。
-- `CloudConfig` 与 `UpdateManifest` 都是版本化、签名、拒绝 extra field 的严格结构；远程配置不能承载 PlotSpec、分析或渲染默认值。
-- Redeem、refresh、quota、reserve/settle/cancel、config/update 使用统一 Request/ResponseEnvelope 与稳定错误，不把供应商部署细节写进领域 Schema。
-- 完整字段、状态机与测试矩阵见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
+- `InviteGrant` 拥有 status、expiry、quota policy、granted/consumed 与 allowed profiles；设备只通过随机 ID 和长期 DeviceCredential 引用 grant。
+- `QuotaSnapshot` 固定为 granted、consumed、remaining、可选 period/reset 与 server time，不含 reserved。
+- `ModelRunRecord` 以 `(invite_id, client_run_id)` 唯一，状态仅覆盖 accepted、invoking、completed、failed、cancelled；同一 ID 的重试返回同一记录，不能再次调用或扣费。
+- Beta 在一个服务端事务中插入幂等记录并原子扣减 InviteGrant 共享计数；不定义 reserve/settle/reconcile/release-unused 状态。
+- 第一轮无 `CloudConfig`、`UpdateManifest`、refresh rotation、analytics 或诊断上传 Schema。Redeem、credential-authenticated invoke、quota status 使用严格 Request/ResponseEnvelope 与稳定错误。
+- 完整字段、简单状态与测试矩阵见 [邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)。
 
 ## 11. 本地安全与生命周期对象
 
-- `NetworkMode` 是 `builtin_proxy | custom_provider | local_only` 的严格持久联合；它是本机服务模式而非项目字段或启动工作入口。`OneTimeUpdateGrant` 是不持久化的 transient capability，生效时 effective policy 为 `update_only`，终止即恢复 local_only。
-- `DiagnosticBundleManifest` 逐文件保存 logical name、schema ID、size/hash 与确认时间；未知/禁止字段阻止生成。
-- `MigrationPlan/Step/Record` 固定源/目标 schema、逐步实现版本、backup/hash、validation 与 semantic hashes。
-- `BackupRecord/RecoveryRecord` 固定来源、schema、snapshot/CAS set hash、验证、状态、时间与原因；恢复不覆盖当前对象。
-- `TempCleanupState`、`BackupState` 与 `RecoveryState` 是封闭状态机；日志/analytics event 使用 allowlist schema。
-- 完整字段、retention、稳定错误和安全测试见 [本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
+- `NetworkMode` 是 `builtin_proxy | custom_provider | local_only` 的严格持久联合；它是本机服务模式而非项目字段或启动工作入口。第一轮没有 `OneTimeUpdateGrant` 或 `update_only`。
+- `LocalDiagnosticBundleManifest` 逐文件保存 logical name、purpose、size/hash 与禁止字段扫描结果；Bundle 只保存到本地，未知/禁止字段阻止生成。
+- `KnownVersionMigrationRecord` 只描述一个明确 source→target 版本对、专用实现版本、source snapshot、validation/semantic hash 与状态；它不是通用 MigrationPlan。
+- 第一轮不定义 `BackupRecord`、`RecoveryRecord`、`BackupState`、`RecoveryState` 或 analytics event；`TempCleanupState` 保持封闭且不能发布临时对象。
+- 完整字段、稳定错误和安全测试见 [本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
 
 ## 12. Schema 发布与兼容
 
 - 每个发布版本输出 `schemas/` 包，包含 PlotSpec、PatchTransaction、ActionPlan、RPC 和事件 Schema。
 - Schema 使用固定 `$id` 和 Draft 2020-12 `$schema`。
 - TypeScript 类型由发布 Schema 生成，并在 CI 中检查工作区无未生成差异。
-- 读取旧 Schema 时先执行显式迁移，再进入当前 Pydantic 模型。
-- 迁移不得静默改变图形类型、数据版本、统计方法、单位或视觉结果。
-- 未知新版本返回“需要升级应用”，不能以忽略字段的方式继续写入。
+- 不兼容 Schema 默认返回 `SCHEMA_VERSION_UNSUPPORTED`，不能以忽略字段方式继续写入。
+- 只有当前 build 明确实现的 source→target 版本对可在一致快照和新 temp workspace 中执行一次性迁移；迁移不得静默改变图形类型、数据版本、统计方法、单位或视觉结果。
+- 未知新版本和没有专用迁移的旧版本都保持原项目不变，并提示使用兼容 build。
 
 ## 13. 第一轮契约测试
 
@@ -409,6 +408,6 @@ validation: info | warning | blocked
 - OriginExportPlan、O1 准入、最小自包含数据、两阶段读回、整文件原子性和稳定错误。
 - BatchSpec 完全同构签名。
 - FigureSpec 固定版本引用。
-- 旧 Schema 迁移与未知新版本拒绝。
-- InviteGrant/DeviceCredential、QuotaSnapshot、ModelRun reserve/settle 幂等、签名 config/update envelope 与稳定错误。
-- NetworkMode/local_only、DiagnosticBundle、MigrationPlan/Record、Backup/RecoveryRecord、cleanup/retention 状态与禁止字段。
+- 已知 source→target 一次性迁移原子性/语义不变与其他 Schema 稳定拒绝。
+- InviteGrant/DeviceCredential、QuotaSnapshot、ModelRun原子共享计数/client_run幂等与稳定错误。
+- NetworkMode/strict local_only、LocalDiagnosticBundle、KnownVersionMigrationRecord、temp cleanup 与禁止字段。

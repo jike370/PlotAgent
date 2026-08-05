@@ -1,6 +1,6 @@
 # PlotAgent 已确认产品决策基线
 
-> 状态：v1 implementation-ready design baseline；产品/跨模块契约已冻结，真实功能与 release qualification 尚未完成
+> 状态：v1 专业能力范围完整、工程成熟度面向小规模邀请制 Beta；真实功能与 Beta qualification 尚未完成
 > 产品代号：PlotAgent  
 > 基线日期：2026-08-05  
 > 适用关系：本文件记录全部已确认细节；[PRD](./PRD.md) 将其组织为可实施需求；[DESIGN](../DESIGN.md) 约束视觉与交互表达。三者发生冲突时，应先记录新的用户确认，再同时更新相关文件，不得由实现自行改变产品边界。
@@ -141,13 +141,13 @@
 - **PD-J07 原始数据本地。** 云端控制面不保存原始数据、项目、图表或完整对话历史。
 - **PD-J08 local_only。** `NetworkMode=local_only` 零远程出站；导入、手动 ActionPlan、字段映射、变换/分析/拟合、绘图/批量/组合和 PNG/SVG/OPJU 均本地可用。localhost 模型属于 custom provider，不属于 local_only。
 - **PD-J09 自定义模型。** 用户可以配置 OpenAI-compatible base URL、model ID 与可选 API key；非 loopback 强制 HTTPS，连接测试只用合成内容，凭据只存 Windows Credential Manager。
-- **PD-J10 分析与诊断。** 匿名 usage analytics 默认关闭且只用预定义无 free-text schema；DiagnosticBundle 每次由用户主动生成、逐文件与 exact JSON 预览后发送。两者禁止数据、prompt、文件名、路径、列名、值与 secret，local_only 强制零发送。
+- **PD-J10 分析与诊断。** 第一轮不实现usage analytics；DiagnosticBundle每次由用户主动生成、逐文件与exact JSON预览后只保存本地，由用户自行发送。Bundle禁止数据、prompt、文件名、路径、列名、值与secret，local_only始终零出站。
 
 ## K. Origin 与文件导出
 
 - **PD-K01 正式格式。** 正式导出只提供 PNG、SVG 和 OPJU；不提供 PDF、EPS、EMF 等正式导出入口。
 - **PD-K02 快速复制。** 剪贴板 PNG/SVG 可作为快捷操作，但不生成正式导出记录。
-- **PD-K03 OPJU 技术路径。** Windows 本地通过 `originpro` 与 Origin COM 自动化生成 `.opju`；Origin 2021 是最低技术基线，但只声明当前 release manifest 中已完成完整 qualification 的明确版本范围。
+- **PD-K03 OPJU 技术路径。** Windows 本地通过 `originpro` 与 Origin COM 自动化生成 `.opju`；每个 Beta build 只声明一个完成完整 qualification 的 Origin exact version/build/bitness，其他版本全部 unsupported。
 - **PD-K04 能力等级。** O1 为 full native semantic parity；O2 为原生 linked/editable 但有已声明非关键差异；O3 为 embedded/unlinked；O0 为 unavailable。第一轮 31 项必须 O1，O2 只为未来能力保留。
 - **PD-K05 三格式验证。** 正式图形必须完成 PNG、SVG、OPJU 验证；OPJU 在构建实例 live validation 后由新的空白受控实例重新打开并读回数据、链接、图层、轴/ticks、图例、page/style 和 missing 语义。
 - **PD-K06 独立 Origin 实例。** 不连接用户当前打开的 Origin，不使用 `op.attach()`；从空白项目启动专用受控实例。
@@ -156,7 +156,7 @@
 - **PD-K09 单图内容。** OPJU 只包含目标图直接使用的数据/分析端口、原生图层/轴/ticks/图例/标注和 manifest，不复制无关列、对话、secret 或路径。
 - **PD-K10 批次内容。** Selected/batch 在一个 OPJU 中包含多个 graph 并去重共享 Data/Analysis；固定 Data/Analysis/Graphs/Metadata folders，一个目标失败使整文件失败。
 - **PD-K11 打开与外部修改。** 导出完成后只有用户明确点击才在 Origin 打开；外部编辑不回写；同路径覆盖前比较 hash/size/mtime，变化时要求确认或 Save As。
-- **PD-K12 环境检测。** 启动只做轻量检测；正式 preflight 检查 Origin≥2021 且属于当前 adapter/release 已 qualification 的明确范围，以及 license、bitness、originpro、字体、签名 template、adapter、目录和文件锁；未验证版本返回 VERSION_UNSUPPORTED。
+- **PD-K12 环境检测。** 启动只做轻量检测；正式 preflight 检查 Origin 精确命中当前 Beta build 声明，以及 license、bitness、originpro、字体、签名 template、adapter、目录和文件锁；其他版本返回 VERSION_UNSUPPORTED。
 - **PD-K13 降级。** Origin 不可用时只禁用 OPJU，PNG、SVG、项目和其他本地能力继续可用。
 - **PD-K14 不导入 OPJU。** 第一轮只导出，不反向导入或同步现有 `.opju`。
 
@@ -167,7 +167,7 @@
 - **PD-L03 邀请制无账号。** 邀请码只授权内置模型服务，不是使用本地应用的前置激活；不要求注册账号、邮箱、密码、个人资料或云端找回。
 - **PD-L04 不限设备。** 同一 InviteGrant 可在不限数量设备兑换；额度归 InviteGrant 并由所有设备共享，设备只承担鉴权及设备级并发/短时限流，重装或增加设备不能获得新额度。
 - **PD-L05 撤销邀请码不破坏本地能力。** 邀请码被撤销后可停止云端模型额度，但不能锁定本地项目或禁用本地绘图与导出。
-- **PD-L06 最小云端。** 云端只负责邀请兑换/令牌刷新、内置模型 proxy、共享额度/限流/幂等账本、签名配置与更新清单，以及用户主动提交的诊断；不保存项目或执行远程科研计算。
+- **PD-L06 最小云端。** Beta云端只负责邀请兑换/长期设备凭据校验、内置模型proxy、InviteGrant原子共享计数和client_run幂等；不提供CloudConfig、更新、analytics或诊断上传，不保存项目或执行远程科研计算。
 - **PD-L07 本地权限。** 第一轮不做应用级项目加密，依赖 Windows account ACL 并建议敏感用户启用 BitLocker；凭据只进 Credential Manager。每任务临时目录使用当前用户 ACL 并清理，但不承诺 secure erase。
 - **PD-L08 后续加密。** 后续可评估密码加密 `.plotproj`；无账号体系意味着不提供云端找回密码。
 - **PD-L09 本地缓存。** 缓存键包含内容哈希、绘图规格、渲染器和主题版本；支持增量失效并可由用户清除。
@@ -278,7 +278,7 @@
 - **PD-R02 NeedsInput 不建任务。** NeedsInput 结束当前 InteractionRun，只在来源对话询问必要信息，不进入任务中心或后台任务计数。
 - **PD-R03 任务状态机。** ExecutionTask 主链为 `queued → preparing → running → committing → succeeded`，并支持 `cancelling`、`cancelled`、`failed`、`partially_succeeded` 和 `interrupted`。
 - **PD-R04 提交不可取消。** `committing` 必须短暂且不可取消，防止 SQLite 或文件停在半提交状态。
-- **PD-R05 第一轮无暂停。** 第一轮不提供任务暂停或继续；失败或中断任务只能由用户明确重跑或进入恢复流程。
+- **PD-R05 第一轮无暂停/续跑。** 第一轮不提供任务暂停、继续或正式任务自动续跑；失败或中断后完成状态检查/temp清理，由用户明确重跑。
 - **PD-R06 三通道。** Python Core 使用控制/SQLite 单写入通道、隔离计算通道和严格串行的 Origin 通道。
 - **PD-R07 计算并发。** 计算通道默认最多 2 个隔离工作进程，检测到内存压力时新的并发下降为 1。
 - **PD-R08 预览调度。** 交互预览高优先级；同一图的新预览可以 supersede 尚未开始的旧预览，不静默终止已开始任务。
@@ -290,12 +290,12 @@
 - **PD-R14 Origin 取消。** Origin 无响应时终止并重建 PlotAgent 管理的 Worker 与受控实例，不影响 Core 或用户自己打开的 Origin。
 - **PD-R15 固定输入与冲突。** 每个任务固定输入版本并携带 expected version；冲突不静默覆盖，由用户选择旧版本分支或基于最新版本重跑。
 - **PD-R16 引用与幂等。** 活跃任务引用的数据和对象禁止删除；每个输出使用 `(task_id, action_id, output_slot)` 幂等键。
-- **PD-R17 预写与恢复点。** 任务入队前持久化输入、计划、阶段、尝试和暂存目录，只在阶段边界写恢复点。
-- **PD-R18 Core 崩溃恢复。** Electron 监督 Core 心跳；遗留任务标为 interrupted，正式任务不自动重试，无副作用预览和缓存可重建；崩溃循环时停止自动重启并展示恢复入口。
+- **PD-R17 预写与阶段记录。** 任务入队前持久化输入、计划、阶段、尝试和暂存目录，只在阶段边界写记录，用于确认原子提交、清理temp和解释失败，不承诺续跑内部算法状态。
+- **PD-R18 Core 崩溃处理。** Electron监督Core心跳；遗留任务标为interrupted，检查项目权威状态未损坏并清理temp，正式任务不自动续跑/重试，由用户明确重试；无副作用preview/cache可重建，崩溃循环时停止自动重启。
 - **PD-R19 进度与入口。** 进度使用真实文件、行、图或字节单位；任务卡留在来源对话，项目标题显示全局后台任务数，第一轮无 Windows 通知。
 - **PD-R20 关闭应用。** 有活动任务时关闭应用只提供“等待完成”“取消并退出”“返回”；取消并退出必须等待不可取消提交阶段结束。
 
-完整状态、调度、提交、取消和恢复契约见 [任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)。
+完整状态、调度、提交、取消、崩溃完整性与明确重试契约见 [任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)。
 
 ## S. 分析计算层与科学边界
 
@@ -407,10 +407,10 @@
 - **PD-W06 Manifest。** Manifest 保存 PlotAgent↔Origin object map、所有 version/hash、chart/style/profile、adapter/template/originpro/Origin version、export time、capability 与 O2 known differences。
 - **PD-W07 能力定义。** O1 为 full native semantic parity；O2 为 native linked/editable with declared noncritical differences；O3 为 visual embedded/unlinked；O0 为 unavailable。
 - **PD-W08 第一轮 O1。** 第一轮 31 项正式图形全部要求 O1 才开放 OPJU；未来高级图形可经产品准入使用 O2 并预先披露，不允许运行时降级。
-- **PD-W09 OriginAdapter。** 版本化 adapter 固定 chart type、Origin range、template hash、capability、data layout、typed property map、validation 与 differences。
+- **PD-W09 OriginAdapter。** 版本化adapter固定chart type、当前Beta build唯一Origin exact version/build/bitness、template hash、capability、data layout、typed property map、validation与differences；架构可在后续build增加新exact version记录。
 - **PD-W10 Typed Plan。** Adapter 只接收本地生成的 typed OriginExportPlan，并只用 `originpro`/Python 类型化固定映射；模型、数据和应用均不得注入或执行 LabTalk/Python/property/path string。
 - **PD-W11 Template 安全。** 官方 template 签名并版本化，任务只复制所需文件到隔离临时目录，不读取或修改用户全局 templates。
-- **PD-W12 Preflight。** 正式导出检查 Origin≥2021 且命中明确 qualification range，并检查 license、bitness、originpro、font、template、adapter、target directory 和 file lock；不能用“2021+”覆盖未测版本。
+- **PD-W12 Preflight。** 正式导出检查Origin精确命中当前Beta build唯一qualification声明，并检查license、bitness、originpro、font、template、adapter、target directory和file lock；其他版本全部`VERSION_UNSUPPORTED`。
 - **PD-W13 实例隔离。** 构建与 reopen 各用新的 dedicated blank managed instance，永不 `op.attach()`，也不触碰或终止用户 Origin。
 - **PD-W14 Live 验证。** 构建实例验证 folders/books/sheets/matrix/rows/columns/designations/Units/pages/layers/plots/data links/axes/ticks/legend/page/style 与数值/missing 语义。
 - **PD-W15 Fresh reopen。** 临时 OPJU 保存后退出构建实例，由新实例打开并重新枚举读回全部关键对象、链接、值与无 external links。
@@ -447,36 +447,36 @@
 
 完整上下文、供应商、出境、审计、保留与故障注入契约见 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)。
 
-## Y. 邀请、共享额度、最小云控制面与软件更新
+## Y. 邀请、共享额度与最小 Beta 云控制面
 
-- **PD-Y01 InviteGrant 归属。** 邀请码对应可撤销、可过期的 InviteGrant；服务端只存高熵 secret 的版本化 hash，grant 固定 quota policy、允许 model profiles、release channel 与时间戳。
+- **PD-Y01 InviteGrant 归属。** 邀请码对应可撤销、可过期的 InviteGrant；服务端只存高熵 secret 的版本化 hash，grant 固定 quota policy、允许 model profiles 与时间戳，不承担应用更新分发。
 - **PD-Y02 不限设备共享额度。** 同一有效邀请码可重复兑换且不限制设备数；所有设备共享 InviteGrant 总额度，设备不获得安装级赠送额度。
 - **PD-Y03 无硬件指纹。** 客户端生成随机 installation ID，不采集硬盘序列号、MAC、Windows 用户名、主机名或其他硬件身份；服务端设备记录不得反推出硬件身份。
-- **PD-Y04 设备令牌。** 兑换返回默认 15 分钟 access token 与长期 refresh token；refresh token/设备凭据只进 Credential Manager，邀请码成功后不在本地持久化，丢失凭据用原邀请码重兑。
-- **PD-Y05 最小 scope。** Token 只授权 invitation status、model proxy、quota 与 config；不得读取项目/文件。401 区分 token expired、invite revoked/expired 与 device blocked。
+- **PD-Y04 设备凭据。** 邀请码兑换返回长期 DeviceCredential；凭据只进 Windows Credential Manager，邀请码成功后不在本地持久化。第一轮不实现短期 access token、refresh rotation 或找回流程，凭据丢失用原邀请码重新兑换。
+- **PD-Y05 最小 scope。** DeviceCredential 只授权 invitation status、built-in model proxy 与共享 quota counter；不得读取项目/文件。401 区分 credential invalid、invite revoked/expired 与 device blocked。
 - **PD-Y06 撤销边界。** 管理端可撤销整个 InviteGrant 或封禁单个 device；两者只影响内置 Agent，不锁定项目、自定义 provider 或本地绘图/分析/导出。
-- **PD-Y07 额度幂等键。** 每次用户模型请求使用唯一 client_run_id/Idempotency-Key；`(invite_id, client_run_id)` 唯一，重试、超时和重启不得重复 reserve、调用或扣费。
-- **PD-Y08 Reserve/settle。** 请求前 reserve，供应商完成后按实际 input/output/repair usage settle 并释放 unused；上游已消费而 schema/业务校验失败仍按实际记账，UI 按一次用户任务汇总。
-- **PD-Y09 QuotaSnapshot。** 固定字段为 period_start/end、granted、reserved、consumed、remaining、reset_at、server_time；具体额度、周期和限流数字属于版本化服务策略。
+- **PD-Y07 额度幂等键。** 每次用户模型请求使用唯一 `client_run_id`/Idempotency-Key；`(invite_id, client_run_id)` 唯一，服务端原子记录请求结果与扣减，重试、超时和重启不得重复调用或重复扣费。
+- **PD-Y08 原子共享计数。** 第一轮用 InviteGrant 级服务端原子共享计数完成检查与扣减，不实现 reserve/settle/reconcile、unused release 或复杂恢复状态机；供应商已实际处理的首次请求按该次 Beta quota unit 计一次，schema/业务校验失败不触发第二次扣减。
+- **PD-Y09 QuotaSnapshot。** Beta 固定展示 granted、consumed、remaining、period/reset（如适用）与 server_time；不含 reserved。具体额度、周期和设备级速率属于服务策略。
 - **PD-Y10 限流与耗尽。** 每设备可有并发/短时速率限制且 429 返回 retry_after；额度耗尽只禁用内置 Agent并提供自定义 provider，本地能力不受影响。
-- **PD-Y11 最小云边界。** 云端只有兑换/refresh、模型 proxy、额度/限流/幂等 ledger、签名 config/update manifest 和主动诊断；不增加账号、同步、原始文件存储、远程科研计算或远程 Origin。
-- **PD-Y12 Proxy 日志。** Proxy 不记录 prompt、request/response body 或原始数据；只记录 run、invite/device 伪名、profile/config、usage、latency、稳定错误、时间和幂等/额度状态。
-- **PD-Y13 Lazy 云连接。** 应用启动不依赖控制面，不强制刷新/查额度；只在内置 Agent 调用时 lazy refresh/status check。云端不可达不影响项目、手动 ActionPlan、自定义 provider 或导出。
+- **PD-Y11 最小云边界。** Beta 云端只有邀请码兑换/设备凭据校验、built-in model proxy、InviteGrant 原子共享计数与 `client_run_id` 幂等记录；不提供账号、同步、原始文件存储、远程科研计算、远程 Origin、CloudConfig、更新服务、analytics 或诊断上传。
+- **PD-Y12 Proxy 日志。** Proxy 不记录 prompt、request/response body 或原始数据；只记录 run、invite/device 伪名、固定 model profile、quota unit、latency、稳定错误、时间和幂等状态。
+- **PD-Y13 Lazy 云连接。** 应用启动不依赖控制面，不查额度或刷新凭据；只在内置 Agent 调用时校验 DeviceCredential 与共享计数。云端不可达不影响项目、手动 ActionPlan、自定义 provider 或导出。
 - **PD-Y14 云重试。** 瞬时连接/5xx 自动重试最多两次并复用 request/client_run/idempotency lineage；用户取消与确定性 4xx 不重试，云失败不进入项目事务。
-- **PD-Y15 更新资格与网络模式。** 更新资格不依赖邀请码、账号或 provider；严格 local_only 零更新出站。一次联网更新创建内存态 OneTimeUpdateGrant，并暂时标记 `effective_network_policy=update_only`，只允许 manifest/package，终止即恢复 local_only；也可使用执行同等验签的人工离线包。
-- **PD-Y16 更新完整性。** UpdateManifest/package 只经 HTTPS；manifest 用内置 public key 验签，package 校验 size、SHA-256 与 Windows code signature，篡改/证书/重定向异常全部阻断。
-- **PD-Y17 更新 UX。** 可后台下载，但活动任务、Origin 导出和项目 committing 期间不得安装；必须用户点击“重启并更新”，普通更新可延后。
-- **PD-Y18 云版本隔离。** `min_cloud_version` 只阻止旧客户端调用内置云服务；remote config 只能声明 profiles、quota display、protocol 与 availability，不能改变项目、渲染/分析语义或 publication snapshot。
-- **PD-Y19 固定运行配置。** 每次 ModelRun 固定 model/profile/config version 并审计，运行中不得静默换模型；更新和 cloud config 都使用版本化、签名 envelope。
-- **PD-Y20 协议与验收。** Redeem、refresh、quota、reserve/settle/cancel、signed config/update check 使用稳定 envelope、状态机与错误，验收覆盖多设备、幂等扣费、云断连、本地降级与更新篡改/中断。
+- **PD-Y15 人工分发更新。** 第一轮不做自动检查、应用内更新、后台下载或 `update_only`。Beta build 通过用户人工取得的安装包分发；更新资格不依赖邀请码，strict local_only 始终零出站。
+- **PD-Y16 安装包完整性。** 人工取得的安装包必须在安装前校验发布方签名、SHA-256 与 Windows code signature；校验失败稳定阻断，不从应用内抓取任意 URL 或 manifest。
+- **PD-Y17 无更新状态机。** 第一轮没有 UpdateManifest、download/install/restart 状态机、更新提醒或任务期间安装协调；用户退出应用后显式运行已验证安装包。
+- **PD-Y18 无 CloudConfig。** 第一轮不下发 CloudConfig 或 remote config；客户端内置协议/profile allowlist，服务端不能改变渲染算法、分析默认值、项目或 publication snapshot。
+- **PD-Y19 固定模型运行。** 每次 ModelRun 固定 model/profile identifier 并审计，运行中不得静默换模型；profile 变化只能随新客户端 build 或明确服务端部署版本进入后续请求。
+- **PD-Y20 协议与验收。** Beta 只定义 redeem、credential-authenticated model invoke、quota status/atomic debit 与 `client_run_id` 幂等 envelope；验收覆盖多设备共享、重装、重试不重复扣费、撤销、云断连和本地降级。
 
-完整 InviteGrant、DeviceCredential、QuotaLedger、CloudConfig、UpdateManifest、状态机与故障注入契约见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
+完整 InviteGrant、DeviceCredential、原子共享计数、幂等与人工安装包契约见 [邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)。
 
-## Z. 离线模式、本地安全、诊断、迁移与恢复备份
+## Z. 离线模式、本地安全、诊断与 Beta 兼容
 
 - **PD-Z01 两组三入口。** 启动空状态保持“用示例项目试用 / 导入自己的数据 / 打开已有 `.plotproj`”；builtin invite、custom provider、local_only 只是首次需要 Agent 或模型设置中的服务模式，不替代工作入口。
 - **PD-Z02 NetworkMode。** `builtin_proxy | custom_provider | local_only` 可显式切换且不修改项目；localhost endpoint 属于 custom provider，不能借此绕过 local_only 语义。
-- **PD-Z03 local_only 零出站。** 严格 local_only 不兑换/刷新 token、不查 quota、不请求模型/更新/config、不发 analytics/diagnostics、不访问远程 URL；一次更新须以 transient update_only 暂停严格 local_only，终止即恢复。手动本地功能与三种正式导出完整可用。
+- **PD-Z03 local_only 零出站。** 严格 local_only 不兑换/校验设备凭据、不查 quota、不请求模型/更新/config、不发 analytics/diagnostics、不访问远程 URL；第一轮没有 `update_only` 例外。手动本地功能与三种正式导出完整可用。
 - **PD-Z04 无项目加密。** 第一轮依赖 Windows account ACL 并建议 BitLocker；`.plotproj`、Parquet、OPJU 和结果包可能含敏感科研数据，均不得宣传匿名或隐私安全。
 - **PD-Z05 Temp 安全。** 每任务随机隔离 temp、当前用户专属 ACL，成功/失败/取消/启动恢复清理；删除为 best effort，不承诺 secure erase。
 - **PD-Z06 固定磁盘工作区。** 活动 workspace 只允许本机固定磁盘，拒绝在网络共享或不可靠同步占位目录直接运行 SQLite/WAL；外部 `.plotproj` 先导入本机副本。
@@ -484,43 +484,43 @@
 - **PD-Z08 表格不执行。** Excel 宏/VBA/外链/公式不执行或刷新；公式仅导入已有缓存值并记录 provenance，无缓存为 missing/NeedsInput。CSV/worksheet text 永远只是 data。
 - **PD-Z09 Electron 边界。** Renderer sandbox+contextIsolation、Node integration off、preload 强类型窄 API；聊天/数据不执行 HTML/JS，不自动打开 data URL 或数据链接，模型无任意 path/URL/file access。
 - **PD-Z10 本地日志。** 日志 allowlist 保留 14 天或 100 MB；只含版本、状态、对象/chart ID、timing/buckets、稳定错误，禁止 prompt、文件/路径、列名/值/摘要、secret 和模型 body；stack 落盘前 scrub，第一轮无 memory dump。
-- **PD-Z11 Usage analytics。** 默认 off，opt-in 页展示完整无 free-text event schema；原始事件最多 30 天后仅无设备标识 aggregate，local_only 强停且不延后补传。
-- **PD-Z12 DiagnosticBundle。** 每次主动生成、逐文件与 exact JSON 预览并明确发送；仅含版本/capability/error/task/performance/scrubbed stack/config/log excerpts，禁止任何项目内容、标识数据、secret 与 memory dump，服务端原始包 30 天删除。
-- **PD-Z13 迁移预检。** 只读校验 manifest/schema/integrity 后生成可见 MigrationPlan；确认后用 SQLite Online Backup，在新 temp workspace 只按确定性 N→N+1 steps 迁移。
-- **PD-Z14 迁移原子性。** 验证 object counts/refs/hashes、rows/columns、version DAG/current pointers 与语义 hash 后才原子切换；失败/取消继续使用原项目且无半迁移状态。
-- **PD-Z15 迁移不改语义。** Migration 只能改变存储表示，不得改变 chart/mapping/unit/analysis/fit/style/visual；新科学/渲染版本须用户 adopt 并创建新对象。
-- **PD-Z16 兼容规则。** 旧组件缺失可显示已有结果但重绘返回 `LEGACY_COMPONENT_MISSING`，不得换算法；未来 schema 拒绝编辑并提示升级，第一轮无 save-as-old/downgrade writer。
-- **PD-Z17 每日恢复备份。** 日常依赖 SQLite transaction+immutable CAS；每项目每日最多一次 Online Backup、保留最近三份，迁移成功前保留旧对象，不能宣传为 cloud backup。
-- **PD-Z18 显式恢复。** Restore 必须用户确认，在新 recovery candidate/workspace 验证并生成 RecoveryRecord，不静默 rollback 或覆盖当前项目。
-- **PD-Z19 领域与错误。** 固定 NetworkMode、transient OneTimeUpdateGrant/update_only、DiagnosticBundleManifest、MigrationPlan/Step/Record、Backup/RecoveryRecord 与 cleanup states；archive/formula/network/log/diagnostic/migration/legacy/backup 使用稳定错误。
-- **PD-Z20 安全验收。** 验收覆盖 local_only 零出站、断网本地闭环、恶意 archive/Excel、日志/诊断禁止字段、迁移逐阶段崩溃、语义不变、新旧 schema/组件和非覆盖式恢复。
+- **PD-Z11 无 analytics。** 第一轮不实现或发送 usage analytics，不提供 opt-in 上报；本地功能使用情况不形成云端事件流。
+- **PD-Z12 本地 DiagnosticBundle。** 每次由用户主动生成、逐文件与 exact JSON 预览后只保存到用户选择的本地路径；用户自行发送。Bundle 仅含版本/capability/error/task/performance/scrubbed stack/config/log excerpts，禁止项目内容、标识数据、secret 与 memory dump。
+- **PD-Z13 Schema 拒绝优先。** Beta schema 不兼容时稳定返回 `SCHEMA_VERSION_UNSUPPORTED` 并保持原项目不变；第一轮不建设通用 MigrationPlan、N→N+1 registry 或 downgrade writer。
+- **PD-Z14 已知版本对迁移。** 确有升级需要时，只为一个明确 source→target 版本对实现确定性一次性迁移：先创建一致快照，在新 temp workspace 执行、验证后原子切换；失败或取消继续使用原项目。
+- **PD-Z15 迁移不改语义。** 一次性迁移只能改变存储表示，不得改变 chart/mapping/unit/analysis/fit/style/visual；新科学/渲染版本须用户明确 adopt 并创建新对象。
+- **PD-Z16 兼容规则。** 旧组件缺失可显示已有结果但重绘返回 `LEGACY_COMPONENT_MISSING`，不得换算法；未知未来 schema 拒绝编辑并提示使用兼容 build。
+- **PD-Z17 无自动备份。** 日常可靠性依赖 SQLite transaction、immutable CAS 与原子项目/导出提交；第一轮不做每日 Online Backup、最近三份保留、恢复分支或恢复 UI。可搬运备份只有用户主动导出的 `.plotproj`。
+- **PD-Z18 崩溃后明确重试。** 任务失败或崩溃必须保持已有项目权威状态不损坏、临时文件可清理并显示稳定错误；不要求全面自动续跑或静默 rollback，用户明确重试。
+- **PD-Z19 领域与错误。** 固定 NetworkMode、LocalDiagnosticBundle、known-version MigrationRecord 与 cleanup states；不定义 update grant、通用 MigrationPlan、BackupRecord/RecoveryRecord。archive/formula/network/log/diagnostic/schema/migration 使用稳定错误。
+- **PD-Z20 安全验收。** 验收覆盖 strict local_only 零出站、断网本地闭环、恶意 archive/Excel、日志/本地 Bundle 禁止字段、崩溃不损坏、未知 schema 拒绝和已知版本对迁移的语义不变/原子失败。
 
-完整 NetworkMode、本地权限、不可信导入、日志/分析/诊断、迁移、兼容与恢复备份契约见 [本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
+完整 NetworkMode、本地权限、不可信导入、日志/本地诊断、schema兼容与崩溃重试契约见 [本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
 
-## AA. 性能测试与发布门禁
+## AA. 小规模邀请制 Beta 性能与发布门禁
 
-- **PD-AA01 Windows 支持。** 正式邀请内测只支持发布时仍在 Microsoft 支持周期的 Windows 11 x64；当前参考 25H2。Windows 10 22H2 仅观察，LTSC 只有明确列入并同等 qualification 才声明。
-- **PD-AA02 测试机器。** Reference 为 Win11 x64/6C/16GB/NVMe/1920×1080 100或125%；minimum beta 为受支持 Win11 x64/4C/8GB/SSD/1366×768；显示覆盖 100/125/150/200%。
-- **PD-AA03 Origin qualification。** Origin 2021 是最低基线；adapter/release 只声明已测试的明确版本范围，每个 RC 至少覆盖 2021 与发布日当前声明版本，所有声明版本重复完整 31 图 O1 矩阵。
-- **PD-AA04 规模等级。** Regular=100k×20/10 charts，large=1M×20/100 files或charts，boundary=10M numeric cells/1000 objects；它们是 qualification 规模而非静默硬上限，超出先 resource preflight。
-- **PD-AA05 Preview 与 formal。** Thumbnail≤5k visible primitives，interactive≤50k/axes，range/stats 用 full data且显示预览简化；formal 三格式 full data。SVG 预计>200MB或>2M primitives 强警告并明确确认，不自动栅格/抽稀。
-- **PD-AA06 启动预算。** Reference P95：shell interactive≤2s、Python Core ready≤5s、large project metadata open≤2s。
-- **PD-AA07 导入预算。** Reference P95：100MB CSV≤12s、1GB CSV≤90s、50MB XLSX≤30s，包含安全复制/hash、完整解析、内部格式、摘要与事务提交。
-- **PD-AA08 绘图导出预算。** Reference P95：100k preview≤3s、1M simplified≤5s、style patch≤2s、20×10k batch≤30s、100k PNG≤5s、SVG≤10s、single OPJU≤60s、20-chart OPJU≤180s。
+- **PD-AA01 单一 Windows profile。** 每个 Beta build 只在一个发布时仍受支持的 Windows 11 x64 reference profile 正式 qualification；当前为 Windows 11 25H2/6C/16GB/NVMe/1920×1080，DPI 只测 100% 与 150%。
+- **PD-AA02 后续平台。** Windows 10、LTSC、ARM64、minimum machine、125%/200% DPI 与多 OS 矩阵不属于当前 Beta 声明；其他环境可尝试但必须标“未完成 Beta qualification”。
+- **PD-AA03 单一 Origin version。** 每个 Beta build 只声明一个完成完整 qualification 的 Origin exact version/build/bitness；其他版本全部 `VERSION_UNSUPPORTED`。该版本独立完成 31 图 O1 与 93 条 OPJU live+fresh-reopen evidence。
+- **PD-AA04 唯一规模基线。** 正式 qualification 为 100k rows×20 columns、常规 10 charts、单图≤100k plotted primitives、批量20 files/charts×每图10k、项目≤100 charts；不再设 large/boundary 门禁。
+- **PD-AA05 超范围 best effort。** 超出已验证范围先显示“超出 Beta 已验证范围”与 resource preflight；成功不扩大声明。资源不足稳定拒绝并建议用户显式筛选/聚合/分箱/缩小批次，formal 不静默抽稀或换算法。
+- **PD-AA06 Preview 与 formal。** Thumbnail≤5k、interactive≤20k visible primitives；100k preview P95≤3s，range/stats/analysis 使用 full data并显示简化。声明规模内 formal PNG/SVG/OPJU 全部 full data。
+- **PD-AA07 导入预算。** Reference P95只保留100MB CSV≤12s与50MB XLSX≤30s，包含安全复制/hash、完整解析、内部格式、摘要与事务提交；1GB CSV不在当前 qualification。
+- **PD-AA08 绘图导出预算。** Reference P95：style patch≤2s、20×10k batch≤30s、100k PNG≤5s、SVG≤10s、single OPJU≤60s、20-chart OPJU≤180s；第一轮无1M preview门禁。
 - **PD-AA09 Agent 与反馈预算。** ContextEnvelope build P95≤1s；内置 structured decision P50≤8s/P95≤20s并单列 provider latency；输入/点击/任务卡反馈≤100ms，>2s 展示真实阶段。
-- **PD-AA10 Memory。** Idle Electron+Core≤700MB、regular peak≤2GB、large peak≤6GB；available<15%或2GB时并发降1，预计启动后<10%或1GB时以 RESOURCE_LIMIT 拒绝。
-- **PD-AA11 Disk。** 导入前 free disk≥estimated landed bytes×2.5，不足在复制前返回 DISK_SPACE_INSUFFICIENT；导出/更新也预留 temp+final+validation 空间。
-- **PD-AA12 31图 Fixtures。** 每图至少 minimal valid、representative research、edge/error 三 fixture；基础 formal PNG/formal SVG/O1 OPJU 为31×3×3=279 paths，preview/interactive 另测不计入。93条OPJU对每个声明 Origin exact version完整重跑；edge_error可用预期稳定错误证据。
-- **PD-AA13 机器可统计证据。** MatrixKey 固定 RC/chart/fixture/artifact/quality/adapter-or-renderer/Origin/OS/locale/case，证据名与 record 保存所有 input/spec/plan/artifact/validator hash、资源和版本。
-- **PD-AA14 测试层。** Gate 覆盖 schema/domain、import/transform/unit/lineage、scientific reference、render/parity、Origin O1、Electron↔Python E2E、fault injection、安全/迁移/零出站、performance/soak、installer/update/SBOM/license。
-- **PD-AA15 可复现性能协议。** 固定 cold/warm、dataset hash、非身份性本地 machine profile、sample count、nearest-rank P50/P95、cache policy；P95退化>10%或越绝对预算即阻断。
-- **PD-AA16 Severity 与 waiver。** Blocker/critical/major/minor 有唯一 owner、evidence 与 disposition；不可豁免清单没有 waiver，其他例外须书面范围、到期 RC 与批准者。
-- **PD-AA17 不可豁免阻断。** 数据损坏、错误科学、静默 mapping/unit/method/formula/algorithm/formal降采样、假 O1、敏感泄露、31图声明失败、签名绕过、已知 blocker/critical 与靠 retry 变绿均阻止发布。
-- **PD-AA18 RC Evidence。** 每个 RC 提交 automation、31图、Origin、scientific、performance、安全/隐私、migration fault、SBOM/licenses、signed installer 与 known issues 证据。
-- **PD-AA19 首批成功门禁。** 第二批 go/no-go：sample 首图独立≥80%，真实数据首图无 staff takeover≥60%，愿再用真实数据≥60%，至少1人 batch、至少1名 Origin 用户继续编辑 OPJU；不靠默认关闭 telemetry 猜测。
-- **PD-AA20 门禁语义。** 本节是未来 RC qualification，不表示当前实现已通过；post-sign 修改生成新 RC。Release approval 固定 commit/installer hash/Decision baseline/evidence，由产品、工程、科学、Origin、安全与 QA owner 签署。
+- **PD-AA10 Memory。** Idle Electron+Core≤700MB，正式 qualification workload peak≤2GB；资源预检不足时以 `RESOURCE_LIMIT` 拒绝，可把新任务并发降为1但不改算法或提交半对象。
+- **PD-AA11 Disk 与 SVG preflight。** 导入前 free disk≥estimated landed bytes×2.5；formal按实际100k声明范围估计primitive/file/memory/disk并告警或拒绝，不使用2M primitives/200MB商业级固定门槛，不自动栅格或抽稀。
+- **PD-AA12 31图 Fixtures。** 每图至少 minimal valid、representative research、edge/error 三 fixture；formal PNG/formal SVG/O1 OPJU 为31×3×3=279 paths，preview/interactive另测。OPJU 93条只在当前 build 唯一 Origin exact version完整运行；edge_error可用预期稳定错误证据。
+- **PD-AA13 机器可统计证据。** MatrixKey 固定 build/chart/fixture/artifact/adapter-or-renderer/唯一Origin/Windows profile/locale/case，记录 input/spec/plan/artifact/validator/dependency/fixture hashes、资源和稳定错误。
+- **PD-AA14 Beta 测试层。** Gate 覆盖schema/domain、import/transform/unit/lineage、scientific reference、render/parity、单Origin O1、Electron↔Python E2E、cancel/crash/idempotency、安全/零出站、reference性能和签名安装包；不要求多OS、长soak、SBOM流程或完整云攻击矩阵。
+- **PD-AA15 可复现性能协议。** 固定cold/warm、dataset hash、reference profile、sample count、nearest-rank P50/P95和cache policy；普通路径≥10次、昂贵OPJU≥5次，P95退化>15%或越绝对预算即调查并阻断。
+- **PD-AA16 Beta 缺陷处理。** 每个 blocker/critical/known issue 有唯一 owner、affected MatrixKeys、影响和恢复动作；不影响正确性/安全/可追溯/完成路径的问题可进入 Beta known issues，不建设商业级 waiver 审批链。
+- **PD-AA17 不可豁免阻断。** 数据损坏、错误科学、静默mapping/unit/method/formula/algorithm/formal降采样、假O1、secret泄漏、31图声明失败、签名绕过、已知blocker/critical与靠retry变绿均阻止分发。
+- **PD-AA18 Beta Evidence。** 每个 build 固定commit/build/dependency/fixture hashes，提交279、额外preview、单Origin 93、scientific、reference performance、local security、简化quota幂等、签名安装包和known issues检查单。
+- **PD-AA19 首批成功门禁。** 第二批 go/no-go：sample 首图独立≥80%，真实数据首图无staff takeover≥60%，愿再用真实数据≥60%，至少1人batch、至少1名Origin用户继续编辑OPJU；第一轮无analytics，使用经同意观察/访谈。
+- **PD-AA20 门禁语义。** 本节只定义小规模邀请制 Beta qualification，不表示当前实现已通过；单一 Beta release owner 汇总checklist并由科学/Origin负责人复核专业证据，不要求商业级多角色签署。
 
-完整平台、规模、预算、31图 MatrixKey、severity、不可豁免 blocker、RC evidence 与测量协议见 [性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。
+完整单一平台/规模/Origin、预算、31图MatrixKey、不可豁免blocker、Beta checklist与测量协议见 [小规模邀请制 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。
 
 ## AB. 实施拆分与设计冻结
 
@@ -533,16 +533,16 @@
 - **PD-AB07 W5 Workflow。** 完全同构Batch/review与numeric-only Figure由Workflow负责，临时比较与正式版本严格分离。
 - **PD-AB08 W6 Origin。** OriginAdapter/O1 OPJU/两阶段验证独立成高风险workstream；K01 O1 spike前置，不等31图完成才验证技术路径。
 - **PD-AB09 W7 Agent。** ContextBuilder/Provider/four-way AgentDecision/local validator由Agent Runtime负责；自然语言支持中英混合，但禁止本地任意命令/正则解析器绕过结构化链。
-- **PD-AB10 W8 Cloud。** Invite/token/shared quota proxy/signed config/update由Cloud+Desktop Update负责，不扩展账号、同步或远程科研边界。
-- **PD-AB11 W9 Local lifecycle。** local_only/安全导入/log/diagnostic/migration/backup由Local Security+Lifecycle负责，严格零出站与原项目不受损是完成条件。
-- **PD-AB12 W10 Release。** E2E/performance/security/installer/release gate由QA/Release聚合，但领域错误仍回到唯一owner，不在gate层掩盖或修补。
+- **PD-AB10 W8 Cloud。** Invite/长期设备凭据/shared atomic quota proxy/client_run idempotency由Cloud负责；第一轮不含refresh rotation、reserve/settle、CloudConfig或应用内更新。
+- **PD-AB11 W9 Local lifecycle。** local_only/安全导入/log/本地DiagnosticBundle/known-version migration由Local Security+Lifecycle负责；第一轮不做analytics、云端诊断、通用迁移或自动备份，严格零出站与原项目不受损是完成条件。
+- **PD-AB12 W10 Release。** E2E/reference performance/security/manual signed installer/Beta checklist由QA/Release聚合，但领域错误仍回到唯一owner，不在gate层掩盖或修补。
 - **PD-AB13 依赖DAG。** W0→W1/W2；W2→W3/W4/W7/W9；W3→W4；W4→W5/W6；W1→W7/W9；W7→W8；W5/W6/W8/W9→W10。
 - **PD-AB14 并行边界。** W1/W2在W0后并行，W5/W6在stable K01 Plan后并行；W10 harness从W0开始，但final qualification等待W5/W6/W8/W9。
-- **PD-AB15 四个Risk Spikes。** 全面编码前验证K01 import→O1 fresh reopen、1M preview+formal SVG preflight、Core crash/SQLite boundary recovery、custom provider P1/P2 exactly-one-repair/no-tool-loop。
-- **PD-AB16 垂直优先里程碑。** M0 contracts/spikes→M1 manual K01→M2 data/analysis+31 PNG/SVG→M3 batch/Figure→M4 Agent→M5 all O1→M6 cloud/security/migration→M7 RC。
+- **PD-AB15 四个Risk Spikes。** 全面编码前验证K01 import→O1 fresh reopen、100k preview+formal SVG resource preflight、Core crash/SQLite commit boundary integrity、custom provider P1/P2 exactly-one-repair/no-tool-loop。
+- **PD-AB16 垂直优先里程碑。** M0 contracts/spikes→M1 manual K01→M2 data/analysis+31 PNG/SVG→M3 batch/Figure→M4 Agent→M5单一Origin exact version全部O1→M6简化cloud/local security/manual installer/known-version compatibility→M7 Beta qualification。
 - **PD-AB17 Evidence 完成。** Workstream和milestone只有scope/out-of-scope、inputs、deliverables、dependencies、parallel boundary、acceptance evidence、error owner与done definition全部满足才完成，不按“代码写完”。
 - **PD-AB18 规格索引。** SPEC-INDEX记录每份文档权威范围、冲突优先级、Requirement→Workstream→entry→future evidence映射与readiness checklist。
 - **PD-AB19 冻结含义。** Implementation-ready只表示产品行为和跨模块契约可直接实施，不表示真实后端/云/OPJU/测试已实现，也不伪造每图/每算法完整参数表。
 - **PD-AB20 变更控制。** 后续产品/跨模块变化必须新增或更新Decision ID，同步PRD/专门契约/SPEC-INDEX与fixtures/evidence影响；实现层不得以便利为由静默偏离。
 
-完整W0–W10范围、依赖、spikes与M0–M7见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；权威范围、Requirement/Evidence Matrix与冻结审计见 [规格索引与设计冻结基线](./SPEC-INDEX.md)。
+完整W0–W10范围、依赖、spikes与M0–M7见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；权威范围、Requirement/Evidence Matrix与冲突审计见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。

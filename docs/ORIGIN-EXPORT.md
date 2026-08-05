@@ -3,7 +3,7 @@
 > 状态：第一轮 OPJU 导出基线已确认  
 > 日期：2026-08-05  
 > 适用范围：OPJU 内容边界、OriginExportPlan、能力准入、OriginAdapter、两阶段验证、原子提交、外部修改和稳定错误  
-> 相关文档：[性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 产品边界
 
@@ -111,7 +111,7 @@ Manifest 不包含绝对路径。PlotAgent 的外部 ExportRecord 保存最终�
 - **O3 — visual embedded/unlinked**：通过嵌入或未链接对象保持外观；第一轮不能作为正式 OPJU。
 - **O0 — unavailable**：没有受支持的 Origin 导出能力。
 
-第一轮 31 项正式图形若显示 OPJU 导出能力，必须逐项、逐适配版本达到 O1。高级未来图形可以在产品另行批准后以 O2 准入，但必须在执行前披露已知差异；运行时不能把 O1 静默降为 O2/O3。
+第一轮 31 项正式图形若显示 OPJU 导出能力，必须在当前 Beta build 唯一声明的 Origin exact version 上逐项达到 O1。高级未来图形可以在产品另行批准后以 O2 准入，但必须在执行前披露已知差异；运行时不能把 O1 静默降为 O2/O3。
 
 O3/O0 不生成正式 OPJU。将 Matplotlib PNG/SVG/raster 嵌入 Origin 不能算作 O1 或 O2。
 
@@ -120,7 +120,7 @@ O3/O0 不生成正式 OPJU。将 Matplotlib PNG/SVG/raster 嵌入 Origin 不能�
 每个版本化 OriginAdapter 注册：
 
 - `chart_type_id` 与支持的 PlotAgent chart package/version。
-- 支持的 Origin version range 和 bitness。
+- 当前 Beta build 支持的单一 Origin exact version/build 和 bitness。
 - template ID、签名与 content hash。
 - 宣称的 capability level。
 - Data/Analysis workbook 或 Matrixbook layout。
@@ -139,7 +139,7 @@ Adapter 只接收经过本地校验的 typed OriginExportPlan，不接收模型�
 ## 9. Template 安全
 
 - Origin templates 随官方 chart package 签名和版本化。
-- 执行前验证签名、hash、适配器版本与 Origin version range。
+- 执行前验证签名、hash、适配器版本与当前 build 的 Origin exact version。
 - 每个任务只把所需 template 复制到隔离临时目录。
 - 不读取、不修改、不覆盖用户 Origin 全局 templates 或主题。
 - 任务结束清理临时副本；正式 OPJU 不依赖临时 template 才能打开。
@@ -162,10 +162,10 @@ Origin Worker 只执行该 Plan，不重新读取未声明项目对象，也不�
 
 正式任务开始前依次检查：
 
-1. Windows 中已安装 Origin，版本不低于 2021，且精确落在当前 release manifest/adapter 已完成完整 31 图 O1 qualification 的范围；未测试的更高版本同样返回 VERSION_UNSUPPORTED。
+1. Windows 中已安装 Origin，且版本/build/bitness 精确匹配当前 Beta build 唯一完成 31 图 O1 qualification 的声明；任何其他版本返回 `VERSION_UNSUPPORTED`。
 2. Origin license 当前可用。
 3. Electron/Python/Origin 的 bitness 组合受支持。
-4. `originpro` 可导入且版本落在验证范围。
+4. `originpro` 可导入且版本与该 exact Origin qualification 记录一致。
 5. ResolvedRenderPlan 所需字体可供 Origin 使用。
 6. 官方 template 存在、签名/hash 正确。
 7. chart type adapter 存在、版本和 capability 满足 ExportSpec。

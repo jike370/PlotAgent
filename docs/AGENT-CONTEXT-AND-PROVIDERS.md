@@ -185,10 +185,10 @@ Probe 记录 endpoint、protocol、output level、streaming、usage 与错误能
 
 ### 7.2 内置邀请制 Provider
 
-- 桌面端使用设备邀请令牌访问 PlotAgent proxy。
+- 桌面端使用 Windows Credential Manager 中的长期 DeviceCredential 访问 PlotAgent proxy。
 - 上游平台 provider key 只存在服务端，不下发桌面端。
-- 内置 model profile 可由签名、版本化服务配置指定允许模型和参数。
-- 每次 ModelRun 固定 profile/config/model 版本并写入审计；运行中不能静默换模型。
+- 第一轮没有 remote CloudConfig；客户端 build 固定允许的 model profile/protocol，服务端部署只能在该 allowlist 内响应。
+- 每次 ModelRun 固定 profile/model 与服务端 deployment identifier 并写入审计；运行中不能静默换模型。
 
 ### 7.3 自定义 OpenAI-compatible Provider
 
@@ -278,7 +278,7 @@ AgentDecision 不设置模型自报的 blocked 分支。ActionPlan 违反数学�
 每次调用保存：
 
 - provider type、provider config ID、endpoint origin；不含 secret/path/query。
-- model ID、model profile/config version。
+- model ID、model profile、client build 与服务端 deployment identifier。
 - prompt template version、ContextEnvelope schema 与 AgentDecision schema version。
 - provider request ID、client model run ID、开始/结束时间、latency。
 - input/output/repair token usage 与 usage 来源。
@@ -286,7 +286,7 @@ AgentDecision 不设置模型自报的 blocked 分支。ActionPlan 违反数学�
 - DataDisclosure 类别/field/row/scalar 数量与 disclosure hash。
 - target refs/versions 与 context hash。
 
-审计不保存 API key、设备令牌、隐藏 reasoning、chain-of-thought、完整 request/response body 或未展示数据。AgentDecision 作为项目操作候选按对象契约保存；provider 原始传输响应不作为权威记录。
+审计不保存 API key、DeviceCredential、隐藏 reasoning、chain-of-thought、完整 request/response body 或未展示数据。AgentDecision 作为项目操作候选按对象契约保存；provider 原始传输响应不作为权威记录。
 
 如果 provider 返回 reasoning 字段或专有推理项，adapter 不展示、不持久化，也不把它送入下一次 ConversationState。
 
@@ -317,7 +317,7 @@ PlotAgent 可以作出并验证的应用级承诺是：proxy 不记录 prompt/re
 - UI 只显示“准备上下文、等待模型、校验决策、等待输入”等本地阶段，不展示 chain-of-thought 或 provider tool trace。
 - AgentDecision 完整并通过本地校验前，不显示/执行 partial plan。
 - 用户停止生成时中止 HTTP 请求并结束 InteractionRun；已存在 ExecutionTask 不受影响。
-- 内置 profile 可以通过版本化配置更新，但每次 run 固定 model/profile/config；运行中不能 fallback 或静默切模型。
+- 内置 profile 只能随新客户端 build 或明确服务端部署在两次 run 之间变化；每次 run 固定 model/profile/deployment，运行中不能 fallback 或静默切模型。
 - 网络错误后的明确重试创建新的 transport attempt，但保持同一本地 run lineage、目标版本与已授权 disclosure；不扩大上下文。
 
 ## 15. 稳定错误
@@ -328,7 +328,7 @@ PlotAgent 可以作出并验证的应用级承诺是：proxy 不记录 prompt/re
 | `TLS_REQUIRED` | 非 loopback HTTP | 改用 HTTPS 或本机 loopback |
 | `TLS_VALIDATION_FAILED` | certificate/hostname 失败 | 修复证书；不可绕过 |
 | `REDIRECT_BLOCKED` | 跨 origin credential redirect 或非法 scheme | 使用最终受信 endpoint |
-| `AUTH_FAILED` | API key/device token 无效 | 更新 Credential Manager 凭据 |
+| `AUTH_FAILED` | API key/DeviceCredential 无效 | 更新 Credential Manager 凭据 |
 | `RATE_LIMITED` | provider rate limit | 展示 retry-after 后明确重试 |
 | `QUOTA_EXHAUSTED` | 内置额度耗尽 | 切换自定义 provider；本地功能不受影响 |
 | `REQUEST_TIMEOUT` | ModelRun 超时 | 取消本次 run，可明确重试 |
@@ -367,5 +367,5 @@ PlotAgent 可以作出并验证的应用级承诺是：proxy 不记录 prompt/re
 | Streaming/partial | fragment 不进入 UI/执行器 | 中途断流、完整前取消 |
 | Audit 最小化 | 元数据齐全且无 reasoning/payload | provider 返回 reasoning 和 secret query |
 | Retention 文案 | 内置/OpenAI/第三方分别展示 | 模拟未确认第三方与政策版本变化 |
-| 固定 profile | run 审计 model/profile/config 一致 | 运行中服务要求换模型 |
+| 固定 profile | run 审计 model/profile/deployment 一致 | 运行中服务要求换模型 |
 | 错误稳定性 | 每个错误映射可恢复动作 | DNS/TLS/401/429/timeout/quota/schema/stale |

@@ -3,7 +3,7 @@
 > 状态：第一轮任务运行时基线已确认  
 > 日期：2026-08-05  
 > 适用范围：InteractionRun、ExecutionTask、三通道调度、提交边界、取消、版本冲突、崩溃恢复与桌面任务体验  
-> 相关文档：[性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 两类运行对象
 
@@ -64,7 +64,7 @@ stateDiagram-v2
 - `cancelled`：没有未声明的正式输出；已允许提交的批量完成项由批次对象明确记录。
 - `failed`：任务失败且没有达到部分成功契约。
 - `partially_succeeded`：批量任务保留部分已完成结果，同时明确失败或取消项。
-- `interrupted`：Core、工作进程或 Origin 实例异常结束，任务需要用户检查后决定恢复或重跑。
+- `interrupted`：Core、工作进程或 Origin 实例异常结束；系统确认项目权威状态与temp disposition后，由用户明确重试，第一轮不续跑算法内部状态。
 
 `committing` 必须短暂且不可取消，避免数据库或文件停在半提交状态。第一轮不提供暂停或继续；界面不显示 `paused`，调度器也不持久化暂停状态。
 
@@ -161,16 +161,17 @@ ExecutionTask 进入队列前，Python Core 持久化：
 - 当前阶段、尝试记录、幂等输出槽和暂存目录。
 - 任务类型、提交粒度、调度通道和取消状态。
 
-任务只能在阶段边界写恢复点，不保存算法内部任意栈状态，也不把不完整阶段伪装为可恢复成功。
+任务只能在阶段边界写记录，不保存算法内部任意栈状态，也不把不完整阶段伪装为可续跑成功。记录只用于确认事务、清理temp、解释失败和构造明确重试。
 
 ### 7.2 Core 监督
 
 - Electron Main 监督 Python Core 心跳和进程退出。
 - Core 重新启动后，将遗留的 `preparing`、`running`、`committing` 或 `cancelling` 任务标记为 `interrupted`。
-- 重新检查 SQLite 事务、暂存目录、不可变对象和正式输出，界面展示可恢复、可重跑或需清理的明确结果。
+- 重新检查 SQLite 事务、暂存目录、不可变对象和正式输出，界面展示“已有状态未损坏 / 临时文件已清理或待清理 / 可明确重试”的结果。
 - 正式导入、分析、绘图、批次和导出任务不自动重试。
 - 无副作用的预览与缓存任务可以根据固定输入自动重建，不生成正式版本或导出记录。
-- 如果 Core 持续崩溃形成重启循环，Electron 停止自动重启并展示恢复入口、诊断信息和安全退出选项。
+- 第一轮不要求从 preparing/running/committing 的内部阶段继续正式任务；阶段记录只用于判断原子事务、清理temp和解释失败。
+- 如果 Core 持续崩溃形成重启循环，Electron 停止自动重启并展示项目状态检查、诊断信息、明确重试和安全退出选项。
 
 ## 8. 进度与桌面体验
 
@@ -188,7 +189,7 @@ ExecutionTask 进入队列前，Python Core 持久化：
 - **取消并退出。** 对可取消任务发出 cooperative cancellation，等待安全边界与必要提交完成后退出。
 - **返回。** 关闭确认框并继续工作。
 
-如果任务处于 `committing`，取消并退出必须等待该短阶段结束，不能中断 SQLite 提交或文件原子替换。退出后仍未完成的任务在下次启动时按 `interrupted` 恢复流程处理。
+如果任务处于 `committing`，取消并退出必须等待该短阶段结束，不能中断 SQLite 提交或文件原子替换。退出后仍未完成的任务在下次启动时标为 `interrupted`，完成状态检查/temp清理后由用户明确重试。
 
 ## 10. 第一轮运行时测试
 
@@ -200,8 +201,8 @@ ExecutionTask 进入队列前，Python Core 持久化：
 - 单图、导入会话、批量与各导出格式的提交粒度。
 - cooperative token、宽限期终止隔离进程和 Origin Worker 重建。
 - expected-version 冲突、活跃引用删除保护和幂等输出槽。
-- Core 心跳丢失、阶段恢复点、interrupted 标记和崩溃循环停止。
+- Core 心跳丢失、阶段记录、interrupted 标记、项目不损坏、temp清理、明确重试和崩溃循环停止。
 - 实际单位进度、任务来源定位和三选项关闭流程。
 - 每任务随机 temp/ACL 与 success/failure/cancel/startup recovery 清理；清理失败不越界扫描目录。
-- Migration/Backup/Recovery 阶段崩溃时原 workspace/current project 不变；恢复必须有记录且不静默 rollback。
+- 已知source→target一次性迁移崩溃时原workspace/current project不变；其他不兼容schema稳定拒绝，无自动backup/recovery状态机。
 - local_only 中 InteractionRun 不发网络请求，手动 ActionPlan 仍可创建正常 ExecutionTask。

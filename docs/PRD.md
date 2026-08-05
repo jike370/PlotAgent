@@ -1,9 +1,9 @@
 # PlotAgent 产品需求文档
 
-> 状态：邀请制内测范围已确认  
+> 状态：专业能力范围完整，工程成熟度面向小规模邀请制 Beta
 > 产品代号：PlotAgent  
 > 日期：2026-08-05  
-> 相关资料：[规格索引与设计冻结基线](./SPEC-INDEX.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与三层血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta 兼容](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与三层血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -282,9 +282,9 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 原始数据和命名版本不自动删除。
 - `.plotproj` 导入为 `%LOCALAPPDATA%` 下的事务工作副本，不依赖原包路径；导出项目副本时可选择完整项目包或结果项目包。
 - 不完整事务、临时导出文件和崩溃中间态不得成为当前版本。
-- 每个活动项目每日最多一次 SQLite Online Backup，保留最近三份；恢复在新候选 workspace 验证并生成 RecoveryRecord，必须用户确认且不覆盖当前项目。
-- Schema migration 只读预检并展示 MigrationPlan，确认后在新 temp workspace 执行逐步 N→N+1；完整验证后原子切换，失败/取消继续使用原项目。
-- Migration 不能改变图形、mapping、unit、analysis/fit、style 或 visual semantics；科研/渲染新版本必须由用户明确 adopt 并创建新对象。
+- 第一轮不做每日自动 Backup、最近三份恢复集、恢复分支/UI 或通用 N→N+1 migration framework；可搬运备份由用户主动导出 `.plotproj`。
+- Beta schema 不兼容时稳定拒绝并保持原项目不变。确需升级时只为明确 source→target 版本对实现一次性迁移：一致快照、新 temp workspace、完整验证、原子切换，失败/取消继续使用原项目。
+- 一次性迁移不能改变图形、mapping、unit、analysis/fit、style 或 visual semantics；科研/渲染新版本必须由用户明确 adopt 并创建新对象。
 
 ### 7.5 项目存储与项目包
 
@@ -451,8 +451,8 @@ Origin 能力分级：
 
 ### 10.3 Origin 自动化隔离
 
-- Origin 2021 是最低技术基线；产品只支持当前 release manifest 与 adapter 明确列出并完成完整 O1 qualification 的版本范围，不能用“2021+”覆盖未验证版本。
-- Preflight 检查安装版本命中 qualification range，并检查 license/bitness/originpro/font/template/adapter/目录/锁；未验证版本返回 VERSION_UNSUPPORTED，失败不启动实例。
+- 每个 Beta build 只声明一个完成完整 O1 qualification 的 Origin exact version/build/bitness；其他版本全部返回 `VERSION_UNSUPPORTED`，不能用“2021+”、版本范围或 O2 降级替代。
+- Preflight 检查安装版本精确命中该 build 声明，并检查 license/originpro/font/template/adapter/目录/锁；失败不启动实例。
 - 不连接用户当前打开的 Origin，不调用 `op.attach()`；构建和验证各自从空白 dedicated managed instance 开始，不终止用户实例。
 - OriginAdapter 只接收 typed OriginExportPlan，并只通过 `originpro`/Python 类型化固定映射构建对象；第一轮模型、数据和应用均不得注入或执行任何 LabTalk/Python/script/property string。
 - 签名 template 复制到任务临时目录，不读取或修改用户全局 template。
@@ -460,7 +460,7 @@ Origin 能力分级：
 - 两阶段通过后才原子移动；成功或失败均清理临时资源和 PlotAgent 管理实例。
 - 导出完成后只有用户明确点击才在 Origin 打开；外部编辑不回写 PlotAgent。
 - ExportRecord 保存外部 path/hash/size/mtime 与 spec/plan hash；同路径覆盖前检测外部修改并要求确认或 Save As。
-- 启动时只做轻量 Origin 检测；首次 OPJU 导出或设置中的自检才执行完整验证，并按 Origin 版本缓存结果。
+- 启动时只做轻量 Origin 检测；首次 OPJU 导出或设置中的自检才执行完整验证，并按该 build 唯一 exact version 缓存结果。
 - 稳定错误包括 NOT_INSTALLED、VERSION_UNSUPPORTED、LICENSE_UNAVAILABLE、CAPABILITY_MISSING、TEMPLATE_OR_FONT_MISSING、START_FAILURE、BUILD_FAILURE、SAVE_FAILURE、REOPEN_FAILURE、VALIDATION_FAILURE、TARGET_LOCKED、EXTERNAL_MODIFIED 和 CANCELLED。
 - 完整内容、安全、两阶段验证、原子性和恢复动作见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
 
@@ -495,7 +495,7 @@ Origin 能力分级：
 - 交互预览优先，同一图的新预览可替代尚未开始的旧预览；预览和缓存可以按固定输入自动重建。
 - 取消先发送 cooperative token 并等待安全边界；宽限期后只终止隔离计算进程。Origin 无响应时只重建 PlotAgent 管理的实例，不强杀 Core。
 - 每个任务固定输入版本和 expected version；冲突不静默覆盖。活跃任务引用阻止对象删除，输出使用 `(task_id, action_id, output_slot)` 幂等键。
-- Electron 监督 Core 心跳；任务预先持久化输入、计划、阶段、尝试和暂存目录，只在阶段边界写恢复点。遗留任务标为 interrupted。
+- Electron监督Core心跳；任务预先持久化输入、计划、阶段、尝试和暂存目录，只在阶段边界写记录用于确认原子提交与清理temp。遗留任务标为interrupted，不续跑内部算法状态。
 - 批量任务保留已完成结果并形成已取消或部分成功批次；PNG、SVG、OPJU 每个文件临时写入、验证并原子替换。
 - 任务卡留在来源对话，项目标题显示全局后台任务数；进度使用实际单位，第一轮不发送 Windows 通知。
 - 关闭应用时提供“等待完成”“取消并退出”“返回”；取消并退出仍须等待不可取消的 committing 阶段结束。
@@ -558,37 +558,36 @@ Origin 能力分级：
 - 用户可以配置 OpenAI-compatible base URL、model ID 与可选 API key；连接测试只发合成内容，凭据只存 Windows Credential Manager。
 - 临时文件在隔离目录中创建并在任务结束后清理。
 - 主窗口工作入口始终是“用示例项目试用 / 导入自己的数据 / 打开已有 `.plotproj`”。builtin invite、custom provider、local_only 是首次需要 Agent 或模型设置中的服务模式，不是启动入口。
-- `NetworkMode=local_only` 禁止 token/quota/model/config/update/analytics/diagnostics/远程 URL 全部出站；localhost provider 仍属于 custom provider。模式切换不修改项目。
+- `NetworkMode=local_only` 禁止 credential/quota/model/config/update/analytics/diagnostics/远程 URL 全部出站；第一轮无 update-only 例外，localhost provider 仍属于 custom provider。模式切换不修改项目。
 - local_only/断网时手动 UI 仍生成同一种 ActionPlan，导入、变换、分析、31 图、批量/组合和 PNG/SVG/OPJU 全部本地可用。
 
 ### 14.4 最小云端控制面
 
 - 邀请码对应 InviteGrant，不是账号；不采集邮箱、密码、个人资料或硬件指纹。同一有效邀请码可在不限数量设备重复兑换，额度归 InviteGrant 并由所有设备共享。
-- 设备使用随机 installation ID、默认 15 分钟 access token 与长期 refresh token；设备只承担鉴权和设备级并发/短时限流。邀请码成功后不在本地保存，refresh token 只进 Credential Manager。
-- 模型请求用唯一 client_run_id/Idempotency-Key 先 reserve 再按实际 usage settle；超时、重试和重启不能重复扣费。自定义 provider 不消耗 PlotAgent 额度。
-- QuotaSnapshot 固定展示 period、granted/reserved/consumed/remaining、reset/server time；额度耗尽只禁用内置 Agent，手动能力和自定义 provider 不受影响。
-- 云端仅提供兑换/refresh、内置模型 proxy、额度/限流/幂等 ledger、签名 config/update manifest 和用户主动诊断，不保存项目、图表、原始数据或完整对话，也不运行远程科研计算/Origin。
-- 应用启动不依赖控制面，内置 Agent 调用时才 lazy refresh/status check。瞬时连接/5xx 最多重试两次并复用幂等 lineage；4xx 与用户取消不重试，云失败不进入项目事务。
+- 设备使用随机 installation ID 与长期 DeviceCredential；凭据只进 Windows Credential Manager，邀请码成功后不在本地保存。第一轮不实现短期 access token 或 refresh rotation。
+- 模型请求使用唯一 `client_run_id`/Idempotency-Key。服务端对 InviteGrant 原子共享计数并保存幂等结果；超时、重试和服务重启不得重复调用或扣费。第一轮不实现 reserve/settle/reconcile；自定义 provider 不消耗 PlotAgent 额度。
+- QuotaSnapshot 只展示 granted、consumed、remaining、period/reset（如适用）和 server time，不含 reserved。额度耗尽只禁用内置 Agent，手动能力和自定义 provider 不受影响。
+- 云端仅提供邀请码兑换/设备凭据校验、内置模型 proxy、原子共享计数与 client_run 幂等记录；不提供 CloudConfig、自动更新、analytics、诊断上传、项目/图表/原始数据存储或远程科研计算/Origin。
+- 应用启动不依赖控制面；只在内置 Agent 调用时校验 credential/quota。瞬时连接/5xx 最多重试两次并复用同一 client_run_id；4xx 与用户取消不重试，云失败不进入项目事务。
 - InviteGrant 撤销或单设备封禁只能停止相应内置 Agent 权限，不能锁定本地项目或禁用本地绘图、分析与导出。
 
 内置 provider 通过设备令牌访问 PlotAgent proxy，平台供应商 key 只在服务端；用户配置自有兼容模型后桌面端直连。非 loopback endpoint 强制 HTTPS，TLS 校验不可关闭，禁止携带 Authorization 跨 origin redirect。
 
-更新资格与邀请码、账号和 provider 解耦；但严格 `NetworkMode=local_only` 期间应用绝不检查或下载更新。一次联网更新须创建内存态 OneTimeUpdateGrant，生效时 transient `effective_network_policy=update_only`，只允许本次 manifest/package，请求结束/失败/取消/过期/退出后立即恢复严格 local_only；它不能授权 Agent、quota、analytics、diagnostics、remote config 或任意 URL。也可使用人工取得且执行同等验签的离线安装包。允许常规联网时启动后异步检查且之后最多每 24 小时一次。Manifest 由应用内置 public key 验签，包校验 SHA-256 与 Windows code signature；活动任务、Origin 导出或项目 committing 时不安装，必须由用户点击“重启并更新”。`min_cloud_version` 只阻止内置云服务，不阻止本地能力。
+第一轮不做 CloudConfig、自动/应用内更新、后台下载或 `update_only`。用户人工取得安装包后，必须验证发布方签名、SHA-256 与 Windows code signature，再在退出应用后显式运行；更新资格不依赖邀请码。strict local_only 始终零出站。
 
-完整协议、账本、日志、状态机、稳定错误与更新验证见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
+完整协议、原子共享计数、幂等、日志、稳定错误与人工安装包验证见 [邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)。
 
 ### 14.5 隐私、安全与诊断
 
-- 匿名 usage analytics 默认关闭，只有用户 opt-in 后发送；DiagnosticBundle 不设后台自动发送，每次都由用户主动生成、预览和明确提交。
-- 诊断不得包含原始数据、任何用户提示、文件名、路径、列名或列值；发送前逐文件和 exact JSON 预览。
+- 第一轮不实现或发送 usage analytics。DiagnosticBundle 只由用户主动生成、逐文件与 exact JSON 预览后保存到本地，用户自行发送。
+- 本地 Bundle 不得包含原始数据、任何用户提示、文件名、路径、列名或列值。
 - 第一轮不提供应用级项目加密，依赖 Windows 文件权限与用户选择的磁盘加密。
 - 后续可评估密码加密 `.plotproj`；无账号体系，因此不提供云端密码找回。
 - ModelRunAudit 只记录 provider/model/profile、版本、origin、request/run ID、耗时、usage、稳定错误、DataDisclosure 类别/计数和 context hash，不记录 secret、隐藏推理或完整 request/response body。
 - 内置 proxy 只承诺自身不记录 payload，并准确展示底层供应商政策；OpenAI API 不宣传默认零保留，第三方兼容 provider 首次使用前必须确认其保留政策。
 - 本地日志按 allowlist 保留 14 天或 100 MB，禁止 prompt、文件/路径、列名/值/摘要、secret 与模型 body；stack scrub 用户路径，第一轮不收集 memory dump。
-- Usage analytics 默认 off 且只允许预定义无 free-text event schema；DiagnosticBundle 每次主动生成、逐文件与 exact JSON 预览后明确发送。二者在 local_only 中零发送。
-- DiagnosticBundle 禁止项目 DB/数据/preview/OPJU/prompt/文件名/路径/列名/值/secret；上传返回 diagnostic ID，服务端原始包 30 天删除。
-- 完整安全、日志、诊断、迁移、兼容与恢复备份契约见 [本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
+- DiagnosticBundle 禁止项目 DB/数据/preview/OPJU/prompt/文件名/路径/列名/值/secret；第一轮没有上传、diagnostic ID 或云端保留期。
+- 完整安全、日志、本地诊断与 Beta schema 兼容契约见 [本地安全、诊断与 Beta 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
 
 ## 15. 语言、视觉与无障碍
 
@@ -671,24 +670,24 @@ Origin 能力分级：
 - 普通数据图的 OPJU 达到 O1；受控 Origin 实例重新打开后核心对象仍可编辑。
 - Origin 不可用时只禁用 `.opju`，不阻断其他功能。
 - 重新打开 `.plotproj` 后，对话、数据、批次、图表版本和任务状态完整恢复。
-- Core 异常退出后遗留任务标为 interrupted，正式任务不会静默自动重试，用户可以从来源对话进入恢复或重跑。
+- Core异常退出后遗留任务标为interrupted，项目权威状态必须不损坏且temp可清理；正式任务不会静默续跑/自动重试，用户从来源对话明确重试。
 - 源数据重新导入、从旧版本继续、发表规格变化和外部 OPJU 修改均不会静默覆盖既有结果。
 - 离线时除自然语言 Agent 外，导入、手动绘图、编辑和导出仍可用。
-- Usage analytics 默认关闭；DiagnosticBundle 仅用户主动生成/预览/提交，内容不包含项目数据、提示、文件/路径、列名或值。
+- 第一轮无 usage analytics；DiagnosticBundle 仅用户主动生成、逐项预览并保存到本地，内容不包含项目数据、提示、文件/路径、列名或值。
 - 多设备共享 InviteGrant 额度，重装、超时、重试和服务重启不会获得新额度或重复扣费；控制面完全不可达时仍可启动、打开项目并使用全部本地手动能力。
-- 更新资格不依赖邀请码；严格 local_only 抓包为零。OneTimeUpdateGrant 期间只允许 update_only manifest/package，终止即恢复 local_only；或使用完整验签离线包。签名、哈希或证书异常被阻止，更新不在活动任务或 Origin 导出期间安装。
+- 第一轮无应用内更新或 update_only；strict local_only 抓包为零。人工取得的安装包在应用外验证发布签名、SHA-256 与 Windows code signature，异常即阻断。
 - local_only 全进程抓包为零出站；断网仍可完成手动绘图、批量/组合和 PNG/SVG/OPJU。恶意 archive、宏/外链/公式、日志/诊断泄露与 Electron 注入均被阻止。
-- Migration 每个阶段崩溃后原项目仍可打开且科学/视觉语义不变；未来 schema 明确拒绝，旧组件缺失不静默换算法；backup restore 不覆盖当前项目并保存记录。
+- 未知 schema 明确拒绝；已知 source→target 一次性迁移失败后原项目仍可打开且科学/视觉语义不变；旧组件缺失不静默换算法。任务崩溃不损坏已有权威状态，用户明确重试。
 
-## 20. 性能与发布 Qualification
+## 20. 小规模邀请制 Beta Qualification
 
-- 正式邀请内测只支持发布时仍在 Microsoft 支持周期的 Windows 11 x64，当前参考 25H2；Windows 10 22H2 只观察，不形成承诺。Reference/minimum beta 机器与 100/125/150/200% 显示矩阵固定。
-- Qualification 规模为 regular 100k×20/10 charts、large 1M×20/100 files或charts、boundary 10M numeric cells/1000 objects；超出不是静默拒绝，但须 resource preflight，失败返回 RESOURCE_LIMIT。
-- Thumbnail≤5k visible primitives、interactive≤50k/axes 且明示简化；range/stats/full analysis 使用完整数据，formal PNG/SVG/OPJU 一律 full data。大 SVG >200MB或>2M primitives 强警告并明确确认。
-- P95 gate 固定启动/Core/项目、CSV/XLSX 导入、preview/patch/batch、PNG/SVG/OPJU、ContextEnvelope/Agent 与≤100ms交互反馈预算；memory、并发与 `2.5×` disk preflight 同样阻断。
-- 31图每图至少 minimal/representative/edge 三 fixture，基础 formal PNG/formal SVG/O1 OPJU 共279 paths；preview/interactive 另测且不计入279。每个声明 Origin exact version分别完整重跑93条 O1 live+fresh-reopen 路径；edge_error可记录预期稳定错误而不强制二进制。
-- 每个 performance case 固定 cold/warm、dataset hash、machine profile、sample count、nearest-rank P50/P95 与 cache policy；相对 P95 退化>10%或越绝对预算阻断。
-- Data corruption、silent wrong science/semantic change、formal简化/算法替换、假O1、敏感泄露、声明图形失败、签名绕过、已知 blocker/critical 或靠 retry 变绿均不可 waiver。
-- 每个 RC 提交 automation、31图、Origin、scientific、performance、安全/隐私/migration fault、SBOM/licenses、signed installer 和 known issues evidence。首批10–15人的完成/继续意愿指标决定第二批 go/no-go，不用默认关闭 telemetry 猜测。
-- 完整预算、MatrixKey、artifact naming、severity/owner/waiver 与审批契约见 [性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。这些是未来 release gate，当前文档不表示真实实现或测试已通过。
-- 实施按W0–W10依赖与M0–M7 evidence里程碑执行，详见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；需求权威、实现入口和future evidence映射见 [规格索引与设计冻结基线](./SPEC-INDEX.md)。
+- 每个 Beta build 只在一个 Windows 11 x64 reference profile 正式 qualification：当前为25H2/6C/16GB/NVMe/1920×1080，DPI 100%与150%；其他OS、minimum machine与DPI矩阵后续再做。
+- 唯一正式规模为100k rows×20 columns、常规10 charts、单图≤100k plotted primitives、批量20 files/charts×每图10k、项目≤100 charts。超范围显示“超出Beta已验证范围”后best effort，资源不足稳定拒绝并建议显式筛选/聚合/分箱。
+- Thumbnail≤5k、interactive≤20k visible primitives；100k preview P95≤3s且range/stats/analysis full data。声明规模内formal PNG/SVG/OPJU一律full data，不静默抽稀、栅格或换算法。
+- 导入只qualification 100MB CSV≤12s、50MB XLSX≤30s；常规峰值内存≤2GB。100k PNG≤5s、SVG≤10s、single OPJU≤60s、20-chart OPJU≤180s。
+- 31图每图minimal/representative/edge三fixture，formal PNG/formal SVG/O1 OPJU共279 paths；preview另测。每个build只声明一个Origin exact version，其OPJU 93条完整运行；其他版本`VERSION_UNSUPPORTED`。
+- Data corruption、silent wrong science/semantic change、formal抽稀/算法替换、假O1、secret泄漏、声明图形失败、签名绕过、已知blocker/critical或靠retry变绿仍不可豁免。
+- 每个Beta build固定commit/build/dependency/fixture hashes，提交279、单Origin 93、scientific、reference performance、local security、quota幂等、签名安装包和known issues检查单；不要求商业级SBOM流程、多角色签署、长soak或全OS/云攻击矩阵。
+- 首批10–15人的80%/60%/60%、至少一名batch与一名Origin继续编辑指标仍决定第二批go/no-go，使用经同意观察/访谈而非analytics。
+- 完整预算、MatrixKey、检查单与后续工程边界见 [小规模邀请制 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。这些是未来Beta gate，当前文档不表示真实实现或测试已通过。
+- 实施按W0–W10依赖与M0–M7 evidence里程碑执行，详见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；需求权威、实现入口和future evidence映射见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。

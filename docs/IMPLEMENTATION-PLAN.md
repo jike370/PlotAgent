@@ -3,7 +3,7 @@
 > 状态：implementation-ready backlog；尚未实施真实后端/云/Origin qualification
 > 日期：2026-08-05
 > 适用范围：W0–W10 workstreams、依赖、风险 spikes、里程碑、验收证据与错误归属
-> 相关文档：[规格索引与设计冻结基线](./SPEC-INDEX.md)、[性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)
+> 相关文档：[规格索引与 Beta 设计基线](./SPEC-INDEX.md)、[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)
 
 本文把已确认跨模块契约拆成可独立分工的工程 backlog。目录是计划中的实现入口；创建目录和代码属于后续实施，不是本次文档提交结果。
 
@@ -78,7 +78,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Planned entries:** `src/plotagent/storage/`、`importing/`、`datasets/`、`transforms/`、`units/`、`lineage/`。
 - **Deliverables:** schema migrations v1 seed；transaction/CAS APIs；Online Backup snapshot packaging；safe archive/parser pipeline；deterministic Dataset/field/row IDs；preflight diff；isomorphic signature；Transform/Unit engines。
 - **Dependencies/parallel:** W0→W2。SQLite/CAS、parser、Transform/Unit可分组并行；DatasetVersion/hash/transaction contract先行。W3/W4/W7/W9消费immutable refs。
-- **Acceptance evidence:** import atomic failure；100MB/1GB/50MB budgets；archive traversal/link/bomb；macro/formula/external link nonexecution；lineage golden；unit algebra/temperature/opaque；join cardinality；WAL crash；package checksum/reopen。
+- **Acceptance evidence:** import atomic failure；100MB CSV/50MB XLSX budgets；archive traversal/link/bomb；macro/formula/external link nonexecution；lineage golden；unit algebra/temperature/opaque；join cardinality；WAL crash；package checksum/reopen。
 - **Stable error ownership:** `IMPORT_*`、`ARCHIVE_*`、`FORMULA_*`、`DATASET_*`、`TRANSFORM_*`、`UNIT_*`、`LINEAGE_*`、`PROJECT_STORAGE_*`。
 - **Done:** 数据从授权文件到immutable DatasetVersion/derived version端到端可复现，失败零正式污染，包/工作副本/同构/单位/血缘均有golden与fault evidence。
 
@@ -104,7 +104,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Planned entries:** `src/plotagent/charts/`、`plots/`、`rendering/resolver/`、`rendering/matplotlib/`、`exports/png_svg/`。
 - **Deliverables:** registry metadata/capabilities；canonical PlotSpec/Patch；ResolvedRenderPlan hash；layout/axis/ticks/font engine；31 adapters；formal validators；preview simplification disclosure。
 - **Dependencies/parallel:** W2→W4，analysis-backed charts需W3。Resolver/layout与chart adapters可并行；K01 vertical slice先完成。W5/W6依赖stable RenderPlan。
-- **Acceptance evidence:** 每图 minimal/representative/edge；额外 preview/interactive；279基础中PNG/SVG 186 paths；golden spec/plan；formal full-data assertion；physical/color/tick tolerance；large SVG warning/resource preflight；cancel/version conflict。
+- **Acceptance evidence:** 每图 minimal/representative/edge；额外 preview/interactive；279基础中PNG/SVG 186 paths；golden spec/plan；100k formal full-data assertion；physical/color/tick tolerance；基于声明范围的SVG估计/warning/resource preflight；cancel/version conflict。
 - **Stable error ownership:** `PLOT_*`、`PATCH_*`、`CHART_*`、`AXIS_*`、`RENDER_*`、`PNG_*`、`SVG_*`、`FONT_*`、`RESOURCE_LIMIT`（渲染维度）。
 - **Done:** 31图全部通过适用preview/formal PNG/SVG与golden；任何unsupported/invalid请求稳定失败；无隐藏stats、formal抽稀或adapter默认漂移。
 
@@ -126,13 +126,13 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Owner:** Origin Integration。
 - **Scope:** versioned typed OriginExportPlan；signed template preflight；dedicated managed instances；31图O1 native adapters；target-scoped Data/Analysis/Graphs/Metadata；live validation；save/exit/fresh reopen/readback；atomic OPJU/export record/external modification。
 - **Out of scope:** LabTalk、user Origin attach/kill、raster/SVG fallback、O2 first-release admission、OPJU import/round-trip/cloud Origin。
-- **Inputs/contracts:** ORIGIN-EXPORT、RENDERING、PERFORMANCE release manifest；W4 stable RenderPlan；W0 MatrixKey/evidence。
+- **Inputs/contracts:** ORIGIN-EXPORT、RENDERING、PERFORMANCE Beta build declaration；W4 stable RenderPlan；W0 MatrixKey/evidence。
 - **Planned entries:** `src/plotagent/origin/plan/`、`adapters/`、`worker/`、`validation/`、Origin qualification harness。
-- **Deliverables:** K01 spike adapter first；adapter registry/version ranges；preflight；managed process lifecycle；typed property maps；31 O1 adapters；fresh reopen validator；manifest/atomic export。
+- **Deliverables:** K01 spike adapter first；单一exact-version adapter声明；preflight；managed process lifecycle；typed property maps；31 O1 adapters；fresh reopen validator；manifest/atomic export。
 - **Dependencies/parallel:** W4→W6 for production, but M0 K01 risk spike begins as soon as minimal W0/W2/W4 slice exists。Adapter families可并行 only after K01 O1 proof and property map rules。
-- **Acceptance evidence:** 每个declared Origin exact version各93条O1 paths；edge expected errors；live+fresh readback data/links/axes/ticks/legend/page/style/missing；no LabTalk/raster/global template/user instance；cancel/hang/lock/external modification/atomic failure；P95 budgets。
+- **Acceptance evidence:** 当前Beta build唯一declared Origin exact version的93条O1 paths；edge expected errors；live+fresh readback data/links/axes/ticks/legend/page/style/missing；no LabTalk/raster/global template/user instance；cancel/hang/lock/external modification/atomic failure；P95 budgets。
 - **Stable error ownership:** `NOT_INSTALLED`、`VERSION_UNSUPPORTED`、`LICENSE_UNAVAILABLE`、`CAPABILITY_MISSING`、`TEMPLATE_OR_FONT_MISSING`、`START/BUILD/SAVE/REOPEN/VALIDATION_FAILURE`、`TARGET_LOCKED`、`EXTERNAL_MODIFIED`、Origin `CANCELLED`。
-- **Done:** Release manifest每个声明Origin版本的31图均O1 qualification、93 paths零缺口；失败绝不发布文件/降级，实例与temp清理通过fault/soak。
+- **Done:** Beta build唯一声明Origin exact version的31图均O1 qualification、93 paths零缺口；其他版本稳定`VERSION_UNSUPPORTED`，失败绝不发布文件/降级，实例与temp清理通过fault evidence。
 
 ### W7 — ContextBuilder、ModelProvider、AgentDecision 与本地 validator
 
@@ -147,44 +147,44 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Stable error ownership:** `PROVIDER_*`、`TLS_*`、`AUTH_FAILED`（provider）、`SCHEMA_INVALID/REPAIR_EXHAUSTED`、`CONTEXT_TOO_LARGE`、`EGRESS_*`、`TARGET_STALE`、`RETENTION_UNACKNOWLEDGED`。
 - **Done:** Provider只能产出单个已校验AgentDecision；四类union、出境、澄清、审计和取消全部evidence化，模型无工具/会话权威/partial执行路径。
 
-### W8 — Invite/token/quota proxy、签名 config/update
+### W8 — Invite、DeviceCredential、共享计数与 built-in proxy
 
-- **Owner:** Cloud Control Plane + Desktop Update。
-- **Scope:** InviteGrant/redeem；random installation/device credentials；access/refresh rotation；minimal scopes；reserve/settle/cancel ledger；QuotaSnapshot/rate limits；payload-free proxy logging；signed CloudConfig/UpdateManifest；desktop update check/download/validation/restart gate；OneTimeUpdateGrant update_only integration。
-- **Out of scope:** account/email/profile、device fingerprint、project sync/storage、remote science/Origin、custom provider billing、silent install。
-- **Inputs/contracts:** CLOUD-CONTROL-PLANE、AGENT-CONTEXT、LOCAL-SECURITY、W7 fixed runs/usage、W1 credentials/update boundary、W0 envelopes/errors。
-- **Planned entries:** vendor-neutral `services/control-plane/` contract implementation、desktop `src/main/update/`、cloud integration tests。
-- **Deliverables:** redeem/refresh/status；shared quota ledger/idempotency recovery；model proxy；signed config/update endpoints；desktop verifier/downloader/restart preflight；admin revoke/block primitives。
-- **Dependencies/parallel:** W7→W8；signed update verifier可在W1之后并行，proxy/ledger waits fixed client_run semantics。No production deploy before security/retention review。
-- **Acceptance evidence:** multi-device shared quota/reinstall；reserve/settle timeout/restart no double charge；revoke only builtin；quota/custom/local unaffected；cloud unreachable startup；payload log scan；tamper/redirect/code-sign；active task install defer；local_only/update_only packet capture。
-- **Stable error ownership:** `INVITE_*`、`DEVICE_BLOCKED`、`TOKEN_*`、`QUOTA_*`、`RATE_LIMITED`、`IDEMPOTENCY_CONFLICT`、`UPGRADE_REQUIRED`、`MANIFEST/SIGNATURE/PACKAGE_*`、cloud `PROVIDER_UNAVAILABLE`。
-- **Done:** Vendor-neutral contract和desktop client在fault/attack matrix通过；无账号/硬件身份/项目依赖，更新与邀请解耦且不能越过local_only/签名/任务闸门。
+- **Owner:** Beta Cloud Control Plane。
+- **Scope:** InviteGrant/redeem；random installation ID与长期DeviceCredential；minimal scopes；InviteGrant原子共享计数；`client_run_id`请求幂等；QuotaSnapshot；payload-free proxy logging；admin revoke/device block。
+- **Out of scope:** account/email/profile、device fingerprint、project sync/storage、remote science/Origin、custom provider billing、access/refresh rotation、reserve/settle/reconcile、CloudConfig、应用内更新、analytics/diagnostic upload。
+- **Inputs/contracts:** CLOUD-CONTROL-PLANE、AGENT-CONTEXT、LOCAL-SECURITY、W7 fixed runs、W1 Credential Manager facade、W0 envelopes/errors。
+- **Planned entries:** vendor-neutral `services/control-plane/` Beta contract implementation、credential client、cloud integration tests。
+- **Deliverables:** redeem/credential auth/status；atomic shared counter/client-run record；model proxy；admin revoke/block；人工安装包hash/signature verification说明/工具入口。
+- **Dependencies/parallel:** W7→W8；redeem/credential和counter/proxy可在fixed client_run semantics后并行。不建设更新或生产计费子系统。
+- **Acceptance evidence:** multi-device shared quota/reinstall；timeout/restart同client_run最多一次扣减与上游调用；revoke only builtin；quota/custom/local unaffected；cloud unreachable startup；payload log scan；strict local_only zero packet；人工安装包signature/hash/code-sign阻断。
+- **Stable error ownership:** `INVITE_*`、`DEVICE_CREDENTIAL_INVALID`、`DEVICE_BLOCKED`、`QUOTA_*`、`RATE_LIMITED`、`IDEMPOTENCY_CONFLICT`、`RUN_OUTCOME_UNKNOWN`、cloud `PROVIDER_UNAVAILABLE`；`INSTALLER_*`由W10拥有。
+- **Done:** Beta最小控制面通过共享计数/幂等/降级/日志矩阵；无账号、硬件身份、项目依赖或隐藏第二次扣费，strict local_only不访问控制面。
 
-### W9 — local_only、安全导入、日志诊断、迁移与备份
+### W9 — local_only、安全导入、本地诊断与已知版本兼容
 
 - **Owner:** Local Security + Project Lifecycle。
-- **Scope:** NetworkMode/effective update_only policy；egress firewall；fixed-disk workspace；temp ACL/cleanup；Electron/data rendering hardening；log allowlist/rotation；analytics opt-in；DiagnosticBundle preview/upload；MigrationPlan N→N+1/temp validation/switch；daily backup/recovery records/legacy components。
-- **Out of scope:** project encryption/secure erase、memory dumps、downgrade writer、cloud backup、automatic rollback、arbitrary link opening。
-- **Inputs/contracts:** LOCAL-SECURITY、PROJECT-STORAGE、TASK-RUNTIME、CLOUD update_only、W1/W2/W0。
-- **Planned entries:** `src/plotagent/security/`、`diagnostics/`、`migration/`、`backup/`、`src/main/network-policy/`。
-- **Deliverables:** network policy state machine；archive/Excel negative guards（with W2）；temp manager；structured logger/analytics schemas；bundle builder/scrubber；migration registry/validator/switch；backup retention/recovery UI contracts。
-- **Dependencies/parallel:** W2+W1→W9。Logging/network/temp可并行；migration/backup waits storage schema/CAS；update_only integration joins W8 but strict local_only test uses mock。
-- **Acceptance evidence:** strict local_only zero packet；update_only only manifest/package；offline manual/3 exports；ACL/cleanup；archive/macro/formula; logs/bundle forbidden-field scan；migration crash every phase/semantic parity；future schema/legacy missing；daily3/non-overwrite restore。
-- **Stable error ownership:** `NETWORK_BLOCKED_LOCAL_ONLY`、`ONE_TIME_UPDATE_GRANT_*`、`WORKSPACE_*`、`TEMP_*`、`LOG/DIAGNOSTIC_*`、`MIGRATION_*`、`NEWER_SCHEMA_UNSUPPORTED`、`LEGACY_COMPONENT_MISSING`、`BACKUP/RESTORE_*`。
-- **Done:** Security/zero-egress/migration/backup negative矩阵通过；任何失败保持原项目，日志诊断无禁止内容，local_only与update_only可抓包区分。
+- **Scope:** strict NetworkMode policy；fixed-disk workspace；temp ACL/cleanup；Electron/data rendering hardening；log allowlist/rotation；LocalDiagnosticBundle preview/save；schema stable reject；按需实现一个明确source→target一次性迁移；legacy component handling。
+- **Out of scope:** project encryption/secure erase、memory dumps、analytics、diagnostic upload、update_only、通用N→N+1 registry、daily backup/recovery UI、downgrade writer、cloud backup、automatic rollback、arbitrary link opening。
+- **Inputs/contracts:** LOCAL-SECURITY、PROJECT-STORAGE、TASK-RUNTIME、CLOUD strict-local boundary、W1/W2/W0。
+- **Planned entries:** `src/plotagent/security/`、`diagnostics/`、`compatibility/`、`src/main/network-policy/`。
+- **Deliverables:** strict network policy；archive/Excel negative guards（with W2）；temp manager；structured logger；local bundle builder/scrubber；schema compatibility gate；可选known-pair migrator/validator/atomic switch。
+- **Dependencies/parallel:** W2+W1→W9。Logging/network/temp可并行；known-pair migration只在实际版本对确定后依赖storage schema/CAS，不建设提前泛化框架。
+- **Acceptance evidence:** strict local_only zero packet；offline manual/3 exports；ACL/cleanup；archive/macro/formula；logs/bundle forbidden-field scan且bundle仅本地保存；未知schema稳定拒绝；known-pair每阶段crash保持源项目和semantic hash。
+- **Stable error ownership:** `NETWORK_BLOCKED_LOCAL_ONLY`、`WORKSPACE_*`、`TEMP_*`、`LOG/DIAGNOSTIC_*`、`SCHEMA_VERSION_UNSUPPORTED`、`KNOWN_MIGRATION_*`、`LEGACY_COMPONENT_MISSING`。
+- **Done:** Security/zero-egress/schema/diagnostic矩阵通过；任何失败保持原项目，日志与本地Bundle无禁止内容，任务崩溃后temp可清理且用户可明确重试。
 
-### W10 — E2E、性能、安全、打包与 Release gates
+### W10 — E2E、reference性能、安全、打包与 Beta gates
 
 - **Owner:** QA/Release with all domain owners。
-- **Scope:** full E2E harness；31图MatrixKey；Origin versions；scientific references；fault/security/privacy/migration；performance/memory/soak；installer/update/code-sign；SBOM/licenses/dependency audit；RC evidence/known issues/approval；first beta success evaluation。
-- **Out of scope:** 修复归属领域的业务缺陷、缩减声明逃避gate、替owner签署科学/O1/security结果。
+- **Scope:** E2E harness；31图MatrixKey；单一Origin exact version；scientific references；cancel/crash/security/privacy/known-pair migration；single reference profile performance/memory；人工安装包signature/hash/code-sign；dependency/fixture hashes；Beta checklist/known issues；first beta success evaluation。
+- **Out of scope:** 修复归属领域的业务缺陷、缩减声明逃避gate、多OS/DPI/minimum-machine qualification、长soak、SBOM流程、完整云攻击矩阵、商业级多角色签署。
 - **Inputs/contracts:** PERFORMANCE-TEST-RELEASE、SPEC-INDEX、W0 harness、W5/W6/W8/W9 deliverables及所有W evidence。
 - **Planned entries:** `tests/e2e/`、`tests/performance/`、`tests/security/`、`tests/origin/`、`release/evidence/`、installer pipeline。
-- **Deliverables:** deterministic test orchestration；reference/minimum/display profiles；279 formal基础矩阵报告；独立preview/interactive报告；每个声明Origin exact version各自完整93条OPJU报告；performance baselines；fault/soak/security；signed installer/update evidence；RC dashboard/approval packet。
-- **Dependencies/parallel:** W5/W6/W8/W9→final W10；harness/performance fixtures/SBOM tooling从W0持续并行。失败回流到唯一owner，不在gate层打补丁。
-- **Acceptance evidence:** 本workstream产物就是PERFORMANCE §12 RC evidence；还需first 10–15 user success structured results for second-batch go/no-go。
+- **Deliverables:** deterministic test orchestration；单一Windows reference profile；279 formal基础矩阵报告；独立preview/interactive报告；单一Origin exact version完整93条OPJU报告；reference performance；fault/security；人工签名安装包证据；Beta checklist/known issues。
+- **Dependencies/parallel:** W5/W6/W8/W9→final W10；harness/performance fixtures从W0持续并行。失败回流到唯一owner，不在gate层打补丁。
+- **Acceptance evidence:** 本workstream产物就是PERFORMANCE §11 Beta build checklist；另需first 10–15 user success structured results for second-batch go/no-go。
 - **Stable error ownership:** `TEST_HARNESS_*`、`EVIDENCE_*`、`INSTALLER_*`；领域失败code仍由原W拥有，W10只验证与聚合。
-- **Done:** 不可豁免blocker为零、coverage缺口零、performance不过线为零、允许waiver有效且签署完整，installer hash/commit/Decision baseline固定；否则不得发布。
+- **Done:** 不可豁免blocker、coverage缺口和reference performance越线均为零；commit/build/dependency/fixture/installer hashes与known issues固定，由Beta release owner记录go/no-go，否则不得分发。
 
 ## 4. 全面编码前四个 Risk Spikes
 
@@ -193,17 +193,17 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 `import → manual ActionPlan → PlotSpec → ResolvedRenderPlan → formal PNG/SVG → typed OriginExportPlan → O1 OPJU → exit → fresh reopen readback`。
 
 - **Purpose:** 最早验证核心对象边界、formal parity、originpro typed mapping、进程生命周期和O1 readback。
-- **Evidence:** fixed dataset hash；all spec/plan/artifact hashes；PNG/SVG validators；Origin 2021 exact build live+fresh report；no LabTalk/raster/user instance；atomic failure injection。
+- **Evidence:** fixed dataset hash；all spec/plan/artifact hashes；PNG/SVG validators；当前Beta唯一Origin exact version live+fresh report；no LabTalk/raster/user instance；atomic failure injection。
 - **Decision:** O1失败必须调整adapter/contract或产品范围并新增Decision，不能把失败留到W6末期。
 
-### Spike 2 — 1M preview 与 formal SVG preflight
+### Spike 2 — 100k preview 与 formal SVG resource preflight
 
-- **Purpose:** 验证≤50k interactive primitives deterministic simplification、full-data range/stats、formal full data以及>200MB/>2M vector预估/确认/RESOURCE_LIMIT。
-- **Evidence:** 1M dataset hash；preview/full count；range parity；time/memory/disk；SVG estimate vs actual；cancel/confirm/atomic output。
+- **Purpose:** 验证≤20k interactive primitives deterministic simplification、100k full-data range/stats/analysis、声明规模内formal full data与基于实际资源的SVG估计/warning/RESOURCE_LIMIT。
+- **Evidence:** 100k dataset hash；preview/full count；range parity；≤3s preview；≤2GB peak；SVG estimate vs actual；cancel/warning/atomic output。
 
 ### Spike 3 — Core crash 与 SQLite commit boundary recovery
 
-- **Purpose:** 在preparing/running/committing前后注入崩溃，证明single writer、CAS staging、recovery point、interrupted和no partial current state。
+- **Purpose:** 在preparing/running/committing前后注入崩溃，证明single writer、CAS staging、阶段记录、interrupted、no partial current state与明确重试。
 - **Evidence:** transaction/CAS/object/ref snapshots；heartbeat/restart log；recovery disposition；idempotent rerun；original project integrity。
 
 ### Spike 4 — Custom Provider P1/P2
@@ -216,7 +216,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 ### M0 — Contract/tooling 与四个 risk spikes
 
 - **Entry:** Decision baseline与专门契约已冻结；W0 owners确定。
-- **Exit evidence:** Schema/codegen/error/fixture/evidence harness最小集；四个spike报告和Decision disposition；K01 Origin 2021 O1路径技术可行或明确阻断。
+- **Exit evidence:** Schema/codegen/error/fixture/evidence harness最小集；四个spike报告和Decision disposition；K01在目标Beta Origin exact version的O1路径技术可行或明确阻断。
 
 ### M1 — Manual K01 完整本地路径
 
@@ -241,17 +241,17 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 ### M5 — 全部 O1 Origin
 
 - **Entry:** K01 spike通过，M2 31 RenderPlans稳定。
-- **Exit evidence:** 每个release manifest声明Origin exact version各93条OPJU O1；live+fresh reopen、atomic/cancel/hang/external modification、P95 budgets。
+- **Exit evidence:** 当前Beta build唯一Origin exact version的93条OPJU O1；其他版本`VERSION_UNSUPPORTED`；live+fresh reopen、atomic/cancel/hang/external modification、P95 budgets。
 
-### M6 — Cloud/Security/Update/Migration
+### M6 — 简化 Cloud、Local Security、人工安装包与兼容
 
 - **Entry:** M4 fixed run/usage；W1/W2 lifecycle稳定。
-- **Exit evidence:** shared quota/idempotency、cloud-offline degradation、signed update、strict local_only/update_only、log/diagnostic privacy、migration crash/backup restore matrices。
+- **Exit evidence:** DeviceCredential、shared atomic quota/client-run idempotency、cloud-offline degradation、strict local_only、local diagnostic privacy、未知schema拒绝/已知pair迁移、人工安装包签名/hash/code-sign matrices。
 
-### M7 — RC Qualification
+### M7 — Beta Qualification
 
 - **Entry:** M3/M5/M6通过；RC commit/installer/dependency lock fixed。
-- **Exit evidence:** PERFORMANCE-TEST-RELEASE完整evidence包；无不可豁免 blocker；审批签署；first beta成功指标在进入第二批前单独go/no-go。
+- **Exit evidence:** PERFORMANCE-TEST-RELEASE Beta checklist；无不可豁免 blocker；固定commit/build/dependency/fixture/installer hashes与单一owner go/no-go；first beta成功指标在进入第二批前单独go/no-go。
 
 里程碑只按exit evidence完成，不能按“代码写完”“PR合并”或日历日期宣告完成。
 

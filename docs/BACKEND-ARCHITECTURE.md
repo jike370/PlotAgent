@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -276,7 +276,7 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 - OriginExportPlan 由 ExportSpec、ResolvedRenderPlan 和版本化 OriginAdapter 本地生成；Worker 不接受模型脚本、任意 property string 或模板路径。
 - 第一轮 OriginAdapter 只使用 `originpro`/Python 类型化固定映射，禁止模型、数据或 app-owned LabTalk；需要 LabTalk 的能力判为缺失。
 - 第一轮 31 项正式图形都要求 O1 full native semantic parity；不能用 raster/SVG 嵌入或运行时降级冒充原生。
-- Preflight 检查 Origin ≥2021 且命中当前 release/adapter 明确 qualification range，并检查 license、bitness、originpro、字体、签名 template、adapter、目录和文件锁；未测试版本返回 VERSION_UNSUPPORTED。
+- Preflight 检查 Origin exact version/build/bitness 精确命中当前 Beta build 的唯一 qualification 声明，并检查 license、originpro、字体、签名 template、adapter、目录和文件锁；其他版本返回 `VERSION_UNSUPPORTED`。
 - 不连接用户当前 Origin，不调用 `op.attach()`；构建和验证分别从新的 dedicated blank instance 开始，也不终止用户实例。
 - Live structural validation 通过后保存同目录临时 OPJU；退出，再用新实例打开并读回 books/sheets/rows/columns/designations/Units、pages/layers/plots/data links、axes/ticks/legend/page/style 与数值/missing 语义。
 - 一个 OPJU 整体原子；任一目标失败不发布。排除目标必须由用户创建新 ExportSpec，不能静默跳过。
@@ -288,7 +288,7 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 - [Origin External Python](https://docs.originlab.com/externalpython/)
 - [Origin External Python Samples](https://docs.originlab.com/externalpython/external-python-code-samples/)
 
-这是 originpro 的技术最低条件，不是 PlotAgent 对所有更高 Origin 版本的支持声明；产品支持范围只来自当次 release manifest 的完整 qualification。
+这是 originpro 的上游技术条件，不是 PlotAgent 的产品支持范围。每个 Beta build 只支持一个完成完整 qualification 的 Origin exact version；即使满足上游最低条件，其他版本仍返回 `VERSION_UNSUPPORTED`。
 
 ## 9. 任务与事务
 
@@ -299,7 +299,7 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 - 单图、改图、分析、派生数据和多文件导入会话按各自契约原子提交；批量保留完成项；每个导出文件临时写入、校验后原子替换。
 - 取消先使用 cooperative token，宽限期后只终止隔离工作进程；Origin 无响应时重建 PlotAgent 管理实例，不强杀 Core。
 - 每个任务固定输入版本并使用 expected version 与 `(task_id, action_id, output_slot)` 幂等键；活跃任务引用阻止对象删除。
-- Electron 监督 Core 心跳；任务预先持久化并只在阶段边界写恢复点。遗留任务标记为 interrupted，正式任务不自动重试。
+- Electron监督Core心跳；任务预先持久化并只在阶段边界写记录，用于确认原子提交和清理temp。遗留任务标记为interrupted，正式任务不自动续跑/重试，由用户明确重试。
 - 详细状态、取消、调度、提交、恢复和关闭流程以 [任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md) 为准。
 
 ## 10. 安全与隐私
@@ -313,17 +313,17 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 - 所有派生变换、统计和导出保留操作记录与输入版本。
 - 数据、列名和单元格文本是不可信 data；其中 URL 不抓取，其中指令不执行。非 loopback provider 强制 HTTPS，TLS 不可关闭，带凭据的跨 origin redirect 被阻止。
 
-## 11. 云控制面与更新
+## 11. Beta 最小云控制面与人工分发
 
-在实现顺序之外，最小云控制面是独立外部边界：InviteGrant 拥有共享额度，随机设备只承担鉴权/限流；ModelRun 使用持久化 reserve/settle 幂等账本。应用启动与项目事务不依赖云端，更新无需邀请码并经过 manifest 签名、package hash/code signature 和用户显式重启闸门。完整 API、状态机、降级与更新契约见 [邀请、额度、最小云控制面与软件更新契约](./CLOUD-CONTROL-PLANE.md)。
+最小云控制面是独立外部边界：InviteGrant 拥有共享额度，随机设备使用长期 DeviceCredential 鉴权；服务端以 `(invite_id, client_run_id)` 唯一记录和原子共享计数保证重试不重复调用/扣费。第一轮不实现 access/refresh rotation、reserve/settle/reconcile、CloudConfig 或应用内更新。应用启动与项目事务不依赖云端；Beta 安装包由用户人工取得并校验发布签名、SHA-256 与 Windows code signature。完整契约见 [邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)。
 
 ## 12. 本地安全与项目生命周期
 
 - NetworkMode 明确区分 builtin proxy、custom provider 与 local_only；local_only 由网络策略层阻止全部远程出站，手动 ActionPlan 和本地三格式导出链保持不变。
 - 不可信 `.plotproj`/archive、Excel/CSV、对话/模型文本和 Electron IPC 都在进入权威对象前执行类型化安全校验；活动 SQLite/WAL 只在本机固定磁盘。
-- 本地日志/analytics/DiagnosticBundle 各有独立 allowlist、opt-in 与 retention；项目内容、prompt、路径、字段和值不得泄露。
-- Migration 使用 Online Backup、新临时 workspace、逐步迁移、语义验证与原子 pointer switch；每日恢复备份不覆盖当前项目。
-- 详细 NetworkMode、安全导入、日志诊断、迁移、兼容、错误与恢复规则见 [本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
+- 本地日志使用allowlist；第一轮无analytics。LocalDiagnosticBundle由用户逐项预览后只保存本地，项目内容、prompt、路径、字段和值不得泄露。
+- 不兼容schema默认稳定拒绝。确有需要时只为一个明确source→target版本对使用一致快照、新temp workspace、语义验证与原子切换；第一轮无每日自动备份或恢复UI。
+- 详细 NetworkMode、安全导入、日志/本地诊断、Beta兼容、错误与重试规则见 [本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)。
 
 ## 13. 推荐实现顺序
 

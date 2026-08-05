@@ -1,103 +1,96 @@
-# PlotAgent 性能测试与发布门禁契约
+# PlotAgent 小规模邀请制 Beta 性能测试与发布门禁契约
 
-> 状态：第一轮邀请内测的 qualification 基线已确认
+> 状态：专业能力范围完整，工程 qualification 收敛为小规模邀请制 Beta
 > 日期：2026-08-05
-> 适用范围：支持平台、规模、性能/资源预算、31 图证据矩阵、Origin qualification、RC 门禁与内测成功标准
-> 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[本地安全、离线模式、诊断、迁移与恢复备份契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)
+> 适用范围：唯一正式平台与规模基线、31 图证据矩阵、单一 Origin 版本 qualification、Beta 发布检查单与用户成功标准
+> 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)
 
-本文件定义未来 Release Candidate 必须生成的证据与门禁。当前设计文档通过不表示后端、Origin、安装包或自动化测试已经实现或通过。
+本文件定义第一轮邀请制 Beta 的正式 qualification。它保留 31 图、科学分析与拟合、PNG/SVG/O1 OPJU、full-data formal 和科学可追溯底线，但不再把商业级多平台、多版本、大规模、自动更新、通用迁移或长期运维门禁列为当前 v1 强制要求。当前设计文档通过不表示真实实现或 Beta qualification 已完成。
 
-## 1. 正式支持平台
+## 1. 唯一正式 Windows qualification profile
 
-### 1.1 Windows
+每个 Beta build 只声明一个完成 qualification 的 Windows 11 x64 reference profile：
 
-- 正式邀请内测只声明支持：发布时仍处于 Microsoft 支持周期内的 Windows 11 x64。
-- 当前参考 OS 是 Windows 11 25H2 x64；每个 RC 必须记录实际 edition、build 与 servicing state。
-- Windows 10 22H2 仅作为兼容性观察，不是 release blocker，也不形成当前或后续兼容承诺。
-- Windows LTSC 只有在该 LTSC 仍受支持、明确列入 release manifest，并完成与普通 Windows 11 同等级 qualification 后才可声明支持。
-- ARM64、32-bit Windows、Wine/虚拟兼容层与 Windows Server 第一轮不在正式支持矩阵。
+| 项目 | 当前基线 |
+| --- | --- |
+| OS | 发布时仍受 Microsoft 支持的 Windows 11 x64；当前参考 Windows 11 25H2，build/edition/servicing state 随 Beta build 固定记录 |
+| CPU/RAM/Disk | 6 cores、16 GB RAM、NVMe、无独显要求 |
+| Display | 1920×1080；100% 与 150% DPI scaling |
+| 角色 | 唯一正式功能、性能、UI 与安装资格环境 |
 
-“Windows 11+”不能替代明确 release manifest。安装器、帮助和诊断都读取同一个版本化支持声明。
+- Windows 10、Windows LTSC、ARM64、32-bit Windows、Windows Server、Wine/兼容层、minimum-machine profile 和 125%/200% DPI 完整矩阵均为后续 qualification，不属于当前 Beta 支持声明。
+- 在其他环境可尝试运行，但 UI 和安装说明必须标为“未完成 Beta qualification”，不得暗示正式支持。
+- 机器记录只保存本地测试所需的 OS/build、CPU、RAM、disk class、display/scaling；不采集硬件序列号，不自动上传。
 
-### 1.2 测试机器
+## 2. 单一 Origin exact version qualification
 
-| Profile | OS/CPU/RAM/Disk | Display | 角色 |
-| --- | --- | --- | --- |
-| reference | 支持的 Windows 11 x64；6 physical/logical cores profile；16 GB RAM；NVMe；无独显要求 | 1920×1080，100% 或 125% | 所有 P50/P95 预算的基准 |
-| minimum beta | 支持的 Windows 11 x64；4 cores；8 GB RAM；SSD | 1366×768 | 可用性、资源拒绝与最低 UI qualification |
+- 每个 Beta build 只声明一个已完成完整 qualification 的 Origin exact version/build/bitness 组合。
+- 该 exact version 必须完成 31 图全部 O1 OPJU 路径、live validation 和 fresh blank managed instance reopen/readback。
+- 其他所有 Origin 版本一律在 preflight 返回 `VERSION_UNSUPPORTED`；不能以“2021+”、major range、相邻版本推断或 O2 降级代替 qualification。
+- `originpro`、adapter、template、font、Windows build、license mode 与 93 条 OPJU evidence 都固定到该声明版本。
+- 架构仍允许后续增加 adapter/version qualification；增加版本时必须建立新的 Beta build 声明和完整 93 条 evidence，不能沿用当前版本结论。
 
-显示矩阵固定覆盖 100%、125%、150%、200% scaling；关键主窗口、聚焦编辑、图形库、批量审阅、资源库、迁移/安全确认与更新 UI 都需验证，无截断关键动作、不可达焦点或模糊错误缩放。
+## 3. 唯一正式规模基线
 
-Machine profile 不要求 GPU，正式结果不能依赖 GPU 特性。测试记录可以保存本地硬件 fingerprint（CPU model/count、RAM、disk class、OS/build、display/scaling），但不能作为 telemetry 自动上传或用硬件序列号构建身份。
+第一轮只有一组正式 qualification 规模，不再维护 regular/large/boundary 多级门禁：
 
-## 2. Origin qualification
+| 路径 | 正式 Beta qualification |
+| --- | --- |
+| Dataset | 100,000 rows × 20 columns |
+| 单图 | 最多 100,000 plotted primitives |
+| 单批次 | 20 files/charts × 每图 10,000 primitives |
+| 项目 | 最多 100 charts；其中一次正式批量/导出仍受上行单批次限制 |
+| 常规工作集 | 10 charts |
 
-- Origin 2021 是第一轮最低技术基线，不代表所有 2021 以上版本自动受支持。
-- 每个 OriginAdapter 只声明已执行 qualification 的明确 Origin major/version range、bitness、originpro version、template hash 与 Windows profile。
-- 未在当前 release manifest 中明确列出的版本，preflight 返回 `VERSION_UNSUPPORTED`；不能用“Origin 2021+”覆盖未测版本。
-- 每个 RC 至少运行 Origin 2021 和发布日当前明确支持版本；若两者相同仍需一套明确证据。
-- 所有声明支持的 Origin 版本都重复完整 31 图 O1 formal matrix，包括 live validation 与 fresh blank instance reopen readback。
-- 某一版本失败只撤销该版本声明，不能把该版本静默标为 O2；第一轮 31 图只以 O1 准入 OPJU。
+超过上述已验证范围允许通过 resource preflight 后 best effort 执行，但必须同时满足：
 
-Qualification evidence 固定 `origin_version_exact`、build、bitness、license mode、originpro/adapter/template/font hashes、OS build 与 matrix run ID。
-
-## 3. 数据规模等级
-
-| Level | Reference workload | 用途 |
-| --- | --- | --- |
-| regular | 100k rows × 20 columns；10 charts | 日常路径与常规峰值 |
-| large | 1M rows × 20 columns；100 files 或 100 charts | 大型导入、批次与预览 |
-| boundary | 10M numeric cells；1000 project objects | 资源预检、索引与项目元数据边界 |
-
-这些是 qualification 规模，不是静默硬上限。超过后可以尝试，但必须先执行 CPU/memory/disk/output complexity resource preflight：
-
-- 预计可安全运行时允许，并记录估计与实际资源。
-- 预计越过安全阈值时返回 `RESOURCE_LIMIT`，给出具体约束与缩小范围动作。
-- 不能崩溃、挂死、损坏项目、静默抽稀 formal 输出或换算法。
-- 手动拆批、减少目标或更换输出格式是用户显式恢复动作，不由系统暗中执行。
+- UI 在开始前和结果上显示“超出 Beta 已验证范围”，列出超出的维度和估计资源。
+- 不得静默 downsample/rasterize formal PNG/SVG/OPJU，不得换分析、拟合、字段映射、单位或图形算法。
+- 资源不足时稳定返回 `RESOURCE_LIMIT` 或 `DISK_SPACE_INSUFFICIENT`，项目权威状态不受损。
+- 恢复建议只能是用户显式筛选、聚合、分箱、减少图表/批次或另存目标；系统不自动改变科研语义。
+- 超范围 best effort 的成功记录不是扩大正式支持范围的证据。
 
 ## 4. Preview 简化与正式完整性
 
-- thumbnail 每视图最多 5,000 个 visible primitives。
-- interactive 每 axes 最多 50,000 个 visible primitives。
-- 简化使用版本化、确定性视觉规则；UI 显示“预览已简化”、完整数量、显示数量和方法。
-- Autoscale range、统计、analysis、fit、error/interval 使用 full data，不能基于简化点重算。
-- formal PNG、SVG 与 OPJU 使用 full data 和持久化 AnalysisResult/FitResult 表。
-- SVG 预计超过 200 MB 或 2,000,000 vector primitives 时显示强 warning、估计大小/数量和 explicit confirm；不得自动 rasterize、downsample 或换 PNG。
-- 用户取消大 SVG 不创建 ExportRecord；确认后仍执行 resource preflight 与原子文件提交。
+- thumbnail 每视图最多 5,000 visible primitives。
+- interactive 每 axes 最多 20,000 visible primitives。
+- 简化规则版本化、确定性，并显示“预览已简化”、完整数量、显示数量和方法。
+- autoscale range、统计、AnalysisSpec、FitSpec、error/interval 始终使用 full data；preview 简化只改变可视采样。
+- 声明支持规模内的 formal PNG、SVG 与 OPJU 一律使用 full data 和持久化 AnalysisResult/FitResult 表。
+- 导出前按 100k 正式范围估计 primitive count、预计文件大小、内存和磁盘。估计接近当前资源能力时显示明确 warning；无法安全完成时返回稳定资源错误。不得以固定 2M primitives/200 MB 商业级阈值替代本 Beta 的实际 preflight。
 
-## 5. P95 性能预算
+## 5. Reference profile P95 预算
 
-除明确标 P50 外，以下均为 reference machine 的 end-to-end P95 gate：
+除明确标 P50 外，以下均在第 1 节唯一 reference profile 上测量。
 
-### 5.1 启动与项目
+### 5.1 启动与交互
 
 | Scenario | Budget |
 | --- | ---: |
 | desktop shell interactive | ≤ 2 s |
 | Python Core ready | ≤ 5 s |
-| large project metadata open | ≤ 2 s |
+| input/click/task-card acknowledgement | ≤ 100 ms |
+| style-only patch preview | ≤ 2 s |
 
-Shell interactive 指可响应主窗口本地导航，不等待云、更新、Origin 或 Core ready。Core ready 独立计时并显示真实阶段。
+Shell interactive 不等待云、Origin 或 Core ready。任何预计或实际超过 2 秒的操作显示真实阶段/单位进度，不显示假进度或隐藏推理。
 
 ### 5.2 导入
 
 | Scenario | Budget |
 | --- | ---: |
 | 100 MB CSV | ≤ 12 s |
-| 1 GB CSV | ≤ 90 s |
 | 50 MB XLSX | ≤ 30 s |
 
-导入预算覆盖临时复制/hash、完整解析、Arrow/Parquet、quality summary、对象移动与 SQLite commit；不通过跳过完整解析或降低安全校验达标。
+导入预算覆盖授权临时复制/hash、完整解析、内部格式、quality summary、对象移动与 SQLite commit；不能通过跳过安全或完整解析达标。1 GB CSV 不属于当前 Beta qualification。
 
-### 5.3 Preview、批次与 patch
+### 5.3 Preview 与批次
 
 | Scenario | Budget |
 | --- | ---: |
-| 100k-point preview | ≤ 3 s |
-| 1M-point simplified preview | ≤ 5 s |
-| style-only patch preview | ≤ 2 s |
-| 20 charts × 10k points batch preview | ≤ 30 s |
+| 100k-data preview，最多 20k visible primitives | ≤ 3 s |
+| 20 charts × 10k batch preview | ≤ 30 s |
+
+100k preview 的 range/stats/analysis 仍基于 full data。第一轮不设置 1M preview 性能门禁。
 
 ### 5.4 Formal export
 
@@ -105,46 +98,35 @@ Shell interactive 指可响应主窗口本地导航，不等待云、更新、Or
 | --- | ---: |
 | single 100k formal PNG | ≤ 5 s |
 | single 100k formal SVG | ≤ 10 s |
-| single 100k OPJU build + fresh reopen | ≤ 60 s |
-| 20-chart OPJU build + fresh reopen | ≤ 180 s |
+| single 100k O1 OPJU build + fresh reopen | ≤ 60 s |
+| 20-chart O1 OPJU build + fresh reopen | ≤ 180 s |
 
-OPJU 预算只在明确 qualified Origin 版本和可用 license 下测量；preflight、build、save、process exit、fresh instance reopen、readback 与 atomic move 全部计入。
+OPJU 预算只在该 Beta build 声明的唯一 exact Origin version 与可用 license 下测量，包含 preflight、build、save、exit、fresh reopen、readback 和 atomic move。
 
-### 5.5 Agent 与反馈
+### 5.5 Agent
 
 | Scenario | Budget |
 | --- | ---: |
 | ContextEnvelope build | P95 ≤ 1 s |
 | built-in structured AgentDecision | provider-inclusive P50 ≤ 8 s；P95 ≤ 20 s |
-| input/click/task-card acknowledgement | ≤ 100 ms |
 
-Provider latency 另外记录 DNS/connect/TLS/TTFB/stream complete，不用删除慢样本美化端到端预算。任何预计或实际超过 2 秒的操作显示真实本地阶段/单位进度；不显示假进度、隐藏推理或 chain-of-thought。
+Provider latency单独记录 DNS/connect/TLS/TTFB/complete，不删除慢样本美化端到端预算。
 
-## 6. Memory、并发与磁盘
-
-### 6.1 Memory
+## 6. Memory 与磁盘
 
 | State | Budget |
 | --- | ---: |
 | idle Electron + Python Core | ≤ 700 MB working set |
-| regular workload peak | ≤ 2 GB |
-| large workload peak | ≤ 6 GB |
+| 正式 qualification workload peak | ≤ 2 GB |
 
-- available memory 低于 15% 或 2 GB（任一触发）时，新计算任务并发降为 1。
-- 资源预检估计任务启动后 available memory 将低于 10% 或 1 GB（任一触发）时，拒绝启动并返回 `RESOURCE_LIMIT`。
-- 已运行任务到达压力阈值时优先停止新调度并 cooperative cancel 可控子任务；不得强杀 Core 或提交半对象。
-- Memory gate 记录 Electron Main/renderer、Core、isolated worker 与 Origin managed instance 的分项峰值。
+- 资源预检评估 Core、renderer、isolated worker 与 managed Origin 总峰值；无法在当前机器安全完成时，在启动正式任务前返回 `RESOURCE_LIMIT`。
+- 内存压力下可把新计算任务并发降为 1，但不能改变算法、提交半对象或强杀 Core。
+- 导入复制前，目标固定磁盘 free bytes 至少为 `estimated_landed_bytes × 2.5`；不足时在复制前返回 `DISK_SPACE_INSUFFICIENT`。
+- 正式导出需预留 temp、final 与 validation 空间；第一轮无自动更新和每日备份磁盘预算。
 
-### 6.2 Disk
+## 7. 31 图基础能力矩阵
 
-- 导入复制前，目标固定磁盘 free bytes 必须至少为 `estimated_landed_bytes × 2.5`。
-- Estimated landed bytes 包含源临时副本、Arrow/Parquet/CAS、SQLite/WAL/indices 和安全余量；估计版本写入测试证据。
-- 不足时在复制前返回 `DISK_SPACE_INSUFFICIENT`，不能先占满磁盘再失败。
-- 正式导出和更新各自还需满足 temp + final + validation/backup 所需空间。
-
-## 7. 31 图证据矩阵
-
-### 7.1 每图 fixtures
+### 7.1 固定 279 paths
 
 正式第一轮 31 个 chart type，每个至少三种 fixture：
 
@@ -152,127 +134,99 @@ Provider latency 另外记录 DNS/connect/TLS/TTFB/stream complete，不用删�
 2. `representative_research`：真实科研语义、单位、误差/analysis/annotation 的代表样本。
 3. `edge_error`：缺失、非有限值、非法 log、字段/单位/analysis/Origin capability 等边界或稳定错误。
 
-每个 fixture 的三个基础产物/预期错误 path 固定为：formal PNG、formal SVG、O1 OPJU。因此基础逻辑矩阵为 `31 × 3 × 3 = 279` paths：
+每个 fixture 固定 formal PNG、formal SVG、O1 OPJU 三个基础产物/预期错误 path，因此为 `31 × 3 × 3 = 279`：
 
 - formal PNG：93 条。
 - formal SVG：93 条。
-- O1 OPJU：93 条。
+- O1 OPJU：93 条，只在当前 Beta build 声明的唯一 Origin exact version 完整运行一次。
 
-Preview/interactive 是另外的必测路径，不计入这 279。279 中的 OPJU 93 条不是只运行一次的抽样：必须针对 release manifest 中每个声明支持的 Origin exact version 分别完整重跑，实际 OPJU execution count 为 `93 × qualified Origin version count`。
-
-`edge_error` path 可以用符合预期 code/schema/details 的稳定错误证据通过，不要求生成二进制；但不得用“预期失败”掩盖本应成功的 minimal/representative 路径。
+Preview/interactive 是另外的必测路径，不计入 279。`edge_error` 可由匹配预期 code/schema/details 的稳定错误证据通过，不要求生成二进制；不得把应成功路径重标为预期失败。
 
 ### 7.2 覆盖维度
-
-矩阵按适用能力覆盖：
 
 - PlotSpec canonical JSON、ResolvedRenderPlan normalized hash/golden。
 - thumbnail/interactive、formal PNG/SVG、O1 live+fresh-reopen OPJU。
 - BatchSpec、FigureSpec、analysis/fit output ports、axes/ticks、error/warning。
-- 中文、英文与中英混合术语、SafeRichText 与字体 fallback。
-- cancel、Core/worker crash、idempotency、expected-version conflict。
+- 中文、英文与中英混合科研术语、SafeRichText 与字体 fallback。
+- cancel、Core/worker crash、request idempotency、expected-version conflict。
 - formal full-data assertion、preview simplification disclosure 与 parity tolerance。
 
-### 7.3 可机器统计键
+### 7.3 MatrixKey 与 evidence
 
 ```text
 MatrixKey
-├─ release_candidate
+├─ beta_build
 ├─ chart_type_id
 ├─ fixture_id
 ├─ artifact_path: thumbnail | interactive | formal_png | formal_svg | opju_o1
 ├─ expectation: binary_artifact | stable_error
-├─ quality_tier
 ├─ renderer_or_adapter_version
-├─ origin_version_exact? # opju_o1 必填
-├─ os_profile
+├─ origin_version_exact? # opju_o1 必填且本 build 唯一
+├─ windows_reference_profile
 ├─ locale_profile
 └─ test_case_id
 ```
 
-证据路径/逻辑名：
+Evidence 固定 input/reference dataset、spec/plan、artifact/validator、dependency、fixture 与 build hashes，以及 timing/memory 和 stable error。重试不是新 case，不能覆盖第一次失败记录。
 
-```text
-evidence/<rc>/<chart_id>/<fixture_id>/<artifact_path>/
-  <test_case_id>__<renderer_or_origin>__<os_profile>__<status>.<ext>
-```
+## 8. Beta 测试层级
 
-每个 evidence record 保存 input/reference dataset hash、spec/plan hash、expectation、可选 binary artifact hash、validator report hash、timing/memory、stable error 和 tool/dependency versions。OPJU MatrixKey 必须带 exact Origin version，报告不得把不同 Origin 版本折叠。报告按完整 MatrixKey 去重；重试不是新 case，也不能覆盖第一次失败记录。
-
-## 8. 测试层级
-
-1. Schema/domain unions、strict fields、generated TS types 与 stable error registry。
+1. Schema/domain strict union、generated TS types 与 stable error registry。
 2. Import/Transform/Unit/Lineage、archive/Excel 安全与 `.plotproj` integrity。
-3. Scientific reference datasets、AnalysisSpec/FitSpec、method/formula/version/diagnostics。
+3. Scientific reference datasets、AnalysisSpec/FitSpec、方法/公式/版本/诊断。
 4. Resolver/render/layout/axis/ticks/font/color/physical size 与 cross-renderer semantic parity。
-5. Origin O1 adapter、live validation、save/exit、fresh reopen、data link/semantics readback。
-6. Electron↔Python JSON-RPC E2E、single-instance、preload boundary 与 task events。
-7. Cancel/crash/timeout/idempotency/version conflict/partial batch fault injection。
-8. Security/privacy/migration/local_only zero-egress/diagnostic-log allowlist/update tamper。
-9. Performance/memory/disk/concurrency/large project/soak 与 leak regression。
-10. Installer/update/rollback safety、Windows code signature、SBOM/license/dependency vulnerability audit。
+5. 单一 Origin exact version 的 O1 live/save/fresh-reopen/readback。
+6. Electron↔Python E2E、single-instance、preload、task/cancel/crash/idempotency/version conflict。
+7. strict local_only 零出站、credential/log/bundle 禁止字段、恶意 archive 与签名安装包验证。
+8. Reference profile 性能/内存/磁盘与安装 smoke test。
 
-每一层定义 owner、machine/profile、fixtures、repeat/sample count、evidence URI 和 failure disposition；不能只靠手工截图作为唯一证据。
+当前 Beta 不要求多 OS/DPI/minimum-machine、长时间 soak、生产级云攻击矩阵、SBOM 流程或多版本 Origin qualification。依赖名称、锁文件/包 hash、许可清单和已知风险仍随 build 固定，不能因简化流程绕过签名或 secret 边界。
 
-## 9. 可复现性能测量协议
+## 9. 可复现测量协议
 
-每个 performance case 固定并输出：
+每个 performance case 固定：
 
-- cold/warm state；cold 明确清除哪些 app cache/OS cache，warm 明确预热次数。
-- reference dataset/object/package hash 与生成器版本。
-- 本地 machine fingerprint：OS/build、CPU model/count、RAM、disk class/model、display/scaling；不自动上传个人硬件 ID。
-- app/installer、Python、SQLite、renderer、analysis、Origin/adapter/template/font versions。
-- sample count；默认至少 30 个可用样本，若场景成本要求更少必须在 case definition 预先批准且不得少于 10。
-- P50/P95 计算：排序后使用 nearest-rank；失败、timeout 和 cancel 不从 latency 样本中删除，而是单独计入 failure gate。
-- cache policy、后台进程控制、网络/provider latency 分解与每次 run 原始 timing evidence。
-- regression threshold：相对已批准 baseline P95 退化 >10% 或越过绝对预算即阻断；改善不能抵消功能失败。
+- cold/warm state 与 cache policy。
+- reference dataset/object/package/fixture hash。
+- 本地 Windows reference profile、app commit/build、Python、SQLite、renderer、analysis、Origin/adapter/template/font/dependency versions。
+- 预先定义的 sample count；普通路径至少 10 次，昂贵 OPJU 路径至少 5 次，并保留全部失败/timeout。
+- P50/P95 使用 nearest-rank；失败不从结果中删除。
+- 相对前一已批准 Beta baseline P95 退化 >15% 或越过绝对预算时阻断并调查。
 
-修改 fixture、机器、测量点或算法版本会创建新 baseline，必须审阅并保留旧 baseline；不能原地重写历史数字。
+修改 fixture、机器、测量点或算法版本会建立新 baseline，不能原地改写历史结果。
 
-## 10. Severity、owner 与 waiver
+## 10. 不可豁免 Beta blockers
 
-| Severity | 定义 | Release handling |
-| --- | --- | --- |
-| blocker | 数据损坏、安全/科学/签名关键边界、声明能力不可用 | 禁止发布，不可 waiver |
-| critical | 可导致广泛错误结果、不可恢复失败或高影响泄露 | 禁止发布；本文件列出的 critical 不可 waiver |
-| major | 关键路径明显失效但有安全、明确 workaround | 必须修复；例外需产品+工程+QA owner 书面、限期、known issue |
-| minor | 不影响正确性/安全/完成路径的局部缺陷 | 可由明确 owner 接受并进入 known issues |
+以下任一项出现时禁止分发 Beta build：
 
-每个 failure 有唯一 triage owner、affected MatrixKeys、root cause、fix/evidence link 与 disposition。Waiver 必须包含范围、理由、用户影响、到期 RC 和批准者；不能用笼统“已知问题”。
-
-## 11. 不可豁免 Release blockers
-
-以下任一项出现时禁止发布邀请 RC：
-
-- data loss/corruption、不可恢复 migration 或 restore 覆盖当前项目。
+- data loss/corruption，任务失败或崩溃损坏已有项目权威状态。
 - silent wrong science；mapping/unit/statistical method/fit formula/seed/missing policy 被静默改变。
-- formal data downsample、renderer/analysis algorithm swap 或 capability downgrade。
-- 非原生结果被宣称为 O1，或任一已声明 Origin 版本的 fresh reopen 关键语义失败。
-- credential、prompt、文件/路径、列名、单元格值、摘要或禁止诊断内容泄露。
-- 31 个正式图形中的任何声明输出路径/适用 fixture 失败。
-- update/config/manifest/package signature/hash/code-sign bypass。
-- 已知 blocker/critical 缺陷。
-- 测试门禁只有通过重跑、删除失败样本、放宽 fixture/tolerance 或替换未审阅 golden 才“变绿”。
+- 声明支持规模内 formal downsample、renderer/analysis algorithm swap 或 capability downgrade。
+- 非原生结果被宣称为 O1，或声明的唯一 Origin exact version fresh reopen 关键语义失败。
+- credential、prompt、文件路径、列名、单元格值、数据摘要或 secret 泄漏。
+- 31 个正式图形中任一声明输出路径/适用 fixture 失败。
+- 安装包 signature、hash 或 Windows code signature 验证可被绕过。
+- 已知 blocker/critical，或只有靠删除失败样本、放宽 fixture/tolerance、替换未审阅 golden 才通过。
 
-上述项目不可 waiver；删除产品声明必须先更新 Decision/PRD/release manifest 并重新完整 qualification，不能作为临时豁免。
+这些底线不可 waiver。其他不影响正确性、安全、可追溯或完成路径的缺陷可以进入带 owner、影响、workaround 的 Beta known issues。
 
-## 12. 每个 RC 的证据包
+## 11. 每个 Beta build 发布检查单
 
-1. 自动化总报告与测试环境 manifest。
-2. 31-chart 基础 279 MatrixKey coverage、额外 preview/interactive coverage 与缺口为零证明。
-3. 每个明确支持 Origin 版本各自完整 93 条 O1 OPJU compatibility report，不合并版本或抽样。
-4. Scientific reference/golden/diagnostic report。
-5. Performance/memory/disk/soak 与相对 baseline regression report。
-6. Security/privacy/local_only/diagnostic/migration fault-injection report。
-7. SBOM、third-party licenses、dependency/vulnerability disposition。
-8. 签名 installer/update manifest/package 和 Windows signature verification evidence。
-9. Known issues、owner、severity、workaround 与所有允许 waiver。
+1. 固定 commit、build、dependency lock/hash、fixture/golden 与 Decision baseline。
+2. 31 图 279 MatrixKey coverage 和额外 preview/interactive coverage 零缺口。
+3. 当前 build 唯一 Origin exact version 的完整 93 条 O1 live+fresh-reopen report。
+4. Scientific reference、mapping/unit/analysis/fit 与 full-data formal assertions。
+5. Reference profile 性能、≤2 GB peak、磁盘/resource preflight 结果。
+6. strict local_only、credential/log/DiagnosticBundle 禁止字段和恶意导入检查。
+7. 简化云额度的共享计数与 `client_run_id` 重试不重复扣费检查；自定义 provider/本地能力不受影响。
+8. 人工分发安装包的 SHA-256、发布签名与 Windows code signature 验证。
+9. Known issues、稳定错误、恢复动作和单一 go/no-go 记录。
 
-Evidence 包本身不得包含用户项目、prompt、路径、列名/值、secret 或真实研究数据；fixtures 使用版本化合成/公开许可数据。
+检查单由指定 Beta release owner 汇总并由对应科学/Origin实现负责人复核其专业证据；不要求商业级多角色签署链。任何 build 内容变化都生成新的 build/hash/checklist。
 
-## 13. 首批 10–15 人成功门禁
+## 12. 首批 10–15 人成功门禁
 
-这是第二批内测 go/no-go，不是匿名 telemetry 推断：
+这是第二批内测 go/no-go，不依赖 analytics：
 
 - ≥80% 参与者在 sample project 上独立完成第一张图。
 - ≥60% 用自己的真实数据在无 staff takeover 下完成第一张图。
@@ -280,10 +234,8 @@ Evidence 包本身不得包含用户项目、prompt、路径、列名/值、secr
 - 至少 1 人完成批量绘图/审阅路径。
 - 至少 1 名 Origin 用户导出 OPJU 并在 Origin 中继续编辑。
 
-记录方式是经同意的内测任务观察、结构化访谈/问卷和用户明确结果；默认关闭 telemetry 时不能把缺失事件当成失败或成功。Staff 可以解释任务，但一旦接管字段映射、方法选择或操作，即不计“独立完成”。
+记录方式是经同意的任务观察、结构化访谈或问卷。Staff 一旦接管字段映射、方法选择或实际操作，该次不计“独立完成”。
 
-## 14. 发布审批
+## 13. 后续工程成熟度
 
-RC go/no-go 至少需要 Product、Desktop/Core Engineering、Scientific Validation、Origin Adapter、Security/Privacy 与 QA/Release owner 对各自 evidence 签署。审批记录固定 RC commit、installer hash、Decision baseline、matrix report 与 known issues。
-
-只有所有不可豁免门禁通过、允许 waiver 未过期且 evidence 可复核时，RC 才可进入邀请内测。任何 post-sign 修改都会产生新 RC 和新证据，不能沿用旧审批。
+多 Windows/DPI/minimum machine、多 Origin exact versions、1M/更大数据 qualification、长时间 soak、生产级云账本与攻击矩阵、自动更新、通用迁移/备份、SBOM 自动化和多角色签署均属于 Beta 验证后的后续工程化能力。引入时必须更新 Decision ID、PRD、本文件、SPEC-INDEX 与相应 evidence；不得把未来能力解释为当前 v1 强制要求。
