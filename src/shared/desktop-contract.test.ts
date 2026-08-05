@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   CORE_PROTOCOL_VERSION,
+  parseAgentDecideInput,
   parseCloseResponse,
   parseCoreProtocolMessage,
+  parsePlotPatchInput,
+  parseProjectResourceInput,
   parseTaskEvent,
   parseTaskId,
 } from './desktop-contract.js'
@@ -47,5 +50,42 @@ describe('desktop contract validation', () => {
     })).toBeNull()
     expect(parseTaskId({ taskId: 'task:one', rawPath: 'C:\\secret' })).toBeNull()
     expect(parseCloseResponse({ requestId: 'close:one', choice: 'force-quit' })).toBeNull()
+  })
+
+  it('accepts only narrow product inputs without paths or credentials', () => {
+    expect(parseProjectResourceInput({ resourceId: 'resource:one' })).toEqual({
+      resourceId: 'resource:one',
+    })
+    expect(parseProjectResourceInput({ resourceId: 'resource:one', path: 'C:\\private.plotproj' }))
+      .toBeNull()
+
+    expect(parsePlotPatchInput({
+      projectId: 'project:one',
+      plotId: 'plot:one',
+      plotVersion: 1,
+      patch: { kind: 'set_axis_scale', scale: 'log10' },
+    })).not.toBeNull()
+    expect(parsePlotPatchInput({
+      projectId: 'project:one',
+      plotId: 'plot:one',
+      plotVersion: 1,
+      patch: { outputPath: 'C:\\private.svg' },
+    })).toBeNull()
+    expect(parsePlotPatchInput({
+      projectId: 'project:one',
+      plotId: 'plot:one',
+      plotVersion: 1,
+      patch: { apiToken: 'secret' },
+    })).toBeNull()
+
+    expect(parseAgentDecideInput({
+      projectId: 'project:one',
+      sourceDatasetId: 'source:one',
+      sourceVersion: 1,
+      expectedVersion: 2,
+      target: { kind: 'plot', id: 'plot:one' },
+      scope: 'current',
+      utterance: 'Y axis 改成 log10，图例放到左上角',
+    })).not.toBeNull()
   })
 })

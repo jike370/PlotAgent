@@ -28,6 +28,7 @@ describe('BrowserWindow security assertions', () => {
 
   it('blocks production renderer network and embedded content in CSP', () => {
     expect(PRODUCTION_CONTENT_SECURITY_POLICY).toContain("connect-src 'none'")
+    expect(PRODUCTION_CONTENT_SECURITY_POLICY).toContain('img-src \'self\' data: plotagent-resource:')
     expect(PRODUCTION_CONTENT_SECURITY_POLICY).toContain("object-src 'none'")
     expect(PRODUCTION_CONTENT_SECURITY_POLICY).toContain("frame-ancestors 'none'")
   })

@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import { extname, isAbsolute, resolve } from 'node:path'
+import { basename, extname, isAbsolute, resolve } from 'node:path'
 
-import type { OpenResourceRequest } from '../shared/desktop-contract.js'
+import type {
+  DesktopResource,
+  DesktopResourceKind,
+  OpenResourceRequest,
+} from '../shared/desktop-contract.js'
 import { DESKTOP_API_VERSION } from '../shared/desktop-contract.js'
 
 const MAXIMUM_ARGUMENT_LENGTH = 32_768
@@ -38,15 +42,35 @@ export function extractOpenFileArguments(
 
 export interface ResourceRegistry {
   registerProjectPackage(path: string): OpenResourceRequest
+  registerFile(path: string, kind: DesktopResourceKind): DesktopResource
   resolve(resourceId: string): string | undefined
+  resolveEntry(resourceId: string): RegisteredResource | undefined
 }
 
+export interface RegisteredResource {
+  readonly resourceId: string
+  readonly path: string
+  readonly kind: DesktopResourceKind
+}
+
+const MIME_BY_EXTENSION = new Map<string, DesktopResource['mimeType']>([
+  ['.png', 'image/png'],
+  ['.svg', 'image/svg+xml'],
+])
+
 export class InMemoryResourceRegistry implements ResourceRegistry {
-  private readonly resources = new Map<string, string>()
+  private readonly resources = new Map<string, RegisteredResource>()
+
+  private register(path: string, kind: DesktopResourceKind): RegisteredResource {
+    if (!isAbsolute(path) || path.includes('\0')) throw new Error('Resource path must be absolute')
+    const resourceId = `resource:${randomUUID()}`
+    const entry = { resourceId, path: resolve(path), kind }
+    this.resources.set(resourceId, entry)
+    return entry
+  }
 
   registerProjectPackage(path: string): OpenResourceRequest {
-    const resourceId = `resource:${randomUUID()}`
-    this.resources.set(resourceId, path)
+    const { resourceId } = this.register(path, 'project-package')
     return {
       schemaVersion: DESKTOP_API_VERSION,
       requestId: `open:${randomUUID()}`,
@@ -55,7 +79,25 @@ export class InMemoryResourceRegistry implements ResourceRegistry {
     }
   }
 
+  registerFile(path: string, kind: DesktopResourceKind): DesktopResource {
+    const entry = this.register(path, kind)
+    const extension = extname(entry.path).toLocaleLowerCase('en-US')
+    const mimeType = MIME_BY_EXTENSION.get(extension)
+    const isViewable = (kind === 'preview' || kind === 'export') && mimeType !== undefined
+    return {
+      resourceId: entry.resourceId,
+      kind,
+      ...(isViewable ? { url: `plotagent-resource://local/${entry.resourceId.slice('resource:'.length)}` } : {}),
+      ...(mimeType === undefined ? {} : { mimeType }),
+      fileName: basename(entry.path),
+    }
+  }
+
   resolve(resourceId: string): string | undefined {
+    return this.resources.get(resourceId)?.path
+  }
+
+  resolveEntry(resourceId: string): RegisteredResource | undefined {
     return this.resources.get(resourceId)
   }
 }

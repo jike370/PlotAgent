@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 
-import { app, BrowserWindow, ipcMain, session } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, session } from 'electron'
 
 import { PythonCoreSupervisor, resolveCoreLaunchSpec } from './core/python-supervisor.js'
 import { registerDesktopIpc, requestCoreAction } from './ipc/desktop-ipc.js'
@@ -14,10 +14,17 @@ import {
   hardenSession,
   hardenWebContents,
 } from './security/window-security.js'
+import { registerResourceProtocol } from './security/resource-protocol.js'
+import { ensureBundledSampleSource } from './sample-source.js'
 import { TaskTracker } from './tasks/task-state.js'
 import { IPC_CHANNELS } from '../shared/desktop-contract.js'
 
 let mainWindow: BrowserWindow | undefined
+
+protocol.registerSchemesAsPrivileged([{
+  scheme: 'plotagent-resource',
+  privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: false },
+}])
 
 const resourceRegistry = new InMemoryResourceRegistry()
 const openRouter = new SingleInstanceOpenRouter(resourceRegistry)
@@ -133,8 +140,18 @@ if (!hasSingleInstanceLock) {
 
   app.whenReady().then(() => {
     hardenSession(session.defaultSession)
+    registerResourceProtocol(session.defaultSession, resourceRegistry)
     app.on('web-contents-created', (_event, contents) => hardenWebContents(contents))
-    registerDesktopIpc({ ipcMain, supervisor, tasks, closeController })
+    registerDesktopIpc({
+      ipcMain,
+      supervisor,
+      tasks,
+      closeController,
+      dialog,
+      getWindow: () => mainWindow,
+      resources: resourceRegistry,
+      ensureSampleSource: () => ensureBundledSampleSource(app.getPath('userData')),
+    })
     mainWindow = createWindow()
     mainWindow.webContents.once('did-finish-load', () => {
       openRouter.setListener((request) => {

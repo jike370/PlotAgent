@@ -8,13 +8,35 @@ export type JsonPrimitive = boolean | number | string | null
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
 
 export const IPC_CHANNELS = {
+  agentDecide: 'plotagent:agent:decide',
+  batchCreate: 'plotagent:batch:create',
+  batchGet: 'plotagent:batch:get',
+  batchRun: 'plotagent:batch:run',
   cancelTask: 'plotagent:tasks:cancel',
   closeResponse: 'plotagent:lifecycle:close-response',
   coreStatusChanged: 'plotagent:core:status-changed',
+  datasetDescribe: 'plotagent:datasets:describe',
+  datasetImport: 'plotagent:datasets:import',
+  datasetList: 'plotagent:datasets:list',
+  exportOrigin: 'plotagent:exports:origin',
+  exportPngSvg: 'plotagent:exports:png-svg',
+  figureCreate: 'plotagent:figures:create',
+  figureGet: 'plotagent:figures:get',
+  figureRender: 'plotagent:figures:render',
   getBootstrap: 'plotagent:desktop:get-bootstrap',
   getTasks: 'plotagent:tasks:get-snapshot',
   lifecycleCloseRequested: 'plotagent:lifecycle:close-requested',
   openResourceRequested: 'plotagent:resources:open-requested',
+  plotCreate: 'plotagent:plots:create',
+  plotGet: 'plotagent:plots:get',
+  plotPatch: 'plotagent:plots:patch',
+  plotRender: 'plotagent:plots:render',
+  projectClose: 'plotagent:projects:close',
+  projectCreate: 'plotagent:projects:create',
+  projectList: 'plotagent:projects:list',
+  projectOpen: 'plotagent:projects:open',
+  projectOpenResource: 'plotagent:projects:open-resource',
+  projectOpenSample: 'plotagent:projects:open-sample',
   retryCore: 'plotagent:core:retry',
   taskEvent: 'plotagent:tasks:event',
 } as const
@@ -43,7 +65,11 @@ export type CoreErrorCode =
   | 'CORE_START_TIMEOUT'
 
 export interface PublicError {
-  readonly code: CoreErrorCode | 'IPC_INVALID_ARGUMENT' | 'TASK_NOT_CANCELLABLE'
+  readonly code: CoreErrorCode
+    | 'DIALOG_CANCELLED'
+    | 'IPC_INVALID_ARGUMENT'
+    | 'RESOURCE_INVALID'
+    | 'TASK_NOT_CANCELLABLE'
   readonly message: string
   readonly retryable: boolean
 }
@@ -108,11 +134,131 @@ export interface DesktopBootstrap {
   readonly tasks: TaskSnapshot
 }
 
+export type DesktopResourceKind =
+  | 'project-package'
+  | 'import-source'
+  | 'preview'
+  | 'export'
+
+export interface DesktopResource {
+  readonly resourceId: string
+  readonly kind: DesktopResourceKind
+  readonly url?: string
+  readonly mimeType?: 'image/png' | 'image/svg+xml'
+  readonly byteLength?: number
+  readonly fileName?: string
+}
+
 export interface OpenResourceRequest {
   readonly schemaVersion: DesktopApiVersion
   readonly requestId: string
   readonly resourceId: string
   readonly kind: 'project-package'
+}
+
+export type DesktopDataResult =
+  | { readonly ok: true; readonly value: JsonValue }
+  | { readonly ok: false; readonly error: PublicError }
+
+export interface ProjectIdInput {
+  readonly projectId: string
+}
+
+export interface ProjectResourceInput {
+  readonly resourceId: string
+}
+
+export interface ProjectCreateInput {
+  readonly name: string
+}
+
+export interface DatasetDescribeInput extends ProjectIdInput {
+  readonly datasetId: string
+  readonly sourceVersion: number
+}
+
+export interface FieldMappingInput {
+  readonly roles: Readonly<Record<string, string>>
+}
+
+export interface PlotCreateInput extends DatasetDescribeInput {
+  readonly chartId: string
+  readonly fieldMapping: FieldMappingInput
+  readonly expectedVersion: number
+}
+
+export interface PlotIdInput extends ProjectIdInput {
+  readonly plotId: string
+  readonly plotVersion: number
+}
+
+export interface PlotPatchInput extends PlotIdInput {
+  readonly patch: JsonValue
+}
+
+export interface PlotRenderInput extends PlotIdInput {
+  readonly mode: 'preview' | 'formal'
+}
+
+export interface BatchCreateInput extends ProjectIdInput {
+  readonly datasets: readonly {
+    readonly datasetId: string
+    readonly sourceVersion: number
+  }[]
+  readonly chartId: string
+  readonly fieldMapping: FieldMappingInput
+  readonly expectedVersion: number
+}
+
+export interface BatchIdInput extends ProjectIdInput {
+  readonly batchId: string
+}
+
+export interface BatchRunInput extends ProjectIdInput {
+  readonly taskId: string
+  readonly expectedVersion: number
+}
+
+export interface FigureCreateInput extends ProjectIdInput {
+  readonly plotRefs: readonly {
+    readonly plotId: string
+    readonly plotVersion: number
+  }[]
+  readonly layout: '1x2' | '2x1' | '2x2'
+  readonly expectedVersion: number
+}
+
+export interface FigureIdInput extends ProjectIdInput {
+  readonly figureId: string
+}
+
+export interface AgentDecideInput extends ProjectIdInput {
+  readonly sourceDatasetId: string
+  readonly sourceVersion: number
+  readonly expectedVersion: number
+  readonly target: {
+    readonly kind: 'plot' | 'batch' | 'figure'
+    readonly id: string
+  }
+  readonly scope: 'current' | 'selected' | 'batch' | 'figure'
+  readonly utterance: string
+}
+
+export interface PngSvgExportInput extends ProjectIdInput {
+  readonly target: {
+    readonly kind: 'plot' | 'batch' | 'figure'
+    readonly id: string
+    readonly version: number
+  }
+  readonly format: 'png' | 'svg'
+}
+
+export interface OriginExportInput extends ProjectIdInput {
+  readonly target: {
+    readonly kind: 'plot' | 'batch' | 'figure'
+    readonly id: string
+    readonly version: number
+  }
 }
 
 export type CloseChoice = 'wait' | 'cancel-and-quit' | 'return'
@@ -137,6 +283,28 @@ export interface PlotAgentDesktopApi {
   getTasks(): Promise<TaskSnapshot>
   cancelTask(taskId: string): Promise<DesktopActionResult>
   retryCore(): Promise<DesktopActionResult>
+  listProjects(): Promise<DesktopDataResult>
+  createProject(input: ProjectCreateInput): Promise<DesktopDataResult>
+  openProject(): Promise<DesktopDataResult>
+  openProjectResource(input: ProjectResourceInput): Promise<DesktopDataResult>
+  openSampleProject(): Promise<DesktopDataResult>
+  closeProject(input: ProjectIdInput): Promise<DesktopDataResult>
+  importDatasets(input: ProjectIdInput): Promise<DesktopDataResult>
+  listDatasets(input: ProjectIdInput): Promise<DesktopDataResult>
+  describeDataset(input: DatasetDescribeInput): Promise<DesktopDataResult>
+  createPlot(input: PlotCreateInput): Promise<DesktopDataResult>
+  patchPlot(input: PlotPatchInput): Promise<DesktopDataResult>
+  getPlot(input: PlotIdInput): Promise<DesktopDataResult>
+  renderPlot(input: PlotRenderInput): Promise<DesktopDataResult>
+  createBatch(input: BatchCreateInput): Promise<DesktopDataResult>
+  runBatch(input: BatchRunInput): Promise<DesktopDataResult>
+  getBatch(input: BatchIdInput): Promise<DesktopDataResult>
+  createFigure(input: FigureCreateInput): Promise<DesktopDataResult>
+  getFigure(input: FigureIdInput): Promise<DesktopDataResult>
+  renderFigure(input: FigureIdInput): Promise<DesktopDataResult>
+  decideAgent(input: AgentDecideInput): Promise<DesktopDataResult>
+  exportPngSvg(input: PngSvgExportInput): Promise<DesktopDataResult>
+  exportOrigin(input: OriginExportInput): Promise<DesktopDataResult>
   respondToCloseRequest(response: CloseResponse): Promise<DesktopActionResult>
   onCoreStatus(listener: (status: CoreStatus) => void): Unsubscribe
   onTaskEvent(listener: (event: TaskEvent) => void): Unsubscribe
@@ -201,9 +369,17 @@ const TASK_PROGRESS_UNITS = new Set<TaskProgressUnit>([
 ])
 
 const CLOSE_CHOICES = new Set<CloseChoice>(['wait', 'cancel-and-quit', 'return'])
+const CHART_IDS = new Set([
+  'K01', 'K02', 'K03', 'K04', 'K05', 'K06', 'K07', 'K08', 'K09', 'K10', 'K11',
+  'K12', 'K13', 'K14', 'K15', 'K16', 'K17', 'K18', 'K19', 'K20', 'K21', 'K22',
+  'K24', 'K25', 'S01', 'S05', 'S21', 'S25', 'S31', 'S34', 'S61',
+])
 const IDENTIFIER_PATTERN = /^[A-Za-z][A-Za-z0-9:._-]{0,127}$/
+const FIELD_ROLE_PATTERN = /^[a-z][a-z0-9_]{0,31}$/
 const METHOD_PATTERN = /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/
 const ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_]{0,127}$/
+const FORBIDDEN_PAYLOAD_KEY = /(?:path|secret|token|credential|api[_-]?key)/i
+const ABSOLUTE_PATH_VALUE = /^(?:[A-Za-z]:[\\/]|\\\\|file:\/\/)/i
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -232,6 +408,218 @@ export function isJsonValue(value: unknown, depth = 0): value is JsonValue {
   return Object.entries(value).every(
     ([key, item]) => key.length <= 128 && isJsonValue(item, depth + 1),
   )
+}
+
+export function isSafeRendererPayload(value: unknown, depth = 0): value is JsonValue {
+  if (depth > 12 || !isJsonValue(value, depth)) return false
+  if (typeof value === 'string') return value.length <= 16_384 && !ABSOLUTE_PATH_VALUE.test(value)
+  if (Array.isArray(value)) {
+    return value.length <= 512 && value.every((item) => isSafeRendererPayload(item, depth + 1))
+  }
+  if (!isRecord(value)) return true
+  const entries = Object.entries(value)
+  return entries.length <= 256 && entries.every(([key, item]) => (
+    !FORBIDDEN_PAYLOAD_KEY.test(key) && isSafeRendererPayload(item, depth + 1)
+  ))
+}
+
+function parseProjectIdRecord(value: unknown, extraKeys: readonly string[] = []): Record<string, unknown> | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['projectId', ...extraKeys])) return null
+  return isIdentifier(value.projectId) ? value : null
+}
+
+function parseId(value: unknown): string | null {
+  return isIdentifier(value) ? value : null
+}
+
+function parseVersion(value: unknown, minimum = 0): number | null {
+  return Number.isSafeInteger(value) && Number(value) >= minimum ? Number(value) : null
+}
+
+function parseMapping(value: unknown): FieldMappingInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['roles']) || !isRecord(value.roles)) return null
+  const entries = Object.entries(value.roles)
+  if (entries.length === 0 || entries.length > 16) return null
+  if (!entries.every(([role, field]) => FIELD_ROLE_PATTERN.test(role) && isIdentifier(field))) return null
+  return { roles: Object.fromEntries(entries) as Record<string, string> }
+}
+
+function parseTarget(value: unknown): AgentDecideInput['target'] | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['kind', 'id'])) return null
+  if (value.kind !== 'plot' && value.kind !== 'batch' && value.kind !== 'figure') return null
+  const id = parseId(value.id)
+  return id === null ? null : { kind: value.kind, id }
+}
+
+function parseVersionedTarget(value: unknown): PngSvgExportInput['target'] | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['kind', 'id', 'version'])) return null
+  const target = parseTarget({ kind: value.kind, id: value.id })
+  const version = parseVersion(value.version, 1)
+  return target === null || version === null ? null : { ...target, version }
+}
+
+export function parseProjectCreateInput(value: unknown): ProjectCreateInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['name'])) return null
+  if (typeof value.name !== 'string') return null
+  const name = value.name.trim()
+  if (name.length === 0 || name.length > 120 || [...name].some((character) => character.charCodeAt(0) < 32)) return null
+  return { name }
+}
+
+export function parseProjectIdInput(value: unknown): ProjectIdInput | null {
+  const parsed = parseProjectIdRecord(value)
+  return parsed === null ? null : { projectId: parsed.projectId as string }
+}
+
+export function parseProjectResourceInput(value: unknown): ProjectResourceInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['resourceId']) || !isIdentifier(value.resourceId)) {
+    return null
+  }
+  return { resourceId: value.resourceId }
+}
+
+export function parseDatasetDescribeInput(value: unknown): DatasetDescribeInput | null {
+  const parsed = parseProjectIdRecord(value, ['datasetId', 'sourceVersion'])
+  const datasetId = parsed === null ? null : parseId(parsed.datasetId)
+  const sourceVersion = parsed === null ? null : parseVersion(parsed.sourceVersion, 1)
+  return parsed === null || datasetId === null || sourceVersion === null
+    ? null
+    : { projectId: parsed.projectId as string, datasetId, sourceVersion }
+}
+
+export function parsePlotCreateInput(value: unknown): PlotCreateInput | null {
+  const parsed = parseProjectIdRecord(value, ['datasetId', 'sourceVersion', 'chartId', 'fieldMapping', 'expectedVersion'])
+  if (parsed === null) return null
+  const datasetId = parseId(parsed.datasetId)
+  const sourceVersion = parseVersion(parsed.sourceVersion, 1)
+  const expectedVersion = parseVersion(parsed.expectedVersion)
+  const mapping = parseMapping(parsed.fieldMapping)
+  if (datasetId === null || sourceVersion === null || expectedVersion === null || typeof parsed.chartId !== 'string' || !CHART_IDS.has(parsed.chartId) || mapping === null) return null
+  return { projectId: parsed.projectId as string, datasetId, sourceVersion, chartId: parsed.chartId, fieldMapping: mapping, expectedVersion }
+}
+
+export function parsePlotIdInput(value: unknown): PlotIdInput | null {
+  const parsed = parseProjectIdRecord(value, ['plotId', 'plotVersion'])
+  const plotId = parsed === null ? null : parseId(parsed.plotId)
+  const plotVersion = parsed === null ? null : parseVersion(parsed.plotVersion, 1)
+  return parsed === null || plotId === null || plotVersion === null ? null : { projectId: parsed.projectId as string, plotId, plotVersion }
+}
+
+export function parsePlotPatchInput(value: unknown): PlotPatchInput | null {
+  const parsed = parseProjectIdRecord(value, ['plotId', 'plotVersion', 'patch'])
+  if (parsed === null) return null
+  const plotId = parseId(parsed.plotId)
+  const plotVersion = parseVersion(parsed.plotVersion, 1)
+  if (plotId === null || plotVersion === null || !isSafeRendererPayload(parsed.patch)) return null
+  return { projectId: parsed.projectId as string, plotId, plotVersion, patch: parsed.patch }
+}
+
+export function parsePlotRenderInput(value: unknown): PlotRenderInput | null {
+  const parsed = parseProjectIdRecord(value, ['plotId', 'plotVersion', 'mode'])
+  if (parsed === null) return null
+  const plotId = parseId(parsed.plotId)
+  const plotVersion = parseVersion(parsed.plotVersion, 1)
+  if (plotId === null || plotVersion === null || (parsed.mode !== 'preview' && parsed.mode !== 'formal')) return null
+  return { projectId: parsed.projectId as string, plotId, plotVersion, mode: parsed.mode }
+}
+
+export function parseBatchCreateInput(value: unknown): BatchCreateInput | null {
+  const parsed = parseProjectIdRecord(value, ['datasets', 'chartId', 'fieldMapping', 'expectedVersion'])
+  if (parsed === null || !Array.isArray(parsed.datasets)) return null
+  const datasets = parsed.datasets.map((item) => {
+    if (!isRecord(item) || !hasExactKeys(item, ['datasetId', 'sourceVersion'])) return null
+    const datasetId = parseId(item.datasetId)
+    const sourceVersion = parseVersion(item.sourceVersion, 1)
+    return datasetId === null || sourceVersion === null ? null : { datasetId, sourceVersion }
+  })
+  const expectedVersion = parseVersion(parsed.expectedVersion)
+  const mapping = parseMapping(parsed.fieldMapping)
+  if (
+    datasets.length === 0 || datasets.length > 256 || datasets.some((item) => item === null) ||
+    new Set(datasets.map((item) => item?.datasetId)).size !== datasets.length || typeof parsed.chartId !== 'string' ||
+    !CHART_IDS.has(parsed.chartId) || mapping === null || expectedVersion === null
+  ) return null
+  return {
+    projectId: parsed.projectId as string,
+    datasets: datasets as { datasetId: string; sourceVersion: number }[],
+    chartId: parsed.chartId,
+    fieldMapping: mapping,
+    expectedVersion,
+  }
+}
+
+export function parseBatchIdInput(value: unknown): BatchIdInput | null {
+  const parsed = parseProjectIdRecord(value, ['batchId'])
+  const batchId = parsed === null ? null : parseId(parsed.batchId)
+  return parsed === null || batchId === null ? null : { projectId: parsed.projectId as string, batchId }
+}
+
+export function parseBatchRunInput(value: unknown): BatchRunInput | null {
+  const parsed = parseProjectIdRecord(value, ['taskId', 'expectedVersion'])
+  const taskId = parsed === null ? null : parseId(parsed.taskId)
+  const expectedVersion = parsed === null ? null : parseVersion(parsed.expectedVersion)
+  return parsed === null || taskId === null || expectedVersion === null
+    ? null
+    : { projectId: parsed.projectId as string, taskId, expectedVersion }
+}
+
+export function parseFigureCreateInput(value: unknown): FigureCreateInput | null {
+  const parsed = parseProjectIdRecord(value, ['plotRefs', 'layout', 'expectedVersion'])
+  if (parsed === null || !Array.isArray(parsed.plotRefs)) return null
+  const plotRefs = parsed.plotRefs.map((item) => {
+    if (!isRecord(item) || !hasExactKeys(item, ['plotId', 'plotVersion'])) return null
+    const plotId = parseId(item.plotId)
+    const plotVersion = parseVersion(item.plotVersion, 1)
+    return plotId === null || plotVersion === null ? null : { plotId, plotVersion }
+  })
+  const expectedVersion = parseVersion(parsed.expectedVersion)
+  if (
+    plotRefs.length === 0 || plotRefs.length > 4 || plotRefs.some((item) => item === null) || expectedVersion === null ||
+    (parsed.layout !== '1x2' && parsed.layout !== '2x1' && parsed.layout !== '2x2')
+  ) return null
+  return { projectId: parsed.projectId as string, plotRefs: plotRefs as { plotId: string; plotVersion: number }[], layout: parsed.layout, expectedVersion }
+}
+
+export function parseFigureIdInput(value: unknown): FigureIdInput | null {
+  const parsed = parseProjectIdRecord(value, ['figureId'])
+  const figureId = parsed === null ? null : parseId(parsed.figureId)
+  return parsed === null || figureId === null ? null : { projectId: parsed.projectId as string, figureId }
+}
+
+export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {
+  const parsed = parseProjectIdRecord(value, ['sourceDatasetId', 'sourceVersion', 'expectedVersion', 'target', 'scope', 'utterance'])
+  if (parsed === null) return null
+  const target = parseTarget(parsed.target)
+  const sourceDatasetId = parseId(parsed.sourceDatasetId)
+  const sourceVersion = parseVersion(parsed.sourceVersion, 1)
+  const expectedVersion = parseVersion(parsed.expectedVersion)
+  const scopes = new Set(['current', 'selected', 'batch', 'figure'])
+  if (target === null || sourceDatasetId === null || sourceVersion === null || expectedVersion === null || typeof parsed.scope !== 'string' || !scopes.has(parsed.scope)) return null
+  if (typeof parsed.utterance !== 'string') return null
+  const utterance = parsed.utterance.trim()
+  if (utterance.length === 0 || utterance.length > 4_000 || utterance.includes('\0')) return null
+  return {
+    projectId: parsed.projectId as string,
+    sourceDatasetId,
+    sourceVersion,
+    expectedVersion,
+    target,
+    scope: parsed.scope as AgentDecideInput['scope'],
+    utterance,
+  }
+}
+
+export function parsePngSvgExportInput(value: unknown): PngSvgExportInput | null {
+  const parsed = parseProjectIdRecord(value, ['target', 'format'])
+  const target = parsed === null ? null : parseVersionedTarget(parsed.target)
+  if (parsed === null || target === null || (parsed.format !== 'png' && parsed.format !== 'svg')) return null
+  return { projectId: parsed.projectId as string, target, format: parsed.format }
+}
+
+export function parseOriginExportInput(value: unknown): OriginExportInput | null {
+  const parsed = parseProjectIdRecord(value, ['target'])
+  const target = parsed === null ? null : parseVersionedTarget(parsed.target)
+  return parsed === null || target === null ? null : { projectId: parsed.projectId as string, target }
 }
 
 function isCoreMessageBase(value: Record<string, unknown>): boolean {

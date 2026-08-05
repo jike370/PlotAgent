@@ -4,7 +4,7 @@ export const PRODUCTION_CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  "img-src 'self' data: plotagent-resource:",
   "font-src 'self'",
   "connect-src 'none'",
   "object-src 'none'",
