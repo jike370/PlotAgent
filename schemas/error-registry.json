@@ -1,0 +1,152 @@
+{
+  "errors": [
+    {
+      "code": "SCHEMA_INVALID",
+      "default_severity": "blocked",
+      "description": "Payload failed schema validation.",
+      "owner": "W0_CONTRACTS",
+      "retryable": false
+    },
+    {
+      "code": "SCHEMA_VERSION_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "The schema version is not supported by this build.",
+      "owner": "W0_CONTRACTS",
+      "retryable": false
+    },
+    {
+      "code": "SCHEMA_GENERATION_OUT_OF_SYNC",
+      "default_severity": "blocked",
+      "description": "Checked-in schemas or generated types differ from the contract source.",
+      "owner": "W0_CONTRACTS",
+      "retryable": false
+    },
+    {
+      "code": "PROTOCOL_INVALID",
+      "default_severity": "blocked",
+      "description": "Protocol envelope is invalid.",
+      "owner": "W0_CONTRACTS",
+      "retryable": false
+    },
+    {
+      "code": "ERROR_CODE_UNKNOWN",
+      "default_severity": "blocked",
+      "description": "An unregistered error code was used.",
+      "owner": "W0_CONTRACTS",
+      "retryable": false
+    },
+    {
+      "code": "MAPPING_REQUIRED_ROLE_MISSING",
+      "default_severity": "blocked",
+      "description": "A required chart field role is not mapped.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "MAPPING_DUPLICATE_ROLE",
+      "default_severity": "blocked",
+      "description": "A field mapping contains the same semantic role more than once.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PREPARE_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "The requested preparation is outside v1.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PREPARE_NON_ISOMORPHIC",
+      "default_severity": "blocked",
+      "description": "Inputs are not isomorphic under the frozen semantic signature.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PREPARE_UNIT_INCOMPATIBLE",
+      "default_severity": "blocked",
+      "description": "Mapped units are incompatible.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PREPARE_NONFINITE_POLICY_REQUIRED",
+      "default_severity": "blocked",
+      "description": "A fail or exclude-with-report policy is required for non-finite data.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_CALCULATION_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "The chart registry does not allow this fixed plot calculation.",
+      "owner": "W3_CALCULATIONS",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_PRECOMPUTED_INPUT_REQUIRED",
+      "default_severity": "blocked",
+      "description": "A required user-provided precomputed input is missing.",
+      "owner": "W3_CALCULATIONS",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_CHART_UNKNOWN",
+      "default_severity": "blocked",
+      "description": "The chart type is not in the v1 registry.",
+      "owner": "W4_RENDERING",
+      "retryable": false
+    },
+    {
+      "code": "PLOTSPEC_FAMILY_MISMATCH",
+      "default_severity": "blocked",
+      "description": "Plot family or geometry conflicts with the chart registry.",
+      "owner": "W4_RENDERING",
+      "retryable": false
+    },
+    {
+      "code": "PATCH_VERSION_CONFLICT",
+      "default_severity": "blocked",
+      "description": "Patch expected version is stale.",
+      "owner": "W4_RENDERING",
+      "retryable": false
+    },
+    {
+      "code": "BATCH_SIGNATURE_MISMATCH",
+      "default_severity": "blocked",
+      "description": "Batch inputs have different signatures.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "FIGURE_LAYOUT_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "Figure layout is outside the fixed v1 set.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "RENDER_PLAN_HASH_MISMATCH",
+      "default_severity": "blocked",
+      "description": "Export is not bound to the resolved render plan content.",
+      "owner": "W4_RENDERING",
+      "retryable": false
+    },
+    {
+      "code": "ORIGIN_CAPABILITY_MISSING",
+      "default_severity": "blocked",
+      "description": "The target chart cannot meet O1 on the qualified Origin version.",
+      "owner": "W6_ORIGIN",
+      "retryable": false
+    },
+    {
+      "code": "AGENT_DECISION_INVALID",
+      "default_severity": "blocked",
+      "description": "Provider output is not a valid AgentDecision.",
+      "owner": "W7_AGENT",
+      "retryable": false
+    }
+  ],
+  "schema_version": "1.0"
+}

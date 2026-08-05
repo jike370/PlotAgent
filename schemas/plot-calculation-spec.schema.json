@@ -1,0 +1,891 @@
+{
+  "$defs": {
+    "ConfusionCountSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "actual_field": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Actual Field",
+          "type": "string"
+        },
+        "algorithm_id": {
+          "const": "fixed_confusion_count",
+          "default": "fixed_confusion_count",
+          "title": "Algorithm Id",
+          "type": "string"
+        },
+        "algorithm_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Version",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_version": {
+          "minimum": 1,
+          "title": "Calculation Version",
+          "type": "integer"
+        },
+        "category_order": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Category Order",
+          "type": "array"
+        },
+        "kind": {
+          "const": "confusion_count",
+          "default": "confusion_count",
+          "title": "Kind",
+          "type": "string"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "normalization": {
+          "default": "count",
+          "enum": [
+            "count",
+            "true_class",
+            "predicted_class"
+          ],
+          "title": "Normalization",
+          "type": "string"
+        },
+        "predicted_field": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Predicted Field",
+          "type": "string"
+        },
+        "prepared_dataset_ref": {
+          "$ref": "#/$defs/PreparedDatasetRef"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "calculation_version",
+        "prepared_dataset_ref",
+        "algorithm_version",
+        "missing_policy",
+        "actual_field",
+        "predicted_field"
+      ],
+      "title": "ConfusionCountSpec",
+      "type": "object"
+    },
+    "DensityKDESpec": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm_id": {
+          "const": "gaussian_scott_three_bandwidth",
+          "default": "gaussian_scott_three_bandwidth",
+          "title": "Algorithm Id",
+          "type": "string"
+        },
+        "algorithm_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Version",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_version": {
+          "minimum": 1,
+          "title": "Calculation Version",
+          "type": "integer"
+        },
+        "grid_points": {
+          "const": 256,
+          "default": 256,
+          "title": "Grid Points",
+          "type": "integer"
+        },
+        "group_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group Field"
+        },
+        "kind": {
+          "const": "density_kde",
+          "default": "density_kde",
+          "title": "Kind",
+          "type": "string"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "prepared_dataset_ref": {
+          "$ref": "#/$defs/PreparedDatasetRef"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "value_field": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Value Field",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "calculation_version",
+        "prepared_dataset_ref",
+        "algorithm_version",
+        "missing_policy",
+        "value_field"
+      ],
+      "title": "DensityKDESpec",
+      "type": "object"
+    },
+    "ECDFSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm_id": {
+          "const": "right_continuous_empirical_cdf",
+          "default": "right_continuous_empirical_cdf",
+          "title": "Algorithm Id",
+          "type": "string"
+        },
+        "algorithm_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Version",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_version": {
+          "minimum": 1,
+          "title": "Calculation Version",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "ecdf",
+          "default": "ecdf",
+          "title": "Kind",
+          "type": "string"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "mode": {
+          "default": "ecdf",
+          "enum": [
+            "ecdf",
+            "ccdf"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "prepared_dataset_ref": {
+          "$ref": "#/$defs/PreparedDatasetRef"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "value_field": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Value Field",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "calculation_version",
+        "prepared_dataset_ref",
+        "algorithm_version",
+        "missing_policy",
+        "value_field"
+      ],
+      "title": "ECDFSpec",
+      "type": "object"
+    },
+    "HistogramBinningSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm_id": {
+          "const": "freedman_diaconis_sturges",
+          "default": "freedman_diaconis_sturges",
+          "title": "Algorithm Id",
+          "type": "string"
+        },
+        "algorithm_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Version",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_version": {
+          "minimum": 1,
+          "title": "Calculation Version",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "histogram_binning",
+          "default": "histogram_binning",
+          "title": "Kind",
+          "type": "string"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "normalization": {
+          "default": "count",
+          "enum": [
+            "count",
+            "density"
+          ],
+          "title": "Normalization",
+          "type": "string"
+        },
+        "prepared_dataset_ref": {
+          "$ref": "#/$defs/PreparedDatasetRef"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "value_field": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Value Field",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "calculation_version",
+        "prepared_dataset_ref",
+        "algorithm_version",
+        "missing_policy",
+        "value_field"
+      ],
+      "title": "HistogramBinningSpec",
+      "type": "object"
+    },
+    "MatrixProjectionSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm_id": {
+          "const": "regular_or_unique_xy_projection",
+          "default": "regular_or_unique_xy_projection",
+          "title": "Algorithm Id",
+          "type": "string"
+        },
+        "algorithm_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Version",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_version": {
+          "minimum": 1,
+          "title": "Calculation Version",
+          "type": "integer"
+        },
+        "input_mode": {
+          "enum": [
+            "regular_matrix",
+            "unique_xy"
+          ],
+          "title": "Input Mode",
+          "type": "string"
+        },
+        "kind": {
+          "const": "matrix_projection",
+          "default": "matrix_projection",
+          "title": "Kind",
+          "type": "string"
+        },
+        "matrix_value_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Matrix Value Fields",
+          "type": "array"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "prepared_dataset_ref": {
+          "$ref": "#/$defs/PreparedDatasetRef"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "x_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X Field"
+        },
+        "y_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y Field"
+        },
+        "z_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Z Field"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "calculation_version",
+        "prepared_dataset_ref",
+        "algorithm_version",
+        "missing_policy",
+        "input_mode"
+      ],
+      "title": "MatrixProjectionSpec",
+      "type": "object"
+    },
+    "PercentStackSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm_id": {
+          "const": "category_nonnegative_percent",
+          "default": "category_nonnegative_percent",
+          "title": "Algorithm Id",
+          "type": "string"
+        },
+        "algorithm_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Version",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_version": {
+          "minimum": 1,
+          "title": "Calculation Version",
+          "type": "integer"
+        },
+        "category_field": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Category Field",
+          "type": "string"
+        },
+        "component_field": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Component Field",
+          "type": "string"
+        },
+        "kind": {
+          "const": "percent_stack",
+          "default": "percent_stack",
+          "title": "Kind",
+          "type": "string"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "prepared_dataset_ref": {
+          "$ref": "#/$defs/PreparedDatasetRef"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "value_field": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Value Field",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "calculation_version",
+        "prepared_dataset_ref",
+        "algorithm_version",
+        "missing_policy",
+        "category_field",
+        "component_field",
+        "value_field"
+      ],
+      "title": "PercentStackSpec",
+      "type": "object"
+    },
+    "PreparedDatasetRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "prepared_dataset_id": {
+          "pattern": "^prepared:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Prepared Dataset Id",
+          "type": "string"
+        },
+        "prepared_version": {
+          "minimum": 1,
+          "title": "Prepared Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "prepared_dataset_id",
+        "prepared_version",
+        "content_hash"
+      ],
+      "title": "PreparedDatasetRef",
+      "type": "object"
+    },
+    "SummaryErrorSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm_id": {
+          "const": "fixed_summary_error",
+          "default": "fixed_summary_error",
+          "title": "Algorithm Id",
+          "type": "string"
+        },
+        "algorithm_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Version",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_version": {
+          "minimum": 1,
+          "title": "Calculation Version",
+          "type": "integer"
+        },
+        "center_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Center Field"
+        },
+        "group_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Group Fields",
+          "type": "array"
+        },
+        "kind": {
+          "const": "summary_error",
+          "default": "summary_error",
+          "title": "Kind",
+          "type": "string"
+        },
+        "lower_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lower Field"
+        },
+        "method": {
+          "enum": [
+            "mean_sd",
+            "mean_sem",
+            "mean_95_t_ci",
+            "median_iqr",
+            "median_range",
+            "direct_bounds",
+            "direct_symmetric_error"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "prepared_dataset_ref": {
+          "$ref": "#/$defs/PreparedDatasetRef"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "symmetric_error_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symmetric Error Field"
+        },
+        "upper_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upper Field"
+        },
+        "value_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value Field"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "calculation_version",
+        "prepared_dataset_ref",
+        "algorithm_version",
+        "missing_policy",
+        "method"
+      ],
+      "title": "SummaryErrorSpec",
+      "type": "object"
+    },
+    "TukeyBoxSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm_id": {
+          "const": "linear_quantile_tukey_1_5_iqr",
+          "default": "linear_quantile_tukey_1_5_iqr",
+          "title": "Algorithm Id",
+          "type": "string"
+        },
+        "algorithm_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Version",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_version": {
+          "minimum": 1,
+          "title": "Calculation Version",
+          "type": "integer"
+        },
+        "group_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group Field"
+        },
+        "kind": {
+          "const": "tukey_box",
+          "default": "tukey_box",
+          "title": "Kind",
+          "type": "string"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "prepared_dataset_ref": {
+          "$ref": "#/$defs/PreparedDatasetRef"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "value_field": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Value Field",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "calculation_version",
+        "prepared_dataset_ref",
+        "algorithm_version",
+        "missing_policy",
+        "value_field"
+      ],
+      "title": "TukeyBoxSpec",
+      "type": "object"
+    },
+    "ViolinKDESpec": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm_id": {
+          "const": "gaussian_scott_observed_range",
+          "default": "gaussian_scott_observed_range",
+          "title": "Algorithm Id",
+          "type": "string"
+        },
+        "algorithm_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Version",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_version": {
+          "minimum": 1,
+          "title": "Calculation Version",
+          "type": "integer"
+        },
+        "grid_points": {
+          "const": 256,
+          "default": 256,
+          "title": "Grid Points",
+          "type": "integer"
+        },
+        "group_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group Field"
+        },
+        "kind": {
+          "const": "violin_kde",
+          "default": "violin_kde",
+          "title": "Kind",
+          "type": "string"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "prepared_dataset_ref": {
+          "$ref": "#/$defs/PreparedDatasetRef"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "value_field": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Value Field",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "calculation_version",
+        "prepared_dataset_ref",
+        "algorithm_version",
+        "missing_policy",
+        "value_field"
+      ],
+      "title": "ViolinKDESpec",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v1/plot-calculation-spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "discriminator": {
+    "mapping": {
+      "confusion_count": "#/$defs/ConfusionCountSpec",
+      "density_kde": "#/$defs/DensityKDESpec",
+      "ecdf": "#/$defs/ECDFSpec",
+      "histogram_binning": "#/$defs/HistogramBinningSpec",
+      "matrix_projection": "#/$defs/MatrixProjectionSpec",
+      "percent_stack": "#/$defs/PercentStackSpec",
+      "summary_error": "#/$defs/SummaryErrorSpec",
+      "tukey_box": "#/$defs/TukeyBoxSpec",
+      "violin_kde": "#/$defs/ViolinKDESpec"
+    },
+    "propertyName": "kind"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/HistogramBinningSpec"
+    },
+    {
+      "$ref": "#/$defs/TukeyBoxSpec"
+    },
+    {
+      "$ref": "#/$defs/ViolinKDESpec"
+    },
+    {
+      "$ref": "#/$defs/DensityKDESpec"
+    },
+    {
+      "$ref": "#/$defs/ECDFSpec"
+    },
+    {
+      "$ref": "#/$defs/SummaryErrorSpec"
+    },
+    {
+      "$ref": "#/$defs/PercentStackSpec"
+    },
+    {
+      "$ref": "#/$defs/MatrixProjectionSpec"
+    },
+    {
+      "$ref": "#/$defs/ConfusionCountSpec"
+    }
+  ],
+  "title": "PlotCalculationSpecContract"
+}

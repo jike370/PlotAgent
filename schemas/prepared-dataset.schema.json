@@ -1,0 +1,256 @@
+{
+  "$defs": {
+    "ContentTableRef": {
+      "additionalProperties": false,
+      "properties": {
+        "field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Field Ids",
+          "type": "array"
+        },
+        "object_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Object Hash",
+          "type": "string"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "object_hash",
+        "row_count",
+        "field_ids"
+      ],
+      "title": "ContentTableRef",
+      "type": "object"
+    },
+    "FieldMappingRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "field_mapping_id": {
+          "pattern": "^mapping:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Mapping Id",
+          "type": "string"
+        },
+        "mapping_version": {
+          "minimum": 1,
+          "title": "Mapping Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "field_mapping_id",
+        "mapping_version",
+        "content_hash"
+      ],
+      "title": "FieldMappingRef",
+      "type": "object"
+    },
+    "PreparationSpecRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "preparation_spec_id": {
+          "pattern": "^preparation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Preparation Spec Id",
+          "type": "string"
+        },
+        "preparation_version": {
+          "minimum": 1,
+          "title": "Preparation Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "preparation_spec_id",
+        "preparation_version",
+        "content_hash"
+      ],
+      "title": "PreparationSpecRef",
+      "type": "object"
+    },
+    "PreparedDatasetProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "compiler_build_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Compiler Build Hash",
+          "type": "string"
+        },
+        "source_coordinate_kinds": {
+          "items": {
+            "enum": [
+              "excel",
+              "text"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Coordinate Kinds",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_coordinate_kinds",
+        "compiler_build_hash"
+      ],
+      "title": "PreparedDatasetProvenance",
+      "type": "object"
+    },
+    "SourceDatasetRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "source_dataset_id": {
+          "pattern": "^source:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_dataset_id",
+        "source_version",
+        "content_hash"
+      ],
+      "title": "SourceDatasetRef",
+      "type": "object"
+    },
+    "WarningRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "warning_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Warning Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "warning_id",
+        "message"
+      ],
+      "title": "WarningRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v1/prepared-dataset.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "compiler_version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Compiler Version",
+      "type": "string"
+    },
+    "data_ref": {
+      "$ref": "#/$defs/ContentTableRef"
+    },
+    "excluded_row_count": {
+      "minimum": 0,
+      "title": "Excluded Row Count",
+      "type": "integer"
+    },
+    "field_mapping_ref": {
+      "$ref": "#/$defs/FieldMappingRef"
+    },
+    "included_row_count": {
+      "minimum": 0,
+      "title": "Included Row Count",
+      "type": "integer"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "output_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Output Hash",
+      "type": "string"
+    },
+    "preparation_spec_ref": {
+      "$ref": "#/$defs/PreparationSpecRef"
+    },
+    "prepared_dataset_id": {
+      "pattern": "^prepared:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Prepared Dataset Id",
+      "type": "string"
+    },
+    "prepared_version": {
+      "minimum": 1,
+      "title": "Prepared Version",
+      "type": "integer"
+    },
+    "provenance": {
+      "$ref": "#/$defs/PreparedDatasetProvenance"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_dataset_refs": {
+      "items": {
+        "$ref": "#/$defs/SourceDatasetRef"
+      },
+      "minItems": 1,
+      "title": "Source Dataset Refs",
+      "type": "array"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WarningRecord"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "prepared_dataset_id",
+    "prepared_version",
+    "source_dataset_refs",
+    "field_mapping_ref",
+    "preparation_spec_ref",
+    "compiler_version",
+    "input_hash",
+    "output_hash",
+    "data_ref",
+    "included_row_count",
+    "excluded_row_count",
+    "provenance"
+  ],
+  "title": "PreparedDataset",
+  "type": "object"
+}

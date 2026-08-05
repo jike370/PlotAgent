@@ -1,0 +1,78 @@
+{
+  "$defs": {
+    "ErrorDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]{2,95}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "default_severity": {
+          "enum": [
+            "info",
+            "warning",
+            "blocked"
+          ],
+          "title": "Default Severity",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "owner": {
+          "enum": [
+            "W0_CONTRACTS",
+            "W2_DATA",
+            "W3_CALCULATIONS",
+            "W4_RENDERING",
+            "W5_WORKFLOW",
+            "W6_ORIGIN",
+            "W7_AGENT"
+          ],
+          "title": "Owner",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "owner",
+        "retryable",
+        "default_severity",
+        "description"
+      ],
+      "title": "ErrorDefinition",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v1/error-registry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/ErrorDefinition"
+      },
+      "title": "Errors",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "errors"
+  ],
+  "title": "ErrorRegistry",
+  "type": "object"
+}

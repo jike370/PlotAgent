@@ -1,0 +1,1228 @@
+{
+  "$defs": {
+    "AnnotationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "affect_range": {
+          "default": false,
+          "title": "Affect Range",
+          "type": "boolean"
+        },
+        "annotation_id": {
+          "pattern": "^annotation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Annotation Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "arrow",
+            "line",
+            "rectangle",
+            "reference_line",
+            "reference_band",
+            "peak_label",
+            "significance_bracket",
+            "panel_label"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "x": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X"
+        },
+        "y": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y"
+        }
+      },
+      "required": [
+        "annotation_id",
+        "kind"
+      ],
+      "title": "AnnotationSpec",
+      "type": "object"
+    },
+    "AxisRange": {
+      "additionalProperties": false,
+      "properties": {
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "reverse": {
+          "default": false,
+          "title": "Reverse",
+          "type": "boolean"
+        }
+      },
+      "title": "AxisRange",
+      "type": "object"
+    },
+    "AxisSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "axis_id": {
+          "pattern": "^axis:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Axis Id",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/SafeRichText"
+        },
+        "orientation": {
+          "enum": [
+            "x",
+            "y",
+            "color"
+          ],
+          "title": "Orientation",
+          "type": "string"
+        },
+        "position": {
+          "enum": [
+            "bottom",
+            "top",
+            "left",
+            "right",
+            "none"
+          ],
+          "title": "Position",
+          "type": "string"
+        },
+        "scale_id": {
+          "pattern": "^scale:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Scale Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "axis_id",
+        "scale_id",
+        "orientation",
+        "position",
+        "label"
+      ],
+      "title": "AxisSpec",
+      "type": "object"
+    },
+    "CalculatedSeriesData": {
+      "additionalProperties": false,
+      "properties": {
+        "calculation_result_ref": {
+          "$ref": "#/$defs/PlotCalculationResultRef"
+        },
+        "kind": {
+          "const": "calculated",
+          "default": "calculated",
+          "title": "Kind",
+          "type": "string"
+        },
+        "role_fields": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Role Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "calculation_result_ref",
+        "role_fields"
+      ],
+      "title": "CalculatedSeriesData",
+      "type": "object"
+    },
+    "CategoricalFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "geometry": {
+          "items": {
+            "const": "bar",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Geometry",
+          "type": "array"
+        },
+        "kind": {
+          "const": "categorical",
+          "default": "categorical",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "geometry"
+      ],
+      "title": "CategoricalFamily",
+      "type": "object"
+    },
+    "ColorValue": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "ColorValue",
+      "type": "object"
+    },
+    "DistributionFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "geometry": {
+          "items": {
+            "enum": [
+              "strip",
+              "box",
+              "violin",
+              "histogram",
+              "density",
+              "step"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Geometry",
+          "type": "array"
+        },
+        "kind": {
+          "const": "distribution",
+          "default": "distribution",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "geometry"
+      ],
+      "title": "DistributionFamily",
+      "type": "object"
+    },
+    "DoseResponseFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "geometry": {
+          "items": {
+            "enum": [
+              "symbol",
+              "line",
+              "band"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Geometry",
+          "type": "array"
+        },
+        "kind": {
+          "const": "dose_response",
+          "default": "dose_response",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "geometry"
+      ],
+      "title": "DoseResponseFamily",
+      "type": "object"
+    },
+    "FacetFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "geometry": {
+          "items": {
+            "const": "panel",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Geometry",
+          "type": "array"
+        },
+        "kind": {
+          "const": "facet",
+          "default": "facet",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "geometry"
+      ],
+      "title": "FacetFamily",
+      "type": "object"
+    },
+    "ForestFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "geometry": {
+          "items": {
+            "enum": [
+              "interval",
+              "symbol"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Geometry",
+          "type": "array"
+        },
+        "kind": {
+          "const": "forest",
+          "default": "forest",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "geometry"
+      ],
+      "title": "ForestFamily",
+      "type": "object"
+    },
+    "MatrixFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "geometry": {
+          "items": {
+            "enum": [
+              "heatmap",
+              "contour"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Geometry",
+          "type": "array"
+        },
+        "kind": {
+          "const": "matrix",
+          "default": "matrix",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "geometry"
+      ],
+      "title": "MatrixFamily",
+      "type": "object"
+    },
+    "PhysicalLength": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "enum": [
+            "mm",
+            "pt"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "exclusiveMinimum": 0,
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "unit"
+      ],
+      "title": "PhysicalLength",
+      "type": "object"
+    },
+    "PhysicalSize": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "$ref": "#/$defs/PhysicalLength"
+        },
+        "width": {
+          "$ref": "#/$defs/PhysicalLength"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "title": "PhysicalSize",
+      "type": "object"
+    },
+    "PlotCalculationResultRef": {
+      "additionalProperties": false,
+      "properties": {
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_kind": {
+          "enum": [
+            "histogram_binning",
+            "tukey_box",
+            "violin_kde",
+            "density_kde",
+            "ecdf",
+            "summary_error",
+            "percent_stack",
+            "matrix_projection",
+            "confusion_count"
+          ],
+          "title": "Calculation Kind",
+          "type": "string"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "result_version": {
+          "minimum": 1,
+          "title": "Result Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "result_version",
+        "calculation_kind",
+        "content_hash"
+      ],
+      "title": "PlotCalculationResultRef",
+      "type": "object"
+    },
+    "PlotProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "engine_build_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Engine Build Hash",
+          "type": "string"
+        },
+        "origin": {
+          "enum": [
+            "manual",
+            "agent_plan"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "parent_plot_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlotSpecRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "plan_id": {
+          "anyOf": [
+            {
+              "pattern": "^plan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plan Id"
+        },
+        "user_instruction_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Instruction Hash"
+        }
+      },
+      "required": [
+        "origin",
+        "engine_build_hash"
+      ],
+      "title": "PlotProvenance",
+      "type": "object"
+    },
+    "PlotSpecRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "plot_id": {
+          "pattern": "^plot:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "plot_version": {
+          "minimum": 1,
+          "title": "Plot Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "plot_id",
+        "plot_version",
+        "content_hash"
+      ],
+      "title": "PlotSpecRef",
+      "type": "object"
+    },
+    "PrecomputedDataRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "data_ref_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Data Ref Hash",
+          "type": "string"
+        },
+        "field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Field Ids",
+          "type": "array"
+        },
+        "precomputed_id": {
+          "pattern": "^precomputed:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Precomputed Id",
+          "type": "string"
+        },
+        "precomputed_kind": {
+          "enum": [
+            "curve",
+            "band",
+            "matrix",
+            "matrix_grid",
+            "step_curve",
+            "risk_table",
+            "parameter_table",
+            "spectrum",
+            "peak_labels",
+            "complex_curve",
+            "effect_interval"
+          ],
+          "title": "Precomputed Kind",
+          "type": "string"
+        },
+        "precomputed_version": {
+          "minimum": 1,
+          "title": "Precomputed Version",
+          "type": "integer"
+        },
+        "provenance": {
+          "const": "user_provided_precomputed",
+          "default": "user_provided_precomputed",
+          "title": "Provenance",
+          "type": "string"
+        }
+      },
+      "required": [
+        "precomputed_id",
+        "precomputed_version",
+        "precomputed_kind",
+        "content_hash",
+        "data_ref_hash",
+        "field_ids"
+      ],
+      "title": "PrecomputedDataRef",
+      "type": "object"
+    },
+    "PrecomputedSeriesData": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "precomputed",
+          "default": "precomputed",
+          "title": "Kind",
+          "type": "string"
+        },
+        "precomputed_data_ref": {
+          "$ref": "#/$defs/PrecomputedDataRef"
+        },
+        "role_fields": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Role Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "precomputed_data_ref",
+        "role_fields"
+      ],
+      "title": "PrecomputedSeriesData",
+      "type": "object"
+    },
+    "PreparedDatasetRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "prepared_dataset_id": {
+          "pattern": "^prepared:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Prepared Dataset Id",
+          "type": "string"
+        },
+        "prepared_version": {
+          "minimum": 1,
+          "title": "Prepared Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "prepared_dataset_id",
+        "prepared_version",
+        "content_hash"
+      ],
+      "title": "PreparedDatasetRef",
+      "type": "object"
+    },
+    "PreparedSeriesData": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "prepared",
+          "default": "prepared",
+          "title": "Kind",
+          "type": "string"
+        },
+        "prepared_dataset_ref": {
+          "$ref": "#/$defs/PreparedDatasetRef"
+        },
+        "role_fields": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Role Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "prepared_dataset_ref",
+        "role_fields"
+      ],
+      "title": "PreparedSeriesData",
+      "type": "object"
+    },
+    "PublicationProfileSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "color_space": {
+          "const": "sRGB",
+          "default": "sRGB",
+          "title": "Color Space",
+          "type": "string"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "dpi": {
+          "maximum": 2400,
+          "minimum": 72,
+          "title": "Dpi",
+          "type": "integer"
+        },
+        "physical_size": {
+          "$ref": "#/$defs/PhysicalSize"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "profile_version": {
+          "minimum": 1,
+          "title": "Profile Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "profile_id",
+        "profile_version",
+        "content_hash",
+        "physical_size",
+        "dpi"
+      ],
+      "title": "PublicationProfileSnapshot",
+      "type": "object"
+    },
+    "ResolvedStyleSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "colors": {
+          "items": {
+            "$ref": "#/$defs/ColorValue"
+          },
+          "minItems": 1,
+          "title": "Colors",
+          "type": "array"
+        },
+        "font_family": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Font Family",
+          "type": "string"
+        },
+        "font_size": {
+          "$ref": "#/$defs/PhysicalLength"
+        },
+        "line_width": {
+          "$ref": "#/$defs/PhysicalLength"
+        },
+        "marker_size": {
+          "$ref": "#/$defs/PhysicalLength"
+        }
+      },
+      "required": [
+        "font_family",
+        "font_size",
+        "line_width",
+        "marker_size",
+        "colors"
+      ],
+      "title": "ResolvedStyleSnapshot",
+      "type": "object"
+    },
+    "SafeRichText": {
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/SafeTextNode"
+          },
+          "minItems": 1,
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "nodes"
+      ],
+      "title": "SafeRichText",
+      "type": "object"
+    },
+    "SafeTextNode": {
+      "additionalProperties": false,
+      "properties": {
+        "denominator": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Denominator"
+        },
+        "kind": {
+          "enum": [
+            "plain",
+            "newline",
+            "sub",
+            "sup",
+            "bold",
+            "italic",
+            "fraction"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "default": "",
+          "maxLength": 512,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SafeTextNode",
+      "type": "object"
+    },
+    "ScaleSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "axis_range": {
+          "$ref": "#/$defs/AxisRange",
+          "default": {
+            "maximum": null,
+            "minimum": null,
+            "reverse": false
+          }
+        },
+        "kind": {
+          "enum": [
+            "linear",
+            "log10",
+            "datetime",
+            "categorical"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "scale_id": {
+          "pattern": "^scale:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Scale Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scale_id",
+        "kind"
+      ],
+      "title": "ScaleSpec",
+      "type": "object"
+    },
+    "SeriesSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "discriminator": {
+            "mapping": {
+              "calculated": "#/$defs/CalculatedSeriesData",
+              "precomputed": "#/$defs/PrecomputedSeriesData",
+              "prepared": "#/$defs/PreparedSeriesData"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PreparedSeriesData"
+            },
+            {
+              "$ref": "#/$defs/CalculatedSeriesData"
+            },
+            {
+              "$ref": "#/$defs/PrecomputedSeriesData"
+            }
+          ],
+          "title": "Data"
+        },
+        "geometry": {
+          "enum": [
+            "line",
+            "symbol",
+            "error_bar",
+            "band",
+            "area",
+            "bar",
+            "strip",
+            "box",
+            "violin",
+            "histogram",
+            "density",
+            "step",
+            "heatmap",
+            "contour",
+            "risk_table",
+            "interval",
+            "panel"
+          ],
+          "title": "Geometry",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "series_id": {
+          "pattern": "^series:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Series Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "series_id",
+        "geometry",
+        "data"
+      ],
+      "title": "SeriesSpec",
+      "type": "object"
+    },
+    "StyleSourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "source_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_kind": {
+          "enum": [
+            "project",
+            "batch",
+            "plot",
+            "publication_profile"
+          ],
+          "title": "Source Kind",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_kind",
+        "source_id",
+        "source_version",
+        "content_hash"
+      ],
+      "title": "StyleSourceRef",
+      "type": "object"
+    },
+    "SurvivalFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "geometry": {
+          "items": {
+            "enum": [
+              "step",
+              "band",
+              "risk_table"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Geometry",
+          "type": "array"
+        },
+        "kind": {
+          "const": "survival",
+          "default": "survival",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "geometry"
+      ],
+      "title": "SurvivalFamily",
+      "type": "object"
+    },
+    "XYFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "geometry": {
+          "items": {
+            "enum": [
+              "line",
+              "symbol",
+              "error_bar",
+              "band",
+              "area"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Geometry",
+          "type": "array"
+        },
+        "kind": {
+          "const": "xy",
+          "default": "xy",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "geometry"
+      ],
+      "title": "XYFamily",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v1/plot-spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "annotations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AnnotationSpec"
+      },
+      "title": "Annotations",
+      "type": "array"
+    },
+    "axes": {
+      "items": {
+        "$ref": "#/$defs/AxisSpec"
+      },
+      "minItems": 1,
+      "title": "Axes",
+      "type": "array"
+    },
+    "chart_type_id": {
+      "enum": [
+        "K01",
+        "K02",
+        "K03",
+        "K04",
+        "K05",
+        "K06",
+        "K07",
+        "K08",
+        "K09",
+        "K10",
+        "K11",
+        "K12",
+        "K13",
+        "K14",
+        "K15",
+        "K16",
+        "K17",
+        "K18",
+        "K19",
+        "K20",
+        "K21",
+        "K22",
+        "K24",
+        "K25",
+        "S01",
+        "S05",
+        "S21",
+        "S25",
+        "S31",
+        "S34",
+        "S61"
+      ],
+      "title": "Chart Type Id",
+      "type": "string"
+    },
+    "family": {
+      "discriminator": {
+        "mapping": {
+          "categorical": "#/$defs/CategoricalFamily",
+          "distribution": "#/$defs/DistributionFamily",
+          "dose_response": "#/$defs/DoseResponseFamily",
+          "facet": "#/$defs/FacetFamily",
+          "forest": "#/$defs/ForestFamily",
+          "matrix": "#/$defs/MatrixFamily",
+          "survival": "#/$defs/SurvivalFamily",
+          "xy": "#/$defs/XYFamily"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/XYFamily"
+        },
+        {
+          "$ref": "#/$defs/CategoricalFamily"
+        },
+        {
+          "$ref": "#/$defs/DistributionFamily"
+        },
+        {
+          "$ref": "#/$defs/MatrixFamily"
+        },
+        {
+          "$ref": "#/$defs/SurvivalFamily"
+        },
+        {
+          "$ref": "#/$defs/DoseResponseFamily"
+        },
+        {
+          "$ref": "#/$defs/ForestFamily"
+        },
+        {
+          "$ref": "#/$defs/FacetFamily"
+        }
+      ],
+      "title": "Family"
+    },
+    "plot_calculation_refs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PlotCalculationResultRef"
+      },
+      "title": "Plot Calculation Refs",
+      "type": "array"
+    },
+    "plot_id": {
+      "pattern": "^plot:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Plot Id",
+      "type": "string"
+    },
+    "plot_version": {
+      "minimum": 1,
+      "title": "Plot Version",
+      "type": "integer"
+    },
+    "precomputed_data_refs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PrecomputedDataRef"
+      },
+      "title": "Precomputed Data Refs",
+      "type": "array"
+    },
+    "prepared_data_refs": {
+      "items": {
+        "$ref": "#/$defs/PreparedDatasetRef"
+      },
+      "minItems": 1,
+      "title": "Prepared Data Refs",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/PlotProvenance"
+    },
+    "publication_profile": {
+      "$ref": "#/$defs/PublicationProfileSnapshot"
+    },
+    "resolved_style": {
+      "$ref": "#/$defs/ResolvedStyleSnapshot"
+    },
+    "scales": {
+      "items": {
+        "$ref": "#/$defs/ScaleSpec"
+      },
+      "minItems": 1,
+      "title": "Scales",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "series": {
+      "items": {
+        "$ref": "#/$defs/SeriesSpec"
+      },
+      "minItems": 1,
+      "title": "Series",
+      "type": "array"
+    },
+    "style_sources": {
+      "items": {
+        "$ref": "#/$defs/StyleSourceRef"
+      },
+      "minItems": 1,
+      "title": "Style Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "plot_id",
+    "plot_version",
+    "chart_type_id",
+    "family",
+    "prepared_data_refs",
+    "scales",
+    "axes",
+    "series",
+    "style_sources",
+    "resolved_style",
+    "publication_profile",
+    "provenance"
+  ],
+  "title": "PlotSpec",
+  "type": "object"
+}

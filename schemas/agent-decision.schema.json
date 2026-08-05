@@ -1,0 +1,1136 @@
+{
+  "$defs": {
+    "ActionPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "create_batch": "#/$defs/CreateBatchAction",
+                "create_figure": "#/$defs/CreateFigureAction",
+                "create_plot": "#/$defs/CreatePlotAction",
+                "export_artifact": "#/$defs/ExportArtifactAction",
+                "patch_batch": "#/$defs/PatchBatchAction",
+                "patch_figure": "#/$defs/PatchFigureAction",
+                "patch_plot": "#/$defs/PatchPlotAction"
+              },
+              "propertyName": "action_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/CreatePlotAction"
+              },
+              {
+                "$ref": "#/$defs/PatchPlotAction"
+              },
+              {
+                "$ref": "#/$defs/CreateBatchAction"
+              },
+              {
+                "$ref": "#/$defs/PatchBatchAction"
+              },
+              {
+                "$ref": "#/$defs/CreateFigureAction"
+              },
+              {
+                "$ref": "#/$defs/PatchFigureAction"
+              },
+              {
+                "$ref": "#/$defs/ExportArtifactAction"
+              }
+            ]
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Actions",
+          "type": "array"
+        },
+        "confirmation": {
+          "default": "not_required",
+          "enum": [
+            "not_required",
+            "required"
+          ],
+          "title": "Confirmation",
+          "type": "string"
+        },
+        "decision_type": {
+          "const": "action_plan",
+          "default": "action_plan",
+          "title": "Decision Type",
+          "type": "string"
+        },
+        "plan_id": {
+          "pattern": "^plan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PlanWarning"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "plan_id",
+        "target_alias",
+        "actions"
+      ],
+      "title": "ActionPlan",
+      "type": "object"
+    },
+    "AxisLabelIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "operation": {
+          "const": "set_axis_label",
+          "default": "set_axis_label",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "label"
+      ],
+      "title": "AxisLabelIntent",
+      "type": "object"
+    },
+    "AxisRangeIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "maximum": {
+          "title": "Maximum",
+          "type": "number"
+        },
+        "minimum": {
+          "title": "Minimum",
+          "type": "number"
+        },
+        "operation": {
+          "const": "set_axis_range",
+          "default": "set_axis_range",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "minimum",
+        "maximum"
+      ],
+      "title": "AxisRangeIntent",
+      "type": "object"
+    },
+    "AxisScaleIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_axis_scale",
+          "default": "set_axis_scale",
+          "title": "Operation",
+          "type": "string"
+        },
+        "scale": {
+          "enum": [
+            "linear",
+            "log10",
+            "datetime",
+            "categorical"
+          ],
+          "title": "Scale",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "scale"
+      ],
+      "title": "AxisScaleIntent",
+      "type": "object"
+    },
+    "CanvasSizeIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_canvas_size",
+          "default": "set_canvas_size",
+          "title": "Operation",
+          "type": "string"
+        },
+        "physical_size": {
+          "$ref": "#/$defs/PhysicalSize"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "physical_size"
+      ],
+      "title": "CanvasSizeIntent",
+      "type": "object"
+    },
+    "ColorValue": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "ColorValue",
+      "type": "object"
+    },
+    "CreateBatchAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_type": {
+          "const": "create_batch",
+          "default": "create_batch",
+          "title": "Action Type",
+          "type": "string"
+        },
+        "axis_policy": {
+          "default": "per_plot",
+          "enum": [
+            "per_plot",
+            "unified"
+          ],
+          "title": "Axis Policy",
+          "type": "string"
+        },
+        "chart_type_id": {
+          "enum": [
+            "K01",
+            "K02",
+            "K03",
+            "K04",
+            "K05",
+            "K06",
+            "K07",
+            "K08",
+            "K09",
+            "K10",
+            "K11",
+            "K12",
+            "K13",
+            "K14",
+            "K15",
+            "K16",
+            "K17",
+            "K18",
+            "K19",
+            "K20",
+            "K21",
+            "K22",
+            "K24",
+            "K25",
+            "S01",
+            "S05",
+            "S21",
+            "S25",
+            "S31",
+            "S34",
+            "S61"
+          ],
+          "title": "Chart Type Id",
+          "type": "string"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "field_selections": {
+          "items": {
+            "$ref": "#/$defs/SemanticFieldSelection"
+          },
+          "minItems": 1,
+          "title": "Field Selections",
+          "type": "array"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "target_alias",
+        "chart_type_id",
+        "field_selections"
+      ],
+      "title": "CreateBatchAction",
+      "type": "object"
+    },
+    "CreateFigureAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_type": {
+          "const": "create_figure",
+          "default": "create_figure",
+          "title": "Action Type",
+          "type": "string"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "layout": {
+          "enum": [
+            "1x2",
+            "2x1",
+            "2x2"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "plot_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 2,
+          "title": "Plot Aliases",
+          "type": "array"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "target_alias",
+        "plot_aliases",
+        "layout"
+      ],
+      "title": "CreateFigureAction",
+      "type": "object"
+    },
+    "CreatePlotAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_type": {
+          "const": "create_plot",
+          "default": "create_plot",
+          "title": "Action Type",
+          "type": "string"
+        },
+        "chart_type_id": {
+          "enum": [
+            "K01",
+            "K02",
+            "K03",
+            "K04",
+            "K05",
+            "K06",
+            "K07",
+            "K08",
+            "K09",
+            "K10",
+            "K11",
+            "K12",
+            "K13",
+            "K14",
+            "K15",
+            "K16",
+            "K17",
+            "K18",
+            "K19",
+            "K20",
+            "K21",
+            "K22",
+            "K24",
+            "K25",
+            "S01",
+            "S05",
+            "S21",
+            "S25",
+            "S31",
+            "S34",
+            "S61"
+          ],
+          "title": "Chart Type Id",
+          "type": "string"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "field_selections": {
+          "items": {
+            "$ref": "#/$defs/SemanticFieldSelection"
+          },
+          "minItems": 1,
+          "title": "Field Selections",
+          "type": "array"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "target_alias",
+        "chart_type_id",
+        "field_selections"
+      ],
+      "title": "CreatePlotAction",
+      "type": "object"
+    },
+    "ExportArtifactAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_type": {
+          "const": "export_artifact",
+          "default": "export_artifact",
+          "title": "Action Type",
+          "type": "string"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "format": {
+          "enum": [
+            "png",
+            "svg",
+            "opju"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "output_name": {
+          "pattern": "^[^\\\\/:*?\\\"<>|\\r\\n]{1,120}$",
+          "title": "Output Name",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "target_scope": {
+          "enum": [
+            "current_plot",
+            "selected_plots",
+            "batch",
+            "figure"
+          ],
+          "title": "Target Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "target_alias",
+        "format",
+        "target_scope",
+        "output_name"
+      ],
+      "title": "ExportArtifactAction",
+      "type": "object"
+    },
+    "InputChoice": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "title": "InputChoice",
+      "type": "object"
+    },
+    "InputQuestion": {
+      "additionalProperties": false,
+      "properties": {
+        "choices": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/InputChoice"
+          },
+          "title": "Choices",
+          "type": "array"
+        },
+        "input_kind": {
+          "enum": [
+            "single_choice",
+            "multiple_choice",
+            "number",
+            "text"
+          ],
+          "title": "Input Kind",
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "question_key": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Question Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question_key",
+        "prompt",
+        "input_kind"
+      ],
+      "title": "InputQuestion",
+      "type": "object"
+    },
+    "LegendPlacementIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "move_legend",
+          "default": "move_legend",
+          "title": "Operation",
+          "type": "string"
+        },
+        "placement": {
+          "enum": [
+            "inside",
+            "outside_right",
+            "outside_bottom"
+          ],
+          "title": "Placement",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "placement"
+      ],
+      "title": "LegendPlacementIntent",
+      "type": "object"
+    },
+    "LegendVisibilityIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_legend_visibility",
+          "default": "set_legend_visibility",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "visible": {
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "target_alias",
+        "visible"
+      ],
+      "title": "LegendVisibilityIntent",
+      "type": "object"
+    },
+    "NeedsInput": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_type": {
+          "const": "needs_input",
+          "default": "needs_input",
+          "title": "Decision Type",
+          "type": "string"
+        },
+        "questions": {
+          "items": {
+            "$ref": "#/$defs/InputQuestion"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Questions",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "questions"
+      ],
+      "title": "NeedsInput",
+      "type": "object"
+    },
+    "NoChange": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_type": {
+          "const": "no_change",
+          "default": "no_change",
+          "title": "Decision Type",
+          "type": "string"
+        },
+        "explanation": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "explanation"
+      ],
+      "title": "NoChange",
+      "type": "object"
+    },
+    "PatchBatchAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_type": {
+          "const": "patch_batch",
+          "default": "patch_batch",
+          "title": "Action Type",
+          "type": "string"
+        },
+        "axis_policy": {
+          "enum": [
+            "per_plot",
+            "unified"
+          ],
+          "title": "Axis Policy",
+          "type": "string"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "target_alias",
+        "axis_policy"
+      ],
+      "title": "PatchBatchAction",
+      "type": "object"
+    },
+    "PatchFigureAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_type": {
+          "const": "patch_figure",
+          "default": "patch_figure",
+          "title": "Action Type",
+          "type": "string"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "panel_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Panel Alias",
+          "type": "string"
+        },
+        "replacement_plot_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Replacement Plot Alias",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "target_alias",
+        "panel_alias",
+        "replacement_plot_alias"
+      ],
+      "title": "PatchFigureAction",
+      "type": "object"
+    },
+    "PatchPlotAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_type": {
+          "const": "patch_plot",
+          "default": "patch_plot",
+          "title": "Action Type",
+          "type": "string"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "patches": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "apply_publication_profile": "#/$defs/PublicationProfileIntent",
+                "move_legend": "#/$defs/LegendPlacementIntent",
+                "set_axis_label": "#/$defs/AxisLabelIntent",
+                "set_axis_range": "#/$defs/AxisRangeIntent",
+                "set_axis_scale": "#/$defs/AxisScaleIntent",
+                "set_canvas_size": "#/$defs/CanvasSizeIntent",
+                "set_legend_visibility": "#/$defs/LegendVisibilityIntent",
+                "set_series_style": "#/$defs/SeriesStyleIntent"
+              },
+              "propertyName": "operation"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/AxisRangeIntent"
+              },
+              {
+                "$ref": "#/$defs/AxisScaleIntent"
+              },
+              {
+                "$ref": "#/$defs/AxisLabelIntent"
+              },
+              {
+                "$ref": "#/$defs/SeriesStyleIntent"
+              },
+              {
+                "$ref": "#/$defs/LegendVisibilityIntent"
+              },
+              {
+                "$ref": "#/$defs/LegendPlacementIntent"
+              },
+              {
+                "$ref": "#/$defs/PublicationProfileIntent"
+              },
+              {
+                "$ref": "#/$defs/CanvasSizeIntent"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Patches",
+          "type": "array"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "target_alias",
+        "patches"
+      ],
+      "title": "PatchPlotAction",
+      "type": "object"
+    },
+    "PhysicalLength": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "enum": [
+            "mm",
+            "pt"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "exclusiveMinimum": 0,
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "unit"
+      ],
+      "title": "PhysicalLength",
+      "type": "object"
+    },
+    "PhysicalSize": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "$ref": "#/$defs/PhysicalLength"
+        },
+        "width": {
+          "$ref": "#/$defs/PhysicalLength"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "title": "PhysicalSize",
+      "type": "object"
+    },
+    "PlanWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "scientific",
+            "compatibility",
+            "scope"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "message"
+      ],
+      "title": "PlanWarning",
+      "type": "object"
+    },
+    "PublicationProfileIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "apply_publication_profile",
+          "default": "apply_publication_profile",
+          "title": "Operation",
+          "type": "string"
+        },
+        "profile_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Profile Alias",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "profile_alias"
+      ],
+      "title": "PublicationProfileIntent",
+      "type": "object"
+    },
+    "SemanticFieldSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "context_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Context Field Alias",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "context_field_alias"
+      ],
+      "title": "SemanticFieldSelection",
+      "type": "object"
+    },
+    "SeriesStyleIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "line_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Width Pt"
+        },
+        "marker_size_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 72,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Size Pt"
+        },
+        "operation": {
+          "const": "set_series_style",
+          "default": "set_series_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "SeriesStyleIntent",
+      "type": "object"
+    },
+    "Unsupported": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "v1_scope",
+            "provider_capability",
+            "chart_capability"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "decision_type": {
+          "const": "unsupported",
+          "default": "unsupported",
+          "title": "Decision Type",
+          "type": "string"
+        },
+        "explanation": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "category",
+        "explanation"
+      ],
+      "title": "Unsupported",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v1/agent-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "discriminator": {
+    "mapping": {
+      "action_plan": "#/$defs/ActionPlan",
+      "needs_input": "#/$defs/NeedsInput",
+      "no_change": "#/$defs/NoChange",
+      "unsupported": "#/$defs/Unsupported"
+    },
+    "propertyName": "decision_type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ActionPlan"
+    },
+    {
+      "$ref": "#/$defs/NeedsInput"
+    },
+    {
+      "$ref": "#/$defs/Unsupported"
+    },
+    {
+      "$ref": "#/$defs/NoChange"
+    }
+  ],
+  "title": "AgentDecisionContract"
+}

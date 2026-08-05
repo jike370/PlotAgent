@@ -1,0 +1,91 @@
+{
+  "files": [
+    {
+      "path": "schemas/agent-decision.schema.json",
+      "sha256": "d86eb8f9e6ee4bd278a09f8bacae3c862947f6ee1645cef2bce6cfcb2274eaec"
+    },
+    {
+      "path": "schemas/batch-spec.schema.json",
+      "sha256": "4827df0db0dc4e7553c66230cbd404eadf0884854eb0fcc8f42a6bdb0cee119c"
+    },
+    {
+      "path": "schemas/chart-registry.schema.json",
+      "sha256": "99c54d01772cda15df247190137b92076b651a2214de0dded51ed0ba2cdfe111"
+    },
+    {
+      "path": "schemas/contracts-bundle.schema.json",
+      "sha256": "4c59cb6f76a4e7091e4679bea5125cd5bdf65926109945b8d58b48179b78dc97"
+    },
+    {
+      "path": "schemas/error-registry.json",
+      "sha256": "5243a7fb46f8fe5bf43b4f1590d9a5c16ec058a4a60a5344363d4de8a3c2e2aa"
+    },
+    {
+      "path": "schemas/error-registry.schema.json",
+      "sha256": "c1f5a7d214caf94ba37dc68fab10199b58217d4cd93c375dd39dd918e42041b5"
+    },
+    {
+      "path": "schemas/error-response.schema.json",
+      "sha256": "7ac257a6aa541d5c3d9d2551b81a2d9dc40079f900dd3fedf56ada1a99d9409f"
+    },
+    {
+      "path": "schemas/export-spec.schema.json",
+      "sha256": "b057102615203ac01b44b9c2907e96d6fd2472427216de6f30c00b56c0cd4583"
+    },
+    {
+      "path": "schemas/field-mapping.schema.json",
+      "sha256": "429ea1b63569ec3bff8281519797be3e63236c51111809a0c6a8768a736cc453"
+    },
+    {
+      "path": "schemas/figure-spec.schema.json",
+      "sha256": "7aefd914fd5a05021d8536e7c6b6b862e8f41c4f60e02745fdd1ae3e2644fc6a"
+    },
+    {
+      "path": "schemas/origin-export-plan.schema.json",
+      "sha256": "35148a738679cb53dc03428a1ea3f070cd4bc7c50152a7bf7b6e4190e4208b4a"
+    },
+    {
+      "path": "schemas/patch-transaction.schema.json",
+      "sha256": "1a5ac025602ab58f0ac44a4948807f6e0777f8cdcddd203d00f2c1fe58e2f887"
+    },
+    {
+      "path": "schemas/plot-calculation-result.schema.json",
+      "sha256": "22893405c765d3464731853b1414ffd0ae66cb277fb65716b6c9f232c7f22c13"
+    },
+    {
+      "path": "schemas/plot-calculation-spec.schema.json",
+      "sha256": "b1da44feea2f0f34f9b1402f30e556db9539221f775c6a19fdac35e3af4adbd7"
+    },
+    {
+      "path": "schemas/plot-patch.schema.json",
+      "sha256": "82e1cfcb17eb9da495e26d518edf4535e315a357eab7f1680249bd971120419a"
+    },
+    {
+      "path": "schemas/plot-spec.schema.json",
+      "sha256": "b8917b58ba754981ae7f1878137756680e50e3d3b5151414649ca4945b8626b6"
+    },
+    {
+      "path": "schemas/preparation-spec.schema.json",
+      "sha256": "d9baa954e8879d5911cbc1ec2eeaaf58368b93a9db6988bf3d69bf9b69491d86"
+    },
+    {
+      "path": "schemas/prepared-dataset.schema.json",
+      "sha256": "eb2331607bdc3a800740ca77806c8a6bbc65367b3a561d4c6194147e28ea18c7"
+    },
+    {
+      "path": "schemas/resolved-render-plan.schema.json",
+      "sha256": "a12cd064a9edbdd68b4ee4601d9ea44a7f003ad0b408676cb5dc536645c57e85"
+    },
+    {
+      "path": "schemas/source-dataset.schema.json",
+      "sha256": "eaa57763149bbaf3fc143b7ec9b5383afacd3066587ac54aa7f0753e673ac1d5"
+    },
+    {
+      "path": "src/shared/generated/contracts.ts",
+      "sha256": "8d547e4b2b0f20c9c0cc178c9b5751a6fa8967b04b327eba07c1cadad0ac3fdb"
+    }
+  ],
+  "generator": "plotagent.contracts.codegen",
+  "json_schema_draft": "https://json-schema.org/draft/2020-12/schema",
+  "schema_version": "1.0"
+}

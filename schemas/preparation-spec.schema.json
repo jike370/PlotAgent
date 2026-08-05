@@ -1,0 +1,505 @@
+{
+  "$defs": {
+    "ApplyPlotOrderSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "compiler_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "field_mapping_ref": {
+          "$ref": "#/$defs/FieldMappingRef"
+        },
+        "input_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceDatasetRef"
+          },
+          "minItems": 1,
+          "title": "Input Refs",
+          "type": "array"
+        },
+        "kind": {
+          "const": "apply_plot_order",
+          "default": "apply_plot_order",
+          "title": "Kind",
+          "type": "string"
+        },
+        "ordered_values": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Ordered Values",
+          "type": "array"
+        },
+        "preparation_spec_id": {
+          "pattern": "^preparation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Preparation Spec Id",
+          "type": "string"
+        },
+        "preparation_version": {
+          "minimum": 1,
+          "title": "Preparation Version",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preparation_spec_id",
+        "preparation_version",
+        "input_refs",
+        "field_mapping_ref",
+        "compiler_version",
+        "field_id",
+        "ordered_values"
+      ],
+      "title": "ApplyPlotOrderSpec",
+      "type": "object"
+    },
+    "FieldMappingRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "field_mapping_id": {
+          "pattern": "^mapping:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Mapping Id",
+          "type": "string"
+        },
+        "mapping_version": {
+          "minimum": 1,
+          "title": "Mapping Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "field_mapping_id",
+        "mapping_version",
+        "content_hash"
+      ],
+      "title": "FieldMappingRef",
+      "type": "object"
+    },
+    "IsomorphicConcatSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "compiler_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "field_mapping_ref": {
+          "$ref": "#/$defs/FieldMappingRef"
+        },
+        "input_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceDatasetRef"
+          },
+          "minItems": 1,
+          "title": "Input Refs",
+          "type": "array"
+        },
+        "kind": {
+          "const": "isomorphic_concat",
+          "default": "isomorphic_concat",
+          "title": "Kind",
+          "type": "string"
+        },
+        "preparation_spec_id": {
+          "pattern": "^preparation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Preparation Spec Id",
+          "type": "string"
+        },
+        "preparation_version": {
+          "minimum": 1,
+          "title": "Preparation Version",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_label_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Source Label Field Id",
+          "type": "string"
+        },
+        "source_label_kind": {
+          "enum": [
+            "source_sheet",
+            "source_block"
+          ],
+          "title": "Source Label Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preparation_spec_id",
+        "preparation_version",
+        "input_refs",
+        "field_mapping_ref",
+        "compiler_version",
+        "source_label_kind",
+        "source_label_field_id"
+      ],
+      "title": "IsomorphicConcatSpec",
+      "type": "object"
+    },
+    "MaskForPlotSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "compiler_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Field Ids",
+          "type": "array"
+        },
+        "field_mapping_ref": {
+          "$ref": "#/$defs/FieldMappingRef"
+        },
+        "input_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceDatasetRef"
+          },
+          "minItems": 1,
+          "title": "Input Refs",
+          "type": "array"
+        },
+        "kind": {
+          "const": "mask_for_plot",
+          "default": "mask_for_plot",
+          "title": "Kind",
+          "type": "string"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "preparation_spec_id": {
+          "pattern": "^preparation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Preparation Spec Id",
+          "type": "string"
+        },
+        "preparation_version": {
+          "minimum": 1,
+          "title": "Preparation Version",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preparation_spec_id",
+        "preparation_version",
+        "input_refs",
+        "field_mapping_ref",
+        "compiler_version",
+        "field_ids",
+        "missing_policy"
+      ],
+      "title": "MaskForPlotSpec",
+      "type": "object"
+    },
+    "ProjectMetadataLabelSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "compiler_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "field_mapping_ref": {
+          "$ref": "#/$defs/FieldMappingRef"
+        },
+        "input_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceDatasetRef"
+          },
+          "minItems": 1,
+          "title": "Input Refs",
+          "type": "array"
+        },
+        "kind": {
+          "const": "project_metadata_label",
+          "default": "project_metadata_label",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Metadata Key",
+          "type": "string"
+        },
+        "output_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Output Field Id",
+          "type": "string"
+        },
+        "preparation_spec_id": {
+          "pattern": "^preparation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Preparation Spec Id",
+          "type": "string"
+        },
+        "preparation_version": {
+          "minimum": 1,
+          "title": "Preparation Version",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preparation_spec_id",
+        "preparation_version",
+        "input_refs",
+        "field_mapping_ref",
+        "compiler_version",
+        "metadata_key",
+        "output_field_id"
+      ],
+      "title": "ProjectMetadataLabelSpec",
+      "type": "object"
+    },
+    "ProjectStructureSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "compiler_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "field_mapping_ref": {
+          "$ref": "#/$defs/FieldMappingRef"
+        },
+        "input_layout": {
+          "enum": [
+            "wide",
+            "long",
+            "matrix"
+          ],
+          "title": "Input Layout",
+          "type": "string"
+        },
+        "input_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceDatasetRef"
+          },
+          "minItems": 1,
+          "title": "Input Refs",
+          "type": "array"
+        },
+        "kind": {
+          "const": "project_structure",
+          "default": "project_structure",
+          "title": "Kind",
+          "type": "string"
+        },
+        "output_layout": {
+          "enum": [
+            "wide",
+            "long",
+            "matrix"
+          ],
+          "title": "Output Layout",
+          "type": "string"
+        },
+        "preparation_spec_id": {
+          "pattern": "^preparation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Preparation Spec Id",
+          "type": "string"
+        },
+        "preparation_version": {
+          "minimum": 1,
+          "title": "Preparation Version",
+          "type": "integer"
+        },
+        "role_fields": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Role Fields",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preparation_spec_id",
+        "preparation_version",
+        "input_refs",
+        "field_mapping_ref",
+        "compiler_version",
+        "input_layout",
+        "output_layout",
+        "role_fields"
+      ],
+      "title": "ProjectStructureSpec",
+      "type": "object"
+    },
+    "SelectFieldsSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "compiler_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Field Ids",
+          "type": "array"
+        },
+        "field_mapping_ref": {
+          "$ref": "#/$defs/FieldMappingRef"
+        },
+        "input_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceDatasetRef"
+          },
+          "minItems": 1,
+          "title": "Input Refs",
+          "type": "array"
+        },
+        "kind": {
+          "const": "select_fields",
+          "default": "select_fields",
+          "title": "Kind",
+          "type": "string"
+        },
+        "preparation_spec_id": {
+          "pattern": "^preparation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Preparation Spec Id",
+          "type": "string"
+        },
+        "preparation_version": {
+          "minimum": 1,
+          "title": "Preparation Version",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preparation_spec_id",
+        "preparation_version",
+        "input_refs",
+        "field_mapping_ref",
+        "compiler_version",
+        "field_ids"
+      ],
+      "title": "SelectFieldsSpec",
+      "type": "object"
+    },
+    "SourceDatasetRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "source_dataset_id": {
+          "pattern": "^source:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_dataset_id",
+        "source_version",
+        "content_hash"
+      ],
+      "title": "SourceDatasetRef",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v1/preparation-spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "discriminator": {
+    "mapping": {
+      "apply_plot_order": "#/$defs/ApplyPlotOrderSpec",
+      "isomorphic_concat": "#/$defs/IsomorphicConcatSpec",
+      "mask_for_plot": "#/$defs/MaskForPlotSpec",
+      "project_metadata_label": "#/$defs/ProjectMetadataLabelSpec",
+      "project_structure": "#/$defs/ProjectStructureSpec",
+      "select_fields": "#/$defs/SelectFieldsSpec"
+    },
+    "propertyName": "kind"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/SelectFieldsSpec"
+    },
+    {
+      "$ref": "#/$defs/ProjectStructureSpec"
+    },
+    {
+      "$ref": "#/$defs/IsomorphicConcatSpec"
+    },
+    {
+      "$ref": "#/$defs/ProjectMetadataLabelSpec"
+    },
+    {
+      "$ref": "#/$defs/ApplyPlotOrderSpec"
+    },
+    {
+      "$ref": "#/$defs/MaskForPlotSpec"
+    }
+  ],
+  "title": "PreparationSpecContract"
+}

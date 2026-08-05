@@ -1,0 +1,578 @@
+{
+  "$defs": {
+    "ColorValue": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "ColorValue",
+      "type": "object"
+    },
+    "ContentTableRef": {
+      "additionalProperties": false,
+      "properties": {
+        "field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Field Ids",
+          "type": "array"
+        },
+        "object_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Object Hash",
+          "type": "string"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "object_hash",
+        "row_count",
+        "field_ids"
+      ],
+      "title": "ContentTableRef",
+      "type": "object"
+    },
+    "DataIntegritySnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "excluded_rows": {
+          "minimum": 0,
+          "title": "Excluded Rows",
+          "type": "integer"
+        },
+        "full_data_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Full Data Hash",
+          "type": "string"
+        },
+        "nonfinite_values": {
+          "minimum": 0,
+          "title": "Nonfinite Values",
+          "type": "integer"
+        },
+        "simplification_applied": {
+          "title": "Simplification Applied",
+          "type": "boolean"
+        },
+        "total_rows": {
+          "minimum": 0,
+          "title": "Total Rows",
+          "type": "integer"
+        },
+        "visible_rows": {
+          "minimum": 0,
+          "title": "Visible Rows",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_rows",
+        "visible_rows",
+        "excluded_rows",
+        "nonfinite_values",
+        "simplification_applied",
+        "full_data_hash"
+      ],
+      "title": "DataIntegritySnapshot",
+      "type": "object"
+    },
+    "ObjectVersionRef": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_version": {
+          "minimum": 1,
+          "title": "Expected Version",
+          "type": "integer"
+        },
+        "object_id": {
+          "pattern": "^(source|mapping|preparation|prepared|plotcalc|plot|batch|figure|export|renderplan|originplan|plan|project):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Object Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object_id",
+        "expected_version"
+      ],
+      "title": "ObjectVersionRef",
+      "type": "object"
+    },
+    "PhysicalLength": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "enum": [
+            "mm",
+            "pt"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "exclusiveMinimum": 0,
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "unit"
+      ],
+      "title": "PhysicalLength",
+      "type": "object"
+    },
+    "PhysicalSize": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "$ref": "#/$defs/PhysicalLength"
+        },
+        "width": {
+          "$ref": "#/$defs/PhysicalLength"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "title": "PhysicalSize",
+      "type": "object"
+    },
+    "ResolvedAxis": {
+      "additionalProperties": false,
+      "properties": {
+        "axis_id": {
+          "pattern": "^axis:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Axis Id",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/SafeRichText"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "reverse": {
+          "default": false,
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "scale": {
+          "enum": [
+            "linear",
+            "log10",
+            "datetime",
+            "categorical"
+          ],
+          "title": "Scale",
+          "type": "string"
+        },
+        "ticks": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResolvedTick"
+          },
+          "title": "Ticks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "axis_id",
+        "scale",
+        "label"
+      ],
+      "title": "ResolvedAxis",
+      "type": "object"
+    },
+    "ResolvedFont": {
+      "additionalProperties": false,
+      "properties": {
+        "family": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Family",
+          "type": "string"
+        },
+        "file_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "File Hash",
+          "type": "string"
+        },
+        "size": {
+          "$ref": "#/$defs/PhysicalLength"
+        }
+      },
+      "required": [
+        "family",
+        "file_hash",
+        "size"
+      ],
+      "title": "ResolvedFont",
+      "type": "object"
+    },
+    "ResolvedLayer": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "data_ref": {
+          "$ref": "#/$defs/ContentTableRef"
+        },
+        "field_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Field Ids",
+          "type": "array"
+        },
+        "geometry": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Geometry",
+          "type": "string"
+        },
+        "layer_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Layer Id",
+          "type": "string"
+        },
+        "line_width": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalLength"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "marker_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalLength"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "target_id": {
+          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        },
+        "z_order": {
+          "title": "Z Order",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "layer_id",
+        "target_id",
+        "geometry",
+        "data_ref",
+        "field_ids",
+        "z_order"
+      ],
+      "title": "ResolvedLayer",
+      "type": "object"
+    },
+    "ResolvedPanel": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "$ref": "#/$defs/PhysicalLength"
+        },
+        "left": {
+          "$ref": "#/$defs/PhysicalLength"
+        },
+        "panel_id": {
+          "pattern": "^panel:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Panel Id",
+          "type": "string"
+        },
+        "top": {
+          "$ref": "#/$defs/PhysicalLength"
+        },
+        "width": {
+          "$ref": "#/$defs/PhysicalLength"
+        }
+      },
+      "required": [
+        "panel_id",
+        "left",
+        "top",
+        "width",
+        "height"
+      ],
+      "title": "ResolvedPanel",
+      "type": "object"
+    },
+    "ResolvedTick": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/SafeRichText"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "title": "ResolvedTick",
+      "type": "object"
+    },
+    "SafeRichText": {
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/SafeTextNode"
+          },
+          "minItems": 1,
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "nodes"
+      ],
+      "title": "SafeRichText",
+      "type": "object"
+    },
+    "SafeTextNode": {
+      "additionalProperties": false,
+      "properties": {
+        "denominator": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Denominator"
+        },
+        "kind": {
+          "enum": [
+            "plain",
+            "newline",
+            "sub",
+            "sup",
+            "bold",
+            "italic",
+            "fraction"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "default": "",
+          "maxLength": 512,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SafeTextNode",
+      "type": "object"
+    },
+    "WarningRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "warning_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Warning Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "warning_id",
+        "message"
+      ],
+      "title": "WarningRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v1/resolved-render-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "axes": {
+      "items": {
+        "$ref": "#/$defs/ResolvedAxis"
+      },
+      "minItems": 1,
+      "title": "Axes",
+      "type": "array"
+    },
+    "canvas": {
+      "$ref": "#/$defs/PhysicalSize"
+    },
+    "color_space": {
+      "const": "sRGB",
+      "default": "sRGB",
+      "title": "Color Space",
+      "type": "string"
+    },
+    "data_integrity": {
+      "$ref": "#/$defs/DataIntegritySnapshot"
+    },
+    "fonts": {
+      "items": {
+        "$ref": "#/$defs/ResolvedFont"
+      },
+      "minItems": 1,
+      "title": "Fonts",
+      "type": "array"
+    },
+    "layers": {
+      "items": {
+        "$ref": "#/$defs/ResolvedLayer"
+      },
+      "minItems": 1,
+      "title": "Layers",
+      "type": "array"
+    },
+    "panels": {
+      "items": {
+        "$ref": "#/$defs/ResolvedPanel"
+      },
+      "minItems": 1,
+      "title": "Panels",
+      "type": "array"
+    },
+    "quality_tier": {
+      "enum": [
+        "thumbnail",
+        "interactive",
+        "formal"
+      ],
+      "title": "Quality Tier",
+      "type": "string"
+    },
+    "render_plan_id": {
+      "pattern": "^renderplan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Render Plan Id",
+      "type": "string"
+    },
+    "render_plan_version": {
+      "minimum": 1,
+      "title": "Render Plan Version",
+      "type": "integer"
+    },
+    "resolver_version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Resolver Version",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_content_hashes": {
+      "items": {
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Source Content Hashes",
+      "type": "array"
+    },
+    "source_refs": {
+      "items": {
+        "$ref": "#/$defs/ObjectVersionRef"
+      },
+      "minItems": 1,
+      "title": "Source Refs",
+      "type": "array"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WarningRecord"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "render_plan_id",
+    "render_plan_version",
+    "resolver_version",
+    "source_refs",
+    "source_content_hashes",
+    "quality_tier",
+    "canvas",
+    "panels",
+    "axes",
+    "layers",
+    "fonts",
+    "data_integrity"
+  ],
+  "title": "ResolvedRenderPlan",
+  "type": "object"
+}

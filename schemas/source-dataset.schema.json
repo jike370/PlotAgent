@@ -1,0 +1,449 @@
+{
+  "$defs": {
+    "ContentTableRef": {
+      "additionalProperties": false,
+      "properties": {
+        "field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Field Ids",
+          "type": "array"
+        },
+        "object_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Object Hash",
+          "type": "string"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "object_hash",
+        "row_count",
+        "field_ids"
+      ],
+      "title": "ContentTableRef",
+      "type": "object"
+    },
+    "DataQualitySummary": {
+      "additionalProperties": false,
+      "properties": {
+        "missing_values": {
+          "minimum": 0,
+          "title": "Missing Values",
+          "type": "integer"
+        },
+        "nan_values": {
+          "minimum": 0,
+          "title": "Nan Values",
+          "type": "integer"
+        },
+        "negative_inf_values": {
+          "minimum": 0,
+          "title": "Negative Inf Values",
+          "type": "integer"
+        },
+        "positive_inf_values": {
+          "minimum": 0,
+          "title": "Positive Inf Values",
+          "type": "integer"
+        },
+        "total_rows": {
+          "minimum": 0,
+          "title": "Total Rows",
+          "type": "integer"
+        },
+        "unparseable_values": {
+          "minimum": 0,
+          "title": "Unparseable Values",
+          "type": "integer"
+        },
+        "valid_rows": {
+          "minimum": 0,
+          "title": "Valid Rows",
+          "type": "integer"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WarningRecord"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "total_rows",
+        "valid_rows",
+        "missing_values",
+        "nan_values",
+        "positive_inf_values",
+        "negative_inf_values",
+        "unparseable_values"
+      ],
+      "title": "DataQualitySummary",
+      "type": "object"
+    },
+    "ExcelSourceCoordinate": {
+      "additionalProperties": false,
+      "properties": {
+        "cell_range": {
+          "pattern": "^[A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$",
+          "title": "Cell Range",
+          "type": "string"
+        },
+        "kind": {
+          "const": "excel",
+          "default": "excel",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sheet_name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Sheet Name",
+          "type": "string"
+        },
+        "source_row_id": {
+          "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "title": "Source Row Id",
+          "type": "string"
+        },
+        "workbook_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Workbook Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workbook_hash",
+        "sheet_name",
+        "cell_range",
+        "source_row_id"
+      ],
+      "title": "ExcelSourceCoordinate",
+      "type": "object"
+    },
+    "SourceField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "logical_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "physical_type": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Physical Type",
+          "type": "string"
+        },
+        "precision_digits": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Precision Digits"
+        },
+        "source_column_index": {
+          "minimum": 0,
+          "title": "Source Column Index",
+          "type": "integer"
+        },
+        "unit": {
+          "$ref": "#/$defs/UnitSpec"
+        }
+      },
+      "required": [
+        "field_id",
+        "name",
+        "logical_type",
+        "physical_type",
+        "unit",
+        "source_column_index"
+      ],
+      "title": "SourceField",
+      "type": "object"
+    },
+    "TextSourceCoordinate": {
+      "additionalProperties": false,
+      "properties": {
+        "block": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Block"
+        },
+        "byte_end": {
+          "minimum": 0,
+          "title": "Byte End",
+          "type": "integer"
+        },
+        "byte_start": {
+          "minimum": 0,
+          "title": "Byte Start",
+          "type": "integer"
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
+        "kind": {
+          "const": "text",
+          "default": "text",
+          "title": "Kind",
+          "type": "string"
+        },
+        "line_end": {
+          "minimum": 1,
+          "title": "Line End",
+          "type": "integer"
+        },
+        "line_start": {
+          "minimum": 1,
+          "title": "Line Start",
+          "type": "integer"
+        },
+        "source_row_id": {
+          "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "title": "Source Row Id",
+          "type": "string"
+        },
+        "sweep": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sweep"
+        }
+      },
+      "required": [
+        "byte_start",
+        "byte_end",
+        "line_start",
+        "line_end",
+        "source_row_id"
+      ],
+      "title": "TextSourceCoordinate",
+      "type": "object"
+    },
+    "UnitSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "canonical_unit": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Unit"
+        },
+        "dimensionality": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Dimensionality",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "recognized",
+            "opaque",
+            "dimensionless"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "registry_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Registry Version",
+          "type": "string"
+        },
+        "source_text": {
+          "maxLength": 128,
+          "title": "Source Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_text",
+        "dimensionality",
+        "kind",
+        "registry_version"
+      ],
+      "title": "UnitSpec",
+      "type": "object"
+    },
+    "WarningRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "warning_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Warning Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "warning_id",
+        "message"
+      ],
+      "title": "WarningRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v1/source-dataset.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "data_ref": {
+      "$ref": "#/$defs/ContentTableRef"
+    },
+    "field_schema": {
+      "items": {
+        "$ref": "#/$defs/SourceField"
+      },
+      "minItems": 1,
+      "title": "Field Schema",
+      "type": "array"
+    },
+    "import_recipe_version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Import Recipe Version",
+      "type": "string"
+    },
+    "parser_version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Parser Version",
+      "type": "string"
+    },
+    "quality": {
+      "$ref": "#/$defs/DataQualitySummary"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_coordinate_samples": {
+      "default": [],
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "excel": "#/$defs/ExcelSourceCoordinate",
+            "text": "#/$defs/TextSourceCoordinate"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/ExcelSourceCoordinate"
+          },
+          {
+            "$ref": "#/$defs/TextSourceCoordinate"
+          }
+        ]
+      },
+      "title": "Source Coordinate Samples",
+      "type": "array"
+    },
+    "source_dataset_id": {
+      "pattern": "^source:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Source Dataset Id",
+      "type": "string"
+    },
+    "source_object_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Object Hash",
+      "type": "string"
+    },
+    "source_version": {
+      "minimum": 1,
+      "title": "Source Version",
+      "type": "integer"
+    },
+    "unicode_normalization_version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Unicode Normalization Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_dataset_id",
+    "source_version",
+    "source_object_hash",
+    "content_hash",
+    "import_recipe_version",
+    "parser_version",
+    "unicode_normalization_version",
+    "field_schema",
+    "data_ref",
+    "quality"
+  ],
+  "title": "SourceDataset",
+  "type": "object"
+}

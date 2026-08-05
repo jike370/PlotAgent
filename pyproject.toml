@@ -20,11 +20,15 @@ dependencies = [
   "pandas>=2.2,<4",
   "plotly>=6.0,<7",
   "pyarrow>=18,<24",
+  "pydantic>=2.10,<3",
   "pydantic-settings>=2.7,<3",
   "python-multipart>=0.0.18,<1",
   "scipy>=1.14,<2",
   "uvicorn[standard]>=0.34,<1",
 ]
+
+[project.scripts]
+plotagent-contracts = "plotagent.contracts.codegen:main"
 
 [project.optional-dependencies]
 dev = [
