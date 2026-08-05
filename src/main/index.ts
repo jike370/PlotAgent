@@ -27,6 +27,7 @@ const supervisor = new PythonCoreSupervisor({
     appPath: app.getAppPath(),
     isPackaged: app.isPackaged,
     platform: process.platform,
+    resourcesPath: process.resourcesPath,
   }),
 })
 

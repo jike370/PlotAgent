@@ -15,7 +15,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:release": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/packaging/windows-release-tools.test.ps1",
+    "release:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release-windows.ps1"
   },
   "dependencies": {
     "lucide-react": "1.28.0",
@@ -47,13 +49,42 @@
     "appId": "cn.plotagent.desktop",
     "productName": "PlotAgent",
     "directories": {
-      "output": "release"
+      "output": "release/windows/electron"
     },
+    "asar": true,
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "release/windows/staging/sidecar/plotagent-core",
+        "to": "core/plotagent-core",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "packaging/windows/core-boundary.json",
+        "to": "core/core-boundary.json"
+      }
+    ],
+    "artifactName": "PlotAgent-${version}-${arch}-setup.${ext}",
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
     }
   }
 }

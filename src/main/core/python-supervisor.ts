@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { delimiter, join } from 'node:path'
+import { delimiter, dirname, join } from 'node:path'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 
 import {
@@ -37,31 +37,48 @@ export interface ResolveCoreLaunchSpecOptions {
   readonly appPath: string
   readonly isPackaged: boolean
   readonly platform: NodeJS.Platform
+  readonly resourcesPath?: string
   readonly processEnv?: NodeJS.ProcessEnv
 }
+
+export const PACKAGED_CORE_RELATIVE_PATH = Object.freeze([
+  'core',
+  'plotagent-core',
+  'plotagent-core.exe',
+])
 
 export function resolveCoreLaunchSpec({
   appPath,
   isPackaged,
   platform,
+  resourcesPath,
   processEnv = process.env,
 }: ResolveCoreLaunchSpecOptions): CoreLaunchSpec {
+  if (isPackaged) {
+    const packagedResourcesPath = resourcesPath ?? join(appPath, '..')
+    const command = join(packagedResourcesPath, ...PACKAGED_CORE_RELATIVE_PATH)
+    return {
+      command,
+      args: [],
+      cwd: dirname(command),
+      env: { ...processEnv },
+    }
+  }
+
   const configuredExecutable = processEnv.PLOTAGENT_CORE_EXECUTABLE?.trim()
   const developmentExecutable = platform === 'win32'
     ? join(appPath, '.venv', 'Scripts', 'python.exe')
     : join(appPath, '.venv', 'bin', 'python')
   const command = configuredExecutable ||
-    (!isPackaged && existsSync(developmentExecutable)
+    (existsSync(developmentExecutable)
       ? developmentExecutable
       : platform === 'win32' ? 'python' : 'python3')
 
   const env = { ...processEnv }
-  if (!isPackaged) {
-    const sourcePath = join(appPath, 'src')
-    env.PYTHONPATH = env.PYTHONPATH === undefined
-      ? sourcePath
-      : `${sourcePath}${delimiter}${env.PYTHONPATH}`
-  }
+  const sourcePath = join(appPath, 'src')
+  env.PYTHONPATH = env.PYTHONPATH === undefined
+    ? sourcePath
+    : `${sourcePath}${delimiter}${env.PYTHONPATH}`
 
   return {
     command,

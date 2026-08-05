@@ -66,6 +66,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Planned entries:** `src/main/`、`src/preload/`、`src/shared/generated/`、desktop E2E harness。
 - **Deliverables:** PythonSupervisor state machine；narrow IPC allowlist；single-instance routing；heartbeat/crash-loop recovery；task/close events；security headers/link policy。
 - **骨架实现选择（2026-08-05）：** Core 入口固定为 `python -m plotagent.desktop_core`，现已实现常驻同步控制循环、有界 worker/task registry、1 MiB/32 层限制的 UTF-8 单行 JSON + `\n`、`protocol_version=1.0`、严格 ID/幂等冲突/净化错误、initialize/ready/heartbeat/health/shutdown 与 task snapshot/cancel/event；启动/心跳/请求/退出超时分别为 10s/7.5s/10s/5s，心跳间隔 2.5s，60s 内最多自动重启 3 次（250/500/1000ms）。单实例只接收 `.plotproj` 并在 Main 内换成 `resourceId`；preload 不暴露 path、stdio、secret 或通用 IPC。当前手写 desktop contract 待 W0 发布 Schema 后以 generated TS 同形替换并执行 no-diff 检查。
+- **Windows sidecar 边界（2026-08-05）：** development 继续运行 `python -m plotagent.desktop_core`；packaged build 不回退系统 Python，也不接受环境变量覆盖，固定启动 `resources/core/plotagent-core/plotagent-core.exe` 的 PyInstaller onedir sidecar。sidecar 与开发态使用同一 `plotagent.desktop_core` runtime，后续领域服务只通过窄 `ServiceRegistry` 注册，不另设打包专用 mock dispatcher。
 - **Dependencies/parallel:** W0→W1。Supervisor可与preload并行；task events等待W0 event schema；W7/W9复用网络/credential/安全边界。
 - **Acceptance evidence:** Electron security assertion；IPC negative/fuzz；partial/malformed stdio framing；Core crash/heartbeat/restart loop；single-instance/open-file；active-task close三选项；renderer secret scan。
 - **Stable error ownership:** `CORE_*`、`IPC_*`、`SINGLE_INSTANCE_*`、`CREDENTIAL_ACCESS_*`、`EXTERNAL_LINK_BLOCKED`。
@@ -218,6 +219,12 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Stable error ownership:** `TEST_HARNESS_*`、`EVIDENCE_*`、`INSTALLER_*`；领域失败code仍由原W拥有，W10只验证与聚合。
 - **Done:** 不可豁免blocker、coverage缺口和reference performance越线均为零；commit/build/dependency/fixture/installer hashes与known issues固定，由Beta release owner记录go/no-go，否则不得分发。
 
+#### W10/M6 Windows 人工包最小实现说明（2026-08-05）
+
+仓库现提供单一 `scripts/release-windows.ps1` 人工入口、PyInstaller onedir spec、electron-builder NSIS allowlist 与独立离线 verifier。入口只清理 `release/windows`，从 wheel staging 构建 sidecar，随后构建 Electron/NSIS 并为 `publish` 精确文件集生成 SHA-256 manifest；`.venv`、tests、原始项目数据、secrets 与仓库宽泛 glob 均不进入打包配置。默认产物固定标为 `unsigned-development`，严格 verifier 会阻断；只有显式 `-Sign`、PFX/SecureString 和可选 timestamp 参数才执行 Authenticode 与 detached CMS signing。
+
+离线 verifier 固定检查 detached manifest signature、publisher subject/thumbprint allowlist、manifest 文件存在/缺失/多余项、size/SHA-256 与 executable Authenticode，分别返回 `INSTALLER_PUBLISHER_SIGNATURE_INVALID`、`INSTALLER_HASH_INVALID`、`INSTALLER_WINDOWS_CODE_SIGNATURE_INVALID`。纯逻辑与安全 dry-run 覆盖 unsigned、tampered、wrong publisher、额外文件和 builder allowlist。该切片不实现自动更新、下载器、CloudConfig、云发布、Docker/CI/CD、SBOM 或商业签署，也不表示 W10 qualification、生产证书签名或领域 Core 已完成。
+
 ## 4. 全面编码前四个 Risk Spikes
 
 ### Spike 1 — K01 本地到 O1 的垂直切片
@@ -289,6 +296,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 - **Entry:** M4 fixed run/usage；W1/W2 lifecycle稳定。
 - **Exit evidence:** DeviceCredential、shared atomic quota/client-run idempotency、cloud-offline degradation、strict local_only、local diagnostic privacy、未知schema拒绝/已知pair迁移、人工安装包签名/hash/code-sign matrices。
+- **当前人工包切片（2026-08-05）：** 已具备可执行的 unsigned development 构建、显式可选签名入口、精确 SHA-256 manifest 与离线三类稳定阻断测试；未持有/提交生产证书，未声称签名 RC、完整 Core 或 M6 其余 exit evidence 已完成。
 
 ### M7 — Beta Qualification
 
