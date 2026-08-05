@@ -20,6 +20,7 @@ from plotagent.contracts.registry import ChartRegistry
 from plotagent.contracts.rendering import ExportSpec, OriginExportPlan, ResolvedRenderPlan
 from plotagent.contracts.schema_roots import (
     AgentDecisionContract,
+    ContextEnvelopeContract,
     PlotCalculationResultContract,
     PlotCalculationSpecContract,
     PlotPatchContract,
@@ -48,6 +49,7 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("resolved-render-plan", ResolvedRenderPlan),
     ("origin-export-plan", OriginExportPlan),
     ("agent-decision", AgentDecisionContract),
+    ("context-envelope", ContextEnvelopeContract),
     ("error-registry", ErrorRegistry),
     ("error-response", ErrorResponse),
 )

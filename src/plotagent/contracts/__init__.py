@@ -1,5 +1,6 @@
 """PlotAgent v1 strict domain contracts."""
 
+from plotagent.contracts.agent_context import ContextEnvelope
 from plotagent.contracts.base import SCHEMA_VERSION
 from plotagent.contracts.calculations import PlotCalculationResult, PlotCalculationSpec
 from plotagent.contracts.canonical import canonical_hash, canonical_json
@@ -25,6 +26,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "AgentDecision",
     "BatchSpec",
+    "ContextEnvelope",
     "ErrorResponse",
     "ExportSpec",
     "FieldMapping",

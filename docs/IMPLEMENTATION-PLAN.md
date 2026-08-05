@@ -161,6 +161,14 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Stable error ownership:** `PROVIDER_*`、`TLS_*`、`AUTH_FAILED`（provider）、`SCHEMA_INVALID/REPAIR_EXHAUSTED`、`CONTEXT_TOO_LARGE`、`EGRESS_*`、`TARGET_STALE`、`RETENTION_UNACKNOWLEDGED`。
 - **Done:** Provider只能产出单个已校验AgentDecision；同类结构错误二次即停；四类union、出境、澄清、审计和取消全部evidence化，模型无工具/多Agent/内部处理步骤/会话权威/partial执行路径。
 
+#### W7/M4 最小实现说明（2026-08-05）
+
+- `src/plotagent/agent/` 现提供单 orchestrator 闭环；每次从本地 `ConversationState` 与权威对象重建 `ContextEnvelope`，只接收一个完整 `AgentDecision`，没有 provider session、model tool、tool loop、partial plan 或多 Agent 路径。手动 UI 计划复用同一 validator，`local_only` 在调用 provider 前稳定阻断。
+- ContextBuilder 固定默认 `20 rows / 12 fields / 200 scalars / 64 KiB` 上限，按稳定 field/row 规则裁剪并生成 context/disclosure hash；超宽表只选最多 12 个字段。Disclosure 未确认、类别未授权、target 与常驻 current target 不一致时分别稳定拒绝，不记录原始样本或完整请求。
+- Builtin provider 仅通过可注入 cloud client 使用 W8 `ModelInvokeRequest` 边界；custom provider 先探测 Responses strict structured output，再回退 Chat strict/JSON-only。P1 结构失败直接拒绝，P2 最多一次固定 context/schema 的 repair，P0 与第二次失败不进入本地执行链。
+- Provider 输出先做完整 JSON 与四类 union 校验，再做 tool/code/path/URL/SQL/renderer/处理步骤载荷拒绝，最后一次性执行 target/version/stale/capability/permission/action-scope/no-partial validator；模型不承担图形推荐、替代或本地命令解析。
+- Prompt template、每次 provider response、ContextEnvelope、DataDisclosure、AgentDecision 与 ModelRunAudit 均有 SHA-256 metadata；audit 只保存 provider/model/schema/usage/target/version/count/hash/稳定错误，不保存 secret、reasoning、消息、字段值或样本。测试全部使用 fake client/transport 与 synthetic payload，覆盖 P1/P2/P0、Responses→Chat、timeout/cancel、stale/no-partial、egress budget/Disclosure 和 local_only zero-call。
+
 ### W8 — Invite、DeviceCredential、共享计数与 built-in proxy
 
 - **Owner:** Beta Cloud Control Plane。

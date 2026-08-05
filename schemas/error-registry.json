@@ -370,6 +370,97 @@
       "description": "Provider output is not a valid AgentDecision.",
       "owner": "W7_AGENT",
       "retryable": false
+    },
+    {
+      "code": "PROVIDER_CONNECTION_FAILED",
+      "default_severity": "blocked",
+      "description": "The configured model provider could not complete the request.",
+      "owner": "W7_AGENT",
+      "retryable": true
+    },
+    {
+      "code": "PROVIDER_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "The provider cannot produce the required structured decision.",
+      "owner": "W7_AGENT",
+      "retryable": false
+    },
+    {
+      "code": "REQUEST_TIMEOUT",
+      "default_severity": "blocked",
+      "description": "The model request exceeded its fixed timeout.",
+      "owner": "W7_AGENT",
+      "retryable": true
+    },
+    {
+      "code": "REQUEST_CANCELLED",
+      "default_severity": "info",
+      "description": "The model request was cancelled before a complete decision was accepted.",
+      "owner": "W7_AGENT",
+      "retryable": true
+    },
+    {
+      "code": "REPAIR_EXHAUSTED",
+      "default_severity": "blocked",
+      "description": "The single allowed P2 schema repair also failed.",
+      "owner": "W7_AGENT",
+      "retryable": false
+    },
+    {
+      "code": "CONTEXT_TOO_LARGE",
+      "default_severity": "blocked",
+      "description": "The minimized context cannot fit the configured egress budget.",
+      "owner": "W7_AGENT",
+      "retryable": false
+    },
+    {
+      "code": "EGRESS_PERMISSION_DENIED",
+      "default_severity": "blocked",
+      "description": "The required data disclosure category is not authorized.",
+      "owner": "W7_AGENT",
+      "retryable": false
+    },
+    {
+      "code": "TARGET_STALE",
+      "default_severity": "blocked",
+      "description": "The target version changed after the context was built.",
+      "owner": "W7_AGENT",
+      "retryable": true
+    },
+    {
+      "code": "PROVIDER_RETENTION_UNACKNOWLEDGED",
+      "default_severity": "blocked",
+      "description": "The provider retention disclosure has not been acknowledged.",
+      "owner": "W7_AGENT",
+      "retryable": false
+    },
+    {
+      "code": "AGENT_FORBIDDEN_PAYLOAD",
+      "default_severity": "blocked",
+      "description": "The provider returned a tool-like, code, path, URL, SQL, or renderer payload.",
+      "owner": "W7_AGENT",
+      "retryable": false
+    },
+    {
+      "code": "AGENT_CAPABILITY_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "At least one action exceeds the versioned local capability allowlist.",
+      "owner": "W7_AGENT",
+      "retryable": false
+    },
+    {
+      "code": "AGENT_ACTION_SCOPE_INVALID",
+      "default_severity": "blocked",
+      "description": "At least one action refers to a target, field, or scope outside the envelope.",
+      "owner": "W7_AGENT",
+      "retryable": false
+    },
+    {
+      "code": "AGENT_TARGET_INVALID",
+      "default_severity": "blocked",
+      "description": "The decision target does not match the persistent active target.",
+      "owner": "W7_AGENT",
+      "retryable": false
     }
   ],
   "schema_version": "1.0"

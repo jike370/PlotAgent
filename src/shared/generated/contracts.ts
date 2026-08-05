@@ -148,6 +148,15 @@ export type CategoricalFamily = {
   readonly geometry: ReadonlyArray<"bar">;
 }
 
+export type ChartCapabilities = {
+  readonly capability_version: string;
+  readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61">;
+  readonly allowed_action_types: ReadonlyArray<"create_plot" | "patch_plot" | "create_batch" | "patch_batch" | "create_figure" | "patch_figure" | "export_artifact">;
+  readonly allowed_patch_operations?: ReadonlyArray<"set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_series_style" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size">;
+  readonly export_formats?: ReadonlyArray<"png" | "svg" | "opju">;
+  readonly limitation_ids?: ReadonlyArray<string>;
+}
+
 export type ChartRegistration = {
   readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61";
   readonly english_name: string;
@@ -221,6 +230,71 @@ export type ContentTableRef = {
   readonly field_ids: ReadonlyArray<string>;
 }
 
+export type ContextEnvelope = {
+  readonly schema_version?: "1.0";
+  readonly prompt_template_version: string;
+  readonly locale: string;
+  readonly user_instruction: string;
+  readonly target_snapshot: ContextObjectRef;
+  readonly conversation_state: ConversationStateProjection;
+  readonly chart_capabilities: ChartCapabilities;
+  readonly selected_context: SelectedContext;
+  readonly data_disclosure: DataDisclosure;
+  readonly context_hash: string;
+}
+
+export type ContextEnvelopeContract = ContextEnvelope
+
+export type ContextField = {
+  readonly field_alias: string;
+  readonly field_id: string;
+  readonly name: string;
+  readonly logical_type: "numeric" | "categorical" | "datetime" | "boolean" | "text";
+  readonly unit_text?: string;
+  readonly semantic_role?: string | null;
+  readonly summary?: ContextFieldSummary | null;
+}
+
+export type ContextFieldSummary = {
+  readonly valid_count: number;
+  readonly missing_count: number;
+  readonly nan_count?: number;
+  readonly positive_inf_count?: number;
+  readonly negative_inf_count?: number;
+  readonly distinct_count?: number | null;
+  readonly numeric_minimum?: number | null;
+  readonly numeric_maximum?: number | null;
+}
+
+export type ContextMessage = {
+  readonly role: "user" | "assistant";
+  readonly text: string;
+}
+
+export type ContextObjectRef = {
+  readonly object_alias: string;
+  readonly object_id: string;
+  readonly object_version: number;
+  readonly object_type: "source_dataset" | "prepared_dataset" | "plot" | "batch" | "figure" | "export" | "project";
+  readonly content_hash?: string | null;
+}
+
+export type ContextSampleRow = {
+  readonly sample_key: string;
+  readonly values: Readonly<Record<string, never>>;
+}
+
+export type ConversationStateProjection = {
+  readonly state_version: number;
+  readonly current_target: ContextObjectRef;
+  readonly selected_objects?: ReadonlyArray<ContextObjectRef>;
+  readonly confirmed_field_aliases?: ReadonlyArray<string>;
+  readonly project_rule_ids?: ReadonlyArray<string>;
+  readonly saved_setting_refs?: ReadonlyArray<string>;
+  readonly unresolved_question_ids?: ReadonlyArray<string>;
+  readonly recent_result_kinds?: ReadonlyArray<"action_plan" | "needs_input" | "unsupported" | "no_change" | "execution_result">;
+}
+
 export type CreateBatchAction = {
   readonly action_id: string;
   readonly depends_on?: ReadonlyArray<string>;
@@ -249,6 +323,19 @@ export type CreatePlotAction = {
   readonly field_selections: ReadonlyArray<SemanticFieldSelection>;
 }
 
+export type DataDisclosure = {
+  readonly provider_type: "builtin" | "custom";
+  readonly provider_config_id: string;
+  readonly authorization_scope: "default_consent" | "this_run" | "this_conversation_similar";
+  readonly retention_disclosure_version: string;
+  readonly categories: ReadonlyArray<"user_instruction" | "field_metadata" | "statistics" | "sample" | "message_window" | "chart_capabilities">;
+  readonly field_aliases: ReadonlyArray<string>;
+  readonly field_count: number;
+  readonly row_count: number;
+  readonly scalar_count: number;
+  readonly disclosure_hash: string;
+}
+
 export type DataIntegritySnapshot = {
   readonly total_rows: number;
   readonly visible_rows: number;
@@ -267,6 +354,20 @@ export type DataQualitySummary = {
   readonly negative_inf_values: number;
   readonly unparseable_values: number;
   readonly warnings?: ReadonlyArray<WarningRecord>;
+}
+
+export type DataRequest = {
+  readonly dataset_alias: string;
+  readonly expected_version: number;
+  readonly field_aliases: ReadonlyArray<string>;
+  readonly requested_categories: ReadonlyArray<"field_metadata" | "statistics" | "sample">;
+  readonly estimated_field_count: number;
+  readonly estimated_row_count: number;
+  readonly estimated_scalar_count: number;
+  readonly purpose: string;
+  readonly default_context_insufficient_reason: string;
+  readonly smaller_scope_possible: boolean;
+  readonly authorization_scope: "this_run" | "this_conversation_similar";
 }
 
 export type DatasetFieldSignature = {
@@ -662,7 +763,8 @@ export type NeedsInput = {
   readonly schema_version?: "1.0";
   readonly decision_type?: "needs_input";
   readonly target_alias: string;
-  readonly questions: ReadonlyArray<InputQuestion>;
+  readonly questions?: ReadonlyArray<InputQuestion>;
+  readonly data_request?: DataRequest | null;
 }
 
 export type NoChange = {
@@ -677,6 +779,11 @@ export type NonFiniteCounts = {
   readonly nan?: number;
   readonly positive_inf?: number;
   readonly negative_inf?: number;
+}
+
+export type NonFiniteSampleValue = {
+  readonly kind?: "nonfinite";
+  readonly value: "nan" | "positive_inf" | "negative_inf";
 }
 
 export type ObjectVersionRef = {
@@ -1121,6 +1228,13 @@ export type SelectFieldsSpec = {
   readonly compiler_version: string;
   readonly kind?: "select_fields";
   readonly field_ids: ReadonlyArray<string>;
+}
+
+export type SelectedContext = {
+  readonly fields?: ReadonlyArray<ContextField>;
+  readonly sample_rows?: ReadonlyArray<ContextSampleRow>;
+  readonly selected_objects?: ReadonlyArray<ContextObjectRef>;
+  readonly message_window?: ReadonlyArray<ContextMessage>;
 }
 
 export type SemanticFieldSelection = {

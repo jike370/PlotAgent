@@ -18,6 +18,26 @@ from plotagent.contracts.base import (
     StrictModel,
 )
 
+ActionType = Literal[
+    "create_plot",
+    "patch_plot",
+    "create_batch",
+    "patch_batch",
+    "create_figure",
+    "patch_figure",
+    "export_artifact",
+]
+PatchOperation = Literal[
+    "set_axis_range",
+    "set_axis_scale",
+    "set_axis_label",
+    "set_series_style",
+    "set_legend_visibility",
+    "move_legend",
+    "apply_publication_profile",
+    "set_canvas_size",
+]
+
 ActionId = Annotated[
     str,
     StringConstraints(pattern=r"^action:[A-Za-z0-9][A-Za-z0-9._-]{0,63}$", strict=True),
@@ -216,11 +236,54 @@ class InputQuestion(StrictModel):
         return self
 
 
+class DataRequest(StrictModel):
+    """A bounded request for explicitly authorized additional context.
+
+    Provider-visible aliases are resolved to authoritative object/field ids and
+    versions locally.  The model never supplies a table id or storage location.
+    """
+
+    dataset_alias: SemanticAlias
+    expected_version: Annotated[int, Field(ge=1)]
+    field_aliases: Annotated[tuple[SemanticAlias, ...], Field(min_length=1, max_length=12)]
+    requested_categories: Annotated[
+        tuple[Literal["field_metadata", "statistics", "sample"], ...],
+        Field(min_length=1),
+    ]
+    estimated_field_count: Annotated[int, Field(ge=1, le=12)]
+    estimated_row_count: Annotated[int, Field(ge=0, le=20)]
+    estimated_scalar_count: Annotated[int, Field(ge=0, le=200)]
+    purpose: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    default_context_insufficient_reason: Annotated[
+        str,
+        StringConstraints(min_length=1, max_length=256, strict=True),
+    ]
+    smaller_scope_possible: bool
+    authorization_scope: Literal["this_run", "this_conversation_similar"]
+
+    @model_validator(mode="after")
+    def counts_are_consistent(self) -> DataRequest:
+        if self.estimated_field_count != len(self.field_aliases):
+            raise ValueError("estimated_field_count must match field_aliases")
+        if self.estimated_scalar_count > self.estimated_field_count * self.estimated_row_count:
+            raise ValueError("estimated scalar count exceeds the requested field/row product")
+        if len(set(self.requested_categories)) != len(self.requested_categories):
+            raise ValueError("requested data categories must be unique")
+        return self
+
+
 class NeedsInput(StrictModel):
     schema_version: SchemaVersion = SCHEMA_VERSION
     decision_type: Literal["needs_input"] = "needs_input"
     target_alias: SemanticAlias
-    questions: Annotated[tuple[InputQuestion, ...], Field(min_length=1, max_length=3)]
+    questions: Annotated[tuple[InputQuestion, ...], Field(max_length=3)] = ()
+    data_request: DataRequest | None = None
+
+    @model_validator(mode="after")
+    def has_question_or_data_request(self) -> NeedsInput:
+        if not self.questions and self.data_request is None:
+            raise ValueError("needs_input requires questions or a data request")
+        return self
 
 
 class Unsupported(StrictModel):

@@ -2,6 +2,7 @@
 
 from pydantic import RootModel
 
+from plotagent.contracts.agent_context import ContextEnvelope
 from plotagent.contracts.calculations import PlotCalculationResult, PlotCalculationSpec
 from plotagent.contracts.datasets import PreparationSpec
 from plotagent.contracts.decisions import AgentDecision
@@ -25,4 +26,8 @@ class PlotPatchContract(RootModel[PlotPatch]):
 
 
 class AgentDecisionContract(RootModel[AgentDecision]):
+    pass
+
+
+class ContextEnvelopeContract(RootModel[ContextEnvelope]):
     pass

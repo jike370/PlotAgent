@@ -457,6 +457,102 @@
       "title": "CreatePlotAction",
       "type": "object"
     },
+    "DataRequest": {
+      "additionalProperties": false,
+      "description": "A bounded request for explicitly authorized additional context.\n\nProvider-visible aliases are resolved to authoritative object/field ids and\nversions locally.  The model never supplies a table id or storage location.",
+      "properties": {
+        "authorization_scope": {
+          "enum": [
+            "this_run",
+            "this_conversation_similar"
+          ],
+          "title": "Authorization Scope",
+          "type": "string"
+        },
+        "dataset_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Dataset Alias",
+          "type": "string"
+        },
+        "default_context_insufficient_reason": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Default Context Insufficient Reason",
+          "type": "string"
+        },
+        "estimated_field_count": {
+          "maximum": 12,
+          "minimum": 1,
+          "title": "Estimated Field Count",
+          "type": "integer"
+        },
+        "estimated_row_count": {
+          "maximum": 20,
+          "minimum": 0,
+          "title": "Estimated Row Count",
+          "type": "integer"
+        },
+        "estimated_scalar_count": {
+          "maximum": 200,
+          "minimum": 0,
+          "title": "Estimated Scalar Count",
+          "type": "integer"
+        },
+        "expected_version": {
+          "minimum": 1,
+          "title": "Expected Version",
+          "type": "integer"
+        },
+        "field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Field Aliases",
+          "type": "array"
+        },
+        "purpose": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "requested_categories": {
+          "items": {
+            "enum": [
+              "field_metadata",
+              "statistics",
+              "sample"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Requested Categories",
+          "type": "array"
+        },
+        "smaller_scope_possible": {
+          "title": "Smaller Scope Possible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "dataset_alias",
+        "expected_version",
+        "field_aliases",
+        "requested_categories",
+        "estimated_field_count",
+        "estimated_row_count",
+        "estimated_scalar_count",
+        "purpose",
+        "default_context_insufficient_reason",
+        "smaller_scope_possible",
+        "authorization_scope"
+      ],
+      "title": "DataRequest",
+      "type": "object"
+    },
     "ExportArtifactAction": {
       "additionalProperties": false,
       "properties": {
@@ -643,6 +739,17 @@
     "NeedsInput": {
       "additionalProperties": false,
       "properties": {
+        "data_request": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataRequest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "decision_type": {
           "const": "needs_input",
           "default": "needs_input",
@@ -650,11 +757,11 @@
           "type": "string"
         },
         "questions": {
+          "default": [],
           "items": {
             "$ref": "#/$defs/InputQuestion"
           },
           "maxItems": 3,
-          "minItems": 1,
           "title": "Questions",
           "type": "array"
         },
@@ -671,8 +778,7 @@
         }
       },
       "required": [
-        "target_alias",
-        "questions"
+        "target_alias"
       ],
       "title": "NeedsInput",
       "type": "object"
