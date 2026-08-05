@@ -10,8 +10,8 @@
 OPJU 是 target-scoped、self-contained、editable delivery，不是 PlotAgent 项目包：
 
 - `.plotproj` 保存 PlotAgent 对话、对象关系、任务和完整版本历史。
-- `.opju` 只交付本次 ExportSpec 选择的图形及其实际需要的数据、分析输出和审计元数据。
-- Origin 中的编辑不回写 PlotAgent，也不改变 PlotSpec、AnalysisResult 或项目历史。
+- `.opju` 只交付本次 ExportSpec 选择的图形及其实际需要的 Raw Data、Plot Data、固定计算/用户预计算结果和审计元数据。
+- Origin 中的编辑不回写 PlotAgent，也不改变 PlotSpec、PlotCalculationResult 或项目历史。
 - 第一轮不导入、解析或 round-trip 用户修改后的 OPJU。
 
 OPJU 不能包含：
@@ -19,7 +19,7 @@ OPJU 不能包含：
 - 与导出目标无关的项目数据、图表或对话。
 - API key、邀请设备令牌、模型配置或其他 secret。
 - 用户工作区绝对路径、项目目录、源文件绝对路径或临时路径。
-- 未被绘图使用的原始列、分析端口或缓存。
+- 未被绘图使用的原始列、Plot Data 或缓存。
 - 外部数据链接、外部模板依赖或运行时必须访问的 PlotAgent 对象。
 
 ## 2. Target scope
@@ -29,13 +29,13 @@ ExportSpec 明确 `target_scope` 与精确对象版本：
 ### 2.1 `current_chart`
 
 - 一个 Origin graph page。
-- 只包含该图需要的 worksheet/matrix、分析结果、metadata 和 manifest mapping。
+- 只包含该图需要的 Raw/Plot worksheet 或 matrix、metadata 和 manifest mapping。
 - 不捎带同一对话或批次的其他图。
 
 ### 2.2 `selected_charts` / `batch`
 
 - 一个 OPJU 中包含多个独立 graph page。
-- 相同 DatasetVersion、AnalysisResult output 和完全相同列布局在 Data/Analysis 中去重共享。
+- 相同 SourceDataset、PreparedDataset/PlotCalculationResult/用户预计算表和完全相同列布局在 Data/Analysis 中去重共享。
 - 每个 graph 保持到共享数据对象的原生链接。
 - 任何选中目标失败都使整份 OPJU 失败。
 
@@ -56,8 +56,8 @@ Graphs/
 Metadata/
 ```
 
-- `Data/`：直接绘制的原始/派生数值表。
-- `Analysis/`：被引用的 AnalysisResult/FitResult 持久化输出表。
+- `Data/`：直接图所需 Raw Data，以及固定计算图保留的必要 Raw Data。
+- `Analysis/`：最终 Plot Data，包括 PreparedDataset、PlotCalculationResult 或用户提供的预计算表；目录名不表示 Origin/PlotAgent 分析链。
 - `Graphs/`：单图 graph pages 与 Figure multi-layer graph。
 - `Metadata/`：manifest、导出摘要、版本映射和验证信息。
 
@@ -73,11 +73,19 @@ Metadata/
 
 - X、Y、Z、group/category 与 facet 字段。
 - error、interval、weight 或其他直接绑定 geometry 的列。
-- ResolvedRenderPlan 引用的 AnalysisResult output ports。
-- FitResult 的持久化 curve、band、prediction、fitted 或 residual 表中实际绘制的列。
+- ResolvedRenderPlan 引用的 PlotCalculationResult output columns。
+- 用户提供的 curve、band、step、matrix、effect/interval 等预计算列。
 - raw observations；仅当 raw points 在图中可见时包含。
 
-不包含未使用列、未绘制的分析诊断大表、完整父数据或为了“可能以后使用”而复制的内容。自包含的含义是当前图可以在脱离 PlotAgent 后继续编辑和查看，不是复制整个科研项目。
+不包含未使用列、未绘制的中间表、完整父数据或为了“可能以后使用”而复制的内容。自包含的含义是当前图可以在脱离 PlotAgent 后继续编辑和查看，不是复制整个科研项目。
+
+### 4.1 直接图与固定计算图
+
+- **直接图：** `Raw Data worksheet → native Graph`。Graph 直接链接实际绘制列，编辑数据可按 Origin 原生链接更新。
+- **固定计算图：** `Raw Data + Plot Data (PlotCalculationResult) + native Graph + Manifest`。Graph 链接最终 Plot Data；编辑 Plot Data 可更新图，编辑 Raw Data 不承诺自动重新执行 PlotAgent 计算。
+- **用户预计算图：** 预计算曲线/矩阵等进入 Plot Data，并标记 `user_provided_precomputed`；PlotAgent/Origin 均不重算科学结果。
+
+v1 不生成 Origin Analysis Template、worksheet formula、Fit Function 或分析重算链，也不依赖 LabTalk。以上边界必须写入 Manifest 和导出说明。
 
 ## 5. Origin 数据对象语义
 
@@ -96,7 +104,8 @@ Worksheet 必须保存并在重新打开后读回：
 Metadata 中的 manifest 至少保存：
 
 - PlotAgent object/version 与 Origin folder/book/sheet/matrix/page/layer/plot 的双向 map。
-- DatasetVersion、AnalysisResult、PlotSpec/FigureSpec、ResolvedRenderPlan 和 ExportSpec 的版本与 hash。
+- SourceDataset、PreparedDataset、PlotCalculationSpec/Result、用户预计算表、PlotSpec/FigureSpec、ResolvedRenderPlan 和 ExportSpec 的版本与 hash。
+- 数据链类型 `direct | fixed_plot_calculation | user_provided_precomputed`，以及 Raw Data 修改是否可触发重算（v1 固定为 false）。
 - chart type、resolved style、publication profile、renderer/resolver 版本。
 - OriginAdapter ID/version、Origin template ID/hash、`originpro` version 与实际 Origin version。
 - export time、target scope、capability level 和验证报告 hash。
@@ -123,7 +132,7 @@ O3/O0 不生成正式 OPJU。将 Matplotlib PNG/SVG/raster 嵌入 Origin 不能�
 - 当前 Beta build 支持的单一 Origin exact version/build 和 bitness。
 - template ID、签名与 content hash。
 - 宣称的 capability level。
-- Data/Analysis workbook 或 Matrixbook layout。
+- Raw Data/Plot Data workbook 或 Matrixbook layout。
 - typed property map：RenderPlan 字段到允许 Origin 属性的固定映射。
 - live/reopen validation rules 与 parity tolerance。
 - O2 known differences；O1 必须为空。
@@ -262,7 +271,9 @@ Preflight 失败不启动 Origin 实例，也不留下正式或未登记临时�
 - `.plotproj` 与 target-scoped OPJU 边界、无无关数据/对话/secret/path。
 - current/selected/batch/Figure scope、共享数据去重和 Figure multi-layer graph。
 - 四 folders、ASCII Short Name、Long Name、Units、Comments 和 designation。
-- 最小列集、raw points 条件、AnalysisResult outputs 和 Matrixbook。
+- 最小列集、raw points 条件、PlotCalculationResult/用户预计算 Plot Data 和 Matrixbook。
+- direct/fixed/user-precomputed 三类数据链、Raw/Plot Data 链接方向和 Raw Data 不自动重算说明。
+- 禁止 Origin Analysis Template、worksheet formula、Fit Function、LabTalk 与任意科学重算链。
 - manifest object map、全部 hash/version、capability 与 O2 differences。
 - O1/O2/O3/O0 定义、31 项 O1 准入和无运行时降级。
 - OriginAdapter registry、typed property map、任意 LabTalk 阻断与 template 安全。

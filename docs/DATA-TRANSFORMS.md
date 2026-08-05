@@ -1,295 +1,125 @@
-# PlotAgent 派生数据、单位与血缘契约
+# PlotAgent 受控数据准备、单位与来源追溯契约
 
-> 状态：第一轮数据变换基线已确认  
-> 日期：2026-08-05  
-> 适用范围：DatasetVersion、TransformSpec、TransformPipeline、UnitSpec、字段与行级血缘、变换预检和同构批次  
-> 相关文档：[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 状态：v1 implementation-ready design baseline
+> 适用范围：SourceDataset、FieldMapping、PreparationSpec、PreparedDataset、单位元数据、来源坐标与同构批量
+> 相关文档：[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
-## 1. 对象与提交边界
+## 1. v1 产品边界
 
-### 1.1 DatasetVersion
-
-每个原始或派生 DatasetVersion 都是不可变对象，至少保存：
-
-- `dataset_id`、`dataset_version`、`schema_version` 和对象状态。
-- `parent_refs`：一个或多个精确父对象版本引用。
-- 原始数据的 ImportRecipe 引用，或派生数据的 TransformSpec 引用。
-- 字段 schema、每个字段的 UnitSpec 与稳定 `field_id`。
-- 规范化表数据的内容哈希和对象存储引用。
-- row lineage 对象引用与 field lineage 定义。
-- 行数、列数、缺失、NaN、Inf、重复键等 quality summary。
-- 创建任务、引擎版本、时间与来源对话等审计信息。
-
-原始 DatasetVersion 没有 TransformSpec；其 parent_refs 指向导入源对象与 ImportRecipe。派生 DatasetVersion 不能修改父版本，所有变化形成新版本与新内容哈希。
-
-### 1.2 TransformSpec 与 TransformPipeline
-
-一次 `create_derived_dataset` Action 携带一个 TransformSpec。TransformSpec 包含最多 16 个按顺序执行的 TransformStep：
+v1 不是通用数据处理 Agent，也不提供可编程 TransformPipeline 或可自由继续加工的派生数据平台。权威数据链只有：
 
 ```text
-TransformSpec
-├─ spec_id / schema_version / implementation_version
-├─ primary_parent_ref
-├─ additional_parent_refs[]
-├─ steps[1..16]
-├─ expected_parent_versions
-├─ output_schema_contract
-└─ batch/reference/error policy
+SourceDataset
+  → FieldMapping + PreparationSpec
+  → PreparedDataset
+  → optional PlotCalculationResult
+  → PlotSpec
 ```
 
-- Pipeline 是线性的：每一步消费上一步的临时表。
-- Join 和 Concat 可以在某一步读取显式 additional parent，因此最终 DatasetVersion 可以有多个父级。
-- 中间表只存在于任务暂存区，不发布为 DatasetVersion，也不进入项目资源库。
-- 只有全部步骤、质量校验和 lineage 生成成功后，最终 DatasetVersion 才原子注册。
-- 如果用户需要保留中间结果，必须拆成多个 `create_derived_dataset` Action。
+- `SourceDataset` 是一次确定性导入得到的不可变数值数据版本，保留源文件 SHA-256、解析配方、schema、单位建议、质量摘要和来源坐标。
+- `FieldMapping` 只回答“导入字段在当前图形中扮演什么角色”。
+- `PreparationSpec` 是本地程序由已经确认的导入结构、字段映射和图形注册表编译出的受限规格，不是模型可编排的步骤列表。
+- `PreparedDataset` 是为了绘图复现而持久化的 Plot Data；可以被 PlotSpec、批次和导出引用，但不是资源库中可任意继续加工的新数据产品。
+- 图形不可分割的固定计算由 `PlotCalculationSpec/Result` 表达，详见[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)。
 
-16 步是单个 Action 内的领域上限，不改变 ActionPlan 最多 8 个 Action 的上限。
+v1 明确不提供通用 filter、dedupe、join、pivot、单位换算、算术派生、log/zscore、baseline、normalize、category recode、单元格编辑、SQL、Python、字符串表达式、UDF 或任意步骤串联。超出封闭 PreparationSpec 能力时返回稳定 `PREPARE_UNSUPPORTED`，不猜测替代做法。
 
-## 2. 类型安全的变换联合
+## 2. SourceDataset 与不可变来源
 
-每个 TransformStep 都是 Pydantic discriminated union 的一个明确变体：
+每个 SourceDataset 至少保存：
 
-- 使用 `kind` 选择步骤类型。
-- 每种类型有固定字段、固定 AST 节点和严格参数；未知字段被拒绝。
-- 字段只通过稳定 `field_id` 引用，不以显示名称作为执行标识。
-- 数值、字符串、日期时间、单位和空值使用严格基础类型。
-- Schema 自动生成 JSON Schema 与 TypeScript 类型，模型和 UI 使用同一契约。
+- `source_object_hash`、`import_recipe_version`、`parser_version` 和 `unicode_normalization_version`。
+- 逻辑 schema、物理类型、精度、单位原文与单位建议。
+- Excel 的 workbook/sheet/cell-range/source-row；TXT/CSV 的 byte range/line range/block/channel/sweep/source-row。
+- 缺失、NaN、正负 Inf、无法解析字段、有效行列数和质量警告的结构化计数。
+- 原始行的稳定 `source_row_id`，由 source hash、sheet/block 和源行坐标组成。
 
-第一轮 TransformSpec 禁止：
+原始文件与 SourceDataset 永远只读。重新导入、解析设置变化或源内容变化均创建新版本；已有图继续绑定旧版本。`0` 和 `False` 始终是有效值，不能用 truthiness 当缺失判断。
 
-- SQL、Python、JavaScript、命令行或 UDF。
-- 作为字符串提交的算术、过滤或公式表达式。
-- `eval`、任意属性路径、任意函数名或运行时加载代码。
-- TransformStep 在执行时动态创建未声明步骤。
+## 3. 两阶段确认，不是重复映射
 
-算术与条件使用带 discriminator 的类型化 AST，例如字段引用、字面量、二元算术、比较和布尔组合；所有允许节点和运算符都在 Schema 中枚举。
+### 3.1 阶段一：数据位置与结构
 
-## 3. 第一轮变换白名单
+导入器回答“数据在哪里”。它确定 workbook sheet、TXT/CSV data region、header、delimiter、encoding、preamble/postamble 与 block/channel/sweep 边界。只有编码、分隔符、表头或区域存在多个同等合理解释时，才提出一个最小问题；问题解决后继续同一 ImportRecipe。
 
-### 3.1 字段与 schema
+### 3.2 阶段二：当前图形字段语义
 
-- `select_fields`：选择明确字段集合。
-- `rename_fields`：修改显示名称，保留 field_id。
-- `reorder_fields`：调整列顺序，保留 field_id。
-- `cast_field`：显式转换逻辑/物理类型并记录失败策略。
-- `declare_unit`：确认或修改 UnitSpec，不改变数值。
-- `convert_unit`：按 UnitSpec 转换数值并生成派生字段或替换派生表中的字段版本。
+字段映射回答“字段在当前图中是什么”。在用户已经明确选择图形后，系统依据图形注册表展示 X、Y、group、error、lower、upper、matrix 等所需角色，预填高置信候选并让用户一次确认。
 
-### 3.2 行选择与顺序
+这两个阶段分别确认物理结构和图形语义，不是两轮字段映射。模型只能表达业务语义，不得输出 table id、sheet 内部对象、处理步骤或执行工具。
 
-- `filter_rows`：使用类型化条件 AST。
-- `sort_rows`：显式字段、方向和空值顺序。
-- `take_range`：按明确字段与数值/日期时间边界选择范围。
-- `deduplicate_rows`：显式键、保留规则和成员 lineage；不自动去重。
+## 4. PreparationSpec 封闭联合
 
-第一轮不提供 row-index cell editing。用户不能通过“把第 15 行第 3 列改成 0”修改原始或派生表；应使用可复现的字段/条件变换或重新导入。
+PreparationSpec 使用严格 Pydantic discriminated union，只允许以下由本地 compiler 生成的 kind：
 
-### 3.3 类别
+- `select_fields`：选择当前图需要的字段并保留稳定 field id。
+- `project_structure`：把已经确认的二维区域投影为当前图形所需的长/宽结构；不聚合、不推断。
+- `isomorphic_concat`：仅在用户明确要求且 schema、逻辑类型、单位和语义完全一致时纵向拼接，并写入 `source_sheet` 或 `source_block`。
+- `project_metadata_label`：仅把用户明确选择用于标签/分组的 InstrumentMetadata 字段投影为常量来源列。
+- `apply_plot_order`：保存用户明确的类别/系列显示顺序，不改值、不删除行。
+- `mask_for_plot`：只按 PlotCalculationSpec 的 `fail` 或 `exclude_with_report` 缺失策略产生绘图 mask；不修改 SourceDataset。
 
-- `recode_categories_exact`：旧值到新值的精确映射，不做模糊匹配。
-- `set_category_order`：显式类别顺序与未知类别策略。
-- `merge_categories_exact`：显式列出每个合并集合和目标类别。
+一个 PreparedDataset 的 PreparationSpec 是规范化后的单个封闭对象，不允许自由串联、运行时增加 kind、任意表达式或模型生成步骤。批次 fan-out 由本地 BatchService 将同一规格应用于完全同构输入。
 
-未列出的类别默认保持原值；是否允许未列出值必须在步骤中明确，不能按语言模型猜测拼写相近项。
+## 5. Excel 多工作表规则
 
-### 3.4 数值与派生字段
+- `.xlsx`、`.xls`、`.xlsm` 只读取数据；宏、VBA、公式和外链绝不执行或刷新。
+- 多个工作表默认形成独立 SourceDataset，并作为候选批次分别绘图。
+- 只有用户明确要求，且字段集合、逻辑类型、单位与语义一致时，才允许 `isomorphic_concat`；结果必须保留 `source_sheet`。
+- 永不自动跨 sheet join，也不把不同 sheet 的同名字段视为可合并依据。
+- 公式只在文件内存在缓存值时作为数据导入，并记录 `cached_formula_value` provenance；没有缓存值时为 missing 或 NeedsInput。
 
-- 类型化字段/常量 arithmetic：加、减、乘、除。
-- `power`、`abs`、`sqrt`、`log`、`exp`。
-- `round_explicit`：显式位数和舍入模式。
-- `subtract_baseline`：显式 baseline 字段、常量或 reference rule。
-- `divide_reference`：显式 reference 字段、常量或 reference rule。
-- `to_percent`、`min_max_scale`、`zscore`。
+## 6. TXT/CSV 仪器数据规则
 
-这些步骤是确定性表变换，不执行统计检验、拟合、KDE 或平滑。涉及引用值时，规则、选中行、实际值和 lineage 都必须保存。
+TXT 导入先分离 `InstrumentMetadata`、一个或多个 `DataBlock` 与 `postamble`。普通 CSV 复用同一确定性文本路径，只是常见候选通常为单一 DataBlock。
 
-### 3.5 结构重塑与多父级
+- 带仪器前导/尾部信息时，元数据与数值区域分别保存，元数据默认不进入数据列。
+- 存在多个 block、sweep 或 channel 时展示候选，默认作为独立 SourceDataset/批次项，不擅自拼接、透视或平均。
+- 只有用户明确将某个元数据字段用于标签或分组时，才通过 `project_metadata_label` 投影常量来源列。
+- 编码、分隔符、decimal mark、header、data region 有多个合理解释时只问一个最小问题；超出已列举解析模式时返回可操作拒绝。
+- CSV/TXT 文本只作为 data，不解释为公式、命令、HTML、脚本或 Origin expression。
 
-- `melt`：显式 id fields、value fields 与输出字段。
-- `pivot`：显式 index、columns、values 和 duplicate-key policy。
-- `transpose`：显式标识字段与生成字段命名规则。
-- `concat_isomorphic`：只连接 schema、逻辑类型、UnitSpec 和语义完全同构的数据。
-- `join_checked`：显式左右键、输出字段、连接类型和预期 cardinality。
+## 7. 单位与字段语义
 
-Pivot 遇到 duplicate keys 时默认失败；用户必须选择一个注册表内的明确 aggregate 及其参数后才能继续，系统不默认取第一项、求和或平均。
+- 单位行或表头中的单位只形成建议；确认后的 `UnitSpec` 保存 `source_text`、`canonical_unit`（如已确认）、`dimensionality`、`kind` 与 registry version。
+- v1 不执行单位换算。需要换算时用户应在外部生成明确数值并重新导入；系统不得在 PlotSpec、renderer 或 Origin 中隐式换算。
+- 不兼容单位不能共享坐标轴或进入同构批次。opaque 单位只与完全同名 opaque 单位兼容。
+- 列名只做首尾空格清理和固定 Unicode 规范化；规范化后重复列名阻断，不做模糊改名。
+- 整数与浮点可统一为逻辑 `numeric`，但物理类型、范围和精度必须保留。
 
-Join 第一轮只允许声明并通过校验的 `one_to_one`、`one_to_many` 或 `many_to_one`。预检与完整执行的实际 cardinality 不符时失败；`many_to_many` 第一轮一律阻止。
+## 8. 缺失、异常与完整数据
 
-### 3.6 日期时间
+- PreparationSpec 不删除、填补、去重、过滤异常、裁剪或 winsorize 数据。
+- NaN、Inf 与 missing 原样保留并在质量摘要中计数；绘图/固定计算只能选择 `fail` 或 `exclude_with_report`。
+- `exclude_with_report` 只生成可审计 mask，保存纳入/排除行数和原因；SourceDataset 不变。
+- log axis v1 仅 Log10，遇到任何参与绘图的非正值即阻断，不能通过 mask 静默跳过。
+- 正式输出与固定计算在声明支持规模内使用完整数据；preview 的确定性视觉简化不改变范围、统计或计算输入。
 
-- `parse_datetime_explicit`：显式格式、locale、错误策略和时区解释。
-- `set_or_convert_timezone`：区分附加时区语义与时区转换。
-- `datetime_difference`：显式单位和方向。
+## 9. 同构批量
 
-系统不根据少量样本猜测并直接应用日期格式或时区；导入候选只能提出建议，歧义时返回 NeedsInput。
+批量要求规范化后的字段集合、逻辑类型、单位、语义、FieldMapping 和 PreparationSpec 完全一致；列顺序可以不同。Excel sheet 或 TXT block 只有通过这套签名才可组成同构批次。
 
-## 4. 异常与禁止的隐式处理
+- 不允许逐文件字段、单位、准备方式或缺失策略例外。
+- 任何异构项拆为其他候选批次；v1 不通过通用变换“标准化后再批量”。
+- 同一 PreparationSpec 可以部分成功；成功项保留，失败项记录稳定 `PREPARE_*` 错误。
 
-产生类型错误、除零、无效定义域、溢出或解析失败的步骤必须选择统一 `error_policy`：
+## 10. 持久化与追溯
 
-- `fail`：任一异常使整个 TransformSpec 失败；第一轮默认。
-- `set_missing`：把异常结果设为 missing，并记录逐类计数与 row lineage。
-- `filter_rows`：排除异常行，并记录排除 mask 与原因。
+PreparedDataset 至少保存：
 
-策略在执行前显示并写入 TransformSpec。同一 Pipeline 可以让不同步骤显式选择策略，但不能在运行后根据结果自动切换。
+- SourceDataset 精确版本、FieldMapping、PreparationSpec 和 compiler version。
+- 输入/输出 schema、单位、row/field provenance 与内容 SHA-256。
+- 纳入/排除计数、来源 sheet/block/channel 分布和结构化 warning。
+- 与 PlotCalculationResult、PlotSpec、BatchSpec、FigureSpec 的引用关系。
 
-第一轮不自动或隐式执行：
+PreparedDataset 可进入完整/结果 `.plotproj` 与 OPJU 的 Plot Data，但 UI 不把它宣传为可任意加工的派生数据集。来源关系应显示“从何处导入、如何映射、为哪张图准备”。
 
-- clipping 或 winsorization。
-- missing value imputation。
-- 离群值检测后的自动删除。
-- 非有限值替换为零。
-- duplicate rows、unmatched join rows 或非法类别的静默丢弃。
+## 11. 稳定错误与契约测试
 
-如用户明确需要筛除某些行，使用可审计的 `filter_rows` 并创建新 DatasetVersion；不能修改父数据或 analysis mask。
+错误族固定为 `IMPORT_*`、`MAPPING_*` 与 `PREPARE_*`，至少覆盖：
 
-## 5. TransformSpec 与 AnalysisSpec 分离
+- 区域/编码/分隔符/表头歧义、重复规范化列名、无缓存公式值。
+- 自动 join 请求、非同构 concat、单位不兼容、未支持准备操作。
+- 必需角色缺失、字段候选同等、非有限值策略未确认、Log10 非正值。
 
-### 5.1 不同输出对象
-
-- TransformSpec 表达确定性表变换，输出 DatasetVersion。
-- AnalysisSpec 表达统计汇总、区间、拟合、KDE、平滑或检验，输出 AnalysisResult。
-- renderer 不执行两者中的任何隐藏步骤。
-- TransformSpec 不包含统计方法，AnalysisSpec 不伪装成普通表变换。
-
-例如，单位转换、显式 zscore 字段和结构 pivot 是 TransformSpec；KDE 密度、LOWESS 平滑和 FitResult 曲线是 AnalysisResult output port。
-
-### 5.2 显式 materialize
-
-用户需要把 AnalysisResult 的表格端口作为普通数据继续变换时，必须执行独立 `materialize_analysis_output` Action：
-
-- 引用精确 AnalysisResult 版本和命名 output port。
-- 验证端口是可物化的二维数值/类别表，并固定 schema 与 UnitSpec。
-- 复制持久化结果表，不重新运行 AnalysisSpec。
-- 创建新的 DatasetVersion，parent_refs 包含 AnalysisResult 及其输入数据引用。
-- 保存 materialization spec、结果端口哈希和完整对象/字段/行 lineage。
-
-普通 `create_derived_dataset` 不能把分析方法藏进 TransformPipeline；`materialize_analysis_output` 也不能改变分析结果数值。
-
-## 6. UnitSpec
-
-每个字段的单位语义由版本化 UnitSpec 表达：
-
-```text
-UnitSpec
-├─ source_text
-├─ canonical_unit
-├─ dimensionality
-├─ kind: physical | dimensionless | opaque
-└─ registry_version
-```
-
-- `source_text` 保存源表头、单位行或用户输入的原始文本。
-- `canonical_unit` 是 pinned registry 解析后的规范表示；opaque 时为规范化的项目文本标识。
-- `dimensionality` 保存维度签名；dimensionless 明确保存无量纲。
-- `kind` 区分可换算物理单位、无量纲值与未知但需保留的 opaque 单位。
-- `registry_version` 固定解释该单位的注册表版本。
-
-从表头或单位行识别出的单位只作为建议。只有导入映射确认或显式 `declare_unit` 后才成为 DatasetVersion 的权威 UnitSpec。
-
-## 7. 单位运算与转换
-
-### 7.1 变换规则
-
-- 加减要求维度兼容，并把输入换算到明确目标单位后计算。
-- 乘除生成规范复合单位与 dimensionality。
-- `log` 和 `exp` 的输入必须 dimensionless；单位值不能通过忽略单位继续计算。
-- `power` 对单位和指数执行注册表允许的维度校验。
-- 温度的 offset quantity 与 temperature delta 是不同语义；相加、相减和换算遵循各自规则，不能把 °C 绝对温度当作 Δ°C。
-- opaque 单位只能与 canonical 文本完全相同的 opaque 单位视为兼容，不参与物理换算。
-
-单位转换始终创建派生 DatasetVersion。为单张图统一显示单位的 plot-only 转换也创建 `scope: plot_local` 的派生版本：
-
-- 资源库默认折叠显示 plot-local 版本，避免噪声。
-- 图表详情、血缘和导出中仍可展开审计。
-- PlotSpec 精确引用该版本，不能只在轴 formatter 中假装数值已经换算。
-
-### 7.2 Registry 与权威来源
-
-- Python Core 在进程内以单例加载 pinned Pint registry，运行期间不动态变更。
-- 项目可以增加 alias，把项目文本映射到既有标准单位或项目 opaque 单位。
-- 项目 alias 不能重定义、覆盖或改变标准单位的维度与换算。
-- project.sqlite3 中的 UnitSpec 是权威真值。
-- Parquet field metadata 镜像 UnitSpec，便于交换与检查，但冲突时以数据库中的版本化 UnitSpec 为准并报告一致性错误。
-
-## 8. 三层 lineage
-
-### 8.1 对象级
-
-对象级 lineage 保存：
-
-- DatasetVersion 的 parent_refs。
-- ImportRecipe、TransformSpec 或 materialization spec 引用。
-- 每个父对象、规格、输出表和 lineage 对象的内容哈希。
-- 创建任务、操作记录和实现版本。
-
-Join/Concat 保留所有父级；不会把多父级关系压成一段不可解析的文字描述。
-
-### 8.2 字段级
-
-- 每个字段有稳定 field_id；rename 和 reorder 保留 ID。
-- 新派生字段获得新 ID，并保存引用父 field_id 的类型化 expression AST。
-- cast、unit conversion、recode、melt、pivot、join 和 concat 保存字段来源、变换节点、UnitSpec 变化和输出字段映射。
-- field lineage 使用结构化节点与哈希，不保存可执行字符串表达式。
-
-### 8.3 行级
-
-- 原始 row ID 由 `source_hash + sheet/table locator + source_row_index` 确定性生成。
-- filter 和 sort 保留原 row ID；被过滤行在质量摘要和预检中计数。
-- concat 的输出 row ID 组合父 DatasetVersion 与父 row ID。
-- join 的输出 row ID 组合左右父 row ID；unmatched 一侧使用明确空成员标记。
-- dedupe、aggregate 和 pivot 将多行压成一行时，引用内容寻址的压缩成员关系对象。
-- materialized analysis table 保存 output port 行与分析输入行/mask 的可用关系；不伪造不存在的一对一血缘。
-
-大规模成员集合不内联进 SQLite 行；使用 `objects/sha256` 中的压缩 lineage 对象并由数据库保存哈希与索引。
-
-## 9. Apply 前预检
-
-TransformSpec 正式执行前展示基于完整 schema 和受控样本/扫描得到的预检：
-
-- 预计或精确 row/column delta。
-- 新增、删除、重命名、重排或类型变化字段。
-- UnitSpec 声明、转换与 dimensionality 变化。
-- 新增 missing、NaN、Inf 和异常策略影响。
-- Join 的 unmatched 左/右行、实际 cardinality 和行数 expansion。
-- Pivot duplicate keys、Concat 同构检查和去重成员数量。
-- 少量 before/after sample；样本只用于解释，不代替完整执行校验。
-
-普通变换因为父版本不可变且结果是新 DatasetVersion，不需要破坏性确认。以下情况仍不执行：
-
-- 字段、单位、日期格式、reference rule 或目标语义有歧义时返回 NeedsInput。
-- 违反 join cardinality、单位维度、Pipeline 上限或禁止能力时由本地 validator 阻止并返回稳定错误。
-- 预检 warning 的继续选择写入操作记录，但 warning 不等同于破坏性确认。
-
-完整执行可能发现样本预检未覆盖的问题；此时按 error policy 原子失败或记录，不能使用样本结果强行提交。
-
-## 10. 同构批次
-
-批量派生数据要求所有项使用规范化后完全相同的 TransformSpec：
-
-- 相同步骤顺序、kind、字段角色、UnitSpec 目标、类型化 AST 和 error policy。
-- 不允许逐文件字段、单位、公式、join cardinality、日期格式或异常策略例外。
-- 完全同构签名在变换前和最终输出后都校验。
-
-Reference rule 可以对每份数据按相同语义取值，例如“每份数据中 category 精确等于 control 的 baseline”：
-
-- 规则 AST、字段角色和选择条件在批次中完全相同。
-- 各数据解析出的具体 reference value 可以不同，并逐项记录值、来源 row lineage 和哈希。
-- 找不到唯一 reference 时该项失败，系统不改用第一行、均值或其他规则。
-
-批次可以 partial success：成功项各自原子提交 DatasetVersion，失败项保存步骤、错误和预检摘要。部分失败不允许给失败文件换字段、单位、公式或 error policy；修改规格必须创建新批次。
-
-## 11. 第一轮契约测试
-
-- DatasetVersion 必需元数据、不可变性、多父级和哈希。
-- 1–16 步线性 Pipeline、只发布最终结果和 ActionPlan 上限独立。
-- 所有 TransformStep discriminator、未知字段和 SQL/Python/string expression/UDF 拒绝。
-- 字段、行、类别、数值、结构、join/concat 和日期时间白名单。
-- row-index cell edit、many-to-many join 和隐式 pivot aggregate 阻止。
-- fail/set_missing/filter_rows 及无 clipping、winsorization、imputation、outlier deletion。
-- TransformSpec/AnalysisSpec 分离与 materialize_analysis_output 不重算。
-- UnitSpec 建议确认、维度运算、offset/delta、opaque、alias 与 registry 固定。
-- DB UnitSpec 权威与 Parquet metadata 一致性检查。
-- 对象、字段和行 lineage，包括 filter/sort、concat/join 与压缩成员关系。
-- apply 前 delta、质量、join expansion 和 before/after sample。
-- 完全相同批次 TransformSpec、reference rule 逐项求值和 partial success。
+测试必须覆盖 Excel 多 sheet、TXT preamble/block/postamble、CSV 复用路径、一个最小追问、可操作拒绝、`0/False`、NaN/Inf/missing、来源坐标、同构签名、PreparedDataset hash 与分层回放。测试 oracle 来自冻结 fixture/manifest，不在运行时生成。

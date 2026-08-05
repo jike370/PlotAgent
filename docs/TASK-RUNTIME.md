@@ -78,7 +78,7 @@ stateDiagram-v2
 
 ### 3.2 计算通道
 
-- 默认最多使用 2 个隔离工作进程执行解析、分析、Matplotlib 渲染和可隔离的数值任务。
+- 默认最多使用 2 个隔离工作进程执行解析、PlotCalculation、Matplotlib 渲染和可隔离的数值任务。
 - 检测到内存压力时，新的计算并发下降为 1；已经进入 `committing` 的任务不被抢占。
 - 交互预览高于普通后台批次任务。
 - 同一图的新预览可以 supersede 尚未开始的旧预览；被替代任务直接结束为 `cancelled` 并记录 superseding task ID。
@@ -97,11 +97,11 @@ stateDiagram-v2
 以下任务以一个领域事务原子提交：
 
 - 创建单图或修改单图。
-- 一次分析。
-- 创建一份派生数据。
+- 一次固定 PlotCalculation。
+- 创建一份 PreparedDataset 或 PlotCalculationResult。
 - 一次多文件导入会话。
 
-多文件导入的任何来源解析或注册失败时，整个导入会话不创建正式 DatasetVersion；临时对象按 [项目存储、项目包与数据导入](./PROJECT-STORAGE.md) 清理。
+多文件导入的任何来源解析或注册失败时，整个导入会话不创建正式 SourceDataset；临时对象按 [项目存储、项目包与数据导入](./PROJECT-STORAGE.md) 清理。
 
 ### 4.2 批量绘图
 
@@ -144,7 +144,7 @@ PNG、SVG 和 OPJU 每个目标文件分别执行：
 
 ## 6. 版本、引用与幂等
 
-- 每个任务创建时固定 DatasetVersion、PlotSpec、AnalysisResult、FigureSpec 等输入引用。
+- 每个任务创建时固定 SourceDataset、PreparedDataset、PlotCalculationResult、PlotSpec、FigureSpec 等输入引用。
 - 写操作携带 `expected_version`；提交时不匹配则返回版本冲突，绝不覆盖较新的修改。
 - 冲突结果可以由用户选择基于旧版本形成分支，或使用最新版本重新运行；系统不能静默选择。
 - 被 queued、preparing、running、committing 或 cancelling 任务引用的数据和对象禁止删除，资源库必须展示活跃任务依赖。
@@ -168,7 +168,7 @@ ExecutionTask 进入队列前，Python Core 持久化：
 - Electron Main 监督 Python Core 心跳和进程退出。
 - Core 重新启动后，将遗留的 `preparing`、`running`、`committing` 或 `cancelling` 任务标记为 `interrupted`。
 - 重新检查 SQLite 事务、暂存目录、不可变对象和正式输出，界面展示“已有状态未损坏 / 临时文件已清理或待清理 / 可明确重试”的结果。
-- 正式导入、分析、绘图、批次和导出任务不自动重试。
+- 正式导入、Preparation/PlotCalculation、绘图、批次和导出任务不自动重试。
 - 无副作用的预览与缓存任务可以根据固定输入自动重建，不生成正式版本或导出记录。
 - 第一轮不要求从 preparing/running/committing 的内部阶段继续正式任务；阶段记录只用于判断原子事务、清理temp和解释失败。
 - 如果 Core 持续崩溃形成重启循环，Electron 停止自动重启并展示项目状态检查、诊断信息、明确重试和安全退出选项。

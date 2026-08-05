@@ -2,18 +2,18 @@
 
 > 状态：第一轮存储与导入基线已确认  
 > 日期：2026-08-05  
-> 适用范围：本机事务工作区、SQLite、内容寻址对象存储、`.plotproj`、数据导入、完全同构判断与单轮字段映射  
-> 相关文档：[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 适用范围：本机事务工作区、SQLite、内容寻址对象存储、`.plotproj`、Excel/TXT/CSV 确定性导入、结构确认与一次字段语义映射
+> 相关文档：[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 核心结论
 
 - 运行态使用 `%LOCALAPPDATA%\PlotAgent` 下的本机事务工作区，不直接在 `.plotproj` 压缩包中运行。
 - 全局 catalog 与每个项目的数据库、对象、缓存和临时文件严格分离。
 - 项目数据库保存关系、版本和操作状态；大对象按 SHA-256 存入内容寻址对象存储。
-- 原始数据不可变；派生数据、PlotSpec、AnalysisSpec 和版本关系可追溯；缓存可以删除并重建。
+- 原始文件与 SourceDataset 不可变；FieldMapping、PreparationSpec、PreparedDataset、PlotCalculationResult、PlotSpec 和版本关系可追溯；缓存可以删除并重建。
 - `.plotproj` 是可搬运、可校验的项目快照，不是实时数据库，也不是持续自动保存目标。
 - 数据导入先在临时区完成识别、解析和验证，最后才移动不可变对象并用单个 SQLite 事务注册。
-- 完全同构判断分为自动结构候选和最终语义签名；用户只确认一次字段映射。
+- 导入只确认数据位置与结构；用户选图后才进行一次字段语义映射。两者职责不同，不是重复映射。
 - SQLite WAL 只用于本机活动工作区，由 Python Core 单写入器管理。
 
 ## 2. 本机运行态布局
@@ -48,7 +48,7 @@ catalog 不保存项目对话、PlotSpec、数据集、版本 DAG、原始数据
 
 - 项目设置、对话和结构化操作记录。
 - 资源对象、对象关系和引用。
-- DatasetVersion、AnalysisSpec/Result、PlotSpec、BatchSpec、FigureSpec 与 ExportSpec 元数据。
+- SourceDataset、FieldMapping、PreparationSpec/PreparedDataset、PlotCalculationSpec/Result、PlotSpec、BatchSpec、FigureSpec 与 ExportSpec 元数据。
 - 图表、数据和组合图的不可变版本 DAG。
 - 任务、事务、警告、部分失败和导出记录。
 - 内容对象的哈希、类型、大小、来源和引用计数。
@@ -60,8 +60,8 @@ catalog 不保存项目对话、PlotSpec、数据集、版本 DAG、原始数据
 `objects/sha256` 保存按完整内容 SHA-256 寻址的大对象，包括：
 
 - 导入的原始文件只读副本。
-- 解析后的 Arrow/Parquet 数据和派生数值表。
-- 需要持久化的 PlotSpec、AnalysisResult 或其他较大结构化产物。
+- 解析后的 Arrow/Parquet SourceDataset 与为绘图复现持久化的 PreparedDataset/Plot Data。
+- 需要持久化的 PlotCalculationResult、PlotSpec 或其他较大结构化产物。
 - 正式导出产物或其项目内不可变副本。
 
 对象先在 `tmp` 完整写入并计算哈希，校验成功后再移动到最终地址。同一项目内内容相同的对象复用同一哈希对象，不跨项目共享可变状态。
@@ -127,24 +127,24 @@ project.plotproj
 完整项目包包含：
 
 - 原始文件副本。
-- 派生数值数据。
+- PreparedDataset、Plot Data 与固定 PlotCalculationResult。
 - 对话、对象关系、版本 DAG、任务和操作历史。
-- PlotSpec、AnalysisSpec/Result、图表、组合图和导出记录。
+- FieldMapping、PreparationSpec、PlotCalculationSpec/Result、PlotSpec、图表、组合图和导出记录。
 
-完整项目包可以在另一台兼容设备上恢复完整复现与重算能力。
+完整项目包可以在另一台兼容设备上恢复 v1 导入、受控准备、固定绘图计算、绘图与导出能力。
 
 ### 4.2 结果项目包
 
 结果项目包省略原始数据，但必须保留：
 
-- 打开既有图表、继续可逆改图和重新导出所需的派生数值数据。
-- PlotSpec、AnalysisResult、样式快照、发表规格和版本关系。
+- 打开既有图表、继续可逆改图和重新导出所需的 PreparedDataset、Plot Data 与固定计算结果。
+- PlotSpec、PlotCalculationResult、样式快照、发表规格和版本关系。
 - 对话、任务与导出记录中仍属于项目快照的结构化元数据。
 
 结果项目包的边界：
 
-- 不能宣称为隐私安全包；派生数值、标签、统计结果和元数据仍可能包含敏感信息。
-- 任何依赖已省略原始数据的重新解析、重新转换或重新分析操作都不可用。
+- 不能宣称为隐私安全包；Plot Data、标签、预计算结果和元数据仍可能包含敏感信息。
+- 任何依赖已省略原始数据的重新解析、重新准备或重新执行固定计算都不可用。
 - manifest 必须声明包类型、省略对象和不可用能力，界面打开后持续显示该限制。
 
 ## 5. 数据导入流水线
@@ -153,28 +153,42 @@ project.plotproj
 
 1. **文件授权。** Electron 文件选择器返回受控 ResourceRef，renderer 和模型不获得任意路径权限。
 2. **临时复制与哈希。** 文件复制到项目 `tmp`，流式计算 SHA-256，不直接在源路径上解析或修改。
-3. **结构识别。** 识别格式、编码、分隔符、工作表、表头、小数格式和缺失值表达。
-4. **必要问题。** 只有编码、工作表、表头或解析规则存在必要歧义时才询问用户。
+3. **结构识别。** Excel 识别 workbook/sheet/region/header；TXT/CSV 识别编码、分隔符、decimal mark、InstrumentMetadata、DataBlock、postamble、block/sweep/channel 和缺失值表达。
+4. **必要问题。** 只有区域、编码、分隔符、表头等存在多个同等合理解释时才询问一个最小问题；超出清单则可操作拒绝。
 5. **完整分块解析。** 解析全部数据；预览样本不能代替正式解析和质量校验。
 6. **Arrow/Parquet 转换。** 生成内部列式数据，保留逻辑类型、物理类型、精度与单位元数据。
-7. **质量摘要与候选签名。** 计算行列数、缺失、非有限值、重复列名、字段结构和自动同构候选。
+7. **质量摘要与结构候选。** 计算行列数、缺失、NaN/Inf、重复列名、来源坐标、sheet/block 候选和自动同构候选；`0/False` 始终作为有效值。
 8. **不可变对象提交。** 将校验完成的原始副本和 Parquet 对象移动到 `objects/sha256`。
-9. **SQLite 事务注册。** 在一个项目事务中注册 DatasetVersion、ImportRecipe、对象引用、摘要和来源。
+9. **SQLite 事务注册。** 在一个项目事务中注册 SourceDataset、ImportRecipe、对象引用、摘要和来源坐标。
 
-任何步骤失败都不得把临时文件、半解析表、对象引用或 DatasetVersion 写成正式项目状态。
+任何步骤失败都不得把临时文件、半解析表、对象引用或 SourceDataset 写成正式项目状态。导入结果只允许正确导入、一个明确追问或可操作拒绝；静默选择错误区域/编码/表头即为测试失败。
 
-## 6. ImportRecipe 与 DatasetVersion
+## 6. ImportRecipe 与 SourceDataset
 
 `ImportRecipe` 保存使导入可复现的解析配置，包括：
 
 - 格式、编码、分隔符和小数规则。
-- 工作表、表头行、数据范围和缺失值表达。
+- Excel workbook/sheet/cell region/header，或 TXT/CSV 的 preamble/DataBlock/postamble、block/sweep/channel、byte/line range。
 - 列名规范化结果、逻辑/物理类型与单位识别。
 - 使用的解析器与 Schema 版本。
 
-相同源内容使用不同 ImportRecipe 时生成新的 DatasetVersion，不覆盖既有版本。重新导入内容变化时同样生成新的 DatasetVersion；既有图表继续引用原数据版本。
+相同源内容使用不同 ImportRecipe 时生成新的 SourceDataset 版本，不覆盖既有版本。重新导入内容变化时同样生成新版本；既有图表继续引用原数据版本。
 
-## 7. 完全同构与单轮字段映射
+### 6.1 Excel 多工作表
+
+- `.xlsx/.xls/.xlsm` 只读数据，宏/VBA/公式/外链不执行或刷新。
+- 多 sheet 默认各自生成 SourceDataset，并作为独立批次项候选。
+- 只有用户明确要求且 schema、逻辑类型、单位、语义一致时才纵向拼接，并保留 `source_sheet`。
+- 永不自动跨 sheet join。公式仅在文件已有缓存值时导入并记录 `cached_formula_value` provenance；无缓存值时为 missing/NeedsInput。
+
+### 6.2 TXT 与普通 CSV
+
+- 仪器 TXT 分离 InstrumentMetadata、一个或多个 DataBlock 与 postamble；普通 CSV/TSV/DAT 复用同一路径。
+- 多个 block/sweep/channel 展示候选，默认独立 SourceDataset/批次，不擅自合并。
+- InstrumentMetadata 默认不进数据列；用户明确用于标签/分组时，后续由受限 PreparationSpec 投影常量来源列。
+- 文本只作为 data，不执行公式、命令、HTML、脚本或 Origin expression。
+
+## 7. 结构确认、一次字段映射与同构
 
 ### 7.1 自动结构候选
 
@@ -187,9 +201,9 @@ project.plotproj
 
 不做模糊匹配、同义词猜测、大小写折叠或按位置强配。规范化后出现重复列名时阻止导入，并要求用户修复来源或明确解析配置。
 
-### 7.2 一次字段映射
+### 7.2 选图后一次字段语义映射
 
-系统根据规范化字段名、逻辑类型、单位和用户指令预填映射。用户只确认或调整这一个字段映射对象；不存在绘图前第二轮映射，也不允许为单个文件设置例外。
+导入阶段只回答“数据在哪里”，不分配图形角色。用户选图后，系统根据规范化字段名、逻辑类型、单位、图形注册表和用户指令预填角色映射；用户只确认或调整这一个 FieldMapping 对象，不允许为单个文件设置例外。
 
 明确且无歧义的用户指令可以跳过映射确认界面，但仍必须生成同一个可审计映射对象。
 
@@ -205,7 +219,9 @@ project.plotproj
 
 列顺序可以不同，不参与同构判定。整数与浮点可统一为逻辑 `numeric`，但必须保留原始物理类型、范围和精度，供精度校验、导出和审计使用。
 
-最终语义签名不同的数据不能进入同一批次。用户必须拆分批次，或先明确创建标准化派生数据，再重新判断同构关系。
+最终语义签名不同的数据不能进入同一批次，必须拆分候选；v1 不提供通用变换把异构数据标准化后再入批。
+
+字段映射确认后，本地程序按[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)编译封闭 PreparationSpec。模型不输出表 ID、PreparationStep 或数据处理工具。
 
 ## 8. SQLite 运行约束
 

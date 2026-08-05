@@ -9,14 +9,14 @@
 
 - 同一邀请码可在不限数量设备重复兑换，额度归 `InviteGrant` 并由所有设备共享；增加设备或重装不能获得新额度。
 - 设备只承担鉴权与设备级速率保护，不建立账号、邮箱、密码、个人资料、找回流程或硬件身份。
-- 云端仅服务 built-in Agent；项目、数据、图表、分析、PNG/SVG/OPJU 与 custom provider 始终在本地或由用户配置的 provider 完成。
+- 云端仅服务 built-in Agent；项目、数据、Preparation/PlotCalculation、图表、PNG/SVG/OPJU 与 custom provider 始终在本地或由用户配置的 provider 完成。
 - 应用启动和打开项目不依赖云。邀请撤销、额度耗尽或云故障不能锁定项目或禁用任何本地能力。
 - 第一轮以可审计的简单状态和原子操作为准，不实现生产级 token rotation、reserve/settle/reconcile ledger、CloudConfig、应用内更新、analytics 或诊断上传。
 
 ## 2. 明确不在 Beta 云端的能力
 
 - 账号、登录、团队、联系人、云端项目/会话/图表同步。
-- 原始文件、项目包、PlotSpec/AnalysisResult 或完整对话的云存储。
+- 原始文件、项目包、PlotSpec/PlotCalculationResult 或完整对话的云存储。
 - 远程科研计算、远程渲染、远程 Origin/OPJU。
 - 短期 access token 与 refresh-token rotation、复杂 scope delegation。
 - usage-token reserve/settle、unused release、reconciliation job 或多阶段计费恢复。
@@ -144,7 +144,7 @@ Proxy 日志不得记录 prompt、request body、response body、字段名、样
 
 ## 8. 故障降级与重试
 
-- 启动、打开项目、导入、手动 ActionPlan、自定义 provider、分析、绘图、PNG/SVG/OPJU 不访问本控制面。
+- 启动、打开项目、导入、手动 ActionPlan、自定义 provider、Preparation/PlotCalculation、绘图、PNG/SVG/OPJU 不访问本控制面。
 - built-in 调用时才校验 DeviceCredential、InviteGrant 和 quota。
 - 瞬时连接或 5xx 最多自动重试 2 次，必须复用同一 `client_run_id`。
 - 用户取消、invite/device/quota 等确定性 4xx 不自动重试。

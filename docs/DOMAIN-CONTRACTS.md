@@ -2,8 +2,8 @@
 
 > 状态：第一轮契约基线已确认  
 > 日期：2026-08-05  
-> 适用范围：DatasetVersion、TransformSpec、PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及其跨进程 Schema  
-> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 适用范围：SourceDataset、FieldMapping/PreparationSpec、PlotCalculationSpec/Result、PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及跨进程 Schema
+> 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 契约原则
 
@@ -24,17 +24,21 @@ Pydantic 官方支持从模型生成 JSON Schema Draft 2020-12，并建议对多
 ## 2. 核心对象边界
 
 ```text
-DatasetVersion
-├─ 原始或派生数据的不可变版本
-└─ 父级、TransformSpec、模式、UnitSpec、哈希、三层血缘和质量摘要
+SourceDataset
+├─ 确定性导入的不可变版本
+└─ ImportRecipe、schema/UnitSpec、source coordinates、hash 与质量摘要
 
-AnalysisSpec / AnalysisResult
-├─ 用户明确指定的分析参数
-└─ 拟合、误差、检验、平滑等可复现结果
+FieldMapping / PreparationSpec / PreparedDataset
+├─ 当前图字段角色与本地编译的封闭准备规格
+└─ 为绘图复现持久化的 Plot Data，不是通用派生数据
+
+PlotCalculationSpec / PlotCalculationResult
+├─ 九类图形不可分割固定计算
+└─ 固定算法、参数、完整数据输入、mask、输出表与 hashes
 
 PlotSpec
 ├─ 一张独立图的结构化定义
-└─ 引用 DatasetVersion 与 AnalysisResult
+└─ 引用 PreparedDataset、用户预计算字段与 PlotCalculationResult
 
 ResolvedRenderPlan
 ├─ 已解析坐标、刻度、物理布局、样式、文本与数据完整性
@@ -59,7 +63,7 @@ OriginExportPlan
 约束：
 
 - PlotSpec 不保存原始表格数组，只引用数据版本。
-- PlotSpec 不在渲染时临时计算统计量，只引用已持久化的分析结果。
+- PlotSpec 不在渲染时临时分箱、KDE、汇总、拟合或分析，只引用持久化 Plot Data/PlotCalculationResult。
 - Matplotlib 与 Origin 不直接解释 PlotSpec 的未解析默认值，只消费同一 ResolvedRenderPlan。
 - FigureSpec 与 BatchSpec 是独立对象，不通过给 PlotSpec 增加任意布局字段来模拟。
 - ExportSpec 不改变 PlotSpec，只描述如何从特定版本和固定 RenderPlan 生成正式产物。
@@ -73,7 +77,8 @@ SchemaVersion        例如 1.0
 ObjectId             带类型前缀的稳定 ID
 VersionId            不可变对象版本
 SemanticTargetId     例如 series:control、axis:y-left
-DatasetVersionRef    数据集 ID + 版本 + 内容哈希
+SourceDatasetRef     原始数据集 ID + 版本 + 内容哈希
+PreparedDatasetRef   绘图数据 ID + 版本 + 内容哈希
 ObjectVersionRef     对象 ID + expected version
 Quantity             数值 + 明确单位
 PhysicalLength       数值 + mm 或 pt 等受限物理单位
@@ -88,14 +93,16 @@ ResourceRef          主进程授权的资源 ID，不是任意路径
 
 建议 ID 前缀：
 
-- `dataset:`、`analysis:`、`plot:`、`batch:`、`figure:`、`export:`
+- `source:`、`prepared:`、`plotcalc:`、`plot:`、`batch:`、`figure:`、`export:`
 - `series:`、`axis:`、`legend:`、`annotation:`、`panel:`
 
-### 3.1 DatasetVersion 与 TransformSpec
+### 3.1 SourceDataset、Preparation 与 PlotCalculation
 
-DatasetVersion 保存 parent refs、ImportRecipe 或 TransformSpec、schema/UnitSpec、数据哈希、row lineage ref、field lineage 和 quality summary。一次 `create_derived_dataset` 使用最多 16 步线性 TransformPipeline，只原子发布最终 DatasetVersion；Join/Concat 可声明多个父级。
+`SourceDataset` 保存 ImportRecipe、schema/UnitSpec、数据哈希、稳定 field/row id、sheet/block/line/cell 来源坐标与 quality summary。原始文件和 SourceDataset 不可变。
 
-TransformStep 使用 Pydantic discriminated union 和类型化 AST，禁止 SQL、Python、字符串表达式与 UDF。第一轮白名单、异常策略、UnitSpec 运算、三层 lineage 与预检以 [派生数据、单位与血缘契约](./DATA-TRANSFORMS.md) 为准。
+`FieldMapping` 是当前图形角色到稳定 FieldId 的唯一语义映射。`PreparationSpec` 是本地 compiler 生成的封闭联合，只允许字段选择、结构投影、完全同构纵向 concat、metadata label、plot order 与 plot mask；不得由模型输出，不支持通用 TransformPipeline。`PreparedDataset` 保存输入、mapping/spec/compiler version、provenance、纳入/排除计数与 input/output hash，且不能继续任意加工。
+
+`PlotCalculationSpec/Result` 是九类封闭联合：HistogramBinning、TukeyBox、ViolinKDE、DensityKDE、ECDF、SummaryError、PercentStack、MatrixProjection、ConfusionCount。它不允许任意表达式、自由串联或发布为通用数据集；完整算法与缺失规则以[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)为准。
 
 ## 4. PlotSpec
 
@@ -111,9 +118,9 @@ TransformStep 使用 Pydantic discriminated union 和类型化 AST，禁止 SQL�
     "kind": "xy",
     "geometry": ["line", "symbol"]
   },
-  "datasets": [],
-  "field_mapping": {},
-  "analysis_refs": [],
+  "prepared_data_refs": [],
+  "precomputed_data_refs": [],
+  "plot_calculation_refs": [],
   "scales": {},
   "axes": [],
   "series": [],
@@ -131,9 +138,9 @@ TransformStep 使用 Pydantic discriminated union 和类型化 AST，禁止 SQL�
 - `plot_id`、`plot_version`：稳定对象与不可变版本。
 - `chart_type_id`：图形库稳定 ID。
 - `family`：带 `kind` discriminator 的图形家族配置。
-- `datasets`：一个或多个精确数据版本引用。
-- `field_mapping`：角色到字段 ID 的映射，不使用展示名称作为唯一标识。
-- `analysis_refs`：已完成分析的版本引用。
+- `prepared_data_refs`：一个或多个精确 PreparedDataset 版本引用。
+- `precomputed_data_refs`：用户提供的 curve/band/matrix/step 等预计算字段引用。
+- `plot_calculation_refs`：已完成固定绘图计算的精确结果引用。
 - `style_sources`：项目、批次与图表样式来源。
 - `resolved_style`：创建当前版本时解析出的完整样式快照。
 - `publication_profile`：固定版本与物理尺寸。
@@ -156,19 +163,19 @@ TransformStep 使用 Pydantic discriminated union 和类型化 AST，禁止 SQL�
 
 - 所属家族与允许的 geometry。
 - 必需和可选字段角色。
-- 允许的分析、坐标、图层、标注和组合能力。
+- 允许的固定计算、所需预计算字段、坐标、图层、标注和组合能力。
 - PNG、SVG、OPJU 能力等级。
 - 图形专用校验规则。
 
 因此，同属 `xy` 的 K01 与 S31 可以复用基础 Schema，但 S31 额外允许谱轴方向、峰标签和参考卡配置。
 
-### 4.3 数据与分析分离
+### 4.3 数据准备、固定计算与渲染分离
 
-- 字段角色引用稳定列 ID，并附带名称、数据类型和单位快照用于审计。
-- TransformSpec 表达确定性表变换并生成新的 DatasetVersion，不把转换表达式藏在 renderer 中。
-- 拟合、误差、平滑、检验、直方分箱和 KDE 等计算生成 AnalysisResult。
-- AnalysisResult 表格端口只有通过独立 `materialize_analysis_output` Action 才成为 DatasetVersion；物化复制持久化结果，不重新计算分析。
-- PlotSpec 只描述如何显示 AnalysisResult；重新计算会生成新分析版本和新 PlotSpec 版本。
+- FieldMapping 引用稳定 FieldId，并附带名称、类型、单位和来源快照用于审计。
+- PreparationSpec 只执行受限图形准备，不把任意转换藏在 renderer 中。
+- 直方分箱、Tukey box、KDE、ECDF、固定 summary/error、百分比堆积、矩阵投影和混淆计数生成 PlotCalculationResult。
+- 回归、相关、KM、剂量反应等 v1 只引用用户提供的预计算字段；不生成 AnalysisResult/FitResult。
+- PlotSpec 只描述如何显示这些持久化数值；参数变化创建新 PlotCalculationResult 与 PlotSpec/FigureVersion。
 
 ### 4.4 样式快照
 
@@ -303,8 +310,7 @@ PatchTransaction
   "schema_version": "1.0",
   "decision_type": "action_plan",
   "plan_id": "plan:001",
-  "project_id": "project:001",
-  "expected_versions": {},
+  "target_alias": "active_target",
   "actions": [],
   "warnings": [],
   "confirmation": "not_required"
@@ -314,15 +320,13 @@ PatchTransaction
 约束：
 
 - 一个计划最多 8 个 Action。
+- Provider 返回的 ActionPlan 只含业务意图和 ContextEnvelope 中的语义 target alias，不含 project path、内部 table ID、PreparationStep、PlotCalculation kind 选择或 resolved object IDs。Local Planner Compiler 解析 active target 并附加 expected versions，产出只在本地存在的 resolved execution plan。
 - Action 可以通过 `depends_on` 引用同一计划的先前输出。
 - 依赖必须构成有向无环图，不允许循环、条件脚本或运行时生成新 Action。
 - 批次内部 fan-out 不计入 8 个 Action，由 BatchService 根据 BatchSpec 完成。
 
 ### 7.3 Action 联合
 
-- `create_derived_dataset`
-- `materialize_analysis_output`
-- `run_analysis`
 - `create_plot`
 - `patch_plot`
 - `create_batch`
@@ -330,6 +334,8 @@ PatchTransaction
 - `create_figure`
 - `patch_figure`
 - `export_artifact`
+
+文件选择/导入、结构确认、FieldMapping UI、PreparationSpec 编译和 PlotCalculation 执行是本地工作流阶段，不是模型 Action。`create_plot/create_batch` 只表达已经选定的 chart type、字段语义和用户参数；本地 compiler 根据图形注册表决定是否生成封闭 PlotCalculationSpec。
 
 不向 Agent 提供以下 Action：
 
@@ -340,14 +346,15 @@ PatchTransaction
 
 ## 8. 模型与执行器边界
 
-- Context Builder 在模型调用前解析 `@` 引用、当前目标、字段结构、单位、数据摘要、图形能力和项目规则。
-- 模型不直接获得 DatasetService、PlotService、文件系统或 Origin 工具。
-- 模型只提交一个结构化计划候选。
+- Context Builder 在模型调用前解析 `@` 引用、当前目标、字段结构、单位、数据摘要、图形能力、预计算要求和项目规则。
+- 模型不直接获得 ImportService、PreparationService、PlotCalculationService、PlotService、文件系统或 Origin 工具。
+- 每次 InteractionRun 只有一个编排 Agent 和一个结构化 AgentDecision 候选；无多 Agent、工具循环或 partial plan 执行。
+- 模型只表达业务意图，不输出 pandas/Python/Matplotlib/Origin/文件/SQL/table id 或数据处理步骤。
 - Local Planner Validator 再次执行 Schema、策略、科研、对象版本和权限校验。
 - 校验通过后，Local Executor 才把 Action 映射到领域服务。
 - 信息不足时返回 NeedsInput，不让模型自行遍历项目、猜测字段或尝试执行。
 
-供应商的 JSON Schema、response format 或 function-calling 只能约束单个 `AgentDecision` 的传输格式；第一轮不提供工具循环，也不把任何本地工具交给模型。ContextEnvelope、AgentDecision、provider 能力级别和数据出境以 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md) 为准。
+供应商的 JSON Schema、response format 或 function-calling 只能约束单个 `AgentDecision` 的传输格式；第一轮不提供工具循环，也不把任何本地工具交给模型。结构错误最多一次格式修复；同类错误再次出现立即停止。ContextEnvelope、AgentDecision、provider 能力级别和数据出境以 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md) 为准。
 
 ## 9. 确认与风险
 
@@ -361,9 +368,9 @@ validation: info | warning | blocked
 规则：
 
 - 明确、可逆的样式修改直接执行并创建版本。
-- 用户已经明确给出全部参数的数据变换可以生成派生 DatasetVersion，分析可以生成 AnalysisResult；两者执行前都展示参数与警告。
-- 字段映射遵循一次映射规则；精确、无歧义指令可以跳过确认。
-- 参数缺失、目标歧义、统计方法未指定时返回 NeedsInput。
+- 用户确认导入结构与图形字段角色后，本地 compiler 才能生成封闭 PreparationSpec；不存在通用数据变换确认。
+- 字段映射遵循选图后一次语义映射规则；精确、无歧义指令可以跳过映射 UI，但仍生成审计对象。
+- 必需角色、误差语义或预计算字段缺失时返回 NeedsInput；v1 不询问或执行统计/拟合方法。
 - 数学不可执行、数据结构不满足或违反产品硬规则时由本地 validator 阻止并返回稳定错误，不要求模型自我判断。
 - 永久删除、覆盖外部文件等破坏性操作不进入普通 ActionPlan，必须通过专门 UI 确认。
 
@@ -389,8 +396,8 @@ validation: info | warning | blocked
 - 每个发布版本输出 `schemas/` 包，包含 PlotSpec、PatchTransaction、ActionPlan、RPC 和事件 Schema。
 - Schema 使用固定 `$id` 和 Draft 2020-12 `$schema`。
 - TypeScript 类型由发布 Schema 生成，并在 CI 中检查工作区无未生成差异。
-- 不兼容 Schema 默认返回 `SCHEMA_VERSION_UNSUPPORTED`，不能以忽略字段方式继续写入。
-- 只有当前 build 明确实现的 source→target 版本对可在一致快照和新 temp workspace 中执行一次性迁移；迁移不得静默改变图形类型、数据版本、统计方法、单位或视觉结果。
+- 不兼容 Schema 默认返回 `SCHEMA_VERSION_UNSUPPORTED`，不能以忽略字段方式继续写入；v1 Schema 不含可执行 AnalysisSpec/FitSpec。
+- 只有当前 build 明确实现的 source→target 版本对可在一致快照和新 temp workspace 中执行一次性迁移；迁移不得静默改变图形类型、SourceDataset/PreparedDataset、FieldMapping/PreparationSpec、PlotCalculation、预计算字段、单位或视觉结果。
 - 未知新版本和没有专用迁移的旧版本都保持原项目不变，并提示使用兼容 build。
 
 ## 13. 第一轮契约测试
@@ -401,12 +408,12 @@ validation: info | warning | blocked
 - Pydantic Schema 与生成 TypeScript 类型的一致性。
 - PatchTransaction 原子性与版本冲突。
 - ActionPlan 最大 8 步、无环依赖和禁止 Action。
-- TransformPipeline 最大 16 步、只发布最终 DatasetVersion，ActionPlan 的 `materialize_analysis_output` 不重算分析。
-- UnitSpec、对象/字段/行 lineage 与 TransformStep discriminated union。
+- Excel/TXT/CSV ImportRecipe、结构候选、一次 FieldMapping、PreparationSpec 封闭联合与来源坐标。
+- PlotCalculationSpec 九类联合、固定算法 golden、禁止自由串联与 input/output hash。
 - ResolvedRenderPlan 规范化 hash、正式 ExportSpec 绑定与 Matplotlib/Origin adapter 禁止重新解析。
 - 坐标、ticks、SafeRichText、物理尺寸、quality tier 与跨 renderer 容差。
 - OriginExportPlan、O1 准入、最小自包含数据、两阶段读回、整文件原子性和稳定错误。
-- BatchSpec 完全同构签名。
+- BatchSpec 的 FieldMapping/PreparationSpec/PlotCalculationSpec 完全同构签名。
 - FigureSpec 固定版本引用。
 - 已知 source→target 一次性迁移原子性/语义不变与其他 Schema 稳定拒绝。
 - InviteGrant/DeviceCredential、QuotaSnapshot、ModelRun原子共享计数/client_run幂等与稳定错误。

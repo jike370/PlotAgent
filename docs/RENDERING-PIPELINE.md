@@ -3,7 +3,7 @@
 > 状态：第一轮渲染基线已确认  
 > 日期：2026-08-05  
 > 适用范围：ResolvedRenderPlan、质量层级、坐标范围、刻度、物理尺寸、安全文本、Matplotlib/Origin 语义一致性与导出验证  
-> 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 单一解析链
 
@@ -11,7 +11,7 @@
 
 ```text
 PlotSpec / FigureSpec
-+ immutable DatasetVersion / AnalysisResult refs
++ immutable PreparedDataset / PlotCalculationResult / precomputed refs
 + resolved style / publication profile
 + quality tier / output target
                  │
@@ -24,7 +24,7 @@ PlotSpec / FigureSpec
 Resolver 负责所有会影响科学语义或布局的决定。Matplotlib 与 Origin adapter 只能把 RenderPlan 映射为目标对象，不得各自：
 
 - autoscale、选择刻度或格式化不同标签。
-- 重算统计、拟合、分箱、平滑或误差。
+- 重算分箱、KDE、summary/error、拟合、科学分析或预计算字段。
 - 自动换单位、使用不同数据版本或静默删点。
 - 重新放置图例、标注、面板或改变图层顺序。
 - 用目标软件默认值补齐 RenderPlan 已承诺的关键语义。
@@ -34,10 +34,10 @@ Resolver 负责所有会影响科学语义或布局的决定。Matplotlib 与 Or
 ResolvedRenderPlan 是严格、版本化、可哈希的下游执行契约，至少包含：
 
 - resolver schema、算法和图形注册表版本。
-- PlotSpec/FigureSpec、DatasetVersion、AnalysisResult、样式与 publication profile 的精确引用和哈希。
+- PlotSpec/FigureSpec、PreparedDataset、PlotCalculationResult/用户预计算表、样式与 publication profile 的精确引用和哈希。
 - 物理画布尺寸、背景和每个 subplot 的矩形位置。
 - series、geometry、layer 与 drawing order。
-- 每个图层的数据表或 AnalysisResult output port 引用、字段与行 mask。
+- 每个图层的 Raw/Prepared/Plot Data 或 PlotCalculationResult 引用、字段与行 mask。
 - 完整解析后的颜色、透明度、线、marker、font 和文本 AST。
 - 每个 axis 的 scale、方向、range、tick values、tick labels、exponent、precision、title 和 UnitSpec。
 - legend、annotation、reference、panel label 和 common legend 的确定位置与锚点。
@@ -53,10 +53,10 @@ Plan 使用规范化序列化计算 `render_plan_hash`。正式 ExportSpec 必�
 | Tier | 用途 | 数据规则 |
 | --- | --- | --- |
 | `thumbnail` | 图形库、批次缩略图和资源预览 | 可使用确定性视觉降采样，必须记录完整/显示点数 |
-| `interactive` | 对话预览和聚焦编辑 | 可使用确定性视觉降采样，必须标识状态且不能成为分析输入 |
-| `formal` | PNG、SVG、OPJU 正式导出 | 使用完整数据与持久化 AnalysisResult 表，不降采样 |
+| `interactive` | 对话预览和聚焦编辑 | 可使用确定性视觉降采样，必须标识状态且不能成为 PlotCalculation 输入 |
+| `formal` | PNG、SVG、OPJU 正式导出 | 使用完整 PreparedDataset、PlotCalculationResult 或用户预计算表，不降采样 |
 
-三个层级使用同一 resolver、坐标算法、样式解析、文本 AST 和 tick 算法。缩略图与交互预览可以改变像素尺寸和实际绘制数据引用，但不能改变图形类型、数据范围候选、统计结果、类别映射或轴语义。
+三个层级使用同一 resolver、坐标算法、样式解析、文本 AST 和 tick 算法。缩略图与交互预览可以改变像素尺寸和实际绘制数据引用，但不能改变图形类型、数据范围候选、PlotCalculationResult、类别映射或轴语义。
 
 降采样只影响 geometry 的视觉点集合：
 
@@ -71,15 +71,13 @@ Plan 使用规范化序列化计算 `render_plan_hash`。正式 ExportSpec 必�
 Axis scale 只允许：
 
 - `linear`
-- `log2`
-- `ln`
 - `log10`
 - `datetime`
 - `categorical`
 
-第一轮不包含 symlog、probability 或 probit axis。请求未支持 scale 时返回 `Unsupported`，不能回退为 linear。
+第一轮不包含 log2、ln、symlog、probability 或 probit axis。请求未支持 scale 时返回 `Unsupported`，不能回退为 linear。
 
-坐标显示 scale 与 [拟合系统契约](./FITTING-SYSTEM.md) 中的模型变换彼此独立。改变 axis scale 不会重算 FitSpec 或其他 AnalysisSpec。
+坐标显示 scale 只改变显示语义，不执行单位换算、科学变换或拟合。v1 Log10 遇到参与绘图的非正值即阻断。
 
 ## 5. 确定性 Autoscale
 
@@ -87,10 +85,10 @@ Axis scale 只允许：
 
 每个 axis 的 raw range candidate 来自所有可见且绑定该轴的：
 
-- 原始或派生数据 geometry。
+- Raw/Prepared/用户预计算数据 geometry。
 - error bars 与 interval endpoints。
-- FitResult 持久化 curve、confidence band 和 prediction interval。
-- 分布图、堆积图等已持久化绘图计算端口。
+- 用户提供的 curve、confidence band、step、matrix 等预计算字段。
+- 分布图、堆积图等持久化 PlotCalculationResult。
 - 显式设置 `affect_range: true` 的 reference line 或 reference region。
 
 以下内容不扩大范围：
@@ -109,7 +107,7 @@ Axis scale 只允许：
 - categorical axis 在首尾类别中心外各保留半个 slot。
 - continuous axis 在变换空间对 raw candidate 两端各加 5% padding。
 - zero-span 使用版本化的 deterministic expansion rule，规则 ID 与结果写入 Plan。
-- log2、ln 和 log10 遇到参与可见 geometry 的非正值时阻止渲染，不静默过滤或夹到正数。
+- log10 遇到参与可见 geometry 的非正值时阻止渲染，不静默过滤或夹到正数。
 
 每个 lower/upper bound 独立为 `auto` 或 `fixed`：
 
@@ -142,7 +140,7 @@ Resolver 使用版本化 nice-number algorithm 生成：
 
 标签碰撞消减是确定性的：Plan 记录测量字体、可用长度、候选数量、保留索引、旋转/换行和算法版本。Matplotlib 与 Origin 不再自行删 tick 或修改精度。
 
-Unit prefix 只能来自用户确认的 UnitSpec 转换和实际 plot-local DatasetVersion。Resolver 不能只把 `V` 标签改成 `mV`、设置 Origin display factor 或借 scientific notation 暗中换算数据单位。Scientific exponent 是数值格式，必须在 Plan 中显式记录。
+v1 不执行 Unit prefix 换算。Resolver 不能只把 `V` 标签改成 `mV`、设置 Origin display factor 或借 scientific notation 暗中换算数据单位。Scientific exponent 只是数值格式，必须在 Plan 中显式记录且不改变 UnitSpec。
 
 ## 7. 物理尺寸与色彩
 
@@ -153,7 +151,7 @@ Unit prefix 只能来自用户确认的 UnitSpec 转换和实际 plot-local Data
 - Origin page 使用与 Plan 相同的物理尺寸和 subplot rectangles。
 - 第一轮只使用 sRGB；不提供 CMYK 或 renderer 私有色彩转换。
 
-Resolver 统一执行单位换算，adapter 不使用目标库默认 figure size、margin、font size 或 color cycle。
+Resolver 统一验证已经确认的 UnitSpec，但 v1 不执行单位换算；adapter 不使用目标库默认 figure size、margin、font size 或 color cycle。
 
 ## 8. 安全文本与字体
 
@@ -207,7 +205,7 @@ O1 输出必须用 Origin 原生、链接的数据对象表达：
 
 - worksheet/matrix 与 graph plot 保持数据链接。
 - axis、tick、legend、annotation 和 page layout 可继续编辑。
-- 数据、误差、区间和持久化 fit curve 不由 Origin 重算。
+- 数据、误差、区间、固定计算结果和用户预计算曲线不由 Origin 重算。
 - 不把 Matplotlib raster、整图 SVG 或其他嵌入对象作为“原生”fallback。
 
 如果 Origin adapter 无法表达关键语义或无法在重新打开后读回验证，OPJU 导出必须阻止。非关键可接受差异只有在能力契约明确允许并披露时才可进入其他能力等级；不能由运行时临时降级。
@@ -252,7 +250,7 @@ O1 输出必须用 Origin 原生、链接的数据对象表达：
 - 同一 PlotSpec 和固定引用生成相同规范化 RenderPlan 与 hash。
 - Matplotlib/Origin adapter 拒绝自行 autoscale、ticks、统计或单位换算。
 - thumbnail/interactive 降采样标识与 formal 全量数据。
-- 六种 axis scale、未支持 scale 和 log nonpositive 阻止。
+- linear/log10/datetime/categorical 四种 axis scale、未支持 scale 和 log nonpositive 阻止。
 - 全部 autoscale 来源、include-zero、outlier、reference、padding、zero-span、fixed bound、reverse 与 batch union。
 - exact ticks/labels/exponent/precision、碰撞消减和 UnitSpec 前缀规则。
 - mm/pt/DPI/viewBox/Origin page 与 sRGB。

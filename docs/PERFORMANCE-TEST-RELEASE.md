@@ -1,11 +1,11 @@
 # PlotAgent 小规模邀请制 Beta 性能测试与发布门禁契约
 
-> 状态：专业能力范围完整，工程 qualification 收敛为小规模邀请制 Beta
+> 状态：v1 数据与计算范围收敛，工程 qualification 面向小规模邀请制 Beta
 > 日期：2026-08-05
 > 适用范围：唯一正式平台与规模基线、31 图证据矩阵、单一 Origin 版本 qualification、Beta 发布检查单与用户成功标准
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)
 
-本文件定义第一轮邀请制 Beta 的正式 qualification。它保留 31 图、科学分析与拟合、PNG/SVG/O1 OPJU、full-data formal 和科学可追溯底线，但不再把商业级多平台、多版本、大规模、自动更新、通用迁移或长期运维门禁列为当前 v1 强制要求。当前设计文档通过不表示真实实现或 Beta qualification 已完成。
+本文件定义第一轮邀请制 Beta 的正式 qualification。它保留 31 图、确定性导入/一次字段映射、九类固定绘图计算、预计算字段路径、PNG/SVG/O1 OPJU、full-data formal 和科学可追溯底线；通用数据处理、AnalysisSpec/FitSpec 与科研分析/拟合不在 v1。当前设计文档通过不表示真实实现或 Beta qualification 已完成。
 
 ## 1. 唯一正式 Windows qualification profile
 
@@ -45,9 +45,9 @@
 超过上述已验证范围允许通过 resource preflight 后 best effort 执行，但必须同时满足：
 
 - UI 在开始前和结果上显示“超出 Beta 已验证范围”，列出超出的维度和估计资源。
-- 不得静默 downsample/rasterize formal PNG/SVG/OPJU，不得换分析、拟合、字段映射、单位或图形算法。
+- 不得静默 downsample/rasterize formal PNG/SVG/OPJU，不得改变 FieldMapping、PreparationSpec、PlotCalculation 算法/参数、预计算字段、单位或图形算法。
 - 资源不足时稳定返回 `RESOURCE_LIMIT` 或 `DISK_SPACE_INSUFFICIENT`，项目权威状态不受损。
-- 恢复建议只能是用户显式筛选、聚合、分箱、减少图表/批次或另存目标；系统不自动改变科研语义。
+- 恢复建议只能是用户在外部显式准备较小数据、减少图表/批次或另存目标；系统不能借资源问题暴露隐藏 filter/aggregate 或自动改变科研语义。
 - 超范围 best effort 的成功记录不是扩大正式支持范围的证据。
 
 ## 4. Preview 简化与正式完整性
@@ -55,8 +55,8 @@
 - thumbnail 每视图最多 5,000 visible primitives。
 - interactive 每 axes 最多 20,000 visible primitives。
 - 简化规则版本化、确定性，并显示“预览已简化”、完整数量、显示数量和方法。
-- autoscale range、统计、AnalysisSpec、FitSpec、error/interval 始终使用 full data；preview 简化只改变可视采样。
-- 声明支持规模内的 formal PNG、SVG 与 OPJU 一律使用 full data 和持久化 AnalysisResult/FitResult 表。
+- autoscale range、PlotCalculationSpec、error/interval 始终使用 full data；preview 简化只改变可视采样。
+- 声明支持规模内的 formal PNG、SVG 与 OPJU 一律使用 full PreparedDataset、PlotCalculationResult 或用户预计算表。
 - 导出前按 100k 正式范围估计 primitive count、预计文件大小、内存和磁盘。估计接近当前资源能力时显示明确 warning；无法安全完成时返回稳定资源错误。不得以固定 2M primitives/200 MB 商业级阈值替代本 Beta 的实际 preflight。
 
 ## 5. Reference profile P95 预算
@@ -90,7 +90,7 @@ Shell interactive 不等待云、Origin 或 Core ready。任何预计或实际�
 | 100k-data preview，最多 20k visible primitives | ≤ 3 s |
 | 20 charts × 10k batch preview | ≤ 30 s |
 
-100k preview 的 range/stats/analysis 仍基于 full data。第一轮不设置 1M preview 性能门禁。
+100k preview 的 range、quality summary 与固定 PlotCalculation 仍基于 full data。第一轮不设置 1M preview 性能门禁。
 
 ### 5.4 Formal export
 
@@ -131,8 +131,8 @@ Provider latency单独记录 DNS/connect/TLS/TTFB/complete，不删除慢样本�
 正式第一轮 31 个 chart type，每个至少三种 fixture：
 
 1. `minimal_valid`：最小合法字段与数据。
-2. `representative_research`：真实科研语义、单位、误差/analysis/annotation 的代表样本。
-3. `edge_error`：缺失、非有限值、非法 log、字段/单位/analysis/Origin capability 等边界或稳定错误。
+2. `representative_research`：真实科研语义、单位、固定计算/预计算字段/annotation 的代表样本。
+3. `edge_error`：缺失、非有限值、非法 Log10、字段/单位/预计算要求/Origin capability 等边界或稳定错误。
 
 每个 fixture 固定 formal PNG、formal SVG、O1 OPJU 三个基础产物/预期错误 path，因此为 `31 × 3 × 3 = 279`：
 
@@ -146,7 +146,7 @@ Preview/interactive 是另外的必测路径，不计入 279。`edge_error` 可�
 
 - PlotSpec canonical JSON、ResolvedRenderPlan normalized hash/golden。
 - thumbnail/interactive、formal PNG/SVG、O1 live+fresh-reopen OPJU。
-- BatchSpec、FigureSpec、analysis/fit output ports、axes/ticks、error/warning。
+- BatchSpec、FigureSpec、PreparedDataset/PlotCalculationResult/预计算字段、axes/ticks、error/warning。
 - 中文、英文与中英混合科研术语、SafeRichText 与字体 fallback。
 - cancel、Core/worker crash、request idempotency、expected-version conflict。
 - formal full-data assertion、preview simplification disclosure 与 parity tolerance。
@@ -169,16 +169,31 @@ MatrixKey
 
 Evidence 固定 input/reference dataset、spec/plan、artifact/validator、dependency、fixture 与 build hashes，以及 timing/memory 和 stable error。重试不是新 case，不能覆盖第一次失败记录。
 
+### 7.4 导入与分层诊断 fixtures
+
+279 是图形三格式基础矩阵，不含导入 fixture。导入另设约 30 个冻结 golden：
+
+- Excel 10：多 sheet、多个 region/header、`.xlsx/.xls/.xlsm` 只读、缓存公式值、单位行与来源坐标。
+- TXT 10：preamble/DataBlock/postamble、encoding/delimiter/header、multi block/sweep/channel、metadata label 与普通 CSV 复用路径。
+- 最小追问 5：每例只能生成一个明确问题。
+- 可操作拒绝 5：超出清单、重复规范化列名、无缓存公式值等稳定拒绝。
+
+边界变体由冻结 generator/version/seed 从基础 fixture 生成，但 expected oracle 随 manifest 固定，不能在运行时从被测实现生成。31 图另有字段映射/准备/固定计算/预计算/PlotSpec fixtures。
+
+每个 case 保存分层快照：`file read → region candidates/selection → table parse → mapping → PreparedDataset/PlotCalculationResult → PlotSpec → render → export`。首次偏差决定责任层；下游不得用容错掩盖上游错误。错误族按 `IMPORT/MAPPING/PREPARE/PLOTSPEC/RENDER/EXPORT/TEST` 归档并支持分层回放。
+
 ## 8. Beta 测试层级
 
 1. Schema/domain strict union、generated TS types 与 stable error registry。
-2. Import/Transform/Unit/Lineage、archive/Excel 安全与 `.plotproj` integrity。
-3. Scientific reference datasets、AnalysisSpec/FitSpec、方法/公式/版本/诊断。
+2. Excel/TXT/CSV deterministic import、FieldMapping、PreparationSpec/Unit/source coordinates、archive/Excel 安全与 `.plotproj` integrity。
+3. 九类 PlotCalculation golden、31 图预计算字段契约、完整数据/mask/hash 与禁止通用 AnalysisSpec/FitSpec。
 4. Resolver/render/layout/axis/ticks/font/color/physical size 与 cross-renderer semantic parity。
 5. 单一 Origin exact version 的 O1 live/save/fresh-reopen/readback。
 6. Electron↔Python E2E、single-instance、preload、task/cancel/crash/idempotency/version conflict。
 7. strict local_only 零出站、credential/log/bundle 禁止字段、恶意 archive 与签名安装包验证。
 8. Reference profile 性能/内存/磁盘与安装 smoke test。
+
+模型相关测试分三层且不得混算：确定性程序测试；固定模型响应的 AgentDecision/validator 契约测试；真实模型的中英/混合科研术语质量评测。真实模型输出不作为确定性 oracle。
 
 当前 Beta 不要求多 OS/DPI/minimum-machine、长时间 soak、生产级云攻击矩阵、SBOM 流程或多版本 Origin qualification。依赖名称、锁文件/包 hash、许可清单和已知风险仍随 build 固定，不能因简化流程绕过签名或 secret 边界。
 
@@ -188,7 +203,7 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 
 - cold/warm state 与 cache policy。
 - reference dataset/object/package/fixture hash。
-- 本地 Windows reference profile、app commit/build、Python、SQLite、renderer、analysis、Origin/adapter/template/font/dependency versions。
+- 本地 Windows reference profile、app commit/build、Python、SQLite、importer/preparation/plot-calculation、renderer、Origin/adapter/template/font/dependency versions。
 - 预先定义的 sample count；普通路径至少 10 次，昂贵 OPJU 路径至少 5 次，并保留全部失败/timeout。
 - P50/P95 使用 nearest-rank；失败不从结果中删除。
 - 相对前一已批准 Beta baseline P95 退化 >15% 或越过绝对预算时阻断并调查。
@@ -200,8 +215,8 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 以下任一项出现时禁止分发 Beta build：
 
 - data loss/corruption，任务失败或崩溃损坏已有项目权威状态。
-- silent wrong science；mapping/unit/statistical method/fit formula/seed/missing policy 被静默改变。
-- 声明支持规模内 formal downsample、renderer/analysis algorithm swap 或 capability downgrade。
+- silent wrong science；导入区域、FieldMapping、UnitSpec、PreparationSpec、PlotCalculation 算法/参数/seed/missing policy 或用户预计算字段被静默改变。
+- 声明支持规模内 formal downsample、renderer/plot-calculation algorithm swap 或 capability downgrade。
 - 非原生结果被宣称为 O1，或声明的唯一 Origin exact version fresh reopen 关键语义失败。
 - credential、prompt、文件路径、列名、单元格值、数据摘要或 secret 泄漏。
 - 31 个正式图形中任一声明输出路径/适用 fixture 失败。
@@ -215,12 +230,14 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 1. 固定 commit、build、dependency lock/hash、fixture/golden 与 Decision baseline。
 2. 31 图 279 MatrixKey coverage 和额外 preview/interactive coverage 零缺口。
 3. 当前 build 唯一 Origin exact version 的完整 93 条 O1 live+fresh-reopen report。
-4. Scientific reference、mapping/unit/analysis/fit 与 full-data formal assertions。
+4. 约30个导入 golden、31图字段/准备/固定计算/预计算契约与 full-data formal assertions。
 5. Reference profile 性能、≤2 GB peak、磁盘/resource preflight 结果。
 6. strict local_only、credential/log/DiagnosticBundle 禁止字段和恶意导入检查。
 7. 简化云额度的共享计数与 `client_run_id` 重试不重复扣费检查；自定义 provider/本地能力不受影响。
 8. 人工分发安装包的 SHA-256、发布签名与 Windows code signature 验证。
 9. Known issues、稳定错误、恢复动作和单一 go/no-go 记录。
+
+每份 evidence 固定 manifest/source/test-runner/app/PlotSpec/model/profile/prompt/Unicode normalization hashes；任何一项变化都形成新 evidence。测试运行时不得生成 oracle。
 
 检查单由指定 Beta release owner 汇总并由对应科学/Origin实现负责人复核其专业证据；不要求商业级多角色签署链。任何 build 内容变化都生成新的 build/hash/checklist。
 

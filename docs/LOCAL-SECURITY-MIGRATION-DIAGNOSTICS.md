@@ -40,7 +40,7 @@ NetworkMode
 
 第一轮没有 `OneTimeUpdateGrant`、`update_only` 或任何 strict local_only 联网例外。人工安装包由用户在应用外取得，退出应用后显式运行；PlotAgent 本身仍保持零出站。
 
-local_only 下仍完整可用：导入、字段映射、白名单变换、分析/拟合、手动选图和参数编辑、31 图、同构批次、固定布局组合、项目资源、PNG/SVG，以及本机 exact Origin version 可用时的 O1 OPJU。手动 UI 构造与 Agent 相同的 ActionPlan 并进入相同 validator/executor/transaction 链。
+local_only 下仍完整可用：确定性导入、字段映射、受控 Preparation、九类固定 PlotCalculation、手动选图和参数编辑、31 图、同构批次、固定布局组合、项目资源、PNG/SVG，以及本机 exact Origin version 可用时的 O1 OPJU。手动 UI 构造与 Agent 相同的 ActionPlan 并进入相同 validator/executor/transaction 链。
 
 ## 3. 本地数据保护边界
 
@@ -111,9 +111,9 @@ DiagnosticBundle 只在用户主动操作时生成：
 3. 对 JSON 显示 exact JSON 预览，对文本显示完整或明确分段预览。
 4. 用户选择保存位置后写入本地包；应用不上传，用户自行发送。
 
-允许：app/OS/Python/Origin/dependency/schema versions、Origin capability、stable errors、task state transitions、performance buckets、scrubbed stacks、非敏感 config flags、本地日志节选。
+默认允许：app/OS/Python/Origin/dependency/schema versions、Origin capability、stable errors、task state transitions、performance buckets、scrubbed stacks、非敏感 config flags、本地日志节选，以及不含列名/值的结构、计数、统计 bucket 与 content hash。
 
-禁止：project/catalog DB、数据文件、preview/PNG/SVG/OPJU、`.plotproj`、prompt/聊天、文件名/路径、列名/类别/值/样本、secret/credential/invite、模型 body、memory dump。
+始终禁止：project/catalog DB 原件、preview/PNG/SVG/OPJU、`.plotproj`、prompt/聊天、文件名/路径、secret/credential/invite、模型 body、memory dump。列名/类别/单元格值/样本默认禁止；只有用户为本次 bundle 单独明确同意、先看到脱敏规则与 exact 文件预览时，才可加入专门的脱敏数据文件。同意不持久化，不能扩展到其他项目或下次 bundle，且应用仍只保存本地、不上传。
 
 ```text
 LocalDiagnosticBundleManifest
@@ -122,6 +122,8 @@ LocalDiagnosticBundleManifest
 ├─ app_build
 ├─ files[]: logical_name, purpose, size, sha256
 ├─ allowed_field_counts
+├─ sanitized_data_consent: absent | this_bundle
+├─ sanitized_data_rules_hash?
 ├─ forbidden_scan_result
 └─ user_selected_output_path # 仅当前操作，不写入包内容/日志
 ```
@@ -147,7 +149,7 @@ LocalDiagnosticBundleManifest
 4. 验证 object counts/refs/hashes、rows/columns、version DAG/current pointers 与科学/视觉语义 hash。
 5. 全部通过后原子切换到新工作副本；失败/取消继续使用原项目且无半迁移状态。
 
-迁移只能改变存储表示，不得改变 chart type、mapping、unit、analysis/statistical method、fit formula、style、renderer snapshot 或 visual result。任何科学/渲染语义升级必须由用户明确 adopt 并创建新的 AnalysisResult/PlotSpec/FigureSpec。
+迁移只能改变存储表示，不得改变 chart type、FieldMapping、PreparationSpec、UnitSpec、PlotCalculation 算法/参数、用户预计算字段、style、renderer snapshot 或 visual result。任何科学/渲染语义升级必须由用户明确 adopt 并创建新的 PlotCalculationResult/PlotSpec/FigureSpec；未来 AnalysisSpec/FitSpec 若启用也必须遵循同一原则。
 
 ```text
 KnownVersionMigrationRecord
@@ -192,14 +194,14 @@ KnownVersionMigrationRecord
 | 规则 | 验收 | 故障注入 |
 | --- | --- | --- |
 | strict local_only | 全进程抓包/DNS/HTTP mock零请求 | startup/provider/quota/update/diagnostic/URL |
-| 断网本地闭环 | 导入、手动ActionPlan、分析、31图、batch/Figure、三种导出 | 控制面/provider不可达 |
+| 断网本地闭环 | 导入、手动ActionPlan、Preparation/PlotCalculation、31图、batch/Figure、三种导出 | 控制面/provider不可达 |
 | 恶意 archive | traversal/link/bomb/hash全部阻断 | Unicode/case/size/ratio边界 |
 | 表格不执行 | 宏/公式/外链不运行，cache provenance正确 | VBA/DDE/external refresh |
 | Electron边界 | renderer无Node/secret/任意IPC | HTML/JS/data URL/path注入 |
-| 日志/Bundle | 禁止字段扫描为零；Bundle只本地保存 | prompt/path/column/value/secret注入 |
+| 日志/Bundle | 默认仅结构/统计/hash且禁止字段为零；单次脱敏数据同意/预览可撤回；Bundle只本地保存 | prompt/path/column/value/secret注入、无同意加样本 |
 | 未知 schema | 稳定拒绝且原项目字节/对象不变 | future version/invalid manifest |
 | 已知版本对 | 成功原子切换；每阶段崩溃保持源可开 | copy/migrate/validate/switch故障 |
-| 语义不变 | migration前后science/visual hashes一致 | method/style/version注入 |
+| 语义不变 | migration前后Preparation/PlotCalculation/visual hashes一致 | mapping/calculation/style/version注入 |
 | 崩溃重试 | 已有项目不损坏、temp可清理、用户明确重试 | worker/Core/app终止 |
 | 无自动备份 | 无后台backup/recovery状态或磁盘写入 | idle 24h/项目修改 |
 

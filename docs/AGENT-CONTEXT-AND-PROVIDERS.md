@@ -30,11 +30,15 @@ Local ConversationState reducer
 - 访问文件系统、SQLite、Origin、项目对象存储或 Windows Credential Manager。
 - 读取任意 URL、打开数据中的链接或请求本地系统替它抓取链接。
 - 执行 Python、LabTalk、SQL、命令行、JavaScript 或任意表达式。
-- 直接调用 Dataset/Plot/Analysis/Export 等领域服务。
+- 直接调用 Import/Preparation/PlotCalculation/Plot/Export 等领域服务。
 - 拥有多轮工具循环、自治重试循环或后台执行权限。
 - 把供应商会话、模型自述或自然语言成功消息变成项目权威状态。
 
 供应商的 JSON Schema、response format 或 function-calling 机制只能约束单个 AgentDecision 的传输格式，不表示向模型提供工具。
+
+第一轮只有一个对话编排 Agent。一个会话可以包含多个 FigureTask/BatchTask，但每次 InteractionRun 仍严格遵循 `ContextEnvelope → 单个 AgentDecision → 本地校验/编译 → 执行 → 验证/提交 → reducer`，并携带常驻 active target。没有子 Agent、角色 Agent 或领域 Agent。
+
+模型只表达中英/混合科研术语的业务意图。它不得输出 pandas/Python/Matplotlib/Origin、文件/SQL、内部 table ID、PreparationStep 或数据处理步骤。导入器回答“数据在哪里”，FieldMapping 回答“字段在图中是什么”，PlotSpec 回答“怎么画”；这些权威对象由本地程序生成。
 
 ## 2. 不可信数据与指令隔离
 
@@ -113,7 +117,7 @@ ContextEnvelope
 
 默认永不发送：
 
-- 原始文件或完整 DatasetVersion 表。
+- 原始文件或完整 SourceDataset/PreparedDataset 表。
 - 工作区路径、源路径、SQLite、OPJU 或 `.plotproj`。
 - 完整项目、完整对话或未选择对象。
 - API key、设备令牌、凭据和诊断包。
@@ -130,13 +134,13 @@ ContextEnvelope
 
 确定性选择规则：
 
-1. 字段优先级依次为显式 target/mapping 引用、用户指令精确名称命中、图形/分析所需角色、类型与单位候选，最后按稳定 field ID；最多 12 个。
-2. 行按 DatasetVersion hash、稳定 row ID 和 sampling rule version 计算确定性 hash order，选择前 N 个；相同输入与版本得到相同样本。
+1. 字段优先级依次为显式 target/mapping 引用、用户指令精确名称命中、图形角色/预计算字段要求、类型与单位候选，最后按稳定 field ID；最多 12 个。
+2. 行按 SourceDataset/PreparedDataset hash、稳定 source row ID 和 sampling rule version 计算确定性 hash order，选择前 N 个；相同输入与版本得到相同样本。
 3. missing/NaN/Inf 作为类型化状态计数并按 disclosure 规则表示，不借机追加更多行。
 
 ### 5.3 超宽表
 
-DatasetVersion 超过 200 列时，本地字段索引按规范化名称 token、逻辑类型、UnitSpec、字段语义和当前 chart/analysis role 评分：
+SourceDataset 超过 200 列时，本地字段索引按规范化名称 token、逻辑类型、UnitSpec、字段语义和当前 chart role/预计算要求评分：
 
 - 只发送相关候选字段元数据，不发送全量宽表 schema。
 - 候选仍受 12 个 sample field 与 ContextEnvelope 大小限制。
@@ -147,7 +151,7 @@ DatasetVersion 超过 200 列时，本地字段索引按规范化名称 token、
 
 模型发现当前 Envelope 不足时只能返回 NeedsInput，并在 `data_request` 中声明：
 
-- DatasetVersion 与字段 IDs/versions。
+- SourceDataset/PreparedDataset 与字段 IDs/versions。
 - 请求的数据类别和估算 scalar/row/field 数量。
 - 用途、为什么默认摘要不足、是否可以用更小范围满足。
 - 所需授权 scope。
@@ -228,7 +232,7 @@ Repair request：
 - 固定同一 model/profile、target versions、context hash 和 disclosure scope。
 - 只说明 schema errors 并携带待修复候选；不增加新项目数据。
 - repair usage 计入同一 ModelRunAudit。
-- 第二次仍失败返回 REPAIR_EXHAUSTED，不从自然语言猜 Action。
+- 第二次仍失败返回 REPAIR_EXHAUSTED；同类结构错误再次出现立即停止，不从自然语言猜 Action。
 
 P1/P2 都必须通过相同本地 schema、对象版本、capability、permission 和业务规则校验。输出能力等级从不授予直接执行权限。
 
@@ -244,7 +248,7 @@ AgentDecision
 └─ NoChange
 ```
 
-- `ActionPlan` 是最多 8 个白名单 Action 的完整候选。
+- `ActionPlan` 是最多 8 个白名单业务 Action 的完整候选；v1 不含通用变换、运行分析或运行拟合 Action。
 - `NeedsInput` 只用于必要澄清或扩大出境请求。
 - `Unsupported` 表示产品/Provider 能力没有合法实现路径。
 - `NoChange` 表示权威状态已满足请求或没有状态变化。
@@ -259,7 +263,7 @@ AgentDecision 不设置模型自报的 blocked 分支。ActionPlan 违反数学�
 
 - 作用对象不明确。
 - 字段映射存在同等候选且无法由已确认映射消解。
-- 分析方法、误差语义或设计选择会实质影响科研结果。
+- 误差语义、预计算字段含义或导入结构选择会实质影响图形语义。
 - 需要扩大数据出境。
 - 本地 validator 缺少使计划成立的必要信息。
 

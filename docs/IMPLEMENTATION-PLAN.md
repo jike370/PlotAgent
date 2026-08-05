@@ -22,12 +22,13 @@
 ```mermaid
 flowchart LR
     W0["W0 Contracts / Tooling"] --> W1["W1 Electron / Supervisor"]
-    W0 --> W2["W2 Storage / Import / Transform"]
-    W2 --> W3["W3 Analysis / Fit"]
+    W0 --> W2["W2 Storage / Deterministic Import / Preparation"]
+    W2 --> W3["W3 Fixed Plot Calculations"]
     W2 --> W4["W4 Charts / Resolver / Matplotlib"]
     W2 --> W7["W7 Agent / Provider"]
     W2 --> W9["W9 Local Security / Migration"]
     W3 --> W4
+    W3 --> W6["W6 Origin O1"]
     W4 --> W5["W5 Batch / Figure"]
     W4 --> W6["W6 Origin O1"]
     W1 --> W7
@@ -39,14 +40,14 @@ flowchart LR
     W9 --> W10
 ```
 
-W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/layout 基础并行，但任何 analysis-backed chart 等待 W3 ports；W5 与 W6 在 K01 vertical slice 后并行；W8 的协议 mock 可与 W7 后半段并行，但真实 proxy 只接固定 AgentDecision/ledger contract；W10 harness 从 W0 开始建设，最终 qualification 等待 W5/W6/W8/W9。
+W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/layout 基础并行，但固定计算图等待 W3 result，预计算图等待 W2 字段契约；W5 与 W6 在 K01 vertical slice 后并行；W8 的协议 mock 可与 W7 后半段并行；W10 harness 从 W0 开始建设，最终 qualification 等待 W5/W6/W8/W9。
 
 ## 3. Workstreams
 
 ### W0 — Contracts、generated types、errors、fixtures 与 harness
 
 - **Owner:** Core Contracts + QA Infrastructure。
-- **Scope:** Pydantic strict models；JSON Schema Draft 2020-12；generated TS types；JSON-RPC/event envelopes；stable error registry；canonical hash rules；31图/analysis/security golden fixture manifest；test/evidence harness skeleton。
+- **Scope:** Pydantic strict models；JSON Schema Draft 2020-12；generated TS types；JSON-RPC/event envelopes；stable error registry；canonical hash rules；约30个导入 golden、31图字段/准备/固定计算/预计算/security fixture manifest；test/evidence harness skeleton。
 - **Out of scope:** 领域算法、真实 renderer、Electron业务 UI、云部署和 Origin automation。
 - **Inputs/contracts:** DOMAIN-CONTRACTS、所有专门契约、PRODUCT-DECISIONS、PERFORMANCE-TEST-RELEASE。
 - **Planned entries:** `src/plotagent/contracts/`、`schemas/`、`src/shared/generated/`、`tests/fixtures/`、`tests/evidence/`。
@@ -69,49 +70,49 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Stable error ownership:** `CORE_*`、`IPC_*`、`SINGLE_INSTANCE_*`、`CREDENTIAL_ACCESS_*`、`EXTERNAL_LINK_BLOCKED`。
 - **Done:** App shell不等云可交互，Core可监管/恢复，renderer无Node/secret/任意IPC，任务事件和关闭路径满足contract并有E2E evidence。
 
-### W2 — Storage、Import、DatasetVersion、Transform、Unit 与 Lineage
+### W2 — Storage、确定性 Import、SourceDataset 与受控 Preparation
 
 - **Owner:** Data Platform/Core Storage。
-- **Scope:** catalog/project SQLite single writer；CAS；`.plotproj` snapshot/open；safe CSV/TSV/XLSX/import archive；ImportRecipe；DatasetVersion；semantic signature；TransformStep union；UnitSpec/pinned Pint；object/field/row lineage；resource delete guards。
-- **Out of scope:** statistical AnalysisSpec、rendering、Agent、cloud sync、cell editing、arbitrary SQL/Python/UDF。
+- **Scope:** catalog/project SQLite single writer；CAS；`.plotproj` snapshot/open；安全 `.xlsx/.xls/.xlsm` 多 sheet 与仪器 TXT/CSV 导入；ImportRecipe/SourceDataset；region candidates/minimal question；FieldMapping；封闭 PreparationSpec/PreparedDataset；UnitSpec 校验；source coordinates；同构签名；resource delete guards。
+- **Out of scope:** 通用 TransformPipeline/derived dataset、filter/dedupe/join/unit conversion/arithmetic/normalize、AnalysisSpec/FitSpec、rendering、Agent、cloud sync、cell editing、SQL/Python/UDF。
 - **Inputs/contracts:** PROJECT-STORAGE、DATA-TRANSFORMS、LOCAL-SECURITY、DOMAIN-CONTRACTS、TASK-RUNTIME、W0。
-- **Planned entries:** `src/plotagent/storage/`、`importing/`、`datasets/`、`transforms/`、`units/`、`lineage/`。
-- **Deliverables:** schema migrations v1 seed；transaction/CAS APIs；Online Backup snapshot packaging；safe archive/parser pipeline；deterministic Dataset/field/row IDs；preflight diff；isomorphic signature；Transform/Unit engines。
-- **Dependencies/parallel:** W0→W2。SQLite/CAS、parser、Transform/Unit可分组并行；DatasetVersion/hash/transaction contract先行。W3/W4/W7/W9消费immutable refs。
-- **Acceptance evidence:** import atomic failure；100MB CSV/50MB XLSX budgets；archive traversal/link/bomb；macro/formula/external link nonexecution；lineage golden；unit algebra/temperature/opaque；join cardinality；WAL crash；package checksum/reopen。
-- **Stable error ownership:** `IMPORT_*`、`ARCHIVE_*`、`FORMULA_*`、`DATASET_*`、`TRANSFORM_*`、`UNIT_*`、`LINEAGE_*`、`PROJECT_STORAGE_*`。
-- **Done:** 数据从授权文件到immutable DatasetVersion/derived version端到端可复现，失败零正式污染，包/工作副本/同构/单位/血缘均有golden与fault evidence。
+- **Planned entries:** `src/plotagent/storage/`、`importing/excel/`、`importing/text/`、`datasets/source/`、`preparation/`、`units/`、`provenance/`。
+- **Deliverables:** transaction/CAS APIs；Online Backup snapshot packaging；safe archive/parser pipeline；Excel sheet/TXT block candidates；ImportRecipe；SourceDataset IDs/source coordinates；FieldMapping compiler；PreparationSpec/PreparedDataset；isomorphic signature。
+- **Dependencies/parallel:** W0→W2。SQLite/CAS 与 Excel/TXT parser 可并行；SourceDataset/hash/transaction contract先行。W3/W4/W7/W9消费immutable refs。
+- **Acceptance evidence:** 约30个 import goldens（Excel10/TXT10/clarify5/reject5）；100MB CSV/50MB XLSX budgets；archive traversal/link/bomb；macro/formula/external link nonexecution；`0/False`/NaN/Inf；source coordinates；no cross-sheet join；Preparation/hash；WAL crash；package checksum/reopen。
+- **Stable error ownership:** `IMPORT_*`、`MAPPING_*`、`PREPARE_*`、`ARCHIVE_*`、`FORMULA_*`、`SOURCE_DATASET_*`、`UNIT_*`、`PROJECT_STORAGE_*`。
+- **Done:** 授权文件到不可变 SourceDataset、一次 FieldMapping 和受控 PreparedDataset 可复现；正确导入/一个追问/可操作拒绝三种结果有 golden，失败零正式污染且无通用变换后门。
 
-### W3 — AnalysisSpec/Result 与 FitSpec/Result
+### W3 — PlotCalculationSpec/Result 与预计算字段契约
 
-- **Owner:** Scientific Computing。
-- **Scope:** v1 analysis registry；descriptive/interval/distribution/correlation/regression/smoothing/4PL/5PL/KM/log-rank/confusion；significance whitelist/corrections；FitSpec input level/weights/initializer/multistart/intervals；persisted result ports/tables/diagnostics/stale marking。
-- **Out of scope:** arbitrary formula/Python、auto method/model selection、meta-analysis merge、Nyquist fitting、Cox/competing risk、model training/conclusions。
-- **Inputs/contracts:** ANALYSIS-ENGINE、FITTING-SYSTEM、DATA-TRANSFORMS、DOMAIN-CONTRACTS、W2 immutable datasets/units/lineage、W0 fixtures。
-- **Planned entries:** `src/plotagent/analysis/`、`fitting/`、scientific reference tests。
-- **Deliverables:** versioned method registry；strict Analysis/Fit execution；float64/seed/missing policies；result ports/curve/bands/residuals/diagnostics；failure/warning taxonomy；materialization adapter。
-- **Dependencies/parallel:** W2→W3。Independent method families可并行，但 registry/result envelope/precision/seed先冻结。W4只消费persisted ports。
-- **Acceptance evidence:** approved reference datasets与tolerance；4PL/5PL formula/multistart/start diagnostics；KM/risk/Greenwood/log-rank；correction/comparison set；failure preserves raw points；batch same-spec partial success；stale-no-auto-recompute。
-- **Stable error ownership:** `ANALYSIS_*`、`FIT_*`、`SCIENTIFIC_*`、`MISSING_SEMANTICS_*`、`CONVERGENCE_*`。
-- **Done:** 每个白名单方法有reference/golden/edge fixture、版本化implementation和稳定ports；禁止能力不能被fallback，正式render/export无需重算。
+- **Owner:** Plot Calculation + Scientific Integrity。
+- **Scope:** 九类封闭 kind；FD/Sturges/constant histogram；Tukey box；Gaussian/Scott KDE；ECDF；五类 summary/error；percent stack；matrix projection；confusion normalization；fixed jitter；`fail/exclude_with_report`；用户预计算字段 validators。
+- **Out of scope:** AnalysisSpec/Result、FitSpec/Result、统计检验/相关/回归/KM/4PL/5PL、平滑/基线/归一化、任意公式/代码、新 kind、自由串联或通用数据物化。
+- **Inputs/contracts:** ANALYSIS-ENGINE、FITTING-SYSTEM、DATA-TRANSFORMS、DOMAIN-CONTRACTS、W2 PreparedDataset/Unit/source refs、W0 fixtures。
+- **Planned entries:** `src/plotagent/plot_calculations/`、`precomputed_inputs/`、calculation golden tests。
+- **Deliverables:** strict union/registry；versioned deterministic algorithms；PlotCalculationResult tables/masks/hashes；precomputed requirements/validators；failure/warning taxonomy。
+- **Dependencies/parallel:** W2→W3。九个 kind 可在 result envelope/hash/missing policy 冻结后并行；W4/W6只消费持久化结果。
+- **Acceptance evidence:** 每个 kind golden/edge；完整数据与 hash 可复现；Log10/duplicates/nonnegative/n≥2 等阻断；预计算九图有效/缺失/非法；batch same-spec partial；renderer/origin no-recompute。
+- **Stable error ownership:** `PLOTSPEC_CALCULATION_*`、`PLOTSPEC_PRECOMPUTED_*`、`MISSING_SEMANTICS_*`；`PREPARE_*`仍归W2。
+- **Done:** 九类固定计算与预计算字段全部有冻结算法/Schema/evidence；禁止科学计算无 fallback，结果可供三 renderer 一致消费。
 
 ### W4 — 31图 registry、PlotSpec、Resolver、Matplotlib、PNG/SVG
 
 - **Owner:** Rendering + Chart Adapters。
 - **Scope:** 31个纯数值 chart registry；PlotSpec/Patch；single resolver；axis/autoscale/ticks/SafeRichText/font/style/publication；thumbnail/interactive simplification；formal Matplotlib/PNG/SVG；validation/atomic export。
 - **Out of scope:** 科研图像/地图、任意chart plugin、PDF/EPS/EMF、Origin construction、hidden analysis、renderer-specific autoscale。
-- **Inputs/contracts:** RENDERING-PIPELINE、DOMAIN-CONTRACTS、ANALYSIS/FITTING ports、PRODUCT 31范围、W2/W3、W0 fixtures。
+- **Inputs/contracts:** RENDERING-PIPELINE、DOMAIN-CONTRACTS、PlotCalculation/precomputed contracts、PRODUCT 31范围、W2/W3、W0 fixtures。
 - **Planned entries:** `src/plotagent/charts/`、`plots/`、`rendering/resolver/`、`rendering/matplotlib/`、`exports/png_svg/`。
 - **Deliverables:** registry metadata/capabilities；canonical PlotSpec/Patch；ResolvedRenderPlan hash；layout/axis/ticks/font engine；31 adapters；formal validators；preview simplification disclosure。
-- **Dependencies/parallel:** W2→W4，analysis-backed charts需W3。Resolver/layout与chart adapters可并行；K01 vertical slice先完成。W5/W6依赖stable RenderPlan。
+- **Dependencies/parallel:** W2→W4，固定计算图需W3；预计算图需W2/W3字段验证。Resolver/layout与chart adapters可并行；K01 vertical slice先完成。W5/W6依赖stable RenderPlan。
 - **Acceptance evidence:** 每图 minimal/representative/edge；额外 preview/interactive；279基础中PNG/SVG 186 paths；golden spec/plan；100k formal full-data assertion；physical/color/tick tolerance；基于声明范围的SVG估计/warning/resource preflight；cancel/version conflict。
 - **Stable error ownership:** `PLOT_*`、`PATCH_*`、`CHART_*`、`AXIS_*`、`RENDER_*`、`PNG_*`、`SVG_*`、`FONT_*`、`RESOURCE_LIMIT`（渲染维度）。
-- **Done:** 31图全部通过适用preview/formal PNG/SVG与golden；任何unsupported/invalid请求稳定失败；无隐藏stats、formal抽稀或adapter默认漂移。
+- **Done:** 31图全部通过适用preview/formal PNG/SVG与golden；任何unsupported/invalid请求稳定失败；无隐藏统计/拟合、formal抽稀或adapter默认漂移。
 
 ### W5 — Isomorphic Batch、审阅与 FigureSpec
 
 - **Owner:** Plot Workflow + Desktop UX。
-- **Scope:** BatchSpec/fan-out；完全同构一次mapping/Transform/Analysis/Plot模板；partial success；网格/列表/轮播/filter/sort；multi-select scope；temporary unified axes/overlay；exclude export；save-as-new；numeric-only fixed Figure layouts/panels/common legend。
+- **Scope:** BatchSpec/fan-out；完全同构一次 FieldMapping/Preparation/PlotCalculation/Plot模板；partial success；网格/列表/轮播/filter/sort；multi-select scope；temporary unified axes/overlay；exclude export；save-as-new；numeric-only fixed Figure layouts/panels/common legend。
 - **Out of scope:** heterogeneous per-file exceptions、image panel/freeform layout、temporary compare auto-version、source plot reverse mutation。
 - **Inputs/contracts:** PRD批量/组合、DOMAIN-CONTRACTS、TASK-RUNTIME、RENDERING、W2 semantic signatures、W4 Plot/Plan。
 - **Planned entries:** `src/plotagent/batch/`、`figures/`、`src/renderer/.../batch/figure/`。
@@ -124,28 +125,28 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 ### W6 — OriginAdapter、O1 OPJU 与两阶段验证
 
 - **Owner:** Origin Integration。
-- **Scope:** versioned typed OriginExportPlan；signed template preflight；dedicated managed instances；31图O1 native adapters；target-scoped Data/Analysis/Graphs/Metadata；live validation；save/exit/fresh reopen/readback；atomic OPJU/export record/external modification。
-- **Out of scope:** LabTalk、user Origin attach/kill、raster/SVG fallback、O2 first-release admission、OPJU import/round-trip/cloud Origin。
+- **Scope:** versioned typed OriginExportPlan；signed template preflight；dedicated managed instances；31图O1 native adapters；direct Raw Data 与 fixed/user-precomputed Plot Data；target-scoped Data/Analysis/Graphs/Metadata；live validation；save/exit/fresh reopen/readback；atomic OPJU/export record/external modification。
+- **Out of scope:** Origin Analysis Template/worksheet formula/Fit Function/重算链、LabTalk、user Origin attach/kill、raster/SVG fallback、O2 first-release admission、OPJU import/round-trip/cloud Origin。
 - **Inputs/contracts:** ORIGIN-EXPORT、RENDERING、PERFORMANCE Beta build declaration；W4 stable RenderPlan；W0 MatrixKey/evidence。
 - **Planned entries:** `src/plotagent/origin/plan/`、`adapters/`、`worker/`、`validation/`、Origin qualification harness。
 - **Deliverables:** K01 spike adapter first；单一exact-version adapter声明；preflight；managed process lifecycle；typed property maps；31 O1 adapters；fresh reopen validator；manifest/atomic export。
 - **Dependencies/parallel:** W4→W6 for production, but M0 K01 risk spike begins as soon as minimal W0/W2/W4 slice exists。Adapter families可并行 only after K01 O1 proof and property map rules。
-- **Acceptance evidence:** 当前Beta build唯一declared Origin exact version的93条O1 paths；edge expected errors；live+fresh readback data/links/axes/ticks/legend/page/style/missing；no LabTalk/raster/global template/user instance；cancel/hang/lock/external modification/atomic failure；P95 budgets。
+- **Acceptance evidence:** 当前Beta build唯一declared Origin exact version的93条O1 paths；direct/fixed/precomputed data-link/manifest；Raw改动不重算声明；edge expected errors；live+fresh readback；no Analysis Template/formula/LabTalk/raster/global template/user instance；cancel/hang/lock/external modification/atomic failure；P95 budgets。
 - **Stable error ownership:** `NOT_INSTALLED`、`VERSION_UNSUPPORTED`、`LICENSE_UNAVAILABLE`、`CAPABILITY_MISSING`、`TEMPLATE_OR_FONT_MISSING`、`START/BUILD/SAVE/REOPEN/VALIDATION_FAILURE`、`TARGET_LOCKED`、`EXTERNAL_MODIFIED`、Origin `CANCELLED`。
 - **Done:** Beta build唯一声明Origin exact version的31图均O1 qualification、93 paths零缺口；其他版本稳定`VERSION_UNSUPPORTED`，失败绝不发布文件/降级，实例与temp清理通过fault evidence。
 
 ### W7 — ContextBuilder、ModelProvider、AgentDecision 与本地 validator
 
 - **Owner:** Agent Runtime + Privacy Engineering。
-- **Scope:** local authoritative ConversationState reducer；ContextEnvelope/minimization；DataDisclosure/consent；deterministic sample/wide-field index；builtin/custom providers；P1/P2/P0 probe；exactly one repair；four-way AgentDecision；clarification；schema/version/capability/permission/business validation；ModelRunAudit/cancel。
-- **Out of scope:** model tools/tool loop、provider-hosted conversation、filesystem/URL access、cloud invitation ledger，以及在本地另建任意命令/正则/规则解析器来绕过 `ModelProvider → AgentDecision → local validator` 契约。产品仍正式支持中文、英文和中英混合科研术语的自然语言需求，由 ModelProvider 在该结构化边界内理解。
+- **Scope:** 单对话编排 Agent；local authoritative ConversationState reducer；多个 FigureTask/BatchTask 与 active target；ContextEnvelope/minimization；DataDisclosure/consent；deterministic sample/wide-field index；builtin/custom providers；P1/P2/P0 probe；exactly one repair；four-way AgentDecision；clarification；schema/version/capability/permission/business validation；ModelRunAudit/cancel。
+- **Out of scope:** 多 Agent、model tools/tool loop、provider-hosted conversation、filesystem/URL access、模型输出 pandas/Python/Matplotlib/Origin/文件/SQL/table ID/处理步骤、cloud invitation ledger，以及在本地另建命令/正则/规则解析器绕过 `ModelProvider → AgentDecision → local validator`。产品仍支持中文、英文和中英混合科研术语，由 ModelProvider 在该边界内理解。
 - **Inputs/contracts:** AGENT-CONTEXT、DOMAIN-CONTRACTS、W1 credential/network cancellation、W2 objects/metadata、W0 schema/errors。
 - **Planned entries:** `src/plotagent/agent/context/`、`providers/`、`decisions/`、`validation/`、`audit/`。
 - **Deliverables:** ContextEnvelope builder/hash；state reducer；provider capability adapter；synthetic probe；P1/P2/P0；four-way union handling；disclosure/clarification UI contracts；local validators/audit.
 - **Dependencies/parallel:** W2+W1→W7。Context/state与provider probe并行；execution handoff waits ActionPlan validator. W8 consumes fixed builtin adapter/usage events。
 - **Acceptance evidence:** no-tool/no-path/no-URL schema；untrusted data prompt injection；≤20 rows/12 fields/200 scalars；>200 fields local filter；consent/revoke；Responses→Chat fallback；one repair only；target stale；stream cancel/no partial plan；secret/audit scan。
 - **Stable error ownership:** `PROVIDER_*`、`TLS_*`、`AUTH_FAILED`（provider）、`SCHEMA_INVALID/REPAIR_EXHAUSTED`、`CONTEXT_TOO_LARGE`、`EGRESS_*`、`TARGET_STALE`、`RETENTION_UNACKNOWLEDGED`。
-- **Done:** Provider只能产出单个已校验AgentDecision；四类union、出境、澄清、审计和取消全部evidence化，模型无工具/会话权威/partial执行路径。
+- **Done:** Provider只能产出单个已校验AgentDecision；同类结构错误二次即停；四类union、出境、澄清、审计和取消全部evidence化，模型无工具/多Agent/内部处理步骤/会话权威/partial执行路径。
 
 ### W8 — Invite、DeviceCredential、共享计数与 built-in proxy
 
@@ -163,7 +164,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 ### W9 — local_only、安全导入、本地诊断与已知版本兼容
 
 - **Owner:** Local Security + Project Lifecycle。
-- **Scope:** strict NetworkMode policy；fixed-disk workspace；temp ACL/cleanup；Electron/data rendering hardening；log allowlist/rotation；LocalDiagnosticBundle preview/save；schema stable reject；按需实现一个明确source→target一次性迁移；legacy component handling。
+- **Scope:** strict NetworkMode policy；fixed-disk workspace；temp ACL/cleanup；Electron/data rendering hardening；log allowlist/rotation；LocalDiagnosticBundle逐项预览/默认结构统计hash/单次同意脱敏数据/save；schema stable reject；按需实现一个明确source→target一次性迁移；legacy component handling。
 - **Out of scope:** project encryption/secure erase、memory dumps、analytics、diagnostic upload、update_only、通用N→N+1 registry、daily backup/recovery UI、downgrade writer、cloud backup、automatic rollback、arbitrary link opening。
 - **Inputs/contracts:** LOCAL-SECURITY、PROJECT-STORAGE、TASK-RUNTIME、CLOUD strict-local boundary、W1/W2/W0。
 - **Planned entries:** `src/plotagent/security/`、`diagnostics/`、`compatibility/`、`src/main/network-policy/`。
@@ -176,11 +177,11 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 ### W10 — E2E、reference性能、安全、打包与 Beta gates
 
 - **Owner:** QA/Release with all domain owners。
-- **Scope:** E2E harness；31图MatrixKey；单一Origin exact version；scientific references；cancel/crash/security/privacy/known-pair migration；single reference profile performance/memory；人工安装包signature/hash/code-sign；dependency/fixture hashes；Beta checklist/known issues；first beta success evaluation。
+- **Scope:** E2E harness；约30个导入 golden；31图字段/准备/固定计算/预计算与MatrixKey；单一Origin exact version；cancel/crash/security/privacy/known-pair migration；single reference profile performance/memory；人工安装包signature/hash/code-sign；dependency/fixture hashes；Beta checklist/known issues；first beta success evaluation。
 - **Out of scope:** 修复归属领域的业务缺陷、缩减声明逃避gate、多OS/DPI/minimum-machine qualification、长soak、SBOM流程、完整云攻击矩阵、商业级多角色签署。
 - **Inputs/contracts:** PERFORMANCE-TEST-RELEASE、SPEC-INDEX、W0 harness、W5/W6/W8/W9 deliverables及所有W evidence。
 - **Planned entries:** `tests/e2e/`、`tests/performance/`、`tests/security/`、`tests/origin/`、`release/evidence/`、installer pipeline。
-- **Deliverables:** deterministic test orchestration；单一Windows reference profile；279 formal基础矩阵报告；独立preview/interactive报告；单一Origin exact version完整93条OPJU报告；reference performance；fault/security；人工签名安装包证据；Beta checklist/known issues。
+- **Deliverables:** deterministic program tests、fixed-model contract tests、real-model quality eval 分离；导入分层快照/回放；单一Windows reference profile；279 formal基础矩阵报告；独立preview/interactive报告；单一Origin exact version完整93条OPJU报告；reference performance；fault/security；人工签名安装包证据；Beta checklist/known issues。
 - **Dependencies/parallel:** W5/W6/W8/W9→final W10；harness/performance fixtures从W0持续并行。失败回流到唯一owner，不在gate层打补丁。
 - **Acceptance evidence:** 本workstream产物就是PERFORMANCE §11 Beta build checklist；另需first 10–15 user success structured results for second-batch go/no-go。
 - **Stable error ownership:** `TEST_HARNESS_*`、`EVIDENCE_*`、`INSTALLER_*`；领域失败code仍由原W拥有，W10只验证与聚合。
@@ -190,7 +191,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 ### Spike 1 — K01 本地到 O1 的垂直切片
 
-`import → manual ActionPlan → PlotSpec → ResolvedRenderPlan → formal PNG/SVG → typed OriginExportPlan → O1 OPJU → exit → fresh reopen readback`。
+`deterministic import → SourceDataset → manual ActionPlan → FieldMapping/PreparationSpec → PlotSpec → ResolvedRenderPlan → formal PNG/SVG → typed OriginExportPlan → O1 OPJU → fresh reopen`。
 
 - **Purpose:** 最早验证核心对象边界、formal parity、originpro typed mapping、进程生命周期和O1 readback。
 - **Evidence:** fixed dataset hash；all spec/plan/artifact hashes；PNG/SVG validators；当前Beta唯一Origin exact version live+fresh report；no LabTalk/raster/user instance；atomic failure injection。
@@ -198,7 +199,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 ### Spike 2 — 100k preview 与 formal SVG resource preflight
 
-- **Purpose:** 验证≤20k interactive primitives deterministic simplification、100k full-data range/stats/analysis、声明规模内formal full data与基于实际资源的SVG估计/warning/RESOURCE_LIMIT。
+- **Purpose:** 验证≤20k interactive primitives deterministic simplification、100k full-data range/PlotCalculation、声明规模内formal full data与基于实际资源的SVG估计/warning/RESOURCE_LIMIT。
 - **Evidence:** 100k dataset hash；preview/full count；range parity；≤3s preview；≤2GB peak；SVG estimate vs actual；cancel/warning/atomic output。
 
 ### Spike 3 — Core crash 与 SQLite commit boundary recovery
@@ -221,12 +222,12 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 ### M1 — Manual K01 完整本地路径
 
 - **Entry:** M0通过；W1/W2最小事务/监督稳定。
-- **Exit evidence:** safe CSV/XLSX import→DatasetVersion→manual ActionPlan→K01 PlotSpec/Plan→preview→formal PNG/SVG；项目重开/取消/crash/version conflict；无Agent/云依赖。
+- **Exit evidence:** safe CSV/XLSX import→SourceDataset→FieldMapping/PreparationSpec→manual ActionPlan→K01 PlotSpec/Plan→preview→formal PNG/SVG；项目重开/取消/crash/version conflict；无Agent/云依赖。
 
-### M2 — Data/Analysis 与 31图 PNG/SVG
+### M2 — Deterministic Data/Plot Calculations 与 31图 PNG/SVG
 
-- **Entry:** M1；W2 Transform/Unit/Lineage与W3 registry contract稳定。
-- **Exit evidence:** W2/W3 scientific/lineage golden；31图 minimal/representative/edge；186 formal PNG/SVG基础paths和额外preview/interactive；full-data assertions/性能preflight。
+- **Entry:** M1；W2 Import/Preparation/Unit/Provenance 与 W3 PlotCalculation/precomputed contract 稳定。
+- **Exit evidence:** 约30个 import golden及分层回放；九类固定计算与预计算图 fixtures；31图 minimal/representative/edge；186 formal PNG/SVG基础paths和额外preview/interactive；full-data assertions/性能preflight。
 
 ### M3 — Batch 与 Figure
 
@@ -259,5 +260,5 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 - Workstream scope/dependency/contract变化必须更新本文件与SPEC-INDEX。
 - 产品行为或跨模块契约变化必须新增/更新Decision ID并同步权威专门文档/PRD。
-- 每图/每算法的完整参数表由对应W3/W4/W6 adapter backlog在公共Schema边界内细化；不得借此改变已冻结的用户行为、科学默认或导出语义。
+- 每图/每固定计算的完整参数表由对应W3/W4/W6 adapter backlog在公共Schema边界内细化；未来通用分析/拟合必须另行 Decision，不得借 adapter backlog 改变已冻结边界。
 - 若risk spike证明契约不可行，先回到Decision变更，不允许实现层静默偏离。

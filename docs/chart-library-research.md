@@ -4,6 +4,7 @@
 > 访问日期：所有网络来源均于 2026-08-05 访问  
 > 范围：A）本地独立参考素材 `C:\Users\pc\Desktop\No.1-128\fig`；B）OriginLab 官方 Graph Gallery、文档、模板与文件能力；C）各学科头部期刊、出版社图稿规范、权威报告规范与代表性论文；D）邀请制内测的发表规格/期刊样式模板。  
 > 约束：本报告不修改 `PRODUCT.md` 或产品代码；本地素材只读。用户必须明确选择或指定图形，因此本文不设计 Agent 主动推荐图形的路径。
+> 当前产品边界：本文是长期 taxonomy 与研究输入，不是 v1 准入清单。v1 以 [产品决策基线](./PRODUCT-DECISIONS.md) 和 [PRD](./PRD.md) 为准：31 项纯数值图表、无图像/地图、无通用 Transform/Analysis/Fit；分析型图只接受规定的预计算字段，固定绘图计算仅限封闭 PlotCalculationSpec。本文出现的图像面板、Analysis Template、拟合或统计建议不得被实现为 v1 承诺。
 
 ## 1. 摘要与产品结论
 

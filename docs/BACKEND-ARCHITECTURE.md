@@ -3,7 +3,7 @@
 > 状态：第一轮架构基线已确认  
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
-> 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[派生数据、单位与血缘契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[分析计算层与科学边界](./ANALYSIS-ENGINE.md)、[拟合系统契约](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 架构结论
 
@@ -13,7 +13,7 @@
 - 一个由 Electron 主进程监管的常驻 Python Core。
 - Electron 与 Python 通过带版本的 JSON-RPC over stdio 通信，不开放本地 HTTP 端口。
 - Agent 只输出符合 JSON Schema 的 `AgentDecision`；其中 `ActionPlan` 也只是候选，必须经过本地校验后执行。模型没有工具循环、文件/数据库/Origin/URL 访问或任意代码执行能力。
-- 版本化 PlotSpec 是图表结构化真值；单一 resolver 把它与固定数据、分析、样式和发表规格解析为 ResolvedRenderPlan，Matplotlib 与 Origin 都只适配该 Plan。
+- 版本化 PlotSpec 是图表结构化真值；单一 resolver 把它与 PreparedDataset、用户预计算字段、PlotCalculationResult、样式和发表规格解析为 ResolvedRenderPlan，Matplotlib 与 Origin 都只适配该 Plan。
 - 手动界面操作与自然语言操作进入同一套计划、校验、执行、验证和事务链。
 - Matplotlib 是第一轮唯一正式预览、PNG 和 SVG 渲染器；Plotly/Kaleido 不进入第一轮正式渲染链。
 - Origin 导出使用单独的串行受控 Worker。
@@ -59,7 +59,7 @@ Electron 官方将主进程、renderer 和 preload 作为不同权限边界，�
 ### 2.3 Python Core
 
 - 随桌面应用启动并常驻，避免每次任务重复初始化科学计算库。
-- 负责项目、数据、PlotSpec、分析、绘图、任务、缓存和导出。
+- 负责项目、SourceDataset/PreparedDataset、PlotCalculation、PlotSpec、绘图、任务、缓存和导出。
 - 只接受 Electron Main 发来的协议消息，不监听 TCP 端口。
 - 崩溃后由 Electron Main 拉起，并从 SQLite 任务状态恢复到最后一个完整事务。
 
@@ -142,22 +142,20 @@ Agent 与手动 UI 最终都生成同一种 ActionPlan：
 ```text
 ActionPlan
 ├─ intent
-├─ project_id
-├─ target_ids
+├─ target_alias / active target semantic selector
 ├─ scope
-├─ operations[]
+├─ business_actions[]
 ├─ required_inputs[]
-├─ confirmation_level
-└─ expected_versions
+└─ confirmation_level
 ```
 
-手动 UI 可以直接构建 ActionPlan 并绕过模型，因此离线模式和在线 Agent 使用同一执行后端。
+模型不输出 project/table/object IDs、路径、PreparationStep、PlotCalculation kind 或处理步骤。本地 compiler 用 ContextEnvelope 的 active target 解析并附加精确 object IDs、expected versions 和内部 execution steps。手动 UI 可以直接构建同一种业务 ActionPlan 并绕过模型，因此离线模式和在线 Agent 复用同一 compiler/validator/executor；只有 resolved plan 在本地持久化。
 
 ## 5. Agent 架构
 
 ### 5.1 单 Agent，有界执行
 
-第一轮不使用多 Agent，也不建立开放式自主循环。一次请求采用固定上限流程：
+第一轮只有一个对话编排 Agent，不使用多 Agent，也不建立开放式自主循环。一个会话可包含多个 FigureTask/BatchTask，并始终携带 active target；一次请求采用固定上限流程：
 
 1. 本地 ContextBuilder 从权威对象、ConversationState 与用户授权的数据范围构建最小 ContextEnvelope。
 2. ModelProvider 返回唯一 `AgentDecision = ActionPlan | NeedsInput | Unsupported | NoChange` 候选。
@@ -171,6 +169,7 @@ ActionPlan
 - 缺少必要信息或目标歧义时返回结构化追问，不执行猜测方案。
 - 业务校验失败不触发模型自动改方法或改图形。
 - 瞬时基础设施错误可做有限、确定性重试。
+- P2 结构错误最多发起一次格式 repair；同类结构错误再次出现立即停止，不进入第二次修复或执行 partial plan。
 - 不允许模型无限重新规划或不断修改代码尝试解决错误。
 - 执行结果正文由结构化结果生成，不让模型虚构成功状态、路径或统计值。
 
@@ -185,47 +184,43 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 第一轮服务边界：
 
 - `ProjectService`：项目、事务、资源、版本和回收站。
-- `DatasetService`：导入、摘要、数据签名、数据版本和只读访问。
-- `TransformService`：执行 Pydantic discriminated union 白名单步骤、单位运算、预检和三层 lineage，原子创建派生 DatasetVersion。
+- `ImportService`：确定性 Excel/TXT/CSV 导入、结构候选、最小追问、ImportRecipe、SourceDataset 和只读访问。
+- `PreparationService`：把一次 FieldMapping 本地编译为封闭 PreparationSpec，原子创建用于复现的 PreparedDataset/Plot Data。
+- `PlotCalculationService`：执行九类封闭 PlotCalculationSpec，持久化固定算法结果、mask 与 hashes。
 - `PlotService`：PlotSpec 创建、Patch、验证和版本。
 - `RenderService`：解析版本化坐标、ticks、物理布局、字体、样式、数据完整性与 ResolvedRenderPlan hash。
-- `AnalysisService`：按版本化白名单执行用户明确指定的绘图计算与科学分析，持久化 AnalysisSpec、AnalysisResult 和命名输出端口。
 - `BatchService`：完全同构验证、任务展开、部分失败和事务撤销。
 - `CompositionService`：固定数值面板布局和源图版本引用。
 - `ExportService`：PNG、SVG、OPJU 和正式导出记录。
 - `OriginService`：OriginAdapter/OriginExportPlan、preflight、隔离实例、原生对象重建、两阶段验证和整文件原子提交。
 - `TaskService`：队列、阶段、取消、重试、恢复和事件。
 
-本地 Executor 只能把已通过校验的 Action 映射到这些服务；模型不能直接选择/调用服务，也不能传任意路径、URL、SQL、Python、命令行或 Origin 脚本。
+本地 Executor 只能把已通过校验的 Action 映射到这些服务；模型只输出业务意图，不能直接选择/调用服务，也不能传 pandas/Python/Matplotlib/Origin、表 ID、处理步骤、任意路径、URL、SQL、命令行或脚本。
 
-### 6.1 数据变换、单位与血缘
+### 6.1 确定性导入与受控准备
 
-- 一次 `create_derived_dataset` 最多执行 16 步线性 TransformPipeline，只发布最终 DatasetVersion；Join/Concat 可以有多个精确父级。
-- TransformStep 只接受带 discriminator 的白名单结构与类型化 AST，不接收 SQL、Python、字符串表达式或 UDF。
-- TransformSpec 只做确定性表变换；统计、拟合、KDE、平滑和检验由 AnalysisSpec 产生 AnalysisResult。普通表只通过 `materialize_analysis_output` 显式物化结果端口。
-- UnitSpec 由项目数据库权威保存，Parquet metadata 只镜像；Core 使用 pinned Pint registry，单位换算与 plot-local 换算都创建派生版本。
-- 对象级 parent/recipe/hash、字段级稳定 ID/expression AST 和行级 source/composite/member lineage 全部持久化。
-- 正式 apply 前展示行列变化、字段与单位、非有限值、Join expansion 和 before/after sample；歧义返回 NeedsInput。
-- 完整步骤注册表、单位代数、异常策略与批量规则以 [派生数据、单位与血缘契约](./DATA-TRANSFORMS.md) 为准。
+- 导入阶段只确定 Excel sheet/region 或 TXT/CSV metadata/DataBlock/postamble；字段映射在用户选图后只确认一次图形角色。
+- Excel 多 sheet 与 TXT 多 block/sweep/channel 默认独立 SourceDataset/批次；仅用户明确且完全同构时纵向 concat 并保留来源列，绝不自动 join。
+- PreparationSpec 只允许本地生成的字段选择、结构投影、同构 concat、metadata label、plot order 和 plot mask；没有通用 TransformPipeline、派生数据工作流或单位换算。
+- SourceDataset、PreparedDataset 保存 source coordinates、UnitSpec、稳定 field/row id、provenance 与 hashes；原始对象只读。
+- 歧义只问一个最小问题；超出解析/准备清单稳定拒绝，不静默删行、补值、去重、过滤、计算或执行公式/宏/脚本。
+- 完整边界以 [受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md) 为准。
 
-### 6.2 分析计算边界
+### 6.2 固定绘图计算与预计算结果
 
-- 直接绘图不创建隐藏统计量；分箱、箱线统计、KDE、平滑、拟合、区间、检验和混淆矩阵归一化均产生 AnalysisResult。
-- 字段映射与计算设置在同一确认卡完成；模板只能预填可见参数，Agent 不替用户选择方法，误差语义缺失时返回 NeedsInput。
-- AnalysisSpec 固定方法与实现版本、DatasetVersion、字段与设计、缺失策略、参数、权重、区间、比较、校正、种子和输出端口。
-- AnalysisResult 保存规格与输入哈希、样本纳入排除、统计结果、区间、诊断、收敛、结果表和依赖库版本。
-- PlotSpec 只引用 AnalysisResult 的命名输出端口；renderer、Matplotlib 和 Origin 均不重新计算分析。
-- 数值计算使用完整数据、float64 和固定随机种子，不插补、不自动排除离群值；数据更新只把旧结果标为 stale。
-- FitSpec 使用版本化模型白名单、显式输入层级与权重语义、有界确定性 multistart；FitResult 持久化曲线、区间、残差、mask 与全部求解诊断，导出端不重新拟合。
-- 方法注册表、显著性白名单、学科图形边界与批量一致性以 [分析计算层与科学边界](./ANALYSIS-ENGINE.md) 为准。
-- 完整拟合公式、失败边界与导出约束以 [拟合系统契约](./FITTING-SYSTEM.md) 为准。
+- v1 只执行 HistogramBinning、TukeyBox、ViolinKDE、DensityKDE、ECDF、SummaryError、PercentStack、MatrixProjection 和 ConfusionCount 九类固定计算。
+- PlotCalculationSpec 由本地 compiler 生成并使用完整数据；缺失策略仅 `fail`/`exclude_with_report`，参数、算法版本、seed、计数和 input/output hash 全部持久化。
+- K05/K21/K22/S01/S05/S21/S25/S31/S34 只消费用户提供的预计算字段，图形详情页明确要求；缺少字段不隐藏图形而是稳定阻断。
+- AnalysisSpec/Result、FitSpec/Result、统计检验、相关、拟合、平滑、基线、归一化和生存估计后移，不进入 v1 服务、Action 或发布门禁。
+- PlotSpec、Matplotlib、SVG 和 Origin 只消费同一 PlotCalculationResult 或用户预计算 Plot Data，不重新计算。
+- 完整固定算法与学科边界见 [固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)；拟合分期见[拟合能力分期边界](./FITTING-SYSTEM.md)。
 
 ## 7. 数据与持久化
 
 ### 7.1 存储职责
 
 - `%LOCALAPPDATA%\PlotAgent\catalog.sqlite3` 只保存项目目录、最近打开和应用设置。
-- 每个 `projects/<uuid>/project.sqlite3` 保存对话、对象关系、版本 DAG、任务、PlotSpec、AnalysisSpec 和操作记录。
+- 每个 `projects/<uuid>/project.sqlite3` 保存对话、对象关系、版本 DAG、任务、SourceDataset、PreparationSpec、PlotCalculationSpec/Result、PlotSpec 和操作记录。
 - `objects/sha256` 保存原始副本、Parquet、持久化规格与导出等不可变大对象；原始数据不可变。
 - `cache` 只保存可再生内容，不进入项目包；`tmp` 和 `project.lock` 分别管理未提交产物和单写入工作区。
 - SQLite WAL 仅用于本机活动工作区，由 Python Core 单写入器管理。
@@ -234,10 +229,10 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 
 - PyArrow：表格交换、Parquet 和模式信息。
 - Pandas：Excel、Matplotlib、SciPy 与 Origin 兼容边界，不作为唯一持久化真值。
-- NumPy/SciPy：数值计算及用户明确指定的统计与拟合。
-- OpenPyXL：XLSX 与多工作表解析。
+- NumPy/SciPy：九类固定 PlotCalculation 的确定性数值实现；不构成通用分析/拟合引擎。
+- 经过安全评估的 Excel readers：`.xlsx/.xls/.xlsm` 多工作表只读数据解析，不执行宏/公式/外链。
 - Matplotlib：第一轮正式预览、PNG 和 SVG。
-- Pint：使用固定 registry version 解析 UnitSpec 与执行单位代数；项目 alias 不修改标准单位定义。
+- Pint（如采用）：只用于固定 registry version 的 UnitSpec 解析/兼容性校验，v1 不执行单位换算或单位代数变换。
 
 第一轮不需要 FastAPI、Uvicorn、python-multipart、Plotly 或 Kaleido 进入运行时核心依赖；是否彻底移除由实现任务在依赖审计时确认。
 
@@ -246,22 +241,22 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 - 活跃项目使用本机事务工作区持续自动保存；`.plotproj` 是可搬运快照，不是实时数据库。
 - 打开项目包时导入本机工作副本，后续不修改原包；同一包默认回到已有副本，也可明确“作为新副本导入”。
 - 包含 `manifest.json`、SQLite Online Backup 快照、`objects/sha256` 和 `checksums.sha256`；禁止直接复制活动 WAL 数据库。
-- 完整项目包包含原始、派生与历史；结果项目包省略原始但保留改图和导出所需派生数值，并明确限制依赖原始数据的重算。
+- 完整项目包包含原始、PreparedDataset/Plot Data、固定计算结果与历史；结果项目包省略原始但保留改图和导出所需数值，并明确限制重新准备/计算。
 - 项目包、活动数据库和 WAL 不在网络文件系统中直接打开或持续写入。
 
 ### 7.4 数据导入
 
-- 文件授权后先在 `tmp` 复制并哈希，再识别格式、编码、工作表和表头。
-- 必要问题解决后完整分块解析为 Arrow/Parquet，生成质量摘要和同构候选。
-- 校验成功后移动不可变对象，并在单个 SQLite 事务中注册 ImportRecipe 与 DatasetVersion；失败不污染正式项目。
-- 系统先形成结构候选，再只进行一次用户字段映射；最终语义签名包含字段集合、逻辑类型、单位、语义和映射。
+- 文件授权后先在 `tmp` 复制并哈希，再识别 Excel sheet/region 或 TXT/CSV encoding/delimiter/header/metadata/DataBlock/postamble。
+- 多种合理解释只问一个最小问题；随后完整分块解析为 Arrow/Parquet，生成质量摘要、来源坐标和同构候选。
+- 校验成功后移动不可变对象，并在单个 SQLite 事务中注册 ImportRecipe 与 SourceDataset；失败不污染正式项目。
+- 导入结构确认后，选图时才进行一次 FieldMapping；本地 compiler 生成 PreparationSpec，最终签名包含字段、类型、单位、语义、mapping 与 preparation。
 - 详细目录、包模式、快照、ImportRecipe、同构与 SQLite 约束以 [项目存储、项目包与数据导入](./PROJECT-STORAGE.md) 为准。
 
 ## 8. 渲染与 Origin
 
 ### 8.1 Matplotlib Renderer
 
-- Render Resolver 先把 PlotSpec/FigureSpec 与固定引用解析为 ResolvedRenderPlan；Matplotlib adapter 不自行 autoscale、选择 ticks、换单位、fallback 字体或重算分析。
+- Render Resolver 先把 PlotSpec/FigureSpec 与 PreparedDataset、PlotCalculationResult/预计算字段引用解析为 ResolvedRenderPlan；Matplotlib adapter 不自行 autoscale、选择 ticks、换单位、fallback 字体或重算固定/科学计算。
 - thumbnail、interactive 与 formal 使用同一语义 resolver；前两者可记录并显示确定性视觉降采样，formal PNG/SVG 使用完整数据。
 - Plan 固定 mm/pt 物理尺寸、sRGB、SafeRichText AST、六类第一轮 axis、range、ticks、legend/annotation placement 与 font file hash。
 - PNG、SVG 和 Origin 使用同一 Plan 与语义容差；目标是 semantic parity，不要求 pixel identity。
@@ -272,7 +267,7 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 ### 8.2 Origin Worker
 
 - Origin 任务进入单独串行队列。
-- OPJU 是 target-scoped self-contained editable delivery，不是 `.plotproj`；只带目标图实际使用的数据、分析端口和 metadata，不带对话、secret 或绝对路径。
+- OPJU 是 target-scoped self-contained editable delivery，不是 `.plotproj`；只带目标图实际使用的 Raw Data、Plot Data、固定结果和 metadata，不带对话、secret 或绝对路径。
 - OriginExportPlan 由 ExportSpec、ResolvedRenderPlan 和版本化 OriginAdapter 本地生成；Worker 不接受模型脚本、任意 property string 或模板路径。
 - 第一轮 OriginAdapter 只使用 `originpro`/Python 类型化固定映射，禁止模型、数据或 app-owned LabTalk；需要 LabTalk 的能力判为缺失。
 - 第一轮 31 项正式图形都要求 O1 full native semantic parity；不能用 raster/SVG 嵌入或运行时降级冒充原生。
@@ -296,7 +291,7 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 - ExecutionTask 使用 `queued/preparing/running/committing/succeeded` 主链，并支持 `cancelling/cancelled/failed/partially_succeeded/interrupted`；`committing` 不可取消，第一轮没有暂停。
 - 控制与 SQLite 提交由 Core 单写入器负责；计算默认最多 2 个隔离进程并可因内存压力降为 1；Origin 严格串行。
 - 交互预览高优先级，同一图的新预览可替代尚未开始的旧预览。
-- 单图、改图、分析、派生数据和多文件导入会话按各自契约原子提交；批量保留完成项；每个导出文件临时写入、校验后原子替换。
+- 单图、改图、受控准备、固定绘图计算和多文件导入会话按各自契约原子提交；批量保留完成项；每个导出文件临时写入、校验后原子替换。
 - 取消先使用 cooperative token，宽限期后只终止隔离工作进程；Origin 无响应时重建 PlotAgent 管理实例，不强杀 Core。
 - 每个任务固定输入版本并使用 expected version 与 `(task_id, action_id, output_slot)` 幂等键；活跃任务引用阻止对象删除。
 - Electron监督Core心跳；任务预先持久化并只在阶段边界写记录，用于确认原子提交和清理temp。遗留任务标记为interrupted，正式任务不自动续跑/重试，由用户明确重试。
@@ -310,7 +305,7 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 - 文件路径由 Electron 文件选择器授权，模型只引用资源 ID。
 - 自定义 API key 与内置设备令牌只存 Windows Credential Manager，不进入 renderer、项目、`.plotproj`、SQLite 普通字段、日志、诊断、命令行或模型上下文。
 - 日志和诊断不记录原始数据、任何用户提示、文件名或列值。
-- 所有派生变换、统计和导出保留操作记录与输入版本。
+- 所有受控准备、固定绘图计算和导出保留操作记录与输入版本。
 - 数据、列名和单元格文本是不可信 data；其中 URL 不抓取，其中指令不执行。非 loopback provider 强制 HTTPS，TLS 不可关闭，带凭据的跨 origin redirect 被阻止。
 
 ## 11. Beta 最小云控制面与人工分发

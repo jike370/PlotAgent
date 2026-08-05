@@ -1,6 +1,6 @@
 # PlotAgent v1 规格索引与小规模邀请制 Beta 设计基线
 
-> 状态：专业能力范围完整、工程成熟度面向小规模邀请制 Beta（功能尚未实现或 qualification）
+> 状态：v1 数据/计算范围收敛、工程成熟度面向小规模邀请制 Beta（功能尚未实现或 qualification）
 > 基线日期：2026-08-05
 > 适用范围：权威文档、冲突优先级、requirement/evidence matrix、workstream 入口与冻结变更流程
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
@@ -10,7 +10,7 @@
 “小规模邀请制 Beta 设计基线”表示：
 
 - 第一轮产品行为、对象边界、进程/云/本地信任边界和跨模块 Schema 语义已足够直接拆分实施。
-- 31图、分析/拟合、批量/组合、自然语言、PNG/SVG/O1 OPJU和科学可追溯保持专业能力完整；工程qualification只覆盖已明确的单一平台、规模与Origin版本。
+- 31图、确定性导入/一次字段映射、九类固定绘图计算、预计算字段、批量/组合、自然语言、PNG/SVG/O1 OPJU和科学可追溯构成v1；通用数据处理与分析/拟合平台后移。
 - 每项核心需求都有权威契约、workstream、计划入口、稳定错误 owner 和未来验收 evidence。
 - 冲突审计已按本文件矩阵完成，当前已知旧口径已清除。
 - 后续产品或跨模块行为变化必须新增/更新 Decision ID 并同步权威文档，不得由实现自行选择。
@@ -18,7 +18,7 @@
 它不表示：
 
 - 真实 Python Core、Agent、ModelProvider、云服务、OriginAdapter、已知版本迁移或安全功能已经实现。
-- 31 图/analysis/origin 每个 adapter 的完整参数表已经在本文伪造完成。
+- 31 图/固定计算/Origin 每个 adapter 的完整参数表已经在本文伪造完成，或后续 AnalysisSpec/FitSpec 已经可用。
 - 279基础矩阵、单一Origin exact version 93 paths、reference性能、安全或人工安装包 Beta gates 已经运行通过。
 - 当前 UI prototype 的种子数据或模拟交互是后端行为证据。
 
@@ -49,9 +49,9 @@
 | [BACKEND-ARCHITECTURE](./BACKEND-ARCHITECTURE.md) | 进程、IPC、领域服务、依赖方向 | W0/W1/Core leads | Core/Main boundaries | architecture/E2E |
 | [DOMAIN-CONTRACTS](./DOMAIN-CONTRACTS.md) | 公共对象、AgentDecision/ActionPlan、Schema | W0 | `src/plotagent/contracts/`, `schemas/` | schema/codegen/round-trip |
 | [PROJECT-STORAGE](./PROJECT-STORAGE.md) | workspace、CAS、`.plotproj`、import | W2/W9 | storage/import packages | atomicity/archive/reopen |
-| [DATA-TRANSFORMS](./DATA-TRANSFORMS.md) | Transform/Unit/Lineage | W2 | transforms/units/lineage | golden/property tests |
-| [ANALYSIS-ENGINE](./ANALYSIS-ENGINE.md) | Analysis registry/spec/result/science boundaries | W3 | analysis registry | scientific references |
-| [FITTING-SYSTEM](./FITTING-SYSTEM.md) | Fit models/input/weights/solver/intervals | W3 | fitting package | formula/solver golden |
+| [DATA-TRANSFORMS](./DATA-TRANSFORMS.md) | FieldMapping、PreparationSpec/PreparedDataset、Unit/source provenance | W2 | preparation/units/provenance | import/preparation golden |
+| [ANALYSIS-ENGINE](./ANALYSIS-ENGINE.md) | 九类 PlotCalculation、预计算字段与后续分析边界 | W3 | plot-calculations/precomputed validators | algorithm/field golden |
+| [FITTING-SYSTEM](./FITTING-SYSTEM.md) | v1预计算拟合输入与未来拟合分期边界 | W3/W4/W6 | precomputed validators/adapters | no-fit/precomputed paths |
 | [RENDERING-PIPELINE](./RENDERING-PIPELINE.md) | Resolver、axes/ticks、physical/text/parity | W4/W6 | rendering/resolver | plan golden/parity |
 | [ORIGIN-EXPORT](./ORIGIN-EXPORT.md) | OPJU content、O1、adapter、reopen | W6 | origin worker/adapters | 单一exact-version 93 matrix |
 | [TASK-RUNTIME](./TASK-RUNTIME.md) | Interaction/Execution、scheduler/cancel/recovery | W1/W2/Core | task scheduler/events | fault/idempotency E2E |
@@ -79,23 +79,23 @@
 | R-INVITE | 无账号；同InviteGrant不限设备共享额度；无硬件指纹 | PD-L03–L06,Y01–Y06；CLOUD §3–4 | W8 | invite/credential | multi-device/reinstall/revoke | frozen-design |
 | R-QUOTA | 原子共享计数+client_run幂等；无reserve/settle；custom不扣 | PD-Y07–Y14；CLOUD §5–8 | W8 | counter/proxy | timeout/restart/no-double-charge | frozen-design |
 | R-STORAGE | 本机fixed-disk workspace；SQLite single writer；immutable CAS；`.plotproj` snapshot | PD-Q01–Q13,Z06；STORAGE §1–4,8 | W2/W9 | storage/project packages | crash/reopen/hash/network reject | frozen-design |
-| R-IMPORT | atomic import、ImportRecipe、一次mapping；archive/Excel不可信且不执行 | PD-Q14–Q20,Z07/Z08；STORAGE §5–9 | W2/W9 | import pipeline | parser/archive/macro/formula matrix | frozen-design |
-| R-NO-CELL | 原始只读，无row-index任意改单元格 | PD-C08,M02,U05；PRD 7.1 | W2/W5 | Dataset UI/services | forbidden action/schema tests | frozen-design |
-| R-TRANSFORM | whitelist Transform、UnitSpec、三层lineage、无SQL/Python/UDF | PD-U01–U20；TRANSFORMS | W2 | transform/unit/lineage | golden/property/preflight | frozen-design |
-| R-ANALYSIS | 用户选方法；白名单AnalysisSpec/Result；无隐藏重算/结论 | PD-H01,S01–S20；ANALYSIS | W3 | analysis registry | scientific refs/failures | frozen-design |
-| R-FIT | 固定Fit白名单、input/weight/solver/interval/curve结果 | PD-T01–T20；FITTING | W3 | fitting | formula/multistart/golden | frozen-design |
+| R-IMPORT | Excel多sheet/TXT多block确定性导入；结构后一次mapping；只问一个问题或拒绝 | PD-D13,Q14–Q20,U06–U11,Z07/Z08；STORAGE §5–9 | W2/W9 | excel/text import pipeline | ~30 golden+layer replay/security | frozen-design |
+| R-NO-CELL | 原始只读，无row-index任意改单元格 | PD-D01,H08,U02/U05；PRD 7.1 | W2/W5 | SourceDataset UI/services | forbidden action/schema tests | frozen-design |
+| R-PREPARE | 仅本地封闭PreparationSpec；PreparedDataset不是通用数据产品；无开放Transform | PD-D02,U01–U20；TRANSFORMS | W2 | preparation/provenance | union/golden/no-hidden-transform | frozen-design |
+| R-PLOTCALC | 九类固定PlotCalculation、完整数据、固定默认/mask/hash、三renderer同结果 | PD-H09,S01–S20；ANALYSIS | W3/W4/W6 | plot-calculation registry | algorithm golden/no-recompute | frozen-design |
+| R-PRECOMPUTED | K05/K21/K22/S01/S05/S21/S25/S31/S34需预计算字段；v1无Analysis/Fit | PD-T01–T20；FITTING；PRD 9.2 | W3/W4/W6 | field validators/registry UI | valid/missing/invalid paths | frozen-design |
 | R-CHARTS | v1精确31项纯数值：K01–K22,K24–K25+S01,S05,S21,S25,S31,S34,S61 | PD-E08/E09；PRD 6.2/10.1 | W4 | chart registry | 31 ID registry + matrix | frozen-design |
 | R-NO-IMAGE | v1无科研图像、地图、ROI或图表+图片混合 | PD-E09/E11,M03；PRD 5.5/17 | W4/W5 | registry/Figure schema | forbidden formats/actions | frozen-design |
-| R-BATCH | 完全同构、一次mapping/同Spec；partial成功，无逐文件例外 | PD-C,D,G,U20；PRD 5.2/6.4 | W2/W5 | BatchService/review | signature/partial/review E2E | frozen-design |
+| R-BATCH | 完全同构、一次mapping/同Preparation/PlotCalculation；partial成功，无逐文件例外 | PD-C,D,G,S20,U17/U18；PRD 5.2/6.4 | W2/W5 | BatchService/review | signature/partial/review E2E | frozen-design |
 | R-FIGURE | 仅数值固定布局、版本refs、公共图例、源更新不自动替换 | PD-F01–F06；DOMAIN §5 | W5 | FigureService/UI | version/layout/legend tests | frozen-design |
 | R-EXPORT3 | 正式导出仅PNG/SVG/OPJU；clipboard非正式 | PD-K01/K02；PRD 10.4 | W4/W6 | ExportService | format allowlist/records | frozen-design |
-| R-FORMAL | 声明规模内Formal三格式full data；preview≤5k/20k且range/stats/analysis full | PD-H11,V04/V05,AA05/AA06；RENDER §2；PERF §3–4 | W4/W6 | resolver/adapters | count/assertion/resource preflight | frozen-design |
+| R-FORMAL | 声明规模内Formal三格式full data；preview≤5k/20k且range/PlotCalculation full | PD-H11,V04/V05,AA05/AA06；RENDER §2；PERF §3–4 | W4/W6 | resolver/adapters | count/assertion/resource preflight | frozen-design |
 | R-RENDER | 单一ResolvedRenderPlan、deterministic axes/ticks/layout/text | PD-V01–V20；RENDER | W4/W6 | resolver | plan golden/parity tolerance | frozen-design |
 | R-OPJU | 31图v1 OPJU全部O1；无LabTalk/raster fallback；两阶段原子 | PD-K04,W01–W20；ORIGIN | W6 | origin adapters/worker | 单一exact version 93 paths | frozen-design |
 | R-ORIGIN-V | 每Beta build只声明一个qualified Origin exact version；其他unsupported | PD-K03/K12,W12,AA03；PERF §2 | W6/W10 | build declaration/preflight | one exact-version matrix | frozen-design |
 | R-TASK | Interaction≠Execution；提交/取消/幂等；崩溃不损坏且用户明确重试 | PD-R01–R20,Z18；TASK | W1/W2 | scheduler/events | state/fault/commit E2E | frozen-design |
 | R-LOCAL-PRIV | 无项目加密承诺；ACL/BitLocker；temp ACL；无secure erase宣称 | PD-L07/L08,Z04/Z05；LOCAL §3–4 | W9 | temp/security UI | ACL/wording/cleanup tests | frozen-design |
-| R-LOG-DIAG | log allowlist14d/100MB；无analytics；用户主动预览并本地保存Bundle | PD-J10,Z10–Z12；LOCAL §8–10 | W9 | logger/local diagnostics | forbidden scan/local save | frozen-design |
+| R-LOG-DIAG | log allowlist14d/100MB；无analytics；Bundle默认结构/统计/hash，单次同意才含脱敏数据且仅本地 | PD-J10,Z10–Z12；LOCAL §8–10 | W9 | logger/local diagnostics | preview/consent/forbidden scan | frozen-design |
 | R-MIGRATE | 不兼容默认拒绝；仅known source→target一次性迁移且不改science/visual | PD-Z13–Z18；LOCAL §11–12 | W9 | compatibility/known migrator | crash injection/semantic hash | frozen-design |
 | R-CLOUD-MIN | 云仅redeem/credential/proxy/atomic quota/idempotency；无sync/config/update/diag | PD-L06,Y11–Y14；CLOUD §1–8 | W8 | Beta control plane | API/log/degrade tests | frozen-design |
 | R-DISTRIBUTION | 无应用内更新；人工包验证发布签名/hash/code-sign | PD-Y15–Y19；CLOUD §10 | W8/W10 | package verification | three tamper blocks | frozen-design |
@@ -110,8 +110,8 @@
 | --- | --- | --- |
 | W0 Contracts | SCHEMA/PROTOCOL/registry | Schema shape与code唯一性 |
 | W1 Desktop | CORE/IPC/SINGLE_INSTANCE/CREDENTIAL_ACCESS | 进程/桌面边界 |
-| W2 Data | PROJECT_STORAGE/IMPORT/ARCHIVE/DATASET/TRANSFORM/UNIT/LINEAGE | 数据与存储 |
-| W3 Scientific | ANALYSIS/FIT/SCIENTIFIC/CONVERGENCE | 科研计算 |
+| W2 Data | PROJECT_STORAGE/IMPORT/MAPPING/PREPARE/ARCHIVE/SOURCE_DATASET/UNIT | 导入、准备与存储 |
+| W3 Plot Calculation | PLOTSPEC_CALCULATION/PLOTSPEC_PRECOMPUTED/MISSING_SEMANTICS | 固定计算与预计算字段 |
 | W4 Render | PLOT/PATCH/CHART/AXIS/RENDER/PNG/SVG/FONT | Plot/Matplotlib |
 | W5 Workflow | BATCH/ISOMORPHIC/REVIEW/FIGURE/SCOPE | 批次/组合 |
 | W6 Origin | Origin fixed code registry | OPJU/preflight/validation |
@@ -128,8 +128,8 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | W0 | DOMAIN + all schemas | none | schema/types/errors/fixtures/harness | fixture/codegen split | round-trip/fuzz | yes | explicit | yes |
 | W1 | BACKEND/TASK/LOCAL | W0 | Electron/preload/supervisor/events | supervisor/preload | security/crash/E2E | yes | explicit | yes |
-| W2 | STORAGE/TRANSFORMS | W0 | SQLite/CAS/import/data/unit/lineage | storage/parser/transform | atomic/golden/security | yes | explicit | yes |
-| W3 | ANALYSIS/FITTING | W2 | registries/spec/results/ports | method families | scientific references | yes | explicit | yes |
+| W2 | STORAGE/PREPARATION | W0 | SQLite/CAS/import/source/mapping/prepared | storage/excel/text/preparation | ~30 golden/atomic/security | yes | explicit | yes |
+| W3 | PLOTCALC/FITTING-BOUNDARY | W2 | fixed calculations/precomputed validators | nine kinds after envelope | algorithm/field golden | yes | explicit | yes |
 | W4 | RENDER/DOMAIN | W2,W3 | 31 charts/resolver/PNG/SVG | resolver/adapters | 186 formal+preview | yes | explicit | yes |
 | W5 | PRD/DOMAIN/TASK | W4 | batch/review/Figure | Core/UI | isomorphic/E2E | yes | explicit | yes |
 | W6 | ORIGIN/RENDER/PERF | W4; spike early | O1 adapters/worker/reopen | chart families after K01 | one-version93 | yes | explicit | yes |
@@ -164,6 +164,11 @@
 | Diagnostics | 无analytics；Bundle只本地保存 | 无桌面analytics/诊断上传 | pass-design |
 | Schema/backup | 默认拒绝+known pair迁移；无自动backup | 无通用N→N+1/每日三份/恢复UI | pass-design |
 | Distribution | 人工安装包三重校验 | 无应用内/后台/自动更新 | pass-design |
+| 数据处理边界 | Import→FieldMapping/Preparation→PlotCalculation/PlotSpec | 无通用Transform/derived workflow/data Agent | pass-design |
+| 科学计算边界 | 九类固定计算；九图预计算输入；Analysis/Fit后移 | 无v1统计/拟合/平滑/基线/归一化承诺 | pass-design |
+| Agent编排 | 单对话编排Agent、单Decision、同错二次即停 | 无多Agent/工具循环/模型处理步骤 | pass-design |
+| OPJU计算边界 | direct Raw→Graph；fixed Raw+Plot Data→Graph | 无Analysis Template/formula/LabTalk/Raw自动重算承诺 | pass-design |
+| 导入诊断 | ~30 goldens+31图fixtures+分层快照/错误族 | 无运行时oracle或下游掩盖上游偏差 | pass-design |
 
 本表的 `pass-design` 将由提交前全库脚本/`rg`、Decision ID、Markdown link、UTF-8 和 `git diff --check` 复核；它不等同于未来实现测试pass。
 
