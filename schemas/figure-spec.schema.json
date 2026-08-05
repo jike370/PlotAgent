@@ -200,6 +200,28 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "alignment": {
+      "default": "align_both",
+      "enum": [
+        "independent",
+        "align_x",
+        "align_y",
+        "align_both"
+      ],
+      "title": "Alignment",
+      "type": "string"
+    },
+    "axis_policy": {
+      "default": "independent",
+      "enum": [
+        "independent",
+        "shared_x",
+        "shared_y",
+        "shared_both"
+      ],
+      "title": "Axis Policy",
+      "type": "string"
+    },
     "common_legend": {
       "title": "Common Legend",
       "type": "boolean"
@@ -217,8 +239,12 @@
     "layout": {
       "enum": [
         "1x2",
+        "1x3",
+        "1x4",
         "2x1",
-        "2x2"
+        "2x2",
+        "2x3",
+        "3x1"
       ],
       "title": "Layout",
       "type": "string"
@@ -227,10 +253,23 @@
       "items": {
         "$ref": "#/$defs/FigurePanel"
       },
-      "maxItems": 4,
+      "maxItems": 6,
       "minItems": 2,
       "title": "Panels",
       "type": "array"
+    },
+    "parent_figure_version": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Figure Version"
     },
     "physical_size": {
       "$ref": "#/$defs/PhysicalSize"

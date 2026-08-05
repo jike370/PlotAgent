@@ -84,10 +84,23 @@ export type AxisSpec = {
   readonly label: SafeRichText;
 }
 
+export type BatchExecutionSignature = {
+  readonly dataset_signature: DatasetSignature;
+  readonly field_mapping_hash: string;
+  readonly preparation_spec_hash: string;
+  readonly plot_calculation_spec_hash?: string | null;
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61";
+  readonly plot_template_hash: string;
+  readonly style_hash: string;
+  readonly content_hash: string;
+}
+
 export type BatchItemState = {
   readonly item_id: string;
-  readonly state: "pending" | "succeeded" | "failed" | "excluded";
+  readonly state: "pending" | "queued" | "preparing" | "running" | "committing" | "succeeded" | "failed" | "cancelled";
   readonly error_code?: string | null;
+  readonly plot_version_ref?: PlotSpecRef | null;
+  readonly review_state?: "unconfirmed" | "confirmed" | "excluded";
 }
 
 export type BatchPlotOverride = {
@@ -101,8 +114,11 @@ export type BatchSpec = {
   readonly batch_id: string;
   readonly batch_version: number;
   readonly dataset_signature: DatasetSignature;
+  readonly execution_signature: BatchExecutionSignature;
   readonly dataset_version_refs: ReadonlyArray<PreparedDatasetRef>;
   readonly shared_field_mapping: FieldMappingRef;
+  readonly shared_preparation: PreparationSpecRef;
+  readonly shared_plot_calculation?: PlotCalculationSpecRef | null;
   readonly plot_template_ref: PlotSpecRef;
   readonly shared_style: ResolvedStyleSnapshot;
   readonly axis_policy?: "per_plot" | "unified";
@@ -475,11 +491,14 @@ export type FigureSpec = {
   readonly schema_version?: "1.0";
   readonly figure_id: string;
   readonly figure_version: number;
-  readonly layout: "1x2" | "2x1" | "2x2";
+  readonly layout: "1x2" | "1x3" | "1x4" | "2x1" | "2x2" | "2x3" | "3x1";
   readonly panels: ReadonlyArray<FigurePanel>;
+  readonly alignment?: "independent" | "align_x" | "align_y" | "align_both";
+  readonly axis_policy?: "independent" | "shared_x" | "shared_y" | "shared_both";
   readonly common_legend: boolean;
   readonly physical_size: PhysicalSize;
   readonly publication_profile: PublicationProfileSnapshot;
+  readonly parent_figure_version?: number | null;
 }
 
 export type ForestFamily = {

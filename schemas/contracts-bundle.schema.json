@@ -506,6 +506,101 @@
       "title": "AxisSpec",
       "type": "object"
     },
+    "BatchExecutionSignature": {
+      "additionalProperties": false,
+      "description": "Source-independent identity for one strictly isomorphic batch fan-out.",
+      "properties": {
+        "chart_type_id": {
+          "enum": [
+            "K01",
+            "K02",
+            "K03",
+            "K04",
+            "K05",
+            "K06",
+            "K07",
+            "K08",
+            "K09",
+            "K10",
+            "K11",
+            "K12",
+            "K13",
+            "K14",
+            "K15",
+            "K16",
+            "K17",
+            "K18",
+            "K19",
+            "K20",
+            "K21",
+            "K22",
+            "K24",
+            "K25",
+            "S01",
+            "S05",
+            "S21",
+            "S25",
+            "S31",
+            "S34",
+            "S61"
+          ],
+          "title": "Chart Type Id",
+          "type": "string"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "dataset_signature": {
+          "$ref": "#/$defs/DatasetSignature"
+        },
+        "field_mapping_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Field Mapping Hash",
+          "type": "string"
+        },
+        "plot_calculation_spec_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plot Calculation Spec Hash"
+        },
+        "plot_template_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Plot Template Hash",
+          "type": "string"
+        },
+        "preparation_spec_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Preparation Spec Hash",
+          "type": "string"
+        },
+        "style_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Style Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dataset_signature",
+        "field_mapping_hash",
+        "preparation_spec_hash",
+        "chart_type_id",
+        "plot_template_hash",
+        "style_hash",
+        "content_hash"
+      ],
+      "title": "BatchExecutionSignature",
+      "type": "object"
+    },
     "BatchItemState": {
       "additionalProperties": false,
       "properties": {
@@ -527,12 +622,37 @@
           "title": "Item Id",
           "type": "string"
         },
+        "plot_version_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlotSpecRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "review_state": {
+          "default": "unconfirmed",
+          "enum": [
+            "unconfirmed",
+            "confirmed",
+            "excluded"
+          ],
+          "title": "Review State",
+          "type": "string"
+        },
         "state": {
           "enum": [
             "pending",
+            "queued",
+            "preparing",
+            "running",
+            "committing",
             "succeeded",
             "failed",
-            "excluded"
+            "cancelled"
           ],
           "title": "State",
           "type": "string"
@@ -663,6 +783,9 @@
           "title": "Dataset Version Refs",
           "type": "array"
         },
+        "execution_signature": {
+          "$ref": "#/$defs/BatchExecutionSignature"
+        },
         "item_states": {
           "items": {
             "$ref": "#/$defs/BatchItemState"
@@ -691,6 +814,20 @@
         "shared_field_mapping": {
           "$ref": "#/$defs/FieldMappingRef"
         },
+        "shared_plot_calculation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlotCalculationSpecRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "shared_preparation": {
+          "$ref": "#/$defs/PreparationSpecRef"
+        },
         "shared_style": {
           "$ref": "#/$defs/ResolvedStyleSnapshot"
         }
@@ -699,8 +836,10 @@
         "batch_id",
         "batch_version",
         "dataset_signature",
+        "execution_signature",
         "dataset_version_refs",
         "shared_field_mapping",
+        "shared_preparation",
         "plot_template_ref",
         "shared_style",
         "item_states"
@@ -2980,6 +3119,28 @@
     "FigureSpec": {
       "additionalProperties": false,
       "properties": {
+        "alignment": {
+          "default": "align_both",
+          "enum": [
+            "independent",
+            "align_x",
+            "align_y",
+            "align_both"
+          ],
+          "title": "Alignment",
+          "type": "string"
+        },
+        "axis_policy": {
+          "default": "independent",
+          "enum": [
+            "independent",
+            "shared_x",
+            "shared_y",
+            "shared_both"
+          ],
+          "title": "Axis Policy",
+          "type": "string"
+        },
         "common_legend": {
           "title": "Common Legend",
           "type": "boolean"
@@ -2997,8 +3158,12 @@
         "layout": {
           "enum": [
             "1x2",
+            "1x3",
+            "1x4",
             "2x1",
-            "2x2"
+            "2x2",
+            "2x3",
+            "3x1"
           ],
           "title": "Layout",
           "type": "string"
@@ -3007,10 +3172,23 @@
           "items": {
             "$ref": "#/$defs/FigurePanel"
           },
-          "maxItems": 4,
+          "maxItems": 6,
           "minItems": 2,
           "title": "Panels",
           "type": "array"
+        },
+        "parent_figure_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Figure Version"
         },
         "physical_size": {
           "$ref": "#/$defs/PhysicalSize"

@@ -145,6 +145,101 @@
       "title": "ApplyPublicationProfilePatch",
       "type": "object"
     },
+    "BatchExecutionSignature": {
+      "additionalProperties": false,
+      "description": "Source-independent identity for one strictly isomorphic batch fan-out.",
+      "properties": {
+        "chart_type_id": {
+          "enum": [
+            "K01",
+            "K02",
+            "K03",
+            "K04",
+            "K05",
+            "K06",
+            "K07",
+            "K08",
+            "K09",
+            "K10",
+            "K11",
+            "K12",
+            "K13",
+            "K14",
+            "K15",
+            "K16",
+            "K17",
+            "K18",
+            "K19",
+            "K20",
+            "K21",
+            "K22",
+            "K24",
+            "K25",
+            "S01",
+            "S05",
+            "S21",
+            "S25",
+            "S31",
+            "S34",
+            "S61"
+          ],
+          "title": "Chart Type Id",
+          "type": "string"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "dataset_signature": {
+          "$ref": "#/$defs/DatasetSignature"
+        },
+        "field_mapping_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Field Mapping Hash",
+          "type": "string"
+        },
+        "plot_calculation_spec_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plot Calculation Spec Hash"
+        },
+        "plot_template_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Plot Template Hash",
+          "type": "string"
+        },
+        "preparation_spec_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Preparation Spec Hash",
+          "type": "string"
+        },
+        "style_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Style Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dataset_signature",
+        "field_mapping_hash",
+        "preparation_spec_hash",
+        "chart_type_id",
+        "plot_template_hash",
+        "style_hash",
+        "content_hash"
+      ],
+      "title": "BatchExecutionSignature",
+      "type": "object"
+    },
     "BatchItemState": {
       "additionalProperties": false,
       "properties": {
@@ -166,12 +261,37 @@
           "title": "Item Id",
           "type": "string"
         },
+        "plot_version_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlotSpecRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "review_state": {
+          "default": "unconfirmed",
+          "enum": [
+            "unconfirmed",
+            "confirmed",
+            "excluded"
+          ],
+          "title": "Review State",
+          "type": "string"
+        },
         "state": {
           "enum": [
             "pending",
+            "queued",
+            "preparing",
+            "running",
+            "committing",
             "succeeded",
             "failed",
-            "excluded"
+            "cancelled"
           ],
           "title": "State",
           "type": "string"
@@ -472,6 +592,49 @@
       "title": "PhysicalSize",
       "type": "object"
     },
+    "PlotCalculationSpecRef": {
+      "additionalProperties": false,
+      "properties": {
+        "calculation_id": {
+          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "calculation_kind": {
+          "enum": [
+            "histogram_binning",
+            "tukey_box",
+            "violin_kde",
+            "density_kde",
+            "ecdf",
+            "summary_error",
+            "percent_stack",
+            "matrix_projection",
+            "confusion_count"
+          ],
+          "title": "Calculation Kind",
+          "type": "string"
+        },
+        "calculation_version": {
+          "minimum": 1,
+          "title": "Calculation Version",
+          "type": "integer"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation_id",
+        "calculation_version",
+        "calculation_kind",
+        "content_hash"
+      ],
+      "title": "PlotCalculationSpecRef",
+      "type": "object"
+    },
     "PlotSpecRef": {
       "additionalProperties": false,
       "properties": {
@@ -497,6 +660,33 @@
         "content_hash"
       ],
       "title": "PlotSpecRef",
+      "type": "object"
+    },
+    "PreparationSpecRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "preparation_spec_id": {
+          "pattern": "^preparation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Preparation Spec Id",
+          "type": "string"
+        },
+        "preparation_version": {
+          "minimum": 1,
+          "title": "Preparation Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "preparation_spec_id",
+        "preparation_version",
+        "content_hash"
+      ],
+      "title": "PreparationSpecRef",
       "type": "object"
     },
     "PreparedDatasetRef": {
@@ -1129,6 +1319,9 @@
       "title": "Dataset Version Refs",
       "type": "array"
     },
+    "execution_signature": {
+      "$ref": "#/$defs/BatchExecutionSignature"
+    },
     "item_states": {
       "items": {
         "$ref": "#/$defs/BatchItemState"
@@ -1157,6 +1350,20 @@
     "shared_field_mapping": {
       "$ref": "#/$defs/FieldMappingRef"
     },
+    "shared_plot_calculation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PlotCalculationSpecRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "shared_preparation": {
+      "$ref": "#/$defs/PreparationSpecRef"
+    },
     "shared_style": {
       "$ref": "#/$defs/ResolvedStyleSnapshot"
     }
@@ -1165,8 +1372,10 @@
     "batch_id",
     "batch_version",
     "dataset_signature",
+    "execution_signature",
     "dataset_version_refs",
     "shared_field_mapping",
+    "shared_preparation",
     "plot_template_ref",
     "shared_style",
     "item_states"

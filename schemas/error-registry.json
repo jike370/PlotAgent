@@ -176,9 +176,72 @@
       "retryable": false
     },
     {
+      "code": "BATCH_IDEMPOTENCY_CONFLICT",
+      "default_severity": "blocked",
+      "description": "A batch idempotency key was reused with different inputs.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "BATCH_ITEM_EXECUTION_FAILED",
+      "default_severity": "blocked",
+      "description": "A batch item failed before its output commit completed.",
+      "owner": "W5_WORKFLOW",
+      "retryable": true
+    },
+    {
+      "code": "BATCH_COMMIT_FAILED",
+      "default_severity": "blocked",
+      "description": "A batch commit failed without publishing a partial output.",
+      "owner": "W5_WORKFLOW",
+      "retryable": true
+    },
+    {
+      "code": "BATCH_TASK_NOT_CANCELLABLE",
+      "default_severity": "blocked",
+      "description": "The batch task is terminal or inside its non-cancellable commit boundary.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "BATCH_EXPORT_SCOPE_EMPTY",
+      "default_severity": "blocked",
+      "description": "No succeeded and confirmed batch items remain in the requested export scope.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
       "code": "FIGURE_LAYOUT_UNSUPPORTED",
       "default_severity": "blocked",
       "description": "Figure layout is outside the fixed v1 set.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "FIGURE_SOURCE_NOT_NUMERIC",
+      "default_severity": "blocked",
+      "description": "Figure panels may reference only numeric chart versions in v1.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "FIGURE_AXIS_INCOMPATIBLE",
+      "default_severity": "blocked",
+      "description": "Shared Figure axes require compatible scale and unit signatures.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "FIGURE_VERSION_CONFLICT",
+      "default_severity": "blocked",
+      "description": "The expected Figure version is stale.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "FIGURE_IDEMPOTENCY_CONFLICT",
+      "default_severity": "blocked",
+      "description": "A Figure idempotency key was reused with different inputs.",
       "owner": "W5_WORKFLOW",
       "retryable": false
     },

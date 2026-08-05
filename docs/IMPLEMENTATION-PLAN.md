@@ -119,6 +119,15 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Inputs/contracts:** PRD批量/组合、DOMAIN-CONTRACTS、TASK-RUNTIME、RENDERING、W2 semantic signatures、W4 Plot/Plan。
 - **Planned entries:** `src/plotagent/batch/`、`figures/`、`src/renderer/.../batch/figure/`。
 - **Deliverables:** Batch/Figure services；review query/state；selection scope reducer；temporary compare state；explicit save/export specs；fixed layout resolver integration。
+- **核心服务实现选择（2026-08-05）：** `src/plotagent/batch/` 已提供纯 Python 同构
+  fan-out service，并通过 repository/executor protocols 注入后续 W2/W4 实现；提交只接受一份已确认
+  FieldMapping、PreparationSpec、可选 PlotCalculationSpec、Plot 模板和共享样式，逐项暂存/原子提交，
+  最终状态复用桌面 `queued/preparing/running/committing/...` task state。输出槽使用
+  `(task_id, action_id, output_slot)` 幂等键；Selected/All export scope 默认排除失败、取消、未确认和
+  审阅排除项。`src/plotagent/figures/` 仅组合 repository 声明为 numeric-only 的明确 PlotSpec
+  版本，支持有限 1×N/N×1/2×2/2×3 布局、对齐、共享/独立轴和公共图例；源图更新只返回提示，
+  显式升级以 expected version 原子创建新 Figure version。当前不含 renderer/import/Origin/Agent、
+  React IPC 或开放式布局；这些边界保留给后续 vertical slice。
 - **Dependencies/parallel:** W4→W5；isomorphism from W2。Core fan-out与UI review可并行，shared scope/event schemas由W0/W1先行。
 - **Acceptance evidence:** identical signature allowed/different blocked；single mapping；partial/cancel/retry；grid/list/carousel keyboard/accessibility；filter anomalies/fail/warn；temporary no-version then save-new；Figure version pins/common legend/numbering。
 - **Stable error ownership:** `BATCH_*`、`ISOMORPHIC_*`、`REVIEW_*`、`FIGURE_*`、`SELECTION_SCOPE_*`。

@@ -17,8 +17,10 @@ from plotagent.contracts.base import (
     PhysicalLength,
     PhysicalSize,
     PlotCalculationResultRef,
+    PlotCalculationSpecRef,
     PlotSpecRef,
     PrecomputedKind,
+    PreparationSpecRef,
     PreparedDatasetRef,
     SafeOutputName,
     SchemaVersion,
@@ -438,6 +440,28 @@ class DatasetSignature(StrictModel):
     semantic_hash: Sha256
 
 
+class BatchExecutionSignature(StrictModel):
+    """Source-independent identity for one strictly isomorphic batch fan-out."""
+
+    dataset_signature: DatasetSignature
+    field_mapping_hash: Sha256
+    preparation_spec_hash: Sha256
+    plot_calculation_spec_hash: Sha256 | None = None
+    chart_type_id: ChartTypeId
+    plot_template_hash: Sha256
+    style_hash: Sha256
+    content_hash: Sha256
+
+    @model_validator(mode="after")
+    def canonical_content_hash(self) -> BatchExecutionSignature:
+        from plotagent.contracts.canonical import canonical_hash
+
+        payload = self.model_dump(mode="json", exclude={"content_hash"})
+        if canonical_hash(payload) != self.content_hash:
+            raise ValueError("batch execution signature hash is not canonical")
+        return self
+
+
 class BatchPlotOverride(StrictModel):
     item_id: Token
     prepared_dataset_ref: PreparedDatasetRef
@@ -446,8 +470,32 @@ class BatchPlotOverride(StrictModel):
 
 class BatchItemState(StrictModel):
     item_id: Token
-    state: Literal["pending", "succeeded", "failed", "excluded"]
+    state: Literal[
+        "pending",
+        "queued",
+        "preparing",
+        "running",
+        "committing",
+        "succeeded",
+        "failed",
+        "cancelled",
+    ]
     error_code: Token | None = None
+    plot_version_ref: PlotSpecRef | None = None
+    review_state: Literal["unconfirmed", "confirmed", "excluded"] = "unconfirmed"
+
+    @model_validator(mode="after")
+    def terminal_payload(self) -> BatchItemState:
+        if self.state == "succeeded":
+            if self.plot_version_ref is None or self.error_code is not None:
+                raise ValueError("succeeded batch items require only a plot version reference")
+        elif self.plot_version_ref is not None:
+            raise ValueError("only succeeded batch items may reference a plot version")
+        if self.state == "failed" and self.error_code is None:
+            raise ValueError("failed batch items require a stable error code")
+        if self.state != "failed" and self.error_code is not None:
+            raise ValueError("only failed batch items may carry an error code")
+        return self
 
 
 class BatchSpec(StrictModel):
@@ -458,8 +506,11 @@ class BatchSpec(StrictModel):
     ]
     batch_version: VersionId
     dataset_signature: DatasetSignature
+    execution_signature: BatchExecutionSignature
     dataset_version_refs: Annotated[tuple[PreparedDatasetRef, ...], Field(min_length=1)]
     shared_field_mapping: FieldMappingRef
+    shared_preparation: PreparationSpecRef
+    shared_plot_calculation: PlotCalculationSpecRef | None = None
     plot_template_ref: PlotSpecRef
     shared_style: ResolvedStyleSnapshot
     axis_policy: Literal["per_plot", "unified"] = "per_plot"
@@ -468,11 +519,31 @@ class BatchSpec(StrictModel):
 
     @model_validator(mode="after")
     def unique_items(self) -> BatchSpec:
+        from plotagent.contracts.canonical import canonical_hash
+
         item_ids = tuple(item.item_id for item in self.item_states)
         if len(set(item_ids)) != len(item_ids):
             raise ValueError("batch item ids must be unique")
         if any(item.item_id not in set(item_ids) for item in self.plot_overrides):
             raise ValueError("batch overrides must reference declared items")
+        signature = self.execution_signature
+        if signature.dataset_signature != self.dataset_signature:
+            raise ValueError("batch dataset signature must match the execution signature")
+        if signature.field_mapping_hash != self.shared_field_mapping.content_hash:
+            raise ValueError("batch field mapping must match the execution signature")
+        if signature.preparation_spec_hash != self.shared_preparation.content_hash:
+            raise ValueError("batch preparation must match the execution signature")
+        calculation_hash = (
+            None
+            if self.shared_plot_calculation is None
+            else self.shared_plot_calculation.content_hash
+        )
+        if signature.plot_calculation_spec_hash != calculation_hash:
+            raise ValueError("batch plot calculation must match the execution signature")
+        if signature.plot_template_hash != self.plot_template_ref.content_hash:
+            raise ValueError("batch plot template must match the execution signature")
+        if signature.style_hash != canonical_hash(self.shared_style):
+            raise ValueError("batch style must match the execution signature")
         return self
 
 
@@ -492,15 +563,28 @@ class FigureSpec(StrictModel):
         StringConstraints(pattern=r"^figure:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
     ]
     figure_version: VersionId
-    layout: Literal["1x2", "2x1", "2x2"]
-    panels: Annotated[tuple[FigurePanel, ...], Field(min_length=2, max_length=4)]
+    layout: Literal["1x2", "1x3", "1x4", "2x1", "2x2", "2x3", "3x1"]
+    panels: Annotated[tuple[FigurePanel, ...], Field(min_length=2, max_length=6)]
+    alignment: Literal["independent", "align_x", "align_y", "align_both"] = "align_both"
+    axis_policy: Literal["independent", "shared_x", "shared_y", "shared_both"] = (
+        "independent"
+    )
     common_legend: bool
     physical_size: PhysicalSize
     publication_profile: PublicationProfileSnapshot
+    parent_figure_version: VersionId | None = None
 
     @model_validator(mode="after")
     def layout_capacity(self) -> FigureSpec:
-        capacity = {"1x2": 2, "2x1": 2, "2x2": 4}[self.layout]
+        capacity = {
+            "1x2": 2,
+            "1x3": 3,
+            "1x4": 4,
+            "2x1": 2,
+            "2x2": 4,
+            "2x3": 6,
+            "3x1": 3,
+        }[self.layout]
         if len(self.panels) > capacity:
             raise ValueError("panel count exceeds fixed layout capacity")
         if len({panel.panel_id for panel in self.panels}) != len(self.panels):

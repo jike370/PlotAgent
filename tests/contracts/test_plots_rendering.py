@@ -10,9 +10,12 @@ from plotagent.contracts.base import (
     ExportSpecRef,
     ObjectVersionRef,
     PhysicalLength,
+    PreparationSpecRef,
     ResourceRef,
 )
+from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.plots import (
+    BatchExecutionSignature,
     BatchItemState,
     BatchSpec,
     DatasetFieldSignature,
@@ -111,19 +114,39 @@ def test_batch_and_figure_pin_exact_versions() -> None:
         "plot_version": plot.plot_version,
         "content_hash": HASH_C,
     }
+    dataset_signature = DatasetSignature(
+        fields=(
+            DatasetFieldSignature(
+                field_id="field:x",
+                logical_type="numeric",
+                unit_hash=HASH_A,
+                semantic_role="x",
+            ),
+        ),
+        semantic_hash=HASH_B,
+    )
+    signature_payload = {
+        "dataset_signature": dataset_signature.model_dump(mode="json"),
+        "field_mapping_hash": HASH_A,
+        "preparation_spec_hash": HASH_B,
+        "plot_calculation_spec_hash": None,
+        "chart_type_id": "K01",
+        "plot_template_hash": HASH_C,
+        "style_hash": canonical_hash(style()),
+    }
     batch = BatchSpec(
         batch_id="batch:test",
         batch_version=1,
-        dataset_signature=DatasetSignature(
-            fields=(
-                DatasetFieldSignature(
-                    field_id="field:x",
-                    logical_type="numeric",
-                    unit_hash=HASH_A,
-                    semantic_role="x",
-                ),
-            ),
-            semantic_hash=HASH_B,
+        dataset_signature=dataset_signature,
+        execution_signature=BatchExecutionSignature(
+            dataset_signature=dataset_signature,
+            field_mapping_hash=HASH_A,
+            preparation_spec_hash=HASH_B,
+            plot_calculation_spec_hash=None,
+            chart_type_id="K01",
+            plot_template_hash=HASH_C,
+            style_hash=canonical_hash(style()),
+            content_hash=canonical_hash(signature_payload),
         ),
         dataset_version_refs=(prepared_ref(),),
         shared_field_mapping={
@@ -131,9 +154,16 @@ def test_batch_and_figure_pin_exact_versions() -> None:
             "mapping_version": 1,
             "content_hash": HASH_A,
         },
+        shared_preparation=PreparationSpecRef(
+            preparation_spec_id="preparation:test",
+            preparation_version=1,
+            content_hash=HASH_B,
+        ),
         plot_template_ref=plot_ref,
         shared_style=style(),
-        item_states=(BatchItemState(item_id="item.one", state="pending"),),
+        item_states=(
+            BatchItemState(item_id="item.one", state="pending"),
+        ),
     )
     assert batch.axis_policy == "per_plot"
 
