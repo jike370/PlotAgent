@@ -26,6 +26,7 @@ uploads/
 exports/
 !src/plotagent/exports/
 !src/plotagent/exports/**
+src/plotagent/exports/__pycache__/
 *.opju
 
 # Frontend artifacts
