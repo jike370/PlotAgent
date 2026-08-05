@@ -1,4 +1,4 @@
-"""Shared normalization, schema inference, quality, and deterministic identity helpers."""
+"""Shared normalization and construction of the authoritative SourceDataset contract."""
 
 from __future__ import annotations
 
@@ -12,18 +12,21 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
+from plotagent.contracts.base import ContentTableRef, WarningRecord
+from plotagent.contracts.datasets import (
+    DataQualitySummary,
+    SourceCoordinate,
+    SourceDataset,
+    SourceField,
+    UnitSpec,
+)
 from plotagent.importing.errors import ImportErrorCode, ImportProblem
 from plotagent.importing.models import (
-    DatasetCandidate,
-    FieldQuality,
-    FieldSchema,
     ImportRecipe,
     ProvenanceMarker,
-    QualitySummary,
     Scalar,
-    SourceCoordinate,
+    SourceDatasetArtifact,
     TraceEvent,
-    UnitSuggestion,
 )
 
 _MISSING = frozenset({"", "na", "n/a", "null", "none", "missing", "-", "—"})
@@ -82,8 +85,7 @@ def parse_text_scalar(token: str, decimal_mark: str) -> Scalar:
 def normalize_excel_scalar(value: object) -> Scalar:
     if value is None or isinstance(value, (str, int, float, bool, date, datetime)):
         if isinstance(value, str):
-            parsed = parse_text_scalar(value, ".")
-            return parsed
+            return parse_text_scalar(value, ".")
         return value
     return str(value)
 
@@ -106,7 +108,7 @@ def _physical_type(value: Scalar) -> str:
 
 def _logical_type(
     types: set[str],
-) -> Literal["numeric", "boolean", "datetime", "text", "mixed"]:
+) -> Literal["numeric", "categorical", "datetime", "boolean", "text"]:
     useful = types - {"null"}
     if not useful:
         return "text"
@@ -116,23 +118,78 @@ def _logical_type(
         return "boolean"
     if useful <= {"date", "datetime"}:
         return "datetime"
-    if useful == {"string"}:
-        return "text"
-    return "mixed"
+    return "text"
 
 
-def _unit_suggestion(header: str) -> UnitSuggestion | None:
+def _unit(header: str) -> UnitSpec:
     match = _UNIT_PATTERN.search(header)
     if match is None:
-        return None
+        return UnitSpec(
+            source_text="",
+            dimensionality="dimensionless",
+            kind="dimensionless",
+            registry_version="units.v1",
+        )
     unit = (match.group(1) or match.group(2) or "").strip()
     if not unit:
-        return None
-    return UnitSuggestion(source_text=unit)
+        return UnitSpec(
+            source_text="",
+            dimensionality="dimensionless",
+            kind="dimensionless",
+            registry_version="units.v1",
+        )
+    return UnitSpec(
+        source_text=unit,
+        dimensionality="opaque",
+        kind="opaque",
+        registry_version="units.v1",
+    )
 
 
 def _canonical_recipe(recipe: ImportRecipe) -> str:
     return json.dumps(recipe.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+
+
+def _coordinate_samples(
+    coordinates: tuple[SourceCoordinate, ...],
+) -> tuple[SourceCoordinate, ...]:
+    if len(coordinates) <= 20:
+        return coordinates
+    return coordinates[:10] + coordinates[-10:]
+
+
+def _quality_warnings(provenance: tuple[ProvenanceMarker, ...]) -> tuple[WarningRecord, ...]:
+    kinds = {marker.kind for marker in provenance}
+    warnings: list[WarningRecord] = []
+    if "formula_uncached" in kinds:
+        warnings.append(
+            WarningRecord(
+                warning_id="formula_uncached",
+                message="Formula cells without cached values were imported as missing.",
+            )
+        )
+    if "macro_ignored" in kinds:
+        warnings.append(
+            WarningRecord(
+                warning_id="macro_ignored",
+                message="Workbook macro content was ignored and never executed.",
+            )
+        )
+    if "external_link" in kinds:
+        warnings.append(
+            WarningRecord(
+                warning_id="external_link_not_refreshed",
+                message="External links were not loaded or refreshed.",
+            )
+        )
+    return tuple(warnings)
+
+
+def _row_has_valid_value(row: tuple[Scalar, ...]) -> bool:
+    return any(
+        value is not None and not (isinstance(value, float) and not math.isfinite(value))
+        for value in row
+    )
 
 
 def build_candidate(
@@ -147,7 +204,7 @@ def build_candidate(
     postamble: tuple[str, ...] = (),
     provenance: tuple[ProvenanceMarker, ...] = (),
     trace: tuple[TraceEvent, ...] = (),
-) -> DatasetCandidate:
+) -> SourceDatasetArtifact:
     if not rows:
         raise ImportProblem(
             ImportErrorCode.NO_DATA,
@@ -178,70 +235,82 @@ def build_candidate(
     if len(coordinates) != len(rows):
         raise ValueError("one source coordinate is required for every data row")
 
-    fields: list[FieldSchema] = []
-    field_quality: list[FieldQuality] = []
+    fields: list[SourceField] = []
     total_missing = total_nan = total_pos_inf = total_neg_inf = 0
-    for index, (source_name, normalized_name) in enumerate(zip(headers, normalized, strict=True)):
+    for index, normalized_name in enumerate(normalized):
         values = tuple(row[index] for row in rows)
         types = {_physical_type(value) for value in values}
-        # Field ids are structure-stable so one FieldMapping can fan out across
-        # fully isomorphic sources; the SourceDataset id still owns each field.
-        field_id = "fld_" + stable_hash((normalized_name,))[:20]
-        missing = sum(value is None for value in values)
-        nan = sum(isinstance(value, float) and math.isnan(value) for value in values)
-        pos_inf = sum(value == float("inf") for value in values)
-        neg_inf = sum(value == float("-inf") for value in values)
-        total_missing += missing
-        total_nan += nan
-        total_pos_inf += pos_inf
-        total_neg_inf += neg_inf
+        useful_types = types - {"null"}
         logical_type = _logical_type(types)
-        precision: Literal["integer", "binary64"] | None = None
+        precision = None
         if logical_type == "numeric":
-            precision = "binary64" if "float64" in types else "integer"
+            precision = 15 if "float64" in types else 0
+        field_id = "field:" + stable_hash((normalized_name,))[:24]
+        total_missing += sum(value is None for value in values)
+        total_nan += sum(isinstance(value, float) and math.isnan(value) for value in values)
+        total_pos_inf += sum(value == float("inf") for value in values)
+        total_neg_inf += sum(value == float("-inf") for value in values)
         fields.append(
-            FieldSchema(
+            SourceField(
                 field_id=field_id,
-                source_name=source_name,
-                normalized_name=normalized_name,
+                name=normalized_name,
                 logical_type=logical_type,
-                physical_types=tuple(sorted(types)),
-                numeric_precision=precision,
-                unit=_unit_suggestion(normalized_name),
-            )
-        )
-        field_quality.append(
-            FieldQuality(
-                field_id=field_id,
-                missing_count=missing,
-                nan_count=nan,
-                positive_inf_count=pos_inf,
-                negative_inf_count=neg_inf,
+                physical_type="+".join(sorted(useful_types)) if useful_types else "null",
+                unit=_unit(normalized_name),
+                source_column_index=index,
+                precision_digits=precision,
             )
         )
 
-    candidate_id = "src_" + stable_hash((source_hash, _canonical_recipe(recipe)))[:24]
-    quality = QualitySummary(
-        row_count=len(rows),
-        column_count=width,
-        missing_count=total_missing,
-        nan_count=total_nan,
-        positive_inf_count=total_pos_inf,
-        negative_inf_count=total_neg_inf,
-        unparseable_count=0,
-        fields=tuple(field_quality),
+    dataset_id = "source:" + stable_hash((source_hash, _canonical_recipe(recipe)))[:24]
+    quality = DataQualitySummary(
+        total_rows=len(rows),
+        valid_rows=sum(_row_has_valid_value(row) for row in rows),
+        missing_values=total_missing,
+        nan_values=total_nan,
+        positive_inf_values=total_pos_inf,
+        negative_inf_values=total_neg_inf,
+        unparseable_values=0,
+        warnings=_quality_warnings(provenance),
     )
-    return DatasetCandidate(
-        candidate_id=candidate_id,
-        display_name=display_name,
+    from plotagent.importing.serialization import table_to_parquet_bytes
+
+    parquet_bytes = table_to_parquet_bytes(
+        source_dataset_id=dataset_id,
         source_object_hash=source_hash,
-        recipe=recipe,
         fields=tuple(fields),
+        rows=rows,
+        coordinates=coordinates,
+        recipe=recipe,
+        quality=quality,
+    )
+    content_hash = sha256_bytes(parquet_bytes)
+    source_dataset = SourceDataset(
+        source_dataset_id=dataset_id,
+        source_version=1,
+        source_object_hash=source_hash,
+        content_hash=content_hash,
+        import_recipe_version=recipe.schema_version,
+        parser_version=recipe.parser_version,
+        unicode_normalization_version="unicode.nfc.v1",
+        field_schema=tuple(fields),
+        data_ref=ContentTableRef(
+            object_hash=content_hash,
+            row_count=len(rows),
+            field_ids=tuple(field.field_id for field in fields),
+        ),
+        quality=quality,
+        source_coordinate_samples=_coordinate_samples(coordinates),
+    )
+    return SourceDatasetArtifact(
+        display_name=display_name,
+        source_dataset=source_dataset,
+        recipe=recipe,
         rows=rows,
         coordinates=coordinates,
         instrument_metadata=metadata or {},
         postamble=postamble,
-        quality=quality,
         provenance=provenance,
+        parquet_bytes=parquet_bytes,
         trace=trace,
     )

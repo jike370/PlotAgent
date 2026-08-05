@@ -9,7 +9,12 @@ from datetime import date, datetime
 import pyarrow as pa  # type: ignore[import-untyped]
 import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
-from plotagent.importing.models import DatasetCandidate, FieldSchema, Scalar
+from plotagent.contracts.datasets import (
+    DataQualitySummary,
+    SourceCoordinate,
+    SourceField,
+)
+from plotagent.importing.models import ImportRecipe, Scalar, SourceDatasetArtifact
 
 
 def _string_value(value: Scalar) -> str | None:
@@ -20,9 +25,9 @@ def _string_value(value: Scalar) -> str | None:
     return str(value)
 
 
-def _array(field: FieldSchema, values: list[Scalar]) -> pa.Array:
+def _array(field: SourceField, values: list[Scalar]) -> pa.Array:
     if field.logical_type == "numeric":
-        if field.numeric_precision == "integer":
+        if "float" not in field.physical_type:
             return pa.array(values, type=pa.int64())
         return pa.array(values, type=pa.float64())
     if field.logical_type == "boolean":
@@ -38,53 +43,105 @@ def _array(field: FieldSchema, values: list[Scalar]) -> pa.Array:
     return pa.array([_string_value(value) for value in values], type=pa.string())
 
 
-def candidate_to_parquet_bytes(candidate: DatasetCandidate) -> bytes:
-    """Serialize all rows plus stable source coordinates without dropping non-finite values."""
+def _coordinate_columns(
+    coordinates: tuple[SourceCoordinate, ...],
+) -> tuple[tuple[str, pa.DataType, list[object]], ...]:
+    return (
+        ("__source_kind", pa.string(), [item.kind for item in coordinates]),
+        ("__source_row_id", pa.string(), [item.source_row_id for item in coordinates]),
+        (
+            "__source_sheet",
+            pa.string(),
+            [item.sheet_name if item.kind == "excel" else None for item in coordinates],
+        ),
+        (
+            "__source_cell_range",
+            pa.string(),
+            [item.cell_range if item.kind == "excel" else None for item in coordinates],
+        ),
+        (
+            "__source_block",
+            pa.string(),
+            [item.block if item.kind == "text" else None for item in coordinates],
+        ),
+        (
+            "__source_channel",
+            pa.string(),
+            [item.channel if item.kind == "text" else None for item in coordinates],
+        ),
+        (
+            "__source_sweep",
+            pa.string(),
+            [item.sweep if item.kind == "text" else None for item in coordinates],
+        ),
+        (
+            "__source_line_start",
+            pa.int64(),
+            [item.line_start if item.kind == "text" else None for item in coordinates],
+        ),
+        (
+            "__source_line_end",
+            pa.int64(),
+            [item.line_end if item.kind == "text" else None for item in coordinates],
+        ),
+        (
+            "__source_byte_start",
+            pa.int64(),
+            [item.byte_start if item.kind == "text" else None for item in coordinates],
+        ),
+        (
+            "__source_byte_end",
+            pa.int64(),
+            [item.byte_end if item.kind == "text" else None for item in coordinates],
+        ),
+    )
+
+
+def table_to_parquet_bytes(
+    *,
+    source_dataset_id: str,
+    source_object_hash: str,
+    fields: tuple[SourceField, ...],
+    rows: tuple[tuple[Scalar, ...], ...],
+    coordinates: tuple[SourceCoordinate, ...],
+    recipe: ImportRecipe,
+    quality: DataQualitySummary,
+) -> bytes:
+    """Serialize all values and full row coordinates without changing non-finite data."""
 
     arrays: list[pa.Array] = []
     names: list[str] = []
     arrow_fields: list[pa.Field] = []
-    for index, field in enumerate(candidate.fields):
-        values = [row[index] for row in candidate.rows]
+    for index, field in enumerate(fields):
+        values = [row[index] for row in rows]
         array = _array(field, values)
         metadata = {
-            b"plotagent.normalized_name": field.normalized_name.encode("utf-8"),
-            b"plotagent.source_name": field.source_name.encode("utf-8"),
+            b"plotagent.name": field.name.encode("utf-8"),
             b"plotagent.logical_type": field.logical_type.encode("ascii"),
+            b"plotagent.physical_type": field.physical_type.encode("ascii"),
+            b"plotagent.unit_source_text": field.unit.source_text.encode("utf-8"),
         }
-        if field.unit is not None:
-            metadata[b"plotagent.unit_source_text"] = field.unit.source_text.encode("utf-8")
         arrays.append(array)
         names.append(field.field_id)
         arrow_fields.append(pa.field(field.field_id, array.type, nullable=True, metadata=metadata))
 
-    coordinate_columns: tuple[tuple[str, pa.DataType, list[object]], ...] = (
-        ("__source_row_id", pa.string(), [item.source_row_id for item in candidate.coordinates]),
-        ("__source_row", pa.int64(), [item.source_row for item in candidate.coordinates]),
-        ("__source_sheet", pa.string(), [item.sheet for item in candidate.coordinates]),
-        ("__source_cell_range", pa.string(), [item.cell_range for item in candidate.coordinates]),
-        ("__source_block", pa.string(), [item.block for item in candidate.coordinates]),
-        ("__source_line", pa.int64(), [item.line for item in candidate.coordinates]),
-        ("__source_byte_start", pa.int64(), [item.byte_start for item in candidate.coordinates]),
-        ("__source_byte_end", pa.int64(), [item.byte_end for item in candidate.coordinates]),
-    )
-    for name, data_type, coordinate_values in coordinate_columns:
+    for name, data_type, coordinate_values in _coordinate_columns(coordinates):
         arrays.append(pa.array(coordinate_values, type=data_type))
         names.append(name)
         arrow_fields.append(pa.field(name, data_type, nullable=True))
 
     schema_metadata = {
         b"plotagent.schema_version": b"source-dataset-v1",
-        b"plotagent.candidate_id": candidate.candidate_id.encode("ascii"),
-        b"plotagent.source_object_hash": candidate.source_object_hash.encode("ascii"),
+        b"plotagent.source_dataset_id": source_dataset_id.encode("ascii"),
+        b"plotagent.source_object_hash": source_object_hash.encode("ascii"),
         b"plotagent.import_recipe": json.dumps(
-            candidate.recipe.model_dump(mode="json"),
+            recipe.model_dump(mode="json"),
             ensure_ascii=False,
             separators=(",", ":"),
             sort_keys=True,
         ).encode("utf-8"),
         b"plotagent.quality": json.dumps(
-            candidate.quality.model_dump(mode="json"),
+            quality.model_dump(mode="json"),
             ensure_ascii=False,
             separators=(",", ":"),
             sort_keys=True,
@@ -103,3 +160,9 @@ def candidate_to_parquet_bytes(candidate: DatasetCandidate) -> bytes:
         version="2.6",
     )
     return output.getvalue()
+
+
+def source_artifact_to_parquet_bytes(artifact: SourceDatasetArtifact) -> bytes:
+    """Return the already-hashed immutable bytes bound by the SourceDataset contract."""
+
+    return artifact.parquet_bytes

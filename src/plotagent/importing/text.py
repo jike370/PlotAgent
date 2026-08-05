@@ -9,8 +9,9 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+from plotagent.contracts.datasets import TextSourceCoordinate
 from plotagent.importing.errors import ImportErrorCode, ImportProblem
-from plotagent.importing.models import DatasetCandidate, ImportRecipe, SourceCoordinate, TraceEvent
+from plotagent.importing.models import ImportRecipe, SourceDatasetArtifact, TraceEvent
 from plotagent.importing.normalize import build_candidate, parse_text_scalar, stable_hash
 
 _DELIMITERS = (",", "\t", ";", "|")
@@ -281,7 +282,7 @@ def inspect_text(
     raw: bytes,
     source_hash: str,
     options: TextImportOptions,
-) -> tuple[DatasetCandidate, ...]:
+) -> tuple[SourceDatasetArtifact, ...]:
     decoded = _decode(raw, options.encoding)
     lines = _lines(decoded)
     delimiter = _detect_delimiter(lines, options.delimiter)
@@ -304,7 +305,7 @@ def inspect_text(
     suffix = path.suffix.casefold().lstrip(".")
     source_format = "tsv" if suffix == "tsv" else suffix
 
-    candidates: list[DatasetCandidate] = []
+    candidates: list[SourceDatasetArtifact] = []
     for block_index, group in enumerate(groups, start=1):
         widths = {len(row.cells) for row in group}
         if len(widths) != 1:
@@ -327,14 +328,14 @@ def inspect_text(
         )
         block_name = f"block_{block_index}"
         coordinates = tuple(
-            SourceCoordinate(
-                source_row_id="row_"
+            TextSourceCoordinate(
+                source_row_id="row:"
                 + stable_hash((source_hash, block_name, str(row.line.number)))[:24],
-                source_row=row.line.number,
                 block=block_name,
                 channel=metadata.get("Channel") or metadata.get("channel"),
                 sweep=metadata.get("Sweep") or metadata.get("sweep"),
-                line=row.line.number,
+                line_start=row.line.number,
+                line_end=row.line.number,
                 byte_start=row.line.byte_start,
                 byte_end=row.line.byte_end,
             )

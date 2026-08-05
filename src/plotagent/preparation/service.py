@@ -1,358 +1,407 @@
-"""Local compiler/executor for the closed PreparationSpec union."""
+"""Compiler for the closed W0 PreparationSpec union."""
 
 from __future__ import annotations
 
 import hashlib
-import json
+import io
 import math
 from collections.abc import Iterable
-from datetime import date, datetime
+from typing import cast
 
-from plotagent.importing.models import DatasetCandidate, FieldSchema, Scalar
-from plotagent.importing.normalize import stable_hash
-from plotagent.preparation.errors import PreparationErrorCode, PreparationProblem
-from plotagent.preparation.models import (
+import pyarrow as pa  # type: ignore[import-untyped]
+import pyarrow.parquet as pq  # type: ignore[import-untyped]
+
+from plotagent.contracts.base import (
+    ContentTableRef,
+    FieldMappingRef,
+    PreparationSpecRef,
+    RowExclusion,
+    SourceDatasetRef,
+    WarningRecord,
+)
+from plotagent.contracts.canonical import JsonValue, canonical_hash
+from plotagent.contracts.datasets import (
     ApplyPlotOrderSpec,
     FieldMapping,
     IsomorphicConcatSpec,
     MaskForPlotSpec,
     PreparationSpec,
     PreparedDataset,
+    PreparedDatasetProvenance,
     ProjectMetadataLabelSpec,
     ProjectStructureSpec,
-    RowExclusion,
     SelectFieldsSpec,
+    SourceCoordinate,
+    SourceDataset,
+    SourceField,
+    UnitSpec,
 )
+from plotagent.importing.models import Scalar
+from plotagent.importing.serialization import _array, _coordinate_columns
+from plotagent.preparation.artifacts import (
+    PreparedArtifact,
+    ResolvedSourceTable,
+    SourceTableResolver,
+)
+from plotagent.preparation.errors import PreparationErrorCode, PreparationProblem
+
+_COMPILER_BUILD_HASH = hashlib.sha256(b"preparation-compiler-v1").hexdigest()
 
 
-def _canonical_scalar(value: Scalar) -> object:
-    if isinstance(value, float):
-        if math.isnan(value):
-            return {"float": "nan"}
-        if value == float("inf"):
-            return {"float": "+inf"}
-        if value == float("-inf"):
-            return {"float": "-inf"}
-        return value
-    if isinstance(value, (date, datetime)):
-        return {"datetime": value.isoformat()}
-    return value
-
-
-def _json_hash(value: object) -> str:
-    payload = json.dumps(
-        value,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
-
-
-def _candidate_input(candidate: DatasetCandidate) -> object:
-    return {
-        "candidate_id": candidate.candidate_id,
-        "fields": [field.model_dump(mode="json") for field in candidate.fields],
-        "rows": [[_canonical_scalar(value) for value in row] for row in candidate.rows],
-        "coordinates": [item.model_dump(mode="json") for item in candidate.coordinates],
-    }
-
-
-def _mapping_shape(mapping: FieldMapping) -> list[dict[str, str]]:
-    return sorted(
-        (assignment.model_dump(mode="json") for assignment in mapping.assignments),
-        key=lambda item: (item["role"], item["field_id"]),
+def _source_ref(source: SourceDataset) -> SourceDatasetRef:
+    return SourceDatasetRef(
+        source_dataset_id=source.source_dataset_id,
+        source_version=source.source_version,
+        content_hash=source.content_hash,
     )
 
 
-def semantic_signature(candidate: DatasetCandidate, mapping: FieldMapping) -> str:
-    """Column-order-independent signature for a fully mapped source."""
+def _mapping_ref(mapping: FieldMapping) -> FieldMappingRef:
+    return FieldMappingRef(
+        field_mapping_id=mapping.field_mapping_id,
+        mapping_version=mapping.mapping_version,
+        content_hash=mapping.content_hash,
+    )
 
-    field_shape = sorted(
+
+def _unit_key(unit: UnitSpec) -> tuple[str, str | None, str, str]:
+    return (unit.kind, unit.canonical_unit, unit.dimensionality, unit.source_text)
+
+
+def semantic_signature(source: SourceDataset, mapping: FieldMapping) -> str:
+    """Return a column-order-independent signature of frozen plotting semantics."""
+
+    fields = sorted(
         (
             {
                 "field_id": field.field_id,
-                "name": field.normalized_name,
+                "name": field.name,
                 "logical_type": field.logical_type,
-                "unit": field.unit.model_dump(mode="json") if field.unit else None,
+                "unit": field.unit.model_dump(mode="json"),
             }
-            for field in candidate.fields
+            for field in source.field_schema
         ),
-        key=lambda item: str(item["field_id"]),
+        key=lambda value: str(value["field_id"]),
     )
-    return _json_hash({"fields": field_shape, "mapping": _mapping_shape(mapping)})
+    bindings = sorted(
+        (
+            {"role": binding.role, "field_id": binding.field.field_id}
+            for binding in mapping.bindings
+        ),
+        key=lambda value: (value["role"], value["field_id"]),
+    )
+    return canonical_hash(cast(JsonValue, {"fields": fields, "bindings": bindings}))
 
 
-def _validate_mapping(candidates: tuple[DatasetCandidate, ...], mapping: FieldMapping) -> None:
-    roles = [assignment.role for assignment in mapping.assignments]
-    if len(roles) != len(set(roles)):
+def _validate_contract_links(
+    sources: tuple[SourceDataset, ...], mapping: FieldMapping, spec: PreparationSpec
+) -> None:
+    refs = tuple(_source_ref(source) for source in sources)
+    if refs != spec.input_refs or any(ref not in mapping.source_dataset_refs for ref in refs):
         raise PreparationProblem(
-            PreparationErrorCode.MAPPING_ROLE_DUPLICATE,
+            PreparationErrorCode.PREPARE_UNSUPPORTED,
+            "PreparationSpec、FieldMapping 与 SourceDataset 版本引用不一致。",
+        )
+    if spec.field_mapping_ref != _mapping_ref(mapping):
+        raise PreparationProblem(
+            PreparationErrorCode.PREPARE_UNSUPPORTED,
+            "PreparationSpec 未绑定当前 FieldMapping 内容哈希。",
+        )
+    roles = tuple(binding.role for binding in mapping.bindings)
+    if len(set(roles)) != len(roles):
+        raise PreparationProblem(
+            PreparationErrorCode.MAPPING_DUPLICATE_ROLE,
             "FieldMapping 中的角色必须唯一。",
         )
-    for candidate in candidates:
-        known = {field.field_id for field in candidate.fields}
-        unknown = {assignment.field_id for assignment in mapping.assignments} - known
-        if unknown:
+    fields_by_ref = {
+        _source_ref(source): {field.field_id for field in source.field_schema}
+        for source in sources
+    }
+    for binding in mapping.bindings:
+        known = fields_by_ref[binding.field.source_dataset_ref]
+        if binding.field.field_id not in known:
             raise PreparationProblem(
-                PreparationErrorCode.MAPPING_FIELD_UNKNOWN,
-                "FieldMapping 引用了当前 SourceDataset 不存在的字段。",
+                PreparationErrorCode.MAPPING_REQUIRED_ROLE_MISSING,
+                "FieldMapping 引用了 SourceDataset 中不存在的字段。",
             )
 
 
-def _field_index(candidate: DatasetCandidate) -> dict[str, int]:
-    return {field.field_id: index for index, field in enumerate(candidate.fields)}
+def _field_index(source: SourceDataset) -> dict[str, int]:
+    return {field.field_id: index for index, field in enumerate(source.field_schema)}
 
 
 def _selected(
-    candidate: DatasetCandidate, field_ids: tuple[str, ...]
-) -> tuple[tuple[FieldSchema, ...], tuple[tuple[Scalar, ...], ...]]:
-    indexes = _field_index(candidate)
+    table: ResolvedSourceTable, field_ids: tuple[str, ...]
+) -> tuple[tuple[SourceField, ...], tuple[tuple[Scalar, ...], ...]]:
+    indexes = _field_index(table.source_dataset)
     if any(field_id not in indexes for field_id in field_ids):
         raise PreparationProblem(
-            PreparationErrorCode.PREPARE_FIELD_UNKNOWN,
+            PreparationErrorCode.MAPPING_REQUIRED_ROLE_MISSING,
             "PreparationSpec 引用了不存在的字段。",
         )
     positions = tuple(indexes[field_id] for field_id in field_ids)
-    fields = tuple(candidate.fields[index] for index in positions)
-    rows = tuple(tuple(row[index] for index in positions) for row in candidate.rows)
+    fields = tuple(table.source_dataset.field_schema[index] for index in positions)
+    rows = tuple(tuple(row[index] for index in positions) for row in table.rows)
     return fields, rows
 
 
-def _same_structure(left: DatasetCandidate, right: DatasetCandidate) -> bool:
-    def shape(candidate: DatasetCandidate) -> list[tuple[str, str, str | None]]:
-        return sorted(
-            (
-                field.normalized_name,
-                field.logical_type,
-                field.unit.source_text if field.unit else None,
-            )
-            for field in candidate.fields
-        )
-
-    return shape(left) == shape(right)
-
-
-def _concat(
-    candidates: tuple[DatasetCandidate, ...], spec: IsomorphicConcatSpec
-) -> tuple[tuple[FieldSchema, ...], tuple[tuple[Scalar, ...], ...]]:
-    first = candidates[0]
-    if any(not _same_structure(first, candidate) for candidate in candidates[1:]):
-        raise PreparationProblem(
-            PreparationErrorCode.PREPARE_NON_ISOMORPHIC,
-            "只有字段、逻辑类型和单位完全一致的数据才能纵向拼接。",
-        )
-    canonical_ids = tuple(field.field_id for field in first.fields)
-    rows: list[tuple[Scalar, ...]] = []
-    for candidate in candidates:
-        index = _field_index(candidate)
-        label = (
-            candidate.recipe.sheet
-            if spec.source_label_field == "source_sheet"
-            else candidate.recipe.block
-        )
-        if label is None:
-            raise PreparationProblem(
-                PreparationErrorCode.PREPARE_STRUCTURE_INVALID,
-                f"来源没有 {spec.source_label_field} 标签。",
-            )
-        for row in candidate.rows:
-            rows.append(tuple(row[index[field_id]] for field_id in canonical_ids) + (label,))
-    label_id = "fld_" + stable_hash((spec.source_label_field,))[:20]
-    label_field = FieldSchema(
-        field_id=label_id,
-        source_name=spec.source_label_field,
-        normalized_name=spec.source_label_field,
-        logical_type="text",
-        physical_types=("string",),
+def _dimensionless() -> UnitSpec:
+    return UnitSpec(
+        source_text="",
+        dimensionality="dimensionless",
+        kind="dimensionless",
+        registry_version="units.v1",
     )
-    return tuple(first.fields) + (label_field,), tuple(rows)
 
 
 def _wide_to_long(
-    candidate: DatasetCandidate, spec: ProjectStructureSpec
-) -> tuple[tuple[FieldSchema, ...], tuple[tuple[Scalar, ...], ...]]:
-    if spec.index_field_id is None or not spec.value_field_ids:
+    table: ResolvedSourceTable, spec: ProjectStructureSpec
+) -> tuple[
+    tuple[SourceField, ...],
+    tuple[tuple[Scalar, ...], ...],
+    tuple[SourceCoordinate, ...],
+]:
+    if len(spec.role_fields) < 2:
         raise PreparationProblem(
-            PreparationErrorCode.PREPARE_STRUCTURE_INVALID,
-            "wide_to_long 需要一个索引字段和至少一个值字段。",
+            PreparationErrorCode.PREPARE_UNSUPPORTED,
+            "wide→long 至少需要一个索引字段和一个值字段。",
         )
-    indexes = _field_index(candidate)
-    required = (spec.index_field_id,) + spec.value_field_ids
-    if any(field_id not in indexes for field_id in required):
+    indexes = _field_index(table.source_dataset)
+    if any(field_id not in indexes for field_id in spec.role_fields):
         raise PreparationProblem(
-            PreparationErrorCode.PREPARE_FIELD_UNKNOWN,
+            PreparationErrorCode.MAPPING_REQUIRED_ROLE_MISSING,
             "结构投影引用了不存在的字段。",
         )
-    value_fields = tuple(candidate.fields[indexes[field_id]] for field_id in spec.value_field_ids)
-    signatures = {
-        (field.logical_type, field.unit.source_text if field.unit else None)
-        for field in value_fields
-    }
-    if len(signatures) != 1:
+    index_id, *value_ids = spec.role_fields
+    value_fields = tuple(table.source_dataset.field_schema[indexes[item]] for item in value_ids)
+    shapes = {(field.logical_type, _unit_key(field.unit)) for field in value_fields}
+    if len(shapes) != 1:
         raise PreparationProblem(
-            PreparationErrorCode.PREPARE_STRUCTURE_INVALID,
-            "wide_to_long 的值字段必须具有相同逻辑类型和单位。",
+            PreparationErrorCode.PREPARE_UNIT_INCOMPATIBLE,
+            "wide→long 的值字段必须具有相同逻辑类型和单位。",
         )
-    index_field = candidate.fields[indexes[spec.index_field_id]]
-    variable_field = FieldSchema(
-        field_id="fld_" + stable_hash((spec.variable_field_name,))[:20],
-        source_name=spec.variable_field_name,
-        normalized_name=spec.variable_field_name,
+    index_field = table.source_dataset.field_schema[indexes[index_id]]
+    variable_field = SourceField(
+        field_id="field:variable_" + canonical_hash(list(value_ids))[:16],
+        name="variable",
         logical_type="text",
-        physical_types=("string",),
+        physical_type="string",
+        unit=_dimensionless(),
+        source_column_index=1,
     )
-    base_value = value_fields[0]
-    value_field = base_value.model_copy(
+    value_field = value_fields[0].model_copy(
         update={
-            "field_id": "fld_" + stable_hash((spec.value_field_name,))[:20],
-            "source_name": spec.value_field_name,
-            "normalized_name": spec.value_field_name,
+            "field_id": "field:value_" + canonical_hash(list(value_ids))[:16],
+            "name": "value",
+            "source_column_index": 2,
         }
     )
-    output_rows: list[tuple[Scalar, ...]] = []
-    for row in candidate.rows:
-        index_value = row[indexes[spec.index_field_id]]
+    rows: list[tuple[Scalar, ...]] = []
+    coordinates: list[SourceCoordinate] = []
+    for row, coordinate in zip(table.rows, table.coordinates, strict=True):
         for field in value_fields:
-            output_rows.append((index_value, field.normalized_name, row[indexes[field.field_id]]))
-    return (index_field, variable_field, value_field), tuple(output_rows)
+            rows.append((row[indexes[index_id]], field.name, row[indexes[field.field_id]]))
+            coordinates.append(coordinate)
+    return (index_field, variable_field, value_field), tuple(rows), tuple(coordinates)
 
 
-def _nonfinite_or_missing(value: Scalar) -> str | None:
+def _source_label(table: ResolvedSourceTable, kind: str) -> str:
+    for coordinate in table.coordinates:
+        if kind == "source_sheet" and coordinate.kind == "excel":
+            return coordinate.sheet_name
+        if kind == "source_block" and coordinate.kind == "text" and coordinate.block:
+            return coordinate.block
+    raise PreparationProblem(
+        PreparationErrorCode.PREPARE_UNSUPPORTED,
+        f"来源没有 {kind} 标签。",
+    )
+
+
+def _concat(
+    tables: tuple[ResolvedSourceTable, ...], mapping: FieldMapping, spec: IsomorphicConcatSpec
+) -> tuple[tuple[SourceField, ...], tuple[tuple[Scalar, ...], ...]]:
+    signatures = {semantic_signature(table.source_dataset, mapping) for table in tables}
+    if len(signatures) != 1:
+        raise PreparationProblem(
+            PreparationErrorCode.PREPARE_NON_ISOMORPHIC,
+            "只有字段、逻辑类型、单位与最终语义完全一致的数据才能纵向拼接。",
+        )
+    canonical_fields = tables[0].source_dataset.field_schema
+    canonical_ids = tuple(field.field_id for field in canonical_fields)
+    rows: list[tuple[Scalar, ...]] = []
+    for table in tables:
+        indexes = _field_index(table.source_dataset)
+        if set(indexes) != set(canonical_ids):
+            raise PreparationProblem(
+                PreparationErrorCode.PREPARE_NON_ISOMORPHIC,
+                "拼接来源的字段集合不一致。",
+            )
+        label = _source_label(table, spec.source_label_kind)
+        rows.extend(
+            tuple(row[indexes[field_id]] for field_id in canonical_ids) + (label,)
+            for row in table.rows
+        )
+    label_field = SourceField(
+        field_id=spec.source_label_field_id,
+        name=spec.source_label_kind,
+        logical_type="categorical",
+        physical_type="string",
+        unit=_dimensionless(),
+        source_column_index=len(canonical_fields),
+    )
+    return canonical_fields + (label_field,), tuple(rows)
+
+
+def _reason(value: Scalar) -> str | None:
     if value is None:
         return "missing"
-    if isinstance(value, float) and not math.isfinite(value):
-        return "nonfinite"
+    if isinstance(value, float):
+        if math.isnan(value):
+            return "nan"
+        if value == float("inf"):
+            return "positive_inf"
+        if value == float("-inf"):
+            return "negative_inf"
     return None
 
 
-def prepare(
-    candidates: Iterable[DatasetCandidate], mapping: FieldMapping, spec: PreparationSpec
-) -> PreparedDataset:
-    """Apply exactly one closed preparation operation; never joins, filters, or converts units."""
+def _serialize(
+    fields: tuple[SourceField, ...],
+    rows: tuple[tuple[Scalar, ...], ...],
+    coordinates: tuple[SourceCoordinate, ...],
+    row_mask: tuple[bool, ...],
+) -> bytes:
+    arrays: list[pa.Array] = []
+    arrow_fields: list[pa.Field] = []
+    for index, field in enumerate(fields):
+        array = _array(field, [row[index] for row in rows])
+        arrays.append(array)
+        arrow_fields.append(pa.field(field.field_id, array.type, nullable=True))
+    for name, data_type, values in _coordinate_columns(coordinates):
+        arrays.append(pa.array(values, type=data_type))
+        arrow_fields.append(pa.field(name, data_type, nullable=True))
+    arrays.append(pa.array(row_mask, type=pa.bool_()))
+    arrow_fields.append(pa.field("__plot_included", pa.bool_(), nullable=False))
+    schema = pa.schema(
+        arrow_fields,
+        metadata={b"plotagent.schema_version": b"prepared-dataset-v1"},
+    )
+    table = pa.Table.from_arrays(arrays, schema=schema)
+    output = io.BytesIO()
+    pq.write_table(
+        table,
+        output,
+        compression="zstd",
+        use_dictionary=False,
+        write_statistics=True,
+        data_page_version="2.0",
+        version="2.6",
+    )
+    return output.getvalue()
 
-    sources = tuple(candidates)
-    if not sources:
+
+def prepare(
+    sources: Iterable[SourceDataset],
+    mapping: FieldMapping,
+    spec: PreparationSpec,
+    resolver: SourceTableResolver,
+) -> PreparedArtifact:
+    """Apply one closed preparation operation; never join/filter/dedupe/convert/evaluate."""
+
+    datasets = tuple(sources)
+    if not datasets:
         raise PreparationProblem(
-            PreparationErrorCode.PREPARE_SOURCE_COUNT_INVALID,
+            PreparationErrorCode.PREPARE_UNSUPPORTED,
             "Preparation 至少需要一个 SourceDataset。",
         )
-    _validate_mapping(sources, mapping)
-    first = sources[0]
-    fields: tuple[FieldSchema, ...]
-    rows: tuple[tuple[Scalar, ...], ...]
-    coordinates = tuple(coordinate for source in sources for coordinate in source.coordinates)
-    row_mask: tuple[bool, ...]
+    _validate_contract_links(datasets, mapping, spec)
+    tables = tuple(resolver.resolve(source) for source in datasets)
+    first = tables[0]
+    coordinates = tuple(item for table in tables for item in table.coordinates)
     exclusions: tuple[RowExclusion, ...] = ()
-    plot_order: tuple[Scalar, ...] = ()
+    plot_order: tuple[str, ...] = ()
 
     if isinstance(spec, SelectFieldsSpec):
-        if len(sources) != 1:
+        if len(tables) != 1:
             raise PreparationProblem(
-                PreparationErrorCode.PREPARE_SOURCE_COUNT_INVALID,
-                "select_fields 只接受一个 SourceDataset。",
+                PreparationErrorCode.PREPARE_UNSUPPORTED,
+                "select_fields 只接受一个来源。",
             )
         fields, rows = _selected(first, spec.field_ids)
     elif isinstance(spec, ProjectStructureSpec):
-        if len(sources) != 1:
+        if len(tables) != 1:
             raise PreparationProblem(
-                PreparationErrorCode.PREPARE_SOURCE_COUNT_INVALID,
-                "project_structure 只接受一个 SourceDataset。",
+                PreparationErrorCode.PREPARE_UNSUPPORTED,
+                "project_structure 只接受一个来源。",
             )
-        if spec.orientation == "identity":
-            fields, rows = _selected(first, spec.field_ids)
+        if spec.input_layout == spec.output_layout:
+            fields, rows = _selected(first, spec.role_fields)
+        elif (spec.input_layout, spec.output_layout) == ("wide", "long"):
+            fields, rows, coordinates = _wide_to_long(first, spec)
         else:
-            fields, rows = _wide_to_long(first, spec)
-            coordinates = tuple(
-                coordinate for coordinate in first.coordinates for _field in spec.value_field_ids
+            raise PreparationProblem(
+                PreparationErrorCode.PREPARE_UNSUPPORTED,
+                "该结构投影不在 v1 封闭集合中。",
             )
     elif isinstance(spec, IsomorphicConcatSpec):
-        if len(sources) < 2:
-            raise PreparationProblem(
-                PreparationErrorCode.PREPARE_SOURCE_COUNT_INVALID,
-                "isomorphic_concat 至少需要两个 SourceDataset。",
-            )
-        signatures = {semantic_signature(source, mapping) for source in sources}
-        if len(signatures) != 1:
-            raise PreparationProblem(
-                PreparationErrorCode.PREPARE_NON_ISOMORPHIC,
-                "FieldMapping 或最终语义不同，不能进入同一拼接。",
-            )
-        fields, rows = _concat(sources, spec)
+        fields, rows = _concat(tables, mapping, spec)
     elif isinstance(spec, ProjectMetadataLabelSpec):
-        if len(sources) != 1:
+        if len(tables) != 1 or spec.metadata_key not in first.instrument_metadata:
             raise PreparationProblem(
-                PreparationErrorCode.PREPARE_SOURCE_COUNT_INVALID,
-                "project_metadata_label 只接受一个 SourceDataset。",
-            )
-        if spec.metadata_key not in first.instrument_metadata:
-            raise PreparationProblem(
-                PreparationErrorCode.PREPARE_METADATA_MISSING,
+                PreparationErrorCode.PREPARE_UNSUPPORTED,
                 "选择的 InstrumentMetadata 字段不存在。",
             )
         value = first.instrument_metadata[spec.metadata_key]
-        metadata_field = FieldSchema(
-            field_id="fld_" + stable_hash((spec.output_field_name,))[:20],
-            source_name=spec.output_field_name,
-            normalized_name=spec.output_field_name,
-            logical_type="text",
-            physical_types=("string",),
+        metadata_field = SourceField(
+            field_id=spec.output_field_id,
+            name=spec.metadata_key,
+            logical_type="categorical",
+            physical_type="string",
+            unit=_dimensionless(),
+            source_column_index=len(first.source_dataset.field_schema),
         )
-        fields = tuple(first.fields) + (metadata_field,)
+        fields = first.source_dataset.field_schema + (metadata_field,)
         rows = tuple(row + (value,) for row in first.rows)
     elif isinstance(spec, ApplyPlotOrderSpec):
-        if len(sources) != 1:
+        if len(tables) != 1 or spec.field_id not in _field_index(first.source_dataset):
             raise PreparationProblem(
-                PreparationErrorCode.PREPARE_SOURCE_COUNT_INVALID,
-                "apply_plot_order 只接受一个 SourceDataset。",
-            )
-        if spec.field_id not in _field_index(first):
-            raise PreparationProblem(
-                PreparationErrorCode.PREPARE_FIELD_UNKNOWN,
+                PreparationErrorCode.PREPARE_UNSUPPORTED,
                 "显示顺序引用了不存在的字段。",
             )
-        fields, rows = tuple(first.fields), tuple(first.rows)
+        fields, rows = first.source_dataset.field_schema, first.rows
         plot_order = spec.ordered_values
     elif isinstance(spec, MaskForPlotSpec):
-        if len(sources) != 1:
+        if len(tables) != 1:
             raise PreparationProblem(
-                PreparationErrorCode.PREPARE_SOURCE_COUNT_INVALID,
-                "mask_for_plot 只接受一个 SourceDataset。",
+                PreparationErrorCode.PREPARE_UNSUPPORTED,
+                "mask_for_plot 只接受一个来源。",
             )
-        fields, rows = tuple(first.fields), tuple(first.rows)
-        indexes = _field_index(first)
+        indexes = _field_index(first.source_dataset)
         if any(field_id not in indexes for field_id in spec.field_ids):
             raise PreparationProblem(
-                PreparationErrorCode.PREPARE_FIELD_UNKNOWN,
+                PreparationErrorCode.MAPPING_REQUIRED_ROLE_MISSING,
                 "绘图 mask 引用了不存在的字段。",
             )
-        exclusion_items: list[RowExclusion] = []
+        fields, rows = first.source_dataset.field_schema, first.rows
+        items: list[RowExclusion] = []
         mutable_mask: list[bool] = []
-        for row_index, (row, coordinate) in enumerate(
-            zip(first.rows, first.coordinates, strict=True)
-        ):
+        for row, coordinate in zip(rows, first.coordinates, strict=True):
             reasons = tuple(
                 reason
                 for field_id in spec.field_ids
-                if (reason := _nonfinite_or_missing(row[indexes[field_id]])) is not None
+                if (reason := _reason(row[indexes[field_id]])) is not None
             )
             mutable_mask.append(not reasons)
-            if reasons:
-                exclusion_items.append(
-                    RowExclusion(
-                        row_index=row_index,
-                        source_row_id=coordinate.source_row_id,
-                        reasons=tuple(sorted(set(reasons))),
-                    )
-                )
-        exclusions = tuple(exclusion_items)
-        if exclusions and spec.missing_policy == "fail":
-            code = (
-                PreparationErrorCode.PREPARE_NONFINITE
-                if any("nonfinite" in item.reasons for item in exclusions)
-                else PreparationErrorCode.PREPARE_MISSING
+            items.extend(
+                RowExclusion(row_id=coordinate.source_row_id, reason=reason)  # type: ignore[arg-type]
+                for reason in dict.fromkeys(reasons)
             )
-            raise PreparationProblem(code, "参与绘图的字段包含缺失或非有限值。")
+        exclusions = tuple(items)
+        if exclusions and spec.missing_policy == "fail":
+            raise PreparationProblem(
+                PreparationErrorCode.PREPARE_NONFINITE_POLICY_REQUIRED,
+                "参与绘图的字段包含缺失或非有限值；请选择 fail 或 exclude_with_report 策略。",
+            )
         row_mask = tuple(mutable_mask)
     else:
         raise PreparationProblem(
@@ -362,32 +411,56 @@ def prepare(
 
     if not isinstance(spec, MaskForPlotSpec):
         row_mask = tuple(True for _row in rows)
-    input_hash = _json_hash([_candidate_input(source) for source in sources])
-    signature = semantic_signature(first, mapping)
-    output_payload = {
-        "fields": [field.model_dump(mode="json") for field in fields],
-        "rows": [[_canonical_scalar(value) for value in row] for row in rows],
-        "coordinates": [item.model_dump(mode="json") for item in coordinates],
-        "mask": list(row_mask),
-        "mapping": mapping.model_dump(mode="json"),
-        "spec": spec.model_dump(mode="json"),
-        "plot_order": [_canonical_scalar(value) for value in plot_order],
-    }
-    output_hash = _json_hash(output_payload)
-    return PreparedDataset(
-        prepared_dataset_id="prepared_" + output_hash[:24],
-        source_dataset_ids=tuple(source.candidate_id for source in sources),
-        field_mapping=mapping,
-        preparation_spec=spec,
+    parquet_bytes = _serialize(fields, rows, coordinates, row_mask)
+    output_hash = hashlib.sha256(parquet_bytes).hexdigest()
+    input_hash = canonical_hash(
+        {
+            "sources": [ref.model_dump(mode="json") for ref in spec.input_refs],
+            "mapping": mapping.model_dump(mode="json"),
+            "spec": spec.model_dump(mode="json"),
+        }
+    )
+    warnings = (
+        WarningRecord(
+            warning_id="rows_excluded",
+            message=f"{len(row_mask) - sum(row_mask)} rows were excluded from plotting.",
+        ),
+    ) if exclusions else ()
+    contract = PreparedDataset(
+        prepared_dataset_id="prepared:" + output_hash[:24],
+        prepared_version=1,
+        source_dataset_refs=spec.input_refs,
+        field_mapping_ref=spec.field_mapping_ref,
+        preparation_spec_ref=PreparationSpecRef(
+            preparation_spec_id=spec.preparation_spec_id,
+            preparation_version=spec.preparation_version,
+            content_hash=canonical_hash(spec),
+        ),
+        compiler_version=spec.compiler_version,
+        input_hash=input_hash,
+        output_hash=output_hash,
+        data_ref=ContentTableRef(
+            object_hash=output_hash,
+            row_count=len(rows),
+            field_ids=tuple(field.field_id for field in fields),
+        ),
+        included_row_count=sum(row_mask),
+        excluded_row_count=len(row_mask) - sum(row_mask),
+        provenance=PreparedDatasetProvenance(
+            source_coordinate_kinds=tuple(
+                sorted({coordinate.kind for coordinate in coordinates})
+            ),
+            compiler_build_hash=_COMPILER_BUILD_HASH,
+        ),
+        warnings=warnings,
+    )
+    return PreparedArtifact(
+        prepared_dataset=contract,
         fields=fields,
         rows=rows,
         coordinates=coordinates,
         row_mask=row_mask,
         exclusions=exclusions,
-        included_count=sum(row_mask),
-        excluded_count=len(row_mask) - sum(row_mask),
         plot_order=plot_order,
-        input_hash=input_hash,
-        output_hash=output_hash,
-        semantic_signature=signature,
+        parquet_bytes=parquet_bytes,
     )

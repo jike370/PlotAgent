@@ -11,13 +11,13 @@ from typing import Any, cast
 from openpyxl import load_workbook  # type: ignore[import-untyped]
 from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
 
+from plotagent.contracts.datasets import ExcelSourceCoordinate
 from plotagent.importing.errors import ImportErrorCode, ImportProblem
 from plotagent.importing.models import (
-    DatasetCandidate,
     ImportRecipe,
     ProvenanceMarker,
     Scalar,
-    SourceCoordinate,
+    SourceDatasetArtifact,
     TraceEvent,
 )
 from plotagent.importing.normalize import build_candidate, normalize_excel_scalar, stable_hash
@@ -288,15 +288,14 @@ def _candidate(
     parser_name: str,
     parser_version: str,
     header_row: int | None,
-) -> DatasetCandidate:
+) -> SourceDatasetArtifact:
     headers, actual_header, data_start = _header(sheet, region, header_row)
     rows = tuple(_row_values(sheet, region, row) for row in range(data_start, region.end_row + 1))
     coordinates = tuple(
-        SourceCoordinate(
-            source_row_id="row_" + stable_hash((source_hash, sheet.name, str(row_number)))[:24],
-            source_row=row_number,
-            workbook=path.name,
-            sheet=sheet.name,
+        ExcelSourceCoordinate(
+            source_row_id="row:" + stable_hash((source_hash, sheet.name, str(row_number)))[:24],
+            workbook_hash=source_hash,
+            sheet_name=sheet.name,
             cell_range=(
                 f"{get_column_letter(region.start_col)}{row_number}:"
                 f"{get_column_letter(region.end_col)}{row_number}"
@@ -353,7 +352,7 @@ def _candidate(
 
 def inspect_excel(
     *, path: Path, source_hash: str, selected_sheet: str | None, header_row: int | None
-) -> tuple[DatasetCandidate, ...]:
+) -> tuple[SourceDatasetArtifact, ...]:
     suffix = path.suffix.casefold()
     if suffix == ".xls":
         sheets = _read_xlrd(path)
@@ -372,7 +371,7 @@ def inspect_excel(
                 "请从只读枚举的工作表列表中选择。",
             )
 
-    candidates: list[DatasetCandidate] = []
+    candidates: list[SourceDatasetArtifact] = []
     for sheet in sheets:
         regions = _regions(sheet)
         if len(regions) > 1:

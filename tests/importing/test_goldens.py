@@ -36,50 +36,57 @@ def test_frozen_import_golden(fixture: dict[str, Any]) -> None:
         return
 
     assert isinstance(result, Imported)
-    assert len(result.candidates) == expected["candidates"]
-    assert [candidate.quality.row_count for candidate in result.candidates] == expected["rows"]
-    assert all(candidate.source_object_hash == fixture["sha256"] for candidate in result.candidates)
-    assert all(candidate.coordinates for candidate in result.candidates)
+    assert len(result.sources) == expected["candidates"]
+    assert [
+        source.source_dataset.quality.total_rows for source in result.sources
+    ] == expected["rows"]
     assert all(
-        coordinate.source_row_id.startswith("row_")
-        and (coordinate.line is not None or coordinate.sheet is not None)
-        for candidate in result.candidates
-        for coordinate in candidate.coordinates
+        source.source_dataset.source_object_hash == fixture["sha256"]
+        for source in result.sources
+    )
+    assert all(source.coordinates for source in result.sources)
+    assert all(
+        coordinate.source_row_id.startswith("row:")
+        and coordinate.kind in {"text", "excel"}
+        for source in result.sources
+        for coordinate in source.coordinates
     )
     if "encoding" in expected:
-        assert result.candidates[0].recipe.encoding == expected["encoding"]
+        assert result.sources[0].recipe.encoding == expected["encoding"]
     if "decimal_mark" in expected:
-        assert result.candidates[0].recipe.decimal_mark == expected["decimal_mark"]
+        assert result.sources[0].recipe.decimal_mark == expected["decimal_mark"]
     if "delimiter" in expected:
-        assert result.candidates[0].recipe.delimiter == expected["delimiter"]
+        assert result.sources[0].recipe.delimiter == expected["delimiter"]
     if "header_row" in expected:
-        assert result.candidates[0].recipe.header_row == expected["header_row"]
+        assert result.sources[0].recipe.header_row == expected["header_row"]
     if "first_header" in expected:
-        assert result.candidates[0].fields[0].normalized_name == expected["first_header"]
+        assert result.sources[0].source_dataset.field_schema[0].name == expected["first_header"]
     if "quality" in expected:
-        quality = result.candidates[0].quality
-        assert quality.missing_count == expected["quality"]["missing"]
-        assert quality.nan_count == expected["quality"]["nan"]
-        assert quality.positive_inf_count == expected["quality"]["positive_inf"]
-        assert quality.negative_inf_count == expected["quality"]["negative_inf"]
+        quality = result.sources[0].source_dataset.quality
+        assert quality.missing_values == expected["quality"]["missing"]
+        assert quality.nan_values == expected["quality"]["nan"]
+        assert quality.positive_inf_values == expected["quality"]["positive_inf"]
+        assert quality.negative_inf_values == expected["quality"]["negative_inf"]
     if "provenance" in expected:
         assert any(
             marker.kind == expected["provenance"]
-            for candidate in result.candidates
-            for marker in candidate.provenance
+            for source in result.sources
+            for marker in source.provenance
         )
     if "first_value" in expected:
-        assert result.candidates[0].rows[0][0] == expected["first_value"]
+        assert result.sources[0].rows[0][0] == expected["first_value"]
     if "first_boolean" in expected:
-        assert result.candidates[0].rows[0][-1] is expected["first_boolean"]
+        assert result.sources[0].rows[0][-1] is expected["first_boolean"]
     if "channel" in expected:
-        assert result.candidates[0].coordinates[0].channel == expected["channel"]
+        coordinate = result.sources[0].coordinates[0]
+        assert coordinate.kind == "text" and coordinate.channel == expected["channel"]
     if "sweep" in expected:
-        assert result.candidates[0].coordinates[0].sweep == expected["sweep"]
+        coordinate = result.sources[0].coordinates[0]
+        assert coordinate.kind == "text" and coordinate.sweep == expected["sweep"]
     if "metadata_key" in expected:
-        assert expected["metadata_key"] in result.candidates[0].instrument_metadata
+        assert expected["metadata_key"] in result.sources[0].instrument_metadata
     if "postamble" in expected:
-        assert len(result.candidates[0].postamble) == expected["postamble"]
+        assert len(result.sources[0].postamble) == expected["postamble"]
 
 
 def test_manifest_has_approximately_thirty_fixed_oracles() -> None:

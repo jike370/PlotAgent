@@ -1,10 +1,9 @@
-"""Closed, auditable data preparation for plotting."""
+"""Closed, auditable preparation using the authoritative W0 contracts."""
 
-from plotagent.preparation.models import (
+from plotagent.contracts.datasets import (
     ApplyPlotOrderSpec,
     FieldMapping,
     IsomorphicConcatSpec,
-    MappingAssignment,
     MaskForPlotSpec,
     PreparationSpec,
     PreparedDataset,
@@ -12,19 +11,28 @@ from plotagent.preparation.models import (
     ProjectStructureSpec,
     SelectFieldsSpec,
 )
+from plotagent.preparation.artifacts import (
+    ImportedSourceResolver,
+    PreparedArtifact,
+    ResolvedSourceTable,
+    SourceTableResolver,
+)
 from plotagent.preparation.service import prepare, semantic_signature
 
 __all__ = [
     "ApplyPlotOrderSpec",
     "FieldMapping",
+    "ImportedSourceResolver",
     "IsomorphicConcatSpec",
-    "MappingAssignment",
     "MaskForPlotSpec",
-    "PreparedDataset",
     "PreparationSpec",
+    "PreparedArtifact",
+    "PreparedDataset",
     "ProjectMetadataLabelSpec",
     "ProjectStructureSpec",
+    "ResolvedSourceTable",
     "SelectFieldsSpec",
+    "SourceTableResolver",
     "prepare",
     "semantic_signature",
 ]

@@ -74,7 +74,7 @@ def inspect_source(
     source_hash = sha256_bytes(raw)
     try:
         if suffix in _TEXT_SUFFIXES:
-            candidates = inspect_text(
+            sources = inspect_text(
                 path=source_path,
                 raw=raw,
                 source_hash=source_hash,
@@ -88,7 +88,7 @@ def inspect_source(
         else:
             from plotagent.importing.excel import inspect_excel
 
-            candidates = inspect_excel(
+            sources = inspect_excel(
                 path=source_path,
                 source_hash=source_hash,
                 selected_sheet=sheet,
@@ -103,5 +103,5 @@ def inspect_source(
             remediation=f"请检查文件结构后重试（{type(exc).__name__}）。",
             trace=sniff_trace,
         )
-    trace = sniff_trace + tuple(event for candidate in candidates for event in candidate.trace)
-    return Imported(source_object_hash=source_hash, candidates=candidates, trace=trace)
+    trace = sniff_trace + tuple(event for source in sources for event in source.trace)
+    return Imported(source_object_hash=source_hash, sources=sources, trace=trace)

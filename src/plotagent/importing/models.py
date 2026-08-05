@@ -1,4 +1,4 @@
-"""Strict protocol boundary for importing while the W0 contracts package is absent."""
+"""Import-only envelopes around the authoritative W0 SourceDataset contract."""
 
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from plotagent.contracts.datasets import SourceCoordinate, SourceDataset
 
 type Scalar = str | int | float | bool | date | datetime | None
 type TraceDetail = str | int | bool
@@ -21,61 +23,9 @@ class TraceEvent(StrictModel):
     details: dict[str, TraceDetail] = Field(default_factory=dict)
 
 
-class UnitSuggestion(StrictModel):
-    source_text: str
-    canonical_unit: str | None = None
-    dimensionality: str | None = None
-    kind: Literal["recognized", "opaque"] = "opaque"
-    registry_version: str = "units-v1"
-
-
-class FieldQuality(StrictModel):
-    field_id: str
-    missing_count: int = 0
-    nan_count: int = 0
-    positive_inf_count: int = 0
-    negative_inf_count: int = 0
-
-
-class FieldSchema(StrictModel):
-    field_id: str
-    source_name: str
-    normalized_name: str
-    logical_type: Literal["numeric", "boolean", "datetime", "text", "mixed"]
-    physical_types: tuple[str, ...]
-    numeric_precision: Literal["integer", "binary64"] | None = None
-    unit: UnitSuggestion | None = None
-
-
-class SourceCoordinate(StrictModel):
-    source_row_id: str
-    source_row: int
-    workbook: str | None = None
-    sheet: str | None = None
-    cell_range: str | None = None
-    block: str | None = None
-    channel: str | None = None
-    sweep: str | None = None
-    line: int | None = None
-    byte_start: int | None = None
-    byte_end: int | None = None
-
-
 class ProvenanceMarker(StrictModel):
     kind: Literal["cached_formula_value", "formula_uncached", "macro_ignored", "external_link"]
     coordinate: str
-
-
-class QualitySummary(StrictModel):
-    row_count: int
-    column_count: int
-    missing_count: int
-    nan_count: int
-    positive_inf_count: int
-    negative_inf_count: int
-    unparseable_count: int
-    duplicate_headers: tuple[str, ...] = ()
-    fields: tuple[FieldQuality, ...] = ()
 
 
 class ImportRecipe(StrictModel):
@@ -101,18 +51,18 @@ class ImportRecipe(StrictModel):
     unicode_normalization_version: Literal["NFC-v1"] = "NFC-v1"
 
 
-class DatasetCandidate(StrictModel):
-    candidate_id: str
+class SourceDatasetArtifact(StrictModel):
+    """A contract SourceDataset plus non-authoritative in-memory import artifacts."""
+
     display_name: str
-    source_object_hash: str
+    source_dataset: SourceDataset
     recipe: ImportRecipe
-    fields: tuple[FieldSchema, ...]
     rows: tuple[tuple[Scalar, ...], ...]
     coordinates: tuple[SourceCoordinate, ...]
     instrument_metadata: dict[str, str] = Field(default_factory=dict)
     postamble: tuple[str, ...] = ()
-    quality: QualitySummary
     provenance: tuple[ProvenanceMarker, ...] = ()
+    parquet_bytes: bytes
     trace: tuple[TraceEvent, ...]
 
 
@@ -124,7 +74,7 @@ class ClarificationOption(StrictModel):
 class Imported(StrictModel):
     kind: Literal["imported"] = "imported"
     source_object_hash: str
-    candidates: tuple[DatasetCandidate, ...]
+    sources: tuple[SourceDatasetArtifact, ...]
     trace: tuple[TraceEvent, ...]
 
 

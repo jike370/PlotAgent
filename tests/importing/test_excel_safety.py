@@ -29,8 +29,8 @@ def test_openxml_is_read_only_and_never_refreshes_links(monkeypatch: Any) -> Non
     assert all(call["keep_links"] is False for call in calls)
     assert all(call["keep_vba"] is False for call in calls)
     assert {call["data_only"] for call in calls} == {True, False}
-    assert result.candidates[0].rows == ((2, 4), (3, 6))
-    assert all(marker.kind == "cached_formula_value" for marker in result.candidates[0].provenance)
+    assert result.sources[0].rows == ((2, 4), (3, 6))
+    assert all(marker.kind == "cached_formula_value" for marker in result.sources[0].provenance)
 
 
 @dataclass
@@ -93,7 +93,7 @@ def test_uncached_formula_becomes_missing_without_execution(monkeypatch: Any) ->
         header_row=None,
     )
     assert candidate.rows == ((2, None),)
-    assert candidate.quality.missing_count == 1
+    assert candidate.source_dataset.quality.missing_values == 1
     assert sheets[0].provenance[0][2].kind == "formula_uncached"
 
 
@@ -125,13 +125,17 @@ class _FakeXlsBook:
         return None
 
 
-def test_xls_uses_the_small_read_only_xlrd_adapter(tmp_path: Path, monkeypatch: Any) -> None:
-    source = tmp_path / "legacy.xls"
-    source.write_bytes(b"frozen fake signature; parser entry is mocked")
+def test_xls_uses_the_small_read_only_xlrd_adapter(monkeypatch: Any) -> None:
+    source = FILES_ROOT / "virtual_legacy.xls"
+    monkeypatch.setattr(
+        Path,
+        "read_bytes",
+        lambda self: b"frozen fake signature; parser entry is mocked",
+    )
     monkeypatch.setattr(xlrd, "open_workbook", lambda *args, **kwargs: _FakeXlsBook())
 
     result = inspect_source(source)
 
     assert isinstance(result, Imported)
-    assert result.candidates[0].recipe.parser_name == "xlrd"
-    assert result.candidates[0].rows == ((0, 1), (1, 2.5))
+    assert result.sources[0].recipe.parser_name == "xlrd"
+    assert result.sources[0].rows == ((0, 1), (1, 2.5))

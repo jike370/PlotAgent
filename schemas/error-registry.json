@@ -78,6 +78,111 @@
       "retryable": false
     },
     {
+      "code": "IMPORT_FORMAT_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "The selected source format is outside the deterministic import set.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "IMPORT_BINARY_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "The selected source contains unsupported binary content.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "IMPORT_ENCODING_AMBIGUOUS",
+      "default_severity": "blocked",
+      "description": "Text encoding requires one explicit clarification.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "IMPORT_ENCODING_UNSUPPORTED",
+      "default_severity": "blocked",
+      "description": "The source cannot be decoded with the selected text encoding.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "IMPORT_DELIMITER_AMBIGUOUS",
+      "default_severity": "blocked",
+      "description": "Multiple delimiters are equally plausible and require clarification.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "IMPORT_DECIMAL_AMBIGUOUS",
+      "default_severity": "blocked",
+      "description": "Multiple decimal conventions are equally plausible and require clarification.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "IMPORT_HEADER_AMBIGUOUS",
+      "default_severity": "blocked",
+      "description": "The source header requires one explicit clarification.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "IMPORT_REGION_AMBIGUOUS",
+      "default_severity": "blocked",
+      "description": "Multiple table regions are equally plausible and require clarification.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "IMPORT_DUPLICATE_HEADERS",
+      "default_severity": "blocked",
+      "description": "Normalized source headers are not unique.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "IMPORT_ROW_WIDTH_MISMATCH",
+      "default_severity": "blocked",
+      "description": "Rows in a candidate data block have inconsistent widths.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "IMPORT_NO_DATA",
+      "default_severity": "blocked",
+      "description": "No supported tabular data block was detected.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "IMPORT_PARSER_FAILED",
+      "default_severity": "blocked",
+      "description": "The read-only parser failed before formal registration.",
+      "owner": "W2_DATA",
+      "retryable": true
+    },
+    {
+      "code": "FORMULA_UNCACHED",
+      "default_severity": "warning",
+      "description": "A formula had no cached value and was imported as missing.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "MACRO_CONTENT_IGNORED",
+      "default_severity": "info",
+      "description": "Workbook macro content was ignored and never executed.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
+      "code": "EXTERNAL_LINK_NOT_REFRESHED",
+      "default_severity": "warning",
+      "description": "Workbook external links were not loaded or refreshed.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
       "code": "PLOTSPEC_CALCULATION_UNSUPPORTED",
       "default_severity": "blocked",
       "description": "The chart registry does not allow this fixed plot calculation.",
