@@ -909,7 +909,7 @@ export type OriginObjectMapEntry = {
 export type OriginPlotPlan = {
   readonly plot_id: string;
   readonly source_layer_id: string;
-  readonly native_kind: "line" | "line_symbol" | "scatter" | "bubble" | "error_bar" | "band" | "area" | "bar" | "grouped_bar" | "stacked_bar" | "floating_bar" | "percent_bar" | "horizontal_bar" | "strip" | "box" | "violin" | "histogram" | "density" | "step" | "heatmap" | "contour" | "survival_step" | "survival_band" | "risk_table" | "forest_interval" | "forest_symbol" | "spectrum" | "nyquist" | "facet_line";
+  readonly native_kind: "line" | "line_symbol" | "scatter" | "bubble" | "error_bar" | "band" | "area" | "bar" | "grouped_bar" | "stacked_bar" | "floating_bar" | "lollipop" | "percent_bar" | "horizontal_bar" | "strip" | "box" | "violin" | "histogram" | "density" | "step" | "heatmap" | "contour" | "survival_step" | "survival_band" | "risk_table" | "forest_interval" | "forest_symbol" | "spectrum" | "nyquist" | "facet_line";
   readonly data_object_id: string;
   readonly role_columns: ReadonlyArray<OriginRoleColumn>;
   readonly z_order: number;

@@ -81,7 +81,7 @@ ORIGIN_ADAPTERS: tuple[OriginAdapterRegistration, ...] = (
     _entry("S34", "xy", ("xy.nyquist",)),
     _entry("S61", "matrix", ("matrix.confusion",), "matrixbook"),
     _entry("X01", "special", ("distribution.step",)),
-    _entry("X02", "special", ("xy.line", "xy.symbol")),
+    _entry("X02", "special", ("special.lollipop",)),
     _entry("X03", "special", ("xy.line", "xy.symbol")),
     _entry("X05", "special", ("distribution.strip",)),
     _entry("X07", "special", ("xy.line",)),

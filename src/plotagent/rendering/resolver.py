@@ -574,33 +574,16 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
         ]
 
     if chart_id == "X02":
-        baseline = values.get("baseline", tuple(0.0 for _ in values["value"]))
-        result: list[_DraftLayer] = []
-        for index, (category, low, high) in enumerate(
-            zip(values["category"], baseline, values["value"], strict=True)
-        ):
-            result.append(
-                draft(
-                    str(index),
-                    "xy.line",
-                    {"x": (category, category), "y": (low, high)},
-                    ("x",),
-                    ("y",),
-                    color=0,
-                    color_override="#B8BDC6",
-                )
-            )
-        result.append(
+        return [
             draft(
-                "points",
-                "xy.symbol",
+                "0",
+                "special.lollipop",
                 {"x": values["category"], "y": values["value"]},
                 ("x",),
                 ("y",),
                 color=0,
             )
-        )
-        return result
+        ]
 
     if chart_id == "X03":
         result = []

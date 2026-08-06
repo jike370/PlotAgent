@@ -9,7 +9,6 @@ from plotagent.origin.native import (
     PROJECT_FOLDERS,
     build_native_project,
     inspect_native_project,
-    materialize_primitive,
     native_primitives,
 )
 from plotagent.origin.planner import build_origin_export_spec, compile_origin_plan
@@ -205,6 +204,18 @@ def test_forest_symbol_is_one_weight_sized_scatter_primitive() -> None:
     assert primitives[0].transform == "forest_symbol"
 
 
+def test_lollipop_uses_one_native_symbol_plot_with_frame_drop_lines() -> None:
+    plan = _plan("X02")
+    plot = plan.graph_objects[0].layers[0].plots[0]
+    primitive = native_primitives(plot)[0]
+
+    assert plot.native_kind == "lollipop"
+    assert primitive.plot_type == "scatter"
+    assert primitive.x_role == "x"
+    assert primitive.y_role == "y"
+    assert primitive.transform == "lollipop_drop"
+
+
 @pytest.mark.parametrize("chart_id", ["K08", "K09", "K15"])
 def test_non_stacked_bars_use_visible_native_columns(chart_id: str) -> None:
     plan = _plan(chart_id)
@@ -221,25 +232,15 @@ def test_non_stacked_bars_use_visible_native_columns(chart_id: str) -> None:
 
 
 @pytest.mark.parametrize("chart_id", ["X09", "X35"])
-def test_floating_columns_use_width_scaled_disconnected_native_stems(
+def test_floating_columns_use_native_xyy_rectangles(
     chart_id: str,
 ) -> None:
     plan = _plan(chart_id)
     layer = plan.graph_objects[0].layers[0]
     plot = layer.plots[0]
     primitive = native_primitives(plot)[0]
-    data = next(item for item in plan.data_objects if item.object_id == plot.data_object_id)
-
-    assert primitive.plot_type == "line"
-    assert primitive.transform == "floating_stem"
+    assert primitive.plot_type == "floating_column"
+    assert primitive.transform == "direct"
     assert primitive.y_role == "bottom"
-    assert primitive.y2_role is None
-    assert primitive.stroke_width_role == "width"
-
-    table = materialize_primitive(primitive, data)
-    assert table is not None and table.auxiliary is not None
-    source = {column.role: column.values for column in data.columns}
-    assert table.x[0] == table.x[1]
-    assert table.y[0:2] == (source["bottom"][0], source["top"][0])
-    assert table.auxiliary[0:2] == (source["width"][0],) * 2
-    assert table.x[2] is table.y[2] is table.auxiliary[2] is None
+    assert primitive.y2_role == "top"
+    assert primitive.bar_width_role == "width"

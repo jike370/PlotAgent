@@ -143,11 +143,6 @@ class MatplotlibRenderer:
                 for other in plan.panels
             ) and panel.panel_id.endswith("right"):
                 axes[panel.panel_id].xaxis.set_visible(False)
-        if plan.chart_type_id == "X02":
-            lollipop_axis = axes[plan.panels[0].panel_id]
-            lollipop_axis.spines["bottom"].set_position(("data", 0.0))
-            lollipop_axis.xaxis.set_ticks_position("bottom")
-            lollipop_axis.xaxis.set_label_position("bottom")
         for panel_id, axis in axes.items():
             if not any(item.panel_id == panel_id for item in plan.axes):
                 axis.set_axis_off()
@@ -505,7 +500,30 @@ class MatplotlibRenderer:
     ) -> None:
         color, line_width, marker_size, label = self._style(layer)
         geometry = layer.geometry
-        if geometry == "special.survival_step":
+        if geometry == "special.lollipop":
+            x = _numeric(roles["x"])
+            y = _numeric(roles["y"])
+            # A lollipop's stem is display geometry anchored to the bottom frame,
+            # not a data-space zero baseline. This stays correct for fixed ranges
+            # and for datasets whose visible Y domain does not include zero.
+            bottom = axis.get_ylim()[0]
+            axis.vlines(
+                x,
+                bottom,
+                y,
+                color="#B8BDC6",
+                linewidth=line_width,
+                zorder=layer.z_order,
+            )
+            axis.scatter(
+                x,
+                y,
+                color=color,
+                s=marker_size**2,
+                label=label,
+                zorder=layer.z_order + 0.1,
+            )
+        elif geometry == "special.survival_step":
             axis.step(
                 _numeric(roles["time"]),
                 _numeric(roles["survival"]),

@@ -374,6 +374,7 @@ class OriginPlotPlan(StrictModel):
         "grouped_bar",
         "stacked_bar",
         "floating_bar",
+        "lollipop",
         "percent_bar",
         "horizontal_bar",
         "strip",

@@ -27,7 +27,7 @@ class NativePrimitive:
     y2_role: str | None = None
     size_role: str | None = None
     color_role: str | None = None
-    stroke_width_role: str | None = None
+    bar_width_role: str | None = None
     transform: Literal[
         "direct",
         "interval_connector",
@@ -38,7 +38,7 @@ class NativePrimitive:
         "forest_interval",
         "forest_symbol",
         "floating_polygon",
-        "floating_stem",
+        "lollipop_drop",
         "horizontal_polygon",
     ] = "direct"
 
@@ -125,6 +125,15 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
         )
     if plot.native_kind in _SYMBOL_KINDS:
         return (NativePrimitive("scatter", x_role, y_role),)
+    if plot.native_kind == "lollipop":
+        return (
+            NativePrimitive(
+                "scatter",
+                x_role,
+                y_role,
+                transform="lollipop_drop",
+            ),
+        )
     if plot.native_kind in _BAR_KINDS:
         if plot.native_kind in {"bar", "grouped_bar", "histogram"}:
             bar = NativePrimitive("column", x_role, "height")
@@ -142,11 +151,11 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
     if plot.native_kind == "floating_bar":
         return (
             NativePrimitive(
-                "line",
+                "floating_column",
                 "x",
                 "bottom",
-                stroke_width_role="width",
-                transform="floating_stem",
+                y2_role="top",
+                bar_width_role="width",
             ),
         )
     if plot.native_kind == "horizontal_bar":
@@ -249,7 +258,7 @@ def materialize_primitive(
 ) -> NativePrimitiveTable | None:
     """Materialize only fixed visual geometry; no statistics or user expression is run."""
 
-    if primitive.transform == "direct":
+    if primitive.transform in {"direct", "lollipop_drop"}:
         return None
     if data.object_kind != "worksheet":
         raise ValueError("derived native primitives require worksheet data")
@@ -302,31 +311,6 @@ def materialize_primitive(
             )
             floating_y.extend((bottom, bottom, top, top, bottom, None))
         return NativePrimitiveTable(tuple(floating_x), tuple(floating_y))
-    if primitive.transform == "floating_stem":
-        bottoms = _role_values(data, "bottom")
-        tops = _role_values(data, "top")
-        widths = _role_values(data, "width")
-        numeric_x = (
-            tuple(_number(value, "floating-stem X") for value in x_values)
-            if all(
-                isinstance(value, (int, float)) and not isinstance(value, bool)
-                for value in x_values
-            )
-            else _category_positions(x_values)
-        )
-        stem_x: list[OriginScalar] = []
-        stem_y: list[OriginScalar] = []
-        stem_width: list[OriginScalar] = []
-        for x, bottom, top, width in zip(numeric_x, bottoms, tops, widths, strict=True):
-            numeric_width = _number(width, "floating-stem width")
-            stem_x.extend((x, x, None))
-            stem_y.extend((bottom, top, None))
-            stem_width.extend((numeric_width, numeric_width, None))
-        return NativePrimitiveTable(
-            tuple(stem_x),
-            tuple(stem_y),
-            auxiliary=tuple(stem_width),
-        )
     if primitive.transform == "horizontal_polygon":
         lefts = _role_values(data, "left")
         rights = _role_values(data, "right")

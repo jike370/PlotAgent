@@ -18,6 +18,7 @@ from plotagent.contracts.plots import (
 from plotagent.contracts.rendering import ResolvedLayer
 from plotagent.plots.validation import PlotValidationError, validate_plot_patch
 from plotagent.rendering import PanelPlan, PlotResolver, RenderDataStore, RenderTable
+from plotagent.rendering.matplotlib.adapter import MatplotlibRenderer
 from plotagent.rendering.resolver import INTERACTIVE_LIMIT
 from tests.contracts.helpers import HASH_A, minimal_plot
 from tests.rendering.fixture_factory import resolve_chart
@@ -138,6 +139,20 @@ def test_x35_dual_y_columns_keep_explicit_side_by_side_coordinates() -> None:
         right_value - left_value == pytest.approx(0.38)
         for left_value, right_value in zip(left_x, right_x, strict=True)
     )
+
+
+def test_x02_lollipop_stems_start_at_the_visible_bottom_frame() -> None:
+    resolved = resolve_chart("X02")
+
+    assert [layer.geometry for layer in resolved.plan.layers] == ["special.lollipop"]
+    figure = MatplotlibRenderer().build_figure(resolved)
+    axis = figure.axes[0]
+    bottom = axis.get_ylim()[0]
+    segments = axis.collections[0].get_segments()
+
+    assert segments
+    assert all(float(segment[0][1]) == pytest.approx(bottom) for segment in segments)
+    assert axis.spines["bottom"].get_position() == ("outward", 0.0)
 
 
 def test_patch_validation_checks_version_target_log_and_safe_text() -> None:

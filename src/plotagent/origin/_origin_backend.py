@@ -84,6 +84,14 @@ def _area_fill_command(color: str) -> str:
     return f'-cf color("{color}")'
 
 
+def _floating_column_gap_command(width: float) -> str:
+    """Map one validated categorical-unit width to Origin's gap percentage."""
+
+    if isinstance(width, bool) or not math.isfinite(width) or not 0 < width <= 1:
+        raise NativeOriginError("floating-column width must be finite and in (0, 1]")
+    return f"-vg {round((1.0 - width) * 100)}"
+
+
 def _folder_items(collection: Any) -> list[Any]:
     return [collection.GetItem(index) for index in range(collection.GetCount())]
 
@@ -308,7 +316,6 @@ class OriginProBackend:
         primitive_index: int,
         data: OriginDataObject,
         sheet: Any,
-        layer_plan: OriginLayerPlan,
     ) -> Any:
         x_index = _role_index(data, plot_plan, primitive.x_role)
         y_index = _role_index(data, plot_plan, primitive.y_role)
@@ -316,12 +323,19 @@ class OriginProBackend:
         if primitive.y2_role is not None:
             y_indexes += (_role_index(data, plot_plan, primitive.y2_role),)
         data_range = self._data_range(sheet, x_index, *y_indexes)
+        first_plot_index = len(layer.plot_list())
         native_plot = layer.obj.AddPlot(data_range, _PLOT_TYPE[primitive.plot_type], True)
         if native_plot is None or not native_plot.IsValid():
             raise NativeOriginError(f"could not add native plot {plot_plan.plot_id}")
         plot = self._op.Plot(native_plot, layer.obj)
         layer_plots = layer.plot_list()
         created_plots = layer_plots[-physical_plot_count(primitive) :]
+        if primitive.plot_type == "floating_column":
+            # Origin's native floating column is an XYY group: the first Y is
+            # the hidden starting boundary and the second Y is the visible end.
+            # Grouping activates that native behavior; fill-only transparency
+            # hides the boundary without changing any process-global preference.
+            layer.group(True, first_plot_index, first_plot_index + len(created_plots) - 1)
         if plot_plan.color is not None:
             for created_plot in created_plots:
                 created_plot.color = plot_plan.color.value
@@ -335,14 +349,10 @@ class OriginProBackend:
                 created_plot.set_float("line.width", 0)
         if (
             plot_plan.marker_size_pt is not None
-            and primitive.transform != "floating_stem"
             and primitive.plot_type in {"scatter", "line_symbol"}
         ):
             plot.symbol_size = plot_plan.marker_size_pt
-        if (
-            primitive.plot_type in {"scatter", "line_symbol"}
-            and primitive.transform != "floating_stem"
-        ):
+        if primitive.plot_type in {"scatter", "line_symbol"}:
             plot.symbol_kind = 2
         if primitive.size_role is not None:
             size_index = _role_index(data, plot_plan, primitive.size_role)
@@ -360,13 +370,16 @@ class OriginProBackend:
             # across supported Origin builds. Keep the command literal and
             # allowlisted: no user or Agent content enters it.
             plot.set_cmd("-l 2")
+        if primitive.transform == "lollipop_drop":
+            # Native Origin drop lines terminate at the bottom X-axis frame and
+            # continue to do so when the user edits the Y display range.
+            plot.set_cmd("-pd 1")
         if plot_plan.native_kind == "grouped_bar" and primitive.plot_type == "column":
             # Origin has no stable property path for this Spacing-tab control.
             # Keep the command fully allowlisted and literal; no user text enters it.
             plot.set_cmd("-vg 70")
         if (
             plot_plan.line_width_pt is not None
-            and primitive.stroke_width_role is None
             and primitive.plot_type
             in {
                 "line",
@@ -374,20 +387,21 @@ class OriginProBackend:
             }
         ):
             plot.set_float("line.width", plot_plan.line_width_pt)
-        if primitive.stroke_width_role is not None:
-            width_index = _role_index(data, plot_plan, primitive.stroke_width_role)
+        if primitive.bar_width_role is not None:
+            width_index = _role_index(data, plot_plan, primitive.bar_width_role)
             widths = tuple(
                 float(value)
                 for value in data.columns[width_index].values
                 if isinstance(value, (int, float)) and not isinstance(value, bool)
             )
-            x_axis = next(axis for axis in layer_plan.axes if axis.orientation == "x")
-            x_span = abs(x_axis.maximum - x_axis.minimum)
-            if not widths or x_span <= 0:
-                raise NativeOriginError("floating-stem width cannot be resolved")
-            width_pt = max(0.5, widths[0] / x_span * layer_plan.width_mm / 25.4 * 72.0)
-            for created_plot in created_plots:
-                created_plot.set_float("line.width", width_pt)
+            if not widths:
+                raise NativeOriginError("floating-column width cannot be resolved")
+            width = widths[0]
+            created_plots[0].set_cmd(
+                "-paaf 100",
+                "-pbw 0",
+                _floating_column_gap_command(width),
+            )
         if plot_plan.alpha < 1:
             plot.transparency = round((1 - plot_plan.alpha) * 100)
         return plot
@@ -542,9 +556,6 @@ class OriginProBackend:
                                 if primitive.size_role is not None and primitive.y2_role is None
                                 else None
                             ),
-                            stroke_width_role=(
-                                "width" if primitive.stroke_width_role is not None else None
-                            ),
                             transform=primitive.transform,
                         )
                         x_column = data.columns[0].model_copy(
@@ -608,7 +619,6 @@ class OriginProBackend:
                             primitive_index,
                             primitive_data,
                             plot_sheet,
-                            layer_plan,
                         )
                     else:
                         self._add_worksheet_primitive(
@@ -618,17 +628,9 @@ class OriginProBackend:
                             primitive_index,
                             data,
                             plot_sheet,
-                            layer_plan,
                         )
             for axis in layer_plan.axes:
                 self._configure_axis(layer, axis, graph_plan.font_size_pt)
-            if graph_plan.graph_id.startswith("graph.X02.") and layer_index == 0:
-                # Origin's official axis model supports positioning the bottom X axis
-                # at a Y value with postype=2. X02 is defined around a zero baseline,
-                # so put the native coordinate axis on that baseline instead of
-                # leaving the lollipop stems visually suspended above the frame.
-                layer.set_int("x.postype", 2)
-                layer.set_float("x.position", 0.0)
             if any(
                 previous.left_mm == layer_plan.left_mm
                 and previous.top_mm == layer_plan.top_mm

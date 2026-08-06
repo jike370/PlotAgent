@@ -58,6 +58,7 @@ _NATIVE_KINDS = {
     "bar.grouped": "grouped_bar",
     "bar.stacked": "stacked_bar",
     "bar.floating": "floating_bar",
+    "special.lollipop": "lollipop",
     "bar.percent": "percent_bar",
     "bar.horizontal": "horizontal_bar",
     "distribution.strip": "strip",
