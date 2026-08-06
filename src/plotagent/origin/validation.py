@@ -127,6 +127,15 @@ def expected_validation_report(plan: OriginExportPlan) -> dict[str, JsonValue]:
                             "size_role": primitive.size_role,
                             "color_role": primitive.color_role,
                             "primitive_data_page": page_name,
+                            "color": plot.color.value if plot.color is not None else None,
+                            "palette": [color.value for color in plot.palette],
+                            "palette_spec": (
+                                plot.palette_spec.model_dump(mode="json")
+                                if plot.palette_spec is not None
+                                else None
+                            ),
+                            "line_style": plot.line_style,
+                            "symbol": plot.symbol.model_dump(mode="json"),
                         }
                     )
             layers.append(

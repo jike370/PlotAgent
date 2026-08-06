@@ -109,7 +109,7 @@ Metadata 中的 manifest 至少保存：
 - chart type、resolved style、publication profile、renderer/resolver 版本。
 - OriginAdapter ID/version、Origin template ID/hash、`originpro` version 与实际 Origin version。
 - export time、target scope、capability level 和验证报告 hash。
-- O2 已知差异；第一轮正式 31 项不应产生 O2，但 Schema 为后续保留该字段。
+- O2 已知差异；第一轮正式 43 图不应产生 O2，但 Schema 为后续保留该字段。
 
 Manifest 不包含绝对路径。PlotAgent 的外部 ExportRecord 保存最终路径，但该路径不写入 OPJU 内部 manifest。
 
@@ -120,9 +120,9 @@ Manifest 不包含绝对路径。PlotAgent 的外部 ExportRecord 保存最终�
 - **O3 — visual embedded/unlinked**：通过嵌入或未链接对象保持外观；第一轮不能作为正式 OPJU。
 - **O0 — unavailable**：没有受支持的 Origin 导出能力。
 
-第一轮 31 项正式图形若显示 OPJU 导出能力，必须在当前 Beta build 唯一声明的 Origin exact version 上逐项达到 O1。高级未来图形可以在产品另行批准后以 O2 准入，但必须在执行前披露已知差异；运行时不能把 O1 静默降为 O2/O3。
+第一轮正式 43 图若显示 OPJU 导出能力，必须在当前 Beta build 唯一声明的 Origin exact version 上逐项达到 O1。高级未来图形可以在产品另行批准后以 O2 准入，但必须在执行前披露已知差异；运行时不能把 O1 静默降为 O2/O3。
 
-Origin P1 扩展的 21 项已进入同一 typed adapter/OPJU 代码面（双 Y 轴网格图除外），但其视觉 qualification 与原 31 图分开记账。只有示例图和同源数据均已锚定的案例才运行三栏视觉审计；当前 10 项完成 live build、独立 fresh reopen 与 Origin PNG，另 11 项只保留离线契约覆盖，不能据此宣称视觉通过。
+Origin P1 的 21 项仍可保留在同一 typed adapter/OPJU 内部代码面（双 Y 轴网格图除外），但产品分为 12 个正式新增与九个 `internal_hidden`。X01/X02/X03/X05/X09/X13/X23/X35/X36/X38 使用锚定图—数据对记录同源视觉 evidence；X24/S07 使用冻结合成数据并必须标记 `synthetic_visual_validation`；X07/X11/X12/X15/X16/X17/X18/X19/X37 不显示、不接受 create/export，也不计正式 qualification。原 31 图实机矩阵与新增 12 图补充报告分开记账。
 
 O3/O0 不生成正式 OPJU。将 Matplotlib PNG/SVG/raster 嵌入 Origin 不能算作 O1 或 O2。
 
@@ -173,7 +173,7 @@ Origin Worker 只执行该 Plan，不重新读取未声明项目对象，也不�
 
 正式任务开始前依次检查：
 
-1. Windows 中已安装 Origin，且版本/build/bitness 精确匹配当前 Beta build 唯一完成 31 图 O1 qualification 的声明；任何其他版本返回 `VERSION_UNSUPPORTED`。
+1. Windows 中已安装 Origin，且版本/build/bitness 精确匹配当前 Beta build 唯一完成正式 43 图 O1 qualification 的声明；任何其他版本返回 `VERSION_UNSUPPORTED`。已有 31 图实机矩阵只是该声明的历史基础 evidence，新增 12 图未补齐时不得发布 43 图声明。
 2. Origin license 当前可用。
 3. Electron/Python/Origin 的 bitness 组合受支持。
 4. `originpro` 可导入且版本与该 exact Origin qualification 记录一致。

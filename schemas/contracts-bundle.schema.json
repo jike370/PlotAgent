@@ -710,6 +710,7 @@
                 "set_canvas_size": "#/$defs/SetCanvasSizePatch",
                 "set_category_color": "#/$defs/SetCategoryColorPatch",
                 "set_legend_visibility": "#/$defs/SetLegendVisibilityPatch",
+                "set_palette": "#/$defs/SetPalettePatch",
                 "set_series_style": "#/$defs/SetSeriesStylePatch",
                 "update_annotation": "#/$defs/UpdateAnnotationPatch"
               },
@@ -727,6 +728,9 @@
               },
               {
                 "$ref": "#/$defs/SetSeriesStylePatch"
+              },
+              {
+                "$ref": "#/$defs/SetPalettePatch"
               },
               {
                 "$ref": "#/$defs/SetCategoryColorPatch"
@@ -994,6 +998,38 @@
       "title": "CategoricalFamily",
       "type": "object"
     },
+    "CategoryColorIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Category",
+          "type": "string"
+        },
+        "color": {
+          "$ref": "#/$defs/ColorValue"
+        },
+        "operation": {
+          "const": "set_category_color",
+          "default": "set_category_color",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "category",
+        "color"
+      ],
+      "title": "CategoryColorIntent",
+      "type": "object"
+    },
     "ChartCapabilities": {
       "additionalProperties": false,
       "properties": {
@@ -1083,6 +1119,8 @@
               "set_axis_scale",
               "set_axis_label",
               "set_series_style",
+              "set_category_color",
+              "set_palette",
               "set_legend_visibility",
               "move_legend",
               "apply_publication_profile",
@@ -1097,6 +1135,14 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
           "title": "Capability Version",
           "type": "string"
+        },
+        "chart_edit_capabilities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ChartEditCapabilities"
+          },
+          "title": "Chart Edit Capabilities",
+          "type": "array"
         },
         "export_formats": {
           "default": [],
@@ -1128,9 +1174,106 @@
       "title": "ChartCapabilities",
       "type": "object"
     },
+    "ChartEditCapabilities": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_patch_operations": {
+          "items": {
+            "enum": [
+              "set_axis_range",
+              "set_axis_scale",
+              "set_axis_label",
+              "set_series_style",
+              "set_category_color",
+              "set_palette",
+              "set_legend_visibility",
+              "move_legend",
+              "apply_publication_profile",
+              "set_canvas_size"
+            ],
+            "type": "string"
+          },
+          "title": "Allowed Patch Operations",
+          "type": "array"
+        },
+        "chart_type_id": {
+          "enum": [
+            "K01",
+            "K02",
+            "K03",
+            "K04",
+            "K05",
+            "K06",
+            "K07",
+            "K08",
+            "K09",
+            "K10",
+            "K11",
+            "K12",
+            "K13",
+            "K14",
+            "K15",
+            "K16",
+            "K17",
+            "K18",
+            "K19",
+            "K20",
+            "K21",
+            "K22",
+            "K24",
+            "K25",
+            "S01",
+            "S05",
+            "S21",
+            "S25",
+            "S31",
+            "S34",
+            "S61",
+            "X01",
+            "X02",
+            "X03",
+            "X05",
+            "X07",
+            "X09",
+            "X11",
+            "X12",
+            "X13",
+            "X15",
+            "X16",
+            "X17",
+            "X18",
+            "X19",
+            "X23",
+            "X24",
+            "X35",
+            "X36",
+            "X37",
+            "X38",
+            "S07"
+          ],
+          "title": "Chart Type Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chart_type_id",
+        "allowed_patch_operations"
+      ],
+      "title": "ChartEditCapabilities",
+      "type": "object"
+    },
     "ChartRegistration": {
       "additionalProperties": false,
       "properties": {
+        "admission": {
+          "default": "product",
+          "enum": [
+            "product",
+            "internal_only"
+          ],
+          "title": "Admission",
+          "type": "string"
+        },
         "allowed_calculations": {
           "default": [],
           "items": {
@@ -1207,6 +1350,44 @@
           ],
           "title": "Chart Type Id",
           "type": "string"
+        },
+        "edit_capabilities": {
+          "default": [],
+          "items": {
+            "enum": [
+              "plot_title",
+              "axis_label",
+              "axis_range",
+              "axis_scale",
+              "axis_ticks",
+              "font",
+              "legend_visibility",
+              "legend_position",
+              "canvas_size",
+              "publication_profile",
+              "safe_annotation",
+              "series_color",
+              "line_width",
+              "line_style",
+              "marker_size",
+              "symbol_shape",
+              "symbol_interior",
+              "palette",
+              "bar_fill",
+              "bar_edge",
+              "bar_width",
+              "bar_gap",
+              "error_style",
+              "band_style",
+              "colorbar",
+              "dual_y_style",
+              "panel_style",
+              "y_offset"
+            ],
+            "type": "string"
+          },
+          "title": "Edit Capabilities",
+          "type": "array"
         },
         "english_name": {
           "title": "English Name",
@@ -1331,6 +1512,54 @@
           },
           "title": "Required Roles",
           "type": "array"
+        },
+        "unsupported_edit_capabilities": {
+          "default": [],
+          "items": {
+            "enum": [
+              "plot_title",
+              "axis_label",
+              "axis_range",
+              "axis_scale",
+              "axis_ticks",
+              "font",
+              "legend_visibility",
+              "legend_position",
+              "canvas_size",
+              "publication_profile",
+              "safe_annotation",
+              "series_color",
+              "line_width",
+              "line_style",
+              "marker_size",
+              "symbol_shape",
+              "symbol_interior",
+              "palette",
+              "bar_fill",
+              "bar_edge",
+              "bar_width",
+              "bar_gap",
+              "error_style",
+              "band_style",
+              "colorbar",
+              "dual_y_style",
+              "panel_style",
+              "y_offset"
+            ],
+            "type": "string"
+          },
+          "title": "Unsupported Edit Capabilities",
+          "type": "array"
+        },
+        "visual_evidence": {
+          "default": "origin_reference",
+          "enum": [
+            "origin_reference",
+            "synthetic_visual",
+            "unqualified"
+          ],
+          "title": "Visual Evidence",
+          "type": "string"
         }
       },
       "required": [
@@ -1350,8 +1579,7 @@
           "items": {
             "$ref": "#/$defs/ChartRegistration"
           },
-          "maxItems": 52,
-          "minItems": 52,
+          "minItems": 1,
           "title": "Charts",
           "type": "array"
         },
@@ -4529,6 +4757,49 @@
       "title": "LegendPlacementIntent",
       "type": "object"
     },
+    "LegendSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_x": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Anchor X",
+          "type": "number"
+        },
+        "anchor_y": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Anchor Y",
+          "type": "number"
+        },
+        "placement": {
+          "default": "inside",
+          "enum": [
+            "inside",
+            "outside_right",
+            "outside_bottom"
+          ],
+          "title": "Placement",
+          "type": "string"
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible"
+        }
+      },
+      "title": "LegendSpec",
+      "type": "object"
+    },
     "LegendVisibilityIntent": {
       "additionalProperties": false,
       "properties": {
@@ -5986,6 +6257,17 @@
           "title": "Levels",
           "type": "array"
         },
+        "line_style": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "dashed",
+            "dotted",
+            "dash_dot"
+          ],
+          "title": "Line Style",
+          "type": "string"
+        },
         "line_width_pt": {
           "anyOf": [
             {
@@ -6054,6 +6336,17 @@
           "title": "Palette",
           "type": "array"
         },
+        "palette_spec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolvedPalette"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "plot_id": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
           "title": "Plot Id",
@@ -6071,6 +6364,13 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
           "title": "Source Layer Id",
           "type": "string"
+        },
+        "symbol": {
+          "$ref": "#/$defs/SymbolStyle",
+          "default": {
+            "interior": "solid",
+            "shape": "circle"
+          }
         },
         "z_order": {
           "title": "Z Order",
@@ -6204,6 +6504,55 @@
       "title": "OriginValidationPlan",
       "type": "object"
     },
+    "PaletteIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_palette",
+          "default": "set_palette",
+          "title": "Operation",
+          "type": "string"
+        },
+        "palette_id": {
+          "enum": [
+            "ColorBlindSafe8",
+            "ColorBlindSafe15",
+            "BlueOrange",
+            "OrangeNavy",
+            "RedPurple",
+            "Viridis",
+            "Plasma",
+            "Inferno",
+            "Magma",
+            "GreyBlue",
+            "YellowBlue",
+            "YellowGreen",
+            "YellowPurple",
+            "Fire",
+            "Rainbow_Modified",
+            "GrayScale"
+          ],
+          "title": "Palette Id",
+          "type": "string"
+        },
+        "reverse": {
+          "default": false,
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "palette_id"
+      ],
+      "title": "PaletteIntent",
+      "type": "object"
+    },
     "PatchBatchAction": {
       "additionalProperties": false,
       "properties": {
@@ -6330,7 +6679,9 @@
                 "set_axis_range": "#/$defs/AxisRangeIntent",
                 "set_axis_scale": "#/$defs/AxisScaleIntent",
                 "set_canvas_size": "#/$defs/CanvasSizeIntent",
+                "set_category_color": "#/$defs/CategoryColorIntent",
                 "set_legend_visibility": "#/$defs/LegendVisibilityIntent",
+                "set_palette": "#/$defs/PaletteIntent",
                 "set_series_style": "#/$defs/SeriesStyleIntent"
               },
               "propertyName": "operation"
@@ -6347,6 +6698,12 @@
               },
               {
                 "$ref": "#/$defs/SeriesStyleIntent"
+              },
+              {
+                "$ref": "#/$defs/CategoryColorIntent"
+              },
+              {
+                "$ref": "#/$defs/PaletteIntent"
               },
               {
                 "$ref": "#/$defs/LegendVisibilityIntent"
@@ -6406,6 +6763,7 @@
                 "set_canvas_size": "#/$defs/SetCanvasSizePatch",
                 "set_category_color": "#/$defs/SetCategoryColorPatch",
                 "set_legend_visibility": "#/$defs/SetLegendVisibilityPatch",
+                "set_palette": "#/$defs/SetPalettePatch",
                 "set_series_style": "#/$defs/SetSeriesStylePatch",
                 "update_annotation": "#/$defs/UpdateAnnotationPatch"
               },
@@ -6423,6 +6781,9 @@
               },
               {
                 "$ref": "#/$defs/SetSeriesStylePatch"
+              },
+              {
+                "$ref": "#/$defs/SetPalettePatch"
               },
               {
                 "$ref": "#/$defs/SetCategoryColorPatch"
@@ -7015,6 +7376,7 @@
           "set_canvas_size": "#/$defs/SetCanvasSizePatch",
           "set_category_color": "#/$defs/SetCategoryColorPatch",
           "set_legend_visibility": "#/$defs/SetLegendVisibilityPatch",
+          "set_palette": "#/$defs/SetPalettePatch",
           "set_series_style": "#/$defs/SetSeriesStylePatch",
           "update_annotation": "#/$defs/UpdateAnnotationPatch"
         },
@@ -7032,6 +7394,9 @@
         },
         {
           "$ref": "#/$defs/SetSeriesStylePatch"
+        },
+        {
+          "$ref": "#/$defs/SetPalettePatch"
         },
         {
           "$ref": "#/$defs/SetCategoryColorPatch"
@@ -7246,6 +7611,15 @@
             }
           ],
           "title": "Family"
+        },
+        "legend": {
+          "$ref": "#/$defs/LegendSpec",
+          "default": {
+            "anchor_x": 1.0,
+            "anchor_y": 1.0,
+            "placement": "inside",
+            "visible": null
+          }
         },
         "plot_calculation_refs": {
           "default": [],
@@ -8291,6 +8665,17 @@
           "title": "Levels",
           "type": "array"
         },
+        "line_style": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "dashed",
+            "dotted",
+            "dash_dot"
+          ],
+          "title": "Line Style",
+          "type": "string"
+        },
         "line_width": {
           "anyOf": [
             {
@@ -8321,11 +8706,29 @@
           "title": "Palette",
           "type": "array"
         },
+        "palette_spec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolvedPalette"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "panel_id": {
           "default": "panel:main",
           "pattern": "^panel:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Panel Id",
           "type": "string"
+        },
+        "symbol": {
+          "$ref": "#/$defs/SymbolStyle",
+          "default": {
+            "interior": "solid",
+            "shape": "circle"
+          }
         },
         "target_id": {
           "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
@@ -8382,6 +8785,96 @@
         }
       },
       "title": "ResolvedLegend",
+      "type": "object"
+    },
+    "ResolvedPalette": {
+      "additionalProperties": false,
+      "properties": {
+        "colors": {
+          "items": {
+            "$ref": "#/$defs/ColorValue"
+          },
+          "minItems": 2,
+          "title": "Colors",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "qualitative",
+            "sequential",
+            "diverging",
+            "special",
+            "grayscale"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "origin_asset_kind": {
+          "enum": [
+            "color_list",
+            "palette"
+          ],
+          "title": "Origin Asset Kind",
+          "type": "string"
+        },
+        "origin_source_name": {
+          "title": "Origin Source Name",
+          "type": "string"
+        },
+        "palette_id": {
+          "enum": [
+            "ColorBlindSafe8",
+            "ColorBlindSafe15",
+            "BlueOrange",
+            "OrangeNavy",
+            "RedPurple",
+            "Viridis",
+            "Plasma",
+            "Inferno",
+            "Magma",
+            "GreyBlue",
+            "YellowBlue",
+            "YellowGreen",
+            "YellowPurple",
+            "Fire",
+            "Rainbow_Modified",
+            "GrayScale"
+          ],
+          "title": "Palette Id",
+          "type": "string"
+        },
+        "resolved_rgb_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Resolved Rgb Hash",
+          "type": "string"
+        },
+        "reverse": {
+          "default": false,
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "source_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "source_version": {
+          "const": "Origin2024 SR1 10.10.178",
+          "default": "Origin2024 SR1 10.10.178",
+          "title": "Source Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "palette_id",
+        "origin_source_name",
+        "origin_asset_kind",
+        "kind",
+        "colors",
+        "source_hash",
+        "resolved_rgb_hash"
+      ],
+      "title": "ResolvedPalette",
       "type": "object"
     },
     "ResolvedPanel": {
@@ -9055,6 +9548,21 @@
           "pattern": "^series:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Series Id",
           "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/SeriesStyleSpec",
+          "default": {
+            "category_colors": {},
+            "color": null,
+            "line_style": "solid",
+            "line_width": null,
+            "marker_size": null,
+            "palette": null,
+            "symbol": {
+              "interior": "solid",
+              "shape": "circle"
+            }
+          }
         }
       },
       "required": [
@@ -9078,6 +9586,24 @@
             }
           ],
           "default": null
+        },
+        "line_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dashed",
+                "dotted",
+                "dash_dot"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Style"
         },
         "line_width_pt": {
           "anyOf": [
@@ -9113,6 +9639,49 @@
           "title": "Operation",
           "type": "string"
         },
+        "symbol_interior": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "open",
+                "hollow"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol Interior"
+        },
+        "symbol_shape": {
+          "anyOf": [
+            {
+              "enum": [
+                "square",
+                "circle",
+                "triangle_up",
+                "triangle_down",
+                "diamond",
+                "plus",
+                "cross",
+                "triangle_left",
+                "triangle_right",
+                "hexagon",
+                "star",
+                "pentagon"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol Shape"
+        },
         "target_alias": {
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Target Alias",
@@ -9123,6 +9692,82 @@
         "target_alias"
       ],
       "title": "SeriesStyleIntent",
+      "type": "object"
+    },
+    "SeriesStyleSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "category_colors": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ColorValue"
+          },
+          "title": "Category Colors",
+          "type": "object"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "line_style": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "dashed",
+            "dotted",
+            "dash_dot"
+          ],
+          "title": "Line Style",
+          "type": "string"
+        },
+        "line_width": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalLength"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "marker_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalLength"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "palette": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolvedPalette"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "symbol": {
+          "$ref": "#/$defs/SymbolStyle",
+          "default": {
+            "interior": "solid",
+            "shape": "circle"
+          }
+        }
+      },
+      "title": "SeriesStyleSpec",
       "type": "object"
     },
     "SetAxisLabelPatch": {
@@ -9410,6 +10055,67 @@
       "title": "SetLegendVisibilityPatch",
       "type": "object"
     },
+    "SetPalettePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_palette",
+          "default": "set_palette",
+          "title": "Operation",
+          "type": "string"
+        },
+        "palette_id": {
+          "enum": [
+            "ColorBlindSafe8",
+            "ColorBlindSafe15",
+            "BlueOrange",
+            "OrangeNavy",
+            "RedPurple",
+            "Viridis",
+            "Plasma",
+            "Inferno",
+            "Magma",
+            "GreyBlue",
+            "YellowBlue",
+            "YellowGreen",
+            "YellowPurple",
+            "Fire",
+            "Rainbow_Modified",
+            "GrayScale"
+          ],
+          "title": "Palette Id",
+          "type": "string"
+        },
+        "reverse": {
+          "default": false,
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_id": {
+          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "palette_id"
+      ],
+      "title": "SetPalettePatch",
+      "type": "object"
+    },
     "SetSeriesStylePatch": {
       "additionalProperties": false,
       "properties": {
@@ -9428,6 +10134,24 @@
           "minimum": 1,
           "title": "Expected Plot Version",
           "type": "integer"
+        },
+        "line_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dashed",
+                "dotted",
+                "dash_dot"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Style"
         },
         "line_width": {
           "anyOf": [
@@ -9462,6 +10186,17 @@
           "default": "1.0",
           "title": "Schema Version",
           "type": "string"
+        },
+        "symbol": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SymbolStyle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "target_id": {
           "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
@@ -10111,6 +10846,42 @@
         "geometry"
       ],
       "title": "SurvivalFamily",
+      "type": "object"
+    },
+    "SymbolStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "interior": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "open",
+            "hollow"
+          ],
+          "title": "Interior",
+          "type": "string"
+        },
+        "shape": {
+          "default": "circle",
+          "enum": [
+            "square",
+            "circle",
+            "triangle_up",
+            "triangle_down",
+            "diamond",
+            "plus",
+            "cross",
+            "triangle_left",
+            "triangle_right",
+            "hexagon",
+            "star",
+            "pentagon"
+          ],
+          "title": "Shape",
+          "type": "string"
+        }
+      },
+      "title": "SymbolStyle",
       "type": "object"
     },
     "TextSourceCoordinate": {

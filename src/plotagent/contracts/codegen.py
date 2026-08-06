@@ -16,7 +16,7 @@ from plotagent.contracts.base import SCHEMA_VERSION
 from plotagent.contracts.datasets import FieldMapping, PreparedDataset, SourceDataset
 from plotagent.contracts.errors import STABLE_ERROR_REGISTRY, ErrorRegistry, ErrorResponse
 from plotagent.contracts.plots import BatchSpec, FigureSpec, PatchTransaction, PlotSpec
-from plotagent.contracts.registry import ChartRegistry
+from plotagent.contracts.registry import CHART_REGISTRY, ChartRegistry
 from plotagent.contracts.rendering import ExportSpec, OriginExportPlan, ResolvedRenderPlan
 from plotagent.contracts.schema_roots import (
     AgentDecisionContract,
@@ -25,6 +25,12 @@ from plotagent.contracts.schema_roots import (
     PlotCalculationSpecContract,
     PlotPatchContract,
     PreparationSpecContract,
+)
+from plotagent.contracts.styles import (
+    ORIGIN_INTERIOR_CODES,
+    PALETTE_IDS,
+    SYMBOL_MAPPINGS,
+    resolve_palette,
 )
 
 type JsonObject = dict[str, Any]
@@ -189,6 +195,38 @@ def desired_outputs() -> dict[str, str]:
         STABLE_ERROR_REGISTRY.model_dump(mode="json")
     )
     outputs["src/shared/generated/contracts.ts"] = generate_typescript(bundle)
+    outputs["src/shared/generated/style-catalog.json"] = _json_text(
+        {
+            "schema_version": SCHEMA_VERSION,
+            "capability_version": "edit-profile.v1",
+            "charts": [
+                {
+                    "chart_type_id": chart.chart_type_id,
+                    "admission": chart.admission,
+                    "visual_evidence": chart.visual_evidence,
+                    "edit_capabilities": list(chart.edit_capabilities),
+                }
+                for chart in CHART_REGISTRY
+            ],
+            "palettes": [
+                resolve_palette(palette_id).model_dump(mode="json")
+                for palette_id in PALETTE_IDS
+            ],
+            "symbols": [
+                {
+                    "shape": shape,
+                    "origin_code": origin_code,
+                    "matplotlib_marker": marker,
+                    "allowed_interiors": (
+                        ["solid"]
+                        if shape in {"plus", "cross"}
+                        else list(ORIGIN_INTERIOR_CODES)
+                    ),
+                }
+                for shape, (origin_code, marker) in SYMBOL_MAPPINGS.items()
+            ],
+        }
+    )
 
     manifest_entries = [
         {

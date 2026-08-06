@@ -17,6 +17,12 @@ from plotagent.contracts.base import (
     SemanticAlias,
     StrictModel,
 )
+from plotagent.contracts.styles import (
+    LineStyle,
+    PaletteId,
+    SymbolInterior,
+    SymbolShape,
+)
 
 ActionType = Literal[
     "create_plot",
@@ -32,6 +38,8 @@ PatchOperation = Literal[
     "set_axis_scale",
     "set_axis_label",
     "set_series_style",
+    "set_category_color",
+    "set_palette",
     "set_legend_visibility",
     "move_legend",
     "apply_publication_profile",
@@ -95,6 +103,39 @@ class SeriesStyleIntent(StrictModel):
     color: ColorValue | None = None
     line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
     marker_size_pt: Annotated[float, Field(gt=0, le=72, allow_inf_nan=False)] | None = None
+    line_style: LineStyle | None = None
+    symbol_shape: SymbolShape | None = None
+    symbol_interior: SymbolInterior | None = None
+
+    @model_validator(mode="after")
+    def has_style_change(self) -> SeriesStyleIntent:
+        if all(
+            value is None
+            for value in (
+                self.color,
+                self.line_width_pt,
+                self.marker_size_pt,
+                self.line_style,
+                self.symbol_shape,
+                self.symbol_interior,
+            )
+        ):
+            raise ValueError("set_series_style requires at least one style value")
+        return self
+
+
+class PaletteIntent(StrictModel):
+    operation: Literal["set_palette"] = "set_palette"
+    target_alias: SemanticAlias
+    palette_id: PaletteId
+    reverse: bool = False
+
+
+class CategoryColorIntent(StrictModel):
+    operation: Literal["set_category_color"] = "set_category_color"
+    target_alias: SemanticAlias
+    category: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    color: ColorValue
 
 
 class LegendVisibilityIntent(StrictModel):
@@ -126,6 +167,8 @@ PatchIntent = Annotated[
     | AxisScaleIntent
     | AxisLabelIntent
     | SeriesStyleIntent
+    | CategoryColorIntent
+    | PaletteIntent
     | LegendVisibilityIntent
     | LegendPlacementIntent
     | PublicationProfileIntent

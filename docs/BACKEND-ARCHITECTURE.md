@@ -273,7 +273,7 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 - OPJU 是 target-scoped self-contained editable delivery，不是 `.plotproj`；只带目标图实际使用的 Raw Data、Plot Data、固定结果和 metadata，不带对话、secret 或绝对路径。
 - OriginExportPlan 由 ExportSpec、ResolvedRenderPlan 和版本化 OriginAdapter 本地生成；Worker 不接受模型脚本、任意 property string 或模板路径。
 - 第一轮 OriginAdapter 只使用 `originpro`/Python 类型化固定映射，禁止模型、数据或 app-owned LabTalk；需要 LabTalk 的能力判为缺失。
-- 第一轮 31 项正式图形都要求 O1 full native semantic parity；不能用 raster/SVG 嵌入或运行时降级冒充原生。
+- 第一轮正式 43 图都要求 O1 full native semantic parity；现有 31 图实机矩阵是历史基础证据，新增 12 图必须补齐同一 exact Origin version 的 qualification。九个 `internal_hidden` adapter 不进入 create/export capability，不能用 raster/SVG 嵌入或运行时降级冒充原生。
 - Preflight 检查 Origin exact version/build/bitness 精确命中当前 Beta build 的唯一 qualification 声明，并检查 license、originpro、字体、签名 template、adapter、目录和文件锁；其他版本返回 `VERSION_UNSUPPORTED`。
 - 不连接用户当前 Origin，不调用 `op.attach()`；构建和验证分别从新的 dedicated blank instance 开始，也不终止用户实例。
 - Live structural validation 通过后保存同目录临时 OPJU；退出，再用新实例打开并读回 books/sheets/rows/columns/designations/Units、pages/layers/plots/data links、axes/ticks/legend/page/style 与数值/missing 语义。
@@ -325,4 +325,4 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 
 ## 13. 推荐实现顺序
 
-实施按W0–W10依赖DAG和M0–M7 evidence里程碑推进。先完成contracts/tooling与四个risk spikes，再做manual K01垂直切片；Origin K01 O1验证必须在M0前置，不能作为31图完成后的最后接入项。完整workstream范围、并行边界、错误归属与完成定义见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)，权威文档与requirement/evidence映射见 [规格索引与设计冻结基线](./SPEC-INDEX.md)。
+实施按W0–W10依赖DAG和M0–M7 evidence里程碑推进。先完成contracts/tooling与四个risk spikes，再做manual K01垂直切片；Origin K01 O1验证必须在M0前置，不能作为全部正式图完成后的最后接入项。完整workstream范围、并行边界、错误归属与完成定义见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)，权威文档与requirement/evidence映射见 [规格索引与设计冻结基线](./SPEC-INDEX.md)。

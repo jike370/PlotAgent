@@ -337,6 +337,49 @@
       "title": "ForestFamily",
       "type": "object"
     },
+    "LegendSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_x": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Anchor X",
+          "type": "number"
+        },
+        "anchor_y": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Anchor Y",
+          "type": "number"
+        },
+        "placement": {
+          "default": "inside",
+          "enum": [
+            "inside",
+            "outside_right",
+            "outside_bottom"
+          ],
+          "title": "Placement",
+          "type": "string"
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible"
+        }
+      },
+      "title": "LegendSpec",
+      "type": "object"
+    },
     "MatrixFamily": {
       "additionalProperties": false,
       "properties": {
@@ -733,6 +776,96 @@
       "title": "PublicationProfileSnapshot",
       "type": "object"
     },
+    "ResolvedPalette": {
+      "additionalProperties": false,
+      "properties": {
+        "colors": {
+          "items": {
+            "$ref": "#/$defs/ColorValue"
+          },
+          "minItems": 2,
+          "title": "Colors",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "qualitative",
+            "sequential",
+            "diverging",
+            "special",
+            "grayscale"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "origin_asset_kind": {
+          "enum": [
+            "color_list",
+            "palette"
+          ],
+          "title": "Origin Asset Kind",
+          "type": "string"
+        },
+        "origin_source_name": {
+          "title": "Origin Source Name",
+          "type": "string"
+        },
+        "palette_id": {
+          "enum": [
+            "ColorBlindSafe8",
+            "ColorBlindSafe15",
+            "BlueOrange",
+            "OrangeNavy",
+            "RedPurple",
+            "Viridis",
+            "Plasma",
+            "Inferno",
+            "Magma",
+            "GreyBlue",
+            "YellowBlue",
+            "YellowGreen",
+            "YellowPurple",
+            "Fire",
+            "Rainbow_Modified",
+            "GrayScale"
+          ],
+          "title": "Palette Id",
+          "type": "string"
+        },
+        "resolved_rgb_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Resolved Rgb Hash",
+          "type": "string"
+        },
+        "reverse": {
+          "default": false,
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "source_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "source_version": {
+          "const": "Origin2024 SR1 10.10.178",
+          "default": "Origin2024 SR1 10.10.178",
+          "title": "Source Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "palette_id",
+        "origin_source_name",
+        "origin_asset_kind",
+        "kind",
+        "colors",
+        "source_hash",
+        "resolved_rgb_hash"
+      ],
+      "title": "ResolvedPalette",
+      "type": "object"
+    },
     "ResolvedStyleSnapshot": {
       "additionalProperties": false,
       "properties": {
@@ -943,6 +1076,21 @@
           "pattern": "^series:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Series Id",
           "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/SeriesStyleSpec",
+          "default": {
+            "category_colors": {},
+            "color": null,
+            "line_style": "solid",
+            "line_width": null,
+            "marker_size": null,
+            "palette": null,
+            "symbol": {
+              "interior": "solid",
+              "shape": "circle"
+            }
+          }
         }
       },
       "required": [
@@ -951,6 +1099,82 @@
         "data"
       ],
       "title": "SeriesSpec",
+      "type": "object"
+    },
+    "SeriesStyleSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "category_colors": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ColorValue"
+          },
+          "title": "Category Colors",
+          "type": "object"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "line_style": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "dashed",
+            "dotted",
+            "dash_dot"
+          ],
+          "title": "Line Style",
+          "type": "string"
+        },
+        "line_width": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalLength"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "marker_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalLength"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "palette": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolvedPalette"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "symbol": {
+          "$ref": "#/$defs/SymbolStyle",
+          "default": {
+            "interior": "solid",
+            "shape": "circle"
+          }
+        }
+      },
+      "title": "SeriesStyleSpec",
       "type": "object"
     },
     "SpecialFamily": {
@@ -1061,6 +1285,42 @@
         "geometry"
       ],
       "title": "SurvivalFamily",
+      "type": "object"
+    },
+    "SymbolStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "interior": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "open",
+            "hollow"
+          ],
+          "title": "Interior",
+          "type": "string"
+        },
+        "shape": {
+          "default": "circle",
+          "enum": [
+            "square",
+            "circle",
+            "triangle_up",
+            "triangle_down",
+            "diamond",
+            "plus",
+            "cross",
+            "triangle_left",
+            "triangle_right",
+            "hexagon",
+            "star",
+            "pentagon"
+          ],
+          "title": "Shape",
+          "type": "string"
+        }
+      },
+      "title": "SymbolStyle",
       "type": "object"
     },
     "XYFamily": {
@@ -1218,6 +1478,15 @@
         }
       ],
       "title": "Family"
+    },
+    "legend": {
+      "$ref": "#/$defs/LegendSpec",
+      "default": {
+        "anchor_x": 1.0,
+        "anchor_y": 1.0,
+        "placement": "inside",
+        "visible": null
+      }
     },
     "plot_calculation_refs": {
       "default": [],

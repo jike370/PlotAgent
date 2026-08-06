@@ -29,6 +29,7 @@ from plotagent.contracts.base import (
     WarningRecord,
 )
 from plotagent.contracts.plots import SafeRichText
+from plotagent.contracts.styles import LineStyle, ResolvedPalette, SymbolStyle
 
 RenderPlanHash = Sha256
 
@@ -139,6 +140,9 @@ class ResolvedLayer(StrictModel):
     color_maximum: FiniteNumber | None = None
     line_width: PhysicalLength | None = None
     marker_size: PhysicalLength | None = None
+    line_style: LineStyle = "solid"
+    symbol: SymbolStyle = SymbolStyle()
+    palette_spec: ResolvedPalette | None = None
 
     @model_validator(mode="after")
     def valid_resolved_data(self) -> ResolvedLayer:
@@ -403,6 +407,9 @@ class OriginPlotPlan(StrictModel):
     levels: tuple[FiniteNumber, ...] = ()
     line_width_pt: FiniteNumber | None = None
     marker_size_pt: FiniteNumber | None = None
+    line_style: LineStyle = "solid"
+    symbol: SymbolStyle = SymbolStyle()
+    palette_spec: ResolvedPalette | None = None
     alpha: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
 
 

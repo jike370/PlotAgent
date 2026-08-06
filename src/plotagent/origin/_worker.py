@@ -455,7 +455,7 @@ def _build_plan(payload: dict[str, Any]) -> dict[str, Any]:
         _fail("BUILD_FAILURE", "typed-plan build payload contains missing or unknown fields")
     plan = OriginExportPlan.model_validate_json(json.dumps(payload["plan"], ensure_ascii=False))
     temporary_path = Path(str(payload["temporary_opju_path"])).resolve(strict=False)
-    Path(str(payload["install_dir"])).resolve(strict=True)
+    install_dir = Path(str(payload["install_dir"])).resolve(strict=True)
     template = qualified_template_path()
     import originpro as op
 
@@ -464,7 +464,7 @@ def _build_plan(payload: dict[str, Any]) -> dict[str, Any]:
     from .validation import expected_validation_sha256
 
     try:
-        backend = OriginProBackend(op, template)
+        backend = OriginProBackend(op, template, install_dir)
         report = build_native_project(backend, plan, str(temporary_path))
         return {
             "status": "ok",
@@ -489,7 +489,7 @@ def _reopen_plan(payload: dict[str, Any]) -> dict[str, Any]:
         _fail("REOPEN_FAILURE", "typed-plan reopen payload contains missing or unknown fields")
     plan = OriginExportPlan.model_validate_json(json.dumps(payload["plan"], ensure_ascii=False))
     temporary_path = Path(str(payload["temporary_opju_path"])).resolve(strict=True)
-    Path(str(payload["install_dir"])).resolve(strict=True)
+    install_dir = Path(str(payload["install_dir"])).resolve(strict=True)
     template = qualified_template_path()
     import originpro as op
 
@@ -503,7 +503,7 @@ def _reopen_plan(payload: dict[str, Any]) -> dict[str, Any]:
             _fail("REOPEN_FAILURE", "fresh validation instance was not blank before load")
         if not op.open(str(temporary_path), readonly=True, asksave=False):
             _fail("REOPEN_FAILURE", "fresh Origin instance could not open the temporary OPJU")
-        backend = OriginProBackend(op, template)
+        backend = OriginProBackend(op, template, install_dir)
         report = inspect_native_project(backend, plan)
         return {
             "status": "ok",

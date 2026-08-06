@@ -1,8 +1,8 @@
 # PlotAgent 已确认产品决策基线
 
-> 状态：原 M0–M6 工程切片已实现；M6 因新增且已确认的可组合绘图底座与基础泛化门禁重新打开；M7 小规模邀请制 Beta qualification 尚未执行
+> 状态：正式范围固定为 43 图；原 M0–M6 工程切片已实现，M6 因基础泛化、逐图编辑/Origin 样式与可组合绘图底座重新打开；M7 小规模邀请制 Beta qualification 尚未执行
 > 产品代号：PlotAgent  
-> 基线日期：2026-08-05  
+> 基线日期：2026-08-06
 > 适用关系：本文件记录全部已确认细节；[PRD](./PRD.md) 将其组织为可实施需求；[DESIGN](../DESIGN.md) 约束视觉与交互表达。三者发生冲突时，应先记录新的用户确认，再同时更新相关文件，不得由实现自行改变产品边界。
 
 ## A. 产品定位与范围
@@ -70,8 +70,8 @@
 - **PD-E05 完整候选体系。** 图形调研目录的 157 个稳定条目是长期上限框架，不等于第一轮全部开放。
 - **PD-E06 正式库准入。** 只有通过 PNG、SVG、OPJU 生成和重新打开验证的图形才进入正式库；未完成验证的能力不以“即将推出”占据正式界面。
 - **PD-E07 官方图形包。** 采用官方核心包与官方学科包，包必须签名和版本化；第一轮不开放第三方插件或社区市场。
-- **PD-E08 第一轮 31 项。** 第一轮为 K01–K22、K24–K25、S01、S05、S21、S25、S31、S34、S61，共 31 项纯数值图表。
-- **PD-E09 Origin P1 扩展。** 在不引入双 Y 轴网格图的前提下增加 X01、X02、X03、X05、X07、X09、X11、X12、X13、X15、X16、X17、X18、X19、X23、X24、X35、X36、X37、X38、S07，形成 52 图代码面。视觉测试必须先锚定 Origin 示例图与同一来源数据；A 级直接使用随附 OPJU，C 级只允许用 Origin 官方样例数据在 Origin 中重新生成参考图。缺任一侧时暂不做视觉测试，合成 fixture 只能用于离线契约和边界测试。
+- **PD-E08 原始核心 31 项。** 正式范围的基础集合为 K01–K22、K24–K25、S01、S05、S21、S25、S31、S34、S61，共 31 项纯数值图表；最终第一轮总范围以 PD-E25 的 43 图为准。
+- **PD-E09 Origin P1 候选代码面。** 在不引入双 Y 轴网格图的前提下曾增加 X01、X02、X03、X05、X07、X09、X11、X12、X13、X15、X16、X17、X18、X19、X23、X24、X35、X36、X37、X38、S07，形成 52 图内部代码面。代码存在不等于正式产品准入；视觉测试优先锚定 Origin 示例图与同一来源数据，A 级直接使用随附 OPJU，C 级只允许用 Origin 官方样例数据在 Origin 中重新生成参考图。
 - **PD-E24 第一轮排除项。** K23 科学图像面板与 S45 专题地图不进入第一轮；专题地图需要空间几何、CRS 与 GeoJSON，待扩展数据范围后再评估。
 - **PD-E10 基础组合图。** 第一轮提供 1×2、2×1、2×2 等固定布局、A/B/C/D 面板编号和公共图例，仅组合数值数据图表。
 - **PD-E11 高级组合图。** 不等宽、跨行跨列、自由布局、局部放大、嵌套面板、共享轴以及图像混合面板放在后续阶段。
@@ -86,7 +86,10 @@
 - **PD-E20 配方版本与删除。** 图表固定引用创建时的配方版本；配方升级不静默改变已有图，显式升级先预览并创建新 PlotSpec 版本。缺少新版必需槽位时只补充冲突映射；删除配方默认仅从图形库隐藏，被历史图引用的版本继续保留，彻底删除前展示依赖。
 - **PD-E21 后期搭建器。** M6 只完成内部可组合底座和基础泛化门禁，不开放用户搭建器。M6 后再提供全窗口搭建器，以“基于当前图”作为默认入口、空白搭建作为进阶入口，包含结构单元目录、实时预览、结构树、字段槽位以及项目/个人图形库；主对话仍无常驻右栏，也不提供自由矢量绘制。
 - **PD-E22 自然语言结构编辑。** 后期 Agent 只使用添加/删除组件、设置封闭关系、设置轴归属、绑定字段和显式保存等领域 Action；模型不输出自由图层 JSON、renderer 代码或任意属性路径。目标明确时创建新图版本，误差归属、堆积范围或轴归属有歧义时只提出一张合并问题卡。
-- **PD-E23 先基础后组合。** 组合底座编码前先通过现有基础图形的参数化泛化测试并修复确定性布局/坐标/误差问题；测试与组合架构不得同时变化。基础门禁通过后，才迁移 52 个官方图为同构配方并开放组合 compiler。
+- **PD-E23 先基础后组合。** 组合底座编码前先通过现有基础图形的参数化泛化测试并修复确定性布局/坐标/误差问题；测试与组合架构不得同时变化。正式基础门禁通过后，才迁移 43 个正式图为同构配方并开放组合 compiler。
+- **PD-E25 正式 43 图范围。** 第一轮正式图形库为原 31 图，加 X01、X02、X03、X05、X09、X13、X23、X24、X35、X36、X38、S07，共 43 图；这些图才可以由图形库或 Agent 创建并进入 PNG/SVG/OPJU 产品承诺。
+- **PD-E26 九图移出覆盖。** X07、X11、X12、X15、X16、X17、X18、X19、X37 从正式图形库、Agent create capability 和导出承诺中隐藏；底层 adapter、fixture 与回归测试可保留，但不得以内部可调用或测试通过暗示产品支持，重新准入需补齐视觉规范、逐图编辑能力和发布证据。
+- **PD-E27 合成视觉证据标识。** X24 与 S07 第一阶段允许以冻结合成数据完成 Matplotlib/Origin 并排视觉校准和 O1 结构验证，因此进入正式 43 图；其证据必须显式标记为“合成视觉验证”，不能写成 Origin 官方模板/同源样例证据。获得官方同源图—数据对后再升级证据等级，不静默替换既有基线。
 
 ## F. 改图、目标与版本
 
@@ -141,6 +144,12 @@
 - **PD-I10 规格版本。** 发表规格带官方来源、日期、版本和签名；项目固定所用快照，不因在线更新静默改变既有图。
 - **PD-I11 创建时应用规格。** 发表规格在图表创建时应用；更改规格创建新版本，不直接改写既有版本。
 - **PD-I12 渲染可复现。** 项目固定渲染器、图形包和主题版本；迁移前提供预览，不静默重新渲染。
+- **PD-I13 逐图编辑白名单。** 正式 43 图各自声明可编辑对象、操作和参数；图题、轴、图例、画布、线、符号、填充、误差、色板、双 Y、分面和偏移等能力只在 Matplotlib 与 Origin 均有稳定映射时开放。没有声明的请求返回 `Unsupported`，不暴露任意 Origin 属性、LabTalk、通用 JSON path 或自由 renderer 参数。
+- **PD-I14 Origin 对齐符号。** 首批符号枚举固定为 `square`、`circle`、`triangle_up`、`triangle_down`、`diamond`、`plus`、`cross`、`triangle_left`、`triangle_right`、`hexagon`、`star`、`pentagon`；界面显示对应 Origin 英文名称，resolver 保存语义枚举，adapter 分别映射到 Origin 原生符号与 Matplotlib marker，不把 Origin 数字编号作为项目真值。
+- **PD-I15 符号内部。** 闭合符号内部只允许 `solid`、`open`、`hollow`：`solid` 使用指定填充色，`open` 以解析后的背景色遮住穿过符号的线，`hollow` 无填充且允许下层线可见；`plus/cross` 是无内部的线符号，只接受规范化 `solid`，请求 `open/hollow` 返回不支持。字符、数字、球体、箭头、特殊 data marker、半填充和用户位图不进入第一轮。
+- **PD-I16 Origin 命名色板。** 第一轮内置 16 个 Origin 对照配色资源（保留其 `Color List | Palette` 原生类型）：`ColorBlindSafe8`、`ColorBlindSafe15`、`BlueOrange`、`OrangeNavy`、`RedPurple`、`Viridis`、`Plasma`、`Inferno`、`Magma`、`GreyBlue`、`YellowBlue`、`YellowGreen`、`YellowPurple`、`GrayScale`、`Fire`、`Rainbow_Modified`。`GrayScale` 锚定 Origin 2024 SR1 随安装 `Palettes/GrayScale.PAL`，不是自造的 `OriginGrayScale` 名称。每个版本固定实际 8-bit sRGB colors/stops、来源名、资产/配色类型、顺序、source version/hash；Matplotlib 与产品目录以冻结 RGB 为真值。原生 Origin 导出只使用已限定安装目录中 source hash 完全一致的官方资产；缺失或修改时稳定失败，不读取用户文件或同名替代品。
+- **PD-I17 类别编码上限。** 类别不超过 15 时使用冻结映射；超过 15 时不得循环复用颜色，而按证据支持的颜色+符号联合编码。联合编码仍不足或物理空间不可读时给出明确 warning/阻止，不静默产生无法区分的系列；普通 Rainbow/Jet 不作为默认，`Rainbow_Modified` 只能由用户明确选择。
+- **PD-I18 双 Y 默认。** X23、X24、X35、X36 的左右轴默认均为中性、非加粗细线，不自动随系列着色；用户明确修改且当前图的编辑能力允许时，左右轴颜色才可分别映射到系列。轴颜色变化不得改变轴归属、range 或数据语义。
 
 ## J. Agent、模型与隐私
 
@@ -160,7 +169,7 @@
 - **PD-K01 正式格式。** 正式导出只提供 PNG、SVG 和 OPJU；不提供 PDF、EPS、EMF 等正式导出入口。
 - **PD-K02 快速复制。** 剪贴板 PNG/SVG 可作为快捷操作，但不生成正式导出记录。
 - **PD-K03 OPJU 技术路径。** Windows 本地通过 `originpro` 与 Origin COM 自动化生成 `.opju`；每个 Beta build 只声明一个完成完整 qualification 的 Origin exact version/build/bitness，其他版本全部 unsupported。
-- **PD-K04 能力等级。** O1 为 full native semantic parity；O2 为原生 linked/editable 但有已声明非关键差异；O3 为 embedded/unlinked；O0 为 unavailable。第一轮 31 项必须 O1，O2 只为未来能力保留。
+- **PD-K04 能力等级。** O1 为 full native semantic parity；O2 为原生 linked/editable 但有已声明非关键差异；O3 为 embedded/unlinked；O0 为 unavailable。第一轮正式 43 图必须 O1，O2 只为未来能力保留；已有 31 图实机矩阵是历史基础证据，不等于 43 图发布门禁已完成。
 - **PD-K05 三格式验证。** 正式图形必须完成 PNG、SVG、OPJU 验证；OPJU 在构建实例 live validation 后由新的空白受控实例重新打开并读回数据、链接、图层、轴/ticks、图例、page/style 和 missing 语义。
 - **PD-K06 独立 Origin 实例。** 不连接用户当前打开的 Origin，不使用 `op.attach()`；从空白项目启动专用受控实例。
 - **PD-K07 原子导出。** 先写临时文件，验证成功后原子移动到目标路径；无论成功或失败都清理临时资源并退出受控实例。
@@ -263,6 +272,11 @@
 - **PD-P25 固定计算端口。** 结构单元只能消费 PreparedDataset、用户预计算字段或登记的 PlotCalculationResult；直方、箱线、KDE 等封闭固定计算可作为组件输入，但不能自由串联、发布为通用派生数据或借组合图开放拟合/公式/任意聚合。
 - **PD-P26 复用无需再认证。** 图形配方保存和复用只执行 Schema、端口、关系、字段和当前 renderer capability 的确定性校验；不生成测试数据、不重新跑泛化矩阵或 Origin qualification。普通 OPJU 仍执行本次产物的 build/fresh-reopen 验证。
 - **PD-P27 结构与样式版本分离。** 纯样式、文字或坐标范围变化只创建 PlotSpec 版本；组件图或关系变化创建配方/结构版本。配方升级与 PlotSpec 升级分别固定父引用，不能用样式变更制造无意义配方版本。
+- **PD-P28 编辑能力契约。** 图形注册表为每个正式 chart type 保存版本化 `ChartEditCapabilityProfile`，按 operation、target kind、allowed payload fields、renderer support 和科研约束校验 PlotPatch；客户端控件、Agent Context 与本地 validator 必须消费同一 profile，不能各自维护能力列表。
+- **PD-P29 不支持语义。** Agent 收到超出当前图白名单的改图请求时返回 `Unsupported(reason=chart_edit_capability_not_supported)`；绕过 Agent 的本地请求由 validator 返回稳定 `PATCH_CAPABILITY_NOT_SUPPORTED`，不自动近似、不换图、不丢弃字段，事务保持原版本不变。
+- **PD-P30 样式真值。** `ColorValue` 使用 8-bit sRGB 或严格 `#RRGGBB`；`PaletteRef` 固定 palette version/hash 与 resolved colors/stops；`MarkerStyle` 固定 symbol/interior/size/stroke/fill。Matplotlib 和 Origin 只消费解析后的值，Origin 名称和原生编号是 adapter 映射元数据而非存储真值。
+- **PD-P31 固定计算参数不是样式。** 直方分箱、KDE 带宽、ECDF/CCDF 模式等会改变 PlotCalculationResult 的参数仍走各自封闭计算契约并创建新结果；逐图编辑能力白名单不得把它们伪装成 renderer-only style patch。
+- **PD-P32 正式与隐藏能力。** `availability=official` 的 43 图可出现在 create/edit/export capability 中；九个保留图必须是 `availability=internal_hidden`，对用户 create/export 一律不可用。历史对象若存在，只允许在兼容 build 中只读展示或返回稳定不支持结果，不据此扩大正式范围。
 
 完整 Schema 结构见 [领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)。
 
@@ -418,6 +432,7 @@
 - **PD-V23 不写死语义。** 图形专用科学规则和固定计算可以登记，但不得以固定两组、固定类别数、固定值域或按 chart ID 常量替代数据驱动布局。基础布局算法按结构关系工作，现有 52 图中的按 ID 分支需审计并逐步迁移。
 - **PD-V24 物理极限。** 动态布局先在有依据的最小可读尺寸内调整；固定画布无法容纳时显示具体拥挤/裁切冲突并提供增大画布、旋转标签、移动图例或分面选项，不自动换图、不删系列/刻度/数据、不缩写科研标签或缩成不可读字号。
 - **PD-V25 证据阈值。** 最小柱宽、间距、字号、标记和可区分编码数量必须来自 Origin 模板、期刊规范或冻结可用性证据；没有依据的数值不得作为产品规范。超过可区分颜色数量时可组合颜色/线型/标记，仍不足则明确告警。
+- **PD-V26 编辑解析唯一性。** PlotPatch 先经 `ChartEditCapabilityProfile` 校验，再由 resolver 把 Origin 对齐的 symbol/interior/palette、轴、线、填充和图例属性解析进单一 RenderPlan；adapter 不读取本机 Origin 色板默认值，仅在 source hash 完全匹配时使用限定安装目录中的官方资产，也不为不支持的编辑做 renderer-specific fallback。
 
 完整 resolver、autoscale、ticks、文本、物理尺寸、容差与验证契约见 [渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)。
 
@@ -430,7 +445,7 @@
 - **PD-W05 Origin 元数据。** Worksheet 保留 Long Name、Units、Comments 和 designations；matrix chart 可用保持坐标/单位/链接的 Matrixbook。
 - **PD-W06 Manifest。** Manifest 保存 PlotAgent↔Origin object map、所有 version/hash、chart/style/profile、adapter/template/originpro/Origin version、data-chain kind、Raw 不自动重算声明、export time、capability 与 O2 known differences。
 - **PD-W07 能力定义。** O1 为 full native semantic parity；O2 为 native linked/editable with declared noncritical differences；O3 为 visual embedded/unlinked；O0 为 unavailable。
-- **PD-W08 第一轮 O1。** 第一轮 31 项正式图形全部要求 O1 才开放 OPJU；未来高级图形可经产品准入使用 O2 并预先披露，不允许运行时降级。
+- **PD-W08 第一轮 O1。** 第一轮正式 43 图全部要求 O1 才开放 OPJU；未来高级图形可经产品准入使用 O2 并预先披露，不允许运行时降级。九个内部隐藏图不承诺 OPJU，即使 adapter 当前能够生成也不得暴露。
 - **PD-W09 OriginAdapter。** 版本化adapter固定chart type、当前Beta build唯一Origin exact version/build/bitness、template hash、capability、data layout、typed property map、validation与differences；架构可在后续build增加新exact version记录。
 - **PD-W10 Typed Plan。** Adapter 只接收本地生成的 typed OriginExportPlan，并只用 `originpro`/Python 类型化固定映射；模型、数据和应用均不得注入或执行 LabTalk/Python/property/path string，也不生成 Origin Analysis Template、worksheet formula 或科学重算链。
 - **PD-W11 Template 安全。** 官方 template 签名并版本化，任务只复制所需文件到隔离临时目录，不读取或修改用户全局 templates。
@@ -525,7 +540,7 @@
 
 - **PD-AA01 单一 Windows profile。** 每个 Beta build 只在一个发布时仍受支持的 Windows 11 x64 reference profile 正式 qualification；当前为 Windows 11 25H2/6C/16GB/NVMe/1920×1080，DPI 只测 100% 与 150%。
 - **PD-AA02 后续平台。** Windows 10、LTSC、ARM64、minimum machine、125%/200% DPI 与多 OS 矩阵不属于当前 Beta 声明；其他环境可尝试但必须标“未完成 Beta qualification”。
-- **PD-AA03 单一 Origin version。** 每个 Beta build 只声明一个完成 qualification 的 Origin exact version/build/bitness；其他版本全部 `VERSION_UNSUPPORTED`。该版本独立完成 31 图各一份代表性 O1 live+fresh-reopen；minimal/edge/error 由离线契约、验证器和稳定错误 evidence 覆盖。
+- **PD-AA03 单一 Origin version。** 每个 Beta build 只声明一个完成 qualification 的 Origin exact version/build/bitness；其他版本全部 `VERSION_UNSUPPORTED`。该版本独立完成正式 43 图各一份代表性 O1 live+fresh-reopen；minimal/edge/error 由离线契约、验证器和稳定错误 evidence 覆盖。已有 31 图实跑继续作为基础证据，新增 12 图必须在发布前补齐。
 - **PD-AA04 唯一规模基线。** 正式 qualification 为 100k rows×20 columns、常规 10 charts、单图≤100k plotted primitives、批量20 files/charts×每图10k、项目≤100 charts；不再设 large/boundary 门禁。
 - **PD-AA05 超范围 best effort。** 超出已验证范围先显示“超出 Beta 已验证范围”与 resource preflight；成功不扩大声明。资源不足稳定拒绝并建议用户在外部显式准备较小数据或缩小批次，formal 不静默抽稀、换算法或借机执行隐藏筛选/聚合。
 - **PD-AA06 Preview 与 formal。** Thumbnail≤5k、interactive≤20k visible primitives；100k preview P95≤3s，range/PlotCalculation 使用 full data并显示简化。声明规模内 formal PNG/SVG/OPJU 全部 full data。
@@ -534,22 +549,23 @@
 - **PD-AA09 Agent 与反馈预算。** ContextEnvelope build P95≤1s；内置 structured decision P50≤8s/P95≤20s并单列 provider latency；输入/点击/任务卡反馈≤100ms，>2s 展示真实阶段。
 - **PD-AA10 Memory。** Idle Electron+Core≤700MB，正式 qualification workload peak≤2GB；资源预检不足时以 `RESOURCE_LIMIT` 拒绝，可把新任务并发降为1但不改算法或提交半对象。
 - **PD-AA11 Disk 与 SVG preflight。** 导入前 free disk≥estimated landed bytes×2.5；formal按实际100k声明范围估计primitive/file/memory/disk并告警或拒绝，不使用2M primitives/200MB商业级固定门槛，不自动栅格或抽稀。
-- **PD-AA12 31图 Fixtures。** 每图保留 minimal valid、representative research、edge/error 三类 fixture；formal PNG/SVG 运行离线矩阵，preview/interactive 另测。OPJU 在当前 build 唯一 Origin exact version 对每图运行一份 representative live+fresh-reopen；minimal 与 edge/error 复用同一 typed plan 的离线 contract/validator 与预期稳定错误，不重复进行昂贵 COM 实跑。
+- **PD-AA12 43图 Fixtures。** 正式 43 图每图保留 minimal valid、representative research、edge/error 三类 fixture；formal PNG/SVG 运行离线矩阵，preview/interactive 另测。OPJU 在当前 build 唯一 Origin exact version 对每图运行一份 representative live+fresh-reopen；minimal 与 edge/error 复用同一 typed plan 的离线 contract/validator 与预期稳定错误，不重复进行昂贵 COM 实跑。九个隐藏图的内部回归不计入正式 MatrixKey 覆盖率。
 - **PD-AA13 机器可统计证据。** MatrixKey 固定 build/chart/fixture/artifact/adapter-or-renderer/唯一Origin/Windows profile/locale/case，记录 input/spec/plan/artifact/validator/dependency/fixture hashes、资源和稳定错误。
 - **PD-AA14 Beta 测试层。** Gate 覆盖schema/domain、约30个import golden、mapping/preparation/unit/provenance、九类PlotCalculation与预计算字段、render/parity、单Origin O1、Electron↔Python E2E、cancel/crash/idempotency、安全/零出站、reference性能和签名安装包；程序/固定模型契约/真实模型质量三层分离。
 - **PD-AA15 可复现性能协议。** 固定cold/warm、dataset hash、reference profile、sample count、nearest-rank P50/P95和cache policy；普通路径≥10次、昂贵OPJU≥5次，P95退化>15%或越绝对预算即调查并阻断。
 - **PD-AA16 Beta 缺陷处理。** 每个 blocker/critical/known issue 有唯一 owner、affected MatrixKeys、影响和恢复动作；不影响正确性/安全/可追溯/完成路径的问题可进入 Beta known issues，不建设商业级 waiver 审批链。
-- **PD-AA17 不可豁免阻断。** 数据损坏、静默导入区域/mapping/unit/preparation/PlotCalculation/预计算字段变化、formal降采样、假O1、secret泄漏、31图声明失败、签名绕过、已知blocker/critical与靠retry变绿均阻止分发。
-- **PD-AA18 Beta Evidence。** 每个 build 固定 manifest/source/test-runner/app/PlotSpec/model/prompt/Unicode/dependency/fixture hashes，提交导入 golden、31 图 PNG/SVG 离线矩阵、额外 preview、单 Origin 31 图 representative 实跑、固定计算/预计算、local security、简化 quota 幂等、安装包 hash 和 known issues 检查单。
+- **PD-AA17 不可豁免阻断。** 数据损坏、静默导入区域/mapping/unit/preparation/PlotCalculation/预计算字段变化、formal降采样、假O1、secret泄漏、43图正式声明失败、签名绕过、已知blocker/critical与靠retry变绿均阻止分发。
+- **PD-AA18 Beta Evidence。** 每个 build 固定 manifest/source/test-runner/app/PlotSpec/model/prompt/Unicode/dependency/fixture hashes，提交导入 golden、43 图 PNG/SVG 离线矩阵、额外 preview、单 Origin 43 图 representative 实跑、逐图编辑/符号/色板报告、固定计算/预计算、local security、简化 quota 幂等、安装包 hash 和 known issues 检查单。
 - **PD-AA19 首批成功门禁。** 第二批 go/no-go：sample 首图独立≥80%，真实数据首图无staff takeover≥60%，愿再用真实数据≥60%，至少1人batch、至少1名Origin用户继续编辑OPJU；第一轮无analytics，使用经同意观察/访谈。
 - **PD-AA20 门禁语义。** 本节只定义小规模邀请制 Beta qualification，不表示当前实现已通过；单一 Beta release owner 汇总checklist并由科学/Origin负责人复核专业证据，不要求商业级多角色签署。
 - **PD-AA21 两类绘图证据。** 同源参考图视觉审计回答“默认样式是否符合依据”；冻结生成器的参数化泛化测试回答“数据范围、组数和边界变化时结构是否仍正确”。合成数据不能替代同源视觉金标，同源图片也不能替代结构不变量测试。
 - **PD-AA22 泛化维度。** 基础门禁至少覆盖系列/组数 1/2/3/5、类别/点数变化、缩放/平移、跨零/全负、零/对称/非对称误差、长中英文标签和可选字段缺失；必要的更高数量按结构风险补充，不要求无意义的全笛卡尔积。
 - **PD-AA23 泛化 oracle。** 生成器版本、seed、manifest 与预期不变量随仓库冻结；不得在运行时从被测实现生成答案。可机械验证的重叠、累计、附着、范围、身份和有限值问题必须自动阻断，文字审美等不可完全机械判断的项目保留代表性视觉审计。
-- **PD-AA24 Renderer 覆盖。** Matplotlib 运行完整基础泛化矩阵；Origin 按不同基础结构签名选择最小、常规和复杂代表数据 live+fresh-reopen，同时每个正式官方图仍至少保留一组同源 Origin 证据。昂贵 Origin 泛化不转嫁到每次用户复用。
+- **PD-AA24 Renderer 覆盖。** Matplotlib 运行完整正式基础泛化矩阵；Origin 按不同基础结构签名选择最小、常规和复杂代表数据 live+fresh-reopen。除明确使用冻结合成视觉验证且不得冒充官方证据的 X24/S07 外，每个正式图至少保留一组同源 Origin 证据；九个隐藏图的内部测试不计正式覆盖。昂贵 Origin 泛化不转嫁到每次用户复用。
 - **PD-AA25 发布顺序。** 当前先完成并冻结基础图形泛化门禁、修复发现的确定性 bug，再实现结构单元/配方 compiler；组合实现不得修改基础测试 oracle 来适配自身输出，M7 必须等待该重新打开的 M6 范围完成。
+- **PD-AA26 编辑与 Origin 样式门禁。** 正式 43 图逐图验证 allowed patch 成功、undeclared patch 稳定不支持、版本/事务原子性和 Matplotlib/Origin semantic parity；覆盖全部 12 种符号、闭合符号的 3 种 interior 与 `plus/cross` 非适用拒绝，以及 16 色板按结构签名的映射/readback；RGB 每通道精确，隐藏九图不得出现在产品 capability snapshot。
 
-完整单一平台/规模/Origin、预算、31图MatrixKey、不可豁免blocker、Beta checklist与测量协议见 [小规模邀请制 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。
+完整单一平台/规模/Origin、预算、43图MatrixKey、不可豁免blocker、Beta checklist与测量协议见 [小规模邀请制 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。
 
 ## AB. 实施拆分与设计冻结
 
@@ -558,9 +574,9 @@
 - **PD-AB03 W1 Desktop。** Electron Main/preload/PythonSupervisor/single-instance/task events与Credential facade由Desktop Platform负责，不承载领域计算。
 - **PD-AB04 W2 Data。** Storage、确定性 Excel/TXT/CSV import、SourceDataset、FieldMapping、PreparationSpec/PreparedDataset、单位与来源追溯由 Data Platform 负责。
 - **PD-AB05 W3 Plot Calculations。** 九类封闭 PlotCalculationSpec/Result、固定默认、预计算字段校验和 golden fixtures 由 Plot Calculation 负责；通用分析/拟合不在 v1。
-- **PD-AB06 W4 Rendering。** 当前52 chart registry、StructureUnit/ChartRecipe compiler、PlotSpec/Patch、动态布局、Resolver、Matplotlib与formal PNG/SVG由Rendering负责，不隐藏analysis或Origin逻辑；M6补充按“基础泛化→配方迁移”顺序执行。
+- **PD-AB06 W4 Rendering。** 43 图正式 registry、九图隐藏内部代码面、StructureUnit/ChartRecipe compiler、PlotSpec/Patch、逐图编辑能力、Origin 对齐符号/色板、动态布局、Resolver、Matplotlib与formal PNG/SVG由Rendering负责，不隐藏analysis或Origin逻辑；M6补充按“基础泛化→编辑/样式契约→正式配方迁移”顺序执行。
 - **PD-AB07 W5 Workflow。** 完全同构Batch/review与numeric-only Figure由Workflow负责，临时比较与正式版本严格分离。
-- **PD-AB08 W6 Origin。** OriginAdapter/O1 OPJU/两阶段验证独立成高风险workstream；K01 O1 spike前置，不等31图完成才验证技术路径。
+- **PD-AB08 W6 Origin。** OriginAdapter/O1 OPJU/两阶段验证独立成高风险workstream；K01 O1 spike前置，不等全部正式图完成才验证技术路径；既有 31 图矩阵与新增 12 图补充证据分别记录。
 - **PD-AB09 W7 Agent。** ContextBuilder/Provider/four-way AgentDecision/local validator由Agent Runtime负责；自然语言支持中英混合，但禁止本地任意命令/正则解析器绕过结构化链。
 - **PD-AB10 W8 Cloud。** Invite/长期设备凭据/shared atomic quota proxy/client_run idempotency由Cloud负责；第一轮不含refresh rotation、reserve/settle、CloudConfig或应用内更新。
 - **PD-AB11 W9 Local lifecycle。** local_only/安全导入/log/本地DiagnosticBundle/known-version migration由Local Security+Lifecycle负责；第一轮不做analytics、云端诊断、通用迁移或自动备份，严格零出站与原项目不受损是完成条件。
@@ -574,7 +590,7 @@
 - **PD-AB19 冻结含义。** Implementation-ready只表示产品行为和跨模块契约可直接实施，不表示真实后端/云/OPJU/测试已实现，也不伪造每图/每算法完整参数表。
 - **PD-AB20 变更控制。** 后续产品/跨模块变化必须新增或更新Decision ID，同步PRD/专门契约/SPEC-INDEX与fixtures/evidence影响；实现层不得以便利为由静默偏离。
 - **PD-AB21 M6 重新打开。** 原 M6 cloud/local security/人工安装包工程切片保持已实现，但新增确认的基础泛化门禁与内部可组合绘图底座属于 M6 补充退出条件；完成前顶层状态不得继续写“M0–M6 全部完成”，M7 不启动。
-- **PD-AB22 M6 补充范围。** M6 先冻结现有基础图形泛化测试与修复，再加入结构单元/ChartRecipe Schema、确定性 compiler、52 官方配方迁移和单一 RenderPlan 同构；不包含用户搭建器、自定义图形库、配方包 UI 或自然语言结构编辑入口。
+- **PD-AB22 M6 补充范围。** M6 先冻结现有基础图形泛化测试与修复，再加入正式/隐藏 availability、逐图编辑能力、Origin 对齐符号/色板、结构单元/ChartRecipe Schema、确定性 compiler、43 个正式配方迁移和单一 RenderPlan 同构；九个隐藏 adapter 可继续内部回归，但不属于配方迁移或发布退出条件。不包含用户搭建器、自定义图形库、配方包 UI 或自然语言结构编辑入口。
 - **PD-AB23 M6 后范围。** 全窗口搭建器、项目/个人图形库、用户配方导入导出和自然语言结构编辑属于 M6 后产品增量，必须复用 M6 底座，不得另建自由脚本/renderer 或数据处理平台。
 
 完整W0–W10范围、依赖、spikes与M0–M7见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；权威范围、Requirement/Evidence Matrix与冲突审计见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。

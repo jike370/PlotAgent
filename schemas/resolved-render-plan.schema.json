@@ -491,6 +491,17 @@
           "title": "Levels",
           "type": "array"
         },
+        "line_style": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "dashed",
+            "dotted",
+            "dash_dot"
+          ],
+          "title": "Line Style",
+          "type": "string"
+        },
         "line_width": {
           "anyOf": [
             {
@@ -521,11 +532,29 @@
           "title": "Palette",
           "type": "array"
         },
+        "palette_spec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolvedPalette"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "panel_id": {
           "default": "panel:main",
           "pattern": "^panel:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Panel Id",
           "type": "string"
+        },
+        "symbol": {
+          "$ref": "#/$defs/SymbolStyle",
+          "default": {
+            "interior": "solid",
+            "shape": "circle"
+          }
         },
         "target_id": {
           "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
@@ -582,6 +611,96 @@
         }
       },
       "title": "ResolvedLegend",
+      "type": "object"
+    },
+    "ResolvedPalette": {
+      "additionalProperties": false,
+      "properties": {
+        "colors": {
+          "items": {
+            "$ref": "#/$defs/ColorValue"
+          },
+          "minItems": 2,
+          "title": "Colors",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "qualitative",
+            "sequential",
+            "diverging",
+            "special",
+            "grayscale"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "origin_asset_kind": {
+          "enum": [
+            "color_list",
+            "palette"
+          ],
+          "title": "Origin Asset Kind",
+          "type": "string"
+        },
+        "origin_source_name": {
+          "title": "Origin Source Name",
+          "type": "string"
+        },
+        "palette_id": {
+          "enum": [
+            "ColorBlindSafe8",
+            "ColorBlindSafe15",
+            "BlueOrange",
+            "OrangeNavy",
+            "RedPurple",
+            "Viridis",
+            "Plasma",
+            "Inferno",
+            "Magma",
+            "GreyBlue",
+            "YellowBlue",
+            "YellowGreen",
+            "YellowPurple",
+            "Fire",
+            "Rainbow_Modified",
+            "GrayScale"
+          ],
+          "title": "Palette Id",
+          "type": "string"
+        },
+        "resolved_rgb_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Resolved Rgb Hash",
+          "type": "string"
+        },
+        "reverse": {
+          "default": false,
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "source_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "source_version": {
+          "const": "Origin2024 SR1 10.10.178",
+          "default": "Origin2024 SR1 10.10.178",
+          "title": "Source Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "palette_id",
+        "origin_source_name",
+        "origin_asset_kind",
+        "kind",
+        "colors",
+        "source_hash",
+        "resolved_rgb_hash"
+      ],
+      "title": "ResolvedPalette",
       "type": "object"
     },
     "ResolvedPanel": {
@@ -691,6 +810,42 @@
         "kind"
       ],
       "title": "SafeTextNode",
+      "type": "object"
+    },
+    "SymbolStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "interior": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "open",
+            "hollow"
+          ],
+          "title": "Interior",
+          "type": "string"
+        },
+        "shape": {
+          "default": "circle",
+          "enum": [
+            "square",
+            "circle",
+            "triangle_up",
+            "triangle_down",
+            "diamond",
+            "plus",
+            "cross",
+            "triangle_left",
+            "triangle_right",
+            "hexagon",
+            "star",
+            "pentagon"
+          ],
+          "title": "Shape",
+          "type": "string"
+        }
+      },
+      "title": "SymbolStyle",
       "type": "object"
     },
     "WarningRecord": {

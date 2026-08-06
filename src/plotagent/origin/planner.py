@@ -430,6 +430,9 @@ def compile_origin_plan(
                         marker_size_pt=(
                             layer.marker_size.value if layer.marker_size is not None else None
                         ),
+                        line_style=layer.line_style,
+                        symbol=layer.symbol,
+                        palette_spec=layer.palette_spec,
                     )
                 )
                 object_map.append(

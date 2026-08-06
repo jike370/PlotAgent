@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import Field, model_validator
 
@@ -51,6 +51,39 @@ GeometryKind = Literal[
     "volcano",
 ]
 
+AdmissionStatus = Literal["product", "internal_only"]
+VisualEvidenceLevel = Literal["origin_reference", "synthetic_visual", "unqualified"]
+EditCapability = Literal[
+    "plot_title",
+    "axis_label",
+    "axis_range",
+    "axis_scale",
+    "axis_ticks",
+    "font",
+    "legend_visibility",
+    "legend_position",
+    "canvas_size",
+    "publication_profile",
+    "safe_annotation",
+    "series_color",
+    "line_width",
+    "line_style",
+    "marker_size",
+    "symbol_shape",
+    "symbol_interior",
+    "palette",
+    "bar_fill",
+    "bar_edge",
+    "bar_width",
+    "bar_gap",
+    "error_style",
+    "band_style",
+    "colorbar",
+    "dual_y_style",
+    "panel_style",
+    "y_offset",
+]
+
 
 class ExportCapabilities(StrictModel):
     png: Literal[True] = True
@@ -69,6 +102,10 @@ class ChartRegistration(StrictModel):
     allowed_calculations: tuple[CalculationKind, ...] = ()
     required_precomputed: tuple[PrecomputedKind, ...] = ()
     exports: ExportCapabilities = ExportCapabilities()
+    admission: AdmissionStatus = "product"
+    visual_evidence: VisualEvidenceLevel = "origin_reference"
+    edit_capabilities: tuple[EditCapability, ...] = ()
+    unsupported_edit_capabilities: tuple[EditCapability, ...] = ()
 
     @model_validator(mode="after")
     def valid_registration(self) -> ChartRegistration:
@@ -80,6 +117,8 @@ class ChartRegistration(StrictModel):
             raise ValueError("required roles must be unique")
         if set(self.required_roles) & set(self.optional_roles):
             raise ValueError("required and optional roles cannot overlap")
+        if set(self.edit_capabilities) & set(self.unsupported_edit_capabilities):
+            raise ValueError("supported and unsupported edit capabilities cannot overlap")
         return self
 
 
@@ -108,7 +147,7 @@ def _chart(
     )
 
 
-CHART_REGISTRY: tuple[ChartRegistration, ...] = (
+_BASE_CHART_REGISTRY: tuple[ChartRegistration, ...] = (
     _chart("K01", "Line plot", "xy", ("line",), ("x", "y")),
     _chart("K02", "Line and symbol", "xy", ("line", "symbol"), ("x", "y")),
     _chart("K03", "Scatter plot", "xy", ("symbol",), ("x", "y"), optional_roles=("group",)),
@@ -458,20 +497,193 @@ CHART_REGISTRY: tuple[ChartRegistration, ...] = (
     ),
 )
 
-CHARTS_BY_ID = {item.chart_type_id: item for item in CHART_REGISTRY}
+_PRODUCT_CHART_IDS: frozenset[ChartTypeId] = frozenset(
+    {
+        "K01",
+        "K02",
+        "K03",
+        "K04",
+        "K05",
+        "K06",
+        "K07",
+        "K08",
+        "K09",
+        "K10",
+        "K11",
+        "K12",
+        "K13",
+        "K14",
+        "K15",
+        "K16",
+        "K17",
+        "K18",
+        "K19",
+        "K20",
+        "K21",
+        "K22",
+        "K24",
+        "K25",
+        "S01",
+        "S05",
+        "S21",
+        "S25",
+        "S31",
+        "S34",
+        "S61",
+        "X01",
+        "X02",
+        "X03",
+        "X05",
+        "X09",
+        "X13",
+        "X23",
+        "X24",
+        "X35",
+        "X36",
+        "X38",
+        "S07",
+    }
+)
 
-if len(CHART_REGISTRY) != 52 or len(CHARTS_BY_ID) != 52:
-    raise RuntimeError("the first-release chart registry must contain exactly 52 unique chart IDs")
+_EDIT_PROFILES: dict[ChartTypeId, str] = {
+    "K01": "GL",
+    "K02": "GLM",
+    "K03": "GM",
+    "K04": "GMP",
+    "K05": "GLME",
+    "K06": "GME",
+    "K07": "GLE",
+    "K08": "GBE",
+    "K09": "GBE",
+    "K10": "GB",
+    "K11": "GB",
+    "K12": "GM",
+    "K13": "GBL",
+    "K14": "GBL",
+    "K15": "GB",
+    "K16": "GLB",
+    "K17": "GL",
+    "K18": "GLB",
+    "K19": "GL",
+    "K20": "GP",
+    "K21": "GP",
+    "K22": "GPL",
+    "K24": "GFLM",
+    "K25": "GF",
+    "S01": "GLEF",
+    "S05": "GLME",
+    "S21": "GME",
+    "S25": "GL",
+    "S31": "GL",
+    "S34": "GLM",
+    "S61": "GP",
+    "X01": "GL",
+    "X02": "GLM",
+    "X03": "GLM",
+    "X05": "GM",
+    "X07": "GLB",
+    "X09": "GBM",
+    "X11": "GBL",
+    "X12": "GBM",
+    "X13": "GB",
+    "X15": "GMF",
+    "X16": "GP",
+    "X17": "GMBF",
+    "X18": "GML",
+    "X19": "GML",
+    "X23": "GLMY",
+    "X24": "GBLMY",
+    "X35": "GBY",
+    "X36": "GBLMY",
+    "X37": "GBY",
+    "X38": "GLO",
+    "S07": "GM",
+}
+
+_ALL_EDIT_CAPABILITIES: tuple[EditCapability, ...] = get_args(EditCapability)
+_PROFILE_CAPABILITIES: dict[str, tuple[EditCapability, ...]] = {
+    "G": (
+        "axis_label",
+        "axis_range",
+        "axis_scale",
+        "legend_visibility",
+        "legend_position",
+        "canvas_size",
+        "publication_profile",
+        "safe_annotation",
+    ),
+    "L": ("series_color", "line_width", "line_style"),
+    "M": ("series_color", "marker_size", "symbol_shape", "symbol_interior"),
+    # Bar fill and edge are represented by the same portable series color/width
+    # controls in M6; width/gap remain explicitly unsupported until qualified.
+    "B": ("series_color", "line_width", "bar_fill", "bar_edge"),
+    "E": ("series_color", "line_width", "marker_size", "error_style", "band_style"),
+    "P": ("palette", "colorbar"),
+    # Y/F/O contribute no additional M6 operation. Their specialist controls
+    # remain explicitly absent instead of being approximated in one renderer.
+    "Y": (),
+    "F": (),
+    "O": (),
+}
+
+
+def _edit_capabilities(profile: str) -> tuple[EditCapability, ...]:
+    ordered: list[EditCapability] = []
+    for code in profile:
+        for capability in _PROFILE_CAPABILITIES[code]:
+            if capability not in ordered:
+                ordered.append(capability)
+    return tuple(ordered)
+
+
+def _qualified_registration(chart: ChartRegistration) -> ChartRegistration:
+    supported = _edit_capabilities(_EDIT_PROFILES[chart.chart_type_id])
+    admission: AdmissionStatus = (
+        "product" if chart.chart_type_id in _PRODUCT_CHART_IDS else "internal_only"
+    )
+    evidence: VisualEvidenceLevel
+    if chart.chart_type_id in {"X24", "S07"}:
+        evidence = "synthetic_visual"
+    elif admission == "product":
+        evidence = "origin_reference"
+    else:
+        evidence = "unqualified"
+    return chart.model_copy(
+        update={
+            "admission": admission,
+            "visual_evidence": evidence,
+            "edit_capabilities": supported,
+            "unsupported_edit_capabilities": tuple(
+                capability for capability in _ALL_EDIT_CAPABILITIES if capability not in supported
+            ),
+        }
+    )
+
+
+CHART_REGISTRY: tuple[ChartRegistration, ...] = tuple(
+    _qualified_registration(chart) for chart in _BASE_CHART_REGISTRY
+)
+CHARTS_BY_ID = {item.chart_type_id: item for item in CHART_REGISTRY}
+PRODUCT_CHARTS: tuple[ChartRegistration, ...] = tuple(
+    chart for chart in CHART_REGISTRY if chart.admission == "product"
+)
+PRODUCT_CHART_IDS: tuple[ChartTypeId, ...] = tuple(chart.chart_type_id for chart in PRODUCT_CHARTS)
+
+_EXPECTED_CHART_IDS = frozenset(get_args(ChartTypeId))
+if set(CHARTS_BY_ID) != _EXPECTED_CHART_IDS or set(_EDIT_PROFILES) != _EXPECTED_CHART_IDS:
+    raise RuntimeError("chart registry and capability metadata must cover every ChartTypeId")
+if set(PRODUCT_CHART_IDS) != _PRODUCT_CHART_IDS:
+    raise RuntimeError("product chart admission metadata is inconsistent")
 
 
 class ChartRegistry(StrictModel):
     schema_version: Literal["1.0"] = "1.0"
-    charts: tuple[ChartRegistration, ...] = Field(min_length=52, max_length=52)
+    charts: tuple[ChartRegistration, ...] = Field(min_length=1)
 
     @model_validator(mode="after")
     def unique_ids(self) -> ChartRegistry:
         ids = tuple(chart.chart_type_id for chart in self.charts)
-        if len(set(ids)) != 52:
+        if len(set(ids)) != len(ids):
             raise ValueError("chart registry ids must be unique")
         return self
 

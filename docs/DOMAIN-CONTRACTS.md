@@ -1,8 +1,8 @@
 # PlotAgent 领域契约与 Schema 设计
 
-> 状态：第一轮契约基线已确认  
-> 日期：2026-08-05  
-> 适用范围：SourceDataset、FieldMapping/PreparationSpec、PlotCalculationSpec/Result、PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 及跨进程 Schema
+> 状态：第一轮契约基线已确认；43 图 availability、逐图编辑与 Origin 样式契约进入 M6 补充实现
+> 日期：2026-08-06
+> 适用范围：SourceDataset、FieldMapping/PreparationSpec、PlotCalculationSpec/Result、StructureUnit/ChartRecipe、PlotSpec、PlotPatch/ChartEditCapabilityProfile、BatchSpec、FigureSpec、ActionPlan 及跨进程 Schema
 > 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 契约原则
@@ -93,6 +93,9 @@ FieldId              跨 rename/reorder 稳定的字段 ID
 RowId                基于源位置或父行组合的稳定行 ID
 UnitSpec             原文 + 规范单位 + 维度 + kind + registry version
 ColorValue           标准颜色表达，不接受任意 CSS
+PaletteRef           冻结 palette ID + version/hash + resolved 8-bit sRGB colors/stops
+MarkerSymbol         12 种稳定语义枚举，不保存 Origin 数字编号
+MarkerInterior       solid | open | hollow
 ResourceRef          主进程授权的资源 ID，不是任意路径
 ```
 
@@ -216,6 +219,8 @@ ChartRecipe
 - 允许的固定计算、所需预计算字段、坐标、图层、标注和组合能力。
 - PNG、SVG、OPJU 能力等级。
 - 图形专用校验规则。
+- `availability: official | internal_hidden`；只有 `official` 可进入 create/edit/export capability。
+- 版本化 `ChartEditCapabilityProfileRef`，它是 UI、Agent Context、PlotPatch validator 和 export capability 的单一能力来源。
 
 因此，同属 `xy` 的 K01 与 S31 可以复用基础 Schema，但 S31 额外允许谱轴方向、峰标签和参考卡配置。
 
@@ -236,6 +241,91 @@ M6 补充迁移后，图形注册表不再重复保存完整布局实现，而�
 - 全局样式或发表规格更新不会改变既有 PlotSpec。
 - 用户迁移样式时生成新 PlotSpec 版本。
 
+#### 4.4.1 Origin 对齐的符号与色板
+
+```text
+MarkerStyle
+├─ symbol: square | circle | triangle_up | triangle_down | diamond | plus | cross
+│          | triangle_left | triangle_right | hexagon | star | pentagon
+├─ interior: solid | open | hollow
+├─ size_pt / stroke_width_pt
+├─ stroke_color: ColorValue
+└─ fill_color: ColorValue?
+
+PaletteRef
+├─ palette_id / palette_version
+├─ origin_source_name
+├─ origin_asset_kind: color_list | palette
+├─ kind: qualitative | sequential | diverging | special | grayscale
+├─ colors[] | stops[]        # 8-bit sRGB 是运行时真值
+├─ reversed
+└─ source_version / source_hash
+```
+
+符号语义固定如下，adapter 本地维护 Origin 原生值和 Matplotlib marker 的类型化映射，不把 Origin 数字编号写进 PlotSpec：
+
+| enum | Origin 显示名 | Matplotlib |
+| --- | --- | --- |
+| `square` | Square | `s` |
+| `circle` | Circle | `o` |
+| `triangle_up` | Up Triangle | `^` |
+| `triangle_down` | Down Triangle | `v` |
+| `diamond` | Diamond | `D` |
+| `plus` | Plus Sign | `+` |
+| `cross` | Cross | `x` |
+| `triangle_left` | Left Triangle | `<` |
+| `triangle_right` | Right Triangle | `>` |
+| `hexagon` | Hexagon | `h` |
+| `star` | Star | `*` |
+| `pentagon` | Pentagon | `p` |
+
+对闭合符号，`solid` 使用显式 fill；`open` 使用已经解析的画布/axes 背景色 fill，从而遮住下层线；`hollow` 使用透明 fill，下层线可以穿过。`plus/cross` 无内部，只接受规范化 `solid`；`open/hollow` 必须在 capability 校验阶段返回不支持。该差异必须进入 RenderPlan，不能由 adapter 猜测。
+
+内置 palette ID 固定为：`ColorBlindSafe8`、`ColorBlindSafe15`、`BlueOrange`、`OrangeNavy`、`RedPurple`、`Viridis`、`Plasma`、`Inferno`、`Magma`、`GreyBlue`、`YellowBlue`、`YellowGreen`、`YellowPurple`、`GrayScale`、`Fire`、`Rainbow_Modified`。`GrayScale` 的 source hash 锚定 Origin 2024 SR1 `Palettes/GrayScale.PAL`。`PaletteRef` 是产品统一名称，但 `origin_asset_kind` 必须保留来源是 Origin Color List 还是 Palette；每条记录携带冻结 RGB/stops 与 hash。Matplotlib 和产品目录只依赖冻结值；原生 Origin 导出仅可使用已限定 Origin 版本安装目录中的对应资产，并须先精确核验 source hash。缺失或不一致时稳定失败，不接受用户文件或同名替代品。`ColorValue` 额外允许严格 `#RRGGBB` 单色，不接受颜色表达式。
+
+当前源资产选择固定如下；同名 `.oth/.PAL` 同时存在时不允许运行时任选：
+
+| palette_id | Origin source asset | kind |
+| --- | --- | --- |
+| `ColorBlindSafe8` | `Themes/Color/ColorBlindSafe8.oth` | qualitative |
+| `ColorBlindSafe15` | `Themes/Color/ColorBlindSafe15.oth` | qualitative |
+| `BlueOrange` | `Palettes/BlueOrange.PAL` | diverging |
+| `OrangeNavy` | `Palettes/OrangeNavy.PAL` | diverging |
+| `RedPurple` | `Palettes/RedPurple.PAL` | diverging |
+| `Viridis` | `Palettes/Viridis.PAL` | sequential |
+| `Plasma` | `Palettes/Plasma.PAL` | sequential |
+| `Inferno` | `Palettes/Inferno.PAL` | sequential |
+| `Magma` | `Palettes/Magma.PAL` | sequential |
+| `GreyBlue` | `Palettes/GreyBlue.PAL` | sequential |
+| `YellowBlue` | `Palettes/YellowBlue.PAL` | sequential |
+| `YellowGreen` | `Palettes/YellowGreen.PAL` | sequential |
+| `YellowPurple` | `Palettes/YellowPurple.PAL` | diverging |
+| `GrayScale` | `Palettes/GrayScale.PAL` | grayscale |
+| `Fire` | `Palettes/Fire.pal` | sequential |
+| `Rainbow_Modified` | `Palettes/Rainbow_Modified.PAL` | special |
+
+类别超过 15 时 resolver 不循环颜色；它按冻结联合编码策略分配上述 symbol，仍不足时产生版本化 warning 或稳定阻止。X23/X24/X35/X36 的双 Y axis style 默认是中性 8-bit sRGB、正常字重和非加粗细线，显式 patch 才可分别修改轴颜色。
+
+#### 4.4.2 逐图编辑能力
+
+```text
+ChartEditCapabilityProfile
+├─ profile_id / version / hash
+├─ chart_type_id
+├─ availability: official | internal_hidden
+├─ capabilities[]
+│  ├─ operation discriminator
+│  ├─ allowed_target_kinds[]
+│  ├─ allowed_payload_fields[]
+│  ├─ constraints
+│  └─ renderer_support: matplotlib + origin
+└─ evidence_refs[]
+```
+
+正式 profile 只属于 43 图：K01–K22、K24–K25、S01、S05、S21、S25、S31、S34、S61、X01、X02、X03、X05、X09、X13、X23、X24、X35、X36、X38、S07。X07、X11、X12、X15、X16、X17、X18、X19、X37 固定为 `internal_hidden`，不能出现在图形库、ContextEnvelope create capability 或正式 export target 中。完整逐图操作白名单以 [PRD §8.5](./PRD.md) 为权威。
+
+能力联合至少覆盖 `general`、`line`、`marker`、`bar_fill`、`error_interval`、`palette_color_scale`、`dual_y`、`facet`、`y_offset` 九组语义；每个 capability 仍解析为下面列出的领域 Patch，而不是任意 property path。直方分箱、KDE 带宽、ECDF/CCDF 等改变数值结果的参数不属于 Style/PlotPatch，必须生成新的封闭 PlotCalculationSpec/Result。
+
 ### 4.5 ResolvedRenderPlan
 
 Render Resolver 把 PlotSpec/FigureSpec、不可变数据与分析引用、resolved style、publication profile 和 quality tier 解析为 ResolvedRenderPlan。Plan 固定物理画布与 subplot、图层顺序、数据表引用、字体与样式、坐标 range/ticks/labels、图例与标注位置、数据完整性/降采样状态以及所有 hash/version。
@@ -246,9 +336,9 @@ Matplotlib 与 Origin adapter 不得自行 autoscale、选择 ticks、重算统�
 
 OPJU ExportSpec、ResolvedRenderPlan 与版本化 OriginAdapter 在本地解析为 typed OriginExportPlan。它固定 target scope、Data/Analysis/Graphs/Metadata 布局、ASCII internal names、Long Names、数据对象、原生 graph/layer/plot、typed properties、template/capability 和 live/reopen validation。
 
-Origin Worker 不接受任意 property/path/script 字符串。第一轮 OriginAdapter 通过 `originpro`/Python 类型化固定映射工作；模型、数据和配置提供的 LabTalk 被 Schema/策略阻止，仅保留 Origin 文档化但 `originpro` 未暴露的三项受测显示选项白名单。31 项正式图形只在 adapter 达到 O1 时开放 OPJU；整份 OPJU 原子成功或失败。完整契约见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
+Origin Worker 不接受任意 property/path/script 字符串。第一轮 OriginAdapter 通过 `originpro`/Python 类型化固定映射工作；模型、数据和配置提供的 LabTalk 被 Schema/策略阻止，仅保留 Origin 文档化但 `originpro` 未暴露的三项受测显示选项白名单。正式 43 图只在 adapter 达到 O1 时开放 OPJU；九个 `internal_hidden` 图不承诺导出；整份 OPJU 原子成功或失败。完整契约见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
 
-Origin P1 扩展把同一注册表/Schema 扩为 52 个稳定 chart ID。新增 21 项均有独立字段角色和固定几何契约；双 Y 轴网格图未注册。新增图的“实现存在”与“同源视觉 qualification 通过”是两个字段口径：缺少 Origin 示例图—数据对时允许 resolver/contract 测试，但禁止产生视觉通过声明。
+Origin P1 曾把内部注册表/Schema 扩为 52 个稳定 chart ID；双 Y 轴网格图未注册。产品 capability 现在以 43 个 `official` 与九个 `internal_hidden` 分层，隐藏图即使 resolver/adapter 存在也禁止 create/export。X24 与 S07 的当前视觉 provenance 为冻结合成数据，必须与 Origin 官方同源证据区分。
 
 ## 5. BatchSpec 与 FigureSpec
 
@@ -314,11 +404,19 @@ PlotPatch 使用带 `operation` discriminator 的领域联合：
 
 第一轮操作：
 
+- `set_plot_title`
 - `set_axis_range`
 - `set_axis_scale`
 - `set_axis_label`
+- `set_axis_ticks`
 - `set_series_style`
 - `set_category_color`
+- `set_error_style`
+- `set_palette`
+- `set_color_scale`
+- `set_dual_axis_style`
+- `set_facet_style`
+- `set_y_offset`
 - `move_legend`
 - `set_legend_visibility`
 - `add_annotation`
@@ -327,6 +425,8 @@ PlotPatch 使用带 `operation` discriminator 的领域联合：
 - `apply_publication_profile`
 - `set_canvas_size`
 - `set_batch_axis_policy`
+
+`set_series_style` 的 payload 是强类型 line/marker/fill 子对象；marker 只能使用 §4.4.1 的枚举，palette 只能引用冻结 `PaletteRef` 或显式 RGB。每个 Patch 先查询目标图的 `ChartEditCapabilityProfile`，operation、target kind 或 payload field 未被声明时，Agent 返回 `Unsupported(reason=chart_edit_capability_not_supported)`；本地 validator 返回 `PATCH_CAPABILITY_NOT_SUPPORTED`，不得丢弃未知字段、近似为其他操作或调用 Origin fallback。双 Y 轴默认中性细线由 resolved style 提供，不是 adapter 隐式默认。
 
 ### 6.2 PatchTransaction
 

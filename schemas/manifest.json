@@ -2,23 +2,23 @@
   "files": [
     {
       "path": "schemas/agent-decision.schema.json",
-      "sha256": "102bccd2e696f1c3db22691b4dd0a811b4b6a33b1ceb08bb3725835962c45377"
+      "sha256": "fff548dfbc11fc88d2247c89d06c01bd15f0407935a4919f6b7b3817634c52e3"
     },
     {
       "path": "schemas/batch-spec.schema.json",
-      "sha256": "bdb1895276424e94de775d9747e5737101c10b793b0e13bf7e439bec2b175b1a"
+      "sha256": "eae46bdec8f3bfab981025969a61d940a8113416df46f5524b70f7b931300ae7"
     },
     {
       "path": "schemas/chart-registry.schema.json",
-      "sha256": "d1153a1ec13897b1eafe46e625016771d4c9819df07db573f21bdbb581593156"
+      "sha256": "a3ce7facc37a1d34801c0226eba54b5fd64f410abfe374080277baa4a34c204d"
     },
     {
       "path": "schemas/context-envelope.schema.json",
-      "sha256": "2a2fe415f5fd943e6fe883a1fcf26aae94f8a7e2c89adbbc49b52bbe08df0efb"
+      "sha256": "dbbbe12b0de8a6b1e1d2b470f6f9bf9fef12fbeb6554002403749efea11ac4bd"
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "6d639390955447df63f4d007c5da9b2d89b1544f4dd7cded08e28b5ab92fbd74"
+      "sha256": "7ff2c8ca027646188fb353465e2d2407e93b3fcf1779d6182ccbefe226df1b24"
     },
     {
       "path": "schemas/error-registry.json",
@@ -46,11 +46,11 @@
     },
     {
       "path": "schemas/origin-export-plan.schema.json",
-      "sha256": "22c6b391ab71647070b2a2b6ebd9e300334054b480d1638b9eb0f705f5ead076"
+      "sha256": "932e2547977dbe8ac46cc85c500055597f2b841444123ddf61369b628ebb844f"
     },
     {
       "path": "schemas/patch-transaction.schema.json",
-      "sha256": "1a5ac025602ab58f0ac44a4948807f6e0777f8cdcddd203d00f2c1fe58e2f887"
+      "sha256": "8a82dda6342bb2139947309b44ec82fcf784a8b3802547ec8324c02e3c7011e7"
     },
     {
       "path": "schemas/plot-calculation-result.schema.json",
@@ -62,11 +62,11 @@
     },
     {
       "path": "schemas/plot-patch.schema.json",
-      "sha256": "82e1cfcb17eb9da495e26d518edf4535e315a357eab7f1680249bd971120419a"
+      "sha256": "3519727d0571c8873e92703ebe29de271c5173ceb52967f24526a0393c0d088b"
     },
     {
       "path": "schemas/plot-spec.schema.json",
-      "sha256": "69815e7338fab0709b311d374c467af80b1418e78f40c3e8c08746309e45eb64"
+      "sha256": "9af4df515843467fb8a3a27b0cd517aade61e8b7e4a6e85eb5777e58fa6cb2fb"
     },
     {
       "path": "schemas/preparation-spec.schema.json",
@@ -78,7 +78,7 @@
     },
     {
       "path": "schemas/resolved-render-plan.schema.json",
-      "sha256": "dd06b5f206e66301494e4fd3d7e8cc3b58e87551462fe9525d83d78aff2a06fb"
+      "sha256": "10fa1d5d1a34d58065afc2c06ab86632863150e136efa41d6c132b45b7a2316e"
     },
     {
       "path": "schemas/source-dataset.schema.json",
@@ -86,7 +86,11 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "bf29f6fb4d76550f5c6e4d0453c8e245e63aa1c03e340871dd40052c7afee32c"
+      "sha256": "770a91064314d117e2ce1cfd68b0b6317206862983b289d65e328688684784db"
+    },
+    {
+      "path": "src/shared/generated/style-catalog.json",
+      "sha256": "48bce7c65e620578a7aa2a61a7033b880effd27a21d23d336507dddeafadc23b"
     }
   ],
   "generator": "plotagent.contracts.codegen",

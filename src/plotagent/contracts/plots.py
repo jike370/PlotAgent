@@ -31,6 +31,7 @@ from plotagent.contracts.base import (
     VersionId,
 )
 from plotagent.contracts.registry import CHARTS_BY_ID, GeometryKind
+from plotagent.contracts.styles import LineStyle, PaletteId, ResolvedPalette, SymbolStyle
 
 AxisScaleKind = Literal["linear", "log10", "datetime", "categorical"]
 AllGeometryKind = GeometryKind
@@ -215,6 +216,16 @@ SeriesData = Annotated[
 ]
 
 
+class SeriesStyleSpec(StrictModel):
+    color: ColorValue | None = None
+    category_colors: dict[str, ColorValue] = Field(default_factory=dict)
+    line_width: PhysicalLength | None = None
+    marker_size: PhysicalLength | None = None
+    line_style: LineStyle = "solid"
+    symbol: SymbolStyle = SymbolStyle()
+    palette: ResolvedPalette | None = None
+
+
 class SeriesSpec(StrictModel):
     series_id: Annotated[
         str,
@@ -223,6 +234,7 @@ class SeriesSpec(StrictModel):
     geometry: AllGeometryKind
     data: SeriesData
     label: SafeRichText | None = None
+    style: SeriesStyleSpec = SeriesStyleSpec()
 
 
 class AnnotationSpec(StrictModel):
@@ -245,6 +257,13 @@ class AnnotationSpec(StrictModel):
     x: FiniteNumber | None = None
     y: FiniteNumber | None = None
     affect_range: bool = False
+
+
+class LegendSpec(StrictModel):
+    visible: bool | None = None
+    placement: Literal["inside", "outside_right", "outside_bottom"] = "inside"
+    anchor_x: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
+    anchor_y: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
 
 
 class StyleSourceRef(StrictModel):
@@ -300,6 +319,7 @@ class PlotSpec(StrictModel):
     scales: Annotated[tuple[ScaleSpec, ...], Field(min_length=1)]
     axes: Annotated[tuple[AxisSpec, ...], Field(min_length=1)]
     series: Annotated[tuple[SeriesSpec, ...], Field(min_length=1)]
+    legend: LegendSpec = LegendSpec()
     annotations: tuple[AnnotationSpec, ...] = ()
     style_sources: Annotated[tuple[StyleSourceRef, ...], Field(min_length=1)]
     resolved_style: ResolvedStyleSnapshot
@@ -369,6 +389,29 @@ class SetSeriesStylePatch(PatchBase):
     color: ColorValue | None = None
     line_width: PhysicalLength | None = None
     marker_size: PhysicalLength | None = None
+    line_style: LineStyle | None = None
+    symbol: SymbolStyle | None = None
+
+    @model_validator(mode="after")
+    def has_style_change(self) -> SetSeriesStylePatch:
+        if all(
+            value is None
+            for value in (
+                self.color,
+                self.line_width,
+                self.marker_size,
+                self.line_style,
+                self.symbol,
+            )
+        ):
+            raise ValueError("set_series_style requires at least one style value")
+        return self
+
+
+class SetPalettePatch(PatchBase):
+    operation: Literal["set_palette"] = "set_palette"
+    palette_id: PaletteId
+    reverse: bool = False
 
 
 class SetCategoryColorPatch(PatchBase):
@@ -433,6 +476,7 @@ PlotPatch = Annotated[
     | SetAxisScalePatch
     | SetAxisLabelPatch
     | SetSeriesStylePatch
+    | SetPalettePatch
     | SetCategoryColorPatch
     | MoveLegendPatch
     | SetLegendVisibilityPatch

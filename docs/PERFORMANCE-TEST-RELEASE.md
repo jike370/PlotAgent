@@ -1,11 +1,11 @@
 # PlotAgent 小规模邀请制 Beta 性能测试与发布门禁契约
 
-> 状态：v1 数据与计算范围收敛，工程 qualification 面向小规模邀请制 Beta
-> 日期：2026-08-05
-> 适用范围：唯一正式平台与规模基线、31 图证据矩阵、单一 Origin 版本 qualification、Beta 发布检查单与用户成功标准
+> 状态：v1 正式 43 图、编辑/Origin 样式与数据计算范围收敛；完整 Beta qualification 尚未执行
+> 日期：2026-08-06
+> 适用范围：唯一正式平台与规模基线、43 图证据矩阵、逐图编辑/Origin 样式映射、单一 Origin 版本 qualification、Beta 发布检查单与用户成功标准
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)
 
-本文件定义第一轮邀请制 Beta 的正式 qualification。它保留 31 图、确定性导入/一次字段映射、九类固定绘图计算、预计算字段路径、PNG/SVG/O1 OPJU、full-data formal 和科学可追溯底线；通用数据处理、AnalysisSpec/FitSpec 与科研分析/拟合不在 v1。当前设计文档通过不表示真实实现或 Beta qualification 已完成。
+本文件定义第一轮邀请制 Beta 的正式 qualification。正式图形范围为原 31 图加 12 个已准入 P1 图，共 43 图；另九个已存在的内部 adapter 对用户隐藏且不承诺 create/export。确定性导入/一次字段映射、九类固定绘图计算、预计算字段路径、PNG/SVG/O1 OPJU、full-data formal 和科学可追溯底线保持不变；通用数据处理、AnalysisSpec/FitSpec 与科研分析/拟合不在 v1。当前设计文档通过不表示真实实现或 Beta qualification 已完成。
 
 ## 1. 唯一正式 Windows qualification profile
 
@@ -25,10 +25,10 @@
 ## 2. 单一 Origin exact version qualification
 
 - 每个 Beta build 只声明一个已完成完整 qualification 的 Origin exact version/build/bitness 组合。
-- 该 exact version 必须完成 31 图全部 O1 OPJU 路径、live validation 和 fresh blank managed instance reopen/readback。
+- 该 exact version 必须完成正式 43 图全部 O1 OPJU 路径、live validation 和 fresh blank managed instance reopen/readback。
 - 其他所有 Origin 版本一律在 preflight 返回 `VERSION_UNSUPPORTED`；不能以“2021+”、major range、相邻版本推断或 O2 降级代替 qualification。
-- `originpro`、adapter、template、font、Windows build、license mode 与 31 图代表性 live OPJU evidence 都固定到该声明版本；每图 minimal/edge 的 OPJU 逻辑路径由离线 contract、validator 与稳定错误 evidence 覆盖。
-- 架构仍允许后续增加 adapter/version qualification；增加版本时必须建立新的 Beta build 声明和 31 图代表性实机 evidence，不能沿用当前版本结论。
+- `originpro`、adapter、template、font、Windows build、license mode 与 43 图代表性 live OPJU evidence 都固定到该声明版本；每图 minimal/edge 的 OPJU 逻辑路径由离线 contract、validator 与稳定错误 evidence 覆盖。
+- 架构仍允许后续增加 adapter/version qualification；增加版本时必须建立新的 Beta build 声明和 43 图代表性实机 evidence，不能沿用当前版本结论。当前已完成的 31 图矩阵是历史基础 evidence，新增 12 图未补齐前不得宣称 43 图 qualification 完成。
 
 ## 3. 唯一正式规模基线
 
@@ -124,36 +124,38 @@ Provider latency单独记录 DNS/connect/TLS/TTFB/complete，不删除慢样本�
 - 导入复制前，目标固定磁盘 free bytes 至少为 `estimated_landed_bytes × 2.5`；不足时在复制前返回 `DISK_SPACE_INSUFFICIENT`。
 - 正式导出需预留 temp、final 与 validation 空间；第一轮无自动更新和每日备份磁盘预算。
 
-## 7. 31 图基础能力矩阵
+## 7. 43 图正式能力矩阵
 
-### 7.1 固定 279 paths
+### 7.1 固定 387 paths
 
-正式第一轮 31 个 chart type，每个至少三种 fixture：
+正式第一轮 43 个 chart type，每个至少三种 fixture：
 
 1. `minimal_valid`：最小合法字段与数据。
 2. `representative_research`：真实科研语义、单位、固定计算/预计算字段/annotation 的代表样本。
 3. `edge_error`：缺失、非有限值、非法 Log10、字段/单位/预计算要求/Origin capability 等边界或稳定错误。
 
-每个 fixture 固定 formal PNG、formal SVG、O1 OPJU 三个基础产物/预期错误 path，因此为 `31 × 3 × 3 = 279`：
+每个 fixture 固定 formal PNG、formal SVG、O1 OPJU 三个基础产物/预期错误 path，因此为 `43 × 3 × 3 = 387`：
 
-- formal PNG：93 条。
-- formal SVG：93 条。
-- O1 OPJU：93 个逻辑 MatrixKey，其中 31 个 representative research 在当前 Beta build 声明的唯一 Origin exact version 完成 live+fresh-reopen；31 个 minimal valid 与 31 个 edge/error 通过同一 typed plan 的离线 contract/validator 和预期稳定错误 evidence，不重复启动 62 次 Origin COM。
+- formal PNG：129 条。
+- formal SVG：129 条。
+- O1 OPJU：129 个逻辑 MatrixKey，其中 43 个 representative research 在当前 Beta build 声明的唯一 Origin exact version 完成 live+fresh-reopen；43 个 minimal valid 与 43 个 edge/error 通过同一 typed plan 的离线 contract/validator 和预期稳定错误 evidence，不重复启动 86 次 Origin COM。
 
-### 7.1 Origin P1 扩展门槛
+### 7.2 Origin P1 正式/隐藏边界
 
-新增 21 项使代码面扩展为 52 图，但不追溯改写原 31 图 qualification 结论。新增图的 visual evidence 必须满足以下硬门槛：
+P1 曾使内部代码面扩展为 52 图，但正式范围只增加 X01、X02、X03、X05、X09、X13、X23、X24、X35、X36、X38、S07；原 31 图与这 12 图合计 43 图。X07、X11、X12、X15、X16、X17、X18、X19、X37 标记为 `internal_hidden`，不进入 387 MatrixKey、图形库、Agent create capability 或正式导出承诺。
+
+新增正式图的 visual evidence 优先满足以下硬门槛：
 
 - A 级：Origin 随附 OPJU 中的图页与其链接工作表直接成对提取。
 - C 级：只使用 Origin 随附官方样例数据，并在 Origin 中按固定模板/固定规则重新生成参考图。
 - `reference.png`、`data.csv`、Matplotlib、产品 OPJU、fresh-reopen Origin PNG 和 provenance hash 必须属于同一案例。
-- 缺少参考图或同源数据的新增图只运行 resolver/contract/PNG/SVG/Origin plan 离线测试，不进入视觉通过数，也不能用合成数据替代。
+- 缺少参考图或同源数据的新增图不得伪造 Origin 官方 evidence。X24 与 S07 作为明确例外，以固定合成数据建立 Matplotlib/Origin 三栏视觉基线并标注 `synthetic_visual_validation`；该标识不能省略，也不能视为 A/C 级 Origin 官方同源 evidence。
 
-当前同源视觉审计覆盖 X01、X02、X03、X05、X09、X13、X23、X35、X36、X38；X07、X11、X12、X15、X16、X17、X18、X19、X24、X37、S07 因缺少已锚定同源对而暂不做视觉测试。双 Y 轴网格图不在实现范围。
+当前同源视觉审计覆盖 X01、X02、X03、X05、X09、X13、X23、X35、X36、X38；X24、S07 使用冻结合成视觉验证。九个隐藏图不计视觉通过数；双 Y 轴网格图不在实现范围。
 
-Preview/interactive 是另外的必测路径，不计入 279。`edge_error` 可由匹配预期 code/schema/details 的稳定错误证据通过，不要求生成二进制；不得把应成功路径重标为预期失败。
+Preview/interactive 是另外的必测路径，不计入 387。`edge_error` 可由匹配预期 code/schema/details 的稳定错误证据通过，不要求生成二进制；不得把应成功路径重标为预期失败。
 
-### 7.2 覆盖维度
+### 7.3 覆盖维度
 
 - PlotSpec canonical JSON、ResolvedRenderPlan normalized hash/golden。
 - thumbnail/interactive、formal PNG/SVG、O1 live+fresh-reopen OPJU。
@@ -162,7 +164,7 @@ Preview/interactive 是另外的必测路径，不计入 279。`edge_error` 可�
 - cancel、Core/worker crash、request idempotency、expected-version conflict。
 - formal full-data assertion、preview simplification disclosure 与 parity tolerance。
 
-### 7.3 MatrixKey 与 evidence
+### 7.4 MatrixKey 与 evidence
 
 ```text
 MatrixKey
@@ -180,36 +182,44 @@ MatrixKey
 
 Evidence 固定 input/reference dataset、spec/plan、artifact/validator、dependency、fixture 与 build hashes，以及 timing/memory 和 stable error。重试不是新 case，不能覆盖第一次失败记录。
 
-### 7.4 导入与分层诊断 fixtures
+### 7.5 导入与分层诊断 fixtures
 
-279 是图形三格式基础矩阵，不含导入 fixture。导入另设约 30 个冻结 golden：
+387 是图形三格式基础矩阵，不含导入 fixture。导入另设约 30 个冻结 golden：
 
 - Excel 10：多 sheet、多个 region/header、`.xlsx/.xls/.xlsm` 只读、缓存公式值、单位行与来源坐标。
 - TXT 10：preamble/DataBlock/postamble、encoding/delimiter/header、multi block/sweep/channel、metadata label 与普通 CSV 复用路径。
 - 最小追问 5：每例只能生成一个明确问题。
 - 可操作拒绝 5：超出清单、重复规范化列名、无缓存公式值等稳定拒绝。
 
-边界变体由冻结 generator/version/seed 从基础 fixture 生成，但 expected oracle 随 manifest 固定，不能在运行时从被测实现生成。31 图另有字段映射/准备/固定计算/预计算/PlotSpec fixtures。
+边界变体由冻结 generator/version/seed 从基础 fixture 生成，但 expected oracle 随 manifest 固定，不能在运行时从被测实现生成。正式 43 图另有字段映射/准备/固定计算/预计算/PlotSpec fixtures。
 
 每个 case 保存分层快照：`file read → region candidates/selection → table parse → mapping → PreparedDataset/PlotCalculationResult → PlotSpec → render → export`。首次偏差决定责任层；下游不得用容错掩盖上游错误。错误族按 `IMPORT/MAPPING/PREPARE/PLOTSPEC/RENDER/EXPORT/TEST` 归档并支持分层回放。
 
-### 7.5 基础图形参数化泛化门禁
+### 7.6 基础图形参数化泛化门禁
 
 同源视觉 evidence 只证明某一已锚定案例的默认外观；基础泛化 evidence 证明绘图逻辑没有把组数、范围或样例几何写死。两者分别保存、分别判定，不得互相替代。
 
-- 当前 52 个基础图按结构签名归类，以冻结 generator version、seed、manifest 从独立基础 fixture 生成变体；expected oracle 随测试资产固定，运行时不得调用当前 compiler/resolver/renderer 生成 oracle。
+- 正式 43 图按结构签名归类，以冻结 generator version、seed、manifest 从独立基础 fixture 生成变体；expected oracle 随测试资产固定，运行时不得调用当前 compiler/resolver/renderer 生成 oracle。九个隐藏 adapter 可继续运行额外内部回归，但其结果不得计入正式 coverage。
 - 适用结构至少覆盖组数 `1/2/3/5`、不同点数/类别数、量级缩放和平移、跨零与全负、零/对称/非对称误差、长中文/英文/混合标签及可选字段缺失；不适用维度须由结构签名显式声明，不能静默跳过。
 - 每个适用 case 至少断言全部几何有限、同组柱/区间不重叠、正负堆积分别累加、误差棒绑定正确 series/axis、轴范围覆盖可见数据与误差、series-color-legend identity 一致；空间不足必须产生规定 warning/error，不能通过截断或隐藏通过。
-- Matplotlib 对所有适用 case 执行完整矩阵；Origin 对每个结构签名执行代表性变体的 typed plan、build 与 fresh-reopen 检查。每个正式图仍至少保留一个参考图和同源数据锚定的 Origin 外观证据。
+- Matplotlib 对所有适用 case 执行完整矩阵；Origin 对每个结构签名执行代表性变体的 typed plan、build 与 fresh-reopen 检查。除显式标记合成视觉验证的 X24/S07 外，每个正式图仍至少保留一个参考图和同源数据锚定的 Origin 外观证据。
 - 基础泛化门禁未通过前，不实现、不迁移组合 compiler 的测试 oracle；先修复现有基础函数和解析逻辑，再冻结新的组合基线。
 - 用户重复使用已准入配方时只运行常规 Schema、mapping、capability、render/export 校验，不为每次复用重新执行本节 qualification。
+
+### 7.7 逐图编辑、符号与色板门禁
+
+- 冻结 43 图 `ChartEditCapabilityProfile` snapshot，并与 PRD §8.5 逐图白名单逐项对照；UI capability、Agent Context、validator 和 export adapter 必须由同一 profile 生成。九个隐藏 ID 出现在任一产品 capability 即失败。
+- 每个 allowed operation 至少有一条成功 path，并验证新 PlotSpec/version/hash、Matplotlib 输出、Origin typed mapping 和适用时 fresh-reopen readback；每个未声明 operation/target/payload field 至少有稳定 `Unsupported`/`PATCH_CAPABILITY_NOT_SUPPORTED` 证据，原版本与批量事务不变。
+- 全部 12 种 MarkerSymbol 与闭合符号的 `solid/open/hollow` 在代表性 line/scatter/error/dual-Y 结构中覆盖；`open` 必须遮住下层线，`hollow` 必须保留下层线，`plus/cross` 的 `open/hollow` 必须稳定不支持。Origin 原生值与 Matplotlib marker 可不同，但读回语义必须相同。
+- 16 个 PaletteRef 固定 palette/version/source/hash 和全部 8-bit sRGB colors/stops；覆盖分类、连续、发散、反向、离散 levels 与自定义 `#RRGGBB`。跨 renderer RGB 每通道精确；指定 Origin 官方资产缺失或 hash 不一致时稳定失败，不得读取用户色板、同名替代品或产生漂移结果。
+- 类别数 15、16 和超过颜色+符号容量的边界分别验证不循环、稳定 identity、联合编码与 warning/阻止；X23/X24/X35/X36 默认左右轴均为中性正常字重细线，显式轴着色只改变样式。
 
 ## 8. Beta 测试层级
 
 1. Schema/domain strict union、generated TS types 与 stable error registry。
 2. Excel/TXT/CSV deterministic import、FieldMapping、PreparationSpec/Unit/source coordinates、archive/Excel 安全与 `.plotproj` integrity。
-3. 九类 PlotCalculation golden、31 图预计算字段契约、完整数据/mask/hash 与禁止通用 AnalysisSpec/FitSpec。
-4. Resolver/render/layout/axis/ticks/font/color/physical size 与 cross-renderer semantic parity。
+3. 九类 PlotCalculation golden、43 图字段/固定计算/预计算契约、完整数据/mask/hash 与禁止通用 AnalysisSpec/FitSpec。
+4. Resolver/render/layout/axis/ticks/font/color/physical size、逐图编辑 capability、Origin 对齐符号/色板与 cross-renderer semantic parity。
 5. 单一 Origin exact version 的 O1 live/save/fresh-reopen/readback。
 6. Electron↔Python E2E、single-instance、preload、task/cancel/crash/idempotency/version conflict。
 7. strict local_only 零出站、credential/log/bundle 禁止字段、恶意 archive 与签名安装包验证。
@@ -241,8 +251,9 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 - 声明支持规模内 formal downsample、renderer/plot-calculation algorithm swap 或 capability downgrade。
 - 非原生结果被宣称为 O1，或声明的唯一 Origin exact version fresh reopen 关键语义失败。
 - credential、prompt、文件路径、列名、单元格值、数据摘要或 secret 泄漏。
-- 31 个正式图形中任一声明输出路径/适用 fixture 失败。
+- 43 个正式图形中任一声明输出路径/适用 fixture 失败，或隐藏九图被产品 create/export capability 暴露。
 - 当前声明的基础图在冻结泛化矩阵中违反有限几何、无重叠、堆积、误差绑定、范围覆盖或 series-color-legend identity 任一不变量，或测试 oracle 由被测实现动态生成。
+- 任一逐图白名单操作不能稳定映射到 Matplotlib/Origin，未声明编辑被静默接受/近似，符号 interior 语义错误，palette RGB/version 漂移、类别颜色循环，或双 Y 默认轴被擅自加粗/着色。
 - 安装包 signature、hash 或 Windows code signature 验证可被绕过。
 - 已知 blocker/critical，或只有靠删除失败样本、放宽 fixture/tolerance、替换未审阅 golden 才通过。
 
@@ -251,15 +262,16 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 ## 11. 每个 Beta build 发布检查单
 
 1. 固定 commit、build、dependency lock/hash、fixture/golden 与 Decision baseline。
-2. 31 图 279 个逻辑 MatrixKey coverage 和额外 preview/interactive coverage 零缺口；其中昂贵 Origin 自动化按 representative 实跑、其余离线验证拆分记录。
-3. 当前 build 唯一 Origin exact version 的完整 31 图 representative O1 live+fresh-reopen report，以及 minimal/edge 的离线 contract/error report。
-4. 约30个导入 golden、31图字段/准备/固定计算/预计算契约与 full-data formal assertions。
+2. 43 图 387 个逻辑 MatrixKey coverage 和额外 preview/interactive coverage 零缺口；其中昂贵 Origin 自动化按 representative 实跑、其余离线验证拆分记录。
+3. 当前 build 唯一 Origin exact version 的完整 43 图 representative O1 live+fresh-reopen report，以及 minimal/edge 的离线 contract/error report；X24/S07 合成视觉 evidence 与官方同源 evidence 分栏标识。
+4. 约30个导入 golden、43图字段/准备/固定计算/预计算契约与 full-data formal assertions。
 5. 当前基础图的冻结泛化 manifest、完整 Matplotlib matrix、按结构签名的代表性 Origin report、跳过原因和不变量结果；确认未用当前实现生成 oracle。
-6. Reference profile 性能、≤2 GB peak、磁盘/resource preflight 结果。
-7. strict local_only、credential/log/DiagnosticBundle 禁止字段和恶意导入检查。
-8. 简化云额度的共享计数与 `client_run_id` 重试不重复扣费检查；自定义 provider/本地能力不受影响。
-9. 人工分发安装包的 SHA-256、发布签名与 Windows code signature 验证。
-10. Known issues、稳定错误、恢复动作和单一 go/no-go 记录。
+6. 43 图编辑 capability snapshot、allowed/unsupported 报告、隐藏九图无暴露断言、12种符号/闭合符号3种interior/`plus/cross`非适用拒绝、16色板 frozen-RGB/parity、类别容量边界和双Y默认样式报告。
+7. Reference profile 性能、≤2 GB peak、磁盘/resource preflight 结果。
+8. strict local_only、credential/log/DiagnosticBundle 禁止字段和恶意导入检查。
+9. 简化云额度的共享计数与 `client_run_id` 重试不重复扣费检查；自定义 provider/本地能力不受影响。
+10. 人工分发安装包的 SHA-256、发布签名与 Windows code signature 验证。
+11. Known issues、稳定错误、恢复动作和单一 go/no-go 记录。
 
 每份 evidence 固定 manifest/source/test-runner/app/PlotSpec/model/profile/prompt/Unicode normalization hashes；任何一项变化都形成新 evidence。测试运行时不得生成 oracle。
 

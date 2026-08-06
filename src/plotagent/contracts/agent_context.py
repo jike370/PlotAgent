@@ -142,13 +142,33 @@ class SelectedContext(StrictModel):
         return self
 
 
+class ChartEditCapabilities(StrictModel):
+    chart_type_id: ChartTypeId
+    allowed_patch_operations: tuple[PatchOperation, ...]
+
+
 class ChartCapabilities(StrictModel):
     capability_version: Token
     allowed_chart_type_ids: tuple[ChartTypeId, ...] = ()
     allowed_action_types: tuple[ActionType, ...]
     allowed_patch_operations: tuple[PatchOperation, ...] = ()
+    chart_edit_capabilities: tuple[ChartEditCapabilities, ...] = ()
     export_formats: tuple[Literal["png", "svg", "opju"], ...] = ()
     limitation_ids: tuple[Token, ...] = ()
+
+    @model_validator(mode="after")
+    def chart_edits_match_admission(self) -> ChartCapabilities:
+        ids = tuple(item.chart_type_id for item in self.chart_edit_capabilities)
+        if len(set(ids)) != len(ids):
+            raise ValueError("chart edit capability ids must be unique")
+        if not set(ids).issubset(self.allowed_chart_type_ids):
+            raise ValueError("chart edit capabilities must reference admitted chart ids")
+        if any(
+            not set(item.allowed_patch_operations).issubset(self.allowed_patch_operations)
+            for item in self.chart_edit_capabilities
+        ):
+            raise ValueError("per-chart patch operations must be in the global capability set")
+        return self
 
 
 class DataDisclosure(StrictModel):

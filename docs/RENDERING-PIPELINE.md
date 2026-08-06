@@ -1,8 +1,8 @@
 # PlotAgent 渲染管线与跨 Renderer 一致性契约
 
-> 状态：第一轮渲染基线已确认；M6 结构编译与基础泛化补充契约已冻结、实现门禁重新打开
-> 日期：2026-08-05  
-> 适用范围：ResolvedRenderPlan、质量层级、坐标范围、刻度、物理尺寸、安全文本、Matplotlib/Origin 语义一致性与导出验证  
+> 状态：第一轮渲染基线已确认；M6 基础泛化、逐图编辑/Origin 样式与结构编译补充契约已冻结、实现门禁重新打开
+> 日期：2026-08-06
+> 适用范围：ResolvedRenderPlan、逐图编辑能力、Origin 对齐符号/色板、质量层级、坐标范围、刻度、物理尺寸、安全文本、Matplotlib/Origin 语义一致性与导出验证
 > 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 单一解析链
@@ -45,6 +45,7 @@ ResolvedRenderPlan 是严格、版本化、可哈希的下游执行契约，至�
 - series、geometry、layer 与 drawing order。
 - 每个图层的 Raw/Prepared/Plot Data 或 PlotCalculationResult 引用、字段与行 mask。
 - 完整解析后的颜色、透明度、线、marker、font 和文本 AST。
+- `ChartEditCapabilityProfile`、palette、marker 与双 Y default style 的精确 version/hash。
 - 每个 axis 的 scale、方向、range、tick values、tick labels、exponent、precision、title 和 UnitSpec。
 - legend、annotation、reference、panel label 和 common legend 的确定位置与锚点。
 - 数据完整性、原始点数、实际绘制点数、downsample 方法与状态。
@@ -169,6 +170,51 @@ v1 不执行 Unit prefix 换算。Resolver 不能只把 `V` 标签改成 `mV`、
 
 Resolver 统一验证已经确认的 UnitSpec，但 v1 不执行单位换算；adapter 不使用目标库默认 figure size、margin、font size 或 color cycle。
 
+### 7.1 逐图编辑解析
+
+正式 create/edit/export capability 只包含 43 图；X07、X11、X12、X15、X16、X17、X18、X19、X37 即使内部 resolver/adapter 存在，也必须在 capability 构建阶段按 `availability=internal_hidden` 排除。每次 PlotPatch 依次执行：
+
+1. 读取目标 chart type 固定版本的 `ChartEditCapabilityProfile`。
+2. 校验 operation、semantic target、payload field、数值范围和 Matplotlib/Origin 双 renderer support。
+3. 将强类型修改应用到新的 PlotSpec/resolved style 版本。
+4. Resolver 生成包含 profile/style version 与全部解析值的新 RenderPlan/hash。
+5. Adapter 只映射 Plan；没有 profile 声明的字段不得依赖目标软件默认值实现。
+
+不支持请求由 Agent 表达为 `Unsupported(reason=chart_edit_capability_not_supported)`，本地 validator 使用 `PATCH_CAPABILITY_NOT_SUPPORTED` 并保持原 PlotSpec 不变。分箱、KDE 带宽、ECDF/CCDF 等改变绘图数值的参数先生成新的封闭 PlotCalculationResult，再进入上述渲染链，不作为 renderer-only style patch。
+
+### 7.2 Origin 对齐符号
+
+`MarkerSymbol` 只允许以下稳定交集：
+
+| semantic enum | Origin 显示名 | Matplotlib |
+| --- | --- | --- |
+| `square` | Square | `s` |
+| `circle` | Circle | `o` |
+| `triangle_up` | Up Triangle | `^` |
+| `triangle_down` | Down Triangle | `v` |
+| `diamond` | Diamond | `D` |
+| `plus` | Plus Sign | `+` |
+| `cross` | Cross | `x` |
+| `triangle_left` | Left Triangle | `<` |
+| `triangle_right` | Right Triangle | `>` |
+| `hexagon` | Hexagon | `h` |
+| `star` | Star | `*` |
+| `pentagon` | Pentagon | `p` |
+
+项目和 Plan 保存 semantic enum，不保存 Origin 数字编号。闭合符号的 `MarkerInterior` 为 `solid | open | hollow`：`solid` 写显式 fill；`open` 写已经解析的 axes background fill 以遮挡下层线；`hollow` 写透明 fill 使下层线可见。`plus/cross` 无内部且只接受规范化 `solid`，请求 `open/hollow` 稳定不支持。背景、stroke、fill、size 和 width 全部在 resolver 中解析，adapter 不猜测。
+
+### 7.3 Origin 对齐色板与类别分配
+
+内置 palette allowlist 为 `ColorBlindSafe8`、`ColorBlindSafe15`、`BlueOrange`、`OrangeNavy`、`RedPurple`、`Viridis`、`Plasma`、`Inferno`、`Magma`、`GreyBlue`、`YellowBlue`、`YellowGreen`、`YellowPurple`、`GrayScale`、`Fire`、`Rainbow_Modified`。`GrayScale` 锚定 Origin 2024 SR1 随安装 `Palettes/GrayScale.PAL`；产品统一称为 PaletteRef，但必须保留 Origin 来源是 Color List 还是 Palette。每个版本冻结：
+
+- Origin 来源名、`color_list/palette` 资产类型、`qualitative/sequential/diverging/special/grayscale` 配色类型与顺序。
+- 8-bit sRGB colors 或 normalized stops，以及 source version/hash。
+- reverse、离散采样与连续插值规则。
+
+ResolvedRenderPlan 与 Matplotlib 直接使用同一组冻结 sRGB 值。原生 Origin 导出仅可使用已限定 Origin 版本安装目录中的对应官方 `.pal/.oth`，且必须在使用前核验 source hash；缺失或不一致时稳定失败，不读取用户色板，也不因目标环境中存在同名 palette 而替换。严格 `#RRGGBB` 可用于单一显式颜色。普通 Jet/Rainbow 不作为默认；`Rainbow_Modified` 只响应用户显式选择。
+
+类别数不超过 15 时保持项目内稳定 color identity；类别缺失不重排。类别数超过 15 时禁止循环颜色，resolver 按冻结规则增加不同 symbol；如果编码组合或物理画布仍不足以区分，则产生可操作 warning 或稳定阻止。X23、X24、X35、X36 的左右轴默认解析为相同中性色、正常字重和非加粗细线；只有已允许的显式 patch 才能让轴颜色分别随系列变化。
+
 ## 8. 安全文本与字体
 
 图表文字保存为 SafeRichText AST，只允许：
@@ -226,9 +272,9 @@ O1 输出必须用 Origin 原生、链接的数据对象表达：
 
 如果 Origin adapter 无法表达关键语义或无法在重新打开后读回验证，OPJU 导出必须阻止。非关键可接受差异只有在能力契约明确允许并披露时才可进入其他能力等级；不能由运行时临时降级。
 
-第一轮 31 项正式图形的 OPJU 能力全部要求 O1。具体 target scope、数据布局、OriginAdapter、manifest、两阶段读回与整文件原子性见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
+第一轮正式 43 图的 OPJU 能力全部要求 O1。已有 31 图 full live+fresh-reopen 矩阵是基础证据；新增 12 图必须在同一 exact Origin version 补齐后才能完成发布 qualification。具体 target scope、数据布局、OriginAdapter、manifest、两阶段读回与整文件原子性见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
 
-新增 Origin P1 图形与原 31 图共用单一 resolver、统一科学配色、坐标自动缩放和同一 ResolvedRenderPlan。图形特有几何（如哑铃连接线、蜂群避让、浮动柱区间、人口金字塔、Y 偏移、双 Y 轴分层）只能由固定 resolver 计算；Matplotlib 与 Origin adapter 不得各自猜测。视觉 oracle 以 Origin 模板/官方项目优先，并要求参考图和测试数据同源。
+正式新增 12 图与原 31 图共用单一 resolver、冻结 Origin 对照配色、坐标自动缩放和同一 ResolvedRenderPlan。图形特有几何（如哑铃连接线、蜂群避让、浮动柱区间、人口金字塔、Y 偏移、双 Y 轴分层）只能由固定 resolver 计算；Matplotlib 与 Origin adapter 不得各自猜测。视觉 oracle 以 Origin 模板/官方项目优先并要求图—数据同源；X24、S07 当前冻结合成证据必须单独标识。九个隐藏 P1 adapter 只保留内部回归，不属于正式渲染/导出承诺。
 
 ## 12. 正式产物验证
 
@@ -282,3 +328,8 @@ O1 输出必须用 Origin 原生、链接的数据对象表达：
 - 每种基础结构覆盖组数 1/2/3/5、点数/类别数、尺度和平移、跨零/全负、零/对称/非对称误差、长中英文标签和可选字段缺失，并断言有限几何、无重叠、堆积、误差、范围和 series-color-legend 身份不变量。
 - Matplotlib 执行完整基础泛化矩阵；Origin 按结构签名选择代表性变体，同时每个正式图保留至少一个参考图与同源数据锚定的外观证据。两类 evidence 不互相替代。
 - 已准入 ChartRecipe 的用户复用只运行普通 Schema/输入/capability 校验和产物验证，不重复执行泛化或 Origin qualification。
+- 正式 43 图的 capability snapshot 精确匹配 PRD 逐图白名单；隐藏九图不出现在 create/edit/export capability，直接请求稳定失败。
+- 每个 allowed patch 至少覆盖 Schema、目标、版本、事务提交和 Matplotlib/Origin mapping；每个未声明 operation/target/payload field 覆盖 `Unsupported` 与 `PATCH_CAPABILITY_NOT_SUPPORTED`，不得产生部分版本。
+- 全部 12 种 MarkerSymbol 与闭合符号的 `solid/open/hollow` 按代表性 chart structure 验证，尤其区分 `open` 背景遮挡与 `hollow` 透明穿线；`plus/cross` 的 `open/hollow` 验证稳定不支持。Origin fresh-reopen 读回原生 symbol/interior，Matplotlib 检查 resolved path/fill。
+- 16 个 palette 的 version/hash、顺序、reverse、离散/连续映射和 frozen RGB 通过 golden；跨 renderer 8-bit RGB 每通道精确，指定 Origin 官方资产通过 source hash 验证，缺失或修改后稳定失败且不得产生结果。
+- 类别数 15/16/超过可区分组合的边界分别验证稳定颜色、颜色+符号不循环和 warning/阻止；双 Y 默认轴线验证中性、正常字重、非加粗，显式着色 patch 只改样式不改 axis assignment/range。

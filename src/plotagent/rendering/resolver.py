@@ -35,6 +35,7 @@ from plotagent.contracts.rendering import (
     ResolvedPanel,
     ResolvedRenderPlan,
 )
+from plotagent.contracts.styles import SYMBOL_MAPPINGS, SymbolStyle, resolve_palette
 from plotagent.plots.validation import PlotValidationError, validate_plot_spec
 from plotagent.rendering.axis import AxisResolution, resolve_axis
 from plotagent.rendering.data import (
@@ -44,8 +45,8 @@ from plotagent.rendering.data import (
     Scalar,
     is_finite_number,
 )
-
 from plotagent.rendering.policies import VOLCANO_THRESHOLDS
+
 RESOLVER_VERSION = "resolver.v1"
 THUMBNAIL_LIMIT = 5_000
 INTERACTIVE_LIMIT = 20_000
@@ -58,6 +59,20 @@ type SvgTextMode = Literal["text_to_path", "editable_text"]
 
 def _plain_text(value: str) -> SafeRichText:
     return SafeRichText(nodes=(SafeTextNode(kind="plain", text=value),))
+
+
+def _label_key(value: SafeRichText | None) -> str | None:
+    if value is None:
+        return None
+    parts: list[str] = []
+    for node in value.nodes:
+        if node.kind == "newline":
+            parts.append("\n")
+        elif node.kind == "fraction":
+            parts.append(f"{node.text}/{node.denominator}")
+        else:
+            parts.append(node.text)
+    return "".join(parts)
 
 
 def _mm(value: float) -> PhysicalLength:
@@ -136,6 +151,8 @@ class _DraftLayer:
     color_minimum: float | None = None
     color_maximum: float | None = None
     color_override: str | None = None
+    encoding_index: int = 0
+    encoding_count: int = 1
 
     @property
     def row_count(self) -> int:
@@ -212,6 +229,8 @@ def _generic_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
                     label=label,
                     color_index=color_index,
                     excluded_rows=excluded if group_index == 0 else 0,
+                    encoding_index=group_index,
+                    encoding_count=len(groups),
                 )
             )
             color_index += 1
@@ -342,6 +361,8 @@ def _bar_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
                     color_index=color_index,
                     excluded_rows=excluded if subgroup_index == 0 else 0,
                     x_offset=tuple(offset for _ in heights),
+                    encoding_index=subgroup_index,
+                    encoding_count=count,
                 )
             )
             color_index += 1
@@ -357,7 +378,8 @@ def _distribution_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftL
         rule, values, excluded = _series_values(plot, store, series_index)
         if plot.chart_type_id == "K12":
             group_values = values.get("group", tuple("All" for _ in values["value"]))
-            for group_index, group in enumerate(_ordered_unique(group_values)):
+            groups = _ordered_unique(group_values)
+            for group_index, group in enumerate(groups):
                 indices = tuple(i for i, value in enumerate(group_values) if value == group)
                 y_values = tuple(values["value"][i] for i in indices)
                 jitter = tuple(
@@ -378,6 +400,8 @@ def _distribution_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftL
                         color_index=color_index,
                         excluded_rows=excluded if group_index == 0 else 0,
                         x_offset=jitter,
+                        encoding_index=group_index,
+                        encoding_count=len(groups),
                     )
                 )
                 color_index += 1
@@ -403,7 +427,8 @@ def _distribution_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftL
             color_index += 1
         else:
             group_values = values.get("group", tuple("All" for _ in values["grid"]))
-            for group_index, group in enumerate(_ordered_unique(group_values)):
+            groups = _ordered_unique(group_values)
+            for group_index, group in enumerate(groups):
                 indices = tuple(i for i, value in enumerate(group_values) if value == group)
                 grid = tuple(values["grid"][i] for i in indices)
                 density = tuple(_number(values["density"][i]) for i in indices)
@@ -428,6 +453,8 @@ def _distribution_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftL
                         label=_plain_text(str(group)),
                         color_index=color_index,
                         excluded_rows=excluded if group_index == 0 else 0,
+                        encoding_index=group_index,
+                        encoding_count=len(groups),
                     )
                 )
                 color_index += 1
@@ -519,6 +546,8 @@ def _facet_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
                 label=_plain_text(str(facet)),
                 color_index=index,
                 excluded_rows=excluded if index == 0 else 0,
+                encoding_index=index,
+                encoding_count=len(facets),
             )
         )
     return drafts
@@ -544,6 +573,8 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
         palette: tuple[str, ...] = (),
         color_override: str | None = None,
         x_offset: tuple[float, ...] = (),
+        encoding_index: int = 0,
+        encoding_count: int = 1,
     ) -> _DraftLayer:
         return _DraftLayer(
             layer_id=f"layer.0.{suffix}",
@@ -560,6 +591,8 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
             palette=palette,
             color_override=color_override,
             x_offset=x_offset,
+            encoding_index=encoding_index,
+            encoding_count=encoding_count,
         )
 
     chart_id = plot.chart_type_id
@@ -628,8 +661,9 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
 
     if chart_id == "X05":
         groups = values.get("group", tuple("All" for _ in values["value"]))
+        unique_groups = _ordered_unique(groups)
         result = []
-        for group_index, group in enumerate(_ordered_unique(groups)):
+        for group_index, group in enumerate(unique_groups):
             indices = tuple(index for index, item in enumerate(groups) if item == group)
             y = tuple(values["value"][index] for index in indices)
             jitter = _beeswarm_offsets(y)
@@ -643,6 +677,8 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
                         ("y",),
                         color=group_index,
                         label=str(group),
+                        encoding_index=group_index,
+                        encoding_count=len(unique_groups),
                     ),
                     x_offset=jitter,
                 )
@@ -678,6 +714,8 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
                     color=group_index,
                     label=str(group),
                     source="fixed",
+                    encoding_index=group_index,
+                    encoding_count=len(groups),
                 )
             )
         return result
@@ -1142,17 +1180,19 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
                     color=index,
                     label=str(series_value),
                     source="fixed",
+                    encoding_index=index,
+                    encoding_count=len(series_values),
                 )
             )
         return result
 
     if chart_id == "S07":
+        thresholds = VOLCANO_THRESHOLDS
         pvalues = np.asarray(
             [max(_number(value), np.finfo(float).tiny) for value in values["pvalue"]], dtype=float
         )
         volcano_y = -np.log10(pvalues)
         volcano_x = np.asarray([_number(value) for value in values["log2fc"]], dtype=float)
-        thresholds = VOLCANO_THRESHOLDS
         significant = pvalues < thresholds.pvalue
         volcano_categories = np.where(
             significant & (volcano_x <= -thresholds.absolute_log2_fold_change),
@@ -1202,11 +1242,6 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
                 color_override="#6B7280",
             )
         )
-        return volcano_result
-
-    if chart_id == "X24":
-        rows = sorted(
-            zip(values["category"], values["value"], strict=True),
         for suffix, effect_threshold in (
             ("negative", -thresholds.absolute_log2_fold_change),
             ("positive", thresholds.absolute_log2_fold_change),
@@ -1223,6 +1258,11 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
                     color_override="#6B7280",
                 )
             )
+        return volcano_result
+
+    if chart_id == "X24":
+        rows = sorted(
+            zip(values["category"], values["value"], strict=True),
             key=lambda item: _number(item[1]),
             reverse=True,
         )
@@ -1583,6 +1623,9 @@ class PlotResolver:
         excluded_rows = sum(draft.excluded_rows for draft in drafts)
         simplification_applied = False
         full_hashes: list[str] = []
+        series_by_id = {series.series_id: series for series in plot.series}
+        category_palette_extended = False
+        category_symbol_fallback = False
         limit = THUMBNAIL_LIMIT if quality_tier == "thumbnail" else INTERACTIVE_LIMIT
         for layer_index, draft in enumerate(drafts):
             panel_id = draft.panel_id
@@ -1605,10 +1648,66 @@ class PlotResolver:
             output_tables[table.object_hash] = table
             field_ids = tuple(table.field_ids)
             roles = tuple(draft.roles)
-            color_value = (
-                ColorValue(value=draft.color_override)
-                if draft.color_override is not None
-                else plot.resolved_style.colors[draft.color_index % len(plot.resolved_style.colors)]
+            series_style = series_by_id[draft.target_id].style
+            palette_spec = series_style.palette
+            palette_colors = (
+                tuple(color.value for color in palette_spec.colors) if palette_spec else ()
+            )
+            symbol = series_style.symbol
+            if (
+                len(plot.resolved_style.colors) < draft.encoding_count <= 15
+                and len(palette_colors) < draft.encoding_count
+            ):
+                category_palette_extended = True
+                fallback = resolve_palette("ColorBlindSafe15")
+                palette_spec = fallback
+                palette_colors = tuple(color.value for color in fallback.colors)
+            if draft.encoding_count > 15:
+                capacity = 15 * len(SYMBOL_MAPPINGS)
+                if draft.encoding_count > capacity:
+                    raise PlotValidationError(
+                        "STYLE_CATEGORY_CAPACITY_EXCEEDED",
+                        f"{draft.target_id} has {draft.encoding_count} categories; "
+                        f"capacity is {capacity}",
+                    )
+                category_symbol_fallback = True
+                fallback = resolve_palette("ColorBlindSafe15")
+                fallback_colors = tuple(color.value for color in fallback.colors)
+                # The >15-category policy is itself a frozen encoding contract.
+                # Always use the complete 15-color Origin list here so a shorter
+                # user palette cannot silently repeat a color/symbol pair before
+                # the declared 15 x 12 capacity is reached.
+                palette_spec = fallback
+                palette_colors = fallback_colors
+                shape = tuple(SYMBOL_MAPPINGS)[
+                    (draft.encoding_index // len(palette_colors)) % len(SYMBOL_MAPPINGS)
+                ]
+                symbol = SymbolStyle(shape=shape, interior=symbol.interior)
+            if category_symbol_fallback and draft.encoding_count > 15:
+                color_value = ColorValue(
+                    value=palette_colors[draft.encoding_index % len(palette_colors)]
+                )
+            elif draft.color_override is not None:
+                color_value = ColorValue(value=draft.color_override)
+            elif (
+                (label_key := _label_key(draft.label)) is not None
+                and label_key in series_style.category_colors
+            ):
+                color_value = series_style.category_colors[label_key]
+            elif series_style.color is not None:
+                color_value = series_style.color
+            elif palette_colors:
+                color_value = ColorValue(
+                    value=palette_colors[draft.encoding_index % len(palette_colors)]
+                )
+            else:
+                color_value = plot.resolved_style.colors[
+                    draft.color_index % len(plot.resolved_style.colors)
+                ]
+            resolved_palette = (
+                tuple(palette_spec.colors)
+                if palette_spec is not None
+                else tuple(ColorValue(value=value) for value in draft.palette)
             )
             layers.append(
                 ResolvedLayer(
@@ -1632,12 +1731,15 @@ class PlotResolver:
                     z_order=layer_index + 1,
                     label=draft.label,
                     color=color_value,
-                    palette=tuple(ColorValue(value=value) for value in draft.palette),
+                    palette=resolved_palette,
                     levels=draft.levels,
                     color_minimum=draft.color_minimum,
                     color_maximum=draft.color_maximum,
-                    line_width=plot.resolved_style.line_width,
-                    marker_size=plot.resolved_style.marker_size,
+                    line_width=series_style.line_width or plot.resolved_style.line_width,
+                    marker_size=series_style.marker_size or plot.resolved_style.marker_size,
+                    line_style=series_style.line_style,
+                    symbol=symbol,
+                    palette_spec=palette_spec,
                 )
             )
 
@@ -1655,6 +1757,26 @@ class PlotResolver:
                     warning_id="svg.editable_text_font_portability",
                     message=(
                         "Editable SVG text requires the resolved font on the destination system."
+                    ),
+                )
+            )
+        if category_symbol_fallback:
+            warnings.append(
+                WarningRecord(
+                    warning_id="style.category_color_symbol_fallback",
+                    message=(
+                        "More than 15 categories were encoded with deterministic color and "
+                        "symbol pairs; colors were not silently recycled."
+                    ),
+                )
+            )
+        elif category_palette_extended:
+            warnings.append(
+                WarningRecord(
+                    warning_id="style.category_palette_extended",
+                    message=(
+                        "The frozen 15-color Origin list was used so category colors "
+                        "remain distinct and are not recycled."
                     ),
                 )
             )
@@ -1694,7 +1816,14 @@ class PlotResolver:
             axes=axes,
             layers=tuple(layers),
             fonts=(_font(plot),),
-            legend=ResolvedLegend(visible=labeled_layers > 1),
+            legend=ResolvedLegend(
+                visible=(
+                    labeled_layers > 1 if plot.legend.visible is None else plot.legend.visible
+                ),
+                placement=plot.legend.placement,
+                anchor_x=plot.legend.anchor_x,
+                anchor_y=plot.legend.anchor_y,
+            ),
             annotations=annotations,
             data_integrity=DataIntegritySnapshot(
                 total_rows=total_rows + excluded_rows,

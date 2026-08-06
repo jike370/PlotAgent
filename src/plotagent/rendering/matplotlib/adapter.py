@@ -20,6 +20,7 @@ from matplotlib.ticker import NullLocator
 
 from plotagent.contracts.plots import SafeRichText
 from plotagent.contracts.rendering import ResolvedAxis, ResolvedLayer
+from plotagent.contracts.styles import matplotlib_marker
 from plotagent.rendering.data import RenderTable, ResolvedPlot, Scalar
 
 _SUBSCRIPT = str.maketrans("0123456789+-()", "₀₁₂₃₄₅₆₇₈₉₊₋₍₎")
@@ -164,9 +165,7 @@ class MatplotlibRenderer:
                     axis_width = left_axis.spines["left"].get_linewidth()
                     right_axis.spines["right"].set_linewidth(axis_width)
                     right_axis.tick_params(axis="y", which="both", width=axis_width)
-                    right_axis.yaxis.label.set_fontweight(
-                        left_axis.yaxis.label.get_fontweight()
-                    )
+                    right_axis.yaxis.label.set_fontweight(left_axis.yaxis.label.get_fontweight())
                     for left_label, right_label in zip(
                         left_axis.get_yticklabels(),
                         right_axis.get_yticklabels(),
@@ -249,6 +248,45 @@ class MatplotlibRenderer:
         marker_size = layer.marker_size.value if layer.marker_size is not None else 4.0
         return color, line_width, marker_size, safe_text(layer.label)
 
+    @staticmethod
+    def _line_style(layer: ResolvedLayer) -> str:
+        return {
+            "solid": "-",
+            "dashed": "--",
+            "dotted": ":",
+            "dash_dot": "-.",
+        }[layer.line_style]
+
+    @staticmethod
+    def _symbol_style(axis: Axes, layer: ResolvedLayer, color: str) -> dict[str, Any]:
+        marker = matplotlib_marker(layer.symbol.shape)
+        if layer.symbol.shape in {"plus", "cross"}:
+            return {"marker": marker, "color": color}
+        if layer.symbol.interior == "solid":
+            return {"marker": marker, "facecolors": color, "edgecolors": color}
+        if layer.symbol.interior == "open":
+            return {
+                "marker": marker,
+                "facecolors": axis.get_facecolor(),
+                "edgecolors": color,
+            }
+        return {"marker": marker, "facecolors": "none", "edgecolors": color}
+
+    @staticmethod
+    def _line_symbol_style(axis: Axes, layer: ResolvedLayer, color: str) -> dict[str, Any]:
+        marker = matplotlib_marker(layer.symbol.shape)
+        if layer.symbol.shape in {"plus", "cross"}:
+            return {"marker": marker, "markeredgecolor": color}
+        if layer.symbol.interior == "solid":
+            return {"marker": marker, "markerfacecolor": color, "markeredgecolor": color}
+        if layer.symbol.interior == "open":
+            return {
+                "marker": marker,
+                "markerfacecolor": axis.get_facecolor(),
+                "markeredgecolor": color,
+            }
+        return {"marker": marker, "markerfacecolor": "none", "markeredgecolor": color}
+
     def _draw_xy(
         self,
         axis: Axes,
@@ -275,9 +313,24 @@ class MatplotlibRenderer:
             _first(roles, ("y", "center", "value", "response", "intensity", "z_imaginary"))
         )
         if layer.geometry in {"xy.line", "xy.datetime_line", "xy.spectrum", "facet.xy"}:
-            axis.plot(x, y, color=color, linewidth=line_width, label=label, zorder=layer.z_order)
+            axis.plot(
+                x,
+                y,
+                color=color,
+                linewidth=line_width,
+                linestyle=self._line_style(layer),
+                label=label,
+                zorder=layer.z_order,
+            )
         elif layer.geometry == "xy.symbol":
-            axis.scatter(x, y, color=color, s=marker_size**2, label=label, zorder=layer.z_order)
+            axis.scatter(
+                x,
+                y,
+                s=marker_size**2,
+                label=label,
+                zorder=layer.z_order,
+                **self._symbol_style(axis, layer, color),
+            )
         elif layer.geometry == "xy.bubble":
             sizes = _numeric(roles.get("marker_area", tuple(marker_size**2 for _ in x)))
             colors: str | Sequence[Scalar] = roles.get("point_color", color)
@@ -313,10 +366,11 @@ class MatplotlibRenderer:
                 y,
                 color=color,
                 linewidth=line_width,
-                marker="o",
+                linestyle=self._line_style(layer),
                 markersize=marker_size,
                 label=label,
                 zorder=layer.z_order,
+                **self._line_symbol_style(axis, layer, color),
             )
             axis.set_aspect("equal", adjustable="box")
         else:

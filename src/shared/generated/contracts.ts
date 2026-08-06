@@ -106,7 +106,7 @@ export type BatchItemState = {
 export type BatchPlotOverride = {
   readonly item_id: string;
   readonly prepared_dataset_ref: PreparedDatasetRef;
-  readonly patches?: ReadonlyArray<SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetSeriesStylePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
+  readonly patches?: ReadonlyArray<SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
 }
 
 export type BatchSpec = {
@@ -148,13 +148,26 @@ export type CategoricalFamily = {
   readonly geometry: ReadonlyArray<"bar">;
 }
 
+export type CategoryColorIntent = {
+  readonly operation?: "set_category_color";
+  readonly target_alias: string;
+  readonly category: string;
+  readonly color: ColorValue;
+}
+
 export type ChartCapabilities = {
   readonly capability_version: string;
   readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07">;
   readonly allowed_action_types: ReadonlyArray<"create_plot" | "patch_plot" | "create_batch" | "patch_batch" | "create_figure" | "patch_figure" | "export_artifact">;
-  readonly allowed_patch_operations?: ReadonlyArray<"set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_series_style" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size">;
+  readonly allowed_patch_operations?: ReadonlyArray<"set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_series_style" | "set_category_color" | "set_palette" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size">;
+  readonly chart_edit_capabilities?: ReadonlyArray<ChartEditCapabilities>;
   readonly export_formats?: ReadonlyArray<"png" | "svg" | "opju">;
   readonly limitation_ids?: ReadonlyArray<string>;
+}
+
+export type ChartEditCapabilities = {
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07";
+  readonly allowed_patch_operations: ReadonlyArray<"set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_series_style" | "set_category_color" | "set_palette" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size">;
 }
 
 export type ChartRegistration = {
@@ -168,6 +181,10 @@ export type ChartRegistration = {
   readonly allowed_calculations?: ReadonlyArray<"histogram_binning" | "tukey_box" | "violin_kde" | "density_kde" | "ecdf" | "summary_error" | "percent_stack" | "matrix_projection" | "confusion_count">;
   readonly required_precomputed?: ReadonlyArray<"curve" | "band" | "matrix" | "matrix_grid" | "step_curve" | "risk_table" | "parameter_table" | "spectrum" | "peak_labels" | "complex_curve" | "effect_interval">;
   readonly exports?: ExportCapabilities;
+  readonly admission?: "product" | "internal_only";
+  readonly visual_evidence?: "origin_reference" | "synthetic_visual" | "unqualified";
+  readonly edit_capabilities?: ReadonlyArray<"plot_title" | "axis_label" | "axis_range" | "axis_scale" | "axis_ticks" | "font" | "legend_visibility" | "legend_position" | "canvas_size" | "publication_profile" | "safe_annotation" | "series_color" | "line_width" | "line_style" | "marker_size" | "symbol_shape" | "symbol_interior" | "palette" | "bar_fill" | "bar_edge" | "bar_width" | "bar_gap" | "error_style" | "band_style" | "colorbar" | "dual_y_style" | "panel_style" | "y_offset">;
+  readonly unsupported_edit_capabilities?: ReadonlyArray<"plot_title" | "axis_label" | "axis_range" | "axis_scale" | "axis_ticks" | "font" | "legend_visibility" | "legend_position" | "canvas_size" | "publication_profile" | "safe_annotation" | "series_color" | "line_width" | "line_style" | "marker_size" | "symbol_shape" | "symbol_interior" | "palette" | "bar_fill" | "bar_edge" | "bar_width" | "bar_gap" | "error_style" | "band_style" | "colorbar" | "dual_y_style" | "panel_style" | "y_offset">;
 }
 
 export type ChartRegistry = {
@@ -680,6 +697,13 @@ export type LegendPlacementIntent = {
   readonly placement: "inside" | "outside_right" | "outside_bottom";
 }
 
+export type LegendSpec = {
+  readonly visible?: boolean | null;
+  readonly placement?: "inside" | "outside_right" | "outside_bottom";
+  readonly anchor_x?: number;
+  readonly anchor_y?: number;
+}
+
 export type LegendVisibilityIntent = {
   readonly operation?: "set_legend_visibility";
   readonly target_alias: string;
@@ -919,6 +943,9 @@ export type OriginPlotPlan = {
   readonly levels?: ReadonlyArray<number>;
   readonly line_width_pt?: number | null;
   readonly marker_size_pt?: number | null;
+  readonly line_style?: "solid" | "dashed" | "dotted" | "dash_dot";
+  readonly symbol?: SymbolStyle;
+  readonly palette_spec?: ResolvedPalette | null;
   readonly alpha?: number;
 }
 
@@ -947,6 +974,13 @@ export type OriginValidationPlan = {
   readonly require_atomic_publish?: true;
 }
 
+export type PaletteIntent = {
+  readonly operation?: "set_palette";
+  readonly target_alias: string;
+  readonly palette_id: "ColorBlindSafe8" | "ColorBlindSafe15" | "BlueOrange" | "OrangeNavy" | "RedPurple" | "Viridis" | "Plasma" | "Inferno" | "Magma" | "GreyBlue" | "YellowBlue" | "YellowGreen" | "YellowPurple" | "Fire" | "Rainbow_Modified" | "GrayScale";
+  readonly reverse?: boolean;
+}
+
 export type PatchBatchAction = {
   readonly action_id: string;
   readonly depends_on?: ReadonlyArray<string>;
@@ -969,7 +1003,7 @@ export type PatchPlotAction = {
   readonly depends_on?: ReadonlyArray<string>;
   readonly action_type?: "patch_plot";
   readonly target_alias: string;
-  readonly patches: ReadonlyArray<AxisRangeIntent | AxisScaleIntent | AxisLabelIntent | SeriesStyleIntent | LegendVisibilityIntent | LegendPlacementIntent | PublicationProfileIntent | CanvasSizeIntent>;
+  readonly patches: ReadonlyArray<AxisRangeIntent | AxisScaleIntent | AxisLabelIntent | SeriesStyleIntent | CategoryColorIntent | PaletteIntent | LegendVisibilityIntent | LegendPlacementIntent | PublicationProfileIntent | CanvasSizeIntent>;
 }
 
 export type PatchTransaction = {
@@ -977,7 +1011,7 @@ export type PatchTransaction = {
   readonly transaction_id: string;
   readonly project_id: string;
   readonly expected_versions: ReadonlyArray<ObjectVersionRef>;
-  readonly patches: ReadonlyArray<SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetSeriesStylePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
+  readonly patches: ReadonlyArray<SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
   readonly scope: "plot" | "selected_plots" | "batch";
 }
 
@@ -1057,7 +1091,7 @@ export type PlotCalculationSpecRef = {
   readonly content_hash: string;
 }
 
-export type PlotPatchContract = SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetSeriesStylePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch
+export type PlotPatchContract = SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch
 
 export type PlotProvenance = {
   readonly origin: "manual" | "agent_plan";
@@ -1079,6 +1113,7 @@ export type PlotSpec = {
   readonly scales: ReadonlyArray<ScaleSpec>;
   readonly axes: ReadonlyArray<AxisSpec>;
   readonly series: ReadonlyArray<SeriesSpec>;
+  readonly legend?: LegendSpec;
   readonly annotations?: ReadonlyArray<AnnotationSpec>;
   readonly style_sources: ReadonlyArray<StyleSourceRef>;
   readonly resolved_style: ResolvedStyleSnapshot;
@@ -1254,6 +1289,9 @@ export type ResolvedLayer = {
   readonly color_maximum?: number | null;
   readonly line_width?: PhysicalLength | null;
   readonly marker_size?: PhysicalLength | null;
+  readonly line_style?: "solid" | "dashed" | "dotted" | "dash_dot";
+  readonly symbol?: SymbolStyle;
+  readonly palette_spec?: ResolvedPalette | null;
 }
 
 export type ResolvedLegend = {
@@ -1261,6 +1299,18 @@ export type ResolvedLegend = {
   readonly placement?: "inside" | "outside_right" | "outside_bottom";
   readonly anchor_x?: number;
   readonly anchor_y?: number;
+}
+
+export type ResolvedPalette = {
+  readonly palette_id: "ColorBlindSafe8" | "ColorBlindSafe15" | "BlueOrange" | "OrangeNavy" | "RedPurple" | "Viridis" | "Plasma" | "Inferno" | "Magma" | "GreyBlue" | "YellowBlue" | "YellowGreen" | "YellowPurple" | "Fire" | "Rainbow_Modified" | "GrayScale";
+  readonly origin_source_name: string;
+  readonly origin_asset_kind: "color_list" | "palette";
+  readonly kind: "qualitative" | "sequential" | "diverging" | "special" | "grayscale";
+  readonly colors: ReadonlyArray<ColorValue>;
+  readonly reverse?: boolean;
+  readonly source_version?: "Origin2024 SR1 10.10.178";
+  readonly source_hash: string;
+  readonly resolved_rgb_hash: string;
 }
 
 export type ResolvedPanel = {
@@ -1363,6 +1413,7 @@ export type SeriesSpec = {
   readonly geometry: "line" | "symbol" | "error_bar" | "band" | "area" | "bar" | "strip" | "box" | "violin" | "histogram" | "density" | "step" | "heatmap" | "contour" | "risk_table" | "interval" | "panel" | "lollipop" | "dumbbell" | "beeswarm" | "ridgeline" | "floating_bar" | "bridge" | "bullet" | "pyramid" | "scatter_matrix" | "density2d" | "marginal" | "probability" | "agreement" | "dual_axis" | "y_offset" | "volcano";
   readonly data: PreparedSeriesData | CalculatedSeriesData | PrecomputedSeriesData;
   readonly label?: SafeRichText | null;
+  readonly style?: SeriesStyleSpec;
 }
 
 export type SeriesStyleIntent = {
@@ -1371,6 +1422,19 @@ export type SeriesStyleIntent = {
   readonly color?: ColorValue | null;
   readonly line_width_pt?: number | null;
   readonly marker_size_pt?: number | null;
+  readonly line_style?: "solid" | "dashed" | "dotted" | "dash_dot" | null;
+  readonly symbol_shape?: "square" | "circle" | "triangle_up" | "triangle_down" | "diamond" | "plus" | "cross" | "triangle_left" | "triangle_right" | "hexagon" | "star" | "pentagon" | null;
+  readonly symbol_interior?: "solid" | "open" | "hollow" | null;
+}
+
+export type SeriesStyleSpec = {
+  readonly color?: ColorValue | null;
+  readonly category_colors?: Readonly<Record<string, ColorValue>>;
+  readonly line_width?: PhysicalLength | null;
+  readonly marker_size?: PhysicalLength | null;
+  readonly line_style?: "solid" | "dashed" | "dotted" | "dash_dot";
+  readonly symbol?: SymbolStyle;
+  readonly palette?: ResolvedPalette | null;
 }
 
 export type SetAxisLabelPatch = {
@@ -1431,6 +1495,15 @@ export type SetLegendVisibilityPatch = {
   readonly visible: boolean;
 }
 
+export type SetPalettePatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_palette";
+  readonly palette_id: "ColorBlindSafe8" | "ColorBlindSafe15" | "BlueOrange" | "OrangeNavy" | "RedPurple" | "Viridis" | "Plasma" | "Inferno" | "Magma" | "GreyBlue" | "YellowBlue" | "YellowGreen" | "YellowPurple" | "Fire" | "Rainbow_Modified" | "GrayScale";
+  readonly reverse?: boolean;
+}
+
 export type SetSeriesStylePatch = {
   readonly schema_version?: "1.0";
   readonly target_id: string;
@@ -1439,6 +1512,8 @@ export type SetSeriesStylePatch = {
   readonly color?: ColorValue | null;
   readonly line_width?: PhysicalLength | null;
   readonly marker_size?: PhysicalLength | null;
+  readonly line_style?: "solid" | "dashed" | "dotted" | "dash_dot" | null;
+  readonly symbol?: SymbolStyle | null;
 }
 
 export type SourceDataset = {
@@ -1534,6 +1609,11 @@ export type SummaryErrorSpec = {
 export type SurvivalFamily = {
   readonly kind?: "survival";
   readonly geometry: ReadonlyArray<"step" | "band" | "risk_table">;
+}
+
+export type SymbolStyle = {
+  readonly shape?: "square" | "circle" | "triangle_up" | "triangle_down" | "diamond" | "plus" | "cross" | "triangle_left" | "triangle_right" | "hexagon" | "star" | "pentagon";
+  readonly interior?: "solid" | "open" | "hollow";
 }
 
 export type TextSourceCoordinate = {

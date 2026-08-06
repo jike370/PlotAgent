@@ -1,3 +1,5 @@
+import styleCatalog from '../../../shared/generated/style-catalog.json'
+
 export type ChartLayer = 'core' | 'validation'
 export type BatchMode = 'direct' | 'conditional' | 'manual'
 export type CompositionMode = 'layer' | 'panel'
@@ -49,7 +51,7 @@ const chart = ({
   export: { png: true, svg: 'vector', opju },
 })
 
-export const chartCatalog: ChartType[] = [
+const allChartCatalogSeeds: ChartType[] = [
   chart({ id: 'K01', name: '折线图', englishName: 'Line plot', category: '时间与关系', family: 'line', purpose: '展示连续变量随时间或有序 X 的变化', dataShape: ['XY', 'XYY'], requiredFields: ['X', 'Y'], batchMode: 'direct', compositionMode: 'layer', favorite: true, recent: true, aliases: ['曲线图'] }),
   chart({ id: 'K02', name: '线点图', englishName: 'Line + symbol', category: '时间与关系', family: 'line-symbol', purpose: '同时呈现实测点与连接趋势', dataShape: ['XY', 'XYY'], requiredFields: ['X', 'Y'], batchMode: 'direct', compositionMode: 'layer', favorite: true }),
   chart({ id: 'K03', name: '散点图', englishName: 'Scatter plot', category: '关系', family: 'scatter', purpose: '观察两个连续变量的关系与分组', dataShape: ['XY', 'long'], requiredFields: ['X', 'Y'], batchMode: 'direct', compositionMode: 'layer', recent: true, aliases: ['散点'] }),
@@ -103,6 +105,38 @@ export const chartCatalog: ChartType[] = [
   chart({ id: 'X38', name: 'Y 偏移堆积线图', englishName: 'Y-offset stacked line', category: '时间与关系', family: 'y-offset', purpose: '用仅影响显示的偏移分离多条曲线', dataShape: ['X + Y + series'], requiredFields: ['X', 'Y', '系列'], batchMode: 'direct', compositionMode: 'layer' }),
   chart({ id: 'S07', layer: 'validation', name: '火山图', englishName: 'Volcano plot', category: '组学', family: 'volcano', purpose: '显示预计算效应量与显著性', dataShape: ['feature + log2FC + p/q'], requiredFields: ['特征', 'log2FC', 'P 值'], batchMode: 'direct', compositionMode: 'layer', domains: ['转录组', '蛋白组', '生物信息'], optionalParameters: ['FC 阈值', 'P/Q 阈值', '标签'], aliases: ['volcano'] }),
 ]
+
+export type EditCapability =
+  | 'plot_title' | 'axis_label' | 'axis_range' | 'axis_scale' | 'axis_ticks' | 'font'
+  | 'legend_visibility' | 'legend_position' | 'canvas_size' | 'publication_profile'
+  | 'safe_annotation' | 'series_color' | 'line_width' | 'line_style' | 'marker_size'
+  | 'symbol_shape' | 'symbol_interior' | 'palette' | 'bar_fill' | 'bar_edge'
+  | 'bar_width' | 'bar_gap' | 'error_style' | 'band_style' | 'colorbar'
+  | 'dual_y_style' | 'panel_style' | 'y_offset'
+
+export type PaletteId = (typeof styleCatalog.palettes)[number]['palette_id']
+export type SymbolShape = (typeof styleCatalog.symbols)[number]['shape']
+
+export interface ChartProductMetadata {
+  admission: 'product' | 'internal_only'
+  visualEvidence: 'origin_reference' | 'synthetic_visual' | 'unqualified'
+  editCapabilities: readonly EditCapability[]
+}
+
+export const chartProductMetadata: Readonly<Record<string, ChartProductMetadata>> =
+  Object.fromEntries(styleCatalog.charts.map((item) => [item.chart_type_id, {
+    admission: item.admission as ChartProductMetadata['admission'],
+    visualEvidence: item.visual_evidence as ChartProductMetadata['visualEvidence'],
+    editCapabilities: item.edit_capabilities as EditCapability[],
+  }]))
+
+export const paletteCatalog = styleCatalog.palettes
+export const symbolCatalog = styleCatalog.symbols
+
+export const allChartCatalog: readonly ChartType[] = allChartCatalogSeeds
+export const chartCatalog: ChartType[] = allChartCatalogSeeds.filter(
+  (item) => chartProductMetadata[item.id]?.admission === 'product',
+)
 
 export interface ChartFilters {
   query: string

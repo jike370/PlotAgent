@@ -210,6 +210,38 @@
       "title": "CanvasSizeIntent",
       "type": "object"
     },
+    "CategoryColorIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Category",
+          "type": "string"
+        },
+        "color": {
+          "$ref": "#/$defs/ColorValue"
+        },
+        "operation": {
+          "const": "set_category_color",
+          "default": "set_category_color",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "category",
+        "color"
+      ],
+      "title": "CategoryColorIntent",
+      "type": "object"
+    },
     "ColorValue": {
       "additionalProperties": false,
       "properties": {
@@ -859,6 +891,55 @@
       "title": "NoChange",
       "type": "object"
     },
+    "PaletteIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_palette",
+          "default": "set_palette",
+          "title": "Operation",
+          "type": "string"
+        },
+        "palette_id": {
+          "enum": [
+            "ColorBlindSafe8",
+            "ColorBlindSafe15",
+            "BlueOrange",
+            "OrangeNavy",
+            "RedPurple",
+            "Viridis",
+            "Plasma",
+            "Inferno",
+            "Magma",
+            "GreyBlue",
+            "YellowBlue",
+            "YellowGreen",
+            "YellowPurple",
+            "Fire",
+            "Rainbow_Modified",
+            "GrayScale"
+          ],
+          "title": "Palette Id",
+          "type": "string"
+        },
+        "reverse": {
+          "default": false,
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "palette_id"
+      ],
+      "title": "PaletteIntent",
+      "type": "object"
+    },
     "PatchBatchAction": {
       "additionalProperties": false,
       "properties": {
@@ -985,7 +1066,9 @@
                 "set_axis_range": "#/$defs/AxisRangeIntent",
                 "set_axis_scale": "#/$defs/AxisScaleIntent",
                 "set_canvas_size": "#/$defs/CanvasSizeIntent",
+                "set_category_color": "#/$defs/CategoryColorIntent",
                 "set_legend_visibility": "#/$defs/LegendVisibilityIntent",
+                "set_palette": "#/$defs/PaletteIntent",
                 "set_series_style": "#/$defs/SeriesStyleIntent"
               },
               "propertyName": "operation"
@@ -1002,6 +1085,12 @@
               },
               {
                 "$ref": "#/$defs/SeriesStyleIntent"
+              },
+              {
+                "$ref": "#/$defs/CategoryColorIntent"
+              },
+              {
+                "$ref": "#/$defs/PaletteIntent"
               },
               {
                 "$ref": "#/$defs/LegendVisibilityIntent"
@@ -1164,6 +1253,24 @@
           ],
           "default": null
         },
+        "line_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dashed",
+                "dotted",
+                "dash_dot"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Style"
+        },
         "line_width_pt": {
           "anyOf": [
             {
@@ -1197,6 +1304,49 @@
           "default": "set_series_style",
           "title": "Operation",
           "type": "string"
+        },
+        "symbol_interior": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "open",
+                "hollow"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol Interior"
+        },
+        "symbol_shape": {
+          "anyOf": [
+            {
+              "enum": [
+                "square",
+                "circle",
+                "triangle_up",
+                "triangle_down",
+                "diamond",
+                "plus",
+                "cross",
+                "triangle_left",
+                "triangle_right",
+                "hexagon",
+                "star",
+                "pentagon"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol Shape"
         },
         "target_alias": {
           "pattern": "^[a-z][a-z0-9_]{0,63}$",

@@ -33,10 +33,18 @@ import {
 
 import type { ScopeMode } from './ConversationWorkspace'
 import { BatchPlot } from './PlotVisuals'
+import type { JsonValue } from '../../../shared/desktop-contract'
+import type { ProductPlot } from '../data/productState'
+import {
+  chartProductMetadata,
+  paletteCatalog,
+  symbolCatalog,
+} from '../data/chartCatalog'
 
 interface FocusEditorProps {
   initialIndex: number
-  plot?: { title: string; plotId: string; version: number; previewUrl?: string }
+  plot?: ProductPlot & { title: string }
+  onPatch?: (patch: JsonValue) => Promise<void>
   onClose: () => void
 }
 
@@ -51,16 +59,74 @@ interface Position {
   y: number
 }
 
-export function FocusEditor({ initialIndex, plot, onClose }: FocusEditorProps): React.JSX.Element {
+type ParameterTab = 'style' | 'axis' | 'legend'
+type EditState = 'idle' | 'saving' | 'saved' | 'error'
+
+const symbolNames: Record<string, string> = {
+  square: '方形', circle: '圆形', triangle_up: '上三角', triangle_down: '下三角',
+  diamond: '菱形', plus: '加号', cross: '叉号', triangle_left: '左三角',
+  triangle_right: '右三角', hexagon: '六边形', star: '星形', pentagon: '五边形',
+}
+
+export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEditorProps): React.JSX.Element {
+  const initialSeriesStyle = plot?.seriesStyles[0]?.style ?? plot?.style
+  const initialAxisState = plot?.axisStates.y ?? plot?.axisStates.x
   const [activeIndex, setActiveIndex] = useState(Math.min(initialIndex, 2))
   const [selected, setSelected] = useState<number[]>([Math.min(initialIndex, 2)])
   const [scope, setScope] = useState<ScopeMode>('current')
   const [panelOpen, setPanelOpen] = useState(false)
+  const [parameterTab, setParameterTab] = useState<ParameterTab>('style')
   const [compareOpen, setCompareOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [editState, setEditState] = useState<EditState>('idle')
+  const [editMessage, setEditMessage] = useState('')
+  const [seriesTargetIndex, setSeriesTargetIndex] = useState(0)
+  const [color, setColor] = useState(initialSeriesStyle?.color ?? '#2A6FDB')
+  const [lineWidth, setLineWidth] = useState(initialSeriesStyle?.lineWidthPt ?? 0.8)
+  const [lineStyle, setLineStyle] = useState(initialSeriesStyle?.lineStyle ?? 'solid')
+  const [markerSize, setMarkerSize] = useState(initialSeriesStyle?.markerSizePt ?? 4.5)
+  const [symbolShape, setSymbolShape] = useState(initialSeriesStyle?.symbolShape ?? 'circle')
+  const [symbolInterior, setSymbolInterior] = useState(initialSeriesStyle?.symbolInterior ?? 'solid')
+  const [paletteId, setPaletteId] = useState(initialSeriesStyle?.paletteId ?? 'Viridis')
+  const [paletteReverse, setPaletteReverse] = useState(initialSeriesStyle?.paletteReverse ?? false)
+  const [categoryName, setCategoryName] = useState('')
+  const [categoryColor, setCategoryColor] = useState('#2A6FDB')
+  const [axisTarget, setAxisTarget] = useState<'x' | 'y' | 'yRight'>('y')
+  const [axisScale, setAxisScale] = useState(initialAxisState?.scale ?? 'linear')
+  const [axisLabel, setAxisLabel] = useState(initialAxisState?.label ?? '')
+  const [axisMinimum, setAxisMinimum] = useState(initialAxisState?.minimum?.toString() ?? '')
+  const [axisMaximum, setAxisMaximum] = useState(initialAxisState?.maximum?.toString() ?? '')
+  const [legendVisible, setLegendVisible] = useState(plot?.style.legendVisible ?? true)
+  const [legendPlacement, setLegendPlacement] = useState(plot?.style.legendPlacement ?? 'inside')
+  const [canvasWidth, setCanvasWidth] = useState(plot?.canvasSizeMm.width ?? 183)
+  const [canvasHeight, setCanvasHeight] = useState(plot?.canvasSizeMm.height ?? 120)
   const [legendPosition, setLegendPosition] = useState<Position>({ x: 68, y: 17 })
   const [annotationPosition, setAnnotationPosition] = useState<Position>({ x: 53, y: 37 })
   const dragStart = useRef<{ pointerX: number; pointerY: number; position: Position; type: 'legend' | 'annotation' } | null>(null)
+
+  const selectSeries = (index: number): void => {
+    if (!plot) return
+    const validIndex = Math.min(index, Math.max(0, plot.seriesIds.length - 1))
+    const seriesStyle = plot.seriesStyles[validIndex]?.style ?? plot.style
+    setSeriesTargetIndex(validIndex)
+    setColor(seriesStyle.color ?? '#2A6FDB')
+    setLineWidth(seriesStyle.lineWidthPt ?? 0.8)
+    setLineStyle(seriesStyle.lineStyle ?? 'solid')
+    setMarkerSize(seriesStyle.markerSizePt ?? 4.5)
+    setSymbolShape(seriesStyle.symbolShape ?? 'circle')
+    setSymbolInterior(seriesStyle.symbolInterior ?? 'solid')
+    setPaletteId(seriesStyle.paletteId ?? 'Viridis')
+    setPaletteReverse(seriesStyle.paletteReverse ?? false)
+  }
+
+  const selectAxis = (target: 'x' | 'y' | 'yRight'): void => {
+    const axisState = plot?.axisStates[target]
+    setAxisTarget(target)
+    setAxisScale(axisState?.scale ?? 'linear')
+    setAxisLabel(axisState?.label ?? '')
+    setAxisMinimum(axisState?.minimum?.toString() ?? '')
+    setAxisMaximum(axisState?.maximum?.toString() ?? '')
+  }
 
   const startDrag = (event: React.PointerEvent<HTMLButtonElement>, type: 'legend' | 'annotation'): void => {
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -99,6 +165,60 @@ export function FocusEditor({ initialIndex, plot, onClose }: FocusEditorProps): 
 
   const availableItems = plot ? [{ title: plot.title, file: plot.plotId, series: 'control' as const }] : focusItems
   const active = availableItems[Math.min(activeIndex, availableItems.length - 1)]
+  const editCapabilities = new Set(
+    plot ? chartProductMetadata[plot.chartId]?.editCapabilities ?? [] : [],
+  )
+  const selectedSeriesId = plot?.seriesIds[seriesTargetIndex]
+  const selectedAxisId = plot?.axisIds[axisTarget]
+  const selectedSymbol = symbolCatalog.find((item) => item.shape === symbolShape)
+  const selectedPaletteColors = paletteCatalog.find((palette) => palette.palette_id === paletteId)?.colors ?? []
+  const palettePreviewColors = paletteReverse ? [...selectedPaletteColors].reverse() : selectedPaletteColors
+
+  const applyPatch = async (
+    operation: string,
+    targetId: string | undefined,
+    values: Record<string, JsonValue>,
+  ): Promise<void> => {
+    if (!plot || !onPatch || !targetId) {
+      setEditState('error')
+      setEditMessage('当前图形没有可用的编辑目标。')
+      return
+    }
+    setEditState('saving')
+    setEditMessage('正在创建新版本…')
+    try {
+      await onPatch({
+        operation,
+        target_id: targetId,
+        expected_plot_version: plot.plotVersion,
+        ...values,
+      })
+      setEditState('saved')
+      setEditMessage('修改已保存为新版本。')
+    } catch (error) {
+      setEditState('error')
+      setEditMessage(error instanceof Error ? error.message : '修改未能应用。')
+    }
+  }
+
+  const applySeriesStyle = async (): Promise<void> => {
+    const values: Record<string, JsonValue> = {}
+    if (editCapabilities.has('series_color')) values.color = { value: color }
+    if (editCapabilities.has('line_width')) values.line_width = { value: lineWidth, unit: 'pt' }
+    if (editCapabilities.has('line_style')) values.line_style = lineStyle
+    if (editCapabilities.has('marker_size')) values.marker_size = { value: markerSize, unit: 'pt' }
+    if (editCapabilities.has('symbol_shape') || editCapabilities.has('symbol_interior')) {
+      values.symbol = { shape: symbolShape, interior: symbolInterior }
+    }
+    await applyPatch('set_series_style', selectedSeriesId, values)
+  }
+
+  const applyPalette = async (): Promise<void> => {
+    await applyPatch('set_palette', selectedSeriesId, {
+      palette_id: paletteId,
+      reverse: paletteReverse,
+    })
+  }
 
   return (
     <div className="focus-editor" role="dialog" aria-modal="true" aria-label="聚焦编辑">
@@ -106,7 +226,7 @@ export function FocusEditor({ initialIndex, plot, onClose }: FocusEditorProps): 
         <button className="back-button" type="button" onClick={onClose}><ArrowLeft size={18} />返回对话</button>
         <div className="focus-title">
           <h2>{active.title}</h2>
-          <span>{plot ? `${plot.plotId} · v${plot.version}` : '线点图 · v3'}</span>
+          <span>{plot ? `${plot.plotId} · v${plot.plotVersion}` : '线点图 · v3'}</span>
         </div>
         <div className="focus-history-tools">
           <button type="button" aria-label="撤销"><Undo2 size={17} /></button>
@@ -152,7 +272,7 @@ export function FocusEditor({ initialIndex, plot, onClose }: FocusEditorProps): 
                 ['current', '当前图'],
                 ['selected', `选中图 ${selected.length}`],
                 ['batch', '整个批次'],
-              ] as [ScopeMode, string][]).map(([value, label]) => <button key={value} type="button" className={scope === value ? 'is-active' : ''} onClick={() => setScope(value)}>{label}</button>)}
+              ] as [ScopeMode, string][]).map(([value, label]) => <button key={value} type="button" className={scope === value ? 'is-active' : ''} disabled={Boolean(plot) && value !== 'current'} title={Boolean(plot) && value !== 'current' ? '批量样式应用将在批次审阅中开放' : undefined} onClick={() => setScope(value)}>{label}</button>)}
             </div>
             <div className="stage-meta">
               <span><Lock size={13} />原始数据只读</span>
@@ -166,11 +286,11 @@ export function FocusEditor({ initialIndex, plot, onClose }: FocusEditorProps): 
               <div className="compare-label compare-label--left"><span>v2</span>修改前</div>
             )}
             <div className="canvas-paper canvas-paper--previous" aria-hidden={!compareOpen}>
-              {compareOpen && (plot?.previewUrl ? <img className="focus-real-preview" src={plot.previewUrl} alt={`${plot.title} 上一版本预览`} /> : <BatchPlot title={active.title} series={active.series} />)}
+              {compareOpen && (plot?.preview?.url ? <img className="focus-real-preview" src={plot.preview.url} alt={`${plot.title} 上一版本预览`} /> : <BatchPlot title={active.title} series={active.series} />)}
             </div>
             <div className="canvas-paper canvas-paper--current">
-              {plot?.previewUrl ? <img className="focus-real-preview" src={plot.previewUrl} alt={`${plot.title} Core 预览`} /> : <BatchPlot title={active.title} series={active.series} />}
-              <button
+              {plot?.preview?.url ? <img className="focus-real-preview" src={plot.preview.url} alt={`${plot.title} Core 预览`} /> : <BatchPlot title={active.title} series={active.series} />}
+              {!plot?.preview?.url && <button
                 className="draggable-legend"
                 type="button"
                 style={{ left: `${legendPosition.x}%`, top: `${legendPosition.y}%` }}
@@ -183,8 +303,8 @@ export function FocusEditor({ initialIndex, plot, onClose }: FocusEditorProps): 
                 <Move size={12} aria-hidden="true" />
                 <span><i className="legend-line legend-line--blue" />Control</span>
                 <span><i className="legend-line legend-line--amber" />Treated</span>
-              </button>
-              <button
+              </button>}
+              {!plot?.preview?.url && <button
                 className="draggable-annotation"
                 type="button"
                 style={{ left: `${annotationPosition.x}%`, top: `${annotationPosition.y}%` }}
@@ -195,38 +315,92 @@ export function FocusEditor({ initialIndex, plot, onClose }: FocusEditorProps): 
                 aria-label="峰值标注，可拖动或用方向键移动"
               >
                 <span>峰值区</span><ArrowUpRight size={14} />
-              </button>
+              </button>}
             </div>
             {compareOpen && (
               <div className="compare-label compare-label--right"><span>v3</span>当前版本</div>
             )}
           </div>
-          <div className="canvas-status"><Sparkles size={13} /><span>拖动图例或标注可立即创建可撤销版本</span><span className="zoom-status">100%</span></div>
+          <div className="canvas-status"><Sparkles size={13} /><span>参数应用后创建新版本，原始数据保持只读</span><span className="zoom-status">100%</span></div>
         </main>
 
         {panelOpen && (
           <aside className="parameter-panel" aria-label="图形参数">
             <header><div><strong>图形参数</strong><span>{scope === 'current' ? active.title : scope === 'selected' ? `${selected.length} 张选中图` : '批次 B-024'}</span></div><button type="button" onClick={() => setPanelOpen(false)} aria-label="关闭参数面板"><X size={17} /></button></header>
-            <div className="parameter-tabs"><button className="is-active" type="button">样式</button><button type="button">坐标轴</button><button type="button">图例</button><button type="button">数据</button></div>
-            <section className="parameter-section">
-              <h3>线与标记</h3>
-              <label><span>线宽</span><div className="unit-input"><input type="number" defaultValue="0.8" step="0.1" /><span>pt</span></div></label>
-              <label><span>标记大小</span><div className="unit-input"><input type="number" defaultValue="4.5" step="0.5" /><span>pt</span></div></label>
-              <label><span>连接方式</span><select defaultValue="straight"><option value="straight">直线</option><option value="spline">样条</option><option value="step">阶梯</option></select></label>
+            <div className="parameter-tabs" role="tablist" aria-label="编辑类别">
+              {([['style', '样式'], ['axis', '坐标轴'], ['legend', '图例']] as [ParameterTab, string][]).map(([value, label]) => (
+                <button key={value} className={parameterTab === value ? 'is-active' : ''} type="button" role="tab" aria-selected={parameterTab === value} onClick={() => setParameterTab(value)}>{label}</button>
+              ))}
+            </div>
+
+            {parameterTab === 'style' && (
+              <>
+                <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applySeriesStyle() }}>
+                  <h3>系列样式</h3>
+                  {plot && plot.seriesIds.length > 1 && <label><span>作用系列</span><select aria-label="作用系列" value={seriesTargetIndex} onChange={(event) => selectSeries(Number(event.target.value))}>{plot.seriesIds.map((seriesId, index) => <option key={seriesId} value={index}>系列 {index + 1}</option>)}</select></label>}
+                  {editCapabilities.has('series_color') && <label><span>颜色</span><input aria-label="系列颜色" type="color" value={color} onChange={(event) => setColor(event.target.value)} /></label>}
+                  {editCapabilities.has('line_width') && <label><span>线宽</span><div className="unit-input"><input aria-label="线宽" type="number" min="0.1" max="20" value={lineWidth} step="0.1" onChange={(event) => setLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>}
+                  {editCapabilities.has('line_style') && <label><span>线型</span><select aria-label="线型" value={lineStyle} onChange={(event) => setLineStyle(event.target.value)}><option value="solid">实线</option><option value="dashed">虚线</option><option value="dotted">点线</option><option value="dash_dot">点划线</option></select></label>}
+                  {editCapabilities.has('marker_size') && <label><span>符号大小</span><div className="unit-input"><input aria-label="符号大小" type="number" min="0.5" max="72" value={markerSize} step="0.5" onChange={(event) => setMarkerSize(event.target.valueAsNumber)} /><span>pt</span></div></label>}
+                  {editCapabilities.has('symbol_shape') && <label><span>Origin 符号</span><select aria-label="Origin 符号" value={symbolShape} onChange={(event) => { const next = event.target.value; setSymbolShape(next); const entry = symbolCatalog.find((item) => item.shape === next); if (!entry?.allowed_interiors.includes(symbolInterior)) setSymbolInterior('solid') }}>{symbolCatalog.map((item) => <option key={item.shape} value={item.shape}>{symbolNames[item.shape] ?? item.shape}</option>)}</select></label>}
+                  {editCapabilities.has('symbol_interior') && <label><span>符号内部</span><select aria-label="符号内部" value={symbolInterior} onChange={(event) => setSymbolInterior(event.target.value)}>{(selectedSymbol?.allowed_interiors ?? ['solid']).map((value) => <option key={value} value={value}>{value === 'solid' ? '实心' : value === 'open' ? '开放（遮挡下层线）' : '空心（透出下层线）'}</option>)}</select></label>}
+                  {[...editCapabilities].some((item) => ['series_color', 'line_width', 'line_style', 'marker_size', 'symbol_shape', 'symbol_interior'].includes(item))
+                    ? <button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedSeriesId}>应用系列样式</button>
+                    : <p className="parameter-empty">该图没有可移植的系列样式项。</p>}
+                </form>
+
+                {editCapabilities.has('series_color') && (
+                  <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_category_color', selectedSeriesId, { category: categoryName.trim(), color: { value: categoryColor } }) }}>
+                    <h3>分类颜色</h3>
+                    <label><span>分类名称</span><input aria-label="分类名称" type="text" value={categoryName} maxLength={256} placeholder="与图例名称完全一致" onChange={(event) => setCategoryName(event.target.value)} /></label>
+                    <label><span>颜色</span><input aria-label="分类颜色" type="color" value={categoryColor} onChange={(event) => setCategoryColor(event.target.value)} /></label>
+                    <button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedSeriesId || categoryName.trim() === ''}>应用分类颜色</button>
+                  </form>
+                )}
+
+                {editCapabilities.has('palette') && (
+                  <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPalette() }}>
+                    <h3>Origin 对照色板</h3>
+                    <label><span>色板</span><select aria-label="Origin 色板" value={paletteId} onChange={(event) => setPaletteId(event.target.value)}>{paletteCatalog.map((palette) => <option key={palette.palette_id} value={palette.palette_id}>{palette.palette_id}</option>)}</select></label>
+                    <div className="palette-preview" aria-label={`${paletteId} 色板预览`}>{palettePreviewColors.map((entry, index) => <i key={`${entry.value}:${index}`} style={{ background: entry.value }} />)}</div>
+                    <label className="parameter-check"><input type="checkbox" checked={paletteReverse} onChange={(event) => setPaletteReverse(event.target.checked)} /><span>反向使用色板</span></label>
+                    <button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedSeriesId}>应用色板</button>
+                  </form>
+                )}
+
+                {editCapabilities.has('canvas_size') && (
+                  <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_canvas_size', plot?.plotId, { physical_size: { width: { value: canvasWidth, unit: 'mm' }, height: { value: canvasHeight, unit: 'mm' } } }) }}>
+                    <h3>画布尺寸</h3>
+                    <label><span>宽度</span><div className="unit-input"><input aria-label="画布宽度" type="number" min="20" max="1000" value={canvasWidth} onChange={(event) => setCanvasWidth(event.target.valueAsNumber)} /><span>mm</span></div></label>
+                    <label><span>高度</span><div className="unit-input"><input aria-label="画布高度" type="number" min="20" max="1000" value={canvasHeight} onChange={(event) => setCanvasHeight(event.target.valueAsNumber)} /><span>mm</span></div></label>
+                    <button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用画布尺寸</button>
+                  </form>
+                )}
+              </>
+            )}
+
+            {parameterTab === 'axis' && (
+              <>
+                <section className="parameter-section">
+                  <h3>作用坐标轴</h3>
+                  <label><span>坐标轴</span><select aria-label="作用坐标轴" value={axisTarget} onChange={(event) => selectAxis(event.target.value as 'x' | 'y' | 'yRight')}><option value="x">X 轴</option><option value="y">左 Y 轴</option>{plot?.axisIds.yRight && <option value="yRight">右 Y 轴</option>}</select></label>
+                </section>
+                {editCapabilities.has('axis_label') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis_label', selectedAxisId, { label: { nodes: [{ kind: 'plain', text: axisLabel }] } }) }}><h3>轴标题</h3><label><span>标题</span><input aria-label="轴标题" required value={axisLabel} onChange={(event) => setAxisLabel(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisLabel.trim().length === 0}>应用轴标题</button></form>}
+                {editCapabilities.has('axis_scale') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis_scale', selectedAxisId, { scale: axisScale }) }}><h3>轴尺度</h3><label><span>尺度</span><select aria-label="轴尺度" value={axisScale} onChange={(event) => setAxisScale(event.target.value)}><option value="linear">线性</option><option value="log10">Log10</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴尺度</button></form>}
+                {editCapabilities.has('axis_range') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis_range', selectedAxisId, { minimum: Number(axisMinimum), maximum: Number(axisMaximum) }) }}><h3>固定范围</h3><label><span>最小值</span><input aria-label="轴最小值" type="number" required value={axisMinimum} onChange={(event) => setAxisMinimum(event.target.value)} /></label><label><span>最大值</span><input aria-label="轴最大值" type="number" required value={axisMaximum} onChange={(event) => setAxisMaximum(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisMinimum === '' || axisMaximum === '' || Number(axisMinimum) >= Number(axisMaximum)}>应用固定范围</button></form>}
+              </>
+            )}
+
+            {parameterTab === 'legend' && (
+              <>
+                {editCapabilities.has('legend_visibility') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_legend_visibility', 'legend:main', { visible: legendVisible }) }}><h3>显示</h3><label className="parameter-check"><input type="checkbox" checked={legendVisible} onChange={(event) => setLegendVisible(event.target.checked)} /><span>显示图例</span></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用显示状态</button></form>}
+                {editCapabilities.has('legend_position') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('move_legend', 'legend:main', { placement: legendPlacement, anchor_x: legendPosition.x / 100, anchor_y: legendPosition.y / 100 }) }}><h3>位置</h3><label><span>布局</span><select aria-label="图例位置" value={legendPlacement} onChange={(event) => setLegendPlacement(event.target.value)}><option value="inside">图内</option><option value="outside_right">图外右侧</option><option value="outside_bottom">图外下方</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图例位置</button></form>}
+              </>
+            )}
+
+            <section className={`parameter-feedback parameter-feedback--${editState}`} aria-live="polite">
+              {editState === 'saving' ? <span>正在保存…</span> : editState === 'saved' ? <span><Check size={14} />{editMessage}</span> : editState === 'error' ? <span>{editMessage}</span> : <span>每次应用都会创建可撤销的新版本。</span>}
             </section>
-            <section className="parameter-section">
-              <h3>画布与发表规格</h3>
-              <label><span>规格</span><select defaultValue="nature"><option value="nature">Nature · 双栏</option><option value="general">通用双栏</option></select></label>
-              <label><span>宽度</span><div className="unit-input"><input type="number" defaultValue="183" /><span>mm</span></div></label>
-              <label><span>DPI</span><div className="unit-input"><input type="number" defaultValue="300" /><span>dpi</span></div></label>
-            </section>
-            <section className="parameter-section parameter-section--status">
-              <h3>校验</h3>
-              <p><Check size={14} />最小线宽符合规格</p>
-              <p><Check size={14} />字体已嵌入</p>
-              <p><Check size={14} />色彩不只依赖颜色区分</p>
-            </section>
-            <footer><button type="button"><RotateCcw size={14} />恢复批次样式</button></footer>
           </aside>
         )}
       </div>
@@ -236,7 +410,7 @@ export function FocusEditor({ initialIndex, plot, onClose }: FocusEditorProps): 
         <div className="thumbnail-strip">
           {availableItems.map((item, index) => (
             <article className={`${activeIndex === index ? 'is-active' : ''}${selected.includes(index) ? ' is-selected' : ''}`} key={item.file}>
-              <button className="thumb-open" type="button" onClick={() => setActiveIndex(index)} aria-label={`打开 ${item.title}`}>{plot?.previewUrl ? <img className="focus-real-thumb" src={plot.previewUrl} alt="" /> : <BatchPlot compact title={item.title} series={item.series} />}</button>
+              <button className="thumb-open" type="button" onClick={() => setActiveIndex(index)} aria-label={`打开 ${item.title}`}>{plot?.preview?.url ? <img className="focus-real-thumb" src={plot.preview.url} alt="" /> : <BatchPlot compact title={item.title} series={item.series} />}</button>
               <label><input type="checkbox" checked={selected.includes(index)} onChange={() => setSelected((current) => current.includes(index) ? current.filter((value) => value !== index) : [...current, index])} /><span>{index + 1}</span></label>
               <small>{item.file.replace('sample_', '').replace('.csv', '')}</small>
             </article>

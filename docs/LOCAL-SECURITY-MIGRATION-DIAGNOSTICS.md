@@ -40,7 +40,7 @@ NetworkMode
 
 第一轮没有 `OneTimeUpdateGrant`、`update_only` 或任何 strict local_only 联网例外。人工安装包由用户在应用外取得，退出应用后显式运行；PlotAgent 本身仍保持零出站。
 
-local_only 下仍完整可用：确定性导入、字段映射、受控 Preparation、九类固定 PlotCalculation、手动选图和参数编辑、31 图、同构批次、固定布局组合、项目资源、PNG/SVG，以及本机 exact Origin version 可用时的 O1 OPJU。手动 UI 构造与 Agent 相同的 ActionPlan 并进入相同 validator/executor/transaction 链。
+local_only 下仍完整可用：确定性导入、字段映射、受控 Preparation、九类固定 PlotCalculation、手动选图和参数编辑、正式 43 图、同构批次、固定布局组合、项目资源、PNG/SVG，以及本机 exact Origin version 可用时的 O1 OPJU。九个内部隐藏图不会因离线模式而开放；手动 UI 构造与 Agent 相同的 ActionPlan 并进入相同 validator/executor/transaction 链。
 
 ## 3. 本地数据保护边界
 
@@ -194,7 +194,7 @@ KnownVersionMigrationRecord
 | 规则 | 验收 | 故障注入 |
 | --- | --- | --- |
 | strict local_only | 全进程抓包/DNS/HTTP mock零请求 | startup/provider/quota/update/diagnostic/URL |
-| 断网本地闭环 | 导入、手动ActionPlan、Preparation/PlotCalculation、31图、batch/Figure、三种导出 | 控制面/provider不可达 |
+| 断网本地闭环 | 导入、手动ActionPlan、Preparation/PlotCalculation、正式43图、batch/Figure、三种导出；隐藏九图仍不可创建/导出 | 控制面/provider不可达 |
 | 恶意 archive | traversal/link/bomb/hash全部阻断 | Unicode/case/size/ratio边界 |
 | 表格不执行 | 宏/公式/外链不运行，cache provenance正确 | VBA/DDE/external refresh |
 | Electron边界 | renderer无Node/secret/任意IPC | HTML/JS/data URL/path注入 |

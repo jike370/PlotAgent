@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from plotagent.agent.errors import AgentRuntimeError
 from plotagent.contracts.agent_context import ContextEnvelope, ContextObjectRef
@@ -30,6 +30,7 @@ class ValidationAuthority:
     allowed_export_scopes: frozenset[str] = frozenset()
     selected_plot_aliases: frozenset[str] = frozenset()
     permission_grants: frozenset[str] = frozenset()
+    target_chart_type_ids: dict[str, str] = field(default_factory=dict)
 
 
 class DecisionValidator:
@@ -84,6 +85,11 @@ class DecisionValidator:
         envelope_charts = set(envelope.chart_capabilities.allowed_chart_type_ids)
         envelope_patches = set(envelope.chart_capabilities.allowed_patch_operations)
         envelope_formats = set(envelope.chart_capabilities.export_formats)
+        chart_patch_operations: dict[str, set[str]] = {
+            item.chart_type_id: set(item.allowed_patch_operations)
+            for item in envelope.chart_capabilities.chart_edit_capabilities
+        }
+        target_chart_types = dict(authority.target_chart_type_ids)
         allowed_targets = authority.allowed_target_aliases | {envelope.target_snapshot.object_alias}
         visible_fields = {
             item.field_alias for item in envelope.selected_context.fields
@@ -109,6 +115,8 @@ class DecisionValidator:
                     for selection in action.field_selections
                 ):
                     errors.append("AGENT_ACTION_SCOPE_INVALID")
+                if isinstance(action, CreatePlotAction):
+                    target_chart_types[action.target_alias] = action.chart_type_id
             if isinstance(action, PatchPlotAction) and any(
                 patch.operation not in envelope_patches
                 or patch.operation not in authority.allowed_patch_operations
@@ -116,6 +124,12 @@ class DecisionValidator:
                 for patch in action.patches
             ):
                 errors.append("AGENT_CAPABILITY_UNSUPPORTED")
+            if isinstance(action, PatchPlotAction):
+                chart_type_id = target_chart_types.get(action.target_alias)
+                if chart_type_id is not None:
+                    per_chart = chart_patch_operations.get(chart_type_id, set())
+                    if any(patch.operation not in per_chart for patch in action.patches):
+                        errors.append("AGENT_CAPABILITY_UNSUPPORTED")
             if isinstance(action, CreateFigureAction) and not set(action.plot_aliases).issubset(
                 authority.selected_plot_aliases
             ):

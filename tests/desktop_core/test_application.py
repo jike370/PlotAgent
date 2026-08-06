@@ -260,6 +260,87 @@ def test_project_import_describe_k01_patch_render_and_exports(
         assert destination.is_file()
 
 
+def test_direct_plot_patch_persists_portable_series_and_legend_styles(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import(harness, project_id, revision, "excel_two_sheets.xlsx", "styles")
+    first = imported["datasets"][0]
+    described = harness.call(
+        "datasets.describe",
+        {
+            "project_id": project_id,
+            "source_dataset_id": first["source_dataset_id"],
+            "source_version": first["source_version"],
+        },
+    )
+    numeric = [
+        item["field_id"]
+        for item in described["dataset"]["fields"]
+        if item["logical_type"] == "numeric"
+    ]
+    created = harness.call(
+        "plots.create",
+        {
+            "project_id": project_id,
+            "plot_id": "plot:styles",
+            "chart_type_id": "K02",
+            "source_dataset_id": first["source_dataset_id"],
+            "source_version": first["source_version"],
+            "field_mapping": {"x": numeric[0], "y": numeric[1]},
+            "idempotency_key": "style-create",
+            "expected_version": imported["project_version"],
+        },
+    )
+    symbol_series_id = created["spec"]["series"][1]["series_id"]
+    styled = harness.call(
+        "plots.patch",
+        {
+            "project_id": project_id,
+            "plot_id": "plot:styles",
+            "expected_version": 1,
+            "idempotency_key": "style-symbol",
+            "patch": {
+                "operation": "set_series_style",
+                "target_id": symbol_series_id,
+                "expected_plot_version": 1,
+                "color": {"value": "#123456"},
+                "marker_size": {"value": 8, "unit": "pt"},
+                "symbol": {"shape": "diamond", "interior": "hollow"},
+            },
+        },
+    )
+    assert styled["plot_version"] == 2
+    assert styled["spec"]["series"][1]["style"] == {
+        "color": {"value": "#123456"},
+        "category_colors": {},
+        "line_width": None,
+        "marker_size": {"value": 8.0, "unit": "pt"},
+        "line_style": "solid",
+        "symbol": {"shape": "diamond", "interior": "hollow"},
+        "palette": None,
+    }
+    legend = harness.call(
+        "plots.patch",
+        {
+            "project_id": project_id,
+            "plot_id": "plot:styles",
+            "expected_version": 2,
+            "idempotency_key": "style-legend",
+            "patch": {
+                "operation": "move_legend",
+                "target_id": "legend:main",
+                "expected_plot_version": 2,
+                "placement": "outside_right",
+                "anchor_x": 1.0,
+                "anchor_y": 1.0,
+            },
+        },
+    )
+    assert legend["spec"]["legend"]["placement"] == "outside_right"
+    assert legend["plot_version"] == 3
+
+
 def test_text_import_is_committed_and_listed(harness: ApplicationHarness) -> None:
     project_id, revision = _create_open(harness)
     imported = _import(harness, project_id, revision, "txt_metadata.txt", "text")
@@ -404,6 +485,54 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
                 {
                     "schema_version": "1.0",
                     "decision_type": "action_plan",
+                    "plan_id": "plan:style-k02-symbol",
+                    "target_alias": "active_target",
+                    "actions": [
+                        {
+                            "action_type": "patch_plot",
+                            "action_id": "action:style-symbol",
+                            "target_alias": "active_target",
+                            "patches": [
+                                {
+                                    "operation": "set_series_style",
+                                    "target_alias": "series_2",
+                                    "color": {"value": "#123456"},
+                                    "marker_size_pt": 8,
+                                    "symbol_shape": "diamond",
+                                    "symbol_interior": "hollow",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ),
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "decision_type": "action_plan",
+                    "plan_id": "plan:category-color",
+                    "target_alias": "active_target",
+                    "actions": [
+                        {
+                            "action_type": "patch_plot",
+                            "action_id": "action:category-color",
+                            "target_alias": "active_target",
+                            "patches": [
+                                {
+                                    "operation": "set_category_color",
+                                    "target_alias": "series_1",
+                                    "category": "Treated",
+                                    "color": {"value": "#654321"},
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ),
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "decision_type": "action_plan",
                     "plan_id": "plan:edit-batch",
                     "target_alias": "active_target",
                     "actions": [
@@ -450,7 +579,9 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
         assert created["accepted"] is True
         execution = created["execution"]
         assert execution["chart_type_id"] == "K02"
-        assert len(provider.requests[0].envelope.chart_capabilities.allowed_chart_type_ids) == 51
+        # K25 is the admitted figure surface and is created through CreateFigureAction,
+        # so CreatePlotAction advertises the remaining 42 official chart types.
+        assert len(provider.requests[0].envelope.chart_capabilities.allowed_chart_type_ids) == 42
 
         edited = app.call(
             "agent.decide",
@@ -470,6 +601,51 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
             {"project_id": project_id, "plot_id": execution["plot_id"]},
         )
         assert stored["spec"]["axes"][1]["label"]["nodes"][0]["text"] == ("Normalized signal")
+
+        styled = app.call(
+            "agent.decide",
+            {
+                **common,
+                "user_instruction": "第二个系列用空心菱形，颜色 #123456，大小 8 pt",
+                "client_model_run_id": "model-run:style-symbol",
+                "expected_version": edited["execution"]["project_version"],
+                "target": {"kind": "plot", "id": execution["plot_id"]},
+                "scope": "current",
+            },
+        )
+        assert styled["accepted"] is True
+        assert styled["execution"]["plot_version"] == 3
+        styled_spec = styled["execution"]["spec"]
+        assert styled_spec["series"][1]["style"]["color"] == {"value": "#123456"}
+        assert styled_spec["series"][1]["style"]["marker_size"] == {
+            "value": 8.0,
+            "unit": "pt",
+        }
+        assert styled_spec["series"][1]["style"]["symbol"] == {
+            "shape": "diamond",
+            "interior": "hollow",
+        }
+        assert {
+            item.object_alias
+            for item in provider.requests[2].envelope.selected_context.selected_objects
+        }.issuperset({"series_1", "series_2"})
+
+        category_edited = app.call(
+            "agent.decide",
+            {
+                **common,
+                "user_instruction": "Treated 分类改为 #654321",
+                "client_model_run_id": "model-run:category-color",
+                "expected_version": styled["execution"]["project_version"],
+                "target": {"kind": "plot", "id": execution["plot_id"]},
+                "scope": "current",
+            },
+        )
+        assert category_edited["accepted"] is True
+        assert category_edited["execution"]["plot_version"] == 4
+        assert category_edited["execution"]["spec"]["series"][0]["style"][
+            "category_colors"
+        ] == {"Treated": {"value": "#654321"}}
 
         described = app.call(
             "datasets.describe",
@@ -500,7 +676,7 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
                 "chart_type_id": "K01",
                 "field_mapping": {"x": numeric[0], "y": numeric[1]},
                 "idempotency_key": "agent-batch-create",
-                "expected_version": edited["execution"]["project_version"],
+                "expected_version": category_edited["execution"]["project_version"],
             },
         )
         completed = app.call(
@@ -536,12 +712,12 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
             item["plot_version_ref"]["plot_version"]
             for item in updated_batch["batch"]["item_states"]
         } == {2}
-        assert provider.requests[2].envelope.target_snapshot.object_type == "batch"
+        assert provider.requests[4].envelope.target_snapshot.object_type == "batch"
     finally:
         app.close()
 
 
-def test_desktop_application_creates_and_renders_exact_52_chart_surface(
+def test_desktop_application_creates_and_renders_exact_43_product_chart_surface(
     harness: ApplicationHarness,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -569,6 +745,7 @@ def test_desktop_application_creates_and_renders_exact_52_chart_surface(
         {
             role
             for chart in CHART_REGISTRY
+            if chart.admission == "product"
             if chart.chart_type_id != "K25"
             for role in chart.required_roles
         }
@@ -632,6 +809,8 @@ def test_desktop_application_creates_and_renders_exact_52_chart_surface(
     field_by_name = {field["name"]: field["field_id"] for field in described["dataset"]["fields"]}
     plot_refs: list[dict[str, object]] = []
     for chart in CHART_REGISTRY:
+        if chart.admission != "product":
+            continue
         if chart.chart_type_id == "K25":
             continue
         plot_id = f"plot:matrix.{chart.chart_type_id.lower()}"
@@ -677,7 +856,7 @@ def test_desktop_application_creates_and_renders_exact_52_chart_surface(
         {"project_id": project_id, "figure_id": "figure:matrix.k25"},
     )
     assert Path(preview["artifact"]["path"]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
-    assert len(plot_refs) + 1 == 52
+    assert len(plot_refs) + 1 == 43
 
     plot_destination = tmp_path / "non-k01.opju"
     exported_plot = harness.call(

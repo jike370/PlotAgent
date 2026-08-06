@@ -2872,6 +2872,7 @@ input[type="checkbox"] {
 }
 
 .parameter-section select,
+.parameter-section label > input:not([type='checkbox']):not([type='color']),
 .unit-input {
   width: 105px;
   height: 27px;
@@ -2883,6 +2884,19 @@ input[type="checkbox"] {
 
 .parameter-section select {
   padding: 0 5px;
+}
+
+.parameter-section label > input:not([type='checkbox']):not([type='color']) {
+  padding: 0 6px;
+}
+
+.parameter-section input[type='color'] {
+  width: 36px;
+  height: 25px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--canvas);
 }
 
 .unit-input {
@@ -2903,6 +2917,85 @@ input[type="checkbox"] {
   padding: 0 5px;
   color: var(--faint);
   font-size: 7.5px;
+}
+
+.parameter-check {
+  justify-content: flex-start;
+}
+
+.parameter-check input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.parameter-check > span {
+  flex: 1;
+}
+
+.parameter-apply {
+  width: 100%;
+  min-height: 30px;
+  margin-top: 9px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--canvas);
+  background: var(--primary);
+  font-size: 8.5px;
+  font-weight: 650;
+}
+
+.parameter-apply:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.palette-preview {
+  height: 18px;
+  display: flex;
+  overflow: hidden;
+  margin: 4px 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.palette-preview i {
+  min-width: 0;
+  flex: 1;
+}
+
+.parameter-empty {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.5;
+}
+
+.parameter-feedback {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 8px 11px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 8.5px;
+  line-height: 1.45;
+}
+
+.parameter-feedback span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.parameter-feedback--saved {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.parameter-feedback--error {
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .parameter-section--status p {

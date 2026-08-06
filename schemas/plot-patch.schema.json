@@ -686,6 +686,67 @@
       "title": "SetLegendVisibilityPatch",
       "type": "object"
     },
+    "SetPalettePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_palette",
+          "default": "set_palette",
+          "title": "Operation",
+          "type": "string"
+        },
+        "palette_id": {
+          "enum": [
+            "ColorBlindSafe8",
+            "ColorBlindSafe15",
+            "BlueOrange",
+            "OrangeNavy",
+            "RedPurple",
+            "Viridis",
+            "Plasma",
+            "Inferno",
+            "Magma",
+            "GreyBlue",
+            "YellowBlue",
+            "YellowGreen",
+            "YellowPurple",
+            "Fire",
+            "Rainbow_Modified",
+            "GrayScale"
+          ],
+          "title": "Palette Id",
+          "type": "string"
+        },
+        "reverse": {
+          "default": false,
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_id": {
+          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "palette_id"
+      ],
+      "title": "SetPalettePatch",
+      "type": "object"
+    },
     "SetSeriesStylePatch": {
       "additionalProperties": false,
       "properties": {
@@ -704,6 +765,24 @@
           "minimum": 1,
           "title": "Expected Plot Version",
           "type": "integer"
+        },
+        "line_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dashed",
+                "dotted",
+                "dash_dot"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Style"
         },
         "line_width": {
           "anyOf": [
@@ -739,6 +818,17 @@
           "title": "Schema Version",
           "type": "string"
         },
+        "symbol": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SymbolStyle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "target_id": {
           "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
@@ -750,6 +840,42 @@
         "expected_plot_version"
       ],
       "title": "SetSeriesStylePatch",
+      "type": "object"
+    },
+    "SymbolStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "interior": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "open",
+            "hollow"
+          ],
+          "title": "Interior",
+          "type": "string"
+        },
+        "shape": {
+          "default": "circle",
+          "enum": [
+            "square",
+            "circle",
+            "triangle_up",
+            "triangle_down",
+            "diamond",
+            "plus",
+            "cross",
+            "triangle_left",
+            "triangle_right",
+            "hexagon",
+            "star",
+            "pentagon"
+          ],
+          "title": "Shape",
+          "type": "string"
+        }
+      },
+      "title": "SymbolStyle",
       "type": "object"
     },
     "UpdateAnnotationPatch": {
@@ -805,6 +931,7 @@
       "set_canvas_size": "#/$defs/SetCanvasSizePatch",
       "set_category_color": "#/$defs/SetCategoryColorPatch",
       "set_legend_visibility": "#/$defs/SetLegendVisibilityPatch",
+      "set_palette": "#/$defs/SetPalettePatch",
       "set_series_style": "#/$defs/SetSeriesStylePatch",
       "update_annotation": "#/$defs/UpdateAnnotationPatch"
     },
@@ -822,6 +949,9 @@
     },
     {
       "$ref": "#/$defs/SetSeriesStylePatch"
+    },
+    {
+      "$ref": "#/$defs/SetPalettePatch"
     },
     {
       "$ref": "#/$defs/SetCategoryColorPatch"

@@ -102,7 +102,7 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 
 ## 4. 需要预计算字段的正式图形
 
-31 图仍全部保留在正式图形库。依赖科学分析的图形不隐藏，详情页和执行前确认区明确显示“需要预计算字段”。缺少输入时返回 `PLOTSPEC_PRECOMPUTED_INPUT_REQUIRED`：
+正式 43 图均保留在图形库；本节列出的九图依赖用户预计算字段，详情页和执行前确认区明确显示“需要预计算字段”。缺少输入时返回 `PLOTSPEC_PRECOMPUTED_INPUT_REQUIRED`。九个 `internal_hidden` adapter 不属于正式范围，也不会因具备预计算输入而开放：
 
 | 图形 | v1 接受的预计算输入 | v1 不执行 |
 | --- | --- | --- |
@@ -143,7 +143,7 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 
 AnalysisSpec/Result、FitSpec/Result、统计检验、科学拟合、平滑、基线、归一化与可物化分析输出均为后续能力。未来启用时必须新增/更新 Decision ID、Schema、错误、fixtures、provider context、storage 和 release gate；不得复用 v1 PlotCalculationSpec 作为开放分析后门。
 
-现有 31 图在 v1 的准入只验证固定计算或预计算字段路径，不验证上述后续算法的科学正确性。
+正式 43 图在 v1 的准入只验证各图适用的直接数据、固定计算或预计算字段路径，不验证上述后续算法的科学正确性；新增 12 图不会扩大 AnalysisSpec/FitSpec 范围。
 
 ## 8. 稳定错误与契约测试
 

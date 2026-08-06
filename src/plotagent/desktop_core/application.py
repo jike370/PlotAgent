@@ -49,10 +49,15 @@ from plotagent.batch.models import (
     StagedPlot,
 )
 from plotagent.batch.protocols import CancellationToken as BatchCancellationToken
-from plotagent.charts.registry import ChartRegistryError, get_chart
+from plotagent.charts.registry import (
+    ChartRegistryError,
+    get_chart,
+    patch_operations_for_chart,
+)
 from plotagent.charts.series_rules import get_series_rule
 from plotagent.contracts.agent_context import (
     ChartCapabilities,
+    ChartEditCapabilities,
     ContextFieldSummary,
     ContextObjectRef,
     DisclosureCategory,
@@ -93,13 +98,19 @@ from plotagent.contracts.decisions import (
     AxisRangeIntent,
     AxisScaleIntent,
     CanvasSizeIntent,
+    CategoryColorIntent,
     CreatePlotAction,
+    LegendPlacementIntent,
+    LegendVisibilityIntent,
     NeedsInput,
+    PaletteIntent,
     PatchPlotAction,
     SeriesStyleIntent,
     Unsupported,
 )
 from plotagent.contracts.plots import (
+    AddAnnotationPatch,
+    ApplyPublicationProfilePatch,
     AxisScaleKind,
     AxisSpec,
     BatchExecutionSignature,
@@ -116,6 +127,7 @@ from plotagent.contracts.plots import (
     FigureSpec,
     ForestFamily,
     MatrixFamily,
+    MoveLegendPatch,
     PlotPatch,
     PlotProvenance,
     PlotSpec,
@@ -123,6 +135,7 @@ from plotagent.contracts.plots import (
     PrecomputedSeriesData,
     PreparedSeriesData,
     PublicationProfileSnapshot,
+    RemoveAnnotationPatch,
     ResolvedStyleSnapshot,
     SafeRichText,
     SafeTextNode,
@@ -132,13 +145,23 @@ from plotagent.contracts.plots import (
     SetAxisRangePatch,
     SetAxisScalePatch,
     SetCanvasSizePatch,
+    SetCategoryColorPatch,
+    SetLegendVisibilityPatch,
+    SetPalettePatch,
     SetSeriesStylePatch,
     SpecialFamily,
     StyleSourceRef,
     SurvivalFamily,
+    UpdateAnnotationPatch,
     XYFamily,
 )
-from plotagent.contracts.registry import CHARTS_BY_ID as CONTRACT_CHARTS_BY_ID
+from plotagent.contracts.registry import (
+    CHARTS_BY_ID as CONTRACT_CHARTS_BY_ID,
+)
+from plotagent.contracts.registry import (
+    PRODUCT_CHART_IDS,
+)
+from plotagent.contracts.styles import SymbolStyle, resolve_palette
 from plotagent.desktop_core.protocol import JsonValue as RpcJsonValue
 from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
 from plotagent.desktop_core.tasks import (
@@ -1650,9 +1673,9 @@ class DesktopApplication:
                 current_target=target, selected_objects=selected_objects
             ),
             chart_capabilities=ChartCapabilities(
-                capability_version="desktop-52-v1",
+                capability_version="desktop-43-v1",
                 allowed_chart_type_ids=tuple(
-                    chart_id for chart_id in CONTRACT_CHARTS_BY_ID if chart_id != "K25"
+                    chart_id for chart_id in PRODUCT_CHART_IDS if chart_id != "K25"
                 ),
                 allowed_action_types=("create_plot", "patch_plot"),
                 allowed_patch_operations=(
@@ -1660,7 +1683,26 @@ class DesktopApplication:
                     "set_axis_scale",
                     "set_axis_label",
                     "set_series_style",
+                    "set_category_color",
+                    "set_palette",
+                    "set_legend_visibility",
+                    "move_legend",
                     "set_canvas_size",
+                ),
+                chart_edit_capabilities=tuple(
+                    ChartEditCapabilities(
+                        chart_type_id=chart_id,
+                        allowed_patch_operations=cast(
+                            Any,
+                            tuple(
+                                operation
+                                for operation in patch_operations_for_chart(chart_id)
+                                if operation != "apply_publication_profile"
+                            ),
+                        ),
+                    )
+                    for chart_id in PRODUCT_CHART_IDS
+                    if chart_id != "K25"
                 ),
             ),
             disclosure_grant=DisclosureGrant(
@@ -1679,7 +1721,7 @@ class DesktopApplication:
             allowed_field_aliases=frozenset(alias_to_field),
             allowed_action_types=frozenset({"create_plot", "patch_plot"}),
             allowed_chart_type_ids=frozenset(
-                chart_id for chart_id in CONTRACT_CHARTS_BY_ID if chart_id != "K25"
+                chart_id for chart_id in PRODUCT_CHART_IDS if chart_id != "K25"
             ),
             allowed_patch_operations=frozenset(
                 {
@@ -1687,10 +1729,17 @@ class DesktopApplication:
                     "set_axis_scale",
                     "set_axis_label",
                     "set_series_style",
+                    "set_category_color",
+                    "set_palette",
+                    "set_legend_visibility",
+                    "move_legend",
                     "set_canvas_size",
                 }
             ),
             permission_grants=frozenset({"create_plot", "patch_plot"}),
+            target_chart_type_ids={
+                alias: stored.plot.chart_type_id for alias, stored in plots_by_alias.items()
+            },
         )
         orchestrator = SingleAgentOrchestrator(
             network_mode=mode,
@@ -2020,28 +2069,28 @@ class DesktopApplication:
             content_hash=content_hash,
         )
         primary = stored_plots[0]
-        aliases: tuple[ContextObjectRef, ...] = (
+        target_aliases = [
+            "x_axis",
+            "y_axis",
+            *(
+                ["right_y_axis"]
+                if any(
+                    axis.orientation == "y" and axis.position == "right"
+                    for axis in primary.plot.axes
+                )
+                else []
+            ),
+            *(f"series_{index + 1}" for index, _series in enumerate(primary.plot.series)),
+        ]
+        aliases: tuple[ContextObjectRef, ...] = tuple(
             ContextObjectRef(
-                object_alias="x_axis",
+                object_alias=alias,
                 object_id=primary.plot.plot_id,
                 object_version=primary.plot.plot_version,
                 object_type="plot",
                 content_hash=primary.content_hash,
-            ),
-            ContextObjectRef(
-                object_alias="y_axis",
-                object_id=primary.plot.plot_id,
-                object_version=primary.plot.plot_version,
-                object_type="plot",
-                content_hash=primary.content_hash,
-            ),
-            ContextObjectRef(
-                object_alias="series_1",
-                object_id=primary.plot.plot_id,
-                object_version=primary.plot.plot_version,
-                object_type="plot",
-                content_hash=primary.content_hash,
-            ),
+            )
+            for alias in target_aliases
         )
         plots_by_alias: dict[str, StoredPlot] = {"active_target": primary}
         if len(stored_plots) > 1:
@@ -2064,13 +2113,21 @@ class DesktopApplication:
     @staticmethod
     def _agent_patch_payload(previous: StoredPlot, intent: Any) -> RpcJsonValue:
         target_by_alias = {
-            "x_axis": "axis:x",
-            "y_axis": "axis:y",
-            "series_1": previous.plot.series[0].series_id,
+            f"series_{index + 1}": series.series_id
+            for index, series in enumerate(previous.plot.series)
         }
+        for axis in previous.plot.axes:
+            if axis.orientation == "x" and axis.position != "none":
+                target_by_alias["x_axis"] = axis.axis_id
+            elif axis.orientation == "y" and axis.position == "right":
+                target_by_alias["right_y_axis"] = axis.axis_id
+            elif axis.orientation == "y":
+                target_by_alias["y_axis"] = axis.axis_id
         target_id = target_by_alias.get(intent.target_alias)
         if isinstance(intent, CanvasSizeIntent):
             target_id = previous.plot.plot_id
+        elif isinstance(intent, (LegendVisibilityIntent, LegendPlacementIntent)):
+            target_id = "legend:main"
         if target_id is None:
             raise RpcServiceError(
                 "AGENT_ACTION_SCOPE_INVALID", "The patch target alias is not editable."
@@ -2093,6 +2150,32 @@ class DesktopApplication:
                 common["line_width"] = {"value": intent.line_width_pt, "unit": "pt"}
             if intent.marker_size_pt is not None:
                 common["marker_size"] = {"value": intent.marker_size_pt, "unit": "pt"}
+            if intent.line_style is not None:
+                common["line_style"] = intent.line_style
+            if intent.symbol_shape is not None or intent.symbol_interior is not None:
+                target_series = next(
+                    series for series in previous.plot.series if series.series_id == target_id
+                )
+                current = target_series.style.symbol
+                common["symbol"] = SymbolStyle(
+                    shape=intent.symbol_shape or current.shape,
+                    interior=intent.symbol_interior or current.interior,
+                ).model_dump(mode="json")
+        elif isinstance(intent, CategoryColorIntent):
+            common["category"] = intent.category
+            common["color"] = cast(RpcJsonValue, intent.color.model_dump(mode="json"))
+        elif isinstance(intent, PaletteIntent):
+            common.update({"palette_id": intent.palette_id, "reverse": intent.reverse})
+        elif isinstance(intent, LegendVisibilityIntent):
+            common["visible"] = intent.visible
+        elif isinstance(intent, LegendPlacementIntent):
+            common.update(
+                {
+                    "placement": intent.placement,
+                    "anchor_x": previous.plot.legend.anchor_x,
+                    "anchor_y": previous.plot.legend.anchor_y,
+                }
+            )
         elif isinstance(intent, CanvasSizeIntent):
             common["physical_size"] = intent.physical_size.model_dump(mode="json")
         else:
@@ -2119,12 +2202,18 @@ class DesktopApplication:
         dict[str, bytes],
     ]:
         try:
-            get_chart(chart_type_id)
+            internal_registration = get_chart(chart_type_id)
             registration = CONTRACT_CHARTS_BY_ID[cast(Any, chart_type_id)]
         except ChartRegistryError:
             raise RpcServiceError(
                 "CHART_TYPE_UNKNOWN", "The requested chart type is not in the v1 registry."
             ) from None
+        if internal_registration.admission != "product":
+            raise RpcServiceError(
+                "CHART_TYPE_NOT_ADMITTED",
+                "The chart adapter is retained for internal regression but is not "
+                "product-qualified.",
+            )
         if chart_type_id == "K25":
             raise RpcServiceError(
                 "CHART_REQUIRES_FIGURE",
@@ -2485,15 +2574,77 @@ class DesktopApplication:
             style_update = {
                 key: value
                 for key, value in {
-                    "colors": (
-                        (patch.color,) if patch.color is not None else plot.resolved_style.colors
-                    ),
+                    "color": patch.color,
                     "line_width": patch.line_width,
                     "marker_size": patch.marker_size,
+                    "line_style": patch.line_style,
+                    "symbol": patch.symbol,
                 }.items()
                 if value is not None
             }
-            update["resolved_style"] = plot.resolved_style.model_copy(update=style_update)
+            update["series"] = tuple(
+                series.model_copy(update={"style": series.style.model_copy(update=style_update)})
+                if series.series_id == patch.target_id
+                else series
+                for series in plot.series
+            )
+        elif isinstance(patch, SetPalettePatch):
+            resolved_palette = resolve_palette(patch.palette_id, reverse=patch.reverse)
+            update["series"] = tuple(
+                series.model_copy(
+                    update={
+                        "style": series.style.model_copy(update={"palette": resolved_palette})
+                    }
+                )
+                if series.series_id == patch.target_id
+                else series
+                for series in plot.series
+            )
+        elif isinstance(patch, SetCategoryColorPatch):
+            update["series"] = tuple(
+                series.model_copy(
+                    update={
+                        "style": series.style.model_copy(
+                            update={
+                                "category_colors": {
+                                    **series.style.category_colors,
+                                    patch.category: patch.color,
+                                }
+                            }
+                        )
+                    }
+                )
+                if series.series_id == patch.target_id
+                else series
+                for series in plot.series
+            )
+        elif isinstance(patch, SetLegendVisibilityPatch):
+            update["legend"] = plot.legend.model_copy(update={"visible": patch.visible})
+        elif isinstance(patch, MoveLegendPatch):
+            update["legend"] = plot.legend.model_copy(
+                update={
+                    "placement": patch.placement,
+                    "anchor_x": patch.anchor_x,
+                    "anchor_y": patch.anchor_y,
+                }
+            )
+        elif isinstance(patch, AddAnnotationPatch):
+            update["annotations"] = (*plot.annotations, patch.annotation)
+        elif isinstance(patch, UpdateAnnotationPatch):
+            update["annotations"] = tuple(
+                patch.annotation
+                if annotation.annotation_id == patch.annotation.annotation_id
+                else annotation
+                for annotation in plot.annotations
+            )
+        elif isinstance(patch, RemoveAnnotationPatch):
+            update["annotations"] = tuple(
+                annotation
+                for annotation in plot.annotations
+                if annotation.annotation_id != patch.annotation_id
+            )
+        elif isinstance(patch, ApplyPublicationProfilePatch):
+            update["publication_profile"] = patch.profile
         elif isinstance(patch, SetCanvasSizePatch):
             update["publication_profile"] = plot.publication_profile.model_copy(
                 update={"physical_size": patch.physical_size}

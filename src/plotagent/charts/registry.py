@@ -11,7 +11,15 @@ from dataclasses import dataclass
 from typing import Literal, Never
 
 from plotagent.contracts.base import CalculationKind, ChartTypeId, PrecomputedKind
-from plotagent.contracts.registry import CHARTS_BY_ID as CONTRACT_CHARTS_BY_ID
+from plotagent.contracts.registry import (
+    CHARTS_BY_ID as CONTRACT_CHARTS_BY_ID,
+)
+from plotagent.contracts.registry import (
+    PRODUCT_CHART_IDS,
+    AdmissionStatus,
+    EditCapability,
+    VisualEvidenceLevel,
+)
 
 AdapterFamily = Literal["xy", "bar", "distribution", "matrix", "special", "facet"]
 DataChainMode = Literal["direct", "fixed", "user_precomputed", "panel_plans"]
@@ -38,6 +46,9 @@ class ChartAdapterRegistration:
     required_precomputed: tuple[PrecomputedKind, ...]
     exports: ExportCapability
     limitations: tuple[str, ...]
+    admission: AdmissionStatus
+    visual_evidence: VisualEvidenceLevel
+    edit_capabilities: tuple[EditCapability, ...]
 
 
 def _entry(
@@ -50,6 +61,7 @@ def _entry(
     required_precomputed: tuple[PrecomputedKind, ...],
     limitations: tuple[str, ...],
 ) -> ChartAdapterRegistration:
+    contract = CONTRACT_CHARTS_BY_ID[chart_type_id]
     return ChartAdapterRegistration(
         chart_type_id=chart_type_id,
         adapter_family=adapter_family,
@@ -60,6 +72,9 @@ def _entry(
         required_precomputed=required_precomputed,
         exports=V1_EXPORTS,
         limitations=limitations,
+        admission=contract.admission,
+        visual_evidence=contract.visual_evidence,
+        edit_capabilities=contract.edit_capabilities,
     )
 
 
@@ -593,8 +608,6 @@ def _fail_registry(message: str) -> Never:
     raise RuntimeError(message)
 
 
-if len(CHARTS) != 52 or len(CHARTS_BY_ID) != 52:
-    _fail_registry("the W4 chart registry must contain exactly 52 unique entries")
 if set(CHARTS_BY_ID) != set(CONTRACT_CHARTS_BY_ID):
     _fail_registry("the W4 chart IDs must exactly match the W0 contract registry")
 for _chart_id, _runtime in CHARTS_BY_ID.items():
@@ -616,9 +629,53 @@ class ChartRegistryError(ValueError):
 
 
 def get_chart(chart_type_id: str) -> ChartAdapterRegistration:
-    """Return one of the exact first-release entries and reject every other identifier."""
+    """Return any internal adapter, including entries hidden from product admission."""
 
     try:
         return CHARTS_BY_ID[chart_type_id]  # type: ignore[index]
     except KeyError as error:
         raise ChartRegistryError(f"{chart_type_id!r} is not a first-release chart type") from error
+
+
+def get_product_chart(chart_type_id: str) -> ChartAdapterRegistration:
+    """Return a user/Agent-admitted chart and reject internal-only adapters."""
+
+    chart = get_chart(chart_type_id)
+    if chart.admission != "product":
+        raise ChartRegistryError(f"{chart_type_id!r} is retained for internal regression only")
+    return chart
+
+
+PRODUCT_CHARTS = tuple(CHARTS_BY_ID[chart_id] for chart_id in PRODUCT_CHART_IDS)
+
+
+def patch_operations_for_chart(chart_type_id: str) -> tuple[str, ...]:
+    """Project edit capability metadata onto the closed Agent patch vocabulary."""
+
+    capabilities = set(get_chart(chart_type_id).edit_capabilities)
+    operations: list[str] = []
+    for operation, required in (
+        ("set_axis_range", {"axis_range"}),
+        ("set_axis_scale", {"axis_scale"}),
+        ("set_axis_label", {"axis_label"}),
+        (
+            "set_series_style",
+            {
+                "series_color",
+                "line_width",
+                "line_style",
+                "marker_size",
+                "symbol_shape",
+                "symbol_interior",
+            },
+        ),
+        ("set_category_color", {"series_color"}),
+        ("set_palette", {"palette"}),
+        ("set_legend_visibility", {"legend_visibility"}),
+        ("move_legend", {"legend_position"}),
+        ("apply_publication_profile", {"publication_profile"}),
+        ("set_canvas_size", {"canvas_size"}),
+    ):
+        if capabilities & required:
+            operations.append(operation)
+    return tuple(operations)

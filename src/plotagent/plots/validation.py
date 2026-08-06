@@ -25,6 +25,7 @@ from plotagent.contracts.plots import (
     SetCanvasSizePatch,
     SetCategoryColorPatch,
     SetLegendVisibilityPatch,
+    SetPalettePatch,
     SetSeriesStylePatch,
     UpdateAnnotationPatch,
 )
@@ -146,6 +147,47 @@ def validate_plot_patch(plot: PlotSpec, patch: PlotPatch) -> PlotPatch:
     if patch.expected_plot_version != plot.plot_version:
         raise PlotValidationError("PATCH_VERSION_CONFLICT", "patch expected version is stale")
 
+    registration = get_chart(plot.chart_type_id)
+    required_capabilities: set[str] = set()
+    if isinstance(patch, SetAxisRangePatch):
+        required_capabilities.add("axis_range")
+    elif isinstance(patch, SetAxisScalePatch):
+        required_capabilities.add("axis_scale")
+    elif isinstance(patch, SetAxisLabelPatch):
+        required_capabilities.add("axis_label")
+    elif isinstance(patch, SetSeriesStylePatch):
+        if patch.color is not None:
+            required_capabilities.add("series_color")
+        if patch.line_width is not None:
+            required_capabilities.add("line_width")
+        if patch.marker_size is not None:
+            required_capabilities.add("marker_size")
+        if patch.line_style is not None:
+            required_capabilities.add("line_style")
+        if patch.symbol is not None:
+            required_capabilities.update(("symbol_shape", "symbol_interior"))
+    elif isinstance(patch, SetPalettePatch):
+        required_capabilities.add("palette")
+    elif isinstance(patch, SetCategoryColorPatch):
+        required_capabilities.add("series_color")
+    elif isinstance(patch, SetLegendVisibilityPatch):
+        required_capabilities.add("legend_visibility")
+    elif isinstance(patch, MoveLegendPatch):
+        required_capabilities.add("legend_position")
+    elif isinstance(patch, (AddAnnotationPatch, UpdateAnnotationPatch, RemoveAnnotationPatch)):
+        required_capabilities.add("safe_annotation")
+    elif isinstance(patch, ApplyPublicationProfilePatch):
+        required_capabilities.add("publication_profile")
+    elif isinstance(patch, SetCanvasSizePatch):
+        required_capabilities.add("canvas_size")
+    unsupported = required_capabilities - set(registration.edit_capabilities)
+    if unsupported:
+        names = ", ".join(sorted(unsupported))
+        raise PlotValidationError(
+            "PATCH_CAPABILITY_NOT_SUPPORTED",
+            f"{plot.chart_type_id} does not expose edit capabilities: {names}",
+        )
+
     axes = {axis.axis_id: axis for axis in plot.axes}
     series_ids = {series.series_id for series in plot.series}
     annotation_ids = {annotation.annotation_id for annotation in plot.annotations}
@@ -161,7 +203,7 @@ def validate_plot_patch(plot: PlotSpec, patch: PlotPatch) -> PlotPatch:
                 raise PlotValidationError("AXIS_LOG_NONPOSITIVE", "Log10 bounds must be positive")
         if isinstance(patch, SetAxisLabelPatch):
             validate_safe_text(patch.label)
-    elif isinstance(patch, (SetSeriesStylePatch, SetCategoryColorPatch)):
+    elif isinstance(patch, (SetSeriesStylePatch, SetPalettePatch, SetCategoryColorPatch)):
         if patch.target_id not in series_ids:
             raise PlotValidationError("PATCH_TARGET_INVALID", "series target does not exist")
     elif isinstance(patch, (MoveLegendPatch, SetLegendVisibilityPatch)):

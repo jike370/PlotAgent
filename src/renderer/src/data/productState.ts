@@ -26,11 +26,40 @@ export interface ProductDataset {
   coordinateKinds: string[]
 }
 
+export interface ProductSeriesStyle {
+  color?: string
+  lineWidthPt?: number
+  markerSizePt?: number
+  lineStyle?: string
+  symbolShape?: string
+  symbolInterior?: string
+  paletteId?: string
+  paletteReverse?: boolean
+}
+
+export interface ProductAxisState {
+  axisId: string
+  label: string
+  scale: string
+  minimum?: number
+  maximum?: number
+  reverse: boolean
+}
+
 export interface ProductPlot {
   plotId: string
   plotVersion: number
   chartId: string
   projectVersion: number
+  seriesIds: string[]
+  seriesStyles: { seriesId: string; style: ProductSeriesStyle }[]
+  axisIds: { x?: string; y?: string; yRight?: string }
+  axisStates: { x?: ProductAxisState; y?: ProductAxisState; yRight?: ProductAxisState }
+  canvasSizeMm: { width: number; height: number }
+  style: ProductSeriesStyle & {
+    legendVisible?: boolean
+    legendPlacement?: string
+  }
   preview?: DesktopResource
 }
 
@@ -156,17 +185,101 @@ function readResource(value: JsonValue): DesktopResource | undefined {
   }
 }
 
+function readSeriesStyle(value: JsonValue | undefined): ProductSeriesStyle {
+  if (!isJsonRecord(value)) return {}
+  const symbol = isJsonRecord(value.symbol) ? value.symbol : undefined
+  const palette = isJsonRecord(value.palette) ? value.palette : undefined
+  return {
+    ...(isJsonRecord(value.color) && typeof value.color.value === 'string'
+      ? { color: value.color.value } : {}),
+    ...(isJsonRecord(value.line_width) && typeof value.line_width.value === 'number'
+      ? { lineWidthPt: value.line_width.value } : {}),
+    ...(isJsonRecord(value.marker_size) && typeof value.marker_size.value === 'number'
+      ? { markerSizePt: value.marker_size.value } : {}),
+    ...(typeof value.line_style === 'string' ? { lineStyle: value.line_style } : {}),
+    ...(symbol && typeof symbol.shape === 'string' ? { symbolShape: symbol.shape } : {}),
+    ...(symbol && typeof symbol.interior === 'string' ? { symbolInterior: symbol.interior } : {}),
+    ...(palette && typeof palette.palette_id === 'string' ? { paletteId: palette.palette_id } : {}),
+    ...(palette && typeof palette.reverse === 'boolean' ? { paletteReverse: palette.reverse } : {}),
+  }
+}
+
+function richTextValue(value: JsonValue | undefined): string {
+  if (!isJsonRecord(value) || !Array.isArray(value.nodes)) return ''
+  return value.nodes.flatMap((node) => {
+    if (!isJsonRecord(node)) return []
+    if (node.kind === 'newline') return ['\n']
+    if (node.kind === 'fraction' && typeof node.text === 'string' && typeof node.denominator === 'string') {
+      return [`${node.text}/${node.denominator}`]
+    }
+    return typeof node.text === 'string' ? [node.text] : []
+  }).join('')
+}
+
+function physicalLengthMm(value: JsonValue | undefined, fallback: number): number {
+  if (!isJsonRecord(value) || typeof value.value !== 'number') return fallback
+  return value.unit === 'pt' ? value.value * 25.4 / 72 : value.value
+}
+
 export function readPlot(value: JsonValue): ProductPlot | undefined {
   const candidates = records(value, (record) => (
     typeof record.plot_id === 'string' && typeof record.plot_version === 'number'
   ))
-  const record = candidates.at(-1)
-  if (record === undefined) return undefined
+  const fallback = candidates.at(-1)
+  if (fallback === undefined) return undefined
+  const record = candidates.find((candidate) => Array.isArray(candidate.series)) ?? fallback
+  const series = Array.isArray(record.series) ? record.series.filter(isJsonRecord) : []
+  const axes = Array.isArray(record.axes) ? record.axes.filter(isJsonRecord) : []
+  const scales = Array.isArray(record.scales) ? record.scales.filter(isJsonRecord) : []
+  const firstStyle = series.length > 0 && isJsonRecord(series[0].style) ? series[0].style : undefined
+  const legend = isJsonRecord(record.legend) ? record.legend : undefined
+  const xAxis = axes.find((axis) => axis.orientation === 'x')
+  const leftYAxis = axes.find((axis) => axis.orientation === 'y' && axis.position !== 'right')
+  const rightYAxis = axes.find((axis) => axis.orientation === 'y' && axis.position === 'right')
+  const axisState = (axis: JsonRecord | undefined): ProductAxisState | undefined => {
+    if (!axis || typeof axis.axis_id !== 'string') return undefined
+    const scale = scales.find((candidate) => candidate.scale_id === axis.scale_id)
+    const axisRange = scale && isJsonRecord(scale.axis_range) ? scale.axis_range : undefined
+    return {
+      axisId: axis.axis_id,
+      label: richTextValue(axis.label),
+      scale: scale && typeof scale.kind === 'string' ? scale.kind : 'linear',
+      ...(axisRange && typeof axisRange.minimum === 'number' ? { minimum: axisRange.minimum } : {}),
+      ...(axisRange && typeof axisRange.maximum === 'number' ? { maximum: axisRange.maximum } : {}),
+      reverse: axisRange?.reverse === true,
+    }
+  }
+  const publicationProfile = isJsonRecord(record.publication_profile) ? record.publication_profile : undefined
+  const physicalSize = publicationProfile && isJsonRecord(publicationProfile.physical_size)
+    ? publicationProfile.physical_size : undefined
   return {
     plotId: record.plot_id as string,
     plotVersion: record.plot_version as number,
     chartId: stringValue(record, 'chart_type_id') ?? 'K01',
-    projectVersion: numberValue(record, 'project_version') ?? 0,
+    projectVersion: projectVersionFrom(value, numberValue(record, 'project_version') ?? 0),
+    seriesIds: series.flatMap((item) => typeof item.series_id === 'string' ? [item.series_id] : []),
+    seriesStyles: series.flatMap((item) => typeof item.series_id === 'string'
+      ? [{ seriesId: item.series_id, style: readSeriesStyle(item.style) }]
+      : []),
+    axisIds: {
+      ...(xAxis && typeof xAxis.axis_id === 'string' ? { x: xAxis.axis_id } : {}),
+      ...(leftYAxis && typeof leftYAxis.axis_id === 'string' ? { y: leftYAxis.axis_id } : {}),
+      ...(rightYAxis && typeof rightYAxis.axis_id === 'string' ? { yRight: rightYAxis.axis_id } : {}),
+    },
+    axisStates: {
+      ...(axisState(xAxis) ? { x: axisState(xAxis) } : {}),
+      ...(axisState(leftYAxis) ? { y: axisState(leftYAxis) } : {}),
+      ...(axisState(rightYAxis) ? { yRight: axisState(rightYAxis) } : {}),
+    },
+    canvasSizeMm: {
+      width: physicalLengthMm(physicalSize?.width, 183),
+      height: physicalLengthMm(physicalSize?.height, 120),
+    },
+    style: {
+      ...readSeriesStyle(firstStyle),
+      ...(legend && typeof legend.visible === 'boolean' ? { legendVisible: legend.visible } : {}),
+      ...(legend && typeof legend.placement === 'string' ? { legendPlacement: legend.placement } : {}),
+    },
     preview: readResource(value),
   }
 }

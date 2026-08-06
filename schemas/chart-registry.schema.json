@@ -3,6 +3,15 @@
     "ChartRegistration": {
       "additionalProperties": false,
       "properties": {
+        "admission": {
+          "default": "product",
+          "enum": [
+            "product",
+            "internal_only"
+          ],
+          "title": "Admission",
+          "type": "string"
+        },
         "allowed_calculations": {
           "default": [],
           "items": {
@@ -79,6 +88,44 @@
           ],
           "title": "Chart Type Id",
           "type": "string"
+        },
+        "edit_capabilities": {
+          "default": [],
+          "items": {
+            "enum": [
+              "plot_title",
+              "axis_label",
+              "axis_range",
+              "axis_scale",
+              "axis_ticks",
+              "font",
+              "legend_visibility",
+              "legend_position",
+              "canvas_size",
+              "publication_profile",
+              "safe_annotation",
+              "series_color",
+              "line_width",
+              "line_style",
+              "marker_size",
+              "symbol_shape",
+              "symbol_interior",
+              "palette",
+              "bar_fill",
+              "bar_edge",
+              "bar_width",
+              "bar_gap",
+              "error_style",
+              "band_style",
+              "colorbar",
+              "dual_y_style",
+              "panel_style",
+              "y_offset"
+            ],
+            "type": "string"
+          },
+          "title": "Edit Capabilities",
+          "type": "array"
         },
         "english_name": {
           "title": "English Name",
@@ -203,6 +250,54 @@
           },
           "title": "Required Roles",
           "type": "array"
+        },
+        "unsupported_edit_capabilities": {
+          "default": [],
+          "items": {
+            "enum": [
+              "plot_title",
+              "axis_label",
+              "axis_range",
+              "axis_scale",
+              "axis_ticks",
+              "font",
+              "legend_visibility",
+              "legend_position",
+              "canvas_size",
+              "publication_profile",
+              "safe_annotation",
+              "series_color",
+              "line_width",
+              "line_style",
+              "marker_size",
+              "symbol_shape",
+              "symbol_interior",
+              "palette",
+              "bar_fill",
+              "bar_edge",
+              "bar_width",
+              "bar_gap",
+              "error_style",
+              "band_style",
+              "colorbar",
+              "dual_y_style",
+              "panel_style",
+              "y_offset"
+            ],
+            "type": "string"
+          },
+          "title": "Unsupported Edit Capabilities",
+          "type": "array"
+        },
+        "visual_evidence": {
+          "default": "origin_reference",
+          "enum": [
+            "origin_reference",
+            "synthetic_visual",
+            "unqualified"
+          ],
+          "title": "Visual Evidence",
+          "type": "string"
         }
       },
       "required": [
@@ -254,8 +349,7 @@
       "items": {
         "$ref": "#/$defs/ChartRegistration"
       },
-      "maxItems": 52,
-      "minItems": 52,
+      "minItems": 1,
       "title": "Charts",
       "type": "array"
     },

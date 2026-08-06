@@ -1,7 +1,7 @@
 # PlotAgent v1 规格索引与小规模邀请制 Beta 设计基线
 
-> 状态：v1 数据/计算范围收敛；原 M0–M6 工程切片已实现，M6 因基础泛化门禁与内部可组合绘图底座重新打开；M7 小规模邀请制 Beta qualification 尚未执行
-> 基线日期：2026-08-05
+> 状态：v1 数据/计算范围收敛；正式范围固定为 43 图，原 M0–M6 工程切片已实现，M6 因基础泛化、逐图编辑/Origin 样式与内部可组合绘图底座重新打开；M7 小规模邀请制 Beta qualification 尚未执行
+> 基线日期：2026-08-06
 > 适用范围：权威文档、冲突优先级、requirement/evidence matrix、workstream 入口与冻结变更流程
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
 
@@ -10,8 +10,8 @@
 “小规模邀请制 Beta 设计基线”表示：
 
 - 第一轮产品行为、对象边界、进程/云/本地信任边界和跨模块 Schema 语义已足够直接拆分实施。
-- 31图与 Origin P1 扩展形成当前 52 图代码面；确定性导入/一次字段映射、九类固定绘图计算、预计算字段、批量/组合、自然语言、PNG/SVG/O1 OPJU和科学可追溯构成v1；通用数据处理与分析/拟合平台后移。
-- M6 补充范围先固化 StructureUnitDefinition/ChartRecipe、封闭关系、确定性 compiler、动态布局与基础泛化门禁；用户搭建器和自定义配方库在 M6 后实施。
+- 原 31 图加 X01/X02/X03/X05/X09/X13/X23/X24/X35/X36/X38/S07 形成正式 43 图；P1 另九图只保留内部代码/回归且不暴露 create/export。确定性导入/一次字段映射、九类固定绘图计算、预计算字段、批量/组合、自然语言、PNG/SVG/O1 OPJU和科学可追溯构成v1；通用数据处理与分析/拟合平台后移。
+- M6 补充范围先固化基础泛化、正式/隐藏 availability、逐图编辑 capability、Origin 对齐12符号/适用interior/16色板，再实现 StructureUnitDefinition/ChartRecipe、封闭关系、确定性 compiler 和 43 图迁移；用户搭建器和自定义配方库在 M6 后实施。
 - 每项核心需求都有权威契约、workstream、计划入口、稳定错误 owner 和未来验收 evidence。
 - 冲突审计已按本文件矩阵完成，当前已知旧口径已清除。
 - 后续产品或跨模块行为变化必须新增/更新 Decision ID 并同步权威文档，不得由实现自行选择。
@@ -19,8 +19,8 @@
 它不表示：
 
 - M7 的真实用户成功指标、生产签名发布、reference 性能与完整邀请制 Beta gate 已经通过。
-- 31 图/固定计算/Origin 每个 adapter 的完整参数表已经在本文伪造完成，或后续 AnalysisSpec/FitSpec 已经可用。
-- 单一 Origin exact version 的 31 图代表性矩阵已实跑；这不表示 reference 性能、安全或生产签名安装包 Beta gate 已通过。
+- 43 图/固定计算/Origin 每个 adapter 的底层 property map 已在本文展开；逐图用户能力以 PRD §8.5 和版本化 profile 为准，后续 AnalysisSpec/FitSpec 尚不可用。
+- 单一 Origin exact version 的原 31 图代表性矩阵已实跑；新增 12 图与完整 43 图发布门禁仍须补齐，这也不表示 reference 性能、安全或生产签名安装包 Beta gate 已通过。
 - 当前 UI prototype 的种子数据或模拟交互是后端行为证据。
 
 每图/每算法完整参数、property map 和fixture细节由W3/W4/W6 backlog在现有公共契约内细化；如果细化会改变用户选择、科学语义、对象版本、formal完整性或O1能力，必须回到Decision变更。
@@ -85,17 +85,18 @@
 | R-PREPARE | 仅本地封闭PreparationSpec；PreparedDataset不是通用数据产品；无开放Transform | PD-D02,U01–U20；TRANSFORMS | W2 | preparation/provenance | union/golden/no-hidden-transform | frozen-design |
 | R-PLOTCALC | 九类固定PlotCalculation、完整数据、固定默认/mask/hash、三renderer同结果 | PD-H09,S01–S20；ANALYSIS | W3/W4/W6 | plot-calculation registry | algorithm golden/no-recompute | frozen-design |
 | R-PRECOMPUTED | K05/K21/K22/S01/S05/S21/S25/S31/S34需预计算字段；v1无Analysis/Fit | PD-T01–T20；FITTING；PRD 9.2 | W3/W4/W6 | field validators/registry UI | valid/missing/invalid paths | frozen-design |
-| R-CHARTS | v1精确31项纯数值：K01–K22,K24–K25+S01,S05,S21,S25,S31,S34,S61 | PD-E08/E09；PRD 6.2/10.1 | W4 | chart registry | 31 ID registry + matrix | frozen-design |
-| R-P1-EXT | Origin P1 新增21项，双Y网格除外；同源图—数据对先于视觉测试 | PD-E09；PRD 10.1；PERF §7.1 | W4/W6 | 52 ID registry + evidence audit | 21离线契约；10同源视觉；11暂不视觉测试 | implemented-partial-qualification |
+| R-CHARTS | v1正式43图：原31图+X01/X02/X03/X05/X09/X13/X23/X24/X35/X36/X38/S07 | PD-E08/E25；PRD 6.2/10.1 | W4/W6 | availability-aware chart registry | 43 official ID + 387 matrix | reopened |
+| R-P1-EXT | 内部52图代码面分为12正式新增与9个internal_hidden；X24/S07标注合成视觉证据，双Y网格除外 | PD-E09/E26/E27；PRD 6.2；PERF §7.2 | W4/W6 | registry visibility + evidence provenance | 10同源+2合成视觉；9 hidden no capability | reopened |
 | R-NO-IMAGE | v1无科研图像、地图、ROI或图表+图片混合 | PD-E24/E11,M03；PRD 5.5/17 | W4/W5 | registry/Figure schema | forbidden formats/actions | frozen-design |
 | R-BATCH | 完全同构、一次mapping/同Preparation/PlotCalculation；partial成功，无逐文件例外 | PD-C,D,G,S20,U17/U18；PRD 5.2/6.4 | W2/W5 | BatchService/review | signature/partial/review E2E | frozen-design |
 | R-FIGURE | 仅数值固定布局、版本refs、公共图例、源更新不自动替换 | PD-F01–F06；DOMAIN §5 | W5 | FigureService/UI | version/layout/legend tests | frozen-design |
 | R-EXPORT3 | 正式导出仅PNG/SVG/OPJU；clipboard非正式 | PD-K01/K02；PRD 10.4 | W4/W6 | ExportService | format allowlist/records | frozen-design |
 | R-FORMAL | 声明规模内Formal三格式full data；preview≤5k/20k且range/PlotCalculation full | PD-H11,V04/V05,AA05/AA06；RENDER §2；PERF §3–4 | W4/W6 | resolver/adapters | count/assertion/resource preflight | frozen-design |
 | R-RECIPE | 结构单元与版本化ChartRecipe通过语义端口和封闭关系形成组件图；官方/自定义运行时同构；配方不含数据、FieldId、路径、计算结果或代码 | PD-E13–E23,P21–P27；DOMAIN §3.2；PRD 4.7/5.6 | W0/W4/W6 | recipe schemas/registry/validator/compiler | graph/port/relation/canonical compile/no-executable corpus | frozen-design-pending-implementation |
-| R-GENERALIZE | 基础图先通过冻结生成器与结构不变量；Matplotlib全矩阵、Origin按结构签名代表性验证；同源外观证据独立 | PD-V21–V25,AA21–AA25；RENDER §2.1/14；PERF §7.5 | W4/W6/W10 | generalized fixture harness/layout invariants | fixed manifest/full mpl/representative Origin reports | baseline-implemented-origin-expansion-pending |
-| R-RENDER | 单一ResolvedRenderPlan、deterministic axes/ticks/layout/text；数据和画布驱动动态几何 | PD-V01–V25；RENDER | W4/W6 | recipe compiler/resolver | compiler/plan golden/generalization/parity tolerance | reopened |
-| R-OPJU | 31图v1 OPJU全部O1；无LabTalk/raster fallback；两阶段原子 | PD-K04,W01–W20；ORIGIN | W6 | origin adapters/worker | 单一 exact version 31 representative live + 离线 edge/error | implemented |
+| R-GENERALIZE | 正式43图先通过冻结生成器与结构不变量；Matplotlib全矩阵、Origin按结构签名代表性验证；隐藏图回归不计正式覆盖 | PD-V21–V25,AA21–AA25；RENDER §2.1/14；PERF §7.6 | W4/W6/W10 | generalized fixture harness/layout invariants | fixed manifest/full mpl/representative Origin reports | baseline-implemented-origin-expansion-pending |
+| R-EDIT-STYLE | 43图逐图编辑白名单；12种Origin对齐符号与适用interior、16冻结sRGB色板、>15颜色+符号不循环、双Y默认中性细线；未声明请求稳定不支持 | PD-I13–I18,P28–P32,V26,AA26；PRD §8.5–8.6；DOMAIN §4.4/6；RENDER §7；PERF §7.7 | W0/W4/W6/W10 | capability profiles/style registries/resolver/adapters | snapshot/allow-deny/parity/readback/capacity tests | reopened |
+| R-RENDER | 单一ResolvedRenderPlan、deterministic axes/ticks/layout/text/style；数据和画布驱动动态几何 | PD-V01–V26；RENDER | W4/W6 | recipe compiler/resolver | compiler/plan golden/generalization/style parity tolerance | reopened |
+| R-OPJU | 正式43图OPJU全部O1；无LabTalk/raster fallback；两阶段原子；九图隐藏不承诺 | PD-K04,W01–W20,E26；ORIGIN；PERF §2 | W6 | origin adapters/worker | 单一 exact version 43 representative + 离线 edge/error | reopened-base31-implemented |
 | R-ORIGIN-V | 每Beta build只声明一个qualified Origin exact version；其他unsupported | PD-K03/K12,W12,AA03；PERF §2 | W6/W10 | build declaration/preflight | one exact-version matrix | frozen-design |
 | R-TASK | Interaction≠Execution；提交/取消/幂等；崩溃不损坏且用户明确重试 | PD-R01–R20,Z18；TASK | W1/W2 | scheduler/events | state/fault/commit E2E | frozen-design |
 | R-LOCAL-PRIV | 无项目加密承诺；ACL/BitLocker；temp ACL；无secure erase宣称 | PD-L07/L08,Z04/Z05；LOCAL §3–4 | W9 | temp/security UI | ACL/wording/cleanup tests | frozen-design |
@@ -104,7 +105,7 @@
 | R-CLOUD-MIN | 云仅redeem/credential/proxy/atomic quota/idempotency；无sync/config/update/diag | PD-L06,Y11–Y14；CLOUD §1–8 | W8 | Beta control plane | API/log/degrade tests | frozen-design |
 | R-DISTRIBUTION | 无应用内更新；人工包验证发布签名/hash/code-sign | PD-Y15–Y19；CLOUD §10 | W8/W10 | package verification | three tamper blocks | frozen-design |
 | R-PERF | 单一Win11 profile、100k正式规模、5k/20k preview、≤2GB与固定P95 | PD-AA01–AA11/AA15；PERF §1–6/9 | W10 | performance harness | reference baseline reports | frozen-design |
-| R-MATRIX | 31×3×(PNG/SVG/OPJU)=279 个逻辑 MatrixKey；preview另测；Origin 31 representative live，其余 OPJU 离线 contract/error | PD-AA12/AA13；PERF §7 | W0/W4/W6/W10 | MatrixKey/evidence | zero-gap coverage reports | implemented |
+| R-MATRIX | 43×3×(PNG/SVG/OPJU)=387 个正式逻辑 MatrixKey；preview另测；Origin 43 representative live，其余 OPJU 离线 contract/error | PD-AA12/AA13；PERF §7 | W0/W4/W6/W10 | MatrixKey/evidence | zero-gap coverage reports | reopened-base279-implemented |
 | R-RELEASE | 不可豁免底线、Beta checklist、first-beta go/no-go | PD-AA16–AA20；PERF §10–12 | W10/all | release/evidence | fixed hashes/checklist/user study | frozen-design |
 | R-UI | 浅色克制、无卡片堆叠/玻璃/深色科幻/渐变文字，键盘/a11y/reduced motion | DESIGN；PD-D/F/L | W1/W5 | renderer design system | visual/a11y/display matrix | frozen-design |
 
@@ -134,9 +135,9 @@
 | W1 | BACKEND/TASK/LOCAL | W0 | Electron/preload/supervisor/events | supervisor/preload | security/crash/E2E | yes | explicit | yes |
 | W2 | STORAGE/PREPARATION | W0 | SQLite/CAS/import/source/mapping/prepared | storage/excel/text/preparation | ~30 golden/atomic/security | yes | explicit | yes |
 | W3 | PLOTCALC/FITTING-BOUNDARY | W2 | fixed calculations/precomputed validators | nine kinds after envelope | algorithm/field golden | yes | explicit | yes |
-| W4 | RENDER/DOMAIN | W2,W3 | 52 charts/resolver/PNG/SVG + generalized layout + recipe compiler | generalized baseline before compiler | full generalized mpl + compiler/plan golden | yes | explicit | reopened |
+| W4 | RENDER/DOMAIN | W2,W3 | 43 official+9 hidden registry、edit/style profiles、resolver/PNG/SVG、generalized layout、recipe compiler | generalized/edit-style gates before compiler | 43 full generalized mpl + capability/parity + compiler/plan golden | yes | explicit | reopened |
 | W5 | PRD/DOMAIN/TASK | W4 | batch/review/Figure | Core/UI | isomorphic/E2E | yes | explicit | yes |
-| W6 | ORIGIN/RENDER/PERF | W4; spike early | O1 adapters/worker/reopen + recipe parity | chart families after K01 | one-version31 representative + per-signature generalized Origin + offline edge | yes | explicit | reopened |
+| W6 | ORIGIN/RENDER/PERF | W4; spike early | 43 O1 adapters/worker/reopen + symbol/palette/edit readback + recipe parity | chart families after K01 | one-version43 representative + per-signature generalized Origin + style/readback + offline edge | yes | explicit | reopened |
 | W7 | AGENT/DOMAIN | W1,W2 | context/provider/decision/validator | context/probe | privacy/provider matrix | yes | explicit | yes |
 | W8 | CLOUD/AGENT/LOCAL | W7 | invite/credential/counter/proxy | redeem vs invoke | idempotency/degrade | yes | explicit | yes |
 | W9 | LOCAL/STORAGE/TASK | W1,W2 | zero-egress/log/local diag/known compatibility | policy vs lifecycle | packet/fault/privacy | yes | explicit | yes |
@@ -151,8 +152,8 @@
 | 启动入口 vs 服务模式 | 三工作入口；服务模式只在Agent/设置 | 无“邀请码/custom/local_only是三个启动入口” | pass-design |
 | AgentDecision | 四类唯一union | 旧五类type names零残留 | pass-design |
 | 模型工具 | no tool/no loop；structured transport only | 无模型调用领域工具口径 | pass-design |
-| 图形范围 | 31纯数值，S61且无K23/S45 | v1无32/25+7旧计数和地图/图像承诺 | pass-design |
-| OPJU | 首轮31全O1 | 无首轮O2准入口径 | pass-design |
+| 图形范围 | 正式43纯数值；内部52分层为43 official+9 hidden；无K23/S45 | 九图不出现在create/export capability，无地图/图像承诺 | pass-design |
+| OPJU | 正式43全O1；历史31矩阵与新增12证据分开 | 无首轮O2准入口径、无隐藏九图OPJU承诺 | pass-design |
 | Formal data | PNG/SVG/OPJU full data | 无formal静默downsample/raster | pass-design |
 | Local/cloud | 云最小且本地启动/项目不依赖 | 无cloud project/session truth/sync | pass-design |
 | Batch | 完全同构/单mapping/同Spec | 无逐文件mapping/method/unit例外 | pass-design |
@@ -161,7 +162,7 @@
 | Formal formats | 仅PNG/SVG/OPJU | 无PDF/EPS/EMF正式入口 | pass-design |
 | Identity/quota | 无账号、InviteGrant不限设备共享额度 | 无per-install新额度/硬件指纹 | pass-design |
 | local_only | strict零出站；无update_only | 无strict local_only例外联网 | pass-design |
-| 279 logical matrix | formal PNG/SVG/O1 OPJU；preview另测；昂贵 Origin 仅 representative 实跑 | 无把 279 全解释为 Origin COM 实跑 | pass-design |
+| 387 logical matrix | 43×3×3 formal PNG/SVG/O1 OPJU；preview另测；昂贵 Origin 仅 representative 实跑 | 无把 387 全解释为 Origin COM 实跑；历史279只作基础证据 | pass-design |
 | Origin versions | 每build唯一exact version | 无“2021+”或多版本当前门禁 | pass-design |
 | Beta规模 | 100k×20、单图100k、20×10k、项目100、≤2GB | 无1M/10M/1000对象/6GB当前门禁 | pass-design |
 | Cloud复杂度 | 长期凭据+原子共享计数+client_run幂等 | 无refresh/reserve/settle/config/update | pass-design |
@@ -172,12 +173,15 @@
 | 科学计算边界 | 九类固定计算；九图预计算输入；Analysis/Fit后移 | 无v1统计/拟合/平滑/基线/归一化承诺 | pass-design |
 | Agent编排 | 单对话编排Agent、单Decision、同错二次即停 | 无多Agent/工具循环/模型处理步骤 | pass-design |
 | OPJU计算边界 | direct Raw→Graph；fixed Raw+Plot Data→Graph | 无Analysis Template/formula/LabTalk/Raw自动重算承诺 | pass-design |
-| 导入诊断 | ~30 goldens+31图fixtures+分层快照/错误族 | 无运行时oracle或下游掩盖上游偏差 | pass-design |
+| 导入诊断 | ~30 goldens+43图fixtures+分层快照/错误族 | 无运行时oracle或下游掩盖上游偏差 | pass-design |
 | 结构与数据边界 | ChartRecipe仅结构/端口/关系/策略；PlotSpec绑定数据、mapping、计算结果 | 无真实数据、FieldId、路径、自动range、可执行内容进入recipe | pass-design |
 | 单图组合 vs Figure | 同一绘图区的结构组合属于PlotSpec；多面板布局属于FigureSpec | 无用Figure绕过单图recipe或把多面板塞入单Plot | pass-design |
 | 官方与自定义身份 | 相同Schema/compiler/resolver/renderer；官方只增加准入证据 | 无官方chart ID专属隐藏结构算法 | pass-design |
 | 外观证据 vs 泛化证据 | 同源Origin/期刊证据判默认外观；冻结变体判结构泛化 | 无合成数据冒充参考外观、无当前实现生成oracle | pass-design |
 | 配方复用 | 普通输入校验和产物验证，不逐次重跑qualification | 无每次用户复用触发完整Origin/泛化准入 | pass-design |
+| 编辑能力 | 43图版本化profile是UI/Agent/validator共同真值；未声明操作不支持 | 无任意Origin property/path、无adapter私有fallback | pass-design |
+| 符号与色板 | 12符号、闭合符号3 interior、`plus/cross`非适用拒绝、16冻结sRGB palette；>15联合编码不循环 | 无Origin编号作为项目真值、无读取本机可变palette、无RGB漂移 | pass-design |
+| 双Y默认 | X23/X24/X35/X36左右轴中性、正常字重、非加粗；显式请求才着色 | 无默认随系列着色/加粗或样式修改改变轴语义 | pass-design |
 | 实施顺序 | 基础泛化稳定后才实现组合compiler | 无测试oracle与组合架构同时迁移 | pass-design |
 
 本表的 `pass-design` 将由提交前全库脚本/`rg`、Decision ID、Markdown link、UTF-8 和 `git diff --check` 复核；它不等同于未来实现测试pass。

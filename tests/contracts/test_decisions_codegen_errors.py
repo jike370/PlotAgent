@@ -129,6 +129,53 @@ def test_action_plan_limit_dependencies_and_unknown_fields() -> None:
         )
 
 
+def test_agent_category_color_intent_is_closed_and_typed() -> None:
+    payload = {
+        "schema_version": "1.0",
+        "decision_type": "action_plan",
+        "plan_id": "plan:category-color",
+        "target_alias": "active_target",
+        "actions": [
+            {
+                "action_type": "patch_plot",
+                "action_id": "action:category-color",
+                "target_alias": "active_target",
+                "patches": [
+                    {
+                        "operation": "set_category_color",
+                        "target_alias": "series_1",
+                        "category": "Treated",
+                        "color": {"value": "#123456"},
+                    }
+                ],
+            }
+        ],
+    }
+
+    decision = _decision_adapter().validate_json(json.dumps(payload))
+
+    assert decision.decision_type == "action_plan"
+    with pytest.raises(ValidationError):
+        _decision_adapter().validate_json(
+            json.dumps(
+                {
+                    **payload,
+                    "actions": [
+                        {
+                            **payload["actions"][0],
+                            "patches": [
+                                {
+                                    **payload["actions"][0]["patches"][0],
+                                    "color": {"value": "red"},
+                                }
+                            ],
+                        }
+                    ],
+                }
+            )
+        )
+
+
 def _property_names(schema: object) -> set[str]:
     names: set[str] = set()
     if isinstance(schema, dict):

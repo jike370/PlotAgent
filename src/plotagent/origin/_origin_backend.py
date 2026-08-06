@@ -6,6 +6,7 @@ content and is never interpreted as a command, formula, property path, or templa
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -26,6 +27,7 @@ from plotagent.contracts.rendering import (
     OriginPlotPlan,
     OriginScalar,
 )
+from plotagent.contracts.styles import ResolvedPalette, origin_interior_code, origin_symbol_code
 
 from .native import (
     PROJECT_FOLDERS,
@@ -71,6 +73,7 @@ _COLUMN_AXIS = {
     "Group": "N",
     "None": "N",
 }
+_LINE_STYLE_CODES = {"solid": 0, "dashed": 1, "dotted": 2, "dash_dot": 3}
 # Qualified Origin's fixed palette index for white. S07 uses an opaque legend
 # fill so its fixed threshold lines cannot visually cross the legend contents.
 _ORIGIN_WHITE_COLOR_INDEX = 18
@@ -98,6 +101,24 @@ def _finite_float(value: Any, fallback: float | None = None) -> float:
     return fallback
 
 
+def _hex_rgb(value: str) -> tuple[int, int, int]:
+    if _HEX_COLOR.fullmatch(value) is None:
+        raise NativeOriginError("typed color is not #RRGGBB")
+    red, green, blue = (int(value[index : index + 2], 16) for index in (1, 3, 5))
+    return red, green, blue
+
+
+def _origin_colormap_name(plot: OriginPlotPlan) -> str:
+    """Return only the build-pinned Origin asset identifier from the typed plan."""
+
+    palette = plot.palette_spec
+    if palette is None:
+        return "Viridis.pal"
+    if palette.origin_asset_kind == "color_list":
+        return Path(palette.origin_source_name).stem
+    return palette.origin_source_name
+
+
 def _read_template_y_axis_style(layer: Any) -> _AxisVisualStyle:
     """Read the qualified template's fixed left-Y visual weight."""
 
@@ -108,12 +129,8 @@ def _read_template_y_axis_style(layer: Any) -> _AxisVisualStyle:
         raise NativeOriginError("qualified template is missing the left Y title")
     return _AxisVisualStyle(
         axis_width_pt=axis_width,
-        major_tick_width_pt=_finite_float(
-            layer.get_float("y.tickthickness"), shared_tick_width
-        ),
-        minor_tick_width_pt=_finite_float(
-            layer.get_float("y.mtickthickness"), shared_tick_width
-        ),
+        major_tick_width_pt=_finite_float(layer.get_float("y.tickthickness"), shared_tick_width),
+        minor_tick_width_pt=_finite_float(layer.get_float("y.mtickthickness"), shared_tick_width),
         tick_label_bold=int(round(_finite_float(layer.get_float("y.label.bold"), 0.0))),
         title_bold=int(round(_finite_float(title.get_float("font.bold"), 0.0))),
     )
@@ -151,9 +168,10 @@ def _assert_right_y_axis_style(layer: Any, expected: _AxisVisualStyle) -> None:
     title = layer.label("yr")
     if title is None:
         raise NativeOriginError("native right Y title is missing")
-    if layer.get_int("y2.label.bold") != expected.tick_label_bold or title.get_int(
-        "font.bold"
-    ) != expected.title_bold:
+    if (
+        layer.get_int("y2.label.bold") != expected.tick_label_bold
+        or title.get_int("font.bold") != expected.title_bold
+    ):
         raise NativeOriginError("native right Y axis text weight differs from template")
 
 
@@ -324,12 +342,32 @@ def _uses_custom_tick_labels(axis: OriginAxisPlan) -> bool:
 class OriginProBackend:
     """One independent hidden Origin project, owned by one dedicated worker process."""
 
-    def __init__(self, op: Any, template_path: Path) -> None:
+    def __init__(self, op: Any, template_path: Path, install_dir: Path) -> None:
         self._op = op
         self._template_path = template_path
+        self._install_dir = install_dir
         self._root = op.root_folder()
         self._folders: dict[str, Any] = {}
         self._data_sheets: dict[str, Any] = {}
+
+    def _assert_palette_asset(self, palette: ResolvedPalette) -> None:
+        relative = (
+            Path("Themes") / "Color" / palette.origin_source_name
+            if palette.origin_asset_kind == "color_list"
+            else Path("Palettes") / palette.origin_source_name
+        )
+        path = (self._install_dir / relative).resolve(strict=False)
+        try:
+            path.relative_to(self._install_dir)
+        except ValueError as exc:
+            raise NativeOriginError("palette asset escaped the qualified Origin install") from exc
+        if not path.is_file():
+            raise NativeOriginError(f"qualified palette asset is missing: {relative.as_posix()}")
+        actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual_hash != palette.source_hash:
+            raise NativeOriginError(
+                f"qualified palette asset hash differs for {palette.palette_id}"
+            )
 
     def ensure_blank(self) -> None:
         if self._root.obj.Folders.GetCount() or self._root.obj.PageBases().GetCount():
@@ -473,13 +511,14 @@ class OriginProBackend:
         if primitive.transform in {"floating_polygon", "horizontal_polygon"}:
             for created_plot in created_plots:
                 created_plot.set_float("line.width", 0)
-        if (
-            plot_plan.marker_size_pt is not None
-            and primitive.plot_type in {"scatter", "line_symbol"}
-        ):
+        if plot_plan.marker_size_pt is not None and primitive.plot_type in {
+            "scatter",
+            "line_symbol",
+        }:
             plot.symbol_size = plot_plan.marker_size_pt
         if primitive.plot_type in {"scatter", "line_symbol"}:
-            plot.symbol_kind = 2
+            plot.symbol_kind = origin_symbol_code(plot_plan.symbol.shape)
+            plot.symbol_interior = origin_interior_code(plot_plan.symbol.interior)
         if primitive.size_role is not None:
             size_index = _role_index(data, plot_plan, primitive.size_role)
             plot.symbol_size = self._op.modi_col(size_index - y_index)
@@ -504,15 +543,13 @@ class OriginProBackend:
             # Origin has no stable property path for this Spacing-tab control.
             # Keep the command fully allowlisted and literal; no user text enters it.
             plot.set_cmd("-vg 70")
-        if (
-            plot_plan.line_width_pt is not None
-            and primitive.plot_type
-            in {
-                "line",
-                "line_symbol",
-            }
-        ):
+        if plot_plan.line_width_pt is not None and primitive.plot_type in {
+            "line",
+            "line_symbol",
+        }:
             plot.set_float("line.width", plot_plan.line_width_pt)
+        if primitive.plot_type in {"line", "line_symbol"}:
+            plot.set_int("line.style", _LINE_STYLE_CODES[plot_plan.line_style])
         if primitive.bar_width_role is not None:
             width_index = _role_index(data, plot_plan, primitive.bar_width_role)
             widths = tuple(
@@ -660,9 +697,16 @@ class OriginProBackend:
                                 "minors": 0,
                                 "levels": list(plot_plan.levels),
                             }
-                        if primitive.plot_type == "contour":
-                            plot.colormap = "Viridis.pal"
-                            layer.set_int("cmap.flippal", 1)
+                        if primitive.plot_type in {"heatmap", "contour"}:
+                            if plot_plan.palette_spec is not None:
+                                self._assert_palette_asset(plot_plan.palette_spec)
+                            plot.colormap = _origin_colormap_name(plot_plan)
+                            layer.set_int(
+                                "cmap.flippal",
+                                int(plot_plan.palette_spec.reverse)
+                                if plot_plan.palette_spec is not None
+                                else 1,
+                            )
                         continue
                     table = materialize_primitive(primitive, data)
                     plot_sheet = source_sheet
@@ -974,6 +1018,55 @@ class OriginProBackend:
                     raise NativeOriginError(
                         f"native plot lost its dataset link in {layer_plan.layer_id}"
                     )
+                actual_index = 0
+                for plot_plan in layer_plan.plots:
+                    for primitive in native_primitives(plot_plan):
+                        count = physical_plot_count(primitive)
+                        primitive_plots = plots[actual_index : actual_index + count]
+                        actual_index += count
+                        if (
+                            plot_plan.color is not None
+                            and primitive.plot_type not in {"heatmap", "contour"}
+                            and any(
+                                tuple(item.color) != _hex_rgb(plot_plan.color.value)
+                                for item in primitive_plots
+                            )
+                        ):
+                            raise NativeOriginError(
+                                f"native plot color differs for {plot_plan.plot_id}"
+                            )
+                        if primitive.plot_type in {"scatter", "line_symbol"}:
+                            styled_plot = primitive_plots[0]
+                            if styled_plot.symbol_kind != origin_symbol_code(
+                                plot_plan.symbol.shape
+                            ) or styled_plot.symbol_interior != origin_interior_code(
+                                plot_plan.symbol.interior
+                            ):
+                                raise NativeOriginError(
+                                    f"native symbol style differs for {plot_plan.plot_id}"
+                                )
+                        if primitive.plot_type in {"line", "line_symbol"}:
+                            actual_style = primitive_plots[0].get_int("line.style")
+                            if actual_style != _LINE_STYLE_CODES[plot_plan.line_style]:
+                                raise NativeOriginError(
+                                    f"native line style differs for {plot_plan.plot_id}"
+                                )
+                        if (
+                            primitive.plot_type in {"heatmap", "contour"}
+                            and plot_plan.palette_spec is not None
+                        ):
+                            self._assert_palette_asset(plot_plan.palette_spec)
+                            actual_name = Path(str(primitive_plots[0].colormap)).stem.casefold()
+                            expected_name = Path(_origin_colormap_name(plot_plan)).stem.casefold()
+                            if actual_name != expected_name:
+                                raise NativeOriginError(
+                                    f"native colormap differs for {plot_plan.plot_id}"
+                                )
+                            actual_reverse = bool(layer.get_int("cmap.flippal"))
+                            if actual_reverse != plot_plan.palette_spec.reverse:
+                                raise NativeOriginError(
+                                    f"native colormap direction differs for {plot_plan.plot_id}"
+                                )
                 for axis_plan in layer_plan.axes:
                     axis = layer.axis(
                         "y2"
@@ -1049,10 +1142,8 @@ class OriginProBackend:
                     if (
                         legend.get_float("left") < 0
                         or legend.get_float("top") < 0
-                        or legend.get_float("left") + legend.get_float("width")
-                        > page_width + 1e-9
-                        or legend.get_float("top") + legend.get_float("height")
-                        > page_height + 1e-9
+                        or legend.get_float("left") + legend.get_float("width") > page_width + 1e-9
+                        or legend.get_float("top") + legend.get_float("height") > page_height + 1e-9
                     ):
                         raise NativeOriginError(
                             f"native legend crosses page edge for {graph_plan.graph_id}"

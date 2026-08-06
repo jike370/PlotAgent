@@ -395,6 +395,37 @@ export function App(): React.JSX.Element {
     } catch (error) { setAgentOutcome({ kind: 'rejected', title: '指令未执行', message: errorNotice(error).message }) } finally { setBusyAction(undefined) }
   }
 
+  const applyPlotPatch = async (patch: JsonValue): Promise<void> => {
+    if (!api || !project || !plot) throw new Error('当前没有可编辑图形。')
+    setBusyAction('plot-patch'); setNotice(undefined)
+    try {
+      const value = valueOrThrow(await api.patchPlot({
+        projectId: project.projectId,
+        plotId: plot.plotId,
+        plotVersion: plot.plotVersion,
+        patch,
+      }))
+      let nextPlot = readPlot(value)
+      if (!nextPlot) throw new Error('Core 未返回新的 PlotSpec 版本。')
+      const rendered = valueOrThrow(await api.renderPlot({
+        projectId: project.projectId,
+        plotId: nextPlot.plotId,
+        plotVersion: nextPlot.plotVersion,
+        mode: 'preview',
+      }))
+      nextPlot = withPreview(nextPlot, rendered)
+      setPlot(nextPlot)
+      setPlotHistory((current) => [...current, nextPlot!])
+      setProject(projectWithVersion(project, projectVersionFrom(value, project.projectVersion + 1)))
+      setNotice({ kind: 'success', title: '修改已应用', message: `已创建图形版本 v${nextPlot.plotVersion}。` })
+    } catch (error) {
+      setNotice(errorNotice(error))
+      throw error
+    } finally {
+      setBusyAction(undefined)
+    }
+  }
+
   const exportArtifact = async (format: 'png' | 'svg' | 'opju', explicitTarget?: { kind: 'batch' | 'figure'; id: string; version: number }): Promise<void> => {
     if (!api || !project || (explicitTarget === undefined && plot === undefined)) return
     const target = explicitTarget ?? { kind: 'plot' as const, id: plot!.plotId, version: plot!.plotVersion }
@@ -478,7 +509,7 @@ export function App(): React.JSX.Element {
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} taskCount={taskCount} originStatus={originStatus} onProjectChange={(id) => void activateProject(id)} onNewProject={() => { setProject(undefined); setDatasets([]); setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined) }} onTaskCenter={() => setTasksOpen(true)} onOpenResources={() => setNotice({ kind: 'info', title: '项目资源', message: '当前视图只显示 Core 已返回的数据集、绘图、批次与组合图对象。' })} onConfigureAgent={() => setProviderOpen(true)} />
           <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentConfigured={agentConfigured} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setSelectedChart(undefined); setConfirmedMapping(undefined); setPlot(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} onOpenResources={() => setNotice({ kind: 'info', title: '项目资源', message: '对象由本地 Core 返回，原始数据保持只读。' })} />
         </>}
-        {screen === 'focus' && plot && <FocusEditor initialIndex={0} plot={{ title: selectedChart?.name ?? plot.chartId, plotId: plot.plotId, version: plot.plotVersion, ...(plot.preview?.url ? { previewUrl: plot.preview.url } : {}) }} onClose={() => setScreen('workspace')} />}
+        {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && figure && <CompositionEditor figure={figure} onClose={() => setScreen('workspace')} />}
         {screen === 'batch-inspector' && batch && <BatchInspector batch={batch} onClose={() => setScreen('workspace')} />}
       </div>
