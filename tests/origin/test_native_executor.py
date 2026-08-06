@@ -5,6 +5,10 @@ from dataclasses import dataclass, field
 import pytest
 
 from plotagent.contracts.rendering import OriginDataObject, OriginExportPlan, OriginGraphObject
+from plotagent.origin._origin_backend import (
+    _apply_right_y_axis_style,
+    _read_template_y_axis_style,
+)
 from plotagent.origin.native import (
     PROJECT_FOLDERS,
     build_native_project,
@@ -214,6 +218,51 @@ def test_lollipop_uses_one_native_symbol_plot_with_frame_drop_lines() -> None:
     assert primitive.x_role == "x"
     assert primitive.y_role == "y"
     assert primitive.transform == "lollipop_drop"
+
+
+def test_right_y_axis_weight_is_copied_from_qualified_template_left_axis() -> None:
+    class FakeLabel:
+        def __init__(self, bold: float) -> None:
+            self.values = {"font.bold": bold}
+
+        def get_float(self, key: str) -> float:
+            return self.values[key]
+
+        def set_int(self, key: str, value: int) -> None:
+            self.values[key] = float(value)
+
+    class FakeLayer:
+        def __init__(self) -> None:
+            self.values = {
+                "y.thickness": 0.49,
+                "y.tickthickness": float("nan"),
+                "y.mtickthickness": float("nan"),
+                "y.label.bold": 0.0,
+                "tickW": 0.49,
+            }
+            self.labels = {"yl": FakeLabel(1.0), "yr": FakeLabel(0.0)}
+
+        def get_float(self, key: str) -> float:
+            return self.values[key]
+
+        def set_float(self, key: str, value: float) -> None:
+            self.values[key] = value
+
+        def set_int(self, key: str, value: int) -> None:
+            self.values[key] = float(value)
+
+        def label(self, key: str) -> FakeLabel:
+            return self.labels[key]
+
+    layer = FakeLayer()
+    style = _read_template_y_axis_style(layer)
+    _apply_right_y_axis_style(layer, style)
+
+    assert layer.values["y2.thickness"] == 0.49
+    assert layer.values["y2.tickthickness"] == 0.49
+    assert layer.values["y2.mtickthickness"] == 0.49
+    assert layer.values["y2.label.bold"] == 0.0
+    assert layer.labels["yr"].values["font.bold"] == 1.0
 
 
 @pytest.mark.parametrize("chart_id", ["K08", "K09", "K15"])

@@ -155,6 +155,26 @@ def test_x02_lollipop_stems_start_at_the_visible_bottom_frame() -> None:
     assert axis.spines["bottom"].get_position() == ("outward", 0.0)
 
 
+@pytest.mark.parametrize("chart_id", ["X23", "X35", "X36"])
+def test_dual_y_matplotlib_frame_does_not_double_paint_the_right_axis(
+    chart_id: str,
+) -> None:
+    figure = MatplotlibRenderer().build_figure(resolve_chart(chart_id))
+    left_axis, right_axis = figure.axes
+    left_width = left_axis.spines["left"].get_linewidth()
+
+    assert left_axis.spines["right"].get_visible() is False
+    assert right_axis.spines["left"].get_visible() is False
+    assert right_axis.spines["top"].get_visible() is False
+    assert right_axis.spines["bottom"].get_visible() is False
+    assert right_axis.spines["right"].get_linewidth() == pytest.approx(left_width)
+    assert right_axis.yaxis.label.get_fontweight() == left_axis.yaxis.label.get_fontweight()
+    assert all(
+        tick.tick1line.get_markeredgewidth() == pytest.approx(left_width)
+        for tick in right_axis.yaxis.get_major_ticks()
+    )
+
+
 def test_patch_validation_checks_version_target_log_and_safe_text() -> None:
     plot = minimal_plot()
     assert (

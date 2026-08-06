@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -74,6 +75,83 @@ _COLUMN_AXIS = {
 
 class NativeOriginError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True, slots=True)
+class _AxisVisualStyle:
+    axis_width_pt: float
+    major_tick_width_pt: float
+    minor_tick_width_pt: float
+    tick_label_bold: int
+    title_bold: int
+
+
+def _finite_float(value: Any, fallback: float | None = None) -> float:
+    numeric = float(value)
+    if math.isfinite(numeric):
+        return numeric
+    if fallback is None:
+        raise NativeOriginError("qualified template axis style is not finite")
+    return fallback
+
+
+def _read_template_y_axis_style(layer: Any) -> _AxisVisualStyle:
+    """Read the qualified template's fixed left-Y visual weight."""
+
+    axis_width = _finite_float(layer.get_float("y.thickness"))
+    shared_tick_width = _finite_float(layer.get_float("tickW"), axis_width)
+    title = layer.label("yl")
+    if title is None:
+        raise NativeOriginError("qualified template is missing the left Y title")
+    return _AxisVisualStyle(
+        axis_width_pt=axis_width,
+        major_tick_width_pt=_finite_float(
+            layer.get_float("y.tickthickness"), shared_tick_width
+        ),
+        minor_tick_width_pt=_finite_float(
+            layer.get_float("y.mtickthickness"), shared_tick_width
+        ),
+        tick_label_bold=int(round(_finite_float(layer.get_float("y.label.bold"), 0.0))),
+        title_bold=int(round(_finite_float(title.get_float("font.bold"), 0.0))),
+    )
+
+
+def _apply_right_y_axis_style(layer: Any, style: _AxisVisualStyle) -> None:
+    """Apply only fixed, object-level right-axis weight properties."""
+
+    layer.set_float("y2.thickness", style.axis_width_pt)
+    layer.set_float("y2.tickthickness", style.major_tick_width_pt)
+    layer.set_float("y2.mtickthickness", style.minor_tick_width_pt)
+    layer.set_int("y2.label.bold", style.tick_label_bold)
+    title = layer.label("yr")
+    if title is None:
+        raise NativeOriginError("qualified template is missing the right Y title")
+    title.set_int("font.bold", style.title_bold)
+
+
+def _assert_right_y_axis_style(layer: Any, expected: _AxisVisualStyle) -> None:
+    actual_values = (
+        _finite_float(layer.get_float("y2.thickness")),
+        _finite_float(layer.get_float("y2.tickthickness")),
+        _finite_float(layer.get_float("y2.mtickthickness")),
+    )
+    expected_values = (
+        expected.axis_width_pt,
+        expected.major_tick_width_pt,
+        expected.minor_tick_width_pt,
+    )
+    if any(
+        not math.isclose(actual, target, rel_tol=0.0, abs_tol=1e-9)
+        for actual, target in zip(actual_values, expected_values, strict=True)
+    ):
+        raise NativeOriginError("native right Y axis visual weight differs from template")
+    title = layer.label("yr")
+    if title is None:
+        raise NativeOriginError("native right Y title is missing")
+    if layer.get_int("y2.label.bold") != expected.tick_label_bold or title.get_int(
+        "font.bold"
+    ) != expected.title_bold:
+        raise NativeOriginError("native right Y axis text weight differs from template")
 
 
 def _area_fill_command(color: str) -> str:
@@ -406,7 +484,13 @@ class OriginProBackend:
             plot.transparency = round((1 - plot_plan.alpha) * 100)
         return plot
 
-    def _configure_axis(self, layer: Any, axis: OriginAxisPlan, font_size_pt: float) -> None:
+    def _configure_axis(
+        self,
+        layer: Any,
+        axis: OriginAxisPlan,
+        font_size_pt: float,
+        right_y_style: _AxisVisualStyle,
+    ) -> None:
         is_right_y = axis.orientation == "y" and axis.position == "right"
         native_axis = layer.axis("y2" if is_right_y else axis.orientation)
         native_axis.scale = "log10" if axis.scale == "log10" else "linear"
@@ -456,6 +540,8 @@ class OriginProBackend:
         label.text = axis.title
         label.set_float("fsize", font_size_pt)
         label.set_int("show", 1)
+        if is_right_y:
+            _apply_right_y_axis_style(layer, right_y_style)
 
     def _configure_layer_frame(
         self, graph: OriginGraphObject, layer_plan: OriginLayerPlan, layer: Any
@@ -475,6 +561,7 @@ class OriginProBackend:
         )
         if graph is None:
             raise NativeOriginError(f"could not create graph {graph_plan.internal_name}")
+        template_y_style = _read_template_y_axis_style(graph[0])
         graph.name = graph_plan.internal_name
         graph.lname = graph_plan.long_name
         # Derived interval, outline, and polygon tables use missing rows as explicit
@@ -630,7 +717,12 @@ class OriginProBackend:
                             plot_sheet,
                         )
             for axis in layer_plan.axes:
-                self._configure_axis(layer, axis, graph_plan.font_size_pt)
+                self._configure_axis(
+                    layer,
+                    axis,
+                    graph_plan.font_size_pt,
+                    template_y_style,
+                )
             if any(
                 previous.left_mm == layer_plan.left_mm
                 and previous.top_mm == layer_plan.top_mm
@@ -804,6 +896,7 @@ class OriginProBackend:
                     f"units={page_units}, "
                     f"view_mode={graph.obj.GetPageViewMode()}"
                 )
+            template_y_style = _read_template_y_axis_style(graph[0])
             for layer_plan, layer in zip(graph_plan.layers, graph, strict=True):
                 expected_plot_count = sum(
                     physical_plot_count(primitive)
@@ -873,6 +966,8 @@ class OriginProBackend:
                         raise NativeOriginError(
                             f"native axis title differs for {axis_plan.axis_id}"
                         )
+                    if axis_plan.orientation == "y" and axis_plan.position == "right":
+                        _assert_right_y_axis_style(layer, template_y_style)
 
     def _inspect_manifest(self, plan: OriginExportPlan) -> None:
         book = _get_page(self._op, _MANIFEST_BOOK, self._op.WBook)

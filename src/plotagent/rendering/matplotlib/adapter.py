@@ -143,6 +143,36 @@ class MatplotlibRenderer:
                 for other in plan.panels
             ) and panel.panel_id.endswith("right"):
                 axes[panel.panel_id].xaxis.set_visible(False)
+                if plan.chart_type_id in {"X23", "X35", "X36"}:
+                    right_axis = axes[panel.panel_id]
+                    left_panel = next(
+                        other
+                        for other in plan.panels
+                        if other.panel_id != panel.panel_id
+                        and other.left == panel.left
+                        and other.top == panel.top
+                        and other.width == panel.width
+                        and other.height == panel.height
+                    )
+                    left_axis = axes[left_panel.panel_id]
+                    # One physical frame is shared by the two data axes. Hide the
+                    # duplicate spines so the right edge is not painted twice, then
+                    # explicitly mirror the primary axis/tick/text weight.
+                    left_axis.spines["right"].set_visible(False)
+                    for spine_name in ("left", "top", "bottom"):
+                        right_axis.spines[spine_name].set_visible(False)
+                    axis_width = left_axis.spines["left"].get_linewidth()
+                    right_axis.spines["right"].set_linewidth(axis_width)
+                    right_axis.tick_params(axis="y", which="both", width=axis_width)
+                    right_axis.yaxis.label.set_fontweight(
+                        left_axis.yaxis.label.get_fontweight()
+                    )
+                    for left_label, right_label in zip(
+                        left_axis.get_yticklabels(),
+                        right_axis.get_yticklabels(),
+                        strict=False,
+                    ):
+                        right_label.set_fontweight(left_label.get_fontweight())
         for panel_id, axis in axes.items():
             if not any(item.panel_id == panel_id for item in plan.axes):
                 axis.set_axis_off()
