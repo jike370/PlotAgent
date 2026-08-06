@@ -1257,10 +1257,14 @@ def _panel_layout(plot: PlotSpec, drafts: Sequence[_DraftLayer]) -> tuple[Resolv
     height = plot.publication_profile.physical_size.height.value
     panel_ids = tuple(dict.fromkeys(draft.panel_id for draft in drafts))
     if plot.chart_type_id in {"X23", "X24", "X35", "X36", "X37"}:
+        # Pareto's percentage ticks and right-axis title need two additional
+        # millimetres beyond the generic dual-axis margin at the formal 89 mm
+        # canvas. Keep both overlay panels exactly coincident after reserving it.
+        right_margin = 12.0 if plot.chart_type_id == "X24" else 10.0
         bounds = dict(
             left=_mm(14),
             top=_mm(5),
-            width=_mm(max(10, width - 24)),
+            width=_mm(max(10, width - 14 - right_margin)),
             height=_mm(max(10, height - 17)),
         )
         return tuple(ResolvedPanel(panel_id=panel_id, **bounds) for panel_id in panel_ids)

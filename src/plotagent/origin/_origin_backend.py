@@ -170,6 +170,50 @@ def _floating_column_gap_command(width: float) -> str:
     return f"-vg {round((1.0 - width) * 100)}"
 
 
+def _legend_text(graph_id: str, labels: list[str]) -> str:
+    """Add native sample tokens only for the closed S07 legend vocabulary.
+
+    S07 layer labels are a closed fixed-calculation vocabulary, so it can safely use
+    Origin's fixed ``\\l(n)`` sample tokens. Other chart labels retain the existing
+    plain-text path and never receive generated enhanced-text syntax here.
+    """
+
+    if graph_id.startswith("graph.S07."):
+        expected = ("Down", "Not significant", "Up")
+        if tuple(labels) != expected:
+            raise NativeOriginError("S07 fixed legend vocabulary differs from the resolver")
+        return "\n".join(f"\\l({index}) {label}" for index, label in enumerate(labels, 1))
+    return "\n".join(labels)
+
+
+def _place_inside_legend(
+    graph: Any, graph_plan: OriginGraphObject, layer_plan: OriginLayerPlan, legend: Any
+) -> None:
+    """Place the legend inside its typed anchor so it cannot cross the page edge."""
+
+    page_width = _finite_float(graph.get_float("width"))
+    page_height = _finite_float(graph.get_float("height"))
+    legend_width = _finite_float(legend.get_float("width"), 0.0)
+    legend_height = _finite_float(legend.get_float("height"), 0.0)
+    layer_left = layer_plan.left_mm / graph_plan.page_width_mm * page_width
+    layer_top = layer_plan.top_mm / graph_plan.page_height_mm * page_height
+    layer_width = layer_plan.width_mm / graph_plan.page_width_mm * page_width
+    layer_height = layer_plan.height_mm / graph_plan.page_height_mm * page_height
+    anchor_x = layer_left + layer_width * graph_plan.legend_anchor_x
+    # Resolved anchors use Matplotlib's bottom-up Y convention; Origin's object
+    # coordinates run from the page top.
+    anchor_y = layer_top + layer_height * (1.0 - graph_plan.legend_anchor_y)
+    if graph_plan.graph_id.startswith("graph.S07."):
+        # Volcano extremes occupy both upper corners. Centering the three-entry
+        # fixed legend keeps it clear of those points as the X range expands.
+        left = layer_left + (layer_width - legend_width) / 2
+    else:
+        left = anchor_x - legend_width if graph_plan.legend_anchor_x >= 0.5 else anchor_x
+    top = anchor_y if graph_plan.legend_anchor_y >= 0.5 else anchor_y - legend_height
+    legend.set_float("left", min(max(left, 0.0), max(page_width - legend_width, 0.0)))
+    legend.set_float("top", min(max(top, 0.0), max(page_height - legend_height, 0.0)))
+
+
 def _folder_items(collection: Any) -> list[Any]:
     return [collection.GetItem(index) for index in range(collection.GetCount())]
 
@@ -746,9 +790,17 @@ class OriginProBackend:
             legend = layer.label("legend")
             if legend is not None:
                 legend.text = (
-                    "\n".join(labels) if graph_plan.legend_visible and layer_index == 0 else ""
+                    _legend_text(graph_plan.graph_id, labels)
+                    if graph_plan.legend_visible and layer_index == 0
+                    else ""
                 )
                 legend.set_float("fsize", graph_plan.font_size_pt)
+                if (
+                    graph_plan.legend_visible
+                    and layer_index == 0
+                    and graph_plan.graph_id.startswith("graph.S07.")
+                ):
+                    _place_inside_legend(graph, graph_plan, layer_plan, legend)
             for annotation in graph_plan.annotations:
                 if annotation.panel_id != layer_plan.panel_id or annotation.text is None:
                     continue
@@ -897,7 +949,12 @@ class OriginProBackend:
                     f"view_mode={graph.obj.GetPageViewMode()}"
                 )
             template_y_style = _read_template_y_axis_style(graph[0])
-            for layer_plan, layer in zip(graph_plan.layers, graph, strict=True):
+            legend_labels = [
+                plot.label for item in graph_plan.layers for plot in item.plots if plot.label
+            ]
+            for layer_index, (layer_plan, layer) in enumerate(
+                zip(graph_plan.layers, graph, strict=True)
+            ):
                 expected_plot_count = sum(
                     physical_plot_count(primitive)
                     for plot in layer_plan.plots
@@ -968,6 +1025,30 @@ class OriginProBackend:
                         )
                     if axis_plan.orientation == "y" and axis_plan.position == "right":
                         _assert_right_y_axis_style(layer, template_y_style)
+                if (
+                    graph_plan.legend_visible
+                    and layer_index == 0
+                    and graph_plan.graph_id.startswith("graph.S07.")
+                ):
+                    legend = layer.label("legend")
+                    expected_legend = _legend_text(graph_plan.graph_id, legend_labels)
+                    if legend is None or legend.text.replace("\r\n", "\n") != expected_legend:
+                        raise NativeOriginError(
+                            f"native legend text differs for {graph_plan.graph_id}"
+                        )
+                    page_width = _finite_float(graph.get_float("width"))
+                    page_height = _finite_float(graph.get_float("height"))
+                    if (
+                        legend.get_float("left") < 0
+                        or legend.get_float("top") < 0
+                        or legend.get_float("left") + legend.get_float("width")
+                        > page_width + 1e-9
+                        or legend.get_float("top") + legend.get_float("height")
+                        > page_height + 1e-9
+                    ):
+                        raise NativeOriginError(
+                            f"native legend crosses page edge for {graph_plan.graph_id}"
+                        )
 
     def _inspect_manifest(self, plan: OriginExportPlan) -> None:
         book = _get_page(self._op, _MANIFEST_BOOK, self._op.WBook)

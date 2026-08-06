@@ -6,7 +6,9 @@ import pytest
 
 from plotagent.contracts.rendering import OriginDataObject, OriginExportPlan, OriginGraphObject
 from plotagent.origin._origin_backend import (
+    NativeOriginError,
     _apply_right_y_axis_style,
+    _legend_text,
     _read_template_y_axis_style,
 )
 from plotagent.origin.native import (
@@ -23,6 +25,18 @@ from tests.rendering.fixture_factory import resolve_chart
 def _plan(chart_id: str) -> OriginExportPlan:
     resolved = resolve_chart(chart_id)
     return compile_origin_plan((resolved,), build_origin_export_spec((resolved,)))
+
+
+def test_s07_uses_only_fixed_native_legend_sample_tokens() -> None:
+    assert _legend_text("graph.S07.0", ["Down", "Not significant", "Up"]) == (
+        r"\l(1) Down" "\n" r"\l(2) Not significant" "\n" r"\l(3) Up"
+    )
+    with pytest.raises(NativeOriginError, match="fixed legend vocabulary"):
+        _legend_text("graph.S07.0", ["Down", "user label", "Up"])
+
+
+def test_nonfixed_legend_labels_do_not_receive_generated_origin_tokens() -> None:
+    assert _legend_text("graph.K01.0", ["Series 1", "Series 2"]) == "Series 1\nSeries 2"
 
 
 @dataclass

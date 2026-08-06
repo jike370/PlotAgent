@@ -143,7 +143,7 @@ class MatplotlibRenderer:
                 for other in plan.panels
             ) and panel.panel_id.endswith("right"):
                 axes[panel.panel_id].xaxis.set_visible(False)
-                if plan.chart_type_id in {"X23", "X35", "X36"}:
+                if plan.chart_type_id in {"X23", "X24", "X35", "X36", "X37"}:
                     right_axis = axes[panel.panel_id]
                     left_panel = next(
                         other

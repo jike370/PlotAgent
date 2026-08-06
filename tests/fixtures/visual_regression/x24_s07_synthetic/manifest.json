@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "suite_id": "synthetic-generalized-x24-s07",
+  "generator": {
+    "name": "plotagent-frozen-synthetic",
+    "version": "1.0.0",
+    "seed": 240807
+  },
+  "admission_class": "synthetic_generalized_visual_regression",
+  "origin_official_same_source_admission": false,
+  "notice": "Synthetic data only. No Origin reference image exists and none may be inferred.",
+  "cases": [
+    {
+      "case_id": "X24_baseline",
+      "chart_type_id": "X24",
+      "data_file": "X24_baseline.csv",
+      "data_sha256": "83653808a0977c413fea1c50ffd51b35802278fd5e02595b09fc3d5244abc895",
+      "risk": "Unsorted six-category input exercises descending Pareto ordering and cumulative-percent calculation.",
+      "expected": {
+        "row_count": 6,
+        "left_axis_includes_zero": true,
+        "last_cumulative_percent": 100.0
+      }
+    },
+    {
+      "case_id": "X24_expanded",
+      "chart_type_id": "X24",
+      "data_file": "X24_expanded.csv",
+      "data_sha256": "1a2161116336eef7440e816b4f25c20201bdb5380cc108e3ab9f9ee24ad4af5d",
+      "risk": "Category count grows from six to ten while input remains unsorted; bar spacing and rotated labels must adapt without overlap or clipping.",
+      "expected": {
+        "row_count": 10,
+        "left_axis_includes_zero": true,
+        "last_cumulative_percent": 100.0
+      }
+    },
+    {
+      "case_id": "S07_baseline",
+      "chart_type_id": "S07",
+      "data_file": "S07_baseline.csv",
+      "data_sha256": "5bce143c76f941b4c870d70ba1e5c2dc9f4b34880da0b77b2bf5ea104812a450",
+      "risk": "Both effect directions, non-significant center points, and p-values spanning six orders of magnitude exercise class/color/legend identity and symmetric X scaling.",
+      "expected": {
+        "row_count": 24,
+        "classes": ["Down", "Not significant", "Up"],
+        "threshold_pvalue": 0.05
+      }
+    },
+    {
+      "case_id": "S07_expanded",
+      "chart_type_id": "S07",
+      "data_file": "S07_expanded.csv",
+      "data_sha256": "e7e98e6d66206ee2bdd6380255b0e83af5ebd41e5146e83f433d951b61065c9f",
+      "risk": "Point count and effect range increase, with observations straddling both fold-change and p-value thresholds; geometry and symmetric axes must remain finite and unclipped.",
+      "expected": {
+        "row_count": 40,
+        "classes": ["Down", "Not significant", "Up"],
+        "threshold_pvalue": 0.05
+      }
+    }
+  ]
+}
