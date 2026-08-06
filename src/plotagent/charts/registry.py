@@ -655,9 +655,13 @@ def patch_operations_for_chart(chart_type_id: str) -> tuple[str, ...]:
     capabilities = set(get_chart(chart_type_id).edit_capabilities)
     operations: list[str] = []
     for operation, required in (
+        ("set_plot_title", {"plot_title"}),
         ("set_axis_range", {"axis_range"}),
         ("set_axis_scale", {"axis_scale"}),
         ("set_axis_label", {"axis_label"}),
+        ("set_axis_reverse", {"axis_range"}),
+        ("set_axis_ticks", {"axis_ticks"}),
+        ("set_font_size", {"font"}),
         (
             "set_series_style",
             {
@@ -675,6 +679,7 @@ def patch_operations_for_chart(chart_type_id: str) -> tuple[str, ...]:
         ("move_legend", {"legend_position"}),
         ("apply_publication_profile", {"publication_profile"}),
         ("set_canvas_size", {"canvas_size"}),
+        ("add_annotation", {"safe_annotation"}),
     ):
         if capabilities & required:
             operations.append(operation)

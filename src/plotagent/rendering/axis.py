@@ -6,7 +6,13 @@ import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from plotagent.contracts.plots import AxisSpec, SafeRichText, SafeTextNode, ScaleSpec
+from plotagent.contracts.plots import (
+    AxisSpec,
+    AxisTickSpec,
+    SafeRichText,
+    SafeTextNode,
+    ScaleSpec,
+)
 from plotagent.contracts.rendering import ResolvedAxis, ResolvedTick
 from plotagent.rendering.data import Scalar, is_finite_number
 
@@ -47,24 +53,37 @@ def _precision(step: float) -> int:
     )
 
 
-def _number_label(value: float, precision: int) -> str:
+def _number_label(value: float, precision: int, tick_spec: AxisTickSpec) -> str:
     if abs(value) < 0.5 * (10 ** (-precision)):
         value = 0.0
+    if tick_spec.number_format == "fixed":
+        return f"{value:.{tick_spec.decimal_places}f}"
+    if tick_spec.number_format == "scientific":
+        return f"{value:.{tick_spec.decimal_places}e}"
     if abs(value) >= 1e6 or (0 < abs(value) < 1e-4):
         return f"{value:.4g}"
     return f"{value:.{precision}f}"
 
 
-def _linear_ticks(minimum: float, maximum: float) -> tuple[tuple[ResolvedTick, ...], int]:
-    step = _nice_step(maximum - minimum)
+def _linear_ticks(
+    minimum: float,
+    maximum: float,
+    tick_spec: AxisTickSpec,
+) -> tuple[tuple[ResolvedTick, ...], int]:
+    step = tick_spec.major_interval or _nice_step(maximum - minimum)
     precision = _precision(step)
     start = math.ceil((minimum - step * 1e-12) / step) * step
     stop = math.floor((maximum + step * 1e-12) / step) * step
     count = max(0, int(round((stop - start) / step)) + 1)
     values = tuple(start + index * step for index in range(min(count, 100)))
+    if not values:
+        values = (minimum, maximum)
     return (
         tuple(
-            ResolvedTick(value=value, label=_text(_number_label(value, precision)))
+            ResolvedTick(
+                value=value,
+                label=_text(_number_label(value, precision, tick_spec)),
+            )
             for value in values
         ),
         precision,
@@ -250,7 +269,7 @@ def resolve_axis(
         ticks = _datetime_ticks(minimum, maximum)
         precision = 0
     else:
-        ticks, precision = _linear_ticks(minimum, maximum)
+        ticks, precision = _linear_ticks(minimum, maximum, scale_spec.ticks)
     return AxisResolution(
         axis=ResolvedAxis(
             axis_id=resolved_axis_id,

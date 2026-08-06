@@ -26,6 +26,7 @@ from plotagent.contracts.rendering import (
     OriginLayerPlan,
     OriginPlotPlan,
     OriginScalar,
+    ResolvedAnnotation,
 )
 from plotagent.contracts.styles import ResolvedPalette, origin_interior_code, origin_symbol_code
 
@@ -77,6 +78,8 @@ _LINE_STYLE_CODES = {"solid": 0, "dashed": 1, "dotted": 2, "dash_dot": 3}
 # Qualified Origin's fixed palette index for white. S07 uses an opaque legend
 # fill so its fixed threshold lines cannot visually cross the legend contents.
 _ORIGIN_WHITE_COLOR_INDEX = 18
+_ORIGIN_BLACK_COLOR_INDEX = 1
+_PLOT_TITLE_LABEL = "_TITLE"
 
 
 class NativeOriginError(RuntimeError):
@@ -337,6 +340,31 @@ def _uses_custom_tick_labels(axis: OriginAxisPlan) -> bool:
         )
     except ValueError:
         return True
+
+
+def _annotation_object_name(annotation_id: str) -> str:
+    return "PA_A_" + hashlib.sha256(annotation_id.encode("utf-8")).hexdigest()[:16]
+
+
+def _reference_entries(
+    annotations: tuple[ResolvedAnnotation, ...],
+    panel_id: str,
+) -> dict[str, tuple[tuple[float, bool], ...]]:
+    entries: dict[str, list[tuple[float, bool]]] = {"x": [], "y": []}
+    for annotation in annotations:
+        if annotation.panel_id != panel_id:
+            continue
+        if annotation.kind == "reference_line":
+            if annotation.x is not None:
+                entries["x"].append((float(annotation.x), False))
+            elif annotation.y is not None:
+                entries["y"].append((float(annotation.y), False))
+        elif annotation.kind == "reference_band":
+            if annotation.x is not None and annotation.x2 is not None:
+                entries["x"].extend(((float(annotation.x), True), (float(annotation.x2), False)))
+            elif annotation.y is not None and annotation.y2 is not None:
+                entries["y"].extend(((float(annotation.y), True), (float(annotation.y2), False)))
+    return {axis: tuple(values) for axis, values in entries.items()}
 
 
 class OriginProBackend:
@@ -815,6 +843,20 @@ class OriginProBackend:
                     graph_plan.font_size_pt,
                     template_y_style,
                 )
+            if layer_index == 0:
+                title = layer.label(_PLOT_TITLE_LABEL)
+                if graph_plan.title:
+                    if title is None:
+                        title = layer.add_label(graph_plan.title, 40, 2)
+                        if title is None:
+                            raise NativeOriginError("could not create native plot title")
+                        title.name = _PLOT_TITLE_LABEL
+                    title.text = graph_plan.title
+                    title.set_float("fsize", graph_plan.font_size_pt + 1.0)
+                    title.set_int("show", 1)
+                elif title is not None:
+                    title.text = ""
+                    title.set_int("show", 0)
             if any(
                 previous.left_mm == layer_plan.left_mm
                 and previous.top_mm == layer_plan.top_mm
@@ -849,13 +891,33 @@ class OriginProBackend:
                     and graph_plan.graph_id.startswith("graph.S07.")
                 ):
                     _place_inside_legend(graph, graph_plan, layer_plan, legend)
+            reference_entries = _reference_entries(graph_plan.annotations, layer_plan.panel_id)
+            for prefix, entries in reference_entries.items():
+                layer.set_int(f"{prefix}.reflines.count", len(entries))
+                for entry_index, (value, fill_to_next) in enumerate(entries, start=1):
+                    base = f"{prefix}.refline{entry_index}"
+                    layer.set_float(f"{base}.value", value)
+                    layer.set_int(f"{base}.lineshow", 1)
+                    layer.set_int(f"{base}.lineauto", 0)
+                    layer.set_int(f"{base}.linecolor", _ORIGIN_BLACK_COLOR_INDEX)
+                    layer.set_float(f"{base}.linethickness", 0.8)
+                    layer.set_int(f"{base}.filltonext", entry_index + 1 if fill_to_next else 0)
+                    if fill_to_next:
+                        layer.set_int(f"{base}.fillcolor", _ORIGIN_BLACK_COLOR_INDEX)
+                        layer.set_int(f"{base}.filltrans", 86)
             for annotation in graph_plan.annotations:
-                if annotation.panel_id != layer_plan.panel_id or annotation.text is None:
+                if (
+                    annotation.panel_id != layer_plan.panel_id
+                    or annotation.text is None
+                    or annotation.kind not in {"text", "peak_label", "panel_label"}
+                ):
                     continue
                 text = "".join(node.text for node in annotation.text.nodes)
                 label = layer.add_label(text, annotation.x, annotation.y)
                 if label is None:
                     raise NativeOriginError("could not create native text annotation")
+                label.name = _annotation_object_name(annotation.annotation_id)
+                label.set_float("fsize", graph_plan.font_size_pt)
         # Origin may defer one dimension while layers and plots are being created.
         # Reapply both typed dimensions after construction so inspection and save see
         # the final physical canvas.
@@ -1120,6 +1182,18 @@ class OriginProBackend:
                         raise NativeOriginError(
                             f"native axis title differs for {axis_plan.axis_id}"
                         )
+                    if not math.isclose(
+                        layer.get_float(f"{prefix}.label.fsize"),
+                        max(5.0, graph_plan.font_size_pt - 1.0),
+                        abs_tol=1e-9,
+                    ) or not math.isclose(
+                        label.get_float("fsize"),
+                        graph_plan.font_size_pt,
+                        abs_tol=1e-9,
+                    ):
+                        raise NativeOriginError(
+                            f"native axis font size differs for {axis_plan.axis_id}"
+                        )
                     if axis_plan.orientation == "y" and axis_plan.position == "right":
                         _assert_right_y_axis_style(layer, template_y_style)
                 if (
@@ -1147,6 +1221,51 @@ class OriginProBackend:
                     ):
                         raise NativeOriginError(
                             f"native legend crosses page edge for {graph_plan.graph_id}"
+                        )
+                if layer_index == 0 and graph_plan.title:
+                    title = layer.label(_PLOT_TITLE_LABEL)
+                    if title is None or title.text != graph_plan.title or not math.isclose(
+                        title.get_float("fsize"),
+                        graph_plan.font_size_pt + 1.0,
+                        abs_tol=1e-9,
+                    ):
+                        raise NativeOriginError(
+                            f"native plot title differs for {graph_plan.graph_id}"
+                        )
+                reference_entries = _reference_entries(
+                    graph_plan.annotations,
+                    layer_plan.panel_id,
+                )
+                for reference_axis, entries in reference_entries.items():
+                    if layer.get_int(f"{reference_axis}.reflines.count") != len(entries):
+                        raise NativeOriginError(
+                            f"native reference line count differs for {layer_plan.layer_id}"
+                        )
+                    for entry_index, (value, fill_to_next) in enumerate(entries, start=1):
+                        base = f"{reference_axis}.refline{entry_index}"
+                        if not math.isclose(
+                            layer.get_float(f"{base}.value"), value, abs_tol=1e-10
+                        ) or layer.get_int(f"{base}.lineshow") != 1:
+                            raise NativeOriginError(
+                                f"native reference line differs for {layer_plan.layer_id}"
+                            )
+                        expected_fill = entry_index + 1 if fill_to_next else 0
+                        if layer.get_int(f"{base}.filltonext") != expected_fill:
+                            raise NativeOriginError(
+                                f"native reference band differs for {layer_plan.layer_id}"
+                            )
+                for annotation in graph_plan.annotations:
+                    if (
+                        annotation.panel_id != layer_plan.panel_id
+                        or annotation.text is None
+                        or annotation.kind not in {"text", "peak_label", "panel_label"}
+                    ):
+                        continue
+                    label = layer.label(_annotation_object_name(annotation.annotation_id))
+                    expected_text = "".join(node.text for node in annotation.text.nodes)
+                    if label is None or label.text != expected_text:
+                        raise NativeOriginError(
+                            f"native annotation differs for {annotation.annotation_id}"
                         )
 
     def _inspect_manifest(self, plan: OriginExportPlan) -> None:

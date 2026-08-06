@@ -98,6 +98,12 @@ class MatplotlibRenderer:
         )
         FigureCanvasAgg(figure)
         axes = self._create_axes(figure, resolved)
+        title = safe_text(plan.title)
+        if title:
+            title_axis = axes.get("panel:main")
+            if title_axis is None:
+                title_axis = next(iter(axes.values()))
+            title_axis.set_title(title, pad=8)
         for layer in sorted(plan.layers, key=lambda item: item.z_order):
             axis = axes[layer.panel_id]
             roles = _role_columns(layer, resolved.table_for(layer))
@@ -709,6 +715,11 @@ class MatplotlibRenderer:
                     axis.axvline(annotation.x, color="#666666", linewidth=0.8, linestyle="--")
                 if annotation.y is not None:
                     axis.axhline(annotation.y, color="#666666", linewidth=0.8, linestyle="--")
+            elif annotation.kind == "reference_band":
+                if annotation.x is not None and annotation.x2 is not None:
+                    axis.axvspan(annotation.x, annotation.x2, color="#666666", alpha=0.14)
+                if annotation.y is not None and annotation.y2 is not None:
+                    axis.axhspan(annotation.y, annotation.y2, color="#666666", alpha=0.14)
 
     def _draw_legends(self, axes: Mapping[str, Axes], resolved: ResolvedPlot) -> None:
         legend = resolved.plan.legend

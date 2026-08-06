@@ -466,6 +466,7 @@ def compile_origin_plan(
                 page_height_mm=plan.canvas.height.value,
                 font_family=font.family,
                 font_size_pt=font.size.value,
+                title=_safe_text(plan.title),
                 legend_visible=plan.legend.visible,
                 legend_anchor_x=plan.legend.anchor_x,
                 legend_anchor_y=plan.legend.anchor_y,

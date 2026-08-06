@@ -94,6 +94,103 @@
       "title": "ActionPlan",
       "type": "object"
     },
+    "AddAnnotationIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "affect_range": {
+          "default": false,
+          "title": "Affect Range",
+          "type": "boolean"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "reference_line",
+            "reference_band"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "operation": {
+          "const": "add_annotation",
+          "default": "add_annotation",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "x": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X"
+        },
+        "x2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X2"
+        },
+        "y": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y"
+        },
+        "y2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y2"
+        }
+      },
+      "required": [
+        "target_alias",
+        "kind"
+      ],
+      "title": "AddAnnotationIntent",
+      "type": "object"
+    },
     "AxisLabelIntent": {
       "additionalProperties": false,
       "properties": {
@@ -126,12 +223,28 @@
       "additionalProperties": false,
       "properties": {
         "maximum": {
-          "title": "Maximum",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
         },
         "minimum": {
-          "title": "Minimum",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
         },
         "operation": {
           "const": "set_axis_range",
@@ -146,11 +259,35 @@
         }
       },
       "required": [
-        "target_alias",
-        "minimum",
-        "maximum"
+        "target_alias"
       ],
       "title": "AxisRangeIntent",
+      "type": "object"
+    },
+    "AxisReverseIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_axis_reverse",
+          "default": "set_axis_reverse",
+          "title": "Operation",
+          "type": "string"
+        },
+        "reverse": {
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "reverse"
+      ],
+      "title": "AxisReverseIntent",
       "type": "object"
     },
     "AxisScaleIntent": {
@@ -183,6 +320,57 @@
         "scale"
       ],
       "title": "AxisScaleIntent",
+      "type": "object"
+    },
+    "AxisTicksIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "decimal_places": {
+          "default": 3,
+          "maximum": 12,
+          "minimum": 0,
+          "title": "Decimal Places",
+          "type": "integer"
+        },
+        "major_interval": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Major Interval"
+        },
+        "number_format": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "fixed",
+            "scientific"
+          ],
+          "title": "Number Format",
+          "type": "string"
+        },
+        "operation": {
+          "const": "set_axis_ticks",
+          "default": "set_axis_ticks",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "AxisTicksIntent",
       "type": "object"
     },
     "CanvasSizeIntent": {
@@ -690,6 +878,34 @@
       "title": "ExportArtifactAction",
       "type": "object"
     },
+    "FontSizeIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_font_size",
+          "default": "set_font_size",
+          "title": "Operation",
+          "type": "string"
+        },
+        "size_pt": {
+          "maximum": 72,
+          "minimum": 5,
+          "title": "Size Pt",
+          "type": "number"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "size_pt"
+      ],
+      "title": "FontSizeIntent",
+      "type": "object"
+    },
     "InputChoice": {
       "additionalProperties": false,
       "properties": {
@@ -1060,20 +1276,28 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "add_annotation": "#/$defs/AddAnnotationIntent",
                 "apply_publication_profile": "#/$defs/PublicationProfileIntent",
                 "move_legend": "#/$defs/LegendPlacementIntent",
                 "set_axis_label": "#/$defs/AxisLabelIntent",
                 "set_axis_range": "#/$defs/AxisRangeIntent",
+                "set_axis_reverse": "#/$defs/AxisReverseIntent",
                 "set_axis_scale": "#/$defs/AxisScaleIntent",
+                "set_axis_ticks": "#/$defs/AxisTicksIntent",
                 "set_canvas_size": "#/$defs/CanvasSizeIntent",
                 "set_category_color": "#/$defs/CategoryColorIntent",
+                "set_font_size": "#/$defs/FontSizeIntent",
                 "set_legend_visibility": "#/$defs/LegendVisibilityIntent",
                 "set_palette": "#/$defs/PaletteIntent",
+                "set_plot_title": "#/$defs/PlotTitleIntent",
                 "set_series_style": "#/$defs/SeriesStyleIntent"
               },
               "propertyName": "operation"
             },
             "oneOf": [
+              {
+                "$ref": "#/$defs/PlotTitleIntent"
+              },
               {
                 "$ref": "#/$defs/AxisRangeIntent"
               },
@@ -1082,6 +1306,15 @@
               },
               {
                 "$ref": "#/$defs/AxisLabelIntent"
+              },
+              {
+                "$ref": "#/$defs/AxisReverseIntent"
+              },
+              {
+                "$ref": "#/$defs/AxisTicksIntent"
+              },
+              {
+                "$ref": "#/$defs/FontSizeIntent"
               },
               {
                 "$ref": "#/$defs/SeriesStyleIntent"
@@ -1103,6 +1336,9 @@
               },
               {
                 "$ref": "#/$defs/CanvasSizeIntent"
+              },
+              {
+                "$ref": "#/$defs/AddAnnotationIntent"
               }
             ]
           },
@@ -1189,6 +1425,40 @@
         "message"
       ],
       "title": "PlanWarning",
+      "type": "object"
+    },
+    "PlotTitleIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_plot_title",
+          "default": "set_plot_title",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "PlotTitleIntent",
       "type": "object"
     },
     "PublicationProfileIntent": {

@@ -34,6 +34,7 @@ from plotagent.contracts.registry import CHARTS_BY_ID, GeometryKind
 from plotagent.contracts.styles import LineStyle, PaletteId, ResolvedPalette, SymbolStyle
 
 AxisScaleKind = Literal["linear", "log10", "datetime", "categorical"]
+AxisNumberFormat = Literal["auto", "fixed", "scientific"]
 AllGeometryKind = GeometryKind
 
 
@@ -169,6 +170,12 @@ class AxisRange(StrictModel):
         return self
 
 
+class AxisTickSpec(StrictModel):
+    major_interval: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    number_format: AxisNumberFormat = "auto"
+    decimal_places: Annotated[int, Field(ge=0, le=12)] = 3
+
+
 class ScaleSpec(StrictModel):
     scale_id: Annotated[
         str,
@@ -176,6 +183,7 @@ class ScaleSpec(StrictModel):
     ]
     kind: AxisScaleKind
     axis_range: AxisRange = AxisRange()
+    ticks: AxisTickSpec = AxisTickSpec()
 
 
 class AxisSpec(StrictModel):
@@ -256,7 +264,25 @@ class AnnotationSpec(StrictModel):
     text: SafeRichText | None = None
     x: FiniteNumber | None = None
     y: FiniteNumber | None = None
+    x2: FiniteNumber | None = None
+    y2: FiniteNumber | None = None
     affect_range: bool = False
+
+    @model_validator(mode="after")
+    def valid_closed_shape(self) -> AnnotationSpec:
+        if self.kind in {"text", "peak_label", "panel_label"} and self.text is None:
+            raise ValueError("text annotations require safe text")
+        if self.kind == "reference_line" and (self.x is None) == (self.y is None):
+            raise ValueError("reference lines require exactly one of x or y")
+        if self.kind == "reference_band":
+            vertical = self.x is not None and self.x2 is not None and self.y is self.y2 is None
+            horizontal = self.y is not None and self.y2 is not None and self.x is self.x2 is None
+            if not (vertical or horizontal):
+                raise ValueError("reference bands require exactly one ordered x or y interval")
+            start, end = (self.x, self.x2) if vertical else (self.y, self.y2)
+            if start is not None and end is not None and start >= end:
+                raise ValueError("reference band start must be lower than end")
+        return self
 
 
 class LegendSpec(StrictModel):
@@ -312,6 +338,7 @@ class PlotSpec(StrictModel):
     ]
     plot_version: VersionId
     chart_type_id: ChartTypeId
+    title: SafeRichText | None = None
     family: PlotFamily
     prepared_data_refs: Annotated[tuple[PreparedDatasetRef, ...], Field(min_length=1)]
     precomputed_data_refs: tuple[PrecomputedDataRef, ...] = ()
@@ -364,14 +391,21 @@ class PatchBase(StrictModel):
 
 class SetAxisRangePatch(PatchBase):
     operation: Literal["set_axis_range"] = "set_axis_range"
-    minimum: FiniteNumber
-    maximum: FiniteNumber
+    minimum: FiniteNumber | None = None
+    maximum: FiniteNumber | None = None
 
     @model_validator(mode="after")
     def ordered(self) -> SetAxisRangePatch:
-        if self.minimum >= self.maximum:
+        if (self.minimum is None) != (self.maximum is None):
+            raise ValueError("axis bounds must both be fixed or both be automatic")
+        if self.minimum is not None and self.maximum is not None and self.minimum >= self.maximum:
             raise ValueError("axis minimum must be lower than maximum")
         return self
+
+
+class SetPlotTitlePatch(PatchBase):
+    operation: Literal["set_plot_title"] = "set_plot_title"
+    title: SafeRichText | None = None
 
 
 class SetAxisScalePatch(PatchBase):
@@ -382,6 +416,27 @@ class SetAxisScalePatch(PatchBase):
 class SetAxisLabelPatch(PatchBase):
     operation: Literal["set_axis_label"] = "set_axis_label"
     label: SafeRichText
+
+
+class SetAxisReversePatch(PatchBase):
+    operation: Literal["set_axis_reverse"] = "set_axis_reverse"
+    reverse: bool
+
+
+class SetAxisTicksPatch(PatchBase):
+    operation: Literal["set_axis_ticks"] = "set_axis_ticks"
+    ticks: AxisTickSpec
+
+
+class SetFontSizePatch(PatchBase):
+    operation: Literal["set_font_size"] = "set_font_size"
+    size: PhysicalLength
+
+    @model_validator(mode="after")
+    def point_size_only(self) -> SetFontSizePatch:
+        if self.size.unit != "pt" or not 5 <= self.size.value <= 72:
+            raise ValueError("font size must be between 5 and 72 pt")
+        return self
 
 
 class SetSeriesStylePatch(PatchBase):
@@ -472,9 +527,13 @@ class SetBatchAxisPolicyPatch(StrictModel):
 
 
 PlotPatch = Annotated[
-    SetAxisRangePatch
+    SetPlotTitlePatch
+    | SetAxisRangePatch
     | SetAxisScalePatch
     | SetAxisLabelPatch
+    | SetAxisReversePatch
+    | SetAxisTicksPatch
+    | SetFontSizePatch
     | SetSeriesStylePatch
     | SetPalettePatch
     | SetCategoryColorPatch

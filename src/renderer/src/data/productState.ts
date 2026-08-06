@@ -44,18 +44,34 @@ export interface ProductAxisState {
   minimum?: number
   maximum?: number
   reverse: boolean
+  majorInterval?: number
+  numberFormat: string
+  decimalPlaces: number
+}
+
+export interface ProductAnnotation {
+  annotationId: string
+  kind: string
+  text: string
+  x?: number
+  y?: number
+  x2?: number
+  y2?: number
 }
 
 export interface ProductPlot {
   plotId: string
   plotVersion: number
   chartId: string
+  plotTitle: string
+  fontSizePt: number
   projectVersion: number
   seriesIds: string[]
   seriesStyles: { seriesId: string; style: ProductSeriesStyle }[]
   axisIds: { x?: string; y?: string; yRight?: string }
   axisStates: { x?: ProductAxisState; y?: ProductAxisState; yRight?: ProductAxisState }
   canvasSizeMm: { width: number; height: number }
+  annotations: ProductAnnotation[]
   style: ProductSeriesStyle & {
     legendVisible?: boolean
     legendPlacement?: string
@@ -221,6 +237,11 @@ function physicalLengthMm(value: JsonValue | undefined, fallback: number): numbe
   return value.unit === 'pt' ? value.value * 25.4 / 72 : value.value
 }
 
+function physicalLengthPt(value: JsonValue | undefined, fallback: number): number {
+  if (!isJsonRecord(value) || typeof value.value !== 'number') return fallback
+  return value.unit === 'mm' ? value.value * 72 / 25.4 : value.value
+}
+
 export function readPlot(value: JsonValue): ProductPlot | undefined {
   const candidates = records(value, (record) => (
     typeof record.plot_id === 'string' && typeof record.plot_version === 'number'
@@ -240,6 +261,7 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
     if (!axis || typeof axis.axis_id !== 'string') return undefined
     const scale = scales.find((candidate) => candidate.scale_id === axis.scale_id)
     const axisRange = scale && isJsonRecord(scale.axis_range) ? scale.axis_range : undefined
+    const ticks = scale && isJsonRecord(scale.ticks) ? scale.ticks : undefined
     return {
       axisId: axis.axis_id,
       label: richTextValue(axis.label),
@@ -247,15 +269,22 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
       ...(axisRange && typeof axisRange.minimum === 'number' ? { minimum: axisRange.minimum } : {}),
       ...(axisRange && typeof axisRange.maximum === 'number' ? { maximum: axisRange.maximum } : {}),
       reverse: axisRange?.reverse === true,
+      ...(ticks && typeof ticks.major_interval === 'number' ? { majorInterval: ticks.major_interval } : {}),
+      numberFormat: ticks && typeof ticks.number_format === 'string' ? ticks.number_format : 'auto',
+      decimalPlaces: ticks && typeof ticks.decimal_places === 'number' ? ticks.decimal_places : 2,
     }
   }
   const publicationProfile = isJsonRecord(record.publication_profile) ? record.publication_profile : undefined
   const physicalSize = publicationProfile && isJsonRecord(publicationProfile.physical_size)
     ? publicationProfile.physical_size : undefined
+  const resolvedStyle = isJsonRecord(record.resolved_style) ? record.resolved_style : undefined
+  const annotations = Array.isArray(record.annotations) ? record.annotations.filter(isJsonRecord) : []
   return {
     plotId: record.plot_id as string,
     plotVersion: record.plot_version as number,
     chartId: stringValue(record, 'chart_type_id') ?? 'K01',
+    plotTitle: richTextValue(record.title),
+    fontSizePt: physicalLengthPt(resolvedStyle?.font_size, 9),
     projectVersion: projectVersionFrom(value, numberValue(record, 'project_version') ?? 0),
     seriesIds: series.flatMap((item) => typeof item.series_id === 'string' ? [item.series_id] : []),
     seriesStyles: series.flatMap((item) => typeof item.series_id === 'string'
@@ -275,6 +304,18 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
       width: physicalLengthMm(physicalSize?.width, 183),
       height: physicalLengthMm(physicalSize?.height, 120),
     },
+    annotations: annotations.flatMap((annotation): ProductAnnotation[] => {
+      if (typeof annotation.annotation_id !== 'string' || typeof annotation.kind !== 'string') return []
+      return [{
+        annotationId: annotation.annotation_id,
+        kind: annotation.kind,
+        text: richTextValue(annotation.text),
+        ...(typeof annotation.x === 'number' ? { x: annotation.x } : {}),
+        ...(typeof annotation.y === 'number' ? { y: annotation.y } : {}),
+        ...(typeof annotation.x2 === 'number' ? { x2: annotation.x2 } : {}),
+        ...(typeof annotation.y2 === 'number' ? { y2: annotation.y2 } : {}),
+      }]
+    }),
     style: {
       ...readSeriesStyle(firstStyle),
       ...(legend && typeof legend.visible === 'boolean' ? { legendVisible: legend.visible } : {}),

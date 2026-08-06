@@ -29,8 +29,8 @@ describe('product plot state', () => {
           },
         ],
         scales: [
-          { scale_id: 'scale:x', kind: 'linear', axis_range: { minimum: null, maximum: null, reverse: false } },
-          { scale_id: 'scale:y', kind: 'log10', axis_range: { minimum: 0.1, maximum: 100, reverse: false } },
+          { scale_id: 'scale:x', kind: 'linear', axis_range: { minimum: null, maximum: null, reverse: false }, ticks: { major_interval: null, number_format: 'auto', decimal_places: 2 } },
+          { scale_id: 'scale:y', kind: 'log10', axis_range: { minimum: 0.1, maximum: 100, reverse: false }, ticks: { major_interval: 10, number_format: 'scientific', decimal_places: 1 } },
           { scale_id: 'scale:y_right', kind: 'linear', axis_range: { minimum: 4, maximum: 9, reverse: true } },
         ],
         axes: [
@@ -39,6 +39,9 @@ describe('product plot state', () => {
           { axis_id: 'axis:y_right', scale_id: 'scale:y_right', orientation: 'y', position: 'right', label: { nodes: [{ kind: 'plain', text: 'Temperature' }] } },
         ],
         legend: { visible: false, placement: 'outside_right' },
+        title: { nodes: [{ kind: 'plain', text: 'Persisted title' }] },
+        resolved_style: { font_size: { value: 11, unit: 'pt' } },
+        annotations: [{ annotation_id: 'annotation:test', kind: 'reference_line', text: null, x: null, y: 5, x2: null, y2: null }],
         publication_profile: {
           physical_size: { width: { value: 720, unit: 'pt' }, height: { value: 100, unit: 'mm' } },
         },
@@ -49,15 +52,18 @@ describe('product plot state', () => {
       plotId: 'plot:test',
       plotVersion: 3,
       chartId: 'K02',
+      plotTitle: 'Persisted title',
+      fontSizePt: 11,
       projectVersion: 7,
       seriesIds: ['series:test.0'],
       axisIds: { x: 'axis:x', y: 'axis:y', yRight: 'axis:y_right' },
       axisStates: {
-        x: { axisId: 'axis:x', label: 'Time', scale: 'linear', reverse: false },
-        y: { axisId: 'axis:y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100, reverse: false },
-        yRight: { axisId: 'axis:y_right', label: 'Temperature', scale: 'linear', minimum: 4, maximum: 9, reverse: true },
+        x: { axisId: 'axis:x', label: 'Time', scale: 'linear', reverse: false, numberFormat: 'auto', decimalPlaces: 2 },
+        y: { axisId: 'axis:y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100, reverse: false, majorInterval: 10, numberFormat: 'scientific', decimalPlaces: 1 },
+        yRight: { axisId: 'axis:y_right', label: 'Temperature', scale: 'linear', minimum: 4, maximum: 9, reverse: true, numberFormat: 'auto', decimalPlaces: 2 },
       },
       canvasSizeMm: { width: 254, height: 100 },
+      annotations: [{ annotationId: 'annotation:test', kind: 'reference_line', text: '', y: 5 }],
       style: { legendVisible: false, legendPlacement: 'outside_right' },
     })
     expect(plot?.seriesStyles[0]?.style).toEqual({

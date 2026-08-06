@@ -209,6 +209,18 @@
           "default": null,
           "title": "X"
         },
+        "x2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X2"
+        },
         "y": {
           "anyOf": [
             {
@@ -220,6 +232,18 @@
           ],
           "default": null,
           "title": "Y"
+        },
+        "y2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y2"
         }
       },
       "required": [
@@ -557,7 +581,7 @@
           }
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         },
@@ -1070,6 +1094,17 @@
       ],
       "title": "Svg Text Mode",
       "type": "string"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SafeRichText"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "warnings": {
       "default": [],

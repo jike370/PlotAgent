@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import type { JsonValue } from '../../../shared/desktop-contract'
 import type { ProductPlot } from '../data/productState'
 import { FocusEditor } from './FocusEditor'
 
@@ -11,15 +12,18 @@ function plot(chartId: string): ProductPlot & { title: string } {
     plotId: 'plot:test',
     plotVersion: 3,
     chartId,
+    plotTitle: '已保存标题',
+    fontSizePt: 10,
     projectVersion: 4,
     seriesIds: ['series:test.0'],
     seriesStyles: [{ seriesId: 'series:test.0', style: {} }],
     axisIds: { x: 'axis:x', y: 'axis:y' },
     axisStates: {
-      x: { axisId: 'axis:x', label: 'Time', scale: 'linear', reverse: false },
-      y: { axisId: 'axis:y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100, reverse: false },
+      x: { axisId: 'axis:x', label: 'Time', scale: 'linear', reverse: false, numberFormat: 'auto', decimalPlaces: 2 },
+      y: { axisId: 'axis:y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100, reverse: false, majorInterval: 10, numberFormat: 'scientific', decimalPlaces: 1 },
     },
     canvasSizeMm: { width: 183, height: 120 },
+    annotations: [],
     style: { legendVisible: true, legendPlacement: 'inside' },
   }
 }
@@ -27,7 +31,7 @@ function plot(chartId: string): ProductPlot & { title: string } {
 describe('FocusEditor capability-driven patches', () => {
   it('submits one typed series patch with an Origin symbol', async () => {
     const user = userEvent.setup()
-    const onPatch = vi.fn(async () => undefined)
+    const onPatch = vi.fn<(patch: JsonValue) => Promise<void>>(async () => undefined)
     render(<FocusEditor initialIndex={0} plot={plot('K03')} onPatch={onPatch} onClose={() => undefined} />)
 
     await user.click(screen.getByRole('button', { name: '参数' }))
@@ -143,5 +147,65 @@ describe('FocusEditor capability-driven patches', () => {
     expect(screen.getByRole('textbox', { name: '轴标题' })).toHaveValue('Signal')
     expect(screen.getByRole('spinbutton', { name: '轴最小值' })).toHaveValue(0.1)
     expect(screen.getByRole('spinbutton', { name: '轴最大值' })).toHaveValue(100)
+    expect(screen.getByRole('spinbutton', { name: '主刻度间隔' })).toHaveValue(10)
+    expect(screen.getByRole('combobox', { name: '刻度数字格式' })).toHaveValue('scientific')
+    expect(screen.getByRole('spinbutton', { name: '刻度小数位数' })).toHaveValue(1)
+  })
+
+  it('submits persisted general title and font changes', async () => {
+    const user = userEvent.setup()
+    const onPatch = vi.fn(async () => undefined)
+    render(<FocusEditor initialIndex={0} plot={plot('K01')} onPatch={onPatch} onClose={() => undefined} />)
+
+    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('tab', { name: '常规' }))
+    expect(screen.getByRole('textbox', { name: '图标题' })).toHaveValue('已保存标题')
+    expect(screen.getByRole('spinbutton', { name: '全局字号' })).toHaveValue(10)
+    await user.clear(screen.getByRole('textbox', { name: '图标题' }))
+    await user.click(screen.getByRole('button', { name: '应用图标题' }))
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
+      operation: 'set_plot_title', target_id: 'plot:test', title: null,
+    })))
+  })
+
+  it('supports automatic range, reverse axes, and explicit ticks', async () => {
+    const user = userEvent.setup()
+    const onPatch = vi.fn<(patch: JsonValue) => Promise<void>>(async () => undefined)
+    render(<FocusEditor initialIndex={0} plot={plot('K01')} onPatch={onPatch} onClose={() => undefined} />)
+
+    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('tab', { name: '坐标轴' }))
+    await user.click(screen.getByRole('button', { name: '恢复自动范围' }))
+    await user.click(screen.getByRole('checkbox', { name: '反向坐标轴' }))
+    await user.click(screen.getByRole('button', { name: '应用轴方向' }))
+    await user.clear(screen.getByRole('spinbutton', { name: '主刻度间隔' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '刻度数字格式' }), 'fixed')
+    await user.click(screen.getByRole('button', { name: '应用刻度' }))
+
+    await waitFor(() => expect(onPatch).toHaveBeenCalledTimes(3))
+    expect(onPatch.mock.calls.map(([patch]) => patch)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ operation: 'set_axis_range', minimum: null, maximum: null }),
+      expect.objectContaining({ operation: 'set_axis_reverse', reverse: true }),
+      expect.objectContaining({ operation: 'set_axis_ticks', ticks: { major_interval: null, number_format: 'fixed', decimal_places: 1 } }),
+    ]))
+  })
+
+  it('opens the real reference-band editor from the toolbar and emits one safe annotation', async () => {
+    const user = userEvent.setup()
+    const onPatch = vi.fn(async () => undefined)
+    render(<FocusEditor initialIndex={0} plot={plot('K01')} onPatch={onPatch} onClose={() => undefined} />)
+
+    await user.click(screen.getByRole('button', { name: '参考带' }))
+    await user.type(screen.getByRole('spinbutton', { name: '参考对象起点' }), '2')
+    await user.type(screen.getByRole('spinbutton', { name: '参考对象终点' }), '4')
+    await user.click(screen.getByRole('button', { name: '添加标注' }))
+
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
+      operation: 'add_annotation',
+      target_id: 'plot:test',
+      annotation: expect.objectContaining({
+        annotation_id: 'annotation:ui.test.v4', kind: 'reference_band', y: 2, y2: 4,
+      }),
+    })))
   })
 })

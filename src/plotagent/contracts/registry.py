@@ -603,9 +603,12 @@ _EDIT_PROFILES: dict[ChartTypeId, str] = {
 _ALL_EDIT_CAPABILITIES: tuple[EditCapability, ...] = get_args(EditCapability)
 _PROFILE_CAPABILITIES: dict[str, tuple[EditCapability, ...]] = {
     "G": (
+        "plot_title",
         "axis_label",
         "axis_range",
         "axis_scale",
+        "axis_ticks",
+        "font",
         "legend_visibility",
         "legend_position",
         "canvas_size",

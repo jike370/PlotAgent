@@ -341,6 +341,127 @@ def test_direct_plot_patch_persists_portable_series_and_legend_styles(
     assert legend["plot_version"] == 3
 
 
+def test_direct_general_edits_persist_and_render_from_plotspec(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import(harness, project_id, revision, "excel_two_sheets.xlsx", "general-edits")
+    first = imported["datasets"][0]
+    described = harness.call(
+        "datasets.describe",
+        {
+            "project_id": project_id,
+            "source_dataset_id": first["source_dataset_id"],
+            "source_version": first["source_version"],
+        },
+    )
+    numeric = [
+        item["field_id"]
+        for item in described["dataset"]["fields"]
+        if item["logical_type"] == "numeric"
+    ]
+    current = harness.call(
+        "plots.create",
+        {
+            "project_id": project_id,
+            "plot_id": "plot:general-edits",
+            "chart_type_id": "K01",
+            "source_dataset_id": first["source_dataset_id"],
+            "source_version": first["source_version"],
+            "field_mapping": {"x": numeric[0], "y": numeric[1]},
+            "idempotency_key": "general-create",
+            "expected_version": imported["project_version"],
+        },
+    )
+    patches = (
+        (
+            "title",
+            {
+                "operation": "set_plot_title",
+                "target_id": "plot:general-edits",
+                "title": {"nodes": [{"kind": "plain", "text": "General edit title"}]},
+            },
+        ),
+        (
+            "font",
+            {
+                "operation": "set_font_size",
+                "target_id": "plot:general-edits",
+                "size": {"value": 11, "unit": "pt"},
+            },
+        ),
+        (
+            "range",
+            {"operation": "set_axis_range", "target_id": "axis:y", "minimum": 0, "maximum": 100},
+        ),
+        ("reverse", {"operation": "set_axis_reverse", "target_id": "axis:y", "reverse": True}),
+        (
+            "ticks",
+            {
+                "operation": "set_axis_ticks",
+                "target_id": "axis:y",
+                "ticks": {"major_interval": 20, "number_format": "fixed", "decimal_places": 1},
+            },
+        ),
+        (
+            "reference",
+            {
+                "operation": "add_annotation",
+                "target_id": "plot:general-edits",
+                "annotation": {
+                    "annotation_id": "annotation:general.band",
+                    "kind": "reference_band",
+                    "y": 20,
+                    "y2": 40,
+                    "affect_range": False,
+                },
+            },
+        ),
+        (
+            "auto",
+            {
+                "operation": "set_axis_range",
+                "target_id": "axis:y",
+                "minimum": None,
+                "maximum": None,
+            },
+        ),
+    )
+    for key, patch in patches:
+        version = current["plot_version"]
+        current = harness.call(
+            "plots.patch",
+            {
+                "project_id": project_id,
+                "plot_id": "plot:general-edits",
+                "expected_version": version,
+                "idempotency_key": f"general-{key}",
+                "patch": {**patch, "expected_plot_version": version},
+            },
+        )
+
+    spec = current["spec"]
+    y_scale = next(item for item in spec["scales"] if item["scale_id"] == "scale:y")
+    assert spec["title"]["nodes"][0]["text"] == "General edit title"
+    assert spec["resolved_style"]["font_size"] == {"value": 11.0, "unit": "pt"}
+    assert y_scale["axis_range"] == {"minimum": None, "maximum": None, "reverse": True}
+    assert y_scale["ticks"] == {
+        "major_interval": 20.0,
+        "number_format": "fixed",
+        "decimal_places": 1,
+    }
+    assert spec["annotations"][0]["annotation_id"] == "annotation:general.band"
+    rendered = harness.call(
+        "plots.render",
+        {
+            "project_id": project_id,
+            "plot_id": "plot:general-edits",
+            "plot_version": current["plot_version"],
+        },
+    )
+    assert Path(rendered["artifact"]["path"]).is_file()
+
+
 def test_text_import_is_committed_and_listed(harness: ApplicationHarness) -> None:
     project_id, revision = _create_open(harness)
     imported = _import(harness, project_id, revision, "txt_metadata.txt", "text")
@@ -643,9 +764,9 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
         )
         assert category_edited["accepted"] is True
         assert category_edited["execution"]["plot_version"] == 4
-        assert category_edited["execution"]["spec"]["series"][0]["style"][
-            "category_colors"
-        ] == {"Treated": {"value": "#654321"}}
+        assert category_edited["execution"]["spec"]["series"][0]["style"]["category_colors"] == {
+            "Treated": {"value": "#654321"}
+        }
 
         described = app.call(
             "datasets.describe",

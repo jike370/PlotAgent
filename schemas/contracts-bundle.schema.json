@@ -94,6 +94,103 @@
       "title": "ActionPlan",
       "type": "object"
     },
+    "AddAnnotationIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "affect_range": {
+          "default": false,
+          "title": "Affect Range",
+          "type": "boolean"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "reference_line",
+            "reference_band"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "operation": {
+          "const": "add_annotation",
+          "default": "add_annotation",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "x": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X"
+        },
+        "x2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X2"
+        },
+        "y": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y"
+        },
+        "y2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y2"
+        }
+      },
+      "required": [
+        "target_alias",
+        "kind"
+      ],
+      "title": "AddAnnotationIntent",
+      "type": "object"
+    },
     "AddAnnotationPatch": {
       "additionalProperties": false,
       "properties": {
@@ -118,7 +215,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -208,6 +305,18 @@
           "default": null,
           "title": "X"
         },
+        "x2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X2"
+        },
         "y": {
           "anyOf": [
             {
@@ -219,6 +328,18 @@
           ],
           "default": null,
           "title": "Y"
+        },
+        "y2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y2"
         }
       },
       "required": [
@@ -319,7 +440,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -400,12 +521,28 @@
       "additionalProperties": false,
       "properties": {
         "maximum": {
-          "title": "Maximum",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
         },
         "minimum": {
-          "title": "Minimum",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
         },
         "operation": {
           "const": "set_axis_range",
@@ -420,11 +557,35 @@
         }
       },
       "required": [
-        "target_alias",
-        "minimum",
-        "maximum"
+        "target_alias"
       ],
       "title": "AxisRangeIntent",
+      "type": "object"
+    },
+    "AxisReverseIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_axis_reverse",
+          "default": "set_axis_reverse",
+          "title": "Operation",
+          "type": "string"
+        },
+        "reverse": {
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "reverse"
+      ],
+      "title": "AxisReverseIntent",
       "type": "object"
     },
     "AxisScaleIntent": {
@@ -504,6 +665,94 @@
         "label"
       ],
       "title": "AxisSpec",
+      "type": "object"
+    },
+    "AxisTickSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "decimal_places": {
+          "default": 3,
+          "maximum": 12,
+          "minimum": 0,
+          "title": "Decimal Places",
+          "type": "integer"
+        },
+        "major_interval": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Major Interval"
+        },
+        "number_format": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "fixed",
+            "scientific"
+          ],
+          "title": "Number Format",
+          "type": "string"
+        }
+      },
+      "title": "AxisTickSpec",
+      "type": "object"
+    },
+    "AxisTicksIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "decimal_places": {
+          "default": 3,
+          "maximum": 12,
+          "minimum": 0,
+          "title": "Decimal Places",
+          "type": "integer"
+        },
+        "major_interval": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Major Interval"
+        },
+        "number_format": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "fixed",
+            "scientific"
+          ],
+          "title": "Number Format",
+          "type": "string"
+        },
+        "operation": {
+          "const": "set_axis_ticks",
+          "default": "set_axis_ticks",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "AxisTicksIntent",
       "type": "object"
     },
     "BatchExecutionSignature": {
@@ -705,18 +954,25 @@
                 "remove_annotation": "#/$defs/RemoveAnnotationPatch",
                 "set_axis_label": "#/$defs/SetAxisLabelPatch",
                 "set_axis_range": "#/$defs/SetAxisRangePatch",
+                "set_axis_reverse": "#/$defs/SetAxisReversePatch",
                 "set_axis_scale": "#/$defs/SetAxisScalePatch",
+                "set_axis_ticks": "#/$defs/SetAxisTicksPatch",
                 "set_batch_axis_policy": "#/$defs/SetBatchAxisPolicyPatch",
                 "set_canvas_size": "#/$defs/SetCanvasSizePatch",
                 "set_category_color": "#/$defs/SetCategoryColorPatch",
+                "set_font_size": "#/$defs/SetFontSizePatch",
                 "set_legend_visibility": "#/$defs/SetLegendVisibilityPatch",
                 "set_palette": "#/$defs/SetPalettePatch",
+                "set_plot_title": "#/$defs/SetPlotTitlePatch",
                 "set_series_style": "#/$defs/SetSeriesStylePatch",
                 "update_annotation": "#/$defs/UpdateAnnotationPatch"
               },
               "propertyName": "operation"
             },
             "oneOf": [
+              {
+                "$ref": "#/$defs/SetPlotTitlePatch"
+              },
               {
                 "$ref": "#/$defs/SetAxisRangePatch"
               },
@@ -725,6 +981,15 @@
               },
               {
                 "$ref": "#/$defs/SetAxisLabelPatch"
+              },
+              {
+                "$ref": "#/$defs/SetAxisReversePatch"
+              },
+              {
+                "$ref": "#/$defs/SetAxisTicksPatch"
+              },
+              {
+                "$ref": "#/$defs/SetFontSizePatch"
               },
               {
                 "$ref": "#/$defs/SetSeriesStylePatch"
@@ -1115,16 +1380,21 @@
           "default": [],
           "items": {
             "enum": [
+              "set_plot_title",
               "set_axis_range",
               "set_axis_scale",
               "set_axis_label",
+              "set_axis_reverse",
+              "set_axis_ticks",
+              "set_font_size",
               "set_series_style",
               "set_category_color",
               "set_palette",
               "set_legend_visibility",
               "move_legend",
               "apply_publication_profile",
-              "set_canvas_size"
+              "set_canvas_size",
+              "add_annotation"
             ],
             "type": "string"
           },
@@ -1180,16 +1450,21 @@
         "allowed_patch_operations": {
           "items": {
             "enum": [
+              "set_plot_title",
               "set_axis_range",
               "set_axis_scale",
               "set_axis_label",
+              "set_axis_reverse",
+              "set_axis_ticks",
+              "set_font_size",
               "set_series_style",
               "set_category_color",
               "set_palette",
               "set_legend_visibility",
               "move_legend",
               "apply_publication_profile",
-              "set_canvas_size"
+              "set_canvas_size",
+              "add_annotation"
             ],
             "type": "string"
           },
@@ -4295,6 +4570,34 @@
       "title": "FigureSpec",
       "type": "object"
     },
+    "FontSizeIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_font_size",
+          "default": "set_font_size",
+          "title": "Operation",
+          "type": "string"
+        },
+        "size_pt": {
+          "maximum": 72,
+          "minimum": 5,
+          "title": "Size Pt",
+          "type": "number"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "size_pt"
+      ],
+      "title": "FontSizeIntent",
+      "type": "object"
+    },
     "ForestFamily": {
       "additionalProperties": false,
       "properties": {
@@ -5274,7 +5577,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -5893,6 +6196,12 @@
           "exclusiveMinimum": 0,
           "title": "Page Width Mm",
           "type": "number"
+        },
+        "title": {
+          "default": "",
+          "maxLength": 512,
+          "title": "Title",
+          "type": "string"
         }
       },
       "required": [
@@ -6673,20 +6982,28 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "add_annotation": "#/$defs/AddAnnotationIntent",
                 "apply_publication_profile": "#/$defs/PublicationProfileIntent",
                 "move_legend": "#/$defs/LegendPlacementIntent",
                 "set_axis_label": "#/$defs/AxisLabelIntent",
                 "set_axis_range": "#/$defs/AxisRangeIntent",
+                "set_axis_reverse": "#/$defs/AxisReverseIntent",
                 "set_axis_scale": "#/$defs/AxisScaleIntent",
+                "set_axis_ticks": "#/$defs/AxisTicksIntent",
                 "set_canvas_size": "#/$defs/CanvasSizeIntent",
                 "set_category_color": "#/$defs/CategoryColorIntent",
+                "set_font_size": "#/$defs/FontSizeIntent",
                 "set_legend_visibility": "#/$defs/LegendVisibilityIntent",
                 "set_palette": "#/$defs/PaletteIntent",
+                "set_plot_title": "#/$defs/PlotTitleIntent",
                 "set_series_style": "#/$defs/SeriesStyleIntent"
               },
               "propertyName": "operation"
             },
             "oneOf": [
+              {
+                "$ref": "#/$defs/PlotTitleIntent"
+              },
               {
                 "$ref": "#/$defs/AxisRangeIntent"
               },
@@ -6695,6 +7012,15 @@
               },
               {
                 "$ref": "#/$defs/AxisLabelIntent"
+              },
+              {
+                "$ref": "#/$defs/AxisReverseIntent"
+              },
+              {
+                "$ref": "#/$defs/AxisTicksIntent"
+              },
+              {
+                "$ref": "#/$defs/FontSizeIntent"
               },
               {
                 "$ref": "#/$defs/SeriesStyleIntent"
@@ -6716,6 +7042,9 @@
               },
               {
                 "$ref": "#/$defs/CanvasSizeIntent"
+              },
+              {
+                "$ref": "#/$defs/AddAnnotationIntent"
               }
             ]
           },
@@ -6758,18 +7087,25 @@
                 "remove_annotation": "#/$defs/RemoveAnnotationPatch",
                 "set_axis_label": "#/$defs/SetAxisLabelPatch",
                 "set_axis_range": "#/$defs/SetAxisRangePatch",
+                "set_axis_reverse": "#/$defs/SetAxisReversePatch",
                 "set_axis_scale": "#/$defs/SetAxisScalePatch",
+                "set_axis_ticks": "#/$defs/SetAxisTicksPatch",
                 "set_batch_axis_policy": "#/$defs/SetBatchAxisPolicyPatch",
                 "set_canvas_size": "#/$defs/SetCanvasSizePatch",
                 "set_category_color": "#/$defs/SetCategoryColorPatch",
+                "set_font_size": "#/$defs/SetFontSizePatch",
                 "set_legend_visibility": "#/$defs/SetLegendVisibilityPatch",
                 "set_palette": "#/$defs/SetPalettePatch",
+                "set_plot_title": "#/$defs/SetPlotTitlePatch",
                 "set_series_style": "#/$defs/SetSeriesStylePatch",
                 "update_annotation": "#/$defs/UpdateAnnotationPatch"
               },
               "propertyName": "operation"
             },
             "oneOf": [
+              {
+                "$ref": "#/$defs/SetPlotTitlePatch"
+              },
               {
                 "$ref": "#/$defs/SetAxisRangePatch"
               },
@@ -6778,6 +7114,15 @@
               },
               {
                 "$ref": "#/$defs/SetAxisLabelPatch"
+              },
+              {
+                "$ref": "#/$defs/SetAxisReversePatch"
+              },
+              {
+                "$ref": "#/$defs/SetAxisTicksPatch"
+              },
+              {
+                "$ref": "#/$defs/SetFontSizePatch"
               },
               {
                 "$ref": "#/$defs/SetSeriesStylePatch"
@@ -7371,18 +7716,25 @@
           "remove_annotation": "#/$defs/RemoveAnnotationPatch",
           "set_axis_label": "#/$defs/SetAxisLabelPatch",
           "set_axis_range": "#/$defs/SetAxisRangePatch",
+          "set_axis_reverse": "#/$defs/SetAxisReversePatch",
           "set_axis_scale": "#/$defs/SetAxisScalePatch",
+          "set_axis_ticks": "#/$defs/SetAxisTicksPatch",
           "set_batch_axis_policy": "#/$defs/SetBatchAxisPolicyPatch",
           "set_canvas_size": "#/$defs/SetCanvasSizePatch",
           "set_category_color": "#/$defs/SetCategoryColorPatch",
+          "set_font_size": "#/$defs/SetFontSizePatch",
           "set_legend_visibility": "#/$defs/SetLegendVisibilityPatch",
           "set_palette": "#/$defs/SetPalettePatch",
+          "set_plot_title": "#/$defs/SetPlotTitlePatch",
           "set_series_style": "#/$defs/SetSeriesStylePatch",
           "update_annotation": "#/$defs/UpdateAnnotationPatch"
         },
         "propertyName": "operation"
       },
       "oneOf": [
+        {
+          "$ref": "#/$defs/SetPlotTitlePatch"
+        },
         {
           "$ref": "#/$defs/SetAxisRangePatch"
         },
@@ -7391,6 +7743,15 @@
         },
         {
           "$ref": "#/$defs/SetAxisLabelPatch"
+        },
+        {
+          "$ref": "#/$defs/SetAxisReversePatch"
+        },
+        {
+          "$ref": "#/$defs/SetAxisTicksPatch"
+        },
+        {
+          "$ref": "#/$defs/SetFontSizePatch"
         },
         {
           "$ref": "#/$defs/SetSeriesStylePatch"
@@ -7693,6 +8054,17 @@
           "minItems": 1,
           "title": "Style Sources",
           "type": "array"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -7737,6 +8109,40 @@
         "content_hash"
       ],
       "title": "PlotSpecRef",
+      "type": "object"
+    },
+    "PlotTitleIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_plot_title",
+          "default": "set_plot_title",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "PlotTitleIntent",
       "type": "object"
     },
     "PrecomputedDataRef": {
@@ -8313,7 +8719,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -8383,6 +8789,18 @@
           "default": null,
           "title": "X"
         },
+        "x2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X2"
+        },
         "y": {
           "anyOf": [
             {
@@ -8394,6 +8812,18 @@
           ],
           "default": null,
           "title": "Y"
+        },
+        "y2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y2"
         }
       },
       "required": [
@@ -8731,7 +9161,7 @@
           }
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         },
@@ -9107,6 +9537,17 @@
           "title": "Svg Text Mode",
           "type": "string"
         },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "warnings": {
           "default": [],
           "items": {
@@ -9338,6 +9779,14 @@
           "pattern": "^scale:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Scale Id",
           "type": "string"
+        },
+        "ticks": {
+          "$ref": "#/$defs/AxisTickSpec",
+          "default": {
+            "decimal_places": 3,
+            "major_interval": null,
+            "number_format": "auto"
+          }
         }
       },
       "required": [
@@ -9794,7 +10243,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -9816,12 +10265,28 @@
           "type": "integer"
         },
         "maximum": {
-          "title": "Maximum",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
         },
         "minimum": {
-          "title": "Minimum",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
         },
         "operation": {
           "const": "set_axis_range",
@@ -9836,7 +10301,44 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version"
+      ],
+      "title": "SetAxisRangePatch",
+      "type": "object"
+    },
+    "SetAxisReversePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_axis_reverse",
+          "default": "set_axis_reverse",
+          "title": "Operation",
+          "type": "string"
+        },
+        "reverse": {
+          "title": "Reverse",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -9844,10 +10346,9 @@
       "required": [
         "target_id",
         "expected_plot_version",
-        "minimum",
-        "maximum"
+        "reverse"
       ],
-      "title": "SetAxisRangePatch",
+      "title": "SetAxisReversePatch",
       "type": "object"
     },
     "SetAxisScalePatch": {
@@ -9881,7 +10382,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -9892,6 +10393,43 @@
         "scale"
       ],
       "title": "SetAxisScalePatch",
+      "type": "object"
+    },
+    "SetAxisTicksPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_axis_ticks",
+          "default": "set_axis_ticks",
+          "title": "Operation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        },
+        "ticks": {
+          "$ref": "#/$defs/AxisTickSpec"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "ticks"
+      ],
+      "title": "SetAxisTicksPatch",
       "type": "object"
     },
     "SetBatchAxisPolicyPatch": {
@@ -9960,7 +10498,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -10003,7 +10541,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -10015,6 +10553,43 @@
         "color"
       ],
       "title": "SetCategoryColorPatch",
+      "type": "object"
+    },
+    "SetFontSizePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_font_size",
+          "default": "set_font_size",
+          "title": "Operation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "size": {
+          "$ref": "#/$defs/PhysicalLength"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "size"
+      ],
+      "title": "SetFontSizePatch",
       "type": "object"
     },
     "SetLegendVisibilityPatch": {
@@ -10038,7 +10613,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         },
@@ -10103,7 +10678,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -10114,6 +10689,50 @@
         "palette_id"
       ],
       "title": "SetPalettePatch",
+      "type": "object"
+    },
+    "SetPlotTitlePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_plot_title",
+          "default": "set_plot_title",
+          "title": "Operation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version"
+      ],
+      "title": "SetPlotTitlePatch",
       "type": "object"
     },
     "SetSeriesStylePatch": {
@@ -10199,7 +10818,7 @@
           "default": null
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }
@@ -11344,7 +11963,7 @@
           "type": "string"
         },
         "target_id": {
-          "pattern": "^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
         }

@@ -85,16 +85,21 @@
           "default": [],
           "items": {
             "enum": [
+              "set_plot_title",
               "set_axis_range",
               "set_axis_scale",
               "set_axis_label",
+              "set_axis_reverse",
+              "set_axis_ticks",
+              "set_font_size",
               "set_series_style",
               "set_category_color",
               "set_palette",
               "set_legend_visibility",
               "move_legend",
               "apply_publication_profile",
-              "set_canvas_size"
+              "set_canvas_size",
+              "add_annotation"
             ],
             "type": "string"
           },
@@ -150,16 +155,21 @@
         "allowed_patch_operations": {
           "items": {
             "enum": [
+              "set_plot_title",
               "set_axis_range",
               "set_axis_scale",
               "set_axis_label",
+              "set_axis_reverse",
+              "set_axis_ticks",
+              "set_font_size",
               "set_series_style",
               "set_category_color",
               "set_palette",
               "set_legend_visibility",
               "move_legend",
               "apply_publication_profile",
-              "set_canvas_size"
+              "set_canvas_size",
+              "add_annotation"
             ],
             "type": "string"
           },

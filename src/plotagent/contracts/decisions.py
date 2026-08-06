@@ -34,9 +34,13 @@ ActionType = Literal[
     "export_artifact",
 ]
 PatchOperation = Literal[
+    "set_plot_title",
     "set_axis_range",
     "set_axis_scale",
     "set_axis_label",
+    "set_axis_reverse",
+    "set_axis_ticks",
+    "set_font_size",
     "set_series_style",
     "set_category_color",
     "set_palette",
@@ -44,6 +48,7 @@ PatchOperation = Literal[
     "move_legend",
     "apply_publication_profile",
     "set_canvas_size",
+    "add_annotation",
 ]
 
 ActionId = Annotated[
@@ -75,14 +80,22 @@ class CreatePlotAction(ActionBase):
 class AxisRangeIntent(StrictModel):
     operation: Literal["set_axis_range"] = "set_axis_range"
     target_alias: SemanticAlias
-    minimum: FiniteNumber
-    maximum: FiniteNumber
+    minimum: FiniteNumber | None = None
+    maximum: FiniteNumber | None = None
 
     @model_validator(mode="after")
     def ordered(self) -> AxisRangeIntent:
-        if self.minimum >= self.maximum:
+        if (self.minimum is None) != (self.maximum is None):
+            raise ValueError("axis bounds must both be fixed or both be automatic")
+        if self.minimum is not None and self.maximum is not None and self.minimum >= self.maximum:
             raise ValueError("axis minimum must be lower than maximum")
         return self
+
+
+class PlotTitleIntent(StrictModel):
+    operation: Literal["set_plot_title"] = "set_plot_title"
+    target_alias: SemanticAlias
+    title: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
 
 
 class AxisScaleIntent(StrictModel):
@@ -95,6 +108,26 @@ class AxisLabelIntent(StrictModel):
     operation: Literal["set_axis_label"] = "set_axis_label"
     target_alias: SemanticAlias
     label: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+
+
+class AxisReverseIntent(StrictModel):
+    operation: Literal["set_axis_reverse"] = "set_axis_reverse"
+    target_alias: SemanticAlias
+    reverse: bool
+
+
+class AxisTicksIntent(StrictModel):
+    operation: Literal["set_axis_ticks"] = "set_axis_ticks"
+    target_alias: SemanticAlias
+    major_interval: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    number_format: Literal["auto", "fixed", "scientific"] = "auto"
+    decimal_places: Annotated[int, Field(ge=0, le=12)] = 3
+
+
+class FontSizeIntent(StrictModel):
+    operation: Literal["set_font_size"] = "set_font_size"
+    target_alias: SemanticAlias
+    size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)]
 
 
 class SeriesStyleIntent(StrictModel):
@@ -162,17 +195,50 @@ class CanvasSizeIntent(StrictModel):
     physical_size: PhysicalSize
 
 
+class AddAnnotationIntent(StrictModel):
+    operation: Literal["add_annotation"] = "add_annotation"
+    target_alias: SemanticAlias
+    kind: Literal["text", "reference_line", "reference_band"]
+    text: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
+    x: FiniteNumber | None = None
+    y: FiniteNumber | None = None
+    x2: FiniteNumber | None = None
+    y2: FiniteNumber | None = None
+    affect_range: bool = False
+
+    @model_validator(mode="after")
+    def valid_shape(self) -> AddAnnotationIntent:
+        if self.kind == "text" and (self.text is None or not self.text.strip()):
+            raise ValueError("text annotation requires text")
+        if self.kind == "reference_line" and (self.x is None) == (self.y is None):
+            raise ValueError("reference line requires exactly one of x or y")
+        if self.kind == "reference_band":
+            vertical = self.x is not None and self.x2 is not None and self.y is self.y2 is None
+            horizontal = self.y is not None and self.y2 is not None and self.x is self.x2 is None
+            if not (vertical or horizontal):
+                raise ValueError("reference band requires one x or y interval")
+            start, end = (self.x, self.x2) if vertical else (self.y, self.y2)
+            if start is not None and end is not None and start >= end:
+                raise ValueError("reference band start must be lower than end")
+        return self
+
+
 PatchIntent = Annotated[
-    AxisRangeIntent
+    PlotTitleIntent
+    | AxisRangeIntent
     | AxisScaleIntent
     | AxisLabelIntent
+    | AxisReverseIntent
+    | AxisTicksIntent
+    | FontSizeIntent
     | SeriesStyleIntent
     | CategoryColorIntent
     | PaletteIntent
     | LegendVisibilityIntent
     | LegendPlacementIntent
     | PublicationProfileIntent
-    | CanvasSizeIntent,
+    | CanvasSizeIntent
+    | AddAnnotationIntent,
     Field(discriminator="operation"),
 ]
 

@@ -135,6 +135,79 @@ def test_plot_patch_is_discriminated_and_unknown_fields_fail() -> None:
         adapter.validate_json(json.dumps({**payload, "minimum": 10.0, "maximum": 0.0}))
 
 
+def test_general_edit_contracts_are_closed_and_validate_shape() -> None:
+    adapter = TypeAdapter(PlotPatch)
+    common = {"schema_version": "1.0", "expected_plot_version": 1}
+    assert (
+        adapter.validate_python(
+            {
+                **common,
+                "operation": "set_axis_range",
+                "target_id": "axis:y",
+                "minimum": None,
+                "maximum": None,
+            }
+        ).minimum
+        is None
+    )
+    assert (
+        adapter.validate_python(
+            {
+                **common,
+                "operation": "set_axis_ticks",
+                "target_id": "axis:y",
+                "ticks": {
+                    "major_interval": 2.5,
+                    "number_format": "scientific",
+                    "decimal_places": 2,
+                },
+            }
+        ).ticks.major_interval
+        == 2.5
+    )
+    assert (
+        adapter.validate_python(
+            {
+                **common,
+                "operation": "add_annotation",
+                "target_id": "plot:test",
+                "annotation": {
+                    "annotation_id": "annotation:band",
+                    "kind": "reference_band",
+                    "x": 2.0,
+                    "x2": 4.0,
+                },
+            }
+        ).annotation.x2
+        == 4.0
+    )
+
+    with pytest.raises(ValidationError, match="both be fixed or both be automatic"):
+        adapter.validate_python(
+            {
+                **common,
+                "operation": "set_axis_range",
+                "target_id": "axis:y",
+                "minimum": None,
+                "maximum": 10.0,
+            }
+        )
+    with pytest.raises(ValidationError, match="start must be lower"):
+        adapter.validate_python(
+            {
+                **common,
+                "operation": "add_annotation",
+                "target_id": "plot:test",
+                "annotation": {
+                    "annotation_id": "annotation:bad-band",
+                    "kind": "reference_band",
+                    "y": 4.0,
+                    "y2": 2.0,
+                },
+            }
+        )
+
+
 def test_batch_and_figure_pin_exact_versions() -> None:
     plot = minimal_plot()
     plot_ref = {

@@ -189,6 +189,8 @@ class ResolvedAnnotation(StrictModel):
     text: SafeRichText | None = None
     x: FiniteNumber | None = None
     y: FiniteNumber | None = None
+    x2: FiniteNumber | None = None
+    y2: FiniteNumber | None = None
     affect_range: bool = False
 
 
@@ -222,6 +224,7 @@ class ResolvedRenderPlan(StrictModel):
     canvas: PhysicalSize
     dpi: Annotated[int, Field(ge=72, le=2400)] = 300
     background: ColorValue = ColorValue(value="#FFFFFF")
+    title: SafeRichText | None = None
     color_space: Literal["sRGB"] = "sRGB"
     svg_text_mode: Literal["text_to_path", "editable_text"] = "text_to_path"
     panels: Annotated[tuple[ResolvedPanel, ...], Field(min_length=1)]
@@ -436,6 +439,7 @@ class OriginGraphObject(StrictModel):
     page_height_mm: Annotated[float, Field(gt=0, allow_inf_nan=False)]
     font_family: Annotated[str, StringConstraints(min_length=1, max_length=128, strict=True)]
     font_size_pt: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    title: Annotated[str, StringConstraints(max_length=512, strict=True)] = ""
     legend_visible: bool
     legend_anchor_x: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
     legend_anchor_y: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0

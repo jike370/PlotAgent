@@ -30,7 +30,7 @@ RowId = Annotated[
 SemanticTargetId = Annotated[
     str,
     StringConstraints(
-        pattern=r"^(series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        pattern=r"^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
         strict=True,
     ),
 ]

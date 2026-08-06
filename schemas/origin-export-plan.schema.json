@@ -419,6 +419,12 @@
           "exclusiveMinimum": 0,
           "title": "Page Width Mm",
           "type": "number"
+        },
+        "title": {
+          "default": "",
+          "maxLength": 512,
+          "title": "Title",
+          "type": "string"
         }
       },
       "required": [
@@ -1087,6 +1093,18 @@
           "default": null,
           "title": "X"
         },
+        "x2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X2"
+        },
         "y": {
           "anyOf": [
             {
@@ -1098,6 +1116,18 @@
           ],
           "default": null,
           "title": "Y"
+        },
+        "y2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y2"
         }
       },
       "required": [

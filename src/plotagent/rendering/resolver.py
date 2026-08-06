@@ -1794,6 +1794,8 @@ class PlotResolver:
                 text=item.text,
                 x=item.x,
                 y=item.y,
+                x2=item.x2,
+                y2=item.y2,
                 affect_range=item.affect_range,
             )
             for item in plot.annotations
@@ -1811,6 +1813,7 @@ class PlotResolver:
             quality_tier=quality_tier,
             canvas=plot.publication_profile.physical_size,
             dpi=plot.publication_profile.dpi,
+            title=plot.title,
             svg_text_mode=svg_text_mode,
             panels=panels,
             axes=axes,

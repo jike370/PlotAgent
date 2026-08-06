@@ -51,6 +51,18 @@
           "default": null,
           "title": "X"
         },
+        "x2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X2"
+        },
         "y": {
           "anyOf": [
             {
@@ -62,6 +74,18 @@
           ],
           "default": null,
           "title": "Y"
+        },
+        "y2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y2"
         }
       },
       "required": [
@@ -152,6 +176,43 @@
         "label"
       ],
       "title": "AxisSpec",
+      "type": "object"
+    },
+    "AxisTickSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "decimal_places": {
+          "default": 3,
+          "maximum": 12,
+          "minimum": 0,
+          "title": "Decimal Places",
+          "type": "integer"
+        },
+        "major_interval": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Major Interval"
+        },
+        "number_format": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "fixed",
+            "scientific"
+          ],
+          "title": "Number Format",
+          "type": "string"
+        }
+      },
+      "title": "AxisTickSpec",
       "type": "object"
     },
     "CalculatedSeriesData": {
@@ -988,6 +1049,14 @@
           "pattern": "^scale:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Scale Id",
           "type": "string"
+        },
+        "ticks": {
+          "$ref": "#/$defs/AxisTickSpec",
+          "default": {
+            "decimal_places": 3,
+            "major_interval": null,
+            "number_format": "auto"
+          }
         }
       },
       "required": [
@@ -1560,6 +1629,17 @@
       "minItems": 1,
       "title": "Style Sources",
       "type": "array"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SafeRichText"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [

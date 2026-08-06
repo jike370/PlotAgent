@@ -94,17 +94,22 @@ from plotagent.contracts.datasets import (
 )
 from plotagent.contracts.decisions import (
     ActionPlan,
+    AddAnnotationIntent,
     AxisLabelIntent,
     AxisRangeIntent,
+    AxisReverseIntent,
     AxisScaleIntent,
+    AxisTicksIntent,
     CanvasSizeIntent,
     CategoryColorIntent,
     CreatePlotAction,
+    FontSizeIntent,
     LegendPlacementIntent,
     LegendVisibilityIntent,
     NeedsInput,
     PaletteIntent,
     PatchPlotAction,
+    PlotTitleIntent,
     SeriesStyleIntent,
     Unsupported,
 )
@@ -143,11 +148,15 @@ from plotagent.contracts.plots import (
     SeriesSpec,
     SetAxisLabelPatch,
     SetAxisRangePatch,
+    SetAxisReversePatch,
     SetAxisScalePatch,
+    SetAxisTicksPatch,
     SetCanvasSizePatch,
     SetCategoryColorPatch,
+    SetFontSizePatch,
     SetLegendVisibilityPatch,
     SetPalettePatch,
+    SetPlotTitlePatch,
     SetSeriesStylePatch,
     SpecialFamily,
     StyleSourceRef,
@@ -1679,15 +1688,20 @@ class DesktopApplication:
                 ),
                 allowed_action_types=("create_plot", "patch_plot"),
                 allowed_patch_operations=(
+                    "set_plot_title",
                     "set_axis_range",
                     "set_axis_scale",
                     "set_axis_label",
+                    "set_axis_reverse",
+                    "set_axis_ticks",
+                    "set_font_size",
                     "set_series_style",
                     "set_category_color",
                     "set_palette",
                     "set_legend_visibility",
                     "move_legend",
                     "set_canvas_size",
+                    "add_annotation",
                 ),
                 chart_edit_capabilities=tuple(
                     ChartEditCapabilities(
@@ -1725,15 +1739,20 @@ class DesktopApplication:
             ),
             allowed_patch_operations=frozenset(
                 {
+                    "set_plot_title",
                     "set_axis_range",
                     "set_axis_scale",
                     "set_axis_label",
+                    "set_axis_reverse",
+                    "set_axis_ticks",
+                    "set_font_size",
                     "set_series_style",
                     "set_category_color",
                     "set_palette",
                     "set_legend_visibility",
                     "move_legend",
                     "set_canvas_size",
+                    "add_annotation",
                 }
             ),
             permission_grants=frozenset({"create_plot", "patch_plot"}),
@@ -2124,7 +2143,10 @@ class DesktopApplication:
             elif axis.orientation == "y":
                 target_by_alias["y_axis"] = axis.axis_id
         target_id = target_by_alias.get(intent.target_alias)
-        if isinstance(intent, CanvasSizeIntent):
+        if isinstance(
+            intent,
+            (CanvasSizeIntent, PlotTitleIntent, FontSizeIntent, AddAnnotationIntent),
+        ):
             target_id = previous.plot.plot_id
         elif isinstance(intent, (LegendVisibilityIntent, LegendPlacementIntent)):
             target_id = "legend:main"
@@ -2137,12 +2159,28 @@ class DesktopApplication:
             "target_id": target_id,
             "expected_plot_version": previous.plot.plot_version,
         }
-        if isinstance(intent, AxisRangeIntent):
+        if isinstance(intent, PlotTitleIntent):
+            common["title"] = (
+                None
+                if intent.title is None
+                else {"nodes": [{"kind": "plain", "text": intent.title}]}
+            )
+        elif isinstance(intent, AxisRangeIntent):
             common.update({"minimum": intent.minimum, "maximum": intent.maximum})
         elif isinstance(intent, AxisScaleIntent):
             common["scale"] = intent.scale
         elif isinstance(intent, AxisLabelIntent):
             common["label"] = {"nodes": [{"kind": "plain", "text": intent.label}]}
+        elif isinstance(intent, AxisReverseIntent):
+            common["reverse"] = intent.reverse
+        elif isinstance(intent, AxisTicksIntent):
+            common["ticks"] = {
+                "major_interval": intent.major_interval,
+                "number_format": intent.number_format,
+                "decimal_places": intent.decimal_places,
+            }
+        elif isinstance(intent, FontSizeIntent):
+            common["size"] = {"value": intent.size_pt, "unit": "pt"}
         elif isinstance(intent, SeriesStyleIntent):
             if intent.color is not None:
                 common["color"] = cast(RpcJsonValue, intent.color.model_dump(mode="json"))
@@ -2178,6 +2216,24 @@ class DesktopApplication:
             )
         elif isinstance(intent, CanvasSizeIntent):
             common["physical_size"] = intent.physical_size.model_dump(mode="json")
+        elif isinstance(intent, AddAnnotationIntent):
+            common["annotation"] = {
+                "annotation_id": (
+                    f"annotation:agent.{previous.plot.plot_id.removeprefix('plot:')}."
+                    f"v{previous.plot.plot_version + 1}"
+                ),
+                "kind": intent.kind,
+                "text": (
+                    None
+                    if intent.text is None
+                    else {"nodes": [{"kind": "plain", "text": intent.text}]}
+                ),
+                "x": intent.x,
+                "y": intent.y,
+                "x2": intent.x2,
+                "y2": intent.y2,
+                "affect_range": intent.affect_range,
+            }
         else:
             raise RpcServiceError(
                 "PATCH_OPERATION_UNSUPPORTED", "The Agent patch operation is not enabled."
@@ -2541,7 +2597,9 @@ class DesktopApplication:
         plot = previous.plot
         validate_plot_patch(plot, patch)
         update: dict[str, Any] = {}
-        if isinstance(patch, SetAxisScalePatch):
+        if isinstance(patch, SetPlotTitlePatch):
+            update["title"] = patch.title
+        elif isinstance(patch, SetAxisScalePatch):
             axis = next(axis for axis in plot.axes if axis.axis_id == patch.target_id)
             update["scales"] = tuple(
                 scale.model_copy(update={"kind": patch.scale})
@@ -2563,12 +2621,38 @@ class DesktopApplication:
                 else scale
                 for scale in plot.scales
             )
+        elif isinstance(patch, SetAxisReversePatch):
+            axis = next(axis for axis in plot.axes if axis.axis_id == patch.target_id)
+            update["scales"] = tuple(
+                scale.model_copy(
+                    update={
+                        "axis_range": scale.axis_range.model_copy(
+                            update={"reverse": patch.reverse}
+                        )
+                    }
+                )
+                if scale.scale_id == axis.scale_id
+                else scale
+                for scale in plot.scales
+            )
+        elif isinstance(patch, SetAxisTicksPatch):
+            axis = next(axis for axis in plot.axes if axis.axis_id == patch.target_id)
+            update["scales"] = tuple(
+                scale.model_copy(update={"ticks": patch.ticks})
+                if scale.scale_id == axis.scale_id
+                else scale
+                for scale in plot.scales
+            )
         elif isinstance(patch, SetAxisLabelPatch):
             update["axes"] = tuple(
                 axis.model_copy(update={"label": patch.label})
                 if axis.axis_id == patch.target_id
                 else axis
                 for axis in plot.axes
+            )
+        elif isinstance(patch, SetFontSizePatch):
+            update["resolved_style"] = plot.resolved_style.model_copy(
+                update={"font_size": patch.size}
             )
         elif isinstance(patch, SetSeriesStylePatch):
             style_update = {

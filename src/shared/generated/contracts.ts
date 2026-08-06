@@ -12,6 +12,18 @@ export type ActionPlan = {
   readonly confirmation?: "not_required" | "required";
 }
 
+export type AddAnnotationIntent = {
+  readonly operation?: "add_annotation";
+  readonly target_alias: string;
+  readonly kind: "text" | "reference_line" | "reference_band";
+  readonly text?: string | null;
+  readonly x?: number | null;
+  readonly y?: number | null;
+  readonly x2?: number | null;
+  readonly y2?: number | null;
+  readonly affect_range?: boolean;
+}
+
 export type AddAnnotationPatch = {
   readonly schema_version?: "1.0";
   readonly target_id: string;
@@ -28,6 +40,8 @@ export type AnnotationSpec = {
   readonly text?: SafeRichText | null;
   readonly x?: number | null;
   readonly y?: number | null;
+  readonly x2?: number | null;
+  readonly y2?: number | null;
   readonly affect_range?: boolean;
 }
 
@@ -66,8 +80,14 @@ export type AxisRange = {
 export type AxisRangeIntent = {
   readonly operation?: "set_axis_range";
   readonly target_alias: string;
-  readonly minimum: number;
-  readonly maximum: number;
+  readonly minimum?: number | null;
+  readonly maximum?: number | null;
+}
+
+export type AxisReverseIntent = {
+  readonly operation?: "set_axis_reverse";
+  readonly target_alias: string;
+  readonly reverse: boolean;
 }
 
 export type AxisScaleIntent = {
@@ -82,6 +102,20 @@ export type AxisSpec = {
   readonly orientation: "x" | "y" | "color";
   readonly position: "bottom" | "top" | "left" | "right" | "none";
   readonly label: SafeRichText;
+}
+
+export type AxisTickSpec = {
+  readonly major_interval?: number | null;
+  readonly number_format?: "auto" | "fixed" | "scientific";
+  readonly decimal_places?: number;
+}
+
+export type AxisTicksIntent = {
+  readonly operation?: "set_axis_ticks";
+  readonly target_alias: string;
+  readonly major_interval?: number | null;
+  readonly number_format?: "auto" | "fixed" | "scientific";
+  readonly decimal_places?: number;
 }
 
 export type BatchExecutionSignature = {
@@ -106,7 +140,7 @@ export type BatchItemState = {
 export type BatchPlotOverride = {
   readonly item_id: string;
   readonly prepared_dataset_ref: PreparedDatasetRef;
-  readonly patches?: ReadonlyArray<SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
+  readonly patches?: ReadonlyArray<SetPlotTitlePatch | SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetAxisReversePatch | SetAxisTicksPatch | SetFontSizePatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
 }
 
 export type BatchSpec = {
@@ -159,7 +193,7 @@ export type ChartCapabilities = {
   readonly capability_version: string;
   readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07">;
   readonly allowed_action_types: ReadonlyArray<"create_plot" | "patch_plot" | "create_batch" | "patch_batch" | "create_figure" | "patch_figure" | "export_artifact">;
-  readonly allowed_patch_operations?: ReadonlyArray<"set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_series_style" | "set_category_color" | "set_palette" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size">;
+  readonly allowed_patch_operations?: ReadonlyArray<"set_plot_title" | "set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_axis_reverse" | "set_axis_ticks" | "set_font_size" | "set_series_style" | "set_category_color" | "set_palette" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size" | "add_annotation">;
   readonly chart_edit_capabilities?: ReadonlyArray<ChartEditCapabilities>;
   readonly export_formats?: ReadonlyArray<"png" | "svg" | "opju">;
   readonly limitation_ids?: ReadonlyArray<string>;
@@ -167,7 +201,7 @@ export type ChartCapabilities = {
 
 export type ChartEditCapabilities = {
   readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07";
-  readonly allowed_patch_operations: ReadonlyArray<"set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_series_style" | "set_category_color" | "set_palette" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size">;
+  readonly allowed_patch_operations: ReadonlyArray<"set_plot_title" | "set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_axis_reverse" | "set_axis_ticks" | "set_font_size" | "set_series_style" | "set_category_color" | "set_palette" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size" | "add_annotation">;
 }
 
 export type ChartRegistration = {
@@ -619,6 +653,12 @@ export type FigureSpec = {
   readonly parent_figure_version?: number | null;
 }
 
+export type FontSizeIntent = {
+  readonly operation?: "set_font_size";
+  readonly target_alias: string;
+  readonly size_pt: number;
+}
+
 export type ForestFamily = {
   readonly kind?: "forest";
   readonly geometry: ReadonlyArray<"interval" | "symbol">;
@@ -883,6 +923,7 @@ export type OriginGraphObject = {
   readonly page_height_mm: number;
   readonly font_family: string;
   readonly font_size_pt: number;
+  readonly title?: string;
   readonly legend_visible: boolean;
   readonly legend_anchor_x?: number;
   readonly legend_anchor_y?: number;
@@ -1003,7 +1044,7 @@ export type PatchPlotAction = {
   readonly depends_on?: ReadonlyArray<string>;
   readonly action_type?: "patch_plot";
   readonly target_alias: string;
-  readonly patches: ReadonlyArray<AxisRangeIntent | AxisScaleIntent | AxisLabelIntent | SeriesStyleIntent | CategoryColorIntent | PaletteIntent | LegendVisibilityIntent | LegendPlacementIntent | PublicationProfileIntent | CanvasSizeIntent>;
+  readonly patches: ReadonlyArray<PlotTitleIntent | AxisRangeIntent | AxisScaleIntent | AxisLabelIntent | AxisReverseIntent | AxisTicksIntent | FontSizeIntent | SeriesStyleIntent | CategoryColorIntent | PaletteIntent | LegendVisibilityIntent | LegendPlacementIntent | PublicationProfileIntent | CanvasSizeIntent | AddAnnotationIntent>;
 }
 
 export type PatchTransaction = {
@@ -1011,7 +1052,7 @@ export type PatchTransaction = {
   readonly transaction_id: string;
   readonly project_id: string;
   readonly expected_versions: ReadonlyArray<ObjectVersionRef>;
-  readonly patches: ReadonlyArray<SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
+  readonly patches: ReadonlyArray<SetPlotTitlePatch | SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetAxisReversePatch | SetAxisTicksPatch | SetFontSizePatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
   readonly scope: "plot" | "selected_plots" | "batch";
 }
 
@@ -1091,7 +1132,7 @@ export type PlotCalculationSpecRef = {
   readonly content_hash: string;
 }
 
-export type PlotPatchContract = SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch
+export type PlotPatchContract = SetPlotTitlePatch | SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetAxisReversePatch | SetAxisTicksPatch | SetFontSizePatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch
 
 export type PlotProvenance = {
   readonly origin: "manual" | "agent_plan";
@@ -1106,6 +1147,7 @@ export type PlotSpec = {
   readonly plot_id: string;
   readonly plot_version: number;
   readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07";
+  readonly title?: SafeRichText | null;
   readonly family: XYFamily | CategoricalFamily | DistributionFamily | MatrixFamily | SurvivalFamily | DoseResponseFamily | ForestFamily | FacetFamily | SpecialFamily;
   readonly prepared_data_refs: ReadonlyArray<PreparedDatasetRef>;
   readonly precomputed_data_refs?: ReadonlyArray<PrecomputedDataRef>;
@@ -1125,6 +1167,12 @@ export type PlotSpecRef = {
   readonly plot_id: string;
   readonly plot_version: number;
   readonly content_hash: string;
+}
+
+export type PlotTitleIntent = {
+  readonly operation?: "set_plot_title";
+  readonly target_alias: string;
+  readonly title?: string | null;
 }
 
 export type PrecomputedDataRef = {
@@ -1240,6 +1288,8 @@ export type ResolvedAnnotation = {
   readonly text?: SafeRichText | null;
   readonly x?: number | null;
   readonly y?: number | null;
+  readonly x2?: number | null;
+  readonly y2?: number | null;
   readonly affect_range?: boolean;
 }
 
@@ -1333,6 +1383,7 @@ export type ResolvedRenderPlan = {
   readonly canvas: PhysicalSize;
   readonly dpi?: number;
   readonly background?: ColorValue;
+  readonly title?: SafeRichText | null;
   readonly color_space?: "sRGB";
   readonly svg_text_mode?: "text_to_path" | "editable_text";
   readonly panels: ReadonlyArray<ResolvedPanel>;
@@ -1383,6 +1434,7 @@ export type ScaleSpec = {
   readonly scale_id: string;
   readonly kind: "linear" | "log10" | "datetime" | "categorical";
   readonly axis_range?: AxisRange;
+  readonly ticks?: AxisTickSpec;
 }
 
 export type SelectFieldsSpec = {
@@ -1450,8 +1502,16 @@ export type SetAxisRangePatch = {
   readonly target_id: string;
   readonly expected_plot_version: number;
   readonly operation?: "set_axis_range";
-  readonly minimum: number;
-  readonly maximum: number;
+  readonly minimum?: number | null;
+  readonly maximum?: number | null;
+}
+
+export type SetAxisReversePatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_axis_reverse";
+  readonly reverse: boolean;
 }
 
 export type SetAxisScalePatch = {
@@ -1460,6 +1520,14 @@ export type SetAxisScalePatch = {
   readonly expected_plot_version: number;
   readonly operation?: "set_axis_scale";
   readonly scale: "linear" | "log10" | "datetime" | "categorical";
+}
+
+export type SetAxisTicksPatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_axis_ticks";
+  readonly ticks: AxisTickSpec;
 }
 
 export type SetBatchAxisPolicyPatch = {
@@ -1487,6 +1555,14 @@ export type SetCategoryColorPatch = {
   readonly color: ColorValue;
 }
 
+export type SetFontSizePatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_font_size";
+  readonly size: PhysicalLength;
+}
+
 export type SetLegendVisibilityPatch = {
   readonly schema_version?: "1.0";
   readonly target_id: string;
@@ -1502,6 +1578,14 @@ export type SetPalettePatch = {
   readonly operation?: "set_palette";
   readonly palette_id: "ColorBlindSafe8" | "ColorBlindSafe15" | "BlueOrange" | "OrangeNavy" | "RedPurple" | "Viridis" | "Plasma" | "Inferno" | "Magma" | "GreyBlue" | "YellowBlue" | "YellowGreen" | "YellowPurple" | "Fire" | "Rainbow_Modified" | "GrayScale";
   readonly reverse?: boolean;
+}
+
+export type SetPlotTitlePatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_plot_title";
+  readonly title?: SafeRichText | null;
 }
 
 export type SetSeriesStylePatch = {

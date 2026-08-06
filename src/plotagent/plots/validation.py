@@ -20,12 +20,16 @@ from plotagent.contracts.plots import (
     SafeRichText,
     SetAxisLabelPatch,
     SetAxisRangePatch,
+    SetAxisReversePatch,
     SetAxisScalePatch,
+    SetAxisTicksPatch,
     SetBatchAxisPolicyPatch,
     SetCanvasSizePatch,
     SetCategoryColorPatch,
+    SetFontSizePatch,
     SetLegendVisibilityPatch,
     SetPalettePatch,
+    SetPlotTitlePatch,
     SetSeriesStylePatch,
     UpdateAnnotationPatch,
 )
@@ -149,12 +153,18 @@ def validate_plot_patch(plot: PlotSpec, patch: PlotPatch) -> PlotPatch:
 
     registration = get_chart(plot.chart_type_id)
     required_capabilities: set[str] = set()
-    if isinstance(patch, SetAxisRangePatch):
+    if isinstance(patch, SetPlotTitlePatch):
+        required_capabilities.add("plot_title")
+    elif isinstance(patch, (SetAxisRangePatch, SetAxisReversePatch)):
         required_capabilities.add("axis_range")
     elif isinstance(patch, SetAxisScalePatch):
         required_capabilities.add("axis_scale")
     elif isinstance(patch, SetAxisLabelPatch):
         required_capabilities.add("axis_label")
+    elif isinstance(patch, SetAxisTicksPatch):
+        required_capabilities.add("axis_ticks")
+    elif isinstance(patch, SetFontSizePatch):
+        required_capabilities.add("font")
     elif isinstance(patch, SetSeriesStylePatch):
         if patch.color is not None:
             required_capabilities.add("series_color")
@@ -192,17 +202,48 @@ def validate_plot_patch(plot: PlotSpec, patch: PlotPatch) -> PlotPatch:
     series_ids = {series.series_id for series in plot.series}
     annotation_ids = {annotation.annotation_id for annotation in plot.annotations}
 
-    if isinstance(patch, (SetAxisRangePatch, SetAxisScalePatch, SetAxisLabelPatch)):
+    if isinstance(
+        patch,
+        (
+            SetAxisRangePatch,
+            SetAxisScalePatch,
+            SetAxisLabelPatch,
+            SetAxisReversePatch,
+            SetAxisTicksPatch,
+        ),
+    ):
         if patch.target_id not in axes:
             raise PlotValidationError("PATCH_TARGET_INVALID", "axis target does not exist")
         if isinstance(patch, SetAxisRangePatch):
             scale = next(
                 scale for scale in plot.scales if scale.scale_id == axes[patch.target_id].scale_id
             )
-            if scale.kind == "log10" and (patch.minimum <= 0 or patch.maximum <= 0):
+            if (
+                scale.kind == "log10"
+                and patch.minimum is not None
+                and patch.maximum is not None
+                and (patch.minimum <= 0 or patch.maximum <= 0)
+            ):
                 raise PlotValidationError("AXIS_LOG_NONPOSITIVE", "Log10 bounds must be positive")
+        if isinstance(patch, SetAxisTicksPatch):
+            scale = next(
+                scale for scale in plot.scales if scale.scale_id == axes[patch.target_id].scale_id
+            )
+            if patch.ticks.major_interval is not None and scale.kind != "linear":
+                raise PlotValidationError(
+                    "AXIS_TICK_INTERVAL_UNSUPPORTED",
+                    "an explicit major interval is supported only on linear axes",
+                )
         if isinstance(patch, SetAxisLabelPatch):
             validate_safe_text(patch.label)
+    elif isinstance(patch, SetPlotTitlePatch):
+        if patch.target_id != plot.plot_id:
+            raise PlotValidationError("PATCH_TARGET_INVALID", "plot title target does not exist")
+        if patch.title is not None:
+            validate_safe_text(patch.title)
+    elif isinstance(patch, SetFontSizePatch):
+        if patch.target_id != plot.plot_id:
+            raise PlotValidationError("PATCH_TARGET_INVALID", "font target does not exist")
     elif isinstance(patch, (SetSeriesStylePatch, SetPalettePatch, SetCategoryColorPatch)):
         if patch.target_id not in series_ids:
             raise PlotValidationError("PATCH_TARGET_INVALID", "series target does not exist")
@@ -210,19 +251,33 @@ def validate_plot_patch(plot: PlotSpec, patch: PlotPatch) -> PlotPatch:
         if patch.target_id != "legend:main":
             raise PlotValidationError("PATCH_TARGET_INVALID", "legend target does not exist")
     elif isinstance(patch, AddAnnotationPatch):
+        if patch.target_id != plot.plot_id:
+            raise PlotValidationError(
+                "PATCH_TARGET_INVALID", "annotation target plot does not exist"
+            )
         if patch.annotation.annotation_id in annotation_ids:
             raise PlotValidationError("PATCH_TARGET_INVALID", "annotation id already exists")
         if patch.annotation.text is not None:
             validate_safe_text(patch.annotation.text)
     elif isinstance(patch, UpdateAnnotationPatch):
+        if patch.target_id != plot.plot_id:
+            raise PlotValidationError(
+                "PATCH_TARGET_INVALID", "annotation target plot does not exist"
+            )
         if patch.annotation.annotation_id not in annotation_ids:
             raise PlotValidationError("PATCH_TARGET_INVALID", "annotation target does not exist")
         if patch.annotation.text is not None:
             validate_safe_text(patch.annotation.text)
     elif isinstance(patch, RemoveAnnotationPatch):
+        if patch.target_id != plot.plot_id:
+            raise PlotValidationError(
+                "PATCH_TARGET_INVALID", "annotation target plot does not exist"
+            )
         if patch.annotation_id not in annotation_ids:
             raise PlotValidationError("PATCH_TARGET_INVALID", "annotation target does not exist")
     elif isinstance(patch, (ApplyPublicationProfilePatch, SetCanvasSizePatch)):
-        if not patch.target_id.startswith("panel:"):
-            raise PlotValidationError("PATCH_TARGET_INVALID", "canvas patch must target a panel")
+        if patch.target_id != plot.plot_id:
+            raise PlotValidationError(
+                "PATCH_TARGET_INVALID", "plot-wide patch target does not exist"
+            )
     return patch

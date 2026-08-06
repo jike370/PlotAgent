@@ -2568,6 +2568,17 @@ input[type="checkbox"] {
   background: var(--focus-soft);
 }
 
+.annotation-toolbar button:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.annotation-toolbar button:disabled:hover {
+  color: var(--faint);
+  background: transparent;
+}
+
 .annotation-toolbar span {
   width: 22px;
   height: 1px;
@@ -2827,19 +2838,26 @@ input[type="checkbox"] {
 }
 
 .parameter-tabs {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 0 7px;
   border-bottom: 1px solid var(--border);
 }
 
 .parameter-tabs button {
   min-height: 32px;
-  flex: 1;
   border: 0;
   border-bottom: 2px solid transparent;
   color: var(--muted);
   background: transparent;
   font-size: 8.5px;
+}
+
+.parameter-note {
+  margin: 2px 0 0;
+  color: var(--faint);
+  font-size: 7.5px;
+  line-height: 1.45;
 }
 
 .parameter-tabs button.is-active {
