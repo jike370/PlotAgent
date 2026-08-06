@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+from plotagent.rendering.policies import VOLCANO_THRESHOLDS, VolcanoThresholds
 from scripts.build_x24_s07_synthetic_audit import (
     _assert_axis_coverage,
     _assert_chart_semantics,
@@ -65,3 +66,42 @@ def test_x24_formal_layout_reserves_right_axis_margin_and_coincident_panels() ->
     assert left.height == right.height
     right_margin = resolved.plan.canvas.width.value - left.left.value - left.width.value
     assert math.isclose(right_margin, 12.0, rel_tol=0.0, abs_tol=1e-12)
+
+
+def test_volcano_threshold_policy_is_explicit_and_drives_all_three_lines() -> None:
+    case = next(item for item in _load_manifest()["cases"] if item["case_id"] == "S07_baseline")
+    frame = _load_case(case)
+    _, resolved = _resolved(case, frame)
+    line_layers = {
+        layer.layer_id.removeprefix("layer.0."): layer
+        for layer in resolved.plan.layers
+        if layer.geometry == "xy.line"
+    }
+
+    assert VOLCANO_THRESHOLDS.absolute_log2_fold_change == 1.0
+    assert VOLCANO_THRESHOLDS.pvalue == 0.05
+    assert set(line_layers) == {
+        "threshold.pvalue",
+        "threshold.fold_change.negative",
+        "threshold.fold_change.positive",
+    }
+
+
+@pytest.mark.parametrize(
+    ("effect_threshold", "pvalue_threshold"),
+    [
+        (0.0, 0.05),
+        (1.0, 0.0),
+        (float("inf"), 0.05),
+        (1.0, 1.1),
+    ],
+)
+def test_volcano_threshold_policy_rejects_invalid_values(
+    effect_threshold: float,
+    pvalue_threshold: float,
+) -> None:
+    with pytest.raises(ValueError, match="volcano"):
+        VolcanoThresholds(
+            absolute_log2_fold_change=effect_threshold,
+            pvalue=pvalue_threshold,
+        )

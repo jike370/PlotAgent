@@ -43,6 +43,7 @@
       "expected": {
         "row_count": 24,
         "classes": ["Down", "Not significant", "Up"],
+        "absolute_log2_fold_change_threshold": 1.0,
         "threshold_pvalue": 0.05
       }
     },
@@ -55,6 +56,7 @@
       "expected": {
         "row_count": 40,
         "classes": ["Down", "Not significant", "Up"],
+        "absolute_log2_fold_change_threshold": 1.0,
         "threshold_pvalue": 0.05
       }
     }

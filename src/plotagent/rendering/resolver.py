@@ -45,6 +45,7 @@ from plotagent.rendering.data import (
     is_finite_number,
 )
 
+from plotagent.rendering.policies import VOLCANO_THRESHOLDS
 RESOLVER_VERSION = "resolver.v1"
 THUMBNAIL_LIMIT = 5_000
 INTERACTIVE_LIMIT = 20_000
@@ -1151,11 +1152,16 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
         )
         volcano_y = -np.log10(pvalues)
         volcano_x = np.asarray([_number(value) for value in values["log2fc"]], dtype=float)
-        significant = pvalues < 0.05
+        thresholds = VOLCANO_THRESHOLDS
+        significant = pvalues < thresholds.pvalue
         volcano_categories = np.where(
-            significant & (volcano_x <= -1),
+            significant & (volcano_x <= -thresholds.absolute_log2_fold_change),
             0,
-            np.where(significant & (volcano_x >= 1), 2, 1),
+            np.where(
+                significant & (volcano_x >= thresholds.absolute_log2_fold_change),
+                2,
+                1,
+            ),
         )
         labels = ("Down", "Not significant", "Up")
         volcano_result: list[_DraftLayer] = []
@@ -1177,13 +1183,18 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
                         source="fixed",
                     )
                 )
-        x_limit = max(abs(float(volcano_x.min())), abs(float(volcano_x.max())), 1.0)
-        threshold = -math.log10(0.05)
+        x_limit = max(
+            abs(float(volcano_x.min())),
+            abs(float(volcano_x.max())),
+            thresholds.absolute_log2_fold_change,
+        )
+        y_limit = max(float(volcano_y.max()), -math.log10(thresholds.pvalue))
+        significance_y = -math.log10(thresholds.pvalue)
         volcano_result.append(
             draft(
-                "threshold",
+                "threshold.pvalue",
                 "xy.line",
-                {"x": (-x_limit, x_limit), "y": (threshold, threshold)},
+                {"x": (-x_limit, x_limit), "y": (significance_y, significance_y)},
                 ("x",),
                 ("y",),
                 color=1,
@@ -1196,6 +1207,22 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
     if chart_id == "X24":
         rows = sorted(
             zip(values["category"], values["value"], strict=True),
+        for suffix, effect_threshold in (
+            ("negative", -thresholds.absolute_log2_fold_change),
+            ("positive", thresholds.absolute_log2_fold_change),
+        ):
+            volcano_result.append(
+                draft(
+                    f"threshold.fold_change.{suffix}",
+                    "xy.line",
+                    {"x": (effect_threshold, effect_threshold), "y": (0.0, y_limit)},
+                    ("x",),
+                    ("y",),
+                    color=1,
+                    source="fixed",
+                    color_override="#6B7280",
+                )
+            )
             key=lambda item: _number(item[1]),
             reverse=True,
         )

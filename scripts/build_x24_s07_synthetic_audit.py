@@ -35,6 +35,7 @@ from plotagent.origin.native import native_primitives, physical_plot_count
 from plotagent.origin.validation import origin_canonical_hash
 from plotagent.rendering import PlotResolver, RenderDataStore, RenderTable, ResolvedPlot
 from plotagent.rendering.matplotlib import MatplotlibRenderer
+from plotagent.rendering.policies import VOLCANO_THRESHOLDS
 from tests.rendering.fixture_factory import build_plot_and_store
 
 FIXTURE_DIR = (
@@ -261,11 +262,49 @@ def _assert_chart_semantics(
         abs(x_axis.minimum), abs(x_axis.maximum), rel_tol=0.0, abs_tol=1e-12
     ):
         raise RuntimeError("volcano X axis is not symmetric around zero")
-    threshold = next(layer for layer in resolved.plan.layers if layer.geometry == "xy.line")
-    threshold_y = tuple(float(value) for value in _roles(resolved, threshold)["y"])
-    expected_threshold = -math.log10(float(case["expected"]["threshold_pvalue"]))
-    if any(not math.isclose(value, expected_threshold, abs_tol=1e-12) for value in threshold_y):
+    expected_pvalue = float(case["expected"]["threshold_pvalue"])
+    expected_effect = float(case["expected"]["absolute_log2_fold_change_threshold"])
+    if not math.isclose(expected_pvalue, VOLCANO_THRESHOLDS.pvalue, abs_tol=1e-12) or not math.isclose(
+        expected_effect,
+        VOLCANO_THRESHOLDS.absolute_log2_fold_change,
+        abs_tol=1e-12,
+    ):
+        raise RuntimeError("synthetic manifest thresholds differ from the resolver policy")
+    line_layers = {
+        layer.layer_id.removeprefix("layer.0."): layer
+        for layer in resolved.plan.layers
+        if layer.geometry == "xy.line"
+    }
+    expected_line_ids = {
+        "threshold.pvalue",
+        "threshold.fold_change.negative",
+        "threshold.fold_change.positive",
+    }
+    if set(line_layers) != expected_line_ids:
+        raise RuntimeError(f"volcano threshold layers differ: {sorted(line_layers)}")
+    pvalue_roles = _roles(resolved, line_layers["threshold.pvalue"])
+    threshold_y = tuple(float(value) for value in pvalue_roles["y"])
+    expected_threshold_y = -math.log10(expected_pvalue)
+    if any(
+        not math.isclose(value, expected_threshold_y, abs_tol=1e-12)
+        for value in threshold_y
+    ):
         raise RuntimeError("volcano significance threshold differs")
+    fold_change_lines: dict[str, dict[str, tuple[Any, ...]]] = {}
+    for direction, expected_x in (
+        ("negative", -expected_effect),
+        ("positive", expected_effect),
+    ):
+        roles = _roles(resolved, line_layers[f"threshold.fold_change.{direction}"])
+        x_values = tuple(float(value) for value in roles["x"])
+        y_values = tuple(float(value) for value in roles["y"])
+        if any(not math.isclose(value, expected_x, abs_tol=1e-12) for value in x_values):
+            raise RuntimeError(f"volcano {direction} fold-change threshold differs")
+        if not math.isclose(y_values[0], 0.0, abs_tol=1e-12) or y_values[-1] < max(
+            point[1] for point in plotted_points
+        ):
+            raise RuntimeError(f"volcano {direction} threshold does not span visible data")
+        fold_change_lines[direction] = {"x": x_values, "y": y_values}
     return {
         "input_rows": len(frame),
         "class_counts": {
@@ -274,6 +313,11 @@ def _assert_chart_semantics(
         "class_colors": class_colors,
         "x_range": [x_axis.minimum, x_axis.maximum],
         "threshold_y": threshold_y[0],
+        "threshold_parameters": {
+            "absolute_log2_fold_change": expected_effect,
+            "pvalue": expected_pvalue,
+        },
+        "fold_change_lines": fold_change_lines,
     }
 
 

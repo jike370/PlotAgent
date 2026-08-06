@@ -71,6 +71,9 @@ _COLUMN_AXIS = {
     "Group": "N",
     "None": "N",
 }
+# Qualified Origin's fixed palette index for white. S07 uses an opaque legend
+# fill so its fixed threshold lines cannot visually cross the legend contents.
+_ORIGIN_WHITE_COLOR_INDEX = 18
 
 
 class NativeOriginError(RuntimeError):
@@ -207,6 +210,7 @@ def _place_inside_legend(
         # Volcano extremes occupy both upper corners. Centering the three-entry
         # fixed legend keeps it clear of those points as the X range expands.
         left = layer_left + (layer_width - legend_width) / 2
+        legend.set_int("fillcolor", _ORIGIN_WHITE_COLOR_INDEX)
     else:
         left = anchor_x - legend_width if graph_plan.legend_anchor_x >= 0.5 else anchor_x
     top = anchor_y if graph_plan.legend_anchor_y >= 0.5 else anchor_y - legend_height
@@ -1035,6 +1039,10 @@ class OriginProBackend:
                     if legend is None or legend.text.replace("\r\n", "\n") != expected_legend:
                         raise NativeOriginError(
                             f"native legend text differs for {graph_plan.graph_id}"
+                        )
+                    if legend.get_int("fillcolor") != _ORIGIN_WHITE_COLOR_INDEX:
+                        raise NativeOriginError(
+                            f"native legend fill differs for {graph_plan.graph_id}"
                         )
                     page_width = _finite_float(graph.get_float("width"))
                     page_height = _finite_float(graph.get_float("height"))
