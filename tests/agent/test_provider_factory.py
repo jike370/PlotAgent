@@ -84,8 +84,7 @@ def test_custom_secret_is_injected_only_at_transport_boundary_and_not_audited(
     assert result.accepted is True
     assert len(server.requests) == 2
     assert all(
-        request.headers.get("Authorization") == f"Bearer {secret}"
-        for request in server.requests
+        request.headers.get("Authorization") == f"Bearer {secret}" for request in server.requests
     )
     assert "api_key" not in CustomProviderConfig.__dataclass_fields__
     safe_surfaces = " ".join(

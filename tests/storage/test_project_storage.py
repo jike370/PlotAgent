@@ -44,9 +44,7 @@ def test_project_layout_wal_single_writer_lock_and_minimal_catalog(
     try:
         tables = {
             str(row[0])
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            )
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
     finally:
         connection.close()

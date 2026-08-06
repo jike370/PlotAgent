@@ -133,9 +133,7 @@ class SchemaCompatibilityGate:
 
     def require_supported(self, schema_version: str) -> None:
         if schema_version not in self._supported:
-            raise LocalSecurityError(
-                "SCHEMA_VERSION_UNSUPPORTED", category="schema_version"
-            )
+            raise LocalSecurityError("SCHEMA_VERSION_UNSUPPORTED", category="schema_version")
 
     def require_known_pair(self, source_version: str, target_version: str) -> KnownMigration:
         return self._registry.resolve(source_version, target_version)
@@ -143,9 +141,7 @@ class SchemaCompatibilityGate:
     @staticmethod
     def require_legacy_component(*, available: bool) -> None:
         if not available:
-            raise LocalSecurityError(
-                "LEGACY_COMPONENT_MISSING", category="legacy_component"
-            )
+            raise LocalSecurityError("LEGACY_COMPONENT_MISSING", category="legacy_component")
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,9 +272,7 @@ class KnownMigrationRunner:
         migration = self._registry.resolve(source_version, target_version)
         actual_source_version = read_schema_version(source_project)
         if actual_source_version != source_version:
-            raise LocalSecurityError(
-                "SCHEMA_VERSION_UNSUPPORTED", category="schema_version"
-            )
+            raise LocalSecurityError("SCHEMA_VERSION_UNSUPPORTED", category="schema_version")
         if target_project.exists():
             raise LocalSecurityError("MIGRATION_FAILED", category="migration_switch")
 
@@ -404,9 +398,7 @@ def read_schema_version(project: Path) -> str:
     try:
         raw = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        raise LocalSecurityError(
-            "SCHEMA_VERSION_UNSUPPORTED", category="schema_version"
-        ) from error
+        raise LocalSecurityError("SCHEMA_VERSION_UNSUPPORTED", category="schema_version") from error
     if not isinstance(raw, dict):
         raise LocalSecurityError("SCHEMA_VERSION_UNSUPPORTED", category="schema_version")
     schema_version = raw.get("schema_version")

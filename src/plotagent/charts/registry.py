@@ -1,4 +1,4 @@
-"""Rendering metadata for the exact 31 v1 scientific charts.
+"""Rendering metadata for the exact 52 first-release scientific charts.
 
 The W0 contract registry is the persisted public contract.  This module adds the
 W4-only adapter family, data-chain mode, and renderer limitations.  Every chart
@@ -374,6 +374,216 @@ CHARTS: tuple[ChartAdapterRegistration, ...] = (
         (),
         ("Counts and normalization come from W3 geometry.",),
     ),
+    _entry(
+        "X01",
+        "special",
+        ("x", "y"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Input order is preserved; step direction is a closed visual preset.",),
+    ),
+    _entry(
+        "X02",
+        "special",
+        ("category", "value"),
+        ("baseline", "group"),
+        ("direct",),
+        (),
+        (),
+        ("The baseline is visual geometry and defaults to zero.",),
+    ),
+    _entry(
+        "X03",
+        "special",
+        ("category", "start", "end"),
+        ("group",),
+        ("direct",),
+        (),
+        (),
+        ("No pairing is inferred; each row is one explicit pair.",),
+    ),
+    _entry(
+        "X05",
+        "special",
+        ("value",),
+        ("group",),
+        ("direct",),
+        (),
+        (),
+        ("Beeswarm displacement is deterministic and never changes source values.",),
+    ),
+    _entry(
+        "X07",
+        "special",
+        ("value", "group"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("KDE and vertical offsets are fixed chart-only geometry.",),
+    ),
+    _entry(
+        "X09",
+        "special",
+        ("category", "start", "end"),
+        ("middle",),
+        ("direct",),
+        (),
+        (),
+        ("Start and end must be explicit; an optional middle boundary creates two segments.",),
+    ),
+    _entry(
+        "X11",
+        "special",
+        ("category", "delta"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Only the cumulative bridge geometry is calculated.",),
+    ),
+    _entry(
+        "X12",
+        "special",
+        ("item", "actual_value", "target"),
+        ("range1", "range2", "range3"),
+        ("direct",),
+        (),
+        (),
+        ("Qualitative ranges and targets must be supplied.",),
+    ),
+    _entry(
+        "X13",
+        "special",
+        ("category", "left", "right"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Both sides share a zero baseline and absolute tick labels.",),
+    ),
+    _entry(
+        "X15",
+        "special",
+        ("x", "y", "z"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("The first-release matrix accepts exactly three supplied variables.",),
+    ),
+    _entry(
+        "X16",
+        "special",
+        ("x", "y"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Two-dimensional binning is fixed chart-only geometry.",),
+    ),
+    _entry(
+        "X17",
+        "special",
+        ("x", "y"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Marginal histograms use the same observations as the central scatter.",),
+    ),
+    _entry(
+        "X18",
+        "special",
+        ("value",),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Normal theoretical quantiles and reference line are fixed chart-only geometry.",),
+    ),
+    _entry(
+        "X19",
+        "special",
+        ("method_a", "method_b"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Mean difference and limits of agreement are fixed chart-only calculations.",),
+    ),
+    _entry(
+        "X23",
+        "special",
+        ("x", "left", "right"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Axis ownership is explicit; automatic dual-axis suggestions are forbidden.",),
+    ),
+    _entry(
+        "X24",
+        "special",
+        ("category", "value"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Descending order and cumulative percentage are fixed chart-only calculations.",),
+    ),
+    _entry(
+        "X35",
+        "special",
+        ("category", "left", "right"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Axis ownership is explicit; automatic dual-axis suggestions are forbidden.",),
+    ),
+    _entry(
+        "X36",
+        "special",
+        ("category", "left", "right"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Left values are columns and right values are a line on an explicit axis.",),
+    ),
+    _entry(
+        "X37",
+        "special",
+        ("group", "left", "right"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Quartiles are fixed chart-only geometry on two explicit Y axes.",),
+    ),
+    _entry(
+        "X38",
+        "special",
+        ("x", "y", "series"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Offsets affect display only and never modify persisted source data.",),
+    ),
+    _entry(
+        "S07",
+        "special",
+        ("feature", "log2fc", "pvalue"),
+        ("qvalue",),
+        ("direct",),
+        (),
+        (),
+        ("No differential expression or FDR calculation is performed.",),
+    ),
 )
 
 CHARTS_BY_ID = {entry.chart_type_id: entry for entry in CHARTS}
@@ -383,8 +593,8 @@ def _fail_registry(message: str) -> Never:
     raise RuntimeError(message)
 
 
-if len(CHARTS) != 31 or len(CHARTS_BY_ID) != 31:
-    _fail_registry("the W4 chart registry must contain exactly 31 unique entries")
+if len(CHARTS) != 52 or len(CHARTS_BY_ID) != 52:
+    _fail_registry("the W4 chart registry must contain exactly 52 unique entries")
 if set(CHARTS_BY_ID) != set(CONTRACT_CHARTS_BY_ID):
     _fail_registry("the W4 chart IDs must exactly match the W0 contract registry")
 for _chart_id, _runtime in CHARTS_BY_ID.items():
@@ -406,9 +616,9 @@ class ChartRegistryError(ValueError):
 
 
 def get_chart(chart_type_id: str) -> ChartAdapterRegistration:
-    """Return one of the exact v1 entries and reject every other identifier."""
+    """Return one of the exact first-release entries and reject every other identifier."""
 
     try:
         return CHARTS_BY_ID[chart_type_id]  # type: ignore[index]
     except KeyError as error:
-        raise ChartRegistryError(f"{chart_type_id!r} is not a v1 chart type") from error
+        raise ChartRegistryError(f"{chart_type_id!r} is not a first-release chart type") from error

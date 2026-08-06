@@ -1,7 +1,10 @@
 import ast
 from pathlib import Path
 
+import pytest
+
 import plotagent.origin
+from plotagent.origin._origin_backend import NativeOriginError, _area_fill_command
 
 
 def test_origin_adapter_has_no_attach_or_script_execution_calls() -> None:
@@ -33,6 +36,7 @@ def test_origin_set_commands_are_fixed_literals_from_the_small_allowlist() -> No
     package = Path(plotagent.origin.__file__).parent
     allowed = {"-l 2", "-vg 70"}
     commands: list[str] = []
+    validated_area_fills = 0
     violations: list[str] = []
     for source in package.glob("*.py"):
         tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
@@ -44,15 +48,26 @@ def test_origin_set_commands_are_fixed_literals_from_the_small_allowlist() -> No
             ):
                 continue
             for argument in node.args:
-                if not isinstance(argument, ast.Constant) or not isinstance(
-                    argument.value, str
+                if (
+                    isinstance(argument, ast.Call)
+                    and isinstance(argument.func, ast.Name)
+                    and argument.func.id == "_area_fill_command"
                 ):
+                    validated_area_fills += 1
+                    continue
+                if not isinstance(argument, ast.Constant) or not isinstance(argument.value, str):
                     violations.append(f"{source.name}:{node.lineno}:dynamic")
                     continue
                 commands.append(argument.value)
                 if argument.value not in allowed:
-                    violations.append(
-                        f"{source.name}:{node.lineno}:unexpected:{argument.value}"
-                    )
+                    violations.append(f"{source.name}:{node.lineno}:unexpected:{argument.value}")
     assert violations == []
     assert set(commands) == allowed
+    assert validated_area_fills == 1
+
+
+def test_dynamic_area_fill_option_accepts_only_typed_hex_color() -> None:
+    assert _area_fill_command("#2A6FDB") == '-cf color("#2A6FDB")'
+    for invalid in ("red", "#fff", '#000000"; system("rm")'):
+        with pytest.raises(NativeOriginError):
+            _area_fill_command(invalid)

@@ -453,9 +453,7 @@ def _reopen(payload: dict[str, Any]) -> dict[str, Any]:
 def _build_plan(payload: dict[str, Any]) -> dict[str, Any]:
     if set(payload) != {"plan", "install_dir", "temporary_opju_path"}:
         _fail("BUILD_FAILURE", "typed-plan build payload contains missing or unknown fields")
-    plan = OriginExportPlan.model_validate_json(
-        json.dumps(payload["plan"], ensure_ascii=False)
-    )
+    plan = OriginExportPlan.model_validate_json(json.dumps(payload["plan"], ensure_ascii=False))
     temporary_path = Path(str(payload["temporary_opju_path"])).resolve(strict=False)
     Path(str(payload["install_dir"])).resolve(strict=True)
     template = qualified_template_path()
@@ -489,9 +487,7 @@ def _build_plan(payload: dict[str, Any]) -> dict[str, Any]:
 def _reopen_plan(payload: dict[str, Any]) -> dict[str, Any]:
     if set(payload) != {"plan", "install_dir", "temporary_opju_path"}:
         _fail("REOPEN_FAILURE", "typed-plan reopen payload contains missing or unknown fields")
-    plan = OriginExportPlan.model_validate_json(
-        json.dumps(payload["plan"], ensure_ascii=False)
-    )
+    plan = OriginExportPlan.model_validate_json(json.dumps(payload["plan"], ensure_ascii=False))
     temporary_path = Path(str(payload["temporary_opju_path"])).resolve(strict=True)
     Path(str(payload["install_dir"])).resolve(strict=True)
     template = qualified_template_path()

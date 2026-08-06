@@ -85,7 +85,7 @@ Metadata/
 - **固定计算图：** `Raw Data + Plot Data (PlotCalculationResult) + native Graph + Manifest`。Graph 链接最终 Plot Data；编辑 Plot Data 可更新图，编辑 Raw Data 不承诺自动重新执行 PlotAgent 计算。
 - **用户预计算图：** 预计算曲线/矩阵等进入 Plot Data，并标记 `user_provided_precomputed`；PlotAgent/Origin 均不重算科学结果。
 
-v1 不生成 Origin Analysis Template、worksheet formula、Fit Function 或分析重算链，也不依赖 LabTalk。以上边界必须写入 Manifest 和导出说明。
+v1 不生成 Origin Analysis Template、worksheet formula、Fit Function 或分析重算链，也不执行用户/Agent/数据提供的 LabTalk。极少数 `originpro` 未暴露的纯显示属性允许使用应用内置、测试锁定的 Set 选项；它们不承载公式、分析、路径或自由文本。以上边界必须写入 Manifest 和导出说明。
 
 ## 5. Origin 数据对象语义
 
@@ -122,6 +122,8 @@ Manifest 不包含绝对路径。PlotAgent 的外部 ExportRecord 保存最终�
 
 第一轮 31 项正式图形若显示 OPJU 导出能力，必须在当前 Beta build 唯一声明的 Origin exact version 上逐项达到 O1。高级未来图形可以在产品另行批准后以 O2 准入，但必须在执行前披露已知差异；运行时不能把 O1 静默降为 O2/O3。
 
+Origin P1 扩展的 21 项已进入同一 typed adapter/OPJU 代码面（双 Y 轴网格图除外），但其视觉 qualification 与原 31 图分开记账。只有示例图和同源数据均已锚定的案例才运行三栏视觉审计；当前 10 项完成 live build、独立 fresh reopen 与 Origin PNG，另 11 项只保留离线契约覆盖，不能据此宣称视觉通过。
+
 O3/O0 不生成正式 OPJU。将 Matplotlib PNG/SVG/raster 嵌入 Origin 不能算作 O1 或 O2。
 
 ## 8. OriginAdapter 契约
@@ -143,7 +145,7 @@ Adapter 只接收经过本地校验的 typed OriginExportPlan，不接收模型�
 - 任意 property name/path/string。
 - 任意模板路径、文件路径或 COM 调用名。
 
-第一轮完全不执行 LabTalk，包括固定 app-owned LabTalk。OriginAdapter 只通过 `originpro`/Python 的版本化类型化固定映射创建和设置对象；不得调用 LabTalk 执行入口、把属性操作拼成字符串，或允许模型、数据、template、adapter 配置注入脚本。任何需要 LabTalk 才能完成的图形都判为 `CAPABILITY_MISSING`，不能进入第一轮 O1。
+OriginAdapter 以 `originpro`/Python 的版本化类型化固定映射创建和设置对象，不开放 LabTalk 执行入口。唯一允许的 Set 选项是代码内固定的 `-l 2`（森林图区间连接）、`-vg 70`（分组柱间距），以及由 `ColorValue` 的严格 `#RRGGBB` 类型生成的 `-cf color("#RRGGBB")`（原生 area fill）；AST 门禁拒绝其余常量或动态参数。模型、字段名、单元格、标签、路径、模板或 adapter 配置均不能进入这些选项。任何还需要公式、分析命令或未登记 LabTalk 的图形都判为 `CAPABILITY_MISSING`。
 
 ## 9. Template 安全
 
@@ -273,10 +275,10 @@ Preflight 失败不启动 Origin 实例，也不留下正式或未登记临时�
 - 四 folders、ASCII Short Name、Long Name、Units、Comments 和 designation。
 - 最小列集、raw points 条件、PlotCalculationResult/用户预计算 Plot Data 和 Matrixbook。
 - direct/fixed/user-precomputed 三类数据链、Raw/Plot Data 链接方向和 Raw Data 不自动重算说明。
-- 禁止 Origin Analysis Template、worksheet formula、Fit Function、LabTalk 与任意科学重算链。
+- 禁止 Origin Analysis Template、worksheet formula、Fit Function、任意/未登记 LabTalk 与科学重算链。
 - manifest object map、全部 hash/version、capability 与 O2 differences。
 - O1/O2/O3/O0 定义、31 项 O1 准入和无运行时降级。
-- OriginAdapter registry、typed property map、任意 LabTalk 阻断与 template 安全。
+- OriginAdapter registry、typed property map、三项 Set 选项白名单、其余 LabTalk 阻断与 template 安全。
 - 全部 preflight 条件与 dedicated instance 隔离。
 - live validation、same-directory temp save、fresh reopen readback 和无 external links。
 - 整 OPJU 原子失败、排除目标必须新 ExportSpec。

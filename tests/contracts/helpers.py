@@ -58,7 +58,19 @@ def style() -> ResolvedStyleSnapshot:
         font_size=PhysicalLength(value=8.0, unit="pt"),
         line_width=PhysicalLength(value=0.8, unit="pt"),
         marker_size=PhysicalLength(value=4.0, unit="pt"),
-        colors=(ColorValue(value="#1F77B4"),),
+        colors=tuple(
+            ColorValue(value=value)
+            for value in (
+                "#2A6FDB",
+                "#D64545",
+                "#2A9D6F",
+                "#E69F00",
+                "#7B61A8",
+                "#56B4E9",
+                "#8C6D31",
+                "#6B7280",
+            )
+        ),
     )
 
 

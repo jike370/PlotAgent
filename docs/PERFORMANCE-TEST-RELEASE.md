@@ -140,6 +140,17 @@ Provider latency单独记录 DNS/connect/TLS/TTFB/complete，不删除慢样本�
 - formal SVG：93 条。
 - O1 OPJU：93 个逻辑 MatrixKey，其中 31 个 representative research 在当前 Beta build 声明的唯一 Origin exact version 完成 live+fresh-reopen；31 个 minimal valid 与 31 个 edge/error 通过同一 typed plan 的离线 contract/validator 和预期稳定错误 evidence，不重复启动 62 次 Origin COM。
 
+### 7.1 Origin P1 扩展门槛
+
+新增 21 项使代码面扩展为 52 图，但不追溯改写原 31 图 qualification 结论。新增图的 visual evidence 必须满足以下硬门槛：
+
+- A 级：Origin 随附 OPJU 中的图页与其链接工作表直接成对提取。
+- C 级：只使用 Origin 随附官方样例数据，并在 Origin 中按固定模板/固定规则重新生成参考图。
+- `reference.png`、`data.csv`、Matplotlib、产品 OPJU、fresh-reopen Origin PNG 和 provenance hash 必须属于同一案例。
+- 缺少参考图或同源数据的新增图只运行 resolver/contract/PNG/SVG/Origin plan 离线测试，不进入视觉通过数，也不能用合成数据替代。
+
+当前同源视觉审计覆盖 X01、X02、X03、X05、X09、X13、X23、X35、X36、X38；X07、X11、X12、X15、X16、X17、X18、X19、X24、X37、S07 因缺少已锚定同源对而暂不做视觉测试。双 Y 轴网格图不在实现范围。
+
 Preview/interactive 是另外的必测路径，不计入 279。`edge_error` 可由匹配预期 code/schema/details 的稳定错误证据通过，不要求生成二进制；不得把应成功路径重标为预期失败。
 
 ### 7.2 覆盖维度

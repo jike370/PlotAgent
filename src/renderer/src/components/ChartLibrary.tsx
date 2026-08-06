@@ -108,7 +108,7 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
         <button className="back-button" type="button" onClick={onClose}><ChevronLeft size={18} />返回对话</button>
         <div>
           <h2 id="library-title">图形库</h2>
-          <p>首轮正式目标 31 项 · 全部为数值数据图表 · 由你明确选择</p>
+          <p>首轮正式目标 52 项 · 全部为数值数据图表 · 由你明确选择</p>
         </div>
         <label className="library-search">
           <Search size={17} aria-hidden="true" />

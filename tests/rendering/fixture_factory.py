@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from plotagent.contracts.base import (
     CalculationKind,
@@ -35,6 +35,7 @@ from plotagent.contracts.plots import (
     ScaleSpec,
     SeriesData,
     SeriesSpec,
+    SpecialFamily,
     StyleSourceRef,
     SurvivalFamily,
     XYFamily,
@@ -374,10 +375,204 @@ _FIXTURES: dict[str, tuple[SeriesFixture, ...]] = {
             calculation_kind="confusion_count",
         ),
     ),
+    "X01": (_series("step", "prepared", ("x", "y"), (0.0, 1.0, 2.0, 3.0), (1.0, 1.8, 1.2, 2.4)),),
+    "X02": (
+        _series(
+            "lollipop",
+            "prepared",
+            ("category", "value"),
+            ("A", "B", "C", "D"),
+            (2.0, 4.2, 3.1, 5.0),
+        ),
+    ),
+    "X03": (
+        _series(
+            "dumbbell",
+            "prepared",
+            ("category", "start", "end"),
+            ("A", "B", "C"),
+            (1.0, 2.5, 1.8),
+            (2.4, 1.7, 3.2),
+        ),
+    ),
+    "X05": (
+        _series(
+            "beeswarm",
+            "prepared",
+            ("value", "group"),
+            (1.0, 1.2, 1.1, 2.0, 2.3, 2.1),
+            ("A", "A", "A", "B", "B", "B"),
+        ),
+    ),
+    "X07": (
+        _series(
+            "ridgeline",
+            "prepared",
+            ("value", "group"),
+            (0.8, 1.0, 1.2, 1.8, 2.0, 2.2, 2.7, 3.0, 3.2),
+            ("A", "A", "A", "B", "B", "B", "C", "C", "C"),
+        ),
+    ),
+    "X09": (
+        _series(
+            "floating_bar",
+            "prepared",
+            ("category", "start", "middle", "end"),
+            ("A", "B", "C"),
+            (1.0, 2.0, 1.5),
+            (1.8, 2.9, 2.2),
+            (2.5, 3.8, 3.0),
+        ),
+    ),
+    "X11": (
+        _series(
+            "bridge",
+            "prepared",
+            ("category", "delta"),
+            ("Start", "Gain", "Loss", "Finish"),
+            (3.0, 2.0, -1.2, 0.8),
+        ),
+    ),
+    "X12": (
+        _series(
+            "bullet",
+            "prepared",
+            ("item", "actual_value", "target", "range1", "range2", "range3"),
+            ("A", "B", "C"),
+            (72.0, 86.0, 61.0),
+            (80.0, 82.0, 75.0),
+            (60.0, 60.0, 60.0),
+            (80.0, 80.0, 80.0),
+            (100.0, 100.0, 100.0),
+        ),
+    ),
+    "X13": (
+        _series(
+            "pyramid",
+            "prepared",
+            ("category", "left", "right"),
+            ("0-19", "20-39", "40-59", "60+"),
+            (18.0, 24.0, 20.0, 12.0),
+            (17.0, 23.0, 22.0, 15.0),
+        ),
+    ),
+    "X15": (
+        _series(
+            "scatter_matrix",
+            "prepared",
+            ("x", "y", "z"),
+            (1.0, 2.0, 3.0, 4.0, 5.0),
+            (2.0, 1.5, 3.5, 3.0, 4.8),
+            (5.0, 4.2, 3.6, 2.4, 1.2),
+        ),
+    ),
+    "X16": (
+        _series(
+            "density2d",
+            "prepared",
+            ("x", "y"),
+            tuple(float(i % 10) + (i % 3) * 0.08 for i in range(60)),
+            tuple(float((i * 7) % 10) + (i % 5) * 0.06 for i in range(60)),
+        ),
+    ),
+    "X17": (
+        _series(
+            "marginal",
+            "prepared",
+            ("x", "y"),
+            tuple(float(i) / 4 for i in range(24)),
+            tuple(float(i) / 5 + ((i % 4) - 1.5) * 0.4 for i in range(24)),
+        ),
+    ),
+    "X18": (
+        _series(
+            "probability", "prepared", ("value",), (-1.7, -1.1, -0.6, -0.2, 0.0, 0.3, 0.7, 1.2, 1.8)
+        ),
+    ),
+    "X19": (
+        _series(
+            "agreement",
+            "prepared",
+            ("method_a", "method_b"),
+            (10.0, 12.0, 14.0, 16.0, 18.0, 20.0),
+            (10.4, 11.5, 14.3, 15.2, 18.8, 19.4),
+        ),
+    ),
+    "X23": (
+        _series(
+            "dual_axis",
+            "prepared",
+            ("x", "left", "right"),
+            (0.0, 1.0, 2.0, 3.0),
+            (1.0, 2.0, 2.6, 3.4),
+            (120.0, 150.0, 132.0, 180.0),
+        ),
+    ),
+    "X24": (
+        _series(
+            "bridge",
+            "prepared",
+            ("category", "value"),
+            ("A", "B", "C", "D"),
+            (48.0, 26.0, 15.0, 11.0),
+        ),
+    ),
+    "X35": (
+        _series(
+            "dual_axis",
+            "prepared",
+            ("category", "left", "right"),
+            ("A", "B", "C", "D"),
+            (2.0, 3.5, 2.8, 4.2),
+            (80.0, 95.0, 76.0, 110.0),
+        ),
+    ),
+    "X36": (
+        _series(
+            "dual_axis",
+            "prepared",
+            ("category", "left", "right"),
+            ("A", "B", "C", "D"),
+            (2.0, 3.5, 2.8, 4.2),
+            (80.0, 95.0, 76.0, 110.0),
+        ),
+    ),
+    "X37": (
+        _series(
+            "dual_axis",
+            "prepared",
+            ("group", "left", "right"),
+            ("A", "A", "A", "B", "B", "B"),
+            (1.0, 1.4, 1.8, 2.1, 2.5, 2.9),
+            (80.0, 90.0, 84.0, 110.0, 125.0, 118.0),
+        ),
+    ),
+    "X38": (
+        _series(
+            "y_offset",
+            "prepared",
+            ("x", "y", "series"),
+            (0.0, 1.0, 2.0, 0.0, 1.0, 2.0),
+            (1.0, 1.8, 1.3, 0.8, 1.4, 2.0),
+            ("A", "A", "A", "B", "B", "B"),
+        ),
+    ),
+    "S07": (
+        _series(
+            "volcano",
+            "prepared",
+            ("feature", "log2fc", "pvalue"),
+            ("g1", "g2", "g3", "g4", "g5", "g6"),
+            (-2.2, -1.4, -0.4, 0.3, 1.3, 2.4),
+            (0.001, 0.02, 0.4, 0.8, 0.03, 0.0005),
+        ),
+    ),
 }
 
 
 def _family(chart_id: str, geometries: tuple[AllGeometryKind, ...]) -> PlotFamily:
+    if chart_id.startswith("X") or chart_id == "S07":
+        return SpecialFamily(geometry=cast(Any, geometries))
     if chart_id in {"K08", "K09", "K10", "K11"}:
         return CategoricalFamily(geometry=("bar",))
     if chart_id in {"K12", "K13", "K14", "K15", "K16", "K17"}:
@@ -420,6 +615,12 @@ def _axis_scales(chart_id: str) -> tuple[AxisScaleKind, AxisScaleKind]:
         return "datetime", "linear"
     if chart_id == "S05":
         return "log10", "linear"
+    if chart_id == "X13":
+        return "linear", "categorical"
+    if chart_id in {"X02", "X05", "X09", "X11", "X12", "X24", "X35", "X36", "X37"}:
+        return "categorical", "linear"
+    if chart_id == "X03":
+        return "linear", "categorical"
     return "linear", "linear"
 
 
@@ -485,6 +686,34 @@ def build_plot_and_store(chart_id: str) -> tuple[PlotSpec, RenderDataStore]:
             )
         )
     x_scale, y_scale = _axis_scales(chart_id)
+    dual_axis = chart_id in {"X23", "X24", "X35", "X36", "X37"}
+    scales = (
+        ScaleSpec(scale_id="scale:x", kind=x_scale),
+        ScaleSpec(scale_id="scale:y", kind=y_scale),
+    )
+    axes = (
+        AxisSpec(
+            axis_id="axis:x",
+            scale_id="scale:x",
+            orientation="x",
+            position="bottom",
+            label=_text("X"),
+        ),
+        AxisSpec(
+            axis_id="axis:y", scale_id="scale:y", orientation="y", position="left", label=_text("Y")
+        ),
+    )
+    if dual_axis:
+        scales += (ScaleSpec(scale_id="scale:y_right", kind="linear"),)
+        axes += (
+            AxisSpec(
+                axis_id="axis:y_right",
+                scale_id="scale:y_right",
+                orientation="y",
+                position="right",
+                label=_text("Right Y"),
+            ),
+        )
     plot = PlotSpec(
         plot_id=f"plot:{chart_id.lower()}",
         plot_version=1,
@@ -493,26 +722,8 @@ def build_plot_and_store(chart_id: str) -> tuple[PlotSpec, RenderDataStore]:
         prepared_data_refs=tuple(prepared_refs),
         precomputed_data_refs=tuple(precomputed_refs),
         plot_calculation_refs=tuple(calculation_refs),
-        scales=(
-            ScaleSpec(scale_id="scale:x", kind=x_scale),
-            ScaleSpec(scale_id="scale:y", kind=y_scale),
-        ),
-        axes=(
-            AxisSpec(
-                axis_id="axis:x",
-                scale_id="scale:x",
-                orientation="x",
-                position="bottom",
-                label=_text("X"),
-            ),
-            AxisSpec(
-                axis_id="axis:y",
-                scale_id="scale:y",
-                orientation="y",
-                position="left",
-                label=_text("Y"),
-            ),
-        ),
+        scales=scales,
+        axes=axes,
         series=tuple(series_specs),
         style_sources=(
             StyleSourceRef(

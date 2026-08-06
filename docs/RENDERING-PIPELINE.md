@@ -212,6 +212,8 @@ O1 输出必须用 Origin 原生、链接的数据对象表达：
 
 第一轮 31 项正式图形的 OPJU 能力全部要求 O1。具体 target scope、数据布局、OriginAdapter、manifest、两阶段读回与整文件原子性见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
 
+新增 Origin P1 图形与原 31 图共用单一 resolver、统一科学配色、坐标自动缩放和同一 ResolvedRenderPlan。图形特有几何（如哑铃连接线、蜂群避让、浮动柱区间、人口金字塔、Y 偏移、双 Y 轴分层）只能由固定 resolver 计算；Matplotlib 与 Origin adapter 不得各自猜测。视觉 oracle 以 Origin 模板/官方项目优先，并要求参考图和测试数据同源。
+
 ## 12. 正式产物验证
 
 ### 12.1 PNG

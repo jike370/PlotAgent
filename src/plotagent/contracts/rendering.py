@@ -336,6 +336,7 @@ class OriginTickPlan(StrictModel):
 class OriginAxisPlan(StrictModel):
     axis_id: Token
     orientation: Literal["x", "y"]
+    position: Literal["bottom", "top", "left", "right", "none"] = "bottom"
     scale: Literal["linear", "log10", "datetime", "categorical"]
     minimum: FiniteNumber
     maximum: FiniteNumber
@@ -372,7 +373,9 @@ class OriginPlotPlan(StrictModel):
         "bar",
         "grouped_bar",
         "stacked_bar",
+        "floating_bar",
         "percent_bar",
+        "horizontal_bar",
         "strip",
         "box",
         "violin",

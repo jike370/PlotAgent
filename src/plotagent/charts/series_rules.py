@@ -1,4 +1,4 @@
-"""Compact geometry signatures shared by the 31 explicit chart entries."""
+"""Compact geometry signatures shared by the 52 explicit chart entries."""
 
 from __future__ import annotations
 
@@ -211,6 +211,86 @@ SERIES_RULES: dict[tuple[ChartTypeId, str], SeriesRule] = {
     ),
     ("S61", "heatmap"): _rule(
         "matrix.confusion", ("actual", "predicted", "value"), _C, ("predicted",), ("actual",)
+    ),
+    ("X01", "step"): _rule("special.step", ("x", "y"), _P, ("x",), ("y",)),
+    ("X02", "lollipop"): _rule(
+        "special.lollipop",
+        (
+            ("category", "value"),
+            ("category", "value", "baseline"),
+            ("category", "value", "baseline", "group"),
+        ),
+        _P,
+        ("category",),
+        ("value", "baseline"),
+    ),
+    ("X03", "dumbbell"): _rule(
+        "special.dumbbell",
+        (("category", "start", "end"), ("category", "start", "end", "group")),
+        _P,
+        ("start", "end"),
+        ("category",),
+    ),
+    ("X05", "beeswarm"): _rule(
+        "special.beeswarm", (("value",), ("value", "group")), _P, ("group",), ("value",)
+    ),
+    ("X07", "ridgeline"): _rule(
+        "special.ridgeline", ("value", "group"), _P, ("value",), ("group",)
+    ),
+    ("X09", "floating_bar"): _rule(
+        "special.floating_bar",
+        (("category", "start", "end"), ("category", "start", "end", "middle")),
+        _P,
+        ("category",),
+        ("start", "end"),
+    ),
+    ("X11", "bridge"): _rule(
+        "special.bridge", ("category", "delta"), _P, ("category",), ("delta",)
+    ),
+    ("X12", "bullet"): _rule(
+        "special.bullet",
+        (
+            ("item", "actual_value", "target"),
+            ("item", "actual_value", "target", "range1", "range2", "range3"),
+        ),
+        _P,
+        ("item",),
+        ("actual", "target", "range1", "range2", "range3"),
+    ),
+    ("X13", "pyramid"): _rule(
+        "special.pyramid", ("category", "left", "right"), _P, ("left", "right"), ("category",)
+    ),
+    ("X15", "scatter_matrix"): _rule(
+        "special.scatter_matrix", ("x", "y", "z"), _P, ("x", "y", "z"), ("x", "y", "z")
+    ),
+    ("X16", "density2d"): _rule("special.density2d", ("x", "y"), _P, ("x",), ("y",)),
+    ("X17", "marginal"): _rule("special.marginal", ("x", "y"), _P, ("x",), ("y",)),
+    ("X18", "probability"): _rule("special.probability", ("value",), _P, ("value",), ("value",)),
+    ("X19", "agreement"): _rule(
+        "special.agreement", ("method_a", "method_b"), _P, ("method_a",), ("method_b",)
+    ),
+    ("X23", "dual_axis"): _rule(
+        "special.dual_axis", ("x", "left", "right"), _P, ("x",), ("left", "right")
+    ),
+    ("X24", "bridge"): _rule(
+        "special.pareto", ("category", "value"), _P, ("category",), ("value",)
+    ),
+    ("X35", "dual_axis"): _rule(
+        "special.dual_axis", ("category", "left", "right"), _P, ("category",), ("left", "right")
+    ),
+    ("X36", "dual_axis"): _rule(
+        "special.dual_axis", ("category", "left", "right"), _P, ("category",), ("left", "right")
+    ),
+    ("X37", "dual_axis"): _rule(
+        "special.dual_box", ("group", "left", "right"), _P, ("group",), ("left", "right")
+    ),
+    ("X38", "y_offset"): _rule("special.y_offset", ("x", "y", "series"), _P, ("x",), ("y",)),
+    ("S07", "volcano"): _rule(
+        "special.volcano",
+        (("feature", "log2fc", "pvalue"), ("feature", "log2fc", "pvalue", "qvalue")),
+        _P,
+        ("log2fc",),
+        ("pvalue", "qvalue"),
     ),
 }
 

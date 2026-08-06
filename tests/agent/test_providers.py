@@ -121,9 +121,7 @@ def test_custom_probe_degrades_to_p2_json_only_after_strict_is_unsupported() -> 
         400,
         b'{"error":{"code":"unsupported_response_format"}}',
     )
-    raw = RecordingRawTransport(
-        [NetworkResponse(404), unsupported, chat_success()]
-    )
+    raw = RecordingRawTransport([NetworkResponse(404), unsupported, chat_success()])
     provider = custom_provider(raw)
 
     capabilities = asyncio.run(provider.resolve_capabilities())
@@ -150,9 +148,7 @@ def test_custom_probe_degrades_when_provider_uses_generic_schema_error() -> None
             }
         ).encode(),
     )
-    raw = RecordingRawTransport(
-        [generic_schema_error, generic_schema_error, chat_success()]
-    )
+    raw = RecordingRawTransport([generic_schema_error, generic_schema_error, chat_success()])
 
     capabilities = asyncio.run(custom_provider(raw).resolve_capabilities())
 

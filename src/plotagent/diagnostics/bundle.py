@@ -307,9 +307,7 @@ class LocalDiagnosticBundleBuilder:
                 }
                 for item in payloads
             ],
-            "allowed_field_counts": _field_counts(
-                [json.loads(item.content) for item in payloads]
-            ),
+            "allowed_field_counts": _field_counts([json.loads(item.content) for item in payloads]),
             "sanitized_data_consent": "this_bundle" if rules_hash else "absent",
             "forbidden_scan_result": "passed",
         }
@@ -408,12 +406,10 @@ def _snapshot_payload(snapshot: DiagnosticSnapshot) -> dict[str, object]:
             for item in snapshot.structures
         ],
         "errors": [
-            {"code": item.code, "scrubbed_stack": item.scrubbed_stack}
-            for item in snapshot.errors
+            {"code": item.code, "scrubbed_stack": item.scrubbed_stack} for item in snapshot.errors
         ],
         "task_transitions": [
-            {"state": item.state.value, "stage": item.stage}
-            for item in snapshot.task_transitions
+            {"state": item.state.value, "stage": item.stage} for item in snapshot.task_transitions
         ],
         "performance_buckets": [item.value for item in snapshot.performance_buckets],
         "config_flags": dict(snapshot.config_flags),
@@ -495,9 +491,9 @@ def _preview_file(logical_name: str, purpose: str, content: bytes) -> PreviewFil
 
 
 def _json_bytes(value: object) -> bytes:
-    return json.dumps(
-        value, ensure_ascii=True, separators=(",", ":"), sort_keys=True
-    ).encode("ascii")
+    return json.dumps(value, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
+        "ascii"
+    )
 
 
 def _field_counts(payloads: Sequence[object]) -> dict[str, int]:
@@ -576,9 +572,7 @@ def _parse_transition(value: object) -> TaskTransition:
     return TaskTransition(state=state, stage=_string(item["stage"]))
 
 
-def _only_keys(
-    value: Mapping[str, object], allowed: set[str], *, required: set[str]
-) -> None:
+def _only_keys(value: Mapping[str, object], allowed: set[str], *, required: set[str]) -> None:
     if set(value) - allowed or required - set(value):
         _violation("diagnostic_schema")
 

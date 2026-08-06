@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from plotagent.origin import exporter
+from plotagent.origin import _process, exporter
 from plotagent.origin._process import WorkerInvocation
 from plotagent.origin.constants import ORIGIN_TEMPLATE_SHA256
 from plotagent.origin.models import (
@@ -134,3 +134,9 @@ def test_typed_origin_export_uses_independent_build_and_reopen_workers(
     assert isinstance(result, OriginExportSuccess)
     assert calls == ["build-plan", "reopen-plan"]
     assert target.read_bytes() == b"typed-native-opju"
+
+
+def test_origin_worker_transport_is_forced_to_utf8() -> None:
+    environment = _process._worker_environment()
+    assert environment["PYTHONUTF8"] == "1"
+    assert environment["PYTHONIOENCODING"] == "utf-8"

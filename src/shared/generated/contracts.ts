@@ -89,7 +89,7 @@ export type BatchExecutionSignature = {
   readonly field_mapping_hash: string;
   readonly preparation_spec_hash: string;
   readonly plot_calculation_spec_hash?: string | null;
-  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61";
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07";
   readonly plot_template_hash: string;
   readonly style_hash: string;
   readonly content_hash: string;
@@ -150,7 +150,7 @@ export type CategoricalFamily = {
 
 export type ChartCapabilities = {
   readonly capability_version: string;
-  readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61">;
+  readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07">;
   readonly allowed_action_types: ReadonlyArray<"create_plot" | "patch_plot" | "create_batch" | "patch_batch" | "create_figure" | "patch_figure" | "export_artifact">;
   readonly allowed_patch_operations?: ReadonlyArray<"set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_series_style" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size">;
   readonly export_formats?: ReadonlyArray<"png" | "svg" | "opju">;
@@ -158,10 +158,10 @@ export type ChartCapabilities = {
 }
 
 export type ChartRegistration = {
-  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61";
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07";
   readonly english_name: string;
-  readonly family: "xy" | "categorical" | "distribution" | "matrix" | "survival" | "dose_response" | "forest" | "facet";
-  readonly geometries: ReadonlyArray<"line" | "symbol" | "error_bar" | "band" | "area" | "bar" | "strip" | "box" | "violin" | "histogram" | "density" | "step" | "heatmap" | "contour" | "risk_table" | "interval" | "panel">;
+  readonly family: "xy" | "categorical" | "distribution" | "matrix" | "survival" | "dose_response" | "forest" | "facet" | "special";
+  readonly geometries: ReadonlyArray<"line" | "symbol" | "error_bar" | "band" | "area" | "bar" | "strip" | "box" | "violin" | "histogram" | "density" | "step" | "heatmap" | "contour" | "risk_table" | "interval" | "panel" | "lollipop" | "dumbbell" | "beeswarm" | "ridgeline" | "floating_bar" | "bridge" | "bullet" | "pyramid" | "scatter_matrix" | "density2d" | "marginal" | "probability" | "agreement" | "dual_axis" | "y_offset" | "volcano">;
   readonly required_roles: ReadonlyArray<string>;
   readonly optional_roles?: ReadonlyArray<string>;
   readonly required_calculations?: ReadonlyArray<"histogram_binning" | "tukey_box" | "violin_kde" | "density_kde" | "ecdf" | "summary_error" | "percent_stack" | "matrix_projection" | "confusion_count">;
@@ -300,7 +300,7 @@ export type CreateBatchAction = {
   readonly depends_on?: ReadonlyArray<string>;
   readonly action_type?: "create_batch";
   readonly target_alias: string;
-  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61";
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07";
   readonly field_selections: ReadonlyArray<SemanticFieldSelection>;
   readonly axis_policy?: "per_plot" | "unified";
 }
@@ -319,7 +319,7 @@ export type CreatePlotAction = {
   readonly depends_on?: ReadonlyArray<string>;
   readonly action_type?: "create_plot";
   readonly target_alias: string;
-  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61";
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07";
   readonly field_selections: ReadonlyArray<SemanticFieldSelection>;
 }
 
@@ -557,7 +557,7 @@ export type FieldMapping = {
   readonly schema_version?: "1.0";
   readonly field_mapping_id: string;
   readonly mapping_version: number;
-  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61";
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07";
   readonly source_dataset_refs: ReadonlyArray<SourceDatasetRef>;
   readonly bindings: ReadonlyArray<FieldRoleBinding>;
   readonly content_hash: string;
@@ -794,6 +794,7 @@ export type ObjectVersionRef = {
 export type OriginAxisPlan = {
   readonly axis_id: string;
   readonly orientation: "x" | "y";
+  readonly position?: "bottom" | "top" | "left" | "right" | "none";
   readonly scale: "linear" | "log10" | "datetime" | "categorical";
   readonly minimum: number;
   readonly maximum: number;
@@ -878,7 +879,7 @@ export type OriginLayerPlan = {
 }
 
 export type OriginManifestPlan = {
-  readonly chart_type_ids: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61">;
+  readonly chart_type_ids: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07">;
   readonly target_scope: "current_plot" | "selected_plots" | "batch" | "figure";
   readonly object_map: ReadonlyArray<OriginObjectMapEntry>;
   readonly render_plan_hashes: ReadonlyArray<string>;
@@ -908,7 +909,7 @@ export type OriginObjectMapEntry = {
 export type OriginPlotPlan = {
   readonly plot_id: string;
   readonly source_layer_id: string;
-  readonly native_kind: "line" | "line_symbol" | "scatter" | "bubble" | "error_bar" | "band" | "area" | "bar" | "grouped_bar" | "stacked_bar" | "percent_bar" | "strip" | "box" | "violin" | "histogram" | "density" | "step" | "heatmap" | "contour" | "survival_step" | "survival_band" | "risk_table" | "forest_interval" | "forest_symbol" | "spectrum" | "nyquist" | "facet_line";
+  readonly native_kind: "line" | "line_symbol" | "scatter" | "bubble" | "error_bar" | "band" | "area" | "bar" | "grouped_bar" | "stacked_bar" | "floating_bar" | "percent_bar" | "horizontal_bar" | "strip" | "box" | "violin" | "histogram" | "density" | "step" | "heatmap" | "contour" | "survival_step" | "survival_band" | "risk_table" | "forest_interval" | "forest_symbol" | "spectrum" | "nyquist" | "facet_line";
   readonly data_object_id: string;
   readonly role_columns: ReadonlyArray<OriginRoleColumn>;
   readonly z_order: number;
@@ -1070,8 +1071,8 @@ export type PlotSpec = {
   readonly schema_version?: "1.0";
   readonly plot_id: string;
   readonly plot_version: number;
-  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61";
-  readonly family: XYFamily | CategoricalFamily | DistributionFamily | MatrixFamily | SurvivalFamily | DoseResponseFamily | ForestFamily | FacetFamily;
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07";
+  readonly family: XYFamily | CategoricalFamily | DistributionFamily | MatrixFamily | SurvivalFamily | DoseResponseFamily | ForestFamily | FacetFamily | SpecialFamily;
   readonly prepared_data_refs: ReadonlyArray<PreparedDatasetRef>;
   readonly precomputed_data_refs?: ReadonlyArray<PrecomputedDataRef>;
   readonly plot_calculation_refs?: ReadonlyArray<PlotCalculationResultRef>;
@@ -1274,7 +1275,7 @@ export type ResolvedRenderPlan = {
   readonly schema_version?: "1.0";
   readonly render_plan_id: string;
   readonly render_plan_version: number;
-  readonly chart_type_id?: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | null;
+  readonly chart_type_id?: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07" | null;
   readonly resolver_version: string;
   readonly source_refs: ReadonlyArray<ObjectVersionRef>;
   readonly source_content_hashes: ReadonlyArray<string>;
@@ -1359,7 +1360,7 @@ export type SemanticFieldSelection = {
 
 export type SeriesSpec = {
   readonly series_id: string;
-  readonly geometry: "line" | "symbol" | "error_bar" | "band" | "area" | "bar" | "strip" | "box" | "violin" | "histogram" | "density" | "step" | "heatmap" | "contour" | "risk_table" | "interval" | "panel";
+  readonly geometry: "line" | "symbol" | "error_bar" | "band" | "area" | "bar" | "strip" | "box" | "violin" | "histogram" | "density" | "step" | "heatmap" | "contour" | "risk_table" | "interval" | "panel" | "lollipop" | "dumbbell" | "beeswarm" | "ridgeline" | "floating_bar" | "bridge" | "bullet" | "pyramid" | "scatter_matrix" | "density2d" | "marginal" | "probability" | "agreement" | "dual_axis" | "y_offset" | "volcano";
   readonly data: PreparedSeriesData | CalculatedSeriesData | PrecomputedSeriesData;
   readonly label?: SafeRichText | null;
 }
@@ -1469,6 +1470,11 @@ export type SourceField = {
   readonly unit: UnitSpec;
   readonly source_column_index: number;
   readonly precision_digits?: number | null;
+}
+
+export type SpecialFamily = {
+  readonly kind?: "special";
+  readonly geometry: ReadonlyArray<"step" | "lollipop" | "dumbbell" | "beeswarm" | "ridgeline" | "floating_bar" | "bridge" | "bullet" | "pyramid" | "scatter_matrix" | "density2d" | "marginal" | "probability" | "agreement" | "dual_axis" | "y_offset" | "volcano">;
 }
 
 export type StyleSourceRef = {

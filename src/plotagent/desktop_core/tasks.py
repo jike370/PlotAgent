@@ -247,11 +247,7 @@ def _validate_progress(progress: dict[str, JsonValue] | None) -> None:
         or unit not in _PROGRESS_UNITS
         or (
             total is not None
-            and (
-                not isinstance(total, int)
-                or isinstance(total, bool)
-                or total < completed
-            )
+            and (not isinstance(total, int) or isinstance(total, bool) or total < completed)
         )
     ):
         raise ValueError("invalid task progress")

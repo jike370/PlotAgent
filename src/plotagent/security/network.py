@@ -287,8 +287,7 @@ class NetworkPolicyGate:
     ) -> None:
         self.mode = mode
         self._builtin_endpoints = tuple(
-            _Endpoint.parse(endpoint, allow_loopback_http=True)
-            for endpoint in builtin_endpoints
+            _Endpoint.parse(endpoint, allow_loopback_http=True) for endpoint in builtin_endpoints
         )
         self._custom_endpoint = (
             _Endpoint.parse(custom_endpoint, allow_loopback_http=True)
@@ -300,9 +299,7 @@ class NetworkPolicyGate:
 
     def authorize(self, request: NetworkRequest) -> None:
         if self.mode is NetworkMode.LOCAL_ONLY:
-            raise LocalSecurityError(
-                "NETWORK_BLOCKED_LOCAL_ONLY", category="network_policy"
-            )
+            raise LocalSecurityError("NETWORK_BLOCKED_LOCAL_ONLY", category="network_policy")
         if request.purpose in self._NEVER_NETWORKED:
             raise LocalSecurityError("NETWORK_PURPOSE_BLOCKED", category="network_policy")
 

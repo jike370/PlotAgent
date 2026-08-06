@@ -57,9 +57,10 @@ def test_real_loopback_custom_endpoint_uses_bounded_header_surface() -> None:
 def test_real_redirect_is_regated_before_out_of_scope_server_call() -> None:
     with loopback_server(lambda _: FakeResponse(body=b"must-not-be-called")) as outside:
         redirect = f"{server_url(outside)}/v1/responses"
-        with loopback_server(
-            lambda _: FakeResponse(307, {"Location": redirect})
-        ) as origin, HttpxRawTransport() as raw:
+        with (
+            loopback_server(lambda _: FakeResponse(307, {"Location": redirect})) as origin,
+            HttpxRawTransport() as raw,
+        ):
             base_url = f"{server_url(origin)}/v1"
             transport = PolicyTransport(
                 NetworkPolicyGate(NetworkMode.CUSTOM_PROVIDER, custom_endpoint=base_url),

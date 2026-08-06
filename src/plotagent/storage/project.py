@@ -260,20 +260,22 @@ class ProjectStore:
         return self.objects_root / content_hash[:2] / content_hash
 
     def stable_source_dataset_id(self, logical_source_id: str) -> str:
-        digest = hashlib.sha256(
-            f"{self.project_id}\0{logical_source_id}".encode()
-        ).hexdigest()
+        digest = hashlib.sha256(f"{self.project_id}\0{logical_source_id}".encode()).hexdigest()
         return "source:" + digest[:24]
 
     def next_source_version(self, logical_source_id: str) -> int:
-        row = self._assert_writer().execute(
-            """
+        row = (
+            self._assert_writer()
+            .execute(
+                """
             SELECT COALESCE(MAX(source_version), 0) + 1
             FROM source_dataset_versions
             WHERE logical_source_id = ?
             """,
-            (logical_source_id,),
-        ).fetchone()
+                (logical_source_id,),
+            )
+            .fetchone()
+        )
         return int(row[0])
 
     def _validate_staged(self, staged: StagedObject) -> None:
@@ -330,8 +332,7 @@ class ProjectStore:
         if not items:
             raise StorageProblem(StorageErrorCode.COMMIT_FAILED, "没有可提交的数据集。")
         if any(
-            item.source_dataset.source_object_hash != source_object.content_hash
-            for item in items
+            item.source_dataset.source_object_hash != source_object.content_hash for item in items
         ):
             raise StorageProblem(
                 StorageErrorCode.SOURCE_OBJECT_MISSING,
@@ -424,10 +425,7 @@ class ProjectStore:
                         _json(dataset),
                         _json(item.artifact.instrument_metadata),
                         _json(
-                            [
-                                value.model_dump(mode="json")
-                                for value in item.artifact.provenance
-                            ]
+                            [value.model_dump(mode="json") for value in item.artifact.provenance]
                         ),
                         session_id,
                         now,

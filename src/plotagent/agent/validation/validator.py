@@ -62,9 +62,7 @@ class DecisionValidator:
             return
         objects = {
             envelope.target_snapshot.object_alias: envelope.target_snapshot,
-            **{
-                item.object_alias: item for item in envelope.selected_context.selected_objects
-            },
+            **{item.object_alias: item for item in envelope.selected_context.selected_objects},
         }
         target = objects.get(request.dataset_alias)
         if target is None or target.object_version != request.expected_version:
@@ -86,9 +84,7 @@ class DecisionValidator:
         envelope_charts = set(envelope.chart_capabilities.allowed_chart_type_ids)
         envelope_patches = set(envelope.chart_capabilities.allowed_patch_operations)
         envelope_formats = set(envelope.chart_capabilities.export_formats)
-        allowed_targets = authority.allowed_target_aliases | {
-            envelope.target_snapshot.object_alias
-        }
+        allowed_targets = authority.allowed_target_aliases | {envelope.target_snapshot.object_alias}
         visible_fields = {
             item.field_alias for item in envelope.selected_context.fields
         } & authority.allowed_field_aliases

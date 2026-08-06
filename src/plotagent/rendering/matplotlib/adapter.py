@@ -122,8 +122,27 @@ class MatplotlibRenderer:
             )
             axes[panel.panel_id] = figure.add_axes(bounds, label=panel.panel_id)
             axes[panel.panel_id].set_facecolor(plan.background.value)
+            if panel.panel_id == "panel:right" and any(
+                other.panel_id != panel.panel_id
+                and other.left == panel.left
+                and other.top == panel.top
+                and other.width == panel.width
+                and other.height == panel.height
+                for other in plan.panels
+            ):
+                axes[panel.panel_id].patch.set_alpha(0.0)
         for axis_plan in plan.axes:
             self._configure_axis(axes[axis_plan.panel_id], axis_plan)
+        for panel in plan.panels:
+            if any(
+                other.panel_id != panel.panel_id
+                and other.left == panel.left
+                and other.top == panel.top
+                and other.width == panel.width
+                and other.height == panel.height
+                for other in plan.panels
+            ) and panel.panel_id.endswith("right"):
+                axes[panel.panel_id].xaxis.set_visible(False)
         for panel_id, axis in axes.items():
             if not any(item.panel_id == panel_id for item in plan.axes):
                 axis.set_axis_off()
@@ -145,6 +164,10 @@ class MatplotlibRenderer:
         if orientation == "x":
             axis.set_xlim(*limits)
             axis.set_xticks(tick_values, labels=tick_labels)
+            if len(tick_labels) >= 7 or max((len(label) for label in tick_labels), default=0) >= 9:
+                axis.tick_params(axis="x", labelrotation=30)
+                for label in axis.get_xticklabels():
+                    label.set_horizontalalignment("right")
             axis.xaxis.set_minor_locator(NullLocator())
             axis.set_xlabel(safe_text(plan.label) or "")
             if plan.position == "top":
@@ -158,6 +181,17 @@ class MatplotlibRenderer:
             if plan.position == "right":
                 axis.yaxis.set_label_position("right")
                 axis.yaxis.tick_right()
+        if plan.position == "none":
+            if orientation == "x":
+                axis.tick_params(
+                    axis="x", bottom=False, top=False, labelbottom=False, labeltop=False
+                )
+                axis.set_xlabel("")
+            elif orientation == "y":
+                axis.tick_params(
+                    axis="y", left=False, right=False, labelleft=False, labelright=False
+                )
+                axis.set_ylabel("")
 
     def _draw_layer(
         self,
@@ -265,6 +299,19 @@ class MatplotlibRenderer:
         roles: Mapping[str, tuple[Scalar, ...]],
     ) -> None:
         color, line_width, marker_size, label = self._style(layer)
+        if layer.geometry == "bar.horizontal":
+            axis.barh(
+                _numeric(roles["y"]),
+                _numeric(roles["width"]),
+                height=_numeric(roles["height"]),
+                left=_numeric(roles["left"]),
+                color=color,
+                edgecolor=color,
+                linewidth=line_width,
+                label=label,
+                zorder=layer.z_order,
+            )
+            return
         x = _numeric(roles["x"])
         height = _numeric(roles["height"])
         bottom = _numeric(roles["bottom"])
@@ -560,10 +607,22 @@ class MatplotlibRenderer:
         legend = resolved.plan.legend
         if not legend.visible:
             return
+        grouped: dict[tuple[float, float, float, float], list[Axes]] = {}
         for axis in axes.values():
-            handles, labels = axis.get_legend_handles_labels()
+            bounds = tuple(round(value, 9) for value in axis.get_position().bounds)
+            grouped.setdefault(cast(Any, bounds), []).append(axis)
+        for axis_group in grouped.values():
+            handles: list[Any] = []
+            labels: list[str] = []
+            for candidate in axis_group:
+                candidate_handles, candidate_labels = candidate.get_legend_handles_labels()
+                for handle, label in zip(candidate_handles, candidate_labels, strict=True):
+                    if label not in labels:
+                        handles.append(handle)
+                        labels.append(label)
             if not handles:
                 continue
+            axis = axis_group[-1]
             if legend.placement == "outside_right":
                 axis.legend(
                     handles, labels, loc="upper left", bbox_to_anchor=(1.02, 1.0), frameon=False

@@ -74,9 +74,7 @@ def test_custom_provider_allows_only_explicit_loopback_endpoint_and_base_path() 
         "http://127.0.0.1:11434/v1/%2e%2e/admin",
     ):
         with pytest.raises(LocalSecurityError) as captured:
-            transport.send(
-                NetworkRequest(HttpMethod.POST, blocked, NetworkPurpose.CUSTOM_MODEL)
-            )
+            transport.send(NetworkRequest(HttpMethod.POST, blocked, NetworkPurpose.CUSTOM_MODEL))
         assert captured.value.code == "NETWORK_ENDPOINT_BLOCKED"
     assert len(raw.requests) == 1
 

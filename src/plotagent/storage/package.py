@@ -170,9 +170,7 @@ class ProjectPackageService:
         target_parent = ensure_local_fixed_workspace(target.parent)
         target_parent.mkdir(parents=True, exist_ok=True)
         target = target_parent / target.name
-        staging_root = Path(
-            tempfile.mkdtemp(prefix=f".{target.name}.pack-", dir=target.parent)
-        )
+        staging_root = Path(tempfile.mkdtemp(prefix=f".{target.name}.pack-", dir=target.parent))
         temporary_package = target.parent / f".{target.name}.{uuid.uuid4().hex}.tmp"
         try:
             snapshot_database = staging_root / "project.sqlite3"
@@ -229,9 +227,7 @@ class ProjectPackageService:
                 "manifest.json": hashlib.sha256(manifest_bytes).hexdigest(),
                 "project.sqlite3": database_hash,
             }
-            checksums.update(
-                (item.path, item.content_hash) for item in manifest.objects
-            )
+            checksums.update((item.path, item.content_hash) for item in manifest.objects)
             _write_archive(
                 temporary_package,
                 manifest_bytes=manifest_bytes,
@@ -333,9 +329,7 @@ class ProjectPackageService:
                         as_new_copy=False,
                     )
 
-            project_id = (
-                "project:" + uuid.uuid4().hex if as_new_copy else source_project_id
-            )
+            project_id = "project:" + uuid.uuid4().hex if as_new_copy else source_project_id
             staged_workspace = task.path / "staged-project"
             staged_workspace.mkdir(mode=0o700)
             os.replace(extracted_root / "project.sqlite3", staged_workspace / "project.sqlite3")
@@ -562,9 +556,7 @@ def _write_file_member(
     digest = hashlib.sha256()
     size = 0
     info = _regular_zip_info(name)
-    with source_path.open("rb") as source, archive.open(
-        info, mode="w", force_zip64=True
-    ) as target:
+    with source_path.open("rb") as source, archive.open(info, mode="w", force_zip64=True) as target:
         while chunk := source.read(1024 * 1024):
             target.write(chunk)
             digest.update(chunk)
@@ -769,8 +761,7 @@ def _inspect_members(
             )
         files[name] = entry
     if total_expanded and (
-        total_compressed == 0
-        or total_expanded / total_compressed > limits.max_compression_ratio
+        total_compressed == 0 or total_expanded / total_compressed > limits.max_compression_ratio
     ):
         raise StorageProblem(
             StorageErrorCode.ARCHIVE_BOMB_SUSPECTED,

@@ -450,7 +450,7 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
         assert created["accepted"] is True
         execution = created["execution"]
         assert execution["chart_type_id"] == "K02"
-        assert len(provider.requests[0].envelope.chart_capabilities.allowed_chart_type_ids) == 30
+        assert len(provider.requests[0].envelope.chart_capabilities.allowed_chart_type_ids) == 51
 
         edited = app.call(
             "agent.decide",
@@ -541,7 +541,7 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
         app.close()
 
 
-def test_desktop_application_creates_and_renders_exact_31_chart_surface(
+def test_desktop_application_creates_and_renders_exact_52_chart_surface(
     harness: ApplicationHarness,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -677,7 +677,7 @@ def test_desktop_application_creates_and_renders_exact_31_chart_surface(
         {"project_id": project_id, "figure_id": "figure:matrix.k25"},
     )
     assert Path(preview["artifact"]["path"]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
-    assert len(plot_refs) + 1 == 31
+    assert len(plot_refs) + 1 == 52
 
     plot_destination = tmp_path / "non-k01.opju"
     exported_plot = harness.call(
@@ -826,11 +826,7 @@ def test_origin_publication_race_finishes_the_export_record(
     )
 
     def cancel_after_publication() -> None:
-        running = [
-            item
-            for item in harness.tasks.snapshot()["tasks"]
-            if item["state"] == "running"
-        ]
+        running = [item for item in harness.tasks.snapshot()["tasks"] if item["state"] == "running"]
         assert len(running) == 1
         harness.tasks.cancel(cast(str, running[0]["task_id"]))
 
@@ -853,9 +849,7 @@ def test_origin_publication_race_finishes_the_export_record(
         },
     )
     task = next(
-        item
-        for item in harness.tasks.snapshot()["tasks"]
-        if item["task_id"] == exported["task_id"]
+        item for item in harness.tasks.snapshot()["tasks"] if item["task_id"] == exported["task_id"]
     )
     assert task["state"] == "succeeded"
     assert exported["export_id"] is not None

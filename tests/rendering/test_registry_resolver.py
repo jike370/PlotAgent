@@ -42,6 +42,27 @@ def test_runtime_registry_is_explicit_exact_and_rejects_every_other_id() -> None
         "S31",
         "S34",
         "S61",
+        "X01",
+        "X02",
+        "X03",
+        "X05",
+        "X07",
+        "X09",
+        "X11",
+        "X12",
+        "X13",
+        "X15",
+        "X16",
+        "X17",
+        "X18",
+        "X19",
+        "X23",
+        "X24",
+        "X35",
+        "X36",
+        "X37",
+        "X38",
+        "S07",
     }
     assert {entry.chart_type_id for entry in CHARTS} == expected
     assert all(entry.limitations for entry in CHARTS)
@@ -51,7 +72,7 @@ def test_runtime_registry_is_explicit_exact_and_rejects_every_other_id() -> None
     assert get_chart("K11").data_modes == ("fixed",)
     assert get_chart("K21").data_modes == ("user_precomputed",)
     assert get_chart("K25").data_modes == ("panel_plans",)
-    for rejected in ("K23", "S45", "X01", "K26", "unknown"):
+    for rejected in ("K23", "S45", "X04", "K26", "unknown"):
         with pytest.raises(ChartRegistryError):
             get_chart(rejected)
 

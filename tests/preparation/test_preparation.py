@@ -170,9 +170,9 @@ def test_isomorphic_concat_is_explicit_and_preserves_sheet_label() -> None:
     assert len(prepared.rows) == 4
     assert prepared.fields[-1].name == "source_sheet"
     assert [row[-1] for row in prepared.rows] == ["Run A", "Run A", "Run B", "Run B"]
-    assert semantic_signature(
-        artifacts[0].source_dataset, mapping
-    ) == semantic_signature(artifacts[1].source_dataset, mapping)
+    assert semantic_signature(artifacts[0].source_dataset, mapping) == semantic_signature(
+        artifacts[1].source_dataset, mapping
+    )
 
 
 def test_non_isomorphic_concat_is_rejected_without_join_fallback() -> None:

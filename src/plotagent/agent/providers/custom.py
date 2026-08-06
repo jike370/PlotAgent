@@ -417,9 +417,7 @@ def _synthetic_envelope() -> ContextEnvelope:
                 provider_config_id="synthetic",
                 retention_disclosure_version="synthetic-v1",
                 retention_acknowledged=True,
-                allowed_categories=frozenset(
-                    {"user_instruction", "chart_capabilities"}
-                ),
+                allowed_categories=frozenset({"user_instruction", "chart_capabilities"}),
             ),
         )
     )

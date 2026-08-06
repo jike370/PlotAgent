@@ -85,6 +85,7 @@
 | R-PLOTCALC | 九类固定PlotCalculation、完整数据、固定默认/mask/hash、三renderer同结果 | PD-H09,S01–S20；ANALYSIS | W3/W4/W6 | plot-calculation registry | algorithm golden/no-recompute | frozen-design |
 | R-PRECOMPUTED | K05/K21/K22/S01/S05/S21/S25/S31/S34需预计算字段；v1无Analysis/Fit | PD-T01–T20；FITTING；PRD 9.2 | W3/W4/W6 | field validators/registry UI | valid/missing/invalid paths | frozen-design |
 | R-CHARTS | v1精确31项纯数值：K01–K22,K24–K25+S01,S05,S21,S25,S31,S34,S61 | PD-E08/E09；PRD 6.2/10.1 | W4 | chart registry | 31 ID registry + matrix | frozen-design |
+| R-P1-EXT | Origin P1 新增21项，双Y网格除外；同源图—数据对先于视觉测试 | PD-E09；PRD 10.1；PERF §7.1 | W4/W6 | 52 ID registry + evidence audit | 21离线契约；10同源视觉；11暂不视觉测试 | implemented-partial-qualification |
 | R-NO-IMAGE | v1无科研图像、地图、ROI或图表+图片混合 | PD-E09/E11,M03；PRD 5.5/17 | W4/W5 | registry/Figure schema | forbidden formats/actions | frozen-design |
 | R-BATCH | 完全同构、一次mapping/同Preparation/PlotCalculation；partial成功，无逐文件例外 | PD-C,D,G,S20,U17/U18；PRD 5.2/6.4 | W2/W5 | BatchService/review | signature/partial/review E2E | frozen-design |
 | R-FIGURE | 仅数值固定布局、版本refs、公共图例、源更新不自动替换 | PD-F01–F06；DOMAIN §5 | W5 | FigureService/UI | version/layout/legend tests | frozen-design |

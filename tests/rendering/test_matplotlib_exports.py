@@ -20,13 +20,13 @@ CHART_IDS = tuple(entry.chart_type_id for entry in CHARTS)
 FIXTURE_MANIFEST = Path(__file__).parents[1] / "fixtures" / "rendering" / "chart-fixtures.json"
 TEST_ARTIFACT_PREFIX = f".w4-test-output-{os.getpid()}-"
 PLAN_GOLDENS = {
-    "K01": "c3cd01d12ed35a5876b3cb82398637c8dc1792319fe377d754fe85a88fa4a3fd",
-    "K08": "86bb7c2e87ee12585ea6f86aaa36f923a2e6372af3dea9423df04aaca53e246c",
-    "K15": "4665383a1263f37ec3ef803aa418a3e612adc28c53d3b8449225ff2add202457",
-    "K20": "f9062a140d75187c1f70f32421ba07108ef79efcdddcf95f540f7b587ff892e9",
-    "S21": "4d24da52e16a074f07864286a22b7579585516322846fa814593ada9777f2227",
-    "K24": "e02ff682b6ebe7cfbd35dae40317a98eae3450a7d7729a43dbe3e0f907473b51",
-    "K25": "0a5d18b1a1267a1ec2d81576424a25769c98ccf7fafd1c0d6a1d534158de1779",
+    "K01": "7fb567e7cdf6ab01c0b827bc67d1913f19d78790a2edf64d2b652d6bfd39bdff",
+    "K08": "4812a9c9f1b47fa9a35c15a5c0aaec8281e9c3d796366e1eb89c202ce33a5c6e",
+    "K15": "a8bf92975bff1acfa31c5feeea9bc92ce198c35442927755d052c5a26b639815",
+    "K20": "6904224a75ad31911cdb5a15396c0212f25ab774c7d088b79b419478c7f11ee0",
+    "S21": "8ccfdf404d96927093d606981c8d3bbaed892353ab4efa49474e53b72502f994",
+    "K24": "5e54460931c5ec7d461a954e8be21a1cc9192ef5338eb7fcc570b9caec8b7d2b",
+    "K25": "4f4dc8c1bf850aae216f6fb25a46a4a492d1757777d9632ed3c02f7573d94e7c",
 }
 PRECOMPUTED_FIXTURE_IDS = {"K05", "K21", "K22", "S01", "S05", "S21", "S25", "S31", "S34"}
 FIXED_FIXTURE_IDS = {
@@ -53,12 +53,12 @@ def artifact_dir() -> Iterator[Path]:
         artifact.unlink(missing_ok=True)
 
 
-def test_fixture_manifest_has_three_explicit_cases_for_exactly_31_charts() -> None:
+def test_fixture_manifest_has_three_explicit_cases_for_exactly_52_charts() -> None:
     payload = json.loads(FIXTURE_MANIFEST.read_text(encoding="utf-8"))
     charts = payload["charts"]
     assert payload["schema_version"] == "1.0"
     assert payload["fixture_factory"] == "tests.rendering.fixture_factory.resolve_chart"
-    assert len(charts) == 31
+    assert len(charts) == 52
     assert {entry["chart_type_id"] for entry in charts} == set(CHART_IDS)
     case_ids: list[str] = []
     for entry in charts:
@@ -71,7 +71,7 @@ def test_fixture_manifest_has_three_explicit_cases_for_exactly_31_charts() -> No
             f"{chart_id}.edge",
         ]
         case_ids.extend(case["case_id"] for case in cases)
-    assert len(case_ids) == len(set(case_ids)) == 93
+    assert len(case_ids) == len(set(case_ids)) == 156
 
 
 @pytest.mark.parametrize("chart_id", CHART_IDS)

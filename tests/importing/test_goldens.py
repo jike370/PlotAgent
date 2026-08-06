@@ -37,17 +37,15 @@ def test_frozen_import_golden(fixture: dict[str, Any]) -> None:
 
     assert isinstance(result, Imported)
     assert len(result.sources) == expected["candidates"]
-    assert [
-        source.source_dataset.quality.total_rows for source in result.sources
-    ] == expected["rows"]
+    assert [source.source_dataset.quality.total_rows for source in result.sources] == expected[
+        "rows"
+    ]
     assert all(
-        source.source_dataset.source_object_hash == fixture["sha256"]
-        for source in result.sources
+        source.source_dataset.source_object_hash == fixture["sha256"] for source in result.sources
     )
     assert all(source.coordinates for source in result.sources)
     assert all(
-        coordinate.source_row_id.startswith("row:")
-        and coordinate.kind in {"text", "excel"}
+        coordinate.source_row_id.startswith("row:") and coordinate.kind in {"text", "excel"}
         for source in result.sources
         for coordinate in source.coordinates
     )

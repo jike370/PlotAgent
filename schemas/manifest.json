@@ -2,23 +2,23 @@
   "files": [
     {
       "path": "schemas/agent-decision.schema.json",
-      "sha256": "073dccdff7bd5d7c5f0239067d1fa8e97408a4dc4eb0bffd5984f40070b640b3"
+      "sha256": "102bccd2e696f1c3db22691b4dd0a811b4b6a33b1ceb08bb3725835962c45377"
     },
     {
       "path": "schemas/batch-spec.schema.json",
-      "sha256": "4237cde0dff353e973cfb51bdb7d7e1d3b663c6bd12c4f3cbf503bd048e8eea4"
+      "sha256": "bdb1895276424e94de775d9747e5737101c10b793b0e13bf7e439bec2b175b1a"
     },
     {
       "path": "schemas/chart-registry.schema.json",
-      "sha256": "99c54d01772cda15df247190137b92076b651a2214de0dded51ed0ba2cdfe111"
+      "sha256": "d1153a1ec13897b1eafe46e625016771d4c9819df07db573f21bdbb581593156"
     },
     {
       "path": "schemas/context-envelope.schema.json",
-      "sha256": "e81d97149b3847755459c497e64b4448ce64aa6eff22efbfeff0acd33e5e190f"
+      "sha256": "2a2fe415f5fd943e6fe883a1fcf26aae94f8a7e2c89adbbc49b52bbe08df0efb"
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "dee61ef5831c3d6e3de5c5374b0d73dbde0b2186f9fc3bc1872a0922b6dab228"
+      "sha256": "9f067287de6350fd6026adc11e62853f683a8a12ad4808feaeed625f7b57c89a"
     },
     {
       "path": "schemas/error-registry.json",
@@ -38,7 +38,7 @@
     },
     {
       "path": "schemas/field-mapping.schema.json",
-      "sha256": "429ea1b63569ec3bff8281519797be3e63236c51111809a0c6a8768a736cc453"
+      "sha256": "77e69970a898b09bf2c015c4a3229dc6330b40bdc49d200f91e3ebd3f4b9d619"
     },
     {
       "path": "schemas/figure-spec.schema.json",
@@ -46,7 +46,7 @@
     },
     {
       "path": "schemas/origin-export-plan.schema.json",
-      "sha256": "ec11d6c8c877ae7f448db30fe9e9850ec4f794d75a3c46f1760d9481f0010678"
+      "sha256": "cfe7eaede2101a6809e509db7c2a1ea0ef0d0f248ec4b3fc9307e222e3cb2e06"
     },
     {
       "path": "schemas/patch-transaction.schema.json",
@@ -66,7 +66,7 @@
     },
     {
       "path": "schemas/plot-spec.schema.json",
-      "sha256": "b8917b58ba754981ae7f1878137756680e50e3d3b5151414649ca4945b8626b6"
+      "sha256": "69815e7338fab0709b311d374c467af80b1418e78f40c3e8c08746309e45eb64"
     },
     {
       "path": "schemas/preparation-spec.schema.json",
@@ -78,7 +78,7 @@
     },
     {
       "path": "schemas/resolved-render-plan.schema.json",
-      "sha256": "7ac932cc8fd119a36b43026f76987952a85a71580c8c04eb7a62c336f64b98d9"
+      "sha256": "dd06b5f206e66301494e4fd3d7e8cc3b58e87551462fe9525d83d78aff2a06fb"
     },
     {
       "path": "schemas/source-dataset.schema.json",
@@ -86,7 +86,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "aad4d1b2d9c53f656949706bc0ddf29f21a18f17ea21ff64fac95facce2284f0"
+      "sha256": "65043fde451ae81b7254c32b71b8c94348beef0682a61a29da92cb81e45b0d47"
     }
   ],
   "generator": "plotagent.contracts.codegen",

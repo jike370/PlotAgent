@@ -7,9 +7,11 @@ from plotagent.storage.errors import StorageErrorCode
 
 
 def test_all_w2_data_codes_are_in_the_w0_registry() -> None:
-    emitted = {code.value for code in ImportErrorCode} | {
-        code.value for code in PreparationErrorCode
-    } | {code.value for code in StorageErrorCode}
+    emitted = (
+        {code.value for code in ImportErrorCode}
+        | {code.value for code in PreparationErrorCode}
+        | {code.value for code in StorageErrorCode}
+    )
 
     assert emitted <= ERRORS_BY_CODE.keys()
     w2_codes = emitted - {"SCHEMA_VERSION_UNSUPPORTED"}

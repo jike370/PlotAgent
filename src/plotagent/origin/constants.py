@@ -19,6 +19,7 @@ def qualified_template_path() -> Path:
 
     return Path(__file__).resolve().parent / "assets" / ORIGIN_TEMPLATE_FILENAME
 
+
 K01_ADAPTER_ID = "plotagent.origin.k01.line"
 K01_ADAPTER_VERSION = "0.1.0-m0"
 K01_CAPABILITY = "O1"

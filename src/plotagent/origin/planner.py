@@ -57,7 +57,9 @@ _NATIVE_KINDS = {
     "bar.single": "bar",
     "bar.grouped": "grouped_bar",
     "bar.stacked": "stacked_bar",
+    "bar.floating": "floating_bar",
     "bar.percent": "percent_bar",
+    "bar.horizontal": "horizontal_bar",
     "distribution.strip": "strip",
     "distribution.box": "box",
     "distribution.violin": "violin",
@@ -257,6 +259,7 @@ def _axis_plan(axis: ResolvedAxis) -> OriginAxisPlan:
     return OriginAxisPlan(
         axis_id=axis.axis_id,
         orientation=cast(Any, axis.orientation),
+        position=axis.position,
         scale=axis.scale,
         minimum=axis.minimum,
         maximum=axis.maximum,

@@ -12,7 +12,7 @@ from plotagent.origin.native import (
     native_primitives,
 )
 from plotagent.origin.planner import build_origin_export_spec, compile_origin_plan
-from plotagent.origin.validation import expected_validation_report
+from plotagent.origin.validation import expected_validation_report, origin_canonical_hash
 from tests.rendering.fixture_factory import resolve_chart
 
 
@@ -65,9 +65,30 @@ class _RecordingBackend:
         "S31",
         "S34",
         "S61",
+        "X01",
+        "X02",
+        "X03",
+        "X05",
+        "X07",
+        "X09",
+        "X11",
+        "X12",
+        "X13",
+        "X15",
+        "X16",
+        "X17",
+        "X18",
+        "X19",
+        "X23",
+        "X24",
+        "X35",
+        "X36",
+        "X37",
+        "X38",
+        "S07",
     ],
 )
-def test_all_31_plans_normalize_to_fixed_native_primitives(chart_id: str) -> None:
+def test_all_52_plans_normalize_to_fixed_native_primitives(chart_id: str) -> None:
     plan = _plan(chart_id)
     primitives = [
         primitive
@@ -83,6 +104,7 @@ def test_all_31_plans_normalize_to_fixed_native_primitives(chart_id: str) -> Non
         "line_symbol",
         "scatter",
         "column",
+        "bar",
         "area",
         "fill_area",
         "floating_column",
@@ -91,6 +113,12 @@ def test_all_31_plans_normalize_to_fixed_native_primitives(chart_id: str) -> Non
         "heatmap",
         "contour",
     }
+
+
+def test_origin_hash_escapes_unicode_before_cross_process_validation() -> None:
+    assert origin_canonical_hash({"title": "温度 Δ–β"}) == (
+        "fcf83f29b36c6c84c691a00250cf86abb46840ea47627dd03fac5ac67a427e52"
+    )
 
 
 def test_closed_executor_orders_native_objects_before_validation_and_save() -> None:

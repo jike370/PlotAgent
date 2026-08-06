@@ -32,6 +32,27 @@
     {"chart_type_id": "S25", "cases": [{"case_id": "S25.minimal", "kind": "minimal"}, {"case_id": "S25.representative", "kind": "representative"}, {"case_id": "S25.edge", "kind": "edge"}]},
     {"chart_type_id": "S31", "cases": [{"case_id": "S31.minimal", "kind": "minimal"}, {"case_id": "S31.representative", "kind": "representative"}, {"case_id": "S31.edge", "kind": "edge"}]},
     {"chart_type_id": "S34", "cases": [{"case_id": "S34.minimal", "kind": "minimal"}, {"case_id": "S34.representative", "kind": "representative"}, {"case_id": "S34.edge", "kind": "edge"}]},
-    {"chart_type_id": "S61", "cases": [{"case_id": "S61.minimal", "kind": "minimal"}, {"case_id": "S61.representative", "kind": "representative"}, {"case_id": "S61.edge", "kind": "edge"}]}
+    {"chart_type_id": "S61", "cases": [{"case_id": "S61.minimal", "kind": "minimal"}, {"case_id": "S61.representative", "kind": "representative"}, {"case_id": "S61.edge", "kind": "edge"}]},
+    {"chart_type_id": "X01", "cases": [{"case_id": "X01.minimal", "kind": "minimal"}, {"case_id": "X01.representative", "kind": "representative"}, {"case_id": "X01.edge", "kind": "edge"}]},
+    {"chart_type_id": "X02", "cases": [{"case_id": "X02.minimal", "kind": "minimal"}, {"case_id": "X02.representative", "kind": "representative"}, {"case_id": "X02.edge", "kind": "edge"}]},
+    {"chart_type_id": "X03", "cases": [{"case_id": "X03.minimal", "kind": "minimal"}, {"case_id": "X03.representative", "kind": "representative"}, {"case_id": "X03.edge", "kind": "edge"}]},
+    {"chart_type_id": "X05", "cases": [{"case_id": "X05.minimal", "kind": "minimal"}, {"case_id": "X05.representative", "kind": "representative"}, {"case_id": "X05.edge", "kind": "edge"}]},
+    {"chart_type_id": "X07", "cases": [{"case_id": "X07.minimal", "kind": "minimal"}, {"case_id": "X07.representative", "kind": "representative"}, {"case_id": "X07.edge", "kind": "edge"}]},
+    {"chart_type_id": "X09", "cases": [{"case_id": "X09.minimal", "kind": "minimal"}, {"case_id": "X09.representative", "kind": "representative"}, {"case_id": "X09.edge", "kind": "edge"}]},
+    {"chart_type_id": "X11", "cases": [{"case_id": "X11.minimal", "kind": "minimal"}, {"case_id": "X11.representative", "kind": "representative"}, {"case_id": "X11.edge", "kind": "edge"}]},
+    {"chart_type_id": "X12", "cases": [{"case_id": "X12.minimal", "kind": "minimal"}, {"case_id": "X12.representative", "kind": "representative"}, {"case_id": "X12.edge", "kind": "edge"}]},
+    {"chart_type_id": "X13", "cases": [{"case_id": "X13.minimal", "kind": "minimal"}, {"case_id": "X13.representative", "kind": "representative"}, {"case_id": "X13.edge", "kind": "edge"}]},
+    {"chart_type_id": "X15", "cases": [{"case_id": "X15.minimal", "kind": "minimal"}, {"case_id": "X15.representative", "kind": "representative"}, {"case_id": "X15.edge", "kind": "edge"}]},
+    {"chart_type_id": "X16", "cases": [{"case_id": "X16.minimal", "kind": "minimal"}, {"case_id": "X16.representative", "kind": "representative"}, {"case_id": "X16.edge", "kind": "edge"}]},
+    {"chart_type_id": "X17", "cases": [{"case_id": "X17.minimal", "kind": "minimal"}, {"case_id": "X17.representative", "kind": "representative"}, {"case_id": "X17.edge", "kind": "edge"}]},
+    {"chart_type_id": "X18", "cases": [{"case_id": "X18.minimal", "kind": "minimal"}, {"case_id": "X18.representative", "kind": "representative"}, {"case_id": "X18.edge", "kind": "edge"}]},
+    {"chart_type_id": "X19", "cases": [{"case_id": "X19.minimal", "kind": "minimal"}, {"case_id": "X19.representative", "kind": "representative"}, {"case_id": "X19.edge", "kind": "edge"}]},
+    {"chart_type_id": "X23", "cases": [{"case_id": "X23.minimal", "kind": "minimal"}, {"case_id": "X23.representative", "kind": "representative"}, {"case_id": "X23.edge", "kind": "edge"}]},
+    {"chart_type_id": "X24", "cases": [{"case_id": "X24.minimal", "kind": "minimal"}, {"case_id": "X24.representative", "kind": "representative"}, {"case_id": "X24.edge", "kind": "edge"}]},
+    {"chart_type_id": "X35", "cases": [{"case_id": "X35.minimal", "kind": "minimal"}, {"case_id": "X35.representative", "kind": "representative"}, {"case_id": "X35.edge", "kind": "edge"}]},
+    {"chart_type_id": "X36", "cases": [{"case_id": "X36.minimal", "kind": "minimal"}, {"case_id": "X36.representative", "kind": "representative"}, {"case_id": "X36.edge", "kind": "edge"}]},
+    {"chart_type_id": "X37", "cases": [{"case_id": "X37.minimal", "kind": "minimal"}, {"case_id": "X37.representative", "kind": "representative"}, {"case_id": "X37.edge", "kind": "edge"}]},
+    {"chart_type_id": "X38", "cases": [{"case_id": "X38.minimal", "kind": "minimal"}, {"case_id": "X38.representative", "kind": "representative"}, {"case_id": "X38.edge", "kind": "edge"}]},
+    {"chart_type_id": "S07", "cases": [{"case_id": "S07.minimal", "kind": "minimal"}, {"case_id": "S07.representative", "kind": "representative"}, {"case_id": "S07.edge", "kind": "edge"}]}
   ]
 }

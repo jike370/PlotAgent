@@ -136,17 +136,13 @@ class WindowsCredentialStore:
 
     def _read(self, target: str) -> str | None:
         pointer = ctypes.POINTER(_CREDENTIALW)()
-        if not self._api.CredReadW(
-            target, _CRED_TYPE_GENERIC, 0, ctypes.byref(pointer)
-        ):
+        if not self._api.CredReadW(target, _CRED_TYPE_GENERIC, 0, ctypes.byref(pointer)):
             if ctypes.get_last_error() == _ERROR_NOT_FOUND:
                 return None
             raise LocalSecurityError("CREDENTIAL_STORE_FAILED", category="credential_store")
         try:
             credential = pointer.contents
-            encoded = ctypes.string_at(
-                credential.CredentialBlob, credential.CredentialBlobSize
-            )
+            encoded = ctypes.string_at(credential.CredentialBlob, credential.CredentialBlobSize)
             return encoded.decode("utf-16-le")
         except (UnicodeDecodeError, ValueError):
             raise LocalSecurityError(

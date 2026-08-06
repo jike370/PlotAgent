@@ -21,7 +21,7 @@ SELECTED = {
 
 @pytest.mark.skipif(
     not RUN_LIVE,
-    reason="set PLOTAGENT_RUN_ORIGIN_LIVE_MATRIX=1 to run the 31-chart Origin matrix",
+    reason="set PLOTAGENT_RUN_ORIGIN_LIVE_MATRIX=1 to run the 52-chart Origin matrix",
 )
 @pytest.mark.parametrize("chart_id", [entry.chart_type_id for entry in CHARTS])
 def test_representative_chart_is_native_after_fresh_origin_reopen(
@@ -32,9 +32,7 @@ def test_representative_chart_is_native_after_fresh_origin_reopen(
     resolved = resolve_chart(chart_id)
     plan = compile_origin_plan(
         (resolved,),
-        build_origin_export_spec(
-            (resolved,), export_id=f"export:live.{chart_id.lower()}"
-        ),
+        build_origin_export_spec((resolved,), export_id=f"export:live.{chart_id.lower()}"),
     )
     target = tmp_path / f"{chart_id}.opju"
 

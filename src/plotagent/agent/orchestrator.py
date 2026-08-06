@@ -242,9 +242,7 @@ class SingleAgentOrchestrator:
     ) -> HashedModelRunAudit:
         identity = self._provider.identity
         primary_usage = response.usage if response is not None else ProviderUsage()
-        repair_usage = (
-            repaired_response.usage if repaired_response is not None else ProviderUsage()
-        )
+        repair_usage = repaired_response.usage if repaired_response is not None else ProviderUsage()
         usage_sources = {primary_usage.source, repair_usage.source} - {"unavailable"}
         usage_source: Literal["provider", "unavailable", "mixed"]
         if usage_sources == {"provider"}:
@@ -287,9 +285,7 @@ class SingleAgentOrchestrator:
             ),
             provider_request_ids=request_ids,
             provider_response_hashes=tuple(
-                item.response_hash
-                for item in (response, repaired_response)
-                if item is not None
+                item.response_hash for item in (response, repaired_response) if item is not None
             ),
             decision_hash=candidate.decision_hash if candidate is not None else None,
             started_at=started_at,

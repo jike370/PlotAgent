@@ -154,9 +154,7 @@ class BuiltinControlPlaneClient:
             response.client_run_id != request.client_run_id
             or response.model_profile_id != request.model_profile_id
         ):
-            raise ControlPlaneClientError(
-                "CONTROL_PLANE_RESPONSE_INVALID", status_code=200
-            )
+            raise ControlPlaneClientError("CONTROL_PLANE_RESPONSE_INVALID", status_code=200)
         return response
 
     def model_run_status(self, client_run_id: str) -> ModelRunResponse:
@@ -170,9 +168,7 @@ class BuiltinControlPlaneClient:
             idempotency_key=client_run_id,
         )
         if response.client_run_id != client_run_id:
-            raise ControlPlaneClientError(
-                "CONTROL_PLANE_RESPONSE_INVALID", status_code=200
-            )
+            raise ControlPlaneClientError("CONTROL_PLANE_RESPONSE_INVALID", status_code=200)
         return response
 
     async def invoke_model(self, request: ModelInvokeRequest) -> object:

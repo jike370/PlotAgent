@@ -378,12 +378,8 @@ def test_partial_success_keeps_stable_errors_and_explicit_export_scope() -> None
     service.set_review_state(task.request.task_id, ("item.one",), "confirmed")
     export = service.resolve_export_scope(task.request.task_id, "all")
     assert len(export.target_refs) == 1
-    assert {(item.item_id, item.reason) for item in export.excluded} == {
-        ("item.two", "failed")
-    }
-    selected = service.resolve_export_scope(
-        task.request.task_id, "selected", ("item.one",)
-    )
+    assert {(item.item_id, item.reason) for item in export.excluded} == {("item.two", "failed")}
+    selected = service.resolve_export_scope(task.request.task_id, "selected", ("item.one",))
     assert selected.target_refs == export.target_refs
 
 
@@ -499,18 +495,14 @@ class FakeFigureRepository:
             if existing:
                 raise AssertionError("Figure already exists")
         elif not existing or existing[-1].figure_version != expected_version:
-            raise WorkflowFailure(
-                workflow_error("FIGURE_VERSION_CONFLICT", "stale Figure commit")
-            )
+            raise WorkflowFailure(workflow_error("FIGURE_VERSION_CONFLICT", "stale Figure commit"))
         self.figures.setdefault(figure.figure_id, []).append(figure)
         self.keys[(project_id, key)] = (request_hash, figure)
         return figure
 
 
 def plot_ref(name: str, version: int = 1, content_hash: str = HASH_A) -> PlotSpecRef:
-    return PlotSpecRef(
-        plot_id=f"plot:{name}", plot_version=version, content_hash=content_hash
-    )
+    return PlotSpecRef(plot_id=f"plot:{name}", plot_version=version, content_hash=content_hash)
 
 
 def figure_request(

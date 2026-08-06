@@ -133,6 +133,7 @@ from plotagent.contracts.plots import (
     SetAxisScalePatch,
     SetCanvasSizePatch,
     SetSeriesStylePatch,
+    SpecialFamily,
     StyleSourceRef,
     SurvivalFamily,
     XYFamily,
@@ -1165,9 +1166,7 @@ class DesktopApplication:
             figure = session.domain.get_figure(target_id)
             if figure.figure_version != target_version:
                 raise RpcServiceError("VERSION_CONFLICT", "The figure version is stale.")
-            resolved_plots = (
-                self._resolve_figure(session, figure, quality_tier="formal"),
-            )
+            resolved_plots = (self._resolve_figure(session, figure, quality_tier="formal"),)
             target_scope = "figure"
             record_plot_id = figure.panels[0].plot_version_ref.plot_id
             record_plot_version = figure.panels[0].plot_version_ref.plot_version
@@ -1651,7 +1650,7 @@ class DesktopApplication:
                 current_target=target, selected_objects=selected_objects
             ),
             chart_capabilities=ChartCapabilities(
-                capability_version="desktop-31-v1",
+                capability_version="desktop-52-v1",
                 allowed_chart_type_ids=tuple(
                     chart_id for chart_id in CONTRACT_CHARTS_BY_ID if chart_id != "K25"
                 ),
@@ -2314,7 +2313,48 @@ class DesktopApplication:
             )
 
         x_label, y_label = _axis_labels(registration.required_roles, bindings, fields)
+        if chart_type_id == "X03":
+            x_label = f"{fields[bindings['start']].name}–{fields[bindings['end']].name}"
+            y_label = fields[bindings["category"]].name
+        elif chart_type_id == "X13":
+            x_label = f"{fields[bindings['left']].name} / {fields[bindings['right']].name}"
+            y_label = fields[bindings["category"]].name
         x_scale_kind, y_scale_kind = _axis_scale_kinds(chart_type_id, bindings, fields)
+        dual_axis = chart_type_id in {"X23", "X24", "X35", "X36", "X37"}
+        scales: tuple[ScaleSpec, ...] = (
+            ScaleSpec(scale_id="scale:x", kind=x_scale_kind),
+            ScaleSpec(scale_id="scale:y", kind=y_scale_kind),
+        )
+        axes: tuple[AxisSpec, ...] = (
+            AxisSpec(
+                axis_id="axis:x",
+                scale_id="scale:x",
+                orientation="x",
+                position="bottom",
+                label=_rich_text(x_label),
+            ),
+            AxisSpec(
+                axis_id="axis:y",
+                scale_id="scale:y",
+                orientation="y",
+                position="left",
+                label=_rich_text(y_label),
+            ),
+        )
+        if dual_axis:
+            right_label = (
+                "Cumulative (%)" if chart_type_id == "X24" else fields[bindings["right"]].name
+            )
+            scales += (ScaleSpec(scale_id="scale:y_right", kind="linear"),)
+            axes += (
+                AxisSpec(
+                    axis_id="axis:y_right",
+                    scale_id="scale:y_right",
+                    orientation="y",
+                    position="right",
+                    label=_rich_text(right_label),
+                ),
+            )
         plot = PlotSpec(
             plot_id=plot_id,
             plot_version=1,
@@ -2323,26 +2363,8 @@ class DesktopApplication:
             prepared_data_refs=(prepared_ref,),
             precomputed_data_refs=(() if precomputed_ref is None else (precomputed_ref,)),
             plot_calculation_refs=(() if calculation_ref is None else (calculation_ref,)),
-            scales=(
-                ScaleSpec(scale_id="scale:x", kind=x_scale_kind),
-                ScaleSpec(scale_id="scale:y", kind=y_scale_kind),
-            ),
-            axes=(
-                AxisSpec(
-                    axis_id="axis:x",
-                    scale_id="scale:x",
-                    orientation="x",
-                    position="bottom",
-                    label=_rich_text(x_label),
-                ),
-                AxisSpec(
-                    axis_id="axis:y",
-                    scale_id="scale:y",
-                    orientation="y",
-                    position="left",
-                    label=_rich_text(y_label),
-                ),
-            ),
+            scales=scales,
+            axes=axes,
             series=tuple(series_specs),
             style_sources=(
                 StyleSourceRef(
@@ -2672,7 +2694,19 @@ class DesktopApplication:
             font_size=PhysicalLength(value=8.0, unit="pt"),
             line_width=PhysicalLength(value=0.8, unit="pt"),
             marker_size=PhysicalLength(value=4.0, unit="pt"),
-            colors=(ColorValue(value="#1F77B4"),),
+            colors=tuple(
+                ColorValue(value=value)
+                for value in (
+                    "#2A6FDB",
+                    "#D64545",
+                    "#2A9D6F",
+                    "#E69F00",
+                    "#7B61A8",
+                    "#56B4E9",
+                    "#8C6D31",
+                    "#6B7280",
+                )
+            ),
         )
 
     @staticmethod
@@ -3090,6 +3124,7 @@ def _plot_family(family: str, geometries: tuple[str, ...]) -> Any:
         "dose_response": DoseResponseFamily,
         "forest": ForestFamily,
         "facet": FacetFamily,
+        "special": SpecialFamily,
     }
     return families[family](geometry=unique)
 
@@ -3099,6 +3134,12 @@ def _axis_scale_kinds(
 ) -> tuple[AxisScaleKind, AxisScaleKind]:
     if chart_type_id in {"K08", "K09", "K10", "K11", "K12", "K13", "K14"}:
         return "categorical", "linear"
+    if chart_type_id == "X13":
+        return "linear", "categorical"
+    if chart_type_id in {"X02", "X05", "X09", "X11", "X12", "X24", "X35", "X36", "X37"}:
+        return "categorical", "linear"
+    if chart_type_id == "X03":
+        return "linear", "categorical"
     if chart_type_id in {"K20", "K21", "S61"}:
         return "categorical", "categorical"
     if chart_type_id == "S21":

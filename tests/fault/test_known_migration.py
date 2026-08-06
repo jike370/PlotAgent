@@ -91,9 +91,7 @@ def _storage_only_migration(project: Path) -> None:
 
 def _registry(migrate: object = _storage_only_migration) -> KnownMigrationRegistry:
     assert callable(migrate)
-    return KnownMigrationRegistry(
-        [KnownMigration("beta-1", "beta-2", "one-time-1", migrate)]
-    )
+    return KnownMigrationRegistry([KnownMigration("beta-1", "beta-2", "one-time-1", migrate)])
 
 
 def _runner(

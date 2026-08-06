@@ -64,7 +64,7 @@ from .helpers import (
 )
 
 
-def test_chart_registry_is_exactly_the_frozen_31_and_all_opju_o1() -> None:
+def test_chart_registry_is_exactly_the_frozen_52_and_all_opju_o1() -> None:
     expected = {
         *(f"K{index:02d}" for index in range(1, 23)),
         "K24",
@@ -76,9 +76,30 @@ def test_chart_registry_is_exactly_the_frozen_31_and_all_opju_o1() -> None:
         "S31",
         "S34",
         "S61",
+        "X01",
+        "X02",
+        "X03",
+        "X05",
+        "X07",
+        "X09",
+        "X11",
+        "X12",
+        "X13",
+        "X15",
+        "X16",
+        "X17",
+        "X18",
+        "X19",
+        "X23",
+        "X24",
+        "X35",
+        "X36",
+        "X37",
+        "X38",
+        "S07",
     }
     assert set(CHARTS_BY_ID) == expected
-    assert len(V1_CHART_REGISTRY.charts) == 31
+    assert len(V1_CHART_REGISTRY.charts) == 52
     assert all(chart.exports.opju == "O1" for chart in V1_CHART_REGISTRY.charts)
 
 
@@ -168,9 +189,7 @@ def test_batch_and_figure_pin_exact_versions() -> None:
         ),
         plot_template_ref=plot_ref,
         shared_style=style(),
-        item_states=(
-            BatchItemState(item_id="item.one", state="pending"),
-        ),
+        item_states=(BatchItemState(item_id="item.one", state="pending"),),
     )
     assert batch.axis_policy == "per_plot"
 

@@ -11,10 +11,10 @@ const baseFilters = {
 }
 
 describe('chart catalog', () => {
-  it('contains the 31 confirmed numeric first-release chart types', () => {
-    expect(chartCatalog).toHaveLength(31)
-    expect(chartCatalog.filter((chart) => chart.layer === 'core')).toHaveLength(24)
-    expect(chartCatalog.filter((chart) => chart.layer === 'validation')).toHaveLength(7)
+  it('contains the 52 confirmed numeric first-release chart types', () => {
+    expect(chartCatalog).toHaveLength(52)
+    expect(chartCatalog.filter((chart) => chart.layer === 'core')).toHaveLength(44)
+    expect(chartCatalog.filter((chart) => chart.layer === 'validation')).toHaveLength(8)
     expect(chartCatalog.some((chart) => chart.id === 'S61')).toBe(true)
     expect(chartCatalog.some((chart) => chart.id === 'K23' || chart.id === 'S45')).toBe(false)
     expect(chartCatalog.every((chart) => chart.export.svg === 'vector')).toBe(true)

@@ -27,6 +27,8 @@ def _worker_environment() -> dict[str, str]:
     source_root = str(Path(__file__).resolve().parents[2])
     existing = environment.get("PYTHONPATH")
     environment["PYTHONPATH"] = source_root if not existing else source_root + os.pathsep + existing
+    environment["PYTHONUTF8"] = "1"
+    environment["PYTHONIOENCODING"] = "utf-8"
     return environment
 
 

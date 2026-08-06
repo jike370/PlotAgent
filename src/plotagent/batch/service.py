@@ -71,9 +71,7 @@ class BatchService:
         self._repository = repository
         self._executor = executor
 
-    def submit(
-        self, request: BatchSubmissionRequest
-    ) -> BatchSubmission | NeedsInput | Unsupported:
+    def submit(self, request: BatchSubmissionRequest) -> BatchSubmission | NeedsInput | Unsupported:
         request_hash = self._request_hash(request)
         existing = self._repository.find_task_by_idempotency(
             request.project_id, request.idempotency_key
@@ -236,9 +234,7 @@ class BatchService:
                 if staged is not None:
                     self._executor.discard_staged(staged)
                 current = self._repository.get_task(task_id).item(item_id)
-                failed = replace(
-                    self._transition_item(current, "failed"), error=failure.error
-                )
+                failed = replace(self._transition_item(current, "failed"), error=failure.error)
                 task = self._repository.get_task(task_id).replace_item(failed)
                 self._repository.save_task(task)
             except Exception as exc:
@@ -397,9 +393,7 @@ class BatchService:
                 )
                 self._repository.save_task(task)
                 raise WorkflowFailure(
-                    workflow_error(
-                        "BATCH_COMMIT_FAILED", f"Cancelled batch commit failed: {exc}"
-                    )
+                    workflow_error("BATCH_COMMIT_FAILED", f"Cancelled batch commit failed: {exc}")
                 ) from exc
             task = replace(self._repository.get_task(task.request.task_id), batch_spec=batch)
             task = self._transition_task(task, "partially_succeeded")

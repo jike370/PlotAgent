@@ -50,9 +50,7 @@ def test_real_process_handshake_heartbeat_health_and_snapshot(sidecar: SidecarPr
     stopped = sidecar.send_request("req:stop", "system.shutdown")
     assert stopped["result"] == {"status": "stopping"}
     assert sidecar.wait() == 0
-    assert all(
-        json.loads(line)["protocol_version"] == "1.0" for line in sidecar.stdout_lines
-    )
+    assert all(json.loads(line)["protocol_version"] == "1.0" for line in sidecar.stdout_lines)
 
 
 def test_invalid_frames_are_sanitized_and_the_process_survives(sidecar: SidecarProcess) -> None:
@@ -61,9 +59,7 @@ def test_invalid_frames_are_sanitized_and_the_process_survives(sidecar: SidecarP
     sidecar.read_until(lambda value: value.get("method") == "health.heartbeat")
 
     sidecar.send_raw(b"{not-json}\n")
-    parse_error = sidecar.read_until(
-        lambda value: value.get("method") == "system.protocol_error"
-    )
+    parse_error = sidecar.read_until(lambda value: value.get("method") == "system.protocol_error")
     assert parse_error["params"] == {
         "code": "PARSE_ERROR",
         "message": "The protocol frame was not valid JSON.",
@@ -82,9 +78,11 @@ def test_invalid_frames_are_sanitized_and_the_process_survives(sidecar: SidecarP
 
     sidecar.send_raw(b"x" * (1024 * 1024 + 1) + b"\n")
     too_large = sidecar.read_until(
-        lambda value: value.get("method") == "system.protocol_error"
-        and isinstance(value.get("params"), dict)
-        and value["params"].get("code") == "FRAME_TOO_LARGE"
+        lambda value: (
+            value.get("method") == "system.protocol_error"
+            and isinstance(value.get("params"), dict)
+            and value["params"].get("code") == "FRAME_TOO_LARGE"
+        )
     )
     assert too_large["params"] == {
         "code": "FRAME_TOO_LARGE",

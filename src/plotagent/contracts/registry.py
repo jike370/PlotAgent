@@ -1,4 +1,4 @@
-"""Frozen metadata for the 31 v1 chart identifiers."""
+"""Frozen metadata for the 52 first-release chart identifiers."""
 
 from __future__ import annotations
 
@@ -33,6 +33,22 @@ GeometryKind = Literal[
     "risk_table",
     "interval",
     "panel",
+    "lollipop",
+    "dumbbell",
+    "beeswarm",
+    "ridgeline",
+    "floating_bar",
+    "bridge",
+    "bullet",
+    "pyramid",
+    "scatter_matrix",
+    "density2d",
+    "marginal",
+    "probability",
+    "agreement",
+    "dual_axis",
+    "y_offset",
+    "volcano",
 ]
 
 
@@ -305,22 +321,157 @@ CHART_REGISTRY: tuple[ChartRegistration, ...] = (
         required_calculations=("confusion_count",),
         allowed_calculations=("confusion_count",),
     ),
+    _chart("X01", "Step plot", "special", ("step",), ("x", "y")),
+    _chart(
+        "X02",
+        "Lollipop plot",
+        "special",
+        ("lollipop",),
+        ("category", "value"),
+        optional_roles=("baseline", "group"),
+    ),
+    _chart(
+        "X03",
+        "Dumbbell and paired change plot",
+        "special",
+        ("dumbbell",),
+        ("category", "start", "end"),
+        optional_roles=("group",),
+    ),
+    _chart(
+        "X05",
+        "Beeswarm plot",
+        "special",
+        ("beeswarm",),
+        ("value",),
+        optional_roles=("group",),
+    ),
+    _chart(
+        "X07",
+        "Ridgeline plot",
+        "special",
+        ("ridgeline",),
+        ("value", "group"),
+    ),
+    _chart(
+        "X09",
+        "Floating interval bar",
+        "special",
+        ("floating_bar",),
+        ("category", "start", "end"),
+        optional_roles=("middle",),
+    ),
+    _chart(
+        "X11",
+        "Bridge waterfall chart",
+        "special",
+        ("bridge",),
+        ("category", "delta"),
+    ),
+    _chart(
+        "X12",
+        "Bullet chart",
+        "special",
+        ("bullet",),
+        ("item", "actual_value", "target"),
+        optional_roles=("range1", "range2", "range3"),
+    ),
+    _chart(
+        "X13",
+        "Population pyramid",
+        "special",
+        ("pyramid",),
+        ("category", "left", "right"),
+    ),
+    _chart(
+        "X15",
+        "Scatter matrix",
+        "special",
+        ("scatter_matrix",),
+        ("x", "y", "z"),
+    ),
+    _chart("X16", "Two-dimensional density", "special", ("density2d",), ("x", "y")),
+    _chart("X17", "Marginal scatter", "special", ("marginal",), ("x", "y")),
+    _chart(
+        "X18",
+        "Q-Q and probability plot",
+        "special",
+        ("probability",),
+        ("value",),
+    ),
+    _chart(
+        "X19",
+        "Bland-Altman agreement plot",
+        "special",
+        ("agreement",),
+        ("method_a", "method_b"),
+    ),
+    _chart(
+        "X23",
+        "Dual-Y line plot",
+        "special",
+        ("dual_axis",),
+        ("x", "left", "right"),
+    ),
+    _chart(
+        "X24",
+        "Pareto chart",
+        "special",
+        ("bridge",),
+        ("category", "value"),
+    ),
+    _chart(
+        "X35",
+        "Dual-Y column plot",
+        "special",
+        ("dual_axis",),
+        ("category", "left", "right"),
+    ),
+    _chart(
+        "X36",
+        "Dual-Y column-line plot",
+        "special",
+        ("dual_axis",),
+        ("category", "left", "right"),
+    ),
+    _chart(
+        "X37",
+        "Dual-Y box plot",
+        "special",
+        ("dual_axis",),
+        ("group", "left", "right"),
+    ),
+    _chart(
+        "X38",
+        "Y-offset stacked line plot",
+        "special",
+        ("y_offset",),
+        ("x", "y", "series"),
+    ),
+    _chart(
+        "S07",
+        "Volcano plot",
+        "special",
+        ("volcano",),
+        ("feature", "log2fc", "pvalue"),
+        optional_roles=("qvalue",),
+    ),
 )
 
 CHARTS_BY_ID = {item.chart_type_id: item for item in CHART_REGISTRY}
 
-if len(CHART_REGISTRY) != 31 or len(CHARTS_BY_ID) != 31:
-    raise RuntimeError("the v1 chart registry must contain exactly 31 unique chart IDs")
+if len(CHART_REGISTRY) != 52 or len(CHARTS_BY_ID) != 52:
+    raise RuntimeError("the first-release chart registry must contain exactly 52 unique chart IDs")
 
 
 class ChartRegistry(StrictModel):
     schema_version: Literal["1.0"] = "1.0"
-    charts: tuple[ChartRegistration, ...] = Field(min_length=31, max_length=31)
+    charts: tuple[ChartRegistration, ...] = Field(min_length=52, max_length=52)
 
     @model_validator(mode="after")
     def unique_ids(self) -> ChartRegistry:
         ids = tuple(chart.chart_type_id for chart in self.charts)
-        if len(set(ids)) != 31:
+        if len(set(ids)) != 52:
             raise ValueError("chart registry ids must be unique")
         return self
 

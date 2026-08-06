@@ -48,11 +48,13 @@ def test_p1_accepts_one_strict_decision_with_hashed_payload_free_audit() -> None
     provider = FakeProvider(OutputCapability.P1, [action_plan_payload()])
     runtime, sink = orchestrator(provider)
 
-    result = asyncio.run(runtime.run(
-        client_model_run_id="run-p1",
-        context_request=context_request(),
-        validation_authority=authority(),
-    ))
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-p1",
+            context_request=context_request(),
+            validation_authority=authority(),
+        )
+    )
 
     assert result.accepted is True
     assert result.decision is not None and result.decision.decision_type == "action_plan"
@@ -73,11 +75,13 @@ def test_p1_schema_failure_is_stable_and_never_repairs() -> None:
     provider = FakeProvider(OutputCapability.P1, ['{"decision_type":"no_change"}'])
     runtime, _ = orchestrator(provider)
 
-    result = asyncio.run(runtime.run(
-        client_model_run_id="run-p1-invalid",
-        context_request=context_request(),
-        validation_authority=authority(),
-    ))
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-p1-invalid",
+            context_request=context_request(),
+            validation_authority=authority(),
+        )
+    )
 
     assert result.accepted is False
     assert result.error_code == "SCHEMA_INVALID"
@@ -92,11 +96,13 @@ def test_p2_uses_exactly_one_schema_repair_then_accepts() -> None:
     )
     runtime, _ = orchestrator(provider)
 
-    result = asyncio.run(runtime.run(
-        client_model_run_id="run-p2",
-        context_request=context_request(),
-        validation_authority=authority(),
-    ))
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-p2",
+            context_request=context_request(),
+            validation_authority=authority(),
+        )
+    )
 
     assert result.accepted is True
     assert provider.decide_calls == 1
@@ -112,11 +118,13 @@ def test_p2_second_schema_failure_is_repair_exhausted() -> None:
     )
     runtime, _ = orchestrator(provider)
 
-    result = asyncio.run(runtime.run(
-        client_model_run_id="run-p2-exhausted",
-        context_request=context_request(),
-        validation_authority=authority(),
-    ))
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-p2-exhausted",
+            context_request=context_request(),
+            validation_authority=authority(),
+        )
+    )
 
     assert result.accepted is False
     assert result.error_code == "REPAIR_EXHAUSTED"
@@ -127,11 +135,13 @@ def test_p0_refuses_without_project_decision_call() -> None:
     provider = FakeProvider(OutputCapability.P0, [])
     runtime, _ = orchestrator(provider)
 
-    result = asyncio.run(runtime.run(
-        client_model_run_id="run-p0",
-        context_request=context_request(),
-        validation_authority=authority(),
-    ))
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-p0",
+            context_request=context_request(),
+            validation_authority=authority(),
+        )
+    )
 
     assert result.error_code == "PROVIDER_UNSUPPORTED"
     assert provider.decide_calls == 0
@@ -154,11 +164,13 @@ def test_tool_code_path_sql_renderer_payloads_are_rejected_without_repair(
     provider = FakeProvider(OutputCapability.P2, [no_change_payload(forbidden)])
     runtime, _ = orchestrator(provider)
 
-    result = asyncio.run(runtime.run(
-        client_model_run_id="run-forbidden",
-        context_request=context_request(),
-        validation_authority=authority(),
-    ))
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-forbidden",
+            context_request=context_request(),
+            validation_authority=authority(),
+        )
+    )
 
     assert result.error_code == "AGENT_FORBIDDEN_PAYLOAD"
     assert provider.repair_calls == 0
@@ -168,11 +180,13 @@ def test_stale_target_rejects_candidate_before_any_handoff() -> None:
     provider = FakeProvider(OutputCapability.P1, [action_plan_payload()])
     runtime, _ = orchestrator(provider)
 
-    result = asyncio.run(runtime.run(
-        client_model_run_id="run-stale",
-        context_request=context_request(),
-        validation_authority=authority(current=target(version=2)),
-    ))
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-stale",
+            context_request=context_request(),
+            validation_authority=authority(current=target(version=2)),
+        )
+    )
 
     assert result.accepted is False
     assert result.decision is None
@@ -186,11 +200,13 @@ def test_mixed_supported_and_unsupported_actions_reject_the_whole_plan() -> None
     )
     runtime, _ = orchestrator(provider)
 
-    result = asyncio.run(runtime.run(
-        client_model_run_id="run-no-partial",
-        context_request=context_request(),
-        validation_authority=authority(),
-    ))
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-no-partial",
+            context_request=context_request(),
+            validation_authority=authority(),
+        )
+    )
 
     assert result.accepted is False
     assert result.decision is None
@@ -201,11 +217,13 @@ def test_timeout_cancels_provider_and_returns_no_partial_decision() -> None:
     provider = FakeProvider(OutputCapability.P1, [no_change_payload()], delay_seconds=0.2)
     runtime, _ = orchestrator(provider, timeout=0.01)
 
-    result = asyncio.run(runtime.run(
-        client_model_run_id="run-timeout",
-        context_request=context_request(),
-        validation_authority=authority(),
-    ))
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-timeout",
+            context_request=context_request(),
+            validation_authority=authority(),
+        )
+    )
 
     assert result.error_code == "REQUEST_TIMEOUT"
     assert result.decision is None
@@ -215,6 +233,7 @@ def test_timeout_cancels_provider_and_returns_no_partial_decision() -> None:
 def test_external_cancel_returns_stable_error_and_calls_provider_cancel() -> None:
     provider = FakeProvider(OutputCapability.P1, [no_change_payload()], delay_seconds=1.0)
     runtime, _ = orchestrator(provider)
+
     async def scenario() -> AgentRunResult:
         task = asyncio.create_task(
             runtime.run(
@@ -239,11 +258,13 @@ def test_local_only_makes_zero_provider_calls_while_manual_plan_still_validates(
     runtime, _ = orchestrator(provider, mode=NetworkMode.LOCAL_ONLY)
     request = context_request()
 
-    result = asyncio.run(runtime.run(
-        client_model_run_id="run-local-only",
-        context_request=request,
-        validation_authority=authority(),
-    ))
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-local-only",
+            context_request=request,
+            validation_authority=authority(),
+        )
+    )
     assert result.error_code == "NETWORK_BLOCKED_LOCAL_ONLY"
     assert provider.decide_calls == provider.repair_calls == 0
 
@@ -261,10 +282,12 @@ def test_chinese_english_and_mixed_scientific_text_remains_provider_owned() -> N
     for index, explanation in enumerate(explanations):
         provider = FakeProvider(OutputCapability.P1, [no_change_payload(explanation)])
         runtime, _ = orchestrator(provider)
-        result = asyncio.run(runtime.run(
-            client_model_run_id=f"run-language-{index}",
-            context_request=context_request(),
-            validation_authority=authority(),
-        ))
+        result = asyncio.run(
+            runtime.run(
+                client_model_run_id=f"run-language-{index}",
+                context_request=context_request(),
+                validation_authority=authority(),
+            )
+        )
         assert result.accepted is True
         assert json.loads(provider.requests[0].envelope.model_dump_json())["locale"] == "zh-CN"

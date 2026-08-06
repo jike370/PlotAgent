@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
 
-from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
+from plotagent.contracts.canonical import JsonValue, canonical_json
 from plotagent.contracts.rendering import (
     OriginAxisPlan,
     OriginColumnPlan,
@@ -33,11 +34,18 @@ from .native import (
     physical_plot_count,
     primitive_book_name,
 )
-from .validation import expected_validation_report, expected_validation_sha256
+from .validation import (
+    expected_validation_report,
+    expected_validation_sha256,
+    origin_canonical_hash,
+)
 
 _MANIFEST_BOOK = "PAMETA"
 _MANIFEST_SHEET = "Manifest"
-_MANIFEST_CHUNK_CHARS = 16_000
+# Origin's automation string path can truncate worksheet text near 4 KiB even though
+# the interactive worksheet supports larger cells. Keep chunks below that boundary.
+_MANIFEST_CHUNK_CHARS = 3_000
+_HEX_COLOR = re.compile(r"#[0-9A-Fa-f]{6}\Z")
 _PLOT_TYPE = {
     "line": 200,
     "line_symbol": 202,
@@ -45,6 +53,7 @@ _PLOT_TYPE = {
     "column": 203,
     "area": 204,
     "floating_column": 207,
+    "bar": 215,
     "bubble": 193,
     "bubble_color": 248,
     "fill_area": 249,
@@ -65,6 +74,14 @@ _COLUMN_AXIS = {
 
 class NativeOriginError(RuntimeError):
     pass
+
+
+def _area_fill_command(color: str) -> str:
+    """Return the only typed dynamic Set option admitted by the Origin backend."""
+
+    if _HEX_COLOR.fullmatch(color) is None:
+        raise NativeOriginError("area fill color must be a validated #RRGGBB token")
+    return f'-cf color("{color}")'
 
 
 def _folder_items(collection: Any) -> list[Any]:
@@ -156,6 +173,18 @@ def _tick_label_string(axis: OriginAxisPlan) -> str:
         f'"{item.label.replace(chr(34), chr(92) + chr(34)).replace(chr(10), " ")}"'
         for item in axis.ticks
     )
+
+
+def _uses_custom_tick_labels(axis: OriginAxisPlan) -> bool:
+    if axis.scale in {"categorical", "datetime"}:
+        return True
+    try:
+        return any(
+            not math.isclose(float(item.label), item.value, rel_tol=0, abs_tol=1e-12)
+            for item in axis.ticks
+        )
+    except ValueError:
+        return True
 
 
 class OriginProBackend:
@@ -289,6 +318,13 @@ class OriginProBackend:
         plot = self._op.Plot(native_plot, layer.obj)
         if plot_plan.color is not None:
             plot.color = plot_plan.color.value
+            if primitive.plot_type == "area":
+                # Origin's fill-color property accepts palette indexes. ColorValue
+                # is a validated #RRGGBB token, so this closed option preserves the
+                # exact palette without admitting labels or arbitrary commands.
+                plot.set_cmd(_area_fill_command(plot_plan.color.value))
+        if primitive.transform in {"floating_polygon", "horizontal_polygon"}:
+            plot.set_float("line.width", 0)
         if plot_plan.marker_size_pt is not None and primitive.plot_type in {
             "scatter",
             "line_symbol",
@@ -325,8 +361,9 @@ class OriginProBackend:
             plot.transparency = round((1 - plot_plan.alpha) * 100)
         return plot
 
-    def _configure_axis(self, layer: Any, axis: OriginAxisPlan) -> None:
-        native_axis = layer.axis(axis.orientation)
+    def _configure_axis(self, layer: Any, axis: OriginAxisPlan, font_size_pt: float) -> None:
+        is_right_y = axis.orientation == "y" and axis.position == "right"
+        native_axis = layer.axis("y2" if is_right_y else axis.orientation)
         native_axis.scale = "log10" if axis.scale == "log10" else "linear"
         begin, end = (
             (axis.maximum, axis.minimum)
@@ -337,18 +374,43 @@ class OriginProBackend:
             )
         )
         native_axis.set_limits(begin, end, _tick_step(axis))
-        layer.set_int(f"{axis.orientation}.label.type", 10)
-        layer.set_str(
-            f"{axis.orientation}.label.string",
-            _tick_label_string(axis),
-        )
-        label_name = "xb" if axis.orientation == "x" else "yl"
+        prefix = "y2" if is_right_y else axis.orientation
+        if is_right_y:
+            layer.set_int("y.showAxes", 2)
+            layer.set_int("y.showLabels", 2)
+            layer.set_int("y.showlabel", 0)
+            layer.set_int("y2.showlabel", 1)
+            left_title = layer.label("yl")
+            if left_title is not None:
+                left_title.set_int("show", 0)
+        elif axis.orientation == "y":
+            layer.set_int("y.showAxes", 1)
+            layer.set_int("y.showLabels", 1)
+            layer.set_int("y.showlabel", 1)
+            layer.set_int("y2.showlabel", 0)
+            right_title = layer.label("yr")
+            if right_title is not None:
+                right_title.set_int("show", 0)
+        elif axis.orientation == "x":
+            layer.set_int("x.showAxes", 1)
+            layer.set_int("x.showLabels", 1)
+        custom_tick_labels = _uses_custom_tick_labels(axis)
+        layer.set_int(f"{prefix}.label.type", 10 if custom_tick_labels else 1)
+        layer.set_float(f"{prefix}.label.fsize", max(5.0, font_size_pt - 1.0))
+        if custom_tick_labels:
+            layer.set_str(
+                f"{prefix}.label.string",
+                _tick_label_string(axis),
+            )
+        label_name = "xb" if axis.orientation == "x" else "yr" if axis.position == "right" else "yl"
         label = layer.label(label_name)
         if label is None:
             label = layer.add_label(axis.title)
         if label is None:
             raise NativeOriginError(f"qualified template is missing axis label {label_name}")
         label.text = axis.title
+        label.set_float("fsize", font_size_pt)
+        label.set_int("show", 1)
 
     def _configure_layer_frame(
         self, graph: OriginGraphObject, layer_plan: OriginLayerPlan, layer: Any
@@ -444,8 +506,7 @@ class OriginProBackend:
                             y2_role="y2" if primitive.y2_role is not None else None,
                             size_role=(
                                 "y2"
-                                if primitive.size_role is not None
-                                and primitive.y2_role is None
+                                if primitive.size_role is not None and primitive.y2_role is None
                                 else None
                             ),
                             transform=primitive.transform,
@@ -490,13 +551,11 @@ class OriginProBackend:
                             data_chain=data.data_chain,
                             data_ref=data.data_ref.model_copy(
                                 update={
-                                    "object_hash": canonical_hash(
+                                    "object_hash": origin_canonical_hash(
                                         cast(JsonValue, table_payload)
                                     ),
                                     "row_count": len(table.x),
-                                    "field_ids": tuple(
-                                        column.field_id for column in columns
-                                    ),
+                                    "field_ids": tuple(column.field_id for column in columns),
                                 }
                             ),
                             columns=columns,
@@ -519,11 +578,33 @@ class OriginProBackend:
                             plot_sheet,
                         )
             for axis in layer_plan.axes:
-                self._configure_axis(layer, axis)
-            labels = [plot.label for plot in layer_plan.plots if plot.label]
+                self._configure_axis(layer, axis, graph_plan.font_size_pt)
+            if any(
+                previous.left_mm == layer_plan.left_mm
+                and previous.top_mm == layer_plan.top_mm
+                and previous.width_mm == layer_plan.width_mm
+                and previous.height_mm == layer_plan.height_mm
+                for previous in graph_plan.layers[:layer_index]
+            ):
+                layer.set_int("x.showAxes", 0)
+                layer.set_int("x.showLabels", 0)
+                layer.set_int("x.showlabel", 0)
+                layer.set_int("x2.showlabel", 0)
+                x_title = layer.label("xb")
+                if x_title is not None:
+                    x_title.set_int("show", 0)
+            labels = [
+                plot.label
+                for graph_layer in graph_plan.layers
+                for plot in graph_layer.plots
+                if plot.label
+            ]
             legend = layer.label("legend")
             if legend is not None:
-                legend.text = "\n".join(labels) if graph_plan.legend_visible else ""
+                legend.text = (
+                    "\n".join(labels) if graph_plan.legend_visible and layer_index == 0 else ""
+                )
+                legend.set_float("fsize", graph_plan.font_size_pt)
             for annotation in graph_plan.annotations:
                 if annotation.panel_id != layer_plan.panel_id or annotation.text is None:
                     continue
@@ -561,7 +642,7 @@ class OriginProBackend:
         keys.extend(("origin_plan_sha256", "render_plan_sha256", "validation_report_sha256"))
         values.extend(
             (
-                canonical_hash(plan),
+                origin_canonical_hash(plan),
                 plan.render_plan_hash,
                 expected_validation_sha256(plan),
             )
@@ -688,7 +769,11 @@ class OriginProBackend:
                         f"native plot lost its dataset link in {layer_plan.layer_id}"
                     )
                 for axis_plan in layer_plan.axes:
-                    axis = layer.axis(axis_plan.orientation)
+                    axis = layer.axis(
+                        "y2"
+                        if axis_plan.orientation == "y" and axis_plan.position == "right"
+                        else axis_plan.orientation
+                    )
                     actual_from, actual_to, unused_step = (float(value) for value in axis.limits)
                     expected_from, expected_to = (
                         (axis_plan.maximum, axis_plan.minimum)
@@ -706,18 +791,31 @@ class OriginProBackend:
                         raise NativeOriginError(
                             f"native axis scale differs for {axis_plan.axis_id}"
                         )
-                    expected_labels = _tick_label_string(axis_plan)
-                    actual_label_type = layer.get_int(
-                        f"{axis_plan.orientation}.label.type"
+                    prefix = (
+                        "y2"
+                        if axis_plan.orientation == "y" and axis_plan.position == "right"
+                        else axis_plan.orientation
                     )
-                    actual_labels = layer.get_str(
-                        f"{axis_plan.orientation}.label.string"
-                    )
-                    if actual_label_type != 10 or actual_labels != expected_labels:
+                    uses_custom_labels = _uses_custom_tick_labels(axis_plan)
+                    actual_label_type = layer.get_int(f"{prefix}.label.type")
+                    if actual_label_type != (10 if uses_custom_labels else 1):
                         raise NativeOriginError(
-                            f"native tick labels differ for {axis_plan.axis_id}"
+                            f"native tick label mode differs for {axis_plan.axis_id}"
                         )
-                    label_name = "xb" if axis_plan.orientation == "x" else "yl"
+                    if uses_custom_labels:
+                        expected_labels = _tick_label_string(axis_plan)
+                        actual_labels = layer.get_str(f"{prefix}.label.string")
+                        if actual_labels != expected_labels:
+                            raise NativeOriginError(
+                                f"native tick labels differ for {axis_plan.axis_id}"
+                            )
+                    label_name = (
+                        "xb"
+                        if axis_plan.orientation == "x"
+                        else "yr"
+                        if axis_plan.position == "right"
+                        else "yl"
+                    )
                     label = layer.label(label_name)
                     if label is None or label.text != axis_plan.title:
                         raise NativeOriginError(
@@ -738,7 +836,7 @@ class OriginProBackend:
         if json.loads("".join(chunks)) != plan.manifest.model_dump(mode="json"):
             raise NativeOriginError("Origin manifest JSON differs from the typed plan")
         expected = {
-            "origin_plan_sha256": canonical_hash(plan),
+            "origin_plan_sha256": origin_canonical_hash(plan),
             "render_plan_sha256": plan.render_plan_hash,
             "validation_report_sha256": expected_validation_sha256(plan),
         }

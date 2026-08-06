@@ -88,6 +88,27 @@ ChartTypeId = Literal[
     "S31",
     "S34",
     "S61",
+    "X01",
+    "X02",
+    "X03",
+    "X05",
+    "X07",
+    "X09",
+    "X11",
+    "X12",
+    "X13",
+    "X15",
+    "X16",
+    "X17",
+    "X18",
+    "X19",
+    "X23",
+    "X24",
+    "X35",
+    "X36",
+    "X37",
+    "X38",
+    "S07",
 ]
 CalculationKind = Literal[
     "histogram_binning",
@@ -110,6 +131,7 @@ FamilyKind = Literal[
     "dose_response",
     "forest",
     "facet",
+    "special",
 ]
 OriginCapability = Literal["O0", "O1", "O2", "O3"]
 PrecomputedKind = Literal[

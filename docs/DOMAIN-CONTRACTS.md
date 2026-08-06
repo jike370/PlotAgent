@@ -194,7 +194,9 @@ Matplotlib 与 Origin adapter 不得自行 autoscale、选择 ticks、重算统�
 
 OPJU ExportSpec、ResolvedRenderPlan 与版本化 OriginAdapter 在本地解析为 typed OriginExportPlan。它固定 target scope、Data/Analysis/Graphs/Metadata 布局、ASCII internal names、Long Names、数据对象、原生 graph/layer/plot、typed properties、template/capability 和 live/reopen validation。
 
-Origin Worker 不接受任意 property/path/script 字符串。第一轮 OriginAdapter 只通过 `originpro`/Python 类型化固定映射工作，任何 LabTalk 都被 Schema/策略阻止。31 项正式图形只在 adapter 达到 O1 时开放 OPJU；整份 OPJU 原子成功或失败。完整契约见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
+Origin Worker 不接受任意 property/path/script 字符串。第一轮 OriginAdapter 通过 `originpro`/Python 类型化固定映射工作；模型、数据和配置提供的 LabTalk 被 Schema/策略阻止，仅保留 Origin 文档化但 `originpro` 未暴露的三项受测显示选项白名单。31 项正式图形只在 adapter 达到 O1 时开放 OPJU；整份 OPJU 原子成功或失败。完整契约见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
+
+Origin P1 扩展把同一注册表/Schema 扩为 52 个稳定 chart ID。新增 21 项均有独立字段角色和固定几何契约；双 Y 轴网格图未注册。新增图的“实现存在”与“同源视觉 qualification 通过”是两个字段口径：缺少 Origin 示例图—数据对时允许 resolver/contract 测试，但禁止产生视觉通过声明。
 
 ## 5. BatchSpec 与 FigureSpec
 

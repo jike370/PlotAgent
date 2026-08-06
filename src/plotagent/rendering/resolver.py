@@ -9,7 +9,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, cast
 
+import numpy as np
 from matplotlib import font_manager
+from scipy.stats import gaussian_kde, norm  # type: ignore[import-untyped]
 
 from plotagent.charts.registry import get_chart
 from plotagent.charts.series_rules import SeriesRule, get_series_rule
@@ -132,6 +134,7 @@ class _DraftLayer:
     levels: tuple[float, ...] = ()
     color_minimum: float | None = None
     color_maximum: float | None = None
+    color_override: str | None = None
 
     @property
     def row_count(self) -> int:
@@ -436,6 +439,24 @@ def _deterministic_jitter(binding_hash: str, row_index: int) -> float:
     return (unit - 0.5) * 0.4
 
 
+def _beeswarm_offsets(values: tuple[Scalar, ...]) -> tuple[float, ...]:
+    """Pack nearby observations into deterministic symmetric horizontal rows."""
+
+    numeric = tuple(_number(value) for value in values)
+    minimum, maximum = min(numeric), max(numeric)
+    bin_width = max((maximum - minimum) / 48.0, 1e-12)
+    bins: dict[int, list[int]] = {}
+    for index, value in enumerate(numeric):
+        bins.setdefault(round((value - minimum) / bin_width), []).append(index)
+    offsets = [0.0] * len(values)
+    for indices in bins.values():
+        spacing = min(0.052, 0.76 / max(len(indices) - 1, 1))
+        centered = (len(indices) - 1) / 2
+        for slot, index in enumerate(indices):
+            offsets[index] = (slot - centered) * spacing
+    return tuple(offsets)
+
+
 def _matrix_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
     drafts = _generic_drafts(plot, store)
     for index, draft in enumerate(drafts):
@@ -502,6 +523,725 @@ def _facet_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
     return drafts
 
 
+def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
+    series = plot.series[0]
+    rule, values, excluded = _series_values(plot, store, 0)
+    target = series.series_id
+    direct = _source_kind(series.data.kind)
+
+    def draft(
+        suffix: str,
+        geometry: str,
+        roles: Mapping[str, tuple[Scalar, ...]],
+        x_roles: tuple[str, ...],
+        y_roles: tuple[str, ...],
+        *,
+        panel: str = "panel:main",
+        color: int = 0,
+        label: str | None = None,
+        source: DataSourceKind = direct,
+        palette: tuple[str, ...] = (),
+        color_override: str | None = None,
+        x_offset: tuple[float, ...] = (),
+    ) -> _DraftLayer:
+        return _DraftLayer(
+            layer_id=f"layer.0.{suffix}",
+            target_id=target,
+            panel_id=panel,
+            geometry=geometry,
+            source_kind=source,
+            roles=roles,
+            x_roles=x_roles,
+            y_roles=y_roles,
+            label=_plain_text(label) if label else None,
+            color_index=color,
+            excluded_rows=excluded if suffix == "0" else 0,
+            palette=palette,
+            color_override=color_override,
+            x_offset=x_offset,
+        )
+
+    chart_id = plot.chart_type_id
+    if chart_id == "X01":
+        return [
+            draft(
+                "0",
+                "distribution.step",
+                {"x": values["x"], "probability": values["y"]},
+                ("x",),
+                ("probability",),
+            )
+        ]
+
+    if chart_id == "X02":
+        baseline = values.get("baseline", tuple(0.0 for _ in values["value"]))
+        result: list[_DraftLayer] = []
+        for index, (category, low, high) in enumerate(
+            zip(values["category"], baseline, values["value"], strict=True)
+        ):
+            result.append(
+                draft(
+                    str(index),
+                    "xy.line",
+                    {"x": (category, category), "y": (low, high)},
+                    ("x",),
+                    ("y",),
+                    color=0,
+                    color_override="#B8BDC6",
+                )
+            )
+        result.append(
+            draft(
+                "points",
+                "xy.symbol",
+                {"x": values["category"], "y": values["value"]},
+                ("x",),
+                ("y",),
+                color=0,
+            )
+        )
+        return result
+
+    if chart_id == "X03":
+        result = []
+        for index, (category, start, end) in enumerate(
+            zip(values["category"], values["start"], values["end"], strict=True)
+        ):
+            result.append(
+                draft(
+                    str(index),
+                    "xy.line",
+                    {"x": (start, end), "y": (category, category)},
+                    ("x",),
+                    ("y",),
+                    color=0,
+                    color_override="#B8BDC6",
+                )
+            )
+        result.extend(
+            (
+                draft(
+                    "start",
+                    "xy.symbol",
+                    {"x": values["start"], "y": values["category"]},
+                    ("x",),
+                    ("y",),
+                    color=0,
+                    label="Start",
+                ),
+                draft(
+                    "end",
+                    "xy.symbol",
+                    {"x": values["end"], "y": values["category"]},
+                    ("x",),
+                    ("y",),
+                    color=1,
+                    label="End",
+                ),
+            )
+        )
+        return result
+
+    if chart_id == "X05":
+        groups = values.get("group", tuple("All" for _ in values["value"]))
+        result = []
+        for group_index, group in enumerate(_ordered_unique(groups)):
+            indices = tuple(index for index, item in enumerate(groups) if item == group)
+            y = tuple(values["value"][index] for index in indices)
+            jitter = _beeswarm_offsets(y)
+            result.append(
+                replace(
+                    draft(
+                        str(group_index),
+                        "distribution.strip",
+                        {"x": tuple(group for _ in indices), "y": y},
+                        ("x",),
+                        ("y",),
+                        color=group_index,
+                        label=str(group),
+                    ),
+                    x_offset=jitter,
+                )
+            )
+        return result
+
+    if chart_id == "X07":
+        result = []
+        groups = _ordered_unique(values["group"])
+        for group_index, group in enumerate(groups):
+            sample = np.asarray(
+                [
+                    _number(value)
+                    for value, item in zip(values["value"], values["group"], strict=True)
+                    if item == group
+                ],
+                dtype=float,
+            )
+            if len(sample) < 2 or float(np.ptp(sample)) == 0:
+                grid = np.linspace(float(sample[0]) - 0.5, float(sample[0]) + 0.5, 64)
+                density = np.exp(-((grid - float(sample[0])) ** 2) / 0.08)
+            else:
+                grid = np.linspace(float(sample.min()), float(sample.max()), 128)
+                density = gaussian_kde(sample)(grid)
+            density = density / max(float(density.max()), 1e-12) * 0.8
+            result.append(
+                draft(
+                    str(group_index),
+                    "xy.line",
+                    {"x": tuple(grid), "y": tuple(group_index + density)},
+                    ("x",),
+                    ("y",),
+                    color=group_index,
+                    label=str(group),
+                    source="fixed",
+                )
+            )
+        return result
+
+    if chart_id == "X09":
+        starts = tuple(_number(value) for value in values["start"])
+        ends = tuple(_number(value) for value in values["end"])
+        boundaries = (
+            tuple(_number(value) for value in values["middle"]) if "middle" in values else ends
+        )
+        layers = [
+            draft(
+                "0",
+                "bar.floating",
+                {
+                    "x": values["category"],
+                    "height": tuple(
+                        middle - start for start, middle in zip(starts, boundaries, strict=True)
+                    ),
+                    "bottom": starts,
+                    "top": boundaries,
+                    "width": tuple(0.72 for _ in starts),
+                },
+                ("x",),
+                ("bottom", "top"),
+                color=0,
+                label="Middle" if "middle" in values else None,
+            )
+        ]
+        if "middle" in values:
+            layers.append(
+                draft(
+                    "1",
+                    "bar.floating",
+                    {
+                        "x": values["category"],
+                        "height": tuple(
+                            end - middle for middle, end in zip(boundaries, ends, strict=True)
+                        ),
+                        "bottom": boundaries,
+                        "top": ends,
+                        "width": tuple(0.72 for _ in starts),
+                    },
+                    ("x",),
+                    ("bottom", "top"),
+                    color=2,
+                    label="End",
+                )
+            )
+        return layers
+
+    if chart_id == "X11":
+        deltas = tuple(_number(value) for value in values["delta"])
+        running = 0.0
+        bottoms: list[float] = []
+        for delta in deltas:
+            bottoms.append(running if delta >= 0 else running + delta)
+            running += delta
+        return [
+            draft(
+                str(index),
+                "bar.stacked",
+                {
+                    "x": (values["category"][index],),
+                    "height": (abs(delta),),
+                    "bottom": (bottoms[index],),
+                    "top": (bottoms[index] + abs(delta),),
+                    "width": (0.72,),
+                },
+                ("x",),
+                ("bottom", "top"),
+                source="fixed",
+                color_override="#2A9D6F" if delta >= 0 else "#D64545",
+            )
+            for index, delta in enumerate(deltas)
+        ]
+
+    if chart_id == "X12":
+        actual = tuple(_number(value) for value in values["actual_value"])
+        ranges = [
+            tuple(_number(value) for value in values[name])
+            for name in ("range3", "range2", "range1")
+            if name in values
+        ]
+        if not ranges:
+            ranges = [
+                tuple(
+                    max(a, _number(t)) * factor
+                    for a, t in zip(actual, values["target"], strict=True)
+                )
+                for factor in (1.25, 1.0, 0.75)
+            ]
+        result = []
+        range_colors = ("#E5E7EB", "#CBD5E1", "#94A3B8")
+        for index, range_values in enumerate(ranges):
+            result.append(
+                draft(
+                    f"range{index}",
+                    "bar.single",
+                    {
+                        "x": values["item"],
+                        "height": range_values,
+                        "bottom": tuple(0.0 for _ in range_values),
+                        "top": range_values,
+                        "width": tuple(0.82 - index * 0.13 for _ in range_values),
+                    },
+                    ("x",),
+                    ("top",),
+                    color=index + 2,
+                    color_override=range_colors[index],
+                )
+            )
+        result.append(
+            draft(
+                "actual",
+                "bar.single",
+                {
+                    "x": values["item"],
+                    "height": actual,
+                    "bottom": tuple(0.0 for _ in actual),
+                    "top": actual,
+                    "width": tuple(0.28 for _ in actual),
+                },
+                ("x",),
+                ("top",),
+                color=0,
+                label="Actual",
+                color_override="#1F2937",
+            )
+        )
+        result.append(
+            draft(
+                "target",
+                "xy.symbol",
+                {"x": values["item"], "y": values["target"]},
+                ("x",),
+                ("y",),
+                color=1,
+                label="Target",
+                color_override="#D64545",
+            )
+        )
+        return result
+
+    if chart_id == "X13":
+        left = tuple(-abs(_number(value)) for value in values["left"])
+        right = tuple(abs(_number(value)) for value in values["right"])
+        return [
+            draft(
+                "0",
+                "bar.horizontal",
+                {
+                    "y": values["category"],
+                    "width": left,
+                    "left": tuple(0.0 for _ in left),
+                    "right": left,
+                    "height": tuple(0.72 for _ in left),
+                },
+                ("left", "right"),
+                ("y",),
+                color=0,
+                label="Left",
+            ),
+            draft(
+                "1",
+                "bar.horizontal",
+                {
+                    "y": values["category"],
+                    "width": right,
+                    "left": tuple(0.0 for _ in right),
+                    "right": right,
+                    "height": tuple(0.72 for _ in right),
+                },
+                ("left", "right"),
+                ("y",),
+                color=1,
+                label="Right",
+            ),
+        ]
+
+    if chart_id == "X15":
+        result = []
+        variables = (("x", values["x"]), ("y", values["y"]), ("z", values["z"]))
+        for row, (_y_name, y_values) in enumerate(variables):
+            for column, (_x_name, x_values) in enumerate(variables):
+                panel = f"panel:matrix.{row}.{column}"
+                if row == column:
+                    numeric = np.asarray([_number(value) for value in x_values], dtype=float)
+                    counts, edges = np.histogram(
+                        numeric, bins=min(10, max(4, round(math.sqrt(len(numeric)))))
+                    )
+                    result.append(
+                        draft(
+                            f"{row}.{column}",
+                            "distribution.histogram",
+                            {
+                                "left": tuple(edges[:-1]),
+                                "right": tuple(edges[1:]),
+                                "height": tuple(float(value) for value in counts),
+                            },
+                            ("left", "right"),
+                            ("height",),
+                            panel=panel,
+                            color=row,
+                            source="fixed",
+                        )
+                    )
+                else:
+                    result.append(
+                        draft(
+                            f"{row}.{column}",
+                            "xy.symbol",
+                            {"x": x_values, "y": y_values},
+                            ("x",),
+                            ("y",),
+                            panel=panel,
+                            color=(row + column) % 3,
+                        )
+                    )
+        return result
+
+    if chart_id == "X16":
+        x_array = np.asarray([_number(value) for value in values["x"]], dtype=float)
+        y_array = np.asarray([_number(value) for value in values["y"]], dtype=float)
+        bins = min(30, max(8, round(math.sqrt(len(x_array)) / 2)))
+        counts, x_edges, y_edges = np.histogram2d(x_array, y_array, bins=bins)
+        x_centers = (x_edges[:-1] + x_edges[1:]) / 2
+        y_centers = (y_edges[:-1] + y_edges[1:]) / 2
+        grid_x, grid_y = np.meshgrid(x_centers, y_centers)
+        flat = tuple(float(value) for value in counts.T.ravel())
+        density_layer = draft(
+            "0",
+            "matrix.heatmap",
+            {"x": tuple(grid_x.ravel()), "y": tuple(grid_y.ravel()), "z": flat},
+            ("x",),
+            ("y",),
+            source="fixed",
+            palette=_SEQUENTIAL_PALETTE,
+        )
+        return [replace(density_layer, color_minimum=min(flat), color_maximum=max(flat))]
+
+    if chart_id == "X17":
+        x_array = np.asarray([_number(value) for value in values["x"]], dtype=float)
+        y_array = np.asarray([_number(value) for value in values["y"]], dtype=float)
+        x_counts, x_edges = np.histogram(
+            x_array, bins=min(16, max(6, round(math.sqrt(len(x_array)))))
+        )
+        y_grid = np.linspace(float(y_array.min()), float(y_array.max()), 96)
+        y_density = (
+            gaussian_kde(y_array)(y_grid)
+            if len(y_array) > 1 and float(np.ptp(y_array)) > 0
+            else np.ones_like(y_grid)
+        )
+        return [
+            draft(
+                "0",
+                "xy.symbol",
+                {"x": values["x"], "y": values["y"]},
+                ("x",),
+                ("y",),
+                panel="panel:center",
+            ),
+            draft(
+                "top",
+                "distribution.histogram",
+                {
+                    "left": tuple(x_edges[:-1]),
+                    "right": tuple(x_edges[1:]),
+                    "height": tuple(float(value) for value in x_counts),
+                },
+                ("left", "right"),
+                ("height",),
+                panel="panel:top",
+                source="fixed",
+            ),
+            draft(
+                "right",
+                "xy.line",
+                {
+                    "x": tuple(float(value) for value in y_density),
+                    "y": tuple(float(value) for value in y_grid),
+                },
+                ("x",),
+                ("y",),
+                panel="panel:right",
+                source="fixed",
+            ),
+        ]
+
+    if chart_id == "X18":
+        sample = np.sort(np.asarray([_number(value) for value in values["value"]], dtype=float))
+        probabilities = (np.arange(len(sample)) + 0.5) / len(sample)
+        theoretical = norm.ppf(probabilities)
+        q1, q3 = np.quantile(sample, (0.25, 0.75))
+        tq1, tq3 = norm.ppf((0.25, 0.75))
+        slope = float((q3 - q1) / (tq3 - tq1)) if tq3 != tq1 else 1.0
+        intercept = float(q1 - slope * tq1)
+        x_line = (float(theoretical.min()), float(theoretical.max()))
+        return [
+            draft(
+                "0",
+                "xy.symbol",
+                {"x": tuple(theoretical), "y": tuple(sample)},
+                ("x",),
+                ("y",),
+                source="fixed",
+            ),
+            draft(
+                "line",
+                "xy.line",
+                {"x": x_line, "y": tuple(intercept + slope * value for value in x_line)},
+                ("x",),
+                ("y",),
+                color=1,
+                source="fixed",
+            ),
+        ]
+
+    if chart_id == "X19":
+        a = np.asarray([_number(value) for value in values["method_a"]], dtype=float)
+        b = np.asarray([_number(value) for value in values["method_b"]], dtype=float)
+        mean = (a + b) / 2
+        difference = a - b
+        center = float(np.mean(difference))
+        sd = float(np.std(difference, ddof=1)) if len(difference) > 1 else 0.0
+        x_line = (float(mean.min()), float(mean.max()))
+        result = [
+            draft(
+                "0",
+                "xy.symbol",
+                {"x": tuple(mean), "y": tuple(difference)},
+                ("x",),
+                ("y",),
+                source="fixed",
+            )
+        ]
+        for index, level in enumerate((center, center + 1.96 * sd, center - 1.96 * sd)):
+            result.append(
+                draft(
+                    f"line{index}",
+                    "xy.line",
+                    {"x": x_line, "y": (level, level)},
+                    ("x",),
+                    ("y",),
+                    color=index + 1,
+                    source="fixed",
+                )
+            )
+        return result
+
+    if chart_id in {"X23", "X35", "X36"}:
+        x_role = "x" if "x" in values else "category"
+        x_values = values[x_role]
+        left_geometry = "xy.line" if chart_id == "X23" else "bar.single"
+        right_geometry = "xy.line" if chart_id in {"X23", "X36"} else "bar.single"
+
+        def dual_roles(role: str, geometry: str) -> Mapping[str, tuple[Scalar, ...]]:
+            if geometry == "xy.line":
+                return {"x": x_values, "y": values[role]}
+            numeric = tuple(_number(value) for value in values[role])
+            return {
+                "x": x_values,
+                "height": numeric,
+                "bottom": tuple(0.0 for _ in numeric),
+                "top": numeric,
+                "width": tuple(0.34 if chart_id == "X35" else 0.62 for _ in numeric),
+            }
+
+        return [
+            draft(
+                "0",
+                left_geometry,
+                dual_roles("left", left_geometry),
+                ("x",),
+                (("y",) if left_geometry == "xy.line" else ("top",)),
+                panel="panel:left",
+                color=0,
+                label="Left",
+                x_offset=(tuple(-0.19 for _ in x_values) if chart_id == "X35" else ()),
+            ),
+            draft(
+                "1",
+                right_geometry,
+                dual_roles("right", right_geometry),
+                ("x",),
+                (("y",) if right_geometry == "xy.line" else ("top",)),
+                panel="panel:right",
+                color=1,
+                label="Right",
+                x_offset=(tuple(0.19 for _ in x_values) if chart_id == "X35" else ()),
+            ),
+        ]
+
+    if chart_id == "X37":
+        result = []
+        for side_index, role in enumerate(("left", "right")):
+            groups = _ordered_unique(values["group"])
+            summaries: dict[str, list[Scalar]] = {
+                name: [] for name in ("group", "q1", "median", "q3", "whisker_low", "whisker_high")
+            }
+            for group in groups:
+                sample = np.asarray(
+                    [
+                        _number(value)
+                        for value, item in zip(values[role], values["group"], strict=True)
+                        if item == group
+                    ],
+                    dtype=float,
+                )
+                q1, median, q3 = np.quantile(sample, (0.25, 0.5, 0.75))
+                iqr = q3 - q1
+                summaries["group"].append(group)
+                summaries["q1"].append(float(q1))
+                summaries["median"].append(float(median))
+                summaries["q3"].append(float(q3))
+                summaries["whisker_low"].append(float(sample[sample >= q1 - 1.5 * iqr].min()))
+                summaries["whisker_high"].append(float(sample[sample <= q3 + 1.5 * iqr].max()))
+            result.append(
+                draft(
+                    str(side_index),
+                    "distribution.box",
+                    {key: tuple(items) for key, items in summaries.items()},
+                    ("group",),
+                    ("q1", "median", "q3", "whisker_low", "whisker_high"),
+                    panel=("panel:left" if side_index == 0 else "panel:right"),
+                    color=side_index,
+                    label=role.title(),
+                    source="fixed",
+                )
+            )
+        return result
+
+    if chart_id == "X38":
+        result = []
+        series_values = _ordered_unique(values["series"])
+        all_y = np.asarray([_number(value) for value in values["y"]], dtype=float)
+        offset = max(float(np.ptp(all_y)) * 0.32, 1.0)
+        for index, series_value in enumerate(series_values):
+            indices = tuple(i for i, item in enumerate(values["series"]) if item == series_value)
+            result.append(
+                draft(
+                    str(index),
+                    "xy.line",
+                    {
+                        "x": tuple(values["x"][i] for i in indices),
+                        "y": tuple(_number(values["y"][i]) + index * offset for i in indices),
+                    },
+                    ("x",),
+                    ("y",),
+                    color=index,
+                    label=str(series_value),
+                    source="fixed",
+                )
+            )
+        return result
+
+    if chart_id == "S07":
+        pvalues = np.asarray(
+            [max(_number(value), np.finfo(float).tiny) for value in values["pvalue"]], dtype=float
+        )
+        volcano_y = -np.log10(pvalues)
+        volcano_x = np.asarray([_number(value) for value in values["log2fc"]], dtype=float)
+        significant = pvalues < 0.05
+        volcano_categories = np.where(
+            significant & (volcano_x <= -1),
+            0,
+            np.where(significant & (volcano_x >= 1), 2, 1),
+        )
+        labels = ("Down", "Not significant", "Up")
+        volcano_result: list[_DraftLayer] = []
+        for category in range(3):
+            indices = tuple(int(index) for index in np.where(volcano_categories == category)[0])
+            if indices:
+                volcano_result.append(
+                    draft(
+                        str(category),
+                        "xy.symbol",
+                        {
+                            "x": tuple(float(volcano_x[i]) for i in indices),
+                            "y": tuple(float(volcano_y[i]) for i in indices),
+                        },
+                        ("x",),
+                        ("y",),
+                        color=category,
+                        label=labels[category],
+                        source="fixed",
+                    )
+                )
+        x_limit = max(abs(float(volcano_x.min())), abs(float(volcano_x.max())), 1.0)
+        threshold = -math.log10(0.05)
+        volcano_result.append(
+            draft(
+                "threshold",
+                "xy.line",
+                {"x": (-x_limit, x_limit), "y": (threshold, threshold)},
+                ("x",),
+                ("y",),
+                color=1,
+                source="fixed",
+                color_override="#6B7280",
+            )
+        )
+        return volcano_result
+
+    if chart_id == "X24":
+        rows = sorted(
+            zip(values["category"], values["value"], strict=True),
+            key=lambda item: _number(item[1]),
+            reverse=True,
+        )
+        pareto_categories = tuple(item[0] for item in rows)
+        pareto_values = tuple(_number(item[1]) for item in rows)
+        total = sum(pareto_values)
+        cumulative = tuple(
+            sum(pareto_values[: index + 1]) / total * 100 for index in range(len(pareto_values))
+        )
+        return [
+            draft(
+                "0",
+                "bar.single",
+                {
+                    "x": pareto_categories,
+                    "height": pareto_values,
+                    "bottom": tuple(0.0 for _ in pareto_values),
+                    "top": pareto_values,
+                    "width": tuple(0.68 for _ in pareto_values),
+                },
+                ("x",),
+                ("top",),
+                panel="panel:left",
+                color=0,
+            ),
+            draft(
+                "1",
+                "xy.line",
+                {"x": pareto_categories, "y": cumulative},
+                ("x",),
+                ("y",),
+                panel="panel:right",
+                color=1,
+                label="Cumulative %",
+                source="fixed",
+            ),
+        ]
+
+    raise PlotValidationError("PLOTSPEC_CHART_UNSUPPORTED", f"no resolver for {chart_id}")
+
+
 def _build_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
     family = get_chart(plot.chart_type_id).adapter_family
     if family == "bar":
@@ -512,6 +1252,8 @@ def _build_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
         return _matrix_drafts(plot, store)
     if family == "facet":
         return _facet_drafts(plot, store)
+    if plot.family.kind == "special":
+        return _special_drafts(plot, store)
     return _generic_drafts(plot, store)
 
 
@@ -519,6 +1261,40 @@ def _panel_layout(plot: PlotSpec, drafts: Sequence[_DraftLayer]) -> tuple[Resolv
     width = plot.publication_profile.physical_size.width.value
     height = plot.publication_profile.physical_size.height.value
     panel_ids = tuple(dict.fromkeys(draft.panel_id for draft in drafts))
+    if plot.chart_type_id in {"X23", "X24", "X35", "X36", "X37"}:
+        bounds = dict(
+            left=_mm(14),
+            top=_mm(5),
+            width=_mm(max(10, width - 24)),
+            height=_mm(max(10, height - 17)),
+        )
+        return tuple(ResolvedPanel(panel_id=panel_id, **bounds) for panel_id in panel_ids)
+    if plot.chart_type_id == "X17":
+        main_left, main_top = 14.0, 15.0
+        main_width, main_height = max(10, width - 34), max(10, height - 29)
+        return (
+            ResolvedPanel(
+                panel_id="panel:center",
+                left=_mm(main_left),
+                top=_mm(main_top),
+                width=_mm(main_width),
+                height=_mm(main_height),
+            ),
+            ResolvedPanel(
+                panel_id="panel:top",
+                left=_mm(main_left),
+                top=_mm(4),
+                width=_mm(main_width),
+                height=_mm(9),
+            ),
+            ResolvedPanel(
+                panel_id="panel:right",
+                left=_mm(main_left + main_width + 2),
+                top=_mm(main_top),
+                width=_mm(12),
+                height=_mm(main_height),
+            ),
+        )
     if any(draft.geometry == "special.risk_table" for draft in drafts):
         return (
             ResolvedPanel(
@@ -590,6 +1366,12 @@ def _resolve_panel_axes(
     drafts: Sequence[_DraftLayer],
 ) -> tuple[tuple[ResolvedAxis, ...], dict[tuple[str, str], AxisResolution]]:
     (x_spec, x_scale), (y_spec, y_scale) = _find_axes(plot)
+    scale_by_id = {scale.scale_id: scale for scale in plot.scales}
+    overlay = plot.chart_type_id in {"X23", "X24", "X35", "X36", "X37"}
+    right_y_spec = next(
+        (axis for axis in plot.axes if axis.orientation == "y" and axis.position == "right"),
+        None,
+    )
     shared = plot.chart_type_id == "K24"
     all_x = _axis_values(drafts, "x")
     all_y = _axis_values(drafts, "y")
@@ -610,6 +1392,12 @@ def _resolve_panel_axes(
                 item.y for item in plot.annotations if item.affect_range and item.y is not None
             )
         suffix = "" if len(panels) == 1 else f".p{panel_index}"
+        panel_y_spec = (
+            right_y_spec
+            if overlay and panel.panel_id == "panel:right" and right_y_spec is not None
+            else y_spec
+        )
+        panel_y_scale = scale_by_id[panel_y_spec.scale_id]
         try:
             x_resolved = resolve_axis(
                 x_spec,
@@ -619,13 +1407,33 @@ def _resolve_panel_axes(
                 resolved_axis_id=f"{x_spec.axis_id}{suffix}",
             )
             y_resolved = resolve_axis(
-                y_spec,
-                y_scale,
+                panel_y_spec,
+                panel_y_scale,
                 y_values,
                 panel_id=panel.panel_id,
-                resolved_axis_id=f"{y_spec.axis_id}{suffix}",
+                resolved_axis_id=f"{panel_y_spec.axis_id}{suffix}",
                 include_zero=include_zero_y,
             )
+            if plot.chart_type_id == "X13":
+                x_resolved = replace(
+                    x_resolved,
+                    axis=x_resolved.axis.model_copy(
+                        update={
+                            "ticks": tuple(
+                                tick.model_copy(
+                                    update={
+                                        "label": _plain_text(
+                                            "".join(
+                                                node.text for node in tick.label.nodes
+                                            ).removeprefix("-")
+                                        )
+                                    }
+                                )
+                                for tick in x_resolved.axis.ticks
+                            )
+                        }
+                    ),
+                )
         except ValueError as error:
             raise PlotValidationError("AXIS_RESOLUTION_FAILED", str(error)) from error
         axes.extend((x_resolved.axis, y_resolved.axis))
@@ -755,9 +1563,11 @@ class PlotResolver:
             output_tables[table.object_hash] = table
             field_ids = tuple(table.field_ids)
             roles = tuple(draft.roles)
-            color_value = plot.resolved_style.colors[
-                draft.color_index % len(plot.resolved_style.colors)
-            ]
+            color_value = (
+                ColorValue(value=draft.color_override)
+                if draft.color_override is not None
+                else plot.resolved_style.colors[draft.color_index % len(plot.resolved_style.colors)]
+            )
             layers.append(
                 ResolvedLayer(
                     layer_id=draft.layer_id,

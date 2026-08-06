@@ -79,9 +79,13 @@ class ProjectDomainRepository:
 
     @property
     def revision(self) -> int:
-        row = self.project._assert_writer().execute(  # noqa: SLF001
-            "SELECT revision FROM project_meta"
-        ).fetchone()
+        row = (
+            self.project._assert_writer()
+            .execute(  # noqa: SLF001
+                "SELECT revision FROM project_meta"
+            )
+            .fetchone()
+        )
         return int(row[0])
 
     def require_revision(self, expected: int) -> None:
@@ -94,14 +98,18 @@ class ProjectDomainRepository:
     def replay(
         self, operation: str, idempotency_key: str, request_hash: str
     ) -> dict[str, JsonValue] | None:
-        row = self.project._assert_writer().execute(  # noqa: SLF001
-            """
+        row = (
+            self.project._assert_writer()
+            .execute(  # noqa: SLF001
+                """
             SELECT request_hash, response_json
             FROM idempotency_records
             WHERE operation = ? AND idempotency_key = ?
             """,
-            (operation, idempotency_key),
-        ).fetchone()
+                (operation, idempotency_key),
+            )
+            .fetchone()
+        )
         if row is None:
             return None
         if str(row[0]) != request_hash:
@@ -115,25 +123,33 @@ class ProjectDomainRepository:
         return cast(dict[str, JsonValue], payload)
 
     def source_record(self, source_dataset_id: str, source_version: int) -> SourceDataset:
-        row = self.project._assert_writer().execute(  # noqa: SLF001
-            """
+        row = (
+            self.project._assert_writer()
+            .execute(  # noqa: SLF001
+                """
             SELECT contract_json FROM source_dataset_versions
             WHERE source_dataset_id = ? AND source_version = ?
             """,
-            (source_dataset_id, source_version),
-        ).fetchone()
+                (source_dataset_id, source_version),
+            )
+            .fetchone()
+        )
         if row is None:
             raise StorageProblem(StorageErrorCode.OBJECT_NOT_FOUND, "SourceDataset was not found.")
         return SourceDataset.model_validate_json(str(row[0]))
 
     def resolve_source(self, source: SourceDataset) -> ResolvedSourceTable:
-        row = self.project._assert_writer().execute(  # noqa: SLF001
-            """
+        row = (
+            self.project._assert_writer()
+            .execute(  # noqa: SLF001
+                """
             SELECT metadata_json FROM source_dataset_versions
             WHERE source_dataset_id = ? AND source_version = ?
             """,
-            (source.source_dataset_id, source.source_version),
-        ).fetchone()
+                (source.source_dataset_id, source.source_version),
+            )
+            .fetchone()
+        )
         if row is None:
             raise StorageProblem(StorageErrorCode.OBJECT_NOT_FOUND, "SourceDataset was not found.")
         table = pq.read_table(self.project.object_path(source.data_ref.object_hash))
@@ -143,8 +159,7 @@ class ProjectDomainRepository:
             for index in range(source.data_ref.row_count)
         )
         coordinates = tuple(
-            self._coordinate(values, index, source)
-            for index in range(source.data_ref.row_count)
+            self._coordinate(values, index, source) for index in range(source.data_ref.row_count)
         )
         metadata = json.loads(str(row[0]))
         return ResolvedSourceTable(
@@ -157,14 +172,9 @@ class ProjectDomainRepository:
     def prepared_table(self, prepared: PreparedDataset) -> dict[str, tuple[object, ...]]:
         table = pq.read_table(self.project.object_path(prepared.data_ref.object_hash))
         values = table.to_pydict()
-        return {
-            field_id: tuple(values[field_id])
-            for field_id in prepared.data_ref.field_ids
-        }
+        return {field_id: tuple(values[field_id]) for field_id in prepared.data_ref.field_ids}
 
-    def render_tables(
-        self, stored: StoredPlot
-    ) -> dict[str, dict[str, tuple[object, ...]]]:
+    def render_tables(self, stored: StoredPlot) -> dict[str, dict[str, tuple[object, ...]]]:
         """Load every persisted renderer binding through its verified CAS object."""
 
         tables: dict[str, dict[str, tuple[object, ...]]] = {}
@@ -179,10 +189,14 @@ class ProjectDomainRepository:
         return tables
 
     def latest_plot_version(self, plot_id: str) -> int | None:
-        row = self.project._assert_writer().execute(  # noqa: SLF001
-            "SELECT MAX(plot_version) FROM plot_spec_versions WHERE plot_id = ?",
-            (plot_id,),
-        ).fetchone()
+        row = (
+            self.project._assert_writer()
+            .execute(  # noqa: SLF001
+                "SELECT MAX(plot_version) FROM plot_spec_versions WHERE plot_id = ?",
+                (plot_id,),
+            )
+            .fetchone()
+        )
         return None if row is None or row[0] is None else int(row[0])
 
     def get_plot(self, plot_id: str, plot_version: int | None = None) -> StoredPlot:
@@ -190,8 +204,10 @@ class ProjectDomainRepository:
             plot_version = self.latest_plot_version(plot_id)
         if plot_version is None:
             raise StorageProblem(StorageErrorCode.OBJECT_NOT_FOUND, "PlotSpec was not found.")
-        row = self.project._assert_writer().execute(  # noqa: SLF001
-            """
+        row = (
+            self.project._assert_writer()
+            .execute(  # noqa: SLF001
+                """
             SELECT p.spec_json, p.content_hash, i.field_mapping_json,
                    i.preparation_spec_json, i.prepared_dataset_json,
                    i.render_bindings_json
@@ -200,8 +216,10 @@ class ProjectDomainRepository:
               ON i.plot_id = p.plot_id AND i.plot_version = p.plot_version
             WHERE p.plot_id = ? AND p.plot_version = ?
             """,
-            (plot_id, plot_version),
-        ).fetchone()
+                (plot_id, plot_version),
+            )
+            .fetchone()
+        )
         if row is None:
             raise StorageProblem(StorageErrorCode.OBJECT_NOT_FOUND, "PlotSpec was not found.")
         return StoredPlot(
@@ -214,12 +232,16 @@ class ProjectDomainRepository:
         )
 
     def list_plots(self) -> tuple[StoredPlot, ...]:
-        rows = self.project._assert_writer().execute(  # noqa: SLF001
-            """
+        rows = (
+            self.project._assert_writer()
+            .execute(  # noqa: SLF001
+                """
             SELECT plot_id, MAX(plot_version)
             FROM plot_spec_versions GROUP BY plot_id ORDER BY plot_id
             """
-        ).fetchall()
+            )
+            .fetchall()
+        )
         return tuple(self.get_plot(str(plot_id), int(version)) for plot_id, version in rows)
 
     def commit_new_plot(
@@ -408,13 +430,17 @@ class ProjectDomainRepository:
         )
 
     def get_batch(self, batch_id: str) -> tuple[BatchSpec, str]:
-        row = self.project._assert_writer().execute(  # noqa: SLF001
-            """
+        row = (
+            self.project._assert_writer()
+            .execute(  # noqa: SLF001
+                """
             SELECT spec_json, state FROM batch_spec_versions
             WHERE batch_id = ? ORDER BY batch_version DESC LIMIT 1
             """,
-            (batch_id,),
-        ).fetchone()
+                (batch_id,),
+            )
+            .fetchone()
+        )
         if row is None:
             raise StorageProblem(StorageErrorCode.OBJECT_NOT_FOUND, "BatchSpec was not found.")
         return BatchSpec.model_validate_json(str(row[0])), str(row[1])
@@ -445,13 +471,17 @@ class ProjectDomainRepository:
         )
 
     def get_figure(self, figure_id: str) -> FigureSpec:
-        row = self.project._assert_writer().execute(  # noqa: SLF001
-            """
+        row = (
+            self.project._assert_writer()
+            .execute(  # noqa: SLF001
+                """
             SELECT spec_json FROM figure_spec_versions
             WHERE figure_id = ? ORDER BY figure_version DESC LIMIT 1
             """,
-            (figure_id,),
-        ).fetchone()
+                (figure_id,),
+            )
+            .fetchone()
+        )
         if row is None:
             raise StorageProblem(StorageErrorCode.OBJECT_NOT_FOUND, "FigureSpec was not found.")
         return FigureSpec.model_validate_json(str(row[0]))

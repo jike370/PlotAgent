@@ -59,9 +59,9 @@ class DisclosureGrant:
     retention_disclosure_version: Token
     retention_acknowledged: bool
     allowed_categories: frozenset[DisclosureCategory]
-    authorization_scope: Literal[
-        "default_consent", "this_run", "this_conversation_similar"
-    ] = "default_consent"
+    authorization_scope: Literal["default_consent", "this_run", "this_conversation_similar"] = (
+        "default_consent"
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,9 +211,7 @@ class ContextBuilder:
             for item in fields
         )
         context_rows = (
-            tuple(self._context_row(row, fields) for row in rows)
-            if "sample" in allowed
-            else ()
+            tuple(self._context_row(row, fields) for row in rows) if "sample" in allowed else ()
         )
         context_messages = messages if "message_window" in allowed else ()
         selected = SelectedContext(
@@ -236,9 +234,7 @@ class ContextBuilder:
             provider_type=request.disclosure_grant.provider_type,
             provider_config_id=request.disclosure_grant.provider_config_id,
             authorization_scope=request.disclosure_grant.authorization_scope,
-            retention_disclosure_version=(
-                request.disclosure_grant.retention_disclosure_version
-            ),
+            retention_disclosure_version=(request.disclosure_grant.retention_disclosure_version),
             categories=tuple(categories),
             field_aliases=tuple(item.field_alias for item in context_fields),
             field_count=len(context_fields),
@@ -249,9 +245,7 @@ class ContextBuilder:
         disclosure = disclosure_seed.model_copy(
             update={
                 "disclosure_hash": canonical_hash(
-                    disclosure_seed.model_dump(
-                        mode="json", exclude={"disclosure_hash"}
-                    )
+                    disclosure_seed.model_dump(mode="json", exclude={"disclosure_hash"})
                 )
             }
         )
@@ -294,9 +288,7 @@ class ContextBuilder:
             if math.isnan(value):
                 return NonFiniteSampleValue(value="nan")
             if math.isinf(value):
-                return NonFiniteSampleValue(
-                    value="positive_inf" if value > 0 else "negative_inf"
-                )
+                return NonFiniteSampleValue(value="positive_inf" if value > 0 else "negative_inf")
             return value
         if isinstance(value, str):
             return _bounded_text(value, self._budget.max_cell_chars, allow_empty=True)

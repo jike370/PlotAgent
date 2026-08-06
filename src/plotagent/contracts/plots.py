@@ -100,6 +100,35 @@ class FacetFamily(StrictModel):
     geometry: Annotated[tuple[Literal["panel"], ...], Field(min_length=1)]
 
 
+class SpecialFamily(StrictModel):
+    kind: Literal["special"] = "special"
+    geometry: Annotated[
+        tuple[
+            Literal[
+                "step",
+                "lollipop",
+                "dumbbell",
+                "beeswarm",
+                "ridgeline",
+                "floating_bar",
+                "bridge",
+                "bullet",
+                "pyramid",
+                "scatter_matrix",
+                "density2d",
+                "marginal",
+                "probability",
+                "agreement",
+                "dual_axis",
+                "y_offset",
+                "volcano",
+            ],
+            ...,
+        ],
+        Field(min_length=1),
+    ]
+
+
 PlotFamily = Annotated[
     XYFamily
     | CategoricalFamily
@@ -108,7 +137,8 @@ PlotFamily = Annotated[
     | SurvivalFamily
     | DoseResponseFamily
     | ForestFamily
-    | FacetFamily,
+    | FacetFamily
+    | SpecialFamily,
     Field(discriminator="kind"),
 ]
 
@@ -566,9 +596,7 @@ class FigureSpec(StrictModel):
     layout: Literal["1x2", "1x3", "1x4", "2x1", "2x2", "2x3", "3x1"]
     panels: Annotated[tuple[FigurePanel, ...], Field(min_length=2, max_length=6)]
     alignment: Literal["independent", "align_x", "align_y", "align_both"] = "align_both"
-    axis_policy: Literal["independent", "shared_x", "shared_y", "shared_both"] = (
-        "independent"
-    )
+    axis_policy: Literal["independent", "shared_x", "shared_y", "shared_both"] = "independent"
     common_legend: bool
     physical_size: PhysicalSize
     publication_profile: PublicationProfileSnapshot

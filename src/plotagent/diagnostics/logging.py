@@ -52,16 +52,12 @@ class PerformanceBucket(StrEnum):
 _STABLE_TOKEN: Final = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
 _VERSION_TOKEN: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+\-]{0,63}$")
 _CHART_ID: Final = re.compile(r"^[A-Z][0-9]{2}$")
-_SECRETISH: Final = re.compile(
-    r"(?i)(?:^sk-|api[_-]?key|password|credential|authorization|bearer)"
-)
+_SECRETISH: Final = re.compile(r"(?i)(?:^sk-|api[_-]?key|password|credential|authorization|bearer)")
 _SEGMENT_STAMP: Final = re.compile(r"^plotagent-(\d{8}T\d{6})-[a-f0-9]{32}\.jsonl$")
 _STACK_FILE: Final = re.compile(
     r'^\s*File\s+["\'].*?["\'],\s+line\s+(\d+),\s+in\s+([A-Za-z_][A-Za-z0-9_]*)\s*$'
 )
-_EXCEPTION_TYPE: Final = re.compile(
-    r"^(?:[A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*(?=:)"
-)
+_EXCEPTION_TYPE: Final = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*(?=:)")
 
 
 @dataclass(frozen=True, slots=True)

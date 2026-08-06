@@ -114,8 +114,7 @@ def _validate_contract_links(
             "FieldMapping 中的角色必须唯一。",
         )
     fields_by_ref = {
-        _source_ref(source): {field.field_id for field in source.field_schema}
-        for source in sources
+        _source_ref(source): {field.field_id for field in source.field_schema} for source in sources
     }
     for binding in mapping.bindings:
         known = fields_by_ref[binding.field.source_dataset_ref]
@@ -421,11 +420,15 @@ def prepare(
         }
     )
     warnings = (
-        WarningRecord(
-            warning_id="rows_excluded",
-            message=f"{len(row_mask) - sum(row_mask)} rows were excluded from plotting.",
-        ),
-    ) if exclusions else ()
+        (
+            WarningRecord(
+                warning_id="rows_excluded",
+                message=f"{len(row_mask) - sum(row_mask)} rows were excluded from plotting.",
+            ),
+        )
+        if exclusions
+        else ()
+    )
     contract = PreparedDataset(
         prepared_dataset_id="prepared:" + output_hash[:24],
         prepared_version=1,
@@ -447,9 +450,7 @@ def prepare(
         included_row_count=sum(row_mask),
         excluded_row_count=len(row_mask) - sum(row_mask),
         provenance=PreparedDatasetProvenance(
-            source_coordinate_kinds=tuple(
-                sorted({coordinate.kind for coordinate in coordinates})
-            ),
+            source_coordinate_kinds=tuple(sorted({coordinate.kind for coordinate in coordinates})),
             compiler_build_hash=_COMPILER_BUILD_HASH,
         ),
         warnings=warnings,

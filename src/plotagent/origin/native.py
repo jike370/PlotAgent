@@ -36,6 +36,8 @@ class NativePrimitive:
         "step",
         "forest_interval",
         "forest_symbol",
+        "floating_polygon",
+        "horizontal_polygon",
     ] = "direct"
 
 
@@ -134,6 +136,24 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
                 NativePrimitive("scatter", x_role, "upper"),
             )
         return (bar,)
+    if plot.native_kind == "floating_bar":
+        return (
+            NativePrimitive(
+                "area",
+                "x",
+                "bottom",
+                transform="floating_polygon",
+            ),
+        )
+    if plot.native_kind == "horizontal_bar":
+        return (
+            NativePrimitive(
+                "area",
+                "y",
+                "left",
+                transform="horizontal_polygon",
+            ),
+        )
     if plot.native_kind == "error_bar":
         return (
             NativePrimitive("line", x_role, None, transform="interval_connector"),
@@ -250,6 +270,62 @@ def materialize_primitive(
             _role_values(data, "lower"),
             _role_values(data, "upper"),
         )
+    if primitive.transform == "floating_polygon":
+        bottoms = _role_values(data, "bottom")
+        tops = _role_values(data, "top")
+        widths = _role_values(data, "width")
+        numeric_x = (
+            tuple(_number(value, "floating-bar X") for value in x_values)
+            if all(
+                isinstance(value, (int, float)) and not isinstance(value, bool)
+                for value in x_values
+            )
+            else _category_positions(x_values)
+        )
+        floating_x: list[OriginScalar] = []
+        floating_y: list[OriginScalar] = []
+        for x, bottom, top, width in zip(numeric_x, bottoms, tops, widths, strict=True):
+            half_width = _number(width, "floating-bar width") / 2
+            floating_x.extend(
+                (
+                    x - half_width,
+                    x + half_width,
+                    x + half_width,
+                    x - half_width,
+                    x - half_width,
+                    None,
+                )
+            )
+            floating_y.extend((bottom, bottom, top, top, bottom, None))
+        return NativePrimitiveTable(tuple(floating_x), tuple(floating_y))
+    if primitive.transform == "horizontal_polygon":
+        lefts = _role_values(data, "left")
+        rights = _role_values(data, "right")
+        heights = _role_values(data, "height")
+        numeric_y = (
+            tuple(_number(value, "horizontal-bar Y") for value in x_values)
+            if all(
+                isinstance(value, (int, float)) and not isinstance(value, bool)
+                for value in x_values
+            )
+            else _category_positions(x_values)
+        )
+        horizontal_x: list[OriginScalar] = []
+        horizontal_y: list[OriginScalar] = []
+        for y, left, right, height in zip(numeric_y, lefts, rights, heights, strict=True):
+            half_height = _number(height, "horizontal-bar height") / 2
+            horizontal_x.extend((left, right, right, left, left, None))
+            horizontal_y.extend(
+                (
+                    y - half_height,
+                    y - half_height,
+                    y + half_height,
+                    y + half_height,
+                    y - half_height,
+                    None,
+                )
+            )
+        return NativePrimitiveTable(tuple(horizontal_x), tuple(horizontal_y))
     if primitive.transform == "interval_connector":
         lower = _role_values(data, "lower")
         upper = _role_values(data, "upper")
@@ -277,15 +353,15 @@ def materialize_primitive(
             whisker_high,
             strict=True,
         ):
-            left, right = x - 0.3, x + 0.3
+            box_left, box_right = x - 0.3, x + 0.3
             cap_left, cap_right = x - 0.15, x + 0.15
             x_output.extend(
                 (
-                    left,
-                    right,
-                    right,
-                    left,
-                    left,
+                    box_left,
+                    box_right,
+                    box_right,
+                    box_left,
+                    box_left,
                     None,
                     x,
                     x,
@@ -299,8 +375,8 @@ def materialize_primitive(
                     cap_left,
                     cap_right,
                     None,
-                    left,
-                    right,
+                    box_left,
+                    box_right,
                     None,
                 )
             )
@@ -335,29 +411,29 @@ def materialize_primitive(
             _number(value, "violin X") for value in _role_values(data, primitive.x_role)
         )
         grid = _role_values(data, primitive.y_role or "y")
-        half_width = _role_values(data, "half_width")
-        left = tuple(
+        violin_half_widths = _role_values(data, "half_width")
+        violin_left = tuple(
             center - _number(width, "violin half width")
-            for center, width in zip(centers, half_width, strict=True)
+            for center, width in zip(centers, violin_half_widths, strict=True)
         )
-        right = tuple(
+        violin_right = tuple(
             center + _number(width, "violin half width")
-            for center, width in zip(centers, half_width, strict=True)
+            for center, width in zip(centers, violin_half_widths, strict=True)
         )
         return NativePrimitiveTable(
-            left + tuple(reversed(right)) + (left[0],),
+            violin_left + tuple(reversed(violin_right)) + (violin_left[0],),
             grid + tuple(reversed(grid)) + (grid[0],),
         )
     if primitive.transform == "forest_interval":
         labels = _category_positions(_role_values(data, "label"))
         lower = _role_values(data, "lower")
         upper = _role_values(data, "upper")
-        output_x: list[OriginScalar] = []
-        output_y: list[OriginScalar] = []
+        forest_x: list[OriginScalar] = []
+        forest_y: list[OriginScalar] = []
         for position, low, high in zip(labels, lower, upper, strict=True):
-            output_x.extend((low, high))
-            output_y.extend((position, position))
-        return NativePrimitiveTable(tuple(output_x), tuple(output_y))
+            forest_x.extend((low, high))
+            forest_y.extend((position, position))
+        return NativePrimitiveTable(tuple(forest_x), tuple(forest_y))
     if primitive.transform == "forest_symbol":
         return NativePrimitiveTable(
             _role_values(data, "effect"),

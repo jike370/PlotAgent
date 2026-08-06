@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import cast
 
-from plotagent.contracts.canonical import JsonValue, canonical_hash
+from pydantic import BaseModel
+
+from plotagent.contracts.canonical import JsonValue
 from plotagent.contracts.rendering import OriginExportPlan
 
 from .native import (
@@ -13,6 +17,29 @@ from .native import (
     physical_plot_count,
     primitive_book_name,
 )
+
+
+def origin_canonical_hash(value: BaseModel | JsonValue) -> str:
+    """Hash an ASCII-only canonical payload across the two Origin processes.
+
+    Origin's embedded Windows automation boundary can apply a process code page to
+    non-ASCII text. Escaping Unicode before hashing keeps Chinese labels and scientific
+    symbols byte-identical in the parent, build worker, and fresh-reopen worker.
+    """
+
+    payload = (
+        value.model_dump(mode="json", by_alias=True, exclude_none=False)
+        if isinstance(value, BaseModel)
+        else value
+    )
+    canonical = json.dumps(
+        payload,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(canonical.encode("ascii")).hexdigest()
 
 
 def primitive_count(native_kind: str) -> int:
@@ -46,7 +73,7 @@ def expected_validation_report(plan: OriginExportPlan) -> dict[str, JsonValue]:
                 "origin_name": data.internal_name,
                 "row_count": row_count,
                 "column_count": column_count,
-                "content_sha256": canonical_hash(data),
+                "content_sha256": origin_canonical_hash(data),
             }
         )
     graphs: list[JsonValue] = []
@@ -72,16 +99,14 @@ def expected_validation_report(plan: OriginExportPlan) -> dict[str, JsonValue]:
                             {
                                 "origin_name": page_name,
                                 "row_count": len(table.x),
-                                "content_sha256": canonical_hash(
+                                "content_sha256": origin_canonical_hash(
                                     cast(
                                         JsonValue,
                                         {
                                             "x": list(table.x),
                                             "y": list(table.y),
                                             "y2": (
-                                                list(table.y2)
-                                                if table.y2 is not None
-                                                else None
+                                                list(table.y2) if table.y2 is not None else None
                                             ),
                                         },
                                     )
@@ -149,9 +174,9 @@ def expected_validation_report(plan: OriginExportPlan) -> dict[str, JsonValue]:
     return {
         "schema_version": plan.schema_version,
         "capability": "O1",
-        "origin_plan_sha256": canonical_hash(plan),
+        "origin_plan_sha256": origin_canonical_hash(plan),
         "render_plan_sha256": plan.render_plan_hash,
-        "manifest_sha256": canonical_hash(plan.manifest),
+        "manifest_sha256": origin_canonical_hash(plan.manifest),
         "folders": ["Data", "Analysis", "Graphs", "Metadata"],
         "data_objects": data_objects,
         "graphs": graphs,
@@ -168,4 +193,4 @@ def expected_validation_report(plan: OriginExportPlan) -> dict[str, JsonValue]:
 
 
 def expected_validation_sha256(plan: OriginExportPlan) -> str:
-    return canonical_hash(cast(JsonValue, expected_validation_report(plan)))
+    return origin_canonical_hash(cast(JsonValue, expected_validation_report(plan)))

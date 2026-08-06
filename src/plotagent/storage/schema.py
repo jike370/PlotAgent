@@ -231,9 +231,7 @@ def migrate_catalog_v1_to_v2(path: Path) -> None:
 def ensure_desktop_project_schema(connection: sqlite3.Connection) -> None:
     """Add the closed desktop domain tables to an older schema-v1 work copy."""
 
-    columns = {
-        str(row[1]) for row in connection.execute("PRAGMA table_info(project_meta)")
-    }
+    columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(project_meta)")}
     connection.execute("BEGIN IMMEDIATE")
     try:
         if "revision" not in columns:
@@ -316,8 +314,7 @@ def ensure_desktop_project_schema(connection: sqlite3.Connection) -> None:
         }
         if "render_bindings_json" not in input_columns:
             connection.execute(
-                "ALTER TABLE plot_inputs ADD COLUMN render_bindings_json "
-                "TEXT NOT NULL DEFAULT '{}'"
+                "ALTER TABLE plot_inputs ADD COLUMN render_bindings_json TEXT NOT NULL DEFAULT '{}'"
             )
         connection.commit()
     except Exception:

@@ -123,9 +123,7 @@ def context_request(*, field_count: int = 2, row_count: int = 25) -> ContextBuil
             dataset_content_hash="d" * 64,
             fields=fields,
             sample_rows=rows,
-            message_window=(
-                ContextMessage(role="user", text="previous bounded message"),
-            ),
+            message_window=(ContextMessage(role="user", text="previous bounded message"),),
             explicit_field_aliases=("x_field", "y_field"),
         ),
         conversation_state=ConversationState(current_target=current),

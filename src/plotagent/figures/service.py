@@ -32,9 +32,7 @@ class FigureService:
 
     def create(self, request: FigureCreateRequest) -> FigureResult | Unsupported:
         request_hash = self._create_hash(request)
-        replay = self._idempotent_replay(
-            request.project_id, request.idempotency_key, request_hash
-        )
+        replay = self._idempotent_replay(request.project_id, request.idempotency_key, request_hash)
         if replay is not None:
             return replay
         unsupported = self._validate_layout(request.layout, len(request.plot_refs))
@@ -82,14 +80,10 @@ class FigureService:
         for panel in figure.panels:
             latest = self._repository.get_latest_plot_ref(panel.plot_version_ref.plot_id)
             if latest != panel.plot_version_ref:
-                updates.append(
-                    FigureUpdate(panel.panel_id, panel.plot_version_ref, latest)
-                )
+                updates.append(FigureUpdate(panel.panel_id, panel.plot_version_ref, latest))
         return tuple(updates)
 
-    def upgrade_sources(
-        self, request: FigureUpgradeRequest
-    ) -> FigureResult | Unsupported:
+    def upgrade_sources(self, request: FigureUpgradeRequest) -> FigureResult | Unsupported:
         if not request.replacements:
             raise ValueError("explicit Figure upgrade requires at least one replacement")
         replacement_ids = tuple(item.panel_id for item in request.replacements)
@@ -109,9 +103,7 @@ class FigureService:
                 ],
             }
         )
-        replay = self._idempotent_replay(
-            request.project_id, request.idempotency_key, request_hash
-        )
+        replay = self._idempotent_replay(request.project_id, request.idempotency_key, request_hash)
         if replay is not None:
             return replay
         current = self._repository.get_figure(request.figure_id)
@@ -201,17 +193,19 @@ class FigureService:
                 category="v1_scope",
                 explanation="v1 Figures can contain only numeric chart versions.",
             )
-        if axis_policy in {"shared_x", "shared_both"} and len(
-            {snapshot.x_axis for snapshot in snapshots}
-        ) != 1:
+        if (
+            axis_policy in {"shared_x", "shared_both"}
+            and len({snapshot.x_axis for snapshot in snapshots}) != 1
+        ):
             return Unsupported(
                 target_alias="active_target",
                 category="chart_capability",
                 explanation="The selected plots do not have compatible X axes for sharing.",
             )
-        if axis_policy in {"shared_y", "shared_both"} and len(
-            {snapshot.y_axis for snapshot in snapshots}
-        ) != 1:
+        if (
+            axis_policy in {"shared_y", "shared_both"}
+            and len({snapshot.y_axis for snapshot in snapshots}) != 1
+        ):
             return Unsupported(
                 target_alias="active_target",
                 category="chart_capability",
