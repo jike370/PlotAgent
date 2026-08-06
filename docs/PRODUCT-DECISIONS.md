@@ -1,8 +1,8 @@
 # PlotAgent 已确认产品决策基线
 
-> 状态：正式范围固定为 43 图；原 M0–M6 工程切片已实现，M6 因基础泛化、逐图编辑/Origin 样式与可组合绘图底座重新打开；M7 小规模邀请制 Beta qualification 尚未执行
+> 状态：正式范围固定为 43 图；M6 基础泛化与逐图编辑/Origin 样式工程门禁已实现，内部可组合绘图底座仍待实现；M7 小规模邀请制 Beta qualification 尚未执行
 > 产品代号：PlotAgent  
-> 基线日期：2026-08-06
+> 基线日期：2026-08-07
 > 适用关系：本文件记录全部已确认细节；[PRD](./PRD.md) 将其组织为可实施需求；[DESIGN](../DESIGN.md) 约束视觉与交互表达。三者发生冲突时，应先记录新的用户确认，再同时更新相关文件，不得由实现自行改变产品边界。
 
 ## A. 产品定位与范围
@@ -564,6 +564,9 @@
 - **PD-AA24 Renderer 覆盖。** Matplotlib 运行完整正式基础泛化矩阵；Origin 按不同基础结构签名选择最小、常规和复杂代表数据 live+fresh-reopen。除明确使用冻结合成视觉验证且不得冒充官方证据的 X24/S07 外，每个正式图至少保留一组同源 Origin 证据；九个隐藏图的内部测试不计正式覆盖。昂贵 Origin 泛化不转嫁到每次用户复用。
 - **PD-AA25 发布顺序。** 当前先完成并冻结基础图形泛化门禁、修复发现的确定性 bug，再实现结构单元/配方 compiler；组合实现不得修改基础测试 oracle 来适配自身输出，M7 必须等待该重新打开的 M6 范围完成。
 - **PD-AA26 编辑与 Origin 样式门禁。** 正式 43 图逐图验证 allowed patch 成功、undeclared patch 稳定不支持、版本/事务原子性和 Matplotlib/Origin semantic parity；覆盖全部 12 种符号、闭合符号的 3 种 interior 与 `plus/cross` 非适用拒绝，以及 16 色板按结构签名的映射/readback；RGB 每通道精确，隐藏九图不得出现在产品 capability snapshot。
+- **PD-AA27 专属编辑封闭联合。** 通用编辑之外只增加 `bar_area`、`uncertainty`、`colorbar`、`dual_y`、`facet`、`y_offset`、`chart_parameters` 七个强类型状态组及一一对应的 Patch/Agent intent；UI、Agent、validator 和两套 renderer 共用 capability profile，未声明图形或字段稳定不支持，不开放任意 Origin property、JSON path 或脚本。
+- **PD-AA28 X02 基线语义。** 棒棒糖图默认 baseline 为数据坐标 `Y=0`，调整显示范围不改变横轴位置；显式 baseline 同时控制棒线起点与横轴数据交点。
+- **PD-AA29 色带标题安全映射。** 色带本体固定为 Origin 原生 `Spectrum1`，色域/levels 写入原生 plot `zlevels`。当前锁定 `originpro` 不能安全稳定写入 `Spectrum1.title`，因此标题使用色带旁同层原生可编辑文本对象并完成 fresh-reopen 读回；不得为内部对象名一致而新增任意 LabTalk/属性路径，未来迁回须建立新的版本化证据。
 
 完整单一平台/规模/Origin、预算、43图MatrixKey、不可豁免blocker、Beta checklist与测量协议见 [小规模邀请制 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。
 

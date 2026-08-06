@@ -292,6 +292,121 @@ class LegendSpec(StrictModel):
     anchor_y: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
 
 
+class BarAreaEditSpec(StrictModel):
+    fill_color: ColorValue | None = None
+    edge_color: ColorValue | None = None
+    edge_width: PhysicalLength = PhysicalLength(value=0.5, unit="pt")
+    width_ratio: Annotated[float, Field(gt=0, le=1, allow_inf_nan=False)] = 0.8
+    alpha: Annotated[float, Field(gt=0, le=1, allow_inf_nan=False)] = 1.0
+
+    @model_validator(mode="after")
+    def origin_units(self) -> BarAreaEditSpec:
+        if self.edge_width.unit != "pt" or self.edge_width.value > 20:
+            raise ValueError("bar edge width must be in (0, 20] pt")
+        return self
+
+
+class UncertaintyEditSpec(StrictModel):
+    color: ColorValue | None = None
+    line_width: PhysicalLength = PhysicalLength(value=0.8, unit="pt")
+    cap_size: PhysicalLength = PhysicalLength(value=4.0, unit="pt")
+    band_alpha: Annotated[float, Field(gt=0, le=1, allow_inf_nan=False)] = 0.25
+
+    @model_validator(mode="after")
+    def origin_units(self) -> UncertaintyEditSpec:
+        if self.line_width.unit != "pt" or self.line_width.value > 20:
+            raise ValueError("uncertainty line width must be in (0, 20] pt")
+        if self.cap_size.unit != "pt" or self.cap_size.value > 72:
+            raise ValueError("uncertainty cap size must be in (0, 72] pt")
+        return self
+
+
+class ColorbarEditSpec(StrictModel):
+    visible: bool = True
+    title: SafeRichText | None = None
+    minimum: FiniteNumber | None = None
+    maximum: FiniteNumber | None = None
+    levels: Annotated[int, Field(ge=2, le=64)] = 7
+
+    @model_validator(mode="after")
+    def valid_range(self) -> ColorbarEditSpec:
+        if (self.minimum is None) != (self.maximum is None):
+            raise ValueError("colorbar bounds must both be fixed or both be automatic")
+        if self.minimum is not None and self.maximum is not None and self.minimum >= self.maximum:
+            raise ValueError("colorbar minimum must be lower than maximum")
+        return self
+
+
+class DualYAxisEditSpec(StrictModel):
+    left_color: ColorValue | None = None
+    right_color: ColorValue | None = None
+    axis_width: PhysicalLength = PhysicalLength(value=0.8, unit="pt")
+
+    @model_validator(mode="after")
+    def origin_units(self) -> DualYAxisEditSpec:
+        if self.axis_width.unit != "pt" or self.axis_width.value > 20:
+            raise ValueError("dual-Y axis width must be in (0, 20] pt")
+        return self
+
+
+class FacetLabelEdit(StrictModel):
+    value: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    label: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+
+
+class FacetEditSpec(StrictModel):
+    order: tuple[
+        Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)], ...
+    ] = ()
+    labels: tuple[FacetLabelEdit, ...] = ()
+    gap: PhysicalLength = PhysicalLength(value=4.0, unit="mm")
+    shared_x: bool = True
+    shared_y: bool = True
+    common_legend: bool = True
+
+    @model_validator(mode="after")
+    def unique_values(self) -> FacetEditSpec:
+        if self.gap.unit != "mm" or self.gap.value > 20:
+            raise ValueError("facet gap must be in (0, 20] mm")
+        if len(set(self.order)) != len(self.order):
+            raise ValueError("facet order values must be unique")
+        label_values = tuple(item.value for item in self.labels)
+        if len(set(label_values)) != len(label_values):
+            raise ValueError("facet label values must be unique")
+        return self
+
+
+class YOffsetEditSpec(StrictModel):
+    distance: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    order: tuple[
+        Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)], ...
+    ] = ()
+
+    @model_validator(mode="after")
+    def unique_order(self) -> YOffsetEditSpec:
+        if len(set(self.order)) != len(self.order):
+            raise ValueError("Y-offset order values must be unique")
+        return self
+
+
+class ChartParameterEditSpec(StrictModel):
+    step_where: Literal["pre", "mid", "post"] = "post"
+    lollipop_baseline: FiniteNumber = 0.0
+    volcano_absolute_log2_fold_change: Annotated[float, Field(gt=0, allow_inf_nan=False)] = 1.0
+    volcano_pvalue: Annotated[float, Field(gt=0, lt=1, allow_inf_nan=False)] = 0.05
+    pareto_reference_percent: Annotated[float, Field(gt=0, lt=100, allow_inf_nan=False)] = 80.0
+
+
+class SpecialistEditSpec(StrictModel):
+    bar_area: BarAreaEditSpec = BarAreaEditSpec()
+    uncertainty: UncertaintyEditSpec = UncertaintyEditSpec()
+    colorbar: ColorbarEditSpec = ColorbarEditSpec()
+    dual_y: DualYAxisEditSpec = DualYAxisEditSpec()
+    facet: FacetEditSpec = FacetEditSpec()
+    y_offset: YOffsetEditSpec = YOffsetEditSpec()
+    chart_parameters: ChartParameterEditSpec = ChartParameterEditSpec()
+
+
 class StyleSourceRef(StrictModel):
     source_kind: Literal["project", "batch", "plot", "publication_profile"]
     source_id: Token
@@ -348,6 +463,7 @@ class PlotSpec(StrictModel):
     series: Annotated[tuple[SeriesSpec, ...], Field(min_length=1)]
     legend: LegendSpec = LegendSpec()
     annotations: tuple[AnnotationSpec, ...] = ()
+    specialist: SpecialistEditSpec = SpecialistEditSpec()
     style_sources: Annotated[tuple[StyleSourceRef, ...], Field(min_length=1)]
     resolved_style: ResolvedStyleSnapshot
     publication_profile: PublicationProfileSnapshot
@@ -437,6 +553,41 @@ class SetFontSizePatch(PatchBase):
         if self.size.unit != "pt" or not 5 <= self.size.value <= 72:
             raise ValueError("font size must be between 5 and 72 pt")
         return self
+
+
+class SetBarAreaStylePatch(PatchBase):
+    operation: Literal["set_bar_area_style"] = "set_bar_area_style"
+    style: BarAreaEditSpec
+
+
+class SetUncertaintyStylePatch(PatchBase):
+    operation: Literal["set_uncertainty_style"] = "set_uncertainty_style"
+    style: UncertaintyEditSpec
+
+
+class SetColorbarStylePatch(PatchBase):
+    operation: Literal["set_colorbar_style"] = "set_colorbar_style"
+    style: ColorbarEditSpec
+
+
+class SetDualYAxisStylePatch(PatchBase):
+    operation: Literal["set_dual_y_style"] = "set_dual_y_style"
+    style: DualYAxisEditSpec
+
+
+class SetFacetStylePatch(PatchBase):
+    operation: Literal["set_facet_style"] = "set_facet_style"
+    style: FacetEditSpec
+
+
+class SetYOffsetStylePatch(PatchBase):
+    operation: Literal["set_y_offset_style"] = "set_y_offset_style"
+    style: YOffsetEditSpec
+
+
+class SetChartParametersPatch(PatchBase):
+    operation: Literal["set_chart_parameters"] = "set_chart_parameters"
+    parameters: ChartParameterEditSpec
 
 
 class SetSeriesStylePatch(PatchBase):
@@ -534,6 +685,13 @@ PlotPatch = Annotated[
     | SetAxisReversePatch
     | SetAxisTicksPatch
     | SetFontSizePatch
+    | SetBarAreaStylePatch
+    | SetUncertaintyStylePatch
+    | SetColorbarStylePatch
+    | SetDualYAxisStylePatch
+    | SetFacetStylePatch
+    | SetYOffsetStylePatch
+    | SetChartParametersPatch
     | SetSeriesStylePatch
     | SetPalettePatch
     | SetCategoryColorPatch

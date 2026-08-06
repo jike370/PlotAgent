@@ -206,6 +206,98 @@
       "title": "AxisTickSpec",
       "type": "object"
     },
+    "BarAreaEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "alpha": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "edge_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "edge_width": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "pt",
+            "value": 0.5
+          }
+        },
+        "fill_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "width_ratio": {
+          "default": 0.8,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Width Ratio",
+          "type": "number"
+        }
+      },
+      "title": "BarAreaEditSpec",
+      "type": "object"
+    },
+    "ChartParameterEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "lollipop_baseline": {
+          "default": 0.0,
+          "title": "Lollipop Baseline",
+          "type": "number"
+        },
+        "pareto_reference_percent": {
+          "default": 80.0,
+          "exclusiveMaximum": 100,
+          "exclusiveMinimum": 0,
+          "title": "Pareto Reference Percent",
+          "type": "number"
+        },
+        "step_where": {
+          "default": "post",
+          "enum": [
+            "pre",
+            "mid",
+            "post"
+          ],
+          "title": "Step Where",
+          "type": "string"
+        },
+        "volcano_absolute_log2_fold_change": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "title": "Volcano Absolute Log2 Fold Change",
+          "type": "number"
+        },
+        "volcano_pvalue": {
+          "default": 0.05,
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "title": "Volcano Pvalue",
+          "type": "number"
+        }
+      },
+      "title": "ChartParameterEditSpec",
+      "type": "object"
+    },
     "ColorValue": {
       "additionalProperties": false,
       "properties": {
@@ -219,6 +311,166 @@
         "value"
       ],
       "title": "ColorValue",
+      "type": "object"
+    },
+    "ColorbarEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "levels": {
+          "default": 7,
+          "maximum": 64,
+          "minimum": 2,
+          "title": "Levels",
+          "type": "integer"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "visible": {
+          "default": true,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "title": "ColorbarEditSpec",
+      "type": "object"
+    },
+    "DualYAxisEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "axis_width": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "pt",
+            "value": 0.8
+          }
+        },
+        "left_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "right_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "DualYAxisEditSpec",
+      "type": "object"
+    },
+    "FacetEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "common_legend": {
+          "default": true,
+          "title": "Common Legend",
+          "type": "boolean"
+        },
+        "gap": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "mm",
+            "value": 4.0
+          }
+        },
+        "labels": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FacetLabelEdit"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "order": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Order",
+          "type": "array"
+        },
+        "shared_x": {
+          "default": true,
+          "title": "Shared X",
+          "type": "boolean"
+        },
+        "shared_y": {
+          "default": true,
+          "title": "Shared Y",
+          "type": "boolean"
+        }
+      },
+      "title": "FacetEditSpec",
+      "type": "object"
+    },
+    "FacetLabelEdit": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "title": "FacetLabelEdit",
       "type": "object"
     },
     "MoveLegendPatch": {
@@ -696,6 +948,43 @@
       "title": "SetAxisTicksPatch",
       "type": "object"
     },
+    "SetBarAreaStylePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_bar_area_style",
+          "default": "set_bar_area_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/BarAreaEditSpec"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "style"
+      ],
+      "title": "SetBarAreaStylePatch",
+      "type": "object"
+    },
     "SetBatchAxisPolicyPatch": {
       "additionalProperties": false,
       "properties": {
@@ -817,6 +1106,154 @@
         "color"
       ],
       "title": "SetCategoryColorPatch",
+      "type": "object"
+    },
+    "SetChartParametersPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_chart_parameters",
+          "default": "set_chart_parameters",
+          "title": "Operation",
+          "type": "string"
+        },
+        "parameters": {
+          "$ref": "#/$defs/ChartParameterEditSpec"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "parameters"
+      ],
+      "title": "SetChartParametersPatch",
+      "type": "object"
+    },
+    "SetColorbarStylePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_colorbar_style",
+          "default": "set_colorbar_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/ColorbarEditSpec"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "style"
+      ],
+      "title": "SetColorbarStylePatch",
+      "type": "object"
+    },
+    "SetDualYAxisStylePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_dual_y_style",
+          "default": "set_dual_y_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/DualYAxisEditSpec"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "style"
+      ],
+      "title": "SetDualYAxisStylePatch",
+      "type": "object"
+    },
+    "SetFacetStylePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_facet_style",
+          "default": "set_facet_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/FacetEditSpec"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "style"
+      ],
+      "title": "SetFacetStylePatch",
       "type": "object"
     },
     "SetFontSizePatch": {
@@ -1094,6 +1531,80 @@
       "title": "SetSeriesStylePatch",
       "type": "object"
     },
+    "SetUncertaintyStylePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_uncertainty_style",
+          "default": "set_uncertainty_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/UncertaintyEditSpec"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "style"
+      ],
+      "title": "SetUncertaintyStylePatch",
+      "type": "object"
+    },
+    "SetYOffsetStylePatch": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "operation": {
+          "const": "set_y_offset_style",
+          "default": "set_y_offset_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/YOffsetEditSpec"
+        },
+        "target_id": {
+          "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id",
+        "expected_plot_version",
+        "style"
+      ],
+      "title": "SetYOffsetStylePatch",
+      "type": "object"
+    },
     "SymbolStyle": {
       "additionalProperties": false,
       "properties": {
@@ -1128,6 +1639,45 @@
         }
       },
       "title": "SymbolStyle",
+      "type": "object"
+    },
+    "UncertaintyEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "band_alpha": {
+          "default": 0.25,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Band Alpha",
+          "type": "number"
+        },
+        "cap_size": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "pt",
+            "value": 4.0
+          }
+        },
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "line_width": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "pt",
+            "value": 0.8
+          }
+        }
+      },
+      "title": "UncertaintyEditSpec",
       "type": "object"
     },
     "UpdateAnnotationPatch": {
@@ -1166,6 +1716,36 @@
       ],
       "title": "UpdateAnnotationPatch",
       "type": "object"
+    },
+    "YOffsetEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "distance": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Distance"
+        },
+        "order": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Order",
+          "type": "array"
+        }
+      },
+      "title": "YOffsetEditSpec",
+      "type": "object"
     }
   },
   "$id": "https://schemas.plotagent.local/v1/patch-transaction.schema.json",
@@ -1193,14 +1773,21 @@
             "set_axis_reverse": "#/$defs/SetAxisReversePatch",
             "set_axis_scale": "#/$defs/SetAxisScalePatch",
             "set_axis_ticks": "#/$defs/SetAxisTicksPatch",
+            "set_bar_area_style": "#/$defs/SetBarAreaStylePatch",
             "set_batch_axis_policy": "#/$defs/SetBatchAxisPolicyPatch",
             "set_canvas_size": "#/$defs/SetCanvasSizePatch",
             "set_category_color": "#/$defs/SetCategoryColorPatch",
+            "set_chart_parameters": "#/$defs/SetChartParametersPatch",
+            "set_colorbar_style": "#/$defs/SetColorbarStylePatch",
+            "set_dual_y_style": "#/$defs/SetDualYAxisStylePatch",
+            "set_facet_style": "#/$defs/SetFacetStylePatch",
             "set_font_size": "#/$defs/SetFontSizePatch",
             "set_legend_visibility": "#/$defs/SetLegendVisibilityPatch",
             "set_palette": "#/$defs/SetPalettePatch",
             "set_plot_title": "#/$defs/SetPlotTitlePatch",
             "set_series_style": "#/$defs/SetSeriesStylePatch",
+            "set_uncertainty_style": "#/$defs/SetUncertaintyStylePatch",
+            "set_y_offset_style": "#/$defs/SetYOffsetStylePatch",
             "update_annotation": "#/$defs/UpdateAnnotationPatch"
           },
           "propertyName": "operation"
@@ -1226,6 +1813,27 @@
           },
           {
             "$ref": "#/$defs/SetFontSizePatch"
+          },
+          {
+            "$ref": "#/$defs/SetBarAreaStylePatch"
+          },
+          {
+            "$ref": "#/$defs/SetUncertaintyStylePatch"
+          },
+          {
+            "$ref": "#/$defs/SetColorbarStylePatch"
+          },
+          {
+            "$ref": "#/$defs/SetDualYAxisStylePatch"
+          },
+          {
+            "$ref": "#/$defs/SetFacetStylePatch"
+          },
+          {
+            "$ref": "#/$defs/SetYOffsetStylePatch"
+          },
+          {
+            "$ref": "#/$defs/SetChartParametersPatch"
           },
           {
             "$ref": "#/$defs/SetSeriesStylePatch"

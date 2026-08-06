@@ -141,18 +141,17 @@ def test_x35_dual_y_columns_keep_explicit_side_by_side_coordinates() -> None:
     )
 
 
-def test_x02_lollipop_stems_start_at_the_visible_bottom_frame() -> None:
+def test_x02_lollipop_stems_and_x_axis_stay_at_zero_when_range_changes() -> None:
     resolved = resolve_chart("X02")
 
     assert [layer.geometry for layer in resolved.plan.layers] == ["special.lollipop"]
     figure = MatplotlibRenderer().build_figure(resolved)
     axis = figure.axes[0]
-    bottom = axis.get_ylim()[0]
     segments = axis.collections[0].get_segments()
 
     assert segments
-    assert all(float(segment[0][1]) == pytest.approx(bottom) for segment in segments)
-    assert axis.spines["bottom"].get_position() == ("outward", 0.0)
+    assert all(float(segment[0][1]) == pytest.approx(0.0) for segment in segments)
+    assert axis.spines["bottom"].get_position() == ("data", 0.0)
 
 
 @pytest.mark.parametrize("chart_id", ["X23", "X35", "X36"])

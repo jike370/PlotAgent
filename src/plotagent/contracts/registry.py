@@ -82,6 +82,7 @@ EditCapability = Literal[
     "dual_y_style",
     "panel_style",
     "y_offset",
+    "chart_parameters",
 ]
 
 
@@ -617,16 +618,19 @@ _PROFILE_CAPABILITIES: dict[str, tuple[EditCapability, ...]] = {
     ),
     "L": ("series_color", "line_width", "line_style"),
     "M": ("series_color", "marker_size", "symbol_shape", "symbol_interior"),
-    # Bar fill and edge are represented by the same portable series color/width
-    # controls in M6; width/gap remain explicitly unsupported until qualified.
-    "B": ("series_color", "line_width", "bar_fill", "bar_edge"),
+    "B": (
+        "series_color",
+        "line_width",
+        "bar_fill",
+        "bar_edge",
+        "bar_width",
+        "bar_gap",
+    ),
     "E": ("series_color", "line_width", "marker_size", "error_style", "band_style"),
     "P": ("palette", "colorbar"),
-    # Y/F/O contribute no additional M6 operation. Their specialist controls
-    # remain explicitly absent instead of being approximated in one renderer.
-    "Y": (),
-    "F": (),
-    "O": (),
+    "Y": ("dual_y_style",),
+    "F": ("panel_style",),
+    "O": ("y_offset",),
 }
 
 
@@ -640,7 +644,9 @@ def _edit_capabilities(profile: str) -> tuple[EditCapability, ...]:
 
 
 def _qualified_registration(chart: ChartRegistration) -> ChartRegistration:
-    supported = _edit_capabilities(_EDIT_PROFILES[chart.chart_type_id])
+    supported = list(_edit_capabilities(_EDIT_PROFILES[chart.chart_type_id]))
+    if chart.chart_type_id in {"X01", "X02", "X24", "S07"}:
+        supported.append("chart_parameters")
     admission: AdmissionStatus = (
         "product" if chart.chart_type_id in _PRODUCT_CHART_IDS else "internal_only"
     )
@@ -655,7 +661,7 @@ def _qualified_registration(chart: ChartRegistration) -> ChartRegistration:
         update={
             "admission": admission,
             "visual_evidence": evidence,
-            "edit_capabilities": supported,
+            "edit_capabilities": tuple(supported),
             "unsupported_edit_capabilities": tuple(
                 capability for capability in _ALL_EDIT_CAPABILITIES if capability not in supported
             ),

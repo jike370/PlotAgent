@@ -269,6 +269,9 @@ def _axis_plan(axis: ResolvedAxis) -> OriginAxisPlan:
             OriginTickPlan(value=tick.value, label=_safe_text(tick.label)) for tick in axis.ticks
         ),
         title=_safe_text(axis.label),
+        color=axis.color,
+        line_width_pt=axis.line_width.value,
+        cross_at=axis.cross_at,
     )
 
 
@@ -433,6 +436,22 @@ def compile_origin_plan(
                         line_style=layer.line_style,
                         symbol=layer.symbol,
                         palette_spec=layer.palette_spec,
+                        fill_color=layer.fill_color,
+                        edge_color=layer.edge_color,
+                        edge_width_pt=(
+                            layer.edge_width.value if layer.edge_width is not None else None
+                        ),
+                        width_ratio=layer.width_ratio,
+                        alpha=layer.alpha,
+                        uncertainty_color=layer.uncertainty_color,
+                        uncertainty_line_width_pt=(
+                            layer.uncertainty_line_width.value
+                            if layer.uncertainty_line_width is not None
+                            else None
+                        ),
+                        cap_size_pt=(layer.cap_size.value if layer.cap_size is not None else None),
+                        band_alpha=layer.band_alpha,
+                        step_where=layer.step_where,
                     )
                 )
                 object_map.append(
@@ -454,6 +473,7 @@ def compile_origin_plan(
                         _axis_plan(axis) for axis in sorted(axes, key=lambda item: item.orientation)
                     ),
                     plots=tuple(plot_plans),
+                    label=_safe_text(panel.label),
                 )
             )
         font = plan.fonts[0]
@@ -473,6 +493,7 @@ def compile_origin_plan(
                 layers=tuple(layer_plans),
                 data_object_ids=tuple(graph_data_ids),
                 annotations=plan.annotations,
+                colorbar=plan.colorbar,
             )
         )
         object_map.append(

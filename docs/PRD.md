@@ -1,8 +1,8 @@
 # PlotAgent 产品需求文档
 
-> 状态：正式 43 图与编辑能力已冻结；M6 补充实现/证据重新打开，工程成熟度面向小规模邀请制 Beta
+> 状态：正式 43 图与编辑能力已冻结；M6 Phase A/B 已实现并通过当前工程门禁，Phase C 组合底座待实现；工程成熟度面向小规模邀请制 Beta
 > 产品代号：PlotAgent  
-> 日期：2026-08-06
+> 日期：2026-08-07
 > 相关资料：[规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta 兼容](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
@@ -427,7 +427,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 | S34 Nyquist | G、L、M | 线点样式、等单位比例；不做等效电路拟合 |
 | S61 混淆矩阵 | G、P | 色板、色带、计数/比例标签显示 |
 | X01 阶梯图 | G、L | `pre/post/mid` 阶梯位置 |
-| X02 棒棒糖图 | G、L、M | 棒线、圆点和显式 baseline；默认 baseline 为 Y 轴可见下边界并随范围变化 |
+| X02 棒棒糖图 | G、L、M | 棒线、圆点和显式 baseline；默认 baseline 固定为数据坐标 `Y=0`，调整 Y 轴显示范围不移动横轴；显式修改 baseline 时棒线起点与横轴交点同步移动 |
 | X03 哑铃图 | G、L、M | 起点/终点颜色、符号和连接线 |
 | X05 蜂群图 | G、M | 点样式、群宽和确定性排布 |
 | X09 浮动区间柱 | G、B、M | 区间填充/边框与可选中点；不强制零基线 |

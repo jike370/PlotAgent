@@ -80,6 +80,10 @@ _LINE_STYLE_CODES = {"solid": 0, "dashed": 1, "dotted": 2, "dash_dot": 3}
 _ORIGIN_WHITE_COLOR_INDEX = 18
 _ORIGIN_BLACK_COLOR_INDEX = 1
 _PLOT_TITLE_LABEL = "_TITLE"
+_PANEL_LABEL = "_PANEL_LABEL"
+_COLOR_SCALE_LABEL = "SPECTRUM1"
+_COLOR_SCALE_TITLE_LABEL = "_COLOR_SCALE_TITLE"
+_COLOR_SCALE_OBJECT_TYPE = 13
 
 
 class NativeOriginError(RuntimeError):
@@ -152,16 +156,20 @@ def _apply_right_y_axis_style(layer: Any, style: _AxisVisualStyle) -> None:
     title.set_int("font.bold", style.title_bold)
 
 
-def _assert_right_y_axis_style(layer: Any, expected: _AxisVisualStyle) -> None:
+def _assert_right_y_axis_style(
+    layer: Any,
+    expected_template: _AxisVisualStyle,
+    expected_axis: OriginAxisPlan,
+) -> None:
     actual_values = (
         _finite_float(layer.get_float("y2.thickness")),
         _finite_float(layer.get_float("y2.tickthickness")),
         _finite_float(layer.get_float("y2.mtickthickness")),
     )
     expected_values = (
-        expected.axis_width_pt,
-        expected.major_tick_width_pt,
-        expected.minor_tick_width_pt,
+        expected_axis.line_width_pt,
+        expected_axis.line_width_pt,
+        expected_axis.line_width_pt,
     )
     if any(
         not math.isclose(actual, target, rel_tol=0.0, abs_tol=1e-9)
@@ -172,8 +180,8 @@ def _assert_right_y_axis_style(layer: Any, expected: _AxisVisualStyle) -> None:
     if title is None:
         raise NativeOriginError("native right Y title is missing")
     if (
-        layer.get_int("y2.label.bold") != expected.tick_label_bold
-        or title.get_int("font.bold") != expected.title_bold
+        layer.get_int("y2.label.bold") != expected_template.tick_label_bold
+        or title.get_int("font.bold") != expected_template.title_bold
     ):
         raise NativeOriginError("native right Y axis text weight differs from template")
 
@@ -192,6 +200,39 @@ def _floating_column_gap_command(width: float) -> str:
     if isinstance(width, bool) or not math.isfinite(width) or not 0 < width <= 1:
         raise NativeOriginError("floating-column width must be finite and in (0, 1]")
     return f"-vg {round((1.0 - width) * 100)}"
+
+
+def _bar_gap_command(width_ratio: float) -> str:
+    """Map the closed PlotSpec bar-width ratio to Origin's Spacing-tab gap."""
+
+    if isinstance(width_ratio, bool) or not math.isfinite(width_ratio) or not 0 < width_ratio <= 1:
+        raise NativeOriginError("bar width ratio must be finite and in (0, 1]")
+    return f"-vg {round((1.0 - width_ratio) * 100)}"
+
+
+def _bar_edge_color_command(color: str) -> str:
+    if _HEX_COLOR.fullmatch(color) is None:
+        raise NativeOriginError("bar edge color must be a validated #RRGGBB token")
+    return f'-pbcr color("{color}")'
+
+
+def _bar_edge_width_command(width_pt: float) -> str:
+    if isinstance(width_pt, bool) or not math.isfinite(width_pt) or not 0 < width_pt <= 20:
+        raise NativeOriginError("bar edge width must be finite and in (0, 20] pt")
+    return f"-pbw {width_pt:g}"
+
+
+def _primitive_color(plot: OriginPlotPlan, primitive: NativePrimitive) -> str | None:
+    is_uncertainty = primitive.transform in {"interval_connector", "band"} or (
+        plot.native_kind == "error_bar"
+        and primitive.plot_type == "scatter"
+        and primitive.y_role in {"lower", "upper"}
+    )
+    if is_uncertainty and plot.uncertainty_color is not None:
+        return plot.uncertainty_color.value
+    if primitive.plot_type in {"column", "floating_column", "area"} and plot.fill_color is not None:
+        return plot.fill_color.value
+    return plot.color.value if plot.color is not None else None
 
 
 def _legend_text(graph_id: str, labels: list[str]) -> str:
@@ -528,14 +569,26 @@ class OriginProBackend:
             # Grouping activates that native behavior; fill-only transparency
             # hides the boundary without changing any process-global preference.
             layer.group(True, first_plot_index, first_plot_index + len(created_plots) - 1)
-        if plot_plan.color is not None:
+        is_uncertainty = primitive.transform in {"interval_connector", "band"} or (
+            plot_plan.native_kind == "error_bar"
+            and primitive.plot_type == "scatter"
+            and primitive.y_role in {"lower", "upper"}
+        )
+        primary_color = _primitive_color(plot_plan, primitive)
+        if primary_color is not None:
             for created_plot in created_plots:
-                created_plot.color = plot_plan.color.value
+                created_plot.color = primary_color
             if primitive.plot_type == "area":
                 # Origin's fill-color property accepts palette indexes. ColorValue
                 # is a validated #RRGGBB token, so this closed option preserves the
                 # exact palette without admitting labels or arbitrary commands.
-                plot.set_cmd(_area_fill_command(plot_plan.color.value))
+                plot.set_cmd(_area_fill_command(primary_color))
+        if primitive.plot_type in {"column", "floating_column"}:
+            created_plots[0].set_cmd(_bar_gap_command(plot_plan.width_ratio))
+            if plot_plan.edge_color is not None:
+                created_plots[0].set_cmd(_bar_edge_color_command(plot_plan.edge_color.value))
+            if plot_plan.edge_width_pt is not None:
+                created_plots[0].set_cmd(_bar_edge_width_command(plot_plan.edge_width_pt))
         if primitive.transform in {"floating_polygon", "horizontal_polygon"}:
             for created_plot in created_plots:
                 created_plot.set_float("line.width", 0)
@@ -544,6 +597,12 @@ class OriginProBackend:
             "line_symbol",
         }:
             plot.symbol_size = plot_plan.marker_size_pt
+        if (
+            is_uncertainty
+            and plot_plan.cap_size_pt is not None
+            and primitive.plot_type == "scatter"
+        ):
+            plot.symbol_size = plot_plan.cap_size_pt
         if primitive.plot_type in {"scatter", "line_symbol"}:
             plot.symbol_kind = origin_symbol_code(plot_plan.symbol.shape)
             plot.symbol_interior = origin_interior_code(plot_plan.symbol.interior)
@@ -567,15 +626,17 @@ class OriginProBackend:
             # Native Origin drop lines terminate at the bottom X-axis frame and
             # continue to do so when the user edits the Y display range.
             plot.set_cmd("-pd 1")
-        if plot_plan.native_kind == "grouped_bar" and primitive.plot_type == "column":
-            # Origin has no stable property path for this Spacing-tab control.
-            # Keep the command fully allowlisted and literal; no user text enters it.
-            plot.set_cmd("-vg 70")
         if plot_plan.line_width_pt is not None and primitive.plot_type in {
             "line",
             "line_symbol",
         }:
             plot.set_float("line.width", plot_plan.line_width_pt)
+        if (
+            is_uncertainty
+            and plot_plan.uncertainty_line_width_pt is not None
+            and primitive.plot_type in {"line", "line_symbol"}
+        ):
+            plot.set_float("line.width", plot_plan.uncertainty_line_width_pt)
         if primitive.plot_type in {"line", "line_symbol"}:
             plot.set_int("line.style", _LINE_STYLE_CODES[plot_plan.line_style])
         if primitive.bar_width_role is not None:
@@ -590,11 +651,12 @@ class OriginProBackend:
             width = widths[0]
             created_plots[0].set_cmd(
                 "-paaf 100",
-                "-pbw 0",
                 _floating_column_gap_command(width),
             )
-        if plot_plan.alpha < 1:
-            plot.transparency = round((1 - plot_plan.alpha) * 100)
+        alpha = plot_plan.band_alpha if primitive.transform == "band" else plot_plan.alpha
+        if alpha < 1:
+            for created_plot in created_plots:
+                created_plot.transparency = round((1 - alpha) * 100)
         return plot
 
     def _configure_axis(
@@ -655,6 +717,77 @@ class OriginProBackend:
         label.set_int("show", 1)
         if is_right_y:
             _apply_right_y_axis_style(layer, right_y_style)
+        layer.set_float(f"{prefix}.thickness", axis.line_width_pt)
+        layer.set_float(f"{prefix}.tickthickness", axis.line_width_pt)
+        layer.set_float(f"{prefix}.mtickthickness", axis.line_width_pt)
+        color_index = self._op.ocolor(axis.color.value)
+        layer.set_int(f"{prefix}.color", color_index)
+        layer.set_int(f"{prefix}.label.color", color_index)
+        label.color = axis.color.value
+        if axis.cross_at is not None:
+            layer.set_int(f"{prefix}.postype", 2)
+            layer.set_float(f"{prefix}.position", axis.cross_at)
+
+    def _write_panel_label(
+        self,
+        layer: Any,
+        layer_plan: OriginLayerPlan,
+        font_size_pt: float,
+    ) -> None:
+        if not layer_plan.label:
+            return
+        x_axis = next(axis for axis in layer_plan.axes if axis.orientation == "x")
+        y_axis = next(axis for axis in layer_plan.axes if axis.orientation == "y")
+        x_position = x_axis.minimum + (x_axis.maximum - x_axis.minimum) * 0.02
+        y_position = y_axis.maximum - (y_axis.maximum - y_axis.minimum) * 0.02
+        try:
+            label = layer.add_label(layer_plan.label, x_position, y_position)
+        except Exception as error:
+            raise NativeOriginError(
+                f"could not create native panel label for {layer_plan.layer_id}"
+            ) from error
+        if label is None:
+            raise NativeOriginError("could not create native panel label")
+        label.name = _PANEL_LABEL
+        label.set_float("fsize", font_size_pt)
+        label.set_int("font.bold", 1)
+        label.set_int("show", 1)
+
+    def _write_colorbar(self, layer: Any, graph_plan: OriginGraphObject) -> None:
+        colorbar = graph_plan.colorbar
+        if not colorbar.visible:
+            return
+        # Origin creates Spectrum1 against the active graph layer. Multi-graph
+        # exports therefore activate the typed target immediately before Add.
+        layer.activate()
+        try:
+            native_object = layer.obj.GraphObjects.Add(_COLOR_SCALE_OBJECT_TYPE)
+        except Exception as error:
+            raise NativeOriginError(
+                f"could not create native color scale for {graph_plan.graph_id}"
+            ) from error
+        if native_object is None or not native_object.IsValid():
+            raise NativeOriginError("could not create native color scale")
+        scale = self._op.Label(native_object, layer.obj)
+        scale.name = _COLOR_SCALE_LABEL
+        scale.set_int("show", 1)
+        title = ""
+        if colorbar.title is not None:
+            title = "".join(node.text for node in colorbar.title.nodes)
+        try:
+            # SetStrProp cannot write Spectrum1.title$ on the pinned Origin build.
+            # Keep the native scale title hidden and persist a normal editable
+            # Origin text object beside it; no user text enters a script surface.
+            layer.set_int(f"{_COLOR_SCALE_LABEL}.title", 0)
+        except Exception as error:
+            raise NativeOriginError("could not configure native color scale title") from error
+        if title:
+            title_label = layer.add_label(title, 102, 3)
+            if title_label is None:
+                raise NativeOriginError("could not create native color scale title label")
+            title_label.name = _COLOR_SCALE_TITLE_LABEL
+            title_label.set_float("fsize", graph_plan.font_size_pt)
+            title_label.set_int("show", 1)
 
     def _configure_layer_frame(
         self, graph: OriginGraphObject, layer_plan: OriginLayerPlan, layer: Any
@@ -843,6 +976,7 @@ class OriginProBackend:
                     graph_plan.font_size_pt,
                     template_y_style,
                 )
+            self._write_panel_label(layer, layer_plan, graph_plan.font_size_pt)
             if layer_index == 0:
                 title = layer.label(_PLOT_TITLE_LABEL)
                 if graph_plan.title:
@@ -857,6 +991,7 @@ class OriginProBackend:
                 elif title is not None:
                     title.text = ""
                     title.set_int("show", 0)
+                self._write_colorbar(layer, graph_plan)
             if any(
                 previous.left_mm == layer_plan.left_mm
                 and previous.top_mm == layer_plan.top_mm
@@ -1086,11 +1221,13 @@ class OriginProBackend:
                         count = physical_plot_count(primitive)
                         primitive_plots = plots[actual_index : actual_index + count]
                         actual_index += count
+                        expected_color = _primitive_color(plot_plan, primitive)
                         if (
-                            plot_plan.color is not None
+                            expected_color is not None
                             and primitive.plot_type not in {"heatmap", "contour"}
-                            and any(
-                                tuple(item.color) != _hex_rgb(plot_plan.color.value)
+                            and primitive.color_role is None
+                            and all(
+                                tuple(item.color) != _hex_rgb(expected_color)
                                 for item in primitive_plots
                             )
                         ):
@@ -1129,6 +1266,21 @@ class OriginProBackend:
                                 raise NativeOriginError(
                                     f"native colormap direction differs for {plot_plan.plot_id}"
                                 )
+                            if plot_plan.levels:
+                                actual_levels = tuple(
+                                    float(value) for value in primitive_plots[0].zlevels["levels"]
+                                )
+                                if len(actual_levels) != len(plot_plan.levels) or any(
+                                    not math.isclose(actual, expected, abs_tol=1e-9)
+                                    for actual, expected in zip(
+                                        actual_levels,
+                                        plot_plan.levels,
+                                        strict=True,
+                                    )
+                                ):
+                                    raise NativeOriginError(
+                                        f"native color levels differ for {plot_plan.plot_id}"
+                                    )
                 for axis_plan in layer_plan.axes:
                     axis = layer.axis(
                         "y2"
@@ -1195,7 +1347,63 @@ class OriginProBackend:
                             f"native axis font size differs for {axis_plan.axis_id}"
                         )
                     if axis_plan.orientation == "y" and axis_plan.position == "right":
-                        _assert_right_y_axis_style(layer, template_y_style)
+                        _assert_right_y_axis_style(layer, template_y_style, axis_plan)
+                    actual_widths = (
+                        layer.get_float(f"{prefix}.thickness"),
+                        layer.get_float(f"{prefix}.tickthickness"),
+                        layer.get_float(f"{prefix}.mtickthickness"),
+                    )
+                    if any(
+                        not math.isclose(value, axis_plan.line_width_pt, abs_tol=1e-9)
+                        for value in actual_widths
+                    ):
+                        raise NativeOriginError(
+                            f"native axis width differs for {axis_plan.axis_id}"
+                        )
+                    expected_color = self._op.ocolor(axis_plan.color.value)
+                    if (
+                        layer.get_int(f"{prefix}.color") != expected_color
+                        or layer.get_int(f"{prefix}.label.color") != expected_color
+                    ):
+                        raise NativeOriginError(
+                            f"native axis color differs for {axis_plan.axis_id}"
+                        )
+                    if axis_plan.cross_at is not None and (
+                        layer.get_int(f"{prefix}.postype") != 2
+                        or not math.isclose(
+                            layer.get_float(f"{prefix}.position"),
+                            axis_plan.cross_at,
+                            abs_tol=1e-9,
+                        )
+                    ):
+                        raise NativeOriginError(
+                            f"native axis crossing differs for {axis_plan.axis_id}"
+                        )
+                if layer_plan.label:
+                    panel_label = layer.label(_PANEL_LABEL)
+                    if panel_label is None or panel_label.text != layer_plan.label:
+                        raise NativeOriginError(
+                            f"native panel label differs for {layer_plan.layer_id}"
+                        )
+                if layer_index == 0 and graph_plan.colorbar.visible:
+                    color_scale = layer.label(_COLOR_SCALE_LABEL)
+                    if color_scale is None:
+                        raise NativeOriginError(
+                            f"native color scale is missing for {graph_plan.graph_id}"
+                        )
+                    expected_title = ""
+                    if graph_plan.colorbar.title is not None:
+                        expected_title = "".join(
+                            node.text for node in graph_plan.colorbar.title.nodes
+                        )
+                    title_label = layer.label(_COLOR_SCALE_TITLE_LABEL)
+                    if expected_title and (
+                        title_label is None or title_label.text != expected_title
+                    ):
+                        raise NativeOriginError(
+                            f"native color scale title differs for {graph_plan.graph_id}: "
+                            f"expected={expected_title!r}"
+                        )
                 if (
                     graph_plan.legend_visible
                     and layer_index == 0
@@ -1224,10 +1432,14 @@ class OriginProBackend:
                         )
                 if layer_index == 0 and graph_plan.title:
                     title = layer.label(_PLOT_TITLE_LABEL)
-                    if title is None or title.text != graph_plan.title or not math.isclose(
-                        title.get_float("fsize"),
-                        graph_plan.font_size_pt + 1.0,
-                        abs_tol=1e-9,
+                    if (
+                        title is None
+                        or title.text != graph_plan.title
+                        or not math.isclose(
+                            title.get_float("fsize"),
+                            graph_plan.font_size_pt + 1.0,
+                            abs_tol=1e-9,
+                        )
                     ):
                         raise NativeOriginError(
                             f"native plot title differs for {graph_plan.graph_id}"
@@ -1243,9 +1455,10 @@ class OriginProBackend:
                         )
                     for entry_index, (value, fill_to_next) in enumerate(entries, start=1):
                         base = f"{reference_axis}.refline{entry_index}"
-                        if not math.isclose(
-                            layer.get_float(f"{base}.value"), value, abs_tol=1e-10
-                        ) or layer.get_int(f"{base}.lineshow") != 1:
+                        if (
+                            not math.isclose(layer.get_float(f"{base}.value"), value, abs_tol=1e-10)
+                            or layer.get_int(f"{base}.lineshow") != 1
+                        ):
                             raise NativeOriginError(
                                 f"native reference line differs for {layer_plan.layer_id}"
                             )

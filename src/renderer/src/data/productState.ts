@@ -59,6 +59,50 @@ export interface ProductAnnotation {
   y2?: number
 }
 
+export interface ProductSpecialistState {
+  barArea: {
+    fillColor?: string
+    edgeColor?: string
+    edgeWidthPt: number
+    widthRatio: number
+    alpha: number
+  }
+  uncertainty: {
+    color?: string
+    lineWidthPt: number
+    capSizePt: number
+    bandAlpha: number
+  }
+  colorbar: {
+    visible: boolean
+    title: string
+    minimum?: number
+    maximum?: number
+    levels: number
+  }
+  dualY: {
+    leftColor?: string
+    rightColor?: string
+    axisWidthPt: number
+  }
+  facet: {
+    order: string[]
+    labels: { value: string; label: string }[]
+    gapMm: number
+    sharedX: boolean
+    sharedY: boolean
+    commonLegend: boolean
+  }
+  yOffset: { distance?: number; order: string[] }
+  chartParameters: {
+    stepWhere: 'pre' | 'mid' | 'post'
+    lollipopBaseline: number
+    volcanoAbsoluteLog2FoldChange: number
+    volcanoPvalue: number
+    paretoReferencePercent: number
+  }
+}
+
 export interface ProductPlot {
   plotId: string
   plotVersion: number
@@ -72,6 +116,7 @@ export interface ProductPlot {
   axisStates: { x?: ProductAxisState; y?: ProductAxisState; yRight?: ProductAxisState }
   canvasSizeMm: { width: number; height: number }
   annotations: ProductAnnotation[]
+  specialist: ProductSpecialistState
   style: ProductSeriesStyle & {
     legendVisible?: boolean
     legendPlacement?: string
@@ -242,6 +287,78 @@ function physicalLengthPt(value: JsonValue | undefined, fallback: number): numbe
   return value.unit === 'mm' ? value.value * 72 / 25.4 : value.value
 }
 
+function colorString(value: JsonValue | undefined): string | undefined {
+  return isJsonRecord(value) && typeof value.value === 'string' ? value.value : undefined
+}
+
+function stringArray(value: JsonValue | undefined): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+}
+
+function readSpecialist(value: JsonValue | undefined): ProductSpecialistState {
+  const specialist = isJsonRecord(value) ? value : {}
+  const barArea = isJsonRecord(specialist.bar_area) ? specialist.bar_area : {}
+  const uncertainty = isJsonRecord(specialist.uncertainty) ? specialist.uncertainty : {}
+  const colorbar = isJsonRecord(specialist.colorbar) ? specialist.colorbar : {}
+  const dualY = isJsonRecord(specialist.dual_y) ? specialist.dual_y : {}
+  const facet = isJsonRecord(specialist.facet) ? specialist.facet : {}
+  const yOffset = isJsonRecord(specialist.y_offset) ? specialist.y_offset : {}
+  const parameters = isJsonRecord(specialist.chart_parameters)
+    ? specialist.chart_parameters : {}
+  const labels = Array.isArray(facet.labels) ? facet.labels.filter(isJsonRecord) : []
+  return {
+    barArea: {
+      ...(colorString(barArea.fill_color) ? { fillColor: colorString(barArea.fill_color) } : {}),
+      ...(colorString(barArea.edge_color) ? { edgeColor: colorString(barArea.edge_color) } : {}),
+      edgeWidthPt: physicalLengthPt(barArea.edge_width, 0.5),
+      widthRatio: numberValue(barArea, 'width_ratio') ?? 0.8,
+      alpha: numberValue(barArea, 'alpha') ?? 1,
+    },
+    uncertainty: {
+      ...(colorString(uncertainty.color) ? { color: colorString(uncertainty.color) } : {}),
+      lineWidthPt: physicalLengthPt(uncertainty.line_width, 0.8),
+      capSizePt: physicalLengthPt(uncertainty.cap_size, 4),
+      bandAlpha: numberValue(uncertainty, 'band_alpha') ?? 0.25,
+    },
+    colorbar: {
+      visible: colorbar.visible !== false,
+      title: richTextValue(colorbar.title),
+      ...(typeof colorbar.minimum === 'number' ? { minimum: colorbar.minimum } : {}),
+      ...(typeof colorbar.maximum === 'number' ? { maximum: colorbar.maximum } : {}),
+      levels: numberValue(colorbar, 'levels') ?? 7,
+    },
+    dualY: {
+      ...(colorString(dualY.left_color) ? { leftColor: colorString(dualY.left_color) } : {}),
+      ...(colorString(dualY.right_color) ? { rightColor: colorString(dualY.right_color) } : {}),
+      axisWidthPt: physicalLengthPt(dualY.axis_width, 0.8),
+    },
+    facet: {
+      order: stringArray(facet.order),
+      labels: labels.flatMap((item) => (
+        typeof item.value === 'string' && typeof item.label === 'string'
+          ? [{ value: item.value, label: item.label }] : []
+      )),
+      gapMm: physicalLengthMm(facet.gap, 4),
+      sharedX: facet.shared_x !== false,
+      sharedY: facet.shared_y !== false,
+      commonLegend: facet.common_legend !== false,
+    },
+    yOffset: {
+      ...(typeof yOffset.distance === 'number' ? { distance: yOffset.distance } : {}),
+      order: stringArray(yOffset.order),
+    },
+    chartParameters: {
+      stepWhere: parameters.step_where === 'pre' || parameters.step_where === 'mid'
+        ? parameters.step_where : 'post',
+      lollipopBaseline: numberValue(parameters, 'lollipop_baseline') ?? 0,
+      volcanoAbsoluteLog2FoldChange:
+        numberValue(parameters, 'volcano_absolute_log2_fold_change') ?? 1,
+      volcanoPvalue: numberValue(parameters, 'volcano_pvalue') ?? 0.05,
+      paretoReferencePercent: numberValue(parameters, 'pareto_reference_percent') ?? 80,
+    },
+  }
+}
+
 export function readPlot(value: JsonValue): ProductPlot | undefined {
   const candidates = records(value, (record) => (
     typeof record.plot_id === 'string' && typeof record.plot_version === 'number'
@@ -316,6 +433,7 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
         ...(typeof annotation.y2 === 'number' ? { y2: annotation.y2 } : {}),
       }]
     }),
+    specialist: readSpecialist(record.specialist),
     style: {
       ...readSeriesStyle(firstStyle),
       ...(legend && typeof legend.visible === 'boolean' ? { legendVisible: legend.visible } : {}),

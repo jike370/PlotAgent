@@ -23,14 +23,21 @@ from plotagent.contracts.plots import (
     SetAxisReversePatch,
     SetAxisScalePatch,
     SetAxisTicksPatch,
+    SetBarAreaStylePatch,
     SetBatchAxisPolicyPatch,
     SetCanvasSizePatch,
     SetCategoryColorPatch,
+    SetChartParametersPatch,
+    SetColorbarStylePatch,
+    SetDualYAxisStylePatch,
+    SetFacetStylePatch,
     SetFontSizePatch,
     SetLegendVisibilityPatch,
     SetPalettePatch,
     SetPlotTitlePatch,
     SetSeriesStylePatch,
+    SetUncertaintyStylePatch,
+    SetYOffsetStylePatch,
     UpdateAnnotationPatch,
 )
 
@@ -165,6 +172,20 @@ def validate_plot_patch(plot: PlotSpec, patch: PlotPatch) -> PlotPatch:
         required_capabilities.add("axis_ticks")
     elif isinstance(patch, SetFontSizePatch):
         required_capabilities.add("font")
+    elif isinstance(patch, SetBarAreaStylePatch):
+        required_capabilities.add("bar_fill")
+    elif isinstance(patch, SetUncertaintyStylePatch):
+        required_capabilities.add("error_style")
+    elif isinstance(patch, SetColorbarStylePatch):
+        required_capabilities.add("colorbar")
+    elif isinstance(patch, SetDualYAxisStylePatch):
+        required_capabilities.add("dual_y_style")
+    elif isinstance(patch, SetFacetStylePatch):
+        required_capabilities.add("panel_style")
+    elif isinstance(patch, SetYOffsetStylePatch):
+        required_capabilities.add("y_offset")
+    elif isinstance(patch, SetChartParametersPatch):
+        required_capabilities.add("chart_parameters")
     elif isinstance(patch, SetSeriesStylePatch):
         if patch.color is not None:
             required_capabilities.add("series_color")
@@ -244,6 +265,24 @@ def validate_plot_patch(plot: PlotSpec, patch: PlotPatch) -> PlotPatch:
     elif isinstance(patch, SetFontSizePatch):
         if patch.target_id != plot.plot_id:
             raise PlotValidationError("PATCH_TARGET_INVALID", "font target does not exist")
+    elif isinstance(
+        patch,
+        (
+            SetBarAreaStylePatch,
+            SetUncertaintyStylePatch,
+            SetColorbarStylePatch,
+            SetDualYAxisStylePatch,
+            SetFacetStylePatch,
+            SetYOffsetStylePatch,
+            SetChartParametersPatch,
+        ),
+    ):
+        if patch.target_id != plot.plot_id:
+            raise PlotValidationError(
+                "PATCH_TARGET_INVALID", "specialist-style target does not exist"
+            )
+        if isinstance(patch, SetColorbarStylePatch) and patch.style.title is not None:
+            validate_safe_text(patch.style.title)
     elif isinstance(patch, (SetSeriesStylePatch, SetPalettePatch, SetCategoryColorPatch)):
         if patch.target_id not in series_ids:
             raise PlotValidationError("PATCH_TARGET_INVALID", "series target does not exist")

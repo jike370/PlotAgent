@@ -261,6 +261,24 @@
           "title": "Axis Id",
           "type": "string"
         },
+        "color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": {
+            "value": "#000000"
+          }
+        },
+        "cross_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cross At"
+        },
         "exponent": {
           "default": 0,
           "title": "Exponent",
@@ -268,6 +286,13 @@
         },
         "label": {
           "$ref": "#/$defs/SafeRichText"
+        },
+        "line_width": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "pt",
+            "value": 0.8
+          }
         },
         "maximum": {
           "anyOf": [
@@ -359,6 +384,60 @@
       "title": "ResolvedAxis",
       "type": "object"
     },
+    "ResolvedColorbar": {
+      "additionalProperties": false,
+      "properties": {
+        "levels": {
+          "default": 7,
+          "maximum": 64,
+          "minimum": 2,
+          "title": "Levels",
+          "type": "integer"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "visible": {
+          "default": false,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "title": "ResolvedColorbar",
+      "type": "object"
+    },
     "ResolvedFieldBinding": {
       "additionalProperties": false,
       "properties": {
@@ -409,6 +488,31 @@
     "ResolvedLayer": {
       "additionalProperties": false,
       "properties": {
+        "alpha": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "band_alpha": {
+          "default": 0.25,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Band Alpha",
+          "type": "number"
+        },
+        "cap_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalLength"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "color": {
           "anyOf": [
             {
@@ -464,6 +568,28 @@
           "title": "Displayed Row Count",
           "type": "integer"
         },
+        "edge_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "edge_width": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalLength"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "field_bindings": {
           "default": [],
           "items": {
@@ -479,6 +605,17 @@
           "minItems": 1,
           "title": "Field Ids",
           "type": "array"
+        },
+        "fill_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "full_row_count": {
           "default": 0,
@@ -573,6 +710,16 @@
           "title": "Panel Id",
           "type": "string"
         },
+        "step_where": {
+          "default": "post",
+          "enum": [
+            "pre",
+            "mid",
+            "post"
+          ],
+          "title": "Step Where",
+          "type": "string"
+        },
         "symbol": {
           "$ref": "#/$defs/SymbolStyle",
           "default": {
@@ -584,6 +731,35 @@
           "pattern": "^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target Id",
           "type": "string"
+        },
+        "uncertainty_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "uncertainty_line_width": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalLength"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "width_ratio": {
+          "default": 0.8,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Width Ratio",
+          "type": "number"
         },
         "z_order": {
           "title": "Z Order",
@@ -617,6 +793,11 @@
           "minimum": 0,
           "title": "Anchor Y",
           "type": "number"
+        },
+        "common": {
+          "default": false,
+          "title": "Common",
+          "type": "boolean"
         },
         "placement": {
           "default": "inside",
@@ -732,6 +913,17 @@
       "properties": {
         "height": {
           "$ref": "#/$defs/PhysicalLength"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "left": {
           "$ref": "#/$defs/PhysicalLength"
@@ -996,6 +1188,16 @@
       "title": "Color Space",
       "type": "string"
     },
+    "colorbar": {
+      "$ref": "#/$defs/ResolvedColorbar",
+      "default": {
+        "levels": 7,
+        "maximum": null,
+        "minimum": null,
+        "title": null,
+        "visible": false
+      }
+    },
     "data_integrity": {
       "$ref": "#/$defs/DataIntegritySnapshot"
     },
@@ -1027,6 +1229,7 @@
       "default": {
         "anchor_x": 1.0,
         "anchor_y": 1.0,
+        "common": false,
         "placement": "inside",
         "visible": false
       }

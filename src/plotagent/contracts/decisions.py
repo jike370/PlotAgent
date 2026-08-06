@@ -17,6 +17,15 @@ from plotagent.contracts.base import (
     SemanticAlias,
     StrictModel,
 )
+from plotagent.contracts.plots import (
+    BarAreaEditSpec,
+    ChartParameterEditSpec,
+    ColorbarEditSpec,
+    DualYAxisEditSpec,
+    FacetEditSpec,
+    UncertaintyEditSpec,
+    YOffsetEditSpec,
+)
 from plotagent.contracts.styles import (
     LineStyle,
     PaletteId,
@@ -41,6 +50,13 @@ PatchOperation = Literal[
     "set_axis_reverse",
     "set_axis_ticks",
     "set_font_size",
+    "set_bar_area_style",
+    "set_uncertainty_style",
+    "set_colorbar_style",
+    "set_dual_y_style",
+    "set_facet_style",
+    "set_y_offset_style",
+    "set_chart_parameters",
     "set_series_style",
     "set_category_color",
     "set_palette",
@@ -128,6 +144,48 @@ class FontSizeIntent(StrictModel):
     operation: Literal["set_font_size"] = "set_font_size"
     target_alias: SemanticAlias
     size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)]
+
+
+class BarAreaStyleIntent(StrictModel):
+    operation: Literal["set_bar_area_style"] = "set_bar_area_style"
+    target_alias: SemanticAlias
+    style: BarAreaEditSpec
+
+
+class UncertaintyStyleIntent(StrictModel):
+    operation: Literal["set_uncertainty_style"] = "set_uncertainty_style"
+    target_alias: SemanticAlias
+    style: UncertaintyEditSpec
+
+
+class ColorbarStyleIntent(StrictModel):
+    operation: Literal["set_colorbar_style"] = "set_colorbar_style"
+    target_alias: SemanticAlias
+    style: ColorbarEditSpec
+
+
+class DualYAxisStyleIntent(StrictModel):
+    operation: Literal["set_dual_y_style"] = "set_dual_y_style"
+    target_alias: SemanticAlias
+    style: DualYAxisEditSpec
+
+
+class FacetStyleIntent(StrictModel):
+    operation: Literal["set_facet_style"] = "set_facet_style"
+    target_alias: SemanticAlias
+    style: FacetEditSpec
+
+
+class YOffsetStyleIntent(StrictModel):
+    operation: Literal["set_y_offset_style"] = "set_y_offset_style"
+    target_alias: SemanticAlias
+    style: YOffsetEditSpec
+
+
+class ChartParametersIntent(StrictModel):
+    operation: Literal["set_chart_parameters"] = "set_chart_parameters"
+    target_alias: SemanticAlias
+    parameters: ChartParameterEditSpec
 
 
 class SeriesStyleIntent(StrictModel):
@@ -231,6 +289,13 @@ PatchIntent = Annotated[
     | AxisReverseIntent
     | AxisTicksIntent
     | FontSizeIntent
+    | BarAreaStyleIntent
+    | UncertaintyStyleIntent
+    | ColorbarStyleIntent
+    | DualYAxisStyleIntent
+    | FacetStyleIntent
+    | YOffsetStyleIntent
+    | ChartParametersIntent
     | SeriesStyleIntent
     | CategoryColorIntent
     | PaletteIntent

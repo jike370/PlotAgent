@@ -1,7 +1,7 @@
 # PlotAgent 原生 Origin OPJU 导出契约
 
 > 状态：第一轮 OPJU 导出基线已确认  
-> 日期：2026-08-05  
+> 日期：2026-08-07
 > 适用范围：OPJU 内容边界、OriginExportPlan、能力准入、OriginAdapter、两阶段验证、原子提交、外部修改和稳定错误  
 > 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
@@ -145,7 +145,13 @@ Adapter 只接收经过本地校验的 typed OriginExportPlan，不接收模型�
 - 任意 property name/path/string。
 - 任意模板路径、文件路径或 COM 调用名。
 
-OriginAdapter 以 `originpro`/Python 的版本化类型化固定映射创建和设置对象，不开放 LabTalk 执行入口。唯一允许的 Set 选项是代码内固定的 `-l 2`（森林图区间连接）、`-vg 70`（分组柱间距），以及由 `ColorValue` 的严格 `#RRGGBB` 类型生成的 `-cf color("#RRGGBB")`（原生 area fill）；AST 门禁拒绝其余常量或动态参数。模型、字段名、单元格、标签、路径、模板或 adapter 配置均不能进入这些选项。任何还需要公式、分析命令或未登记 LabTalk 的图形都判为 `CAPABILITY_MISSING`。
+OriginAdapter 以 `originpro`/Python 的版本化类型化固定映射创建和设置对象，不开放 LabTalk 执行入口。固定 Set 选项继续由 AST 门禁锁定；允许的动态显示参数只能经强类型 helper 生成，包括 `-vg` 柱间距、`-pbcr` 柱边框色、`-pbw` 柱边框宽和 `-cf` 面积填充色，数值范围与严格 `#RRGGBB` 均在进入命令前验证。模型、字段名、单元格、标签、路径、模板或 adapter 配置均不能成为选项名或自由正文。任何还需要公式、分析命令或未登记显示选项的图形都判为 `CAPABILITY_MISSING`。
+
+### 8.1 原生色带映射
+
+- 色带本体使用 Origin 原生 `Spectrum1` 图形对象（object type 13），不是 raster 或 Matplotlib 图片；色域范围、离散 levels 与反向状态落在原生 plot 的 `zlevels` 并在 fresh-reopen 后读回。
+- 当前锁定的 `originpro` 版本不能通过安全类型化 API 稳定写入 `Spectrum1.title`；为继续遵守“无任意 LabTalk/属性路径”，adapter 隐藏该对象自带标题，并在色带旁创建同层原生可编辑文本对象 `_COLOR_SCALE_TITLE`。用户在 Origin 内仍可直接编辑标题，色带数据链接、色域和 levels 保持原生。
+- 该标题实现是已声明的 API 适配方式，不允许因此把色带降级为图片，也不允许为追求内部对象名一致而打开脚本入口。若未来锁定版本提供可验证的类型化 title setter，可在新的 adapter/version 和 fresh-reopen evidence 下迁回 `Spectrum1.title`。
 
 ## 9. Template 安全
 

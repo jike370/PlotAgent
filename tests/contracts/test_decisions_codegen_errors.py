@@ -176,6 +176,43 @@ def test_agent_category_color_intent_is_closed_and_typed() -> None:
         )
 
 
+def test_agent_specialist_intent_is_closed_and_typed() -> None:
+    payload = {
+        "schema_version": "1.0",
+        "decision_type": "action_plan",
+        "plan_id": "plan:specialist",
+        "target_alias": "active_target",
+        "actions": [
+            {
+                "action_type": "patch_plot",
+                "action_id": "action:specialist",
+                "target_alias": "active_target",
+                "patches": [
+                    {
+                        "operation": "set_chart_parameters",
+                        "target_alias": "active_target",
+                        "parameters": {
+                            "step_where": "post",
+                            "lollipop_baseline": 0,
+                            "volcano_absolute_log2_fold_change": 1.5,
+                            "volcano_pvalue": 0.01,
+                            "pareto_reference_percent": 80,
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    decision = _decision_adapter().validate_json(json.dumps(payload))
+
+    assert decision.decision_type == "action_plan"
+    invalid = json.loads(json.dumps(payload))
+    invalid["actions"][0]["patches"][0]["parameters"]["origin_property"] = "layer.x"
+    with pytest.raises(ValidationError):
+        _decision_adapter().validate_python(invalid)
+
+
 def _property_names(schema: object) -> set[str]:
     names: set[str] = set()
     if isinstance(schema, dict):

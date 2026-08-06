@@ -186,6 +186,8 @@
         "line_width",
         "bar_fill",
         "bar_edge",
+        "bar_width",
+        "bar_gap",
         "marker_size",
         "error_style",
         "band_style"
@@ -211,6 +213,8 @@
         "line_width",
         "bar_fill",
         "bar_edge",
+        "bar_width",
+        "bar_gap",
         "marker_size",
         "error_style",
         "band_style"
@@ -235,7 +239,9 @@
         "series_color",
         "line_width",
         "bar_fill",
-        "bar_edge"
+        "bar_edge",
+        "bar_width",
+        "bar_gap"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -257,7 +263,9 @@
         "series_color",
         "line_width",
         "bar_fill",
-        "bar_edge"
+        "bar_edge",
+        "bar_width",
+        "bar_gap"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -302,6 +310,8 @@
         "line_width",
         "bar_fill",
         "bar_edge",
+        "bar_width",
+        "bar_gap",
         "line_style"
       ],
       "visual_evidence": "origin_reference"
@@ -325,6 +335,8 @@
         "line_width",
         "bar_fill",
         "bar_edge",
+        "bar_width",
+        "bar_gap",
         "line_style"
       ],
       "visual_evidence": "origin_reference"
@@ -347,7 +359,9 @@
         "series_color",
         "line_width",
         "bar_fill",
-        "bar_edge"
+        "bar_edge",
+        "bar_width",
+        "bar_gap"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -370,7 +384,9 @@
         "line_width",
         "line_style",
         "bar_fill",
-        "bar_edge"
+        "bar_edge",
+        "bar_width",
+        "bar_gap"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -414,7 +430,9 @@
         "line_width",
         "line_style",
         "bar_fill",
-        "bar_edge"
+        "bar_edge",
+        "bar_width",
+        "bar_gap"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -517,6 +535,7 @@
         "canvas_size",
         "publication_profile",
         "safe_annotation",
+        "panel_style",
         "series_color",
         "line_width",
         "line_style",
@@ -540,7 +559,8 @@
         "legend_position",
         "canvas_size",
         "publication_profile",
-        "safe_annotation"
+        "safe_annotation",
+        "panel_style"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -564,7 +584,8 @@
         "line_style",
         "marker_size",
         "error_style",
-        "band_style"
+        "band_style",
+        "panel_style"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -722,7 +743,8 @@
         "safe_annotation",
         "series_color",
         "line_width",
-        "line_style"
+        "line_style",
+        "chart_parameters"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -746,7 +768,8 @@
         "line_style",
         "marker_size",
         "symbol_shape",
-        "symbol_interior"
+        "symbol_interior",
+        "chart_parameters"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -815,7 +838,9 @@
         "line_width",
         "line_style",
         "bar_fill",
-        "bar_edge"
+        "bar_edge",
+        "bar_width",
+        "bar_gap"
       ],
       "visual_evidence": "unqualified"
     },
@@ -838,6 +863,8 @@
         "line_width",
         "bar_fill",
         "bar_edge",
+        "bar_width",
+        "bar_gap",
         "marker_size",
         "symbol_shape",
         "symbol_interior"
@@ -863,6 +890,8 @@
         "line_width",
         "bar_fill",
         "bar_edge",
+        "bar_width",
+        "bar_gap",
         "line_style"
       ],
       "visual_evidence": "unqualified"
@@ -886,6 +915,8 @@
         "line_width",
         "bar_fill",
         "bar_edge",
+        "bar_width",
+        "bar_gap",
         "marker_size",
         "symbol_shape",
         "symbol_interior"
@@ -910,7 +941,9 @@
         "series_color",
         "line_width",
         "bar_fill",
-        "bar_edge"
+        "bar_edge",
+        "bar_width",
+        "bar_gap"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -932,7 +965,8 @@
         "series_color",
         "marker_size",
         "symbol_shape",
-        "symbol_interior"
+        "symbol_interior",
+        "panel_style"
       ],
       "visual_evidence": "unqualified"
     },
@@ -977,7 +1011,10 @@
         "symbol_interior",
         "line_width",
         "bar_fill",
-        "bar_edge"
+        "bar_edge",
+        "bar_width",
+        "bar_gap",
+        "panel_style"
       ],
       "visual_evidence": "unqualified"
     },
@@ -1049,7 +1086,8 @@
         "line_style",
         "marker_size",
         "symbol_shape",
-        "symbol_interior"
+        "symbol_interior",
+        "dual_y_style"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -1072,10 +1110,14 @@
         "line_width",
         "bar_fill",
         "bar_edge",
+        "bar_width",
+        "bar_gap",
         "line_style",
         "marker_size",
         "symbol_shape",
-        "symbol_interior"
+        "symbol_interior",
+        "dual_y_style",
+        "chart_parameters"
       ],
       "visual_evidence": "synthetic_visual"
     },
@@ -1097,7 +1139,10 @@
         "series_color",
         "line_width",
         "bar_fill",
-        "bar_edge"
+        "bar_edge",
+        "bar_width",
+        "bar_gap",
+        "dual_y_style"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -1120,10 +1165,13 @@
         "line_width",
         "bar_fill",
         "bar_edge",
+        "bar_width",
+        "bar_gap",
         "line_style",
         "marker_size",
         "symbol_shape",
-        "symbol_interior"
+        "symbol_interior",
+        "dual_y_style"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -1145,7 +1193,10 @@
         "series_color",
         "line_width",
         "bar_fill",
-        "bar_edge"
+        "bar_edge",
+        "bar_width",
+        "bar_gap",
+        "dual_y_style"
       ],
       "visual_evidence": "unqualified"
     },
@@ -1166,7 +1217,8 @@
         "safe_annotation",
         "series_color",
         "line_width",
-        "line_style"
+        "line_style",
+        "y_offset"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -1188,7 +1240,8 @@
         "series_color",
         "marker_size",
         "symbol_shape",
-        "symbol_interior"
+        "symbol_interior",
+        "chart_parameters"
       ],
       "visual_evidence": "synthetic_visual"
     }

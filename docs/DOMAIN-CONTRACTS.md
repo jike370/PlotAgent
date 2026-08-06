@@ -1,7 +1,7 @@
 # PlotAgent 领域契约与 Schema 设计
 
-> 状态：第一轮契约基线已确认；43 图 availability、逐图编辑与 Origin 样式契约进入 M6 补充实现
-> 日期：2026-08-06
+> 状态：第一轮契约基线已确认；43 图 availability、通用/专属编辑与 Origin 样式契约已实现当前工程门禁，ChartRecipe 同构迁移待实现
+> 日期：2026-08-07
 > 适用范围：SourceDataset、FieldMapping/PreparationSpec、PlotCalculationSpec/Result、StructureUnit/ChartRecipe、PlotSpec、PlotPatch/ChartEditCapabilityProfile、BatchSpec、FigureSpec、ActionPlan 及跨进程 Schema
 > 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
@@ -324,7 +324,27 @@ ChartEditCapabilityProfile
 
 正式 profile 只属于 43 图：K01–K22、K24–K25、S01、S05、S21、S25、S31、S34、S61、X01、X02、X03、X05、X09、X13、X23、X24、X35、X36、X38、S07。X07、X11、X12、X15、X16、X17、X18、X19、X37 固定为 `internal_hidden`，不能出现在图形库、ContextEnvelope create capability 或正式 export target 中。完整逐图操作白名单以 [PRD §8.5](./PRD.md) 为权威。
 
-能力联合至少覆盖 `general`、`line`、`marker`、`bar_fill`、`error_interval`、`palette_color_scale`、`dual_y`、`facet`、`y_offset` 九组语义；每个 capability 仍解析为下面列出的领域 Patch，而不是任意 property path。直方分箱、KDE 带宽、ECDF/CCDF 等改变数值结果的参数不属于 Style/PlotPatch，必须生成新的封闭 PlotCalculationSpec/Result。
+能力联合覆盖 `general`、`line`、`marker`、`bar_fill`、`error_interval`、`palette_color_scale`、`dual_y`、`facet`、`y_offset`、`chart_parameters` 十组语义；每个 capability 仍解析为下面列出的领域 Patch，而不是任意 property path。直方分箱、KDE 带宽、ECDF/CCDF 等改变数值结果的参数不属于 Style/PlotPatch，必须生成新的封闭 PlotCalculationSpec/Result。
+
+专属编辑状态固定进入 `PlotSpec.specialist`，七个操作只允许整体替换对应强类型子对象：
+
+```text
+SpecialistEditSpec
+├─ bar_area: fill_color / edge_color / edge_width / width_ratio / alpha
+├─ uncertainty: color / line_width / cap_size / band_alpha
+├─ colorbar: visible / title / minimum+maximum / levels
+├─ dual_y: left_color / right_color / axis_width
+├─ facet: order / labels / gap / shared_x / shared_y / common_legend
+├─ y_offset: distance / order
+└─ chart_parameters
+   ├─ step_where                         # X01: pre | mid | post
+   ├─ lollipop_baseline                  # X02，默认 0
+   ├─ volcano_absolute_log2_fold_change  # S07，正数
+   ├─ volcano_pvalue                     # S07，0 < p < 1
+   └─ pareto_reference_percent           # X24，0 < percent < 100
+```
+
+对应 Patch/Agent intent discriminator 固定为 `set_bar_area_style`、`set_uncertainty_style`、`set_colorbar_style`、`set_dual_y_style`、`set_facet_style`、`set_y_offset_style`、`set_chart_parameters`。UI 只在当前图声明相应 capability 时显示控件；Agent、本地 validator、Resolver、Matplotlib 与 Origin adapter 消费同一状态。X02 的默认和显式 baseline 都是数据坐标，横轴在 Origin 中与该值相交，不能退化为“把横轴画在当前可见底边”。
 
 ### 4.5 ResolvedRenderPlan
 

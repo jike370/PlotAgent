@@ -24,6 +24,22 @@ function plot(chartId: string): ProductPlot & { title: string } {
     },
     canvasSizeMm: { width: 183, height: 120 },
     annotations: [],
+    specialist: {
+      barArea: { edgeWidthPt: 0.5, widthRatio: 0.8, alpha: 1 },
+      uncertainty: { lineWidthPt: 0.8, capSizePt: 4, bandAlpha: 0.25 },
+      colorbar: { visible: true, title: '', levels: 7 },
+      dualY: { axisWidthPt: 0.8 },
+      facet: {
+        order: [], labels: [], gapMm: 4, sharedX: true, sharedY: true,
+        commonLegend: true,
+      },
+      yOffset: { order: [] },
+      chartParameters: {
+        stepWhere: 'post', lollipopBaseline: 0,
+        volcanoAbsoluteLog2FoldChange: 1, volcanoPvalue: 0.05,
+        paretoReferencePercent: 80,
+      },
+    },
     style: { legendVisible: true, legendPlacement: 'inside' },
   }
 }
@@ -205,6 +221,44 @@ describe('FocusEditor capability-driven patches', () => {
       target_id: 'plot:test',
       annotation: expect.objectContaining({
         annotation_id: 'annotation:ui.test.v4', kind: 'reference_band', y: 2, y2: 4,
+      }),
+    })))
+  })
+
+  it('submits dynamic grouped-bar parameters from the specialist tab', async () => {
+    const user = userEvent.setup()
+    const onPatch = vi.fn(async () => undefined)
+    render(<FocusEditor initialIndex={0} plot={plot('K09')} onPatch={onPatch} onClose={() => undefined} />)
+
+    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('tab', { name: '专属' }))
+    await user.clear(screen.getByRole('spinbutton', { name: '柱宽比例' }))
+    await user.type(screen.getByRole('spinbutton', { name: '柱宽比例' }), '0.65')
+    await user.click(screen.getByRole('button', { name: '应用柱与面积样式' }))
+
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
+      operation: 'set_bar_area_style',
+      target_id: 'plot:test',
+      style: expect.objectContaining({ width_ratio: 0.65 }),
+    })))
+  })
+
+  it('only exposes the fixed chart parameter relevant to the current chart', async () => {
+    const user = userEvent.setup()
+    const onPatch = vi.fn(async () => undefined)
+    render(<FocusEditor initialIndex={0} plot={plot('S07')} onPatch={onPatch} onClose={() => undefined} />)
+
+    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('tab', { name: '专属' }))
+    expect(screen.getByRole('spinbutton', { name: '火山图倍数阈值' })).toBeInTheDocument()
+    expect(screen.queryByRole('spinbutton', { name: '棒棒糖基线' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '应用图型参数' }))
+
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
+      operation: 'set_chart_parameters',
+      parameters: expect.objectContaining({
+        volcano_absolute_log2_fold_change: 1,
+        volcano_pvalue: 0.05,
       }),
     })))
   })

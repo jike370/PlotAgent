@@ -28,6 +28,7 @@ from plotagent.contracts.rendering import (
     DataIntegritySnapshot,
     ResolvedAnnotation,
     ResolvedAxis,
+    ResolvedColorbar,
     ResolvedFieldBinding,
     ResolvedFont,
     ResolvedLayer,
@@ -77,6 +78,10 @@ def _label_key(value: SafeRichText | None) -> str | None:
 
 def _mm(value: float) -> PhysicalLength:
     return PhysicalLength(value=value, unit="mm")
+
+
+def _length_mm(value: PhysicalLength) -> float:
+    return value.value if value.unit == "mm" else value.value * 25.4 / 72
 
 
 def _source_kind(kind: str) -> DataSourceKind:
@@ -153,6 +158,7 @@ class _DraftLayer:
     color_override: str | None = None
     encoding_index: int = 0
     encoding_count: int = 1
+    panel_label: SafeRichText | None = None
 
     @property
     def row_count(self) -> int:
@@ -310,7 +316,8 @@ def _bar_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
         positive = {category: 0.0 for category in categories}
         negative = {category: 0.0 for category in categories}
         count = len(subgroups)
-        width = 0.8 if stacked or count == 1 else 0.8 / count
+        cluster_width = plot.specialist.bar_area.width_ratio
+        width = cluster_width if stacked or count == 1 else cluster_width / count
         for subgroup_index, subgroup in enumerate(subgroups):
             indices = tuple(
                 index
@@ -505,14 +512,20 @@ def _matrix_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
             )
         value_role = next(role for role in ("value", "z") if role in draft.roles)
         numeric = tuple(_number(value) for value in draft.roles[value_role])
-        minimum, maximum = min(numeric), max(numeric)
+        data_minimum, data_maximum = min(numeric), max(numeric)
+        colorbar = plot.specialist.colorbar
+        minimum = colorbar.minimum if colorbar.minimum is not None else data_minimum
+        maximum = colorbar.maximum if colorbar.maximum is not None else data_maximum
         palette = _DIVERGING_PALETTE if plot.chart_type_id == "K21" else _SEQUENTIAL_PALETTE
         levels: tuple[float, ...] = ()
         if plot.chart_type_id == "K22":
             if minimum == maximum:
                 levels = (minimum,)
             else:
-                levels = tuple(minimum + (maximum - minimum) * step / 6 for step in range(7))
+                levels = tuple(
+                    minimum + (maximum - minimum) * step / (colorbar.levels - 1)
+                    for step in range(colorbar.levels)
+                )
         drafts[index] = replace(
             draft,
             palette=palette,
@@ -526,7 +539,15 @@ def _matrix_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
 def _facet_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
     series = plot.series[0]
     rule, values, excluded = _series_values(plot, store, 0)
-    facets = _ordered_unique(values["facet"])
+    natural_facets = _ordered_unique(values["facet"])
+    configured_order = tuple(
+        value for value in plot.specialist.facet.order if value in natural_facets
+    )
+    facets = (
+        *configured_order,
+        *(value for value in natural_facets if value not in configured_order),
+    )
+    label_overrides = {item.value: item.label for item in plot.specialist.facet.labels}
     drafts: list[_DraftLayer] = []
     for index, facet in enumerate(facets):
         indices = tuple(i for i, item in enumerate(values["facet"]) if item == facet)
@@ -548,6 +569,7 @@ def _facet_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
                 excluded_rows=excluded if index == 0 else 0,
                 encoding_index=index,
                 encoding_count=len(facets),
+                panel_label=_plain_text(label_overrides.get(str(facet), str(facet))),
             )
         )
     return drafts
@@ -608,13 +630,18 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
         ]
 
     if chart_id == "X02":
+        baseline = plot.specialist.chart_parameters.lollipop_baseline
         return [
             draft(
                 "0",
                 "special.lollipop",
-                {"x": values["category"], "y": values["value"]},
+                {
+                    "x": values["category"],
+                    "y": values["value"],
+                    "baseline": tuple(baseline for _ in values["value"]),
+                },
                 ("x",),
-                ("y",),
+                ("y", "baseline"),
                 color=0,
             )
         ]
@@ -1162,9 +1189,16 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
 
     if chart_id == "X38":
         result = []
-        series_values = _ordered_unique(values["series"])
+        natural_series = _ordered_unique(values["series"])
+        configured_order = tuple(
+            value for value in plot.specialist.y_offset.order if value in natural_series
+        )
+        series_values = (
+            *configured_order,
+            *(value for value in natural_series if value not in configured_order),
+        )
         all_y = np.asarray([_number(value) for value in values["y"]], dtype=float)
-        offset = max(float(np.ptp(all_y)) * 0.32, 1.0)
+        offset = plot.specialist.y_offset.distance or max(float(np.ptp(all_y)) * 0.32, 1.0)
         for index, series_value in enumerate(series_values):
             indices = tuple(i for i, item in enumerate(values["series"]) if item == series_value)
             result.append(
@@ -1187,7 +1221,12 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
         return result
 
     if chart_id == "S07":
-        thresholds = VOLCANO_THRESHOLDS
+        parameters = plot.specialist.chart_parameters
+        thresholds = replace(
+            VOLCANO_THRESHOLDS,
+            absolute_log2_fold_change=parameters.volcano_absolute_log2_fold_change,
+            pvalue=parameters.volcano_pvalue,
+        )
         pvalues = np.asarray(
             [max(_number(value), np.finfo(float).tiny) for value in values["pvalue"]], dtype=float
         )
@@ -1272,6 +1311,7 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
         cumulative = tuple(
             sum(pareto_values[: index + 1]) / total * 100 for index in range(len(pareto_values))
         )
+        reference = plot.specialist.chart_parameters.pareto_reference_percent
         return [
             draft(
                 "0",
@@ -1298,6 +1338,20 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
                 color=1,
                 label="Cumulative %",
                 source="fixed",
+            ),
+            draft(
+                "2",
+                "xy.line",
+                {
+                    "x": (pareto_categories[0], pareto_categories[-1]),
+                    "y": (reference, reference),
+                },
+                ("x",),
+                ("y",),
+                panel="panel:right",
+                color=1,
+                source="fixed",
+                color_override="#6B7280",
             ),
         ]
 
@@ -1328,13 +1382,16 @@ def _panel_layout(plot: PlotSpec, drafts: Sequence[_DraftLayer]) -> tuple[Resolv
         # millimetres beyond the generic dual-axis margin at the formal 89 mm
         # canvas. Keep both overlay panels exactly coincident after reserving it.
         right_margin = 12.0 if plot.chart_type_id == "X24" else 10.0
-        bounds = dict(
-            left=_mm(14),
-            top=_mm(5),
-            width=_mm(max(10, width - 14 - right_margin)),
-            height=_mm(max(10, height - 17)),
+        return tuple(
+            ResolvedPanel(
+                panel_id=panel_id,
+                left=_mm(14),
+                top=_mm(5),
+                width=_mm(max(10, width - 14 - right_margin)),
+                height=_mm(max(10, height - 17)),
+            )
+            for panel_id in panel_ids
         )
-        return tuple(ResolvedPanel(panel_id=panel_id, **bounds) for panel_id in panel_ids)
     if plot.chart_type_id == "X17":
         main_left, main_top = 14.0, 15.0
         main_width, main_height = max(10, width - 34), max(10, height - 29)
@@ -1379,6 +1436,9 @@ def _panel_layout(plot: PlotSpec, drafts: Sequence[_DraftLayer]) -> tuple[Resolv
             ),
         )
     if len(panel_ids) == 1:
+        panel_label = next(
+            (draft.panel_label for draft in drafts if draft.panel_label is not None), None
+        )
         return (
             ResolvedPanel(
                 panel_id=panel_ids[0],
@@ -1386,11 +1446,13 @@ def _panel_layout(plot: PlotSpec, drafts: Sequence[_DraftLayer]) -> tuple[Resolv
                 top=_mm(5),
                 width=_mm(max(10, width - 20)),
                 height=_mm(max(10, height - 17)),
+                label=panel_label,
             ),
         )
     columns = math.ceil(math.sqrt(len(panel_ids)))
     rows = math.ceil(len(panel_ids) / columns)
-    left, top, right, bottom, gutter = 12.0, 5.0, 5.0, 10.0, 4.0
+    gutter = _length_mm(plot.specialist.facet.gap) if plot.chart_type_id == "K24" else 4.0
+    left, top, right, bottom = 12.0, 5.0, 5.0, 10.0
     panel_width = (width - left - right - gutter * (columns - 1)) / columns
     panel_height = (height - top - bottom - gutter * (rows - 1)) / rows
     return tuple(
@@ -1400,6 +1462,14 @@ def _panel_layout(plot: PlotSpec, drafts: Sequence[_DraftLayer]) -> tuple[Resolv
             top=_mm(top + (index // columns) * (panel_height + gutter)),
             width=_mm(panel_width),
             height=_mm(panel_height),
+            label=next(
+                (
+                    draft.panel_label
+                    for draft in drafts
+                    if draft.panel_id == panel_id and draft.panel_label is not None
+                ),
+                None,
+            ),
         )
         for index, panel_id in enumerate(panel_ids)
     )
@@ -1455,7 +1525,8 @@ def _resolve_panel_axes(
         (axis for axis in plot.axes if axis.orientation == "y" and axis.position == "right"),
         None,
     )
-    shared = plot.chart_type_id == "K24"
+    shared_x = plot.chart_type_id == "K24" and plot.specialist.facet.shared_x
+    shared_y = plot.chart_type_id == "K24" and plot.specialist.facet.shared_y
     all_x = _axis_values(drafts, "x")
     all_y = _axis_values(drafts, "y")
     axes: list[ResolvedAxis] = []
@@ -1464,8 +1535,8 @@ def _resolve_panel_axes(
         if panel.panel_id == "panel:risk":
             continue
         panel_drafts = tuple(draft for draft in drafts if draft.panel_id == panel.panel_id)
-        x_values = all_x if shared else _axis_values(panel_drafts, "x")
-        y_values = all_y if shared else _axis_values(panel_drafts, "y")
+        x_values = all_x if shared_x else _axis_values(panel_drafts, "x")
+        y_values = all_y if shared_y else _axis_values(panel_drafts, "y")
         if plot.annotations and panel.panel_id == "panel:main":
             x_values += tuple(
                 item.x for item in plot.annotations if item.affect_range and item.x is not None
@@ -1496,6 +1567,26 @@ def _resolve_panel_axes(
                 resolved_axis_id=f"{panel_y_spec.axis_id}{suffix}",
                 include_zero=_has_zero_y_baseline(panel_drafts),
             )
+            dual_y = plot.specialist.dual_y
+            if overlay:
+                is_right = panel.panel_id == "panel:right"
+                axis_color = dual_y.right_color if is_right else dual_y.left_color
+                y_resolved = replace(
+                    y_resolved,
+                    axis=y_resolved.axis.model_copy(
+                        update={
+                            "color": axis_color or ColorValue(value="#000000"),
+                            "line_width": dual_y.axis_width,
+                        }
+                    ),
+                )
+            if plot.chart_type_id == "X02":
+                x_resolved = replace(
+                    x_resolved,
+                    axis=x_resolved.axis.model_copy(
+                        update={"cross_at": plot.specialist.chart_parameters.lollipop_baseline}
+                    ),
+                )
             if plot.chart_type_id == "X13":
                 x_resolved = replace(
                     x_resolved,
@@ -1690,9 +1781,8 @@ class PlotResolver:
             elif draft.color_override is not None:
                 color_value = ColorValue(value=draft.color_override)
             elif (
-                (label_key := _label_key(draft.label)) is not None
-                and label_key in series_style.category_colors
-            ):
+                label_key := _label_key(draft.label)
+            ) is not None and label_key in series_style.category_colors:
                 color_value = series_style.category_colors[label_key]
             elif series_style.color is not None:
                 color_value = series_style.color
@@ -1740,6 +1830,16 @@ class PlotResolver:
                     line_style=series_style.line_style,
                     symbol=symbol,
                     palette_spec=palette_spec,
+                    fill_color=plot.specialist.bar_area.fill_color,
+                    edge_color=plot.specialist.bar_area.edge_color,
+                    edge_width=plot.specialist.bar_area.edge_width,
+                    width_ratio=plot.specialist.bar_area.width_ratio,
+                    alpha=plot.specialist.bar_area.alpha,
+                    uncertainty_color=plot.specialist.uncertainty.color,
+                    uncertainty_line_width=plot.specialist.uncertainty.line_width,
+                    cap_size=plot.specialist.uncertainty.cap_size,
+                    band_alpha=plot.specialist.uncertainty.band_alpha,
+                    step_where=plot.specialist.chart_parameters.step_where,
                 )
             )
 
@@ -1801,6 +1901,38 @@ class PlotResolver:
             for item in plot.annotations
         )
         labeled_layers = sum(layer.label is not None for layer in layers)
+        registration = get_chart(plot.chart_type_id)
+        colorbar_style = plot.specialist.colorbar
+        colorbar_layers = tuple(
+            layer
+            for layer in layers
+            if layer.color_minimum is not None and layer.color_maximum is not None
+        )
+        color_minimums = tuple(
+            float(layer.color_minimum)
+            for layer in colorbar_layers
+            if layer.color_minimum is not None
+        )
+        color_maximums = tuple(
+            float(layer.color_maximum)
+            for layer in colorbar_layers
+            if layer.color_maximum is not None
+        )
+        resolved_colorbar = ResolvedColorbar(
+            visible=("colorbar" in registration.edit_capabilities and colorbar_style.visible),
+            title=colorbar_style.title,
+            minimum=(
+                colorbar_style.minimum
+                if colorbar_style.minimum is not None
+                else min(color_minimums, default=None)
+            ),
+            maximum=(
+                colorbar_style.maximum
+                if colorbar_style.maximum is not None
+                else max(color_maximums, default=None)
+            ),
+            levels=colorbar_style.levels,
+        )
         plan = ResolvedRenderPlan(
             render_plan_id=f"renderplan:{plot.plot_id.removeprefix('plot:')}.{quality_tier}",
             render_plan_version=plot.plot_version,
@@ -1826,7 +1958,9 @@ class PlotResolver:
                 placement=plot.legend.placement,
                 anchor_x=plot.legend.anchor_x,
                 anchor_y=plot.legend.anchor_y,
+                common=(plot.chart_type_id == "K24" and plot.specialist.facet.common_legend),
             ),
+            colorbar=resolved_colorbar,
             annotations=annotations,
             data_integrity=DataIntegritySnapshot(
                 total_rows=total_rows + excluded_rows,

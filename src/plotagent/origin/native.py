@@ -28,6 +28,7 @@ class NativePrimitive:
     size_role: str | None = None
     color_role: str | None = None
     bar_width_role: str | None = None
+    step_where: Literal["pre", "mid", "post"] = "post"
     transform: Literal[
         "direct",
         "interval_connector",
@@ -109,7 +110,15 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
     if plot.native_kind in _LINE_KINDS:
         plot_type = "area" if plot.native_kind == "area" else "line"
         if plot.native_kind in {"step", "survival_step"}:
-            return (NativePrimitive(plot_type, x_role, y_role, transform="step"),)
+            return (
+                NativePrimitive(
+                    plot_type,
+                    x_role,
+                    y_role,
+                    step_where=(plot.step_where if plot.native_kind == "step" else "post"),
+                    transform="step",
+                ),
+            )
         return (NativePrimitive(plot_type, x_role, y_role),)
     if plot.native_kind == "line_symbol":
         return (NativePrimitive("line_symbol", x_role, y_role),)
@@ -274,8 +283,18 @@ def materialize_primitive(
         step_x: list[OriginScalar] = [x_values[0]]
         step_y: list[OriginScalar] = [y_values[0]]
         for index in range(1, len(x_values)):
-            step_x.extend((x_values[index], x_values[index]))
-            step_y.extend((y_values[index - 1], y_values[index]))
+            if primitive.step_where == "pre":
+                step_x.extend((x_values[index - 1], x_values[index]))
+                step_y.extend((y_values[index], y_values[index]))
+            elif primitive.step_where == "mid":
+                left = _number(x_values[index - 1], "step X")
+                right = _number(x_values[index], "step X")
+                midpoint = (left + right) / 2
+                step_x.extend((midpoint, midpoint, right))
+                step_y.extend((y_values[index - 1], y_values[index], y_values[index]))
+            else:
+                step_x.extend((x_values[index], x_values[index]))
+                step_y.extend((y_values[index - 1], y_values[index]))
         return NativePrimitiveTable(tuple(step_x), tuple(step_y))
     if primitive.transform == "band":
         return NativePrimitiveTable(
@@ -325,16 +344,20 @@ def materialize_primitive(
         )
         horizontal_x: list[OriginScalar] = []
         horizontal_y: list[OriginScalar] = []
-        for y, left, right, height in zip(numeric_y, lefts, rights, heights, strict=True):
-            half_height = _number(height, "horizontal-bar height") / 2
-            horizontal_x.extend((left, right, right, left, left, None))
+        for y_position, left_value, right_value, height_value in zip(
+            numeric_y, lefts, rights, heights, strict=True
+        ):
+            half_height = _number(height_value, "horizontal-bar height") / 2
+            horizontal_x.extend(
+                (left_value, right_value, right_value, left_value, left_value, None)
+            )
             horizontal_y.extend(
                 (
-                    y - half_height,
-                    y - half_height,
-                    y + half_height,
-                    y + half_height,
-                    y - half_height,
+                    y_position - half_height,
+                    y_position - half_height,
+                    y_position + half_height,
+                    y_position + half_height,
+                    y_position - half_height,
                     None,
                 )
             )

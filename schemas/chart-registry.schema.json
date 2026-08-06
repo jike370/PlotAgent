@@ -120,7 +120,8 @@
               "colorbar",
               "dual_y_style",
               "panel_style",
-              "y_offset"
+              "y_offset",
+              "chart_parameters"
             ],
             "type": "string"
           },
@@ -282,7 +283,8 @@
               "colorbar",
               "dual_y_style",
               "panel_style",
-              "y_offset"
+              "y_offset",
+              "chart_parameters"
             ],
             "type": "string"
           },

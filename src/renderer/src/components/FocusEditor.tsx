@@ -33,6 +33,7 @@ import {
 
 import type { ScopeMode } from './ConversationWorkspace'
 import { BatchPlot } from './PlotVisuals'
+import { SpecialistEditor } from './SpecialistEditor'
 import type { JsonValue } from '../../../shared/desktop-contract'
 import type { ProductPlot } from '../data/productState'
 import {
@@ -59,7 +60,7 @@ interface Position {
   y: number
 }
 
-type ParameterTab = 'general' | 'style' | 'axis' | 'legend' | 'annotation'
+type ParameterTab = 'general' | 'style' | 'specialist' | 'axis' | 'legend' | 'annotation'
 type AnnotationKind = 'text' | 'reference_line' | 'reference_band'
 type AnnotationAxis = 'x' | 'y'
 type EditState = 'idle' | 'saving' | 'saved' | 'error'
@@ -185,6 +186,10 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
   const editCapabilities = new Set(
     plot ? chartProductMetadata[plot.chartId]?.editCapabilities ?? [] : [],
   )
+  const hasSpecialistEdits = [...editCapabilities].some((item) => [
+    'bar_fill', 'bar_edge', 'bar_width', 'bar_gap', 'error_style', 'band_style',
+    'colorbar', 'dual_y_style', 'panel_style', 'y_offset', 'chart_parameters',
+  ].includes(item))
   const selectedSeriesId = plot?.seriesIds[seriesTargetIndex]
   const selectedAxisId = plot?.axisIds[axisTarget]
   const selectedSymbol = symbolCatalog.find((item) => item.shape === symbolShape)
@@ -375,7 +380,7 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
           <aside className="parameter-panel" aria-label="图形参数">
             <header><div><strong>图形参数</strong><span>{scope === 'current' ? active.title : scope === 'selected' ? `${selected.length} 张选中图` : '批次 B-024'}</span></div><button type="button" onClick={() => setPanelOpen(false)} aria-label="关闭参数面板"><X size={17} /></button></header>
             <div className="parameter-tabs" role="tablist" aria-label="编辑类别">
-              {([['general', '常规'], ['style', '样式'], ['axis', '坐标轴'], ['legend', '图例'], ['annotation', '标注']] as [ParameterTab, string][]).map(([value, label]) => (
+              {([['general', '常规'], ['style', '样式'], ...(hasSpecialistEdits ? [['specialist', '专属']] : []), ['axis', '坐标轴'], ['legend', '图例'], ['annotation', '标注']] as [ParameterTab, string][]).map(([value, label]) => (
                 <button key={value} className={parameterTab === value ? 'is-active' : ''} type="button" role="tab" aria-selected={parameterTab === value} onClick={() => setParameterTab(value)}>{label}</button>
               ))}
             </div>
@@ -431,6 +436,15 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
                   </form>
                 )}
               </>
+            )}
+
+            {parameterTab === 'specialist' && plot && (
+              <SpecialistEditor
+                capabilities={editCapabilities}
+                plot={plot}
+                disabled={editState === 'saving'}
+                onApply={(operation, values) => applyPatch(operation, plot.plotId, values)}
+              />
             )}
 
             {parameterTab === 'axis' && (

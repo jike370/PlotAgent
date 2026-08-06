@@ -81,6 +81,30 @@
           "title": "Axis Id",
           "type": "string"
         },
+        "color": {
+          "$ref": "#/$defs/ColorValue",
+          "default": {
+            "value": "#000000"
+          }
+        },
+        "cross_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cross At"
+        },
+        "line_width_pt": {
+          "default": 0.8,
+          "exclusiveMinimum": 0,
+          "title": "Line Width Pt",
+          "type": "number"
+        },
         "maximum": {
           "title": "Maximum",
           "type": "number"
@@ -342,6 +366,16 @@
           "title": "Annotations",
           "type": "array"
         },
+        "colorbar": {
+          "$ref": "#/$defs/ResolvedColorbar",
+          "default": {
+            "levels": 7,
+            "maximum": null,
+            "minimum": null,
+            "title": null,
+            "visible": false
+          }
+        },
         "data_object_ids": {
           "items": {
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
@@ -458,6 +492,12 @@
           "exclusiveMinimum": 0,
           "title": "Height Mm",
           "type": "number"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 256,
+          "title": "Label",
+          "type": "string"
         },
         "layer_id": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
@@ -759,6 +799,25 @@
           "title": "Alpha",
           "type": "number"
         },
+        "band_alpha": {
+          "default": 0.25,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Band Alpha",
+          "type": "number"
+        },
+        "cap_size_pt": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cap Size Pt"
+        },
         "color": {
           "anyOf": [
             {
@@ -774,6 +833,40 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
           "title": "Data Object Id",
           "type": "string"
+        },
+        "edge_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "edge_width_pt": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Edge Width Pt"
+        },
+        "fill_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "label": {
           "default": "",
@@ -897,12 +990,52 @@
           "title": "Source Layer Id",
           "type": "string"
         },
+        "step_where": {
+          "default": "post",
+          "enum": [
+            "pre",
+            "mid",
+            "post"
+          ],
+          "title": "Step Where",
+          "type": "string"
+        },
         "symbol": {
           "$ref": "#/$defs/SymbolStyle",
           "default": {
             "interior": "solid",
             "shape": "circle"
           }
+        },
+        "uncertainty_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "uncertainty_line_width_pt": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Line Width Pt"
+        },
+        "width_ratio": {
+          "default": 0.8,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Width Ratio",
+          "type": "number"
         },
         "z_order": {
           "title": "Z Order",
@@ -1135,6 +1268,60 @@
         "kind"
       ],
       "title": "ResolvedAnnotation",
+      "type": "object"
+    },
+    "ResolvedColorbar": {
+      "additionalProperties": false,
+      "properties": {
+        "levels": {
+          "default": 7,
+          "maximum": 64,
+          "minimum": 2,
+          "title": "Levels",
+          "type": "integer"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "visible": {
+          "default": false,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "title": "ResolvedColorbar",
       "type": "object"
     },
     "ResolvedPalette": {

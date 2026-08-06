@@ -113,6 +113,7 @@ export type EditCapability =
   | 'symbol_shape' | 'symbol_interior' | 'palette' | 'bar_fill' | 'bar_edge'
   | 'bar_width' | 'bar_gap' | 'error_style' | 'band_style' | 'colorbar'
   | 'dual_y_style' | 'panel_style' | 'y_offset'
+  | 'chart_parameters'
 
 export type PaletteId = (typeof styleCatalog.palettes)[number]['palette_id']
 export type SymbolShape = (typeof styleCatalog.symbols)[number]['shape']

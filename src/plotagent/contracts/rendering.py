@@ -87,6 +87,9 @@ class ResolvedAxis(StrictModel):
     exponent: int = 0
     precision: NonNegativeInt = 0
     label: SafeRichText
+    color: ColorValue = ColorValue(value="#000000")
+    line_width: PhysicalLength = PhysicalLength(value=0.8, unit="pt")
+    cross_at: FiniteNumber | None = None
 
     @model_validator(mode="after")
     def fixed_range_order(self) -> ResolvedAxis:
@@ -110,6 +113,7 @@ class ResolvedPanel(StrictModel):
     top: PhysicalLength
     width: PhysicalLength
     height: PhysicalLength
+    label: SafeRichText | None = None
 
 
 class ResolvedFieldBinding(StrictModel):
@@ -143,6 +147,16 @@ class ResolvedLayer(StrictModel):
     line_style: LineStyle = "solid"
     symbol: SymbolStyle = SymbolStyle()
     palette_spec: ResolvedPalette | None = None
+    fill_color: ColorValue | None = None
+    edge_color: ColorValue | None = None
+    edge_width: PhysicalLength | None = None
+    width_ratio: Annotated[float, Field(gt=0, le=1, allow_inf_nan=False)] = 0.8
+    alpha: Annotated[float, Field(gt=0, le=1, allow_inf_nan=False)] = 1.0
+    uncertainty_color: ColorValue | None = None
+    uncertainty_line_width: PhysicalLength | None = None
+    cap_size: PhysicalLength | None = None
+    band_alpha: Annotated[float, Field(gt=0, le=1, allow_inf_nan=False)] = 0.25
+    step_where: Literal["pre", "mid", "post"] = "post"
 
     @model_validator(mode="after")
     def valid_resolved_data(self) -> ResolvedLayer:
@@ -164,6 +178,15 @@ class ResolvedLegend(StrictModel):
     placement: Literal["inside", "outside_right", "outside_bottom"] = "inside"
     anchor_x: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
     anchor_y: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
+    common: bool = False
+
+
+class ResolvedColorbar(StrictModel):
+    visible: bool = False
+    title: SafeRichText | None = None
+    minimum: FiniteNumber | None = None
+    maximum: FiniteNumber | None = None
+    levels: Annotated[int, Field(ge=2, le=64)] = 7
 
 
 class ResolvedAnnotation(StrictModel):
@@ -232,6 +255,7 @@ class ResolvedRenderPlan(StrictModel):
     layers: Annotated[tuple[ResolvedLayer, ...], Field(min_length=1)]
     fonts: Annotated[tuple[ResolvedFont, ...], Field(min_length=1)]
     legend: ResolvedLegend = ResolvedLegend()
+    colorbar: ResolvedColorbar = ResolvedColorbar()
     annotations: tuple[ResolvedAnnotation, ...] = ()
     data_integrity: DataIntegritySnapshot
     warnings: tuple[WarningRecord, ...] = ()
@@ -350,6 +374,9 @@ class OriginAxisPlan(StrictModel):
     reverse: bool = False
     ticks: Annotated[tuple[OriginTickPlan, ...], Field(min_length=1)]
     title: Annotated[str, StringConstraints(max_length=512, strict=True)] = ""
+    color: ColorValue = ColorValue(value="#000000")
+    line_width_pt: Annotated[float, Field(gt=0, allow_inf_nan=False)] = 0.8
+    cross_at: FiniteNumber | None = None
 
     @model_validator(mode="after")
     def valid_axis(self) -> OriginAxisPlan:
@@ -414,6 +441,15 @@ class OriginPlotPlan(StrictModel):
     symbol: SymbolStyle = SymbolStyle()
     palette_spec: ResolvedPalette | None = None
     alpha: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 1.0
+    fill_color: ColorValue | None = None
+    edge_color: ColorValue | None = None
+    edge_width_pt: FiniteNumber | None = None
+    width_ratio: Annotated[float, Field(gt=0, le=1, allow_inf_nan=False)] = 0.8
+    uncertainty_color: ColorValue | None = None
+    uncertainty_line_width_pt: FiniteNumber | None = None
+    cap_size_pt: FiniteNumber | None = None
+    band_alpha: Annotated[float, Field(gt=0, le=1, allow_inf_nan=False)] = 0.25
+    step_where: Literal["pre", "mid", "post"] = "post"
 
 
 class OriginLayerPlan(StrictModel):
@@ -425,6 +461,7 @@ class OriginLayerPlan(StrictModel):
     height_mm: Annotated[float, Field(gt=0, allow_inf_nan=False)]
     axes: Annotated[tuple[OriginAxisPlan, ...], Field(min_length=2, max_length=2)]
     plots: Annotated[tuple[OriginPlotPlan, ...], Field(min_length=1)]
+    label: Annotated[str, StringConstraints(max_length=256, strict=True)] = ""
 
 
 class OriginGraphObject(StrictModel):
@@ -446,6 +483,7 @@ class OriginGraphObject(StrictModel):
     layers: Annotated[tuple[OriginLayerPlan, ...], Field(min_length=1)]
     data_object_ids: Annotated[tuple[Token, ...], Field(min_length=1)]
     annotations: tuple[ResolvedAnnotation, ...] = ()
+    colorbar: ResolvedColorbar = ResolvedColorbar()
 
     @model_validator(mode="after")
     def unique_graph_parts(self) -> OriginGraphObject:

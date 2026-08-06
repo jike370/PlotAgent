@@ -98,6 +98,19 @@ class MatplotlibRenderer:
         )
         FigureCanvasAgg(figure)
         axes = self._create_axes(figure, resolved)
+        for panel in plan.panels:
+            panel_label = safe_text(panel.label)
+            if panel_label:
+                axes[panel.panel_id].text(
+                    0.02,
+                    0.98,
+                    panel_label,
+                    transform=axes[panel.panel_id].transAxes,
+                    ha="left",
+                    va="top",
+                    fontweight="bold",
+                    zorder=100,
+                )
         title = safe_text(plan.title)
         if title:
             title_axis = axes.get("panel:main")
@@ -110,6 +123,7 @@ class MatplotlibRenderer:
             self._draw_layer(axis, layer, roles)
         self._draw_annotations(axes, resolved)
         self._draw_legends(axes, resolved)
+        self._draw_colorbar(figure, axes, resolved)
         self._apply_text_style(figure, resolved)
         for axis in axes.values():
             axis.set_autoscale_on(False)
@@ -205,6 +219,12 @@ class MatplotlibRenderer:
                     label.set_horizontalalignment("right")
             axis.xaxis.set_minor_locator(NullLocator())
             axis.set_xlabel(safe_text(plan.label) or "")
+            axis.spines["bottom"].set_color(plan.color.value)
+            axis.spines["bottom"].set_linewidth(plan.line_width.value)
+            axis.tick_params(axis="x", colors=plan.color.value, width=plan.line_width.value)
+            axis.xaxis.label.set_color(plan.color.value)
+            if plan.cross_at is not None:
+                axis.spines["bottom"].set_position(("data", plan.cross_at))
             if plan.position == "top":
                 axis.xaxis.set_label_position("top")
                 axis.xaxis.tick_top()
@@ -213,6 +233,11 @@ class MatplotlibRenderer:
             axis.set_yticks(tick_values, labels=tick_labels)
             axis.yaxis.set_minor_locator(NullLocator())
             axis.set_ylabel(safe_text(plan.label) or "")
+            spine = "right" if plan.position == "right" else "left"
+            axis.spines[spine].set_color(plan.color.value)
+            axis.spines[spine].set_linewidth(plan.line_width.value)
+            axis.tick_params(axis="y", colors=plan.color.value, width=plan.line_width.value)
+            axis.yaxis.label.set_color(plan.color.value)
             if plan.position == "right":
                 axis.yaxis.set_label_position("right")
                 axis.yaxis.tick_right()
@@ -308,8 +333,8 @@ class MatplotlibRenderer:
                 x,
                 lower,
                 upper,
-                color=color,
-                alpha=0.25,
+                color=(layer.fill_color.value if layer.fill_color is not None else color),
+                alpha=layer.band_alpha,
                 linewidth=0,
                 label=label,
                 zorder=layer.z_order,
@@ -349,9 +374,15 @@ class MatplotlibRenderer:
                 y,
                 yerr=np.vstack((y - lower, upper - y)),
                 fmt="none",
-                ecolor=color,
-                elinewidth=line_width,
-                capsize=marker_size,
+                ecolor=(
+                    layer.uncertainty_color.value if layer.uncertainty_color is not None else color
+                ),
+                elinewidth=(
+                    layer.uncertainty_line_width.value
+                    if layer.uncertainty_line_width is not None
+                    else line_width
+                ),
+                capsize=(layer.cap_size.value if layer.cap_size is not None else marker_size),
                 label=label,
                 zorder=layer.z_order,
             )
@@ -360,9 +391,14 @@ class MatplotlibRenderer:
                 x,
                 np.zeros_like(y),
                 y,
-                color=color,
-                alpha=0.45,
-                linewidth=0,
+                color=(layer.fill_color.value if layer.fill_color is not None else color),
+                alpha=layer.alpha,
+                edgecolor=(layer.edge_color.value if layer.edge_color is not None else "none"),
+                linewidth=(
+                    layer.edge_width.value
+                    if layer.edge_color is not None and layer.edge_width is not None
+                    else 0
+                ),
                 label=label,
                 zorder=layer.z_order,
             )
@@ -389,15 +425,19 @@ class MatplotlibRenderer:
         roles: Mapping[str, tuple[Scalar, ...]],
     ) -> None:
         color, line_width, marker_size, label = self._style(layer)
+        fill_color = layer.fill_color.value if layer.fill_color is not None else color
+        edge_color = layer.edge_color.value if layer.edge_color is not None else fill_color
+        edge_width = layer.edge_width.value if layer.edge_width is not None else line_width
         if layer.geometry == "bar.horizontal":
             axis.barh(
                 _numeric(roles["y"]),
                 _numeric(roles["width"]),
                 height=_numeric(roles["height"]),
                 left=_numeric(roles["left"]),
-                color=color,
-                edgecolor=color,
-                linewidth=line_width,
+                color=fill_color,
+                edgecolor=edge_color,
+                linewidth=edge_width,
+                alpha=layer.alpha,
                 label=label,
                 zorder=layer.z_order,
             )
@@ -413,16 +453,31 @@ class MatplotlibRenderer:
             upper = _numeric(roles["upper"])
             error_kw = {
                 "yerr": np.vstack((center - lower, upper - center)),
-                "error_kw": {"elinewidth": line_width, "capsize": marker_size},
+                "error_kw": {
+                    "ecolor": (
+                        layer.uncertainty_color.value
+                        if layer.uncertainty_color is not None
+                        else edge_color
+                    ),
+                    "elinewidth": (
+                        layer.uncertainty_line_width.value
+                        if layer.uncertainty_line_width is not None
+                        else line_width
+                    ),
+                    "capsize": (
+                        layer.cap_size.value if layer.cap_size is not None else marker_size
+                    ),
+                },
             }
         axis.bar(
             x,
             height,
             width=width,
             bottom=bottom,
-            color=color,
-            edgecolor=color,
-            linewidth=line_width,
+            color=fill_color,
+            edgecolor=edge_color,
+            linewidth=edge_width,
+            alpha=layer.alpha,
             label=label,
             zorder=layer.z_order,
             **error_kw,
@@ -524,7 +579,7 @@ class MatplotlibRenderer:
             axis.step(
                 _numeric(roles["x"]),
                 _numeric(roles["probability"]),
-                where="post",
+                where=layer.step_where,
                 color=color,
                 linewidth=line_width,
                 label=label,
@@ -593,13 +648,12 @@ class MatplotlibRenderer:
         if geometry == "special.lollipop":
             x = _numeric(roles["x"])
             y = _numeric(roles["y"])
-            # A lollipop's stem is display geometry anchored to the bottom frame,
-            # not a data-space zero baseline. This stays correct for fixed ranges
-            # and for datasets whose visible Y domain does not include zero.
-            bottom = axis.get_ylim()[0]
+            # The baseline is a data-space value and also controls the X-axis
+            # crossing, so changing the visible Y range cannot move the stems.
+            baseline_values = _numeric(roles.get("baseline", tuple(0.0 for _ in y)))
             axis.vlines(
                 x,
-                bottom,
+                baseline_values,
                 y,
                 color="#B8BDC6",
                 linewidth=line_width,
@@ -629,8 +683,8 @@ class MatplotlibRenderer:
                 _numeric(roles["lower"]),
                 _numeric(roles["upper"]),
                 step="post",
-                color=color,
-                alpha=0.25,
+                color=(layer.fill_color.value if layer.fill_color is not None else color),
+                alpha=layer.band_alpha,
                 linewidth=0,
                 label=label,
                 zorder=layer.z_order,
@@ -725,6 +779,25 @@ class MatplotlibRenderer:
         legend = resolved.plan.legend
         if not legend.visible:
             return
+        if legend.common:
+            common_handles: list[Any] = []
+            common_labels: list[str] = []
+            for candidate in axes.values():
+                candidate_handles, candidate_labels = candidate.get_legend_handles_labels()
+                for handle, label in zip(candidate_handles, candidate_labels, strict=True):
+                    if label not in common_labels:
+                        common_handles.append(handle)
+                        common_labels.append(label)
+            if common_handles:
+                axis = next(iter(axes.values()))
+                axis.legend(
+                    common_handles,
+                    common_labels,
+                    loc="upper right",
+                    bbox_to_anchor=(legend.anchor_x, legend.anchor_y),
+                    frameon=False,
+                )
+            return
         grouped: dict[tuple[float, float, float, float], list[Axes]] = {}
         for axis in axes.values():
             bounds = tuple(round(value, 9) for value in axis.get_position().bounds)
@@ -757,6 +830,36 @@ class MatplotlibRenderer:
                     bbox_to_anchor=(legend.anchor_x, legend.anchor_y),
                     frameon=False,
                 )
+
+    def _draw_colorbar(
+        self,
+        figure: Figure,
+        axes: Mapping[str, Axes],
+        resolved: ResolvedPlot,
+    ) -> None:
+        colorbar = resolved.plan.colorbar
+        if not colorbar.visible:
+            return
+        for axis in axes.values():
+            mappable = next(
+                (
+                    collection
+                    for collection in axis.collections
+                    if collection.get_array() is not None
+                ),
+                None,
+            )
+            if mappable is None:
+                continue
+            native = figure.colorbar(mappable, ax=axis, fraction=0.046, pad=0.04)
+            if native.solids is not None:
+                # Matplotlib rasterizes long color bars by default. Formal SVG
+                # must remain composed only of native vector elements.
+                native.solids.set_rasterized(False)
+            title = safe_text(colorbar.title)
+            if title:
+                native.set_label(title)
+            return
 
     def _apply_text_style(self, figure: Figure, resolved: ResolvedPlot) -> None:
         font = resolved.plan.fonts[0]

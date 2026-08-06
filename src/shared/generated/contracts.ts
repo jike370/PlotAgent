@@ -118,6 +118,20 @@ export type AxisTicksIntent = {
   readonly decimal_places?: number;
 }
 
+export type BarAreaEditSpec = {
+  readonly fill_color?: ColorValue | null;
+  readonly edge_color?: ColorValue | null;
+  readonly edge_width?: PhysicalLength;
+  readonly width_ratio?: number;
+  readonly alpha?: number;
+}
+
+export type BarAreaStyleIntent = {
+  readonly operation?: "set_bar_area_style";
+  readonly target_alias: string;
+  readonly style: BarAreaEditSpec;
+}
+
 export type BatchExecutionSignature = {
   readonly dataset_signature: DatasetSignature;
   readonly field_mapping_hash: string;
@@ -140,7 +154,7 @@ export type BatchItemState = {
 export type BatchPlotOverride = {
   readonly item_id: string;
   readonly prepared_dataset_ref: PreparedDatasetRef;
-  readonly patches?: ReadonlyArray<SetPlotTitlePatch | SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetAxisReversePatch | SetAxisTicksPatch | SetFontSizePatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
+  readonly patches?: ReadonlyArray<SetPlotTitlePatch | SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetAxisReversePatch | SetAxisTicksPatch | SetFontSizePatch | SetBarAreaStylePatch | SetUncertaintyStylePatch | SetColorbarStylePatch | SetDualYAxisStylePatch | SetFacetStylePatch | SetYOffsetStylePatch | SetChartParametersPatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
 }
 
 export type BatchSpec = {
@@ -193,7 +207,7 @@ export type ChartCapabilities = {
   readonly capability_version: string;
   readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07">;
   readonly allowed_action_types: ReadonlyArray<"create_plot" | "patch_plot" | "create_batch" | "patch_batch" | "create_figure" | "patch_figure" | "export_artifact">;
-  readonly allowed_patch_operations?: ReadonlyArray<"set_plot_title" | "set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_axis_reverse" | "set_axis_ticks" | "set_font_size" | "set_series_style" | "set_category_color" | "set_palette" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size" | "add_annotation">;
+  readonly allowed_patch_operations?: ReadonlyArray<"set_plot_title" | "set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_axis_reverse" | "set_axis_ticks" | "set_font_size" | "set_bar_area_style" | "set_uncertainty_style" | "set_colorbar_style" | "set_dual_y_style" | "set_facet_style" | "set_y_offset_style" | "set_chart_parameters" | "set_series_style" | "set_category_color" | "set_palette" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size" | "add_annotation">;
   readonly chart_edit_capabilities?: ReadonlyArray<ChartEditCapabilities>;
   readonly export_formats?: ReadonlyArray<"png" | "svg" | "opju">;
   readonly limitation_ids?: ReadonlyArray<string>;
@@ -201,7 +215,21 @@ export type ChartCapabilities = {
 
 export type ChartEditCapabilities = {
   readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "S07";
-  readonly allowed_patch_operations: ReadonlyArray<"set_plot_title" | "set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_axis_reverse" | "set_axis_ticks" | "set_font_size" | "set_series_style" | "set_category_color" | "set_palette" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size" | "add_annotation">;
+  readonly allowed_patch_operations: ReadonlyArray<"set_plot_title" | "set_axis_range" | "set_axis_scale" | "set_axis_label" | "set_axis_reverse" | "set_axis_ticks" | "set_font_size" | "set_bar_area_style" | "set_uncertainty_style" | "set_colorbar_style" | "set_dual_y_style" | "set_facet_style" | "set_y_offset_style" | "set_chart_parameters" | "set_series_style" | "set_category_color" | "set_palette" | "set_legend_visibility" | "move_legend" | "apply_publication_profile" | "set_canvas_size" | "add_annotation">;
+}
+
+export type ChartParameterEditSpec = {
+  readonly step_where?: "pre" | "mid" | "post";
+  readonly lollipop_baseline?: number;
+  readonly volcano_absolute_log2_fold_change?: number;
+  readonly volcano_pvalue?: number;
+  readonly pareto_reference_percent?: number;
+}
+
+export type ChartParametersIntent = {
+  readonly operation?: "set_chart_parameters";
+  readonly target_alias: string;
+  readonly parameters: ChartParameterEditSpec;
 }
 
 export type ChartRegistration = {
@@ -217,8 +245,8 @@ export type ChartRegistration = {
   readonly exports?: ExportCapabilities;
   readonly admission?: "product" | "internal_only";
   readonly visual_evidence?: "origin_reference" | "synthetic_visual" | "unqualified";
-  readonly edit_capabilities?: ReadonlyArray<"plot_title" | "axis_label" | "axis_range" | "axis_scale" | "axis_ticks" | "font" | "legend_visibility" | "legend_position" | "canvas_size" | "publication_profile" | "safe_annotation" | "series_color" | "line_width" | "line_style" | "marker_size" | "symbol_shape" | "symbol_interior" | "palette" | "bar_fill" | "bar_edge" | "bar_width" | "bar_gap" | "error_style" | "band_style" | "colorbar" | "dual_y_style" | "panel_style" | "y_offset">;
-  readonly unsupported_edit_capabilities?: ReadonlyArray<"plot_title" | "axis_label" | "axis_range" | "axis_scale" | "axis_ticks" | "font" | "legend_visibility" | "legend_position" | "canvas_size" | "publication_profile" | "safe_annotation" | "series_color" | "line_width" | "line_style" | "marker_size" | "symbol_shape" | "symbol_interior" | "palette" | "bar_fill" | "bar_edge" | "bar_width" | "bar_gap" | "error_style" | "band_style" | "colorbar" | "dual_y_style" | "panel_style" | "y_offset">;
+  readonly edit_capabilities?: ReadonlyArray<"plot_title" | "axis_label" | "axis_range" | "axis_scale" | "axis_ticks" | "font" | "legend_visibility" | "legend_position" | "canvas_size" | "publication_profile" | "safe_annotation" | "series_color" | "line_width" | "line_style" | "marker_size" | "symbol_shape" | "symbol_interior" | "palette" | "bar_fill" | "bar_edge" | "bar_width" | "bar_gap" | "error_style" | "band_style" | "colorbar" | "dual_y_style" | "panel_style" | "y_offset" | "chart_parameters">;
+  readonly unsupported_edit_capabilities?: ReadonlyArray<"plot_title" | "axis_label" | "axis_range" | "axis_scale" | "axis_ticks" | "font" | "legend_visibility" | "legend_position" | "canvas_size" | "publication_profile" | "safe_annotation" | "series_color" | "line_width" | "line_style" | "marker_size" | "symbol_shape" | "symbol_interior" | "palette" | "bar_fill" | "bar_edge" | "bar_width" | "bar_gap" | "error_style" | "band_style" | "colorbar" | "dual_y_style" | "panel_style" | "y_offset" | "chart_parameters">;
 }
 
 export type ChartRegistry = {
@@ -228,6 +256,20 @@ export type ChartRegistry = {
 
 export type ColorValue = {
   readonly value: string;
+}
+
+export type ColorbarEditSpec = {
+  readonly visible?: boolean;
+  readonly title?: SafeRichText | null;
+  readonly minimum?: number | null;
+  readonly maximum?: number | null;
+  readonly levels?: number;
+}
+
+export type ColorbarStyleIntent = {
+  readonly operation?: "set_colorbar_style";
+  readonly target_alias: string;
+  readonly style: ColorbarEditSpec;
 }
 
 export type ConfusionCountResult = {
@@ -487,6 +529,18 @@ export type DoseResponseFamily = {
   readonly geometry: ReadonlyArray<"symbol" | "line" | "band">;
 }
 
+export type DualYAxisEditSpec = {
+  readonly left_color?: ColorValue | null;
+  readonly right_color?: ColorValue | null;
+  readonly axis_width?: PhysicalLength;
+}
+
+export type DualYAxisStyleIntent = {
+  readonly operation?: "set_dual_y_style";
+  readonly target_alias: string;
+  readonly style: DualYAxisEditSpec;
+}
+
 export type ECDFResult = {
   readonly schema_version?: "1.0";
   readonly calculation_id: string;
@@ -599,9 +653,29 @@ export type ExportValidationRequirements = {
   readonly require_fresh_reopen?: boolean;
 }
 
+export type FacetEditSpec = {
+  readonly order?: ReadonlyArray<string>;
+  readonly labels?: ReadonlyArray<FacetLabelEdit>;
+  readonly gap?: PhysicalLength;
+  readonly shared_x?: boolean;
+  readonly shared_y?: boolean;
+  readonly common_legend?: boolean;
+}
+
 export type FacetFamily = {
   readonly kind?: "facet";
   readonly geometry: ReadonlyArray<"panel">;
+}
+
+export type FacetLabelEdit = {
+  readonly value: string;
+  readonly label: string;
+}
+
+export type FacetStyleIntent = {
+  readonly operation?: "set_facet_style";
+  readonly target_alias: string;
+  readonly style: FacetEditSpec;
 }
 
 export type FieldMapping = {
@@ -865,6 +939,9 @@ export type OriginAxisPlan = {
   readonly reverse?: boolean;
   readonly ticks: ReadonlyArray<OriginTickPlan>;
   readonly title?: string;
+  readonly color?: ColorValue;
+  readonly line_width_pt?: number;
+  readonly cross_at?: number | null;
 }
 
 export type OriginColumnPlan = {
@@ -930,6 +1007,7 @@ export type OriginGraphObject = {
   readonly layers: ReadonlyArray<OriginLayerPlan>;
   readonly data_object_ids: ReadonlyArray<string>;
   readonly annotations?: ReadonlyArray<ResolvedAnnotation>;
+  readonly colorbar?: ResolvedColorbar;
 }
 
 export type OriginLayerPlan = {
@@ -941,6 +1019,7 @@ export type OriginLayerPlan = {
   readonly height_mm: number;
   readonly axes: ReadonlyArray<OriginAxisPlan>;
   readonly plots: ReadonlyArray<OriginPlotPlan>;
+  readonly label?: string;
 }
 
 export type OriginManifestPlan = {
@@ -988,6 +1067,15 @@ export type OriginPlotPlan = {
   readonly symbol?: SymbolStyle;
   readonly palette_spec?: ResolvedPalette | null;
   readonly alpha?: number;
+  readonly fill_color?: ColorValue | null;
+  readonly edge_color?: ColorValue | null;
+  readonly edge_width_pt?: number | null;
+  readonly width_ratio?: number;
+  readonly uncertainty_color?: ColorValue | null;
+  readonly uncertainty_line_width_pt?: number | null;
+  readonly cap_size_pt?: number | null;
+  readonly band_alpha?: number;
+  readonly step_where?: "pre" | "mid" | "post";
 }
 
 export type OriginRoleColumn = {
@@ -1044,7 +1132,7 @@ export type PatchPlotAction = {
   readonly depends_on?: ReadonlyArray<string>;
   readonly action_type?: "patch_plot";
   readonly target_alias: string;
-  readonly patches: ReadonlyArray<PlotTitleIntent | AxisRangeIntent | AxisScaleIntent | AxisLabelIntent | AxisReverseIntent | AxisTicksIntent | FontSizeIntent | SeriesStyleIntent | CategoryColorIntent | PaletteIntent | LegendVisibilityIntent | LegendPlacementIntent | PublicationProfileIntent | CanvasSizeIntent | AddAnnotationIntent>;
+  readonly patches: ReadonlyArray<PlotTitleIntent | AxisRangeIntent | AxisScaleIntent | AxisLabelIntent | AxisReverseIntent | AxisTicksIntent | FontSizeIntent | BarAreaStyleIntent | UncertaintyStyleIntent | ColorbarStyleIntent | DualYAxisStyleIntent | FacetStyleIntent | YOffsetStyleIntent | ChartParametersIntent | SeriesStyleIntent | CategoryColorIntent | PaletteIntent | LegendVisibilityIntent | LegendPlacementIntent | PublicationProfileIntent | CanvasSizeIntent | AddAnnotationIntent>;
 }
 
 export type PatchTransaction = {
@@ -1052,7 +1140,7 @@ export type PatchTransaction = {
   readonly transaction_id: string;
   readonly project_id: string;
   readonly expected_versions: ReadonlyArray<ObjectVersionRef>;
-  readonly patches: ReadonlyArray<SetPlotTitlePatch | SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetAxisReversePatch | SetAxisTicksPatch | SetFontSizePatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
+  readonly patches: ReadonlyArray<SetPlotTitlePatch | SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetAxisReversePatch | SetAxisTicksPatch | SetFontSizePatch | SetBarAreaStylePatch | SetUncertaintyStylePatch | SetColorbarStylePatch | SetDualYAxisStylePatch | SetFacetStylePatch | SetYOffsetStylePatch | SetChartParametersPatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch>;
   readonly scope: "plot" | "selected_plots" | "batch";
 }
 
@@ -1132,7 +1220,7 @@ export type PlotCalculationSpecRef = {
   readonly content_hash: string;
 }
 
-export type PlotPatchContract = SetPlotTitlePatch | SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetAxisReversePatch | SetAxisTicksPatch | SetFontSizePatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch
+export type PlotPatchContract = SetPlotTitlePatch | SetAxisRangePatch | SetAxisScalePatch | SetAxisLabelPatch | SetAxisReversePatch | SetAxisTicksPatch | SetFontSizePatch | SetBarAreaStylePatch | SetUncertaintyStylePatch | SetColorbarStylePatch | SetDualYAxisStylePatch | SetFacetStylePatch | SetYOffsetStylePatch | SetChartParametersPatch | SetSeriesStylePatch | SetPalettePatch | SetCategoryColorPatch | MoveLegendPatch | SetLegendVisibilityPatch | AddAnnotationPatch | UpdateAnnotationPatch | RemoveAnnotationPatch | ApplyPublicationProfilePatch | SetCanvasSizePatch | SetBatchAxisPolicyPatch
 
 export type PlotProvenance = {
   readonly origin: "manual" | "agent_plan";
@@ -1157,6 +1245,7 @@ export type PlotSpec = {
   readonly series: ReadonlyArray<SeriesSpec>;
   readonly legend?: LegendSpec;
   readonly annotations?: ReadonlyArray<AnnotationSpec>;
+  readonly specialist?: SpecialistEditSpec;
   readonly style_sources: ReadonlyArray<StyleSourceRef>;
   readonly resolved_style: ResolvedStyleSnapshot;
   readonly publication_profile: PublicationProfileSnapshot;
@@ -1306,6 +1395,17 @@ export type ResolvedAxis = {
   readonly exponent?: number;
   readonly precision?: number;
   readonly label: SafeRichText;
+  readonly color?: ColorValue;
+  readonly line_width?: PhysicalLength;
+  readonly cross_at?: number | null;
+}
+
+export type ResolvedColorbar = {
+  readonly visible?: boolean;
+  readonly title?: SafeRichText | null;
+  readonly minimum?: number | null;
+  readonly maximum?: number | null;
+  readonly levels?: number;
 }
 
 export type ResolvedFieldBinding = {
@@ -1342,6 +1442,16 @@ export type ResolvedLayer = {
   readonly line_style?: "solid" | "dashed" | "dotted" | "dash_dot";
   readonly symbol?: SymbolStyle;
   readonly palette_spec?: ResolvedPalette | null;
+  readonly fill_color?: ColorValue | null;
+  readonly edge_color?: ColorValue | null;
+  readonly edge_width?: PhysicalLength | null;
+  readonly width_ratio?: number;
+  readonly alpha?: number;
+  readonly uncertainty_color?: ColorValue | null;
+  readonly uncertainty_line_width?: PhysicalLength | null;
+  readonly cap_size?: PhysicalLength | null;
+  readonly band_alpha?: number;
+  readonly step_where?: "pre" | "mid" | "post";
 }
 
 export type ResolvedLegend = {
@@ -1349,6 +1459,7 @@ export type ResolvedLegend = {
   readonly placement?: "inside" | "outside_right" | "outside_bottom";
   readonly anchor_x?: number;
   readonly anchor_y?: number;
+  readonly common?: boolean;
 }
 
 export type ResolvedPalette = {
@@ -1369,6 +1480,7 @@ export type ResolvedPanel = {
   readonly top: PhysicalLength;
   readonly width: PhysicalLength;
   readonly height: PhysicalLength;
+  readonly label?: SafeRichText | null;
 }
 
 export type ResolvedRenderPlan = {
@@ -1391,6 +1503,7 @@ export type ResolvedRenderPlan = {
   readonly layers: ReadonlyArray<ResolvedLayer>;
   readonly fonts: ReadonlyArray<ResolvedFont>;
   readonly legend?: ResolvedLegend;
+  readonly colorbar?: ResolvedColorbar;
   readonly annotations?: ReadonlyArray<ResolvedAnnotation>;
   readonly data_integrity: DataIntegritySnapshot;
   readonly warnings?: ReadonlyArray<WarningRecord>;
@@ -1530,6 +1643,14 @@ export type SetAxisTicksPatch = {
   readonly ticks: AxisTickSpec;
 }
 
+export type SetBarAreaStylePatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_bar_area_style";
+  readonly style: BarAreaEditSpec;
+}
+
 export type SetBatchAxisPolicyPatch = {
   readonly schema_version?: "1.0";
   readonly operation?: "set_batch_axis_policy";
@@ -1553,6 +1674,38 @@ export type SetCategoryColorPatch = {
   readonly operation?: "set_category_color";
   readonly category: string;
   readonly color: ColorValue;
+}
+
+export type SetChartParametersPatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_chart_parameters";
+  readonly parameters: ChartParameterEditSpec;
+}
+
+export type SetColorbarStylePatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_colorbar_style";
+  readonly style: ColorbarEditSpec;
+}
+
+export type SetDualYAxisStylePatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_dual_y_style";
+  readonly style: DualYAxisEditSpec;
+}
+
+export type SetFacetStylePatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_facet_style";
+  readonly style: FacetEditSpec;
 }
 
 export type SetFontSizePatch = {
@@ -1600,6 +1753,22 @@ export type SetSeriesStylePatch = {
   readonly symbol?: SymbolStyle | null;
 }
 
+export type SetUncertaintyStylePatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_uncertainty_style";
+  readonly style: UncertaintyEditSpec;
+}
+
+export type SetYOffsetStylePatch = {
+  readonly schema_version?: "1.0";
+  readonly target_id: string;
+  readonly expected_plot_version: number;
+  readonly operation?: "set_y_offset_style";
+  readonly style: YOffsetEditSpec;
+}
+
 export type SourceDataset = {
   readonly schema_version?: "1.0";
   readonly source_dataset_id: string;
@@ -1634,6 +1803,16 @@ export type SourceField = {
 export type SpecialFamily = {
   readonly kind?: "special";
   readonly geometry: ReadonlyArray<"step" | "lollipop" | "dumbbell" | "beeswarm" | "ridgeline" | "floating_bar" | "bridge" | "bullet" | "pyramid" | "scatter_matrix" | "density2d" | "marginal" | "probability" | "agreement" | "dual_axis" | "y_offset" | "volcano">;
+}
+
+export type SpecialistEditSpec = {
+  readonly bar_area?: BarAreaEditSpec;
+  readonly uncertainty?: UncertaintyEditSpec;
+  readonly colorbar?: ColorbarEditSpec;
+  readonly dual_y?: DualYAxisEditSpec;
+  readonly facet?: FacetEditSpec;
+  readonly y_offset?: YOffsetEditSpec;
+  readonly chart_parameters?: ChartParameterEditSpec;
 }
 
 export type StyleSourceRef = {
@@ -1753,6 +1932,19 @@ export type TukeyBoxSpec = {
   readonly group_field?: string | null;
 }
 
+export type UncertaintyEditSpec = {
+  readonly color?: ColorValue | null;
+  readonly line_width?: PhysicalLength;
+  readonly cap_size?: PhysicalLength;
+  readonly band_alpha?: number;
+}
+
+export type UncertaintyStyleIntent = {
+  readonly operation?: "set_uncertainty_style";
+  readonly target_alias: string;
+  readonly style: UncertaintyEditSpec;
+}
+
 export type UnitSpec = {
   readonly source_text: string;
   readonly canonical_unit?: string | null;
@@ -1829,4 +2021,15 @@ export type WarningRecord = {
 export type XYFamily = {
   readonly kind?: "xy";
   readonly geometry: ReadonlyArray<"line" | "symbol" | "error_bar" | "band" | "area">;
+}
+
+export type YOffsetEditSpec = {
+  readonly distance?: number | null;
+  readonly order?: ReadonlyArray<string>;
+}
+
+export type YOffsetStyleIntent = {
+  readonly operation?: "set_y_offset_style";
+  readonly target_alias: string;
+  readonly style: YOffsetEditSpec;
 }

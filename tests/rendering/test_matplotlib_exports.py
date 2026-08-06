@@ -20,13 +20,13 @@ CHART_IDS = tuple(entry.chart_type_id for entry in CHARTS)
 FIXTURE_MANIFEST = Path(__file__).parents[1] / "fixtures" / "rendering" / "chart-fixtures.json"
 TEST_ARTIFACT_PREFIX = f".w4-test-output-{os.getpid()}-"
 PLAN_GOLDENS = {
-    "K01": "b72978a36cdc2fba261bfd0919824cb1bdbe17f3ceed81bc1e4fad9fdbc39db5",
-    "K08": "39cbac068ecdb24e97fe300937d4dce8e3b6eb286b123d1da0f71c20d6213ced",
-    "K15": "9726a6ddb344202e8c161407959be1d8c4b200e8f5d71398f488864d7718140a",
-    "K20": "9a1972fd248af123a8c57702e93f6800a3f12fe8a3dfc4251ee9312f5ac1a029",
-    "S21": "a23abd19a21a47592f515ee545d536b5619399ac6594519a21d3d9f9a4f9f653",
-    "K24": "a14777d5eadd041afcf15c3f20c3a4fef9c0ec8cfde2876d843de12718ce3a31",
-    "K25": "9a4621bc546b5ea82b4b875495f9f9868dc881fc48d55940b2aeeb99d70a68b2",
+    "K01": "9d758c1037d585902ec428e0ebc875ae9e9e89f93d36e6624b9fa11fd96c2584",
+    "K08": "4fba9b1340e7f5143109003f68553c38002bc47e355f7396faac9da3302a3c54",
+    "K15": "c613b954a8448b78bb4b34e8a2f057fe501098210cfa52b263392a5ff11e0864",
+    "K20": "0eb863d7a128f998b553bbb4bc8f6e4b80321f3058fa5470596db1bd41b592e3",
+    "S21": "21620505c266d2f8cd59dc386891fcbbd9673ab3f5ca08c96c00a2dd707e42e2",
+    "K24": "1d33e17a8b80efdbbfa6464b23d24eb8dd6c8204dfddff541f98376a40867fa0",
+    "K25": "b195347196cbc465ddc7f322157487d1c922ca793bd54dc3478344c5d83db0f3",
 }
 PRECOMPUTED_FIXTURE_IDS = {"K05", "K21", "K22", "S01", "S05", "S21", "S25", "S31", "S34"}
 FIXED_FIXTURE_IDS = {

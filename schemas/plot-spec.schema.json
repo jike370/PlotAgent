@@ -215,6 +215,56 @@
       "title": "AxisTickSpec",
       "type": "object"
     },
+    "BarAreaEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "alpha": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "edge_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "edge_width": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "pt",
+            "value": 0.5
+          }
+        },
+        "fill_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "width_ratio": {
+          "default": 0.8,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Width Ratio",
+          "type": "number"
+        }
+      },
+      "title": "BarAreaEditSpec",
+      "type": "object"
+    },
     "CalculatedSeriesData": {
       "additionalProperties": false,
       "properties": {
@@ -269,6 +319,48 @@
       "title": "CategoricalFamily",
       "type": "object"
     },
+    "ChartParameterEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "lollipop_baseline": {
+          "default": 0.0,
+          "title": "Lollipop Baseline",
+          "type": "number"
+        },
+        "pareto_reference_percent": {
+          "default": 80.0,
+          "exclusiveMaximum": 100,
+          "exclusiveMinimum": 0,
+          "title": "Pareto Reference Percent",
+          "type": "number"
+        },
+        "step_where": {
+          "default": "post",
+          "enum": [
+            "pre",
+            "mid",
+            "post"
+          ],
+          "title": "Step Where",
+          "type": "string"
+        },
+        "volcano_absolute_log2_fold_change": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "title": "Volcano Absolute Log2 Fold Change",
+          "type": "number"
+        },
+        "volcano_pvalue": {
+          "default": 0.05,
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "title": "Volcano Pvalue",
+          "type": "number"
+        }
+      },
+      "title": "ChartParameterEditSpec",
+      "type": "object"
+    },
     "ColorValue": {
       "additionalProperties": false,
       "properties": {
@@ -282,6 +374,60 @@
         "value"
       ],
       "title": "ColorValue",
+      "type": "object"
+    },
+    "ColorbarEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "levels": {
+          "default": 7,
+          "maximum": 64,
+          "minimum": 2,
+          "title": "Levels",
+          "type": "integer"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SafeRichText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "visible": {
+          "default": true,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "title": "ColorbarEditSpec",
       "type": "object"
     },
     "DistributionFamily": {
@@ -345,6 +491,89 @@
       "title": "DoseResponseFamily",
       "type": "object"
     },
+    "DualYAxisEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "axis_width": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "pt",
+            "value": 0.8
+          }
+        },
+        "left_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "right_color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "DualYAxisEditSpec",
+      "type": "object"
+    },
+    "FacetEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "common_legend": {
+          "default": true,
+          "title": "Common Legend",
+          "type": "boolean"
+        },
+        "gap": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "mm",
+            "value": 4.0
+          }
+        },
+        "labels": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FacetLabelEdit"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "order": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Order",
+          "type": "array"
+        },
+        "shared_x": {
+          "default": true,
+          "title": "Shared X",
+          "type": "boolean"
+        },
+        "shared_y": {
+          "default": true,
+          "title": "Shared Y",
+          "type": "boolean"
+        }
+      },
+      "title": "FacetEditSpec",
+      "type": "object"
+    },
     "FacetFamily": {
       "additionalProperties": false,
       "properties": {
@@ -368,6 +597,29 @@
         "geometry"
       ],
       "title": "FacetFamily",
+      "type": "object"
+    },
+    "FacetLabelEdit": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "title": "FacetLabelEdit",
       "type": "object"
     },
     "ForestFamily": {
@@ -1289,6 +1541,93 @@
       "title": "SpecialFamily",
       "type": "object"
     },
+    "SpecialistEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "bar_area": {
+          "$ref": "#/$defs/BarAreaEditSpec",
+          "default": {
+            "alpha": 1.0,
+            "edge_color": null,
+            "edge_width": {
+              "unit": "pt",
+              "value": 0.5
+            },
+            "fill_color": null,
+            "width_ratio": 0.8
+          }
+        },
+        "chart_parameters": {
+          "$ref": "#/$defs/ChartParameterEditSpec",
+          "default": {
+            "lollipop_baseline": 0.0,
+            "pareto_reference_percent": 80.0,
+            "step_where": "post",
+            "volcano_absolute_log2_fold_change": 1.0,
+            "volcano_pvalue": 0.05
+          }
+        },
+        "colorbar": {
+          "$ref": "#/$defs/ColorbarEditSpec",
+          "default": {
+            "levels": 7,
+            "maximum": null,
+            "minimum": null,
+            "title": null,
+            "visible": true
+          }
+        },
+        "dual_y": {
+          "$ref": "#/$defs/DualYAxisEditSpec",
+          "default": {
+            "axis_width": {
+              "unit": "pt",
+              "value": 0.8
+            },
+            "left_color": null,
+            "right_color": null
+          }
+        },
+        "facet": {
+          "$ref": "#/$defs/FacetEditSpec",
+          "default": {
+            "common_legend": true,
+            "gap": {
+              "unit": "mm",
+              "value": 4.0
+            },
+            "labels": [],
+            "order": [],
+            "shared_x": true,
+            "shared_y": true
+          }
+        },
+        "uncertainty": {
+          "$ref": "#/$defs/UncertaintyEditSpec",
+          "default": {
+            "band_alpha": 0.25,
+            "cap_size": {
+              "unit": "pt",
+              "value": 4.0
+            },
+            "color": null,
+            "line_width": {
+              "unit": "pt",
+              "value": 0.8
+            }
+          }
+        },
+        "y_offset": {
+          "$ref": "#/$defs/YOffsetEditSpec",
+          "default": {
+            "distance": null,
+            "order": []
+          }
+        }
+      },
+      "title": "SpecialistEditSpec",
+      "type": "object"
+    },
     "StyleSourceRef": {
       "additionalProperties": false,
       "properties": {
@@ -1392,6 +1731,45 @@
       "title": "SymbolStyle",
       "type": "object"
     },
+    "UncertaintyEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "band_alpha": {
+          "default": 0.25,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Band Alpha",
+          "type": "number"
+        },
+        "cap_size": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "pt",
+            "value": 4.0
+          }
+        },
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "line_width": {
+          "$ref": "#/$defs/PhysicalLength",
+          "default": {
+            "unit": "pt",
+            "value": 0.8
+          }
+        }
+      },
+      "title": "UncertaintyEditSpec",
+      "type": "object"
+    },
     "XYFamily": {
       "additionalProperties": false,
       "properties": {
@@ -1421,6 +1799,36 @@
         "geometry"
       ],
       "title": "XYFamily",
+      "type": "object"
+    },
+    "YOffsetEditSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "distance": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Distance"
+        },
+        "order": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Order",
+          "type": "array"
+        }
+      },
+      "title": "YOffsetEditSpec",
       "type": "object"
     }
   },
@@ -1621,6 +2029,70 @@
       "minItems": 1,
       "title": "Series",
       "type": "array"
+    },
+    "specialist": {
+      "$ref": "#/$defs/SpecialistEditSpec",
+      "default": {
+        "bar_area": {
+          "alpha": 1.0,
+          "edge_color": null,
+          "edge_width": {
+            "unit": "pt",
+            "value": 0.5
+          },
+          "fill_color": null,
+          "width_ratio": 0.8
+        },
+        "chart_parameters": {
+          "lollipop_baseline": 0.0,
+          "pareto_reference_percent": 80.0,
+          "step_where": "post",
+          "volcano_absolute_log2_fold_change": 1.0,
+          "volcano_pvalue": 0.05
+        },
+        "colorbar": {
+          "levels": 7,
+          "maximum": null,
+          "minimum": null,
+          "title": null,
+          "visible": true
+        },
+        "dual_y": {
+          "axis_width": {
+            "unit": "pt",
+            "value": 0.8
+          },
+          "left_color": null,
+          "right_color": null
+        },
+        "facet": {
+          "common_legend": true,
+          "gap": {
+            "unit": "mm",
+            "value": 4.0
+          },
+          "labels": [],
+          "order": [],
+          "shared_x": true,
+          "shared_y": true
+        },
+        "uncertainty": {
+          "band_alpha": 0.25,
+          "cap_size": {
+            "unit": "pt",
+            "value": 4.0
+          },
+          "color": null,
+          "line_width": {
+            "unit": "pt",
+            "value": 0.8
+          }
+        },
+        "y_offset": {
+          "distance": null,
+          "order": []
+        }
+      }
     },
     "style_sources": {
       "items": {

@@ -100,9 +100,14 @@ from plotagent.contracts.decisions import (
     AxisReverseIntent,
     AxisScaleIntent,
     AxisTicksIntent,
+    BarAreaStyleIntent,
     CanvasSizeIntent,
     CategoryColorIntent,
+    ChartParametersIntent,
+    ColorbarStyleIntent,
     CreatePlotAction,
+    DualYAxisStyleIntent,
+    FacetStyleIntent,
     FontSizeIntent,
     LegendPlacementIntent,
     LegendVisibilityIntent,
@@ -111,7 +116,9 @@ from plotagent.contracts.decisions import (
     PatchPlotAction,
     PlotTitleIntent,
     SeriesStyleIntent,
+    UncertaintyStyleIntent,
     Unsupported,
+    YOffsetStyleIntent,
 )
 from plotagent.contracts.plots import (
     AddAnnotationPatch,
@@ -151,13 +158,20 @@ from plotagent.contracts.plots import (
     SetAxisReversePatch,
     SetAxisScalePatch,
     SetAxisTicksPatch,
+    SetBarAreaStylePatch,
     SetCanvasSizePatch,
     SetCategoryColorPatch,
+    SetChartParametersPatch,
+    SetColorbarStylePatch,
+    SetDualYAxisStylePatch,
+    SetFacetStylePatch,
     SetFontSizePatch,
     SetLegendVisibilityPatch,
     SetPalettePatch,
     SetPlotTitlePatch,
     SetSeriesStylePatch,
+    SetUncertaintyStylePatch,
+    SetYOffsetStylePatch,
     SpecialFamily,
     StyleSourceRef,
     SurvivalFamily,
@@ -1695,6 +1709,13 @@ class DesktopApplication:
                     "set_axis_reverse",
                     "set_axis_ticks",
                     "set_font_size",
+                    "set_bar_area_style",
+                    "set_uncertainty_style",
+                    "set_colorbar_style",
+                    "set_dual_y_style",
+                    "set_facet_style",
+                    "set_y_offset_style",
+                    "set_chart_parameters",
                     "set_series_style",
                     "set_category_color",
                     "set_palette",
@@ -1746,6 +1767,13 @@ class DesktopApplication:
                     "set_axis_reverse",
                     "set_axis_ticks",
                     "set_font_size",
+                    "set_bar_area_style",
+                    "set_uncertainty_style",
+                    "set_colorbar_style",
+                    "set_dual_y_style",
+                    "set_facet_style",
+                    "set_y_offset_style",
+                    "set_chart_parameters",
                     "set_series_style",
                     "set_category_color",
                     "set_palette",
@@ -2145,7 +2173,19 @@ class DesktopApplication:
         target_id = target_by_alias.get(intent.target_alias)
         if isinstance(
             intent,
-            (CanvasSizeIntent, PlotTitleIntent, FontSizeIntent, AddAnnotationIntent),
+            (
+                CanvasSizeIntent,
+                PlotTitleIntent,
+                FontSizeIntent,
+                AddAnnotationIntent,
+                BarAreaStyleIntent,
+                UncertaintyStyleIntent,
+                ColorbarStyleIntent,
+                DualYAxisStyleIntent,
+                FacetStyleIntent,
+                YOffsetStyleIntent,
+                ChartParametersIntent,
+            ),
         ):
             target_id = previous.plot.plot_id
         elif isinstance(intent, (LegendVisibilityIntent, LegendPlacementIntent)):
@@ -2181,6 +2221,26 @@ class DesktopApplication:
             }
         elif isinstance(intent, FontSizeIntent):
             common["size"] = {"value": intent.size_pt, "unit": "pt"}
+        elif isinstance(
+            intent,
+            (
+                BarAreaStyleIntent,
+                UncertaintyStyleIntent,
+                ColorbarStyleIntent,
+                DualYAxisStyleIntent,
+                FacetStyleIntent,
+                YOffsetStyleIntent,
+            ),
+        ):
+            common["style"] = cast(
+                RpcJsonValue,
+                intent.style.model_dump(mode="json"),
+            )
+        elif isinstance(intent, ChartParametersIntent):
+            common["parameters"] = cast(
+                RpcJsonValue,
+                intent.parameters.model_dump(mode="json"),
+            )
         elif isinstance(intent, SeriesStyleIntent):
             if intent.color is not None:
                 common["color"] = cast(RpcJsonValue, intent.color.model_dump(mode="json"))
@@ -2626,9 +2686,7 @@ class DesktopApplication:
             update["scales"] = tuple(
                 scale.model_copy(
                     update={
-                        "axis_range": scale.axis_range.model_copy(
-                            update={"reverse": patch.reverse}
-                        )
+                        "axis_range": scale.axis_range.model_copy(update={"reverse": patch.reverse})
                     }
                 )
                 if scale.scale_id == axis.scale_id
@@ -2654,6 +2712,22 @@ class DesktopApplication:
             update["resolved_style"] = plot.resolved_style.model_copy(
                 update={"font_size": patch.size}
             )
+        elif isinstance(patch, SetBarAreaStylePatch):
+            update["specialist"] = plot.specialist.model_copy(update={"bar_area": patch.style})
+        elif isinstance(patch, SetUncertaintyStylePatch):
+            update["specialist"] = plot.specialist.model_copy(update={"uncertainty": patch.style})
+        elif isinstance(patch, SetColorbarStylePatch):
+            update["specialist"] = plot.specialist.model_copy(update={"colorbar": patch.style})
+        elif isinstance(patch, SetDualYAxisStylePatch):
+            update["specialist"] = plot.specialist.model_copy(update={"dual_y": patch.style})
+        elif isinstance(patch, SetFacetStylePatch):
+            update["specialist"] = plot.specialist.model_copy(update={"facet": patch.style})
+        elif isinstance(patch, SetYOffsetStylePatch):
+            update["specialist"] = plot.specialist.model_copy(update={"y_offset": patch.style})
+        elif isinstance(patch, SetChartParametersPatch):
+            update["specialist"] = plot.specialist.model_copy(
+                update={"chart_parameters": patch.parameters}
+            )
         elif isinstance(patch, SetSeriesStylePatch):
             style_update = {
                 key: value
@@ -2676,9 +2750,7 @@ class DesktopApplication:
             resolved_palette = resolve_palette(patch.palette_id, reverse=patch.reverse)
             update["series"] = tuple(
                 series.model_copy(
-                    update={
-                        "style": series.style.model_copy(update={"palette": resolved_palette})
-                    }
+                    update={"style": series.style.model_copy(update={"palette": resolved_palette})}
                 )
                 if series.series_id == patch.target_id
                 else series

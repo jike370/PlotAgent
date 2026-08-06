@@ -1,7 +1,7 @@
 # PlotAgent v1 实施拆分与里程碑计划
 
-> 状态：原 M0–M6 工程切片已实现；正式范围收敛为原31+12新增=43图，九个P1 adapter转为内部隐藏；M6 因基础泛化、逐图编辑/Origin样式与内部可组合绘图底座重新打开；原31图代表性 Origin O1 矩阵已实机通过；M7 邀请制 Beta qualification 尚未执行
-> 日期：2026-08-06
+> 状态：原 M0–M6 工程切片已实现；正式范围为43图、九个P1 adapter内部隐藏；M6 Phase A基础泛化与Phase B逐图编辑/Origin样式已完成当前工程门禁，Phase C内部可组合绘图底座待实现；M7邀请制Beta qualification尚未执行
+> 日期：2026-08-07
 > 适用范围：W0–W10 workstreams、依赖、风险 spikes、里程碑、验收证据与错误归属
 > 相关文档：[规格索引与 Beta 设计基线](./SPEC-INDEX.md)、[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)
 
@@ -342,7 +342,11 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 **2026-08-06 可移植编辑核心实现节点：** 已实现版本化的系列颜色/线宽/线型/符号大小/12 种符号与适用 interior、分类身份颜色、16 色板及反向、轴标题/linear-log10/固定范围、图例显示/位置和画布尺寸；UI、自然语言 Agent、本地 validator、Matplotlib RenderPlan 与 OriginPlan 使用同一生成 capability/style catalog。参数面板只提交 Core PlotPatch，并从新 PlotSpec 版本回填真实系列、轴、图例与画布状态。类别数 9–15 使用冻结 `ColorBlindSafe15`，16–180 使用不重复的颜色+符号组合，超过 180 稳定失败。原生 Origin 色板仅使用限定安装目录中 source hash 完全匹配的官方资产，并已通过一次构建、关闭、fresh-reopen 的 32 个合法符号/interior 组合与 16 色板正反向读回测试。
 
-本节点不把尚未落入独立强类型 Patch、双 renderer 与 Origin fresh-reopen 的专属参数冒充已完成：图题/字体/刻度格式、柱宽与安全间距、误差帽宽/带透明度、色带标题/范围/levels、双 Y 轴线样式、分面间距/共享轴和 Y 偏移仍属于 Phase B 后续。正式 43 图逐图 allow/readback 资格矩阵也仍未完成，因此 `R-EDIT-STYLE` 保持 `reopened`，不得进入 Phase C 或宣称 M6 完成。
+**2026-08-07 Phase B 收口节点：** 通用编辑已补齐图题/字体、刻度间隔与数字格式；专属编辑以七个强类型状态组覆盖柱/面积、误差/带、色带、双 Y、分面、Y 偏移及 X01/X02/X24/S07 固定图形参数，并贯通 PlotSpec/Patch、Agent intent、能力校验、桌面聚焦编辑、Resolver、Matplotlib 与 Origin。柱宽按系列/组数动态解析并由无重叠门禁保护；X02 baseline 固定在数据坐标，Origin 横轴交点同步；原生色带使用 `Spectrum1` 与 plot `zlevels`，标题因锁定 `originpro` 的类型化 API 限制使用相邻原生可编辑文本对象，不开放 LabTalk。
+
+正式 43 图已通过一次合并 typed-plan → Origin build → save → fresh blank instance reopen/readback 的当前工程资格门禁；另以非默认值覆盖上述七组专属状态的代表性实机读回。该节点只证明 Phase B 运行时和当前机器/Origin 组合的工程回归，不替代 387 MatrixKey、性能、安全、签名安装包、人工视觉复核与完整 Beta qualification。Phase C 仍必须保持 Phase A/B oracle 不变后再开始，因此 M6 整体仍为 reopened。
+
+**当前回归证据（2026-08-07）：** Python 默认全量为 789 passed、57 个显式 Origin live case skipped，Ruff 与 mypy 全通过；Node/Electron 为 17 files、78 tests，lint 与两套 TypeScript typecheck 全通过。显式开启的新门禁为 2 passed：一份 OPJU 覆盖 10 个非默认专属编辑代表图，另一份 OPJU 覆盖全部 43 个正式图；两者均完成 build validation 与独立空白 Origin 实例 fresh-reopen validation 的精确一致检查。测试临时产物不进入仓库。
 
 #### M6 真实 Provider 与视觉审计实现说明（2026-08-06）
 

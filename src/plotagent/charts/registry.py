@@ -680,6 +680,13 @@ def patch_operations_for_chart(chart_type_id: str) -> tuple[str, ...]:
         ("apply_publication_profile", {"publication_profile"}),
         ("set_canvas_size", {"canvas_size"}),
         ("add_annotation", {"safe_annotation"}),
+        ("set_bar_area_style", {"bar_fill", "bar_edge", "bar_width", "bar_gap"}),
+        ("set_uncertainty_style", {"error_style", "band_style"}),
+        ("set_colorbar_style", {"colorbar"}),
+        ("set_dual_y_style", {"dual_y_style"}),
+        ("set_facet_style", {"panel_style"}),
+        ("set_y_offset_style", {"y_offset"}),
+        ("set_chart_parameters", {"chart_parameters"}),
     ):
         if capabilities & required:
             operations.append(operation)
