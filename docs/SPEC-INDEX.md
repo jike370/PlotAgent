@@ -1,6 +1,6 @@
 # PlotAgent v1 规格索引与小规模邀请制 Beta 设计基线
 
-> 状态：v1 数据/计算范围收敛，M0–M6 工程切片已实现；M7 小规模邀请制 Beta qualification 尚未执行
+> 状态：v1 数据/计算范围收敛；原 M0–M6 工程切片已实现，M6 因基础泛化门禁与内部可组合绘图底座重新打开；M7 小规模邀请制 Beta qualification 尚未执行
 > 基线日期：2026-08-05
 > 适用范围：权威文档、冲突优先级、requirement/evidence matrix、workstream 入口与冻结变更流程
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
@@ -10,7 +10,8 @@
 “小规模邀请制 Beta 设计基线”表示：
 
 - 第一轮产品行为、对象边界、进程/云/本地信任边界和跨模块 Schema 语义已足够直接拆分实施。
-- 31图、确定性导入/一次字段映射、九类固定绘图计算、预计算字段、批量/组合、自然语言、PNG/SVG/O1 OPJU和科学可追溯构成v1；通用数据处理与分析/拟合平台后移。
+- 31图与 Origin P1 扩展形成当前 52 图代码面；确定性导入/一次字段映射、九类固定绘图计算、预计算字段、批量/组合、自然语言、PNG/SVG/O1 OPJU和科学可追溯构成v1；通用数据处理与分析/拟合平台后移。
+- M6 补充范围先固化 StructureUnitDefinition/ChartRecipe、封闭关系、确定性 compiler、动态布局与基础泛化门禁；用户搭建器和自定义配方库在 M6 后实施。
 - 每项核心需求都有权威契约、workstream、计划入口、稳定错误 owner 和未来验收 evidence。
 - 冲突审计已按本文件矩阵完成，当前已知旧口径已清除。
 - 后续产品或跨模块行为变化必须新增/更新 Decision ID 并同步权威文档，不得由实现自行选择。
@@ -47,12 +48,12 @@
 | [DESIGN](../DESIGN.md) | 浅色克制UI、tokens、排版、无障碍、禁忌 | W1/W5 UX | `src/renderer/` | visual/a11y/display matrix |
 | [PRODUCT](../PRODUCT.md) | 产品定位、价值与高层方向 | Product | roadmap | scope review |
 | [BACKEND-ARCHITECTURE](./BACKEND-ARCHITECTURE.md) | 进程、IPC、领域服务、依赖方向 | W0/W1/Core leads | Core/Main boundaries | architecture/E2E |
-| [DOMAIN-CONTRACTS](./DOMAIN-CONTRACTS.md) | 公共对象、AgentDecision/ActionPlan、Schema | W0 | `src/plotagent/contracts/`, `schemas/` | schema/codegen/round-trip |
+| [DOMAIN-CONTRACTS](./DOMAIN-CONTRACTS.md) | 公共对象、StructureUnit/ChartRecipe、AgentDecision/ActionPlan、Schema | W0/W4 | `src/plotagent/contracts/`, `schemas/`, recipe compiler | schema/codegen/graph validation/round-trip |
 | [PROJECT-STORAGE](./PROJECT-STORAGE.md) | workspace、CAS、`.plotproj`、import | W2/W9 | storage/import packages | atomicity/archive/reopen |
 | [DATA-TRANSFORMS](./DATA-TRANSFORMS.md) | FieldMapping、PreparationSpec/PreparedDataset、Unit/source provenance | W2 | preparation/units/provenance | import/preparation golden |
 | [ANALYSIS-ENGINE](./ANALYSIS-ENGINE.md) | 九类 PlotCalculation、预计算字段与后续分析边界 | W3 | plot-calculations/precomputed validators | algorithm/field golden |
 | [FITTING-SYSTEM](./FITTING-SYSTEM.md) | v1预计算拟合输入与未来拟合分期边界 | W3/W4/W6 | precomputed validators/adapters | no-fit/precomputed paths |
-| [RENDERING-PIPELINE](./RENDERING-PIPELINE.md) | Resolver、axes/ticks、physical/text/parity | W4/W6 | rendering/resolver | plan golden/parity |
+| [RENDERING-PIPELINE](./RENDERING-PIPELINE.md) | Recipe compiler、动态布局、Resolver、axes/ticks、physical/text/parity | W4/W6 | rendering/recipe/resolver | compiler/plan golden/generalization/parity |
 | [ORIGIN-EXPORT](./ORIGIN-EXPORT.md) | OPJU content、O1、adapter、reopen | W6 | origin worker/adapters | 单一exact-version 93 matrix |
 | [TASK-RUNTIME](./TASK-RUNTIME.md) | Interaction/Execution、scheduler/cancel/recovery | W1/W2/Core | task scheduler/events | fault/idempotency E2E |
 | [AGENT-CONTEXT](./AGENT-CONTEXT-AND-PROVIDERS.md) | Context/Provider/Disclosure/AgentDecision/audit | W7 | agent/provider packages | provider/security matrix |
@@ -86,12 +87,14 @@
 | R-PRECOMPUTED | K05/K21/K22/S01/S05/S21/S25/S31/S34需预计算字段；v1无Analysis/Fit | PD-T01–T20；FITTING；PRD 9.2 | W3/W4/W6 | field validators/registry UI | valid/missing/invalid paths | frozen-design |
 | R-CHARTS | v1精确31项纯数值：K01–K22,K24–K25+S01,S05,S21,S25,S31,S34,S61 | PD-E08/E09；PRD 6.2/10.1 | W4 | chart registry | 31 ID registry + matrix | frozen-design |
 | R-P1-EXT | Origin P1 新增21项，双Y网格除外；同源图—数据对先于视觉测试 | PD-E09；PRD 10.1；PERF §7.1 | W4/W6 | 52 ID registry + evidence audit | 21离线契约；10同源视觉；11暂不视觉测试 | implemented-partial-qualification |
-| R-NO-IMAGE | v1无科研图像、地图、ROI或图表+图片混合 | PD-E09/E11,M03；PRD 5.5/17 | W4/W5 | registry/Figure schema | forbidden formats/actions | frozen-design |
+| R-NO-IMAGE | v1无科研图像、地图、ROI或图表+图片混合 | PD-E24/E11,M03；PRD 5.5/17 | W4/W5 | registry/Figure schema | forbidden formats/actions | frozen-design |
 | R-BATCH | 完全同构、一次mapping/同Preparation/PlotCalculation；partial成功，无逐文件例外 | PD-C,D,G,S20,U17/U18；PRD 5.2/6.4 | W2/W5 | BatchService/review | signature/partial/review E2E | frozen-design |
 | R-FIGURE | 仅数值固定布局、版本refs、公共图例、源更新不自动替换 | PD-F01–F06；DOMAIN §5 | W5 | FigureService/UI | version/layout/legend tests | frozen-design |
 | R-EXPORT3 | 正式导出仅PNG/SVG/OPJU；clipboard非正式 | PD-K01/K02；PRD 10.4 | W4/W6 | ExportService | format allowlist/records | frozen-design |
 | R-FORMAL | 声明规模内Formal三格式full data；preview≤5k/20k且range/PlotCalculation full | PD-H11,V04/V05,AA05/AA06；RENDER §2；PERF §3–4 | W4/W6 | resolver/adapters | count/assertion/resource preflight | frozen-design |
-| R-RENDER | 单一ResolvedRenderPlan、deterministic axes/ticks/layout/text | PD-V01–V20；RENDER | W4/W6 | resolver | plan golden/parity tolerance | frozen-design |
+| R-RECIPE | 结构单元与版本化ChartRecipe通过语义端口和封闭关系形成组件图；官方/自定义运行时同构；配方不含数据、FieldId、路径、计算结果或代码 | PD-E13–E23,P21–P27；DOMAIN §3.2；PRD 4.7/5.6 | W0/W4/W6 | recipe schemas/registry/validator/compiler | graph/port/relation/canonical compile/no-executable corpus | frozen-design-pending-implementation |
+| R-GENERALIZE | 基础图先通过冻结生成器与结构不变量；Matplotlib全矩阵、Origin按结构签名代表性验证；同源外观证据独立 | PD-V21–V25,AA21–AA25；RENDER §2.1/14；PERF §7.5 | W4/W6/W10 | generalized fixture harness/layout invariants | fixed manifest/full mpl/representative Origin reports | baseline-implemented-origin-expansion-pending |
+| R-RENDER | 单一ResolvedRenderPlan、deterministic axes/ticks/layout/text；数据和画布驱动动态几何 | PD-V01–V25；RENDER | W4/W6 | recipe compiler/resolver | compiler/plan golden/generalization/parity tolerance | reopened |
 | R-OPJU | 31图v1 OPJU全部O1；无LabTalk/raster fallback；两阶段原子 | PD-K04,W01–W20；ORIGIN | W6 | origin adapters/worker | 单一 exact version 31 representative live + 离线 edge/error | implemented |
 | R-ORIGIN-V | 每Beta build只声明一个qualified Origin exact version；其他unsupported | PD-K03/K12,W12,AA03；PERF §2 | W6/W10 | build declaration/preflight | one exact-version matrix | frozen-design |
 | R-TASK | Interaction≠Execution；提交/取消/幂等；崩溃不损坏且用户明确重试 | PD-R01–R20,Z18；TASK | W1/W2 | scheduler/events | state/fault/commit E2E | frozen-design |
@@ -127,19 +130,19 @@
 
 | W | Contract | Dependency | Deliverables | Parallel boundary | Acceptance | Error owner | Done definition | Ready |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| W0 | DOMAIN + all schemas | none | schema/types/errors/fixtures/harness | fixture/codegen split | round-trip/fuzz | yes | explicit | yes |
+| W0 | DOMAIN + all schemas | none | schema/types/errors/fixtures/harness + recipe graph contracts | fixture/codegen split | round-trip/fuzz/graph validation | yes | explicit | reopened |
 | W1 | BACKEND/TASK/LOCAL | W0 | Electron/preload/supervisor/events | supervisor/preload | security/crash/E2E | yes | explicit | yes |
 | W2 | STORAGE/PREPARATION | W0 | SQLite/CAS/import/source/mapping/prepared | storage/excel/text/preparation | ~30 golden/atomic/security | yes | explicit | yes |
 | W3 | PLOTCALC/FITTING-BOUNDARY | W2 | fixed calculations/precomputed validators | nine kinds after envelope | algorithm/field golden | yes | explicit | yes |
-| W4 | RENDER/DOMAIN | W2,W3 | 31 charts/resolver/PNG/SVG | resolver/adapters | 186 formal+preview | yes | explicit | yes |
+| W4 | RENDER/DOMAIN | W2,W3 | 52 charts/resolver/PNG/SVG + generalized layout + recipe compiler | generalized baseline before compiler | full generalized mpl + compiler/plan golden | yes | explicit | reopened |
 | W5 | PRD/DOMAIN/TASK | W4 | batch/review/Figure | Core/UI | isomorphic/E2E | yes | explicit | yes |
-| W6 | ORIGIN/RENDER/PERF | W4; spike early | O1 adapters/worker/reopen | chart families after K01 | one-version31 representative + offline edge | yes | explicit | yes |
+| W6 | ORIGIN/RENDER/PERF | W4; spike early | O1 adapters/worker/reopen + recipe parity | chart families after K01 | one-version31 representative + per-signature generalized Origin + offline edge | yes | explicit | reopened |
 | W7 | AGENT/DOMAIN | W1,W2 | context/provider/decision/validator | context/probe | privacy/provider matrix | yes | explicit | yes |
 | W8 | CLOUD/AGENT/LOCAL | W7 | invite/credential/counter/proxy | redeem vs invoke | idempotency/degrade | yes | explicit | yes |
 | W9 | LOCAL/STORAGE/TASK | W1,W2 | zero-egress/log/local diag/known compatibility | policy vs lifecycle | packet/fault/privacy | yes | explicit | yes |
-| W10 | PERFORMANCE/all | W5,W6,W8,W9 | Beta evidence/installer/checklist | harness starts W0 | complete Beta checklist | yes | explicit | yes |
+| W10 | PERFORMANCE/all | W5,W6,W8,W9 | Beta evidence/generalization/installer/checklist | harness starts W0 | generalized gates + complete Beta checklist | yes | explicit | reopened |
 
-审计结论：W0–W10 均具备 scope、out-of-scope、inputs/contracts、planned entry、deliverables、dependencies、parallel boundary、acceptance evidence、stable error ownership 和完成定义。若后续任一字段变为未知，对应W从Ready退回Blocked，不能保持“已冻结”标签掩盖缺口。
+审计结论：W0、W4、W6、W10 的新增范围契约已明确但实现/evidence 重新打开；其余 W 保持既有 ready 状态。`reopened` 不是 blocked，而是表示原完成切片不能覆盖新确认的退出证据；在对应 evidence 通过前不得恢复为 `yes`。
 
 ## 6. 冲突冻结审计
 
@@ -170,6 +173,12 @@
 | Agent编排 | 单对话编排Agent、单Decision、同错二次即停 | 无多Agent/工具循环/模型处理步骤 | pass-design |
 | OPJU计算边界 | direct Raw→Graph；fixed Raw+Plot Data→Graph | 无Analysis Template/formula/LabTalk/Raw自动重算承诺 | pass-design |
 | 导入诊断 | ~30 goldens+31图fixtures+分层快照/错误族 | 无运行时oracle或下游掩盖上游偏差 | pass-design |
+| 结构与数据边界 | ChartRecipe仅结构/端口/关系/策略；PlotSpec绑定数据、mapping、计算结果 | 无真实数据、FieldId、路径、自动range、可执行内容进入recipe | pass-design |
+| 单图组合 vs Figure | 同一绘图区的结构组合属于PlotSpec；多面板布局属于FigureSpec | 无用Figure绕过单图recipe或把多面板塞入单Plot | pass-design |
+| 官方与自定义身份 | 相同Schema/compiler/resolver/renderer；官方只增加准入证据 | 无官方chart ID专属隐藏结构算法 | pass-design |
+| 外观证据 vs 泛化证据 | 同源Origin/期刊证据判默认外观；冻结变体判结构泛化 | 无合成数据冒充参考外观、无当前实现生成oracle | pass-design |
+| 配方复用 | 普通输入校验和产物验证，不逐次重跑qualification | 无每次用户复用触发完整Origin/泛化准入 | pass-design |
+| 实施顺序 | 基础泛化稳定后才实现组合compiler | 无测试oracle与组合架构同时迁移 | pass-design |
 
 本表的 `pass-design` 将由提交前全库脚本/`rg`、Decision ID、Markdown link、UTF-8 和 `git diff --check` 复核；它不等同于未来实现测试pass。
 

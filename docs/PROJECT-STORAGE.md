@@ -11,6 +11,7 @@
 - 全局 catalog 与每个项目的数据库、对象、缓存和临时文件严格分离。
 - 项目数据库保存关系、版本和操作状态；大对象按 SHA-256 存入内容寻址对象存储。
 - 原始文件与 SourceDataset 不可变；FieldMapping、PreparationSpec、PreparedDataset、PlotCalculationResult、PlotSpec 和版本关系可追溯；缓存可以删除并重建。
+- ChartRecipe 是不含真实数据的版本化声明对象；具体 PlotSpec 固定 recipe version、FieldMapping、数据和计算结果。项目必须保存重现历史图所需的 recipe version，即使该配方已从图形库隐藏或删除。
 - `.plotproj` 是可搬运、可校验的项目快照，不是实时数据库，也不是持续自动保存目标。
 - 数据导入先在临时区完成识别、解析和验证，最后才移动不可变对象并用单个 SQLite 事务注册。
 - 导入只确认数据位置与结构；用户选图后才进行一次字段语义映射。两者职责不同，不是重复映射。
@@ -21,6 +22,7 @@
 ```text
 %LOCALAPPDATA%\PlotAgent\
 ├─ catalog.sqlite3
+├─ personal-recipes\          # M6 后的本机个人声明式配方库
 └─ projects\
    └─ <project-uuid>\
       ├─ project.sqlite3
@@ -39,8 +41,9 @@
 - 项目 UUID 与本机项目目录。
 - 最近打开项目和最后访问时间。
 - 应用级设置。
+- M6 后个人图形配方包的 ID、版本、内容哈希、显示/删除状态和本机存储引用；不得包含项目数据、字段映射或聊天内容。
 
-catalog 不保存项目对话、PlotSpec、数据集、版本 DAG、原始数据或模型凭据。模型凭据继续保存在 Windows Credential Manager。
+catalog 不保存项目对话、PlotSpec、数据集、版本 DAG、原始数据或模型凭据。个人配方只允许保存 StructureUnit/ChartRecipe 声明、默认样式、显式模板常量和来源元数据，不保存真实数据、FieldId、路径、自动坐标范围、PlotCalculationResult 或可执行内容。模型凭据继续保存在 Windows Credential Manager。
 
 ### 2.2 项目数据库
 
@@ -48,7 +51,7 @@ catalog 不保存项目对话、PlotSpec、数据集、版本 DAG、原始数据
 
 - 项目设置、对话和结构化操作记录。
 - 资源对象、对象关系和引用。
-- SourceDataset、FieldMapping、PreparationSpec/PreparedDataset、PlotCalculationSpec/Result、PlotSpec、BatchSpec、FigureSpec 与 ExportSpec 元数据。
+- SourceDataset、FieldMapping、PreparationSpec/PreparedDataset、PlotCalculationSpec/Result、StructureUnitDefinition/ChartRecipe version、PlotSpec、BatchSpec、FigureSpec 与 ExportSpec 元数据。
 - 图表、数据和组合图的不可变版本 DAG。
 - 任务、事务、警告、部分失败和导出记录。
 - 内容对象的哈希、类型、大小、来源和引用计数。
@@ -102,6 +105,7 @@ project.plotproj
 ```
 
 - `manifest.json` 记录包格式版本、项目标识、快照事务、包类型、对象清单、能力限制和创建引擎版本。
+- manifest 同时列出项目图所固定的 ChartRecipe ID/version/hash；包中必须包含非内置配方及任何无法由当前内置版本精确恢复的历史官方配方快照。
 - `project.sqlite3` 是一致的只读快照，不是活动 WAL 数据库的文件级复制。
 - `objects/sha256` 只包含该包模式要求且被快照引用的对象。
 - `checksums.sha256` 用于导入前完整性校验。
@@ -129,7 +133,7 @@ project.plotproj
 - 原始文件副本。
 - PreparedDataset、Plot Data 与固定 PlotCalculationResult。
 - 对话、对象关系、版本 DAG、任务和操作历史。
-- FieldMapping、PreparationSpec、PlotCalculationSpec/Result、PlotSpec、图表、组合图和导出记录。
+- FieldMapping、PreparationSpec、PlotCalculationSpec/Result、所需 ChartRecipe versions、PlotSpec、图表、组合图和导出记录。
 
 完整项目包可以在另一台兼容设备上恢复 v1 导入、受控准备、固定绘图计算、绘图与导出能力。
 
@@ -138,7 +142,7 @@ project.plotproj
 结果项目包省略原始数据，但必须保留：
 
 - 打开既有图表、继续可逆改图和重新导出所需的 PreparedDataset、Plot Data 与固定计算结果。
-- PlotSpec、PlotCalculationResult、样式快照、发表规格和版本关系。
+- PlotSpec、PlotCalculationResult、所固定的 ChartRecipe versions、样式快照、发表规格和版本关系。
 - 对话、任务与导出记录中仍属于项目快照的结构化元数据。
 
 结果项目包的边界：

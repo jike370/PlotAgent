@@ -1,6 +1,6 @@
 # PlotAgent 后端与 Agent 架构
 
-> 状态：第一轮架构基线已确认  
+> 状态：第一轮架构基线已确认；M6 内部 ChartRecipe/泛化补充边界已冻结
 > 日期：2026-08-05  
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
 > 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
@@ -13,7 +13,7 @@
 - 一个由 Electron 主进程监管的常驻 Python Core。
 - Electron 与 Python 通过带版本的 JSON-RPC over stdio 通信，不开放本地 HTTP 端口。
 - Agent 只输出符合 JSON Schema 的 `AgentDecision`；其中 `ActionPlan` 也只是候选，必须经过本地校验后执行。模型没有工具循环、文件/数据库/Origin/URL 访问或任意代码执行能力。
-- 版本化 PlotSpec 是图表结构化真值；单一 resolver 把它与 PreparedDataset、用户预计算字段、PlotCalculationResult、样式和发表规格解析为 ResolvedRenderPlan，Matplotlib 与 Origin 都只适配该 Plan。
+- 版本化 ChartRecipe 是可复用结构真值，版本化 PlotSpec 是绑定具体数据后的图表实例真值；确定性 Recipe Compiler 生成 PlotSpec，单一 resolver 再把它与 PreparedDataset、用户预计算字段、PlotCalculationResult、样式和发表规格解析为 ResolvedRenderPlan，Matplotlib 与 Origin 都只适配该 Plan。
 - 手动界面操作与自然语言操作进入同一套计划、校验、执行、验证和事务链。
 - Matplotlib 是第一轮唯一正式预览、PNG 和 SVG 渲染器；Plotly/Kaleido 不进入第一轮正式渲染链。
 - Origin 导出使用单独的串行受控 Worker。
@@ -97,10 +97,11 @@ PlotSpec 是独立于 Matplotlib、SVG 和 Origin 的图表定义：
 PlotSpec
 ├─ schema_version
 ├─ chart_type_id
+├─ chart_recipe_ref
 ├─ dataset_version_ids
 ├─ field_mapping
-├─ transform_refs
-├─ analysis_spec
+├─ preparation_refs
+├─ plot_calculation_refs / precomputed_refs
 ├─ axes
 ├─ series
 ├─ style_reference
@@ -117,6 +118,7 @@ PlotSpec
 - 数据、样式、发表规格和渲染器都引用明确版本。
 - 图表子对象具有稳定语义 ID，例如 `series:control`、`axis:y-left`、`legend:main`。
 - PlotSpec 不包含可执行 Python、LabTalk、JavaScript 或任意模板代码。
+- ChartRecipe 只保存组件、语义端口、封闭关系、策略、默认样式和显式模板常量；不保存真实数据、FieldId、路径、自动范围、计算结果或可执行内容。官方与未来自定义配方使用同一 compiler/resolver/renderer 链。
 
 ### 4.2 PlotPatch
 
@@ -187,6 +189,7 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 - `ImportService`：确定性 Excel/TXT/CSV 导入、结构候选、最小追问、ImportRecipe、SourceDataset 和只读访问。
 - `PreparationService`：把一次 FieldMapping 本地编译为封闭 PreparationSpec，原子创建用于复现的 PreparedDataset/Plot Data。
 - `PlotCalculationService`：执行九类封闭 PlotCalculationSpec，持久化固定算法结果、mask 与 hashes。
+- `RecipeService`：StructureUnit/ChartRecipe registry、完整组件图/端口/关系校验、版本锁定和确定性编译；M6 只服务官方配方迁移，不开放用户搭建入口。
 - `PlotService`：PlotSpec 创建、Patch、验证和版本。
 - `RenderService`：解析版本化坐标、ticks、物理布局、字体、样式、数据完整性与 ResolvedRenderPlan hash。
 - `BatchService`：完全同构验证、任务展开、部分失败和事务撤销。
@@ -219,8 +222,8 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 
 ### 7.1 存储职责
 
-- `%LOCALAPPDATA%\PlotAgent\catalog.sqlite3` 只保存项目目录、最近打开和应用设置。
-- 每个 `projects/<uuid>/project.sqlite3` 保存对话、对象关系、版本 DAG、任务、SourceDataset、PreparationSpec、PlotCalculationSpec/Result、PlotSpec 和操作记录。
+- `%LOCALAPPDATA%\PlotAgent\catalog.sqlite3` 保存项目目录、最近打开、应用设置，以及 M6 后个人声明式配方库的版本/hash/引用元数据；不保存任何项目数据或凭据。
+- 每个 `projects/<uuid>/project.sqlite3` 保存对话、对象关系、版本 DAG、任务、SourceDataset、PreparationSpec、PlotCalculationSpec/Result、所需 ChartRecipe versions、PlotSpec 和操作记录。
 - `objects/sha256` 保存原始副本、Parquet、持久化规格与导出等不可变大对象；原始数据不可变。
 - `cache` 只保存可再生内容，不进入项目包；`tmp` 和 `project.lock` 分别管理未提交产物和单写入工作区。
 - SQLite WAL 仅用于本机活动工作区，由 Python Core 单写入器管理。
@@ -256,9 +259,9 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 
 ### 8.1 Matplotlib Renderer
 
-- Render Resolver 先把 PlotSpec/FigureSpec 与 PreparedDataset、PlotCalculationResult/预计算字段引用解析为 ResolvedRenderPlan；Matplotlib adapter 不自行 autoscale、选择 ticks、换单位、fallback 字体或重算固定/科学计算。
+- Recipe Compiler 先把已验证的 ChartRecipeRef、FieldMapping、数据引用和显式 override 编译为 PlotSpec；Render Resolver 再把 PlotSpec/FigureSpec 与 PreparedDataset、PlotCalculationResult/预计算字段引用解析为 ResolvedRenderPlan。Matplotlib adapter 不自行 autoscale、选择 ticks、换单位、fallback 字体或重算固定/科学计算。
 - thumbnail、interactive 与 formal 使用同一语义 resolver；前两者可记录并显示确定性视觉降采样，formal PNG/SVG 使用完整数据。
-- Plan 固定 mm/pt 物理尺寸、sRGB、SafeRichText AST、六类第一轮 axis、range、ticks、legend/annotation placement 与 font file hash。
+- Plan 固定 mm/pt 物理尺寸、sRGB、SafeRichText AST、linear/log10/datetime/categorical 四类第一轮 axis、range、ticks、legend/annotation placement 与 font file hash。
 - PNG、SVG 和 Origin 使用同一 Plan 与语义容差；目标是 semantic parity，不要求 pixel identity。
 - renderer 返回输出文件、plan hash、尺寸、DPI、字体、警告和验证结果，不返回不可追溯的全局 pyplot 状态。
 - CPU 密集型渲染可进入受控进程池，任务提交仍由 Python Core 协调。

@@ -193,6 +193,17 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 
 每个 case 保存分层快照：`file read → region candidates/selection → table parse → mapping → PreparedDataset/PlotCalculationResult → PlotSpec → render → export`。首次偏差决定责任层；下游不得用容错掩盖上游错误。错误族按 `IMPORT/MAPPING/PREPARE/PLOTSPEC/RENDER/EXPORT/TEST` 归档并支持分层回放。
 
+### 7.5 基础图形参数化泛化门禁
+
+同源视觉 evidence 只证明某一已锚定案例的默认外观；基础泛化 evidence 证明绘图逻辑没有把组数、范围或样例几何写死。两者分别保存、分别判定，不得互相替代。
+
+- 当前 52 个基础图按结构签名归类，以冻结 generator version、seed、manifest 从独立基础 fixture 生成变体；expected oracle 随测试资产固定，运行时不得调用当前 compiler/resolver/renderer 生成 oracle。
+- 适用结构至少覆盖组数 `1/2/3/5`、不同点数/类别数、量级缩放和平移、跨零与全负、零/对称/非对称误差、长中文/英文/混合标签及可选字段缺失；不适用维度须由结构签名显式声明，不能静默跳过。
+- 每个适用 case 至少断言全部几何有限、同组柱/区间不重叠、正负堆积分别累加、误差棒绑定正确 series/axis、轴范围覆盖可见数据与误差、series-color-legend identity 一致；空间不足必须产生规定 warning/error，不能通过截断或隐藏通过。
+- Matplotlib 对所有适用 case 执行完整矩阵；Origin 对每个结构签名执行代表性变体的 typed plan、build 与 fresh-reopen 检查。每个正式图仍至少保留一个参考图和同源数据锚定的 Origin 外观证据。
+- 基础泛化门禁未通过前，不实现、不迁移组合 compiler 的测试 oracle；先修复现有基础函数和解析逻辑，再冻结新的组合基线。
+- 用户重复使用已准入配方时只运行常规 Schema、mapping、capability、render/export 校验，不为每次复用重新执行本节 qualification。
+
 ## 8. Beta 测试层级
 
 1. Schema/domain strict union、generated TS types 与 stable error registry。
@@ -231,6 +242,7 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 - 非原生结果被宣称为 O1，或声明的唯一 Origin exact version fresh reopen 关键语义失败。
 - credential、prompt、文件路径、列名、单元格值、数据摘要或 secret 泄漏。
 - 31 个正式图形中任一声明输出路径/适用 fixture 失败。
+- 当前声明的基础图在冻结泛化矩阵中违反有限几何、无重叠、堆积、误差绑定、范围覆盖或 series-color-legend identity 任一不变量，或测试 oracle 由被测实现动态生成。
 - 安装包 signature、hash 或 Windows code signature 验证可被绕过。
 - 已知 blocker/critical，或只有靠删除失败样本、放宽 fixture/tolerance、替换未审阅 golden 才通过。
 
@@ -242,11 +254,12 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 2. 31 图 279 个逻辑 MatrixKey coverage 和额外 preview/interactive coverage 零缺口；其中昂贵 Origin 自动化按 representative 实跑、其余离线验证拆分记录。
 3. 当前 build 唯一 Origin exact version 的完整 31 图 representative O1 live+fresh-reopen report，以及 minimal/edge 的离线 contract/error report。
 4. 约30个导入 golden、31图字段/准备/固定计算/预计算契约与 full-data formal assertions。
-5. Reference profile 性能、≤2 GB peak、磁盘/resource preflight 结果。
-6. strict local_only、credential/log/DiagnosticBundle 禁止字段和恶意导入检查。
-7. 简化云额度的共享计数与 `client_run_id` 重试不重复扣费检查；自定义 provider/本地能力不受影响。
-8. 人工分发安装包的 SHA-256、发布签名与 Windows code signature 验证。
-9. Known issues、稳定错误、恢复动作和单一 go/no-go 记录。
+5. 当前基础图的冻结泛化 manifest、完整 Matplotlib matrix、按结构签名的代表性 Origin report、跳过原因和不变量结果；确认未用当前实现生成 oracle。
+6. Reference profile 性能、≤2 GB peak、磁盘/resource preflight 结果。
+7. strict local_only、credential/log/DiagnosticBundle 禁止字段和恶意导入检查。
+8. 简化云额度的共享计数与 `client_run_id` 重试不重复扣费检查；自定义 provider/本地能力不受影响。
+9. 人工分发安装包的 SHA-256、发布签名与 Windows code signature 验证。
+10. Known issues、稳定错误、恢复动作和单一 go/no-go 记录。
 
 每份 evidence 固定 manifest/source/test-runner/app/PlotSpec/model/profile/prompt/Unicode normalization hashes；任何一项变化都形成新 evidence。测试运行时不得生成 oracle。
 

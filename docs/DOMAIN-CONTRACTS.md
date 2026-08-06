@@ -36,9 +36,13 @@ PlotCalculationSpec / PlotCalculationResult
 ├─ 九类图形不可分割固定计算
 └─ 固定算法、参数、完整数据输入、mask、输出表与 hashes
 
+StructureUnitDefinition / ChartRecipe
+├─ 可复用视觉构件、语义端口与封闭结构关系
+└─ 版本化图义骨架，不绑定源列、当前数据或 renderer 代码
+
 PlotSpec
 ├─ 一张独立图的结构化定义
-└─ 引用 PreparedDataset、用户预计算字段与 PlotCalculationResult
+└─ 引用 ChartRecipe 版本、PreparedDataset、用户预计算字段与 PlotCalculationResult
 
 ResolvedRenderPlan
 ├─ 已解析坐标、刻度、物理布局、样式、文本与数据完整性
@@ -63,6 +67,7 @@ OriginExportPlan
 约束：
 
 - PlotSpec 不保存原始表格数组，只引用数据版本。
+- ChartRecipe 不保存 SourceDataset、FieldId、数据值、自动坐标范围或 PlotCalculationResult；它只保存结构、语义槽位、关系、坐标策略、默认样式与显式模板常量。
 - PlotSpec 不在渲染时临时分箱、KDE、汇总、拟合或分析，只引用持久化 Plot Data/PlotCalculationResult。
 - Matplotlib 与 Origin 不直接解释 PlotSpec 的未解析默认值，只消费同一 ResolvedRenderPlan。
 - FigureSpec 与 BatchSpec 是独立对象，不通过给 PlotSpec 增加任意布局字段来模拟。
@@ -104,6 +109,45 @@ ResourceRef          主进程授权的资源 ID，不是任意路径
 
 `PlotCalculationSpec/Result` 是九类封闭联合：HistogramBinning、TukeyBox、ViolinKDE、DensityKDE、ECDF、SummaryError、PercentStack、MatrixProjection、ConfusionCount。它不允许任意表达式、自由串联或发布为通用数据集；完整算法与缺失规则以[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)为准。
 
+### 3.2 StructureUnitDefinition 与 ChartRecipe
+
+`StructureUnitDefinition` 是系统版本化的结构单元登记项。它只描述图中可复用的视觉构件或关系能力，不承担源文件解析、表型转换、固定计算或后端代码：
+
+```text
+StructureUnitDefinition
+├─ unit_id / version / display metadata
+├─ semantic_ports[]          # x、y、category、value、error、color、size…
+├─ accepted_data_kinds[]     # prepared | precomputed | plot_calculation
+├─ parameters[]              # 强类型、有限范围、无任意属性路径
+├─ relation_capabilities[]   # 可参与哪些封闭关系
+└─ renderer_capabilities     # Matplotlib / Origin typed support
+```
+
+`ChartRecipe` 是可复用、不可变版本的完整组件图：
+
+```text
+ChartRecipe
+├─ recipe_id / recipe_version / schema_version
+├─ origin: official | user
+├─ parent_recipe_ref?
+├─ components[1..N]: ComponentInstance
+├─ relations[]: overlay | group | stack | attach | connect | offset | facet | axis_assignment
+├─ semantic_slots[]
+├─ coordinate_policy / default_style_ref
+├─ explicit_template_constants[]
+└─ structure_fingerprint / provenance
+```
+
+约束：
+
+- `ComponentInstance` 引用一个已登记 unit/version，并为其端口分配稳定 component-local slot；不允许嵌入 Python、LabTalk、任意 JSON path 或 renderer 参数字符串。
+- `Relation` 是带 discriminator 的封闭联合，目标使用稳定 component ID。误差/区间/标签必须显式 `attach` 到目标构件；堆积、分组和轴归属不得从字段名或 series 顺序推断。
+- 两个单元分别可用不代表其任意多单元组合合法；Local Recipe Validator 必须校验完整有向组件图、端口基数、关系冲突、单位/坐标、固定计算来源和 renderer capability。
+- 官方图形与未来用户图形使用同一 ChartRecipe Schema。官方身份只表示完成更严格的证据门禁，不表示存在第二套运行时。
+- ChartRecipe 只保存语义槽位。当前数据经一次 FieldMapping 绑定到槽位，本地 compiler 再生成具体 PlotSpec；已有有效绑定可增量复用，新增或冲突槽位才需要用户确认。
+- 固定计算只能作为登记的输入来源供构件消费，不能在组件图中自由串联，也不能成为通用派生数据工作流。
+- M6 只实现 Schema、validator、compiler 与官方配方迁移；用户搭建器、用户配方包和自然语言结构 Action 在 M6 后开放。
+
 ## 4. PlotSpec
 
 ### 4.1 公共外壳
@@ -114,6 +158,11 @@ ResourceRef          主进程授权的资源 ID，不是任意路径
   "plot_id": "plot:temperature-a",
   "plot_version": 3,
   "chart_type_id": "K02",
+  "chart_recipe_ref": {
+    "recipe_id": "official:K02",
+    "recipe_version": 1,
+    "structure_fingerprint": "sha256:<canonical-recipe-hash>"
+  },
   "family": {
     "kind": "xy",
     "geometry": ["line", "symbol"]
@@ -137,6 +186,7 @@ ResourceRef          主进程授权的资源 ID，不是任意路径
 - `schema_version`：领域 Schema 版本。
 - `plot_id`、`plot_version`：稳定对象与不可变版本。
 - `chart_type_id`：图形库稳定 ID。
+- `chart_recipe_ref`：生成当前实例的精确图形配方版本与结构指纹；过渡期内官方 registry ID 与 recipe ref 同时存在并由本地 validator 校验一致。
 - `family`：带 `kind` discriminator 的图形家族配置。
 - `prepared_data_refs`：一个或多个精确 PreparedDataset 版本引用。
 - `precomputed_data_refs`：用户提供的 curve/band/matrix/step 等预计算字段引用。
@@ -168,6 +218,8 @@ ResourceRef          主进程授权的资源 ID，不是任意路径
 - 图形专用校验规则。
 
 因此，同属 `xy` 的 K01 与 S31 可以复用基础 Schema，但 S31 额外允许谱轴方向、峰标签和参考卡配置。
+
+M6 补充迁移后，图形注册表不再重复保存完整布局实现，而是把官方 `chart_type_id` 指向一份精确 `ChartRecipeRef`，并保留产品名称、字段/固定计算门槛、证据状态和导出等级。ChartRecipe compiler 负责从组件图生成 PlotSpec；按 chart ID 的布局常量不得成为第二事实来源。
 
 ### 4.3 数据准备、固定计算与渲染分离
 
@@ -339,6 +391,8 @@ PatchTransaction
 
 文件选择/导入、结构确认、FieldMapping UI、PreparationSpec 编译和 PlotCalculation 执行是本地工作流阶段，不是模型 Action。`create_plot/create_batch` 只表达已经选定的 chart type、字段语义和用户参数；本地 compiler 根据图形注册表决定是否生成封闭 PlotCalculationSpec。
 
+M6 不扩展上述 Action 联合。M6 后的自然语言搭建器只能增加带 discriminator 的 `add_component`、`remove_component`、`set_relation`、`set_axis_assignment`、`bind_recipe_slot` 和 `save_custom_chart_type` 等领域 Action；模型仍不得输出自由图层 JSON、任意属性路径或 renderer 代码。
+
 不向 Agent 提供以下 Action：
 
 - 任意删除或永久清空回收站。
@@ -395,7 +449,7 @@ validation: info | warning | blocked
 
 ## 12. Schema 发布与兼容
 
-- 每个发布版本输出 `schemas/` 包，包含 PlotSpec、PatchTransaction、ActionPlan、RPC 和事件 Schema。
+- 每个发布版本输出 `schemas/` 包，包含 StructureUnitDefinition、ChartRecipe/ChartRecipeRef、PlotSpec、PatchTransaction、ActionPlan、RPC 和事件 Schema。
 - Schema 使用固定 `$id` 和 Draft 2020-12 `$schema`。
 - TypeScript 类型由发布 Schema 生成，并在 CI 中检查工作区无未生成差异。
 - 不兼容 Schema 默认返回 `SCHEMA_VERSION_UNSUPPORTED`，不能以忽略字段方式继续写入；v1 Schema 不含可执行 AnalysisSpec/FitSpec。
@@ -412,7 +466,11 @@ validation: info | warning | blocked
 - ActionPlan 最大 8 步、无环依赖和禁止 Action。
 - Excel/TXT/CSV ImportRecipe、结构候选、一次 FieldMapping、PreparationSpec 封闭联合与来源坐标。
 - PlotCalculationSpec 九类联合、固定算法 golden、禁止自由串联与 input/output hash。
+- StructureUnitDefinition/ComponentInstance/Relation/ChartRecipe/ChartRecipeRef 的合法与非法组件图、稳定指纹、版本引用、未知单元和完整图冲突拒绝。
+- ChartRecipe 只含语义槽位与显式模板常量，不含 SourceDataset/FieldId/数据值/自动范围/PlotCalculationResult/路径/代码；官方与用户 recipe 使用同一 Schema。
+- ChartRecipe→FieldMapping→PlotSpec 编译确定性，同一输入/版本产生相同规范化 PlotSpec；增量组件只使相关新增/冲突槽位失效。
 - ResolvedRenderPlan 规范化 hash、正式 ExportSpec 绑定与 Matplotlib/Origin adapter 禁止重新解析。
+- 冻结数据生成器的基础结构不变量：并列不重叠、正负堆积分离、误差显式附着、范围覆盖、series/颜色/图例身份和 finite geometry。
 - 坐标、ticks、SafeRichText、物理尺寸、quality tier 与跨 renderer 容差。
 - OriginExportPlan、O1 准入、最小自包含数据、两阶段读回、整文件原子性和稳定错误。
 - BatchSpec 的 FieldMapping/PreparationSpec/PlotCalculationSpec 完全同构签名。
