@@ -1355,6 +1355,23 @@ def _axis_values(drafts: Sequence[_DraftLayer], roles_name: str) -> tuple[Scalar
     return tuple(values)
 
 
+def _has_zero_y_baseline(drafts: Sequence[_DraftLayer]) -> bool:
+    """Return whether visible geometry is anchored to a data-space zero baseline."""
+
+    return any(
+        draft.geometry in {"distribution.histogram", "xy.area"}
+        or (
+            draft.geometry.startswith("bar.")
+            and draft.geometry != "bar.horizontal"
+            and any(
+                is_finite_number(value) and float(value) == 0.0
+                for value in draft.roles.get("bottom", ())
+            )
+        )
+        for draft in drafts
+    )
+
+
 def _resolve_panel_axes(
     plot: PlotSpec,
     panels: Sequence[ResolvedPanel],
@@ -1370,7 +1387,6 @@ def _resolve_panel_axes(
     shared = plot.chart_type_id == "K24"
     all_x = _axis_values(drafts, "x")
     all_y = _axis_values(drafts, "y")
-    include_zero_y = plot.chart_type_id in {"K08", "K09", "K10", "K11", "K18"}
     axes: list[ResolvedAxis] = []
     resolutions: dict[tuple[str, str], AxisResolution] = {}
     for panel_index, panel in enumerate(panels):
@@ -1407,7 +1423,7 @@ def _resolve_panel_axes(
                 y_values,
                 panel_id=panel.panel_id,
                 resolved_axis_id=f"{panel_y_spec.axis_id}{suffix}",
-                include_zero=include_zero_y,
+                include_zero=_has_zero_y_baseline(panel_drafts),
             )
             if plot.chart_type_id == "X13":
                 x_resolved = replace(
