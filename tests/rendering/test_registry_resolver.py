@@ -15,10 +15,12 @@ from plotagent.contracts.plots import (
     SeriesSpec,
     SetAxisRangePatch,
 )
+from plotagent.contracts.rendering import ResolvedLayer
 from plotagent.plots.validation import PlotValidationError, validate_plot_patch
 from plotagent.rendering import PanelPlan, PlotResolver, RenderDataStore, RenderTable
 from plotagent.rendering.resolver import INTERACTIVE_LIMIT
 from tests.contracts.helpers import HASH_A, minimal_plot
+from tests.rendering.fixture_factory import resolve_chart
 
 
 def _line_data(count: int = 4) -> RenderTable:
@@ -118,6 +120,24 @@ def test_preview_simplification_keeps_full_data_axis_range_and_formal_count() ->
     assert [(axis.minimum, axis.maximum) for axis in preview.plan.axes] == [
         (axis.minimum, axis.maximum) for axis in formal.plan.axes
     ]
+
+
+def test_x35_dual_y_columns_keep_explicit_side_by_side_coordinates() -> None:
+    resolved = resolve_chart("X35")
+    left, right = resolved.plan.layers
+
+    assert left.geometry == right.geometry == "bar.floating"
+
+    def x_values(layer: ResolvedLayer) -> tuple[float, ...]:
+        binding = next(item for item in layer.field_bindings if item.role == "x")
+        return tuple(float(value) for value in resolved.table_for(layer).column(binding.field_id))
+
+    left_x = x_values(left)
+    right_x = x_values(right)
+    assert all(
+        right_value - left_value == pytest.approx(0.38)
+        for left_value, right_value in zip(left_x, right_x, strict=True)
+    )
 
 
 def test_patch_validation_checks_version_target_log_and_safe_text() -> None:

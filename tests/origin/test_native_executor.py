@@ -9,6 +9,7 @@ from plotagent.origin.native import (
     PROJECT_FOLDERS,
     build_native_project,
     inspect_native_project,
+    materialize_primitive,
     native_primitives,
 )
 from plotagent.origin.planner import build_origin_export_spec, compile_origin_plan
@@ -217,3 +218,28 @@ def test_non_stacked_bars_use_visible_native_columns(chart_id: str) -> None:
     assert primitives[0].plot_type == "column"
     assert primitives[0].y_role == "height"
     assert primitives[0].y2_role is None
+
+
+@pytest.mark.parametrize("chart_id", ["X09", "X35"])
+def test_floating_columns_use_width_scaled_disconnected_native_stems(
+    chart_id: str,
+) -> None:
+    plan = _plan(chart_id)
+    layer = plan.graph_objects[0].layers[0]
+    plot = layer.plots[0]
+    primitive = native_primitives(plot)[0]
+    data = next(item for item in plan.data_objects if item.object_id == plot.data_object_id)
+
+    assert primitive.plot_type == "line"
+    assert primitive.transform == "floating_stem"
+    assert primitive.y_role == "bottom"
+    assert primitive.y2_role is None
+    assert primitive.stroke_width_role == "width"
+
+    table = materialize_primitive(primitive, data)
+    assert table is not None and table.auxiliary is not None
+    source = {column.role: column.values for column in data.columns}
+    assert table.x[0] == table.x[1]
+    assert table.y[0:2] == (source["bottom"][0], source["top"][0])
+    assert table.auxiliary[0:2] == (source["width"][0],) * 2
+    assert table.x[2] is table.y[2] is table.auxiliary[2] is None

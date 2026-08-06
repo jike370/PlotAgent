@@ -143,6 +143,11 @@ class MatplotlibRenderer:
                 for other in plan.panels
             ) and panel.panel_id.endswith("right"):
                 axes[panel.panel_id].xaxis.set_visible(False)
+        if plan.chart_type_id == "X02":
+            lollipop_axis = axes[plan.panels[0].panel_id]
+            lollipop_axis.spines["bottom"].set_position(("data", 0.0))
+            lollipop_axis.xaxis.set_ticks_position("bottom")
+            lollipop_axis.xaxis.set_label_position("bottom")
         for panel_id, axis in axes.items():
             if not any(item.panel_id == panel_id for item in plan.axes):
                 axis.set_axis_off()

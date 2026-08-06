@@ -96,7 +96,7 @@ ORIGIN_ADAPTERS: tuple[OriginAdapterRegistration, ...] = (
     _entry("X19", "special", ("xy.symbol", "xy.line")),
     _entry("X23", "special", ("xy.line",)),
     _entry("X24", "special", ("bar.single", "xy.line")),
-    _entry("X35", "special", ("bar.single",)),
+    _entry("X35", "special", ("bar.floating",)),
     _entry("X36", "special", ("bar.single", "xy.line")),
     _entry("X37", "special", ("distribution.box",)),
     _entry("X38", "special", ("xy.line",)),

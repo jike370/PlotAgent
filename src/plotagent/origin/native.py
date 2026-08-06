@@ -27,6 +27,7 @@ class NativePrimitive:
     y2_role: str | None = None
     size_role: str | None = None
     color_role: str | None = None
+    stroke_width_role: str | None = None
     transform: Literal[
         "direct",
         "interval_connector",
@@ -37,6 +38,7 @@ class NativePrimitive:
         "forest_interval",
         "forest_symbol",
         "floating_polygon",
+        "floating_stem",
         "horizontal_polygon",
     ] = "direct"
 
@@ -46,6 +48,7 @@ class NativePrimitiveTable:
     x: tuple[OriginScalar, ...]
     y: tuple[OriginScalar, ...]
     y2: tuple[OriginScalar, ...] | None = None
+    auxiliary: tuple[OriginScalar, ...] | None = None
 
 
 _LINE_KINDS = {
@@ -139,10 +142,11 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
     if plot.native_kind == "floating_bar":
         return (
             NativePrimitive(
-                "area",
+                "line",
                 "x",
                 "bottom",
-                transform="floating_polygon",
+                stroke_width_role="width",
+                transform="floating_stem",
             ),
         )
     if plot.native_kind == "horizontal_bar":
@@ -298,6 +302,31 @@ def materialize_primitive(
             )
             floating_y.extend((bottom, bottom, top, top, bottom, None))
         return NativePrimitiveTable(tuple(floating_x), tuple(floating_y))
+    if primitive.transform == "floating_stem":
+        bottoms = _role_values(data, "bottom")
+        tops = _role_values(data, "top")
+        widths = _role_values(data, "width")
+        numeric_x = (
+            tuple(_number(value, "floating-stem X") for value in x_values)
+            if all(
+                isinstance(value, (int, float)) and not isinstance(value, bool)
+                for value in x_values
+            )
+            else _category_positions(x_values)
+        )
+        stem_x: list[OriginScalar] = []
+        stem_y: list[OriginScalar] = []
+        stem_width: list[OriginScalar] = []
+        for x, bottom, top, width in zip(numeric_x, bottoms, tops, widths, strict=True):
+            numeric_width = _number(width, "floating-stem width")
+            stem_x.extend((x, x, None))
+            stem_y.extend((bottom, top, None))
+            stem_width.extend((numeric_width, numeric_width, None))
+        return NativePrimitiveTable(
+            tuple(stem_x),
+            tuple(stem_y),
+            auxiliary=tuple(stem_width),
+        )
     if primitive.transform == "horizontal_polygon":
         lefts = _role_values(data, "left")
         rights = _role_values(data, "right")

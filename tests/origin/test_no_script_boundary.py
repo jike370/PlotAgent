@@ -4,7 +4,10 @@ from pathlib import Path
 import pytest
 
 import plotagent.origin
-from plotagent.origin._origin_backend import NativeOriginError, _area_fill_command
+from plotagent.origin._origin_backend import (
+    NativeOriginError,
+    _area_fill_command,
+)
 
 
 def test_origin_adapter_has_no_attach_or_script_execution_calls() -> None:

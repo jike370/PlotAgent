@@ -1047,8 +1047,20 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
     if chart_id in {"X23", "X35", "X36"}:
         x_role = "x" if "x" in values else "category"
         x_values = values[x_role]
-        left_geometry = "xy.line" if chart_id == "X23" else "bar.single"
-        right_geometry = "xy.line" if chart_id in {"X23", "X36"} else "bar.single"
+        left_geometry = (
+            "xy.line"
+            if chart_id == "X23"
+            else "bar.floating"
+            if chart_id == "X35"
+            else "bar.single"
+        )
+        right_geometry = (
+            "xy.line"
+            if chart_id in {"X23", "X36"}
+            else "bar.floating"
+            if chart_id == "X35"
+            else "bar.single"
+        )
 
         def dual_roles(role: str, geometry: str) -> Mapping[str, tuple[Scalar, ...]]:
             if geometry == "xy.line":
