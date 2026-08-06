@@ -199,6 +199,130 @@ Origin 官方资料称提供 100+ 图形类型；当前帮助的不同页面也�
 - [Publishing and Export](https://docs.originlab.com/user-guide/publishing-and-export/)
 - [Origin Sample Projects](https://www.originlab.com/Index.aspx?go=Products%2FOrigin%2FOriginSamplesProject)
 
+### 4.6 第一轮 31 图证据矩阵（Origin 模板优先）
+
+本节把第一轮冻结注册表中的 31 个 `chart_type_id` 逐项绑定到可复核证据，作为绘图规范、视觉审计和后续实现修正的共同依据。它不是“看到某张图后仿一个相似样式”的清单，也不把单篇论文的个人配色提升为通用规范。
+
+证据按下列顺序使用：
+
+1. **`O-SYS`：Origin 系统模板或内置图。** 优先证明图的几何结构、数据角色、图例/色标对象和可编辑对象关系。
+2. **`O-ANA`：Origin 官方分析输出。** 只证明该领域图的输出结构；第一轮若约定接收预计算结果，不能据此偷偷增加分析或拟合。
+3. **`O-PRIM`：Origin 系统模板的原生图元组合。** 当 Origin 没有一对一系统模板时，明确记录由哪些已安装模板/连接方式组成，不伪称为独立模板。
+4. **`O-EXT`：OriginLab 官方 File Exchange 模板或 App。** 可作为官方展示和领域语义的补充，但它不是系统内置能力，也不自动成为 PlotAgent 运行依赖。
+5. **`PUB`：报告规范、学会/出版社指南或代表性同行评议图。** 用于补足统计语义和发表惯例；单篇论文只证明“这样发表过”，不能单独规定颜色、字号或装饰。
+
+证据能支持的规则分为三档：**必须**是数据语义或权威规范直接要求；**默认**是 Origin 官方结构与跨来源共识支持、用户未指定时采用；**可选/产品选择**是外部证据没有唯一答案的部分，必须允许用户或发表规格覆盖。所有表中“验收”均指最小可见结构，不表示 Origin 模板的全部默认外观都要逐像素复刻。
+
+版本口径固定为当前 Beta 的 **Origin 2024 SR1，DisplayVersion 10.10.178 / runtime 10.100178，64-bit，`originpro=1.1.15`**。2026-08-06 在新的隐藏受控 Origin 实例中以 `originpro.new_graph` 做了不保存项目的可创建性探测：`LINE`、`LINESYMB`、`SCATTER`、`Bubble`、`ERRBAR`、`ERRORBAND`、`COLUMN`、`gColumn`、`Beeswarm`、`BOX`、`Violin`、`HIST`、`HISTDIST`、`AREA`、`HeatMap`、`HEAT_MAP_WITH_LABELS`、`CONTOUR`、`grouped`、`MGROUPS` 均能创建图页；`CDF`、`statdot` 与无效名称对照均不能创建。这与官方帮助给出的 `CDF.OTPU` 最低 Origin 2025b、`statdot.optu` 最低 Origin 2025 相符。在线帮助若未给最低版本，仍以该实机探测限定“目标版本可用”，不能外推到其他版本。
+
+以下是从 [Nature figure specifications](https://research-figure-guide.nature.com/figures/preparing-figures-our-specifications/) 和 Cochrane 的 [2024 graphical recommendations](https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current/graph-recommendations) 中抽取、且不依赖特定期刊版式的跨图语义底线：已知的量名与单位必须出现在轴标题或等价标签中，不能编造缺失单位；尺度覆盖全部应展示数据并有效利用画布，截断必须披露；不确定性类型必须可追溯；颜色不能是唯一的关键编码；用于直接比较的面板默认采用相同尺度。它们应用到全部 31 图；Nature 的具体字号、字体、栏宽等 house style 仍只在用户选择对应 `publication_profile` 时覆盖。单个未分组系列不强制显示无信息量图例；一旦存在多个系列、组别、尺寸或颜色映射，就必须提供对应图例、气泡标尺或色标。
+
+#### 4.6.1 XY、柱形与时间图
+
+| ID / 图形 | Origin 优先证据与等级 | 证据支持的结构 | 第一轮验收规范与边界 |
+|---|---|---|---|
+| K01 折线图 | `O-SYS`：[Line Graph](https://docs.originlab.com/origin-help/line-graph/)，`LINE.OTP` | 一个或多个 Y 对关联 X，以线连接 | **必须**有可解释的 X/Y 轴标题，单位存在时带单位；多系列使用一致的系列映射并显示图例。**默认**按 X 顺序连接、缺失段断开、轴覆盖全数据；不擅自平滑。 |
+| K02 线点图 | `O-SYS`：[Line+Symbol](https://docs.originlab.com/origin-help/linesym-graph/)，`LINESYMB.OTP` | 同一系列同时有线和符号 | 线与符号必须归属同一系列并保持同色；多系列同时用颜色加线型/符号冗余区分并显示图例。marker 形状、稀疏显示频率属于产品默认或用户样式。 |
+| K03 散点图 | `O-SYS`：[2D Scatter](https://docs.originlab.com/origin-help/2dscatter-graph/)，`SCATTER.OTP` | XY 符号，不要求连接线 | 不连接独立观测；有 `group` 时组间可辨且有图例，颜色之外再保留符号等冗余通道；透明度和点大小按遮挡程度自动选取，但不改变数据。 |
+| K04 气泡与色映射散点 | `O-SYS`：[Bubble + Color Mapped](https://docs.originlab.com/origin-help/bubble-color-map-graph/)，`Bubble.OTP`；[Bubble Scale](https://docs.originlab.com/origin-help/bubblescale/)；[Color Scale](https://docs.originlab.com/origin-help/colorscale/) | X/Y 位置，独立列控制点大小与颜色；Origin 默认创建气泡标尺，并可加入色标 | `size` 存在时**必须**显示气泡标尺，`color` 存在时**必须**显示带数值范围/单位的色标，`group` 存在时另有组图例；三者不可相互冒充。无映射时退化为普通散点，不显示空标尺。调色板类别由数据语义决定。 |
+| K05 含给定回归曲线 | `O-PRIM`：`SCATTER.OTP` + `LINE.OTP` + 可选 `ERRORBAND.OTP`；Origin 的 [Logistic function](https://docs.originlab.com/origin-help/logistic-fitfunc/) 仅是分析语义补充 | 原始点、已给定曲线和可选上下界叠加 | 第一轮**只绘制 supplied curve**，不拟合、不改参数；点在带和线之上，带不遮蔽点；多模型/组别显示图例。公式、拟合优度和区间含义只在输入提供时展示。 |
+| K06 点估计与误差线 | `O-SYS`：[Y Error Bar](https://docs.originlab.com/origin-help/y-errbar-graph/)，`ERRBAR.OTP` | 中心值加对称或非对称误差，可画为 bar/line/area | 中心值与上下界必须同时可见；误差是 SD、SE、CI 或其他量必须在元数据/图注可追溯，不能由形状猜测；组间重叠时错位但不改变类别顺序。 |
+| K07 误差带 | `O-SYS`：[Error Band](https://docs.originlab.com/origin-help/error-band-graph/)，`ERRORBAND.OTP` | 中心线加 YEr+/YEr−；官方模板自 2020 起带颜色跟随线并用 50% 透明填充 | 中心线始终可见，带位于线后且与系列颜色关联；上下界不得交叉而不报错；多系列显示图例。50% 是 Origin 证据支持的起始默认，不是不可修改的期刊硬规则。 |
+| K08 柱/条形图 | `O-SYS`：[Column Graph](https://docs.originlab.com/origin-help/column-graph/)，`COLUMN.OTP` | 每个 Y 值由固定宽度柱表示，并以关联 X 类别居中 | 类别之间必须有可见间隔；线性值轴默认包含零基线，负值向零线另一侧延伸；水平/垂直方向由用户选择。单系列可省略图例，多系列不得省。 |
+| K09 分组柱形图 | `O-SYS`：[Grouped Columns](https://docs.originlab.com/origin-help/grouped-column-index-data/)，`gColumn.otpu` | 同一主类别内子组并排；官方默认对子组索引颜色，Spacing 控制组内/组间空隙 | 每个主类别内的各组柱必须**并排且彼此分开**，不得叠在同一中心；同一组跨类别颜色/图案一致并显示组图例；默认让组间间隔大于组内间隔。具体 gap 关系和百分比是 PlotAgent 产品默认，可由样式覆盖，不冒充 Origin/期刊硬值。 |
+| K10 堆积柱形图 | `O-SYS`：[Stacked Column](https://docs.originlab.com/origin-help/stack-column-graph/)，`COLUMN.OTP` | 后一成分从前一成分终点开始，整栈以 X 居中 | 成分顺序和颜色跨类别保持一致，必须有成分图例；总量由栈顶表达。正负混合数据需分别从零累计或拒绝含糊方案，不能把分组柱误作堆积柱。 |
+| K11 百分比堆积柱形图 | `O-SYS`：[100% Stacked Column](https://docs.originlab.com/origin-help/100-stack-column-graph/)，`COLUMN.OTP` | 每栈归一为百分比，可显示百分比标签 | 每个非空类别严格合计 100%，值轴固定 0–100% 并标明百分比，保留成分图例；零总和类别给明确错误/缺失，不制造比例。标签仅在不拥挤时显示。 |
+| K18 面积图 | `O-SYS`：[Area Graph](https://docs.originlab.com/origin-help/area-graph/)，`AREA.OTP` | 数据曲线与指定 `From Y` 基线之间填充 | 基线必须明确，默认线性轴填到 0；边界线保持可见；多面积重叠时使用透明度或显式堆积，不能靠遮盖隐藏后画系列。 |
+| K19 时间序列 | `O-SYS`：`LINE.OTP`；时间列作为关联 X，基础结构见 [Line Graph](https://docs.originlab.com/origin-help/line-graph/) | 按时间轴绘制一个或多个连续序列 | 时间按解析后的时间值排序和缩放，刻度用人类可读日期/时间；缺失区间默认断开，不跨缺失插值；多系列用固定颜色/线型并显示图例，`event` 只在输入提供时标注。独立的 Time Series Explorer 是 2024b 扩展模板，不作为 2024 SR1 证据或依赖。 |
+
+#### 4.6.2 分布图
+
+分布类同时参考 [Beyond Bar and Line Graphs](https://journals.plos.org/plosbiology/article?id=10.1371%2Fjournal.pbio.1002128) 对“只给均值/误差会隐藏原始分布”的证据。它支持保留点和分布，但并不意味着每张分布图都必须叠加所有几何。
+
+| ID / 图形 | Origin 优先证据与等级 | 证据支持的结构 | 第一轮验收规范与边界 |
+|---|---|---|---|
+| K12 点/条带图 | `O-SYS`：[Beeswarm Plot](https://docs.originlab.com/origin-help/beeswarm-plot/)，`Beeswarm.OTPU`；当前 [Dot Plot](https://docs.originlab.com/origin-help/dot-plot/) 的 `statdot.optu` 最低为 Origin 2025，目标版本不可用 | 每列/组形成独立点群，swarm 用位移减少重叠 | 每个观测只出现一次，组之间位置和颜色可辨；抖动只作用于显示位置，不改变数值轴值；不自动叠加均值或显著性。目标 2024 采用 beeswarm/散点图元，不声称使用 `statdot.optu`。 |
+| K13 箱线图 | `O-SYS`：[Box Chart](https://docs.originlab.com/origin-help/boxchart-graph/)，`BOX.OTP` 及 overlap/half 变体 | 箱体、中心统计量、须和离群点；Origin 页面给出的默认须为 5th/95th percentile | PlotAgent 冻结计算是 **Tukey box**，因此 Q1/Q3、中位数、1.5×IQR 须与离群点必须通过数值测试；不能照搬 Origin 5th/95th 默认。Origin 只作为几何/可编辑对象证据；叠加原始点为可选样式。 |
+| K14 小提琴图 | `O-SYS`：[Violin Plot](https://docs.originlab.com/origin-help/violin-plot/)，`Violin.otpu` 及 box/point/quartile/split/half 变体；[Distribution tab](https://docs.originlab.com/origin-help/pd-dialog-distribution-tab/) | 每组独立核密度轮廓，可对称并可叠加箱/点/四分位 | 密度轮廓与冻结 `violin_kde` 结果一致、左右对称且不越过计算网格；组色和图例一致。带宽是计算契约，不由 Origin 默认替换；内部箱/点属于可选样式。 |
+| K15 直方图 | `O-SYS`：[Histogram/Distribution](https://docs.originlab.com/origin-help/histogram-graph/)，`HIST.OTP`；带分布曲线为 `HISTDIST.OTP` | 原始值按 bin 聚合为柱，Distribution 是另一个叠加变体 | bin 边界、闭区间规则和 count/density 口径必须与冻结计算一致，横轴覆盖全部 bin；纵轴明确写 count、frequency 或 density。第一轮 K15 不自动叠加分布拟合曲线。 |
+| K16 KDE 密度 | `O-PRIM`：冻结 KDE 网格用 `LINE.OTP`；`O-SYS` 补充为 `HISTDIST.OTP` 的 Kernel Smooth 选项及 [Distribution tab](https://docs.originlab.com/origin-help/pd-dialog-distribution-tab/) | 连续密度曲线；Origin 提供 kernel smooth 与带宽控制，但没有目标语义下独立的 1D KDE 系统模板 | 曲线来自 `density_kde` 固定计算，不调用 Origin 重新估计；密度非负，若定义为概率密度则数值积分约为 1；多组颜色/线型可辨并有图例。是否填充曲线下方是产品样式。 |
+| K17 ECDF/CCDF | `O-PRIM`：[Horizontal Step](https://docs.originlab.com/origin-help/horizontalstep-graph/) 使用 `LINE.OTP`；当前 [CDF Plot](https://docs.originlab.com/origin-help/cdf-plot/) 使用 `CDF.OTPU`，最低 Origin 2025b，目标版本不可用 | 单调阶梯累计函数；当前 Origin CDF 支持 empirical/theoretical 与 0–1/0–100 | 第一轮只绘制固定 `ecdf` 结果：ECDF 单调不减，CCDF 单调不增，概率轴固定 0–1 或明确 0–100%；不平滑、不输出理论分布。目标 2024 不声称使用 `CDF.OTPU`。 |
+
+#### 4.6.3 矩阵、等值和组合图
+
+| ID / 图形 | Origin 优先证据与等级 | 证据支持的结构 | 第一轮验收规范与边界 |
+|---|---|---|---|
+| K20 热图 | `O-SYS`：[Heatmap](https://docs.originlab.com/origin-help/heat_map/)，`HeatMap.otp`；[Color Scale](https://docs.originlab.com/origin-help/colorscale/) | 矩阵/虚拟矩阵单元格着色，刻度居中于色块，缺失值可用独立颜色 | 所有矩阵单元必须无内部留白地铺满数据框，行列标签与矩阵顺序一致；连续值映射必须有色标，缺失值与数值 0 明确区分。默认不使用 rainbow；色板可从安全的顺序/发散集合选择。 |
+| K21 给定相关矩阵 | `O-SYS`：[Heatmap with Labels](https://docs.originlab.com/origin-help/heatmap-labels/)，`HEAT_MAP_WITH_LABELS.OTPU` | 每格颜色加矩阵 Z 值标签 | 只绘制 supplied matrix，不从原始表重新算相关；行列变量顺序一致，值标签精度统一；相关系数语义时色域固定 −1..1、发散色板以 0 为中点并显示色标。若输入声明的不是相关系数，则不得强套 −1..1。三角遮罩/层次聚类不在第一轮。 |
+| K22 给定规则网格等值图 | `O-SYS`：[Color Fill Contour](https://docs.originlab.com/origin-help/colorfill-contour-graph/)，矩阵 `CONTOUR.OTP`；[Color Scale](https://docs.originlab.com/origin-help/colorscale/) | 规则 XY 网格上以填色和等值线表示 Z 范围；矩阵图默认按 X:Y 数值跨度联动图层比例 | 填色必须覆盖从 `x_min..x_max`、`y_min..y_max` 的完整网格范围，图层内部不留无数据边；必须显示色标，Z 变量名/单位存在时写入色标。规则网格默认遵循数据坐标比例；若为版式填满而改变 aspect，必须是显式样式选择。提供多套感知均匀顺序/发散色板，按 Z 语义选择；等值级数量属于自动默认且可改，不固定为单一调色板。 |
+| K24 分面图 | `O-SYS`：[Trellis](https://docs.originlab.com/origin-help/trellis/)，`grouped.otp` | 分组列决定横/纵面板，并可用另一变量映射颜色 | 每个 facet 只包含对应子集，面板标签完整且顺序稳定；直接比较时默认共享相同尺度，公共轴标题不重复堆叠；系列颜色跨面板同构。自由尺度只能由用户明确指定。 |
+| K25 多面板组合图 | `O-SYS`：[Multiple Panels](https://docs.originlab.com/origin-help/multipanel-graph/)，`MGROUPS.OTPU`，证明多层、面板排列与间距；`O-PRIM`：各子图仍按自己的 31 图证据构建 | 多层页面、可配置行列/间距，并能统一编辑层/轴属性 | 面板按阅读顺序排列，统一字体、线宽和对齐；按 [Nature panel guide](https://research-figure-guide.nature.com/figures/building-and-exporting-figure-panels/) 使用 `a,b,c…` 标签并减少无效白边。只有映射含义完全相同时才共享图例/色标；`MGROUPS` 是布局证据，不伪称能直接生成任意异构子图。 |
+| S61 混淆矩阵 | `O-SYS`：`HEAT_MAP_WITH_LABELS.OTPU`，见 [Heatmap with Labels](https://docs.originlab.com/origin-help/heatmap-labels/) | 分类矩阵每格用颜色和数值标签显示 | X/Y 轴明确标为 predicted/actual，类别顺序与计算结果一致，每格显示 count；必须有色标且文字与底色保持对比。第一轮只执行 `confusion_count`；若以后支持行/列归一化，必须在标题或色标注明口径，不能与计数混用。 |
+
+#### 4.6.4 学科专用图
+
+| ID / 图形 | Origin 优先证据与等级 | 领域/发表证据 | 第一轮验收规范与边界 |
+|---|---|---|---|
+| S01 给定 KM 生存曲线 | `O-ANA`：[Kaplan–Meier Estimator](https://docs.originlab.com/origin-help/kaplanmeier-estimator/) 与 [Survival Plots](https://docs.originlab.com/origin-help/kaplanmeier-dialog/) 证明 step survival、上下置信限、多组同图；`O-PRIM`：`LINE.OTP` step + `ERRORBAND.OTP` + 风险表图层 | Origin 说明 KM 是阶梯函数并可输出置信区间；但未证明风险表是内置输出硬要求 | 第一轮只接收 supplied steps，不从个体数据估计 KM；生存轴固定 0–1，曲线单调不增；CI、删失标记、risk table 仅在对应输入存在时绘制，多组必须有图例。不得凭空补风险人数或检验结果。 |
+| S05 给定剂量反应曲线 | `O-ANA`：[Origin Logistic](https://docs.originlab.com/origin-help/logistic-fitfunc/) 证明常见四参数 logistic 语义；`O-PRIM`：`SCATTER.OTP` + `LINE.OTP` + 可选 `ERRORBAND.OTP` | Origin 把 logistic 标为药理/化学 dose response，但不同实验也可能使用其他模型 | 原始点、supplied curve、可选区间清楚分层；第一轮不拟合、不选择模型。剂量对数轴只在用户/PlotSpec 明确选择且全部绘制值合法时启用；零剂量不能静默丢弃。参数只展示输入提供内容。 |
+| S21 给定效应量森林图 | `O-EXT`：[OriginLab Forest Plot App](https://www.originlab.com/fileExchange/details.aspx?fid=362)（最低 Origin 2017，非系统模板）支持 effect、上下 CI、可选 weight 和线性/对数轴；`O-PRIM`：[2 Point Segment](https://docs.originlab.com/origin-help/2point-seg-graph/) 的 `LINESYMB.OTP` + symbol | Cochrane [2024 forest recommendations](https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current/graph-recommendations)：效应量横轴、无效线、点估计方块、水平 CI、面积对应权重、Study ID、比值效应使用对数轴且刻度显示原值 | 每行 label、effect、CI 对齐；无效线位置由效应类型决定；有 weight 时符号面积而非半径与权重关联。单组可用中性色；存在有意义的系列/亚组时，用无障碍颜色加符号区分并显示图例，**不得给每行随机换色**。第一轮不计算汇总菱形或异质性。 |
+| S25 连续谱图 | `O-PRIM`：`LINE.OTP`；`O-EXT`：[Color Spectrum Plot](https://www.originlab.com/fileExchange/details.aspx?fid=666) 只证明 OriginLab 展示过波长谱扩展样式，不是系统模板或通用谱规范 | 化学/材料期刊中的 NMR、Raman、UV–Vis、XPS 等都采用连续轴—强度线图，但横轴方向和单位随谱种类变化 | 光谱轴和 intensity 标题/单位存在即显示，多系列颜色/线型和图例一致；完整给定范围进入自动缩放。第一轮不平滑、基线扣除、峰拟合或归一化；反向轴、填色、offset 仅由明确的领域类型或用户指令启用。 |
+| S31 XRD 衍射图 | `O-PRIM`：基础图为 `LINE.OTP`；`O-EXT`：[XRD with PDF](https://www.originlab.com/fileexchange/details.aspx?fid=929&v=0) 是 OriginLab Technical Support 发布的 graph template，最低 Origin 2023，输入 XRD XY 与标准卡 XY；[Graph Gallery](https://www.originlab.com/www/products/GraphGallery.aspx?GID=1617) 展示曲线与标准卡 | [Nature Communications 材料实例](https://www.nature.com/articles/s41467-025-65815-8) 证明 XRD 常与显微/晶体结构组合发表；单篇图不规定统一颜色 | X 轴为 angle/2θ（以输入标签为准），Y 轴为 intensity；曲线覆盖完整给定角度范围，峰标签只在输入提供时绘制并避免重叠。第一轮不做背景扣除、归一化、寻峰或 PDF 卡匹配；扩展模板是证据，不是安装依赖。 |
+| S34 Nyquist 图 | `O-PRIM`：`LINESYMB.OTP`；Origin 2025b 的同名控制系统 App 版本和语义均不匹配本 Beta，不能作为 2024 EIS 模板证据 | ACS [Electrochemical impedance tutorial](https://pubs.acs.org/doi/abs/10.1021/acsmeasuresciau.2c00070) 支持 EIS Nyquist 的复阻抗、频率与时间常数语义 | X 为 `Z′`，Y 为输入约定后的 `−Z″`/imaginary，并把符号约定写入轴标题；数据坐标默认等比例，点按频率顺序连接，提供 frequency 时可标方向或代表点。多系列用颜色加符号区分并显示图例；不拟合等效电路。 |
+
+#### 4.6.5 证据参考图索引
+
+下表把 31 项证据与对应参考图放在同一处。点击缩略图回到原始证据页；图片本身只用于本项目视觉审计，不作为可再分发的产品素材。**一对一**表示目标几何直接对应；**结构参考**表示只支持几何、布局或领域结构，颜色、统计计算和装饰仍以本节文字规范为准。远程图片地址和原始证据页访问日期均为 2026-08-06。
+
+| ID | 对应参考图 | 匹配范围 |
+|---|---|---|
+| K01 | <a href="https://docs.originlab.com/origin-help/line-graph/"><img src="https://docs.originlab.com/origin-help/line-graph/images/Image006.webp?v=WftSMi2vYoo" width="200" alt="Origin Line Graph"></a> | `O-SYS` `LINE.OTP`，一对一 |
+| K02 | <a href="https://docs.originlab.com/origin-help/linesym-graph/"><img src="https://docs.originlab.com/origin-help/linesym-graph/images/Image010.webp?v=5jFvqaHm75M" width="200" alt="Origin Line and Symbol"></a> | `O-SYS` `LINESYMB.OTP`，一对一 |
+| K03 | <a href="https://docs.originlab.com/origin-help/2dscatter-graph/"><img src="https://docs.originlab.com/origin-help/2dscatter-graph/images/Image002.webp?v=2p8aRmbRQ78" width="200" alt="Origin Scatter"></a> | `O-SYS` `SCATTER.OTP`，一对一 |
+| K04 | <a href="https://docs.originlab.com/origin-help/bubble-color-map-graph/"><img src="https://docs.originlab.com/origin-help/bubble-color-map-graph/images/Bubble_Graph_with_Color_Map.webp?v=YsOi1LY1vlM" width="200" alt="Origin Bubble Color Map"></a> | `O-SYS` `Bubble.OTP`，一对一；大小/颜色图例另见正文 |
+| K05 | <a href="https://docs.originlab.com/origin-help/logistic-fitfunc/"><img src="https://docs.originlab.com/origin-help/logistic-fitfunc/images/CFF_Image308.webp?v=8B8cC48aZsM" width="200" alt="Origin Logistic Curve"></a> | `O-ANA/O-PRIM`，曲线结构参考；不是通用回归模型 |
+| K06 | <a href="https://docs.originlab.com/origin-help/y-errbar-graph/"><img src="https://docs.originlab.com/origin-help/y-errbar-graph/images/Image064.webp?v=LvKL2fZoE90" width="200" alt="Origin Error Bar"></a> | `O-SYS` `ERRBAR.OTP`，一对一 |
+| K07 | <a href="https://docs.originlab.com/origin-help/error-band-graph/"><img src="https://docs.originlab.com/origin-help/error-band-graph/images/Error_Band.webp?v=4bGx6bZuuG8" width="200" alt="Origin Error Band"></a> | `O-SYS` `ERRORBAND.OTP`，一对一 |
+| K08 | <a href="https://docs.originlab.com/origin-help/column-graph/"><img src="https://docs.originlab.com/origin-help/column-graph/images/Image046.webp?v=oPOMtUx05No" width="200" alt="Origin Column Graph"></a> | `O-SYS` `COLUMN.OTP`，一对一 |
+| K09 | <a href="https://docs.originlab.com/origin-help/grouped-column-index-data/"><img src="https://docs.originlab.com/origin-help/grouped-column-index-data/images/Grouped_Column_Indexed_Data.webp?v=wwLjaqaI41I" width="200" alt="Origin Grouped Columns"></a> | `O-SYS` `gColumn.otpu`，一对一；柱必须并排分开 |
+| K10 | <a href="https://docs.originlab.com/origin-help/stack-column-graph/"><img src="https://docs.originlab.com/origin-help/stack-column-graph/images/Image061.webp?v=uyq3W7jJOdo" width="200" alt="Origin Stacked Column"></a> | `O-SYS` `COLUMN.OTP`，一对一 |
+| K11 | <a href="https://docs.originlab.com/origin-help/100-stack-column-graph/"><img src="https://docs.originlab.com/origin-help/100-stack-column-graph/images/100_Stack_Column.webp?v=jYp7iMwcqAY" width="200" alt="Origin 100 Percent Stacked Column"></a> | `O-SYS` `COLUMN.OTP`，一对一 |
+| K12 | <a href="https://docs.originlab.com/origin-help/beeswarm-plot/"><img src="https://docs.originlab.com/origin-help/beeswarm-plot/images/Appendix2_Beeswarm_example.webp?v=yp7M5GX10dA" width="200" alt="Origin Beeswarm"></a> | `O-SYS` `Beeswarm.OTPU`，目标 2024 一对一替代证据 |
+| K13 | <a href="https://docs.originlab.com/origin-help/boxchart-graph/"><img src="https://docs.originlab.com/origin-help/boxchart-graph/images/Box_chart2.webp?v=3PdyLcmyAUM" width="200" alt="Origin Box Chart"></a> | `O-SYS` 几何一对一；须统计与 PlotAgent Tukey 契约不同 |
+| K14 | <a href="https://docs.originlab.com/origin-help/violin-plot/"><img src="https://docs.originlab.com/origin-help/violin-plot/images/Violin_Plot.webp?v=2r6zALU9EO8" width="200" alt="Origin Violin Plot"></a> | `O-SYS` `Violin.otpu`，一对一 |
+| K15 | <a href="https://docs.originlab.com/origin-help/histogram-graph/"><img src="https://docs.originlab.com/origin-help/histogram-graph/images/Histogram_Graph1.webp?v=4SGPUV3gk7k" width="200" alt="Origin Histogram"></a> | `O-SYS` `HIST.OTP`，一对一 |
+| K16 | <a href="https://docs.originlab.com/origin-help/histogram-graph/"><img src="https://docs.originlab.com/origin-help/histogram-graph/images/Histogram_Graph3.webp?v=ozqhyo2nqbk" width="200" alt="Origin Distribution Curve"></a> | `O-SYS/O-PRIM`，KDE 曲线结构参考；第一轮独立线图 |
+| K17 | <a href="https://docs.originlab.com/origin-help/horizontalstep-graph/"><img src="https://docs.originlab.com/origin-help/horizontalstep-graph/images/Image030.webp?v=JAAi7c19oK4" width="200" alt="Origin Horizontal Step"></a> | `O-PRIM` `LINE.OTP` step，一对一几何；非 2025b `CDF.OTPU` |
+| K18 | <a href="https://docs.originlab.com/origin-help/area-graph/"><img src="https://docs.originlab.com/origin-help/area-graph/images/Image_area_graph_type.webp?v=MFQNpQl1fdc" width="200" alt="Origin Area Graph"></a> | `O-SYS` `AREA.OTP`，一对一 |
+| K19 | <a href="https://docs.originlab.com/origin-help/line-graph/"><img src="https://docs.originlab.com/origin-help/line-graph/images/Image006.webp?v=WftSMi2vYoo" width="200" alt="Origin Line Graph for Time Series"></a> | `O-SYS` `LINE.OTP`，线结构参考；日期刻度由时间语义决定 |
+| K20 | <a href="https://docs.originlab.com/origin-help/heat_map/"><img src="https://docs.originlab.com/origin-help/heat_map/images/Heat_Map-01.webp?v=3LXYIoVm_I4" width="200" alt="Origin Heatmap"></a> | `O-SYS` `HeatMap.otp`，一对一 |
+| K21 | <a href="https://docs.originlab.com/origin-help/heatmap-labels/"><img src="https://docs.originlab.com/origin-help/heatmap-labels/images/Heatmap_with_Labels-01.webp?v=Y4zBxX2GA94" width="200" alt="Origin Heatmap with Labels"></a> | `O-SYS` 矩阵色块/标签一对一；相关色域来自语义 |
+| K22 | <a href="https://docs.originlab.com/origin-help/colorfill-contour-graph/"><img src="https://docs.originlab.com/origin-help/colorfill-contour-graph/images/Color_Fill_Contour_Graphs_01.webp?v=x9iDjo6w3r8" width="200" alt="Origin Color Fill Contour"></a> | `O-SYS` `CONTOUR.OTP`，一对一 |
+| K24 | <a href="https://docs.originlab.com/origin-help/trellis/"><img src="https://docs.originlab.com/origin-help/trellis/images/Trellis_graph_01.webp?v=Ti6O3JNxuxU" width="200" alt="Origin Trellis"></a> | `O-SYS` `grouped.otp`，一对一 |
+| K25 | <a href="https://docs.originlab.com/origin-help/multipanel-graph/"><img src="https://docs.originlab.com/origin-help/multipanel-graph/images/Multiple_panels_by_label_01.webp?v=dvDkUfDUCfU" width="200" alt="Origin Multiple Panels"></a> | `O-SYS/O-PRIM`，布局一对一；异构子图另按各自证据 |
+| S01 | <a href="https://docs.originlab.com/origin-help/kaplanmeier-estimator/"><img src="https://docs.originlab.com/origin-help/kaplanmeier-estimator/images/Kaplan-Meier_Estimator_Image372.webp?v=DgekENBcIPk" width="200" alt="Origin Kaplan Meier"></a> | `O-ANA/O-PRIM`，领域结构参考；第一轮不运行 KM |
+| S05 | <a href="https://docs.originlab.com/origin-help/logistic-fitfunc/"><img src="https://docs.originlab.com/origin-help/logistic-fitfunc/images/CFF_Image308.webp?v=8B8cC48aZsM" width="200" alt="Origin Dose Response Logistic"></a> | `O-ANA/O-PRIM`，领域结构参考；第一轮不拟合 |
+| S21 | <a href="https://www.originlab.com/fileExchange/details.aspx?fid=362"><img src="https://www.originlab.com/fileexchange/images/362/ForestPlotScreenShot.png?t=260617172150" width="200" alt="OriginLab Forest Plot App"></a> | `O-EXT/O-PRIM`，一对一领域图；非系统模板 |
+| S25 | <a href="https://www.originlab.com/fileExchange/details.aspx?fid=666"><img src="https://www.originlab.com/fileexchange/images/666/Color_Spectrum_Plot_scs.png?t=220511093941" width="200" alt="OriginLab Color Spectrum Plot"></a> | `O-EXT/O-PRIM`，连续谱结构参考；彩色填充不通用 |
+| S31 | <a href="https://www.originlab.com/fileexchange/details.aspx?fid=929&amp;v=0"><img src="https://www.originlab.com/fileexchange/images/929/xrdpdf_otp.png?t=241115042752" width="200" alt="OriginLab XRD with PDF"></a> | `O-EXT/O-PRIM`，一对一领域图；非系统模板 |
+| S34 | <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10288619/#fig17"><img src="https://cdn.ncbi.nlm.nih.gov/pmc/blobs/db1e/10288619/0e5f1ae01566/tg2c00070_0017.jpg" width="200" alt="ACS EIS Tutorial Figure 17 Nyquist"></a> | `PUB/O-PRIM`，ACS Measurement Science Au Figure 17；Origin 2024 无匹配 EIS 系统模板 |
+| S61 | <a href="https://docs.originlab.com/origin-help/heatmap-labels/"><img src="https://docs.originlab.com/origin-help/heatmap-labels/images/Heatmap_with_Labels-01.webp?v=Y4zBxX2GA94" width="200" alt="Origin Heatmap with Labels for Confusion Matrix"></a> | `O-SYS/O-PRIM`，矩阵结构参考；actual/predicted 和 count 由固定计算决定 |
+
+为了快速视觉审计，另生成本地筛选页：`build/visual-audit/31-chart-evidence-matrix.html`。该页面只是上述已固化索引的浏览视图，不是新的产品规格文档。
+
+#### 4.6.6 由矩阵直接导出的视觉审计规则
+
+这组规则直接用于当前 31 图审计，避免再次依靠肉眼临时判断：
+
+- **轴标题：** K01 等普通 XY 图只要字段映射能提供变量名，就必须生成 X/Y 标题；单位仅在来源元数据存在时追加。无标题不是“极简风格”，而是语义缺失。
+- **图例与标尺：** K04 的 size/color/group 分别对应气泡标尺、色标、组图例；K09 的 subgroup 必须有图例；S21 只有存在有意义的系列/亚组时才使用颜色/符号和图例。单系列无映射图可以不放图例。
+- **分组几何：** K09 同一类别下的组必须有不同中心位置和可见组内间距；如果柱中心重合，即使颜色不同也判失败。
+- **网格填充与色标：** K20、K21、K22、S61 的数据几何必须覆盖自己的完整数据框，连续颜色映射必须有色标；K22 不能在坐标框内留下无语义白边。色板从多套感知均匀的 sequential/diverging 方案中按数据语义选择，参考 [Crameri et al.](https://www.nature.com/articles/s41467-020-19160-7)，不把单一 Viridis 或 Origin Thermometer 固化为所有场图的唯一规范。
+- **系列同构：** 同一系列在图、图例、分面和组合图中保持同一颜色/线型/符号；颜色是增强通道，不是唯一识别通道。S21 不按研究行随机上色，只有系列/亚组才改变编码。
+- **自动缩放：** 线/点图覆盖全部有限数据并保留小而不误导的边距；线性柱图包含零；概率图使用 0–1 或明确百分比范围；直接比较的分面默认共享尺度；K22 的 x/y 范围严格来自规则网格边界。对数轴遇到非正值必须报可定位错误，不能静默删除。
+
+该矩阵是**规范证据层**，不是导出实现对 Origin 官方模板文件的直接依赖。PlotAgent 仍可从签名基础模板用类型化 Origin 原生对象构建等价结构；验收看对象语义、数据绑定和可见结果是否满足本矩阵，而不是要求模板文件名逐项出现在 OPJU 中。
+
 ## 5. 证据线 C：各学科头部期刊与学术规范
 
 ### 5.1 跨学科图稿要求
