@@ -194,14 +194,6 @@ def _area_fill_command(color: str) -> str:
     return f'-cf color("{color}")'
 
 
-def _floating_column_gap_command(width: float) -> str:
-    """Map one validated categorical-unit width to Origin's gap percentage."""
-
-    if isinstance(width, bool) or not math.isfinite(width) or not 0 < width <= 1:
-        raise NativeOriginError("floating-column width must be finite and in (0, 1]")
-    return f"-vg {round((1.0 - width) * 100)}"
-
-
 def _bar_gap_command(width_ratio: float) -> str:
     """Map the closed PlotSpec bar-width ratio to Origin's Spacing-tab gap."""
 
@@ -230,9 +222,37 @@ def _primitive_color(plot: OriginPlotPlan, primitive: NativePrimitive) -> str | 
     )
     if is_uncertainty and plot.uncertainty_color is not None:
         return plot.uncertainty_color.value
-    if primitive.plot_type in {"column", "floating_column", "area"} and plot.fill_color is not None:
+    if (
+        primitive.plot_type in {"column", "floating_column", "area", "fill_area"}
+        and plot.fill_color is not None
+    ):
         return plot.fill_color.value
     return plot.color.value if plot.color is not None else None
+
+
+def _bar_width_ratio(
+    data: OriginDataObject,
+    plot: OriginPlotPlan,
+    primitive: NativePrimitive,
+) -> float:
+    """Resolve the physical width of one native column, not its parent cluster."""
+
+    if primitive.bar_width_role is None:
+        return plot.width_ratio
+    width_index = _role_index(data, plot, primitive.bar_width_role)
+    widths = tuple(
+        float(value)
+        for value in data.columns[width_index].values
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+    )
+    if not widths or len(widths) != len(data.columns[width_index].values):
+        raise NativeOriginError("bar width cannot be resolved for every row")
+    width = widths[0]
+    if any(not math.isclose(item, width, rel_tol=0.0, abs_tol=1e-12) for item in widths):
+        raise NativeOriginError("one native column plot requires a uniform bar width")
+    if not math.isfinite(width) or not 0 < width <= 1:
+        raise NativeOriginError("resolved bar width must be finite and in (0, 1]")
+    return width
 
 
 def _legend_text(graph_id: str, labels: list[str]) -> str:
@@ -276,8 +296,59 @@ def _place_inside_legend(
     else:
         left = anchor_x - legend_width if graph_plan.legend_anchor_x >= 0.5 else anchor_x
     top = anchor_y if graph_plan.legend_anchor_y >= 0.5 else anchor_y - legend_height
-    legend.set_float("left", min(max(left, 0.0), max(page_width - legend_width, 0.0)))
-    legend.set_float("top", min(max(top, 0.0), max(page_height - legend_height, 0.0)))
+    # Origin applies enhanced-text sample metrics only during the final graph
+    # layout pass.  A small page-relative safe area absorbs that native glyph
+    # overhang while keeping the legend visibly inside its requested corner.
+    page_inset = max(page_width * 0.04, 2.0)
+    left = min(max(left, page_inset), max(page_width - legend_width - page_inset, page_inset))
+    top = min(max(top, page_inset), max(page_height - legend_height - page_inset, page_inset))
+    _set_page_position(legend, page_width=page_width, page_height=page_height, left=left, top=top)
+
+
+def _set_page_position(
+    label: Any,
+    *,
+    page_width: float,
+    page_height: float,
+    left: float,
+    top: float,
+) -> None:
+    """Place one Origin graph object using its writable page-relative anchors.
+
+    Origin exposes ``left`` and ``top`` as computed pixel bounds.  For an object
+    attached to the page, the writable ``x1`` and ``y1`` anchors are fractions of
+    the page dimensions.  Writing the computed bounds is therefore a no-op in the
+    native object model.
+    """
+
+    if page_width <= 0 or page_height <= 0:
+        raise NativeOriginError("Origin page dimensions must be positive")
+    label.set_int("attach", 1)
+    label.set_float("x1", left / page_width)
+    label.set_float("y1", top / page_height)
+
+
+def _place_page_title(
+    graph: Any,
+    graph_plan: OriginGraphObject,
+    layer_plan: OriginLayerPlan,
+    title: Any,
+) -> None:
+    """Attach a title to the page and keep it wholly above the first plot frame."""
+
+    page_width = _finite_float(graph.get_float("width"))
+    page_height = _finite_float(graph.get_float("height"))
+    title_width = _finite_float(title.get_float("width"), 0.0)
+    title_height = _finite_float(title.get_float("height"), 0.0)
+    layer_left = layer_plan.left_mm / graph_plan.page_width_mm * page_width
+    layer_top = layer_plan.top_mm / graph_plan.page_height_mm * page_height
+    layer_width = layer_plan.width_mm / graph_plan.page_width_mm * page_width
+    gap = max(page_height * 0.005, 1.0)
+    left = layer_left + (layer_width - title_width) / 2
+    top = layer_top - title_height - gap
+    left = min(max(left, 0.0), max(page_width - title_width, 0.0))
+    top = min(max(top, 0.0), max(layer_top - title_height - gap, 0.0))
+    _set_page_position(title, page_width=page_width, page_height=page_height, left=left, top=top)
 
 
 def _folder_items(collection: Any) -> list[Any]:
@@ -578,13 +649,13 @@ class OriginProBackend:
         if primary_color is not None:
             for created_plot in created_plots:
                 created_plot.color = primary_color
-            if primitive.plot_type == "area":
+            if primitive.plot_type in {"area", "fill_area"}:
                 # Origin's fill-color property accepts palette indexes. ColorValue
                 # is a validated #RRGGBB token, so this closed option preserves the
                 # exact palette without admitting labels or arbitrary commands.
                 plot.set_cmd(_area_fill_command(primary_color))
         if primitive.plot_type in {"column", "floating_column"}:
-            created_plots[0].set_cmd(_bar_gap_command(plot_plan.width_ratio))
+            created_plots[0].set_cmd(_bar_gap_command(_bar_width_ratio(data, plot_plan, primitive)))
             if plot_plan.edge_color is not None:
                 created_plots[0].set_cmd(_bar_edge_color_command(plot_plan.edge_color.value))
             if plot_plan.edge_width_pt is not None:
@@ -639,20 +710,8 @@ class OriginProBackend:
             plot.set_float("line.width", plot_plan.uncertainty_line_width_pt)
         if primitive.plot_type in {"line", "line_symbol"}:
             plot.set_int("line.style", _LINE_STYLE_CODES[plot_plan.line_style])
-        if primitive.bar_width_role is not None:
-            width_index = _role_index(data, plot_plan, primitive.bar_width_role)
-            widths = tuple(
-                float(value)
-                for value in data.columns[width_index].values
-                if isinstance(value, (int, float)) and not isinstance(value, bool)
-            )
-            if not widths:
-                raise NativeOriginError("floating-column width cannot be resolved")
-            width = widths[0]
-            created_plots[0].set_cmd(
-                "-paaf 100",
-                _floating_column_gap_command(width),
-            )
+        if primitive.bar_width_role is not None and primitive.plot_type == "floating_column":
+            created_plots[0].set_cmd("-paaf 100")
         alpha = plot_plan.band_alpha if primitive.transform == "band" else plot_plan.alpha
         if alpha < 1:
             for created_plot in created_plots:
@@ -988,6 +1047,7 @@ class OriginProBackend:
                     title.text = graph_plan.title
                     title.set_float("fsize", graph_plan.font_size_pt + 1.0)
                     title.set_int("show", 1)
+                    _place_page_title(graph, graph_plan, layer_plan, title)
                 elif title is not None:
                     title.text = ""
                     title.set_int("show", 0)
@@ -1014,17 +1074,17 @@ class OriginProBackend:
             ]
             legend = layer.label("legend")
             if legend is not None:
+                visible_legend = bool(
+                    graph_plan.legend_visible and layer_index == 0 and labels
+                )
                 legend.text = (
                     _legend_text(graph_plan.graph_id, labels)
-                    if graph_plan.legend_visible and layer_index == 0
+                    if visible_legend
                     else ""
                 )
                 legend.set_float("fsize", graph_plan.font_size_pt)
-                if (
-                    graph_plan.legend_visible
-                    and layer_index == 0
-                    and graph_plan.graph_id.startswith("graph.S07.")
-                ):
+                legend.set_int("show", int(visible_legend))
+                if visible_legend:
                     _place_inside_legend(graph, graph_plan, layer_plan, legend)
             reference_entries = _reference_entries(graph_plan.annotations, layer_plan.panel_id)
             for prefix, entries in reference_entries.items():
@@ -1059,6 +1119,20 @@ class OriginProBackend:
         graph.obj.Activate()
         graph.obj.PutWidth(graph_plan.page_width_mm)
         graph.obj.PutHeight(graph_plan.page_height_mm)
+        first_layer = graph[0]
+        first_layer_plan = graph_plan.layers[0]
+        title = first_layer.label(_PLOT_TITLE_LABEL)
+        if graph_plan.title and title is not None:
+            _place_page_title(graph, graph_plan, first_layer_plan, title)
+        legend_labels = [
+            plot.label
+            for graph_layer in graph_plan.layers
+            for plot in graph_layer.plots
+            if plot.label
+        ]
+        legend = first_layer.label("legend")
+        if graph_plan.legend_visible and legend_labels and legend is not None:
+            _place_inside_legend(graph, graph_plan, first_layer_plan, legend)
 
     def write_manifest(self, plan: OriginExportPlan) -> None:
         self._active_plan = plan
@@ -1234,6 +1308,24 @@ class OriginProBackend:
                             raise NativeOriginError(
                                 f"native plot color differs for {plot_plan.plot_id}"
                             )
+                        expected_alpha = (
+                            plot_plan.band_alpha
+                            if primitive.transform == "band"
+                            else plot_plan.alpha
+                        )
+                        expected_transparency = round((1 - expected_alpha) * 100)
+                        if any(
+                            not math.isclose(
+                                float(item.transparency),
+                                expected_transparency,
+                                rel_tol=0.0,
+                                abs_tol=1e-9,
+                            )
+                            for item in primitive_plots
+                        ):
+                            raise NativeOriginError(
+                                f"native plot transparency differs for {plot_plan.plot_id}"
+                            )
                         if primitive.plot_type in {"scatter", "line_symbol"}:
                             styled_plot = primitive_plots[0]
                             if styled_plot.symbol_kind != origin_symbol_code(
@@ -1404,18 +1496,17 @@ class OriginProBackend:
                             f"native color scale title differs for {graph_plan.graph_id}: "
                             f"expected={expected_title!r}"
                         )
-                if (
-                    graph_plan.legend_visible
-                    and layer_index == 0
-                    and graph_plan.graph_id.startswith("graph.S07.")
-                ):
+                if graph_plan.legend_visible and layer_index == 0 and legend_labels:
                     legend = layer.label("legend")
                     expected_legend = _legend_text(graph_plan.graph_id, legend_labels)
                     if legend is None or legend.text.replace("\r\n", "\n") != expected_legend:
                         raise NativeOriginError(
                             f"native legend text differs for {graph_plan.graph_id}"
                         )
-                    if legend.get_int("fillcolor") != _ORIGIN_WHITE_COLOR_INDEX:
+                    if (
+                        graph_plan.graph_id.startswith("graph.S07.")
+                        and legend.get_int("fillcolor") != _ORIGIN_WHITE_COLOR_INDEX
+                    ):
                         raise NativeOriginError(
                             f"native legend fill differs for {graph_plan.graph_id}"
                         )
@@ -1428,13 +1519,19 @@ class OriginProBackend:
                         or legend.get_float("top") + legend.get_float("height") > page_height + 1e-9
                     ):
                         raise NativeOriginError(
-                            f"native legend crosses page edge for {graph_plan.graph_id}"
+                            f"native legend crosses page edge for {graph_plan.graph_id}: "
+                            f"bounds=({legend.get_float('left'):.6f}, "
+                            f"{legend.get_float('top'):.6f}, "
+                            f"{legend.get_float('width'):.6f}, "
+                            f"{legend.get_float('height'):.6f}), "
+                            f"page=({page_width:.6f}, {page_height:.6f})"
                         )
                 if layer_index == 0 and graph_plan.title:
                     title = layer.label(_PLOT_TITLE_LABEL)
                     if (
                         title is None
                         or title.text != graph_plan.title
+                        or title.get_int("attach") != 1
                         or not math.isclose(
                             title.get_float("fsize"),
                             graph_plan.font_size_pt + 1.0,
@@ -1443,6 +1540,23 @@ class OriginProBackend:
                     ):
                         raise NativeOriginError(
                             f"native plot title differs for {graph_plan.graph_id}"
+                        )
+                    page_width = _finite_float(graph.get_float("width"))
+                    page_height = _finite_float(graph.get_float("height"))
+                    title_left = title.get_float("left")
+                    title_top = title.get_float("top")
+                    title_width = title.get_float("width")
+                    title_height = title.get_float("height")
+                    layer_top = layer_plan.top_mm / graph_plan.page_height_mm * page_height
+                    if (
+                        title_left < 0
+                        or title_top < 0
+                        or title_left + title_width > page_width + 1e-9
+                        or title_top + title_height > layer_top - 1.0 + 1e-9
+                    ):
+                        raise NativeOriginError(
+                            f"native plot title crosses page or plot frame for "
+                            f"{graph_plan.graph_id}"
                         )
                 reference_entries = _reference_entries(
                     graph_plan.annotations,

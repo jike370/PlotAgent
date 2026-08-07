@@ -487,7 +487,13 @@ def compile_origin_plan(
                 font_family=font.family,
                 font_size_pt=font.size.value,
                 title=_safe_text(plan.title),
-                legend_visible=plan.legend.visible,
+                legend_visible=(
+                    plan.legend.visible
+                    and not (
+                        plan.chart_type_id == "X09"
+                        and all(layer.geometry == "bar.floating" for layer in plan.layers)
+                    )
+                ),
                 legend_anchor_x=plan.legend.anchor_x,
                 legend_anchor_y=plan.legend.anchor_y,
                 layers=tuple(layer_plans),

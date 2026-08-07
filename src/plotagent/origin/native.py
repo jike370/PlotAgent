@@ -145,7 +145,16 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
         )
     if plot.native_kind in _BAR_KINDS:
         if plot.native_kind in {"bar", "grouped_bar", "histogram"}:
-            bar = NativePrimitive("column", x_role, "height")
+            bar = NativePrimitive(
+                "column",
+                x_role,
+                "height",
+                bar_width_role=(
+                    "width"
+                    if plot.native_kind in {"grouped_bar", "histogram"}
+                    else None
+                ),
+            )
         else:
             bar = NativePrimitive("floating_column", x_role, "bottom", y2_role="top")
         roles = {item.role for item in plot.role_columns}

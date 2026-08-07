@@ -10,7 +10,6 @@ from plotagent.origin._origin_backend import (
     _bar_edge_color_command,
     _bar_edge_width_command,
     _bar_gap_command,
-    _floating_column_gap_command,
 )
 
 
@@ -61,7 +60,6 @@ def test_origin_set_commands_are_fixed_literals_from_the_small_allowlist() -> No
                     and argument.func.id
                     in {
                         "_area_fill_command",
-                        "_floating_column_gap_command",
                         "_bar_gap_command",
                         "_bar_edge_color_command",
                         "_bar_edge_width_command",
@@ -84,7 +82,6 @@ def test_origin_set_commands_are_fixed_literals_from_the_small_allowlist() -> No
         "_bar_edge_color_command": 1,
         "_bar_edge_width_command": 1,
         "_bar_gap_command": 1,
-        "_floating_column_gap_command": 1,
     }
 
 
@@ -93,14 +90,6 @@ def test_dynamic_area_fill_option_accepts_only_typed_hex_color() -> None:
     for invalid in ("red", "#fff", '#000000"; system("rm")'):
         with pytest.raises(NativeOriginError):
             _area_fill_command(invalid)
-
-
-def test_dynamic_floating_column_gap_accepts_only_bounded_finite_width() -> None:
-    assert _floating_column_gap_command(0.72) == "-vg 28"
-    assert _floating_column_gap_command(0.34) == "-vg 66"
-    for invalid in (True, 0.0, -0.1, 1.1, float("nan"), float("inf")):
-        with pytest.raises(NativeOriginError):
-            _floating_column_gap_command(invalid)
 
 
 def test_dynamic_bar_options_accept_only_typed_bounded_values() -> None:
