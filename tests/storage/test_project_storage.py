@@ -36,6 +36,10 @@ def test_project_layout_wal_single_writer_lock_and_minimal_catalog(
                 display_name="Test project",
             )
             assert catalog.list_projects() == (entry,)
+            renamed = catalog.rename_project(project.project_id, "Renamed project")
+            assert renamed.display_name == "Renamed project"
+            catalog.delete_project(project.project_id)
+            assert catalog.list_projects() == ()
 
     with ProjectStore.open(workspace) as reopened:
         assert reopened.project_id == "project:test"

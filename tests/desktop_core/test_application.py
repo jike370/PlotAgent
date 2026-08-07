@@ -117,6 +117,29 @@ def _create_open(harness: ApplicationHarness) -> tuple[str, int]:
     return project_id, cast(int, opened["project_version"])
 
 
+def test_project_can_be_renamed_and_deleted_from_the_managed_catalog(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, _revision = _create_open(harness)
+    workspace = Path(harness.application.catalog.get_project(project_id).workspace_path)
+
+    renamed = harness.call(
+        "projects.rename",
+        {"project_id": project_id, "display_name": "重命名项目"},
+    )
+    assert renamed["display_name"] == "重命名项目"
+    assert renamed["is_open"] is True
+
+    deleted = harness.call("projects.delete", {"project_id": project_id})
+    assert deleted == {
+        "project_id": project_id,
+        "status": "deleted",
+        "cleanup_pending": False,
+    }
+    assert not workspace.exists()
+    assert harness.call("projects.list", {}) == {"projects": []}
+
+
 def _import(
     harness: ApplicationHarness,
     project_id: str,

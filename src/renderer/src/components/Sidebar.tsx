@@ -1,14 +1,19 @@
-import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   CircleCheck,
   FileChartColumn,
   FlaskConical,
   FolderKanban,
-  MessageSquare,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
   Plus,
   Search,
   SlidersHorizontal,
+  Trash2,
   TriangleAlert,
   X,
 } from 'lucide-react'
@@ -22,10 +27,39 @@ interface SidebarProps {
   core: CoreStatus
   taskCount: number
   originStatus: 'unknown' | 'available' | 'unavailable' | 'exporting'
+  busyAction?: string
   onProjectChange: (projectId: string) => void
   onNewProject: () => void
+  onRenameProject: (projectId: string, name: string) => Promise<boolean>
+  onDeleteProject: (projectId: string) => Promise<boolean>
   onTaskCenter: () => void
   onConfigureAgent: () => void
+}
+
+interface ProjectOverlay {
+  projectId: string
+  top: number
+  left: number
+}
+
+const PINNED_PROJECTS_KEY = 'plotagent.sidebar.pinned-projects'
+
+function initialPinnedProjects(): string[] {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(PINNED_PROJECTS_KEY) ?? '[]')
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function lastOpenedLabel(value: string | undefined): string {
+  if (!value) return '本机项目'
+  const date = new Date(value)
+  if (Number.isNaN(date.valueOf())) return '本机项目'
+  return `最近使用 ${new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  }).format(date)}`
 }
 
 const originLabels = {
@@ -41,19 +75,102 @@ export function Sidebar({
   core,
   taskCount,
   originStatus,
+  busyAction,
   onProjectChange,
   onNewProject,
+  onRenameProject,
+  onDeleteProject,
   onTaskCenter,
   onConfigureAgent,
 }: SidebarProps): React.JSX.Element {
   const [query, setQuery] = useState('')
+  const [pinnedProjectIds, setPinnedProjectIds] = useState(initialPinnedProjects)
+  const [menu, setMenu] = useState<ProjectOverlay>()
+  const [hoverInfo, setHoverInfo] = useState<ProjectOverlay>()
+  const [renaming, setRenaming] = useState<{ projectId: string; name: string }>()
+  const hoverTimer = useRef<number | undefined>(undefined)
   const origin = originLabels[originStatus]
   const visibleProjects = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('zh-CN')
-    if (!normalizedQuery) return projects
-    return projects.filter((project) => `${project.name} ${project.projectId}`.toLocaleLowerCase('zh-CN').includes(normalizedQuery))
-  }, [projects, query])
+    const filtered = normalizedQuery
+      ? projects.filter((project) => project.name.toLocaleLowerCase('zh-CN').includes(normalizedQuery))
+      : projects
+    const pinned = new Set(pinnedProjectIds)
+    return [...filtered].sort((left, right) => Number(pinned.has(right.projectId)) - Number(pinned.has(left.projectId)))
+  }, [pinnedProjectIds, projects, query])
   const OriginIcon = originStatus === 'available' ? CircleCheck : originStatus === 'exporting' ? FileChartColumn : TriangleAlert
+  const menuProject = menu ? projects.find((item) => item.projectId === menu.projectId) : undefined
+  const hoverProject = hoverInfo ? projects.find((item) => item.projectId === hoverInfo.projectId) : undefined
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PINNED_PROJECTS_KEY, JSON.stringify(pinnedProjectIds))
+    } catch {
+      // A blocked preference store must not block project navigation.
+    }
+  }, [pinnedProjectIds])
+
+  useEffect(() => {
+    if (!menu) return
+    const closeOnOutsidePointer = (event: PointerEvent): void => {
+      const target = event.target instanceof Element ? event.target : undefined
+      if (!target?.closest('[data-project-menu], [data-project-menu-trigger]')) setMenu(undefined)
+    }
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setMenu(undefined)
+    }
+    window.addEventListener('pointerdown', closeOnOutsidePointer)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutsidePointer)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [menu])
+
+  const clearHover = (): void => {
+    if (hoverTimer.current !== undefined) window.clearTimeout(hoverTimer.current)
+    hoverTimer.current = undefined
+    setHoverInfo(undefined)
+  }
+
+  const beginHover = (projectId: string, element: HTMLElement): void => {
+    clearHover()
+    const bounds = element.getBoundingClientRect()
+    hoverTimer.current = window.setTimeout(() => {
+      setHoverInfo({
+        projectId,
+        top: Math.max(8, Math.min(bounds.top, window.innerHeight - 68)),
+        left: Math.max(8, Math.min(bounds.right + 8, window.innerWidth - 246)),
+      })
+    }, 350)
+  }
+
+  const togglePinned = (projectId: string): void => {
+    setPinnedProjectIds((current) => current.includes(projectId)
+      ? current.filter((item) => item !== projectId)
+      : [projectId, ...current])
+    setMenu(undefined)
+  }
+
+  const commitRename = async (): Promise<void> => {
+    if (!renaming) return
+    const nextName = renaming.name.trim()
+    const current = projects.find((item) => item.projectId === renaming.projectId)
+    if (!nextName || nextName === current?.name) {
+      setRenaming(undefined)
+      return
+    }
+    if (await onRenameProject(renaming.projectId, nextName)) setRenaming(undefined)
+  }
+
+  const confirmDelete = async (project: ProductProject): Promise<void> => {
+    setMenu(undefined)
+    const confirmed = window.confirm(`删除“${project.name}”？\n\n项目及其本机数据将被永久删除，此操作无法撤销。`)
+    if (!confirmed) return
+    if (await onDeleteProject(project.projectId)) {
+      setPinnedProjectIds((current) => current.filter((item) => item !== project.projectId))
+    }
+  }
 
   return (
     <aside className="sidebar" aria-label="项目与对话">
@@ -64,7 +181,7 @@ export function Sidebar({
       </div>
 
       <div className="sidebar__actions">
-        <button className="new-conversation" type="button" onClick={onNewProject}>
+        <button className="new-conversation" type="button" onClick={onNewProject} disabled={core.phase !== 'ready' || busyAction !== undefined}>
           <Plus size={16} aria-hidden="true" />新建项目<kbd>Ctrl N</kbd>
         </button>
         <label className="sidebar-search">
@@ -88,28 +205,86 @@ export function Sidebar({
             <span>没有匹配的本机项目</span>
           </div>
         ) : visibleProjects.map((project) => (
-          <section className={`project-group${project.projectId === activeProjectId ? ' project-group--active' : ''}`} key={project.projectId}>
-            <button
-              className="project-row"
-              type="button"
-              onClick={() => onProjectChange(project.projectId)}
-              aria-current={project.projectId === activeProjectId ? 'page' : undefined}
-            >
-              <FolderKanban size={16} aria-hidden="true" />
-              <span>{project.name}</span>
-              {project.isOpen && <span className="project-count" aria-label="已打开">●</span>}
-            </button>
-            {project.projectId === activeProjectId && (
-              <div className="conversation-list">
-                <div className="conversation-row is-active" aria-current="page">
-                  <MessageSquare size={14} aria-hidden="true" />
-                  <span>绘图对话</span><time>当前</time>
-                </div>
-              </div>
+          <div
+            className={`project-group${project.projectId === activeProjectId ? ' project-group--active' : ''}`}
+            key={project.projectId}
+            onMouseEnter={(event) => beginHover(project.projectId, event.currentTarget)}
+            onMouseLeave={clearHover}
+          >
+            {renaming?.projectId === project.projectId ? (
+              <form className="project-rename" onSubmit={(event) => { event.preventDefault(); void commitRename() }}>
+                <FolderKanban size={16} aria-hidden="true" />
+                <input
+                  autoFocus
+                  aria-label={`重命名项目 ${project.name}`}
+                  value={renaming.name}
+                  maxLength={120}
+                  onChange={(event) => setRenaming({ ...renaming, name: event.target.value })}
+                  onBlur={() => void commitRename()}
+                  onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); setRenaming(undefined) } }}
+                />
+              </form>
+            ) : (
+              <>
+                <button
+                  className="project-row"
+                  type="button"
+                  onClick={() => onProjectChange(project.projectId)}
+                  aria-current={project.projectId === activeProjectId ? 'page' : undefined}
+                  aria-describedby={hoverInfo?.projectId === project.projectId ? `project-info-${project.projectId}` : undefined}
+                >
+                  <FolderKanban size={16} aria-hidden="true" />
+                  <span>{project.name}</span>
+                </button>
+                <button
+                  className="project-more"
+                  type="button"
+                  data-project-menu-trigger
+                  disabled={busyAction !== undefined}
+                  aria-label={`项目“${project.name}”操作`}
+                  aria-expanded={menu?.projectId === project.projectId}
+                  onClick={(event) => {
+                    clearHover()
+                    const bounds = event.currentTarget.getBoundingClientRect()
+                    setMenu({
+                      projectId: project.projectId,
+                      top: Math.max(8, Math.min(bounds.bottom + 4, window.innerHeight - 142)),
+                      left: Math.max(8, Math.min(bounds.left, window.innerWidth - 204)),
+                    })
+                  }}
+                >
+                  <MoreHorizontal size={16} aria-hidden="true" />
+                </button>
+              </>
             )}
-          </section>
+          </div>
         ))}
       </nav>
+
+      {hoverProject && hoverInfo && createPortal(
+        <div className="project-info-popover" id={`project-info-${hoverProject.projectId}`} role="tooltip" style={{ top: hoverInfo.top, left: hoverInfo.left }}>
+          <strong>{hoverProject.name}</strong>
+          <span>{`${hoverProject.projectId === activeProjectId ? '当前项目 · ' : ''}v${hoverProject.projectVersion} · ${lastOpenedLabel(hoverProject.lastOpenedAt)}`}</span>
+        </div>,
+        document.body,
+      )}
+
+      {menuProject && menu && createPortal(
+        <div className="project-menu" data-project-menu role="menu" aria-label={`${menuProject.name}项目菜单`} style={{ top: menu.top, left: menu.left }}>
+          <div className="project-menu__title"><FolderKanban size={15} aria-hidden="true" /><strong>{menuProject.name}</strong></div>
+          <button type="button" role="menuitem" onClick={() => togglePinned(menuProject.projectId)}>
+            {pinnedProjectIds.includes(menuProject.projectId) ? <PinOff size={15} /> : <Pin size={15} />}
+            {pinnedProjectIds.includes(menuProject.projectId) ? '取消置顶' : '置顶项目'}
+          </button>
+          <button type="button" role="menuitem" onClick={() => { setRenaming({ projectId: menuProject.projectId, name: menuProject.name }); setMenu(undefined) }}>
+            <Pencil size={15} />重命名
+          </button>
+          <button className="project-menu__danger" type="button" role="menuitem" onClick={() => void confirmDelete(menuProject)}>
+            <Trash2 size={15} />删除项目
+          </button>
+        </div>,
+        document.body,
+      )}
 
       <div className="sidebar__footer">
         <button type="button" onClick={onTaskCenter}>

@@ -66,6 +66,13 @@ function projectWithVersion(project: ProductProject, version: number): ProductPr
   return { ...project, projectVersion: version, isOpen: true }
 }
 
+function nextProjectName(projects: ProductProject[]): string {
+  const names = new Set(projects.map((item) => item.name))
+  let index = 1
+  while (names.has(`新建项目 ${index}`)) index += 1
+  return `新建项目 ${index}`
+}
+
 function readProviderConfigured(value: JsonValue): boolean {
   if (!isJsonRecord(value)) return false
   if (value.configured === true) return true
@@ -202,6 +209,80 @@ export function App(): React.JSX.Element {
     return nextProject
   }, [mergeProjects])
 
+  const clearWorkspace = useCallback(() => {
+    setProject(undefined)
+    setDatasets([])
+    setActiveDatasetId(undefined)
+    setSelectedChart(undefined)
+    setConfirmedMapping(undefined)
+    setPlot(undefined)
+    setPlotHistory([])
+    setBatch(undefined)
+    setFigure(undefined)
+    setAgentOutcome(undefined)
+    setScreen('workspace')
+  }, [])
+
+  const createNewProject = useCallback(async (): Promise<void> => {
+    if (!api || busyAction !== undefined || core.phase !== 'ready') return
+    setBusyAction('new-project')
+    setNotice(undefined)
+    try {
+      const createdValue = valueOrThrow(await api.createProject({ name: nextProjectName(projects) }))
+      const created = readProject(createdValue)
+      if (!created) throw new Error('Core 未返回新项目 ID。')
+      const openedValue = valueOrThrow(await api.activateProject({ projectId: created.projectId }))
+      const opened = {
+        ...created,
+        projectVersion: projectVersionFrom(openedValue, created.projectVersion),
+        isOpen: true,
+      }
+      clearWorkspace()
+      setProject(opened)
+      mergeProjects([opened])
+      await refreshProjects()
+    } catch (error) {
+      setNotice(errorNotice(error))
+    } finally {
+      setBusyAction(undefined)
+    }
+  }, [api, busyAction, clearWorkspace, core.phase, mergeProjects, projects, refreshProjects])
+
+  const renameProject = useCallback(async (projectId: string, name: string): Promise<boolean> => {
+    if (!api || busyAction !== undefined) return false
+    setBusyAction(`rename-project:${projectId}`)
+    try {
+      const value = valueOrThrow(await api.renameProject({ projectId, name }))
+      const renamed = readProject(value)
+      const nextName = renamed?.name ?? name.trim()
+      setProjects((current) => current.map((item) => item.projectId === projectId ? { ...item, name: nextName } : item))
+      setProject((current) => current?.projectId === projectId ? { ...current, name: nextName } : current)
+      return true
+    } catch (error) {
+      setNotice(errorNotice(error))
+      return false
+    } finally {
+      setBusyAction(undefined)
+    }
+  }, [api, busyAction])
+
+  const deleteProject = useCallback(async (projectId: string): Promise<boolean> => {
+    if (!api || busyAction !== undefined) return false
+    setBusyAction(`delete-project:${projectId}`)
+    try {
+      valueOrThrow(await api.deleteProject({ projectId }))
+      setProjects((current) => current.filter((item) => item.projectId !== projectId))
+      if (project?.projectId === projectId) clearWorkspace()
+      setNotice({ kind: 'success', title: '项目已删除', message: '项目及其本机工作目录已删除。' })
+      return true
+    } catch (error) {
+      setNotice(errorNotice(error))
+      return false
+    } finally {
+      setBusyAction(undefined)
+    }
+  }, [api, busyAction, clearWorkspace, project])
+
   useEffect(() => {
     if (!api) return
     let active = true
@@ -227,7 +308,8 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.ctrlKey && event.key.toLocaleLowerCase('en-US') === 'n') {
-        event.preventDefault(); setProject(undefined); setDatasets([]); setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined); setScreen('workspace')
+        event.preventDefault()
+        void createNewProject()
       }
       if (event.key === 'Escape') {
         if (providerOpen) setProviderOpen(false)
@@ -238,7 +320,7 @@ export function App(): React.JSX.Element {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [libraryOpen, providerOpen, screen, tasksOpen])
+  }, [createNewProject, libraryOpen, providerOpen, screen, tasksOpen])
 
   const importIntoProject = async (targetProject: ProductProject): Promise<void> => {
     if (!api) return
@@ -511,7 +593,7 @@ export function App(): React.JSX.Element {
       <div className="app-titlebar" aria-hidden="true"><FlaskConical size={13} /><span>PlotAgent</span><span className="titlebar-context">本地科研绘图工作台</span></div>
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
-          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} taskCount={taskCount} originStatus={originStatus} onProjectChange={(id) => void activateProject(id)} onNewProject={() => { setProject(undefined); setDatasets([]); setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined) }} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
+          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
           <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentConfigured={agentConfigured} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setSelectedChart(undefined); setConfirmedMapping(undefined); setPlot(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}

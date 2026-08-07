@@ -183,6 +183,25 @@ class Catalog:
         if cursor.rowcount != 1:
             raise StorageProblem(StorageErrorCode.PROJECT_NOT_FOUND, "catalog 中没有该项目。")
 
+    def rename_project(self, project_id: str, display_name: str) -> CatalogProject:
+        connection = self._connection_for_write()
+        normalized_name = display_name.strip()
+        if not normalized_name:
+            raise StorageProblem(StorageErrorCode.CATALOG_FAILED, "项目名称不能为空。")
+        cursor = connection.execute(
+            "UPDATE projects SET display_name = ? WHERE project_id = ?",
+            (normalized_name, project_id),
+        )
+        if cursor.rowcount != 1:
+            raise StorageProblem(StorageErrorCode.PROJECT_NOT_FOUND, "catalog 中没有该项目。")
+        return self.get_project(project_id)
+
+    def delete_project(self, project_id: str) -> None:
+        connection = self._connection_for_write()
+        cursor = connection.execute("DELETE FROM projects WHERE project_id = ?", (project_id,))
+        if cursor.rowcount != 1:
+            raise StorageProblem(StorageErrorCode.PROJECT_NOT_FOUND, "catalog 中没有该项目。")
+
     def list_projects(self) -> tuple[CatalogProject, ...]:
         connection = self._connection_for_write()
         return tuple(

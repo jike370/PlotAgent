@@ -5,6 +5,7 @@ export interface ProductProject {
   name: string
   projectVersion: number
   isOpen: boolean
+  lastOpenedAt?: string
 }
 
 export interface ProductField {
@@ -186,6 +187,7 @@ export function readProjects(value: JsonValue): ProductProject[] {
       name: stringValue(record, 'display_name') ?? existing?.name ?? '未命名项目',
       projectVersion: numberValue(record, 'project_version') ?? existing?.projectVersion ?? 0,
       isOpen: existing?.isOpen === true || record.is_open === true || record.status === 'open',
+      lastOpenedAt: stringValue(record, 'last_opened_at') ?? existing?.lastOpenedAt,
     })
   }
   return [...projects.values()]

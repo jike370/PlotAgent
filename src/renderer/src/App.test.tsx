@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -50,6 +50,8 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     clearProvider: vi.fn(async () => ok({ configured: false, mode: 'local_only' })),
     listProjects: vi.fn(async () => ok({ projects: [] })),
     createProject: vi.fn(async () => ok({ project_id: 'project:test', display_name: '新建科研绘图项目', is_open: false })),
+    renameProject: vi.fn(async (input) => ok({ project_id: input.projectId, display_name: input.name, is_open: true })),
+    deleteProject: vi.fn(async (input) => ok({ project_id: input.projectId, status: 'deleted', cleanup_pending: false })),
     activateProject: vi.fn(async () => ok({ project_id: 'project:test', project_version: 0, status: 'open' })),
     openProject: vi.fn(async () => ok({ project_id: 'project:opened', display_name: '已打开项目', project_version: 2, status: 'open' })),
     openProjectResource: vi.fn(async () => ok({ project_id: 'project:opened', display_name: '已打开项目', project_version: 2, status: 'open' })),
@@ -102,6 +104,7 @@ async function openSampleAndCreatePlot(user: ReturnType<typeof userEvent.setup>)
 
 beforeEach(() => {
   taskListener = undefined
+  window.localStorage.clear()
   installApi(fakeDesktop())
 })
 
@@ -114,6 +117,60 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('button', { name: '打开已有 .plotproj' })).toBeEnabled()
     expect(screen.getByText(/无需账号/)).toBeInTheDocument()
     expect(screen.queryByText(/邀请已激活/)).not.toBeInTheDocument()
+  })
+
+  it('creates and activates a real project from the sidebar action', async () => {
+    const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
+    render(<App />)
+
+    const createButton = await screen.findByRole('button', { name: /新建项目/ })
+    await waitFor(() => expect(createButton).toBeEnabled())
+    await user.click(createButton)
+
+    expect(api.createProject).toHaveBeenCalledWith({ name: '新建项目 1' })
+    expect(api.activateProject).toHaveBeenCalledWith({ projectId: 'project:test' })
+    expect(await screen.findByRole('button', { name: '新建科研绘图项目' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('heading', { name: '导入数值数据' })).toBeInTheDocument()
+  })
+
+  it('opens project actions, renames inline, and deletes only after confirmation', async () => {
+    const user = userEvent.setup()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const api = fakeDesktop({
+      listProjects: vi.fn(async () => ok({ projects: [{
+        project_id: 'project:managed',
+        display_name: '原项目',
+        is_open: false,
+        last_opened_at: '2026-08-07T04:00:00.000Z',
+      }] })),
+    })
+    installApi(api)
+    render(<App />)
+
+    const projectButton = await screen.findByRole('button', { name: '原项目' })
+    await user.hover(projectButton)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('原项目')
+
+    await user.click(screen.getByRole('button', { name: '项目“原项目”操作' }))
+    await user.click(screen.getByRole('menuitem', { name: '置顶项目' }))
+    await waitFor(() => expect(window.localStorage.getItem('plotagent.sidebar.pinned-projects')).toContain('project:managed'))
+
+    await user.click(screen.getByRole('button', { name: '项目“原项目”操作' }))
+    await user.click(screen.getByRole('menuitem', { name: '重命名' }))
+    const renameInput = screen.getByRole('textbox', { name: '重命名项目 原项目' })
+    await user.clear(renameInput)
+    await user.type(renameInput, '新项目名{Enter}')
+    expect(api.renameProject).toHaveBeenCalledWith({ projectId: 'project:managed', name: '新项目名' })
+    expect(await screen.findByRole('button', { name: '新项目名' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '项目“新项目名”操作' }))
+    await user.click(screen.getByRole('menuitem', { name: '删除项目' }))
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('永久删除'))
+    expect(api.deleteProject).toHaveBeenCalledWith({ projectId: 'project:managed' })
+    await waitFor(() => expect(projectButton).not.toBeInTheDocument())
+    confirm.mockRestore()
   })
 
   it('opens model service settings from the persistent sidebar entry', async () => {
@@ -132,11 +189,11 @@ describe('PlotAgent real desktop workflow', () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(await screen.findByRole('button', { name: '示例' }))
-    expect(await screen.findByRole('button', { name: /温度响应示例/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '温度响应示例' })).toBeInTheDocument()
     await user.type(screen.getByRole('textbox', { name: '搜索本机项目' }), '不存在')
     expect(screen.getByText('没有匹配的本机项目')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '清除项目搜索' }))
-    expect(screen.getByRole('button', { name: /温度响应示例/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '温度响应示例' })).toBeInTheDocument()
   })
 
   it('imports real Core fields, confirms one mapping, and displays a controlled preview resource', async () => {

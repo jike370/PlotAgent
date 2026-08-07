@@ -36,11 +36,13 @@ export const IPC_CHANNELS = {
   providerStatus: 'plotagent:provider:status',
   projectClose: 'plotagent:projects:close',
   projectCreate: 'plotagent:projects:create',
+  projectDelete: 'plotagent:projects:delete',
   projectActivate: 'plotagent:projects:activate',
   projectList: 'plotagent:projects:list',
   projectOpen: 'plotagent:projects:open',
   projectOpenResource: 'plotagent:projects:open-resource',
   projectOpenSample: 'plotagent:projects:open-sample',
+  projectRename: 'plotagent:projects:rename',
   retryCore: 'plotagent:core:retry',
   taskEvent: 'plotagent:tasks:event',
 } as const
@@ -176,6 +178,10 @@ export interface ProjectCreateInput {
   readonly name: string
 }
 
+export interface ProjectRenameInput extends ProjectIdInput {
+  readonly name: string
+}
+
 export interface CustomProviderConfigureInput {
   readonly baseUrl: string
   readonly modelId: string
@@ -299,6 +305,8 @@ export interface PlotAgentDesktopApi {
   clearProvider(): Promise<DesktopDataResult>
   listProjects(): Promise<DesktopDataResult>
   createProject(input: ProjectCreateInput): Promise<DesktopDataResult>
+  renameProject(input: ProjectRenameInput): Promise<DesktopDataResult>
+  deleteProject(input: ProjectIdInput): Promise<DesktopDataResult>
   activateProject(input: ProjectIdInput): Promise<DesktopDataResult>
   openProject(): Promise<DesktopDataResult>
   openProjectResource(input: ProjectResourceInput): Promise<DesktopDataResult>
@@ -485,6 +493,15 @@ export function parseProjectCreateInput(value: unknown): ProjectCreateInput | nu
   const name = value.name.trim()
   if (name.length === 0 || name.length > 120 || [...name].some((character) => character.charCodeAt(0) < 32)) return null
   return { name }
+}
+
+export function parseProjectRenameInput(value: unknown): ProjectRenameInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'name'])) return null
+  const projectId = parseId(value.projectId)
+  if (projectId === null || typeof value.name !== 'string') return null
+  const name = value.name.trim()
+  if (name.length === 0 || name.length > 120 || hasControlCharacter(name)) return null
+  return { projectId, name }
 }
 
 export function parseCustomProviderConfigureInput(value: unknown): CustomProviderConfigureInput | null {

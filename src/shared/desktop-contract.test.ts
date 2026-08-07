@@ -7,6 +7,7 @@ import {
   parseCoreProtocolMessage,
   parseCustomProviderConfigureInput,
   parsePlotPatchInput,
+  parseProjectRenameInput,
   parseProjectResourceInput,
   parseTaskEvent,
   parseTaskId,
@@ -58,6 +59,12 @@ describe('desktop contract validation', () => {
       resourceId: 'resource:one',
     })
     expect(parseProjectResourceInput({ resourceId: 'resource:one', path: 'C:\\private.plotproj' }))
+      .toBeNull()
+    expect(parseProjectRenameInput({ projectId: 'project:one', name: '  新名称  ' })).toEqual({
+      projectId: 'project:one',
+      name: '新名称',
+    })
+    expect(parseProjectRenameInput({ projectId: 'project:one', name: '', path: 'C:\\private' }))
       .toBeNull()
 
     expect(parsePlotPatchInput({

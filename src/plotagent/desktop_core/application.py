@@ -8,6 +8,7 @@ import io
 import json
 import math
 import os
+import shutil
 import uuid
 from collections.abc import Callable, Mapping
 from collections.abc import Set as AbstractSet
@@ -386,6 +387,8 @@ class DesktopApplication:
         handlers: dict[str, ProductHandler] = {
             "projects.list": self._projects_list,
             "projects.create": self._projects_create,
+            "projects.rename": self._projects_rename,
+            "projects.delete": self._projects_delete,
             "projects.open": self._projects_open,
             "projects.close": self._projects_close,
             "datasets.import": self._datasets_import,
@@ -598,6 +601,66 @@ class DesktopApplication:
                 catalog_project.last_opened_at,
             ),
             "replayed": False,
+        }
+
+    def _projects_rename(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "display_name"})
+        project_id = _text(values["project_id"], "project_id")
+        display_name = _text(values["display_name"], "display_name").strip()
+        if not display_name or len(display_name) > 120:
+            raise RpcServiceError("INVALID_PARAMS", "Project display name was invalid.")
+        renamed = self.catalog.rename_project(project_id, display_name)
+        return self._project_summary(
+            renamed.project_id,
+            renamed.display_name,
+            renamed.last_opened_at,
+        )
+
+    def _projects_delete(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(params, required={"project_id"})
+        project_id = _text(values["project_id"], "project_id")
+        catalog_project = self.catalog.get_project(project_id)
+        workspace = Path(catalog_project.workspace_path).resolve()
+        projects_root = self.projects_root.resolve()
+        try:
+            relative_workspace = workspace.relative_to(projects_root)
+        except ValueError:
+            raise RpcServiceError(
+                "PROJECT_DELETE_UNSAFE",
+                "Project workspace was outside the managed projects directory.",
+            ) from None
+        if workspace == projects_root or len(relative_workspace.parts) != 1 or not workspace.is_dir():
+            raise RpcServiceError(
+                "PROJECT_DELETE_UNSAFE",
+                "Project workspace was not a removable managed directory.",
+            )
+
+        session = self._sessions.pop(project_id, None)
+        if session is not None:
+            session.close()
+        for task_id, runtime in tuple(self._batch_runtime.items()):
+            if runtime.session.project_id == project_id:
+                self._batch_runtime.pop(task_id, None)
+
+        quarantine_root = projects_root / ".trash"
+        quarantine_root.mkdir(exist_ok=True)
+        quarantine = quarantine_root / f"{workspace.name}.{uuid.uuid4().hex}.deleting"
+        os.replace(workspace, quarantine)
+        try:
+            self.catalog.delete_project(project_id)
+        except Exception:
+            os.replace(quarantine, workspace)
+            raise
+
+        cleanup_pending = False
+        try:
+            shutil.rmtree(quarantine)
+        except OSError:
+            cleanup_pending = True
+        return {
+            "project_id": project_id,
+            "status": "deleted",
+            "cleanup_pending": cleanup_pending,
         }
 
     def _open_project_id(self, project_id: str, *, replayed: bool = False) -> RpcJsonValue:

@@ -24,6 +24,7 @@ import {
   type PngSvgExportInput,
   type ProjectCreateInput,
   type ProjectIdInput,
+  type ProjectRenameInput,
   type ProjectResourceInput,
   type TaskEvent,
 } from '../shared/desktop-contract.js'
@@ -69,6 +70,8 @@ const desktop = {
   clearProvider: () => ipcRenderer.invoke(IPC_CHANNELS.providerClear),
   listProjects: () => ipcRenderer.invoke(IPC_CHANNELS.projectList),
   createProject: (input: ProjectCreateInput) => ipcRenderer.invoke(IPC_CHANNELS.projectCreate, input),
+  renameProject: (input: ProjectRenameInput) => ipcRenderer.invoke(IPC_CHANNELS.projectRename, input),
+  deleteProject: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.projectDelete, input),
   activateProject: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.projectActivate, input),
   openProject: () => ipcRenderer.invoke(IPC_CHANNELS.projectOpen),
   openProjectResource: (input: ProjectResourceInput) =>

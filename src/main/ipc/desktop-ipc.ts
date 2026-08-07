@@ -24,6 +24,7 @@ import {
   parsePngSvgExportInput,
   parseProjectCreateInput,
   parseProjectIdInput,
+  parseProjectRenameInput,
   parseProjectResourceInput,
   parseTaskId,
   type DesktopActionResult,
@@ -277,6 +278,21 @@ export function registerDesktopIpc({
         idempotency_key: `project-create:${randomUUID()}`,
         display_name: input.name,
       })
+  })
+  ipcMain.handle(IPC_CHANNELS.projectRename, (_event, value: unknown) => {
+    const input = parseProjectRenameInput(value)
+    return input === null
+      ? invalidDataArgument('项目名称无效。')
+      : requestCoreData(supervisor, resources, 'projects.rename', {
+        project_id: input.projectId,
+        display_name: input.name,
+      })
+  })
+  ipcMain.handle(IPC_CHANNELS.projectDelete, (_event, value: unknown) => {
+    const input = parseProjectIdInput(value)
+    return input === null
+      ? invalidDataArgument('项目 ID 无效。')
+      : requestCoreData(supervisor, resources, 'projects.delete', { project_id: input.projectId })
   })
   ipcMain.handle(IPC_CHANNELS.projectActivate, (_event, value: unknown) => {
     const input = parseProjectIdInput(value)
