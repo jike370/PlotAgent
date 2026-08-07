@@ -3,7 +3,7 @@
 > 状态：原 M0–M6 工程切片已实现；正式范围为43图、九个P1 adapter内部隐藏；M6 Phase A基础泛化与Phase B逐图编辑/Origin样式已完成当前工程门禁，Phase C内部可组合绘图底座待实现；M7邀请制Beta qualification尚未执行
 > 日期：2026-08-07
 > 适用范围：W0–W10 workstreams、依赖、风险 spikes、里程碑、验收证据与错误归属
-> 相关文档：[规格索引与 Beta 设计基线](./SPEC-INDEX.md)、[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)
+> 相关文档：[规格索引与 Beta 设计基线](./SPEC-INDEX.md)、[前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)、[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)
 
 本文把已确认跨模块契约拆成可独立分工的工程 backlog。目录是计划中的实现入口；创建目录和代码属于后续实施，不是本次文档提交结果。
 
@@ -17,6 +17,7 @@
 - W6/Origin 风险验证前置；不能等全部正式图实现后才发现 O1 技术路径不成立；已有31图与新增12图证据分别记录。
 - Workstream out-of-scope 不得通过“顺手实现”绕过依赖、权限或 release gate。
 - M6 新范围严格分三阶段：A 冻结并通过基础泛化矩阵、修复基础函数；B 固化43图编辑 capability、Origin 对齐符号/色板并完成跨 renderer 测试；C 实现 ChartRecipe compiler 和43个正式图迁移。九个隐藏图只做内部回归；generator/oracle 与组合架构不得在同一阶段变更。
+- 前端改版、剩余P0和批量/自然语言辨识度按 `FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md` 的 SEQ-10–80 执行；难度排序不替代依赖顺序，屏幕级全面改版不得早于领域对象稳定。
 
 ## 2. 依赖图与并行边界
 

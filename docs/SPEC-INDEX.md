@@ -3,7 +3,7 @@
 > 状态：v1 数据/计算范围收敛；正式范围固定为 43 图，M6 基础泛化与逐图编辑/Origin 样式工程门禁已实现，内部可组合绘图底座仍待实现；M7 小规模邀请制 Beta qualification 尚未执行
 > 基线日期：2026-08-07
 > 适用范围：权威文档、冲突优先级、requirement/evidence matrix、workstream 入口与冻结变更流程
-> 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
+> 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
 
 ## 1. 冻结含义与非含义
 
@@ -61,6 +61,7 @@
 | [LOCAL-SECURITY](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md) | local_only、安全、日志/本地诊断、known-pair兼容 | W9 | security/compatibility packages | zero-egress/fault/privacy |
 | [PERFORMANCE-TEST-RELEASE](./PERFORMANCE-TEST-RELEASE.md) | 单一平台/规模/Origin、逻辑 MatrixKey、Beta blockers/checklist | W10 | release/evidence harness | Beta build checklist |
 | [IMPLEMENTATION-PLAN](./IMPLEMENTATION-PLAN.md) | W0–W10、依赖、spikes、milestones | All owners | proposed entries per W | milestone exit evidence |
+| [FRONTEND-P0-DIFFERENTIATION-SEQUENCE](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md) | 前端设计、Origin绘图P0与批量/自然语言辨识度的阶段顺序和进入门禁 | Product/W0/W1/W4/W5/W6/W7/W10 | SEQ-10–80 | 阶段状态、commit、测试、视觉/Origin evidence与进入判断 |
 | [chart-library-research](./chart-library-research.md) | 157长期taxonomy与研究建议 | W4 research | registry backlog input | 仅研究，不等于准入 |
 | [README](../README.md) | 仓库导航、当前prototype运行 | Repository maintainers | existing app skeleton | commands/current status |
 
