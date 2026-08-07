@@ -180,6 +180,15 @@ flowchart TD
 - **自动结论：** 两个状态的 fresh-reopen validation 均完全一致；冻结数据与参考图 hash 门禁通过。人工视觉签名前不把第一批记为最终视觉通过。
 - **已知观察：** K02 当前产品默认把线与点解析为不同系列颜色，而 Origin 参考把二者视为同一系列；该差异已保留在基线对照中，未修改旧 renderer 或 oracle。
 
+### 7.5 第二批 evidence（2026-08-08）
+
+- **范围：** X01、X02、X09、K05、K09；均已锚定同源 Origin A/C 级参考图与数据，不含合成数据。
+- **冻结输入：** 对应逐图 fixture、参考图、provenance 和 `batch-2.manifest.json` 位于 `tests/fixtures/visual_regression/seq20/`。
+- **运行产物：** `build/visual-audit/seq20-origin-baseline/batch-2/index.html`；默认态与代表性编辑态均完成 Matplotlib、合并 O1 OPJU 和独立 fresh-reopen 导出。
+- **自动结论：** 两个状态的 Origin build/fresh-reopen validation 完全一致；来源、数据、参考图、PlotSpec、RenderPlan、PNG 与 OPJU hash 均已固定。
+- **视觉观察：** X01 Origin 标题落在绘图区左侧；X09 Origin 图例把区间拆为 `Middle/End`；K05 Origin 默认带出现黑色实填且标题压图；K09 三组 Origin 柱发生重叠。它们证明“原生对象稳定”不等于“视觉合格”，均保留在审计页中，不通过修改旧 oracle 或放宽校验消除。
+- **阶段判断：** 第二批工程 evidence 完成，但上述视觉差异与用户人工签名未收口，暂不允许据此进入 SEQ-30。
+
 ## 8. SEQ-30：ChartRecipe compiler v1 与首批 14 图迁移
 
 ### 8.1 冻结范围

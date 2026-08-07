@@ -1,0 +1,15 @@
+{
+  "chart_type_id": "K09",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\Column.opju",
+  "source_sha256": "1f4ab6637f0c4ccebe11c86de6b0d6640efcb41a39492d423b39cc162371e873",
+  "source_graph_name": "Graph2",
+  "source_book": "Book1",
+  "recipe": "直接导出 Origin 随附 Column.opju 的 Graph2；误差列转为显式上下界。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "3d454bea5d748cba2ff28867cc093b964235212fbaf22a7eea6765c84514af76",
+  "reference_sha256": "5f80ff56b44a3cf1484b3027d4f4aea5c24765bf6d06d08f16d7d133113a59bb",
+  "common_edit": "标题与字号",
+  "chart_edit": "分组柱边线与宽度"
+}

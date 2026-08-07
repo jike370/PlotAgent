@@ -1,0 +1,15 @@
+{
+  "chart_type_id": "X02",
+  "evidence_grade": "C",
+  "source_path": "D:\\origin\\Samples\\Signal Processing\\Step Signal with Random Noise.dat",
+  "source_sha256": "d0482fc92b488a5d04f5ff4a982060f5376337c5e8a2657662ad0da800c1d405",
+  "source_graph_name": null,
+  "source_book": null,
+  "recipe": "Origin 官方信号样例固定抽样；以 DROPLINE 重新生成。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "e0bbb39eb7bb190ca7ce41d020c078a9a93f9e1370489bb4f56342fd60476a41",
+  "reference_sha256": "3b3f720b40c413599dbbacd101c2343ea47ba6994652a50dcea6ee3d8717e810",
+  "common_edit": "标题与字号",
+  "chart_edit": "固定 y=0 基线、点形与点大小"
+}

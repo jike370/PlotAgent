@@ -113,14 +113,26 @@ CASES = (
     AuditCase(2, "X02", "lollipop", "棒棒糖图", "C", ORIGIN / "Samples" / "Signal Processing" / "Step Signal with Random Noise.dat", None, None, "Origin 官方信号样例固定抽样；以 DROPLINE 重新生成。", "标题与字号", "固定 y=0 基线、点形与点大小"),
     AuditCase(2, "X09", "floating_interval", "范围柱条图", "A", ORIGIN / "FLOATBAR.opju", "Graph5", None, "直接导出 Origin 随附 FLOATBAR.opju 的 Graph5 及其三边界工作表。", "标题与字号", "区间柱填充、边线、宽度"),
     AuditCase(2, "K05", "curve_band", "给定曲线与置信带", "A", ORIGIN / "ERRORBAND.opju", "Graph1", "Book1", "直接导出 Origin 随附 ERRORBAND.opju 的 Graph1；Y±Error 转为显式上下界，不重新估计。", "标题与字号", "带颜色、边线与透明度"),
-    AuditCase(2, "K09", "grouped_column", "分组柱状图", "A", ORIGIN / "Column.opju", "Graph2", "Book1", "直接导出 Origin 随附 Column.opju 的 Graph2；误差列转为显式上下界。", "标题与字号", "分组柱填充、边线、宽度"),
-    AuditCase(3, "K10", "stacked_column", "堆积柱状图", "A", ORIGIN / "Column.opju", "Graph9", "Book2", "直接导出 Origin 随附 Column.opju 的 Graph9 及无误差工作表。", "标题与字号", "堆积柱填充、边线、宽度"),
+    AuditCase(2, "K09", "grouped_column", "分组柱状图", "A", ORIGIN / "Column.opju", "Graph2", "Book1", "直接导出 Origin 随附 Column.opju 的 Graph2；误差列转为显式上下界。", "标题与字号", "分组柱边线与宽度"),
+    AuditCase(3, "K10", "stacked_column", "堆积柱状图", "A", ORIGIN / "Column.opju", "Graph9", "Book2", "直接导出 Origin 随附 Column.opju 的 Graph9 及无误差工作表。", "标题与字号", "堆积柱边线与宽度"),
     AuditCase(3, "S05", "dose_response", "给定剂量反应", "C", ORIGIN / "Samples" / "Curve Fitting" / "Dose Response - Inhibitor.dat", None, None, "Origin 官方剂量反应样例；三次测量的均值与逐剂量 min/max 作为用户提供曲线/带，在 Origin 中重新生成，不执行拟合。", "标题与字号", "点/线样式与带透明度"),
     AuditCase(3, "S25", "spectrum", "连续谱图", "A", ORIGIN / "Samples" / "Spectroscopy" / "Absorbance Spectra.opj", "Graph1", "Book1", "直接导出 Origin 官方 Absorbance Spectra.opj 的 Graph1 及同项目工作表。", "标题与字号", "谱线颜色与宽度"),
     AuditCase(3, "X03", "dumbbell", "哑铃图", "A", ORIGIN / "Lollipop.opju", "Graph1", None, "直接导出 Origin 随附 Lollipop Plot (Two Points) 图页及工作表。", "标题与字号", "端点颜色、点形、点大小"),
 )
 
 BATCHES = {1: CASES[:5], 2: CASES[5:10], 3: CASES[10:]}
+
+VISUAL_OBSERVATIONS: dict[str, tuple[str, ...]] = {
+    "K02": (
+        "当前产品默认把线与点解析为不同系列颜色；Origin 参考把二者视为同一系列。",
+    ),
+    "X01": ("Origin O1 标题位于绘图区左侧，未与 Matplotlib 顶部标题对齐。",),
+    "X09": ("当前 Origin O1 图例拆出 Middle/End；与参考的区间语义呈现不同。",),
+    "K05": (
+        "Origin O1 默认置信带出现黑色实填，且标题压入绘图区；Matplotlib 与参考没有该问题。",
+    ),
+    "K09": ("Origin O1 在三组数据下柱形发生重叠，违反动态组数不重叠约束。",),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -493,10 +505,13 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
     x_label, y_label, x_kind, y_kind = _labels_and_scales(case)
     specialist = SpecialistEditSpec()
     if edited and case.chart_id in {"K08", "K09", "K10", "K18", "X09"}:
+        fill_color = (
+            ColorValue(value="#4C78A8") if case.chart_id in {"K08", "K18", "X09"} else None
+        )
         specialist = specialist.model_copy(
             update={
                 "bar_area": BarAreaEditSpec(
-                    fill_color=ColorValue(value="#4C78A8"),
+                    fill_color=fill_color,
                     edge_color=ColorValue(value="#1F3552"),
                     edge_width=PhysicalLength(value=0.8, unit="pt"),
                     width_ratio=0.68,
@@ -643,7 +658,11 @@ def _render_batch(batch: int, cases: tuple[AuditCase, ...], output: Path, fixtur
         shutil.copy2(fixture_dir / "reference.png", case_dir / "reference.png")
         shutil.copy2(provenance_path, case_dir / "provenance.json")
         frame = pd.read_csv(fixture_dir / "data.csv")
-        case_entries[case.case_id] = {**provenance, "states": {}}
+        case_entries[case.case_id] = {
+            **provenance,
+            "visual_observations": VISUAL_OBSERVATIONS.get(case.chart_id, ()),
+            "states": {},
+        }
         for state in ("default", "edited"):
             state_dir = case_dir / state
             state_dir.mkdir(exist_ok=True)
@@ -726,7 +745,10 @@ def _render_batch(batch: int, cases: tuple[AuditCase, ...], output: Path, fixtur
         },
         "exports": export_entries,
         "cases": [case_entries[case.case_id] for case in cases],
-        "audit_conclusion": "engineering evidence complete; human visual sign-off pending",
+        "audit_conclusion": (
+            "engineering evidence complete; human visual sign-off pending; "
+            "known visual differences are listed per case"
+        ),
     }
     manifest_path = batch_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")

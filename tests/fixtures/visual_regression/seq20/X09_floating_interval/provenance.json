@@ -1,0 +1,15 @@
+{
+  "chart_type_id": "X09",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\FLOATBAR.opju",
+  "source_sha256": "0a811083b3d92e0619c57672544244819958c3dfbdd483ec44fa8980d462a905",
+  "source_graph_name": "Graph5",
+  "source_book": null,
+  "recipe": "直接导出 Origin 随附 FLOATBAR.opju 的 Graph5 及其三边界工作表。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "6588298ffefa4a32ead6b90a1fc1d9991b9951db13cfa750c6ded4dc57e92458",
+  "reference_sha256": "e76aeaf87539d68e46a0f271a9c858f0931c54e4a7b174ad7a037b9aae7e22f3",
+  "common_edit": "标题与字号",
+  "chart_edit": "区间柱填充、边线、宽度"
+}

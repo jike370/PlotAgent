@@ -1,0 +1,15 @@
+{
+  "chart_type_id": "K05",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\ERRORBAND.opju",
+  "source_sha256": "07e516dd957b3dda1b235aeee778b8611adee92df0daedde3898bac2cef8a668",
+  "source_graph_name": "Graph1",
+  "source_book": "Book1",
+  "recipe": "直接导出 Origin 随附 ERRORBAND.opju 的 Graph1；Y±Error 转为显式上下界，不重新估计。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "ea06c1dfbab5df1b7e744cc2028653a412e926b07bdbec1794418a89f1a54801",
+  "reference_sha256": "12ea744884f3708dc839c6f5cfa66ec14e4dea016ae72772e22c426a39669cb0",
+  "common_edit": "标题与字号",
+  "chart_edit": "带颜色、边线与透明度"
+}
