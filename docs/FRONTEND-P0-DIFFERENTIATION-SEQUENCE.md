@@ -191,10 +191,12 @@ flowchart TD
 
 ### 7.6 第三批与阶段判断（2026-08-08）
 
+- **提交：** `9d4ed7d`（第一批）、`72759c3`（第二批）、`033a3a0`（第三批）。
 - **范围：** K10、S05、S25、X03。K10/X03 直接锚定随附 Origin 图页；S05 使用官方三重复剂量反应数据，把逐剂量均值和 min/max 明确冻结为用户提供曲线/带，不执行拟合；S25 使用官方 Absorbance Spectra 工作表，并因随附 Graph1 只显示 940–1000 局部谱段而改用 Origin 系统 `LINE` 模板做 C 级全数据自动范围重建。安装的旧 `spectra.OTP` 会反转 Y 轴并注入 time/frequency 语义，不适合作为吸收光谱默认规范。
 - **冻结输入：** 对应逐图 fixture、参考图、provenance 和 `batch-3.manifest.json` 位于 `tests/fixtures/visual_regression/seq20/`；三批合计严格覆盖 K01、K02、K03、K08、K18、X01、X02、X09、K05、K09、K10、S05、S25、X03。
 - **运行产物：** `build/visual-audit/seq20-origin-baseline/batch-3/index.html`；默认态与代表性编辑态均完成 Matplotlib、合并 O1 OPJU 和独立 fresh-reopen 导出。
 - **自动结论：** 三批 14 图均存在同源参考图与冻结数据，默认/编辑两种状态均固定 PlotSpec、RenderPlan、Matplotlib、Origin PNG、OPJU、adapter、exact Origin version 与 hash；所有 OPJU build/fresh-reopen validation 完全一致。无同源数据、合成数据或旧 oracle 改写进入本基线。
+- **测试：** `tests/rendering/test_seq20_visual_baseline.py` 为 3 passed；Python 默认全量为 793 passed、57 个显式 Origin live case skipped；`mypy src` 通过 126 个源文件，SEQ-20 脚本/测试 Ruff 通过。全仓 Ruff 另报告既有 `src/plotagent/desktop_core/application.py:632` 一处 102 字符行，本阶段未改动该无关 Core 文件。前端无代码变化，沿用 SEQ-10 已冻结的 84/84、lint/typecheck/build 证据。
 - **第三批视觉观察：** S05 Origin 图例右侧被页面边缘截断且标题未置顶；S25/X03 Origin 标题未置顶。K10 的堆积结构与数据总量一致。
 - **未完成项：** 用户对三批对照页的人工视觉签名；K02 系列身份色、X01/K05/S05/S25/X03 标题/图例、X09 区间图例语义、K05 带填充、K09 三组柱重叠等已知差异的处置。
 - **是否允许进入下一阶段：** **否。** SEQ-20 自动工程门禁已通过，但视觉资格尚未通过；修复必须保持冻结数据与参考图不变，不得修改旧 oracle 或放宽容差。用户签名且已知 P0 视觉差异收口后，方可把 SEQ-20 标为“完成”并进入 SEQ-30。
