@@ -119,6 +119,29 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.queryByText(/邀请已激活/)).not.toBeInTheDocument()
   })
 
+  it('keeps task and chart-library secondary surfaces concise', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await screen.findByRole('region', { name: '开始使用 PlotAgent' })
+    await user.click(screen.getByRole('button', { name: /任务中心/ }))
+    const taskDialog = screen.getByRole('dialog', { name: '任务中心' })
+    expect(within(taskDialog).getByText('当前没有进行中的任务')).toBeInTheDocument()
+    expect(within(taskDialog).queryByText('来自本地 Core 的任务事件')).not.toBeInTheDocument()
+    expect(within(taskDialog).queryByText(/导入、渲染和导出时/)).not.toBeInTheDocument()
+    expect(within(taskDialog).queryByText(/关闭窗口前/)).not.toBeInTheDocument()
+    await user.click(within(taskDialog).getByRole('button', { name: '关闭任务中心' }))
+
+    await user.click(screen.getByRole('button', { name: /新建项目/ }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    const library = screen.getByRole('dialog', { name: '图形库' })
+    const detail = within(library).getByRole('complementary', { name: '线点图详情' })
+    expect(within(library).queryByText(/首轮正式目标/)).not.toBeInTheDocument()
+    expect(within(detail).queryByText('同时呈现实测点与连接趋势')).not.toBeInTheDocument()
+    expect(within(detail).queryByText(/可在 Origin 中继续编辑/)).not.toBeInTheDocument()
+    expect(within(detail).queryByText(/选择后将写入稳定类型/)).not.toBeInTheDocument()
+  })
+
   it('provides a development-only interactive browser preview without a desktop bridge', async () => {
     const user = userEvent.setup()
     Reflect.deleteProperty(window, 'plotAgentDesktop')
@@ -362,7 +385,6 @@ describe('PlotAgent real desktop workflow', () => {
     await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K25')
     await user.click(screen.getByRole('button', { name: /K25.*多面板复合图/ }))
-    expect(screen.getByText(/不进入数据字段映射或 plots.create/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '创建组合图' }))
 
     expect(await screen.findByText('还需要一张图')).toBeInTheDocument()
