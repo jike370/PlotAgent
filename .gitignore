@@ -41,6 +41,9 @@ playwright-report/
 test-results/
 *.tsbuildinfo
 
+# Local design-review working evidence
+.impeccable/work/
+
 # Editors and operating systems
 .idea/
 .vscode/
