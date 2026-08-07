@@ -7,6 +7,7 @@ import plotagent.origin
 from plotagent.origin._origin_backend import (
     NativeOriginError,
     _area_fill_command,
+    _band_fill_command,
     _bar_edge_color_command,
     _bar_edge_width_command,
     _bar_gap_command,
@@ -40,7 +41,7 @@ def test_origin_adapter_has_no_attach_or_script_execution_calls() -> None:
 
 def test_origin_set_commands_are_fixed_literals_from_the_small_allowlist() -> None:
     package = Path(plotagent.origin.__file__).parent
-    allowed = {"-l 2", "-pd 1", "-paaf 100"}
+    allowed = {"-l 2", "-pd 1", "-paaf 100", "-pf 1", "-pfv 8", "-paaf 1", "-pf 0"}
     commands: list[str] = []
     validated_helpers: dict[str, int] = {}
     violations: list[str] = []
@@ -60,6 +61,7 @@ def test_origin_set_commands_are_fixed_literals_from_the_small_allowlist() -> No
                     and argument.func.id
                     in {
                         "_area_fill_command",
+                        "_band_fill_command",
                         "_bar_gap_command",
                         "_bar_edge_color_command",
                         "_bar_edge_width_command",
@@ -79,6 +81,7 @@ def test_origin_set_commands_are_fixed_literals_from_the_small_allowlist() -> No
     assert set(commands) == allowed
     assert validated_helpers == {
         "_area_fill_command": 1,
+        "_band_fill_command": 1,
         "_bar_edge_color_command": 1,
         "_bar_edge_width_command": 1,
         "_bar_gap_command": 1,
@@ -90,6 +93,13 @@ def test_dynamic_area_fill_option_accepts_only_typed_hex_color() -> None:
     for invalid in ("red", "#fff", '#000000"; system("rm")'):
         with pytest.raises(NativeOriginError):
             _area_fill_command(invalid)
+
+
+def test_dynamic_band_fill_option_accepts_only_typed_hex_color() -> None:
+    assert _band_fill_command("#2A6FDB") == '-pfb color("#2A6FDB")'
+    for invalid in ("red", "#fff", '#000000"; system("rm")'):
+        with pytest.raises(NativeOriginError):
+            _band_fill_command(invalid)
 
 
 def test_dynamic_bar_options_accept_only_typed_bounded_values() -> None:

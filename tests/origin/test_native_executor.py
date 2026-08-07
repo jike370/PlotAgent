@@ -12,6 +12,7 @@ from plotagent.origin._origin_backend import (
     NativeOriginError,
     _apply_right_y_axis_style,
     _bar_width_ratio,
+    _legend_labels,
     _legend_text,
     _place_inside_legend,
     _place_page_title,
@@ -23,6 +24,7 @@ from plotagent.origin.native import (
     build_native_project,
     inspect_native_project,
     native_primitives,
+    physical_plot_count,
 )
 from plotagent.origin.planner import build_origin_export_spec, compile_origin_plan
 from plotagent.origin.validation import expected_validation_report, origin_canonical_hash
@@ -45,6 +47,29 @@ def test_s07_uses_only_fixed_native_legend_sample_tokens() -> None:
 
 def test_nonfixed_legend_labels_do_not_receive_generated_origin_tokens() -> None:
     assert _legend_text("graph.K01.0", ["Series 1", "Series 2"]) == "Series 1\nSeries 2"
+
+
+def test_duplicate_physical_styles_share_one_origin_legend_row() -> None:
+    graph = _plan("K05").graph_objects[0]
+    layer = graph.layers[0]
+    base = layer.plots[0]
+    graph = graph.model_copy(
+        update={
+            "layers": (
+                layer.model_copy(
+                    update={
+                        "plots": (
+                            base.model_copy(update={"label": "Y1"}),
+                            base.model_copy(update={"label": "Y1"}),
+                            base.model_copy(update={"label": "Y1 interval"}),
+                        )
+                    }
+                ),
+            )
+        }
+    )
+
+    assert _legend_labels(graph) == ["Y1", "Y1 interval"]
 
 
 def _grouped_bar_plan(group_count: int, width_ratio: float) -> OriginExportPlan:
@@ -128,6 +153,13 @@ def test_fill_area_uses_typed_uncertainty_color_and_band_alpha() -> None:
     assert primitive.plot_type == "fill_area"
     assert _primitive_color(band, primitive) == "#7B61A8"
     assert round((1 - band.band_alpha) * 100) == 68
+
+
+def test_fill_area_materializes_as_two_native_lines() -> None:
+    primitive = native_primitives(_plan("K07").graph_objects[0].layers[0].plots[1])[0]
+
+    assert primitive.plot_type == "fill_area"
+    assert physical_plot_count(primitive) == 2
 
 
 def test_x09_origin_plan_suppresses_internal_interval_boundary_legend() -> None:

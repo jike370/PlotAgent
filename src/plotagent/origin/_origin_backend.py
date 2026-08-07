@@ -60,7 +60,11 @@ _PLOT_TYPE = {
     "bar": 215,
     "bubble": 193,
     "bubble_color": 248,
-    "fill_area": 249,
+    # A scientific band is persisted as two ordinary native line plots.  The
+    # first fills to the second; using Origin's special fill-area plot type
+    # enables an independent fill on both physical plots and the second plot's
+    # default black pattern can cover the requested color.
+    "fill_area": 200,
     "heatmap": 105,
     "contour": 226,
 }
@@ -194,6 +198,14 @@ def _area_fill_command(color: str) -> str:
     return f'-cf color("{color}")'
 
 
+def _band_fill_command(color: str) -> str:
+    """Return the typed Pattern color for a fill-to-next scientific band."""
+
+    if _HEX_COLOR.fullmatch(color) is None:
+        raise NativeOriginError("band fill color must be a validated #RRGGBB token")
+    return f'-pfb color("{color}")'
+
+
 def _bar_gap_command(width_ratio: float) -> str:
     """Map the closed PlotSpec bar-width ratio to Origin's Spacing-tab gap."""
 
@@ -269,6 +281,19 @@ def _legend_text(graph_id: str, labels: list[str]) -> str:
             raise NativeOriginError("S07 fixed legend vocabulary differs from the resolver")
         return "\n".join(f"\\l({index}) {label}" for index, label in enumerate(labels, 1))
     return "\n".join(labels)
+
+
+def _legend_labels(graph: OriginGraphObject) -> list[str]:
+    """Return one legend row per stable scientific series label."""
+
+    return list(
+        dict.fromkeys(
+            plot.label
+            for layer in graph.layers
+            for plot in layer.plots
+            if plot.label
+        )
+    )
 
 
 def _place_inside_legend(
@@ -649,11 +674,21 @@ class OriginProBackend:
         if primary_color is not None:
             for created_plot in created_plots:
                 created_plot.color = primary_color
-            if primitive.plot_type in {"area", "fill_area"}:
+            if primitive.plot_type == "area":
                 # Origin's fill-color property accepts palette indexes. ColorValue
                 # is a validated #RRGGBB token, so this closed option preserves the
                 # exact palette without admitting labels or arbitrary commands.
                 plot.set_cmd(_area_fill_command(primary_color))
+            elif primitive.plot_type == "fill_area":
+                # A band is two normal native lines.  Only the lower boundary
+                # fills to the following upper boundary; leaving fill enabled on
+                # the second plot produces a separate black fill-to-base that
+                # covers the requested band color in exported OPJU graphs.
+                created_plots[0].set_cmd("-pf 1")
+                created_plots[0].set_cmd("-pfv 8")
+                created_plots[0].set_cmd(_band_fill_command(primary_color))
+                created_plots[0].set_cmd("-paaf 1")
+                created_plots[1].set_cmd("-pf 0")
         if primitive.plot_type in {"column", "floating_column"}:
             created_plots[0].set_cmd(_bar_gap_command(_bar_width_ratio(data, plot_plan, primitive)))
             if plot_plan.edge_color is not None:
@@ -714,7 +749,12 @@ class OriginProBackend:
             created_plots[0].set_cmd("-paaf 100")
         alpha = plot_plan.band_alpha if primitive.transform == "band" else plot_plan.alpha
         if alpha < 1:
-            for created_plot in created_plots:
+            transparency_targets = (
+                created_plots[:1]
+                if primitive.transform == "band"
+                else created_plots
+            )
+            for created_plot in transparency_targets:
                 created_plot.transparency = round((1 - alpha) * 100)
         return plot
 
@@ -1066,12 +1106,7 @@ class OriginProBackend:
                 x_title = layer.label("xb")
                 if x_title is not None:
                     x_title.set_int("show", 0)
-            labels = [
-                plot.label
-                for graph_layer in graph_plan.layers
-                for plot in graph_layer.plots
-                if plot.label
-            ]
+            labels = _legend_labels(graph_plan)
             legend = layer.label("legend")
             if legend is not None:
                 visible_legend = bool(
@@ -1124,12 +1159,7 @@ class OriginProBackend:
         title = first_layer.label(_PLOT_TITLE_LABEL)
         if graph_plan.title and title is not None:
             _place_page_title(graph, graph_plan, first_layer_plan, title)
-        legend_labels = [
-            plot.label
-            for graph_layer in graph_plan.layers
-            for plot in graph_layer.plots
-            if plot.label
-        ]
+        legend_labels = _legend_labels(graph_plan)
         legend = first_layer.label("legend")
         if graph_plan.legend_visible and legend_labels and legend is not None:
             _place_inside_legend(graph, graph_plan, first_layer_plan, legend)
@@ -1268,9 +1298,7 @@ class OriginProBackend:
                     f"view_mode={graph.obj.GetPageViewMode()}"
                 )
             template_y_style = _read_template_y_axis_style(graph[0])
-            legend_labels = [
-                plot.label for item in graph_plan.layers for plot in item.plots if plot.label
-            ]
+            legend_labels = _legend_labels(graph_plan)
             for layer_index, (layer_plan, layer) in enumerate(
                 zip(graph_plan.layers, graph, strict=True)
             ):
@@ -1314,14 +1342,23 @@ class OriginProBackend:
                             else plot_plan.alpha
                         )
                         expected_transparency = round((1 - expected_alpha) * 100)
+                        expected_transparencies = (
+                            (expected_transparency, 0)
+                            if primitive.transform == "band"
+                            else (expected_transparency,) * len(primitive_plots)
+                        )
                         if any(
                             not math.isclose(
                                 float(item.transparency),
-                                expected_transparency,
+                                target,
                                 rel_tol=0.0,
                                 abs_tol=1e-9,
                             )
-                            for item in primitive_plots
+                            for item, target in zip(
+                                primitive_plots,
+                                expected_transparencies,
+                                strict=True,
+                            )
                         ):
                             raise NativeOriginError(
                                 f"native plot transparency differs for {plot_plan.plot_id}"
