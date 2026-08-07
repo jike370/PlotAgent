@@ -1,0 +1,18 @@
+{
+  "chart_type_id": "X05",
+  "case_id": "X05_beeswarm",
+  "title": "蜂群图",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\ColumnScatter.opju",
+  "source_sha256": "566876922f226fc75aaadfb6086ab8df1d496020b9d144d6e68eacf78e1dc965",
+  "source_graph_name": "Graph10",
+  "recipe": "直接导出 Origin 随附 ColumnScatter.opju 的 Beeswarm Plot 图页；同一工作表只做无损长表化。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "cbec145220524f662d7c3f494508d88ead62f10e7b642b4f8174708c8d8f9477",
+  "reference_sha256": "c938d6cc00e07d1825c156db24410e8805955ab91b0760b9fdab8caad1f40c45",
+  "legacy_anchor_data_sha256": "cbec145220524f662d7c3f494508d88ead62f10e7b642b4f8174708c8d8f9477",
+  "legacy_anchor_reference_sha256": "c938d6cc00e07d1825c156db24410e8805955ab91b0760b9fdab8caad1f40c45",
+  "common_edit": "标题与字号",
+  "chart_edit": "点颜色、点形状与点大小"
+}

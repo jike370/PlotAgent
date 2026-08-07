@@ -1,0 +1,18 @@
+{
+  "chart_type_id": "X38",
+  "case_id": "X38_offset_stack_y",
+  "title": "Y 偏移堆积线图",
+  "evidence_grade": "C",
+  "source_path": "D:\\origin\\waterfall.opju",
+  "source_sha256": "2cd02ac1a2caea0ebc1cfdf40c087b119cc0e28998c49fccf0ab372163346498",
+  "source_graph_name": null,
+  "recipe": "使用 Origin 官方 Waterfall 项目数据，并以 OffsetStackY.otp 和固定显示偏移重新生成参考图。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "63e7e78e958cef5970a2c2685e8599ea840f89383943e171031dca1e5615b953",
+  "reference_sha256": "d51e9f729e1476b8646e9a11078d910ce74d20ce8ac84207101e19b73388e195",
+  "legacy_anchor_data_sha256": "63e7e78e958cef5970a2c2685e8599ea840f89383943e171031dca1e5615b953",
+  "legacy_anchor_reference_sha256": "d51e9f729e1476b8646e9a11078d910ce74d20ce8ac84207101e19b73388e195",
+  "common_edit": "标题与字号",
+  "chart_edit": "偏移距离与系列顺序"
+}

@@ -1,0 +1,18 @@
+{
+  "chart_type_id": "X35",
+  "case_id": "X35_dual_y_column",
+  "title": "双 Y 轴柱状图",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\Double Y.opju",
+  "source_sha256": "d4f83c6f94c5d28315dd639d813d8410b3f82fd630627ec51782b7c07997fa26",
+  "source_graph_name": "Graph2",
+  "recipe": "直接导出 Origin 随附 Double Y.opju 的 Graph2 及同项目工作表。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "761a486e717185a382c71873a652ae7c5748c529cff59a9213170412bd08bd57",
+  "reference_sha256": "e6d9c8abb03ab0f460c7c7225793b2b66b1c924c7a2024020dd9ba1bcdae1373",
+  "legacy_anchor_data_sha256": "761a486e717185a382c71873a652ae7c5748c529cff59a9213170412bd08bd57",
+  "legacy_anchor_reference_sha256": "e6d9c8abb03ab0f460c7c7225793b2b66b1c924c7a2024020dd9ba1bcdae1373",
+  "common_edit": "标题与字号",
+  "chart_edit": "柱宽、边线及左右轴样式"
+}

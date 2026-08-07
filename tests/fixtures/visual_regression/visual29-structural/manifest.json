@@ -1,0 +1,646 @@
+{
+  "schema_version": "1.0",
+  "stage": "VISUAL29-STRUCTURAL",
+  "lane_chart_type_ids": [
+    "S01",
+    "X05",
+    "X13",
+    "X38",
+    "K24",
+    "K25",
+    "X23",
+    "X35",
+    "X36"
+  ],
+  "generated_at": "2026-08-07T21:12:25.092319+00:00",
+  "plotagent_version": "0.1.0",
+  "origin_declaration": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
+  "rules": {
+    "same_source_required": true,
+    "synthetic_allowed": false,
+    "states": [
+      "default",
+      "representative edited"
+    ],
+    "missing_same_source_pair_policy": "record gap; do not render or claim pass"
+  },
+  "cases": [
+    {
+      "chart_type_id": "X05",
+      "case_id": "X05_beeswarm",
+      "title": "蜂群图",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\ColumnScatter.opju",
+      "source_sha256": "566876922f226fc75aaadfb6086ab8df1d496020b9d144d6e68eacf78e1dc965",
+      "source_graph_name": "Graph10",
+      "recipe": "直接导出 Origin 随附 ColumnScatter.opju 的 Beeswarm Plot 图页；同一工作表只做无损长表化。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "cbec145220524f662d7c3f494508d88ead62f10e7b642b4f8174708c8d8f9477",
+      "reference_sha256": "c938d6cc00e07d1825c156db24410e8805955ab91b0760b9fdab8caad1f40c45",
+      "legacy_anchor_data_sha256": "cbec145220524f662d7c3f494508d88ead62f10e7b642b4f8174708c8d8f9477",
+      "legacy_anchor_reference_sha256": "c938d6cc00e07d1825c156db24410e8805955ab91b0760b9fdab8caad1f40c45",
+      "common_edit": "标题与字号",
+      "chart_edit": "点颜色、点形状与点大小",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "945aad5714a57b6880bed7315207d08e41c05d6ee774a83d2513ffb740cce19b",
+          "render_plan_sha256": "4c4e5eb2eabb56e017bbaccfe9e7439b7d94929b6a5ca36d9f80deefaea45cca",
+          "matplotlib_png_sha256": "b71758d825c7044cd3da1ca374402b1065497c7cba3889b5a7186f13f1007236",
+          "origin_plan_sha256": "482f6ce88f43220bca90b4a37bfe0a93ebe1acc7b85d74b2d89c462af9aeaf35",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "64e548dd46ebf98eb59430cb7f549cfd9e3d13830df6036ff27b4a48841398cf",
+          "origin_opju_size": 73514,
+          "origin_fresh_png_sha256": "966bedf5f446d468f5a9d9ec2d260cb601e495f9449f689f2ce6bf4a442a52ea",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": null,
+          "reused_completed_interrupted_run": true
+        },
+        "edited": {
+          "plot_spec_sha256": "9275547351f3d6bab68196fe8c08ef77565ba090b41479a4f9a07bf85b6d5c36",
+          "render_plan_sha256": "2d72fb0409b8b5e58e65655d1e4b2a5a5d783247de3781c927a800d92aaaa709",
+          "matplotlib_png_sha256": "936063021b32d973678b9846a2a9918ec38302e2e12d7236907366d1cbd3559a",
+          "origin_plan_sha256": "d76627063ebc34c4123a1a18f9ffa314253154575486fdee3504b336c28df552",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "e7be1150e97e26a0ac1ec1f402cf64ebe33a1008fd6cf56e536c2e56724516e9",
+          "origin_opju_size": 73545,
+          "origin_fresh_png_sha256": "5e053a898067cd090662b29ad3573a4ccdb6fad04db07cf08648b2812e2cd3df",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": null,
+          "reused_completed_interrupted_run": true
+        }
+      },
+      "blocking_observations": [
+        {
+          "chart_type_id": "X05",
+          "code": "LEGEND_DATA_OVERLAP",
+          "status": "open",
+          "backend": "matplotlib,origin",
+          "states": [
+            "default",
+            "edited"
+          ],
+          "observation": "右上图例覆盖 Bacon 蜂群的高值观测点。"
+        }
+      ],
+      "comparison_default_sha256": "87263cb38e021babf5a4a5c6711bafecbcc0db1cadf6037a7f0bb291cd7c6491",
+      "comparison_edited_sha256": "067d26bdc9e5d3f37813a85b1b221e4647901f5dd5965122b0be1afa30e9839b"
+    },
+    {
+      "chart_type_id": "X13",
+      "case_id": "X13_population_pyramid",
+      "title": "人口金字塔",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Samples\\Graphing\\African_population.dat",
+      "source_sha256": "2fa6279ab4a759df8739083690c122d385509e7ecd3ea3e91f2003643b8eda81",
+      "source_graph_name": null,
+      "recipe": "使用 Origin 官方 African_population.dat，并在 Origin 中以 PopulationPyramid.otpu 重新生成参考图。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "5f8c9e0bd093a83fa26cf9c6a348ab2f9fc66849e7d78f8f69ad660fa8e2c5c6",
+      "reference_sha256": "554531a3fd99c3f0c55eb02a553893a962ac52e90495ca82763ebb9042a2f0ae",
+      "legacy_anchor_data_sha256": "5f8c9e0bd093a83fa26cf9c6a348ab2f9fc66849e7d78f8f69ad660fa8e2c5c6",
+      "legacy_anchor_reference_sha256": "554531a3fd99c3f0c55eb02a553893a962ac52e90495ca82763ebb9042a2f0ae",
+      "common_edit": "标题与字号",
+      "chart_edit": "柱边线、宽度与透明度",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "9bd052490ad06b7de8258cc0f661cbe2d7f580ce451fe96f727e461e519674d1",
+          "render_plan_sha256": "f30776207fa2b111b45ae7e5d57b37008de2a8f2c0e8592765765fd697c10926",
+          "matplotlib_png_sha256": "4b5bd8632c7b8dfd0e6629b4d559610e37bcaa981f8a0ef910c56c2df03df53f",
+          "origin_plan_sha256": "1054349c4085dfb6fa84772917a3bcebb24b24310ef1711177375c55dfc40f13",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "7cbcb11ac892553c52b530cd4e19d083902bb4f036cffb765ebd6a62f913f656",
+          "origin_opju_size": 77150,
+          "origin_fresh_png_sha256": "1fef49179398342d1671b9c141578a31046fb9f050dca6c92ed4b32b11a6ce8d",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": null,
+          "reused_completed_interrupted_run": true
+        },
+        "edited": {
+          "plot_spec_sha256": "305db801d4699cd09c7e16dff7d60f317801089404b8b329d6fcdbe8487fd35b",
+          "render_plan_sha256": "2e6b3d1ce3f189a5a6365a9d40316d74b946d95be8cee5cb04ef5a7ecdc38d09",
+          "matplotlib_png_sha256": "7662535dc791b0f5f7017f09923141d9efa37abba37763321ff384f437bdc493",
+          "origin_plan_sha256": "d2430dadaac99e5a39444bd440ceb833ea773c9940ca72e479b16b921ca4aae8",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "b92c075704461ccec1b7c20d41aa70c4c40ea1fb625307ffe1979dc079f3176e",
+          "origin_opju_size": 77183,
+          "origin_fresh_png_sha256": "ad2e17a182867dd058d9b248bc8f528ceb5bd7c0ba54a21279c29514fef02f40",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": null,
+          "reused_completed_interrupted_run": true
+        }
+      },
+      "blocking_observations": [],
+      "comparison_default_sha256": "b87c664291290483b73fd06e2e42e47d253923e4490f679312eb0c8deb3eaf8e",
+      "comparison_edited_sha256": "743b540473dd60c4ad5242e5f4afd662b5373e84c6d279ceaac59f0d51b217be"
+    },
+    {
+      "chart_type_id": "X23",
+      "case_id": "X23_dual_y_line",
+      "title": "双 Y 轴折线图",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Double Y.opju",
+      "source_sha256": "d4f83c6f94c5d28315dd639d813d8410b3f82fd630627ec51782b7c07997fa26",
+      "source_graph_name": "Graph1",
+      "recipe": "直接导出 Origin 随附 Double Y.opju 的 Graph1 及同项目工作表。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "02433e3e402c0670288d31dd6d5ac3141073a79a691c01567c6a1047d4514302",
+      "reference_sha256": "39a56a64b2421f6d503bd868922b751f358378a19b98adb2ed87552e1b421ed7",
+      "legacy_anchor_data_sha256": "02433e3e402c0670288d31dd6d5ac3141073a79a691c01567c6a1047d4514302",
+      "legacy_anchor_reference_sha256": "39a56a64b2421f6d503bd868922b751f358378a19b98adb2ed87552e1b421ed7",
+      "common_edit": "标题与字号",
+      "chart_edit": "左右轴颜色与轴线宽度",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "ac78ebcdc67bd4a6dd68e443eaa2d1c8beea41c00798616403956cc41fe735a2",
+          "render_plan_sha256": "21a8b903307206a396fa666b077d6a8f1d43b6e40484f97c14d566a6a66b2095",
+          "matplotlib_png_sha256": "0d3e337cc30b52ab584f1a0f7c6f630c0e16452540567417000c62bd4952824d",
+          "origin_plan_sha256": "0a8adec10209052b781e2e54ba63ea730c3883a8e047fa3dfae590c9743cf342",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "0acf94ba9f226700a537767609a5bd6c2a601b28e3b004e9cc0e1ee025a941d8",
+          "origin_opju_size": 54597,
+          "origin_fresh_png_sha256": "2e296bb7c148fa6dfc80e1bdbaf2f73b97b94aaa736cd991a6748399c1650366",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": null,
+          "reused_completed_interrupted_run": true
+        },
+        "edited": {
+          "plot_spec_sha256": "637bfbdc1eef33334b9543e6ca30908774f1547d7f48e40ccd7b5247d6fb2a20",
+          "render_plan_sha256": "d3e849b6cac774657d75d269d4affcd3ae2618c6a7e4d98bd9ff86406c001ce3",
+          "matplotlib_png_sha256": "76fd2c3ae2d82bb082305313d04a6bb02e000cad863edcb19fff3a7014128cbe",
+          "origin_plan_sha256": "eaad37b896952da133468560a071b1cdc48ef98c0d2c007aa5f8fd1f2f796b46",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "d4ce70adc31e7c5c68be0fdecfdeb22dad4e9c9bb29346cf1103674f65b0860c",
+          "origin_opju_size": 54694,
+          "origin_fresh_png_sha256": "bfcd9028d0e62abf66cd4947288a1f326b38bedd1e4f798620fca8060feaa4a1",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": null,
+          "reused_completed_interrupted_run": true
+        }
+      },
+      "blocking_observations": [
+        {
+          "chart_type_id": "X23",
+          "code": "LEGEND_DATA_OVERLAP",
+          "status": "open",
+          "backend": "matplotlib,origin",
+          "states": [
+            "default",
+            "edited"
+          ],
+          "observation": "右轴折线进入右上图例文字区域。"
+        },
+        {
+          "chart_type_id": "X23",
+          "code": "CATEGORY_LABEL_OVERLAP",
+          "status": "open",
+          "backend": "origin",
+          "states": [
+            "default",
+            "edited"
+          ],
+          "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
+        }
+      ],
+      "comparison_default_sha256": "951e766527b1bb62f16144fbec66f7fed3fc9cc3ff98309ac5977ee2da5c157c",
+      "comparison_edited_sha256": "45fb833855cfb9faa652df814ea97c8db56bf4461a7179fd84b8efc16715b00f"
+    },
+    {
+      "chart_type_id": "X35",
+      "case_id": "X35_dual_y_column",
+      "title": "双 Y 轴柱状图",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Double Y.opju",
+      "source_sha256": "d4f83c6f94c5d28315dd639d813d8410b3f82fd630627ec51782b7c07997fa26",
+      "source_graph_name": "Graph2",
+      "recipe": "直接导出 Origin 随附 Double Y.opju 的 Graph2 及同项目工作表。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "761a486e717185a382c71873a652ae7c5748c529cff59a9213170412bd08bd57",
+      "reference_sha256": "e6d9c8abb03ab0f460c7c7225793b2b66b1c924c7a2024020dd9ba1bcdae1373",
+      "legacy_anchor_data_sha256": "761a486e717185a382c71873a652ae7c5748c529cff59a9213170412bd08bd57",
+      "legacy_anchor_reference_sha256": "e6d9c8abb03ab0f460c7c7225793b2b66b1c924c7a2024020dd9ba1bcdae1373",
+      "common_edit": "标题与字号",
+      "chart_edit": "柱宽、边线及左右轴样式",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "5aea42868b54045803db1e0c974bb59cbbb4791f8d4794512782813f33ce4820",
+          "render_plan_sha256": "a9687a73ad14b20ba38b4860536497642f5fa9329833f5c2c2ea8ee8a46bdb96",
+          "matplotlib_png_sha256": "39cc0ebe1222a19575d08697d4c5dee2c1b65337584363280bf28bb2a491ca2f",
+          "origin_plan_sha256": "60fcedf5b7762406f90b3070000896e4234e55cf442ba14b0902b04a57e17a38",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "34597f4f19c9f74c0ac7a78dde3fd8095f7a3ab63a710c96caf2af043d1109d8",
+          "origin_opju_size": 56868,
+          "origin_fresh_png_sha256": "890ecadc8eea2cb8cc6ad6556d080cdc1f99a9605911b2dc8445dc115529f962",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": null,
+          "reused_completed_interrupted_run": true
+        },
+        "edited": {
+          "plot_spec_sha256": "6a006f10684b98f4f6a8f1bcf40f893ba6f6ec45337a6b63ebd5af6bbfeb7ca4",
+          "render_plan_sha256": "20a6a43b4563ee03143dd3db498583dbe87857ea273f6ebeea1725446c5b9b5b",
+          "matplotlib_png_sha256": "d8f8d8691e2911d5d8610f228b84f7fd11fac45e9d8e60f03cda1faa406a44a7",
+          "origin_plan_sha256": "2b25c091798321fdc94f7856462b3677729f9dc8ac47c57b97b4025e56f8024e",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "2699808b376414a2050cf282c9cfc4fdeff88ef744dde9f29f84def76116fa2e",
+          "origin_opju_size": 56990,
+          "origin_fresh_png_sha256": "c99f533273275d870f183467072597980875bd3e9013bbbdcd1cdfc2b6372669",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": null,
+          "reused_completed_interrupted_run": true
+        }
+      },
+      "blocking_observations": [
+        {
+          "chart_type_id": "X35",
+          "code": "LEGEND_DATA_OVERLAP",
+          "status": "open",
+          "backend": "matplotlib,origin",
+          "states": [
+            "default",
+            "edited"
+          ],
+          "observation": "右轴高值柱进入右上图例区域。"
+        },
+        {
+          "chart_type_id": "X35",
+          "code": "CATEGORY_LABEL_OVERLAP",
+          "status": "open",
+          "backend": "origin",
+          "states": [
+            "default",
+            "edited"
+          ],
+          "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
+        }
+      ],
+      "comparison_default_sha256": "91ec6321fdd5907437278031d7ade07aaa423120009c0eba5be11b7404e3cca9",
+      "comparison_edited_sha256": "a3328acb33beee7a439313ae36fdc222c5c509c21378071d5d4aa9856459daf6"
+    },
+    {
+      "chart_type_id": "X36",
+      "case_id": "X36_dual_y_column_line",
+      "title": "双 Y 轴柱线图",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Double Y.opju",
+      "source_sha256": "d4f83c6f94c5d28315dd639d813d8410b3f82fd630627ec51782b7c07997fa26",
+      "source_graph_name": "Graph3",
+      "recipe": "直接导出 Origin 随附 Double Y.opju 的 Graph3 及同项目工作表。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "761a486e717185a382c71873a652ae7c5748c529cff59a9213170412bd08bd57",
+      "reference_sha256": "62fac9cbc31fac6d593ccf0db78aa5c8e87d9fbb2631d230935eaad3d944378a",
+      "legacy_anchor_data_sha256": "761a486e717185a382c71873a652ae7c5748c529cff59a9213170412bd08bd57",
+      "legacy_anchor_reference_sha256": "62fac9cbc31fac6d593ccf0db78aa5c8e87d9fbb2631d230935eaad3d944378a",
+      "common_edit": "标题与字号",
+      "chart_edit": "左右轴颜色与轴线宽度",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "fe1b50454e0ed7c4bf288b12ec92fe0135f572d2a78f085ac35d1fb92726c30b",
+          "render_plan_sha256": "091c27a077974d911e994605b5e9359aa293e527c4bc13a30c61919ae846dba2",
+          "matplotlib_png_sha256": "5f39337e3c445af5964a2722f33001904d0148502f66f9cfb11bc1d67e700a0c",
+          "origin_plan_sha256": "698c4b88abb5ae8e7f82c559b4f9540bfceeb38ecc608874c2b95e9bfc40ccbd",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "b359bdba01588bc706ed5788f97af0f8a7011ead51f4aff13315a59131b4b505",
+          "origin_opju_size": 55126,
+          "origin_fresh_png_sha256": "e0584a30882acfa7cbb7d556caac6a6cb7aa2bd52c7bd6d51d5234384d491d65",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": null,
+          "reused_completed_interrupted_run": true
+        },
+        "edited": {
+          "plot_spec_sha256": "18812a70d502e40f71ef9666e23ed158ef9e883ae6fcc7de57bae5b79ef78145",
+          "render_plan_sha256": "0f519ccb9dde847de1194f3c379b103337a78c50bd972daefedc53d4ba052faf",
+          "matplotlib_png_sha256": "eff29220a16e6da9376f0d4eca0555404651db83afade73483b146cd78beb774",
+          "origin_plan_sha256": "fe40b0fe5e48f98c0512b6135d9ce3139ec3c583efc159c2db31f5d132496077",
+          "origin_export_status": "failed",
+          "fresh_reopen_identical": false,
+          "origin_error": {
+            "status": "failed",
+            "target_path": "D:\\plotv3\\build\\visual-audit\\visual29-structural\\X36_dual_y_column_line\\edited\\X36-edited.opju",
+            "error": {
+              "code": "BUILD_FAILURE",
+              "stage": "build",
+              "message": "typed native Origin construction failed",
+              "retryable": false,
+              "details": {
+                "error": "native plot title crosses page or plot frame for graph.X36.0"
+              }
+            },
+            "elapsed_seconds": 27.875
+          }
+        }
+      },
+      "blocking_observations": [
+        {
+          "chart_type_id": "X36",
+          "code": "LEGEND_DATA_OVERLAP",
+          "status": "open",
+          "backend": "matplotlib,origin",
+          "states": [
+            "default",
+            "edited"
+          ],
+          "observation": "右轴折线进入右上图例文字区域。"
+        },
+        {
+          "chart_type_id": "X36",
+          "code": "CATEGORY_LABEL_OVERLAP",
+          "status": "open",
+          "backend": "origin",
+          "states": [
+            "default",
+            "edited"
+          ],
+          "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
+        },
+        {
+          "chart_type_id": "X36",
+          "code": "BUILD_FAILURE",
+          "status": "open",
+          "backend": "origin",
+          "states": [
+            "edited"
+          ],
+          "observation": "typed native Origin construction failed",
+          "details": {
+            "error": "native plot title crosses page or plot frame for graph.X36.0"
+          }
+        }
+      ],
+      "comparison_default_sha256": "79074686cad1cf7c38df977d81e3fb6b39c47114af04fa35cb9cdab41b4c1774",
+      "comparison_edited_sha256": "63ecf89a1e847afa197b711271935461efdaa3e86f246c4258b2c7db57d1a15c"
+    },
+    {
+      "chart_type_id": "X38",
+      "case_id": "X38_offset_stack_y",
+      "title": "Y 偏移堆积线图",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\waterfall.opju",
+      "source_sha256": "2cd02ac1a2caea0ebc1cfdf40c087b119cc0e28998c49fccf0ab372163346498",
+      "source_graph_name": null,
+      "recipe": "使用 Origin 官方 Waterfall 项目数据，并以 OffsetStackY.otp 和固定显示偏移重新生成参考图。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "63e7e78e958cef5970a2c2685e8599ea840f89383943e171031dca1e5615b953",
+      "reference_sha256": "d51e9f729e1476b8646e9a11078d910ce74d20ce8ac84207101e19b73388e195",
+      "legacy_anchor_data_sha256": "63e7e78e958cef5970a2c2685e8599ea840f89383943e171031dca1e5615b953",
+      "legacy_anchor_reference_sha256": "d51e9f729e1476b8646e9a11078d910ce74d20ce8ac84207101e19b73388e195",
+      "common_edit": "标题与字号",
+      "chart_edit": "偏移距离与系列顺序",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "558ef0f70366f264ceb6c5b751903560470c1996403a1998980a9a8bced32baa",
+          "render_plan_sha256": "7364daaa96ad7b06b51195025080ef1773d7b1ea7422c4ca37dcc1bab2c69a1d",
+          "matplotlib_png_sha256": "890b6afe45464ccb9402b7d0c3b252a18029484e4aee9a9723385700f20b7741",
+          "origin_plan_sha256": "b99b1117f06016f6f02faff89005eb109b8d0fe6eaffa2a6a3a8804373d5b6d5",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "4df7f88baf817b04854a60c32e341ecd58778c1808947160f09a44788be57327",
+          "origin_opju_size": 130469,
+          "origin_fresh_png_sha256": "7629ff6cb231f2147078c0af569fc2f0feff401553f93126ad535b2bcc3d5f23",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": "44dd799a2eba6799fa80d1cff3286866afe897fa9c159cf22c245ab0f7ac091d",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          }
+        },
+        "edited": {
+          "plot_spec_sha256": "61f83531c36f21394959891c0e6474e9e7e35c50e0e7d2257f03443720bd0e7a",
+          "render_plan_sha256": "afb6ef9af1e4bae4a2f90fd638c66746633a2687986f03d966d59ee71dd55d9a",
+          "matplotlib_png_sha256": "c58fde2120c97c3943b80b030f227245caa1d170ebb3505379e539ba22f588bc",
+          "origin_plan_sha256": "b3e2f6074dfbf47b48a516f413a6d795fbe5133d1178a1f83f211c848380a4e5",
+          "origin_export_status": "failed",
+          "fresh_reopen_identical": false,
+          "origin_error": {
+            "status": "failed",
+            "target_path": "D:\\plotv3\\build\\visual-audit\\visual29-structural\\X38_offset_stack_y\\edited\\X38-edited.opju",
+            "error": {
+              "code": "BUILD_FAILURE",
+              "stage": "build",
+              "message": "typed native Origin construction failed",
+              "retryable": false,
+              "details": {
+                "error": "native plot title crosses page or plot frame for graph.X38.0"
+              }
+            },
+            "elapsed_seconds": 28.032
+          }
+        }
+      },
+      "blocking_observations": [
+        {
+          "chart_type_id": "X38",
+          "code": "LEGEND_DATA_OVERLAP",
+          "status": "open",
+          "backend": "matplotlib,origin",
+          "states": [
+            "default",
+            "edited"
+          ],
+          "observation": "多条偏移谱线穿过右上图例，编辑态尤为明显。"
+        },
+        {
+          "chart_type_id": "X38",
+          "code": "BUILD_FAILURE",
+          "status": "open",
+          "backend": "origin",
+          "states": [
+            "edited"
+          ],
+          "observation": "typed native Origin construction failed",
+          "details": {
+            "error": "native plot title crosses page or plot frame for graph.X38.0"
+          }
+        }
+      ],
+      "comparison_default_sha256": "b85c2a164ba9bf5a25bb9ef05764671c3afad01d0567d092a88174945d4a7a67",
+      "comparison_edited_sha256": "a23bdcc0ba746fe8f0290260b60e6d02094dcebd17376e6af3fb6a6629c7366a"
+    }
+  ],
+  "gaps": [
+    {
+      "chart_type_id": "K24",
+      "title": "分面图",
+      "code": "SAME_SOURCE_FACET_PAIR_MISSING",
+      "status": "not_tested",
+      "candidate_sources": [
+        "D:\\origin\\Samples\\Graphing\\Categorical Data.dat",
+        "D:\\origin\\Templates\\Previews\\Trellis.png"
+      ],
+      "reason": "本机只有官方分类数据与独立模板预览，没有可证明该预览由这份数据生成的随附图页—工作表对；不能把两者臆配为同源证据。"
+    },
+    {
+      "chart_type_id": "K25",
+      "title": "多面板复合图",
+      "code": "O1_QUALIFICATION_NOT_APPLICABLE",
+      "status": "not_tested",
+      "candidate_sources": [
+        "D:\\origin\\mgroups.otpu"
+      ],
+      "reason": "K25 是 FigureSpec/O2 多面板对象，不能以本线要求的单图 PlotSpec/O1 fresh-reopen 资格冒充通过；当前也没有同源异构子图项目对。"
+    },
+    {
+      "chart_type_id": "S01",
+      "title": "给定 KM 生存曲线",
+      "code": "PRECOMPUTED_SAME_SOURCE_PAIR_MISSING",
+      "status": "not_tested",
+      "candidate_sources": [
+        "D:\\origin\\Samples\\Statistics\\Kaplan-Meier.dat",
+        "D:\\origin\\KaplanMeier.OGS"
+      ],
+      "reason": "随附 DAT 是原始 time/status，不是 PlotAgent S01 所需的用户预计算 step/CI/风险人数；为得到参考图必须先运行生存分析，因此不能声称参考图与测试输入是同一份数据。"
+    }
+  ],
+  "qualification": {
+    "source_build_identity": {
+      "scope_version": "visual29-structural-rendering-v1",
+      "git_commit": "87bac5b6c9374b8059a11af74c582b450675a6cd",
+      "source_sha256": "56e471f922b1a787fab8c856de8e3d73ce032c1f287f21ec6755806b175b9830"
+    },
+    "blocking_observations": [
+      {
+        "chart_type_id": "X05",
+        "code": "LEGEND_DATA_OVERLAP",
+        "status": "open",
+        "backend": "matplotlib,origin",
+        "states": [
+          "default",
+          "edited"
+        ],
+        "observation": "右上图例覆盖 Bacon 蜂群的高值观测点。"
+      },
+      {
+        "chart_type_id": "X23",
+        "code": "LEGEND_DATA_OVERLAP",
+        "status": "open",
+        "backend": "matplotlib,origin",
+        "states": [
+          "default",
+          "edited"
+        ],
+        "observation": "右轴折线进入右上图例文字区域。"
+      },
+      {
+        "chart_type_id": "X23",
+        "code": "CATEGORY_LABEL_OVERLAP",
+        "status": "open",
+        "backend": "origin",
+        "states": [
+          "default",
+          "edited"
+        ],
+        "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
+      },
+      {
+        "chart_type_id": "X35",
+        "code": "LEGEND_DATA_OVERLAP",
+        "status": "open",
+        "backend": "matplotlib,origin",
+        "states": [
+          "default",
+          "edited"
+        ],
+        "observation": "右轴高值柱进入右上图例区域。"
+      },
+      {
+        "chart_type_id": "X35",
+        "code": "CATEGORY_LABEL_OVERLAP",
+        "status": "open",
+        "backend": "origin",
+        "states": [
+          "default",
+          "edited"
+        ],
+        "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
+      },
+      {
+        "chart_type_id": "X36",
+        "code": "LEGEND_DATA_OVERLAP",
+        "status": "open",
+        "backend": "matplotlib,origin",
+        "states": [
+          "default",
+          "edited"
+        ],
+        "observation": "右轴折线进入右上图例文字区域。"
+      },
+      {
+        "chart_type_id": "X36",
+        "code": "CATEGORY_LABEL_OVERLAP",
+        "status": "open",
+        "backend": "origin",
+        "states": [
+          "default",
+          "edited"
+        ],
+        "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
+      },
+      {
+        "chart_type_id": "X36",
+        "code": "BUILD_FAILURE",
+        "status": "open",
+        "backend": "origin",
+        "states": [
+          "edited"
+        ],
+        "observation": "typed native Origin construction failed",
+        "details": {
+          "error": "native plot title crosses page or plot frame for graph.X36.0"
+        }
+      },
+      {
+        "chart_type_id": "X38",
+        "code": "LEGEND_DATA_OVERLAP",
+        "status": "open",
+        "backend": "matplotlib,origin",
+        "states": [
+          "default",
+          "edited"
+        ],
+        "observation": "多条偏移谱线穿过右上图例，编辑态尤为明显。"
+      },
+      {
+        "chart_type_id": "X38",
+        "code": "BUILD_FAILURE",
+        "status": "open",
+        "backend": "origin",
+        "states": [
+          "edited"
+        ],
+        "observation": "typed native Origin construction failed",
+        "details": {
+          "error": "native plot title crosses page or plot frame for graph.X38.0"
+        }
+      }
+    ],
+    "human_visual_signature": {
+      "status": "pending",
+      "reviewer": null,
+      "signed_at": null
+    },
+    "decision": "NO-GO",
+    "evidence_status": "first_round_stale",
+    "invalidation": {
+      "code": "AUDIT_AXIS_LABEL_CONTRACT_UPDATED",
+      "reason": "The first-round PlotSpecs inherited generic fixture axis labels. The generator now binds the official same-source field semantics; all native evidence must be regenerated after shared blocker fixes."
+    }
+  },
+  "audit_conclusion": "first-round same-source evidence retained for blocker diagnosis; three explicit gaps retained; generator axis-label contract corrected; evidence stale and human visual sign-off pending; visual qualification not passed"
+}
