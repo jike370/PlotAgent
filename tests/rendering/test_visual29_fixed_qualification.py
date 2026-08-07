@@ -124,10 +124,23 @@ def test_render_manifest_keeps_human_signature_pending_and_gap_blocking() -> Non
     assert qualification["decision"] == "NO-GO"
     assert qualification["human_visual_signature"]["status"] == "pending"
     assert qualification["source_build_identity"]["scope_version"] == "visual29-fixed-rendering-v1"
-    assert qualification["blocking_observations"] == [
-        {
-            "chart_type_id": "S07",
-            "code": "SAME_SOURCE_ORIGIN_DATA_MISSING",
-            "status": "open",
-        }
-    ]
+    blocker_codes = {
+        (item["chart_type_id"], item["code"])
+        for item in qualification["blocking_observations"]
+    }
+    assert blocker_codes == {
+        ("K06", "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH"),
+        ("K20", "NATIVE_COLORBAR_TICK_LABEL_COLLISION"),
+        ("S61", "CONFUSION_CELL_LABELS_MISSING"),
+        ("S07", "SAME_SOURCE_ORIGIN_DATA_MISSING"),
+    }
+    case_blockers = {
+        (case["chart_type_id"], blocker["code"])
+        for case in manifest["cases"]
+        for blocker in case["blocking_observations"]
+    }
+    assert case_blockers == {
+        ("K06", "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH"),
+        ("K20", "NATIVE_COLORBAR_TICK_LABEL_COLLISION"),
+        ("S61", "CONFUSION_CELL_LABELS_MISSING"),
+    }

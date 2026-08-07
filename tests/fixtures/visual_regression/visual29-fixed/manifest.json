@@ -1,0 +1,524 @@
+{
+  "schema_version": "1.0",
+  "stage": "visual29-fixed",
+  "generated_at": "2026-08-07T20:58:54.364886+00:00",
+  "plotagent_version": "0.1.0",
+  "origin_declaration": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
+  "rules": {
+    "same_source_required": true,
+    "synthetic_allowed": false,
+    "states": [
+      "default",
+      "representative edited"
+    ],
+    "missing_data_is_not_rendered": true
+  },
+  "exports": {
+    "default": {
+      "opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-fixed\\visual29-fixed-default.opju",
+      "opju_sha256": "e51b445dc7741e9d538d09de9b451c77c84b15eeebf4df1970bc0874a1f70c64",
+      "opju_size": 555289,
+      "origin_plan_sha256": "875d92af9258f655b3b4144fd59c53f474283fe440102439ce5031b7835e199a",
+      "adapter_id": "plotagent.origin.registry.xy+bar+distribution+matrix+special",
+      "adapter_version": "1.0.0",
+      "validation_report_sha256": "703825e119e6bcb130afd7f53fe24197588c211ea30a7c73cd90e1c515c990ef",
+      "fresh_reopen_identical": true,
+      "elapsed_seconds": 48.735,
+      "environment": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "install_dir": "D:\\origin",
+        "executable_path": "D:\\origin\\Origin64.exe",
+        "origin_bitness": 64,
+        "python_bitness": 64,
+        "originpro_version": "1.1.15",
+        "runtime_version": 10.100178,
+        "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+        "license_available": true
+      }
+    },
+    "edited": {
+      "opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-fixed\\visual29-fixed-edited.opju",
+      "opju_sha256": "b3e036c080cf4b86beecdc2e3d9694efc142f02d1bacc7f1240408ea72b2041b",
+      "opju_size": 558928,
+      "origin_plan_sha256": "bb1f85302ef568833b9dab0a1a08e9ebfe28d3942aa4efce842438f067660c14",
+      "adapter_id": "plotagent.origin.registry.xy+bar+distribution+matrix+special",
+      "adapter_version": "1.0.0",
+      "validation_report_sha256": "4d1262db54c38dcba8953cc0e4a7dd14711977cd600a2eceb7667071cc5d8448",
+      "fresh_reopen_identical": true,
+      "elapsed_seconds": 49.219,
+      "environment": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "install_dir": "D:\\origin",
+        "executable_path": "D:\\origin\\Origin64.exe",
+        "origin_bitness": 64,
+        "python_bitness": 64,
+        "originpro_version": "1.1.15",
+        "runtime_version": 10.100178,
+        "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+        "license_available": true
+      }
+    }
+  },
+  "cases": [
+    {
+      "chart_type_id": "K06",
+      "evidence_status": "anchored",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\ERRBAR.opju",
+      "source_sha256": "72db917d5c82e86b973cdaf4c8cfcf26e938f228abbb6cd17bce1d9436fe27fa",
+      "source_graph_name": "Graph1",
+      "source_book": "Book1",
+      "source_sheet_index": 0,
+      "recipe": "直接导出 Origin 随附 ERRBAR.opju Graph1；Y error 冻结为显式 lower/upper。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "69b31b5a44cb42ada73a64ad35c16ac23349cfa9755499f6b5066c757745a579",
+      "reference_sha256": "41ffe349d644c8a4bba24c0cb6a09593d8e8513c4f990a8e5c23586d1151338d",
+      "common_edit": "标题与字号",
+      "chart_edit": "误差线颜色、线宽与端帽",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "f3ed520fbf205165b68c35d421e84851389b9064d0e068944991ed7a6694849f",
+          "render_plan_sha256": "0265e2d7448d7fccf4fd8e05c5a39fc5ac718b61960b58ced929d03449d4fce1",
+          "matplotlib_png_sha256": "f1f9bb052943740a13e2efb4ef6e1dc8ed5bd603630e7e6fb96727be582535af",
+          "origin_fresh_png_sha256": "a5e4ba683982532cf48e680e38d17936356f7b031d1bad93658401fb1c8c0b18",
+          "origin_graph_index": 0
+        },
+        "edited": {
+          "plot_spec_sha256": "606f5bc471fe86a34532cc74b723436c840be2abe578b912b55026ee3c7148d5",
+          "render_plan_sha256": "4d3653706841feb8b997ffe541d2368203b379579adbb21035b8df76b0ffe924",
+          "matplotlib_png_sha256": "cc69d7223b97628c9ccc860663a4658a614a571e5a47a92dbf0fa861cb9b0042",
+          "origin_fresh_png_sha256": "d2185edec4be9f613294ef06d0b88f033557573834a4f1ad7989343e7122afa1",
+          "origin_graph_index": 0
+        }
+      },
+      "blocking_observations": [
+        {
+          "chart_type_id": "K06",
+          "code": "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH",
+          "observation": "Origin O1 connects error-bar endpoints as a zigzag line instead of isolated intervals.",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "chart_type_id": "K07",
+      "evidence_status": "anchored",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\ERRORBAND.opju",
+      "source_sha256": "07e516dd957b3dda1b235aeee778b8611adee92df0daedde3898bac2cef8a668",
+      "source_graph_name": "Graph1",
+      "source_book": "Book1",
+      "source_sheet_index": 0,
+      "recipe": "直接导出 Origin 随附 ERRORBAND.opju Graph1；两组 Y±Error 冻结为显式上下界。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "2d9841ae9bcaa6d38610bc439211df37e0a323c0457d8fdc072d90ebd4d890c9",
+      "reference_sha256": "b7bfd5161f16bb0b63f52d471ee34fc8cc3716ced2fa9173181c0684582aa450",
+      "common_edit": "标题与字号",
+      "chart_edit": "误差带颜色、透明度与边界",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "a944d32e70dfd4ae5023f00ca8f5e4a4b993807ff6f874c4cecee40ec510e216",
+          "render_plan_sha256": "5c572f64ae392269abeb7843bfb773f42ac498f0598b0c6aca90219f32924bea",
+          "matplotlib_png_sha256": "2e1e575e2ab63986782110c419ffaa696184dda0d4209d9c93bffacfb6f78a2b",
+          "origin_fresh_png_sha256": "82a103d75c198878db8d13118b3fc432470c9850c2840b4afaae8cccfc22d272",
+          "origin_graph_index": 1
+        },
+        "edited": {
+          "plot_spec_sha256": "c1ed3f84d53cfa3cef62512a2d11cc0f2a540854e86e85e6271469b1f6304e44",
+          "render_plan_sha256": "1f90c684347051523333135447ef01c71248c581d2e0ca2e83aaec88f5f7e91d",
+          "matplotlib_png_sha256": "559de79aa4ca7e47fdab676ba32aa1c960e21821ec71dd1e6cc1869a8d8ea37a",
+          "origin_fresh_png_sha256": "d36de1a1c8a01b6e314ca09829a444efb8d86d13ea3472e9187eb7594a195214",
+          "origin_graph_index": 1
+        }
+      },
+      "blocking_observations": []
+    },
+    {
+      "chart_type_id": "K11",
+      "evidence_status": "anchored",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Column.opju",
+      "source_sha256": "1f4ab6637f0c4ccebe11c86de6b0d6640efcb41a39492d423b39cc162371e873",
+      "source_graph_name": "Graph11",
+      "source_book": "Book2",
+      "source_sheet_index": 0,
+      "recipe": "直接导出 Origin 随附 Column.opju Graph11；同项目工作表按类别冻结为百分比。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "cb627eb42105bd214463db234b8045415744ec906cc74a880e4e8a30f018859b",
+      "reference_sha256": "ec173b9a60651620f0c3da171d169b2fdbcc7bcaf5cc001197d5ad15d8743f60",
+      "common_edit": "标题与字号",
+      "chart_edit": "柱填充、边线与宽度",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "2c65813ba7563eba6d6a17fd733e742c09c894114b2d83858b9369f791c68e0d",
+          "render_plan_sha256": "e1c1705bdf54d2c48cc759622cf85c42c63b45977ee8d02a60ac7faad8da37e7",
+          "matplotlib_png_sha256": "56dd5afd4579f818ef779fbf9079f571a52dc9b493459d67dae65835a37bb06e",
+          "origin_fresh_png_sha256": "993eec7903e3f74c272993a91482a8384699a412877a683b356eb7c0b40313db",
+          "origin_graph_index": 2
+        },
+        "edited": {
+          "plot_spec_sha256": "911fb06409df20f346d75154d50aad050baee251c4e1de00f80384e8c5097258",
+          "render_plan_sha256": "bfe51039809d3559d58ca383bfcc94e478231c340c6886a86706166e68ef1723",
+          "matplotlib_png_sha256": "07442a0c0f3e2f127e262ff7ab20fe45d29d5a97c0029d2b0797c29bfe0563b3",
+          "origin_fresh_png_sha256": "ae794cbaafe7d42d9c3a775e93d6ccdc710d41634e2568fab8f5d780c7065f66",
+          "origin_graph_index": 2
+        }
+      },
+      "blocking_observations": []
+    },
+    {
+      "chart_type_id": "K13",
+      "evidence_status": "anchored",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Box.opju",
+      "source_sha256": "42c1769241d7401f52c0b11269c83838a67b6775f07856829132acde0b4e4953",
+      "source_graph_name": "Graph1",
+      "source_book": "Book1",
+      "source_sheet_index": 0,
+      "recipe": "直接导出 Origin 随附 Box.opju Graph1；同项目原始值按冻结 Tukey 规则计算箱体。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "3d623125928d3086781489d65e41f040b36b0302dc788f1ee2d89648ecf4bb6e",
+      "reference_sha256": "0631e686ab7a1b26c3473436caeb2f288f1c07dca11d67edfe66b29aaecd6a30",
+      "common_edit": "标题与字号",
+      "chart_edit": "箱体填充、边线与宽度",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "ce9b424a013a54044a8d796dafbe4cd99aa95432852f2ab2c473be1a3ce9e794",
+          "render_plan_sha256": "043ca1d50cd8f51a864cb9be96d7067b1453e8d4d377e7d89a017c519a65a79f",
+          "matplotlib_png_sha256": "373ba4ced81a19fabb0754def0891b08b09bbe67a486f6438d611750a068ad92",
+          "origin_fresh_png_sha256": "a63d3152c62179a926974b983f835a431dda73bd2c2df095e36aeed1eb76021d",
+          "origin_graph_index": 3
+        },
+        "edited": {
+          "plot_spec_sha256": "788eb5d73c4240fb58af4c7fdf4bb9d885884b8c605d56b38d3e6d8e84b89906",
+          "render_plan_sha256": "60c277a587216b3da2eab1fe43bb007511c72c5fcf1c99dfb2782a74fcb97006",
+          "matplotlib_png_sha256": "6db55f6a98610b4dc572868711c1f592ebcfb22a861d3d4ef4862048e7238dc2",
+          "origin_fresh_png_sha256": "cb9aafec464cf1c76909950f75845eec1453aabfed3551843d365d7cfcb655da",
+          "origin_graph_index": 3
+        }
+      },
+      "blocking_observations": []
+    },
+    {
+      "chart_type_id": "K14",
+      "evidence_status": "anchored",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Box.opju",
+      "source_sha256": "42c1769241d7401f52c0b11269c83838a67b6775f07856829132acde0b4e4953",
+      "source_graph_name": null,
+      "source_book": "Book1",
+      "source_sheet_index": 0,
+      "recipe": "Origin 随附 Box.opju 原始值；用系统 Violin 模板重建参考，PlotAgent 使用冻结 KDE 网格。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "71d005f2e4516b8c48080932b5a65b36fad6ce1aa98becb1f5553c35acb97f62",
+      "reference_sha256": "decc333d1bb95d732a16192cfe0b939be4a78aa2a6172a0dbfb7978d791dfad4",
+      "common_edit": "标题与字号",
+      "chart_edit": "小提琴填充、轮廓与宽度",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "3d82dd0cd6d580f2fd9765e4308fd6cb377a718564eb214e3b50a7f0b9f305b2",
+          "render_plan_sha256": "f3648118b010098a675c7845d5c2ddbf33de10a0763c90b2fa91006e9d0e53bf",
+          "matplotlib_png_sha256": "2f58dc992aa2ad1ed8a56466f9269caaf8730947470fe1c622f7ebd71f09bce7",
+          "origin_fresh_png_sha256": "71b23c36eb5ad1bcd8ccd4b459c5a449279a4c35cb6ad06552f96608adfc6198",
+          "origin_graph_index": 4
+        },
+        "edited": {
+          "plot_spec_sha256": "2fd8f5a1206a9cc800466862f89df84e685bca5435bd6c1f5f498b1b90cc8918",
+          "render_plan_sha256": "a1dbbb2850895bdb4c88d288a5cccc2c3af642870fa51fc01b4df8a7bd2375ad",
+          "matplotlib_png_sha256": "ab71588cb39bd1796a4805e32e44097c279db63ea75e16f2bca3d60c658eee34",
+          "origin_fresh_png_sha256": "107d75c6990394c395933f22496e500c6b691e3000af1bc2b0857bd571a081fc",
+          "origin_graph_index": 4
+        }
+      },
+      "blocking_observations": []
+    },
+    {
+      "chart_type_id": "K15",
+      "evidence_status": "anchored",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Histogram.opju",
+      "source_sha256": "71423c902b50b96ac33b289c275be69be72b05295608661a837d57712d397089",
+      "source_graph_name": "Graph2",
+      "source_book": "Book1",
+      "source_sheet_index": 0,
+      "recipe": "直接导出 Origin 随附 Histogram.opju Graph2；Americas 原始值按冻结分箱规则计算。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "ab0a842218bab27ee8a018be2a5d5a11834573f4322717b0d80b4722f61376d8",
+      "reference_sha256": "cae10ba35fb8ca1ebd5c495be638bc7afb1035fd9f31bb07b5a127bd0e8ef4c8",
+      "common_edit": "标题与字号",
+      "chart_edit": "柱填充、边线与透明度",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "8bf700556002573863726486c295e5a4c246e572b133c913e24f4a72fd5185d6",
+          "render_plan_sha256": "ff28176bd935962f0371f5b371fecb26ed0c7a72fea457c5d87bcb48412e3f13",
+          "matplotlib_png_sha256": "d4ab47d4dc12a6067ceea19a359fd6428233b526afcde653e46102e618df62fd",
+          "origin_fresh_png_sha256": "73fdc6920e993627f76d1885b6b9c4a8fd1e5dba9c9c085a36a7a477d0987fd3",
+          "origin_graph_index": 5
+        },
+        "edited": {
+          "plot_spec_sha256": "faacfd79e9e7d4946f84153ba84708e7fa5c4d3513e2f600c513256315597bf0",
+          "render_plan_sha256": "20e004ed47087ed05477fe8e86816a5497ae50dfd6324c78e7cc4fc1cc23c118",
+          "matplotlib_png_sha256": "640c9f9b3267d29ac1f80eee98829f5208f1c5a7a33fe382ec862079c10d840c",
+          "origin_fresh_png_sha256": "c9be834553031944c5612640fc1ae837d0e1370152912d33528b445f0d43a7b2",
+          "origin_graph_index": 5
+        }
+      },
+      "blocking_observations": []
+    },
+    {
+      "chart_type_id": "K16",
+      "evidence_status": "anchored",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Histogram.opju",
+      "source_sha256": "71423c902b50b96ac33b289c275be69be72b05295608661a837d57712d397089",
+      "source_graph_name": "Graph7",
+      "source_book": "Book1",
+      "source_sheet_index": 0,
+      "recipe": "直接导出 Origin 随附 Histogram.opju Graph7；两组原始值按冻结 KDE 网格计算。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "7b8c815fffcb3a1d213d494c6bc6300103a0def9c9b3aeb3a5bb04d659ff4fee",
+      "reference_sha256": "71e6346337808507bbd5ade5fe45e763a457f1af500980af8dd98eb81db73df9",
+      "common_edit": "标题与字号",
+      "chart_edit": "密度线颜色与线宽",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "5092cb31a76eaf2c332e6922855435c0416eec8b67df20a97be022a2413edac6",
+          "render_plan_sha256": "34bab950accdb348bc78bf7b34d344873998e40455ab0ddac90b800d98f94958",
+          "matplotlib_png_sha256": "5acab23e34fdc667528350a7b22c79394bc90f1cc55c40a8a9f18507d3293573",
+          "origin_fresh_png_sha256": "6a0cccb2d1c92d22a243a72cd56fbdf50c6dfa7d6451b4151bceef318d9be4e4",
+          "origin_graph_index": 6
+        },
+        "edited": {
+          "plot_spec_sha256": "c85daa896ebf4949aa0598f29df545e546e3d2e71a909dddda5a569f4ed73ac1",
+          "render_plan_sha256": "60fc40c14799e6d0d492d464ece014c46f29ec2bd3d62cf6f26d14ec5b1ea2b2",
+          "matplotlib_png_sha256": "907542474a3d17f5ed540020f9a06bfa1143019fb12fb4b056a2fd699531f29c",
+          "origin_fresh_png_sha256": "0e76ed539aa5922492095f59029e65872bbc194e942b9579f049e8a83ef81ff8",
+          "origin_graph_index": 6
+        }
+      },
+      "blocking_observations": []
+    },
+    {
+      "chart_type_id": "K17",
+      "evidence_status": "anchored",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Histogram.opju",
+      "source_sha256": "71423c902b50b96ac33b289c275be69be72b05295608661a837d57712d397089",
+      "source_graph_name": null,
+      "source_book": "Book1",
+      "source_sheet_index": 0,
+      "recipe": "Origin 随附 Histogram.opju Americas 原始值；冻结 ECDF 后用系统 LINE 模板按水平阶梯重建。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "5081cf5404cda8d1e3e6bac8a9f8554085b345002a8f812dfa75254953e515cf",
+      "reference_sha256": "f4b0af2a1f2c6ea9b400cd234730a682e10cb608f8dfe8edcf4cd69d69b55c7b",
+      "common_edit": "标题与字号",
+      "chart_edit": "ECDF/CCDF 模式与阶梯线样式",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "bc1d8409306c22975f7d7463bc4514c3c8dbd105eb51635691f26f71513a1adb",
+          "render_plan_sha256": "17559ae5267db89b8b819ddc44a04dbf7523e1ba9e6ae98190957009c97abbc6",
+          "matplotlib_png_sha256": "287be54df964ee144977a9d91cc49aa74c93de47977d0e02421e4c9e82c96e5d",
+          "origin_fresh_png_sha256": "bcb6c3e8d8363ed24862ce7e69a78f9123cc0092c5bf9b7b035b07071d3efa5a",
+          "origin_graph_index": 7
+        },
+        "edited": {
+          "plot_spec_sha256": "c08a283f60638ffd32b6b3c47f5402992ca461bf1f9fad1b78b622fb758a8d60",
+          "render_plan_sha256": "846e4a04575ead424fa9e62b791006b8f7c0be76e6fcbac1ec68eea8df8af7eb",
+          "matplotlib_png_sha256": "2dcc11c804c8499165a02d1fa5ffb636f3fe3e4ac9093e573556a2a2f914e143",
+          "origin_fresh_png_sha256": "139ff23936ef363fe4f2bc8d0fe663716f641aebd78b548111b25057954bc134",
+          "origin_graph_index": 7
+        }
+      },
+      "blocking_observations": []
+    },
+    {
+      "chart_type_id": "K20",
+      "evidence_status": "anchored",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Heatmap.opju",
+      "source_sha256": "d9e6c6fb6c1989092c7dec923ddd4ba92bba4620dfb5efdcb84ac3bb45fe3ea7",
+      "source_graph_name": "Graph1",
+      "source_book": "Book1",
+      "source_sheet_index": 0,
+      "recipe": "直接导出 Origin 随附 Heatmap.opju Graph1 及同项目矩阵工作表。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "67254cdadec73103cb797e5a9a483e73941f1dcb28615eb65732bdbdb8b8ee40",
+      "reference_sha256": "58b679d578a19ae5d1948bdb95fa88bea49d150bedc2c5e1372d49015e8c1eb3",
+      "common_edit": "标题与字号",
+      "chart_edit": "色板、色标与级数",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "6064975ac264718423a93005e3b032d89b697664d7d78a8d9015ac900503b2c3",
+          "render_plan_sha256": "e9f0536883f24d3b3aeb2851a8337d1fde2e39edf6ecaf3bf98dae9770114bbd",
+          "matplotlib_png_sha256": "6d0accdadab79cc53e46df88edd3372f7ceb11eef7def6367a86c56217143fb0",
+          "origin_fresh_png_sha256": "3e6e18396b51e92e230961e30be250298c3c68f08beb30a420c860463c49615a",
+          "origin_graph_index": 8
+        },
+        "edited": {
+          "plot_spec_sha256": "c1ce287eed696620616ac1574329b8887964923e78b578ed1895b2c90f4a7017",
+          "render_plan_sha256": "8956166c1dacec65d9b9904d5a741db7608805e223e8b86f0bf5b60f18e80e92",
+          "matplotlib_png_sha256": "5327ab221069eaa6aa2739674dab4271641ae8e3629cba1b12e1e3a94b2e3fc6",
+          "origin_fresh_png_sha256": "48447ae22d13827a570a5d1839d0f3ba4197b74f919072bac626ba21607ad1be",
+          "origin_graph_index": 8
+        }
+      },
+      "blocking_observations": [
+        {
+          "chart_type_id": "K20",
+          "code": "NATIVE_COLORBAR_TICK_LABEL_COLLISION",
+          "observation": "Origin O1 colorbar tick labels collide with the heatmap frame.",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "chart_type_id": "S61",
+      "evidence_status": "anchored",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Samples\\Statistics\\LogRegData.dat",
+      "source_sha256": "522cd618e1d36ce92996476256176c39f040ccf4ae55fdb9078a31cc5259b328",
+      "source_graph_name": null,
+      "source_book": null,
+      "source_sheet_index": 0,
+      "recipe": "Origin 官方 LogRegData.dat；冻结实际标签与同源预测标签后，以 HEAT_MAP_WITH_LABELS 模板重建计数矩阵。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "d952d372bf88d50cb62bd64fe5eaf86257344b2088b4308fc4623038637bffe5",
+      "reference_sha256": "c45c5a03b82466ab57c6a4265df0225ac9b13829154965a7286f287bdea4be59",
+      "common_edit": "标题与字号",
+      "chart_edit": "色板、色标与计数标签",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "8045857612287fcfb726f567ecd2a21963e435faf2fadb74aee378cc2cdc2afc",
+          "render_plan_sha256": "02ef6730d7813b2e96e90a2e70a7c1669d3e3426409f749faae097257ac29a7d",
+          "matplotlib_png_sha256": "4e27aecc513e6f016eb338c2e94b70fd9f5ce06d7cebc25a4920c8617c35260f",
+          "origin_fresh_png_sha256": "1ebf4af3c1043fb9e0af0a4eacb99dc72dddb4638d270c8d5d67bf9c4eab3dd1",
+          "origin_graph_index": 9
+        },
+        "edited": {
+          "plot_spec_sha256": "76d9b06cf9168c1faceca4428bfb386305a533e880a46690a9025fff982c8499",
+          "render_plan_sha256": "7561a1a3909fca89afdeeb0900da41a13508bf60334e8a56c039a71d3b23505e",
+          "matplotlib_png_sha256": "41f95bde86568ebbc40397e8eb3c5db2098157ff682287ffe748df0a2b85a090",
+          "origin_fresh_png_sha256": "48046f960d37c48394823252de3a25157ee0e2c976a5cd2833386307a0639b31",
+          "origin_graph_index": 9
+        }
+      },
+      "blocking_observations": [
+        {
+          "chart_type_id": "S61",
+          "code": "CONFUSION_CELL_LABELS_MISSING",
+          "observation": "Matplotlib and Origin O1 omit the required per-cell count labels.",
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "chart_type_id": "X24",
+      "evidence_status": "anchored",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Samples\\Graphing\\Counts.dat",
+      "source_sha256": "0b0e1fc6480b4a30d47b1983c0547dcb92e28ad2fb19c87a83a98213b07bb24a",
+      "source_graph_name": null,
+      "source_book": null,
+      "source_sheet_index": 0,
+      "recipe": "Origin 官方 Counts.dat；冻结类别计数后以 ParetoRaw 模板重建柱与累计百分比。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "dddf64a0021569c9ef9609b7b1b06b9985cb35fe066a202238cfabd94bfd9828",
+      "reference_sha256": "11840e632cc089cf8430ce5be1e90696acaa7f410af5e82d6c340e8a2e5872cb",
+      "common_edit": "标题与字号",
+      "chart_edit": "柱样式与累计参考线",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "7480d3e5227344ef41a7bdb1a9726a7699783de5941eebb93cd457c264b2f741",
+          "render_plan_sha256": "ea2d20a684a5ca54febd2aa1c977444ceddc874d6fcc10682585c44c51606683",
+          "matplotlib_png_sha256": "fdc291e8e24730dff793093716747fe8fd57f6717079a5607292f6a170add5b9",
+          "origin_fresh_png_sha256": "825414cd3ffe552fd63b143803af063629e4c6931dd913557b8d793f9a54fe63",
+          "origin_graph_index": 10
+        },
+        "edited": {
+          "plot_spec_sha256": "16a6c3d6c910e399d7deb27009e37be5323cbea86ddd56eec1004f565b167e7e",
+          "render_plan_sha256": "2f8469ac7258618b0c55f04db6aeda707d88c8aafd542b3a2da0e34396202cc9",
+          "matplotlib_png_sha256": "0fa27a7c1ee12ad2a7f17f627b1cf6a67585bafef936d24b78ec536180336ada",
+          "origin_fresh_png_sha256": "c87ccb5e468b6b600c6c3c23045bc2092f6a754fb8e6a65e0028d3a17754054a",
+          "origin_graph_index": 10
+        }
+      },
+      "blocking_observations": []
+    }
+  ],
+  "evidence_gaps": [
+    {
+      "chart_type_id": "S07",
+      "evidence_status": "missing_same_source_origin_data",
+      "evidence_grade": null,
+      "same_source_data": false,
+      "synthetic": false,
+      "rendered": false,
+      "tested": false,
+      "blocking_code": "SAME_SOURCE_ORIGIN_DATA_MISSING",
+      "search_scope": [
+        "D:\\origin",
+        "D:\\origin\\Samples",
+        "C:\\Users\\pc\\Documents\\OriginLab"
+      ],
+      "reason": "未在本机 Origin 随附项目、模板样例与 Samples 中找到同时含 feature、log2FC、p/q value 的官方同源数据。"
+    }
+  ],
+  "qualification": {
+    "source_build_identity": {
+      "scope_version": "visual29-fixed-rendering-v1",
+      "git_commit": "2b99df49cd5be8ec91db00df445d119f875a7a41",
+      "source_sha256": "56e471f922b1a787fab8c856de8e3d73ce032c1f287f21ec6755806b175b9830"
+    },
+    "blocking_observations": [
+      {
+        "chart_type_id": "K06",
+        "code": "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH",
+        "observation": "Origin O1 connects error-bar endpoints as a zigzag line instead of isolated intervals.",
+        "status": "open"
+      },
+      {
+        "chart_type_id": "K20",
+        "code": "NATIVE_COLORBAR_TICK_LABEL_COLLISION",
+        "observation": "Origin O1 colorbar tick labels collide with the heatmap frame.",
+        "status": "open"
+      },
+      {
+        "chart_type_id": "S61",
+        "code": "CONFUSION_CELL_LABELS_MISSING",
+        "observation": "Matplotlib and Origin O1 omit the required per-cell count labels.",
+        "status": "open"
+      },
+      {
+        "chart_type_id": "S07",
+        "code": "SAME_SOURCE_ORIGIN_DATA_MISSING",
+        "status": "open"
+      }
+    ],
+    "human_visual_signature": {
+      "status": "pending",
+      "reviewer": null,
+      "signed_at": null
+    },
+    "decision": "NO-GO"
+  },
+  "audit_conclusion": "same-source evidence generated for anchored cases; open mechanical visual blockers, missing evidence, and human visual sign-off keep qualification NO-GO"
+}

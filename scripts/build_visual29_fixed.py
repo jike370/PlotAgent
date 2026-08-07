@@ -126,6 +126,26 @@ CASES = (
 
 QUALIFIED_CASES = tuple(case for case in CASES if case.grade is not None)
 MISSING_CASES = tuple(case for case in CASES if case.grade is None)
+MECHANICAL_BLOCKERS: tuple[dict[str, str], ...] = (
+    {
+        "chart_type_id": "K06",
+        "code": "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH",
+        "status": "open",
+        "observation": "Origin O1 connects error-bar endpoints as a zigzag line instead of isolated intervals.",
+    },
+    {
+        "chart_type_id": "K20",
+        "code": "NATIVE_COLORBAR_TICK_LABEL_COLLISION",
+        "status": "open",
+        "observation": "Origin O1 colorbar tick labels collide with the heatmap frame.",
+    },
+    {
+        "chart_type_id": "S61",
+        "code": "CONFUSION_CELL_LABELS_MISSING",
+        "status": "open",
+        "observation": "Matplotlib and Origin O1 omit the required per-cell count labels.",
+    },
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -447,7 +467,7 @@ def _input_series(case: AuditCase, frame: pd.DataFrame) -> tuple[InputSeries, ..
         for index in (1, 2):
             items.extend((
                 InputSeries("line", "calculated", ("x", "center"), _rows(frame, "x", f"center{index}"), "summary_error", f"Series {index}"),
-                InputSeries("band", "calculated", ("x", "lower", "upper"), _rows(frame, "x", f"lower{index}", f"upper{index}"), "summary_error", f"Series {index} interval"),
+                InputSeries("band", "calculated", ("x", "lower", "upper"), _rows(frame, "x", f"lower{index}", f"upper{index}"), "summary_error"),
             ))
         return tuple(items)
     if case.chart_id == "K11":
@@ -546,12 +566,25 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
         specialist = specialist.model_copy(update={"bar_area": specialist.bar_area, "chart_parameters": ChartParameterEditSpec(pareto_reference_percent=75.0)})
 
     scales, axes = _axis(case)
-    title = f"{case.chart_id} · {case.title}"
+    english_title = {
+        "K06": "Point estimate with error bars",
+        "K07": "Error band",
+        "K11": "100% stacked column",
+        "K13": "Tukey box plot",
+        "K14": "Violin plot",
+        "K15": "Histogram",
+        "K16": "KDE density",
+        "K17": "ECDF",
+        "K20": "Heatmap",
+        "S61": "Confusion matrix",
+        "X24": "Pareto chart",
+    }[case.chart_id]
+    title = f"{case.chart_id} · {english_title}"
     plot = PlotSpec(
         plot_id=f"plot:visual29.{case.chart_id.lower()}.{'edited' if edited else 'default'}",
         plot_version=2 if edited else 1,
         chart_type_id=cast(ChartTypeId, case.chart_id),
-        title=_text(f"视觉资格 · {title}" if edited else title),
+        title=_text(f"Visual qualification · {title}" if edited else title),
         family=_family(case, tuple(dict.fromkeys(item.geometry for item in inputs))),
         prepared_data_refs=tuple(prepared_refs),
         plot_calculation_refs=tuple(calculation_refs),
@@ -625,7 +658,13 @@ def _render() -> dict[str, Any]:
         for filename in ("data.csv", "reference.png", "provenance.json"):
             shutil.copy2(fixture_dir / filename, case_dir / filename)
         frame = pd.read_csv(fixture_dir / "data.csv")
-        case_entries[case.case_id] = {**provenance, "states": {}, "blocking_observations": []}
+        case_entries[case.case_id] = {
+            **provenance,
+            "states": {},
+            "blocking_observations": [
+                item for item in MECHANICAL_BLOCKERS if item["chart_type_id"] == case.chart_id
+            ],
+        }
         for state in ("default", "edited"):
             state_dir = case_dir / state
             state_dir.mkdir(exist_ok=True)
@@ -663,8 +702,8 @@ def _render() -> dict[str, Any]:
         "exports": exports,
         "cases": [case_entries[case.case_id] for case in QUALIFIED_CASES],
         "evidence_gaps": evidence_gaps,
-        "qualification": {"source_build_identity": {"scope_version": SOURCE_SCOPE_VERSION, "git_commit": _source_git_commit(), "source_sha256": _source_build_sha256()}, "blocking_observations": [{"chart_type_id": item["chart_type_id"], "code": item["blocking_code"], "status": "open"} for item in evidence_gaps], "human_visual_signature": {"status": "pending", "reviewer": None, "signed_at": None}, "decision": "NO-GO"},
-        "audit_conclusion": "same-source evidence generated for anchored cases; missing evidence and human visual sign-off keep qualification NO-GO",
+        "qualification": {"source_build_identity": {"scope_version": SOURCE_SCOPE_VERSION, "git_commit": _source_git_commit(), "source_sha256": _source_build_sha256()}, "blocking_observations": [*MECHANICAL_BLOCKERS, *({"chart_type_id": item["chart_type_id"], "code": item["blocking_code"], "status": "open", "observation": item["reason"]} for item in evidence_gaps)], "human_visual_signature": {"status": "pending", "reviewer": None, "signed_at": None}, "decision": "NO-GO"},
+        "audit_conclusion": "same-source evidence generated for anchored cases; mechanical visual blockers, missing evidence and human visual sign-off keep qualification NO-GO",
     }
     (OUTPUT / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     (FIXTURES / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
