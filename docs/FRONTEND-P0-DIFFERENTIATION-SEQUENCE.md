@@ -70,7 +70,7 @@ flowchart TD
 
 | 阶段 | 当前状态 | 进入条件 | 退出结果 |
 | --- | --- | --- | --- |
-| SEQ-10 前端与产品蓝图 | 进行中 | 本顺序基线确认 | 三工作区 IA、关键流程、对象语法、状态矩阵、设计方向冻结 |
+| SEQ-10 前端与产品蓝图 | 完成 | 本顺序基线确认 | 三工作区 IA、关键流程、对象语法、状态矩阵、设计方向冻结 |
 | SEQ-20 首迁图视觉基线 | 进行中 | Phase A/B 工程门禁通过 | 首迁 14 图默认与代表性非默认状态的可追溯视觉基线；其余 29 图缺口持续登记 |
 | SEQ-30 ChartRecipe v1 与迁移 | 未开始 | 首迁 14 图视觉基线完成 | 14 图由同一版本化配方运行时确定性生成，其余 29 图行为不变 |
 | SEQ-40 辨识度契约与后端 | 未开始 | SEQ-30 gate 通过 | 精简 SelectionScope、AgentChangeSet 与 BatchReviewItem 可执行 |
@@ -140,6 +140,15 @@ flowchart TD
 - 工程门禁：TypeScript、ESLint、Web build、renderer 18 条真实桌面工作流测试及确定性 detector 通过；1440×900、1100×720 无横向溢出。全量套件仅 Python Core supervisor 的独立启动握手超时。
 - 本切片只建设可复用原语与现有真实启动/Core 状态，不提前实现批量、ChangeSet 或对象树界面，因此 SEQ-10 状态仍为“进行中”。
 
+### 6.9 阶段收口（2026-08-08）
+
+- **提交：** `358ae97`、`f00ea97`、`8e8ef56`、`0c0b142`、`417178b`。
+- **完成范围：** 对话优先应用壳、仅项目名的左栏与三点操作、无常驻右栏；首次入口、导入、图形库、批量审阅、聚焦编辑、任务中心和模型服务使用统一灰白黑组件语法；主流程不再强制把导入与选图拆成线性向导；成功反馈回到 Composer 上方并自动消失。
+- **测试与证据：** renderer 84/84；ESLint、两套 TypeScript typecheck、Web production build、Electron build 和确定性 UI detector 全通过；已在 1440×900 与 1100×720 真实浏览器状态检查启动页、项目/对话、数据导入、图形库、批量审阅、焦点样式及反馈遮挡。截图位于 `docs/screenshots/`，差距与选择见 `SEQ-10-FRONTEND-GAP-AUDIT.md`。
+- **已知边界：** 当前只冻结信息架构、组件、布局、状态原语与真实已有入口；ChangeSet、14 图真实批量闭环和最终对象语法仍按 SEQ-40/50 接入。无常驻右栏、无账号、本地优先、用户明确选图、无假按钮继续是硬边界。后续只修缺陷、无障碍和真实能力接入，不再重做整体布局。
+- **实现选择与原因：** 采用成熟桌面产品的低色度工作区、单层导航、渐进披露、明确焦点和短反馈；不复制参考产品业务对象，也不恢复解释性说明堆叠。
+- **是否允许进入下一阶段：** 是。SEQ-10 已冻结，允许继续 SEQ-20；后续前端改动不得反向改变领域契约或视觉 oracle。
+
 ## 7. SEQ-20：冻结首迁 14 图视觉基线
 
 ### 7.1 当前基础
@@ -161,6 +170,15 @@ flowchart TD
 - 首迁 14 图的迁移前视觉 baseline 可独立复现。
 - 已知差异有明确 chart/state/evidence 归属。
 - SEQ-30 不需要通过修改 SEQ-20 oracle 才能开始；其余 29 图视觉资格未完成不阻塞本门槛。
+
+### 7.4 第一批 evidence（2026-08-08）
+
+- **范围：** K01、K02、K03、K08、K18；均为同源 Origin A/C 级证据，不含合成数据。
+- **冻结输入：** `tests/fixtures/visual_regression/seq20/` 保存逐图 `data.csv`、`reference.png`、provenance 和 `batch-1.manifest.json`；manifest 固定来源 SHA-256、数据/参考图 SHA-256、PlotSpec/RenderPlan hash、Matplotlib/Origin PNG hash、adapter 与 exact Origin 环境。
+- **运行产物：** `build/visual-audit/seq20-origin-baseline/batch-1/index.html`；默认态和代表性编辑态分别生成一份合并 O1 OPJU，并通过 build/save/独立 fresh-reopen 精确读回。
+- **环境：** Origin 2024 SR1 `10.10.178` / runtime `10.100178` / 64-bit，`originpro=1.1.15`；Origin adapter `1.0.0`。
+- **自动结论：** 两个状态的 fresh-reopen validation 均完全一致；冻结数据与参考图 hash 门禁通过。人工视觉签名前不把第一批记为最终视觉通过。
+- **已知观察：** K02 当前产品默认把线与点解析为不同系列颜色，而 Origin 参考把二者视为同一系列；该差异已保留在基线对照中，未修改旧 renderer 或 oracle。
 
 ## 8. SEQ-30：ChartRecipe compiler v1 与首批 14 图迁移
 

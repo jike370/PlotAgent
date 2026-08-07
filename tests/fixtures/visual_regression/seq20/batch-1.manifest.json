@@ -1,0 +1,243 @@
+{
+  "schema_version": "1.0",
+  "stage": "SEQ-20",
+  "batch": 1,
+  "generated_at": "2026-08-07T18:57:53.413067+00:00",
+  "plotagent_version": "0.1.0",
+  "origin_declaration": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
+  "rules": {
+    "same_source_required": true,
+    "synthetic_allowed": false,
+    "states": [
+      "default",
+      "representative edited"
+    ],
+    "edited_state_requires": [
+      "common edit",
+      "chart-applicable edit",
+      "Origin mapping"
+    ]
+  },
+  "exports": {
+    "default": {
+      "opju_path": "D:\\plotv3\\build\\visual-audit\\seq20-origin-baseline\\batch-1\\seq20-batch-1-default.opju",
+      "opju_sha256": "4ab7da8b52538aee42ad62ef8fb61b256d7b8f5ccd888efdf45c6242c35dd040",
+      "opju_size": 131562,
+      "origin_plan_sha256": "cd84e9047c77c89ea67e81ee4501794b2a676384e317cda48aff66d77cddd58a",
+      "adapter_id": "plotagent.origin.registry.xy+bar",
+      "adapter_version": "1.0.0",
+      "validation_report_sha256": "35905153d4a9423bf18858490428a9f2efe18918a293b66ab9102bef08b1c64b",
+      "fresh_reopen_identical": true,
+      "elapsed_seconds": 41.844,
+      "environment": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "install_dir": "D:\\origin",
+        "executable_path": "D:\\origin\\Origin64.exe",
+        "origin_bitness": 64,
+        "python_bitness": 64,
+        "originpro_version": "1.1.15",
+        "runtime_version": 10.100178,
+        "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+        "license_available": true
+      }
+    },
+    "edited": {
+      "opju_path": "D:\\plotv3\\build\\visual-audit\\seq20-origin-baseline\\batch-1\\seq20-batch-1-edited.opju",
+      "opju_sha256": "5198da166400f443f521c6bde829f2e8cb8a06f3175ed8770a506a2e89a43e8b",
+      "opju_size": 131651,
+      "origin_plan_sha256": "b406ab6ded2c7a163283e5c3a7c38c1859c5c4391e1ab6830fd09d4707863b5f",
+      "adapter_id": "plotagent.origin.registry.xy+bar",
+      "adapter_version": "1.0.0",
+      "validation_report_sha256": "503c9a04df52be6ca4b5d044cb6fec603bbeae51c96f556b635a6873e8570397",
+      "fresh_reopen_identical": true,
+      "elapsed_seconds": 40.515,
+      "environment": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "install_dir": "D:\\origin",
+        "executable_path": "D:\\origin\\Origin64.exe",
+        "origin_bitness": 64,
+        "python_bitness": 64,
+        "originpro_version": "1.1.15",
+        "runtime_version": 10.100178,
+        "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+        "license_available": true
+      }
+    }
+  },
+  "cases": [
+    {
+      "chart_type_id": "K01",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Samples\\Mathematics\\Sine Curve.dat",
+      "source_sha256": "af294da93db3f97ffd016110245349f83d87cefc2f95970b66e4209d8c298b06",
+      "source_graph_name": null,
+      "source_book": null,
+      "recipe": "Origin 官方 Sine Curve.dat；在 Origin 中以 LINE 重新生成。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "24511d476678c40bf25ddd9d660a5fa1e2db762f41de87168827cfc72405935d",
+      "reference_sha256": "f6a9b28c9b1f845e95f7fb4b34a81b0cef6969a540b32f876970855116a3aecb",
+      "common_edit": "标题与字号",
+      "chart_edit": "线色与线宽",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "a6ceea15fa1c3feb5d18150dfcba203b6445a4d34cfad5ef5f44fc663a9ffab8",
+          "render_plan_sha256": "1312953cab643ec1b4bb0c2329eda9bc7dc1fe943eb05f8eecab799a00bdee31",
+          "matplotlib_png_sha256": "b33c1a6c5ed57cee32b622cbf242e8386a9f43518d518a2d58f3b84903d0cd59",
+          "origin_fresh_png_sha256": "97aba43544a790990d24ab55b403e027396e557d064a661390fbf325b316a5f0",
+          "origin_graph_index": 0
+        },
+        "edited": {
+          "plot_spec_sha256": "68fa428865d588b5d538a1d8956261de5501aba8fd7b8b8bc1436c8b33631408",
+          "render_plan_sha256": "18db9ee78466c1223a3a81fa50da970c2deba0c1a5d48edc834aceeeb3799d25",
+          "matplotlib_png_sha256": "a469ff001a8a17f4ca0ef753253a19aea2a60c59e4c1cc64b0cedd86e0f8466c",
+          "origin_fresh_png_sha256": "106db5f677cb1b88d33cab6c2e7cf406ca3fd8c0c2b2e3985443ef0f0bd59f6a",
+          "origin_graph_index": 0
+        }
+      },
+      "comparison_default_sha256": "0689c7a4ccc951ec6549337905589300cc7af431df5d6ad98f3285b42c737f7e",
+      "comparison_edited_sha256": "2020a618c2d26f40f75a588590c02174112492738106b0aad8dd820124007c5d"
+    },
+    {
+      "chart_type_id": "K02",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Samples\\Mathematics\\Sine Curve.dat",
+      "source_sha256": "af294da93db3f97ffd016110245349f83d87cefc2f95970b66e4209d8c298b06",
+      "source_graph_name": null,
+      "source_book": null,
+      "recipe": "Origin 官方 Sine Curve.dat；在 Origin 中以 Line+Symbol 重新生成。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "24511d476678c40bf25ddd9d660a5fa1e2db762f41de87168827cfc72405935d",
+      "reference_sha256": "151c0ec50a402a7d24c49f1b73fcc855526bce5e967af064a88073e66c08379f",
+      "common_edit": "标题与字号",
+      "chart_edit": "线色、点形、点大小",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "2bbba14dd0b6c21a2f9298a2588a6c5897a21f9e8628240b8d9ff427cd5822a0",
+          "render_plan_sha256": "1be986025053648124d2f3470f65932157656eac4849f917a469997319d9672d",
+          "matplotlib_png_sha256": "6568b58953cc7c1440a3e66af8e737704717b9a53684efeb43a3cc4055ae6658",
+          "origin_fresh_png_sha256": "68a27e61f6948cac7ac16816aa7ecabb36d355130b57cc1c7481caabda09ddbf",
+          "origin_graph_index": 1
+        },
+        "edited": {
+          "plot_spec_sha256": "02a9668c635433c2a5e7e5b418e20c95aa849abd3f2d0251752709fc0289c87f",
+          "render_plan_sha256": "59f916eb46dd0c474957d7aa2a1a493330350dec1b8353b14601e3f87511f014",
+          "matplotlib_png_sha256": "679676bdf2f542de0f0eab97e76ac01b29423aa755f3f89f6b7604997805c9bf",
+          "origin_fresh_png_sha256": "bcc272c7d06fb4a1d0f044df1422e61ddff7d6979984dd64f1b2102d329ad35c",
+          "origin_graph_index": 1
+        }
+      },
+      "comparison_default_sha256": "919eb40fb3e8a0414aa28ccd9ab1ef958ec87f638a0da05e73407a9568f5f1e4",
+      "comparison_edited_sha256": "a0b1a49bc70681af59a68a57ec7034f07c9439098fccb2302c387e328144729a"
+    },
+    {
+      "chart_type_id": "K03",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Samples\\Curve Fitting\\Linear Fit.dat",
+      "source_sha256": "2cc8e3924f441e5f2ba691a4f185c64cee0d5528e0c61e32fa36e8ff86c29fdd",
+      "source_graph_name": null,
+      "source_book": null,
+      "recipe": "Origin 官方 Linear Fit.dat；在 Origin 中以 Scatter 重新生成。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "0d5777c3962c067c639a51d116b5421ae46cdc3d03649afc34a54bcd06a87009",
+      "reference_sha256": "79d6b8ad9dda96bd77e4a503671849effa0180df59f6b90d9e459bc1bbf47a03",
+      "common_edit": "标题与字号",
+      "chart_edit": "点色、点形、点大小",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "13cd0c4dfe45e2570084f121daf054d7eb151b4562f2816e751bde05f0cadaa4",
+          "render_plan_sha256": "8c381174088c31aef8ceb14f22ac9a5c1f2707bd0201dd482353bbe08a57f981",
+          "matplotlib_png_sha256": "af4c7176334ea6436c5d1b0d5607af6cb4d52ecad5a2fc9a2fe9d28f76165241",
+          "origin_fresh_png_sha256": "51ea088bfb1c264278732b639a541747583af67509620db5bfd074a8144f3b0e",
+          "origin_graph_index": 2
+        },
+        "edited": {
+          "plot_spec_sha256": "776cd3573a6d1aeb0810fd8491f05ee27aebe9a4037d2426c74f83d8e22bd2c5",
+          "render_plan_sha256": "81b931162a70f6832c9774fa2663f9bd665f3fc0a0df3fa5b414f2fa8cef2fa1",
+          "matplotlib_png_sha256": "b147867091772c87520138333f42e4c618902ff7060d428d21594910656e869b",
+          "origin_fresh_png_sha256": "19179d4d6b3f5538268d5ea8d69afdf078b4cdb991bec2be0779f2c9c347edbd",
+          "origin_graph_index": 2
+        }
+      },
+      "comparison_default_sha256": "18c3a202c93ccbbb665cae94f5563b34d253e6983e438592de0e0289afe84b10",
+      "comparison_edited_sha256": "3342c3f21c5f2d55969eb0a92f18d0de9d5ba40577bb80a37da58d97b21a63d8"
+    },
+    {
+      "chart_type_id": "K08",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Column.opju",
+      "source_sha256": "1f4ab6637f0c4ccebe11c86de6b0d6640efcb41a39492d423b39cc162371e873",
+      "source_graph_name": null,
+      "source_book": "Book2",
+      "recipe": "Origin 随附 Column.opju 的 Book2；抽取 EC2 列并以 COLUMN 重新生成。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "e7f52d1e451437309cbd5fedfdb32ff8a177bf9c710e750069c60fc2b5930880",
+      "reference_sha256": "6bc8c265d20f20f9c32a6933d48693c6d87db74a82afd6360e224503fbef6a3e",
+      "common_edit": "标题与字号",
+      "chart_edit": "柱填充、边线、宽度",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "7dc4408fc44b23b4254734eded101d6331c12cabd452df308fdc07409c3441a2",
+          "render_plan_sha256": "93069f8dea12afb6fd3560381dd9b0aa551b0b03af195b46d82fad1ea75d23d3",
+          "matplotlib_png_sha256": "860e7432f93d6c90d3858d0e31943b42dbdec7ffda10d61cd95eb4db162f05c5",
+          "origin_fresh_png_sha256": "ede8e985f12412146f4d2aff4dd8897349650caeeb1ae0e649699535e8554b50",
+          "origin_graph_index": 3
+        },
+        "edited": {
+          "plot_spec_sha256": "44b646b45dfce84c90703c0881a0684eee198276d62f84de495f0b88e5360054",
+          "render_plan_sha256": "9e27ee5e81fb3cb15c3330f7e00115170e6e7ccf9bdae50069c8b7f8881010c5",
+          "matplotlib_png_sha256": "7f5e962100fce72357974b7a8d757ab57764fae0105bfb91a35f17f4f7dfdd92",
+          "origin_fresh_png_sha256": "f8f79dc453ee8df2565748d746a9bf557934312bc9570de83911dafe9b5b1acf",
+          "origin_graph_index": 3
+        }
+      },
+      "comparison_default_sha256": "797fb4930409749796a076856fd50a473154629af0e3935c13279f6b05063eb4",
+      "comparison_edited_sha256": "fd9fa0e5ed0cf7b57d17f53bc7b970230579ad25d884c413881b669b57722fd5"
+    },
+    {
+      "chart_type_id": "K18",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Area.opju",
+      "source_sha256": "6461ce9be5a232f5187f8ce25e97f4345a1ddb05cda6bfbd77ec61055258a49f",
+      "source_graph_name": "Graph1",
+      "source_book": "Book1",
+      "recipe": "直接导出 Origin 随附 Area.opju 的 Graph1 及同项目工作表。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "50d0f7ca545fc21919677bc46fac8e6d89afbfeaf6adb752b4941b5e394c1179",
+      "reference_sha256": "e1c2845e1bad807cf7114b629b310d372ff612248809f4831ca549f6a1e8e6f5",
+      "common_edit": "标题与字号",
+      "chart_edit": "面积填充、边线、透明度",
+      "states": {
+        "default": {
+          "plot_spec_sha256": "afbcdc177973ff317bbdcc388cadb88fccf6c2adf793f82eda6d481d97ba6bc0",
+          "render_plan_sha256": "57ca46dd231ed185abf57578411683a9f34dbb53cab39d4fa02c6c253f17f195",
+          "matplotlib_png_sha256": "bb865a7e12b4f7f8c19e7512c8eda7e84c185151f4752f369afa691cba8a7fd6",
+          "origin_fresh_png_sha256": "e6e6fea6aef33ba625b9c68b45e77256b0561adffea547cc7d2470e81c981e63",
+          "origin_graph_index": 4
+        },
+        "edited": {
+          "plot_spec_sha256": "41d49063539631d8e9de363ed5fd6bf06ff3e3985cf7905c04de0bca26470327",
+          "render_plan_sha256": "71af9a71f0ac2d48f16b9976a695cef87a21bc8fea1950586eb03432439ba84e",
+          "matplotlib_png_sha256": "d1f2a07d4ff9ed9a18c222fed2ed712b03893fe3f3d40cc218f34fc5ae8bbfc7",
+          "origin_fresh_png_sha256": "968eb896797ab350373f15547b9677d054590097bf77c7f9de91fa6655485bcc",
+          "origin_graph_index": 4
+        }
+      },
+      "comparison_default_sha256": "c6074dbc85bd6fcc0b3266eed6fd57cc7f188c688e5415190e4a41b67d81d1e9",
+      "comparison_edited_sha256": "e65fa900d3b63e49b30722c81a94f0bb85f4ec7e145e21d04dc863fe89e10bf2"
+    }
+  ],
+  "audit_conclusion": "engineering evidence complete; human visual sign-off pending"
+}

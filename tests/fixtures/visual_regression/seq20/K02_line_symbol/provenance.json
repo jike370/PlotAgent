@@ -1,0 +1,15 @@
+{
+  "chart_type_id": "K02",
+  "evidence_grade": "C",
+  "source_path": "D:\\origin\\Samples\\Mathematics\\Sine Curve.dat",
+  "source_sha256": "af294da93db3f97ffd016110245349f83d87cefc2f95970b66e4209d8c298b06",
+  "source_graph_name": null,
+  "source_book": null,
+  "recipe": "Origin 官方 Sine Curve.dat；在 Origin 中以 Line+Symbol 重新生成。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "24511d476678c40bf25ddd9d660a5fa1e2db762f41de87168827cfc72405935d",
+  "reference_sha256": "151c0ec50a402a7d24c49f1b73fcc855526bce5e967af064a88073e66c08379f",
+  "common_edit": "标题与字号",
+  "chart_edit": "线色、点形、点大小"
+}

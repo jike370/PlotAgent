@@ -1,0 +1,15 @@
+{
+  "chart_type_id": "K18",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\Area.opju",
+  "source_sha256": "6461ce9be5a232f5187f8ce25e97f4345a1ddb05cda6bfbd77ec61055258a49f",
+  "source_graph_name": "Graph1",
+  "source_book": "Book1",
+  "recipe": "直接导出 Origin 随附 Area.opju 的 Graph1 及同项目工作表。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "50d0f7ca545fc21919677bc46fac8e6d89afbfeaf6adb752b4941b5e394c1179",
+  "reference_sha256": "e1c2845e1bad807cf7114b629b310d372ff612248809f4831ca549f6a1e8e6f5",
+  "common_edit": "标题与字号",
+  "chart_edit": "面积填充、边线、透明度"
+}

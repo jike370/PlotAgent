@@ -1,0 +1,15 @@
+{
+  "chart_type_id": "K08",
+  "evidence_grade": "C",
+  "source_path": "D:\\origin\\Column.opju",
+  "source_sha256": "1f4ab6637f0c4ccebe11c86de6b0d6640efcb41a39492d423b39cc162371e873",
+  "source_graph_name": null,
+  "source_book": "Book2",
+  "recipe": "Origin 随附 Column.opju 的 Book2；抽取 EC2 列并以 COLUMN 重新生成。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "e7f52d1e451437309cbd5fedfdb32ff8a177bf9c710e750069c60fc2b5930880",
+  "reference_sha256": "6bc8c265d20f20f9c32a6933d48693c6d87db74a82afd6360e224503fbef6a3e",
+  "common_edit": "标题与字号",
+  "chart_edit": "柱填充、边线、宽度"
+}
