@@ -1,0 +1,17 @@
+{
+  "chart_type_id": "K06",
+  "evidence_status": "anchored",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\ERRBAR.opju",
+  "source_sha256": "72db917d5c82e86b973cdaf4c8cfcf26e938f228abbb6cd17bce1d9436fe27fa",
+  "source_graph_name": "Graph1",
+  "source_book": "Book1",
+  "source_sheet_index": 0,
+  "recipe": "直接导出 Origin 随附 ERRBAR.opju Graph1；Y error 冻结为显式 lower/upper。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "69b31b5a44cb42ada73a64ad35c16ac23349cfa9755499f6b5066c757745a579",
+  "reference_sha256": "41ffe349d644c8a4bba24c0cb6a09593d8e8513c4f990a8e5c23586d1151338d",
+  "common_edit": "标题与字号",
+  "chart_edit": "误差线颜色、线宽与端帽"
+}

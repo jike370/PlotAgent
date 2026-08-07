@@ -1,0 +1,17 @@
+{
+  "chart_type_id": "K13",
+  "evidence_status": "anchored",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\Box.opju",
+  "source_sha256": "42c1769241d7401f52c0b11269c83838a67b6775f07856829132acde0b4e4953",
+  "source_graph_name": "Graph1",
+  "source_book": "Book1",
+  "source_sheet_index": 0,
+  "recipe": "直接导出 Origin 随附 Box.opju Graph1；同项目原始值按冻结 Tukey 规则计算箱体。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "3d623125928d3086781489d65e41f040b36b0302dc788f1ee2d89648ecf4bb6e",
+  "reference_sha256": "0631e686ab7a1b26c3473436caeb2f288f1c07dca11d67edfe66b29aaecd6a30",
+  "common_edit": "标题与字号",
+  "chart_edit": "箱体填充、边线与宽度"
+}

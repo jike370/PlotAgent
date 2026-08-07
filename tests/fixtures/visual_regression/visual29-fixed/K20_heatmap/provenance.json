@@ -1,0 +1,17 @@
+{
+  "chart_type_id": "K20",
+  "evidence_status": "anchored",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\Heatmap.opju",
+  "source_sha256": "d9e6c6fb6c1989092c7dec923ddd4ba92bba4620dfb5efdcb84ac3bb45fe3ea7",
+  "source_graph_name": "Graph1",
+  "source_book": "Book1",
+  "source_sheet_index": 0,
+  "recipe": "直接导出 Origin 随附 Heatmap.opju Graph1 及同项目矩阵工作表。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "67254cdadec73103cb797e5a9a483e73941f1dcb28615eb65732bdbdb8b8ee40",
+  "reference_sha256": "58b679d578a19ae5d1948bdb95fa88bea49d150bedc2c5e1372d49015e8c1eb3",
+  "common_edit": "标题与字号",
+  "chart_edit": "色板、色标与级数"
+}

@@ -1,0 +1,17 @@
+{
+  "chart_type_id": "K15",
+  "evidence_status": "anchored",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\Histogram.opju",
+  "source_sha256": "71423c902b50b96ac33b289c275be69be72b05295608661a837d57712d397089",
+  "source_graph_name": "Graph2",
+  "source_book": "Book1",
+  "source_sheet_index": 0,
+  "recipe": "直接导出 Origin 随附 Histogram.opju Graph2；Americas 原始值按冻结分箱规则计算。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "ab0a842218bab27ee8a018be2a5d5a11834573f4322717b0d80b4722f61376d8",
+  "reference_sha256": "cae10ba35fb8ca1ebd5c495be638bc7afb1035fd9f31bb07b5a127bd0e8ef4c8",
+  "common_edit": "标题与字号",
+  "chart_edit": "柱填充、边线与透明度"
+}

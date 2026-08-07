@@ -1,0 +1,17 @@
+{
+  "chart_type_id": "K07",
+  "evidence_status": "anchored",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\ERRORBAND.opju",
+  "source_sha256": "07e516dd957b3dda1b235aeee778b8611adee92df0daedde3898bac2cef8a668",
+  "source_graph_name": "Graph1",
+  "source_book": "Book1",
+  "source_sheet_index": 0,
+  "recipe": "直接导出 Origin 随附 ERRORBAND.opju Graph1；两组 Y±Error 冻结为显式上下界。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "2d9841ae9bcaa6d38610bc439211df37e0a323c0457d8fdc072d90ebd4d890c9",
+  "reference_sha256": "b7bfd5161f16bb0b63f52d471ee34fc8cc3716ced2fa9173181c0684582aa450",
+  "common_edit": "标题与字号",
+  "chart_edit": "误差带颜色、透明度与边界"
+}

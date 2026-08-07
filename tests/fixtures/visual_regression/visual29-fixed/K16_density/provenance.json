@@ -1,0 +1,17 @@
+{
+  "chart_type_id": "K16",
+  "evidence_status": "anchored",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\Histogram.opju",
+  "source_sha256": "71423c902b50b96ac33b289c275be69be72b05295608661a837d57712d397089",
+  "source_graph_name": "Graph7",
+  "source_book": "Book1",
+  "source_sheet_index": 0,
+  "recipe": "直接导出 Origin 随附 Histogram.opju Graph7；两组原始值按冻结 KDE 网格计算。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "7b8c815fffcb3a1d213d494c6bc6300103a0def9c9b3aeb3a5bb04d659ff4fee",
+  "reference_sha256": "71e6346337808507bbd5ade5fe45e763a457f1af500980af8dd98eb81db73df9",
+  "common_edit": "标题与字号",
+  "chart_edit": "密度线颜色与线宽"
+}

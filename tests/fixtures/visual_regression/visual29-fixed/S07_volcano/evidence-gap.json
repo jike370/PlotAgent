@@ -1,0 +1,16 @@
+{
+  "chart_type_id": "S07",
+  "evidence_status": "missing_same_source_origin_data",
+  "evidence_grade": null,
+  "same_source_data": false,
+  "synthetic": false,
+  "rendered": false,
+  "tested": false,
+  "blocking_code": "SAME_SOURCE_ORIGIN_DATA_MISSING",
+  "search_scope": [
+    "D:\\origin",
+    "D:\\origin\\Samples",
+    "C:\\Users\\pc\\Documents\\OriginLab"
+  ],
+  "reason": "未在本机 Origin 随附项目、模板样例与 Samples 中找到同时含 feature、log2FC、p/q value 的官方同源数据。"
+}

@@ -1,0 +1,17 @@
+{
+  "chart_type_id": "K14",
+  "evidence_status": "anchored",
+  "evidence_grade": "C",
+  "source_path": "D:\\origin\\Box.opju",
+  "source_sha256": "42c1769241d7401f52c0b11269c83838a67b6775f07856829132acde0b4e4953",
+  "source_graph_name": null,
+  "source_book": "Book1",
+  "source_sheet_index": 0,
+  "recipe": "Origin 随附 Box.opju 原始值；用系统 Violin 模板重建参考，PlotAgent 使用冻结 KDE 网格。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "71d005f2e4516b8c48080932b5a65b36fad6ce1aa98becb1f5553c35acb97f62",
+  "reference_sha256": "decc333d1bb95d732a16192cfe0b939be4a78aa2a6172a0dbfb7978d791dfad4",
+  "common_edit": "标题与字号",
+  "chart_edit": "小提琴填充、轮廓与宽度"
+}
