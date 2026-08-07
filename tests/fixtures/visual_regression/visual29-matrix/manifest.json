@@ -1,0 +1,316 @@
+{
+  "schema_version": "1.0",
+  "stage": "VISUAL-29",
+  "lane": "matrix-specialist",
+  "generated_at": "2026-08-07T21:14:56.568681+00:00",
+  "plotagent_version": "0.1.0",
+  "origin_declaration": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
+  "rules": {
+    "same_source_required": true,
+    "synthetic_allowed": false,
+    "allowed_evidence_grades": [
+      "A",
+      "C"
+    ],
+    "states": [
+      "default",
+      "representative edited"
+    ],
+    "edited_state_requires": [
+      "common edit",
+      "chart-applicable edit",
+      "Origin mapping"
+    ],
+    "missing_same_source_action": "register_gap_without_rendering"
+  },
+  "exports": {
+    "default": {
+      "opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-matrix\\visual29-matrix-default.opju",
+      "opju_sha256": "0393e2718b6d9b34976e7fc5f55e3551a68d1ade5a0d55b522da8d3e09f020d9",
+      "opju_size": 189184,
+      "origin_plan_sha256": "2c4cca9f096675f2e9fbca274032b78f8eb511035cbc562a9443d7ad759a95c1",
+      "adapter_id": "plotagent.origin.registry.xy+distribution+matrix",
+      "adapter_version": "1.0.0",
+      "validation_report_sha256": "53958de6cb0d3566e39017407fed1c1dc8d9ded9d5d62ba9dea4c3b207054e1d",
+      "fresh_reopen_identical": true,
+      "elapsed_seconds": 41.485,
+      "environment": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "install_dir": "D:\\origin",
+        "executable_path": "D:\\origin\\Origin64.exe",
+        "origin_bitness": 64,
+        "python_bitness": 64,
+        "originpro_version": "1.1.15",
+        "runtime_version": 10.100178,
+        "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+        "license_available": true
+      }
+    },
+    "edited": {
+      "opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-matrix\\visual29-matrix-edited.opju",
+      "opju_sha256": "73aace0e38293817acb465909e70f5370dbdaacfbb2dde71dc3b1bfa0332e020",
+      "opju_size": 189393,
+      "origin_plan_sha256": "74a99deb8d5272778b46c1b814e4b0e031aacbe5397e7f5e58014d7cf7834d76",
+      "adapter_id": "plotagent.origin.registry.xy+distribution+matrix",
+      "adapter_version": "1.0.0",
+      "validation_report_sha256": "1a71faa09b6724eedd75342af7b53a5d99e0fbd2565dadf18598f4450e030fcd",
+      "fresh_reopen_identical": true,
+      "elapsed_seconds": 47.203,
+      "environment": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "install_dir": "D:\\origin",
+        "executable_path": "D:\\origin\\Origin64.exe",
+        "origin_bitness": 64,
+        "python_bitness": 64,
+        "originpro_version": "1.1.15",
+        "runtime_version": 10.100178,
+        "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+        "license_available": true
+      }
+    }
+  },
+  "cases": [
+    {
+      "chart_type_id": "K04",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\bubble.opju",
+      "source_sha256": "3b7859f25792f19189bb1d86f34b0d9aff1fb60276db0142a97da602fb2fcff0",
+      "source_graph_name": "Graph2",
+      "source_book": "Book1",
+      "origin_template": null,
+      "recipe": "直接导出 Origin 随附 bubble.opju 的 Graph2；冻结同项目 Book1 的 X/Y/Size/Color。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "76e372f51d34d3f040a488dec2288aa32db1fc263800bd16927b3f1af37b110c",
+      "reference_sha256": "712893f3a2fa636868c7a85246e74cb6da331bd7d62d413836b24cccb4239800",
+      "common_edit": "标题与字号",
+      "chart_edit": "符号形状与尺寸，同时保留 size/color 数据映射",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "29e5cc1f788af3460437c9108fa7d1c4b5b57c00394941ee7aecef5b43e47e30",
+          "render_plan_sha256": "e3a945a4f4054b84663215d88a79e33da1a5bcdc4b8cccc618dd58e96351ed6d",
+          "matplotlib_png_sha256": "d350869808c8d86342c7fe0fd892005546c70eafac0df3125bf4f85139e71a49",
+          "origin_fresh_png_sha256": "8189eae5b6e0c5f28b3b0a87c2b8f6eacc4a7237ffffa6e09f2f3951c95a1491",
+          "origin_graph_index": 0
+        },
+        "edited": {
+          "plot_spec_sha256": "74508d7400900348c3a2f3cca692502f1bf9cc29724c4cf078ca1e45e307862f",
+          "render_plan_sha256": "49a8d377300e31489299160b6f0906940fcecbb9c15eaa29b867a0be2a4ff54c",
+          "matplotlib_png_sha256": "01fd0f4185b7bf615ecfb38a7e5510c951590af0c9d47cdb8fdfb90a459fa080",
+          "origin_fresh_png_sha256": "2c2251b8843fea1378e196872ae7c69e24419010f5e6008361f014c7a3a55ebd",
+          "origin_graph_index": 0
+        }
+      },
+      "comparison_default_sha256": "d60bea4fc3d6b54f4bba5c9cd78149a30caee537952652ba7033ed3177180188",
+      "comparison_edited_sha256": "cb3cc29f62a0f833c7b448fdf884586563581dc4b8af718143ca7537cd09bf23"
+    },
+    {
+      "chart_type_id": "K12",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\ColumnScatter.opju",
+      "source_sha256": "566876922f226fc75aaadfb6086ab8df1d496020b9d144d6e68eacf78e1dc965",
+      "source_graph_name": "Graph11",
+      "source_book": "Book1",
+      "origin_template": null,
+      "recipe": "直接导出 Origin 随附 ColumnScatter.opju 的 Graph11；将同项目三列观测无损转成长表。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "cbec145220524f662d7c3f494508d88ead62f10e7b642b4f8174708c8d8f9477",
+      "reference_sha256": "f5a63c17ab0447eacb018dbc970588a5c1947d907794b52cbfa352da1f6b703e",
+      "common_edit": "标题与字号",
+      "chart_edit": "点形与点大小，并保留分组色板",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "cfdb6471c213bd75b1995b3809459dab6838253ad8241cde23ffedf74ec19979",
+          "render_plan_sha256": "207cbe1cb9ab205746beac8986873651cac6381530ccdeab29034f3510435b65",
+          "matplotlib_png_sha256": "9d75d6c983e3912b8f34c14f15e45de14fcc296fc49cb14bcfa34b9bc67d0d71",
+          "origin_fresh_png_sha256": "3dd03cfe322dddc79741a0e557fd286b8b00f6630782c45791f844879777d4ea",
+          "origin_graph_index": 1
+        },
+        "edited": {
+          "plot_spec_sha256": "8628ef20c4d003bd8f13ed4386f65636bff9c1af3f24834b962688da9f83c5b3",
+          "render_plan_sha256": "99eb082ed7b125ff34e5b54e534f71243f32541a207b458eb408074850383a98",
+          "matplotlib_png_sha256": "c0c1ea2b4c03efaf27bc6c6ee53ebc25f2b94cae1298ddf8ffdde734d603acd2",
+          "origin_fresh_png_sha256": "f6ee9d9e1a087cf988d4feae21e157dca41756ea18e3b4c2d70c22f378a97472",
+          "origin_graph_index": 1
+        }
+      },
+      "comparison_default_sha256": "b3ce7f7907c522e361531776c13fbf1eee9f217a6e6af4a4405c811f00470adf",
+      "comparison_edited_sha256": "7a1c4aca63064633f96bc90aa1c1b7dd4d37aad8c33b81ed6e2f18a60600181d"
+    },
+    {
+      "chart_type_id": "K19",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Samples\\Import and Export\\Custom Date and Time.dat",
+      "source_sha256": "ee0ef15485af394b414942028f6866f8ffa32294303d97c0d369f35a26c1cae2",
+      "source_graph_name": null,
+      "source_book": null,
+      "origin_template": "LINE",
+      "recipe": "Origin 官方 Custom Date and Time.dat，以随附 LINE.otpu 在 Origin 中重新生成；保留时间列原始精度。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "fc333331cddf09b68937ec403d9a7ffe8d7233e6e8fd8ef0de50a1ddc0c4882e",
+      "reference_sha256": "c971721d798c7a611d779445dc2b1666b64d5152be52d59fd01c530dc2fffc76",
+      "common_edit": "标题与字号",
+      "chart_edit": "线色与线宽",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "ef0ffe58f8300a0fa7cd630f2e614b759ef2e651d83cd8f7512553d9b6cea8f6",
+          "render_plan_sha256": "cde6b3b5c1bdfba3360bb1c8fa54d6746f0be616191d900ff4ba7448247a329b",
+          "matplotlib_png_sha256": "dd0c16db90a3905936402727f1dceff857dbe142abc3afd6b8674d19052398c4",
+          "origin_fresh_png_sha256": "d113074ab4ddf093aa65c93c061aac2d05eb407c15997cdf69e8992194bc11c6",
+          "origin_graph_index": 2
+        },
+        "edited": {
+          "plot_spec_sha256": "59eeb80edffddc0d03bf7b074afa3387d9cdc39d72d43329e12633fc3d025d56",
+          "render_plan_sha256": "f17b541f8cd6de520c75e29c24df1afa7431bb9608889daf8a1828fe30a9a7b1",
+          "matplotlib_png_sha256": "705be496d10a002c80d4ea7dbb8510640f8c8a405f194021256a3bfe09e4a0dd",
+          "origin_fresh_png_sha256": "b2e7c24d5d367410299c4db2660316cd2233275151976799783d05a76fa4cbb4",
+          "origin_graph_index": 2
+        }
+      },
+      "comparison_default_sha256": "5b63e629982038ae5df958a3cbf9bba1696b4310d25975e2b28abf022626e745",
+      "comparison_edited_sha256": "a79d7279862f63276427808c58e8d1c96d08403da418c2ec8316ea63f01277df"
+    },
+    {
+      "chart_type_id": "K22",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Contour.opju",
+      "source_sha256": "71a2c52f76ee10bc5a3f7176b9ee4b3754440c20f05e0a4087ca4c215c102c68",
+      "source_graph_name": "Graph1",
+      "source_book": "Book2",
+      "origin_template": null,
+      "recipe": "直接导出 Origin 随附 Contour.opju 的 Graph1；冻结同项目 Book2 的完整规则 XYZ 网格。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "3950f178f5e44e4ecd68ee9ba89ee7a53fe7b99a95d4fc7464782a96159968a1",
+      "reference_sha256": "0015899a176f23a126076cc49ba0151e57f5f0a3ac0cd303a0270f5fafa50b81",
+      "common_edit": "标题与字号",
+      "chart_edit": "色带范围与级数",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "8e56b6b916ceefd144505dfacdce7f1c23f23647d537581730859288b77e3c1b",
+          "render_plan_sha256": "9d3d586b38da6bb1f9d64833f2c188ef403064fa05b088826868a1fccf1f8290",
+          "matplotlib_png_sha256": "d8d3afdaeacd8e7eccc795ab8512a935f1ff19857aa62956158830a6d4b150dc",
+          "origin_fresh_png_sha256": "dc912c6b746eb45e60374e3c515158381465c4ad844cbe407c99506f4601a863",
+          "origin_graph_index": 3
+        },
+        "edited": {
+          "plot_spec_sha256": "2d8114a29ae8cb8c6254bccec1215e078aa26f1892b83b8cd1e1d60a98c8edda",
+          "render_plan_sha256": "58e2bb29cae3fa09ef13931816e77af087f9b825c79e2528c6119ba190aa3566",
+          "matplotlib_png_sha256": "09a773d6415b8c67594511d3cdac04b01e3efe3244a8fd27dad74c860b6303c3",
+          "origin_fresh_png_sha256": "0ba84ae272cbdb94608608521c6767f5b5533d314090f69fdc40465d352721d4",
+          "origin_graph_index": 3
+        }
+      },
+      "comparison_default_sha256": "400281b9895120e4bf548cf5594fdb10d31a2a1033db5cd7657578c6289993cb",
+      "comparison_edited_sha256": "f197f1b6e58111ba3e3b78b419ddf36c8fa26932f7ad02a8256110d89d957763"
+    }
+  ],
+  "evidence_gaps": [
+    {
+      "chart_type_id": "K21",
+      "title": "相关矩阵图",
+      "status": "not_tested_missing_same_source_evidence",
+      "required_data": "Origin 官方预计算相关矩阵、行列标签及由该矩阵直接生成的参考图",
+      "available_evidence": "安装目录只有相关分析原始样例和矩阵类模板，没有随附的预计算相关矩阵参考图对",
+      "blocking_reason": "产品契约禁止在资格测试中替用户计算 Pearson/Spearman，因此不能用原始样例现场计算后冒充同源输入",
+      "rendered": false,
+      "qualification_claimed": false
+    },
+    {
+      "chart_type_id": "S21",
+      "title": "森林图",
+      "status": "not_tested_missing_same_source_evidence",
+      "required_data": "Origin 官方 effect/lower/upper/weight 数据及由该表直接生成的森林图",
+      "available_evidence": "安装目录未发现森林图随附项目或同源官方样例数据；历史 v2/LLM 回归图不是独立官方参考",
+      "blocking_reason": "缺少 A/C 级同源证据",
+      "rendered": false,
+      "qualification_claimed": false
+    },
+    {
+      "chart_type_id": "S31",
+      "title": "XRD 衍射图",
+      "status": "not_tested_missing_same_source_evidence",
+      "required_data": "Origin 官方 angle/intensity 数据及相应 XRD 参考图或官方模板重建说明",
+      "available_evidence": "本机存在用户 XRD 文本，但 Origin 安装目录未发现对应随附项目或官方样例数据",
+      "blocking_reason": "外部/用户数据不满足本轮 C 级“Origin 官方样例数据”要求",
+      "rendered": false,
+      "qualification_claimed": false
+    },
+    {
+      "chart_type_id": "S34",
+      "title": "Nyquist 图",
+      "status": "not_tested_missing_same_source_evidence",
+      "required_data": "Origin 官方 Z′/-Z″/frequency 数据及相应 Nyquist 参考图或官方模板重建说明",
+      "available_evidence": "本机存在用户 EIS 文本与用户生成 OPJU，但 Origin 安装目录未发现对应随附项目或官方样例数据",
+      "blocking_reason": "外部/用户数据不满足本轮 C 级“Origin 官方样例数据”要求",
+      "rendered": false,
+      "qualification_claimed": false
+    }
+  ],
+  "qualification": {
+    "source_build_identity": {
+      "scope_version": "visual29-matrix-rendering-v1",
+      "git_commit": "87bac5b6c9374b8059a11af74c582b450675a6cd",
+      "source_sha256": "56e471f922b1a787fab8c856de8e3d73ce032c1f287f21ec6755806b175b9830"
+    },
+    "blocking_observations": [
+      {
+        "chart_type_id": "K04",
+        "backend": "matplotlib",
+        "severity": "P0",
+        "observation": "varying bubble sizes have no size legend; the Origin reference exposes an explicit size key"
+      },
+      {
+        "chart_type_id": "K04",
+        "backend": "origin",
+        "severity": "P0",
+        "observation": "the color scale overlays the left Y-axis tick region and the varying bubble sizes still have no size key"
+      },
+      {
+        "chart_type_id": "K12",
+        "backend": "matplotlib",
+        "severity": "P0",
+        "observation": "the full official group label is clipped below the canvas and the inside legend overlaps observations"
+      },
+      {
+        "chart_type_id": "K12",
+        "backend": "origin",
+        "severity": "P0",
+        "observation": "the inside legend covers the upper Bacon observations in both default and edited fresh-reopen graphs"
+      },
+      {
+        "chart_type_id": "K22",
+        "backend": "matplotlib",
+        "severity": "P0",
+        "observation": "colorbar tick labels are clipped at the right canvas edge"
+      },
+      {
+        "chart_type_id": "K22",
+        "backend": "origin",
+        "severity": "P0",
+        "observation": "the color scale and its tick labels overlap the left Y-axis tick region"
+      }
+    ],
+    "human_visual_signature": {
+      "status": "pending",
+      "reviewer": null,
+      "signed_at": null
+    },
+    "decision": "NO-GO"
+  },
+  "audit_conclusion": "four same-source evidence cases generated; four cases withheld for missing A/C evidence; mechanical visual blockers recorded; human visual sign-off pending; visual qualification not passed"
+}

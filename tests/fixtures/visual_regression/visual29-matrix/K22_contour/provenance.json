@@ -1,0 +1,16 @@
+{
+  "chart_type_id": "K22",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\Contour.opju",
+  "source_sha256": "71a2c52f76ee10bc5a3f7176b9ee4b3754440c20f05e0a4087ca4c215c102c68",
+  "source_graph_name": "Graph1",
+  "source_book": "Book2",
+  "origin_template": null,
+  "recipe": "直接导出 Origin 随附 Contour.opju 的 Graph1；冻结同项目 Book2 的完整规则 XYZ 网格。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "3950f178f5e44e4ecd68ee9ba89ee7a53fe7b99a95d4fc7464782a96159968a1",
+  "reference_sha256": "0015899a176f23a126076cc49ba0151e57f5f0a3ac0cd303a0270f5fafa50b81",
+  "common_edit": "标题与字号",
+  "chart_edit": "色带范围与级数"
+}
