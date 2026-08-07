@@ -66,6 +66,29 @@ def test_bar_area_edit_is_data_driven_and_propagates_to_both_backends() -> None:
     assert all(item.fill_color == ColorValue(value="#123456") for item in origin_plots)
 
 
+def test_histogram_width_edit_scales_each_resolved_bin_about_its_center() -> None:
+    _plot, resolved = _resolve(
+        "K15",
+        SpecialistEditSpec(bar_area=BarAreaEditSpec(width_ratio=0.6)),
+    )
+    roles = _roles(resolved, 0)
+    expected_widths = [
+        (float(right) - float(left)) * 0.6
+        for left, right in zip(roles["left"], roles["right"], strict=True)
+    ]
+
+    figure = MatplotlibRenderer().build_figure(resolved)
+    patches = figure.axes[0].patches
+    assert [item.get_width() for item in patches] == pytest.approx(expected_widths)
+    assert [item.get_x() + item.get_width() / 2 for item in patches] == pytest.approx(
+        [
+            (float(left) + float(right)) / 2
+            for left, right in zip(roles["left"], roles["right"], strict=True)
+        ]
+    )
+    plt.close(figure)
+
+
 def test_uncertainty_and_colorbar_edits_are_typed_and_renderer_visible() -> None:
     uncertainty = UncertaintyEditSpec(
         color=ColorValue(value="#7C3AED"),

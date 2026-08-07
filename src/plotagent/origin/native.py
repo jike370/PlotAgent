@@ -41,6 +41,7 @@ class NativePrimitive:
         "floating_polygon",
         "lollipop_drop",
         "horizontal_polygon",
+        "histogram",
     ] = "direct"
 
 
@@ -144,15 +145,20 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
             ),
         )
     if plot.native_kind in _BAR_KINDS:
-        if plot.native_kind in {"bar", "grouped_bar", "histogram"}:
+        if plot.native_kind == "histogram":
+            bar = NativePrimitive(
+                "column",
+                "left",
+                "height",
+                transform="histogram",
+            )
+        elif plot.native_kind in {"bar", "grouped_bar"}:
             bar = NativePrimitive(
                 "column",
                 x_role,
                 "height",
                 bar_width_role=(
-                    "width"
-                    if plot.native_kind in {"grouped_bar", "histogram"}
-                    else None
+                    "width" if plot.native_kind == "grouped_bar" else None
                 ),
             )
         else:
@@ -311,6 +317,17 @@ def materialize_primitive(
             _role_values(data, "lower"),
             _role_values(data, "upper"),
         )
+    if primitive.transform == "histogram":
+        right_values = _role_values(data, "right")
+        height_values = _role_values(data, primitive.y_role or "height")
+        histogram_centers: list[OriginScalar] = []
+        for left_edge, right_edge in zip(x_values, right_values, strict=True):
+            numeric_left = _number(left_edge, "histogram left")
+            numeric_right = _number(right_edge, "histogram right")
+            if numeric_right <= numeric_left:
+                raise ValueError("Origin histogram bins require right > left")
+            histogram_centers.append((numeric_left + numeric_right) / 2)
+        return NativePrimitiveTable(tuple(histogram_centers), height_values)
     if primitive.transform == "floating_polygon":
         bottoms = _role_values(data, "bottom")
         tops = _role_values(data, "top")

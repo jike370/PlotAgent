@@ -23,6 +23,7 @@ from plotagent.origin.native import (
     PROJECT_FOLDERS,
     build_native_project,
     inspect_native_project,
+    materialize_primitive,
     native_primitives,
     physical_plot_count,
 )
@@ -477,6 +478,24 @@ def test_non_stacked_bars_use_visible_native_columns(chart_id: str) -> None:
     assert primitives[0].plot_type == "column"
     assert primitives[0].y_role == "height"
     assert primitives[0].y2_role is None
+
+
+def test_histogram_materializes_bin_centers_without_a_phantom_width_role() -> None:
+    plan = _plan("K15")
+    plot = plan.graph_objects[0].layers[0].plots[0]
+    primitive = native_primitives(plot)[0]
+    data = next(item for item in plan.data_objects if item.object_id == plot.data_object_id)
+
+    assert primitive.transform == "histogram"
+    assert primitive.bar_width_role is None
+    table = materialize_primitive(primitive, data)
+    assert table is not None
+    left = next(item.values for item in data.columns if item.role == "left")
+    right = next(item.values for item in data.columns if item.role == "right")
+    assert table.x == tuple(
+        (float(low) + float(high)) / 2
+        for low, high in zip(left, right, strict=True)
+    )
 
 
 @pytest.mark.parametrize("chart_id", ["X09", "X35"])

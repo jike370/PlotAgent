@@ -440,6 +440,7 @@ def _role_index(data: OriginDataObject, plot: OriginPlotPlan, role: str | None) 
             return next(
                 index for index, column in enumerate(data.columns) if column.field_id == field_id
             )
+        raise NativeOriginError(f"native primitive requires missing role {role!r}")
     preferred = "X" if role is None else "Y"
     candidate = next(
         (index for index, column in enumerate(data.columns) if column.designation == preferred),

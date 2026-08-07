@@ -555,11 +555,12 @@ class MatplotlibRenderer:
         elif geometry == "distribution.histogram":
             left = _numeric(roles["left"])
             right = _numeric(roles["right"])
+            centers = (left + right) / 2
             axis.bar(
-                left,
+                centers,
                 _numeric(roles["height"]),
-                width=right - left,
-                align="edge",
+                width=(right - left) * layer.width_ratio,
+                align="center",
                 color=color,
                 edgecolor=color,
                 linewidth=line_width,
