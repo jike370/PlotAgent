@@ -90,7 +90,7 @@ function installApi(api: PlotAgentDesktopApi): void {
 }
 
 async function openSampleAndCreatePlot(user: ReturnType<typeof userEvent.setup>): Promise<void> {
-  await user.click(await screen.findByRole('button', { name: /用示例项目试用/ }))
+  await user.click(await screen.findByRole('button', { name: '示例' }))
   expect(await screen.findByText('source:temperature')).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: '选择图形' }))
   await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
@@ -108,11 +108,11 @@ beforeEach(() => {
 describe('PlotAgent real desktop workflow', () => {
   it('starts with three local entry points and no account or invitation gate', async () => {
     render(<App />)
-    expect(await screen.findByRole('heading', { name: '从第一份数值数据开始' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /用示例项目试用/ })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /导入自己的数据/ })).toBeEnabled()
+  expect(await screen.findByRole('region', { name: '开始使用 PlotAgent' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '示例' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /^导入/ })).toBeEnabled()
     expect(screen.getByRole('button', { name: '打开已有 .plotproj' })).toBeEnabled()
-    expect(screen.getByText(/无需账号或注册/)).toBeInTheDocument()
+    expect(screen.getByText(/无需账号/)).toBeInTheDocument()
     expect(screen.queryByText(/邀请已激活/)).not.toBeInTheDocument()
   })
 
@@ -131,7 +131,7 @@ describe('PlotAgent real desktop workflow', () => {
   it('filters local projects with a working clear action', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(await screen.findByRole('button', { name: /用示例项目试用/ }))
+    await user.click(await screen.findByRole('button', { name: '示例' }))
     expect(await screen.findByRole('button', { name: /温度响应示例/ })).toBeInTheDocument()
     await user.type(screen.getByRole('textbox', { name: '搜索本机项目' }), '不存在')
     expect(screen.getByText('没有匹配的本机项目')).toBeInTheDocument()
@@ -144,7 +144,7 @@ describe('PlotAgent real desktop workflow', () => {
     const api = fakeDesktop()
     installApi(api)
     render(<App />)
-    await user.click(await screen.findByRole('button', { name: /导入自己的数据/ }))
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
     expect(await screen.findByText('fluorescence_au')).toBeInTheDocument()
     expect(screen.getAllByText('float64', { exact: true })).toHaveLength(2)
     expect(screen.getByText('a.u.')).toBeInTheDocument()
@@ -165,7 +165,7 @@ describe('PlotAgent real desktop workflow', () => {
     const user = userEvent.setup()
     installApi(fakeDesktop({ importDatasets: vi.fn(async () => ok(result)) }))
     render(<App />)
-    await user.click(await screen.findByRole('button', { name: /导入自己的数据/ }))
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
     expect(await screen.findByText(expectedTitle)).toBeInTheDocument()
     expect(screen.queryByText('source:temperature')).not.toBeInTheDocument()
   })
@@ -174,7 +174,7 @@ describe('PlotAgent real desktop workflow', () => {
     installApi(fakeDesktop({ getBootstrap: vi.fn(async (): Promise<DesktopBootstrap> => ({ apiVersion: DESKTOP_API_VERSION, platform: 'win32', core: { phase: 'failed', restartAttempt: 3, error: { code: 'CORE_START_FAILED', message: '本地 Core 无法启动。', retryable: true } }, tasks: { tasks: [], activeTaskCount: 0, hasCommittingTask: false } })) }))
     render(<App />)
     expect(await screen.findByText('本地 Core 启动失败')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /导入自己的数据/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^导入/ })).toBeDisabled()
   })
 
   it('exports PNG through the narrow desktop API without exposing a path', async () => {
@@ -328,7 +328,7 @@ describe('PlotAgent real desktop workflow', () => {
 
   it('updates task count from real task events', async () => {
     render(<App />)
-    await screen.findByRole('heading', { name: '从第一份数值数据开始' })
+    await screen.findByRole('region', { name: '开始使用 PlotAgent' })
     act(() => taskListener?.({ schemaVersion: DESKTOP_API_VERSION, eventType: 'task.state', taskId: 'task:one', sequence: 1, state: 'running', progress: { completed: 1, total: 3, unit: 'plots' } }))
     expect(screen.getByRole('button', { name: /任务中心.*1/ })).toBeInTheDocument()
   })

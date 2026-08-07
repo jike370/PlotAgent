@@ -156,10 +156,11 @@ function Startup({
   const offline = core.phase !== 'ready'
   return (
     <div className="conversation-scroll conversation-scroll--empty">
-      <section className="startup-empty" aria-labelledby="startup-title">
-        <div className="startup-mark" aria-hidden="true"><FileChartColumn size={27} /></div>
-        <h2 id="startup-title">从第一份数值数据开始</h2>
-        <p>导入真实数据后明确选择图形、确认一次字段映射，再得到可复现的科研图。无需账号或注册。</p>
+      <section className="startup-empty" aria-label="开始使用 PlotAgent">
+        <div className="startup-dialog" role="status">
+          <span className="startup-dialog__avatar" aria-hidden="true"><FileChartColumn size={18} /></span>
+          <span>请先导入数据</span>
+        </div>
 
         {offline && (
           <div className="startup-core-alert" role="status">
@@ -173,22 +174,17 @@ function Startup({
         <div className="startup-actions">
           <button className="startup-action startup-action--primary" type="button" onClick={onOpenSample} disabled={offline || busyAction !== undefined}>
             <span className="startup-action__icon">{busyAction === 'sample' ? <LoaderCircle className="spin" size={18} /> : <Play size={18} />}</span>
-            <span><strong>用示例项目试用</strong><small>真实创建本地项目并导入内置 CSV</small></span><ArrowRight size={17} />
+            <span><strong>示例</strong></span><ArrowRight size={17} />
           </button>
           <button className="startup-action startup-action--secondary" type="button" onClick={onImportData} disabled={offline || busyAction !== undefined}>
             <span className="startup-action__icon">{busyAction === 'import' ? <LoaderCircle className="spin" size={18} /> : <FileSpreadsheet size={18} />}</span>
-            <span><strong>导入自己的数据</strong><small>CSV、TSV、TXT、DAT、XLS、XLSX、XLSM</small></span><ArrowRight size={17} />
+            <span><strong>导入</strong><small>CSV、TSV、TXT、DAT、XLS、XLSX、XLSM</small></span><ArrowRight size={17} />
           </button>
         </div>
         <button className="startup-project-link" type="button" onClick={onOpenProject} disabled={offline || busyAction !== undefined}>
           <FolderOpen size={15} />打开已有 .plotproj
         </button>
         {notice && <InlineNotice notice={notice} />}
-        <div className="startup-assurances" aria-label="应用边界">
-          <span><CircleCheck size={14} />项目默认保存在本机</span>
-          <span><CircleCheck size={14} />原始数据保持只读</span>
-          <span><CircleCheck size={14} />OPJU 可用性在导出时检测</span>
-        </div>
       </section>
     </div>
   )

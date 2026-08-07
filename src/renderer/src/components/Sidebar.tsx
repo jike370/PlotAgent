@@ -81,7 +81,6 @@ export function Sidebar({
           <div className="sidebar-startup-empty">
             <FolderKanban size={20} aria-hidden="true" />
             <strong>还没有本机项目</strong>
-            <span>试用示例或导入数值数据后，项目会显示在这里。</span>
           </div>
         ) : visibleProjects.length === 0 ? (
           <div className="sidebar-search-empty" role="status">

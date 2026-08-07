@@ -1763,13 +1763,6 @@ input[type="checkbox"] {
   font-size: 10px;
 }
 
-.sidebar-startup-empty span {
-  max-width: 22ch;
-  color: var(--muted);
-  font-size: 8.5px;
-  line-height: 1.55;
-}
-
 .startup-empty {
   width: min(560px, calc(100% - 48px));
   display: grid;
@@ -1788,32 +1781,30 @@ input[type="checkbox"] {
   font-weight: 650;
 }
 
-.startup-mark {
-  width: 54px;
-  height: 54px;
+.startup-dialog {
+  width: min(420px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--ink-strong);
+  background: var(--selected);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.startup-dialog__avatar {
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
-  margin-bottom: 14px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  color: var(--primary);
-  background: var(--primary-soft);
-}
-
-.startup-empty h2 {
-  margin: 0 0 8px;
-  color: var(--ink);
-  font-size: 21px;
-  font-weight: 720;
-  letter-spacing: -0.02em;
-}
-
-.startup-empty > p {
-  max-width: 58ch;
-  margin: 0 0 21px;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.65;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  color: #ffffff;
+  background: var(--primary);
 }
 
 .startup-actions {
@@ -1911,28 +1902,6 @@ input[type="checkbox"] {
 
 .startup-project-link:hover {
   background: var(--primary-soft);
-}
-
-.startup-assurances {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 22px;
-  padding-top: 13px;
-  border-top: 1px solid var(--border);
-  color: var(--success);
-  font-size: 11px;
-}
-
-.startup-assurances span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.startup-assurances .is-warning {
-  color: var(--warning);
 }
 
 .startup-footer {
