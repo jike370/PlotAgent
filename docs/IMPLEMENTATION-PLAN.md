@@ -1,6 +1,6 @@
 # PlotAgent v1 实施拆分与里程碑计划
 
-> 状态：原 M0–M6 工程切片已实现；正式范围为43图、九个P1 adapter内部隐藏；M6 Phase A基础泛化与Phase B逐图编辑/Origin样式已完成当前工程门禁，Phase C内部可组合绘图底座待实现；M7邀请制Beta qualification尚未执行
+> 状态：原 M0–M6 工程切片已实现；正式范围为43图、九个P1 adapter内部隐藏；M6 Phase A基础泛化与Phase B逐图编辑/Origin样式已完成当前工程门禁，Phase C首批14图可组合底座、精简批量辨识度闭环与完整生产前端重做待实现；M7邀请制Beta qualification尚未执行
 > 日期：2026-08-07
 > 适用范围：W0–W10 workstreams、依赖、风险 spikes、里程碑、验收证据与错误归属
 > 相关文档：[规格索引与 Beta 设计基线](./SPEC-INDEX.md)、[前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)、[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)
@@ -16,8 +16,8 @@
 - Risk spike 产物可以丢弃代码，但其 evidence、结论和 Decision 影响必须保存。
 - W6/Origin 风险验证前置；不能等全部正式图实现后才发现 O1 技术路径不成立；已有31图与新增12图证据分别记录。
 - Workstream out-of-scope 不得通过“顺手实现”绕过依赖、权限或 release gate。
-- M6 新范围严格分三阶段：A 冻结并通过基础泛化矩阵、修复基础函数；B 固化43图编辑 capability、Origin 对齐符号/色板并完成跨 renderer 测试；C 实现 ChartRecipe compiler 和43个正式图迁移。九个隐藏图只做内部回归；generator/oracle 与组合架构不得在同一阶段变更。
-- 前端改版、剩余P0和批量/自然语言辨识度按 `FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md` 的 SEQ-10–80 执行；难度排序不替代依赖顺序，屏幕级全面改版不得早于领域对象稳定。
+- M6 新范围严格分三阶段：A 冻结并通过基础泛化矩阵、修复基础函数；B 固化43图编辑 capability、Origin 对齐符号/色板并完成跨 renderer 测试；C 实现 ChartRecipe compiler 和首批14图迁移。其余29个正式图与九个隐藏图保留既有回归；generator/oracle 与组合架构不得在同一阶段变更。
+- 前端重做、精简批量/自然语言辨识度按 `FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md` 的 SEQ-10–80 执行；蓝图和设计系统可先行，完整生产页面接入必须等待最小领域对象与真实批量链路稳定。持久化样式预设、数据重放、对象树、完整模板和搭建器不进入第一阶段。
 
 ## 2. 依赖图与并行边界
 
@@ -49,7 +49,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 ### W0 — Contracts、generated types、errors、fixtures 与 harness
 
 - **Owner:** Core Contracts + QA Infrastructure。
-- **Scope:** Pydantic strict models；JSON Schema Draft 2020-12；generated TS types；JSON-RPC/event envelopes；stable error registry；canonical hash rules；43 official/9 internal_hidden availability与ChartEditCapabilityProfile；MarkerSymbol/Interior/PaletteRef；StructureUnitDefinition/ChartRecipe/semantic port/closed relation schemas；约30个导入 golden、43图字段/准备/固定计算/预计算/security fixture manifest；冻结泛化/style generator/manifest；test/evidence harness skeleton。
+- **Scope:** Pydantic strict models；JSON Schema Draft 2020-12；generated TS types；JSON-RPC/event envelopes；stable error registry；canonical hash rules；43 official/9 internal_hidden availability与ChartEditCapabilityProfile；MarkerSymbol/Interior/PaletteRef；首批14图所需StructureUnitDefinition/ChartRecipe/semantic port及overlay/group/stack/attach/connect封闭关系；约30个导入 golden、43图字段/准备/固定计算/预计算/security fixture manifest；冻结泛化/style generator/manifest；test/evidence harness skeleton。
 - **Out of scope:** 领域算法、真实 renderer、Electron业务 UI、云部署和 Origin automation。
 - **Inputs/contracts:** DOMAIN-CONTRACTS、所有专门契约、PRODUCT-DECISIONS、PERFORMANCE-TEST-RELEASE。
 - **Planned entries:** `src/plotagent/contracts/`、`schemas/`、`src/shared/generated/`、`tests/fixtures/`、`tests/evidence/`。
@@ -59,21 +59,21 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Stable error ownership:** `SCHEMA_*`、`PROTOCOL_*`、`ERROR_CODE_UNKNOWN`；其他 W 提交 code proposal，W0 审核 registry shape。
 - **Done:** 全部后续 W 所需跨模块 type有唯一 schema/version/owner，codegen clean，核心 fixtures 可被至少 Python/TS 两侧读取，harness 能产出规范 evidence record。
 
-### W1 — Electron Main、preload、PythonSupervisor、单实例与任务事件
+### W1 — Electron Main、完整生产前端、preload、PythonSupervisor、单实例与任务事件
 
-- **Owner:** Desktop Platform。
-- **Scope:** secure BrowserWindow；sandbox/contextIsolation/no Node；typed preload；single instance/file-open forwarding；Python Core stdio framing/heartbeat/restart loop；task event bridge；close-with-active-tasks UX；Credential Manager facade（不暴露 secrets）。
+- **Owner:** Desktop Platform + Product UI。
+- **Scope:** secure BrowserWindow；统一生产应用壳与全部现有页面重做；项目/对话、首次启动、设置、导入/映射、聚焦编辑和第一阶段批量页面；sandbox/contextIsolation/no Node；typed preload；single instance/file-open forwarding；Python Core stdio framing/heartbeat/restart loop；task event bridge；close-with-active-tasks UX；Credential Manager facade（不暴露 secrets）。
 - **Out of scope:** Core领域逻辑、ModelProvider网络、云令牌协议、renderer功能重做。
 - **Inputs/contracts:** BACKEND-ARCHITECTURE、TASK-RUNTIME、LOCAL-SECURITY、W0 RPC/event/schema/errors。
 - **Planned entries:** `src/main/`、`src/preload/`、`src/shared/generated/`、desktop E2E harness。
-- **Deliverables:** PythonSupervisor state machine；narrow IPC allowlist；single-instance routing；heartbeat/crash-loop recovery；task/close events；security headers/link policy。
+- **Deliverables:** PythonSupervisor state machine；narrow IPC allowlist；single-instance routing；heartbeat/crash-loop recovery；task/close events；security headers/link policy；统一设计系统、完整生产页面、状态矩阵、键盘/DPI/无障碍与前端E2E。
 - **骨架实现选择（2026-08-05）：** Core 入口固定为 `python -m plotagent.desktop_core`，现已实现常驻同步控制循环、有界 worker/task registry、1 MiB/32 层限制的 UTF-8 单行 JSON + `\n`、`protocol_version=1.0`、严格 ID/幂等冲突/净化错误、initialize/ready/heartbeat/health/shutdown 与 task snapshot/cancel/event；启动/心跳/请求/退出超时分别为 10s/7.5s/10s/5s，心跳间隔 2.5s，60s 内最多自动重启 3 次（250/500/1000ms）。单实例只接收 `.plotproj` 并在 Main 内换成 `resourceId`；preload 不暴露 path、stdio、secret 或通用 IPC。当前手写 desktop contract 待 W0 发布 Schema 后以 generated TS 同形替换并执行 no-diff 检查。
 - **Windows sidecar 边界（2026-08-05）：** development 继续运行 `python -m plotagent.desktop_core`；packaged build 不回退系统 Python，也不接受环境变量覆盖，固定启动 `resources/core/plotagent-core/plotagent-core.exe` 的 PyInstaller onedir sidecar。sidecar 与开发态使用同一 `plotagent.desktop_core` runtime，后续领域服务只通过窄 `ServiceRegistry` 注册，不另设打包专用 mock dispatcher。
 - **产品 IPC 与本地资源边界（2026-08-05）：** renderer 每个产品动作只对应一个 typed preload 方法，不暴露通用 `invoke/send`、任意 path、stdio 或凭据。CSV/TSV/TXT/DAT/XLS/XLSX/XLSM 导入、`.plotproj` 打开及 PNG/SVG/OPJU 保存位置均由 Electron Main 原生对话框授权；Main 为授权源、项目包、预览和导出登记随机 resource ID，并生成 idempotency key 与新对象 ID。Core 返回的 artifact path 在 Main 内立即转换为随机资源描述并从结果中删除；PNG/SVG 预览只通过 `plotagent-resource:` 只读协议提供，协议复核 registry、kind、扩展名、MIME、文件类型、32 MiB 上限及 SVG 主动内容，CSP 仍保持 renderer 零网络。示例入口使用 Main 内置 CSV 写入受控应用目录后真实执行 `projects.create/open → datasets.import`，失败时返回真实错误而不伪造对象。
 - **Dependencies/parallel:** W0→W1。Supervisor可与preload并行；task events等待W0 event schema；W7/W9复用网络/credential/安全边界。
 - **Acceptance evidence:** Electron security assertion；IPC negative/fuzz；partial/malformed stdio framing；Core crash/heartbeat/restart loop；single-instance/open-file；active-task close三选项；renderer secret scan。
 - **Stable error ownership:** `CORE_*`、`IPC_*`、`SINGLE_INSTANCE_*`、`CREDENTIAL_ACCESS_*`、`EXTERNAL_LINK_BLOCKED`。
-- **Done:** App shell不等云可交互，Core可监管/恢复，renderer无Node/secret/任意IPC，任务事件和关闭路径满足contract并有E2E evidence。
+- **Done:** App shell不等云可交互，Core可监管/恢复，renderer无Node/secret/任意IPC，任务事件和关闭路径满足contract并有E2E evidence；全部现有生产能力和第一阶段批量链路进入统一新前端，不长期混用旧壳且无假按钮/mock产品能力。
 
 ### W2 — Storage、确定性 Import、SourceDataset 与受控 Preparation
 
@@ -110,23 +110,23 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Out of scope:** 科研图像/地图、任意chart plugin、PDF/EPS/EMF、Origin construction、hidden analysis、renderer-specific autoscale。
 - **Inputs/contracts:** RENDERING-PIPELINE、DOMAIN-CONTRACTS、PlotCalculation/precomputed contracts、PRODUCT 正式43/内部52分层、W2/W3、W0 fixtures/generalization/style manifests。
 - **Planned entries:** `src/plotagent/charts/`、`src/plotagent/recipes/`、`plots/`、`rendering/resolver/`、`rendering/matplotlib/`、`exports/png_svg/`。
-- **Deliverables:** availability-aware registry；43图 canonical edit capability profiles；MarkerSymbol/Interior/PaletteRef registry；allowed/unsupported Patch validator；canonical StructureUnitDefinition/ChartRecipe/PlotSpec/Patch；recipe compiler与ResolvedRenderPlan hash；data-driven layout/axis/ticks/font/style engine；43个正式 adapter同构迁移；formal validators；preview simplification disclosure。
+- **Deliverables:** availability-aware registry；43图 canonical edit capability profiles；MarkerSymbol/Interior/PaletteRef registry；allowed/unsupported Patch validator；canonical StructureUnitDefinition/ChartRecipe/PlotSpec/Patch；recipe compiler与ResolvedRenderPlan hash；data-driven layout/axis/ticks/font/style engine；首批14个正式图同构迁移；其余29图既有路径无退化；formal validators；preview simplification disclosure。
 - **实现选择（2026-08-05）：** 31 个 ID 由显式 registry 与少量 `xy/bar/distribution/matrix/special/facet` adapter family 驱动；每图仍有独立字段、计算来源和限制。Matplotlib Agg 是 preview、PNG、SVG 的唯一 raster/vector 实现，62 条真实导出路径共享同一 resolver，formal 保留全数据。S05 的 log10 tick 使用 ASCII 科学计数标签，避免目标 Windows 字体缺字且不改变数值语义。运行依赖已删除未使用的 Plotly/Kaleido、Pandas、OpenAI SDK、orjson 与 multipart；Provider 直接复用受策略约束的 httpx，避免重复网络栈和打包体积。
 - **实现选择（2026-08-06，Origin P1 扩展）：** registry 扩为52个稳定ID，但 availability 分为43个正式与九个隐藏。正式新增为 X01/X02/X03/X05/X09/X13/X23/X24/X35/X36/X38/S07；X07/X11/X12/X15/X16/X17/X18/X19/X37 不暴露 create/export。新增几何继续复用现有 adapter family 与 chart-specific fixed resolver。X09/X35 使用 Origin 原生 XYY Floating Column；双Y使用重叠原生layer、独立左右scale/labels并隐藏重复X轴；X02使用原生 Scatter + Drop Lines 并连接已解析Y轴可见下边界。X23/X24/X35/X36 两侧轴默认统一中性、正常字重、非加粗细线，显式style patch才着色。Origin worker UTF-8、ASCII Unicode escape与3000字符Manifest分块保持不变。当前10个新增图有A/C级同源视觉审计，X24/S07须用冻结合成视觉基线并明确标识，九个隐藏图不计产品证据。
-- **M6补充执行顺序：** Phase A 只扩充 renderer/resolver 泛化测试并修复基础逻辑；Phase B 实现 availability/capability profiles、Patch allow/deny、12符号/适用interior/非适用拒绝、16 palette和Matplotlib/Origin parity；Phase C 才实现 recipe schemas/validator/compiler，并把43个正式图迁移到同一运行时。M6 不实现用户搭建器、个人配方库 UI、代码/公式节点或任意画布。
+- **M6补充执行顺序：** Phase A 只扩充 renderer/resolver 泛化测试并修复基础逻辑；Phase B 实现 availability/capability profiles、Patch allow/deny、12符号/适用interior/非适用拒绝、16 palette和Matplotlib/Origin parity；Phase C 才实现有限 recipe schemas/validator/compiler，并迁移 K01/K02/K03/K05/K08/K09/K10/K18/S05/S25/X01/X02/X03/X09。M6 不实现其余29图迁移、FigureRecipe、双Y/分面/跨轴关系、新固定计算、用户搭建器、个人配方库 UI、代码/公式节点或任意画布。
 - **Dependencies/parallel:** W2→W4，固定计算图需W3；预计算图需W2/W3字段验证。M6 Phase A→B→C；W6 的代表性泛化验证等待A，编辑/style readback等待B，官方图recipe parity等待C。
-- **Acceptance evidence:** 正式43图 minimal/representative/edge；隐藏九图无产品capability；冻结变体覆盖组数1/2/3/5、类别/点数、尺度/平移、跨零/全负、误差与长标签；有限几何/无重叠/堆积/误差绑定/range/series-color-legend invariants；逐图allowed/unsupported Patch；全部12种marker、闭合marker的3种interior与`plus/cross`非适用拒绝、16 palette frozen RGB、>15联合编码、双Y默认轴；完整Matplotlib matrix；golden recipe/spec/plan；100k formal full-data assertion；physical/color/tick tolerance；SVG/resource preflight；cancel/version conflict。
+- **Acceptance evidence:** 正式43图 minimal/representative/edge与既有路径回归；隐藏九图无产品capability；冻结变体覆盖组数1/2/3/5、类别/点数、尺度/平移、跨零/全负、误差与长标签；有限几何/无重叠/堆积/误差绑定/range/series-color-legend invariants；逐图allowed/unsupported Patch；全部12种marker、闭合marker的3种interior与`plus/cross`非适用拒绝、16 palette frozen RGB、>15联合编码、双Y默认轴；首批14图 golden recipe/spec/plan与三renderer parity；100k formal full-data assertion；physical/color/tick tolerance；SVG/resource preflight；cancel/version conflict。
 - **Stable error ownership:** `PLOT_*`、`PATCH_*`、`CHART_*`、`AXIS_*`、`RENDER_*`、`PNG_*`、`SVG_*`、`FONT_*`、`RESOURCE_LIMIT`（渲染维度）。
-- **Done:** 正式43图全部通过适用preview/formal PNG/SVG、基础泛化、逐图编辑与样式门禁并由版本化recipe编译；九个隐藏图不进入产品capability；任何unsupported/invalid请求稳定失败；无隐藏统计/拟合、formal抽稀、写死双组布局、循环颜色、本机Origin palette漂移或adapter默认漂移。
+- **Done:** 正式43图全部通过适用preview/formal PNG/SVG、基础泛化、逐图编辑与样式门禁；首批14图由版本化recipe编译，其余29图既有路径无退化；九个隐藏图不进入产品capability；任何unsupported/invalid请求稳定失败；无隐藏统计/拟合、formal抽稀、写死双组布局、循环颜色、本机Origin palette漂移或adapter默认漂移。
 
 ### W5 — Isomorphic Batch、审阅与 FigureSpec
 
 - **Owner:** Plot Workflow + Desktop UX。
-- **Scope:** BatchSpec/fan-out；完全同构一次 FieldMapping/Preparation/PlotCalculation/Plot模板；partial success；网格/列表/轮播/filter/sort；multi-select scope；temporary unified axes/overlay；exclude export；save-as-new；numeric-only fixed Figure layouts/panels/common legend。
-- **Out of scope:** heterogeneous per-file exceptions、image panel/freeform layout、temporary compare auto-version、source plot reverse mutation。
+- **Scope:** BatchSpec/fan-out；同一chart type；首批14图batch qualification；完全同构一次 FieldMapping/Preparation/PlotCalculation/Plot模板；partial success；真实缩略图网格、多选、状态筛选、失败项局部重试；current/selected/batch scope；共同capability统一编辑；exclude/export；numeric-only fixed Figure layouts/panels/common legend。
+- **Out of scope:** heterogeneous per-file exceptions、模糊字段匹配、列表/轮播/自由排序/图像叠加比较、持久化StylePreset、DataReplacementPlan、figure edit scope、image panel/freeform layout、source plot reverse mutation。
 - **Inputs/contracts:** PRD批量/组合、DOMAIN-CONTRACTS、TASK-RUNTIME、RENDERING、W2 semantic signatures、W4 Plot/Plan。
 - **Planned entries:** `src/plotagent/batch/`、`figures/`、`src/renderer/.../batch/figure/`。
-- **Deliverables:** Batch/Figure services；review query/state；selection scope reducer；temporary compare state；explicit save/export specs；fixed layout resolver integration。
+- **Deliverables:** Batch/Figure services；首批14图batch allowlist；review query/state；current/selected/batch scope reducer；AgentChangeSet与整体撤销；失败项局部重试；explicit export specs；fixed layout resolver integration。
 - **核心服务实现选择（2026-08-05）：** `src/plotagent/batch/` 已提供纯 Python 同构
   fan-out service，并通过 repository/executor protocols 注入后续 W2/W4 实现；提交只接受一份已确认
   FieldMapping、PreparationSpec、可选 PlotCalculationSpec、Plot 模板和共享样式，逐项暂存/原子提交，
@@ -320,10 +320,10 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 - **Entry:** K01 spike通过，M2 31 RenderPlans稳定。
 - **Exit evidence:** 当前 Beta build 唯一 Origin exact version 的 31 图代表性 OPJU O1 live+fresh reopen；其他版本 `VERSION_UNSUPPORTED`；minimal/edge/error 离线契约与稳定失败测试；atomic/cancel/hang/external modification。
 
-### M6 — 轻量可靠工程收口、基础泛化与内部可组合绘图底座
+### M6 — 轻量可靠工程收口、首批可组合底座、批量辨识度与完整前端
 
 - **Entry:** 原 M6 工程切片通过；内部52图registry和既有render/export链可回归；正式43/隐藏九图范围、逐图编辑/Origin样式与StructureUnit/ChartRecipe契约已冻结。
-- **Exit evidence:** 保留原 DeviceCredential、quota、offline/local_only、diagnostic、compatibility 与人工包证据；新增正式43图冻结泛化矩阵及不变量、按结构签名代表性Origin、43图capability allow/deny、隐藏九图无暴露、12种符号/适用interior/非适用拒绝、16色板、类别容量、双Y默认样式、StructureUnit/ChartRecipe graph validator与canonical compiler、43个正式图同构迁移、recipe→PlotSpec→Plan确定性和三renderer parity。Phase A泛化→Phase B编辑/style→Phase C组合compiler的证据顺序不可逆。
+- **Exit evidence:** 保留原 DeviceCredential、quota、offline/local_only、diagnostic、compatibility 与人工包证据；新增正式43图冻结泛化矩阵及不变量、按结构签名代表性Origin、43图capability allow/deny、隐藏九图无暴露、12种符号/适用interior/非适用拒绝、16色板、类别容量、双Y默认样式、有限StructureUnit/ChartRecipe graph validator与canonical compiler、首批14图同构迁移及recipe→PlotSpec→Plan三renderer parity、14图同构批量/一次映射/ChangeSet/局部重试闭环、完整生产前端功能对等与E2E。其余29图既有路径保持正式覆盖。Phase A泛化→Phase B编辑/style→Phase C有限compiler→批量闭环→前端重做的证据顺序不可逆。
 - **当前实现（2026-08-05）：** 原工程收口已具备完整本地 Core、真实桌面 typed IPC、31 图/批量/Figure/Agent/PNG/SVG/OPJU 工作流，以及可执行 unsigned development 构建、显式可选签名入口、精确 SHA-256 manifest 与离线稳定阻断测试。邀请制 built-in cloud 保持轻量独立控制面；无账号、无设备数限制。新增基础泛化与内部配方底座尚未完成，因此 M6 当前为 reopened；不宣称签名 RC 或 M7 Beta qualification。
 - **当前回归证据（2026-08-06）：** Python 常规门禁为 674 passed、53 个真实 Origin marker skipped，Ruff 与 mypy 全通过；Node/Electron 为 16 files、67 tests，lint、两套 TypeScript typecheck 与 production build 全通过；Windows release tools 离线测试通过。内部代码面为52图（每图3组离线fixture）；正式新增中10图已有同源Matplotlib/Origin/fresh-reopen视觉审计，X24/S07须按冻结合成视觉测试补齐并显式标识，九图已移出产品覆盖。逐图编辑与Origin样式实现/证据仍在M6 reopened范围。
 
@@ -331,7 +331,7 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 - 冻结 `GENERALIZATION_SEED=20260806`，新增 155 项门禁：全部 52 图重复解析的 plan/hash 确定性、有限 geometry、坐标覆盖和 Matplotlib canvas 实绘；高风险结构另覆盖折线 1/2/101 点与大小量级平移缩放、分组柱 1/2/3/5 组及 1/4/12 类别、堆积/百分比堆积 1/2/3/5 组件、正负分离累计、零/对称/非对称误差、热图/等高线网格尺寸、可选角色缺失、缺失行、长标签、NaN/Inf 阻断和代表性 PNG/SVG。
 - 测试发现纵轴纳零曾依赖 chart ID 白名单，导致 K15 及若干柱/直方子层可能裁掉零基线；现改为按每个面板实际 geometry 与 `bottom` 数据决定，浮动柱非零底不被错误强塞零点。K15 portable golden 随独立结构不变量更新，并完成一次 Origin build/fresh-reopen 实机验证。
-- 本阶段提交为 `e9a0e57`；组合、StructureUnit 和 ChartRecipe 尚未实现。按结构签名的完整 Origin 代表性泛化报告、Phase B编辑/style与Phase C recipe compiler/43图迁移仍是M6未完成项，因此不得据此启动M7或宣称组合底座完成。
+- 本阶段提交为 `e9a0e57`；组合、StructureUnit 和 ChartRecipe 尚未实现。按结构签名的完整 Origin 代表性泛化报告、Phase B编辑/style与Phase C recipe compiler/首批14图迁移、精简批量辨识度闭环和完整生产前端重做仍是M6未完成项，因此不得据此启动M7或宣称组合底座完成。
 
 #### M6 逐图编辑与 Origin 样式 Phase B（2026-08-06）
 

@@ -118,7 +118,7 @@ PlotSpec
 - 数据、样式、发表规格和渲染器都引用明确版本。
 - 图表子对象具有稳定语义 ID，例如 `series:control`、`axis:y-left`、`legend:main`。
 - PlotSpec 不包含可执行 Python、LabTalk、JavaScript 或任意模板代码。
-- ChartRecipe 只保存组件、语义端口、封闭关系、策略、默认样式和显式模板常量；不保存真实数据、FieldId、路径、自动范围、计算结果或可执行内容。官方与未来自定义配方使用同一 compiler/resolver/renderer 链。
+- ChartRecipe 只保存组件、语义端口、封闭关系、策略、默认样式和显式模板常量；不保存真实数据、FieldId、路径、自动范围、计算结果或可执行内容。首批迁移14图与未来自定义配方使用同一 compiler/resolver/renderer 链；其余29图第一阶段保留既有PlotSpec路径。
 
 ### 4.2 PlotPatch
 
@@ -189,10 +189,10 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 - `ImportService`：确定性 Excel/TXT/CSV 导入、结构候选、最小追问、ImportRecipe、SourceDataset 和只读访问。
 - `PreparationService`：把一次 FieldMapping 本地编译为封闭 PreparationSpec，原子创建用于复现的 PreparedDataset/Plot Data。
 - `PlotCalculationService`：执行九类封闭 PlotCalculationSpec，持久化固定算法结果、mask 与 hashes。
-- `RecipeService`：StructureUnit/ChartRecipe registry、完整组件图/端口/关系校验、版本锁定和确定性编译；M6 只服务官方配方迁移，不开放用户搭建入口。
+- `RecipeService`：StructureUnit/ChartRecipe registry、完整组件图/端口/关系校验、版本锁定和确定性编译；M6 只服务首批14个官方配方迁移，不开放其余29图迁移、FigureRecipe或用户搭建入口。
 - `PlotService`：PlotSpec 创建、Patch、验证和版本。
 - `RenderService`：解析版本化坐标、ticks、物理布局、字体、样式、数据完整性与 ResolvedRenderPlan hash。
-- `BatchService`：完全同构验证、任务展开、部分失败和事务撤销。
+- `BatchService`：同一chart type与完全同构签名验证、一次字段映射、任务展开、部分失败、共同capability修改、失败项局部重试和事务撤销；第一阶段批量资格限首迁14图。
 - `CompositionService`：固定数值面板布局和源图版本引用。
 - `ExportService`：PNG、SVG、OPJU 和正式导出记录。
 - `OriginService`：OriginAdapter/OriginExportPlan、preflight、隔离实例、原生对象重建、两阶段验证和整文件原子提交。

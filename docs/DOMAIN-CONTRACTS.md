@@ -1,6 +1,6 @@
 # PlotAgent 领域契约与 Schema 设计
 
-> 状态：第一轮契约基线已确认；43 图 availability、通用/专属编辑与 Origin 样式契约已实现当前工程门禁，ChartRecipe 同构迁移待实现
+> 状态：第一轮契约基线已确认；43 图 availability、通用/专属编辑与 Origin 样式契约已实现当前工程门禁，ChartRecipe v1 与首批 14 图迁移待实现
 > 日期：2026-08-07
 > 适用范围：SourceDataset、FieldMapping/PreparationSpec、PlotCalculationSpec/Result、StructureUnit/ChartRecipe、PlotSpec、PlotPatch/ChartEditCapabilityProfile、BatchSpec、FigureSpec、ActionPlan 及跨进程 Schema
 > 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
@@ -134,7 +134,7 @@ ChartRecipe
 ├─ origin: official | user
 ├─ parent_recipe_ref?
 ├─ components[1..N]: ComponentInstance
-├─ relations[]: overlay | group | stack | attach | connect | offset | facet | axis_assignment
+├─ relations[]: overlay | group | stack | attach | connect
 ├─ semantic_slots[]
 ├─ coordinate_policy / default_style_ref
 ├─ explicit_template_constants[]
@@ -146,10 +146,10 @@ ChartRecipe
 - `ComponentInstance` 引用一个已登记 unit/version，并为其端口分配稳定 component-local slot；不允许嵌入 Python、LabTalk、任意 JSON path 或 renderer 参数字符串。
 - `Relation` 是带 discriminator 的封闭联合，目标使用稳定 component ID。误差/区间/标签必须显式 `attach` 到目标构件；堆积、分组和轴归属不得从字段名或 series 顺序推断。
 - 两个单元分别可用不代表其任意多单元组合合法；Local Recipe Validator 必须校验完整有向组件图、端口基数、关系冲突、单位/坐标、固定计算来源和 renderer capability。
-- 官方图形与未来用户图形使用同一 ChartRecipe Schema。官方身份只表示完成更严格的证据门禁，不表示存在第二套运行时。
+- 已迁移官方图形与未来用户图形使用同一 ChartRecipe Schema。官方身份只表示完成更严格的证据门禁；未迁移 29 图在过渡期继续使用既有运行时，不伪装为 recipe。
 - ChartRecipe 只保存语义槽位。当前数据经一次 FieldMapping 绑定到槽位，本地 compiler 再生成具体 PlotSpec；已有有效绑定可增量复用，新增或冲突槽位才需要用户确认。
 - 固定计算只能作为登记的输入来源供构件消费，不能在组件图中自由串联，也不能成为通用派生数据工作流。
-- M6 只实现 Schema、validator、compiler 与官方配方迁移；用户搭建器、用户配方包和自然语言结构 Action 在 M6 后开放。
+- M6 只实现 Schema、validator、compiler 与首批 14 个官方配方迁移。v1 关系只覆盖 overlay/group/stack/attach/connect，baseline 通过强类型 attach 表达；offset/facet/axis assignment、FigureRecipe、用户搭建器、用户配方包和自然语言结构 Action 后移。
 
 ## 4. PlotSpec
 
@@ -224,7 +224,7 @@ ChartRecipe
 
 因此，同属 `xy` 的 K01 与 S31 可以复用基础 Schema，但 S31 额外允许谱轴方向、峰标签和参考卡配置。
 
-M6 补充迁移后，图形注册表不再重复保存完整布局实现，而是把官方 `chart_type_id` 指向一份精确 `ChartRecipeRef`，并保留产品名称、字段/固定计算门槛、证据状态和导出等级。ChartRecipe compiler 负责从组件图生成 PlotSpec；按 chart ID 的布局常量不得成为第二事实来源。
+M6 补充迁移后，首批 K01/K02/K03/K05/K08/K09/K10/K18/S05/S25/X01/X02/X03/X09 的注册表条目指向精确 `ChartRecipeRef`，并保留产品名称、字段/预计算门槛、证据状态和导出等级。ChartRecipe compiler 负责从组件图生成 PlotSpec；这 14 图不得新增按 chart ID 的第二套布局真值。其余 29 个正式图保留既有注册表和 Resolver 路径，后续迁移须单独通过同样门禁。
 
 ### 4.3 数据准备、固定计算与渲染分离
 
@@ -379,10 +379,37 @@ BatchSpec
 
 - `dataset_signature` 包含列、类型、单位和语义哈希。
 - 只有签名完全一致的数据才能进入同一批次。
+- 一个批次只有一个用户明确指定的 `chart_type_id`；第一阶段批量资格 allowlist 为首迁 14 图。
 - 批次展开由 BatchService 完成，Agent 不逐文件复制计划。
 - `plot_overrides` 按 plot ID 保存局部覆盖；批次强制统一必须由明确操作触发。
+- `shared_field_mapping` 每批只确认一次，只有字段签名精确兼容时复用；不兼容项进入 `NeedsInput`，不执行模糊映射。
 
-### 5.2 FigureSpec
+### 5.2 第一阶段批量交互对象
+
+```text
+SelectionScope = current_plot | selected_plots[] | batch
+
+AgentChangeSet
+├─ source_versions
+├─ target_scope
+├─ accepted_patches[]
+├─ unsupported_or_skipped_targets[]
+├─ failed_targets[]
+├─ resulting_versions[]
+└─ reversible_transaction_ref
+
+BatchReviewItem
+├─ plot_version_ref / preview_ref
+├─ execution_state / validation_warnings
+├─ selection_state
+└─ retry_eligibility
+```
+
+- `AgentChangeSet` 是本地校验和执行后的权威结果，不是模型说明文字；每个 ChangeSet 只要求一次整体撤销，不新增 ChangeSet 专属历史/分支或任意重放脚本，既有 PlotSpec 版本 DAG 保持不变。
+- 批量统一修改只分发目标共同声明的 `ChartEditCapabilityProfile` 字段，不适用目标必须进入 skipped/unsupported，不能静默忽略。
+- 第一阶段不定义 `figure` selection scope、持久化 `StylePreset` 或 `DataReplacementPlan`；可把当前图现有强类型样式直接复制到选中图或批次。
+
+### 5.3 FigureSpec
 
 ```text
 FigureSpec
@@ -586,14 +613,15 @@ validation: info | warning | blocked
 - ActionPlan 最大 8 步、无环依赖和禁止 Action。
 - Excel/TXT/CSV ImportRecipe、结构候选、一次 FieldMapping、PreparationSpec 封闭联合与来源坐标。
 - PlotCalculationSpec 九类联合、固定算法 golden、禁止自由串联与 input/output hash。
-- StructureUnitDefinition/ComponentInstance/Relation/ChartRecipe/ChartRecipeRef 的合法与非法组件图、稳定指纹、版本引用、未知单元和完整图冲突拒绝。
+- StructureUnitDefinition/ComponentInstance/Relation/ChartRecipe/ChartRecipeRef v1 的合法与非法组件图、稳定指纹、版本引用、未知单元和完整图冲突拒绝；v1 只接受 overlay/group/stack/attach/connect。
 - ChartRecipe 只含语义槽位与显式模板常量，不含 SourceDataset/FieldId/数据值/自动范围/PlotCalculationResult/路径/代码；官方与用户 recipe 使用同一 Schema。
-- ChartRecipe→FieldMapping→PlotSpec 编译确定性，同一输入/版本产生相同规范化 PlotSpec；增量组件只使相关新增/冲突槽位失效。
+- 首迁 14 图的 ChartRecipe→FieldMapping→PlotSpec 编译确定性，同一输入/版本产生相同规范化 PlotSpec；其余 29 图既有回归无退化。
 - ResolvedRenderPlan 规范化 hash、正式 ExportSpec 绑定与 Matplotlib/Origin adapter 禁止重新解析。
 - 冻结数据生成器的基础结构不变量：并列不重叠、正负堆积分离、误差显式附着、范围覆盖、series/颜色/图例身份和 finite geometry。
 - 坐标、ticks、SafeRichText、物理尺寸、quality tier 与跨 renderer 容差。
 - OriginExportPlan、O1 准入、最小自包含数据、两阶段读回、整文件原子性和稳定错误。
 - BatchSpec 的 FieldMapping/PreparationSpec/PlotCalculationSpec 完全同构签名。
+- SelectionScope 只接受 current/selected/batch；AgentChangeSet 的成功/跳过/失败、版本、整体撤销与 BatchReviewItem 局部重试状态可回放验证。
 - FigureSpec 固定版本引用。
 - 已知 source→target 一次性迁移原子性/语义不变与其他 Schema 稳定拒绝。
 - InviteGrant/DeviceCredential、QuotaSnapshot、ModelRun原子共享计数/client_run幂等与稳定错误。

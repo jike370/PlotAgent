@@ -77,8 +77,8 @@
 - **PD-E11 高级组合图。** 不等宽、跨行跨列、自由布局、局部放大、嵌套面板、共享轴以及图像混合面板放在后续阶段。
 - **PD-E12 组合图版本绑定。** 组合图引用具体图表版本；源图有新版本时只提示，替换必须由用户确认，布局修改不反向修改源图。
 - **PD-E13 结构单元。** 结构单元是可复用的视觉构件或图形关系，覆盖基础标记、分布、场/矩阵、坐标、布局、附着、视觉编码和受控科研标注；它不是图类型、数据导入/转换、固定计算或 renderer 代码，也不局限于折线、柱和误差棒示例。
-- **PD-E14 图形配方。** 图形配方由版本化结构单元实例、语义端口以及覆盖、并列、堆积、附着、连接、偏移、分面和坐标归属等封闭关系组成；不维护完整组合白名单，但每份完整组件图必须通过端口、关系、科学语义和 renderer 能力校验，两两兼容不等于任意多单元组合必然合法。
-- **PD-E15 官方与用户类型同构。** 官方图类型是经过官方证据门禁的预装图形配方；未来用户自定义图类型使用同一 Schema、compiler、PlotSpec、ResolvedRenderPlan、Matplotlib 与 Origin 路径，不建立第二套用户 renderer 或脚本机制。
+- **PD-E14 图形配方。** 图形配方由版本化结构单元实例、语义端口与封闭关系组成；长期可扩展到偏移、分面和坐标归属，但第一阶段只接受 overlay/group/stack/attach/connect，baseline 通过强类型 attach 表达。每份完整组件图必须通过端口、关系、科学语义和 renderer 能力校验，两两兼容不等于任意多单元组合必然合法。
+- **PD-E15 官方与用户类型同构。** 已迁移官方图类型是经过官方证据门禁的预装图形配方；未来用户自定义图类型使用同一 Schema、compiler、PlotSpec、ResolvedRenderPlan、Matplotlib 与 Origin 路径，不建立第二套用户 renderer 或脚本机制。第一阶段未迁移的29图明确保留既有路径，不伪装为配方。
 - **PD-E16 单图与多面板边界。** 共享一个绘图区的折线+柱+误差、堆积+误差和双 Y 轴等属于一个 PlotSpec/图形配方；1×2、2×2 等多面板仍属于 FigureSpec，结构单元不能跨面板附着，单图配方可作为 Figure 面板来源。
 - **PD-E17 自定义身份。** 样式、字段和坐标范围修改不改变图类型；增删构件、改变堆积/分组/轴拓扑或误差归属产生结构版本。官方图发生结构变化后显示为“基于官方图的自定义图”，即使与另一官方结构相同也只提示、不自动替换用户选择。
 - **PD-E18 保存作用域。** 一次性结构只随当前 PlotSpec 版本保存；用户明确保存后才进入项目图形库或本机个人图形库。未来声明式图形配方包可导入/导出，但只含 Schema 允许的结构、语义槽位、默认样式、说明和合成缩略图，不含代码、真实数据、文件路径、对话或凭据。
@@ -86,7 +86,7 @@
 - **PD-E20 配方版本与删除。** 图表固定引用创建时的配方版本；配方升级不静默改变已有图，显式升级先预览并创建新 PlotSpec 版本。缺少新版必需槽位时只补充冲突映射；删除配方默认仅从图形库隐藏，被历史图引用的版本继续保留，彻底删除前展示依赖。
 - **PD-E21 后期搭建器。** M6 只完成内部可组合底座和基础泛化门禁，不开放用户搭建器。M6 后再提供全窗口搭建器，以“基于当前图”作为默认入口、空白搭建作为进阶入口，包含结构单元目录、实时预览、结构树、字段槽位以及项目/个人图形库；主对话仍无常驻右栏，也不提供自由矢量绘制。
 - **PD-E22 自然语言结构编辑。** 后期 Agent 只使用添加/删除组件、设置封闭关系、设置轴归属、绑定字段和显式保存等领域 Action；模型不输出自由图层 JSON、renderer 代码或任意属性路径。目标明确时创建新图版本，误差归属、堆积范围或轴归属有歧义时只提出一张合并问题卡。
-- **PD-E23 先基础后组合。** 组合底座编码前先通过现有基础图形的参数化泛化测试并修复确定性布局/坐标/误差问题；测试与组合架构不得同时变化。正式基础门禁通过后，才迁移 43 个正式图为同构配方并开放组合 compiler。
+- **PD-E23 先基础后组合。** 组合底座编码前先通过现有基础图形的参数化泛化测试并修复确定性布局/坐标/误差问题；测试与组合架构不得同时变化。正式基础门禁通过后，第一阶段只迁移 PD-AB22 指定的14图并验证有限 compiler；其余29图迁移和用户搭建入口后移。
 - **PD-E25 正式 43 图范围。** 第一轮正式图形库为原 31 图，加 X01、X02、X03、X05、X09、X13、X23、X24、X35、X36、X38、S07，共 43 图；这些图才可以由图形库或 Agent 创建并进入 PNG/SVG/OPJU 产品承诺。
 - **PD-E26 九图移出覆盖。** X07、X11、X12、X15、X16、X17、X18、X19、X37 从正式图形库、Agent create capability 和导出承诺中隐藏；底层 adapter、fixture 与回归测试可保留，但不得以内部可调用或测试通过暗示产品支持，重新准入需补齐视觉规范、逐图编辑能力和发布证据。
 - **PD-E27 合成视觉证据标识。** X24 与 S07 第一阶段允许以冻结合成数据完成 Matplotlib/Origin 并排视觉校准和 O1 结构验证，因此进入正式 43 图；其证据必须显式标记为“合成视觉验证”，不能写成 Origin 官方模板/同源样例证据。获得官方同源图—数据对后再升级证据等级，不静默替换既有基线。
@@ -105,9 +105,9 @@
 
 ## G. 批量审阅与后台任务
 
-- **PD-G01 批量审阅。** 第一轮提供网格、列表和轮播查看；可排序、筛选和标记异常项。
-- **PD-G02 临时比较。** 审阅时可以临时使用共同坐标范围，并可临时叠加选中的同构曲线；临时视图不改变源图。
-- **PD-G03 显式保存比较图。** 只有用户明确执行“保存为新图”时，临时叠加才成为新的图表对象。
+- **PD-G01 批量审阅。** 第一阶段只提供真实缩略图网格、多选、状态筛选、异常标记和失败项局部重试；列表、轮播、自由排序和图像叠加比较后移。
+- **PD-G02 临时统一。** 审阅时可以临时使用共同坐标范围，并把当前图已有强类型样式应用到选中图或批次；只作用于共同 capability，临时操作不改变未提交源图。
+- **PD-G03 比较图后移。** 临时叠加比较及“保存为新图”不进入第一阶段，后续实现时必须显式创建新图表对象，不能修改源图。
 - **PD-G04 导出排除。** 异常项可以标记并从本次导出中排除，排除状态必须可见且可撤销。
 - **PD-G05 任务中心。** 导入、Preparation/PlotCalculation、绘图、重绘和导出作为本地 ExecutionTask，展示准备、运行、提交与结果阶段；模型 NeedsInput 不进入任务中心。
 - **PD-G06 并发规则。** 普通绘图任务可并发；Origin 导出串行执行。
@@ -577,7 +577,7 @@
 - **PD-AB03 W1 Desktop。** Electron Main/preload/PythonSupervisor/single-instance/task events与Credential facade由Desktop Platform负责，不承载领域计算。
 - **PD-AB04 W2 Data。** Storage、确定性 Excel/TXT/CSV import、SourceDataset、FieldMapping、PreparationSpec/PreparedDataset、单位与来源追溯由 Data Platform 负责。
 - **PD-AB05 W3 Plot Calculations。** 九类封闭 PlotCalculationSpec/Result、固定默认、预计算字段校验和 golden fixtures 由 Plot Calculation 负责；通用分析/拟合不在 v1。
-- **PD-AB06 W4 Rendering。** 43 图正式 registry、九图隐藏内部代码面、StructureUnit/ChartRecipe compiler、PlotSpec/Patch、逐图编辑能力、Origin 对齐符号/色板、动态布局、Resolver、Matplotlib与formal PNG/SVG由Rendering负责，不隐藏analysis或Origin逻辑；M6补充按“基础泛化→编辑/样式契约→正式配方迁移”顺序执行。
+- **PD-AB06 W4 Rendering。** 43 图正式 registry、九图隐藏内部代码面、StructureUnit/ChartRecipe compiler、PlotSpec/Patch、逐图编辑能力、Origin 对齐符号/色板、动态布局、Resolver、Matplotlib与formal PNG/SVG由Rendering负责，不隐藏analysis或Origin逻辑；M6补充按“基础泛化→编辑/样式契约→首批14图配方迁移”顺序执行，其余29图保留既有路径。
 - **PD-AB07 W5 Workflow。** 完全同构Batch/review与numeric-only Figure由Workflow负责，临时比较与正式版本严格分离。
 - **PD-AB08 W6 Origin。** OriginAdapter/O1 OPJU/两阶段验证独立成高风险workstream；K01 O1 spike前置，不等全部正式图完成才验证技术路径；既有 31 图矩阵与新增 12 图补充证据分别记录。
 - **PD-AB09 W7 Agent。** ContextBuilder/Provider/four-way AgentDecision/local validator由Agent Runtime负责；自然语言支持中英混合，但禁止本地任意命令/正则解析器绕过结构化链。
@@ -587,13 +587,17 @@
 - **PD-AB13 依赖DAG。** W0→W1/W2；W2→W3/W4/W7/W9；W3→W4/W6；W4→W5/W6；W1→W7/W9；W7→W8；W5/W6/W8/W9→W10。
 - **PD-AB14 并行边界。** W1/W2在W0后并行，W5/W6在stable K01 Plan后并行；W10 harness从W0开始，但final qualification等待W5/W6/W8/W9。
 - **PD-AB15 四个Risk Spikes。** 全面编码前验证K01 import→O1 fresh reopen、100k preview+formal SVG resource preflight、Core crash/SQLite commit boundary integrity、custom provider P1/P2 exactly-one-repair/no-tool-loop。
-- **PD-AB16 垂直优先里程碑。** M0 contracts/spikes→M1 manual K01→M2 deterministic import/preparation/fixed calculations+31 PNG/SVG→M3 batch/Figure→M4 Agent→M5单一Origin exact version全部O1→M6轻量工程收口+基础泛化+内部可组合底座→M7 Beta qualification。
+- **PD-AB16 垂直优先里程碑。** M0 contracts/spikes→M1 manual K01→M2 deterministic import/preparation/fixed calculations+31 PNG/SVG→M3 batch/Figure→M4 Agent→M5单一Origin exact version全部O1→M6轻量工程收口+基础泛化+首批14图可组合底座+批量辨识度闭环+完整生产前端重做→M7 Beta qualification。
 - **PD-AB17 Evidence 完成。** Workstream和milestone只有scope/out-of-scope、inputs、deliverables、dependencies、parallel boundary、acceptance evidence、error owner与done definition全部满足才完成，不按“代码写完”。
 - **PD-AB18 规格索引。** SPEC-INDEX记录每份文档权威范围、冲突优先级、Requirement→Workstream→entry→future evidence映射与readiness checklist。
 - **PD-AB19 冻结含义。** Implementation-ready只表示产品行为和跨模块契约可直接实施，不表示真实后端/云/OPJU/测试已实现，也不伪造每图/每算法完整参数表。
 - **PD-AB20 变更控制。** 后续产品/跨模块变化必须新增或更新Decision ID，同步PRD/专门契约/SPEC-INDEX与fixtures/evidence影响；实现层不得以便利为由静默偏离。
 - **PD-AB21 M6 重新打开。** 原 M6 cloud/local security/人工安装包工程切片保持已实现，但新增确认的基础泛化门禁与内部可组合绘图底座属于 M6 补充退出条件；完成前顶层状态不得继续写“M0–M6 全部完成”，M7 不启动。
-- **PD-AB22 M6 补充范围。** M6 先冻结现有基础图形泛化测试与修复，再加入正式/隐藏 availability、逐图编辑能力、Origin 对齐符号/色板、结构单元/ChartRecipe Schema、确定性 compiler、43 个正式配方迁移和单一 RenderPlan 同构；九个隐藏 adapter 可继续内部回归，但不属于配方迁移或发布退出条件。不包含用户搭建器、自定义图形库、配方包 UI 或自然语言结构编辑入口。
-- **PD-AB23 M6 后范围。** 全窗口搭建器、项目/个人图形库、用户配方导入导出和自然语言结构编辑属于 M6 后产品增量，必须复用 M6 底座，不得另建自由脚本/renderer 或数据处理平台。
+- **PD-AB22 M6 首批配方范围。** M6 先冻结现有基础图形泛化测试与修复，再加入正式/隐藏 availability、逐图编辑能力、Origin 对齐符号/色板、结构单元/ChartRecipe Schema与确定性 compiler。配方迁移只覆盖 K01/K02/K03/K05/K08/K09/K10/K18/S05/S25/X01/X02/X03/X09；其余29个正式图与九个隐藏 adapter 保留既有 PlotSpec/Resolver/renderer 回归，不阻塞 compiler v1。第一阶段不实现 `FigureRecipe`、双Y/分面/跨轴联动、X24/S07新增固定计算或用户自由搭建器。
+- **PD-AB23 M6 后范围。** 持久化命名样式预设、数据替换/重放、精确对象树、完整图形模板、全窗口搭建器、项目/个人图形库、用户配方导入导出、其余29图迁移和自然语言结构编辑属于第一阶段后的候选增量，必须复用同一底座，不得另建自由脚本/renderer 或数据处理平台。
+- **PD-AB24 最小辨识度对象。** 第一阶段只新增 `SelectionScope(current_plot|selected_plots|batch)`、可整体撤销的 `AgentChangeSet` 与 `BatchReviewItem`；不定义 figure scope、持久化 `StylePreset`、`DataReplacementPlan`、ChangeSet 专属历史/分支系统或任意重放脚本，既有 PlotSpec 版本 DAG 保持不变。
+- **PD-AB25 首阶段批量边界。** 一个批次只有一种用户明确指定的图形，批量资格限首迁14图；一批只确认一次字段映射且只对精确兼容字段签名复用，不兼容稳定进入 `NeedsInput`。审阅只做真实缩略图、多选、状态筛选、失败项局部重试和批量导出；统一编辑只作用于共同 capability 并明确列出跳过项。
+- **PD-AB26 首阶段样式复用。** 可把当前图已有强类型样式复制到选中图或整个批次，但不建设命名、持久化、版本化样式预设库。
+- **PD-AB27 完整生产前端重做。** 第一阶段重做所有现有生产页面与新增批量页面，统一应用壳、项目/对话、首次启动、设置、导入/映射、审阅、ChangeSet、聚焦编辑和导出；前端蓝图先行，生产接入等待最小领域契约和真实批量链路稳定。未实现的第二阶段能力不得显示假按钮或模拟结果。
 
 完整W0–W10范围、依赖、spikes与M0–M7见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；权威范围、Requirement/Evidence Matrix与冲突审计见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。

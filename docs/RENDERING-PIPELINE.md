@@ -1,6 +1,6 @@
 # PlotAgent 渲染管线与跨 Renderer 一致性契约
 
-> 状态：第一轮渲染基线已确认；M6 基础泛化、逐图编辑/Origin 样式与结构编译补充契约已冻结、实现门禁重新打开
+> 状态：第一轮渲染基线已确认；M6 基础泛化、逐图编辑/Origin 样式与首批14图结构编译补充契约已冻结、实现门禁重新打开
 > 日期：2026-08-06
 > 适用范围：ResolvedRenderPlan、逐图编辑能力、Origin 对齐符号/色板、质量层级、坐标范围、刻度、物理尺寸、安全文本、Matplotlib/Origin 语义一致性与导出验证
 > 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
@@ -10,13 +10,18 @@
 第一轮只有一套版本化 Render Resolver：
 
 ```text
-ChartRecipeRef + FieldMapping + data refs + explicit overrides
-                 │
-                 ▼
-       deterministic Recipe Compiler
-                 │
-                 ▼
-PlotSpec / FigureSpec
+首批14图：ChartRecipeRef + FieldMapping + data refs + overrides
+                              │
+                              ▼
+                    deterministic Recipe Compiler
+                              │
+                              ▼
+                         PlotSpec
+
+其余29图：既有 validated PlotSpec 路径（第一阶段不迁移）
+                              │
+                              ▼
+                    PlotSpec / FigureSpec
 + immutable PreparedDataset / PlotCalculationResult / precomputed refs
 + resolved style / publication profile
 + quality tier / output target
@@ -27,7 +32,7 @@ PlotSpec / FigureSpec
           └─ Origin adapter
 ```
 
-Recipe Compiler 只把已验证的版本化组件图、语义端口映射和封闭关系编译为 PlotSpec；Resolver 负责所有会影响科学语义或布局的决定。Matplotlib 与 Origin adapter 只能把 RenderPlan 映射为目标对象，不得各自：
+Recipe Compiler v1 只把首批14图已验证的版本化组件图、语义端口映射和 overlay/group/stack/attach/connect 编译为 PlotSpec；Resolver 负责所有数据驱动几何与布局决定。其余29图在第一阶段继续从既有验证路径产生 PlotSpec，两条路径汇入同一 Resolver 和 renderer。Matplotlib 与 Origin adapter 只能把 RenderPlan 映射为目标对象，不得各自：
 
 - autoscale、选择刻度或格式化不同标签。
 - 重算分箱、KDE、summary/error、拟合、科学分析或预计算字段。
@@ -55,11 +60,11 @@ Plan 使用规范化序列化计算 `render_plan_hash`。正式 ExportSpec 必�
 
 ### 2.1 结构编译与动态布局
 
-- 官方图与未来自定义图使用同一 `StructureUnitDefinition → ChartRecipe → PlotSpec → ResolvedRenderPlan` 路径；官方身份只增加准入证据，不允许 adapter 中存在另一套隐藏结构语义。
+- 首批迁移14图与未来自定义图使用同一 `StructureUnitDefinition → ChartRecipe → PlotSpec → ResolvedRenderPlan` 路径；官方身份只增加准入证据。其余29图明确标记为未迁移并保留既有路径，不伪装为 recipe。
 - Recipe Compiler 校验完整组件图、语义端口和关系闭包，不使用“任意两组件可组合”推断完整图合法，也不维护所有组合的穷举白名单。
 - 数据、FieldId、文件路径、自动坐标结果、PlotCalculationResult 和 renderer 代码不得进入 ChartRecipe；它们只在具体 PlotSpec/Plan 中通过版本化引用出现。
 - 同一 recipe version、mapping、data/style refs 和 compiler/resolver 版本必须产生相同的 canonical PlotSpec、Plan 与 hash。
-- 组数、类别/点数、数值范围、误差结构、标签长度和物理画布变化必须驱动 bar width/dodge/stack、error attachment、offset、legend columns、tick density、padding 和 subplot rect；不能从 chart type ID 或 fixture 名称读取固定几何参数。
+- 组数、类别/点数、数值范围、误差结构、标签长度和物理画布变化必须驱动 bar width/dodge/stack、error attachment、legend columns、tick density、padding 和 subplot rect；首批14图 compiler/Resolver 不能从 chart type ID 或 fixture 名称读取固定几何参数。
 - 解析后的 Plan 必须满足：全部几何值有限；同组柱不重叠；正负堆积分别累加；误差绑定其系列及轴；轴范围覆盖全部可见数据/误差/区间；series、颜色和 legend identity 一致。
 - 物理画布不足时输出版本化、可操作 warning 或稳定阻止结果，不允许靠重叠、丢图元、截断标签或缩小到不可读来满足布局。最小宽度、间距和文字阈值必须附 Origin/期刊证据来源与版本。
 
@@ -323,7 +328,7 @@ O1 输出必须用 Origin 原生、链接的数据对象表达：
 - 所有 parity 容差与允许的非缺陷像素差异。
 - O1 原生链接对象、关键语义阻止和无 raster fallback。
 - PNG/SVG/OPJU 验证、临时文件清理与原子替换。
-- ChartRecipe graph/port/relation 校验、canonical compiler、官方/自定义同构路径，以及 recipe 不含数据、FieldId、路径、计算结果或可执行内容。
+- 首批14图 ChartRecipe graph/port/relation 校验、canonical compiler、已迁移官方/未来自定义同构路径，以及 recipe 不含数据、FieldId、路径、计算结果或可执行内容；其余29图既有路径无退化。
 - 冻结泛化 generator/version/seed/manifest 独立于被测实现；oracle 不由当前 compiler、resolver 或 renderer 在测试时生成。
 - 每种基础结构覆盖组数 1/2/3/5、点数/类别数、尺度和平移、跨零/全负、零/对称/非对称误差、长中英文标签和可选字段缺失，并断言有限几何、无重叠、堆积、误差、范围和 series-color-legend 身份不变量。
 - Matplotlib 执行完整基础泛化矩阵；Origin 按结构签名选择代表性变体，同时每个正式图保留至少一个参考图与同源数据锚定的外观证据。两类 evidence 不互相替代。
