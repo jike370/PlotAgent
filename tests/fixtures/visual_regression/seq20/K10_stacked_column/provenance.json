@@ -1,0 +1,15 @@
+{
+  "chart_type_id": "K10",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\Column.opju",
+  "source_sha256": "1f4ab6637f0c4ccebe11c86de6b0d6640efcb41a39492d423b39cc162371e873",
+  "source_graph_name": "Graph9",
+  "source_book": "Book2",
+  "recipe": "直接导出 Origin 随附 Column.opju 的 Graph9 及无误差工作表。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "70845bd3fd6f111b4ff9e01201f0bc2e557ea4a9e48468343097d7ead71bc3a6",
+  "reference_sha256": "c542bc9b45387f7d7ca35a04a91df315b253c34dfa2087280755c85d95fe0a6e",
+  "common_edit": "标题与字号",
+  "chart_edit": "堆积柱边线与宽度"
+}

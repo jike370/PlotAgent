@@ -1,0 +1,15 @@
+{
+  "chart_type_id": "S25",
+  "evidence_grade": "C",
+  "source_path": "D:\\origin\\Samples\\Spectroscopy\\Absorbance Spectra.opj",
+  "source_sha256": "747c09a6eb62bdced287fab8b69531f3303b07bb8d7c7c239241f57d98e58c52",
+  "source_graph_name": null,
+  "source_book": "Book1",
+  "recipe": "Origin 官方 Absorbance Spectra.opj 工作表；因随附 Graph1 是 940–1000 局部视图，改用 Origin LINE 模板按全数据自动范围重新生成。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "3a3ea03dcc52df14c49e465660402837015b0ee7bf611d2b2af63c0391f2da64",
+  "reference_sha256": "449492fdc9da0f4ae3cb3827b68d8101c33a7d30ddd49d6fac018bcaa76b2577",
+  "common_edit": "标题与字号",
+  "chart_edit": "谱线颜色与宽度"
+}

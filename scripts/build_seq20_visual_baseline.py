@@ -116,7 +116,7 @@ CASES = (
     AuditCase(2, "K09", "grouped_column", "分组柱状图", "A", ORIGIN / "Column.opju", "Graph2", "Book1", "直接导出 Origin 随附 Column.opju 的 Graph2；误差列转为显式上下界。", "标题与字号", "分组柱边线与宽度"),
     AuditCase(3, "K10", "stacked_column", "堆积柱状图", "A", ORIGIN / "Column.opju", "Graph9", "Book2", "直接导出 Origin 随附 Column.opju 的 Graph9 及无误差工作表。", "标题与字号", "堆积柱边线与宽度"),
     AuditCase(3, "S05", "dose_response", "给定剂量反应", "C", ORIGIN / "Samples" / "Curve Fitting" / "Dose Response - Inhibitor.dat", None, None, "Origin 官方剂量反应样例；三次测量的均值与逐剂量 min/max 作为用户提供曲线/带，在 Origin 中重新生成，不执行拟合。", "标题与字号", "点/线样式与带透明度"),
-    AuditCase(3, "S25", "spectrum", "连续谱图", "A", ORIGIN / "Samples" / "Spectroscopy" / "Absorbance Spectra.opj", "Graph1", "Book1", "直接导出 Origin 官方 Absorbance Spectra.opj 的 Graph1 及同项目工作表。", "标题与字号", "谱线颜色与宽度"),
+    AuditCase(3, "S25", "spectrum", "连续谱图", "C", ORIGIN / "Samples" / "Spectroscopy" / "Absorbance Spectra.opj", None, "Book1", "Origin 官方 Absorbance Spectra.opj 工作表；因随附 Graph1 是 940–1000 局部视图，改用 Origin LINE 模板按全数据自动范围重新生成。", "标题与字号", "谱线颜色与宽度"),
     AuditCase(3, "X03", "dumbbell", "哑铃图", "A", ORIGIN / "Lollipop.opju", "Graph1", None, "直接导出 Origin 随附 Lollipop Plot (Two Points) 图页及工作表。", "标题与字号", "端点颜色、点形、点大小"),
 )
 
@@ -132,6 +132,9 @@ VISUAL_OBSERVATIONS: dict[str, tuple[str, ...]] = {
         "Origin O1 默认置信带出现黑色实填，且标题压入绘图区；Matplotlib 与参考没有该问题。",
     ),
     "K09": ("Origin O1 在三组数据下柱形发生重叠，违反动态组数不重叠约束。",),
+    "S05": ("Origin O1 图例右侧文字被页面边缘截断，且标题未位于页顶。",),
+    "S25": ("Origin O1 标题未位于页顶；数据范围与全范围 C 级参考一致。",),
+    "X03": ("Origin O1 标题未位于页顶；端点和连接几何保持同源。",),
 }
 
 
@@ -292,6 +295,15 @@ def _write_reference(case: AuditCase, frame: pd.DataFrame, case_dir: Path, op: A
         graph = op.new_graph(template="LINESYMB")
         graph[0].add_plot(sheet, coly=1, colx=0, type=202)
         graph[0].xscale = "log10"
+    elif case.chart_id == "S25":
+        sheet.from_df(frame)
+        # The installed spectra.OTP reverses the Y axis and labels it as a
+        # time/frequency transform, which is not the semantics of this
+        # absorbance worksheet.  S25 therefore uses Origin's system LINE
+        # template as the documented O-PRIM reference.
+        graph = op.new_graph(template="LINE")
+        for column in range(1, len(frame.columns)):
+            graph[0].add_plot(sheet, coly=column, colx=0, type=200)
     else:
         sheet.from_df(frame)
         template, plot_type = {

@@ -71,7 +71,7 @@ flowchart TD
 | 阶段 | 当前状态 | 进入条件 | 退出结果 |
 | --- | --- | --- | --- |
 | SEQ-10 前端与产品蓝图 | 完成 | 本顺序基线确认 | 三工作区 IA、关键流程、对象语法、状态矩阵、设计方向冻结 |
-| SEQ-20 首迁图视觉基线 | 进行中 | Phase A/B 工程门禁通过 | 首迁 14 图默认与代表性非默认状态的可追溯视觉基线；其余 29 图缺口持续登记 |
+| SEQ-20 首迁图视觉基线 | 工程门禁通过 | Phase A/B 工程门禁通过 | 首迁 14 图默认与代表性非默认状态的可追溯视觉基线；其余 29 图缺口持续登记 |
 | SEQ-30 ChartRecipe v1 与迁移 | 未开始 | 首迁 14 图视觉基线完成 | 14 图由同一版本化配方运行时确定性生成，其余 29 图行为不变 |
 | SEQ-40 辨识度契约与后端 | 未开始 | SEQ-30 gate 通过 | 精简 SelectionScope、AgentChangeSet 与 BatchReviewItem 可执行 |
 | SEQ-50 批量优先纵向链路 | 未开始 | SEQ-40 最小闭环通过 | 一条从多数据到批量自然语言改图再到导出的真实链路 |
@@ -188,6 +188,16 @@ flowchart TD
 - **自动结论：** 两个状态的 Origin build/fresh-reopen validation 完全一致；来源、数据、参考图、PlotSpec、RenderPlan、PNG 与 OPJU hash 均已固定。
 - **视觉观察：** X01 Origin 标题落在绘图区左侧；X09 Origin 图例把区间拆为 `Middle/End`；K05 Origin 默认带出现黑色实填且标题压图；K09 三组 Origin 柱发生重叠。它们证明“原生对象稳定”不等于“视觉合格”，均保留在审计页中，不通过修改旧 oracle 或放宽校验消除。
 - **阶段判断：** 第二批工程 evidence 完成，但上述视觉差异与用户人工签名未收口，暂不允许据此进入 SEQ-30。
+
+### 7.6 第三批与阶段判断（2026-08-08）
+
+- **范围：** K10、S05、S25、X03。K10/X03 直接锚定随附 Origin 图页；S05 使用官方三重复剂量反应数据，把逐剂量均值和 min/max 明确冻结为用户提供曲线/带，不执行拟合；S25 使用官方 Absorbance Spectra 工作表，并因随附 Graph1 只显示 940–1000 局部谱段而改用 Origin 系统 `LINE` 模板做 C 级全数据自动范围重建。安装的旧 `spectra.OTP` 会反转 Y 轴并注入 time/frequency 语义，不适合作为吸收光谱默认规范。
+- **冻结输入：** 对应逐图 fixture、参考图、provenance 和 `batch-3.manifest.json` 位于 `tests/fixtures/visual_regression/seq20/`；三批合计严格覆盖 K01、K02、K03、K08、K18、X01、X02、X09、K05、K09、K10、S05、S25、X03。
+- **运行产物：** `build/visual-audit/seq20-origin-baseline/batch-3/index.html`；默认态与代表性编辑态均完成 Matplotlib、合并 O1 OPJU 和独立 fresh-reopen 导出。
+- **自动结论：** 三批 14 图均存在同源参考图与冻结数据，默认/编辑两种状态均固定 PlotSpec、RenderPlan、Matplotlib、Origin PNG、OPJU、adapter、exact Origin version 与 hash；所有 OPJU build/fresh-reopen validation 完全一致。无同源数据、合成数据或旧 oracle 改写进入本基线。
+- **第三批视觉观察：** S05 Origin 图例右侧被页面边缘截断且标题未置顶；S25/X03 Origin 标题未置顶。K10 的堆积结构与数据总量一致。
+- **未完成项：** 用户对三批对照页的人工视觉签名；K02 系列身份色、X01/K05/S05/S25/X03 标题/图例、X09 区间图例语义、K05 带填充、K09 三组柱重叠等已知差异的处置。
+- **是否允许进入下一阶段：** **否。** SEQ-20 自动工程门禁已通过，但视觉资格尚未通过；修复必须保持冻结数据与参考图不变，不得修改旧 oracle 或放宽容差。用户签名且已知 P0 视觉差异收口后，方可把 SEQ-20 标为“完成”并进入 SEQ-30。
 
 ## 8. SEQ-30：ChartRecipe compiler v1 与首批 14 图迁移
 

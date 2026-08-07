@@ -1,0 +1,220 @@
+{
+  "schema_version": "1.0",
+  "stage": "SEQ-20",
+  "batch": 3,
+  "generated_at": "2026-08-07T19:15:18.296426+00:00",
+  "plotagent_version": "0.1.0",
+  "origin_declaration": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
+  "rules": {
+    "same_source_required": true,
+    "synthetic_allowed": false,
+    "states": [
+      "default",
+      "representative edited"
+    ],
+    "edited_state_requires": [
+      "common edit",
+      "chart-applicable edit",
+      "Origin mapping"
+    ]
+  },
+  "exports": {
+    "default": {
+      "opju_path": "D:\\plotv3\\build\\visual-audit\\seq20-origin-baseline\\batch-3\\seq20-batch-3-default.opju",
+      "opju_sha256": "79860a350d21aba0efb358039f5a1f6a16312343170ae696f3fa5d729bb85c0b",
+      "opju_size": 412509,
+      "origin_plan_sha256": "284fd5502e76130457d50f918414de56c3030c6ff789adbe474fb86b88dcf735",
+      "adapter_id": "plotagent.origin.registry.bar+xy+special",
+      "adapter_version": "1.0.0",
+      "validation_report_sha256": "82dd0373932802a2ab015e1038ced53cb46cbb0e960ef8b0e37ac733810a9a03",
+      "fresh_reopen_identical": true,
+      "elapsed_seconds": 42.422,
+      "environment": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "install_dir": "D:\\origin",
+        "executable_path": "D:\\origin\\Origin64.exe",
+        "origin_bitness": 64,
+        "python_bitness": 64,
+        "originpro_version": "1.1.15",
+        "runtime_version": 10.100178,
+        "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+        "license_available": true
+      }
+    },
+    "edited": {
+      "opju_path": "D:\\plotv3\\build\\visual-audit\\seq20-origin-baseline\\batch-3\\seq20-batch-3-edited.opju",
+      "opju_sha256": "2f9e0f9b48f5132b3c3bfe1dccf4248027d7bd366d4daaeb6be9edd41567b897",
+      "opju_size": 412574,
+      "origin_plan_sha256": "7304e5490e67384126ec7a8ff7d94c46fcfc718265ce2ea7e5524b2d06db8974",
+      "adapter_id": "plotagent.origin.registry.bar+xy+special",
+      "adapter_version": "1.0.0",
+      "validation_report_sha256": "58dbfe668ec33659b6c2d9b31ac6f04799a146f6ee53d31100c6d23affbbc5c1",
+      "fresh_reopen_identical": true,
+      "elapsed_seconds": 42.875,
+      "environment": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "install_dir": "D:\\origin",
+        "executable_path": "D:\\origin\\Origin64.exe",
+        "origin_bitness": 64,
+        "python_bitness": 64,
+        "originpro_version": "1.1.15",
+        "runtime_version": 10.100178,
+        "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+        "license_available": true
+      }
+    }
+  },
+  "cases": [
+    {
+      "chart_type_id": "K10",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Column.opju",
+      "source_sha256": "1f4ab6637f0c4ccebe11c86de6b0d6640efcb41a39492d423b39cc162371e873",
+      "source_graph_name": "Graph9",
+      "source_book": "Book2",
+      "recipe": "直接导出 Origin 随附 Column.opju 的 Graph9 及无误差工作表。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "70845bd3fd6f111b4ff9e01201f0bc2e557ea4a9e48468343097d7ead71bc3a6",
+      "reference_sha256": "c542bc9b45387f7d7ca35a04a91df315b253c34dfa2087280755c85d95fe0a6e",
+      "common_edit": "标题与字号",
+      "chart_edit": "堆积柱边线与宽度",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "4b537056bc29efa54566fe41b717a23ef46e62465bd0cc6b7e327f6b5276a5cc",
+          "render_plan_sha256": "de503772e70c69fa2697c4ca808eb8b76ee8b840d543c4527974288d01ff7a24",
+          "matplotlib_png_sha256": "a53a11cc50fc4aa0786deb9afe6368478d4b2684ed793c24de8cf73f201422d2",
+          "origin_fresh_png_sha256": "c2e240377de72c8491bc2c132a70400b152292595d4951cbe355a2ac52f8d578",
+          "origin_graph_index": 0
+        },
+        "edited": {
+          "plot_spec_sha256": "7fe7c05e068e07d9883648c66dd2d6c50799627ca6fe26b2497b6b97dbd2d148",
+          "render_plan_sha256": "e27766188c185732251c65b89a9bf40aedfc12dda21a99d0f0e585607cb9b5a1",
+          "matplotlib_png_sha256": "a8bf64fa66247835ce2ede2ce27f05fe84e2d2d42b34e166dddfb27239d7e4a6",
+          "origin_fresh_png_sha256": "0b65869a76e1c40c20be8ee168d7346c1108524d41ed9dcac14a321f1590183f",
+          "origin_graph_index": 0
+        }
+      },
+      "comparison_default_sha256": "27ed2837279121251e4bee7e9efaf6b92168db3ee4b3ef611695af20561d30a7",
+      "comparison_edited_sha256": "908f51ab3bd9339a50a68fdc10bfa0dad9f6ef0243792613768fe39ed3bae54b"
+    },
+    {
+      "chart_type_id": "S05",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Samples\\Curve Fitting\\Dose Response - Inhibitor.dat",
+      "source_sha256": "d2e6080d6a8fd69c54055a12b4fccbfd3dd73ce5c9799e2579e91572022228e4",
+      "source_graph_name": null,
+      "source_book": null,
+      "recipe": "Origin 官方剂量反应样例；三次测量的均值与逐剂量 min/max 作为用户提供曲线/带，在 Origin 中重新生成，不执行拟合。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "6b6b5475a21896f269708c9323387c0c45938b197a38cc845cc985f500db606a",
+      "reference_sha256": "05c3a496bf0d6caf248b0e746edf1759e95f36281ee2474fb7ef6dcf7f12d7f0",
+      "common_edit": "标题与字号",
+      "chart_edit": "点/线样式与带透明度",
+      "visual_observations": [
+        "Origin O1 图例右侧文字被页面边缘截断，且标题未位于页顶。"
+      ],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "efedaed43aaf95046d5a600764cdc8933e9eb37bb64f68d8177d80843fc130b6",
+          "render_plan_sha256": "417888674432d72b00a615becfe5b760eee7e17661516ba05f8608000467c87c",
+          "matplotlib_png_sha256": "52b1f7306f082c7bcb90b4f3bb4b9dde26aade215b4f9ab3e33f61d01861da01",
+          "origin_fresh_png_sha256": "9fdf59a1b9c1667ae5b9e22551071a177a96bf8b43b73918764d505393ddcbae",
+          "origin_graph_index": 1
+        },
+        "edited": {
+          "plot_spec_sha256": "6069b246348aaa425be2bd7aebf1b19136977131a325be7efe792ec80224fe2b",
+          "render_plan_sha256": "7de9025ec007cd78a7553bab512006e2d4826c3a096ea8e92a88b88d35932b91",
+          "matplotlib_png_sha256": "94dc2eb5701dd3f0ffb632be7c268d6982399a16bf6188ab2a546ea565017517",
+          "origin_fresh_png_sha256": "d9a1d60734fb8ad8a58b70b383284b6ef1f78430bd6ae1473ed83758ddad17af",
+          "origin_graph_index": 1
+        }
+      },
+      "comparison_default_sha256": "922ca97567afbf0b104ca524ba3270cc9fbaa8deda4f2bd725577b64b9b4ad2d",
+      "comparison_edited_sha256": "54a8073b20d3938ac5294caeba08f9fc167f2f9d06cce680494ffffe6aefe23f"
+    },
+    {
+      "chart_type_id": "S25",
+      "evidence_grade": "C",
+      "source_path": "D:\\origin\\Samples\\Spectroscopy\\Absorbance Spectra.opj",
+      "source_sha256": "747c09a6eb62bdced287fab8b69531f3303b07bb8d7c7c239241f57d98e58c52",
+      "source_graph_name": null,
+      "source_book": "Book1",
+      "recipe": "Origin 官方 Absorbance Spectra.opj 工作表；因随附 Graph1 是 940–1000 局部视图，改用 Origin LINE 模板按全数据自动范围重新生成。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "3a3ea03dcc52df14c49e465660402837015b0ee7bf611d2b2af63c0391f2da64",
+      "reference_sha256": "449492fdc9da0f4ae3cb3827b68d8101c33a7d30ddd49d6fac018bcaa76b2577",
+      "common_edit": "标题与字号",
+      "chart_edit": "谱线颜色与宽度",
+      "visual_observations": [
+        "Origin O1 标题未位于页顶；数据范围与全范围 C 级参考一致。"
+      ],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "f0c246d6d782165672e3654e1cc4aebe96fd42a9b0f092108ee548ad93c381af",
+          "render_plan_sha256": "4f736f3507dbbc8ce4e68b05f404801b724392f8356bdcd409a2463c9ebed28f",
+          "matplotlib_png_sha256": "33cb5cc86cfcc0f4ba62748a50d3aebc81fe78f7bd99364f595e4b9c2185be8f",
+          "origin_fresh_png_sha256": "ece5240bd8cd30dc237c2aafbf540934d4dd73e6603a4640c2740ac3add1fefb",
+          "origin_graph_index": 2
+        },
+        "edited": {
+          "plot_spec_sha256": "6258454fef8684bb27898795f67ed20449b13ee9c45d070d2f70d1c7c18e01cf",
+          "render_plan_sha256": "2b63faa34e9b3b0b0808e4e8aeb4316603b71b2e36ae5ec12ab2fdda1ed6ec26",
+          "matplotlib_png_sha256": "63e5062ba4e0a124ddb3c5483c0ca9634b5ad2d9e0c64b7ea4da660a6d980c16",
+          "origin_fresh_png_sha256": "3d7623d413dd8d5983c939f57294f120a4e127ee4608840596606bca8537538f",
+          "origin_graph_index": 2
+        }
+      },
+      "comparison_default_sha256": "2bcbd36938efe2c0ba2572b7ab0dd97fdb6bb6b19dbbf5d9b1f7cd85f5c9b9f9",
+      "comparison_edited_sha256": "fae45291250f488429328736910d42febefeaf858c95de2d0ab8cdfb1c4e88b7"
+    },
+    {
+      "chart_type_id": "X03",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\Lollipop.opju",
+      "source_sha256": "0e0150e0ddf6f7dbc64c4049aaff6372aa4b64d2ec23573e0ad1712a29c202b4",
+      "source_graph_name": "Graph1",
+      "source_book": null,
+      "recipe": "直接导出 Origin 随附 Lollipop Plot (Two Points) 图页及工作表。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "85c514906f7bdb79f9edb2f1f081a82c0087e6b00a046efb5db8d3cd6be7a9b9",
+      "reference_sha256": "fa8ba1db81a46098a5301b7c662a5726e40220e674aa6a506ee6b6813ae3a818",
+      "common_edit": "标题与字号",
+      "chart_edit": "端点颜色、点形、点大小",
+      "visual_observations": [
+        "Origin O1 标题未位于页顶；端点和连接几何保持同源。"
+      ],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "2a69c07300bef04bea602a08c2def409f40f4b6ad3d01105e9fd09122bbfbc18",
+          "render_plan_sha256": "5eb8d65c787802ebd77f70b85e7ed7f22f2ec3679be47d951193f71ed037b9be",
+          "matplotlib_png_sha256": "9de7fa6b390ebf65ad409bc83e37c1c3b1bf2c50ce1d1bd6ac0b2e6e41822616",
+          "origin_fresh_png_sha256": "ed08dd27247a3836a94a947ab293f3ebd86e2e7283b0fbd65aa783409f578580",
+          "origin_graph_index": 3
+        },
+        "edited": {
+          "plot_spec_sha256": "009533b9fa9649aff159ddeba51fb4ef9dad36d4dc03553e904568439c4f2521",
+          "render_plan_sha256": "f08e4a42dd1f80013e96a32afb026a5211b507dc8ffcac08bfef74559fe96260",
+          "matplotlib_png_sha256": "c56da9f7ffa9d9e465bd8ed20f9a5909b5a99170eab03af7be9812f295fa5109",
+          "origin_fresh_png_sha256": "5f079860367a4fd134c113af2ae24c983e5d5504e8aa8a638033b8ffd8946f21",
+          "origin_graph_index": 3
+        }
+      },
+      "comparison_default_sha256": "8fc917b1ecd54c0cc8148467f7784c72d7ecdc57f77fd0e0c72ad7b66bede482",
+      "comparison_edited_sha256": "7ff0637d70c89a4db57421047cf755b100d925f17bc77681ee7ea9c2f4b6be6a"
+    }
+  ],
+  "audit_conclusion": "engineering evidence complete; human visual sign-off pending; known visual differences are listed per case"
+}
