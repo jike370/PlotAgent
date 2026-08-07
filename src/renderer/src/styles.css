@@ -29,7 +29,7 @@
   --primary-softer: #f5f5f5;
   --focus: #2563eb;
   --focus-soft: #e8f0ff;
-  --success: #16805d;
+  --success: #147653;
   --success-soft: #e8f6ef;
   --warning: #a15c00;
   --warning-soft: #fff3d8;
@@ -1550,6 +1550,11 @@ input[type="checkbox"] {
   font-weight: 650;
 }
 
+.scope-switch button:hover:not(.is-active) {
+  color: var(--ink);
+  background: var(--surface-3);
+}
+
 .composer textarea {
   width: 100%;
   min-height: 48px;
@@ -2169,22 +2174,6 @@ input[type="checkbox"] {
   border-radius: 2px;
 }
 
-.library-scope-note {
-  display: flex;
-  gap: 7px;
-  padding: 9px;
-  border-radius: 8px;
-  color: var(--info);
-  background: var(--info-soft);
-}
-
-.library-scope-note p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 8.5px;
-  line-height: 1.5;
-}
-
 .library-results {
   min-width: 0;
   min-height: 0;
@@ -2204,18 +2193,8 @@ input[type="checkbox"] {
   border-bottom: 1px solid var(--border);
 }
 
-.results-toolbar > div:first-child {
-  display: grid;
-  gap: 2px;
-}
-
 .results-toolbar strong {
   font-size: 11px;
-}
-
-.results-toolbar span {
-  color: var(--muted);
-  font-size: 8.5px;
 }
 
 .filter-pills {
@@ -2233,7 +2212,13 @@ input[type="checkbox"] {
   border-radius: 6px;
   color: var(--muted);
   background: var(--canvas);
-  font-size: 8.5px;
+  font-size: 9.5px;
+}
+
+.filter-pills button:hover {
+  border-color: var(--border-strong);
+  color: var(--ink);
+  background: var(--surface);
 }
 
 .filter-pills button.is-active {
@@ -2301,7 +2286,7 @@ input[type="checkbox"] {
 .chart-card__heading small {
   overflow: hidden;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2311,7 +2296,7 @@ input[type="checkbox"] {
   padding: 3px 4px;
   border-radius: 5px;
   text-align: center;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 750;
 }
 
@@ -2334,12 +2319,11 @@ input[type="checkbox"] {
   min-height: 27px;
   margin: 2px 9px 6px;
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: 9.5px;
   line-height: 1.45;
 }
 
-.data-shapes,
-.chart-capabilities {
+.data-shapes {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
@@ -2351,22 +2335,16 @@ input[type="checkbox"] {
   margin-bottom: 5px;
 }
 
-.data-shapes span,
-.capability-badge {
+.data-shapes span {
   padding: 2px 5px;
   border-radius: 5px;
-  font-size: 7.5px;
+  font-size: 8.5px;
 }
 
 .data-shapes span {
   color: var(--info);
   background: var(--info-soft);
   font-family: "Cascadia Mono", Consolas, monospace;
-}
-
-.capability-badge {
-  color: var(--muted);
-  background: var(--surface);
 }
 
 .current-chart {
@@ -2380,7 +2358,7 @@ input[type="checkbox"] {
   border-radius: 5px;
   color: var(--success);
   background: var(--success-soft);
-  font-size: 7.5px;
+  font-size: 8.5px;
 }
 
 .no-results {
@@ -2445,7 +2423,7 @@ input[type="checkbox"] {
 .chart-detail__title p {
   margin: 0;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .chart-detail__title button {
@@ -2459,6 +2437,10 @@ input[type="checkbox"] {
   background: transparent;
 }
 
+.chart-detail__title button:hover {
+  background: var(--surface);
+}
+
 .detail-list {
   margin: 11px 0 0;
   border-top: 1px solid var(--border);
@@ -2470,7 +2452,7 @@ input[type="checkbox"] {
   gap: 7px;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
-  font-size: 8.5px;
+  font-size: 9.5px;
   line-height: 1.45;
 }
 
@@ -2490,7 +2472,7 @@ input[type="checkbox"] {
 .export-contract > strong {
   display: block;
   margin-bottom: 7px;
-  font-size: 9.5px;
+  font-size: 10px;
 }
 
 .export-contract > div {
@@ -2506,7 +2488,7 @@ input[type="checkbox"] {
   border-radius: 5px;
   color: var(--primary-hover);
   background: var(--primary-soft);
-  font-size: 7.5px;
+  font-size: 8.5px;
 }
 
 .compatibility-check {
@@ -2522,7 +2504,7 @@ input[type="checkbox"] {
 
 .compatibility-check strong {
   display: block;
-  font-size: 9px;
+  font-size: 9.5px;
 }
 
 .compatibility-check.is-incompatible {
@@ -2537,8 +2519,12 @@ input[type="checkbox"] {
   border-radius: 8px;
   color: oklch(1 0 0);
   background: var(--primary);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 650;
+}
+
+.select-chart-button:hover {
+  background: var(--primary-hover);
 }
 
 /* Focus editor */
@@ -4742,22 +4728,6 @@ input[type="checkbox"] {
   font-weight: 650;
 }
 
-.toast {
-  position: fixed;
-  right: 20px;
-  bottom: 18px;
-  z-index: var(--z-toast);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 12px;
-  border-radius: 8px;
-  color: #ffffff;
-  background: var(--primary);
-  box-shadow: 0 5px 12px rgb(23 23 23 / 20%);
-  font-size: 12px;
-}
-
 .startup-core-alert,
 .product-notice,
 .agent-setup,
@@ -4939,6 +4909,12 @@ input[type="checkbox"] {
   font-size: 11px;
 }
 
+.plot-actions button:hover:not(:disabled),
+.product-result-strip button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
 .product-result-strip {
   display: flex;
   align-items: center;
@@ -4953,6 +4929,21 @@ input[type="checkbox"] {
 .agent-outcome {
   width: min(820px, calc(100% - 28px));
   margin: 0 auto 7px;
+}
+
+.composer-success {
+  width: fit-content;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 7px auto;
+  padding: 0 9px;
+  border-radius: 7px;
+  color: var(--success);
+  background: var(--success-soft);
+  font-size: 11px;
+  font-weight: 650;
 }
 
 .agent-outcome--action_plan { background: var(--success-soft); }

@@ -149,8 +149,7 @@
 }
 
 .batch-search:focus-within {
-  border-color: var(--focus);
-  box-shadow: 0 0 0 2px var(--focus-soft);
+  border-color: var(--ink-strong);
 }
 
 .batch-search input {
@@ -160,6 +159,10 @@
   color: var(--ink);
   background: transparent;
   font-size: 10px;
+}
+
+.batch-search input:focus-visible {
+  outline: none;
 }
 
 .batch-search input::placeholder {
@@ -211,21 +214,8 @@
   gap: 8px;
   padding: 9px 12px;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--border-strong);
   border-radius: 8px;
   background: var(--canvas);
-}
-
-.batch-result-item--succeeded {
-  border-left-color: var(--success);
-}
-
-.batch-result-item--running {
-  border-left-color: var(--warning);
-}
-
-.batch-result-item--failed {
-  border-left-color: var(--danger);
 }
 
 .batch-result-item__index {

@@ -82,10 +82,6 @@ function chartCompatibility(
   return { compatible }
 }
 
-function CapabilityBadge({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <span className="capability-badge">{children}</span>
-}
-
 export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCompatibility, onClose, onSelect }: ChartLibraryProps): React.JSX.Element {
   const dialogRef = useDialogFocus<HTMLDivElement>()
   const [filters, setFilters] = useState(initialFilters)
@@ -144,17 +140,12 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
               </button>
             ))}
           </div>
-          <div className="library-scope-note">
-            <CircleAlert size={15} />
-            <p>核心层为 K01–K22、K24–K25，验证层 7 项。科研图像与地图不进入第一轮。</p>
-          </div>
         </aside>
 
         <section className="library-results" aria-label="图形搜索结果">
           <div className="results-toolbar">
             <div>
               <strong>{filteredCharts.length} 个图形</strong>
-              <span>不会隐藏不兼容项，只说明缺少的字段或结构</span>
             </div>
             <div className="filter-pills" aria-label="能力筛选">
               <Filter size={15} />
@@ -187,11 +178,6 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
                   </div>
                   <p>{chart.purpose}</p>
                   <div className="data-shapes">{chart.dataShape.slice(0, 2).map((shape) => <span key={shape}>{shape}</span>)}</div>
-                  <div className="chart-capabilities">
-                    <CapabilityBadge>{batchLabels[chart.batchMode]}</CapabilityBadge>
-                    <CapabilityBadge>{compositionLabels[chart.compositionMode]}</CapabilityBadge>
-                    <CapabilityBadge>OPJU {chart.export.opju}</CapabilityBadge>
-                  </div>
                   {chart.id === currentChartId && <span className="current-chart"><Check size={12} />当前</span>}
                 </button>
               ))}
@@ -219,6 +205,8 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
               <div><dt>数据形状</dt><dd>{selectedChart.dataShape.join(' / ')}</dd></div>
               <div><dt>典型学科</dt><dd>{selectedChart.domains.join(' · ')}</dd></div>
               <div><dt>核心参数</dt><dd>{selectedChart.optionalParameters.join(' · ')}</dd></div>
+              <div><dt>批量模式</dt><dd>{batchLabels[selectedChart.batchMode]}</dd></div>
+              <div><dt>组合方式</dt><dd>{compositionLabels[selectedChart.compositionMode]}</dd></div>
             </dl>
 
             <div className="export-contract">

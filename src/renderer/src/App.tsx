@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, FlaskConical, LoaderCircle, X } from 'lucide-react'
+import { FlaskConical, LoaderCircle, X } from 'lucide-react'
 
 import type {
   CoreStatus,
@@ -171,11 +171,18 @@ export function App(): React.JSX.Element {
   const [agentConfigured, setAgentConfigured] = useState(false)
   const [providerOpen, setProviderOpen] = useState(false)
   const [providerNotice, setProviderNotice] = useState<ProductNotice>()
+
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
   const [busyAction, setBusyAction] = useState<string>()
   const [taskEvents, setTaskEvents] = useState<Record<string, TaskEvent>>({})
   const [originStatus, setOriginStatus] = useState<'unknown' | 'available' | 'unavailable' | 'exporting'>('unknown')
+
+  useEffect(() => {
+    if (notice?.kind !== 'success') return
+    const timer = window.setTimeout(() => setNotice(undefined), 4_000)
+    return () => window.clearTimeout(timer)
+  }, [notice])
 
   const activeDataset = datasets.find((dataset) => dataset.datasetId === activeDatasetId) ?? datasets[0]
   const taskCount = Object.values(taskEvents).filter((event) => !['succeeded', 'failed', 'cancelled', 'partially_succeeded', 'interrupted'].includes(event.state)).length
@@ -636,7 +643,6 @@ export function App(): React.JSX.Element {
       }} />}
       {tasksOpen && <TaskDrawer tasks={Object.values(taskEvents)} onCancel={(taskId) => { if (api) void api.cancelTask(taskId) }} onClose={() => setTasksOpen(false)} />}
       {providerOpen && <ProviderSettings busy={busyAction === 'provider'} notice={providerNotice} onClose={() => setProviderOpen(false)} onConfigure={(input) => void configureProvider(input)} />}
-      {notice?.kind === 'success' && <div className="toast" role="status"><Check size={15} />{notice.title}</div>}
     </div>
   )
 }

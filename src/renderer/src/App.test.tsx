@@ -100,6 +100,7 @@ async function openSampleAndCreatePlot(user: ReturnType<typeof userEvent.setup>)
   await user.click(screen.getByRole('button', { name: '选择此图形' }))
   await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
   expect(await screen.findByRole('img', { name: '折线图 真实渲染预览' })).toHaveAttribute('src', expect.stringMatching(/^plotagent-resource:/))
+  expect(screen.getByText('绘图完成')).toHaveClass('composer-success')
 }
 
 beforeEach(() => {
@@ -140,6 +141,9 @@ describe('PlotAgent real desktop workflow', () => {
     expect(within(detail).queryByText('同时呈现实测点与连接趋势')).not.toBeInTheDocument()
     expect(within(detail).queryByText(/可在 Origin 中继续编辑/)).not.toBeInTheDocument()
     expect(within(detail).queryByText(/选择后将写入稳定类型/)).not.toBeInTheDocument()
+    expect(within(detail).getByText('批量模式')).toBeInTheDocument()
+    expect(within(detail).getByText('组合方式')).toBeInTheDocument()
+    expect(within(library).getAllByText('直接批量')).toHaveLength(1)
   })
 
   it('provides a development-only interactive browser preview without a desktop bridge', async () => {

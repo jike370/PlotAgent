@@ -375,6 +375,7 @@ function ConversationComposer({
   configured,
   busy,
   outcome,
+  notice,
   onSubmit,
   onConfigure,
   onOpenLibrary,
@@ -386,6 +387,7 @@ function ConversationComposer({
   configured: boolean
   busy: boolean
   outcome?: AgentOutcome
+  notice?: ProductNotice
   onSubmit: (instruction: string, scope: ScopeMode) => void
   onConfigure: () => void
   onOpenLibrary: () => void
@@ -402,6 +404,7 @@ function ConversationComposer({
   }
   return (
     <div className="composer-wrap">
+      {notice?.kind === 'success' && <div className="composer-success" role="status"><Check size={14} />{notice.title}</div>}
       {outcome && <div className={`agent-outcome agent-outcome--${outcome.kind}`} role={outcome.kind === 'rejected' ? 'alert' : 'status'}><div><strong>{outcome.title}</strong><p>{outcome.message}</p></div></div>}
       <div className="composer" aria-label="自然语言绘图指令">
         {plot && <div className="composer-context">
@@ -453,7 +456,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         </div>
       )}
 
-      {project && <ConversationComposer plot={plot} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} outcome={props.agentOutcome} onSubmit={props.onAgentInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
+      {project && <ConversationComposer plot={plot} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} outcome={props.agentOutcome} notice={notice} onSubmit={props.onAgentInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}
     </main>
   )
