@@ -109,7 +109,7 @@
 | R-PERF | 单一Win11 profile、100k正式规模、5k/20k preview、≤2GB与固定P95 | PD-AA01–AA11/AA15；PERF §1–6/9 | W10 | performance harness | reference baseline reports | frozen-design |
 | R-MATRIX | 43×3×(PNG/SVG/OPJU)=387 个正式逻辑 MatrixKey；preview另测；Origin 43 representative live，其余 OPJU 离线 contract/error | PD-AA12/AA13；PERF §7 | W0/W4/W6/W10 | MatrixKey/evidence | zero-gap coverage reports | reopened-base279-implemented |
 | R-RELEASE | 不可豁免底线、Beta checklist、first-beta go/no-go | PD-AA16–AA20；PERF §10–12 | W10/all | release/evidence | fixed hashes/checklist/user study | frozen-design |
-| R-UI | 第一阶段重做全部生产前端并统一应用壳；浅色克制、无卡片堆叠/玻璃/深色科幻/渐变文字，键盘/a11y/reduced motion；无假按钮/mock能力 | DESIGN；PD-D/F/L,AB27；PRD §6 | W1/W5 | renderer design system + all production screens | visual/a11y/display/E2E/function-parity matrix | reopened |
+| R-UI | 第一阶段重做全部生产前端并统一应用壳；采用参考 PLOT 灰白黑色板、组件视觉语法与920px对话/840px Composer尺寸，不恢复常驻右栏；其余交互遵循成熟桌面工具的渐进披露、多视图、批量选择和键盘原则；无假按钮/mock能力 | DESIGN；PD-B10/B11,AB27；PRD §15 | W1/W5 | renderer design system + all production screens | visual/a11y/display/E2E/function-parity matrix | reopened |
 
 ## 4. Stable Error Ownership Index
 
