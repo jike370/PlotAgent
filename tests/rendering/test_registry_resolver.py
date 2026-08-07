@@ -20,8 +20,8 @@ from plotagent.plots.validation import PlotValidationError, validate_plot_patch
 from plotagent.rendering import PanelPlan, PlotResolver, RenderDataStore, RenderTable
 from plotagent.rendering.matplotlib.adapter import MatplotlibRenderer
 from plotagent.rendering.resolver import INTERACTIVE_LIMIT
-from tests.contracts.helpers import HASH_A, minimal_plot
-from tests.rendering.fixture_factory import resolve_chart
+from tests.contracts.helpers import HASH_A, HASH_B, HASH_C, minimal_plot
+from tests.rendering.fixture_factory import build_plot_and_store, resolve_chart
 
 
 def _line_data(count: int = 4) -> RenderTable:
@@ -102,6 +102,76 @@ def test_k01_resolved_plan_is_deterministic_and_origin_spike_stable() -> None:
     assert layer.data_source_kind == "direct"
     assert layer.full_row_count == layer.displayed_row_count == 4
     assert first.plan.data_integrity.simplification_applied is False
+
+
+def test_k02_shared_binding_has_one_default_color_and_one_legend_identity() -> None:
+    plot, store = build_plot_and_store("K02")
+    plot = plot.model_copy(update={"legend": plot.legend.model_copy(update={"visible": True})})
+
+    resolved = PlotResolver().resolve(plot, store)
+    line, symbol = resolved.plan.layers
+
+    assert line.target_id != symbol.target_id
+    assert line.color == symbol.color
+    assert line.label is not None
+    assert symbol.label is None
+
+    figure = MatplotlibRenderer().build_figure(resolved)
+    legend = figure.axes[0].get_legend()
+    assert legend is not None
+    assert [item.get_text() for item in legend.get_texts()] == ["Series 1"]
+
+
+def test_k02_multiple_line_symbol_pairs_keep_stable_distinct_encodings() -> None:
+    plot, store = build_plot_and_store("K02")
+    first_line, first_symbol = plot.series
+    second_line_ref = first_line.data.prepared_dataset_ref.model_copy(
+        update={"prepared_dataset_id": "prepared:k02.second-line", "content_hash": HASH_B}
+    )
+    second_symbol_ref = first_symbol.data.prepared_dataset_ref.model_copy(
+        update={"prepared_dataset_id": "prepared:k02.second-symbol", "content_hash": HASH_C}
+    )
+    second_line = first_line.model_copy(
+        update={
+            "series_id": "series:k02.2",
+            "data": first_line.data.model_copy(update={"prepared_dataset_ref": second_line_ref}),
+        }
+    )
+    second_symbol = first_symbol.model_copy(
+        update={
+            "series_id": "series:k02.3",
+            "data": first_symbol.data.model_copy(
+                update={"prepared_dataset_ref": second_symbol_ref}
+            ),
+        }
+    )
+    line_fields = first_line.data.role_fields
+    symbol_fields = first_symbol.data.role_fields
+    second_line_table = RenderTable.from_columns(
+        {line_fields[0]: (0.0, 1.0, 2.0), line_fields[1]: (1.0, 2.5, 2.0)}
+    )
+    second_symbol_table = RenderTable.from_columns(
+        {symbol_fields[0]: (0.0, 1.0, 2.0), symbol_fields[1]: (1.0, 2.5, 2.0)}
+    )
+    expanded = plot.model_copy(
+        update={
+            "prepared_data_refs": (
+                *plot.prepared_data_refs,
+                second_line_ref,
+                second_symbol_ref,
+            ),
+            "series": (*plot.series, second_line, second_symbol),
+        }
+    )
+    expanded_store = RenderDataStore(
+        {**store.tables, HASH_B: second_line_table, HASH_C: second_symbol_table}
+    )
+
+    layers = PlotResolver().resolve(expanded, expanded_store).plan.layers
+    assert layers[0].color == layers[1].color
+    assert layers[2].color == layers[3].color
+    assert layers[0].color != layers[2].color
+    assert [layer.label is not None for layer in layers] == [True, False, True, False]
 
 
 def test_preview_simplification_keeps_full_data_axis_range_and_formal_count() -> None:

@@ -315,6 +315,9 @@ def test_direct_plot_patch_persists_portable_series_and_legend_styles(
             "expected_version": imported["project_version"],
         },
     )
+    line_series, symbol_series = created["spec"]["series"]
+    assert line_series["series_id"] != symbol_series["series_id"]
+    assert line_series["data"] == symbol_series["data"]
     symbol_series_id = created["spec"]["series"][1]["series_id"]
     styled = harness.call(
         "plots.patch",

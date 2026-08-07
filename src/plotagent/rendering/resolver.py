@@ -193,21 +193,75 @@ def _series_values(
     return rule, _take(values, valid), excluded
 
 
+def _logical_series_key(
+    plot: PlotSpec,
+    series_index: int,
+    values: Mapping[str, tuple[Scalar, ...]],
+) -> tuple[str, ...]:
+    """Return the target-neutral visual identity for one declared series layer.
+
+    K02 intentionally keeps line and symbol as separate edit targets.  When both
+    targets consume the exact same bound role values, they are two geometries of
+    one logical series rather than two independently encoded series.  Production
+    PlotSpecs normally share the same data reference; the semantic value hash also
+    keeps portable/legacy specs stable when equivalent columns were materialized
+    separately.  Labels and fixture names are deliberately not part of this
+    decision.
+    """
+
+    series = plot.series[series_index]
+    if plot.chart_type_id != "K02":
+        return ("target", series.series_id)
+    value_hash = canonical_hash(
+        cast(JsonValue, {role: list(column) for role, column in values.items()})
+    )
+    return ("binding-values", value_hash)
+
+
 def _generic_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]:
     drafts: list[_DraftLayer] = []
-    color_index = 0
+    series_values = tuple(_series_values(plot, store, index) for index in range(len(plot.series)))
+    logical_bases = tuple(
+        _logical_series_key(plot, index, values)
+        for index, (_rule, values, _excluded) in enumerate(series_values)
+    )
+    logical_keys: list[tuple[str, ...]] = []
+    geometry_occurrences: dict[tuple[tuple[str, ...], str], int] = {}
+    for base, series in zip(logical_bases, plot.series, strict=True):
+        if plot.chart_type_id != "K02":
+            logical_keys.append(base)
+            continue
+        occurrence_key = (base, series.geometry)
+        occurrence = geometry_occurrences.get(occurrence_key, 0)
+        geometry_occurrences[occurrence_key] = occurrence + 1
+        # Pair the Nth line with the Nth symbol for identical bound values. This
+        # preserves distinct identities even when two logical series happen to
+        # contain numerically identical observations.
+        logical_keys.append((*base, f"occurrence:{occurrence}"))
+    logical_labels: dict[tuple[str, ...], SafeRichText | None] = {}
+    for key, series in zip(logical_keys, plot.series, strict=True):
+        if key not in logical_labels or logical_labels[key] is None:
+            logical_labels[key] = series.label
+    color_indices: dict[tuple[tuple[str, ...], Scalar | None], int] = {}
+    emitted_legend_entries: set[tuple[tuple[str, ...], Scalar | None]] = set()
     for index, series in enumerate(plot.series):
-        rule, values, excluded = _series_values(plot, store, index)
+        rule, values, excluded = series_values[index]
         split_role = "group" if "group" in values else None
         groups = _ordered_unique(values[split_role]) if split_role else (None,)
         for group_index, group in enumerate(groups):
+            logical_key = logical_keys[index]
+            encoding_key = (logical_key, group)
+            if encoding_key not in color_indices:
+                color_indices[encoding_key] = len(color_indices)
             if split_role:
                 indices = tuple(i for i, item in enumerate(values[split_role]) if item == group)
                 selected = _take(values, indices)
-                label: SafeRichText | None = _plain_text(str(group))
+                logical_label: SafeRichText | None = _plain_text(str(group))
             else:
                 selected = values
-                label = series.label
+                logical_label = logical_labels[logical_key]
+            label = logical_label if encoding_key not in emitted_legend_entries else None
+            emitted_legend_entries.add(encoding_key)
             geometry = rule.resolved_geometry
             if geometry == "xy.bubble":
                 selected = _resolve_bubble(selected)
@@ -233,13 +287,12 @@ def _generic_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
                     x_roles=rule.x_range_roles,
                     y_roles=rule.y_range_roles,
                     label=label,
-                    color_index=color_index,
+                    color_index=color_indices[encoding_key],
                     excluded_rows=excluded if group_index == 0 else 0,
                     encoding_index=group_index,
                     encoding_count=len(groups),
                 )
             )
-            color_index += 1
     return drafts
 
 
