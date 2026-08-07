@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { CircleCheck, Clock3, LoaderCircle, TriangleAlert, X } from 'lucide-react'
 
 import type { TaskEvent } from '../../../shared/desktop-contract'
+import { useDialogFocus } from './useDialogFocus'
 
 interface TaskDrawerProps {
   tasks: TaskEvent[]
@@ -11,16 +13,19 @@ interface TaskDrawerProps {
 const terminalStates = new Set(['succeeded', 'failed', 'cancelled', 'partially_succeeded', 'interrupted'])
 
 export function TaskDrawer({ tasks, onCancel, onClose }: TaskDrawerProps): React.JSX.Element {
+  const [view, setView] = useState<'active' | 'all'>('active')
+  const dialogRef = useDialogFocus<HTMLElement>()
   const activeCount = tasks.filter((task) => !terminalStates.has(task.state)).length
+  const shownTasks = view === 'active' ? tasks.filter((task) => !terminalStates.has(task.state)) : tasks
   return (
     <div className="drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <aside className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-title">
+      <aside ref={dialogRef} className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-title" tabIndex={-1}>
         <header><div><h2 id="task-title">任务中心</h2><p>来自本地 Core 的任务事件</p></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭任务中心"><X size={18} /></button></header>
-        <div className="task-tabs"><button className="is-active" type="button">进行中 {activeCount}</button><button type="button">全部 {tasks.length}</button></div>
+        <div className="task-tabs" aria-label="任务范围"><button data-autofocus className={view === 'active' ? 'is-active' : ''} type="button" aria-pressed={view === 'active'} onClick={() => setView('active')}>进行中 {activeCount}</button><button className={view === 'all' ? 'is-active' : ''} type="button" aria-pressed={view === 'all'} onClick={() => setView('all')}>全部 {tasks.length}</button></div>
         <div className="task-list">
-          {tasks.length === 0 ? (
-            <div className="task-empty"><Clock3 size={20} /><strong>当前没有任务</strong><span>导入、渲染和导出时会在这里显示 Core 进度。</span></div>
-          ) : [...tasks].sort((a, b) => b.sequence - a.sequence).map((task) => {
+          {shownTasks.length === 0 ? (
+            <div className="task-empty"><Clock3 size={20} /><strong>{view === 'active' ? '当前没有进行中的任务' : '还没有任务记录'}</strong><span>导入、渲染和导出时会在这里显示 Core 进度。</span></div>
+          ) : [...shownTasks].sort((a, b) => b.sequence - a.sequence).map((task) => {
             const terminal = terminalStates.has(task.state)
             const failed = ['failed', 'interrupted', 'partially_succeeded'].includes(task.state)
             const progress = task.progress?.total

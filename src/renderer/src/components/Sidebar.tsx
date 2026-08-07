@@ -1,15 +1,16 @@
+import { useMemo, useState } from 'react'
 import {
   Activity,
-  CircleHelp,
+  CircleCheck,
   FileChartColumn,
   FlaskConical,
   FolderKanban,
   MessageSquare,
   Plus,
   Search,
-  Settings,
   SlidersHorizontal,
   TriangleAlert,
+  X,
 } from 'lucide-react'
 
 import type { CoreStatus } from '../../../shared/desktop-contract'
@@ -24,7 +25,6 @@ interface SidebarProps {
   onProjectChange: (projectId: string) => void
   onNewProject: () => void
   onTaskCenter: () => void
-  onOpenResources: () => void
   onConfigureAgent: () => void
 }
 
@@ -44,10 +44,17 @@ export function Sidebar({
   onProjectChange,
   onNewProject,
   onTaskCenter,
-  onOpenResources,
   onConfigureAgent,
 }: SidebarProps): React.JSX.Element {
+  const [query, setQuery] = useState('')
   const origin = originLabels[originStatus]
+  const visibleProjects = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase('zh-CN')
+    if (!normalizedQuery) return projects
+    return projects.filter((project) => `${project.name} ${project.projectId}`.toLocaleLowerCase('zh-CN').includes(normalizedQuery))
+  }, [projects, query])
+  const OriginIcon = originStatus === 'available' ? CircleCheck : originStatus === 'exporting' ? FileChartColumn : TriangleAlert
+
   return (
     <aside className="sidebar" aria-label="项目与对话">
       <div className="sidebar__brand">
@@ -63,7 +70,8 @@ export function Sidebar({
         <label className="sidebar-search">
           <Search size={15} aria-hidden="true" />
           <span className="sr-only">搜索本机项目</span>
-          <input placeholder="搜索本机项目" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索本机项目" />
+          {query && <button type="button" onClick={() => setQuery('')} aria-label="清除项目搜索"><X size={14} /></button>}
         </label>
       </div>
 
@@ -75,7 +83,12 @@ export function Sidebar({
             <strong>还没有本机项目</strong>
             <span>试用示例或导入数值数据后，项目会显示在这里。</span>
           </div>
-        ) : projects.map((project) => (
+        ) : visibleProjects.length === 0 ? (
+          <div className="sidebar-search-empty" role="status">
+            <Search size={18} aria-hidden="true" />
+            <span>没有匹配的本机项目</span>
+          </div>
+        ) : visibleProjects.map((project) => (
           <section className={`project-group${project.projectId === activeProjectId ? ' project-group--active' : ''}`} key={project.projectId}>
             <button
               className="project-row"
@@ -89,14 +102,10 @@ export function Sidebar({
             </button>
             {project.projectId === activeProjectId && (
               <div className="conversation-list">
-                <button className="conversation-row is-active" type="button" aria-current="page">
+                <div className="conversation-row is-active" aria-current="page">
                   <MessageSquare size={14} aria-hidden="true" />
                   <span>绘图对话</span><time>当前</time>
-                </button>
-                <button className="conversation-row" type="button" onClick={onOpenResources}>
-                  <FileChartColumn size={14} aria-hidden="true" />
-                  <span>项目资源</span>
-                </button>
+                </div>
               </div>
             )}
           </section>
@@ -113,12 +122,11 @@ export function Sidebar({
           <span>Agent 服务</span>
           <span className={`status-dot status-dot--${core.phase === 'ready' ? 'online' : 'offline'}`} aria-label={core.phase === 'ready' ? 'Core 已连接' : 'Core 未连接'} />
         </button>
-        <button className="origin-row" type="button">
-          <TriangleAlert size={16} aria-hidden="true" />
+        <div className={`origin-row origin-row--${originStatus}`} role="status">
+          <OriginIcon className={originStatus === 'exporting' ? 'spin' : undefined} size={16} aria-hidden="true" />
           <span>{origin[0]}</span><span className="footer-meta">{origin[1]}</span>
-        </button>
-        <button type="button"><Settings size={16} aria-hidden="true" /><span>应用设置</span></button>
-        <button type="button"><CircleHelp size={16} aria-hidden="true" /><span>帮助与反馈</span><span className="footer-meta">0.1.0</span></button>
+        </div>
+        <div className="build-row"><span>本地单实例</span><span className="footer-meta">0.1.0 内测</span></div>
       </div>
     </aside>
   )

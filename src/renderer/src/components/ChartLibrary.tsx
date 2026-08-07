@@ -25,6 +25,7 @@ import {
   type ChartType,
 } from '../data/chartCatalog'
 import { ChartPreview } from './PlotVisuals'
+import { useDialogFocus } from './useDialogFocus'
 
 interface ChartLibraryProps {
   currentChartId?: string
@@ -90,6 +91,7 @@ function CapabilityBadge({ children }: { children: React.ReactNode }): React.JSX
 }
 
 export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCompatibility, onClose, onSelect }: ChartLibraryProps): React.JSX.Element {
+  const dialogRef = useDialogFocus<HTMLDivElement>()
   const [filters, setFilters] = useState(initialFilters)
   const [selectedId, setSelectedId] = useState(currentChartId ?? 'K02')
   const filteredCharts = useMemo(() => filterCharts(chartCatalog, filters), [filters])
@@ -103,7 +105,7 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
   }
 
   return (
-    <div className="library-layer" role="dialog" aria-modal="true" aria-labelledby="library-title">
+    <div ref={dialogRef} className="library-layer" role="dialog" aria-modal="true" aria-labelledby="library-title" tabIndex={-1}>
       <header className="library-header">
         <button className="back-button" type="button" onClick={onClose}><ChevronLeft size={18} />返回对话</button>
         <div>
@@ -114,7 +116,7 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
           <Search size={17} aria-hidden="true" />
           <span className="sr-only">搜索图形库</span>
           <input
-            autoFocus
+            data-autofocus
             aria-label="搜索图形库"
             value={filters.query}
             onChange={(event) => updateFilter('query', event.target.value)}

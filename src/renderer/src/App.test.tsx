@@ -119,8 +119,24 @@ describe('PlotAgent real desktop workflow', () => {
   it('opens model service settings from the persistent sidebar entry', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(await screen.findByRole('button', { name: /Agent 服务/ }))
+    const trigger = await screen.findByRole('button', { name: /Agent 服务/ })
+    await user.click(trigger)
     expect(screen.getByRole('dialog', { name: '模型服务' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Base URL')).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: '模型服务' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
+
+  it('filters local projects with a working clear action', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: /用示例项目试用/ }))
+    expect(await screen.findByRole('button', { name: /温度响应示例/ })).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox', { name: '搜索本机项目' }), '不存在')
+    expect(screen.getByText('没有匹配的本机项目')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '清除项目搜索' }))
+    expect(screen.getByRole('button', { name: /温度响应示例/ })).toBeInTheDocument()
   })
 
   it('imports real Core fields, confirms one mapping, and displays a controlled preview resource', async () => {

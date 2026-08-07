@@ -39,13 +39,14 @@ import {
 import { FocusEditor } from './components/FocusEditor'
 import { Sidebar } from './components/Sidebar'
 import { TaskDrawer } from './components/TaskDrawer'
+import { useDialogFocus } from './components/useDialogFocus'
 
 type Screen = 'workspace' | 'focus' | 'composition' | 'batch-inspector'
 
 const initialCore: CoreStatus = { phase: 'starting', restartAttempt: 0 }
 
 function failureNotice(error: { code: string; message: string; retryable: boolean }): ProductNotice {
-  return { kind: 'error', title: '操作未完成', message: `${error.message}（${error.code}）` }
+  return { kind: 'error', title: '操作未完成', message: error.message }
 }
 
 function valueOrThrow(result: DesktopDataResult): JsonValue {
@@ -117,9 +118,11 @@ function ProviderSettings({ busy, notice, onClose, onConfigure }: ProviderSettin
   const [modelId, setModelId] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [acknowledged, setAcknowledged] = useState(false)
+  const dialogRef = useDialogFocus<HTMLElement>()
+
   return (
-    <div className="provider-settings-layer" role="dialog" aria-modal="true" aria-labelledby="provider-settings-title">
-      <section className="provider-settings">
+    <div className="provider-settings-layer" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <section ref={dialogRef} className="provider-settings" role="dialog" aria-modal="true" aria-labelledby="provider-settings-title" tabIndex={-1}>
         <header><div><h2 id="provider-settings-title">模型服务</h2><p>只在首次使用 Agent 时配置，不影响本地绘图与导出。</p></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭模型服务设置"><X size={18} /></button></header>
         <div className="provider-build-note"><strong>内置服务</strong><span>当前构建未配置可用端点，可使用 OpenAI-compatible 自定义服务。</span></div>
         <form onSubmit={(event) => {
@@ -127,7 +130,7 @@ function ProviderSettings({ busy, notice, onClose, onConfigure }: ProviderSettin
           onConfigure({ baseUrl, modelId, ...(apiKey ? { apiKey } : {}), retentionAcknowledged: true })
           setApiKey('')
         }}>
-          <label>Base URL<input type="url" required placeholder="https://provider.example/v1 或 http://127.0.0.1:8000/v1" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} /></label>
+          <label>Base URL<input data-autofocus type="url" required placeholder="https://provider.example/v1 或 http://127.0.0.1:8000/v1" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} /></label>
           <label>Model ID<input required placeholder="model-id" value={modelId} onChange={(event) => setModelId(event.target.value)} /></label>
           <label>API key（可选）<input type="password" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} /><small>提交后只写入系统凭据库，不回显到界面或项目。</small></label>
           <label className="provider-retention"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} /><span>我已了解：Agent 会向所选模型服务发送指令、字段元数据和受控样本，保留政策由该服务决定。</span></label>
@@ -500,14 +503,16 @@ export function App(): React.JSX.Element {
     totalFieldCount: activeDataset?.fields.length ?? 0,
   }), [activeDataset])
   const availablePlotCount = useMemo(() => new Set(plotHistory.map((item) => `${item.plotId}:${item.plotVersion}`)).size, [plotHistory])
+  const modalOpen = libraryOpen || tasksOpen || providerOpen
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#conversation-main">跳到绘图对话</a>
       <div className="app-titlebar" aria-hidden="true"><FlaskConical size={13} /><span>PlotAgent</span><span className="titlebar-context">本地科研绘图工作台</span></div>
-      <div className="app-surface">
+      <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
-          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} taskCount={taskCount} originStatus={originStatus} onProjectChange={(id) => void activateProject(id)} onNewProject={() => { setProject(undefined); setDatasets([]); setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined) }} onTaskCenter={() => setTasksOpen(true)} onOpenResources={() => setNotice({ kind: 'info', title: '项目资源', message: '当前视图只显示 Core 已返回的数据集、绘图、批次与组合图对象。' })} onConfigureAgent={() => setProviderOpen(true)} />
-          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentConfigured={agentConfigured} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setSelectedChart(undefined); setConfirmedMapping(undefined); setPlot(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} onOpenResources={() => setNotice({ kind: 'info', title: '项目资源', message: '对象由本地 Core 返回，原始数据保持只读。' })} />
+          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} taskCount={taskCount} originStatus={originStatus} onProjectChange={(id) => void activateProject(id)} onNewProject={() => { setProject(undefined); setDatasets([]); setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined) }} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
+          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentConfigured={agentConfigured} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setSelectedChart(undefined); setConfirmedMapping(undefined); setPlot(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && figure && <CompositionEditor figure={figure} onClose={() => setScreen('workspace')} />}

@@ -83,7 +83,6 @@ interface ConversationWorkspaceProps {
   onOpenBatchInspect: () => void
   onOpenCompose: () => void
   onOpenTasks: () => void
-  onOpenResources: () => void
 }
 
 const numericKinds = new Set(['integer', 'float', 'number', 'numeric', 'decimal'])
@@ -381,10 +380,10 @@ function AgentComposer({
 export function ConversationWorkspace(props: ConversationWorkspaceProps): React.JSX.Element {
   const { project, datasets, activeDataset, selectedChart, plot, batch, figure, notice, busyAction } = props
   return (
-    <main className="workspace-main">
+    <main className="workspace-main" id="conversation-main">
       <header className="workspace-header">
         <div className="workspace-heading">
-          {project && <button className="project-resource-trigger" type="button" onClick={props.onOpenResources}><span>{project.name}</span><Library size={12} /></button>}
+          {project && <div className="project-context"><FolderOpen size={12} aria-hidden="true" /><span>{project.name}</span></div>}
           <h1>{project ? '绘图对话' : '开始使用'}</h1>
         </div>
         {project && <div className="workspace-header__actions"><button type="button" onClick={props.onOpenTasks}><Activity size={15} />任务</button><span className="autosave-status"><CircleCheck size={14} />项目 v{project.projectVersion}</span></div>}
