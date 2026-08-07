@@ -347,6 +347,8 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 正式 43 图已通过一次合并 typed-plan → Origin build → save → fresh blank instance reopen/readback 的当前工程资格门禁；另以非默认值覆盖上述七组专属状态的代表性实机读回。该节点只证明 Phase B 运行时和当前机器/Origin 组合的工程回归，不替代 387 MatrixKey、性能、安全、签名安装包、人工视觉复核与完整 Beta qualification。Phase C 仍必须保持 Phase A/B oracle 不变后再开始，因此 M6 整体仍为 reopened。
 
+**2026-08-08 SEQ-20 资格语义纠正：** 首迁 14 图的三批同源 reference/data、默认/编辑产物、OPJU build/fresh-reopen 与 hash 证据已生成，但视觉资格明确为 **NO-GO**，不得称为“工程门禁通过”。K02 同系列线/点身份、K05 native band 填充和 K09 分组柱重叠是可机械验证 P0，必须自动阻断；标题和图例等差异保留人工视觉签名。后续证据必须绑定精确 git commit 与共享 renderer/Origin source digest；共享渲染代码变化会使旧资格 stale。三个 P0 清零、当前 source identity 一致且人工签名批准前，不进入 Phase C/SEQ-30。
+
 **当前回归证据（2026-08-07）：** Python 默认全量为 789 passed、57 个显式 Origin live case skipped，Ruff 与 mypy 全通过；Node/Electron 为 17 files、78 tests，lint 与两套 TypeScript typecheck 全通过。显式开启的新门禁为 2 passed：一份 OPJU 覆盖 10 个非默认专属编辑代表图，另一份 OPJU 覆盖全部 43 个正式图；两者均完成 build validation 与独立空白 Origin 实例 fresh-reopen validation 的精确一致检查。测试临时产物不进入仓库。
 
 #### M6 真实 Provider 与视觉审计实现说明（2026-08-06）

@@ -66,12 +66,12 @@ flowchart TD
 
 ## 5. 阶段状态总表
 
-状态取值固定为：`未开始`、`进行中`、`工程门禁通过`、`完成`、`阻塞`。`阻塞`必须记录稳定阻塞原因；一般工作未完成不能标为阻塞。
+状态取值固定为：`未开始`、`进行中`、`证据生成完成 / NO-GO`、`完成`、`阻塞`。`证据生成完成 / NO-GO` 表示证据可以复现但阶段资格仍失败，绝不能简称为“门禁通过”；`阻塞`必须记录稳定阻塞原因，一般工作未完成不能标为阻塞。
 
 | 阶段 | 当前状态 | 进入条件 | 退出结果 |
 | --- | --- | --- | --- |
 | SEQ-10 前端与产品蓝图 | 完成 | 本顺序基线确认 | 三工作区 IA、关键流程、对象语法、状态矩阵、设计方向冻结 |
-| SEQ-20 首迁图视觉基线 | 工程门禁通过 | Phase A/B 工程门禁通过 | 首迁 14 图默认与代表性非默认状态的可追溯视觉基线；其余 29 图缺口持续登记 |
+| SEQ-20 首迁图视觉基线 | 证据生成完成 / 视觉 NO-GO | Phase A/B 工程门禁通过 | 首迁 14 图默认与代表性非默认状态的可追溯视觉基线；P0 自动阻断项清零并取得人工视觉签名；其余 29 图缺口持续登记 |
 | SEQ-30 ChartRecipe v1 与迁移 | 未开始 | 首迁 14 图视觉基线完成 | 14 图由同一版本化配方运行时确定性生成，其余 29 图行为不变 |
 | SEQ-40 辨识度契约与后端 | 未开始 | SEQ-30 gate 通过 | 精简 SelectionScope、AgentChangeSet 与 BatchReviewItem 可执行 |
 | SEQ-50 批量优先纵向链路 | 未开始 | SEQ-40 最小闭环通过 | 一条从多数据到批量自然语言改图再到导出的真实链路 |
@@ -177,16 +177,17 @@ flowchart TD
 - **冻结输入：** `tests/fixtures/visual_regression/seq20/` 保存逐图 `data.csv`、`reference.png`、provenance 和 `batch-1.manifest.json`；manifest 固定来源 SHA-256、数据/参考图 SHA-256、PlotSpec/RenderPlan hash、Matplotlib/Origin PNG hash、adapter 与 exact Origin 环境。
 - **运行产物：** `build/visual-audit/seq20-origin-baseline/batch-1/index.html`；默认态和代表性编辑态分别生成一份合并 O1 OPJU，并通过 build/save/独立 fresh-reopen 精确读回。
 - **环境：** Origin 2024 SR1 `10.10.178` / runtime `10.100178` / 64-bit，`originpro=1.1.15`；Origin adapter `1.0.0`。
-- **自动结论：** 两个状态的 fresh-reopen validation 均完全一致；冻结数据与参考图 hash 门禁通过。人工视觉签名前不把第一批记为最终视觉通过。
-- **已知观察：** K02 当前产品默认把线与点解析为不同系列颜色，而 Origin 参考把二者视为同一系列；该差异已保留在基线对照中，未修改旧 renderer 或 oracle。
+- **自动证据结论：** 两个状态的 fresh-reopen validation 均完全一致；冻结数据与参考图 hash 完整性检查通过。该结论只说明证据可复现，不是视觉 gate 通过。
+- **P0 自动阻断：** K02 当前产品默认把同一 Line+Symbol 数据的线与点解析为不同系列颜色，而 Origin 参考把二者视为同一系列；归类为 `SERIES_IDENTITY_MISMATCH`。它必须进入 `blocking_observations` 并使视觉 gate 失败，不能只作为说明性观察保留。
 
 ### 7.5 第二批 evidence（2026-08-08）
 
 - **范围：** X01、X02、X09、K05、K09；均已锚定同源 Origin A/C 级参考图与数据，不含合成数据。
 - **冻结输入：** 对应逐图 fixture、参考图、provenance 和 `batch-2.manifest.json` 位于 `tests/fixtures/visual_regression/seq20/`。
 - **运行产物：** `build/visual-audit/seq20-origin-baseline/batch-2/index.html`；默认态与代表性编辑态均完成 Matplotlib、合并 O1 OPJU 和独立 fresh-reopen 导出。
-- **自动结论：** 两个状态的 Origin build/fresh-reopen validation 完全一致；来源、数据、参考图、PlotSpec、RenderPlan、PNG 与 OPJU hash 均已固定。
-- **视觉观察：** X01 Origin 标题落在绘图区左侧；X09 Origin 图例把区间拆为 `Middle/End`；K05 Origin 默认带出现黑色实填且标题压图；K09 三组 Origin 柱发生重叠。它们证明“原生对象稳定”不等于“视觉合格”，均保留在审计页中，不通过修改旧 oracle 或放宽校验消除。
+- **自动证据结论：** 两个状态的 Origin build/fresh-reopen validation 完全一致；来源、数据、参考图、PlotSpec、RenderPlan、PNG 与 OPJU hash 均已固定。这仍然只是证据完整性，不是视觉 gate 通过。
+- **P0 自动阻断：** K05 原生置信带填充错误归类为 `NATIVE_BAND_FILL_MISMATCH`；K09 三组 Origin 柱发生重叠归类为 `GROUPED_BAR_OVERLAP`。两项必须进入 `blocking_observations`，任一未关闭都自动 NO-GO。
+- **人工视觉签名项：** X01/K05 标题位置、X09 区间图例语义等仍需在并排证据上人工判断；它们不靠未经校准的像素阈值自动通过或失败，但没有人工签名时整体视觉资格仍为 NO-GO。
 - **阶段判断：** 第二批工程 evidence 完成，但上述视觉差异与用户人工签名未收口，暂不允许据此进入 SEQ-30。
 
 ### 7.6 第三批与阶段判断（2026-08-08）
@@ -195,11 +196,48 @@ flowchart TD
 - **范围：** K10、S05、S25、X03。K10/X03 直接锚定随附 Origin 图页；S05 使用官方三重复剂量反应数据，把逐剂量均值和 min/max 明确冻结为用户提供曲线/带，不执行拟合；S25 使用官方 Absorbance Spectra 工作表，并因随附 Graph1 只显示 940–1000 局部谱段而改用 Origin 系统 `LINE` 模板做 C 级全数据自动范围重建。安装的旧 `spectra.OTP` 会反转 Y 轴并注入 time/frequency 语义，不适合作为吸收光谱默认规范。
 - **冻结输入：** 对应逐图 fixture、参考图、provenance 和 `batch-3.manifest.json` 位于 `tests/fixtures/visual_regression/seq20/`；三批合计严格覆盖 K01、K02、K03、K08、K18、X01、X02、X09、K05、K09、K10、S05、S25、X03。
 - **运行产物：** `build/visual-audit/seq20-origin-baseline/batch-3/index.html`；默认态与代表性编辑态均完成 Matplotlib、合并 O1 OPJU 和独立 fresh-reopen 导出。
-- **自动结论：** 三批 14 图均存在同源参考图与冻结数据，默认/编辑两种状态均固定 PlotSpec、RenderPlan、Matplotlib、Origin PNG、OPJU、adapter、exact Origin version 与 hash；所有 OPJU build/fresh-reopen validation 完全一致。无同源数据、合成数据或旧 oracle 改写进入本基线。
-- **测试：** `tests/rendering/test_seq20_visual_baseline.py` 为 3 passed；Python 默认全量为 793 passed、57 个显式 Origin live case skipped；`mypy src` 通过 126 个源文件，SEQ-20 脚本/测试 Ruff 通过。全仓 Ruff 另报告既有 `src/plotagent/desktop_core/application.py:632` 一处 102 字符行，本阶段未改动该无关 Core 文件。前端无代码变化，沿用 SEQ-10 已冻结的 84/84、lint/typecheck/build 证据。
+- **自动证据结论：** 三批 14 图均存在同源参考图与冻结数据，默认/编辑两种状态均固定 PlotSpec、RenderPlan、Matplotlib、Origin PNG、OPJU、adapter、exact Origin version 与 hash；所有 OPJU build/fresh-reopen validation 完全一致。无同源数据、合成数据或旧 oracle 改写进入本基线。该结论只证明证据生成完成。
+- **测试：** `tests/rendering/test_seq20_visual_baseline.py` 只检查三批同源证据完整性，不再使用“qualification/gate passed”命名。`tests/rendering/test_seq20_visual_qualification_gate.py` 固定验证：已知 blocking observation 非空必为 NO-GO、缺少 source build identity 必为 NO-GO、共享渲染源码变化使旧资格变为 stale、标题/图例等人工观察必须由人工视觉签名收口。此前 Python/Origin/前端回归数字继续作为历史证据，不得替代该视觉 gate。
 - **第三批视觉观察：** S05 Origin 图例右侧被页面边缘截断且标题未置顶；S25/X03 Origin 标题未置顶。K10 的堆积结构与数据总量一致。
-- **未完成项：** 用户对三批对照页的人工视觉签名；K02 系列身份色、X01/K05/S05/S25/X03 标题/图例、X09 区间图例语义、K05 带填充、K09 三组柱重叠等已知差异的处置。
-- **是否允许进入下一阶段：** **否。** SEQ-20 自动工程门禁已通过，但视觉资格尚未通过；修复必须保持冻结数据与参考图不变，不得修改旧 oracle 或放宽容差。用户签名且已知 P0 视觉差异收口后，方可把 SEQ-20 标为“完成”并进入 SEQ-30。
+- **未完成项：** K02 `SERIES_IDENTITY_MISMATCH`、K05 `NATIVE_BAND_FILL_MISMATCH`、K09 `GROUPED_BAR_OVERLAP` 三个可机械验证 P0 尚未关闭；用户尚未对标题、图例及其余并排证据完成视觉签名。
+- **是否允许进入下一阶段：** **否（视觉 NO-GO）。** 当前只完成证据生成与完整性校验，不存在“SEQ-20 自动工程门禁已通过”的结论。修复必须保持冻结数据与参考图不变，不得修改旧 oracle 或放宽容差；三个 P0 自动阻断项清零、证据绑定当前 source build identity 且取得用户视觉签名后，方可把 SEQ-20 标为“完成”并进入 SEQ-30。
+
+### 7.7 视觉资格门禁记录契约
+
+冻结的 reference/data/manifest 是历史证据，不在本次语义纠正中原地改写。下一次由生成器重建证据时，每个 batch manifest 必须新增以下 `qualification` 对象：
+
+```json
+{
+  "qualification": {
+    "source_build_identity": {
+      "scope_version": "seq20-rendering-v1",
+      "git_commit": "40-char lowercase git commit",
+      "source_sha256": "sha256 over the frozen shared rendering source scope"
+    },
+    "blocking_observations": [
+      {
+        "chart_type_id": "K02",
+        "code": "SERIES_IDENTITY_MISMATCH",
+        "states": ["default", "edited"]
+      }
+    ],
+    "human_visual_signature": {
+      "status": "pending | approved",
+      "reviewer": null,
+      "signed_at": null
+    },
+    "decision": "NO-GO | GO"
+  }
+}
+```
+
+门禁规则固定如下：
+
+1. `git_commit` 精确记录生成证据的提交，`source_sha256` 覆盖 `pyproject.toml`、charts、rendering contracts/styles、共享 rendering 与 Origin 源码；同一 `scope_version` 下任一文件变化都使旧资格成为 `SOURCE_BUILD_STALE`。文档或测试单独变化不会错误使渲染资格陈旧。
+2. `blocking_observations` 必须存在且语义固定为“当前未关闭的阻断项”；只要列表非空，整体自动 NO-GO。问题关闭后从该列表移出并可另记历史处置，不能在列表内标 `closed` 来获得通过，也不能把 P0 移回 `visual_observations` 规避门禁。
+3. K02 系列身份、K05 native band 填充和 K09 分组柱几何属于可机械验证 P0；标题位置、图例布局/语义等保留为人工视觉签名项，不臆造不可靠的像素阈值。
+4. `human_visual_signature.status` 不是 `approved` 时整体 NO-GO。签名只能针对同一 source identity、冻结 reference/data 和本次生成产物，不能沿用旧图片。
+5. 只有 source identity 当前、P0 阻断列表为空、人工签名批准且原有同源/fresh-reopen 完整性检查全部通过，生成器才可写 `decision=GO`；否则必须写 `NO-GO`。
 
 ## 8. SEQ-30：ChartRecipe compiler v1 与首批 14 图迁移
 

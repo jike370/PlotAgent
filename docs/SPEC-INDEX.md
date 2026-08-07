@@ -1,6 +1,6 @@
 # PlotAgent v1 规格索引与小规模邀请制 Beta 设计基线
 
-> 状态：v1 数据/计算范围收敛；正式范围固定为 43 图，M6 基础泛化与逐图编辑/Origin 样式工程门禁已实现，首批14图可组合底座、精简批量辨识度闭环与完整生产前端重做仍待实现；M7 小规模邀请制 Beta qualification 尚未执行
+> 状态：v1 数据/计算范围收敛；正式范围固定为 43 图，M6 基础泛化与逐图编辑/Origin 样式工程门禁已实现；首批14图同源视觉证据已生成但资格为 NO-GO，ChartRecipe 可组合底座、精简批量辨识度闭环与完整生产前端重做仍待实现；M7 小规模邀请制 Beta qualification 尚未执行
 > 基线日期：2026-08-07
 > 适用范围：权威文档、冲突优先级、requirement/evidence matrix、workstream 入口与冻结变更流程
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)、[SEQ-10 前端差距审计](./SEQ-10-FRONTEND-GAP-AUDIT.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
@@ -21,6 +21,7 @@
 - M7 的真实用户成功指标、生产签名发布、reference 性能与完整邀请制 Beta gate 已经通过。
 - 43 图/固定计算/Origin 每个 adapter 的底层 property map 已在本文展开；逐图用户能力以 PRD §8.5 和版本化 profile 为准，后续 AnalysisSpec/FitSpec 尚不可用。
 - 单一 Origin exact version 已完成一次 43 图合并 build/save/fresh-reopen 工程门禁；它不是 43 份发布 MatrixKey 与完整 evidence manifest，也不表示 reference 性能、安全或生产签名安装包 Beta gate 已通过。
+- 首迁 14 图的三批同源并排证据已生成；K02 系列身份、K05 native band 填充和 K09 分组柱重叠仍为自动阻断 P0，且证据尚未绑定当前 source build identity 或取得人工视觉签名，因此 SEQ-20 是视觉 NO-GO，不能解释为视觉资格通过。
 - 当前 UI prototype 的种子数据或模拟交互是后端行为证据。
 
 每图/每算法完整参数、property map 和fixture细节由W3/W4/W6 backlog在现有公共契约内细化；如果细化会改变用户选择、科学语义、对象版本、formal完整性或O1能力，必须回到Decision变更。
@@ -97,7 +98,7 @@
 | R-RECIPE | ChartRecipe v1只覆盖line/point/bar/area/band/stem/interval及overlay/group/stack/attach/connect，迁移指定14图；其余29图保留既有路径；配方不含数据、FieldId、路径、计算结果或代码 | PD-E13–E23,P21–P27,AB22/AB23；DOMAIN §3.2；PRD 5.6 | W0/W4/W6 | recipe schemas/registry/validator/compiler | 14 graph/port/relation/canonical compile/parity/no-executable corpus | frozen-design-pending-implementation |
 | R-GENERALIZE | 正式43图先通过冻结生成器与结构不变量；Matplotlib全矩阵、Origin按结构签名代表性验证；隐藏图回归不计正式覆盖 | PD-V21–V25,AA21–AA25；RENDER §2.1/14；PERF §7.6 | W4/W6/W10 | generalized fixture harness/layout invariants | fixed manifest/full mpl/representative Origin reports | baseline-implemented-origin-expansion-pending |
 | R-EDIT-STYLE | 43图逐图编辑白名单；12种Origin对齐符号与适用interior、16冻结sRGB色板、>15颜色+符号不循环、双Y默认中性细线；未声明请求稳定不支持 | PD-I13–I18,P28–P32,V26,AA26–AA29；PRD §8.5–8.6；DOMAIN §4.4/6；RENDER §7；PERF §7.7 | W0/W4/W6/W10 | capability profiles/style registries/resolver/adapters | snapshot/allow-deny/parity/readback/capacity tests | engineering-gate-implemented-beta-evidence-pending |
-| R-RENDER | 单一ResolvedRenderPlan、deterministic axes/ticks/layout/text/style；数据和画布驱动动态几何 | PD-V01–V26；RENDER | W4/W6 | recipe compiler/resolver | compiler/plan golden/generalization/style parity tolerance | reopened |
+| R-RENDER | 单一ResolvedRenderPlan、deterministic axes/ticks/layout/text/style；数据和画布驱动动态几何；视觉资格绑定精确 source identity，P0 blocking observations 非空或旧证据 stale 时 NO-GO | PD-V01–V26；RENDER；SEQ §7.7 | W4/W6/W10 | recipe compiler/resolver/visual gate | compiler/plan golden/generalization/style parity/current-build visual signature | reopened-seq20-visual-no-go |
 | R-OPJU | 正式43图OPJU全部O1；无LabTalk/raster fallback；两阶段原子；九图隐藏不承诺 | PD-K04,W01–W20,E26；ORIGIN；PERF §2 | W6 | origin adapters/worker | 单一 exact version 43 representative + 离线 edge/error | reopened-base31-implemented |
 | R-ORIGIN-V | 每Beta build只声明一个qualified Origin exact version；其他unsupported | PD-K03/K12,W12,AA03；PERF §2 | W6/W10 | build declaration/preflight | one exact-version matrix | frozen-design |
 | R-TASK | Interaction≠Execution；提交/取消/幂等；崩溃不损坏且用户明确重试 | PD-R01–R20,Z18；TASK | W1/W2 | scheduler/events | state/fault/commit E2E | frozen-design |

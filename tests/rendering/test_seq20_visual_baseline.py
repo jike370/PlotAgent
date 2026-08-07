@@ -17,12 +17,10 @@ EXPECTED_BATCHES = {
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
-
 @pytest.mark.parametrize("batch", (1, 2, 3))
-def test_seq20_frozen_same_source_manifest(batch: int) -> None:
+def test_seq20_frozen_same_source_evidence_manifest(batch: int) -> None:
     manifest_path = FIXTURES / f"batch-{batch}.manifest.json"
-    if not manifest_path.is_file():
-        pytest.skip(f"SEQ-20 batch {batch} has not been frozen yet")
+    assert manifest_path.is_file(), f"missing frozen SEQ-20 evidence batch {batch}"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     assert manifest["stage"] == "SEQ-20"
@@ -46,3 +44,6 @@ def test_seq20_frozen_same_source_manifest(batch: int) -> None:
             assert len(state["render_plan_sha256"]) == 64
             assert len(state["matplotlib_png_sha256"]) == 64
             assert len(state["origin_fresh_png_sha256"]) == 64
+
+    assert "engineering evidence complete" in manifest["audit_conclusion"]
+    assert "visual qualification passed" not in manifest["audit_conclusion"]
