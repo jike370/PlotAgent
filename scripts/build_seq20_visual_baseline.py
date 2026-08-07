@@ -24,6 +24,7 @@ import hashlib
 import html
 import json
 import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -82,6 +83,15 @@ from tests.contracts.helpers import profile, style
 ORIGIN = Path(r"D:\origin")
 OUTPUT = REPOSITORY / "build" / "visual-audit" / "seq20-origin-baseline"
 FIXTURES = REPOSITORY / "tests" / "fixtures" / "visual_regression" / "seq20"
+SOURCE_SCOPE_VERSION = "seq20-rendering-v1"
+SOURCE_SCOPE = (
+    Path("pyproject.toml"),
+    Path("src/plotagent/charts"),
+    Path("src/plotagent/contracts/rendering.py"),
+    Path("src/plotagent/contracts/styles.py"),
+    Path("src/plotagent/origin"),
+    Path("src/plotagent/rendering"),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,20 +132,11 @@ CASES = (
 
 BATCHES = {1: CASES[:5], 2: CASES[5:10], 3: CASES[10:]}
 
-VISUAL_OBSERVATIONS: dict[str, tuple[str, ...]] = {
-    "K02": (
-        "当前产品默认把线与点解析为不同系列颜色；Origin 参考把二者视为同一系列。",
-    ),
-    "X01": ("Origin O1 标题位于绘图区左侧，未与 Matplotlib 顶部标题对齐。",),
-    "X09": ("当前 Origin O1 图例拆出 Middle/End；与参考的区间语义呈现不同。",),
-    "K05": (
-        "Origin O1 默认置信带出现黑色实填，且标题压入绘图区；Matplotlib 与参考没有该问题。",
-    ),
-    "K09": ("Origin O1 在三组数据下柱形发生重叠，违反动态组数不重叠约束。",),
-    "S05": ("Origin O1 图例右侧文字被页面边缘截断，且标题未位于页顶。",),
-    "S25": ("Origin O1 标题未位于页顶；数据范围与全范围 C 级参考一致。",),
-    "X03": ("Origin O1 标题未位于页顶；端点和连接几何保持同源。",),
-}
+# Mechanical P0 observations must be closed before evidence is regenerated.
+# Any remaining judgement-only differences are added here after inspecting the
+# regenerated contact sheets; they require the separate human signature below.
+VISUAL_OBSERVATIONS: dict[str, tuple[str, ...]] = {}
+BLOCKING_OBSERVATIONS: tuple[dict[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +154,51 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _source_files() -> tuple[Path, ...]:
+    files: list[Path] = []
+    for relative in SOURCE_SCOPE:
+        path = REPOSITORY / relative
+        if path.is_file():
+            files.append(path)
+        elif path.is_dir():
+            files.extend(
+                candidate
+                for candidate in path.rglob("*")
+                if candidate.is_file()
+                and "__pycache__" not in candidate.parts
+                and candidate.suffix not in {".pyc", ".pyo"}
+            )
+        else:
+            raise RuntimeError(f"missing SEQ-20 source identity path: {relative.as_posix()}")
+    return tuple(sorted(files, key=lambda path: path.relative_to(REPOSITORY).as_posix()))
+
+
+def _source_build_sha256() -> str:
+    digest = hashlib.sha256()
+    for path in _source_files():
+        relative = path.relative_to(REPOSITORY).as_posix().encode("utf-8")
+        digest.update(len(relative).to_bytes(4, "big"))
+        digest.update(relative)
+        content = path.read_bytes()
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
+
+
+def _source_git_commit() -> str:
+    result = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=REPOSITORY,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    commit = result.stdout.strip().lower()
+    if len(commit) != 40 or any(character not in "0123456789abcdef" for character in commit):
+        raise RuntimeError("git rev-parse did not return a full commit identity")
+    return commit
 
 
 def _text(value: str) -> SafeRichText:
@@ -736,8 +782,13 @@ def _render_batch(batch: int, cases: tuple[AuditCase, ...], output: Path, fixtur
         case_entries[case.case_id]["comparison_default_sha256"] = _sha256(case_dir / "comparison-default.png")
         case_entries[case.case_id]["comparison_edited_sha256"] = _sha256(case_dir / "comparison-edited.png")
 
+    source_build_identity = {
+        "scope_version": SOURCE_SCOPE_VERSION,
+        "git_commit": _source_git_commit(),
+        "source_sha256": _source_build_sha256(),
+    }
     manifest = {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "stage": "SEQ-20",
         "batch": batch,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -757,9 +808,19 @@ def _render_batch(batch: int, cases: tuple[AuditCase, ...], output: Path, fixtur
         },
         "exports": export_entries,
         "cases": [case_entries[case.case_id] for case in cases],
+        "qualification": {
+            "source_build_identity": source_build_identity,
+            "blocking_observations": list(BLOCKING_OBSERVATIONS),
+            "human_visual_signature": {
+                "status": "pending",
+                "reviewer": None,
+                "signed_at": None,
+            },
+            "decision": "NO-GO",
+        },
         "audit_conclusion": (
-            "engineering evidence complete; human visual sign-off pending; "
-            "known visual differences are listed per case"
+            "same-source evidence rebuilt; automated P0 blockers closed; "
+            "human visual sign-off pending; visual qualification not passed"
         ),
     }
     manifest_path = batch_dir / "manifest.json"
