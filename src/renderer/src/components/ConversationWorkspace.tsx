@@ -68,6 +68,7 @@ interface ConversationWorkspaceProps {
   busyAction?: string
   agentOutcome?: AgentOutcome
   agentConfigured: boolean
+  previewMode?: boolean
   onOpenSample: () => void
   onImportData: () => void
   onOpenProject: () => void
@@ -296,22 +297,23 @@ function PlotObject({
   plot,
   chart,
   busyAction,
+  previewMode,
   onExport,
   onOpenLibrary,
   onOpenFocus,
   onCreateBatch,
   onCreateFigure,
-}: Pick<ConversationWorkspaceProps, 'plot' | 'selectedChart' | 'busyAction' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch' | 'onCreateFigure'> & { chart?: ChartType }): React.JSX.Element {
+}: Pick<ConversationWorkspaceProps, 'plot' | 'selectedChart' | 'busyAction' | 'previewMode' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch' | 'onCreateFigure'> & { chart?: ChartType }): React.JSX.Element {
   if (!plot) return <div />
   return (
     <section className="object-block product-plot-object" aria-labelledby="plot-title">
       <header className="object-header">
         <span className="object-icon object-icon--batch"><FileChartColumn size={17} /></span>
         <div><h3 id="plot-title">{chart?.name ?? plot.chartId} · v{plot.plotVersion}</h3><p>{plot.plotId} · {plot.chartId} · ResolvedRenderPlan</p></div>
-        <span className="status-label status-label--success"><Check size={13} />已渲染</span>
+        <span className="status-label status-label--success"><Check size={13} />{previewMode ? '界面预览' : '已渲染'}</span>
       </header>
       <div className="product-preview">
-        {plot.preview?.url ? <img src={plot.preview.url} alt={`${chart?.name ?? plot.chartId} 真实渲染预览`} /> : <div className="preview-pending"><LoaderCircle className="spin" size={20} /><span>等待受控预览资源</span></div>}
+        {plot.preview?.url ? <img src={plot.preview.url} alt={`${chart?.name ?? plot.chartId} ${previewMode ? '界面预览' : '真实渲染预览'}`} /> : <div className="preview-pending"><LoaderCircle className="spin" size={20} /><span>等待受控预览资源</span></div>}
       </div>
       <footer className="plot-actions">
         <button type="button" onClick={onOpenLibrary}><Library size={15} />选择其他图形</button>
@@ -393,7 +395,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
               <section className="project-empty-data"><FileSpreadsheet size={24} /><h2>导入数值数据</h2><p>支持多工作表 Excel 与包含仪器说明的 TXT。第一轮不处理科研图像。</p><button className="primary-button" type="button" onClick={props.onImportData} disabled={busyAction !== undefined}>{busyAction === 'import' ? <LoaderCircle className="spin" size={15} /> : <FolderOpen size={15} />}选择数据文件</button></section>
             ) : (
               <>
-                <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>数据已由本地 Core 解析。请先检查字段与质量摘要，再明确选择图形。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} /></div></div>
+                <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>{props.previewMode ? '已载入内存示例数据。请检查字段与质量摘要，再明确选择图形。' : '数据已由本地 Core 解析。请先检查字段与质量摘要，再明确选择图形。'}</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} /></div></div>
                 {!selectedChart && <div className="explicit-chart-choice"><Library size={19} /><div><strong>请选择要绘制的图形</strong><p>Agent 不会替你推荐、猜测或静默替换图形类型。</p></div><button className="primary-button" type="button" onClick={props.onOpenLibrary}>选择图形</button></div>}
                 {selectedChart && activeDataset && !plot && <MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} onConfirm={props.onConfirmMapping} />}
                 {plot && <PlotObject {...props} chart={selectedChart} />}
@@ -406,7 +408,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       )}
 
       {project && plot && <AgentComposer plot={plot} configured={props.agentConfigured} busy={busyAction === 'agent'} outcome={props.agentOutcome} onSubmit={props.onAgentInstruction} onConfigure={props.onConfigureAgent} />}
-      {!project && <div className="startup-footer"><span>所有项目、数据与图表默认保存在这台电脑上</span><span>PlotAgent 0.1.0 · 无需账号</span></div>}
+      {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}
     </main>
   )
 }

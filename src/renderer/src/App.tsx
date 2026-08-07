@@ -40,6 +40,7 @@ import { FocusEditor } from './components/FocusEditor'
 import { Sidebar } from './components/Sidebar'
 import { TaskDrawer } from './components/TaskDrawer'
 import { useDialogFocus } from './components/useDialogFocus'
+import { resolveDesktopRuntime } from './preview/browserPreviewApi'
 
 type Screen = 'workspace' | 'focus' | 'composition' | 'batch-inspector'
 
@@ -115,12 +116,13 @@ function readFigure(value: JsonValue): FigureView | undefined {
 
 interface ProviderSettingsProps {
   busy: boolean
+  previewMode: boolean
   notice?: ProductNotice
   onClose: () => void
   onConfigure: (input: CustomProviderConfigureInput) => void
 }
 
-function ProviderSettings({ busy, notice, onClose, onConfigure }: ProviderSettingsProps): React.JSX.Element {
+function ProviderSettings({ busy, previewMode, notice, onClose, onConfigure }: ProviderSettingsProps): React.JSX.Element {
   const [baseUrl, setBaseUrl] = useState('')
   const [modelId, setModelId] = useState('')
   const [apiKey, setApiKey] = useState('')
@@ -131,7 +133,7 @@ function ProviderSettings({ busy, notice, onClose, onConfigure }: ProviderSettin
     <div className="provider-settings-layer" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <section ref={dialogRef} className="provider-settings" role="dialog" aria-modal="true" aria-labelledby="provider-settings-title" tabIndex={-1}>
         <header><div><h2 id="provider-settings-title">模型服务</h2><p>只在首次使用 Agent 时配置，不影响本地绘图与导出。</p></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭模型服务设置"><X size={18} /></button></header>
-        <div className="provider-build-note"><strong>内置服务</strong><span>当前构建未配置可用端点，可使用 OpenAI-compatible 自定义服务。</span></div>
+        <div className="provider-build-note"><strong>{previewMode ? '界面预览' : '内置服务'}</strong><span>{previewMode ? '表单仅用于检查交互，不发送或保存其中内容。' : '当前构建未配置可用端点，可使用 OpenAI-compatible 自定义服务。'}</span></div>
         <form onSubmit={(event) => {
           event.preventDefault()
           onConfigure({ baseUrl, modelId, ...(apiKey ? { apiKey } : {}), retentionAcknowledged: true })
@@ -150,7 +152,7 @@ function ProviderSettings({ busy, notice, onClose, onConfigure }: ProviderSettin
 }
 
 export function App(): React.JSX.Element {
-  const api = window.plotAgentDesktop
+  const { api, previewMode } = resolveDesktopRuntime()
   const [screen, setScreen] = useState<Screen>('workspace')
   const [core, setCore] = useState<CoreStatus>(api ? initialCore : {
     phase: 'failed', restartAttempt: 0,
@@ -341,7 +343,13 @@ export function App(): React.JSX.Element {
     const nextProject = projectWithVersion(targetProject, version)
     setProject(nextProject); mergeProjects([nextProject])
     setSelectedChart(undefined); setConfirmedMapping(undefined); setPlot(undefined)
-    setNotice({ kind: 'success', title: '数据已导入', message: `本地 Core 返回 ${imported.length} 个工作表或数据块，请检查字段与质量摘要。` })
+    setNotice({
+      kind: 'success',
+      title: '数据已导入',
+      message: previewMode
+        ? `已载入 ${imported.length} 个内存示例数据集，可继续检查字段与界面流程。`
+        : `本地 Core 返回 ${imported.length} 个工作表或数据块，请检查字段与质量摘要。`,
+    })
   }
 
   const openSample = async (): Promise<void> => {
@@ -350,7 +358,11 @@ export function App(): React.JSX.Element {
     try {
       const value = valueOrThrow(await api.openSampleProject())
       hydrateProject(value, '温度响应示例')
-      setNotice({ kind: 'success', title: '示例项目已创建', message: '内置 CSV 已通过真实导入路径复制到新的本地项目。' })
+      setNotice({
+        kind: 'success',
+        title: previewMode ? '示例项目已载入' : '示例项目已创建',
+        message: previewMode ? '使用内存示例数据预览完整交互，不写入本机项目。' : '内置 CSV 已通过真实导入路径复制到新的本地项目。',
+      })
       await refreshProjects()
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
@@ -386,7 +398,11 @@ export function App(): React.JSX.Element {
         const listed = valueOrThrow(await api.listDatasets({ projectId: nextProject.projectId }))
         hydrateProject(listed, nextProject.name, nextProject)
       }
-      setNotice({ kind: 'success', title: '项目已打开', message: '.plotproj 已由 Main 授权并交给本地 Core 校验。' })
+      setNotice({
+        kind: 'success',
+        title: '项目已打开',
+        message: previewMode ? '已载入内存项目，用于检查打开项目后的界面。' : '.plotproj 已由 Main 授权并交给本地 Core 校验。',
+      })
       await refreshProjects()
     } catch (error) {
       if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'DIALOG_CANCELLED') setNotice(undefined)
@@ -426,7 +442,13 @@ export function App(): React.JSX.Element {
       nextPlot = withPreview(nextPlot, rendered)
       setPlot(nextPlot); setPlotHistory((current) => [...current.filter((item) => item.plotId !== nextPlot!.plotId), nextPlot!])
       setProject(projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1)))
-      setNotice({ kind: 'success', title: '绘图完成', message: `${selectedChart.name} ${selectedChart.id} 已按确认映射创建，预览来自本地 Core。` })
+      setNotice({
+        kind: 'success',
+        title: '绘图完成',
+        message: previewMode
+          ? `${selectedChart.name} ${selectedChart.id} 已按确认映射生成界面预览。`
+          : `${selectedChart.name} ${selectedChart.id} 已按确认映射创建，预览来自本地 Core。`,
+      })
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
@@ -453,6 +475,10 @@ export function App(): React.JSX.Element {
         utterance: instruction,
       }))
       const outcome = readAgentOutcome(value)
+      if (previewMode && outcome.kind === 'action_plan') {
+        outcome.title = '预览修改已应用'
+        outcome.message = '已创建内存图形版本，用于检查自然语言改图后的界面状态。'
+      }
       if (outcome.execution) {
         const rendered = valueOrThrow(await api.renderPlot({ projectId: project.projectId, plotId: outcome.execution.plotId, plotVersion: outcome.execution.plotVersion, mode: 'preview' }))
         const executed = withPreview(outcome.execution, rendered)
@@ -513,6 +539,10 @@ export function App(): React.JSX.Element {
 
   const exportArtifact = async (format: 'png' | 'svg' | 'opju', explicitTarget?: { kind: 'batch' | 'figure'; id: string; version: number }): Promise<void> => {
     if (!api || !project || (explicitTarget === undefined && plot === undefined)) return
+    if (previewMode) {
+      setNotice({ kind: 'info', title: `预览模式不写出 ${format.toLocaleUpperCase('en-US')}`, message: '请在 PlotAgent 桌面应用中验证真实文件导出。' })
+      return
+    }
     const target = explicitTarget ?? { kind: 'plot' as const, id: plot!.plotId, version: plot!.plotVersion }
     setBusyAction(`export-${format}`); setNotice(undefined)
     if (format === 'opju') setOriginStatus('exporting')
@@ -593,8 +623,8 @@ export function App(): React.JSX.Element {
       <div className="app-titlebar" aria-hidden="true"><FlaskConical size={13} /><span>PlotAgent</span><span className="titlebar-context">本地科研绘图工作台</span></div>
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
-          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
-          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentConfigured={agentConfigured} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setSelectedChart(undefined); setConfirmedMapping(undefined); setPlot(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
+          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
+          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setSelectedChart(undefined); setConfirmedMapping(undefined); setPlot(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && figure && <CompositionEditor figure={figure} onClose={() => setScreen('workspace')} />}
@@ -607,7 +637,7 @@ export function App(): React.JSX.Element {
         setNotice({ kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '下一步请确认一次字段映射。' })
       }} />}
       {tasksOpen && <TaskDrawer tasks={Object.values(taskEvents)} onCancel={(taskId) => { if (api) void api.cancelTask(taskId) }} onClose={() => setTasksOpen(false)} />}
-      {providerOpen && <ProviderSettings busy={busyAction === 'provider'} notice={providerNotice} onClose={() => setProviderOpen(false)} onConfigure={(input) => void configureProvider(input)} />}
+      {providerOpen && <ProviderSettings busy={busyAction === 'provider'} previewMode={previewMode} notice={providerNotice} onClose={() => setProviderOpen(false)} onConfigure={(input) => void configureProvider(input)} />}
       {notice?.kind === 'success' && <div className="toast" role="status"><Check size={15} />{notice.title}</div>}
     </div>
   )

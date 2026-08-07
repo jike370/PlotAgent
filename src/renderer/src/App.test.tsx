@@ -119,6 +119,27 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.queryByText(/邀请已激活/)).not.toBeInTheDocument()
   })
 
+  it('provides a development-only interactive browser preview without a desktop bridge', async () => {
+    const user = userEvent.setup()
+    Reflect.deleteProperty(window, 'plotAgentDesktop')
+    render(<App />)
+
+    expect(screen.getByText('PlotAgent · 开发预览')).toBeInTheDocument()
+    const sampleButton = screen.getByRole('button', { name: '示例' })
+    await waitFor(() => expect(sampleButton).toBeEnabled())
+    await user.click(sampleButton)
+
+    expect(await screen.findByRole('heading', { name: 'source:sample-sheet-1' })).toBeInTheDocument()
+    expect(screen.getAllByText(/内存示例数据/).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
+
+    expect(await screen.findByRole('img', { name: '折线图 界面预览' })).toHaveAttribute('src', expect.stringMatching(/^data:image\/svg\+xml/))
+  })
+
   it('creates and activates a real project from the sidebar action', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop()

@@ -28,6 +28,7 @@ interface SidebarProps {
   taskCount: number
   originStatus: 'unknown' | 'available' | 'unavailable' | 'exporting'
   busyAction?: string
+  previewMode?: boolean
   onProjectChange: (projectId: string) => void
   onNewProject: () => void
   onRenameProject: (projectId: string, name: string) => Promise<boolean>
@@ -76,6 +77,7 @@ export function Sidebar({
   taskCount,
   originStatus,
   busyAction,
+  previewMode = false,
   onProjectChange,
   onNewProject,
   onRenameProject,
@@ -300,7 +302,7 @@ export function Sidebar({
           <OriginIcon className={originStatus === 'exporting' ? 'spin' : undefined} size={16} aria-hidden="true" />
           <span>{origin[0]}</span><span className="footer-meta">{origin[1]}</span>
         </div>
-        <div className="build-row"><span>本地单实例</span><span className="footer-meta">0.1.0 内测</span></div>
+        <div className="build-row"><span>{previewMode ? '界面预览' : '本地单实例'}</span><span className="footer-meta">{previewMode ? '内存示例' : '0.1.0 内测'}</span></div>
       </div>
     </aside>
   )
