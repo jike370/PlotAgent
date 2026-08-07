@@ -116,13 +116,12 @@ function readFigure(value: JsonValue): FigureView | undefined {
 
 interface ProviderSettingsProps {
   busy: boolean
-  previewMode: boolean
   notice?: ProductNotice
   onClose: () => void
   onConfigure: (input: CustomProviderConfigureInput) => void
 }
 
-function ProviderSettings({ busy, previewMode, notice, onClose, onConfigure }: ProviderSettingsProps): React.JSX.Element {
+function ProviderSettings({ busy, notice, onClose, onConfigure }: ProviderSettingsProps): React.JSX.Element {
   const [baseUrl, setBaseUrl] = useState('')
   const [modelId, setModelId] = useState('')
   const [apiKey, setApiKey] = useState('')
@@ -132,8 +131,7 @@ function ProviderSettings({ busy, previewMode, notice, onClose, onConfigure }: P
   return (
     <div className="provider-settings-layer" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <section ref={dialogRef} className="provider-settings" role="dialog" aria-modal="true" aria-labelledby="provider-settings-title" tabIndex={-1}>
-        <header><div><h2 id="provider-settings-title">模型服务</h2><p>只在首次使用 Agent 时配置，不影响本地绘图与导出。</p></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭模型服务设置"><X size={18} /></button></header>
-        <div className="provider-build-note"><strong>{previewMode ? '界面预览' : '内置服务'}</strong><span>{previewMode ? '表单仅用于检查交互，不发送或保存其中内容。' : '当前构建未配置可用端点，可使用 OpenAI-compatible 自定义服务。'}</span></div>
+        <header><div><h2 id="provider-settings-title">模型服务</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭模型服务设置"><X size={18} /></button></header>
         <form onSubmit={(event) => {
           event.preventDefault()
           onConfigure({ baseUrl, modelId, ...(apiKey ? { apiKey } : {}), retentionAcknowledged: true })
@@ -141,7 +139,7 @@ function ProviderSettings({ busy, previewMode, notice, onClose, onConfigure }: P
         }}>
           <label>Base URL<input data-autofocus type="url" required placeholder="https://provider.example/v1 或 http://127.0.0.1:8000/v1" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} /></label>
           <label>Model ID<input required placeholder="model-id" value={modelId} onChange={(event) => setModelId(event.target.value)} /></label>
-          <label>API key（可选）<input type="password" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} /><small>提交后只写入系统凭据库，不回显到界面或项目。</small></label>
+          <label>API key（可选）<input type="password" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} /></label>
           <label className="provider-retention"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} /><span>我已了解：Agent 会向所选模型服务发送指令、字段元数据和受控样本，保留政策由该服务决定。</span></label>
           {notice && <div className={`provider-inline-status provider-inline-status--${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}><strong>{notice.title}</strong><span>{notice.message}</span></div>}
           <footer><button type="button" onClick={onClose}>稍后配置</button><button className="primary-button" type="submit" disabled={!acknowledged || !baseUrl || !modelId || busy}>{busy && <LoaderCircle className="spin" size={15} />}保存模型服务</button></footer>
@@ -338,11 +336,11 @@ export function App(): React.JSX.Element {
     }
     const imported = readDatasets(value)
     setDatasets((current) => [...new Map([...current, ...imported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()])
-    if (imported[0]) setActiveDatasetId(imported[0].datasetId)
+    if (datasets.length === 0 && imported[0]) setActiveDatasetId(imported[0].datasetId)
     const version = projectVersionFrom(value, targetProject.projectVersion)
     const nextProject = projectWithVersion(targetProject, version)
     setProject(nextProject); mergeProjects([nextProject])
-    setSelectedChart(undefined); setConfirmedMapping(undefined); setPlot(undefined)
+    if (datasets.length === 0) { setConfirmedMapping(undefined); setPlot(undefined) }
     setNotice({
       kind: 'success',
       title: '数据已导入',
@@ -620,11 +618,11 @@ export function App(): React.JSX.Element {
   return (
     <div className="app-shell">
       <a className="skip-link" href="#conversation-main">跳到绘图对话</a>
-      <div className="app-titlebar" aria-hidden="true"><FlaskConical size={13} /><span>PlotAgent</span><span className="titlebar-context">本地科研绘图工作台</span></div>
+      <div className="app-titlebar" aria-hidden="true"><FlaskConical size={13} /><span>PlotAgent</span></div>
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
-          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setSelectedChart(undefined); setConfirmedMapping(undefined); setPlot(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
+          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && figure && <CompositionEditor figure={figure} onClose={() => setScreen('workspace')} />}
@@ -634,10 +632,10 @@ export function App(): React.JSX.Element {
         setLibraryOpen(false)
         if (chart.id === 'K25') { void createFigure(); return }
         setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setAgentOutcome(undefined)
-        setNotice({ kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '下一步请确认一次字段映射。' })
+        setNotice(activeDataset ? undefined : { kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '可以继续上传数据。' })
       }} />}
       {tasksOpen && <TaskDrawer tasks={Object.values(taskEvents)} onCancel={(taskId) => { if (api) void api.cancelTask(taskId) }} onClose={() => setTasksOpen(false)} />}
-      {providerOpen && <ProviderSettings busy={busyAction === 'provider'} previewMode={previewMode} notice={providerNotice} onClose={() => setProviderOpen(false)} onConfigure={(input) => void configureProvider(input)} />}
+      {providerOpen && <ProviderSettings busy={busyAction === 'provider'} notice={providerNotice} onClose={() => setProviderOpen(false)} onConfigure={(input) => void configureProvider(input)} />}
       {notice?.kind === 'success' && <div className="toast" role="status"><Check size={15} />{notice.title}</div>}
     </div>
   )

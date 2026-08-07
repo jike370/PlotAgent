@@ -65,11 +65,11 @@ function compatibilityMessage(
   chart: ChartType,
   summary: ChartLibraryProps['datasetCompatibility'],
   availablePlotCount: number,
-): { compatible: boolean; message: string } {
+): { compatible: boolean; message: string; awaitingData?: boolean } {
   if (chart.id === 'K25') return availablePlotCount >= 2
     ? { compatible: true, message: `当前项目已有 ${availablePlotCount} 个固定 PlotSpec 版本，可直接创建组合图。` }
     : { compatible: false, message: `K25 需要至少两个已生成的固定 PlotSpec 版本；当前只有 ${availablePlotCount} 个。` }
-  if (!summary || summary.totalFieldCount === 0) return { compatible: false, message: '尚无 Core 数据字段可校验。不会自动替换图形。' }
+  if (!summary || summary.totalFieldCount === 0) return { compatible: true, awaitingData: true, message: '可以先选择图形，上传数据后再校验字段并确认映射。' }
   const numericRequirements: Record<string, number> = {
     K04: 3, K06: 3, K07: 4, K20: 1, K21: 2, K22: 3,
     S01: 1, S21: 3, S61: 0,
@@ -243,7 +243,7 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
             <div className={`compatibility-check${compatibility.compatible ? '' : ' is-incompatible'}`}>
               {compatibility.compatible ? <Check size={16} /> : <CircleAlert size={16} />}
               <div>
-                <strong>{compatibility.compatible ? '当前数据可进入映射' : '当前数据尚不兼容'}</strong>
+                <strong>{compatibility.awaitingData ? '可先选择图形' : compatibility.compatible ? '当前数据可进入映射' : '当前数据尚不兼容'}</strong>
                 <p>{compatibility.message}</p>
               </div>
             </div>

@@ -1476,7 +1476,7 @@ input[type="checkbox"] {
   z-index: var(--z-sticky);
   width: min(840px, calc(100% - 54px));
   margin: 0 auto;
-  padding: 6px 0 22px;
+  padding: 8px 0 18px;
   background: var(--canvas);
 }
 
@@ -1580,6 +1580,17 @@ input[type="checkbox"] {
   background: var(--surface);
 }
 
+.composer-toolbar .composer-tool {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.composer-toolbar .composer-tool.is-selected {
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+  font-weight: 650;
+}
+
 .chosen-chart {
   margin-left: 5px;
   color: var(--faint);
@@ -1596,13 +1607,6 @@ input[type="checkbox"] {
   border-radius: 8px;
   color: oklch(1 0 0);
   background: var(--primary);
-}
-
-.composer-note {
-  margin: 5px 0 0;
-  color: var(--faint);
-  text-align: center;
-  font-size: 11px;
 }
 
 .reference-menu {
@@ -4856,21 +4860,10 @@ input[type="checkbox"] {
   padding-bottom: 28px;
 }
 
-.project-empty-data {
-  width: min(560px, calc(100% - 40px));
-  margin: auto;
-  display: grid;
-  justify-items: center;
-  gap: 9px;
-  padding: 28px;
-  color: var(--muted);
-  text-align: center;
+.conversation-prompt {
+  width: min(560px, 100%);
+  margin-top: 4px;
 }
-
-.project-empty-data h2,
-.project-empty-data p { margin: 0; }
-.project-empty-data h2 { color: var(--ink-strong); font-size: 18px; }
-.project-empty-data p { max-width: 52ch; font-size: 11px; line-height: 1.6; }
 
 .dataset-switcher {
   margin-left: auto;
@@ -4889,32 +4882,6 @@ input[type="checkbox"] {
   background: var(--canvas);
   color: var(--ink);
 }
-
-.schema-row span:first-child {
-  display: grid;
-  gap: 2px;
-}
-
-.schema-row span:first-child small {
-  color: var(--faint);
-  font-size: 11px;
-}
-
-.explicit-chart-choice {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 14px 16px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: var(--primary-softer);
-}
-
-.explicit-chart-choice > div { min-width: 0; }
-.explicit-chart-choice strong { font-size: 12px; }
-.explicit-chart-choice p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
-.explicit-chart-choice .primary-button { margin-left: auto; flex: 0 0 auto; }
 
 .mapping-form {
   display: flex;
@@ -5020,23 +4987,15 @@ input[type="checkbox"] {
 .product-result-strip strong { font-size: 11px; }
 .product-result-strip p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
 
-.agent-setup,
 .agent-outcome {
   width: min(820px, calc(100% - 28px));
   margin: 0 auto 7px;
 }
 
-.agent-setup { align-items: center; background: var(--warning-soft); }
-.agent-setup span { flex: 1; }
 .agent-outcome--action_plan { background: var(--success-soft); }
 .agent-outcome--needs_input { background: var(--info-soft); }
 .agent-outcome--unsupported,
 .agent-outcome--rejected { background: var(--warning-soft); }
-
-.agent-language {
-  color: var(--faint);
-  font-size: 11px;
-}
 
 .status-dot--offline { background: var(--warning); }
 
@@ -5068,20 +5027,6 @@ input[type="checkbox"] {
 
 .provider-settings > header > div { flex: 1; }
 .provider-settings h2 { margin: 0; font-size: 17px; }
-.provider-settings header p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
-
-.provider-build-note {
-  display: grid;
-  gap: 3px;
-  margin: 14px 18px 0;
-  padding: 10px 11px;
-  border-radius: 8px;
-  background: var(--surface);
-  font-size: 12px;
-}
-
-.provider-build-note span { color: var(--muted); }
-
 .provider-settings form {
   display: grid;
   gap: 12px;

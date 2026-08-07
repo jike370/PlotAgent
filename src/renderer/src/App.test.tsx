@@ -130,7 +130,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(sampleButton)
 
     expect(await screen.findByRole('heading', { name: 'source:sample-sheet-1' })).toBeInTheDocument()
-    expect(screen.getAllByText(/内存示例数据/).length).toBeGreaterThan(0)
+    expect(screen.getByText('已导入 3 个数据表。')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
     await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
@@ -153,7 +153,28 @@ describe('PlotAgent real desktop workflow', () => {
     expect(api.createProject).toHaveBeenCalledWith({ name: '新建项目 1' })
     expect(api.activateProject).toHaveBeenCalledWith({ projectId: 'project:test' })
     expect(await screen.findByRole('button', { name: '新建科研绘图项目' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('heading', { name: '导入数值数据' })).toBeInTheDocument()
+    expect(screen.getByText('上传数据文件，并告诉我你想画什么图。')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '选择图形' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '上传数据' })).toBeInTheDocument()
+  })
+
+  it('lets the user choose a chart before uploading data', async () => {
+    const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /新建项目/ }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    expect(screen.getByText('可先选择图形')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    expect(screen.getByRole('button', { name: '折线图' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '上传数据' }))
+    expect(await screen.findByRole('heading', { name: '确认字段映射' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '折线图' })).toBeInTheDocument()
   })
 
   it('opens project actions, renames inline, and deletes only after confirmation', async () => {
@@ -200,6 +221,9 @@ describe('PlotAgent real desktop workflow', () => {
     const trigger = await screen.findByRole('button', { name: /Agent 服务/ })
     await user.click(trigger)
     expect(screen.getByRole('dialog', { name: '模型服务' })).toBeInTheDocument()
+    expect(screen.queryByText('只在首次使用 Agent 时配置，不影响本地绘图与导出。')).not.toBeInTheDocument()
+    expect(screen.queryByText('表单仅用于检查交互，不发送或保存其中内容。')).not.toBeInTheDocument()
+    expect(screen.queryByText('提交后只写入系统凭据库，不回显到界面或项目。')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Base URL')).toHaveFocus()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog', { name: '模型服务' })).not.toBeInTheDocument()
@@ -223,8 +247,8 @@ describe('PlotAgent real desktop workflow', () => {
     installApi(api)
     render(<App />)
     await user.click(await screen.findByRole('button', { name: /^导入/ }))
-    expect(await screen.findByText('fluorescence_au')).toBeInTheDocument()
-    expect(screen.getAllByText('float64', { exact: true })).toHaveLength(2)
+    expect(await screen.findByText('荧光强度')).toBeInTheDocument()
+    expect(screen.getAllByText('浮点数', { exact: true })).toHaveLength(2)
     expect(screen.getByText('a.u.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
@@ -314,7 +338,7 @@ describe('PlotAgent real desktop workflow', () => {
     await screen.findByText(/批次 batch:one/)
 
     await user.click(screen.getByRole('button', { name: '整个批次' }))
-    await user.type(screen.getByRole('textbox', { name: '描述绘图修改要求' }), '统一 line width 为 1.5 pt')
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '统一 line width 为 1.5 pt')
     await user.click(screen.getByRole('button', { name: '发送绘图指令' }))
 
     expect(decideAgent).toHaveBeenCalledWith(expect.objectContaining({
@@ -352,7 +376,7 @@ describe('PlotAgent real desktop workflow', () => {
     installApi(api)
     render(<App />)
     await openSampleAndCreatePlot(user)
-    await user.type(screen.getByRole('textbox', { name: '描述绘图修改要求' }), '把线宽改为 1.5 pt')
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '把线宽改为 1.5 pt')
     await user.click(screen.getByRole('button', { name: '发送绘图指令' }))
     await screen.findByText('修改已通过本地校验')
 
@@ -383,19 +407,21 @@ describe('PlotAgent real desktop workflow', () => {
     installApi(fakeDesktop({ decideAgent: vi.fn(async () => ok(decision)) }))
     render(<App />)
     await openSampleAndCreatePlot(user)
-    await user.type(screen.getByRole('textbox', { name: '描述绘图修改要求' }), 'Y axis 改为 log10')
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), 'Y axis 改为 log10')
     await user.click(screen.getByRole('button', { name: '发送绘图指令' }))
     expect(await screen.findByText(expectedTitle)).toBeInTheDocument()
   })
 
-  it('blocks Agent until a custom provider is explicitly configured', async () => {
+  it('opens provider settings when an unconfigured user sends an Agent instruction', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop({ getProviderStatus: vi.fn(async () => ok({ configured: false, mode: 'local_only' })) })
     installApi(api)
     render(<App />)
     await openSampleAndCreatePlot(user)
-    expect(screen.getByRole('textbox', { name: '描述绘图修改要求' })).toBeDisabled()
-    await user.click(screen.getByRole('button', { name: '配置模型服务' }))
+    const instruction = screen.getByRole('textbox', { name: '描述绘图要求' })
+    expect(instruction).toBeEnabled()
+    await user.type(instruction, '把图例移到右侧')
+    await user.click(screen.getByRole('button', { name: '发送绘图指令' }))
     const dialog = screen.getByRole('dialog', { name: '模型服务' })
     await user.type(within(dialog).getByLabelText('Base URL'), 'https://provider.example/v1')
     await user.type(within(dialog).getByLabelText('Model ID'), 'research-model')
