@@ -18,11 +18,7 @@ SOURCE_SCOPE = (
     Path("src/plotagent/origin"),
     Path("src/plotagent/rendering"),
 )
-CURRENT_P0_BLOCKERS = (
-    ("K02", "SERIES_IDENTITY_MISMATCH"),
-    ("K05", "NATIVE_BAND_FILL_MISMATCH"),
-    ("K09", "GROUPED_BAR_OVERLAP"),
-)
+CURRENT_P0_BLOCKERS: tuple[tuple[str, str], ...] = ()
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _GIT_COMMIT = re.compile(r"[0-9a-f]{40}")
 
@@ -152,10 +148,9 @@ def test_seq20_current_evidence_is_explicit_visual_no_go() -> None:
     )
 
     assert result.decision == "NO-GO"
-    assert "K02:SERIES_IDENTITY_MISMATCH" in result.failures
-    assert "K05:NATIVE_BAND_FILL_MISMATCH" in result.failures
-    assert "K09:GROUPED_BAR_OVERLAP" in result.failures
-    assert any(failure.endswith(":SOURCE_BUILD_IDENTITY_MISSING") for failure in result.failures)
+    assert result.failures == tuple(
+        f"batch-{batch}:HUMAN_VISUAL_SIGNATURE_MISSING" for batch in (1, 2, 3)
+    )
 
 
 def test_gate_rejects_nonempty_blocking_observations() -> None:

@@ -40,7 +40,7 @@ sys.path.insert(0, str(REPOSITORY))
 
 from plotagent import __version__ as PLOTAGENT_VERSION
 from plotagent.contracts.base import ChartTypeId, ColorValue, PhysicalLength, PreparedDatasetRef
-from plotagent.contracts.canonical import canonical_hash
+from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.plots import (
     AllGeometryKind,
     AxisSpec,
@@ -48,6 +48,7 @@ from plotagent.contracts.plots import (
     CategoricalFamily,
     ChartParameterEditSpec,
     DoseResponseFamily,
+    LegendSpec,
     PlotFamily,
     PlotProvenance,
     PlotSpec,
@@ -495,8 +496,38 @@ def _labels_and_scales(case: AuditCase) -> tuple[str, str, str, str]:
     }[case.chart_id]
 
 
+def _edited_color_indices(inputs: tuple[InputSeries, ...]) -> tuple[int, ...]:
+    """Assign one audit-edit color to each target-neutral logical series."""
+
+    logical_keys: list[tuple[str, ...]] = []
+    geometry_occurrences: dict[tuple[str, str], int] = {}
+    for index, item in enumerate(inputs):
+        if item.geometry not in {"line", "symbol"}:
+            logical_keys.append(("target", str(index)))
+            continue
+        value_hash = canonical_hash(
+            cast(
+                JsonValue,
+                {
+                    "roles": list(item.roles),
+                    "values": [list(column) for column in item.values],
+                },
+            )
+        )
+        occurrence_key = (value_hash, item.geometry)
+        occurrence = geometry_occurrences.get(occurrence_key, 0)
+        geometry_occurrences[occurrence_key] = occurrence + 1
+        logical_keys.append(("binding-values", value_hash, f"occurrence:{occurrence}"))
+
+    color_indices: dict[tuple[str, ...], int] = {}
+    return tuple(
+        color_indices.setdefault(key, len(color_indices)) for key in logical_keys
+    )
+
+
 def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[PlotSpec, RenderDataStore]:
     inputs = _input_series(case, frame)
+    edited_color_indices = _edited_color_indices(inputs)
     prepared_refs: list[PreparedDatasetRef] = []
     precomputed_refs: list[PrecomputedDataRef] = []
     specifications: list[SeriesSpec] = []
@@ -534,7 +565,9 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
             store[table.object_hash] = table
         series_style = SeriesStyleSpec()
         if edited:
-            color = ("#1F77B4", "#D95F02", "#2A9D6F", "#7B61A8")[index % 4]
+            color = ("#1F77B4", "#D95F02", "#2A9D6F", "#7B61A8")[
+                edited_color_indices[index] % 4
+            ]
             if item.geometry in {"line", "step", "area", "band"}:
                 series_style = series_style.model_copy(
                     update={
@@ -626,6 +659,7 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
             AxisSpec(axis_id="axis:y", scale_id="scale:y", orientation="y", position="left", label=_text(y_label)),
         ),
         series=tuple(specifications),
+        legend=LegendSpec(visible=True if case.chart_id == "K02" else None),
         specialist=specialist,
         style_sources=(StyleSourceRef(source_kind="project", source_id="style.seq20", source_version=1, content_hash=hashlib.sha256(b"style.seq20").hexdigest()),),
         resolved_style=style().model_copy(update={"font_size": PhysicalLength(value=9.5 if edited else 8.0, unit="pt")}),
