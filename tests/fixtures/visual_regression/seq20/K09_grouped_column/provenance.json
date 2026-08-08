@@ -9,7 +9,7 @@
   "same_source_data": true,
   "synthetic": false,
   "data_sha256": "3d454bea5d748cba2ff28867cc093b964235212fbaf22a7eea6765c84514af76",
-  "reference_sha256": "5f80ff56b44a3cf1484b3027d4f4aea5c24765bf6d06d08f16d7d133113a59bb",
+  "reference_sha256": "dfeb33cab8585c72a9f7ec276e69c0061dfddc2a12c8aff7206e5b34e7a00131",
   "common_edit": "标题与字号",
   "chart_edit": "分组柱边线与宽度"
 }

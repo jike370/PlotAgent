@@ -37,7 +37,7 @@ def _source_build_sha256(repository: Path) -> str:
 def _load_manifests() -> tuple[dict[str, Any], ...]:
     return tuple(
         json.loads((FIXTURES / f"batch-{batch}.manifest.json").read_text(encoding="utf-8"))
-        for batch in (1, 2, 3)
+        for batch in (1, 2, 3, 4)
     )
 
 
@@ -126,7 +126,7 @@ def test_seq20_current_evidence_is_explicit_visual_no_go() -> None:
 
     assert result.decision == "NO-GO"
     assert result.failures == tuple(
-        f"batch-{batch}:HUMAN_VISUAL_SIGNATURE_MISSING" for batch in (1, 2, 3)
+        f"batch-{batch}:HUMAN_VISUAL_SIGNATURE_MISSING" for batch in (1, 2, 3, 4)
     )
 
 

@@ -9,7 +9,7 @@
   "same_source_data": true,
   "synthetic": false,
   "data_sha256": "3a3ea03dcc52df14c49e465660402837015b0ee7bf611d2b2af63c0391f2da64",
-  "reference_sha256": "449492fdc9da0f4ae3cb3827b68d8101c33a7d30ddd49d6fac018bcaa76b2577",
+  "reference_sha256": "3c316577d3b2dd5b553ad94b7f91efa95b0a7d2fcaed1a975e2f1ec05411d5f6",
   "common_edit": "标题与字号",
   "chart_edit": "谱线颜色与宽度"
 }

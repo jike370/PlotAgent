@@ -9,7 +9,7 @@
   "same_source_data": true,
   "synthetic": false,
   "data_sha256": "6b6b5475a21896f269708c9323387c0c45938b197a38cc845cc985f500db606a",
-  "reference_sha256": "05c3a496bf0d6caf248b0e746edf1759e95f36281ee2474fb7ef6dcf7f12d7f0",
+  "reference_sha256": "9a7168a43770b80e8948cee54c843ce1e20ed3495a2c7fc629452ef1a725aba8",
   "common_edit": "标题与字号",
   "chart_edit": "点/线样式与带透明度"
 }

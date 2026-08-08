@@ -1,0 +1,15 @@
+{
+  "chart_type_id": "X03",
+  "evidence_grade": "A",
+  "source_path": "D:\\origin\\Lollipop.opju",
+  "source_sha256": "0e0150e0ddf6f7dbc64c4049aaff6372aa4b64d2ec23573e0ad1712a29c202b4",
+  "source_graph_name": "Graph1",
+  "source_book": "Book1",
+  "recipe": "直接导出 Origin 随附 Lollipop Plot (Two Points) 图页及同项目工作表；两系列形态同时是哑铃预设。",
+  "same_source_data": true,
+  "synthetic": false,
+  "data_sha256": "10f67794fba28c5c3790aa259e484f4cb077c64dea71affa8342c7593d9dc83d",
+  "reference_sha256": "a58f1d56705f9fa259cc5810d089d1047c0abec731a4287edc4870a756c991c0",
+  "common_edit": "标题与字号",
+  "chart_edit": "系列颜色、点形、点大小"
+}

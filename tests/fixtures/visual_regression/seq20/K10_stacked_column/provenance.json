@@ -9,7 +9,7 @@
   "same_source_data": true,
   "synthetic": false,
   "data_sha256": "70845bd3fd6f111b4ff9e01201f0bc2e557ea4a9e48468343097d7ead71bc3a6",
-  "reference_sha256": "c542bc9b45387f7d7ca35a04a91df315b253c34dfa2087280755c85d95fe0a6e",
+  "reference_sha256": "0861c58c24a1e258a1a63b387cc08ed359d58d84c988b5f731e64957c2f64c58",
   "common_edit": "标题与字号",
   "chart_edit": "堆积柱边线与宽度"
 }

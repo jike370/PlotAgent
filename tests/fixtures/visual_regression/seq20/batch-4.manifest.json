@@ -1,0 +1,161 @@
+{
+  "schema_version": "1.1",
+  "stage": "SEQ-20",
+  "batch": 4,
+  "generated_at": "2026-08-08T13:19:56.848887+00:00",
+  "plotagent_version": "0.1.0",
+  "origin_declaration": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
+  "rules": {
+    "same_source_required": true,
+    "synthetic_allowed": false,
+    "states": [
+      "default",
+      "representative edited"
+    ],
+    "edited_state_requires": [
+      "common edit",
+      "chart-applicable edit",
+      "Origin mapping"
+    ]
+  },
+  "exports": {
+    "default": {
+      "opju_path": "D:\\plotv3\\build\\visual-audit\\seq20-origin-baseline\\batch-4\\seq20-batch-4-default.opju",
+      "opju_sha256": "bb8238de52efa382fbb0787125eeec7b2ee75e069cf6baf113fedce1c11259f6",
+      "opju_size": 397063,
+      "origin_plan_sha256": "f734b8cf7e6ca2951c4d8e094b2cbf378f520b173c87c706dde67c29d98d24de",
+      "adapter_id": "plotagent.origin.registry.special",
+      "adapter_version": "1.0.0",
+      "validation_report_sha256": "b0d42db3b3d0f33b1d040773ed1571163eb7ccda47628690336f5b905df88185",
+      "fresh_reopen_identical": true,
+      "elapsed_seconds": 38.734,
+      "environment": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "install_dir": "D:\\origin",
+        "executable_path": "D:\\origin\\Origin64.exe",
+        "origin_bitness": 64,
+        "python_bitness": 64,
+        "originpro_version": "1.1.15",
+        "runtime_version": 10.100178,
+        "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+        "license_available": true
+      }
+    },
+    "edited": {
+      "opju_path": "D:\\plotv3\\build\\visual-audit\\seq20-origin-baseline\\batch-4\\seq20-batch-4-edited.opju",
+      "opju_sha256": "57ddbddb94390faa184ce0fb41aca31d44079edbc723396df308afb80ff090df",
+      "opju_size": 397097,
+      "origin_plan_sha256": "20c237ab4cb783d0d17757062c1eb8b3d10bff272ebb3cfc91410fd51cb728cb",
+      "adapter_id": "plotagent.origin.registry.special",
+      "adapter_version": "1.0.0",
+      "validation_report_sha256": "02e722efc696deedfa598609573842218f94c24839eb1b74db4eda0906b3b7b0",
+      "fresh_reopen_identical": true,
+      "elapsed_seconds": 37.187,
+      "environment": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "install_dir": "D:\\origin",
+        "executable_path": "D:\\origin\\Origin64.exe",
+        "origin_bitness": 64,
+        "python_bitness": 64,
+        "originpro_version": "1.1.15",
+        "runtime_version": 10.100178,
+        "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+        "license_available": true
+      }
+    }
+  },
+  "cases": [
+    {
+      "chart_type_id": "X39",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\BoxLser.opju",
+      "source_sha256": "365908c1073769ef1cb57403a203e09a5b047e6b98b4619651ec80ac44611c14",
+      "source_graph_name": "Graph2",
+      "source_book": "Book1",
+      "recipe": "直接导出 Origin 随附 BoxLser 图页及同项目三列工作表。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "2f8a581486c1e34b5d1386d486957ec4aa3f1a6e233f0d1a4628be305426d1e1",
+      "reference_sha256": "84550f9ef55be8e8611ca325a3a271d550d77960137889730a80b07f760d8234",
+      "common_edit": "标题与字号",
+      "chart_edit": "系列颜色、点形、点大小",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "460b067e3b2b93e01c51d7edaaac290829b36bbbd6fa91bcfd85142a3a9f0e16",
+          "render_plan_sha256": "440089c654dd1c9f0cc2672fa1017153db9f9a37e4f7427502179c519361655e",
+          "matplotlib_png_sha256": "2ad00e6936df2d376fa386f8be938f702eaa6adde03d2f492d727f05e705a01e",
+          "origin_fresh_png_sha256": "08c49a214554a375608ea88ddf368a63b5c7398fce5f9e976fb0a6ff42a40ef7",
+          "origin_graph_index": 0
+        },
+        "edited": {
+          "plot_spec_sha256": "67c63603057fe1cc27518079308dce2a0b68b1d05b07329b3a9761e093de30fd",
+          "render_plan_sha256": "3913a5937f6590a9c6b8336ee3e94a5a06ee032b9353f8c4ac1ad0cd15c567a7",
+          "matplotlib_png_sha256": "940215928bc0844933dc485fff73b2f736e3beb1f760f8cb410b5b200f96c2b8",
+          "origin_fresh_png_sha256": "6b7d903b77adc9a3449d3769e3216fdc136d8874e6cf206e69bfb9eca8e94d4c",
+          "origin_graph_index": 0
+        }
+      },
+      "comparison_default_sha256": "95b8520518dd496345ef5ce437caedda0bd678f16cfe545ee1f7e1c8fec31b51",
+      "comparison_edited_sha256": "e04dd54ecb0e6c1214ff20852bd38e00562abeaea0ef364e975f3883c21fb4f1"
+    },
+    {
+      "chart_type_id": "X40",
+      "evidence_grade": "A",
+      "source_path": "D:\\origin\\BeforeAfter.opju",
+      "source_sha256": "c7ae482bea75cce94c198dd357c5bbb9b19e17678715259f2aa1d0c85da6f12e",
+      "source_graph_name": "Graph1",
+      "source_book": "Book1",
+      "recipe": "直接导出 Origin 随附 BeforeAfter 图页及同项目两组成对工作表。",
+      "same_source_data": true,
+      "synthetic": false,
+      "data_sha256": "213717f60781631d24cf606a4a4dba8c3943d024b73715afc75dc2b539d229e6",
+      "reference_sha256": "decceaf49eb9499621053e969b2306d8a825e43006ec202e22bb860aafd2c55e",
+      "common_edit": "标题与字号",
+      "chart_edit": "成对系列颜色、点形、点大小",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "5fd77f71b409f647f0ff7d6d1853080fa211a75d1517297f69e77ccd4167db1b",
+          "render_plan_sha256": "15b0b89ccf12ba9b032bacea920303e065f9a477a70fd83ac4624707372a2303",
+          "matplotlib_png_sha256": "c6663f9f9dd198dc19e854b901b22203ecc3f1be2a11c7d8acf1394c8639efad",
+          "origin_fresh_png_sha256": "baca88eaf712605201726316e453e60cc8fca2a5bd11a763292ab9163cacd8bd",
+          "origin_graph_index": 1
+        },
+        "edited": {
+          "plot_spec_sha256": "dd5151f7b0f6894f7b30900ecfec2f441506cfe42505c350e425dbfea237a4a3",
+          "render_plan_sha256": "5aadd1b8dc79312d40cf2d485bc64e1d68e678e49dd1ddc05e3d5652fb1553d1",
+          "matplotlib_png_sha256": "93ab9d71d13b0a3f9a248d3b02afdcc9d566a9f2b81758b284ec83cb55ef02aa",
+          "origin_fresh_png_sha256": "a68484a5782b4e95e30c48cbf5161f47dc3dbb0b2359b0f69064de1be15bf891",
+          "origin_graph_index": 1
+        }
+      },
+      "comparison_default_sha256": "550601ba32ff2d25508d4fdbf7d1d77ba16c850c75dc941c37fb66c8993a8e97",
+      "comparison_edited_sha256": "e33b4018c8263fc4212317d3e3f933bc1b7b3cd2fcfa09c218926c67368e17cf"
+    }
+  ],
+  "qualification": {
+    "source_build_identity": {
+      "scope_version": "seq20-rendering-v2",
+      "digest_algorithm": "git-blob-framed-sha256-v1",
+      "git_commit": "81e9c73a147b0f4247a7d5e941ff0de12f8f9ed1",
+      "source_sha256": "597ace0726ec3750cc7e66c803521a504052fb02bdff166fc98d1d8727bbda9f"
+    },
+    "blocking_observations": [],
+    "human_visual_signature": {
+      "status": "pending",
+      "reviewer": null,
+      "signed_at": null
+    },
+    "decision": "NO-GO"
+  },
+  "audit_conclusion": "same-source evidence rebuilt; automated P0 blockers closed; human visual sign-off pending; visual qualification not passed"
+}

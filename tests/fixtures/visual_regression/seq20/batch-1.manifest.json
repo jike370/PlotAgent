@@ -2,7 +2,7 @@
   "schema_version": "1.1",
   "stage": "SEQ-20",
   "batch": 1,
-  "generated_at": "2026-08-08T10:10:34.435123+00:00",
+  "generated_at": "2026-08-08T13:12:56.248822+00:00",
   "plotagent_version": "0.1.0",
   "origin_declaration": {
     "display_name": "Origin2024 SR1",
@@ -27,14 +27,14 @@
   "exports": {
     "default": {
       "opju_path": "D:\\plotv3\\build\\visual-audit\\seq20-origin-baseline\\batch-1\\seq20-batch-1-default.opju",
-      "opju_sha256": "02e568eabb491dc8e1f7751ecda06e80a8b8acef5add53844f6795336a27e198",
-      "opju_size": 131546,
-      "origin_plan_sha256": "f43d179e6a73d3e3eb522136991b918a6d18e38ef0dbef9aebda578d33bb2bbf",
+      "opju_sha256": "fb6596c21596df38a0ff6dc2490625ceeaf3325beca936d7414c34efb2706a47",
+      "opju_size": 131572,
+      "origin_plan_sha256": "9ba275878eabd5646c945b0afcac5d5014392b545bc2f50e99bab41a5b748dc6",
       "adapter_id": "plotagent.origin.registry.xy+bar",
       "adapter_version": "1.0.0",
-      "validation_report_sha256": "bd78e8af669cc74d1edffaee8c00f91d14f7ba6cf646d21efcbe230c960e1311",
+      "validation_report_sha256": "de00ac21cae2fe99e8059ae599dae1b94c17c2865f3edb5957c3985c05558642",
       "fresh_reopen_identical": true,
-      "elapsed_seconds": 32.187,
+      "elapsed_seconds": 33.328,
       "environment": {
         "display_name": "Origin2024 SR1",
         "display_version": "10.10.178",
@@ -50,14 +50,14 @@
     },
     "edited": {
       "opju_path": "D:\\plotv3\\build\\visual-audit\\seq20-origin-baseline\\batch-1\\seq20-batch-1-edited.opju",
-      "opju_sha256": "4a3ac6c3b712d3e7651b63df2ca4105bc1dc42a2062967ad9259e163958820b6",
-      "opju_size": 131635,
-      "origin_plan_sha256": "360be1622931dcb3fcf4ac74099b1a64a1f1da08f81cbe3d8144179fedd75115",
+      "opju_sha256": "6ac3651216c588ccff48fb4912be34bde174871463fc5960caa1ed62c1f6c2eb",
+      "opju_size": 131668,
+      "origin_plan_sha256": "1c5e899eefafa99ec15d912d4112733884dae18a5d813320bb2157ce99feb362",
       "adapter_id": "plotagent.origin.registry.xy+bar",
       "adapter_version": "1.0.0",
-      "validation_report_sha256": "980b4eec6d1b140310b4c23796dcb347412340f3657283703070eaa43b93d6cb",
+      "validation_report_sha256": "e7c1437dbc3e1ee8a566b72e0e5a22c5e87f9988050fa3f5deb7ba39b66f6c42",
       "fresh_reopen_identical": true,
-      "elapsed_seconds": 31.703,
+      "elapsed_seconds": 33.578,
       "environment": {
         "display_name": "Origin2024 SR1",
         "display_version": "10.10.178",
@@ -90,17 +90,17 @@
       "visual_observations": [],
       "states": {
         "default": {
-          "plot_spec_sha256": "a6ceea15fa1c3feb5d18150dfcba203b6445a4d34cfad5ef5f44fc663a9ffab8",
-          "render_plan_sha256": "1312953cab643ec1b4bb0c2329eda9bc7dc1fe943eb05f8eecab799a00bdee31",
-          "matplotlib_png_sha256": "ce8de86e40ec016bfc2712a58c5eedc9b3408b938ebc5279c558e5574a1d2fa0",
-          "origin_fresh_png_sha256": "9c076399627c6dda3c2923428e5f797ca8c1684b90faad1b6c306b31c06b33bd",
+          "plot_spec_sha256": "671fcbeecbfc41559e6b50f61eb85292624543b9dda262425208a2bb4299d7a5",
+          "render_plan_sha256": "efbf7e9bbbf9b9c3fc0c849b59dc23508bedbd06d18ecec4123b60d7958e91af",
+          "matplotlib_png_sha256": "a894fa5edebba14254855e474c113e9a2fd5ec93922100dd2b9cabecc163cfdd",
+          "origin_fresh_png_sha256": "e8d7e9a72d871053027db51912e98dae05ab65fe6887ae56f5fbc07094dfd5e9",
           "origin_graph_index": 0
         },
         "edited": {
-          "plot_spec_sha256": "68fa428865d588b5d538a1d8956261de5501aba8fd7b8b8bc1436c8b33631408",
-          "render_plan_sha256": "18db9ee78466c1223a3a81fa50da970c2deba0c1a5d48edc834aceeeb3799d25",
-          "matplotlib_png_sha256": "26cbf6f304b1ec86f3314c15e517ebc53e181276faed464811b984d9ae3c4ffa",
-          "origin_fresh_png_sha256": "552fe87d71c653a8a46d2fcb0f14b426c51e0ab6b97d5367db7a7655720221be",
+          "plot_spec_sha256": "80c2a388013bc7761b5dbd648d33b0568b28ed3459c6ca01262aa10944e794d3",
+          "render_plan_sha256": "0468ccedf87d22567b5b91ef2e64e37cb1c65369f61b95a210a924659d52f93e",
+          "matplotlib_png_sha256": "90bf28615b583134d78324f6f04cc263594759adba1088650b1a3d4110eb37c7",
+          "origin_fresh_png_sha256": "716659c80518eeb364675427a23fb9574bd759e736328c5b4c1a89b49a974a4b",
           "origin_graph_index": 0
         }
       },
@@ -124,22 +124,22 @@
       "visual_observations": [],
       "states": {
         "default": {
-          "plot_spec_sha256": "0e90c015981c7b0d99ace230a5706bb0cefaa620dbedb709394f27b865c826c6",
-          "render_plan_sha256": "4adf1c08ec9d047b991c0f7c1e2c82cb1dc479bcce9a3fb7a31f2c9b9de1cca1",
-          "matplotlib_png_sha256": "eb22d274c8702ca6b48d1a16b818e708b527eaaa0df91ed0c1f672e2a5f62e88",
-          "origin_fresh_png_sha256": "e466979c48bf6fc65fea37d506ab71900358f4f88278fb7c197749258ac8d0e6",
+          "plot_spec_sha256": "2a6472d8d599bd178dd176cd7e312ab3c051f94dbb77bb61654c5a7a7624862a",
+          "render_plan_sha256": "d7a15afaa208a0cd982c12be56cda468dc3ad4e45508fcf67e1886c9def3ada6",
+          "matplotlib_png_sha256": "40875167c561f1f17c178972e52475855e04b6c6eaab00769dbbec80a5a58cea",
+          "origin_fresh_png_sha256": "e7cc14b36ab8415dcf578a88f24a6fc011d8d827e71a88957a41f5d4dff4d412",
           "origin_graph_index": 1
         },
         "edited": {
-          "plot_spec_sha256": "283a5c0f1e51ece4eb1a40be8cbb4bee4ba918a13058efd86f0cd671f9ccdfb8",
-          "render_plan_sha256": "4a172a5a2570bc026e942d27ceafdfe13544bceab6e15e06add59dbd93fe6423",
-          "matplotlib_png_sha256": "31551f15a049307eeb5b5b0d63329547990db9ce94e66d09f26dc4c5589afe15",
-          "origin_fresh_png_sha256": "8b23b6be1e91b3be3fd0169eb2129dfd852dbe3088e3d8e8d726dca38f514691",
+          "plot_spec_sha256": "8f6c93266413020a982c065aac0c86fd885413b9ab3ddf5ba713c05d0af93f6e",
+          "render_plan_sha256": "8becb45fc97e8ef4dcc76aab1204b7e68dfd7709a9ba032e778ce9e92729d87c",
+          "matplotlib_png_sha256": "ebe8a98d894c7fe6dc1a87e25af0742f49a9704e7e0e2dd9a77a4c75391208e3",
+          "origin_fresh_png_sha256": "70c3b2aa75fcb68cde2ac331650fba9bdfda484f81f3e710e82a07868c28d3de",
           "origin_graph_index": 1
         }
       },
-      "comparison_default_sha256": "8f080275956079e45761fff6a86b7f9e404acc4c187522f9931e043cdf0ab650",
-      "comparison_edited_sha256": "c593addf4ddf419757d04aead45316c7f1ec800d15961d8d687640381e1ecf18"
+      "comparison_default_sha256": "b52c8f6459c20beeaeae845a1c7dc16fd7be1cec7c0897fe0566baaf45668227",
+      "comparison_edited_sha256": "e04c9c6268038f1a3c6a11fc487f539947c1abc185c492cc82b73db1c1613834"
     },
     {
       "chart_type_id": "K03",
@@ -158,17 +158,17 @@
       "visual_observations": [],
       "states": {
         "default": {
-          "plot_spec_sha256": "13cd0c4dfe45e2570084f121daf054d7eb151b4562f2816e751bde05f0cadaa4",
-          "render_plan_sha256": "8c381174088c31aef8ceb14f22ac9a5c1f2707bd0201dd482353bbe08a57f981",
-          "matplotlib_png_sha256": "abb88af6a5f6042fc20abb1cf752d7429d0a52d4b3c47a55a32ddbaec7988e30",
-          "origin_fresh_png_sha256": "829ae678616b8cec17c97760bd8a8db21198aee7a3cb25a5ae508a949c51084c",
+          "plot_spec_sha256": "a2797d5acadc6661db89c1c937904740ed4b25c9e93956bb97b5639ef208ab9d",
+          "render_plan_sha256": "e720a8797e44e99258e121238aea2a8a396e3642a9aca3222a00e27e221293b0",
+          "matplotlib_png_sha256": "b9a870ac9b76941b236a6ccf1bac65caa3dece324b7700e7728d94ef824fab58",
+          "origin_fresh_png_sha256": "5654e4899d95a0b492155b4702d2af80e587ca5bb2a21878f3564d919e69d871",
           "origin_graph_index": 2
         },
         "edited": {
-          "plot_spec_sha256": "776cd3573a6d1aeb0810fd8491f05ee27aebe9a4037d2426c74f83d8e22bd2c5",
-          "render_plan_sha256": "81b931162a70f6832c9774fa2663f9bd665f3fc0a0df3fa5b414f2fa8cef2fa1",
-          "matplotlib_png_sha256": "ea5a0b62a73322cf579da56ef3ffa015e09ae6699e7d3abaefffb35396c2794d",
-          "origin_fresh_png_sha256": "9349a61856213adec17fb953bc8911df22dfe4e5284080f65104e897d3440cdb",
+          "plot_spec_sha256": "66af1dc944d32d821f616278d5d41fd802b5148183f8fc86f2bab6a6bbcf8a64",
+          "render_plan_sha256": "4775d669aa9f5e28b5247364248231689d0bcb673f014b7dce4a52b9fddacb50",
+          "matplotlib_png_sha256": "645bde0ad3fe2700888a5b1999b53005fa304c0c46e3f84bccfdfa655b42593a",
+          "origin_fresh_png_sha256": "251547d5dc8c7f6725a1bd1ff1abfebb70c1fb5bc0b348692921c53ef1e31e28",
           "origin_graph_index": 2
         }
       },
@@ -192,17 +192,17 @@
       "visual_observations": [],
       "states": {
         "default": {
-          "plot_spec_sha256": "7dc4408fc44b23b4254734eded101d6331c12cabd452df308fdc07409c3441a2",
-          "render_plan_sha256": "93069f8dea12afb6fd3560381dd9b0aa551b0b03af195b46d82fad1ea75d23d3",
-          "matplotlib_png_sha256": "3a3ef5392e39d6f25361dc390e16646b917456f66e307fc3de27a7224b050382",
-          "origin_fresh_png_sha256": "3e7472caa2c08f1531672bacf45cde2165b662e56e5d09f7e7ce2b7dee39563e",
+          "plot_spec_sha256": "94e0f02a4865a9ea6cc0fb90020ebcf6a1378f63e2fdc3e6b094f6f1dc1c25a9",
+          "render_plan_sha256": "3ac41a0a8bcba12a8e92017f06e545b4cb08c943c9e6a3c78e30a47801cc8030",
+          "matplotlib_png_sha256": "31a418b88c608d80d29f4c879841d89f3b97d35b7040a9c77b5321e3f2b2d653",
+          "origin_fresh_png_sha256": "d2414a79f55d0c0aedbe36dd387f23b17301db469ad2c8cccafdf221b85c0568",
           "origin_graph_index": 3
         },
         "edited": {
-          "plot_spec_sha256": "44b646b45dfce84c90703c0881a0684eee198276d62f84de495f0b88e5360054",
-          "render_plan_sha256": "9e27ee5e81fb3cb15c3330f7e00115170e6e7ccf9bdae50069c8b7f8881010c5",
-          "matplotlib_png_sha256": "7fe66af8b229e6a7fc75888740b616a4bff136ba8ba7d9c8d4f1d2c05fda3fcd",
-          "origin_fresh_png_sha256": "316d244490d6e1fb8078ccc3dc559c18a4e52e3daf91d6b74ea445c51c659344",
+          "plot_spec_sha256": "7e40bf8ff1bb03241d03976b8562f3ace7e7ee0d620f3fcd64d42bd35cee3324",
+          "render_plan_sha256": "b7c44ba7eef02a8af5cd4467c0221b2196062c372735b2b1dfa49ff0fae69fc9",
+          "matplotlib_png_sha256": "bc89d925a3482dc9eba2735298aa47c5db24b515af59e9178ab3c69f4b5e11c9",
+          "origin_fresh_png_sha256": "5dc25f65bab7760d33a0c699b8b0c09a81a077ba90aa47c34d197a5cf9047bff",
           "origin_graph_index": 3
         }
       },
@@ -226,17 +226,17 @@
       "visual_observations": [],
       "states": {
         "default": {
-          "plot_spec_sha256": "afbcdc177973ff317bbdcc388cadb88fccf6c2adf793f82eda6d481d97ba6bc0",
-          "render_plan_sha256": "57ca46dd231ed185abf57578411683a9f34dbb53cab39d4fa02c6c253f17f195",
-          "matplotlib_png_sha256": "b7ed211585d8747f31aa92e51c13c911fac17da13fa7996fd93c96d76c57350a",
-          "origin_fresh_png_sha256": "2513166237887b6b2bf26c579fc071672be410024f4ca924d1ddb9e6b50f28f6",
+          "plot_spec_sha256": "e4256b5a93c74206f86342266f1d9b3c6088d7a26af822596652f0dc86504d53",
+          "render_plan_sha256": "f1c25ef8a121656ae64839a0322c394043e8e4754e3d3cdd085a7cdea02af9ea",
+          "matplotlib_png_sha256": "885d1d2626966b9c4d1d6caa8a7e19fed5e4564ff1a4932e90bb769993332aca",
+          "origin_fresh_png_sha256": "199276553b4f38380d8bf68fbb542b741a55125148e17da6dcba24d7b48e4ecb",
           "origin_graph_index": 4
         },
         "edited": {
-          "plot_spec_sha256": "41d49063539631d8e9de363ed5fd6bf06ff3e3985cf7905c04de0bca26470327",
-          "render_plan_sha256": "71af9a71f0ac2d48f16b9976a695cef87a21bc8fea1950586eb03432439ba84e",
-          "matplotlib_png_sha256": "c3c7359de87c8cbbcf568082c94561561ebc16a99fda6b704b4d68ce0b074aa6",
-          "origin_fresh_png_sha256": "02a82f8bf04eee5740bd752b7a8262ded24f39288ed16a4bade61a2c6ac60860",
+          "plot_spec_sha256": "fefc9a1418474d8514a30252cf6ae1394fb50e131861cebf89c0ab34083c6c9e",
+          "render_plan_sha256": "3b0b341bdf4d456617b34123f0b4354cdcd601a5748de080afaa18ecb9c19814",
+          "matplotlib_png_sha256": "45999d873d1e8d1a54d6248418dea494fc5a05a226afca52b4ffec9033e0fdb8",
+          "origin_fresh_png_sha256": "a4ecdc6a518b6bcc2602239a7f96b86dc397dd2aad4bd94d8b67c0303b776ac7",
           "origin_graph_index": 4
         }
       },
@@ -248,18 +248,8 @@
     "source_build_identity": {
       "scope_version": "seq20-rendering-v2",
       "digest_algorithm": "git-blob-framed-sha256-v1",
-      "git_commit": "9a07602f028f1b34a5ae53d742066d6e2b7b61d0",
-      "source_sha256": "59dc758515f2746236682d4066fea814e6ef35f28b0135eff170993115fb8217"
-    },
-    "metadata_refresh_reason": {
-      "code": "SOURCE_IDENTITY_CANONICALIZED",
-      "previous_source_sha256": "4401dd73fec1c54692685aed575dcf6f81a083e818b91f8ac73464cdc814ef41",
-      "source_scope_diff": {
-        "base_commit": "9a07602f028f1b34a5ae53d742066d6e2b7b61d0",
-        "verified_through_commit": "5122455650e17ce9c87e7e404bd6e85ad4bc8081",
-        "status": "none"
-      },
-      "render_evidence_reused": true
+      "git_commit": "81e9c73a147b0f4247a7d5e941ff0de12f8f9ed1",
+      "source_sha256": "597ace0726ec3750cc7e66c803521a504052fb02bdff166fc98d1d8727bbda9f"
     },
     "blocking_observations": [],
     "human_visual_signature": {

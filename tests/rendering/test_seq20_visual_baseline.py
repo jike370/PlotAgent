@@ -23,6 +23,7 @@ EXPECTED_BATCHES = {
     1: ("K01", "K02", "K03", "K08", "K18"),
     2: ("X01", "X02", "X09", "K05", "K09"),
     3: ("K10", "S05", "S25", "X03"),
+    4: ("X39", "X40"),
 }
 
 
@@ -69,7 +70,7 @@ def test_seq20_k02_has_one_same_color_legend_in_both_backends(edited: bool) -> N
     assert origin_line.color == origin_symbol.color
     assert [item.label for item in graph.layers[0].plots if item.label] == ["Signal"]
 
-@pytest.mark.parametrize("batch", (1, 2, 3))
+@pytest.mark.parametrize("batch", (1, 2, 3, 4))
 def test_seq20_frozen_same_source_evidence_manifest(batch: int) -> None:
     manifest_path = FIXTURES / f"batch-{batch}.manifest.json"
     assert manifest_path.is_file(), f"missing frozen SEQ-20 evidence batch {batch}"

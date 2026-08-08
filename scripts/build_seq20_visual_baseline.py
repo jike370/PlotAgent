@@ -1,4 +1,4 @@
-"""Build the frozen SEQ-20 same-source visual baseline for the first 14 charts.
+"""Build the frozen SEQ-20 same-source visual baseline for the first 16 charts.
 
 The script has two deliberately separate phases:
 
@@ -124,17 +124,19 @@ CASES = (
     AuditCase(1, "K08", "column", "柱状图", "C", ORIGIN / "Column.opju", None, "Book2", "Origin 随附 Column.opju 的 Book2；抽取 EC2 列并以 COLUMN 重新生成。", "标题与字号", "柱填充、边线、宽度"),
     AuditCase(1, "K18", "area", "面积图", "A", ORIGIN / "Area.opju", "Graph1", "Book1", "直接导出 Origin 随附 Area.opju 的 Graph1 及同项目工作表。", "标题与字号", "面积填充、边线、透明度"),
     AuditCase(2, "X01", "step", "阶梯图", "C", ORIGIN / "Samples" / "Signal Processing" / "Step Signal with Random Noise.dat", None, None, "Origin 官方信号样例；在 Origin 中按 post 阶梯重新生成。", "标题与字号", "阶梯位置 mid、线色与线宽"),
-    AuditCase(2, "X02", "lollipop", "棒棒糖图", "C", ORIGIN / "Samples" / "Signal Processing" / "Step Signal with Random Noise.dat", None, None, "Origin 官方信号样例固定抽样；以 DROPLINE 重新生成。", "标题与字号", "固定 y=0 基线、点形与点大小"),
+    AuditCase(2, "X02", "drop_line", "垂线图", "C", ORIGIN / "Samples" / "Signal Processing" / "Step Signal with Random Noise.dat", None, None, "Origin 官方信号样例全量数据；以 DROPLINE 模板重新生成。", "标题与字号", "端点颜色、点形与点大小；垂线保持落到底部轴"),
     AuditCase(2, "X09", "floating_interval", "范围柱条图", "A", ORIGIN / "FLOATBAR.opju", "Graph5", None, "直接导出 Origin 随附 FLOATBAR.opju 的 Graph5 及其三边界工作表。", "标题与字号", "区间柱填充、边线、宽度"),
     AuditCase(2, "K05", "curve_band", "给定曲线与置信带", "A", ORIGIN / "ERRORBAND.opju", "Graph1", "Book1", "直接导出 Origin 随附 ERRORBAND.opju 的 Graph1；Y±Error 转为显式上下界，不重新估计。", "标题与字号", "带颜色、边线与透明度"),
     AuditCase(2, "K09", "grouped_column", "分组柱状图", "A", ORIGIN / "Column.opju", "Graph2", "Book1", "直接导出 Origin 随附 Column.opju 的 Graph2；误差列转为显式上下界。", "标题与字号", "分组柱边线与宽度"),
     AuditCase(3, "K10", "stacked_column", "堆积柱状图", "A", ORIGIN / "Column.opju", "Graph9", "Book2", "直接导出 Origin 随附 Column.opju 的 Graph9 及无误差工作表。", "标题与字号", "堆积柱边线与宽度"),
     AuditCase(3, "S05", "dose_response", "给定剂量反应", "C", ORIGIN / "Samples" / "Curve Fitting" / "Dose Response - Inhibitor.dat", None, None, "Origin 官方剂量反应样例；三次测量的均值与逐剂量 min/max 作为用户提供曲线/带，在 Origin 中重新生成，不执行拟合。", "标题与字号", "点/线样式与带透明度"),
     AuditCase(3, "S25", "spectrum", "连续谱图", "C", ORIGIN / "Samples" / "Spectroscopy" / "Absorbance Spectra.opj", None, "Book1", "Origin 官方 Absorbance Spectra.opj 工作表；因随附 Graph1 是 940–1000 局部视图，改用 Origin LINE 模板按全数据自动范围重新生成。", "标题与字号", "谱线颜色与宽度"),
-    AuditCase(3, "X03", "dumbbell", "哑铃图", "A", ORIGIN / "Lollipop.opju", "Graph1", None, "直接导出 Origin 随附 Lollipop Plot (Two Points) 图页及工作表。", "标题与字号", "端点颜色、点形、点大小"),
+    AuditCase(3, "X03", "origin_lollipop", "Origin 棒棒糖图", "A", ORIGIN / "Lollipop.opju", "Graph1", "Book1", "直接导出 Origin 随附 Lollipop Plot (Two Points) 图页及同项目工作表；两系列形态同时是哑铃预设。", "标题与字号", "系列颜色、点形、点大小"),
+    AuditCase(4, "X39", "line_series", "线条序列图", "A", ORIGIN / "BoxLser.opju", "Graph2", "Book1", "直接导出 Origin 随附 BoxLser 图页及同项目三列工作表。", "标题与字号", "系列颜色、点形、点大小"),
+    AuditCase(4, "X40", "before_after", "前后对比图", "A", ORIGIN / "BeforeAfter.opju", "Graph1", "Book1", "直接导出 Origin 随附 BeforeAfter 图页及同项目两组成对工作表。", "标题与字号", "成对系列颜色、点形、点大小"),
 )
 
-BATCHES = {1: CASES[:5], 2: CASES[5:10], 3: CASES[10:]}
+BATCHES = {1: CASES[:5], 2: CASES[5:10], 3: CASES[10:14], 4: CASES[14:]}
 
 # Mechanical P0 observations must be closed before evidence is regenerated.
 # Any remaining judgement-only differences are added here after inspecting the
@@ -150,6 +152,7 @@ class InputSeries:
     roles: tuple[str, ...]
     values: tuple[tuple[object, ...], ...]
     label: str | None = None
+    field_labels: tuple[str, ...] | None = None
 
 
 def _sha256(path: Path) -> str:
@@ -193,15 +196,7 @@ def _frame_from_source(case: AuditCase, op: Any | None = None) -> pd.DataFrame:
     if case.chart_id in {"X01", "X02"}:
         source = pd.read_csv(case.source, sep="\t").rename(columns=lambda item: str(item).strip())
         source = pd.DataFrame({"x": source.iloc[:, 0], "y": source.iloc[:, 1]}).astype(float)
-        if case.chart_id == "X01":
-            return source
-        sampled = source.iloc[::50].reset_index(drop=True)
-        return pd.DataFrame(
-            {
-                "category": sampled["x"].map(lambda value: f"{value:g}"),
-                "value": sampled["y"],
-            }
-        )
+        return source
     if case.chart_id == "S05":
         source = pd.read_csv(case.source, sep="\t")
         values = source.iloc[:, 1:4].astype(float)
@@ -268,7 +263,21 @@ def _frame_from_source(case: AuditCase, op: Any | None = None) -> pd.DataFrame:
         return frame.dropna(how="all")
     if case.chart_id == "X03":
         return pd.DataFrame(
-            {"category": source["ID"], "start": source["Start"], "end": source["Middle"]}
+            {
+                "category": source["ID"],
+                "series_1": source["Start"],
+                "series_2": source["Middle"],
+            }
+        ).dropna()
+    if case.chart_id == "X39":
+        columns = tuple(str(column) for column in source.columns)
+        return source.rename(
+            columns={column: f"series_{index + 1}" for index, column in enumerate(columns)}
+        ).dropna()
+    if case.chart_id == "X40":
+        columns = tuple(str(column) for column in source.columns)
+        return source.rename(
+            columns={column: f"series_{index + 1}" for index, column in enumerate(columns)}
         ).dropna()
     raise RuntimeError(f"unsupported evidence case {case.case_id}")
 
@@ -391,7 +400,7 @@ def _input_series(case: AuditCase, frame: pd.DataFrame) -> tuple[InputSeries, ..
     if case.chart_id == "X01":
         return (InputSeries("step", "prepared", ("x", "y"), rows("x", "y")),)
     if case.chart_id == "X02":
-        return (InputSeries("lollipop", "prepared", ("category", "value"), rows("category", "value")),)
+        return (InputSeries("drop_line", "prepared", ("x", "y"), rows("x", "y")),)
     if case.chart_id == "X09":
         return (InputSeries("floating_bar", "prepared", ("category", "start", "end", "middle"), rows("category", "start", "end", "middle")),)
     if case.chart_id == "K05":
@@ -421,7 +430,31 @@ def _input_series(case: AuditCase, frame: pd.DataFrame) -> tuple[InputSeries, ..
             for column in frame.columns[1:]
         )
     if case.chart_id == "X03":
-        return (InputSeries("dumbbell", "prepared", ("category", "start", "end"), rows("category", "start", "end")),)
+        return (
+            InputSeries(
+                "lollipop",
+                "prepared",
+                ("category", "series_1", "series_2"),
+                rows("category", "series_1", "series_2"),
+                field_labels=("ID", "Start", "Middle"),
+            ),
+        )
+    if case.chart_id in {"X39", "X40"}:
+        roles = tuple(str(column) for column in frame.columns)
+        source_labels = (
+            ("Week1", "Week2", "Week3")
+            if case.chart_id == "X39"
+            else ("Before", "After", "C", "D")
+        )
+        return (
+            InputSeries(
+                "line_series" if case.chart_id == "X39" else "before_after",
+                "prepared",
+                roles,
+                rows(*roles),
+                field_labels=source_labels,
+            ),
+        )
     raise RuntimeError(f"unsupported series case {case.case_id}")
 
 
@@ -443,14 +476,16 @@ def _labels_and_scales(case: AuditCase) -> tuple[str, str, str, str]:
         "K08": ("Category", "Value", "categorical", "linear"),
         "K18": ("X", "Y1", "linear", "linear"),
         "X01": ("Time", "Signal", "linear", "linear"),
-        "X02": ("Sample", "Signal", "categorical", "linear"),
+        "X02": ("Time", "Signal", "linear", "linear"),
         "X09": ("ID", "Interval", "categorical", "linear"),
         "K05": ("X", "Y", "linear", "linear"),
         "K09": ("Week", "EC2", "categorical", "linear"),
         "K10": ("Week", "EC2", "categorical", "linear"),
         "S05": ("Dose", "Response", "log10", "linear"),
         "S25": ("Energy", "Absorbance", "linear", "linear"),
-        "X03": ("Start–End", "ID", "linear", "categorical"),
+        "X03": ("Value", "ID", "linear", "categorical"),
+        "X39": ("Series", "Value", "categorical", "linear"),
+        "X40": ("Condition", "Value", "categorical", "linear"),
     }[case.chart_id]
 
 
@@ -491,7 +526,10 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
     specifications: list[SeriesSpec] = []
     store: dict[str, RenderTable] = {}
     for index, item in enumerate(inputs):
-        field_ids = tuple(f"field:{case.chart_id.lower()}.{index}.{role}" for role in item.roles)
+        field_ids = tuple(
+            f"field:{case.chart_id.lower()}.{index}.{label}"
+            for label in (item.field_labels or item.roles)
+        )
         table = RenderTable.from_columns(dict(zip(field_ids, item.values, strict=True)))
         prepared = PreparedDatasetRef(
             prepared_dataset_id=f"prepared:seq20.{case.chart_id.lower()}.{index}",
@@ -533,7 +571,13 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
                         "line_width": PhysicalLength(value=1.4, unit="pt"),
                     }
                 )
-            if item.geometry in {"symbol", "lollipop", "dumbbell"}:
+            if item.geometry in {
+                "symbol",
+                "drop_line",
+                "lollipop",
+                "line_series",
+                "before_after",
+            }:
                 series_style = series_style.model_copy(
                     update={
                         "color": ColorValue(value=color),
@@ -581,9 +625,6 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
         )
     if edited and case.chart_id == "X01":
         specialist = specialist.model_copy(update={"chart_parameters": ChartParameterEditSpec(step_where="mid")})
-    if edited and case.chart_id == "X02":
-        specialist = specialist.model_copy(update={"chart_parameters": ChartParameterEditSpec(lollipop_baseline=0.0)})
-
     english_title = {
         "K01": "Line plot",
         "K02": "Line and symbol",
@@ -591,14 +632,16 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
         "K08": "Column plot",
         "K18": "Area plot",
         "X01": "Step plot",
-        "X02": "Lollipop plot",
+        "X02": "Drop line plot",
         "X09": "Floating interval bar",
         "K05": "Curve with confidence band",
         "K09": "Grouped column plot",
         "K10": "Stacked column plot",
         "S05": "Provided dose response",
         "S25": "Continuous spectra",
-        "X03": "Dumbbell plot",
+        "X03": "Origin lollipop plot",
+        "X39": "Line series plot",
+        "X40": "Before-after plot",
     }[case.chart_id]
     plot = PlotSpec(
         plot_id=f"plot:seq20.{case.chart_id.lower()}.{'edited' if edited else 'default'}",
@@ -830,7 +873,7 @@ def _render_batch(batch: int, cases: tuple[AuditCase, ...], output: Path, fixtur
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch", choices=("1", "2", "3", "all"), default="all")
+    parser.add_argument("--batch", choices=("1", "2", "3", "4", "all"), default="all")
     parser.add_argument("--phase", choices=("prepare", "render", "all"), default="all")
     parser.add_argument("--output", type=Path, default=OUTPUT)
     parser.add_argument("--fixtures", type=Path, default=FIXTURES)

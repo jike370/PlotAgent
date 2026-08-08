@@ -116,7 +116,7 @@ def test_frozen_visual_manifests_share_canonical_source_identity() -> None:
             / "visual_regression"
             / "seq20"
             / f"batch-{batch}.manifest.json": "seq20-rendering-v2"
-            for batch in (1, 2, 3)
+            for batch in (1, 2, 3, 4)
         },
         **{
             REPOSITORY

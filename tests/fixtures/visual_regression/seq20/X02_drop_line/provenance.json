@@ -5,11 +5,11 @@
   "source_sha256": "d0482fc92b488a5d04f5ff4a982060f5376337c5e8a2657662ad0da800c1d405",
   "source_graph_name": null,
   "source_book": null,
-  "recipe": "Origin 官方信号样例固定抽样；以 DROPLINE 重新生成。",
+  "recipe": "Origin 官方信号样例全量数据；以 DROPLINE 模板重新生成。",
   "same_source_data": true,
   "synthetic": false,
-  "data_sha256": "e0bbb39eb7bb190ca7ce41d020c078a9a93f9e1370489bb4f56342fd60476a41",
-  "reference_sha256": "3b3f720b40c413599dbbacd101c2343ea47ba6994652a50dcea6ee3d8717e810",
+  "data_sha256": "779dd9279544d93e2724ccc5633176577147cc4bba423311d0711996c5b153a1",
+  "reference_sha256": "f2f6bea7e758c6f623af9982d3f475b18c281213fd0f762ebd632553a56c81cd",
   "common_edit": "标题与字号",
-  "chart_edit": "固定 y=0 基线、点形与点大小"
+  "chart_edit": "端点颜色、点形与点大小；垂线保持落到底部轴"
 }
