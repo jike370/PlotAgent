@@ -1182,6 +1182,17 @@
           "title": "Annotation Id",
           "type": "string"
         },
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ColorValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "kind": {
           "enum": [
             "text",

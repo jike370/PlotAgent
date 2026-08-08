@@ -53,6 +53,8 @@ THUMBNAIL_LIMIT = 5_000
 INTERACTIVE_LIMIT = 20_000
 _SEQUENTIAL_PALETTE = ("#440154", "#3B528B", "#21918C", "#5EC962", "#FDE725")
 _DIVERGING_PALETTE = ("#3B4CC0", "#8DB0FE", "#F7F7F7", "#F4987A", "#B40426")
+_BLACK = ColorValue(value="#000000")
+_WHITE = ColorValue(value="#FFFFFF")
 type DataSourceKind = Literal["direct", "fixed", "user_precomputed", "panel_plan"]
 type QualityTier = Literal["thumbnail", "interactive", "formal"]
 type SvgTextMode = Literal["text_to_path", "editable_text"]
@@ -60,6 +62,70 @@ type SvgTextMode = Literal["text_to_path", "editable_text"]
 
 def _plain_text(value: str) -> SafeRichText:
     return SafeRichText(nodes=(SafeTextNode(kind="plain", text=value),))
+
+
+def _rgb(color: str) -> tuple[float, float, float]:
+    value = color.removeprefix("#")[:6]
+    return (
+        int(value[0:2], 16) / 255,
+        int(value[2:4], 16) / 255,
+        int(value[4:6], 16) / 255,
+    )
+
+
+def _interpolated_palette_rgb(
+    value: float,
+    minimum: float,
+    maximum: float,
+    palette: Sequence[ColorValue],
+) -> tuple[float, float, float]:
+    if not palette:
+        return (1.0, 1.0, 1.0)
+    if len(palette) == 1 or minimum == maximum:
+        return _rgb(palette[0].value)
+    unit = min(max((value - minimum) / (maximum - minimum), 0.0), 1.0)
+    scaled = unit * (len(palette) - 1)
+    lower_index = min(int(math.floor(scaled)), len(palette) - 1)
+    upper_index = min(lower_index + 1, len(palette) - 1)
+    fraction = scaled - lower_index
+    lower = _rgb(palette[lower_index].value)
+    upper = _rgb(palette[upper_index].value)
+    return (
+        lower[0] + (upper[0] - lower[0]) * fraction,
+        lower[1] + (upper[1] - lower[1]) * fraction,
+        lower[2] + (upper[2] - lower[2]) * fraction,
+    )
+
+
+def _relative_luminance(color: tuple[float, float, float]) -> float:
+    def linearize(component: float) -> float:
+        if component <= 0.04045:
+            return component / 12.92
+        return float(((component + 0.055) / 1.055) ** 2.4)
+
+    red, green, blue = (linearize(component) for component in color)
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+def _contrast_text_color(
+    value: float,
+    minimum: float,
+    maximum: float,
+    palette: Sequence[ColorValue],
+) -> ColorValue:
+    luminance = _relative_luminance(
+        _interpolated_palette_rgb(value, minimum, maximum, palette)
+    )
+    black_contrast = (luminance + 0.05) / 0.05
+    white_contrast = 1.05 / (luminance + 0.05)
+    return _BLACK if black_contrast >= white_contrast else _WHITE
+
+
+def _count_text(value: float) -> str:
+    rounded = round(value)
+    if math.isclose(value, rounded, rel_tol=0.0, abs_tol=1e-9):
+        return str(rounded)
+    return format(value, ".6g")
 
 
 def _label_key(value: SafeRichText | None) -> str | None:
@@ -1725,6 +1791,48 @@ def _resolved_table(
     return RenderTable.from_columns(columns)
 
 
+def _confusion_cell_annotations(
+    draft: _DraftLayer,
+    table: RenderTable,
+    palette: Sequence[ColorValue],
+    layer_index: int,
+) -> tuple[ResolvedAnnotation, ...]:
+    """Materialize target-neutral cell counts for the S61 confusion matrix only."""
+
+    field_by_role = dict(zip(draft.roles, table.field_ids, strict=True))
+    x_role = draft.x_roles[0]
+    y_role = draft.y_roles[0]
+    value_role = "value"
+    minimum = draft.color_minimum
+    maximum = draft.color_maximum
+    if minimum is None or maximum is None:
+        raise PlotValidationError(
+            "PLOTSPEC_MATRIX_COLOR_RANGE_MISSING",
+            "S61 cell labels require the resolved confusion-matrix color range",
+        )
+    x_values = table.column(field_by_role[x_role])
+    y_values = table.column(field_by_role[y_role])
+    values = table.column(field_by_role[value_role])
+    annotations: list[ResolvedAnnotation] = []
+    for row_index, (x_value, y_value, value) in enumerate(
+        zip(x_values, y_values, values, strict=True)
+    ):
+        numeric_value = _number(value)
+        annotations.append(
+            ResolvedAnnotation(
+                annotation_id=f"annotation:s61.cell.{layer_index}.{row_index}",
+                panel_id=draft.panel_id,
+                kind="text",
+                text=_plain_text(_count_text(numeric_value)),
+                color=_contrast_text_color(numeric_value, minimum, maximum, palette),
+                x=_number(x_value),
+                y=_number(y_value),
+                affect_range=False,
+            )
+        )
+    return tuple(annotations)
+
+
 class PlotResolver:
     """Resolve every chart through one versioned, target-neutral decision chain."""
 
@@ -1762,6 +1870,7 @@ class PlotResolver:
 
         output_tables: dict[str, RenderTable] = {}
         layers: list[ResolvedLayer] = []
+        derived_annotations: list[ResolvedAnnotation] = []
         total_rows = 0
         displayed_rows = 0
         excluded_rows = sum(draft.excluded_rows for draft in drafts)
@@ -1895,6 +2004,10 @@ class PlotResolver:
                     step_where=plot.specialist.chart_parameters.step_where,
                 )
             )
+            if plot.chart_type_id == "S61" and draft.geometry == "matrix.confusion":
+                derived_annotations.extend(
+                    _confusion_cell_annotations(draft, table, resolved_palette, layer_index)
+                )
 
         warnings: list[WarningRecord] = []
         if simplification_applied:
@@ -1945,6 +2058,7 @@ class PlotResolver:
                 annotation_id=item.annotation_id,
                 kind=item.kind,
                 text=item.text,
+                color=None,
                 x=item.x,
                 y=item.y,
                 x2=item.x2,
@@ -1952,7 +2066,7 @@ class PlotResolver:
                 affect_range=item.affect_range,
             )
             for item in plot.annotations
-        )
+        ) + tuple(derived_annotations)
         labeled_layers = sum(layer.label is not None for layer in layers)
         registration = get_chart(plot.chart_type_id)
         colorbar_style = plot.specialist.colorbar

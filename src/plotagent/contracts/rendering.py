@@ -210,6 +210,7 @@ class ResolvedAnnotation(StrictModel):
         "panel_label",
     ]
     text: SafeRichText | None = None
+    color: ColorValue | None = None
     x: FiniteNumber | None = None
     y: FiniteNumber | None = None
     x2: FiniteNumber | None = None

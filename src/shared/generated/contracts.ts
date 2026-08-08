@@ -1375,6 +1375,7 @@ export type ResolvedAnnotation = {
   readonly panel_id?: string;
   readonly kind: "text" | "arrow" | "line" | "rectangle" | "reference_line" | "reference_band" | "peak_label" | "significance_bracket" | "panel_label";
   readonly text?: SafeRichText | null;
+  readonly color?: ColorValue | null;
   readonly x?: number | null;
   readonly y?: number | null;
   readonly x2?: number | null;
