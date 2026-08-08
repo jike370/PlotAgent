@@ -37,6 +37,7 @@ from plotagent.origin._origin_backend import (
 )
 from plotagent.origin.native import (
     PROJECT_FOLDERS,
+    NativePrimitive,
     build_native_project,
     inspect_native_project,
     materialize_primitive,
@@ -810,7 +811,7 @@ def test_fresh_inspection_restores_typed_plan_before_backend_validation() -> Non
         ("K07", {"direct", "band"}, 2),
         ("K13", {"box_outline", "direct"}, 2),
         ("K14", {"violin_polygon"}, 1),
-        ("S21", {"forest_interval"}, 1),
+        ("S21", {"forest_interval", "forest_symbol"}, 2),
     ],
 )
 def test_interval_distribution_and_band_geometry_is_not_collapsed(
@@ -911,6 +912,26 @@ def test_forest_symbol_is_one_weight_sized_scatter_primitive() -> None:
     assert primitives[0].y_role == "label"
     assert primitives[0].size_role == "weight"
     assert primitives[0].transform == "forest_symbol"
+
+
+def test_forest_interval_includes_weight_sized_point_estimates() -> None:
+    plot = _plan("S21").graph_objects[0].layers[0].plots[0]
+    interval, symbol = native_primitives(plot)
+
+    assert interval.transform == "forest_interval"
+    assert symbol.plot_type == "scatter"
+    assert symbol.x_role == "effect"
+    assert symbol.y_role == "label"
+    assert symbol.size_role == "weight"
+    assert symbol.transform == "forest_symbol"
+
+
+def test_nyquist_uses_native_line_symbol_geometry() -> None:
+    plot = _plan("S34").graph_objects[0].layers[0].plots[0]
+
+    assert native_primitives(plot) == (
+        NativePrimitive("line_symbol", "z_real", "z_imaginary"),
+    )
 
 
 def test_drop_line_uses_one_native_symbol_plot_with_frame_drop_lines() -> None:

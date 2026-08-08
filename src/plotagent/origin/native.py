@@ -110,6 +110,8 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
             "median",
         ),
     )
+    if plot.native_kind == "nyquist":
+        return (NativePrimitive("line_symbol", x_role, y_role),)
     if plot.native_kind in _LINE_KINDS:
         plot_type = "area" if plot.native_kind == "area" else "line"
         if plot.native_kind in {"step", "survival_step"}:
@@ -224,7 +226,16 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
     if plot.native_kind == "violin":
         return (NativePrimitive("area", x_role, y_role, transform="violin_polygon"),)
     if plot.native_kind == "forest_interval":
-        return (NativePrimitive("line", "effect", "label", transform="forest_interval"),)
+        return (
+            NativePrimitive("line", "effect", "label", transform="forest_interval"),
+            NativePrimitive(
+                "scatter",
+                "effect",
+                "label",
+                size_role="weight",
+                transform="forest_symbol",
+            ),
+        )
     if plot.native_kind == "forest_symbol":
         return (
             NativePrimitive(

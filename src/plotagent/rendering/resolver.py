@@ -2026,6 +2026,8 @@ class PlotResolver:
             roles = tuple(draft.roles)
             series_style = series_by_id[draft.target_id].style
             palette_spec = series_style.palette
+            if palette_spec is None and plot.chart_type_id == "K21":
+                palette_spec = resolve_palette("OrangeNavy")
             palette_colors = (
                 tuple(color.value for color in palette_spec.colors) if palette_spec else ()
             )
