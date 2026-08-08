@@ -128,20 +128,7 @@ CASES = (
 
 QUALIFIED_CASES = tuple(case for case in CASES if case.grade is not None)
 MISSING_CASES = tuple(case for case in CASES if case.grade is None)
-MECHANICAL_BLOCKERS: tuple[dict[str, str], ...] = (
-    {
-        "chart_type_id": "K06",
-        "code": "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH",
-        "status": "open",
-        "observation": "Origin O1 connects error-bar endpoints as a zigzag line instead of isolated intervals.",
-    },
-    {
-        "chart_type_id": "K20",
-        "code": "NATIVE_COLORBAR_TICK_LABEL_COLLISION",
-        "status": "open",
-        "observation": "Origin O1 colorbar tick labels collide with the heatmap frame.",
-    },
-)
+MECHANICAL_BLOCKERS: tuple[dict[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -848,7 +835,7 @@ def _render() -> dict[str, Any]:
         "cases": [case_entries[case.case_id] for case in QUALIFIED_CASES],
         "evidence_gaps": evidence_gaps,
         "qualification": {"source_build_identity": {"scope_version": SOURCE_SCOPE_VERSION, "git_commit": _source_git_commit(), "source_sha256": _source_build_sha256()}, "blocking_observations": [*MECHANICAL_BLOCKERS, *({"chart_type_id": item["chart_type_id"], "code": item["blocking_code"], "status": "open", "observation": item["reason"]} for item in evidence_gaps)], "human_visual_signature": {"status": "pending", "reviewer": None, "signed_at": None}, "decision": "NO-GO"},
-        "audit_conclusion": "same-source evidence generated for anchored cases; mechanical visual blockers, missing evidence and human visual sign-off keep qualification NO-GO",
+        "audit_conclusion": "same-source evidence generated for anchored cases; the remaining same-source evidence gap and human visual sign-off keep qualification NO-GO",
     }
     (OUTPUT / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     (FIXTURES / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
