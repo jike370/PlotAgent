@@ -1,6 +1,7 @@
 {
   "chart_type_id": "K19",
   "evidence_grade": "C",
+  "evidence_status": "anchored",
   "source_path": "D:\\origin\\Samples\\Import and Export\\Custom Date and Time.dat",
   "source_sha256": "ee0ef15485af394b414942028f6866f8ffa32294303d97c0d369f35a26c1cae2",
   "source_graph_name": null,
@@ -8,9 +9,25 @@
   "origin_template": "LINE",
   "recipe": "Origin 官方 Custom Date and Time.dat，以随附 LINE.otpu 在 Origin 中重新生成；保留时间列原始精度。",
   "same_source_data": true,
+  "official_origin_evidence": true,
   "synthetic": false,
+  "synthetic_label": null,
+  "synthetic_generation": null,
+  "reference_construction": {
+    "construction_path": "origin_shipped_data_system_template",
+    "plotagent_renderer_used": false,
+    "origin_template": "LINE",
+    "origin_graph_name": "Graph1"
+  },
+  "reference_origin": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
   "data_sha256": "fc333331cddf09b68937ec403d9a7ffe8d7233e6e8fd8ef0de50a1ddc0c4882e",
-  "reference_sha256": "c971721d798c7a611d779445dc2b1666b64d5152be52d59fd01c530dc2fffc76",
+  "reference_sha256": "4e2e2e83e92889ce9d8f39e6e266fc6c06f295e18b0d5bde5cfdee90845258b0",
   "common_edit": "标题与字号",
   "chart_edit": "线色与线宽"
 }

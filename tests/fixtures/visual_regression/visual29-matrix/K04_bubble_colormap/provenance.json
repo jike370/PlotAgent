@@ -1,6 +1,7 @@
 {
   "chart_type_id": "K04",
   "evidence_grade": "A",
+  "evidence_status": "anchored",
   "source_path": "D:\\origin\\bubble.opju",
   "source_sha256": "3b7859f25792f19189bb1d86f34b0d9aff1fb60276db0142a97da602fb2fcff0",
   "source_graph_name": "Graph2",
@@ -8,9 +9,24 @@
   "origin_template": null,
   "recipe": "直接导出 Origin 随附 bubble.opju 的 Graph2；冻结同项目 Book1 的 X/Y/Size/Color。",
   "same_source_data": true,
+  "official_origin_evidence": true,
   "synthetic": false,
+  "synthetic_label": null,
+  "synthetic_generation": null,
+  "reference_construction": {
+    "construction_path": "origin_shipped_project",
+    "plotagent_renderer_used": false,
+    "origin_graph_name": "Graph2"
+  },
+  "reference_origin": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
   "data_sha256": "76e372f51d34d3f040a488dec2288aa32db1fc263800bd16927b3f1af37b110c",
-  "reference_sha256": "712893f3a2fa636868c7a85246e74cb6da331bd7d62d413836b24cccb4239800",
+  "reference_sha256": "ba375fc2f348ecd4eef68d9335eaa98e690813ec115822d66957248b38cd06b8",
   "common_edit": "标题与字号",
   "chart_edit": "符号形状与尺寸，同时保留 size/color 数据映射"
 }

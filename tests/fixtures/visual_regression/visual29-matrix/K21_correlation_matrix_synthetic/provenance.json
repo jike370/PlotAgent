@@ -1,0 +1,62 @@
+{
+  "chart_type_id": "K21",
+  "evidence_grade": "D",
+  "evidence_status": "anchored",
+  "source_path": null,
+  "source_sha256": null,
+  "source_graph_name": null,
+  "source_book": null,
+  "origin_template": "HEAT_MAP_WITH_LABELS",
+  "recipe": "Deterministic precomputed correlation matrix; independent Origin matrixbook heat-map reference.",
+  "same_source_data": true,
+  "official_origin_evidence": false,
+  "synthetic": true,
+  "synthetic_label": "D-grade synthetic data + Origin-generated reference",
+  "synthetic_generation": {
+    "generator_version": "visual29-matrix-grade-d-pcg64-v1",
+    "generator": "_synthetic_k21_frame",
+    "seed": 24080921,
+    "parameters": {
+      "seed": 24080921,
+      "dimension": 6,
+      "observations": 96
+    },
+    "frozen_before_reference": true
+  },
+  "reference_construction": {
+    "construction_path": "independent_origin_native",
+    "plotagent_renderer_used": false,
+    "origin_template": "HEAT_MAP_WITH_LABELS",
+    "origin_menu_equivalent": "Plot > Contour/Heat Map > Heat Map with Labels",
+    "origin_graph_name": "Graph21",
+    "raw_sheet": "SyntheticData",
+    "raw_column_mapping": {
+      "row_label": "SyntheticData!A / matrix row order",
+      "column_label": "SyntheticData!B / matrix column order",
+      "value": "SyntheticData!C / matrix Z"
+    },
+    "geometry_sheet": null,
+    "expected_native_plot_count": 1,
+    "reference_opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-matrix\\K21_correlation_matrix_synthetic\\reference-origin.opju",
+    "fresh_reopen_verified": true,
+    "fresh_raw_rows": 36,
+    "fresh_raw_columns": [
+      "row_label",
+      "column_label",
+      "value"
+    ],
+    "fresh_native_plot_count": 1,
+    "reference_opju_sha256": "77959c5955b72d1d3e556cc7d81038c357e0db2dd56698ca32b461b4501aa293"
+  },
+  "reference_origin": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
+  "data_sha256": "8f09680295e240f21ff9e574a56cbdee756d8859221570818ef9da25e9bc1e39",
+  "reference_sha256": "8a5367b5eefd317cc056be49e8d82e5404f5058aebd553c46ce84d61a409639e",
+  "common_edit": "Title and font size",
+  "chart_edit": "Diverging color scale, fixed bounds and matrix labels"
+}

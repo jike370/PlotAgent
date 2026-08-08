@@ -1,6 +1,7 @@
 {
   "chart_type_id": "K12",
   "evidence_grade": "A",
+  "evidence_status": "anchored",
   "source_path": "D:\\origin\\ColumnScatter.opju",
   "source_sha256": "566876922f226fc75aaadfb6086ab8df1d496020b9d144d6e68eacf78e1dc965",
   "source_graph_name": "Graph11",
@@ -8,9 +9,24 @@
   "origin_template": null,
   "recipe": "直接导出 Origin 随附 ColumnScatter.opju 的 Graph11；将同项目三列观测无损转成长表。",
   "same_source_data": true,
+  "official_origin_evidence": true,
   "synthetic": false,
+  "synthetic_label": null,
+  "synthetic_generation": null,
+  "reference_construction": {
+    "construction_path": "origin_shipped_project",
+    "plotagent_renderer_used": false,
+    "origin_graph_name": "Graph11"
+  },
+  "reference_origin": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
   "data_sha256": "cbec145220524f662d7c3f494508d88ead62f10e7b642b4f8174708c8d8f9477",
-  "reference_sha256": "f5a63c17ab0447eacb018dbc970588a5c1947d907794b52cbfa352da1f6b703e",
+  "reference_sha256": "e0b6f08acce524256fd957ecf533bbe7c4cdfeda954d624580a4082a0cd4cd05",
   "common_edit": "标题与字号",
   "chart_edit": "点形与点大小，并保留分组色板"
 }

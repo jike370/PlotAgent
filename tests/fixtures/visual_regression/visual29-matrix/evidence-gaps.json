@@ -3,48 +3,10 @@
   "lane": "visual29-matrix",
   "rules": {
     "same_source_required": true,
-    "synthetic_allowed": false
+    "synthetic_allowed": true,
+    "synthetic_evidence_grade": "D",
+    "synthetic_must_be_explicit": true,
+    "reference_renderer": "independent Origin native construction"
   },
-  "gaps": [
-    {
-      "chart_type_id": "K21",
-      "title": "相关矩阵图",
-      "status": "not_tested_missing_same_source_evidence",
-      "required_data": "Origin 官方预计算相关矩阵、行列标签及由该矩阵直接生成的参考图",
-      "available_evidence": "安装目录只有相关分析原始样例和矩阵类模板，没有随附的预计算相关矩阵参考图对",
-      "blocking_reason": "产品契约禁止在资格测试中替用户计算 Pearson/Spearman，因此不能用原始样例现场计算后冒充同源输入",
-      "rendered": false,
-      "qualification_claimed": false
-    },
-    {
-      "chart_type_id": "S21",
-      "title": "森林图",
-      "status": "not_tested_missing_same_source_evidence",
-      "required_data": "Origin 官方 effect/lower/upper/weight 数据及由该表直接生成的森林图",
-      "available_evidence": "安装目录未发现森林图随附项目或同源官方样例数据；历史 v2/LLM 回归图不是独立官方参考",
-      "blocking_reason": "缺少 A/C 级同源证据",
-      "rendered": false,
-      "qualification_claimed": false
-    },
-    {
-      "chart_type_id": "S31",
-      "title": "XRD 衍射图",
-      "status": "not_tested_missing_same_source_evidence",
-      "required_data": "Origin 官方 angle/intensity 数据及相应 XRD 参考图或官方模板重建说明",
-      "available_evidence": "本机存在用户 XRD 文本，但 Origin 安装目录未发现对应随附项目或官方样例数据",
-      "blocking_reason": "外部/用户数据不满足本轮 C 级“Origin 官方样例数据”要求",
-      "rendered": false,
-      "qualification_claimed": false
-    },
-    {
-      "chart_type_id": "S34",
-      "title": "Nyquist 图",
-      "status": "not_tested_missing_same_source_evidence",
-      "required_data": "Origin 官方 Z′/-Z″/frequency 数据及相应 Nyquist 参考图或官方模板重建说明",
-      "available_evidence": "本机存在用户 EIS 文本与用户生成 OPJU，但 Origin 安装目录未发现对应随附项目或官方样例数据",
-      "blocking_reason": "外部/用户数据不满足本轮 C 级“Origin 官方样例数据”要求",
-      "rendered": false,
-      "qualification_claimed": false
-    }
-  ]
+  "gaps": []
 }

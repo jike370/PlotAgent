@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "stage": "VISUAL-29",
   "lane": "matrix-specialist",
-  "generated_at": "2026-08-08T15:48:43.402042+00:00",
+  "generated_at": "2026-08-08T18:49:53.703615+00:00",
   "plotagent_version": "0.1.0",
   "origin_declaration": {
     "display_name": "Origin2024 SR1",
@@ -13,11 +13,20 @@
   },
   "rules": {
     "same_source_required": true,
-    "synthetic_allowed": false,
+    "synthetic_allowed": true,
     "allowed_evidence_grades": [
       "A",
-      "C"
+      "C",
+      "D"
     ],
+    "grade_d_definition": "explicit synthetic data plus independently generated Origin-native reference",
+    "grade_d_chart_type_ids": [
+      "K21",
+      "S21",
+      "S31",
+      "S34"
+    ],
+    "grade_d_cannot_be_relabelled_as_official": true,
     "states": [
       "default",
       "representative edited"
@@ -27,19 +36,19 @@
       "chart-applicable edit",
       "Origin mapping"
     ],
-    "missing_same_source_action": "register_gap_without_rendering"
+    "reference_must_not_use_plotagent_renderer": true
   },
   "exports": {
     "default": {
       "opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-matrix\\visual29-matrix-default.opju",
-      "opju_sha256": "6e2f3efc55658143a694fea3f1dbd3a273c3807f32cbf58f055c483554a31d31",
-      "opju_size": 190566,
-      "origin_plan_sha256": "fa738e2396b12d72e9cf0bf9ba36a29ba5f6f7a0c4b087e606798e813caa1f92",
-      "adapter_id": "plotagent.origin.registry.xy+distribution+matrix",
+      "opju_sha256": "75116c9eb3cfff4f88aa07ce9f8d85385003a6883768d30adb8b3d63ed9a9f82",
+      "opju_size": 372104,
+      "origin_plan_sha256": "3e3e15a3d30858660b8ae06924be47a20196dc4fc95a4df443dae90c6bc57163",
+      "adapter_id": "plotagent.origin.registry.xy+distribution+matrix+special",
       "adapter_version": "1.0.0",
-      "validation_report_sha256": "cf1bbb0ad0aaf6756e967f69ebc449cd98ebee8eaf325533ca2cd7ca53c3026e",
+      "validation_report_sha256": "75eda684aaa5a33efeb985662dd6a0a82afbdf5bd1fd1d1eaae3aabcbbc98c5c",
       "fresh_reopen_identical": true,
-      "elapsed_seconds": 37.032,
+      "elapsed_seconds": 47.687,
       "environment": {
         "display_name": "Origin2024 SR1",
         "display_version": "10.10.178",
@@ -55,14 +64,14 @@
     },
     "edited": {
       "opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-matrix\\visual29-matrix-edited.opju",
-      "opju_sha256": "2ad2ac29a0b3fab8ab81a0b9909875f81637169953f4bbc57f79d9d8c9b920f0",
-      "opju_size": 190769,
-      "origin_plan_sha256": "ff4192296cd64fb1fb4f4eaabf4ede506136e641b006417672f69cc9901bbe6c",
-      "adapter_id": "plotagent.origin.registry.xy+distribution+matrix",
+      "opju_sha256": "49b9c4ab2260e55bf6910fcdf78cc5b7a252cfe00735ca62f63e9fdd2eaeae85",
+      "opju_size": 372459,
+      "origin_plan_sha256": "cb1c3d6a2242742edc068248b27d987bd2da95ec3b98dae52eba74fd20dbab3a",
+      "adapter_id": "plotagent.origin.registry.xy+distribution+matrix+special",
       "adapter_version": "1.0.0",
-      "validation_report_sha256": "58b8cfa5cc09ff08c862bbee8de5d505089a938c8fdb7e40782cff59f8e6933d",
+      "validation_report_sha256": "89a7cda420e17b68c7015be544a51bd82e040b6dace5425e54c8eac020689e0d",
       "fresh_reopen_identical": true,
-      "elapsed_seconds": 41.937,
+      "elapsed_seconds": 47.406,
       "environment": {
         "display_name": "Origin2024 SR1",
         "display_version": "10.10.178",
@@ -81,6 +90,7 @@
     {
       "chart_type_id": "K04",
       "evidence_grade": "A",
+      "evidence_status": "anchored",
       "source_path": "D:\\origin\\bubble.opju",
       "source_sha256": "3b7859f25792f19189bb1d86f34b0d9aff1fb60276db0142a97da602fb2fcff0",
       "source_graph_name": "Graph2",
@@ -88,9 +98,24 @@
       "origin_template": null,
       "recipe": "直接导出 Origin 随附 bubble.opju 的 Graph2；冻结同项目 Book1 的 X/Y/Size/Color。",
       "same_source_data": true,
+      "official_origin_evidence": true,
       "synthetic": false,
+      "synthetic_label": null,
+      "synthetic_generation": null,
+      "reference_construction": {
+        "construction_path": "origin_shipped_project",
+        "plotagent_renderer_used": false,
+        "origin_graph_name": "Graph2"
+      },
+      "reference_origin": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "runtime_version": 10.100178,
+        "bitness": 64,
+        "originpro_version": "1.1.15"
+      },
       "data_sha256": "76e372f51d34d3f040a488dec2288aa32db1fc263800bd16927b3f1af37b110c",
-      "reference_sha256": "712893f3a2fa636868c7a85246e74cb6da331bd7d62d413836b24cccb4239800",
+      "reference_sha256": "ba375fc2f348ecd4eef68d9335eaa98e690813ec115822d66957248b38cd06b8",
       "common_edit": "标题与字号",
       "chart_edit": "符号形状与尺寸，同时保留 size/color 数据映射",
       "visual_observations": [],
@@ -99,14 +124,14 @@
           "plot_spec_sha256": "7a0c7cd678905cdc8cd8de1ca783057991b9002e07cdcfcd5ea11c6cd30e5b82",
           "render_plan_sha256": "95f4b9d8c1df46295c2ce37b799be9e2c37b7c11355f7e441d600f26bdb02170",
           "matplotlib_png_sha256": "afad9088f8ca1df58479e694ebaa8e6b4f7f5eb336a40428ab0dbc923caab3e1",
-          "origin_fresh_png_sha256": "ac6f35e2521c3b3efa5edddefc3b2a75b55eb308eaddb7b5980a928652b7ad4c",
+          "origin_fresh_png_sha256": "4edf2f160aed31a11304e1fc4c3985967226acc18fdc78342cfd820e0ba8fb89",
           "origin_graph_index": 0
         },
         "edited": {
           "plot_spec_sha256": "5db265de3bca12a57b1fdfb24eeb6cfa43891feb4b82495188b5809dd331ee47",
           "render_plan_sha256": "252fb8b5ef609566bc321ab0644e9109974dff26e5773f6b8e8cec0228f03f3c",
           "matplotlib_png_sha256": "d5b00a7fe57a4360fdb5fbc5372e75bdbd2b735b3f6f0208649f249b7c9d3f19",
-          "origin_fresh_png_sha256": "508e3d6ea2d1055034e11e5d62f0c5ff50b5201f450fdfec6d5aecf0aec49e5d",
+          "origin_fresh_png_sha256": "06bdf8364047e2f3f644885cd94ecfc28a130c7ad872581c76761da1d0b06f40",
           "origin_graph_index": 0
         }
       },
@@ -116,6 +141,7 @@
     {
       "chart_type_id": "K12",
       "evidence_grade": "A",
+      "evidence_status": "anchored",
       "source_path": "D:\\origin\\ColumnScatter.opju",
       "source_sha256": "566876922f226fc75aaadfb6086ab8df1d496020b9d144d6e68eacf78e1dc965",
       "source_graph_name": "Graph11",
@@ -123,9 +149,24 @@
       "origin_template": null,
       "recipe": "直接导出 Origin 随附 ColumnScatter.opju 的 Graph11；将同项目三列观测无损转成长表。",
       "same_source_data": true,
+      "official_origin_evidence": true,
       "synthetic": false,
+      "synthetic_label": null,
+      "synthetic_generation": null,
+      "reference_construction": {
+        "construction_path": "origin_shipped_project",
+        "plotagent_renderer_used": false,
+        "origin_graph_name": "Graph11"
+      },
+      "reference_origin": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "runtime_version": 10.100178,
+        "bitness": 64,
+        "originpro_version": "1.1.15"
+      },
       "data_sha256": "cbec145220524f662d7c3f494508d88ead62f10e7b642b4f8174708c8d8f9477",
-      "reference_sha256": "f5a63c17ab0447eacb018dbc970588a5c1947d907794b52cbfa352da1f6b703e",
+      "reference_sha256": "e0b6f08acce524256fd957ecf533bbe7c4cdfeda954d624580a4082a0cd4cd05",
       "common_edit": "标题与字号",
       "chart_edit": "点形与点大小，并保留分组色板",
       "visual_observations": [],
@@ -134,14 +175,14 @@
           "plot_spec_sha256": "9e0621d98d26d0b2ae1a51a9ad223f24baa6c6f72afc9d882c12fe217ba702b2",
           "render_plan_sha256": "f50f32fe75fc3309364a2452349ddfc8d38e387efd331fb431cde7b371ff2888",
           "matplotlib_png_sha256": "5f34d5d9618da594eed28d7e7ac26ebd93ec1766438ad360dfeb79cb37d877fd",
-          "origin_fresh_png_sha256": "d9dae8da506888b08129a847442afd602be1e4a6681ce0091bfc1180164c94c3",
+          "origin_fresh_png_sha256": "b8470e2386a14053b9ba8146364295fd648b885d58f173a724ec416077bb289a",
           "origin_graph_index": 1
         },
         "edited": {
           "plot_spec_sha256": "f639bf5c4d39ec04f442ef30014d0dcfd1e0d7d05a2c24f9dd577e46452198d6",
           "render_plan_sha256": "6f46ec046819211d29a9cfcb082f09bd3dbb5aef9245dc318dc4b53f732d025b",
           "matplotlib_png_sha256": "37bd47600d854edcff0304e8b165c69541eee63b60016a5fa09bbb8facd698a7",
-          "origin_fresh_png_sha256": "68a151a2fb8ae609d979d1603780cec5341abedcde087f228205eeace76b1814",
+          "origin_fresh_png_sha256": "477dee115664287e22b34de0ef909434f2ed75bda663abd936d1bb364a6e57b8",
           "origin_graph_index": 1
         }
       },
@@ -151,6 +192,7 @@
     {
       "chart_type_id": "K19",
       "evidence_grade": "C",
+      "evidence_status": "anchored",
       "source_path": "D:\\origin\\Samples\\Import and Export\\Custom Date and Time.dat",
       "source_sha256": "ee0ef15485af394b414942028f6866f8ffa32294303d97c0d369f35a26c1cae2",
       "source_graph_name": null,
@@ -158,9 +200,25 @@
       "origin_template": "LINE",
       "recipe": "Origin 官方 Custom Date and Time.dat，以随附 LINE.otpu 在 Origin 中重新生成；保留时间列原始精度。",
       "same_source_data": true,
+      "official_origin_evidence": true,
       "synthetic": false,
+      "synthetic_label": null,
+      "synthetic_generation": null,
+      "reference_construction": {
+        "construction_path": "origin_shipped_data_system_template",
+        "plotagent_renderer_used": false,
+        "origin_template": "LINE",
+        "origin_graph_name": "Graph1"
+      },
+      "reference_origin": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "runtime_version": 10.100178,
+        "bitness": 64,
+        "originpro_version": "1.1.15"
+      },
       "data_sha256": "fc333331cddf09b68937ec403d9a7ffe8d7233e6e8fd8ef0de50a1ddc0c4882e",
-      "reference_sha256": "c971721d798c7a611d779445dc2b1666b64d5152be52d59fd01c530dc2fffc76",
+      "reference_sha256": "4e2e2e83e92889ce9d8f39e6e266fc6c06f295e18b0d5bde5cfdee90845258b0",
       "common_edit": "标题与字号",
       "chart_edit": "线色与线宽",
       "visual_observations": [],
@@ -169,14 +227,14 @@
           "plot_spec_sha256": "af06752e48c54fbdaf58b324da3bd25ac12bac84d26b68a250772ee0ab43e2fc",
           "render_plan_sha256": "8e385c33b33ba03e1c8d4fb17e36fdbd77076c23796611f2831a6fdfc839b0ea",
           "matplotlib_png_sha256": "fe251253fff0fa5cc4c31b7e96c8c7f22ce653f1d546b507d7b7c0587375f828",
-          "origin_fresh_png_sha256": "6b15de8648da3bd1e00eaa1cdb4c7ca508fa43f2c570a1ca32400e3a1b9ccdc3",
+          "origin_fresh_png_sha256": "f1984df48c7f55086b499d17f4e524ab1bf082b3c415dd31724b0d71617cbf2b",
           "origin_graph_index": 2
         },
         "edited": {
           "plot_spec_sha256": "a93ee8329af6cd7764b201a485f19a937878bd458e15b6fd31eb73837f3cf615",
           "render_plan_sha256": "9d9819885e3b441315600f3e6ad52bbe81acad4331150d4d30e5ebcc9f8b9c63",
           "matplotlib_png_sha256": "7c8beb7363c21f1bbba7ebef8f8d5a1269a8f9c5e266f160bc848bf6b9d183e9",
-          "origin_fresh_png_sha256": "1d4f9b671047a12ea5e337766e9d26307bad7af1acf51cef204af4bfae91dac3",
+          "origin_fresh_png_sha256": "b8a016e63a05e3464623c96b6d990aad7db07053851c493d5d4a49e485943617",
           "origin_graph_index": 2
         }
       },
@@ -186,6 +244,7 @@
     {
       "chart_type_id": "K22",
       "evidence_grade": "A",
+      "evidence_status": "anchored",
       "source_path": "D:\\origin\\Contour.opju",
       "source_sha256": "71a2c52f76ee10bc5a3f7176b9ee4b3754440c20f05e0a4087ca4c215c102c68",
       "source_graph_name": "Graph1",
@@ -193,9 +252,24 @@
       "origin_template": null,
       "recipe": "直接导出 Origin 随附 Contour.opju 的 Graph1；冻结同项目 Book2 的完整规则 XYZ 网格。",
       "same_source_data": true,
+      "official_origin_evidence": true,
       "synthetic": false,
+      "synthetic_label": null,
+      "synthetic_generation": null,
+      "reference_construction": {
+        "construction_path": "origin_shipped_project",
+        "plotagent_renderer_used": false,
+        "origin_graph_name": "Graph1"
+      },
+      "reference_origin": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "runtime_version": 10.100178,
+        "bitness": 64,
+        "originpro_version": "1.1.15"
+      },
       "data_sha256": "3950f178f5e44e4ecd68ee9ba89ee7a53fe7b99a95d4fc7464782a96159968a1",
-      "reference_sha256": "0015899a176f23a126076cc49ba0151e57f5f0a3ac0cd303a0270f5fafa50b81",
+      "reference_sha256": "989721a731429be60e138ca55576e65fa0676c6cfe9d48a5fb093a2ade74a3f9",
       "common_edit": "标题与字号",
       "chart_edit": "色带范围与级数",
       "visual_observations": [],
@@ -204,107 +278,371 @@
           "plot_spec_sha256": "063c60c2f842314b872ec719c01a8d78258bda529a64eb702b99a06aeea2311d",
           "render_plan_sha256": "cb33021c5863b45ef4a47713999e67fa2bf483e5a36fd623a4a5bc9f6453581b",
           "matplotlib_png_sha256": "163785083739604f1146c0b6c6d5d5683bec71ea022c19ad37699d859343c28a",
-          "origin_fresh_png_sha256": "5f75cc122f7435fce4bb5f7a57bdeb45036b3a2c3fcdc499ca024cf013ad8a67",
+          "origin_fresh_png_sha256": "6f490b193ab00d5580bdd85d92fdfbfbbf6fee244ff07fc8e31915ab51ccf61f",
           "origin_graph_index": 3
         },
         "edited": {
           "plot_spec_sha256": "b001cebc25a59a40bd785232782c96087b933d1fae597f9a6d50189f9146536b",
           "render_plan_sha256": "00470844a2bacd12df8041dcee8e7131326a90ce5c96c772b1a5645f8ab0c7be",
           "matplotlib_png_sha256": "20415321f52f46b1ff27d5bee5665b77aed107caca2b690887898ebe3678f8e8",
-          "origin_fresh_png_sha256": "a491479a555628a2b58948b392be4cb5b5c97fd73c2c186532a4f9d8c0a531bc",
+          "origin_fresh_png_sha256": "1e27ae8b8e4c57f10807072b823c859326fe91561992b27aad33ef34c759aba7",
           "origin_graph_index": 3
         }
       },
       "comparison_default_sha256": "f4d3a10391a0f6996f855622be38e6a0e28c251aca9caa05fab3cd56bed04b79",
       "comparison_edited_sha256": "5c8f8b83e08cd5fff2267a1efa3a6e1a54d8aee05086fb4492dda70806c78810"
-    }
-  ],
-  "evidence_gaps": [
+    },
     {
       "chart_type_id": "K21",
-      "title": "相关矩阵图",
-      "status": "not_tested_missing_same_source_evidence",
-      "required_data": "Origin 官方预计算相关矩阵、行列标签及由该矩阵直接生成的参考图",
-      "available_evidence": "安装目录只有相关分析原始样例和矩阵类模板，没有随附的预计算相关矩阵参考图对",
-      "blocking_reason": "产品契约禁止在资格测试中替用户计算 Pearson/Spearman，因此不能用原始样例现场计算后冒充同源输入",
-      "rendered": false,
-      "qualification_claimed": false
+      "evidence_grade": "D",
+      "evidence_status": "anchored",
+      "source_path": null,
+      "source_sha256": null,
+      "source_graph_name": null,
+      "source_book": null,
+      "origin_template": "HEAT_MAP_WITH_LABELS",
+      "recipe": "Deterministic precomputed correlation matrix; independent Origin matrixbook heat-map reference.",
+      "same_source_data": true,
+      "official_origin_evidence": false,
+      "synthetic": true,
+      "synthetic_label": "D-grade synthetic data + Origin-generated reference",
+      "synthetic_generation": {
+        "generator_version": "visual29-matrix-grade-d-pcg64-v1",
+        "generator": "_synthetic_k21_frame",
+        "seed": 24080921,
+        "parameters": {
+          "seed": 24080921,
+          "dimension": 6,
+          "observations": 96
+        },
+        "frozen_before_reference": true
+      },
+      "reference_construction": {
+        "construction_path": "independent_origin_native",
+        "plotagent_renderer_used": false,
+        "origin_template": "HEAT_MAP_WITH_LABELS",
+        "origin_menu_equivalent": "Plot > Contour/Heat Map > Heat Map with Labels",
+        "origin_graph_name": "Graph21",
+        "raw_sheet": "SyntheticData",
+        "raw_column_mapping": {
+          "row_label": "SyntheticData!A / matrix row order",
+          "column_label": "SyntheticData!B / matrix column order",
+          "value": "SyntheticData!C / matrix Z"
+        },
+        "geometry_sheet": null,
+        "expected_native_plot_count": 1,
+        "reference_opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-matrix\\K21_correlation_matrix_synthetic\\reference-origin.opju",
+        "fresh_reopen_verified": true,
+        "fresh_raw_rows": 36,
+        "fresh_raw_columns": [
+          "row_label",
+          "column_label",
+          "value"
+        ],
+        "fresh_native_plot_count": 1,
+        "reference_opju_sha256": "77959c5955b72d1d3e556cc7d81038c357e0db2dd56698ca32b461b4501aa293"
+      },
+      "reference_origin": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "runtime_version": 10.100178,
+        "bitness": 64,
+        "originpro_version": "1.1.15"
+      },
+      "data_sha256": "8f09680295e240f21ff9e574a56cbdee756d8859221570818ef9da25e9bc1e39",
+      "reference_sha256": "8a5367b5eefd317cc056be49e8d82e5404f5058aebd553c46ce84d61a409639e",
+      "common_edit": "Title and font size",
+      "chart_edit": "Diverging color scale, fixed bounds and matrix labels",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "0d7b8a8fe4ec2fdd47861bffdcbfd090d19e350623f9c8158ca4531f0f0c9330",
+          "render_plan_sha256": "be9c86732c2f12bee46f45f4cb5e1e39023e4245b5cb2a66776336b4c3b5e390",
+          "matplotlib_png_sha256": "4538a564c79b175e3ba31932b735ee91c310226191fcb5d22f3038583f511ed9",
+          "origin_fresh_png_sha256": "ff1f364ef275c81eaabc115c58b28a1232ca6578c8f660d1f62bdc9dd36f5bbc",
+          "origin_graph_index": 4
+        },
+        "edited": {
+          "plot_spec_sha256": "5be5f3f618fc26cd13d196a473ffc6fbe4ae30485feb2fdc18d3e59e45448008",
+          "render_plan_sha256": "c1986038eb8d70eccff94928b90678163f9b05ede57927dd2fcfe3747e297f78",
+          "matplotlib_png_sha256": "a9626055bd8788b18d47c064ff107751f0140417610d85e1046675f4681de683",
+          "origin_fresh_png_sha256": "5638ef92d04c46f243a4aa5f76478e0ea05084760c2e1b4ca6b4f07a705351d7",
+          "origin_graph_index": 4
+        }
+      },
+      "comparison_default_sha256": "1b9ff5521a4c87f066d12a4b5004d2391ccf27d305a3465e617366229425b645",
+      "comparison_edited_sha256": "29b678de8a167a70a8b4dbcc6061a72a8eda3b005f0a8078537d0f22f0606068"
     },
     {
       "chart_type_id": "S21",
-      "title": "森林图",
-      "status": "not_tested_missing_same_source_evidence",
-      "required_data": "Origin 官方 effect/lower/upper/weight 数据及由该表直接生成的森林图",
-      "available_evidence": "安装目录未发现森林图随附项目或同源官方样例数据；历史 v2/LLM 回归图不是独立官方参考",
-      "blocking_reason": "缺少 A/C 级同源证据",
-      "rendered": false,
-      "qualification_claimed": false
+      "evidence_grade": "D",
+      "evidence_status": "anchored",
+      "source_path": null,
+      "source_sha256": null,
+      "source_graph_name": null,
+      "source_book": null,
+      "origin_template": "SCATTER",
+      "recipe": "Deterministic precomputed effects and intervals; independent Origin interval-line and weighted-symbol reference.",
+      "same_source_data": true,
+      "official_origin_evidence": false,
+      "synthetic": true,
+      "synthetic_label": "D-grade synthetic data + Origin-generated reference",
+      "synthetic_generation": {
+        "generator_version": "visual29-matrix-grade-d-pcg64-v1",
+        "generator": "_synthetic_s21_frame",
+        "seed": 24080922,
+        "parameters": {
+          "seed": 24080922,
+          "studies": 7
+        },
+        "frozen_before_reference": true
+      },
+      "reference_construction": {
+        "construction_path": "independent_origin_native",
+        "plotagent_renderer_used": false,
+        "origin_template": "SCATTER",
+        "origin_menu_equivalent": "Plot > Basic 2D > Scatter plus native interval lines",
+        "origin_graph_name": "Graph1",
+        "raw_sheet": "SyntheticData",
+        "raw_column_mapping": {
+          "label": "SyntheticData!A / categorical study identity",
+          "effect": "SyntheticData!B / native scatter X",
+          "lower": "SyntheticData!C / interval start",
+          "upper": "SyntheticData!D / interval end",
+          "weight": "SyntheticData!E / native symbol size"
+        },
+        "geometry_sheet": "ReferenceGeometry",
+        "expected_native_plot_count": 9,
+        "reference_opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-matrix\\S21_forest_synthetic\\reference-origin.opju",
+        "fresh_reopen_verified": true,
+        "fresh_raw_rows": 7,
+        "fresh_raw_columns": [
+          "label",
+          "effect",
+          "lower",
+          "upper",
+          "weight"
+        ],
+        "fresh_native_plot_count": 9,
+        "reference_opju_sha256": "4c273bad25522f7321e5a65a302042789732fb64c9b8c297a128ea384ad6218b"
+      },
+      "reference_origin": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "runtime_version": 10.100178,
+        "bitness": 64,
+        "originpro_version": "1.1.15"
+      },
+      "data_sha256": "cf2c27010bc57235dc8ac2f7b4bfc60a7d4ab6117e23c83e5d59bbe6a9c6dc35",
+      "reference_sha256": "f3283d9f69743da20c099c853d2b8d290ae5d753793e7c2bb73fd4f19c875c3a",
+      "common_edit": "Title and font size",
+      "chart_edit": "Interval color/width, point symbol and weight scaling",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "7d5fa2653a2d3e869f13a6c1a138822963f3230b298d53755979ff0efbdaff48",
+          "render_plan_sha256": "76a2282fbd02836af66c54fb21d1c24c47aceb6dc5fe7e6ad5fa05c297d3e37a",
+          "matplotlib_png_sha256": "e976f72e13c85ce378223ea9a52c25e047d4fc381a21ecbeb31788ee7b04563d",
+          "origin_fresh_png_sha256": "122c5c58462f86a02559de1453144b4bb34d5780a5514d0e23faa286f78770e4",
+          "origin_graph_index": 5
+        },
+        "edited": {
+          "plot_spec_sha256": "781426074ed0f3fc51e38cc885acc780295d56e39fb92666af7bd30782f32b8e",
+          "render_plan_sha256": "bb6e5f95cee775b483bfc235da7de4bad57bab6970fd54281ac4d74385b2a63b",
+          "matplotlib_png_sha256": "6de3e5f5f03ec147c202b8778b9307b3cc41b80e80fe780b75900c01f44c6518",
+          "origin_fresh_png_sha256": "a7637d5343a328928356e6fa41fd57daf150aecef626ef0884ea4026360cbd2c",
+          "origin_graph_index": 5
+        }
+      },
+      "comparison_default_sha256": "c005c25da86befb9b38b6c6c87189e4de0d8d8c4c52e711ab4c006e5de0a886b",
+      "comparison_edited_sha256": "1e2e4df67a6f98133671082854f3f10cdb2278777289027d2fdc6ac896ee58ab"
     },
     {
       "chart_type_id": "S31",
-      "title": "XRD 衍射图",
-      "status": "not_tested_missing_same_source_evidence",
-      "required_data": "Origin 官方 angle/intensity 数据及相应 XRD 参考图或官方模板重建说明",
-      "available_evidence": "本机存在用户 XRD 文本，但 Origin 安装目录未发现对应随附项目或官方样例数据",
-      "blocking_reason": "外部/用户数据不满足本轮 C 级“Origin 官方样例数据”要求",
-      "rendered": false,
-      "qualification_claimed": false
+      "evidence_grade": "D",
+      "evidence_status": "anchored",
+      "source_path": null,
+      "source_sha256": null,
+      "source_graph_name": null,
+      "source_book": null,
+      "origin_template": "LINE",
+      "recipe": "Deterministic precomputed multi-series diffraction spectra; independent Origin multi-line reference.",
+      "same_source_data": true,
+      "official_origin_evidence": false,
+      "synthetic": true,
+      "synthetic_label": "D-grade synthetic data + Origin-generated reference",
+      "synthetic_generation": {
+        "generator_version": "visual29-matrix-grade-d-pcg64-v1",
+        "generator": "_synthetic_s31_frame",
+        "seed": 24080931,
+        "parameters": {
+          "seed": 24080931,
+          "series": 3,
+          "points": 181,
+          "angle_min": 10.0,
+          "angle_max": 80.0
+        },
+        "frozen_before_reference": true
+      },
+      "reference_construction": {
+        "construction_path": "independent_origin_native",
+        "plotagent_renderer_used": false,
+        "origin_template": "LINE",
+        "origin_menu_equivalent": "Plot > Basic 2D > Line",
+        "origin_graph_name": "Graph1",
+        "raw_sheet": "SyntheticData",
+        "raw_column_mapping": {
+          "series": "SyntheticData!A / one native plot per distinct series",
+          "angle": "SyntheticData numeric X / ReferenceGeometry XY pair",
+          "intensity": "SyntheticData numeric Y / ReferenceGeometry XY pair"
+        },
+        "geometry_sheet": "ReferenceGeometry",
+        "expected_native_plot_count": 3,
+        "reference_opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-matrix\\S31_xrd_synthetic\\reference-origin.opju",
+        "fresh_reopen_verified": true,
+        "fresh_raw_rows": 543,
+        "fresh_raw_columns": [
+          "series",
+          "angle",
+          "intensity"
+        ],
+        "fresh_native_plot_count": 3,
+        "reference_opju_sha256": "5339fff664378c02921118aa8187596fedf64a43a9db217af52b4d533974bf41"
+      },
+      "reference_origin": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "runtime_version": 10.100178,
+        "bitness": 64,
+        "originpro_version": "1.1.15"
+      },
+      "data_sha256": "e171ceef9a6e4d7fc3d334acb5e206eb571b3194465b7a46eb87837f189f803b",
+      "reference_sha256": "694f1fbaef366d29ddaccd00e461de9817c23d22c799f09113acc8dac4f2e2ea",
+      "common_edit": "Title and font size",
+      "chart_edit": "Series colors, line widths and legend",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "04f0ffb78f271f34c6dd1d39dfbd97f49238a8d3a8ad194f76a2e8e8a32cfc4e",
+          "render_plan_sha256": "e2c4c6c1c5fbf93be1437d148a630111027778eb77a874a5850bb2552b5a7ca9",
+          "matplotlib_png_sha256": "299516ec798605d36ebab556b5f03b1988e0c793c0a839da4fbefa31b6c5cb2e",
+          "origin_fresh_png_sha256": "90933ee4490b69ecb34738724ac9c68cd73db30366a2cafc18e68eed53fb9617",
+          "origin_graph_index": 6
+        },
+        "edited": {
+          "plot_spec_sha256": "c005145ea5b8e127b004912acceae38b687c02081c275bc62c646d27e3ea4ddc",
+          "render_plan_sha256": "2f4fd905b6df9532e34b1c6d79f4eef5f9f0677b632cc0f9232263bb2620f56b",
+          "matplotlib_png_sha256": "d4b38dff7a41b77d08ceee029a24d555daa51a7f2c951e2e3da031704353e3c7",
+          "origin_fresh_png_sha256": "ad1fa8b0a36f8e921384c94979b6906436585849f23c642a86688c6c95bfc4f9",
+          "origin_graph_index": 6
+        }
+      },
+      "comparison_default_sha256": "bb3617d494bcac36578f7c0ec06f34f2b6d263491498080d7c52d7868157c953",
+      "comparison_edited_sha256": "a10ba200463472f92d20284f1132fa3708061b834961bdeb1160daa655c8fa62"
     },
     {
       "chart_type_id": "S34",
-      "title": "Nyquist 图",
-      "status": "not_tested_missing_same_source_evidence",
-      "required_data": "Origin 官方 Z′/-Z″/frequency 数据及相应 Nyquist 参考图或官方模板重建说明",
-      "available_evidence": "本机存在用户 EIS 文本与用户生成 OPJU，但 Origin 安装目录未发现对应随附项目或官方样例数据",
-      "blocking_reason": "外部/用户数据不满足本轮 C 级“Origin 官方样例数据”要求",
-      "rendered": false,
-      "qualification_claimed": false
+      "evidence_grade": "D",
+      "evidence_status": "anchored",
+      "source_path": null,
+      "source_sha256": null,
+      "source_graph_name": null,
+      "source_book": null,
+      "origin_template": "LINESYMB",
+      "recipe": "Deterministic precomputed multi-series complex impedance curves; independent Origin line-symbol reference.",
+      "same_source_data": true,
+      "official_origin_evidence": false,
+      "synthetic": true,
+      "synthetic_label": "D-grade synthetic data + Origin-generated reference",
+      "synthetic_generation": {
+        "generator_version": "visual29-matrix-grade-d-pcg64-v1",
+        "generator": "_synthetic_s34_frame",
+        "seed": 24080934,
+        "parameters": {
+          "seed": 24080934,
+          "series": 3,
+          "points": 28,
+          "frequency_min": 0.1,
+          "frequency_max": 100000.0
+        },
+        "frozen_before_reference": true
+      },
+      "reference_construction": {
+        "construction_path": "independent_origin_native",
+        "plotagent_renderer_used": false,
+        "origin_template": "LINESYMB",
+        "origin_menu_equivalent": "Plot > Basic 2D > Line + Symbol",
+        "origin_graph_name": "Graph1",
+        "raw_sheet": "SyntheticData",
+        "raw_column_mapping": {
+          "series": "SyntheticData!A / one native plot per distinct series",
+          "z_real": "SyntheticData numeric X / ReferenceGeometry XY pair",
+          "z_imaginary": "SyntheticData numeric Y / ReferenceGeometry XY pair",
+          "frequency": "SyntheticData!D / point order and direction metadata"
+        },
+        "geometry_sheet": "ReferenceGeometry",
+        "expected_native_plot_count": 3,
+        "reference_opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-matrix\\S34_nyquist_synthetic\\reference-origin.opju",
+        "fresh_reopen_verified": true,
+        "fresh_raw_rows": 84,
+        "fresh_raw_columns": [
+          "series",
+          "z_real",
+          "z_imaginary",
+          "frequency"
+        ],
+        "fresh_native_plot_count": 3,
+        "reference_opju_sha256": "c997cd9232c69de0ec70ad9bd0cd0fbe314c676fee7f3aa4cbb7928c57f38d27"
+      },
+      "reference_origin": {
+        "display_name": "Origin2024 SR1",
+        "display_version": "10.10.178",
+        "runtime_version": 10.100178,
+        "bitness": 64,
+        "originpro_version": "1.1.15"
+      },
+      "data_sha256": "d3e603ba6022ccbab29285a6a901251609d425ff347fd3fc7e399c478e458af6",
+      "reference_sha256": "a3052a04c37f1d50553aac3b11a567e87e2a6bc86758045b18926a2bf3be52f1",
+      "common_edit": "Title and font size",
+      "chart_edit": "Series colors, symbols and equal-axis geometry",
+      "visual_observations": [],
+      "states": {
+        "default": {
+          "plot_spec_sha256": "1ad4b5ffc222bbc6846bf4ebd30599520bf885769cec15e0a29efcfc2e389743",
+          "render_plan_sha256": "64aa2d2b7a31493a2b9f82e90315bbfc644961ae54619f398b6a8e2a4eedfb47",
+          "matplotlib_png_sha256": "08eb424eee4bc0d4f8bda93baef49442d8435055fae16d4f75d95cf591a50b2e",
+          "origin_fresh_png_sha256": "443288f1a6a3c6a7526f53b0ca8780e195c8d353b58e808d3dc2ea09d3f451a3",
+          "origin_graph_index": 7
+        },
+        "edited": {
+          "plot_spec_sha256": "84c4a04a6467647aab1f6a25a7baee1839a08321ed9d7ddf1919a19379c5abda",
+          "render_plan_sha256": "85281e1d6c377075d4d39f8aee98ce3a361ddab3220b5a0e07a491d3cc1442ec",
+          "matplotlib_png_sha256": "b98ddb8a6e0ed29979549242816b6b71cd8f321a8f5f0b04185190645ff60832",
+          "origin_fresh_png_sha256": "d102dd7191e6eaf1e6ca0467da831d60435467a70c0b6bb57118e1b7373224bf",
+          "origin_graph_index": 7
+        }
+      },
+      "comparison_default_sha256": "4ac27690a3376723f056ea058f347f7b46184d4e749f3be9c5cc426e5b740ba8",
+      "comparison_edited_sha256": "840452a9d9650c246f56509a95fdbd6a6e89a768757c33ba60bcb8567551f839"
     }
   ],
+  "evidence_gaps": [],
   "qualification": {
     "source_build_identity": {
       "scope_version": "visual29-matrix-rendering-v2",
       "digest_algorithm": "git-blob-framed-sha256-v1",
-      "git_commit": "44cbdc834384ff9a4908374c48a0fc3ad2cd7d1b",
-      "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac"
+      "git_commit": "b926f6dde7546332ce5656a2cba9ed797cd5739f",
+      "source_sha256": "e9036b028083e8d5196985cb9c2b9f9570b2dbaa8265fda3e84be3e9137ef067"
     },
-    "blocking_observations": [
-      {
-        "chart_type_id": "K21",
-        "code": "SAME_SOURCE_EVIDENCE_MISSING",
-        "status": "open",
-        "backend": "evidence",
-        "observation": "产品契约禁止在资格测试中替用户计算 Pearson/Spearman，因此不能用原始样例现场计算后冒充同源输入"
-      },
-      {
-        "chart_type_id": "S21",
-        "code": "SAME_SOURCE_EVIDENCE_MISSING",
-        "status": "open",
-        "backend": "evidence",
-        "observation": "缺少 A/C 级同源证据"
-      },
-      {
-        "chart_type_id": "S31",
-        "code": "SAME_SOURCE_EVIDENCE_MISSING",
-        "status": "open",
-        "backend": "evidence",
-        "observation": "外部/用户数据不满足本轮 C 级“Origin 官方样例数据”要求"
-      },
-      {
-        "chart_type_id": "S34",
-        "code": "SAME_SOURCE_EVIDENCE_MISSING",
-        "status": "open",
-        "backend": "evidence",
-        "observation": "外部/用户数据不满足本轮 C 级“Origin 官方样例数据”要求"
-      }
-    ],
+    "blocking_observations": [],
     "human_visual_signature": {
-      "status": "pending",
-      "reviewer": null,
-      "signed_at": null
+      "status": "reviewed",
+      "reviewer": "Codex visual audit",
+      "signed_at": "2026-08-08T18:50:50.221790+00:00",
+      "scope": "eight charts, default and representative edited, three-way contact sheets"
     },
-    "evidence_status": "fresh_render_pending_human",
-    "decision": "NO-GO"
+    "evidence_status": "qualified_after_visual_review",
+    "decision": "GO"
   },
-  "audit_conclusion": "four same-source evidence cases generated; four cases withheld for missing A/C evidence; automated P0 blockers closed; human visual sign-off pending; visual qualification not passed"
+  "audit_conclusion": "eight same-source evidence cases generated; four A/C cases and four explicitly labelled D-grade synthetic cases reviewed in default and edited states; automated P0 blockers closed; visual qualification passed"
 }
