@@ -690,6 +690,10 @@ def inspect_native_project(
 ) -> dict[str, object]:
     from .validation import expected_validation_report
 
+    # Fresh-reopen validation owns a new backend instance.  Restore the typed
+    # plan before inspection so graph-specific validators can derive their
+    # expected native objects from the same immutable data used at build time.
+    backend.set_plan(plan)
     report = backend.inspect(plan)
     if report != expected_validation_report(plan):
         raise ValueError("fresh native Origin report differs from the typed execution plan")

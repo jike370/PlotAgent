@@ -787,6 +787,21 @@ def test_fresh_inspection_rejects_report_drift() -> None:
     with pytest.raises(ValueError, match="fresh native Origin report differs"):
         inspect_native_project(backend, plan)
 
+    assert backend.calls == [("plan", plan.origin_plan_id)]
+
+
+def test_fresh_inspection_restores_typed_plan_before_backend_validation() -> None:
+    plan = _plan("S01")
+    backend = _RecordingBackend(plan)
+
+    report = inspect_native_project(backend, plan)
+
+    assert report == expected_validation_report(plan)
+    assert backend.calls == [
+        ("plan", plan.origin_plan_id),
+        ("inspect", plan.origin_plan_id),
+    ]
+
 
 @pytest.mark.parametrize(
     ("chart_id", "transforms", "plot_count"),
