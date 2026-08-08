@@ -1012,6 +1012,16 @@ class MatplotlibRenderer:
         renderer = _renderer(figure)
         if resolved.plan.legend.placement == "inside":
             for axis in axes.values():
+                position_key = tuple(
+                    round(float(value), 9) for value in axis.get_position().bounds
+                )
+                overlay_count = sum(
+                    tuple(round(float(value), 9) for value in candidate.get_position().bounds)
+                    == position_key
+                    for candidate in axes.values()
+                )
+                if overlay_count > 1:
+                    continue
                 legend = axis.get_legend()
                 if legend is not None and self._legend_overlaps_data(axis, legend, renderer):
                     handles, labels = axis.get_legend_handles_labels()

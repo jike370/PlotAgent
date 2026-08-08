@@ -77,6 +77,16 @@ def test_line_colliding_legend_moves_outside_without_covering_curves() -> None:
         )
 
 
+def test_twin_y_inside_legend_does_not_trigger_destructive_auto_outside_layout() -> None:
+    figure = MatplotlibRenderer().build_figure(resolve_chart("X36"))
+    figure.canvas.draw()
+    axes = figure.axes[:2]
+    legend = next(axis.get_legend() for axis in axes if axis.get_legend() is not None)
+
+    assert getattr(legend, "_plotagent_outside_right", False) is False
+    assert axes[0].get_position().width > 0.65
+
+
 def test_long_categorical_tick_labels_are_fitted_inside_fixed_canvas() -> None:
     resolved = resolve_chart("K12")
     replacements = (
