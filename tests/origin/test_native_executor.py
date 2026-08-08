@@ -21,11 +21,13 @@ from plotagent.origin._origin_backend import (
     _legend_labels,
     _legend_text,
     _native_layer_frame,
+    _PageRect,
     _place_inside_legend,
     _place_page_color_scale,
     _place_page_title,
     _primitive_color,
     _read_template_y_axis_style,
+    _size_key_layout,
     _style_annotation_label,
     _tick_label_rotation,
 )
@@ -108,12 +110,8 @@ def _grouped_bar_plan(group_count: int, width_ratio: float) -> OriginExportPlan:
     calculation_ref = plot.plot_calculation_refs[0].model_copy(
         update={"content_hash": content_hash}
     )
-    series_data = plot.series[0].data.model_copy(
-        update={"calculation_result_ref": calculation_ref}
-    )
-    specialist = SpecialistEditSpec(
-        bar_area=BarAreaEditSpec(width_ratio=width_ratio)
-    )
+    series_data = plot.series[0].data.model_copy(update={"calculation_result_ref": calculation_ref})
+    specialist = SpecialistEditSpec(bar_area=BarAreaEditSpec(width_ratio=width_ratio))
     edited = plot.model_copy(
         update={
             "plot_calculation_refs": (calculation_ref,),
@@ -153,11 +151,16 @@ def test_grouped_bar_uses_resolved_per_bar_width_and_offsets_without_overlap(
 
 def test_fill_area_uses_typed_uncertainty_color_and_band_alpha() -> None:
     plan = _plan("K07")
-    band = plan.graph_objects[0].layers[0].plots[1].model_copy(
-        update={
-            "uncertainty_color": ColorValue(value="#7B61A8"),
-            "band_alpha": 0.32,
-        }
+    band = (
+        plan.graph_objects[0]
+        .layers[0]
+        .plots[1]
+        .model_copy(
+            update={
+                "uncertainty_color": ColorValue(value="#7B61A8"),
+                "band_alpha": 0.32,
+            }
+        )
     )
     primitive = native_primitives(band)[0]
 
@@ -182,6 +185,7 @@ def test_x09_origin_plan_suppresses_internal_interval_boundary_legend() -> None:
 class _FakePageObject:
     def __init__(self, **values: float) -> None:
         self.values = dict(values)
+        self.obj = self
 
     def get_float(self, key: str) -> float:
         return self.values[key]
@@ -195,6 +199,9 @@ class _FakePageObject:
     def set_int(self, key: str, value: int) -> None:
         self.values[key] = float(value)
 
+    def PutHeight(self, value: int) -> None:  # noqa: N802 - mirrors Origin COM
+        self.values["height"] = float(value)
+
 
 class _ScalingFakePageObject(_FakePageObject):
     def set_float(self, key: str, value: float) -> None:
@@ -207,17 +214,13 @@ class _ScalingFakePageObject(_FakePageObject):
 
 @pytest.mark.parametrize("chart_id", ["X01", "K05", "S05", "S25", "X03"])
 def test_shared_title_layout_is_page_attached_and_above_plot_frame(chart_id: str) -> None:
-    graph_plan = _plan(chart_id).graph_objects[0].model_copy(
-        update={"title": f"{chart_id} title"}
-    )
+    graph_plan = _plan(chart_id).graph_objects[0].model_copy(update={"title": f"{chart_id} title"})
     page = _FakePageObject(width=890.0, height=600.0)
     title = _FakePageObject(width=140.0, height=24.0)
 
     _place_page_title(page, graph_plan, graph_plan.layers[0], title)
 
-    layer_top = (
-        graph_plan.layers[0].top_mm / graph_plan.page_height_mm * page.get_float("height")
-    )
+    layer_top = graph_plan.layers[0].top_mm / graph_plan.page_height_mm * page.get_float("height")
     assert title.get_int("attach") == 1
     left = title.get_float("x1") * page.get_float("width")
     top = title.get_float("y1") * page.get_float("height")
@@ -227,8 +230,10 @@ def test_shared_title_layout_is_page_attached_and_above_plot_frame(chart_id: str
 
 
 def test_s05_legend_is_page_attached_and_clamped_inside_canvas() -> None:
-    graph_plan = _plan("S05").graph_objects[0].model_copy(
-        update={"legend_visible": True, "legend_anchor_x": 1.0, "legend_anchor_y": 1.0}
+    graph_plan = (
+        _plan("S05")
+        .graph_objects[0]
+        .model_copy(update={"legend_visible": True, "legend_anchor_x": 1.0, "legend_anchor_y": 1.0})
     )
     page = _FakePageObject(width=890.0, height=600.0)
     legend = _FakePageObject(width=260.0, height=90.0, fillcolor=0.0)
@@ -254,9 +259,7 @@ def test_legend_charts_reserve_a_right_gutter_outside_the_data_frame(chart_id: s
     page = _FakePageObject(width=2102.0, height=1417.0)
     legend = _FakePageObject(width=180.0, height=143.0, fillcolor=0.0)
     _place_inside_legend(page, graph_plan, graph_plan.layers[0], legend)
-    frame_left, _, frame_width, _ = _frame_page_bounds(
-        page, graph_plan, graph_plan.layers[0]
-    )
+    frame_left, _, frame_width, _ = _frame_page_bounds(page, graph_plan, graph_plan.layers[0])
     legend_left = legend.get_float("x1") * page.get_float("width")
     assert legend_left > frame_left + frame_width
 
@@ -270,13 +273,75 @@ def test_color_scale_charts_reserve_and_use_a_page_right_gutter(chart_id: str) -
     page = _FakePageObject(width=2102.0, height=1417.0)
     scale = _FakePageObject(width=420.0, height=991.0)
     _place_page_color_scale(page, graph_plan, graph_plan.layers[0], scale)
-    frame_left, _, frame_width, _ = _frame_page_bounds(
-        page, graph_plan, graph_plan.layers[0]
-    )
+    frame_left, _, frame_width, _ = _frame_page_bounds(page, graph_plan, graph_plan.layers[0])
     scale_left = scale.get_float("x1") * page.get_float("width")
     assert scale.get_int("attach") == 1
     assert scale_left > frame_left + frame_width
     assert scale_left + scale.get_float("width") <= page.get_float("width")
+
+
+def test_variable_size_key_layout_uses_native_marker_diameters_outside_color_scale() -> None:
+    graph_plan = _plan("K04").graph_objects[0]
+    page_width = 2102.0
+    page_height = 1417.0
+    frame = _PageRect(
+        *_frame_page_bounds(
+            _FakePageObject(width=page_width, height=page_height),
+            graph_plan,
+            graph_plan.layers[0],
+        )
+    )
+    color_scale = _PageRect(left=1367.0, top=500.0, width=735.0, height=850.0)
+
+    layout = _size_key_layout(
+        graph_plan,
+        page_width=page_width,
+        page_height=page_height,
+        frame=frame,
+        color_scale=color_scale,
+        legend=None,
+    )
+
+    assert len(layout.markers) == len(graph_plan.size_key.entries)
+    assert len(layout.markers) > 1
+    assert all(not item.intersects(frame) for item in layout.objects)
+    assert all(not item.intersects(color_scale) for item in layout.objects)
+    assert all(item.right <= page_width and item.bottom <= page_height for item in layout.objects)
+    assert max(item.right for item in layout.objects) == pytest.approx(page_width * 0.995)
+    assert tuple(item.width for item in layout.markers) == pytest.approx(
+        tuple(
+            entry.marker_size_pt * 25.4 / 72.0 * page_width / graph_plan.page_width_mm
+            for entry in graph_plan.size_key.entries
+        )
+    )
+
+
+def test_variable_size_key_layout_fails_closed_without_nonoverlapping_page_gutter() -> None:
+    graph_plan = _plan("K04").graph_objects[0]
+    page_width = 2102.0
+    page_height = 1417.0
+    frame = _PageRect(
+        *_frame_page_bounds(
+            _FakePageObject(width=page_width, height=page_height),
+            graph_plan,
+            graph_plan.layers[0],
+        )
+    )
+
+    with pytest.raises(NativeOriginError, match="no non-overlapping page gutter"):
+        _size_key_layout(
+            graph_plan,
+            page_width=page_width,
+            page_height=page_height,
+            frame=_PageRect(
+                left=frame.left,
+                top=frame.top,
+                width=page_width - frame.left - 80.0,
+                height=frame.height,
+            ),
+            color_scale=None,
+            legend=None,
+        )
 
 
 def test_dense_categorical_tick_labels_rotate_and_gain_bottom_room() -> None:
@@ -303,9 +368,7 @@ def test_dense_categorical_tick_labels_rotate_and_gain_bottom_room() -> None:
     )
     dense_layer = layer.model_copy(
         update={
-            "axes": tuple(
-                dense_axis if axis.orientation == "x" else axis for axis in layer.axes
-            )
+            "axes": tuple(dense_axis if axis.orientation == "x" else axis for axis in layer.axes)
         }
     )
     dense_graph = graph_plan.model_copy(update={"layers": (dense_layer, *graph_plan.layers[1:])})
@@ -328,18 +391,14 @@ def test_legend_gutter_rechecks_category_rotation_at_the_narrowed_width() -> Non
     )
     dense_layer = layer.model_copy(
         update={
-            "axes": tuple(
-                dense_axis if axis.orientation == "x" else axis for axis in layer.axes
-            ),
+            "axes": tuple(dense_axis if axis.orientation == "x" else axis for axis in layer.axes),
             "plots": tuple(
                 plot.model_copy(update={"label": label})
                 for plot, label in zip(layer.plots, labels, strict=False)
             ),
         }
     )
-    dense_graph = graph_plan.model_copy(
-        update={"layers": (dense_layer,), "font_size_pt": 9.5}
-    )
+    dense_graph = graph_plan.model_copy(update={"layers": (dense_layer,), "font_size_pt": 9.5})
     narrowed = _native_layer_frame(dense_graph, dense_layer)
 
     assert narrowed.width_mm < dense_layer.width_mm
@@ -348,8 +407,10 @@ def test_legend_gutter_rechecks_category_rotation_at_the_narrowed_width() -> Non
 
 
 def test_long_title_is_scaled_to_the_page_top_band() -> None:
-    graph_plan = _plan("X36").graph_objects[0].model_copy(
-        update={"title": "Visual qualification - X36 - Dual-Y column-line plot"}
+    graph_plan = (
+        _plan("X36")
+        .graph_objects[0]
+        .model_copy(update={"title": "Visual qualification - X36 - Dual-Y column-line plot"})
     )
     page = _FakePageObject(width=2102.0, height=1417.0)
     title = _ScalingFakePageObject(width=2500.0, height=105.0, fsize=10.5)
@@ -556,9 +617,7 @@ def test_error_bar_point_estimates_do_not_connect_across_observations() -> None:
     assert primitives[1].transform == "direct"
     assert primitives[1].y_role == "center"
     assert all(
-        item.y_role not in {"lower", "upper"}
-        for item in primitives
-        if item.plot_type == "scatter"
+        item.y_role not in {"lower", "upper"} for item in primitives if item.plot_type == "scatter"
     )
 
 
@@ -593,11 +652,24 @@ def test_error_bar_materializes_independent_intervals_and_caps_only() -> None:
 
 def test_bubble_uses_scatter_with_native_column_modifiers() -> None:
     plan = _plan("K04")
-    primitive = native_primitives(plan.graph_objects[0].layers[0].plots[0])[0]
+    graph = plan.graph_objects[0]
+    primitive = native_primitives(graph.layers[0].plots[0])[0]
 
     assert primitive.plot_type == "scatter"
     assert primitive.size_role == "size"
     assert primitive.color_role == "color"
+    assert graph.size_key.visible is True
+    assert graph.size_key.title == "Size"
+    assert tuple(item.value for item in graph.size_key.entries) == (1.0, 3.0, 6.0)
+    assert tuple(item.marker_size_pt for item in graph.size_key.entries) == pytest.approx(
+        (0.25, 0.75, 1.5)
+    )
+    assert tuple(item.label for item in graph.size_key.entries) == ("1", "3", "6")
+
+
+def test_fixed_size_scatter_does_not_gain_a_variable_size_key() -> None:
+    assert _plan("K03").graph_objects[0].size_key.visible is False
+    assert _plan("K03").graph_objects[0].size_key.entries == ()
 
 
 def test_forest_symbol_is_one_weight_sized_scatter_primitive() -> None:
@@ -700,8 +772,7 @@ def test_histogram_materializes_bin_centers_without_a_phantom_width_role() -> No
     left = next(item.values for item in data.columns if item.role == "left")
     right = next(item.values for item in data.columns if item.role == "right")
     assert table.x == tuple(
-        (float(low) + float(high)) / 2
-        for low, high in zip(left, right, strict=True)
+        (float(low) + float(high)) / 2 for low, high in zip(left, right, strict=True)
     )
 
 

@@ -30,6 +30,7 @@ from plotagent.contracts.rendering import (
 )
 from plotagent.contracts.styles import ResolvedPalette, origin_interior_code, origin_symbol_code
 
+from .constants import ORIGIN_VARIABLE_SIZE_FACTOR
 from .native import (
     PROJECT_FOLDERS,
     NativePrimitive,
@@ -88,7 +89,11 @@ _PANEL_LABEL = "_PANEL_LABEL"
 _COLOR_SCALE_LABEL = "SPECTRUM1"
 _COLOR_SCALE_TITLE_LABEL = "_COLOR_SCALE_TITLE"
 _DENSE_X_TITLE_LABEL = "_DENSE_X_TITLE"
+_SIZE_KEY_TITLE_LABEL = "_SIZE_KEY_TITLE"
+_SIZE_KEY_MARKER_PREFIX = "_SIZE_KEY_MARKER_"
+_SIZE_KEY_VALUE_PREFIX = "_SIZE_KEY_VALUE_"
 _COLOR_SCALE_OBJECT_TYPE = 13
+_ELLIPSE_OBJECT_TYPE = 9
 
 
 class NativeOriginError(RuntimeError):
@@ -110,6 +115,41 @@ class _NativeLayerFrame:
     top_mm: float
     width_mm: float
     height_mm: float
+
+
+@dataclass(frozen=True, slots=True)
+class _PageRect:
+    left: float
+    top: float
+    width: float
+    height: float
+
+    @property
+    def right(self) -> float:
+        return self.left + self.width
+
+    @property
+    def bottom(self) -> float:
+        return self.top + self.height
+
+    def intersects(self, other: _PageRect) -> bool:
+        return (
+            self.left < other.right
+            and self.right > other.left
+            and self.top < other.bottom
+            and self.bottom > other.top
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _SizeKeyLayout:
+    title: _PageRect
+    markers: tuple[_PageRect, ...]
+    values: tuple[_PageRect, ...]
+
+    @property
+    def objects(self) -> tuple[_PageRect, ...]:
+        return (self.title, *self.markers, *self.values)
 
 
 def _finite_float(value: Any, fallback: float | None = None) -> float:
@@ -296,12 +336,7 @@ def _legend_labels(graph: OriginGraphObject) -> list[str]:
     """Return one legend row per stable scientific series label."""
 
     return list(
-        dict.fromkeys(
-            plot.label
-            for layer in graph.layers
-            for plot in layer.plots
-            if plot.label
-        )
+        dict.fromkeys(plot.label for layer in graph.layers for plot in layer.plots if plot.label)
     )
 
 
@@ -328,12 +363,23 @@ def _legend_gutter_mm(graph_plan: OriginGraphObject) -> float:
     return min(max(widest + 2.0, 7.0), 24.0)
 
 
+def _size_key_gutter_mm(graph_plan: OriginGraphObject) -> float:
+    if not graph_plan.size_key.visible:
+        return 0.0
+    widest_label = max(
+        _text_width_mm(item.label, graph_plan.font_size_pt) for item in graph_plan.size_key.entries
+    )
+    largest_marker = max(item.marker_size_pt for item in graph_plan.size_key.entries)
+    marker_width = largest_marker * 25.4 / 72.0
+    return min(max(marker_width + widest_label + 5.0, 12.0), 22.0)
+
+
 def _decoration_gutter_mm(graph_plan: OriginGraphObject) -> float:
     if graph_plan.colorbar.visible:
         # Spectrum1's reported bounds stop before the right-aligned numeric
         # glyphs.  Reserve the strip, ticks and a conservative value-label band.
-        return 36.0
-    return _legend_gutter_mm(graph_plan)
+        return max(36.0, 18.0 + _size_key_gutter_mm(graph_plan) + 3.0)
+    return max(_legend_gutter_mm(graph_plan), _size_key_gutter_mm(graph_plan))
 
 
 def _tick_label_rotation(axis: OriginAxisPlan, font_size_pt: float, width_mm: float) -> int:
@@ -351,9 +397,7 @@ def _native_layer_frame(
     """Reserve page gutters for native decorations and dense X tick labels."""
 
     decoration_width = _decoration_gutter_mm(graph_plan)
-    existing_right_margin = graph_plan.page_width_mm - (
-        layer_plan.left_mm + layer_plan.width_mm
-    )
+    existing_right_margin = graph_plan.page_width_mm - (layer_plan.left_mm + layer_plan.width_mm)
     axis_clearance = 12.0 if decoration_width and _has_right_y_axis(graph_plan) else 0.0
     required_right_margin = decoration_width + axis_clearance + (2.0 if decoration_width else 0.0)
     right_shrink = max(required_right_margin - existing_right_margin, 0.0)
@@ -364,18 +408,12 @@ def _native_layer_frame(
         None,
     )
     rotation = (
-        _tick_label_rotation(x_axis, graph_plan.font_size_pt, width)
-        if x_axis is not None
-        else 0
+        _tick_label_rotation(x_axis, graph_plan.font_size_pt, width) if x_axis is not None else 0
     )
-    existing_bottom_margin = graph_plan.page_height_mm - (
-        layer_plan.top_mm + layer_plan.height_mm
-    )
+    existing_bottom_margin = graph_plan.page_height_mm - (layer_plan.top_mm + layer_plan.height_mm)
     bottom_shrink = 0.0
     if rotation and x_axis is not None:
-        widest = max(
-            _text_width_mm(item.label, graph_plan.font_size_pt) for item in x_axis.ticks
-        )
+        widest = max(_text_width_mm(item.label, graph_plan.font_size_pt) for item in x_axis.ticks)
         rotated_height = widest * math.sin(math.radians(rotation))
         # Origin does not automatically push its special XB title below rotated
         # tick labels.  Reserve a title band as well as the projected label height.
@@ -407,6 +445,133 @@ def _frame_page_bounds(
     )
 
 
+def _object_page_rect(page_object: Any) -> _PageRect:
+    return _PageRect(
+        left=_finite_float(page_object.get_float("left"), 0.0),
+        top=_finite_float(page_object.get_float("top"), 0.0),
+        width=_finite_float(page_object.get_float("width"), 0.0),
+        height=_finite_float(page_object.get_float("height"), 0.0),
+    )
+
+
+def _color_scale_visual_rect(scale: Any, *, page_width: float) -> _PageRect:
+    """Include Spectrum1's unreported right-side ticks and numeric labels."""
+
+    reported = _object_page_rect(scale)
+    return _PageRect(
+        left=reported.left,
+        top=reported.top,
+        width=max(page_width - reported.left, reported.width),
+        height=reported.height,
+    )
+
+
+def _size_key_layout(
+    graph_plan: OriginGraphObject,
+    *,
+    page_width: float,
+    page_height: float,
+    frame: _PageRect,
+    color_scale: _PageRect | None,
+    legend: _PageRect | None,
+) -> _SizeKeyLayout:
+    """Lay out a variable-size key in the page gutter using physical units.
+
+    Origin reports stale text bounds immediately after labels are created.  The
+    layout therefore uses the typed page size and a conservative font metric,
+    while build and fresh-reopen inspection verify the persisted anchors and
+    native object types.
+    """
+
+    size_key = graph_plan.size_key
+    if not size_key.visible or not size_key.entries:
+        raise NativeOriginError("variable-size key layout requires typed entries")
+    if page_width <= 0 or page_height <= 0:
+        raise NativeOriginError("Origin page dimensions must be positive")
+
+    x_pixels_per_mm = page_width / graph_plan.page_width_mm
+    y_pixels_per_mm = page_height / graph_plan.page_height_mm
+    value_font_pt = max(graph_plan.font_size_pt - 1.0, 5.0)
+    title_font_pt = max(graph_plan.font_size_pt, 5.0)
+    title_width = _text_width_mm(size_key.title, title_font_pt) * x_pixels_per_mm
+    title_height = title_font_pt * 25.4 / 72.0 * 1.25 * y_pixels_per_mm
+    value_widths = tuple(
+        _text_width_mm(entry.label, value_font_pt) * x_pixels_per_mm for entry in size_key.entries
+    )
+    value_height = value_font_pt * 25.4 / 72.0 * 1.25 * y_pixels_per_mm
+    marker_diameters = tuple(
+        entry.marker_size_pt * 25.4 / 72.0 * x_pixels_per_mm for entry in size_key.entries
+    )
+    marker_heights = tuple(
+        entry.marker_size_pt * 25.4 / 72.0 * y_pixels_per_mm for entry in size_key.entries
+    )
+
+    page_inset = max(page_width * 0.005, 2.0)
+    decoration_gap = max(page_width * 0.008, 2.0)
+    column_gap = max(page_width * 0.004, 2.0)
+    row_gap = max(page_height * 0.005, 2.0)
+    largest_marker = max(marker_diameters)
+    key_width = max(title_width, largest_marker + column_gap + max(value_widths))
+    left = page_width - page_inset - key_width
+    if left < frame.right + decoration_gap - 1e-9:
+        raise NativeOriginError("native variable-size key has no non-overlapping page gutter")
+
+    top = frame.top
+    proposed_column = _PageRect(left=left, top=0.0, width=key_width, height=page_height)
+    if legend is not None and proposed_column.intersects(legend):
+        top = max(top, legend.bottom + row_gap)
+
+    title = _PageRect(left=left, top=top, width=title_width, height=title_height)
+    cursor = title.bottom + row_gap * 2.0
+    marker_rects: list[_PageRect] = []
+    value_rects: list[_PageRect] = []
+    for marker_width, marker_height, value_width in zip(
+        marker_diameters,
+        marker_heights,
+        value_widths,
+        strict=True,
+    ):
+        row_height = max(marker_height, value_height)
+        marker_rects.append(
+            _PageRect(
+                left=left + (largest_marker - marker_width) / 2.0,
+                top=cursor + (row_height - marker_height) / 2.0,
+                width=marker_width,
+                height=marker_height,
+            )
+        )
+        value_rects.append(
+            _PageRect(
+                left=left + largest_marker + column_gap,
+                top=cursor + (row_height - value_height) / 2.0,
+                width=value_width,
+                height=value_height,
+            )
+        )
+        cursor += row_height + row_gap
+
+    layout = _SizeKeyLayout(
+        title=title,
+        markers=tuple(marker_rects),
+        values=tuple(value_rects),
+    )
+    if any(
+        item.left < 0
+        or item.top < 0
+        or item.right > page_width + 1e-9
+        or item.bottom > page_height + 1e-9
+        for item in layout.objects
+    ):
+        raise NativeOriginError("native variable-size key crosses the page boundary")
+    if any(item.intersects(frame) for item in layout.objects):
+        raise NativeOriginError("native variable-size key overlaps the plot frame")
+    if color_scale is not None and any(item.intersects(color_scale) for item in layout.objects):
+        raise NativeOriginError("native variable-size key overlaps the color scale")
+    if legend is not None and any(item.intersects(legend) for item in layout.objects):
+        raise NativeOriginError("native variable-size key overlaps the legend")
+    return layout
+
+
 def _place_inside_legend(
     graph: Any, graph_plan: OriginGraphObject, layer_plan: OriginLayerPlan, legend: Any
 ) -> None:
@@ -424,9 +589,7 @@ def _place_inside_legend(
     page_inset = max(page_width * 0.015, 2.0)
     left = page_width - legend_width - page_inset
     top = (
-        layer_top
-        if graph_plan.legend_anchor_y >= 0.5
-        else layer_top + layer_height - legend_height
+        layer_top if graph_plan.legend_anchor_y >= 0.5 else layer_top + layer_height - legend_height
     )
     left = max(left, layer_left + layer_width + page_width * 0.01)
     left = min(left, max(page_width - legend_width - page_inset, page_inset))
@@ -467,9 +630,7 @@ def _place_page_title(
 
     page_width = _finite_float(graph.get_float("width"))
     page_height = _finite_float(graph.get_float("height"))
-    _, layer_top, _, _ = _frame_page_bounds(
-        graph, graph_plan, layer_plan
-    )
+    _, layer_top, _, _ = _frame_page_bounds(graph, graph_plan, layer_plan)
     gap = max(page_height * 0.005, 1.0)
     page_inset = max(page_width * 0.02, 2.0)
     available_width = page_width - page_inset * 2
@@ -505,7 +666,7 @@ def _place_page_color_scale(
 
     page_width = _finite_float(graph.get_float("width"))
     page_height = _finite_float(graph.get_float("height"))
-    _, layer_top, _, _ = _frame_page_bounds(graph, graph_plan, layer_plan)
+    frame = _PageRect(*_frame_page_bounds(graph, graph_plan, layer_plan))
     scale_width = _finite_float(scale.get_float("width"), 0.0)
     scale_height = _finite_float(scale.get_float("height"), 0.0)
     # Spectrum1's reported width excludes its right-aligned numeric labels.
@@ -513,10 +674,38 @@ def _place_page_color_scale(
     # without forcing the plot frame into the scale.
     page_inset = max(page_width * 0.15, 2.0)
     scale_left = max(page_width - scale_width - page_inset, page_inset)
+    vertical_inset = max(page_height * 0.02, 2.0)
     scale_top = min(
-        max(layer_top, page_inset),
-        max(page_height - scale_height - page_inset, page_inset),
+        max(frame.top, vertical_inset),
+        max(page_height - scale_height - vertical_inset, vertical_inset),
     )
+    if graph_plan.size_key.visible:
+        key_layout = _size_key_layout(
+            graph_plan,
+            page_width=page_width,
+            page_height=page_height,
+            frame=frame,
+            color_scale=None,
+            legend=None,
+        )
+        scale_top = max(
+            max(item.bottom for item in key_layout.objects) + page_height * 0.02,
+            frame.top,
+        )
+        available_height = page_height - scale_top - vertical_inset
+        minimum_height = page_height * 0.25
+        if available_height < minimum_height:
+            raise NativeOriginError(
+                "native color scale and variable-size key cannot share the page gutter"
+            )
+        if scale_height > available_height:
+            try:
+                scale.obj.PutHeight(max(round(available_height), 1))
+            except Exception as error:
+                raise NativeOriginError(
+                    f"could not resize native color scale below variable-size key: {error}"
+                ) from error
+            scale_height = _finite_float(scale.get_float("height"), available_height)
     _set_page_position(
         scale,
         page_width=page_width,
@@ -935,7 +1124,7 @@ class OriginProBackend:
             # Origin's modifier values are interpreted in points. The fixed factor
             # keeps the PlotSpec's scientific bubble weights legible without turning
             # one large observation into a page-sized symbol.
-            plot.symbol_sizefactor = 0.25
+            plot.symbol_sizefactor = ORIGIN_VARIABLE_SIZE_FACTOR
         if primitive.color_role is not None:
             color_index = _role_index(data, plot_plan, primitive.color_role)
             plot.color = self._op.color_col(color_index - y_index, "m")
@@ -967,9 +1156,7 @@ class OriginProBackend:
         alpha = plot_plan.band_alpha if primitive.transform == "band" else plot_plan.alpha
         if alpha < 1:
             transparency_targets = (
-                created_plots[:1]
-                if primitive.transform == "band"
-                else created_plots
+                created_plots[:1] if primitive.transform == "band" else created_plots
             )
             for created_plot in transparency_targets:
                 created_plot.transparency = round((1 - alpha) * 100)
@@ -1104,9 +1291,7 @@ class OriginProBackend:
         page_width = _finite_float(graph.get_float("width"))
         page_height = _finite_float(graph.get_float("height"))
         page_inset = max(page_width * 0.05, 2.0)
-        scale_left, scale_top = _place_page_color_scale(
-            graph, graph_plan, layer_plan, scale
-        )
+        scale_left, scale_top = _place_page_color_scale(graph, graph_plan, layer_plan, scale)
         title = ""
         if colorbar.title is not None:
             title = "".join(node.text for node in colorbar.title.nodes)
@@ -1134,6 +1319,94 @@ class OriginProBackend:
                 page_height=page_height,
                 left=max(title_left, page_inset),
                 top=title_top,
+            )
+
+    def _write_size_key(
+        self,
+        graph: Any,
+        layer: Any,
+        graph_plan: OriginGraphObject,
+        layer_plan: OriginLayerPlan,
+    ) -> None:
+        """Write one editable, page-attached key for a variable-size bubble mapping."""
+
+        size_key = graph_plan.size_key
+        if not size_key.visible:
+            return
+        page_width = _finite_float(graph.get_float("width"))
+        page_height = _finite_float(graph.get_float("height"))
+        frame = _PageRect(*_frame_page_bounds(graph, graph_plan, layer_plan))
+        color_scale = layer.label(_COLOR_SCALE_LABEL) if graph_plan.colorbar.visible else None
+        legend = layer.label("legend")
+        visible_legend = legend if legend is not None and legend.get_int("show") else None
+        layout = _size_key_layout(
+            graph_plan,
+            page_width=page_width,
+            page_height=page_height,
+            frame=frame,
+            color_scale=(
+                _color_scale_visual_rect(color_scale, page_width=page_width)
+                if color_scale is not None
+                else None
+            ),
+            legend=(_object_page_rect(visible_legend) if visible_legend is not None else None),
+        )
+
+        title = layer.add_label(size_key.title)
+        if title is None:
+            raise NativeOriginError("could not create native variable-size key title")
+        title.name = _SIZE_KEY_TITLE_LABEL
+        title.set_float("fsize", max(graph_plan.font_size_pt, 5.0))
+        title.set_int("font.bold", 1)
+        title.set_int("background", 0)
+        title.set_int("show", 1)
+        _set_page_position(
+            title,
+            page_width=page_width,
+            page_height=page_height,
+            left=layout.title.left,
+            top=layout.title.top,
+        )
+
+        for index, entry in enumerate(size_key.entries):
+            marker_name = f"{_SIZE_KEY_MARKER_PREFIX}{index:02d}"
+            try:
+                marker_object = layer.obj.GraphObjects.Add(_ELLIPSE_OBJECT_TYPE)
+                marker_object.PutName(marker_name)
+            except Exception as error:
+                raise NativeOriginError(
+                    "could not create native variable-size key marker"
+                ) from error
+            marker = layer.label(marker_name)
+            value = layer.add_label(entry.label)
+            if marker is None or value is None:
+                raise NativeOriginError("could not create native variable-size key entry")
+            value.name = f"{_SIZE_KEY_VALUE_PREFIX}{index:02d}"
+            marker.set_int("attach", 1)
+            marker.set_int("show", 1)
+            marker.set_int("fillcolor", _ORIGIN_BLACK_COLOR_INDEX)
+            marker.set_int("fillpattern", 0)
+            marker.set_int("color", _ORIGIN_BLACK_COLOR_INDEX)
+            marker.set_float("line.width", 0.75)
+            marker_rect = layout.markers[index]
+            try:
+                marker_object.PutLeft(round(marker_rect.left))
+                marker_object.PutTop(round(marker_rect.top))
+                marker_object.PutWidth(max(round(marker_rect.width), 1))
+                marker_object.PutHeight(max(round(marker_rect.height), 1))
+            except Exception as error:
+                raise NativeOriginError(
+                    f"could not place native variable-size key marker: {error}"
+                ) from error
+            value.set_float("fsize", max(graph_plan.font_size_pt - 1.0, 5.0))
+            value.set_int("background", 0)
+            value.set_int("show", 1)
+            _set_page_position(
+                value,
+                page_width=page_width,
+                page_height=page_height,
+                left=layout.values[index].left,
+                top=layout.values[index].top,
             )
 
     def _configure_layer_frame(
@@ -1363,14 +1636,8 @@ class OriginProBackend:
             labels = _legend_labels(graph_plan)
             legend = layer.label("legend")
             if legend is not None:
-                visible_legend = bool(
-                    graph_plan.legend_visible and layer_index == 0 and labels
-                )
-                legend.text = (
-                    _legend_text(graph_plan.graph_id, labels)
-                    if visible_legend
-                    else ""
-                )
+                visible_legend = bool(graph_plan.legend_visible and layer_index == 0 and labels)
+                legend.text = _legend_text(graph_plan.graph_id, labels) if visible_legend else ""
                 legend.set_float("fsize", graph_plan.font_size_pt)
                 legend.set_int("show", int(visible_legend))
                 if visible_legend:
@@ -1417,6 +1684,7 @@ class OriginProBackend:
         legend = first_layer.label("legend")
         if graph_plan.legend_visible and legend_labels and legend is not None:
             _place_inside_legend(graph, graph_plan, first_layer_plan, legend)
+        self._write_size_key(graph, first_layer, graph_plan, first_layer_plan)
 
     def write_manifest(self, plan: OriginExportPlan) -> None:
         self._active_plan = plan
@@ -1804,8 +2072,8 @@ class OriginProBackend:
                     if expected_x_rotation and dense_title is not None:
                         page_width = _finite_float(graph.get_float("width"))
                         page_height = _finite_float(graph.get_float("height"))
-                        frame_left, frame_top, frame_width, frame_height = (
-                            _frame_page_bounds(graph, graph_plan, layer_plan)
+                        frame_left, frame_top, frame_width, frame_height = _frame_page_bounds(
+                            graph, graph_plan, layer_plan
                         )
                         title_left = dense_title.get_float("left")
                         title_top = dense_title.get_float("top")
@@ -1868,6 +2136,128 @@ class OriginProBackend:
                             f"native color scale crosses or covers plot frame for "
                             f"{graph_plan.graph_id}"
                         )
+                if layer_index == 0 and graph_plan.size_key.visible:
+                    page_width = _finite_float(graph.get_float("width"))
+                    page_height = _finite_float(graph.get_float("height"))
+                    frame = _PageRect(*_frame_page_bounds(graph, graph_plan, layer_plan))
+                    color_scale = (
+                        layer.label(_COLOR_SCALE_LABEL) if graph_plan.colorbar.visible else None
+                    )
+                    legend = layer.label("legend")
+                    visible_legend = (
+                        legend if legend is not None and legend.get_int("show") else None
+                    )
+                    layout = _size_key_layout(
+                        graph_plan,
+                        page_width=page_width,
+                        page_height=page_height,
+                        frame=frame,
+                        color_scale=(
+                            _color_scale_visual_rect(color_scale, page_width=page_width)
+                            if color_scale is not None
+                            else None
+                        ),
+                        legend=(
+                            _object_page_rect(visible_legend)
+                            if visible_legend is not None
+                            else None
+                        ),
+                    )
+                    title = layer.label(_SIZE_KEY_TITLE_LABEL)
+                    if (
+                        title is None
+                        or title.text != graph_plan.size_key.title
+                        or title.get_int("attach") != 1
+                        or title.get_int("show") != 1
+                        or title.get_int("background") != 0
+                        or not math.isclose(
+                            title.get_float("fsize"),
+                            max(graph_plan.font_size_pt, 5.0),
+                            abs_tol=1e-9,
+                        )
+                    ):
+                        raise NativeOriginError(
+                            f"native variable-size key title differs for {graph_plan.graph_id}"
+                        )
+                    if not math.isclose(
+                        title.get_float("left"), layout.title.left, abs_tol=2.0
+                    ) or not math.isclose(title.get_float("top"), layout.title.top, abs_tol=2.0):
+                        raise NativeOriginError(
+                            f"native variable-size key title moved for {graph_plan.graph_id}"
+                        )
+                    previous_top = layout.title.top
+                    for index, entry in enumerate(graph_plan.size_key.entries):
+                        marker = layer.label(f"{_SIZE_KEY_MARKER_PREFIX}{index:02d}")
+                        value = layer.label(f"{_SIZE_KEY_VALUE_PREFIX}{index:02d}")
+                        if marker is None or value is None:
+                            raise NativeOriginError(
+                                f"native variable-size key entry is missing for "
+                                f"{graph_plan.graph_id}"
+                            )
+                        marker_rect = _object_page_rect(marker)
+                        expected_marker_rect = layout.markers[index]
+                        value_rect = layout.values[index]
+                        if (
+                            marker.obj.GetObjectType() != _ELLIPSE_OBJECT_TYPE
+                            or value.text != entry.label
+                            or marker.get_int("attach") != 1
+                            or value.get_int("attach") != 1
+                            or marker.get_int("show") != 1
+                            or value.get_int("show") != 1
+                            or marker.get_int("fillpattern") != 0
+                            or marker.get_int("fillcolor") != _ORIGIN_BLACK_COLOR_INDEX
+                            or value.get_int("background") != 0
+                            or not math.isclose(
+                                marker_rect.left,
+                                expected_marker_rect.left,
+                                abs_tol=2.0,
+                            )
+                            or not math.isclose(
+                                marker_rect.top,
+                                expected_marker_rect.top,
+                                abs_tol=2.0,
+                            )
+                            or not math.isclose(
+                                marker_rect.width,
+                                expected_marker_rect.width,
+                                abs_tol=2.0,
+                            )
+                            or not math.isclose(
+                                marker_rect.height,
+                                expected_marker_rect.height,
+                                abs_tol=2.0,
+                            )
+                            or not math.isclose(
+                                value.get_float("left"),
+                                value_rect.left,
+                                abs_tol=2.0,
+                            )
+                            or not math.isclose(
+                                value.get_float("top"),
+                                value_rect.top,
+                                abs_tol=2.0,
+                            )
+                            or not math.isclose(
+                                value.get_float("fsize"),
+                                max(graph_plan.font_size_pt - 1.0, 5.0),
+                                abs_tol=1e-9,
+                            )
+                        ):
+                            raise NativeOriginError(
+                                f"native variable-size key entry differs for "
+                                f"{graph_plan.graph_id}: index={index}, "
+                                f"type={marker.obj.GetObjectType()}, "
+                                f"fillpattern={marker.get_int('fillpattern')}, "
+                                f"value_background={value.get_int('background')}, "
+                                f"marker_rect={marker_rect}, expected={expected_marker_rect}, "
+                                f"value_left_top=({value.get_float('left')}, "
+                                f"{value.get_float('top')}), expected_value={value_rect}"
+                            )
+                        if marker_rect.top < previous_top - 1e-9:
+                            raise NativeOriginError(
+                                f"native variable-size key order differs for {graph_plan.graph_id}"
+                            )
+                        previous_top = marker_rect.top
                 if graph_plan.legend_visible and layer_index == 0 and legend_labels:
                     legend = layer.label("legend")
                     expected_legend = _legend_text(graph_plan.graph_id, legend_labels)
@@ -1890,8 +2280,7 @@ class OriginProBackend:
                     if (
                         legend.get_float("left") < 0
                         or legend.get_float("top") < 0
-                        or legend.get_float("left")
-                        < frame_left + frame_width + page_width * 0.005
+                        or legend.get_float("left") < frame_left + frame_width + page_width * 0.005
                         or legend.get_float("left") + legend.get_float("width") > page_width + 1e-9
                         or legend.get_float("top") + legend.get_float("height") > page_height + 1e-9
                     ):

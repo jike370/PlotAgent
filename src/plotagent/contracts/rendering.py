@@ -465,6 +465,28 @@ class OriginLayerPlan(StrictModel):
     label: Annotated[str, StringConstraints(max_length=256, strict=True)] = ""
 
 
+class OriginSizeKeyEntry(StrictModel):
+    value: FiniteNumber
+    marker_size_pt: Annotated[float, Field(ge=0, allow_inf_nan=False)]
+    label: Annotated[str, StringConstraints(min_length=1, max_length=64, strict=True)]
+
+
+class OriginSizeKeyPlan(StrictModel):
+    visible: bool = False
+    title: Annotated[str, StringConstraints(min_length=1, max_length=64, strict=True)] = "Size"
+    entries: Annotated[tuple[OriginSizeKeyEntry, ...], Field(max_length=4)] = ()
+
+    @model_validator(mode="after")
+    def visible_key_has_entries(self) -> OriginSizeKeyPlan:
+        if self.visible and not self.entries:
+            raise ValueError("visible Origin size key requires representative entries")
+        if tuple(sorted(item.value for item in self.entries)) != tuple(
+            item.value for item in self.entries
+        ):
+            raise ValueError("Origin size key entries must be ordered by value")
+        return self
+
+
 class OriginGraphObject(StrictModel):
     graph_id: Token
     folder: Literal["Graphs"] = "Graphs"
@@ -485,6 +507,7 @@ class OriginGraphObject(StrictModel):
     data_object_ids: Annotated[tuple[Token, ...], Field(min_length=1)]
     annotations: tuple[ResolvedAnnotation, ...] = ()
     colorbar: ResolvedColorbar = ResolvedColorbar()
+    size_key: OriginSizeKeyPlan = OriginSizeKeyPlan()
 
     @model_validator(mode="after")
     def unique_graph_parts(self) -> OriginGraphObject:

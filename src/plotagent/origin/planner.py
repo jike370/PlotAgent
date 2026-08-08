@@ -29,18 +29,22 @@ from plotagent.contracts.rendering import (
     OriginObjectMapEntry,
     OriginPlotPlan,
     OriginRoleColumn,
+    OriginSizeKeyEntry,
+    OriginSizeKeyPlan,
     OriginTemplateRef,
     OriginTickPlan,
     ResolvedAxis,
     ResolvedLayer,
 )
 from plotagent.rendering.data import RenderTable, ResolvedPlot, Scalar
+from plotagent.rendering.size_key import representative_size_key
 
 from .constants import (
     DECLARED_ORIGIN_DISPLAY_VERSION,
     DECLARED_ORIGIN_RUNTIME_VERSION,
     ORIGIN_TEMPLATE_ID,
     ORIGIN_TEMPLATE_SHA256,
+    ORIGIN_VARIABLE_SIZE_FACTOR,
 )
 from .registry import OriginAdapterRegistration, get_origin_adapter
 
@@ -277,6 +281,39 @@ def _axis_plan(axis: ResolvedAxis) -> OriginAxisPlan:
     )
 
 
+def _size_key_plan(resolved: ResolvedPlot) -> OriginSizeKeyPlan:
+    pairs: list[tuple[float, float]] = []
+    for layer in resolved.plan.layers:
+        if layer.geometry != "xy.bubble":
+            continue
+        fields = {binding.role: binding.field_id for binding in layer.field_bindings}
+        if "size" not in fields or "marker_area" not in fields:
+            continue
+        table = resolved.table_for(layer)
+        sizes = table.column(fields["size"])
+        areas = table.column(fields["marker_area"])
+        for size, area in zip(sizes, areas, strict=True):
+            if not isinstance(size, (int, float)) or isinstance(size, bool):
+                raise OriginPlanError("bubble size key requires numeric size values")
+            if not isinstance(area, (int, float)) or isinstance(area, bool):
+                raise OriginPlanError("bubble size key requires numeric marker areas")
+            pairs.append((float(size), float(area)))
+    entries = representative_size_key(pairs)
+    if not entries:
+        return OriginSizeKeyPlan()
+    return OriginSizeKeyPlan(
+        visible=True,
+        entries=tuple(
+            OriginSizeKeyEntry(
+                value=entry.value,
+                marker_size_pt=max(entry.value, 0.0) * ORIGIN_VARIABLE_SIZE_FACTOR,
+                label=f"{entry.value:.4g}",
+            )
+            for entry in entries
+        ),
+    )
+
+
 def _composite_render_hash(resolved_plots: Sequence[ResolvedPlot]) -> str:
     if len(resolved_plots) == 1:
         return resolved_plots[0].render_plan_hash
@@ -502,6 +539,7 @@ def compile_origin_plan(
                 data_object_ids=tuple(graph_data_ids),
                 annotations=plan.annotations,
                 colorbar=plan.colorbar,
+                size_key=_size_key_plan(resolved),
             )
         )
         object_map.append(

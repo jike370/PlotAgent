@@ -26,6 +26,7 @@ from plotagent.contracts.plots import SafeRichText
 from plotagent.contracts.rendering import ResolvedAxis, ResolvedLayer
 from plotagent.contracts.styles import matplotlib_marker
 from plotagent.rendering.data import RenderTable, ResolvedPlot, Scalar
+from plotagent.rendering.size_key import representative_size_key
 
 _SUBSCRIPT = str.maketrans("0123456789+-()", "₀₁₂₃₄₅₆₇₈₉₊₋₍₎")
 _SUPERSCRIPT = str.maketrans("0123456789+-()", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁽⁾")
@@ -895,7 +896,7 @@ class MatplotlibRenderer:
             )
 
         for panel_id, pairs in by_panel.items():
-            entries = self._representative_marker_areas(pairs)
+            entries = representative_size_key(pairs)
             if not entries:
                 continue
             axis = axes[panel_id]
@@ -905,14 +906,14 @@ class MatplotlibRenderer:
                     [],
                     linestyle="none",
                     marker="o",
-                    markersize=float(np.sqrt(area)),
+                    markersize=float(np.sqrt(entry.marker_area)),
                     markerfacecolor="none",
                     markeredgecolor="#333333",
                     markeredgewidth=0.8,
                 )
-                for _value, area in entries
+                for entry in entries
             ]
-            labels = [f"{value:.4g}" for value, _area in entries]
+            labels = [f"{entry.value:.4g}" for entry in entries]
             regular_legend = axis.get_legend()
             size_legend = Legend(
                 axis,
@@ -925,36 +926,6 @@ class MatplotlibRenderer:
             )
             size_legend._plotagent_outside_right = True  # type: ignore[attr-defined]
             axis.add_artist(size_legend)
-
-    @staticmethod
-    def _representative_marker_areas(
-        pairs: Sequence[tuple[float, float]],
-        *,
-        maximum_entries: int = 4,
-    ) -> tuple[tuple[float, float], ...]:
-        finite = sorted(
-            (size, area)
-            for size, area in pairs
-            if np.isfinite(size) and np.isfinite(area) and area > 0
-        )
-        if not finite:
-            return ()
-        by_size: dict[float, list[float]] = {}
-        for size, area in finite:
-            by_size.setdefault(size, []).append(area)
-        unique = tuple(
-            (size, float(np.mean(areas))) for size, areas in sorted(by_size.items())
-        )
-        if len(unique) <= maximum_entries:
-            return unique
-        targets = np.linspace(unique[0][0], unique[-1][0], maximum_entries)
-        indices = tuple(
-            dict.fromkeys(
-                min(range(len(unique)), key=lambda index: abs(unique[index][0] - target))
-                for target in targets
-            )
-        )
-        return tuple(unique[index] for index in indices)
 
     def _draw_colorbar(
         self,

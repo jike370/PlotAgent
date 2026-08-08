@@ -25,6 +25,9 @@ K01_ADAPTER_VERSION = "0.1.0-m0"
 K01_CAPABILITY = "O1"
 K01_CHART_TYPE_ID = "K01"
 ORIGIN_EXPORT_SCHEMA_VERSION = "1.0"
+# Origin interprets numeric symbol-size modifier columns in points. Keep the
+# qualified scale in one shared constant so the plot and its size key cannot drift.
+ORIGIN_VARIABLE_SIZE_FACTOR = 0.25
 
 # Build-owned Origin 2024 SR1 template physical page size.
 K01_PAGE_WIDTH_MM = 89.0

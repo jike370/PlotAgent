@@ -1008,6 +1008,7 @@ export type OriginGraphObject = {
   readonly data_object_ids: ReadonlyArray<string>;
   readonly annotations?: ReadonlyArray<ResolvedAnnotation>;
   readonly colorbar?: ResolvedColorbar;
+  readonly size_key?: OriginSizeKeyPlan;
 }
 
 export type OriginLayerPlan = {
@@ -1084,6 +1085,18 @@ export type OriginRoleColumn = {
 }
 
 export type OriginScalar = string | number | boolean | null
+
+export type OriginSizeKeyEntry = {
+  readonly value: number;
+  readonly marker_size_pt: number;
+  readonly label: string;
+}
+
+export type OriginSizeKeyPlan = {
+  readonly visible?: boolean;
+  readonly title?: string;
+  readonly entries?: ReadonlyArray<OriginSizeKeyEntry>;
+}
 
 export type OriginTemplateRef = {
   readonly template_resource: ResourceRef;

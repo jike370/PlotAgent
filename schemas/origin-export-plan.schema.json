@@ -454,6 +454,14 @@
           "title": "Page Width Mm",
           "type": "number"
         },
+        "size_key": {
+          "$ref": "#/$defs/OriginSizeKeyPlan",
+          "default": {
+            "entries": [],
+            "title": "Size",
+            "visible": false
+          }
+        },
         "title": {
           "default": "",
           "maxLength": 512,
@@ -1092,6 +1100,61 @@
           "type": "null"
         }
       ]
+    },
+    "OriginSizeKeyEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "marker_size_pt": {
+          "minimum": 0,
+          "title": "Marker Size Pt",
+          "type": "number"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "marker_size_pt",
+        "label"
+      ],
+      "title": "OriginSizeKeyEntry",
+      "type": "object"
+    },
+    "OriginSizeKeyPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OriginSizeKeyEntry"
+          },
+          "maxItems": 4,
+          "title": "Entries",
+          "type": "array"
+        },
+        "title": {
+          "default": "Size",
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "visible": {
+          "default": false,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "title": "OriginSizeKeyPlan",
+      "type": "object"
     },
     "OriginTemplateRef": {
       "additionalProperties": false,
