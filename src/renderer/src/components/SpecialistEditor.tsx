@@ -75,9 +75,6 @@ export function SpecialistEditor({
   )
   const [offsetOrder, setOffsetOrder] = useState(specialist.yOffset.order.join(', '))
   const [stepWhere, setStepWhere] = useState(specialist.chartParameters.stepWhere)
-  const [lollipopBaseline, setLollipopBaseline] = useState(
-    specialist.chartParameters.lollipopBaseline,
-  )
   const [volcanoFoldChange, setVolcanoFoldChange] = useState(
     specialist.chartParameters.volcanoAbsoluteLog2FoldChange,
   )
@@ -230,7 +227,6 @@ export function SpecialistEditor({
           void onApply('set_chart_parameters', {
             parameters: {
               step_where: stepWhere,
-              lollipop_baseline: lollipopBaseline,
               volcano_absolute_log2_fold_change: volcanoFoldChange,
               volcano_pvalue: volcanoPvalue,
               pareto_reference_percent: paretoReference,
@@ -239,7 +235,6 @@ export function SpecialistEditor({
         }}>
           <h3>图型固定参数</h3>
           {plot.chartId === 'X01' && <label><span>阶梯位置</span><select aria-label="阶梯位置" value={stepWhere} onChange={(event) => setStepWhere(event.target.value as 'pre' | 'mid' | 'post')}><option value="pre">点前</option><option value="mid">点中</option><option value="post">点后</option></select></label>}
-          {plot.chartId === 'X02' && <label><span>棒基线</span><input aria-label="棒棒糖基线" type="number" value={lollipopBaseline} onChange={(event) => setLollipopBaseline(event.target.valueAsNumber)} /></label>}
           {plot.chartId === 'S07' && <><label><span>|log2FC| 阈值</span><input aria-label="火山图倍数阈值" type="number" min="0" step="any" value={volcanoFoldChange} onChange={(event) => setVolcanoFoldChange(event.target.valueAsNumber)} /></label><label><span>P 值阈值</span><input aria-label="火山图 P 值阈值" type="number" min="0" max="1" step="any" value={volcanoPvalue} onChange={(event) => setVolcanoPvalue(event.target.valueAsNumber)} /></label></>}
           {plot.chartId === 'X24' && <label><span>累计参考线</span><div className="unit-input"><input aria-label="帕累托参考百分比" type="number" min="0" max="100" step="1" value={paretoReference} onChange={(event) => setParetoReference(event.target.valueAsNumber)} /><span>%</span></div></label>}
           <p className="parameter-note">这里只开放该图定义不可分割、且可在 Origin 中保留的参数。</p>

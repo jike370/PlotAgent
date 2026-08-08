@@ -1,4 +1,4 @@
-"""Exact Origin O1 adapter registry for the frozen 52-chart first-release surface."""
+"""Exact Origin O1 adapter registry for the current 54-chart surface."""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ ORIGIN_ADAPTERS: tuple[OriginAdapterRegistration, ...] = (
     _entry("S34", "xy", ("xy.nyquist",)),
     _entry("S61", "matrix", ("matrix.confusion",), "matrixbook"),
     _entry("X01", "special", ("distribution.step",)),
-    _entry("X02", "special", ("special.lollipop",)),
+    _entry("X02", "special", ("special.drop_line",)),
     _entry("X03", "special", ("xy.line", "xy.symbol")),
     _entry("X05", "special", ("distribution.strip",)),
     _entry("X07", "special", ("xy.line",)),
@@ -100,6 +100,8 @@ ORIGIN_ADAPTERS: tuple[OriginAdapterRegistration, ...] = (
     _entry("X36", "special", ("bar.single", "xy.line")),
     _entry("X37", "special", ("distribution.box",)),
     _entry("X38", "special", ("xy.line",)),
+    _entry("X39", "special", ("xy.line", "xy.symbol")),
+    _entry("X40", "special", ("xy.line", "xy.symbol")),
     _entry("S07", "special", ("xy.symbol", "xy.line")),
 )
 
@@ -110,8 +112,8 @@ def _registry_failure(message: str) -> Never:
     raise RuntimeError(message)
 
 
-if len(ORIGIN_ADAPTERS) != 52 or len(ORIGIN_ADAPTERS_BY_ID) != 52:
-    _registry_failure("the Origin adapter registry must contain exactly 52 unique chart IDs")
+if len(ORIGIN_ADAPTERS) != 54 or len(ORIGIN_ADAPTERS_BY_ID) != 54:
+    _registry_failure("the Origin adapter registry must contain exactly 54 unique chart IDs")
 if set(ORIGIN_ADAPTERS_BY_ID) != set(RENDER_CHARTS_BY_ID):
     _registry_failure("the Origin registry must exactly match the rendering registry")
 for _chart_id, _adapter in ORIGIN_ADAPTERS_BY_ID.items():

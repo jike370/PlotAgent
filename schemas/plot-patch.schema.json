@@ -259,11 +259,6 @@
     "ChartParameterEditSpec": {
       "additionalProperties": false,
       "properties": {
-        "lollipop_baseline": {
-          "default": 0.0,
-          "title": "Lollipop Baseline",
-          "type": "number"
-        },
         "pareto_reference_percent": {
           "default": 80.0,
           "exclusiveMaximum": 100,

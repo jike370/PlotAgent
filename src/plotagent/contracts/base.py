@@ -108,6 +108,8 @@ ChartTypeId = Literal[
     "X36",
     "X37",
     "X38",
+    "X39",
+    "X40",
     "S07",
 ]
 CalculationKind = Literal[

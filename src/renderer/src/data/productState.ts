@@ -97,7 +97,6 @@ export interface ProductSpecialistState {
   yOffset: { distance?: number; order: string[] }
   chartParameters: {
     stepWhere: 'pre' | 'mid' | 'post'
-    lollipopBaseline: number
     volcanoAbsoluteLog2FoldChange: number
     volcanoPvalue: number
     paretoReferencePercent: number
@@ -352,7 +351,6 @@ function readSpecialist(value: JsonValue | undefined): ProductSpecialistState {
     chartParameters: {
       stepWhere: parameters.step_where === 'pre' || parameters.step_where === 'mid'
         ? parameters.step_where : 'post',
-      lollipopBaseline: numberValue(parameters, 'lollipop_baseline') ?? 0,
       volcanoAbsoluteLog2FoldChange:
         numberValue(parameters, 'volcano_absolute_log2_fold_change') ?? 1,
       volcanoPvalue: numberValue(parameters, 'volcano_pvalue') ?? 0.05,

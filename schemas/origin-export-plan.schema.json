@@ -609,6 +609,8 @@
               "X36",
               "X37",
               "X38",
+              "X39",
+              "X40",
               "S07"
             ],
             "type": "string"
@@ -938,7 +940,7 @@
             "grouped_bar",
             "stacked_bar",
             "floating_bar",
-            "lollipop",
+            "drop_line",
             "percent_bar",
             "horizontal_bar",
             "strip",

@@ -1,4 +1,4 @@
-"""Compact geometry signatures shared by the 52 explicit chart entries."""
+"""Compact geometry signatures shared by the explicit chart entries."""
 
 from __future__ import annotations
 
@@ -17,13 +17,25 @@ class SeriesRule:
     data_kinds: tuple[SeriesDataKind, ...]
     x_range_roles: tuple[str, ...]
     y_range_roles: tuple[str, ...]
+    variadic_role_prefix: str | None = None
+    fixed_role_prefix: tuple[str, ...] = ()
+    minimum_variadic_roles: int = 0
 
     def roles_for_count(self, count: int) -> tuple[str, ...]:
         matches = tuple(signature for signature in self.role_signatures if len(signature) == count)
-        if len(matches) != 1:
-            expected = ", ".join(str(len(item)) for item in self.role_signatures)
-            raise ValueError(f"expected one of [{expected}] role fields, received {count}")
-        return matches[0]
+        if len(matches) == 1:
+            return matches[0]
+        if self.variadic_role_prefix is not None:
+            variadic_count = count - len(self.fixed_role_prefix)
+            if variadic_count >= self.minimum_variadic_roles:
+                return self.fixed_role_prefix + tuple(
+                    f"{self.variadic_role_prefix}_{index + 1}"
+                    for index in range(variadic_count)
+                )
+        expected = ", ".join(str(len(item)) for item in self.role_signatures)
+        if self.variadic_role_prefix is not None:
+            expected = f">={len(self.fixed_role_prefix) + self.minimum_variadic_roles}"
+        raise ValueError(f"expected {expected} role fields, received {count}")
 
 
 def _rule(
@@ -40,6 +52,26 @@ def _rule(
         data_kinds=data_kinds,
         x_range_roles=x_roles,
         y_range_roles=y_roles,
+    )
+
+
+def _variadic_rule(
+    geometry: str,
+    *,
+    fixed_roles: tuple[str, ...] = (),
+    variadic_prefix: str,
+    minimum_variadic_roles: int,
+    data_kinds: tuple[SeriesDataKind, ...],
+) -> SeriesRule:
+    return SeriesRule(
+        resolved_geometry=geometry,
+        role_signatures=(),
+        data_kinds=data_kinds,
+        x_range_roles=(),
+        y_range_roles=(),
+        variadic_role_prefix=variadic_prefix,
+        fixed_role_prefix=fixed_roles,
+        minimum_variadic_roles=minimum_variadic_roles,
     )
 
 
@@ -217,23 +249,13 @@ SERIES_RULES: dict[tuple[ChartTypeId, str], SeriesRule] = {
         "matrix.confusion", ("actual", "predicted", "value"), _C, ("predicted",), ("actual",)
     ),
     ("X01", "step"): _rule("special.step", ("x", "y"), _P, ("x",), ("y",)),
-    ("X02", "lollipop"): _rule(
+    ("X02", "drop_line"): _rule("special.drop_line", ("x", "y"), _P, ("x",), ("y",)),
+    ("X03", "lollipop"): _variadic_rule(
         "special.lollipop",
-        (
-            ("category", "value"),
-            ("category", "value", "baseline"),
-            ("category", "value", "baseline", "group"),
-        ),
-        _P,
-        ("category",),
-        ("value", "baseline"),
-    ),
-    ("X03", "dumbbell"): _rule(
-        "special.dumbbell",
-        (("category", "start", "end"), ("category", "start", "end", "group")),
-        _P,
-        ("start", "end"),
-        ("category",),
+        fixed_roles=("category",),
+        variadic_prefix="series",
+        minimum_variadic_roles=2,
+        data_kinds=_P,
     ),
     ("X05", "beeswarm"): _rule(
         "special.beeswarm", (("value",), ("value", "group")), _P, ("group",), ("value",)
@@ -289,6 +311,18 @@ SERIES_RULES: dict[tuple[ChartTypeId, str], SeriesRule] = {
         "special.dual_box", ("group", "left", "right"), _P, ("group",), ("left", "right")
     ),
     ("X38", "y_offset"): _rule("special.y_offset", ("x", "y", "series"), _P, ("x",), ("y",)),
+    ("X39", "line_series"): _variadic_rule(
+        "special.line_series",
+        variadic_prefix="series",
+        minimum_variadic_roles=2,
+        data_kinds=_P,
+    ),
+    ("X40", "before_after"): _variadic_rule(
+        "special.before_after",
+        variadic_prefix="series",
+        minimum_variadic_roles=2,
+        data_kinds=_P,
+    ),
     ("S07", "volcano"): _rule(
         "special.volcano",
         (("feature", "log2fc", "pvalue"), ("feature", "log2fc", "pvalue", "qvalue")),

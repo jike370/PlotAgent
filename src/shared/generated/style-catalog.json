@@ -768,8 +768,7 @@
         "line_style",
         "marker_size",
         "symbol_shape",
-        "symbol_interior",
-        "chart_parameters"
+        "symbol_interior"
       ],
       "visual_evidence": "origin_reference"
     },
@@ -1219,6 +1218,54 @@
         "line_width",
         "line_style",
         "y_offset"
+      ],
+      "visual_evidence": "origin_reference"
+    },
+    {
+      "admission": "product",
+      "chart_type_id": "X39",
+      "edit_capabilities": [
+        "plot_title",
+        "axis_label",
+        "axis_range",
+        "axis_scale",
+        "axis_ticks",
+        "font",
+        "legend_visibility",
+        "legend_position",
+        "canvas_size",
+        "publication_profile",
+        "safe_annotation",
+        "series_color",
+        "line_width",
+        "line_style",
+        "marker_size",
+        "symbol_shape",
+        "symbol_interior"
+      ],
+      "visual_evidence": "origin_reference"
+    },
+    {
+      "admission": "product",
+      "chart_type_id": "X40",
+      "edit_capabilities": [
+        "plot_title",
+        "axis_label",
+        "axis_range",
+        "axis_scale",
+        "axis_ticks",
+        "font",
+        "legend_visibility",
+        "legend_position",
+        "canvas_size",
+        "publication_profile",
+        "safe_annotation",
+        "series_color",
+        "line_width",
+        "line_style",
+        "marker_size",
+        "symbol_shape",
+        "symbol_interior"
       ],
       "visual_evidence": "origin_reference"
     },

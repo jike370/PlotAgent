@@ -41,7 +41,7 @@ class NativePrimitive:
         "forest_interval",
         "forest_symbol",
         "floating_polygon",
-        "lollipop_drop",
+        "drop_line",
         "horizontal_polygon",
         "histogram",
     ] = "direct"
@@ -137,13 +137,13 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
         )
     if plot.native_kind in _SYMBOL_KINDS:
         return (NativePrimitive("scatter", x_role, y_role),)
-    if plot.native_kind == "lollipop":
+    if plot.native_kind == "drop_line":
         return (
             NativePrimitive(
                 "scatter",
                 x_role,
                 y_role,
-                transform="lollipop_drop",
+                transform="drop_line",
             ),
         )
     if plot.native_kind in _BAR_KINDS:
@@ -290,7 +290,7 @@ def materialize_primitive(
 ) -> NativePrimitiveTable | None:
     """Materialize only fixed visual geometry; no statistics or user expression is run."""
 
-    if primitive.transform in {"direct", "lollipop_drop"}:
+    if primitive.transform in {"direct", "drop_line"}:
         return None
     if data.object_kind != "worksheet":
         raise ValueError("derived native primitives require worksheet data")

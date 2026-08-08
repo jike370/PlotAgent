@@ -35,7 +35,7 @@ function plot(chartId: string): ProductPlot & { title: string } {
       },
       yOffset: { order: [] },
       chartParameters: {
-        stepWhere: 'post', lollipopBaseline: 0,
+        stepWhere: 'post',
         volcanoAbsoluteLog2FoldChange: 1, volcanoPvalue: 0.05,
         paretoReferencePercent: 80,
       },

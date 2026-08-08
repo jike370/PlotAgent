@@ -4844,6 +4844,22 @@ input[type="checkbox"] {
   font-size: 12px;
 }
 
+.mapping-series-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+
+.mapping-series-actions button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 11px;
+}
+
 .mapping-confirmation {
   display: flex;
   align-items: center;

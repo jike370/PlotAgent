@@ -64,6 +64,14 @@ def _plain_text(value: str) -> SafeRichText:
     return SafeRichText(nodes=(SafeTextNode(kind="plain", text=value),))
 
 
+def _field_display_name(field_id: str) -> str:
+    """Derive a stable user-facing column label without adding schema-side metadata."""
+
+    suffix = field_id.rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+    normalized = " ".join(suffix.replace("_", " ").replace("-", " ").split())
+    return normalized or field_id
+
+
 def _rgb(color: str) -> tuple[float, float, float]:
     value = color.removeprefix("#")[:6]
     return (
@@ -749,61 +757,121 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
         ]
 
     if chart_id == "X02":
-        baseline = plot.specialist.chart_parameters.lollipop_baseline
         return [
             draft(
                 "0",
-                "special.lollipop",
-                {
-                    "x": values["category"],
-                    "y": values["value"],
-                    "baseline": tuple(baseline for _ in values["value"]),
-                },
+                "special.drop_line",
+                {"x": values["x"], "y": values["y"]},
                 ("x",),
-                ("y", "baseline"),
+                ("y",),
                 color=0,
             )
         ]
 
     if chart_id == "X03":
-        result = []
-        for index, (category, start, end) in enumerate(
-            zip(values["category"], values["start"], values["end"], strict=True)
-        ):
-            result.append(
+        value_roles = tuple(role for role in values if role.startswith("series_"))
+        labels = tuple(
+            _field_display_name(field_id) for field_id in series.data.role_fields[1:]
+        )
+        lollipop_layers: list[_DraftLayer] = []
+        for row_index, category in enumerate(values["category"]):
+            row_x_values = tuple(_number(values[role][row_index]) for role in value_roles)
+            lollipop_layers.append(
                 draft(
-                    str(index),
+                    f"row.{row_index}",
                     "xy.line",
-                    {"x": (start, end), "y": (category, category)},
+                    {"x": row_x_values, "y": tuple(category for _ in row_x_values)},
                     ("x",),
                     ("y",),
                     color=0,
                     color_override="#B8BDC6",
                 )
             )
-        result.extend(
-            (
+        for series_index, (role, label) in enumerate(zip(value_roles, labels, strict=True)):
+            lollipop_layers.append(
                 draft(
-                    "start",
+                    f"series.{series_index}",
                     "xy.symbol",
-                    {"x": values["start"], "y": values["category"]},
+                    {"x": values[role], "y": values["category"]},
                     ("x",),
                     ("y",),
-                    color=0,
-                    label="Start",
-                ),
-                draft(
-                    "end",
-                    "xy.symbol",
-                    {"x": values["end"], "y": values["category"]},
-                    ("x",),
-                    ("y",),
-                    color=1,
-                    label="End",
-                ),
+                    color=series_index,
+                    label=label,
+                    encoding_index=series_index,
+                    encoding_count=len(value_roles),
+                )
             )
-        )
-        return result
+        return lollipop_layers
+
+    if chart_id in {"X39", "X40"}:
+        value_roles = tuple(role for role in values if role.startswith("series_"))
+        labels = tuple(_field_display_name(field_id) for field_id in series.data.role_fields)
+        positions = tuple(float(index) for index in range(len(value_roles)))
+        series_layers: list[_DraftLayer] = []
+        row_count = len(values[value_roles[0]])
+        if chart_id == "X39":
+            for row_index in range(row_count):
+                series_layers.append(
+                    draft(
+                        f"row.{row_index}",
+                        "xy.line",
+                        {
+                            "x": positions,
+                            "x_label": labels,
+                            "y": tuple(_number(values[role][row_index]) for role in value_roles),
+                        },
+                        ("x",),
+                        ("y",),
+                        color=0,
+                        color_override="#000000",
+                    )
+                )
+        else:
+            for pair_index in range(len(value_roles) // 2):
+                first = pair_index * 2
+                pair_positions = positions[first : first + 2]
+                pair_labels = labels[first : first + 2]
+                pair_roles = value_roles[first : first + 2]
+                for row_index in range(row_count):
+                    series_layers.append(
+                        draft(
+                            f"pair.{pair_index}.row.{row_index}",
+                            "xy.line",
+                            {
+                                "x": pair_positions,
+                                "x_label": pair_labels,
+                                "y": tuple(
+                                    _number(values[role][row_index]) for role in pair_roles
+                                ),
+                            },
+                            ("x",),
+                            ("y",),
+                            color=0,
+                            color_override="#000000",
+                        )
+                    )
+        for series_index, (role, label, position) in enumerate(
+            zip(value_roles, labels, positions, strict=True)
+        ):
+            column_values = values[role]
+            series_layers.append(
+                draft(
+                    f"series.{series_index}",
+                    "xy.symbol",
+                    {
+                        "x": tuple(position for _ in column_values),
+                        "x_label": tuple(label for _ in column_values),
+                        "y": column_values,
+                    },
+                    ("x",),
+                    ("y",),
+                    color=series_index if chart_id == "X39" else series_index % 2,
+                    label=label,
+                    encoding_index=series_index,
+                    encoding_count=len(value_roles),
+                )
+            )
+        return series_layers
 
     if chart_id == "X05":
         groups = values.get("group", tuple("All" for _ in values["value"]))
@@ -1699,11 +1767,34 @@ def _resolve_panel_axes(
                         }
                     ),
                 )
-            if plot.chart_type_id == "X02":
+            if plot.chart_type_id in {"X39", "X40"}:
+                labels_by_position: dict[str, str] = {}
+                for draft in panel_drafts:
+                    if "x_label" not in draft.roles:
+                        continue
+                    for position, label in zip(
+                        draft.roles.get("x", ()), draft.roles["x_label"], strict=True
+                    ):
+                        labels_by_position.setdefault(str(position), str(label))
                 x_resolved = replace(
                     x_resolved,
                     axis=x_resolved.axis.model_copy(
-                        update={"cross_at": plot.specialist.chart_parameters.lollipop_baseline}
+                        update={
+                            "ticks": tuple(
+                                tick.model_copy(
+                                    update={
+                                        "label": _plain_text(
+                                            labels_by_position.get(category, category)
+                                        )
+                                    }
+                                )
+                                for tick, category in zip(
+                                    x_resolved.axis.ticks,
+                                    x_resolved.categories,
+                                    strict=True,
+                                )
+                            )
+                        }
                     ),
                 )
             if plot.chart_type_id == "X13":

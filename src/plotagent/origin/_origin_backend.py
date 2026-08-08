@@ -1318,7 +1318,7 @@ class OriginProBackend:
             # across supported Origin builds. Keep the command literal and
             # allowlisted: no user or Agent content enters it.
             plot.set_cmd("-l 2")
-        if primitive.transform == "lollipop_drop":
+        if primitive.transform == "drop_line":
             # Native Origin drop lines terminate at the bottom X-axis frame and
             # continue to do so when the user edits the Y display range.
             plot.set_cmd("-pd 1")

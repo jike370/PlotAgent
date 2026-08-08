@@ -65,6 +65,8 @@ def test_runtime_registry_is_explicit_exact_and_rejects_every_other_id() -> None
         "X36",
         "X37",
         "X38",
+        "X39",
+        "X40",
         "S07",
     }
     assert {entry.chart_type_id for entry in CHARTS} == expected
@@ -211,17 +213,17 @@ def test_x35_dual_y_columns_keep_explicit_side_by_side_coordinates() -> None:
     )
 
 
-def test_x02_lollipop_stems_and_x_axis_stay_at_zero_when_range_changes() -> None:
+def test_x02_drop_lines_terminate_at_bottom_axis_without_moving_the_axis() -> None:
     resolved = resolve_chart("X02")
 
-    assert [layer.geometry for layer in resolved.plan.layers] == ["special.lollipop"]
+    assert [layer.geometry for layer in resolved.plan.layers] == ["special.drop_line"]
     figure = MatplotlibRenderer().build_figure(resolved)
     axis = figure.axes[0]
     segments = axis.collections[0].get_segments()
 
     assert segments
-    assert all(float(segment[0][1]) == pytest.approx(0.0) for segment in segments)
-    assert axis.spines["bottom"].get_position() == ("data", 0.0)
+    assert all(float(segment[0][1]) == pytest.approx(axis.get_ylim()[0]) for segment in segments)
+    assert axis.spines["bottom"].get_position() == ("outward", 0.0)
 
 
 @pytest.mark.parametrize("chart_id", ["X23", "X35", "X36"])

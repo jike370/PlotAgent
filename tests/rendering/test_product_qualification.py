@@ -10,9 +10,9 @@ from plotagent.rendering.matplotlib.adapter import MatplotlibRenderer
 from tests.rendering.fixture_factory import resolve_chart
 
 
-def test_first_release_qualification_surface_is_exactly_43_product_charts() -> None:
-    assert len(PRODUCT_CHART_IDS) == 43
-    assert len(set(PRODUCT_CHART_IDS)) == 43
+def test_first_release_qualification_surface_is_exactly_45_product_charts() -> None:
+    assert len(PRODUCT_CHART_IDS) == 45
+    assert len(set(PRODUCT_CHART_IDS)) == 45
     assert all(get_chart(chart_id).admission == "product" for chart_id in PRODUCT_CHART_IDS)
     assert all(
         "set_plot_title" in patch_operations_for_chart(chart_id) for chart_id in PRODUCT_CHART_IDS

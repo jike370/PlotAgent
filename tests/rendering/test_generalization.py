@@ -393,6 +393,38 @@ MATRIX_VARIANTS = (
 )
 
 
+def _variadic_series_variant(
+    chart_id: str,
+    series_count: int,
+    *,
+    row_count: int = 5,
+) -> Variant:
+    columns: dict[str, Sequence[object]] = {}
+    if chart_id == "X03":
+        columns["category"] = tuple(f"Sample {index + 1}" for index in range(row_count))
+    for series_index in range(series_count):
+        columns[f"series_{series_index + 1}"] = tuple(
+            float((row_index + 1) * (series_index + 2) + (series_index % 2) * 0.5)
+            for row_index in range(row_count)
+        )
+    return Variant(
+        case_id=f"{chart_id}.series-{series_count}.rows-{row_count}",
+        chart_id=chart_id,
+        series_columns=(columns,),
+    )
+
+
+VARIADIC_SERIES_VARIANTS = (
+    _variadic_series_variant("X03", 2),
+    _variadic_series_variant("X03", 4, row_count=7),
+    _variadic_series_variant("X39", 2),
+    _variadic_series_variant("X39", 5, row_count=7),
+    _variadic_series_variant("X40", 2),
+    _variadic_series_variant("X40", 4, row_count=7),
+    _variadic_series_variant("X40", 5),
+)
+
+
 def _roles(resolved: ResolvedPlot, layer_index: int) -> dict[str, tuple[Scalar, ...]]:
     layer = resolved.plan.layers[layer_index]
     table = resolved.table_for(layer)
@@ -501,8 +533,14 @@ def _visible_extents(
         )
         y_role = next(role for role in ("row", "row_label", "y", "actual") if role in roles)
         return _float_values(roles[x_role]), _float_values(roles[y_role])
-    if geometry == "special.lollipop":
+    if geometry == "special.drop_line":
         return _float_values(roles["x"]), _float_values(roles["y"])
+    if geometry == "special.lollipop":
+        value_roles = tuple(role for role in roles if role.startswith("series_"))
+        return (
+            tuple(value for role in value_roles for value in _float_values(roles[role])),
+            tuple(float(index) for index, _ in enumerate(roles["category"])),
+        )
     if geometry in {"special.survival_step", "special.survival_band"}:
         y_roles = tuple(role for role in ("survival", "lower", "upper") if role in roles)
         return _float_values(roles["time"]), tuple(
@@ -694,6 +732,42 @@ def test_matrix_grid_dimensions_and_palette_range_are_data_driven(variant: Varia
     assert len(layer.palette) >= 5
     if variant.chart_id == "K22":
         assert len(layer.levels) == 7
+    _assert_matplotlib_draws(resolved)
+
+
+@pytest.mark.parametrize(
+    "variant",
+    VARIADIC_SERIES_VARIANTS,
+    ids=lambda item: item.case_id,
+)
+def test_variadic_series_geometry_tracks_rows_columns_and_pairs(variant: Variant) -> None:
+    resolved = resolve_variant(variant)
+    columns = variant.series_columns[0]
+    value_roles = tuple(role for role in columns if role.startswith("series_"))
+    row_count = len(columns[value_roles[0]])
+    lines = [layer for layer in resolved.plan.layers if layer.geometry == "xy.line"]
+    symbols = [layer for layer in resolved.plan.layers if layer.geometry == "xy.symbol"]
+
+    assert len(symbols) == len(value_roles)
+    assert len({layer.layer_id for layer in symbols}) == len(value_roles)
+    assert all(layer.label is not None for layer in symbols)
+    if variant.chart_id in {"X03", "X39"}:
+        assert len(lines) == row_count
+        expected_points_per_line = len(value_roles)
+    else:
+        assert len(lines) == row_count * (len(value_roles) // 2)
+        expected_points_per_line = 2
+
+    for layer_index, layer in enumerate(resolved.plan.layers):
+        if layer.geometry != "xy.line":
+            continue
+        roles = _roles(resolved, layer_index)
+        assert len(roles["x"]) == expected_points_per_line
+        assert len(roles["y"]) == expected_points_per_line
+    if variant.chart_id == "X40" and len(value_roles) % 2:
+        # The unmatched last column is intentionally displayed as symbols only.
+        assert symbols[-1].label is not None
+
     _assert_matplotlib_draws(resolved)
 
 

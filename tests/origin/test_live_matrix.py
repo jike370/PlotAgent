@@ -21,7 +21,7 @@ SELECTED = {
 
 @pytest.mark.skipif(
     not RUN_LIVE,
-    reason="set PLOTAGENT_RUN_ORIGIN_LIVE_MATRIX=1 to run the 52-chart Origin matrix",
+    reason="set PLOTAGENT_RUN_ORIGIN_LIVE_MATRIX=1 to run the 54-chart Origin matrix",
 )
 @pytest.mark.parametrize("chart_id", [entry.chart_type_id for entry in CHARTS])
 def test_representative_chart_is_native_after_fresh_origin_reopen(

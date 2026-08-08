@@ -727,8 +727,8 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
         execution = created["execution"]
         assert execution["chart_type_id"] == "K02"
         # K25 is the admitted figure surface and is created through CreateFigureAction,
-        # so CreatePlotAction advertises the remaining 42 official chart types.
-        assert len(provider.requests[0].envelope.chart_capabilities.allowed_chart_type_ids) == 42
+        # so CreatePlotAction advertises the remaining 44 official chart types.
+        assert len(provider.requests[0].envelope.chart_capabilities.allowed_chart_type_ids) == 44
 
         edited = app.call(
             "agent.decide",
@@ -864,7 +864,7 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
         app.close()
 
 
-def test_desktop_application_creates_and_renders_exact_43_product_chart_surface(
+def test_desktop_application_creates_and_renders_exact_45_product_chart_surface(
     harness: ApplicationHarness,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1003,7 +1003,7 @@ def test_desktop_application_creates_and_renders_exact_43_product_chart_surface(
         {"project_id": project_id, "figure_id": "figure:matrix.k25"},
     )
     assert Path(preview["artifact"]["path"]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
-    assert len(plot_refs) + 1 == 43
+    assert len(plot_refs) + 1 == 45
 
     plot_destination = tmp_path / "non-k01.opju"
     exported_plot = harness.call(
@@ -1038,6 +1038,101 @@ def test_desktop_application_creates_and_renders_exact_43_product_chart_surface(
     )
     assert exported_figure["target_scope"] == "figure"
     assert origin_plans[-1].manifest.chart_type_ids == ("K25",)
+
+
+@pytest.mark.parametrize(
+    ("chart_type_id", "series_count"),
+    (("X03", 4), ("X39", 5), ("X40", 5)),
+)
+def test_desktop_variadic_series_mapping_preserves_every_selected_column(
+    harness: ApplicationHarness,
+    tmp_path: Path,
+    chart_type_id: str,
+    series_count: int,
+) -> None:
+    fieldnames = ("category",) + tuple(
+        f"measurement_{index + 1}" for index in range(series_count)
+    )
+    source_path = tmp_path / f"{chart_type_id.lower()}-variadic.csv"
+    with source_path.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        for row_index in range(7):
+            writer.writerow(
+                {
+                    "category": f"Sample {row_index + 1}",
+                    **{
+                        f"measurement_{series_index + 1}": (
+                            row_index + 1
+                        )
+                        * (series_index + 2)
+                        for series_index in range(series_count)
+                    },
+                }
+            )
+
+    project_id, revision = _create_open(harness)
+    imported = harness.call(
+        "datasets.import",
+        {
+            "project_id": project_id,
+            "resource_id": f"resource:{chart_type_id.lower()}-variadic",
+            "source_path": str(source_path),
+            "idempotency_key": f"import-{chart_type_id.lower()}-variadic",
+            "expected_version": revision,
+            "options": {},
+        },
+    )
+    dataset = imported["datasets"][0]
+    described = harness.call(
+        "datasets.describe",
+        {
+            "project_id": project_id,
+            "source_dataset_id": dataset["source_dataset_id"],
+            "source_version": dataset["source_version"],
+        },
+    )
+    field_by_name = {
+        field["name"]: field["field_id"] for field in described["dataset"]["fields"]
+    }
+    mapping = {
+        f"series_{index + 1}": field_by_name[f"measurement_{index + 1}"]
+        for index in range(series_count)
+    }
+    if chart_type_id == "X03":
+        mapping["category"] = field_by_name["category"]
+
+    created = harness.call(
+        "plots.create",
+        {
+            "project_id": project_id,
+            "plot_id": f"plot:{chart_type_id.lower()}-variadic",
+            "chart_type_id": chart_type_id,
+            "source_dataset_id": dataset["source_dataset_id"],
+            "source_version": dataset["source_version"],
+            "field_mapping": mapping,
+            "idempotency_key": f"create-{chart_type_id.lower()}-variadic",
+            "expected_version": imported["project_version"],
+        },
+    )
+
+    expected_role_fields = tuple(
+        mapping[role]
+        for role in (
+            (("category",) if chart_type_id == "X03" else ())
+            + tuple(f"series_{index + 1}" for index in range(series_count))
+        )
+    )
+    assert tuple(created["spec"]["series"][0]["data"]["role_fields"]) == expected_role_fields
+    preview = harness.call(
+        "plots.render",
+        {
+            "project_id": project_id,
+            "plot_id": created["plot_id"],
+            "plot_version": created["plot_version"],
+        },
+    )
+    assert Path(preview["artifact"]["path"]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
 def test_isomorphic_batch_runs_from_one_confirmed_mapping(

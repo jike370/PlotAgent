@@ -18,9 +18,9 @@ const baseFilters = {
 }
 
 describe('chart catalog', () => {
-  it('exposes 43 qualified charts while retaining all internal adapters', () => {
-    expect(chartCatalog).toHaveLength(43)
-    expect(allChartCatalog).toHaveLength(52)
+  it('exposes 45 qualified charts while retaining all internal adapters', () => {
+    expect(chartCatalog).toHaveLength(45)
+    expect(allChartCatalog).toHaveLength(54)
     expect(chartCatalog.some((chart) => chart.id === 'S61')).toBe(true)
     expect(chartCatalog.some((chart) => chart.id === 'X24' || chart.id === 'S07')).toBe(true)
     expect(chartCatalog.some((chart) => chart.id === 'X07' || chart.id === 'X37')).toBe(false)

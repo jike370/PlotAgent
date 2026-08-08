@@ -64,7 +64,7 @@ from .helpers import (
 )
 
 
-def test_chart_registry_is_exactly_the_frozen_52_and_all_opju_o1() -> None:
+def test_chart_registry_is_exactly_the_frozen_54_and_all_opju_o1() -> None:
     expected = {
         *(f"K{index:02d}" for index in range(1, 23)),
         "K24",
@@ -96,10 +96,12 @@ def test_chart_registry_is_exactly_the_frozen_52_and_all_opju_o1() -> None:
         "X36",
         "X37",
         "X38",
+        "X39",
+        "X40",
         "S07",
     }
     assert set(CHARTS_BY_ID) == expected
-    assert len(V1_CHART_REGISTRY.charts) == 52
+    assert len(V1_CHART_REGISTRY.charts) == 54
     assert all(chart.exports.opju == "O1" for chart in V1_CHART_REGISTRY.charts)
 
 

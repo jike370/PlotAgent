@@ -669,15 +669,13 @@ class MatplotlibRenderer:
     ) -> None:
         color, line_width, marker_size, label = self._style(layer)
         geometry = layer.geometry
-        if geometry == "special.lollipop":
+        if geometry == "special.drop_line":
             x = _numeric(roles["x"])
             y = _numeric(roles["y"])
-            # The baseline is a data-space value and also controls the X-axis
-            # crossing, so changing the visible Y range cannot move the stems.
-            baseline_values = _numeric(roles.get("baseline", tuple(0.0 for _ in y)))
+            baseline = float(axis.get_ylim()[0])
             axis.vlines(
                 x,
-                baseline_values,
+                tuple(baseline for _ in y),
                 y,
                 color="#B8BDC6",
                 linewidth=line_width,

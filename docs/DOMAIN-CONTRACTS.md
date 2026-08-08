@@ -322,7 +322,7 @@ ChartEditCapabilityProfile
 └─ evidence_refs[]
 ```
 
-正式 profile 只属于 43 图：K01–K22、K24–K25、S01、S05、S21、S25、S31、S34、S61、X01、X02、X03、X05、X09、X13、X23、X24、X35、X36、X38、S07。X07、X11、X12、X15、X16、X17、X18、X19、X37 固定为 `internal_hidden`，不能出现在图形库、ContextEnvelope create capability 或正式 export target 中。完整逐图操作白名单以 [PRD §8.5](./PRD.md) 为权威。
+正式 profile 只属于 45 图：K01–K22、K24–K25、S01、S05、S21、S25、S31、S34、S61、X01、X02、X03、X05、X09、X13、X23、X24、X35、X36、X38、X39、X40、S07。X07、X11、X12、X15、X16、X17、X18、X19、X37 固定为 `internal_hidden`，不能出现在图形库、ContextEnvelope create capability 或正式 export target 中。完整逐图操作白名单以 [PRD §8.5](./PRD.md) 为权威。
 
 能力联合覆盖 `general`、`line`、`marker`、`bar_fill`、`error_interval`、`palette_color_scale`、`dual_y`、`facet`、`y_offset`、`chart_parameters` 十组语义；每个 capability 仍解析为下面列出的领域 Patch，而不是任意 property path。直方分箱、KDE 带宽、ECDF/CCDF 等改变数值结果的参数不属于 Style/PlotPatch，必须生成新的封闭 PlotCalculationSpec/Result。
 
@@ -338,13 +338,12 @@ SpecialistEditSpec
 ├─ y_offset: distance / order
 └─ chart_parameters
    ├─ step_where                         # X01: pre | mid | post
-   ├─ lollipop_baseline                  # X02，默认 0
    ├─ volcano_absolute_log2_fold_change  # S07，正数
    ├─ volcano_pvalue                     # S07，0 < p < 1
    └─ pareto_reference_percent           # X24，0 < percent < 100
 ```
 
-对应 Patch/Agent intent discriminator 固定为 `set_bar_area_style`、`set_uncertainty_style`、`set_colorbar_style`、`set_dual_y_style`、`set_facet_style`、`set_y_offset_style`、`set_chart_parameters`。UI 只在当前图声明相应 capability 时显示控件；Agent、本地 validator、Resolver、Matplotlib 与 Origin adapter 消费同一状态。X02 的默认和显式 baseline 都是数据坐标，横轴在 Origin 中与该值相交，不能退化为“把横轴画在当前可见底边”。
+对应 Patch/Agent intent discriminator 固定为 `set_bar_area_style`、`set_uncertainty_style`、`set_colorbar_style`、`set_dual_y_style`、`set_facet_style`、`set_y_offset_style`、`set_chart_parameters`。UI 只在当前图声明相应 capability 时显示控件；Agent、本地 validator、Resolver、Matplotlib 与 Origin adapter 消费同一状态。X02 是连续型 Drop Line，X 轴保持在坐标框底部，垂线始终终止于解析后的底部轴，不再具有可编辑 baseline。
 
 ### 4.5 ResolvedRenderPlan
 
@@ -356,9 +355,9 @@ Matplotlib 与 Origin adapter 不得自行 autoscale、选择 ticks、重算统�
 
 OPJU ExportSpec、ResolvedRenderPlan 与版本化 OriginAdapter 在本地解析为 typed OriginExportPlan。它固定 target scope、Data/Analysis/Graphs/Metadata 布局、ASCII internal names、Long Names、数据对象、原生 graph/layer/plot、typed properties、template/capability 和 live/reopen validation。
 
-Origin Worker 不接受任意 property/path/script 字符串。第一轮 OriginAdapter 通过 `originpro`/Python 类型化固定映射工作；模型、数据和配置提供的 LabTalk 被 Schema/策略阻止，仅保留 Origin 文档化但 `originpro` 未暴露的三项受测显示选项白名单。正式 43 图只在 adapter 达到 O1 时开放 OPJU；九个 `internal_hidden` 图不承诺导出；整份 OPJU 原子成功或失败。完整契约见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
+Origin Worker 不接受任意 property/path/script 字符串。第一轮 OriginAdapter 通过 `originpro`/Python 类型化固定映射工作；模型、数据和配置提供的 LabTalk 被 Schema/策略阻止，仅保留 Origin 文档化但 `originpro` 未暴露的三项受测显示选项白名单。正式 45 图只在 adapter 达到 O1 时开放 OPJU；九个 `internal_hidden` 图不承诺导出；整份 OPJU 原子成功或失败。完整契约见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
 
-Origin P1 曾把内部注册表/Schema 扩为 52 个稳定 chart ID；双 Y 轴网格图未注册。产品 capability 现在以 43 个 `official` 与九个 `internal_hidden` 分层，隐藏图即使 resolver/adapter 存在也禁止 create/export。X24 与 S07 的当前视觉 provenance 为冻结合成数据，必须与 Origin 官方同源证据区分。
+内部注册表/Schema 现在包含 54 个稳定 chart ID；双 Y 轴网格图未注册。产品 capability 以 45 个 `official` 与九个 `internal_hidden` 分层，隐藏图即使 resolver/adapter 存在也禁止 create/export。X02/X03 语义已按 Origin 官方模板纠正，X39/X40 分别固定为 Line Series 与 Before-After；X03 的两系列形态只作为“哑铃图”搜索别名，不另占 ID。X24 与 S07 的当前视觉 provenance 为冻结合成数据，必须与 Origin 官方同源证据区分。
 
 ## 5. BatchSpec 与 FigureSpec
 

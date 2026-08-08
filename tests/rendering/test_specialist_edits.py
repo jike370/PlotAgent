@@ -158,7 +158,6 @@ def test_dual_y_facet_and_offset_edits_change_structure_without_mutating_data() 
     ("chart_id", "parameters"),
     (
         ("X01", ChartParameterEditSpec(step_where="mid")),
-        ("X02", ChartParameterEditSpec(lollipop_baseline=-2)),
         ("X24", ChartParameterEditSpec(pareto_reference_percent=75)),
         (
             "S07",
@@ -179,10 +178,6 @@ def test_fixed_chart_parameters_have_explicit_resolved_geometry(
     )
     if chart_id == "X01":
         assert resolved.plan.layers[0].step_where == "mid"
-    elif chart_id == "X02":
-        assert set(_roles(resolved, 0)["baseline"]) == {-2.0}
-        x_axis = next(axis for axis in resolved.plan.axes if axis.orientation == "x")
-        assert x_axis.cross_at == -2
     elif chart_id == "X24":
         reference = resolved.plan.layers[-1]
         assert set(_roles(resolved, len(resolved.plan.layers) - 1)["y"]) == {75.0}

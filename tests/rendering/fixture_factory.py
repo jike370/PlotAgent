@@ -380,21 +380,22 @@ _FIXTURES: dict[str, tuple[SeriesFixture, ...]] = {
     "X01": (_series("step", "prepared", ("x", "y"), (0.0, 1.0, 2.0, 3.0), (1.0, 1.8, 1.2, 2.4)),),
     "X02": (
         _series(
-            "lollipop",
+            "drop_line",
             "prepared",
-            ("category", "value"),
-            ("A", "B", "C", "D"),
+            ("x", "y"),
+            (0.0, 1.0, 2.0, 3.0),
             (2.0, 4.2, 3.1, 5.0),
         ),
     ),
     "X03": (
         _series(
-            "dumbbell",
+            "lollipop",
             "prepared",
-            ("category", "start", "end"),
-            ("A", "B", "C"),
-            (1.0, 2.5, 1.8),
-            (2.4, 1.7, 3.2),
+            ("category", "start", "middle", "end"),
+            ("A", "B", "C", "D"),
+            (1.0, 2.5, 1.8, 3.2),
+            (2.4, 1.7, 3.2, 2.8),
+            (3.1, 3.3, 4.0, 4.4),
         ),
     ),
     "X05": (
@@ -559,6 +560,28 @@ _FIXTURES: dict[str, tuple[SeriesFixture, ...]] = {
             ("A", "A", "A", "B", "B", "B"),
         ),
     ),
+    "X39": (
+        _series(
+            "line_series",
+            "prepared",
+            ("week_1", "week_2", "week_3"),
+            (0.165, 0.11, 0.088, 0.078, 0.072),
+            (0.093, 0.057, 0.075, 0.045, 0.038),
+            (0.098, 0.092, 0.078, 0.06, 0.045),
+        ),
+    ),
+    "X40": (
+        _series(
+            "before_after",
+            "prepared",
+            ("before_1", "after_1", "before_2", "after_2", "unpaired"),
+            (0.165, 0.11, 0.088, 0.078, 0.072),
+            (0.098, 0.092, 0.078, 0.06, 0.045),
+            (0.172, 0.103, 0.054, 0.054, 0.064),
+            (0.062, 0.095, 0.046, 0.031, 0.005),
+            (0.12, 0.08, 0.11, 0.07, 0.09),
+        ),
+    ),
     "S07": (
         _series(
             "volcano",
@@ -619,7 +642,7 @@ def _axis_scales(chart_id: str) -> tuple[AxisScaleKind, AxisScaleKind]:
         return "log10", "linear"
     if chart_id == "X13":
         return "linear", "categorical"
-    if chart_id in {"X02", "X05", "X09", "X11", "X12", "X24", "X35", "X36", "X37"}:
+    if chart_id in {"X05", "X09", "X11", "X12", "X24", "X35", "X36", "X37", "X39", "X40"}:
         return "categorical", "linear"
     if chart_id == "X03":
         return "linear", "categorical"

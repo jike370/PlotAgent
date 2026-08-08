@@ -313,6 +313,8 @@
             "X36",
             "X37",
             "X38",
+            "X39",
+            "X40",
             "S07"
           ],
           "title": "Chart Type Id",
@@ -572,11 +574,6 @@
     "ChartParameterEditSpec": {
       "additionalProperties": false,
       "properties": {
-        "lollipop_baseline": {
-          "default": 0.0,
-          "title": "Lollipop Baseline",
-          "type": "number"
-        },
         "pareto_reference_percent": {
           "default": 80.0,
           "exclusiveMaximum": 100,

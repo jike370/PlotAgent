@@ -193,7 +193,6 @@ def test_agent_specialist_intent_is_closed_and_typed() -> None:
                         "target_alias": "active_target",
                         "parameters": {
                             "step_where": "post",
-                            "lollipop_baseline": 0,
                             "volcano_absolute_log2_fold_change": 1.5,
                             "volcano_pvalue": 0.01,
                             "pareto_reference_percent": 80,

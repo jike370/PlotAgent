@@ -152,8 +152,8 @@ function mappingRoles(chartId: string): MappingRole[] {
     S21: { required: ['label', 'effect', 'lower', 'upper'], optional: ['weight'] },
     S25: { required: ['spectral_axis', 'intensity'], optional: [] }, S31: { required: ['angle', 'intensity'], optional: ['peak_label'] },
     S34: { required: ['z_real', 'z_imaginary'], optional: ['frequency'] }, S61: { required: ['actual', 'predicted'], optional: [] },
-    X01: { required: ['x', 'y'], optional: [] }, X02: { required: ['category', 'value'], optional: ['baseline', 'group'] },
-    X03: { required: ['category', 'start', 'end'], optional: ['group'] }, X05: { required: ['value'], optional: ['group'] },
+    X01: { required: ['x', 'y'], optional: [] }, X02: { required: ['x', 'y'], optional: [] },
+    X03: { required: ['category', 'series_1', 'series_2'], optional: ['series_3'] }, X05: { required: ['value'], optional: ['group'] },
     X07: { required: ['value', 'group'], optional: [] }, X09: { required: ['category', 'start', 'end'], optional: ['middle'] },
     X11: { required: ['category', 'delta'], optional: [] }, X12: { required: ['item', 'actual_value', 'target'], optional: ['range1', 'range2', 'range3'] },
     X13: { required: ['category', 'left', 'right'], optional: [] }, X15: { required: ['x', 'y', 'z'], optional: [] },
@@ -162,6 +162,7 @@ function mappingRoles(chartId: string): MappingRole[] {
     X23: { required: ['x', 'left', 'right'], optional: [] }, X24: { required: ['category', 'value'], optional: [] },
     X35: { required: ['category', 'left', 'right'], optional: [] }, X36: { required: ['category', 'left', 'right'], optional: [] },
     X37: { required: ['group', 'left', 'right'], optional: [] }, X38: { required: ['x', 'y', 'series'], optional: [] },
+    X39: { required: ['series_1', 'series_2'], optional: ['series_3'] }, X40: { required: ['series_1', 'series_2'], optional: ['series_3'] },
     S07: { required: ['feature', 'log2fc', 'pvalue'], optional: ['qvalue'] },
   }
   const labels: Record<string, string> = {
@@ -173,7 +174,7 @@ function mappingRoles(chartId: string): MappingRole[] {
     dose: '剂量', response: '响应', parameter: '预计算参数', label: '标签', effect: '效应值', weight: '权重',
     spectral_axis: '谱轴', intensity: '强度', angle: '角度', peak_label: '峰标签', z_real: "Z'", z_imaginary: "-Z''",
     frequency: '频率', actual: '真实类别', predicted: '预测类别',
-    baseline: '基线', start: '起点', end: '终点', delta: '变化量', item: '项目', actual_value: '实际值', target: '目标',
+    baseline: '基线', start: '起点', end: '终点', series_1: '系列 1', series_2: '系列 2', series_3: '系列 3（可选）', delta: '变化量', item: '项目', actual_value: '实际值', target: '目标',
     range1: '区间 1', range2: '区间 2', range3: '区间 3', left: '左轴数值', right: '右轴数值',
     method_a: '方法 A', method_b: '方法 B', series: '系列', feature: '特征', log2fc: 'log2FC', pvalue: 'P 值', qvalue: 'Q 值',
   }
@@ -292,7 +293,21 @@ function MappingObject({
   busy: boolean
   onConfirm: (mapping: FieldMappingInput) => void
 }): React.JSX.Element {
-  const roles = useMemo(() => mappingRoles(chart.id), [chart.id])
+  const variadicSeries = ['X03', 'X39', 'X40'].includes(chart.id)
+  const [seriesRoleCount, setSeriesRoleCount] = useState(2)
+  const roles = useMemo(() => {
+    const fixed = mappingRoles(chart.id).filter((role) => !role.role.startsWith('series_'))
+    if (!variadicSeries) return fixed
+    return [
+      ...fixed,
+      ...Array.from({ length: seriesRoleCount }, (_, index) => ({
+        role: `series_${index + 1}`,
+        label: `系列 ${index + 1}`,
+        numeric: true,
+        required: true,
+      })),
+    ]
+  }, [chart.id, seriesRoleCount, variadicSeries])
   const [values, setValues] = useState<Record<string, string>>(() => {
     const numeric = dataset.fields.filter((field) => numericKinds.has(field.logicalType.toLocaleLowerCase('en-US')))
     const other = dataset.fields.filter((field) => !numeric.includes(field))
@@ -321,6 +336,20 @@ function MappingObject({
           </label>
         ))}
       </div>
+      {variadicSeries && (
+        <div className="mapping-series-actions">
+          <button type="button" onClick={() => setSeriesRoleCount((count) => count + 1)}>添加系列</button>
+          <button type="button" disabled={seriesRoleCount <= 2} onClick={() => {
+            const role = `series_${seriesRoleCount}`
+            setValues((current) => {
+              const next = { ...current }
+              delete next[role]
+              return next
+            })
+            setSeriesRoleCount((count) => Math.max(2, count - 1))
+          }}>移除末项</button>
+        </div>
+      )}
       <footer className="mapping-confirmation">
         <button className="primary-button" type="button" disabled={!complete || busy} onClick={() => onConfirm({ roles: Object.fromEntries(Object.entries(values).filter(([, field]) => field)) })}>
           {busy ? <LoaderCircle className="spin" size={15} /> : <CheckCircle2 size={15} />}确认映射并绘图

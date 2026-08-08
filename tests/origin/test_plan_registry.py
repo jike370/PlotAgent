@@ -50,6 +50,8 @@ EXPECTED_CHART_IDS = {
     "X36",
     "X37",
     "X38",
+    "X39",
+    "X40",
     "S07",
 }
 FIXTURE_MANIFEST = Path(__file__).parents[1] / "fixtures" / "rendering" / "chart-fixtures.json"
@@ -61,8 +63,8 @@ def _compile(chart_id: str) -> OriginExportPlan:
     return compile_origin_plan((resolved,), export)
 
 
-def test_origin_registry_is_exactly_the_frozen_52_o1_surface() -> None:
-    assert len(ORIGIN_ADAPTERS) == 52
+def test_origin_registry_is_exactly_the_frozen_54_o1_surface() -> None:
+    assert len(ORIGIN_ADAPTERS) == 54
     assert {entry.chart_type_id for entry in ORIGIN_ADAPTERS} == EXPECTED_CHART_IDS
     assert all(
         entry.capability == "O1" and not entry.known_differences for entry in ORIGIN_ADAPTERS
@@ -105,7 +107,7 @@ def test_frozen_minimal_representative_edge_matrix_all_compiles_without_origin()
             plan = _compile(chart_id)
             assert plan.manifest.chart_type_ids == (chart_id,)
             compiled.append(case["case_id"])
-    assert len(compiled) == len(set(compiled)) == 156
+    assert len(compiled) == len(set(compiled)) == 162
 
 
 def test_matrix_and_explicit_panel_plans_remain_native_structures() -> None:

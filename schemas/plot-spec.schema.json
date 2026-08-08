@@ -322,11 +322,6 @@
     "ChartParameterEditSpec": {
       "additionalProperties": false,
       "properties": {
-        "lollipop_baseline": {
-          "default": 0.0,
-          "title": "Lollipop Baseline",
-          "type": "number"
-        },
         "pareto_reference_percent": {
           "default": 80.0,
           "exclusiveMaximum": 100,
@@ -1362,8 +1357,10 @@
             "risk_table",
             "interval",
             "panel",
+            "drop_line",
             "lollipop",
-            "dumbbell",
+            "line_series",
+            "before_after",
             "beeswarm",
             "ridgeline",
             "floating_bar",
@@ -1505,8 +1502,10 @@
           "items": {
             "enum": [
               "step",
+              "drop_line",
               "lollipop",
-              "dumbbell",
+              "line_series",
+              "before_after",
               "beeswarm",
               "ridgeline",
               "floating_bar",
@@ -1560,7 +1559,6 @@
         "chart_parameters": {
           "$ref": "#/$defs/ChartParameterEditSpec",
           "default": {
-            "lollipop_baseline": 0.0,
             "pareto_reference_percent": 80.0,
             "step_where": "post",
             "volcano_absolute_log2_fold_change": 1.0,
@@ -1905,6 +1903,8 @@
         "X36",
         "X37",
         "X38",
+        "X39",
+        "X40",
         "S07"
       ],
       "title": "Chart Type Id",
@@ -2044,7 +2044,6 @@
           "width_ratio": 0.8
         },
         "chart_parameters": {
-          "lollipop_baseline": 0.0,
           "pareto_reference_percent": 80.0,
           "step_where": "post",
           "volcano_absolute_log2_fold_change": 1.0,

@@ -105,10 +105,6 @@ def test_specialist_edits_survive_one_fresh_origin_reopen(tmp_path: Path) -> Non
             SpecialistEditSpec(chart_parameters=ChartParameterEditSpec(step_where="mid")),
         ),
         _resolved(
-            "X02",
-            SpecialistEditSpec(chart_parameters=ChartParameterEditSpec(lollipop_baseline=-2)),
-        ),
-        _resolved(
             "X24",
             SpecialistEditSpec(
                 chart_parameters=ChartParameterEditSpec(pareto_reference_percent=75)

@@ -1763,7 +1763,7 @@ class DesktopApplication:
                 current_target=target, selected_objects=selected_objects
             ),
             chart_capabilities=ChartCapabilities(
-                capability_version="desktop-43-v1",
+                capability_version="desktop-45-v1",
                 allowed_chart_type_ids=tuple(
                     chart_id for chart_id in PRODUCT_CHART_IDS if chart_id != "K25"
                 ),
@@ -2402,13 +2402,19 @@ class DesktopApplication:
                 "CHART_REQUIRES_FIGURE",
                 "K25 is created through figures.create from explicit child plots.",
             )
-        required_roles = set(registration.required_roles)
-        if not required_roles.issubset(bindings):
+        variadic_series_chart = chart_type_id in {"X03", "X39", "X40"}
+        series_roles = _variadic_series_roles(bindings) if variadic_series_chart else ()
+        required_roles = {
+            role for role in registration.required_roles if not role.startswith("series_")
+        }
+        if not required_roles.issubset(bindings) or (
+            variadic_series_chart and len(series_roles) < 2
+        ):
             raise RpcServiceError(
                 "MAPPING_ROLE_MISSING",
                 "The field mapping does not provide every required chart role.",
             )
-        allowed_roles = required_roles | set(registration.optional_roles)
+        allowed_roles = required_roles | set(registration.optional_roles) | set(series_roles)
         if set(bindings) - allowed_roles:
             raise RpcServiceError(
                 "MAPPING_ROLE_UNKNOWN",
@@ -2441,8 +2447,13 @@ class DesktopApplication:
                         source_dataset_ref=source_ref,
                     ),
                 )
-                for role in registration.required_roles
-                + tuple(role for role in registration.optional_roles if role in bindings)
+                for role in (
+                    tuple(role for role in registration.required_roles if role in bindings)
+                    + tuple(
+                        role for role in series_roles if role not in registration.required_roles
+                    )
+                    + tuple(role for role in registration.optional_roles if role in bindings)
+                )
             ),
             content_hash=canonical_hash(mapping_payload),
         )
@@ -2542,7 +2553,11 @@ class DesktopApplication:
                     role_fields=role_fields,
                 )
             elif "precomputed" in rule.data_kinds and precomputed_ref is not None:
-                roles = _matching_roles(rule.role_signatures, bindings)
+                roles = (
+                    (("category",) if chart_type_id == "X03" else ()) + series_roles
+                    if variadic_series_chart
+                    else _matching_roles(rule.role_signatures, bindings)
+                )
                 if roles is None:
                     continue
                 data = PrecomputedSeriesData(
@@ -2550,7 +2565,11 @@ class DesktopApplication:
                     role_fields=tuple(bindings[role] for role in roles),
                 )
             elif "prepared" in rule.data_kinds:
-                roles = _matching_roles(rule.role_signatures, bindings)
+                roles = (
+                    (("category",) if chart_type_id == "X03" else ()) + series_roles
+                    if variadic_series_chart
+                    else _matching_roles(rule.role_signatures, bindings)
+                )
                 if chart_type_id == "K06" and geometry == "symbol" and roles is None:
                     roles = ("x", "center")
                     prepared_columns["field:plotagent.row_index"] = tuple(range(len(prepared.rows)))
@@ -2585,12 +2604,15 @@ class DesktopApplication:
             )
 
         x_label, y_label = _axis_labels(registration.required_roles, bindings, fields)
-        if chart_type_id == "X03":
-            x_label = f"{fields[bindings['start']].name}–{fields[bindings['end']].name}"
-            y_label = fields[bindings["category"]].name
-        elif chart_type_id == "X13":
+        if chart_type_id == "X13":
             x_label = f"{fields[bindings['left']].name} / {fields[bindings['right']].name}"
             y_label = fields[bindings["category"]].name
+        if chart_type_id == "X03":
+            x_label = "Value"
+            y_label = fields[bindings["category"]].name
+        elif chart_type_id in {"X39", "X40"}:
+            x_label = "Series"
+            y_label = "Value"
         x_scale_kind, y_scale_kind = _axis_scale_kinds(chart_type_id, bindings, fields)
         dual_axis = chart_type_id in {"X23", "X24", "X35", "X36", "X37"}
         scales: tuple[ScaleSpec, ...] = (
@@ -3510,7 +3532,18 @@ def _axis_scale_kinds(
         return "categorical", "linear"
     if chart_type_id == "X13":
         return "linear", "categorical"
-    if chart_type_id in {"X02", "X05", "X09", "X11", "X12", "X24", "X35", "X36", "X37"}:
+    if chart_type_id in {
+        "X05",
+        "X09",
+        "X11",
+        "X12",
+        "X24",
+        "X35",
+        "X36",
+        "X37",
+        "X39",
+        "X40",
+    }:
         return "categorical", "linear"
     if chart_type_id == "X03":
         return "linear", "categorical"
@@ -3531,6 +3564,28 @@ def _matching_roles(
 ) -> tuple[str, ...] | None:
     matches = [roles for roles in signatures if set(roles).issubset(bindings)]
     return max(matches, key=len) if matches else None
+
+
+def _variadic_series_roles(bindings: Mapping[str, str]) -> tuple[str, ...]:
+    indexed: list[tuple[int, str]] = []
+    for role in bindings:
+        if not role.startswith("series_"):
+            continue
+        suffix = role.removeprefix("series_")
+        if not suffix.isdigit() or int(suffix) < 1:
+            raise RpcServiceError(
+                "MAPPING_ROLE_UNKNOWN",
+                "Variadic series roles must use consecutive series_N names.",
+            )
+        indexed.append((int(suffix), role))
+    indexed.sort()
+    expected = list(range(1, len(indexed) + 1))
+    if [index for index, _role in indexed] != expected:
+        raise RpcServiceError(
+            "MAPPING_ROLE_MISSING",
+            "Variadic series roles must be consecutive from series_1.",
+        )
+    return tuple(role for _index, role in indexed)
 
 
 _CALCULATED_FIELDS: dict[str, dict[str, str]] = {

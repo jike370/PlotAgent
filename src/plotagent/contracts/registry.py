@@ -1,4 +1,4 @@
-"""Frozen metadata for the 52 first-release chart identifiers."""
+"""Frozen metadata for the 54 current chart identifiers."""
 
 from __future__ import annotations
 
@@ -33,8 +33,10 @@ GeometryKind = Literal[
     "risk_table",
     "interval",
     "panel",
+    "drop_line",
     "lollipop",
-    "dumbbell",
+    "line_series",
+    "before_after",
     "beeswarm",
     "ridgeline",
     "floating_bar",
@@ -364,19 +366,17 @@ _BASE_CHART_REGISTRY: tuple[ChartRegistration, ...] = (
     _chart("X01", "Step plot", "special", ("step",), ("x", "y")),
     _chart(
         "X02",
-        "Lollipop plot",
+        "Drop line plot",
         "special",
-        ("lollipop",),
-        ("category", "value"),
-        optional_roles=("baseline", "group"),
+        ("drop_line",),
+        ("x", "y"),
     ),
     _chart(
         "X03",
-        "Dumbbell and paired change plot",
+        "Origin lollipop plot",
         "special",
-        ("dumbbell",),
-        ("category", "start", "end"),
-        optional_roles=("group",),
+        ("lollipop",),
+        ("category", "series_1", "series_2"),
     ),
     _chart(
         "X05",
@@ -489,6 +489,20 @@ _BASE_CHART_REGISTRY: tuple[ChartRegistration, ...] = (
         ("x", "y", "series"),
     ),
     _chart(
+        "X39",
+        "Line series plot",
+        "special",
+        ("line_series",),
+        ("series_1", "series_2"),
+    ),
+    _chart(
+        "X40",
+        "Before-after plot",
+        "special",
+        ("before_after",),
+        ("series_1", "series_2"),
+    ),
+    _chart(
         "S07",
         "Volcano plot",
         "special",
@@ -542,6 +556,8 @@ _PRODUCT_CHART_IDS: frozenset[ChartTypeId] = frozenset(
         "X35",
         "X36",
         "X38",
+        "X39",
+        "X40",
         "S07",
     }
 )
@@ -598,6 +614,8 @@ _EDIT_PROFILES: dict[ChartTypeId, str] = {
     "X36": "GBLMY",
     "X37": "GBY",
     "X38": "GLO",
+    "X39": "GLM",
+    "X40": "GLM",
     "S07": "GM",
 }
 
@@ -645,7 +663,7 @@ def _edit_capabilities(profile: str) -> tuple[EditCapability, ...]:
 
 def _qualified_registration(chart: ChartRegistration) -> ChartRegistration:
     supported = list(_edit_capabilities(_EDIT_PROFILES[chart.chart_type_id]))
-    if chart.chart_type_id in {"X01", "X02", "X24", "S07"}:
+    if chart.chart_type_id in {"X01", "X24", "S07"}:
         supported.append("chart_parameters")
     admission: AdmissionStatus = (
         "product" if chart.chart_type_id in _PRODUCT_CHART_IDS else "internal_only"

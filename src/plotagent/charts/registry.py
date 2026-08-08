@@ -1,4 +1,4 @@
-"""Rendering metadata for the exact 52 first-release scientific charts.
+"""Rendering metadata for the exact 54 current scientific charts.
 
 The W0 contract registry is the persisted public contract.  This module adds the
 W4-only adapter family, data-chain mode, and renderer limitations.  Every chart
@@ -402,22 +402,22 @@ CHARTS: tuple[ChartAdapterRegistration, ...] = (
     _entry(
         "X02",
         "special",
-        ("category", "value"),
-        ("baseline", "group"),
+        ("x", "y"),
+        (),
         ("direct",),
         (),
         (),
-        ("The baseline is visual geometry and defaults to zero.",),
+        ("Drop lines terminate at the resolved bottom X-axis frame.",),
     ),
     _entry(
         "X03",
         "special",
-        ("category", "start", "end"),
-        ("group",),
+        ("category", "series_1", "series_2"),
+        (),
         ("direct",),
         (),
         (),
-        ("No pairing is inferred; each row is one explicit pair.",),
+        ("At least two numeric series are required; every row is connected across series.",),
     ),
     _entry(
         "X05",
@@ -588,6 +588,26 @@ CHARTS: tuple[ChartAdapterRegistration, ...] = (
         (),
         (),
         ("Offsets affect display only and never modify persisted source data.",),
+    ),
+    _entry(
+        "X39",
+        "special",
+        ("series_1", "series_2"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("At least two numeric columns are required; every row forms one line series.",),
+    ),
+    _entry(
+        "X40",
+        "special",
+        ("series_1", "series_2"),
+        (),
+        ("direct",),
+        (),
+        (),
+        ("Adjacent columns form pairs; an odd final column remains an unconnected symbol.",),
     ),
     _entry(
         "S07",

@@ -236,7 +236,7 @@ def test_separate_line_and_symbol_targets_share_one_logical_legend_row() -> None
         ("X05", ["A", "B"], [[1], [2]]),
         ("K09", ["G1", "G2"], [[1], [2]]),
         ("K10", ["C1", "C2"], [[1], [3]]),
-        ("X03", ["Start", "End"], [[4], [5]]),
+        ("X03", ["start", "middle", "end"], [[5], [6], [7]]),
         ("K07", ["Series 1", "Series 2"], [[1], [2]]),
         ("K11", ["C1", "C2"], [[1], [3]]),
         ("S07", ["Down", "Not significant", "Up"], [[1], [2], [3]]),
@@ -625,7 +625,7 @@ class _RecordingBackend:
         "S07",
     ],
 )
-def test_all_52_plans_normalize_to_fixed_native_primitives(chart_id: str) -> None:
+def test_all_54_plans_normalize_to_fixed_native_primitives(chart_id: str) -> None:
     plan = _plan(chart_id)
     primitives = [
         primitive
@@ -797,16 +797,16 @@ def test_forest_symbol_is_one_weight_sized_scatter_primitive() -> None:
     assert primitives[0].transform == "forest_symbol"
 
 
-def test_lollipop_uses_one_native_symbol_plot_with_frame_drop_lines() -> None:
+def test_drop_line_uses_one_native_symbol_plot_with_frame_drop_lines() -> None:
     plan = _plan("X02")
     plot = plan.graph_objects[0].layers[0].plots[0]
     primitive = native_primitives(plot)[0]
 
-    assert plot.native_kind == "lollipop"
+    assert plot.native_kind == "drop_line"
     assert primitive.plot_type == "scatter"
     assert primitive.x_role == "x"
     assert primitive.y_role == "y"
-    assert primitive.transform == "lollipop_drop"
+    assert primitive.transform == "drop_line"
 
 
 def test_right_y_axis_weight_is_copied_from_qualified_template_left_axis() -> None:

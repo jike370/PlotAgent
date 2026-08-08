@@ -108,8 +108,10 @@ class SpecialFamily(StrictModel):
         tuple[
             Literal[
                 "step",
+                "drop_line",
                 "lollipop",
-                "dumbbell",
+                "line_series",
+                "before_after",
                 "beeswarm",
                 "ridgeline",
                 "floating_bar",
@@ -391,7 +393,6 @@ class YOffsetEditSpec(StrictModel):
 
 class ChartParameterEditSpec(StrictModel):
     step_where: Literal["pre", "mid", "post"] = "post"
-    lollipop_baseline: FiniteNumber = 0.0
     volcano_absolute_log2_fold_change: Annotated[float, Field(gt=0, allow_inf_nan=False)] = 1.0
     volcano_pvalue: Annotated[float, Field(gt=0, lt=1, allow_inf_nan=False)] = 0.05
     pareto_reference_percent: Annotated[float, Field(gt=0, lt=100, allow_inf_nan=False)] = 80.0
