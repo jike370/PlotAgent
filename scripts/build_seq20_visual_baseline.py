@@ -664,11 +664,12 @@ def _export_reopened_graphs(opju: Path, destinations: tuple[Path, ...]) -> None:
 
 
 def _build_index(batch: int, cases: tuple[AuditCase, ...], batch_dir: Path) -> None:
-    cards = [
-        f'<article class="exports"><h2>OPJU</h2>'
-        f'<p><a href="seq20-batch-{batch}-default.opju">默认状态</a> · '
-        f'<a href="seq20-batch-{batch}-edited.opju">代表性编辑状态</a></p></article>'
-    ]
+    opju_links = "".join(
+        f'<li><strong>{html.escape(case.chart_id)}</strong>：'
+        f'<a href="{case.case_id}/{case.chart_id}.opju">默认态＋代表性编辑态</a></li>'
+        for case in cases
+    )
+    cards = [f'<article class="exports"><h2>每图一个 OPJU</h2><ul>{opju_links}</ul></article>']
     for case in cases:
         case_rel = case.case_id
         cards.append(

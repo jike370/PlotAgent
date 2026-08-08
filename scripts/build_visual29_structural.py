@@ -671,12 +671,11 @@ def _render_case(
 def _write_index(entries: list[dict[str, Any]], output: Path) -> None:
     opju_links = "".join(
         f'<li><strong>{html.escape(case.chart_id)}</strong>：'
-        f'<a href="{case.case_id}/default/{case.chart_id}-default.opju">默认状态</a> · '
-        f'<a href="{case.case_id}/edited/{case.chart_id}-edited.opju">代表性编辑状态</a></li>'
+        f'<a href="{case.case_id}/{case.chart_id}.opju">默认态＋代表性编辑态</a></li>'
         for case in CASES
     )
     cards: list[str] = [
-        f'<section class="exports"><h2>OPJU</h2><ul>{opju_links}</ul></section>'
+        f'<section class="exports"><h2>每图一个 OPJU</h2><ul>{opju_links}</ul></section>'
     ]
     for case, entry in zip(CASES, entries, strict=True):
         blocker = entry.get("blocking_observations") or []

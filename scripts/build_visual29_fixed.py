@@ -845,11 +845,12 @@ def _contact_sheet(case_dir: Path, state: str) -> None:
 
 
 def _build_index() -> None:
-    cards = [
-        '<article class="exports"><h2>OPJU</h2>'
-        '<p><a href="visual29-fixed-default.opju">默认状态</a> · '
-        '<a href="visual29-fixed-edited.opju">代表性编辑状态</a></p></article>'
-    ]
+    opju_links = "".join(
+        f'<li><strong>{html.escape(case.chart_id)}</strong>：'
+        f'<a href="{case.case_id}/{case.chart_id}.opju">默认态＋代表性编辑态</a></li>'
+        for case in QUALIFIED_CASES
+    )
+    cards = [f'<article class="exports"><h2>每图一个 OPJU</h2><ul>{opju_links}</ul></article>']
     for case in QUALIFIED_CASES:
         cards.append(f'<article><h2>{case.chart_id} · {html.escape(case.title)}</h2><p><span class="grade">{case.grade} 级</span> {html.escape(case.recipe)}</p><p>通用编辑：{html.escape(case.common_edit)}；专属编辑：{html.escape(case.chart_edit)}</p><h3>默认态</h3><a href="{case.case_id}/comparison-default.png"><img src="{case.case_id}/comparison-default.png"></a><h3>编辑态</h3><a href="{case.case_id}/comparison-edited.png"><img src="{case.case_id}/comparison-edited.png"></a><p><a href="{case.case_id}/data.csv">冻结数据</a> · <a href="{case.case_id}/provenance.json">provenance</a></p></article>')
     for case in MISSING_CASES:
