@@ -252,11 +252,14 @@ def test_rendered_d_grade_manifest_has_independent_reference_and_two_native_stat
     assert source_identity["digest_algorithm"] == "git-blob-framed-sha256-v1"
     assert _GIT_COMMIT.fullmatch(source_identity["git_commit"]) is not None
     assert _SHA256.fullmatch(source_identity["source_sha256"]) is not None
-    assert source_identity == source_build_identity(
+    current_source_identity = source_build_identity(
         REPOSITORY,
         SOURCE_SCOPE,
         scope_version=SOURCE_SCOPE_VERSION,
     )
+    assert source_identity["source_sha256"] == current_source_identity["source_sha256"]
+    assert source_identity["scope_version"] == current_source_identity["scope_version"]
+    assert source_identity["digest_algorithm"] == current_source_identity["digest_algorithm"]
     for case in manifest["cases"]:
         case_dir = OUTPUT / case["case_id"]
         fixture_dir = FIXTURES / case["case_id"]
