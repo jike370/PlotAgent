@@ -11,9 +11,12 @@ matplotlib.use("Agg", force=True)
 
 import numpy as np
 from matplotlib import colors as mcolors
+from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
+from matplotlib.legend import Legend
+from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.text import Text
 from matplotlib.ticker import NullLocator
@@ -79,6 +82,10 @@ def _edges(centers: np.ndarray[Any, np.dtype[np.float64]]) -> np.ndarray[Any, np
     )
 
 
+def _renderer(figure: Figure) -> Any:
+    return cast(Any, figure.canvas).get_renderer()
+
+
 class MatplotlibRenderer:
     """Map a ResolvedRenderPlan to a Matplotlib Figure without resolving defaults."""
 
@@ -123,8 +130,10 @@ class MatplotlibRenderer:
             self._draw_layer(axis, layer, roles)
         self._draw_annotations(axes, resolved)
         self._draw_legends(axes, resolved)
+        self._draw_size_legends(axes, resolved)
         self._draw_colorbar(figure, axes, resolved)
         self._apply_text_style(figure, resolved)
+        self._apply_data_driven_layout(figure, axes, resolved)
         for axis in axes.values():
             axis.set_autoscale_on(False)
         return figure
@@ -750,9 +759,15 @@ class MatplotlibRenderer:
             raise ValueError(f"unsupported special geometry {geometry!r}")
 
     def _draw_annotations(self, axes: Mapping[str, Axes], resolved: ResolvedPlot) -> None:
+        matrix_panels = {
+            layer.panel_id
+            for layer in resolved.plan.layers
+            if layer.geometry.startswith("matrix.")
+        }
         for annotation in resolved.plan.annotations:
             axis = axes[annotation.panel_id]
             text = safe_text(annotation.text) or ""
+            color = annotation.color.value if annotation.color is not None else None
             if annotation.kind == "panel_label":
                 axis.text(
                     annotation.x or 0.02,
@@ -762,9 +777,20 @@ class MatplotlibRenderer:
                     ha="left",
                     va="top",
                     fontweight="bold",
+                    color=color,
                 )
             elif annotation.kind in {"text", "peak_label"}:
-                axis.text(annotation.x or 0.0, annotation.y or 0.0, text)
+                text_style: dict[str, Any] = {}
+                if color is not None:
+                    text_style["color"] = color
+                if annotation.panel_id in matrix_panels:
+                    text_style.update({"ha": "center", "va": "center"})
+                axis.text(
+                    annotation.x or 0.0,
+                    annotation.y or 0.0,
+                    text,
+                    **text_style,
+                )
             elif annotation.kind == "reference_line":
                 if annotation.x is not None:
                     axis.axvline(annotation.x, color="#666666", linewidth=0.8, linestyle="--")
@@ -816,9 +842,10 @@ class MatplotlibRenderer:
                 continue
             axis = axis_group[-1]
             if legend.placement == "outside_right":
-                axis.legend(
+                native = axis.legend(
                     handles, labels, loc="upper left", bbox_to_anchor=(1.02, 1.0), frameon=False
                 )
+                native._plotagent_outside_right = True  # type: ignore[attr-defined]
             elif legend.placement == "outside_bottom":
                 axis.legend(
                     handles, labels, loc="upper center", bbox_to_anchor=(0.5, -0.15), frameon=False
@@ -831,6 +858,90 @@ class MatplotlibRenderer:
                     bbox_to_anchor=(legend.anchor_x, legend.anchor_y),
                     frameon=False,
                 )
+
+    def _draw_size_legends(
+        self,
+        axes: Mapping[str, Axes],
+        resolved: ResolvedPlot,
+    ) -> None:
+        """Add one data-derived size key for every axis that encodes marker area."""
+
+        by_panel: dict[str, list[tuple[float, float]]] = {}
+        for layer in resolved.plan.layers:
+            if layer.geometry != "xy.bubble":
+                continue
+            roles = _role_columns(layer, resolved.table_for(layer))
+            if "size" not in roles or "marker_area" not in roles:
+                continue
+            pairs = by_panel.setdefault(layer.panel_id, [])
+            sizes = _numeric(roles["size"])
+            areas = _numeric(roles["marker_area"])
+            pairs.extend(
+                (float(size), float(area))
+                for size, area in zip(sizes, areas, strict=True)
+            )
+
+        for panel_id, pairs in by_panel.items():
+            entries = self._representative_marker_areas(pairs)
+            if not entries:
+                continue
+            axis = axes[panel_id]
+            handles = [
+                Line2D(
+                    [],
+                    [],
+                    linestyle="none",
+                    marker="o",
+                    markersize=float(np.sqrt(area)),
+                    markerfacecolor="none",
+                    markeredgecolor="#333333",
+                    markeredgewidth=0.8,
+                )
+                for _value, area in entries
+            ]
+            labels = [f"{value:.4g}" for value, _area in entries]
+            regular_legend = axis.get_legend()
+            size_legend = Legend(
+                axis,
+                handles,
+                labels,
+                title="Size",
+                loc="lower left" if regular_legend is not None else "upper left",
+                bbox_to_anchor=(1.02, 0.0 if regular_legend is not None else 1.0),
+                frameon=False,
+            )
+            size_legend._plotagent_outside_right = True  # type: ignore[attr-defined]
+            axis.add_artist(size_legend)
+
+    @staticmethod
+    def _representative_marker_areas(
+        pairs: Sequence[tuple[float, float]],
+        *,
+        maximum_entries: int = 4,
+    ) -> tuple[tuple[float, float], ...]:
+        finite = sorted(
+            (size, area)
+            for size, area in pairs
+            if np.isfinite(size) and np.isfinite(area) and area > 0
+        )
+        if not finite:
+            return ()
+        by_size: dict[float, list[float]] = {}
+        for size, area in finite:
+            by_size.setdefault(size, []).append(area)
+        unique = tuple(
+            (size, float(np.mean(areas))) for size, areas in sorted(by_size.items())
+        )
+        if len(unique) <= maximum_entries:
+            return unique
+        targets = np.linspace(unique[0][0], unique[-1][0], maximum_entries)
+        indices = tuple(
+            dict.fromkeys(
+                min(range(len(unique)), key=lambda index: abs(unique[index][0] - target))
+                for target in targets
+            )
+        )
+        return tuple(unique[index] for index in indices)
 
     def _draw_colorbar(
         self,
@@ -853,6 +964,7 @@ class MatplotlibRenderer:
             if mappable is None:
                 continue
             native = figure.colorbar(mappable, ax=axis, fraction=0.046, pad=0.04)
+            native.ax._plotagent_colorbar = True  # type: ignore[attr-defined]
             if native.solids is not None:
                 # Matplotlib rasterizes long color bars by default. Formal SVG
                 # must remain composed only of native vector elements.
@@ -861,6 +973,168 @@ class MatplotlibRenderer:
             if title:
                 native.set_label(title)
             return
+
+    def _apply_data_driven_layout(
+        self,
+        figure: Figure,
+        axes: Mapping[str, Axes],
+        resolved: ResolvedPlot,
+    ) -> None:
+        """Keep dynamic labels and auxiliary guides inside the fixed formal canvas."""
+
+        figure.canvas.draw()
+        renderer = _renderer(figure)
+        if resolved.plan.legend.placement == "inside":
+            for axis in axes.values():
+                legend = axis.get_legend()
+                if legend is not None and self._legend_overlaps_points(axis, legend, renderer):
+                    handles, labels = axis.get_legend_handles_labels()
+                    legend.remove()
+                    native = axis.legend(
+                        handles,
+                        labels,
+                        loc="upper left",
+                        bbox_to_anchor=(1.02, 1.0),
+                        frameon=False,
+                    )
+                    native._plotagent_outside_right = True  # type: ignore[attr-defined]
+
+        figure.canvas.draw()
+        self._reserve_outside_right_guides(figure, axes)
+        figure.canvas.draw()
+        self._fit_bottom_tick_labels(figure, axes)
+        figure.canvas.draw()
+        self._fit_colorbar_labels(figure)
+        figure.canvas.draw()
+
+    @staticmethod
+    def _legend_overlaps_points(axis: Axes, legend: Legend, renderer: Any) -> bool:
+        legend_box = legend.get_window_extent(renderer)
+        for collection in axis.collections:
+            offsets = np.asarray(collection.get_offsets())
+            if offsets.size == 0 or offsets.ndim != 2 or offsets.shape[1] != 2:
+                continue
+            display = collection.get_offset_transform().transform(offsets)
+            finite = np.isfinite(display).all(axis=1)
+            if np.any(
+                finite
+                & (display[:, 0] >= legend_box.x0)
+                & (display[:, 0] <= legend_box.x1)
+                & (display[:, 1] >= legend_box.y0)
+                & (display[:, 1] <= legend_box.y1)
+            ):
+                return True
+        return False
+
+    @staticmethod
+    def _reserve_outside_right_guides(figure: Figure, axes: Mapping[str, Axes]) -> None:
+        canvas_width = float(figure.bbox.width)
+        right_padding = 8.0
+        processed: set[tuple[float, float, float, float]] = set()
+        for axis in axes.values():
+            position = axis.get_position()
+            position_key = cast(
+                tuple[float, float, float, float],
+                tuple(round(float(value), 9) for value in position.bounds),
+            )
+            if position_key in processed:
+                continue
+            group = [
+                candidate
+                for candidate in axes.values()
+                if tuple(round(float(value), 9) for value in candidate.get_position().bounds)
+                == position_key
+            ]
+            processed.add(position_key)
+            legends = [
+                child
+                for candidate in group
+                for child in candidate.findobj(match=Legend)
+                if getattr(child, "_plotagent_outside_right", False)
+            ]
+            if not legends:
+                continue
+            for _attempt in range(3):
+                figure.canvas.draw()
+                renderer = _renderer(figure)
+                rightmost = max(
+                    float(item.get_window_extent(renderer).x1) for item in legends
+                )
+                overflow = rightmost + right_padding - canvas_width
+                if overflow <= 0.5:
+                    break
+                current_width = group[0].get_position().width
+                target_width = current_width - overflow / (canvas_width * 1.02)
+                if target_width <= 0:
+                    break
+                for candidate in group:
+                    current = candidate.get_position()
+                    candidate.set_position(
+                        (current.x0, current.y0, target_width, current.height)
+                    )
+
+    @staticmethod
+    def _fit_bottom_tick_labels(figure: Figure, axes: Mapping[str, Axes]) -> None:
+        renderer = _renderer(figure)
+        canvas_height = float(figure.bbox.height)
+        bottom_padding = 8.0
+        processed: set[tuple[float, float, float, float]] = set()
+        for axis in axes.values():
+            position = axis.get_position()
+            position_key = cast(
+                tuple[float, float, float, float],
+                tuple(round(float(value), 9) for value in position.bounds),
+            )
+            if position_key in processed:
+                continue
+            group = [
+                candidate
+                for candidate in axes.values()
+                if tuple(round(float(value), 9) for value in candidate.get_position().bounds)
+                == position_key
+            ]
+            processed.add(position_key)
+            labels: list[Artist] = [
+                label
+                for candidate in group
+                for label in (*candidate.get_xticklabels(), candidate.xaxis.label)
+                if label.get_visible() and getattr(label, "get_text", lambda: "")()
+            ]
+            if not labels:
+                continue
+            lowest = min(float(label.get_window_extent(renderer).y0) for label in labels)
+            required = max(0.0, bottom_padding - lowest) / canvas_height
+            if required <= 0 or required >= position.height:
+                continue
+            for candidate in group:
+                current = candidate.get_position()
+                candidate.set_position(
+                    (current.x0, current.y0 + required, current.width, current.height - required)
+                )
+
+    @staticmethod
+    def _fit_colorbar_labels(figure: Figure) -> None:
+        renderer = _renderer(figure)
+        canvas_width = float(figure.bbox.width)
+        right_padding = 8.0
+        for axis in figure.axes:
+            if not getattr(axis, "_plotagent_colorbar", False):
+                continue
+            labels: list[Artist] = [
+                label
+                for label in (*axis.get_yticklabels(), axis.yaxis.label)
+                if label.get_visible() and getattr(label, "get_text", lambda: "")()
+            ]
+            if not labels:
+                continue
+            rightmost = max(float(label.get_window_extent(renderer).x1) for label in labels)
+            overflow = max(0.0, rightmost + right_padding - canvas_width) / canvas_width
+            if overflow <= 0:
+                continue
+            position = axis.get_position()
+            axis.set_position(
+                (position.x0 - overflow, position.y0, position.width, position.height)
+            )
 
     def _apply_text_style(self, figure: Figure, resolved: ResolvedPlot) -> None:
         font = resolved.plan.fonts[0]
