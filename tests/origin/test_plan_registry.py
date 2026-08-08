@@ -17,7 +17,8 @@ from plotagent.origin.registry import (
     OriginAdapterNotFoundError,
     get_origin_adapter,
 )
-from tests.rendering.fixture_factory import resolve_chart
+from plotagent.rendering import PlotResolver
+from tests.rendering.fixture_factory import build_plot_and_store, resolve_chart
 
 EXPECTED_CHART_IDS = {
     *(f"K{index:02d}" for index in range(1, 23)),
@@ -120,6 +121,28 @@ def test_matrix_and_explicit_panel_plans_remain_native_structures() -> None:
     graph = k25.graph_objects[0]
     assert tuple(layer.panel_id for layer in graph.layers) == ("panel:a", "panel:b")
     assert len(graph.layers) == 2
+
+
+def test_supplied_survival_risk_table_has_native_panel_axes() -> None:
+    plot, store = build_plot_and_store("S01")
+    step = plot.series[0]
+    risk = step.model_copy(
+        update={
+            "series_id": "series:s01.risk",
+            "geometry": "risk_table",
+        }
+    )
+    resolved = PlotResolver().resolve(plot.model_copy(update={"series": (step, risk)}), store)
+
+    risk_axes = tuple(axis for axis in resolved.plan.axes if axis.panel_id == "panel:risk")
+    assert len(risk_axes) == 2
+    assert {axis.orientation for axis in risk_axes} == {"x", "y"}
+    plan = compile_origin_plan((resolved,), build_origin_export_spec((resolved,)))
+    risk_layer = next(
+        layer for layer in plan.graph_objects[0].layers if layer.panel_id == "panel:risk"
+    )
+    assert len(risk_layer.axes) == 2
+    assert risk_layer.plots
 
 
 def test_plan_rejects_hash_drift_unknown_fields_and_nonformal_input() -> None:

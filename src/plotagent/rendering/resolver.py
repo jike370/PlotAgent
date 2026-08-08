@@ -1720,6 +1720,42 @@ def _resolve_panel_axes(
     resolutions: dict[tuple[str, str], AxisResolution] = {}
     for panel_index, panel in enumerate(panels):
         if panel.panel_id == "panel:risk":
+            # A supplied risk table is a real second native panel, not a
+            # decoration on the survival axes.  Resolve its supplied time and
+            # risk-count values explicitly so every renderer receives the
+            # same target-neutral panel contract.  No survival statistic is
+            # calculated here.
+            panel_drafts = tuple(
+                draft for draft in drafts if draft.panel_id == panel.panel_id
+            )
+            risk_x_values = _axis_values(panel_drafts, "x")
+            risk_y_values = tuple(
+                value
+                for draft in panel_drafts
+                for value in draft.roles.get("risk_count", ())
+            )
+            suffix = f".p{panel_index}"
+            try:
+                x_resolved = resolve_axis(
+                    x_spec,
+                    x_scale,
+                    risk_x_values,
+                    panel_id=panel.panel_id,
+                    resolved_axis_id=f"{x_spec.axis_id}{suffix}",
+                )
+                y_resolved = resolve_axis(
+                    y_spec,
+                    y_scale,
+                    risk_y_values,
+                    panel_id=panel.panel_id,
+                    resolved_axis_id=f"{y_spec.axis_id}{suffix}",
+                    include_zero=True,
+                )
+            except ValueError as error:
+                raise PlotValidationError("AXIS_RESOLUTION_FAILED", str(error)) from error
+            axes.extend((x_resolved.axis, y_resolved.axis))
+            resolutions[(panel.panel_id, "x")] = x_resolved
+            resolutions[(panel.panel_id, "y")] = y_resolved
             continue
         panel_drafts = tuple(draft for draft in drafts if draft.panel_id == panel.panel_id)
         x_values = all_x if shared_x else _axis_values(panel_drafts, "x")
@@ -1973,12 +2009,8 @@ class PlotResolver:
         limit = THUMBNAIL_LIMIT if quality_tier == "thumbnail" else INTERACTIVE_LIMIT
         for layer_index, draft in enumerate(drafts):
             panel_id = draft.panel_id
-            if panel_id == "panel:risk":
-                x_resolution = axis_resolutions[("panel:main", "x")]
-                y_resolution = axis_resolutions[("panel:main", "y")]
-            else:
-                x_resolution = axis_resolutions[(panel_id, "x")]
-                y_resolution = axis_resolutions[(panel_id, "y")]
+            x_resolution = axis_resolutions[(panel_id, "x")]
+            y_resolution = axis_resolutions[(panel_id, "y")]
             full_table = _resolved_table(draft, x_resolution, y_resolution, layer_index)
             full_hashes.append(full_table.object_hash)
             total_rows += full_table.row_count
