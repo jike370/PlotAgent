@@ -89,7 +89,7 @@ class ProjectContextSnapshot(StrictModel):
     conversation_state: ConversationStateProjection
     known_objects: Annotated[tuple[ContextObjectRef, ...], Field(max_length=128)] = ()
     recent_result_objects: Annotated[tuple[ContextObjectRef, ...], Field(max_length=16)] = ()
-    field_bindings: Annotated[tuple[ContextFieldBinding, ...], Field(max_length=12)] = ()
+    field_bindings: Annotated[tuple[ContextFieldBinding, ...], Field(max_length=256)] = ()
     project_rule_ids: tuple[Token, ...] = ()
     saved_setting_refs: tuple[Token, ...] = ()
 

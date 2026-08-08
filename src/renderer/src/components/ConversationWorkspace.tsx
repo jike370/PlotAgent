@@ -58,6 +58,29 @@ export interface FigureView {
   previewUrl?: string
 }
 
+export interface ExportRecordView {
+  exportId: string
+  format: 'png' | 'svg' | 'opju'
+  targetKind: 'plot' | 'batch' | 'figure'
+  targetId: string
+  artifactHash?: string
+  artifactSize?: number
+}
+
+export interface AgentChangeSetView {
+  planId: string
+  state: string
+  items: {
+    taskItemId: string
+    actionType: string
+    state: string
+    attemptCount: number
+    beforeCount: number
+    afterCount: number
+    failure?: string
+  }[]
+}
+
 interface ConversationWorkspaceProps {
   core: CoreStatus
   project?: ProductProject
@@ -67,6 +90,8 @@ interface ConversationWorkspaceProps {
   plot?: ProductPlot
   batch?: BatchView
   figure?: FigureView
+  exportRecord?: ExportRecordView
+  changeSet?: AgentChangeSetView
   notice?: ProductNotice
   busyAction?: string
   agentOutcome?: AgentOutcome
@@ -514,6 +539,7 @@ function AgentPlanObject({
             <div>
               <strong>{step.title}</strong>
               {step.outputPlot && <p className="agent-plan-step__output">{step.outputPlot.plotId} · v{step.outputPlot.plotVersion}</p>}
+              {step.outputBatch && <p className="agent-plan-step__output">{step.outputBatch.batchId} · v{step.outputBatch.batchVersion}</p>}
               {step.failure && <p>{step.failure.message}</p>}
             </div>
             {step.attemptCount > 0 && <span className="agent-plan-step__attempt">{step.attemptCount} 次</span>}
@@ -533,7 +559,7 @@ function AgentPlanObject({
 }
 
 export function ConversationWorkspace(props: ConversationWorkspaceProps): React.JSX.Element {
-  const { project, datasets, activeDataset, selectedChart, plot, batch, figure, notice, busyAction } = props
+  const { project, datasets, activeDataset, selectedChart, plot, batch, figure, exportRecord, changeSet, notice, busyAction } = props
   const [manualMappingOpen, setManualMappingOpen] = useState(false)
   return (
     <main className="workspace-main" id="conversation-main">
@@ -557,8 +583,10 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
                 {manualMappingOpen && selectedChart && activeDataset && !plot && <MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} onConfirm={props.onConfirmMapping} />}
                 {plot && <PlotObject {...props} chart={selectedChart} />}
                 {props.agentPlan && <AgentPlanObject plan={props.agentPlan} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} />}
+                {changeSet && <section className="object-block product-result-strip" aria-label="更改记录"><ListChecks size={17} /><div><strong>ChangeSet · {changeSet.state}</strong><p>{changeSet.planId} · {changeSet.items.filter((item) => item.state === 'succeeded').length}/{changeSet.items.length} 项已提交</p></div></section>}
                 {batch && <section className="object-block product-result-strip"><Images size={17} /><div><strong>批次 {batch.batchId}</strong><p>{batch.items.length} 项 · 状态 {batch.state}</p></div><button type="button" onClick={props.onOpenBatchInspect}>检查批次</button><button type="button" onClick={() => props.onExport('opju', { kind: 'batch', id: batch.batchId, version: batch.version })}><Download size={14} />导出批次 OPJU</button></section>}
                 {figure && <section className="object-block product-result-strip"><PanelTop size={17} /><div><strong>组合图 {figure.figureId}</strong><p>固定版本 v{figure.version}</p></div><button type="button" onClick={props.onOpenCompose}>打开组合图</button><button type="button" onClick={() => props.onExport('opju', { kind: 'figure', id: figure.figureId, version: figure.version })}><Download size={14} />导出组合图 OPJU</button></section>}
+                {exportRecord && <section className="object-block product-result-strip" aria-label="导出记录"><Download size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出记录</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
               </>
             )}
           </div>

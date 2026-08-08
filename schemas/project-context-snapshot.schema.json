@@ -182,7 +182,7 @@
           "items": {
             "$ref": "#/$defs/ContextFieldBinding"
           },
-          "maxItems": 12,
+          "maxItems": 256,
           "title": "Field Bindings",
           "type": "array"
         },

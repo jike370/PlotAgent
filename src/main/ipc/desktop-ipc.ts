@@ -467,17 +467,14 @@ export function registerDesktopIpc({
     const input = parseBatchCreateInput(value)
     return input === null
       ? invalidDataArgument('批量绘图请求无效。')
-      : requestCoreData(supervisor, resources, 'batch.create', {
+      : requestCoreData(supervisor, resources, 'agent.plans.create_batch', {
         project_id: input.projectId,
-        task_id: `task:${randomUUID()}`,
-        batch_id: `batch:${randomUUID()}`,
         chart_type_id: input.chartId,
         source_datasets: input.datasets.map((item) => ({
           source_dataset_id: item.datasetId,
           source_version: item.sourceVersion,
         })),
         field_mapping: input.fieldMapping.roles,
-        idempotency_key: `batch-create:${randomUUID()}`,
         expected_version: input.expectedVersion,
       })
   })

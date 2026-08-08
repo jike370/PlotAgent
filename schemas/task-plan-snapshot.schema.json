@@ -41,7 +41,7 @@
               }
             ]
           },
-          "maxItems": 8,
+          "maxItems": 64,
           "minItems": 1,
           "title": "Actions",
           "type": "array"
@@ -2166,7 +2166,7 @@
           "items": {
             "$ref": "#/$defs/TaskItemSnapshot"
           },
-          "maxItems": 8,
+          "maxItems": 64,
           "minItems": 1,
           "title": "Items",
           "type": "array"

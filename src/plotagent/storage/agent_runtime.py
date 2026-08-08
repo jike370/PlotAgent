@@ -56,7 +56,7 @@ _ITEM_TRANSITIONS: dict[str, frozenset[str]] = {
     "committing": frozenset({"succeeded", "failed", "interrupted"}),
     "failed": frozenset({"ready", "stale", "cancelled"}),
     "interrupted": frozenset({"ready", "stale", "cancelled"}),
-    "blocked": frozenset({"ready", "stale", "skipped", "cancelled"}),
+    "blocked": frozenset({"pending", "ready", "stale", "skipped", "cancelled"}),
     "stale": frozenset({"cancelled"}),
     "skipped": frozenset(),
     "cancelled": frozenset(),

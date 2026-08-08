@@ -113,6 +113,7 @@ from plotagent.contracts.decisions import (
     CategoryColorIntent,
     ChartParametersIntent,
     ColorbarStyleIntent,
+    CreateBatchAction,
     CreatePlotAction,
     DualYAxisStyleIntent,
     FacetStyleIntent,
@@ -123,6 +124,7 @@ from plotagent.contracts.decisions import (
     PaletteIntent,
     PatchPlotAction,
     PlotTitleIntent,
+    SemanticFieldSelection,
     SeriesStyleIntent,
     UncertaintyStyleIntent,
     Unsupported,
@@ -135,6 +137,7 @@ from plotagent.contracts.plots import (
     AxisSpec,
     BatchExecutionSignature,
     BatchItemState,
+    BatchPlotOverride,
     BatchSpec,
     CalculatedSeriesData,
     CategoricalFamily,
@@ -420,6 +423,7 @@ class DesktopApplication:
             "provider.clear": self._provider_clear,
             "agent.context.get": self._agent_context_get,
             "agent.decide": self._agent_decide,
+            "agent.plans.create_batch": self._agent_batch_plan_create,
             "agent.plans.get": self._agent_plan_get,
             "agent.plans.list": self._agent_plan_list,
             "agent.plans.confirm": self._agent_plan_confirm,
@@ -1690,6 +1694,176 @@ class DesktopApplication:
             ),
         }
 
+    def _agent_batch_plan_create(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        """Build the manual batch path as the same persisted plan used by Agent turns."""
+
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "source_datasets",
+                "chart_type_id",
+                "field_mapping",
+                "expected_version",
+            },
+            optional={"conversation_id"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        expected = _integer(values["expected_version"], "expected_version", minimum=0)
+        session.domain.require_revision(expected)
+        chart_type_id = _text(values["chart_type_id"], "chart_type_id")
+        if chart_type_id not in PRODUCT_CHART_IDS or chart_type_id == "K25":
+            raise RpcServiceError("INVALID_PARAMS", "The selected chart is unavailable.")
+        field_mapping = _string_mapping(values["field_mapping"], "field_mapping")
+        if not field_mapping:
+            raise RpcServiceError("INVALID_PARAMS", "A confirmed field mapping is required.")
+        source_values = _list(values["source_datasets"], "source_datasets")
+        if not source_values or len(source_values) > 63:
+            raise RpcServiceError(
+                "INVALID_PARAMS",
+                "A batch plan requires between 1 and 63 source datasets.",
+            )
+        if len(source_values) * len(field_mapping) > 256:
+            raise RpcServiceError(
+                "INVALID_PARAMS",
+                "The batch field mapping exceeds the 256-binding plan limit.",
+            )
+        field_roles = tuple(sorted(field_mapping))
+        sources: list[SourceDataset] = []
+        for value in source_values:
+            source_ref = _object(
+                value,
+                required={"source_dataset_id", "source_version"},
+            )
+            sources.append(
+                session.domain.source_record(
+                    _text(source_ref["source_dataset_id"], "source_dataset_id"),
+                    _integer(source_ref["source_version"], "source_version", minimum=1),
+                )
+            )
+        source_keys = tuple(
+            (source.source_dataset_id, source.source_version) for source in sources
+        )
+        if len(set(source_keys)) != len(source_keys):
+            raise RpcServiceError(
+                "INVALID_PARAMS",
+                "A batch plan cannot contain the same dataset version twice.",
+            )
+
+        source_objects = tuple(
+            ContextObjectRef(
+                object_alias=f"dataset_{index}",
+                object_id=source.source_dataset_id,
+                object_version=source.source_version,
+                object_type="source_dataset",
+                content_hash=source.content_hash,
+            )
+            for index, source in enumerate(sources, start=1)
+        )
+        field_aliases = tuple(
+            f"d{index}_{role}"
+            for index in range(1, len(sources) + 1)
+            for role in field_roles
+        )
+        conversation_id = (
+            _optional_text(values.get("conversation_id"), "conversation_id")
+            or self._default_conversation_id(session.project_id)
+        )
+        persisted = session.agent_runtime.get_conversation_state(conversation_id)
+        if persisted is None:
+            conversation_state = ConversationState(
+                current_target=source_objects[0],
+                selected_objects=source_objects,
+                confirmed_field_aliases=field_aliases,
+            )
+            session.agent_runtime.save_conversation_state(
+                conversation_id,
+                conversation_state.project(),
+                expected_state_version=None,
+            )
+        else:
+            conversation_state = ConversationStateReducer().select_target(
+                ConversationState.from_projection(persisted),
+                source_objects[0],
+                selected_objects=source_objects,
+            )
+            conversation_state = ConversationStateReducer().confirm_fields(
+                conversation_state,
+                field_aliases,
+            )
+            session.agent_runtime.save_conversation_state(
+                conversation_id,
+                conversation_state.project(),
+                expected_state_version=persisted.state_version,
+            )
+
+        field_bindings = tuple(
+            ContextFieldBinding(
+                field_alias=f"d{index}_{role}",
+                field_id=field_mapping[role],
+                source_dataset_id=source.source_dataset_id,
+                source_version=source.source_version,
+            )
+            for index, source in enumerate(sources, start=1)
+            for role in field_roles
+        )
+        snapshot = ProjectContextService().build_snapshot(
+            project_id=session.project_id,
+            project_revision=expected,
+            conversation_id=conversation_id,
+            conversation_state=conversation_state.project(),
+            known_objects=source_objects,
+            field_bindings=field_bindings,
+        )
+        session.agent_runtime.save_context_snapshot(snapshot)
+
+        create_actions = tuple(
+            CreatePlotAction(
+                action_id=f"action:item_{index}",
+                target_alias=f"plot_{index}",
+                chart_type_id=cast(Any, chart_type_id),
+                field_selections=tuple(
+                    SemanticFieldSelection(
+                        role=role,
+                        context_field_alias=f"d{index}_{role}",
+                    )
+                    for role in field_roles
+                ),
+            )
+            for index in range(1, len(sources) + 1)
+        )
+        batch_action = CreateBatchAction(
+            action_id="action:batch",
+            depends_on=tuple(action.action_id for action in create_actions),
+            target_alias="batch_result",
+            chart_type_id=cast(Any, chart_type_id),
+            field_selections=create_actions[0].field_selections,
+        )
+        source_plan = ActionPlan(
+            plan_id=f"plan:{uuid.uuid4().hex}",
+            target_alias="batch_result",
+            actions=(*create_actions, batch_action),
+            confirmation="required",
+        )
+        compiled = TaskPlanCompiler().compile(source_plan, snapshot)
+        task_plan = compiled.model_copy(
+            update={
+                "items": tuple(
+                    item.model_copy(update={"expected_objects": (source_objects[index],)})
+                    if index < len(source_objects)
+                    else item
+                    for index, item in enumerate(compiled.items)
+                )
+            }
+        )
+        session.agent_runtime.create_plan(task_plan)
+        return {
+            "project_version": expected,
+            "task_plan": cast(RpcJsonValue, task_plan.model_dump(mode="json")),
+        }
+
     def _agent_plan_get(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(params, required={"project_id", "plan_id"})
         session = self._session(_text(values["project_id"], "project_id"))
@@ -2344,6 +2518,154 @@ class DesktopApplication:
                     output_kind="object",
                     object_ref=self._stored_plot_context_ref(action.target_alias, stored),
                     summary=f"创建 {action.chart_type_id} 图",
+                ),
+            )
+        if isinstance(action, CreateBatchAction):
+            dependency_ids = set(item.depends_on)
+            plot_refs = tuple(
+                output.object_ref
+                for dependency in plan.items
+                if dependency.task_item_id in dependency_ids
+                for output in dependency.outputs
+                if output.object_ref is not None and output.object_ref.object_type == "plot"
+            )
+            if not plot_refs:
+                raise TaskExecutionError(
+                    "BATCH_SCOPE_EMPTY",
+                    "The batch plan has no completed plot outputs.",
+                )
+            stored_plots = tuple(
+                session.domain.get_plot(plot_ref.object_id, plot_ref.object_version)
+                for plot_ref in plot_refs
+            )
+            if any(plot.plot.chart_type_id != action.chart_type_id for plot in stored_plots):
+                raise TaskExecutionError(
+                    "BATCH_SIGNATURE_MISMATCH",
+                    "Batch members do not share the selected chart type.",
+                )
+            signatures = tuple(
+                self._dataset_signature(
+                    session.domain.source_record(
+                        plot.field_mapping.source_dataset_refs[0].source_dataset_id,
+                        plot.field_mapping.source_dataset_refs[0].source_version,
+                    ),
+                    {
+                        binding.role: binding.field.field_id
+                        for binding in plot.field_mapping.bindings
+                    },
+                )
+                for plot in stored_plots
+            )
+            if any(signature != signatures[0] for signature in signatures[1:]):
+                raise TaskExecutionError(
+                    "BATCH_INPUT_NOT_ISOMORPHIC",
+                    "Batch inputs do not share one confirmed field signature.",
+                )
+            template = stored_plots[0]
+            field_mapping_ref = FieldMappingRef(
+                field_mapping_id=template.field_mapping.field_mapping_id,
+                mapping_version=template.field_mapping.mapping_version,
+                content_hash=template.field_mapping.content_hash,
+            )
+            preparation_ref = PreparationSpecRef(
+                preparation_spec_id=template.preparation_spec.preparation_spec_id,
+                preparation_version=template.preparation_spec.preparation_version,
+                content_hash=canonical_hash(template.preparation_spec),
+            )
+            plot_template_ref = PlotSpecRef(
+                plot_id=template.plot.plot_id,
+                plot_version=template.plot.plot_version,
+                content_hash=template.content_hash,
+            )
+            signature_payload: dict[str, JsonValue] = {
+                "dataset_signature": signatures[0].model_dump(mode="json"),
+                "field_mapping_hash": field_mapping_ref.content_hash,
+                "preparation_spec_hash": preparation_ref.content_hash,
+                "plot_calculation_spec_hash": None,
+                "chart_type_id": action.chart_type_id,
+                "plot_template_hash": plot_template_ref.content_hash,
+                "style_hash": canonical_hash(template.plot.resolved_style),
+            }
+            execution_signature = BatchExecutionSignature(
+                dataset_signature=signatures[0],
+                field_mapping_hash=field_mapping_ref.content_hash,
+                preparation_spec_hash=preparation_ref.content_hash,
+                plot_calculation_spec_hash=None,
+                chart_type_id=action.chart_type_id,
+                plot_template_hash=plot_template_ref.content_hash,
+                style_hash=canonical_hash(template.plot.resolved_style),
+                content_hash=canonical_hash(signature_payload),
+            )
+            batch_id = "batch:agent." + plan.plan_id.removeprefix("plan:")
+            batch = BatchSpec(
+                batch_id=batch_id,
+                batch_version=1,
+                dataset_signature=signatures[0],
+                execution_signature=execution_signature,
+                dataset_version_refs=tuple(
+                    plot.prepared_dataset.as_ref() for plot in stored_plots
+                ),
+                shared_field_mapping=field_mapping_ref,
+                shared_preparation=preparation_ref,
+                shared_plot_calculation=None,
+                plot_template_ref=plot_template_ref,
+                shared_style=template.plot.resolved_style,
+                axis_policy=action.axis_policy,
+                plot_overrides=tuple(
+                    BatchPlotOverride(
+                        item_id=f"item.{index}",
+                        prepared_dataset_ref=plot.prepared_dataset.as_ref(),
+                    )
+                    for index, plot in enumerate(stored_plots, start=1)
+                ),
+                item_states=tuple(
+                    BatchItemState(
+                        item_id=f"item.{index}",
+                        state="succeeded",
+                        plot_version_ref=PlotSpecRef(
+                            plot_id=plot.plot.plot_id,
+                            plot_version=plot.plot.plot_version,
+                            content_hash=plot.content_hash,
+                        ),
+                    )
+                    for index, plot in enumerate(stored_plots, start=1)
+                ),
+            )
+            request_hash = canonical_hash(batch)
+            replay = session.domain.replay(
+                "agent.batches.assemble",
+                item.idempotency_key,
+                request_hash,
+            )
+            if replay is None:
+                batch_response: dict[str, JsonValue] = {
+                    "batch_id": batch.batch_id,
+                    "batch_version": batch.batch_version,
+                    "project_version": session.domain.revision + 1,
+                    "batch": cast(JsonValue, batch.model_dump(mode="json")),
+                }
+                session.domain.save_batch(
+                    batch,
+                    "succeeded",
+                    expected_revision=session.domain.revision,
+                    operation="agent.batches.assemble",
+                    idempotency_key=item.idempotency_key,
+                    request_hash=request_hash,
+                    response=batch_response,
+                )
+            stored_batch, _state = session.domain.get_batch(batch_id)
+            return (
+                TaskOutputRef(
+                    output_slot="batch",
+                    output_kind="object",
+                    object_ref=ContextObjectRef(
+                        object_alias=action.target_alias,
+                        object_id=stored_batch.batch_id,
+                        object_version=stored_batch.batch_version,
+                        object_type="batch",
+                        content_hash=canonical_hash(stored_batch),
+                    ),
+                    summary=f"创建 {len(stored_plots)} 张图的批次",
                 ),
             )
         if isinstance(action, PatchPlotAction):

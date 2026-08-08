@@ -375,7 +375,7 @@ class ActionPlan(StrictModel):
         StringConstraints(pattern=r"^plan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
     ]
     target_alias: SemanticAlias
-    actions: Annotated[tuple[BusinessAction, ...], Field(min_length=1, max_length=8)]
+    actions: Annotated[tuple[BusinessAction, ...], Field(min_length=1, max_length=64)]
     warnings: tuple[PlanWarning, ...] = ()
     confirmation: Literal["not_required", "required"] = "not_required"
 

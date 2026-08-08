@@ -80,6 +80,44 @@ function agentDecisionWithPlan(plan: JsonValue): JsonValue {
   }
 }
 
+function batchPlanFixture(
+  state = 'needs_confirmation',
+  stepState = state === 'succeeded' ? 'succeeded' : 'pending',
+): JsonValue {
+  const action = {
+    action_type: 'create_batch',
+    action_id: 'action:batch',
+    target_alias: 'batch_result',
+    chart_type_id: 'K01',
+    field_selections: [
+      { role: 'x', context_field_alias: 'd1_x' },
+      { role: 'y', context_field_alias: 'd1_y' },
+    ],
+  }
+  return {
+    plan_id: 'plan:batch',
+    state,
+    confirmation_state: state === 'needs_confirmation' ? 'pending' : 'confirmed',
+    source_plan: {
+      schema_version: '1.0',
+      decision_type: 'action_plan',
+      plan_id: 'plan:batch',
+      target_alias: 'batch_result',
+      confirmation: 'required',
+      actions: [action],
+    },
+    items: [{
+      task_item_id: 'taskitem:batch',
+      action,
+      state: stepState,
+      attempt_count: stepState === 'pending' ? 0 : 1,
+      outputs: stepState === 'succeeded'
+        ? [{ object_ref: { object_type: 'batch', object_id: 'batch:one', object_version: 1 } }]
+        : [],
+    }],
+  }
+}
+
 let taskListener: ((event: TaskEvent) => void) | undefined
 
 function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDesktopApi {
@@ -112,9 +150,17 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     patchPlot: vi.fn(async () => ok({ project_version: 3, plot_id: 'plot:one', plot_version: 2, chart_type_id: 'K01' })),
     getPlot: vi.fn(async (input) => ok({ project_version: Math.max(2, input.plotVersion + 1), plot_id: input.plotId, plot_version: input.plotVersion, chart_type_id: 'K01' })),
     renderPlot: vi.fn(async (input) => ok({ plot_id: input.plotId, plot_version: input.plotVersion, artifact: { resource: { resourceId: 'resource:preview', kind: 'preview', url: 'plotagent-resource://local/00000000-0000-0000-0000-000000000001', mimeType: 'image/png' } } })),
-    createBatch: vi.fn(async () => ok({ task_id: 'task:batch', batch_id: 'batch:one', state: 'queued', project_version: 2 })),
+    createBatch: vi.fn(async () => ok({ task_plan: batchPlanFixture() })),
     runBatch: vi.fn(async () => ok({ task_id: 'task:batch', batch_id: 'batch:one', state: 'succeeded', project_version: 4, items: [{ item_id: 'item.1', state: 'succeeded' }] })),
-    getBatch: vi.fn(async () => ok({ batch_id: 'batch:one', state: 'succeeded' })),
+    getBatch: vi.fn(async () => ok({
+      project_version: 4,
+      state: 'succeeded',
+      batch: {
+        batch_id: 'batch:one',
+        batch_version: 1,
+        item_states: [{ item_id: 'item.1', state: 'succeeded' }],
+      },
+    })),
     createFigure: vi.fn(async () => ok({ project_version: 5, figure: { figure_id: 'figure:one', figure_version: 1 } })),
     getFigure: vi.fn(async () => ok({ figure: { figure_id: 'figure:one', figure_version: 1 } })),
     renderFigure: vi.fn(async () => ok({ figure_id: 'figure:one', figure_version: 1, artifact: { resource: { resourceId: 'resource:figure', kind: 'preview', url: 'plotagent-resource://local/00000000-0000-0000-0000-000000000002' } } })),
@@ -371,12 +417,20 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '导出 PNG' }))
     expect(api.exportPngSvg).toHaveBeenCalledWith({ projectId: 'project:sample', target: { kind: 'plot', id: 'plot:one', version: 1 }, format: 'png' })
     expect(await screen.findAllByText('已导出 PNG')).not.toHaveLength(0)
+    expect(screen.getByRole('region', { name: '导出记录' })).toHaveTextContent('PNG 导出记录')
+    expect(screen.getByRole('region', { name: '导出记录' })).toHaveTextContent('export:one')
     expect(document.body.textContent).not.toMatch(/[A-Za-z]:\\/)
   })
 
   it('reuses the confirmed mapping unchanged for a batch and exports the real batch target', async () => {
     const user = userEvent.setup()
-    const api = fakeDesktop()
+    const api = fakeDesktop({
+      confirmAgentPlan: vi.fn(async () => ok(batchPlanFixture('ready', 'ready'))),
+      runAgentPlan: vi.fn(async () => ok({
+        task_plan: batchPlanFixture('succeeded', 'succeeded'),
+        change_set: { plan_id: 'plan:batch', state: 'succeeded', items: [] },
+      })),
+    })
     installApi(api)
     render(<App />)
     await openSampleAndCreatePlot(user)
@@ -386,7 +440,11 @@ describe('PlotAgent real desktop workflow', () => {
       chartId: 'K01',
       fieldMapping: { roles: { x: 'field:time', y: 'field:signal' } },
     }))
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(api.runBatch).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: '确认并执行' }))
     expect(await screen.findByText(/批次 batch:one/)).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '更改记录' })).toHaveTextContent('ChangeSet · succeeded')
 
     await user.click(screen.getByRole('button', { name: /导出批次 OPJU/ }))
     expect(api.exportOrigin).toHaveBeenCalledWith({
@@ -398,11 +456,16 @@ describe('PlotAgent real desktop workflow', () => {
   it('generates a batch plan against the explicit target without mutating it', async () => {
     const user = userEvent.setup()
     const decideAgent = vi.fn(async () => ok(agentDecisionWithPlan(agentPlanFixture('needs_confirmation', 'pending', { planId: 'plan:batch' }))))
-    const api = fakeDesktop({ decideAgent })
+    const api = fakeDesktop({
+      decideAgent,
+      confirmAgentPlan: vi.fn(async () => ok(batchPlanFixture('ready', 'ready'))),
+      runAgentPlan: vi.fn(async () => ok({ task_plan: batchPlanFixture('succeeded', 'succeeded') })),
+    })
     installApi(api)
     render(<App />)
     await openSampleAndCreatePlot(user)
     await user.click(screen.getByRole('button', { name: /创建批次/ }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
     await screen.findByText(/批次 batch:one/)
 
     await user.click(screen.getByRole('button', { name: '整个批次' }))
@@ -416,7 +479,7 @@ describe('PlotAgent real desktop workflow', () => {
       executionMode: 'plan_only',
     }))
     expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
-    expect(api.runAgentPlan).not.toHaveBeenCalled()
+    expect(api.runAgentPlan).toHaveBeenCalledTimes(1)
     expect(api.renderPlot).toHaveBeenCalledTimes(1)
   })
 

@@ -122,7 +122,7 @@ def test_action_plan_limit_dependencies_and_unknown_fields() -> None:
                 {
                     **base,
                     "actions": [
-                        {**action, "action_id": f"action:item{index}"} for index in range(9)
+                        {**action, "action_id": f"action:item{index}"} for index in range(65)
                     ],
                 }
             )

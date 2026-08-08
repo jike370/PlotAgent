@@ -125,7 +125,15 @@ class PersistentTaskOrchestrator:
                 item.state == "failed" and item.failure is not None and item.failure.retryable
             ):
                 self.repository.transition_item(item.task_item_id, "ready")
-        return self.repository.get_plan(plan.plan_id)
+        refreshed = self.repository.get_plan(plan.plan_id)
+        states = {item.task_item_id: item.state for item in refreshed.items}
+        for item in refreshed.items:
+            if item.state == "blocked" and all(
+                states[dependency] in {"succeeded", "ready", "pending"}
+                for dependency in item.depends_on
+            ):
+                self.repository.transition_item(item.task_item_id, "pending")
+        return self.repository.refresh_plan(plan.plan_id)
 
     def _versions_match(self, item: TaskItemSnapshot) -> bool:
         for expected in item.expected_objects:

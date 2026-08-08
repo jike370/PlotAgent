@@ -140,6 +140,7 @@ export interface AgentPlanStep {
   attemptCount: number
   failure?: { code: string; message: string; retryable: boolean }
   outputPlot?: { plotId: string; plotVersion: number }
+  outputBatch?: { batchId: string; batchVersion: number }
 }
 
 export interface AgentPlanView {
@@ -597,15 +598,22 @@ export function readAgentPlan(value: JsonValue): AgentPlanView | undefined {
         retryable: item.failure.retryable === true,
       }
       : undefined
-    const output = Array.isArray(item.outputs)
+    const objectOutputs = Array.isArray(item.outputs)
       ? item.outputs.flatMap((candidate) => {
         if (!isJsonRecord(candidate) || !isJsonRecord(candidate.object_ref)) return []
-        const object = candidate.object_ref
-        return object.object_type === 'plot' && typeof object.object_id === 'string' && typeof object.object_version === 'number'
-          ? [{ plotId: object.object_id, plotVersion: object.object_version }]
-          : []
-      }).at(-1)
-      : undefined
+        return [candidate.object_ref]
+      })
+      : []
+    const output = objectOutputs.flatMap((object) => (
+      object.object_type === 'plot' && typeof object.object_id === 'string' && typeof object.object_version === 'number'
+        ? [{ plotId: object.object_id, plotVersion: object.object_version }]
+        : []
+    )).at(-1)
+    const outputBatch = objectOutputs.flatMap((object) => (
+      object.object_type === 'batch' && typeof object.object_id === 'string' && typeof object.object_version === 'number'
+        ? [{ batchId: object.object_id, batchVersion: object.object_version }]
+        : []
+    )).at(-1)
     return [{
       taskItemId: item.task_item_id,
       actionType: stringValue(item.action, 'action_type') ?? 'unknown',
@@ -614,6 +622,7 @@ export function readAgentPlan(value: JsonValue): AgentPlanView | undefined {
       attemptCount: numberValue(item, 'attempt_count') ?? 0,
       ...(failure === undefined ? {} : { failure }),
       ...(output === undefined ? {} : { outputPlot: output }),
+      ...(outputBatch === undefined ? {} : { outputBatch }),
     }]
   })
   const state = stringValue(plan, 'state') ?? 'draft'

@@ -125,7 +125,7 @@ class TaskPlanSnapshot(StrictModel):
     source_plan_hash: Sha256
     state: TaskPlanState
     confirmation_state: ConfirmationState
-    items: Annotated[tuple[TaskItemSnapshot, ...], Field(min_length=1, max_length=8)]
+    items: Annotated[tuple[TaskItemSnapshot, ...], Field(min_length=1, max_length=64)]
 
     @model_validator(mode="after")
     def plan_matches_source_and_dependencies(self) -> TaskPlanSnapshot:

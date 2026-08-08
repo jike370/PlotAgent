@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
+import pytest
+
+from plotagent.desktop_core.services import RpcServiceError
 from tests.desktop_core.test_application import (
     ApplicationHarness,
     FakeProvider,
@@ -249,6 +253,211 @@ def test_create_then_patch_plan_uses_predecessor_output_as_cross_step_target(
             "plot:agent.create-and-title.1"
         )
         assert provider.requests[-1].envelope.target_snapshot.object_version == 2
+    finally:
+        app.close()
+
+
+def test_manual_batch_uses_persisted_plan_and_assembles_authoritative_batch(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "planned-batch"
+    first = ApplicationHarness(root)
+    try:
+        project_id, revision = _create_open(first)
+        imported = _import(first, project_id, revision, "excel_two_sheets.xlsx", "plan-batch")
+        datasets = imported["datasets"]
+        described = first.call(
+            "datasets.describe",
+            {
+                "project_id": project_id,
+                "source_dataset_id": datasets[0]["source_dataset_id"],
+                "source_version": datasets[0]["source_version"],
+            },
+        )
+        numeric = [
+            field["field_id"]
+            for field in described["dataset"]["fields"]
+            if field["logical_type"] == "numeric"
+        ]
+        created = first.call(
+            "agent.plans.create_batch",
+            {
+                "project_id": project_id,
+                "source_datasets": [
+                    {
+                        "source_dataset_id": dataset["source_dataset_id"],
+                        "source_version": dataset["source_version"],
+                    }
+                    for dataset in datasets
+                ],
+                "chart_type_id": "K01",
+                "field_mapping": {"x": numeric[0], "y": numeric[1]},
+                "expected_version": imported["project_version"],
+            },
+        )
+        plan = created["task_plan"]
+        assert plan["state"] == "needs_confirmation"
+        assert [item["action"]["action_type"] for item in plan["items"]] == [
+            "create_plot",
+            "create_plot",
+            "create_batch",
+        ]
+        assert [item["expected_objects"][0]["object_id"] for item in plan["items"][:2]] == [
+            dataset["source_dataset_id"] for dataset in datasets
+        ]
+        plan_id = plan["plan_id"]
+        first.call(
+            "agent.plans.confirm",
+            {"project_id": project_id, "plan_id": plan_id, "accept": True},
+        )
+        executed = first.call(
+            "agent.plans.run",
+            {"project_id": project_id, "plan_id": plan_id},
+        )
+        assert executed["task_plan"]["state"] == "succeeded"
+        assert executed["completed_item_count"] == 3
+        assert [item["attempt_count"] for item in executed["task_plan"]["items"]] == [1, 1, 1]
+        batch_output = executed["task_plan"]["items"][-1]["outputs"][0]["object_ref"]
+        assert batch_output["object_type"] == "batch"
+        stored = first.call(
+            "batch.get",
+            {"project_id": project_id, "batch_id": batch_output["object_id"]},
+        )
+        assert [item["state"] for item in stored["batch"]["item_states"]] == [
+            "succeeded",
+            "succeeded",
+        ]
+        context = first.call("agent.context.get", {"project_id": project_id})
+        assert context["conversation_state"]["current_target"]["object_type"] == "batch"
+        project_version = stored["project_version"]
+        replayed = first.call(
+            "agent.plans.run",
+            {"project_id": project_id, "plan_id": plan_id},
+        )
+        assert replayed["task_plan"]["state"] == "succeeded"
+        assert first.call(
+            "batch.get",
+            {"project_id": project_id, "batch_id": batch_output["object_id"]},
+        )["project_version"] == project_version
+    finally:
+        first.close()
+
+    second = ApplicationHarness(root)
+    try:
+        second.call("projects.open", {"project_id": project_id})
+        restored = second.call(
+            "agent.plans.get",
+            {"project_id": project_id, "plan_id": plan_id},
+        )
+        assert restored["state"] == "succeeded"
+        stored = second.call(
+            "batch.get",
+            {"project_id": project_id, "batch_id": batch_output["object_id"]},
+        )
+        assert len(stored["batch"]["item_states"]) == 2
+    finally:
+        second.close()
+
+
+def test_manual_batch_resumes_only_transiently_failed_member(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = ApplicationHarness(tmp_path / "resumable-batch")
+    try:
+        project_id, revision = _create_open(app)
+        imported = _import(app, project_id, revision, "excel_two_sheets.xlsx", "resume-batch")
+        datasets = imported["datasets"]
+        described = app.call(
+            "datasets.describe",
+            {
+                "project_id": project_id,
+                "source_dataset_id": datasets[0]["source_dataset_id"],
+                "source_version": datasets[0]["source_version"],
+            },
+        )
+        numeric = [
+            field["field_id"]
+            for field in described["dataset"]["fields"]
+            if field["logical_type"] == "numeric"
+        ]
+        created = app.call(
+            "agent.plans.create_batch",
+            {
+                "project_id": project_id,
+                "source_datasets": [
+                    {
+                        "source_dataset_id": dataset["source_dataset_id"],
+                        "source_version": dataset["source_version"],
+                    }
+                    for dataset in datasets
+                ],
+                "chart_type_id": "K01",
+                "field_mapping": {"x": numeric[0], "y": numeric[1]},
+                "expected_version": imported["project_version"],
+            },
+        )
+        plan_id = created["task_plan"]["plan_id"]
+        app.call(
+            "agent.plans.confirm",
+            {"project_id": project_id, "plan_id": plan_id, "accept": True},
+        )
+        original = app.application._plots_create  # noqa: SLF001
+        failed_once = False
+
+        def flaky_create(
+            context: Any,
+            params: Any,
+            *,
+            provenance_origin: str = "manual",
+            plan_id: str | None = None,
+        ) -> Any:
+            nonlocal failed_once
+            second_item = isinstance(params, dict) and str(
+                params.get("plot_id", "")
+            ).endswith(".2")
+            if not failed_once and second_item:
+                failed_once = True
+                raise RpcServiceError(
+                    "WORKER_CAPACITY_EXHAUSTED",
+                    "The local worker is temporarily busy.",
+                )
+            return original(
+                context,
+                params,
+                provenance_origin=provenance_origin,  # type: ignore[arg-type]
+                plan_id=plan_id,
+            )
+
+        monkeypatch.setattr(app.application, "_plots_create", flaky_create)
+        partial = app.call(
+            "agent.plans.run",
+            {"project_id": project_id, "plan_id": plan_id},
+        )
+        assert partial["task_plan"]["state"] == "partial_success"
+        assert [item["state"] for item in partial["task_plan"]["items"]] == [
+            "succeeded",
+            "failed",
+            "blocked",
+        ]
+        assert partial["resumable"] is True
+
+        completed = app.call(
+            "agent.plans.resume",
+            {"project_id": project_id, "plan_id": plan_id},
+        )
+        assert completed["task_plan"]["state"] == "succeeded"
+        assert [item["attempt_count"] for item in completed["task_plan"]["items"]] == [
+            1,
+            2,
+            1,
+        ]
+        batch_output = completed["task_plan"]["items"][-1]["outputs"][0]["object_ref"]
+        stored = app.call(
+            "batch.get",
+            {"project_id": project_id, "batch_id": batch_output["object_id"]},
+        )
+        assert len(stored["batch"]["item_states"]) == 2
     finally:
         app.close()
 

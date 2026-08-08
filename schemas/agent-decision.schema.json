@@ -41,7 +41,7 @@
               }
             ]
           },
-          "maxItems": 8,
+          "maxItems": 64,
           "minItems": 1,
           "title": "Actions",
           "type": "array"

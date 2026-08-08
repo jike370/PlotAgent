@@ -126,6 +126,35 @@ def test_partial_success_resumes_only_retryable_unfinished_items(tmp_path) -> No
         assert [item.attempt_count for item in completed.items] == [1, 2, 1]
 
 
+def test_resume_releases_dependents_blocked_only_by_retryable_failure(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    with ProjectStore.create(tmp_path / "project") as project:
+        repository = AgentRuntimeRepository(project)
+        runtime = _create_runtime(
+            repository,
+            action_ids=("action:first", "action:second", "action:third", "action:fourth"),
+        )
+        executor = Executor(fail_once={"action:second"})
+        orchestrator = PersistentTaskOrchestrator(repository, Authority(None))
+
+        partial = orchestrator.run(runtime.plan_id, executor)
+
+        assert partial.state == "partial_success"
+        assert [item.state for item in partial.items] == [
+            "succeeded",
+            "failed",
+            "succeeded",
+            "blocked",
+        ]
+
+        completed = orchestrator.run(runtime.plan_id, executor, resume=True)
+
+        assert completed.state == "succeeded"
+        assert executor.calls.count("action:first") == 1
+        assert executor.calls.count("action:second") == 2
+        assert executor.calls.count("action:third") == 1
+        assert executor.calls.count("action:fourth") == 1
+
+
 def test_stale_object_version_stops_before_executor_side_effect(tmp_path) -> None:  # type: ignore[no-untyped-def]
     with ProjectStore.create(tmp_path / "project") as project:
         repository = AgentRuntimeRepository(project)

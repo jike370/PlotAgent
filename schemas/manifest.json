@@ -2,7 +2,7 @@
   "files": [
     {
       "path": "schemas/agent-decision.schema.json",
-      "sha256": "09919498fb9a7121a74f68b44f019ef9b7e411a87b8ca3a4ecd849ec97faa852"
+      "sha256": "19fee51c8f2863fa0dd367673f8a64f1989cdb7775d621603613a07e30bbc3eb"
     },
     {
       "path": "schemas/batch-spec.schema.json",
@@ -18,7 +18,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "b2df836c85f10c85497457a2ca19a9d1716e5914fff94b6d29a3be78e8451e1d"
+      "sha256": "555965978f6106f19ded22dc837993feccc5c9489f588d97bb5b8e0225fb182e"
     },
     {
       "path": "schemas/error-registry.json",
@@ -78,7 +78,7 @@
     },
     {
       "path": "schemas/project-context-snapshot.schema.json",
-      "sha256": "a5ede52675c54410827a07865b0165e9c424524ff92382d93407e463f0c5522b"
+      "sha256": "a77c1e8981b31e23b25cfc0d1cff8b65cf6ef929bcd3535aab2ac07c35a48b41"
     },
     {
       "path": "schemas/resolved-render-plan.schema.json",
@@ -90,7 +90,7 @@
     },
     {
       "path": "schemas/task-plan-snapshot.schema.json",
-      "sha256": "4276640a2410a953839ab528d5cab88779c5d185d9ac919d729a7a5eeed643f0"
+      "sha256": "7d6155bfe0dd9d650fd2fc8db9ca64919727798ef1fdcdbf95544f54f1273be4"
     },
     {
       "path": "src/shared/generated/contracts.ts",
