@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   CORE_PROTOCOL_VERSION,
+  parseAgentContextInput,
   parseAgentDecideInput,
+  parseAgentPlanConfirmInput,
+  parseAgentPlanInput,
   parseCloseResponse,
   parseCoreProtocolMessage,
   parseCustomProviderConfigureInput,
@@ -91,10 +94,38 @@ describe('desktop contract validation', () => {
       sourceDatasetId: 'source:one',
       sourceVersion: 1,
       expectedVersion: 2,
+      executionMode: 'plan_only',
       target: { kind: 'plot', id: 'plot:one' },
       scope: 'current',
       utterance: 'Y axis 改成 log10，图例放到左上角',
     })).not.toBeNull()
+    expect(parseAgentDecideInput({
+      projectId: 'project:one',
+      sourceDatasetId: 'source:one',
+      sourceVersion: 1,
+      expectedVersion: 2,
+      selectedChartId: 'K02',
+      executionMode: 'plan_only',
+      scope: 'current',
+      utterance: '以时间为 X、信号为 Y 绘制线点图',
+    })).toMatchObject({ selectedChartId: 'K02', executionMode: 'plan_only' })
+    expect(parseAgentDecideInput({
+      projectId: 'project:one',
+      sourceDatasetId: 'source:one',
+      sourceVersion: 1,
+      expectedVersion: 2,
+      executionMode: 'plan_only',
+      scope: 'batch',
+      utterance: '修改上一批',
+    })).toBeNull()
+    expect(parseAgentContextInput({ projectId: 'project:one', conversationId: 'conversation:one' }))
+      .toEqual({ projectId: 'project:one', conversationId: 'conversation:one' })
+    expect(parseAgentPlanInput({ projectId: 'project:one', planId: 'plan:one' }))
+      .toEqual({ projectId: 'project:one', planId: 'plan:one' })
+    expect(parseAgentPlanConfirmInput({ projectId: 'project:one', planId: 'plan:one', accept: true }))
+      .toEqual({ projectId: 'project:one', planId: 'plan:one', accept: true })
+    expect(parseAgentPlanConfirmInput({ projectId: 'project:one', planId: 'plan:one', accept: 'yes' }))
+      .toBeNull()
   })
 
   it('accepts HTTPS and loopback HTTP custom-provider configuration', () => {

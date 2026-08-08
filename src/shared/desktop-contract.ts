@@ -8,7 +8,14 @@ export type JsonPrimitive = boolean | number | string | null
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
 
 export const IPC_CHANNELS = {
+  agentContextGet: 'plotagent:agent:context-get',
   agentDecide: 'plotagent:agent:decide',
+  agentPlanConfirm: 'plotagent:agent:plan-confirm',
+  agentPlanEvents: 'plotagent:agent:plan-events',
+  agentPlanGet: 'plotagent:agent:plan-get',
+  agentPlanList: 'plotagent:agent:plan-list',
+  agentPlanResume: 'plotagent:agent:plan-resume',
+  agentPlanRun: 'plotagent:agent:plan-run',
   batchCreate: 'plotagent:batch:create',
   batchGet: 'plotagent:batch:get',
   batchRun: 'plotagent:batch:run',
@@ -253,12 +260,27 @@ export interface AgentDecideInput extends ProjectIdInput {
   readonly sourceDatasetId: string
   readonly sourceVersion: number
   readonly expectedVersion: number
-  readonly target: {
+  readonly conversationId?: string
+  readonly selectedChartId?: string
+  readonly executionMode: 'plan_only' | 'execute'
+  readonly target?: {
     readonly kind: 'plot' | 'batch' | 'figure'
     readonly id: string
   }
   readonly scope: 'current' | 'selected' | 'batch' | 'figure'
   readonly utterance: string
+}
+
+export interface AgentContextInput extends ProjectIdInput {
+  readonly conversationId?: string
+}
+
+export interface AgentPlanInput extends ProjectIdInput {
+  readonly planId: string
+}
+
+export interface AgentPlanConfirmInput extends AgentPlanInput {
+  readonly accept: boolean
 }
 
 export interface PngSvgExportInput extends ProjectIdInput {
@@ -326,6 +348,13 @@ export interface PlotAgentDesktopApi {
   getFigure(input: FigureIdInput): Promise<DesktopDataResult>
   renderFigure(input: FigureIdInput): Promise<DesktopDataResult>
   decideAgent(input: AgentDecideInput): Promise<DesktopDataResult>
+  getAgentContext(input: AgentContextInput): Promise<DesktopDataResult>
+  getAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
+  listAgentPlans(input: AgentContextInput): Promise<DesktopDataResult>
+  confirmAgentPlan(input: AgentPlanConfirmInput): Promise<DesktopDataResult>
+  runAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
+  resumeAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
+  getAgentPlanEvents(input: AgentPlanInput): Promise<DesktopDataResult>
   exportPngSvg(input: PngSvgExportInput): Promise<DesktopDataResult>
   exportOrigin(input: OriginExportInput): Promise<DesktopDataResult>
   respondToCloseRequest(response: CloseResponse): Promise<DesktopActionResult>
@@ -474,7 +503,7 @@ function parseMapping(value: unknown): FieldMappingInput | null {
   return { roles: Object.fromEntries(entries) as Record<string, string> }
 }
 
-function parseTarget(value: unknown): AgentDecideInput['target'] | null {
+function parseTarget(value: unknown): NonNullable<AgentDecideInput['target']> | null {
   if (!isRecord(value) || !hasExactKeys(value, ['kind', 'id'])) return null
   if (value.kind !== 'plot' && value.kind !== 'batch' && value.kind !== 'figure') return null
   const id = parseId(value.id)
@@ -650,26 +679,63 @@ export function parseFigureIdInput(value: unknown): FigureIdInput | null {
 }
 
 export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {
-  const parsed = parseProjectIdRecord(value, ['sourceDatasetId', 'sourceVersion', 'expectedVersion', 'target', 'scope', 'utterance'])
-  if (parsed === null) return null
-  const target = parseTarget(parsed.target)
+  if (!isRecord(value) || !hasExactKeys(
+    value,
+    ['projectId', 'sourceDatasetId', 'sourceVersion', 'expectedVersion', 'scope', 'utterance', 'executionMode'],
+    ['conversationId', 'selectedChartId', 'target'],
+  )) return null
+  const parsed = value
+  const projectId = parseId(parsed.projectId)
+  const target = parsed.target === undefined ? undefined : parseTarget(parsed.target)
   const sourceDatasetId = parseId(parsed.sourceDatasetId)
   const sourceVersion = parseVersion(parsed.sourceVersion, 1)
   const expectedVersion = parseVersion(parsed.expectedVersion)
   const scopes = new Set(['current', 'selected', 'batch', 'figure'])
-  if (target === null || sourceDatasetId === null || sourceVersion === null || expectedVersion === null || typeof parsed.scope !== 'string' || !scopes.has(parsed.scope)) return null
+  if (projectId === null || target === null || sourceDatasetId === null || sourceVersion === null || expectedVersion === null || typeof parsed.scope !== 'string' || !scopes.has(parsed.scope)) return null
+  if (target === undefined && parsed.scope !== 'current' && parsed.scope !== 'selected') return null
+  if (parsed.executionMode !== 'plan_only' && parsed.executionMode !== 'execute') return null
+  const conversationId = parsed.conversationId === undefined ? undefined : parseId(parsed.conversationId)
+  if (parsed.conversationId !== undefined && conversationId === null) return null
+  const selectedChartId = parsed.selectedChartId === undefined ? undefined : parsed.selectedChartId
+  if (selectedChartId !== undefined && (typeof selectedChartId !== 'string' || !CHART_IDS.has(selectedChartId))) return null
   if (typeof parsed.utterance !== 'string') return null
   const utterance = parsed.utterance.trim()
   if (utterance.length === 0 || utterance.length > 4_000 || utterance.includes('\0')) return null
   return {
-    projectId: parsed.projectId as string,
+    projectId,
     sourceDatasetId,
     sourceVersion,
     expectedVersion,
-    target,
+    ...(typeof conversationId === 'string' ? { conversationId } : {}),
+    ...(selectedChartId === undefined ? {} : { selectedChartId }),
+    executionMode: parsed.executionMode,
+    ...(target === undefined ? {} : { target }),
     scope: parsed.scope as AgentDecideInput['scope'],
     utterance,
   }
+}
+
+export function parseAgentContextInput(value: unknown): AgentContextInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['projectId'], ['conversationId'])) return null
+  const projectId = parseId(value.projectId)
+  const conversationId = value.conversationId === undefined ? undefined : parseId(value.conversationId)
+  if (projectId === null || (value.conversationId !== undefined && conversationId === null)) return null
+  return { projectId, ...(typeof conversationId === 'string' ? { conversationId } : {}) }
+}
+
+export function parseAgentPlanInput(value: unknown): AgentPlanInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'planId'])) return null
+  const projectId = parseId(value.projectId)
+  const planId = parseId(value.planId)
+  return projectId === null || planId === null ? null : { projectId, planId }
+}
+
+export function parseAgentPlanConfirmInput(value: unknown): AgentPlanConfirmInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'planId', 'accept'])) return null
+  const parsed = parseAgentPlanInput({ projectId: value.projectId, planId: value.planId })
+  return parsed === null || typeof value.accept !== 'boolean'
+    ? null
+    : { ...parsed, accept: value.accept }
 }
 
 export function parsePngSvgExportInput(value: unknown): PngSvgExportInput | null {

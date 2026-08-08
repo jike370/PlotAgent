@@ -36,7 +36,8 @@ def test_plan_only_persists_context_and_confirmation_across_restart(tmp_path: Pa
         }
     )
     root = tmp_path / "persistent-agent"
-    first = ApplicationHarness(root, FakeProvider(responses=[response]))
+    provider = FakeProvider(responses=[response])
+    first = ApplicationHarness(root, provider)
     try:
         project_id, revision = _create_open(first)
         imported = _import(first, project_id, revision, "excel_two_sheets.xlsx", "persistent")
@@ -76,6 +77,7 @@ def test_plan_only_persists_context_and_confirmation_across_restart(tmp_path: Pa
                 "user_instruction": "把标题改成 Planned title",
                 "client_model_run_id": "model-run:persistent",
                 "expected_version": created["project_version"],
+                "selected_chart_id": "K01",
                 "target": {"kind": "plot", "id": "plot:persistent"},
                 "scope": "current",
                 "execution_mode": "plan_only",
@@ -86,6 +88,9 @@ def test_plan_only_persists_context_and_confirmation_across_restart(tmp_path: Pa
         )
         assert planned["task_plan"]["state"] == "needs_confirmation"
         assert "execution" not in planned
+        assert provider.requests[0].envelope.chart_capabilities.allowed_chart_type_ids == (
+            "K01",
+        )
         context = first.call("agent.context.get", {"project_id": project_id})
         assert context["conversation_state"]["current_target"]["object_id"] == ("plot:persistent")
         unchanged = first.call(

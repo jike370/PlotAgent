@@ -124,12 +124,40 @@ export interface ProductPlot {
   preview?: DesktopResource
 }
 
-export type AgentOutcomeKind = 'action_plan' | 'needs_input' | 'unsupported' | 'rejected'
+export type AgentOutcomeKind = 'action_plan' | 'needs_input' | 'unsupported' | 'no_change' | 'rejected'
+
+export interface AgentQuestion {
+  questionKey: string
+  prompt: string
+  choices: { value: string; label: string }[]
+}
+
+export interface AgentPlanStep {
+  taskItemId: string
+  actionType: string
+  title: string
+  state: string
+  attemptCount: number
+  failure?: { code: string; message: string; retryable: boolean }
+  outputPlot?: { plotId: string; plotVersion: number }
+}
+
+export interface AgentPlanView {
+  planId: string
+  state: string
+  confirmationState: string
+  warnings: string[]
+  steps: AgentPlanStep[]
+  completedCount: number
+  resumable: boolean
+}
 
 export interface AgentOutcome {
   kind: AgentOutcomeKind
   title: string
   message: string
+  questions?: AgentQuestion[]
+  plan?: AgentPlanView
   execution?: ProductPlot
   executionCount?: number
   scopeExecution?: AgentScopeExecution
@@ -494,20 +522,121 @@ export function readAgentOutcome(value: JsonValue): AgentOutcome {
     const explicitExecution = root !== undefined && isJsonRecord(root.execution) ? readPlot(root.execution) : undefined
     const executionCount = executions.length > 0 ? executions.length : explicitExecution === undefined ? 0 : 1
     const scopeExecution = readScopeExecution(value)
+    const plan = readAgentPlan(value)
     return {
       kind: 'action_plan',
-      title: '修改已通过本地校验',
+      title: executionCount > 0 ? '任务已执行' : '计划已生成',
       message: executionCount > 1
-        ? `ActionPlan 已在本机执行，共创建 ${executionCount} 个可追溯版本。当前作用对象保持不变。`
-        : 'ActionPlan 已在本机执行并创建可追溯版本。',
+        ? `已完成 ${executionCount} 个可追溯图形版本。`
+        : executionCount === 1
+          ? '已创建可追溯图形版本。'
+          : '检查任务与作用对象后执行。',
+      ...(plan === undefined ? {} : { plan }),
       ...(explicitExecution === undefined ? {} : { execution: explicitExecution }),
       ...(scopeExecution === undefined ? {} : { scopeExecution }),
       executionCount,
     }
   }
-  if (decisionType === 'needs_input') return { kind: 'needs_input', title: '需要补充信息', message: decisionMessage(decision) }
+  if (decisionType === 'needs_input') {
+    const questions = Array.isArray(decision.questions)
+      ? decision.questions.flatMap((question): AgentQuestion[] => {
+        if (!isJsonRecord(question) || typeof question.question_key !== 'string' || typeof question.prompt !== 'string') return []
+        const choices = Array.isArray(question.choices)
+          ? question.choices.flatMap((choice) => isJsonRecord(choice) && typeof choice.value === 'string' && typeof choice.label === 'string'
+            ? [{ value: choice.value, label: choice.label }]
+            : [])
+          : []
+        return [{ questionKey: question.question_key, prompt: question.prompt, choices }]
+      })
+      : []
+    return { kind: 'needs_input', title: '需要补充信息', message: decisionMessage(decision), questions }
+  }
   if (decisionType === 'unsupported') return { kind: 'unsupported', title: '当前不支持', message: decisionMessage(decision) }
+  if (decisionType === 'no_change') return { kind: 'no_change', title: '无需修改', message: decisionMessage(decision) }
   return { kind: 'rejected', title: '结果已拒绝', message: decisionMessage(decision) }
+}
+
+function actionTitle(action: JsonRecord): string {
+  const actionType = stringValue(action, 'action_type') ?? 'unknown'
+  if (actionType === 'create_plot') {
+    const chart = stringValue(action, 'chart_type_id')
+    return chart === undefined ? '创建图形' : `绘制 ${chart}`
+  }
+  if (actionType === 'patch_plot') {
+    const patches = Array.isArray(action.patches) ? action.patches.filter(isJsonRecord) : []
+    const operations = patches.flatMap((patch) => typeof patch.operation === 'string' ? [patch.operation] : [])
+    const labels: Record<string, string> = {
+      set_plot_title: '修改标题', set_axis_range: '调整坐标范围', set_axis_scale: '修改坐标尺度',
+      set_axis_label: '修改坐标标题', set_series_style: '修改系列样式', set_palette: '修改色板',
+      set_legend_visibility: '修改图例', move_legend: '移动图例', add_annotation: '添加标注',
+    }
+    return operations.length === 0 ? '修改图形' : operations.map((item) => labels[item] ?? '修改图形').join('、')
+  }
+  const labels: Record<string, string> = {
+    create_batch: '创建批量绘图', patch_batch: '修改绘图批次', create_figure: '创建组合图',
+    patch_figure: '修改组合图', export_artifact: '导出结果',
+  }
+  return labels[actionType] ?? '执行任务'
+}
+
+export function readAgentPlan(value: JsonValue): AgentPlanView | undefined {
+  const plan = records(value, (record) => (
+    typeof record.plan_id === 'string' && Array.isArray(record.items) && isJsonRecord(record.source_plan)
+  )).at(0)
+  if (plan === undefined) return undefined
+  const source = plan.source_plan as JsonRecord
+  const warnings = Array.isArray(source.warnings)
+    ? source.warnings.flatMap((warning) => isJsonRecord(warning) && typeof warning.message === 'string' ? [warning.message] : [])
+    : []
+  const steps = (plan.items as JsonValue[]).flatMap((item): AgentPlanStep[] => {
+    if (!isJsonRecord(item) || typeof item.task_item_id !== 'string' || !isJsonRecord(item.action)) return []
+    const failure = isJsonRecord(item.failure) && typeof item.failure.code === 'string' && typeof item.failure.message === 'string'
+      ? {
+        code: item.failure.code,
+        message: item.failure.message,
+        retryable: item.failure.retryable === true,
+      }
+      : undefined
+    const output = Array.isArray(item.outputs)
+      ? item.outputs.flatMap((candidate) => {
+        if (!isJsonRecord(candidate) || !isJsonRecord(candidate.object_ref)) return []
+        const object = candidate.object_ref
+        return object.object_type === 'plot' && typeof object.object_id === 'string' && typeof object.object_version === 'number'
+          ? [{ plotId: object.object_id, plotVersion: object.object_version }]
+          : []
+      }).at(-1)
+      : undefined
+    return [{
+      taskItemId: item.task_item_id,
+      actionType: stringValue(item.action, 'action_type') ?? 'unknown',
+      title: actionTitle(item.action),
+      state: stringValue(item, 'state') ?? 'pending',
+      attemptCount: numberValue(item, 'attempt_count') ?? 0,
+      ...(failure === undefined ? {} : { failure }),
+      ...(output === undefined ? {} : { outputPlot: output }),
+    }]
+  })
+  const state = stringValue(plan, 'state') ?? 'draft'
+  return {
+    planId: plan.plan_id as string,
+    state,
+    confirmationState: stringValue(plan, 'confirmation_state') ?? 'not_required',
+    warnings,
+    steps,
+    completedCount: steps.filter((step) => ['succeeded', 'skipped'].includes(step.state)).length,
+    resumable: ['partial_success', 'failed', 'interrupted'].includes(state),
+  }
+}
+
+export function readAgentPlans(value: JsonValue): AgentPlanView[] {
+  if (isJsonRecord(value) && Array.isArray(value.plans)) {
+    return value.plans.flatMap((plan) => {
+      const parsed = readAgentPlan(plan)
+      return parsed === undefined ? [] : [parsed]
+    })
+  }
+  const plan = readAgentPlan(value)
+  return plan === undefined ? [] : [plan]
 }
 
 export function projectVersionFrom(value: JsonValue, fallback: number): number {

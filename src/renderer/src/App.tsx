@@ -14,6 +14,8 @@ import {
   isJsonRecord,
   projectVersionFrom,
   readAgentOutcome,
+  readAgentPlan,
+  readAgentPlans,
   readDatasets,
   readPlot,
   readProject,
@@ -22,6 +24,7 @@ import {
   resultMessage,
   withPreview,
   type AgentOutcome,
+  type AgentPlanView,
   type ProductDataset,
   type ProductPlot,
   type ProductProject,
@@ -168,6 +171,7 @@ export function App(): React.JSX.Element {
   const [figure, setFigure] = useState<FigureView>()
   const [notice, setNotice] = useState<ProductNotice>()
   const [agentOutcome, setAgentOutcome] = useState<AgentOutcome>()
+  const [agentPlan, setAgentPlan] = useState<AgentPlanView>()
   const [agentConfigured, setAgentConfigured] = useState(false)
   const [providerOpen, setProviderOpen] = useState(false)
   const [providerNotice, setProviderNotice] = useState<ProductNotice>()
@@ -186,6 +190,18 @@ export function App(): React.JSX.Element {
 
   const activeDataset = datasets.find((dataset) => dataset.datasetId === activeDatasetId) ?? datasets[0]
   const taskCount = Object.values(taskEvents).filter((event) => !['succeeded', 'failed', 'cancelled', 'partially_succeeded', 'interrupted'].includes(event.state)).length
+  const activeProjectId = project?.projectId
+
+  useEffect(() => {
+    if (!api || !activeProjectId) return
+    let active = true
+    void api.listAgentPlans({ projectId: activeProjectId }).then((result) => {
+      if (!active || !result.ok) return
+      const plans = readAgentPlans(result.value)
+      setAgentPlan(plans.at(-1))
+    })
+    return () => { active = false }
+  }, [api, activeProjectId])
 
   const mergeProjects = useCallback((nextProjects: ProductProject[]) => {
     setProjects((current) => {
@@ -227,6 +243,7 @@ export function App(): React.JSX.Element {
     setBatch(undefined)
     setFigure(undefined)
     setAgentOutcome(undefined)
+    setAgentPlan(undefined)
     setScreen('workspace')
   }, [])
 
@@ -458,15 +475,15 @@ export function App(): React.JSX.Element {
   }
 
   const runAgent = async (instruction: string, scope: ScopeMode): Promise<void> => {
-    if (!api || !project || !activeDataset || !plot) return
+    if (!api || !project || !activeDataset || !selectedChart) return
     setBusyAction('agent'); setAgentOutcome(undefined)
     try {
       const target = scope === 'batch'
         ? batch ? { kind: 'batch' as const, id: batch.batchId } : undefined
         : scope === 'figure'
           ? figure ? { kind: 'figure' as const, id: figure.figureId } : undefined
-          : { kind: 'plot' as const, id: plot.plotId }
-      if (!target) {
+          : plot ? { kind: 'plot' as const, id: plot.plotId } : undefined
+      if ((scope === 'batch' || scope === 'figure') && !target) {
         setAgentOutcome({ kind: 'rejected', title: '作用对象不可用', message: scope === 'batch' ? '请先创建并运行一个批次。' : '请先创建组合图。' })
         return
       }
@@ -475,40 +492,87 @@ export function App(): React.JSX.Element {
         sourceDatasetId: activeDataset.datasetId,
         sourceVersion: activeDataset.sourceVersion,
         expectedVersion: project.projectVersion,
-        target,
+        selectedChartId: selectedChart.id,
+        executionMode: 'plan_only',
+        ...(target === undefined ? {} : { target }),
         scope,
         utterance: instruction,
       }))
       const outcome = readAgentOutcome(value)
-      if (previewMode && outcome.kind === 'action_plan') {
-        outcome.title = '预览修改已应用'
-        outcome.message = '已创建内存图形版本，用于检查自然语言改图后的界面状态。'
-      }
-      if (outcome.execution) {
-        const rendered = valueOrThrow(await api.renderPlot({ projectId: project.projectId, plotId: outcome.execution.plotId, plotVersion: outcome.execution.plotVersion, mode: 'preview' }))
-        const executed = withPreview(outcome.execution, rendered)
-        outcome.execution = executed
-        setPlot(executed); setPlotHistory((current) => [...current, executed])
-      } else if (outcome.scopeExecution?.kind === 'batch' && batch?.batchId === outcome.scopeExecution.id) {
-        setBatch({
-          ...batch,
-          version: outcome.scopeExecution.version,
-          items: outcome.scopeExecution.batchItems.length > 0 ? outcome.scopeExecution.batchItems : batch.items,
-        })
-      } else if (outcome.scopeExecution?.kind === 'figure' && figure?.figureId === outcome.scopeExecution.id) {
-        let updatedFigure: FigureView = { ...figure, version: outcome.scopeExecution.version }
-        try {
-          const rendered = valueOrThrow(await api.renderFigure({ projectId: project.projectId, figureId: figure.figureId }))
-          updatedFigure = { ...updatedFigure, ...readFigure(rendered), version: outcome.scopeExecution.version }
-        } catch {
-          updatedFigure = { figureId: figure.figureId, version: outcome.scopeExecution.version }
-          outcome.message += ' 组合图版本已更新，但新预览暂不可用。'
-        }
-        setFigure(updatedFigure)
-      }
-      setProject(projectWithVersion(project, projectVersionFrom(value, project.projectVersion + 1)))
+      setAgentPlan(outcome.plan)
       setAgentOutcome(outcome)
     } catch (error) { setAgentOutcome({ kind: 'rejected', title: '指令未执行', message: errorNotice(error).message }) } finally { setBusyAction(undefined) }
+  }
+
+  const syncPlanOutput = async (plan: AgentPlanView): Promise<void> => {
+    if (!api || !project) return
+    const output = plan.steps.flatMap((step) => step.outputPlot ? [step.outputPlot] : []).at(-1)
+    if (!output) return
+    const stored = valueOrThrow(await api.getPlot({ projectId: project.projectId, plotId: output.plotId, plotVersion: output.plotVersion }))
+    let nextPlot = readPlot(stored)
+    if (!nextPlot) return
+    const rendered = valueOrThrow(await api.renderPlot({ projectId: project.projectId, plotId: nextPlot.plotId, plotVersion: nextPlot.plotVersion, mode: 'preview' }))
+    nextPlot = withPreview(nextPlot, rendered)
+    setPlot(nextPlot)
+    setPlotHistory((current) => [...current.filter((item) => item.plotId !== nextPlot!.plotId || item.plotVersion !== nextPlot!.plotVersion), nextPlot!])
+    setProject(projectWithVersion(project, Math.max(project.projectVersion, nextPlot.projectVersion)))
+  }
+
+  const executeAgentPlan = async (planId: string, resume = false): Promise<void> => {
+    if (!api || !project || busyAction !== undefined) return
+    setBusyAction('agent-plan')
+    setAgentPlan((current) => current?.planId === planId ? { ...current, state: 'running' } : current)
+    try {
+      const value = valueOrThrow(resume
+        ? await api.resumeAgentPlan({ projectId: project.projectId, planId })
+        : await api.runAgentPlan({ projectId: project.projectId, planId }))
+      const plan = readAgentPlan(value)
+      if (!plan) throw new Error('Core 未返回任务计划状态。')
+      setAgentPlan(plan)
+      await syncPlanOutput(plan)
+      setAgentOutcome({
+        kind: 'action_plan',
+        title: plan.state === 'succeeded' ? '任务已完成' : plan.state === 'partial_success' ? '任务部分完成' : '任务未完成',
+        message: plan.state === 'succeeded' ? '更改已保存为可追溯版本。' : '已保留完成项，可继续未完成步骤。',
+        plan,
+      })
+    } catch (error) {
+      const stored = await api.getAgentPlan({ projectId: project.projectId, planId })
+      if (stored.ok) setAgentPlan(readAgentPlan(stored.value))
+      setAgentOutcome({ kind: 'rejected', title: '计划未执行', message: errorNotice(error).message })
+    } finally {
+      setBusyAction(undefined)
+    }
+  }
+
+  const confirmAgentPlan = async (planId: string): Promise<void> => {
+    if (!api || !project || busyAction !== undefined) return
+    setBusyAction('agent-plan')
+    try {
+      const confirmed = valueOrThrow(await api.confirmAgentPlan({ projectId: project.projectId, planId, accept: true }))
+      const plan = readAgentPlan(confirmed)
+      if (plan) setAgentPlan(plan)
+    } catch (error) {
+      setAgentOutcome({ kind: 'rejected', title: '计划未确认', message: errorNotice(error).message })
+      setBusyAction(undefined)
+      return
+    }
+    setBusyAction(undefined)
+    await executeAgentPlan(planId)
+  }
+
+  const rejectAgentPlan = async (planId: string): Promise<void> => {
+    if (!api || !project || busyAction !== undefined) return
+    setBusyAction('agent-plan')
+    try {
+      const value = valueOrThrow(await api.confirmAgentPlan({ projectId: project.projectId, planId, accept: false }))
+      setAgentPlan(readAgentPlan(value))
+      setAgentOutcome({ kind: 'no_change', title: '计划已取消', message: '未修改任何项目对象。' })
+    } catch (error) {
+      setAgentOutcome({ kind: 'rejected', title: '计划未取消', message: errorNotice(error).message })
+    } finally {
+      setBusyAction(undefined)
+    }
   }
 
   const applyPlotPatch = async (patch: JsonValue): Promise<void> => {
@@ -629,7 +693,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
-          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
+          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && figure && <CompositionEditor figure={figure} onClose={() => setScreen('workspace')} />}

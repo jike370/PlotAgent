@@ -7,7 +7,10 @@ import type { BrowserWindow, Dialog, IpcMain } from 'electron'
 import {
   DESKTOP_API_VERSION,
   IPC_CHANNELS,
+  parseAgentContextInput,
   parseAgentDecideInput,
+  parseAgentPlanConfirmInput,
+  parseAgentPlanInput,
   parseBatchCreateInput,
   parseBatchIdInput,
   parseBatchRunInput,
@@ -541,9 +544,58 @@ export function registerDesktopIpc({
         user_instruction: input.utterance,
         client_model_run_id: `model-run:${randomUUID()}`,
         expected_version: input.expectedVersion,
+        execution_mode: input.executionMode,
         locale: 'zh-CN',
-        target: input.target,
         scope: input.scope,
+        ...(input.conversationId === undefined
+          ? {} : { conversation_id: input.conversationId }),
+        ...(input.selectedChartId === undefined
+          ? {} : { selected_chart_id: input.selectedChartId }),
+        ...(input.target === undefined ? {} : { target: input.target }),
+      })
+  })
+
+  for (const [channel, method] of [
+    [IPC_CHANNELS.agentPlanGet, 'agent.plans.get'],
+    [IPC_CHANNELS.agentPlanRun, 'agent.plans.run'],
+    [IPC_CHANNELS.agentPlanResume, 'agent.plans.resume'],
+    [IPC_CHANNELS.agentPlanEvents, 'agent.plans.events'],
+  ] as const) {
+    ipcMain.handle(channel, (_event, value: unknown) => {
+      const input = parseAgentPlanInput(value)
+      return input === null
+        ? invalidDataArgument('Agent 计划参数无效。')
+        : requestCoreData(supervisor, resources, method, {
+          project_id: input.projectId,
+          plan_id: input.planId,
+        })
+    })
+  }
+
+  for (const [channel, method] of [
+    [IPC_CHANNELS.agentContextGet, 'agent.context.get'],
+    [IPC_CHANNELS.agentPlanList, 'agent.plans.list'],
+  ] as const) {
+    ipcMain.handle(channel, (_event, value: unknown) => {
+      const input = parseAgentContextInput(value)
+      return input === null
+        ? invalidDataArgument('Agent 上下文参数无效。')
+        : requestCoreData(supervisor, resources, method, {
+          project_id: input.projectId,
+          ...(input.conversationId === undefined
+            ? {} : { conversation_id: input.conversationId }),
+        })
+    })
+  }
+
+  ipcMain.handle(IPC_CHANNELS.agentPlanConfirm, (_event, value: unknown) => {
+    const input = parseAgentPlanConfirmInput(value)
+    return input === null
+      ? invalidDataArgument('Agent 计划确认参数无效。')
+      : requestCoreData(supervisor, resources, 'agent.plans.confirm', {
+        project_id: input.projectId,
+        plan_id: input.planId,
+        accept: input.accept,
       })
   })
 

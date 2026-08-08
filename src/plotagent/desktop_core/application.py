@@ -1858,6 +1858,7 @@ class DesktopApplication:
             optional={
                 "conversation_id",
                 "execution_mode",
+                "selected_chart_id",
                 "locale",
                 "network_mode",
                 "provider",
@@ -1877,6 +1878,18 @@ class DesktopApplication:
             execution_mode = "execute"
         if execution_mode not in {"execute", "plan_only"}:
             raise RpcServiceError("INVALID_PARAMS", "The Agent execution mode is invalid.")
+        selected_chart_id = _optional_text(
+            values.get("selected_chart_id"), "selected_chart_id"
+        )
+        if selected_chart_id is not None and (
+            selected_chart_id not in PRODUCT_CHART_IDS or selected_chart_id == "K25"
+        ):
+            raise RpcServiceError("INVALID_PARAMS", "The selected chart is unavailable.")
+        enabled_chart_ids = (
+            (selected_chart_id,)
+            if selected_chart_id is not None
+            else tuple(chart_id for chart_id in PRODUCT_CHART_IDS if chart_id != "K25")
+        )
         saved_provider = self._saved_provider_config()
         mode_value = values.get("network_mode")
         if mode_value is None:
@@ -2022,9 +2035,7 @@ class DesktopApplication:
             conversation_state=conversation_state,
             chart_capabilities=ChartCapabilities(
                 capability_version="desktop-45-v1",
-                allowed_chart_type_ids=tuple(
-                    chart_id for chart_id in PRODUCT_CHART_IDS if chart_id != "K25"
-                ),
+                allowed_chart_type_ids=enabled_chart_ids,
                 allowed_action_types=("create_plot", "patch_plot"),
                 allowed_patch_operations=(
                     "set_plot_title",
@@ -2061,8 +2072,7 @@ class DesktopApplication:
                             ),
                         ),
                     )
-                    for chart_id in PRODUCT_CHART_IDS
-                    if chart_id != "K25"
+                    for chart_id in enabled_chart_ids
                 ),
             ),
             disclosure_grant=DisclosureGrant(
@@ -2080,9 +2090,7 @@ class DesktopApplication:
             ),
             allowed_field_aliases=frozenset(alias_to_field),
             allowed_action_types=frozenset({"create_plot", "patch_plot"}),
-            allowed_chart_type_ids=frozenset(
-                chart_id for chart_id in PRODUCT_CHART_IDS if chart_id != "K25"
-            ),
+            allowed_chart_type_ids=frozenset(enabled_chart_ids),
             allowed_patch_operations=frozenset(
                 {
                     "set_plot_title",

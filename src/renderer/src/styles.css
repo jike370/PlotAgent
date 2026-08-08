@@ -4873,6 +4873,154 @@ input[type="checkbox"] {
 .mapping-confirmation > span { display: inline-flex; align-items: center; gap: 6px; }
 .mapping-confirmation .primary-button { margin-left: auto; }
 
+.chart-selection-strip {
+  width: min(720px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+
+.chart-selection-strip > div {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.chart-selection-strip strong { font-size: 12px; }
+.chart-selection-strip span { color: var(--muted); font-size: 11px; }
+
+.chart-selection-strip button,
+.agent-plan__actions button:not(.primary-button) {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.chart-selection-strip button:hover,
+.agent-plan__actions button:not(.primary-button):hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.agent-plan {
+  width: min(780px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--canvas);
+}
+
+.agent-plan__header {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.agent-plan__header > div { min-width: 0; flex: 1; }
+.agent-plan__header h3 { margin: 0; font-size: 13px; }
+.agent-plan__header div > span { color: var(--muted); font-size: 11px; }
+
+.agent-plan__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.agent-plan__steps {
+  margin: 0;
+  padding: 4px 12px;
+  list-style: none;
+}
+
+.agent-plan-step {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.agent-plan-step:last-child { border-bottom: 0; }
+.agent-plan-step__mark {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+.agent-plan-step--succeeded .agent-plan-step__mark { color: var(--success); background: var(--success-soft); }
+.agent-plan-step--failed .agent-plan-step__mark,
+.agent-plan-step--stale .agent-plan-step__mark { color: var(--danger); background: var(--danger-soft); }
+.agent-plan-step > div { min-width: 0; flex: 1; }
+.agent-plan-step strong { font-size: 12px; font-weight: 650; }
+.agent-plan-step p { margin: 3px 0 0; color: var(--danger); font-size: 11px; line-height: 1.45; }
+.agent-plan-step p.agent-plan-step__output { color: var(--muted); font-family: var(--font-mono); }
+.agent-plan-step__attempt { color: var(--muted); font-size: 10px; }
+
+.agent-plan__warnings,
+.agent-plan__stale {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--warning);
+  background: var(--warning-soft);
+  font-size: 11px;
+}
+
+.agent-plan__warnings p {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.agent-plan__actions {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.agent-plan__saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.agent-question {
+  margin-top: 5px !important;
+  color: var(--ink) !important;
+  font-weight: 600;
+}
+
 .product-preview {
   min-height: 330px;
   display: grid;
@@ -4963,7 +5111,8 @@ input[type="checkbox"] {
 }
 
 .agent-outcome--action_plan { background: var(--success-soft); }
-.agent-outcome--needs_input { background: var(--info-soft); }
+.agent-outcome--needs_input { background: var(--warning-soft); }
+.agent-outcome--no_change { background: var(--surface-2); }
 .agent-outcome--unsupported,
 .agent-outcome--rejected { background: var(--warning-soft); }
 

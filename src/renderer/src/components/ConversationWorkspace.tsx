@@ -14,6 +14,7 @@ import {
   Images,
   Layers3,
   Library,
+  ListChecks,
   LoaderCircle,
   PanelTop,
   Play,
@@ -27,6 +28,7 @@ import type { CoreStatus, FieldMappingInput } from '../../../shared/desktop-cont
 import type { ChartType } from '../data/chartCatalog'
 import type {
   AgentOutcome,
+  AgentPlanView,
   ProductDataset,
   ProductPlot,
   ProductProject,
@@ -68,6 +70,7 @@ interface ConversationWorkspaceProps {
   notice?: ProductNotice
   busyAction?: string
   agentOutcome?: AgentOutcome
+  agentPlan?: AgentPlanView
   agentConfigured: boolean
   previewMode?: boolean
   onOpenSample: () => void
@@ -77,6 +80,10 @@ interface ConversationWorkspaceProps {
   onSelectDataset: (datasetId: string) => void
   onConfirmMapping: (mapping: FieldMappingInput) => void
   onAgentInstruction: (instruction: string, scope: ScopeMode) => void
+  onConfirmAgentPlan: (planId: string) => void
+  onRejectAgentPlan: (planId: string) => void
+  onRunAgentPlan: (planId: string) => void
+  onResumeAgentPlan: (planId: string) => void
   onConfigureAgent: () => void
   onExport: (format: 'png' | 'svg' | 'opju', target?: { kind: 'batch' | 'figure'; id: string; version: number }) => void
   onCreateBatch: () => void
@@ -424,9 +431,10 @@ function ConversationComposer({
 }): React.JSX.Element {
   const [scope, setScope] = useState<ScopeMode>('current')
   const [value, setValue] = useState('')
+  const canSubmit = datasetCount > 0 && selectedChart !== undefined
   const submit = (): void => {
     const instruction = value.trim()
-    if (!instruction || !plot || busy) return
+    if (!instruction || !canSubmit || busy) return
     if (!configured) { onConfigure(); return }
     onSubmit(instruction, scope)
     setValue('')
@@ -434,29 +442,99 @@ function ConversationComposer({
   return (
     <div className="composer-wrap">
       {notice?.kind === 'success' && <div className="composer-success" role="status"><Check size={14} />{notice.title}</div>}
-      {outcome && <div className={`agent-outcome agent-outcome--${outcome.kind}`} role={outcome.kind === 'rejected' ? 'alert' : 'status'}><div><strong>{outcome.title}</strong><p>{outcome.message}</p></div></div>}
+      {outcome && outcome.kind !== 'action_plan' && <div className={`agent-outcome agent-outcome--${outcome.kind}`} role={outcome.kind === 'rejected' ? 'alert' : 'status'}><div><strong>{outcome.title}</strong><p>{outcome.message}</p>{outcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div></div>}
       <div className="composer" aria-label="自然语言绘图指令">
-        {plot && <div className="composer-context">
-          <span className="target-chip"><Layers3 size={14} />{plot.plotId} · v{plot.plotVersion}</span>
+        <div className="composer-context">
+          <span className="target-chip"><Layers3 size={14} />{plot ? `${plot.plotId} · v${plot.plotVersion}` : selectedChart ? `${selectedChart.id} · ${selectedChart.name}` : '未选择图形'}</span>
+          {plot &&
           <div className="scope-switch" aria-label="作用范围">
             {([['current', '当前图'], ['selected', '选中图'], ['batch', '整个批次'], ['figure', '组合图']] as const).map(([mode, label]) => (
               <button className={scope === mode ? 'is-active' : ''} key={mode} type="button" onClick={() => setScope(mode)} aria-pressed={scope === mode}>{label}</button>
             ))}
-          </div>
-        </div>}
+          </div>}
+        </div>
         <textarea value={value} disabled={busy} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} placeholder={plot ? '描述你想怎样修改这张图' : '描述你想绘制的图'} aria-label="描述绘图要求" />
         <div className="composer-toolbar">
           <button type="button" className={selectedChart ? 'composer-tool is-selected' : 'composer-tool'} onClick={onOpenLibrary}><Library size={15} />{selectedChart ? selectedChart.name : '选择图形'}</button>
           <button type="button" className="composer-tool" onClick={onImportData}><FileUp size={15} />上传数据{datasetCount > 0 ? ` (${datasetCount})` : ''}</button>
-          <button className="send-button" type="button" onClick={submit} disabled={!plot || !value.trim() || busy} aria-label={plot ? '发送绘图指令' : '完成数据、图形与字段映射后发送'} title={plot ? undefined : '完成数据、图形与字段映射后即可发送'}>{busy ? <LoaderCircle className="spin" size={17} /> : <SendHorizontal size={17} />}</button>
+          <button className="send-button" type="button" onClick={submit} disabled={!canSubmit || !value.trim() || busy} aria-label="生成任务计划" title={!canSubmit ? '导入数据并选择图形后即可发送' : undefined}>{busy ? <LoaderCircle className="spin" size={17} /> : <SendHorizontal size={17} />}</button>
         </div>
       </div>
     </div>
   )
 }
 
+function AgentPlanObject({
+  plan,
+  busy,
+  onConfirm,
+  onReject,
+  onRun,
+  onResume,
+}: {
+  plan: AgentPlanView
+  busy: boolean
+  onConfirm: (planId: string) => void
+  onReject: (planId: string) => void
+  onRun: (planId: string) => void
+  onResume: (planId: string) => void
+}): React.JSX.Element {
+  const stateLabels: Record<string, string> = {
+    draft: '草稿',
+    needs_confirmation: '等待确认',
+    ready: '待执行',
+    running: '执行中',
+    partial_success: '部分完成',
+    succeeded: '已完成',
+    failed: '未完成',
+    interrupted: '已中断',
+    needs_input: '等待输入',
+    stale: '计划已过期',
+    cancelled: '已取消',
+  }
+  return (
+    <section className={`agent-plan agent-plan--${plan.state}`} aria-labelledby={`plan-${plan.planId}`}>
+      <header className="agent-plan__header">
+        <ListChecks size={17} aria-hidden="true" />
+        <div><h3 id={`plan-${plan.planId}`}>任务计划</h3><span>{plan.completedCount}/{plan.steps.length} 步完成</span></div>
+        <span className="agent-plan__state">{plan.state === 'running' && <LoaderCircle className="spin" size={13} />}{stateLabels[plan.state] ?? plan.state}</span>
+      </header>
+      <ol className="agent-plan__steps">
+        {plan.steps.map((step) => (
+          <li className={`agent-plan-step agent-plan-step--${step.state}`} key={step.taskItemId}>
+            <span className="agent-plan-step__mark" aria-hidden="true">
+              {step.state === 'succeeded'
+                ? <Check size={13} />
+                : step.state === 'running' || step.state === 'committing'
+                  ? <LoaderCircle className="spin" size={13} />
+                  : step.state === 'failed' || step.state === 'stale'
+                    ? <TriangleAlert size={13} />
+                    : null}
+            </span>
+            <div>
+              <strong>{step.title}</strong>
+              {step.outputPlot && <p className="agent-plan-step__output">{step.outputPlot.plotId} · v{step.outputPlot.plotVersion}</p>}
+              {step.failure && <p>{step.failure.message}</p>}
+            </div>
+            {step.attemptCount > 0 && <span className="agent-plan-step__attempt">{step.attemptCount} 次</span>}
+          </li>
+        ))}
+      </ol>
+      {plan.warnings.length > 0 && <div className="agent-plan__warnings">{plan.warnings.map((warning) => <p key={warning}><TriangleAlert size={14} />{warning}</p>)}</div>}
+      {plan.state === 'stale' && <p className="agent-plan__stale">作用对象已变化，请重新描述任务生成新计划。</p>}
+      <footer className="agent-plan__actions">
+        {plan.state === 'needs_confirmation' && <><button type="button" onClick={() => onReject(plan.planId)} disabled={busy}>取消计划</button><button className="primary-button" type="button" onClick={() => onConfirm(plan.planId)} disabled={busy}>确认并执行</button></>}
+        {plan.state === 'ready' && <button className="primary-button" type="button" onClick={() => onRun(plan.planId)} disabled={busy}>执行计划</button>}
+        {plan.resumable && <button className="primary-button" type="button" onClick={() => onResume(plan.planId)} disabled={busy}>继续未完成步骤</button>}
+        {plan.state === 'succeeded' && <span className="agent-plan__saved"><CircleCheck size={14} />更改已保存</span>}
+      </footer>
+    </section>
+  )
+}
+
 export function ConversationWorkspace(props: ConversationWorkspaceProps): React.JSX.Element {
   const { project, datasets, activeDataset, selectedChart, plot, batch, figure, notice, busyAction } = props
+  const [manualMappingOpen, setManualMappingOpen] = useState(false)
   return (
     <main className="workspace-main" id="conversation-main">
       <header className="workspace-header">
@@ -475,8 +553,10 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             ) : (
               <>
                 <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} /></div></div>
-                {selectedChart && activeDataset && !plot && <MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} onConfirm={props.onConfirmMapping} />}
+                {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
+                {manualMappingOpen && selectedChart && activeDataset && !plot && <MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} onConfirm={props.onConfirmMapping} />}
                 {plot && <PlotObject {...props} chart={selectedChart} />}
+                {props.agentPlan && <AgentPlanObject plan={props.agentPlan} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} />}
                 {batch && <section className="object-block product-result-strip"><Images size={17} /><div><strong>批次 {batch.batchId}</strong><p>{batch.items.length} 项 · 状态 {batch.state}</p></div><button type="button" onClick={props.onOpenBatchInspect}>检查批次</button><button type="button" onClick={() => props.onExport('opju', { kind: 'batch', id: batch.batchId, version: batch.version })}><Download size={14} />导出批次 OPJU</button></section>}
                 {figure && <section className="object-block product-result-strip"><PanelTop size={17} /><div><strong>组合图 {figure.figureId}</strong><p>固定版本 v{figure.version}</p></div><button type="button" onClick={props.onOpenCompose}>打开组合图</button><button type="button" onClick={() => props.onExport('opju', { kind: 'figure', id: figure.figureId, version: figure.version })}><Download size={14} />导出组合图 OPJU</button></section>}
               </>
