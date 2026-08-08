@@ -102,7 +102,7 @@ class AuditCase:
     chart_id: str
     slug: str
     title: str
-    grade: Literal["A", "C"] | None
+    grade: Literal["A", "C", "D"] | None
     source: Path | None
     graph_name: str | None
     source_book: str | None
@@ -128,12 +128,14 @@ CASES = (
     AuditCase("K20", "heatmap", "热图", "A", ORIGIN / "Heatmap.opju", "Graph1", "Book1", 0, "直接导出 Origin 随附 Heatmap.opju Graph1 及同项目矩阵工作表。", "标题与字号", "色板、色标与级数"),
     AuditCase("S61", "confusion", "混淆矩阵", "C", ORIGIN / "Samples" / "Statistics" / "LogRegData.dat", None, None, 0, "Origin 官方 LogRegData.dat；冻结实际标签与同源预测标签后，以 HEAT_MAP_WITH_LABELS 模板重建计数矩阵。", "标题与字号", "色板、色标与计数标签"),
     AuditCase("X24", "pareto", "Pareto 图", "C", ORIGIN / "Samples" / "Graphing" / "Counts.dat", None, None, 0, "Origin 官方 Counts.dat；冻结类别计数后以 ParetoRaw 模板重建柱与累计百分比。", "标题与字号", "柱样式与累计参考线"),
-    AuditCase("S07", "volcano", "火山图", None, None, None, None, 0, "未在本机 Origin 随附项目、模板样例与 Samples 中找到同时含 feature、log2FC、p/q value 的官方同源数据。", "标题与字号", "阈值线、类别颜色与标签"),
+    AuditCase("S07", "volcano", "火山图", "D", None, None, None, 0, "固定 seed 生成合成差异表达数据；用 Origin SCATTER 模板和原生散点/阈值线独立重建参考，不调用 PlotAgent renderer。", "标题与字号", "阈值线、类别颜色与标签"),
 )
 
 QUALIFIED_CASES = tuple(case for case in CASES if case.grade is not None)
 MISSING_CASES = tuple(case for case in CASES if case.grade is None)
 MECHANICAL_BLOCKERS: tuple[dict[str, str], ...] = ()
+SYNTHETIC_SEED = 24080907
+SYNTHETIC_GENERATOR_VERSION = "s07-volcano-stratified-pcg64-v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +172,61 @@ def _project_frame(op: Any, case: AuditCase) -> pd.DataFrame:
 
 def _finite(values: pd.Series) -> np.ndarray:
     return pd.to_numeric(values, errors="coerce").dropna().to_numpy(dtype=float)
+
+
+def _synthetic_s07_frame(*, seed: int = SYNTHETIC_SEED) -> pd.DataFrame:
+    """Return the frozen D-grade volcano input without using PlotAgent code.
+
+    PCG64 produces three deliberate strata plus threshold-boundary observations.
+    Values are rounded before freezing so the CSV, the independent Origin
+    reference and both PlotAgent backends receive byte-identical numeric input.
+    """
+
+    rng = np.random.Generator(np.random.PCG64(seed))
+    down_x = -np.sort(rng.uniform(1.15, 3.8, 12))[::-1]
+    up_x = np.sort(rng.uniform(1.15, 3.8, 12))
+    center_x = np.sort(rng.uniform(-0.92, 0.92, 18))
+    down_p = np.power(10.0, rng.uniform(-6.2, -1.45, 12))
+    up_p = np.power(10.0, rng.uniform(-6.2, -1.45, 12))
+    center_p = np.power(10.0, rng.uniform(-1.25, -0.02, 18))
+    boundary = np.asarray(
+        (
+            (-1.0001, 0.0499),
+            (-1.0000, 0.0500),
+            (-0.9999, 0.0008),
+            (0.9999, 0.0008),
+            (1.0000, 0.0499),
+            (1.0001, 0.0500),
+        ),
+        dtype=float,
+    )
+    log2fc = np.concatenate((down_x, center_x, up_x, boundary[:, 0]))
+    pvalue = np.concatenate((down_p, center_p, up_p, boundary[:, 1]))
+    order = rng.permutation(log2fc.size)
+    return pd.DataFrame(
+        {
+            "feature": [f"synthetic_feature_{index:03d}" for index in range(1, log2fc.size + 1)],
+            "log2fc": np.round(log2fc[order], 6),
+            "pvalue": np.round(pvalue[order], 10),
+        }
+    )
+
+
+def _s07_reference_geometry(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Compute the independent Origin reference geometry from the frozen CSV."""
+
+    x = pd.to_numeric(frame["log2fc"], errors="raise").to_numpy(dtype=float)
+    p = pd.to_numeric(frame["pvalue"], errors="raise").to_numpy(dtype=float)
+    if not np.isfinite(x).all() or not np.isfinite(p).all() or not ((p > 0) & (p <= 1)).all():
+        raise RuntimeError("S07 synthetic source contains invalid numeric input")
+    category = np.full(len(frame), "Not significant", dtype=object)
+    category[(p < 0.05) & (x <= -1.0)] = "Down"
+    category[(p < 0.05) & (x >= 1.0)] = "Up"
+    geometry = frame.assign(negative_log10_p=-np.log10(p), category=category)
+    counts = {label: int((category == label).sum()) for label in ("Down", "Not significant", "Up")}
+    if any(value == 0 for value in counts.values()):
+        raise RuntimeError(f"S07 synthetic generator lost a required class: {counts}")
+    return geometry, counts
 
 
 def _tukey(values: np.ndarray) -> tuple[float, float, float, float, float]:
@@ -276,13 +333,161 @@ def _frame_from_source(case: AuditCase, op: Any | None = None) -> pd.DataFrame:
     raise RuntimeError(f"unsupported fixed visual case {case.case_id}")
 
 
-def _write_reference(case: AuditCase, frame: pd.DataFrame, case_dir: Path, op: Any) -> None:
+def _write_synthetic_s07_reference(
+    frame: pd.DataFrame, case_dir: Path, op: Any
+) -> dict[str, Any]:
+    """Build the D-grade oracle with Origin directly, never through PlotAgent."""
+
+    geometry, class_counts = _s07_reference_geometry(frame)
+    op.new()
+    book = op.new_book("w", "S07SyntheticReference")
+    raw_sheet = book[0]
+    raw_sheet.name = "SyntheticData"
+    raw_sheet.from_df(frame)
+
+    plotted: dict[str, pd.Series[Any]] = {}
+    for label, prefix in (
+        ("Down", "down"),
+        ("Not significant", "not_significant"),
+        ("Up", "up"),
+    ):
+        subset = geometry.loc[geometry["category"] == label].sort_values("log2fc")
+        plotted[f"{prefix}_x"] = subset["log2fc"].reset_index(drop=True)
+        plotted[f"{prefix}_y"] = subset["negative_log10_p"].reset_index(drop=True)
+    x_limit = max(1.0, float(np.abs(geometry["log2fc"]).max()))
+    y_limit = max(-np.log10(0.05), float(geometry["negative_log10_p"].max()))
+    plotted.update(
+        {
+            "p_threshold_x": pd.Series((-x_limit, x_limit)),
+            "p_threshold_y": pd.Series((-np.log10(0.05), -np.log10(0.05))),
+            "negative_fc_x": pd.Series((-1.0, -1.0)),
+            "negative_fc_y": pd.Series((0.0, y_limit)),
+            "positive_fc_x": pd.Series((1.0, 1.0)),
+            "positive_fc_y": pd.Series((0.0, y_limit)),
+        }
+    )
+    geometry_sheet = book.add_sheet("ReferenceGeometry")
+    geometry_sheet.from_df(pd.DataFrame(plotted))
+    geometry_sheet.cols_axis("XYXYXYXYXYXY")
+
+    graph = op.new_graph(template="SCATTER")
+    layer = graph[0]
+    colors = ("#2A6FDB", "#D64545", "#2A9D6F")
+    for plot_index, color in zip((0, 2, 4), colors, strict=True):
+        plot = layer.add_plot(
+            geometry_sheet, coly=plot_index + 1, colx=plot_index, type="s"
+        )
+        if plot is None:
+            raise RuntimeError("Origin could not add an S07 reference scatter plot")
+        plot.color = color
+        plot.symbol_kind = 1
+        plot.symbol_size = 8.0
+    for plot_index in (6, 8, 10):
+        plot = layer.add_plot(
+            geometry_sheet, coly=plot_index + 1, colx=plot_index, type="l"
+        )
+        if plot is None:
+            raise RuntimeError("Origin could not add an S07 reference threshold line")
+        plot.color = "#6B7280"
+
+    layer.rescale()
+    layer.axis("x").set_limits(-x_limit * 1.12, x_limit * 1.12)
+    layer.axis("y").set_limits(0.0, y_limit * 1.10)
+    layer.axis("x").title = "log2 fold change"
+    layer.axis("y").title = "-log10(p-value)"
+    title = layer.add_label("Synthetic Origin reference - S07 volcano", 32, 2)
+    if title is not None:
+        title.name = "PA_REFERENCE_TITLE"
+        title.set_float("fsize", 16.0)
+    legend = layer.label("legend")
+    if legend is None:
+        legend = layer.add_label("", 78, 12)
+        if legend is None:
+            raise RuntimeError("Origin could not create the S07 reference legend")
+        legend.name = "legend"
+    legend.text = "\\l(1, style:s) Down\n\\l(2, style:s) Not significant\n\\l(3, style:s) Up"
+    legend.set_int("link", 1)
+    legend.set_int("show", 1)
+
+    target = case_dir / "reference-origin.opju"
+    op.save(str(target))
+    return {
+        "construction_path": "independent_origin_native",
+        "plotagent_renderer_used": False,
+        "origin_template": "SCATTER",
+        "origin_menu_equivalent": "Plot > Basic 2D > Scatter",
+        "origin_graph_name": graph.name,
+        "raw_sheet": "SyntheticData",
+        "raw_column_mapping": {
+            "feature": "A",
+            "log2fc": "B (X semantics)",
+            "pvalue": "C (transformed to -log10 for Y)",
+        },
+        "geometry_sheet": "ReferenceGeometry",
+        "native_plot_types": ["scatter", "scatter", "scatter", "line", "line", "line"],
+        "thresholds": {"absolute_log2_fold_change": 1.0, "pvalue": 0.05},
+        "class_counts": class_counts,
+        "class_colors": dict(zip(("Down", "Not significant", "Up"), colors, strict=True)),
+        "reference_opju_path": str(target),
+    }
+
+
+def _fresh_synthetic_reference_readback(
+    reference_opju: Path, reference_png: Path, expected_frame: pd.DataFrame
+) -> dict[str, Any]:
+    import originpro as op  # type: ignore[import-untyped]
+
+    op.set_show(False)
+    try:
+        op.open(str(reference_opju), readonly=True)
+        graphs = list(op.pages("g"))
+        books = list(op.pages("w"))
+        if len(graphs) != 1 or not books:
+            raise RuntimeError("fresh S07 reference lost its graph or workbook")
+        graph = graphs[0]
+        raw_sheet = next(
+            (sheet for book in books for sheet in list(book) if sheet.name == "SyntheticData"),
+            None,
+        )
+        if raw_sheet is None:
+            raise RuntimeError("fresh S07 reference lost SyntheticData")
+        readback = cast(pd.DataFrame, raw_sheet.to_df()).reset_index(drop=True)
+        if list(readback.columns[:3]) != list(expected_frame.columns):
+            raise RuntimeError(f"fresh S07 raw columns differ: {list(readback.columns)}")
+        if readback["feature"].astype(str).tolist() != expected_frame["feature"].astype(str).tolist():
+            raise RuntimeError("fresh S07 feature identity differs")
+        for column in ("log2fc", "pvalue"):
+            if not np.allclose(
+                pd.to_numeric(readback[column], errors="raise"),
+                expected_frame[column],
+                rtol=0.0,
+                atol=1e-12,
+            ):
+                raise RuntimeError(f"fresh S07 {column} values differ")
+        if len(graph[0].plot_list()) != 6:
+            raise RuntimeError("fresh S07 reference must contain 3 scatters and 3 lines")
+        graph.save_fig(str(reference_png), type="png", replace=True, width=1600)
+        return {
+            "fresh_reopen": True,
+            "embedded_input_matches_csv": True,
+            "embedded_row_count": len(readback),
+            "native_plot_count": len(graph[0].plot_list()),
+        }
+    finally:
+        op.exit()
+
+
+def _write_reference(
+    case: AuditCase, frame: pd.DataFrame, case_dir: Path, op: Any
+) -> dict[str, Any] | None:
+    if case.grade == "D":
+        return _write_synthetic_s07_reference(frame, case_dir, op)
     if case.grade == "A":
         graph = next((item for item in op.pages("g") if item.name == case.graph_name), None)
         if graph is None:
             raise RuntimeError(f"Origin graph {case.graph_name!r} is missing in {case.source}")
         graph.save_fig(str(case_dir / "reference.png"), type="png", replace=True, width=1600)
-        return
+        return None
 
     op.new()
     if case.chart_id == "K14":
@@ -329,6 +534,7 @@ def _write_reference(case: AuditCase, frame: pd.DataFrame, case_dir: Path, op: A
         layer.rescale()
     graph.save_fig(str(case_dir / "reference.png"), type="png", replace=True, width=1600)
     op.save(str(case_dir / "reference-origin.opju"))
+    return None
 
 
 def _prepare_case(case: AuditCase) -> dict[str, Any]:
@@ -338,40 +544,87 @@ def _prepare_case(case: AuditCase) -> dict[str, Any]:
     fixture_dir = FIXTURES / case.case_id
     case_dir.mkdir(parents=True, exist_ok=True)
     fixture_dir.mkdir(parents=True, exist_ok=True)
-    source = cast(Path, case.source)
-    if not source.is_file():
+    for stale_gap in (case_dir / "evidence-gap.json", fixture_dir / "evidence-gap.json"):
+        if stale_gap.is_file():
+            stale_gap.unlink()
+    source = case.source
+    if case.grade != "D" and (source is None or not source.is_file()):
         raise RuntimeError(f"missing Origin evidence source: {source}")
+    reference_build: dict[str, Any] | None = None
     op.set_show(False)
     try:
-        if source.suffix.lower() in {".opj", ".opju", ".ogw"}:
+        if case.grade == "D":
+            frame = _synthetic_s07_frame()
+        elif cast(Path, source).suffix.lower() in {".opj", ".opju", ".ogw"}:
             op.new()
-            op.open(str(source), readonly=True)
+            op.open(str(cast(Path, source)), readonly=True)
             frame = _frame_from_source(case, op)
         else:
             frame = _frame_from_source(case)
-        _write_reference(case, frame, case_dir, op)
+        reference_build = _write_reference(case, frame, case_dir, op)
     finally:
         op.exit()
     frame.to_csv(case_dir / "data.csv", index=False, float_format="%.12g")
+    reference_readback: dict[str, Any] | None = None
+    if case.grade == "D":
+        reference_readback = _fresh_synthetic_reference_readback(
+            case_dir / "reference-origin.opju", case_dir / "reference.png", frame
+        )
     shutil.copy2(case_dir / "data.csv", fixture_dir / "data.csv")
     shutil.copy2(case_dir / "reference.png", fixture_dir / "reference.png")
-    provenance = {
+    provenance: dict[str, Any] = {
         "chart_type_id": case.chart_id,
-        "evidence_status": "anchored",
+        "evidence_status": (
+            "synthetic_origin_reference_anchored" if case.grade == "D" else "anchored"
+        ),
         "evidence_grade": case.grade,
-        "source_path": str(source),
-        "source_sha256": _sha256(source),
+        "source_path": str(source) if source is not None else None,
+        "source_sha256": _sha256(source) if source is not None else None,
         "source_graph_name": case.graph_name,
         "source_book": case.source_book,
         "source_sheet_index": case.source_sheet,
         "recipe": case.recipe,
         "same_source_data": True,
-        "synthetic": False,
+        "synthetic": case.grade == "D",
+        "origin_official_same_source_admission": case.grade != "D",
         "data_sha256": _sha256(fixture_dir / "data.csv"),
         "reference_sha256": _sha256(fixture_dir / "reference.png"),
         "common_edit": case.common_edit,
         "chart_edit": case.chart_edit,
     }
+    if case.grade == "D":
+        reference_opju = case_dir / "reference-origin.opju"
+        provenance.update(
+            {
+                "admission_class": "D_synthetic_origin_reference",
+                "reference_and_test_use_identical_csv": True,
+                "synthetic_generator": {
+                    "name": SYNTHETIC_GENERATOR_VERSION,
+                    "seed": SYNTHETIC_SEED,
+                    "bit_generator": "PCG64",
+                    "row_count": len(frame),
+                    "rules": [
+                        "12 negative effects sampled uniformly from [-3.8, -1.15] with log-uniform significant p-values",
+                        "18 central effects sampled uniformly from [-0.92, 0.92] with mostly non-significant p-values",
+                        "12 positive effects sampled uniformly from [1.15, 3.8] with log-uniform significant p-values",
+                        "6 exact threshold-boundary observations freeze strict p<0.05 and abs(log2FC)>=1 semantics",
+                        "one deterministic PCG64 permutation; log2fc rounded to 6 and pvalue to 10 decimals",
+                    ],
+                },
+                "origin_reference": {
+                    **cast(dict[str, Any], reference_build),
+                    **cast(dict[str, Any], reference_readback),
+                    "reference_opju_sha256": _sha256(reference_opju),
+                    "origin_declaration": {
+                        "display_name": DECLARED_ORIGIN_DISPLAY_NAME,
+                        "display_version": DECLARED_ORIGIN_DISPLAY_VERSION,
+                        "runtime_version": DECLARED_ORIGIN_RUNTIME_VERSION,
+                        "bitness": DECLARED_ORIGIN_BITNESS,
+                        "originpro_version": DECLARED_ORIGINPRO_VERSION,
+                    },
+                },
+            }
+        )
     for target in (case_dir / "provenance.json", fixture_dir / "provenance.json"):
         target.write_text(json.dumps(provenance, ensure_ascii=False, indent=2), encoding="utf-8")
     return provenance
@@ -399,10 +652,23 @@ def _write_missing_case(case: AuditCase) -> dict[str, Any]:
     return payload
 
 
-def _prepare() -> dict[str, Any]:
+def _prepare(selected_chart_ids: set[str] | None = None) -> dict[str, Any]:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     FIXTURES.mkdir(parents=True, exist_ok=True)
-    entries = [_prepare_case(case) for case in QUALIFIED_CASES]
+    entries: list[dict[str, Any]] = []
+    for case in QUALIFIED_CASES:
+        provenance_path = FIXTURES / case.case_id / "provenance.json"
+        if selected_chart_ids is None or case.chart_id in selected_chart_ids:
+            entries.append(_prepare_case(case))
+        elif provenance_path.is_file():
+            entry = json.loads(provenance_path.read_text(encoding="utf-8"))
+            entry.setdefault(
+                "origin_official_same_source_admission",
+                entry.get("evidence_grade") in {"A", "C"},
+            )
+            entries.append(entry)
+        else:
+            raise RuntimeError(f"unprepared evidence case: {case.case_id}")
     gaps = [_write_missing_case(case) for case in MISSING_CASES]
     index = {
         "schema_version": "1.0",
@@ -415,7 +681,13 @@ def _prepare() -> dict[str, Any]:
             "bitness": DECLARED_ORIGIN_BITNESS,
             "originpro_version": DECLARED_ORIGINPRO_VERSION,
         },
-        "rules": {"same_source_required": True, "synthetic_allowed": False, "missing_data_is_not_rendered": True},
+        "rules": {
+            "official_same_source_required_for_grades": ["A", "C"],
+            "synthetic_origin_reference_allowed_for": ["S07"],
+            "synthetic_evidence_grade": "D",
+            "origin_official_same_source_admission_for_D": False,
+            "missing_data_is_not_rendered": True,
+        },
         "anchored_cases": entries,
         "evidence_gaps": gaps,
         "decision": "NO-GO" if gaps else "PENDING-RENDER",
@@ -466,11 +738,20 @@ def _input_series(case: AuditCase, frame: pd.DataFrame) -> tuple[InputSeries, ..
         return (InputSeries("heatmap", "calculated", ("actual", "predicted", "value"), _rows(frame, "actual", "predicted", "value"), "confusion_count"),)
     if case.chart_id == "X24":
         return (InputSeries("bridge", "prepared", ("category", "value"), _rows(frame, "category", "value")),)
+    if case.chart_id == "S07":
+        return (
+            InputSeries(
+                "volcano",
+                "prepared",
+                ("feature", "log2fc", "pvalue"),
+                _rows(frame, "feature", "log2fc", "pvalue"),
+            ),
+        )
     raise RuntimeError(f"unsupported input series {case.case_id}")
 
 
 def _family(case: AuditCase, geometries: tuple[AllGeometryKind, ...]) -> PlotFamily:
-    if case.chart_id == "X24":
+    if case.chart_id in {"X24", "S07"}:
         return SpecialFamily(geometry=cast(Any, geometries))
     if case.chart_id == "K11":
         return CategoricalFamily(geometry=("bar",))
@@ -489,6 +770,7 @@ def _axis(case: AuditCase) -> tuple[tuple[ScaleSpec, ...], tuple[AxisSpec, ...]]
         "K13": ("Group", "Value"), "K14": ("Group", "Value"), "K15": ("Value", "Count"),
         "K16": ("Value", "Density"), "K17": ("Value", "Cumulative probability"),
         "K20": ("Column", "Row"), "S61": ("Predicted", "Actual"), "X24": ("Category", "Count"),
+        "S07": ("log2 fold change", "-log10(p-value)"),
     }[case.chart_id]
     scales: tuple[ScaleSpec, ...] = (ScaleSpec(scale_id="scale:x", kind=cast(Any, x_kind)), ScaleSpec(scale_id="scale:y", kind=cast(Any, y_kind)))
     axes: tuple[AxisSpec, ...] = (
@@ -520,7 +802,7 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
             data = CalculatedSeriesData(calculation_result_ref=calculation, role_fields=field_ids)
         store[table.object_hash] = table
         series_style = SeriesStyleSpec()
-        if edited:
+        if edited and case.chart_id != "S07":
             color = ("#1F77B4", "#D95F02", "#2A9D6F", "#7B61A8")[index % 4]
             update: dict[str, Any] = {"color": ColorValue(value=color)}
             if item.geometry in {"line", "density", "step", "band", "error_bar"}:
@@ -542,6 +824,15 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
         specialist = specialist.model_copy(update={"chart_parameters": ChartParameterEditSpec(step_where="mid")})
     if edited and case.chart_id == "X24":
         specialist = specialist.model_copy(update={"bar_area": specialist.bar_area, "chart_parameters": ChartParameterEditSpec(pareto_reference_percent=75.0)})
+    if edited and case.chart_id == "S07":
+        specialist = specialist.model_copy(
+            update={
+                "chart_parameters": ChartParameterEditSpec(
+                    volcano_absolute_log2_fold_change=1.25,
+                    volcano_pvalue=0.01,
+                )
+            }
+        )
 
     scales, axes = _axis(case)
     english_title = {
@@ -556,6 +847,7 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
         "K20": "Heatmap",
         "S61": "Confusion matrix",
         "X24": "Pareto chart",
+        "S07": "Volcano plot",
     }[case.chart_id]
     title = f"{case.chart_id} · {english_title}"
     plot = PlotSpec(
@@ -950,12 +1242,19 @@ def _render() -> dict[str, Any]:
     manifest = {
         "schema_version": "1.0", "stage": "visual29-fixed", "generated_at": datetime.now(UTC).isoformat(), "plotagent_version": PLOTAGENT_VERSION,
         "origin_declaration": {"display_name": DECLARED_ORIGIN_DISPLAY_NAME, "display_version": DECLARED_ORIGIN_DISPLAY_VERSION, "runtime_version": DECLARED_ORIGIN_RUNTIME_VERSION, "bitness": DECLARED_ORIGIN_BITNESS, "originpro_version": DECLARED_ORIGINPRO_VERSION},
-        "rules": {"same_source_required": True, "synthetic_allowed": False, "states": ["default", "representative edited"], "missing_data_is_not_rendered": True},
+        "rules": {
+            "official_same_source_required_for_grades": ["A", "C"],
+            "synthetic_origin_reference_allowed_for": ["S07"],
+            "synthetic_evidence_grade": "D",
+            "origin_official_same_source_admission_for_D": False,
+            "states": ["default", "representative edited"],
+            "missing_data_is_not_rendered": True,
+        },
         "exports": exports,
         "cases": [case_entries[case.case_id] for case in QUALIFIED_CASES],
         "evidence_gaps": evidence_gaps,
         "qualification": {"source_build_identity": source_build_identity(REPOSITORY, SOURCE_SCOPE, scope_version=SOURCE_SCOPE_VERSION), "blocking_observations": [*MECHANICAL_BLOCKERS, *({"chart_type_id": item["chart_type_id"], "code": item["blocking_code"], "status": "open", "observation": item["reason"]} for item in evidence_gaps)], "human_visual_signature": {"status": "pending", "reviewer": None, "signed_at": None}, "decision": "NO-GO"},
-        "audit_conclusion": "same-source evidence generated for anchored cases; the remaining same-source evidence gap and human visual sign-off keep qualification NO-GO",
+        "audit_conclusion": "A/C same-source evidence and the explicit D-grade synthetic Origin reference are rendered; no evidence gap remains in this lane; human visual sign-off keeps qualification NO-GO",
     }
     (OUTPUT / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     (FIXTURES / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -969,11 +1268,12 @@ def main() -> None:
     parser.add_argument("--phase", choices=("prepare", "render", "all"), default="all")
     parser.add_argument("--output", type=Path, default=OUTPUT)
     parser.add_argument("--fixtures", type=Path, default=FIXTURES)
+    parser.add_argument("--case", choices=tuple(case.chart_id for case in CASES))
     args = parser.parse_args()
     OUTPUT = args.output
     FIXTURES = args.fixtures
     if args.phase in {"prepare", "all"}:
-        _prepare()
+        _prepare({args.case} if args.case else None)
     if args.phase in {"render", "all"}:
         _render()
 

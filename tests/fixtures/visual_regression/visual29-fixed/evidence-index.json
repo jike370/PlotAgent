@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "stage": "visual29-fixed",
-  "generated_at": "2026-08-07T20:45:07.699602+00:00",
+  "generated_at": "2026-08-08T19:28:19.408484+00:00",
   "origin_declaration": {
     "display_name": "Origin2024 SR1",
     "display_version": "10.10.178",
@@ -10,8 +10,15 @@
     "originpro_version": "1.1.15"
   },
   "rules": {
-    "same_source_required": true,
-    "synthetic_allowed": false,
+    "official_same_source_required_for_grades": [
+      "A",
+      "C"
+    ],
+    "synthetic_origin_reference_allowed_for": [
+      "S07"
+    ],
+    "synthetic_evidence_grade": "D",
+    "origin_official_same_source_admission_for_D": false,
     "missing_data_is_not_rendered": true
   },
   "anchored_cases": [
@@ -30,7 +37,8 @@
       "data_sha256": "d4572d1b0b3e4e48067dc5942df831cf3b9c87174e2bdb5dd71e79745b59173b",
       "reference_sha256": "c97651ec62a0eda8be931db60bbb0bbcd0a754b499cea4ce037db46ad5aa9f98",
       "common_edit": "标题与字号",
-      "chart_edit": "误差线颜色、线宽与端帽"
+      "chart_edit": "误差线颜色、线宽与端帽",
+      "origin_official_same_source_admission": true
     },
     {
       "chart_type_id": "K07",
@@ -47,7 +55,8 @@
       "data_sha256": "2d9841ae9bcaa6d38610bc439211df37e0a323c0457d8fdc072d90ebd4d890c9",
       "reference_sha256": "b7bfd5161f16bb0b63f52d471ee34fc8cc3716ced2fa9173181c0684582aa450",
       "common_edit": "标题与字号",
-      "chart_edit": "误差带颜色、透明度与边界"
+      "chart_edit": "误差带颜色、透明度与边界",
+      "origin_official_same_source_admission": true
     },
     {
       "chart_type_id": "K11",
@@ -64,7 +73,8 @@
       "data_sha256": "cb627eb42105bd214463db234b8045415744ec906cc74a880e4e8a30f018859b",
       "reference_sha256": "ec173b9a60651620f0c3da171d169b2fdbcc7bcaf5cc001197d5ad15d8743f60",
       "common_edit": "标题与字号",
-      "chart_edit": "柱填充、边线与宽度"
+      "chart_edit": "柱填充、边线与宽度",
+      "origin_official_same_source_admission": true
     },
     {
       "chart_type_id": "K13",
@@ -81,7 +91,8 @@
       "data_sha256": "3d623125928d3086781489d65e41f040b36b0302dc788f1ee2d89648ecf4bb6e",
       "reference_sha256": "0631e686ab7a1b26c3473436caeb2f288f1c07dca11d67edfe66b29aaecd6a30",
       "common_edit": "标题与字号",
-      "chart_edit": "箱体填充、边线与宽度"
+      "chart_edit": "箱体填充、边线与宽度",
+      "origin_official_same_source_admission": true
     },
     {
       "chart_type_id": "K14",
@@ -98,7 +109,8 @@
       "data_sha256": "71d005f2e4516b8c48080932b5a65b36fad6ce1aa98becb1f5553c35acb97f62",
       "reference_sha256": "decc333d1bb95d732a16192cfe0b939be4a78aa2a6172a0dbfb7978d791dfad4",
       "common_edit": "标题与字号",
-      "chart_edit": "小提琴填充、轮廓与宽度"
+      "chart_edit": "小提琴填充、轮廓与宽度",
+      "origin_official_same_source_admission": true
     },
     {
       "chart_type_id": "K15",
@@ -115,7 +127,8 @@
       "data_sha256": "ab0a842218bab27ee8a018be2a5d5a11834573f4322717b0d80b4722f61376d8",
       "reference_sha256": "cae10ba35fb8ca1ebd5c495be638bc7afb1035fd9f31bb07b5a127bd0e8ef4c8",
       "common_edit": "标题与字号",
-      "chart_edit": "柱填充、边线与透明度"
+      "chart_edit": "柱填充、边线与透明度",
+      "origin_official_same_source_admission": true
     },
     {
       "chart_type_id": "K16",
@@ -132,7 +145,8 @@
       "data_sha256": "7b8c815fffcb3a1d213d494c6bc6300103a0def9c9b3aeb3a5bb04d659ff4fee",
       "reference_sha256": "71e6346337808507bbd5ade5fe45e763a457f1af500980af8dd98eb81db73df9",
       "common_edit": "标题与字号",
-      "chart_edit": "密度线颜色与线宽"
+      "chart_edit": "密度线颜色与线宽",
+      "origin_official_same_source_admission": true
     },
     {
       "chart_type_id": "K17",
@@ -149,7 +163,8 @@
       "data_sha256": "5081cf5404cda8d1e3e6bac8a9f8554085b345002a8f812dfa75254953e515cf",
       "reference_sha256": "f4b0af2a1f2c6ea9b400cd234730a682e10cb608f8dfe8edcf4cd69d69b55c7b",
       "common_edit": "标题与字号",
-      "chart_edit": "ECDF/CCDF 模式与阶梯线样式"
+      "chart_edit": "ECDF/CCDF 模式与阶梯线样式",
+      "origin_official_same_source_admission": true
     },
     {
       "chart_type_id": "K20",
@@ -166,7 +181,8 @@
       "data_sha256": "67254cdadec73103cb797e5a9a483e73941f1dcb28615eb65732bdbdb8b8ee40",
       "reference_sha256": "58b679d578a19ae5d1948bdb95fa88bea49d150bedc2c5e1372d49015e8c1eb3",
       "common_edit": "标题与字号",
-      "chart_edit": "色板、色标与级数"
+      "chart_edit": "色板、色标与级数",
+      "origin_official_same_source_admission": true
     },
     {
       "chart_type_id": "S61",
@@ -183,7 +199,8 @@
       "data_sha256": "d952d372bf88d50cb62bd64fe5eaf86257344b2088b4308fc4623038637bffe5",
       "reference_sha256": "c45c5a03b82466ab57c6a4265df0225ac9b13829154965a7286f287bdea4be59",
       "common_edit": "标题与字号",
-      "chart_edit": "色板、色标与计数标签"
+      "chart_edit": "色板、色标与计数标签",
+      "origin_official_same_source_admission": true
     },
     {
       "chart_type_id": "X24",
@@ -200,26 +217,92 @@
       "data_sha256": "dddf64a0021569c9ef9609b7b1b06b9985cb35fe066a202238cfabd94bfd9828",
       "reference_sha256": "11840e632cc089cf8430ce5be1e90696acaa7f410af5e82d6c340e8a2e5872cb",
       "common_edit": "标题与字号",
-      "chart_edit": "柱样式与累计参考线"
-    }
-  ],
-  "evidence_gaps": [
+      "chart_edit": "柱样式与累计参考线",
+      "origin_official_same_source_admission": true
+    },
     {
       "chart_type_id": "S07",
-      "evidence_status": "missing_same_source_origin_data",
-      "evidence_grade": null,
-      "same_source_data": false,
-      "synthetic": false,
-      "rendered": false,
-      "tested": false,
-      "blocking_code": "SAME_SOURCE_ORIGIN_DATA_MISSING",
-      "search_scope": [
-        "D:\\origin",
-        "D:\\origin\\Samples",
-        "C:\\Users\\pc\\Documents\\OriginLab"
-      ],
-      "reason": "未在本机 Origin 随附项目、模板样例与 Samples 中找到同时含 feature、log2FC、p/q value 的官方同源数据。"
+      "evidence_status": "synthetic_origin_reference_anchored",
+      "evidence_grade": "D",
+      "source_path": null,
+      "source_sha256": null,
+      "source_graph_name": null,
+      "source_book": null,
+      "source_sheet_index": 0,
+      "recipe": "固定 seed 生成合成差异表达数据；用 Origin SCATTER 模板和原生散点/阈值线独立重建参考，不调用 PlotAgent renderer。",
+      "same_source_data": true,
+      "synthetic": true,
+      "origin_official_same_source_admission": false,
+      "data_sha256": "b003187716cdbafc070a844fb75c97d386d5398b0ea5e8bf19b66305544c53f0",
+      "reference_sha256": "e68d0c4b7dda2df61182b77ae5318ca00ae3e93173ff3287c4b1ad2207bca0fd",
+      "common_edit": "标题与字号",
+      "chart_edit": "阈值线、类别颜色与标签",
+      "admission_class": "D_synthetic_origin_reference",
+      "reference_and_test_use_identical_csv": true,
+      "synthetic_generator": {
+        "name": "s07-volcano-stratified-pcg64-v1",
+        "seed": 24080907,
+        "bit_generator": "PCG64",
+        "row_count": 48,
+        "rules": [
+          "12 negative effects sampled uniformly from [-3.8, -1.15] with log-uniform significant p-values",
+          "18 central effects sampled uniformly from [-0.92, 0.92] with mostly non-significant p-values",
+          "12 positive effects sampled uniformly from [1.15, 3.8] with log-uniform significant p-values",
+          "6 exact threshold-boundary observations freeze strict p<0.05 and abs(log2FC)>=1 semantics",
+          "one deterministic PCG64 permutation; log2fc rounded to 6 and pvalue to 10 decimals"
+        ]
+      },
+      "origin_reference": {
+        "construction_path": "independent_origin_native",
+        "plotagent_renderer_used": false,
+        "origin_template": "SCATTER",
+        "origin_menu_equivalent": "Plot > Basic 2D > Scatter",
+        "origin_graph_name": "Graph1",
+        "raw_sheet": "SyntheticData",
+        "raw_column_mapping": {
+          "feature": "A",
+          "log2fc": "B (X semantics)",
+          "pvalue": "C (transformed to -log10 for Y)"
+        },
+        "geometry_sheet": "ReferenceGeometry",
+        "native_plot_types": [
+          "scatter",
+          "scatter",
+          "scatter",
+          "line",
+          "line",
+          "line"
+        ],
+        "thresholds": {
+          "absolute_log2_fold_change": 1.0,
+          "pvalue": 0.05
+        },
+        "class_counts": {
+          "Down": 13,
+          "Not significant": 22,
+          "Up": 13
+        },
+        "class_colors": {
+          "Down": "#2A6FDB",
+          "Not significant": "#D64545",
+          "Up": "#2A9D6F"
+        },
+        "reference_opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-fixed\\S07_volcano\\reference-origin.opju",
+        "fresh_reopen": true,
+        "embedded_input_matches_csv": true,
+        "embedded_row_count": 48,
+        "native_plot_count": 6,
+        "reference_opju_sha256": "93fc72ad7691dab3790b2c64c43d29f17804bb5cff91fa0e2c0facccd8615a5d",
+        "origin_declaration": {
+          "display_name": "Origin2024 SR1",
+          "display_version": "10.10.178",
+          "runtime_version": 10.100178,
+          "bitness": 64,
+          "originpro_version": "1.1.15"
+        }
+      }
     }
   ],
-  "decision": "NO-GO"
+  "evidence_gaps": [],
+  "decision": "PENDING-RENDER"
 }

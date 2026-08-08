@@ -1,0 +1,82 @@
+{
+  "chart_type_id": "S07",
+  "evidence_status": "synthetic_origin_reference_anchored",
+  "evidence_grade": "D",
+  "source_path": null,
+  "source_sha256": null,
+  "source_graph_name": null,
+  "source_book": null,
+  "source_sheet_index": 0,
+  "recipe": "固定 seed 生成合成差异表达数据；用 Origin SCATTER 模板和原生散点/阈值线独立重建参考，不调用 PlotAgent renderer。",
+  "same_source_data": true,
+  "synthetic": true,
+  "origin_official_same_source_admission": false,
+  "data_sha256": "b003187716cdbafc070a844fb75c97d386d5398b0ea5e8bf19b66305544c53f0",
+  "reference_sha256": "e68d0c4b7dda2df61182b77ae5318ca00ae3e93173ff3287c4b1ad2207bca0fd",
+  "common_edit": "标题与字号",
+  "chart_edit": "阈值线、类别颜色与标签",
+  "admission_class": "D_synthetic_origin_reference",
+  "reference_and_test_use_identical_csv": true,
+  "synthetic_generator": {
+    "name": "s07-volcano-stratified-pcg64-v1",
+    "seed": 24080907,
+    "bit_generator": "PCG64",
+    "row_count": 48,
+    "rules": [
+      "12 negative effects sampled uniformly from [-3.8, -1.15] with log-uniform significant p-values",
+      "18 central effects sampled uniformly from [-0.92, 0.92] with mostly non-significant p-values",
+      "12 positive effects sampled uniformly from [1.15, 3.8] with log-uniform significant p-values",
+      "6 exact threshold-boundary observations freeze strict p<0.05 and abs(log2FC)>=1 semantics",
+      "one deterministic PCG64 permutation; log2fc rounded to 6 and pvalue to 10 decimals"
+    ]
+  },
+  "origin_reference": {
+    "construction_path": "independent_origin_native",
+    "plotagent_renderer_used": false,
+    "origin_template": "SCATTER",
+    "origin_menu_equivalent": "Plot > Basic 2D > Scatter",
+    "origin_graph_name": "Graph1",
+    "raw_sheet": "SyntheticData",
+    "raw_column_mapping": {
+      "feature": "A",
+      "log2fc": "B (X semantics)",
+      "pvalue": "C (transformed to -log10 for Y)"
+    },
+    "geometry_sheet": "ReferenceGeometry",
+    "native_plot_types": [
+      "scatter",
+      "scatter",
+      "scatter",
+      "line",
+      "line",
+      "line"
+    ],
+    "thresholds": {
+      "absolute_log2_fold_change": 1.0,
+      "pvalue": 0.05
+    },
+    "class_counts": {
+      "Down": 13,
+      "Not significant": 22,
+      "Up": 13
+    },
+    "class_colors": {
+      "Down": "#2A6FDB",
+      "Not significant": "#D64545",
+      "Up": "#2A9D6F"
+    },
+    "reference_opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-fixed\\S07_volcano\\reference-origin.opju",
+    "fresh_reopen": true,
+    "embedded_input_matches_csv": true,
+    "embedded_row_count": 48,
+    "native_plot_count": 6,
+    "reference_opju_sha256": "93fc72ad7691dab3790b2c64c43d29f17804bb5cff91fa0e2c0facccd8615a5d",
+    "origin_declaration": {
+      "display_name": "Origin2024 SR1",
+      "display_version": "10.10.178",
+      "runtime_version": 10.100178,
+      "bitness": 64,
+      "originpro_version": "1.1.15"
+    }
+  }
+}
