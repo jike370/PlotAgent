@@ -216,3 +216,10 @@ def test_builtin_provider_uses_injected_cloud_client_and_fixed_structured_payloa
     assert payload["context_envelope"]["context_hash"] == envelope.context_hash
     assert payload["prompt_template"]["hash"] == AGENT_PROMPT.prompt_hash
     assert provider.identity.deployment_id == "deployment-v1"
+
+
+def test_agent_prompt_maps_explicit_edits_and_treats_preservation_as_a_constraint() -> None:
+    assert AGENT_PROMPT.version == "agent-decision-v3"
+    assert "plot title or 图标题 to set_plot_title" in AGENT_PROMPT.text
+    assert "Never emit a style patch merely to preserve" in AGENT_PROMPT.text
+    assert "minimum necessary question instead of guessing" in AGENT_PROMPT.text

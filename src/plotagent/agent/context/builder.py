@@ -26,7 +26,7 @@ from plotagent.contracts.agent_context import (
 from plotagent.contracts.base import FieldId, SemanticAlias, Token
 from plotagent.contracts.canonical import canonical_hash, canonical_json
 
-PROMPT_TEMPLATE_VERSION: Token = "agent-decision-v2"
+PROMPT_TEMPLATE_VERSION: Token = "agent-decision-v3"
 SAMPLING_RULE_VERSION = "context-sample-v1"
 
 
