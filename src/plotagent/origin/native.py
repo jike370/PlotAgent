@@ -12,6 +12,7 @@ from plotagent.contracts.rendering import (
     OriginPlotPlan,
     OriginScalar,
 )
+from plotagent.origin.constants import ORIGIN_VARIABLE_SIZE_FACTOR
 
 PROJECT_FOLDERS = ("Data", "Analysis", "Graphs", "Metadata")
 
@@ -671,10 +672,22 @@ def materialize_primitive(
             forest_y.extend((position, position))
         return NativePrimitiveTable(tuple(forest_x), tuple(forest_y))
     if primitive.transform == "forest_symbol":
+        weights = tuple(
+            _number(value, "forest weight") for value in _role_values(data, "weight")
+        )
+        if any(weight < 0 for weight in weights):
+            raise ValueError("Origin forest weights must be non-negative")
+        maximum = max(weights, default=0.0)
+        marker_sizes = tuple(
+            (6.0 + 9.0 * weight / maximum) / ORIGIN_VARIABLE_SIZE_FACTOR
+            if maximum > 0
+            else 6.0 / ORIGIN_VARIABLE_SIZE_FACTOR
+            for weight in weights
+        )
         return NativePrimitiveTable(
             _role_values(data, "effect"),
             _category_positions(_role_values(data, "label")),
-            _role_values(data, "weight"),
+            marker_sizes,
         )
     raise ValueError(f"unsupported native primitive transform: {primitive.transform}")
 

@@ -971,8 +971,10 @@ def test_forest_symbol_is_one_weight_sized_scatter_primitive() -> None:
 
 
 def test_forest_interval_includes_weight_sized_point_estimates() -> None:
-    plot = _plan("S21").graph_objects[0].layers[0].plots[0]
+    plan = _plan("S21")
+    plot = plan.graph_objects[0].layers[0].plots[0]
     interval, symbol = native_primitives(plot)
+    data = next(item for item in plan.data_objects if item.object_id == plot.data_object_id)
 
     assert interval.transform == "forest_interval"
     assert symbol.plot_type == "scatter"
@@ -980,6 +982,12 @@ def test_forest_interval_includes_weight_sized_point_estimates() -> None:
     assert symbol.y_role == "label"
     assert symbol.size_role == "weight"
     assert symbol.transform == "forest_symbol"
+    table = materialize_primitive(symbol, data)
+    assert table is not None
+    assert table.y2 is not None
+    physical_sizes = tuple(float(value) * 0.25 for value in table.y2)
+    assert min(physical_sizes) >= 6.0
+    assert max(physical_sizes) == pytest.approx(15.0)
 
 
 def test_nyquist_uses_native_line_symbol_geometry() -> None:
