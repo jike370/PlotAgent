@@ -1606,20 +1606,41 @@ def _panel_layout(plot: PlotSpec, drafts: Sequence[_DraftLayer]) -> tuple[Resolv
             ),
         )
     if any(draft.geometry == "special.risk_table" for draft in drafts):
+        risk_group_count = max(
+            1,
+            len(
+                dict.fromkeys(
+                    value
+                    for draft in drafts
+                    if draft.geometry == "special.risk_table"
+                    for value in draft.roles.get("group", ())
+                )
+            ),
+        )
+        top = 5.0
+        bottom = 6.0
+        gap = 4.0
+        available_height = max(18.0, height - top - bottom - gap)
+        desired_risk_height = 6.0 + 4.0 * risk_group_count
+        risk_height = min(
+            max(8.0, desired_risk_height),
+            max(8.0, available_height - 10.0),
+        )
+        main_height = max(10.0, available_height - risk_height)
         return (
             ResolvedPanel(
                 panel_id="panel:main",
                 left=_mm(14),
-                top=_mm(5),
+                top=_mm(top),
                 width=_mm(max(10, width - 20)),
-                height=_mm(max(10, (height - 17) * 0.72)),
+                height=_mm(main_height),
             ),
             ResolvedPanel(
                 panel_id="panel:risk",
                 left=_mm(14),
-                top=_mm(7 + (height - 17) * 0.72),
+                top=_mm(top + main_height + gap),
                 width=_mm(max(10, width - 20)),
-                height=_mm(max(8, (height - 17) * 0.24)),
+                height=_mm(risk_height),
             ),
         )
     if len(panel_ids) == 1:

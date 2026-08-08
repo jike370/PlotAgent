@@ -261,3 +261,43 @@ def test_survival_risk_group_label_does_not_touch_the_first_count() -> None:
 
     assert group_label.get_position()[0] < 0
     assert group_label.get_window_extent(renderer).x1 < first_count.get_window_extent(renderer).x0
+
+
+def test_survival_risk_rows_reflow_without_vertical_text_overlap() -> None:
+    base_layer = resolve_chart("S01").plan.layers[0]
+    figure = Figure(figsize=(6, 1.2))
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    renderer = MatplotlibRenderer()
+    for index, group in enumerate(("Cohort A", "Cohort B", "Cohort C", "Cohort D")):
+        risk_layer = base_layer.model_copy(
+            update={
+                "geometry": "special.risk_table",
+                "label": _text(group),
+                "z_order": 5 + index,
+            }
+        )
+        renderer._draw_special(
+            axis,
+            risk_layer,
+            {"time": (0.0, 3.0, 6.0), "risk_count": (89 - index, 80, 71)},
+        )
+
+    figure.canvas.draw()
+    canvas_renderer = figure.canvas.get_renderer()
+    row_bounds: dict[str, tuple[float, float]] = {}
+    for item in axis.texts:
+        gid = item.get_gid()
+        if gid is None or not gid.startswith("plotagent-risk-row:"):
+            continue
+        bounds = item.get_window_extent(canvas_renderer)
+        previous = row_bounds.get(gid)
+        if previous is None:
+            row_bounds[gid] = (bounds.y0, bounds.y1)
+        else:
+            row_bounds[gid] = (min(previous[0], bounds.y0), max(previous[1], bounds.y1))
+    ordered = sorted(row_bounds.values(), reverse=True)
+    assert all(
+        upper[0] > lower[1]
+        for upper, lower in zip(ordered, ordered[1:], strict=False)
+    )

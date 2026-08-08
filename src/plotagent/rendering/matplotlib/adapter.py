@@ -28,6 +28,9 @@ from plotagent.contracts.styles import matplotlib_marker
 from plotagent.rendering.data import RenderTable, ResolvedPlot, Scalar
 from plotagent.rendering.size_key import representative_size_key
 
+_RISK_ROW_GID_PREFIX = "plotagent-risk-row:"
+_RISK_X_LABEL_GID = "plotagent-risk-x-label"
+
 _SUBSCRIPT = str.maketrans("0123456789+-()", "₀₁₂₃₄₅₆₇₈₉₊₋₍₎")
 _SUPERSCRIPT = str.maketrans("0123456789+-()", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁽⁾")
 
@@ -712,31 +715,81 @@ class MatplotlibRenderer:
                 zorder=layer.z_order,
             )
         elif geometry == "special.risk_table":
+            risk_x_label = axis.get_xlabel()
             axis.set_axis_off()
+            axis.set_xlabel("")
+            main_axis = next(
+                (item for item in axis.figure.axes if item.get_label() == "panel:main"),
+                None,
+            )
+            if main_axis is not None:
+                risk_x_label = risk_x_label or main_axis.get_xlabel()
+                main_axis.set_xlabel("")
+            if risk_x_label and not any(
+                item.get_gid() == _RISK_X_LABEL_GID for item in axis.texts
+            ):
+                x_label = axis.text(
+                    0.5,
+                    -0.18,
+                    risk_x_label,
+                    transform=axis.transAxes,
+                    ha="center",
+                    va="top",
+                )
+                x_label.set_gid(_RISK_X_LABEL_GID)
             x = _numeric(roles["time"])
             counts = roles["risk_count"]
-            risk_y = 0.85 - (layer.z_order % 5) * 0.18
+            row_indexes = {
+                int(gid.removeprefix(_RISK_ROW_GID_PREFIX))
+                for item in axis.texts
+                if (gid := item.get_gid()) is not None
+                and gid.startswith(_RISK_ROW_GID_PREFIX)
+            }
+            row_index = max(row_indexes, default=-1) + 1
+            row_gid = f"{_RISK_ROW_GID_PREFIX}{row_index}"
             x_min, x_max = float(min(x)), float(max(x))
             span = x_max - x_min or 1.0
             for x_value, count in zip(x, counts, strict=True):
-                axis.text(
+                count_label = axis.text(
                     (x_value - x_min) / span,
-                    risk_y,
+                    0.5,
                     str(count),
                     transform=axis.transAxes,
                     ha="center",
                     va="center",
                     color=color,
                 )
+                count_label.set_gid(row_gid)
             if label:
-                axis.text(
+                group_label = axis.text(
                     -0.04,
-                    risk_y,
+                    0.5,
                     label,
                     transform=axis.transAxes,
                     ha="right",
                     va="center",
                 )
+                group_label.set_gid(row_gid)
+            rows = sorted(
+                {
+                    int(gid.removeprefix(_RISK_ROW_GID_PREFIX))
+                    for item in axis.texts
+                    if (gid := item.get_gid()) is not None
+                    and gid.startswith(_RISK_ROW_GID_PREFIX)
+                }
+            )
+            row_positions = (
+                (0.5,)
+                if len(rows) == 1
+                else (0.68, 0.22)
+                if len(rows) == 2
+                else tuple(float(value) for value in np.linspace(0.82, 0.18, len(rows)))
+            )
+            positions = dict(zip(rows, row_positions, strict=True))
+            for item in axis.texts:
+                gid = item.get_gid()
+                if gid is not None and gid.startswith(_RISK_ROW_GID_PREFIX):
+                    item.set_y(positions[int(gid.removeprefix(_RISK_ROW_GID_PREFIX))])
         elif geometry == "special.forest_interval":
             forest_y = _numeric(roles["label"])
             effect = _numeric(roles["effect"])
