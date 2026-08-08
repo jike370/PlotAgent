@@ -976,8 +976,21 @@ class MatplotlibRenderer:
             )
             if mappable is None:
                 continue
-            native = figure.colorbar(mappable, ax=axis, fraction=0.046, pad=0.04)
+            position_key = tuple(round(float(value), 9) for value in axis.get_position().bounds)
+            parent_axes = tuple(
+                candidate
+                for candidate in axes.values()
+                if tuple(round(float(value), 9) for value in candidate.get_position().bounds)
+                == position_key
+            )
+            native = figure.colorbar(
+                mappable,
+                ax=parent_axes,
+                fraction=0.046,
+                pad=0.04,
+            )
             native.ax._plotagent_colorbar = True  # type: ignore[attr-defined]
+            native.ax._plotagent_parent_axes = parent_axes  # type: ignore[attr-defined]
             if native.solids is not None:
                 # Matplotlib rasterizes long color bars by default. Formal SVG
                 # must remain composed only of native vector elements.
@@ -1015,9 +1028,11 @@ class MatplotlibRenderer:
         figure.canvas.draw()
         self._reserve_outside_right_guides(figure, axes)
         figure.canvas.draw()
-        self._fit_bottom_tick_labels(figure, axes)
+        self._fit_left_axis_labels(figure, axes)
         figure.canvas.draw()
-        self._fit_colorbar_labels(figure)
+        self._fit_outside_colorbars(figure)
+        figure.canvas.draw()
+        self._fit_bottom_tick_labels(figure, axes)
         figure.canvas.draw()
         self._fit_plot_titles(figure, axes)
         figure.canvas.draw()
@@ -1128,28 +1143,95 @@ class MatplotlibRenderer:
                 )
 
     @staticmethod
-    def _fit_colorbar_labels(figure: Figure) -> None:
-        renderer = _renderer(figure)
+    def _fit_left_axis_labels(figure: Figure, axes: Mapping[str, Axes]) -> None:
+        """Reserve canvas space for dynamic Y ticks and labels without clipping."""
+
         canvas_width = float(figure.bbox.width)
-        right_padding = 8.0
-        for axis in figure.axes:
-            if not getattr(axis, "_plotagent_colorbar", False):
+        left_padding = 8.0
+        processed: set[tuple[float, float, float, float]] = set()
+        for axis in axes.values():
+            position = axis.get_position()
+            position_key = cast(
+                tuple[float, float, float, float],
+                tuple(round(float(value), 9) for value in position.bounds),
+            )
+            if position_key in processed:
                 continue
+            group = [
+                candidate
+                for candidate in axes.values()
+                if tuple(round(float(value), 9) for value in candidate.get_position().bounds)
+                == position_key
+            ]
+            processed.add(position_key)
+            renderer = _renderer(figure)
             labels: list[Artist] = [
                 label
-                for label in (*axis.get_yticklabels(), axis.yaxis.label)
+                for candidate in group
+                for label in (*candidate.get_yticklabels(), candidate.yaxis.label)
                 if label.get_visible() and getattr(label, "get_text", lambda: "")()
             ]
             if not labels:
                 continue
-            rightmost = max(float(label.get_window_extent(renderer).x1) for label in labels)
-            overflow = max(0.0, rightmost + right_padding - canvas_width) / canvas_width
-            if overflow <= 0:
+            leftmost = min(float(label.get_window_extent(renderer).x0) for label in labels)
+            required = max(0.0, left_padding - leftmost) / canvas_width
+            if required <= 0 or required >= position.width:
                 continue
-            position = axis.get_position()
-            axis.set_position(
-                (position.x0 - overflow, position.y0, position.width, position.height)
+            for candidate in group:
+                current = candidate.get_position()
+                candidate.set_position(
+                    (current.x0 + required, current.y0, current.width - required, current.height)
+                )
+
+    @staticmethod
+    def _fit_outside_colorbars(figure: Figure) -> None:
+        """Keep colorbars and their labels outside data axes and inside the canvas."""
+
+        canvas_width = float(figure.bbox.width)
+        padding = 8.0
+        padding_fraction = padding / canvas_width
+        for colorbar_axis in figure.axes:
+            if not getattr(colorbar_axis, "_plotagent_colorbar", False):
+                continue
+            parent_axes = tuple(
+                getattr(colorbar_axis, "_plotagent_parent_axes", ())
             )
+            if not parent_axes:
+                continue
+            figure.canvas.draw()
+            renderer = _renderer(figure)
+            labels: list[Artist] = [
+                label
+                for label in (*colorbar_axis.get_yticklabels(), colorbar_axis.yaxis.label)
+                if label.get_visible() and getattr(label, "get_text", lambda: "")()
+            ]
+            rightmost = max(
+                (
+                    float(colorbar_axis.get_window_extent(renderer).x1),
+                    *(float(label.get_window_extent(renderer).x1) for label in labels),
+                )
+            )
+            overflow = max(0.0, rightmost + padding - canvas_width) / canvas_width
+            colorbar_position = colorbar_axis.get_position()
+            if overflow > 0:
+                colorbar_axis.set_position(
+                    (
+                        colorbar_position.x0 - overflow,
+                        colorbar_position.y0,
+                        colorbar_position.width,
+                        colorbar_position.height,
+                    )
+                )
+                colorbar_position = colorbar_axis.get_position()
+            maximum_parent_right = colorbar_position.x0 - padding_fraction
+            for parent in parent_axes:
+                current = parent.get_position()
+                target_width = min(current.width, maximum_parent_right - current.x0)
+                if target_width <= 0:
+                    raise ValueError("outside colorbar leaves no positive data-axis width")
+                parent.set_position(
+                    (current.x0, current.y0, target_width, current.height)
+                )
 
     @staticmethod
     def _fit_plot_titles(figure: Figure, axes: Mapping[str, Axes]) -> None:

@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from matplotlib.legend import Legend
 
+from plotagent.contracts.base import PhysicalLength
 from plotagent.contracts.plots import SafeRichText, SafeTextNode
 from plotagent.rendering import ResolvedPlot
 from plotagent.rendering.matplotlib.adapter import MatplotlibRenderer
@@ -101,6 +102,69 @@ def test_colorbar_tick_labels_are_fitted_inside_fixed_canvas() -> None:
     )
     assert rightmost <= figure.bbox.x1 - 7.5
     assert (figure.bbox.width, figure.bbox.height) == pytest.approx((1051.0, 709.0))
+
+
+def test_long_y_ticks_and_colorbar_remain_inside_and_do_not_overlap_data_axis() -> None:
+    resolved = resolve_chart("K20")
+    replacements = (
+        "Long scientific row label OTU1091",
+        "Long scientific row label OTU434",
+    )
+    axes = tuple(
+        axis.model_copy(
+            update={
+                "ticks": tuple(
+                    tick.model_copy(update={"label": _text(label)})
+                    for tick, label in zip(axis.ticks, replacements, strict=True)
+                )
+            }
+        )
+        if axis.orientation == "y"
+        else axis
+        for axis in resolved.plan.axes
+    )
+    fonts = tuple(
+        font.model_copy(update={"size": PhysicalLength(value=9.5, unit="pt")})
+        for font in resolved.plan.fonts
+    )
+    long_labels = ResolvedPlot.create(
+        resolved.plan.model_copy(
+            update={
+                "title": _text("Visual qualification · matrix with long row labels"),
+                "axes": axes,
+                "fonts": fonts,
+                "colorbar": resolved.plan.colorbar.model_copy(
+                    update={"title": _text("Value")}
+                ),
+            }
+        ),
+        resolved.tables,
+    )
+
+    figure = MatplotlibRenderer().build_figure(long_labels)
+    figure.canvas.draw()
+    renderer = figure.canvas.get_renderer()
+    data_axis, colorbar_axis = figure.axes
+    left_artists = (*data_axis.get_yticklabels(), data_axis.yaxis.label)
+    right_artists = (*colorbar_axis.get_yticklabels(), colorbar_axis.yaxis.label)
+    title_bounds = data_axis.title.get_window_extent(renderer)
+
+    assert min(item.get_window_extent(renderer).x0 for item in left_artists) >= 7.5
+    assert max(item.get_window_extent(renderer).x1 for item in right_artists) <= (
+        figure.bbox.x1 - 7.5
+    )
+    assert data_axis.get_window_extent(renderer).x1 <= (
+        colorbar_axis.get_window_extent(renderer).x0 - 7.5
+    )
+    assert title_bounds.x0 >= 7.5
+    assert title_bounds.x1 <= figure.bbox.x1 - 7.5
+    assert title_bounds.y1 <= figure.bbox.y1 - 7.5
+    pixels = np.asarray(figure.canvas.buffer_rgba())[:, :, :3]
+    nonwhite_y, nonwhite_x = np.nonzero(np.any(pixels < 250, axis=2))
+    assert int(nonwhite_x.min()) >= 7
+    assert int(nonwhite_x.max()) <= int(figure.bbox.x1) - 8
+    assert int(nonwhite_y.min()) >= 7
+    assert int(nonwhite_y.max()) <= int(figure.bbox.y1) - 8
 
 
 def test_long_plot_title_is_fitted_inside_fixed_canvas_without_losing_text() -> None:
