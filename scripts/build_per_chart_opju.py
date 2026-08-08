@@ -31,6 +31,7 @@ from scripts import build_seq20_visual_baseline as seq20
 from scripts import build_visual29_fixed as fixed
 from scripts import build_visual29_matrix as matrix
 from scripts import build_visual29_structural as structural
+from scripts import build_visual29_structural_synthetic as structural_synthetic
 from scripts.visual_source_identity import source_build_identity
 
 Lane = Literal["seq20", "fixed", "matrix", "structural"]
@@ -89,10 +90,24 @@ def _items(selected: set[Lane]) -> list[tuple[Lane, Any, Path, Path]]:
             )
             for case in structural.CASES
         )
+        items.extend(
+            (
+                "structural",
+                case,
+                structural_synthetic.FIXTURES / case.case_id / "data.csv",
+                structural_synthetic.OUTPUT / case.case_id / f"{case.chart_id}.opju",
+            )
+            for case in structural_synthetic.CASES
+        )
     return items
 
 
 def _resolved_pair(lane: Lane, case: Any, frame: pd.DataFrame) -> tuple[ResolvedPlot, ...]:
+    if lane == "structural" and case in structural_synthetic.CASES:
+        return tuple(
+            structural_synthetic.build_resolved(case.chart_id, frame, edited=edited)
+            for edited in (False, True)
+        )
     builder: Any = {
         "seq20": seq20._build_plot,
         "fixed": fixed._build_plot,
