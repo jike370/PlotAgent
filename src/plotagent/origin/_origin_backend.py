@@ -80,8 +80,7 @@ _COLUMN_AXIS = {
     "None": "N",
 }
 _LINE_STYLE_CODES = {"solid": 0, "dashed": 1, "dotted": 2, "dash_dot": 3}
-# Qualified Origin's fixed palette index for white. S07 uses an opaque legend
-# fill so its fixed threshold lines cannot visually cross the legend contents.
+# Qualified Origin fixed palette indexes used by page-attached decorations.
 _ORIGIN_WHITE_COLOR_INDEX = 18
 _ORIGIN_BLACK_COLOR_INDEX = 1
 _PLOT_TITLE_LABEL = "_TITLE"
@@ -316,20 +315,196 @@ def _bar_width_ratio(
     return width
 
 
-def _legend_text(graph_id: str, labels: list[str]) -> str:
-    """Add native sample tokens only for the closed S07 legend vocabulary.
+@dataclass(frozen=True, slots=True)
+class _LegendSampleRef:
+    """One allowlisted Origin data-plot reference used by a legend sample."""
 
-    S07 layer labels are a closed fixed-calculation vocabulary, so it can safely use
-    Origin's fixed ``\\l(n)`` sample tokens. Other chart labels retain the existing
-    plain-text path and never receive generated enhanced-text syntax here.
-    """
+    layer_index: int
+    plot_index: int
+    plot_id: str
+    primitive_index: int
+    physical_offset: int
+    primitive: NativePrimitive
+    expected_book_name: str
 
-    if graph_id.startswith("graph.S07."):
-        expected = ("Down", "Not significant", "Up")
-        if tuple(labels) != expected:
-            raise NativeOriginError("S07 fixed legend vocabulary differs from the resolver")
-        return "\n".join(f"\\l({index}) {label}" for index, label in enumerate(labels, 1))
-    return "\n".join(labels)
+
+@dataclass(frozen=True, slots=True)
+class _LegendEntry:
+    """One scientific series label and its representative native plot samples."""
+
+    label: str
+    samples: tuple[_LegendSampleRef, ...]
+
+
+def _safe_legend_label(value: str) -> str:
+    """Encode user text without allowing Origin enhanced-text or substitution syntax."""
+
+    output: list[str] = []
+    for character in value:
+        codepoint = ord(character)
+        if character in {"\\", "%", "$"}:
+            output.append(f"\\x({codepoint:04X})")
+        elif character in {"\r", "\n", "\t"} or codepoint < 0x20 or codepoint == 0x7F:
+            output.append(" ")
+        else:
+            output.append(character)
+    return "".join(output).strip()
+
+
+def _legend_sample_token(sample: _LegendSampleRef) -> str:
+    """Generate only integer-indexed Origin sample syntax; no user text enters the token."""
+
+    if sample.layer_index < 1 or sample.plot_index < 1:
+        raise NativeOriginError("Origin legend sample indexes must be positive integers")
+    plot_ref = (
+        str(sample.plot_index)
+        if sample.layer_index == 1
+        else f"{sample.layer_index}.{sample.plot_index}"
+    )
+    # Explicit partial-style options keep scatter legends from inheriting the
+    # template's line sample and make line+symbol rows visibly unambiguous. The
+    # option is selected only from this closed primitive allowlist.
+    style = {
+        "scatter": "s",
+        "line": "l",
+        "line_symbol": "sls",
+    }.get(sample.primitive.plot_type)
+    return f"\\l({plot_ref}{f', style:{style}' if style is not None else ''})"
+
+
+def _legend_text(entries: tuple[_LegendEntry, ...]) -> str:
+    """Return native sample tokens followed by separately escaped scientific labels."""
+
+    rows: list[str] = []
+    for entry in entries:
+        if not entry.samples:
+            raise NativeOriginError("Origin legend entry has no representative native plot")
+        samples = " ".join(_legend_sample_token(sample) for sample in entry.samples)
+        rows.append(f"{samples} {_safe_legend_label(entry.label)}".rstrip())
+    return "\n".join(rows)
+
+
+def _legend_binding_signature(
+    plot: OriginPlotPlan,
+    data_objects: dict[str, OriginDataObject],
+) -> str:
+    """Hash role values, not generated field ids, to identify one logical data series."""
+
+    data = data_objects.get(plot.data_object_id)
+    if data is None:
+        raise NativeOriginError(f"legend data object is missing for {plot.plot_id}")
+    columns_by_role = {column.role: column for column in data.columns}
+    payload: list[JsonValue] = []
+    for binding in plot.role_columns:
+        column = columns_by_role.get(binding.role)
+        if column is None:
+            raise NativeOriginError(
+                f"legend binding {binding.role!r} is missing for {plot.plot_id}"
+            )
+        payload.append(
+            cast(JsonValue, {"role": binding.role, "values": list(column.values)})
+        )
+    return hashlib.sha256(canonical_json(cast(JsonValue, payload)).encode()).hexdigest()
+
+
+def _legend_sample_family(primitive: NativePrimitive) -> str:
+    if primitive.plot_type in {"scatter", "line_symbol"}:
+        return "symbol" if primitive.plot_type == "scatter" else "line_symbol"
+    if primitive.plot_type in {"column", "floating_column", "bar", "area", "fill_area"}:
+        return "fill"
+    return "line"
+
+
+def _representative_primitive_indexes(plot: OriginPlotPlan) -> tuple[int, ...]:
+    primitives = native_primitives(plot)
+    if plot.native_kind == "error_bar":
+        # Preserve both interval and point-estimate encodings in one logical row.
+        return tuple(range(len(primitives)))
+    return (0,)
+
+
+def _legend_entries(
+    graph: OriginGraphObject,
+    data_objects: tuple[OriginDataObject, ...],
+) -> tuple[_LegendEntry, ...]:
+    """Map logical series to stable native data-plot samples across all Origin layers."""
+
+    data_by_id = {item.object_id: item for item in data_objects}
+    entries: list[_LegendEntry] = []
+    entry_indexes: dict[tuple[str, str], int] = {}
+    pending_unlabelled: list[tuple[str, tuple[_LegendSampleRef, ...]]] = []
+    for layer_index, layer in enumerate(graph.layers, start=1):
+        physical_index = 1
+        for semantic_index, plot in enumerate(layer.plots):
+            signature = _legend_binding_signature(plot, data_by_id)
+            primitives = native_primitives(plot)
+            refs: list[_LegendSampleRef] = []
+            representative_indexes = set(_representative_primitive_indexes(plot))
+            for primitive_index, primitive in enumerate(primitives):
+                count = physical_plot_count(primitive)
+                if primitive_index in representative_indexes:
+                    expected_book = (
+                        data_by_id[plot.data_object_id].internal_name
+                        if materialize_primitive(primitive, data_by_id[plot.data_object_id]) is None
+                        else primitive_book_name(
+                            graph.internal_name,
+                            layer_index - 1,
+                            semantic_index,
+                            primitive_index,
+                        )
+                    )
+                    refs.append(
+                        _LegendSampleRef(
+                            layer_index=layer_index,
+                            plot_index=physical_index,
+                            plot_id=plot.plot_id,
+                            primitive_index=primitive_index,
+                            physical_offset=0,
+                            primitive=primitive,
+                            expected_book_name=expected_book,
+                        )
+                    )
+                physical_index += count
+            samples = tuple(refs)
+            if plot.label:
+                key = (signature, plot.label)
+                existing_index = entry_indexes.get(key)
+                if existing_index is None:
+                    entry_indexes[key] = len(entries)
+                    entries.append(_LegendEntry(label=plot.label, samples=samples))
+                else:
+                    existing = entries[existing_index]
+                    families = {_legend_sample_family(item.primitive) for item in existing.samples}
+                    additions = tuple(
+                        item
+                        for item in samples
+                        if _legend_sample_family(item.primitive) not in families
+                    )
+                    entries[existing_index] = _LegendEntry(
+                        label=existing.label,
+                        samples=(*existing.samples, *additions),
+                    )
+            else:
+                pending_unlabelled.append((signature, samples))
+    # A separate line and symbol target can represent one logical series. Associate an
+    # unlabelled companion only when its complete role-value signature is identical.
+    for signature, samples in pending_unlabelled:
+        matches = [
+            index for (candidate, _label), index in entry_indexes.items() if candidate == signature
+        ]
+        if len(matches) != 1:
+            continue
+        entry_index = matches[0]
+        existing = entries[entry_index]
+        families = {_legend_sample_family(item.primitive) for item in existing.samples}
+        additions = tuple(
+            item for item in samples if _legend_sample_family(item.primitive) not in families
+        )
+        entries[entry_index] = _LegendEntry(
+            label=existing.label,
+            samples=(*existing.samples, *additions),
+        )
+    return tuple(entries)
 
 
 def _legend_labels(graph: OriginGraphObject) -> list[str]:
@@ -359,8 +534,16 @@ def _legend_gutter_mm(graph_plan: OriginGraphObject) -> float:
     labels = _legend_labels(graph_plan)
     if not graph_plan.legend_visible or not labels:
         return 0.0
-    widest = max(_text_width_mm(label, graph_plan.font_size_pt) for label in labels)
-    return min(max(widest + 2.0, 7.0), 24.0)
+    # Origin measures the persisted enhanced-text source before/while resolving
+    # ``\\x`` escapes, so reserve against the safe encoded form rather than the
+    # shorter user-facing label.
+    widest = max(
+        _text_width_mm(_safe_legend_label(label), graph_plan.font_size_pt)
+        for label in labels
+    )
+    # Origin's sample glyph is part of the object width even though the user label
+    # is the only typed text. Reserve one sample column plus its row spacing.
+    return min(max(widest + 10.0, 15.0), 45.0)
 
 
 def _size_key_gutter_mm(graph_plan: OriginGraphObject) -> float:
@@ -584,8 +767,9 @@ def _place_inside_legend(
     layer_left, layer_top, layer_width, layer_height = _frame_page_bounds(
         graph, graph_plan, layer_plan
     )
-    if graph_plan.graph_id.startswith("graph.S07."):
-        legend.set_int("fillcolor", _ORIGIN_WHITE_COLOR_INDEX)
+    # An opaque neutral legend protects every sample/label row from data and fixed
+    # reference primitives; this also preserves S07's qualified threshold behavior.
+    legend.set_int("fillcolor", _ORIGIN_WHITE_COLOR_INDEX)
     page_inset = max(page_width * 0.015, 2.0)
     left = page_width - legend_width - page_inset
     top = (
@@ -1442,6 +1626,7 @@ class OriginProBackend:
         data_by_id = {
             object_id: self._data_sheets[object_id] for object_id in graph_plan.data_object_ids
         }
+        legend_entries = _legend_entries(graph_plan, self._active_plan.data_objects)
         for layer_index, layer_plan in enumerate(graph_plan.layers):
             if layer_index == 0:
                 layer = graph[0]
@@ -1633,12 +1818,17 @@ class OriginProBackend:
                 x_title = layer.label("xb")
                 if x_title is not None:
                     x_title.set_int("show", 0)
-            labels = _legend_labels(graph_plan)
             legend = layer.label("legend")
             if legend is not None:
-                visible_legend = bool(graph_plan.legend_visible and layer_index == 0 and labels)
-                legend.text = _legend_text(graph_plan.graph_id, labels) if visible_legend else ""
+                visible_legend = bool(
+                    graph_plan.legend_visible and layer_index == 0 and legend_entries
+                )
+                legend.text = _legend_text(legend_entries) if visible_legend else ""
                 legend.set_float("fsize", graph_plan.font_size_pt)
+                # Origin only fully evaluates the allowlisted ``style:`` sample
+                # options at substitution level 1. User labels are separately
+                # encoded, so no user-provided substitution reaches this parser.
+                legend.set_int("link", 1)
                 legend.set_int("show", int(visible_legend))
                 if visible_legend:
                     _place_inside_legend(graph, graph_plan, layer_plan, legend)
@@ -1680,9 +1870,8 @@ class OriginProBackend:
         title = first_layer.label(_PLOT_TITLE_LABEL)
         if graph_plan.title and title is not None:
             _place_page_title(graph, graph_plan, first_layer_plan, title)
-        legend_labels = _legend_labels(graph_plan)
         legend = first_layer.label("legend")
-        if graph_plan.legend_visible and legend_labels and legend is not None:
+        if graph_plan.legend_visible and legend_entries and legend is not None:
             _place_inside_legend(graph, graph_plan, first_layer_plan, legend)
         self._write_size_key(graph, first_layer, graph_plan, first_layer_plan)
 
@@ -1820,7 +2009,7 @@ class OriginProBackend:
                     f"view_mode={graph.obj.GetPageViewMode()}"
                 )
             template_y_style = _read_template_y_axis_style(graph[0])
-            legend_labels = _legend_labels(graph_plan)
+            legend_entries = _legend_entries(graph_plan, plan.data_objects)
             for layer_index, (layer_plan, layer) in enumerate(
                 zip(graph_plan.layers, graph, strict=True)
             ):
@@ -2258,17 +2447,71 @@ class OriginProBackend:
                                 f"native variable-size key order differs for {graph_plan.graph_id}"
                             )
                         previous_top = marker_rect.top
-                if graph_plan.legend_visible and layer_index == 0 and legend_labels:
+                if graph_plan.legend_visible and layer_index == 0 and legend_entries:
                     legend = layer.label("legend")
-                    expected_legend = _legend_text(graph_plan.graph_id, legend_labels)
-                    if legend is None or legend.text.replace("\r\n", "\n") != expected_legend:
-                        raise NativeOriginError(
-                            f"native legend text differs for {graph_plan.graph_id}"
-                        )
+                    expected_legend = _legend_text(legend_entries)
                     if (
-                        graph_plan.graph_id.startswith("graph.S07.")
-                        and legend.get_int("fillcolor") != _ORIGIN_WHITE_COLOR_INDEX
+                        legend is None
+                        or legend.text.replace("\r\n", "\n") != expected_legend
+                        or legend.get_int("link") != 1
                     ):
+                        raise NativeOriginError(
+                            f"native legend text differs for {graph_plan.graph_id}: "
+                            f"actual_text={None if legend is None else legend.text!r}, "
+                            f"expected_text={expected_legend!r}, "
+                            f"link={None if legend is None else legend.get_int('link')}"
+                        )
+                    for legend_entry in legend_entries:
+                        for sample in legend_entry.samples:
+                            sample_layer = graph[sample.layer_index - 1]
+                            sample_plots = sample_layer.plot_list()
+                            if sample.plot_index > len(sample_plots):
+                                raise NativeOriginError(
+                                    f"native legend sample plot is missing for {sample.plot_id}"
+                                )
+                            native_plot = sample_plots[sample.plot_index - 1]
+                            dataset_name = str(native_plot.obj.GetDatasetName())
+                            if sample.expected_book_name.casefold() not in dataset_name.casefold():
+                                raise NativeOriginError(
+                                    f"native legend sample association differs for "
+                                    f"{sample.plot_id}: actual={dataset_name!r}, "
+                                    f"expected_book={sample.expected_book_name!r}"
+                                )
+                            sample_plot_plan = next(
+                                plot_plan
+                                for graph_layer in graph_plan.layers
+                                for plot_plan in graph_layer.plots
+                                if plot_plan.plot_id == sample.plot_id
+                            )
+                            expected_color = _primitive_color(
+                                sample_plot_plan, sample.primitive
+                            )
+                            if (
+                                expected_color is not None
+                                and sample.primitive.color_role is None
+                                and tuple(native_plot.color) != _hex_rgb(expected_color)
+                            ):
+                                raise NativeOriginError(
+                                    f"native legend sample color differs for {sample.plot_id}"
+                                )
+                            if sample.primitive.plot_type in {"scatter", "line_symbol"} and (
+                                native_plot.symbol_kind
+                                != origin_symbol_code(sample_plot_plan.symbol.shape)
+                                or native_plot.symbol_interior
+                                != origin_interior_code(sample_plot_plan.symbol.interior)
+                            ):
+                                raise NativeOriginError(
+                                    f"native legend sample symbol differs for {sample.plot_id}"
+                                )
+                            if sample.primitive.plot_type in {"line", "line_symbol"} and (
+                                native_plot.get_int("line.style")
+                                != _LINE_STYLE_CODES[sample_plot_plan.line_style]
+                            ):
+                                raise NativeOriginError(
+                                    f"native legend sample line style differs for "
+                                    f"{sample.plot_id}"
+                                )
+                    if legend.get_int("fillcolor") != _ORIGIN_WHITE_COLOR_INDEX:
                         raise NativeOriginError(
                             f"native legend fill differs for {graph_plan.graph_id}"
                         )

@@ -18,6 +18,7 @@ from plotagent.origin._origin_backend import (
     _apply_right_y_axis_style,
     _bar_width_ratio,
     _frame_page_bounds,
+    _legend_entries,
     _legend_labels,
     _legend_text,
     _native_layer_frame,
@@ -27,6 +28,7 @@ from plotagent.origin._origin_backend import (
     _place_page_title,
     _primitive_color,
     _read_template_y_axis_style,
+    _safe_legend_label,
     _size_key_layout,
     _style_annotation_label,
     _tick_label_rotation,
@@ -50,20 +52,46 @@ def _plan(chart_id: str) -> OriginExportPlan:
     return compile_origin_plan((resolved,), build_origin_export_spec((resolved,)))
 
 
-def test_s07_uses_only_fixed_native_legend_sample_tokens() -> None:
-    assert _legend_text("graph.S07.0", ["Down", "Not significant", "Up"]) == (
-        r"\l(1) Down" "\n" r"\l(2) Not significant" "\n" r"\l(3) Up"
+def test_s07_uses_native_legend_samples_from_fixed_resolved_series() -> None:
+    plan = _plan("S07")
+    entries = _legend_entries(plan.graph_objects[0], plan.data_objects)
+
+    assert _legend_text(entries) == (
+        r"\l(1, style:s) Down"
+        "\n"
+        r"\l(2, style:s) Not significant"
+        "\n"
+        r"\l(3, style:s) Up"
     )
-    with pytest.raises(NativeOriginError, match="fixed legend vocabulary"):
-        _legend_text("graph.S07.0", ["Down", "user label", "Up"])
 
 
-def test_nonfixed_legend_labels_do_not_receive_generated_origin_tokens() -> None:
-    assert _legend_text("graph.K01.0", ["Series 1", "Series 2"]) == "Series 1\nSeries 2"
+def test_nonfixed_legend_uses_native_samples_and_blocks_enhanced_text_injection() -> None:
+    plan = _plan("K01")
+    graph = plan.graph_objects[0]
+    layer = graph.layers[0]
+    unsafe = r"user \l(99) %(1) $(system)" + "\nnext"
+    graph = graph.model_copy(
+        update={
+            "layers": (
+                layer.model_copy(
+                    update={"plots": (layer.plots[0].model_copy(update={"label": unsafe}),)}
+                ),
+            )
+        }
+    )
+
+    entries = _legend_entries(graph, plan.data_objects)
+
+    assert _legend_text(entries) == (
+        r"\l(1, style:l) user \x(005C)l(99) \x(0025)(1) "
+        r"\x(0024)(system) next"
+    )
+    assert _safe_legend_label(unsafe).count("\\l(") == 0
 
 
 def test_duplicate_physical_styles_share_one_origin_legend_row() -> None:
-    graph = _plan("K05").graph_objects[0]
+    plan = _plan("K05")
+    graph = plan.graph_objects[0]
     layer = graph.layers[0]
     base = layer.plots[0]
     graph = graph.model_copy(
@@ -83,6 +111,9 @@ def test_duplicate_physical_styles_share_one_origin_legend_row() -> None:
     )
 
     assert _legend_labels(graph) == ["Y1", "Y1 interval"]
+    entries = _legend_entries(graph, plan.data_objects)
+    assert [entry.label for entry in entries] == ["Y1", "Y1 interval"]
+    assert [len(entry.samples) for entry in entries] == [1, 1]
 
 
 def _grouped_bar_plan(group_count: int, width_ratio: float) -> OriginExportPlan:
@@ -176,10 +207,89 @@ def test_fill_area_materializes_as_two_native_lines() -> None:
     assert physical_plot_count(primitive) == 2
 
 
-def test_x09_origin_plan_suppresses_internal_interval_boundary_legend() -> None:
-    graph = _plan("X09").graph_objects[0]
+def test_x09_origin_legend_maps_logical_intervals_not_internal_boundaries() -> None:
+    plan = _plan("X09")
+    graph = plan.graph_objects[0]
+    entries = _legend_entries(graph, plan.data_objects)
 
-    assert graph.legend_visible is False
+    assert graph.legend_visible is True
+    assert [entry.label for entry in entries] == ["Middle", "End"]
+    assert [[sample.plot_index for sample in entry.samples] for entry in entries] == [[1], [3]]
+    assert _legend_text(entries) == r"\l(1) Middle" "\n" r"\l(3) End"
+
+
+def test_separate_line_and_symbol_targets_share_one_logical_legend_row() -> None:
+    plan = _plan("K02")
+    entries = _legend_entries(plan.graph_objects[0], plan.data_objects)
+
+    assert len(entries) == 1
+    assert [sample.primitive.plot_type for sample in entries[0].samples] == [
+        "line",
+        "scatter",
+    ]
+    assert _legend_text(entries) == r"\l(1, style:l) \l(2, style:s) Series 1"
+
+
+@pytest.mark.parametrize(
+    ("chart_id", "labels", "plot_indexes"),
+    [
+        ("X05", ["A", "B"], [[1], [2]]),
+        ("K09", ["G1", "G2"], [[1], [2]]),
+        ("K10", ["C1", "C2"], [[1], [3]]),
+        ("X03", ["Start", "End"], [[4], [5]]),
+        ("K07", ["Series 1", "Series 2"], [[1], [2]]),
+        ("K11", ["C1", "C2"], [[1], [3]]),
+        ("S07", ["Down", "Not significant", "Up"], [[1], [2], [3]]),
+    ],
+)
+def test_origin_legend_mapping_is_native_plot_order_aware(
+    chart_id: str, labels: list[str], plot_indexes: list[list[int]]
+) -> None:
+    plan = _plan(chart_id)
+    entries = _legend_entries(plan.graph_objects[0], plan.data_objects)
+
+    assert [entry.label for entry in entries] == labels
+    assert [[sample.plot_index for sample in entry.samples] for entry in entries] == plot_indexes
+
+
+def test_origin_legend_uses_explicit_layer_and_plot_indexes_for_dual_axis_overlay() -> None:
+    plan = _plan("X35")
+    entries = _legend_entries(plan.graph_objects[0], plan.data_objects)
+
+    assert _legend_text(entries) == (
+        r"\l(1) Left" "\n" r"\l(2.1) Right"
+    )
+    assert [
+        (sample.layer_index, sample.plot_index)
+        for entry in entries
+        for sample in entry.samples
+    ] == [(1, 1), (2, 1)]
+
+
+def test_origin_error_legend_row_maps_interval_and_point_primitives() -> None:
+    plan = _plan("K06")
+    graph = plan.graph_objects[0]
+    layer = graph.layers[0]
+    graph = graph.model_copy(
+        update={
+            "legend_visible": True,
+            "layers": (
+                layer.model_copy(
+                    update={"plots": (layer.plots[0].model_copy(update={"label": "Estimate"}),)}
+                ),
+            ),
+        }
+    )
+
+    entries = _legend_entries(graph, plan.data_objects)
+
+    assert [sample.primitive.transform for sample in entries[0].samples] == [
+        "point_interval",
+        "direct",
+    ]
+    assert _legend_text(entries) == (
+        r"\l(1, style:l) \l(2, style:s) Estimate"
+    )
 
 
 class _FakePageObject:
