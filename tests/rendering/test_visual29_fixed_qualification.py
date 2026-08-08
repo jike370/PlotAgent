@@ -72,6 +72,20 @@ def test_next_render_does_not_carry_first_pass_mechanical_blockers() -> None:
 
 
 def test_fixed_calculation_tables_satisfy_structural_invariants() -> None:
+    k06 = pd.read_csv(FIXTURES / "K06_point_error" / "data.csv")
+    assert tuple(k06.columns) == (
+        "x",
+        "center",
+        "x_lower",
+        "x_upper",
+        "lower",
+        "upper",
+    )
+    assert (k06["x_lower"] <= k06["x"]).all()
+    assert (k06["x"] <= k06["x_upper"]).all()
+    assert (k06["lower"] <= k06["center"]).all()
+    assert (k06["center"] <= k06["upper"]).all()
+
     k11 = pd.read_csv(FIXTURES / "K11_percent_stack" / "data.csv")
     assert np.allclose(k11.groupby("category")["value"].sum().to_numpy(), 1.0)
 
@@ -131,6 +145,23 @@ def test_render_manifest_keeps_human_signature_pending_and_gap_blocking() -> Non
     assert qualification["human_visual_signature"]["status"] == "pending"
     assert qualification["source_build_identity"]["scope_version"] == "visual29-fixed-rendering-v1"
     s61 = next(item for item in manifest["cases"] if item["chart_type_id"] == "S61")
+    k06 = next(item for item in manifest["cases"] if item["chart_type_id"] == "K06")
+    for state in k06["states"].values():
+        matplotlib = state["matplotlib_point_interval_evidence"]
+        origin = state["origin_point_interval_evidence"]
+        assert matplotlib["consumed"] is True
+        assert matplotlib["has_xerr"] is matplotlib["has_yerr"] is True
+        assert matplotlib["center_marker_count"] == matplotlib["row_count"] > 0
+        assert matplotlib["horizontal_interval_count"] == matplotlib["row_count"]
+        assert matplotlib["vertical_interval_count"] == matplotlib["row_count"]
+        assert matplotlib["cap_line_count"] == 4
+        assert origin["consumed"] is True
+        assert origin["fresh_reopen"] is True
+        assert origin["center_symbol_plot_count"] == 1
+        assert origin["endpoint_symbol_plot_count"] == 0
+        assert origin["segments_per_observation"] == 6
+        assert origin["horizontal_interval_count"] == origin["row_count"]
+        assert origin["vertical_interval_count"] == origin["row_count"]
     s61_consumed = all(
         state.get("matplotlib_annotation_evidence", {}).get("consumed") is True
         and state.get("origin_annotation_evidence", {}).get("consumed") is True

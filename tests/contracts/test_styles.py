@@ -16,6 +16,7 @@ def test_origin_style_catalog_is_closed_and_stable() -> None:
     assert len(PALETTE_IDS) == len(set(PALETTE_IDS)) == 16
     assert len(SYMBOL_MAPPINGS) == 12
     assert tuple(ORIGIN_INTERIOR_CODES) == ("solid", "open", "hollow")
+    assert ORIGIN_INTERIOR_CODES == {"solid": 0, "open": 1, "hollow": 3}
     assert resolve_palette("GrayScale").source_hash == (
         "9bafc5fca3adfdc8270b9f132e09c66ef9d7df6d6c42109009e11aa6208d05fc"
     )

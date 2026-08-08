@@ -418,8 +418,10 @@ SYMBOL_MAPPINGS: dict[SymbolShape, tuple[int, str]] = {
     "pentagon": (19, "p"),
 }
 
-# originpro's symbol_interior property is the LabTalk interior code plus one.
-ORIGIN_INTERIOR_CODES: dict[SymbolInterior, int] = {"solid": 1, "open": 2, "hollow": 4}
+# ``originpro.Plot.symbol_interior`` consumes Origin's LabTalk ``set -kf``
+# values directly: 0=solid, 1=open, 3=hollow.  Treating the property as a
+# one-based UI index makes every requested solid marker render open.
+ORIGIN_INTERIOR_CODES: dict[SymbolInterior, int] = {"solid": 0, "open": 1, "hollow": 3}
 
 
 def resolve_palette(palette_id: PaletteId, *, reverse: bool = False) -> ResolvedPalette:

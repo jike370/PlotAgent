@@ -133,7 +133,7 @@ CHARTS: tuple[ChartAdapterRegistration, ...] = (
         "K06",
         "xy",
         ("center",),
-        ("lower", "upper", "error", "group"),
+        ("x", "x_lower", "x_upper", "lower", "upper", "error", "group"),
         ("direct", "fixed"),
         ("summary_error",),
         (),

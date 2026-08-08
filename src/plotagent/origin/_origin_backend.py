@@ -236,7 +236,7 @@ def _bar_edge_width_command(width_pt: float) -> str:
 
 
 def _primitive_color(plot: OriginPlotPlan, primitive: NativePrimitive) -> str | None:
-    is_uncertainty = primitive.transform in {"interval_connector", "band"} or (
+    is_uncertainty = primitive.transform in {"interval_connector", "point_interval", "band"} or (
         plot.native_kind == "error_bar"
         and primitive.plot_type == "scatter"
         and primitive.y_role in {"lower", "upper"}
@@ -878,7 +878,11 @@ class OriginProBackend:
             # Grouping activates that native behavior; fill-only transparency
             # hides the boundary without changing any process-global preference.
             layer.group(True, first_plot_index, first_plot_index + len(created_plots) - 1)
-        is_uncertainty = primitive.transform in {"interval_connector", "band"} or (
+        is_uncertainty = primitive.transform in {
+            "interval_connector",
+            "point_interval",
+            "band",
+        } or (
             plot_plan.native_kind == "error_bar"
             and primitive.plot_type == "scatter"
             and primitive.y_role in {"lower", "upper"}

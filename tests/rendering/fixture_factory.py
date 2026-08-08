@@ -115,9 +115,11 @@ _FIXTURES: dict[str, tuple[SeriesFixture, ...]] = {
         _series(
             "error_bar",
             "calculated",
-            ("x", "center", "lower", "upper"),
-            ("A", "B", "C"),
+            ("x", "center", "x_lower", "x_upper", "lower", "upper"),
+            (1.0, 2.0, 3.0),
             (2.0, 3.0, 2.5),
+            (0.8, 1.7, 2.6),
+            (1.2, 2.3, 3.4),
             (1.5, 2.4, 2.0),
             (2.5, 3.6, 3.0),
             calculation_kind="summary_error",
@@ -605,7 +607,7 @@ def _family(chart_id: str, geometries: tuple[AllGeometryKind, ...]) -> PlotFamil
 
 
 def _axis_scales(chart_id: str) -> tuple[AxisScaleKind, AxisScaleKind]:
-    if chart_id in {"K06", "K08", "K09", "K10", "K11", "K12", "K13", "K14"}:
+    if chart_id in {"K08", "K09", "K10", "K11", "K12", "K13", "K14"}:
         return "categorical", "linear"
     if chart_id in {"K20", "K21", "S61"}:
         return "categorical", "categorical"

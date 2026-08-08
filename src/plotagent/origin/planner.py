@@ -141,6 +141,8 @@ def _designation(role: str) -> str:
         return "Y"
     if role in {"z", "top"}:
         return "Z"
+    if role in {"x_lower", "x_upper"}:
+        return "XError"
     if role in {"lower", "upper", "error"}:
         return "YError"
     if role in _LABEL_ROLES:

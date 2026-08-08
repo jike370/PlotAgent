@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import textwrap
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
@@ -378,11 +379,22 @@ class MatplotlibRenderer:
         elif layer.geometry == "xy.error":
             lower = _numeric(roles["lower"])
             upper = _numeric(roles["upper"])
+            xerr = None
+            if "x_lower" in roles and "x_upper" in roles:
+                x_lower = _numeric(roles["x_lower"])
+                x_upper = _numeric(roles["x_upper"])
+                xerr = np.vstack((x - x_lower, x_upper - x))
+            symbol_style = self._line_symbol_style(axis, layer, color)
+            marker = symbol_style.pop("marker")
             axis.errorbar(
                 x,
                 y,
+                xerr=xerr,
                 yerr=np.vstack((y - lower, upper - y)),
-                fmt="none",
+                fmt=marker,
+                linestyle="none",
+                color=color,
+                markersize=marker_size,
                 ecolor=(
                     layer.uncertainty_color.value if layer.uncertainty_color is not None else color
                 ),
@@ -394,6 +406,7 @@ class MatplotlibRenderer:
                 capsize=(layer.cap_size.value if layer.cap_size is not None else marker_size),
                 label=label,
                 zorder=layer.z_order,
+                **symbol_style,
             )
         elif layer.geometry == "xy.area":
             axis.fill_between(
@@ -1006,6 +1019,8 @@ class MatplotlibRenderer:
         figure.canvas.draw()
         self._fit_colorbar_labels(figure)
         figure.canvas.draw()
+        self._fit_plot_titles(figure, axes)
+        figure.canvas.draw()
 
     @staticmethod
     def _legend_overlaps_points(axis: Axes, legend: Legend, renderer: Any) -> bool:
@@ -1135,6 +1150,86 @@ class MatplotlibRenderer:
             axis.set_position(
                 (position.x0 - overflow, position.y0, position.width, position.height)
             )
+
+    @staticmethod
+    def _fit_plot_titles(figure: Figure, axes: Mapping[str, Axes]) -> None:
+        """Keep plot titles inside the physical canvas without changing their content."""
+
+        canvas_width = float(figure.bbox.width)
+        canvas_height = float(figure.bbox.height)
+        padding = 8.0
+        minimum_font_size = 6.0
+        processed: set[tuple[float, float, float, float]] = set()
+        for axis in axes.values():
+            position = axis.get_position()
+            position_key = cast(
+                tuple[float, float, float, float],
+                tuple(round(float(value), 9) for value in position.bounds),
+            )
+            if position_key in processed:
+                continue
+            group = [
+                candidate
+                for candidate in axes.values()
+                if tuple(round(float(value), 9) for value in candidate.get_position().bounds)
+                == position_key
+            ]
+            processed.add(position_key)
+            titles = [
+                candidate.title
+                for candidate in group
+                if candidate.title.get_visible() and candidate.title.get_text()
+            ]
+            if not titles:
+                continue
+            figure.canvas.draw()
+            renderer = _renderer(figure)
+            for title in titles:
+                bounds = title.get_window_extent(renderer)
+                center = (float(bounds.x0) + float(bounds.x1)) / 2
+                available_width = 2 * min(
+                    center - padding,
+                    canvas_width - padding - center,
+                )
+                if available_width <= 0 or float(bounds.width) <= available_width:
+                    continue
+                scaled_size = float(title.get_fontsize()) * available_width / float(bounds.width)
+                title.set_fontsize(max(minimum_font_size, scaled_size * 0.98))
+                figure.canvas.draw()
+                bounds = title.get_window_extent(_renderer(figure))
+                if float(bounds.width) <= available_width + 0.5:
+                    continue
+                raw_text = title.get_text().replace("\n", " ")
+                target_characters = max(
+                    1,
+                    int(len(raw_text) * available_width / float(bounds.width)),
+                )
+                title.set_text(
+                    "\n".join(
+                        textwrap.wrap(
+                            raw_text,
+                            width=target_characters,
+                            break_long_words=True,
+                            break_on_hyphens=False,
+                        )
+                    )
+                )
+            figure.canvas.draw()
+            renderer = _renderer(figure)
+            overflow = max(
+                0.0,
+                max(float(title.get_window_extent(renderer).y1) for title in titles)
+                + padding
+                - canvas_height,
+            )
+            required = overflow / canvas_height
+            if required <= 0 or required >= position.height:
+                continue
+            for candidate in group:
+                current = candidate.get_position()
+                candidate.set_position(
+                    (current.x0, current.y0, current.width, current.height - required)
+                )
 
     def _apply_text_style(self, figure: Figure, resolved: ResolvedPlot) -> None:
         font = resolved.plan.fonts[0]

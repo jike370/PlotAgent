@@ -47,7 +47,7 @@ def primitive_count(native_kind: str) -> int:
 
     if native_kind in {"error_bar", "box"}:
         return {
-            "error_bar": 4,
+            "error_bar": 2,
             "box": 2,
         }[native_kind]
     return 1
@@ -126,6 +126,7 @@ def expected_validation_report(plan: OriginExportPlan) -> dict[str, JsonValue]:
                             "y2_role": primitive.y2_role,
                             "size_role": primitive.size_role,
                             "color_role": primitive.color_role,
+                            "cap_size_pt": primitive.cap_size_pt,
                             "primitive_data_page": page_name,
                             "color": plot.color.value if plot.color is not None else None,
                             "palette": [color.value for color in plot.palette],

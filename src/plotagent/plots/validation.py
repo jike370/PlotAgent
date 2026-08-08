@@ -138,14 +138,43 @@ def validate_plot_spec(
                 f"{series.series_id} references fields not present in its table: {missing}",
             )
         role_to_field = dict(zip(roles, series.data.role_fields, strict=True))
-        if "lower" in role_to_field and "upper" in role_to_field:
-            lower = table.column(role_to_field["lower"])
-            upper = table.column(role_to_field["upper"])
-            for row_index, (low, high) in enumerate(zip(lower, upper, strict=True)):
-                if isinstance(low, (int, float)) and isinstance(high, (int, float)) and low > high:
+        for lower_role, center_role, upper_role in (
+            ("lower", "center", "upper"),
+            ("x_lower", "x", "x_upper"),
+        ):
+            if lower_role not in role_to_field or upper_role not in role_to_field:
+                continue
+            lower = table.column(role_to_field[lower_role])
+            upper = table.column(role_to_field[upper_role])
+            center = (
+                table.column(role_to_field[center_role])
+                if center_role in role_to_field
+                else (None,) * len(lower)
+            )
+            for row_index, (low, middle, high) in enumerate(
+                zip(lower, center, upper, strict=True)
+            ):
+                if not (
+                    isinstance(low, (int, float))
+                    and isinstance(high, (int, float))
+                    and not isinstance(low, bool)
+                    and not isinstance(high, bool)
+                ):
+                    continue
+                if low > high:
                     raise PlotValidationError(
                         "PLOTSPEC_INTERVAL_INVALID",
-                        f"lower exceeds upper in {series.series_id} row {row_index}",
+                        f"{lower_role} exceeds {upper_role} in {series.series_id} row {row_index}",
+                    )
+                if (
+                    isinstance(middle, (int, float))
+                    and not isinstance(middle, bool)
+                    and not low <= middle <= high
+                ):
+                    raise PlotValidationError(
+                        "PLOTSPEC_INTERVAL_INVALID",
+                        f"{center_role} lies outside {lower_role}/{upper_role} "
+                        f"in {series.series_id} row {row_index}",
                     )
     return plot
 

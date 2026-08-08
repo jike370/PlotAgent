@@ -70,9 +70,13 @@ SERIES_RULES: dict[tuple[ChartTypeId, str], SeriesRule] = {
     ("K06", "symbol"): _rule("xy.symbol", ("x", "center"), _PC, ("x",), ("center",)),
     ("K06", "error_bar"): _rule(
         "xy.error",
-        (("x", "center", "error"), ("x", "center", "lower", "upper")),
+        (
+            ("x", "center", "error"),
+            ("x", "center", "lower", "upper"),
+            ("x", "center", "x_lower", "x_upper", "lower", "upper"),
+        ),
         _PC,
-        ("x",),
+        ("x", "x_lower", "x_upper"),
         ("center", "lower", "upper", "error"),
     ),
     ("K07", "line"): _rule("xy.line", ("x", "center"), _PC, ("x",), ("center",)),

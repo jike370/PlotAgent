@@ -27,6 +27,7 @@ from typing import Any, Literal, cast
 import numpy as np
 import pandas as pd
 from matplotlib.colors import to_hex
+from matplotlib.container import ErrorbarContainer
 from PIL import Image, ImageDraw, ImageOps
 from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
 
@@ -74,6 +75,7 @@ from plotagent.origin.constants import (
     DECLARED_ORIGINPRO_VERSION,
 )
 from plotagent.origin.models import OriginExportSuccess
+from plotagent.origin.native import materialize_primitive, native_primitives
 from plotagent.rendering import PlotResolver, RenderDataStore, RenderTable, ResolvedPlot
 from plotagent.rendering.matplotlib.adapter import MatplotlibRenderer
 from tests.contracts.helpers import profile, style
@@ -112,7 +114,7 @@ class AuditCase:
 
 
 CASES = (
-    AuditCase("K06", "point_error", "点估计与误差棒", "A", ORIGIN / "ERRBAR.opju", "Graph1", "Book1", 0, "直接导出 Origin 随附 ERRBAR.opju Graph1；Y error 冻结为显式 lower/upper。", "标题与字号", "误差线颜色、线宽与端帽"),
+    AuditCase("K06", "point_error", "点估计与误差棒", "A", ORIGIN / "ERRBAR.opju", "Graph1", "Book1", 0, "直接导出 Origin 随附 ERRBAR.opju Graph1；X error 与 Y error 均冻结为显式双向边界。", "标题与字号", "误差线颜色、线宽与端帽"),
     AuditCase("K07", "error_band", "误差带", "A", ORIGIN / "ERRORBAND.opju", "Graph1", "Book1", 0, "直接导出 Origin 随附 ERRORBAND.opju Graph1；两组 Y±Error 冻结为显式上下界。", "标题与字号", "误差带颜色、透明度与边界"),
     AuditCase("K11", "percent_stack", "百分比堆积柱", "A", ORIGIN / "Column.opju", "Graph11", "Book2", 0, "直接导出 Origin 随附 Column.opju Graph11；同项目工作表按类别冻结为百分比。", "标题与字号", "柱填充、边线与宽度"),
     AuditCase("K13", "tukey_box", "箱线图", "A", ORIGIN / "Box.opju", "Graph1", "Book1", 0, "直接导出 Origin 随附 Box.opju Graph1；同项目原始值按冻结 Tukey 规则计算箱体。", "标题与字号", "箱体填充、边线与宽度"),
@@ -225,8 +227,20 @@ def _frame_from_source(case: AuditCase, op: Any | None = None) -> pd.DataFrame:
         raise RuntimeError(f"Origin is required to read {case.case_id}")
     source = _project_frame(op, case)
     if case.chart_id == "K06":
-        x, center, error = source["X"], source["Y"], source["Y error"]
-        return pd.DataFrame({"x": x.map(lambda value: f"{value:g}"), "center": center, "lower": center - error, "upper": center + error}).dropna()
+        x = pd.to_numeric(source["X"], errors="coerce")
+        center = pd.to_numeric(source["Y"], errors="coerce")
+        y_error = pd.to_numeric(source["Y error"], errors="coerce")
+        x_error = pd.to_numeric(source["X error"], errors="coerce")
+        return pd.DataFrame(
+            {
+                "x": x,
+                "center": center,
+                "x_lower": x - x_error,
+                "x_upper": x + x_error,
+                "lower": center - y_error,
+                "upper": center + y_error,
+            }
+        ).dropna()
     if case.chart_id == "K07":
         return pd.DataFrame({"x": source["X"], "center1": source["Y1"], "lower1": source["Y1"] - source["Error 1"], "upper1": source["Y1"] + source["Error 1"], "center2": source["Y2"], "lower2": source["Y2"] - source["Error 2"], "upper2": source["Y2"] + source["Error 2"]}).dropna()
     if case.chart_id == "K11":
@@ -444,7 +458,15 @@ def _rows(frame: pd.DataFrame, *columns: str) -> tuple[tuple[object, ...], ...]:
 
 def _input_series(case: AuditCase, frame: pd.DataFrame) -> tuple[InputSeries, ...]:
     if case.chart_id == "K06":
-        return (InputSeries("error_bar", "calculated", ("x", "center", "lower", "upper"), _rows(frame, "x", "center", "lower", "upper"), "summary_error"),)
+        return (
+            InputSeries(
+                "error_bar",
+                "calculated",
+                ("x", "center", "x_lower", "x_upper", "lower", "upper"),
+                _rows(frame, "x", "center", "x_lower", "x_upper", "lower", "upper"),
+                "summary_error",
+            ),
+        )
     if case.chart_id == "K07":
         items: list[InputSeries] = []
         for index in (1, 2):
@@ -487,10 +509,10 @@ def _family(case: AuditCase, geometries: tuple[AllGeometryKind, ...]) -> PlotFam
 
 
 def _axis(case: AuditCase) -> tuple[tuple[ScaleSpec, ...], tuple[AxisSpec, ...]]:
-    x_kind = "categorical" if case.chart_id in {"K06", "K11", "K13", "K14", "K20", "S61", "X24"} else "linear"
+    x_kind = "categorical" if case.chart_id in {"K11", "K13", "K14", "K20", "S61", "X24"} else "linear"
     y_kind = "categorical" if case.chart_id in {"K20", "S61"} else "linear"
     labels = {
-        "K06": ("Sample", "Estimate"), "K07": ("X", "Y"), "K11": ("Category", "Percent"),
+        "K06": ("X", "Y"), "K07": ("X", "Y"), "K11": ("Category", "Percent"),
         "K13": ("Group", "Value"), "K14": ("Group", "Value"), "K15": ("Value", "Count"),
         "K16": ("Value", "Density"), "K17": ("Value", "Cumulative probability"),
         "K20": ("Column", "Row"), "S61": ("Predicted", "Actual"), "X24": ("Category", "Count"),
@@ -664,6 +686,108 @@ def _matplotlib_s61_annotation_evidence(resolved: ResolvedPlot) -> dict[str, Any
         figure.clear()
 
 
+def _matplotlib_k06_interval_evidence(resolved: ResolvedPlot) -> dict[str, Any]:
+    if resolved.plan.chart_type_id != "K06":
+        raise RuntimeError("K06 interval evidence received another chart type")
+    layer = resolved.plan.layers[0]
+    table = resolved.table_for(layer)
+    roles = {item.role: table.column(item.field_id) for item in layer.field_bindings}
+    required_roles = {"x", "center", "x_lower", "x_upper", "lower", "upper"}
+    if set(roles) != required_roles:
+        raise RuntimeError("K06 did not resolve the complete two-dimensional interval contract")
+    row_count = layer.displayed_row_count
+    if not all(
+        float(x_lower) <= float(x) <= float(x_upper)
+        and float(lower) <= float(center) <= float(upper)
+        for x, center, x_lower, x_upper, lower, upper in zip(
+            roles["x"],
+            roles["center"],
+            roles["x_lower"],
+            roles["x_upper"],
+            roles["lower"],
+            roles["upper"],
+            strict=True,
+        )
+    ):
+        raise RuntimeError("K06 interval bounds do not enclose their center points")
+    figure = MatplotlibRenderer().build_figure(resolved)
+    try:
+        containers = tuple(
+            item for item in figure.axes[0].containers if isinstance(item, ErrorbarContainer)
+        )
+        if len(containers) != 1:
+            raise RuntimeError("K06 must render exactly one Matplotlib error-bar container")
+        container = containers[0]
+        center_markers, cap_lines, interval_collections = container.lines
+        segment_sets = tuple(collection.get_segments() for collection in interval_collections)
+        horizontal = any(
+            len(segments) == row_count
+            and all(np.isclose(segment[0, 1], segment[1, 1]) for segment in segments)
+            for segments in segment_sets
+        )
+        vertical = any(
+            len(segments) == row_count
+            and all(np.isclose(segment[0, 0], segment[1, 0]) for segment in segments)
+            for segments in segment_sets
+        )
+        valid = (
+            container.has_xerr
+            and container.has_yerr
+            and len(center_markers.get_xdata()) == row_count
+            and len(center_markers.get_ydata()) == row_count
+            and len(cap_lines) == 4
+            and len(interval_collections) == 2
+            and horizontal
+            and vertical
+        )
+        if not valid:
+            raise RuntimeError("Matplotlib did not consume the K06 two-dimensional interval contract")
+        return {
+            "row_count": row_count,
+            "center_marker_count": row_count,
+            "cap_line_count": 4,
+            "horizontal_interval_count": row_count,
+            "vertical_interval_count": row_count,
+            "has_xerr": True,
+            "has_yerr": True,
+            "consumed": True,
+        }
+    finally:
+        figure.clear()
+
+
+def _origin_k06_interval_evidence(
+    resolved: ResolvedPlot,
+    plan: Any,
+    graph_index: int,
+) -> dict[str, Any]:
+    if resolved.plan.chart_type_id != "K06":
+        raise RuntimeError("K06 Origin evidence received another chart type")
+    plot = plan.graph_objects[graph_index].layers[0].plots[0]
+    primitives = native_primitives(plot)
+    if [item.plot_type for item in primitives] != ["line", "scatter"]:
+        raise RuntimeError("K06 Origin plan must contain one interval line and one center symbol")
+    if primitives[0].transform != "point_interval" or primitives[1].y_role != "center":
+        raise RuntimeError("K06 Origin primitives do not preserve point-interval semantics")
+    data = next(item for item in plan.data_objects if item.object_id == plot.data_object_id)
+    interval = materialize_primitive(primitives[0], data)
+    if interval is None:
+        raise RuntimeError("K06 Origin interval geometry was not materialized")
+    row_count = resolved.plan.layers[0].displayed_row_count
+    if len(interval.x) != row_count * 18 or len(interval.y) != row_count * 18:
+        raise RuntimeError("K06 Origin interval table does not contain six independent segments per row")
+    return {
+        "row_count": row_count,
+        "center_symbol_plot_count": 1,
+        "endpoint_symbol_plot_count": 0,
+        "segments_per_observation": 6,
+        "horizontal_interval_count": row_count,
+        "vertical_interval_count": row_count,
+        "physical_plot_count": 2,
+        "consumed": True,
+    }
+
+
 def _annotation_object_name(annotation_id: str) -> str:
     return "PA_A_" + hashlib.sha256(annotation_id.encode("utf-8")).hexdigest()[:16]
 
@@ -786,6 +910,11 @@ def _render() -> dict[str, Any]:
                 if case.chart_id == "S61"
                 else None
             )
+            matplotlib_interval_evidence = (
+                _matplotlib_k06_interval_evidence(resolved)
+                if case.chart_id == "K06"
+                else None
+            )
             export_png(state_dir / "matplotlib.png", resolved)
             states[state].append(resolved)
             case_entries[case.case_id]["states"][state] = {"plot_spec_sha256": canonical_hash(plot), "render_plan_sha256": resolved.render_plan_hash, "matplotlib_png_sha256": _sha256(state_dir / "matplotlib.png")}
@@ -793,6 +922,10 @@ def _render() -> dict[str, Any]:
                 case_entries[case.case_id]["states"][state][
                     "matplotlib_annotation_evidence"
                 ] = matplotlib_annotation_evidence
+            if matplotlib_interval_evidence is not None:
+                case_entries[case.case_id]["states"][state][
+                    "matplotlib_point_interval_evidence"
+                ] = matplotlib_interval_evidence
 
     exports: dict[str, Any] = {}
     for state in ("default", "edited"):
@@ -801,6 +934,10 @@ def _render() -> dict[str, Any]:
         for index, resolved in enumerate(resolved_tuple):
             if resolved.plan.chart_type_id == "S61" and plan.graph_objects[index].annotations != resolved.plan.annotations:
                 raise RuntimeError("Origin plan did not preserve the S61 annotation contract")
+            if resolved.plan.chart_type_id == "K06":
+                case_entries["K06_point_error"]["states"][state][
+                    "origin_point_interval_evidence"
+                ] = _origin_k06_interval_evidence(resolved, plan, index)
         target = OUTPUT / f"visual29-fixed-{state}.opju"
         result = export_origin(plan, target, expected_existing_sha256=_sha256(target) if target.is_file() else None, timeout_seconds=600.0)
         if not isinstance(result, OriginExportSuccess):
@@ -814,6 +951,10 @@ def _render() -> dict[str, Any]:
         ):
             case_entries[case.case_id]["states"][state]["origin_fresh_png_sha256"] = _sha256(destination)
             case_entries[case.case_id]["states"][state]["origin_graph_index"] = index
+            if case.chart_id == "K06":
+                case_entries[case.case_id]["states"][state][
+                    "origin_point_interval_evidence"
+                ]["fresh_reopen"] = True
             if native_evidence is not None:
                 case_entries[case.case_id]["states"][state]["origin_annotation_evidence"] = {
                     **native_evidence,

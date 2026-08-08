@@ -175,7 +175,7 @@ _BASE_CHART_REGISTRY: tuple[ChartRegistration, ...] = (
         "xy",
         ("symbol", "error_bar"),
         ("center",),
-        optional_roles=("lower", "upper", "error", "group"),
+        optional_roles=("x", "x_lower", "x_upper", "lower", "upper", "error", "group"),
         allowed_calculations=("summary_error",),
     ),
     _chart(

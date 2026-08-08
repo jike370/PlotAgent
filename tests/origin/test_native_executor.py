@@ -486,7 +486,7 @@ def test_fresh_inspection_rejects_report_drift() -> None:
 @pytest.mark.parametrize(
     ("chart_id", "transforms", "plot_count"),
     [
-        ("K06", {"interval_connector", "direct"}, 4),
+        ("K06", {"point_interval", "direct"}, 2),
         ("K07", {"direct", "band"}, 2),
         ("K13", {"box_outline", "direct"}, 2),
         ("K14", {"violin_polygon"}, 1),
@@ -517,14 +517,45 @@ def test_error_bar_point_estimates_do_not_connect_across_observations() -> None:
     plot = _plan("K06").graph_objects[0].layers[0].plots[0]
     primitives = native_primitives(plot)
 
-    assert [item.plot_type for item in primitives] == [
-        "line",
-        "scatter",
-        "scatter",
-        "scatter",
-    ]
-    assert primitives[0].transform == "interval_connector"
-    assert all(item.plot_type != "line_symbol" for item in primitives)
+    assert [item.plot_type for item in primitives] == ["line", "scatter"]
+    assert primitives[0].transform == "point_interval"
+    assert primitives[0].cap_size_pt == plot.cap_size_pt
+    assert primitives[1].transform == "direct"
+    assert primitives[1].y_role == "center"
+    assert all(
+        item.y_role not in {"lower", "upper"}
+        for item in primitives
+        if item.plot_type == "scatter"
+    )
+
+
+def test_error_bar_materializes_independent_intervals_and_caps_only() -> None:
+    plan = _plan("K06")
+    plot = plan.graph_objects[0].layers[0].plots[0]
+    data = next(item for item in plan.data_objects if item.object_id == plot.data_object_id)
+    interval, center = native_primitives(plot)
+    table = materialize_primitive(interval, data)
+
+    assert table is not None
+    assert materialize_primitive(center, data) is None
+    row_count = data.data_ref.row_count
+    assert len(table.x) == len(table.y) == row_count * 18
+    for row_index in range(row_count):
+        start = row_index * 18
+        x_chunk = table.x[start : start + 18]
+        y_chunk = table.y[start : start + 18]
+        assert all(x_chunk[index] is None for index in (2, 5, 8, 11, 14, 17))
+        assert all(y_chunk[index] is None for index in (2, 5, 8, 11, 14, 17))
+        # Horizontal interval: two vertical caps and one horizontal connector.
+        assert x_chunk[0] == x_chunk[1] == x_chunk[3]
+        assert x_chunk[3] < x_chunk[4]
+        assert x_chunk[6] == x_chunk[7] == x_chunk[4]
+        assert y_chunk[3] == y_chunk[4]
+        # Vertical interval: two horizontal caps and one vertical connector.
+        assert y_chunk[9] == y_chunk[10] == y_chunk[12]
+        assert y_chunk[12] < y_chunk[13]
+        assert y_chunk[15] == y_chunk[16] == y_chunk[13]
+        assert x_chunk[12] == x_chunk[13]
 
 
 def test_bubble_uses_scatter_with_native_column_modifiers() -> None:

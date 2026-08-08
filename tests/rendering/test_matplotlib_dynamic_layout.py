@@ -103,6 +103,27 @@ def test_colorbar_tick_labels_are_fitted_inside_fixed_canvas() -> None:
     assert (figure.bbox.width, figure.bbox.height) == pytest.approx((1051.0, 709.0))
 
 
+def test_long_plot_title_is_fitted_inside_fixed_canvas_without_losing_text() -> None:
+    resolved = resolve_chart("K06")
+    title = "Visual qualification · K06 · Point estimate with error bars"
+    with_long_title = ResolvedPlot.create(
+        resolved.plan.model_copy(update={"title": _text(title)}),
+        resolved.tables,
+    )
+
+    figure = MatplotlibRenderer().build_figure(with_long_title)
+    figure.canvas.draw()
+    renderer = figure.canvas.get_renderer()
+    rendered_title = figure.axes[0].title
+    bounds = rendered_title.get_window_extent(renderer)
+
+    assert rendered_title.get_text().replace("\n", " ") == title
+    assert bounds.x0 >= 7.5
+    assert bounds.x1 <= figure.bbox.x1 - 7.5
+    assert bounds.y1 <= figure.bbox.y1 - 7.5
+    assert rendered_title.get_fontsize() <= resolved.plan.fonts[0].size.value
+
+
 def test_resolved_annotation_color_is_consumed_by_matplotlib() -> None:
     figure = MatplotlibRenderer().build_figure(resolve_chart("S61"))
     rendered = {

@@ -28,10 +28,12 @@ class NativePrimitive:
     size_role: str | None = None
     color_role: str | None = None
     bar_width_role: str | None = None
+    cap_size_pt: float | None = None
     step_where: Literal["pre", "mid", "post"] = "post"
     transform: Literal[
         "direct",
         "interval_connector",
+        "point_interval",
         "band",
         "box_outline",
         "violin_polygon",
@@ -193,13 +195,16 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
         )
     if plot.native_kind == "error_bar":
         return (
-            NativePrimitive("line", x_role, None, transform="interval_connector"),
-            NativePrimitive("scatter", x_role, "lower"),
-            # Point estimates are independent observations.  A line-symbol plot
-            # would connect adjacent estimates and make the horizontal segments
-            # look like part of the uncertainty geometry.
+            NativePrimitive(
+                "line",
+                x_role,
+                None,
+                cap_size_pt=plot.cap_size_pt,
+                transform="point_interval",
+            ),
+            # Point estimates are independent observations.  The interval primitive
+            # owns lower/upper and its caps; the only symbol primitive owns center.
             NativePrimitive("scatter", x_role, y_role),
-            NativePrimitive("scatter", x_role, "upper"),
         )
     if plot.native_kind == "band":
         return (
@@ -400,6 +405,132 @@ def materialize_primitive(
             x_output.extend((x_value, x_value, None))
             y_output.extend((low, high, None))
         return NativePrimitiveTable(tuple(x_output), tuple(y_output))
+    if primitive.transform == "point_interval":
+        lower = _role_values(data, "lower")
+        upper = _role_values(data, "upper")
+        center = _role_values(data, "center")
+        roles = {column.role for column in data.columns}
+        has_horizontal_interval = {"x_lower", "x_upper"}.issubset(roles)
+        x_lower = _role_values(data, "x_lower") if has_horizontal_interval else ()
+        x_upper = _role_values(data, "x_upper") if has_horizontal_interval else ()
+        numeric_x = (
+            tuple(_number(value, "point-interval X") for value in x_values)
+            if all(
+                isinstance(value, (int, float)) and not isinstance(value, bool)
+                for value in x_values
+            )
+            else _category_positions(x_values)
+        )
+        ordered_x = sorted(set(numeric_x))
+        positive_steps = tuple(
+            right - left
+            for left, right in zip(ordered_x, ordered_x[1:], strict=False)
+            if right > left
+        )
+        spacing = min(positive_steps, default=1.0)
+        cap_size_pt = primitive.cap_size_pt if primitive.cap_size_pt is not None else 4.0
+        if not 0 < cap_size_pt <= 72:
+            raise ValueError("Origin point-interval cap size must be in (0, 72] pt")
+        cap_half_width = spacing * min(cap_size_pt / 50.0, 0.4)
+        numeric_center = tuple(_number(value, "point-interval center") for value in center)
+        ordered_center = sorted(set(numeric_center))
+        positive_y_steps = tuple(
+            high - low
+            for low, high in zip(ordered_center, ordered_center[1:], strict=False)
+            if high > low
+        )
+        y_extent = max(
+            (
+                _number(high, "point-interval upper")
+                - _number(low, "point-interval lower")
+                for low, high in zip(lower, upper, strict=True)
+            ),
+            default=1.0,
+        )
+        y_spacing = min(positive_y_steps, default=max(y_extent, 1.0))
+        cap_half_height = y_spacing * min(cap_size_pt / 50.0, 0.4)
+        interval_x: list[OriginScalar] = []
+        interval_y: list[OriginScalar] = []
+        row_values = zip(
+            numeric_x,
+            numeric_center,
+            lower,
+            upper,
+            x_lower if has_horizontal_interval else (None,) * len(numeric_x),
+            x_upper if has_horizontal_interval else (None,) * len(numeric_x),
+            strict=True,
+        )
+        for x_value, center_value, low, high, left, right in row_values:
+            low_number = _number(low, "point-interval lower")
+            high_number = _number(high, "point-interval upper")
+            if low_number > high_number:
+                raise ValueError("Origin point interval requires lower <= upper")
+            if not low_number <= center_value <= high_number:
+                raise ValueError("Origin point interval requires lower <= center <= upper")
+            if has_horizontal_interval:
+                left_number = _number(left, "point-interval x_lower")
+                right_number = _number(right, "point-interval x_upper")
+                if not left_number <= x_value <= right_number:
+                    raise ValueError(
+                        "Origin point interval requires x_lower <= x <= x_upper"
+                    )
+                # Three independent horizontal-error segments: left cap, interval,
+                # and right cap.  Each separator prevents joins to another segment.
+                interval_x.extend(
+                    (
+                        left_number,
+                        left_number,
+                        None,
+                        left_number,
+                        right_number,
+                        None,
+                        right_number,
+                        right_number,
+                        None,
+                    )
+                )
+                interval_y.extend(
+                    (
+                        center_value - cap_half_height,
+                        center_value + cap_half_height,
+                        None,
+                        center_value,
+                        center_value,
+                        None,
+                        center_value - cap_half_height,
+                        center_value + cap_half_height,
+                        None,
+                    )
+                )
+            # Three independent line segments per observation: lower cap, vertical
+            # interval, upper cap. None separators prohibit cross-observation joins.
+            interval_x.extend(
+                (
+                    x_value - cap_half_width,
+                    x_value + cap_half_width,
+                    None,
+                    x_value,
+                    x_value,
+                    None,
+                    x_value - cap_half_width,
+                    x_value + cap_half_width,
+                    None,
+                )
+            )
+            interval_y.extend(
+                (
+                    low_number,
+                    low_number,
+                    None,
+                    low_number,
+                    high_number,
+                    None,
+                    high_number,
+                    high_number,
+                    None,
+                )
+            )
+        return NativePrimitiveTable(tuple(interval_x), tuple(interval_y))
     if primitive.transform == "box_outline":
         q1 = _role_values(data, "q1")
         median = _role_values(data, "median")
