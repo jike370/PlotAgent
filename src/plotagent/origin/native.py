@@ -195,7 +195,10 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
         return (
             NativePrimitive("line", x_role, None, transform="interval_connector"),
             NativePrimitive("scatter", x_role, "lower"),
-            NativePrimitive("line_symbol", x_role, y_role),
+            # Point estimates are independent observations.  A line-symbol plot
+            # would connect adjacent estimates and make the horizontal segments
+            # look like part of the uncertainty geometry.
+            NativePrimitive("scatter", x_role, y_role),
             NativePrimitive("scatter", x_role, "upper"),
         )
     if plot.native_kind == "band":

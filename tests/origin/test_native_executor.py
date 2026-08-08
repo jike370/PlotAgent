@@ -7,17 +7,27 @@ import pytest
 
 from plotagent.contracts.base import ColorValue
 from plotagent.contracts.plots import BarAreaEditSpec, SpecialistEditSpec
-from plotagent.contracts.rendering import OriginDataObject, OriginExportPlan, OriginGraphObject
+from plotagent.contracts.rendering import (
+    OriginDataObject,
+    OriginExportPlan,
+    OriginGraphObject,
+    ResolvedAnnotation,
+)
 from plotagent.origin._origin_backend import (
     NativeOriginError,
     _apply_right_y_axis_style,
     _bar_width_ratio,
+    _frame_page_bounds,
     _legend_labels,
     _legend_text,
+    _native_layer_frame,
     _place_inside_legend,
+    _place_page_color_scale,
     _place_page_title,
     _primitive_color,
     _read_template_y_axis_style,
+    _style_annotation_label,
+    _tick_label_rotation,
 )
 from plotagent.origin.native import (
     PROJECT_FOLDERS,
@@ -186,6 +196,15 @@ class _FakePageObject:
         self.values[key] = float(value)
 
 
+class _ScalingFakePageObject(_FakePageObject):
+    def set_float(self, key: str, value: float) -> None:
+        if key == "fsize" and "fsize" in self.values:
+            ratio = value / self.values["fsize"]
+            self.values["width"] *= ratio
+            self.values["height"] *= ratio
+        super().set_float(key, value)
+
+
 @pytest.mark.parametrize("chart_id", ["X01", "K05", "S05", "S25", "X03"])
 def test_shared_title_layout_is_page_attached_and_above_plot_frame(chart_id: str) -> None:
     graph_plan = _plan(chart_id).graph_objects[0].model_copy(
@@ -223,6 +242,116 @@ def test_s05_legend_is_page_attached_and_clamped_inside_canvas() -> None:
     assert left + legend.get_float("width") <= page.get_float("width")
     assert top >= 0
     assert top + legend.get_float("height") <= page.get_float("height")
+
+
+@pytest.mark.parametrize("chart_id", ["X05", "X23", "X35", "X36", "X38"])
+def test_legend_charts_reserve_a_right_gutter_outside_the_data_frame(chart_id: str) -> None:
+    graph_plan = _plan(chart_id).graph_objects[0]
+    frame = _native_layer_frame(graph_plan, graph_plan.layers[0])
+
+    assert frame.width_mm < graph_plan.layers[0].width_mm
+
+    page = _FakePageObject(width=2102.0, height=1417.0)
+    legend = _FakePageObject(width=180.0, height=143.0, fillcolor=0.0)
+    _place_inside_legend(page, graph_plan, graph_plan.layers[0], legend)
+    frame_left, _, frame_width, _ = _frame_page_bounds(
+        page, graph_plan, graph_plan.layers[0]
+    )
+    legend_left = legend.get_float("x1") * page.get_float("width")
+    assert legend_left > frame_left + frame_width
+
+
+@pytest.mark.parametrize("chart_id", ["K04", "K20", "K22"])
+def test_color_scale_charts_reserve_and_use_a_page_right_gutter(chart_id: str) -> None:
+    graph_plan = _plan(chart_id).graph_objects[0]
+    frame = _native_layer_frame(graph_plan, graph_plan.layers[0])
+    assert frame.width_mm < graph_plan.layers[0].width_mm
+
+    page = _FakePageObject(width=2102.0, height=1417.0)
+    scale = _FakePageObject(width=420.0, height=991.0)
+    _place_page_color_scale(page, graph_plan, graph_plan.layers[0], scale)
+    frame_left, _, frame_width, _ = _frame_page_bounds(
+        page, graph_plan, graph_plan.layers[0]
+    )
+    scale_left = scale.get_float("x1") * page.get_float("width")
+    assert scale.get_int("attach") == 1
+    assert scale_left > frame_left + frame_width
+    assert scale_left + scale.get_float("width") <= page.get_float("width")
+
+
+def test_dense_categorical_tick_labels_rotate_and_gain_bottom_room() -> None:
+    graph_plan = _plan("X23").graph_objects[0]
+    layer = graph_plan.layers[0]
+    x_axis = next(axis for axis in layer.axes if axis.orientation == "x")
+    labels = (
+        "China",
+        "India",
+        "U.S.",
+        "Indonesia",
+        "Brazil",
+        "Russia",
+        "Japan",
+        "Germany",
+        "Australia",
+    )
+    ticks = tuple(
+        x_axis.ticks[0].model_copy(update={"value": float(index), "label": label})
+        for index, label in enumerate(labels)
+    )
+    dense_axis = x_axis.model_copy(
+        update={"scale": "categorical", "minimum": -0.5, "maximum": 8.5, "ticks": ticks}
+    )
+    dense_layer = layer.model_copy(
+        update={
+            "axes": tuple(
+                dense_axis if axis.orientation == "x" else axis for axis in layer.axes
+            )
+        }
+    )
+    dense_graph = graph_plan.model_copy(update={"layers": (dense_layer, *graph_plan.layers[1:])})
+
+    assert _tick_label_rotation(dense_axis, graph_plan.font_size_pt, layer.width_mm) == 45
+    assert _native_layer_frame(dense_graph, dense_layer).height_mm < dense_layer.height_mm
+
+
+def test_long_title_is_scaled_to_the_page_top_band() -> None:
+    graph_plan = _plan("X36").graph_objects[0].model_copy(
+        update={"title": "Visual qualification - X36 - Dual-Y column-line plot"}
+    )
+    page = _FakePageObject(width=2102.0, height=1417.0)
+    title = _ScalingFakePageObject(width=2500.0, height=105.0, fsize=10.5)
+
+    _place_page_title(page, graph_plan, graph_plan.layers[0], title)
+
+    left = title.get_float("x1") * page.get_float("width")
+    top = title.get_float("y1") * page.get_float("height")
+    _, layer_top, _, _ = _frame_page_bounds(page, graph_plan, graph_plan.layers[0])
+    assert 4.0 <= title.get_float("fsize") < 10.5
+    assert left >= 0
+    assert left + title.get_float("width") <= page.get_float("width")
+    assert top + title.get_float("height") < layer_top
+
+
+def test_annotation_color_is_applied_only_when_resolved() -> None:
+    class FakeLabel:
+        def __init__(self) -> None:
+            self.values: dict[str, float] = {}
+            self.color = "template-default"
+
+        def set_float(self, key: str, value: float) -> None:
+            self.values[key] = value
+
+    label = FakeLabel()
+    plain = ResolvedAnnotation(annotation_id="annotation:plain", kind="text")
+    colored = plain.model_copy(
+        update={"annotation_id": "annotation:colored", "color": ColorValue(value="#D73027")}
+    )
+
+    _style_annotation_label(label, plain, 8.0)
+    assert label.color == "template-default"
+    _style_annotation_label(label, colored, 9.0)
+    assert label.color == "#D73027"
+    assert label.values["fsize"] == 9.0
 
 
 @dataclass
@@ -382,6 +511,20 @@ def test_interval_distribution_and_band_geometry_is_not_collapsed(
     assert len(primitives) == plot_count
     if chart_id == "K07":
         assert any(item.plot_type == "fill_area" for item in primitives)
+
+
+def test_error_bar_point_estimates_do_not_connect_across_observations() -> None:
+    plot = _plan("K06").graph_objects[0].layers[0].plots[0]
+    primitives = native_primitives(plot)
+
+    assert [item.plot_type for item in primitives] == [
+        "line",
+        "scatter",
+        "scatter",
+        "scatter",
+    ]
+    assert primitives[0].transform == "interval_connector"
+    assert all(item.plot_type != "line_symbol" for item in primitives)
 
 
 def test_bubble_uses_scatter_with_native_column_modifiers() -> None:

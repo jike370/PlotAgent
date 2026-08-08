@@ -87,6 +87,7 @@ _PLOT_TITLE_LABEL = "_TITLE"
 _PANEL_LABEL = "_PANEL_LABEL"
 _COLOR_SCALE_LABEL = "SPECTRUM1"
 _COLOR_SCALE_TITLE_LABEL = "_COLOR_SCALE_TITLE"
+_DENSE_X_TITLE_LABEL = "_DENSE_X_TITLE"
 _COLOR_SCALE_OBJECT_TYPE = 13
 
 
@@ -101,6 +102,14 @@ class _AxisVisualStyle:
     minor_tick_width_pt: float
     tick_label_bold: int
     title_bold: int
+
+
+@dataclass(frozen=True, slots=True)
+class _NativeLayerFrame:
+    left_mm: float
+    top_mm: float
+    width_mm: float
+    height_mm: float
 
 
 def _finite_float(value: Any, fallback: float | None = None) -> float:
@@ -296,36 +305,131 @@ def _legend_labels(graph: OriginGraphObject) -> list[str]:
     )
 
 
+def _text_width_mm(value: str, font_size_pt: float) -> float:
+    """Return a conservative text-width estimate without depending on a GUI font API."""
+
+    display_units = sum(2 if ord(character) >= 0x2E80 else 1 for character in value)
+    return display_units * font_size_pt * 25.4 / 72.0 * 0.5
+
+
+def _has_right_y_axis(graph_plan: OriginGraphObject) -> bool:
+    return any(
+        axis.orientation == "y" and axis.position == "right"
+        for layer in graph_plan.layers
+        for axis in layer.axes
+    )
+
+
+def _legend_gutter_mm(graph_plan: OriginGraphObject) -> float:
+    labels = _legend_labels(graph_plan)
+    if not graph_plan.legend_visible or not labels:
+        return 0.0
+    widest = max(_text_width_mm(label, graph_plan.font_size_pt) for label in labels)
+    return min(max(widest + 2.0, 7.0), 24.0)
+
+
+def _decoration_gutter_mm(graph_plan: OriginGraphObject) -> float:
+    if graph_plan.colorbar.visible:
+        # Spectrum1's reported bounds stop before the right-aligned numeric
+        # glyphs.  Reserve the strip, ticks and a conservative value-label band.
+        return 36.0
+    return _legend_gutter_mm(graph_plan)
+
+
+def _tick_label_rotation(axis: OriginAxisPlan, font_size_pt: float, width_mm: float) -> int:
+    if axis.orientation != "x" or not axis.ticks or not _uses_custom_tick_labels(axis):
+        return 0
+    slot_width = width_mm / max(len(axis.ticks), 1)
+    widest = max(_text_width_mm(item.label, font_size_pt) for item in axis.ticks)
+    return 45 if widest > slot_width * 0.86 else 0
+
+
+def _native_layer_frame(
+    graph_plan: OriginGraphObject,
+    layer_plan: OriginLayerPlan,
+) -> _NativeLayerFrame:
+    """Reserve page gutters for native decorations and dense X tick labels."""
+
+    decoration_width = _decoration_gutter_mm(graph_plan)
+    existing_right_margin = graph_plan.page_width_mm - (
+        layer_plan.left_mm + layer_plan.width_mm
+    )
+    axis_clearance = 12.0 if decoration_width and _has_right_y_axis(graph_plan) else 0.0
+    required_right_margin = decoration_width + axis_clearance + (2.0 if decoration_width else 0.0)
+    right_shrink = max(required_right_margin - existing_right_margin, 0.0)
+
+    x_axis = next(
+        (axis for axis in layer_plan.axes if axis.orientation == "x"),
+        None,
+    )
+    rotation = (
+        _tick_label_rotation(x_axis, graph_plan.font_size_pt, layer_plan.width_mm)
+        if x_axis is not None
+        else 0
+    )
+    existing_bottom_margin = graph_plan.page_height_mm - (
+        layer_plan.top_mm + layer_plan.height_mm
+    )
+    bottom_shrink = 0.0
+    if rotation and x_axis is not None:
+        widest = max(
+            _text_width_mm(item.label, graph_plan.font_size_pt) for item in x_axis.ticks
+        )
+        rotated_height = widest * math.sin(math.radians(rotation))
+        # Origin does not automatically push its special XB title below rotated
+        # tick labels.  Reserve a title band as well as the projected label height.
+        bottom_shrink = max(rotated_height + 10.0 - existing_bottom_margin, 6.0)
+        bottom_shrink = min(bottom_shrink, 14.0)
+
+    width = max(layer_plan.width_mm - right_shrink, layer_plan.width_mm * 0.55)
+    height = max(layer_plan.height_mm - bottom_shrink, layer_plan.height_mm * 0.65)
+    return _NativeLayerFrame(
+        left_mm=layer_plan.left_mm,
+        top_mm=layer_plan.top_mm,
+        width_mm=width,
+        height_mm=height,
+    )
+
+
+def _frame_page_bounds(
+    graph: Any,
+    graph_plan: OriginGraphObject,
+    layer_plan: OriginLayerPlan,
+) -> tuple[float, float, float, float]:
+    page_width = _finite_float(graph.get_float("width"))
+    page_height = _finite_float(graph.get_float("height"))
+    frame = _native_layer_frame(graph_plan, layer_plan)
+    return (
+        frame.left_mm / graph_plan.page_width_mm * page_width,
+        frame.top_mm / graph_plan.page_height_mm * page_height,
+        frame.width_mm / graph_plan.page_width_mm * page_width,
+        frame.height_mm / graph_plan.page_height_mm * page_height,
+    )
+
+
 def _place_inside_legend(
     graph: Any, graph_plan: OriginGraphObject, layer_plan: OriginLayerPlan, legend: Any
 ) -> None:
-    """Place the legend inside its typed anchor so it cannot cross the page edge."""
+    """Place the legend in a reserved page gutter, outside the scientific data frame."""
 
     page_width = _finite_float(graph.get_float("width"))
     page_height = _finite_float(graph.get_float("height"))
     legend_width = _finite_float(legend.get_float("width"), 0.0)
     legend_height = _finite_float(legend.get_float("height"), 0.0)
-    layer_left = layer_plan.left_mm / graph_plan.page_width_mm * page_width
-    layer_top = layer_plan.top_mm / graph_plan.page_height_mm * page_height
-    layer_width = layer_plan.width_mm / graph_plan.page_width_mm * page_width
-    layer_height = layer_plan.height_mm / graph_plan.page_height_mm * page_height
-    anchor_x = layer_left + layer_width * graph_plan.legend_anchor_x
-    # Resolved anchors use Matplotlib's bottom-up Y convention; Origin's object
-    # coordinates run from the page top.
-    anchor_y = layer_top + layer_height * (1.0 - graph_plan.legend_anchor_y)
+    layer_left, layer_top, layer_width, layer_height = _frame_page_bounds(
+        graph, graph_plan, layer_plan
+    )
     if graph_plan.graph_id.startswith("graph.S07."):
-        # Volcano extremes occupy both upper corners. Centering the three-entry
-        # fixed legend keeps it clear of those points as the X range expands.
-        left = layer_left + (layer_width - legend_width) / 2
         legend.set_int("fillcolor", _ORIGIN_WHITE_COLOR_INDEX)
-    else:
-        left = anchor_x - legend_width if graph_plan.legend_anchor_x >= 0.5 else anchor_x
-    top = anchor_y if graph_plan.legend_anchor_y >= 0.5 else anchor_y - legend_height
-    # Origin applies enhanced-text sample metrics only during the final graph
-    # layout pass.  A small page-relative safe area absorbs that native glyph
-    # overhang while keeping the legend visibly inside its requested corner.
-    page_inset = max(page_width * 0.04, 2.0)
-    left = min(max(left, page_inset), max(page_width - legend_width - page_inset, page_inset))
+    page_inset = max(page_width * 0.015, 2.0)
+    left = page_width - legend_width - page_inset
+    top = (
+        layer_top
+        if graph_plan.legend_anchor_y >= 0.5
+        else layer_top + layer_height - legend_height
+    )
+    left = max(left, layer_left + layer_width + page_width * 0.01)
+    left = min(left, max(page_width - legend_width - page_inset, page_inset))
     top = min(max(top, page_inset), max(page_height - legend_height - page_inset, page_inset))
     _set_page_position(legend, page_width=page_width, page_height=page_height, left=left, top=top)
 
@@ -363,17 +467,125 @@ def _place_page_title(
 
     page_width = _finite_float(graph.get_float("width"))
     page_height = _finite_float(graph.get_float("height"))
+    _, layer_top, _, _ = _frame_page_bounds(
+        graph, graph_plan, layer_plan
+    )
+    gap = max(page_height * 0.005, 1.0)
+    page_inset = max(page_width * 0.02, 2.0)
+    available_width = page_width - page_inset * 2
+    available_height = max(layer_top - gap, 1.0)
+    for _ in range(2):
+        title_width = _finite_float(title.get_float("width"), 0.0)
+        title_height = _finite_float(title.get_float("height"), 0.0)
+        if title_width <= available_width and title_height <= available_height:
+            break
+        current_size = _finite_float(title.get_float("fsize"), graph_plan.font_size_pt + 1.0)
+        factor = min(
+            available_width / max(title_width, 1.0),
+            available_height / max(title_height, 1.0),
+            1.0,
+        )
+        title.set_float("fsize", max(4.0, current_size * factor * 0.98))
     title_width = _finite_float(title.get_float("width"), 0.0)
     title_height = _finite_float(title.get_float("height"), 0.0)
-    layer_left = layer_plan.left_mm / graph_plan.page_width_mm * page_width
-    layer_top = layer_plan.top_mm / graph_plan.page_height_mm * page_height
-    layer_width = layer_plan.width_mm / graph_plan.page_width_mm * page_width
-    gap = max(page_height * 0.005, 1.0)
-    left = layer_left + (layer_width - title_width) / 2
+    left = (page_width - title_width) / 2
     top = layer_top - title_height - gap
-    left = min(max(left, 0.0), max(page_width - title_width, 0.0))
+    left = min(max(left, page_inset), max(page_width - title_width - page_inset, page_inset))
     top = min(max(top, 0.0), max(layer_top - title_height - gap, 0.0))
     _set_page_position(title, page_width=page_width, page_height=page_height, left=left, top=top)
+
+
+def _place_page_color_scale(
+    graph: Any,
+    graph_plan: OriginGraphObject,
+    layer_plan: OriginLayerPlan,
+    scale: Any,
+) -> tuple[float, float]:
+    """Right-align one complete Spectrum1 object in the reserved page gutter."""
+
+    page_width = _finite_float(graph.get_float("width"))
+    page_height = _finite_float(graph.get_float("height"))
+    _, layer_top, _, _ = _frame_page_bounds(graph, graph_plan, layer_plan)
+    scale_width = _finite_float(scale.get_float("width"), 0.0)
+    scale_height = _finite_float(scale.get_float("height"), 0.0)
+    # Spectrum1's reported width excludes its right-aligned numeric labels.
+    # The matching 36 mm graph gutter lets this page inset absorb those glyphs
+    # without forcing the plot frame into the scale.
+    page_inset = max(page_width * 0.15, 2.0)
+    scale_left = max(page_width - scale_width - page_inset, page_inset)
+    scale_top = min(
+        max(layer_top, page_inset),
+        max(page_height - scale_height - page_inset, page_inset),
+    )
+    _set_page_position(
+        scale,
+        page_width=page_width,
+        page_height=page_height,
+        left=scale_left,
+        top=scale_top,
+    )
+    return scale_left, scale_top
+
+
+def _style_annotation_label(
+    label: Any,
+    annotation: ResolvedAnnotation,
+    font_size_pt: float,
+) -> None:
+    label.set_float("fsize", font_size_pt)
+    if annotation.color is not None:
+        label.color = annotation.color.value
+
+
+def _write_dense_x_axis_title(
+    graph: Any,
+    graph_plan: OriginGraphObject,
+    layer_plan: OriginLayerPlan,
+    layer: Any,
+) -> None:
+    """Replace Origin's auto-positioned XB title when rotated ticks need a title band."""
+
+    x_axis = next(axis for axis in layer_plan.axes if axis.orientation == "x")
+    frame = _native_layer_frame(graph_plan, layer_plan)
+    if _tick_label_rotation(x_axis, graph_plan.font_size_pt, frame.width_mm) == 0:
+        return
+    native_title = layer.label("xb")
+    if native_title is not None:
+        native_title.set_int("show", 0)
+    title = layer.label(_DENSE_X_TITLE_LABEL)
+    if title is None:
+        title = layer.add_label(x_axis.title)
+        if title is None:
+            raise NativeOriginError("could not create dense categorical X-axis title")
+        title.name = _DENSE_X_TITLE_LABEL
+    title.text = x_axis.title
+    title.set_float("fsize", graph_plan.font_size_pt)
+    title.set_int("show", 1)
+    page_width = _finite_float(graph.get_float("width"))
+    page_height = _finite_float(graph.get_float("height"))
+    frame_left, _, frame_width, _ = _frame_page_bounds(graph, graph_plan, layer_plan)
+    for _ in range(2):
+        title_width = _finite_float(title.get_float("width"), 0.0)
+        if title_width <= frame_width or title.get_float("fsize") <= 4.0:
+            break
+        title.set_float(
+            "fsize",
+            max(4.0, title.get_float("fsize") * frame_width / title_width),
+        )
+    title_width = _finite_float(title.get_float("width"), 0.0)
+    title_height = _finite_float(title.get_float("height"), 0.0)
+    left = min(
+        max(frame_left + (frame_width - title_width) / 2, 0.0),
+        max(page_width - title_width, 0.0),
+    )
+    top = page_height - title_height - max(page_height * 0.015, 2.0)
+    _set_page_position(
+        title,
+        page_width=page_width,
+        page_height=page_height,
+        left=max(left, 0.0),
+        top=max(top, 0.0),
+    )
 
 
 def _folder_items(collection: Any) -> list[Any]:
@@ -765,6 +977,7 @@ class OriginProBackend:
         axis: OriginAxisPlan,
         font_size_pt: float,
         right_y_style: _AxisVisualStyle,
+        layer_width_mm: float,
     ) -> None:
         is_right_y = axis.orientation == "y" and axis.position == "right"
         native_axis = layer.axis("y2" if is_right_y else axis.orientation)
@@ -801,6 +1014,10 @@ class OriginProBackend:
         custom_tick_labels = _uses_custom_tick_labels(axis)
         layer.set_int(f"{prefix}.label.type", 10 if custom_tick_labels else 1)
         layer.set_float(f"{prefix}.label.fsize", max(5.0, font_size_pt - 1.0))
+        layer.set_float(
+            f"{prefix}.label.rotate",
+            _tick_label_rotation(axis, font_size_pt, layer_width_mm),
+        )
         if custom_tick_labels:
             layer.set_str(
                 f"{prefix}.label.string",
@@ -853,7 +1070,13 @@ class OriginProBackend:
         label.set_int("font.bold", 1)
         label.set_int("show", 1)
 
-    def _write_colorbar(self, layer: Any, graph_plan: OriginGraphObject) -> None:
+    def _write_colorbar(
+        self,
+        graph: Any,
+        layer: Any,
+        graph_plan: OriginGraphObject,
+        layer_plan: OriginLayerPlan,
+    ) -> None:
         colorbar = graph_plan.colorbar
         if not colorbar.visible:
             return
@@ -871,6 +1094,15 @@ class OriginProBackend:
         scale = self._op.Label(native_object, layer.obj)
         scale.name = _COLOR_SCALE_LABEL
         scale.set_int("show", 1)
+        # Spectrum1 defaults to the template's left edge.  The backend reserves a
+        # right page gutter and attaches the complete scale (bar, ticks, labels)
+        # to that gutter so it cannot cover the Y axis or data frame.
+        page_width = _finite_float(graph.get_float("width"))
+        page_height = _finite_float(graph.get_float("height"))
+        page_inset = max(page_width * 0.05, 2.0)
+        scale_left, scale_top = _place_page_color_scale(
+            graph, graph_plan, layer_plan, scale
+        )
         title = ""
         if colorbar.title is not None:
             title = "".join(node.text for node in colorbar.title.nodes)
@@ -882,21 +1114,33 @@ class OriginProBackend:
         except Exception as error:
             raise NativeOriginError("could not configure native color scale title") from error
         if title:
-            title_label = layer.add_label(title, 102, 3)
+            title_label = layer.add_label(title)
             if title_label is None:
                 raise NativeOriginError("could not create native color scale title label")
             title_label.name = _COLOR_SCALE_TITLE_LABEL
             title_label.set_float("fsize", graph_plan.font_size_pt)
             title_label.set_int("show", 1)
+            title_width = _finite_float(title_label.get_float("width"), 0.0)
+            title_height = _finite_float(title_label.get_float("height"), 0.0)
+            title_left = min(scale_left, page_width - title_width - page_inset)
+            title_top = max(scale_top - title_height - page_height * 0.005, page_inset)
+            _set_page_position(
+                title_label,
+                page_width=page_width,
+                page_height=page_height,
+                left=max(title_left, page_inset),
+                top=title_top,
+            )
 
     def _configure_layer_frame(
         self, graph: OriginGraphObject, layer_plan: OriginLayerPlan, layer: Any
     ) -> None:
         # Fixed literal Origin properties; callers cannot supply property paths.
-        layer.set_float("left", layer_plan.left_mm / graph.page_width_mm * 100)
-        layer.set_float("top", layer_plan.top_mm / graph.page_height_mm * 100)
-        layer.set_float("width", layer_plan.width_mm / graph.page_width_mm * 100)
-        layer.set_float("height", layer_plan.height_mm / graph.page_height_mm * 100)
+        frame = _native_layer_frame(graph, layer_plan)
+        layer.set_float("left", frame.left_mm / graph.page_width_mm * 100)
+        layer.set_float("top", frame.top_mm / graph.page_height_mm * 100)
+        layer.set_float("width", frame.width_mm / graph.page_width_mm * 100)
+        layer.set_float("height", frame.height_mm / graph.page_height_mm * 100)
 
     def write_graph_object(self, graph_plan: OriginGraphObject) -> None:
         self._folder("Graphs").Activate()
@@ -1070,11 +1314,13 @@ class OriginProBackend:
                             plot_sheet,
                         )
             for axis in layer_plan.axes:
+                native_frame = _native_layer_frame(graph_plan, layer_plan)
                 self._configure_axis(
                     layer,
                     axis,
                     graph_plan.font_size_pt,
                     template_y_style,
+                    native_frame.width_mm,
                 )
             self._write_panel_label(layer, layer_plan, graph_plan.font_size_pt)
             if layer_index == 0:
@@ -1092,14 +1338,17 @@ class OriginProBackend:
                 elif title is not None:
                     title.text = ""
                     title.set_int("show", 0)
-                self._write_colorbar(layer, graph_plan)
-            if any(
+                self._write_colorbar(graph, layer, graph_plan, layer_plan)
+            overlays_previous = any(
                 previous.left_mm == layer_plan.left_mm
                 and previous.top_mm == layer_plan.top_mm
                 and previous.width_mm == layer_plan.width_mm
                 and previous.height_mm == layer_plan.height_mm
                 for previous in graph_plan.layers[:layer_index]
-            ):
+            )
+            if not overlays_previous:
+                _write_dense_x_axis_title(graph, graph_plan, layer_plan, layer)
+            if overlays_previous:
                 layer.set_int("x.showAxes", 0)
                 layer.set_int("x.showLabels", 0)
                 layer.set_int("x.showlabel", 0)
@@ -1148,7 +1397,7 @@ class OriginProBackend:
                 if label is None:
                     raise NativeOriginError("could not create native text annotation")
                 label.name = _annotation_object_name(annotation.annotation_id)
-                label.set_float("fsize", graph_plan.font_size_pt)
+                _style_annotation_label(label, annotation, graph_plan.font_size_pt)
         # Origin may defer one dimension while layers and plots are being created.
         # Reapply both typed dimensions after construction so inspection and save see
         # the final physical canvas.
@@ -1476,6 +1725,19 @@ class OriginProBackend:
                         raise NativeOriginError(
                             f"native axis font size differs for {axis_plan.axis_id}"
                         )
+                    expected_rotation = _tick_label_rotation(
+                        axis_plan,
+                        graph_plan.font_size_pt,
+                        _native_layer_frame(graph_plan, layer_plan).width_mm,
+                    )
+                    if not math.isclose(
+                        layer.get_float(f"{prefix}.label.rotate"),
+                        expected_rotation,
+                        abs_tol=1e-9,
+                    ):
+                        raise NativeOriginError(
+                            f"native tick label rotation differs for {axis_plan.axis_id}"
+                        )
                     if axis_plan.orientation == "y" and axis_plan.position == "right":
                         _assert_right_y_axis_style(layer, template_y_style, axis_plan)
                     actual_widths = (
@@ -1509,6 +1771,54 @@ class OriginProBackend:
                         raise NativeOriginError(
                             f"native axis crossing differs for {axis_plan.axis_id}"
                         )
+                overlays_previous = any(
+                    previous.left_mm == layer_plan.left_mm
+                    and previous.top_mm == layer_plan.top_mm
+                    and previous.width_mm == layer_plan.width_mm
+                    and previous.height_mm == layer_plan.height_mm
+                    for previous in graph_plan.layers[:layer_index]
+                )
+                x_axis_plan = next(
+                    (axis for axis in layer_plan.axes if axis.orientation == "x"),
+                    None,
+                )
+                if x_axis_plan is not None and not overlays_previous:
+                    expected_x_rotation = _tick_label_rotation(
+                        x_axis_plan,
+                        graph_plan.font_size_pt,
+                        _native_layer_frame(graph_plan, layer_plan).width_mm,
+                    )
+                    dense_title = layer.label(_DENSE_X_TITLE_LABEL)
+                    if expected_x_rotation and (
+                        dense_title is None
+                        or dense_title.text != x_axis_plan.title
+                        or dense_title.get_int("attach") != 1
+                    ):
+                        raise NativeOriginError(
+                            f"native dense X-axis title differs for {layer_plan.layer_id}"
+                        )
+                    if expected_x_rotation and dense_title is not None:
+                        page_width = _finite_float(graph.get_float("width"))
+                        page_height = _finite_float(graph.get_float("height"))
+                        frame_left, frame_top, frame_width, frame_height = (
+                            _frame_page_bounds(graph, graph_plan, layer_plan)
+                        )
+                        title_left = dense_title.get_float("left")
+                        title_top = dense_title.get_float("top")
+                        title_width = dense_title.get_float("width")
+                        title_height = dense_title.get_float("height")
+                        if (
+                            title_left < 0
+                            or title_top < frame_top + frame_height
+                            or title_left + title_width > page_width + 1e-9
+                            or title_top + title_height > page_height + 1e-9
+                            or title_left + title_width < frame_left
+                            or title_left > frame_left + frame_width
+                        ):
+                            raise NativeOriginError(
+                                f"native dense X-axis title crosses page or plot frame "
+                                f"for {layer_plan.layer_id}"
+                            )
                 if layer_plan.label:
                     panel_label = layer.label(_PANEL_LABEL)
                     if panel_label is None or panel_label.text != layer_plan.label:
@@ -1534,6 +1844,26 @@ class OriginProBackend:
                             f"native color scale title differs for {graph_plan.graph_id}: "
                             f"expected={expected_title!r}"
                         )
+                    page_width = _finite_float(graph.get_float("width"))
+                    page_height = _finite_float(graph.get_float("height"))
+                    frame_left, _, frame_width, _ = _frame_page_bounds(
+                        graph, graph_plan, layer_plan
+                    )
+                    scale_left = color_scale.get_float("left")
+                    scale_top = color_scale.get_float("top")
+                    scale_width = color_scale.get_float("width")
+                    scale_height = color_scale.get_float("height")
+                    if (
+                        color_scale.get_int("attach") != 1
+                        or scale_left < frame_left + frame_width + page_width * 0.005
+                        or scale_top < 0
+                        or scale_left + scale_width > page_width + 1e-9
+                        or scale_top + scale_height > page_height + 1e-9
+                    ):
+                        raise NativeOriginError(
+                            f"native color scale crosses or covers plot frame for "
+                            f"{graph_plan.graph_id}"
+                        )
                 if graph_plan.legend_visible and layer_index == 0 and legend_labels:
                     legend = layer.label("legend")
                     expected_legend = _legend_text(graph_plan.graph_id, legend_labels)
@@ -1550,9 +1880,14 @@ class OriginProBackend:
                         )
                     page_width = _finite_float(graph.get_float("width"))
                     page_height = _finite_float(graph.get_float("height"))
+                    frame_left, _, frame_width, _ = _frame_page_bounds(
+                        graph, graph_plan, layer_plan
+                    )
                     if (
                         legend.get_float("left") < 0
                         or legend.get_float("top") < 0
+                        or legend.get_float("left")
+                        < frame_left + frame_width + page_width * 0.005
                         or legend.get_float("left") + legend.get_float("width") > page_width + 1e-9
                         or legend.get_float("top") + legend.get_float("height") > page_height + 1e-9
                     ):
@@ -1570,11 +1905,8 @@ class OriginProBackend:
                         title is None
                         or title.text != graph_plan.title
                         or title.get_int("attach") != 1
-                        or not math.isclose(
-                            title.get_float("fsize"),
-                            graph_plan.font_size_pt + 1.0,
-                            abs_tol=1e-9,
-                        )
+                        or title.get_float("fsize") < 4.0 - 1e-9
+                        or title.get_float("fsize") > graph_plan.font_size_pt + 1.0 + 1e-9
                     ):
                         raise NativeOriginError(
                             f"native plot title differs for {graph_plan.graph_id}"
@@ -1631,6 +1963,12 @@ class OriginProBackend:
                     if label is None or label.text != expected_text:
                         raise NativeOriginError(
                             f"native annotation differs for {annotation.annotation_id}"
+                        )
+                    if annotation.color is not None and tuple(label.color) != _hex_rgb(
+                        annotation.color.value
+                    ):
+                        raise NativeOriginError(
+                            f"native annotation color differs for {annotation.annotation_id}"
                         )
 
     def _inspect_manifest(self, plan: OriginExportPlan) -> None:
