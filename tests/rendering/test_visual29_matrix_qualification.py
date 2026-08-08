@@ -73,18 +73,13 @@ def test_visual29_matrix_frozen_same_source_manifest() -> None:
     assert manifest["qualification"]["decision"] == "NO-GO"
     qualification = manifest["qualification"]
     blockers = qualification["blocking_observations"]
-    if qualification["evidence_status"] == "first_round_stale":
-        assert len(blockers) == 6
-        assert {item["chart_type_id"] for item in blockers} == {"K04", "K12", "K22"}
-        assert {item["backend"] for item in blockers} == {"matplotlib", "origin"}
-        assert all(item["severity"] == "P0" for item in blockers)
-        assert qualification["invalidation"]["code"] == "SHARED_RENDERING_CONTRACT_UPDATED"
-    else:
-        assert qualification["evidence_status"] == "fresh_render_pending_human"
-        assert {item["chart_type_id"] for item in blockers} == set(GAPS)
-        assert {item["code"] for item in blockers} == {"SAME_SOURCE_EVIDENCE_MISSING"}
-        assert {item["backend"] for item in blockers} == {"evidence"}
-        assert all(item["status"] == "open" for item in blockers)
+    assert qualification["evidence_status"] == "fresh_render_pending_human"
+    assert {item["chart_type_id"] for item in blockers} == set(GAPS)
+    assert {item["code"] for item in blockers} == {"SAME_SOURCE_EVIDENCE_MISSING"}
+    assert {item["backend"] for item in blockers} == {"evidence"}
+    assert all(item["status"] == "open" for item in blockers)
+    assert "invalidation" not in qualification
+    assert "automated P0 blockers closed" in manifest["audit_conclusion"]
     assert "visual qualification not passed" in manifest["audit_conclusion"]
 
 

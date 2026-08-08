@@ -840,30 +840,20 @@ def _refresh_audit_metadata(output: Path, fixtures: Path) -> dict[str, Any]:
     if not manifest_path.is_file():
         raise RuntimeError("render evidence is missing; run --phase render first")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    manifest["qualification"]["blocking_observations"] = list(
-        FIRST_ROUND_BLOCKING_OBSERVATIONS
-    )
-    manifest["qualification"]["human_visual_signature"] = {
-        "status": "pending",
-        "reviewer": None,
-        "signed_at": None,
-    }
-    manifest["qualification"]["evidence_status"] = "first_round_stale"
-    manifest["qualification"]["invalidation"] = {
-        "code": "SHARED_RENDERING_CONTRACT_UPDATED",
-        "reason": (
-            "The first-round evidence predates the shared layout and native matrix fixes; "
-            "a complete render is required before mechanical observations may be cleared."
-        ),
-    }
-    manifest["qualification"]["decision"] = "NO-GO"
+    source_identity = manifest["qualification"]["source_build_identity"]
+    current_source_sha256 = _source_build_sha256()
+    if source_identity.get("source_sha256") != current_source_sha256:
+        raise RuntimeError(
+            "render evidence source identity is stale; run --phase render before audit"
+        )
+    manifest["qualification"] = _fresh_qualification(source_identity)
     manifest["audit_conclusion"] = (
         "four same-source evidence cases generated; four cases withheld for missing A/C evidence; "
-        "mechanical visual blockers recorded; human visual sign-off pending; visual qualification not passed"
+        "automated P0 blockers closed; human visual sign-off pending; visual qualification not passed"
     )
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     shutil.copy2(manifest_path, fixtures / "manifest.json")
-    _build_index(output, FIRST_ROUND_BLOCKING_OBSERVATIONS)
+    _build_index(output)
     return cast(dict[str, Any], manifest)
 
 
