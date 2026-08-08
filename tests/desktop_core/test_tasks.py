@@ -42,6 +42,21 @@ def test_committing_task_is_not_cancellable() -> None:
         registry.cancel("task:commit")
 
 
+def test_progress_update_keeps_state_and_increments_event_sequence() -> None:
+    events: list[dict[str, object]] = []
+    registry = TaskRegistry(events.append)
+    registry.register("task:progress", state="running")
+
+    registry.update_progress(
+        "task:progress",
+        {"completed": 2, "total": 5, "unit": "steps"},
+    )
+
+    assert events[-1]["state"] == "running"
+    assert events[-1]["sequence"] == 1
+    assert events[-1]["progress"] == {"completed": 2, "total": 5, "unit": "steps"}
+
+
 def test_worker_executor_rejects_work_beyond_its_bound() -> None:
     release = threading.Event()
     executor = BoundedWorkerExecutor(max_workers=1, maximum_pending=1)

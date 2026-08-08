@@ -160,11 +160,7 @@ class AgentRuntimeRepository:
             "SELECT state_json FROM conversation_states WHERE conversation_id = ?",
             (conversation_id,),
         ).fetchone()
-        return (
-            None
-            if row is None
-            else ConversationStateProjection.model_validate_json(str(row[0]))
-        )
+        return None if row is None else ConversationStateProjection.model_validate_json(str(row[0]))
 
     def save_context_snapshot(self, snapshot: ProjectContextSnapshot) -> None:
         connection = self._connection
@@ -208,16 +204,30 @@ class AgentRuntimeRepository:
             )
         return ProjectContextSnapshot.model_validate_json(str(row[0]))
 
+    def latest_context_snapshot(self, conversation_id: str) -> ProjectContextSnapshot | None:
+        row = self._connection.execute(
+            "SELECT snapshot_json FROM project_context_snapshots "
+            "WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1",
+            (conversation_id,),
+        ).fetchone()
+        return None if row is None else ProjectContextSnapshot.model_validate_json(str(row[0]))
+
     def create_plan(self, plan: TaskPlanSnapshot) -> None:
         connection = self._connection
         existing = connection.execute(
-            "SELECT source_plan_hash FROM task_plans WHERE plan_id = ?", (plan.plan_id,)
+            "SELECT source_plan_hash, context_hash, conversation_id "
+            "FROM task_plans WHERE plan_id = ?",
+            (plan.plan_id,),
         ).fetchone()
         if existing is not None:
-            if str(existing[0]) != plan.source_plan_hash:
+            if (
+                str(existing[0]) != plan.source_plan_hash
+                or str(existing[1]) != plan.context_hash
+                or str(existing[2]) != plan.conversation_id
+            ):
                 raise StorageProblem(
                     StorageErrorCode.IDEMPOTENCY_CONFLICT,
-                    "Plan id was already used for a different plan.",
+                    "Plan id was already used for a different plan or context.",
                 )
             return
         now = _utc_now()
@@ -384,7 +394,13 @@ class AgentRuntimeRepository:
             if state == "running":
                 self._set_plan_state(connection, plan_id, "running", now)
             elif state == "ready" and current in {"failed", "interrupted", "blocked"}:
-                self._set_plan_state(connection, plan_id, "ready", now)
+                plan_state = str(
+                    connection.execute(
+                        "SELECT state FROM task_plans WHERE plan_id = ?", (plan_id,)
+                    ).fetchone()[0]
+                )
+                if plan_state in {"failed", "interrupted", "needs_input"}:
+                    self._set_plan_state(connection, plan_id, "ready", now)
             self._append_event(
                 connection,
                 plan_id,
@@ -399,6 +415,41 @@ class AgentRuntimeRepository:
                 connection.rollback()
             raise
         return self._get_item(task_item_id)
+
+    def transition_plan(self, plan_id: str, state: str) -> TaskPlanSnapshot:
+        connection = self._connection
+        now = _utc_now()
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            self._set_plan_state(connection, plan_id, state, now)
+            self._append_event(
+                connection,
+                plan_id,
+                None,
+                "plan.state_changed",
+                {"to": state},
+                now,
+            )
+            connection.commit()
+        except Exception:
+            if connection.in_transaction:
+                connection.rollback()
+            raise
+        return self.get_plan(plan_id)
+
+    def refresh_plan(self, plan_id: str) -> TaskPlanSnapshot:
+        connection = self._connection
+        now = _utc_now()
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            self._refresh_ready_items(connection, plan_id, now)
+            self._refresh_plan_state(connection, plan_id, now)
+            connection.commit()
+        except Exception:
+            if connection.in_transaction:
+                connection.rollback()
+            raise
+        return self.get_plan(plan_id)
 
     def begin_attempt(self, task_item_id: str) -> TaskAttemptSnapshot:
         item = self._get_item(task_item_id)
@@ -649,9 +700,7 @@ class AgentRuntimeRepository:
         )
 
     @staticmethod
-    def _set_plan_state(
-        connection: sqlite3.Connection, plan_id: str, state: str, now: str
-    ) -> None:
+    def _set_plan_state(connection: sqlite3.Connection, plan_id: str, state: str, now: str) -> None:
         row = connection.execute(
             "SELECT state FROM task_plans WHERE plan_id = ?", (plan_id,)
         ).fetchone()
@@ -671,9 +720,7 @@ class AgentRuntimeRepository:
         )
 
     @staticmethod
-    def _refresh_ready_items(
-        connection: sqlite3.Connection, plan_id: str, now: str
-    ) -> None:
+    def _refresh_ready_items(connection: sqlite3.Connection, plan_id: str, now: str) -> None:
         rows = connection.execute(
             "SELECT task_item_id, depends_on_json FROM task_items "
             "WHERE plan_id = ? AND state = 'pending' ORDER BY position",
@@ -690,15 +737,12 @@ class AgentRuntimeRepository:
             dependencies = set(json.loads(str(dependency_json)))
             if dependencies.issubset(succeeded):
                 connection.execute(
-                    "UPDATE task_items SET state = 'ready', updated_at = ? "
-                    "WHERE task_item_id = ?",
+                    "UPDATE task_items SET state = 'ready', updated_at = ? WHERE task_item_id = ?",
                     (now, str(task_item_id)),
                 )
 
     @staticmethod
-    def _refresh_plan_state(
-        connection: sqlite3.Connection, plan_id: str, now: str
-    ) -> None:
+    def _refresh_plan_state(connection: sqlite3.Connection, plan_id: str, now: str) -> None:
         states = [
             str(row[0])
             for row in connection.execute(

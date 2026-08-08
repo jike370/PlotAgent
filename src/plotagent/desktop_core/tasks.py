@@ -107,6 +107,22 @@ class TaskRegistry:
             event = self._event(record)
         self._notifier(event)
 
+    def update_progress(self, task_id: str, progress: dict[str, JsonValue]) -> None:
+        """Publish bounded progress without inventing a state transition."""
+
+        _validate_progress(progress)
+        with self._lock:
+            record = self._require(task_id)
+            if record.state not in _ACTIVE_STATES:
+                raise TaskControlError(
+                    "TASK_STATE_INVALID",
+                    "Progress can be updated only while a task is active.",
+                )
+            record.sequence += 1
+            record.progress = progress
+            event = self._event(record)
+        self._notifier(event)
+
     def cancel(self, task_id: str) -> dict[str, JsonValue]:
         with self._lock:
             record = self._require(task_id)

@@ -30,14 +30,21 @@ from plotagent.agent.context import (
     ContextBuilder,
     ContextBuildRequest,
     ConversationState,
+    ConversationStateReducer,
     DisclosureGrant,
 )
+from plotagent.agent.project_context import ProjectContextService
 from plotagent.agent.providers import (
     BuiltinProviderConfig,
     CustomProviderConfig,
     ModelProvider,
     create_provider,
 )
+from plotagent.agent.task_orchestrator import (
+    PersistentTaskOrchestrator,
+    TaskExecutionError,
+)
+from plotagent.agent.task_plans import TaskPlanCompiler
 from plotagent.agent.validation import DecisionValidator, ValidationAuthority
 from plotagent.batch import BatchService
 from plotagent.batch.models import (
@@ -179,6 +186,7 @@ from plotagent.contracts.plots import (
     UpdateAnnotationPatch,
     XYFamily,
 )
+from plotagent.contracts.project_context import ContextFieldBinding, ProjectContextSnapshot
 from plotagent.contracts.registry import (
     CHARTS_BY_ID as CONTRACT_CHARTS_BY_ID,
 )
@@ -186,6 +194,7 @@ from plotagent.contracts.registry import (
     PRODUCT_CHART_IDS,
 )
 from plotagent.contracts.styles import SymbolStyle, resolve_palette
+from plotagent.contracts.task_runtime import TaskItemSnapshot, TaskOutputRef, TaskPlanSnapshot
 from plotagent.desktop_core.protocol import JsonValue as RpcJsonValue
 from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
 from plotagent.desktop_core.tasks import (
@@ -218,6 +227,7 @@ from plotagent.rendering import (
 )
 from plotagent.security import CredentialStore, NetworkMode, create_credential_store
 from plotagent.storage import (
+    AgentRuntimeRepository,
     Catalog,
     ImportCommitResult,
     ImportResource,
@@ -248,6 +258,7 @@ class ProjectSession(SourceTableResolver):
     store: ProjectStore
     domain: ProjectDomainRepository
     imports: ProjectImportService
+    agent_runtime: AgentRuntimeRepository
 
     @property
     def project_id(self) -> str:
@@ -407,7 +418,14 @@ class DesktopApplication:
             "provider.status": self._provider_status,
             "provider.configure": self._provider_configure,
             "provider.clear": self._provider_clear,
+            "agent.context.get": self._agent_context_get,
             "agent.decide": self._agent_decide,
+            "agent.plans.get": self._agent_plan_get,
+            "agent.plans.list": self._agent_plan_list,
+            "agent.plans.confirm": self._agent_plan_confirm,
+            "agent.plans.run": self._agent_plan_run,
+            "agent.plans.resume": self._agent_plan_resume,
+            "agent.plans.events": self._agent_plan_events,
             "exports.png_svg": self._exports_png_svg,
             "exports.origin": self._exports_origin,
         }
@@ -677,7 +695,9 @@ class DesktopApplication:
             store=store,
             domain=ProjectDomainRepository(store),
             imports=ProjectImportService(store),
+            agent_runtime=AgentRuntimeRepository(store),
         )
+        session.agent_runtime.recover_interrupted()
         self._sessions[project_id] = session
         self.catalog.touch_project(project_id)
         return self._session_summary(session, replayed=replayed)
@@ -1651,6 +1671,179 @@ class DesktopApplication:
             self._fail_task(context.tasks, task_id)
             raise
 
+    def _agent_context_get(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(params, required={"project_id"}, optional={"conversation_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        conversation_id = _optional_text(values.get("conversation_id"), "conversation_id")
+        if conversation_id is None:
+            conversation_id = self._default_conversation_id(session.project_id)
+        state = session.agent_runtime.get_conversation_state(conversation_id)
+        snapshot = session.agent_runtime.latest_context_snapshot(conversation_id)
+        return {
+            "conversation_id": conversation_id,
+            "exists": state is not None,
+            "conversation_state": (
+                None if state is None else cast(RpcJsonValue, state.model_dump(mode="json"))
+            ),
+            "context_snapshot": (
+                None if snapshot is None else cast(RpcJsonValue, snapshot.model_dump(mode="json"))
+            ),
+        }
+
+    def _agent_plan_get(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        plan = session.agent_runtime.get_plan(_text(values["plan_id"], "plan_id"))
+        return cast(RpcJsonValue, plan.model_dump(mode="json"))
+
+    def _agent_plan_list(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(params, required={"project_id"}, optional={"conversation_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        conversation_id = _optional_text(values.get("conversation_id"), "conversation_id")
+        if conversation_id is None:
+            conversation_id = self._default_conversation_id(session.project_id)
+        plans = session.agent_runtime.list_plans(conversation_id)
+        return {
+            "conversation_id": conversation_id,
+            "plans": [cast(RpcJsonValue, plan.model_dump(mode="json")) for plan in plans],
+        }
+
+    def _agent_plan_confirm(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id", "accept"})
+        accept = values["accept"]
+        if not isinstance(accept, bool):
+            raise RpcServiceError("INVALID_PARAMS", "Plan confirmation must be boolean.")
+        session = self._session(_text(values["project_id"], "project_id"))
+        plan = session.agent_runtime.confirm_plan(
+            _text(values["plan_id"], "plan_id"),
+            accept=accept,
+        )
+        return cast(RpcJsonValue, plan.model_dump(mode="json"))
+
+    def _agent_plan_events(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        plan_id = _text(values["plan_id"], "plan_id")
+        session.agent_runtime.get_plan(plan_id)
+        return {
+            "plan_id": plan_id,
+            "events": [
+                {
+                    "event_id": event.event_id,
+                    "task_item_id": event.task_item_id,
+                    "event_type": event.event_type,
+                    "payload": event.payload,
+                    "created_at": event.created_at,
+                }
+                for event in session.agent_runtime.list_events(plan_id)
+            ],
+        }
+
+    def _agent_plan_resume(self, context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        return self._agent_plan_run(
+            context,
+            cast(
+                RpcJsonValue,
+                {
+                    "project_id": values["project_id"],
+                    "plan_id": values["plan_id"],
+                    "resume": True,
+                },
+            ),
+        )
+
+    def _agent_plan_run(self, context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "plan_id"},
+            optional={"resume"},
+        )
+        resume = values.get("resume", False)
+        if not isinstance(resume, bool):
+            raise RpcServiceError("INVALID_PARAMS", "Plan resume must be boolean.")
+        session = self._session(_text(values["project_id"], "project_id"))
+        plan_id = _text(values["plan_id"], "plan_id")
+        task_id = self._begin_task(context, "agent-plan")
+        try:
+            plan = session.agent_runtime.get_plan(plan_id)
+            total = len(plan.items)
+            context.tasks.transition(
+                task_id,
+                "running",
+                progress={"completed": 0, "total": total, "unit": "steps"},
+            )
+
+            def progress(updated: TaskPlanSnapshot) -> None:
+                self._task_token(context.tasks, task_id).raise_if_cancelled()
+                completed = sum(
+                    item.state
+                    in {
+                        "succeeded",
+                        "failed",
+                        "blocked",
+                        "stale",
+                        "skipped",
+                        "cancelled",
+                    }
+                    for item in updated.items
+                )
+                context.tasks.update_progress(
+                    task_id,
+                    {"completed": completed, "total": total, "unit": "steps"},
+                )
+
+            orchestrator = PersistentTaskOrchestrator(
+                session.agent_runtime,
+                _DesktopObjectAuthority(session),
+            )
+            result = orchestrator.run(
+                plan_id,
+                _DesktopTaskExecutor(self, context, session),
+                resume=resume,
+                on_progress=progress,
+            )
+            self._update_conversation_after_plan(session, result)
+            completed = sum(item.state in {"succeeded", "skipped"} for item in result.items)
+            context.tasks.transition(
+                task_id,
+                "committing",
+                progress={"completed": total, "total": total, "unit": "steps"},
+            )
+            terminal = (
+                "succeeded"
+                if result.state == "succeeded"
+                else "partially_succeeded"
+                if result.state == "partial_success"
+                else "interrupted"
+                if result.state == "interrupted"
+                else "failed"
+            )
+            context.tasks.transition(
+                task_id,
+                terminal,
+                progress={"completed": total, "total": total, "unit": "steps"},
+            )
+            return {
+                "task_id": task_id,
+                "task_plan": cast(RpcJsonValue, result.model_dump(mode="json")),
+                "change_set": self._agent_change_set(result),
+                "completed_item_count": completed,
+                "total_item_count": total,
+                "resumable": result.state in {"partial_success", "failed", "interrupted"},
+            }
+        except TaskControlError:
+            current = session.agent_runtime.get_plan(plan_id)
+            if current.state in {"running", "partial_success"}:
+                session.agent_runtime.transition_plan(plan_id, "interrupted")
+            self._cancel_task(context.tasks, task_id)
+            raise
+        except Exception:
+            self._fail_task(context.tasks, task_id)
+            raise
+
     def _agent_decide(self, context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(
             params,
@@ -1663,6 +1856,8 @@ class DesktopApplication:
                 "expected_version",
             },
             optional={
+                "conversation_id",
+                "execution_mode",
                 "locale",
                 "network_mode",
                 "provider",
@@ -1674,6 +1869,14 @@ class DesktopApplication:
         session = self._session(_text(values["project_id"], "project_id"))
         expected = _integer(values["expected_version"], "expected_version", minimum=0)
         session.domain.require_revision(expected)
+        conversation_id = _optional_text(values.get("conversation_id"), "conversation_id")
+        if conversation_id is None:
+            conversation_id = self._default_conversation_id(session.project_id)
+        execution_mode = _optional_text(values.get("execution_mode"), "execution_mode")
+        if execution_mode is None:
+            execution_mode = "execute"
+        if execution_mode not in {"execute", "plan_only"}:
+            raise RpcServiceError("INVALID_PARAMS", "The Agent execution mode is invalid.")
         saved_provider = self._saved_provider_config()
         mode_value = values.get("network_mode")
         if mode_value is None:
@@ -1715,12 +1918,69 @@ class DesktopApplication:
             _integer(values["source_version"], "source_version", minimum=1),
         )
         source_table = session.domain.resolve_source(source)
+        persisted_projection = session.agent_runtime.get_conversation_state(conversation_id)
+        target_values = dict(values)
+        if persisted_projection is not None and values.get("target") is None:
+            persistent_target = persisted_projection.current_target
+            if persistent_target.object_type in {"plot", "batch", "figure"}:
+                target_values["target"] = cast(
+                    RpcJsonValue,
+                    {"kind": persistent_target.object_type, "id": persistent_target.object_id},
+                )
+                target_values["scope"] = (
+                    "current"
+                    if persistent_target.object_type == "plot"
+                    else persistent_target.object_type
+                )
         target, selected_objects, target_plots, plots_by_alias = self._agent_target(
             session,
             source,
-            values,
+            target_values,
         )
+        if persisted_projection is None:
+            conversation_state = ConversationState(
+                current_target=target,
+                selected_objects=selected_objects,
+            )
+            session.agent_runtime.save_conversation_state(
+                conversation_id,
+                conversation_state.project(),
+                expected_state_version=None,
+            )
+        else:
+            conversation_state = ConversationState.from_projection(persisted_projection)
+            if (
+                conversation_state.current_target != target
+                or conversation_state.selected_objects != selected_objects
+            ):
+                conversation_state = ConversationStateReducer().select_target(
+                    conversation_state,
+                    target,
+                    selected_objects=selected_objects,
+                )
+                session.agent_runtime.save_conversation_state(
+                    conversation_id,
+                    conversation_state.project(),
+                    expected_state_version=persisted_projection.state_version,
+                )
         fields, alias_to_field = self._agent_fields(source, source_table.rows)
+        project_context = ProjectContextService().build_snapshot(
+            project_id=session.project_id,
+            project_revision=expected,
+            conversation_id=conversation_id,
+            conversation_state=conversation_state.project(),
+            known_objects=(target, *selected_objects),
+            field_bindings=tuple(
+                ContextFieldBinding(
+                    field_alias=alias,
+                    field_id=field_id,
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                )
+                for alias, field_id in alias_to_field.items()
+            ),
+        )
+        session.agent_runtime.save_context_snapshot(project_context)
         sample_rows = tuple(
             AuthoritativeSampleRow(
                 row_id=source_table.coordinates[index].source_row_id,
@@ -1759,9 +2019,7 @@ class DesktopApplication:
                 selected_objects=selected_objects,
                 explicit_field_aliases=tuple(alias_to_field),
             ),
-            conversation_state=ConversationState(
-                current_target=target, selected_objects=selected_objects
-            ),
+            conversation_state=conversation_state,
             chart_capabilities=ChartCapabilities(
                 capability_version="desktop-45-v1",
                 allowed_chart_type_ids=tuple(
@@ -1878,119 +2136,455 @@ class DesktopApplication:
                 },
             }
         decision = result.decision
+        question_ids = (
+            tuple(question.question_key for question in decision.questions)
+            if decision.decision_type == "needs_input"
+            else ()
+        )
+        latest_projection = session.agent_runtime.get_conversation_state(conversation_id)
+        if latest_projection is None:
+            raise RpcServiceError(
+                "AGENT_CONTEXT_MISSING",
+                "The authoritative conversation context is unavailable.",
+            )
+        updated_conversation = ConversationStateReducer().record_decision(
+            ConversationState.from_projection(latest_projection),
+            decision_kind=decision.decision_type,
+            unresolved_question_ids=question_ids,
+        )
+        session.agent_runtime.save_conversation_state(
+            conversation_id,
+            updated_conversation.project(),
+            expected_state_version=latest_projection.state_version,
+            context_hash=project_context.snapshot_hash,
+        )
         payload: dict[str, RpcJsonValue] = {
             "accepted": True,
+            "conversation_id": conversation_id,
+            "context_snapshot_id": project_context.snapshot_id,
+            "context_hash": project_context.snapshot_hash,
             "decision": decision.model_dump(mode="json"),
         }
         if isinstance(decision, ActionPlan):
-            executions: list[RpcJsonValue] = []
-            project_revision = expected
-            current_plots = list(target_plots)
-            scope_patched = False
-            for index, action in enumerate(decision.actions):
-                if isinstance(action, CreatePlotAction):
-                    mapping = {
-                        selection.role: alias_to_field[selection.context_field_alias]
-                        for selection in action.field_selections
-                    }
-                    plot_id = (
-                        "plot:agent." + decision.plan_id.removeprefix("plan:") + f".{index + 1}"
-                    )
-                    execution = self._plots_create(
-                        context,
-                        cast(
-                            RpcJsonValue,
-                            {
-                                "project_id": session.project_id,
-                                "plot_id": plot_id,
-                                "chart_type_id": action.chart_type_id,
-                                "source_dataset_id": source.source_dataset_id,
-                                "source_version": source.source_version,
-                                "field_mapping": mapping,
-                                "idempotency_key": f"{decision.plan_id}:{action.action_id}",
-                                "expected_version": project_revision,
-                            },
-                        ),
-                        provenance_origin="agent_plan",
-                        plan_id=decision.plan_id,
-                    )
-                    execution_values = _object(
-                        execution, required={"project_version"}, optional=None
-                    )
-                    project_revision = _integer(
-                        execution_values["project_version"],
-                        "project_version",
-                        minimum=1,
-                    )
-                    current_plots = [session.domain.get_plot(plot_id)]
-                    plots_by_alias["active_target"] = current_plots[0]
-                    executions.append(execution)
-                    continue
-                if isinstance(action, PatchPlotAction):
-                    scope_patched = True
-                    action_plots = (
-                        current_plots
-                        if action.target_alias == "active_target"
-                        else [plots_by_alias[action.target_alias]]
-                        if action.target_alias in plots_by_alias
-                        else []
-                    )
-                    if not action_plots:
-                        raise RpcServiceError(
-                            "AGENT_ACTION_SCOPE_INVALID",
-                            "A patch action requires an active plot target.",
-                        )
-                    updated_plots: list[StoredPlot] = []
-                    for plot_index, active_plot in enumerate(action_plots):
-                        for patch_index, intent in enumerate(action.patches):
-                            patch = self._agent_patch_payload(active_plot, intent)
-                            execution = self._plots_patch(
-                                context,
-                                cast(
-                                    RpcJsonValue,
-                                    {
-                                        "project_id": session.project_id,
-                                        "plot_id": active_plot.plot.plot_id,
-                                        "expected_version": active_plot.plot.plot_version,
-                                        "idempotency_key": (
-                                            f"{decision.plan_id}:{action.action_id}:"
-                                            f"{plot_index}:{patch_index}"
-                                        ),
-                                        "patch": patch,
-                                    },
-                                ),
-                            )
-                            execution_values = _object(
-                                execution, required={"project_version"}, optional=None
-                            )
-                            project_revision = _integer(
-                                execution_values["project_version"],
-                                "project_version",
-                                minimum=1,
-                            )
-                            active_plot = session.domain.get_plot(active_plot.plot.plot_id)
-                            executions.append(execution)
-                        updated_plots.append(active_plot)
-                    current_plots = updated_plots
-                    continue
-                raise RpcServiceError(
-                    "AGENT_CAPABILITY_UNSUPPORTED",
-                    "The Agent action is outside the enabled desktop surface.",
-                )
-            if scope_patched and target.object_type in {"batch", "figure"}:
-                scope_execution, project_revision = self._commit_agent_scope_update(
-                    session,
-                    target,
-                    tuple(current_plots),
-                    project_revision,
-                    decision,
-                )
-                payload["scope_execution"] = scope_execution
-                payload["project_version"] = project_revision
+            task_plan = TaskPlanCompiler().compile(decision, project_context)
+            session.agent_runtime.create_plan(task_plan)
+            payload["task_plan"] = cast(RpcJsonValue, task_plan.model_dump(mode="json"))
+            if execution_mode == "plan_only" or decision.confirmation == "required":
+                return payload
+            task_execution = self._agent_plan_run(
+                context,
+                cast(
+                    RpcJsonValue,
+                    {
+                        "project_id": session.project_id,
+                        "plan_id": task_plan.plan_id,
+                    },
+                ),
+            )
+            executed_plan = session.agent_runtime.get_plan(task_plan.plan_id)
+            payload["task_plan"] = cast(
+                RpcJsonValue,
+                executed_plan.model_dump(mode="json"),
+            )
+            payload["task_execution"] = task_execution
+            executions = self._agent_legacy_execution_payloads(
+                session,
+                executed_plan,
+                target,
+                target_plots,
+            )
             payload["executions"] = executions
             if len(executions) == 1:
                 payload["execution"] = executions[0]
+            if target.object_type in {"batch", "figure"}:
+                payload["scope_execution"] = self._agent_scope_execution_summary(
+                    session,
+                    target,
+                    len(target_plots),
+                )
+                payload["project_version"] = session.domain.revision
+            return payload
         return payload
+
+    def _agent_legacy_execution_payloads(
+        self,
+        session: ProjectSession,
+        plan: TaskPlanSnapshot,
+        original_target: ContextObjectRef,
+        original_plots: tuple[StoredPlot, ...],
+    ) -> list[RpcJsonValue]:
+        plot_ids: list[str] = []
+        if original_target.object_type in {"batch", "figure"}:
+            plot_ids.extend(item.plot.plot_id for item in original_plots)
+        else:
+            plot_ids.extend(
+                output.object_ref.object_id
+                for item in plan.items
+                for output in item.outputs
+                if output.object_ref is not None and output.object_ref.object_type == "plot"
+            )
+        executions: list[RpcJsonValue] = []
+        for plot_id in dict.fromkeys(plot_ids):
+            stored = session.domain.get_plot(plot_id)
+            executions.append(
+                cast(
+                    RpcJsonValue,
+                    self._plot_response(
+                        session,
+                        stored.plot,
+                        stored.prepared_dataset,
+                        project_version=session.domain.revision,
+                    ),
+                )
+            )
+        return executions
+
+    @staticmethod
+    def _agent_scope_execution_summary(
+        session: ProjectSession,
+        target: ContextObjectRef,
+        updated_plot_count: int,
+    ) -> RpcJsonValue:
+        if target.object_type == "batch":
+            batch, _state = session.domain.get_batch(target.object_id)
+            return cast(
+                RpcJsonValue,
+                {
+                    "target_kind": "batch",
+                    "target_id": batch.batch_id,
+                    "target_version": batch.batch_version,
+                    "project_version": session.domain.revision,
+                    "updated_plot_count": updated_plot_count,
+                    "batch": batch.model_dump(mode="json"),
+                },
+            )
+        figure = session.domain.get_figure(target.object_id)
+        return cast(
+            RpcJsonValue,
+            {
+                "target_kind": "figure",
+                "target_id": figure.figure_id,
+                "target_version": figure.figure_version,
+                "project_version": session.domain.revision,
+                "updated_plot_count": updated_plot_count,
+                "figure": figure.model_dump(mode="json"),
+            },
+        )
+
+    def _execute_agent_task_item(
+        self,
+        context: RpcContext,
+        session: ProjectSession,
+        plan: TaskPlanSnapshot,
+        item: TaskItemSnapshot,
+    ) -> tuple[TaskOutputRef, ...]:
+        snapshot = session.agent_runtime.get_context_snapshot(plan.context_snapshot_id)
+        action = item.action
+        if isinstance(action, CreatePlotAction):
+            field_bindings = {binding.field_alias: binding for binding in snapshot.field_bindings}
+            selected = [
+                field_bindings[selection.context_field_alias]
+                for selection in action.field_selections
+            ]
+            if not selected:
+                raise TaskExecutionError(
+                    "AGENT_FIELD_BINDING_MISSING",
+                    "The persisted plan has no field bindings.",
+                )
+            source_ids = {
+                (binding.source_dataset_id, binding.source_version) for binding in selected
+            }
+            if len(source_ids) != 1:
+                raise TaskExecutionError(
+                    "AGENT_FIELD_BINDING_INVALID",
+                    "One plot action must bind fields from one source dataset.",
+                )
+            source_id, source_version = next(iter(source_ids))
+            mapping = {
+                selection.role: field_bindings[selection.context_field_alias].field_id
+                for selection in action.field_selections
+            }
+            position = next(
+                index
+                for index, source_action in enumerate(plan.source_plan.actions)
+                if source_action.action_id == action.action_id
+            )
+            plot_id = "plot:agent." + plan.plan_id.removeprefix("plan:") + f".{position + 1}"
+            response = self._plots_create(
+                context,
+                cast(
+                    RpcJsonValue,
+                    {
+                        "project_id": session.project_id,
+                        "plot_id": plot_id,
+                        "chart_type_id": action.chart_type_id,
+                        "source_dataset_id": source_id,
+                        "source_version": source_version,
+                        "field_mapping": mapping,
+                        "idempotency_key": item.idempotency_key,
+                        "expected_version": session.domain.revision,
+                    },
+                ),
+                provenance_origin="agent_plan",
+                plan_id=plan.plan_id,
+            )
+            del response
+            stored = session.domain.get_plot(plot_id)
+            return (
+                TaskOutputRef(
+                    output_slot="primary",
+                    output_kind="object",
+                    object_ref=self._stored_plot_context_ref(action.target_alias, stored),
+                    summary=f"创建 {action.chart_type_id} 图",
+                ),
+            )
+        if isinstance(action, PatchPlotAction):
+            target = self._agent_runtime_target(snapshot, plan, item)
+            stored_plots = self._plots_for_context_target(session, target)
+            updated: list[StoredPlot] = []
+            for index, stored in enumerate(stored_plots):
+                updated.append(
+                    self._commit_agent_patch_transaction(
+                        session,
+                        stored,
+                        action,
+                        idempotency_key=f"{item.idempotency_key}.{index + 1}",
+                        plan_id=plan.plan_id,
+                    )
+                )
+            if target.object_type in {"batch", "figure"}:
+                self._commit_agent_scope_update(
+                    session,
+                    target,
+                    tuple(updated),
+                    session.domain.revision,
+                    plan.source_plan,
+                )
+            primary = updated[0]
+            return (
+                TaskOutputRef(
+                    output_slot="primary",
+                    output_kind="object",
+                    object_ref=self._stored_plot_context_ref(action.target_alias, primary),
+                    summary=f"修改 {len(updated)} 张图",
+                ),
+                TaskOutputRef(
+                    output_slot="change_set",
+                    output_kind="result",
+                    content_hash=canonical_hash(
+                        cast(
+                            JsonValue,
+                            [
+                                {
+                                    "plot_id": stored.plot.plot_id,
+                                    "plot_version": stored.plot.plot_version,
+                                }
+                                for stored in updated
+                            ],
+                        )
+                    ),
+                    summary=f"{len(action.patches)} 项修改",
+                ),
+            )
+        raise TaskExecutionError(
+            "AGENT_CAPABILITY_UNSUPPORTED",
+            "The persisted action is outside the enabled desktop surface.",
+        )
+
+    def _commit_agent_patch_transaction(
+        self,
+        session: ProjectSession,
+        previous: StoredPlot,
+        action: PatchPlotAction,
+        *,
+        idempotency_key: str,
+        plan_id: str,
+    ) -> StoredPlot:
+        request_hash = canonical_hash(
+            cast(
+                JsonValue,
+                {
+                    "plot_id": previous.plot.plot_id,
+                    "plot_version": previous.plot.plot_version,
+                    "patches": [patch.model_dump(mode="json") for patch in action.patches],
+                    "plan_id": plan_id,
+                },
+            )
+        )
+        replay = session.domain.replay(
+            "agent.plots.patch_transaction",
+            idempotency_key,
+            request_hash,
+        )
+        if replay is not None:
+            return session.domain.get_plot(previous.plot.plot_id)
+        working = previous
+        for intent in action.patches:
+            payload = self._agent_patch_payload(working, intent)
+            patch = _PATCH_ADAPTER.validate_json(json.dumps(payload, ensure_ascii=False))
+            plot = self._apply_patch(working, patch)
+            working = StoredPlot(
+                plot=plot,
+                field_mapping=working.field_mapping,
+                preparation_spec=working.preparation_spec,
+                prepared_dataset=working.prepared_dataset,
+                render_bindings=working.render_bindings,
+                content_hash=canonical_hash(plot),
+            )
+        final = working.plot.model_copy(
+            update={
+                "plot_version": previous.plot.plot_version + 1,
+                "provenance": working.plot.provenance.model_copy(
+                    update={
+                        "parent_plot_ref": PlotSpecRef(
+                            plot_id=previous.plot.plot_id,
+                            plot_version=previous.plot.plot_version,
+                            content_hash=previous.content_hash,
+                        )
+                    }
+                ),
+            }
+        )
+        final_stored = StoredPlot(
+            plot=final,
+            field_mapping=previous.field_mapping,
+            preparation_spec=previous.preparation_spec,
+            prepared_dataset=previous.prepared_dataset,
+            render_bindings=previous.render_bindings,
+            content_hash=canonical_hash(final),
+        )
+        self._resolve_plot(session, final_stored)
+        response = self._plot_response(
+            session,
+            final,
+            previous.prepared_dataset,
+            project_version=session.domain.revision + 1,
+        )
+        session.domain.commit_plot_patch(
+            previous=previous,
+            plot=final,
+            operation="agent.plots.patch_transaction",
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            response=response,
+        )
+        return session.domain.get_plot(final.plot_id)
+
+    @staticmethod
+    def _stored_plot_context_ref(alias: str, stored: StoredPlot) -> ContextObjectRef:
+        return ContextObjectRef(
+            object_alias=alias,
+            object_id=stored.plot.plot_id,
+            object_version=stored.plot.plot_version,
+            object_type="plot",
+            content_hash=stored.content_hash,
+        )
+
+    @staticmethod
+    def _agent_runtime_target(
+        snapshot: ProjectContextSnapshot,
+        plan: TaskPlanSnapshot,
+        item: TaskItemSnapshot,
+    ) -> ContextObjectRef:
+        items = {value.task_item_id: value for value in plan.items}
+        for dependency_id in reversed(item.depends_on):
+            for output in items[dependency_id].outputs:
+                if output.object_ref is not None:
+                    return output.object_ref
+        action_alias = item.action.target_alias
+        known = {
+            value.object_alias: value
+            for value in (
+                snapshot.known_objects
+                + snapshot.recent_result_objects
+                + (snapshot.conversation_state.current_target,)
+            )
+        }
+        target = known.get(action_alias) or known.get(plan.source_plan.target_alias)
+        if target is None:
+            raise TaskExecutionError(
+                "AGENT_ACTION_SCOPE_INVALID",
+                "The persisted action target is unavailable.",
+            )
+        return target
+
+    @staticmethod
+    def _plots_for_context_target(
+        session: ProjectSession, target: ContextObjectRef
+    ) -> tuple[StoredPlot, ...]:
+        if target.object_type == "plot":
+            return (session.domain.get_plot(target.object_id),)
+        if target.object_type == "batch":
+            batch, _state = session.domain.get_batch(target.object_id)
+            refs = tuple(
+                item.plot_version_ref
+                for item in batch.item_states
+                if item.state == "succeeded" and item.plot_version_ref is not None
+            )
+            if not refs:
+                raise TaskExecutionError("BATCH_SCOPE_EMPTY", "The batch has no plots.")
+            return tuple(session.domain.get_plot(ref.plot_id) for ref in refs)
+        if target.object_type == "figure":
+            figure = session.domain.get_figure(target.object_id)
+            return tuple(
+                session.domain.get_plot(panel.plot_version_ref.plot_id) for panel in figure.panels
+            )
+        raise TaskExecutionError(
+            "AGENT_ACTION_SCOPE_INVALID",
+            "A patch action requires a plot, batch, or figure target.",
+        )
+
+    def _update_conversation_after_plan(
+        self, session: ProjectSession, plan: TaskPlanSnapshot
+    ) -> None:
+        object_outputs = [
+            output.object_ref
+            for item in plan.items
+            for output in item.outputs
+            if output.object_ref is not None
+        ]
+        if not object_outputs:
+            return
+        projection = session.agent_runtime.get_conversation_state(plan.conversation_id)
+        if projection is None:
+            return
+        updated = ConversationStateReducer().record_execution_result(
+            ConversationState.from_projection(projection),
+            target=object_outputs[-1],
+        )
+        session.agent_runtime.save_conversation_state(
+            plan.conversation_id,
+            updated.project(),
+            expected_state_version=projection.state_version,
+            context_hash=plan.context_hash,
+        )
+
+    @staticmethod
+    def _agent_change_set(plan: TaskPlanSnapshot) -> RpcJsonValue:
+        return cast(
+            RpcJsonValue,
+            {
+                "plan_id": plan.plan_id,
+                "state": plan.state,
+                "items": [
+                    {
+                        "task_item_id": item.task_item_id,
+                        "action_id": item.action.action_id,
+                        "action_type": item.action.action_type,
+                        "state": item.state,
+                        "attempt_count": item.attempt_count,
+                        "before": [
+                            value.model_dump(mode="json") for value in item.expected_objects
+                        ],
+                        "after": [value.model_dump(mode="json") for value in item.outputs],
+                        "failure": (
+                            None if item.failure is None else item.failure.model_dump(mode="json")
+                        ),
+                    }
+                    for item in plan.items
+                ],
+            },
+        )
 
     def _commit_agent_scope_update(
         self,
@@ -3124,6 +3718,11 @@ class DesktopApplication:
             raise RpcServiceError("PROJECT_NOT_OPEN", "The project is not open.")
         return session
 
+    @staticmethod
+    def _default_conversation_id(project_id: str) -> str:
+        suffix = project_id.removeprefix("project:")
+        return f"conversation:{suffix}.main"
+
     def _project_summary(
         self, project_id: str, display_name: str | None, last_opened_at: str
     ) -> dict[str, RpcJsonValue]:
@@ -3269,6 +3868,90 @@ class _FixedSourceResolver(SourceTableResolver):
         if self._table.source_dataset != source_dataset:
             raise KeyError("SourceDataset table is unavailable")
         return self._table
+
+
+@dataclass(frozen=True, slots=True)
+class _DesktopObjectAuthority:
+    session: ProjectSession
+
+    def current(self, expected: ContextObjectRef) -> ContextObjectRef | None:
+        try:
+            if expected.object_type == "source_dataset":
+                records = tuple(
+                    record.source_dataset
+                    for record in self.session.store.list_source_datasets()
+                    if record.source_dataset.source_dataset_id == expected.object_id
+                )
+                if not records:
+                    return None
+                source = max(records, key=lambda value: value.source_version)
+                return ContextObjectRef(
+                    object_alias=expected.object_alias,
+                    object_id=source.source_dataset_id,
+                    object_version=source.source_version,
+                    object_type="source_dataset",
+                    content_hash=source.content_hash,
+                )
+            if expected.object_type == "plot":
+                stored = self.session.domain.get_plot(expected.object_id)
+                return DesktopApplication._stored_plot_context_ref(
+                    expected.object_alias,
+                    stored,
+                )
+            if expected.object_type == "batch":
+                batch, _state = self.session.domain.get_batch(expected.object_id)
+                return ContextObjectRef(
+                    object_alias=expected.object_alias,
+                    object_id=batch.batch_id,
+                    object_version=batch.batch_version,
+                    object_type="batch",
+                    content_hash=canonical_hash(batch),
+                )
+            if expected.object_type == "figure":
+                figure = self.session.domain.get_figure(expected.object_id)
+                return ContextObjectRef(
+                    object_alias=expected.object_alias,
+                    object_id=figure.figure_id,
+                    object_version=figure.figure_version,
+                    object_type="figure",
+                    content_hash=canonical_hash(figure),
+                )
+            if expected.object_type == "project":
+                return ContextObjectRef(
+                    object_alias=expected.object_alias,
+                    object_id=self.session.project_id,
+                    object_version=self.session.domain.revision + 1,
+                    object_type="project",
+                )
+        except StorageProblem:
+            return None
+        return None
+
+
+@dataclass(frozen=True, slots=True)
+class _DesktopTaskExecutor:
+    application: DesktopApplication
+    context: RpcContext
+    session: ProjectSession
+
+    def execute(self, plan: TaskPlanSnapshot, item: TaskItemSnapshot) -> tuple[TaskOutputRef, ...]:
+        try:
+            return self.application._execute_agent_task_item(  # noqa: SLF001
+                self.context,
+                self.session,
+                plan,
+                item,
+            )
+        except TaskExecutionError:
+            raise
+        except RpcServiceError as error:
+            raise TaskExecutionError(
+                error.code,
+                error.message,
+                retryable=error.code in {"ORIGIN_BUSY", "WORKER_CAPACITY_EXHAUSTED"},
+            ) from error
+        except StorageProblem as error:
+            raise TaskExecutionError(str(error.code), error.message) from error
 
 
 class _SessionBatchRepository:

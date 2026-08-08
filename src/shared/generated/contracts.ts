@@ -347,6 +347,13 @@ export type ContextField = {
   readonly summary?: ContextFieldSummary | null;
 }
 
+export type ContextFieldBinding = {
+  readonly field_alias: string;
+  readonly field_id: string;
+  readonly source_dataset_id: string;
+  readonly source_version: number;
+}
+
 export type ContextFieldSummary = {
   readonly valid_count: number;
   readonly missing_count: number;
@@ -1344,6 +1351,7 @@ export type ProjectContextSnapshot = {
   readonly conversation_state: ConversationStateProjection;
   readonly known_objects?: ReadonlyArray<ContextObjectRef>;
   readonly recent_result_objects?: ReadonlyArray<ContextObjectRef>;
+  readonly field_bindings?: ReadonlyArray<ContextFieldBinding>;
   readonly project_rule_ids?: ReadonlyArray<string>;
   readonly saved_setting_refs?: ReadonlyArray<string>;
 }

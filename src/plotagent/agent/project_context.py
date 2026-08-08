@@ -8,6 +8,7 @@ from typing import cast
 from plotagent.contracts.agent_context import ContextObjectRef, ConversationStateProjection
 from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.project_context import (
+    ContextFieldBinding,
     ProjectContextSnapshot,
     TargetPrecedence,
     TargetResolution,
@@ -26,6 +27,7 @@ class ProjectContextService:
         conversation_state: ConversationStateProjection,
         known_objects: tuple[ContextObjectRef, ...],
         recent_result_objects: tuple[ContextObjectRef, ...] = (),
+        field_bindings: tuple[ContextFieldBinding, ...] = (),
         project_rule_ids: tuple[str, ...] = (),
         saved_setting_refs: tuple[str, ...] = (),
     ) -> ProjectContextSnapshot:
@@ -38,6 +40,7 @@ class ProjectContextService:
             "recent_result_objects": [
                 item.model_dump(mode="json") for item in recent_result_objects
             ],
+            "field_bindings": [item.model_dump(mode="json") for item in field_bindings],
             "project_rule_ids": list(project_rule_ids),
             "saved_setting_refs": list(saved_setting_refs),
         }
@@ -56,6 +59,7 @@ class ProjectContextService:
             conversation_state=conversation_state,
             known_objects=known_objects,
             recent_result_objects=recent_result_objects,
+            field_bindings=field_bindings,
             project_rule_ids=project_rule_ids,
             saved_setting_refs=saved_setting_refs,
         )

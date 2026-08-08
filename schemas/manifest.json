@@ -18,7 +18,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "0fa52af2aecd2260e450e684e667c807ef5d16d8c89887cefb5f91e5dad674c5"
+      "sha256": "b2df836c85f10c85497457a2ca19a9d1716e5914fff94b6d29a3be78e8451e1d"
     },
     {
       "path": "schemas/error-registry.json",
@@ -78,7 +78,7 @@
     },
     {
       "path": "schemas/project-context-snapshot.schema.json",
-      "sha256": "7b72ca1bfa66f27c952a9b49342c4016dba28d7f9a498d50ad3e0a155c9ee9b2"
+      "sha256": "a5ede52675c54410827a07865b0165e9c424524ff92382d93407e463f0c5522b"
     },
     {
       "path": "schemas/resolved-render-plan.schema.json",
@@ -94,7 +94,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "89a7241a1fa325e8abbf6c1d40cc60220bc1aae4475f7b852ea457c779b3b79b"
+      "sha256": "dedf4823f53fea74bd9f7f2c8a6f60ca6bca25ffc9a11b541598f7f410c453cc"
     },
     {
       "path": "src/shared/generated/style-catalog.json",

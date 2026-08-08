@@ -37,7 +37,7 @@ class ConversationState(StrictModel):
 
     @classmethod
     def from_projection(cls, value: ConversationStateProjection) -> ConversationState:
-        return cls.model_validate(value.model_dump(mode="json"))
+        return cls.model_validate_json(value.model_dump_json())
 
 
 class ConversationStateReducer:
@@ -65,6 +65,29 @@ class ConversationStateReducer:
             update={
                 "state_version": state.state_version + 1,
                 "confirmed_field_aliases": tuple(dict.fromkeys(field_aliases)),
+            }
+        )
+
+    def record_decision(
+        self,
+        state: ConversationState,
+        *,
+        decision_kind: Literal["action_plan", "needs_input", "unsupported", "no_change"],
+        unresolved_question_ids: tuple[Token, ...] = (),
+    ) -> ConversationState:
+        """Persist the bounded outcome of one provider turn without trusting it as state.
+
+        The local reducer records only the decision class and locally validated
+        question identifiers.  Provider prose and proposed object identities never
+        enter the authoritative conversation state.
+        """
+
+        recent = (*state.recent_result_kinds, decision_kind)[-8:]
+        return state.model_copy(
+            update={
+                "state_version": state.state_version + 1,
+                "unresolved_question_ids": tuple(dict.fromkeys(unresolved_question_ids)),
+                "recent_result_kinds": recent,
             }
         )
 

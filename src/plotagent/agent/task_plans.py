@@ -48,24 +48,20 @@ class TaskPlanCompiler:
         }
         needs_confirmation = source_plan.confirmation == "required"
         items: list[TaskItemSnapshot] = []
+        latest_writer_by_alias: dict[str, str] = {}
         for action in source_plan.actions:
-            expected = tuple(
-                dict.fromkeys(
-                    item
-                    for alias in (source_plan.target_alias, action.target_alias)
-                    if (item := known.get(alias)) is not None
-                )
-            )
-            dependencies = tuple(item_ids[action_id] for action_id in action.depends_on)
+            dependency_ids = list(action.depends_on)
+            previous_writer = latest_writer_by_alias.get(action.target_alias)
+            if previous_writer is not None and previous_writer not in dependency_ids:
+                dependency_ids.append(previous_writer)
+            dependencies = tuple(item_ids[action_id] for action_id in dependency_ids)
+            target_binding = known.get(action.target_alias) or known.get(source_plan.target_alias)
+            expected = () if dependencies or target_binding is None else (target_binding,)
             items.append(
                 TaskItemSnapshot(
                     task_item_id=item_ids[action.action_id],
                     action=action,
-                    state=(
-                        "pending"
-                        if needs_confirmation or dependencies
-                        else "ready"
-                    ),
+                    state=("pending" if needs_confirmation or dependencies else "ready"),
                     depends_on=dependencies,
                     expected_objects=expected,
                     idempotency_key=(
@@ -77,6 +73,7 @@ class TaskPlanCompiler:
                     output_slots=_OUTPUT_SLOTS[action.action_type],
                 )
             )
+            latest_writer_by_alias[action.target_alias] = action.action_id
         return TaskPlanSnapshot(
             plan_id=source_plan.plan_id,
             conversation_id=context.conversation_id,

@@ -2608,6 +2608,39 @@
       "title": "ContextField",
       "type": "object"
     },
+    "ContextFieldBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "source_dataset_id": {
+          "pattern": "^source:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "field_alias",
+        "field_id",
+        "source_dataset_id",
+        "source_version"
+      ],
+      "title": "ContextFieldBinding",
+      "type": "object"
+    },
     "ContextFieldSummary": {
       "additionalProperties": false,
       "properties": {
@@ -9266,6 +9299,15 @@
         },
         "conversation_state": {
           "$ref": "#/$defs/ConversationStateProjection"
+        },
+        "field_bindings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContextFieldBinding"
+          },
+          "maxItems": 12,
+          "title": "Field Bindings",
+          "type": "array"
         },
         "known_objects": {
           "default": [],
