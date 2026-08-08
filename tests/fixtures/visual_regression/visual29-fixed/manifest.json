@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "stage": "visual29-fixed",
-  "generated_at": "2026-08-07T20:58:54.364886+00:00",
+  "generated_at": "2026-08-08T08:16:28.763900+00:00",
   "plotagent_version": "0.1.0",
   "origin_declaration": {
     "display_name": "Origin2024 SR1",
@@ -22,14 +22,14 @@
   "exports": {
     "default": {
       "opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-fixed\\visual29-fixed-default.opju",
-      "opju_sha256": "e51b445dc7741e9d538d09de9b451c77c84b15eeebf4df1970bc0874a1f70c64",
-      "opju_size": 555289,
-      "origin_plan_sha256": "875d92af9258f655b3b4144fd59c53f474283fe440102439ce5031b7835e199a",
+      "opju_sha256": "7ff99d63d37424c8579be30f5537c9a2ff5cacacb22e8baac04791809126367c",
+      "opju_size": 555938,
+      "origin_plan_sha256": "0baf72451577377792dbdf209e3cc18daff64c1880422867cdcb0fe7c53c0e26",
       "adapter_id": "plotagent.origin.registry.xy+bar+distribution+matrix+special",
       "adapter_version": "1.0.0",
-      "validation_report_sha256": "703825e119e6bcb130afd7f53fe24197588c211ea30a7c73cd90e1c515c990ef",
+      "validation_report_sha256": "8b50ef7c3515cc15ea24afab2492b742c58741c936f1183a5e0f17c2380930e2",
       "fresh_reopen_identical": true,
-      "elapsed_seconds": 48.735,
+      "elapsed_seconds": 35.219,
       "environment": {
         "display_name": "Origin2024 SR1",
         "display_version": "10.10.178",
@@ -45,14 +45,14 @@
     },
     "edited": {
       "opju_path": "D:\\plotv3\\build\\visual-audit\\visual29-fixed\\visual29-fixed-edited.opju",
-      "opju_sha256": "b3e036c080cf4b86beecdc2e3d9694efc142f02d1bacc7f1240408ea72b2041b",
-      "opju_size": 558928,
-      "origin_plan_sha256": "bb1f85302ef568833b9dab0a1a08e9ebfe28d3942aa4efce842438f067660c14",
+      "opju_sha256": "9e1ee7f95c80d5a1d46c27b10fba82b0f57c02c9fb1d1fed3007b3a81048c454",
+      "opju_size": 559767,
+      "origin_plan_sha256": "652c33a2f0d5bf3249870819c20dce970f703f7a52d9efca16945e59207fdda7",
       "adapter_id": "plotagent.origin.registry.xy+bar+distribution+matrix+special",
       "adapter_version": "1.0.0",
-      "validation_report_sha256": "4d1262db54c38dcba8953cc0e4a7dd14711977cd600a2eceb7667071cc5d8448",
+      "validation_report_sha256": "6e4deb0d2a4f626bed43df5fdf36a24958871f8db3b4d1bf1e291d0b01fc602c",
       "fresh_reopen_identical": true,
-      "elapsed_seconds": 49.219,
+      "elapsed_seconds": 36.016,
       "environment": {
         "display_name": "Origin2024 SR1",
         "display_version": "10.10.178",
@@ -77,37 +77,72 @@
       "source_graph_name": "Graph1",
       "source_book": "Book1",
       "source_sheet_index": 0,
-      "recipe": "直接导出 Origin 随附 ERRBAR.opju Graph1；Y error 冻结为显式 lower/upper。",
+      "recipe": "直接导出 Origin 随附 ERRBAR.opju Graph1；X error 与 Y error 均冻结为显式双向边界。",
       "same_source_data": true,
       "synthetic": false,
-      "data_sha256": "69b31b5a44cb42ada73a64ad35c16ac23349cfa9755499f6b5066c757745a579",
-      "reference_sha256": "41ffe349d644c8a4bba24c0cb6a09593d8e8513c4f990a8e5c23586d1151338d",
+      "data_sha256": "d4572d1b0b3e4e48067dc5942df831cf3b9c87174e2bdb5dd71e79745b59173b",
+      "reference_sha256": "c97651ec62a0eda8be931db60bbb0bbcd0a754b499cea4ce037db46ad5aa9f98",
       "common_edit": "标题与字号",
       "chart_edit": "误差线颜色、线宽与端帽",
       "states": {
         "default": {
-          "plot_spec_sha256": "f3ed520fbf205165b68c35d421e84851389b9064d0e068944991ed7a6694849f",
-          "render_plan_sha256": "0265e2d7448d7fccf4fd8e05c5a39fc5ac718b61960b58ced929d03449d4fce1",
-          "matplotlib_png_sha256": "f1f9bb052943740a13e2efb4ef6e1dc8ed5bd603630e7e6fb96727be582535af",
-          "origin_fresh_png_sha256": "a5e4ba683982532cf48e680e38d17936356f7b031d1bad93658401fb1c8c0b18",
+          "plot_spec_sha256": "4f3d222472a07fdbc3bb65224e2f6f5afdfe07afbf8ce0f9481350e1959dc70a",
+          "render_plan_sha256": "36fb3dfcca71ff3f7ed5e738bfbf6d19b0549d5fa6b7c6eb4421c25dcf7c552f",
+          "matplotlib_png_sha256": "69fefe8bd21b3058958f47fc1fc6e14020aa595db83af8c044c665ae7def2edd",
+          "matplotlib_point_interval_evidence": {
+            "row_count": 8,
+            "center_marker_count": 8,
+            "cap_line_count": 4,
+            "horizontal_interval_count": 8,
+            "vertical_interval_count": 8,
+            "has_xerr": true,
+            "has_yerr": true,
+            "consumed": true
+          },
+          "origin_point_interval_evidence": {
+            "row_count": 8,
+            "center_symbol_plot_count": 1,
+            "endpoint_symbol_plot_count": 0,
+            "segments_per_observation": 6,
+            "horizontal_interval_count": 8,
+            "vertical_interval_count": 8,
+            "physical_plot_count": 2,
+            "consumed": true,
+            "fresh_reopen": true
+          },
+          "origin_fresh_png_sha256": "bc5b109914092d9bd77c2c22ba70259f124351195e2df361e7ecb1442ea310df",
           "origin_graph_index": 0
         },
         "edited": {
-          "plot_spec_sha256": "606f5bc471fe86a34532cc74b723436c840be2abe578b912b55026ee3c7148d5",
-          "render_plan_sha256": "4d3653706841feb8b997ffe541d2368203b379579adbb21035b8df76b0ffe924",
-          "matplotlib_png_sha256": "cc69d7223b97628c9ccc860663a4658a614a571e5a47a92dbf0fa861cb9b0042",
-          "origin_fresh_png_sha256": "d2185edec4be9f613294ef06d0b88f033557573834a4f1ad7989343e7122afa1",
+          "plot_spec_sha256": "89030a23f4ef379b98d644df11073954e0c9670a474b57e5da7f0951fbbd5143",
+          "render_plan_sha256": "d370bdc0c3a8239562cf1760727f1be4a2a2dcc5eb0d72814c259ca0d439c922",
+          "matplotlib_png_sha256": "1d0a2d37ddd132263196d3eef2442a559157a7754ca28c114c4ef3f3711ebd02",
+          "matplotlib_point_interval_evidence": {
+            "row_count": 8,
+            "center_marker_count": 8,
+            "cap_line_count": 4,
+            "horizontal_interval_count": 8,
+            "vertical_interval_count": 8,
+            "has_xerr": true,
+            "has_yerr": true,
+            "consumed": true
+          },
+          "origin_point_interval_evidence": {
+            "row_count": 8,
+            "center_symbol_plot_count": 1,
+            "endpoint_symbol_plot_count": 0,
+            "segments_per_observation": 6,
+            "horizontal_interval_count": 8,
+            "vertical_interval_count": 8,
+            "physical_plot_count": 2,
+            "consumed": true,
+            "fresh_reopen": true
+          },
+          "origin_fresh_png_sha256": "f1875a633e479d0c1d466ca3cdcf0fadc3af4dbefa56992e947ce1e6485c3655",
           "origin_graph_index": 0
         }
       },
-      "blocking_observations": [
-        {
-          "chart_type_id": "K06",
-          "code": "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH",
-          "observation": "Origin O1 connects error-bar endpoints as a zigzag line instead of isolated intervals.",
-          "status": "open"
-        }
-      ]
+      "blocking_observations": []
     },
     {
       "chart_type_id": "K07",
@@ -127,17 +162,17 @@
       "chart_edit": "误差带颜色、透明度与边界",
       "states": {
         "default": {
-          "plot_spec_sha256": "a944d32e70dfd4ae5023f00ca8f5e4a4b993807ff6f874c4cecee40ec510e216",
-          "render_plan_sha256": "5c572f64ae392269abeb7843bfb773f42ac498f0598b0c6aca90219f32924bea",
-          "matplotlib_png_sha256": "2e1e575e2ab63986782110c419ffaa696184dda0d4209d9c93bffacfb6f78a2b",
-          "origin_fresh_png_sha256": "82a103d75c198878db8d13118b3fc432470c9850c2840b4afaae8cccfc22d272",
+          "plot_spec_sha256": "a77f806a1ff75329e61fee6800a9a37b1a8a14fa330d975f093f54a4dca2c2ca",
+          "render_plan_sha256": "9ff60b54442b5489a8b7a0673dcc75135bc2907a9be1fe3d8fe1d555acb30295",
+          "matplotlib_png_sha256": "d0f20bda55173c920c655ca3f85962d56b1e45e8773039440d37ffa60b7b244a",
+          "origin_fresh_png_sha256": "2f355b0fbd0f96dc6f1f59780fff10dda1e1cd6b23b479146ec879deefd6b755",
           "origin_graph_index": 1
         },
         "edited": {
-          "plot_spec_sha256": "c1ed3f84d53cfa3cef62512a2d11cc0f2a540854e86e85e6271469b1f6304e44",
-          "render_plan_sha256": "1f90c684347051523333135447ef01c71248c581d2e0ca2e83aaec88f5f7e91d",
-          "matplotlib_png_sha256": "559de79aa4ca7e47fdab676ba32aa1c960e21821ec71dd1e6cc1869a8d8ea37a",
-          "origin_fresh_png_sha256": "d36de1a1c8a01b6e314ca09829a444efb8d86d13ea3472e9187eb7594a195214",
+          "plot_spec_sha256": "2f3791f5580f47588ef6d84c860300ec637e645a19cdc7e00b4c44d72392d7b1",
+          "render_plan_sha256": "bbf49d13576616b671594e4d0368bf29d77d72959a09f29bb75fae333ddf318c",
+          "matplotlib_png_sha256": "2d846ec7d9c5570668d1efdf7ddfa0c4b904b6bc6d75ffbdfabd67b41f9d33f1",
+          "origin_fresh_png_sha256": "5a287c8e48e4e1de9f92def9ba07b9308cfeea502d1ba4c7802296acee7d8940",
           "origin_graph_index": 1
         }
       },
@@ -161,17 +196,17 @@
       "chart_edit": "柱填充、边线与宽度",
       "states": {
         "default": {
-          "plot_spec_sha256": "2c65813ba7563eba6d6a17fd733e742c09c894114b2d83858b9369f791c68e0d",
-          "render_plan_sha256": "e1c1705bdf54d2c48cc759622cf85c42c63b45977ee8d02a60ac7faad8da37e7",
-          "matplotlib_png_sha256": "56dd5afd4579f818ef779fbf9079f571a52dc9b493459d67dae65835a37bb06e",
-          "origin_fresh_png_sha256": "993eec7903e3f74c272993a91482a8384699a412877a683b356eb7c0b40313db",
+          "plot_spec_sha256": "8d461bf8a5803f60f311abc9aaa580704a0c7aa1744e6fcd81983d29173cc580",
+          "render_plan_sha256": "639de91e37b54a1fa33542024a169c7e83c2da215a11bd6c9377d2ce9ba86c47",
+          "matplotlib_png_sha256": "a8f6b2b7860437a080aae7d71579b1fe3534b89f22056492c63ab42d23f70dde",
+          "origin_fresh_png_sha256": "49ae7aa33fbb5c535393265d8fd6e7d3d6d3a0960a4bdfc76ef3825d7608d706",
           "origin_graph_index": 2
         },
         "edited": {
-          "plot_spec_sha256": "911fb06409df20f346d75154d50aad050baee251c4e1de00f80384e8c5097258",
-          "render_plan_sha256": "bfe51039809d3559d58ca383bfcc94e478231c340c6886a86706166e68ef1723",
-          "matplotlib_png_sha256": "07442a0c0f3e2f127e262ff7ab20fe45d29d5a97c0029d2b0797c29bfe0563b3",
-          "origin_fresh_png_sha256": "ae794cbaafe7d42d9c3a775e93d6ccdc710d41634e2568fab8f5d780c7065f66",
+          "plot_spec_sha256": "f6a10f0290f8fedcd6992692b24e7a68b700eba57e46d3d64aefbfc0cb3079d6",
+          "render_plan_sha256": "ec1ca49bd5a133f1a1d3edbd5d5f0359ba3e5d735255bacc598a06d67ff82b16",
+          "matplotlib_png_sha256": "bc6b30737307a7fe961f6b30f2c711137c74e6aff0bbc6c745a743951aff10a1",
+          "origin_fresh_png_sha256": "eaecf483f5455542aa856ee0b0e86860086a9ab67a76358c452d22948ae81f3c",
           "origin_graph_index": 2
         }
       },
@@ -195,17 +230,17 @@
       "chart_edit": "箱体填充、边线与宽度",
       "states": {
         "default": {
-          "plot_spec_sha256": "ce9b424a013a54044a8d796dafbe4cd99aa95432852f2ab2c473be1a3ce9e794",
-          "render_plan_sha256": "043ca1d50cd8f51a864cb9be96d7067b1453e8d4d377e7d89a017c519a65a79f",
-          "matplotlib_png_sha256": "373ba4ced81a19fabb0754def0891b08b09bbe67a486f6438d611750a068ad92",
-          "origin_fresh_png_sha256": "a63d3152c62179a926974b983f835a431dda73bd2c2df095e36aeed1eb76021d",
+          "plot_spec_sha256": "3da82a7376665274133815f2b8682ff49189ece47681a695e08412c2bd562c87",
+          "render_plan_sha256": "46afe9aedec87a80a9b812a7a8130c480e30f7de2fc6d380a5dec1e8850ff205",
+          "matplotlib_png_sha256": "1111f532a87f7c46572284bf272f379e7bb5df1e6d77392b41e7b55bfe159856",
+          "origin_fresh_png_sha256": "bc83f71bf8c554d596ede35e76feee4e0e03dfb928cecdfcf8d285b55f940019",
           "origin_graph_index": 3
         },
         "edited": {
-          "plot_spec_sha256": "788eb5d73c4240fb58af4c7fdf4bb9d885884b8c605d56b38d3e6d8e84b89906",
-          "render_plan_sha256": "60c277a587216b3da2eab1fe43bb007511c72c5fcf1c99dfb2782a74fcb97006",
-          "matplotlib_png_sha256": "6db55f6a98610b4dc572868711c1f592ebcfb22a861d3d4ef4862048e7238dc2",
-          "origin_fresh_png_sha256": "cb9aafec464cf1c76909950f75845eec1453aabfed3551843d365d7cfcb655da",
+          "plot_spec_sha256": "986294b27ea26e3ff031c98c7fbefee9dbb92b4acf9b008c40ea67c63ae8d927",
+          "render_plan_sha256": "00cfb5bf3fac96805bc8a6441f87ee67279883300e365c54b87218349cb63332",
+          "matplotlib_png_sha256": "73d9a2cb7e0c16a98461c278d81588ca8fa7f98924f5b545a6fe14f2b857eb72",
+          "origin_fresh_png_sha256": "4a933ba49f35e454b8f616d82b69b39033a8c0b2c672cdcad2b3c01d809c09b7",
           "origin_graph_index": 3
         }
       },
@@ -229,17 +264,17 @@
       "chart_edit": "小提琴填充、轮廓与宽度",
       "states": {
         "default": {
-          "plot_spec_sha256": "3d82dd0cd6d580f2fd9765e4308fd6cb377a718564eb214e3b50a7f0b9f305b2",
-          "render_plan_sha256": "f3648118b010098a675c7845d5c2ddbf33de10a0763c90b2fa91006e9d0e53bf",
-          "matplotlib_png_sha256": "2f58dc992aa2ad1ed8a56466f9269caaf8730947470fe1c622f7ebd71f09bce7",
-          "origin_fresh_png_sha256": "71b23c36eb5ad1bcd8ccd4b459c5a449279a4c35cb6ad06552f96608adfc6198",
+          "plot_spec_sha256": "6d1073b262eb002d6443d0e69f97895cb72383e59685b83cb8c5d6277d9a2175",
+          "render_plan_sha256": "48383510521dc2cc334a7370895069d16f36954d4292d4ba7233f850c51a565a",
+          "matplotlib_png_sha256": "dcf67aa2bcd0287cf7a21f0eb472322296603eaa712358401a5782a7d364c4d7",
+          "origin_fresh_png_sha256": "323bc9176899e0c7931d0616ffefab75935347832c16e2ed7df17b704ceeee88",
           "origin_graph_index": 4
         },
         "edited": {
-          "plot_spec_sha256": "2fd8f5a1206a9cc800466862f89df84e685bca5435bd6c1f5f498b1b90cc8918",
-          "render_plan_sha256": "a1dbbb2850895bdb4c88d288a5cccc2c3af642870fa51fc01b4df8a7bd2375ad",
-          "matplotlib_png_sha256": "ab71588cb39bd1796a4805e32e44097c279db63ea75e16f2bca3d60c658eee34",
-          "origin_fresh_png_sha256": "107d75c6990394c395933f22496e500c6b691e3000af1bc2b0857bd571a081fc",
+          "plot_spec_sha256": "7c172854aa6a7748354781d51e43631181caff960c85cf17bdfe40dd8f37c4ae",
+          "render_plan_sha256": "5d89e39cee35417305fc54a209cf4b66ddbcaa44e6ef174c99e0a6d1bfff6fa5",
+          "matplotlib_png_sha256": "282c9a4d128d839c9c404591f8f71cfa556898d87e3c7dca7656da29e51db9ea",
+          "origin_fresh_png_sha256": "d37779c18c60eb3e5212983aac59eba6e0c6204bff6fca476185eae0b2a4a85e",
           "origin_graph_index": 4
         }
       },
@@ -263,17 +298,17 @@
       "chart_edit": "柱填充、边线与透明度",
       "states": {
         "default": {
-          "plot_spec_sha256": "8bf700556002573863726486c295e5a4c246e572b133c913e24f4a72fd5185d6",
-          "render_plan_sha256": "ff28176bd935962f0371f5b371fecb26ed0c7a72fea457c5d87bcb48412e3f13",
-          "matplotlib_png_sha256": "d4ab47d4dc12a6067ceea19a359fd6428233b526afcde653e46102e618df62fd",
-          "origin_fresh_png_sha256": "73fdc6920e993627f76d1885b6b9c4a8fd1e5dba9c9c085a36a7a477d0987fd3",
+          "plot_spec_sha256": "e6ab1be3a8c80d33aad548c2cb44267f2af98cc87b1add599d25ddd8c2b31027",
+          "render_plan_sha256": "bb7a1daae825502adca7e485b32c8a8c1fc4dcde591c28b47bd22d384b3a39eb",
+          "matplotlib_png_sha256": "b1a3ee727d4d0e1cf06d85d7b477c728b36b9e0c1824b817519759e34d9f0b3b",
+          "origin_fresh_png_sha256": "1d9420b9b5dd37e568eb602e1d13a2d268aff8ad4e880fbddccf3b595209389d",
           "origin_graph_index": 5
         },
         "edited": {
-          "plot_spec_sha256": "faacfd79e9e7d4946f84153ba84708e7fa5c4d3513e2f600c513256315597bf0",
-          "render_plan_sha256": "20e004ed47087ed05477fe8e86816a5497ae50dfd6324c78e7cc4fc1cc23c118",
-          "matplotlib_png_sha256": "640c9f9b3267d29ac1f80eee98829f5208f1c5a7a33fe382ec862079c10d840c",
-          "origin_fresh_png_sha256": "c9be834553031944c5612640fc1ae837d0e1370152912d33528b445f0d43a7b2",
+          "plot_spec_sha256": "c5601ee25b4e54e38397717984e2807e42d69ea4ffe2de166304f28d13ee9888",
+          "render_plan_sha256": "79539779fee13672c1d678cfd533ddc9847b13af1c80c35b76904c828ee892ed",
+          "matplotlib_png_sha256": "a8857087c91909884b8993955e127b30240962f1c0e7b02c8fe67332f08d21c3",
+          "origin_fresh_png_sha256": "75907a20a8de6a6a7616e81d5411954adf5d8ca89d8a0ac8f09bc59e48072c64",
           "origin_graph_index": 5
         }
       },
@@ -297,17 +332,17 @@
       "chart_edit": "密度线颜色与线宽",
       "states": {
         "default": {
-          "plot_spec_sha256": "5092cb31a76eaf2c332e6922855435c0416eec8b67df20a97be022a2413edac6",
-          "render_plan_sha256": "34bab950accdb348bc78bf7b34d344873998e40455ab0ddac90b800d98f94958",
-          "matplotlib_png_sha256": "5acab23e34fdc667528350a7b22c79394bc90f1cc55c40a8a9f18507d3293573",
-          "origin_fresh_png_sha256": "6a0cccb2d1c92d22a243a72cd56fbdf50c6dfa7d6451b4151bceef318d9be4e4",
+          "plot_spec_sha256": "e7f12e63bedf7e8c6bca33574f6118a59bf87e3f7757c8be59e4fffe47f8781d",
+          "render_plan_sha256": "4489c5d4722e27952a3e85b5c99837b48432357dbe0e4f0181a8aef3bd76cc77",
+          "matplotlib_png_sha256": "40679964aca664498461071fac17d627792bf8e11bcc694392018c86062a3b39",
+          "origin_fresh_png_sha256": "774c6fe1206383e0961c8f77546b3ae4fb863df9a6eac2b4015365129a6d36da",
           "origin_graph_index": 6
         },
         "edited": {
-          "plot_spec_sha256": "c85daa896ebf4949aa0598f29df545e546e3d2e71a909dddda5a569f4ed73ac1",
-          "render_plan_sha256": "60fc40c14799e6d0d492d464ece014c46f29ec2bd3d62cf6f26d14ec5b1ea2b2",
-          "matplotlib_png_sha256": "907542474a3d17f5ed540020f9a06bfa1143019fb12fb4b056a2fd699531f29c",
-          "origin_fresh_png_sha256": "0e76ed539aa5922492095f59029e65872bbc194e942b9579f049e8a83ef81ff8",
+          "plot_spec_sha256": "ff00af5d83853633e6b40524971ca8da06636070d089b165afb712d669797d46",
+          "render_plan_sha256": "3a05bfaaf5b5843b9caadba2132305e0e213af01236c55c37232c9ccda0261ff",
+          "matplotlib_png_sha256": "e18684559804e51fa64b63e8b6fa813b921f9a3af2c3ec6131c40d124cb7b0c6",
+          "origin_fresh_png_sha256": "82dc3dc2a3ad172d6e60ac2fac9eb9053acca31f930b0f377f49a74910b8a229",
           "origin_graph_index": 6
         }
       },
@@ -333,15 +368,15 @@
         "default": {
           "plot_spec_sha256": "bc1d8409306c22975f7d7463bc4514c3c8dbd105eb51635691f26f71513a1adb",
           "render_plan_sha256": "17559ae5267db89b8b819ddc44a04dbf7523e1ba9e6ae98190957009c97abbc6",
-          "matplotlib_png_sha256": "287be54df964ee144977a9d91cc49aa74c93de47977d0e02421e4c9e82c96e5d",
-          "origin_fresh_png_sha256": "bcb6c3e8d8363ed24862ce7e69a78f9123cc0092c5bf9b7b035b07071d3efa5a",
+          "matplotlib_png_sha256": "b44dac5d8eca58e7ca47d0dccb16f539cddae2dd0288fc93e7f5f34aad8fc52d",
+          "origin_fresh_png_sha256": "5482e2ba8c864d85b6e4a77ca80f104d2318c9f4ea44bec6c4f9445a76e67d03",
           "origin_graph_index": 7
         },
         "edited": {
-          "plot_spec_sha256": "c08a283f60638ffd32b6b3c47f5402992ca461bf1f9fad1b78b622fb758a8d60",
-          "render_plan_sha256": "846e4a04575ead424fa9e62b791006b8f7c0be76e6fcbac1ec68eea8df8af7eb",
-          "matplotlib_png_sha256": "2dcc11c804c8499165a02d1fa5ffb636f3fe3e4ac9093e573556a2a2f914e143",
-          "origin_fresh_png_sha256": "139ff23936ef363fe4f2bc8d0fe663716f641aebd78b548111b25057954bc134",
+          "plot_spec_sha256": "a6da1e2917ab21a67a3e75508abf833453e0a52eff0685988c05831b55be7298",
+          "render_plan_sha256": "9d34e6be9af5042c8db2f45e2ac3133f12187ea7113c8a16b6b116da3ed38f33",
+          "matplotlib_png_sha256": "4532fbafa3013a28ee14c68922d237f3b417882acbf36c32e48da5073cbdcb2f",
+          "origin_fresh_png_sha256": "3cf23109910177a40773ce2df54245e70829b2c5492b418bc0dc477ef59244af",
           "origin_graph_index": 7
         }
       },
@@ -365,28 +400,21 @@
       "chart_edit": "色板、色标与级数",
       "states": {
         "default": {
-          "plot_spec_sha256": "6064975ac264718423a93005e3b032d89b697664d7d78a8d9015ac900503b2c3",
-          "render_plan_sha256": "e9f0536883f24d3b3aeb2851a8337d1fde2e39edf6ecaf3bf98dae9770114bbd",
-          "matplotlib_png_sha256": "6d0accdadab79cc53e46df88edd3372f7ceb11eef7def6367a86c56217143fb0",
-          "origin_fresh_png_sha256": "3e6e18396b51e92e230961e30be250298c3c68f08beb30a420c860463c49615a",
+          "plot_spec_sha256": "a20a8d29da1099057c5f6d934fca8e68380bd316bf72876102a18d53ff39a915",
+          "render_plan_sha256": "9f337e63e91e06c3a59ebd13c5ce6c6b0974209b12c67b03862042629629e9f4",
+          "matplotlib_png_sha256": "be080e97320667419ec440467803435a27b546a84a377c257e542a92ba3c68fd",
+          "origin_fresh_png_sha256": "664645f161f5545ca61a9443a96de7faba177fcb60dc3b3b93dd3b54b48f58cc",
           "origin_graph_index": 8
         },
         "edited": {
-          "plot_spec_sha256": "c1ce287eed696620616ac1574329b8887964923e78b578ed1895b2c90f4a7017",
-          "render_plan_sha256": "8956166c1dacec65d9b9904d5a741db7608805e223e8b86f0bf5b60f18e80e92",
-          "matplotlib_png_sha256": "5327ab221069eaa6aa2739674dab4271641ae8e3629cba1b12e1e3a94b2e3fc6",
-          "origin_fresh_png_sha256": "48447ae22d13827a570a5d1839d0f3ba4197b74f919072bac626ba21607ad1be",
+          "plot_spec_sha256": "ebd183d079b0cc2bcd5b9d245c2632107573f5a678538442fcef6a5a80a67d9e",
+          "render_plan_sha256": "30449250da7623f74ef6f813973e072b8770449e5d092e362d6eb71e892a77e5",
+          "matplotlib_png_sha256": "d4ee0c42e3821a645e8ab07d08cd3a706671d3dd36387b49fe0e68c5e6af4487",
+          "origin_fresh_png_sha256": "843a111622601e6e94d848715413b26d4e726a481f8a3d451bd0aaffa0874c2d",
           "origin_graph_index": 8
         }
       },
-      "blocking_observations": [
-        {
-          "chart_type_id": "K20",
-          "code": "NATIVE_COLORBAR_TICK_LABEL_COLLISION",
-          "observation": "Origin O1 colorbar tick labels collide with the heatmap frame.",
-          "status": "open"
-        }
-      ]
+      "blocking_observations": []
     },
     {
       "chart_type_id": "S61",
@@ -406,28 +434,63 @@
       "chart_edit": "色板、色标与计数标签",
       "states": {
         "default": {
-          "plot_spec_sha256": "8045857612287fcfb726f567ecd2a21963e435faf2fadb74aee378cc2cdc2afc",
-          "render_plan_sha256": "02ef6730d7813b2e96e90a2e70a7c1669d3e3426409f749faae097257ac29a7d",
-          "matplotlib_png_sha256": "4e27aecc513e6f016eb338c2e94b70fd9f5ce06d7cebc25a4920c8617c35260f",
-          "origin_fresh_png_sha256": "1ebf4af3c1043fb9e0af0a4eacb99dc72dddb4638d270c8d5d67bf9c4eab3dd1",
-          "origin_graph_index": 9
+          "plot_spec_sha256": "ff38ffa95e7c4523e2ef5bbc2cfdcf4252da63e8957630e07c3a8d2c3e19d929",
+          "render_plan_sha256": "63ae9c79bb30de4822ac8e29fa1daa029547bffdfc8e2c270d6fea3f440eeada",
+          "matplotlib_png_sha256": "dc62bc17a222589ba3da3580c5c0901574081aca9d6fb0c9bf80acd0aaf53979",
+          "matplotlib_annotation_evidence": {
+            "contract_sha256": "1fe072b4150de43c30b10976ae654448bc65777553e42a1015ee53b7bd169c5f",
+            "expected_count": 4,
+            "rendered_count": 4,
+            "text_position_match": true,
+            "color_match": true,
+            "center_alignment": true,
+            "consumed": true
+          },
+          "origin_fresh_png_sha256": "36fc6ce8bdc47fee023ffc73ef8be2a35be38b37ad65605b891a4027c63396b9",
+          "origin_graph_index": 9,
+          "origin_annotation_evidence": {
+            "contract_sha256": "1fe072b4150de43c30b10976ae654448bc65777553e42a1015ee53b7bd169c5f",
+            "expected_count": 4,
+            "native_label_count": 4,
+            "text_match": true,
+            "color_match": true,
+            "fresh_reopen": true,
+            "consumed": true,
+            "plan_contract_match": true,
+            "build_validation_passed": true,
+            "reopen_validation_passed": true
+          }
         },
         "edited": {
-          "plot_spec_sha256": "76d9b06cf9168c1faceca4428bfb386305a533e880a46690a9025fff982c8499",
-          "render_plan_sha256": "7561a1a3909fca89afdeeb0900da41a13508bf60334e8a56c039a71d3b23505e",
-          "matplotlib_png_sha256": "41f95bde86568ebbc40397e8eb3c5db2098157ff682287ffe748df0a2b85a090",
-          "origin_fresh_png_sha256": "48046f960d37c48394823252de3a25157ee0e2c976a5cd2833386307a0639b31",
-          "origin_graph_index": 9
+          "plot_spec_sha256": "9339deea3fa8180caec71435f3103e3777704417e960f1e31a890d998fc32b7e",
+          "render_plan_sha256": "6e7d29af3ab56de5af391fc7d08d3b4196519dd644e304b563f4c4ccc603719a",
+          "matplotlib_png_sha256": "b7b9c36bde2148691005f60fc8e45f86d4e5d10d86d796b74ae706f48868199a",
+          "matplotlib_annotation_evidence": {
+            "contract_sha256": "1fe072b4150de43c30b10976ae654448bc65777553e42a1015ee53b7bd169c5f",
+            "expected_count": 4,
+            "rendered_count": 4,
+            "text_position_match": true,
+            "color_match": true,
+            "center_alignment": true,
+            "consumed": true
+          },
+          "origin_fresh_png_sha256": "a4d0cd74de50ee1a2baa2efa9811bdbe357fb49422bf96211f41826f80e5a289",
+          "origin_graph_index": 9,
+          "origin_annotation_evidence": {
+            "contract_sha256": "1fe072b4150de43c30b10976ae654448bc65777553e42a1015ee53b7bd169c5f",
+            "expected_count": 4,
+            "native_label_count": 4,
+            "text_match": true,
+            "color_match": true,
+            "fresh_reopen": true,
+            "consumed": true,
+            "plan_contract_match": true,
+            "build_validation_passed": true,
+            "reopen_validation_passed": true
+          }
         }
       },
-      "blocking_observations": [
-        {
-          "chart_type_id": "S61",
-          "code": "CONFUSION_CELL_LABELS_MISSING",
-          "observation": "Matplotlib and Origin O1 omit the required per-cell count labels.",
-          "status": "open"
-        }
-      ]
+      "blocking_observations": []
     },
     {
       "chart_type_id": "X24",
@@ -447,17 +510,17 @@
       "chart_edit": "柱样式与累计参考线",
       "states": {
         "default": {
-          "plot_spec_sha256": "7480d3e5227344ef41a7bdb1a9726a7699783de5941eebb93cd457c264b2f741",
-          "render_plan_sha256": "ea2d20a684a5ca54febd2aa1c977444ceddc874d6fcc10682585c44c51606683",
-          "matplotlib_png_sha256": "fdc291e8e24730dff793093716747fe8fd57f6717079a5607292f6a170add5b9",
-          "origin_fresh_png_sha256": "825414cd3ffe552fd63b143803af063629e4c6931dd913557b8d793f9a54fe63",
+          "plot_spec_sha256": "41e4f475bfd579307219fa26251ef17e23bbe4671a64819479573e82d2a95f4d",
+          "render_plan_sha256": "4014f091ef32e1e750b97eb3d56691ac85098734abda347ab72abf88f2f66a42",
+          "matplotlib_png_sha256": "47ccf61af7687216499e54817f0830693b52995d85913d3c1483f490649696cb",
+          "origin_fresh_png_sha256": "9d48b539579ffe43dde72e89791a9c9d0ea41224147eba86e9e0282bcd06ebf3",
           "origin_graph_index": 10
         },
         "edited": {
-          "plot_spec_sha256": "16a6c3d6c910e399d7deb27009e37be5323cbea86ddd56eec1004f565b167e7e",
-          "render_plan_sha256": "2f8469ac7258618b0c55f04db6aeda707d88c8aafd542b3a2da0e34396202cc9",
-          "matplotlib_png_sha256": "0fa27a7c1ee12ad2a7f17f627b1cf6a67585bafef936d24b78ec536180336ada",
-          "origin_fresh_png_sha256": "c87ccb5e468b6b600c6c3c23045bc2092f6a754fb8e6a65e0028d3a17754054a",
+          "plot_spec_sha256": "696e94107db403d4bd65d817c7961acfc4ebb922d2448041ac600d6adaa92e43",
+          "render_plan_sha256": "b99a0b63efb1cda57fea6c46790320d193f3735741fdf5e46151d0047adeaf0e",
+          "matplotlib_png_sha256": "d9a768bf73aa56fa15eec2cba2dbce356c6caa85b5f55ba2a1cdea8bf65d1ff2",
+          "origin_fresh_png_sha256": "a190ef5fce8234e9d47e197a30f4e48b5b943e26600071844f853a6aa9ad609b",
           "origin_graph_index": 10
         }
       },
@@ -485,32 +548,15 @@
   "qualification": {
     "source_build_identity": {
       "scope_version": "visual29-fixed-rendering-v1",
-      "git_commit": "2b99df49cd5be8ec91db00df445d119f875a7a41",
-      "source_sha256": "56e471f922b1a787fab8c856de8e3d73ce032c1f287f21ec6755806b175b9830"
+      "git_commit": "af20c1a64a47ce1ae6886c0d299a0022e7abe691",
+      "source_sha256": "e6f26f864fa7987dd5b179582f0194d31e531502e30f0863659e158f5c0551e4"
     },
     "blocking_observations": [
       {
-        "chart_type_id": "K06",
-        "code": "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH",
-        "observation": "Origin O1 connects error-bar endpoints as a zigzag line instead of isolated intervals.",
-        "status": "open"
-      },
-      {
-        "chart_type_id": "K20",
-        "code": "NATIVE_COLORBAR_TICK_LABEL_COLLISION",
-        "observation": "Origin O1 colorbar tick labels collide with the heatmap frame.",
-        "status": "open"
-      },
-      {
-        "chart_type_id": "S61",
-        "code": "CONFUSION_CELL_LABELS_MISSING",
-        "observation": "Matplotlib and Origin O1 omit the required per-cell count labels.",
-        "status": "open"
-      },
-      {
         "chart_type_id": "S07",
         "code": "SAME_SOURCE_ORIGIN_DATA_MISSING",
-        "status": "open"
+        "status": "open",
+        "observation": "未在本机 Origin 随附项目、模板样例与 Samples 中找到同时含 feature、log2FC、p/q value 的官方同源数据。"
       }
     ],
     "human_visual_signature": {
@@ -520,5 +566,5 @@
     },
     "decision": "NO-GO"
   },
-  "audit_conclusion": "same-source evidence generated for anchored cases; open mechanical visual blockers, missing evidence, and human visual sign-off keep qualification NO-GO"
+  "audit_conclusion": "same-source evidence generated for anchored cases; the remaining same-source evidence gap and human visual sign-off keep qualification NO-GO"
 }
