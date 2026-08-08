@@ -730,7 +730,7 @@ class MatplotlibRenderer:
                 )
             if label:
                 axis.text(
-                    0.0,
+                    -0.04,
                     risk_y,
                     label,
                     transform=axis.transAxes,

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
 from matplotlib.legend import Legend
 
 from plotagent.contracts.base import PhysicalLength
@@ -232,3 +234,30 @@ def test_resolved_annotation_color_is_consumed_by_matplotlib() -> None:
         "1": ("#FFFFFF", "center"),
         "10": ("#000000", "center"),
     }
+
+
+def test_survival_risk_group_label_does_not_touch_the_first_count() -> None:
+    base_layer = resolve_chart("S01").plan.layers[0]
+    risk_layer = base_layer.model_copy(
+        update={
+            "geometry": "special.risk_table",
+            "label": _text("Treatment"),
+            "z_order": 2,
+        }
+    )
+    figure = Figure(figsize=(6, 2))
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+
+    MatplotlibRenderer()._draw_special(
+        axis,
+        risk_layer,
+        {"time": (0.0, 3.0, 6.0), "risk_count": (89, 80, 71)},
+    )
+    figure.canvas.draw()
+    renderer = figure.canvas.get_renderer()
+    group_label = next(item for item in axis.texts if item.get_text() == "Treatment")
+    first_count = next(item for item in axis.texts if item.get_text() == "89")
+
+    assert group_label.get_position()[0] < 0
+    assert group_label.get_window_extent(renderer).x1 < first_count.get_window_extent(renderer).x0
