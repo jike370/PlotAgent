@@ -108,3 +108,32 @@ def test_model_scorer_rejects_silent_substitution_and_invalid_question() -> None
     assert substituted.incorrect_auto_binding is True
     assert over_asked.passed is False
     assert over_asked.invalid_question is True
+
+
+def test_model_scorer_uses_the_public_axis_scale_field() -> None:
+    task = next(task for task in _tasks().tasks if task.task_id == "D09")
+    score = score_model_result(
+        task,
+        {
+            "accepted": True,
+            "decision": {
+                "decision_type": "action_plan",
+                "actions": [
+                    {
+                        "action_type": "patch_plot",
+                        "target_alias": "active_target",
+                        "patches": [
+                            {
+                                "operation": "set_axis_scale",
+                                "target_alias": "y_axis",
+                                "scale": "log10",
+                            }
+                        ],
+                    }
+                ],
+            },
+            "task_plan": {"state": "ready"},
+        },
+    )
+
+    assert score.passed is True

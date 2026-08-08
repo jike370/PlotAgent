@@ -25,7 +25,7 @@ class ModelExpectation(StrictModel):
     patch_target_aliases: tuple[str, ...] = ()
     exact_title: str | None = None
     exact_axis_label: str | None = None
-    exact_axis_scale: Literal["linear", "log10", "ln", "symlog"] | None = None
+    exact_axis_scale: Literal["linear", "log10", "datetime", "categorical"] | None = None
     exact_legend_placement: Literal["inside", "outside_right", "outside_bottom"] | None = None
     exact_reference_y: float | None = None
     no_extra_patches: bool = False
@@ -212,7 +212,7 @@ def score_model_result(task: EvalTask, result: dict[str, Any]) -> DecisionScore:
         failures.append("axis_label_mismatch")
     if expectation.exact_axis_scale is not None and not any(
         patch.get("operation") == "set_axis_scale"
-        and patch.get("scale_kind") == expectation.exact_axis_scale
+        and patch.get("scale") == expectation.exact_axis_scale
         for patch in patches
     ):
         failures.append("axis_scale_mismatch")
