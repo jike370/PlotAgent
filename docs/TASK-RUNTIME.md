@@ -1,8 +1,8 @@
 # PlotAgent 任务运行时、取消与崩溃恢复
 
-> 状态：第一轮任务运行时基线已确认  
-> 日期：2026-08-05  
-> 适用范围：InteractionRun、ExecutionTask、三通道调度、提交边界、取消、版本冲突、崩溃恢复与桌面任务体验  
+> 状态：第一轮任务运行时基线已确认；项目级 TaskPlan/局部恢复语义已纳入下一实现阶段
+> 日期：2026-08-08
+> 适用范围：InteractionRun、TaskPlan、ExecutionTask、三通道调度、提交边界、取消、版本冲突、崩溃恢复与桌面任务体验
 > 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 
 ## 1. 两类运行对象
@@ -26,6 +26,10 @@
 - 不依赖模型继续在线；模型停止、断网或 InteractionRun 结束不会自动取消已开始的 ExecutionTask。
 
 InteractionRun 与 ExecutionTask 使用不同 ID、状态和 UI。来源关系可以追溯，但不能把“停止生成”与“取消任务”合并成一个控制。
+
+### 1.3 TaskPlan
+
+`TaskPlan` 位于一次 InteractionRun 与一个或多个 ExecutionTask 之间，持久化用户目标、ProjectContext snapshot hash、冻结作用域、TaskItem、依赖、确认点、expected versions 和幂等键。它是部分成功、失败项局部重试和跨重启恢复的权威编排对象；模型只能提出候选计划，本地 validator 接受并绑定精确对象后才能形成正式 TaskPlan。
 
 ## 2. ExecutionTask 状态机
 
@@ -66,7 +70,7 @@ stateDiagram-v2
 - `partially_succeeded`：批量任务保留部分已完成结果，同时明确失败或取消项。
 - `interrupted`：Core、工作进程或 Origin 实例异常结束；系统确认项目权威状态与temp disposition后，由用户明确重试，第一轮不续跑算法内部状态。
 
-`committing` 必须短暂且不可取消，避免数据库或文件停在半提交状态。第一轮不提供暂停或继续；界面不显示 `paused`，调度器也不持久化暂停状态。
+`committing` 必须短暂且不可取消，避免数据库或文件停在半提交状态。第一轮不提供任意阶段暂停或算法内部续跑；界面不显示 `paused`，调度器也不持久化暂停状态。用户可在 TaskPlan 层明确“继续未完成项”，它会在重新校验输入后创建/调度新的 ExecutionTask，而不是恢复旧进程栈。
 
 ## 3. 三个执行通道
 
@@ -157,11 +161,12 @@ PNG、SVG 和 OPJU 每个目标文件分别执行：
 ExecutionTask 进入队列前，Python Core 持久化：
 
 - task ID、项目、来源对话与可选 InteractionRun ID。
+- TaskPlan/TaskItem ID、依赖、确认点和 ProjectContext snapshot hash。
 - 固定输入引用、expected versions 和 ActionPlan/Action。
 - 当前阶段、尝试记录、幂等输出槽和暂存目录。
 - 任务类型、提交粒度、调度通道和取消状态。
 
-任务只能在阶段边界写记录，不保存算法内部任意栈状态，也不把不完整阶段伪装为可续跑成功。记录只用于确认事务、清理temp、解释失败和构造明确重试。
+任务只能在阶段边界写记录，不保存算法内部任意栈状态，也不把不完整阶段伪装为可续跑成功。记录用于确认事务、清理temp、解释失败，并在 TaskPlan 层构造“只继续未完成项”的明确恢复操作。
 
 ### 7.2 Core 监督
 
@@ -169,6 +174,7 @@ ExecutionTask 进入队列前，Python Core 持久化：
 - Core 重新启动后，将遗留的 `preparing`、`running`、`committing` 或 `cancelling` 任务标记为 `interrupted`。
 - 重新检查 SQLite 事务、暂存目录、不可变对象和正式输出，界面展示“已有状态未损坏 / 临时文件已清理或待清理 / 可明确重试”的结果。
 - 正式导入、Preparation/PlotCalculation、绘图、批次和导出任务不自动重试。
+- 用户从来源对话恢复计划时，系统重新检查 ProjectContext hash、expected versions、外部文件和运行条件；仍合法的成功 TaskItem/输出直接复用，仅为未完成项创建新的尝试。输入已变化则进入 `NeedsInput`/`Stale`，不得静默从头执行整个计划。
 - 无副作用的预览与缓存任务可以根据固定输入自动重建，不生成正式版本或导出记录。
 - 第一轮不要求从 preparing/running/committing 的内部阶段继续正式任务；阶段记录只用于判断原子事务、清理temp和解释失败。
 - 如果 Core 持续崩溃形成重启循环，Electron 停止自动重启并展示项目状态检查、诊断信息、明确重试和安全退出选项。
@@ -189,7 +195,7 @@ ExecutionTask 进入队列前，Python Core 持久化：
 - **取消并退出。** 对可取消任务发出 cooperative cancellation，等待安全边界与必要提交完成后退出。
 - **返回。** 关闭确认框并继续工作。
 
-如果任务处于 `committing`，取消并退出必须等待该短阶段结束，不能中断 SQLite 提交或文件原子替换。退出后仍未完成的任务在下次启动时标为 `interrupted`，完成状态检查/temp清理后由用户明确重试。
+如果任务处于 `committing`，取消并退出必须等待该短阶段结束，不能中断 SQLite 提交或文件原子替换。退出后仍未完成的任务在下次启动时标为 `interrupted`，完成状态检查/temp清理后由用户从来源对话明确继续未完成项或取消计划。
 
 ## 10. 第一轮运行时测试
 
@@ -202,6 +208,7 @@ ExecutionTask 进入队列前，Python Core 持久化：
 - cooperative token、宽限期终止隔离进程和 Origin Worker 重建。
 - expected-version 冲突、活跃引用删除保护和幂等输出槽。
 - Core 心跳丢失、阶段记录、interrupted 标记、项目不损坏、temp清理、明确重试和崩溃循环停止。
+- TaskPlan 部分成功后只恢复失败/未完成项；成功输出零重复、幂等键零重复提交；上下文或版本变化时稳定进入 NeedsInput/Stale。
 - 实际单位进度、任务来源定位和三选项关闭流程。
 - 每任务随机 temp/ACL 与 success/failure/cancel/startup recovery 清理；清理失败不越界扫描目录。
 - 已知source→target一次性迁移崩溃时原workspace/current project不变；其他不兼容schema稳定拒绝，无自动backup/recovery状态机。

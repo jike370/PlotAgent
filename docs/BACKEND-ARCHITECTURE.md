@@ -177,7 +177,9 @@ ActionPlan
 
 ### 5.3 模型适配层
 
-内部只依赖 capability-based `ModelProvider` 抽象。自定义 OpenAI-compatible endpoint 先探测 `/v1/responses`，再回退 `/v1/chat/completions`；探测只使用合成数据。P1 支持严格 JSON Schema，P2 仅支持 JSON 并在本地失败后最多 repair 一次，P0 不准入。
+内部继续依赖 capability-based `ModelProvider` 抽象，并在其上增加薄且可替换的 `AgentRuntime` 接口，用于结构化请求、取消、流式事件和 provider 生命周期；该接口不拥有 ProjectContext、TaskPlan、工具权限、事务或恢复状态。自定义 OpenAI-compatible endpoint 先探测 `/v1/responses`，再回退 `/v1/chat/completions`；探测只使用合成数据。P1 支持严格 JSON Schema，P2 仅支持 JSON 并在本地失败后最多 repair 一次，P0 不准入。
+
+通用框架只做限时 build-vs-buy spike：Pi 可验证 `AgentRuntime` 适配成本，Hermes 只作能力参考。首阶段不把任何框架的 memory、checkpoint、tool loop 或 session state 当作产品权威状态，也不因接入框架改变本节的有界执行和本地校验边界。
 
 Provider 的 response format 或 function-calling 只作为单次结构化传输机制，不能形成工具循环。模型不接收本地工具、任意路径或 URL，也不使用供应商托管 conversation、`previous_response_id` 或隐藏 server state；官方 OpenAI adapter 固定 `store:false`。完整 ContextEnvelope、DataDisclosure、凭据、网络、审计、保留说明与错误契约见 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)。
 
@@ -186,10 +188,11 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 第一轮服务边界：
 
 - `ProjectService`：项目、事务、资源、版本和回收站。
+- `ProjectContextService`：从项目权威对象构建版本化 snapshot、最小模型披露视图、作用域候选和 staleness 结果；不持久化第二份聊天式 memory 真值。
 - `ImportService`：确定性 Excel/TXT/CSV 导入、结构候选、最小追问、ImportRecipe、SourceDataset 和只读访问。
 - `PreparationService`：把一次 FieldMapping 本地编译为封闭 PreparationSpec，原子创建用于复现的 PreparedDataset/Plot Data。
 - `PlotCalculationService`：执行九类封闭 PlotCalculationSpec，持久化固定算法结果、mask 与 hashes。
-- `RecipeService`：StructureUnit/ChartRecipe registry、完整组件图/端口/关系校验、版本锁定和确定性编译；M6 只服务首批14个官方配方迁移，不开放其余29图迁移、FigureRecipe或用户搭建入口。
+- `RecipeService`：StructureUnit/ChartRecipe registry、完整组件图/端口/关系校验、版本锁定和确定性编译；该服务整体后移到第二阶段，不作为首轮 Agent 纵向链路或 M6 退出条件。
 - `PlotService`：PlotSpec 创建、Patch、验证和版本。
 - `RenderService`：解析版本化坐标、ticks、物理布局、字体、样式、数据完整性与 ResolvedRenderPlan hash。
 - `BatchService`：同一chart type与完全同构签名验证、一次字段映射、任务展开、部分失败、共同capability修改、失败项局部重试和事务撤销；第一阶段批量资格限首迁14图。
@@ -197,6 +200,7 @@ Provider 的 response format 或 function-calling 只作为单次结构化传输
 - `ExportService`：PNG、SVG、OPJU 和正式导出记录。
 - `OriginService`：OriginAdapter/OriginExportPlan、preflight、隔离实例、原生对象重建、两阶段验证和整文件原子提交。
 - `TaskService`：队列、阶段、取消、重试、恢复和事件。
+- `TaskPlanService`：持久化计划、TaskItem 依赖/确认/幂等、部分成功、局部重试、用户明确恢复和 ChangeSet 聚合；它编排现有领域服务，不重复实现其业务逻辑。
 
 本地 Executor 只能把已通过校验的 Action 映射到这些服务；模型只输出业务意图，不能直接选择/调用服务，也不能传 pandas/Python/Matplotlib/Origin、表 ID、处理步骤、任意路径、URL、SQL、命令行或脚本。
 
@@ -325,4 +329,14 @@ Origin 官方说明外部 `originpro` 通过 COM 控制本机 Origin，仅支持
 
 ## 13. 推荐实现顺序
 
-实施按W0–W10依赖DAG和M0–M7 evidence里程碑推进。先完成contracts/tooling与四个risk spikes，再做manual K01垂直切片；Origin K01 O1验证必须在M0前置，不能作为全部正式图完成后的最后接入项。完整workstream范围、并行边界、错误归属与完成定义见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)，权威文档与requirement/evidence映射见 [规格索引与设计冻结基线](./SPEC-INDEX.md)。
+历史 W0–W10 依赖和 K01/O1 spike 保持有效；当前剩余范围按以下顺序：
+
+1. 收口共享图形语义、Origin 图例和同源视觉 evidence，冻结可用图形 ID/能力面。
+2. 实现 ProjectContext snapshot、版本/scope/staleness 和最小披露。
+3. 实现 TaskPlan/TaskItem、确定性 Orchestrator、journal、幂等、部分成功和用户明确恢复。
+4. 接入 AgentRuntime、真实模型候选计划、本地 TargetResolver/validator 和跨轮次作用对象解析。
+5. 把真实 Plan/NeedsInput/Progress/PartialSuccess/Interrupted/ChangeSet 接入已冻结前端。
+6. 用批量计划、项目级连续性、失败恢复三类任务完成机器 eval、真实用户试用和作品集 evidence，再进入邀请制 Beta qualification。
+7. ChartRecipe、组合结构迁移、完整模板和用户搭建器在首轮试用后作为第二阶段重新排序。
+
+完整阶段门禁见 [前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)，workstream范围、错误归属与完成定义见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)。

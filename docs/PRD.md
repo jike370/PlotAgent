@@ -1,6 +1,6 @@
 # PlotAgent 产品需求文档
 
-> 状态：正式 43 图与编辑能力已冻结；M6 Phase A/B 已实现并通过当前工程门禁，Phase C 组合底座待实现；工程成熟度面向小规模邀请制 Beta
+> 状态：当前正式 43 图与编辑能力可回归，图形目录纠正及目标 45 图收口中；M6 下一主线为项目级上下文、可恢复任务编排和真实 Agent 纵向链路，组合底座后移；工程成熟度面向小规模邀请制 Beta
 > 产品代号：PlotAgent  
 > 日期：2026-08-07
 > 相关资料：[规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta 兼容](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
@@ -594,12 +594,12 @@ Origin 能力分级：
 
 - 模型规划使用 InteractionRun；本地导入、Preparation、PlotCalculation、绘图、渲染和导出使用 ExecutionTask。NeedsInput 结束当前 InteractionRun，不创建后台任务。
 - ExecutionTask 状态为 `queued`、`preparing`、`running`、`committing`、`succeeded`、`cancelling`、`cancelled`、`failed`、`partially_succeeded` 或 `interrupted`。
-- `committing` 短暂且不可取消；第一轮不提供暂停或继续。失败任务可由用户明确重跑，正式任务不自动重试。
+- `committing` 短暂且不可取消；第一轮不提供任意阶段暂停或进程内部续跑。失败/中断计划可由用户明确“继续未完成项”，正式任务不自动重试。
 - 控制与 SQLite 写入单通道执行；普通计算默认最多 2 个隔离进程，内存压力时降为 1；Origin 严格串行。
 - 交互预览优先，同一图的新预览可替代尚未开始的旧预览；预览和缓存可以按固定输入自动重建。
 - 取消先发送 cooperative token 并等待安全边界；宽限期后只终止隔离计算进程。Origin 无响应时只重建 PlotAgent 管理的实例，不强杀 Core。
 - 每个任务固定输入版本和 expected version；冲突不静默覆盖。活跃任务引用阻止对象删除，输出使用 `(task_id, action_id, output_slot)` 幂等键。
-- Electron监督Core心跳；任务预先持久化输入、计划、阶段、尝试和暂存目录，只在阶段边界写记录用于确认原子提交与清理temp。遗留任务标为interrupted，不续跑内部算法状态。
+- Electron监督Core心跳；任务预先持久化输入、计划、依赖、确认点、幂等键、阶段 journal、尝试和暂存目录，只在稳定阶段边界写记录用于确认原子提交与清理temp。遗留任务标为interrupted，不续跑内部算法状态；用户恢复时重新校验 ProjectContext/expected versions，并只重新调度尚未成功且仍合法的 TaskItem。
 - 批量任务保留已完成结果并形成已取消或部分成功批次；PNG、SVG、OPJU 每个文件临时写入、验证并原子替换。
 - 任务卡留在来源对话，项目标题显示全局后台任务数；进度使用实际单位，第一轮不发送 Windows 通知。
 - 关闭应用时提供“等待完成”“取消并退出”“返回”；取消并退出仍须等待不可取消的 committing 阶段结束。
@@ -728,7 +728,7 @@ Origin 能力分级：
 - 七个首批发表规格。
 - 基础固定布局组合图。
 - 用户配置的 OpenAI-compatible 模型端点。
-- M6 补充先交付正式/隐藏 availability、43图逐图编辑白名单、12种Origin对齐符号/适用interior、16冻结色板和基础泛化，再交付内部结构单元、版本化 ChartRecipe、封闭关系、validator/compiler与首批14图迁移；其余29图保持既有路径。随后打通精简批量/ChangeSet并完成生产前端重做；该补充范围重新打开 M6，但不包含用户搭建器。
+- M6 补充先收口图形目录语义、Origin 图例和同源视觉资格，再交付 ProjectContext、TaskPlan/TaskOrchestrator、部分失败/局部恢复、跨轮次作用对象解析、真实模型计划和 Agent 前端纵向链路；最后用固定任务集、机器指标和目标科研用户完成 Agent 资格。ChartRecipe、首批图迁移、完整模板和用户搭建器后移到第二阶段，不阻塞首轮 Agent 与邀请制试用。
 
 ### 16.2 第二轮：扩展能力
 
@@ -791,7 +791,7 @@ Origin 能力分级：
 - 普通数据图的 OPJU 达到 O1；受控 Origin 实例重新打开后核心对象仍可编辑。
 - Origin 不可用时只禁用 `.opju`，不阻断其他功能。
 - 重新打开 `.plotproj` 后，对话、数据、批次、图表版本和任务状态完整恢复。
-- Core异常退出后遗留任务标为interrupted，项目权威状态必须不损坏且temp可清理；正式任务不会静默续跑/自动重试，用户从来源对话明确重试。
+- Core异常退出后遗留任务标为interrupted，项目权威状态必须不损坏且temp可清理；正式任务不会静默续跑/自动重试。用户从来源对话明确恢复后，只继续输入版本仍有效的未完成项，已成功项不得重做；输入已变化时稳定进入 NeedsInput/Stale。
 - 源数据重新导入、从旧版本继续、发表规格变化和外部 OPJU 修改均不会静默覆盖既有结果。
 - 离线时除自然语言 Agent 外，导入、手动绘图、编辑和导出仍可用。
 - 第一轮无 usage analytics；DiagnosticBundle 仅用户主动生成、逐项预览并保存到本地，默认只含结构/统计/hash；仅本次明确同意后可加入已预览的脱敏数据，仍不含 DB原件、提示、路径或 secret。
@@ -801,7 +801,9 @@ Origin 能力分级：
 - 未知 schema 明确拒绝；已知 source→target 一次性迁移失败后原项目仍可打开且科学/视觉语义不变；旧组件缺失不静默换算法。任务崩溃不损坏已有权威状态，用户明确重试。
 - 正式43图先通过冻结泛化矩阵及结构不变量检查；Matplotlib覆盖完整正式矩阵，Origin按结构签名选择代表性变体。除明确标注合成视觉验证的X24/S07外，每个正式图保留至少一份同源Origin外观证据；九个隐藏图的内部回归不计正式覆盖。基础门禁未通过时不得开始组合compiler的实现或测试迁移。
 - 43图编辑能力与PRD §8.5逐项一致；白名单操作在Matplotlib/Origin均可执行，未声明请求稳定不支持且不创建部分版本。全部12种符号、闭合符号3种interior、`plus/cross`非适用拒绝、16冻结sRGB色板、15/16/超容量类别编码和X23/X24/X35/X36默认中性非加粗细轴均通过跨renderer与Origin fresh-reopen验证。
-- 结构单元和 ChartRecipe v1 的有限关系集、端口类型、版本锁定、删除保护和确定性编译均通过契约测试；首迁 14 图的同一 recipe+mapping+data+style 在相同依赖版本下产生相同 PlotSpec/ResolvedRenderPlan，且配方中不存在真实数据、FieldId、路径、计算结果或可执行内容。其余 29 图不以配方迁移作为第一阶段门禁。
+- ProjectContext 可从本地权威对象确定性重建并跨对话复用，旧版本/删除/作用域变化会使计划稳定过期；模型上下文不包含路径、secret、内部 ID 或未授权数据。
+- TaskPlan 的依赖、确认、幂等、部分成功、NeedsInput、Interrupted、局部重试和用户明确恢复均通过状态机与重启 E2E；恢复不重做成功项、不续跑进程内部状态、不产生半成品版本。
+- 真实模型对固定任务集的候选计划、本地作用对象绑定和跨轮次指代达到资格门槛；越权、陈旧、歧义或无效输出稳定拒绝/追问。ChartRecipe 与首批图迁移不是本轮第一阶段门禁。
 - 完整生产前端在统一新应用壳中覆盖所有现有生产页面和第一阶段批量页面；不存在长期新旧壳混用，也不展示尚未实现的样式库、数据重放、对象树、完整模板或搭建器入口。
 
 ## 20. 小规模邀请制 Beta Qualification

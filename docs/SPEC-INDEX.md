@@ -1,7 +1,7 @@
 # PlotAgent v1 规格索引与小规模邀请制 Beta 设计基线
 
-> 状态：v1 数据/计算范围收敛；正式范围固定为 43 图，M6 基础泛化与逐图编辑/Origin 样式工程门禁已实现；首批14图同源视觉证据已生成但资格为 NO-GO，ChartRecipe 可组合底座、精简批量辨识度闭环与完整生产前端重做仍待实现；M7 小规模邀请制 Beta qualification 尚未执行
-> 基线日期：2026-08-07
+> 状态：v1 数据/计算范围收敛；当前 43 图可回归，X02/X03 目录纠正和 Line Series/Before-After 正把目标范围收口为 45；M6 下一主线为 ProjectContext、可恢复 TaskPlan/Orchestrator、跨轮次作用对象解析和真实 Agent 纵向链路，ChartRecipe/搭建器后移；M7 小规模邀请制 Beta qualification 尚未执行
+> 基线日期：2026-08-08
 > 适用范围：权威文档、冲突优先级、requirement/evidence matrix、workstream 入口与冻结变更流程
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)、[SEQ-10 前端差距审计](./SEQ-10-FRONTEND-GAP-AUDIT.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
 
@@ -10,8 +10,8 @@
 “小规模邀请制 Beta 设计基线”表示：
 
 - 第一轮产品行为、对象边界、进程/云/本地信任边界和跨模块 Schema 语义已足够直接拆分实施。
-- 原 31 图加 X01/X02/X03/X05/X09/X13/X23/X24/X35/X36/X38/S07 形成正式 43 图；P1 另九图只保留内部代码/回归且不暴露 create/export。确定性导入/一次字段映射、九类固定绘图计算、预计算字段、批量/组合、自然语言、PNG/SVG/O1 OPJU和科学可追溯构成v1；通用数据处理与分析/拟合平台后移。
-- M6 补充范围先固化基础泛化、正式/隐藏 availability、逐图编辑 capability、Origin 对齐12符号/适用interior/16色板，再实现有限 StructureUnitDefinition/ChartRecipe、确定性 compiler 和首批14图迁移；其余29图保持既有路径。随后实现精简同构批量/ChangeSet并重做完整生产前端；持久化样式预设、数据重放、对象树、完整模板、搭建器和其余29图迁移后移。
+- 当前 43 图保持可回归；X02 恢复垂线图、X03 恢复 2+ 系列 Origin 棒棒糖图并增加 Line Series/Before-After 后，目标正式范围为 45。新增范围只在 registry、双 renderer、Origin O1 和同源/泛化证据完整提交后生效；隐藏图仍不暴露 create/export。确定性导入/一次字段映射、固定绘图计算、批量/组合、自然语言、PNG/SVG/O1 OPJU和科学可追溯构成v1；通用数据处理与分析/拟合平台后移。
+- M6 补充范围先收口图形语义、Origin 图例与视觉证据，再实现 ProjectContext、TaskPlan/TaskOrchestrator、部分失败/局部恢复、跨轮次作用对象解析、真实模型计划和 Agent 前端/eval。StructureUnitDefinition/ChartRecipe、首批迁移、持久化样式预设、数据重放、对象树、完整模板和搭建器后移。
 - 每项核心需求都有权威契约、workstream、计划入口、稳定错误 owner 和未来验收 evidence。
 - 冲突审计已按本文件矩阵完成，当前已知旧口径已清除。
 - 后续产品或跨模块行为变化必须新增/更新 Decision ID 并同步权威文档，不得由实现自行选择。
@@ -19,7 +19,7 @@
 它不表示：
 
 - M7 的真实用户成功指标、生产签名发布、reference 性能与完整邀请制 Beta gate 已经通过。
-- 43 图/固定计算/Origin 每个 adapter 的底层 property map 已在本文展开；逐图用户能力以 PRD §8.5 和版本化 profile 为准，后续 AnalysisSpec/FitSpec 尚不可用。
+- 正式图/固定计算/Origin 每个 adapter 的底层 property map 已在本文展开；逐图用户能力以 PRD §8.5 和版本化 profile 为准，后续 AnalysisSpec/FitSpec 尚不可用。
 - 单一 Origin exact version 已完成一次 43 图合并 build/save/fresh-reopen 工程门禁；它不是 43 份发布 MatrixKey 与完整 evidence manifest，也不表示 reference 性能、安全或生产签名安装包 Beta gate 已通过。
 - 首迁 14 图的三批同源并排证据已生成；K02 系列身份、K05 native band 填充和 K09 分组柱重叠仍为自动阻断 P0，且证据尚未绑定当前 source build identity 或取得人工视觉签名，因此 SEQ-20 是视觉 NO-GO，不能解释为视觉资格通过。
 - 当前 UI prototype 的种子数据或模拟交互是后端行为证据。
@@ -185,7 +185,7 @@
 | 编辑能力 | 43图版本化profile是UI/Agent/validator共同真值；未声明操作不支持 | 无任意Origin property/path、无adapter私有fallback | pass-design |
 | 符号与色板 | 12符号、闭合符号3 interior、`plus/cross`非适用拒绝、16冻结sRGB palette；>15联合编码不循环 | 无Origin编号作为项目真值、无读取本机可变palette、无RGB漂移 | pass-design |
 | 双Y默认 | X23/X24/X35/X36左右轴中性、正常字重、非加粗；显式请求才着色 | 无默认随系列着色/加粗或样式修改改变轴语义 | pass-design |
-| 实施顺序 | 基础泛化→编辑/style→14图compiler→精简批量闭环→完整生产前端重做 | 无测试oracle与组合架构同时迁移；无临时后端对象进入最终UI | pass-design |
+| 实施顺序 | 基础泛化/编辑已完成→图形语义/Origin视觉收口→ProjectContext→TaskPlan/恢复→真实Agent/跨轮次目标→前端纵向链路→Agent eval；ChartRecipe第二阶段 | 无聊天摘要冒充项目真值、无模型文本直执、无框架memory接管恢复、无测试oracle与组合架构同时迁移 | pass-design |
 
 本表的 `pass-design` 将由提交前全库脚本/`rg`、Decision ID、Markdown link、UTF-8 和 `git diff --check` 复核；它不等同于未来实现测试pass。
 

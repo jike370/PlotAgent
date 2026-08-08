@@ -1,8 +1,8 @@
 # PlotAgent 前端、P0 与产品辨识度实施顺序
 
-> 状态：执行顺序基线已冻结，后续实施按阶段更新状态与证据
-> 日期：2026-08-07
-> 适用范围：前端改版、Origin 绘图 P0、批量绘图与自然语言画图/改图的产品辨识度
+> 状态：执行顺序已按“项目上下文与任务编排优先”重新冻结
+> 日期：2026-08-08
+> 适用范围：前端、Origin 绘图 P0、项目级上下文、可恢复任务编排与自然语言画图/改图的产品辨识度
 > 相关文档：[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[领域契约](./DOMAIN-CONTRACTS.md)、[渲染管线](./RENDERING-PIPELINE.md)、[实施计划](./IMPLEMENTATION-PLAN.md)、[Beta 测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
 
 ## 1. 文档目的
@@ -11,19 +11,20 @@
 
 1. 在 ChartRecipe 和语义对象尚未稳定前重写精确编辑器、对象树与组合搭建器。
 2. 在首批迁移图的视觉基线未冻结前迁移渲染架构，导致无法判断视觉差异来自旧问题还是迁移回归。
-3. 把批量绘图和自然语言能力作为单图完成后的附加按钮，错失 PlotAgent 的产品辨识度。
+3. 把批量绘图和自然语言能力作为单图完成后的附加按钮，或只做一次模型调用而没有项目上下文、计划、部分失败和恢复，错失 PlotAgent 的产品辨识度。
 
 本文件不扩大 v1 科学范围。任意单元格编辑、通用数据变换、分析/拟合、图像处理、LabTalk/Python/公式节点和插件市场仍不进入当前实现。
 
 ## 2. 已冻结的判断
 
 - 前端蓝图阶段先冻结信息架构、关键流程、对象语法、状态和视觉系统，不立即接入全部生产页面；第一阶段后半程在真实批量链路稳定后完成全生产前端重做。
-- ChartRecipe 第一阶段只迁移 14 个低风险图；这 14 图的视觉资格先于迁移完成，迁移不得通过修改旧 oracle 或放宽容差获得通过。其余 29 图继续使用现有路径并并行补齐视觉资格，不阻塞 compiler v1。
-- ChartRecipe compiler 是对象树、完整图形模板和用户搭建器的候选共同底座，但第一阶段只验证有限结构单元和关系，不以完整表达 43 图或开放搭建器为目标。
+- 当前先收口图形语义、Origin 图例和同源视觉证据。X02/X03 目录错位、Line Series/Before-After 缺项及正式范围更新必须以独立提交和新证据闭合；在实现完成前不得用目标数量替代当前真实能力。
+- ChartRecipe compiler 是对象树、完整图形模板和用户搭建器的候选共同底座，但不再是首轮 Agent 纵向链路的前置条件；首批 14 图迁移整体后移到第二阶段。
 - 第一阶段重做完整生产前端，而不是只改三张核心页面；信息架构与视觉蓝图先冻结，生产接入等待最小领域契约和真实批量链路稳定，避免把新界面绑定到临时对象。
-- 产品辨识度的第一条纵向链路是“多数据导入 → 明确指定图形 → 一次映射 → 批量生成 → 缩略图审阅 → 选中/全局自然语言修改 → ChangeSet 核对 → 批量导出”。
+- 产品辨识度的第一条纵向链路是“读取项目上下文 → Agent 提出任务计划 → 用户在必要确认点确认 → 本地编排批量执行 → 展示部分成功/失败 → 修复并恢复失败项 → 跨轮次继续修改 → 批量导出”。
+- `ProjectContext`、`TaskPlan`、作用对象解析、权限、确认、事务和恢复属于 PlotAgent 自有领域层；通用模型 runtime 可以复用或替换，但不得成为这些语义的权威来源。
 - 主对话保持无常驻右栏；批量审阅和聚焦编辑使用独立全窗口工作模式。
-- 用户必须明确指定图形。允许用户在自然语言中说出图形名称或 ID，不允许 Agent 推荐、猜测或静默替换图形。
+- 用户仍必须明确指定图形。Agent 可以整理计划、建议字段映射与批量范围，但不推荐、猜测或静默替换图形类型。
 
 ## 3. P0 纯实现难度
 
@@ -31,15 +32,15 @@
 
 | 难度顺序 | P0 | 难度 | 主要风险 |
 | --- | --- | --- | --- |
-| 1 | 43 图完整视觉资格 | 2/5 | 人工证据量、参考图与同源数据缺口、非默认状态覆盖 |
-| 2 | 样式预设复用 | 2.5/5 | 样式优先级、批量局部覆盖、版本与来源追溯 |
-| 3 | 批量视觉审阅工作台 | 3/5 | 缩略图资源、选择状态、部分成功、局部重试和大批次性能 |
-| 4 | Agent 可核对 ChangeSet | 3.5/5 | 精确目标、版本冲突、事务原子性、撤销和不适用项说明 |
-| 5 | 数据替换与重放 | 3.5/5 | 字段签名变化、映射失配、旧版本保留和批次部分兼容 |
-| 6 | 完整生产前端重做 | 4/5 | 全屏状态矩阵、桌面交互、现有功能回接、E2E、DPI、无障碍和视觉回归 |
-| 7 | 精确编辑器与对象树 | 4/5 | 语义选择、多选、层级重排、实时预览和键盘路径 |
-| 8 | ChartRecipe compiler v1 与首批 14 图迁移 | 4/5 | Schema、validator、compiler、动态布局、双 renderer、Origin parity 和 golden 迁移 |
-| 9 | 完整图形模板 | 5/5 | 依赖 ChartRecipe；结构、槽位、轴关系、样式和兼容版本必须同时保存 |
+| 1 | 当前图形语义与 Origin 视觉债务收口 | 2.5/5 | 图例样例、目录语义、同源证据、昂贵 COM 重跑与人工签名 |
+| 2 | ProjectContext v1 | 3/5 | 权威来源、稳定 ID/版本、最小披露、跨对话共享边界与陈旧检测 |
+| 3 | TaskPlan 与确定性 Orchestrator v1 | 3.5/5 | 依赖、确认点、幂等、部分成功、journal、取消和恢复边界 |
+| 4 | 跨轮次作用对象解析 | 3.5/5 | 指代歧义、当前/选中/批次范围、版本冲突与最少追问 |
+| 5 | Agent 计划/执行纵向链路 | 3.5/5 | 模型不稳定、结构化输出、计划合法性、本地绑定与成本/延迟 |
+| 6 | Agent 任务前端与批量审阅 | 4/5 | 计划确认、NeedsInput、真实进度、部分失败、恢复、E2E 与无障碍 |
+| 7 | Agent 资格测试与作品集证据 | 3/5 | 可复现任务集、指标口径、真实用户样本与演示叙事 |
+| 8 | ChartRecipe compiler v1 与首批迁移 | 4/5 | 第二阶段依赖；Schema、compiler、双 renderer parity 和 golden 迁移 |
+| 9 | 完整图形模板/用户搭建器 | 5/5 | 依赖 ChartRecipe；结构、槽位、轴关系、样式和兼容版本必须同时保存 |
 
 “样式预设”和“完整图形模板”必须分开：前者只保存已有强类型样式状态，可以较早交付；后者保存图形结构和语义槽位，必须等待 ChartRecipe。
 
@@ -47,21 +48,22 @@
 
 ```mermaid
 flowchart TD
-    S10["SEQ-10 前端与产品蓝图"] --> S20["SEQ-20 冻结首迁 14 图视觉基线"]
-    S20 --> S30["SEQ-30 ChartRecipe compiler v1 与 14 图迁移"]
-    S30 --> S40["SEQ-40 辨识度领域契约与后端"]
-    S40 --> S50["SEQ-50 批量优先纵向链路"]
-    S50 --> S60["SEQ-60 完整生产前端重做"]
-    S60 --> S70["SEQ-70 第一阶段质量收口"]
-    S70 --> S80["SEQ-80 M7 Beta qualification"]
+    S10["SEQ-10 前端与产品蓝图"] --> S20["SEQ-20 图形语义、图例与视觉资格收口"]
+    S20 --> S30["SEQ-30 ProjectContext v1"]
+    S30 --> S40["SEQ-40 TaskPlan 与可恢复 Orchestrator v1"]
+    S40 --> S50["SEQ-50 Agent 规划与跨轮次作用对象解析"]
+    S50 --> S60["SEQ-60 Agent 任务前端与真实纵向链路"]
+    S60 --> S70["SEQ-70 Agent 资格测试与作品集证据"]
+    S70 --> S80["SEQ-80 邀请制 Beta qualification"]
+    S80 -.第二阶段.-> S90["SEQ-90 ChartRecipe、组合与搭建器"]
 ```
 
 可并行边界：
 
-- SEQ-10 可以与视觉证据整理并行，但不得提交依赖未冻结领域对象的生产型精确编辑界面。
-- 非首迁 29 图的视觉资格可与 SEQ-30–50 并行，但必须在 M7 Beta qualification 前收口；其现有 PlotSpec/Resolver/renderer 路径保持有效。
-- SEQ-40 的 Schema 草案可在 SEQ-30 后半段开始；产品运行时接入必须等待 ChartRecipe compiler 和迁移 gate 通过。
-- 前端 tokens、基础控件和无障碍原语可在 SEQ-10 后建设；完整生产页面接入在 SEQ-50 真实链路稳定后开始。
+- SEQ-20 的同源证据整理可以与 SEQ-30 的只读 ProjectContext Schema 草案并行；共享 renderer/Origin 变化后必须重建受影响视觉证据。
+- SEQ-30 后半段可以并行起草 TaskPlan Schema，但持久化和执行必须等待 ProjectContext 的对象/版本/陈旧语义冻结。
+- SEQ-40 的确定性 executor、journal 和恢复测试可与 SEQ-50 的提示词/Provider 适配测试并行；真实模型不得绕过未通过的本地计划校验器。
+- 前端 tokens、基础控件和无障碍原语已经由 SEQ-10 建设；SEQ-60 只接入 SEQ-30–50 的真实对象，不再进行整体视觉重做。
 - 持久化样式预设、数据替换/重放、精确对象树、完整图形模板和用户搭建器属于第二阶段，不阻塞第一阶段前端重做或邀请制试用。
 
 ## 5. 阶段状态总表
@@ -71,13 +73,14 @@ flowchart TD
 | 阶段 | 当前状态 | 进入条件 | 退出结果 |
 | --- | --- | --- | --- |
 | SEQ-10 前端与产品蓝图 | 完成 | 本顺序基线确认 | 三工作区 IA、关键流程、对象语法、状态矩阵、设计方向冻结 |
-| SEQ-20 首迁图视觉基线 | 证据生成完成 / 视觉 NO-GO | Phase A/B 工程门禁通过 | 首迁 14 图默认与代表性非默认状态的可追溯视觉基线；P0 自动阻断项清零并取得人工视觉签名；其余 29 图缺口持续登记 |
-| SEQ-30 ChartRecipe v1 与迁移 | 未开始 | 首迁 14 图视觉基线完成 | 14 图由同一版本化配方运行时确定性生成，其余 29 图行为不变 |
-| SEQ-40 辨识度契约与后端 | 未开始 | SEQ-30 gate 通过 | 精简 SelectionScope、AgentChangeSet 与 BatchReviewItem 可执行 |
-| SEQ-50 批量优先纵向链路 | 未开始 | SEQ-40 最小闭环通过 | 一条从多数据到批量自然语言改图再到导出的真实链路 |
-| SEQ-60 完整生产前端重做 | 未开始 | SEQ-50 用户路径稳定 | 所有现有生产页面迁入统一新前端，第一阶段真实对象和操作完整接入 |
-| SEQ-70 第一阶段质量收口 | 未开始 | SEQ-60 前端功能对等 | 全应用视觉、交互、无障碍、错误、边界状态和回归收口 |
-| SEQ-80 M7 Beta qualification | 未开始 | M6 全部退出条件通过 | 完整发布 evidence 和邀请制 Beta go/no-go |
+| SEQ-20 图形语义、图例与视觉资格 | 进行中 | Phase A/B 工程门禁通过 | Origin 图例、X02/X03 语义、新增 Line Series/Before-After、逐图 OPJU 与同源证据闭合；已测试图取得人工视觉签名，缺证据图明确 NO-GO |
+| SEQ-30 ProjectContext v1 | 未开始 | SEQ-20 共享对象/图形 ID 不再变动 | 项目级权威上下文可持久化、可最小披露、可检测陈旧并跨对话复用 |
+| SEQ-40 TaskPlan/Orchestrator v1 | 未开始 | SEQ-30 Schema/版本语义通过 | 可确认、可部分成功、可局部重试、可从已提交边界恢复的确定性任务链 |
+| SEQ-50 Agent 规划与作用对象解析 | 未开始 | SEQ-40 本地执行闭环通过 | 真实模型能生成合法候选计划，跨轮次指代绑定精确对象/范围，歧义只做必要追问 |
+| SEQ-60 Agent 任务前端与纵向链路 | 未开始 | SEQ-50 质量门禁通过 | 对话中真实呈现计划、确认、进度、NeedsInput、部分失败、恢复、ChangeSet 和导出 |
+| SEQ-70 Agent 资格/作品集证据 | 未开始 | SEQ-60 E2E 通过 | 三条核心演示、机器指标、5–10 名科研用户试用材料与架构/取舍说明 |
+| SEQ-80 邀请制 Beta qualification | 未开始 | SEQ-70 无不可豁免 P0 | 完整发布 evidence 和邀请制 Beta go/no-go |
+| SEQ-90 ChartRecipe/组合/搭建器 | 第二阶段 | SEQ-80 后按反馈重新确认 | 有限 compiler、首批迁移和后续用户搭建能力；不阻塞首轮 Agent |
 
 ## 6. SEQ-10：前端与产品蓝图
 
@@ -239,191 +242,219 @@ flowchart TD
 4. `human_visual_signature.status` 不是 `approved` 时整体 NO-GO。签名只能针对同一 source identity、冻结 reference/data 和本次生成产物，不能沿用旧图片。
 5. 只有 source identity 当前、P0 阻断列表为空、人工签名批准且原有同源/fresh-reopen 完整性检查全部通过，生成器才可写 `decision=GO`；否则必须写 `NO-GO`。
 
-## 8. SEQ-30：ChartRecipe compiler v1 与首批 14 图迁移
+### 7.8 当前收口范围与进入 SEQ-30 的边界（2026-08-08）
 
-### 8.1 冻结范围
+- 早期 K02 系列身份、K05 原生带填充、K09 分组柱重叠及共享标题/边距问题已经过独立修复和重跑，但用户后续视觉检查发现 Origin 图例普遍只有文字、缺少对应线/点/柱样例；这说明旧门禁只验证了对象/文本/fresh-reopen，不能解释为视觉资格通过。
+- 共享 Origin 图例的 logical-series→native-plot sample 映射、安全标签和 build/fresh 校验已由提交 `eafc716` 实现；受影响的正式资格 evidence 必须基于该源码重新生成，旧 manifest 只能作为历史证据。
+- 图形目录需同步纠正：X02 恢复为连续型垂线图，X03 恢复为支持 2+ 系列的 Origin 棒棒糖图；两系列棒棒糖可作为“哑铃图”搜索别名/预设，不另占正式 ID；新增 Line Series 与 Before-After 后，目标正式范围由 43 调整为 45。该范围只在 registry、双 renderer、Origin O1、同源数据/参考图和测试全部提交后生效。
+- SEQ-30 的入口不是“45 图全部取得 A 级参考图”，而是：共享图形 ID/语义不再变化；Origin 图例 P0 和可测试图的机械阻断清零；同源数据缺口逐图明确 NO-GO；用户对本轮可测试产物完成视觉签名。之后缺证据图仍可继续补齐，但不得阻塞 ProjectContext/TaskPlan 实现。
 
-第一阶段只证明“有限结构单元 + 封闭组合关系 → 现有 PlotSpec → 双 renderer”可行，不追求一次性同构全部 43 图。
+## 8. SEQ-30：ProjectContext v1
 
-首批迁移图固定为：
+### 8.1 权威对象
 
-- **A 批，基础结构：** K01 折线、K02 线点、K03 散点、K08 柱图、K18 面积、X01 阶梯、X02 棒棒糖、X09 浮动区间柱。
-- **B 批，组合关系：** K05 给定曲线/置信带、K09 分组柱、K10 堆积柱、S05 给定剂量反应、S25 连续谱、X03 哑铃。
+```text
+ProjectContext
+├─ project/conversation identity
+├─ datasets/sheets/blocks + versions + field signatures
+├─ confirmed mappings + applicable data scope
+├─ plots/versions + batches/members + previews
+├─ current/selected/batch target scope
+├─ shared style/publication policy
+├─ unresolved issues/NeedsInput
+├─ last committed ChangeSet
+└─ resumable/interrupted task summaries
+```
 
-compiler v1 只需覆盖：
-
-- 结构单元：线、点、柱、面积、带、棒、区间柱；
-- 关系：叠加、连接、分组、堆积和基线附着；
-- 单个笛卡尔坐标系及线性/log10 轴；
-- 数据无关、版本化、可规范化的 Recipe，并确定性编译为现有 PlotSpec。
-
-其余 29 图明确暂缓迁移：
-
-- **固定计算：** K06、K07、K11、K13–K17、K20、S61、X24、S07；
-- **封装特殊结构：** S01、X05、X13、X38；
-- **分面、多轴与整图布局：** K24、K25、X23、X35、X36；
-- **色彩映射、矩阵或特殊尺度/布局：** K04、K12、K19、K21、K22、S21、S31、S34。
-
-上述 29 图继续使用既有 PlotSpec/Resolver/renderer 实现，仍属于正式 43 图产品范围。第一阶段不新增 `FigureRecipe`、Pareto/火山图固定计算、跨坐标系尺度联动，也不开放用户自由搭建器。
+它是本地权威对象的结构化投影，不是聊天全文摘要，也不依赖供应商隐藏 memory。跨对话共享项目资源和状态，但不自动把其他对话原文发送给模型。
 
 ### 8.2 实施顺序
 
-1. 冻结 StructureUnitDefinition、ChartRecipe、语义端口和封闭关系 Schema。
-2. 实现 graph validator、canonical normalization、version/hash 和稳定错误。
-3. 实现 Recipe → 现有 PlotSpec 的确定性 compiler；compiler 不直接生成 Matplotlib 或 Origin 指令。
-4. 迁移 A 批并通过单结构、baseline 和数据范围泛化门禁。
-5. 迁移 B 批并通过 overlay/group/stack、动态组数和多系列门禁。
-6. 九个 `internal_hidden` adapter 与非首迁 29 图保持现有内部回归，不扩大产品范围、不为迁移改写。
-7. 对照 SEQ-20 验证 Matplotlib、SVG/PNG、OriginPlan、OPJU 和 fresh-reopen parity。
+1. 冻结 `ProjectContextSnapshot`、资源引用、版本、scope 和 staleness Schema，并生成 TypeScript 类型。
+2. 从现有项目 SQLite、数据集、映射、PlotSpec DAG、Batch、ConversationState 和 TaskEvent 构建只读 snapshot；不复制第二份业务真值。
+3. 实现 Context diff 与 `expected_version` 检查；任一输入对象改变后，旧计划必须变为 stale，不能静默重绑。
+4. 实现最小披露视图：本地执行使用完整资源 ID/版本，模型只看到任务所需字段元数据、摘要、授权样本和稳定别名。
+5. 持久化当前作用对象、选择范围、未解决问题和最近任务引用；重启后可恢复同一项目语义。
 
 ### 8.3 完成条件
 
-- 首迁 14 图由版本化 ChartRecipe 确定结构，compiler 不新增按 chart ID 隐藏布局真值；数据驱动几何和版式继续由现有 Resolver 负责。
-- 配方不包含真实数据、FieldId、文件路径、计算结果或可执行代码。
-- 行数、系列数、组数、正负范围、误差与缺失值变化继续通过既有泛化 oracle；不发生柱重叠、图例错配、数据截断或半成品版本。
-- 新旧路径同数据对照时，Matplotlib 与 Origin 的数据语义、视觉结构和导出结果一致；迁移不得修改旧视觉 oracle 获得通过。
-- 非首迁 29 图与九个隐藏 adapter 的既有回归无退化；compiler 失败时稳定阻止或回退，不影响原版本。
-- 用户搭建器、完整图形模板、FigureRecipe、双 Y、分面和跨轴关系不作为本阶段完成条件。
+- 同一项目在不同对话中能引用同一数据、批次和图版本，但不会泄露其他对话原文。
+- “上一批”“第三张”“这些图”“除了失败的两个”等引用有可枚举本地候选；候选不唯一时 Context 明确标记歧义。
+- snapshot 可确定性重建并有稳定 hash；对象删除、版本推进或选择变化使旧 snapshot/plan 稳定过期。
+- 模型上下文继续遵守数据出境上限，路径、secret、SQLite ID 和未授权单元格不进入 Provider 请求。
 
-## 9. SEQ-40：辨识度领域契约与后端
+## 9. SEQ-40：TaskPlan 与可恢复 Orchestrator v1
 
-### 9.1 最小新增对象
+### 9.1 最小对象
 
 ```text
-SelectionScope
-├─ current_plot
-├─ selected_plots[]
-└─ batch
+TaskPlan
+├─ user_goal
+├─ context_snapshot_hash
+├─ frozen inputs/target scope
+├─ items[] + dependencies[]
+├─ confirmation checkpoints[]
+├─ expected versions + idempotency keys
+└─ overall state
 
-AgentChangeSet
-├─ source versions
-├─ target scope
-├─ accepted patches[]
-├─ unsupported/skipped targets[]
-├─ resulting versions
-└─ reversible transaction reference
-
-BatchReviewItem
-├─ plot/version/preview
-├─ execution state
-├─ validation warnings
-├─ selection state
-└─ retry eligibility
+TaskItemState
+Draft → NeedsInput → Ready → Running
+      → PartiallySucceeded → Completed
+      → Failed | Cancelled | Interrupted
 ```
 
-### 9.2 约束
+`AgentChangeSet` 和 `BatchReviewItem` 不再是孤立辨识度对象，而是 TaskPlan 已执行结果与成员视图。ChangeSet 始终来自本地校验后的实际执行结果，不是模型解释文本。
 
-- ChangeSet 是本地校验后的实际执行结果，不是模型解释文本。
-- 批量操作允许部分成功，但同一目标内部保持原子；失败项不改变原版本。
-- 每个 ChangeSet 只要求一次整体撤销引用，不新增 ChangeSet 专属历史/分支、任意重放或长期操作脚本；既有 PlotSpec 版本 DAG 保持不变。
-- 第一阶段不定义 `figure` 作用范围、持久化 `StylePreset` 或 `DataReplacementPlan`。
+### 9.2 执行与恢复规则
 
-## 10. SEQ-50：批量优先辨识度纵向链路
+- 计划先持久化，再执行；每个 item 固定输入版本、输出槽位、幂等键和可重试性。
+- 模型不直接调用 Import/Plot/Render/Origin；确定性 `TaskOrchestrator` 把已验证 action 映射到现有白名单领域服务。
+- 同一目标内部原子；批量允许部分成功。成功项立即成为正式对象并保留，失败项不改变原版本。
+- journal 只记录稳定阶段和已提交边界，不保存 Python/Origin 进程内部状态。崩溃后标记 `Interrupted`，由用户明确选择“继续未完成项”或“取消”。
+- 恢复时重新检查 context hash、expected versions、外部文件和 Origin 条件；条件不再成立则进入 `NeedsInput` 或 `Stale`，不得静默从头重跑。
+- 失败项局部重试复用合法成功输出，不重复扣费、不重做成功项；整个计划仍提供一次可核对的 ChangeSet/撤销引用。
 
-### 10.1 必须实现的真实路径
+### 9.3 第一条本地纵向链路
+
+不接模型也必须先完成：多工作表/多文件 → 用户明确图形 → 一次映射确认 → 生成 TaskPlan → 部分成功 → 修复一个失败映射 → 仅恢复失败项 → 批量导出。手动 UI 可构建同一种计划，用于证明编排不是提示词脚本。
+
+### 9.4 完成条件
+
+- 计划、item、依赖、确认、进度、结果与错误均可从 SQLite 重建。
+- 取消、Core 崩溃、应用重启、Origin 中断和版本冲突都有确定性结果；不存在半成品图版本。
+- 同一幂等键重复提交不会生成重复 Plot/ExportRecord 或重复执行已成功项。
+- 单元测试覆盖状态机；集成测试覆盖部分失败、局部重试、重启恢复、stale 拒绝和 committing 边界。
+
+## 10. SEQ-50：Agent 规划与跨轮次作用对象解析
+
+### 10.1 架构边界
+
+- 保留当前 Python Core、`ModelProvider`、ContextBuilder 和四路 `AgentDecision` 基础；新增薄且可替换的 `AgentRuntime` 接口，不重写通用 provider/transport。
+- PlotAgent 自有 ProjectContext、TaskPlan、TargetResolver、Policy、Validator、TaskOrchestrator、journal、事务和 verifier；任何外部 Agent 框架都只能位于 `AgentRuntime` 接口之后。
+- Pi 只做限时适配 spike，验证结构化传输、取消、流式事件和本地 provider 兼容；Hermes 只作能力参考。两者均不成为首阶段必需依赖，也不接管项目 memory、工具权限或恢复真值。
+- 第一阶段保持单 Agent、单次有界计划，不开放任意工具循环、Shell、Python、数据库、文件、URL 或 Origin 控制权。
+
+### 10.2 单轮流程
 
 ```text
-导入多份文件或多工作表
-→ 选择同构数据范围
-→ 用户用界面或自然语言明确指定图形
-→ 系统准备一次字段映射并请求确认
-→ 创建批次任务
-→ 缩略图网格持续显示真实进度
-→ 用户多选图或选择整个批次
-→ 输入自然语言修改
-→ 展示并执行可核对 ChangeSet
-→ 查看成功、跳过和失败项
-→ 撤销或继续修改
-→ 导出 PNG/SVG/OPJU
+用户请求
+→ ContextBuilder 构建最小 ProjectContext view
+→ 模型返回 CandidateTaskPlan | NeedsInput | Unsupported | NoChange
+→ TargetResolver 绑定本地对象、范围和版本
+→ Validator/Policy 校验能力、权限、数据与科研边界
+→ 用户确认必要 checkpoint
+→ TaskOrchestrator 执行冻结计划
+→ Verifier 生成真实 ChangeSet/结果摘要
+→ Context 更新，下一轮继续引用
 ```
 
-### 10.2 第一阶段边界
+### 10.3 跨轮次解析规则
 
-- 一个批次只包含同一种用户明确指定的图形；一次对话可依次创建多个不同图形批次。
-- 批量资格范围固定为首迁 14 图；其余 29 图继续支持既有单图创建、编辑和导出，不宣传为首阶段批量已验证范围。
-- 一批数据只确认一次字段映射；仅在工作表/文件字段签名精确兼容时复用。缺列、歧义或类型不兼容进入 `NeedsInput`，不进行模糊猜测。
-- 审阅只实现缩略图网格、多选、状态筛选、失败项局部重试和真实进度；不做轮播、图像叠加比较、自由排序或复杂看板。
-- 批量统一编辑只对共同 capability 的字体、色板、画布、图例和适用坐标范围执行；不适用项进入 ChangeSet 的 skipped/unsupported 列表。
-- 第一阶段可把当前图已有样式复制到选中图或整个批次，但不保存命名样式预设库。
+1. 输入框常驻的显式作用对象优先。
+2. 本轮显式名称/ID/选择优先于历史 active target。
+3. “这些/上一批/失败项/第三张”只能在 ProjectContext 的有界候选集合中解析。
+4. 唯一候选可自动绑定，并在计划卡中可见；多个合理候选只提出一个最小必要追问。
+5. 模型不得生成内部 ID；它输出稳定别名/语义约束，本地 resolver 才附加 ID、版本和 scope。
 
-### 10.3 产品辨识度验收
+### 10.4 完成条件
 
-- 批量入口不依赖先完成一张单图。
-- 同一批次至少支持“当前、选中、全部”三种真实作用范围。
-- Agent 指令前后都显示精确对象和版本；不以笼统“修改成功”代替结果。
-- 批次级统一字体、色板、画布、图例和适用坐标范围可以一次执行，并列出不适用项。
-- 部分失败只修复和重试失败项，成功项不重复运行。
-- 缩略图审阅显示真实 Core 产物，不使用占位图冒充。
-- 导出记录保留批次版本、成员版本、ChangeSet 和 artifact hash。
+- 真实模型对冻结任务集的计划合法率、目标解析准确率和字段映射首轮接受率达到 SEQ-70 规定门槛。
+- 中英混合科研术语、跨轮次指代、批量范围和“排除某些对象”均有可复现测试。
+- 模型超时、无效 JSON、越权 action、未知图形、陈旧上下文和数据披露超限稳定失败，不创建业务对象。
+- 不以框架内置 memory、server conversation 或模型自述作为正确性证据。
 
-## 11. SEQ-60：完整生产前端重做
+## 11. SEQ-60：Agent 任务前端与真实纵向链路
 
-### 11.1 实施范围
+### 11.1 接入范围
 
-- 应用壳层、项目与对话导航。
-- 首次启动三个入口、模型/网络模式设置和 Origin 可用性状态。
-- 导入、工作表/文件选择、一次字段映射确认和 `NeedsInput` 修复。
-- 对话中的数据、映射、批次、图、ChangeSet 和导出对象。
-- 批量审阅工作区。
-- 聚焦编辑器继续承载已经实现的通用和专属强类型编辑，不加入结构树、图层增删或任意属性入口。
-- 加载、错误、部分成功、离线、Origin 不可用、版本冲突和取消状态。
+- 沿用已冻结的左侧项目管理、主对话、无常驻右栏和底部 Composer，不再次重做整体布局。
+- 对话时间线新增真实的 Plan、Confirmation、NeedsInput、Progress、PartialSuccess、Interrupted、ChangeSet 和 ExportRecord 对象。
+- 输入框常驻显示作用对象和范围；用户可在提交前切换当前图、选中图或批次。
+- 批量审阅继续使用全窗口真实缩略图网格，支持状态筛选、失败项修复、局部恢复和批量导出。
+- 任务中心是同一 TaskPlan 的全局投影，不建立第二套状态；来源对话保留任务详情和恢复入口。
 
-前端重做覆盖所有现有生产页面和第一阶段新增页面，不保留一半旧壳、一半新壳的长期混合产品。尚未实现的第二阶段能力不显示假按钮、占位页或模拟结果。
+### 11.2 核心演示路径
 
-### 11.2 接入顺序
+```text
+导入含多个工作表的 Excel
+→ 用户说“把这些表都画成 K02，时间作 X、信号作 Y”
+→ Agent 展示批量范围、一次映射和 10 个 TaskItem
+→ 用户确认
+→ 8 个完成、2 个 NeedsInput
+→ 用户补充“第二个用 intensity，最后一个跳过”
+→ 只恢复未完成项
+→ 用户下一轮说“把上一批除第三张外统一成同一 Y 范围”
+→ Agent 精确展示作用对象和 ChangeSet
+→ 批量导出 PNG/SVG/OPJU
+```
 
-1. 新应用壳层、设计 tokens、导航与基础状态原语。
-2. 项目/对话、首次启动、设置和导入/映射页面。
-3. 批量审阅、ChangeSet 核对、失败修复和批量导出。
-4. 单图聚焦编辑及已有 43 图创建/导出入口迁入新壳。
-5. 全页面错误、取消、离线、Origin 不可用与版本冲突状态接入。
+### 11.3 完成条件
 
-生产接入必须调用真实 Core/Agent 对象；允许开发期使用 fixture 做组件测试，但不得把 mock 路径保留为可发布产品能力。
+- 所有计划/进度/恢复状态来自 Core 事件，无假进度、占位结果或纯前端推断。
+- 键盘、焦点、取消、离线、Provider 不可用、Origin 不可用、长中英文和 100%/150% DPI 通过。
+- 关闭并重启应用后，用户能从来源对话继续未完成计划；成功项和用户确认不丢失。
+- 前端 E2E 同时断言 UI 状态与 SQLite/领域对象结果，不能只截图判定。
 
-## 12. SEQ-70：第一阶段质量收口
+## 12. SEQ-70：Agent 资格测试与作品集证据
 
-### 12.1 设计约束
+### 12.1 固定三类任务
 
-- 纯白图表画布，低色度工作区，品牌色只表达主操作、选择和状态。
-- 不使用传统后台卡片网格、玻璃效果、装饰渐变、超大圆角或宽柔阴影。
-- 参数渐进展开；主对话不长期显示复杂属性栏。
-- 桌面工具优先使用熟悉的按钮、标签页、树、列表、选择和键盘路径，不为辨识度发明陌生控件。
-- WCAG 2.2 AA、完整键盘路径、清晰焦点和 `prefers-reduced-motion` 是完成条件。
+1. **批量计划：** 多文件/多工作表、一次映射、动态成员数和真实进度。
+2. **项目级连续性：** 跨轮次“上一批/这些图/除第三张外/沿用刚才样式”等作用对象解析。
+3. **失败与恢复：** 部分成功、NeedsInput、应用重启、修复后只恢复失败项、stale 计划拒绝。
 
-### 12.2 退出证据
+### 12.2 机器指标
 
-- 真实桌面 build 的关键路径截图与交互录屏。
-- 100%/150% DPI、最小支持窗口、长中英文和大批次状态验证。
-- 前端 E2E、无障碍、视觉回归和错误状态矩阵通过。
-- UI 中没有展示后端尚未实现的假按钮或模拟产品能力。
+- CandidateTaskPlan Schema 合法率与本地 validator 接受率。
+- 作用对象/范围解析准确率和错误自动绑定率。
+- 字段映射首轮接受率、必要追问数和无效追问率。
+- 批量完成率、部分失败保真率、恢复成功率、成功项重复执行率（目标为 0）。
+- stale/越权计划拒绝率、模型成本、端到端延迟和相对手工 Origin 流程节省时间。
 
-### 12.3 第一阶段完成边界
+指标分程序契约、固定模型任务集和真实用户结果三层报告，不能用单一综合分数掩盖错误。
 
-- 完成 14 图 compiler、14 图批量资格、精简作用范围/ChangeSet、一次字段映射、批量审阅和完整生产前端重做。
-- 其余 29 图保留既有单图路径并继续完成正式 43 图发布证据；不要求其迁移到 ChartRecipe v1。
-- 邀请制试用前不增加持久化样式库、数据替换/重放、精确对象树、完整图形模板或用户搭建器。
+### 12.3 作品集交付物
 
-## 13. 第二阶段候选范围
+- 3 分钟演示视频：问题 → 计划 → 确认 → 部分失败 → 恢复 → 跨轮次改图 → OPJU。
+- 一页产品 case study：用户问题、为什么不做开放数据处理平台、Agent 自主边界、build-vs-buy、关键取舍和结果。
+- 一张架构图：可替换 AgentRuntime 与 PlotAgent 自有 Context/Plan/Orchestrator 的分层。
+- 一份 eval 报告：任务集、指标、失败样例、改进记录、成本与延迟。
+- 5–10 名目标科研用户的经同意观察/访谈记录，至少验证愿意用真实数据再试、任务计划可理解和失败恢复可信。
 
-第一阶段完成并取得真实试用反馈后，按价值与依赖重新确认以下项目，不自动视为已承诺范围：
+### 12.4 退出条件
 
-1. 持久化命名样式预设与局部覆盖。
-2. 数据替换与重放。
-3. 精确对象树、图层增删/排序与轴归属。
-4. 完整图形模板。
-5. 从当前图开始的用户搭建器和进阶空白搭建。
-6. 其余 29 图分批迁移、K25 `FigureRecipe`、双 Y/分面/跨轴关系及新增固定计算。
+- 三条固定演示均可从干净项目自动复现，不依赖开发者手工改库或预置隐藏状态。
+- 无错误对象绑定、静默图形替换、成功项重复运行、半成品版本或恢复后结果漂移的已知 P0。
+- 真实用户能说明 Agent 计划了什么、将改哪些对象、哪些失败以及如何继续；“像聊天机器人”不是验收结论。
 
-后续项目仍只能消费同一领域对象，不得建立前端私有模板 JSON、renderer 参数、自由脚本或第二套组合模型。
+## 13. SEQ-80 与第二阶段
+
+### 13.1 邀请制 Beta
+
+SEQ-80 继续执行既有安全、性能、签名安装包、Origin exact version、无账号/本地优先和邀请制 Beta 门禁。首轮 Agent 资格通过不代表所有图形取得 Origin 同源证据；发布声明必须逐项列出已资格图形和证据缺口。
+
+### 13.2 SEQ-90 候选
+
+取得真实试用反馈后再确认以下项目，不自动视为已承诺范围：
+
+1. ChartRecipe compiler v1 与低风险图迁移。
+2. 持久化命名样式预设与局部覆盖。
+3. 数据替换与重放。
+4. 精确对象树、图层增删/排序与轴归属。
+5. 完整图形模板、从当前图开始的用户搭建器和进阶空白搭建。
+6. `FigureRecipe`、双 Y/分面/跨轴关系及新增固定计算。
+
+后续能力仍只能消费同一 ProjectContext、TaskPlan、PlotSpec/ResolvedRenderPlan 和本地事务链，不得建立前端私有模板 JSON、renderer 参数、自由脚本、第二套组合模型或开放式数据处理 Agent。
 
 ## 14. 不允许提前的实现
 
-- 首迁 14 图的 SEQ-20 gate 未完成前，不迁移或重写其视觉 oracle；其余 29 图继续补齐证据但不阻塞 SEQ-30。
-- SEQ-30 未完成前，不实现最终对象树、完整图形模板或用户搭建器；SEQ-30 完成也不代表其余 29 图已迁移。
-- SEQ-40 未完成前，不让前端从模型文本自行推断 ChangeSet、选择范围或重试对象。
-- SEQ-50 未通过前，不以单图参数数量增加冒充产品辨识度完成。
-- SEQ-50 真实链路稳定前，不把全应用前端重做接入临时后端对象；设计系统与组件原语可按 SEQ-10 蓝图提前建设。
-- 第一阶段不实现持久化样式库、数据替换/重放、精确对象树、完整模板、搭建器或其余 29 图迁移。
+- SEQ-20 收口前，不以旧合并 OPJU、fresh-reopen 一致或历史 contact sheet 宣称逐图视觉通过；图例和图形语义变化后必须重建受影响证据。
+- SEQ-30 未完成前，不让模型或前端维护私有“项目记忆”，也不把聊天摘要当作对象/版本真值。
+- SEQ-40 未完成前，不用提示词、前端状态或框架内置任务替代本地 TaskPlan、journal、幂等和恢复。
+- SEQ-50 未完成前，不让模型文本直接决定 ChangeSet、内部 ID、选择范围、重试对象或领域服务调用。
+- SEQ-60 未通过前，不以命令行脚本或开发者手工补状态冒充产品纵向链路。
+- 第一阶段不实现持久化样式库、数据替换/重放、精确对象树、完整模板、ChartRecipe 迁移或用户搭建器。
+- 不为显得更“Agent”引入多 Agent、开放工具循环、Shell/Python 执行、隐藏 memory 或自动替用户选图。
 - M6 所有退出条件未通过前，不启动或宣称 M7 Beta qualification。
 
 ## 15. 后续对照与更新规则
