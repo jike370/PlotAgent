@@ -56,6 +56,27 @@ def test_point_colliding_legend_moves_outside_without_covering_observations() ->
         )
 
 
+def test_line_colliding_legend_moves_outside_without_covering_curves() -> None:
+    figure = MatplotlibRenderer().build_figure(resolve_chart("X38"))
+    figure.canvas.draw()
+    renderer = figure.canvas.get_renderer()
+    axis = figure.axes[0]
+    legend = axis.get_legend()
+
+    assert legend is not None
+    legend_box = legend.get_window_extent(renderer)
+    assert legend_box.x0 >= axis.get_window_extent(renderer).x1
+    assert legend_box.x1 <= figure.bbox.x1 - 7.5
+    for line in axis.lines:
+        display = line.get_transform().transform(line.get_path().vertices)
+        assert not np.any(
+            (display[:, 0] >= legend_box.x0)
+            & (display[:, 0] <= legend_box.x1)
+            & (display[:, 1] >= legend_box.y0)
+            & (display[:, 1] <= legend_box.y1)
+        )
+
+
 def test_long_categorical_tick_labels_are_fitted_inside_fixed_canvas() -> None:
     resolved = resolve_chart("K12")
     replacements = (

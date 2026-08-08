@@ -1013,7 +1013,7 @@ class MatplotlibRenderer:
         if resolved.plan.legend.placement == "inside":
             for axis in axes.values():
                 legend = axis.get_legend()
-                if legend is not None and self._legend_overlaps_points(axis, legend, renderer):
+                if legend is not None and self._legend_overlaps_data(axis, legend, renderer):
                     handles, labels = axis.get_legend_handles_labels()
                     legend.remove()
                     native = axis.legend(
@@ -1038,7 +1038,7 @@ class MatplotlibRenderer:
         figure.canvas.draw()
 
     @staticmethod
-    def _legend_overlaps_points(axis: Axes, legend: Legend, renderer: Any) -> bool:
+    def _legend_overlaps_data(axis: Axes, legend: Legend, renderer: Any) -> bool:
         legend_box = legend.get_window_extent(renderer)
         for collection in axis.collections:
             offsets = np.asarray(collection.get_offsets())
@@ -1053,6 +1053,25 @@ class MatplotlibRenderer:
                 & (display[:, 1] >= legend_box.y0)
                 & (display[:, 1] <= legend_box.y1)
             ):
+                return True
+        for line in axis.lines:
+            if not line.get_visible():
+                continue
+            vertices = np.asarray(line.get_path().vertices)
+            if vertices.size == 0 or vertices.ndim != 2 or vertices.shape[1] != 2:
+                continue
+            display = line.get_transform().transform(vertices)
+            finite = np.isfinite(display).all(axis=1)
+            if np.any(
+                finite
+                & (display[:, 0] >= legend_box.x0)
+                & (display[:, 0] <= legend_box.x1)
+                & (display[:, 1] >= legend_box.y0)
+                & (display[:, 1] <= legend_box.y1)
+            ):
+                return True
+        for patch in axis.patches:
+            if patch.get_visible() and patch.get_window_extent(renderer).overlaps(legend_box):
                 return True
         return False
 

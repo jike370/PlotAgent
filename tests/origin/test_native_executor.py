@@ -314,6 +314,39 @@ def test_dense_categorical_tick_labels_rotate_and_gain_bottom_room() -> None:
     assert _native_layer_frame(dense_graph, dense_layer).height_mm < dense_layer.height_mm
 
 
+def test_legend_gutter_rechecks_category_rotation_at_the_narrowed_width() -> None:
+    graph_plan = _plan("X05").graph_objects[0]
+    layer = graph_plan.layers[0]
+    x_axis = next(axis for axis in layer.axes if axis.orientation == "x")
+    labels = ("Ground beef", "Ham", "Bacon")
+    ticks = tuple(
+        x_axis.ticks[0].model_copy(update={"value": float(index), "label": label})
+        for index, label in enumerate(labels)
+    )
+    dense_axis = x_axis.model_copy(
+        update={"scale": "categorical", "minimum": -0.5, "maximum": 2.5, "ticks": ticks}
+    )
+    dense_layer = layer.model_copy(
+        update={
+            "axes": tuple(
+                dense_axis if axis.orientation == "x" else axis for axis in layer.axes
+            ),
+            "plots": tuple(
+                plot.model_copy(update={"label": label})
+                for plot, label in zip(layer.plots, labels, strict=False)
+            ),
+        }
+    )
+    dense_graph = graph_plan.model_copy(
+        update={"layers": (dense_layer,), "font_size_pt": 9.5}
+    )
+    narrowed = _native_layer_frame(dense_graph, dense_layer)
+
+    assert narrowed.width_mm < dense_layer.width_mm
+    assert _tick_label_rotation(dense_axis, dense_graph.font_size_pt, narrowed.width_mm) == 45
+    assert narrowed.height_mm < dense_layer.height_mm
+
+
 def test_long_title_is_scaled_to_the_page_top_band() -> None:
     graph_plan = _plan("X36").graph_objects[0].model_copy(
         update={"title": "Visual qualification - X36 - Dual-Y column-line plot"}

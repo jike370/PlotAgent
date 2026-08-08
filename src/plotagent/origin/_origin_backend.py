@@ -357,13 +357,14 @@ def _native_layer_frame(
     axis_clearance = 12.0 if decoration_width and _has_right_y_axis(graph_plan) else 0.0
     required_right_margin = decoration_width + axis_clearance + (2.0 if decoration_width else 0.0)
     right_shrink = max(required_right_margin - existing_right_margin, 0.0)
+    width = max(layer_plan.width_mm - right_shrink, layer_plan.width_mm * 0.55)
 
     x_axis = next(
         (axis for axis in layer_plan.axes if axis.orientation == "x"),
         None,
     )
     rotation = (
-        _tick_label_rotation(x_axis, graph_plan.font_size_pt, layer_plan.width_mm)
+        _tick_label_rotation(x_axis, graph_plan.font_size_pt, width)
         if x_axis is not None
         else 0
     )
@@ -381,7 +382,6 @@ def _native_layer_frame(
         bottom_shrink = max(rotated_height + 10.0 - existing_bottom_margin, 6.0)
         bottom_shrink = min(bottom_shrink, 14.0)
 
-    width = max(layer_plan.width_mm - right_shrink, layer_plan.width_mm * 0.55)
     height = max(layer_plan.height_mm - bottom_shrink, layer_plan.height_mm * 0.65)
     return _NativeLayerFrame(
         left_mm=layer_plan.left_mm,

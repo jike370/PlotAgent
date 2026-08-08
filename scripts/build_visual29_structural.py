@@ -335,8 +335,9 @@ def _source_build_sha256() -> str:
 
 
 def _source_git_commit() -> str:
+    source_paths = tuple(path.as_posix() for path in SOURCE_SCOPE)
     result = subprocess.run(
-        ("git", "rev-parse", "HEAD"),
+        ("git", "log", "-1", "--format=%H", "--", *source_paths),
         cwd=REPOSITORY,
         check=True,
         capture_output=True,
