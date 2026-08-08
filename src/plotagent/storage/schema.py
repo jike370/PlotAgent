@@ -7,7 +7,7 @@ from pathlib import Path
 
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 
-PROJECT_SCHEMA_VERSION = 1
+PROJECT_SCHEMA_VERSION = 2
 CATALOG_SCHEMA_VERSION = 2
 
 PROJECT_SCHEMA = """
@@ -146,6 +146,122 @@ CREATE TABLE idempotency_records (
 ) STRICT;
 """
 
+AGENT_RUNTIME_SCHEMA = """
+CREATE TABLE conversations (
+    conversation_id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE conversation_states (
+    conversation_id TEXT PRIMARY KEY
+        REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+    state_version INTEGER NOT NULL CHECK (state_version > 0),
+    state_json TEXT NOT NULL,
+    context_hash TEXT,
+    updated_at TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE project_context_snapshots (
+    snapshot_id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL
+        REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+    project_revision INTEGER NOT NULL CHECK (project_revision >= 0),
+    snapshot_hash TEXT NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX project_context_conversation_idx
+    ON project_context_snapshots(conversation_id, created_at DESC);
+
+CREATE TABLE task_plans (
+    plan_id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL
+        REFERENCES conversations(conversation_id) ON DELETE RESTRICT,
+    context_snapshot_id TEXT NOT NULL
+        REFERENCES project_context_snapshots(snapshot_id) ON DELETE RESTRICT,
+    context_hash TEXT NOT NULL,
+    project_revision INTEGER NOT NULL CHECK (project_revision >= 0),
+    source_plan_hash TEXT NOT NULL,
+    source_plan_json TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN (
+        'draft', 'needs_confirmation', 'ready', 'running', 'partial_success',
+        'succeeded', 'failed', 'interrupted', 'needs_input', 'stale', 'cancelled'
+    )),
+    confirmation_state TEXT NOT NULL CHECK (confirmation_state IN (
+        'not_required', 'pending', 'confirmed', 'rejected'
+    )),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX task_plans_conversation_idx
+    ON task_plans(conversation_id, updated_at DESC);
+
+CREATE TABLE task_items (
+    task_item_id TEXT PRIMARY KEY,
+    plan_id TEXT NOT NULL REFERENCES task_plans(plan_id) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position >= 0),
+    action_id TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    action_json TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN (
+        'pending', 'ready', 'running', 'committing', 'succeeded', 'failed',
+        'interrupted', 'blocked', 'stale', 'skipped', 'cancelled'
+    )),
+    depends_on_json TEXT NOT NULL,
+    expected_objects_json TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    output_slots_json TEXT NOT NULL,
+    outputs_json TEXT NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count BETWEEN 0 AND 32),
+    failure_json TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (plan_id, position),
+    UNIQUE (plan_id, action_id),
+    UNIQUE (plan_id, idempotency_key)
+) STRICT;
+
+CREATE INDEX task_items_plan_state_idx ON task_items(plan_id, state, position);
+
+CREATE TABLE task_attempts (
+    attempt_id TEXT PRIMARY KEY,
+    task_item_id TEXT NOT NULL REFERENCES task_items(task_item_id) ON DELETE CASCADE,
+    attempt_number INTEGER NOT NULL CHECK (attempt_number BETWEEN 1 AND 32),
+    state TEXT NOT NULL CHECK (state IN (
+        'running', 'succeeded', 'failed', 'interrupted', 'cancelled'
+    )),
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    failure_json TEXT,
+    UNIQUE (task_item_id, attempt_number)
+) STRICT;
+
+CREATE TABLE task_checkpoints (
+    plan_id TEXT NOT NULL REFERENCES task_plans(plan_id) ON DELETE CASCADE,
+    task_item_id TEXT NOT NULL REFERENCES task_items(task_item_id) ON DELETE CASCADE,
+    checkpoint_key TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (plan_id, task_item_id, checkpoint_key)
+) STRICT;
+
+CREATE TABLE task_events (
+    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id TEXT NOT NULL REFERENCES task_plans(plan_id) ON DELETE CASCADE,
+    task_item_id TEXT REFERENCES task_items(task_item_id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX task_events_plan_idx ON task_events(plan_id, event_id);
+"""
+
+PROJECT_SCHEMA += AGENT_RUNTIME_SCHEMA
+
 CATALOG_SCHEMA = """
 CREATE TABLE schema_info (
     key TEXT PRIMARY KEY,
@@ -226,6 +342,46 @@ def migrate_catalog_v1_to_v2(path: Path) -> None:
         )
         connection.execute(f"PRAGMA user_version = {CATALOG_SCHEMA_VERSION}")
         connection.commit()
+
+
+def _execute_schema_script(connection: sqlite3.Connection, script: str) -> None:
+    statement = ""
+    for line in script.splitlines(keepends=True):
+        statement += line
+        if sqlite3.complete_statement(statement):
+            connection.execute(statement)
+            statement = ""
+    if statement.strip():
+        raise sqlite3.DatabaseError("Incomplete schema statement")
+
+
+def migrate_project_v1_to_v2(connection: sqlite3.Connection) -> None:
+    """Atomically add the persistent conversation and task runtime."""
+
+    rows = dict(connection.execute("SELECT key, value FROM schema_info").fetchall())
+    version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+    if (
+        rows.get("schema_kind") != "plotagent-project"
+        or rows.get("schema_version") != "1"
+        or version != 1
+    ):
+        raise StorageProblem(
+            StorageErrorCode.SCHEMA_VERSION_UNSUPPORTED,
+            "Only the project v1 to v2 upgrade is supported.",
+        )
+    connection.execute("BEGIN IMMEDIATE")
+    try:
+        _execute_schema_script(connection, AGENT_RUNTIME_SCHEMA)
+        connection.execute(
+            "UPDATE schema_info SET value = ? WHERE key = 'schema_version'",
+            (str(PROJECT_SCHEMA_VERSION),),
+        )
+        connection.execute(f"PRAGMA user_version = {PROJECT_SCHEMA_VERSION}")
+        connection.commit()
+    except Exception:
+        if connection.in_transaction:
+            connection.rollback()
+        raise
 
 
 def ensure_desktop_project_schema(connection: sqlite3.Connection) -> None:
@@ -316,6 +472,21 @@ def ensure_desktop_project_schema(connection: sqlite3.Connection) -> None:
             connection.execute(
                 "ALTER TABLE plot_inputs ADD COLUMN render_bindings_json TEXT NOT NULL DEFAULT '{}'"
             )
+        for table in (
+            "conversations",
+            "conversation_states",
+            "project_context_snapshots",
+            "task_plans",
+            "task_items",
+            "task_attempts",
+            "task_checkpoints",
+            "task_events",
+        ):
+            row = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+            ).fetchone()
+            if row is None:
+                raise sqlite3.DatabaseError(f"Project v2 table is missing: {table}")
         connection.commit()
     except Exception:
         if connection.in_transaction:

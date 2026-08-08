@@ -9255,6 +9255,96 @@
       "title": "PreparedSeriesData",
       "type": "object"
     },
+    "ProjectContextSnapshot": {
+      "additionalProperties": false,
+      "description": "Local authority used to compile a provider proposal into executable work.\n\nThe provider receives a minimized ``ContextEnvelope`` projection.  This richer\nsnapshot remains local and binds aliases to stable object ids and versions.",
+      "properties": {
+        "conversation_id": {
+          "pattern": "^conversation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Conversation Id",
+          "type": "string"
+        },
+        "conversation_state": {
+          "$ref": "#/$defs/ConversationStateProjection"
+        },
+        "known_objects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContextObjectRef"
+          },
+          "maxItems": 128,
+          "title": "Known Objects",
+          "type": "array"
+        },
+        "project_id": {
+          "pattern": "^project:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "project_revision": {
+          "minimum": 0,
+          "title": "Project Revision",
+          "type": "integer"
+        },
+        "project_rule_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Project Rule Ids",
+          "type": "array"
+        },
+        "recent_result_objects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContextObjectRef"
+          },
+          "maxItems": 16,
+          "title": "Recent Result Objects",
+          "type": "array"
+        },
+        "saved_setting_refs": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Saved Setting Refs",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "snapshot_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Snapshot Hash",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "pattern": "^context:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Snapshot Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshot_id",
+        "snapshot_hash",
+        "project_id",
+        "project_revision",
+        "conversation_id",
+        "conversation_state"
+      ],
+      "title": "ProjectContextSnapshot",
+      "type": "object"
+    },
+    "ProjectContextSnapshotContract": {
+      "$ref": "#/$defs/ProjectContextSnapshot",
+      "title": "ProjectContextSnapshotContract"
+    },
     "ProjectMetadataLabelSpec": {
       "additionalProperties": false,
       "properties": {
@@ -12847,6 +12937,330 @@
       "title": "SymbolStyle",
       "type": "object"
     },
+    "TaskFailure": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "details_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Details Hash"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "title": "TaskFailure",
+      "type": "object"
+    },
+    "TaskItemSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "discriminator": {
+            "mapping": {
+              "create_batch": "#/$defs/CreateBatchAction",
+              "create_figure": "#/$defs/CreateFigureAction",
+              "create_plot": "#/$defs/CreatePlotAction",
+              "export_artifact": "#/$defs/ExportArtifactAction",
+              "patch_batch": "#/$defs/PatchBatchAction",
+              "patch_figure": "#/$defs/PatchFigureAction",
+              "patch_plot": "#/$defs/PatchPlotAction"
+            },
+            "propertyName": "action_type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CreatePlotAction"
+            },
+            {
+              "$ref": "#/$defs/PatchPlotAction"
+            },
+            {
+              "$ref": "#/$defs/CreateBatchAction"
+            },
+            {
+              "$ref": "#/$defs/PatchBatchAction"
+            },
+            {
+              "$ref": "#/$defs/CreateFigureAction"
+            },
+            {
+              "$ref": "#/$defs/PatchFigureAction"
+            },
+            {
+              "$ref": "#/$defs/ExportArtifactAction"
+            }
+          ],
+          "title": "Action"
+        },
+        "attempt_count": {
+          "default": 0,
+          "maximum": 32,
+          "minimum": 0,
+          "title": "Attempt Count",
+          "type": "integer"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "pattern": "^taskitem:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "expected_objects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContextObjectRef"
+          },
+          "title": "Expected Objects",
+          "type": "array"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TaskFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "idempotency_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "output_slots": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Output Slots",
+          "type": "array"
+        },
+        "outputs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TaskOutputRef"
+          },
+          "title": "Outputs",
+          "type": "array"
+        },
+        "state": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "ready",
+            "running",
+            "committing",
+            "succeeded",
+            "failed",
+            "interrupted",
+            "blocked",
+            "stale",
+            "skipped",
+            "cancelled"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "task_item_id": {
+          "pattern": "^taskitem:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Item Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_item_id",
+        "action",
+        "idempotency_key",
+        "output_slots"
+      ],
+      "title": "TaskItemSnapshot",
+      "type": "object"
+    },
+    "TaskOutputRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "object_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextObjectRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_kind": {
+          "enum": [
+            "object",
+            "artifact",
+            "result"
+          ],
+          "title": "Output Kind",
+          "type": "string"
+        },
+        "output_slot": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+          "title": "Output Slot",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "maxLength": 256,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output_slot",
+        "output_kind"
+      ],
+      "title": "TaskOutputRef",
+      "type": "object"
+    },
+    "TaskPlanSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmation_state": {
+          "enum": [
+            "not_required",
+            "pending",
+            "confirmed",
+            "rejected"
+          ],
+          "title": "Confirmation State",
+          "type": "string"
+        },
+        "context_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Context Hash",
+          "type": "string"
+        },
+        "context_snapshot_id": {
+          "pattern": "^context:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Context Snapshot Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "pattern": "^conversation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Conversation Id",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/TaskItemSnapshot"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Items",
+          "type": "array"
+        },
+        "plan_id": {
+          "pattern": "^plan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "project_revision": {
+          "minimum": 0,
+          "title": "Project Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_plan": {
+          "$ref": "#/$defs/ActionPlan"
+        },
+        "source_plan_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Plan Hash",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "draft",
+            "needs_confirmation",
+            "ready",
+            "running",
+            "partial_success",
+            "succeeded",
+            "failed",
+            "interrupted",
+            "needs_input",
+            "stale",
+            "cancelled"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plan_id",
+        "conversation_id",
+        "context_snapshot_id",
+        "context_hash",
+        "project_revision",
+        "source_plan",
+        "source_plan_hash",
+        "state",
+        "confirmation_state",
+        "items"
+      ],
+      "title": "TaskPlanSnapshot",
+      "type": "object"
+    },
+    "TaskPlanSnapshotContract": {
+      "$ref": "#/$defs/TaskPlanSnapshot",
+      "title": "TaskPlanSnapshotContract"
+    },
     "TextSourceCoordinate": {
       "additionalProperties": false,
       "properties": {
@@ -13825,11 +14239,17 @@
     "prepared-dataset": {
       "$ref": "#/$defs/PreparedDataset"
     },
+    "project-context-snapshot": {
+      "$ref": "#/$defs/ProjectContextSnapshotContract"
+    },
     "resolved-render-plan": {
       "$ref": "#/$defs/ResolvedRenderPlan"
     },
     "source-dataset": {
       "$ref": "#/$defs/SourceDataset"
+    },
+    "task-plan-snapshot": {
+      "$ref": "#/$defs/TaskPlanSnapshotContract"
     }
   },
   "title": "PlotAgent v1 contract bundle"

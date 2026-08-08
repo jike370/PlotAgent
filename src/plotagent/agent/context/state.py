@@ -35,6 +35,10 @@ class ConversationState(StrictModel):
             recent_result_kinds=self.recent_result_kinds,
         )
 
+    @classmethod
+    def from_projection(cls, value: ConversationStateProjection) -> ConversationState:
+        return cls.model_validate(value.model_dump(mode="json"))
+
 
 class ConversationStateReducer:
     """Reduce only local UI selections and authoritative execution results."""

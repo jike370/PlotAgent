@@ -25,6 +25,8 @@ from plotagent.contracts.schema_roots import (
     PlotCalculationSpecContract,
     PlotPatchContract,
     PreparationSpecContract,
+    ProjectContextSnapshotContract,
+    TaskPlanSnapshotContract,
 )
 from plotagent.contracts.styles import (
     ORIGIN_INTERIOR_CODES,
@@ -56,6 +58,8 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("origin-export-plan", OriginExportPlan),
     ("agent-decision", AgentDecisionContract),
     ("context-envelope", ContextEnvelopeContract),
+    ("project-context-snapshot", ProjectContextSnapshotContract),
+    ("task-plan-snapshot", TaskPlanSnapshotContract),
     ("error-registry", ErrorRegistry),
     ("error-response", ErrorResponse),
 )

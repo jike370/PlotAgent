@@ -19,8 +19,10 @@ from plotagent.contracts.plots import (
     PlotPatch,
     PlotSpec,
 )
+from plotagent.contracts.project_context import ProjectContextSnapshot, TargetResolution
 from plotagent.contracts.registry import V1_CHART_REGISTRY
 from plotagent.contracts.rendering import ExportSpec, OriginExportPlan, ResolvedRenderPlan
+from plotagent.contracts.task_runtime import TaskPlanSnapshot
 
 __all__ = [
     "SCHEMA_VERSION",
@@ -37,11 +39,14 @@ __all__ = [
     "PlotCalculationSpec",
     "PlotPatch",
     "PlotSpec",
+    "ProjectContextSnapshot",
     "PreparationSpec",
     "PreparedDataset",
     "ResolvedRenderPlan",
     "STABLE_ERROR_REGISTRY",
     "SourceDataset",
+    "TargetResolution",
+    "TaskPlanSnapshot",
     "V1_CHART_REGISTRY",
     "canonical_hash",
     "canonical_json",

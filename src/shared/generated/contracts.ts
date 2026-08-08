@@ -1334,6 +1334,22 @@ export type PreparedSeriesData = {
   readonly role_fields: ReadonlyArray<string>;
 }
 
+export type ProjectContextSnapshot = {
+  readonly schema_version?: "1.0";
+  readonly snapshot_id: string;
+  readonly snapshot_hash: string;
+  readonly project_id: string;
+  readonly project_revision: number;
+  readonly conversation_id: string;
+  readonly conversation_state: ConversationStateProjection;
+  readonly known_objects?: ReadonlyArray<ContextObjectRef>;
+  readonly recent_result_objects?: ReadonlyArray<ContextObjectRef>;
+  readonly project_rule_ids?: ReadonlyArray<string>;
+  readonly saved_setting_refs?: ReadonlyArray<string>;
+}
+
+export type ProjectContextSnapshotContract = ProjectContextSnapshot
+
 export type ProjectMetadataLabelSpec = {
   readonly schema_version?: "1.0";
   readonly preparation_spec_id: string;
@@ -1891,6 +1907,50 @@ export type SymbolStyle = {
   readonly shape?: "square" | "circle" | "triangle_up" | "triangle_down" | "diamond" | "plus" | "cross" | "triangle_left" | "triangle_right" | "hexagon" | "star" | "pentagon";
   readonly interior?: "solid" | "open" | "hollow";
 }
+
+export type TaskFailure = {
+  readonly code: string;
+  readonly message: string;
+  readonly retryable: boolean;
+  readonly details_hash?: string | null;
+}
+
+export type TaskItemSnapshot = {
+  readonly task_item_id: string;
+  readonly action: CreatePlotAction | PatchPlotAction | CreateBatchAction | PatchBatchAction | CreateFigureAction | PatchFigureAction | ExportArtifactAction;
+  readonly state?: "pending" | "ready" | "running" | "committing" | "succeeded" | "failed" | "interrupted" | "blocked" | "stale" | "skipped" | "cancelled";
+  readonly depends_on?: ReadonlyArray<string>;
+  readonly expected_objects?: ReadonlyArray<ContextObjectRef>;
+  readonly idempotency_key: string;
+  readonly output_slots: ReadonlyArray<string>;
+  readonly outputs?: ReadonlyArray<TaskOutputRef>;
+  readonly attempt_count?: number;
+  readonly failure?: TaskFailure | null;
+}
+
+export type TaskOutputRef = {
+  readonly output_slot: string;
+  readonly output_kind: "object" | "artifact" | "result";
+  readonly object_ref?: ContextObjectRef | null;
+  readonly content_hash?: string | null;
+  readonly summary?: string;
+}
+
+export type TaskPlanSnapshot = {
+  readonly schema_version?: "1.0";
+  readonly plan_id: string;
+  readonly conversation_id: string;
+  readonly context_snapshot_id: string;
+  readonly context_hash: string;
+  readonly project_revision: number;
+  readonly source_plan: ActionPlan;
+  readonly source_plan_hash: string;
+  readonly state: "draft" | "needs_confirmation" | "ready" | "running" | "partial_success" | "succeeded" | "failed" | "interrupted" | "needs_input" | "stale" | "cancelled";
+  readonly confirmation_state: "not_required" | "pending" | "confirmed" | "rejected";
+  readonly items: ReadonlyArray<TaskItemSnapshot>;
+}
+
+export type TaskPlanSnapshotContract = TaskPlanSnapshot
 
 export type TextSourceCoordinate = {
   readonly kind?: "text";

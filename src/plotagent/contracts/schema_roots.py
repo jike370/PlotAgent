@@ -7,6 +7,8 @@ from plotagent.contracts.calculations import PlotCalculationResult, PlotCalculat
 from plotagent.contracts.datasets import PreparationSpec
 from plotagent.contracts.decisions import AgentDecision
 from plotagent.contracts.plots import PlotPatch
+from plotagent.contracts.project_context import ProjectContextSnapshot
+from plotagent.contracts.task_runtime import TaskPlanSnapshot
 
 
 class PreparationSpecContract(RootModel[PreparationSpec]):
@@ -30,4 +32,12 @@ class AgentDecisionContract(RootModel[AgentDecision]):
 
 
 class ContextEnvelopeContract(RootModel[ContextEnvelope]):
+    pass
+
+
+class ProjectContextSnapshotContract(RootModel[ProjectContextSnapshot]):
+    pass
+
+
+class TaskPlanSnapshotContract(RootModel[TaskPlanSnapshot]):
     pass
