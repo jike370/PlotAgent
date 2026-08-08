@@ -172,6 +172,62 @@ def test_risk_table_layout_uses_supplied_counts_and_stable_group_rows() -> None:
     assert labels[0].left < min(label.left for label in labels[1:])
 
 
+def test_survival_band_materializes_as_a_stepped_native_fill_area() -> None:
+    plan = _plan("K01")
+    layer = plan.graph_objects[0].layers[0]
+    base = layer.plots[0]
+    source = plan.data_objects[0]
+    time_column, value_column = source.columns[:2]
+    data = source.model_copy(
+        update={
+            "columns": (
+                time_column.model_copy(update={"role": "time"}),
+                value_column.model_copy(update={"role": "lower"}),
+                value_column.model_copy(
+                    update={
+                        "field_id": f"{value_column.field_id}.upper",
+                        "role": "upper",
+                        "values": tuple(float(value) + 0.25 for value in value_column.values),
+                    }
+                ),
+            )
+        }
+    )
+    band = base.model_copy(
+        update={
+            "native_kind": "survival_band",
+            "role_columns": (
+                base.role_columns[0].model_copy(update={"role": "time"}),
+                base.role_columns[1].model_copy(update={"role": "lower"}),
+                base.role_columns[1].model_copy(
+                    update={
+                        "role": "upper",
+                        "field_id": f"{base.role_columns[1].field_id}.upper",
+                    }
+                ),
+            ),
+        }
+    )
+
+    primitives = native_primitives(band)
+
+    assert len(primitives) == 1
+    primitive = primitives[0]
+    assert primitive.plot_type == "fill_area"
+    assert primitive.transform == "step_band"
+    assert physical_plot_count(primitive) == 2
+    table = materialize_primitive(primitive, data)
+    assert table is not None
+    source_x = next(column.values for column in data.columns if column.role == "time")
+    source_lower = next(column.values for column in data.columns if column.role == "lower")
+    source_upper = next(column.values for column in data.columns if column.role == "upper")
+    assert len(table.x) == len(source_x) * 2 - 1
+    assert table.x[:3] == (source_x[0], source_x[1], source_x[1])
+    assert table.y[:3] == (source_lower[0], source_lower[0], source_lower[1])
+    assert table.y2 is not None
+    assert table.y2[:3] == (source_upper[0], source_upper[0], source_upper[1])
+
+
 def test_duplicate_physical_styles_share_one_origin_legend_row() -> None:
     plan = _plan("K05")
     graph = plan.graph_objects[0]

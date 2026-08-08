@@ -287,7 +287,12 @@ def _bar_edge_width_command(width_pt: float) -> str:
 
 
 def _primitive_color(plot: OriginPlotPlan, primitive: NativePrimitive) -> str | None:
-    is_uncertainty = primitive.transform in {"interval_connector", "point_interval", "band"} or (
+    is_uncertainty = primitive.transform in {
+        "interval_connector",
+        "point_interval",
+        "band",
+        "step_band",
+    } or (
         plot.native_kind == "error_bar"
         and primitive.plot_type == "scatter"
         and primitive.y_role in {"lower", "upper"}
@@ -450,6 +455,13 @@ def _legend_entries(
         for semantic_index, plot in enumerate(layer.plots):
             signature = _legend_binding_signature(plot, data_by_id)
             primitives = native_primitives(plot)
+            if plot.native_kind in {"survival_band", "risk_table"}:
+                # These components never own a legend row.  Advance by their
+                # persisted native plots without materializing legend samples;
+                # that also keeps synthetic legend-only fixtures independent
+                # from the component-specific worksheet roles.
+                physical_index += sum(physical_plot_count(item) for item in primitives)
+                continue
             refs: list[_LegendSampleRef] = []
             representative_indexes = set(_representative_primitive_indexes(plot))
             for primitive_index, primitive in enumerate(primitives):
@@ -478,12 +490,6 @@ def _legend_entries(
                     )
                 physical_index += count
             samples = tuple(refs)
-            if plot.native_kind in {"survival_band", "risk_table"}:
-                # Confidence bands and at-risk rows are inseparable components
-                # of the labelled survival series, not independent legend rows.
-                # Physical indexes still advance above so subsequent samples
-                # remain bound to the correct native plot.
-                continue
             if plot.label:
                 key = (signature, plot.label)
                 existing_index = entry_indexes.get(key)
@@ -1384,6 +1390,7 @@ class OriginProBackend:
             "interval_connector",
             "point_interval",
             "band",
+            "step_band",
         } or (
             plot_plan.native_kind == "error_bar"
             and primitive.plot_type == "scatter"
@@ -1466,10 +1473,16 @@ class OriginProBackend:
             plot.set_int("line.style", _LINE_STYLE_CODES[plot_plan.line_style])
         if primitive.bar_width_role is not None and primitive.plot_type == "floating_column":
             created_plots[0].set_cmd("-paaf 100")
-        alpha = plot_plan.band_alpha if primitive.transform == "band" else plot_plan.alpha
+        alpha = (
+            plot_plan.band_alpha
+            if primitive.transform in {"band", "step_band"}
+            else plot_plan.alpha
+        )
         if alpha < 1:
             transparency_targets = (
-                created_plots[:1] if primitive.transform == "band" else created_plots
+                created_plots[:1]
+                if primitive.transform in {"band", "step_band"}
+                else created_plots
             )
             for created_plot in transparency_targets:
                 created_plot.transparency = round((1 - alpha) * 100)
@@ -2269,13 +2282,13 @@ class OriginProBackend:
                             )
                         expected_alpha = (
                             plot_plan.band_alpha
-                            if primitive.transform == "band"
+                            if primitive.transform in {"band", "step_band"}
                             else plot_plan.alpha
                         )
                         expected_transparency = round((1 - expected_alpha) * 100)
                         expected_transparencies = (
                             (expected_transparency, 0)
-                            if primitive.transform == "band"
+                            if primitive.transform in {"band", "step_band"}
                             else (expected_transparency,) * len(primitive_plots)
                         )
                         if any(

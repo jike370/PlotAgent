@@ -35,6 +35,7 @@ class NativePrimitive:
         "interval_connector",
         "point_interval",
         "band",
+        "step_band",
         "box_outline",
         "violin_polygon",
         "step",
@@ -112,6 +113,17 @@ def native_primitives(plot: OriginPlotPlan) -> tuple[NativePrimitive, ...]:
     )
     if plot.native_kind == "nyquist":
         return (NativePrimitive("line_symbol", x_role, y_role),)
+    if plot.native_kind == "survival_band":
+        return (
+            NativePrimitive(
+                "fill_area",
+                x_role,
+                "lower",
+                y2_role="upper",
+                step_where="post",
+                transform="step_band",
+            ),
+        )
     if plot.native_kind in _LINE_KINDS:
         plot_type = "area" if plot.native_kind == "area" else "line"
         if plot.native_kind in {"step", "survival_step"}:
@@ -335,6 +347,23 @@ def materialize_primitive(
             x_values,
             _role_values(data, "lower"),
             _role_values(data, "upper"),
+        )
+    if primitive.transform == "step_band":
+        lower = _role_values(data, "lower")
+        upper = _role_values(data, "upper")
+        if len(x_values) < 2:
+            return NativePrimitiveTable(x_values, lower, upper)
+        band_x: list[OriginScalar] = [x_values[0]]
+        step_lower: list[OriginScalar] = [lower[0]]
+        step_upper: list[OriginScalar] = [upper[0]]
+        for index in range(1, len(x_values)):
+            band_x.extend((x_values[index], x_values[index]))
+            step_lower.extend((lower[index - 1], lower[index]))
+            step_upper.extend((upper[index - 1], upper[index]))
+        return NativePrimitiveTable(
+            tuple(band_x),
+            tuple(step_lower),
+            tuple(step_upper),
         )
     if primitive.transform == "histogram":
         right_values = _role_values(data, "right")
