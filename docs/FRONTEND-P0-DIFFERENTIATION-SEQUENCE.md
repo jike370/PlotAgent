@@ -73,11 +73,11 @@ flowchart TD
 | 阶段 | 当前状态 | 进入条件 | 退出结果 |
 | --- | --- | --- | --- |
 | SEQ-10 前端与产品蓝图 | 完成 | 本顺序基线确认 | 三工作区 IA、关键流程、对象语法、状态矩阵、设计方向冻结 |
-| SEQ-20 图形语义、图例与视觉资格 | 进行中 | Phase A/B 工程门禁通过 | Origin 图例、X02/X03 语义、新增 Line Series/Before-After、逐图 OPJU 与同源证据闭合；已测试图取得人工视觉签名，缺证据图明确 NO-GO |
-| SEQ-30 ProjectContext v1 | 未开始 | SEQ-20 共享对象/图形 ID 不再变动 | 项目级权威上下文可持久化、可最小披露、可检测陈旧并跨对话复用 |
-| SEQ-40 TaskPlan/Orchestrator v1 | 未开始 | SEQ-30 Schema/版本语义通过 | 可确认、可部分成功、可局部重试、可从已提交边界恢复的确定性任务链 |
-| SEQ-50 Agent 规划与作用对象解析 | 未开始 | SEQ-40 本地执行闭环通过 | 真实模型能生成合法候选计划，跨轮次指代绑定精确对象/范围，歧义只做必要追问 |
-| SEQ-60 Agent 任务前端与纵向链路 | 未开始 | SEQ-50 质量门禁通过 | 对话中真实呈现计划、确认、进度、NeedsInput、部分失败、恢复、ChangeSet 和导出 |
+| SEQ-20 图形语义、图例与视觉资格 | 证据生成完成 / NO-GO | Phase A/B 工程门禁通过 | 45 图目录语义和共享 Origin 图例已收口；机械阻断已清零，缺同源证据图与人工视觉签名继续明确 NO-GO |
+| SEQ-30 ProjectContext v1 | 完成 | 共享对象/图形 ID 已冻结 | 项目级权威上下文可持久化、可最小披露、可检测陈旧并跨轮次复用 |
+| SEQ-40 TaskPlan/Orchestrator v1 | 完成 | SEQ-30 Schema/版本语义通过 | 可确认、可部分成功、可局部重试、可从已提交边界恢复的确定性任务链 |
+| SEQ-50 Agent 规划与作用对象解析 | 完成 | SEQ-40 本地执行闭环通过 | 真实模型候选计划经本地绑定和校验后执行，跨轮次指代绑定精确对象/范围 |
+| SEQ-60 Agent 任务前端与纵向链路 | 完成 | SEQ-50 工程链路通过 | 对话真实呈现计划、确认、进度、NeedsInput、部分失败、恢复、ChangeSet 和导出记录 |
 | SEQ-70 Agent 资格/作品集证据 | 未开始 | SEQ-60 E2E 通过 | 三条核心演示、机器指标、5–10 名科研用户试用材料与架构/取舍说明 |
 | SEQ-80 邀请制 Beta qualification | 未开始 | SEQ-70 无不可豁免 P0 | 完整发布 evidence 和邀请制 Beta go/no-go |
 | SEQ-90 ChartRecipe/组合/搭建器 | 第二阶段 | SEQ-80 后按反馈重新确认 | 有限 compiler、首批迁移和后续用户搭建能力；不阻塞首轮 Agent |
@@ -247,7 +247,8 @@ flowchart TD
 - 早期 K02 系列身份、K05 原生带填充、K09 分组柱重叠及共享标题/边距问题已经过独立修复和重跑，但用户后续视觉检查发现 Origin 图例普遍只有文字、缺少对应线/点/柱样例；这说明旧门禁只验证了对象/文本/fresh-reopen，不能解释为视觉资格通过。
 - 共享 Origin 图例的 logical-series→native-plot sample 映射、安全标签和 build/fresh 校验已由提交 `eafc716` 实现；受影响的正式资格 evidence 必须基于该源码重新生成，旧 manifest 只能作为历史证据。
 - 图形目录需同步纠正：X02 恢复为连续型垂线图，X03 恢复为支持 2+ 系列的 Origin 棒棒糖图；两系列棒棒糖可作为“哑铃图”搜索别名/预设，不另占正式 ID；新增 Line Series 与 Before-After 后，目标正式范围由 43 调整为 45。该范围只在 registry、双 renderer、Origin O1、同源数据/参考图和测试全部提交后生效。
-- SEQ-30 的入口不是“45 图全部取得 A 级参考图”，而是：共享图形 ID/语义不再变化；Origin 图例 P0 和可测试图的机械阻断清零；同源数据缺口逐图明确 NO-GO；用户对本轮可测试产物完成视觉签名。之后缺证据图仍可继续补齐，但不得阻塞 ProjectContext/TaskPlan 实现。
+- SEQ-30 的入口不是“45 图全部取得 A 级参考图”。后续实施决定把非渲染 Agent 工程层与人工视觉签名解耦：共享图形 ID/语义冻结、Origin 图例 P0 和可测试图机械阻断清零后即可实现 ProjectContext/TaskPlan；同源数据缺口和用户视觉签名继续作为 SEQ-20/Beta 的独立 NO-GO，不能被后续 Agent 阶段的完成状态覆盖。
+- **最终工程证据（2026-08-09）：** `77f2a01` 冻结共享 Origin 图例/隐藏图例行为；`44cbdc8`、`583dcd3`、`1d6223c`、`5a33895`、`2fd6ed1` 分别完整重建 fixed、structural、matrix 和 SEQ-20 四批资格。37 张有 A/C 级同源数据的图均生成 default/edited Matplotlib、O1 OPJU 和 fresh-reopen 证据，自动 `blocking_observations` 为空；S07、K24、K25、S01、K21、S21、S31、S34 因缺同源证据未测试。全部 manifest 的人工签名仍为 pending，因此 SEQ-20 保持 NO-GO。
 
 ## 8. SEQ-30：ProjectContext v1
 
@@ -282,6 +283,13 @@ ProjectContext
 - “上一批”“第三张”“这些图”“除了失败的两个”等引用有可枚举本地候选；候选不唯一时 Context 明确标记歧义。
 - snapshot 可确定性重建并有稳定 hash；对象删除、版本推进或选择变化使旧 snapshot/plan 稳定过期。
 - 模型上下文继续遵守数据出境上限，路径、secret、SQLite ID 和未授权单元格不进入 Provider 请求。
+
+### 8.4 实现记录（2026-08-08）
+
+- **提交：** `26e5f56`。新增版本化 `ProjectContextSnapshot`、稳定对象/字段别名、确定性 snapshot hash、作用对象优先级和 staleness 结果；权威对象继续来自项目 SQLite 与现有领域仓储，没有建立第二份“AI memory”真值。
+- **持久化与重启：** ConversationState、当前/选中对象、确认字段、最近计划结果和上下文 hash 写入本地 Agent runtime 表；Core 重启后使用同一对象 ID、版本和 content hash 恢复，不依赖 Provider 会话记忆。
+- **最小披露：** Provider 只获得稳定别名、必要字段元数据、受限统计/样本和显式作用范围；本机路径、凭据、SQLite 内部位置和未授权单元格不进入请求。
+- **陈旧与歧义：** composer scope、显式本轮引用、conversation target、最近计划输出和唯一候选按固定优先级解析；版本/content hash 变化稳定产生 stale，多候选只返回本地有界候选与一个必要问题。
 
 ## 9. SEQ-40：TaskPlan 与可恢复 Orchestrator v1
 
@@ -325,6 +333,13 @@ Draft → NeedsInput → Ready → Running
 - 同一幂等键重复提交不会生成重复 Plot/ExportRecord 或重复执行已成功项。
 - 单元测试覆盖状态机；集成测试覆盖部分失败、局部重试、重启恢复、stale 拒绝和 committing 边界。
 
+### 9.5 实现记录（2026-08-08）
+
+- **提交：** `b013482`、`0ed4a81`。`TaskPlanSnapshot`、TaskItem、attempt、checkpoint 和事件 journal 全部持久化；确认、拒绝、执行、取消、partial success、interrupted、stale 与 resume 使用同一状态机。
+- **确定性执行：** 模型和手动 UI 都只产生白名单业务 action；本地 compiler 冻结 context hash、expected object versions、依赖、输出槽位和幂等键，再由 Orchestrator 调用现有领域服务。模型不持有 Shell、文件、数据库、Origin 或开放工具循环。
+- **真实批量链路：** 多工作表手动批量现在生成 N 个 `CreatePlotAction` 和 1 个依赖全部成员的 `CreateBatchAction`，不再旁路为旧 `BatchService` 前端任务。每个成员独立提交；一个可重试失败会使最终组装暂时 blocked，恢复时只重跑失败成员并复用成功 Plot 输出。
+- **集成证据：** 两工作表用例验证计划确认、3 个 TaskItem、权威 BatchSpec、幂等重复执行和重启后批次作用对象；故障注入验证第一次为 succeeded/failed/blocked，恢复后的 attempt 次数为 1/2/1，成功成员未重做。
+
 ## 10. SEQ-50：Agent 规划与跨轮次作用对象解析
 
 ### 10.1 架构边界
@@ -363,6 +378,13 @@ Draft → NeedsInput → Ready → Running
 - 模型超时、无效 JSON、越权 action、未知图形、陈旧上下文和数据披露超限稳定失败，不创建业务对象。
 - 不以框架内置 memory、server conversation 或模型自述作为正确性证据。
 
+### 10.5 实现记录（2026-08-08）
+
+- **提交：** `2b237b3`、`7263b9d`。现有 `ModelProvider` 继续作为薄模型 runtime；结构化候选计划必须通过本地 Pydantic Schema、稳定别名解析、能力/权限/数据边界校验后才可持久化，未引入 Pi/Hermes 运行时依赖。
+- **真实模型证据：** 使用已配置的 DeepSeek `deepseek-v4-flash` 完成 create plan、用户确认、本地执行和跨轮次英文/中英混合标题修改；重启 Core 后 plot version、content hash、title 与计划记录保持一致。API key 始终只在系统凭据库中使用，证据不读取或回显 secret。
+- **边界：** 手动批量使用确定性本地计划；模型可对明确的现有 batch scope 生成候选 patch。首阶段不让模型自行发现多数据源或选择图形，也不开放 provider tool loop。
+- **已知质量项：** 一条中文明确标题请求被模型过度追问；该轮没有产生业务对象或错误修改。它保留为 SEQ-70 提示词/模型质量样本，不否定本地权威绑定、失败安全和跨轮次工程链路。
+
 ## 11. SEQ-60：Agent 任务前端与真实纵向链路
 
 ### 11.1 接入范围
@@ -394,6 +416,14 @@ Draft → NeedsInput → Ready → Running
 - 键盘、焦点、取消、离线、Provider 不可用、Origin 不可用、长中英文和 100%/150% DPI 通过。
 - 关闭并重启应用后，用户能从来源对话继续未完成计划；成功项和用户确认不丢失。
 - 前端 E2E 同时断言 UI 状态与 SQLite/领域对象结果，不能只截图判定。
+
+### 11.4 实现记录（2026-08-08）
+
+- **提交：** `2b237b3`、`0ed4a81`。桌面对话直接读取 Core 的持久 TaskPlan，呈现确认、逐项状态、attempt、failure、partial/interrupted/resumable、真实输出引用和 ChangeSet；任务中心仍是同一 Core 任务事件投影。
+- **对象时间线：** 计划执行后从权威 output ref 读取新 Plot 或 Batch；ChangeSet 来自 Core 实际 before/after，而不是模型说明；PNG/SVG/OPJU 成功后呈现 ExportRecord 的格式、对象、hash/size，不向 renderer 暴露本机绝对路径。
+- **浏览器纵向验证：** 三个示例数据表创建 K02 时，界面先显示 `0/4`（3 个绘图成员 + 1 个批次组装）、等待确认；确认后显示 `4/4`、四个真实输出、`ChangeSet · succeeded` 和 `batch:preview-1`。该预览只验证交互对象语义，不替代 Core 集成测试。
+- **Core/E2E 证据：** renderer 测试断言批量 UI 不再调用旧 `runBatch`，确认后取回真实 batch target 并用该 ID 导出；Python 集成测试同时断言 SQLite 计划/attempt、领域 Plot/Batch、重启恢复、部分失败与局部重试结果。
+- **实现取舍：** 第一阶段保留单实例、本地权威、用户明确选图和一次映射；批次计划上限为 63 个数据集/64 个 action、上下文字段绑定上限 256，避免把任务编排演化为无界工作流平台。
 
 ## 12. SEQ-70：Agent 资格测试与作品集证据
 

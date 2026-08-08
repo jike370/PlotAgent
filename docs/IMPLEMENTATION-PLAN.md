@@ -353,6 +353,16 @@ W1 与 W2 可在 W0 contract freeze 后并行；W3 可与 W4 的纯 resolver/lay
 
 **当前回归证据（2026-08-07）：** Python 默认全量为 789 passed、57 个显式 Origin live case skipped，Ruff 与 mypy 全通过；Node/Electron 为 17 files、78 tests，lint 与两套 TypeScript typecheck 全通过。显式开启的新门禁为 2 passed：一份 OPJU 覆盖 10 个非默认专属编辑代表图，另一份 OPJU 覆盖全部 43 个正式图；两者均完成 build validation 与独立空白 Origin 实例 fresh-reopen validation 的精确一致检查。测试临时产物不进入仓库。
 
+#### M6 ProjectContext / 可恢复 Agent 纵向链路收口（2026-08-08）
+
+- `26e5f56` 冻结并持久化 ProjectContext v1：本地权威对象、稳定别名/版本/content hash、最小披露、staleness 与跨轮次 target precedence；不把聊天摘要或 Provider memory 当作业务真值。
+- `b013482` 实现持久 TaskPlan/TaskItem/attempt/journal 和确定性 Orchestrator；`2b237b3` 把 Plan/确认/NeedsInput/partial/interrupted/resume 接入桌面对话；`7263b9d` 固定有界 candidate plan 与本地校验边界。
+- `0ed4a81` 使手动多工作表批量与 Agent 使用完全同构的持久计划：每数据集一个 Plot item，最终 Batch item 依赖全部成员；可重试失败只重跑失败分支，成功输出和确认不丢失。对话时间线显示真实 TaskPlan、ChangeSet、Batch 和 ExportRecord。
+- 真实 `deepseek-v4-flash` 工程链路已验证 create→confirm→execute→跨轮次 patch→Core 重启恢复；模型只生成候选 action，内部 ID、版本、范围、权限、事务和恢复继续由本地 Core 决定。一次中文标题请求的过度追问作为 M7/SEQ-70 质量样本保留，没有发生错误写入。
+- 当前阶段只宣告 SEQ-30–60 工程链路完成，不宣告 Agent 质量资格或 Beta GO。SEQ-20 的缺同源视觉证据和人工签名仍独立 NO-GO；SEQ-70 还需固定评测集和真实科研用户证据。
+- 最终视觉冻结使用共享 Origin 源码 `77f2a01`：SEQ-20 四批与 fixed/structural/matrix 三线均做了真实重渲染和独立 fresh-reopen，不是仅刷新 metadata。37 张同源图已产生逐图 OPJU；8 张证据缺口图不进入资格、不生成伪测试数据。
+- **最终默认回归（2026-08-09）：** Python `931 passed / 59 Origin-live skipped / 0 failed`；前端 `17/17 files、86/86 tests`，TypeScript typecheck、ESLint、生产构建、Ruff、mypy（133 files）与 contracts codegen check 全部通过。唯一 warning 为 Starlette TestClient 的上游弃用提示；`9f8c13f` 只扩大并行全仓测试时的 Core 冷启动预算，不改变生产超时或运行时行为。
+
 #### M6 真实 Provider 与视觉审计实现说明（2026-08-06）
 
 - 桌面配置入口常驻左侧栏；custom provider 配置与 API key 分离，endpoint/model/留存确认写入本机配置，key 仅写 Windows Credential Manager。单实例进程复用 capability probe 结果，保存或清除凭据时失效缓存；重启不会丢配置，也不会把 secret 写入项目、仓库或诊断包。
