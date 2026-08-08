@@ -622,7 +622,11 @@ def _build_index(
     output: Path,
     blocking_observations: tuple[dict[str, str], ...] = (),
 ) -> None:
-    cards: list[str] = []
+    cards: list[str] = [
+        '<article class="exports"><h2>OPJU</h2>'
+        '<p><a href="visual29-matrix-default.opju">默认状态</a> · '
+        '<a href="visual29-matrix-edited.opju">代表性编辑状态</a></p></article>'
+    ]
     for case in CASES:
         blockers = "".join(
             f"<li>{html.escape(item['backend'])} · {html.escape(item['observation'])}</li>"
