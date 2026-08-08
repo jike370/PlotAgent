@@ -537,13 +537,16 @@ def _legend_gutter_mm(graph_plan: OriginGraphObject) -> float:
     # Origin measures the persisted enhanced-text source before/while resolving
     # ``\\x`` escapes, so reserve against the safe encoded form rather than the
     # shorter user-facing label.
+    # Origin reports the persisted enhanced-text source width before resolving
+    # sample tokens. A logical line+symbol row is the widest supported native
+    # sample form, so include that closed, user-independent token prefix in the
+    # measurement even when a particular row later needs only one sample.
+    sample_prefix = r"\l(1, style:l) \l(2, style:s) "
     widest = max(
-        _text_width_mm(_safe_legend_label(label), graph_plan.font_size_pt)
+        _text_width_mm(sample_prefix + _safe_legend_label(label), graph_plan.font_size_pt)
         for label in labels
     )
-    # Origin's sample glyph is part of the object width even though the user label
-    # is the only typed text. Reserve one sample column plus its row spacing.
-    return min(max(widest + 10.0, 15.0), 45.0)
+    return min(max(widest + 3.0, 20.0), 65.0)
 
 
 def _size_key_gutter_mm(graph_plan: OriginGraphObject) -> float:

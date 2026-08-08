@@ -359,6 +359,25 @@ def test_s05_legend_is_page_attached_and_clamped_inside_canvas() -> None:
     assert top + legend.get_float("height") <= page.get_float("height")
 
 
+def test_composite_line_symbol_legend_reserves_its_persisted_source_width() -> None:
+    graph_plan = _plan("K02").graph_objects[0].model_copy(
+        update={"legend_visible": True, "legend_anchor_x": 1.0, "legend_anchor_y": 1.0}
+    )
+    page = _FakePageObject(width=2102.0, height=1417.0)
+    # Measured from the supported Origin build after the safe two-token legend
+    # source is evaluated. The test locks the mechanical no-overlap boundary.
+    legend = _FakePageObject(width=542.0, height=69.0, fillcolor=0.0)
+
+    _place_inside_legend(page, graph_plan, graph_plan.layers[0], legend)
+
+    frame_left, _, frame_width, _ = _frame_page_bounds(
+        page, graph_plan, graph_plan.layers[0]
+    )
+    legend_left = legend.get_float("x1") * page.get_float("width")
+    assert legend_left >= frame_left + frame_width + page.get_float("width") * 0.005
+    assert legend_left + legend.get_float("width") <= page.get_float("width")
+
+
 @pytest.mark.parametrize("chart_id", ["X05", "X23", "X35", "X36", "X38"])
 def test_legend_charts_reserve_a_right_gutter_outside_the_data_frame(chart_id: str) -> None:
     graph_plan = _plan(chart_id).graph_objects[0]
