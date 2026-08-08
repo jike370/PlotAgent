@@ -189,7 +189,18 @@ GAPS = (
     },
 )
 
-BLOCKING_OBSERVATIONS = (
+GAP_BLOCKING_OBSERVATIONS = tuple(
+    {
+        "chart_type_id": item["chart_type_id"],
+        "code": item["code"],
+        "status": "open",
+        "backend": "evidence",
+        "observation": item["reason"],
+    }
+    for item in GAPS
+)
+
+FIRST_ROUND_BLOCKING_OBSERVATIONS = (
     {
         "chart_type_id": "X05",
         "code": "LEGEND_DATA_OVERLAP",
@@ -560,9 +571,7 @@ def _render_case(
     entry = {
         **provenance,
         "states": {},
-        "blocking_observations": [
-            item for item in BLOCKING_OBSERVATIONS if item["chart_type_id"] == case.chart_id
-        ],
+        "blocking_observations": [],
     }
     for state in ("default", "edited"):
         state_dir = case_dir / state
@@ -720,13 +729,33 @@ def _write_index(entries: list[dict[str, Any]], output: Path) -> None:
     )
 
 
+def _fresh_qualification(source_identity: dict[str, str]) -> dict[str, Any]:
+    return {
+        "source_build_identity": source_identity,
+        "blocking_observations": list(GAP_BLOCKING_OBSERVATIONS),
+        "human_visual_signature": {
+            "status": "pending",
+            "reviewer": None,
+            "signed_at": None,
+        },
+        "evidence_status": "fresh_render_pending_human",
+        "decision": "NO-GO",
+    }
+
+
 def _write_manifest(entries: list[dict[str, Any]], output: Path, fixtures: Path) -> dict[str, Any]:
     source_identity = {
         "scope_version": SOURCE_SCOPE_VERSION,
         "git_commit": _source_git_commit(),
         "source_sha256": _source_build_sha256(),
     }
-    blockers = [blocker for entry in entries for blocker in entry.get("blocking_observations", [])]
+    runtime_blockers = [
+        blocker for entry in entries for blocker in entry.get("blocking_observations", [])
+    ]
+    if runtime_blockers:
+        raise RuntimeError(
+            "complete structural render still has runtime blockers; stale evidence was not promoted"
+        )
     manifest = {
         "schema_version": "1.0",
         "stage": "VISUAL29-STRUCTURAL",
@@ -748,18 +777,9 @@ def _write_manifest(entries: list[dict[str, Any]], output: Path, fixtures: Path)
         },
         "cases": entries,
         "gaps": list(GAPS),
-        "qualification": {
-            "source_build_identity": source_identity,
-            "blocking_observations": blockers,
-            "human_visual_signature": {
-                "status": "pending",
-                "reviewer": None,
-                "signed_at": None,
-            },
-            "decision": "NO-GO",
-        },
+        "qualification": _fresh_qualification(source_identity),
         "audit_conclusion": (
-            "same-source evidence generated for eligible cases; explicit gaps retained; "
+            "same-source evidence generated for eligible cases; three evidence gaps retained; "
             "human visual sign-off pending; visual qualification not passed"
         ),
     }
@@ -787,7 +807,7 @@ def _record_first_round(output: Path, fixtures: Path) -> None:
         ]
         entry["blocking_observations"] = [
             item
-            for item in BLOCKING_OBSERVATIONS
+            for item in FIRST_ROUND_BLOCKING_OBSERVATIONS
             if item["chart_type_id"] == entry["chart_type_id"]
         ] + runtime_blockers
     blockers = [
@@ -852,8 +872,8 @@ def main() -> None:
             )
             print(f"rendered {case.case_id}", flush=True)
         if args.chart_id is None:
-            _write_index(entries, args.output)
             _write_manifest(entries, args.output, args.fixtures)
+            _write_index(entries, args.output)
     print(args.output / "index.html")
 
 

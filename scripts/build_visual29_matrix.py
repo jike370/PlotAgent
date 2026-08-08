@@ -204,7 +204,17 @@ GAPS = (
 )
 
 VISUAL_OBSERVATIONS: dict[str, tuple[str, ...]] = {}
-BLOCKING_OBSERVATIONS: tuple[dict[str, str], ...] = (
+GAP_BLOCKING_OBSERVATIONS: tuple[dict[str, str], ...] = tuple(
+    {
+        "chart_type_id": item.chart_id,
+        "code": "SAME_SOURCE_EVIDENCE_MISSING",
+        "status": "open",
+        "backend": "evidence",
+        "observation": item.blocking_reason,
+    }
+    for item in GAPS
+)
+FIRST_ROUND_BLOCKING_OBSERVATIONS: tuple[dict[str, str], ...] = (
     {
         "chart_type_id": "K04",
         "backend": "matplotlib",
@@ -646,12 +656,15 @@ def _write_gap_register(output: Path, fixtures: Path) -> list[dict[str, Any]]:
     return entries
 
 
-def _build_index(output: Path) -> None:
+def _build_index(
+    output: Path,
+    blocking_observations: tuple[dict[str, str], ...] = (),
+) -> None:
     cards: list[str] = []
     for case in CASES:
         blockers = "".join(
             f"<li>{html.escape(item['backend'])} · {html.escape(item['observation'])}</li>"
-            for item in BLOCKING_OBSERVATIONS
+            for item in blocking_observations
             if item["chart_type_id"] == case.chart_id
         )
         blocker_section = (
@@ -682,6 +695,16 @@ def _build_index(output: Path) -> None:
 <section class="gaps"><h2>未测试：缺少 A/C 级同源证据</h2><ul>{gaps}</ul><p><a href="evidence-gaps.json">完整缺口登记</a></p></section>{''.join(cards)}</main>""",
         encoding="utf-8",
     )
+
+
+def _fresh_qualification(source_identity: dict[str, str]) -> dict[str, Any]:
+    return {
+        "source_build_identity": source_identity,
+        "blocking_observations": list(GAP_BLOCKING_OBSERVATIONS),
+        "human_visual_signature": {"status": "pending", "reviewer": None, "signed_at": None},
+        "evidence_status": "fresh_render_pending_human",
+        "decision": "NO-GO",
+    }
 
 
 def _render(output: Path, fixtures: Path) -> dict[str, Any]:
@@ -792,16 +815,13 @@ def _render(output: Path, fixtures: Path) -> dict[str, Any]:
         "exports": export_entries,
         "cases": [case_entries[case.case_id] for case in CASES],
         "evidence_gaps": gaps,
-        "qualification": {
-            "source_build_identity": {
+        "qualification": _fresh_qualification(
+            {
                 "scope_version": SOURCE_SCOPE_VERSION,
                 "git_commit": _source_git_commit(),
                 "source_sha256": _source_build_sha256(),
-            },
-            "blocking_observations": list(BLOCKING_OBSERVATIONS),
-            "human_visual_signature": {"status": "pending", "reviewer": None, "signed_at": None},
-            "decision": "NO-GO",
-        },
+            }
+        ),
         "audit_conclusion": (
             "four same-source evidence cases generated; four cases withheld for missing A/C evidence; "
             "human visual sign-off pending; visual qualification not passed"
@@ -820,11 +840,21 @@ def _refresh_audit_metadata(output: Path, fixtures: Path) -> dict[str, Any]:
     if not manifest_path.is_file():
         raise RuntimeError("render evidence is missing; run --phase render first")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    manifest["qualification"]["blocking_observations"] = list(BLOCKING_OBSERVATIONS)
+    manifest["qualification"]["blocking_observations"] = list(
+        FIRST_ROUND_BLOCKING_OBSERVATIONS
+    )
     manifest["qualification"]["human_visual_signature"] = {
         "status": "pending",
         "reviewer": None,
         "signed_at": None,
+    }
+    manifest["qualification"]["evidence_status"] = "first_round_stale"
+    manifest["qualification"]["invalidation"] = {
+        "code": "SHARED_RENDERING_CONTRACT_UPDATED",
+        "reason": (
+            "The first-round evidence predates the shared layout and native matrix fixes; "
+            "a complete render is required before mechanical observations may be cleared."
+        ),
     }
     manifest["qualification"]["decision"] = "NO-GO"
     manifest["audit_conclusion"] = (
@@ -833,7 +863,7 @@ def _refresh_audit_metadata(output: Path, fixtures: Path) -> dict[str, Any]:
     )
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     shutil.copy2(manifest_path, fixtures / "manifest.json")
-    _build_index(output)
+    _build_index(output, FIRST_ROUND_BLOCKING_OBSERVATIONS)
     return cast(dict[str, Any], manifest)
 
 

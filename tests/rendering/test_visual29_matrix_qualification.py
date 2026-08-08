@@ -4,6 +4,11 @@ import hashlib
 import json
 from pathlib import Path
 
+from scripts.build_visual29_matrix import GAP_BLOCKING_OBSERVATIONS
+from scripts.build_visual29_matrix import (
+    _fresh_qualification as matrix_fresh_qualification,
+)
+
 FIXTURES = (
     Path(__file__).resolve().parents[1]
     / "fixtures"
@@ -12,6 +17,23 @@ FIXTURES = (
 )
 QUALIFIED = ("K04", "K12", "K19", "K22")
 GAPS = ("K21", "S21", "S31", "S34")
+
+
+def test_matrix_next_render_qualification_only_blocks_evidence_gaps() -> None:
+    qualification = matrix_fresh_qualification(
+        {
+            "scope_version": "test",
+            "git_commit": "a" * 40,
+            "source_sha256": "b" * 64,
+        }
+    )
+
+    assert qualification["evidence_status"] == "fresh_render_pending_human"
+    assert qualification["decision"] == "NO-GO"
+    assert qualification["human_visual_signature"]["status"] == "pending"
+    assert tuple(
+        item["chart_type_id"] for item in qualification["blocking_observations"]
+    ) == GAPS
 
 
 def _sha256(path: Path) -> str:
@@ -29,6 +51,7 @@ def test_visual29_matrix_frozen_same_source_manifest() -> None:
     assert manifest["rules"]["synthetic_allowed"] is False
     assert tuple(item["chart_type_id"] for item in manifest["cases"]) == QUALIFIED
     assert tuple(item["chart_type_id"] for item in manifest["evidence_gaps"]) == GAPS
+    assert tuple(item["chart_type_id"] for item in GAP_BLOCKING_OBSERVATIONS) == GAPS
     assert set(manifest["exports"]) == {"default", "edited"}
     assert all(item["fresh_reopen_identical"] for item in manifest["exports"].values())
 
@@ -48,11 +71,20 @@ def test_visual29_matrix_frozen_same_source_manifest() -> None:
 
     assert manifest["qualification"]["human_visual_signature"]["status"] == "pending"
     assert manifest["qualification"]["decision"] == "NO-GO"
-    blockers = manifest["qualification"]["blocking_observations"]
-    assert len(blockers) == 6
-    assert {item["chart_type_id"] for item in blockers} == {"K04", "K12", "K22"}
-    assert {item["backend"] for item in blockers} == {"matplotlib", "origin"}
-    assert all(item["severity"] == "P0" for item in blockers)
+    qualification = manifest["qualification"]
+    blockers = qualification["blocking_observations"]
+    if qualification["evidence_status"] == "first_round_stale":
+        assert len(blockers) == 6
+        assert {item["chart_type_id"] for item in blockers} == {"K04", "K12", "K22"}
+        assert {item["backend"] for item in blockers} == {"matplotlib", "origin"}
+        assert all(item["severity"] == "P0" for item in blockers)
+        assert qualification["invalidation"]["code"] == "SHARED_RENDERING_CONTRACT_UPDATED"
+    else:
+        assert qualification["evidence_status"] == "fresh_render_pending_human"
+        assert {item["chart_type_id"] for item in blockers} == set(GAPS)
+        assert {item["code"] for item in blockers} == {"SAME_SOURCE_EVIDENCE_MISSING"}
+        assert {item["backend"] for item in blockers} == {"evidence"}
+        assert all(item["status"] == "open" for item in blockers)
     assert "visual qualification not passed" in manifest["audit_conclusion"]
 
 

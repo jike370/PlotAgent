@@ -5,6 +5,11 @@ import json
 import re
 from pathlib import Path
 
+from scripts.build_visual29_structural import GAP_BLOCKING_OBSERVATIONS
+from scripts.build_visual29_structural import (
+    _fresh_qualification as structural_fresh_qualification,
+)
+
 REPOSITORY = Path(__file__).resolve().parents[2]
 FIXTURES = REPOSITORY / "tests" / "fixtures" / "visual_regression" / "visual29-structural"
 EXPECTED_CASES = ("X05", "X13", "X23", "X35", "X36", "X38")
@@ -30,6 +35,23 @@ def _manifest() -> dict[str, object]:
     path = FIXTURES / "manifest.json"
     assert path.is_file(), "run build_visual29_structural.py after the backend freeze"
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_structural_next_render_qualification_only_blocks_evidence_gaps() -> None:
+    qualification = structural_fresh_qualification(
+        {
+            "scope_version": "test",
+            "git_commit": "a" * 40,
+            "source_sha256": "b" * 64,
+        }
+    )
+
+    assert qualification["evidence_status"] == "fresh_render_pending_human"
+    assert qualification["decision"] == "NO-GO"
+    assert qualification["human_visual_signature"]["status"] == "pending"
+    assert tuple(
+        item["chart_type_id"] for item in qualification["blocking_observations"]
+    ) == EXPECTED_GAPS
 
 
 def test_structural_lane_frozen_anchors_are_same_source_and_non_synthetic() -> None:
@@ -66,16 +88,22 @@ def test_structural_lane_manifest_covers_every_assigned_chart_without_substituti
     assert all(item["status"] == "not_tested" for item in gaps)
     assert all(item["reason"] for item in gaps)
     assert all(not tuple(FIXTURES.glob(f"{item['chart_type_id']}_*")) for item in gaps)
+    assert tuple(item["chart_type_id"] for item in GAP_BLOCKING_OBSERVATIONS) == EXPECTED_GAPS
 
 
 def test_structural_lane_default_and_edited_evidence_is_fresh_reopened() -> None:
     manifest = _manifest()
+    first_round_stale = manifest["qualification"].get("evidence_status") == "first_round_stale"
     for case in manifest["cases"]:
         assert case["same_source_data"] is True
         assert case["synthetic"] is False
         assert set(case["states"]) == {"default", "edited"}
         for state_name, state in case["states"].items():
-            if (case["chart_type_id"], state_name) in EXPECTED_ORIGIN_FAILURES:
+            expected_failure = (
+                case["chart_type_id"],
+                state_name,
+            ) in EXPECTED_ORIGIN_FAILURES
+            if first_round_stale and expected_failure:
                 assert state["origin_export_status"] == "failed"
                 assert state["fresh_reopen_identical"] is False
                 assert state["origin_error"]["error"]["code"] == "BUILD_FAILURE"
@@ -105,15 +133,20 @@ def test_structural_lane_is_bound_to_source_and_waits_for_human_signature() -> N
     assert _GIT_COMMIT.fullmatch(identity["git_commit"]) is not None
     assert _SHA256.fullmatch(identity["source_sha256"]) is not None
     blockers = qualification["blocking_observations"]
-    assert {item["chart_type_id"] for item in blockers} == EXPECTED_BLOCKED
-    assert {item["code"] for item in blockers} == {
-        "LEGEND_DATA_OVERLAP",
-        "CATEGORY_LABEL_OVERLAP",
-        "BUILD_FAILURE",
-    }
-    assert all(item["status"] == "open" for item in blockers)
     assert qualification["human_visual_signature"]["status"] == "pending"
-    assert qualification["evidence_status"] == "first_round_stale"
-    assert qualification["invalidation"]["code"] == "AUDIT_AXIS_LABEL_CONTRACT_UPDATED"
     assert qualification["decision"] == "NO-GO"
+    if qualification["evidence_status"] == "first_round_stale":
+        assert {item["chart_type_id"] for item in blockers} == EXPECTED_BLOCKED
+        assert {item["code"] for item in blockers} == {
+            "LEGEND_DATA_OVERLAP",
+            "CATEGORY_LABEL_OVERLAP",
+            "BUILD_FAILURE",
+        }
+        assert qualification["invalidation"]["code"] == "AUDIT_AXIS_LABEL_CONTRACT_UPDATED"
+    else:
+        assert qualification["evidence_status"] == "fresh_render_pending_human"
+        assert {item["chart_type_id"] for item in blockers} == set(EXPECTED_GAPS)
+        assert {item["backend"] for item in blockers} == {"evidence"}
+        assert all(not item["blocking_observations"] for item in manifest["cases"])
+    assert all(item["status"] == "open" for item in blockers)
     assert "visual qualification not passed" in manifest["audit_conclusion"]

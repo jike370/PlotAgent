@@ -310,6 +310,11 @@
       "reviewer": null,
       "signed_at": null
     },
+    "evidence_status": "first_round_stale",
+    "invalidation": {
+      "code": "SHARED_RENDERING_CONTRACT_UPDATED",
+      "reason": "The first-round evidence predates the shared layout and native matrix fixes; a complete render is required before mechanical observations may be cleared."
+    },
     "decision": "NO-GO"
   },
   "audit_conclusion": "four same-source evidence cases generated; four cases withheld for missing A/C evidence; mechanical visual blockers recorded; human visual sign-off pending; visual qualification not passed"
