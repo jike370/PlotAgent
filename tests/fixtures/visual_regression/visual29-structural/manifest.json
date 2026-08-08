@@ -12,7 +12,7 @@
     "X35",
     "X36"
   ],
-  "generated_at": "2026-08-07T21:12:25.092319+00:00",
+  "generated_at": "2026-08-08T08:55:18.033941+00:00",
   "plotagent_version": "0.1.0",
   "origin_declaration": {
     "display_name": "Origin2024 SR1",
@@ -50,47 +50,59 @@
       "chart_edit": "点颜色、点形状与点大小",
       "states": {
         "default": {
-          "plot_spec_sha256": "945aad5714a57b6880bed7315207d08e41c05d6ee774a83d2513ffb740cce19b",
-          "render_plan_sha256": "4c4e5eb2eabb56e017bbaccfe9e7439b7d94929b6a5ca36d9f80deefaea45cca",
-          "matplotlib_png_sha256": "b71758d825c7044cd3da1ca374402b1065497c7cba3889b5a7186f13f1007236",
-          "origin_plan_sha256": "482f6ce88f43220bca90b4a37bfe0a93ebe1acc7b85d74b2d89c462af9aeaf35",
+          "plot_spec_sha256": "ef08abf2e7b64cfcc15ff35e963fbccfa63dc40ca9fc21e015c3ae88a8341172",
+          "render_plan_sha256": "292f7e0930ef50aafd5587548d0837b8c8c5d9038f9191791a3db6ef66505e95",
+          "matplotlib_png_sha256": "4f543fbc08a449034c5f2c96a4470679fbc72a1627147905da7f09212ae5c520",
+          "origin_plan_sha256": "4924723594c9cdbf828890263e249c130ab2734cc22a53eaf8aa47a7b1cf8c4f",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
           "origin_export_status": "success",
-          "origin_opju_sha256": "64e548dd46ebf98eb59430cb7f549cfd9e3d13830df6036ff27b4a48841398cf",
-          "origin_opju_size": 73514,
-          "origin_fresh_png_sha256": "966bedf5f446d468f5a9d9ec2d260cb601e495f9449f689f2ce6bf4a442a52ea",
+          "origin_opju_sha256": "0deb74b6f857acf1fc28b363694a9b23caf8a3250dc963cceca0432c256ddde5",
+          "origin_opju_size": 73521,
+          "origin_fresh_png_sha256": "21b68739a50eeda36cc429b1f37a3ac643f008065b04c37d03abe85b5f2f8005",
           "fresh_reopen_identical": true,
-          "validation_report_sha256": null,
-          "reused_completed_interrupted_run": true
+          "validation_report_sha256": "586643b94de38fe34367d0359cb21862ad66ec515fe49dc8e8ea820c78c4c1fd",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          }
         },
         "edited": {
-          "plot_spec_sha256": "9275547351f3d6bab68196fe8c08ef77565ba090b41479a4f9a07bf85b6d5c36",
-          "render_plan_sha256": "2d72fb0409b8b5e58e65655d1e4b2a5a5d783247de3781c927a800d92aaaa709",
-          "matplotlib_png_sha256": "936063021b32d973678b9846a2a9918ec38302e2e12d7236907366d1cbd3559a",
-          "origin_plan_sha256": "d76627063ebc34c4123a1a18f9ffa314253154575486fdee3504b336c28df552",
+          "plot_spec_sha256": "b06934d1b214207f6ea91ad23056d0ffa46ba7b5ad237204839a6e0175c725bc",
+          "render_plan_sha256": "0a0573b9ece751a861a9a8a0df79b8f511af5ac246f7af0a12a20498edab8de9",
+          "matplotlib_png_sha256": "41ef779c8f609bc6c9bdf2f1630edc07fdcf7203ec8e27171967dbd5c62f9f1c",
+          "origin_plan_sha256": "b35a8d4c0f89c5b396739fee9b655eedf5b9d05c069127be2acfeb21df9fa563",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
           "origin_export_status": "success",
-          "origin_opju_sha256": "e7be1150e97e26a0ac1ec1f402cf64ebe33a1008fd6cf56e536c2e56724516e9",
-          "origin_opju_size": 73545,
-          "origin_fresh_png_sha256": "5e053a898067cd090662b29ad3573a4ccdb6fad04db07cf08648b2812e2cd3df",
+          "origin_opju_sha256": "a858e0b3db41ae7d447ff3fc5920af3bf6577c38aae9cd166eabe5d29c4d11c0",
+          "origin_opju_size": 73673,
+          "origin_fresh_png_sha256": "214468bd28e74309d08977e4325e039b7c99a56859e7c12fed15f5acac00f084",
           "fresh_reopen_identical": true,
-          "validation_report_sha256": null,
-          "reused_completed_interrupted_run": true
+          "validation_report_sha256": "63ea850a56f0d1b07272e99944bf31abca3031cafdc9c9ce02cb41af161278b5",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          }
         }
       },
-      "blocking_observations": [
-        {
-          "chart_type_id": "X05",
-          "code": "LEGEND_DATA_OVERLAP",
-          "status": "open",
-          "backend": "matplotlib,origin",
-          "states": [
-            "default",
-            "edited"
-          ],
-          "observation": "右上图例覆盖 Bacon 蜂群的高值观测点。"
-        }
-      ],
-      "comparison_default_sha256": "87263cb38e021babf5a4a5c6711bafecbcc0db1cadf6037a7f0bb291cd7c6491",
-      "comparison_edited_sha256": "067d26bdc9e5d3f37813a85b1b221e4647901f5dd5965122b0be1afa30e9839b"
+      "blocking_observations": [],
+      "comparison_default_sha256": "5984ba7ef1a646f98e967ede670aa636392a3b3432ced1ce8437776b6105f644",
+      "comparison_edited_sha256": "4942240be9c02a44d6e0fe35d54d164f0609762b8ac056a30303017fec9e4a1a"
     },
     {
       "chart_type_id": "X13",
@@ -111,35 +123,59 @@
       "chart_edit": "柱边线、宽度与透明度",
       "states": {
         "default": {
-          "plot_spec_sha256": "9bd052490ad06b7de8258cc0f661cbe2d7f580ce451fe96f727e461e519674d1",
-          "render_plan_sha256": "f30776207fa2b111b45ae7e5d57b37008de2a8f2c0e8592765765fd697c10926",
-          "matplotlib_png_sha256": "4b5bd8632c7b8dfd0e6629b4d559610e37bcaa981f8a0ef910c56c2df03df53f",
-          "origin_plan_sha256": "1054349c4085dfb6fa84772917a3bcebb24b24310ef1711177375c55dfc40f13",
+          "plot_spec_sha256": "6cbb8f182f198353cd42e8c036f1d17ddd4dec101fe054841508423738db2aee",
+          "render_plan_sha256": "1b6bac211b469ab41211b6fd842d2cb51978eca360bb6d4ba9545f5b10a6024d",
+          "matplotlib_png_sha256": "05afacd2cbe30f4f45616fff506c5fbd2f4a47156c48658520725d7f02f06443",
+          "origin_plan_sha256": "b4691fe5180ac66bbfb589a8f1a05e6fa91ce368338cba7c3e0b1244c16effd7",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
           "origin_export_status": "success",
-          "origin_opju_sha256": "7cbcb11ac892553c52b530cd4e19d083902bb4f036cffb765ebd6a62f913f656",
-          "origin_opju_size": 77150,
-          "origin_fresh_png_sha256": "1fef49179398342d1671b9c141578a31046fb9f050dca6c92ed4b32b11a6ce8d",
+          "origin_opju_sha256": "9d7d10f9e9d0bddee692ccc746b0fca12f61aba867dec331306338a241763657",
+          "origin_opju_size": 77174,
+          "origin_fresh_png_sha256": "70a3b8d4681a83ee17b776900b3bc9d19414ce0537ba2406a39e6a2e1df7906a",
           "fresh_reopen_identical": true,
-          "validation_report_sha256": null,
-          "reused_completed_interrupted_run": true
+          "validation_report_sha256": "16e9ca45adbb30bdbc31da6a38f6158d29cf8500faea986d4d7940a8be057a48",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          }
         },
         "edited": {
-          "plot_spec_sha256": "305db801d4699cd09c7e16dff7d60f317801089404b8b329d6fcdbe8487fd35b",
-          "render_plan_sha256": "2e6b3d1ce3f189a5a6365a9d40316d74b946d95be8cee5cb04ef5a7ecdc38d09",
-          "matplotlib_png_sha256": "7662535dc791b0f5f7017f09923141d9efa37abba37763321ff384f437bdc493",
-          "origin_plan_sha256": "d2430dadaac99e5a39444bd440ceb833ea773c9940ca72e479b16b921ca4aae8",
+          "plot_spec_sha256": "21c8fdc10fd9f3deb135797307a3780e4ddfa48193ed04d1d5d784a2a436cbca",
+          "render_plan_sha256": "53f6bba3285f71a04c7aece6ea8b1b245bba2a785e7ae4c4f621625b4304a00c",
+          "matplotlib_png_sha256": "baca6b9923a7bffe65cf0c5415dcd2bfc65c82c0207ac8f8f927def7056a417f",
+          "origin_plan_sha256": "6b494f220b7284f28359f4d169954a84bbd90b44b6aea23bf50130f3551cda91",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
           "origin_export_status": "success",
-          "origin_opju_sha256": "b92c075704461ccec1b7c20d41aa70c4c40ea1fb625307ffe1979dc079f3176e",
-          "origin_opju_size": 77183,
-          "origin_fresh_png_sha256": "ad2e17a182867dd058d9b248bc8f528ceb5bd7c0ba54a21279c29514fef02f40",
+          "origin_opju_sha256": "38288e3ea915a197e441fe8663c696f7451d136c8a6487ad772202bce46c64ee",
+          "origin_opju_size": 77214,
+          "origin_fresh_png_sha256": "71274ceedb025ef9876fe4b92213b669011434d0c884c7f56aa5d6380745dcca",
           "fresh_reopen_identical": true,
-          "validation_report_sha256": null,
-          "reused_completed_interrupted_run": true
+          "validation_report_sha256": "90a2ad30bd501ac397727326fbc9a670564dcbb5ab9ddb7963e87544b081d691",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          }
         }
       },
       "blocking_observations": [],
-      "comparison_default_sha256": "b87c664291290483b73fd06e2e42e47d253923e4490f679312eb0c8deb3eaf8e",
-      "comparison_edited_sha256": "743b540473dd60c4ad5242e5f4afd662b5373e84c6d279ceaac59f0d51b217be"
+      "comparison_default_sha256": "2dd26b6f58d4d52b1cd6b02aee8c60790826d0376881c25f66cdb388a10c99df",
+      "comparison_edited_sha256": "48fa5d36b260f23c5fe83e8b98ac577cfbd67dac8cb709752c87653d3d36f259"
     },
     {
       "chart_type_id": "X23",
@@ -160,58 +196,59 @@
       "chart_edit": "左右轴颜色与轴线宽度",
       "states": {
         "default": {
-          "plot_spec_sha256": "ac78ebcdc67bd4a6dd68e443eaa2d1c8beea41c00798616403956cc41fe735a2",
-          "render_plan_sha256": "21a8b903307206a396fa666b077d6a8f1d43b6e40484f97c14d566a6a66b2095",
-          "matplotlib_png_sha256": "0d3e337cc30b52ab584f1a0f7c6f630c0e16452540567417000c62bd4952824d",
-          "origin_plan_sha256": "0a8adec10209052b781e2e54ba63ea730c3883a8e047fa3dfae590c9743cf342",
+          "plot_spec_sha256": "eb0ff44e3cf70c94ae981fa14d372f609ff0d1251688ceb385c74cc6b9ba91b1",
+          "render_plan_sha256": "4f546ce97cbe97a30aa645601aedc95aed421a44abb04c8eaab79065260bc2c5",
+          "matplotlib_png_sha256": "9e087713a0b338b9c3844277badf1e93bc23c015bcd059f30bcee1998dcb6aca",
+          "origin_plan_sha256": "9207669736331f98c70e5f6f1f2fae62ae95b85f27b986edb8b214954755b333",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
           "origin_export_status": "success",
-          "origin_opju_sha256": "0acf94ba9f226700a537767609a5bd6c2a601b28e3b004e9cc0e1ee025a941d8",
-          "origin_opju_size": 54597,
-          "origin_fresh_png_sha256": "2e296bb7c148fa6dfc80e1bdbaf2f73b97b94aaa736cd991a6748399c1650366",
+          "origin_opju_sha256": "8996a0b629940f0164b6c242a521ef3945365f522227729720b9cdb0e5a790ba",
+          "origin_opju_size": 54760,
+          "origin_fresh_png_sha256": "89ab75021f95ce1303415b7ee7a6c09d6de111ff8254bd4ee9f081423349418e",
           "fresh_reopen_identical": true,
-          "validation_report_sha256": null,
-          "reused_completed_interrupted_run": true
+          "validation_report_sha256": "462402bc48cea701137844301cdc824919c939f676c0ab458b144985082e33ce",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          }
         },
         "edited": {
-          "plot_spec_sha256": "637bfbdc1eef33334b9543e6ca30908774f1547d7f48e40ccd7b5247d6fb2a20",
-          "render_plan_sha256": "d3e849b6cac774657d75d269d4affcd3ae2618c6a7e4d98bd9ff86406c001ce3",
-          "matplotlib_png_sha256": "76fd2c3ae2d82bb082305313d04a6bb02e000cad863edcb19fff3a7014128cbe",
-          "origin_plan_sha256": "eaad37b896952da133468560a071b1cdc48ef98c0d2c007aa5f8fd1f2f796b46",
+          "plot_spec_sha256": "301e92c3d6d8825ebe24e61d415db48547db419c642b84233cafb46a09c258db",
+          "render_plan_sha256": "44ae5d6ca65645b4ed5845e0e343af3096e48d09167e46ad813474803f485bf5",
+          "matplotlib_png_sha256": "97c4118f3553a387210a453aaa24d21c85ed080e76a2a00e703afc60139df04d",
+          "origin_plan_sha256": "c392ca7da214f6c176d22b1a3d59c707c6c536ed3a511d14ff709a4110311d7a",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
           "origin_export_status": "success",
-          "origin_opju_sha256": "d4ce70adc31e7c5c68be0fdecfdeb22dad4e9c9bb29346cf1103674f65b0860c",
-          "origin_opju_size": 54694,
-          "origin_fresh_png_sha256": "bfcd9028d0e62abf66cd4947288a1f326b38bedd1e4f798620fca8060feaa4a1",
+          "origin_opju_sha256": "56e412c7b1bedde893d10c934160cd770cbd6cb992eeb3fe8dcf2f53118c5663",
+          "origin_opju_size": 54859,
+          "origin_fresh_png_sha256": "078b0625fb57d6c216d17b495d7359b029b3ed0a8816cbfc3351cfa68bf582a7",
           "fresh_reopen_identical": true,
-          "validation_report_sha256": null,
-          "reused_completed_interrupted_run": true
+          "validation_report_sha256": "0178c8baffa2fca1fc8db91d0a62da374b1bab3805ddd645860b08dce9651ca7",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          }
         }
       },
-      "blocking_observations": [
-        {
-          "chart_type_id": "X23",
-          "code": "LEGEND_DATA_OVERLAP",
-          "status": "open",
-          "backend": "matplotlib,origin",
-          "states": [
-            "default",
-            "edited"
-          ],
-          "observation": "右轴折线进入右上图例文字区域。"
-        },
-        {
-          "chart_type_id": "X23",
-          "code": "CATEGORY_LABEL_OVERLAP",
-          "status": "open",
-          "backend": "origin",
-          "states": [
-            "default",
-            "edited"
-          ],
-          "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
-        }
-      ],
-      "comparison_default_sha256": "951e766527b1bb62f16144fbec66f7fed3fc9cc3ff98309ac5977ee2da5c157c",
-      "comparison_edited_sha256": "45fb833855cfb9faa652df814ea97c8db56bf4461a7179fd84b8efc16715b00f"
+      "blocking_observations": [],
+      "comparison_default_sha256": "421988e8872d97a3d59f9ab35ec22ad2450cbdf3b066e17b1ecd81c061fe1597",
+      "comparison_edited_sha256": "83a9572b4e96f834ee5387fc14f62c46f8f4e0a2f9717ca848ece80d5a51f4f3"
     },
     {
       "chart_type_id": "X35",
@@ -232,58 +269,59 @@
       "chart_edit": "柱宽、边线及左右轴样式",
       "states": {
         "default": {
-          "plot_spec_sha256": "5aea42868b54045803db1e0c974bb59cbbb4791f8d4794512782813f33ce4820",
-          "render_plan_sha256": "a9687a73ad14b20ba38b4860536497642f5fa9329833f5c2c2ea8ee8a46bdb96",
-          "matplotlib_png_sha256": "39cc0ebe1222a19575d08697d4c5dee2c1b65337584363280bf28bb2a491ca2f",
-          "origin_plan_sha256": "60fcedf5b7762406f90b3070000896e4234e55cf442ba14b0902b04a57e17a38",
+          "plot_spec_sha256": "4685293352af69f630dab63fcd1dfd91dc234b8f642a16170bac1de2533ef19f",
+          "render_plan_sha256": "f932f2396db5b70fa22fd2ae27fc03c1cc783f81c23dbd4563fb93be2ccab3d6",
+          "matplotlib_png_sha256": "b7210927471c5ba8676c683c7bf6772c4929ff7866c71301be67c8b88f32f5fd",
+          "origin_plan_sha256": "7bde5dc235e961d54a8169e4c31a49ff9ba978eacae7da3a770c68ee868d41fe",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
           "origin_export_status": "success",
-          "origin_opju_sha256": "34597f4f19c9f74c0ac7a78dde3fd8095f7a3ab63a710c96caf2af043d1109d8",
-          "origin_opju_size": 56868,
-          "origin_fresh_png_sha256": "890ecadc8eea2cb8cc6ad6556d080cdc1f99a9605911b2dc8445dc115529f962",
+          "origin_opju_sha256": "89a5dea8c63a706d598552c7f71e7aee89cfb139e6a1a75b3bd8e78ef262f517",
+          "origin_opju_size": 57038,
+          "origin_fresh_png_sha256": "4420e86fa72c36a6a26dc88b65bb2d9f12e74438c7d016763b1f07c20b257d30",
           "fresh_reopen_identical": true,
-          "validation_report_sha256": null,
-          "reused_completed_interrupted_run": true
+          "validation_report_sha256": "84976e299f42343386384a50030cb09c927976ac6f712206696836d71416dd19",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          }
         },
         "edited": {
-          "plot_spec_sha256": "6a006f10684b98f4f6a8f1bcf40f893ba6f6ec45337a6b63ebd5af6bbfeb7ca4",
-          "render_plan_sha256": "20a6a43b4563ee03143dd3db498583dbe87857ea273f6ebeea1725446c5b9b5b",
-          "matplotlib_png_sha256": "d8f8d8691e2911d5d8610f228b84f7fd11fac45e9d8e60f03cda1faa406a44a7",
-          "origin_plan_sha256": "2b25c091798321fdc94f7856462b3677729f9dc8ac47c57b97b4025e56f8024e",
+          "plot_spec_sha256": "fcec11d6a3e8c84402e682ec3ece7e7a4d32ce35b44e546196cbdce293a69dd5",
+          "render_plan_sha256": "2d19b99484606b81bd7301250030d0103118c99903d63088c10c0d9d31438625",
+          "matplotlib_png_sha256": "f9158f2fa5b1e7b7769bd9aa06c7ecd71708e730aa2f16ec297c0a66a2546bae",
+          "origin_plan_sha256": "f86e1694df08b8bd1c35f17a244de09c4141a5ce27757f4389f02c53bad285dd",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
           "origin_export_status": "success",
-          "origin_opju_sha256": "2699808b376414a2050cf282c9cfc4fdeff88ef744dde9f29f84def76116fa2e",
-          "origin_opju_size": 56990,
-          "origin_fresh_png_sha256": "c99f533273275d870f183467072597980875bd3e9013bbbdcd1cdfc2b6372669",
+          "origin_opju_sha256": "02dfe23dceb12860bf4cb384ac5828676ea8bc728b96a973de2b015258e822e7",
+          "origin_opju_size": 57134,
+          "origin_fresh_png_sha256": "ffb417bd8f518045f067bbae91c570783ab37739a5e298b2f8d907ce6f09abbd",
           "fresh_reopen_identical": true,
-          "validation_report_sha256": null,
-          "reused_completed_interrupted_run": true
+          "validation_report_sha256": "486a7f3788560f9018308941124c83b8ff6164961cc43da49be1795428f23dbd",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          }
         }
       },
-      "blocking_observations": [
-        {
-          "chart_type_id": "X35",
-          "code": "LEGEND_DATA_OVERLAP",
-          "status": "open",
-          "backend": "matplotlib,origin",
-          "states": [
-            "default",
-            "edited"
-          ],
-          "observation": "右轴高值柱进入右上图例区域。"
-        },
-        {
-          "chart_type_id": "X35",
-          "code": "CATEGORY_LABEL_OVERLAP",
-          "status": "open",
-          "backend": "origin",
-          "states": [
-            "default",
-            "edited"
-          ],
-          "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
-        }
-      ],
-      "comparison_default_sha256": "91ec6321fdd5907437278031d7ade07aaa423120009c0eba5be11b7404e3cca9",
-      "comparison_edited_sha256": "a3328acb33beee7a439313ae36fdc222c5c509c21378071d5d4aa9856459daf6"
+      "blocking_observations": [],
+      "comparison_default_sha256": "dddb2adc3c561ecb989c445616728b4034b1416a415d5eb4a088dbfc49a17650",
+      "comparison_edited_sha256": "8246bf3331967fe76d4b1ac7d08236ff99d6fee8e6ac194cae3fbede9316f7d4"
     },
     {
       "chart_type_id": "X36",
@@ -304,80 +342,59 @@
       "chart_edit": "左右轴颜色与轴线宽度",
       "states": {
         "default": {
-          "plot_spec_sha256": "fe1b50454e0ed7c4bf288b12ec92fe0135f572d2a78f085ac35d1fb92726c30b",
-          "render_plan_sha256": "091c27a077974d911e994605b5e9359aa293e527c4bc13a30c61919ae846dba2",
-          "matplotlib_png_sha256": "5f39337e3c445af5964a2722f33001904d0148502f66f9cfb11bc1d67e700a0c",
-          "origin_plan_sha256": "698c4b88abb5ae8e7f82c559b4f9540bfceeb38ecc608874c2b95e9bfc40ccbd",
+          "plot_spec_sha256": "a7582f42b22b774afc93b7ccd88884a2077e5eccd27a28387d268c06df001656",
+          "render_plan_sha256": "ff69264bb6ab02cb80b32e1b8d4f1606266ffee97e17ae0e986da8910af4e145",
+          "matplotlib_png_sha256": "977ed5e0e276cdcd572c07f7a515aa282c129e04cc2274deba0f4371f0020afd",
+          "origin_plan_sha256": "92f9cf1b28a3551645a866ef16dd565a219ae0b32e0339f4d720a098434895bf",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
           "origin_export_status": "success",
-          "origin_opju_sha256": "b359bdba01588bc706ed5788f97af0f8a7011ead51f4aff13315a59131b4b505",
-          "origin_opju_size": 55126,
-          "origin_fresh_png_sha256": "e0584a30882acfa7cbb7d556caac6a6cb7aa2bd52c7bd6d51d5234384d491d65",
+          "origin_opju_sha256": "940347624e0909c121db7de331f7ba080006aa0c5fca7eb0080802fc154f44ac",
+          "origin_opju_size": 55287,
+          "origin_fresh_png_sha256": "02ec526a7a00c56e5c336d7575ed06b6de3cee9cc7a7ca11b737f2d8052cf06b",
           "fresh_reopen_identical": true,
-          "validation_report_sha256": null,
-          "reused_completed_interrupted_run": true
+          "validation_report_sha256": "ee3c545992689f5fd3ce33b6988c481c1f5f6b20b07a7d49d9e9622a918d0164",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          }
         },
         "edited": {
-          "plot_spec_sha256": "18812a70d502e40f71ef9666e23ed158ef9e883ae6fcc7de57bae5b79ef78145",
-          "render_plan_sha256": "0f519ccb9dde847de1194f3c379b103337a78c50bd972daefedc53d4ba052faf",
-          "matplotlib_png_sha256": "eff29220a16e6da9376f0d4eca0555404651db83afade73483b146cd78beb774",
-          "origin_plan_sha256": "fe40b0fe5e48f98c0512b6135d9ce3139ec3c583efc159c2db31f5d132496077",
-          "origin_export_status": "failed",
-          "fresh_reopen_identical": false,
-          "origin_error": {
-            "status": "failed",
-            "target_path": "D:\\plotv3\\build\\visual-audit\\visual29-structural\\X36_dual_y_column_line\\edited\\X36-edited.opju",
-            "error": {
-              "code": "BUILD_FAILURE",
-              "stage": "build",
-              "message": "typed native Origin construction failed",
-              "retryable": false,
-              "details": {
-                "error": "native plot title crosses page or plot frame for graph.X36.0"
-              }
-            },
-            "elapsed_seconds": 27.875
+          "plot_spec_sha256": "6938e5f0330c3f5f4ba6538c0fe485eeaba572937e5ff2377beda79d9d8fe4b1",
+          "render_plan_sha256": "a8e717af6dc1a48653ae0d15f001036aa2903cc72fbb27f7678895dbb4e98182",
+          "matplotlib_png_sha256": "694ed4b80474c3252d22512978e6aa0ec73b6eef22453e7741e44b90cdbead7e",
+          "origin_plan_sha256": "7c159ffe961a340e7279ef4930472ae31e80965aba3bbadcc881d3fc1f52fec1",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "36b468429517512b0dee7dd83b755a89a23b00c33bcacf84639d48992e49bb4e",
+          "origin_opju_size": 55387,
+          "origin_fresh_png_sha256": "8a850cd55ddb80cd20b58505ef463491162549b207edd09688c7a4f5dba19a39",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": "611689768f4d41f5cc0a0db8101731b229b41a4bf4a0770ab0fb00ad4bb13cad",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
           }
         }
       },
-      "blocking_observations": [
-        {
-          "chart_type_id": "X36",
-          "code": "LEGEND_DATA_OVERLAP",
-          "status": "open",
-          "backend": "matplotlib,origin",
-          "states": [
-            "default",
-            "edited"
-          ],
-          "observation": "右轴折线进入右上图例文字区域。"
-        },
-        {
-          "chart_type_id": "X36",
-          "code": "CATEGORY_LABEL_OVERLAP",
-          "status": "open",
-          "backend": "origin",
-          "states": [
-            "default",
-            "edited"
-          ],
-          "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
-        },
-        {
-          "chart_type_id": "X36",
-          "code": "BUILD_FAILURE",
-          "status": "open",
-          "backend": "origin",
-          "states": [
-            "edited"
-          ],
-          "observation": "typed native Origin construction failed",
-          "details": {
-            "error": "native plot title crosses page or plot frame for graph.X36.0"
-          }
-        }
-      ],
-      "comparison_default_sha256": "79074686cad1cf7c38df977d81e3fb6b39c47114af04fa35cb9cdab41b4c1774",
-      "comparison_edited_sha256": "63ecf89a1e847afa197b711271935461efdaa3e86f246c4258b2c7db57d1a15c"
+      "blocking_observations": [],
+      "comparison_default_sha256": "1735396297384023bb5edc15ab590cd983da556849914b1c92a5ab2530a73d65",
+      "comparison_edited_sha256": "2a10a4b84ec0a60bbd1f08e883e7d6e7e452baae4634387e94b79ebc7274a1d7"
     },
     {
       "chart_type_id": "X38",
@@ -398,16 +415,17 @@
       "chart_edit": "偏移距离与系列顺序",
       "states": {
         "default": {
-          "plot_spec_sha256": "558ef0f70366f264ceb6c5b751903560470c1996403a1998980a9a8bced32baa",
-          "render_plan_sha256": "7364daaa96ad7b06b51195025080ef1773d7b1ea7422c4ca37dcc1bab2c69a1d",
-          "matplotlib_png_sha256": "890b6afe45464ccb9402b7d0c3b252a18029484e4aee9a9723385700f20b7741",
-          "origin_plan_sha256": "b99b1117f06016f6f02faff89005eb109b8d0fe6eaffa2a6a3a8804373d5b6d5",
+          "plot_spec_sha256": "076cbeff313e350c10a474f97ca2c919675e26c369661aaff2536e46495220f6",
+          "render_plan_sha256": "aa2a135bb33a0e3e59511ed92fa9fbe1438505e1a3fc079d3b706eebe30aec09",
+          "matplotlib_png_sha256": "54eabc659f298be17de59c6870933757495b929dd4fd7f6970f9eb8e98d1d822",
+          "origin_plan_sha256": "169d977fb4628bad82ae8806d0d4b0385749d79c8f8fdd3dce691b58ffd6d493",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
           "origin_export_status": "success",
-          "origin_opju_sha256": "4df7f88baf817b04854a60c32e341ecd58778c1808947160f09a44788be57327",
-          "origin_opju_size": 130469,
-          "origin_fresh_png_sha256": "7629ff6cb231f2147078c0af569fc2f0feff401553f93126ad535b2bcc3d5f23",
+          "origin_opju_sha256": "a43fea7fd67c07d2d88cc40ccb965c9f74c12e9afa73aca254b35287370fa116",
+          "origin_opju_size": 130490,
+          "origin_fresh_png_sha256": "e1a07c21a3158a208d752f5bea34be68b43f13383840ec663fca905be8075ef7",
           "fresh_reopen_identical": true,
-          "validation_report_sha256": "44dd799a2eba6799fa80d1cff3286866afe897fa9c159cf22c245ab0f7ac091d",
+          "validation_report_sha256": "e58a3e7c6a39364eae32206eef14e0442f75c2bffd58257aefaaa292ecd1047c",
           "environment": {
             "display_name": "Origin2024 SR1",
             "display_version": "10.10.178",
@@ -422,56 +440,34 @@
           }
         },
         "edited": {
-          "plot_spec_sha256": "61f83531c36f21394959891c0e6474e9e7e35c50e0e7d2257f03443720bd0e7a",
-          "render_plan_sha256": "afb6ef9af1e4bae4a2f90fd638c66746633a2687986f03d966d59ee71dd55d9a",
-          "matplotlib_png_sha256": "c58fde2120c97c3943b80b030f227245caa1d170ebb3505379e539ba22f588bc",
-          "origin_plan_sha256": "b3e2f6074dfbf47b48a516f413a6d795fbe5133d1178a1f83f211c848380a4e5",
-          "origin_export_status": "failed",
-          "fresh_reopen_identical": false,
-          "origin_error": {
-            "status": "failed",
-            "target_path": "D:\\plotv3\\build\\visual-audit\\visual29-structural\\X38_offset_stack_y\\edited\\X38-edited.opju",
-            "error": {
-              "code": "BUILD_FAILURE",
-              "stage": "build",
-              "message": "typed native Origin construction failed",
-              "retryable": false,
-              "details": {
-                "error": "native plot title crosses page or plot frame for graph.X38.0"
-              }
-            },
-            "elapsed_seconds": 28.032
+          "plot_spec_sha256": "1c91bdd4bbac42d168dabecfca6c274d0a6d2c0d4551c70144cb4b4c7f6fd991",
+          "render_plan_sha256": "d23e72ebc05b5dc90b5128892b6b1014a435aac8e2d762763a6ea817ef66668e",
+          "matplotlib_png_sha256": "4a73cefe424b93fc9e54b7bf75fb2e5a702a0a1a0ca3c83d9fac2f907be8b840",
+          "origin_plan_sha256": "e740e4ce3a34d4f04b70da316895a1ccf047f98b0da41b2835287610b98384f2",
+          "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "fab0a3eb3b23211e0eb8fe75e5ef3044cbb9acc29c22f91491fb5b6077aa1ac9",
+          "origin_opju_size": 130539,
+          "origin_fresh_png_sha256": "2fd43e47dbfb84919f9c06791946e1848131be7c7f8914767d59a7defa24afb5",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": "05e9719a99c583aba5b5df4a31fc49cff92bd2c5c61af4925ec63fc81c026251",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
           }
         }
       },
-      "blocking_observations": [
-        {
-          "chart_type_id": "X38",
-          "code": "LEGEND_DATA_OVERLAP",
-          "status": "open",
-          "backend": "matplotlib,origin",
-          "states": [
-            "default",
-            "edited"
-          ],
-          "observation": "多条偏移谱线穿过右上图例，编辑态尤为明显。"
-        },
-        {
-          "chart_type_id": "X38",
-          "code": "BUILD_FAILURE",
-          "status": "open",
-          "backend": "origin",
-          "states": [
-            "edited"
-          ],
-          "observation": "typed native Origin construction failed",
-          "details": {
-            "error": "native plot title crosses page or plot frame for graph.X38.0"
-          }
-        }
-      ],
-      "comparison_default_sha256": "b85c2a164ba9bf5a25bb9ef05764671c3afad01d0567d092a88174945d4a7a67",
-      "comparison_edited_sha256": "a23bdcc0ba746fe8f0290260b60e6d02094dcebd17376e6af3fb6a6629c7366a"
+      "blocking_observations": [],
+      "comparison_default_sha256": "2b60a15b525434ea6e8bf6e04bdfe9f4178bd46c49a3a553cb86aa094632d9ef",
+      "comparison_edited_sha256": "f1a6e9c5cd91a0160d1519ee277ae3d69511beafb9a3e0da13ef2621ce74b6e1"
     }
   ],
   "gaps": [
@@ -511,123 +507,30 @@
   "qualification": {
     "source_build_identity": {
       "scope_version": "visual29-structural-rendering-v1",
-      "git_commit": "87bac5b6c9374b8059a11af74c582b450675a6cd",
-      "source_sha256": "56e471f922b1a787fab8c856de8e3d73ce032c1f287f21ec6755806b175b9830"
+      "git_commit": "c68e28c8185cfa6816dd8c518cf5d55227ced8a1",
+      "source_sha256": "077839d92db92638dad7f15392df475f0d80e83f31176298ec1feb933c0f0d90"
     },
     "blocking_observations": [
       {
-        "chart_type_id": "X05",
-        "code": "LEGEND_DATA_OVERLAP",
+        "chart_type_id": "K24",
+        "code": "SAME_SOURCE_FACET_PAIR_MISSING",
         "status": "open",
-        "backend": "matplotlib,origin",
-        "states": [
-          "default",
-          "edited"
-        ],
-        "observation": "右上图例覆盖 Bacon 蜂群的高值观测点。"
+        "backend": "evidence",
+        "observation": "本机只有官方分类数据与独立模板预览，没有可证明该预览由这份数据生成的随附图页—工作表对；不能把两者臆配为同源证据。"
       },
       {
-        "chart_type_id": "X23",
-        "code": "LEGEND_DATA_OVERLAP",
+        "chart_type_id": "K25",
+        "code": "O1_QUALIFICATION_NOT_APPLICABLE",
         "status": "open",
-        "backend": "matplotlib,origin",
-        "states": [
-          "default",
-          "edited"
-        ],
-        "observation": "右轴折线进入右上图例文字区域。"
+        "backend": "evidence",
+        "observation": "K25 是 FigureSpec/O2 多面板对象，不能以本线要求的单图 PlotSpec/O1 fresh-reopen 资格冒充通过；当前也没有同源异构子图项目对。"
       },
       {
-        "chart_type_id": "X23",
-        "code": "CATEGORY_LABEL_OVERLAP",
+        "chart_type_id": "S01",
+        "code": "PRECOMPUTED_SAME_SOURCE_PAIR_MISSING",
         "status": "open",
-        "backend": "origin",
-        "states": [
-          "default",
-          "edited"
-        ],
-        "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
-      },
-      {
-        "chart_type_id": "X35",
-        "code": "LEGEND_DATA_OVERLAP",
-        "status": "open",
-        "backend": "matplotlib,origin",
-        "states": [
-          "default",
-          "edited"
-        ],
-        "observation": "右轴高值柱进入右上图例区域。"
-      },
-      {
-        "chart_type_id": "X35",
-        "code": "CATEGORY_LABEL_OVERLAP",
-        "status": "open",
-        "backend": "origin",
-        "states": [
-          "default",
-          "edited"
-        ],
-        "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
-      },
-      {
-        "chart_type_id": "X36",
-        "code": "LEGEND_DATA_OVERLAP",
-        "status": "open",
-        "backend": "matplotlib,origin",
-        "states": [
-          "default",
-          "edited"
-        ],
-        "observation": "右轴折线进入右上图例文字区域。"
-      },
-      {
-        "chart_type_id": "X36",
-        "code": "CATEGORY_LABEL_OVERLAP",
-        "status": "open",
-        "backend": "origin",
-        "states": [
-          "default",
-          "edited"
-        ],
-        "observation": "Origin O1 的国家类别刻度未避让，标签彼此覆盖。"
-      },
-      {
-        "chart_type_id": "X36",
-        "code": "BUILD_FAILURE",
-        "status": "open",
-        "backend": "origin",
-        "states": [
-          "edited"
-        ],
-        "observation": "typed native Origin construction failed",
-        "details": {
-          "error": "native plot title crosses page or plot frame for graph.X36.0"
-        }
-      },
-      {
-        "chart_type_id": "X38",
-        "code": "LEGEND_DATA_OVERLAP",
-        "status": "open",
-        "backend": "matplotlib,origin",
-        "states": [
-          "default",
-          "edited"
-        ],
-        "observation": "多条偏移谱线穿过右上图例，编辑态尤为明显。"
-      },
-      {
-        "chart_type_id": "X38",
-        "code": "BUILD_FAILURE",
-        "status": "open",
-        "backend": "origin",
-        "states": [
-          "edited"
-        ],
-        "observation": "typed native Origin construction failed",
-        "details": {
-          "error": "native plot title crosses page or plot frame for graph.X38.0"
-        }
+        "backend": "evidence",
+        "observation": "随附 DAT 是原始 time/status，不是 PlotAgent S01 所需的用户预计算 step/CI/风险人数；为得到参考图必须先运行生存分析，因此不能声称参考图与测试输入是同一份数据。"
       }
     ],
     "human_visual_signature": {
@@ -635,12 +538,8 @@
       "reviewer": null,
       "signed_at": null
     },
-    "decision": "NO-GO",
-    "evidence_status": "first_round_stale",
-    "invalidation": {
-      "code": "AUDIT_AXIS_LABEL_CONTRACT_UPDATED",
-      "reason": "The first-round PlotSpecs inherited generic fixture axis labels. The generator now binds the official same-source field semantics; all native evidence must be regenerated after shared blocker fixes."
-    }
+    "evidence_status": "fresh_render_pending_human",
+    "decision": "NO-GO"
   },
-  "audit_conclusion": "first-round same-source evidence retained for blocker diagnosis; three explicit gaps retained; generator axis-label contract corrected; evidence stale and human visual sign-off pending; visual qualification not passed"
+  "audit_conclusion": "same-source evidence generated for eligible cases; three evidence gaps retained; human visual sign-off pending; visual qualification not passed"
 }
