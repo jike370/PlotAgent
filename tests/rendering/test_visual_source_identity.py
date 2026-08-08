@@ -16,8 +16,8 @@ from scripts.visual_source_identity import (
 )
 
 REPOSITORY = Path(__file__).resolve().parents[2]
-SOURCE_COMMIT = "9a07602f028f1b34a5ae53d742066d6e2b7b61d0"
-SOURCE_SHA256 = "59dc758515f2746236682d4066fea814e6ef35f28b0135eff170993115fb8217"
+SOURCE_COMMIT = "77f2a01d80f9afca95645e4f78a58a0b5e168ecb"
+SOURCE_SHA256 = "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac"
 SOURCE_SCOPE = (
     Path("pyproject.toml"),
     Path("src/plotagent/charts"),
@@ -30,6 +30,16 @@ SOURCE_SCOPE = (
 
 def _git(repository: Path, *arguments: str) -> None:
     subprocess.run(("git", *arguments), cwd=repository, check=True, capture_output=True)
+
+
+def _git_is_ancestor(repository: Path, ancestor: str, descendant: str) -> bool:
+    result = subprocess.run(
+        ("git", "merge-base", "--is-ancestor", ancestor, descendant),
+        cwd=repository,
+        check=False,
+        capture_output=True,
+    )
+    return result.returncode == 0
 
 
 def _repository(tmp_path: Path) -> Path:
@@ -131,16 +141,19 @@ def test_frozen_visual_manifests_share_canonical_source_identity() -> None:
     for path, scope_version in manifests.items():
         manifest = json.loads(path.read_text(encoding="utf-8"))
         qualification = manifest["qualification"]
-        assert qualification["source_build_identity"] == {
-            "scope_version": scope_version,
-            "digest_algorithm": DIGEST_ALGORITHM,
-            "git_commit": SOURCE_COMMIT,
-            "source_sha256": SOURCE_SHA256,
-        }
-        reason = qualification["metadata_refresh_reason"]
-        assert reason["code"] == "SOURCE_IDENTITY_CANONICALIZED"
-        assert reason["source_scope_diff"]["status"] == "none"
-        assert reason["render_evidence_reused"] is True
+        identity = qualification["source_build_identity"]
+        assert identity["scope_version"] == scope_version
+        assert identity["digest_algorithm"] == DIGEST_ALGORITHM
+        assert identity["source_sha256"] == SOURCE_SHA256
+        assert _git_is_ancestor(REPOSITORY, SOURCE_COMMIT, identity["git_commit"])
+        assert (
+            git_blob_framed_sha256(
+                REPOSITORY,
+                SOURCE_SCOPE,
+                commit=identity["git_commit"],
+            )
+            == SOURCE_SHA256
+        )
 
     structural = json.loads(
         (
