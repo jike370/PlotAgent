@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "chart_type_id": "K25",
+  "case_id": "K25_multi_panel",
+  "title": "多面板组合图",
+  "evidence_grade": "D",
+  "admission_class": "synthetic_origin_reference_visual_qualification",
+  "origin_official_same_source_admission": false,
+  "synthetic": true,
+  "same_source_data": true,
+  "generator": {
+    "id": "plotagent.visual29.structural.synthetic",
+    "version": "1.0.0",
+    "seed": 24092501,
+    "algorithm": "closed-form deterministic synthetic generator; no fitted or inferred values"
+  },
+  "data_sha256": "3ec5cfe8b8b711b48cffc1fea22af862cf1d6d25888c643244d64338d8ec0c08",
+  "reference_generation": {
+    "path": "independent_origin_native_template_v1",
+    "plotagent_renderer_used": false,
+    "raw_csv_embedded": true,
+    "raw_worksheet": "DRefK25Raw",
+    "origin_template": "D:\\origin\\mgroups.otpu",
+    "origin_template_sha256": "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+    "origin_plot_type": "native LINE/SCATTER plots in an Origin multi-panel template",
+    "column_mapping": {
+      "panel": "child-plan identity",
+      "x": "X",
+      "y": "Y"
+    },
+    "origin_version": "10.10.178",
+    "originpro_version": "1.1.15"
+  },
+  "semantic_claim": "Every panel is an explicit child RenderPlan with a fixed placement.",
+  "dynamic_claim": "2/3/4 explicit child plans resolve in fixed non-overlapping layouts.",
+  "reference_sha256": "8965c3f16536fb70a2bfae7867192a0de0cd8e8f4f4f296383512b83ecc65d3b",
+  "reference_fresh_reopen_sha256": "8965c3f16536fb70a2bfae7867192a0de0cd8e8f4f4f296383512b83ecc65d3b",
+  "reference_origin_opju_sha256": "9b84e127ddef20b1fff76e582f00d54e740846c1d1ce91577461922dc201bcda",
+  "reference_fresh_reopen": true
+}

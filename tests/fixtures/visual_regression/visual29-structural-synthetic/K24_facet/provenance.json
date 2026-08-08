@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "chart_type_id": "K24",
+  "case_id": "K24_facet",
+  "title": "分面图",
+  "evidence_grade": "D",
+  "admission_class": "synthetic_origin_reference_visual_qualification",
+  "origin_official_same_source_admission": false,
+  "synthetic": true,
+  "same_source_data": true,
+  "generator": {
+    "id": "plotagent.visual29.structural.synthetic",
+    "version": "1.0.0",
+    "seed": 24092501,
+    "algorithm": "closed-form deterministic synthetic generator; no fitted or inferred values"
+  },
+  "data_sha256": "8983d8d91bc11d51fd2139aad214653358d9a4f5565336a133e1f2eaf51da04f",
+  "reference_generation": {
+    "path": "independent_origin_native_template_v1",
+    "plotagent_renderer_used": false,
+    "raw_csv_embedded": true,
+    "raw_worksheet": "DRefK24Raw",
+    "origin_template": "D:\\origin\\mgroups.otpu",
+    "origin_template_sha256": "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+    "origin_plot_type": "native LINE plots in an Origin multi-panel template",
+    "column_mapping": {
+      "facet": "panel identity",
+      "base_x": "X",
+      "base_y": "Y"
+    },
+    "origin_version": "10.10.178",
+    "originpro_version": "1.1.15"
+  },
+  "semantic_claim": "Only the explicit facet column creates panels; no grouping is inferred.",
+  "dynamic_claim": "2/3/5 facets and 7/9/13 X values resolve without panel overlap.",
+  "reference_sha256": "04b78313bc4cadaa705f42bd4532c1beb55a2123502dcddc9eac7a77c51b872a",
+  "reference_fresh_reopen_sha256": "15145eab07e7ebb8c117ef712a5a5b528e03002d7c1b273e5017c25f160216d4",
+  "reference_origin_opju_sha256": "60b18621679f8097ade914ac6a7e960dfc8f6b29f390e196a6bfbf8925d30ad3",
+  "reference_fresh_reopen": true
+}

@@ -1,0 +1,365 @@
+{
+  "schema_version": "1.0",
+  "stage": "VISUAL29-STRUCTURAL-SYNTHETIC-D",
+  "generated_at": "2026-08-08T19:27:25.869892+00:00",
+  "plotagent_version": "0.1.0",
+  "lane_chart_type_ids": [
+    "K24",
+    "K25",
+    "S01"
+  ],
+  "origin_declaration": {
+    "display_name": "Origin2024 SR1",
+    "display_version": "10.10.178",
+    "runtime_version": 10.100178,
+    "bitness": 64,
+    "originpro_version": "1.1.15"
+  },
+  "rules": {
+    "evidence_grade": "D",
+    "synthetic_allowed": true,
+    "origin_official_same_source_admission": false,
+    "same_frozen_csv_required": true,
+    "independent_origin_reference_required": true,
+    "plotagent_renderer_for_reference_forbidden": true,
+    "states": [
+      "default",
+      "representative edited"
+    ]
+  },
+  "cases": [
+    {
+      "schema_version": "1.0",
+      "chart_type_id": "K24",
+      "case_id": "K24_facet",
+      "title": "分面图",
+      "evidence_grade": "D",
+      "admission_class": "synthetic_origin_reference_visual_qualification",
+      "origin_official_same_source_admission": false,
+      "synthetic": true,
+      "same_source_data": true,
+      "generator": {
+        "id": "plotagent.visual29.structural.synthetic",
+        "version": "1.0.0",
+        "seed": 24092501,
+        "algorithm": "closed-form deterministic synthetic generator; no fitted or inferred values"
+      },
+      "data_sha256": "8983d8d91bc11d51fd2139aad214653358d9a4f5565336a133e1f2eaf51da04f",
+      "reference_generation": {
+        "path": "independent_origin_native_template_v1",
+        "plotagent_renderer_used": false,
+        "raw_csv_embedded": true,
+        "raw_worksheet": "DRefK24Raw",
+        "origin_template": "D:\\origin\\mgroups.otpu",
+        "origin_template_sha256": "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+        "origin_plot_type": "native LINE plots in an Origin multi-panel template",
+        "column_mapping": {
+          "facet": "panel identity",
+          "base_x": "X",
+          "base_y": "Y"
+        },
+        "origin_version": "10.10.178",
+        "originpro_version": "1.1.15"
+      },
+      "semantic_claim": "Only the explicit facet column creates panels; no grouping is inferred.",
+      "dynamic_claim": "2/3/5 facets and 7/9/13 X values resolve without panel overlap.",
+      "reference_sha256": "04b78313bc4cadaa705f42bd4532c1beb55a2123502dcddc9eac7a77c51b872a",
+      "reference_fresh_reopen_sha256": "15145eab07e7ebb8c117ef712a5a5b528e03002d7c1b273e5017c25f160216d4",
+      "reference_origin_opju_sha256": "60b18621679f8097ade914ac6a7e960dfc8f6b29f390e196a6bfbf8925d30ad3",
+      "reference_fresh_reopen": true,
+      "states": {
+        "default": {
+          "render_plan_sha256": "8806559aa7562f5e1bd830d7a8e91542bf3db236ccaccd022f05f0550c802716",
+          "matplotlib_png_sha256": "251e7931c26b722205fef753c8ad18a4b9abf5c886875c6db35952fdeeb0e9ab",
+          "origin_plan_sha256": "33e5fb569209b207467c167d894909f61cb3f7ed2a788db101f2ab518a8f6992",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "4c24ac5ff7af4cfc56a9fce4c736e07f97e6f24390ce2c8d3fcb867b39bafc2a",
+          "origin_opju_size": 72868,
+          "origin_fresh_png_sha256": "1e109245ba7586381c210adf021dd14d39bf38bde4be788f97cb54fe873c1632",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": "be60613c3a92f5ca93ba30466200cbdb84550e64d0bccf3db7de75c3f611e919",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          },
+          "panels": 3,
+          "layers": 3,
+          "visible_rows": 27
+        },
+        "edited": {
+          "render_plan_sha256": "59078a172921524f0ecea1ce6f2ce8acd56cb1780f14c586527ecb83ed2a527c",
+          "matplotlib_png_sha256": "995b0930856e69cbf47be97611ddb17ebad1e245fa03ad2dfa0e865105a28dcf",
+          "origin_plan_sha256": "beda85414550d804f59276400bba5c8a6a71a9f84affc2340c83d52c4cd644ab",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "d62742b6d500b545462e0e300eb41f7f2f08a618778874314819972b60120657",
+          "origin_opju_size": 72896,
+          "origin_fresh_png_sha256": "396b67aa5b5f5dd6c56b24471a8e0448e2196dc4f352e2097d142e8967bc5b5b",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": "f24684701bc4e3a8fe5ce357657c103a3666f823462f53263c5874f99c742503",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          },
+          "panels": 3,
+          "layers": 3,
+          "visible_rows": 27
+        }
+      },
+      "blocking_observations": [],
+      "per_chart_opju": {
+        "states": [
+          "default",
+          "representative edited"
+        ],
+        "sha256": "50ed374050248430e0ab32651d962b5066165017df3c9e1f288c6408c322ec34",
+        "size": 119649,
+        "fresh_reopen_identical": true
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "chart_type_id": "K25",
+      "case_id": "K25_multi_panel",
+      "title": "多面板组合图",
+      "evidence_grade": "D",
+      "admission_class": "synthetic_origin_reference_visual_qualification",
+      "origin_official_same_source_admission": false,
+      "synthetic": true,
+      "same_source_data": true,
+      "generator": {
+        "id": "plotagent.visual29.structural.synthetic",
+        "version": "1.0.0",
+        "seed": 24092501,
+        "algorithm": "closed-form deterministic synthetic generator; no fitted or inferred values"
+      },
+      "data_sha256": "3ec5cfe8b8b711b48cffc1fea22af862cf1d6d25888c643244d64338d8ec0c08",
+      "reference_generation": {
+        "path": "independent_origin_native_template_v1",
+        "plotagent_renderer_used": false,
+        "raw_csv_embedded": true,
+        "raw_worksheet": "DRefK25Raw",
+        "origin_template": "D:\\origin\\mgroups.otpu",
+        "origin_template_sha256": "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+        "origin_plot_type": "native LINE/SCATTER plots in an Origin multi-panel template",
+        "column_mapping": {
+          "panel": "child-plan identity",
+          "x": "X",
+          "y": "Y"
+        },
+        "origin_version": "10.10.178",
+        "originpro_version": "1.1.15"
+      },
+      "semantic_claim": "Every panel is an explicit child RenderPlan with a fixed placement.",
+      "dynamic_claim": "2/3/4 explicit child plans resolve in fixed non-overlapping layouts.",
+      "reference_sha256": "8965c3f16536fb70a2bfae7867192a0de0cd8e8f4f4f296383512b83ecc65d3b",
+      "reference_fresh_reopen_sha256": "8965c3f16536fb70a2bfae7867192a0de0cd8e8f4f4f296383512b83ecc65d3b",
+      "reference_origin_opju_sha256": "9b84e127ddef20b1fff76e582f00d54e740846c1d1ce91577461922dc201bcda",
+      "reference_fresh_reopen": true,
+      "states": {
+        "default": {
+          "render_plan_sha256": "f809163f06aa7fbb6aaf5a1627af80ef52135a37d15523e82faac8f6dc54939d",
+          "matplotlib_png_sha256": "2c035c7388c3ffed76362c664098407aaae45cd19079df809e7844ba7fcec550",
+          "origin_plan_sha256": "71155bfc98abb048b1a13168893f0b50a4d1bc91c1f6ea06a6b4a5003b1af8be",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "1fbea81c7f70df5efe06bcf5f7283137821e96ca6331db96a4fc1cdd8f135ae1",
+          "origin_opju_size": 72788,
+          "origin_fresh_png_sha256": "ca3fc6632fc6e43edb4d7d376a08ff8be6adff7eaf0118aa3833f8aa79659f97",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": "c075c6466349e4d104035af30f773926a6f423662ef54a9a05f1f5322acd0ce3",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          },
+          "panels": 3,
+          "layers": 3,
+          "visible_rows": 33
+        },
+        "edited": {
+          "render_plan_sha256": "7d891d6017f02aa44010555b1275666aa087d73e165c7431fbfc67b211cde643",
+          "matplotlib_png_sha256": "e17cae8a6e74d6348f26a0592dc86c93633b4361ce3e2205b65ef9b06114f695",
+          "origin_plan_sha256": "84d1abd1353591d51651cd869f895f729265a255dc9186a29e00f777087a2be3",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "3cd9b49dac89888709a7f2d8f2b1788ca948151a0995d3635cdbb428d6d1f301",
+          "origin_opju_size": 72776,
+          "origin_fresh_png_sha256": "74a80d347381dc244cf23c7854a6d3080341e91871fe02cd941d620b5c3fa908",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": "9afd785d677c73abd673b1ed368ed1061b0dced7b77a7ec5a29b6c1c2de555d8",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          },
+          "panels": 3,
+          "layers": 3,
+          "visible_rows": 33
+        }
+      },
+      "blocking_observations": [],
+      "per_chart_opju": {
+        "states": [
+          "default",
+          "representative edited"
+        ],
+        "sha256": "91e7e9dca09b9dc3cd281ae7c81b74a6ae17b5053c47b79689f803672aee741e",
+        "size": 94367,
+        "fresh_reopen_identical": true
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "chart_type_id": "S01",
+      "case_id": "S01_precomputed_survival",
+      "title": "给定 KM 生存曲线",
+      "evidence_grade": "D",
+      "admission_class": "synthetic_origin_reference_visual_qualification",
+      "origin_official_same_source_admission": false,
+      "synthetic": true,
+      "same_source_data": true,
+      "generator": {
+        "id": "plotagent.visual29.structural.synthetic",
+        "version": "1.0.0",
+        "seed": 24092501,
+        "algorithm": "closed-form deterministic synthetic generator; no fitted or inferred values"
+      },
+      "data_sha256": "adafb961f3b0cb39bd0d5c09f49a93ac67080359a1b2d314285a5b406aaa6d24",
+      "reference_generation": {
+        "path": "independent_origin_native_template_v1",
+        "plotagent_renderer_used": false,
+        "raw_csv_embedded": true,
+        "raw_worksheet": "DRefS01Raw",
+        "origin_template": "D:\\origin\\SurvivalPlot.otp",
+        "origin_template_sha256": "0b8759367ce19f1a82cfb9630ffefd849e0c600bce1e909985645c0a47de046b",
+        "origin_plot_type": "native step-line equivalent plus risk-table layer",
+        "column_mapping": {
+          "time": "X",
+          "survival": "step Y",
+          "lower": "CI lower",
+          "upper": "CI upper",
+          "risk_count": "risk-table Y",
+          "group": "series identity"
+        },
+        "origin_version": "10.10.178",
+        "originpro_version": "1.1.15"
+      },
+      "semantic_claim": "All step, confidence interval and risk-count values are supplied; no survival analysis runs.",
+      "dynamic_claim": "1/2/4 groups and shorter/longer time grids preserve monotone survival and panel separation.",
+      "reference_sha256": "5c5e93c2f9c513c3940b1e8e23150d11abaddbf711fae72917aa3314926f0893",
+      "reference_fresh_reopen_sha256": "5c5e93c2f9c513c3940b1e8e23150d11abaddbf711fae72917aa3314926f0893",
+      "reference_origin_opju_sha256": "bd0762149c6f9a51413f46e7fc8955362495b089be99af8e8adb5090bb076132",
+      "reference_fresh_reopen": true,
+      "states": {
+        "default": {
+          "render_plan_sha256": "40609beee160fc12774c95118e05f093fd11a5424e23a90d0b0c78af1569c2d6",
+          "matplotlib_png_sha256": "8a05c93a387a674190209b60367f48b1f9bba60d1d0ea6ad8d35371faa2e9edb",
+          "origin_plan_sha256": "9de08df6349c41f7a75fc68b480e64be4926d4dcbf04d52e704f13cf871e24b2",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "2122f644f9dcc901bb50246a444bf286fc2020b8a38a65f63ed094216e1c400d",
+          "origin_opju_size": 164281,
+          "origin_fresh_png_sha256": "fc50060fc27bee760ff2c388aa1c1e8fdf9af300a026f16cfb500bf61dc0637d",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": "64411c32f20caa68ba14e1acdffc07d453239e9bd3f25a0a9344cc83f71e1bd6",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          },
+          "panels": 2,
+          "layers": 6,
+          "visible_rows": 54
+        },
+        "edited": {
+          "render_plan_sha256": "754904f4c6b5099cf7226b927f4040631e61b4e4d6594145c72362e0d6778100",
+          "matplotlib_png_sha256": "7ab0b2057af954be501ce24c52a3c3f7779467fce059307cf0adb76f918fb4fb",
+          "origin_plan_sha256": "fc7f5263b6cf0b3f0de71e8c281f585ab8bc97cf5fa07d2b53edd15cce9bb58e",
+          "origin_export_status": "success",
+          "origin_opju_sha256": "3ce75455e395f88098096a233926e317b181170731a541fabf4949b3662b6e15",
+          "origin_opju_size": 164265,
+          "origin_fresh_png_sha256": "6a875bf389e37748bddf4a4759f882aabb313793caf02811656c6d3e230c35f6",
+          "fresh_reopen_identical": true,
+          "validation_report_sha256": "91fc21b380aa937a63fde188d013ceacd8731a361363f55d63ac9b08bf063ef1",
+          "environment": {
+            "display_name": "Origin2024 SR1",
+            "display_version": "10.10.178",
+            "install_dir": "D:\\origin",
+            "executable_path": "D:\\origin\\Origin64.exe",
+            "origin_bitness": 64,
+            "python_bitness": 64,
+            "originpro_version": "1.1.15",
+            "runtime_version": 10.100178,
+            "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
+            "license_available": true
+          },
+          "panels": 2,
+          "layers": 6,
+          "visible_rows": 54
+        }
+      },
+      "blocking_observations": [],
+      "per_chart_opju": {
+        "states": [
+          "default",
+          "representative edited"
+        ],
+        "sha256": "8fb94ced90a1dc1d194167c972271228a62543adc67eef2f28112fc00eff1050",
+        "size": 237183,
+        "fresh_reopen_identical": true
+      }
+    }
+  ],
+  "evidence_gaps": [],
+  "qualification": {
+    "evidence_status": "synthetic_origin_reference_pending_human",
+    "source_build_identity": {
+      "scope_version": "visual29-structural-synthetic-rendering-v1",
+      "digest_algorithm": "git-blob-framed-sha256-v1",
+      "git_commit": "398d87553eff205bed03ad07be03feb5149ac11a",
+      "source_sha256": "aa300318c4bfb269f6ef0aacf087bc18af0e3badfe54d0a319d164b8bbcf2b1d"
+    },
+    "blocking_observations": [],
+    "human_visual_signature": {
+      "status": "pending",
+      "reviewer": null,
+      "signed_at": null
+    },
+    "decision": "NO-GO"
+  },
+  "audit_conclusion": "three prior data gaps are covered by explicitly labelled D-grade synthetic Origin references; human visual sign-off remains pending"
+}
