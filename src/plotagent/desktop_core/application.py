@@ -629,7 +629,11 @@ class DesktopApplication:
                 "PROJECT_DELETE_UNSAFE",
                 "Project workspace was outside the managed projects directory.",
             ) from None
-        if workspace == projects_root or len(relative_workspace.parts) != 1 or not workspace.is_dir():
+        if (
+            workspace == projects_root
+            or len(relative_workspace.parts) != 1
+            or not workspace.is_dir()
+        ):
             raise RpcServiceError(
                 "PROJECT_DELETE_UNSAFE",
                 "Project workspace was not a removable managed directory.",
