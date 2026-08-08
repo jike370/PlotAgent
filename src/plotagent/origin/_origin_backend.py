@@ -91,6 +91,8 @@ _DENSE_X_TITLE_LABEL = "_DENSE_X_TITLE"
 _SIZE_KEY_TITLE_LABEL = "_SIZE_KEY_TITLE"
 _SIZE_KEY_MARKER_PREFIX = "_SIZE_KEY_MARKER_"
 _SIZE_KEY_VALUE_PREFIX = "_SIZE_KEY_VALUE_"
+_RISK_TABLE_GROUP_PREFIX = "_RISK_GROUP_"
+_RISK_TABLE_VALUE_PREFIX = "_RISK_VALUE_"
 _COLOR_SCALE_OBJECT_TYPE = 13
 _ELLIPSE_OBJECT_TYPE = 9
 
@@ -149,6 +151,16 @@ class _SizeKeyLayout:
     @property
     def objects(self) -> tuple[_PageRect, ...]:
         return (self.title, *self.markers, *self.values)
+
+
+@dataclass(frozen=True, slots=True)
+class _RiskTableLabel:
+    name: str
+    text: str
+    left: float
+    top: float
+    font_size_pt: float
+    color: str
 
 
 def _finite_float(value: Any, fallback: float | None = None) -> float:
@@ -466,6 +478,12 @@ def _legend_entries(
                     )
                 physical_index += count
             samples = tuple(refs)
+            if plot.native_kind in {"survival_band", "risk_table"}:
+                # Confidence bands and at-risk rows are inseparable components
+                # of the labelled survival series, not independent legend rows.
+                # Physical indexes still advance above so subsequent samples
+                # remain bound to the correct native plot.
+                continue
             if plot.label:
                 key = (signature, plot.label)
                 existing_index = entry_indexes.get(key)
@@ -520,7 +538,12 @@ def _legend_labels(graph: OriginGraphObject) -> list[str]:
     """Return one legend row per stable scientific series label."""
 
     return list(
-        dict.fromkeys(plot.label for layer in graph.layers for plot in layer.plots if plot.label)
+        dict.fromkeys(
+            plot.label
+            for layer in graph.layers
+            for plot in layer.plots
+            if plot.label and plot.native_kind not in {"survival_band", "risk_table"}
+        )
     )
 
 
@@ -638,6 +661,100 @@ def _frame_page_bounds(
         frame.width_mm / graph_plan.page_width_mm * page_width,
         frame.height_mm / graph_plan.page_height_mm * page_height,
     )
+
+
+def _risk_table_labels(
+    graph_plan: OriginGraphObject,
+    layer_plan: OriginLayerPlan,
+    data_objects: tuple[OriginDataObject, ...],
+    *,
+    page_width: float,
+    page_height: float,
+) -> tuple[_RiskTableLabel, ...]:
+    """Lay out supplied at-risk counts as native editable page text.
+
+    Risk counts remain linked in their typed Origin worksheets.  The scatter
+    primitive is retained (hidden) for that data link, while this deterministic
+    layout turns the same supplied values into the conventional KM risk table.
+    No survival or risk statistic is calculated here.
+    """
+
+    risk_plots = tuple(plot for plot in layer_plan.plots if plot.native_kind == "risk_table")
+    if not risk_plots:
+        return ()
+    if page_width <= 0 or page_height <= 0:
+        raise NativeOriginError("Origin page dimensions must be positive")
+    x_axis = next(axis for axis in layer_plan.axes if axis.orientation == "x")
+    x_span = x_axis.maximum - x_axis.minimum
+    if not math.isfinite(x_span) or x_span <= 0:
+        raise NativeOriginError("risk-table X axis must have a finite positive span")
+    frame = _native_layer_frame(graph_plan, layer_plan)
+    frame_left = frame.left_mm / graph_plan.page_width_mm * page_width
+    frame_top = frame.top_mm / graph_plan.page_height_mm * page_height
+    frame_width = frame.width_mm / graph_plan.page_width_mm * page_width
+    frame_height = frame.height_mm / graph_plan.page_height_mm * page_height
+    x_pixels_per_mm = page_width / graph_plan.page_width_mm
+    y_pixels_per_mm = page_height / graph_plan.page_height_mm
+    font_size_pt = max(graph_plan.font_size_pt - 1.0, 5.0)
+    text_height = font_size_pt * 25.4 / 72.0 * 1.15 * y_pixels_per_mm
+    row_height = frame_height / len(risk_plots)
+    gap = max(1.5 * x_pixels_per_mm, 2.0)
+    data_by_id = {item.object_id: item for item in data_objects}
+    labels: list[_RiskTableLabel] = []
+    for row_index, plot in enumerate(risk_plots):
+        data = data_by_id.get(plot.data_object_id)
+        if data is None:
+            raise NativeOriginError(f"risk-table data is missing for {plot.plot_id}")
+        columns_by_role = {column.role: column for column in data.columns}
+        time_column = columns_by_role.get("time")
+        count_column = columns_by_role.get("risk_count")
+        if time_column is None or count_column is None:
+            raise NativeOriginError(f"risk-table roles are incomplete for {plot.plot_id}")
+        if len(time_column.values) != len(count_column.values):
+            raise NativeOriginError(f"risk-table columns differ in length for {plot.plot_id}")
+        row_center = frame_top + (row_index + 0.5) * row_height
+        group_text = _safe_legend_label(plot.label or f"Series {row_index + 1}")
+        group_width = _text_width_mm(group_text, font_size_pt) * x_pixels_per_mm
+        labels.append(
+            _RiskTableLabel(
+                name=f"{_RISK_TABLE_GROUP_PREFIX}{row_index:02d}",
+                text=group_text,
+                left=max(frame_left - group_width - gap, 0.0),
+                top=max(row_center - text_height / 2.0, 0.0),
+                font_size_pt=font_size_pt,
+                color="#000000",
+            )
+        )
+        for value_index, (time_value, count_value) in enumerate(
+            zip(time_column.values, count_column.values, strict=True)
+        ):
+            if isinstance(time_value, bool) or not isinstance(time_value, (int, float)):
+                raise NativeOriginError(f"risk-table time is not numeric for {plot.plot_id}")
+            numeric_time = float(time_value)
+            if not math.isfinite(numeric_time):
+                raise NativeOriginError(f"risk-table time is not finite for {plot.plot_id}")
+            if isinstance(count_value, float) and count_value.is_integer():
+                count_text = str(int(count_value))
+            else:
+                count_text = str(count_value)
+            count_text = _safe_legend_label(count_text)
+            count_width = _text_width_mm(count_text, font_size_pt) * x_pixels_per_mm
+            center = frame_left + (numeric_time - x_axis.minimum) / x_span * frame_width
+            left = min(
+                max(center - count_width / 2.0, 0.0),
+                max(page_width - count_width, 0.0),
+            )
+            labels.append(
+                _RiskTableLabel(
+                    name=f"{_RISK_TABLE_VALUE_PREFIX}{row_index:02d}_{value_index:03d}",
+                    text=count_text,
+                    left=left,
+                    top=max(row_center - text_height / 2.0, 0.0),
+                    font_size_pt=font_size_pt,
+                    color=plot.color.value if plot.color is not None else "#000000",
+                )
+            )
+    return tuple(labels)
 
 
 def _object_page_rect(page_object: Any) -> _PageRect:
@@ -1605,6 +1722,95 @@ class OriginProBackend:
                 top=layout.values[index].top,
             )
 
+    def _write_risk_table(
+        self,
+        graph: Any,
+        graph_plan: OriginGraphObject,
+        layer_plan: OriginLayerPlan,
+        layer: Any,
+    ) -> None:
+        entries = _risk_table_labels(
+            graph_plan,
+            layer_plan,
+            self._active_plan.data_objects,
+            page_width=_finite_float(graph.get_float("width")),
+            page_height=_finite_float(graph.get_float("height")),
+        )
+        if not entries:
+            return
+        for native_plot in layer.plot_list():
+            native_plot.set_int("show", 0)
+        layer.set_int("y.showAxes", 0)
+        layer.set_int("y.showLabels", 0)
+        layer.set_int("y.showlabel", 0)
+        y_title = layer.label("yl")
+        if y_title is not None:
+            y_title.set_int("show", 0)
+        page_width = _finite_float(graph.get_float("width"))
+        page_height = _finite_float(graph.get_float("height"))
+        for entry in entries:
+            label = layer.add_label(entry.text)
+            if label is None:
+                raise NativeOriginError(f"could not create native risk label {entry.name}")
+            label.name = entry.name
+            label.text = entry.text
+            label.set_float("fsize", entry.font_size_pt)
+            label.set_int("background", 0)
+            label.set_int("show", 1)
+            label.color = entry.color
+            _set_page_position(
+                label,
+                page_width=page_width,
+                page_height=page_height,
+                left=entry.left,
+                top=entry.top,
+            )
+
+    def _assert_risk_table(
+        self,
+        graph: Any,
+        graph_plan: OriginGraphObject,
+        layer_plan: OriginLayerPlan,
+        layer: Any,
+    ) -> None:
+        entries = _risk_table_labels(
+            graph_plan,
+            layer_plan,
+            self._active_plan.data_objects,
+            page_width=_finite_float(graph.get_float("width")),
+            page_height=_finite_float(graph.get_float("height")),
+        )
+        if not entries:
+            return
+        if any(native_plot.get_int("show") != 0 for native_plot in layer.plot_list()):
+            raise NativeOriginError(
+                f"native risk-table source plots are visible for {layer_plan.layer_id}"
+            )
+        if (
+            layer.get_int("y.showAxes") != 0
+            or layer.get_int("y.showLabels") != 0
+            or layer.get_int("y.showlabel") != 0
+        ):
+            raise NativeOriginError(
+                f"native risk-table Y axis is visible for {layer_plan.layer_id}"
+            )
+        for entry in entries:
+            label = layer.label(entry.name)
+            if (
+                label is None
+                or label.text != entry.text
+                or label.get_int("attach") != 1
+                or label.get_int("show") != 1
+                or label.get_int("background") != 0
+                or tuple(label.color) != _hex_rgb(entry.color)
+                or not math.isclose(label.get_float("fsize"), entry.font_size_pt, abs_tol=1e-9)
+                or not math.isclose(label.get_float("left"), entry.left, abs_tol=3.0)
+                or not math.isclose(label.get_float("top"), entry.top, abs_tol=3.0)
+            ):
+                raise NativeOriginError(
+                    f"native risk-table label differs for {layer_plan.layer_id}: {entry.name}"
+                )
+
     def _configure_layer_frame(
         self, graph: OriginGraphObject, layer_plan: OriginLayerPlan, layer: Any
     ) -> None:
@@ -1796,6 +2002,8 @@ class OriginProBackend:
                     template_y_style,
                     native_frame.width_mm,
                 )
+            if any(plot.native_kind == "risk_table" for plot in layer_plan.plots):
+                self._write_risk_table(graph, graph_plan, layer_plan, layer)
             self._write_panel_label(layer, layer_plan, graph_plan.font_size_pt)
             if layer_index == 0:
                 title = layer.label(_PLOT_TITLE_LABEL)
@@ -2244,6 +2452,8 @@ class OriginProBackend:
                         raise NativeOriginError(
                             f"native axis crossing differs for {axis_plan.axis_id}"
                         )
+                if any(plot.native_kind == "risk_table" for plot in layer_plan.plots):
+                    self._assert_risk_table(graph, graph_plan, layer_plan, layer)
                 overlays_previous = any(
                     previous.left_mm == layer_plan.left_mm
                     and previous.top_mm == layer_plan.top_mm

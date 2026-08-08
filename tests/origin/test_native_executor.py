@@ -28,6 +28,7 @@ from plotagent.origin._origin_backend import (
     _place_page_title,
     _primitive_color,
     _read_template_y_axis_style,
+    _risk_table_labels,
     _safe_legend_label,
     _size_key_layout,
     _style_annotation_label,
@@ -96,6 +97,78 @@ def test_hidden_matrix_legend_does_not_resolve_worksheet_role_bindings() -> None
 
     assert graph.legend_visible is False
     assert _visible_legend_entries(graph, plan.data_objects) == ()
+
+
+def test_survival_components_do_not_duplicate_origin_legend_rows() -> None:
+    plan = _plan("K01")
+    graph = plan.graph_objects[0]
+    layer = graph.layers[0]
+    base = layer.plots[0].model_copy(update={"label": "Cohort A"})
+    graph = graph.model_copy(
+        update={
+            "layers": (
+                layer.model_copy(
+                    update={
+                        "plots": (
+                            base.model_copy(update={"native_kind": "survival_step"}),
+                            base.model_copy(update={"native_kind": "survival_band"}),
+                            base.model_copy(update={"native_kind": "risk_table"}),
+                        )
+                    }
+                ),
+            )
+        }
+    )
+
+    assert _legend_labels(graph) == ["Cohort A"]
+    entries = _legend_entries(graph, plan.data_objects)
+    assert [entry.label for entry in entries] == ["Cohort A"]
+    assert _legend_text(entries) == r"\l(1, style:l) Cohort A"
+
+
+def test_risk_table_layout_uses_supplied_counts_and_stable_group_rows() -> None:
+    plan = _plan("K01")
+    graph = plan.graph_objects[0]
+    layer = graph.layers[0]
+    source = plan.data_objects[0]
+    x_column, y_column = source.columns[:2]
+    data = source.model_copy(
+        update={
+            "columns": (
+                x_column.model_copy(update={"role": "time"}),
+                y_column.model_copy(update={"role": "risk_count"}),
+            )
+        }
+    )
+    plot = layer.plots[0].model_copy(
+        update={
+            "native_kind": "risk_table",
+            "label": "Cohort A",
+            "role_columns": (
+                layer.plots[0].role_columns[0].model_copy(update={"role": "time"}),
+                layer.plots[0].role_columns[1].model_copy(update={"role": "risk_count"}),
+            ),
+        }
+    )
+    risk_layer = layer.model_copy(update={"plots": (plot,)})
+    graph = graph.model_copy(update={"layers": (risk_layer,)})
+
+    labels = _risk_table_labels(
+        graph,
+        risk_layer,
+        (data,),
+        page_width=890.0,
+        page_height=600.0,
+    )
+
+    assert labels[0].text == "Cohort A"
+    assert [label.text for label in labels[1:]] == [
+        str(int(value)) if isinstance(value, float) and value.is_integer() else str(value)
+        for value in y_column.values
+    ]
+    assert len({label.name for label in labels}) == len(labels)
+    assert len({label.top for label in labels}) == 1
+    assert labels[0].left < min(label.left for label in labels[1:])
 
 
 def test_duplicate_physical_styles_share_one_origin_legend_row() -> None:
