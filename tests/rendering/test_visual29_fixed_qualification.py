@@ -143,7 +143,9 @@ def test_render_manifest_keeps_human_signature_pending_and_gap_blocking() -> Non
     qualification = manifest["qualification"]
     assert qualification["decision"] == "NO-GO"
     assert qualification["human_visual_signature"]["status"] == "pending"
-    assert qualification["source_build_identity"]["scope_version"] == "visual29-fixed-rendering-v1"
+    source_identity = qualification["source_build_identity"]
+    assert source_identity["scope_version"] == "visual29-fixed-rendering-v2"
+    assert source_identity["digest_algorithm"] == "git-blob-framed-sha256-v1"
     s61 = next(item for item in manifest["cases"] if item["chart_type_id"] == "S61")
     k06 = next(item for item in manifest["cases"] if item["chart_type_id"] == "K06")
     for state in k06["states"].values():

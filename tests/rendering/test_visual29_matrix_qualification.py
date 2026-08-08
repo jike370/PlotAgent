@@ -72,6 +72,9 @@ def test_visual29_matrix_frozen_same_source_manifest() -> None:
     assert manifest["qualification"]["human_visual_signature"]["status"] == "pending"
     assert manifest["qualification"]["decision"] == "NO-GO"
     qualification = manifest["qualification"]
+    identity = qualification["source_build_identity"]
+    assert identity["scope_version"] == "visual29-matrix-rendering-v2"
+    assert identity["digest_algorithm"] == "git-blob-framed-sha256-v1"
     blockers = qualification["blocking_observations"]
     assert qualification["evidence_status"] == "fresh_render_pending_human"
     assert {item["chart_type_id"] for item in blockers} == set(GAPS)

@@ -24,7 +24,6 @@ import hashlib
 import html
 import json
 import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -79,12 +78,16 @@ from plotagent.origin.constants import (
 )
 from plotagent.origin.models import OriginExportSuccess
 from plotagent.rendering import PlotResolver, RenderDataStore, RenderTable, ResolvedPlot
+from scripts.visual_source_identity import (
+    assert_scope_clean,
+    source_build_identity,
+)
 from tests.contracts.helpers import profile, style
 
 ORIGIN = Path(r"D:\origin")
 OUTPUT = REPOSITORY / "build" / "visual-audit" / "seq20-origin-baseline"
 FIXTURES = REPOSITORY / "tests" / "fixtures" / "visual_regression" / "seq20"
-SOURCE_SCOPE_VERSION = "seq20-rendering-v1"
+SOURCE_SCOPE_VERSION = "seq20-rendering-v2"
 SOURCE_SCOPE = (
     Path("pyproject.toml"),
     Path("src/plotagent/charts"),
@@ -155,51 +158,6 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
-
-
-def _source_files() -> tuple[Path, ...]:
-    files: list[Path] = []
-    for relative in SOURCE_SCOPE:
-        path = REPOSITORY / relative
-        if path.is_file():
-            files.append(path)
-        elif path.is_dir():
-            files.extend(
-                candidate
-                for candidate in path.rglob("*")
-                if candidate.is_file()
-                and "__pycache__" not in candidate.parts
-                and candidate.suffix not in {".pyc", ".pyo"}
-            )
-        else:
-            raise RuntimeError(f"missing SEQ-20 source identity path: {relative.as_posix()}")
-    return tuple(sorted(files, key=lambda path: path.relative_to(REPOSITORY).as_posix()))
-
-
-def _source_build_sha256() -> str:
-    digest = hashlib.sha256()
-    for path in _source_files():
-        relative = path.relative_to(REPOSITORY).as_posix().encode("utf-8")
-        digest.update(len(relative).to_bytes(4, "big"))
-        digest.update(relative)
-        content = path.read_bytes()
-        digest.update(len(content).to_bytes(8, "big"))
-        digest.update(content)
-    return digest.hexdigest()
-
-
-def _source_git_commit() -> str:
-    result = subprocess.run(
-        ("git", "rev-parse", "HEAD"),
-        cwd=REPOSITORY,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    commit = result.stdout.strip().lower()
-    if len(commit) != 40 or any(character not in "0123456789abcdef" for character in commit):
-        raise RuntimeError("git rev-parse did not return a full commit identity")
-    return commit
 
 
 def _text(value: str) -> SafeRichText:
@@ -729,6 +687,7 @@ def _build_index(batch: int, cases: tuple[AuditCase, ...], batch_dir: Path) -> N
 
 
 def _render_batch(batch: int, cases: tuple[AuditCase, ...], output: Path, fixtures: Path) -> dict[str, Any]:
+    assert_scope_clean(REPOSITORY, SOURCE_SCOPE)
     batch_dir = output / f"batch-{batch}"
     batch_dir.mkdir(parents=True, exist_ok=True)
     states: dict[str, list[ResolvedPlot]] = {"default": [], "edited": []}
@@ -816,11 +775,11 @@ def _render_batch(batch: int, cases: tuple[AuditCase, ...], output: Path, fixtur
         case_entries[case.case_id]["comparison_default_sha256"] = _sha256(case_dir / "comparison-default.png")
         case_entries[case.case_id]["comparison_edited_sha256"] = _sha256(case_dir / "comparison-edited.png")
 
-    source_build_identity = {
-        "scope_version": SOURCE_SCOPE_VERSION,
-        "git_commit": _source_git_commit(),
-        "source_sha256": _source_build_sha256(),
-    }
+    source_identity = source_build_identity(
+        REPOSITORY,
+        SOURCE_SCOPE,
+        scope_version=SOURCE_SCOPE_VERSION,
+    )
     manifest = {
         "schema_version": "1.1",
         "stage": "SEQ-20",
@@ -843,7 +802,7 @@ def _render_batch(batch: int, cases: tuple[AuditCase, ...], output: Path, fixtur
         "exports": export_entries,
         "cases": [case_entries[case.case_id] for case in cases],
         "qualification": {
-            "source_build_identity": source_build_identity,
+            "source_build_identity": source_identity,
             "blocking_observations": list(BLOCKING_OBSERVATIONS),
             "human_visual_signature": {
                 "status": "pending",

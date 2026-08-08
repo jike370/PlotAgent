@@ -100,6 +100,9 @@ def test_seq20_frozen_same_source_evidence_manifest(batch: int) -> None:
     qualification = manifest["qualification"]
     assert qualification["blocking_observations"] == []
     assert qualification["human_visual_signature"]["status"] == "pending"
-    assert len(qualification["source_build_identity"]["source_sha256"]) == 64
+    source_identity = qualification["source_build_identity"]
+    assert source_identity["scope_version"] == "seq20-rendering-v2"
+    assert source_identity["digest_algorithm"] == "git-blob-framed-sha256-v1"
+    assert len(source_identity["source_sha256"]) == 64
     assert "automated P0 blockers closed" in manifest["audit_conclusion"]
     assert "visual qualification passed" not in manifest["audit_conclusion"]

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from scripts.visual_source_identity import DIGEST_ALGORITHM, git_blob_framed_sha256
+
 REPOSITORY = Path(__file__).resolve().parents[2]
 FIXTURES = REPOSITORY / "tests" / "fixtures" / "visual_regression" / "seq20"
-SOURCE_SCOPE_VERSION = "seq20-rendering-v1"
+SOURCE_SCOPE_VERSION = "seq20-rendering-v2"
 SOURCE_SCOPE = (
     Path("pyproject.toml"),
     Path("src/plotagent/charts"),
@@ -29,35 +30,8 @@ class GateResult:
     failures: tuple[str, ...]
 
 
-def _source_files(repository: Path) -> tuple[Path, ...]:
-    files: list[Path] = []
-    for relative in SOURCE_SCOPE:
-        path = repository / relative
-        if path.is_file():
-            files.append(path)
-        elif path.is_dir():
-            files.extend(
-                candidate
-                for candidate in path.rglob("*")
-                if candidate.is_file()
-                and "__pycache__" not in candidate.parts
-                and candidate.suffix not in {".pyc", ".pyo"}
-            )
-        else:
-            raise AssertionError(f"missing SEQ-20 source identity path: {relative.as_posix()}")
-    return tuple(sorted(files, key=lambda path: path.relative_to(repository).as_posix()))
-
-
 def _source_build_sha256(repository: Path) -> str:
-    digest = hashlib.sha256()
-    for path in _source_files(repository):
-        relative = path.relative_to(repository).as_posix().encode("utf-8")
-        digest.update(len(relative).to_bytes(4, "big"))
-        digest.update(relative)
-        content = path.read_bytes()
-        digest.update(len(content).to_bytes(8, "big"))
-        digest.update(content)
-    return digest.hexdigest()
+    return git_blob_framed_sha256(repository, SOURCE_SCOPE)
 
 
 def _load_manifests() -> tuple[dict[str, Any], ...]:
@@ -94,6 +68,8 @@ def _evaluate_gate(
         else:
             if identity.get("scope_version") != SOURCE_SCOPE_VERSION:
                 failures.append(f"batch-{batch}:SOURCE_SCOPE_VERSION_MISMATCH")
+            if identity.get("digest_algorithm") != DIGEST_ALGORITHM:
+                failures.append(f"batch-{batch}:SOURCE_DIGEST_ALGORITHM_MISMATCH")
             git_commit = identity.get("git_commit")
             if not isinstance(git_commit, str) or _GIT_COMMIT.fullmatch(git_commit) is None:
                 failures.append(f"batch-{batch}:GIT_COMMIT_INVALID")
@@ -127,6 +103,7 @@ def _qualified_manifest(source_sha256: str) -> dict[str, Any]:
         "qualification": {
             "source_build_identity": {
                 "scope_version": SOURCE_SCOPE_VERSION,
+                "digest_algorithm": DIGEST_ALGORITHM,
                 "git_commit": "1" * 40,
                 "source_sha256": source_sha256,
             },

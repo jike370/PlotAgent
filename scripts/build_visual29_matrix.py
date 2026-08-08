@@ -23,7 +23,6 @@ import hashlib
 import html
 import json
 import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -73,12 +72,16 @@ from plotagent.origin.constants import (
 )
 from plotagent.origin.models import OriginExportSuccess
 from plotagent.rendering import PlotResolver, RenderDataStore, RenderTable, ResolvedPlot
+from scripts.visual_source_identity import (
+    assert_scope_clean,
+    source_build_identity,
+)
 from tests.contracts.helpers import profile, style
 
 ORIGIN = Path(r"D:\origin")
 OUTPUT = REPOSITORY / "build" / "visual-audit" / "visual29-matrix"
 FIXTURES = REPOSITORY / "tests" / "fixtures" / "visual_regression" / "visual29-matrix"
-SOURCE_SCOPE_VERSION = "visual29-matrix-rendering-v1"
+SOURCE_SCOPE_VERSION = "visual29-matrix-rendering-v2"
 SOURCE_SCOPE = (
     Path("pyproject.toml"),
     Path("src/plotagent/charts"),
@@ -269,47 +272,6 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
-
-
-def _source_files() -> tuple[Path, ...]:
-    files: list[Path] = []
-    for relative in SOURCE_SCOPE:
-        path = REPOSITORY / relative
-        if path.is_file():
-            files.append(path)
-        elif path.is_dir():
-            files.extend(
-                candidate
-                for candidate in path.rglob("*")
-                if candidate.is_file()
-                and "__pycache__" not in candidate.parts
-                and candidate.suffix not in {".pyc", ".pyo"}
-            )
-        else:
-            raise RuntimeError(f"missing source identity path: {relative.as_posix()}")
-    return tuple(sorted(files, key=lambda path: path.relative_to(REPOSITORY).as_posix()))
-
-
-def _source_build_sha256() -> str:
-    digest = hashlib.sha256()
-    for path in _source_files():
-        relative = path.relative_to(REPOSITORY).as_posix().encode("utf-8")
-        digest.update(len(relative).to_bytes(4, "big"))
-        digest.update(relative)
-        content = path.read_bytes()
-        digest.update(len(content).to_bytes(8, "big"))
-        digest.update(content)
-    return digest.hexdigest()
-
-
-def _source_git_commit() -> str:
-    result = subprocess.run(
-        ("git", "rev-parse", "HEAD"), cwd=REPOSITORY, check=True, capture_output=True, text=True
-    )
-    commit = result.stdout.strip().lower()
-    if len(commit) != 40 or any(character not in "0123456789abcdef" for character in commit):
-        raise RuntimeError("git rev-parse did not return a full commit identity")
-    return commit
 
 
 def _text(value: str) -> SafeRichText:
@@ -708,6 +670,7 @@ def _fresh_qualification(source_identity: dict[str, str]) -> dict[str, Any]:
 
 
 def _render(output: Path, fixtures: Path) -> dict[str, Any]:
+    assert_scope_clean(REPOSITORY, SOURCE_SCOPE)
     states: dict[str, list[ResolvedPlot]] = {"default": [], "edited": []}
     case_entries: dict[str, dict[str, Any]] = {}
     for case in CASES:
@@ -816,11 +779,11 @@ def _render(output: Path, fixtures: Path) -> dict[str, Any]:
         "cases": [case_entries[case.case_id] for case in CASES],
         "evidence_gaps": gaps,
         "qualification": _fresh_qualification(
-            {
-                "scope_version": SOURCE_SCOPE_VERSION,
-                "git_commit": _source_git_commit(),
-                "source_sha256": _source_build_sha256(),
-            }
+            source_build_identity(
+                REPOSITORY,
+                SOURCE_SCOPE,
+                scope_version=SOURCE_SCOPE_VERSION,
+            )
         ),
         "audit_conclusion": (
             "four same-source evidence cases generated; four cases withheld for missing A/C evidence; "
@@ -840,13 +803,17 @@ def _refresh_audit_metadata(output: Path, fixtures: Path) -> dict[str, Any]:
     if not manifest_path.is_file():
         raise RuntimeError("render evidence is missing; run --phase render first")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    source_identity = manifest["qualification"]["source_build_identity"]
-    current_source_sha256 = _source_build_sha256()
-    if source_identity.get("source_sha256") != current_source_sha256:
+    manifest_source_identity = manifest["qualification"]["source_build_identity"]
+    current_source_identity = source_build_identity(
+        REPOSITORY,
+        SOURCE_SCOPE,
+        scope_version=SOURCE_SCOPE_VERSION,
+    )
+    if manifest_source_identity.get("source_sha256") != current_source_identity["source_sha256"]:
         raise RuntimeError(
             "render evidence source identity is stale; run --phase render before audit"
         )
-    manifest["qualification"] = _fresh_qualification(source_identity)
+    manifest["qualification"] = _fresh_qualification(manifest_source_identity)
     manifest["audit_conclusion"] = (
         "four same-source evidence cases generated; four cases withheld for missing A/C evidence; "
         "automated P0 blockers closed; human visual sign-off pending; visual qualification not passed"

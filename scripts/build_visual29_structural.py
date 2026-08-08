@@ -16,7 +16,6 @@ import hashlib
 import html
 import json
 import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -54,12 +53,17 @@ from plotagent.origin.constants import (
 )
 from plotagent.origin.models import OriginExportSuccess
 from plotagent.rendering import PlotResolver, RenderDataStore, RenderTable
+from scripts.visual_source_identity import (
+    assert_scope_clean,
+    git_blob_framed_sha256,
+    source_build_identity,
+)
 from tests.rendering.fixture_factory import build_plot_and_store
 
 ORIGIN = Path(r"D:\origin")
 OUTPUT = REPOSITORY / "build" / "visual-audit" / "visual29-structural"
 FIXTURES = REPOSITORY / "tests" / "fixtures" / "visual_regression" / "visual29-structural"
-SOURCE_SCOPE_VERSION = "visual29-structural-rendering-v1"
+SOURCE_SCOPE_VERSION = "visual29-structural-rendering-v2"
 SOURCE_SCOPE = (
     Path("pyproject.toml"),
     Path("src/plotagent/charts"),
@@ -303,47 +307,8 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _source_files() -> tuple[Path, ...]:
-    files: list[Path] = []
-    for relative in SOURCE_SCOPE:
-        path = REPOSITORY / relative
-        if path.is_file():
-            files.append(path)
-        elif path.is_dir():
-            files.extend(
-                candidate
-                for candidate in path.rglob("*")
-                if candidate.is_file()
-                and "__pycache__" not in candidate.parts
-                and candidate.suffix not in {".pyc", ".pyo"}
-            )
-        else:
-            raise RuntimeError(f"missing source identity path: {relative.as_posix()}")
-    return tuple(sorted(files, key=lambda path: path.relative_to(REPOSITORY).as_posix()))
-
-
-def _source_build_sha256() -> str:
-    digest = hashlib.sha256()
-    for path in _source_files():
-        relative = path.relative_to(REPOSITORY).as_posix().encode("utf-8")
-        content = path.read_bytes()
-        digest.update(len(relative).to_bytes(4, "big"))
-        digest.update(relative)
-        digest.update(len(content).to_bytes(8, "big"))
-        digest.update(content)
-    return digest.hexdigest()
-
-
-def _source_git_commit() -> str:
-    source_paths = tuple(path.as_posix() for path in SOURCE_SCOPE)
-    result = subprocess.run(
-        ("git", "log", "-1", "--format=%H", "--", *source_paths),
-        cwd=REPOSITORY,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip().lower()
+def _source_build_sha256(commit: str = "HEAD") -> str:
+    return git_blob_framed_sha256(REPOSITORY, SOURCE_SCOPE, commit=commit)
 
 
 def _text(value: str) -> SafeRichText:
@@ -745,11 +710,11 @@ def _fresh_qualification(source_identity: dict[str, str]) -> dict[str, Any]:
 
 
 def _write_manifest(entries: list[dict[str, Any]], output: Path, fixtures: Path) -> dict[str, Any]:
-    source_identity = {
-        "scope_version": SOURCE_SCOPE_VERSION,
-        "git_commit": _source_git_commit(),
-        "source_sha256": _source_build_sha256(),
-    }
+    source_identity = source_build_identity(
+        REPOSITORY,
+        SOURCE_SCOPE,
+        scope_version=SOURCE_SCOPE_VERSION,
+    )
     runtime_blockers = [
         blocker for entry in entries for blocker in entry.get("blocking_observations", [])
     ]
@@ -859,6 +824,7 @@ def main() -> None:
             print(f"anchored {case.case_id}", flush=True)
     entries: list[dict[str, Any]] = []
     if args.phase in {"render", "all"}:
+        assert_scope_clean(REPOSITORY, SOURCE_SCOPE)
         source_sha256 = _source_build_sha256()
         # A complete manifest is only written for the complete lane.  Per-case
         # runs are useful for diagnosis but cannot masquerade as qualification.

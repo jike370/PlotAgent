@@ -212,9 +212,20 @@
   ],
   "qualification": {
     "source_build_identity": {
-      "scope_version": "seq20-rendering-v1",
-      "git_commit": "9991ec7bb50f39f0e27dafd933f6f093929cad3d",
-      "source_sha256": "4401dd73fec1c54692685aed575dcf6f81a083e818b91f8ac73464cdc814ef41"
+      "scope_version": "seq20-rendering-v2",
+      "digest_algorithm": "git-blob-framed-sha256-v1",
+      "git_commit": "9a07602f028f1b34a5ae53d742066d6e2b7b61d0",
+      "source_sha256": "59dc758515f2746236682d4066fea814e6ef35f28b0135eff170993115fb8217"
+    },
+    "metadata_refresh_reason": {
+      "code": "SOURCE_IDENTITY_CANONICALIZED",
+      "previous_source_sha256": "4401dd73fec1c54692685aed575dcf6f81a083e818b91f8ac73464cdc814ef41",
+      "source_scope_diff": {
+        "base_commit": "9a07602f028f1b34a5ae53d742066d6e2b7b61d0",
+        "verified_through_commit": "5122455650e17ce9c87e7e404bd6e85ad4bc8081",
+        "status": "none"
+      },
+      "render_evidence_reused": true
     },
     "blocking_observations": [],
     "human_visual_signature": {

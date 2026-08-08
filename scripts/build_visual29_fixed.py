@@ -17,7 +17,6 @@ import hashlib
 import html
 import json
 import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -78,12 +77,16 @@ from plotagent.origin.models import OriginExportSuccess
 from plotagent.origin.native import materialize_primitive, native_primitives
 from plotagent.rendering import PlotResolver, RenderDataStore, RenderTable, ResolvedPlot
 from plotagent.rendering.matplotlib.adapter import MatplotlibRenderer
+from scripts.visual_source_identity import (
+    assert_scope_clean,
+    source_build_identity,
+)
 from tests.contracts.helpers import profile, style
 
 ORIGIN = Path(r"D:\origin")
 OUTPUT = REPOSITORY / "build" / "visual-audit" / "visual29-fixed"
 FIXTURES = REPOSITORY / "tests" / "fixtures" / "visual_regression" / "visual29-fixed"
-SOURCE_SCOPE_VERSION = "visual29-fixed-rendering-v1"
+SOURCE_SCOPE_VERSION = "visual29-fixed-rendering-v2"
 SOURCE_SCOPE = (
     Path("pyproject.toml"),
     Path("src/plotagent/charts"),
@@ -149,36 +152,6 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
-
-
-def _source_files() -> tuple[Path, ...]:
-    files: list[Path] = []
-    for relative in SOURCE_SCOPE:
-        path = REPOSITORY / relative
-        if path.is_file():
-            files.append(path)
-        elif path.is_dir():
-            files.extend(candidate for candidate in path.rglob("*") if candidate.is_file() and "__pycache__" not in candidate.parts and candidate.suffix not in {".pyc", ".pyo"})
-        else:
-            raise RuntimeError(f"missing source identity path: {relative.as_posix()}")
-    return tuple(sorted(files, key=lambda path: path.relative_to(REPOSITORY).as_posix()))
-
-
-def _source_build_sha256() -> str:
-    digest = hashlib.sha256()
-    for path in _source_files():
-        relative = path.relative_to(REPOSITORY).as_posix().encode("utf-8")
-        content = path.read_bytes()
-        digest.update(len(relative).to_bytes(4, "big"))
-        digest.update(relative)
-        digest.update(len(content).to_bytes(8, "big"))
-        digest.update(content)
-    return digest.hexdigest()
-
-
-def _source_git_commit() -> str:
-    result = subprocess.run(("git", "rev-parse", "HEAD"), cwd=REPOSITORY, check=True, capture_output=True, text=True)
-    return result.stdout.strip().lower()
 
 
 def _text(value: str) -> SafeRichText:
@@ -881,6 +854,7 @@ def _build_index() -> None:
 
 
 def _render() -> dict[str, Any]:
+    assert_scope_clean(REPOSITORY, SOURCE_SCOPE)
     states: dict[str, list[ResolvedPlot]] = {"default": [], "edited": []}
     case_entries: dict[str, dict[str, Any]] = {}
     for case in QUALIFIED_CASES:
@@ -975,7 +949,7 @@ def _render() -> dict[str, Any]:
         "exports": exports,
         "cases": [case_entries[case.case_id] for case in QUALIFIED_CASES],
         "evidence_gaps": evidence_gaps,
-        "qualification": {"source_build_identity": {"scope_version": SOURCE_SCOPE_VERSION, "git_commit": _source_git_commit(), "source_sha256": _source_build_sha256()}, "blocking_observations": [*MECHANICAL_BLOCKERS, *({"chart_type_id": item["chart_type_id"], "code": item["blocking_code"], "status": "open", "observation": item["reason"]} for item in evidence_gaps)], "human_visual_signature": {"status": "pending", "reviewer": None, "signed_at": None}, "decision": "NO-GO"},
+        "qualification": {"source_build_identity": source_build_identity(REPOSITORY, SOURCE_SCOPE, scope_version=SOURCE_SCOPE_VERSION), "blocking_observations": [*MECHANICAL_BLOCKERS, *({"chart_type_id": item["chart_type_id"], "code": item["blocking_code"], "status": "open", "observation": item["reason"]} for item in evidence_gaps)], "human_visual_signature": {"status": "pending", "reviewer": None, "signed_at": None}, "decision": "NO-GO"},
         "audit_conclusion": "same-source evidence generated for anchored cases; the remaining same-source evidence gap and human visual sign-off keep qualification NO-GO",
     }
     (OUTPUT / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")

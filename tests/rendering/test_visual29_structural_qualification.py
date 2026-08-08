@@ -129,7 +129,8 @@ def test_structural_lane_is_bound_to_source_and_waits_for_human_signature() -> N
     qualification = manifest["qualification"]
     identity = qualification["source_build_identity"]
 
-    assert identity["scope_version"] == "visual29-structural-rendering-v1"
+    assert identity["scope_version"] == "visual29-structural-rendering-v2"
+    assert identity["digest_algorithm"] == "git-blob-framed-sha256-v1"
     assert _GIT_COMMIT.fullmatch(identity["git_commit"]) is not None
     assert _SHA256.fullmatch(identity["source_sha256"]) is not None
     blockers = qualification["blocking_observations"]
