@@ -507,6 +507,15 @@ def _legend_entries(
     return tuple(entries)
 
 
+def _visible_legend_entries(
+    graph: OriginGraphObject,
+    data_objects: tuple[OriginDataObject, ...],
+) -> tuple[_LegendEntry, ...]:
+    """Resolve native legend samples only when the graph actually displays a legend."""
+
+    return _legend_entries(graph, data_objects) if graph.legend_visible else ()
+
+
 def _legend_labels(graph: OriginGraphObject) -> list[str]:
     """Return one legend row per stable scientific series label."""
 
@@ -1629,7 +1638,7 @@ class OriginProBackend:
         data_by_id = {
             object_id: self._data_sheets[object_id] for object_id in graph_plan.data_object_ids
         }
-        legend_entries = _legend_entries(graph_plan, self._active_plan.data_objects)
+        legend_entries = _visible_legend_entries(graph_plan, self._active_plan.data_objects)
         for layer_index, layer_plan in enumerate(graph_plan.layers):
             if layer_index == 0:
                 layer = graph[0]
@@ -2012,7 +2021,7 @@ class OriginProBackend:
                     f"view_mode={graph.obj.GetPageViewMode()}"
                 )
             template_y_style = _read_template_y_axis_style(graph[0])
-            legend_entries = _legend_entries(graph_plan, plan.data_objects)
+            legend_entries = _visible_legend_entries(graph_plan, plan.data_objects)
             for layer_index, (layer_plan, layer) in enumerate(
                 zip(graph_plan.layers, graph, strict=True)
             ):

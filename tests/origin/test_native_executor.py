@@ -32,6 +32,7 @@ from plotagent.origin._origin_backend import (
     _size_key_layout,
     _style_annotation_label,
     _tick_label_rotation,
+    _visible_legend_entries,
 )
 from plotagent.origin.native import (
     PROJECT_FOLDERS,
@@ -87,6 +88,14 @@ def test_nonfixed_legend_uses_native_samples_and_blocks_enhanced_text_injection(
         r"\x(0024)(system) next"
     )
     assert _safe_legend_label(unsafe).count("\\l(") == 0
+
+
+def test_hidden_matrix_legend_does_not_resolve_worksheet_role_bindings() -> None:
+    plan = _plan("K20")
+    graph = plan.graph_objects[0]
+
+    assert graph.legend_visible is False
+    assert _visible_legend_entries(graph, plan.data_objects) == ()
 
 
 def test_duplicate_physical_styles_share_one_origin_legend_row() -> None:
