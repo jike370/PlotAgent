@@ -26,6 +26,7 @@ from typing import Any, Literal, cast
 
 import numpy as np
 import pandas as pd
+from matplotlib.colors import to_hex
 from PIL import Image, ImageDraw, ImageOps
 from scipy.stats import gaussian_kde  # type: ignore[import-untyped]
 
@@ -74,6 +75,7 @@ from plotagent.origin.constants import (
 )
 from plotagent.origin.models import OriginExportSuccess
 from plotagent.rendering import PlotResolver, RenderDataStore, RenderTable, ResolvedPlot
+from plotagent.rendering.matplotlib.adapter import MatplotlibRenderer
 from tests.contracts.helpers import profile, style
 
 ORIGIN = Path(r"D:\origin")
@@ -138,12 +140,6 @@ MECHANICAL_BLOCKERS: tuple[dict[str, str], ...] = (
         "code": "NATIVE_COLORBAR_TICK_LABEL_COLLISION",
         "status": "open",
         "observation": "Origin O1 colorbar tick labels collide with the heatmap frame.",
-    },
-    {
-        "chart_type_id": "S61",
-        "code": "CONFUSION_CELL_LABELS_MISSING",
-        "status": "open",
-        "observation": "Matplotlib and Origin O1 omit the required per-cell count labels.",
     },
 )
 
@@ -600,18 +596,146 @@ def _build_plot(case: AuditCase, frame: pd.DataFrame, *, edited: bool) -> tuple[
     return plot, RenderDataStore(store)
 
 
-def _export_reopened_graphs(opju: Path, destinations: tuple[Path, ...]) -> None:
+def _annotation_text(annotation: Any) -> str:
+    if annotation.text is None:
+        return ""
+    return "".join(node.text for node in annotation.text.nodes)
+
+
+def _s61_annotation_contract(resolved: ResolvedPlot) -> tuple[dict[str, Any], ...]:
+    if resolved.plan.chart_type_id != "S61":
+        return ()
+    matrix_layers = tuple(
+        item for item in resolved.plan.layers if item.geometry == "matrix.confusion"
+    )
+    expected_count = sum(item.displayed_row_count for item in matrix_layers)
+    contract = tuple(
+        {
+            "annotation_id": item.annotation_id,
+            "text": _annotation_text(item),
+            "x": float(item.x) if item.x is not None else None,
+            "y": float(item.y) if item.y is not None else None,
+            "color": item.color.value.upper() if item.color is not None else None,
+        }
+        for item in resolved.plan.annotations
+        if item.kind == "text"
+    )
+    if not contract or len(contract) != expected_count or len({(item["x"], item["y"]) for item in contract}) != len(contract) or any(
+        item["x"] is None or item["y"] is None or item["color"] not in {"#000000", "#FFFFFF"}
+        for item in contract
+    ):
+        raise RuntimeError("S61 resolver did not produce positioned high-contrast cell labels")
+    return contract
+
+
+def _matplotlib_s61_annotation_evidence(resolved: ResolvedPlot) -> dict[str, Any]:
+    contract = _s61_annotation_contract(resolved)
+    figure = MatplotlibRenderer().build_figure(resolved)
+    try:
+        expected_keys = {
+            (item["text"], round(float(item["x"]), 12), round(float(item["y"]), 12))
+            for item in contract
+        }
+        rendered: list[dict[str, Any]] = []
+        for item in figure.axes[0].texts:
+            x, y = item.get_position()
+            key = (item.get_text(), round(float(x), 12), round(float(y), 12))
+            if key not in expected_keys:
+                continue
+            rendered.append(
+                {
+                    "text": item.get_text(),
+                    "x": float(x),
+                    "y": float(y),
+                    "color": to_hex(item.get_color(), keep_alpha=False).upper(),
+                    "horizontal_alignment": item.get_horizontalalignment(),
+                    "vertical_alignment": item.get_verticalalignment(),
+                }
+            )
+        expected = sorted(
+            (item["text"], item["x"], item["y"], item["color"]) for item in contract
+        )
+        actual = sorted(
+            (item["text"], item["x"], item["y"], item["color"]) for item in rendered
+        )
+        centered = all(
+            item["horizontal_alignment"] == "center" and item["vertical_alignment"] == "center"
+            for item in rendered
+        )
+        if actual != expected or not centered:
+            raise RuntimeError("Matplotlib did not consume the S61 cell-label contract")
+        return {
+            "contract_sha256": canonical_hash(cast(Any, list(contract))),
+            "expected_count": len(contract),
+            "rendered_count": len(rendered),
+            "text_position_match": True,
+            "color_match": True,
+            "center_alignment": True,
+            "consumed": True,
+        }
+    finally:
+        figure.clear()
+
+
+def _annotation_object_name(annotation_id: str) -> str:
+    return "PA_A_" + hashlib.sha256(annotation_id.encode("utf-8")).hexdigest()[:16]
+
+
+def _export_reopened_graphs(
+    opju: Path,
+    destinations: tuple[Path, ...],
+    resolved_plots: tuple[ResolvedPlot, ...],
+) -> tuple[dict[str, Any] | None, ...]:
     import originpro as op  # type: ignore[import-untyped]
 
     op.set_show(False)
     try:
         op.open(str(opju), readonly=True)
         graphs = list(op.pages("g"))
-        if len(graphs) != len(destinations):
+        if len(graphs) != len(destinations) or len(graphs) != len(resolved_plots):
             raise RuntimeError(f"fresh OPJU graph count {len(graphs)} != expected {len(destinations)}")
-        for graph, destination in zip(graphs, destinations, strict=True):
+        annotation_evidence: list[dict[str, Any] | None] = []
+        for graph, destination, resolved in zip(
+            graphs, destinations, resolved_plots, strict=True
+        ):
             destination.parent.mkdir(parents=True, exist_ok=True)
             graph.save_fig(str(destination), type="png", replace=True, width=1600)
+            contract = _s61_annotation_contract(resolved)
+            if not contract:
+                annotation_evidence.append(None)
+                continue
+            layer = graph[0]
+            inspected: list[dict[str, Any]] = []
+            for item in contract:
+                label = layer.label(_annotation_object_name(str(item["annotation_id"])))
+                if label is None:
+                    raise RuntimeError(f"fresh S61 label missing: {item['annotation_id']}")
+                expected_color_index = int(op.ocolor(str(item["color"])))
+                actual_color_index = int(label.get_int("color"))
+                if label.text != item["text"] or actual_color_index != expected_color_index:
+                    raise RuntimeError(
+                        f"fresh S61 label text/color mismatch: {item['annotation_id']}"
+                    )
+                inspected.append(
+                    {
+                        "annotation_id": item["annotation_id"],
+                        "text": label.text,
+                        "expected_color": item["color"],
+                        "native_color_index": actual_color_index,
+                    }
+                )
+            annotation_evidence.append(
+                {
+                    "contract_sha256": canonical_hash(cast(Any, list(contract))),
+                    "expected_count": len(contract),
+                    "native_label_count": len(inspected),
+                    "text_match": True,
+                    "color_match": True,
+                    "fresh_reopen": True,
+                    "consumed": True,
+                }
+            )
+        return tuple(annotation_evidence)
     finally:
         op.exit()
 
@@ -670,14 +794,26 @@ def _render() -> dict[str, Any]:
             state_dir.mkdir(exist_ok=True)
             plot, store = _build_plot(case, frame, edited=state == "edited")
             resolved = PlotResolver().resolve(plot, store)
+            matplotlib_annotation_evidence = (
+                _matplotlib_s61_annotation_evidence(resolved)
+                if case.chart_id == "S61"
+                else None
+            )
             export_png(state_dir / "matplotlib.png", resolved)
             states[state].append(resolved)
             case_entries[case.case_id]["states"][state] = {"plot_spec_sha256": canonical_hash(plot), "render_plan_sha256": resolved.render_plan_hash, "matplotlib_png_sha256": _sha256(state_dir / "matplotlib.png")}
+            if matplotlib_annotation_evidence is not None:
+                case_entries[case.case_id]["states"][state][
+                    "matplotlib_annotation_evidence"
+                ] = matplotlib_annotation_evidence
 
     exports: dict[str, Any] = {}
     for state in ("default", "edited"):
         resolved_tuple = tuple(states[state])
         plan = compile_origin_plan(resolved_tuple, build_origin_export_spec(resolved_tuple, export_id=f"export:visual29.fixed.{state}", target_scope="selected_plots"))
+        for index, resolved in enumerate(resolved_tuple):
+            if resolved.plan.chart_type_id == "S61" and plan.graph_objects[index].annotations != resolved.plan.annotations:
+                raise RuntimeError("Origin plan did not preserve the S61 annotation contract")
         target = OUTPUT / f"visual29-fixed-{state}.opju"
         result = export_origin(plan, target, expected_existing_sha256=_sha256(target) if target.is_file() else None, timeout_seconds=600.0)
         if not isinstance(result, OriginExportSuccess):
@@ -685,10 +821,19 @@ def _render() -> dict[str, Any]:
         if result.build_validation != result.reopen_validation:
             raise RuntimeError(f"Origin fresh reopen validation drift: {state}")
         destinations = tuple(OUTPUT / case.case_id / state / "origin-fresh-reopen.png" for case in QUALIFIED_CASES)
-        _export_reopened_graphs(target, destinations)
-        for index, (case, destination) in enumerate(zip(QUALIFIED_CASES, destinations, strict=True)):
+        annotation_evidence = _export_reopened_graphs(target, destinations, resolved_tuple)
+        for index, (case, destination, native_evidence) in enumerate(
+            zip(QUALIFIED_CASES, destinations, annotation_evidence, strict=True)
+        ):
             case_entries[case.case_id]["states"][state]["origin_fresh_png_sha256"] = _sha256(destination)
             case_entries[case.case_id]["states"][state]["origin_graph_index"] = index
+            if native_evidence is not None:
+                case_entries[case.case_id]["states"][state]["origin_annotation_evidence"] = {
+                    **native_evidence,
+                    "plan_contract_match": True,
+                    "build_validation_passed": True,
+                    "reopen_validation_passed": True,
+                }
         exports[state] = {"opju_path": str(target), "opju_sha256": result.file_sha256, "opju_size": result.file_size, "origin_plan_sha256": canonical_hash(plan), "adapter_id": plan.adapter_id, "adapter_version": plan.adapter_version, "validation_report_sha256": result.validation_report_sha256, "fresh_reopen_identical": True, "elapsed_seconds": result.elapsed_seconds, "environment": result.environment.to_dict()}
 
     for case in QUALIFIED_CASES:

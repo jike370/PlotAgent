@@ -7,6 +7,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from scripts.build_visual29_fixed import MECHANICAL_BLOCKERS
+
 FIXTURES = (
     Path(__file__).resolve().parents[1]
     / "fixtures"
@@ -63,6 +65,16 @@ def test_s07_missing_origin_same_source_data_is_an_explicit_no_go() -> None:
     assert gap["synthetic"] is False
     assert not (gap_dir / "data.csv").exists()
     assert not (gap_dir / "reference.png").exists()
+
+
+def test_next_render_only_carries_unresolved_k06_and_k20_mechanical_blockers() -> None:
+    assert {
+        (item["chart_type_id"], item["code"])
+        for item in MECHANICAL_BLOCKERS
+    } == {
+        ("K06", "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH"),
+        ("K20", "NATIVE_COLORBAR_TICK_LABEL_COLLISION"),
+    }
 
 
 def test_fixed_calculation_tables_satisfy_structural_invariants() -> None:
@@ -124,23 +136,49 @@ def test_render_manifest_keeps_human_signature_pending_and_gap_blocking() -> Non
     assert qualification["decision"] == "NO-GO"
     assert qualification["human_visual_signature"]["status"] == "pending"
     assert qualification["source_build_identity"]["scope_version"] == "visual29-fixed-rendering-v1"
+    s61 = next(item for item in manifest["cases"] if item["chart_type_id"] == "S61")
+    s61_consumed = all(
+        state.get("matplotlib_annotation_evidence", {}).get("consumed") is True
+        and state.get("origin_annotation_evidence", {}).get("consumed") is True
+        for state in s61["states"].values()
+    )
     blocker_codes = {
         (item["chart_type_id"], item["code"])
         for item in qualification["blocking_observations"]
     }
-    assert blocker_codes == {
+    expected_blockers = {
         ("K06", "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH"),
         ("K20", "NATIVE_COLORBAR_TICK_LABEL_COLLISION"),
-        ("S61", "CONFUSION_CELL_LABELS_MISSING"),
         ("S07", "SAME_SOURCE_ORIGIN_DATA_MISSING"),
     }
+    if not s61_consumed:
+        expected_blockers.add(("S61", "CONFUSION_CELL_LABELS_MISSING"))
+    assert blocker_codes == expected_blockers
     case_blockers = {
         (case["chart_type_id"], blocker["code"])
         for case in manifest["cases"]
         for blocker in case["blocking_observations"]
     }
-    assert case_blockers == {
+    expected_case_blockers = {
         ("K06", "NATIVE_ERROR_BAR_CONNECTOR_MISMATCH"),
         ("K20", "NATIVE_COLORBAR_TICK_LABEL_COLLISION"),
-        ("S61", "CONFUSION_CELL_LABELS_MISSING"),
     }
+    if not s61_consumed:
+        expected_case_blockers.add(("S61", "CONFUSION_CELL_LABELS_MISSING"))
+    assert case_blockers == expected_case_blockers
+    if s61_consumed:
+        for state in s61["states"].values():
+            matplotlib = state["matplotlib_annotation_evidence"]
+            origin = state["origin_annotation_evidence"]
+            assert matplotlib["expected_count"] == matplotlib["rendered_count"] > 0
+            assert matplotlib["text_position_match"] is True
+            assert matplotlib["color_match"] is True
+            assert matplotlib["center_alignment"] is True
+            assert origin["expected_count"] == origin["native_label_count"] > 0
+            assert origin["text_match"] is True
+            assert origin["color_match"] is True
+            assert origin["fresh_reopen"] is True
+            assert origin["plan_contract_match"] is True
+            assert origin["build_validation_passed"] is True
+            assert origin["reopen_validation_passed"] is True
+            assert matplotlib["contract_sha256"] == origin["contract_sha256"]
