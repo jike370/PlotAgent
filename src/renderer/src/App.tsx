@@ -232,6 +232,7 @@ export function App(): React.JSX.Element {
   const [taskEvents, setTaskEvents] = useState<Record<string, TaskEvent>>({})
   const [originStatus, setOriginStatus] = useState<'unknown' | 'available' | 'unavailable' | 'exporting'>('unknown')
   const importInFlight = useRef(false)
+  const agentRequestGeneration = useRef(0)
 
   useEffect(() => {
     if (notice?.kind !== 'success') return
@@ -283,7 +284,13 @@ export function App(): React.JSX.Element {
     return nextProject
   }, [mergeProjects])
 
+  const invalidateAgentRequest = useCallback(() => {
+    agentRequestGeneration.current += 1
+    setBusyAction((current) => current === 'agent' ? undefined : current)
+  }, [])
+
   const clearWorkspace = useCallback(() => {
+    invalidateAgentRequest()
     setProject(undefined)
     setDatasets([])
     setActiveDatasetId(undefined)
@@ -298,7 +305,7 @@ export function App(): React.JSX.Element {
     setAgentOutcome(undefined)
     setAgentPlan(undefined)
     setScreen('workspace')
-  }, [])
+  }, [invalidateAgentRequest])
 
   const createNewProject = useCallback(async (): Promise<void> => {
     if (!api || busyAction !== undefined || core.phase !== 'ready') return
@@ -499,6 +506,7 @@ export function App(): React.JSX.Element {
 
   const activateProject = async (projectId: string): Promise<void> => {
     if (!api || project?.projectId === projectId) return
+    invalidateAgentRequest()
     setBusyAction('activate-project'); setNotice(undefined)
     try {
       const known = projects.find((item) => item.projectId === projectId)
@@ -541,6 +549,8 @@ export function App(): React.JSX.Element {
 
   const runAgent = async (instruction: string, scope: ScopeMode): Promise<void> => {
     if (!api || !project || !activeDataset || !selectedChart) return
+    const requestGeneration = agentRequestGeneration.current + 1
+    agentRequestGeneration.current = requestGeneration
     setBusyAction('agent'); setAgentOutcome(undefined); setNotice(undefined)
     try {
       const target = scope === 'batch'
@@ -563,10 +573,17 @@ export function App(): React.JSX.Element {
         scope,
         utterance: instruction,
       }))
+      if (agentRequestGeneration.current !== requestGeneration) return
       const outcome = readAgentOutcome(value)
       setAgentPlan(outcome.plan)
       setAgentOutcome(outcome)
-    } catch (error) { setAgentOutcome({ kind: 'rejected', title: '指令未执行', message: errorNotice(error).message }) } finally { setBusyAction(undefined) }
+    } catch (error) {
+      if (agentRequestGeneration.current === requestGeneration) {
+        setAgentOutcome({ kind: 'rejected', title: '指令未执行', message: errorNotice(error).message })
+      }
+    } finally {
+      if (agentRequestGeneration.current === requestGeneration) setBusyAction(undefined)
+    }
   }
 
   const syncPlanOutput = async (plan: AgentPlanView): Promise<void> => {
@@ -821,7 +838,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
-          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} changeSet={changeSet} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
+          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} changeSet={changeSet} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { invalidateAgentRequest(); setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && figure && <CompositionEditor figure={figure} onClose={() => setScreen('workspace')} />}
@@ -830,6 +847,7 @@ export function App(): React.JSX.Element {
       {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} availablePlotCount={figureCandidateCount} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
         setLibraryOpen(false)
         if (chart.id === 'K25') { void createFigure(); return }
+        invalidateAgentRequest()
         setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setAgentOutcome(undefined)
         setNotice(activeDataset ? undefined : { kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '可以继续上传数据。' })
       }} />}

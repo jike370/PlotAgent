@@ -213,11 +213,11 @@ export class PythonCoreSupervisor {
     this.handleFailure('CORE_PROTOCOL_INVALID_MESSAGE')
   }
 
-  async request(method: string, params?: JsonValue): Promise<JsonValue> {
+  async request(method: string, params?: JsonValue, timeoutMs = this.requestTimeoutMs): Promise<JsonValue> {
     if (this.status.phase !== 'ready') {
       throw new CoreRequestError(publicCoreError('CORE_NOT_READY'))
     }
-    return this.sendRequest(method, params, this.requestTimeoutMs)
+    return this.sendRequest(method, params, timeoutMs)
   }
 
   async stop(): Promise<void> {

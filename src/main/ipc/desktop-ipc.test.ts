@@ -1,7 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { InMemoryResourceRegistry } from '../single-instance-routing.js'
-import { sanitizeCoreResult, withImportSourceIdentity } from './desktop-ipc.js'
+import type { PythonCoreSupervisor } from '../core/python-supervisor.js'
+import {
+  AGENT_DECIDE_REQUEST_TIMEOUT_MS,
+  requestAgentDecision,
+  sanitizeCoreResult,
+  withImportSourceIdentity,
+} from './desktop-ipc.js'
 
 describe('desktop product IPC boundary', () => {
   it('replaces Core artifact paths with random registered resources', () => {
@@ -58,5 +64,25 @@ describe('desktop product IPC boundary', () => {
         },
       ],
     })
+  })
+
+  it('gives only the model decision request a budget beyond the Core model timeout', async () => {
+    const request = vi.fn(async () => ({ accepted: true }))
+    const supervisor = {
+      request,
+      toPublicResult: vi.fn(),
+    } as unknown as PythonCoreSupervisor
+
+    await expect(requestAgentDecision(
+      supervisor,
+      new InMemoryResourceRegistry(),
+      { project_id: 'project:one', user_instruction: '统一颜色' },
+    )).resolves.toEqual({ ok: true, value: { accepted: true } })
+    expect(request).toHaveBeenCalledWith(
+      'agent.decide',
+      { project_id: 'project:one', user_instruction: '统一颜色' },
+      AGENT_DECIDE_REQUEST_TIMEOUT_MS,
+    )
+    expect(AGENT_DECIDE_REQUEST_TIMEOUT_MS).toBe(35_000)
   })
 })

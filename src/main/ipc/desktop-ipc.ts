@@ -194,9 +194,10 @@ async function requestCoreData(
   method: string,
   params?: JsonValue,
   artifactKind: DesktopResourceKind = 'preview',
+  timeoutMs?: number,
 ): Promise<DesktopDataResult> {
   try {
-    const value = await supervisor.request(method, params)
+    const value = await supervisor.request(method, params, timeoutMs)
     return { ok: true, value: sanitizeCoreResult(value, resources, artifactKind) }
   } catch (error: unknown) {
     if (error instanceof Error && /(?:artifact|resource|path|depth)/i.test(error.message)) {
@@ -204,6 +205,23 @@ async function requestCoreData(
     }
     return { ok: false, error: supervisor.toPublicResult(error) }
   }
+}
+
+export const AGENT_DECIDE_REQUEST_TIMEOUT_MS = 35_000
+
+export function requestAgentDecision(
+  supervisor: PythonCoreSupervisor,
+  resources: ResourceRegistry,
+  params: JsonValue,
+): Promise<DesktopDataResult> {
+  return requestCoreData(
+    supervisor,
+    resources,
+    'agent.decide',
+    params,
+    'preview',
+    AGENT_DECIDE_REQUEST_TIMEOUT_MS,
+  )
 }
 
 function projectIdFromCoreResult(value: JsonValue): string | null {
@@ -631,7 +649,7 @@ export function registerDesktopIpc({
     const input = parseAgentDecideInput(value)
     return input === null
       ? invalidDataArgument('Agent 指令、作用对象或范围无效。')
-      : requestCoreData(supervisor, resources, 'agent.decide', {
+      : requestAgentDecision(supervisor, resources, {
         project_id: input.projectId,
         source_dataset_id: input.sourceDatasetId,
         source_version: input.sourceVersion,

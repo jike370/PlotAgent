@@ -553,6 +553,44 @@ describe('PlotAgent real desktop workflow', () => {
     expect(api.renderPlot).toHaveBeenCalledTimes(1)
   })
 
+  it('allows retry on a new target and ignores a late decision from the old target', async () => {
+    const user = userEvent.setup()
+    let finishOldDecision: ((result: DesktopDataResult) => void) | undefined
+    const decideAgent = vi.fn()
+      .mockImplementationOnce(() => new Promise<DesktopDataResult>((resolve) => { finishOldDecision = resolve }))
+      .mockResolvedValueOnce(ok(agentDecisionWithPlan(agentPlanFixture('needs_confirmation', 'pending', { planId: 'plan:new' }))))
+    installApi(fakeDesktop({ decideAgent }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '旧目标请求')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    expect(screen.getByRole('textbox', { name: '描述绘图要求' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: '选择其他图形' }))
+    await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K02')
+    await user.click(screen.getByRole('button', { name: /K02.*线点图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '新目标请求')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(decideAgent).toHaveBeenLastCalledWith(expect.objectContaining({
+      selectedChartId: 'K02',
+      utterance: '新目标请求',
+    }))
+
+    await act(async () => {
+      finishOldDecision?.(ok({
+        accepted: false,
+        decision: { decision_type: 'rejected', reason: '陈旧结果不应显示' },
+      }))
+    })
+    expect(screen.queryByText('陈旧结果不应显示')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+  })
+
   it('keeps K25 out of field mapping and requires two explicit figure candidates', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop()
