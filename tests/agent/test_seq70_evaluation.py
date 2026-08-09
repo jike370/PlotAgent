@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from plotagent.agent.evaluation import Seq70TaskSet, score_model_result
+from scripts.run_seq70_agent_eval import _aggregate, _write_report
 
 TASK_SET = Path(__file__).resolve().parents[1] / "fixtures" / "seq70" / "agent_tasks.json"
 
@@ -137,3 +138,67 @@ def test_model_scorer_uses_the_public_axis_scale_field() -> None:
     )
 
     assert score.passed is True
+
+
+def test_seq70_aggregate_reports_repair_exhausted_with_null_decision(tmp_path: Path) -> None:
+    model_record = {
+        "task_id": "D14",
+        "repetition": 2,
+        "layer": "model",
+        "category": "necessary_question",
+        "passed": False,
+        "latency_seconds": 8.3622,
+        "score": {
+            "passed": False,
+            "schema_accepted": False,
+            "expected_plan": False,
+            "plan_legal": False,
+            "target_binding_applicable": False,
+            "target_binding_correct": True,
+            "field_mapping_applicable": False,
+            "field_mapping_correct": True,
+            "necessary_question_applicable": True,
+            "necessary_question_correct": False,
+            "invalid_question": False,
+            "incorrect_auto_binding": False,
+            "failures": [
+                "decision_rejected:REPAIR_EXHAUSTED",
+                "decision_type:None",
+                "necessary_question_missing_or_unbounded",
+            ],
+        },
+        "decision": None,
+        "error": {
+            "code": "REPAIR_EXHAUSTED",
+            "message": "The Agent decision was not accepted.",
+            "side_effects_committed": False,
+        },
+    }
+    runtime_record = {
+        "task_id": "R01",
+        "repetition": 1,
+        "layer": "runtime",
+        "category": "batch_completion",
+        "passed": True,
+        "latency_seconds": 0.01,
+        "details": {"batch_completion": True},
+        "error": None,
+    }
+
+    task_set = _tasks()
+    summary = _aggregate(task_set, [model_record, runtime_record], [])
+    report = {
+        "generated_at": "2026-08-09T20:45:05+08:00",
+        "provider": task_set.provider,
+        "summary": summary,
+        "runs": [model_record, runtime_record],
+    }
+
+    _write_report(tmp_path, report)
+
+    assert summary["qualification"] == "NO_GO"
+    assert summary["metrics"]["necessary_question_rate"]["value"] == 0.0
+    assert summary["metrics"]["model_task_exact_success_rate"]["value"] == 0.0
+    markdown = (tmp_path / "REPORT.md").read_text(encoding="utf-8")
+    assert "D14 / 第 2 次" in markdown
+    assert "decision_rejected:REPAIR_EXHAUSTED" in markdown

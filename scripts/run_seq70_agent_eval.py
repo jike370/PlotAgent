@@ -844,7 +844,7 @@ def _aggregate(
         and any(failure == "forbidden_action_plan" for failure in record["score"]["failures"])
         or (
             record["task_id"] in {"D14", "D15", "D18"}
-            and record.get("decision", {}).get("decision_type") != "action_plan"
+            and (record.get("decision") or {}).get("decision_type") != "action_plan"
         )
         for record in model
     )
