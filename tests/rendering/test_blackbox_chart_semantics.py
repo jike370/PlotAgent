@@ -68,6 +68,61 @@ def test_opaque_field_ids_never_enter_series_labels_or_category_ticks(chart_id: 
 
 
 @pytest.mark.parametrize(
+    ("chart_id", "source_names"),
+    (
+        ("X03", ("Before", "After", "恢复期")),
+        ("X39", ("Before", "After", "随访")),
+        ("X40", ("Before A", "After A", "干预前", "干预后", "随访")),
+    ),
+)
+def test_variadic_container_uses_persisted_source_names_for_logical_layers(
+    chart_id: str,
+    source_names: tuple[str, ...],
+) -> None:
+    plot, _store = build_plot_and_store(chart_id)
+    field_count = len(plot.series[0].data.role_fields)
+    opaque_fields = tuple(f"field:{index:032x}" for index in range(1, field_count + 1))
+    updated, store = _with_fields(chart_id, opaque_fields)
+    logical_names = source_names
+    if chart_id == "X03":
+        assert len(logical_names) == field_count - 1
+    else:
+        assert len(logical_names) == field_count
+    persisted_label = SafeRichText(
+        nodes=tuple(SafeTextNode(kind="plain", text=name) for name in logical_names)
+    )
+    updated = updated.model_copy(
+        update={
+            "series": (
+                updated.series[0].model_copy(update={"label": persisted_label}),
+            )
+        }
+    )
+
+    resolved = PlotResolver().resolve(updated, store)
+    symbol_labels = tuple(
+        safe_text(layer.label)
+        for layer in resolved.plan.layers
+        if layer.geometry == "xy.symbol"
+    )
+
+    assert symbol_labels == logical_names
+    if chart_id in {"X39", "X40"}:
+        x_labels = tuple(
+            safe_text(tick.label)
+            for axis in resolved.plan.axes
+            if axis.orientation == "x"
+            for tick in axis.ticks
+        )
+        assert x_labels == logical_names
+    assert not any(
+        field.removeprefix("field:") in label
+        for field in opaque_fields
+        for label in symbol_labels
+    )
+
+
+@pytest.mark.parametrize(
     ("chart_id", "scientific_labels"),
     (
         ("K20", ("Column", "Row")),

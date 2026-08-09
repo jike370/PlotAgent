@@ -79,6 +79,25 @@ def _field_display_name(field_id: str, *, fallback: str) -> str:
     return normalized
 
 
+def _logical_series_labels(
+    container_label: SafeRichText | None,
+    field_ids: Sequence[str],
+) -> tuple[str, ...]:
+    """Resolve one persisted source label per logical field, with a safe fallback."""
+
+    persisted = (
+        tuple(node.text for node in container_label.nodes if node.kind == "plain")
+        if container_label is not None
+        else ()
+    )
+    if len(persisted) == len(field_ids):
+        return persisted
+    return tuple(
+        _field_display_name(field_id, fallback=f"Series {index + 1}")
+        for index, field_id in enumerate(field_ids)
+    )
+
+
 def _rgb(color: str) -> tuple[float, float, float]:
     value = color.removeprefix("#")[:6]
     return (
@@ -775,10 +794,7 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
 
     if chart_id == "X03":
         value_roles = tuple(role for role in values if role.startswith("series_"))
-        labels = tuple(
-            _field_display_name(field_id, fallback=f"Series {index + 1}")
-            for index, field_id in enumerate(series.data.role_fields[1:])
-        )
+        labels = _logical_series_labels(series.label, series.data.role_fields[1:])
         lollipop_layers: list[_DraftLayer] = []
         for row_index, category in enumerate(values["category"]):
             row_x_values = tuple(_number(values[role][row_index]) for role in value_roles)
@@ -811,10 +827,7 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
 
     if chart_id in {"X39", "X40"}:
         value_roles = tuple(role for role in values if role.startswith("series_"))
-        labels = tuple(
-            _field_display_name(field_id, fallback=f"Series {index + 1}")
-            for index, field_id in enumerate(series.data.role_fields)
-        )
+        labels = _logical_series_labels(series.label, series.data.role_fields)
         positions = tuple(float(index) for index in range(len(value_roles)))
         series_layers: list[_DraftLayer] = []
         row_count = len(values[value_roles[0]])
