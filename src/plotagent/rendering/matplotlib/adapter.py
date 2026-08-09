@@ -1060,6 +1060,7 @@ class MatplotlibRenderer:
                         bbox_to_anchor=(1.02, 1.0),
                         frameon=False,
                     )
+                    self._apply_legend_text_style(native, resolved)
                     native._plotagent_outside_right = True  # type: ignore[attr-defined]
 
         figure.canvas.draw()
@@ -1414,7 +1415,21 @@ class MatplotlibRenderer:
 
     def _apply_text_style(self, figure: Figure, resolved: ResolvedPlot) -> None:
         font = resolved.plan.fonts[0]
-        for text in figure.findobj(match=Text):
+        text_artists = list(figure.findobj(match=Text))
+        for text in dict.fromkeys(text_artists):
+            text.set_fontfamily(font.family)
+            text.set_fontsize(font.size.value)
+            if hasattr(text, "set_parse_math"):
+                text.set_parse_math(False)
+        for legend in figure.findobj(match=Legend):
+            self._apply_legend_text_style(legend, resolved)
+
+    @staticmethod
+    def _apply_legend_text_style(legend: Legend, resolved: ResolvedPlot) -> None:
+        """Apply the resolved font to legends, including ones rebuilt during layout."""
+
+        font = resolved.plan.fonts[0]
+        for text in (*legend.get_texts(), legend.get_title()):
             text.set_fontfamily(font.family)
             text.set_fontsize(font.size.value)
             if hasattr(text, "set_parse_math"):

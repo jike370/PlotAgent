@@ -12,6 +12,7 @@ from typing import Literal, cast
 
 import numpy as np
 from matplotlib import font_manager
+from matplotlib.ft2font import FT2Font
 from scipy.stats import gaussian_kde, norm  # type: ignore[import-untyped]
 
 from plotagent.charts.registry import get_chart
@@ -1894,10 +1895,56 @@ def _simplified_indices(row_count: int, limit: int) -> tuple[int, ...]:
     return tuple(round(index * (row_count - 1) / (limit - 1)) for index in range(limit))
 
 
-def _font(plot: PlotSpec) -> ResolvedFont:
-    candidates = tuple(
-        dict.fromkeys((plot.resolved_style.font_family, "Arial", "Microsoft YaHei", "DejaVu Sans"))
+_CJK_FONT_FAMILIES = (
+    "Microsoft YaHei",
+    "Microsoft YaHei UI",
+    "SimHei",
+    "Noto Sans CJK SC",
+    "Noto Sans SC",
+    "Source Han Sans SC",
+    "Arial Unicode MS",
+)
+
+
+def _is_cjk_codepoint(codepoint: int) -> bool:
+    return (
+        0x2E80 <= codepoint <= 0x9FFF
+        or 0xF900 <= codepoint <= 0xFAFF
+        or 0x20000 <= codepoint <= 0x2FA1F
+        or 0x3040 <= codepoint <= 0x30FF
+        or 0xAC00 <= codepoint <= 0xD7AF
     )
+
+
+def _cjk_codepoints(texts: Sequence[SafeRichText | None]) -> frozenset[int]:
+    return frozenset(
+        ord(character)
+        for text in texts
+        if text is not None
+        for node in text.nodes
+        for character in node.text
+        if _is_cjk_codepoint(ord(character))
+    )
+
+
+def _font_supports(path: Path, codepoints: frozenset[int]) -> bool:
+    if not codepoints:
+        return True
+    try:
+        face = FT2Font(path)
+    except (OSError, RuntimeError):
+        return False
+    return all(face.get_char_index(codepoint) != 0 for codepoint in codepoints)
+
+
+def _font(plot: PlotSpec, texts: Sequence[SafeRichText | None]) -> ResolvedFont:
+    cjk_codepoints = _cjk_codepoints(texts)
+    preferred = (
+        (plot.resolved_style.font_family, *_CJK_FONT_FAMILIES, "DejaVu Sans")
+        if cjk_codepoints
+        else (plot.resolved_style.font_family, "Arial", "Microsoft YaHei", "DejaVu Sans")
+    )
+    candidates = tuple(dict.fromkeys(preferred))
     for family in candidates:
         try:
             path = Path(
@@ -1908,14 +1955,16 @@ def _font(plot: PlotSpec) -> ResolvedFont:
             )
         except ValueError:
             continue
-        if path.is_file():
+        if path.is_file() and _font_supports(path, cjk_codepoints):
             return ResolvedFont(
                 family=family,
                 file_hash=hashlib.sha256(path.read_bytes()).hexdigest(),
                 size=plot.resolved_style.font_size,
             )
+    requirement = "CJK-capable " if cjk_codepoints else ""
     raise PlotValidationError(
-        "FONT_REQUIRED_MISSING", "no font in the fixed fallback stack is available"
+        "FONT_REQUIRED_MISSING",
+        f"no {requirement}font in the fixed fallback stack is available",
     )
 
 
@@ -2250,6 +2299,15 @@ class PlotResolver:
             ),
             levels=colorbar_style.levels,
         )
+        visible_text = (
+            plot.title,
+            *(panel.label for panel in panels),
+            *(axis.label for axis in axes),
+            *(tick.label for axis in axes for tick in axis.ticks),
+            *(layer.label for layer in layers),
+            resolved_colorbar.title,
+            *(annotation.text for annotation in annotations),
+        )
         plan = ResolvedRenderPlan(
             render_plan_id=f"renderplan:{plot.plot_id.removeprefix('plot:')}.{quality_tier}",
             render_plan_version=plot.plot_version,
@@ -2267,7 +2325,7 @@ class PlotResolver:
             panels=panels,
             axes=axes,
             layers=tuple(layers),
-            fonts=(_font(plot),),
+            fonts=(_font(plot, visible_text),),
             legend=ResolvedLegend(
                 visible=(
                     labeled_layers > 1 if plot.legend.visible is None else plot.legend.visible
