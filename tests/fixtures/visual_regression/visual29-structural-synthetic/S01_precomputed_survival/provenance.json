@@ -38,6 +38,6 @@
   "dynamic_claim": "1/2/4 groups and shorter/longer time grids preserve monotone survival and panel separation.",
   "reference_sha256": "5c5e93c2f9c513c3940b1e8e23150d11abaddbf711fae72917aa3314926f0893",
   "reference_fresh_reopen_sha256": "5c5e93c2f9c513c3940b1e8e23150d11abaddbf711fae72917aa3314926f0893",
-  "reference_origin_opju_sha256": "bd0762149c6f9a51413f46e7fc8955362495b089be99af8e8adb5090bb076132",
+  "reference_origin_opju_sha256": "e8a5ef33191cf1d3c45dc571935519527d733415e734c1f1a9b4ed27826288fd",
   "reference_fresh_reopen": true
 }

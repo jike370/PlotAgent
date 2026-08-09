@@ -35,6 +35,6 @@
   "dynamic_claim": "2/3/4 explicit child plans resolve in fixed non-overlapping layouts.",
   "reference_sha256": "8965c3f16536fb70a2bfae7867192a0de0cd8e8f4f4f296383512b83ecc65d3b",
   "reference_fresh_reopen_sha256": "8965c3f16536fb70a2bfae7867192a0de0cd8e8f4f4f296383512b83ecc65d3b",
-  "reference_origin_opju_sha256": "9b84e127ddef20b1fff76e582f00d54e740846c1d1ce91577461922dc201bcda",
+  "reference_origin_opju_sha256": "d3db44d232e2e9eb3438d008fe4491797afb8600959a2697f48c31dca9dd37ca",
   "reference_fresh_reopen": true
 }

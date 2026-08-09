@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 
-from scripts.build_visual29_structural import GAP_BLOCKING_OBSERVATIONS
+from scripts.build_visual29_structural import SUPPLEMENTAL_SYNTHETIC_IDS
 from scripts.build_visual29_structural import (
     _fresh_qualification as structural_fresh_qualification,
 )
@@ -13,7 +13,7 @@ from scripts.build_visual29_structural import (
 REPOSITORY = Path(__file__).resolve().parents[2]
 FIXTURES = REPOSITORY / "tests" / "fixtures" / "visual_regression" / "visual29-structural"
 EXPECTED_CASES = ("X05", "X13", "X23", "X35", "X36", "X38")
-EXPECTED_GAPS = ("K24", "K25", "S01")
+EXPECTED_SUPPLEMENTAL = ("K24", "K25", "S01")
 EXPECTED_LANE = ("S01", "X05", "X13", "X38", "K24", "K25", "X23", "X35", "X36")
 EXPECTED_BLOCKED = {"X05", "X23", "X35", "X36", "X38"}
 EXPECTED_ORIGIN_FAILURES = {("X36", "edited"), ("X38", "edited")}
@@ -37,7 +37,7 @@ def _manifest() -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_structural_next_render_qualification_only_blocks_evidence_gaps() -> None:
+def test_structural_next_render_qualification_waits_only_for_human_review() -> None:
     qualification = structural_fresh_qualification(
         {
             "scope_version": "test",
@@ -49,9 +49,7 @@ def test_structural_next_render_qualification_only_blocks_evidence_gaps() -> Non
     assert qualification["evidence_status"] == "fresh_render_pending_human"
     assert qualification["decision"] == "NO-GO"
     assert qualification["human_visual_signature"]["status"] == "pending"
-    assert tuple(
-        item["chart_type_id"] for item in qualification["blocking_observations"]
-    ) == EXPECTED_GAPS
+    assert qualification["blocking_observations"] == []
 
 
 def test_structural_lane_frozen_anchors_are_same_source_and_non_synthetic() -> None:
@@ -74,21 +72,27 @@ def test_structural_lane_manifest_covers_every_assigned_chart_without_substituti
     manifest = _manifest()
     cases = manifest["cases"]
     gaps = manifest["gaps"]
+    supplemental = manifest["supplemental_synthetic_lane"]
 
     assert manifest["stage"] == "VISUAL29-STRUCTURAL"
     assert tuple(manifest["lane_chart_type_ids"]) == EXPECTED_LANE
     assert tuple(item["chart_type_id"] for item in cases) == EXPECTED_CASES
-    assert tuple(item["chart_type_id"] for item in gaps) == EXPECTED_GAPS
+    assert gaps == []
+    assert tuple(supplemental["chart_type_ids"]) == EXPECTED_SUPPLEMENTAL
+    assert tuple(supplemental["chart_type_ids"]) == SUPPLEMENTAL_SYNTHETIC_IDS
+    assert supplemental["evidence_grade"] == "D"
+    assert supplemental["blocking_observations"] == []
+    assert supplemental["source_build_identity"]["source_sha256"] == manifest[
+        "qualification"
+    ]["source_build_identity"]["source_sha256"]
     assert {item["chart_type_id"] for item in cases}.isdisjoint(
         {item["chart_type_id"] for item in gaps}
     )
-    assert {item["chart_type_id"] for item in cases + gaps} == set(EXPECTED_LANE)
+    assert {item["chart_type_id"] for item in cases} | set(
+        supplemental["chart_type_ids"]
+    ) == set(EXPECTED_LANE)
     assert manifest["rules"]["same_source_required"] is True
     assert manifest["rules"]["synthetic_allowed"] is False
-    assert all(item["status"] == "not_tested" for item in gaps)
-    assert all(item["reason"] for item in gaps)
-    assert all(not tuple(FIXTURES.glob(f"{item['chart_type_id']}_*")) for item in gaps)
-    assert tuple(item["chart_type_id"] for item in GAP_BLOCKING_OBSERVATIONS) == EXPECTED_GAPS
 
 
 def test_structural_lane_default_and_edited_evidence_is_fresh_reopened() -> None:
@@ -146,8 +150,7 @@ def test_structural_lane_is_bound_to_source_and_waits_for_human_signature() -> N
         assert qualification["invalidation"]["code"] == "AUDIT_AXIS_LABEL_CONTRACT_UPDATED"
     else:
         assert qualification["evidence_status"] == "fresh_render_pending_human"
-        assert {item["chart_type_id"] for item in blockers} == set(EXPECTED_GAPS)
-        assert {item["backend"] for item in blockers} == {"evidence"}
+        assert blockers == []
         assert all(not item["blocking_observations"] for item in manifest["cases"])
     assert all(item["status"] == "open" for item in blockers)
     assert "visual qualification not passed" in manifest["audit_conclusion"]

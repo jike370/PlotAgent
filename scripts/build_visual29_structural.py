@@ -204,6 +204,57 @@ GAP_BLOCKING_OBSERVATIONS = tuple(
     for item in GAPS
 )
 
+SUPPLEMENTAL_SYNTHETIC_IDS = ("K24", "K25", "S01")
+
+
+def _synthetic_supplement(
+    fixtures: Path,
+    *,
+    source_sha256: str,
+) -> dict[str, Any]:
+    """Bind the three D-grade structural cases without duplicating base cases."""
+
+    manifest_path = fixtures.parent / "visual29-structural-synthetic" / "manifest.json"
+    if not manifest_path.is_file():
+        raise RuntimeError(
+            "structural synthetic evidence is missing; "
+            "run build_visual29_structural_synthetic.py first"
+        )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    chart_type_ids = tuple(str(item) for item in manifest.get("lane_chart_type_ids", ()))
+    if chart_type_ids != SUPPLEMENTAL_SYNTHETIC_IDS:
+        raise RuntimeError("structural synthetic evidence does not cover K24/K25/S01")
+    qualification = manifest.get("qualification", {})
+    identity = qualification.get("source_build_identity", {})
+    if identity.get("source_sha256") != source_sha256:
+        raise RuntimeError("structural synthetic evidence source identity is stale")
+    if qualification.get("blocking_observations") != []:
+        raise RuntimeError("structural synthetic evidence still has blockers")
+    cases = manifest.get("cases", ())
+    if tuple(str(item.get("chart_type_id")) for item in cases) != chart_type_ids:
+        raise RuntimeError("structural synthetic evidence cases are incomplete")
+    for case in cases:
+        if set(case.get("states", {})) != {"default", "edited"}:
+            raise RuntimeError("structural synthetic evidence is missing a rendered state")
+        if not all(
+            state.get("origin_export_status") == "success"
+            and state.get("fresh_reopen_identical") is True
+            for state in case["states"].values()
+        ):
+            raise RuntimeError("structural synthetic Origin evidence is not fresh-reopened")
+        if case.get("per_chart_opju", {}).get("fresh_reopen_identical") is not True:
+            raise RuntimeError("structural synthetic per-chart OPJU is not fresh-reopened")
+    return {
+        "stage": manifest["stage"],
+        "manifest_path": str(manifest_path.relative_to(REPOSITORY)),
+        "chart_type_ids": list(chart_type_ids),
+        "evidence_grade": "D",
+        "source_build_identity": identity,
+        "blocking_observations": [],
+        "human_visual_signature": qualification.get("human_visual_signature"),
+        "decision": qualification.get("decision"),
+    }
+
 FIRST_ROUND_BLOCKING_OBSERVATIONS = (
     {
         "chart_type_id": "X05",
@@ -705,7 +756,7 @@ def _write_index(entries: list[dict[str, Any]], output: Path) -> None:
 def _fresh_qualification(source_identity: dict[str, str]) -> dict[str, Any]:
     return {
         "source_build_identity": source_identity,
-        "blocking_observations": list(GAP_BLOCKING_OBSERVATIONS),
+        "blocking_observations": [],
         "human_visual_signature": {
             "status": "pending",
             "reviewer": None,
@@ -729,6 +780,10 @@ def _write_manifest(entries: list[dict[str, Any]], output: Path, fixtures: Path)
         raise RuntimeError(
             "complete structural render still has runtime blockers; stale evidence was not promoted"
         )
+    supplemental = _synthetic_supplement(
+        fixtures,
+        source_sha256=source_identity["source_sha256"],
+    )
     manifest = {
         "schema_version": "1.0",
         "stage": "VISUAL29-STRUCTURAL",
@@ -745,14 +800,17 @@ def _write_manifest(entries: list[dict[str, Any]], output: Path, fixtures: Path)
         "rules": {
             "same_source_required": True,
             "synthetic_allowed": False,
+            "supplemental_synthetic_evidence_allowed": True,
             "states": ["default", "representative edited"],
-            "missing_same_source_pair_policy": "record gap; do not render or claim pass",
+            "missing_same_source_pair_policy": "admit only through the explicit D-grade supplemental lane",
         },
         "cases": entries,
-        "gaps": list(GAPS),
+        "supplemental_synthetic_lane": supplemental,
+        "gaps": [],
         "qualification": _fresh_qualification(source_identity),
         "audit_conclusion": (
-            "same-source evidence generated for eligible cases; three evidence gaps retained; "
+            "six A/C same-source cases plus three D-grade supplemental synthetic cases cover the structural inventory; "
+            "no evidence gap remains; "
             "human visual sign-off pending; visual qualification not passed"
         ),
     }

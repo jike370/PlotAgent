@@ -35,6 +35,6 @@
   "dynamic_claim": "2/3/5 facets and 7/9/13 X values resolve without panel overlap.",
   "reference_sha256": "04b78313bc4cadaa705f42bd4532c1beb55a2123502dcddc9eac7a77c51b872a",
   "reference_fresh_reopen_sha256": "15145eab07e7ebb8c117ef712a5a5b528e03002d7c1b273e5017c25f160216d4",
-  "reference_origin_opju_sha256": "60b18621679f8097ade914ac6a7e960dfc8f6b29f390e196a6bfbf8925d30ad3",
+  "reference_origin_opju_sha256": "80ed1f83a521bd85515d20facd5f00a4be0432b9ef3fd899458b56212c71ff88",
   "reference_fresh_reopen": true
 }

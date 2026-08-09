@@ -12,7 +12,7 @@
     "X35",
     "X36"
   ],
-  "generated_at": "2026-08-08T15:46:33.930863+00:00",
+  "generated_at": "2026-08-09T15:28:09.023653+00:00",
   "plotagent_version": "0.1.0",
   "origin_declaration": {
     "display_name": "Origin2024 SR1",
@@ -24,11 +24,12 @@
   "rules": {
     "same_source_required": true,
     "synthetic_allowed": false,
+    "supplemental_synthetic_evidence_allowed": true,
     "states": [
       "default",
       "representative edited"
     ],
-    "missing_same_source_pair_policy": "record gap; do not render or claim pass"
+    "missing_same_source_pair_policy": "admit only through the explicit D-grade supplemental lane"
   },
   "cases": [
     {
@@ -52,13 +53,13 @@
         "default": {
           "plot_spec_sha256": "fd0174bba6da2aaafacdbbd9564b0bafef0109b1255ed33e9a2dd75235c50e63",
           "render_plan_sha256": "36956a849768d2971748ad30cb886acd9852cde5d2e2c480e4ac77a13988bdc6",
-          "matplotlib_png_sha256": "5174731d832ef5bb4ba6afc4f7c7277342ad73af316a9a2e1ca83ddb09c9f08a",
+          "matplotlib_png_sha256": "bb4dc910eb0f0cebdb596e12e7dddfaddfe09e9f1c93000b1938c54a1fc74ece",
           "origin_plan_sha256": "6317931a39ed1d873ad7bbfc94671d87524c6973a742ce6456e5eeb4bea75c34",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "d59a99763bd08dabc8e52b1345c8b83670de09b34736d05906453db29f1b2b42",
+          "origin_opju_sha256": "58e869aa58f22a32a7f470f3a4bddee0d889971406b6816ea5fda879b91c8baf",
           "origin_opju_size": 73684,
-          "origin_fresh_png_sha256": "fa4fe6232418f364116730cde553e4ebfea1ccbdba851c762164490486096ddd",
+          "origin_fresh_png_sha256": "e40e9caecce41561fb600576a47b4aa1aaef55910a6a9e5f5cf4ba411f236b89",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "60cb7ad07c5a0c1e6a2430e0fc48d0e1288886ea61a3e1612f87b64d8645a97c",
           "environment": {
@@ -71,19 +72,20 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         },
         "edited": {
           "plot_spec_sha256": "0b2adffdfd4b2b6d0bcad657cb554c5a241a9dd8452806c16531e237920987ac",
           "render_plan_sha256": "88a7dea018f1eb6a66da83e3156c5c7270668130210e96a037503aa847611851",
-          "matplotlib_png_sha256": "e02ac681bda86c47158d212acd33cd7c181b2bc3f65f1a4ce72c56eaeda5515a",
+          "matplotlib_png_sha256": "01061aa86fdbb95f1f6f773ca551dcc83d8eec3f64bae335e31f6747babd97f5",
           "origin_plan_sha256": "48759270cc10d3aa7c1a0d20c72ae6fdb90858e88690b52064eb6e281a862181",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "84d799ffd527ecb0f90266c52268664b782320960a2b19ef3262456217a79bb6",
-          "origin_opju_size": 73714,
-          "origin_fresh_png_sha256": "0da2089dd8867113cf07fa628af708baea41e9135cd0bc559d84f1c19ea0fee7",
+          "origin_opju_sha256": "97bbfafe525702031d1ea5f8863b9f75e3060f41d5da086e8f15568641b644a6",
+          "origin_opju_size": 73715,
+          "origin_fresh_png_sha256": "fde06e11d0e24e85235be22e555d038a8e4a7231a29483cb7704026e68e11c38",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "94bb65293090d24b8dbd335f586d053012d8a60d2a51d42910f2bd7720ebf828",
           "environment": {
@@ -96,13 +98,14 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         }
       },
       "blocking_observations": [],
-      "comparison_default_sha256": "b1ab86f0a76fc62af8fa0dadbabac2e5b6cc83be27cf3db6a750cd598465edf3",
-      "comparison_edited_sha256": "657a33b33f06ba62775ff6fdaa9a323ddd1a3f9942442875905a0a467971e161"
+      "comparison_default_sha256": "23010ffc276f5b6abc5fc38e303a2bc85eb3c9f618d59fb98d17fd3440bc2a6a",
+      "comparison_edited_sha256": "877d035adaaee2b6ea7a2344a82f9bacd7e24768ede69062284a36acacb6b1a3"
     },
     {
       "chart_type_id": "X13",
@@ -127,11 +130,11 @@
           "render_plan_sha256": "fc89bb8875844ddd5c367a84faedcb8ce3cbe8f57c6a0841f5a64acb0725dffe",
           "matplotlib_png_sha256": "318ac97cf503c232b7c7dbeb3177a4852c333e668917e627d5279215369b50e6",
           "origin_plan_sha256": "c50728e8f537a4f52d82c73b887c3719dcd68be91ba09df75bde6491bd651c32",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "53eb8250042a042ca119feacabf214cd3a4f10c7d471bbb69a540bcac52edbf2",
-          "origin_opju_size": 77182,
-          "origin_fresh_png_sha256": "e09d989d615127c627af7251d04c7289b61fc4f9ede88132015f11387073aeed",
+          "origin_opju_sha256": "abd2e68bbb38e3acb3aacb8b2df131a4cd827296b6173867766e9abcdbaeef2f",
+          "origin_opju_size": 77185,
+          "origin_fresh_png_sha256": "361f9616374159f9f29451faa2d6bb85390d76a24976e7643acd83728487a6c0",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "e47646d8f1e6fb445bdfb68bf6a0a54554a596ecb76ad6788bb29eff0cb736f6",
           "environment": {
@@ -144,7 +147,8 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         },
         "edited": {
@@ -152,11 +156,11 @@
           "render_plan_sha256": "c2c9e7f6f2c933840cdccb9c922670d8a3c9e66943323feabf2fffb9c7683e88",
           "matplotlib_png_sha256": "6ebc8ca6437975e9b194424ff5ac0f40c8530cc5e748aa8f52cf32b3f50af4f3",
           "origin_plan_sha256": "0e36fbafeb291f166a34a24ef7f80d0dfe9e3ba9836f49eb67064c9247c9e3d7",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "24c676259b149109295665430623054bd89103cc4122c204c846b4dabe8fa073",
+          "origin_opju_sha256": "3d157d527c460d282d475a38bb5d8872e9f68cac6eaf9c2b528083bf451784f2",
           "origin_opju_size": 77224,
-          "origin_fresh_png_sha256": "b498b802545d78583ef0cba4b6438424f62c23ea24f026f9f2dc33bddf4c60b2",
+          "origin_fresh_png_sha256": "1903a72911a18e8f623563f1802630d6a8d47685bf6da542b07a57a701c47b26",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "0552cee7e7c33c135bedad1e498e29fd55135c474cce3bb623402be3741006e2",
           "environment": {
@@ -169,7 +173,8 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         }
       },
@@ -200,11 +205,11 @@
           "render_plan_sha256": "d94ba87c35b8938b4c14ca62ba0747db1f3c60c0f85b8da7c08c3c5ad54e3e96",
           "matplotlib_png_sha256": "fed8ba6bb9e7a284f1aa90385f9a5fc45ab7102a2334e81378c560e9d206a8cf",
           "origin_plan_sha256": "e1dbd9e6bfcd326d3c1f7789822b9b9e5178ca7da2b8796ba2aef8f45a0a7c36",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "4aa3996d48726d996664b3bbc1ffb6e87d1aa6d7009b4c87157f91f7680c6eb2",
-          "origin_opju_size": 54783,
-          "origin_fresh_png_sha256": "789997aefb4d313e3d145bcfd307e815852d8538fdeb3af1b67df568175bea9e",
+          "origin_opju_sha256": "198db331a31d464dcb47a03315cfebbc0ee0d9571033fc0ced0037ba3fa82f15",
+          "origin_opju_size": 54784,
+          "origin_fresh_png_sha256": "5a8b13d5be29f06ce64921a687907b1a5f70fdc8fcea81d1a8944d6c81863a88",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "b462a6e1fd61663c5e993a344a1c537b1e89e3ba16d36ad6dfa3bfe4635db931",
           "environment": {
@@ -217,7 +222,8 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         },
         "edited": {
@@ -225,11 +231,11 @@
           "render_plan_sha256": "a8a923ac7387999d38ad5cc177a58a04e1a085a0a39ed3238aed09111627c767",
           "matplotlib_png_sha256": "f73d3b89e5348743a7a51fac125b645857a3cbeb2da488769c92443898dd3c28",
           "origin_plan_sha256": "ca999be1fe37f41e2fe8263aae328b9c74ff82e2cf93c84a499afccdd6e99eaa",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "83f1f7acdf283e87daccc70ea35424f6c5baeffc38cd2f3f1cead3d93476976a",
-          "origin_opju_size": 54888,
-          "origin_fresh_png_sha256": "b63053bea68eced76396c516e72113de9df546a13749941932bdb984a10ca4dd",
+          "origin_opju_sha256": "6df6848bc1942fd7e6ea448bf573e5ad5953de725d3b9ffe7b6fec6f26b81e6f",
+          "origin_opju_size": 54889,
+          "origin_fresh_png_sha256": "2bd0a4ad7e500942770de407911badfd4ce0cd5c030a673d01e9f67b8f14c1d1",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "0820ade9d57d19d4e540fe34cbc3ccb066f420f2c6da08f7a2a4a4bf7f1dbbec",
           "environment": {
@@ -242,7 +248,8 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         }
       },
@@ -273,11 +280,11 @@
           "render_plan_sha256": "ef20402574d928056f39b321898c820b79b9d6afa7557fd2762ad4dc93574ca7",
           "matplotlib_png_sha256": "72a64d38f8847d276d77aa3fea4029c153ecae12c955a94c370ef93c5c91b377",
           "origin_plan_sha256": "05375069b5f9cb81b97669a88cb237a6aa6fa8006fb91422214b9bc475440b19",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "12b00632338817a1b6a47352ddc87a4db785f92702132b403e0d9affe0041fa0",
-          "origin_opju_size": 57034,
-          "origin_fresh_png_sha256": "7e883b7bc1bbc708a15e361fbc5e56e75dde5b5ac083367152a86a0f1cd45db1",
+          "origin_opju_sha256": "f216e0ca3350edbf4170bbe54422f47ee3132fee694e5d5c551d49dd21beb450",
+          "origin_opju_size": 57042,
+          "origin_fresh_png_sha256": "000261c35c5dcd997ca41a6e4c758cfb62c60dd5e35a6d3523ca55eef58614f0",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "7c59922eecdd5984d7f56f111440ad735633345376a99227ea0511f95d43f900",
           "environment": {
@@ -290,7 +297,8 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         },
         "edited": {
@@ -298,11 +306,11 @@
           "render_plan_sha256": "cd787aca6a799b2c09cde1eceeb07f7157ef706f3fc9bcda9e870c832c39e4b2",
           "matplotlib_png_sha256": "80a73ad8ff4758e97061100ca3584ba6290a12eec3c11bf27d745bedb4c4032f",
           "origin_plan_sha256": "2a7c96426d06fd25e7e3b52247a8044da4db9af25c8aab8272faaf632cc5815e",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "8e0b593825f2064d06c2a620484fc9b6fb5496a995d5d3be7851e1c0360cc08e",
-          "origin_opju_size": 57161,
-          "origin_fresh_png_sha256": "672e362efe27e8f4aa5d2a3d7b25a1f996908772c13389e29f43a83385964fe6",
+          "origin_opju_sha256": "f1b5e5d555a41fb0b9dfbed3eaae5eada68df781cad6e830b78132db93c48c48",
+          "origin_opju_size": 57160,
+          "origin_fresh_png_sha256": "3ac5487d957f337db7fb005822e06e6e5e54cb5068a782239e7faebd3e6eadd6",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "c4746e89084f6fdd45c6b1cbee81731910605709bbee779fac06595e94c86df6",
           "environment": {
@@ -315,7 +323,8 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         }
       },
@@ -346,11 +355,11 @@
           "render_plan_sha256": "fdeb53b3507e4a745aec6c9ad65b305c39858fbd7eb1fda7e16d95ecf523e838",
           "matplotlib_png_sha256": "689341776541df1aeb554a28613c7b24b8d925346096069fe2d483cb2d5259d9",
           "origin_plan_sha256": "b80169337c0ee96e5bbda5dfddedc6bf2704cc67a57876cbe990ff8c062a528c",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "ad94bb9b2e9030efa59c32152622f1918f6ca296fc4205f4cab33384d69b2c3a",
-          "origin_opju_size": 55301,
-          "origin_fresh_png_sha256": "06cdf4e1b5581ca789d41d6c5607fe947ba4ab07820869314eb267ab72eab247",
+          "origin_opju_sha256": "23bf8c2d3b652c01e93361bc1c5be9a5c5d7cf54bbd1bbdbcadbacd59ccb852e",
+          "origin_opju_size": 55300,
+          "origin_fresh_png_sha256": "287aa63bb68a4f32722960c5ae931af130e6a89d1f4864e48bc0915f44a9a15f",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "d23d1d7a76214d628dc8973d7015076288379ce8ac58ab8eb9d0bf84f48c2799",
           "environment": {
@@ -363,7 +372,8 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         },
         "edited": {
@@ -371,11 +381,11 @@
           "render_plan_sha256": "fe3a716c19fde827061a5c96888e7f55af92c21dbbc912284650da7516a08e8d",
           "matplotlib_png_sha256": "994a358a5117864ff288c73746861e914fe4b42d41aa44d1df6a5ae7a9797043",
           "origin_plan_sha256": "09cd4979e2acd84984d8ca4b6460d7fcd9e3999ac951c236df152019d9300f6b",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "5177ae4b9e24ebaad3f7824f45d1d45d8921ffe5a071480b40d280df1f4b9cf3",
+          "origin_opju_sha256": "589f7fd1e24e1332ce67e281bdcee6f4adfafc250290e2c61c9de4ced6ab554f",
           "origin_opju_size": 55406,
-          "origin_fresh_png_sha256": "f373d86442833957396f3d13ff432c7f5598fbd51198211a55e9c7a7d32c3561",
+          "origin_fresh_png_sha256": "b13eb3f7ad7f4009a8634c5888200f974ae351a313d126432e9185521b4cf9bb",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "0b85f6c57925f864f08674558ade2b5bb106d45b9c25892cc9c9cf88cc08a2c2",
           "environment": {
@@ -388,7 +398,8 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         }
       },
@@ -417,13 +428,13 @@
         "default": {
           "plot_spec_sha256": "3f85aca34a787aa5fc75be002a85a9801144316d4a675a50dd97c09d7dcba124",
           "render_plan_sha256": "c0c3c7562a143445f4ba0215a45a0bfb33c0aeee03d6768a6d720a51f494bdd6",
-          "matplotlib_png_sha256": "8e442c5f86066b8a22fd208dc9d79327c835694324a512f2143ce41b079df5b7",
+          "matplotlib_png_sha256": "ca003a6168b83f298e81d11a6caf7f887aeec2b46a7be1fe610dabdf33dd8391",
           "origin_plan_sha256": "ab2f689eb6c966d9ed99fbf0add5c9673ef295a3b0e0ccaab4c8abe0657bb0b9",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "3e0b3baab73e0b2b1f773877646f26800ce175cc92071a6adb75aa0f138da899",
+          "origin_opju_sha256": "7130437e73027b4e3b6ce1904bf6a8746f80fe5c42fab260995a24e738cefb71",
           "origin_opju_size": 130618,
-          "origin_fresh_png_sha256": "d13a37b1dc2f211db936aa5ae277606cf96a248a8770632fcba15cc04967f636",
+          "origin_fresh_png_sha256": "5a1ce6ade2e10d31fa99a0aa288ed5f0f3a4d19849ba82b9afb86f83a04c8785",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "210ae677cbd1ae60fa7f24dbdc3e09272d30a6d93a0a0804254935c3307ab56e",
           "environment": {
@@ -436,19 +447,20 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         },
         "edited": {
           "plot_spec_sha256": "9cf945159172bba7b2725fc1092cae3670d45469ff42379a39430d5bf316f893",
           "render_plan_sha256": "7926da911b451c59a7509d90b7b8530096d7fdc7d9e798b20808d3ae5a1137a0",
-          "matplotlib_png_sha256": "08b8c5d6160ffae514e3e49622e8276b9b231a47d8a25d8571d5d94c36fee20e",
+          "matplotlib_png_sha256": "1d75a2dcb9047667e6c6f1519f41c9dfca65762d16d7b7c5c9a69cbf951b3388",
           "origin_plan_sha256": "a0315401d522d14ee480c31db26e80418a9552cbac0e5ac5404878dba80ba490",
-          "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac",
+          "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78",
           "origin_export_status": "success",
-          "origin_opju_sha256": "317e722fc0a2808b1dec35fa71afabb6a8a2dd5d3a53d366c34010db18a8fce4",
-          "origin_opju_size": 130656,
-          "origin_fresh_png_sha256": "8109d3fc9c25c37ac678954f4e421485ec6b601cfcc2a1ba81075989b4397829",
+          "origin_opju_sha256": "9fbec3402061be5f7d1a924f353664eb28a6c51f34313e30489919aadce7845b",
+          "origin_opju_size": 130668,
+          "origin_fresh_png_sha256": "bdbd2f049932ab3e55605273ef01bc7471393f209db662e3c0ab4d20294e8dd5",
           "fresh_reopen_identical": true,
           "validation_report_sha256": "08ad1024a63e3699b438925302c3babc2a1122734850f6476d1557c399e9512e",
           "environment": {
@@ -461,79 +473,48 @@
             "originpro_version": "1.1.15",
             "runtime_version": 10.100178,
             "template_sha256": "08a2f8f8f18d0d689e40d2c520d0416d7ee97b1945f613168f52337626feaedf",
-            "license_available": true
+            "license_available": true,
+            "discovery_source": "registry"
           }
         }
       },
       "blocking_observations": [],
-      "comparison_default_sha256": "ab5be237cf90b38f6b604c0893d4ad4d7a0e43c04bd32728028ca297f11d0df7",
-      "comparison_edited_sha256": "0b720b60e7e209b549839955838317af18dd82dc1791adcffd542a00c84574f3"
+      "comparison_default_sha256": "77f3f3743db1d9866407075d76ad57fdc9d1c8c7969c8125f662ef3a2e9ddeb4",
+      "comparison_edited_sha256": "07b1c0dc6413a366ecc3e669a3ff9846488b8dd2937e62414c6139c41285510f"
     }
   ],
-  "gaps": [
-    {
-      "chart_type_id": "K24",
-      "title": "分面图",
-      "code": "SAME_SOURCE_FACET_PAIR_MISSING",
-      "status": "not_tested",
-      "candidate_sources": [
-        "D:\\origin\\Samples\\Graphing\\Categorical Data.dat",
-        "D:\\origin\\Templates\\Previews\\Trellis.png"
-      ],
-      "reason": "本机只有官方分类数据与独立模板预览，没有可证明该预览由这份数据生成的随附图页—工作表对；不能把两者臆配为同源证据。"
+  "supplemental_synthetic_lane": {
+    "stage": "VISUAL29-STRUCTURAL-SYNTHETIC-D",
+    "manifest_path": "tests\\fixtures\\visual_regression\\visual29-structural-synthetic\\manifest.json",
+    "chart_type_ids": [
+      "K24",
+      "K25",
+      "S01"
+    ],
+    "evidence_grade": "D",
+    "source_build_identity": {
+      "scope_version": "visual29-structural-synthetic-rendering-v1",
+      "digest_algorithm": "git-blob-framed-sha256-v1",
+      "git_commit": "534d62611bd22b3ae1159b3b2f4a51f206395349",
+      "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78"
     },
-    {
-      "chart_type_id": "K25",
-      "title": "多面板复合图",
-      "code": "O1_QUALIFICATION_NOT_APPLICABLE",
-      "status": "not_tested",
-      "candidate_sources": [
-        "D:\\origin\\mgroups.otpu"
-      ],
-      "reason": "K25 是 FigureSpec/O2 多面板对象，不能以本线要求的单图 PlotSpec/O1 fresh-reopen 资格冒充通过；当前也没有同源异构子图项目对。"
+    "blocking_observations": [],
+    "human_visual_signature": {
+      "status": "pending",
+      "reviewer": null,
+      "signed_at": null
     },
-    {
-      "chart_type_id": "S01",
-      "title": "给定 KM 生存曲线",
-      "code": "PRECOMPUTED_SAME_SOURCE_PAIR_MISSING",
-      "status": "not_tested",
-      "candidate_sources": [
-        "D:\\origin\\Samples\\Statistics\\Kaplan-Meier.dat",
-        "D:\\origin\\KaplanMeier.OGS"
-      ],
-      "reason": "随附 DAT 是原始 time/status，不是 PlotAgent S01 所需的用户预计算 step/CI/风险人数；为得到参考图必须先运行生存分析，因此不能声称参考图与测试输入是同一份数据。"
-    }
-  ],
+    "decision": "NO-GO"
+  },
+  "gaps": [],
   "qualification": {
     "source_build_identity": {
       "scope_version": "visual29-structural-rendering-v2",
       "digest_algorithm": "git-blob-framed-sha256-v1",
-      "git_commit": "77f2a01d80f9afca95645e4f78a58a0b5e168ecb",
-      "source_sha256": "a8f0cb0f46e1138185bca072f42c0e439acc88f88373c01e337b402fdb4830ac"
+      "git_commit": "534d62611bd22b3ae1159b3b2f4a51f206395349",
+      "source_sha256": "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78"
     },
-    "blocking_observations": [
-      {
-        "chart_type_id": "K24",
-        "code": "SAME_SOURCE_FACET_PAIR_MISSING",
-        "status": "open",
-        "backend": "evidence",
-        "observation": "本机只有官方分类数据与独立模板预览，没有可证明该预览由这份数据生成的随附图页—工作表对；不能把两者臆配为同源证据。"
-      },
-      {
-        "chart_type_id": "K25",
-        "code": "O1_QUALIFICATION_NOT_APPLICABLE",
-        "status": "open",
-        "backend": "evidence",
-        "observation": "K25 是 FigureSpec/O2 多面板对象，不能以本线要求的单图 PlotSpec/O1 fresh-reopen 资格冒充通过；当前也没有同源异构子图项目对。"
-      },
-      {
-        "chart_type_id": "S01",
-        "code": "PRECOMPUTED_SAME_SOURCE_PAIR_MISSING",
-        "status": "open",
-        "backend": "evidence",
-        "observation": "随附 DAT 是原始 time/status，不是 PlotAgent S01 所需的用户预计算 step/CI/风险人数；为得到参考图必须先运行生存分析，因此不能声称参考图与测试输入是同一份数据。"
-      }
-    ],
+    "blocking_observations": [],
     "human_visual_signature": {
       "status": "pending",
       "reviewer": null,
@@ -542,5 +523,5 @@
     "evidence_status": "fresh_render_pending_human",
     "decision": "NO-GO"
   },
-  "audit_conclusion": "same-source evidence generated for eligible cases; three evidence gaps retained; human visual sign-off pending; visual qualification not passed"
+  "audit_conclusion": "six A/C same-source cases plus three D-grade supplemental synthetic cases cover the structural inventory; no evidence gap remains; human visual sign-off pending; visual qualification not passed"
 }
