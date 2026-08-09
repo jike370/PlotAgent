@@ -418,9 +418,7 @@ def _legend_binding_signature(
             raise NativeOriginError(
                 f"legend binding {binding.role!r} is missing for {plot.plot_id}"
             )
-        payload.append(
-            cast(JsonValue, {"role": binding.role, "values": list(column.values)})
-        )
+        payload.append(cast(JsonValue, {"role": binding.role, "values": list(column.values)}))
     return hashlib.sha256(canonical_json(cast(JsonValue, payload)).encode()).hexdigest()
 
 
@@ -610,7 +608,10 @@ def _tick_label_rotation(axis: OriginAxisPlan, font_size_pt: float, width_mm: fl
     if axis.orientation != "x" or not axis.ticks or not _uses_custom_tick_labels(axis):
         return 0
     slot_width = width_mm / max(len(axis.ticks), 1)
-    widest = max(_text_width_mm(item.label, font_size_pt) for item in axis.ticks)
+    widest = max(
+        max(_text_width_mm(line, font_size_pt) for line in item.label.splitlines() or ("",))
+        for item in axis.ticks
+    )
     return 45 if widest > slot_width * 0.86 else 0
 
 
@@ -637,7 +638,13 @@ def _native_layer_frame(
     existing_bottom_margin = graph_plan.page_height_mm - (layer_plan.top_mm + layer_plan.height_mm)
     bottom_shrink = 0.0
     if rotation and x_axis is not None:
-        widest = max(_text_width_mm(item.label, graph_plan.font_size_pt) for item in x_axis.ticks)
+        widest = max(
+            max(
+                _text_width_mm(line, graph_plan.font_size_pt)
+                for line in item.label.splitlines() or ("",)
+            )
+            for item in x_axis.ticks
+        )
         rotated_height = widest * math.sin(math.radians(rotation))
         # Origin does not automatically push its special XB title below rotated
         # tick labels.  Reserve a title band as well as the projected label height.
@@ -1480,9 +1487,7 @@ class OriginProBackend:
         )
         if alpha < 1:
             transparency_targets = (
-                created_plots[:1]
-                if primitive.transform in {"band", "step_band"}
-                else created_plots
+                created_plots[:1] if primitive.transform in {"band", "step_band"} else created_plots
             )
             for created_plot in transparency_targets:
                 created_plot.transparency = round((1 - alpha) * 100)
@@ -2718,9 +2723,7 @@ class OriginProBackend:
                                 for plot_plan in graph_layer.plots
                                 if plot_plan.plot_id == sample.plot_id
                             )
-                            expected_color = _primitive_color(
-                                sample_plot_plan, sample.primitive
-                            )
+                            expected_color = _primitive_color(sample_plot_plan, sample.primitive)
                             if (
                                 expected_color is not None
                                 and sample.primitive.color_role is None
@@ -2743,8 +2746,7 @@ class OriginProBackend:
                                 != _LINE_STYLE_CODES[sample_plot_plan.line_style]
                             ):
                                 raise NativeOriginError(
-                                    f"native legend sample line style differs for "
-                                    f"{sample.plot_id}"
+                                    f"native legend sample line style differs for {sample.plot_id}"
                                 )
                     if legend.get_int("fillcolor") != _ORIGIN_WHITE_COLOR_INDEX:
                         raise NativeOriginError(

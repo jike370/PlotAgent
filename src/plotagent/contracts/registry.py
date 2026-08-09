@@ -360,6 +360,7 @@ _BASE_CHART_REGISTRY: tuple[ChartRegistration, ...] = (
         "matrix",
         ("heatmap",),
         ("actual", "predicted"),
+        optional_roles=("count",),
         required_calculations=("confusion_count",),
         allowed_calculations=("confusion_count",),
     ),

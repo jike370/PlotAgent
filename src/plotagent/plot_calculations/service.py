@@ -1137,9 +1137,14 @@ def _confusion_count(
     producer_build_hash: str,
     result_version: int,
 ) -> ConfusionCountResult:
-    fields = (spec.actual_field, spec.predicted_field)
-    filtered = _filter_rows(spec, data, fields, ())
-    observed_pairs: list[tuple[str, str]] = []
+    fields = (
+        spec.actual_field,
+        spec.predicted_field,
+        *((spec.count_field,) if spec.count_field is not None else ()),
+    )
+    numeric_fields = () if spec.count_field is None else (spec.count_field,)
+    filtered = _filter_rows(spec, data, fields, numeric_fields)
+    observed_pairs: list[tuple[str, str, int]] = []
     observed_order: dict[str, None] = {}
     for index in filtered.included_indices:
         actual = _category_label(
@@ -1148,7 +1153,19 @@ def _confusion_count(
         predicted = _category_label(
             _category(data.columns[spec.predicted_field][index], spec.predicted_field)
         )
-        observed_pairs.append((actual, predicted))
+        count = 1
+        if spec.count_field is not None:
+            numeric_count = _number(data.columns[spec.count_field][index], spec.count_field)
+            if numeric_count < 0 or not numeric_count.is_integer():
+                raise _failure(
+                    "PLOTSPEC_CALCULATION_DOMAIN_INVALID",
+                    "pre-aggregated confusion counts must be non-negative integers",
+                    field_id=spec.count_field,
+                    row_id=data.row_ids[index],
+                    value=numeric_count,
+                )
+            count = int(numeric_count)
+        observed_pairs.append((actual, predicted, count))
         observed_order.setdefault(actual, None)
         observed_order.setdefault(predicted, None)
     if spec.category_order:
@@ -1164,8 +1181,8 @@ def _confusion_count(
         category_order = tuple(observed_order)
     category_index = {category: index for index, category in enumerate(category_order)}
     counts = np.zeros((len(category_order), len(category_order)), dtype=np.int64)
-    for actual, predicted in observed_pairs:
-        counts[category_index[actual], category_index[predicted]] += 1
+    for actual, predicted, count in observed_pairs:
+        counts[category_index[actual], category_index[predicted]] += count
     row_totals = counts.sum(axis=1)
     column_totals = counts.sum(axis=0)
     zero_denominator = False

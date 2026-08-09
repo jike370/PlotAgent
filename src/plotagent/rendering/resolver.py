@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -64,12 +65,36 @@ def _plain_text(value: str) -> SafeRichText:
     return SafeRichText(nodes=(SafeTextNode(kind="plain", text=value),))
 
 
-def _field_display_name(field_id: str) -> str:
-    """Derive a stable user-facing column label without adding schema-side metadata."""
+_OPAQUE_FIELD_LABEL = re.compile(r"^[0-9a-f]{16,64}$", re.IGNORECASE)
+
+
+def _field_display_name(field_id: str, *, fallback: str) -> str:
+    """Derive a safe label, never exposing a content-addressed field identifier."""
 
     suffix = field_id.rsplit(":", 1)[-1].rsplit(".", 1)[-1]
     normalized = " ".join(suffix.replace("_", " ").replace("-", " ").split())
-    return normalized or field_id
+    if not normalized or _OPAQUE_FIELD_LABEL.fullmatch(normalized.replace(" ", "")):
+        return fallback
+    return normalized
+
+
+def _semantic_axis_label(plot: PlotSpec, orientation: Literal["x", "y"]) -> str | None:
+    """Return fixed v1 scientific semantics for charts whose display axes derive values."""
+
+    # Plot version one is the compiler-created default. Later versions may carry an
+    # explicit user axis-label edit and must not be overwritten by the resolver.
+    if plot.plot_version != 1:
+        return None
+    labels: dict[str, tuple[str, str]] = {
+        "K20": ("Column", "Row"),
+        "K21": ("Column", "Row"),
+        "S61": ("Predicted", "Actual"),
+    }
+    if plot.chart_type_id == "S07":
+        significance = "q" if len(plot.series[0].data.role_fields) >= 4 else "p"
+        labels["S07"] = ("log2FC", f"-log10({significance})")
+    pair = labels.get(plot.chart_type_id)
+    return None if pair is None else pair[0 if orientation == "x" else 1]
 
 
 def _rgb(color: str) -> tuple[float, float, float]:
@@ -121,9 +146,7 @@ def _contrast_text_color(
     maximum: float,
     palette: Sequence[ColorValue],
 ) -> ColorValue:
-    luminance = _relative_luminance(
-        _interpolated_palette_rgb(value, minimum, maximum, palette)
-    )
+    luminance = _relative_luminance(_interpolated_palette_rgb(value, minimum, maximum, palette))
     black_contrast = (luminance + 0.05) / 0.05
     white_contrast = 1.05 / (luminance + 0.05)
     return _BLACK if black_contrast >= white_contrast else _WHITE
@@ -771,7 +794,8 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
     if chart_id == "X03":
         value_roles = tuple(role for role in values if role.startswith("series_"))
         labels = tuple(
-            _field_display_name(field_id) for field_id in series.data.role_fields[1:]
+            _field_display_name(field_id, fallback=f"Series {index + 1}")
+            for index, field_id in enumerate(series.data.role_fields[1:])
         )
         lollipop_layers: list[_DraftLayer] = []
         for row_index, category in enumerate(values["category"]):
@@ -805,7 +829,10 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
 
     if chart_id in {"X39", "X40"}:
         value_roles = tuple(role for role in values if role.startswith("series_"))
-        labels = tuple(_field_display_name(field_id) for field_id in series.data.role_fields)
+        labels = tuple(
+            _field_display_name(field_id, fallback=f"Series {index + 1}")
+            for index, field_id in enumerate(series.data.role_fields)
+        )
         positions = tuple(float(index) for index in range(len(value_roles)))
         series_layers: list[_DraftLayer] = []
         row_count = len(values[value_roles[0]])
@@ -840,9 +867,7 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
                             {
                                 "x": pair_positions,
                                 "x_label": pair_labels,
-                                "y": tuple(
-                                    _number(values[role][row_index]) for role in pair_roles
-                                ),
+                                "y": tuple(_number(values[role][row_index]) for role in pair_roles),
                             },
                             ("x",),
                             ("y",),
@@ -1414,8 +1439,10 @@ def _special_drafts(plot: PlotSpec, store: RenderDataStore) -> list[_DraftLayer]
             absolute_log2_fold_change=parameters.volcano_absolute_log2_fold_change,
             pvalue=parameters.volcano_pvalue,
         )
+        significance_values = values.get("qvalue", values["pvalue"])
         pvalues = np.asarray(
-            [max(_number(value), np.finfo(float).tiny) for value in values["pvalue"]], dtype=float
+            [max(_number(value), np.finfo(float).tiny) for value in significance_values],
+            dtype=float,
         )
         volcano_y = -np.log10(pvalues)
         volcano_x = np.asarray([_number(value) for value in values["log2fc"]], dtype=float)
@@ -1746,14 +1773,10 @@ def _resolve_panel_axes(
             # risk-count values explicitly so every renderer receives the
             # same target-neutral panel contract.  No survival statistic is
             # calculated here.
-            panel_drafts = tuple(
-                draft for draft in drafts if draft.panel_id == panel.panel_id
-            )
+            panel_drafts = tuple(draft for draft in drafts if draft.panel_id == panel.panel_id)
             risk_x_values = _axis_values(panel_drafts, "x")
             risk_y_values = tuple(
-                value
-                for draft in panel_drafts
-                for value in draft.roles.get("risk_count", ())
+                value for draft in panel_drafts for value in draft.roles.get("risk_count", ())
             )
             suffix = f".p{panel_index}"
             try:
@@ -1872,6 +1895,22 @@ def _resolve_panel_axes(
                                 for tick in x_resolved.axis.ticks
                             )
                         }
+                    ),
+                )
+            semantic_x_label = _semantic_axis_label(plot, "x")
+            semantic_y_label = _semantic_axis_label(plot, "y")
+            if semantic_x_label is not None:
+                x_resolved = replace(
+                    x_resolved,
+                    axis=x_resolved.axis.model_copy(
+                        update={"label": _plain_text(semantic_x_label)}
+                    ),
+                )
+            if semantic_y_label is not None:
+                y_resolved = replace(
+                    y_resolved,
+                    axis=y_resolved.axis.model_copy(
+                        update={"label": _plain_text(semantic_y_label)}
                     ),
                 )
         except ValueError as error:

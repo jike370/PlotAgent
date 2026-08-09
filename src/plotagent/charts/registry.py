@@ -383,7 +383,7 @@ CHARTS: tuple[ChartAdapterRegistration, ...] = (
         "S61",
         "matrix",
         ("actual", "predicted"),
-        (),
+        ("count",),
         ("fixed",),
         ("confusion_count",),
         (),

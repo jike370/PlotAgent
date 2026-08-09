@@ -241,6 +241,7 @@ class ConfusionCountSpec(CalculationSpecBase):
     algorithm_id: Literal["fixed_confusion_count"] = "fixed_confusion_count"
     actual_field: FieldId
     predicted_field: FieldId
+    count_field: FieldId | None = None
     normalization: ConfusionNormalization = "count"
     category_order: tuple[str, ...] = ()
 
@@ -248,6 +249,8 @@ class ConfusionCountSpec(CalculationSpecBase):
     def category_contract(self) -> ConfusionCountSpec:
         if self.actual_field == self.predicted_field:
             raise ValueError("actual_field must differ from predicted_field")
+        if self.count_field in {self.actual_field, self.predicted_field}:
+            raise ValueError("count_field must differ from category fields")
         if len(set(self.category_order)) != len(self.category_order):
             raise ValueError("category_order must be unique")
         return self

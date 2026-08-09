@@ -18,7 +18,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "555965978f6106f19ded22dc837993feccc5c9489f588d97bb5b8e0225fb182e"
+      "sha256": "506cbf548790e83ae2c7fef16e3304fb4c8427448d009c5ea9d6b1d028f1241a"
     },
     {
       "path": "schemas/error-registry.json",
@@ -58,7 +58,7 @@
     },
     {
       "path": "schemas/plot-calculation-spec.schema.json",
-      "sha256": "08a27d0ef98a4c55eff7a6bc299361c6601f3fa7ed0215a7ed8ca0c7a6347395"
+      "sha256": "dd527806fa9d729fc820cd949574f9a843940c154aba4a3bd947e5c97d2998a4"
     },
     {
       "path": "schemas/plot-patch.schema.json",
@@ -94,7 +94,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "dedf4823f53fea74bd9f7f2c8a6f60ca6bca25ffc9a11b541598f7f410c453cc"
+      "sha256": "69be34613ad21e8b0bf4dee9b6856ca8e7a43b75435f213ec96ba0079840ad80"
     },
     {
       "path": "src/shared/generated/style-catalog.json",

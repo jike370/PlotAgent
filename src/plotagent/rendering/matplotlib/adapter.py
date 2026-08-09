@@ -59,6 +59,19 @@ def safe_text(value: SafeRichText | None) -> str | None:
     return "".join(output)
 
 
+def _wrapped_tick_text(value: str, *, width: int = 18) -> str:
+    if "\n" in value or len(value) <= width:
+        return value
+    return "\n".join(
+        textwrap.wrap(
+            value,
+            width=width,
+            break_long_words=True,
+            break_on_hyphens=False,
+        )
+    )
+
+
 def _role_columns(layer: ResolvedLayer, table: RenderTable) -> dict[str, tuple[Scalar, ...]]:
     return {binding.role: table.column(binding.field_id) for binding in layer.field_bindings}
 
@@ -225,8 +238,9 @@ class MatplotlibRenderer:
         tick_values = tuple(item.value for item in plan.ticks)
         tick_labels = tuple(safe_text(item.label) or "" for item in plan.ticks)
         if orientation == "x":
+            display_tick_labels = tuple(_wrapped_tick_text(label) for label in tick_labels)
             axis.set_xlim(*limits)
-            axis.set_xticks(tick_values, labels=tick_labels)
+            axis.set_xticks(tick_values, labels=display_tick_labels)
             if len(tick_labels) >= 7 or max((len(label) for label in tick_labels), default=0) >= 9:
                 axis.tick_params(axis="x", labelrotation=30)
                 for label in axis.get_xticklabels():
@@ -725,9 +739,7 @@ class MatplotlibRenderer:
             if main_axis is not None:
                 risk_x_label = risk_x_label or main_axis.get_xlabel()
                 main_axis.set_xlabel("")
-            if risk_x_label and not any(
-                item.get_gid() == _RISK_X_LABEL_GID for item in axis.texts
-            ):
+            if risk_x_label and not any(item.get_gid() == _RISK_X_LABEL_GID for item in axis.texts):
                 x_label = axis.text(
                     0.5,
                     -0.18,
@@ -742,8 +754,7 @@ class MatplotlibRenderer:
             row_indexes = {
                 int(gid.removeprefix(_RISK_ROW_GID_PREFIX))
                 for item in axis.texts
-                if (gid := item.get_gid()) is not None
-                and gid.startswith(_RISK_ROW_GID_PREFIX)
+                if (gid := item.get_gid()) is not None and gid.startswith(_RISK_ROW_GID_PREFIX)
             }
             row_index = max(row_indexes, default=-1) + 1
             row_gid = f"{_RISK_ROW_GID_PREFIX}{row_index}"
@@ -774,8 +785,7 @@ class MatplotlibRenderer:
                 {
                     int(gid.removeprefix(_RISK_ROW_GID_PREFIX))
                     for item in axis.texts
-                    if (gid := item.get_gid()) is not None
-                    and gid.startswith(_RISK_ROW_GID_PREFIX)
+                    if (gid := item.get_gid()) is not None and gid.startswith(_RISK_ROW_GID_PREFIX)
                 }
             )
             row_positions = (
@@ -825,9 +835,7 @@ class MatplotlibRenderer:
 
     def _draw_annotations(self, axes: Mapping[str, Axes], resolved: ResolvedPlot) -> None:
         matrix_panels = {
-            layer.panel_id
-            for layer in resolved.plan.layers
-            if layer.geometry.startswith("matrix.")
+            layer.panel_id for layer in resolved.plan.layers if layer.geometry.startswith("matrix.")
         }
         for annotation in resolved.plan.annotations:
             axis = axes[annotation.panel_id]
@@ -942,8 +950,7 @@ class MatplotlibRenderer:
             sizes = _numeric(roles["size"])
             areas = _numeric(roles["marker_area"])
             pairs.extend(
-                (float(size), float(area))
-                for size, area in zip(sizes, areas, strict=True)
+                (float(size), float(area)) for size, area in zip(sizes, areas, strict=True)
             )
 
         for panel_id, pairs in by_panel.items():
@@ -1034,9 +1041,7 @@ class MatplotlibRenderer:
         renderer = _renderer(figure)
         if resolved.plan.legend.placement == "inside":
             for axis in axes.values():
-                position_key = tuple(
-                    round(float(value), 9) for value in axis.get_position().bounds
-                )
+                position_key = tuple(round(float(value), 9) for value in axis.get_position().bounds)
                 overlay_count = sum(
                     tuple(round(float(value), 9) for value in candidate.get_position().bounds)
                     == position_key
@@ -1063,6 +1068,8 @@ class MatplotlibRenderer:
         self._fit_left_axis_labels(figure, axes)
         figure.canvas.draw()
         self._fit_outside_colorbars(figure)
+        figure.canvas.draw()
+        self._fit_horizontal_tick_labels(figure, axes)
         figure.canvas.draw()
         self._fit_bottom_tick_labels(figure, axes)
         figure.canvas.draw()
@@ -1138,9 +1145,7 @@ class MatplotlibRenderer:
             for _attempt in range(3):
                 figure.canvas.draw()
                 renderer = _renderer(figure)
-                rightmost = max(
-                    float(item.get_window_extent(renderer).x1) for item in legends
-                )
+                rightmost = max(float(item.get_window_extent(renderer).x1) for item in legends)
                 overflow = rightmost + right_padding - canvas_width
                 if overflow <= 0.5:
                     break
@@ -1150,9 +1155,7 @@ class MatplotlibRenderer:
                     break
                 for candidate in group:
                     current = candidate.get_position()
-                    candidate.set_position(
-                        (current.x0, current.y0, target_width, current.height)
-                    )
+                    candidate.set_position((current.x0, current.y0, target_width, current.height))
 
     @staticmethod
     def _fit_bottom_tick_labels(figure: Figure, axes: Mapping[str, Axes]) -> None:
@@ -1192,6 +1195,55 @@ class MatplotlibRenderer:
                 candidate.set_position(
                     (current.x0, current.y0 + required, current.width, current.height - required)
                 )
+
+    @staticmethod
+    def _fit_horizontal_tick_labels(figure: Figure, axes: Mapping[str, Axes]) -> None:
+        """Reserve left/right canvas space for data-driven categorical tick text."""
+
+        canvas_width = float(figure.bbox.width)
+        padding = 8.0
+        processed: set[tuple[float, float, float, float]] = set()
+        for axis in axes.values():
+            position = axis.get_position()
+            position_key = cast(
+                tuple[float, float, float, float],
+                tuple(round(float(value), 9) for value in position.bounds),
+            )
+            if position_key in processed:
+                continue
+            group = [
+                candidate
+                for candidate in axes.values()
+                if tuple(round(float(value), 9) for value in candidate.get_position().bounds)
+                == position_key
+            ]
+            processed.add(position_key)
+            for _attempt in range(3):
+                figure.canvas.draw()
+                renderer = _renderer(figure)
+                labels: list[Artist] = [
+                    label
+                    for candidate in group
+                    for label in candidate.get_xticklabels()
+                    if label.get_visible() and label.get_text()
+                ]
+                if not labels:
+                    break
+                leftmost = min(float(label.get_window_extent(renderer).x0) for label in labels)
+                rightmost = max(float(label.get_window_extent(renderer).x1) for label in labels)
+                left = max(0.0, padding - leftmost) / canvas_width
+                right = max(0.0, rightmost + padding - canvas_width) / canvas_width
+                if left <= 0 and right <= 0:
+                    break
+                current = group[0].get_position()
+                target_width = current.width - left - right
+                if target_width <= 0:
+                    break
+                for candidate in group:
+                    position = candidate.get_position()
+                    candidate.set_position(
+                        (position.x0 + left, position.y0, target_width, position.height)
+                    )
 
     @staticmethod
     def _fit_left_axis_labels(figure: Figure, axes: Mapping[str, Axes]) -> None:
@@ -1244,9 +1296,7 @@ class MatplotlibRenderer:
         for colorbar_axis in figure.axes:
             if not getattr(colorbar_axis, "_plotagent_colorbar", False):
                 continue
-            parent_axes = tuple(
-                getattr(colorbar_axis, "_plotagent_parent_axes", ())
-            )
+            parent_axes = tuple(getattr(colorbar_axis, "_plotagent_parent_axes", ()))
             if not parent_axes:
                 continue
             figure.canvas.draw()
@@ -1280,9 +1330,7 @@ class MatplotlibRenderer:
                 target_width = min(current.width, maximum_parent_right - current.x0)
                 if target_width <= 0:
                     raise ValueError("outside colorbar leaves no positive data-axis width")
-                parent.set_position(
-                    (current.x0, current.y0, target_width, current.height)
-                )
+                parent.set_position((current.x0, current.y0, target_width, current.height))
 
     @staticmethod
     def _fit_plot_titles(figure: Figure, axes: Mapping[str, Axes]) -> None:

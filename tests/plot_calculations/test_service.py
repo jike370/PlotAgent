@@ -608,6 +608,63 @@ def test_confusion_fixed_input_order_zero_denominator_and_invalid_order() -> Non
     assert raised.value.code == "PLOTSPEC_CALCULATION_DOMAIN_INVALID"
 
 
+def test_confusion_count_accepts_valid_preaggregated_counts() -> None:
+    spec = ConfusionCountSpec(
+        calculation_id="plotcalc:confusion-preaggregated",
+        calculation_version=1,
+        prepared_dataset_ref=prepared_ref(),
+        algorithm_version=ALGORITHM_VERSION,
+        missing_policy="fail",
+        actual_field="field:actual",
+        predicted_field="field:predicted",
+        count_field="field:count",
+        category_order=("cat", "dog"),
+    )
+    result = calculate_plot(
+        spec,
+        data(
+            {
+                "field:actual": ("cat", "cat", "dog", "dog"),
+                "field:predicted": ("cat", "dog", "cat", "dog"),
+                "field:count": (12, 2, 1, 10),
+            }
+        ),
+        producer_build_hash=BUILD_HASH,
+    )
+
+    assert [row[4] for row in result.output_table.rows] == [12, 2, 1, 10]
+    assert [row[7] for row in result.output_table.rows] == [12, 2, 1, 10]
+
+
+@pytest.mark.parametrize("count", (-1, 1.5))
+def test_confusion_count_rejects_invalid_preaggregated_counts(count: float) -> None:
+    spec = ConfusionCountSpec(
+        calculation_id="plotcalc:confusion-invalid-preaggregated",
+        calculation_version=1,
+        prepared_dataset_ref=prepared_ref(),
+        algorithm_version=ALGORITHM_VERSION,
+        missing_policy="fail",
+        actual_field="field:actual",
+        predicted_field="field:predicted",
+        count_field="field:count",
+    )
+
+    with pytest.raises(PlotCalculationError) as raised:
+        calculate_plot(
+            spec,
+            data(
+                {
+                    "field:actual": ("cat",),
+                    "field:predicted": ("dog",),
+                    "field:count": (count,),
+                }
+            ),
+            producer_build_hash=BUILD_HASH,
+        )
+
+    assert raised.value.code == "PLOTSPEC_CALCULATION_DOMAIN_INVALID"
+
+
 def test_fail_policy_algorithm_version_and_empty_input_have_stable_errors() -> None:
     spec = ECDFSpec(
         calculation_id="plotcalc:ecdf-invalid",

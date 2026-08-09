@@ -312,6 +312,7 @@ export type ConfusionCountSpec = {
   readonly algorithm_id?: "fixed_confusion_count";
   readonly actual_field: string;
   readonly predicted_field: string;
+  readonly count_field?: string | null;
   readonly normalization?: "count" | "true_class" | "predicted_class";
   readonly category_order?: ReadonlyArray<string>;
 }

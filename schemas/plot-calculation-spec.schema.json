@@ -37,6 +37,19 @@
           "title": "Category Order",
           "type": "array"
         },
+        "count_field": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Count Field"
+        },
         "fixed_seed": {
           "anyOf": [
             {
