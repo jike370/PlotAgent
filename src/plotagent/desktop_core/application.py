@@ -416,6 +416,7 @@ class DesktopApplication:
             "datasets.describe": self._datasets_describe,
             "plots.create": self._plots_create,
             "plots.patch": self._plots_patch,
+            "plots.list": self._plots_list,
             "plots.get": self._plots_get,
             "plots.render": self._plots_render,
             "batch.create": self._batch_create,
@@ -1121,6 +1122,23 @@ class DesktopApplication:
             stored.prepared_dataset,
             project_version=session.domain.revision,
         )
+
+    def _plots_list(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(params, required={"project_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return {
+            "project_id": session.project_id,
+            "project_version": session.domain.revision,
+            "plots": [
+                self._plot_response(
+                    session,
+                    stored.plot,
+                    stored.prepared_dataset,
+                    project_version=session.domain.revision,
+                )
+                for stored in session.domain.list_plots()
+            ],
+        }
 
     def _plots_render(self, context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(
@@ -3482,6 +3500,7 @@ class DesktopApplication:
             data_store[precomputed_ref.data_ref_hash] = RenderTable.from_columns(prepared_columns)
 
         for index, geometry in enumerate(registration.geometries):
+            roles: tuple[str, ...] | None = None
             rule = get_series_rule(cast(Any, chart_type_id), geometry)
             if "calculated" in rule.data_kinds and calculation_ref is not None:
                 assert calculation_table is not None
@@ -3537,6 +3556,7 @@ class DesktopApplication:
                     series_id=f"series:{plot_id.removeprefix('plot:')}.{index}",
                     geometry=geometry,
                     data=data,
+                    label=_default_series_label(roles or (), bindings, fields),
                 )
             )
         if not series_specs:
@@ -4165,13 +4185,19 @@ class DesktopApplication:
         project_version: int,
         task_id: str | None = None,
     ) -> dict[str, RpcJsonValue]:
+        plot_content_hash = canonical_hash(plot)
         return {
             **({"task_id": task_id} if task_id is not None else {}),
             "project_id": session.project_id,
             "project_version": project_version,
             "plot_id": plot.plot_id,
             "plot_version": plot.plot_version,
-            "plot_content_hash": canonical_hash(plot),
+            "plot_content_hash": plot_content_hash,
+            "plot_ref": PlotSpecRef(
+                plot_id=plot.plot_id,
+                plot_version=plot.plot_version,
+                content_hash=plot_content_hash,
+            ).model_dump(mode="json"),
             "chart_type_id": plot.chart_type_id,
             "prepared_dataset_id": prepared.prepared_dataset_id,
             "prepared_version": prepared.prepared_version,
@@ -4641,6 +4667,22 @@ def _variadic_series_roles(bindings: Mapping[str, str]) -> tuple[str, ...]:
             "Variadic series roles must be consecutive from series_1.",
         )
     return tuple(role for _index, role in indexed)
+
+
+def _default_series_label(
+    roles: tuple[str, ...],
+    bindings: Mapping[str, str],
+    fields: Mapping[str, Any],
+) -> SafeRichText | None:
+    """Keep source-facing names on structural series instead of opaque field IDs."""
+    series_roles = tuple(role for role in roles if role.startswith("series_"))
+    if not series_roles:
+        return None
+    return SafeRichText(
+        nodes=tuple(
+            SafeTextNode(kind="plain", text=fields[bindings[role]].name) for role in series_roles
+        )
+    )
 
 
 _CALCULATED_FIELDS: dict[str, dict[str, str]] = {

@@ -242,8 +242,17 @@ class ProjectDomainRepository:
             self.project._assert_writer()
             .execute(  # noqa: SLF001
                 """
-            SELECT plot_id, MAX(plot_version)
-            FROM plot_spec_versions GROUP BY plot_id ORDER BY plot_id
+            WITH latest AS (
+                SELECT
+                    plot_id,
+                    MAX(plot_version) AS plot_version,
+                    MAX(rowid) AS committed_sequence
+                FROM plot_spec_versions
+                GROUP BY plot_id
+            )
+            SELECT plot_id, plot_version
+            FROM latest
+            ORDER BY committed_sequence, plot_id
             """
             )
             .fetchall()

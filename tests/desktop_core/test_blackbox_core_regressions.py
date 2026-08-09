@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -143,6 +145,182 @@ def test_imported_project_identity_survives_core_restart(tmp_path: Path) -> None
     assert listed["datasets"][0]["source_dataset_id"] == expected_dataset["source_dataset_id"]
     assert listed["datasets"][0]["display_name"] == "restart-source:block_1"
     assert listed["datasets"][0]["source_file_name"] == "restart-source.csv"
+
+
+def test_persisted_plots_list_and_render_survive_core_restart(tmp_path: Path) -> None:
+    source = tmp_path / "recovery-source.csv"
+    _write_csv(source, 5)
+    root = tmp_path / "app"
+    first_app = ApplicationHarness(root)
+    try:
+        project_id, revision = _create_open(first_app)
+        imported = first_app.call(
+            "datasets.import",
+            {
+                "project_id": project_id,
+                "resource_id": "resource:recovery",
+                "source_path": str(source),
+                "idempotency_key": "import-recovery",
+                "expected_version": revision,
+                "options": {},
+            },
+        )
+        dataset = imported["datasets"][0]
+        fields = {item["name"]: item["field_id"] for item in dataset["fields"]}
+        zeta = first_app.call(
+            "plots.create",
+            {
+                "project_id": project_id,
+                "plot_id": "plot:zeta",
+                "chart_type_id": "K01",
+                "source_dataset_id": dataset["source_dataset_id"],
+                "source_version": dataset["source_version"],
+                "field_mapping": {"x": fields["x"], "y": fields["y"]},
+                "idempotency_key": "create-zeta",
+                "expected_version": imported["project_version"],
+            },
+        )
+        alpha = first_app.call(
+            "plots.create",
+            {
+                "project_id": project_id,
+                "plot_id": "plot:alpha",
+                "chart_type_id": "K01",
+                "source_dataset_id": dataset["source_dataset_id"],
+                "source_version": dataset["source_version"],
+                "field_mapping": {"x": fields["x"], "y": fields["y"]},
+                "idempotency_key": "create-alpha",
+                "expected_version": zeta["project_version"],
+            },
+        )
+        patched = first_app.call(
+            "plots.patch",
+            {
+                "project_id": project_id,
+                "plot_id": "plot:alpha",
+                "expected_version": 1,
+                "idempotency_key": "patch-alpha",
+                "patch": {
+                    "operation": "set_plot_title",
+                    "target_id": "plot:alpha",
+                    "expected_plot_version": 1,
+                    "title": {"nodes": [{"kind": "plain", "text": "Recovered plot"}]},
+                },
+            },
+        )
+        rendered = first_app.call(
+            "plots.render",
+            {"project_id": project_id, "plot_id": "plot:alpha", "plot_version": 2},
+        )
+        rendered_hash = hashlib.sha256(Path(rendered["artifact"]["path"]).read_bytes()).hexdigest()
+        expected = {
+            "project_version": patched["project_version"],
+            "plot_content_hash": patched["plot_content_hash"],
+            "plot_ref": patched["plot_ref"],
+            "prepared_dataset_id": patched["prepared_dataset_id"],
+            "prepared_version": patched["prepared_version"],
+            "spec": patched["spec"],
+        }
+        assert alpha["plot_version"] == 1
+    finally:
+        first_app.close()
+
+    reopened_app = ApplicationHarness(root)
+    try:
+        opened = reopened_app.call("projects.open", {"project_id": project_id})
+        listed = reopened_app.call("plots.list", {"project_id": project_id})
+        latest = reopened_app.call("plots.get", {"project_id": project_id, "plot_id": "plot:alpha"})
+        rerendered = reopened_app.call(
+            "plots.render",
+            {"project_id": project_id, "plot_id": "plot:alpha", "plot_version": 2},
+        )
+        rerendered_hash = hashlib.sha256(
+            Path(rerendered["artifact"]["path"]).read_bytes()
+        ).hexdigest()
+    finally:
+        reopened_app.close()
+
+    assert opened["project_version"] == expected["project_version"]
+    assert listed["project_version"] == expected["project_version"]
+    assert [item["plot_id"] for item in listed["plots"]] == ["plot:zeta", "plot:alpha"]
+    assert [item["plot_version"] for item in listed["plots"]] == [1, 2]
+    listed_alpha = listed["plots"][-1]
+    for key, value in expected.items():
+        if key != "project_version":
+            assert listed_alpha[key] == value
+            assert latest[key] == value
+    assert rendered_hash == rerendered_hash
+
+
+@pytest.mark.parametrize("chart_type_id", ["X03", "X39", "X40"])
+def test_structural_series_labels_use_source_names_not_opaque_field_ids(
+    tmp_path: Path, chart_type_id: str
+) -> None:
+    source = tmp_path / f"{chart_type_id.lower()}-series.csv"
+    source.write_text(
+        "Sample,Before Treatment,处理后,Follow Up\nA,1,2,3\nB,2,4,5\nC,3,5,8\n",
+        encoding="utf-8",
+    )
+    app = ApplicationHarness(tmp_path / f"app-{chart_type_id.lower()}")
+    try:
+        project_id, revision = _create_open(app)
+        imported = app.call(
+            "datasets.import",
+            {
+                "project_id": project_id,
+                "resource_id": f"resource:{chart_type_id.lower()}",
+                "source_path": str(source),
+                "idempotency_key": f"import-{chart_type_id.lower()}",
+                "expected_version": revision,
+                "options": {},
+            },
+        )
+        dataset = imported["datasets"][0]
+        fields = {item["name"]: item["field_id"] for item in dataset["fields"]}
+        assert all(re.fullmatch(r"field:[0-9a-f]{24}", value) for value in fields.values())
+        mapping = {
+            "series_1": fields["Before Treatment"],
+            "series_2": fields["处理后"],
+            "series_3": fields["Follow Up"],
+        }
+        if chart_type_id == "X03":
+            mapping["category"] = fields["Sample"]
+        created = app.call(
+            "plots.create",
+            {
+                "project_id": project_id,
+                "plot_id": f"plot:{chart_type_id.lower()}",
+                "chart_type_id": chart_type_id,
+                "source_dataset_id": dataset["source_dataset_id"],
+                "source_version": dataset["source_version"],
+                "field_mapping": mapping,
+                "idempotency_key": f"create-{chart_type_id.lower()}",
+                "expected_version": imported["project_version"],
+            },
+        )
+        session = app.application._session(project_id)  # noqa: SLF001
+        stored = session.domain.get_plot(f"plot:{chart_type_id.lower()}")
+        resolved = app.application._resolve_plot(session, stored)  # noqa: SLF001
+    finally:
+        app.close()
+
+    expected_names = ["Before Treatment", "处理后", "Follow Up"]
+    label = created["spec"]["series"][0]["label"]
+    assert label is not None
+    label_names = [node["text"] for node in label["nodes"]]
+    assert label_names == expected_names
+    assert not any(field_id in label_names for field_id in fields.values())
+    resolved_labels = [
+        "".join(node.text for node in layer.label.nodes)
+        for layer in resolved.plan.layers
+        if layer.label is not None
+    ]
+    assert all(name in resolved_labels for name in expected_names)
+    assert not any(field_id in resolved_labels for field_id in fields.values())
+    if chart_type_id in {"X39", "X40"}:
+        x_axis = next(axis for axis in resolved.plan.axes if axis.orientation == "x")
+        tick_labels = ["".join(node.text for node in tick.label.nodes) for tick in x_axis.ticks]
+        assert tick_labels == expected_names
 
 
 def test_s61_preaggregated_count_role_reaches_the_fixed_calculation(tmp_path: Path) -> None:
