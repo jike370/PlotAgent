@@ -33,6 +33,53 @@ _MISSING = frozenset({"", "na", "n/a", "null", "none", "missing", "-", "—"})
 _TRUE = frozenset({"true"})
 _FALSE = frozenset({"false"})
 _UNIT_PATTERN = re.compile(r"(?:\(([^()]+)\)|\[([^\[\]]+)\])\s*$")
+_HEADER_NAMES = frozenset(
+    {
+        "x",
+        "y",
+        "z",
+        "time",
+        "value",
+        "signal",
+        "center",
+        "lower",
+        "upper",
+        "error",
+        "category",
+        "group",
+        "component",
+        "label",
+        "row",
+        "column",
+        "rowlabel",
+        "columnlabel",
+        "actual",
+        "predicted",
+        "count",
+        "correlation",
+        "feature",
+        "log2fc",
+        "pvalue",
+        "p_value",
+    }
+)
+
+
+def looks_like_declared_header(cells: tuple[str, ...]) -> bool:
+    """Recognize common explicit scientific headers without guessing arbitrary text rows."""
+
+    normalized = tuple(re.sub(r"[^a-z0-9_]+", "", value.strip().casefold()) for value in cells)
+    if (
+        not normalized
+        or any(not value for value in normalized)
+        or len(set(normalized)) != len(normalized)
+    ):
+        return False
+    return all(
+        value in _HEADER_NAMES
+        or re.fullmatch(r"(?:series|measurement|field|sample)\d+", value) is not None
+        for value in normalized
+    )
 
 
 def sha256_bytes(data: bytes) -> str:

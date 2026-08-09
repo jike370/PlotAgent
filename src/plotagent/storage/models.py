@@ -46,6 +46,10 @@ class SourceDatasetRecord(StrictModel):
     logical_source_id: str
     import_recipe_id: str
     created_at: str
+    display_name: str | None = None
+    source_file_name: str | None = None
+    sheet_name: str | None = None
+    source_block: str | None = None
 
 
 class ImportCommitResult(StrictModel):

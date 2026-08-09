@@ -11,7 +11,7 @@ import struct
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from ._process import run_worker
 from .constants import (
@@ -43,6 +43,43 @@ class _Installation:
     display_name: str
     display_version: str
     install_dir: Path
+    discovery_source: Literal["configured", "portable", "registry"] = "registry"
+
+
+def _configured_installation() -> tuple[_Installation | None, dict[str, JsonValue]]:
+    configured = os.environ.get("PLOTAGENT_ORIGIN_EXECUTABLE")
+    if configured:
+        executable = Path(configured).expanduser().resolve(strict=False)
+        details: dict[str, JsonValue] = {
+            "discovery_source": "configured",
+            "configured_executable_path": str(executable),
+        }
+        if executable.name.casefold() != ORIGIN_EXECUTABLE.casefold() or not executable.is_file():
+            return None, details
+        return (
+            _Installation(
+                DECLARED_ORIGIN_DISPLAY_NAME,
+                DECLARED_ORIGIN_DISPLAY_VERSION,
+                executable.parent,
+                "configured",
+            ),
+            details,
+        )
+    return None, {"discovery_source": "registry"}
+
+
+def _portable_installation() -> _Installation | None:
+    if os.name != "nt":
+        return None
+    executable = Path(r"D:\origin\Origin64.exe")
+    if not executable.is_file():
+        return None
+    return _Installation(
+        DECLARED_ORIGIN_DISPLAY_NAME,
+        DECLARED_ORIGIN_DISPLAY_VERSION,
+        executable.parent,
+        "portable",
+    )
 
 
 def _error(
@@ -245,9 +282,34 @@ def preflight_origin(
     target_failure = validate_target(target, expected_existing_sha256=expected_existing_sha256)
     if target_failure is not None:
         return target_failure
-    installations = _find_installations()
+    configured_installation, discovery_details = _configured_installation()
+    if os.environ.get("PLOTAGENT_ORIGIN_EXECUTABLE") and configured_installation is None:
+        return _error(
+            target,
+            OriginErrorCode.NOT_INSTALLED,
+            "the configured Origin executable is unavailable",
+            details=discovery_details,
+        )
+    installations = (
+        [configured_installation] if configured_installation is not None else _find_installations()
+    )
     if not installations:
-        return _error(target, OriginErrorCode.NOT_INSTALLED, "Origin is not installed")
+        portable_installation = _portable_installation()
+        if portable_installation is not None:
+            installations = [portable_installation]
+            discovery_details = {
+                "discovery_source": "portable",
+                "configured_executable_path": str(
+                    portable_installation.install_dir / ORIGIN_EXECUTABLE
+                ),
+            }
+    if not installations:
+        return _error(
+            target,
+            OriginErrorCode.NOT_INSTALLED,
+            "Origin is not installed",
+            details=discovery_details,
+        )
     supported = [
         item
         for item in installations
@@ -377,5 +439,6 @@ def preflight_origin(
         runtime_version=runtime_version,
         template_sha256=template_hash,
         license_available=True,
+        discovery_source=installation.discovery_source,
     )
     return OriginPreflightSuccess(status="ready", target_path=str(target), environment=environment)

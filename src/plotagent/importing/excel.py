@@ -20,7 +20,12 @@ from plotagent.importing.models import (
     SourceDatasetArtifact,
     TraceEvent,
 )
-from plotagent.importing.normalize import build_candidate, normalize_excel_scalar, stable_hash
+from plotagent.importing.normalize import (
+    build_candidate,
+    looks_like_declared_header,
+    normalize_excel_scalar,
+    stable_hash,
+)
 
 
 @dataclass(frozen=True)
@@ -260,6 +265,9 @@ def _header(
     if first_typed >= max(1, width // 2):
         return tuple(f"column_{index}" for index in range(1, width + 1)), None, region.start_row
     if first_typed == 0 and second_typed == 0:
+        text_first = tuple("" if value is None else str(value) for value in first)
+        if looks_like_declared_header(text_first):
+            return text_first, region.start_row, region.start_row + 1
         raise ImportProblem(
             ImportErrorCode.HEADER_AMBIGUOUS,
             f"工作表 {sheet.name} 的前两行都可能是表头。",

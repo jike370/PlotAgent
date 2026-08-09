@@ -12,7 +12,12 @@ from pathlib import Path
 from plotagent.contracts.datasets import TextSourceCoordinate
 from plotagent.importing.errors import ImportErrorCode, ImportProblem
 from plotagent.importing.models import ImportRecipe, SourceDatasetArtifact, TraceEvent
-from plotagent.importing.normalize import build_candidate, parse_text_scalar, stable_hash
+from plotagent.importing.normalize import (
+    build_candidate,
+    looks_like_declared_header,
+    parse_text_scalar,
+    stable_hash,
+)
 
 _DELIMITERS = (",", "\t", ";", "|")
 _DECIMAL_COMMA = re.compile(r"^[+-]?\d+,\d+(?:[eE][+-]?\d+)?$")
@@ -246,6 +251,8 @@ def _header_index(
     if first_typed >= max(1, len(first) // 2):
         return None, 0
     if first_typed == 0 and second_typed == 0:
+        if looks_like_declared_header(first):
+            return 0, 1
         raise ImportProblem(
             ImportErrorCode.HEADER_AMBIGUOUS,
             f"第 {group[0].line.number} 行和第 {group[1].line.number} 行都可能是表头。",

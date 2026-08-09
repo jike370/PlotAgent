@@ -162,6 +162,12 @@ class ProjectDomainRepository:
             self._coordinate(values, index, source) for index in range(source.data_ref.row_count)
         )
         metadata = json.loads(str(row[0]))
+        if isinstance(metadata, dict):
+            metadata = {
+                key: value
+                for key, value in metadata.items()
+                if not str(key).startswith("__plotagent_")
+            }
         return ResolvedSourceTable(
             source_dataset=source,
             rows=rows,

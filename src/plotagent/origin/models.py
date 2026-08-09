@@ -69,6 +69,7 @@ class OriginEnvironment:
     runtime_version: float
     template_sha256: str
     license_available: bool
+    discovery_source: Literal["configured", "portable", "registry"] = "registry"
 
     def to_dict(self) -> dict[str, JsonValue]:
         return {
@@ -82,6 +83,7 @@ class OriginEnvironment:
             "runtime_version": self.runtime_version,
             "template_sha256": self.template_sha256,
             "license_available": self.license_available,
+            "discovery_source": self.discovery_source,
         }
 
 

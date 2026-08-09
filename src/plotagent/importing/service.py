@@ -74,13 +74,16 @@ def inspect_source(
     source_hash = sha256_bytes(raw)
     try:
         if suffix in _TEXT_SUFFIXES:
+            effective_delimiter = delimiter
+            if effective_delimiter is None and suffix == ".tsv":
+                effective_delimiter = "\t"
             sources = inspect_text(
                 path=source_path,
                 raw=raw,
                 source_hash=source_hash,
                 options=TextImportOptions(
                     encoding=encoding,
-                    delimiter=delimiter,
+                    delimiter=effective_delimiter,
                     decimal_mark=decimal_mark,
                     header_row=header_row,
                 ),

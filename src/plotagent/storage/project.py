@@ -57,6 +57,31 @@ def _hash_file(path: Path) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
+def _source_dataset_record(row: tuple[object, ...]) -> SourceDatasetRecord:
+    contract_json, logical_id, recipe_id, created_at, metadata_json = row
+    try:
+        metadata = json.loads(str(metadata_json))
+    except (TypeError, ValueError):
+        metadata = {}
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    def identity(key: str) -> str | None:
+        value = metadata.get(key)
+        return value if isinstance(value, str) and value else None
+
+    return SourceDatasetRecord(
+        source_dataset=SourceDataset.model_validate_json(str(contract_json)),
+        logical_source_id=str(logical_id),
+        import_recipe_id=str(recipe_id),
+        created_at=str(created_at),
+        display_name=identity("__plotagent_display_name"),
+        source_file_name=identity("__plotagent_source_file_name"),
+        sheet_name=identity("__plotagent_sheet_name"),
+        source_block=identity("__plotagent_source_block"),
+    )
+
+
 class ProjectStore:
     """The only API allowed to mutate one active project workspace."""
 
@@ -418,6 +443,20 @@ class ProjectStore:
                     (recipe_id, recipe_hash, recipe_json, now),
                 )
                 dataset = item.source_dataset
+                dataset_identity = {
+                    "__plotagent_display_name": item.artifact.display_name,
+                    "__plotagent_source_file_name": source_object.path.name,
+                    **(
+                        {"__plotagent_sheet_name": item.artifact.recipe.sheet}
+                        if item.artifact.recipe.sheet is not None
+                        else {}
+                    ),
+                    **(
+                        {"__plotagent_source_block": item.artifact.recipe.block}
+                        if item.artifact.recipe.block is not None
+                        else {}
+                    ),
+                }
                 connection.execute(
                     """
                     INSERT INTO source_dataset_versions(
@@ -434,7 +473,7 @@ class ProjectStore:
                         item.table_object.content_hash,
                         recipe_id,
                         _json(dataset),
-                        _json(item.artifact.instrument_metadata),
+                        _json({**item.artifact.instrument_metadata, **dataset_identity}),
                         _json(
                             [value.model_dump(mode="json") for value in item.artifact.provenance]
                         ),
@@ -464,6 +503,10 @@ class ProjectStore:
                         logical_source_id=item.logical_source_id,
                         import_recipe_id=recipe_id,
                         created_at=now,
+                        display_name=item.artifact.display_name,
+                        source_file_name=source_object.path.name,
+                        sheet_name=item.artifact.recipe.sheet,
+                        source_block=item.artifact.recipe.block,
                     )
                 )
             if fault_injector:
@@ -532,7 +575,7 @@ class ProjectStore:
     ) -> tuple[SourceDatasetRecord, ...]:
         connection = self._assert_writer()
         sql = """
-            SELECT contract_json, logical_source_id, import_recipe_id, created_at
+            SELECT contract_json, logical_source_id, import_recipe_id, created_at, metadata_json
             FROM source_dataset_versions
         """
         parameters: tuple[str, ...] = ()
@@ -540,17 +583,7 @@ class ProjectStore:
             sql += " WHERE logical_source_id = ?"
             parameters = (logical_source_id,)
         sql += " ORDER BY logical_source_id, source_version"
-        return tuple(
-            SourceDatasetRecord(
-                source_dataset=SourceDataset.model_validate_json(contract_json),
-                logical_source_id=logical_id,
-                import_recipe_id=recipe_id,
-                created_at=created_at,
-            )
-            for contract_json, logical_id, recipe_id, created_at in connection.execute(
-                sql, parameters
-            )
-        )
+        return tuple(_source_dataset_record(row) for row in connection.execute(sql, parameters))
 
     def state_counts(self) -> dict[str, int]:
         connection = self._assert_writer()

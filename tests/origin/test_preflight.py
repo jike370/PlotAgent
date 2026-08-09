@@ -34,3 +34,34 @@ def test_other_origin_versions_are_stably_unsupported(tmp_path: Path, monkeypatc
     assert isinstance(result, OriginPreflightFailure)
     assert result.error.code is OriginErrorCode.VERSION_UNSUPPORTED
     assert result.error.details["declared_version"] == "10.10.178"
+
+
+def test_configured_origin_executable_is_auditable(tmp_path: Path, monkeypatch: object) -> None:
+    executable = tmp_path / "Origin64.exe"
+    executable.write_bytes(b"configured-test")
+    monkeypatch.setenv("PLOTAGENT_ORIGIN_EXECUTABLE", str(executable))
+
+    installation, details = preflight._configured_installation()
+
+    assert installation is not None
+    assert installation.install_dir == tmp_path
+    assert installation.discovery_source == "configured"
+    assert details == {
+        "discovery_source": "configured",
+        "configured_executable_path": str(executable),
+    }
+
+
+def test_invalid_configured_origin_path_has_standard_diagnostics(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    missing = tmp_path / "Origin64.exe"
+    monkeypatch.setattr(preflight, "validate_target", lambda *args, **kwargs: None)
+    monkeypatch.setenv("PLOTAGENT_ORIGIN_EXECUTABLE", str(missing))
+
+    result = preflight.preflight_origin(tmp_path / "test.opju")
+
+    assert isinstance(result, OriginPreflightFailure)
+    assert result.error.code is OriginErrorCode.NOT_INSTALLED
+    assert result.error.details["discovery_source"] == "configured"
+    assert result.error.details["configured_executable_path"] == str(missing)

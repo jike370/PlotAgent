@@ -215,7 +215,12 @@ from plotagent.figures.models import (
 )
 from plotagent.figures.protocols import FigureRepository
 from plotagent.importing.models import Clarification, Rejection
-from plotagent.origin import build_origin_export_spec, compile_origin_plan, export_origin
+from plotagent.origin import (
+    build_origin_export_spec,
+    compile_origin_plan,
+    export_origin,
+    preflight_origin,
+)
 from plotagent.origin.models import OriginExportSuccess
 from plotagent.plot_calculations import ALGORITHM_VERSION, PlotCalculationInput, calculate_plot
 from plotagent.plots.validation import PlotValidationError, validate_plot_patch
@@ -238,6 +243,7 @@ from plotagent.storage import (
     ProjectImportService,
     ProjectPackageService,
     ProjectStore,
+    SourceDatasetRecord,
     StoredExport,
     StoredPlot,
 )
@@ -421,6 +427,7 @@ class DesktopApplication:
             "provider.status": self._provider_status,
             "provider.configure": self._provider_configure,
             "provider.clear": self._provider_clear,
+            "origin.status": self._origin_status,
             "agent.context.get": self._agent_context_get,
             "agent.decide": self._agent_decide,
             "agent.plans.create_batch": self._agent_batch_plan_create,
@@ -435,6 +442,11 @@ class DesktopApplication:
         }
         for method, handler in handlers.items():
             registry.register(method, self._guard(handler))
+
+    def _origin_status(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        _object(params, required=set())
+        probe_target = self.root / ".origin-environment-probe.opju"
+        return cast(RpcJsonValue, preflight_origin(probe_target).to_dict())
 
     def _provider_status(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         _object(params, required=set())
@@ -793,7 +805,11 @@ class DesktopApplication:
         replay = session.domain.replay("datasets.import", key, request_hash)
         if replay is not None:
             return {**replay, "replayed": True}
-        session.domain.require_revision(expected)
+        # Import is append-only. Rebase queued file selections onto the latest
+        # committed revision so fast consecutive imports are not dropped as stale.
+        commit_revision = session.domain.revision
+        if expected > commit_revision:
+            session.domain.require_revision(expected)
         task_id = self._begin_task(context, "import")
         try:
             context.workers.submit(source_path.stat).result()
@@ -802,7 +818,7 @@ class DesktopApplication:
             )
 
             def response_factory(result: ImportCommitResult, revision: int) -> dict[str, Any]:
-                return self._import_response(result, revision, task_id)
+                return self._import_response(result, revision, task_id, requested_revision=expected)
 
             def before_commit() -> None:
                 token = self._task_token(context.tasks, task_id)
@@ -820,7 +836,7 @@ class DesktopApplication:
                 decimal_mark=_optional_text(options.get("decimal_mark"), "decimal_mark"),
                 header_row=_optional_integer(options.get("header_row"), "header_row", minimum=1),
                 sheet=_optional_text(options.get("sheet"), "sheet"),
-                expected_revision=expected,
+                expected_revision=commit_revision,
                 idempotency_key=key,
                 request_hash=request_hash,
                 response_factory=response_factory,
@@ -833,7 +849,7 @@ class DesktopApplication:
                     {
                         **outcome.model_dump(mode="json"),
                         "task_id": task_id,
-                        "project_version": expected,
+                        "project_version": commit_revision,
                     },
                 )
             context.tasks.transition(
@@ -841,7 +857,15 @@ class DesktopApplication:
                 "succeeded",
                 progress={"completed": 1, "total": 1, "unit": "files"},
             )
-            return cast(RpcJsonValue, self._import_response(outcome, expected + 1, task_id))
+            return cast(
+                RpcJsonValue,
+                self._import_response(
+                    outcome,
+                    commit_revision + 1,
+                    task_id,
+                    requested_revision=expected,
+                ),
+            )
         except TaskControlError:
             self._cancel_task(context.tasks, task_id)
             raise
@@ -856,8 +880,7 @@ class DesktopApplication:
             "project_id": session.project_id,
             "project_version": session.domain.revision,
             "datasets": [
-                self._dataset_summary(record.source_dataset)
-                for record in session.store.list_source_datasets()
+                self._dataset_summary(record) for record in session.store.list_source_datasets()
             ],
         }
 
@@ -874,7 +897,17 @@ class DesktopApplication:
         return {
             "project_id": session.project_id,
             "project_version": session.domain.revision,
-            "dataset": self._dataset_summary(source),
+            "dataset": self._dataset_summary(
+                next(
+                    (
+                        record
+                        for record in session.store.list_source_datasets()
+                        if record.source_dataset.source_dataset_id == source.source_dataset_id
+                        and record.source_dataset.source_version == source.source_version
+                    ),
+                    source,
+                )
+            ),
         }
 
     def _plots_create(
@@ -1743,9 +1776,7 @@ class DesktopApplication:
                     _integer(source_ref["source_version"], "source_version", minimum=1),
                 )
             )
-        source_keys = tuple(
-            (source.source_dataset_id, source.source_version) for source in sources
-        )
+        source_keys = tuple((source.source_dataset_id, source.source_version) for source in sources)
         if len(set(source_keys)) != len(source_keys):
             raise RpcServiceError(
                 "INVALID_PARAMS",
@@ -1763,14 +1794,11 @@ class DesktopApplication:
             for index, source in enumerate(sources, start=1)
         )
         field_aliases = tuple(
-            f"d{index}_{role}"
-            for index in range(1, len(sources) + 1)
-            for role in field_roles
+            f"d{index}_{role}" for index in range(1, len(sources) + 1) for role in field_roles
         )
-        conversation_id = (
-            _optional_text(values.get("conversation_id"), "conversation_id")
-            or self._default_conversation_id(session.project_id)
-        )
+        conversation_id = _optional_text(
+            values.get("conversation_id"), "conversation_id"
+        ) or self._default_conversation_id(session.project_id)
         persisted = session.agent_runtime.get_conversation_state(conversation_id)
         if persisted is None:
             conversation_state = ConversationState(
@@ -2052,9 +2080,7 @@ class DesktopApplication:
             execution_mode = "execute"
         if execution_mode not in {"execute", "plan_only"}:
             raise RpcServiceError("INVALID_PARAMS", "The Agent execution mode is invalid.")
-        selected_chart_id = _optional_text(
-            values.get("selected_chart_id"), "selected_chart_id"
-        )
+        selected_chart_id = _optional_text(values.get("selected_chart_id"), "selected_chart_id")
         if selected_chart_id is not None and (
             selected_chart_id not in PRODUCT_CHART_IDS or selected_chart_id == "K25"
         ):
@@ -2310,13 +2336,7 @@ class DesktopApplication:
             )
         )
         if not result.accepted or result.decision is None:
-            return {
-                "accepted": False,
-                "error": {
-                    "code": result.error_code or "PROVIDER_CONNECTION_FAILED",
-                    "message": "The Agent decision was not accepted.",
-                },
-            }
+            return _agent_failure_payload(result.error_code)
         decision = result.decision
         question_ids = (
             tuple(question.question_key for question in decision.questions)
@@ -2602,9 +2622,7 @@ class DesktopApplication:
                 batch_version=1,
                 dataset_signature=signatures[0],
                 execution_signature=execution_signature,
-                dataset_version_refs=tuple(
-                    plot.prepared_dataset.as_ref() for plot in stored_plots
-                ),
+                dataset_version_refs=tuple(plot.prepared_dataset.as_ref() for plot in stored_plots),
                 shared_field_mapping=field_mapping_ref,
                 shared_preparation=preparation_ref,
                 shared_plot_calculation=None,
@@ -3527,7 +3545,12 @@ class DesktopApplication:
                 "The supplied fields cannot satisfy a qualified series shape for this chart.",
             )
 
-        x_label, y_label = _axis_labels(registration.required_roles, bindings, fields)
+        x_label, y_label = _axis_labels(
+            chart_type_id,
+            registration.required_roles,
+            bindings,
+            fields,
+        )
         if chart_type_id == "X13":
             x_label = f"{fields[bindings['left']].name} / {fields[bindings['right']].name}"
             y_label = fields[bindings["category"]].name
@@ -3660,6 +3683,7 @@ class DesktopApplication:
                 **common,
                 actual_field=bindings["actual"],
                 predicted_field=bindings["predicted"],
+                count_field=bindings.get("count"),
             )
         raise RpcServiceError(
             "CALCULATION_UNSUPPORTED",
@@ -3954,7 +3978,7 @@ class DesktopApplication:
                     name=field.name,
                     logical_type=field.logical_type,
                     unit_text=field.unit.source_text,
-                    semantic_role=("x" if index == 0 else "y" if index == 1 else None),
+                    semantic_role=_semantic_role_from_field_name(field.name),
                     summary=ContextFieldSummary(
                         valid_count=len(finite),
                         missing_count=sum(row[index] is None for row in rows),
@@ -4077,8 +4101,22 @@ class DesktopApplication:
             "replayed": replayed,
         }
 
-    def _dataset_summary(self, source: SourceDataset) -> dict[str, RpcJsonValue]:
+    def _dataset_summary(
+        self, record: SourceDataset | SourceDatasetRecord
+    ) -> dict[str, RpcJsonValue]:
+        if isinstance(record, SourceDatasetRecord):
+            source = record.source_dataset
+            identity: dict[str, RpcJsonValue] = {
+                "display_name": record.display_name or source.source_dataset_id,
+                "source_file_name": record.source_file_name,
+                "sheet_name": record.sheet_name,
+                "source_block": record.source_block,
+            }
+        else:
+            source = record
+            identity = {"display_name": source.source_dataset_id}
         return {
+            **identity,
             "source_dataset_id": source.source_dataset_id,
             "source_version": source.source_version,
             "content_hash": source.content_hash,
@@ -4101,16 +4139,20 @@ class DesktopApplication:
         }
 
     def _import_response(
-        self, result: ImportCommitResult, revision: int, task_id: str
+        self,
+        result: ImportCommitResult,
+        revision: int,
+        task_id: str,
+        *,
+        requested_revision: int | None = None,
     ) -> dict[str, RpcJsonValue]:
         return {
             "kind": "committed",
             "task_id": task_id,
             "session_id": result.session_id,
             "project_version": revision,
-            "datasets": [
-                self._dataset_summary(record.source_dataset) for record in result.datasets
-            ],
+            "rebased": requested_revision is not None and requested_revision != revision - 1,
+            "datasets": [self._dataset_summary(record) for record in result.datasets],
             "replayed": False,
         }
 
@@ -4687,10 +4729,20 @@ def _calculation_columns(
 
 
 def _axis_labels(
+    chart_type_id: str,
     required_roles: tuple[str, ...],
     bindings: Mapping[str, str],
     fields: Mapping[str, Any],
 ) -> tuple[str, str]:
+    if chart_type_id in {"K20", "K21"}:
+        column_role = "column" if "column" in bindings else "column_label"
+        row_role = "row" if "row" in bindings else "row_label"
+        return fields[bindings[column_role]].name, fields[bindings[row_role]].name
+    if chart_type_id == "S61":
+        return fields[bindings["predicted"]].name, fields[bindings["actual"]].name
+    if chart_type_id == "S07":
+        significance = "q" if "qvalue" in bindings else "p"
+        return fields[bindings["log2fc"]].name, f"-log10({significance})"
     x_roles = (
         "x",
         "time",
@@ -4749,6 +4801,52 @@ def _source_ref(source: SourceDataset) -> SourceDatasetRef:
         source_version=source.source_version,
         content_hash=source.content_hash,
     )
+
+
+def _agent_failure_payload(error_code: str | None) -> dict[str, RpcJsonValue]:
+    code = error_code or "PROVIDER_CONNECTION_FAILED"
+    retryable = code in {
+        "PROVIDER_CONNECTION_FAILED",
+        "REQUEST_CANCELLED",
+        "REQUEST_TIMEOUT",
+    }
+    return {
+        "accepted": False,
+        "error": {
+            "code": code,
+            "message": "The Agent decision was not accepted.",
+            "side_effects_committed": False,
+            "retry": {
+                "allowed": retryable,
+                "automatic": False,
+                "requires_new_client_model_run_id": retryable,
+            },
+        },
+    }
+
+
+def _semantic_role_from_field_name(name: str) -> str | None:
+    """Expose an exact scientific role only when the source header declares it."""
+
+    normalized = name.strip().casefold().replace("-", "_").replace(" ", "_").replace(".", "_")
+    normalized = normalized.removeprefix("field:")
+    aliases = {
+        "p_value": "pvalue",
+        "p_val": "pvalue",
+        "q_value": "qvalue",
+        "q_val": "qvalue",
+        "log2fc": "log2fc",
+        "fold_change": "log2fc",
+    }
+    normalized = aliases.get(normalized, normalized)
+    declared_roles = {
+        role
+        for registration in CONTRACT_CHARTS_BY_ID.values()
+        for role in (*registration.required_roles, *registration.optional_roles)
+    }
+    if normalized in declared_roles or normalized.startswith("series_"):
+        return normalized
+    return None
 
 
 def _rich_text(value: str) -> SafeRichText:
