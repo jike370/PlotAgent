@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   DESKTOP_API_VERSION,
+  type CoreStatus,
   type DesktopActionResult,
   type DesktopBootstrap,
   type DesktopDataResult,
@@ -118,6 +119,7 @@ function batchPlanFixture(
   }
 }
 
+let coreListener: ((status: CoreStatus) => void) | undefined
 let taskListener: ((event: TaskEvent) => void) | undefined
 
 function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDesktopApi {
@@ -182,7 +184,7 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     exportPngSvg: vi.fn(async () => ok({ export_id: 'export:one', artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: 'plot.png' } } })),
     exportOrigin: vi.fn(async () => ok({ export_id: 'export:origin', result: { status: 'succeeded' } })),
     respondToCloseRequest: vi.fn(actionOk),
-    onCoreStatus: vi.fn(() => () => undefined),
+    onCoreStatus: vi.fn((listener) => { coreListener = listener; return () => { coreListener = undefined } }),
     onTaskEvent: vi.fn((listener) => { taskListener = listener; return () => { taskListener = undefined } }),
     onOpenResourceRequested: vi.fn(() => () => undefined),
     onCloseRequested: vi.fn(() => () => undefined),
@@ -209,12 +211,40 @@ async function openSampleAndCreatePlot(user: ReturnType<typeof userEvent.setup>)
 }
 
 beforeEach(() => {
+  coreListener = undefined
   taskListener = undefined
   window.localStorage.clear()
   installApi(fakeDesktop())
 })
 
 describe('PlotAgent real desktop workflow', () => {
+  it('loads persisted projects after the Core becomes ready', async () => {
+    let coreReady = false
+    const api = fakeDesktop({
+      getBootstrap: vi.fn(async (): Promise<DesktopBootstrap> => ({
+        apiVersion: DESKTOP_API_VERSION,
+        platform: 'win32',
+        core: { phase: 'starting', restartAttempt: 0 },
+        tasks: { tasks: [], activeTaskCount: 0, hasCommittingTask: false },
+      })),
+      listProjects: vi.fn(async (): Promise<DesktopDataResult> => coreReady
+        ? ok({ projects: [{ project_id: 'project:persisted', display_name: '跨重启项目', is_open: false }] })
+        : { ok: false, error: { code: 'CORE_NOT_READY', message: 'Core 尚未就绪', retryable: true } }),
+    })
+    installApi(api)
+    render(<App />)
+
+    await waitFor(() => expect(coreListener).toBeDefined())
+    expect(screen.queryByRole('button', { name: '跨重启项目' })).not.toBeInTheDocument()
+    await act(async () => {
+      coreReady = true
+      coreListener?.({ phase: 'ready', restartAttempt: 0 })
+    })
+
+    expect(await screen.findByRole('button', { name: '跨重启项目' })).toBeInTheDocument()
+    expect(api.listProjects).toHaveBeenCalledTimes(1)
+  })
+
   it('starts with three local entry points and no account or invitation gate', async () => {
     render(<App />)
   expect(await screen.findByRole('region', { name: '开始使用 PlotAgent' })).toBeInTheDocument()

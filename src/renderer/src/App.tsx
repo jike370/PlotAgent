@@ -354,6 +354,18 @@ export function App(): React.JSX.Element {
     if (result.ok) mergeProjects(readProjects(result.value))
   }, [api, mergeProjects])
 
+  useEffect(() => {
+    if (!api || core.phase !== 'ready') return
+    let active = true
+    void api.listProjects().then((result) => {
+      if (active && result.ok) setProjects(readProjects(result.value))
+    })
+    void api.getProviderStatus().then((result) => {
+      if (active && result.ok) setAgentConfigured(readProviderConfigured(result.value))
+    })
+    return () => { active = false }
+  }, [api, core.phase])
+
   const hydrateProject = useCallback((value: JsonValue, fallbackName = '未命名项目', fallbackProject?: ProductProject) => {
     const nextProject = readProject(value) ?? (fallbackProject ? projectWithVersion(fallbackProject, projectVersionFrom(value, fallbackProject.projectVersion)) : undefined)
     if (nextProject) {
@@ -455,11 +467,9 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     if (!api) return
     let active = true
-    void Promise.all([api.getBootstrap(), api.listProjects(), api.getProviderStatus()]).then(([bootstrap, projectResult, providerResult]) => {
+    void api.getBootstrap().then((bootstrap) => {
       if (!active) return
       setCore(bootstrap.core)
-      if (projectResult.ok) setProjects(readProjects(projectResult.value))
-      if (providerResult.ok) setAgentConfigured(readProviderConfigured(providerResult.value))
     }).catch((error: unknown) => { if (active) setNotice(errorNotice(error)) })
     const unsubCore = api.onCoreStatus((status) => setCore(status))
     const unsubTasks = api.onTaskEvent((event) => setTaskEvents((current) => ({ ...current, [event.taskId]: event })))
