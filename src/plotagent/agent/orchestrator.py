@@ -30,10 +30,14 @@ from plotagent.agent.providers import (
     ProviderWireResponse,
 )
 from plotagent.agent.providers.prompt import AGENT_PROMPT
-from plotagent.agent.validation import DecisionValidator, ValidationAuthority
+from plotagent.agent.validation import (
+    DecisionValidator,
+    ValidationAuthority,
+    is_unspecified_chart_request,
+)
 from plotagent.contracts.agent_context import ContextEnvelope
 from plotagent.contracts.canonical import canonical_hash
-from plotagent.contracts.decisions import AgentDecision
+from plotagent.contracts.decisions import AgentDecision, InputQuestion, NeedsInput
 from plotagent.security import LocalSecurityError, NetworkMode
 
 _DECISION_ADAPTER: TypeAdapter[AgentDecision] = TypeAdapter(AgentDecision)
@@ -85,6 +89,13 @@ class SingleAgentOrchestrator:
         context_request: ContextBuildRequest,
         validation_authority: ValidationAuthority,
     ) -> AgentRunResult:
+        preflight = _preflight_decision(context_request, validation_authority)
+        if preflight is not None:
+            return AgentRunResult(
+                client_model_run_id=client_model_run_id,
+                accepted=True,
+                decision=preflight,
+            )
         if self._network_mode is NetworkMode.LOCAL_ONLY:
             return AgentRunResult(
                 client_model_run_id=client_model_run_id,
@@ -305,3 +316,46 @@ class SingleAgentOrchestrator:
         audit = HashedModelRunAudit.create(record)
         self._audit_sink.record(audit)
         return audit
+
+
+def _preflight_decision(
+    request: ContextBuildRequest,
+    authority: ValidationAuthority,
+) -> NeedsInput | None:
+    """Ask locally when a source request does not identify a chart type."""
+
+    target = request.project.target
+    if target != request.conversation_state.current_target:
+        return None
+    if target != authority.current_target:
+        return None
+    if target.object_type != "source_dataset":
+        return None
+    if (
+        "create_plot" not in request.chart_capabilities.allowed_action_types
+        or "create_plot" not in authority.allowed_action_types
+        or "create_plot" not in authority.permission_grants
+    ):
+        return None
+    eligible_charts = set(request.chart_capabilities.allowed_chart_type_ids) & set(
+        authority.allowed_chart_type_ids
+    )
+    if len(eligible_charts) <= 1:
+        return None
+    if not is_unspecified_chart_request(request.user_instruction):
+        return None
+    prompt = (
+        "请选择要绘制的图形类型。"
+        if request.locale.casefold().startswith("zh")
+        else "Which chart type should I draw?"
+    )
+    return NeedsInput(
+        target_alias=target.object_alias,
+        questions=(
+            InputQuestion(
+                question_key="chart_type",
+                prompt=prompt,
+                input_kind="text",
+            ),
+        ),
+    )

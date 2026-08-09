@@ -172,6 +172,7 @@ class FakeProvider:
     capability: OutputCapability
     responses: list[str]
     delay_seconds: float = 0.0
+    resolve_calls: int = 0
     decide_calls: int = 0
     repair_calls: int = 0
     cancel_calls: int = 0
@@ -188,6 +189,7 @@ class FakeProvider:
         )
 
     async def resolve_capabilities(self) -> ProviderCapabilities:
+        self.resolve_calls += 1
         protocol = (
             ProviderProtocol.NONE
             if self.capability is OutputCapability.P0

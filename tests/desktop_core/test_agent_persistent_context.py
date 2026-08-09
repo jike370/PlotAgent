@@ -496,7 +496,7 @@ def test_needs_input_is_persisted_as_bounded_conversation_state(tmp_path: Path) 
                 "project_id": project_id,
                 "source_dataset_id": dataset["source_dataset_id"],
                 "source_version": dataset["source_version"],
-                "user_instruction": "画一张图",
+                "user_instruction": "请用 K01 绘制折线图，但先确认 Y 字段",
                 "client_model_run_id": "model-run:needs-input",
                 "expected_version": imported["project_version"],
                 "execution_mode": "plan_only",
@@ -512,6 +512,57 @@ def test_needs_input_is_persisted_as_bounded_conversation_state(tmp_path: Path) 
         assert context["context_snapshot"]["field_bindings"]
     finally:
         app.close()
+
+
+def test_unspecified_source_chart_preflight_asks_without_model_or_project_change(
+    tmp_path: Path,
+) -> None:
+    provider = FakeProvider(responses=[])
+    app = ApplicationHarness(tmp_path / "unspecified-chart", provider)
+    try:
+        project_id, revision = _create_open(app)
+        imported = _import(app, project_id, revision, "excel_two_sheets.xlsx", "unspecified")
+        dataset = imported["datasets"][0]
+
+        result = app.call(
+            "agent.decide",
+            {
+                "project_id": project_id,
+                "source_dataset_id": dataset["source_dataset_id"],
+                "source_version": dataset["source_version"],
+                "user_instruction": "画一张图。",
+                "client_model_run_id": "model-run:unspecified-chart",
+                "expected_version": imported["project_version"],
+                "execution_mode": "execute",
+                "network_mode": "custom_provider",
+                "provider": {},
+                "retention_acknowledged": True,
+            },
+        )
+        listed = app.call("datasets.list", {"project_id": project_id})
+        context = app.call("agent.context.get", {"project_id": project_id})
+    finally:
+        app.close()
+
+    assert result["accepted"] is True
+    assert result["decision"] == {
+        "schema_version": "1.0",
+        "decision_type": "needs_input",
+        "target_alias": "active_target",
+        "questions": [
+            {
+                "question_key": "chart_type",
+                "prompt": "请选择要绘制的图形类型。",
+                "input_kind": "text",
+                "choices": [],
+            }
+        ],
+        "data_request": None,
+    }
+    assert "task_plan" not in result and "execution" not in result
+    assert provider.requests == []
+    assert listed["project_version"] == imported["project_version"]
+    assert context["conversation_state"]["unresolved_question_ids"] == ["chart_type"]
 
 
 def test_plan_stops_as_stale_when_target_changes_before_execution(tmp_path: Path) -> None:

@@ -1,5 +1,9 @@
 """Local AgentDecision policy validation."""
 
-from plotagent.agent.validation.validator import DecisionValidator, ValidationAuthority
+from plotagent.agent.validation.validator import (
+    DecisionValidator,
+    ValidationAuthority,
+    is_unspecified_chart_request,
+)
 
-__all__ = ["DecisionValidator", "ValidationAuthority"]
+__all__ = ["DecisionValidator", "ValidationAuthority", "is_unspecified_chart_request"]

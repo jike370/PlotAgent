@@ -108,7 +108,7 @@ class DecisionValidator:
             if action.target_alias not in allowed_targets:
                 errors.append("AGENT_ACTION_SCOPE_INVALID")
             if isinstance(action, (CreatePlotAction, CreateBatchAction)):
-                if len(envelope_charts) > 1 and _is_unspecified_chart_request(
+                if len(envelope_charts) > 1 and is_unspecified_chart_request(
                     envelope.user_instruction
                 ):
                     errors.append("CHART_TYPE_REQUIRED")
@@ -200,21 +200,31 @@ def _mentions_role(instruction: str, role: str) -> bool:
     )
 
 
-def _is_unspecified_chart_request(instruction: str) -> bool:
+def is_unspecified_chart_request(instruction: str) -> bool:
+    """Return whether an instruction asks only for an unspecified chart."""
+
     normalized = re.sub(r"[^\w]+", "", instruction.casefold()).replace("_", "")
     return normalized in {
         "画图",
         "画一个图",
         "画一张图",
+        "请画图",
+        "请画一个图",
+        "请画一张图",
         "帮我画图",
         "绘图",
         "绘制一个图",
         "绘制一张图",
         "用这些数据画图",
         "用这个数据画图",
+        "drawchart",
         "drawachart",
+        "drawit",
+        "makeaplot",
         "makeachart",
+        "plot",
         "plotachart",
+        "plotit",
     }
 
 

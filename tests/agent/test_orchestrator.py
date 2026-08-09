@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import replace
 
 import pytest
 from pydantic import TypeAdapter
 
 from plotagent.agent.audit import InMemoryAuditSink
-from plotagent.agent.context import ContextBuilder
+from plotagent.agent.context import ContextBuilder, ContextBuildRequest
 from plotagent.agent.orchestrator import AgentRunResult, SingleAgentOrchestrator
 from plotagent.agent.providers import OutputCapability
-from plotagent.agent.validation import DecisionValidator
+from plotagent.agent.validation import DecisionValidator, ValidationAuthority
+from plotagent.contracts.agent_context import ChartCapabilities, ContextObjectRef
 from plotagent.contracts.canonical import canonical_json
-from plotagent.contracts.decisions import AgentDecision
+from plotagent.contracts.decisions import AgentDecision, NeedsInput
 from plotagent.security import NetworkMode
 from tests.agent.helpers import (
     FakeProvider,
@@ -42,6 +44,93 @@ def orchestrator(
         ),
         sink,
     )
+
+
+def _source_dataset_request(instruction: str) -> ContextBuildRequest:
+    request = context_request()
+    source_target = ContextObjectRef(
+        object_alias="active_target",
+        object_id="source:test",
+        object_version=1,
+        object_type="source_dataset",
+        content_hash="d" * 64,
+    )
+    return replace(
+        request,
+        user_instruction=instruction,
+        project=replace(request.project, target=source_target),
+        conversation_state=request.conversation_state.model_copy(
+            update={"current_target": source_target}
+        ),
+        chart_capabilities=ChartCapabilities(
+            capability_version="charts-v1",
+            allowed_chart_type_ids=("K01", "K02", "K03"),
+            allowed_action_types=("create_plot",),
+        ),
+    )
+
+
+def _source_dataset_authority(request: ContextBuildRequest) -> ValidationAuthority:
+    return replace(
+        authority(current=request.project.target),
+        allowed_action_types=frozenset({"create_plot"}),
+        allowed_chart_type_ids=frozenset({"K01", "K02", "K03"}),
+        permission_grants=frozenset({"create_plot"}),
+    )
+
+
+@pytest.mark.parametrize("instruction", ("画一张图。", "请画图！", "plot it.", "draw chart"))
+def test_unspecified_source_chart_is_asked_locally_without_provider_call(
+    instruction: str,
+) -> None:
+    provider = FakeProvider(OutputCapability.P2, [])
+    runtime, sink = orchestrator(provider)
+    request = _source_dataset_request(instruction)
+
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-chart-preflight",
+            context_request=request,
+            validation_authority=_source_dataset_authority(request),
+        )
+    )
+
+    assert result.accepted is True
+    assert isinstance(result.decision, NeedsInput)
+    assert result.decision.target_alias == request.project.target.object_alias
+    assert len(result.decision.questions) == 1
+    assert result.decision.questions[0].question_key == "chart_type"
+    assert provider.resolve_calls == provider.decide_calls == provider.repair_calls == 0
+    assert sink.records == []
+
+
+@pytest.mark.parametrize(
+    "instruction",
+    (
+        "画一张 K01 折线图。",
+        "Draw a scatter plot of Time versus Temperature.",
+        "plot Time versus Temperature",
+    ),
+)
+def test_chart_preflight_does_not_intercept_explicit_chart_or_fields(
+    instruction: str,
+) -> None:
+    provider = FakeProvider(OutputCapability.P1, [no_change_payload()])
+    runtime, _ = orchestrator(provider)
+    request = _source_dataset_request(instruction)
+
+    result = asyncio.run(
+        runtime.run(
+            client_model_run_id="run-explicit-chart",
+            context_request=request,
+            validation_authority=_source_dataset_authority(request),
+        )
+    )
+
+    assert result.accepted is True
+    assert result.decision is not None and result.decision.decision_type == "no_change"
+    assert provider.resolve_calls == provider.decide_calls == 1
+    assert provider.repair_calls == 0
 
 
 def test_p1_accepts_one_strict_decision_with_hashed_payload_free_audit() -> None:
