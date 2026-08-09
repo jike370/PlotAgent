@@ -71,6 +71,7 @@ const desktop = {
   configureCustomProvider: (input: CustomProviderConfigureInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.providerConfigure, input),
   clearProvider: () => ipcRenderer.invoke(IPC_CHANNELS.providerClear),
+  getOriginStatus: () => ipcRenderer.invoke(IPC_CHANNELS.originStatus),
   listProjects: () => ipcRenderer.invoke(IPC_CHANNELS.projectList),
   createProject: (input: ProjectCreateInput) => ipcRenderer.invoke(IPC_CHANNELS.projectCreate, input),
   renameProject: (input: ProjectRenameInput) => ipcRenderer.invoke(IPC_CHANNELS.projectRename, input),
@@ -87,6 +88,7 @@ const desktop = {
   createPlot: (input: PlotCreateInput) => ipcRenderer.invoke(IPC_CHANNELS.plotCreate, input),
   patchPlot: (input: PlotPatchInput) => ipcRenderer.invoke(IPC_CHANNELS.plotPatch, input),
   getPlot: (input: PlotIdInput) => ipcRenderer.invoke(IPC_CHANNELS.plotGet, input),
+  listPlots: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.plotList, input),
   renderPlot: (input: PlotRenderInput) => ipcRenderer.invoke(IPC_CHANNELS.plotRender, input),
   createBatch: (input: BatchCreateInput) => ipcRenderer.invoke(IPC_CHANNELS.batchCreate, input),
   runBatch: (input: BatchRunInput) => ipcRenderer.invoke(IPC_CHANNELS.batchRun, input),

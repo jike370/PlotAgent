@@ -30,6 +30,20 @@ export interface ProductDataset {
   coordinateKinds: string[]
 }
 
+export type ProductOriginAvailability =
+  | {
+    available: true
+    displayName: string
+    displayVersion: string
+    discoverySource: string
+  }
+  | {
+    available: false
+    code: string
+    message: string
+    retryable: boolean
+  }
+
 export interface ProductSeriesStyle {
   color?: string
   lineWidthPt?: number
@@ -488,6 +502,15 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
   }
 }
 
+export function readPlots(value: JsonValue): ProductPlot[] {
+  const container = records(value, (record) => Array.isArray(record.plots)).at(0)
+  if (container === undefined || !Array.isArray(container.plots)) return []
+  return container.plots.flatMap((item) => {
+    const plot = readPlot(item)
+    return plot === undefined ? [] : [plot]
+  })
+}
+
 export function withPreview(plot: ProductPlot, value: JsonValue): ProductPlot {
   return { ...plot, preview: readResource(value) ?? plot.preview }
 }
@@ -674,6 +697,25 @@ export function projectVersionFrom(value: JsonValue, fallback: number): number {
 export function resultKind(value: JsonValue): string | undefined {
   const candidate = records(value, (record) => typeof record.kind === 'string').at(0)
   return candidate?.kind as string | undefined
+}
+
+export function readOriginAvailability(value: JsonValue): ProductOriginAvailability | undefined {
+  if (!isJsonRecord(value)) return undefined
+  if (value.status === 'ready') {
+    return {
+      available: true,
+      displayName: stringValue(value, 'display_name') ?? 'Origin',
+      displayVersion: stringValue(value, 'display_version') ?? '',
+      discoverySource: stringValue(value, 'discovery_source') ?? 'registry',
+    }
+  }
+  if (value.status !== 'error' || !isJsonRecord(value.error)) return undefined
+  return {
+    available: false,
+    code: stringValue(value.error, 'code') ?? 'UNKNOWN',
+    message: stringValue(value.error, 'message') ?? 'Origin 环境未通过检测。',
+    retryable: value.error.retryable !== false,
+  }
 }
 
 export interface ImportSummary {

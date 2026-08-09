@@ -4,7 +4,13 @@ import { InMemoryResourceRegistry } from '../single-instance-routing.js'
 import type { PythonCoreSupervisor } from '../core/python-supervisor.js'
 import {
   AGENT_DECIDE_REQUEST_TIMEOUT_MS,
+  normalizeOriginStatus,
+  ORIGIN_EXPORT_REQUEST_TIMEOUT_MS,
+  ORIGIN_STATUS_REQUEST_TIMEOUT_MS,
+  preflightOriginExport,
   requestAgentDecision,
+  requestOriginExport,
+  requestPlotList,
   sanitizeCoreResult,
   withImportSourceIdentity,
 } from './desktop-ipc.js'
@@ -84,5 +90,89 @@ describe('desktop product IPC boundary', () => {
       AGENT_DECIDE_REQUEST_TIMEOUT_MS,
     )
     expect(AGENT_DECIDE_REQUEST_TIMEOUT_MS).toBe(35_000)
+  })
+
+  it('exposes a path-free Origin status and blocks export before a save dialog when unavailable', async () => {
+    expect(normalizeOriginStatus({
+      status: 'ready',
+      target_path: 'D:\\private\\probe.opju',
+      environment: {
+        display_name: 'OriginPro',
+        display_version: '2025b',
+        install_dir: 'D:\\origin',
+        executable_path: 'D:\\origin\\Origin64.exe',
+        discovery_source: 'portable',
+      },
+    })).toEqual({
+      status: 'ready',
+      display_name: 'OriginPro',
+      display_version: '2025b',
+      discovery_source: 'portable',
+    })
+
+    const supervisor = {
+      request: vi.fn(async () => ({
+        status: 'error',
+        target_path: 'D:\\private\\probe.opju',
+        error: { code: 'NOT_INSTALLED', message: 'not installed', retryable: false },
+      })),
+      toPublicResult: vi.fn(),
+    } as unknown as PythonCoreSupervisor
+    await expect(preflightOriginExport(supervisor)).resolves.toEqual({
+      ok: false,
+      error: {
+        code: 'ORIGIN_UNAVAILABLE',
+        message: '未找到受支持的 Origin。请安装 Origin，或将便携版放置于 D:\\origin 后重新检测。',
+        retryable: false,
+      },
+    })
+    expect(supervisor.request).toHaveBeenCalledWith(
+      'origin.status',
+      {},
+      ORIGIN_STATUS_REQUEST_TIMEOUT_MS,
+    )
+  })
+
+  it('routes persisted plot discovery through the project-scoped plots.list method', async () => {
+    const request = vi.fn(async () => ({
+      project_id: 'project:recovered',
+      project_version: 7,
+      plots: [{ plot_id: 'plot:alpha', plot_version: 2 }],
+    }))
+    const supervisor = {
+      request,
+      toPublicResult: vi.fn(),
+    } as unknown as PythonCoreSupervisor
+
+    await expect(requestPlotList(
+      supervisor,
+      new InMemoryResourceRegistry(),
+      'project:recovered',
+    )).resolves.toMatchObject({ ok: true })
+    expect(request).toHaveBeenCalledWith(
+      'plots.list',
+      { project_id: 'project:recovered' },
+      undefined,
+    )
+  })
+
+  it('gives only the Origin export request enough time for probe, build, and reopen validation', async () => {
+    const request = vi.fn(async () => ({ export_id: 'export:origin' }))
+    const supervisor = {
+      request,
+      toPublicResult: vi.fn(),
+    } as unknown as PythonCoreSupervisor
+
+    await expect(requestOriginExport(
+      supervisor,
+      new InMemoryResourceRegistry(),
+      { project_id: 'project:one', target_kind: 'plot' },
+    )).resolves.toMatchObject({ ok: true })
+    expect(request).toHaveBeenCalledWith(
+      'exports.origin',
+      { project_id: 'project:one', target_kind: 'plot' },
+      ORIGIN_EXPORT_REQUEST_TIMEOUT_MS,
+    )
+    expect(ORIGIN_EXPORT_REQUEST_TIMEOUT_MS).toBe(925_000)
   })
 })

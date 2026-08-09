@@ -255,6 +255,12 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
     getProviderStatus: async () => ok({ configured: true, mode: 'browser_preview' }),
     configureCustomProvider: async () => ok({ configured: true, mode: 'browser_preview' }),
     clearProvider: async () => ok({ configured: true, mode: 'browser_preview' }),
+    getOriginStatus: async () => ok({
+      status: 'ready',
+      display_name: 'OriginPro',
+      display_version: 'Preview',
+      discovery_source: 'browser_preview',
+    }),
     listProjects: async () => ok({ projects: [...projects.values()].map(projectSummary) }),
     createProject: async ({ name }) => ok(projectSummary(createProject(name))),
     renameProject: async ({ projectId, name }) => {
@@ -362,6 +368,11 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       const plot = plots.get(plotKey(projectId, plotId))
       return plot ? ok(plot) : missing('界面预览中没有找到该图形。')
     },
+    listPlots: async ({ projectId }) => ok({
+      project_id: projectId,
+      project_version: projects.get(projectId)?.projectVersion ?? 0,
+      plots: [...plots.values()].filter((plot) => plot.project_id === projectId),
+    }),
     renderPlot: async ({ projectId, plotId, plotVersion }) => {
       const plot = plots.get(plotKey(projectId, plotId))
       if (!plot) return missing('界面预览中没有找到该图形。')

@@ -6,6 +6,7 @@ import {
   FileChartColumn,
   FlaskConical,
   FolderKanban,
+  LoaderCircle,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -27,7 +28,7 @@ interface SidebarProps {
   core: CoreStatus
   agentConfigured: boolean
   taskCount: number
-  originStatus: 'unknown' | 'available' | 'unavailable' | 'exporting'
+  originStatus: 'unknown' | 'checking' | 'available' | 'unavailable' | 'exporting'
   busyAction?: string
   previewMode?: boolean
   onProjectChange: (projectId: string) => void
@@ -36,6 +37,7 @@ interface SidebarProps {
   onDeleteProject: (projectId: string) => Promise<boolean>
   onTaskCenter: () => void
   onConfigureAgent: () => void
+  onRefreshOrigin: () => void
 }
 
 interface ProjectOverlay {
@@ -65,9 +67,10 @@ function lastOpenedLabel(value: string | undefined): string {
 }
 
 const originLabels = {
-  unknown: ['Origin 尚未检测', '导出 OPJU 时检测'],
-  available: ['Origin 可用', '支持 OPJU'],
-  unavailable: ['Origin 不可用', '仅影响 OPJU'],
+  unknown: ['Origin 尚未检测', '重新检测'],
+  checking: ['正在检测 Origin', '请稍候'],
+  available: ['Origin 可用', '重新检测'],
+  unavailable: ['Origin 不可用', '重新检测'],
   exporting: ['正在调用 Origin', '请勿关闭应用'],
 } as const
 
@@ -86,6 +89,7 @@ export function Sidebar({
   onDeleteProject,
   onTaskCenter,
   onConfigureAgent,
+  onRefreshOrigin,
 }: SidebarProps): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [pinnedProjectIds, setPinnedProjectIds] = useState(initialPinnedProjects)
@@ -102,7 +106,12 @@ export function Sidebar({
     const pinned = new Set(pinnedProjectIds)
     return [...filtered].sort((left, right) => Number(pinned.has(right.projectId)) - Number(pinned.has(left.projectId)))
   }, [pinnedProjectIds, projects, query])
-  const OriginIcon = originStatus === 'available' ? CircleCheck : originStatus === 'exporting' ? FileChartColumn : TriangleAlert
+  const OriginIcon = originStatus === 'available'
+    ? CircleCheck
+    : originStatus === 'checking' || originStatus === 'exporting' ? LoaderCircle : TriangleAlert
+  const originActionLabel = originStatus === 'checking' || originStatus === 'exporting'
+    ? origin[0]
+    : `${origin[0]}，重新检测`
   const menuProject = menu ? projects.find((item) => item.projectId === menu.projectId) : undefined
   const hoverProject = hoverInfo ? projects.find((item) => item.projectId === hoverInfo.projectId) : undefined
 
@@ -305,10 +314,10 @@ export function Sidebar({
           <span>模型服务</span>
           <span className="footer-meta">{agentConfigured ? '已配置' : '未配置'}</span>
         </button>
-        <div className={`origin-row origin-row--${originStatus}`} role="status">
-          <OriginIcon className={originStatus === 'exporting' ? 'spin' : undefined} size={16} aria-hidden="true" />
+        <button className={`origin-row origin-row--${originStatus}`} type="button" onClick={onRefreshOrigin} disabled={originStatus === 'checking' || originStatus === 'exporting'} aria-label={originActionLabel}>
+          <OriginIcon className={originStatus === 'checking' || originStatus === 'exporting' ? 'spin' : undefined} size={16} aria-hidden="true" />
           <span>{origin[0]}</span><span className="footer-meta">{origin[1]}</span>
-        </div>
+        </button>
         <div className="build-row"><span>{previewMode ? '界面预览' : '本地单实例'}</span><span className="footer-meta">{previewMode ? '内存示例' : '0.1.0 内测'}</span></div>
       </div>
     </aside>

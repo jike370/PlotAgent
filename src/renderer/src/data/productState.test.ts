@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { JsonValue } from '../../../shared/desktop-contract'
-import { readDatasets, readImportSummary, readPlot } from './productState'
+import { readDatasets, readImportSummary, readPlot, readPlots } from './productState'
 
 describe('product plot state', () => {
   it('prefers file and worksheet identity and summarizes per-file import outcomes', () => {
@@ -113,5 +113,21 @@ describe('product plot state', () => {
       symbolInterior: 'hollow',
     })
     expect(plot?.preview?.url).toBe('plotagent-resource://preview/plot-test.png')
+  })
+
+  it('preserves the Core commit order when reading the latest plot per object', () => {
+    const plots = readPlots({
+      project_version: 9,
+      plots: [
+        { plot_id: 'plot:zeta', plot_version: 4, chart_type_id: 'K01' },
+        { plot_id: 'plot:alpha', plot_version: 2, chart_type_id: 'K02' },
+      ],
+    })
+
+    expect(plots.map((plot) => `${plot.plotId}@${plot.plotVersion}`)).toEqual([
+      'plot:zeta@4',
+      'plot:alpha@2',
+    ])
+    expect(plots.at(-1)?.chartId).toBe('K02')
   })
 })

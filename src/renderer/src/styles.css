@@ -603,9 +603,13 @@ kbd {
   font-size: 11.5px;
 }
 
-.sidebar__footer > button:hover {
+.sidebar__footer > button:not(:disabled):hover {
   background: var(--surface-2);
   color: var(--ink);
+}
+
+.sidebar__footer > button:disabled {
+  cursor: default;
 }
 
 .sidebar__footer .origin-row {
@@ -625,6 +629,10 @@ kbd {
 }
 
 .sidebar__footer .origin-row--exporting {
+  color: var(--info);
+}
+
+.sidebar__footer .origin-row--checking {
   color: var(--info);
 }
 

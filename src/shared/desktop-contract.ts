@@ -34,8 +34,10 @@ export const IPC_CHANNELS = {
   getTasks: 'plotagent:tasks:get-snapshot',
   lifecycleCloseRequested: 'plotagent:lifecycle:close-requested',
   openResourceRequested: 'plotagent:resources:open-requested',
+  originStatus: 'plotagent:origin:status',
   plotCreate: 'plotagent:plots:create',
   plotGet: 'plotagent:plots:get',
+  plotList: 'plotagent:plots:list',
   plotPatch: 'plotagent:plots:patch',
   plotRender: 'plotagent:plots:render',
   providerClear: 'plotagent:provider:clear',
@@ -81,6 +83,7 @@ export interface PublicError {
   readonly code: CoreErrorCode
     | 'DIALOG_CANCELLED'
     | 'IPC_INVALID_ARGUMENT'
+    | 'ORIGIN_UNAVAILABLE'
     | 'RESOURCE_INVALID'
     | 'TASK_NOT_CANCELLABLE'
   readonly message: string
@@ -325,6 +328,7 @@ export interface PlotAgentDesktopApi {
   getProviderStatus(): Promise<DesktopDataResult>
   configureCustomProvider(input: CustomProviderConfigureInput): Promise<DesktopDataResult>
   clearProvider(): Promise<DesktopDataResult>
+  getOriginStatus(): Promise<DesktopDataResult>
   listProjects(): Promise<DesktopDataResult>
   createProject(input: ProjectCreateInput): Promise<DesktopDataResult>
   renameProject(input: ProjectRenameInput): Promise<DesktopDataResult>
@@ -340,6 +344,7 @@ export interface PlotAgentDesktopApi {
   createPlot(input: PlotCreateInput): Promise<DesktopDataResult>
   patchPlot(input: PlotPatchInput): Promise<DesktopDataResult>
   getPlot(input: PlotIdInput): Promise<DesktopDataResult>
+  listPlots(input: ProjectIdInput): Promise<DesktopDataResult>
   renderPlot(input: PlotRenderInput): Promise<DesktopDataResult>
   createBatch(input: BatchCreateInput): Promise<DesktopDataResult>
   runBatch(input: BatchRunInput): Promise<DesktopDataResult>

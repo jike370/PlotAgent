@@ -208,7 +208,7 @@ function mappingRoles(chartId: string): MappingRole[] {
     facet: '分面', base_x: '基础 X', base_y: '基础 Y', panel: '面板图', survival: '生存率', risk_count: '风险人数',
     dose: '剂量', response: '响应', parameter: '预计算参数', label: '标签', effect: '效应值', weight: '权重',
     spectral_axis: '谱轴', intensity: '强度', angle: '角度', peak_label: '峰标签', z_real: "Z'", z_imaginary: "-Z''",
-    frequency: '频率', actual: '真实类别', predicted: '预测类别', count: '计数',
+    frequency: '频率', actual: '真实类别', predicted: '预测类别', count: '已聚合计数',
     baseline: '基线', start: '起点', end: '终点', series_1: '系列 1', series_2: '系列 2', series_3: '系列 3（可选）', delta: '变化量', item: '项目', actual_value: '实际值', target: '目标',
     range1: '区间 1', range2: '区间 2', range3: '区间 3', left: '左轴数值', right: '右轴数值',
     method_a: '方法 A', method_b: '方法 B', series: '系列', feature: '特征', log2fc: 'log2FC', pvalue: 'P 值', qvalue: 'Q 值',

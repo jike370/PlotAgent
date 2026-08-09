@@ -224,6 +224,113 @@ export function requestAgentDecision(
   )
 }
 
+export function requestPlotList(
+  supervisor: PythonCoreSupervisor,
+  resources: ResourceRegistry,
+  projectId: string,
+): Promise<DesktopDataResult> {
+  return requestCoreData(supervisor, resources, 'plots.list', { project_id: projectId })
+}
+
+export const ORIGIN_EXPORT_REQUEST_TIMEOUT_MS = 925_000
+
+export function requestOriginExport(
+  supervisor: PythonCoreSupervisor,
+  resources: ResourceRegistry,
+  params: JsonValue,
+): Promise<DesktopDataResult> {
+  return requestCoreData(
+    supervisor,
+    resources,
+    'exports.origin',
+    params,
+    'export',
+    ORIGIN_EXPORT_REQUEST_TIMEOUT_MS,
+  )
+}
+
+function originDiagnostic(code: string, fallback: string): string {
+  const messages: Record<string, string> = {
+    NOT_INSTALLED: '未找到受支持的 Origin。请安装 Origin，或将便携版放置于 D:\\origin 后重新检测。',
+    VERSION_UNSUPPORTED: '当前 Origin 版本不受支持。请安装产品要求的版本后重新检测。',
+    LICENSE_UNAVAILABLE: 'Origin 许可证当前不可用。请启动 Origin 完成许可证验证后重新检测。',
+    CAPABILITY_MISSING: 'Origin 缺少导出所需能力。请修复 Origin 安装后重新检测。',
+    TEMPLATE_OR_FONT_MISSING: 'Origin 导出模板或字体不完整。请修复 PlotAgent 安装后重新检测。',
+    START_FAILURE: 'Origin 无法启动。请关闭残留的 Origin 进程后重新检测。',
+  }
+  return messages[code] ?? (fallback || 'Origin 环境未通过检测。请检查安装与许可证后重新检测。')
+}
+
+export function normalizeOriginStatus(value: JsonValue): JsonValue {
+  if (value === null || Array.isArray(value) || typeof value !== 'object') {
+    throw new Error('Invalid Origin status response')
+  }
+  if (value.status === 'ready') {
+    const environment = value.environment
+    if (environment === null || Array.isArray(environment) || typeof environment !== 'object') {
+      throw new Error('Invalid Origin environment response')
+    }
+    return {
+      status: 'ready',
+      display_name: typeof environment.display_name === 'string' ? environment.display_name : 'Origin',
+      display_version: typeof environment.display_version === 'string' ? environment.display_version : '',
+      discovery_source: typeof environment.discovery_source === 'string' ? environment.discovery_source : 'registry',
+    }
+  }
+  const error = value.error
+  if (value.status !== 'error' || error === null || Array.isArray(error) || typeof error !== 'object') {
+    throw new Error('Invalid Origin status response')
+  }
+  const code = typeof error.code === 'string' ? error.code : 'UNKNOWN'
+  return {
+    status: 'error',
+    error: {
+      code,
+      message: originDiagnostic(code, typeof error.message === 'string' ? error.message : ''),
+      retryable: typeof error.retryable === 'boolean' ? error.retryable : true,
+    },
+  }
+}
+
+export const ORIGIN_STATUS_REQUEST_TIMEOUT_MS = 35_000
+
+export async function requestOriginStatus(
+  supervisor: PythonCoreSupervisor,
+): Promise<DesktopDataResult> {
+  try {
+    return {
+      ok: true,
+      value: normalizeOriginStatus(await supervisor.request(
+        'origin.status',
+        {},
+        ORIGIN_STATUS_REQUEST_TIMEOUT_MS,
+      )),
+    }
+  } catch (error: unknown) {
+    return { ok: false, error: supervisor.toPublicResult(error) }
+  }
+}
+
+export async function preflightOriginExport(
+  supervisor: PythonCoreSupervisor,
+): Promise<DesktopActionResult> {
+  const result = await requestOriginStatus(supervisor)
+  if (!result.ok) return result
+  if (result.value !== null && !Array.isArray(result.value) && typeof result.value === 'object' && result.value.status === 'ready') {
+    return { ok: true }
+  }
+  const error = result.value !== null && !Array.isArray(result.value) && typeof result.value === 'object'
+    ? result.value.error
+    : undefined
+  const message = error !== null && !Array.isArray(error) && typeof error === 'object' && typeof error.message === 'string'
+    ? error.message
+    : 'Origin 环境未通过检测。请重新检测后再导出。'
+  const retryable = error !== null && !Array.isArray(error) && typeof error === 'object' && typeof error.retryable === 'boolean'
+    ? error.retryable
+    : true
+  return { ok: false, error: { code: 'ORIGIN_UNAVAILABLE', message, retryable } }
+}
+
 function projectIdFromCoreResult(value: JsonValue): string | null {
   if (value === null || Array.isArray(value) || typeof value !== 'object') return null
   const projectId = value.project_id ?? value.id
@@ -335,6 +442,7 @@ export function registerDesktopIpc({
   ipcMain.handle(IPC_CHANNELS.providerStatus, () => (
     requestCoreData(supervisor, resources, 'provider.status')
   ))
+  ipcMain.handle(IPC_CHANNELS.originStatus, () => requestOriginStatus(supervisor))
   ipcMain.handle(IPC_CHANNELS.providerConfigure, (_event, value: unknown) => {
     const input = parseCustomProviderConfigureInput(value)
     return input === null
@@ -567,6 +675,12 @@ export function registerDesktopIpc({
         plot_version: input.plotVersion,
       })
   })
+  ipcMain.handle(IPC_CHANNELS.plotList, (_event, value: unknown) => {
+    const input = parseProjectIdInput(value)
+    return input === null
+      ? invalidDataArgument('项目 ID 无效。')
+      : requestPlotList(supervisor, resources, input.projectId)
+  })
   ipcMain.handle(IPC_CHANNELS.plotRender, (_event, value: unknown) => {
     const input = parsePlotRenderInput(value)
     return input === null
@@ -736,6 +850,8 @@ export function registerDesktopIpc({
     const input = parseOriginExportInput(value)
     const owner = getWindow()
     if (input === null || owner === undefined) return invalidDataArgument('Origin 导出请求无效。')
+    const preflight = await preflightOriginExport(supervisor)
+    if (!preflight.ok) return preflight
     const choice = await dialog.showSaveDialog(owner, {
       title: '导出 Origin 项目',
       defaultPath: `${input.target.id}.opju`,
@@ -743,7 +859,7 @@ export function registerDesktopIpc({
     })
     if (choice.canceled || choice.filePath === undefined) return cancelled()
     const expectedExistingSha256 = await existingFileSha256(choice.filePath)
-    return requestCoreData(supervisor, resources, 'exports.origin', {
+    return requestOriginExport(supervisor, resources, {
       project_id: input.projectId,
       plot_id: input.target.id,
       plot_version: input.target.version,
@@ -755,7 +871,7 @@ export function registerDesktopIpc({
       ...(expectedExistingSha256 === undefined
         ? {}
         : { expected_existing_sha256: expectedExistingSha256 }),
-    }, 'export')
+    })
   })
 
   return () => {

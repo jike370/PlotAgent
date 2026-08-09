@@ -9,7 +9,7 @@ import type {
   JsonValue,
   TaskEvent,
 } from '../../shared/desktop-contract'
-import type { ChartType } from './data/chartCatalog'
+import { chartCatalog, type ChartType } from './data/chartCatalog'
 import {
   isJsonRecord,
   projectVersionFrom,
@@ -18,7 +18,9 @@ import {
   readAgentPlans,
   readDatasets,
   readImportSummary,
+  readOriginAvailability,
   readPlot,
+  readPlots,
   readProject,
   readProjects,
   resultKind,
@@ -230,7 +232,8 @@ export function App(): React.JSX.Element {
   const [tasksOpen, setTasksOpen] = useState(false)
   const [busyAction, setBusyAction] = useState<string>()
   const [taskEvents, setTaskEvents] = useState<Record<string, TaskEvent>>({})
-  const [originStatus, setOriginStatus] = useState<'unknown' | 'available' | 'unavailable' | 'exporting'>('unknown')
+  const [originStatus, setOriginStatus] = useState<'unknown' | 'checking' | 'available' | 'unavailable' | 'exporting'>('unknown')
+  const [originDiagnostic, setOriginDiagnostic] = useState('Origin 环境未通过检测。请重新检测后再导出。')
   const importInFlight = useRef(false)
   const agentRequestGeneration = useRef(0)
 
@@ -243,6 +246,88 @@ export function App(): React.JSX.Element {
   const activeDataset = datasets.find((dataset) => dataset.datasetId === activeDatasetId) ?? datasets[0]
   const taskCount = Object.values(taskEvents).filter((event) => !['succeeded', 'failed', 'cancelled', 'partially_succeeded', 'interrupted'].includes(event.state)).length
   const activeProjectId = project?.projectId
+
+  const refreshOriginStatus = useCallback(async (reportResult = false): Promise<boolean> => {
+    if (!api) return false
+    setOriginStatus('checking')
+    try {
+      const result = await api.getOriginStatus()
+      if (!result.ok) {
+        setOriginStatus('unavailable')
+        setOriginDiagnostic(result.error.message)
+        if (reportResult) setNotice({ kind: 'error', title: 'Origin 不可用', message: result.error.message })
+        return false
+      }
+      const availability = readOriginAvailability(result.value)
+      if (!availability) {
+        setOriginStatus('unavailable')
+        setOriginDiagnostic('Core 返回了无法识别的 Origin 状态。请重新检测。')
+        if (reportResult) setNotice({ kind: 'error', title: 'Origin 检测失败', message: 'Core 返回了无法识别的 Origin 状态。请重新检测。' })
+        return false
+      }
+      if (!availability.available) {
+        setOriginStatus('unavailable')
+        setOriginDiagnostic(availability.message)
+        if (reportResult) setNotice({ kind: 'error', title: 'Origin 不可用', message: availability.message })
+        return false
+      }
+      setOriginStatus('available')
+      setOriginDiagnostic('')
+      if (reportResult) {
+        const version = availability.displayVersion ? ` ${availability.displayVersion}` : ''
+        setNotice({ kind: 'success', title: 'Origin 可用', message: `${availability.displayName}${version}` })
+      }
+      return true
+    } catch (error) {
+      setOriginStatus('unavailable')
+      setOriginDiagnostic(errorNotice(error).message)
+      if (reportResult) setNotice(errorNotice(error))
+      return false
+    }
+  }, [api])
+
+  const recoverLatestPlot = useCallback(async (projectId: string): Promise<{
+    plot?: ProductPlot
+    notice?: ProductNotice
+  }> => {
+    if (!api) return {}
+    try {
+      const listed = valueOrThrow(await api.listPlots({ projectId }))
+      const latest = readPlots(listed).at(-1)
+      if (!latest) return {}
+      const stored = valueOrThrow(await api.getPlot({
+        projectId,
+        plotId: latest.plotId,
+        plotVersion: latest.plotVersion,
+      }))
+      let recovered = readPlot(stored) ?? latest
+      try {
+        const rendered = valueOrThrow(await api.renderPlot({
+          projectId,
+          plotId: recovered.plotId,
+          plotVersion: recovered.plotVersion,
+          mode: 'preview',
+        }))
+        recovered = withPreview(recovered, rendered)
+        return { plot: recovered }
+      } catch (error) {
+        return {
+          plot: recovered,
+          notice: { kind: 'warning', title: '图形已恢复，预览未完成', message: errorNotice(error).message },
+        }
+      }
+    } catch (error) {
+      return {
+        notice: { kind: 'warning', title: '图形恢复未完成', message: errorNotice(error).message },
+      }
+    }
+  }, [api])
+
+  useEffect(() => {
+    if (core.phase !== 'ready') return
+    const timer = window.setTimeout(() => { void refreshOriginStatus(false) }, 0)
+    return () => window.clearTimeout(timer)
+  }, [core.phase, refreshOriginStatus])
 
   useEffect(() => {
     if (!api || !activeProjectId) return
@@ -380,14 +465,20 @@ export function App(): React.JSX.Element {
     const unsubTasks = api.onTaskEvent((event) => setTaskEvents((current) => ({ ...current, [event.taskId]: event })))
     const unsubOpen = api.onOpenResourceRequested((request) => {
       setBusyAction('open-project')
-      void api.openProjectResource({ resourceId: request.resourceId }).then((result) => {
+      void api.openProjectResource({ resourceId: request.resourceId }).then(async (result) => {
         const value = valueOrThrow(result)
-        hydrateProject(value)
-        setNotice({ kind: 'success', title: '项目已打开', message: '已从受控项目资源恢复本地会话。' })
+        const nextProject = hydrateProject(value)
+        if (!nextProject) throw new Error('Core 未返回项目 ID。')
+        const listed = valueOrThrow(await api.listDatasets({ projectId: nextProject.projectId }))
+        hydrateProject(listed, nextProject.name, nextProject)
+        const recovery = await recoverLatestPlot(nextProject.projectId)
+        setPlot(recovery.plot)
+        setSelectedChart(recovery.plot ? chartCatalog.find((chart) => chart.id === recovery.plot?.chartId) : undefined)
+        setNotice(recovery.notice ?? { kind: 'success', title: '项目已打开', message: '已从受控项目资源恢复本地会话。' })
       }).catch((error: unknown) => setNotice(errorNotice(error))).finally(() => setBusyAction(undefined))
     })
     return () => { active = false; unsubCore(); unsubTasks(); unsubOpen() }
-  }, [api, hydrateProject])
+  }, [api, hydrateProject, recoverLatestPlot])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -488,14 +579,19 @@ export function App(): React.JSX.Element {
     try {
       const value = valueOrThrow(await api.openProject())
       const nextProject = hydrateProject(value)
+      let recoveryNotice: ProductNotice | undefined
       if (nextProject) {
         const listed = valueOrThrow(await api.listDatasets({ projectId: nextProject.projectId }))
         hydrateProject(listed, nextProject.name, nextProject)
+        const recovery = await recoverLatestPlot(nextProject.projectId)
+        setPlot(recovery.plot)
+        setSelectedChart(recovery.plot ? chartCatalog.find((chart) => chart.id === recovery.plot?.chartId) : undefined)
+        recoveryNotice = recovery.notice
       }
-      setNotice({
-        kind: 'success',
-        title: '项目已打开',
-        message: previewMode ? '已载入内存项目，用于检查打开项目后的界面。' : '.plotproj 已由 Main 授权并交给本地 Core 校验。',
+      setNotice(recoveryNotice ?? {
+          kind: 'success',
+          title: '项目已打开',
+          message: previewMode ? '已载入内存项目，用于检查打开项目后的界面。' : '.plotproj 已由 Main 授权并交给本地 Core 校验。',
       })
       await refreshProjects()
     } catch (error) {
@@ -515,6 +611,13 @@ export function App(): React.JSX.Element {
       const next = { ...(known ?? { projectId, name: '本机项目', projectVersion: 0, isOpen: true }), projectVersion: projectVersionFrom(opened, 0), isOpen: true }
       setProject(next); setDatasets(readDatasets(listed)); setActiveDatasetId(readDatasets(listed)[0]?.datasetId)
       setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined); setBatch(undefined); setFigure(undefined); setFigureCandidates([])
+      setAgentPlan(undefined); setAgentOutcome(undefined); setChangeSet(undefined); setExportRecord(undefined)
+      const recovery = await recoverLatestPlot(projectId)
+      if (recovery.plot) {
+        setPlot(recovery.plot)
+        setSelectedChart(chartCatalog.find((chart) => chart.id === recovery.plot?.chartId))
+      }
+      if (recovery.notice) setNotice(recovery.notice)
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
@@ -706,6 +809,11 @@ export function App(): React.JSX.Element {
       return
     }
     const target = explicitTarget ?? { kind: 'plot' as const, id: plot!.plotId, version: plot!.plotVersion }
+    if (format === 'opju' && originStatus === 'unavailable') {
+      setNotice({ kind: 'error', title: 'Origin 不可用', message: originDiagnostic })
+      return
+    }
+    if (format === 'opju' && originStatus !== 'available' && !await refreshOriginStatus(true)) return
     setBusyAction(`export-${format}`); setNotice(undefined)
     if (format === 'opju') setOriginStatus('exporting')
     try {
@@ -717,8 +825,13 @@ export function App(): React.JSX.Element {
       if (format === 'opju') setOriginStatus('available')
       setNotice({ kind: 'success', title: `已导出 ${format.toLocaleUpperCase('en-US')}`, message: '文件已写入你在系统对话框中授权的位置。' })
     } catch (error) {
-      if (format === 'opju') setOriginStatus('unavailable')
-      if (!(typeof error === 'object' && error !== null && 'code' in error && error.code === 'DIALOG_CANCELLED')) setNotice(errorNotice(error))
+      const cancelled = typeof error === 'object' && error !== null && 'code' in error && error.code === 'DIALOG_CANCELLED'
+      const originUnavailable = typeof error === 'object' && error !== null && 'code' in error && error.code === 'ORIGIN_UNAVAILABLE'
+      if (format === 'opju') {
+        setOriginStatus(originUnavailable ? 'unavailable' : 'available')
+        if (originUnavailable) setOriginDiagnostic(errorNotice(error).message)
+      }
+      if (!cancelled) setNotice(errorNotice(error))
     } finally { setBusyAction(undefined) }
   }
 
@@ -837,7 +950,7 @@ export function App(): React.JSX.Element {
       <div className="app-titlebar" aria-hidden="true"><FlaskConical size={13} /><span>PlotAgent</span></div>
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
-          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
+          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
           <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} changeSet={changeSet} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { invalidateAgentRequest(); setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}

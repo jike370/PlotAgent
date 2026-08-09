@@ -130,6 +130,12 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     getProviderStatus: vi.fn(async () => ok({ configured: true, mode: 'custom_provider' })),
     configureCustomProvider: vi.fn(async () => ok({ configured: true, mode: 'custom_provider' })),
     clearProvider: vi.fn(async () => ok({ configured: false, mode: 'local_only' })),
+    getOriginStatus: vi.fn(async () => ok({
+      status: 'ready',
+      display_name: 'OriginPro',
+      display_version: '2025b',
+      discovery_source: 'portable',
+    })),
     listProjects: vi.fn(async () => ok({ projects: [] })),
     createProject: vi.fn(async () => ok({ project_id: 'project:test', display_name: '新建科研绘图项目', is_open: false })),
     renameProject: vi.fn(async (input) => ok({ project_id: input.projectId, display_name: input.name, is_open: true })),
@@ -149,6 +155,7 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     createPlot: vi.fn(async (input) => ok({ project_id: input.projectId, project_version: 2, plot_id: 'plot:one', plot_version: 1, chart_type_id: input.chartId })),
     patchPlot: vi.fn(async () => ok({ project_version: 3, plot_id: 'plot:one', plot_version: 2, chart_type_id: 'K01' })),
     getPlot: vi.fn(async (input) => ok({ project_version: Math.max(2, input.plotVersion + 1), plot_id: input.plotId, plot_version: input.plotVersion, chart_type_id: 'K01' })),
+    listPlots: vi.fn(async () => ok({ project_version: 1, plots: [] })),
     renderPlot: vi.fn(async (input) => ok({ plot_id: input.plotId, plot_version: input.plotVersion, artifact: { resource: { resourceId: 'resource:preview', kind: 'preview', url: 'plotagent-resource://local/00000000-0000-0000-0000-000000000001', mimeType: 'image/png' } } })),
     createBatch: vi.fn(async () => ok({ task_plan: batchPlanFixture() })),
     runBatch: vi.fn(async () => ok({ task_id: 'task:batch', batch_id: 'batch:one', state: 'succeeded', project_version: 4, items: [{ item_id: 'item.1', state: 'succeeded' }] })),
@@ -353,6 +360,7 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
     expect(await screen.findByText('本地 Core')).toBeInTheDocument()
     expect(screen.getByText('已连接')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Origin 可用，重新检测/ })).toBeInTheDocument()
     const trigger = await screen.findByRole('button', { name: '模型服务 已配置' })
     await user.click(trigger)
     expect(screen.getByRole('dialog', { name: '模型服务' })).toBeInTheDocument()
@@ -374,6 +382,67 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByText('没有匹配的本机项目')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '清除项目搜索' }))
     expect(screen.getByRole('button', { name: '温度响应示例' })).toBeInTheDocument()
+  })
+
+  it('restores and renders the most recently committed plot when a persisted project is activated', async () => {
+    const user = userEvent.setup()
+    const getPlot = vi.fn(async (input) => ok({
+      project_version: 7,
+      plot_id: input.plotId,
+      plot_version: input.plotVersion,
+      chart_type_id: 'K02',
+    }))
+    const api = fakeDesktop({
+      listProjects: vi.fn(async () => ok({
+        projects: [
+          { project_id: 'project:sample', display_name: '温度响应示例', project_version: 1, is_open: true },
+          { project_id: 'project:recovered', display_name: '跨重启项目', project_version: 7, is_open: false },
+        ],
+      })),
+      activateProject: vi.fn(async ({ projectId }) => ok({ project_id: projectId, project_version: 7, status: 'open' })),
+      listDatasets: vi.fn(async ({ projectId }) => ok({ project_id: projectId, project_version: 7, datasets: [dataset] })),
+      listPlots: vi.fn(async ({ projectId }) => ok({
+        project_id: projectId,
+        project_version: 7,
+        plots: [
+          { plot_id: 'plot:zeta', plot_version: 3, chart_type_id: 'K01' },
+          { plot_id: 'plot:alpha', plot_version: 2, chart_type_id: 'K02' },
+        ],
+      })),
+      getPlot,
+    })
+    installApi(api)
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(await screen.findByRole('button', { name: '跨重启项目' }))
+
+    expect(getPlot).toHaveBeenCalledWith({
+      projectId: 'project:recovered',
+      plotId: 'plot:alpha',
+      plotVersion: 2,
+    })
+    expect(api.renderPlot).toHaveBeenCalledWith({
+      projectId: 'project:recovered',
+      plotId: 'plot:alpha',
+      plotVersion: 2,
+      mode: 'preview',
+    })
+    expect(await screen.findByRole('img', { name: '线点图 真实渲染预览' })).toBeInTheDocument()
+    expect(screen.getByText('plot:alpha · v2')).toBeInTheDocument()
+  })
+
+  it('opens a persisted project with no plots in the normal data-ready empty state', async () => {
+    const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '打开已有 .plotproj' }))
+
+    expect(await screen.findByRole('heading', { name: '已打开项目' })).toBeInTheDocument()
+    expect(api.listPlots).toHaveBeenCalledWith({ projectId: 'project:opened' })
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '选择图形' })).toBeEnabled()
   })
 
   it('imports real Core fields, confirms one mapping, and displays a controlled preview resource', async () => {
@@ -490,6 +559,30 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('region', { name: '导出记录' })).toHaveTextContent('PNG 导出记录')
     expect(screen.getByRole('region', { name: '导出记录' })).toHaveTextContent('export:one')
     expect(document.body.textContent).not.toMatch(/[A-Za-z]:\\/)
+  })
+
+  it('preflights Origin before OPJU export and keeps the save flow closed when unavailable', async () => {
+    const user = userEvent.setup()
+    const getOriginStatus = vi.fn(async () => ok({
+      status: 'error',
+      error: {
+        code: 'LICENSE_UNAVAILABLE',
+        message: 'Origin 许可证当前不可用。请启动 Origin 完成许可证验证后重新检测。',
+        retryable: true,
+      },
+    }))
+    const api = fakeDesktop({ getOriginStatus })
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    expect(await screen.findByRole('button', { name: /Origin 不可用，重新检测/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '导出 OPJU' }))
+
+    expect(getOriginStatus).toHaveBeenCalled()
+    expect(api.exportOrigin).not.toHaveBeenCalled()
+    expect((await screen.findAllByText('Origin 不可用')).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText(/启动 Origin 完成许可证验证后重新检测/)).toBeInTheDocument()
   })
 
   it('reuses the confirmed mapping unchanged for a batch and exports the real batch target', async () => {
@@ -665,7 +758,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: /S61.*混淆矩阵/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
     await user.click(screen.getByRole('button', { name: '手动映射' }))
-    expect(screen.getByText('计数（可选）')).toBeInTheDocument()
+    expect(screen.getByText('已聚合计数（可选）')).toBeInTheDocument()
   })
 
   it('restores a partial plan and resumes only its unfinished work', async () => {
