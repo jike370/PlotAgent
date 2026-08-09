@@ -18,6 +18,9 @@ export interface ProductField {
 
 export interface ProductDataset {
   datasetId: string
+  displayName: string
+  sourceFileName?: string
+  sourceSheetName?: string
   sourceVersion: number
   rowCount: number
   fieldCount: number
@@ -247,8 +250,21 @@ export function readDatasets(value: JsonValue): ProductDataset[] {
       }]
     })
     const quality = isJsonRecord(record.quality) ? record.quality : undefined
+    const sourceFileName = stringValue(record, 'source_file_name', 'file_name', 'workbook_name')
+    const sourceSheetName = stringValue(record, 'source_sheet_name', 'sheet_name')
+    const sourceTableIndex = numberValue(record, 'source_table_index')
+    const displayName = sourceFileName === undefined
+      ? stringValue(record, 'display_name') ?? datasetId
+      : sourceSheetName !== undefined
+        ? `${sourceFileName} > ${sourceSheetName}`
+        : Array.isArray(record.source_coordinate_kinds) && record.source_coordinate_kinds.includes('excel')
+          ? `${sourceFileName} > 工作表 ${sourceTableIndex ?? 1}`
+          : sourceFileName
     return [`${datasetId}@${numberValue(record, 'source_version') ?? 1}`, {
       datasetId,
+      displayName,
+      ...(sourceFileName === undefined ? {} : { sourceFileName }),
+      ...(sourceSheetName === undefined ? {} : { sourceSheetName }),
       sourceVersion: numberValue(record, 'source_version') ?? 1,
       rowCount: numberValue(record, 'row_count') ?? 0,
       fieldCount: numberValue(record, 'field_count') ?? fields.length,
@@ -658,6 +674,31 @@ export function projectVersionFrom(value: JsonValue, fallback: number): number {
 export function resultKind(value: JsonValue): string | undefined {
   const candidate = records(value, (record) => typeof record.kind === 'string').at(0)
   return candidate?.kind as string | undefined
+}
+
+export interface ImportSummary {
+  fileCount: number
+  committedCount: number
+  attentionCount: number
+  failedCount: number
+  failedFiles: string[]
+}
+
+export function readImportSummary(value: JsonValue): ImportSummary {
+  const entries = records(value, (record) => typeof record.kind === 'string' && (
+    ['committed', 'imported', 'clarification', 'needs_input', 'rejection', 'rejected', 'failed']
+      .includes(record.kind as string)
+  ))
+  const committedCount = entries.filter((entry) => entry.kind === 'committed' || entry.kind === 'imported').length
+  const attentionCount = entries.filter((entry) => entry.kind === 'clarification' || entry.kind === 'needs_input').length
+  const failed = entries.filter((entry) => ['rejection', 'rejected', 'failed'].includes(entry.kind as string))
+  return {
+    fileCount: entries.length,
+    committedCount,
+    attentionCount,
+    failedCount: failed.length,
+    failedFiles: failed.flatMap((entry) => typeof entry.source_file_name === 'string' ? [entry.source_file_name] : []),
+  }
 }
 
 export function resultMessage(value: JsonValue): string | undefined {

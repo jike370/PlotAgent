@@ -1,8 +1,46 @@
 import { describe, expect, it } from 'vitest'
 
-import { readPlot } from './productState'
+import type { JsonValue } from '../../../shared/desktop-contract'
+import { readDatasets, readImportSummary, readPlot } from './productState'
 
 describe('product plot state', () => {
+  it('prefers file and worksheet identity and summarizes per-file import outcomes', () => {
+    const value: JsonValue = {
+      imports: [
+        {
+          kind: 'committed',
+          source_file_name: '仪器记录.xlsx',
+          datasets: [{
+            source_dataset_id: 'source:opaque',
+            source_file_name: '仪器记录.xlsx',
+            source_sheet_name: '动力学',
+            source_version: 1,
+            row_count: 2,
+            field_count: 1,
+            fields: [{ field_id: 'field:x', name: 'Time_s', logical_type: 'numeric', physical_type: 'float64', unit: { symbol: 's' } }],
+            quality: {},
+            source_coordinate_kinds: ['excel'],
+          }],
+        },
+        { kind: 'failed', source_file_name: '损坏.csv', error: { message: '无法解析' } },
+      ],
+    }
+
+    expect(readDatasets(value)[0]).toMatchObject({
+      datasetId: 'source:opaque',
+      displayName: '仪器记录.xlsx > 动力学',
+      sourceFileName: '仪器记录.xlsx',
+      sourceSheetName: '动力学',
+    })
+    expect(readImportSummary(value)).toEqual({
+      fileCount: 2,
+      committedCount: 1,
+      attentionCount: 0,
+      failedCount: 1,
+      failedFiles: ['损坏.csv'],
+    })
+  })
+
   it('reads versioned style targets from the nested desktop PlotSpec response', () => {
     const plot = readPlot({
       project_version: 7,

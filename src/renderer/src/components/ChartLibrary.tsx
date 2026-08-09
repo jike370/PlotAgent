@@ -168,7 +168,8 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
                   type="button"
                   key={chart.id}
                   onClick={() => setSelectedId(chart.id)}
-                  aria-pressed={selectedChart?.id === chart.id}
+                  aria-label={`${chart.id} ${chart.name}`}
+                  aria-current={selectedChart?.id === chart.id ? 'true' : undefined}
                 >
                   <div className="chart-card__preview"><ChartPreview chart={chart} /></div>
                   <div className="chart-card__heading">
@@ -220,10 +221,12 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
 
             <div className={`compatibility-check${compatibility.compatible ? '' : ' is-incompatible'}`}>
               {compatibility.compatible ? <Check size={16} /> : <CircleAlert size={16} />}
-              <strong>{compatibility.awaitingData ? '可先选择图形' : compatibility.compatible ? '当前数据可进入映射' : '当前数据尚不兼容'}</strong>
+              <strong>{selectedChart.id === 'K25' && !compatibility.compatible
+                ? `还需加入 ${Math.max(0, 2 - availablePlotCount)} 张图`
+                : compatibility.awaitingData ? '可先选择图形' : compatibility.compatible ? '当前数据可进入映射' : '当前数据尚不兼容'}</strong>
             </div>
 
-            <button className="select-chart-button" type="button" onClick={() => onSelect(selectedChart)}>{selectedChart.id === 'K25' ? '创建组合图' : '选择此图形'}</button>
+            <button className="select-chart-button" type="button" disabled={!compatibility.compatible} onClick={() => onSelect(selectedChart)}>{selectedChart.id === 'K25' ? '创建组合图' : '选择此图形'}</button>
           </aside>
         )}
       </div>

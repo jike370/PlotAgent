@@ -90,6 +90,8 @@ interface ConversationWorkspaceProps {
   plot?: ProductPlot
   batch?: BatchView
   figure?: FigureView
+  figureCandidateCount: number
+  plotIsFigureCandidate: boolean
   exportRecord?: ExportRecordView
   changeSet?: AgentChangeSetView
   notice?: ProductNotice
@@ -113,6 +115,7 @@ interface ConversationWorkspaceProps {
   onExport: (format: 'png' | 'svg' | 'opju', target?: { kind: 'batch' | 'figure'; id: string; version: number }) => void
   onCreateBatch: () => void
   onCreateFigure: () => void
+  onToggleFigureCandidate: () => void
   onOpenFocus: () => void
   onOpenBatchInspect: () => void
   onOpenCompose: () => void
@@ -183,7 +186,7 @@ function mappingRoles(chartId: string): MappingRole[] {
     S05: { required: ['dose', 'response'], optional: ['lower', 'upper', 'parameter'] },
     S21: { required: ['label', 'effect', 'lower', 'upper'], optional: ['weight'] },
     S25: { required: ['spectral_axis', 'intensity'], optional: [] }, S31: { required: ['angle', 'intensity'], optional: ['peak_label'] },
-    S34: { required: ['z_real', 'z_imaginary'], optional: ['frequency'] }, S61: { required: ['actual', 'predicted'], optional: [] },
+    S34: { required: ['z_real', 'z_imaginary'], optional: ['frequency'] }, S61: { required: ['actual', 'predicted'], optional: ['count'] },
     X01: { required: ['x', 'y'], optional: [] }, X02: { required: ['x', 'y'], optional: [] },
     X03: { required: ['category', 'series_1', 'series_2'], optional: ['series_3'] }, X05: { required: ['value'], optional: ['group'] },
     X07: { required: ['value', 'group'], optional: [] }, X09: { required: ['category', 'start', 'end'], optional: ['middle'] },
@@ -205,7 +208,7 @@ function mappingRoles(chartId: string): MappingRole[] {
     facet: '分面', base_x: '基础 X', base_y: '基础 Y', panel: '面板图', survival: '生存率', risk_count: '风险人数',
     dose: '剂量', response: '响应', parameter: '预计算参数', label: '标签', effect: '效应值', weight: '权重',
     spectral_axis: '谱轴', intensity: '强度', angle: '角度', peak_label: '峰标签', z_real: "Z'", z_imaginary: "-Z''",
-    frequency: '频率', actual: '真实类别', predicted: '预测类别',
+    frequency: '频率', actual: '真实类别', predicted: '预测类别', count: '计数',
     baseline: '基线', start: '起点', end: '终点', series_1: '系列 1', series_2: '系列 2', series_3: '系列 3（可选）', delta: '变化量', item: '项目', actual_value: '实际值', target: '目标',
     range1: '区间 1', range2: '区间 2', range3: '区间 3', left: '左轴数值', right: '右轴数值',
     method_a: '方法 A', method_b: '方法 B', series: '系列', feature: '特征', log2fc: 'log2FC', pvalue: 'P 值', qvalue: 'Q 值',
@@ -284,12 +287,12 @@ function DatasetObject({
     <section className="object-block dataset-object" aria-labelledby="dataset-title">
       <header className="object-header">
         <span className="object-icon object-icon--data" aria-hidden="true"><FileSpreadsheet size={17} /></span>
-        <div><h3 id="dataset-title">{activeDataset.datasetId}</h3><p>SourceDataset v{activeDataset.sourceVersion} · 原始数据只读</p></div>
+        <div><h3 id="dataset-title">{activeDataset.displayName}</h3><p>数据表 v{activeDataset.sourceVersion} · 原始数据只读</p></div>
         <span className="status-label status-label--success"><Check size={13} />已解析</span>
         {datasets.length > 1 && (
           <label className="dataset-switcher">数据表
             <select value={activeDataset.datasetId} onChange={(event) => onSelectDataset(event.target.value)}>
-              {datasets.map((dataset) => <option key={`${dataset.datasetId}:${dataset.sourceVersion}`} value={dataset.datasetId}>{dataset.datasetId}</option>)}
+              {datasets.map((dataset) => <option key={`${dataset.datasetId}:${dataset.sourceVersion}`} value={dataset.datasetId}>{dataset.displayName}</option>)}
             </select>
           </label>
         )}
@@ -400,8 +403,10 @@ function PlotObject({
   onOpenLibrary,
   onOpenFocus,
   onCreateBatch,
-  onCreateFigure,
-}: Pick<ConversationWorkspaceProps, 'plot' | 'selectedChart' | 'busyAction' | 'previewMode' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch' | 'onCreateFigure'> & { chart?: ChartType }): React.JSX.Element {
+  figureCandidateCount,
+  plotIsFigureCandidate,
+  onToggleFigureCandidate,
+}: Pick<ConversationWorkspaceProps, 'plot' | 'selectedChart' | 'busyAction' | 'previewMode' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch' | 'figureCandidateCount' | 'plotIsFigureCandidate' | 'onToggleFigureCandidate'> & { chart?: ChartType }): React.JSX.Element {
   if (!plot) return <div />
   return (
     <section className="object-block product-plot-object" aria-labelledby="plot-title">
@@ -417,7 +422,9 @@ function PlotObject({
         <button type="button" onClick={onOpenLibrary}><Library size={15} />选择其他图形</button>
         <button type="button" onClick={onOpenFocus}><Settings2 size={15} />聚焦编辑</button>
         <button type="button" onClick={onCreateBatch}><Images size={15} />创建批次</button>
-        <button type="button" onClick={onCreateFigure}><PanelTop size={15} />加入组合图</button>
+        <button type="button" onClick={onToggleFigureCandidate} aria-pressed={plotIsFigureCandidate}>
+          <PanelTop size={15} />{plotIsFigureCandidate ? '移出组合图' : `加入组合图 (${figureCandidateCount}/4)`}
+        </button>
         <span />
         {(['png', 'svg', 'opju'] as const).map((format) => (
           <button key={format} type="button" onClick={() => onExport(format)} disabled={busyAction === `export-${format}`}>
@@ -435,6 +442,7 @@ function ConversationComposer({
   datasetCount,
   configured,
   busy,
+  importing,
   outcome,
   notice,
   onSubmit,
@@ -447,6 +455,7 @@ function ConversationComposer({
   datasetCount: number
   configured: boolean
   busy: boolean
+  importing: boolean
   outcome?: AgentOutcome
   notice?: ProductNotice
   onSubmit: (instruction: string, scope: ScopeMode) => void
@@ -481,7 +490,10 @@ function ConversationComposer({
         <textarea value={value} disabled={busy} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} placeholder={plot ? '描述你想怎样修改这张图' : '描述你想绘制的图'} aria-label="描述绘图要求" />
         <div className="composer-toolbar">
           <button type="button" className={selectedChart ? 'composer-tool is-selected' : 'composer-tool'} onClick={onOpenLibrary}><Library size={15} />{selectedChart ? selectedChart.name : '选择图形'}</button>
-          <button type="button" className="composer-tool" onClick={onImportData}><FileUp size={15} />上传数据{datasetCount > 0 ? ` (${datasetCount})` : ''}</button>
+          <button type="button" className="composer-tool" onClick={onImportData} disabled={importing}>
+            {importing ? <LoaderCircle className="spin" size={15} /> : <FileUp size={15} />}
+            {importing ? '正在导入' : `上传数据${datasetCount > 0 ? ` (${datasetCount})` : ''}`}
+          </button>
           <button className="send-button" type="button" onClick={submit} disabled={!canSubmit || !value.trim() || busy} aria-label="生成任务计划" title={!canSubmit ? '导入数据并选择图形后即可发送' : undefined}>{busy ? <LoaderCircle className="spin" size={17} /> : <SendHorizontal size={17} />}</button>
         </div>
       </div>
@@ -593,7 +605,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         </div>
       )}
 
-      {project && <ConversationComposer plot={plot} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} outcome={props.agentOutcome} notice={notice} onSubmit={props.onAgentInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
+      {project && <ConversationComposer plot={plot} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} outcome={props.agentOutcome} notice={notice} onSubmit={props.onAgentInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}
     </main>
   )

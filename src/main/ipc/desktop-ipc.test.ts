@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { InMemoryResourceRegistry } from '../single-instance-routing.js'
-import { sanitizeCoreResult } from './desktop-ipc.js'
+import { sanitizeCoreResult, withImportSourceIdentity } from './desktop-ipc.js'
 
 describe('desktop product IPC boundary', () => {
   it('replaces Core artifact paths with random registered resources', () => {
@@ -29,5 +29,34 @@ describe('desktop product IPC boundary', () => {
       .toEqual({ status: 'ok' })
     expect(() => sanitizeCoreResult({ detail: 'C:\\private\\raw.csv' }, registry))
       .toThrow('Unregistered path')
+  })
+
+  it('adds a safe source file identity and preserves an available worksheet name', () => {
+    expect(withImportSourceIdentity({
+      kind: 'committed',
+      datasets: [
+        { source_dataset_id: 'source:one', source_version: 1, sheet_name: '动力学' },
+        { source_dataset_id: 'source:two', source_version: 1 },
+      ],
+    }, '仪器记录.xlsx')).toEqual({
+      kind: 'committed',
+      source_file_name: '仪器记录.xlsx',
+      datasets: [
+        {
+          source_dataset_id: 'source:one',
+          source_version: 1,
+          sheet_name: '动力学',
+          source_file_name: '仪器记录.xlsx',
+          source_table_index: 1,
+          source_sheet_name: '动力学',
+        },
+        {
+          source_dataset_id: 'source:two',
+          source_version: 1,
+          source_file_name: '仪器记录.xlsx',
+          source_table_index: 2,
+        },
+      ],
+    })
   })
 })

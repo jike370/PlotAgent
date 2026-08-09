@@ -54,6 +54,8 @@ function richText(text: string): JsonRecord {
 function previewDataset(datasetId: string, label: string, index: number): JsonRecord {
   return {
     source_dataset_id: datasetId,
+    source_file_name: '示例数据.xlsx',
+    source_sheet_name: label,
     source_version: 1,
     row_count: 24 + index * 8,
     field_count: 8,

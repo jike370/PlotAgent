@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream } from 'node:fs'
+import { basename } from 'node:path'
 import { stat } from 'node:fs/promises'
 
 import type { BrowserWindow, Dialog, IpcMain } from 'electron'
@@ -152,6 +153,41 @@ export function sanitizeCoreResult(
   return sanitizeCoreValue(value, resources, artifactKind)
 }
 
+interface DatasetIdentity {
+  readonly source_file_name: string
+  readonly source_table_index: number
+  readonly source_sheet_name?: string
+}
+
+function datasetSheetName(value: Record<string, JsonValue>): string | undefined {
+  if (typeof value.source_sheet_name === 'string') return value.source_sheet_name
+  if (typeof value.sheet_name === 'string') return value.sheet_name
+  const samples = Array.isArray(value.source_coordinate_samples) ? value.source_coordinate_samples : []
+  const coordinate = samples.find((item) => (
+    item !== null && !Array.isArray(item) && typeof item === 'object' && typeof item.sheet_name === 'string'
+  ))
+  if (coordinate === undefined || coordinate === null || Array.isArray(coordinate) || typeof coordinate !== 'object') return undefined
+  return typeof coordinate.sheet_name === 'string' ? coordinate.sheet_name : undefined
+}
+
+export function withImportSourceIdentity(value: JsonValue, sourceFileName: string): JsonValue {
+  if (value === null || Array.isArray(value) || typeof value !== 'object') return value
+  return {
+    ...value,
+    source_file_name: sourceFileName,
+    ...(Array.isArray(value.datasets) ? { datasets: value.datasets.map((item, index) => {
+      if (item === null || Array.isArray(item) || typeof item !== 'object') return item
+      const sheetName = datasetSheetName(item)
+      return {
+        ...item,
+        source_file_name: sourceFileName,
+        source_table_index: index + 1,
+        ...(sheetName === undefined ? {} : { source_sheet_name: sheetName }),
+      }
+    }) } : {}),
+  }
+}
+
 async function requestCoreData(
   supervisor: PythonCoreSupervisor,
   resources: ResourceRegistry,
@@ -201,6 +237,41 @@ export function registerDesktopIpc({
   resources,
   ensureSampleSource,
 }: RegisterDesktopIpcOptions): () => void {
+  const datasetIdentities = new Map<string, DatasetIdentity>()
+  const identityKey = (projectId: string, datasetId: string, sourceVersion: number): string => (
+    `${projectId}:${datasetId}@${sourceVersion}`
+  )
+  const rememberDatasetIdentities = (projectId: string, value: JsonValue): void => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => rememberDatasetIdentities(projectId, item))
+      return
+    }
+    if (value === null || typeof value !== 'object') return
+    if (
+      typeof value.source_dataset_id === 'string' &&
+      typeof value.source_version === 'number' &&
+      typeof value.source_file_name === 'string' &&
+      typeof value.source_table_index === 'number'
+    ) {
+      const sheetName = typeof value.source_sheet_name === 'string' ? value.source_sheet_name : undefined
+      datasetIdentities.set(identityKey(projectId, value.source_dataset_id, value.source_version), {
+        source_file_name: value.source_file_name,
+        source_table_index: value.source_table_index,
+        ...(sheetName === undefined ? {} : { source_sheet_name: sheetName }),
+      })
+    }
+    Object.values(value).forEach((item) => rememberDatasetIdentities(projectId, item))
+  }
+  const restoreDatasetIdentities = (projectId: string, value: JsonValue): JsonValue => {
+    if (Array.isArray(value)) return value.map((item) => restoreDatasetIdentities(projectId, item))
+    if (value === null || typeof value !== 'object') return value
+    const restored = Object.fromEntries(Object.entries(value).map(([key, item]) => (
+      [key, restoreDatasetIdentities(projectId, item)]
+    ))) as Record<string, JsonValue>
+    if (typeof value.source_dataset_id !== 'string' || typeof value.source_version !== 'number') return restored
+    const identity = datasetIdentities.get(identityKey(projectId, value.source_dataset_id, value.source_version))
+    return identity === undefined ? restored : { ...restored, ...identity }
+  }
   const eventChannels = new Set<string>([
     IPC_CHANNELS.coreStatusChanged,
     IPC_CHANNELS.lifecycleCloseRequested,
@@ -347,9 +418,11 @@ export function registerDesktopIpc({
         idempotency_key: `sample-import:${randomUUID()}`,
         expected_version: 0,
       })
+      const identified = withImportSourceIdentity(imported, basename(samplePath))
+      rememberDatasetIdentities(projectId, identified)
       return {
         ok: true,
-        value: sanitizeCoreResult({ project: created, opened, imported }, resources),
+        value: sanitizeCoreResult({ project: created, opened, imported: identified }, resources),
       } satisfies DesktopDataResult
     } catch (error: unknown) {
       return { ok: false, error: supervisor.toPublicResult(error) } satisfies DesktopDataResult
@@ -380,39 +453,63 @@ export function registerDesktopIpc({
     }
     const imported: JsonValue[] = []
     for (const path of choice.filePaths) {
-      const resource = resources.registerFile(path, 'import-source')
-      const result = await supervisor.request('datasets.import', {
-        project_id: input.projectId,
-        resource_id: resource.resourceId,
-        source_path: path,
-        idempotency_key: `dataset-import:${randomUUID()}`,
-        expected_version: expectedVersion,
-      })
-      imported.push(result)
-      if (result !== null && !Array.isArray(result) && typeof result === 'object') {
-        const current = result.project_version
-        if (typeof current === 'number' && Number.isSafeInteger(current) && current >= expectedVersion) {
-          expectedVersion = current
+      try {
+        const resource = resources.registerFile(path, 'import-source')
+        const result = await supervisor.request('datasets.import', {
+          project_id: input.projectId,
+          resource_id: resource.resourceId,
+          source_path: path,
+          idempotency_key: `dataset-import:${randomUUID()}`,
+          expected_version: expectedVersion,
+        })
+        const identified = withImportSourceIdentity(result, basename(path))
+        rememberDatasetIdentities(input.projectId, identified)
+        imported.push(identified)
+        if (result !== null && !Array.isArray(result) && typeof result === 'object') {
+          const current = result.project_version
+          if (typeof current === 'number' && Number.isSafeInteger(current) && current >= expectedVersion) {
+            expectedVersion = current
+          }
         }
+      } catch (error: unknown) {
+        imported.push({
+          kind: 'failed',
+          source_file_name: basename(path),
+          error: supervisor.toPublicResult(error) as unknown as JsonValue,
+        })
       }
     }
     return { ok: true, value: sanitizeCoreResult({ imports: imported, project_version: expectedVersion }, resources) }
   })
-  ipcMain.handle(IPC_CHANNELS.datasetList, (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.datasetList, async (_event, value: unknown) => {
     const input = parseProjectIdInput(value)
-    return input === null
-      ? invalidDataArgument('项目 ID 无效。')
-      : requestCoreData(supervisor, resources, 'datasets.list', { project_id: input.projectId })
+    if (input === null) return invalidDataArgument('项目 ID 无效。')
+    try {
+      const listed = await supervisor.request('datasets.list', { project_id: input.projectId })
+      return {
+        ok: true,
+        value: sanitizeCoreResult(restoreDatasetIdentities(input.projectId, listed), resources),
+      } satisfies DesktopDataResult
+    } catch (error: unknown) {
+      return { ok: false, error: supervisor.toPublicResult(error) } satisfies DesktopDataResult
+    }
   })
-  ipcMain.handle(IPC_CHANNELS.datasetDescribe, (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.datasetDescribe, async (_event, value: unknown) => {
     const input = parseDatasetDescribeInput(value)
-    return input === null
-      ? invalidDataArgument('数据集 ID 无效。')
-      : requestCoreData(supervisor, resources, 'datasets.describe', {
+    if (input === null) return invalidDataArgument('数据集 ID 无效。')
+    try {
+      const described = await supervisor.request('datasets.describe', {
         project_id: input.projectId,
         source_dataset_id: input.datasetId,
         source_version: input.sourceVersion,
       })
+      return {
+        ok: true,
+        value: sanitizeCoreResult(restoreDatasetIdentities(input.projectId, described), resources),
+      } satisfies DesktopDataResult
+    } catch (error: unknown) {
+      return { ok: false, error: supervisor.toPublicResult(error) } satisfies DesktopDataResult
+    }
   })
 
   ipcMain.handle(IPC_CHANNELS.plotCreate, (_event, value: unknown) => {

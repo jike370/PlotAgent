@@ -242,6 +242,11 @@ describe('PlotAgent real desktop workflow', () => {
     expect(within(detail).getByText('批量模式')).toBeInTheDocument()
     expect(within(detail).getByText('组合方式')).toBeInTheDocument()
     expect(within(library).getAllByText('直接批量')).toHaveLength(1)
+    const k01Card = within(library).getByRole('button', { name: 'K01 折线图' })
+    expect(k01Card).not.toHaveAttribute('aria-pressed')
+    k01Card.focus()
+    await user.keyboard('{Enter}')
+    expect(k01Card).toHaveAttribute('aria-current', 'true')
   })
 
   it('provides a development-only interactive browser preview without a desktop bridge', async () => {
@@ -254,7 +259,7 @@ describe('PlotAgent real desktop workflow', () => {
     await waitFor(() => expect(sampleButton).toBeEnabled())
     await user.click(sampleButton)
 
-    expect(await screen.findByRole('heading', { name: 'source:sample-sheet-1' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '示例数据.xlsx > Sheet 1' })).toBeInTheDocument()
     expect(screen.getByText('已导入 3 个数据表。')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
@@ -346,7 +351,9 @@ describe('PlotAgent real desktop workflow', () => {
   it('opens model service settings from the persistent sidebar entry', async () => {
     const user = userEvent.setup()
     render(<App />)
-    const trigger = await screen.findByRole('button', { name: /Agent 服务/ })
+    expect(await screen.findByText('本地 Core')).toBeInTheDocument()
+    expect(screen.getByText('已连接')).toBeInTheDocument()
+    const trigger = await screen.findByRole('button', { name: '模型服务 已配置' })
     await user.click(trigger)
     expect(screen.getByRole('dialog', { name: '模型服务' })).toBeInTheDocument()
     expect(screen.queryByText('只在首次使用 Agent 时配置，不影响本地绘图与导出。')).not.toBeInTheDocument()
@@ -387,6 +394,69 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
     expect(api.createPlot).toHaveBeenCalledWith(expect.objectContaining({ chartId: 'K01', fieldMapping: { roles: { x: 'field:time', y: 'field:signal' } } }))
     expect(await screen.findByRole('img')).toHaveAttribute('src', expect.stringMatching(/^plotagent-resource:/))
+  })
+
+  it('shows a user-facing file and worksheet identity instead of the internal dataset id', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop({
+      importDatasets: vi.fn(async () => ok({
+        imports: [{
+          kind: 'committed',
+          source_file_name: '仪器记录.xlsx',
+          project_version: 1,
+          datasets: [{ ...dataset, source_file_name: '仪器记录.xlsx', source_sheet_name: '动力学' }],
+        }],
+        project_version: 1,
+      })),
+    }))
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
+    expect(await screen.findByRole('heading', { name: '仪器记录.xlsx > 动力学' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'source:temperature' })).not.toBeInTheDocument()
+  })
+
+  it('keeps successful files when a multi-file import only partially succeeds', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop({
+      importDatasets: vi.fn(async () => ok({
+        imports: [
+          {
+            kind: 'committed',
+            source_file_name: '有效数据.xlsx',
+            project_version: 1,
+            datasets: [{ ...dataset, source_file_name: '有效数据.xlsx', source_sheet_name: 'Sheet 1' }],
+          },
+          { kind: 'failed', source_file_name: '损坏数据.txt', error: { code: 'IMPORT_FAILED', message: '无法解析数据块。' } },
+        ],
+        project_version: 1,
+      })),
+    }))
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
+    expect(await screen.findByRole('heading', { name: '有效数据.xlsx > Sheet 1' })).toBeInTheDocument()
+    expect(screen.getByText('部分文件未导入')).toBeInTheDocument()
+    expect(screen.getByText(/未导入：损坏数据.txt/)).toBeInTheDocument()
+  })
+
+  it('prevents a second import while the first import request is pending', async () => {
+    const user = userEvent.setup()
+    let finishImport: ((result: DesktopDataResult) => void) | undefined
+    const importDatasets = vi.fn(() => new Promise<DesktopDataResult>((resolve) => { finishImport = resolve }))
+    const api = fakeDesktop({ importDatasets })
+    installApi(api)
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: /新建项目/ }))
+
+    const upload = screen.getByRole('button', { name: '上传数据' })
+    await user.click(upload)
+    expect(screen.getByRole('button', { name: '正在导入' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '正在导入' }))
+    expect(importDatasets).toHaveBeenCalledTimes(1)
+
+    finishImport?.(ok({ imports: [{ kind: 'committed', project_version: 1, datasets: [dataset] }], project_version: 1 }))
+    expect(await screen.findByText('数据已导入')).toBeInTheDocument()
   })
 
   it.each([
@@ -483,34 +553,53 @@ describe('PlotAgent real desktop workflow', () => {
     expect(api.renderPlot).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps K25 out of field mapping and asks for two existing plot versions', async () => {
+  it('keeps K25 out of field mapping and requires two explicit figure candidates', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop()
     installApi(api)
     render(<App />)
     await openSampleAndCreatePlot(user)
+    await user.click(screen.getByRole('button', { name: /加入组合图/ }))
 
     await user.click(screen.getByRole('button', { name: '选择其他图形' }))
     await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K25')
     await user.click(screen.getByRole('button', { name: /K25.*多面板复合图/ }))
-    await user.click(screen.getByRole('button', { name: '创建组合图' }))
 
-    expect(await screen.findByText('还需要一张图')).toBeInTheDocument()
+    expect(screen.getByText('还需加入 1 张图')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '创建组合图' })).toBeDisabled()
     expect(api.createPlot).toHaveBeenCalledTimes(1)
     expect(api.createFigure).not.toHaveBeenCalled()
   })
 
-  it('creates K25 from two fixed plot versions instead of calling plots.create', async () => {
+  it('creates K25 from two explicitly selected plots and returns a figure result', async () => {
     const user = userEvent.setup()
-    const api = fakeDesktop()
+    let plotSequence = 0
+    const api = fakeDesktop({
+      createPlot: vi.fn(async (input) => {
+        plotSequence += 1
+        return ok({
+          project_id: input.projectId,
+          project_version: plotSequence + 1,
+          plot_id: `plot:${plotSequence}`,
+          plot_version: 1,
+          chart_type_id: input.chartId,
+        })
+      }),
+    })
     installApi(api)
     render(<App />)
     await openSampleAndCreatePlot(user)
-    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '把线宽改为 1.5 pt')
-    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
-    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
-    expect(await screen.findByText('更改已保存')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /加入组合图/ }))
+
+    await user.click(screen.getByRole('button', { name: '选择其他图形' }))
+    await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K02')
+    await user.click(screen.getByRole('button', { name: /K02.*线点图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
+    await screen.findByRole('img', { name: '线点图 真实渲染预览' })
+    await user.click(screen.getByRole('button', { name: /加入组合图/ }))
 
     await user.click(screen.getByRole('button', { name: '选择其他图形' }))
     await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
@@ -520,13 +609,25 @@ describe('PlotAgent real desktop workflow', () => {
 
     expect(api.createFigure).toHaveBeenCalledWith(expect.objectContaining({
       plotRefs: [
-        { plotId: 'plot:one', plotVersion: 1 },
-        { plotId: 'plot:one', plotVersion: 2 },
+        { plotId: 'plot:1', plotVersion: 1 },
+        { plotId: 'plot:2', plotVersion: 1 },
       ],
       layout: '1x2',
     }))
-    expect(api.createPlot).toHaveBeenCalledTimes(1)
+    expect(api.createPlot).toHaveBeenCalledTimes(2)
     expect(await screen.findByText(/组合图 figure:one/)).toBeInTheDocument()
+  })
+
+  it('offers the optional count role for an aggregated S61 confusion matrix', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'S61')
+    await user.click(screen.getByRole('button', { name: /S61.*混淆矩阵/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    expect(screen.getByText('计数（可选）')).toBeInTheDocument()
   })
 
   it('restores a partial plan and resumes only its unfinished work', async () => {
@@ -587,6 +688,7 @@ describe('PlotAgent real desktop workflow', () => {
     const api = fakeDesktop({ getProviderStatus: vi.fn(async () => ok({ configured: false, mode: 'local_only' })) })
     installApi(api)
     render(<App />)
+    expect(await screen.findByRole('button', { name: '模型服务 未配置' })).toBeInTheDocument()
     await openSampleAndCreatePlot(user)
     const instruction = screen.getByRole('textbox', { name: '描述绘图要求' })
     expect(instruction).toBeEnabled()

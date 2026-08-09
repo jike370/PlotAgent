@@ -25,6 +25,7 @@ interface SidebarProps {
   projects: ProductProject[]
   activeProjectId?: string
   core: CoreStatus
+  agentConfigured: boolean
   taskCount: number
   originStatus: 'unknown' | 'available' | 'unavailable' | 'exporting'
   busyAction?: string
@@ -74,6 +75,7 @@ export function Sidebar({
   projects,
   activeProjectId,
   core,
+  agentConfigured,
   taskCount,
   originStatus,
   busyAction,
@@ -293,10 +295,15 @@ export function Sidebar({
           <Activity size={16} aria-hidden="true" />
           <span>任务中心</span><span className="task-count">{taskCount}</span>
         </button>
-        <button type="button" onClick={onConfigureAgent}>
+        <div className="core-row" role="status">
+          <FileChartColumn size={16} aria-hidden="true" />
+          <span>本地 Core</span>
+          <span className="footer-meta">{core.phase === 'ready' ? '已连接' : '未连接'}</span>
+        </div>
+        <button type="button" onClick={onConfigureAgent} aria-label={`模型服务 ${agentConfigured ? '已配置' : '未配置'}`}>
           <SlidersHorizontal size={16} aria-hidden="true" />
-          <span>Agent 服务</span>
-          <span className={`status-dot status-dot--${core.phase === 'ready' ? 'online' : 'offline'}`} aria-label={core.phase === 'ready' ? 'Core 已连接' : 'Core 未连接'} />
+          <span>模型服务</span>
+          <span className="footer-meta">{agentConfigured ? '已配置' : '未配置'}</span>
         </button>
         <div className={`origin-row origin-row--${originStatus}`} role="status">
           <OriginIcon className={originStatus === 'exporting' ? 'spin' : undefined} size={16} aria-hidden="true" />

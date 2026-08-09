@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlaskConical, LoaderCircle, X } from 'lucide-react'
 
 import type {
@@ -17,6 +17,7 @@ import {
   readAgentPlan,
   readAgentPlans,
   readDatasets,
+  readImportSummary,
   readPlot,
   readProject,
   readProjects,
@@ -213,7 +214,7 @@ export function App(): React.JSX.Element {
   const [selectedChart, setSelectedChart] = useState<ChartType>()
   const [confirmedMapping, setConfirmedMapping] = useState<FieldMappingInput>()
   const [plot, setPlot] = useState<ProductPlot>()
-  const [plotHistory, setPlotHistory] = useState<ProductPlot[]>([])
+  const [figureCandidates, setFigureCandidates] = useState<ProductPlot[]>([])
   const [batch, setBatch] = useState<BatchView>()
   const [figure, setFigure] = useState<FigureView>()
   const [exportRecord, setExportRecord] = useState<ExportRecordView>()
@@ -230,6 +231,7 @@ export function App(): React.JSX.Element {
   const [busyAction, setBusyAction] = useState<string>()
   const [taskEvents, setTaskEvents] = useState<Record<string, TaskEvent>>({})
   const [originStatus, setOriginStatus] = useState<'unknown' | 'available' | 'unavailable' | 'exporting'>('unknown')
+  const importInFlight = useRef(false)
 
   useEffect(() => {
     if (notice?.kind !== 'success') return
@@ -288,7 +290,7 @@ export function App(): React.JSX.Element {
     setSelectedChart(undefined)
     setConfirmedMapping(undefined)
     setPlot(undefined)
-    setPlotHistory([])
+    setFigureCandidates([])
     setBatch(undefined)
     setFigure(undefined)
     setExportRecord(undefined)
@@ -400,28 +402,36 @@ export function App(): React.JSX.Element {
   const importIntoProject = async (targetProject: ProductProject): Promise<void> => {
     if (!api) return
     const value = valueOrThrow(await api.importDatasets({ projectId: targetProject.projectId }))
+    const summary = readImportSummary(value)
     const importKind = resultKind(value)
-    if (importKind === 'clarification' || importKind === 'needs_input') {
+    const imported = readDatasets(value)
+    if (imported.length === 0 && (summary.attentionCount > 0 || importKind === 'clarification' || importKind === 'needs_input')) {
       setNotice({ kind: 'warning', title: '导入需要确认', message: resultMessage(value) ?? 'Core 无法唯一确定表头、分隔符或小数格式，请按提示重新导入。' })
       return
     }
-    if (importKind === 'rejection' || importKind === 'rejected') {
-      setNotice({ kind: 'error', title: '数据未导入', message: resultMessage(value) ?? 'Core 判定该文件不属于支持的数值数据格式。' })
+    if (imported.length === 0 && (summary.failedCount > 0 || importKind === 'rejection' || importKind === 'rejected' || importKind === 'failed')) {
+      const failedNames = summary.failedFiles.length > 0 ? `：${summary.failedFiles.join('、')}` : ''
+      setNotice({ kind: 'error', title: '数据未导入', message: resultMessage(value) ?? `所选文件均未导入${failedNames}。` })
       return
     }
-    const imported = readDatasets(value)
     setDatasets((current) => [...new Map([...current, ...imported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()])
     if (datasets.length === 0 && imported[0]) setActiveDatasetId(imported[0].datasetId)
     const version = projectVersionFrom(value, targetProject.projectVersion)
     const nextProject = projectWithVersion(targetProject, version)
     setProject(nextProject); mergeProjects([nextProject])
     if (datasets.length === 0) { setConfirmedMapping(undefined); setPlot(undefined) }
-    setNotice({
+    const partial = summary.failedCount > 0 || summary.attentionCount > 0
+    const failedNames = summary.failedFiles.length > 0 ? `；未导入：${summary.failedFiles.join('、')}` : ''
+    setNotice(partial ? {
+      kind: 'warning',
+      title: '部分文件未导入',
+      message: `已导入 ${imported.length} 个数据表${failedNames}。`,
+    } : {
       kind: 'success',
       title: '数据已导入',
       message: previewMode
         ? `已载入 ${imported.length} 个内存示例数据集，可继续检查字段与界面流程。`
-        : `本地 Core 返回 ${imported.length} 个工作表或数据块，请检查字段与质量摘要。`,
+        : `已导入 ${summary.committedCount || 1} 个文件，共 ${imported.length} 个工作表或数据块。`,
     })
   }
 
@@ -441,7 +451,8 @@ export function App(): React.JSX.Element {
   }
 
   const importData = async (): Promise<void> => {
-    if (!api) return
+    if (!api || importInFlight.current || busyAction !== undefined) return
+    importInFlight.current = true
     setBusyAction('import'); setNotice(undefined)
     try {
       let target = project
@@ -458,7 +469,10 @@ export function App(): React.JSX.Element {
     } catch (error) {
       if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'DIALOG_CANCELLED') setNotice(undefined)
       else setNotice(errorNotice(error))
-    } finally { setBusyAction(undefined) }
+    } finally {
+      importInFlight.current = false
+      setBusyAction(undefined)
+    }
   }
 
   const openProject = async (): Promise<void> => {
@@ -492,7 +506,7 @@ export function App(): React.JSX.Element {
       const listed = valueOrThrow(await api.listDatasets({ projectId }))
       const next = { ...(known ?? { projectId, name: '本机项目', projectVersion: 0, isOpen: true }), projectVersion: projectVersionFrom(opened, 0), isOpen: true }
       setProject(next); setDatasets(readDatasets(listed)); setActiveDatasetId(readDatasets(listed)[0]?.datasetId)
-      setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined); setBatch(undefined); setFigure(undefined)
+      setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined); setBatch(undefined); setFigure(undefined); setFigureCandidates([])
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
@@ -513,7 +527,7 @@ export function App(): React.JSX.Element {
       if (!nextPlot) throw new Error('Core 未返回 PlotSpec 版本。')
       const rendered = valueOrThrow(await api.renderPlot({ projectId: project.projectId, plotId: nextPlot.plotId, plotVersion: nextPlot.plotVersion, mode: 'preview' }))
       nextPlot = withPreview(nextPlot, rendered)
-      setPlot(nextPlot); setPlotHistory((current) => [...current.filter((item) => item.plotId !== nextPlot!.plotId), nextPlot!])
+      setPlot(nextPlot)
       setProject(projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1)))
       setNotice({
         kind: 'success',
@@ -527,7 +541,7 @@ export function App(): React.JSX.Element {
 
   const runAgent = async (instruction: string, scope: ScopeMode): Promise<void> => {
     if (!api || !project || !activeDataset || !selectedChart) return
-    setBusyAction('agent'); setAgentOutcome(undefined)
+    setBusyAction('agent'); setAgentOutcome(undefined); setNotice(undefined)
     try {
       const target = scope === 'batch'
         ? batch ? { kind: 'batch' as const, id: batch.batchId } : undefined
@@ -573,13 +587,13 @@ export function App(): React.JSX.Element {
     const rendered = valueOrThrow(await api.renderPlot({ projectId: project.projectId, plotId: nextPlot.plotId, plotVersion: nextPlot.plotVersion, mode: 'preview' }))
     nextPlot = withPreview(nextPlot, rendered)
     setPlot(nextPlot)
-    setPlotHistory((current) => [...current.filter((item) => item.plotId !== nextPlot!.plotId || item.plotVersion !== nextPlot!.plotVersion), nextPlot!])
     setProject(projectWithVersion(project, Math.max(project.projectVersion, nextPlot.projectVersion)))
   }
 
   const executeAgentPlan = async (planId: string, resume = false): Promise<void> => {
     if (!api || !project || busyAction !== undefined) return
     setBusyAction('agent-plan')
+    setNotice(undefined)
     setAgentPlan((current) => current?.planId === planId ? { ...current, state: 'running' } : current)
     try {
       const value = valueOrThrow(resume
@@ -598,6 +612,7 @@ export function App(): React.JSX.Element {
         message: plan.state === 'succeeded' ? '更改已保存为可追溯版本。' : '已保留完成项，可继续未完成步骤。',
         plan,
       })
+      if (plan.state === 'succeeded') setNotice(undefined)
     } catch (error) {
       const stored = await api.getAgentPlan({ projectId: project.projectId, planId })
       if (stored.ok) setAgentPlan(readAgentPlan(stored.value))
@@ -657,7 +672,6 @@ export function App(): React.JSX.Element {
       }))
       nextPlot = withPreview(nextPlot, rendered)
       setPlot(nextPlot)
-      setPlotHistory((current) => [...current, nextPlot!])
       setProject(projectWithVersion(project, projectVersionFrom(value, project.projectVersion + 1)))
       setNotice({ kind: 'success', title: '修改已应用', message: `已创建图形版本 v${nextPlot.plotVersion}。` })
     } catch (error) {
@@ -715,23 +729,68 @@ export function App(): React.JSX.Element {
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
+  const toggleFigureCandidate = (): void => {
+    if (!plot) {
+      setNotice({ kind: 'warning', title: '无法加入组合图', message: '当前没有已渲染的图形。' })
+      return
+    }
+    const exactMatch = figureCandidates.some((item) => (
+      item.plotId === plot.plotId && item.plotVersion === plot.plotVersion
+    ))
+    if (exactMatch) {
+      setFigureCandidates((current) => current.filter((item) => !(
+        item.plotId === plot.plotId && item.plotVersion === plot.plotVersion
+      )))
+      setNotice({ kind: 'info', title: '已移出组合图', message: `${plot.plotId} · v${plot.plotVersion}` })
+      return
+    }
+    const replacingVersion = figureCandidates.some((item) => item.plotId === plot.plotId)
+    if (!replacingVersion && figureCandidates.length >= 4) {
+      setNotice({ kind: 'warning', title: '组合图已满', message: '第一版组合图最多包含 4 张图。' })
+      return
+    }
+    setFigureCandidates((current) => [
+      ...current.filter((item) => item.plotId !== plot.plotId),
+      plot,
+    ])
+    setNotice({
+      kind: 'success',
+      title: replacingVersion ? '已更新组合图候选' : '已加入组合图',
+      message: `${plot.plotId} · v${plot.plotVersion}`,
+    })
+  }
+
   const createFigure = async (): Promise<void> => {
-    if (!api || !project) return
-    const uniquePlots = [...new Map(plotHistory.map((item) => [`${item.plotId}:${item.plotVersion}`, item])).values()]
-    if (uniquePlots.length < 2) {
-      setNotice({ kind: 'info', title: '还需要一张图', message: '组合图固定引用 2 至 4 个真实 PlotSpec 版本，请先再创建一张图。' })
+    if (!api || !project || busyAction !== undefined) return
+    if (figureCandidates.length < 2) {
+      setNotice({ kind: 'warning', title: '还需要候选图', message: `已加入 ${figureCandidates.length} 张，请先将至少 2 张已渲染图加入组合图。` })
       return
     }
     setBusyAction('figure'); setNotice(undefined)
     try {
-      const created = valueOrThrow(await api.createFigure({ projectId: project.projectId, plotRefs: uniquePlots.slice(-2).map((item) => ({ plotId: item.plotId, plotVersion: item.plotVersion })), layout: '1x2', expectedVersion: project.projectVersion }))
+      const created = valueOrThrow(await api.createFigure({
+        projectId: project.projectId,
+        plotRefs: figureCandidates.map((item) => ({ plotId: item.plotId, plotVersion: item.plotVersion })),
+        layout: figureCandidates.length > 2 ? '2x2' : '1x2',
+        expectedVersion: project.projectVersion,
+      }))
       let nextFigure = readFigure(created)
       if (!nextFigure) throw new Error('Core 未返回 FigureSpec。')
-      const rendered = valueOrThrow(await api.renderFigure({ projectId: project.projectId, figureId: nextFigure.figureId }))
-      nextFigure = { ...nextFigure, ...readFigure(rendered) }
-      setFigure(nextFigure); setProject(projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1)))
-      setNotice({ kind: 'success', title: '组合图已创建', message: '面板固定引用源图版本，预览来自本地 Core。' })
-    } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
+      const nextProject = projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1))
+      setFigure(nextFigure)
+      setProject(nextProject)
+      try {
+        const rendered = valueOrThrow(await api.renderFigure({ projectId: project.projectId, figureId: nextFigure.figureId }))
+        nextFigure = { ...nextFigure, ...readFigure(rendered) }
+        setFigure(nextFigure)
+        setFigureCandidates([])
+        setNotice({ kind: 'success', title: '组合图已创建', message: `${nextFigure.figureId} · v${nextFigure.version}` })
+      } catch (error) {
+        setNotice({ kind: 'warning', title: '组合图已创建，预览未完成', message: `${nextFigure.figureId}：${errorNotice(error).message}` })
+      }
+    } catch (error) {
+      setNotice({ kind: 'error', title: '组合图创建失败', message: errorNotice(error).message })
+    } finally { setBusyAction(undefined) }
   }
 
   const configureProvider = async (input: CustomProviderConfigureInput): Promise<void> => {
@@ -749,7 +808,10 @@ export function App(): React.JSX.Element {
     categoricalFieldCount: activeDataset?.fields.filter((field) => ['string', 'categorical', 'category', 'boolean'].includes(field.logicalType.toLocaleLowerCase('en-US'))).length ?? 0,
     totalFieldCount: activeDataset?.fields.length ?? 0,
   }), [activeDataset])
-  const availablePlotCount = useMemo(() => new Set(plotHistory.map((item) => `${item.plotId}:${item.plotVersion}`)).size, [plotHistory])
+  const figureCandidateCount = figureCandidates.length
+  const plotIsFigureCandidate = plot !== undefined && figureCandidates.some((item) => (
+    item.plotId === plot.plotId && item.plotVersion === plot.plotVersion
+  ))
   const modalOpen = libraryOpen || tasksOpen || providerOpen
 
   return (
@@ -758,14 +820,14 @@ export function App(): React.JSX.Element {
       <div className="app-titlebar" aria-hidden="true"><FlaskConical size={13} /><span>PlotAgent</span></div>
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
-          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
-          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} exportRecord={exportRecord} changeSet={changeSet} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
+          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} />
+          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} changeSet={changeSet} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && figure && <CompositionEditor figure={figure} onClose={() => setScreen('workspace')} />}
         {screen === 'batch-inspector' && batch && <BatchInspector batch={batch} onClose={() => setScreen('workspace')} />}
       </div>
-      {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} availablePlotCount={availablePlotCount} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
+      {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} availablePlotCount={figureCandidateCount} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
         setLibraryOpen(false)
         if (chart.id === 'K25') { void createFigure(); return }
         setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setAgentOutcome(undefined)

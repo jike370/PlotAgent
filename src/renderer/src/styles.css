@@ -587,6 +587,7 @@ kbd {
 }
 
 .sidebar__footer > button,
+.sidebar__footer > .core-row,
 .sidebar__footer > .origin-row,
 .sidebar__footer > .build-row {
   min-height: 31px;
@@ -608,6 +609,10 @@ kbd {
 }
 
 .sidebar__footer .origin-row {
+  color: var(--muted);
+}
+
+.sidebar__footer .core-row {
   color: var(--muted);
 }
 
