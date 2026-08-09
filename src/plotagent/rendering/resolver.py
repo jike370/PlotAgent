@@ -78,25 +78,6 @@ def _field_display_name(field_id: str, *, fallback: str) -> str:
     return normalized
 
 
-def _semantic_axis_label(plot: PlotSpec, orientation: Literal["x", "y"]) -> str | None:
-    """Return fixed v1 scientific semantics for charts whose display axes derive values."""
-
-    # Plot version one is the compiler-created default. Later versions may carry an
-    # explicit user axis-label edit and must not be overwritten by the resolver.
-    if plot.plot_version != 1:
-        return None
-    labels: dict[str, tuple[str, str]] = {
-        "K20": ("Column", "Row"),
-        "K21": ("Column", "Row"),
-        "S61": ("Predicted", "Actual"),
-    }
-    if plot.chart_type_id == "S07":
-        significance = "q" if len(plot.series[0].data.role_fields) >= 4 else "p"
-        labels["S07"] = ("log2FC", f"-log10({significance})")
-    pair = labels.get(plot.chart_type_id)
-    return None if pair is None else pair[0 if orientation == "x" else 1]
-
-
 def _rgb(color: str) -> tuple[float, float, float]:
     value = color.removeprefix("#")[:6]
     return (
@@ -1895,22 +1876,6 @@ def _resolve_panel_axes(
                                 for tick in x_resolved.axis.ticks
                             )
                         }
-                    ),
-                )
-            semantic_x_label = _semantic_axis_label(plot, "x")
-            semantic_y_label = _semantic_axis_label(plot, "y")
-            if semantic_x_label is not None:
-                x_resolved = replace(
-                    x_resolved,
-                    axis=x_resolved.axis.model_copy(
-                        update={"label": _plain_text(semantic_x_label)}
-                    ),
-                )
-            if semantic_y_label is not None:
-                y_resolved = replace(
-                    y_resolved,
-                    axis=y_resolved.axis.model_copy(
-                        update={"label": _plain_text(semantic_y_label)}
                     ),
                 )
         except ValueError as error:

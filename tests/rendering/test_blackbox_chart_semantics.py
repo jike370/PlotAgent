@@ -4,10 +4,19 @@ import math
 
 import pytest
 
-from plotagent.contracts.plots import CalculatedSeriesData, PreparedSeriesData
+from plotagent.contracts.plots import (
+    CalculatedSeriesData,
+    PreparedSeriesData,
+    SafeRichText,
+    SafeTextNode,
+)
 from plotagent.rendering import PlotResolver, RenderDataStore, RenderTable
 from plotagent.rendering.matplotlib.adapter import MatplotlibRenderer, safe_text
-from tests.rendering.fixture_factory import build_plot_and_store, resolve_chart
+from tests.rendering.fixture_factory import build_plot_and_store
+
+
+def _text(value: str) -> SafeRichText:
+    return SafeRichText(nodes=(SafeTextNode(kind="plain", text=value),))
 
 
 def _with_fields(chart_id: str, field_ids: tuple[str, ...]) -> tuple[object, RenderDataStore]:
@@ -59,29 +68,48 @@ def test_opaque_field_ids_never_enter_series_labels_or_category_ticks(chart_id: 
 
 
 @pytest.mark.parametrize(
-    ("chart_id", "expected"),
+    ("chart_id", "scientific_labels"),
     (
         ("K20", ("Column", "Row")),
         ("S61", ("Predicted", "Actual")),
         ("S07", ("log2FC", "-log10(p)")),
     ),
 )
-def test_v1_default_axes_follow_chart_scientific_semantics(
-    chart_id: str, expected: tuple[str, str]
+def test_saved_scientific_axis_semantics_survive_unrelated_plot_versions(
+    chart_id: str, scientific_labels: tuple[str, str]
 ) -> None:
-    resolved = resolve_chart(chart_id)
-    by_orientation = {axis.orientation: safe_text(axis.label) for axis in resolved.plan.axes}
+    plot, store = build_plot_and_store(chart_id)
+    semantic_axes = tuple(
+        axis.model_copy(
+            update={"label": _text(scientific_labels[0 if axis.orientation == "x" else 1])}
+        )
+        for axis in plot.axes
+    )
+    created = plot.model_copy(update={"axes": semantic_axes})
+    unrelated_edit = created.model_copy(
+        update={"plot_version": 2, "title": _text("Unrelated title edit")}
+    )
 
-    assert (by_orientation["x"], by_orientation["y"]) == expected
+    for candidate in (created, unrelated_edit):
+        resolved = PlotResolver().resolve(candidate, store)
+        by_orientation = {axis.orientation: safe_text(axis.label) for axis in resolved.plan.axes}
+        assert (by_orientation["x"], by_orientation["y"]) == scientific_labels
 
 
-def test_later_axis_edit_is_not_overwritten_by_default_semantics() -> None:
-    plot, store = build_plot_and_store("S07")
-    edited = plot.model_copy(update={"plot_version": 2})
+@pytest.mark.parametrize("chart_id", ("K20", "S61", "S07"))
+def test_explicit_saved_axis_title_is_never_overwritten(chart_id: str) -> None:
+    plot, store = build_plot_and_store(chart_id)
+    custom_axes = tuple(
+        axis.model_copy(update={"label": _text("Custom scientific axis")})
+        if axis.orientation == "y"
+        else axis
+        for axis in plot.axes
+    )
+    edited = plot.model_copy(update={"plot_version": 2, "axes": custom_axes})
     resolved = PlotResolver().resolve(edited, store)
-    by_orientation = {axis.orientation: safe_text(axis.label) for axis in resolved.plan.axes}
+    y_axis = next(axis for axis in resolved.plan.axes if axis.orientation == "y")
 
-    assert (by_orientation["x"], by_orientation["y"]) == ("X", "Y")
+    assert safe_text(y_axis.label) == "Custom scientific axis"
 
 
 def test_volcano_uses_supplied_q_value_for_significance_axis() -> None:
@@ -120,10 +148,7 @@ def test_volcano_uses_supplied_q_value_for_significance_axis() -> None:
         if layer.geometry == "xy.symbol"
         for value in resolved.table_for(layer).column(layer.field_bindings[1].field_id)
     )
-    y_axis = next(axis for axis in resolved.plan.axes if axis.orientation == "y")
-
     assert observed == pytest.approx(sorted(-math.log10(value) for value in qvalues))
-    assert safe_text(y_axis.label) == "-log10(q)"
 
 
 def test_long_bar_categories_wrap_and_remain_inside_fixed_canvas() -> None:
