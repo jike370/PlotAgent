@@ -1,7 +1,7 @@
 # PlotAgent 领域契约与 Schema 设计
 
-> 状态：现有45图契约属于重构前基线；正式目标已缩减为 T1/T2 共38图，七个 T3/T4 图将在 R0 从 availability、Schema、Agent 与导出能力删除；38图裸模板测试结论冻结后再重写渲染契约
-> 日期：2026-08-07
+> 状态：正式库存已缩减为T1/T2共38图，七个T3/T4图已从生产能力删除；旧StructureUnit/ChartRecipe保留兼容读取，不再是正式绘图执行链
+> 日期：2026-08-10
 > 适用范围：SourceDataset、FieldMapping/PreparationSpec、PlotCalculationSpec/Result、StructureUnit/ChartRecipe、PlotSpec、PlotPatch/ChartEditCapabilityProfile、BatchSpec、FigureSpec、ActionPlan 及跨进程 Schema
 > 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
 

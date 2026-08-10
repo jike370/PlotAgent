@@ -1,12 +1,14 @@
 # PlotAgent v3 绘图引擎重构与验收基线
 
-> 状态：已确认的产品与验收设计；尚未表示实现或资格通过
+> 状态：产品与验收契约已冻结；Gate 0、Gate 1 与模板优先生产链已完成，Gate 3A 的逐图机械编辑证据仍在执行；任何图均未因机械通过自动取得视觉 PASS
 >
 > 适用范围：正式 T1/T2 38 图、Matplotlib PNG/SVG、Origin 原生 OPJU、Agent 创建/编辑、批量与组合图
 >
 > 关联文档：[Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)、[产品决策](./PRODUCT-DECISIONS.md)、[实施计划](./IMPLEMENTATION-PLAN.md)
 
 ## 1. 决策摘要
+
+当前实施事实（2026-08-10）：正式库存为 38；官方模板目录与哈希已进入生产 plan；38 图共 368 个裸模板动态变体完成，结论为 28 `AUTO`＋10 `DECLARED_PATCH`；38/38 代表性默认态已完成真实 Origin build/fresh-reopen；旧 K01 专用导出路径已删除。尚未完成的是每图数据值＋代表性样式修改读回、统一 38 图视觉页和用户签名，因此 Gate 3A/3B 仍未关闭。
 
 产品目标和用户流程不变，改变的是绘图引擎内部实现：
 

@@ -1,9 +1,11 @@
 # PlotAgent 原生 Origin OPJU 导出契约
 
-> 状态：第一轮 OPJU 导出基线已确认  
-> 日期：2026-08-07
+> 状态：38图正式导出已切换为build-pinned官方模板＋typed plan；旧K01专用plan/CLI/worker已删除，逐图机械编辑读回仍在重新资格
+> 日期：2026-08-10
 > 适用范围：OPJU 内容边界、OriginExportPlan、能力准入、OriginAdapter、两阶段验证、原子提交、外部修改和稳定错误  
 > 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+
+> 阅读规则：正文中的 K01 spike、43图adapter与旧随包模板只作技术追溯；当前模板目录、T1/T2边界和验收以 `ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md` 与 `PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md` 为准。
 
 ## 1. 产品边界
 

@@ -1,9 +1,11 @@
 # PlotAgent 后端与 Agent 架构
 
-> 状态：第一轮架构基线已确认；M6 内部 ChartRecipe/泛化补充边界已冻结
-> 日期：2026-08-05  
+> 状态：Agent/本地事务边界保留；正式绘图引擎已切换为38图ChartProfile、每图Matplotlib renderer与Origin官方模板绑定器，旧ChartRecipe/统一几何链不再是产品目标
+> 日期：2026-08-10
 > 适用范围：Windows 桌面端、数值数据绘图、自然语言规划、本地执行、PNG/SVG/OPJU 导出  
 > 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+
+> 阅读规则：正文中关于43/45图、StructureUnit/ChartRecipe与K01 spike的章节为历史实现记录；正式新链以38图重构验收文档为准。
 
 ## 1. 架构结论
 

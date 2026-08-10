@@ -1,8 +1,8 @@
 # PlotAgent 产品需求文档
 
-> 状态：正式图形范围已由历史45图缩减为 T1/T2 共38图；当前进入 Origin 模板优先的绘图引擎全面重构，先执行裸模板动态测试，再迁移并重新资格；七个 T3/T4 图删除，新引擎通过前不进入 Beta
+> 状态：正式范围为 T1/T2 共38图；模板目录、裸模板测试和生产模板加载已完成，正在完成逐图机械编辑读回与统一视觉签名；七个 T3/T4 图已删除，新引擎通过前不进入 Beta
 > 产品代号：PlotAgent  
-> 日期：2026-08-07
+> 日期：2026-08-10
 > 相关资料：[38图 Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)、[规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta 兼容](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
@@ -10,6 +10,8 @@
 PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在类似 ChatGPT 的项目对话中导入数据，明确选择图形，设置或确认一次字段映射，由本地绘图引擎生成单图、批量图和组合图。用户可以继续用自然语言修改，并导出 PNG、SVG 和原生可编辑的 Origin `.opju`。
 
 首版不试图取代 Excel、Origin 或完整统计软件。产品聚焦于把“数据到投稿图”的高频工作流变得更快、更清楚、更可追溯。
+
+> 阅读规则：正文中仍出现的 43/45 图、StructureUnit/ChartRecipe 和旧统一 renderer 描述属于历史需求记录；当前正式范围与执行链以本文状态、`PRODUCT-DECISIONS.md` 的 PD-AC 章节及 `PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md` 为准。
 
 ## 2. 用户与成功标准
 

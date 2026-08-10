@@ -1,7 +1,7 @@
 # PlotAgent v1 规格索引与小规模邀请制 Beta 设计基线
 
-> 状态：产品主线已切换为 Origin 模板优先的绘图引擎全面重构；正式图形范围由历史45图缩减为 T1/T2 共38图，七个 T3/T4 图删除；先完成裸模板动态测试，再迁移28个T1与10个T2；新引擎重新资格前不进入 Beta
-> 基线日期：2026-08-08
+> 状态：正式范围已收敛为 T1/T2 共38图；官方模板目录、裸模板动态测试、生产模板加载和38/38默认态fresh-reopen已完成；逐图机械编辑读回与统一视觉签名仍未完成，新引擎重新资格前不进入 Beta
+> 基线日期：2026-08-10
 > 适用范围：权威文档、冲突优先级、requirement/evidence matrix、workstream 入口与冻结变更流程
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)、[SEQ-10 前端差距审计](./SEQ-10-FRONTEND-GAP-AUDIT.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
 
@@ -11,7 +11,7 @@
 
 - 第一轮产品行为、对象边界、进程/云/本地信任边界和跨模块 Schema 语义已足够直接拆分实施。
 - 正式范围固定为 T1 直接官方模板28图与 T2 官方模板＋少量原生配置10图。`K05`、`K17`、`S05`、`S07`、`S25`、`S31`、`X01` 从生产能力删除；历史43/45图声明仅保留为旧证据背景，不再构成发布范围。
-- 当前最高优先级是38图裸模板动态测试与模板优先引擎重构；ProjectContext、TaskPlan、跨轮次Agent链路保留既有成果，但不代替新绘图引擎重新资格。生产新链固定为 Agent-native 强类型动作、语义 PlotSpec、平坦 ChartProfile、每图 Matplotlib renderer 与 Origin 官方模板绑定器；StructureUnitDefinition/ChartRecipe 和统一最终几何计划不再是本轮目标。
+- 当前最高优先级是完成38图逐图机械修改读回与统一视觉审查；ProjectContext、TaskPlan、跨轮次Agent链路保留既有成果，但不代替新绘图引擎重新资格。生产新链固定为 Agent-native 强类型动作、语义 PlotSpec、平坦 ChartProfile、每图 Matplotlib renderer 与 Origin 官方模板绑定器；StructureUnitDefinition/ChartRecipe 和统一最终几何计划不再是本轮目标。
 - 每项核心需求都有权威契约、workstream、计划入口、稳定错误 owner 和未来验收 evidence。
 - 冲突审计已按本文件矩阵完成，当前已知旧口径已清除。
 - 后续产品或跨模块行为变化必须新增/更新 Decision ID 并同步权威文档，不得由实现自行选择。
@@ -20,8 +20,8 @@
 
 - M7 的真实用户成功指标、生产签名发布、reference 性能与完整邀请制 Beta gate 已经通过。
 - 正式图/固定计算/Origin 每个 adapter 的底层 property map 已在本文展开；逐图用户能力以 PRD §8.5 和版本化 profile 为准，后续 AnalysisSpec/FitSpec 尚不可用。
-- 单一 Origin exact version 已完成一次 43 图合并 build/save/fresh-reopen 工程门禁；它不是 43 份发布 MatrixKey 与完整 evidence manifest，也不表示 reference 性能、安全或生产签名安装包 Beta gate 已通过。
-- 首迁 14 图的三批同源并排证据已生成；K02 系列身份、K05 native band 填充和 K09 分组柱重叠仍为自动阻断 P0，且证据尚未绑定当前 source build identity 或取得人工视觉签名，因此 SEQ-20 是视觉 NO-GO，不能解释为视觉资格通过。
+- 当前 38 图 build/fresh-reopen 与 368 个裸模板变体是机械工程证据；它们不是视觉签名，也不表示 reference 性能、安全或生产签名安装包 Beta gate 已通过。
+- 历史 43/45 图视觉页、逐图 OPJU 和 P0 修复记录只作迁移背景；它们不能继承为本次 38 图模板优先引擎的视觉或发布资格。
 - 当前 UI prototype 的种子数据或模拟交互是后端行为证据。
 
 每图/每算法完整参数、property map 和fixture细节由W3/W4/W6 backlog在现有公共契约内细化；如果细化会改变用户选择、科学语义、对象版本、formal完整性或O1能力，必须回到Decision变更。

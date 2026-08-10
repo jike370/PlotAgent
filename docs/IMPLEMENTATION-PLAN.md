@@ -1,7 +1,7 @@
 # PlotAgent v1 实施拆分与里程碑计划
 
-> 状态：原 M0–M6 工程切片已实现；现重新打开绘图引擎主线，正式图形由45图缩减为 T1/T2 共38图，先做 Origin 裸模板动态测试，再进行模板优先的全面重构；七个 T3/T4 图正式删除；M7邀请制Beta qualification须等待新引擎重新资格
-> 日期：2026-08-08
+> 状态：38 图范围、官方模板目录、裸模板动态测试和生产模板加载已完成；旧 K01 导出 spike 已删除；正在完成逐图机械修改读回与统一视觉审查页，视觉签名前不恢复 Beta 资格
+> 日期：2026-08-10
 > 适用范围：W0–W10 workstreams、依赖、风险 spikes、里程碑、验收证据与错误归属
 > 相关文档：[规格索引与 Beta 设计基线](./SPEC-INDEX.md)、[前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)、[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)
 
@@ -33,7 +33,17 @@
 6. **R5 迁移10个T2：** 只实现裸模板失败证据证明必需的声明式补丁。
 7. **R6 删除旧路径并重新资格：** 删除被替代分支，重建38图视觉、编辑、动态与逐图OPJU证据，取得人工签名后才恢复发布资格。
 
-R0–R2 完成前不得开始大规模 renderer 编码；R3–R6 不以统一 renderer、StructureUnit 或 ChartRecipe 作为完成条件。已确认的生产形态为：Agent-native 强类型动作 → 本地校验/事务 → 语义 PlotSpec → 平坦 ChartProfile → 每图 Matplotlib renderer 与每图 Origin 官方模板绑定器。公共 UI/Agent 只开放双后端共同能力。
+当前执行快照：
+
+| 阶段 | 状态 | 已冻结证据/剩余工作 |
+| --- | --- | --- |
+| R0 范围 | 完成 | 正式库存严格 38；7 个删除图仅保留稳定兼容诊断 |
+| R1–R2 裸模板 | 完成 | 38 图、368 个动态变体；38 build、38 fresh-reopen；28 `AUTO`、10 `DECLARED_PATCH` |
+| R3 模板优先生产链 | 完成 | 38 个 profile 均携带 build-pinned 官方模板引用；正式 worker 只保留 typed plan build/reopen |
+| R4–R5 T1/T2 迁移 | 机械默认态完成 | 38/38 代表性默认态真实 Origin build/fresh-reopen；仍须逐图补齐数据值＋样式修改读回 |
+| R6 清理与重新资格 | 进行中 | 旧 K01 plan/CLI/模板/worker mode 已删除；待 38 图逐图 OPJU、统一视觉页和用户签名 |
+
+R3–R6 不以统一 renderer、StructureUnit 或 ChartRecipe 作为完成条件。已确认的生产形态为：Agent-native 强类型动作 → 本地校验/事务 → 语义 PlotSpec → 平坦 ChartProfile → 每图 Matplotlib renderer 与每图 Origin 官方模板绑定器。公共 UI/Agent 只开放双后端共同能力。
 
 ### 1.2 新引擎实施与验收顺序
 

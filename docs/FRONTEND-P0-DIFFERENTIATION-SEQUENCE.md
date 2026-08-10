@@ -5,6 +5,8 @@
 > 适用范围：前端、Origin 绘图 P0、项目级上下文、可恢复任务编排与自然语言画图/改图的产品辨识度
 > 相关文档：[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[领域契约](./DOMAIN-CONTRACTS.md)、[渲染管线](./RENDERING-PIPELINE.md)、[实施计划](./IMPLEMENTATION-PLAN.md)、[Beta 测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
 
+> 阅读规则：本文记录的45图视觉批次与SEQ-20证据属于重构前工作；当前正式38图模板优先引擎的机械/视觉资格不得由这些历史状态继承。
+
 ## 1. 文档目的
 
 本文件冻结“先做什么、后做什么、何时允许进入下一阶段”。它用于避免三类返工：

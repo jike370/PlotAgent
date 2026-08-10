@@ -1,13 +1,15 @@
 # PlotAgent 小规模邀请制 Beta 性能测试与发布门禁契约
 
-> 状态：v1 正式 43 图、编辑/Origin 样式与数据计算范围收敛；43 图合并 Origin build/fresh-reopen 工程门禁已通过，完整 Beta qualification 尚未执行
-> 日期：2026-08-07
-> 适用范围：唯一正式平台与规模基线、43 图证据矩阵、逐图编辑/Origin 样式映射、单一 Origin 版本 qualification、Beta 发布检查单与用户成功标准
+> 状态：发布门禁已重开；正式范围改为38图，历史43图合并证据不继承，须等待模板优先引擎逐图机械读回、统一视觉签名和完整Beta qualification
+> 日期：2026-08-10
+> 适用范围：唯一正式平台与规模基线、38图证据矩阵、逐图编辑/Origin样式映射、单一Origin版本qualification、Beta发布检查单与用户成功标准
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)
 
-本文件定义第一轮邀请制 Beta 的正式 qualification。正式图形范围为原 31 图加 12 个已准入 P1 图，共 43 图；另九个已存在的内部 adapter 对用户隐藏且不承诺 create/export。确定性导入/一次字段映射、九类固定绘图计算、预计算字段路径、PNG/SVG/O1 OPJU、full-data formal 和科学可追溯底线保持不变；通用数据处理、AnalysisSpec/FitSpec 与科研分析/拟合不在 v1。2026-08-07 已完成一次正式 43 图合并 OPJU 的 build/save/fresh-reopen 工程门禁和一份专属编辑非默认值实机读回；这不是 387 MatrixKey、性能、安全、安装包与人工视觉审计组成的完整 Beta qualification。
+本文件定义第一轮邀请制 Beta 的正式 qualification。当前正式图形范围为 T1/T2 共38图；七个删除图和九个内部 adapter 均不承诺 create/export。确定性导入/一次字段映射、受控固定绘图计算、预计算字段路径、PNG/SVG/O1 OPJU、full-data formal 和科学可追溯底线保持不变；通用数据处理、AnalysisSpec/FitSpec 与科研分析/拟合不在 v1。历史43图合并门禁只作追溯，不能计入当前38图资格。
 
-当前工程门禁的记录单位是一次合并运行而非 43 份发布 MatrixKey：全部 43 个正式图先逐项完成 formal Matplotlib 实绘与 strict O1 OriginPlan 编译，再合并进入一份 OPJU build/save/fresh-reopen；另以 10 个代表图覆盖七组非默认专属编辑。该门禁用于尽早发现 adapter、序列化与读回故障，不替代本文件第 7、11 节要求的正式 evidence manifest。
+当前重构门禁要求38图各自保留默认态、代表性编辑态、动态状态和逐图OPJU，并逐图执行数据值＋允许样式修改后的fresh-reopen机械读回；全部机械完成后才生成统一视觉页。历史合并运行不替代第7、11节要求的正式evidence manifest。
+
+> 阅读规则：后文尚未逐项改写的“43图/387 MatrixKey”数字属于历史版本；所有数量按当前38图范围重新计算并以38图验收契约为准。
 
 ## 1. 唯一正式 Windows qualification profile
 
