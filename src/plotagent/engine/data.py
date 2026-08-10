@@ -16,6 +16,7 @@ from plotagent.engine.contracts import (
     EngineField,
     EngineScalar,
 )
+from plotagent.engine.ports import EngineDataProvider
 from plotagent.storage.project import ProjectStore
 
 _ROW_ID_COLUMN = "__source_row_id"
@@ -100,6 +101,26 @@ class ProjectEngineDataProvider:
             return pq.read_table(path, columns=[*field_ids, _ROW_ID_COLUMN])
         except Exception as exc:
             raise EngineDataError("source data object cannot satisfy its immutable schema") from exc
+
+
+class RoutedEngineDataProvider:
+    """Route immutable data kinds to explicit providers without renderer logic."""
+
+    def __init__(
+        self,
+        source: EngineDataProvider,
+        derived: EngineDataProvider,
+    ) -> None:
+        self._source = source
+        self._derived = derived
+
+    def materialize(
+        self,
+        data: EngineDataRef,
+        field_ids: tuple[FieldId, ...],
+    ) -> EngineDataView:
+        provider = self._source if data.kind == "source" else self._derived
+        return provider.materialize(data, field_ids)
 
 
 def _engine_field(field: SourceField) -> EngineField:

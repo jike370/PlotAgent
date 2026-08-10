@@ -22,7 +22,8 @@ from .contracts import (
     SetSeriesStyle,
     SetTitle,
 )
-from .data import EngineDataError, ProjectEngineDataProvider
+from .data import EngineDataError, ProjectEngineDataProvider, RoutedEngineDataProvider
+from .data_repository import EngineDataViewRepository
 from .derived_data import (
     DerivedEngineDataProvider,
     engine_view_from_calculation,
@@ -57,6 +58,7 @@ __all__ = [
     "EngineDataError",
     "EngineDataRef",
     "EngineDataView",
+    "EngineDataViewRepository",
     "EngineField",
     "EngineObjectRef",
     "EngineProfile",
@@ -74,6 +76,7 @@ __all__ = [
     "PlotEngineService",
     "PlotTransition",
     "RuntimeResult",
+    "RoutedEngineDataProvider",
     "SetAxis",
     "SetChartParameter",
     "SetLegend",
