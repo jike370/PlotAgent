@@ -199,6 +199,7 @@ from plotagent.contracts.registry import (
 )
 from plotagent.contracts.styles import SymbolStyle, resolve_palette
 from plotagent.contracts.task_runtime import TaskItemSnapshot, TaskOutputRef, TaskPlanSnapshot
+from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue as RpcJsonValue
 from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
 from plotagent.desktop_core.tasks import (
@@ -206,6 +207,7 @@ from plotagent.desktop_core.tasks import (
     TaskControlError,
     TaskRegistry,
 )
+from plotagent.engine import EngineVersionConflict
 from plotagent.exports import export_png, export_svg
 from plotagent.figures import FigureService
 from plotagent.figures.models import (
@@ -269,6 +271,7 @@ class ProjectSession(SourceTableResolver):
     domain: ProjectDomainRepository
     imports: ProjectImportService
     agent_runtime: AgentRuntimeRepository
+    engine: DesktopEngineSession
 
     @property
     def project_id(self) -> str:
@@ -415,6 +418,10 @@ class DesktopApplication:
             "datasets.import": self._datasets_import,
             "datasets.list": self._datasets_list,
             "datasets.describe": self._datasets_describe,
+            "engine.catalog.get": self._engine_catalog_get,
+            "engine.actions.execute": self._engine_actions_execute,
+            "engine.plots.list": self._engine_plots_list,
+            "engine.plots.get": self._engine_plots_get,
             "plots.create": self._plots_create,
             "plots.patch": self._plots_patch,
             "plots.list": self._plots_list,
@@ -449,6 +456,81 @@ class DesktopApplication:
         _object(params, required=set())
         probe_target = self.root / ".origin-environment-probe.opju"
         return cast(RpcJsonValue, preflight_origin(probe_target).to_dict())
+
+    def _engine_catalog_get(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(RpcJsonValue, session.engine.catalog_payload())
+
+    def _engine_actions_execute(
+        self, context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "action", "expected_project_version"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        action = values["action"]
+        if not isinstance(action, dict):
+            raise RpcServiceError("INVALID_PARAMS", "Engine action must be an object.")
+        task_id = self._begin_task(context, "engine-action")
+        try:
+            context.tasks.transition(task_id, "running")
+            payload = session.engine.execute(
+                cast(dict[str, object], action),
+                expected_project_revision=_integer(
+                    values["expected_project_version"],
+                    "expected_project_version",
+                    minimum=0,
+                ),
+            )
+            context.tasks.transition(task_id, "committing")
+            context.tasks.transition(task_id, "succeeded")
+            return cast(
+                RpcJsonValue,
+                {
+                    "task_id": task_id,
+                    "project_id": session.project_id,
+                    "project_version": session.domain.revision,
+                    **payload,
+                },
+            )
+        except Exception:
+            self._fail_task(context.tasks, task_id)
+            raise
+
+    def _engine_plots_list(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            {
+                "project_id": session.project_id,
+                "plots": session.engine.list_latest(),
+            },
+        )
+
+    def _engine_plots_get(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "plot_id"},
+            optional={"plot_version"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        version = _optional_integer(values.get("plot_version"), "plot_version", minimum=1)
+        return cast(
+            RpcJsonValue,
+            {
+                "project_id": session.project_id,
+                **session.engine.get(_text(values["plot_id"], "plot_id"), version),
+            },
+        )
 
     def _provider_status(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         _object(params, required=set())
@@ -580,6 +662,8 @@ class DesktopApplication:
                 raise RpcServiceError(error.code, error.message) from None
             except WorkflowFailure as error:
                 raise RpcServiceError(error.error.code, error.error.message) from None
+            except EngineVersionConflict as error:
+                raise RpcServiceError("ENGINE_VERSION_CONFLICT", str(error)) from None
             except ValidationError:
                 raise RpcServiceError(
                     "INVALID_PARAMS", "The request parameters were invalid."
@@ -714,6 +798,7 @@ class DesktopApplication:
             domain=ProjectDomainRepository(store),
             imports=ProjectImportService(store),
             agent_runtime=AgentRuntimeRepository(store),
+            engine=DesktopEngineSession.open(store),
         )
         session.agent_runtime.recover_interrupted()
         self._sessions[project_id] = session

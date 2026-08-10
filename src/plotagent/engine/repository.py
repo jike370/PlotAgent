@@ -50,6 +50,10 @@ class StoredPlotDocument:
     created_at: str
 
 
+class EngineRepositoryConflict(ValueError):
+    pass
+
+
 class PlotDocumentRepository:
     """Single-writer repository for the replacement plot domain."""
 
@@ -139,7 +143,13 @@ class PlotDocumentRepository:
         )
         return tuple(self.get(str(plot_id), int(version)) for plot_id, version in rows)
 
-    def commit(self, document: PlotDocument, action: PlotEngineAction) -> AppliedAction:
+    def commit(
+        self,
+        document: PlotDocument,
+        action: PlotEngineAction,
+        *,
+        expected_project_revision: int | None = None,
+    ) -> AppliedAction:
         """Atomically append one document version and its explicit action."""
 
         connection = self._project._assert_writer()  # noqa: SLF001
@@ -168,6 +178,13 @@ class PlotDocumentRepository:
         applied_at = _utc_now()
         connection.execute("BEGIN IMMEDIATE")
         try:
+            if expected_project_revision is not None:
+                cursor = connection.execute(
+                    "UPDATE project_meta SET revision = revision + 1 WHERE revision = ?",
+                    (expected_project_revision,),
+                )
+                if cursor.rowcount != 1:
+                    raise EngineRepositoryConflict("project version is stale")
             connection.execute(
                 """
                 INSERT INTO engine_plot_document_versions (
@@ -236,3 +253,26 @@ class PlotDocumentRepository:
                 )
             )
         return tuple(result)
+
+    def find_action(self, action_id: str) -> AppliedAction | None:
+        row = self._project._assert_writer().execute(  # noqa: SLF001
+            """
+            SELECT action_json, before_ref_json, after_ref_json, applied_at
+            FROM engine_plot_action_journal
+            WHERE action_id = ?
+            """,
+            (action_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        action_json, before_json, after_json, applied_at = row
+        return AppliedAction(
+            action=_ACTION_ADAPTER.validate_json(str(action_json)),
+            document_before=(
+                None
+                if before_json is None
+                else PlotDocumentRef.model_validate_json(str(before_json))
+            ),
+            document_after=PlotDocumentRef.model_validate_json(str(after_json)),
+            applied_at=str(applied_at),
+        )

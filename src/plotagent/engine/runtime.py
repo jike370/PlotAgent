@@ -50,7 +50,18 @@ class PlotEngineRuntime:
         self.data_provider = data_provider
         self.backends = backends
 
-    def execute(self, action: PlotEngineAction) -> RuntimeResult:
+    def execute(
+        self,
+        action: PlotEngineAction,
+        *,
+        expected_project_revision: int | None = None,
+    ) -> RuntimeResult:
+        replay = self.service.replay(action)
+        if replay is not None:
+            return RuntimeResult(
+                document=replay,
+                readbacks=tuple(backend.readback(replay) for backend in self.backends),
+            )
         transition = self.service.prepare(action)
         data = self._materialize(transition.after)
         prior_actions = tuple(
@@ -69,7 +80,10 @@ class PlotEngineRuntime:
             for change in changes:
                 change.publish()
                 published.append(change)
-            document = self.service.commit(transition)
+            document = self.service.commit(
+                transition,
+                expected_project_revision=expected_project_revision,
+            )
         except Exception:
             for change in reversed(published):
                 change.revert()

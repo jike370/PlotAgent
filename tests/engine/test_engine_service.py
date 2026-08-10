@@ -169,6 +169,18 @@ def test_service_rejects_a_delayed_action_against_a_newer_document(tmp_path: Pat
             )
 
 
+def test_service_rejects_reusing_an_action_id_with_different_arguments(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:engine") as project:
+        service = PlotEngineService(_catalog(), PlotDocumentRepository(project))
+        action = _create(x="field:x", y="field:y")
+        service.execute(action)
+        conflicting = action.model_copy(
+            update={"bindings": _create(x="field:x", y="field:z").bindings}
+        )
+        with pytest.raises(EngineCommandError, match="already bound"):
+            service.replay(conflicting)
+
+
 def test_catalog_is_not_bound_to_the_bundled_agent() -> None:
     source = inspect.getsource(__import__("plotagent.engine.service", fromlist=["*"]))
     assert "from plotagent.agent" not in source

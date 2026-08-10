@@ -8,7 +8,7 @@ import sys
 import uuid
 from hashlib import sha256
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from plotagent.engine.contracts import EngineDataView, PlotDocument, PlotEngineAction
 from plotagent.engine.ports import EngineArtifact, EngineReadback, PlotBackendChange
@@ -83,7 +83,7 @@ class _Change:
 
 
 class OriginBackend:
-    backend_id = "origin"
+    backend_id: Literal["origin"] = "origin"
 
     def __init__(self, root: Path, install_dir: Path, worker: OriginWorker) -> None:
         self._root = root

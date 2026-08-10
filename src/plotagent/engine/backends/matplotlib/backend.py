@@ -56,7 +56,7 @@ class _Change:
 
 
 class MatplotlibBackend:
-    backend_id = "matplotlib"
+    backend_id: Literal["matplotlib"] = "matplotlib"
 
     def __init__(self, root: Path, renderers: tuple[MatplotlibProfileRenderer, ...]) -> None:
         profile_ids = tuple(renderer.profile_id for renderer in renderers)

@@ -25,10 +25,14 @@ from plotagent.engine.contracts import (
     SetSeriesStyle,
     SetTitle,
 )
-from plotagent.engine.repository import PlotDocumentRepository
+from plotagent.engine.repository import EngineRepositoryConflict, PlotDocumentRepository
 
 
 class EngineCommandError(ValueError):
+    pass
+
+
+class EngineVersionConflict(EngineCommandError):
     pass
 
 
@@ -166,7 +170,7 @@ class PlotEngineService:
         target_plot_id = self._target_plot_id(action)
         stored = self.repository.get(target_plot_id)
         if action.expected_plot_version != stored.document.plot_version:
-            raise EngineCommandError(
+            raise EngineVersionConflict(
                 f"plot document version is stale: expected {action.expected_plot_version}, "
                 f"latest is {stored.document.plot_version}"
             )
@@ -192,14 +196,47 @@ class PlotEngineService:
             action=action,
         )
 
-    def commit(self, transition: PlotTransition) -> PlotDocument:
-        self.repository.commit(transition.after, transition.action)
+    def commit(
+        self,
+        transition: PlotTransition,
+        *,
+        expected_project_revision: int | None = None,
+    ) -> PlotDocument:
+        try:
+            self.repository.commit(
+                transition.after,
+                transition.action,
+                expected_project_revision=expected_project_revision,
+            )
+        except EngineRepositoryConflict as error:
+            raise EngineVersionConflict(str(error)) from None
         return transition.after
 
-    def execute(self, action: PlotEngineAction) -> PlotDocument:
+    def execute(
+        self,
+        action: PlotEngineAction,
+        *,
+        expected_project_revision: int | None = None,
+    ) -> PlotDocument:
         """Validate and persist domain state; runtime backend execution is separate."""
 
-        return self.commit(self.prepare(action))
+        return self.commit(
+            self.prepare(action),
+            expected_project_revision=expected_project_revision,
+        )
+
+    def replay(self, action: PlotEngineAction) -> PlotDocument | None:
+        """Return an already committed action without executing it twice."""
+
+        applied = self.repository.find_action(action.action_id)
+        if applied is None:
+            return None
+        if applied.action != action:
+            raise EngineCommandError("action id is already bound to different arguments")
+        return self.repository.get(
+            applied.document_after.plot_id,
+            applied.document_after.plot_version,
+        ).document
 
     @staticmethod
     def _target_plot_id(action: PlotEngineAction) -> str:

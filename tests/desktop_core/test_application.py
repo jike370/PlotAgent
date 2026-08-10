@@ -204,6 +204,80 @@ def _install_fake_origin_export(
     monkeypatch.setattr("plotagent.desktop_core.application.export_origin", fake_export)
 
 
+def test_agent_native_engine_rpc_uses_project_data_and_restores_documents(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import(harness, project_id, revision, "excel_two_sheets.xlsx", "engine-excel")
+    first = imported["datasets"][0]
+    numeric = [
+        item["field_id"] for item in first["fields"] if item["logical_type"] == "numeric"
+    ]
+    assert len(numeric) >= 2
+
+    catalog = harness.call("engine.catalog.get", {"project_id": project_id})
+    assert catalog["tool_name"] == "plot_engine_action"
+    assert {item["profile_id"] for item in catalog["profiles"]} >= {
+        "K01",
+        "K08",
+        "K20",
+        "X23",
+    }
+
+    created = harness.call(
+        "engine.actions.execute",
+        {
+            "project_id": project_id,
+            "expected_project_version": imported["project_version"],
+            "action": {
+                "operation": "create_plot",
+                "action_id": "action:desktop-create",
+                "plot_id": "plot:engine-desktop",
+                "profile_id": "K01",
+                "data": {
+                    "kind": "source",
+                    "dataset_id": first["source_dataset_id"],
+                    "version": first["source_version"],
+                    "content_hash": first["content_hash"],
+                },
+                "bindings": (
+                    {"role": "x", "field_id": numeric[0]},
+                    {"role": "y", "field_id": numeric[1]},
+                ),
+            },
+        },
+    )
+    assert created["plot_version"] == 1
+    assert created["project_version"] == imported["project_version"] + 1
+    assert created["document"]["schema_version"] == "2.0"
+    assert Path(created["preview"]["path"]).is_file()
+
+    edited = harness.call(
+        "engine.actions.execute",
+        {
+            "project_id": project_id,
+            "expected_project_version": created["project_version"],
+            "action": {
+                "operation": "set_title",
+                "action_id": "action:desktop-title",
+                "target": "plot:engine-desktop",
+                "expected_plot_version": 1,
+                "text": "Agent Native preview",
+            },
+        },
+    )
+    assert edited["plot_version"] == 2
+    assert Path(edited["preview"]["path"]).is_file()
+
+    harness.call("projects.close", {"project_id": project_id})
+    harness.call("projects.open", {"project_id": project_id})
+    restored = harness.call("engine.plots.list", {"project_id": project_id})
+    assert len(restored["plots"]) == 1
+    assert restored["plots"][0]["plot_id"] == "plot:engine-desktop"
+    assert restored["plots"][0]["plot_version"] == 2
+    assert Path(restored["plots"][0]["preview"]["path"]).is_file()
+
+
 def test_project_import_describe_k01_patch_render_and_exports(
     harness: ApplicationHarness, tmp_path: Path
 ) -> None:

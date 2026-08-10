@@ -113,8 +113,9 @@ class FakeBackend:
         self.changes.append(change)
         return change
 
-    def readback(self, document):  # pragma: no cover - protocol-only test double
-        raise NotImplementedError
+    def readback(self, document):
+        assert self.changes[-1].readback.document == document_ref(document)
+        return self.changes[-1].readback
 
     def export(self, document, destination, format):  # pragma: no cover
         raise NotImplementedError
@@ -193,3 +194,40 @@ def test_runtime_reverts_published_work_when_later_publish_fails(tmp_path: Path)
 
     assert matplotlib.changes[0].reverted is True
     assert origin.changes[0].discarded is True
+
+
+def test_runtime_replays_one_action_id_without_rendering_or_committing_twice(
+    tmp_path: Path,
+) -> None:
+    matplotlib = FakeBackend("matplotlib")
+    project, _provider, runtime = _runtime(tmp_path, (matplotlib,))
+    action = _create()
+    with project:
+        first = runtime.execute(action)
+        replay = runtime.execute(action)
+
+        assert replay == first
+        assert len(matplotlib.changes) == 1
+        assert len(runtime.service.repository.actions("plot:demo")) == 1
+
+
+def test_runtime_commits_the_project_revision_with_the_document(tmp_path: Path) -> None:
+    matplotlib = FakeBackend("matplotlib")
+    project, _provider, runtime = _runtime(tmp_path, (matplotlib,))
+    with project:
+        runtime.execute(_create(), expected_project_revision=0)
+        revision = project._assert_writer().execute(  # noqa: SLF001
+            "SELECT revision FROM project_meta"
+        ).fetchone()
+        assert revision == (1,)
+
+
+def test_runtime_reverts_artifacts_when_the_project_revision_is_stale(tmp_path: Path) -> None:
+    matplotlib = FakeBackend("matplotlib")
+    project, _provider, runtime = _runtime(tmp_path, (matplotlib,))
+    with project:
+        with pytest.raises(ValueError, match="project version is stale"):
+            runtime.execute(_create(), expected_project_revision=1)
+        assert runtime.service.repository.latest_version("plot:demo") is None
+
+    assert matplotlib.changes[0].reverted is True
