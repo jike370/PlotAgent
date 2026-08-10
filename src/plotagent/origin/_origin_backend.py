@@ -1819,8 +1819,6 @@ class OriginProBackend:
         y_title = layer.label("yl")
         if y_title is not None:
             y_title.set_int("show", 0)
-        page_width = _finite_float(graph.get_float("width"))
-        page_height = _finite_float(graph.get_float("height"))
         for entry in entries:
             label = layer.add_label(entry.text)
             if label is None:
@@ -1831,6 +1829,28 @@ class OriginProBackend:
             label.set_int("background", 0)
             label.set_int("show", 1)
             label.color = entry.color
+        self._position_risk_table(graph, graph_plan, layer_plan, layer)
+
+    def _position_risk_table(
+        self,
+        graph: Any,
+        graph_plan: OriginGraphObject,
+        layer_plan: OriginLayerPlan,
+        layer: Any,
+    ) -> None:
+        page_width = _finite_float(graph.get_float("width"))
+        page_height = _finite_float(graph.get_float("height"))
+        entries = _risk_table_labels(
+            graph_plan,
+            layer_plan,
+            self._active_plan.data_objects,
+            page_width=page_width,
+            page_height=page_height,
+        )
+        for entry in entries:
+            label = layer.label(entry.name)
+            if label is None:
+                raise NativeOriginError(f"native risk label is missing: {entry.name}")
             _set_page_position(
                 label,
                 page_width=page_width,
@@ -2235,6 +2255,8 @@ class OriginProBackend:
             )
             if not overlays_previous:
                 _write_dense_x_axis_title(graph, graph_plan, layer_plan, graph[layer_index])
+            if any(plot.native_kind == "risk_table" for plot in layer_plan.plots):
+                self._position_risk_table(graph, graph_plan, layer_plan, graph[layer_index])
 
     def write_manifest(self, plan: OriginExportPlan) -> None:
         self._active_plan = plan
