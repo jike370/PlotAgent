@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .k01 import execute_k01_request
 from .k08 import execute_k08_request
+from .k20 import execute_k20_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
 
 
@@ -16,7 +17,11 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("usage: origin worker REQUEST_JSON RESPONSE_JSON")
     request_path, response_path = (Path(value).resolve() for value in args)
     request = OriginWorkerRequest.model_validate_json(request_path.read_text(encoding="utf-8"))
-    binders = {"K01": execute_k01_request, "K08": execute_k08_request}
+    binders = {
+        "K01": execute_k01_request,
+        "K08": execute_k08_request,
+        "K20": execute_k20_request,
+    }
     try:
         binder = binders[request.document.profile_id]
     except KeyError as exc:

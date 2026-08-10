@@ -35,6 +35,13 @@ K08_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+K20_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K20",
+    filename="Heat_Map.otpu",
+    sha256="9bd8240ca582bbedfec797ea27b1ec5c2906939e304fa343cd1821bae2ffbb9f",
+    tier="T1",
+)
+
 
 def resolve_official_template(
     install_dir: Path,
