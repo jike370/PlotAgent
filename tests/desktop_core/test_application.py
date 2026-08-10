@@ -382,6 +382,11 @@ def test_bundled_agent_engine_plan_is_bound_confirmed_and_restored(
     assert created["state"] == "needs_confirmation"
     assert created["bound_plan"]["expected_project_revision"] == imported["project_version"]
     assert created["bound_plan"]["actions"][1]["expected_plot_version"] == 1
+    listed = harness.call(
+        "agent.engine.plans.list",
+        {"project_id": project_id},
+    )
+    assert [item["plan_id"] for item in listed["plans"]] == ["plan:desktop-engine"]
 
     confirmed = harness.call(
         "agent.engine.plans.confirm",

@@ -519,6 +519,7 @@ function AgentPlanObject({
     ready: '待执行',
     running: '执行中',
     partial_success: '部分完成',
+    partially_failed: '部分完成',
     succeeded: '已完成',
     failed: '未完成',
     interrupted: '已中断',

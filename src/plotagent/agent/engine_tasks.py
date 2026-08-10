@@ -15,12 +15,33 @@ from plotagent.storage.project import ProjectStore
 
 _ACTION_ADAPTER: TypeAdapter[PlotEngineAction] = TypeAdapter(PlotEngineAction)
 
+_ENGINE_PLAN_TABLE_SQL = """
+CREATE TABLE engine_agent_task_plans (
+    plan_id TEXT PRIMARY KEY,
+    proposal_json TEXT NOT NULL,
+    bound_plan_json TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN (
+        'needs_confirmation', 'ready', 'running',
+        'partially_failed', 'succeeded', 'cancelled'
+    )),
+    confirmation_state TEXT NOT NULL CHECK (confirmation_state IN (
+        'pending', 'confirmed', 'rejected', 'not_required'
+    )),
+    next_action_index INTEGER NOT NULL CHECK (next_action_index >= 0),
+    current_project_revision INTEGER NOT NULL CHECK (current_project_revision >= 0),
+    error_code TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+)
+"""
+
 EngineTaskPlanState = Literal[
     "needs_confirmation",
     "ready",
     "running",
     "partially_failed",
     "succeeded",
+    "cancelled",
 ]
 
 
@@ -48,7 +69,7 @@ class EngineTaskPlanSnapshot:
     proposal: EngineAgentPlan
     bound: BoundEnginePlan
     state: EngineTaskPlanState
-    confirmation_state: Literal["pending", "confirmed", "not_required"]
+    confirmation_state: Literal["pending", "confirmed", "rejected", "not_required"]
     next_action_index: int
     current_project_revision: int
     error_code: str | None
@@ -61,27 +82,28 @@ class EngineAgentPlanRepository:
 
     def __init__(self, project: ProjectStore) -> None:
         self._project = project
-        project._assert_writer().executescript(  # noqa: SLF001
-            """
-            CREATE TABLE IF NOT EXISTS engine_agent_task_plans (
-                plan_id TEXT PRIMARY KEY,
-                proposal_json TEXT NOT NULL,
-                bound_plan_json TEXT NOT NULL,
-                state TEXT NOT NULL CHECK (state IN (
-                    'needs_confirmation', 'ready', 'running',
-                    'partially_failed', 'succeeded'
-                )),
-                confirmation_state TEXT NOT NULL CHECK (confirmation_state IN (
-                    'pending', 'confirmed', 'not_required'
-                )),
-                next_action_index INTEGER NOT NULL CHECK (next_action_index >= 0),
-                current_project_revision INTEGER NOT NULL CHECK (current_project_revision >= 0),
-                error_code TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-            """
+        writer = project._assert_writer()  # noqa: SLF001
+        create_sql = _ENGINE_PLAN_TABLE_SQL.replace(
+            "CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", 1
         )
+        writer.execute(create_sql)
+        schema_row = writer.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+            ("engine_agent_task_plans",),
+        ).fetchone()
+        schema_sql = "" if schema_row is None else str(schema_row[0])
+        if "'cancelled'" not in schema_sql or "'rejected'" not in schema_sql:
+            writer.executescript(
+                f"""
+                BEGIN IMMEDIATE;
+                ALTER TABLE engine_agent_task_plans RENAME TO engine_agent_task_plans_legacy;
+                {_ENGINE_PLAN_TABLE_SQL};
+                INSERT INTO engine_agent_task_plans
+                SELECT * FROM engine_agent_task_plans_legacy;
+                DROP TABLE engine_agent_task_plans_legacy;
+                COMMIT;
+                """
+            )
 
     def create(
         self,
@@ -130,7 +152,7 @@ class EngineAgentPlanRepository:
             bound=BoundEnginePlan.model_validate_json(str(row[1])),
             state=cast(EngineTaskPlanState, row[2]),
             confirmation_state=cast(
-                Literal["pending", "confirmed", "not_required"], row[3]
+                Literal["pending", "confirmed", "rejected", "not_required"], row[3]
             ),
             next_action_index=int(row[4]),
             current_project_revision=int(row[5]),
@@ -138,6 +160,32 @@ class EngineAgentPlanRepository:
             created_at=str(row[7]),
             updated_at=str(row[8]),
         )
+
+    def list_all(self) -> tuple[EngineTaskPlanSnapshot, ...]:
+        rows = self._project._assert_writer().execute(  # noqa: SLF001
+            """
+            SELECT plan_id
+            FROM engine_agent_task_plans
+            ORDER BY created_at ASC, plan_id ASC
+            """
+        ).fetchall()
+        return tuple(self.get(str(row[0])) for row in rows)
+
+    def cancel(self, plan_id: str) -> EngineTaskPlanSnapshot:
+        current = self.get(plan_id)
+        if current.state == "cancelled":
+            return current
+        if current.state in {"running", "succeeded"}:
+            raise ValueError("a running or succeeded plan cannot be cancelled")
+        self._update(
+            plan_id,
+            state="cancelled",
+            confirmation_state="rejected",
+            next_action_index=current.next_action_index,
+            project_revision=current.current_project_revision,
+            error_code=None,
+        )
+        return self.get(plan_id)
 
     def confirm(self, plan_id: str) -> EngineTaskPlanSnapshot:
         current = self.get(plan_id)

@@ -85,7 +85,7 @@ describe('desktop product IPC boundary', () => {
       { project_id: 'project:one', user_instruction: '统一颜色' },
     )).resolves.toEqual({ ok: true, value: { accepted: true } })
     expect(request).toHaveBeenCalledWith(
-      'agent.decide',
+      'agent.engine.decide',
       { project_id: 'project:one', user_instruction: '统一颜色' },
       AGENT_DECIDE_REQUEST_TIMEOUT_MS,
     )

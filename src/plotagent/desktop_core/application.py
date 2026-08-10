@@ -434,7 +434,9 @@ class DesktopApplication:
             "engine.plots.get": self._engine_plots_get,
             "agent.engine.plans.create": self._engine_agent_plan_create,
             "agent.engine.plans.get": self._engine_agent_plan_get,
+            "agent.engine.plans.list": self._engine_agent_plan_list,
             "agent.engine.plans.confirm": self._engine_agent_plan_confirm,
+            "agent.engine.plans.cancel": self._engine_agent_plan_cancel,
             "agent.engine.plans.run": self._engine_agent_plan_run,
             "agent.engine.plans.resume": self._engine_agent_plan_run,
             "plots.create": self._plots_create,
@@ -582,12 +584,38 @@ class DesktopApplication:
         stored = session.engine_agent_plans.get(_text(values["plan_id"], "plan_id"))
         return self._engine_agent_plan_payload(session, stored)
 
+    def _engine_agent_plan_list(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            {
+                "project_id": session.project_id,
+                "project_version": session.domain.revision,
+                "plans": tuple(
+                    self._engine_agent_plan_payload(session, stored)
+                    for stored in session.engine_agent_plans.list_all()
+                ),
+            },
+        )
+
     def _engine_agent_plan_confirm(
         self, _context: RpcContext, params: RpcJsonValue | None
     ) -> RpcJsonValue:
         values = _object(params, required={"project_id", "plan_id"})
         session = self._session(_text(values["project_id"], "project_id"))
         stored = session.engine_agent_plans.confirm(_text(values["plan_id"], "plan_id"))
+        return self._engine_agent_plan_payload(session, stored)
+
+    def _engine_agent_plan_cancel(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        plan_id = _text(values["plan_id"], "plan_id")
+        stored = session.engine_agent_plans.cancel(plan_id)
         return self._engine_agent_plan_payload(session, stored)
 
     def _engine_agent_plan_run(

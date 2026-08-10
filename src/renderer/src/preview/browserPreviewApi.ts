@@ -208,6 +208,52 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
         })),
       }
     }
+    if (plan.batch === undefined) {
+      const mutation = plan.input?.target?.kind === 'plot'
+      const plotId = mutation ? plan.input?.target?.id ?? 'plot:preview' : 'plot:preview-agent'
+      const proposalAction: JsonRecord = mutation
+        ? {
+          operation: 'set_title', action_id: 'action:preview', plot_alias: 'active_target',
+          text: '预览修改',
+        }
+        : {
+          operation: 'create_plot', action_id: 'action:preview', plot_alias: 'active_target',
+          profile_id: plan.input?.selectedChartId ?? 'K01', source_alias: 'active_data',
+          bindings: [
+            { role: 'x', field_alias: 'x_field' },
+            { role: 'y', field_alias: 'y_field' },
+          ],
+        }
+      const boundAction: JsonRecord = mutation
+        ? {
+          operation: 'set_title', action_id: 'action:preview', target: plotId,
+          expected_plot_version: plan.outputPlot?.plotVersion
+            ? plan.outputPlot.plotVersion - 1 : 1,
+          text: '预览修改',
+        }
+        : {
+          operation: 'create_plot', action_id: 'action:preview', plot_id: plotId,
+          profile_id: plan.input?.selectedChartId ?? 'K01',
+        }
+      return {
+        plan_id: plan.planId,
+        project_version: projects.get(plan.projectId)?.projectVersion ?? 0,
+        state: plan.state,
+        confirmation_state: plan.confirmationState,
+        next_action_index: plan.state === 'succeeded' ? 1 : 0,
+        current_project_revision: projects.get(plan.projectId)?.projectVersion ?? 0,
+        error_code: null,
+        proposal: {
+          schema_version: 'engine-agent.v1', decision_type: 'action_plan',
+          plan_id: plan.planId, target_alias: 'active_target', actions: [proposalAction],
+        },
+        bound_plan: {
+          plan_id: plan.planId,
+          expected_project_revision: projects.get(plan.projectId)?.projectVersion ?? 0,
+          actions: [boundAction],
+        },
+      }
+    }
     const actionType = plan.batch !== undefined
       ? 'create_batch'
       : plan.input?.target?.kind === 'plot' ? 'patch_plot' : 'create_plot'
@@ -472,14 +518,13 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
         projectId: input.projectId,
         planId: `plan:preview-${agentPlanSequence}`,
         input,
-        state: 'ready',
-        confirmationState: 'not_required',
+        state: 'needs_confirmation',
+        confirmationState: 'pending',
       }
       agentPlans.set(plan.planId, plan)
       const taskPlan = agentPlanRecord(plan)
-      return ok({ accepted: true, conversation_id: 'conversation:main', decision: taskPlan.source_plan, task_plan: taskPlan })
+      return ok({ accepted: true, conversation_id: 'conversation:main', decision: taskPlan.proposal, task_plan: taskPlan })
     },
-    getAgentContext: async () => ok({ conversation_id: 'conversation:main', exists: true }),
     getAgentPlan: async ({ planId }) => {
       const plan = agentPlans.get(planId)
       return plan === undefined ? missing('未找到 Agent 计划。') : ok(agentPlanRecord(plan))
@@ -492,8 +537,12 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
     confirmAgentPlan: async ({ planId, accept }) => {
       const plan = agentPlans.get(planId)
       if (plan === undefined) return missing('未找到 Agent 计划。')
-      plan.state = accept ? 'ready' : 'cancelled'
-      plan.confirmationState = accept ? 'confirmed' : 'rejected'
+      if (!accept) {
+        agentPlans.delete(planId)
+        return ok({ plan_id: planId, state: 'cancelled' })
+      }
+      plan.state = 'ready'
+      plan.confirmationState = 'confirmed'
       return ok(agentPlanRecord(plan))
     },
     runAgentPlan: async ({ projectId, planId }) => {
@@ -570,7 +619,6 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       })
     },
     resumeAgentPlan: async (input) => api.runAgentPlan(input),
-    getAgentPlanEvents: async ({ planId }) => ok({ plan_id: planId, events: [] }),
     exportPngSvg: async ({ format }) => ok({ export_id: `export:preview-${format}`, preview_only: true }),
     exportOrigin: async () => ok({ export_id: 'export:preview-opju', preview_only: true }),
     respondToCloseRequest: actionOk,

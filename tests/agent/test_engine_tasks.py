@@ -131,3 +131,18 @@ def test_bound_action_serialization_remains_the_public_engine_contract() -> None
     restored = decode_action(encode_action(bound.actions[1]))
     assert restored == bound.actions[1]
     assert "PlotSpec" not in encode_action(restored)
+
+
+def test_pending_plans_can_be_listed_and_explicitly_cancelled(tmp_path: Path) -> None:
+    proposal, bound = _plans()
+    with ProjectStore.create(tmp_path / "project", project_id="project:tasks") as project:
+        repository = EngineAgentPlanRepository(project)
+        repository.create(proposal, bound)
+
+        assert tuple(item.proposal.plan_id for item in repository.list_all()) == (
+            proposal.plan_id,
+        )
+        cancelled = repository.cancel(proposal.plan_id)
+        assert cancelled.state == "cancelled"
+        assert cancelled.confirmation_state == "rejected"
+        assert repository.list_all() == (cancelled,)

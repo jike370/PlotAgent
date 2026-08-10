@@ -8,7 +8,6 @@ import type { BrowserWindow, Dialog, IpcMain } from 'electron'
 import {
   DESKTOP_API_VERSION,
   IPC_CHANNELS,
-  parseAgentContextInput,
   parseAgentDecideInput,
   parseAgentPlanConfirmInput,
   parseAgentPlanInput,
@@ -215,7 +214,7 @@ export function requestAgentDecision(
   return requestCoreData(
     supervisor,
     resources,
-    'agent.decide',
+    'agent.engine.decide',
     params,
     'preview',
     AGENT_DECIDE_REQUEST_TIMEOUT_MS,
@@ -754,29 +753,29 @@ export function registerDesktopIpc({
     const input = parseAgentDecideInput(value)
     return input === null
       ? invalidDataArgument('Agent 指令、作用对象或范围无效。')
-      : requestAgentDecision(supervisor, resources, {
+      : input.scope !== 'current'
+        || (input.target !== undefined && input.target.kind !== 'plot')
+        ? invalidDataArgument('Agent Native currently accepts a dataset or one plot target.')
+        : requestAgentDecision(supervisor, resources, {
         project_id: input.projectId,
         source_dataset_id: input.sourceDatasetId,
         source_version: input.sourceVersion,
         user_instruction: input.utterance,
         client_model_run_id: `model-run:${randomUUID()}`,
         expected_version: input.expectedVersion,
-        execution_mode: input.executionMode,
         locale: 'zh-CN',
-        scope: input.scope,
         ...(input.conversationId === undefined
           ? {} : { conversation_id: input.conversationId }),
         ...(input.selectedChartId === undefined
-          ? {} : { selected_chart_id: input.selectedChartId }),
-        ...(input.target === undefined ? {} : { target: input.target }),
+          ? {} : { selected_profile_id: input.selectedChartId }),
+        ...(input.target === undefined ? {} : { target_plot_id: input.target.id }),
       })
   })
 
   for (const [channel, method] of [
-    [IPC_CHANNELS.agentPlanGet, 'agent.plans.get'],
-    [IPC_CHANNELS.agentPlanRun, 'agent.plans.run'],
-    [IPC_CHANNELS.agentPlanResume, 'agent.plans.resume'],
-    [IPC_CHANNELS.agentPlanEvents, 'agent.plans.events'],
+    [IPC_CHANNELS.agentPlanGet, 'agent.engine.plans.get'],
+    [IPC_CHANNELS.agentPlanRun, 'agent.engine.plans.run'],
+    [IPC_CHANNELS.agentPlanResume, 'agent.engine.plans.resume'],
   ] as const) {
     ipcMain.handle(channel, (_event, value: unknown) => {
       const input = parseAgentPlanInput(value)
@@ -790,17 +789,14 @@ export function registerDesktopIpc({
   }
 
   for (const [channel, method] of [
-    [IPC_CHANNELS.agentContextGet, 'agent.context.get'],
-    [IPC_CHANNELS.agentPlanList, 'agent.plans.list'],
+    [IPC_CHANNELS.agentPlanList, 'agent.engine.plans.list'],
   ] as const) {
     ipcMain.handle(channel, (_event, value: unknown) => {
-      const input = parseAgentContextInput(value)
+      const input = parseProjectIdInput(value)
       return input === null
         ? invalidDataArgument('Agent 上下文参数无效。')
         : requestCoreData(supervisor, resources, method, {
           project_id: input.projectId,
-          ...(input.conversationId === undefined
-            ? {} : { conversation_id: input.conversationId }),
         })
     })
   }
@@ -809,10 +805,11 @@ export function registerDesktopIpc({
     const input = parseAgentPlanConfirmInput(value)
     return input === null
       ? invalidDataArgument('Agent 计划确认参数无效。')
-      : requestCoreData(supervisor, resources, 'agent.plans.confirm', {
+      : requestCoreData(supervisor, resources, input.accept
+        ? 'agent.engine.plans.confirm'
+        : 'agent.engine.plans.cancel', {
         project_id: input.projectId,
         plan_id: input.planId,
-        accept: input.accept,
       })
   })
 

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   CORE_PROTOCOL_VERSION,
-  parseAgentContextInput,
   parseAgentDecideInput,
   parseAgentPlanConfirmInput,
   parseAgentPlanInput,
@@ -121,8 +120,6 @@ describe('desktop contract validation', () => {
       scope: 'batch',
       utterance: '修改上一批',
     })).toBeNull()
-    expect(parseAgentContextInput({ projectId: 'project:one', conversationId: 'conversation:one' }))
-      .toEqual({ projectId: 'project:one', conversationId: 'conversation:one' })
     expect(parseAgentPlanInput({ projectId: 'project:one', planId: 'plan:one' }))
       .toEqual({ projectId: 'project:one', planId: 'plan:one' })
     expect(parseAgentPlanConfirmInput({ projectId: 'project:one', planId: 'plan:one', accept: true }))

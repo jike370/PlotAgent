@@ -764,7 +764,10 @@ export function App(): React.JSX.Element {
     setBusyAction('agent-plan')
     try {
       const value = valueOrThrow(await api.confirmAgentPlan({ projectId: project.projectId, planId, accept: false }))
-      setAgentPlan(readAgentPlan(value))
+      if (!isJsonRecord(value) || value.state !== 'cancelled') {
+        throw new Error('Core did not confirm plan cancellation.')
+      }
+      setAgentPlan(undefined)
       setAgentOutcome({ kind: 'no_change', title: '计划已取消', message: '未修改任何项目对象。' })
     } catch (error) {
       setAgentOutcome({ kind: 'rejected', title: '计划未取消', message: errorNotice(error).message })

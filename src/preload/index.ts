@@ -7,7 +7,6 @@ import {
   type CloseResponse,
   type CoreStatus,
   type CustomProviderConfigureInput,
-  type AgentContextInput,
   type AgentDecideInput,
   type AgentPlanConfirmInput,
   type AgentPlanInput,
@@ -94,11 +93,9 @@ const desktop = {
   getFigure: (input: FigureIdInput) => ipcRenderer.invoke(IPC_CHANNELS.figureGet, input),
   renderFigure: (input: FigureIdInput) => ipcRenderer.invoke(IPC_CHANNELS.figureRender, input),
   decideAgent: (input: AgentDecideInput) => ipcRenderer.invoke(IPC_CHANNELS.agentDecide, input),
-  getAgentContext: (input: AgentContextInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.agentContextGet, input),
   getAgentPlan: (input: AgentPlanInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.agentPlanGet, input),
-  listAgentPlans: (input: AgentContextInput) =>
+  listAgentPlans: (input: ProjectIdInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.agentPlanList, input),
   confirmAgentPlan: (input: AgentPlanConfirmInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.agentPlanConfirm, input),
@@ -106,8 +103,6 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.agentPlanRun, input),
   resumeAgentPlan: (input: AgentPlanInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.agentPlanResume, input),
-  getAgentPlanEvents: (input: AgentPlanInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.agentPlanEvents, input),
   exportPngSvg: (input: PngSvgExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportPngSvg, input),
   exportOrigin: (input: OriginExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportOrigin, input),
   respondToCloseRequest: (response: CloseResponse) =>

@@ -651,7 +651,82 @@ function actionTitle(action: JsonRecord): string {
   return labels[actionType] ?? '执行任务'
 }
 
+function engineActionTitle(action: JsonRecord): string {
+  const operation = stringValue(action, 'operation') ?? 'unknown'
+  const labels: Record<string, string> = {
+    create_plot: '创建图形',
+    bind_fields: '更新字段绑定',
+    set_title: '修改标题',
+    set_axis: '修改坐标轴',
+    set_series_style: '修改系列样式',
+    set_legend: '修改图例',
+    set_chart_parameter: '修改图形参数',
+    add_annotation: '添加标注',
+    export_plot: '导出图形',
+  }
+  return labels[operation] ?? operation
+}
+
+function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
+  const plan = records(value, (record) => (
+    typeof record.plan_id === 'string'
+    && isJsonRecord(record.proposal)
+    && isJsonRecord(record.bound_plan)
+  )).at(0)
+  if (plan === undefined) return undefined
+  const proposal = plan.proposal as JsonRecord
+  const boundPlan = plan.bound_plan as JsonRecord
+  const proposedActions = Array.isArray(proposal.actions)
+    ? proposal.actions.filter(isJsonRecord) : []
+  const boundActions = Array.isArray(boundPlan.actions)
+    ? boundPlan.actions.filter(isJsonRecord) : []
+  const state = stringValue(plan, 'state') ?? 'needs_confirmation'
+  const nextActionIndex = numberValue(plan, 'next_action_index') ?? 0
+  const errorCode = stringValue(plan, 'error_code')
+  const steps = proposedActions.map((action, index): AgentPlanStep => {
+    const bound = boundActions[index] ?? {}
+    const succeeded = index < nextActionIndex || state === 'succeeded'
+    const failed = state === 'partially_failed' && index === nextActionIndex
+    const running = state === 'running' && index === nextActionIndex
+    const plotId = stringValue(bound, 'plot_id')
+      ?? (typeof bound.target === 'string' && bound.target.startsWith('plot:')
+        ? bound.target : undefined)
+    const outputVersion = bound.operation === 'create_plot'
+      ? 1
+      : typeof bound.expected_plot_version === 'number'
+        ? bound.expected_plot_version + (bound.operation === 'export_plot' ? 0 : 1)
+        : undefined
+    return {
+      taskItemId: stringValue(action, 'action_id') ?? `action:${index + 1}`,
+      actionType: stringValue(action, 'operation') ?? 'unknown',
+      title: engineActionTitle(action),
+      state: succeeded ? 'succeeded' : failed ? 'failed' : running ? 'running' : 'pending',
+      attemptCount: succeeded || failed ? 1 : 0,
+      ...(failed ? {
+        failure: {
+          code: errorCode ?? 'ENGINE_ACTION_FAILED',
+          message: '该动作未完成，可以从这里继续执行。',
+          retryable: true,
+        },
+      } : {}),
+      ...(plotId !== undefined && outputVersion !== undefined
+        ? { outputPlot: { plotId, plotVersion: outputVersion } } : {}),
+    }
+  })
+  return {
+    planId: plan.plan_id as string,
+    state,
+    confirmationState: stringValue(plan, 'confirmation_state') ?? 'pending',
+    warnings: [],
+    steps,
+    completedCount: steps.filter((step) => step.state === 'succeeded').length,
+    resumable: state === 'partially_failed',
+  }
+}
+
 export function readAgentPlan(value: JsonValue): AgentPlanView | undefined {
+  const enginePlan = readEngineAgentPlan(value)
+  if (enginePlan !== undefined) return enginePlan
   const plan = records(value, (record) => (
     typeof record.plan_id === 'string' && Array.isArray(record.items) && isJsonRecord(record.source_plan)
   )).at(0)

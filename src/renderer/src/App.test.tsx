@@ -89,7 +89,7 @@ function agentPlanFixture(
   const planId = options.planId ?? 'plan:one'
   const plotVersion = options.plotVersion
   const action = {
-    action_type: 'patch_plot',
+    operation: 'set_title',
     action_id: 'action:one',
     target_alias: 'active_target',
     patches: [{ operation: 'set_plot_title', target_alias: 'active_target', title: '更新后的标题' }],
@@ -98,13 +98,26 @@ function agentPlanFixture(
     plan_id: planId,
     state,
     confirmation_state: state === 'needs_confirmation' ? 'pending' : 'confirmed',
-    source_plan: {
-      schema_version: '1.0',
+    next_action_index: state === 'succeeded' ? 1 : 0,
+    current_project_revision: 2,
+    error_code: options.failure === undefined ? null : 'SYNTHETIC_FAILURE',
+    proposal: {
+      schema_version: 'engine-agent.v1',
       decision_type: 'action_plan',
       plan_id: planId,
       target_alias: 'active_target',
-      confirmation: 'required',
       actions: [action],
+    },
+    bound_plan: {
+      plan_id: planId,
+      expected_project_revision: 2,
+      actions: [{
+        operation: 'set_title',
+        action_id: 'action:one',
+        target: 'plot:one',
+        expected_plot_version: plotVersion === undefined ? 1 : plotVersion - 1,
+        text: 'Updated title',
+      }],
     },
     items: [{
       task_item_id: 'taskitem:one',
@@ -225,13 +238,11 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     getFigure: vi.fn(async () => ok({ figure: { figure_id: 'figure:one', figure_version: 1 } })),
     renderFigure: vi.fn(async () => ok({ figure_id: 'figure:one', figure_version: 1, artifact: { resource: { resourceId: 'resource:figure', kind: 'preview', url: 'plotagent-resource://local/00000000-0000-0000-0000-000000000002' } } })),
     decideAgent: vi.fn(async () => ok(agentDecisionWithPlan(agentPlanFixture()))),
-    getAgentContext: vi.fn(async () => ok({ conversation_id: 'conversation:main', exists: false })),
     getAgentPlan: vi.fn(async () => ok({})),
     listAgentPlans: vi.fn(async () => ok({ plans: [] })),
     confirmAgentPlan: vi.fn(async () => ok(agentPlanFixture('ready', 'ready'))),
     runAgentPlan: vi.fn(async () => ok({ task_plan: agentPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
     resumeAgentPlan: vi.fn(async () => ok({ task_plan: agentPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
-    getAgentPlanEvents: vi.fn(async () => ok({ events: [] })),
     exportPngSvg: vi.fn(async () => ok({ export_id: 'export:one', artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: 'plot.png' } } })),
     exportOrigin: vi.fn(async () => ok({ export_id: 'export:origin', result: { status: 'succeeded' } })),
     respondToCloseRequest: vi.fn(actionOk),
@@ -847,7 +858,7 @@ describe('PlotAgent real desktop workflow', () => {
 
   it('restores a partial plan and resumes only its unfinished work', async () => {
     const user = userEvent.setup()
-    const partial = agentPlanFixture('partial_success', 'failed', {
+    const partial = agentPlanFixture('partially_failed', 'failed', {
       failure: { code: 'ORIGIN_EXPORT_FAILED', message: 'OPJU 导出未完成。', retryable: true },
     })
     const resumeAgentPlan = vi.fn(async () => ok({
@@ -862,7 +873,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(await screen.findByRole('button', { name: '示例' }))
 
     expect(await screen.findByText('部分完成')).toBeInTheDocument()
-    expect(screen.getByText('OPJU 导出未完成。')).toBeInTheDocument()
+    expect(screen.getByText('该动作未完成，可以从这里继续执行。')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '继续未完成步骤' }))
 
     expect(resumeAgentPlan).toHaveBeenCalledWith({ projectId: 'project:sample', planId: 'plan:one' })

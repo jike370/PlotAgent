@@ -8,10 +8,8 @@ export type JsonPrimitive = boolean | number | string | null
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
 
 export const IPC_CHANNELS = {
-  agentContextGet: 'plotagent:agent:context-get',
   agentDecide: 'plotagent:agent:decide',
   agentPlanConfirm: 'plotagent:agent:plan-confirm',
-  agentPlanEvents: 'plotagent:agent:plan-events',
   agentPlanGet: 'plotagent:agent:plan-get',
   agentPlanList: 'plotagent:agent:plan-list',
   agentPlanResume: 'plotagent:agent:plan-resume',
@@ -263,10 +261,6 @@ export interface AgentDecideInput extends ProjectIdInput {
   readonly utterance: string
 }
 
-export interface AgentContextInput extends ProjectIdInput {
-  readonly conversationId?: string
-}
-
 export interface AgentPlanInput extends ProjectIdInput {
   readonly planId: string
 }
@@ -340,13 +334,11 @@ export interface PlotAgentDesktopApi {
   getFigure(input: FigureIdInput): Promise<DesktopDataResult>
   renderFigure(input: FigureIdInput): Promise<DesktopDataResult>
   decideAgent(input: AgentDecideInput): Promise<DesktopDataResult>
-  getAgentContext(input: AgentContextInput): Promise<DesktopDataResult>
   getAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
-  listAgentPlans(input: AgentContextInput): Promise<DesktopDataResult>
+  listAgentPlans(input: ProjectIdInput): Promise<DesktopDataResult>
   confirmAgentPlan(input: AgentPlanConfirmInput): Promise<DesktopDataResult>
   runAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
   resumeAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
-  getAgentPlanEvents(input: AgentPlanInput): Promise<DesktopDataResult>
   exportPngSvg(input: PngSvgExportInput): Promise<DesktopDataResult>
   exportOrigin(input: OriginExportInput): Promise<DesktopDataResult>
   respondToCloseRequest(response: CloseResponse): Promise<DesktopActionResult>
@@ -698,14 +690,6 @@ export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {
     scope: parsed.scope as AgentDecideInput['scope'],
     utterance,
   }
-}
-
-export function parseAgentContextInput(value: unknown): AgentContextInput | null {
-  if (!isRecord(value) || !hasExactKeys(value, ['projectId'], ['conversationId'])) return null
-  const projectId = parseId(value.projectId)
-  const conversationId = value.conversationId === undefined ? undefined : parseId(value.conversationId)
-  if (projectId === null || (value.conversationId !== undefined && conversationId === null)) return null
-  return { projectId, ...(typeof conversationId === 'string' ? { conversationId } : {}) }
 }
 
 export function parseAgentPlanInput(value: unknown): AgentPlanInput | null {
