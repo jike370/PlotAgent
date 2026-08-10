@@ -16,8 +16,8 @@ from scripts.visual_source_identity import (
 )
 
 REPOSITORY = Path(__file__).resolve().parents[2]
-SOURCE_COMMIT = "e037d1e1b977d93c287bd6ff483a7948769fe652"
-SOURCE_SHA256 = "8aa50e15937ebd535650b920bc14c6bcdcf5d4a43a34a9f1e692563b52f2ec78"
+SOURCE_COMMIT = "5982a0853de03f908063b8f24e7f13ef89d81bb9"
+SOURCE_SHA256 = "60d6f4bd58ca3cd86dc9e86c3ca2d1752c6c94e1dc981018fa8f429db8f8401d"
 SOURCE_SCOPE = (
     Path("pyproject.toml"),
     Path("src/plotagent/charts"),
