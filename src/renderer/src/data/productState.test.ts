@@ -41,49 +41,43 @@ describe('product plot state', () => {
     })
   })
 
-  it('reads versioned style targets from the nested desktop PlotSpec response', () => {
+  it('reads semantic objects, public actions, and capabilities from PlotDocument', () => {
     const plot = readPlot({
       project_version: 7,
-      artifact: {
+      preview: {
         resourceId: 'resource:preview',
         kind: 'preview',
         url: 'plotagent-resource://preview/plot-test.png',
       },
-      spec: {
+      document: {
         plot_id: 'plot:test',
         plot_version: 3,
-        chart_type_id: 'K02',
-        series: [
-          {
-            series_id: 'series:test.0',
-            style: {
-              color: { value: '#123456' },
-              line_width: { value: 1.5, unit: 'pt' },
-              marker_size: { value: 7, unit: 'pt' },
-              line_style: 'dashed',
-              symbol: { shape: 'diamond', interior: 'hollow' },
-              palette: null,
-            },
-          },
-        ],
-        scales: [
-          { scale_id: 'scale:x', kind: 'linear', axis_range: { minimum: null, maximum: null, reverse: false }, ticks: { major_interval: null, number_format: 'auto', decimal_places: 2 } },
-          { scale_id: 'scale:y', kind: 'log10', axis_range: { minimum: 0.1, maximum: 100, reverse: false }, ticks: { major_interval: 10, number_format: 'scientific', decimal_places: 1 } },
-          { scale_id: 'scale:y_right', kind: 'linear', axis_range: { minimum: 4, maximum: 9, reverse: true } },
-        ],
-        axes: [
-          { axis_id: 'axis:x', scale_id: 'scale:x', orientation: 'x', position: 'bottom', label: { nodes: [{ kind: 'plain', text: 'Time' }] } },
-          { axis_id: 'axis:y', scale_id: 'scale:y', orientation: 'y', position: 'left', label: { nodes: [{ kind: 'plain', text: 'Signal' }] } },
-          { axis_id: 'axis:y_right', scale_id: 'scale:y_right', orientation: 'y', position: 'right', label: { nodes: [{ kind: 'plain', text: 'Temperature' }] } },
-        ],
-        legend: { visible: false, placement: 'outside_right' },
-        title: { nodes: [{ kind: 'plain', text: 'Persisted title' }] },
-        resolved_style: { font_size: { value: 11, unit: 'pt' } },
-        annotations: [{ annotation_id: 'annotation:test', kind: 'reference_line', text: null, x: null, y: 5, x2: null, y2: null }],
-        publication_profile: {
-          physical_size: { width: { value: 720, unit: 'pt' }, height: { value: 100, unit: 'mm' } },
-        },
+        profile_id: 'K02',
       },
+      profile: {
+        profile_id: 'K02',
+        objects: [
+          { object_alias: 'x_axis', object_kind: 'axis', object_key: 'x' },
+          { object_alias: 'y_axis', object_kind: 'axis', object_key: 'y' },
+          { object_alias: 'series_1', object_kind: 'series', object_key: 'primary' },
+          { object_alias: 'legend', object_kind: 'legend', object_key: 'main' },
+        ],
+        capabilities: [
+          { operation: 'set_title', parameters: ['text'] },
+          { operation: 'set_axis', parameters: ['label', 'scale', 'bounds', 'reverse'] },
+          { operation: 'set_series_style', parameters: ['color', 'line_width_pt', 'line_style', 'symbol', 'symbol_size_pt'] },
+          { operation: 'set_legend', parameters: ['visible', 'anchor'] },
+          { operation: 'add_annotation', parameters: ['text'] },
+        ],
+      },
+      actions: [
+        { operation: 'set_title', target: 'plot:test', text: 'Persisted title' },
+        { operation: 'set_axis', target: 'axis:test.x', label: 'Time' },
+        { operation: 'set_axis', target: 'axis:test.y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100 },
+        { operation: 'set_series_style', target: 'series:test.primary', color: '#123456', line_width_pt: 1.5, symbol_size_pt: 7, line_style: 'dash', symbol: 'diamond' },
+        { operation: 'set_legend', target: 'legend:test.main', visible: false, anchor: 'right' },
+        { operation: 'add_annotation', target: 'plot:test', annotation_id: 'annotation:test', text: 'Peak', x: 2, y: 5 },
+      ],
     })
 
     expect(plot).toMatchObject({
@@ -91,27 +85,26 @@ describe('product plot state', () => {
       plotVersion: 3,
       chartId: 'K02',
       plotTitle: 'Persisted title',
-      fontSizePt: 11,
+      fontSizePt: 9,
       projectVersion: 7,
-      seriesIds: ['series:test.0'],
-      axisIds: { x: 'axis:x', y: 'axis:y', yRight: 'axis:y_right' },
+      seriesIds: ['series:test.primary'],
+      axisIds: { x: 'axis:test.x', y: 'axis:test.y' },
       axisStates: {
-        x: { axisId: 'axis:x', label: 'Time', scale: 'linear', reverse: false, numberFormat: 'auto', decimalPlaces: 2 },
-        y: { axisId: 'axis:y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100, reverse: false, majorInterval: 10, numberFormat: 'scientific', decimalPlaces: 1 },
-        yRight: { axisId: 'axis:y_right', label: 'Temperature', scale: 'linear', minimum: 4, maximum: 9, reverse: true, numberFormat: 'auto', decimalPlaces: 2 },
+        x: { axisId: 'axis:test.x', label: 'Time', scale: 'linear', reverse: false },
+        y: { axisId: 'axis:test.y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100, reverse: false },
       },
-      canvasSizeMm: { width: 254, height: 100 },
-      annotations: [{ annotationId: 'annotation:test', kind: 'reference_line', text: '', y: 5 }],
-      style: { legendVisible: false, legendPlacement: 'outside_right' },
+      canvasSizeMm: { width: 183, height: 120 },
+      annotations: [{ annotationId: 'annotation:test', kind: 'text', text: 'Peak', x: 2, y: 5 }],
+      style: { legendVisible: false, legendPlacement: 'right' },
     })
     expect(plot?.seriesStyles[0]?.style).toEqual({
       color: '#123456',
       lineWidthPt: 1.5,
       markerSizePt: 7,
-      lineStyle: 'dashed',
+      lineStyle: 'dash',
       symbolShape: 'diamond',
-      symbolInterior: 'hollow',
     })
+    expect(plot?.engineCapabilities?.set_axis).toEqual(['label', 'scale', 'bounds', 'reverse'])
     expect(plot?.preview?.url).toBe('plotagent-resource://preview/plot-test.png')
   })
 
@@ -119,8 +112,16 @@ describe('product plot state', () => {
     const plots = readPlots({
       project_version: 9,
       plots: [
-        { plot_id: 'plot:zeta', plot_version: 4, chart_type_id: 'K01' },
-        { plot_id: 'plot:alpha', plot_version: 2, chart_type_id: 'K02' },
+        {
+          document: { plot_id: 'plot:zeta', plot_version: 4, profile_id: 'K01' },
+          profile: { profile_id: 'K01', objects: [], capabilities: [] },
+          actions: [],
+        },
+        {
+          document: { plot_id: 'plot:alpha', plot_version: 2, profile_id: 'K02' },
+          profile: { profile_id: 'K02', objects: [], capabilities: [] },
+          actions: [],
+        },
       ],
     })
 

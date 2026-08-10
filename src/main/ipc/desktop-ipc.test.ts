@@ -133,7 +133,7 @@ describe('desktop product IPC boundary', () => {
     )
   })
 
-  it('routes persisted plot discovery through the project-scoped plots.list method', async () => {
+  it('routes persisted plot discovery through the project-scoped engine list method', async () => {
     const request = vi.fn(async () => ({
       project_id: 'project:recovered',
       project_version: 7,
@@ -150,7 +150,7 @@ describe('desktop product IPC boundary', () => {
       'project:recovered',
     )).resolves.toMatchObject({ ok: true })
     expect(request).toHaveBeenCalledWith(
-      'plots.list',
+      'engine.plots.list',
       { project_id: 'project:recovered' },
       undefined,
     )

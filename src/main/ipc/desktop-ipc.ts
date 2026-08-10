@@ -18,13 +18,11 @@ import {
   parseCloseResponse,
   parseCustomProviderConfigureInput,
   parseDatasetDescribeInput,
+  parseEngineActionInput,
   parseFigureCreateInput,
   parseFigureIdInput,
   parseOriginExportInput,
-  parsePlotCreateInput,
   parsePlotIdInput,
-  parsePlotPatchInput,
-  parsePlotRenderInput,
   parsePngSvgExportInput,
   parseProjectCreateInput,
   parseProjectIdInput,
@@ -229,7 +227,7 @@ export function requestPlotList(
   resources: ResourceRegistry,
   projectId: string,
 ): Promise<DesktopDataResult> {
-  return requestCoreData(supervisor, resources, 'plots.list', { project_id: projectId })
+  return requestCoreData(supervisor, resources, 'engine.plots.list', { project_id: projectId })
 }
 
 export const ORIGIN_EXPORT_REQUEST_TIMEOUT_MS = 925_000
@@ -659,60 +657,32 @@ export function registerDesktopIpc({
     }
   })
 
-  ipcMain.handle(IPC_CHANNELS.plotCreate, (_event, value: unknown) => {
-    const input = parsePlotCreateInput(value)
+  ipcMain.handle(IPC_CHANNELS.engineActionExecute, (_event, value: unknown) => {
+    const input = parseEngineActionInput(value)
     return input === null
-      ? invalidDataArgument('绘图类型或字段映射无效。')
-      : requestCoreData(supervisor, resources, 'plots.create', {
+      ? invalidDataArgument('绘图动作无效或包含未授权内容。')
+      : requestCoreData(supervisor, resources, 'engine.actions.execute', {
         project_id: input.projectId,
-        plot_id: `plot:${randomUUID()}`,
-        chart_type_id: input.chartId,
-        source_dataset_id: input.datasetId,
-        source_version: input.sourceVersion,
-        field_mapping: input.fieldMapping.roles,
-        idempotency_key: `plot-create:${randomUUID()}`,
-        expected_version: input.expectedVersion,
-      })
+        expected_project_version: input.expectedProjectVersion,
+        action: input.action,
+      }, 'preview')
   })
-  ipcMain.handle(IPC_CHANNELS.plotPatch, (_event, value: unknown) => {
-    const input = parsePlotPatchInput(value)
-    return input === null
-      ? invalidDataArgument('绘图修改无效或包含未授权内容。')
-      : requestCoreData(supervisor, resources, 'plots.patch', {
-        project_id: input.projectId,
-        plot_id: input.plotId,
-        expected_version: input.plotVersion,
-        idempotency_key: `plot-patch:${randomUUID()}`,
-        patch: input.patch,
-      })
-  })
-  ipcMain.handle(IPC_CHANNELS.plotGet, (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.enginePlotGet, (_event, value: unknown) => {
     const input = parsePlotIdInput(value)
     return input === null
       ? invalidDataArgument('绘图 ID 无效。')
-      : requestCoreData(supervisor, resources, 'plots.get', {
+      : requestCoreData(supervisor, resources, 'engine.plots.get', {
         project_id: input.projectId,
         plot_id: input.plotId,
         plot_version: input.plotVersion,
       })
   })
-  ipcMain.handle(IPC_CHANNELS.plotList, (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.enginePlotList, (_event, value: unknown) => {
     const input = parseProjectIdInput(value)
     return input === null
       ? invalidDataArgument('项目 ID 无效。')
       : requestPlotList(supervisor, resources, input.projectId)
   })
-  ipcMain.handle(IPC_CHANNELS.plotRender, (_event, value: unknown) => {
-    const input = parsePlotRenderInput(value)
-    return input === null
-      ? invalidDataArgument('绘图渲染请求无效。')
-      : requestCoreData(supervisor, resources, 'plots.render', {
-        project_id: input.projectId,
-        plot_id: input.plotId,
-        plot_version: input.plotVersion,
-      }, 'preview')
-  })
-
   ipcMain.handle(IPC_CHANNELS.batchCreate, (_event, value: unknown) => {
     const input = parseBatchCreateInput(value)
     return input === null

@@ -26,6 +26,7 @@ const readyBootstrap = async (): Promise<DesktopBootstrap> => ({
 const dataset = {
   source_dataset_id: 'source:temperature',
   source_version: 1,
+  content_hash: 'a'.repeat(64),
   row_count: 12,
   field_count: 3,
   fields: [
@@ -35,6 +36,49 @@ const dataset = {
   ],
   quality: { missing_count: 0, nonfinite_count: 0 },
   source_coordinate_kinds: ['text_row'],
+}
+
+function enginePlotFixture(
+  plotId = 'plot:one',
+  plotVersion = 1,
+  profileId = 'K01',
+  projectVersion = plotVersion + 1,
+  actions: JsonValue[] = [],
+): JsonValue {
+  const token = plotId.replace(/^plot:/, '')
+  return {
+    project_id: 'project:test',
+    project_version: projectVersion,
+    plot_id: plotId,
+    plot_version: plotVersion,
+    profile_id: profileId,
+    document: {
+      schema_version: '2.0', plot_id: plotId, plot_version: plotVersion,
+      parent_version: plotVersion === 1 ? null : plotVersion - 1,
+      profile_id: profileId,
+      data: { kind: 'source', dataset_id: 'source:temperature', version: 1, content_hash: 'a'.repeat(64) },
+      bindings: [{ role: 'x', field_id: 'field:time' }, { role: 'y', field_id: 'field:signal' }],
+      components: [], applied_action_ids: actions.map((_, index) => `action:test.${index + 1}`),
+    },
+    actions,
+    profile: {
+      profile_id: profileId,
+      objects: [
+        { object_alias: 'x_axis', object_kind: 'axis', object_key: 'x' },
+        { object_alias: 'y_axis', object_kind: 'axis', object_key: 'y' },
+        { object_alias: 'series_1', object_kind: 'series', object_key: 'primary' },
+        { object_alias: 'legend', object_kind: 'legend', object_key: 'main' },
+      ],
+      capabilities: [
+        { operation: 'set_title', parameters: ['text'] },
+        { operation: 'set_axis', parameters: ['label', 'scale', 'bounds', 'reverse'] },
+        { operation: 'set_series_style', parameters: ['color', 'line_width_pt', 'line_style'] },
+        { operation: 'set_legend', parameters: ['visible', 'anchor'] },
+      ],
+    },
+    readback: { objects: [{ semantic_id: `series:${token}.primary` }] },
+    preview: { resourceId: 'resource:preview', kind: 'preview', url: 'plotagent-resource://local/00000000-0000-0000-0000-000000000001', mimeType: 'image/png' },
+  }
 }
 
 function agentPlanFixture(
@@ -154,11 +198,18 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     importDatasets: vi.fn(async () => ok({ imports: [{ kind: 'committed', project_version: 1, datasets: [dataset] }], project_version: 1 })),
     listDatasets: vi.fn(async () => ok({ project_id: 'project:test', project_version: 1, datasets: [dataset] })),
     describeDataset: vi.fn(async () => ok({ dataset })),
-    createPlot: vi.fn(async (input) => ok({ project_id: input.projectId, project_version: 2, plot_id: 'plot:one', plot_version: 1, chart_type_id: input.chartId })),
-    patchPlot: vi.fn(async () => ok({ project_version: 3, plot_id: 'plot:one', plot_version: 2, chart_type_id: 'K01' })),
-    getPlot: vi.fn(async (input) => ok({ project_version: Math.max(2, input.plotVersion + 1), plot_id: input.plotId, plot_version: input.plotVersion, chart_type_id: 'K01' })),
+    executePlotAction: vi.fn(async (input) => {
+      const action = input.action as Record<string, JsonValue>
+      return ok(enginePlotFixture(
+        typeof action.plot_id === 'string' ? action.plot_id : 'plot:one',
+        action.operation === 'create_plot' ? 1 : 2,
+        typeof action.profile_id === 'string' ? action.profile_id : 'K01',
+        action.operation === 'create_plot' ? 2 : 3,
+        [input.action],
+      ))
+    }),
+    getPlot: vi.fn(async (input) => ok(enginePlotFixture(input.plotId, input.plotVersion))),
     listPlots: vi.fn(async () => ok({ project_version: 1, plots: [] })),
-    renderPlot: vi.fn(async (input) => ok({ plot_id: input.plotId, plot_version: input.plotVersion, artifact: { resource: { resourceId: 'resource:preview', kind: 'preview', url: 'plotagent-resource://local/00000000-0000-0000-0000-000000000001', mimeType: 'image/png' } } })),
     createBatch: vi.fn(async () => ok({ task_plan: batchPlanFixture() })),
     runBatch: vi.fn(async () => ok({ task_id: 'task:batch', batch_id: 'batch:one', state: 'succeeded', project_version: 4, items: [{ item_id: 'item.1', state: 'succeeded' }] })),
     getBatch: vi.fn(async () => ok({
@@ -416,12 +467,9 @@ describe('PlotAgent real desktop workflow', () => {
 
   it('restores and renders the most recently committed plot when a persisted project is activated', async () => {
     const user = userEvent.setup()
-    const getPlot = vi.fn(async (input) => ok({
-      project_version: 7,
-      plot_id: input.plotId,
-      plot_version: input.plotVersion,
-      chart_type_id: 'K02',
-    }))
+    const getPlot = vi.fn(async (input) => ok(
+      enginePlotFixture(input.plotId, input.plotVersion, 'K02', 7),
+    ))
     const api = fakeDesktop({
       listProjects: vi.fn(async () => ok({
         projects: [
@@ -435,8 +483,8 @@ describe('PlotAgent real desktop workflow', () => {
         project_id: projectId,
         project_version: 7,
         plots: [
-          { plot_id: 'plot:zeta', plot_version: 3, chart_type_id: 'K01' },
-          { plot_id: 'plot:alpha', plot_version: 2, chart_type_id: 'K02' },
+          enginePlotFixture('plot:zeta', 3, 'K01', 7),
+          enginePlotFixture('plot:alpha', 2, 'K02', 7),
         ],
       })),
       getPlot,
@@ -450,12 +498,6 @@ describe('PlotAgent real desktop workflow', () => {
       projectId: 'project:recovered',
       plotId: 'plot:alpha',
       plotVersion: 2,
-    })
-    expect(api.renderPlot).toHaveBeenCalledWith({
-      projectId: 'project:recovered',
-      plotId: 'plot:alpha',
-      plotVersion: 2,
-      mode: 'preview',
     })
     expect(await screen.findByRole('img', { name: '线点图 真实渲染预览' })).toBeInTheDocument()
     expect(screen.getByText('plot:alpha · v2')).toBeInTheDocument()
@@ -491,7 +533,14 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '手动映射' }))
     expect(screen.getByRole('heading', { name: '确认字段映射' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
-    expect(api.createPlot).toHaveBeenCalledWith(expect.objectContaining({ chartId: 'K01', fieldMapping: { roles: { x: 'field:time', y: 'field:signal' } } }))
+    expect(api.executePlotAction).toHaveBeenCalledWith(expect.objectContaining({
+      expectedProjectVersion: 1,
+      action: expect.objectContaining({
+        operation: 'create_plot',
+        profile_id: 'K01',
+        bindings: [{ role: 'x', field_id: 'field:time' }, { role: 'y', field_id: 'field:signal' }],
+      }),
+    }))
     expect(await screen.findByRole('img')).toHaveAttribute('src', expect.stringMatching(/^plotagent-resource:/))
   })
 
@@ -584,7 +633,11 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
     await openSampleAndCreatePlot(user)
     await user.click(screen.getByRole('button', { name: '导出 PNG' }))
-    expect(api.exportPngSvg).toHaveBeenCalledWith({ projectId: 'project:sample', target: { kind: 'plot', id: 'plot:one', version: 1 }, format: 'png' })
+    expect(api.exportPngSvg).toHaveBeenCalledWith({
+      projectId: 'project:sample',
+      target: { kind: 'plot', id: expect.stringMatching(/^plot:ui\./), version: 1 },
+      format: 'png',
+    })
     expect(await screen.findAllByText('已导出 PNG')).not.toHaveLength(0)
     expect(screen.getByRole('region', { name: '导出记录' })).toHaveTextContent('PNG 导出记录')
     expect(screen.getByRole('region', { name: '导出记录' })).toHaveTextContent('export:one')
@@ -673,7 +726,7 @@ describe('PlotAgent real desktop workflow', () => {
     }))
     expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
     expect(api.runAgentPlan).toHaveBeenCalledTimes(1)
-    expect(api.renderPlot).toHaveBeenCalledTimes(1)
+    expect(api.getPlot).toHaveBeenCalledTimes(0)
   })
 
   it('allows retry on a new target and ignores a late decision from the old target', async () => {
@@ -729,7 +782,7 @@ describe('PlotAgent real desktop workflow', () => {
 
     expect(screen.getByText('还需加入 1 张图')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '创建组合图' })).toBeDisabled()
-    expect(api.createPlot).toHaveBeenCalledTimes(1)
+    expect(api.executePlotAction).toHaveBeenCalledTimes(1)
     expect(api.createFigure).not.toHaveBeenCalled()
   })
 
@@ -737,15 +790,16 @@ describe('PlotAgent real desktop workflow', () => {
     const user = userEvent.setup()
     let plotSequence = 0
     const api = fakeDesktop({
-      createPlot: vi.fn(async (input) => {
+      executePlotAction: vi.fn(async (input) => {
         plotSequence += 1
-        return ok({
-          project_id: input.projectId,
-          project_version: plotSequence + 1,
-          plot_id: `plot:${plotSequence}`,
-          plot_version: 1,
-          chart_type_id: input.chartId,
-        })
+        const action = input.action as Record<string, JsonValue>
+        return ok(enginePlotFixture(
+          `plot:${plotSequence}`,
+          1,
+          typeof action.profile_id === 'string' ? action.profile_id : 'K01',
+          plotSequence + 1,
+          [input.action],
+        ))
       }),
     })
     installApi(api)
@@ -775,7 +829,7 @@ describe('PlotAgent real desktop workflow', () => {
       ],
       layout: '1x2',
     }))
-    expect(api.createPlot).toHaveBeenCalledTimes(2)
+    expect(api.executePlotAction).toHaveBeenCalledTimes(2)
     expect(await screen.findByText(/组合图 figure:one/)).toBeInTheDocument()
   })
 

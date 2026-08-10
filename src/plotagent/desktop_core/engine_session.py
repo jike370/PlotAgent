@@ -215,10 +215,12 @@ class DesktopEngineSession:
             "profile_id": document.profile_id,
             "document": document.model_dump(mode="json"),
             "actions": actions,
+            "profile": self.catalog.get(document.profile_id).model_dump(mode="json"),
         }
         preview = self._preview_descriptor(document, "png")
         if preview is not None:
             payload["preview"] = preview
+            payload["readback"] = self.matplotlib.readback(document).model_dump(mode="json")
         return payload
 
     def _preview_descriptor(self, document: PlotDocument, format: str) -> dict[str, Any] | None:

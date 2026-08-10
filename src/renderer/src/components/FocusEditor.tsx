@@ -33,11 +33,9 @@ import {
 
 import type { ScopeMode } from './ConversationWorkspace'
 import { BatchPlot } from './PlotVisuals'
-import { SpecialistEditor } from './SpecialistEditor'
 import type { JsonValue } from '../../../shared/desktop-contract'
 import type { ProductPlot } from '../data/productState'
 import {
-  chartProductMetadata,
   paletteCatalog,
   symbolCatalog,
 } from '../data/chartCatalog'
@@ -69,6 +67,72 @@ const symbolNames: Record<string, string> = {
   square: '方形', circle: '圆形', triangle_up: '上三角', triangle_down: '下三角',
   diamond: '菱形', plus: '加号', cross: '叉号', triangle_left: '左三角',
   triangle_right: '右三角', hexagon: '六边形', star: '星形', pentagon: '五边形',
+}
+
+type ChartParameterValue = string | number | boolean
+
+const chartParameterLabels: Record<string, string> = {
+  triangle: '矩阵显示区域',
+  levels: '等高线级数',
+  pareto_reference_percent: '帕累托参考百分比',
+  facet_columns: '分面列数',
+  panel_columns: '面板列数',
+  show_risk_table: '显示风险表',
+  null_effect: '零效应参考值',
+  equal_axes: '坐标轴等比例',
+  show_counts: '显示计数',
+}
+
+function defaultChartParameter(parameter: string): ChartParameterValue {
+  if (parameter === 'triangle') return 'full'
+  if (parameter === 'levels') return 12
+  if (parameter === 'pareto_reference_percent') return 80
+  if (parameter === 'facet_columns' || parameter === 'panel_columns') return 2
+  if (parameter === 'null_effect') return 0
+  if (parameter.startsWith('show_') || parameter === 'equal_axes') return true
+  return 0
+}
+
+function ChartParameterEditor({
+  parameters,
+  values,
+  disabled,
+  onApply,
+}: {
+  parameters: readonly string[]
+  values: Readonly<Record<string, ChartParameterValue>>
+  disabled: boolean
+  onApply: (parameter: string, value: ChartParameterValue) => Promise<void>
+}): React.JSX.Element {
+  const [drafts, setDrafts] = useState<Record<string, ChartParameterValue>>(() => (
+    Object.fromEntries(parameters.map((parameter) => [
+      parameter,
+      values[parameter] ?? defaultChartParameter(parameter),
+    ]))
+  ))
+
+  return <>
+    {parameters.map((parameter) => {
+      const value = drafts[parameter] ?? defaultChartParameter(parameter)
+      const label = chartParameterLabels[parameter] ?? parameter
+      return <form
+        className="parameter-section"
+        key={parameter}
+        onSubmit={(event) => {
+          event.preventDefault()
+          void onApply(parameter, value)
+        }}
+      >
+        <h3>{label}</h3>
+        {parameter === 'triangle'
+          ? <label><span>范围</span><select aria-label={label} value={String(value)} onChange={(event) => setDrafts((current) => ({ ...current, [parameter]: event.target.value }))}><option value="full">完整</option><option value="lower">下三角</option><option value="upper">上三角</option></select></label>
+          : typeof value === 'boolean'
+            ? <label className="parameter-check"><input aria-label={label} type="checkbox" checked={value} onChange={(event) => setDrafts((current) => ({ ...current, [parameter]: event.target.checked }))} /><span>{value ? '启用' : '停用'}</span></label>
+            : <label><span>值</span><input aria-label={label} type="number" value={Number(value)} onChange={(event) => setDrafts((current) => ({ ...current, [parameter]: event.target.valueAsNumber }))} /></label>}
+        <button className="parameter-apply" type="submit" disabled={disabled}>应用参数</button>
+      </form>
+    })}
+  </>
 }
 
 export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEditorProps): React.JSX.Element {
@@ -183,13 +247,27 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
 
   const availableItems = plot ? [{ title: plot.title, file: plot.plotId, series: 'control' as const }] : focusItems
   const active = availableItems[Math.min(activeIndex, availableItems.length - 1)]
-  const editCapabilities = new Set(
-    plot ? chartProductMetadata[plot.chartId]?.editCapabilities ?? [] : [],
-  )
-  const hasSpecialistEdits = [...editCapabilities].some((item) => [
-    'bar_fill', 'bar_edge', 'bar_width', 'bar_gap', 'error_style', 'band_style',
-    'colorbar', 'dual_y_style', 'panel_style', 'y_offset', 'chart_parameters',
-  ].includes(item))
+  const engineCapabilities = plot?.engineCapabilities ?? {}
+  const seriesParameters = new Set(engineCapabilities.set_series_style ?? [])
+  const axisParameters = new Set(engineCapabilities.set_axis ?? [])
+  const legendParameters = new Set(engineCapabilities.set_legend ?? [])
+  const chartParameterNames = engineCapabilities.set_chart_parameter ?? []
+  const editCapabilities = new Set([
+    ...(engineCapabilities.set_title ? ['plot_title'] : []),
+    ...(seriesParameters.has('color') ? ['series_color'] : []),
+    ...(seriesParameters.has('line_width_pt') ? ['line_width'] : []),
+    ...(seriesParameters.has('line_style') ? ['line_style'] : []),
+    ...(seriesParameters.has('symbol') ? ['symbol_shape'] : []),
+    ...(seriesParameters.has('symbol_size_pt') ? ['marker_size'] : []),
+    ...(axisParameters.has('label') ? ['axis_label'] : []),
+    ...(axisParameters.has('scale') ? ['axis_scale'] : []),
+    ...(axisParameters.has('bounds') ? ['axis_range'] : []),
+    ...(axisParameters.has('reverse') ? ['axis_reverse'] : []),
+    ...(legendParameters.has('visible') ? ['legend_visibility'] : []),
+    ...(legendParameters.has('anchor') ? ['legend_position'] : []),
+    ...(engineCapabilities.add_annotation ? ['safe_annotation'] : []),
+  ])
+  const hasSpecialistEdits = chartParameterNames.length > 0
   const selectedSeriesId = plot?.seriesIds[seriesTargetIndex]
   const selectedAxisId = plot?.axisIds[axisTarget]
   const selectedSymbol = symbolCatalog.find((item) => item.shape === symbolShape)
@@ -211,8 +289,7 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
     try {
       await onPatch({
         operation,
-        target_id: targetId,
-        expected_plot_version: plot.plotVersion,
+        target: targetId,
         ...values,
       })
       setEditState('saved')
@@ -225,13 +302,11 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
 
   const applySeriesStyle = async (): Promise<void> => {
     const values: Record<string, JsonValue> = {}
-    if (editCapabilities.has('series_color')) values.color = { value: color }
-    if (editCapabilities.has('line_width')) values.line_width = { value: lineWidth, unit: 'pt' }
+    if (editCapabilities.has('series_color')) values.color = color
+    if (editCapabilities.has('line_width')) values.line_width_pt = lineWidth
     if (editCapabilities.has('line_style')) values.line_style = lineStyle
-    if (editCapabilities.has('marker_size')) values.marker_size = { value: markerSize, unit: 'pt' }
-    if (editCapabilities.has('symbol_shape') || editCapabilities.has('symbol_interior')) {
-      values.symbol = { shape: symbolShape, interior: symbolInterior }
-    }
+    if (editCapabilities.has('marker_size')) values.symbol_size_pt = markerSize
+    if (editCapabilities.has('symbol_shape')) values.symbol = symbolShape
     await applyPatch('set_series_style', selectedSeriesId, values)
   }
 
@@ -249,27 +324,16 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
   }
 
   const applyAnnotation = async (): Promise<void> => {
-    if (!plot) return
+    if (!plot || annotationKind !== 'text') return
     const coordinate = Number(annotationStart)
     const end = Number(annotationEnd)
-    const annotation: Record<string, JsonValue> = {
+    await applyPatch('add_annotation', plot.plotId, {
       annotation_id: `annotation:ui.${plot.plotId.replace('plot:', '')}.v${plot.plotVersion + 1}`,
-      kind: annotationKind,
-      text: annotationKind === 'text' ? { nodes: [{ kind: 'plain', text: annotationText.trim() }] } : null,
-      x: null,
-      y: null,
-      x2: null,
-      y2: null,
-      affect_range: false,
-    }
-    if (annotationKind === 'text') {
-      annotation.x = coordinate
-      annotation.y = end
-    } else {
-      annotation[annotationAxis] = coordinate
-      if (annotationKind === 'reference_band') annotation[`${annotationAxis}2`] = end
-    }
-    await applyPatch('add_annotation', plot.plotId, { annotation })
+      text: annotationText.trim(),
+      x: coordinate,
+      y: end,
+      coordinate_system: 'data',
+    })
   }
 
   return (
@@ -308,8 +372,8 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
           <button className="is-active" type="button" aria-label="选择工具"><MousePointer2 size={17} /></button>
           <button type="button" aria-label="文本标注" disabled={!editCapabilities.has('safe_annotation')} onClick={() => openAnnotationEditor('text')}><Type size={17} /></button>
           <button type="button" aria-label="箭头标注" disabled title="首版不提供箭头标注"><ArrowUpRight size={17} /></button>
-          <button type="button" aria-label="参考带" disabled={!editCapabilities.has('safe_annotation')} onClick={() => openAnnotationEditor('reference_band')}><RectangleHorizontal size={17} /></button>
-          <button type="button" aria-label="参考线" disabled={!editCapabilities.has('safe_annotation')} onClick={() => openAnnotationEditor('reference_line')}><Baseline size={17} /></button>
+          <button type="button" aria-label="参考带" disabled title="公共动作当前仅开放文本标注"><RectangleHorizontal size={17} /></button>
+          <button type="button" aria-label="参考线" disabled title="公共动作当前仅开放文本标注"><Baseline size={17} /></button>
           <button type="button" aria-label="圆形标注" disabled title="首版不提供任意形状"><Circle size={17} /></button>
           <span />
           <button type="button" aria-label="显示网格" disabled title="网格编辑尚未进入资格范围"><Grid2X2 size={17} /></button>
@@ -387,7 +451,7 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
 
             {parameterTab === 'general' && (
               <>
-                {editCapabilities.has('plot_title') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_plot_title', plot?.plotId, { title: plotTitle.trim() === '' ? null : { nodes: [{ kind: 'plain', text: plotTitle.trim() }] } }) }}><h3>图标题</h3><label><span>标题</span><input aria-label="图标题" value={plotTitle} maxLength={256} placeholder="留空即隐藏" onChange={(event) => setPlotTitle(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图标题</button></form>}
+                {editCapabilities.has('plot_title') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_title', plot?.plotId, { text: plotTitle.trim() }) }}><h3>图标题</h3><label><span>标题</span><input aria-label="图标题" value={plotTitle} maxLength={256} placeholder="留空即隐藏" onChange={(event) => setPlotTitle(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图标题</button></form>}
                 {editCapabilities.has('font') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_font_size', plot?.plotId, { size: { value: fontSizePt, unit: 'pt' } }) }}><h3>全局字号</h3><label><span>字号</span><div className="unit-input"><input aria-label="全局字号" type="number" min="5" max="72" step="0.5" value={fontSizePt} onChange={(event) => setFontSizePt(event.target.valueAsNumber)} /><span>pt</span></div></label><p className="parameter-note">字体族固定为资格测试字体栈，避免换机后字形漂移。</p><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !Number.isFinite(fontSizePt) || fontSizePt < 5 || fontSizePt > 72}>应用字号</button></form>}
               </>
             )}
@@ -399,7 +463,7 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
                   {plot && plot.seriesIds.length > 1 && <label><span>作用系列</span><select aria-label="作用系列" value={seriesTargetIndex} onChange={(event) => selectSeries(Number(event.target.value))}>{plot.seriesIds.map((seriesId, index) => <option key={seriesId} value={index}>系列 {index + 1}</option>)}</select></label>}
                   {editCapabilities.has('series_color') && <label><span>颜色</span><input aria-label="系列颜色" type="color" value={color} onChange={(event) => setColor(event.target.value)} /></label>}
                   {editCapabilities.has('line_width') && <label><span>线宽</span><div className="unit-input"><input aria-label="线宽" type="number" min="0.1" max="20" value={lineWidth} step="0.1" onChange={(event) => setLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>}
-                  {editCapabilities.has('line_style') && <label><span>线型</span><select aria-label="线型" value={lineStyle} onChange={(event) => setLineStyle(event.target.value)}><option value="solid">实线</option><option value="dashed">虚线</option><option value="dotted">点线</option><option value="dash_dot">点划线</option></select></label>}
+                  {editCapabilities.has('line_style') && <label><span>线型</span><select aria-label="线型" value={lineStyle} onChange={(event) => setLineStyle(event.target.value)}><option value="solid">实线</option><option value="dash">虚线</option><option value="dot">点线</option><option value="dash_dot">点划线</option></select></label>}
                   {editCapabilities.has('marker_size') && <label><span>符号大小</span><div className="unit-input"><input aria-label="符号大小" type="number" min="0.5" max="72" value={markerSize} step="0.5" onChange={(event) => setMarkerSize(event.target.valueAsNumber)} /><span>pt</span></div></label>}
                   {editCapabilities.has('symbol_shape') && <label><span>Origin 符号</span><select aria-label="Origin 符号" value={symbolShape} onChange={(event) => { const next = event.target.value; setSymbolShape(next); const entry = symbolCatalog.find((item) => item.shape === next); if (!entry?.allowed_interiors.includes(symbolInterior)) setSymbolInterior('solid') }}>{symbolCatalog.map((item) => <option key={item.shape} value={item.shape}>{symbolNames[item.shape] ?? item.shape}</option>)}</select></label>}
                   {editCapabilities.has('symbol_interior') && <label><span>符号内部</span><select aria-label="符号内部" value={symbolInterior} onChange={(event) => setSymbolInterior(event.target.value)}>{(selectedSymbol?.allowed_interiors ?? ['solid']).map((value) => <option key={value} value={value}>{value === 'solid' ? '实心' : value === 'open' ? '开放（遮挡下层线）' : '空心（透出下层线）'}</option>)}</select></label>}
@@ -439,11 +503,15 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
             )}
 
             {parameterTab === 'specialist' && plot && (
-              <SpecialistEditor
-                capabilities={editCapabilities}
-                plot={plot}
+              <ChartParameterEditor
+                parameters={chartParameterNames}
+                values={plot.chartParameters ?? {}}
                 disabled={editState === 'saving'}
-                onApply={(operation, values) => applyPatch(operation, plot.plotId, values)}
+                onApply={(parameter, value) => applyPatch(
+                  'set_chart_parameter',
+                  plot.plotId,
+                  { parameter, value },
+                )}
               />
             )}
 
@@ -453,28 +521,27 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
                   <h3>作用坐标轴</h3>
                   <label><span>坐标轴</span><select aria-label="作用坐标轴" value={axisTarget} onChange={(event) => selectAxis(event.target.value as 'x' | 'y' | 'yRight')}><option value="x">X 轴</option><option value="y">左 Y 轴</option>{plot?.axisIds.yRight && <option value="yRight">右 Y 轴</option>}</select></label>
                 </section>
-                {editCapabilities.has('axis_label') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis_label', selectedAxisId, { label: { nodes: [{ kind: 'plain', text: axisLabel }] } }) }}><h3>轴标题</h3><label><span>标题</span><input aria-label="轴标题" required value={axisLabel} onChange={(event) => setAxisLabel(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisLabel.trim().length === 0}>应用轴标题</button></form>}
-                {editCapabilities.has('axis_scale') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis_scale', selectedAxisId, { scale: axisScale }) }}><h3>轴尺度</h3><label><span>尺度</span><select aria-label="轴尺度" value={axisScale} onChange={(event) => setAxisScale(event.target.value)}><option value="linear">线性</option><option value="log10">Log10</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴尺度</button></form>}
-                {editCapabilities.has('axis_range') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis_range', selectedAxisId, { minimum: Number(axisMinimum), maximum: Number(axisMaximum) }) }}><h3>固定范围</h3><label><span>最小值</span><input aria-label="轴最小值" type="number" required value={axisMinimum} onChange={(event) => setAxisMinimum(event.target.value)} /></label><label><span>最大值</span><input aria-label="轴最大值" type="number" required value={axisMaximum} onChange={(event) => setAxisMaximum(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisMinimum === '' || axisMaximum === '' || Number(axisMinimum) >= Number(axisMaximum)}>应用固定范围</button></form>}
-                {editCapabilities.has('axis_range') && <section className="parameter-section"><h3>自动范围</h3><p className="parameter-note">清除固定上下限，按当前数据重新缩放。</p><button className="parameter-apply" type="button" disabled={editState === 'saving' || !selectedAxisId} onClick={() => { setAxisMinimum(''); setAxisMaximum(''); void applyPatch('set_axis_range', selectedAxisId, { minimum: null, maximum: null }) }}>恢复自动范围</button></section>}
-                {editCapabilities.has('axis_range') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis_reverse', selectedAxisId, { reverse: axisReverse }) }}><h3>轴方向</h3><label className="parameter-check"><input aria-label="反向坐标轴" type="checkbox" checked={axisReverse} onChange={(event) => setAxisReverse(event.target.checked)} /><span>反向显示</span></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴方向</button></form>}
+                {editCapabilities.has('axis_label') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { label: axisLabel }) }}><h3>轴标题</h3><label><span>标题</span><input aria-label="轴标题" required value={axisLabel} onChange={(event) => setAxisLabel(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisLabel.trim().length === 0}>应用轴标题</button></form>}
+                {editCapabilities.has('axis_scale') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { scale: axisScale }) }}><h3>轴尺度</h3><label><span>尺度</span><select aria-label="轴尺度" value={axisScale} onChange={(event) => setAxisScale(event.target.value)}><option value="linear">线性</option><option value="log10">Log10</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴尺度</button></form>}
+                {editCapabilities.has('axis_range') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { minimum: Number(axisMinimum), maximum: Number(axisMaximum) }) }}><h3>固定范围</h3><label><span>最小值</span><input aria-label="轴最小值" type="number" required value={axisMinimum} onChange={(event) => setAxisMinimum(event.target.value)} /></label><label><span>最大值</span><input aria-label="轴最大值" type="number" required value={axisMaximum} onChange={(event) => setAxisMaximum(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisMinimum === '' || axisMaximum === '' || Number(axisMinimum) >= Number(axisMaximum)}>应用固定范围</button></form>}
+                {editCapabilities.has('axis_reverse') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { reverse: axisReverse }) }}><h3>轴方向</h3><label className="parameter-check"><input aria-label="反向坐标轴" type="checkbox" checked={axisReverse} onChange={(event) => setAxisReverse(event.target.checked)} /><span>反向显示</span></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴方向</button></form>}
                 {editCapabilities.has('axis_ticks') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis_ticks', selectedAxisId, { ticks: { major_interval: axisMajorInterval === '' ? null : Number(axisMajorInterval), number_format: axisNumberFormat, decimal_places: axisDecimalPlaces } }) }}><h3>刻度与数字</h3><label><span>主刻度间隔</span><input aria-label="主刻度间隔" type="number" min="0" step="any" value={axisMajorInterval} placeholder="自动" onChange={(event) => setAxisMajorInterval(event.target.value)} /></label><label><span>数字格式</span><select aria-label="刻度数字格式" value={axisNumberFormat} onChange={(event) => setAxisNumberFormat(event.target.value)}><option value="auto">自动</option><option value="fixed">定点小数</option><option value="scientific">科学计数法</option></select></label><label><span>小数位数</span><input aria-label="刻度小数位数" type="number" min="0" max="12" value={axisDecimalPlaces} onChange={(event) => setAxisDecimalPlaces(event.target.valueAsNumber)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || (axisMajorInterval !== '' && Number(axisMajorInterval) <= 0) || !Number.isInteger(axisDecimalPlaces) || axisDecimalPlaces < 0 || axisDecimalPlaces > 12}>应用刻度</button></form>}
               </>
             )}
 
             {parameterTab === 'legend' && (
               <>
-                {editCapabilities.has('legend_visibility') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_legend_visibility', 'legend:main', { visible: legendVisible }) }}><h3>显示</h3><label className="parameter-check"><input type="checkbox" checked={legendVisible} onChange={(event) => setLegendVisible(event.target.checked)} /><span>显示图例</span></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用显示状态</button></form>}
-                {editCapabilities.has('legend_position') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('move_legend', 'legend:main', { placement: legendPlacement, anchor_x: legendPosition.x / 100, anchor_y: legendPosition.y / 100 }) }}><h3>位置</h3><label><span>布局</span><select aria-label="图例位置" value={legendPlacement} onChange={(event) => setLegendPlacement(event.target.value)}><option value="inside">图内</option><option value="outside_right">图外右侧</option><option value="outside_bottom">图外下方</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图例位置</button></form>}
+                {editCapabilities.has('legend_visibility') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_legend', `legend:${plot?.plotId.replace('plot:', '')}.main`, { visible: legendVisible }) }}><h3>显示</h3><label className="parameter-check"><input type="checkbox" checked={legendVisible} onChange={(event) => setLegendVisible(event.target.checked)} /><span>显示图例</span></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用显示状态</button></form>}
+                {editCapabilities.has('legend_position') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_legend', `legend:${plot?.plotId.replace('plot:', '')}.main`, { anchor: legendPlacement === 'outside_right' ? 'right' : legendPlacement === 'outside_bottom' ? 'bottom' : 'inside' }) }}><h3>位置</h3><label><span>布局</span><select aria-label="图例位置" value={legendPlacement} onChange={(event) => setLegendPlacement(event.target.value)}><option value="inside">图内</option><option value="outside_right">图外右侧</option><option value="outside_bottom">图外下方</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图例位置</button></form>}
               </>
             )}
 
             {parameterTab === 'annotation' && (
               editCapabilities.has('safe_annotation') ? <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyAnnotation() }}>
                 <h3>安全标注</h3>
-                <label><span>类型</span><select aria-label="标注类型" value={annotationKind} onChange={(event) => setAnnotationKind(event.target.value as AnnotationKind)}><option value="text">文本</option><option value="reference_line">参考线</option><option value="reference_band">参考带</option></select></label>
+                <label><span>类型</span><select aria-label="标注类型" value={annotationKind} onChange={(event) => setAnnotationKind(event.target.value as AnnotationKind)}><option value="text">文本</option></select></label>
                 {annotationKind === 'text' ? <><label><span>文本</span><input aria-label="标注文本" maxLength={256} value={annotationText} onChange={(event) => setAnnotationText(event.target.value)} /></label><label><span>X 坐标</span><input aria-label="标注 X 坐标" type="number" required value={annotationStart} onChange={(event) => setAnnotationStart(event.target.value)} /></label><label><span>Y 坐标</span><input aria-label="标注 Y 坐标" type="number" required value={annotationEnd} onChange={(event) => setAnnotationEnd(event.target.value)} /></label></> : <><label><span>方向</span><select aria-label="参考对象方向" value={annotationAxis} onChange={(event) => setAnnotationAxis(event.target.value as AnnotationAxis)}><option value="x">垂直（X 值）</option><option value="y">水平（Y 值）</option></select></label><label><span>{annotationKind === 'reference_band' ? '起点' : '位置'}</span><input aria-label="参考对象起点" type="number" required value={annotationStart} onChange={(event) => setAnnotationStart(event.target.value)} /></label>{annotationKind === 'reference_band' && <label><span>终点</span><input aria-label="参考对象终点" type="number" required value={annotationEnd} onChange={(event) => setAnnotationEnd(event.target.value)} /></label>}</>}
-                <p className="parameter-note">标注不改变自动坐标范围；仅开放可稳定映射到 Origin 的文本、参考线和参考带。</p>
+                <p className="parameter-note">当前公共动作仅开放两端均可原生表达的文本标注。</p>
                 <button className="parameter-apply" type="submit" disabled={editState === 'saving' || annotationStart === '' || (annotationKind !== 'reference_line' && annotationEnd === '') || (annotationKind === 'text' && annotationText.trim() === '') || (annotationKind === 'reference_band' && Number(annotationStart) >= Number(annotationEnd))}>添加标注</button>
               </form> : <section className="parameter-section"><p className="parameter-empty">该图尚未通过标注资格测试。</p></section>
             )}

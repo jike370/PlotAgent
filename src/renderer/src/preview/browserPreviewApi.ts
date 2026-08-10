@@ -8,6 +8,10 @@ import {
 
 type JsonRecord = { [key: string]: JsonValue }
 
+function isJsonRecord(value: JsonValue | undefined): value is JsonRecord {
+  return value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)
+}
+
 interface PreviewProject {
   projectId: string
   name: string
@@ -47,16 +51,13 @@ function missing(message: string): DesktopDataResult {
   }
 }
 
-function richText(text: string): JsonRecord {
-  return { nodes: [{ kind: 'text', text }] }
-}
-
 function previewDataset(datasetId: string, label: string, index: number): JsonRecord {
   return {
     source_dataset_id: datasetId,
     source_file_name: '示例数据.xlsx',
     source_sheet_name: label,
     source_version: 1,
+    content_hash: `${index + 1}`.repeat(64),
     row_count: 24 + index * 8,
     field_count: 8,
     fields: [
@@ -322,46 +323,80 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       const dataset = projects.get(projectId)?.datasets.find((item) => item.source_dataset_id === datasetId)
       return dataset ? ok({ dataset }) : missing('界面预览中没有找到该数据集。')
     },
-    createPlot: async (input) => {
+    executePlotAction: async (input) => {
       const project = projects.get(input.projectId)
       if (!project) return missing('界面预览中没有找到该项目。')
-      project.projectVersion += 1
-      plotSequence += 1
-      const plotId = `plot:preview-${plotSequence}`
-      const record: JsonRecord = {
-        project_id: project.projectId,
-        project_version: project.projectVersion,
-        plot_id: plotId,
-        plot_version: 1,
-        chart_type_id: input.chartId,
-        title: richText(`${input.chartId} 科研图预览`),
-        series: [{ series_id: 'series:preview-1', style: { color: { value: '#246fce' }, line_width: { value: 1.2 }, marker_size: { value: 5 } } }],
-        axes: [
-          { axis_id: 'axis:x', orientation: 'x', position: 'bottom', scale_id: 'scale:x', label: richText('X') },
-          { axis_id: 'axis:y', orientation: 'y', position: 'left', scale_id: 'scale:y', label: richText('Y') },
-        ],
-        scales: [
-          { scale_id: 'scale:x', kind: 'linear', axis_range: {}, ticks: { number_format: 'auto', decimal_places: 2 } },
-          { scale_id: 'scale:y', kind: 'linear', axis_range: {}, ticks: { number_format: 'auto', decimal_places: 2 } },
-        ],
-        legend: { visible: true, position: 'best' },
-        publication_profile: { physical_size: { width: { value: 183, unit: 'mm' }, height: { value: 120, unit: 'mm' } } },
-        resolved_style: { font_size: { value: 9, unit: 'pt' } },
+      if (!isJsonRecord(input.action) || typeof input.action.operation !== 'string') {
+        return missing('界面预览收到无效绘图动作。')
       }
-      plots.set(plotKey(project.projectId, plotId), record)
-      return ok(record)
-    },
-    patchPlot: async (input) => {
-      const current = plots.get(plotKey(input.projectId, input.plotId))
-      const project = projects.get(input.projectId)
-      if (!current || !project) return missing('界面预览中没有找到该图形。')
       project.projectVersion += 1
-      const updated = {
+      if (input.action.operation === 'create_plot') {
+        plotSequence += 1
+        const plotId = typeof input.action.plot_id === 'string'
+          ? input.action.plot_id : `plot:preview-${plotSequence}`
+        const profileId = typeof input.action.profile_id === 'string' ? input.action.profile_id : 'K01'
+        const token = plotId.replace(/^plot:/, '')
+        const record: JsonRecord = {
+          project_id: project.projectId,
+          project_version: project.projectVersion,
+          plot_id: plotId,
+          plot_version: 1,
+          profile_id: profileId,
+          document: {
+            schema_version: '2.0', plot_id: plotId, plot_version: 1, parent_version: null,
+            profile_id: profileId, data: input.action.data ?? null,
+            bindings: input.action.bindings ?? [], components: input.action.components ?? [],
+            applied_action_ids: [input.action.action_id],
+          },
+          actions: [input.action],
+          profile: {
+            profile_id: profileId,
+            objects: [
+              { object_alias: 'x_axis', object_kind: 'axis', object_key: 'x' },
+              { object_alias: 'y_axis', object_kind: 'axis', object_key: 'y' },
+              { object_alias: 'series_1', object_kind: 'series', object_key: 'primary' },
+              { object_alias: 'legend', object_kind: 'legend', object_key: 'main' },
+            ],
+            capabilities: [
+              { operation: 'set_title', parameters: ['text'] },
+              { operation: 'set_axis', parameters: ['label', 'scale', 'bounds', 'reverse'] },
+              { operation: 'set_series_style', parameters: ['color', 'line_width_pt', 'line_style', 'symbol', 'symbol_size_pt'] },
+              { operation: 'set_legend', parameters: ['visible', 'anchor'] },
+            ],
+          },
+          readback: { objects: [{ semantic_id: `series:${token}.primary` }] },
+          preview: { resourceId: `resource:preview-${plotId}-1`, kind: 'preview', url: svgDataUrl(plotPreviewSvg(profileId, 1)), mimeType: 'image/svg+xml' },
+        }
+        plots.set(plotKey(project.projectId, plotId), record)
+        return ok(record)
+      }
+      const target = typeof input.action.target === 'string' ? input.action.target : ''
+      const current = [...plots.values()].find((candidate) => {
+        const document = isJsonRecord(candidate.document) ? candidate.document : {}
+        const plotId = typeof document.plot_id === 'string' ? document.plot_id : ''
+        const token = plotId.replace(/^plot:/, '')
+        return target === plotId || target.startsWith(`axis:${token}.`)
+          || target.startsWith(`series:${token}.`) || target.startsWith(`legend:${token}.`)
+      })
+      if (!current || !isJsonRecord(current.document)) return missing('界面预览中没有找到该图形。')
+      const nextVersion = (typeof current.document.plot_version === 'number'
+        ? current.document.plot_version : 1) + 1
+      const actions = Array.isArray(current.actions) ? [...current.actions, input.action] : [input.action]
+      const updated: JsonRecord = {
         ...current,
         project_version: project.projectVersion,
-        plot_version: input.plotVersion + 1,
-      } satisfies JsonRecord
-      plots.set(plotKey(input.projectId, input.plotId), updated)
+        plot_version: nextVersion,
+        document: {
+          ...current.document,
+          plot_version: nextVersion,
+          parent_version: nextVersion - 1,
+          applied_action_ids: actions.flatMap((action) => isJsonRecord(action)
+            && typeof action.action_id === 'string' ? [action.action_id] : []),
+        },
+        actions,
+        preview: { resourceId: `resource:preview-${current.document.plot_id}-${nextVersion}`, kind: 'preview', url: svgDataUrl(plotPreviewSvg(String(current.profile_id ?? 'K01'), nextVersion)), mimeType: 'image/svg+xml' },
+      }
+      plots.set(plotKey(input.projectId, String(current.document.plot_id)), updated)
       return ok(updated)
     },
     getPlot: async ({ projectId, plotId }) => {
@@ -373,16 +408,6 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       project_version: projects.get(projectId)?.projectVersion ?? 0,
       plots: [...plots.values()].filter((plot) => plot.project_id === projectId),
     }),
-    renderPlot: async ({ projectId, plotId, plotVersion }) => {
-      const plot = plots.get(plotKey(projectId, plotId))
-      if (!plot) return missing('界面预览中没有找到该图形。')
-      const chartId = typeof plot.chart_type_id === 'string' ? plot.chart_type_id : 'K01'
-      return ok({
-        plot_id: plotId,
-        plot_version: plotVersion,
-        artifact: { resource: { resourceId: `resource:preview-${plotId}-${plotVersion}`, kind: 'preview', url: svgDataUrl(plotPreviewSvg(chartId, plotVersion)), mimeType: 'image/svg+xml' } },
-      })
-    },
     createBatch: async (input) => {
       const project = projects.get(input.projectId)
       if (!project) return missing('界面预览中没有找到该项目。')
@@ -505,18 +530,24 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
         }
         plots.set(plotKey(projectId, plan.input.target.id), output)
       } else {
-        const created = await api.createPlot({
+        const created = await api.executePlotAction({
           projectId,
-          datasetId: plan.input.sourceDatasetId,
-          sourceVersion: plan.input.sourceVersion,
-          chartId: plan.input.selectedChartId ?? 'K01',
-          fieldMapping: {
-            roles: {
-              x: `${plan.input.sourceDatasetId}:time`,
-              y: `${plan.input.sourceDatasetId}:signal`,
+          expectedProjectVersion: project.projectVersion,
+          action: {
+            operation: 'create_plot',
+            action_id: `action:preview.${crypto.randomUUID()}`,
+            plot_id: `plot:preview-agent-${plotSequence + 1}`,
+            profile_id: plan.input.selectedChartId ?? 'K01',
+            data: {
+              kind: 'source', dataset_id: plan.input.sourceDatasetId,
+              version: plan.input.sourceVersion, content_hash: 'a'.repeat(64),
             },
+            bindings: [
+              { role: 'x', field_id: `${plan.input.sourceDatasetId}:time` },
+              { role: 'y', field_id: `${plan.input.sourceDatasetId}:signal` },
+            ],
+            components: [],
           },
-          expectedVersion: project.projectVersion,
         })
         if (!created.ok || typeof created.value !== 'object' || created.value === null || Array.isArray(created.value)) return created
         output = created.value

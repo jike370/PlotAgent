@@ -9,7 +9,7 @@ import {
   parseCloseResponse,
   parseCoreProtocolMessage,
   parseCustomProviderConfigureInput,
-  parsePlotPatchInput,
+  parseEngineActionInput,
   parseProjectRenameInput,
   parseProjectResourceInput,
   parseTaskEvent,
@@ -70,23 +70,26 @@ describe('desktop contract validation', () => {
     expect(parseProjectRenameInput({ projectId: 'project:one', name: '', path: 'C:\\private' }))
       .toBeNull()
 
-    expect(parsePlotPatchInput({
+    expect(parseEngineActionInput({
       projectId: 'project:one',
-      plotId: 'plot:one',
-      plotVersion: 1,
-      patch: { kind: 'set_axis_scale', scale: 'log10' },
+      expectedProjectVersion: 1,
+      action: {
+        operation: 'set_axis',
+        action_id: 'action:one',
+        target: 'axis:one.x',
+        expected_plot_version: 1,
+        scale: 'log10',
+      },
     })).not.toBeNull()
-    expect(parsePlotPatchInput({
+    expect(parseEngineActionInput({
       projectId: 'project:one',
-      plotId: 'plot:one',
-      plotVersion: 1,
-      patch: { outputPath: 'C:\\private.svg' },
+      expectedProjectVersion: 1,
+      action: { operation: 'export_plot', outputPath: 'C:\\private.svg' },
     })).toBeNull()
-    expect(parsePlotPatchInput({
+    expect(parseEngineActionInput({
       projectId: 'project:one',
-      plotId: 'plot:one',
-      plotVersion: 1,
-      patch: { apiToken: 'secret' },
+      expectedProjectVersion: 1,
+      action: { operation: 'set_title', apiToken: 'secret' },
     })).toBeNull()
 
     expect(parseAgentDecideInput({

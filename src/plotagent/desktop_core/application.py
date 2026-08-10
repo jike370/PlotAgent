@@ -526,6 +526,7 @@ class DesktopApplication:
             RpcJsonValue,
             {
                 "project_id": session.project_id,
+                "project_version": session.domain.revision,
                 "plots": session.engine.list_latest(),
             },
         )
@@ -544,6 +545,7 @@ class DesktopApplication:
             RpcJsonValue,
             {
                 "project_id": session.project_id,
+                "project_version": session.domain.revision,
                 **session.engine.get(_text(values["plot_id"], "plot_id"), version),
             },
         )

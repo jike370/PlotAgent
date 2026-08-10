@@ -35,11 +35,9 @@ export const IPC_CHANNELS = {
   lifecycleCloseRequested: 'plotagent:lifecycle:close-requested',
   openResourceRequested: 'plotagent:resources:open-requested',
   originStatus: 'plotagent:origin:status',
-  plotCreate: 'plotagent:plots:create',
-  plotGet: 'plotagent:plots:get',
-  plotList: 'plotagent:plots:list',
-  plotPatch: 'plotagent:plots:patch',
-  plotRender: 'plotagent:plots:render',
+  engineActionExecute: 'plotagent:engine:actions:execute',
+  enginePlotGet: 'plotagent:engine:plots:get',
+  enginePlotList: 'plotagent:engine:plots:list',
   providerClear: 'plotagent:provider:clear',
   providerConfigure: 'plotagent:provider:configure',
   providerStatus: 'plotagent:provider:status',
@@ -208,23 +206,14 @@ export interface FieldMappingInput {
   readonly roles: Readonly<Record<string, string>>
 }
 
-export interface PlotCreateInput extends DatasetDescribeInput {
-  readonly chartId: string
-  readonly fieldMapping: FieldMappingInput
-  readonly expectedVersion: number
+export interface EngineActionInput extends ProjectIdInput {
+  readonly expectedProjectVersion: number
+  readonly action: JsonValue
 }
 
 export interface PlotIdInput extends ProjectIdInput {
   readonly plotId: string
   readonly plotVersion: number
-}
-
-export interface PlotPatchInput extends PlotIdInput {
-  readonly patch: JsonValue
-}
-
-export interface PlotRenderInput extends PlotIdInput {
-  readonly mode: 'preview' | 'formal'
 }
 
 export interface BatchCreateInput extends ProjectIdInput {
@@ -341,11 +330,9 @@ export interface PlotAgentDesktopApi {
   importDatasets(input: ProjectIdInput): Promise<DesktopDataResult>
   listDatasets(input: ProjectIdInput): Promise<DesktopDataResult>
   describeDataset(input: DatasetDescribeInput): Promise<DesktopDataResult>
-  createPlot(input: PlotCreateInput): Promise<DesktopDataResult>
-  patchPlot(input: PlotPatchInput): Promise<DesktopDataResult>
+  executePlotAction(input: EngineActionInput): Promise<DesktopDataResult>
   getPlot(input: PlotIdInput): Promise<DesktopDataResult>
   listPlots(input: ProjectIdInput): Promise<DesktopDataResult>
-  renderPlot(input: PlotRenderInput): Promise<DesktopDataResult>
   createBatch(input: BatchCreateInput): Promise<DesktopDataResult>
   runBatch(input: BatchRunInput): Promise<DesktopDataResult>
   getBatch(input: BatchIdInput): Promise<DesktopDataResult>
@@ -584,15 +571,26 @@ export function parseDatasetDescribeInput(value: unknown): DatasetDescribeInput 
     : { projectId: parsed.projectId as string, datasetId, sourceVersion }
 }
 
-export function parsePlotCreateInput(value: unknown): PlotCreateInput | null {
-  const parsed = parseProjectIdRecord(value, ['datasetId', 'sourceVersion', 'chartId', 'fieldMapping', 'expectedVersion'])
-  if (parsed === null) return null
-  const datasetId = parseId(parsed.datasetId)
-  const sourceVersion = parseVersion(parsed.sourceVersion, 1)
-  const expectedVersion = parseVersion(parsed.expectedVersion)
-  const mapping = parseMapping(parsed.fieldMapping)
-  if (datasetId === null || sourceVersion === null || expectedVersion === null || typeof parsed.chartId !== 'string' || !CHART_IDS.has(parsed.chartId) || mapping === null) return null
-  return { projectId: parsed.projectId as string, datasetId, sourceVersion, chartId: parsed.chartId, fieldMapping: mapping, expectedVersion }
+const ENGINE_OPERATIONS = new Set([
+  'create_plot', 'bind_fields', 'set_title', 'set_axis', 'set_series_style',
+  'set_legend', 'set_chart_parameter', 'add_annotation', 'export_plot',
+])
+
+export function parseEngineActionInput(value: unknown): EngineActionInput | null {
+  const parsed = parseProjectIdRecord(value, ['expectedProjectVersion', 'action'])
+  if (parsed === null || !isRecord(parsed.action)) return null
+  const expectedProjectVersion = parseVersion(parsed.expectedProjectVersion)
+  if (
+    expectedProjectVersion === null
+    || typeof parsed.action.operation !== 'string'
+    || !ENGINE_OPERATIONS.has(parsed.action.operation)
+    || !isSafeRendererPayload(parsed.action)
+  ) return null
+  return {
+    projectId: parsed.projectId as string,
+    expectedProjectVersion,
+    action: parsed.action as JsonValue,
+  }
 }
 
 export function parsePlotIdInput(value: unknown): PlotIdInput | null {
@@ -600,24 +598,6 @@ export function parsePlotIdInput(value: unknown): PlotIdInput | null {
   const plotId = parsed === null ? null : parseId(parsed.plotId)
   const plotVersion = parsed === null ? null : parseVersion(parsed.plotVersion, 1)
   return parsed === null || plotId === null || plotVersion === null ? null : { projectId: parsed.projectId as string, plotId, plotVersion }
-}
-
-export function parsePlotPatchInput(value: unknown): PlotPatchInput | null {
-  const parsed = parseProjectIdRecord(value, ['plotId', 'plotVersion', 'patch'])
-  if (parsed === null) return null
-  const plotId = parseId(parsed.plotId)
-  const plotVersion = parseVersion(parsed.plotVersion, 1)
-  if (plotId === null || plotVersion === null || !isSafeRendererPayload(parsed.patch)) return null
-  return { projectId: parsed.projectId as string, plotId, plotVersion, patch: parsed.patch }
-}
-
-export function parsePlotRenderInput(value: unknown): PlotRenderInput | null {
-  const parsed = parseProjectIdRecord(value, ['plotId', 'plotVersion', 'mode'])
-  if (parsed === null) return null
-  const plotId = parseId(parsed.plotId)
-  const plotVersion = parseVersion(parsed.plotVersion, 1)
-  if (plotId === null || plotVersion === null || (parsed.mode !== 'preview' && parsed.mode !== 'formal')) return null
-  return { projectId: parsed.projectId as string, plotId, plotVersion, mode: parsed.mode }
 }
 
 export function parseBatchCreateInput(value: unknown): BatchCreateInput | null {

@@ -18,6 +18,7 @@ export interface ProductField {
 
 export interface ProductDataset {
   datasetId: string
+  contentHash?: string
   displayName: string
   sourceFileName?: string
   sourceSheetName?: string
@@ -138,6 +139,8 @@ export interface ProductPlot {
     legendVisible?: boolean
     legendPlacement?: string
   }
+  chartParameters?: Readonly<Record<string, string | number | boolean>>
+  engineCapabilities?: Readonly<Record<string, readonly string[]>>
   preview?: DesktopResource
 }
 
@@ -276,6 +279,8 @@ export function readDatasets(value: JsonValue): ProductDataset[] {
           : sourceFileName
     return [`${datasetId}@${numberValue(record, 'source_version') ?? 1}`, {
       datasetId,
+      ...(stringValue(record, 'content_hash') === undefined
+        ? {} : { contentHash: stringValue(record, 'content_hash') }),
       displayName,
       ...(sourceFileName === undefined ? {} : { sourceFileName }),
       ...(sourceSheetName === undefined ? {} : { sourceSheetName }),
@@ -303,25 +308,6 @@ function readResource(value: JsonValue): DesktopResource | undefined {
     url: candidate.url as string,
     ...(typeof candidate.mimeType === 'string' ? { mimeType: candidate.mimeType as DesktopResource['mimeType'] } : {}),
     ...(typeof candidate.fileName === 'string' ? { fileName: candidate.fileName } : {}),
-  }
-}
-
-function readSeriesStyle(value: JsonValue | undefined): ProductSeriesStyle {
-  if (!isJsonRecord(value)) return {}
-  const symbol = isJsonRecord(value.symbol) ? value.symbol : undefined
-  const palette = isJsonRecord(value.palette) ? value.palette : undefined
-  return {
-    ...(isJsonRecord(value.color) && typeof value.color.value === 'string'
-      ? { color: value.color.value } : {}),
-    ...(isJsonRecord(value.line_width) && typeof value.line_width.value === 'number'
-      ? { lineWidthPt: value.line_width.value } : {}),
-    ...(isJsonRecord(value.marker_size) && typeof value.marker_size.value === 'number'
-      ? { markerSizePt: value.marker_size.value } : {}),
-    ...(typeof value.line_style === 'string' ? { lineStyle: value.line_style } : {}),
-    ...(symbol && typeof symbol.shape === 'string' ? { symbolShape: symbol.shape } : {}),
-    ...(symbol && typeof symbol.interior === 'string' ? { symbolInterior: symbol.interior } : {}),
-    ...(palette && typeof palette.palette_id === 'string' ? { paletteId: palette.palette_id } : {}),
-    ...(palette && typeof palette.reverse === 'boolean' ? { paletteReverse: palette.reverse } : {}),
   }
 }
 
@@ -418,86 +404,132 @@ function readSpecialist(value: JsonValue | undefined): ProductSpecialistState {
   }
 }
 
+function semanticObjectId(plotId: string, object: JsonRecord): string | undefined {
+  const kind = stringValue(object, 'object_kind')
+  const key = stringValue(object, 'object_key')
+  if (kind === undefined || key === undefined) return undefined
+  return `${kind}:${plotId.replace(/^plot:/, '')}.${key}`
+}
+
+function engineSeriesStyle(action: JsonRecord): ProductSeriesStyle {
+  return {
+    ...(typeof action.color === 'string' ? { color: action.color } : {}),
+    ...(typeof action.line_width_pt === 'number' ? { lineWidthPt: action.line_width_pt } : {}),
+    ...(typeof action.line_style === 'string' ? { lineStyle: action.line_style } : {}),
+    ...(typeof action.symbol === 'string' ? { symbolShape: action.symbol } : {}),
+    ...(typeof action.symbol_size_pt === 'number' ? { markerSizePt: action.symbol_size_pt } : {}),
+  }
+}
+
 export function readPlot(value: JsonValue): ProductPlot | undefined {
-  const candidates = records(value, (record) => (
-    typeof record.plot_id === 'string' && typeof record.plot_version === 'number'
-  ))
-  const fallback = candidates.at(-1)
-  if (fallback === undefined) return undefined
-  const record = candidates.find((candidate) => Array.isArray(candidate.series)) ?? fallback
-  const series = Array.isArray(record.series) ? record.series.filter(isJsonRecord) : []
-  const axes = Array.isArray(record.axes) ? record.axes.filter(isJsonRecord) : []
-  const scales = Array.isArray(record.scales) ? record.scales.filter(isJsonRecord) : []
-  const firstStyle = series.length > 0 && isJsonRecord(series[0].style) ? series[0].style : undefined
-  const legend = isJsonRecord(record.legend) ? record.legend : undefined
-  const xAxis = axes.find((axis) => axis.orientation === 'x')
-  const leftYAxis = axes.find((axis) => axis.orientation === 'y' && axis.position !== 'right')
-  const rightYAxis = axes.find((axis) => axis.orientation === 'y' && axis.position === 'right')
-  const axisState = (axis: JsonRecord | undefined): ProductAxisState | undefined => {
-    if (!axis || typeof axis.axis_id !== 'string') return undefined
-    const scale = scales.find((candidate) => candidate.scale_id === axis.scale_id)
-    const axisRange = scale && isJsonRecord(scale.axis_range) ? scale.axis_range : undefined
-    const ticks = scale && isJsonRecord(scale.ticks) ? scale.ticks : undefined
+  const root = records(value, (record) => isJsonRecord(record.document)).at(0)
+  if (root === undefined || !isJsonRecord(root.document)) return undefined
+  const document = root.document
+  const plotId = stringValue(document, 'plot_id')
+  const plotVersion = numberValue(document, 'plot_version')
+  const profileId = stringValue(document, 'profile_id')
+  if (plotId === undefined || plotVersion === undefined || profileId === undefined) return undefined
+  const actions = Array.isArray(root.actions) ? root.actions.filter(isJsonRecord) : []
+  const profile = isJsonRecord(root.profile) ? root.profile : {}
+  const objects = Array.isArray(profile.objects) ? profile.objects.filter(isJsonRecord) : []
+  const readback = isJsonRecord(root.readback) ? root.readback : {}
+  const nativeObjects = Array.isArray(readback.objects) ? readback.objects.filter(isJsonRecord) : []
+  const objectId = (alias: string): string | undefined => {
+    const object = objects.find((item) => item.object_alias === alias)
+    return object === undefined ? undefined : semanticObjectId(plotId, object)
+  }
+  const actionTarget = (operation: string, target: string): JsonRecord[] => actions.filter(
+    (action) => action.operation === operation && action.target === target,
+  )
+  const seriesIds = [...new Set([
+    ...objects.flatMap((object) => object.object_kind === 'series'
+      ? [semanticObjectId(plotId, object)].filter((item): item is string => item !== undefined) : []),
+    ...nativeObjects.flatMap((object) => typeof object.semantic_id === 'string'
+      && object.semantic_id.startsWith('series:') ? [object.semantic_id] : []),
+  ])]
+  const axisIds = {
+    ...(objectId('x_axis') ? { x: objectId('x_axis') } : {}),
+    ...(objectId('y_axis') ? { y: objectId('y_axis') } : {}),
+    ...(objectId('right_y_axis') ? { yRight: objectId('right_y_axis') } : {}),
+  }
+  const axisState = (axisId: string | undefined): ProductAxisState | undefined => {
+    if (axisId === undefined) return undefined
+    const edits = actionTarget('set_axis', axisId)
+    const current = edits.at(-1)
     return {
-      axisId: axis.axis_id,
-      label: richTextValue(axis.label),
-      scale: scale && typeof scale.kind === 'string' ? scale.kind : 'linear',
-      ...(axisRange && typeof axisRange.minimum === 'number' ? { minimum: axisRange.minimum } : {}),
-      ...(axisRange && typeof axisRange.maximum === 'number' ? { maximum: axisRange.maximum } : {}),
-      reverse: axisRange?.reverse === true,
-      ...(ticks && typeof ticks.major_interval === 'number' ? { majorInterval: ticks.major_interval } : {}),
-      numberFormat: ticks && typeof ticks.number_format === 'string' ? ticks.number_format : 'auto',
-      decimalPlaces: ticks && typeof ticks.decimal_places === 'number' ? ticks.decimal_places : 2,
+      axisId,
+      label: current && typeof current.label === 'string' ? current.label : '',
+      scale: current && typeof current.scale === 'string' ? current.scale : 'linear',
+      ...(current && typeof current.minimum === 'number' ? { minimum: current.minimum } : {}),
+      ...(current && typeof current.maximum === 'number' ? { maximum: current.maximum } : {}),
+      reverse: current?.reverse === true,
+      numberFormat: 'auto',
+      decimalPlaces: 2,
     }
   }
-  const publicationProfile = isJsonRecord(record.publication_profile) ? record.publication_profile : undefined
-  const physicalSize = publicationProfile && isJsonRecord(publicationProfile.physical_size)
-    ? publicationProfile.physical_size : undefined
-  const resolvedStyle = isJsonRecord(record.resolved_style) ? record.resolved_style : undefined
-  const annotations = Array.isArray(record.annotations) ? record.annotations.filter(isJsonRecord) : []
+  const title = actions.filter((action) => action.operation === 'set_title').at(-1)
+  const legendId = objectId('legend')
+  const legend = legendId === undefined ? undefined : actionTarget('set_legend', legendId).at(-1)
+  const capabilities = (Array.isArray(profile.capabilities) ? profile.capabilities : [])
+    .filter(isJsonRecord)
+    .reduce<Record<string, readonly string[]>>((result, capability) => {
+      if (typeof capability.operation === 'string') {
+        result[capability.operation] = Array.isArray(capability.parameters)
+          ? capability.parameters.filter((item): item is string => typeof item === 'string') : []
+      }
+      return result
+    }, {})
+  const chartParameters = actions
+    .filter((action) => action.operation === 'set_chart_parameter')
+    .reduce<Record<string, string | number | boolean>>((result, action) => {
+      if (typeof action.parameter === 'string'
+          && (typeof action.value === 'string'
+            || typeof action.value === 'number'
+            || typeof action.value === 'boolean')) {
+        result[action.parameter] = action.value
+      }
+      return result
+    }, {})
   return {
-    plotId: record.plot_id as string,
-    plotVersion: record.plot_version as number,
-    chartId: stringValue(record, 'chart_type_id') ?? 'K01',
-    plotTitle: richTextValue(record.title),
-    fontSizePt: physicalLengthPt(resolvedStyle?.font_size, 9),
-    projectVersion: projectVersionFrom(value, numberValue(record, 'project_version') ?? 0),
-    seriesIds: series.flatMap((item) => typeof item.series_id === 'string' ? [item.series_id] : []),
-    seriesStyles: series.flatMap((item) => typeof item.series_id === 'string'
-      ? [{ seriesId: item.series_id, style: readSeriesStyle(item.style) }]
-      : []),
-    axisIds: {
-      ...(xAxis && typeof xAxis.axis_id === 'string' ? { x: xAxis.axis_id } : {}),
-      ...(leftYAxis && typeof leftYAxis.axis_id === 'string' ? { y: leftYAxis.axis_id } : {}),
-      ...(rightYAxis && typeof rightYAxis.axis_id === 'string' ? { yRight: rightYAxis.axis_id } : {}),
-    },
+    plotId,
+    plotVersion,
+    chartId: profileId,
+    plotTitle: title && typeof title.text === 'string' ? title.text : '',
+    fontSizePt: 9,
+    projectVersion: projectVersionFrom(value, 0),
+    seriesIds,
+    seriesStyles: seriesIds.map((seriesId) => ({
+      seriesId,
+      style: engineSeriesStyle(actionTarget('set_series_style', seriesId).at(-1) ?? {}),
+    })),
+    axisIds,
     axisStates: {
-      ...(axisState(xAxis) ? { x: axisState(xAxis) } : {}),
-      ...(axisState(leftYAxis) ? { y: axisState(leftYAxis) } : {}),
-      ...(axisState(rightYAxis) ? { yRight: axisState(rightYAxis) } : {}),
+      ...(axisState(axisIds.x) ? { x: axisState(axisIds.x) } : {}),
+      ...(axisState(axisIds.y) ? { y: axisState(axisIds.y) } : {}),
+      ...(axisState(axisIds.yRight) ? { yRight: axisState(axisIds.yRight) } : {}),
     },
-    canvasSizeMm: {
-      width: physicalLengthMm(physicalSize?.width, 183),
-      height: physicalLengthMm(physicalSize?.height, 120),
-    },
-    annotations: annotations.flatMap((annotation): ProductAnnotation[] => {
-      if (typeof annotation.annotation_id !== 'string' || typeof annotation.kind !== 'string') return []
-      return [{
-        annotationId: annotation.annotation_id,
-        kind: annotation.kind,
-        text: richTextValue(annotation.text),
-        ...(typeof annotation.x === 'number' ? { x: annotation.x } : {}),
-        ...(typeof annotation.y === 'number' ? { y: annotation.y } : {}),
-        ...(typeof annotation.x2 === 'number' ? { x2: annotation.x2 } : {}),
-        ...(typeof annotation.y2 === 'number' ? { y2: annotation.y2 } : {}),
-      }]
-    }),
-    specialist: readSpecialist(record.specialist),
+    canvasSizeMm: { width: 183, height: 120 },
+    annotations: actions.flatMap((action): ProductAnnotation[] => (
+      action.operation === 'add_annotation'
+      && typeof action.annotation_id === 'string'
+      && typeof action.text === 'string'
+        ? [{
+          annotationId: action.annotation_id,
+          kind: 'text',
+          text: action.text,
+          ...(typeof action.x === 'number' ? { x: action.x } : {}),
+          ...(typeof action.y === 'number' ? { y: action.y } : {}),
+        }]
+        : []
+    )),
+    specialist: readSpecialist(undefined),
     style: {
-      ...readSeriesStyle(firstStyle),
+      ...(seriesIds[0] ? engineSeriesStyle(actionTarget('set_series_style', seriesIds[0]).at(-1) ?? {}) : {}),
       ...(legend && typeof legend.visible === 'boolean' ? { legendVisible: legend.visible } : {}),
-      ...(legend && typeof legend.placement === 'string' ? { legendPlacement: legend.placement } : {}),
+      ...(legend && typeof legend.anchor === 'string' ? { legendPlacement: legend.anchor } : {}),
     },
+    chartParameters,
+    engineCapabilities: capabilities,
     preview: readResource(value),
   }
 }

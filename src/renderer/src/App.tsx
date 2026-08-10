@@ -25,7 +25,6 @@ import {
   readProjects,
   resultKind,
   resultMessage,
-  withPreview,
   type AgentOutcome,
   type AgentPlanView,
   type ProductDataset,
@@ -300,22 +299,7 @@ export function App(): React.JSX.Element {
         plotId: latest.plotId,
         plotVersion: latest.plotVersion,
       }))
-      let recovered = readPlot(stored) ?? latest
-      try {
-        const rendered = valueOrThrow(await api.renderPlot({
-          projectId,
-          plotId: recovered.plotId,
-          plotVersion: recovered.plotVersion,
-          mode: 'preview',
-        }))
-        recovered = withPreview(recovered, rendered)
-        return { plot: recovered }
-      } catch (error) {
-        return {
-          plot: recovered,
-          notice: { kind: 'warning', title: '图形已恢复，预览未完成', message: errorNotice(error).message },
-        }
-      }
+      return { plot: readPlot(stored) ?? latest }
     } catch (error) {
       return {
         notice: { kind: 'warning', title: '图形恢复未完成', message: errorNotice(error).message },
@@ -636,18 +620,27 @@ export function App(): React.JSX.Element {
     setConfirmedMapping(mapping)
     setBusyAction('plot'); setNotice(undefined)
     try {
-      const created = valueOrThrow(await api.createPlot({
+      if (!activeDataset.contentHash) throw new Error('当前数据缺少不可变内容标识。')
+      const created = valueOrThrow(await api.executePlotAction({
         projectId: project.projectId,
-        datasetId: activeDataset.datasetId,
-        sourceVersion: activeDataset.sourceVersion,
-        chartId: selectedChart.id,
-        fieldMapping: mapping,
-        expectedVersion: project.projectVersion,
+        expectedProjectVersion: project.projectVersion,
+        action: {
+          operation: 'create_plot',
+          action_id: `action:ui.create.${crypto.randomUUID()}`,
+          plot_id: `plot:ui.${crypto.randomUUID()}`,
+          profile_id: selectedChart.id,
+          data: {
+            kind: 'source',
+            dataset_id: activeDataset.datasetId,
+            version: activeDataset.sourceVersion,
+            content_hash: activeDataset.contentHash,
+          },
+          bindings: Object.entries(mapping.roles).map(([role, field_id]) => ({ role, field_id })),
+          components: [],
+        },
       }))
-      let nextPlot = readPlot(created)
-      if (!nextPlot) throw new Error('Core 未返回 PlotSpec 版本。')
-      const rendered = valueOrThrow(await api.renderPlot({ projectId: project.projectId, plotId: nextPlot.plotId, plotVersion: nextPlot.plotVersion, mode: 'preview' }))
-      nextPlot = withPreview(nextPlot, rendered)
+      const nextPlot = readPlot(created)
+      if (!nextPlot) throw new Error('Core 未返回 PlotDocument 版本。')
       setPlot(nextPlot)
       setProject(projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1)))
       setNotice({
@@ -712,10 +705,8 @@ export function App(): React.JSX.Element {
     const output = plan.steps.flatMap((step) => step.outputPlot ? [step.outputPlot] : []).at(-1)
     if (!output) return
     const stored = valueOrThrow(await api.getPlot({ projectId: project.projectId, plotId: output.plotId, plotVersion: output.plotVersion }))
-    let nextPlot = readPlot(stored)
+    const nextPlot = readPlot(stored)
     if (!nextPlot) return
-    const rendered = valueOrThrow(await api.renderPlot({ projectId: project.projectId, plotId: nextPlot.plotId, plotVersion: nextPlot.plotVersion, mode: 'preview' }))
-    nextPlot = withPreview(nextPlot, rendered)
     setPlot(nextPlot)
     setProject(projectWithVersion(project, Math.max(project.projectVersion, nextPlot.projectVersion)))
   }
@@ -784,23 +775,22 @@ export function App(): React.JSX.Element {
 
   const applyPlotPatch = async (patch: JsonValue): Promise<void> => {
     if (!api || !project || !plot) throw new Error('当前没有可编辑图形。')
+    if (!isJsonRecord(patch) || typeof patch.operation !== 'string') {
+      throw new Error('绘图动作无效。')
+    }
     setBusyAction('plot-patch'); setNotice(undefined)
     try {
-      const value = valueOrThrow(await api.patchPlot({
+      const value = valueOrThrow(await api.executePlotAction({
         projectId: project.projectId,
-        plotId: plot.plotId,
-        plotVersion: plot.plotVersion,
-        patch,
+        expectedProjectVersion: project.projectVersion,
+        action: {
+          ...patch,
+          action_id: `action:ui.edit.${crypto.randomUUID()}`,
+          expected_plot_version: plot.plotVersion,
+        },
       }))
-      let nextPlot = readPlot(value)
-      if (!nextPlot) throw new Error('Core 未返回新的 PlotSpec 版本。')
-      const rendered = valueOrThrow(await api.renderPlot({
-        projectId: project.projectId,
-        plotId: nextPlot.plotId,
-        plotVersion: nextPlot.plotVersion,
-        mode: 'preview',
-      }))
-      nextPlot = withPreview(nextPlot, rendered)
+      const nextPlot = readPlot(value)
+      if (!nextPlot) throw new Error('Core 未返回新的 PlotDocument 版本。')
       setPlot(nextPlot)
       setProject(projectWithVersion(project, projectVersionFrom(value, project.projectVersion + 1)))
       setNotice({ kind: 'success', title: '修改已应用', message: `已创建图形版本 v${nextPlot.plotVersion}。` })
