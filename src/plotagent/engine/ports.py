@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, Protocol
 
-from plotagent.contracts.base import Sha256, StrictModel, Token
+from plotagent.contracts.base import FieldId, Sha256, StrictModel, Token
 from plotagent.engine.contracts import (
     EngineDataRef,
     EngineDataView,
@@ -22,7 +22,7 @@ class EngineDataProvider(Protocol):
     def materialize(
         self,
         data: EngineDataRef,
-        field_ids: tuple[str, ...],
+        field_ids: tuple[FieldId, ...],
     ) -> EngineDataView: ...
 
 
@@ -50,20 +50,39 @@ class EngineArtifact(StrictModel):
     artifact_size: int
 
 
+class PlotBackendChange(Protocol):
+    """Reversible staged backend mutation used by the local transaction coordinator."""
+
+    @property
+    def readback(self) -> EngineReadback: ...
+
+    def publish(self) -> None: ...
+
+    def revert(self) -> None: ...
+
+    def finalize(self) -> None: ...
+
+    def discard(self) -> None: ...
+
+
 class PlotBackend(Protocol):
-    """Minimal backend surface; implementations may not expose script execution."""
+    """Backend surface; implementations may not expose arbitrary script execution."""
 
     @property
     def backend_id(self) -> Literal["matplotlib", "origin"]: ...
 
-    def create(self, document: PlotDocument, data: EngineDataView) -> EngineReadback: ...
+    def stage_create(
+        self,
+        document: PlotDocument,
+        data: EngineDataView,
+    ) -> PlotBackendChange: ...
 
-    def apply(
+    def stage_apply(
         self,
         document: PlotDocument,
         action: PlotEngineAction,
         data: EngineDataView,
-    ) -> EngineReadback: ...
+    ) -> PlotBackendChange: ...
 
     def readback(self, document: PlotDocument) -> EngineReadback: ...
 

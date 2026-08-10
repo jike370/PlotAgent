@@ -21,8 +21,16 @@ from .contracts import (
     SetSeriesStyle,
     SetTitle,
 )
-from .ports import EngineArtifact, EngineDataProvider, EngineObjectRef, EngineReadback, PlotBackend
+from .ports import (
+    EngineArtifact,
+    EngineDataProvider,
+    EngineObjectRef,
+    EngineReadback,
+    PlotBackend,
+    PlotBackendChange,
+)
 from .repository import PlotDocumentRepository, StoredPlotDocument, document_ref
+from .runtime import PlotEngineRuntime, RuntimeResult
 from .service import EngineCatalog, EngineCommandError, PlotEngineService, PlotTransition
 
 __all__ = [
@@ -44,12 +52,15 @@ __all__ = [
     "ExportPlot",
     "FieldBinding",
     "PlotBackend",
+    "PlotBackendChange",
     "PlotDocument",
     "PlotDocumentRepository",
     "PlotDocumentRef",
     "PlotEngineAction",
+    "PlotEngineRuntime",
     "PlotEngineService",
     "PlotTransition",
+    "RuntimeResult",
     "SetAxis",
     "SetChartParameter",
     "SetLegend",
