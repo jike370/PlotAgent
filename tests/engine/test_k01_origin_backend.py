@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import plotagent.engine.backends.origin.k01 as k01_module
+import plotagent.engine.backends.origin.k08 as k08_module
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine import (
     CreatePlot,
@@ -22,10 +23,12 @@ from plotagent.engine import (
 )
 from plotagent.engine.backends.origin import (
     K01_ORIGIN_PROFILE,
+    K08_ORIGIN_PROFILE,
     OriginBackend,
     resolve_official_template,
 )
 from plotagent.engine.backends.origin.k01 import K01OriginProject
+from plotagent.engine.backends.origin.k08 import K08OriginProject
 from plotagent.engine.backends.origin.messages import OriginWorkerResponse
 from plotagent.engine.ports import EngineReadback
 from plotagent.engine.repository import document_ref
@@ -329,3 +332,100 @@ def test_k01_binder_applies_typed_actions_to_native_objects(
     assert op.graph.layer.axes["y"].scale == "log10"
     assert op.graph.layer.plots[0].color == (170, 34, 0)
     assert op.graph.layer.labels["legend"].get_int("show") == 1
+
+
+def test_k08_binder_uses_column_template_and_native_column_objects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_ref = EngineDataRef(
+        kind="source",
+        dataset_id="dataset.column",
+        version=1,
+        content_hash=HASH,
+    )
+    create = CreatePlot(
+        action_id="action:create-column",
+        plot_id="plot:origin-column",
+        profile_id="K08",
+        data=data_ref,
+        bindings=(
+            FieldBinding(role="category", field_id="field:category"),
+            FieldBinding(role="value", field_id="field:value"),
+        ),
+    )
+    view = EngineDataView(
+        data=data_ref,
+        row_ids=("row:1", "row:2"),
+        columns=(
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:category",
+                    name="Condition",
+                    logical_type="categorical",
+                ),
+                values=("A", "B"),
+            ),
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:value",
+                    name="Response",
+                    logical_type="numeric",
+                ),
+                values=(3.0, 5.0),
+            ),
+        ),
+    )
+    actions = (
+        create,
+        SetTitle(action_id="action:column-title", target=create.plot_id, text="Native column"),
+        SetAxis(
+            action_id="action:column-axis",
+            target="axis:origin-column.y",
+            label="Response",
+            minimum=0,
+            maximum=6,
+        ),
+        SetSeriesStyle(
+            action_id="action:column-style",
+            target="series:origin-column.primary",
+            color="#3366CC",
+            line_width_pt=1.0,
+        ),
+        SetLegend(
+            action_id="action:column-legend",
+            target="legend:origin-column.main",
+            visible=True,
+        ),
+    )
+    document = PlotDocument(
+        plot_id=create.plot_id,
+        plot_version=5,
+        parent_version=4,
+        profile_id="K08",
+        data=data_ref,
+        bindings=create.bindings,
+        applied_action_ids=tuple(action.action_id for action in actions),
+    )
+    monkeypatch.setattr(
+        k08_module,
+        "resolve_official_template",
+        lambda install, profile: tmp_path / K08_ORIGIN_PROFILE.filename,
+    )
+    op = FakeOrigin()
+    project = K08OriginProject(op)
+    project.create(tmp_path, document, view)
+    for action in actions:
+        project.apply(document, action, view)
+    readback = project.verify(document, actions, view)
+
+    assert readback.document.plot_version == 5
+    assert op.graph.layer.plots[0].color == (51, 102, 204)
+    assert op.graph.layer.labels["legend"].text.startswith("\\l(1, style:b)")
+
+
+def test_k08_template_identity_is_pinned_to_column_otpu() -> None:
+    assert K08_ORIGIN_PROFILE.filename == "COLUMN.otpu"
+    assert K08_ORIGIN_PROFILE.sha256 == (
+        "ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd"
+    )

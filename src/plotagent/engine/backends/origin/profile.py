@@ -28,6 +28,13 @@ K01_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+K08_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K08",
+    filename="COLUMN.otpu",
+    sha256="ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
+    tier="T1",
+)
+
 
 def resolve_official_template(
     install_dir: Path,
