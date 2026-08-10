@@ -21,24 +21,15 @@ interface PreviewProject {
   datasets: JsonRecord[]
 }
 
-interface PreviewBatch {
-  taskId: string
-  batchId: string
-  version: number
-  projectId: string
-  itemIds: string[]
-}
-
 interface PreviewAgentPlan {
   projectId: string
   planId: string
   input?: Parameters<PlotAgentDesktopApi['decideAgent']>[0]
-  batch?: PreviewBatch
-  batchChartId?: string
+  proposalActions?: JsonRecord[]
+  boundActions?: JsonRecord[]
   state: string
   confirmationState: string
   outputPlot?: { plotId: string; plotVersion: number }
-  outputBatch?: { batchId: string; batchVersion: number }
 }
 
 const ok = (value: JsonValue): DesktopDataResult => ({ ok: true, value })
@@ -111,12 +102,10 @@ function plotPreviewSvg(chartId: string, version: number): string {
 function createBrowserPreviewApi(): PlotAgentDesktopApi {
   const projects = new Map<string, PreviewProject>()
   const plots = new Map<string, JsonRecord>()
-  const batches = new Map<string, PreviewBatch>()
   const agentPlans = new Map<string, PreviewAgentPlan>()
   let projectSequence = 0
   let importSequence = 0
   let plotSequence = 0
-  let batchSequence = 0
   let agentPlanSequence = 0
 
   const projectSummary = (project: PreviewProject): JsonRecord => ({
@@ -144,59 +133,29 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
   const plotKey = (projectId: string, plotId: string): string => `${projectId}:${plotId}`
 
   const agentPlanRecord = (plan: PreviewAgentPlan): JsonRecord => {
-    if (plan.batch !== undefined) {
-      const plotActions: JsonRecord[] = plan.batch.itemIds.map((_, index) => ({
-        action_type: 'create_plot',
-        action_id: `action:item_${index + 1}`,
-        target_alias: `plot_${index + 1}`,
-        chart_type_id: plan.batchChartId ?? 'K01',
-        field_selections: [
-          { role: 'x', context_field_alias: `d${index + 1}_x` },
-          { role: 'y', context_field_alias: `d${index + 1}_y` },
-        ],
-      }))
-      const batchAction: JsonRecord = {
-        action_type: 'create_batch',
-        action_id: 'action:batch',
-        depends_on: plotActions.map((action) => action.action_id as string),
-        target_alias: 'batch_result',
-        chart_type_id: plan.batchChartId ?? 'K01',
-        field_selections: [
-          { role: 'x', context_field_alias: 'd1_x' },
-          { role: 'y', context_field_alias: 'd1_y' },
-        ],
-      }
-      const actions = [...plotActions, batchAction]
+    if (plan.proposalActions !== undefined && plan.boundActions !== undefined) {
+      const projectVersion = projects.get(plan.projectId)?.projectVersion ?? 0
+      const nextActionIndex = plan.state === 'succeeded' ? plan.boundActions.length : 0
       return {
         plan_id: plan.planId,
-        conversation_id: 'conversation:main',
-        context_snapshot_id: 'context:preview',
-        context_hash: 'a'.repeat(64),
-        project_revision: projects.get(plan.projectId)?.projectVersion ?? 0,
-        source_plan_hash: 'b'.repeat(64),
+        project_version: projectVersion,
         state: plan.state,
         confirmation_state: plan.confirmationState,
-        source_plan: { decision_type: 'action_plan', plan_id: plan.planId, target_alias: 'batch_result', actions, warnings: [], confirmation: 'required' },
-        items: actions.map((action, index) => ({
-          task_item_id: `taskitem:${plan.planId.replace('plan:', '')}.${index + 1}`,
-          action,
-          state: plan.state === 'succeeded' ? 'succeeded' : plan.state === 'needs_confirmation' ? 'pending' : 'ready',
-          depends_on: index === actions.length - 1
-            ? plotActions.map((_, dependencyIndex) => `taskitem:${plan.planId.replace('plan:', '')}.${dependencyIndex + 1}`)
-            : [],
-          expected_objects: [],
-          idempotency_key: `agent.${plan.planId}.${index + 1}`,
-          output_slots: [index === actions.length - 1 ? 'batch' : 'primary'],
-          attempt_count: plan.state === 'succeeded' ? 1 : 0,
-          outputs: plan.state !== 'succeeded'
-            ? []
-            : index === actions.length - 1 && plan.outputBatch !== undefined
-              ? [{ output_slot: 'batch', output_kind: 'object', object_ref: { object_alias: 'batch_result', object_id: plan.outputBatch.batchId, object_version: plan.outputBatch.batchVersion, object_type: 'batch', content_hash: 'd'.repeat(64) }, summary: '预览批次' }]
-              : [{ output_slot: 'primary', output_kind: 'object', object_ref: { object_alias: `plot_${index + 1}`, object_id: `plot:preview-batch-${index + 1}`, object_version: 1, object_type: 'plot', content_hash: 'c'.repeat(64) }, summary: '预览图形' }],
-        })),
+        next_action_index: nextActionIndex,
+        current_project_revision: projectVersion,
+        error_code: null,
+        proposal: {
+          schema_version: 'engine-agent.v1', decision_type: 'action_plan',
+          plan_id: plan.planId, target_alias: 'batch_plots', actions: plan.proposalActions,
+        },
+        bound_plan: {
+          plan_id: plan.planId,
+          expected_project_revision: projectVersion - nextActionIndex,
+          actions: plan.boundActions,
+        },
       }
     }
-    if (plan.batch === undefined) {
+    {
       const mutation = plan.input?.target?.kind === 'plot'
       const plotId = mutation ? plan.input?.target?.id ?? 'plot:preview' : 'plot:preview-agent'
       const proposalAction: JsonRecord = mutation
@@ -241,38 +200,6 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
           actions: [boundAction],
         },
       }
-    }
-    const actionType = plan.batch !== undefined
-      ? 'create_batch'
-      : plan.input?.target?.kind === 'plot' ? 'patch_plot' : 'create_plot'
-    const action: JsonRecord = actionType === 'patch_plot'
-      ? { action_type: actionType, action_id: 'action:preview', target_alias: 'active_target', patches: [{ operation: 'set_plot_title', target_alias: 'active_target', title: '预览修改' }] }
-      : actionType === 'create_batch'
-        ? { action_type: actionType, action_id: 'action:preview', target_alias: 'batch_result', chart_type_id: 'K01', field_selections: [{ role: 'x', context_field_alias: 'd1_x' }, { role: 'y', context_field_alias: 'd1_y' }] }
-        : { action_type: actionType, action_id: 'action:preview', target_alias: 'active_target', chart_type_id: plan.input?.selectedChartId ?? 'K01', field_selections: [{ role: 'x', context_field_alias: 'x_field' }, { role: 'y', context_field_alias: 'y_field' }] }
-    return {
-      plan_id: plan.planId,
-      conversation_id: 'conversation:main',
-      context_snapshot_id: 'context:preview',
-      context_hash: 'a'.repeat(64),
-      project_revision: projects.get(plan.projectId)?.projectVersion ?? 0,
-      source_plan_hash: 'b'.repeat(64),
-      state: plan.state,
-      confirmation_state: plan.confirmationState,
-      source_plan: { decision_type: 'action_plan', plan_id: plan.planId, target_alias: plan.batch === undefined ? 'active_target' : 'batch_result', actions: [action], warnings: [], confirmation: plan.batch === undefined ? 'not_required' : 'required' },
-      items: [{
-        task_item_id: `taskitem:${plan.planId.replace('plan:', '')}.1`,
-        action,
-        state: plan.state === 'succeeded' ? 'succeeded' : plan.state === 'needs_confirmation' ? 'pending' : 'ready',
-        depends_on: [],
-        expected_objects: [],
-        idempotency_key: `agent.${plan.planId}`,
-        output_slots: [plan.batch === undefined ? 'primary' : 'batch'],
-        attempt_count: plan.state === 'succeeded' ? 1 : 0,
-        outputs: plan.outputBatch !== undefined
-          ? [{ output_slot: 'batch', output_kind: 'object', object_ref: { object_alias: 'batch_result', object_id: plan.outputBatch.batchId, object_version: plan.outputBatch.batchVersion, object_type: 'batch', content_hash: 'd'.repeat(64) }, summary: '预览批次' }]
-          : plan.outputPlot === undefined ? [] : [{ output_slot: 'primary', output_kind: 'object', object_ref: { object_alias: 'active_target', object_id: plan.outputPlot.plotId, object_version: plan.outputPlot.plotVersion, object_type: 'plot', content_hash: 'c'.repeat(64) }, summary: '预览图形' }],
-      }],
     }
   }
 
@@ -447,41 +374,45 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       project_version: projects.get(projectId)?.projectVersion ?? 0,
       plots: [...plots.values()].filter((plot) => plot.project_id === projectId),
     }),
-    createBatch: async (input) => {
+    createPlotBatchPlan: async (input) => {
       const project = projects.get(input.projectId)
       if (!project) return missing('界面预览中没有找到该项目。')
-      batchSequence += 1
-      const batch: PreviewBatch = {
-        taskId: `task:preview-${batchSequence}`,
-        batchId: `batch:preview-${batchSequence}`,
-        version: 1,
-        projectId: input.projectId,
-        itemIds: input.datasets.map((_, index) => `item:${index + 1}`),
-      }
       agentPlanSequence += 1
+      const token = `preview-${agentPlanSequence}`
+      const proposalActions = input.datasets.map((dataset, index): JsonRecord => ({
+        operation: 'create_plot',
+        action_id: `action:batch.${token}.${index + 1}`,
+        plot_alias: `plot_${index + 1}`,
+        profile_id: input.profileId,
+        source_alias: `source_${index + 1}`,
+        bindings: Object.keys(dataset.bindings).sort().map((role, fieldIndex) => ({
+          role,
+          field_alias: `field_${fieldIndex + 1}`,
+        })),
+      }))
+      const boundActions = input.datasets.map((dataset, index): JsonRecord => ({
+        operation: 'create_plot',
+        action_id: `action:batch.${token}.${index + 1}`,
+        plot_id: `plot:batch.${token}.${index + 1}`,
+        profile_id: input.profileId,
+        data: {
+          kind: 'source', dataset_id: dataset.datasetId,
+          version: dataset.sourceVersion, content_hash: dataset.contentHash,
+        },
+        bindings: Object.entries(dataset.bindings).sort(([left], [right]) => left.localeCompare(right))
+          .map(([role, field_id]) => ({ role, field_id })),
+        components: [],
+      }))
       const plan: PreviewAgentPlan = {
         projectId: input.projectId,
         planId: `plan:preview-${agentPlanSequence}`,
-        batch,
-        batchChartId: input.chartId,
+        proposalActions,
+        boundActions,
         state: 'needs_confirmation',
         confirmationState: 'pending',
       }
       agentPlans.set(plan.planId, plan)
       return ok({ project_version: project.projectVersion, task_plan: agentPlanRecord(plan) })
-    },
-    runBatch: async ({ projectId, taskId }) => {
-      const batch = [...batches.values()].find((item) => item.projectId === projectId && item.taskId === taskId)
-      const project = projects.get(projectId)
-      if (!batch || !project) return missing('界面预览中没有找到该批次。')
-      project.projectVersion += 1
-      return ok({ task_id: batch.taskId, batch_id: batch.batchId, state: 'succeeded', project_version: project.projectVersion, batch: { batch_version: batch.version }, items: batch.itemIds.map((itemId) => ({ item_id: itemId, state: 'succeeded' })) })
-    },
-    getBatch: async ({ projectId, batchId }) => {
-      const batch = batches.get(batchId)
-      return batch && batch.projectId === projectId
-        ? ok({ task_id: batch.taskId, batch_id: batch.batchId, state: 'succeeded', batch: { batch_version: batch.version }, items: batch.itemIds.map((itemId) => ({ item_id: itemId, state: 'succeeded' })) })
-        : missing('界面预览中没有找到该批次。')
     },
     decideAgent: async (input) => {
       const project = projects.get(input.projectId)
@@ -522,20 +453,28 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       const plan = agentPlans.get(planId)
       const project = projects.get(projectId)
       if (plan === undefined || project === undefined) return missing('未找到 Agent 计划。')
-      if (plan.batch !== undefined) {
-        project.projectVersion += 1
-        batches.set(plan.batch.batchId, plan.batch)
-        plan.outputBatch = { batchId: plan.batch.batchId, batchVersion: plan.batch.version }
+      if (plan.boundActions !== undefined) {
+        for (const action of plan.boundActions) {
+          const result = await api.executePlotAction({
+            projectId,
+            expectedProjectVersion: project.projectVersion,
+            action,
+          })
+          if (!result.ok) return result
+          if (isJsonRecord(result.value)
+            && typeof result.value.plot_id === 'string'
+            && typeof result.value.plot_version === 'number') {
+            plan.outputPlot = {
+              plotId: result.value.plot_id,
+              plotVersion: result.value.plot_version,
+            }
+          }
+        }
         plan.state = 'succeeded'
         return ok({
           task_plan: agentPlanRecord(plan),
-          change_set: {
-            plan_id: planId,
-            state: 'succeeded',
-            items: agentPlanRecord(plan).items,
-          },
-          completed_item_count: plan.batch.itemIds.length + 1,
-          total_item_count: plan.batch.itemIds.length + 1,
+          completed_item_count: plan.boundActions.length,
+          total_item_count: plan.boundActions.length,
           resumable: false,
         })
       }

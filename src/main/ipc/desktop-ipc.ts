@@ -11,9 +11,7 @@ import {
   parseAgentDecideInput,
   parseAgentPlanConfirmInput,
   parseAgentPlanInput,
-  parseBatchCreateInput,
-  parseBatchIdInput,
-  parseBatchRunInput,
+  parseEngineBatchPlanCreateInput,
   parseCloseResponse,
   parseCustomProviderConfigureInput,
   parseDatasetDescribeInput,
@@ -680,42 +678,22 @@ export function registerDesktopIpc({
       ? invalidDataArgument('项目 ID 无效。')
       : requestPlotList(supervisor, resources, input.projectId)
   })
-  ipcMain.handle(IPC_CHANNELS.batchCreate, (_event, value: unknown) => {
-    const input = parseBatchCreateInput(value)
+  ipcMain.handle(IPC_CHANNELS.engineBatchPlanCreate, (_event, value: unknown) => {
+    const input = parseEngineBatchPlanCreateInput(value)
     return input === null
       ? invalidDataArgument('批量绘图请求无效。')
-      : requestCoreData(supervisor, resources, 'agent.plans.create_batch', {
+      : requestCoreData(supervisor, resources, 'agent.engine.plans.create_batch', {
         project_id: input.projectId,
-        chart_type_id: input.chartId,
+        profile_id: input.profileId,
         source_datasets: input.datasets.map((item) => ({
-          source_dataset_id: item.datasetId,
-          source_version: item.sourceVersion,
+          dataset_id: item.datasetId,
+          version: item.sourceVersion,
+          content_hash: item.contentHash,
+          bindings: item.bindings,
         })),
-        field_mapping: input.fieldMapping.roles,
-        expected_version: input.expectedVersion,
+        expected_project_version: input.expectedProjectVersion,
       })
   })
-  ipcMain.handle(IPC_CHANNELS.batchRun, (_event, value: unknown) => {
-    const input = parseBatchRunInput(value)
-    return input === null
-      ? invalidDataArgument('批次任务 ID 无效。')
-      : requestCoreData(supervisor, resources, 'batch.run', {
-        project_id: input.projectId,
-        task_id: input.taskId,
-        idempotency_key: `batch-run:${randomUUID()}`,
-        expected_version: input.expectedVersion,
-      })
-  })
-  ipcMain.handle(IPC_CHANNELS.batchGet, (_event, value: unknown) => {
-    const input = parseBatchIdInput(value)
-    return input === null
-      ? invalidDataArgument('批次 ID 无效。')
-      : requestCoreData(supervisor, resources, 'batch.get', {
-        project_id: input.projectId,
-        batch_id: input.batchId,
-      })
-  })
-
   ipcMain.handle(IPC_CHANNELS.agentDecide, (_event, value: unknown) => {
     const input = parseAgentDecideInput(value)
     return input === null

@@ -34,7 +34,7 @@ import type {
   ProductProject,
 } from '../data/productState'
 
-export type ScopeMode = 'current' | 'selected' | 'batch'
+export type ScopeMode = 'current' | 'selected'
 
 export interface ProductNotice {
   kind: 'info' | 'success' | 'warning' | 'error'
@@ -44,18 +44,10 @@ export interface ProductNotice {
   onAction?: () => void
 }
 
-export interface BatchView {
-  batchId: string
-  taskId: string
-  version: number
-  state: string
-  items: { id: string; state: string }[]
-}
-
 export interface ExportRecordView {
   exportId: string
   format: 'png' | 'svg' | 'opju'
-  targetKind: 'plot' | 'batch'
+  targetKind: 'plot'
   targetId: string
   artifactHash?: string
   artifactSize?: number
@@ -82,7 +74,6 @@ interface ConversationWorkspaceProps {
   activeDataset?: ProductDataset
   selectedChart?: ChartType
   plot?: ProductPlot
-  batch?: BatchView
   figureCandidateCount: number
   plotIsFigureCandidate: boolean
   exportRecord?: ExportRecordView
@@ -105,11 +96,10 @@ interface ConversationWorkspaceProps {
   onRunAgentPlan: (planId: string) => void
   onResumeAgentPlan: (planId: string) => void
   onConfigureAgent: () => void
-  onExport: (format: 'png' | 'svg' | 'opju', target?: { kind: 'batch'; id: string; version: number }) => void
+  onExport: (format: 'png' | 'svg' | 'opju') => void
   onCreateBatch: () => void
   onToggleFigureCandidate: () => void
   onOpenFocus: () => void
-  onOpenBatchInspect: () => void
   onOpenTasks: () => void
 }
 
@@ -470,7 +460,7 @@ function ConversationComposer({
           <span className="target-chip"><Layers3 size={14} />{plot ? `${plot.plotId} · v${plot.plotVersion}` : selectedChart ? `${selectedChart.id} · ${selectedChart.name}` : '未选择图形'}</span>
           {plot &&
           <div className="scope-switch" aria-label="作用范围">
-            {([['current', '当前图'], ['selected', '选中图'], ['batch', '整个批次']] as const).map(([mode, label]) => (
+            {([['current', '当前图'], ['selected', '选中图']] as const).map(([mode, label]) => (
               <button className={scope === mode ? 'is-active' : ''} key={mode} type="button" onClick={() => setScope(mode)} aria-pressed={scope === mode}>{label}</button>
             ))}
           </div>}
@@ -540,7 +530,6 @@ function AgentPlanObject({
             <div>
               <strong>{step.title}</strong>
               {step.outputPlot && <p className="agent-plan-step__output">{step.outputPlot.plotId} · v{step.outputPlot.plotVersion}</p>}
-              {step.outputBatch && <p className="agent-plan-step__output">{step.outputBatch.batchId} · v{step.outputBatch.batchVersion}</p>}
               {step.failure && <p>{step.failure.message}</p>}
             </div>
             {step.attemptCount > 0 && <span className="agent-plan-step__attempt">{step.attemptCount} 次</span>}
@@ -560,7 +549,7 @@ function AgentPlanObject({
 }
 
 export function ConversationWorkspace(props: ConversationWorkspaceProps): React.JSX.Element {
-  const { project, datasets, activeDataset, selectedChart, plot, batch, exportRecord, changeSet, notice, busyAction } = props
+  const { project, datasets, activeDataset, selectedChart, plot, exportRecord, changeSet, notice, busyAction } = props
   const [manualMappingOpen, setManualMappingOpen] = useState(false)
   return (
     <main className="workspace-main" id="conversation-main">
@@ -585,7 +574,6 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
                 {plot && <PlotObject {...props} chart={selectedChart} />}
                 {props.agentPlan && <AgentPlanObject plan={props.agentPlan} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} />}
                 {changeSet && <section className="object-block product-result-strip" aria-label="更改记录"><ListChecks size={17} /><div><strong>ChangeSet · {changeSet.state}</strong><p>{changeSet.planId} · {changeSet.items.filter((item) => item.state === 'succeeded').length}/{changeSet.items.length} 项已提交</p></div></section>}
-                {batch && <section className="object-block product-result-strip"><Images size={17} /><div><strong>批次 {batch.batchId}</strong><p>{batch.items.length} 项 · 状态 {batch.state}</p></div><button type="button" onClick={props.onOpenBatchInspect}>检查批次</button><button type="button" onClick={() => props.onExport('opju', { kind: 'batch', id: batch.batchId, version: batch.version })}><Download size={14} />导出批次 OPJU</button></section>}
                 {exportRecord && <section className="object-block product-result-strip" aria-label="导出记录"><Download size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出记录</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
               </>
             )}

@@ -12,6 +12,8 @@ from plotagent.agent.context import (
     DisclosureGrant,
 )
 from plotagent.agent.engine_client import (
+    AgentCreatePlot,
+    AgentFieldBinding,
     BoundEnginePlan,
     BundledEngineAgentBinder,
     EngineAgentPlan,
@@ -29,6 +31,8 @@ from plotagent.agent.orchestrator import AgentRunResult, DecisionMetadata, Singl
 __all__ = [
     "AgentRuntimeError",
     "AgentRunResult",
+    "AgentCreatePlot",
+    "AgentFieldBinding",
     "AuthoritativeField",
     "AuthoritativeProjectContext",
     "AuthoritativeSampleRow",

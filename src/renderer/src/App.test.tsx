@@ -228,17 +228,7 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     }),
     getPlot: vi.fn(async (input) => ok(enginePlotFixture(input.plotId, input.plotVersion))),
     listPlots: vi.fn(async () => ok({ project_version: 1, plots: [] })),
-    createBatch: vi.fn(async () => ok({ task_plan: batchPlanFixture() })),
-    runBatch: vi.fn(async () => ok({ task_id: 'task:batch', batch_id: 'batch:one', state: 'succeeded', project_version: 4, items: [{ item_id: 'item.1', state: 'succeeded' }] })),
-    getBatch: vi.fn(async () => ok({
-      project_version: 4,
-      state: 'succeeded',
-      batch: {
-        batch_id: 'batch:one',
-        batch_version: 1,
-        item_states: [{ item_id: 'item.1', state: 'succeeded' }],
-      },
-    })),
+    createPlotBatchPlan: vi.fn(async () => ok({ task_plan: batchPlanFixture() })),
     decideAgent: vi.fn(async () => ok(agentDecisionWithPlan(agentPlanFixture()))),
     getAgentPlan: vi.fn(async () => ok({})),
     listAgentPlans: vi.fn(async () => ok({ plans: [] })),
@@ -681,7 +671,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByText(/启动 Origin 完成许可证验证后重新检测/)).toBeInTheDocument()
   })
 
-  it('reuses the confirmed mapping unchanged for a batch and exports the real batch target', async () => {
+  it('creates a persistent batch plan from dataset-specific immutable bindings', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop({
       confirmAgentPlan: vi.fn(async () => ok(batchPlanFixture('ready', 'ready'))),
@@ -695,51 +685,15 @@ describe('PlotAgent real desktop workflow', () => {
     await openSampleAndCreatePlot(user)
 
     await user.click(screen.getByRole('button', { name: /创建批次/ }))
-    expect(api.createBatch).toHaveBeenCalledWith(expect.objectContaining({
-      chartId: 'K01',
-      fieldMapping: { roles: { x: 'field:time', y: 'field:signal' } },
+    expect(api.createPlotBatchPlan).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: 'K01',
+      datasets: [expect.objectContaining({
+        bindings: { x: 'field:time', y: 'field:signal' },
+      })],
     }))
     expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
-    expect(api.runBatch).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: '确认并执行' }))
-    expect(await screen.findByText(/批次 batch:one/)).toBeInTheDocument()
     expect(screen.getByRole('region', { name: '更改记录' })).toHaveTextContent('ChangeSet · succeeded')
-
-    await user.click(screen.getByRole('button', { name: /导出批次 OPJU/ }))
-    expect(api.exportOrigin).toHaveBeenCalledWith({
-      projectId: 'project:sample',
-      target: { kind: 'batch', id: 'batch:one', version: 1 },
-    })
-  })
-
-  it('generates a batch plan against the explicit target without mutating it', async () => {
-    const user = userEvent.setup()
-    const decideAgent = vi.fn(async () => ok(agentDecisionWithPlan(agentPlanFixture('needs_confirmation', 'pending', { planId: 'plan:batch' }))))
-    const api = fakeDesktop({
-      decideAgent,
-      confirmAgentPlan: vi.fn(async () => ok(batchPlanFixture('ready', 'ready'))),
-      runAgentPlan: vi.fn(async () => ok({ task_plan: batchPlanFixture('succeeded', 'succeeded') })),
-    })
-    installApi(api)
-    render(<App />)
-    await openSampleAndCreatePlot(user)
-    await user.click(screen.getByRole('button', { name: /创建批次/ }))
-    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
-    await screen.findByText(/批次 batch:one/)
-
-    await user.click(screen.getByRole('button', { name: '整个批次' }))
-    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '统一 line width 为 1.5 pt')
-    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
-
-    expect(decideAgent).toHaveBeenCalledWith(expect.objectContaining({
-      target: { kind: 'batch', id: 'batch:one' },
-      scope: 'batch',
-      selectedChartId: 'K01',
-      executionMode: 'plan_only',
-    }))
-    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
-    expect(api.runAgentPlan).toHaveBeenCalledTimes(1)
-    expect(api.getPlot).toHaveBeenCalledTimes(0)
   })
 
   it('allows retry on a new target and ignores a late decision from the old target', async () => {

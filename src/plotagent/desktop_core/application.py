@@ -22,6 +22,9 @@ from pydantic import TypeAdapter, ValidationError
 
 from plotagent import __version__
 from plotagent.agent import (
+    AgentCreatePlot,
+    AgentFieldBinding,
+    BoundEnginePlan,
     BundledEngineAgentBinder,
     EngineAgentOrchestrator,
     EngineAgentPlan,
@@ -216,7 +219,13 @@ from plotagent.desktop_core.tasks import (
     TaskControlError,
     TaskRegistry,
 )
-from plotagent.engine import EngineVersionConflict, PlotEngineAction
+from plotagent.engine import (
+    CreatePlot,
+    EngineDataRef,
+    EngineVersionConflict,
+    FieldBinding,
+    PlotEngineAction,
+)
 from plotagent.exports import export_png, export_svg
 from plotagent.figures import FigureService
 from plotagent.figures.models import (
@@ -433,6 +442,7 @@ class DesktopApplication:
             "engine.plots.list": self._engine_plots_list,
             "engine.plots.get": self._engine_plots_get,
             "agent.engine.plans.create": self._engine_agent_plan_create,
+            "agent.engine.plans.create_batch": self._engine_agent_batch_plan_create,
             "agent.engine.plans.get": self._engine_agent_plan_get,
             "agent.engine.plans.list": self._engine_agent_plan_list,
             "agent.engine.plans.confirm": self._engine_agent_plan_confirm,
@@ -582,6 +592,102 @@ class DesktopApplication:
         values = _object(params, required={"project_id", "plan_id"})
         session = self._session(_text(values["project_id"], "project_id"))
         stored = session.engine_agent_plans.get(_text(values["plan_id"], "plan_id"))
+        return self._engine_agent_plan_payload(session, stored)
+
+    def _engine_agent_batch_plan_create(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        """Persist a batch as ordinary, independently resumable create_plot actions."""
+
+        values = _object(
+            params,
+            required={"project_id", "profile_id", "datasets", "expected_project_version"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        expected = _integer(
+            values["expected_project_version"], "expected_project_version", minimum=0
+        )
+        session.domain.require_revision(expected)
+        profile_id = _text(values["profile_id"], "profile_id")
+        session.engine.catalog.get(profile_id)
+        datasets_value = values["datasets"]
+        if not isinstance(datasets_value, list) or not 1 <= len(datasets_value) <= 64:
+            raise RpcServiceError(
+                "INVALID_PARAMS", "A batch plan requires between 1 and 64 datasets."
+            )
+
+        batch_token = uuid.uuid4().hex
+        plan_id = f"plan:batch.{batch_token}"
+        proposals: list[AgentCreatePlot] = []
+        actions: list[PlotEngineAction] = []
+        seen_sources: set[tuple[str, int]] = set()
+        for index, item_value in enumerate(datasets_value, start=1):
+            item = _object(
+                item_value,
+                required={"dataset_id", "version", "content_hash", "bindings"},
+            )
+            dataset_id = _text(item["dataset_id"], "dataset_id")
+            version = _integer(item["version"], "version", minimum=1)
+            source_key = (dataset_id, version)
+            if source_key in seen_sources:
+                raise RpcServiceError("INVALID_PARAMS", "Batch datasets must be unique.")
+            seen_sources.add(source_key)
+            source = session.domain.source_record(dataset_id, version)
+            content_hash = _text(item["content_hash"], "content_hash")
+            if source.content_hash != content_hash:
+                raise RpcServiceError(
+                    "SOURCE_VERSION_CONFLICT",
+                    "A batch dataset changed after the mapping was confirmed.",
+                )
+            binding_values = item["bindings"]
+            if not isinstance(binding_values, dict) or not binding_values:
+                raise RpcServiceError("INVALID_PARAMS", "Each batch dataset needs bindings.")
+            bindings = tuple(
+                FieldBinding(role=_text(role, "role"), field_id=_text(field_id, "field_id"))
+                for role, field_id in sorted(binding_values.items())
+            )
+            action_id = f"action:batch.{batch_token}.{index}"
+            plot_id = f"plot:batch.{batch_token}.{index}"
+            action = CreatePlot(
+                action_id=action_id,
+                plot_id=plot_id,
+                profile_id=profile_id,
+                data=EngineDataRef(
+                    kind="source",
+                    dataset_id=dataset_id,
+                    version=version,
+                    content_hash=content_hash,
+                ),
+                bindings=bindings,
+            )
+            session.engine.catalog.validate_create(action)
+            proposals.append(
+                AgentCreatePlot(
+                    action_id=action_id,
+                    plot_alias=f"plot_{index}",
+                    profile_id=profile_id,
+                    source_alias=f"source_{index}",
+                    bindings=tuple(
+                        AgentFieldBinding(role=binding.role, field_alias=f"field_{position}")
+                        for position, binding in enumerate(bindings, start=1)
+                    ),
+                )
+            )
+            actions.append(action)
+
+        proposal = EngineAgentPlan(
+            plan_id=plan_id,
+            target_alias="batch_plots",
+            actions=tuple(proposals),
+        )
+        stored = session.engine_agent_plans.create(
+            proposal,
+            BoundEnginePlan(
+                plan_id=plan_id,
+                expected_project_revision=expected,
+                actions=tuple(actions),
+            ),
+        )
         return self._engine_agent_plan_payload(session, stored)
 
     def _engine_agent_plan_list(

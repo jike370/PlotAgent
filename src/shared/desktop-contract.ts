@@ -14,9 +14,7 @@ export const IPC_CHANNELS = {
   agentPlanList: 'plotagent:agent:plan-list',
   agentPlanResume: 'plotagent:agent:plan-resume',
   agentPlanRun: 'plotagent:agent:plan-run',
-  batchCreate: 'plotagent:batch:create',
-  batchGet: 'plotagent:batch:get',
-  batchRun: 'plotagent:batch:run',
+  engineBatchPlanCreate: 'plotagent:engine:plans:create-batch',
   cancelTask: 'plotagent:tasks:cancel',
   closeResponse: 'plotagent:lifecycle:close-response',
   coreStatusChanged: 'plotagent:core:status-changed',
@@ -211,23 +209,15 @@ export interface PlotIdInput extends ProjectIdInput {
   readonly plotVersion: number
 }
 
-export interface BatchCreateInput extends ProjectIdInput {
+export interface EngineBatchPlanCreateInput extends ProjectIdInput {
   readonly datasets: readonly {
     readonly datasetId: string
     readonly sourceVersion: number
+    readonly contentHash: string
+    readonly bindings: Readonly<Record<string, string>>
   }[]
-  readonly chartId: string
-  readonly fieldMapping: FieldMappingInput
-  readonly expectedVersion: number
-}
-
-export interface BatchIdInput extends ProjectIdInput {
-  readonly batchId: string
-}
-
-export interface BatchRunInput extends ProjectIdInput {
-  readonly taskId: string
-  readonly expectedVersion: number
+  readonly profileId: string
+  readonly expectedProjectVersion: number
 }
 
 export interface AgentDecideInput extends ProjectIdInput {
@@ -238,10 +228,10 @@ export interface AgentDecideInput extends ProjectIdInput {
   readonly selectedChartId?: string
   readonly executionMode: 'plan_only' | 'execute'
   readonly target?: {
-    readonly kind: 'plot' | 'batch'
+    readonly kind: 'plot'
     readonly id: string
   }
-  readonly scope: 'current' | 'selected' | 'batch'
+  readonly scope: 'current' | 'selected'
   readonly utterance: string
 }
 
@@ -255,7 +245,7 @@ export interface AgentPlanConfirmInput extends AgentPlanInput {
 
 export interface PngSvgExportInput extends ProjectIdInput {
   readonly target: {
-    readonly kind: 'plot' | 'batch'
+    readonly kind: 'plot'
     readonly id: string
     readonly version: number
   }
@@ -264,7 +254,7 @@ export interface PngSvgExportInput extends ProjectIdInput {
 
 export interface OriginExportInput extends ProjectIdInput {
   readonly target: {
-    readonly kind: 'plot' | 'batch'
+    readonly kind: 'plot'
     readonly id: string
     readonly version: number
   }
@@ -311,9 +301,7 @@ export interface PlotAgentDesktopApi {
   executePlotAction(input: EngineActionInput): Promise<DesktopDataResult>
   getPlot(input: PlotIdInput): Promise<DesktopDataResult>
   listPlots(input: ProjectIdInput): Promise<DesktopDataResult>
-  createBatch(input: BatchCreateInput): Promise<DesktopDataResult>
-  runBatch(input: BatchRunInput): Promise<DesktopDataResult>
-  getBatch(input: BatchIdInput): Promise<DesktopDataResult>
+  createPlotBatchPlan(input: EngineBatchPlanCreateInput): Promise<DesktopDataResult>
   decideAgent(input: AgentDecideInput): Promise<DesktopDataResult>
   getAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
   listAgentPlans(input: ProjectIdInput): Promise<DesktopDataResult>
@@ -470,7 +458,7 @@ function parseMapping(value: unknown): FieldMappingInput | null {
 
 function parseTarget(value: unknown): NonNullable<AgentDecideInput['target']> | null {
   if (!isRecord(value) || !hasExactKeys(value, ['kind', 'id'])) return null
-  if (value.kind !== 'plot' && value.kind !== 'batch') return null
+  if (value.kind !== 'plot') return null
   const id = parseId(value.id)
   return id === null ? null : { kind: value.kind, id }
 }
@@ -573,44 +561,31 @@ export function parsePlotIdInput(value: unknown): PlotIdInput | null {
   return parsed === null || plotId === null || plotVersion === null ? null : { projectId: parsed.projectId as string, plotId, plotVersion }
 }
 
-export function parseBatchCreateInput(value: unknown): BatchCreateInput | null {
-  const parsed = parseProjectIdRecord(value, ['datasets', 'chartId', 'fieldMapping', 'expectedVersion'])
+export function parseEngineBatchPlanCreateInput(value: unknown): EngineBatchPlanCreateInput | null {
+  const parsed = parseProjectIdRecord(value, ['datasets', 'profileId', 'expectedProjectVersion'])
   if (parsed === null || !Array.isArray(parsed.datasets)) return null
   const datasets = parsed.datasets.map((item) => {
-    if (!isRecord(item) || !hasExactKeys(item, ['datasetId', 'sourceVersion'])) return null
+    if (!isRecord(item) || !hasExactKeys(item, ['datasetId', 'sourceVersion', 'contentHash', 'bindings'])) return null
     const datasetId = parseId(item.datasetId)
     const sourceVersion = parseVersion(item.sourceVersion, 1)
-    return datasetId === null || sourceVersion === null ? null : { datasetId, sourceVersion }
+    const contentHash = typeof item.contentHash === 'string' && /^[0-9a-f]{64}$/u.test(item.contentHash)
+      ? item.contentHash : null
+    const bindings = parseMapping({ roles: item.bindings })
+    return datasetId === null || sourceVersion === null || contentHash === null || bindings === null
+      ? null : { datasetId, sourceVersion, contentHash, bindings: bindings.roles }
   })
-  const expectedVersion = parseVersion(parsed.expectedVersion)
-  const mapping = parseMapping(parsed.fieldMapping)
+  const expectedProjectVersion = parseVersion(parsed.expectedProjectVersion)
   if (
-    datasets.length === 0 || datasets.length > 256 || datasets.some((item) => item === null) ||
-    new Set(datasets.map((item) => item?.datasetId)).size !== datasets.length || typeof parsed.chartId !== 'string' ||
-    !CHART_IDS.has(parsed.chartId) || mapping === null || expectedVersion === null
+    datasets.length === 0 || datasets.length > 64 || datasets.some((item) => item === null) ||
+    new Set(datasets.map((item) => item?.datasetId)).size !== datasets.length ||
+    typeof parsed.profileId !== 'string' || !CHART_IDS.has(parsed.profileId) || expectedProjectVersion === null
   ) return null
   return {
     projectId: parsed.projectId as string,
-    datasets: datasets as { datasetId: string; sourceVersion: number }[],
-    chartId: parsed.chartId,
-    fieldMapping: mapping,
-    expectedVersion,
+    datasets: datasets as { datasetId: string; sourceVersion: number; contentHash: string; bindings: Readonly<Record<string, string>> }[],
+    profileId: parsed.profileId,
+    expectedProjectVersion,
   }
-}
-
-export function parseBatchIdInput(value: unknown): BatchIdInput | null {
-  const parsed = parseProjectIdRecord(value, ['batchId'])
-  const batchId = parsed === null ? null : parseId(parsed.batchId)
-  return parsed === null || batchId === null ? null : { projectId: parsed.projectId as string, batchId }
-}
-
-export function parseBatchRunInput(value: unknown): BatchRunInput | null {
-  const parsed = parseProjectIdRecord(value, ['taskId', 'expectedVersion'])
-  const taskId = parsed === null ? null : parseId(parsed.taskId)
-  const expectedVersion = parsed === null ? null : parseVersion(parsed.expectedVersion)
-  return parsed === null || taskId === null || expectedVersion === null
-    ? null
-    : { projectId: parsed.projectId as string, taskId, expectedVersion }
 }
 
 export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {
@@ -625,7 +600,7 @@ export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {
   const sourceDatasetId = parseId(parsed.sourceDatasetId)
   const sourceVersion = parseVersion(parsed.sourceVersion, 1)
   const expectedVersion = parseVersion(parsed.expectedVersion)
-  const scopes = new Set(['current', 'selected', 'batch'])
+  const scopes = new Set(['current', 'selected'])
   if (projectId === null || target === null || sourceDatasetId === null || sourceVersion === null || expectedVersion === null || typeof parsed.scope !== 'string' || !scopes.has(parsed.scope)) return null
   if (target === undefined && parsed.scope !== 'current' && parsed.scope !== 'selected') return null
   if (parsed.executionMode !== 'plan_only' && parsed.executionMode !== 'execute') return null

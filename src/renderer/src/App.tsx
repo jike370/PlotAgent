@@ -31,12 +31,10 @@ import {
   type ProductPlot,
   type ProductProject,
 } from './data/productState'
-import { BatchInspector } from './components/BatchInspector'
 import { ChartLibrary } from './components/ChartLibrary'
 import { CompositionEditor } from './components/CompositionEditor'
 import {
   ConversationWorkspace,
-  type BatchView,
   type AgentChangeSetView,
   type ExportRecordView,
   type ProductNotice,
@@ -48,7 +46,7 @@ import { TaskDrawer } from './components/TaskDrawer'
 import { useDialogFocus } from './components/useDialogFocus'
 import { resolveDesktopRuntime } from './preview/browserPreviewApi'
 
-type Screen = 'workspace' | 'focus' | 'composition' | 'batch-inspector'
+type Screen = 'workspace' | 'focus' | 'composition'
 
 const initialCore: CoreStatus = { phase: 'starting', restartAttempt: 0 }
 
@@ -86,41 +84,17 @@ function readProviderConfigured(value: JsonValue): boolean {
   return Object.values(value).some((item) => isJsonRecord(item) && item.configured === true)
 }
 
-function readBatch(value: JsonValue): BatchView | undefined {
-  if (!isJsonRecord(value)) return undefined
-  const batch = isJsonRecord(value.batch) ? value.batch : value
-  const batchId = typeof value.batch_id === 'string'
-    ? value.batch_id
-    : typeof batch.batch_id === 'string' ? batch.batch_id : undefined
-  if (!batchId) return undefined
-  const taskId = typeof value.task_id === 'string' ? value.task_id : `task:${batchId.replace(/^batch:/, '')}`
-  const rawItems = Array.isArray(value.items)
-    ? value.items
-    : Array.isArray(batch.item_states) ? batch.item_states : []
-  return {
-    batchId,
-    taskId,
-    version: typeof batch.batch_version === 'number' ? batch.batch_version : 1,
-    state: typeof value.state === 'string' ? value.state : 'queued',
-    items: rawItems.flatMap((item) => isJsonRecord(item) && typeof item.item_id === 'string'
-      ? [{ id: item.item_id, state: typeof item.state === 'string' ? item.state : 'queued' }]
-      : []),
-  }
-}
-
 function readExportRecord(
   value: JsonValue,
   format: 'png' | 'svg' | 'opju',
-  target: { kind: 'plot' | 'batch'; id: string },
+  target: { kind: 'plot'; id: string },
 ): ExportRecordView | undefined {
   if (!isJsonRecord(value) || typeof value.export_id !== 'string') return undefined
   const artifact = isJsonRecord(value.artifact) ? value.artifact : undefined
   return {
     exportId: value.export_id,
     format,
-    targetKind: typeof value.target_kind === 'string' && ['plot', 'batch'].includes(value.target_kind)
-      ? value.target_kind as ExportRecordView['targetKind']
-      : target.kind,
+    targetKind: 'plot',
     targetId: typeof value.target_id === 'string'
       ? value.target_id
       : typeof value.plot_id === 'string' ? value.plot_id : target.id,
@@ -201,7 +175,6 @@ export function App(): React.JSX.Element {
   const [confirmedMapping, setConfirmedMapping] = useState<FieldMappingInput>()
   const [plot, setPlot] = useState<ProductPlot>()
   const [figureCandidates, setFigureCandidates] = useState<ProductPlot[]>([])
-  const [batch, setBatch] = useState<BatchView>()
   const [exportRecord, setExportRecord] = useState<ExportRecordView>()
   const [changeSet, setChangeSet] = useState<AgentChangeSetView>()
   const [notice, setNotice] = useState<ProductNotice>()
@@ -363,7 +336,6 @@ export function App(): React.JSX.Element {
     setConfirmedMapping(undefined)
     setPlot(undefined)
     setFigureCandidates([])
-    setBatch(undefined)
     setExportRecord(undefined)
     setChangeSet(undefined)
     setAgentOutcome(undefined)
@@ -587,7 +559,7 @@ export function App(): React.JSX.Element {
       const listed = valueOrThrow(await api.listDatasets({ projectId }))
       const next = { ...(known ?? { projectId, name: '本机项目', projectVersion: 0, isOpen: true }), projectVersion: projectVersionFrom(opened, 0), isOpen: true }
       setProject(next); setDatasets(readDatasets(listed)); setActiveDatasetId(readDatasets(listed)[0]?.datasetId)
-      setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined); setBatch(undefined); setFigureCandidates([])
+      setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined); setFigureCandidates([])
       setAgentPlan(undefined); setAgentOutcome(undefined); setChangeSet(undefined); setExportRecord(undefined)
       const recovery = await recoverLatestPlot(projectId)
       if (recovery.plot) {
@@ -642,13 +614,7 @@ export function App(): React.JSX.Element {
     agentRequestGeneration.current = requestGeneration
     setBusyAction('agent'); setAgentOutcome(undefined); setNotice(undefined)
     try {
-      const target = scope === 'batch'
-        ? batch ? { kind: 'batch' as const, id: batch.batchId } : undefined
-        : plot ? { kind: 'plot' as const, id: plot.plotId } : undefined
-      if (scope === 'batch' && !target) {
-        setAgentOutcome({ kind: 'rejected', title: '作用对象不可用', message: '请先创建并运行一个批次。' })
-        return
-      }
+      const target = plot ? { kind: 'plot' as const, id: plot.plotId } : undefined
       const value = valueOrThrow(await api.decideAgent({
         projectId: project.projectId,
         sourceDatasetId: activeDataset.datasetId,
@@ -675,14 +641,6 @@ export function App(): React.JSX.Element {
 
   const syncPlanOutput = async (plan: AgentPlanView): Promise<void> => {
     if (!api || !project) return
-    const batchOutput = plan.steps.flatMap((step) => step.outputBatch ? [step.outputBatch] : []).at(-1)
-    if (batchOutput) {
-      const stored = valueOrThrow(await api.getBatch({ projectId: project.projectId, batchId: batchOutput.batchId }))
-      const nextBatch = readBatch(stored)
-      if (nextBatch) setBatch(nextBatch)
-      setProject(projectWithVersion(project, projectVersionFrom(stored, project.projectVersion)))
-      return
-    }
     const output = plan.steps.flatMap((step) => step.outputPlot ? [step.outputPlot] : []).at(-1)
     if (!output) return
     const stored = valueOrThrow(await api.getPlot({ projectId: project.projectId, plotId: output.plotId, plotVersion: output.plotVersion }))
@@ -786,13 +744,13 @@ export function App(): React.JSX.Element {
     }
   }
 
-  const exportArtifact = async (format: 'png' | 'svg' | 'opju', explicitTarget?: { kind: 'batch'; id: string; version: number }): Promise<void> => {
-    if (!api || !project || (explicitTarget === undefined && plot === undefined)) return
+  const exportArtifact = async (format: 'png' | 'svg' | 'opju'): Promise<void> => {
+    if (!api || !project || plot === undefined) return
     if (previewMode) {
       setNotice({ kind: 'info', title: `预览模式不写出 ${format.toLocaleUpperCase('en-US')}`, message: '请在 PlotAgent 桌面应用中验证真实文件导出。' })
       return
     }
-    const target = explicitTarget ?? { kind: 'plot' as const, id: plot!.plotId, version: plot!.plotVersion }
+    const target = { kind: 'plot' as const, id: plot.plotId, version: plot.plotVersion }
     if (format === 'opju' && originStatus === 'unavailable') {
       setNotice({ kind: 'error', title: 'Origin 不可用', message: originDiagnostic })
       return
@@ -824,12 +782,38 @@ export function App(): React.JSX.Element {
     setBusyAction('batch'); setNotice(undefined)
     if (!confirmedMapping) { setNotice({ kind: 'warning', title: '批次尚不能创建', message: '请先确认当前图形的字段映射。' }); setBusyAction(undefined); return }
     try {
-      const created = valueOrThrow(await api.createBatch({
+      const activeFields = new Map(activeDataset.fields.map((field) => [field.fieldId, field.name]))
+      const roles = Object.entries(confirmedMapping.roles).map(([role, fieldId]) => {
+        const name = activeFields.get(fieldId)
+        if (name === undefined) throw new Error(`当前映射字段已不存在：${fieldId}`)
+        return { role, name }
+      })
+      const batchDatasets = datasets.map((dataset) => {
+        if (!dataset.contentHash) throw new Error(`${dataset.displayName} 缺少不可变内容标识。`)
+        const byName = new Map<string, string[]>()
+        for (const field of dataset.fields) {
+          const key = field.name.trim().toLocaleLowerCase('en-US')
+          byName.set(key, [...(byName.get(key) ?? []), field.fieldId])
+        }
+        const bindings = Object.fromEntries(roles.map(({ role, name }) => {
+          const matches = byName.get(name.trim().toLocaleLowerCase('en-US')) ?? []
+          if (matches.length !== 1) {
+            throw new Error(`${dataset.displayName} 无法唯一匹配字段“${name}”，批量计划尚未创建。`)
+          }
+          return [role, matches[0]]
+        }))
+        return {
+          datasetId: dataset.datasetId,
+          sourceVersion: dataset.sourceVersion,
+          contentHash: dataset.contentHash,
+          bindings,
+        }
+      })
+      const created = valueOrThrow(await api.createPlotBatchPlan({
         projectId: project.projectId,
-        datasets: datasets.map((dataset) => ({ datasetId: dataset.datasetId, sourceVersion: dataset.sourceVersion })),
-        chartId: selectedChart.id,
-        fieldMapping: confirmedMapping,
-        expectedVersion: project.projectVersion,
+        datasets: batchDatasets,
+        profileId: selectedChart.id,
+        expectedProjectVersion: project.projectVersion,
       }))
       const plan = readAgentPlan(created)
       if (!plan) throw new Error('Core 未返回批量任务计划。')
@@ -942,11 +926,10 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} changeSet={changeSet} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { invalidateAgentRequest(); setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen(plot?.chartId === 'K25' ? 'composition' : 'focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenTasks={() => setTasksOpen(true)} />
+          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} changeSet={changeSet} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { invalidateAgentRequest(); setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen(plot?.chartId === 'K25' ? 'composition' : 'focus')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && plot?.chartId === 'K25' && <CompositionEditor plot={plot} onClose={() => setScreen('workspace')} />}
-        {screen === 'batch-inspector' && batch && <BatchInspector batch={batch} onClose={() => setScreen('workspace')} />}
       </div>
       {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} availablePlotCount={figureCandidateCount} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
         setLibraryOpen(false)

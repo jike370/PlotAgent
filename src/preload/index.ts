@@ -10,9 +10,7 @@ import {
   type AgentDecideInput,
   type AgentPlanConfirmInput,
   type AgentPlanInput,
-  type BatchCreateInput,
-  type BatchIdInput,
-  type BatchRunInput,
+  type EngineBatchPlanCreateInput,
   type DatasetDescribeInput,
   type EngineActionInput,
   type OpenResourceRequest,
@@ -84,9 +82,8 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.engineActionExecute, input),
   getPlot: (input: PlotIdInput) => ipcRenderer.invoke(IPC_CHANNELS.enginePlotGet, input),
   listPlots: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.enginePlotList, input),
-  createBatch: (input: BatchCreateInput) => ipcRenderer.invoke(IPC_CHANNELS.batchCreate, input),
-  runBatch: (input: BatchRunInput) => ipcRenderer.invoke(IPC_CHANNELS.batchRun, input),
-  getBatch: (input: BatchIdInput) => ipcRenderer.invoke(IPC_CHANNELS.batchGet, input),
+  createPlotBatchPlan: (input: EngineBatchPlanCreateInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.engineBatchPlanCreate, input),
   decideAgent: (input: AgentDecideInput) => ipcRenderer.invoke(IPC_CHANNELS.agentDecide, input),
   getAgentPlan: (input: AgentPlanInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.agentPlanGet, input),

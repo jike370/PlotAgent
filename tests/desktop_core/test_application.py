@@ -413,6 +413,60 @@ def test_bundled_agent_engine_plan_is_bound_confirmed_and_restored(
     assert restored["next_action_index"] == 2
 
 
+def test_engine_batch_plan_is_only_standard_create_plot_actions(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import(harness, project_id, revision, "excel_two_sheets.xlsx", "engine-batch")
+    datasets = imported["datasets"]
+    assert len(datasets) == 2
+    plan_datasets = []
+    for dataset in datasets:
+        numeric = [
+            item["field_id"]
+            for item in dataset["fields"]
+            if item["logical_type"] == "numeric"
+        ]
+        assert len(numeric) >= 2
+        plan_datasets.append(
+            {
+                "dataset_id": dataset["source_dataset_id"],
+                "version": dataset["source_version"],
+                "content_hash": dataset["content_hash"],
+                "bindings": {"x": numeric[0], "y": numeric[1]},
+            }
+        )
+
+    created = harness.call(
+        "agent.engine.plans.create_batch",
+        {
+            "project_id": project_id,
+            "profile_id": "K01",
+            "datasets": plan_datasets,
+            "expected_project_version": imported["project_version"],
+        },
+    )
+    assert created["state"] == "needs_confirmation"
+    assert [item["operation"] for item in created["bound_plan"]["actions"]] == [
+        "create_plot",
+        "create_plot",
+    ]
+    assert all("batch" not in item for item in created["bound_plan"]["actions"])
+
+    harness.call(
+        "agent.engine.plans.confirm",
+        {"project_id": project_id, "plan_id": created["plan_id"]},
+    )
+    completed = harness.call(
+        "agent.engine.plans.run",
+        {"project_id": project_id, "plan_id": created["plan_id"]},
+    )
+    assert completed["state"] == "succeeded"
+    assert completed["next_action_index"] == 2
+    plots = harness.call("engine.plots.list", {"project_id": project_id})
+    assert len(plots["plots"]) == 2
+
+
 def test_agent_engine_decide_uses_engine_schema_and_local_confirmation(tmp_path: Path) -> None:
     provider = FakeProvider([])
     app = ApplicationHarness(tmp_path / "engine-agent-app", provider)
