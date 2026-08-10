@@ -44,7 +44,6 @@ def _plans() -> tuple[EngineAgentPlan, BoundEnginePlan]:
     proposal = EngineAgentPlan(
         plan_id="plan:persistent",
         target_alias="active_data",
-        confirmation="required",
         actions=(
             AgentCreatePlot(
                 action_id="action:create",

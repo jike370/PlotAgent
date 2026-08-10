@@ -336,7 +336,6 @@ def test_bundled_agent_engine_plan_is_bound_confirmed_and_restored(
             "proposal": {
                 "plan_id": "plan:desktop-engine",
                 "target_alias": "active_data",
-                "confirmation": "required",
                 "actions": (
                     {
                         "operation": "create_plot",
@@ -386,6 +385,88 @@ def test_bundled_agent_engine_plan_is_bound_confirmed_and_restored(
     )
     assert restored["state"] == "succeeded"
     assert restored["next_action_index"] == 2
+
+
+def test_agent_engine_decide_uses_engine_schema_and_local_confirmation(tmp_path: Path) -> None:
+    provider = FakeProvider([])
+    app = ApplicationHarness(tmp_path / "engine-agent-app", provider)
+    try:
+        project_id, revision = _create_open(app)
+        imported = _import(app, project_id, revision, "excel_two_sheets.xlsx", "engine-decide")
+        first = imported["datasets"][0]
+        session = app.application._sessions[project_id]  # noqa: SLF001
+        source = session.domain.source_record(
+            first["source_dataset_id"],
+            first["source_version"],
+        )
+        table = session.domain.resolve_source(source)
+        fields, _aliases = app.application._agent_fields(source, table.rows)  # noqa: SLF001
+        numeric = [field.field_alias for field in fields if field.logical_type == "numeric"]
+        provider.responses.append(
+            json.dumps(
+                {
+                    "schema_version": "engine-agent.v1",
+                    "decision_type": "action_plan",
+                    "plan_id": "plan:natural-engine",
+                    "target_alias": "active_target",
+                    "actions": [
+                        {
+                            "operation": "create_plot",
+                            "action_id": "action:natural-create",
+                            "plot_alias": "result",
+                            "profile_id": "K01",
+                            "source_alias": "active_target",
+                            "bindings": [
+                                {"role": "x", "field_alias": numeric[0]},
+                                {"role": "y", "field_alias": numeric[1]},
+                            ],
+                        },
+                        {
+                            "operation": "set_title",
+                            "action_id": "action:natural-title",
+                            "plot_alias": "result",
+                            "text": "Model proposed, locally bound",
+                        },
+                    ],
+                }
+            )
+        )
+
+        decided = app.call(
+            "agent.engine.decide",
+            {
+                "project_id": project_id,
+                "source_dataset_id": first["source_dataset_id"],
+                "source_version": first["source_version"],
+                "user_instruction": "画一张 K01 图并设置标题",
+                "client_model_run_id": "run:natural-engine",
+                "expected_version": imported["project_version"],
+                "selected_profile_id": "K01",
+                "network_mode": "custom_provider",
+                "retention_acknowledged": True,
+            },
+        )
+
+        assert decided["accepted"] is True
+        assert decided["decision"]["actions"][0]["operation"] == "create_plot"
+        assert decided["task_plan"]["state"] == "needs_confirmation"
+        assert "expected_project_revision" not in decided["decision"]
+        assert "expected_plot_version" not in decided["decision"]["actions"][1]
+        assert provider.requests[0].prompt_template.version == "engine-agent-v1"
+
+        app.call(
+            "agent.engine.plans.confirm",
+            {"project_id": project_id, "plan_id": "plan:natural-engine"},
+        )
+        completed = app.call(
+            "agent.engine.plans.run",
+            {"project_id": project_id, "plan_id": "plan:natural-engine"},
+        )
+        assert completed["state"] == "succeeded"
+        plots = app.call("engine.plots.list", {"project_id": project_id})
+        assert plots["plots"][0]["actions"][-1]["text"] == "Model proposed, locally bound"
+    finally:
+        app.close()
 
 
 def test_project_import_describe_k01_patch_render_and_exports(

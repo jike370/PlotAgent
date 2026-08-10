@@ -23,6 +23,7 @@ from pydantic import TypeAdapter, ValidationError
 from plotagent import __version__
 from plotagent.agent import (
     BundledEngineAgentBinder,
+    EngineAgentOrchestrator,
     EngineAgentPlan,
     EngineAgentPlanRepository,
     EngineTaskExecutionError,
@@ -452,6 +453,7 @@ class DesktopApplication:
             "provider.clear": self._provider_clear,
             "origin.status": self._origin_status,
             "agent.context.get": self._agent_context_get,
+            "agent.engine.decide": self._agent_engine_decide,
             "agent.decide": self._agent_decide,
             "agent.plans.create_batch": self._agent_batch_plan_create,
             "agent.plans.get": self._agent_plan_get,
@@ -2296,6 +2298,259 @@ class DesktopApplication:
         except Exception:
             self._fail_task(context.tasks, task_id)
             raise
+
+    def _agent_engine_decide(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        """Run the bundled model against the public engine action vocabulary."""
+
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "source_dataset_id",
+                "source_version",
+                "user_instruction",
+                "client_model_run_id",
+                "expected_version",
+            },
+            optional={
+                "conversation_id",
+                "selected_profile_id",
+                "locale",
+                "network_mode",
+                "provider",
+                "retention_acknowledged",
+                "target_plot_id",
+            },
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        expected = _integer(values["expected_version"], "expected_version", minimum=0)
+        session.domain.require_revision(expected)
+        source = session.domain.source_record(
+            _text(values["source_dataset_id"], "source_dataset_id"),
+            _integer(values["source_version"], "source_version", minimum=1),
+        )
+        source_table = session.domain.resolve_source(source)
+        source_ref = ContextObjectRef(
+            object_alias="active_data",
+            object_id=source.source_dataset_id,
+            object_version=source.source_version,
+            object_type="source_dataset",
+            content_hash=source.content_hash,
+        )
+        target_plot_id = _optional_text(values.get("target_plot_id"), "target_plot_id")
+        target_profiles: dict[str, str] = {}
+        if target_plot_id is None:
+            target = source_ref.model_copy(update={"object_alias": "active_target"})
+            selected_objects: tuple[ContextObjectRef, ...] = ()
+        else:
+            stored = session.engine.documents.get(target_plot_id)
+            target = ContextObjectRef(
+                object_alias="active_target",
+                object_id=stored.document.plot_id,
+                object_version=stored.document.plot_version,
+                object_type="plot",
+                content_hash=stored.content_hash,
+            )
+            selected_objects = (source_ref,)
+            target_profiles["active_target"] = stored.document.profile_id
+
+        selected_profile = _optional_text(
+            values.get("selected_profile_id"), "selected_profile_id"
+        )
+        enabled_profiles: tuple[str, ...]
+        if target_plot_id is not None:
+            enabled_profiles = (target_profiles["active_target"],)
+            if selected_profile is not None and selected_profile not in enabled_profiles:
+                raise RpcServiceError(
+                    "INVALID_PARAMS", "The selected profile differs from the target plot."
+                )
+        elif selected_profile is not None:
+            session.engine.catalog.get(selected_profile)
+            enabled_profiles = (selected_profile,)
+        else:
+            enabled_profiles = tuple(
+                profile.profile_id for profile in session.engine.catalog.profiles()
+            )
+
+        conversation_id = _optional_text(values.get("conversation_id"), "conversation_id")
+        if conversation_id is None:
+            conversation_id = self._default_conversation_id(session.project_id)
+        persisted = session.agent_runtime.get_conversation_state(conversation_id)
+        if persisted is None:
+            conversation = ConversationState(
+                current_target=target,
+                selected_objects=selected_objects,
+            )
+            session.agent_runtime.save_conversation_state(
+                conversation_id,
+                conversation.project(),
+                expected_state_version=None,
+            )
+        else:
+            conversation = ConversationState.from_projection(persisted)
+            if (
+                conversation.current_target != target
+                or conversation.selected_objects != selected_objects
+            ):
+                conversation = ConversationStateReducer().select_target(
+                    conversation,
+                    target,
+                    selected_objects=selected_objects,
+                )
+                session.agent_runtime.save_conversation_state(
+                    conversation_id,
+                    conversation.project(),
+                    expected_state_version=persisted.state_version,
+                )
+
+        fields, alias_to_field = self._agent_fields(source, source_table.rows)
+        known_objects = (target, *selected_objects)
+        project_context = ProjectContextService().build_snapshot(
+            project_id=session.project_id,
+            project_revision=expected,
+            conversation_id=conversation_id,
+            conversation_state=conversation.project(),
+            known_objects=known_objects,
+            field_bindings=tuple(
+                ContextFieldBinding(
+                    field_alias=alias,
+                    field_id=field_id,
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                )
+                for alias, field_id in alias_to_field.items()
+            ),
+        )
+        session.agent_runtime.save_context_snapshot(project_context)
+        sample_rows = tuple(
+            AuthoritativeSampleRow(
+                row_id=source_table.coordinates[index].source_row_id,
+                values={
+                    field.field_id: source_table.rows[index][field_index]
+                    for field_index, field in enumerate(fields)
+                },
+            )
+            for index in range(len(source_table.rows))
+        )
+
+        saved_provider = self._saved_provider_config()
+        mode_value = values.get("network_mode")
+        if mode_value is None:
+            mode = (
+                NetworkMode.CUSTOM_PROVIDER
+                if saved_provider is not None
+                else NetworkMode.LOCAL_ONLY
+            )
+        else:
+            try:
+                mode = NetworkMode(_text(mode_value, "network_mode"))
+            except ValueError:
+                raise RpcServiceError("INVALID_PARAMS", "The network mode was invalid.") from None
+        if values.get("provider") is None:
+            provider_values = saved_provider or {}
+        else:
+            provider_values = _object(values["provider"], required=set(), optional=None)
+        try:
+            provider = self._provider_factory(mode, provider_values)
+            identity = provider.identity
+        except Exception:
+            return _agent_failure_payload("PROVIDER_NOT_CONFIGURED")
+        if identity.provider_type == "local_only":
+            return _agent_failure_payload("PROVIDER_NOT_CONFIGURED")
+
+        categories: frozenset[DisclosureCategory] = frozenset(
+            {
+                "user_instruction",
+                "field_metadata",
+                "statistics",
+                "sample",
+                "chart_capabilities",
+            }
+        )
+        context_request = ContextBuildRequest(
+            user_instruction=_text(values["user_instruction"], "user_instruction"),
+            locale=_optional_text(values.get("locale"), "locale") or "zh-CN",
+            project=AuthoritativeProjectContext(
+                target=target,
+                dataset_content_hash=source.content_hash,
+                fields=fields,
+                sample_rows=sample_rows,
+                selected_objects=selected_objects,
+                explicit_field_aliases=tuple(alias_to_field),
+            ),
+            conversation_state=conversation,
+            chart_capabilities=ChartCapabilities(
+                capability_version="agent-native-engine-v1",
+                allowed_chart_type_ids=cast(Any, enabled_profiles),
+                allowed_action_types=("create_plot", "patch_plot", "export_artifact"),
+                export_formats=("png", "svg", "opju"),
+            ),
+            disclosure_grant=DisclosureGrant(
+                provider_type=identity.provider_type,
+                provider_config_id=identity.provider_config_id,
+                retention_disclosure_version="retention-v1",
+                retention_acknowledged=bool(values.get("retention_acknowledged", True)),
+                allowed_categories=categories,
+            ),
+        )
+        result = asyncio.run(
+            EngineAgentOrchestrator(
+                network_mode=mode,
+                context_builder=ContextBuilder(),
+                provider=provider,
+                binder=BundledEngineAgentBinder(session.engine.catalog),
+                codec=session.engine.codec,
+                audit_sink=InMemoryAuditSink(),
+            ).run(
+                client_model_run_id=_text(
+                    values["client_model_run_id"], "client_model_run_id"
+                ),
+                context_request=context_request,
+                project_context=project_context,
+                target_profiles=target_profiles,
+            )
+        )
+        if not result.accepted or result.decision is None:
+            return _agent_failure_payload(result.error_code)
+        decision = result.decision
+        question_ids = (
+            tuple(question.question_key for question in decision.questions)
+            if decision.decision_type == "needs_input"
+            else ()
+        )
+        latest = session.agent_runtime.get_conversation_state(conversation_id)
+        if latest is None:
+            raise RpcServiceError("AGENT_CONTEXT_MISSING", "The Agent context is unavailable.")
+        updated = ConversationStateReducer().record_decision(
+            ConversationState.from_projection(latest),
+            decision_kind=decision.decision_type,
+            unresolved_question_ids=question_ids,
+        )
+        session.agent_runtime.save_conversation_state(
+            conversation_id,
+            updated.project(),
+            expected_state_version=latest.state_version,
+            context_hash=project_context.snapshot_hash,
+        )
+        payload: dict[str, RpcJsonValue] = {
+            "accepted": True,
+            "conversation_id": conversation_id,
+            "context_snapshot_id": project_context.snapshot_id,
+            "context_hash": project_context.snapshot_hash,
+            "decision": cast(RpcJsonValue, decision.model_dump(mode="json")),
+        }
+        if isinstance(decision, EngineAgentPlan):
+            if result.bound_plan is None:
+                raise RpcServiceError("ENGINE_PLAN_INVALID", "The engine plan was not bound.")
+            stored_plan = session.engine_agent_plans.create(
+                decision,
+                result.bound_plan,
+                confirmation_required=True,
+            )
+            payload["task_plan"] = self._engine_agent_plan_payload(session, stored_plan)
+        return payload
 
     def _agent_decide(self, context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(

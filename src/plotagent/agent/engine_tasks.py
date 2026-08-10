@@ -83,10 +83,15 @@ class EngineAgentPlanRepository:
             """
         )
 
-    def create(self, proposal: EngineAgentPlan, bound: BoundEnginePlan) -> EngineTaskPlanSnapshot:
+    def create(
+        self,
+        proposal: EngineAgentPlan,
+        bound: BoundEnginePlan,
+        *,
+        confirmation_required: bool = True,
+    ) -> EngineTaskPlanSnapshot:
         if proposal.plan_id != bound.plan_id:
             raise ValueError("bound engine plan does not match its provider proposal")
-        needs_confirmation = proposal.confirmation == "required"
         now = _utc_now()
         self._project._assert_writer().execute(  # noqa: SLF001
             """
@@ -99,8 +104,8 @@ class EngineAgentPlanRepository:
                 proposal.plan_id,
                 proposal.model_dump_json(),
                 bound.model_dump_json(),
-                "needs_confirmation" if needs_confirmation else "ready",
-                "pending" if needs_confirmation else "not_required",
+                "needs_confirmation" if confirmation_required else "ready",
+                "pending" if confirmation_required else "not_required",
                 bound.expected_project_revision,
                 now,
                 now,

@@ -82,7 +82,6 @@ def test_provider_alias_plan_is_bound_to_public_engine_actions() -> None:
             "decision_type": "action_plan",
             "plan_id": "plan:engine-orchestrator",
             "target_alias": "active_target",
-            "confirmation": "required",
             "actions": [
                 {
                     "operation": "create_plot",

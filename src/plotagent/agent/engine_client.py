@@ -173,7 +173,6 @@ class EngineAgentPlan(StrictModel):
     ]
     target_alias: AgentAlias
     actions: Annotated[tuple[AgentEngineAction, ...], Field(min_length=1, max_length=64)]
-    confirmation: Literal["not_required", "required"] = "required"
 
     @model_validator(mode="after")
     def unique_action_ids(self) -> EngineAgentPlan:
