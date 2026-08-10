@@ -947,21 +947,6 @@ def _place_inside_legend(
     left = min(left, max(page_width - legend_width - page_inset, page_inset))
     top = min(max(top, page_inset), max(page_height - legend_height - page_inset, page_inset))
     _set_page_position(legend, page_width=page_width, page_height=page_height, left=left, top=top)
-    # A linked Origin legend can retain a right-edge horizontal anchor even when
-    # it is attached to the page.  Other graph labels use a left-edge anchor.
-    # Normalize against the computed, read-only bounds after the first write so
-    # both native object variants land on the same requested page rectangle.
-    try:
-        actual_left = _finite_float(legend.get_float("left"))
-        actual_top = _finite_float(legend.get_float("top"))
-        current_x = _finite_float(legend.get_float("x1"))
-        current_y = _finite_float(legend.get_float("y1"))
-    except (KeyError, NativeOriginError):
-        return
-    if abs(actual_left - left) > 0.5:
-        legend.set_float("x1", current_x + (left - actual_left) / page_width)
-    if abs(actual_top - top) > 0.5:
-        legend.set_float("y1", current_y + (top - actual_top) / page_height)
 
 
 def _set_page_position(
@@ -985,6 +970,21 @@ def _set_page_position(
     label.set_int("attach", 1)
     label.set_float("x1", left / page_width)
     label.set_float("y1", top / page_height)
+    # Origin graph objects retain their own horizontal alignment: ordinary text
+    # may be left- or centre-anchored, while a linked legend can be right-anchored.
+    # ``left``/``top`` are computed bounds, so normalize once against their native
+    # readback instead of assuming one anchor convention for every editable object.
+    try:
+        actual_left = _finite_float(label.get_float("left"))
+        actual_top = _finite_float(label.get_float("top"))
+        current_x = _finite_float(label.get_float("x1"))
+        current_y = _finite_float(label.get_float("y1"))
+    except (AttributeError, KeyError, NativeOriginError, TypeError, ValueError):
+        return
+    if abs(actual_left - left) > 0.5:
+        label.set_float("x1", current_x + (left - actual_left) / page_width)
+    if abs(actual_top - top) > 0.5:
+        label.set_float("y1", current_y + (top - actual_top) / page_height)
 
 
 def _place_page_title(
@@ -1881,7 +1881,19 @@ class OriginProBackend:
                 or not math.isclose(label.get_float("top"), entry.top, abs_tol=3.0)
             ):
                 raise NativeOriginError(
-                    f"native risk-table label differs for {layer_plan.layer_id}: {entry.name}"
+                    f"native risk-table label differs for {layer_plan.layer_id}: {entry.name}; "
+                    f"text={label.text if label is not None else None!r}/expected={entry.text!r}, "
+                    f"attach={label.get_int('attach') if label is not None else None}, "
+                    f"show={label.get_int('show') if label is not None else None}, "
+                    f"background={label.get_int('background') if label is not None else None}, "
+                    f"color={tuple(label.color) if label is not None else None}/"
+                    f"expected={_hex_rgb(entry.color)}, "
+                    f"fsize={label.get_float('fsize') if label is not None else None}/"
+                    f"expected={entry.font_size_pt}, "
+                    f"left={label.get_float('left') if label is not None else None}/"
+                    f"expected={entry.left}, "
+                    f"top={label.get_float('top') if label is not None else None}/"
+                    f"expected={entry.top}"
                 )
 
     def _configure_layer_frame(

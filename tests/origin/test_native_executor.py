@@ -34,6 +34,7 @@ from plotagent.origin._origin_backend import (
     _read_template_y_axis_style,
     _risk_table_labels,
     _safe_legend_label,
+    _set_page_position,
     _size_key_layout,
     _style_annotation_label,
     _tick_label_rotation,
@@ -520,6 +521,20 @@ class _RightAnchoredLegend(_FakePageObject):
         return super().get_float(key)
 
 
+class _CenteredLabel(_FakePageObject):
+    def __init__(self, *, page_width: float, page_height: float, **values: float) -> None:
+        super().__init__(**values)
+        self.page_width = page_width
+        self.page_height = page_height
+
+    def get_float(self, key: str) -> float:
+        if key == "left":
+            return super().get_float("x1") * self.page_width - super().get_float("width") / 2.0
+        if key == "top":
+            return super().get_float("y1") * self.page_height
+        return super().get_float(key)
+
+
 @pytest.mark.parametrize("chart_id", ["K01", "K07", "K19", "X03"])
 def test_shared_title_layout_is_page_attached_and_above_plot_frame(chart_id: str) -> None:
     graph_plan = _plan(chart_id).graph_objects[0].model_copy(update={"title": f"{chart_id} title"})
@@ -596,6 +611,21 @@ def test_linked_legend_right_anchor_is_normalized_to_requested_page_bounds() -> 
     frame_left, _, frame_width, _ = _frame_page_bounds(page, graph_plan, graph_plan.layers[0])
     assert legend.get_float("left") >= frame_left + frame_width + page.get_float("width") * 0.005
     assert legend.get_float("left") + legend.get_float("width") <= page.get_float("width")
+
+
+def test_page_position_normalizes_center_anchored_editable_text() -> None:
+    label = _CenteredLabel(page_width=2102.0, page_height=1417.0, width=160.0, height=30.0)
+
+    _set_page_position(
+        label,
+        page_width=2102.0,
+        page_height=1417.0,
+        left=91.0,
+        top=994.0,
+    )
+
+    assert label.get_float("left") == pytest.approx(91.0)
+    assert label.get_float("top") == pytest.approx(994.0)
 
 
 @pytest.mark.parametrize("chart_id", ["X05", "X23", "X35", "X36", "X38"])
