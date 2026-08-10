@@ -1890,6 +1890,23 @@ class OriginProBackend:
         if graph is None:
             raise NativeOriginError(f"could not create graph {graph_plan.internal_name}")
         page_units = int(graph.obj.GetUnits())
+        # Some official templates retain an unused, blank construction layer.
+        # It is not part of the typed graph and must not survive as an editable
+        # phantom panel.  Reuse every layer required by the plan and remove only
+        # blank trailing template layers; a populated extra layer is a template
+        # contract mismatch and is never deleted silently.
+        while len(graph) > len(graph_plan.layers):
+            trailing_layer = graph[len(graph) - 1]
+            if trailing_layer.plot_list():
+                raise NativeOriginError(
+                    f"official template has an unexpected populated layer for "
+                    f"{graph_plan.graph_id}"
+                )
+            if not trailing_layer.obj.Destroy():
+                raise NativeOriginError(
+                    f"could not remove unused official template layer for "
+                    f"{graph_plan.graph_id}"
+                )
         template_y_style = _read_template_y_axis_style(graph[0])
         graph.name = graph_plan.internal_name
         graph.lname = graph_plan.long_name
@@ -2100,11 +2117,33 @@ class OriginProBackend:
                 if x_title is not None:
                     x_title.set_int("show", 0)
             legend = layer.label("legend")
+            visible_legend = bool(
+                graph_plan.legend_visible and layer_index == 0 and legend_entries
+            )
+            if visible_legend and (legend is None or legend.get_int("link") != 1):
+                if legend is not None and not legend.obj.Destroy():
+                    raise NativeOriginError(
+                        f"could not replace unlinked template legend for "
+                        f"{graph_plan.graph_id}"
+                    )
+                layer.activate()
+                # The pinned Origin COM API cannot construct the special linked
+                # legend object through GraphObjects.Add. This fixed, argument-free
+                # native command creates it without exposing a script surface to
+                # user or Agent content.
+                if not layer.obj.LT_execute("legend"):
+                    raise NativeOriginError(
+                        f"could not create linked native legend for {graph_plan.graph_id}"
+                    )
+                legend = layer.label("legend")
+                if legend is None or legend.get_int("link") != 1:
+                    raise NativeOriginError(
+                        f"native legend cannot enable plot linkage for "
+                        f"{graph_plan.graph_id}"
+                    )
             if legend is not None:
-                visible_legend = bool(
-                    graph_plan.legend_visible and layer_index == 0 and legend_entries
-                )
-                legend.text = _legend_text(legend_entries) if visible_legend else ""
+                legend_text = _legend_text(legend_entries) if visible_legend else ""
+                legend.text = legend_text
                 legend.set_float("fsize", graph_plan.font_size_pt)
                 # Origin only fully evaluates the allowlisted ``style:`` sample
                 # options at substitution level 1. User labels are separately
@@ -2153,8 +2192,22 @@ class OriginProBackend:
             _place_page_title(graph, graph_plan, first_layer_plan, title)
         legend = first_layer.label("legend")
         if graph_plan.legend_visible and legend_entries and legend is not None:
+            # Reassert substitution linkage after the final page-size update;
+            # some official templates defer object normalization until this
+            # point and otherwise reset the property to an unset value.
+            legend.set_int("link", 1)
             _place_inside_legend(graph, graph_plan, first_layer_plan, legend)
         self._write_size_key(graph, first_layer, graph_plan, first_layer_plan)
+        for layer_index, layer_plan in enumerate(graph_plan.layers):
+            overlays_previous = any(
+                previous.left_mm == layer_plan.left_mm
+                and previous.top_mm == layer_plan.top_mm
+                and previous.width_mm == layer_plan.width_mm
+                and previous.height_mm == layer_plan.height_mm
+                for previous in graph_plan.layers[:layer_index]
+            )
+            if not overlays_previous:
+                _write_dense_x_axis_title(graph, graph_plan, layer_plan, graph[layer_index])
 
     def write_manifest(self, plan: OriginExportPlan) -> None:
         self._active_plan = plan
