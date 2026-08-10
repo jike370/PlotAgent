@@ -21,7 +21,15 @@ import pyarrow.parquet as pq  # type: ignore[import-untyped]
 from pydantic import TypeAdapter, ValidationError
 
 from plotagent import __version__
-from plotagent.agent import SingleAgentOrchestrator
+from plotagent.agent import (
+    BundledEngineAgentBinder,
+    EngineAgentPlan,
+    EngineAgentPlanRepository,
+    EngineTaskExecutionError,
+    EngineTaskPlanSnapshot,
+    PersistentEngineTaskOrchestrator,
+    SingleAgentOrchestrator,
+)
 from plotagent.agent.audit import InMemoryAuditSink
 from plotagent.agent.context import (
     AuthoritativeField,
@@ -207,7 +215,7 @@ from plotagent.desktop_core.tasks import (
     TaskControlError,
     TaskRegistry,
 )
-from plotagent.engine import EngineVersionConflict
+from plotagent.engine import EngineVersionConflict, PlotEngineAction
 from plotagent.exports import export_png, export_svg
 from plotagent.figures import FigureService
 from plotagent.figures.models import (
@@ -272,6 +280,7 @@ class ProjectSession(SourceTableResolver):
     imports: ProjectImportService
     agent_runtime: AgentRuntimeRepository
     engine: DesktopEngineSession
+    engine_agent_plans: EngineAgentPlanRepository
 
     @property
     def project_id(self) -> str:
@@ -422,6 +431,11 @@ class DesktopApplication:
             "engine.actions.execute": self._engine_actions_execute,
             "engine.plots.list": self._engine_plots_list,
             "engine.plots.get": self._engine_plots_get,
+            "agent.engine.plans.create": self._engine_agent_plan_create,
+            "agent.engine.plans.get": self._engine_agent_plan_get,
+            "agent.engine.plans.confirm": self._engine_agent_plan_confirm,
+            "agent.engine.plans.run": self._engine_agent_plan_run,
+            "agent.engine.plans.resume": self._engine_agent_plan_run,
             "plots.create": self._plots_create,
             "plots.patch": self._plots_patch,
             "plots.list": self._plots_list,
@@ -529,6 +543,129 @@ class DesktopApplication:
             {
                 "project_id": session.project_id,
                 **session.engine.get(_text(values["plot_id"], "plot_id"), version),
+            },
+        )
+
+    def _engine_agent_plan_create(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "context_snapshot_id", "proposal"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        snapshot = session.agent_runtime.get_context_snapshot(
+            _text(values["context_snapshot_id"], "context_snapshot_id")
+        )
+        if snapshot.project_id != session.project_id:
+            raise RpcServiceError("INVALID_PARAMS", "The context belongs to another project.")
+        session.domain.require_revision(snapshot.project_revision)
+        proposal = EngineAgentPlan.model_validate(values["proposal"])
+        target_profiles = self._engine_agent_target_profiles(session, snapshot)
+        bound = BundledEngineAgentBinder(session.engine.catalog).bind(
+            proposal,
+            snapshot,
+            target_profiles=target_profiles,
+        )
+        stored = session.engine_agent_plans.create(proposal, bound)
+        return self._engine_agent_plan_payload(session, stored)
+
+    def _engine_agent_plan_get(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        stored = session.engine_agent_plans.get(_text(values["plan_id"], "plan_id"))
+        return self._engine_agent_plan_payload(session, stored)
+
+    def _engine_agent_plan_confirm(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        stored = session.engine_agent_plans.confirm(_text(values["plan_id"], "plan_id"))
+        return self._engine_agent_plan_payload(session, stored)
+
+    def _engine_agent_plan_run(
+        self, context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        plan_id = _text(values["plan_id"], "plan_id")
+        task_id = self._begin_task(context, "engine-agent-plan")
+        try:
+            context.tasks.transition(task_id, "running")
+            stored = PersistentEngineTaskOrchestrator(
+                session.engine_agent_plans,
+                _DesktopEngineActionExecutor(session),
+            ).run(plan_id)
+            context.tasks.transition(task_id, "committing")
+            context.tasks.transition(
+                task_id,
+                (
+                    "succeeded"
+                    if stored.state == "succeeded"
+                    else "partially_succeeded"
+                    if stored.next_action_index > 0
+                    else "failed"
+                ),
+            )
+            payload = cast(
+                dict[str, RpcJsonValue],
+                self._engine_agent_plan_payload(session, stored),
+            )
+            return {
+                "task_id": task_id,
+                **payload,
+            }
+        except EngineTaskExecutionError as error:
+            self._fail_task(context.tasks, task_id)
+            raise RpcServiceError(error.code, str(error)) from None
+        except Exception:
+            self._fail_task(context.tasks, task_id)
+            raise
+
+    @staticmethod
+    def _engine_agent_target_profiles(
+        session: ProjectSession,
+        snapshot: ProjectContextSnapshot,
+    ) -> dict[str, str]:
+        objects = (
+            snapshot.known_objects
+            + snapshot.recent_result_objects
+            + (snapshot.conversation_state.current_target,)
+        )
+        profiles: dict[str, str] = {}
+        for item in objects:
+            if item.object_type != "plot":
+                continue
+            try:
+                stored = session.engine.documents.get(item.object_id, item.object_version)
+            except KeyError:
+                continue
+            profiles[item.object_alias] = stored.document.profile_id
+        return profiles
+
+    @staticmethod
+    def _engine_agent_plan_payload(
+        session: ProjectSession,
+        snapshot: EngineTaskPlanSnapshot,
+    ) -> RpcJsonValue:
+        return cast(
+            RpcJsonValue,
+            {
+                "project_id": session.project_id,
+                "project_version": session.domain.revision,
+                "plan_id": snapshot.proposal.plan_id,
+                "state": snapshot.state,
+                "confirmation_state": snapshot.confirmation_state,
+                "next_action_index": snapshot.next_action_index,
+                "current_project_revision": snapshot.current_project_revision,
+                "error_code": snapshot.error_code,
+                "proposal": snapshot.proposal.model_dump(mode="json"),
+                "bound_plan": snapshot.bound.model_dump(mode="json"),
+                "created_at": snapshot.created_at,
+                "updated_at": snapshot.updated_at,
             },
         )
 
@@ -799,6 +936,7 @@ class DesktopApplication:
             imports=ProjectImportService(store),
             agent_runtime=AgentRuntimeRepository(store),
             engine=DesktopEngineSession.open(store),
+            engine_agent_plans=EngineAgentPlanRepository(store),
         )
         session.agent_runtime.recover_interrupted()
         self._sessions[project_id] = session
@@ -4429,6 +4567,23 @@ class _DesktopObjectAuthority:
         except StorageProblem:
             return None
         return None
+
+
+@dataclass(frozen=True, slots=True)
+class _DesktopEngineActionExecutor:
+    session: ProjectSession
+
+    def execute_action(
+        self,
+        action: PlotEngineAction,
+        *,
+        expected_project_revision: int,
+    ) -> int:
+        self.session.engine.execute_action(
+            action,
+            expected_project_revision=expected_project_revision,
+        )
+        return self.session.domain.revision
 
 
 @dataclass(frozen=True, slots=True)

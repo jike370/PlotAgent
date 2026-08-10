@@ -11,6 +11,8 @@ from typing import Any, cast
 
 import pytest
 
+from plotagent.agent.context import ConversationState
+from plotagent.agent.project_context import ProjectContextService
 from plotagent.agent.providers import (
     OutputCapability,
     ProviderCapabilities,
@@ -20,6 +22,8 @@ from plotagent.agent.providers import (
     ProviderUsage,
     ProviderWireResponse,
 )
+from plotagent.contracts.agent_context import ContextObjectRef
+from plotagent.contracts.project_context import ContextFieldBinding
 from plotagent.contracts.registry import CHART_REGISTRY
 from plotagent.desktop_core.application import DesktopApplication
 from plotagent.desktop_core.protocol import JsonValue
@@ -276,6 +280,112 @@ def test_agent_native_engine_rpc_uses_project_data_and_restores_documents(
     assert restored["plots"][0]["plot_id"] == "plot:engine-desktop"
     assert restored["plots"][0]["plot_version"] == 2
     assert Path(restored["plots"][0]["preview"]["path"]).is_file()
+
+
+def test_bundled_agent_engine_plan_is_bound_confirmed_and_restored(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import(harness, project_id, revision, "excel_two_sheets.xlsx", "engine-plan")
+    first = imported["datasets"][0]
+    numeric = [
+        item["field_id"] for item in first["fields"] if item["logical_type"] == "numeric"
+    ]
+    target = ContextObjectRef(
+        object_alias="active_data",
+        object_id=first["source_dataset_id"],
+        object_version=first["source_version"],
+        object_type="source_dataset",
+        content_hash=first["content_hash"],
+    )
+    conversation = ConversationState(current_target=target)
+    snapshot = ProjectContextService().build_snapshot(
+        project_id=project_id,
+        project_revision=imported["project_version"],
+        conversation_id="conversation:engine-plan",
+        conversation_state=conversation.project(),
+        known_objects=(target,),
+        field_bindings=(
+            ContextFieldBinding(
+                field_alias="x",
+                field_id=numeric[0],
+                source_dataset_id=first["source_dataset_id"],
+                source_version=first["source_version"],
+            ),
+            ContextFieldBinding(
+                field_alias="y",
+                field_id=numeric[1],
+                source_dataset_id=first["source_dataset_id"],
+                source_version=first["source_version"],
+            ),
+        ),
+    )
+    session = harness.application._sessions[project_id]  # noqa: SLF001
+    session.agent_runtime.save_conversation_state(
+        "conversation:engine-plan",
+        conversation.project(),
+        expected_state_version=None,
+    )
+    session.agent_runtime.save_context_snapshot(snapshot)
+
+    created = harness.call(
+        "agent.engine.plans.create",
+        {
+            "project_id": project_id,
+            "context_snapshot_id": snapshot.snapshot_id,
+            "proposal": {
+                "plan_id": "plan:desktop-engine",
+                "target_alias": "active_data",
+                "confirmation": "required",
+                "actions": (
+                    {
+                        "operation": "create_plot",
+                        "action_id": "action:engine-create",
+                        "plot_alias": "result",
+                        "profile_id": "K01",
+                        "source_alias": "active_data",
+                        "bindings": (
+                            {"role": "x", "field_alias": "x"},
+                            {"role": "y", "field_alias": "y"},
+                        ),
+                    },
+                    {
+                        "operation": "set_title",
+                        "action_id": "action:engine-title",
+                        "plot_alias": "result",
+                        "text": "Bound locally",
+                    },
+                ),
+            },
+        },
+    )
+    assert created["state"] == "needs_confirmation"
+    assert created["bound_plan"]["expected_project_revision"] == imported["project_version"]
+    assert created["bound_plan"]["actions"][1]["expected_plot_version"] == 1
+
+    confirmed = harness.call(
+        "agent.engine.plans.confirm",
+        {"project_id": project_id, "plan_id": "plan:desktop-engine"},
+    )
+    assert confirmed["state"] == "ready"
+    completed = harness.call(
+        "agent.engine.plans.run",
+        {"project_id": project_id, "plan_id": "plan:desktop-engine"},
+    )
+    assert completed["state"] == "succeeded"
+    assert completed["current_project_revision"] == imported["project_version"] + 2
+    assert completed["next_action_index"] == 2
+
+    plots = harness.call("engine.plots.list", {"project_id": project_id})
+    assert plots["plots"][0]["actions"][-1]["text"] == "Bound locally"
+    harness.call("projects.close", {"project_id": project_id})
+    harness.call("projects.open", {"project_id": project_id})
+    restored = harness.call(
+        "agent.engine.plans.get",
+        {"project_id": project_id, "plan_id": "plan:desktop-engine"},
+    )
+    assert restored["state"] == "succeeded"
+    assert restored["next_action_index"] == 2
 
 
 def test_project_import_describe_k01_patch_render_and_exports(

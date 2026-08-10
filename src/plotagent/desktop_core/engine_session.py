@@ -19,6 +19,7 @@ from plotagent.engine import (
     EngineDataViewRepository,
     PlotDocument,
     PlotDocumentRepository,
+    PlotEngineAction,
     PlotEngineRuntime,
     PlotEngineService,
     ProjectEngineDataProvider,
@@ -93,6 +94,19 @@ class DesktopEngineSession:
         expected_project_revision: int,
     ) -> dict[str, object]:
         action = self.codec.decode(arguments)
+        return self.execute_action(
+            action,
+            expected_project_revision=expected_project_revision,
+        )
+
+    def execute_action(
+        self,
+        action: PlotEngineAction,
+        *,
+        expected_project_revision: int,
+    ) -> dict[str, object]:
+        """Execute one already validated public engine action."""
+
         result = self.runtime.execute(
             action,
             expected_project_revision=expected_project_revision,
@@ -120,12 +134,19 @@ class DesktopEngineSession:
         }
 
     def _document_payload(self, document: PlotDocument) -> dict[str, object]:
+        applied_ids = set(document.applied_action_ids)
+        actions = tuple(
+            item.action.model_dump(mode="json")
+            for item in self.documents.actions(document.plot_id)
+            if item.action.action_id in applied_ids
+        )
         payload: dict[str, object] = {
             "plot_id": document.plot_id,
             "plot_version": document.plot_version,
             "plot_ref": document_ref(document).model_dump(mode="json"),
             "profile_id": document.profile_id,
             "document": document.model_dump(mode="json"),
+            "actions": actions,
         }
         preview = self._preview_descriptor(document, "png")
         if preview is not None:
