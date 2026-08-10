@@ -165,9 +165,12 @@ def _install_fake_origin_export(
     captured: list[Any],
     *,
     on_export: Any | None = None,
+    captured_kwargs: list[dict[str, Any]] | None = None,
 ) -> None:
-    def fake_export(plan: Any, destination: Path, **_kwargs: Any) -> OriginExportSuccess:
+    def fake_export(plan: Any, destination: Path, **kwargs: Any) -> OriginExportSuccess:
         captured.append(plan)
+        if captured_kwargs is not None:
+            captured_kwargs.append(kwargs)
         if on_export is not None:
             on_export()
         payload = b"PlotAgent native Origin test project"
@@ -870,7 +873,12 @@ def test_desktop_application_creates_and_renders_exact_45_product_chart_surface(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     origin_plans: list[Any] = []
-    _install_fake_origin_export(monkeypatch, origin_plans)
+    origin_export_kwargs: list[dict[str, Any]] = []
+    _install_fake_origin_export(
+        monkeypatch,
+        origin_plans,
+        captured_kwargs=origin_export_kwargs,
+    )
     categorical_roles = {
         "group",
         "category",
@@ -1021,6 +1029,7 @@ def test_desktop_application_creates_and_renders_exact_45_product_chart_surface(
     )
     assert exported_plot["target_kind"] == "plot"
     assert origin_plans[-1].manifest.chart_type_ids == ("K03",)
+    assert origin_export_kwargs[-1]["timeout_seconds"] == 300.0
 
     figure_destination = tmp_path / "figure.opju"
     exported_figure = harness.call(

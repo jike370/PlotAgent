@@ -1369,7 +1369,11 @@ class DesktopApplication:
             )
             origin_plan = compile_origin_plan(resolved_plots, export_spec)
             token = self._task_token(context.tasks, task_id)
-            timeout_seconds = min(300.0, 30.0 + 5.0 * len(resolved_plots))
+            # A real Origin build plus save/reopen validation routinely exceeds
+            # the worker's 30 second smoke-test default even for one graph. Keep
+            # the desktop method bounded, but give every native worker the same
+            # production budget already covered by the outer 925 second IPC cap.
+            timeout_seconds = 300.0
             outcome = context.workers.submit(
                 export_origin,
                 origin_plan,
