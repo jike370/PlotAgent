@@ -16,7 +16,6 @@ from plotagent.engine import (
     EngineReadback,
     FieldBinding,
     PlotBackendChange,
-    PlotDocument,
     PlotDocumentRepository,
     PlotEngineRuntime,
     PlotEngineService,
@@ -97,7 +96,7 @@ class FakeBackend:
     def backend_id(self) -> Literal["matplotlib", "origin"]:
         return self._backend_id
 
-    def stage_create(self, document: PlotDocument, data: EngineDataView) -> PlotBackendChange:
+    def stage(self, document, actions, data) -> PlotBackendChange:
         if self.fail_stage:
             raise RuntimeError("stage failed")
         change = FakeChange(
@@ -112,9 +111,6 @@ class FakeBackend:
         )
         self.changes.append(change)
         return change
-
-    def stage_apply(self, document, action, data):  # pragma: no cover - not used here
-        return self.stage_create(document, data)
 
     def readback(self, document):  # pragma: no cover - protocol-only test double
         raise NotImplementedError

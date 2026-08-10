@@ -4,12 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from plotagent.engine.contracts import (
-    CreatePlot,
-    EngineDataView,
-    PlotDocument,
-    PlotEngineAction,
-)
+from plotagent.engine.contracts import EngineDataView, PlotDocument, PlotEngineAction
 from plotagent.engine.ports import (
     EngineDataProvider,
     EngineReadback,
@@ -57,15 +52,17 @@ class PlotEngineRuntime:
     def execute(self, action: PlotEngineAction) -> RuntimeResult:
         transition = self.service.prepare(action)
         data = self._materialize(transition.after)
+        prior_actions = tuple(
+            record.action for record in self.service.repository.actions(transition.after.plot_id)
+        )
+        actions = prior_actions + (action,)
+        if tuple(item.action_id for item in actions) != transition.after.applied_action_ids:
+            raise PlotRuntimeError("backend action replay differs from the plot document history")
         changes: list[PlotBackendChange] = []
         published: list[PlotBackendChange] = []
         try:
             for backend in self.backends:
-                change = (
-                    backend.stage_create(transition.after, data)
-                    if isinstance(action, CreatePlot)
-                    else backend.stage_apply(transition.after, action, data)
-                )
+                change = backend.stage(transition.after, actions, data)
                 self._validate_readback(change.readback, transition.after, data)
                 changes.append(change)
             for change in changes:

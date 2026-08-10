@@ -71,16 +71,10 @@ class PlotBackend(Protocol):
     @property
     def backend_id(self) -> Literal["matplotlib", "origin"]: ...
 
-    def stage_create(
+    def stage(
         self,
         document: PlotDocument,
-        data: EngineDataView,
-    ) -> PlotBackendChange: ...
-
-    def stage_apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
+        actions: tuple[PlotEngineAction, ...],
         data: EngineDataView,
     ) -> PlotBackendChange: ...
 
