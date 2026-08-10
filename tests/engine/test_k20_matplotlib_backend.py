@@ -99,6 +99,7 @@ def test_k20_renders_ordered_long_table_and_replays_declared_actions(tmp_path: P
             SetTitle(
                 action_id="action:title",
                 target="plot:heatmap-demo",
+                expected_plot_version=1,
                 text="Expression map",
             )
         )
@@ -106,6 +107,7 @@ def test_k20_renders_ordered_long_table_and_replays_declared_actions(tmp_path: P
             SetAxis(
                 action_id="action:y-axis",
                 target="axis:heatmap-demo.y",
+                expected_plot_version=2,
                 label="Protein ID",
                 reverse=True,
             )

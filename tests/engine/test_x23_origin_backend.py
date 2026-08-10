@@ -240,10 +240,16 @@ def _case():
     )
     actions = (
         create,
-        SetTitle(action_id="action:title", target=create.plot_id, text="Native dual Y"),
+        SetTitle(
+            action_id="action:title",
+            target=create.plot_id,
+            expected_plot_version=1,
+            text="Native dual Y",
+        ),
         SetAxis(
             action_id="action:right-axis",
             target="axis:origin-dual.y_right",
+            expected_plot_version=2,
             label="GDP (USD)",
             minimum=15_000,
             maximum=30_000,
@@ -251,18 +257,21 @@ def _case():
         SetSeriesStyle(
             action_id="action:left-style",
             target="series:origin-dual.left",
+            expected_plot_version=3,
             color="#0F766E",
             line_width_pt=2.0,
         ),
         SetSeriesStyle(
             action_id="action:right-style",
             target="series:origin-dual.right",
+            expected_plot_version=4,
             color="#BE123C",
             line_style="dash",
         ),
         SetLegend(
             action_id="action:legend",
             target="legend:origin-dual.main",
+            expected_plot_version=5,
             visible=True,
         ),
     )

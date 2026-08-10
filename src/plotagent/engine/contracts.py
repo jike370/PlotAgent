@@ -152,7 +152,18 @@ class CreatePlot(StrictModel):
     bindings: Annotated[tuple[FieldBinding, ...], Field(min_length=1)]
 
 
-class BindFields(StrictModel):
+class VersionedPlotAction(StrictModel):
+    """Mutation/export request pinned to one explicit plot version.
+
+    Semantic object ids identify what to edit; the version guard identifies
+    which immutable document the caller observed.  Agent requests therefore
+    cannot drift onto a newer plot after a delayed model response.
+    """
+
+    expected_plot_version: VersionId
+
+
+class BindFields(VersionedPlotAction):
     operation: Literal["bind_fields"] = "bind_fields"
     action_id: ActionId
     target: SemanticObjectId
@@ -169,14 +180,14 @@ class BindFields(StrictModel):
         return self
 
 
-class SetTitle(StrictModel):
+class SetTitle(VersionedPlotAction):
     operation: Literal["set_title"] = "set_title"
     action_id: ActionId
     target: SemanticObjectId
     text: Annotated[str, StringConstraints(max_length=512, strict=True)]
 
 
-class SetAxis(StrictModel):
+class SetAxis(VersionedPlotAction):
     operation: Literal["set_axis"] = "set_axis"
     action_id: ActionId
     target: SemanticObjectId
@@ -202,7 +213,7 @@ class SetAxis(StrictModel):
         return self
 
 
-class SetSeriesStyle(StrictModel):
+class SetSeriesStyle(VersionedPlotAction):
     operation: Literal["set_series_style"] = "set_series_style"
     action_id: ActionId
     target: SemanticObjectId
@@ -230,7 +241,7 @@ class SetSeriesStyle(StrictModel):
         return self
 
 
-class SetLegend(StrictModel):
+class SetLegend(VersionedPlotAction):
     operation: Literal["set_legend"] = "set_legend"
     action_id: ActionId
     target: SemanticObjectId
@@ -246,7 +257,7 @@ class SetLegend(StrictModel):
         return self
 
 
-class SetChartParameter(StrictModel):
+class SetChartParameter(VersionedPlotAction):
     operation: Literal["set_chart_parameter"] = "set_chart_parameter"
     action_id: ActionId
     target: SemanticObjectId
@@ -254,7 +265,7 @@ class SetChartParameter(StrictModel):
     value: str | int | float | bool
 
 
-class AddAnnotation(StrictModel):
+class AddAnnotation(VersionedPlotAction):
     operation: Literal["add_annotation"] = "add_annotation"
     action_id: ActionId
     target: SemanticObjectId
@@ -271,7 +282,7 @@ class AddAnnotation(StrictModel):
         return self
 
 
-class ExportPlot(StrictModel):
+class ExportPlot(VersionedPlotAction):
     operation: Literal["export_plot"] = "export_plot"
     action_id: ActionId
     target: SemanticObjectId

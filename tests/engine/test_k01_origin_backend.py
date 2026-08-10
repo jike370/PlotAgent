@@ -287,10 +287,16 @@ def test_k01_binder_applies_typed_actions_to_native_objects(
     document, create, view = _document()
     actions = (
         create,
-        SetTitle(action_id="action:title", target=document.plot_id, text="Native line"),
+        SetTitle(
+            action_id="action:title",
+            target=document.plot_id,
+            expected_plot_version=1,
+            text="Native line",
+        ),
         SetAxis(
             action_id="action:axis",
             target="axis:origin-line.y",
+            expected_plot_version=2,
             label="Response",
             scale="log10",
             minimum=1.0,
@@ -299,6 +305,7 @@ def test_k01_binder_applies_typed_actions_to_native_objects(
         SetSeriesStyle(
             action_id="action:style",
             target="series:origin-line.primary",
+            expected_plot_version=3,
             color="#AA2200",
             line_width_pt=2.0,
             line_style="dash",
@@ -306,6 +313,7 @@ def test_k01_binder_applies_typed_actions_to_native_objects(
         SetLegend(
             action_id="action:legend",
             target="legend:origin-line.main",
+            expected_plot_version=4,
             visible=True,
         ),
     )
@@ -378,10 +386,16 @@ def test_k08_binder_uses_column_template_and_native_column_objects(
     )
     actions = (
         create,
-        SetTitle(action_id="action:column-title", target=create.plot_id, text="Native column"),
+        SetTitle(
+            action_id="action:column-title",
+            target=create.plot_id,
+            expected_plot_version=1,
+            text="Native column",
+        ),
         SetAxis(
             action_id="action:column-axis",
             target="axis:origin-column.y",
+            expected_plot_version=2,
             label="Response",
             minimum=0,
             maximum=6,
@@ -389,12 +403,14 @@ def test_k08_binder_uses_column_template_and_native_column_objects(
         SetSeriesStyle(
             action_id="action:column-style",
             target="series:origin-column.primary",
+            expected_plot_version=3,
             color="#3366CC",
             line_width_pt=1.0,
         ),
         SetLegend(
             action_id="action:column-legend",
             target="legend:origin-column.main",
+            expected_plot_version=4,
             visible=True,
         ),
     )

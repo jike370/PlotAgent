@@ -78,6 +78,7 @@ def test_actions_are_agent_neutral_and_discriminated() -> None:
             "operation": "bind_fields",
             "action_id": "action:rebind",
             "target": "plot:demo",
+            "expected_plot_version": 1,
             "data": _data().model_dump(mode="json"),
             "bindings": tuple(item.model_dump(mode="json") for item in _bindings()),
         }
@@ -88,9 +89,24 @@ def test_actions_are_agent_neutral_and_discriminated() -> None:
 @pytest.mark.parametrize(
     "action",
     [
-        SetAxis(action_id="action:axis", target="axis:y", scale="log10"),
-        SetSeriesStyle(action_id="action:series", target="series:signal", color="#0055AA"),
-        SetLegend(action_id="action:legend", target="legend:main", visible=False),
+        SetAxis(
+            action_id="action:axis",
+            target="axis:y",
+            expected_plot_version=1,
+            scale="log10",
+        ),
+        SetSeriesStyle(
+            action_id="action:series",
+            target="series:signal",
+            expected_plot_version=1,
+            color="#0055AA",
+        ),
+        SetLegend(
+            action_id="action:legend",
+            target="legend:main",
+            expected_plot_version=1,
+            visible=False,
+        ),
     ],
 )
 def test_common_actions_address_semantic_objects(action: PlotEngineAction) -> None:
@@ -99,9 +115,18 @@ def test_common_actions_address_semantic_objects(action: PlotEngineAction) -> No
 
 def test_backend_specific_or_empty_edits_are_rejected() -> None:
     with pytest.raises(ValidationError):
-        SetAxis(action_id="action:bad-axis", target="series:y", scale="linear")
+        SetAxis(
+            action_id="action:bad-axis",
+            target="series:y",
+            expected_plot_version=1,
+            scale="linear",
+        )
     with pytest.raises(ValidationError):
-        SetSeriesStyle(action_id="action:empty-series", target="series:y")
+        SetSeriesStyle(
+            action_id="action:empty-series",
+            target="series:y",
+            expected_plot_version=1,
+        )
     with pytest.raises(ValidationError):
         TypeAdapter(PlotEngineAction).validate_python(
             {

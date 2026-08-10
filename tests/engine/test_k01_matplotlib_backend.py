@@ -89,14 +89,23 @@ def test_k01_renders_and_replays_public_actions_without_legacy_resolver(tmp_path
             SetTitle(
                 action_id="action:title",
                 target="plot:line-demo",
+                expected_plot_version=1,
                 text="Temperature response",
             )
         )
-        runtime.execute(SetAxis(action_id="action:y-log", target="axis:line-demo.y", scale="log10"))
+        runtime.execute(
+            SetAxis(
+                action_id="action:y-log",
+                target="axis:line-demo.y",
+                expected_plot_version=2,
+                scale="log10",
+            )
+        )
         runtime.execute(
             SetSeriesStyle(
                 action_id="action:style",
                 target="series:line-demo.primary",
+                expected_plot_version=3,
                 color="#AA2200",
                 line_width_pt=2.0,
             )
@@ -105,6 +114,7 @@ def test_k01_renders_and_replays_public_actions_without_legacy_resolver(tmp_path
             SetLegend(
                 action_id="action:legend",
                 target="legend:line-demo.main",
+                expected_plot_version=4,
                 visible=True,
             )
         )

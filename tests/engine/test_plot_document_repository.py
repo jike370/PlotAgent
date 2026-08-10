@@ -75,6 +75,7 @@ def test_repository_appends_explicit_actions_and_reopens(tmp_path: Path) -> None
         title = SetTitle(
             action_id="action:title",
             target="plot:demo",
+            expected_plot_version=1,
             text="Temperature response",
         )
         version_two = version_one.model_copy(
@@ -100,7 +101,12 @@ def test_repository_rejects_stale_versions_and_history_mismatch(tmp_path: Path) 
         create = _create_action()
         version_one = _document(create)
         repository.commit(version_one, create)
-        title = SetTitle(action_id="action:title", target="plot:demo", text="Title")
+        title = SetTitle(
+            action_id="action:title",
+            target="plot:demo",
+            expected_plot_version=1,
+            text="Title",
+        )
 
         with pytest.raises(ValueError, match="stale or non-linear"):
             repository.commit(version_one, title)

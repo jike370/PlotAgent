@@ -47,12 +47,22 @@ def test_tool_decodes_a_typed_action_and_rejects_unknown_arguments() -> None:
             "operation": "set_axis",
             "action_id": "action:y-log",
             "target": "axis:demo.y",
+            "expected_plot_version": 1,
             "scale": "log10",
         }
     )
 
     assert action.operation == "set_axis"
     assert action.target == "axis:demo.y"
+    with pytest.raises(EngineCommandError, match="invalid plot engine action"):
+        codec.decode(
+            {
+                "operation": "set_axis",
+                "action_id": "action:unguarded",
+                "target": "axis:demo.y",
+                "scale": "log10",
+            }
+        )
     with pytest.raises(EngineCommandError, match="invalid plot engine action"):
         codec.decode(
             {

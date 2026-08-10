@@ -67,7 +67,12 @@ def test_service_builds_minimal_versions_from_public_actions(tmp_path: Path) -> 
         service = PlotEngineService(_catalog(), PlotDocumentRepository(project))
         created = service.execute(_create(x="field:x", y="field:y"))
         edited = service.execute(
-            SetAxis(action_id="action:y-log", target="axis:demo.y", scale="log10")
+            SetAxis(
+                action_id="action:y-log",
+                target="axis:demo.y",
+                expected_plot_version=1,
+                scale="log10",
+            )
         )
 
         assert created.plot_version == 1
@@ -87,7 +92,12 @@ def test_service_rejects_profile_role_and_capability_mismatches(tmp_path: Path) 
         service.execute(_create(x="field:x", y="field:y", series_1="field:z"))
         with pytest.raises(EngineCommandError, match="does not support set_legend"):
             service.execute(
-                SetLegend(action_id="action:legend", target="legend:demo.main", visible=False)
+                SetLegend(
+                    action_id="action:legend",
+                    target="legend:demo.main",
+                    expected_plot_version=1,
+                    visible=False,
+                )
             )
 
 
@@ -99,6 +109,7 @@ def test_service_rebinds_data_and_fields_as_one_new_version(tmp_path: Path) -> N
             BindFields(
                 action_id="action:rebind",
                 target="plot:demo",
+                expected_plot_version=1,
                 data=EngineDataRef(
                     kind="prepared",
                     dataset_id="dataset.prepared",
@@ -129,7 +140,31 @@ def test_service_rejects_parameters_not_exposed_by_the_profile(tmp_path: Path) -
                 SetSeriesStyle(
                     action_id="action:symbol",
                     target="series:demo.primary",
+                    expected_plot_version=1,
                     symbol="circle",
+                )
+            )
+
+
+def test_service_rejects_a_delayed_action_against_a_newer_document(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:engine") as project:
+        service = PlotEngineService(_catalog(), PlotDocumentRepository(project))
+        service.execute(_create(x="field:x", y="field:y"))
+        service.execute(
+            SetAxis(
+                action_id="action:y-log",
+                target="axis:demo.y",
+                expected_plot_version=1,
+                scale="log10",
+            )
+        )
+        with pytest.raises(EngineCommandError, match="version is stale"):
+            service.execute(
+                SetAxis(
+                    action_id="action:late",
+                    target="axis:demo.y",
+                    expected_plot_version=1,
+                    label="Late response",
                 )
             )
 

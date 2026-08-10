@@ -206,11 +206,13 @@ def _case():
         SetTitle(
             action_id="action:matrix-title",
             target=create.plot_id,
+            expected_plot_version=1,
             text="Native heatmap",
         ),
         SetAxis(
             action_id="action:matrix-axis",
             target="axis:origin-heatmap.y",
+            expected_plot_version=2,
             label="Protein ID",
             reverse=True,
         ),

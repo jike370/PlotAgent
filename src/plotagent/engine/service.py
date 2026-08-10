@@ -165,6 +165,11 @@ class PlotEngineService:
 
         target_plot_id = self._target_plot_id(action)
         stored = self.repository.get(target_plot_id)
+        if action.expected_plot_version != stored.document.plot_version:
+            raise EngineCommandError(
+                f"plot document version is stale: expected {action.expected_plot_version}, "
+                f"latest is {stored.document.plot_version}"
+            )
         profile = self.catalog.get(stored.document.profile_id)
         self.catalog.validate_action(profile, action)
         updates: dict[str, object] = {}

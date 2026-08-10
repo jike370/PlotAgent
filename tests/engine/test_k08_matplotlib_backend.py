@@ -84,11 +84,19 @@ def test_k08_renders_and_replays_only_declared_actions(tmp_path: Path) -> None:
             (backend,),
         )
         runtime.execute(_create())
-        runtime.execute(SetTitle(action_id="action:title", target="plot:column-demo", text="Dose"))
+        runtime.execute(
+            SetTitle(
+                action_id="action:title",
+                target="plot:column-demo",
+                expected_plot_version=1,
+                text="Dose",
+            )
+        )
         runtime.execute(
             SetAxis(
                 action_id="action:y-axis",
                 target="axis:column-demo.y",
+                expected_plot_version=2,
                 label="Response (a.u.)",
                 minimum=0,
                 maximum=8,
@@ -98,6 +106,7 @@ def test_k08_renders_and_replays_only_declared_actions(tmp_path: Path) -> None:
             SetSeriesStyle(
                 action_id="action:style",
                 target="series:column-demo.primary",
+                expected_plot_version=3,
                 color="#CC5500",
                 line_width_pt=1.2,
             )
@@ -106,6 +115,7 @@ def test_k08_renders_and_replays_only_declared_actions(tmp_path: Path) -> None:
             SetLegend(
                 action_id="action:legend",
                 target="legend:column-demo.main",
+                expected_plot_version=4,
                 visible=True,
             )
         )

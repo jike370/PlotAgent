@@ -95,12 +95,18 @@ def test_x23_renders_two_independent_axes_and_replays_actions(tmp_path: Path) ->
         )
         runtime.execute(_create())
         runtime.execute(
-            SetTitle(action_id="action:title", target="plot:dual-demo", text="Country metrics")
+            SetTitle(
+                action_id="action:title",
+                target="plot:dual-demo",
+                expected_plot_version=1,
+                text="Country metrics",
+            )
         )
         runtime.execute(
             SetAxis(
                 action_id="action:right-axis",
                 target="axis:dual-demo.y_right",
+                expected_plot_version=2,
                 label="GDP per capita (USD)",
                 minimum=15_000,
                 maximum=30_000,
@@ -110,6 +116,7 @@ def test_x23_renders_two_independent_axes_and_replays_actions(tmp_path: Path) ->
             SetSeriesStyle(
                 action_id="action:left-style",
                 target="series:dual-demo.left",
+                expected_plot_version=3,
                 color="#0F766E",
                 line_width_pt=2.0,
             )
@@ -118,6 +125,7 @@ def test_x23_renders_two_independent_axes_and_replays_actions(tmp_path: Path) ->
             SetSeriesStyle(
                 action_id="action:right-style",
                 target="series:dual-demo.right",
+                expected_plot_version=4,
                 color="#BE123C",
                 line_style="dash",
             )
@@ -126,6 +134,7 @@ def test_x23_renders_two_independent_axes_and_replays_actions(tmp_path: Path) ->
             SetLegend(
                 action_id="action:legend",
                 target="legend:dual-demo.main",
+                expected_plot_version=5,
                 visible=True,
             )
         )
