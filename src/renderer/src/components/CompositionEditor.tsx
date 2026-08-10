@@ -21,16 +21,17 @@ import {
 } from 'lucide-react'
 
 import { chartCatalog } from '../data/chartCatalog'
+import type { ProductPlot } from '../data/productState'
 import { ChartPreview } from './PlotVisuals'
 
 type Layout = '1x2' | '2x1' | '2x2'
 
 interface CompositionEditorProps {
-  figure?: { figureId: string; version: number; previewUrl?: string }
+  plot?: ProductPlot
   onClose: () => void
 }
 
-export function CompositionEditor({ figure, onClose }: CompositionEditorProps): React.JSX.Element {
+export function CompositionEditor({ plot, onClose }: CompositionEditorProps): React.JSX.Element {
   const [layout, setLayout] = useState<Layout>('1x2')
   const [commonLegend, setCommonLegend] = useState(true)
   const [labels, setLabels] = useState(true)
@@ -40,16 +41,16 @@ export function CompositionEditor({ figure, onClose }: CompositionEditorProps): 
   const heatmap = chartCatalog.find((chart) => chart.id === 'K20')!
   const confusion = chartCatalog.find((chart) => chart.id === 'S61')!
 
-  if (figure) {
+  if (plot) {
     return (
       <div className="composition-editor" role="dialog" aria-modal="true" aria-label="组合图编辑">
         <header className="focus-header composition-header">
           <button className="back-button" type="button" onClick={onClose}><ArrowLeft size={18} />返回对话</button>
-          <div className="focus-title"><h2>{figure.figureId}</h2><span>固定源版本 · FigureSpec v{figure.version}</span></div>
+          <div className="focus-title"><h2>{plot.plotId}</h2><span>固定组件版本 · PlotDocument v{plot.plotVersion}</span></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="关闭组合图编辑"><X size={19} /></button>
         </header>
         <main className="composition-real-stage">
-          {figure.previewUrl ? <img src={figure.previewUrl} alt={`${figure.figureId} Core 组合图预览`} /> : <div><strong>组合图预览尚未返回</strong><span>源 PlotSpec 固定版本不会被替换。</span></div>}
+          {plot.preview?.url ? <img src={plot.preview.url} alt={`${plot.plotId} 组合图预览`} /> : <div><strong>组合图预览尚未返回</strong><span>组件 PlotDocument 版本保持固定。</span></div>}
         </main>
       </div>
     )

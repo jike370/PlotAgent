@@ -18,8 +18,6 @@ import {
   parseCustomProviderConfigureInput,
   parseDatasetDescribeInput,
   parseEngineActionInput,
-  parseFigureCreateInput,
-  parseFigureIdInput,
   parseOriginExportInput,
   parsePlotIdInput,
   parsePngSvgExportInput,
@@ -717,37 +715,6 @@ export function registerDesktopIpc({
         batch_id: input.batchId,
       })
   })
-
-  ipcMain.handle(IPC_CHANNELS.figureCreate, (_event, value: unknown) => {
-    const input = parseFigureCreateInput(value)
-    return input === null
-      ? invalidDataArgument('组合图请求无效。')
-      : requestCoreData(supervisor, resources, 'figures.create', {
-        project_id: input.projectId,
-        figure_id: `figure:${randomUUID()}`,
-        plot_refs: input.plotRefs.map((item) => ({
-          plot_id: item.plotId,
-          plot_version: item.plotVersion,
-        })),
-        layout: input.layout,
-        idempotency_key: `figure-create:${randomUUID()}`,
-        expected_version: input.expectedVersion,
-      })
-  })
-  for (const [channel, method] of [
-    [IPC_CHANNELS.figureGet, 'figures.get'],
-    [IPC_CHANNELS.figureRender, 'figures.render'],
-  ] as const) {
-    ipcMain.handle(channel, (_event, value: unknown) => {
-      const input = parseFigureIdInput(value)
-      return input === null
-        ? invalidDataArgument('组合图 ID 无效。')
-        : requestCoreData(supervisor, resources, method, {
-          project_id: input.projectId,
-          figure_id: input.figureId,
-        })
-    })
-  }
 
   ipcMain.handle(IPC_CHANNELS.agentDecide, (_event, value: unknown) => {
     const input = parseAgentDecideInput(value)

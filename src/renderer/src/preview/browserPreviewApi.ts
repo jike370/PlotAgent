@@ -108,27 +108,15 @@ function plotPreviewSvg(chartId: string, version: number): string {
   </svg>`
 }
 
-function figurePreviewSvg(version: number): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
-    <rect width="960" height="560" fill="#ffffff"/>
-    <text x="52" y="42" fill="#171717" font-family="Arial, sans-serif" font-size="18" font-weight="600">1×2 组合图</text>
-    <text x="908" y="42" text-anchor="end" fill="#777777" font-family="Arial, sans-serif" font-size="13">界面预览 · v${version}</text>
-    <g transform="translate(52 78)"><rect width="402" height="410" fill="#fff" stroke="#d6d6d6"/><line x1="48" y1="348" x2="362" y2="348" stroke="#222"/><line x1="48" y1="38" x2="48" y2="348" stroke="#222"/><polyline points="58,310 112,252 166,276 220,174 274,206 332,102" fill="none" stroke="#246fce" stroke-width="4"/><text x="18" y="28" font-family="Arial" font-size="16" font-weight="600">A</text></g>
-    <g transform="translate(506 78)"><rect width="402" height="410" fill="#fff" stroke="#d6d6d6"/><line x1="48" y1="348" x2="362" y2="348" stroke="#222"/><line x1="48" y1="38" x2="48" y2="348" stroke="#222"/><rect x="76" y="202" width="56" height="146" fill="#246fce"/><rect x="174" y="132" width="56" height="216" fill="#df594e"/><rect x="272" y="82" width="56" height="266" fill="#5b9a67"/><text x="18" y="28" font-family="Arial" font-size="16" font-weight="600">B</text></g>
-  </svg>`
-}
-
 function createBrowserPreviewApi(): PlotAgentDesktopApi {
   const projects = new Map<string, PreviewProject>()
   const plots = new Map<string, JsonRecord>()
   const batches = new Map<string, PreviewBatch>()
-  const figures = new Map<string, { projectId: string; version: number }>()
   const agentPlans = new Map<string, PreviewAgentPlan>()
   let projectSequence = 0
   let importSequence = 0
   let plotSequence = 0
   let batchSequence = 0
-  let figureSequence = 0
   let agentPlanSequence = 0
 
   const projectSummary = (project: PreviewProject): JsonRecord => ({
@@ -388,6 +376,11 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
           plot_id: plotId,
           plot_version: 1,
           profile_id: profileId,
+          plot_ref: {
+            plot_id: plotId,
+            plot_version: 1,
+            content_hash: 'e'.repeat(64),
+          },
           document: {
             schema_version: '2.0', plot_id: plotId, plot_version: 1, parent_version: null,
             profile_id: profileId, data: input.action.data ?? null,
@@ -489,26 +482,6 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       return batch && batch.projectId === projectId
         ? ok({ task_id: batch.taskId, batch_id: batch.batchId, state: 'succeeded', batch: { batch_version: batch.version }, items: batch.itemIds.map((itemId) => ({ item_id: itemId, state: 'succeeded' })) })
         : missing('界面预览中没有找到该批次。')
-    },
-    createFigure: async ({ projectId }) => {
-      const project = projects.get(projectId)
-      if (!project) return missing('界面预览中没有找到该项目。')
-      project.projectVersion += 1
-      figureSequence += 1
-      const figureId = `figure:preview-${figureSequence}`
-      figures.set(figureId, { projectId, version: 1 })
-      return ok({ project_version: project.projectVersion, figure: { figure_id: figureId, figure_version: 1 } })
-    },
-    getFigure: async ({ projectId, figureId }) => {
-      const figure = figures.get(figureId)
-      return figure && figure.projectId === projectId
-        ? ok({ figure: { figure_id: figureId, figure_version: figure.version } })
-        : missing('界面预览中没有找到该组合图。')
-    },
-    renderFigure: async ({ projectId, figureId }) => {
-      const figure = figures.get(figureId)
-      if (!figure || figure.projectId !== projectId) return missing('界面预览中没有找到该组合图。')
-      return ok({ figure: { figure_id: figureId, figure_version: figure.version }, artifact: { resource: { resourceId: `resource:${figureId}`, kind: 'preview', url: svgDataUrl(figurePreviewSvg(figure.version)), mimeType: 'image/svg+xml' } } })
     },
     decideAgent: async (input) => {
       const project = projects.get(input.projectId)

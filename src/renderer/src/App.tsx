@@ -39,7 +39,6 @@ import {
   type BatchView,
   type AgentChangeSetView,
   type ExportRecordView,
-  type FigureView,
   type ProductNotice,
   type ScopeMode,
 } from './components/ConversationWorkspace'
@@ -109,31 +108,17 @@ function readBatch(value: JsonValue): BatchView | undefined {
   }
 }
 
-function readFigure(value: JsonValue): FigureView | undefined {
-  if (!isJsonRecord(value)) return undefined
-  const figure = isJsonRecord(value.figure) ? value.figure : value
-  if (typeof figure.figure_id !== 'string') return undefined
-  const resource = isJsonRecord(value.artifact) && isJsonRecord(value.artifact.resource)
-    ? value.artifact.resource
-    : undefined
-  return {
-    figureId: figure.figure_id,
-    version: typeof figure.figure_version === 'number' ? figure.figure_version : 1,
-    ...(resource && typeof resource.url === 'string' ? { previewUrl: resource.url } : {}),
-  }
-}
-
 function readExportRecord(
   value: JsonValue,
   format: 'png' | 'svg' | 'opju',
-  target: { kind: 'plot' | 'batch' | 'figure'; id: string },
+  target: { kind: 'plot' | 'batch'; id: string },
 ): ExportRecordView | undefined {
   if (!isJsonRecord(value) || typeof value.export_id !== 'string') return undefined
   const artifact = isJsonRecord(value.artifact) ? value.artifact : undefined
   return {
     exportId: value.export_id,
     format,
-    targetKind: typeof value.target_kind === 'string' && ['plot', 'batch', 'figure'].includes(value.target_kind)
+    targetKind: typeof value.target_kind === 'string' && ['plot', 'batch'].includes(value.target_kind)
       ? value.target_kind as ExportRecordView['targetKind']
       : target.kind,
     targetId: typeof value.target_id === 'string'
@@ -217,7 +202,6 @@ export function App(): React.JSX.Element {
   const [plot, setPlot] = useState<ProductPlot>()
   const [figureCandidates, setFigureCandidates] = useState<ProductPlot[]>([])
   const [batch, setBatch] = useState<BatchView>()
-  const [figure, setFigure] = useState<FigureView>()
   const [exportRecord, setExportRecord] = useState<ExportRecordView>()
   const [changeSet, setChangeSet] = useState<AgentChangeSetView>()
   const [notice, setNotice] = useState<ProductNotice>()
@@ -380,7 +364,6 @@ export function App(): React.JSX.Element {
     setPlot(undefined)
     setFigureCandidates([])
     setBatch(undefined)
-    setFigure(undefined)
     setExportRecord(undefined)
     setChangeSet(undefined)
     setAgentOutcome(undefined)
@@ -604,7 +587,7 @@ export function App(): React.JSX.Element {
       const listed = valueOrThrow(await api.listDatasets({ projectId }))
       const next = { ...(known ?? { projectId, name: '本机项目', projectVersion: 0, isOpen: true }), projectVersion: projectVersionFrom(opened, 0), isOpen: true }
       setProject(next); setDatasets(readDatasets(listed)); setActiveDatasetId(readDatasets(listed)[0]?.datasetId)
-      setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined); setBatch(undefined); setFigure(undefined); setFigureCandidates([])
+      setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined); setBatch(undefined); setFigureCandidates([])
       setAgentPlan(undefined); setAgentOutcome(undefined); setChangeSet(undefined); setExportRecord(undefined)
       const recovery = await recoverLatestPlot(projectId)
       if (recovery.plot) {
@@ -661,11 +644,9 @@ export function App(): React.JSX.Element {
     try {
       const target = scope === 'batch'
         ? batch ? { kind: 'batch' as const, id: batch.batchId } : undefined
-        : scope === 'figure'
-          ? figure ? { kind: 'figure' as const, id: figure.figureId } : undefined
-          : plot ? { kind: 'plot' as const, id: plot.plotId } : undefined
-      if ((scope === 'batch' || scope === 'figure') && !target) {
-        setAgentOutcome({ kind: 'rejected', title: '作用对象不可用', message: scope === 'batch' ? '请先创建并运行一个批次。' : '请先创建组合图。' })
+        : plot ? { kind: 'plot' as const, id: plot.plotId } : undefined
+      if (scope === 'batch' && !target) {
+        setAgentOutcome({ kind: 'rejected', title: '作用对象不可用', message: '请先创建并运行一个批次。' })
         return
       }
       const value = valueOrThrow(await api.decideAgent({
@@ -805,7 +786,7 @@ export function App(): React.JSX.Element {
     }
   }
 
-  const exportArtifact = async (format: 'png' | 'svg' | 'opju', explicitTarget?: { kind: 'batch' | 'figure'; id: string; version: number }): Promise<void> => {
+  const exportArtifact = async (format: 'png' | 'svg' | 'opju', explicitTarget?: { kind: 'batch'; id: string; version: number }): Promise<void> => {
     if (!api || !project || (explicitTarget === undefined && plot === undefined)) return
     if (previewMode) {
       setNotice({ kind: 'info', title: `预览模式不写出 ${format.toLocaleUpperCase('en-US')}`, message: '请在 PlotAgent 桌面应用中验证真实文件导出。' })
@@ -893,34 +874,41 @@ export function App(): React.JSX.Element {
     })
   }
 
-  const createFigure = async (): Promise<void> => {
+  const createComposition = async (): Promise<void> => {
     if (!api || !project || busyAction !== undefined) return
     if (figureCandidates.length < 2) {
       setNotice({ kind: 'warning', title: '还需要候选图', message: `已加入 ${figureCandidates.length} 张，请先将至少 2 张已渲染图加入组合图。` })
       return
     }
-    setBusyAction('figure'); setNotice(undefined)
+    setBusyAction('composition'); setNotice(undefined)
     try {
-      const created = valueOrThrow(await api.createFigure({
-        projectId: project.projectId,
-        plotRefs: figureCandidates.map((item) => ({ plotId: item.plotId, plotVersion: item.plotVersion })),
-        layout: figureCandidates.length > 2 ? '2x2' : '1x2',
-        expectedVersion: project.projectVersion,
-      }))
-      let nextFigure = readFigure(created)
-      if (!nextFigure) throw new Error('Core 未返回 FigureSpec。')
-      const nextProject = projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1))
-      setFigure(nextFigure)
-      setProject(nextProject)
-      try {
-        const rendered = valueOrThrow(await api.renderFigure({ projectId: project.projectId, figureId: nextFigure.figureId }))
-        nextFigure = { ...nextFigure, ...readFigure(rendered) }
-        setFigure(nextFigure)
-        setFigureCandidates([])
-        setNotice({ kind: 'success', title: '组合图已创建', message: `${nextFigure.figureId} · v${nextFigure.version}` })
-      } catch (error) {
-        setNotice({ kind: 'warning', title: '组合图已创建，预览未完成', message: `${nextFigure.figureId}：${errorNotice(error).message}` })
+      if (figureCandidates.some((item) => item.contentHash === undefined)) {
+        throw new Error('候选图缺少不可变内容标识，请重新打开后再组合。')
       }
+      const created = valueOrThrow(await api.executePlotAction({
+        projectId: project.projectId,
+        expectedProjectVersion: project.projectVersion,
+        action: {
+          operation: 'create_plot',
+          action_id: `action:ui.compose.${crypto.randomUUID()}`,
+          plot_id: `plot:ui.composition.${crypto.randomUUID()}`,
+          profile_id: 'K25',
+          components: figureCandidates.map((item) => ({
+            plot_id: item.plotId,
+            plot_version: item.plotVersion,
+            content_hash: item.contentHash!,
+          })),
+        },
+      }))
+      const composition = readPlot(created)
+      if (!composition) throw new Error('Core 未返回 K25 PlotDocument。')
+      setPlot(composition)
+      setSelectedChart(chartCatalog.find((chart) => chart.id === 'K25'))
+      setConfirmedMapping(undefined)
+      setProject(projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1)))
+      setFigureCandidates([])
+      setScreen('composition')
+      setNotice({ kind: 'success', title: '组合图已创建', message: `${composition.plotId} · v${composition.plotVersion}` })
     } catch (error) {
       setNotice({ kind: 'error', title: '组合图创建失败', message: errorNotice(error).message })
     } finally { setBusyAction(undefined) }
@@ -954,15 +942,15 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figure={figure} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} changeSet={changeSet} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { invalidateAgentRequest(); setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onCreateFigure={() => void createFigure()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen('focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenCompose={() => setScreen('composition')} onOpenTasks={() => setTasksOpen(true)} />
+          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} batch={batch} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} changeSet={changeSet} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { invalidateAgentRequest(); setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format, target) => void exportArtifact(format, target)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen(plot?.chartId === 'K25' ? 'composition' : 'focus')} onOpenBatchInspect={() => setScreen('batch-inspector')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
-        {screen === 'composition' && figure && <CompositionEditor figure={figure} onClose={() => setScreen('workspace')} />}
+        {screen === 'composition' && plot?.chartId === 'K25' && <CompositionEditor plot={plot} onClose={() => setScreen('workspace')} />}
         {screen === 'batch-inspector' && batch && <BatchInspector batch={batch} onClose={() => setScreen('workspace')} />}
       </div>
       {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} availablePlotCount={figureCandidateCount} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
         setLibraryOpen(false)
-        if (chart.id === 'K25') { void createFigure(); return }
+        if (chart.id === 'K25') { void createComposition(); return }
         invalidateAgentRequest()
         setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setAgentOutcome(undefined)
         setNotice(activeDataset ? undefined : { kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '可以继续上传数据。' })

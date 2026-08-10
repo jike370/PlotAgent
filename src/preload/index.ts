@@ -14,8 +14,6 @@ import {
   type BatchIdInput,
   type BatchRunInput,
   type DatasetDescribeInput,
-  type FigureCreateInput,
-  type FigureIdInput,
   type EngineActionInput,
   type OpenResourceRequest,
   type OriginExportInput,
@@ -89,9 +87,6 @@ const desktop = {
   createBatch: (input: BatchCreateInput) => ipcRenderer.invoke(IPC_CHANNELS.batchCreate, input),
   runBatch: (input: BatchRunInput) => ipcRenderer.invoke(IPC_CHANNELS.batchRun, input),
   getBatch: (input: BatchIdInput) => ipcRenderer.invoke(IPC_CHANNELS.batchGet, input),
-  createFigure: (input: FigureCreateInput) => ipcRenderer.invoke(IPC_CHANNELS.figureCreate, input),
-  getFigure: (input: FigureIdInput) => ipcRenderer.invoke(IPC_CHANNELS.figureGet, input),
-  renderFigure: (input: FigureIdInput) => ipcRenderer.invoke(IPC_CHANNELS.figureRender, input),
   decideAgent: (input: AgentDecideInput) => ipcRenderer.invoke(IPC_CHANNELS.agentDecide, input),
   getAgentPlan: (input: AgentPlanInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.agentPlanGet, input),

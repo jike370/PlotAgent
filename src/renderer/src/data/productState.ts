@@ -124,6 +124,7 @@ export interface ProductSpecialistState {
 export interface ProductPlot {
   plotId: string
   plotVersion: number
+  contentHash?: string
   chartId: string
   plotTitle: string
   fontSizePt: number
@@ -141,6 +142,7 @@ export interface ProductPlot {
   }
   chartParameters?: Readonly<Record<string, string | number | boolean>>
   engineCapabilities?: Readonly<Record<string, readonly string[]>>
+  components: { plotId: string; plotVersion: number; contentHash: string }[]
   preview?: DesktopResource
 }
 
@@ -425,6 +427,7 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
   const root = records(value, (record) => isJsonRecord(record.document)).at(0)
   if (root === undefined || !isJsonRecord(root.document)) return undefined
   const document = root.document
+  const plotRef = isJsonRecord(root.plot_ref) ? root.plot_ref : undefined
   const plotId = stringValue(document, 'plot_id')
   const plotVersion = numberValue(document, 'plot_version')
   const profileId = stringValue(document, 'profile_id')
@@ -493,6 +496,8 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
   return {
     plotId,
     plotVersion,
+    ...(plotRef && typeof plotRef.content_hash === 'string'
+      ? { contentHash: plotRef.content_hash } : {}),
     chartId: profileId,
     plotTitle: title && typeof title.text === 'string' ? title.text : '',
     fontSizePt: 9,
@@ -530,6 +535,18 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
     },
     chartParameters,
     engineCapabilities: capabilities,
+    components: (Array.isArray(document.components) ? document.components : []).flatMap(
+      (component) => isJsonRecord(component)
+        && typeof component.plot_id === 'string'
+        && typeof component.plot_version === 'number'
+        && typeof component.content_hash === 'string'
+        ? [{
+          plotId: component.plot_id,
+          plotVersion: component.plot_version,
+          contentHash: component.content_hash,
+        }]
+        : [],
+    ),
     preview: readResource(value),
   }
 }

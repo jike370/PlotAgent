@@ -25,9 +25,6 @@ export const IPC_CHANNELS = {
   datasetList: 'plotagent:datasets:list',
   exportOrigin: 'plotagent:exports:origin',
   exportPngSvg: 'plotagent:exports:png-svg',
-  figureCreate: 'plotagent:figures:create',
-  figureGet: 'plotagent:figures:get',
-  figureRender: 'plotagent:figures:render',
   getBootstrap: 'plotagent:desktop:get-bootstrap',
   getTasks: 'plotagent:tasks:get-snapshot',
   lifecycleCloseRequested: 'plotagent:lifecycle:close-requested',
@@ -233,19 +230,6 @@ export interface BatchRunInput extends ProjectIdInput {
   readonly expectedVersion: number
 }
 
-export interface FigureCreateInput extends ProjectIdInput {
-  readonly plotRefs: readonly {
-    readonly plotId: string
-    readonly plotVersion: number
-  }[]
-  readonly layout: '1x2' | '2x1' | '2x2'
-  readonly expectedVersion: number
-}
-
-export interface FigureIdInput extends ProjectIdInput {
-  readonly figureId: string
-}
-
 export interface AgentDecideInput extends ProjectIdInput {
   readonly sourceDatasetId: string
   readonly sourceVersion: number
@@ -254,10 +238,10 @@ export interface AgentDecideInput extends ProjectIdInput {
   readonly selectedChartId?: string
   readonly executionMode: 'plan_only' | 'execute'
   readonly target?: {
-    readonly kind: 'plot' | 'batch' | 'figure'
+    readonly kind: 'plot' | 'batch'
     readonly id: string
   }
-  readonly scope: 'current' | 'selected' | 'batch' | 'figure'
+  readonly scope: 'current' | 'selected' | 'batch'
   readonly utterance: string
 }
 
@@ -271,7 +255,7 @@ export interface AgentPlanConfirmInput extends AgentPlanInput {
 
 export interface PngSvgExportInput extends ProjectIdInput {
   readonly target: {
-    readonly kind: 'plot' | 'batch' | 'figure'
+    readonly kind: 'plot' | 'batch'
     readonly id: string
     readonly version: number
   }
@@ -280,7 +264,7 @@ export interface PngSvgExportInput extends ProjectIdInput {
 
 export interface OriginExportInput extends ProjectIdInput {
   readonly target: {
-    readonly kind: 'plot' | 'batch' | 'figure'
+    readonly kind: 'plot' | 'batch'
     readonly id: string
     readonly version: number
   }
@@ -330,9 +314,6 @@ export interface PlotAgentDesktopApi {
   createBatch(input: BatchCreateInput): Promise<DesktopDataResult>
   runBatch(input: BatchRunInput): Promise<DesktopDataResult>
   getBatch(input: BatchIdInput): Promise<DesktopDataResult>
-  createFigure(input: FigureCreateInput): Promise<DesktopDataResult>
-  getFigure(input: FigureIdInput): Promise<DesktopDataResult>
-  renderFigure(input: FigureIdInput): Promise<DesktopDataResult>
   decideAgent(input: AgentDecideInput): Promise<DesktopDataResult>
   getAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
   listAgentPlans(input: ProjectIdInput): Promise<DesktopDataResult>
@@ -489,7 +470,7 @@ function parseMapping(value: unknown): FieldMappingInput | null {
 
 function parseTarget(value: unknown): NonNullable<AgentDecideInput['target']> | null {
   if (!isRecord(value) || !hasExactKeys(value, ['kind', 'id'])) return null
-  if (value.kind !== 'plot' && value.kind !== 'batch' && value.kind !== 'figure') return null
+  if (value.kind !== 'plot' && value.kind !== 'batch') return null
   const id = parseId(value.id)
   return id === null ? null : { kind: value.kind, id }
 }
@@ -632,29 +613,6 @@ export function parseBatchRunInput(value: unknown): BatchRunInput | null {
     : { projectId: parsed.projectId as string, taskId, expectedVersion }
 }
 
-export function parseFigureCreateInput(value: unknown): FigureCreateInput | null {
-  const parsed = parseProjectIdRecord(value, ['plotRefs', 'layout', 'expectedVersion'])
-  if (parsed === null || !Array.isArray(parsed.plotRefs)) return null
-  const plotRefs = parsed.plotRefs.map((item) => {
-    if (!isRecord(item) || !hasExactKeys(item, ['plotId', 'plotVersion'])) return null
-    const plotId = parseId(item.plotId)
-    const plotVersion = parseVersion(item.plotVersion, 1)
-    return plotId === null || plotVersion === null ? null : { plotId, plotVersion }
-  })
-  const expectedVersion = parseVersion(parsed.expectedVersion)
-  if (
-    plotRefs.length === 0 || plotRefs.length > 4 || plotRefs.some((item) => item === null) || expectedVersion === null ||
-    (parsed.layout !== '1x2' && parsed.layout !== '2x1' && parsed.layout !== '2x2')
-  ) return null
-  return { projectId: parsed.projectId as string, plotRefs: plotRefs as { plotId: string; plotVersion: number }[], layout: parsed.layout, expectedVersion }
-}
-
-export function parseFigureIdInput(value: unknown): FigureIdInput | null {
-  const parsed = parseProjectIdRecord(value, ['figureId'])
-  const figureId = parsed === null ? null : parseId(parsed.figureId)
-  return parsed === null || figureId === null ? null : { projectId: parsed.projectId as string, figureId }
-}
-
 export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {
   if (!isRecord(value) || !hasExactKeys(
     value,
@@ -667,7 +625,7 @@ export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {
   const sourceDatasetId = parseId(parsed.sourceDatasetId)
   const sourceVersion = parseVersion(parsed.sourceVersion, 1)
   const expectedVersion = parseVersion(parsed.expectedVersion)
-  const scopes = new Set(['current', 'selected', 'batch', 'figure'])
+  const scopes = new Set(['current', 'selected', 'batch'])
   if (projectId === null || target === null || sourceDatasetId === null || sourceVersion === null || expectedVersion === null || typeof parsed.scope !== 'string' || !scopes.has(parsed.scope)) return null
   if (target === undefined && parsed.scope !== 'current' && parsed.scope !== 'selected') return null
   if (parsed.executionMode !== 'plan_only' && parsed.executionMode !== 'execute') return null

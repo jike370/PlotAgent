@@ -52,6 +52,11 @@ function enginePlotFixture(
     plot_id: plotId,
     plot_version: plotVersion,
     profile_id: profileId,
+    plot_ref: {
+      plot_id: plotId,
+      plot_version: plotVersion,
+      content_hash: 'b'.repeat(64),
+    },
     document: {
       schema_version: '2.0', plot_id: plotId, plot_version: plotVersion,
       parent_version: plotVersion === 1 ? null : plotVersion - 1,
@@ -234,9 +239,6 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
         item_states: [{ item_id: 'item.1', state: 'succeeded' }],
       },
     })),
-    createFigure: vi.fn(async () => ok({ project_version: 5, figure: { figure_id: 'figure:one', figure_version: 1 } })),
-    getFigure: vi.fn(async () => ok({ figure: { figure_id: 'figure:one', figure_version: 1 } })),
-    renderFigure: vi.fn(async () => ok({ figure_id: 'figure:one', figure_version: 1, artifact: { resource: { resourceId: 'resource:figure', kind: 'preview', url: 'plotagent-resource://local/00000000-0000-0000-0000-000000000002' } } })),
     decideAgent: vi.fn(async () => ok(agentDecisionWithPlan(agentPlanFixture()))),
     getAgentPlan: vi.fn(async () => ok({})),
     listAgentPlans: vi.fn(async () => ok({ plans: [] })),
@@ -794,10 +796,9 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByText('还需加入 1 张图')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '创建组合图' })).toBeDisabled()
     expect(api.executePlotAction).toHaveBeenCalledTimes(1)
-    expect(api.createFigure).not.toHaveBeenCalled()
   })
 
-  it('creates K25 from two explicitly selected plots and returns a figure result', async () => {
+  it('creates K25 as one component-backed PlotDocument', async () => {
     const user = userEvent.setup()
     let plotSequence = 0
     const api = fakeDesktop({
@@ -833,15 +834,19 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: /K25.*多面板复合图/ }))
     await user.click(screen.getByRole('button', { name: '创建组合图' }))
 
-    expect(api.createFigure).toHaveBeenCalledWith(expect.objectContaining({
-      plotRefs: [
-        { plotId: 'plot:1', plotVersion: 1 },
-        { plotId: 'plot:2', plotVersion: 1 },
-      ],
-      layout: '1x2',
+    expect(api.executePlotAction).toHaveBeenLastCalledWith(expect.objectContaining({
+      action: expect.objectContaining({
+        operation: 'create_plot',
+        profile_id: 'K25',
+        components: [
+          { plot_id: 'plot:1', plot_version: 1, content_hash: 'b'.repeat(64) },
+          { plot_id: 'plot:2', plot_version: 1, content_hash: 'b'.repeat(64) },
+        ],
+      }),
     }))
-    expect(api.executePlotAction).toHaveBeenCalledTimes(2)
-    expect(await screen.findByText(/组合图 figure:one/)).toBeInTheDocument()
+    expect(api.executePlotAction).toHaveBeenCalledTimes(3)
+    expect(await screen.findByText('plot:3')).toBeInTheDocument()
+    expect(screen.getByText(/PlotDocument v1/)).toBeInTheDocument()
   })
 
   it('offers the optional count role for an aggregated S61 confusion matrix', async () => {
