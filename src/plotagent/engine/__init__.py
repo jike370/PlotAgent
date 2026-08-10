@@ -34,6 +34,7 @@ from .ports import (
 from .repository import PlotDocumentRepository, StoredPlotDocument, document_ref
 from .runtime import PlotEngineRuntime, RuntimeResult
 from .service import EngineCatalog, EngineCommandError, PlotEngineService, PlotTransition
+from .tooling import EngineActionCodec
 
 __all__ = [
     "AddAnnotation",
@@ -41,6 +42,7 @@ __all__ = [
     "BindFields",
     "CreatePlot",
     "EngineArtifact",
+    "EngineActionCodec",
     "EngineCapability",
     "EngineCatalog",
     "EngineColumn",
