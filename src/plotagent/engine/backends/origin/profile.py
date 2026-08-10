@@ -42,6 +42,13 @@ K20_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+X23_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X23",
+    filename="DOUBLEY.OTP",
+    sha256="487547eb206e4645f3380a9a021ceb7fbcf4ec4d1fdb0a870d1eb0cde0c7641b",
+    tier="T1",
+)
+
 
 def resolve_official_template(
     install_dir: Path,

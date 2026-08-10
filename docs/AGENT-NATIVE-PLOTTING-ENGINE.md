@@ -132,3 +132,19 @@ PlotDocument 只保存：
 - **无旧路径**：生产代码、运行时依赖和测试清单中不存在旧 PlotSpec/resolver/plan renderer 兜底。
 
 视觉审查位于每个 Profile 完成动态与机械读回之后、发布资格之前。机械通过不能代替人工视觉签名。
+
+## 7. 当前迁移证据
+
+截至本分支当前实现，新架构已经完成四类代码级纵向切片：
+
+| Profile | 数据语义 | Matplotlib | Origin 官方模板 | 原生结构 |
+|---|---|---|---|---|
+| K01 | `x / y` | 独立折线 renderer | `LINE.otpu` | worksheet + 1 条原生线 |
+| K08 | `category / value` | 独立柱图 renderer | `COLUMN.otpu` | worksheet + 1 组原生柱 |
+| K20 | `row / column / value` | 独立热图 renderer | `Heat_Map.otpu` | matrixbook + 1 个原生 matrix plot |
+| X23 | `x / left / right` | 独立双 Y renderer | `DOUBLEY.OTP` | worksheet + 2 个模板图层，各 1 条原生线 |
+
+四个切片均只消费 `EngineDataView`、`PlotDocument` 和公开 Engine Action，不导入旧
+`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。K01/K08/K20/X23 已有独立渲染、
+模板哈希、对象结构和修改读回门禁；真实 Origin fresh-reopen 与人工视觉签名仍须在
+不占用用户 Origin 实例的受控资格批次中执行，未完成前不得声称这些 Profile 已发布。

@@ -9,7 +9,8 @@ ordering or duplicate-cell handling.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import nan
+from math import isfinite, nan
+from typing import Literal
 
 from .contracts import EngineColumn, EngineDataView, PlotDocument
 
@@ -23,6 +24,18 @@ class K20Grid:
     column_field_name: str
     value_field_name: str
     value_unit: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class X23SeriesData:
+    x_values: tuple[str | float, ...]
+    x_labels: tuple[str, ...] | None
+    left_values: tuple[float, ...]
+    right_values: tuple[float, ...]
+    x_field_name: str
+    left_field_name: str
+    right_field_name: str
+    x_scale: Literal["categorical", "linear"]
 
 
 def k20_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:
@@ -71,6 +84,47 @@ def k20_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:
         column_field_name=column.field.name,
         value_field_name=value.field.name,
         value_unit=value.field.unit_label,
+    )
+
+
+def x23_series(document: PlotDocument, data: EngineDataView) -> X23SeriesData:
+    """Validate and normalize one dual-Y input without describing either backend."""
+
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    try:
+        x = columns[bindings["x"]]
+        left = columns[bindings["left"]]
+        right = columns[bindings["right"]]
+    except KeyError as error:
+        raise ValueError("X23 requires x, left and right bindings") from error
+    left_values = tuple(_numeric(value) for value in left.values)
+    right_values = tuple(_numeric(value) for value in right.values)
+    x_scale: Literal["categorical", "linear"]
+    if x.field.logical_type in {"categorical", "text"}:
+        labels = tuple(_label(value, "x") for value in x.values)
+        if len(labels) != len(set(labels)):
+            raise ValueError("X23 categorical x labels must be unique")
+        x_values: tuple[str | float, ...] = labels
+        x_scale = "categorical"
+    elif x.field.logical_type == "numeric":
+        labels = None
+        numeric_x = tuple(_numeric(value) for value in x.values)
+        if any(not isfinite(value) for value in numeric_x):
+            raise ValueError("X23 x values must be finite")
+        x_values = numeric_x
+        x_scale = "linear"
+    else:
+        raise ValueError("X23 currently supports categorical or numeric x data")
+    return X23SeriesData(
+        x_values=x_values,
+        x_labels=labels,
+        left_values=left_values,
+        right_values=right_values,
+        x_field_name=x.field.name,
+        left_field_name=left.field.name,
+        right_field_name=right.field.name,
+        x_scale=x_scale,
     )
 
 
