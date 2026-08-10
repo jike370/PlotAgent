@@ -93,7 +93,7 @@
       "visual_evidence": "origin_reference"
     },
     {
-      "admission": "product",
+      "admission": "removed",
       "chart_type_id": "K05",
       "edit_capabilities": [
         "plot_title",
@@ -116,7 +116,7 @@
         "error_style",
         "band_style"
       ],
-      "visual_evidence": "origin_reference"
+      "visual_evidence": "unqualified"
     },
     {
       "admission": "product",
@@ -391,7 +391,7 @@
       "visual_evidence": "origin_reference"
     },
     {
-      "admission": "product",
+      "admission": "removed",
       "chart_type_id": "K17",
       "edit_capabilities": [
         "plot_title",
@@ -409,7 +409,7 @@
         "line_width",
         "line_style"
       ],
-      "visual_evidence": "origin_reference"
+      "visual_evidence": "unqualified"
     },
     {
       "admission": "product",
@@ -590,7 +590,7 @@
       "visual_evidence": "origin_reference"
     },
     {
-      "admission": "product",
+      "admission": "removed",
       "chart_type_id": "S05",
       "edit_capabilities": [
         "plot_title",
@@ -613,7 +613,7 @@
         "error_style",
         "band_style"
       ],
-      "visual_evidence": "origin_reference"
+      "visual_evidence": "unqualified"
     },
     {
       "admission": "product",
@@ -641,7 +641,7 @@
       "visual_evidence": "origin_reference"
     },
     {
-      "admission": "product",
+      "admission": "removed",
       "chart_type_id": "S25",
       "edit_capabilities": [
         "plot_title",
@@ -659,10 +659,10 @@
         "line_width",
         "line_style"
       ],
-      "visual_evidence": "origin_reference"
+      "visual_evidence": "unqualified"
     },
     {
-      "admission": "product",
+      "admission": "removed",
       "chart_type_id": "S31",
       "edit_capabilities": [
         "plot_title",
@@ -680,7 +680,7 @@
         "line_width",
         "line_style"
       ],
-      "visual_evidence": "origin_reference"
+      "visual_evidence": "unqualified"
     },
     {
       "admission": "product",
@@ -727,7 +727,7 @@
       "visual_evidence": "origin_reference"
     },
     {
-      "admission": "product",
+      "admission": "removed",
       "chart_type_id": "X01",
       "edit_capabilities": [
         "plot_title",
@@ -743,10 +743,9 @@
         "safe_annotation",
         "series_color",
         "line_width",
-        "line_style",
-        "chart_parameters"
+        "line_style"
       ],
-      "visual_evidence": "origin_reference"
+      "visual_evidence": "unqualified"
     },
     {
       "admission": "product",
@@ -1270,7 +1269,7 @@
       "visual_evidence": "origin_reference"
     },
     {
-      "admission": "product",
+      "admission": "removed",
       "chart_type_id": "S07",
       "edit_capabilities": [
         "plot_title",
@@ -1287,10 +1286,9 @@
         "series_color",
         "marker_size",
         "symbol_shape",
-        "symbol_interior",
-        "chart_parameters"
+        "symbol_interior"
       ],
-      "visual_evidence": "synthetic_visual"
+      "visual_evidence": "unqualified"
     }
   ],
   "palettes": [

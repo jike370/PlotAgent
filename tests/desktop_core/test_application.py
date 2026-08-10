@@ -730,8 +730,8 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
         execution = created["execution"]
         assert execution["chart_type_id"] == "K02"
         # K25 is the admitted figure surface and is created through CreateFigureAction,
-        # so CreatePlotAction advertises the remaining 44 official chart types.
-        assert len(provider.requests[0].envelope.chart_capabilities.allowed_chart_type_ids) == 44
+        # so CreatePlotAction advertises the remaining 37 product chart types.
+        assert len(provider.requests[0].envelope.chart_capabilities.allowed_chart_type_ids) == 37
 
         edited = app.call(
             "agent.decide",
@@ -867,7 +867,7 @@ def test_agent_can_create_any_registered_plot_and_edit_an_active_plot(
         app.close()
 
 
-def test_desktop_application_creates_and_renders_exact_45_product_chart_surface(
+def test_desktop_application_creates_and_renders_exact_38_product_chart_surface(
     harness: ApplicationHarness,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1012,7 +1012,7 @@ def test_desktop_application_creates_and_renders_exact_45_product_chart_surface(
     )
     assert Path(preview["artifact"]["path"]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
-    assert len(plot_refs) + 1 == 45
+    assert len(plot_refs) + 1 == 38
 
     plot_destination = tmp_path / "non-k01.opju"
     exported_plot = harness.call(

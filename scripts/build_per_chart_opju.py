@@ -24,6 +24,7 @@ REPOSITORY = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY))
 
 from plotagent.contracts.canonical import canonical_hash
+from plotagent.contracts.registry import PRODUCT_CHART_IDS
 from plotagent.origin import build_origin_export_spec, compile_origin_plan, export_origin
 from plotagent.origin.models import OriginExportSuccess
 from plotagent.rendering import PlotResolver, ResolvedPlot
@@ -99,7 +100,8 @@ def _items(selected: set[Lane]) -> list[tuple[Lane, Any, Path, Path]]:
             )
             for case in structural_synthetic.CASES
         )
-    return items
+    product_ids = set(PRODUCT_CHART_IDS)
+    return [item for item in items if item[1].chart_id in product_ids]
 
 
 def _resolved_pair(lane: Lane, case: Any, frame: pd.DataFrame) -> tuple[ResolvedPlot, ...]:
@@ -142,6 +144,9 @@ def _build(selected: set[Lane], *, force: bool) -> dict[str, Any]:
     )
     manifest = _load_manifest()
     charts = manifest.setdefault("charts", {})
+    for retired_chart_id in tuple(charts):
+        if retired_chart_id not in PRODUCT_CHART_IDS:
+            del charts[retired_chart_id]
     manifest.update(
         {
             "schema_version": "1.0",

@@ -1,6 +1,6 @@
 # PlotAgent 领域契约与 Schema 设计
 
-> 状态：第一轮契约基线已确认；43 图 availability、通用/专属编辑与 Origin 样式契约已实现当前工程门禁，ChartRecipe v1 与首批 14 图迁移待实现
+> 状态：现有45图契约属于重构前基线；正式目标已缩减为 T1/T2 共38图，七个 T3/T4 图将在 R0 从 availability、Schema、Agent 与导出能力删除；38图裸模板测试结论冻结后再重写渲染契约
 > 日期：2026-08-07
 > 适用范围：SourceDataset、FieldMapping/PreparationSpec、PlotCalculationSpec/Result、StructureUnit/ChartRecipe、PlotSpec、PlotPatch/ChartEditCapabilityProfile、BatchSpec、FigureSpec、ActionPlan 及跨进程 Schema
 > 相关文档：[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面契约](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
@@ -312,7 +312,7 @@ PaletteRef
 ChartEditCapabilityProfile
 ├─ profile_id / version / hash
 ├─ chart_type_id
-├─ availability: official | internal_hidden
+├─ availability: product | internal_hidden | removed
 ├─ capabilities[]
 │  ├─ operation discriminator
 │  ├─ allowed_target_kinds[]
@@ -322,11 +322,11 @@ ChartEditCapabilityProfile
 └─ evidence_refs[]
 ```
 
-正式 profile 只属于 45 图：K01–K22、K24–K25、S01、S05、S21、S25、S31、S34、S61、X01、X02、X03、X05、X09、X13、X23、X24、X35、X36、X38、X39、X40、S07。X07、X11、X12、X15、X16、X17、X18、X19、X37 固定为 `internal_hidden`，不能出现在图形库、ContextEnvelope create capability 或正式 export target 中。完整逐图操作白名单以 [PRD §8.5](./PRD.md) 为权威。
+正式 profile 只属于 38 图：K01–K04、K06–K16、K18–K22、K24–K25、S01、S21、S34、S61、X02、X03、X05、X09、X13、X23、X24、X35、X36、X38、X39、X40。`K05`、`K17`、`S05`、`S07`、`S25`、`S31`、`X01` 固定为 `removed`：只保留旧项目 ID 识别并返回 `CHART_TYPE_REMOVED`，不能创建、编辑、渲染、导出或作为批量/组合候选。X07、X11、X12、X15、X16、X17、X18、X19、X37 固定为 `internal_hidden`，不能出现在图形库、ContextEnvelope create capability 或正式 export target 中。完整新引擎边界以 [绘图引擎重构与验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md) 为权威。
 
 能力联合覆盖 `general`、`line`、`marker`、`bar_fill`、`error_interval`、`palette_color_scale`、`dual_y`、`facet`、`y_offset`、`chart_parameters` 十组语义；每个 capability 仍解析为下面列出的领域 Patch，而不是任意 property path。直方分箱、KDE 带宽、ECDF/CCDF 等改变数值结果的参数不属于 Style/PlotPatch，必须生成新的封闭 PlotCalculationSpec/Result。
 
-专属编辑状态固定进入 `PlotSpec.specialist`，七个操作只允许整体替换对应强类型子对象：
+下列 `PlotSpec.specialist` 是重构前兼容结构；生产 38 图迁移后由平坦 ChartProfile 只声明双后端交集能力。旧字段可为历史项目解码，但不得使 removed 图重新获得生产能力：
 
 ```text
 SpecialistEditSpec
@@ -337,27 +337,24 @@ SpecialistEditSpec
 ├─ facet: order / labels / gap / shared_x / shared_y / common_legend
 ├─ y_offset: distance / order
 └─ chart_parameters
-   ├─ step_where                         # X01: pre | mid | post
-   ├─ volcano_absolute_log2_fold_change  # S07，正数
-   ├─ volcano_pvalue                     # S07，0 < p < 1
    └─ pareto_reference_percent           # X24，0 < percent < 100
 ```
 
 对应 Patch/Agent intent discriminator 固定为 `set_bar_area_style`、`set_uncertainty_style`、`set_colorbar_style`、`set_dual_y_style`、`set_facet_style`、`set_y_offset_style`、`set_chart_parameters`。UI 只在当前图声明相应 capability 时显示控件；Agent、本地 validator、Resolver、Matplotlib 与 Origin adapter 消费同一状态。X02 是连续型 Drop Line，X 轴保持在坐标框底部，垂线始终终止于解析后的底部轴，不再具有可编辑 baseline。
 
-### 4.5 ResolvedRenderPlan
+### 4.5 ResolvedRenderPlan（旧引擎兼容）
 
-Render Resolver 把 PlotSpec/FigureSpec、不可变数据与分析引用、resolved style、publication profile 和 quality tier 解析为 ResolvedRenderPlan。Plan 固定物理画布与 subplot、图层顺序、数据表引用、字体与样式、坐标 range/ticks/labels、图例与标注位置、数据完整性/降采样状态以及所有 hash/version。
+旧引擎的 Render Resolver 把 PlotSpec/FigureSpec 解析为共享 ResolvedRenderPlan。该结构在迁移期只为尚未替换的历史路径与旧项目读取保留；新生产链不再要求 Matplotlib 与 Origin 共享最终几何或像素布局。
 
-Matplotlib 与 Origin adapter 不得自行 autoscale、选择 ticks、重算统计或替换字体。正式 ExportSpec 保存 `render_plan_hash`；完整坐标、文本、质量层级、容差和验证契约见 [渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)。
+新引擎以语义 PlotSpec 与 ChartProfile 为共同真值：每图 Matplotlib renderer 与 Origin 官方模板绑定器可各自使用目标原生布局，但不得重算科研数据、改变系列身份或丢弃用户状态。迁移完成后删除只服务旧共享几何路径的代码与测试。
 
 ### 4.6 OriginExportPlan
 
 OPJU ExportSpec、ResolvedRenderPlan 与版本化 OriginAdapter 在本地解析为 typed OriginExportPlan。它固定 target scope、Data/Analysis/Graphs/Metadata 布局、ASCII internal names、Long Names、数据对象、原生 graph/layer/plot、typed properties、template/capability 和 live/reopen validation。
 
-Origin Worker 不接受任意 property/path/script 字符串。第一轮 OriginAdapter 通过 `originpro`/Python 类型化固定映射工作；模型、数据和配置提供的 LabTalk 被 Schema/策略阻止，仅保留 Origin 文档化但 `originpro` 未暴露的三项受测显示选项白名单。正式 45 图只在 adapter 达到 O1 时开放 OPJU；九个 `internal_hidden` 图不承诺导出；整份 OPJU 原子成功或失败。完整契约见 [原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)。
+Origin Worker 不接受任意 property/path/script 字符串。正式 38 图只在对应官方模板绑定器达到 O1 时开放 OPJU；九个 `internal_hidden` 与七个 `removed` 图均不承诺生产导出；整份 OPJU 原子成功或失败。完整迁移契约见 [38图 Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)。
 
-内部注册表/Schema 现在包含 54 个稳定 chart ID；双 Y 轴网格图未注册。产品 capability 以 45 个 `official` 与九个 `internal_hidden` 分层，隐藏图即使 resolver/adapter 存在也禁止 create/export。X02/X03 语义已按 Origin 官方模板纠正，X39/X40 分别固定为 Line Series 与 Before-After；X03 的两系列形态只作为“哑铃图”搜索别名，不另占 ID。X24 与 S07 的当前视觉 provenance 为冻结合成数据，必须与 Origin 官方同源证据区分。
+内部注册表/Schema 保留 54 个稳定 chart ID 以识别历史项目；生产 capability 明确分为 38 个 `product`、九个 `internal_hidden` 与七个 `removed`。只有 38 个 product ID 可进入 create/edit/render/export。X02/X03 语义已按 Origin 官方模板纠正，X39/X40 分别固定为 Line Series 与 Before-After；X03 的两系列形态只作为“哑铃图”搜索别名，不另占 ID。
 
 ## 5. BatchSpec 与 FigureSpec
 

@@ -195,6 +195,7 @@ from plotagent.contracts.registry import (
 )
 from plotagent.contracts.registry import (
     PRODUCT_CHART_IDS,
+    REMOVED_CHART_IDS,
 )
 from plotagent.contracts.styles import SymbolStyle, resolve_palette
 from plotagent.contracts.task_runtime import TaskItemSnapshot, TaskOutputRef, TaskPlanSnapshot
@@ -1769,6 +1770,11 @@ class DesktopApplication:
         expected = _integer(values["expected_version"], "expected_version", minimum=0)
         session.domain.require_revision(expected)
         chart_type_id = _text(values["chart_type_id"], "chart_type_id")
+        if chart_type_id in REMOVED_CHART_IDS:
+            raise RpcServiceError(
+                "CHART_TYPE_REMOVED",
+                "The selected chart was removed from the 38-chart product surface.",
+            )
         if chart_type_id not in PRODUCT_CHART_IDS or chart_type_id == "K25":
             raise RpcServiceError("INVALID_PARAMS", "The selected chart is unavailable.")
         field_mapping = _string_mapping(values["field_mapping"], "field_mapping")
@@ -2103,6 +2109,11 @@ class DesktopApplication:
         if execution_mode not in {"execute", "plan_only"}:
             raise RpcServiceError("INVALID_PARAMS", "The Agent execution mode is invalid.")
         selected_chart_id = _optional_text(values.get("selected_chart_id"), "selected_chart_id")
+        if selected_chart_id in REMOVED_CHART_IDS:
+            raise RpcServiceError(
+                "CHART_TYPE_REMOVED",
+                "The selected chart was removed from the 38-chart product surface.",
+            )
         if selected_chart_id is not None and (
             selected_chart_id not in PRODUCT_CHART_IDS or selected_chart_id == "K25"
         ):
@@ -2256,7 +2267,7 @@ class DesktopApplication:
             ),
             conversation_state=conversation_state,
             chart_capabilities=ChartCapabilities(
-                capability_version="desktop-45-v1",
+                capability_version="desktop-38-v1",
                 allowed_chart_type_ids=enabled_chart_ids,
                 allowed_action_types=("create_plot", "patch_plot"),
                 allowed_patch_operations=(
@@ -3356,6 +3367,11 @@ class DesktopApplication:
                 "CHART_TYPE_UNKNOWN", "The requested chart type is not in the v1 registry."
             ) from None
         if internal_registration.admission != "product":
+            if internal_registration.admission == "removed":
+                raise RpcServiceError(
+                    "CHART_TYPE_REMOVED",
+                    "The requested chart type was removed from the 38-chart product surface.",
+                )
             raise RpcServiceError(
                 "CHART_TYPE_NOT_ADMITTED",
                 "The chart adapter is retained for internal regression but is not "

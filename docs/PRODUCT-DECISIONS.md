@@ -1,6 +1,8 @@
 # PlotAgent 已确认产品决策基线
 
-> 状态：正式范围固定为 43 图；M6 基础泛化与逐图编辑/Origin 样式工程门禁已实现，内部可组合绘图底座仍待实现；M7 小规模邀请制 Beta qualification 尚未执行
+> 状态：当前正式范围固定为 T1/T2 共 38 图；绘图引擎正在按 Origin 官方模板优先、每图 ChartProfile/Matplotlib renderer 与 Agent-native 动作全面重构；历史 43/45 图资格不继承；M7 尚未执行
+
+> 阅读规则：`PD-AC01`—`PD-AC19` 是当前绘图产品边界。此前 E/I/K/P/W/AA/AB 章节中关于 43/45 图正式范围、旧 renderer、StructureUnit/ChartRecipe 和历史资格的条款只保留决策追溯用途；与 AC 章节冲突时一律以 AC 为准，不得继续作为实现或发布依据。
 > 产品代号：PlotAgent  
 > 基线日期：2026-08-07
 > 适用关系：本文件记录全部已确认细节；[PRD](./PRD.md) 将其组织为可实施需求；[DESIGN](../DESIGN.md) 约束视觉与交互表达。三者发生冲突时，应先记录新的用户确认，再同时更新相关文件，不得由实现自行改变产品边界。
@@ -608,5 +610,29 @@
 - **PD-AB31 Agent Runtime 复用边界。** 不从零重写通用 LLM provider/transport/tool-loop runtime，也不把 Pi、Hermes 或其他通用 Agent 框架变成不可替换的产品核心。保留当前 Python Core 与 `ModelProvider`，新增薄且可替换的 `AgentRuntime` 接口；外部底座只可承担模型调用、结构化传输和通用会话循环，`ProjectContext`、`TaskPlan`、作用对象解析、权限、确认、执行、恢复、事务和科研校验始终由 PlotAgent 本地领域层拥有。Pi 可做限时适配 spike；Hermes 仅作能力参考，首阶段不直接套壳。
 - **PD-AB32 有界自主执行。** 模型先基于最小 `ProjectContext` 生成可核对候选计划或提出一个必要追问；本地 resolver 绑定精确对象/版本，本地 validator 决定可执行项，确定性 `TaskOrchestrator` 才调用白名单领域服务。第一阶段不开放任意文件、数据库、Origin、URL、Shell、Python 或工具自治循环；手动 UI 与自然语言继续消费同一计划/执行链。
 - **PD-AB33 Agent 作品集证据。** 首轮 Agent 完成定义不以模型回答“像人”或图形数量衡量，而以三条可复现实例证明：多文件/多工作表批量计划与一次确认、跨轮次范围/指代正确解析、部分失败后只修复并恢复失败项。机器指标至少覆盖计划合法率、作用对象解析准确率、字段映射首轮接受率、必要追问数、恢复成功率、陈旧计划拒绝和人工 Origin 流程节省时间；另保留 5–10 名目标科研用户的同意观察与访谈证据。
+
+## AC. Origin 模板优先的 38 图绘图引擎重构
+
+- **PD-AC01 正式图形缩减为38图。** 正式产品只保留 T1 直接官方模板 28 图与 T2 官方模板＋少量原生配置 10 图；`K05`、`K17`、`S05`、`S07`、`S25`、`S31`、`X01` 从产品能力中删除。此前文档中的 43/45 图正式范围与包含这些 ID 的发布声明由本决定取代。
+- **PD-AC02 删除不是隐藏。** 七图必须退出图形库、Agent capability、字段映射、编辑、批量/组合候选、渲染、Origin 导出、资格清单与发布声明。旧项目只返回 `CHART_TYPE_REMOVED`，不得静默替换近似图。
+- **PD-AC03 裸模板测试先于实现。** 38图先执行行数、系列/组数、类别数、长中英文标签、数值范围、缺失值、编辑和 fresh-reopen 动态矩阵；测试阶段禁止按图形 ID 修布局或用几何模拟 Origin 原生 Plot。
+- **PD-AC04 Origin承担动态显示。** 数据范围、轴缩放、分组间距、原生图例/色带、标签和模板已支持的布局优先由 Origin 自动处理。Python只绑定数据角色、应用模板、执行证据证明必需的 T2 原生配置和用户编辑。
+- **PD-AC05 不预设 renderer 形态。** 不再以 StructureUnit、统一 renderer、逐图 renderer 或 compiler 完整性作为目标；只以 Origin 映射正确、动态数据稳定、Agent 易操作和原生可编辑为选择标准。
+- **PD-AC06 禁止旧路径回退。** 迁移后的图不得回退到手工几何拼装、任意 Origin property/script 或 Matplotlib 位图嵌入。38图全部迁移后删除被替代的旧 Origin 构建分支与过期视觉证据。
+- **PD-AC07 资格重新建立。** 每图必须记录官方模板版本与哈希、裸模板结论、最小补丁、动态矩阵、默认/编辑态 OPJU、fresh-reopen 原生对象检查和人工视觉签名；历史45图通过记录不自动继承到新引擎。
+- **PD-AC08 产品行为不随实现缩减。** 导入、受控数据准备、明确选图/映射、自然语言与手动共同编辑、批量、组合图、项目上下文、任务恢复、PNG/SVG 与原生可编辑 OPJU 的产品目标保持；本轮只替换绘图引擎实现。
+- **PD-AC09 Agent-native 动作层。** Agent 只生成少量强类型业务动作，由本地 resolver、validator、事务和任务编排执行；模型不得输出 renderer 参数、Origin 对象路径、脚本或自由 PlotSpec JSON。
+- **PD-AC10 PlotSpec 保留语义真值。** PlotSpec 继续承担数据/字段/系列/轴/样式/标注/版本与来源的产品真值，但不保存 Matplotlib artist、Origin object ID、最终像素或页面几何，也不强迫两个后端共享最终布局。
+- **PD-AC11 平坦 ChartProfile。** 每张正式图使用平坦 ChartProfile 登记字段角色、共同编辑能力、Matplotlib renderer、Origin 模板/绑定器和验证器；ChartProfile 不是 StructureUnit、ChartRecipe 或通用组件图。
+- **PD-AC12 Matplotlib 每图独立。** Matplotlib 允许每图独立 renderer，并共享字体、色板、轴、图例、边界、导出等基础工具；不再要求所有图消费统一几何 RenderPlan 才能通过。
+- **PD-AC13 公共能力取交集。** 正式 UI 和 Agent 只开放 Matplotlib 与 Origin 都能稳定表达、保存和读回的共同能力；任一后端不支持时返回 Unsupported，不静默忽略、近似替换或产生 target-only PlotSpec 状态。
+- **PD-AC14 数据准备不转嫁用户。** 常规选择、类型、筛选、排序、reshape、聚合和登记派生列由强类型 `prepare_data` 生成可追溯 PreparedDataset；原始数据只读，科研计算独立显式，任意脚本与无法确定语义的加工仍需用户确认或外部处理。
+- **PD-AC15 验收状态严格区分。** 测试执行、退出码为零、OPJU 可打开或 fresh-reopen 一致均不自动等于 PASS；只有预设判据和原始证据全部满足才 PASS，FAIL、BLOCKED、UNVERIFIED 分开记录，未实测不得由源码或单测推断。
+- **PD-AC16 分层资格。** 新引擎依次通过契约冻结、38图裸模板、四图纵向切片、38图双后端/动态/编辑、Agent与工作流、正式桌面与发布六层门禁；任一关键门禁有 FAIL/BLOCKED/UNVERIFIED 均不得宣称完整资格。
+- **PD-AC17 Origin 编辑抽检口径。** 38图全部自动修改数据值与代表性允许样式并在 fresh-reopen 后机械读回；人工实际编辑按官方模板哈希、原生结构和 T2 补丁签名划分的 Origin 模板家族选代表图，每家族至少一图，不再要求38图逐一人工编辑。
+- **PD-AC18 标签排版不作阻断。** 长标签、中文和多标签仍保存原始证据并校验文本内容、数据关联和字体，但标签裁切、换行、重叠等自动排版体验不作为本轮绘图引擎资格阻断；数据几何、轴语义、系列身份和原生对象错误仍是阻断项。
+- **PD-AC19 视觉审查后置且一次性交付。** 迁移中不做探索性或分批视觉审查；先完成 38 图双后端、动态数据、共同编辑、OPJU/fresh-reopen 和逐图机械修改读回，再统一生成 38 图审查页交由用户逐图判断。机械完成不自动产生视觉 PASS，用户签名前一律保持 `UNVERIFIED`；人工 Origin 实际编辑另按模板家族抽代表图。
+
+完整映射与 Origin 裸模板矩阵见 [38图 Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)；完整多后端架构、Agent 动作与验收门禁见 [绘图引擎重构与验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md)。
 
 完整W0–W10范围、依赖、spikes与M0–M7见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；权威范围、Requirement/Evidence Matrix与冲突审计见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。

@@ -242,7 +242,7 @@ export type ChartRegistration = {
   readonly allowed_calculations?: ReadonlyArray<"histogram_binning" | "tukey_box" | "violin_kde" | "density_kde" | "ecdf" | "summary_error" | "percent_stack" | "matrix_projection" | "confusion_count">;
   readonly required_precomputed?: ReadonlyArray<"curve" | "band" | "matrix" | "matrix_grid" | "step_curve" | "risk_table" | "parameter_table" | "spectrum" | "peak_labels" | "complex_curve" | "effect_interval">;
   readonly exports?: ExportCapabilities;
-  readonly admission?: "product" | "internal_only";
+  readonly admission?: "product" | "internal_only" | "removed";
   readonly visual_evidence?: "origin_reference" | "synthetic_visual" | "unqualified";
   readonly edit_capabilities?: ReadonlyArray<"plot_title" | "axis_label" | "axis_range" | "axis_scale" | "axis_ticks" | "font" | "legend_visibility" | "legend_position" | "canvas_size" | "publication_profile" | "safe_annotation" | "series_color" | "line_width" | "line_style" | "marker_size" | "symbol_shape" | "symbol_interior" | "palette" | "bar_fill" | "bar_edge" | "bar_width" | "bar_gap" | "error_style" | "band_style" | "colorbar" | "dual_y_style" | "panel_style" | "y_offset" | "chart_parameters">;
   readonly unsupported_edit_capabilities?: ReadonlyArray<"plot_title" | "axis_label" | "axis_range" | "axis_scale" | "axis_ticks" | "font" | "legend_visibility" | "legend_position" | "canvas_size" | "publication_profile" | "safe_annotation" | "series_color" | "line_width" | "line_style" | "marker_size" | "symbol_shape" | "symbol_interior" | "palette" | "bar_fill" | "bar_edge" | "bar_width" | "bar_gap" | "error_style" | "band_style" | "colorbar" | "dual_y_style" | "panel_style" | "y_offset" | "chart_parameters">;

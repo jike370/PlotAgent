@@ -10,7 +10,7 @@
     },
     {
       "path": "schemas/chart-registry.schema.json",
-      "sha256": "338341e3542f073d9f0e216c9092ddeebf620a86c08fb2d2b420f3844f0e0b23"
+      "sha256": "93e817a599150564ab5e59d7277fac7383a67a94964f8d7533693807602f33fc"
     },
     {
       "path": "schemas/context-envelope.schema.json",
@@ -18,7 +18,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "506cbf548790e83ae2c7fef16e3304fb4c8427448d009c5ea9d6b1d028f1241a"
+      "sha256": "bf12054d0ef584f08df631ccc1a9e329436d202abe7fd27af96d78f29dc03684"
     },
     {
       "path": "schemas/error-registry.json",
@@ -94,11 +94,11 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "69be34613ad21e8b0bf4dee9b6856ca8e7a43b75435f213ec96ba0079840ad80"
+      "sha256": "69542ac0bb132b6e2390a3aef70eb0b2ae878a33e1377956a5f00adfc95260bb"
     },
     {
       "path": "src/shared/generated/style-catalog.json",
-      "sha256": "c43e879be5ba30c640dc80269ad1d0be9448ad1fa5ecbec0efd0b3b4049ba45e"
+      "sha256": "94af29610d4318f1bc205c63f08f32da358899b5d3b42772da91ce261c7f54f6"
     }
   ],
   "generator": "plotagent.contracts.codegen",

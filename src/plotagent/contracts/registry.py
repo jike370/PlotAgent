@@ -53,7 +53,7 @@ GeometryKind = Literal[
     "volcano",
 ]
 
-AdmissionStatus = Literal["product", "internal_only"]
+AdmissionStatus = Literal["product", "internal_only", "removed"]
 VisualEvidenceLevel = Literal["origin_reference", "synthetic_visual", "unqualified"]
 EditCapability = Literal[
     "plot_title",
@@ -519,7 +519,6 @@ _PRODUCT_CHART_IDS: frozenset[ChartTypeId] = frozenset(
         "K02",
         "K03",
         "K04",
-        "K05",
         "K06",
         "K07",
         "K08",
@@ -531,7 +530,6 @@ _PRODUCT_CHART_IDS: frozenset[ChartTypeId] = frozenset(
         "K14",
         "K15",
         "K16",
-        "K17",
         "K18",
         "K19",
         "K20",
@@ -540,13 +538,9 @@ _PRODUCT_CHART_IDS: frozenset[ChartTypeId] = frozenset(
         "K24",
         "K25",
         "S01",
-        "S05",
         "S21",
-        "S25",
-        "S31",
         "S34",
         "S61",
-        "X01",
         "X02",
         "X03",
         "X05",
@@ -559,8 +553,11 @@ _PRODUCT_CHART_IDS: frozenset[ChartTypeId] = frozenset(
         "X38",
         "X39",
         "X40",
-        "S07",
     }
+)
+
+_REMOVED_CHART_IDS: frozenset[ChartTypeId] = frozenset(
+    {"K05", "K17", "S05", "S07", "S25", "S31", "X01"}
 )
 
 _EDIT_PROFILES: dict[ChartTypeId, str] = {
@@ -664,13 +661,17 @@ def _edit_capabilities(profile: str) -> tuple[EditCapability, ...]:
 
 def _qualified_registration(chart: ChartRegistration) -> ChartRegistration:
     supported = list(_edit_capabilities(_EDIT_PROFILES[chart.chart_type_id]))
-    if chart.chart_type_id in {"X01", "X24", "S07"}:
+    if chart.chart_type_id == "X24":
         supported.append("chart_parameters")
-    admission: AdmissionStatus = (
-        "product" if chart.chart_type_id in _PRODUCT_CHART_IDS else "internal_only"
-    )
+    admission: AdmissionStatus
+    if chart.chart_type_id in _PRODUCT_CHART_IDS:
+        admission = "product"
+    elif chart.chart_type_id in _REMOVED_CHART_IDS:
+        admission = "removed"
+    else:
+        admission = "internal_only"
     evidence: VisualEvidenceLevel
-    if chart.chart_type_id in {"X24", "S07"}:
+    if admission == "product" and chart.chart_type_id == "X24":
         evidence = "synthetic_visual"
     elif admission == "product":
         evidence = "origin_reference"
@@ -696,12 +697,17 @@ PRODUCT_CHARTS: tuple[ChartRegistration, ...] = tuple(
     chart for chart in CHART_REGISTRY if chart.admission == "product"
 )
 PRODUCT_CHART_IDS: tuple[ChartTypeId, ...] = tuple(chart.chart_type_id for chart in PRODUCT_CHARTS)
+REMOVED_CHART_IDS: tuple[ChartTypeId, ...] = tuple(
+    chart.chart_type_id for chart in CHART_REGISTRY if chart.admission == "removed"
+)
 
 _EXPECTED_CHART_IDS = frozenset(get_args(ChartTypeId))
 if set(CHARTS_BY_ID) != _EXPECTED_CHART_IDS or set(_EDIT_PROFILES) != _EXPECTED_CHART_IDS:
     raise RuntimeError("chart registry and capability metadata must cover every ChartTypeId")
 if set(PRODUCT_CHART_IDS) != _PRODUCT_CHART_IDS:
     raise RuntimeError("product chart admission metadata is inconsistent")
+if set(REMOVED_CHART_IDS) != _REMOVED_CHART_IDS:
+    raise RuntimeError("removed chart admission metadata is inconsistent")
 
 
 class ChartRegistry(StrictModel):

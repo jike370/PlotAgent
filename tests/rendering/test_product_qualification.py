@@ -3,20 +3,33 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import pytest
 
-from plotagent.charts.registry import get_chart, patch_operations_for_chart
-from plotagent.contracts.registry import PRODUCT_CHART_IDS
+from plotagent.charts.registry import (
+    ChartRemovedError,
+    get_chart,
+    get_product_chart,
+    patch_operations_for_chart,
+)
+from plotagent.contracts.registry import PRODUCT_CHART_IDS, REMOVED_CHART_IDS
 from plotagent.origin.planner import build_origin_export_spec, compile_origin_plan
 from plotagent.rendering.matplotlib.adapter import MatplotlibRenderer
 from tests.rendering.fixture_factory import resolve_chart
 
 
-def test_first_release_qualification_surface_is_exactly_45_product_charts() -> None:
-    assert len(PRODUCT_CHART_IDS) == 45
-    assert len(set(PRODUCT_CHART_IDS)) == 45
+def test_refactored_qualification_surface_is_exactly_38_product_charts() -> None:
+    assert len(PRODUCT_CHART_IDS) == 38
+    assert len(set(PRODUCT_CHART_IDS)) == 38
     assert all(get_chart(chart_id).admission == "product" for chart_id in PRODUCT_CHART_IDS)
     assert all(
         "set_plot_title" in patch_operations_for_chart(chart_id) for chart_id in PRODUCT_CHART_IDS
     )
+
+
+def test_seven_retired_charts_are_removed_instead_of_hidden_or_substituted() -> None:
+    assert set(REMOVED_CHART_IDS) == {"K05", "K17", "S05", "S07", "S25", "S31", "X01"}
+    assert all(get_chart(chart_id).admission == "removed" for chart_id in REMOVED_CHART_IDS)
+    for chart_id in REMOVED_CHART_IDS:
+        with pytest.raises(ChartRemovedError, match="removed from the 38-chart"):
+            get_product_chart(chart_id)
 
 
 @pytest.mark.parametrize("chart_id", PRODUCT_CHART_IDS)

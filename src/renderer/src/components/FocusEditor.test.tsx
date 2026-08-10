@@ -246,19 +246,18 @@ describe('FocusEditor capability-driven patches', () => {
   it('only exposes the fixed chart parameter relevant to the current chart', async () => {
     const user = userEvent.setup()
     const onPatch = vi.fn(async () => undefined)
-    render(<FocusEditor initialIndex={0} plot={plot('S07')} onPatch={onPatch} onClose={() => undefined} />)
+    render(<FocusEditor initialIndex={0} plot={plot('X24')} onPatch={onPatch} onClose={() => undefined} />)
 
     await user.click(screen.getByRole('button', { name: '参数' }))
     await user.click(screen.getByRole('tab', { name: '专属' }))
-    expect(screen.getByRole('spinbutton', { name: '火山图倍数阈值' })).toBeInTheDocument()
+    expect(screen.getByRole('spinbutton', { name: '帕累托参考百分比' })).toBeInTheDocument()
     expect(screen.queryByRole('spinbutton', { name: '棒棒糖基线' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '应用图型参数' }))
 
     await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
       operation: 'set_chart_parameters',
       parameters: expect.objectContaining({
-        volcano_absolute_log2_fold_change: 1,
-        volcano_pvalue: 0.05,
+        pareto_reference_percent: 80,
       }),
     })))
   })

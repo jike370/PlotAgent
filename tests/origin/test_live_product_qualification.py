@@ -16,19 +16,19 @@ RUN_LIVE = os.environ.get("PLOTAGENT_RUN_ORIGIN_LIVE_PRODUCT") == "1"
 
 @pytest.mark.skipif(
     not RUN_LIVE,
-    reason="set PLOTAGENT_RUN_ORIGIN_LIVE_PRODUCT=1 for the 45-chart native gate",
+    reason="set PLOTAGENT_RUN_ORIGIN_LIVE_PRODUCT=1 for the 38-chart native gate",
 )
-def test_all_45_product_charts_survive_one_fresh_origin_reopen(tmp_path: Path) -> None:
+def test_all_38_product_charts_survive_one_fresh_origin_reopen(tmp_path: Path) -> None:
     resolved = tuple(resolve_chart(chart_id) for chart_id in PRODUCT_CHART_IDS)
     plan = compile_origin_plan(
         resolved,
         build_origin_export_spec(
             resolved,
-            export_id="export:live.product-45",
+            export_id="export:live.product-38",
             target_scope="selected_plots",
         ),
     )
-    target = tmp_path / "product-45.opju"
+    target = tmp_path / "product-38.opju"
 
     result = export_origin(plan, target, timeout_seconds=900.0)
 

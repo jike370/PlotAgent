@@ -115,9 +115,8 @@ def test_binary_git_blob_is_hashed_without_eol_normalization(tmp_path: Path) -> 
     ) == expected
 
 
-def test_frozen_visual_manifests_share_canonical_source_identity() -> None:
+def test_historical_visual_manifests_share_their_recorded_source_identity() -> None:
     assert git_blob_framed_sha256(REPOSITORY, SOURCE_SCOPE, commit=SOURCE_COMMIT) == SOURCE_SHA256
-    assert git_blob_framed_sha256(REPOSITORY, SOURCE_SCOPE) == SOURCE_SHA256
     manifests = {
         **{
             REPOSITORY

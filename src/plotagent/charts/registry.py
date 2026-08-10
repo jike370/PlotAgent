@@ -16,6 +16,7 @@ from plotagent.contracts.registry import (
 )
 from plotagent.contracts.registry import (
     PRODUCT_CHART_IDS,
+    REMOVED_CHART_IDS,
     AdmissionStatus,
     EditCapability,
     VisualEvidenceLevel,
@@ -648,6 +649,10 @@ class ChartRegistryError(ValueError):
     code = "PLOTSPEC_CHART_UNKNOWN"
 
 
+class ChartRemovedError(ChartRegistryError):
+    code = "CHART_TYPE_REMOVED"
+
+
 def get_chart(chart_type_id: str) -> ChartAdapterRegistration:
     """Return any internal adapter, including entries hidden from product admission."""
 
@@ -661,6 +666,10 @@ def get_product_chart(chart_type_id: str) -> ChartAdapterRegistration:
     """Return a user/Agent-admitted chart and reject internal-only adapters."""
 
     chart = get_chart(chart_type_id)
+    if chart.chart_type_id in REMOVED_CHART_IDS:
+        raise ChartRemovedError(
+            f"{chart_type_id!r} was removed from the 38-chart product surface"
+        )
     if chart.admission != "product":
         raise ChartRegistryError(f"{chart_type_id!r} is retained for internal regression only")
     return chart

@@ -18,15 +18,17 @@ const baseFilters = {
 }
 
 describe('chart catalog', () => {
-  it('exposes 45 qualified charts while retaining all internal adapters', () => {
-    expect(chartCatalog).toHaveLength(45)
+  it('exposes exactly 38 qualified charts and distinguishes removed charts', () => {
+    expect(chartCatalog).toHaveLength(38)
     expect(allChartCatalog).toHaveLength(54)
     expect(chartCatalog.some((chart) => chart.id === 'S61')).toBe(true)
-    expect(chartCatalog.some((chart) => chart.id === 'X24' || chart.id === 'S07')).toBe(true)
+    expect(chartCatalog.some((chart) => chart.id === 'X24')).toBe(true)
+    expect(chartCatalog.some((chart) => chart.id === 'S07' || chart.id === 'K05')).toBe(false)
     expect(chartCatalog.some((chart) => chart.id === 'X07' || chart.id === 'X37')).toBe(false)
     expect(chartCatalog.some((chart) => chart.id === 'K23' || chart.id === 'S45')).toBe(false)
     expect(chartCatalog.every((chart) => chart.export.svg === 'vector')).toBe(true)
     expect(chartProductMetadata.X07?.admission).toBe('internal_only')
+    expect(chartProductMetadata.S07?.admission).toBe('removed')
     expect(chartProductMetadata.X24?.visualEvidence).toBe('synthetic_visual')
   })
 

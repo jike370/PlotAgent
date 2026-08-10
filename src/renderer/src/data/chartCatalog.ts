@@ -121,7 +121,7 @@ export type PaletteId = (typeof styleCatalog.palettes)[number]['palette_id']
 export type SymbolShape = (typeof styleCatalog.symbols)[number]['shape']
 
 export interface ChartProductMetadata {
-  admission: 'product' | 'internal_only'
+  admission: 'product' | 'internal_only' | 'removed'
   visualEvidence: 'origin_reference' | 'synthetic_visual' | 'unqualified'
   editCapabilities: readonly EditCapability[]
 }

@@ -1,9 +1,11 @@
 # PlotAgent v1 实施拆分与里程碑计划
 
-> 状态：原 M0–M6 工程切片已实现；M6 已按 Agent 作品集目标重新打开，当前先收口图形语义/Origin 视觉债务，再完成 ProjectContext、可恢复 TaskPlan/Orchestrator、跨轮次作用对象解析与真实 Agent 纵向链路；ChartRecipe/组合搭建器后移；M7邀请制Beta qualification尚未执行
+> 状态：原 M0–M6 工程切片已实现；现重新打开绘图引擎主线，正式图形由45图缩减为 T1/T2 共38图，先做 Origin 裸模板动态测试，再进行模板优先的全面重构；七个 T3/T4 图正式删除；M7邀请制Beta qualification须等待新引擎重新资格
 > 日期：2026-08-08
 > 适用范围：W0–W10 workstreams、依赖、风险 spikes、里程碑、验收证据与错误归属
 > 相关文档：[规格索引与 Beta 设计基线](./SPEC-INDEX.md)、[前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)、[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)
+
+> 阅读规则：§1.1–§1.2 的 R0–R6 是当前执行顺序。后续 W0–W10 中出现的 43/45 图、统一 renderer、StructureUnit/ChartRecipe 与历史资格数字仅保留为已实施基线记录；与 R0–R6 冲突时不得继续执行。
 
 本文把已确认跨模块契约拆成可独立分工的工程 backlog。目录是计划中的实现入口；创建目录和代码属于后续实施，不是本次文档提交结果。
 
@@ -18,6 +20,35 @@
 - Workstream out-of-scope 不得通过“顺手实现”绕过依赖、权限或 release gate。
 - M6 新范围按以下阶段执行：A 基础泛化（已完成）；B 逐图编辑/Origin 样式（已完成）；C 图形语义、Origin 图例与同源视觉资格收口；D ProjectContext；E 可恢复 TaskPlan/Orchestrator；F 真实 Agent 规划、跨轮次作用对象解析与前端纵向链路；G Agent 资格/作品集证据。ChartRecipe compiler、首批迁移和用户搭建器不再属于本轮 M6 退出条件。
 - 前端与 Agent 辨识度按 `FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md` 的 SEQ-10–80 执行。整体布局/组件已冻结，后续只接入真实 Context/Plan/Task/ChangeSet 对象和修缺陷，不再次重做壳层。持久化样式预设、数据重放、对象树、完整模板、ChartRecipe 和搭建器不进入第一阶段。
+
+### 1.1 当前最高优先级：38图模板优先引擎重构
+
+本节覆盖早期“43/45图正式范围”“首批配方迁移”和“其余图保留旧 renderer”的安排。详细图表、模板与门禁以 [38图 Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md) 为准。
+
+1. **R0 删除与冻结范围：** 删除 `K05`、`K17`、`S05`、`S07`、`S25`、`S31`、`X01` 的所有生产能力，正式库存固定为38。
+2. **R1 裸模板动态测试：** 不改 renderer，逐图测官方模板对行数、组数、类别、标签、范围、缺失值、编辑和 fresh-reopen 的自动适应能力。
+3. **R2 结论冻结：** 每图只能标为 `AUTO`、`DECLARED_PATCH` 或退出正式范围；不得因既有实现存在而默认保留补丁。
+4. **R3 建立模板优先路径：** 数据导入与列 designation→官方模板→最小原生配置→用户编辑→OPJU/fresh-reopen；Origin 后端不再逐图翻译手工几何。
+5. **R4 迁移28个T1：** 逐图替换旧路径并完成动态资格。
+6. **R5 迁移10个T2：** 只实现裸模板失败证据证明必需的声明式补丁。
+7. **R6 删除旧路径并重新资格：** 删除被替代分支，重建38图视觉、编辑、动态与逐图OPJU证据，取得人工签名后才恢复发布资格。
+
+R0–R2 完成前不得开始大规模 renderer 编码；R3–R6 不以统一 renderer、StructureUnit 或 ChartRecipe 作为完成条件。已确认的生产形态为：Agent-native 强类型动作 → 本地校验/事务 → 语义 PlotSpec → 平坦 ChartProfile → 每图 Matplotlib renderer 与每图 Origin 官方模板绑定器。公共 UI/Agent 只开放双后端共同能力。
+
+### 1.2 新引擎实施与验收顺序
+
+详细契约见 [绘图引擎重构与验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md)。执行顺序固定为：
+
+1. 冻结 38 图 ChartProfile Schema、13 个顶层 Agent 动作与强类型编辑域。
+2. 完成 38 图 Origin 裸模板动态测试；失败图不得以旧 renderer 兜底冒充 T1/T2。
+3. 以 K01、K09、K04、K14 做首个完整纵向切片，同时打通 Agent、PlotSpec、Matplotlib、Origin、编辑、动态数据和桌面黑盒。
+4. 逐图迁移 38 个 Matplotlib renderer 与 Origin template binder，复用基础工具但不共享最终图元几何。
+5. 每图执行默认正确性、动态泛化、全部声明共同编辑、PNG/SVG，以及原生 OPJU 的数据值＋代表性样式机械修改/fresh-reopen 读回；迁移期间不安排探索性或分批视觉审查。
+6. 38图机械迁移全部完成后，一次性生成统一视觉审查页交由用户逐图判断；人工实际编辑按 Origin 模板家族选择代表图，每家族至少一图。用户签名前统一保持 UNVERIFIED。
+7. 完成批量、组合图、项目上下文、任务编排、部分失败和恢复执行资格。
+8. 从正式 Electron 入口执行黑盒、重启恢复、性能、安全和发布门禁；证据不足一律保持 UNVERIFIED。
+
+StructureUnit/ChartRecipe/统一 renderer 不进入上述退出条件。历史 43/45 图测试、旧 OPJU 可打开记录和测试数量不能继承新引擎资格。
 
 ## 2. 依赖图与并行边界
 

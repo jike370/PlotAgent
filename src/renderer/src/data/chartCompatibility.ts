@@ -21,7 +21,7 @@ export function chartCompatibility(
     K04: 3, K06: 3, K07: 4, K09: 3, K10: 3, K11: 3, K20: 3, K22: 3,
     K24: 3, S01: 2, S21: 4, S61: 2,
   }
-  const numericNeeded = numericRequirements[chart.id] ?? (['K08', 'K12', 'K13', 'K14', 'K15', 'K16', 'K17'].includes(chart.id) ? 1 : 2)
+  const numericNeeded = numericRequirements[chart.id] ?? (['K08', 'K12', 'K13', 'K14', 'K15', 'K16'].includes(chart.id) ? 1 : 2)
   const totalNeeded = totalRequirements[chart.id] ?? Math.max(numericNeeded, Math.min(chart.requiredFields.length, 4))
   return {
     compatible: summary.numericFieldCount >= numericNeeded && summary.totalFieldCount >= totalNeeded,
