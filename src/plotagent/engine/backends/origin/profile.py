@@ -161,6 +161,41 @@ K22_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+K24_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K24",
+    filename="mgroups.otpu",
+    sha256="391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+    tier="T2",
+)
+
+S01_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="S01",
+    filename="SurvivalPlot.otp",
+    sha256="0b8759367ce19f1a82cfb9630ffefd849e0c600bce1e909985645c0a47de046b",
+    tier="T2",
+)
+
+S21_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="S21",
+    filename="SCATTERINTERVAL.otp",
+    sha256="fb319b1a6918427767373917ddda2cc5b95a88d9d295ff06e866762b955dd161",
+    tier="T2",
+)
+
+S34_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="S34",
+    filename="LINESYMB.otpu",
+    sha256="2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",
+    tier="T2",
+)
+
+S61_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="S61",
+    filename="Heat_Map_With_Labels.otpu",
+    sha256="d1a7fcd8af232aef9ca348eb178466a13a744eb700da7d49d39cfbe16c935c7d",
+    tier="T2",
+)
+
 X23_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="X23",
     filename="DOUBLEY.OTP",

@@ -135,7 +135,8 @@ PlotDocument 只保存：
 
 ## 7. 当前迁移证据
 
-截至本分支当前实现，新架构已经完成三十二类代码级纵向切片：
+截至本分支当前实现，新架构已经完成三十七类代码级纵向切片；唯一尚未完成的
+正式 Profile 是引用多个既有 `PlotDocument` 的 K25 组合图：
 
 | Profile | 数据语义 | Matplotlib | Origin 官方模板 | 原生结构 |
 |---|---|---|---|---|
@@ -159,6 +160,11 @@ PlotDocument 只保存：
 | K20 | `row / column / value` | 独立热图 renderer | `Heat_Map.otpu` | matrixbook + 1 个原生 matrix plot |
 | K21 | `row_label / column_label / value` | 独立相关矩阵 renderer | `Heat_Map_With_Labels.otpu` | 预计算相关矩阵写入 matrixbook；模板原生标签热图 |
 | K22 | `x / y / z` | 独立规则网格等高 renderer | `CONTOUR.otpu` | 完整规则网格写入 matrixbook；模板原生填色等值 Plot，禁止插值补洞 |
+| K24 | `facet / base_x / base_y` | 独立动态分面 renderer | `mgroups.otpu` | worksheet + 按 facet 数扩展的原生图层和线系列 |
+| S01 | `time / survival / lower? / upper? / risk_count? / group?` | 独立阶梯生存曲线与风险表 renderer | `SurvivalPlot.otp` | worksheet + 原生阶梯线/置信带/风险文本层；只消费预计算生存数据 |
+| S21 | `label / effect / lower / upper / weight?` | 独立森林图 renderer | `SCATTERINTERVAL.otp` | worksheet + 原生区间线、权重点和无效线 |
+| S34 | `z_real / z_imaginary / frequency? / series?` | 独立 Nyquist renderer | `LINESYMB.otpu` | worksheet + 动态原生 line-symbol 系列；频率保留为元数据而非坐标 |
+| S61 | `actual / predicted / count?` | 独立混淆矩阵 renderer | `Heat_Map_With_Labels.otpu` | 原始样本或预聚合 Count 统一写入原生 matrixbook 与标签热图 |
 | X02 | `x / y` | 独立底轴垂线 renderer | `DROPLINE.OTP` | worksheet + 官方模板原生 drop-line Plot |
 | X03 | `category / series_1 / series_2 / series_N?` | 独立动态多系列棒棒糖 renderer | `Lollipop.otpu` | worksheet + 每个值列一条模板原生 lollipop Plot |
 | X05 | `value / group?` | 独立确定性蜂群 renderer | `ColumnScatter.otp` | 每组一列原始观测 + 模板原生 Column Scatter plot；组数动态扩展 |
@@ -172,7 +178,7 @@ PlotDocument 只保存：
 | X39 | `series_1 / series_2 / series_N?` | 独立逐行线条序列 renderer | `BoxLser.otpu` | 绑定值列转置为 worksheet；每个源行一条模板原生 line-series Plot |
 | X40 | `series_1 / series_2` | 独立前后对比 renderer | `BeforeAfter.otpu` | 两个值列转置为 worksheet；每个源行一条模板原生 before-after Plot |
 
-三十二个切片均只消费 `EngineDataView`、`PlotDocument` 和公开 Engine Action，不导入旧
-`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。K01/K02/K03/K04/K06/K07/K08/K09/K10/K11/K12/K13/K14/K15/K16/K18/K19/K20/K21/K22/X02/X03/X05/X09/X13/X23/X24/X35/X36/X38/X39/X40 已有独立渲染、
+三十七个切片均只消费 `EngineDataView`、`PlotDocument` 和公开 Engine Action，不导入旧
+`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。除 K25 外的 37 个正式 Profile 已有独立渲染、
 模板哈希、对象结构和修改读回门禁；真实 Origin fresh-reopen 与人工视觉签名仍须在
 不占用用户 Origin 实例的受控资格批次中执行，未完成前不得声称这些 Profile 已发布。

@@ -233,6 +233,64 @@ class RegularGridData:
     z_unit: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class FacetSeriesData:
+    label: str
+    x_values: tuple[float, ...]
+    y_values: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FacetData:
+    facet_field_name: str
+    x_field_name: str
+    y_field_name: str
+    panels: tuple[FacetSeriesData, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SurvivalGroupData:
+    label: str
+    time: tuple[float, ...]
+    survival: tuple[float, ...]
+    lower: tuple[float, ...] | None
+    upper: tuple[float, ...] | None
+    risk_count: tuple[int, ...] | None
+
+
+@dataclass(frozen=True, slots=True)
+class SurvivalData:
+    time_field_name: str
+    survival_field_name: str
+    groups: tuple[SurvivalGroupData, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ForestData:
+    label_field_name: str
+    effect_field_name: str
+    labels: tuple[str, ...]
+    effect: tuple[float, ...]
+    lower: tuple[float, ...]
+    upper: tuple[float, ...]
+    weight: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class NyquistSeriesData:
+    label: str
+    z_real: tuple[float, ...]
+    z_imaginary: tuple[float, ...]
+    frequency: tuple[float, ...] | None
+
+
+@dataclass(frozen=True, slots=True)
+class NyquistData:
+    z_real_field_name: str
+    z_imaginary_field_name: str
+    series: tuple[NyquistSeriesData, ...]
+
+
 def xy_series(document: PlotDocument, data: EngineDataView, *, profile_id: str) -> XYSeriesData:
     """Return one numeric X/Y series for a fixed-role profile."""
 
@@ -930,6 +988,221 @@ def x38_offset_stack(document: PlotDocument, data: EngineDataView) -> OffsetStac
         x_field_name=x.field.name,
         y_field_name=y.field.name,
         series_field_name=series_column.field.name,
+    )
+
+
+def k24_facets(document: PlotDocument, data: EngineDataView) -> FacetData:
+    facet, x, y = _bound_columns(document, data, ("facet", "base_x", "base_y"), "K24")
+    facet_labels = tuple(_label(item, "facet") for item in facet.values)
+    x_values = _numeric_values(x, "base_x", "K24", allow_missing=False)
+    y_values = _numeric_values(y, "base_y", "K24", allow_missing=True)
+    panels: list[FacetSeriesData] = []
+    for label in dict.fromkeys(facet_labels):
+        indexes = tuple(index for index, value in enumerate(facet_labels) if value == label)
+        if len(indexes) < 2:
+            raise ValueError("K24 requires at least two observations in every facet")
+        panels.append(
+            FacetSeriesData(
+                label=label,
+                x_values=tuple(x_values[index] for index in indexes),
+                y_values=tuple(y_values[index] for index in indexes),
+            )
+        )
+    return FacetData(
+        facet_field_name=facet.field.name,
+        x_field_name=x.field.name,
+        y_field_name=y.field.name,
+        panels=tuple(panels),
+    )
+
+
+def s01_survival(document: PlotDocument, data: EngineDataView) -> SurvivalData:
+    time_column, survival_column = _bound_columns(document, data, ("time", "survival"), "S01")
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    lower_column = columns.get(bindings.get("lower", ""))
+    upper_column = columns.get(bindings.get("upper", ""))
+    risk_column = columns.get(bindings.get("risk_count", ""))
+    group_column = columns.get(bindings.get("group", ""))
+    if (lower_column is None) != (upper_column is None):
+        raise ValueError("S01 lower and upper confidence bounds must be bound together")
+    groups = (
+        tuple(_label(value, "group") for value in group_column.values)
+        if group_column is not None
+        else tuple("Survival" for _value in time_column.values)
+    )
+    time_values = _numeric_values(time_column, "time", "S01", allow_missing=False)
+    survival_values = _numeric_values(survival_column, "survival", "S01", allow_missing=False)
+    lower_values = (
+        _numeric_values(lower_column, "lower", "S01", allow_missing=False)
+        if lower_column is not None
+        else None
+    )
+    upper_values = (
+        _numeric_values(upper_column, "upper", "S01", allow_missing=False)
+        if upper_column is not None
+        else None
+    )
+    materialized: list[SurvivalGroupData] = []
+    for label in dict.fromkeys(groups):
+        indexes = tuple(index for index, group in enumerate(groups) if group == label)
+        group_time = tuple(time_values[index] for index in indexes)
+        group_survival = tuple(survival_values[index] for index in indexes)
+        if len(group_time) < 2 or any(
+            left >= right for left, right in zip(group_time[:-1], group_time[1:], strict=True)
+        ):
+            raise ValueError("S01 time must be strictly increasing within every group")
+        if any(not 0.0 <= value <= 1.0 for value in group_survival):
+            raise ValueError("S01 survival values must be between zero and one")
+        group_lower = (
+            tuple(lower_values[index] for index in indexes) if lower_values is not None else None
+        )
+        group_upper = (
+            tuple(upper_values[index] for index in indexes) if upper_values is not None else None
+        )
+        if (
+            group_lower is not None
+            and group_upper is not None
+            and any(
+                not lower <= survival <= upper <= 1.0
+                for lower, survival, upper in zip(
+                    group_lower, group_survival, group_upper, strict=True
+                )
+            )
+        ):
+            raise ValueError("S01 confidence bounds must contain survival and stay in [0, 1]")
+        group_risk: tuple[int, ...] | None = None
+        if risk_column is not None:
+            counts: list[int] = []
+            for index in indexes:
+                value = risk_column.values[index]
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    raise ValueError("S01 risk_count values must be non-negative integers")
+                number = float(value)
+                if not isfinite(number) or number < 0 or not number.is_integer():
+                    raise ValueError("S01 risk_count values must be non-negative integers")
+                counts.append(int(number))
+            group_risk = tuple(counts)
+        materialized.append(
+            SurvivalGroupData(
+                label=label,
+                time=group_time,
+                survival=group_survival,
+                lower=group_lower,
+                upper=group_upper,
+                risk_count=group_risk,
+            )
+        )
+    return SurvivalData(
+        time_field_name=time_column.field.name,
+        survival_field_name=survival_column.field.name,
+        groups=tuple(materialized),
+    )
+
+
+def s21_forest(document: PlotDocument, data: EngineDataView) -> ForestData:
+    label_column, effect_column, lower_column, upper_column = _bound_columns(
+        document, data, ("label", "effect", "lower", "upper"), "S21"
+    )
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    weight_column = columns.get(bindings.get("weight", ""))
+    labels = tuple(_label(value, "label") for value in label_column.values)
+    effect = _numeric_values(effect_column, "effect", "S21", allow_missing=False)
+    lower = _numeric_values(lower_column, "lower", "S21", allow_missing=False)
+    upper = _numeric_values(upper_column, "upper", "S21", allow_missing=False)
+    if any(
+        not low <= center <= high for low, center, high in zip(lower, effect, upper, strict=True)
+    ):
+        raise ValueError("S21 intervals must contain their effect estimate")
+    weight = (
+        _numeric_values(weight_column, "weight", "S21", allow_missing=False)
+        if weight_column is not None
+        else tuple(1.0 for _label_value in labels)
+    )
+    if any(value <= 0 for value in weight):
+        raise ValueError("S21 weights must be positive")
+    return ForestData(
+        label_field_name=label_column.field.name,
+        effect_field_name=effect_column.field.name,
+        labels=labels,
+        effect=effect,
+        lower=lower,
+        upper=upper,
+        weight=weight,
+    )
+
+
+def s34_nyquist(document: PlotDocument, data: EngineDataView) -> NyquistData:
+    real_column, imaginary_column = _bound_columns(document, data, ("z_real", "z_imaginary"), "S34")
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    frequency_column = columns.get(bindings.get("frequency", ""))
+    series_column = columns.get(bindings.get("series", ""))
+    real = _numeric_values(real_column, "z_real", "S34", allow_missing=False)
+    imaginary = _numeric_values(imaginary_column, "z_imaginary", "S34", allow_missing=False)
+    frequency = (
+        _numeric_values(frequency_column, "frequency", "S34", allow_missing=False)
+        if frequency_column is not None
+        else None
+    )
+    if frequency is not None and any(value <= 0 for value in frequency):
+        raise ValueError("S34 frequency values must be positive")
+    labels = (
+        tuple(_label(value, "series") for value in series_column.values)
+        if series_column is not None
+        else tuple("Nyquist" for _value in real)
+    )
+    materialized: list[NyquistSeriesData] = []
+    for label in dict.fromkeys(labels):
+        indexes = tuple(index for index, value in enumerate(labels) if value == label)
+        if len(indexes) < 2:
+            raise ValueError("S34 requires at least two points in every series")
+        materialized.append(
+            NyquistSeriesData(
+                label=label,
+                z_real=tuple(real[index] for index in indexes),
+                z_imaginary=tuple(imaginary[index] for index in indexes),
+                frequency=(
+                    tuple(frequency[index] for index in indexes) if frequency is not None else None
+                ),
+            )
+        )
+    return NyquistData(
+        z_real_field_name=real_column.field.name,
+        z_imaginary_field_name=imaginary_column.field.name,
+        series=tuple(materialized),
+    )
+
+
+def s61_confusion_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:
+    actual_column, predicted_column = _bound_columns(document, data, ("actual", "predicted"), "S61")
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    count_column = columns.get(bindings.get("count", ""))
+    actual = tuple(_label(value, "actual") for value in actual_column.values)
+    predicted = tuple(_label(value, "predicted") for value in predicted_column.values)
+    row_labels = tuple(dict.fromkeys(actual))
+    column_labels = tuple(dict.fromkeys(predicted))
+    matrix = [[0.0 for _column in column_labels] for _row in row_labels]
+    for index, (row_label, column_label) in enumerate(zip(actual, predicted, strict=True)):
+        count = 1.0
+        if count_column is not None:
+            raw = count_column.values[index]
+            if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+                raise ValueError("S61 count values must be non-negative integers")
+            count = float(raw)
+            if not isfinite(count) or count < 0 or not count.is_integer():
+                raise ValueError("S61 count values must be non-negative integers")
+        matrix[row_labels.index(row_label)][column_labels.index(column_label)] += count
+    return K20Grid(
+        row_labels=row_labels,
+        column_labels=column_labels,
+        values=tuple(tuple(row) for row in matrix),
+        row_field_name=actual_column.field.name,
+        column_field_name=predicted_column.field.name,
+        value_field_name=count_column.field.name if count_column is not None else "Count",
+        value_unit=None,
     )
 
 

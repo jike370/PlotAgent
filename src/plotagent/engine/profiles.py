@@ -784,6 +784,142 @@ X38_OFFSET_STACK_PROFILE = EngineProfile(
     ),
 )
 
+K24_FACET_PROFILE = EngineProfile(
+    profile_id="K24",
+    display_name="Faceted plot",
+    required_roles=("facet", "base_x", "base_y"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="panel", object_kind="panel", object_key_prefix="facet"
+        ),
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series", object_kind="series", object_key_prefix="facet"
+        ),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style", parameters=("color", "line_width_pt", "line_style")
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="set_chart_parameter", parameters=("facet_columns",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+S01_SURVIVAL_PROFILE = EngineProfile(
+    profile_id="S01",
+    display_name="Precomputed survival curve",
+    required_roles=("time", "survival"),
+    optional_roles=("lower", "upper", "risk_count", "group"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="risk_panel", object_kind="panel", object_key="risk"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series", object_kind="series", object_key_prefix="group"
+        ),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style", parameters=("color", "line_width_pt", "line_style")
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="set_chart_parameter", parameters=("show_risk_table",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+S21_FOREST_PROFILE = EngineProfile(
+    profile_id="S21",
+    display_name="Forest plot from supplied effects",
+    required_roles=("label", "effect", "lower", "upper"),
+    optional_roles=("weight",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="intervals", object_kind="series", object_key="interval"),
+        EngineObjectTemplate(object_alias="points", object_kind="series", object_key="points"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "line_width_pt", "symbol", "symbol_size_pt"),
+        ),
+        EngineCapability(operation="set_chart_parameter", parameters=("null_effect",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+S34_NYQUIST_PROFILE = EngineProfile(
+    profile_id="S34",
+    display_name="Nyquist plot",
+    required_roles=("z_real", "z_imaginary"),
+    optional_roles=("frequency", "series"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series", object_kind="series", object_key_prefix="group"
+        ),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "line_width_pt", "line_style", "symbol", "symbol_size_pt"),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="set_chart_parameter", parameters=("equal_axes",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+S61_CONFUSION_PROFILE = EngineProfile(
+    profile_id="S61",
+    display_name="Confusion matrix",
+    required_roles=("actual", "predicted"),
+    optional_roles=("count",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="matrix"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "reverse")),
+        EngineCapability(operation="set_chart_parameter", parameters=("show_counts",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
 ENGINE_PROFILES = (
     K01_LINE_PROFILE,
     K02_LINE_SYMBOL_PROFILE,
@@ -805,6 +941,11 @@ ENGINE_PROFILES = (
     K20_HEATMAP_PROFILE,
     K21_CORRELATION_MATRIX_PROFILE,
     K22_CONTOUR_PROFILE,
+    K24_FACET_PROFILE,
+    S01_SURVIVAL_PROFILE,
+    S21_FOREST_PROFILE,
+    S34_NYQUIST_PROFILE,
+    S61_CONFUSION_PROFILE,
     X02_DROP_LINE_PROFILE,
     X03_LOLLIPOP_PROFILE,
     X05_BEESWARM_PROFILE,
