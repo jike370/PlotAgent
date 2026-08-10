@@ -223,6 +223,9 @@ def test_agent_native_engine_rpc_uses_project_data_and_restores_documents(
     assert catalog["tool_name"] == "plot_engine_action"
     assert {item["profile_id"] for item in catalog["profiles"]} >= {
         "K01",
+        "K02",
+        "K06",
+        "K07",
         "K08",
         "K20",
         "X23",

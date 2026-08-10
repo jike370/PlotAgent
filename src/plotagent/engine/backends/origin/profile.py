@@ -28,6 +28,27 @@ K01_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+K02_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K02",
+    filename="LINESYMB.otpu",
+    sha256="2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",
+    tier="T1",
+)
+
+K06_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K06",
+    filename="ERRBAR.otpu",
+    sha256="c17ebd8f68f8585c3bb4c431e75f4dc1724e3f54ee1fd7d0977b6cadcf1c599b",
+    tier="T1",
+)
+
+K07_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K07",
+    filename="ERRORBAND.otp",
+    sha256="dfd36bf19bf3cf81bebd7d2b7d04a0ef05f07f90243678ddf3d03eded342c763",
+    tier="T1",
+)
+
 K08_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K08",
     filename="COLUMN.otpu",

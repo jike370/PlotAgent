@@ -38,6 +38,107 @@ class X23SeriesData:
     x_scale: Literal["categorical", "linear"]
 
 
+@dataclass(frozen=True, slots=True)
+class XYSeriesData:
+    x_values: tuple[float, ...]
+    y_values: tuple[float, ...]
+    x_field_name: str
+    y_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class PointErrorData:
+    x_values: tuple[float, ...]
+    center_values: tuple[float, ...]
+    x_errors: tuple[float, ...]
+    y_errors: tuple[float, ...]
+    x_field_name: str
+    center_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class ErrorBandData:
+    x_values: tuple[float, ...]
+    center_values: tuple[float, ...]
+    lower_values: tuple[float, ...]
+    upper_values: tuple[float, ...]
+    x_field_name: str
+    center_field_name: str
+
+
+def xy_series(document: PlotDocument, data: EngineDataView, *, profile_id: str) -> XYSeriesData:
+    """Return one numeric X/Y series for a fixed-role profile."""
+
+    columns = _bound_columns(document, data, ("x", "y"), profile_id)
+    x, y = columns
+    return XYSeriesData(
+        x_values=_numeric_values(x, "x", profile_id),
+        y_values=_numeric_values(y, "y", profile_id, allow_missing=True),
+        x_field_name=x.field.name,
+        y_field_name=y.field.name,
+    )
+
+
+def k06_point_error(document: PlotDocument, data: EngineDataView) -> PointErrorData:
+    """Validate the symmetric X/Y error representation consumed by ERRBAR."""
+
+    x, center, x_error, y_error = _bound_columns(
+        document,
+        data,
+        ("x", "center", "x_error", "y_error"),
+        "K06",
+    )
+    center_values = _numeric_values(center, "center", "K06", allow_missing=True)
+    x_errors = _numeric_values(x_error, "x_error", "K06", allow_missing=True)
+    y_errors = _numeric_values(y_error, "y_error", "K06", allow_missing=True)
+    if any(isfinite(value) and value < 0 for value in x_errors + y_errors):
+        raise ValueError("K06 error magnitudes must be non-negative")
+    for row, values in enumerate(zip(center_values, x_errors, y_errors, strict=True), start=1):
+        present = tuple(isfinite(value) for value in values)
+        if any(present) and not all(present):
+            raise ValueError(f"K06 row {row} must provide center and both errors together")
+    return PointErrorData(
+        x_values=_numeric_values(x, "x", "K06"),
+        center_values=center_values,
+        x_errors=x_errors,
+        y_errors=y_errors,
+        x_field_name=x.field.name,
+        center_field_name=center.field.name,
+    )
+
+
+def k07_error_band(document: PlotDocument, data: EngineDataView) -> ErrorBandData:
+    """Validate one center curve and its lower/upper native band boundaries."""
+
+    x, center, lower, upper = _bound_columns(
+        document,
+        data,
+        ("x", "center", "lower", "upper"),
+        "K07",
+    )
+    x_values = _numeric_values(x, "x", "K07")
+    center_values = _numeric_values(center, "center", "K07", allow_missing=True)
+    lower_values = _numeric_values(lower, "lower", "K07", allow_missing=True)
+    upper_values = _numeric_values(upper, "upper", "K07", allow_missing=True)
+    for row, (low, middle, high) in enumerate(
+        zip(lower_values, center_values, upper_values, strict=True),
+        start=1,
+    ):
+        present = tuple(isfinite(value) for value in (low, middle, high))
+        if any(present) and not all(present):
+            raise ValueError(f"K07 row {row} must provide center, lower and upper together")
+        if all(present) and not low <= middle <= high:
+            raise ValueError(f"K07 row {row} must satisfy lower <= center <= upper")
+    return ErrorBandData(
+        x_values=x_values,
+        center_values=center_values,
+        lower_values=lower_values,
+        upper_values=upper_values,
+        x_field_name=x.field.name,
+        center_field_name=center.field.name,
+    )
+
+
 def k20_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:
     """Materialize a deterministic K20 grid from one immutable long table.
 
@@ -147,3 +248,38 @@ def _numeric(value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError("K20 value data must be numeric")
     return float(value)
+
+
+def _bound_columns(
+    document: PlotDocument,
+    data: EngineDataView,
+    roles: tuple[str, ...],
+    profile_id: str,
+) -> tuple[EngineColumn, ...]:
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    try:
+        return tuple(columns[bindings[role]] for role in roles)
+    except KeyError as error:
+        raise ValueError(f"{profile_id} requires bindings: {', '.join(roles)}") from error
+
+
+def _numeric_values(
+    column: EngineColumn,
+    role: str,
+    profile_id: str,
+    *,
+    allow_missing: bool = False,
+) -> tuple[float, ...]:
+    values: list[float] = []
+    for value in column.values:
+        if value is None and allow_missing:
+            values.append(nan)
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{profile_id} {role} values must be numeric")
+        number = float(value)
+        if not isfinite(number):
+            raise ValueError(f"{profile_id} {role} values must be finite")
+        values.append(number)
+    return tuple(values)

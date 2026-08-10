@@ -6,6 +6,9 @@ import sys
 from pathlib import Path
 
 from .k01 import execute_k01_request
+from .k02 import execute_k02_request
+from .k06 import execute_k06_request
+from .k07 import execute_k07_request
 from .k08 import execute_k08_request
 from .k20 import execute_k20_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
@@ -20,6 +23,9 @@ def main(argv: list[str] | None = None) -> int:
     request = OriginWorkerRequest.model_validate_json(request_path.read_text(encoding="utf-8"))
     binders = {
         "K01": execute_k01_request,
+        "K02": execute_k02_request,
+        "K06": execute_k06_request,
+        "K07": execute_k07_request,
         "K08": execute_k08_request,
         "K20": execute_k20_request,
         "X23": execute_x23_request,
