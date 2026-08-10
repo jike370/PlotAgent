@@ -17,6 +17,7 @@ from pydantic import Field, StringConstraints, model_validator
 
 from plotagent.contracts.agent_context import ContextObjectRef
 from plotagent.contracts.base import FiniteNumber, StrictModel, Token
+from plotagent.contracts.decisions import NeedsInput, NoChange, Unsupported
 from plotagent.contracts.project_context import ContextFieldBinding, ProjectContextSnapshot
 from plotagent.engine import (
     AddAnnotation,
@@ -186,6 +187,12 @@ class BoundEnginePlan(StrictModel):
     plan_id: str
     expected_project_revision: int
     actions: tuple[PlotEngineAction, ...]
+
+
+EngineAgentDecision = Annotated[
+    EngineAgentPlan | NeedsInput | Unsupported | NoChange,
+    Field(discriminator="decision_type"),
+]
 
 
 @dataclass(slots=True)

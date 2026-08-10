@@ -16,6 +16,7 @@ from plotagent.agent.engine_client import (
     BundledEngineAgentBinder,
     EngineAgentPlan,
 )
+from plotagent.agent.engine_orchestrator import EngineAgentOrchestrator, EngineAgentRunResult
 from plotagent.agent.engine_tasks import (
     EngineAgentPlanRepository,
     EngineTaskExecutionError,
@@ -41,6 +42,8 @@ __all__ = [
     "DisclosureGrant",
     "EngineAgentPlan",
     "EngineAgentPlanRepository",
+    "EngineAgentOrchestrator",
+    "EngineAgentRunResult",
     "EngineTaskExecutionError",
     "EngineTaskPlanSnapshot",
     "DecisionMetadata",
