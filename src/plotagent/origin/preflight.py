@@ -249,7 +249,7 @@ def validate_target(
         return _error(
             target,
             OriginErrorCode.SAVE_FAILURE,
-            "target directory does not have the minimum free space for the K01 spike",
+            "target directory does not have the minimum free space for Origin export",
         )
     probe_path: Path | None = None
     try:

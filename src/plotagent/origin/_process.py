@@ -192,7 +192,7 @@ def run_worker(
     *,
     cancel_requested: Callable[[], bool] | None = None,
 ) -> WorkerInvocation:
-    if mode not in {"probe", "build", "reopen", "build-plan", "reopen-plan"}:
+    if mode not in {"probe", "build-plan", "reopen-plan"}:
         raise ValueError(f"unsupported Origin worker mode: {mode}")
     command = [sys.executable, "-m", "plotagent.origin._worker", mode]
     process = subprocess.Popen(

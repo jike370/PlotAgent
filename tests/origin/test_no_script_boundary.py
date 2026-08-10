@@ -19,7 +19,6 @@ def test_origin_adapter_has_no_attach_or_script_execution_calls() -> None:
     forbidden_calls = {
         "attach",
         "lt_exec",
-        "LT_execute",
         "set_formula",
         "DoMethod",
         "DoStrMethod",
@@ -37,6 +36,26 @@ def test_origin_adapter_has_no_attach_or_script_execution_calls() -> None:
             if call_name in forbidden_calls:
                 violations.append(f"{source.name}:{node.lineno}:{call_name}")
     assert violations == []
+
+
+def test_origin_labtalk_surface_is_one_fixed_native_legend_command() -> None:
+    package = Path(plotagent.origin.__file__).parent
+    calls: list[tuple[str, int, str | None]] = []
+    for source in package.glob("*.py"):
+        tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "LT_execute"
+            ):
+                continue
+            argument = node.args[0] if len(node.args) == 1 else None
+            literal = argument.value if isinstance(argument, ast.Constant) else None
+            calls.append((source.name, node.lineno, literal))
+    assert [(name, literal) for name, _line, literal in calls] == [
+        ("_origin_backend.py", "legend")
+    ]
 
 
 def test_origin_set_commands_are_fixed_literals_from_the_small_allowlist() -> None:
