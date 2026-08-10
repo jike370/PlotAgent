@@ -9,7 +9,8 @@ ordering or duplicate-cell handling.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import isfinite, nan
+from datetime import date, datetime
+from math import isclose, isfinite, nan
 from typing import Literal
 
 from plotagent.plot_calculations.kernels import histogram_geometry, scott_kde_geometry
@@ -165,6 +166,25 @@ class TransposedSeriesData:
     axis_labels: tuple[str, ...]
     rows: tuple[tuple[float, ...], ...]
     row_labels: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class TimeSeriesData:
+    time_values: tuple[datetime, ...]
+    values: tuple[float, ...]
+    time_field_name: str
+    value_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class RegularGridData:
+    x_values: tuple[float, ...]
+    y_values: tuple[float, ...]
+    z_values: tuple[tuple[float, ...], ...]
+    x_field_name: str
+    y_field_name: str
+    z_field_name: str
+    z_unit: str | None
 
 
 def xy_series(document: PlotDocument, data: EngineDataView, *, profile_id: str) -> XYSeriesData:
@@ -507,6 +527,110 @@ def transposed_series(
     )
 
 
+def k19_time_series(document: PlotDocument, data: EngineDataView) -> TimeSeriesData:
+    """Return strictly increasing timestamps and their numeric observations."""
+
+    time_column, value_column = _bound_columns(document, data, ("time", "value"), "K19")
+    times = tuple(_datetime_value(value, "K19 time") for value in time_column.values)
+    if any(left >= right for left, right in zip(times[:-1], times[1:], strict=True)):
+        raise ValueError("K19 time values must be strictly increasing")
+    return TimeSeriesData(
+        time_values=times,
+        values=_numeric_values(value_column, "value", "K19", allow_missing=True),
+        time_field_name=time_column.field.name,
+        value_field_name=value_column.field.name,
+    )
+
+
+def k21_correlation_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:
+    """Return a complete square matrix whose row and column variables agree."""
+
+    grid = _long_matrix_grid(
+        document,
+        data,
+        profile_id="K21",
+        roles=("row_label", "column_label", "value"),
+    )
+    if set(grid.row_labels) != set(grid.column_labels):
+        raise ValueError("K21 row and column variables must describe the same set")
+    row_lookup = {label: row for label, row in zip(grid.row_labels, grid.values, strict=True)}
+    column_positions = {label: index for index, label in enumerate(grid.column_labels)}
+    reordered = tuple(
+        tuple(
+            row_lookup[row_label][column_positions[column_label]]
+            for column_label in grid.column_labels
+        )
+        for row_label in grid.column_labels
+    )
+    if any(
+        not isfinite(value) or value < -1.0 or value > 1.0
+        for row in reordered
+        for value in row
+    ):
+        raise ValueError("K21 correlation values must be finite and within [-1, 1]")
+    for index, row in enumerate(reordered):
+        if not isclose(row[index], 1.0, rel_tol=0, abs_tol=1e-12):
+            raise ValueError("K21 correlation matrix diagonal must equal 1")
+        for other in range(index):
+            if not isclose(row[other], reordered[other][index], rel_tol=0, abs_tol=1e-12):
+                raise ValueError("K21 correlation matrix must be symmetric")
+    return K20Grid(
+        row_labels=grid.column_labels,
+        column_labels=grid.column_labels,
+        values=reordered,
+        row_field_name=grid.row_field_name,
+        column_field_name=grid.column_field_name,
+        value_field_name=grid.value_field_name,
+        value_unit=grid.value_unit,
+    )
+
+
+def k22_regular_grid(document: PlotDocument, data: EngineDataView) -> RegularGridData:
+    """Return one complete, non-interpolated regular XYZ grid."""
+
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    try:
+        x_column = columns[bindings["x"]]
+        y_column = columns[bindings["y"]]
+        z_column = columns[bindings["z"]]
+    except KeyError as error:
+        raise ValueError("K22 requires x, y and z bindings") from error
+    x_raw = _numeric_values(x_column, "x", "K22", allow_missing=False)
+    y_raw = _numeric_values(y_column, "y", "K22", allow_missing=False)
+    z_raw = _numeric_values(z_column, "z", "K22", allow_missing=False)
+    x_values = tuple(sorted(set(x_raw)))
+    y_values = tuple(sorted(set(y_raw)))
+    positions: dict[tuple[float, float], float] = {}
+    for x_value, y_value, z_value in zip(x_raw, y_raw, z_raw, strict=True):
+        key = (x_value, y_value)
+        if key in positions:
+            raise ValueError(f"K22 contains a duplicate grid cell: {key!r}")
+        positions[key] = z_value
+    missing = tuple(
+        (x_value, y_value)
+        for y_value in y_values
+        for x_value in x_values
+        if (x_value, y_value) not in positions
+    )
+    if missing:
+        raise ValueError(
+            "K22 requires a complete regular grid and never interpolates missing cells"
+        )
+    return RegularGridData(
+        x_values=x_values,
+        y_values=y_values,
+        z_values=tuple(
+            tuple(positions[(x_value, y_value)] for x_value in x_values)
+            for y_value in y_values
+        ),
+        x_field_name=x_column.field.name,
+        y_field_name=y_column.field.name,
+        z_field_name=z_column.field.name,
+        z_unit=z_column.field.unit_label,
+    )
+
+
 def k20_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:
     """Materialize a deterministic K20 grid from one immutable long table.
 
@@ -515,17 +639,33 @@ def k20_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:
     NaN so both backends distinguish missing values from numeric zero.
     """
 
+    return _long_matrix_grid(
+        document,
+        data,
+        profile_id="K20",
+        roles=("row", "column", "value"),
+    )
+
+
+def _long_matrix_grid(
+    document: PlotDocument,
+    data: EngineDataView,
+    *,
+    profile_id: str,
+    roles: tuple[str, str, str],
+) -> K20Grid:
     bindings = {binding.role: binding.field_id for binding in document.bindings}
     columns = {column.field.field_id: column for column in data.columns}
+    row_role, column_role, value_role = roles
     try:
-        row = columns[bindings["row"]]
-        column = columns[bindings["column"]]
-        value = columns[bindings["value"]]
+        row = columns[bindings[row_role]]
+        column = columns[bindings[column_role]]
+        value = columns[bindings[value_role]]
     except KeyError as error:
-        raise ValueError("K20 requires row, column and value bindings") from error
+        raise ValueError(f"{profile_id} requires {', '.join(roles)} bindings") from error
 
-    row_labels = _ordered_labels(row, "row")
-    column_labels = _ordered_labels(column, "column")
+    row_labels = _ordered_labels(row, row_role)
+    column_labels = _ordered_labels(column, column_role)
     row_index = {label: index for index, label in enumerate(row_labels)}
     column_index = {label: index for index, label in enumerate(column_labels)}
     matrix = [[nan for _ in column_labels] for _ in row_labels]
@@ -536,12 +676,12 @@ def k20_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:
         value.values,
         strict=True,
     ):
-        row_label = _label(row_value, "row")
-        column_label = _label(column_value, "column")
+        row_label = _label(row_value, row_role)
+        column_label = _label(column_value, column_role)
         position = (row_index[row_label], column_index[column_label])
         if position in occupied:
             raise ValueError(
-                f"K20 contains a duplicate matrix cell: {row_label!r}, {column_label!r}"
+                f"{profile_id} contains a duplicate matrix cell: {row_label!r}, {column_label!r}"
             )
         occupied.add(position)
         matrix[position[0]][position[1]] = _numeric(cell_value)
@@ -630,6 +770,20 @@ def _label(value: object, role: str) -> str:
     if not label:
         raise ValueError(f"{role} categories cannot be empty")
     return label
+
+
+def _datetime_value(value: object, role: str) -> datetime:
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None) if value.tzinfo is not None else value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError as error:
+            raise ValueError(f"{role} values must be ISO date/time values") from error
+        return parsed.replace(tzinfo=None) if parsed.tzinfo is not None else parsed
+    raise ValueError(f"{role} values must be date/time values")
 
 
 def _numeric(value: object) -> float:

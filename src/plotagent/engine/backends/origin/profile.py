@@ -133,10 +133,31 @@ K18_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+K19_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K19",
+    filename="TimeSeries.otp",
+    sha256="ebe487cd9626437e522ae82e6fc302a280110bed4b26564984d4b0263eeb660c",
+    tier="T1",
+)
+
 K20_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K20",
     filename="Heat_Map.otpu",
     sha256="9bd8240ca582bbedfec797ea27b1ec5c2906939e304fa343cd1821bae2ffbb9f",
+    tier="T1",
+)
+
+K21_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K21",
+    filename="Heat_Map_With_Labels.otpu",
+    sha256="d1a7fcd8af232aef9ca348eb178466a13a744eb700da7d49d39cfbe16c935c7d",
+    tier="T1",
+)
+
+K22_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K22",
+    filename="CONTOUR.otpu",
+    sha256="b4915054edd419955245e485b606784dbb6b4965dd6359b45603e00a866628e2",
     tier="T1",
 )
 

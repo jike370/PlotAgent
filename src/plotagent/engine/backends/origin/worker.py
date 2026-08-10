@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from .advanced_matrix import execute_k21_request, execute_k22_request
 from .calculated_distribution import execute_k15_request, execute_k16_request
 from .column_family import execute_k09_request, execute_k10_request, execute_k11_request
 from .distribution import execute_k12_request, execute_k13_request, execute_k14_request
@@ -16,6 +17,7 @@ from .k06 import execute_k06_request
 from .k07 import execute_k07_request
 from .k08 import execute_k08_request
 from .k18 import execute_k18_request
+from .k19 import execute_k19_request
 from .k20 import execute_k20_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
 from .wide_series import execute_x03_request, execute_x39_request, execute_x40_request
@@ -46,7 +48,10 @@ def main(argv: list[str] | None = None) -> int:
         "K15": execute_k15_request,
         "K16": execute_k16_request,
         "K18": execute_k18_request,
+        "K19": execute_k19_request,
         "K20": execute_k20_request,
+        "K21": execute_k21_request,
+        "K22": execute_k22_request,
         "X02": execute_x02_request,
         "X03": execute_x03_request,
         "X23": execute_x23_request,

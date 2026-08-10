@@ -1,5 +1,6 @@
 """Independent Matplotlib renderers for Agent Native profiles."""
 
+from .advanced_matrix import K21CorrelationMatrixRenderer, K22ContourRenderer
 from .area import K18AreaRenderer
 from .backend import MatplotlibBackend
 from .bubble import K04BubbleRenderer
@@ -19,6 +20,7 @@ from .line import K01LineRenderer
 from .line_symbol import K02LineSymbolRenderer
 from .point_error import K06PointErrorRenderer
 from .scatter import K03ScatterRenderer
+from .time_series import K19TimeSeriesRenderer
 from .wide_series import X03LollipopRenderer, X39LineSeriesRenderer, X40BeforeAfterRenderer
 
 __all__ = [
@@ -38,7 +40,10 @@ __all__ = [
     "K15HistogramRenderer",
     "K16DensityRenderer",
     "K18AreaRenderer",
+    "K19TimeSeriesRenderer",
     "K20HeatmapRenderer",
+    "K21CorrelationMatrixRenderer",
+    "K22ContourRenderer",
     "MatplotlibBackend",
     "X02DropLineRenderer",
     "X03LollipopRenderer",

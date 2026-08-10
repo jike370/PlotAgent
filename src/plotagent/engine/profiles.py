@@ -412,6 +412,68 @@ K18_AREA_PROFILE = EngineProfile(
     ),
 )
 
+K19_TIME_SERIES_PROFILE = EngineProfile(
+    profile_id="K19",
+    display_name="Time series",
+    required_roles=("time", "value"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="primary"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "reverse")),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "line_width_pt", "line_style", "symbol", "symbol_size_pt"),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+K21_CORRELATION_MATRIX_PROFILE = EngineProfile(
+    profile_id="K21",
+    display_name="Correlation matrix",
+    required_roles=("row_label", "column_label", "value"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="matrix"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "reverse")),
+        EngineCapability(operation="set_chart_parameter", parameters=("triangle",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+K22_CONTOUR_PROFILE = EngineProfile(
+    profile_id="K22",
+    display_name="Filled contour",
+    required_roles=("x", "y", "z"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="matrix"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "bounds", "reverse")),
+        EngineCapability(operation="set_chart_parameter", parameters=("levels",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
 X02_DROP_LINE_PROFILE = EngineProfile(
     profile_id="X02",
     display_name="Drop line",
@@ -566,7 +628,10 @@ ENGINE_PROFILES = (
     K15_HISTOGRAM_PROFILE,
     K16_DENSITY_PROFILE,
     K18_AREA_PROFILE,
+    K19_TIME_SERIES_PROFILE,
     K20_HEATMAP_PROFILE,
+    K21_CORRELATION_MATRIX_PROFILE,
+    K22_CONTOUR_PROFILE,
     X02_DROP_LINE_PROFILE,
     X03_LOLLIPOP_PROFILE,
     X23_DUAL_Y_LINE_PROFILE,
