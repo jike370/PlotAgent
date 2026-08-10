@@ -1,6 +1,6 @@
 # PlotAgent v3：38 图—Origin 官方模板映射与绘图引擎重构基线
 
-状态：38 图官方模板目录与生产绑定已落地；裸模板 368 变体、38/38 默认态 build/fresh-reopen、38/38 逐图数据值与代表样式修改读回均已完成；统一视觉审查页已生成，人工视觉签名尚未完成
+状态：38 图官方模板目录已冻结；旧模板优先链曾完成裸模板 368 变体、38/38 build/fresh-reopen 与逐图修改读回，但该证据仅作模板选型历史，不代表重写后的 Agent Native 引擎已取得资格。新引擎当前完成 28/38 个代码级纵向切片；新路径的真实 Origin fresh-reopen 与人工视觉签名尚未执行
 
 核对环境：OriginPro 2024 SR1 `10.10.178`，`originpro 1.1.15`
 
@@ -165,9 +165,9 @@
 7. **删除旧绘图路径。** 38图全部通过后，删除被替代的专属 Origin 几何拼装、旧图形分支和过期视觉证据。
 8. **重新资格。** 以38图新引擎统一生成默认态、动态状态、代表性编辑态和逐图 OPJU；先完成38图全部机械修改读回，再一次性生成统一审查页交由用户逐图视觉判断，人工实际编辑按 Origin 模板家族选代表图。
 
-截至 2026-08-10：步骤 1–6 已完成；步骤 7 已删除旧 K01 专用 plan、CLI、随包模板和旧 worker mode，其他仍被正式链引用的通用代码不得以“旧 renderer”名义误删；步骤 8 已完成 38 个独立 OPJU 的数据值、代表样式与 fresh-reopen 读回，并生成 `build/visual-audit/template-first-38/index.html`。按官方模板文件与哈希归并为 33 个家族，每家族已指定一张人工编辑代表图。全部 38 图的视觉状态仍为 `UNVERIFIED`。
+截至 2026-08-11：步骤 1–3 的范围、模板与哈希继续有效；此前 `template-first-38` 的 OPJU、读回和审查页只保留为旧执行路径的历史证据。当前正在以新 Agent Native 引擎重新完成步骤 4–6，已覆盖 28/38 个 Profile；步骤 7 的删除对象是整个旧 PlotSpec/compiler/resolver/plan renderer 体系，必须等新生产入口覆盖 38 图后一次性物理删除；步骤 8 必须由新路径重新生成，不得沿用旧 manifest 冒充通过。
 
-重构不预先规定“每图一个 renderer”或“所有图共用一个 renderer”。选择标准只有三个：Origin 映射正确、行为稳定、后续 Agent 容易操作。PlotSpec 可以继续承担 Agent 的图形意图与编辑契约，但不得要求 Origin 后端把 PlotSpec 图元逐项翻译成手工几何。
+重构不预先规定“每图一个 renderer”或“所有图共用一个 renderer”。选择标准只有三个：Origin 映射正确、行为稳定、后续 Agent 容易操作。新 `PlotDocument`、`EngineDataView` 与公开 Engine Action 是唯一生产契约；旧 `PlotSpec`、compiler、resolver、`ResolvedPlot` 和 Origin plan 不得进入新执行路径，也不得作为迁移兜底。
 
 ## 7. 实施门禁
 

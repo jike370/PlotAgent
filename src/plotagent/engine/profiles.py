@@ -536,6 +536,86 @@ X03_LOLLIPOP_PROFILE = EngineProfile(
     ),
 )
 
+X05_BEESWARM_PROFILE = EngineProfile(
+    profile_id="X05",
+    display_name="Beeswarm",
+    required_roles=("value",),
+    optional_roles=("group",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series",
+            object_kind="series",
+            object_key_prefix="group",
+        ),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "symbol", "symbol_size_pt"),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+X09_FLOATING_INTERVAL_PROFILE = EngineProfile(
+    profile_id="X09",
+    display_name="Floating interval",
+    required_roles=("category", "start", "end"),
+    optional_roles=("middle",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(
+            object_alias="lower_interval", object_kind="series", object_key="lower"
+        ),
+        EngineObjectTemplate(
+            object_alias="upper_interval", object_kind="series", object_key="upper"
+        ),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(operation="set_series_style", parameters=("color", "line_width_pt")),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+X13_POPULATION_PYRAMID_PROFILE = EngineProfile(
+    profile_id="X13",
+    display_name="Population pyramid",
+    required_roles=("category", "left", "right"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="left"),
+        EngineObjectTemplate(object_alias="series_2", object_kind="series", object_key="right"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "bounds", "reverse")),
+        EngineCapability(operation="set_series_style", parameters=("color", "line_width_pt")),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
 X39_LINE_SERIES_PROFILE = EngineProfile(
     profile_id="X39",
     display_name="Line series",
@@ -634,6 +714,9 @@ ENGINE_PROFILES = (
     K22_CONTOUR_PROFILE,
     X02_DROP_LINE_PROFILE,
     X03_LOLLIPOP_PROFILE,
+    X05_BEESWARM_PROFILE,
+    X09_FLOATING_INTERVAL_PROFILE,
+    X13_POPULATION_PYRAMID_PROFILE,
     X23_DUAL_Y_LINE_PROFILE,
     X39_LINE_SERIES_PROFILE,
     X40_BEFORE_AFTER_PROFILE,

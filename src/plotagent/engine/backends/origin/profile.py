@@ -182,6 +182,27 @@ X03_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+X05_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X05",
+    filename="ColumnScatter.otp",
+    sha256="e9bfbf3b74bc78db041208505bf1c1b32b387378cc8aac91462d017a662c425d",
+    tier="T1",
+)
+
+X09_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X09",
+    filename="FLOATBAR.OTP",
+    sha256="7fd8331a4f91170ce7a7b35428659e48b985fc6ce8164c706ea31b4e41dee93b",
+    tier="T1",
+)
+
+X13_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X13",
+    filename="PopulationPyramid.otpu",
+    sha256="2c5958a91130d62cf8a6708f197bfd6248a3b22d81fc68eed1abe5f10988fbab",
+    tier="T1",
+)
+
 X39_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="X39",
     filename="BoxLser.otpu",

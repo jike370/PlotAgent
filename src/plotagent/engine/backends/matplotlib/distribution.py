@@ -74,7 +74,7 @@ class _DistributionRenderer:
         distribution = distribution_groups(
             document,
             data,
-            profile_id=cast(Literal["K12", "K13", "K14"], self.profile_id),
+            profile_id=cast(Literal["K12", "K13", "K14", "X05"], self.profile_id),
         )
         state = self._state(document, actions, distribution)
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
@@ -353,3 +353,60 @@ class K14ViolinRenderer(_DistributionRenderer):
             body.set_alpha(0.75)
             body.set_label(group.label)
         return tuple(len(group.values) for group in distribution.groups)
+
+
+class X05BeeswarmRenderer(_DistributionRenderer):
+    """Independent deterministic beeswarm renderer over raw observations."""
+
+    profile_id = "X05"
+    object_kind = "beeswarm_series"
+
+    def _draw(
+        self,
+        axis: Axes,
+        distribution: DistributionData,
+        state: _DistributionState,
+    ) -> tuple[int, ...]:
+        counts: list[int] = []
+        markers = {
+            "circle": "o",
+            "square": "s",
+            "diamond": "D",
+            "triangle": "^",
+            "triangle_up": "^",
+        }
+        for position, (group, style) in enumerate(
+            zip(distribution.groups, state.series, strict=True), start=1
+        ):
+            offsets = _beeswarm_offsets(group.values)
+            axis.scatter(
+                np.full(len(group.values), position, dtype=float) + offsets,
+                group.values,
+                color=style.color,
+                marker=markers.get(style.symbol, "o"),
+                s=style.symbol_size_pt**2,
+                label=group.label,
+            )
+            counts.append(len(group.values))
+        return tuple(counts)
+
+
+def _beeswarm_offsets(values: tuple[float, ...]) -> np.ndarray:
+    """Pack nearby observations symmetrically without random jitter."""
+
+    if len(values) <= 1:
+        return np.zeros(len(values), dtype=float)
+    low, high = min(values), max(values)
+    width = (high - low) / 24.0 if high > low else 1.0
+    bins: dict[int, list[int]] = {}
+    for index, value in enumerate(values):
+        key = round((value - low) / width)
+        bins.setdefault(key, []).append(index)
+    offsets = np.zeros(len(values), dtype=float)
+    for indexes in bins.values():
+        count = len(indexes)
+        step = min(0.09, 0.36 / max(count - 1, 1))
+        centered = (np.arange(count, dtype=float) - (count - 1) / 2.0) * step
+        for index, offset in zip(indexes, centered, strict=True):
+            offsets[index] = offset
+    return offsets

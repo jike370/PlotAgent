@@ -8,7 +8,12 @@ from pathlib import Path
 from .advanced_matrix import execute_k21_request, execute_k22_request
 from .calculated_distribution import execute_k15_request, execute_k16_request
 from .column_family import execute_k09_request, execute_k10_request, execute_k11_request
-from .distribution import execute_k12_request, execute_k13_request, execute_k14_request
+from .distribution import (
+    execute_k12_request,
+    execute_k13_request,
+    execute_k14_request,
+    execute_x05_request,
+)
 from .k01 import execute_k01_request
 from .k02 import execute_k02_request
 from .k03 import execute_k03_request
@@ -22,6 +27,8 @@ from .k20 import execute_k20_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
 from .wide_series import execute_x03_request, execute_x39_request, execute_x40_request
 from .x02 import execute_x02_request
+from .x09 import execute_x09_request
+from .x13 import execute_x13_request
 from .x23 import execute_x23_request
 
 
@@ -54,6 +61,9 @@ def main(argv: list[str] | None = None) -> int:
         "K22": execute_k22_request,
         "X02": execute_x02_request,
         "X03": execute_x03_request,
+        "X05": execute_x05_request,
+        "X09": execute_x09_request,
+        "X13": execute_x13_request,
         "X23": execute_x23_request,
         "X39": execute_x39_request,
         "X40": execute_x40_request,

@@ -26,6 +26,7 @@ from .profile import (
     K12_ORIGIN_PROFILE,
     K13_ORIGIN_PROFILE,
     K14_ORIGIN_PROFILE,
+    X05_ORIGIN_PROFILE,
     OriginTemplateProfile,
     resolve_official_template,
 )
@@ -64,13 +65,14 @@ def _effective_actions(
 class DistributionOriginProject:
     """Bind raw observations to a named official native plot template."""
 
-    def __init__(self, op: Any, *, profile_id: Literal["K12", "K13", "K14"]) -> None:
+    def __init__(self, op: Any, *, profile_id: Literal["K12", "K13", "K14", "X05"]) -> None:
         self.op = op
         self.profile_id = profile_id
         self.profile: OriginTemplateProfile = {
             "K12": K12_ORIGIN_PROFILE,
             "K13": K13_ORIGIN_PROFILE,
             "K14": K14_ORIGIN_PROFILE,
+            "X05": X05_ORIGIN_PROFILE,
         }[profile_id]
         self.graph: Any = None
         self.layer: Any = None
@@ -186,16 +188,16 @@ class DistributionOriginProject:
             if action.line_width_pt is not None:
                 plot.set_float("line.width", action.line_width_pt)
             if action.symbol is not None:
-                if self.profile_id != "K12":
+                if self.profile_id not in {"K12", "X05"}:
                     raise ValueError(f"Origin {self.profile_id} does not expose symbol edits")
                 try:
                     plot.symbol_kind = _SYMBOL_CODES[action.symbol]
                 except KeyError as error:
                     raise ValueError(
-                        f"Origin K12 does not support symbol {action.symbol}"
+                        f"Origin {self.profile_id} does not support symbol {action.symbol}"
                     ) from error
             if action.symbol_size_pt is not None:
-                if self.profile_id != "K12":
+                if self.profile_id not in {"K12", "X05"}:
                     raise ValueError(f"Origin {self.profile_id} does not expose symbol-size edits")
                 plot.symbol_size = action.symbol_size_pt
             return
@@ -333,7 +335,7 @@ def _execute(
     request: OriginWorkerRequest,
     install_dir: Path,
     output: Path,
-    profile_id: Literal["K12", "K13", "K14"],
+    profile_id: Literal["K12", "K13", "K14", "X05"],
 ) -> EngineReadback:
     project = DistributionOriginProject(op, profile_id=profile_id)
     project.create(install_dir, request.document, request.data)
@@ -362,3 +364,9 @@ def execute_k14_request(
     op: Any, request: OriginWorkerRequest, install_dir: Path, output: Path
 ) -> EngineReadback:
     return _execute(op, request, install_dir, output, "K14")
+
+
+def execute_x05_request(
+    op: Any, request: OriginWorkerRequest, install_dir: Path, output: Path
+) -> EngineReadback:
+    return _execute(op, request, install_dir, output, "X05")

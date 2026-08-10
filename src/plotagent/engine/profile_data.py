@@ -123,6 +123,28 @@ class DistributionData:
 
 
 @dataclass(frozen=True, slots=True)
+class FloatingIntervalData:
+    categories: tuple[str, ...]
+    start_values: tuple[float, ...]
+    middle_values: tuple[float, ...] | None
+    end_values: tuple[float, ...]
+    category_field_name: str
+    start_field_name: str
+    middle_field_name: str | None
+    end_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class PopulationPyramidData:
+    categories: tuple[str, ...]
+    left_values: tuple[float, ...]
+    right_values: tuple[float, ...]
+    category_field_name: str
+    left_field_name: str
+    right_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class HistogramData:
     left: tuple[float, ...]
     right: tuple[float, ...]
@@ -401,7 +423,7 @@ def distribution_groups(
     document: PlotDocument,
     data: EngineDataView,
     *,
-    profile_id: Literal["K12", "K13", "K14", "K15", "K16"],
+    profile_id: Literal["K12", "K13", "K14", "K15", "K16", "X05"],
 ) -> DistributionData:
     """Return raw observations split by optional group in first-appearance order."""
 
@@ -430,6 +452,70 @@ def distribution_groups(
                 raise ValueError(f"{profile_id} group {label!r} has no finite observations")
             grouped.append(DistributionGroupData(label=label, values=observations))
     return DistributionData(groups=tuple(grouped), value_field_name=value.field.name)
+
+
+def x09_floating_intervals(
+    document: PlotDocument,
+    data: EngineDataView,
+) -> FloatingIntervalData:
+    """Return ordered interval boundaries without deriving or sorting rows."""
+
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    try:
+        category = columns[bindings["category"]]
+        start = columns[bindings["start"]]
+        end = columns[bindings["end"]]
+    except KeyError as error:
+        raise ValueError("X09 requires category, start and end bindings") from error
+    middle = columns[bindings["middle"]] if "middle" in bindings else None
+    categories = tuple(_label(value, "category") for value in category.values)
+    if len(categories) != len(set(categories)):
+        raise ValueError("X09 category labels must be unique")
+    start_values = _numeric_values(start, "start", "X09", allow_missing=False)
+    end_values = _numeric_values(end, "end", "X09", allow_missing=False)
+    middle_values = (
+        None if middle is None else _numeric_values(middle, "middle", "X09", allow_missing=False)
+    )
+    for index, (lower, upper) in enumerate(zip(start_values, end_values, strict=True), start=1):
+        if lower > upper:
+            raise ValueError(f"X09 row {index} requires start <= end")
+        if middle_values is not None and not lower <= middle_values[index - 1] <= upper:
+            raise ValueError(f"X09 row {index} requires start <= middle <= end")
+    return FloatingIntervalData(
+        categories=categories,
+        start_values=start_values,
+        middle_values=middle_values,
+        end_values=end_values,
+        category_field_name=category.field.name,
+        start_field_name=start.field.name,
+        middle_field_name=None if middle is None else middle.field.name,
+        end_field_name=end.field.name,
+    )
+
+
+def x13_population_pyramid(
+    document: PlotDocument,
+    data: EngineDataView,
+) -> PopulationPyramidData:
+    """Return positive magnitudes; each backend owns the native mirror convention."""
+
+    category, left, right = _bound_columns(document, data, ("category", "left", "right"), "X13")
+    categories = tuple(_label(value, "category") for value in category.values)
+    if len(categories) != len(set(categories)):
+        raise ValueError("X13 category labels must be unique")
+    left_values = _numeric_values(left, "left", "X13", allow_missing=False)
+    right_values = _numeric_values(right, "right", "X13", allow_missing=False)
+    if any(value < 0 for value in (*left_values, *right_values)):
+        raise ValueError("X13 population magnitudes must be non-negative")
+    return PopulationPyramidData(
+        categories=categories,
+        left_values=left_values,
+        right_values=right_values,
+        category_field_name=category.field.name,
+        left_field_name=left.field.name,
+        right_field_name=right.field.name,
+    )
 
 
 def k15_histogram(document: PlotDocument, data: EngineDataView) -> HistogramData:
@@ -563,9 +649,7 @@ def k21_correlation_grid(document: PlotDocument, data: EngineDataView) -> K20Gri
         for row_label in grid.column_labels
     )
     if any(
-        not isfinite(value) or value < -1.0 or value > 1.0
-        for row in reordered
-        for value in row
+        not isfinite(value) or value < -1.0 or value > 1.0 for row in reordered for value in row
     ):
         raise ValueError("K21 correlation values must be finite and within [-1, 1]")
     for index, row in enumerate(reordered):
@@ -621,8 +705,7 @@ def k22_regular_grid(document: PlotDocument, data: EngineDataView) -> RegularGri
         x_values=x_values,
         y_values=y_values,
         z_values=tuple(
-            tuple(positions[(x_value, y_value)] for x_value in x_values)
-            for y_value in y_values
+            tuple(positions[(x_value, y_value)] for x_value in x_values) for y_value in y_values
         ),
         x_field_name=x_column.field.name,
         y_field_name=y_column.field.name,

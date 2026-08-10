@@ -11,14 +11,16 @@ from .column_family import (
     K10StackedColumnRenderer,
     K11PercentStackRenderer,
 )
-from .distribution import K12StripRenderer, K13BoxRenderer, K14ViolinRenderer
+from .distribution import K12StripRenderer, K13BoxRenderer, K14ViolinRenderer, X05BeeswarmRenderer
 from .drop_line import X02DropLineRenderer
 from .dual_y import X23DualYRenderer
 from .error_band import K07ErrorBandRenderer
+from .floating_interval import X09FloatingIntervalRenderer
 from .heatmap import K20HeatmapRenderer
 from .line import K01LineRenderer
 from .line_symbol import K02LineSymbolRenderer
 from .point_error import K06PointErrorRenderer
+from .population_pyramid import X13PopulationPyramidRenderer
 from .scatter import K03ScatterRenderer
 from .time_series import K19TimeSeriesRenderer
 from .wide_series import X03LollipopRenderer, X39LineSeriesRenderer, X40BeforeAfterRenderer
@@ -47,6 +49,9 @@ __all__ = [
     "MatplotlibBackend",
     "X02DropLineRenderer",
     "X03LollipopRenderer",
+    "X05BeeswarmRenderer",
+    "X09FloatingIntervalRenderer",
+    "X13PopulationPyramidRenderer",
     "X23DualYRenderer",
     "X39LineSeriesRenderer",
     "X40BeforeAfterRenderer",
