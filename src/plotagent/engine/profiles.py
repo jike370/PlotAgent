@@ -189,6 +189,61 @@ K08_COLUMN_PROFILE = EngineProfile(
     ),
 )
 
+K09_GROUPED_COLUMN_PROFILE = EngineProfile(
+    profile_id="K09",
+    display_name="Grouped column",
+    required_roles=("category", "group", "value"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series",
+            object_kind="series",
+            object_key_prefix="group",
+        ),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(operation="set_series_style", parameters=("color", "line_width_pt")),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+K10_STACKED_COLUMN_PROFILE = EngineProfile(
+    profile_id="K10",
+    display_name="Stacked column",
+    required_roles=("category", "component", "value"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series",
+            object_kind="series",
+            object_key_prefix="component",
+        ),
+    ),
+    capabilities=K09_GROUPED_COLUMN_PROFILE.capabilities,
+)
+
+K11_PERCENT_STACK_PROFILE = EngineProfile(
+    profile_id="K11",
+    display_name="100% stacked column",
+    required_roles=("category", "component", "value"),
+    objects=K10_STACKED_COLUMN_PROFILE.objects,
+    repeatable_objects=K10_STACKED_COLUMN_PROFILE.repeatable_objects,
+    capabilities=K09_GROUPED_COLUMN_PROFILE.capabilities,
+)
+
 K18_AREA_PROFILE = EngineProfile(
     profile_id="K18",
     display_name="Area",
@@ -298,6 +353,9 @@ ENGINE_PROFILES = (
     K06_POINT_ERROR_PROFILE,
     K07_ERROR_BAND_PROFILE,
     K08_COLUMN_PROFILE,
+    K09_GROUPED_COLUMN_PROFILE,
+    K10_STACKED_COLUMN_PROFILE,
+    K11_PERCENT_STACK_PROFILE,
     K18_AREA_PROFILE,
     K20_HEATMAP_PROFILE,
     X02_DROP_LINE_PROFILE,

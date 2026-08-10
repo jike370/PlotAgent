@@ -80,6 +80,21 @@ class K03ScatterData:
     y_field_name: str
 
 
+@dataclass(frozen=True, slots=True)
+class CategorySeriesGrid:
+    """Stable long-to-wide data used by one column-family profile.
+
+    This is deliberately only a data shape.  Grouped, stacked and percent
+    renderers remain independent and decide how the same cells are drawn.
+    """
+
+    category_labels: tuple[str, ...]
+    series_labels: tuple[str, ...]
+    values: tuple[tuple[float, ...], ...]
+    category_field_name: str
+    value_field_name: str
+
+
 def xy_series(document: PlotDocument, data: EngineDataView, *, profile_id: str) -> XYSeriesData:
     """Return one numeric X/Y series for a fixed-role profile."""
 
@@ -175,6 +190,7 @@ def k07_error_band(document: PlotDocument, data: EngineDataView) -> ErrorBandDat
         ("x", "center", "lower", "upper"),
         "K07",
     )
+
     x_values = _numeric_values(x, "x", "K07")
     center_values = _numeric_values(center, "center", "K07", allow_missing=True)
     lower_values = _numeric_values(lower, "lower", "K07", allow_missing=True)
@@ -195,6 +211,58 @@ def k07_error_band(document: PlotDocument, data: EngineDataView) -> ErrorBandDat
         upper_values=upper_values,
         x_field_name=x.field.name,
         center_field_name=center.field.name,
+    )
+
+
+def category_series_grid(
+    document: PlotDocument,
+    data: EngineDataView,
+    *,
+    profile_id: Literal["K09", "K10", "K11"],
+) -> CategorySeriesGrid:
+    """Pivot a long categorical table without averaging duplicate cells.
+
+    Category and series order follow first appearance.  Missing combinations
+    stay NaN, while duplicate category/series cells fail closed instead of
+    silently changing the user's data.
+    """
+
+    series_role = "group" if profile_id == "K09" else "component"
+    category, series, value = _bound_columns(
+        document,
+        data,
+        ("category", series_role, "value"),
+        profile_id,
+    )
+    category_labels = _ordered_labels(category, "category")
+    series_labels = _ordered_labels(series, series_role)
+    category_index = {label: index for index, label in enumerate(category_labels)}
+    series_index = {label: index for index, label in enumerate(series_labels)}
+    matrix = [[nan for _ in series_labels] for _ in category_labels]
+    occupied: set[tuple[int, int]] = set()
+    for category_value, series_value, cell_value in zip(
+        category.values,
+        series.values,
+        value.values,
+        strict=True,
+    ):
+        category_label = _label(category_value, "category")
+        series_label = _label(series_value, series_role)
+        position = (category_index[category_label], series_index[series_label])
+        if position in occupied:
+            raise ValueError(
+                f"{profile_id} contains a duplicate category/series cell: "
+                f"{category_label!r}, {series_label!r}"
+            )
+        occupied.add(position)
+        cell = _numeric_value(cell_value, profile_id, "value", allow_missing=True)
+        matrix[position[0]][position[1]] = cell
+    return CategorySeriesGrid(
+        category_labels=category_labels,
+        series_labels=series_labels,
+        values=tuple(tuple(row) for row in matrix),
+        category_field_name=category.field.name,
+        value_field_name=value.field.name,
     )
 
 
@@ -307,6 +375,23 @@ def _numeric(value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError("K20 value data must be numeric")
     return float(value)
+
+
+def _numeric_value(
+    value: object,
+    profile_id: str,
+    role: str,
+    *,
+    allow_missing: bool = False,
+) -> float:
+    if value is None and allow_missing:
+        return nan
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{profile_id} {role} values must be numeric")
+    number = float(value)
+    if not isfinite(number):
+        raise ValueError(f"{profile_id} {role} values must be finite")
+    return number
 
 
 def _bound_columns(

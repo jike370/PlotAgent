@@ -3,6 +3,11 @@
 from .area import K18AreaRenderer
 from .backend import MatplotlibBackend
 from .column import K08ColumnRenderer
+from .column_family import (
+    K09GroupedColumnRenderer,
+    K10StackedColumnRenderer,
+    K11PercentStackRenderer,
+)
 from .drop_line import X02DropLineRenderer
 from .dual_y import X23DualYRenderer
 from .error_band import K07ErrorBandRenderer
@@ -19,6 +24,9 @@ __all__ = [
     "K06PointErrorRenderer",
     "K07ErrorBandRenderer",
     "K08ColumnRenderer",
+    "K09GroupedColumnRenderer",
+    "K10StackedColumnRenderer",
+    "K11PercentStackRenderer",
     "K18AreaRenderer",
     "K20HeatmapRenderer",
     "MatplotlibBackend",
