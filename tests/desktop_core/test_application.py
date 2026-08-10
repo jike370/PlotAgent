@@ -303,6 +303,71 @@ def test_agent_native_engine_rpc_uses_project_data_and_restores_documents(
     assert Path(restored["plots"][0]["preview"]["path"]).is_file()
 
 
+def test_agent_native_engine_exports_png_through_the_public_action(
+    harness: ApplicationHarness,
+    tmp_path: Path,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import(harness, project_id, revision, "excel_two_sheets.xlsx", "engine-export")
+    first = imported["datasets"][0]
+    numeric = [
+        item["field_id"] for item in first["fields"] if item["logical_type"] == "numeric"
+    ]
+    created = harness.call(
+        "engine.actions.execute",
+        {
+            "project_id": project_id,
+            "expected_project_version": imported["project_version"],
+            "action": {
+                "operation": "create_plot",
+                "action_id": "action:export-create",
+                "plot_id": "plot:engine-export",
+                "profile_id": "K01",
+                "data": {
+                    "kind": "source",
+                    "dataset_id": first["source_dataset_id"],
+                    "version": first["source_version"],
+                    "content_hash": first["content_hash"],
+                },
+                "bindings": (
+                    {"role": "x", "field_id": numeric[0]},
+                    {"role": "y", "field_id": numeric[1]},
+                ),
+            },
+        },
+    )
+    destination = tmp_path / "agent-native.png"
+
+    exported = harness.call(
+        "engine.exports.execute",
+        {
+            "project_id": project_id,
+            "action": {
+                "operation": "export_plot",
+                "action_id": "action:export-png",
+                "target": created["plot_id"],
+                "expected_plot_version": created["plot_version"],
+                "format": "png",
+                "output_name": destination.name,
+            },
+            "destination_resource_id": "resource:engine-export",
+            "destination_path": str(destination),
+        },
+    )
+
+    assert destination.is_file()
+    assert exported["plot_id"] == created["plot_id"]
+    assert exported["plot_version"] == created["plot_version"]
+    assert exported["artifact"] == {
+        "backend": "matplotlib",
+        "format": "png",
+        "resource_id": "resource:engine-export",
+        "path": str(destination.resolve()),
+        "content_hash": hashlib.sha256(destination.read_bytes()).hexdigest(),
+        "size": destination.stat().st_size,
+    }
+
+
 def test_bundled_agent_engine_plan_is_bound_confirmed_and_restored(
     harness: ApplicationHarness,
 ) -> None:

@@ -68,6 +68,8 @@ from plotagent.engine.backends.matplotlib import (
     X39LineSeriesRenderer,
     X40BeforeAfterRenderer,
 )
+from plotagent.engine.backends.origin import OriginBackend, SubprocessOriginWorker
+from plotagent.engine.contracts import ExportPlot
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.storage.project import ProjectStore
 
@@ -187,6 +189,46 @@ class DesktopEngineSession:
 
     def list_latest(self) -> tuple[dict[str, object], ...]:
         return tuple(self._document_payload(item.document) for item in self.documents.list_latest())
+
+    def export(
+        self,
+        arguments: Mapping[str, object],
+        destination: Path,
+        *,
+        origin_install_dir: Path | None = None,
+    ) -> dict[str, object]:
+        action = self.codec.decode(arguments)
+        if not isinstance(action, ExportPlot):
+            raise ValueError("the export endpoint accepts only export_plot")
+        if destination.name != action.output_name:
+            raise ValueError("the authorized destination name differs from output_name")
+        stored = self.documents.get(action.target, action.expected_plot_version)
+        document = stored.document
+        self.catalog.validate_action(self.catalog.get(document.profile_id), action)
+        if action.format in {"png", "svg"}:
+            artifact = self.matplotlib.export(document, destination, action.format)
+        else:
+            if origin_install_dir is None:
+                raise ValueError("Origin installation is required for OPJU export")
+            origin = OriginBackend(
+                self.artifact_root.parent / "origin",
+                origin_install_dir,
+                SubprocessOriginWorker(),
+            )
+            readback = self.runtime.materialize_backend(origin, document)
+            artifact = origin.export(document, destination, action.format)
+            return {
+                "plot_id": document.plot_id,
+                "plot_version": document.plot_version,
+                "artifact": artifact.model_dump(mode="json"),
+                "readback": readback.model_dump(mode="json"),
+            }
+        return {
+            "plot_id": document.plot_id,
+            "plot_version": document.plot_version,
+            "artifact": artifact.model_dump(mode="json"),
+            "readback": self.matplotlib.readback(document).model_dump(mode="json"),
+        }
 
     def catalog_payload(self) -> dict[str, object]:
         return {

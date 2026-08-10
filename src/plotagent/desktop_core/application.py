@@ -439,6 +439,7 @@ class DesktopApplication:
             "datasets.describe": self._datasets_describe,
             "engine.catalog.get": self._engine_catalog_get,
             "engine.actions.execute": self._engine_actions_execute,
+            "engine.exports.execute": self._engine_exports_execute,
             "engine.plots.list": self._engine_plots_list,
             "engine.plots.get": self._engine_plots_get,
             "agent.engine.plans.create": self._engine_agent_plan_create,
@@ -542,6 +543,72 @@ class DesktopApplication:
                 "plots": session.engine.list_latest(),
             },
         )
+
+    def _engine_exports_execute(
+        self, context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "action",
+                "destination_resource_id",
+                "destination_path",
+            },
+            optional={"expected_existing_sha256"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        action = values["action"]
+        if not isinstance(action, dict):
+            raise RpcServiceError("INVALID_PARAMS", "Engine export action must be an object.")
+        destination = Path(_text(values["destination_path"], "destination_path")).resolve()
+        resource_id = _text(values["destination_resource_id"], "destination_resource_id")
+        export_format = _optional_text(action.get("format"), "format")
+        install_dir: Path | None = None
+        if export_format == "opju":
+            preflight = preflight_origin(
+                destination,
+                expected_existing_sha256=_optional_text(
+                    values.get("expected_existing_sha256"),
+                    "expected_existing_sha256",
+                ),
+            )
+            if preflight.status != "ready":
+                raise RpcServiceError(preflight.error.code.value, preflight.error.message)
+            install_dir = Path(preflight.environment.install_dir)
+        task_id = self._begin_task(context, "engine-export")
+        try:
+            context.tasks.transition(task_id, "running")
+            payload = session.engine.export(
+                cast(dict[str, object], action),
+                destination,
+                origin_install_dir=install_dir,
+            )
+            artifact = cast(dict[str, object], payload.pop("artifact"))
+            context.tasks.transition(task_id, "committing")
+            context.tasks.transition(task_id, "succeeded")
+            return cast(
+                RpcJsonValue,
+                {
+                    "task_id": task_id,
+                    "export_id": "export:engine." + uuid.uuid4().hex,
+                    "project_id": session.project_id,
+                    "project_version": session.domain.revision,
+                    "destination_name": destination.name,
+                    "artifact": {
+                        "backend": artifact["backend"],
+                        "format": artifact["format"],
+                        "resource_id": resource_id,
+                        "path": str(destination),
+                        "content_hash": artifact["artifact_hash"],
+                        "size": artifact["artifact_size"],
+                    },
+                    **payload,
+                },
+            )
+        except Exception:
+            self._fail_task(context.tasks, task_id)
+            raise
 
     def _engine_plots_get(
         self, _context: RpcContext, params: RpcJsonValue | None

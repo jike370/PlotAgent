@@ -19,6 +19,7 @@ from plotagent.engine import (
     PlotDocumentRepository,
     PlotEngineRuntime,
     PlotEngineService,
+    SetTitle,
 )
 from plotagent.engine.repository import document_ref
 from plotagent.engine.service import EngineCatalog
@@ -113,6 +114,8 @@ class FakeBackend:
         return change
 
     def readback(self, document):
+        if not self.changes:
+            raise FileNotFoundError(document.plot_id)
         assert self.changes[-1].readback.document == document_ref(document)
         return self.changes[-1].readback
 
@@ -128,7 +131,10 @@ def _runtime(tmp_path: Path, backends: tuple[FakeBackend, ...]):
                 profile_id="profile.line",
                 display_name="Line",
                 required_roles=("x", "y"),
-                capabilities=({"operation": "create_plot"},),
+                capabilities=(
+                    {"operation": "create_plot"},
+                    {"operation": "set_title", "parameters": ("text",)},
+                ),
             ),
         )
     )
@@ -230,3 +236,37 @@ def test_runtime_reverts_artifacts_when_the_project_revision_is_stale(tmp_path: 
         assert runtime.service.repository.latest_version("plot:demo") is None
 
     assert matplotlib.changes[0].reverted is True
+
+
+def test_runtime_lazily_materializes_every_native_version_without_domain_mutation(
+    tmp_path: Path,
+) -> None:
+    matplotlib = FakeBackend("matplotlib")
+    origin = FakeBackend("origin")
+    project, _provider, runtime = _runtime(tmp_path, (matplotlib,))
+    with project:
+        created = runtime.execute(_create()).document
+        edited = runtime.execute(
+            SetTitle(
+                action_id="action:title",
+                target=created.plot_id,
+                expected_plot_version=created.plot_version,
+                text="Edited",
+            )
+        ).document
+        revision_before = project._assert_writer().execute(  # noqa: SLF001
+            "SELECT revision FROM project_meta"
+        ).fetchone()
+
+        readback = runtime.materialize_backend(origin, edited)
+
+        assert readback.document == document_ref(edited)
+        assert [change.readback.document.plot_version for change in origin.changes] == [1, 2]
+        assert all(change.published and change.finalized for change in origin.changes)
+        assert (
+            project._assert_writer().execute(  # noqa: SLF001
+                "SELECT revision FROM project_meta"
+            ).fetchone()
+            == revision_before
+        )
+        assert runtime.service.repository.latest_version(created.plot_id) == 2

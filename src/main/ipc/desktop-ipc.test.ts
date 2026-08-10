@@ -168,11 +168,11 @@ describe('desktop product IPC boundary', () => {
       new InMemoryResourceRegistry(),
       { project_id: 'project:one', target_kind: 'plot' },
     )).resolves.toMatchObject({ ok: true })
-    expect(request).toHaveBeenCalledWith(
-      'exports.origin',
-      { project_id: 'project:one', target_kind: 'plot' },
-      ORIGIN_EXPORT_REQUEST_TIMEOUT_MS,
-    )
+      expect(request).toHaveBeenCalledWith(
+        'engine.exports.execute',
+        { project_id: 'project:one', target_kind: 'plot' },
+        ORIGIN_EXPORT_REQUEST_TIMEOUT_MS,
+      )
     expect(ORIGIN_EXPORT_REQUEST_TIMEOUT_MS).toBe(925_000)
   })
 

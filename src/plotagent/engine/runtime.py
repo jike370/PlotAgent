@@ -98,6 +98,48 @@ class PlotEngineRuntime:
             readbacks=tuple(change.readback for change in changes),
         )
 
+    def materialize_backend(
+        self,
+        backend: PlotBackend,
+        document: PlotDocument,
+    ) -> EngineReadback:
+        """Create one backend-native version lazily without changing PlotDocument state."""
+
+        try:
+            return backend.readback(document)
+        except (FileNotFoundError, NotADirectoryError):
+            pass
+        if document.plot_version > 1:
+            previous = self.service.repository.get(
+                document.plot_id,
+                document.plot_version - 1,
+            ).document
+            self.materialize_backend(backend, previous)
+        for component in document.components:
+            child = self.service.repository.get(
+                component.plot_id,
+                component.plot_version,
+            ).document
+            self.materialize_backend(backend, child)
+        source = self._materialize(document)
+        applied = set(document.applied_action_ids)
+        actions = tuple(
+            record.action
+            for record in self.service.repository.actions(document.plot_id)
+            if record.action.action_id in applied
+        )
+        if tuple(item.action_id for item in actions) != document.applied_action_ids:
+            raise PlotRuntimeError("backend materialization history differs from the document")
+        change = backend.stage(document, actions, source)
+        self._validate_readback(change.readback, document, source)
+        try:
+            change.publish()
+        except Exception:
+            change.discard()
+            raise
+        change.finalize()
+        return change.readback
+
     def _materialize(self, document: PlotDocument) -> EngineRenderSource:
         if document.components:
             components: list[EngineComponentInput] = []

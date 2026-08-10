@@ -256,7 +256,7 @@ export async function requestOriginExport(
   return normalizeOriginExportResult(await requestCoreData(
     supervisor,
     resources,
-    'exports.origin',
+    'engine.exports.execute',
     params,
     'export',
     ORIGIN_EXPORT_REQUEST_TIMEOUT_MS,
@@ -768,15 +768,18 @@ export function registerDesktopIpc({
       filters: [{ name: input.format.toLocaleUpperCase('en-US'), extensions: [input.format] }],
     })
     if (choice.canceled || choice.filePath === undefined) return cancelled()
-    return requestCoreData(supervisor, resources, 'exports.png_svg', {
+    return requestCoreData(supervisor, resources, 'engine.exports.execute', {
       project_id: input.projectId,
-      plot_id: input.target.id,
-      plot_version: input.target.version,
-      format: input.format,
+      action: {
+        operation: 'export_plot',
+        action_id: `action:export.${randomUUID()}`,
+        target: input.target.id,
+        expected_plot_version: input.target.version,
+        format: input.format,
+        output_name: basename(choice.filePath),
+      },
       destination_resource_id: resources.registerFile(choice.filePath, 'export').resourceId,
       destination_path: choice.filePath,
-      idempotency_key: `export-${input.format}:${randomUUID()}`,
-      expected_version: input.target.version,
     }, 'export')
   })
   ipcMain.handle(IPC_CHANNELS.exportOrigin, async (_event, value: unknown) => {
@@ -794,13 +797,16 @@ export function registerDesktopIpc({
     const expectedExistingSha256 = await existingFileSha256(choice.filePath)
     return requestOriginExport(supervisor, resources, {
       project_id: input.projectId,
-      plot_id: input.target.id,
-      plot_version: input.target.version,
-      target_kind: input.target.kind,
+      action: {
+        operation: 'export_plot',
+        action_id: `action:export.${randomUUID()}`,
+        target: input.target.id,
+        expected_plot_version: input.target.version,
+        format: 'opju',
+        output_name: basename(choice.filePath),
+      },
       destination_resource_id: resources.registerFile(choice.filePath, 'export').resourceId,
       destination_path: choice.filePath,
-      idempotency_key: `export-origin:${randomUUID()}`,
-      expected_version: input.target.version,
       ...(expectedExistingSha256 === undefined
         ? {}
         : { expected_existing_sha256: expectedExistingSha256 }),
