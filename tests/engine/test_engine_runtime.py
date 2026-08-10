@@ -6,6 +6,7 @@ from typing import Literal
 
 import pytest
 
+from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine import (
     CreatePlot,
     EngineColumn,
@@ -104,7 +105,7 @@ class FakeBackend:
                 document=document_ref(document),
                 backend=self.backend_id,
                 objects=(),
-                data_hash=data.data.content_hash,
+                data_hash=canonical_hash(data),
                 style_hash=STYLE_HASH,
             ),
             fail_publish=self.fail_publish,

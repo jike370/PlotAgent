@@ -151,6 +151,23 @@ class CreatePlot(StrictModel):
     bindings: Annotated[tuple[FieldBinding, ...], Field(min_length=1)]
 
 
+class BindFields(StrictModel):
+    operation: Literal["bind_fields"] = "bind_fields"
+    action_id: ActionId
+    target: SemanticObjectId
+    data: EngineDataRef
+    bindings: Annotated[tuple[FieldBinding, ...], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def plot_target_and_unique_roles(self) -> BindFields:
+        if not self.target.startswith("plot:"):
+            raise ValueError("bind_fields requires a plot target")
+        roles = tuple(binding.role for binding in self.bindings)
+        if len(roles) != len(set(roles)):
+            raise ValueError("bind_fields roles must be unique")
+        return self
+
+
 class SetTitle(StrictModel):
     operation: Literal["set_title"] = "set_title"
     action_id: ActionId
@@ -263,6 +280,7 @@ class ExportPlot(StrictModel):
 
 PlotEngineAction = Annotated[
     CreatePlot
+    | BindFields
     | SetTitle
     | SetAxis
     | SetSeriesStyle
@@ -284,6 +302,7 @@ class AppliedAction(StrictModel):
 class EngineCapability(StrictModel):
     operation: Literal[
         "create_plot",
+        "bind_fields",
         "set_title",
         "set_axis",
         "set_series_style",

@@ -3,6 +3,7 @@
 from .contracts import (
     AddAnnotation,
     AppliedAction,
+    BindFields,
     CreatePlot,
     EngineCapability,
     EngineColumn,
@@ -36,6 +37,7 @@ from .service import EngineCatalog, EngineCommandError, PlotEngineService, PlotT
 __all__ = [
     "AddAnnotation",
     "AppliedAction",
+    "BindFields",
     "CreatePlot",
     "EngineArtifact",
     "EngineCapability",

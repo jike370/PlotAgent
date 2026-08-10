@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine.contracts import EngineDataView, PlotDocument, PlotEngineAction
 from plotagent.engine.ports import (
     EngineDataProvider,
@@ -100,5 +101,5 @@ class PlotEngineRuntime:
     ) -> None:
         if readback.document != document_ref(document):
             raise PlotRuntimeError("backend readback does not identify the staged plot document")
-        if readback.data_hash != data.data.content_hash:
+        if readback.data_hash != canonical_hash(data):
             raise PlotRuntimeError("backend readback data hash differs from the input revision")

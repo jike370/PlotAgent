@@ -99,7 +99,6 @@ def test_k01_renders_and_replays_public_actions_without_legacy_resolver(tmp_path
                 target="series:line-demo.primary",
                 color="#AA2200",
                 line_width_pt=2.0,
-                symbol="circle",
             )
         )
         result = runtime.execute(
@@ -107,7 +106,6 @@ def test_k01_renders_and_replays_public_actions_without_legacy_resolver(tmp_path
                 action_id="action:legend",
                 target="legend:line-demo.main",
                 visible=True,
-                anchor="right",
             )
         )
 

@@ -77,6 +77,7 @@ PlotDocument 只保存：
 顶层动作固定为小而稳定的集合：
 
 - `create_plot`
+- `bind_fields`
 - `set_title`
 - `set_axis`
 - `set_series_style`
@@ -131,4 +132,3 @@ PlotDocument 只保存：
 - **无旧路径**：生产代码、运行时依赖和测试清单中不存在旧 PlotSpec/resolver/plan renderer 兜底。
 
 视觉审查位于每个 Profile 完成动态与机械读回之后、发布资格之前。机械通过不能代替人工视觉签名。
-

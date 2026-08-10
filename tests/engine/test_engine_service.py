@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from plotagent.engine import (
+    BindFields,
     CreatePlot,
     EngineCapability,
     EngineCatalog,
@@ -17,6 +18,7 @@ from plotagent.engine import (
     PlotEngineService,
     SetAxis,
     SetLegend,
+    SetSeriesStyle,
 )
 from plotagent.storage.project import ProjectStore
 
@@ -34,6 +36,7 @@ def _catalog() -> EngineCatalog:
                 repeatable_role_prefixes=("series",),
                 capabilities=(
                     EngineCapability(operation="create_plot"),
+                    EngineCapability(operation="bind_fields"),
                     EngineCapability(operation="set_axis", parameters=("scale", "label")),
                     EngineCapability(operation="set_series_style"),
                 ),
@@ -85,6 +88,49 @@ def test_service_rejects_profile_role_and_capability_mismatches(tmp_path: Path) 
         with pytest.raises(EngineCommandError, match="does not support set_legend"):
             service.execute(
                 SetLegend(action_id="action:legend", target="legend:demo.main", visible=False)
+            )
+
+
+def test_service_rebinds_data_and_fields_as_one_new_version(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:engine") as project:
+        service = PlotEngineService(_catalog(), PlotDocumentRepository(project))
+        service.execute(_create(x="field:x", y="field:y"))
+        rebound = service.execute(
+            BindFields(
+                action_id="action:rebind",
+                target="plot:demo",
+                data=EngineDataRef(
+                    kind="prepared",
+                    dataset_id="dataset.prepared",
+                    version=2,
+                    content_hash="e" * 64,
+                ),
+                bindings=(
+                    FieldBinding(role="x", field_id="field:time"),
+                    FieldBinding(role="y", field_id="field:response"),
+                ),
+            )
+        )
+
+        assert rebound.plot_version == 2
+        assert rebound.data.dataset_id == "dataset.prepared"
+        assert tuple(binding.field_id for binding in rebound.bindings) == (
+            "field:time",
+            "field:response",
+        )
+
+
+def test_service_rejects_parameters_not_exposed_by_the_profile(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:engine") as project:
+        service = PlotEngineService(_catalog(), PlotDocumentRepository(project))
+        service.execute(_create(x="field:x", y="field:y"))
+        with pytest.raises(EngineCommandError, match="parameters.*symbol"):
+            service.execute(
+                SetSeriesStyle(
+                    action_id="action:symbol",
+                    target="series:demo.primary",
+                    symbol="circle",
+                )
             )
 
 

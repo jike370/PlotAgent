@@ -11,11 +11,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from plotagent.engine.contracts import (
+    AddAnnotation,
+    BindFields,
     CreatePlot,
+    EngineCapability,
     EngineProfile,
     ExportPlot,
     PlotDocument,
     PlotEngineAction,
+    SetAxis,
+    SetChartParameter,
+    SetLegend,
+    SetSeriesStyle,
+    SetTitle,
 )
 from plotagent.engine.repository import PlotDocumentRepository
 
@@ -42,7 +50,11 @@ class EngineCatalog:
 
     def validate_create(self, action: CreatePlot) -> EngineProfile:
         profile = self.get(action.profile_id)
-        roles = tuple(binding.role for binding in action.bindings)
+        self.validate_bindings(profile, tuple(binding.role for binding in action.bindings))
+        self.validate_action(profile, action)
+        return profile
+
+    def validate_bindings(self, profile: EngineProfile, roles: tuple[str, ...]) -> None:
         missing = set(profile.required_roles) - set(roles)
         if missing:
             raise EngineCommandError(f"missing required field roles: {sorted(missing)}")
@@ -57,15 +69,64 @@ class EngineCatalog:
         }
         if unsupported:
             raise EngineCommandError(f"unsupported field roles: {sorted(unsupported)}")
-        self.require_operation(profile, action.operation)
-        return profile
 
     @staticmethod
-    def require_operation(profile: EngineProfile, operation: str) -> None:
-        if operation not in {capability.operation for capability in profile.capabilities}:
+    def require_operation(profile: EngineProfile, operation: str) -> EngineCapability:
+        capability = next(
+            (item for item in profile.capabilities if item.operation == operation),
+            None,
+        )
+        if capability is None:
             raise EngineCommandError(
                 f"engine profile {profile.profile_id} does not support {operation}"
             )
+        return capability
+
+    @classmethod
+    def validate_action(cls, profile: EngineProfile, action: PlotEngineAction) -> None:
+        capability = cls.require_operation(profile, action.operation)
+        used = cls._used_parameters(action)
+        unsupported = used - set(capability.parameters)
+        if unsupported:
+            raise EngineCommandError(
+                f"engine profile {profile.profile_id} does not support "
+                f"{action.operation} parameters: {sorted(unsupported)}"
+            )
+
+    @staticmethod
+    def _used_parameters(action: PlotEngineAction) -> set[str]:
+        if isinstance(action, (CreatePlot, BindFields)):
+            return set()
+        if isinstance(action, SetTitle):
+            return {"text"}
+        if isinstance(action, SetAxis):
+            used = {
+                name for name in ("label", "scale", "reverse") if getattr(action, name) is not None
+            }
+            if action.minimum is not None:
+                used.add("bounds")
+            return used
+        if isinstance(action, SetSeriesStyle):
+            return {
+                name
+                for name in (
+                    "color",
+                    "line_width_pt",
+                    "line_style",
+                    "symbol",
+                    "symbol_size_pt",
+                )
+                if getattr(action, name) is not None
+            }
+        if isinstance(action, SetLegend):
+            return {name for name in ("visible", "anchor") if getattr(action, name) is not None}
+        if isinstance(action, SetChartParameter):
+            return {action.parameter}
+        if isinstance(action, AddAnnotation):
+            return {"text", "x", "y", "coordinate_system"}
+        if isinstance(action, ExportPlot):
+            return {action.format}
+        raise AssertionError(f"unhandled engine action {action.operation}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,11 +166,19 @@ class PlotEngineService:
         target_plot_id = self._target_plot_id(action)
         stored = self.repository.get(target_plot_id)
         profile = self.catalog.get(stored.document.profile_id)
-        self.catalog.require_operation(profile, action.operation)
+        self.catalog.validate_action(profile, action)
+        updates: dict[str, object] = {}
+        if isinstance(action, BindFields):
+            self.catalog.validate_bindings(
+                profile,
+                tuple(binding.role for binding in action.bindings),
+            )
+            updates.update(data=action.data, bindings=action.bindings)
         return PlotTransition(
             before=stored.document,
             after=stored.document.model_copy(
                 update={
+                    **updates,
                     "plot_version": stored.document.plot_version + 1,
                     "parent_version": stored.document.plot_version,
                     "applied_action_ids": stored.document.applied_action_ids + (action.action_id,),

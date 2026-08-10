@@ -11,6 +11,7 @@ K01_LINE_PROFILE = EngineProfile(
     optional_roles=("label",),
     capabilities=(
         EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
         EngineCapability(operation="set_title", parameters=("text",)),
         EngineCapability(
             operation="set_axis",
@@ -18,10 +19,9 @@ K01_LINE_PROFILE = EngineProfile(
         ),
         EngineCapability(
             operation="set_series_style",
-            parameters=("color", "line_width_pt", "line_style", "symbol", "symbol_size_pt"),
+            parameters=("color", "line_width_pt", "line_style"),
         ),
-        EngineCapability(operation="set_legend", parameters=("visible", "anchor")),
-        EngineCapability(operation="add_annotation", parameters=("text", "x", "y")),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
         EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
     ),
 )

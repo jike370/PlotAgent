@@ -4,6 +4,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from plotagent.engine import (
+    BindFields,
     CreatePlot,
     EngineColumn,
     EngineDataRef,
@@ -71,6 +72,17 @@ def test_actions_are_agent_neutral_and_discriminated() -> None:
     )
 
     assert isinstance(action, CreatePlot)
+
+    rebound = adapter.validate_python(
+        {
+            "operation": "bind_fields",
+            "action_id": "action:rebind",
+            "target": "plot:demo",
+            "data": _data().model_dump(mode="json"),
+            "bindings": tuple(item.model_dump(mode="json") for item in _bindings()),
+        }
+    )
+    assert isinstance(rebound, BindFields)
 
 
 @pytest.mark.parametrize(

@@ -17,6 +17,7 @@ from matplotlib.axes import Axes
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine.contracts import (
     AddAnnotation,
+    BindFields,
     CreatePlot,
     EngineDataView,
     PlotDocument,
@@ -145,7 +146,7 @@ class K01LineRenderer:
             document=document_ref(document),
             backend="matplotlib",
             objects=objects,
-            data_hash=data.data.content_hash,
+            data_hash=canonical_hash(data),
             style_hash=canonical_hash(asdict(state)),
         )
 
@@ -199,7 +200,7 @@ class K01LineRenderer:
         token = document.plot_id.removeprefix("plot:")
         state = _LineState(title="", x_axis=_AxisState(x_name), y_axis=_AxisState(y_name))
         for action in actions:
-            if isinstance(action, CreatePlot):
+            if isinstance(action, (CreatePlot, BindFields)):
                 continue
             if isinstance(action, SetTitle):
                 if action.target != document.plot_id:
