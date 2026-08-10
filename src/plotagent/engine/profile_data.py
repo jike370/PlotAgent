@@ -145,6 +145,30 @@ class PopulationPyramidData:
 
 
 @dataclass(frozen=True, slots=True)
+class ParetoData:
+    categories: tuple[str, ...]
+    values: tuple[float, ...]
+    cumulative_percent: tuple[float, ...]
+    category_field_name: str
+    value_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class OffsetSeriesData:
+    label: str
+    x_values: tuple[float, ...]
+    y_values: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class OffsetStackData:
+    series: tuple[OffsetSeriesData, ...]
+    x_field_name: str
+    y_field_name: str
+    series_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class HistogramData:
     left: tuple[float, ...]
     right: tuple[float, ...]
@@ -782,32 +806,58 @@ def _long_matrix_grid(
 def x23_series(document: PlotDocument, data: EngineDataView) -> X23SeriesData:
     """Validate and normalize one dual-Y input without describing either backend."""
 
+    return _dual_y_series(document, data, profile_id="X23", x_role="x")
+
+
+def x35_series(document: PlotDocument, data: EngineDataView) -> X23SeriesData:
+    """Return the categorical left/right values consumed by the dual-column profile."""
+
+    return _dual_y_series(document, data, profile_id="X35", x_role="category")
+
+
+def x36_series(document: PlotDocument, data: EngineDataView) -> X23SeriesData:
+    """Return the categorical left-column/right-line values for the mixed profile."""
+
+    return _dual_y_series(document, data, profile_id="X36", x_role="category")
+
+
+def _dual_y_series(
+    document: PlotDocument,
+    data: EngineDataView,
+    *,
+    profile_id: Literal["X23", "X35", "X36"],
+    x_role: Literal["x", "category"],
+) -> X23SeriesData:
+    """Normalize one dual-axis table while preserving its public role vocabulary."""
+
     bindings = {binding.role: binding.field_id for binding in document.bindings}
     columns = {column.field.field_id: column for column in data.columns}
     try:
-        x = columns[bindings["x"]]
+        x = columns[bindings[x_role]]
         left = columns[bindings["left"]]
         right = columns[bindings["right"]]
     except KeyError as error:
-        raise ValueError("X23 requires x, left and right bindings") from error
+        raise ValueError(f"{profile_id} requires {x_role}, left and right bindings") from error
     left_values = tuple(_numeric(value) for value in left.values)
     right_values = tuple(_numeric(value) for value in right.values)
     x_scale: Literal["categorical", "linear"]
     if x.field.logical_type in {"categorical", "text"}:
         labels = tuple(_label(value, "x") for value in x.values)
         if len(labels) != len(set(labels)):
-            raise ValueError("X23 categorical x labels must be unique")
+            raise ValueError(f"{profile_id} categorical labels must be unique")
         x_values: tuple[str | float, ...] = labels
         x_scale = "categorical"
     elif x.field.logical_type == "numeric":
         labels = None
         numeric_x = tuple(_numeric(value) for value in x.values)
         if any(not isfinite(value) for value in numeric_x):
-            raise ValueError("X23 x values must be finite")
+            raise ValueError(f"{profile_id} x values must be finite")
         x_values = numeric_x
         x_scale = "linear"
     else:
-        raise ValueError("X23 currently supports categorical or numeric x data")
+        raise ValueError(f"{profile_id} supports categorical or numeric x data")
+    if profile_id in {"X35", "X36"} and x_scale != "categorical":
+        raise ValueError(f"{profile_id} requires categorical data")
     return X23SeriesData(
         x_values=x_values,
         x_labels=labels,
@@ -817,6 +867,69 @@ def x23_series(document: PlotDocument, data: EngineDataView) -> X23SeriesData:
         left_field_name=left.field.name,
         right_field_name=right.field.name,
         x_scale=x_scale,
+    )
+
+
+def x24_pareto(document: PlotDocument, data: EngineDataView) -> ParetoData:
+    """Sort non-negative contributions and calculate one authoritative cumulative curve."""
+
+    category, value = _bound_columns(document, data, ("category", "value"), "X24")
+    labels = tuple(_label(item, "category") for item in category.values)
+    if len(labels) != len(set(labels)):
+        raise ValueError("X24 category labels must be unique")
+    values = _numeric_values(value, "value", "X24", allow_missing=False)
+    if any(item < 0 for item in values):
+        raise ValueError("X24 contributions must be non-negative")
+    total = sum(values)
+    if total <= 0:
+        raise ValueError("X24 requires a positive total contribution")
+    ordered = tuple(
+        sorted(zip(labels, values, strict=True), key=lambda item: item[1], reverse=True)
+    )
+    ordered_labels = tuple(item[0] for item in ordered)
+    ordered_values = tuple(item[1] for item in ordered)
+    running = 0.0
+    cumulative: list[float] = []
+    for item in ordered_values:
+        running += item
+        cumulative.append(running / total * 100.0)
+    return ParetoData(
+        categories=ordered_labels,
+        values=ordered_values,
+        cumulative_percent=tuple(cumulative),
+        category_field_name=category.field.name,
+        value_field_name=value.field.name,
+    )
+
+
+def x38_offset_stack(document: PlotDocument, data: EngineDataView) -> OffsetStackData:
+    """Return aligned raw series; display offsets remain backend-owned and never alter source Y."""
+
+    x, y, series_column = _bound_columns(document, data, ("x", "y", "series"), "X38")
+    x_values = _numeric_values(x, "x", "X38", allow_missing=False)
+    y_values = _numeric_values(y, "y", "X38", allow_missing=True)
+    labels = tuple(_label(item, "series") for item in series_column.values)
+    ordered_labels = tuple(dict.fromkeys(labels))
+    materialized: list[OffsetSeriesData] = []
+    expected_x: tuple[float, ...] | None = None
+    for label in ordered_labels:
+        indexes = tuple(index for index, item in enumerate(labels) if item == label)
+        series_x = tuple(x_values[index] for index in indexes)
+        series_y = tuple(y_values[index] for index in indexes)
+        if len(series_x) < 2 or any(
+            left >= right for left, right in zip(series_x[:-1], series_x[1:], strict=True)
+        ):
+            raise ValueError("X38 requires each series X values to be strictly increasing")
+        if expected_x is None:
+            expected_x = series_x
+        elif series_x != expected_x:
+            raise ValueError("X38 requires every series to share the same X grid")
+        materialized.append(OffsetSeriesData(label=label, x_values=series_x, y_values=series_y))
+    return OffsetStackData(
+        series=tuple(materialized),
+        x_field_name=x.field.name,
+        y_field_name=y.field.name,
+        series_field_name=series_column.field.name,
     )
 
 

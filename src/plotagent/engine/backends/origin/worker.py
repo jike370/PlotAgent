@@ -14,6 +14,7 @@ from .distribution import (
     execute_k14_request,
     execute_x05_request,
 )
+from .dual_y_special import execute_x35_request, execute_x36_request
 from .k01 import execute_k01_request
 from .k02 import execute_k02_request
 from .k03 import execute_k03_request
@@ -30,6 +31,8 @@ from .x02 import execute_x02_request
 from .x09 import execute_x09_request
 from .x13 import execute_x13_request
 from .x23 import execute_x23_request
+from .x24 import execute_x24_request
+from .x38 import execute_x38_request
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -65,6 +68,10 @@ def main(argv: list[str] | None = None) -> int:
         "X09": execute_x09_request,
         "X13": execute_x13_request,
         "X23": execute_x23_request,
+        "X24": execute_x24_request,
+        "X35": execute_x35_request,
+        "X36": execute_x36_request,
+        "X38": execute_x38_request,
         "X39": execute_x39_request,
         "X40": execute_x40_request,
     }

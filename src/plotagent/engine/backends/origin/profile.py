@@ -168,6 +168,34 @@ X23_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+X24_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X24",
+    filename="ParetoRaw.otpu",
+    sha256="5f273e70f87c2e22d230417b35907c2524dc293476070e74312f872a7ff00a7b",
+    tier="T1",
+)
+
+X35_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X35",
+    filename="2Ys_Col.otpu",
+    sha256="cba0737aaa4c2ab24a62062cfe37c095c5651d9048519b3fc2a3e9ccaa058ca9",
+    tier="T1",
+)
+
+X36_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X36",
+    filename="2Ys_ColSymb.otpu",
+    sha256="6e951a3dd1f08cb2122cac48ce37476eef54d54c9fb424211e9fce39c677e1ab",
+    tier="T1",
+)
+
+X38_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X38",
+    filename="OffsetStackY.otp",
+    sha256="c6d7548cf7389e5d53282c6d1873aa2e8e184de96ae54d2cd71937f0a56d98d3",
+    tier="T1",
+)
+
 X02_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="X02",
     filename="DROPLINE.OTP",

@@ -691,6 +691,99 @@ X23_DUAL_Y_LINE_PROFILE = EngineProfile(
     ),
 )
 
+X24_PARETO_PROFILE = EngineProfile(
+    profile_id="X24",
+    display_name="Pareto",
+    required_roles=("category", "value"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y_left"),
+        EngineObjectTemplate(object_alias="right_y_axis", object_kind="axis", object_key="y_right"),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="bars"),
+        EngineObjectTemplate(
+            object_alias="series_2", object_kind="series", object_key="cumulative"
+        ),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label",)),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "line_width_pt", "line_style"),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="set_chart_parameter", parameters=("pareto_reference_percent",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+X35_DUAL_Y_COLUMN_PROFILE = EngineProfile(
+    profile_id="X35",
+    display_name="Dual-Y column",
+    required_roles=("category", "left", "right"),
+    objects=X23_DUAL_Y_LINE_PROFILE.objects,
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(operation="set_series_style", parameters=("color", "line_width_pt")),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+X36_DUAL_Y_COLUMN_LINE_PROFILE = EngineProfile(
+    profile_id="X36",
+    display_name="Dual-Y column and line",
+    required_roles=("category", "left", "right"),
+    objects=X23_DUAL_Y_LINE_PROFILE.objects,
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "line_width_pt", "line_style", "symbol", "symbol_size_pt"),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+X38_OFFSET_STACK_PROFILE = EngineProfile(
+    profile_id="X38",
+    display_name="Y-offset stacked line",
+    required_roles=("x", "y", "series"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series",
+            object_kind="series",
+            object_key_prefix="group",
+        ),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "reverse")),
+        EngineCapability(
+            operation="set_series_style", parameters=("color", "line_width_pt", "line_style")
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
 ENGINE_PROFILES = (
     K01_LINE_PROFILE,
     K02_LINE_SYMBOL_PROFILE,
@@ -718,6 +811,10 @@ ENGINE_PROFILES = (
     X09_FLOATING_INTERVAL_PROFILE,
     X13_POPULATION_PYRAMID_PROFILE,
     X23_DUAL_Y_LINE_PROFILE,
+    X24_PARETO_PROFILE,
+    X35_DUAL_Y_COLUMN_PROFILE,
+    X36_DUAL_Y_COLUMN_LINE_PROFILE,
+    X38_OFFSET_STACK_PROFILE,
     X39_LINE_SERIES_PROFILE,
     X40_BEFORE_AFTER_PROFILE,
 )

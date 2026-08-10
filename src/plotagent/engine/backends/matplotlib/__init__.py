@@ -22,6 +22,12 @@ from .line_symbol import K02LineSymbolRenderer
 from .point_error import K06PointErrorRenderer
 from .population_pyramid import X13PopulationPyramidRenderer
 from .scatter import K03ScatterRenderer
+from .special_t1 import (
+    X24ParetoRenderer,
+    X35DualYColumnRenderer,
+    X36DualYColumnLineRenderer,
+    X38OffsetStackRenderer,
+)
 from .time_series import K19TimeSeriesRenderer
 from .wide_series import X03LollipopRenderer, X39LineSeriesRenderer, X40BeforeAfterRenderer
 
@@ -53,6 +59,10 @@ __all__ = [
     "X09FloatingIntervalRenderer",
     "X13PopulationPyramidRenderer",
     "X23DualYRenderer",
+    "X24ParetoRenderer",
+    "X35DualYColumnRenderer",
+    "X36DualYColumnLineRenderer",
+    "X38OffsetStackRenderer",
     "X39LineSeriesRenderer",
     "X40BeforeAfterRenderer",
 ]
