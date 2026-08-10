@@ -234,19 +234,40 @@ export function requestPlotList(
 
 export const ORIGIN_EXPORT_REQUEST_TIMEOUT_MS = 925_000
 
-export function requestOriginExport(
+function normalizeOriginExportResult(result: DesktopDataResult): DesktopDataResult {
+  if (!result.ok || result.value === null || Array.isArray(result.value) || typeof result.value !== 'object') {
+    return result
+  }
+  const outcome = result.value.result
+  if (outcome === null || Array.isArray(outcome) || typeof outcome !== 'object' || outcome.status !== 'failed') {
+    return result
+  }
+  const error = outcome.error
+  const message = error !== null && !Array.isArray(error) && typeof error === 'object' && typeof error.message === 'string'
+    ? error.message
+    : 'Origin 导出未完成。'
+  const retryable = error !== null && !Array.isArray(error) && typeof error === 'object' && typeof error.retryable === 'boolean'
+    ? error.retryable
+    : true
+  return {
+    ok: false,
+    error: { code: 'CORE_REQUEST_FAILED', message, retryable },
+  }
+}
+
+export async function requestOriginExport(
   supervisor: PythonCoreSupervisor,
   resources: ResourceRegistry,
   params: JsonValue,
 ): Promise<DesktopDataResult> {
-  return requestCoreData(
+  return normalizeOriginExportResult(await requestCoreData(
     supervisor,
     resources,
     'exports.origin',
     params,
     'export',
     ORIGIN_EXPORT_REQUEST_TIMEOUT_MS,
-  )
+  ))
 }
 
 function originDiagnostic(code: string, fallback: string): string {

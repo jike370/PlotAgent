@@ -175,4 +175,36 @@ describe('desktop product IPC boundary', () => {
     )
     expect(ORIGIN_EXPORT_REQUEST_TIMEOUT_MS).toBe(925_000)
   })
+
+  it('surfaces a failed Origin outcome instead of reporting a successful export', async () => {
+    const request = vi.fn(async () => ({
+      task_id: 'task:origin-failed',
+      export_id: null,
+      result: {
+        status: 'failed',
+        error: {
+          code: 'VALIDATION_FAILURE',
+          message: 'Origin 项目重开校验未通过。',
+          retryable: false,
+        },
+      },
+    }))
+    const supervisor = {
+      request,
+      toPublicResult: vi.fn(),
+    } as unknown as PythonCoreSupervisor
+
+    await expect(requestOriginExport(
+      supervisor,
+      new InMemoryResourceRegistry(),
+      { project_id: 'project:one', target_kind: 'plot' },
+    )).resolves.toEqual({
+      ok: false,
+      error: {
+        code: 'CORE_REQUEST_FAILED',
+        message: 'Origin 项目重开校验未通过。',
+        retryable: false,
+      },
+    })
+  })
 })
