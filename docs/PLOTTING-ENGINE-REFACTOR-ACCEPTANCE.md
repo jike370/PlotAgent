@@ -1,6 +1,6 @@
 # PlotAgent v3 绘图引擎重构与验收基线
 
-> 状态：产品与验收契约已冻结；Gate 0、Gate 1 与模板优先生产链已完成，Gate 3A 的逐图机械编辑证据仍在执行；任何图均未因机械通过自动取得视觉 PASS
+> 状态：产品与验收契约已冻结；Gate 0、Gate 1、模板优先生产链与 Gate 3A 逐图机械编辑资格均已完成；Gate 3B 统一视觉审查页已生成并等待用户签名，任何图均未因机械通过自动取得视觉 PASS
 >
 > 适用范围：正式 T1/T2 38 图、Matplotlib PNG/SVG、Origin 原生 OPJU、Agent 创建/编辑、批量与组合图
 >
@@ -8,7 +8,7 @@
 
 ## 1. 决策摘要
 
-当前实施事实（2026-08-10）：正式库存为 38；官方模板目录与哈希已进入生产 plan；38 图共 368 个裸模板动态变体完成，结论为 28 `AUTO`＋10 `DECLARED_PATCH`；38/38 代表性默认态已完成真实 Origin build/fresh-reopen；旧 K01 专用导出路径已删除。尚未完成的是每图数据值＋代表性样式修改读回、统一 38 图视觉页和用户签名，因此 Gate 3A/3B 仍未关闭。
+当前实施事实（2026-08-10）：正式库存为 38；官方模板目录与哈希已进入生产 plan；38 图共 368 个裸模板动态变体完成，结论为 28 `AUTO`＋10 `DECLARED_PATCH`；38/38 代表性默认态已完成真实 Origin build/fresh-reopen；旧 K01 专用导出路径已删除；38/38 独立 OPJU 已完成数据值＋代表性样式修改与 fresh-reopen 读回，Gate 3A 已关闭。统一 38 图视觉页为 `build/visual-audit/template-first-38/index.html`，Gate 3B 尚待用户逐图视觉签名与 33 个模板文件家族的代表图人工编辑签名。
 
 产品目标和用户流程不变，改变的是绘图引擎内部实现：
 
@@ -268,12 +268,16 @@ Matplotlib 与 Origin 必须一致的内容包括：
 
 ### Gate 3A：38 图机械迁移完成
 
+状态：**PASS（机械资格）**。冻结证据为 `tests/fixtures/origin_template_migration/manifest.json`；38/38 每图独立 OPJU 均含默认态与代表编辑态，并完成实际数据值、代表允许样式和 fresh-reopen 原生读回。
+
 - 38/38 默认态、动态矩阵、共同编辑、PNG/SVG、OPJU/fresh-reopen 完成。
 - 所有机械阻断项为零；38 图机械修改读回全部通过。
 - 旧 Origin 几何路径和对应测试在新证据通过后删除。
 - 此时 38 图视觉状态仍统一为 `UNVERIFIED`，不得因机械测试通过改写为 PASS。
 
 ### Gate 3B：统一视觉审查与签名
+
+状态：**OPEN / UNVERIFIED**。统一审查页已经生成，等待用户逐图判断；机械 PASS 不改变本状态。
 
 - Gate 3A 完成后一次性生成 38 图统一审查页；不在迁移中途进行探索性或分批视觉审查。
 - 每图并列提供官方模板参考、Matplotlib 默认/代表性编辑态、Origin 默认/代表性编辑态和可下载 OPJU。

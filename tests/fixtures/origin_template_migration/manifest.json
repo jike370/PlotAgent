@@ -1,0 +1,1578 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-08-10T12:57:27.278878+00:00",
+  "scope": "38-chart template-first unified visual review",
+  "source_build_identity": {
+    "scope_version": "per-chart-opju-rendering-v1",
+    "digest_algorithm": "git-blob-framed-sha256-v1",
+    "git_commit": "e49a0e0e745d6e121090a6adf1b474c96cf8b43e",
+    "source_sha256": "4d5f742b9d332245f084e800b3e31c6ee9073a779a21e3bd7b53b8486f4cd990"
+  },
+  "summary": {
+    "chart_count": 38,
+    "mechanical_pass": 38,
+    "visual_unverified": 38,
+    "template_family_count": 33,
+    "family_manual_edit_unverified": 33
+  },
+  "families": {
+    "F20": {
+      "template_filename": "LINE.otpu",
+      "template_sha256": "76a7ce886e2290d29444ac3a92c736a2057d2583aea8867091db439cb23dc648",
+      "chart_ids": [
+        "K01"
+      ],
+      "manual_edit_representative": "K01",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F21": {
+      "template_filename": "LINESYMB.otpu",
+      "template_sha256": "2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",
+      "chart_ids": [
+        "K02",
+        "S34"
+      ],
+      "manual_edit_representative": "K02",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F27": {
+      "template_filename": "SCATTER.OTP",
+      "template_sha256": "efef85d7c3db5028c565a57e15c86f97d6ebeded6d779c1cdb11328a7fbd4a99",
+      "chart_ids": [
+        "K03"
+      ],
+      "manual_edit_representative": "K03",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F07": {
+      "template_filename": "bubble.otpu",
+      "template_sha256": "abc20768493ef817b567bd3e58bb0c3da1a8ec59c56f0d1b92c2341479560b44",
+      "chart_ids": [
+        "K04"
+      ],
+      "manual_edit_representative": "K04",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F13": {
+      "template_filename": "ERRBAR.otpu",
+      "template_sha256": "c17ebd8f68f8585c3bb4c431e75f4dc1724e3f54ee1fd7d0977b6cadcf1c599b",
+      "chart_ids": [
+        "K06"
+      ],
+      "manual_edit_representative": "K06",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F14": {
+      "template_filename": "ERRORBAND.otp",
+      "template_sha256": "dfd36bf19bf3cf81bebd7d2b7d04a0ef05f07f90243678ddf3d03eded342c763",
+      "chart_ids": [
+        "K07"
+      ],
+      "manual_edit_representative": "K07",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F08": {
+      "template_filename": "COLUMN.otpu",
+      "template_sha256": "ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
+      "chart_ids": [
+        "K08",
+        "K09"
+      ],
+      "manual_edit_representative": "K08",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F30": {
+      "template_filename": "STACKCOLUMN.otp",
+      "template_sha256": "3ffd84ea777e414c60daab6e3b162b207379b94341ef1497c144a725f0caa264",
+      "chart_ids": [
+        "K10"
+      ],
+      "manual_edit_representative": "K10",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F29": {
+      "template_filename": "StackColP.otp",
+      "template_sha256": "2094be00706be51883e7d5f8212e79e5eb1ac01ff66af45ba4953761ba8fe7d3",
+      "chart_ids": [
+        "K11"
+      ],
+      "manual_edit_representative": "K11",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F09": {
+      "template_filename": "ColumnScatter.otp",
+      "template_sha256": "e9bfbf3b74bc78db041208505bf1c1b32b387378cc8aac91462d017a662c425d",
+      "chart_ids": [
+        "K12",
+        "X05"
+      ],
+      "manual_edit_representative": "X05",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F05": {
+      "template_filename": "BOX.OTP",
+      "template_sha256": "a1f26e68a6a070aba0769905c6b143766a51abd0d7e6039ad93de49ab600daaa",
+      "chart_ids": [
+        "K13"
+      ],
+      "manual_edit_representative": "K13",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F33": {
+      "template_filename": "Violin.otpu",
+      "template_sha256": "ee71ef5fb2bf15cfc403444494f1779999df31d43c0a3e24001cb35b838bc1eb",
+      "chart_ids": [
+        "K14"
+      ],
+      "manual_edit_representative": "K14",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F18": {
+      "template_filename": "Hist.otpu",
+      "template_sha256": "cc1d7edd9f07f8bb0e1b0fe6f9ea0f36439afa912d209efc29329df9c2f00cfa",
+      "chart_ids": [
+        "K15"
+      ],
+      "manual_edit_representative": "K15",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F19": {
+      "template_filename": "HISTDIST.otpu",
+      "template_sha256": "a584e2ee70fa332c592cce714a0339e31e3a7d937889d3096f37722b7fcd50e7",
+      "chart_ids": [
+        "K16"
+      ],
+      "manual_edit_representative": "K16",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F03": {
+      "template_filename": "AREA.otpu",
+      "template_sha256": "c14ad432ffd60db09f6763b7b988de4aa554dcf0d9772b18334970fb83eddaec",
+      "chart_ids": [
+        "K18"
+      ],
+      "manual_edit_representative": "K18",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F32": {
+      "template_filename": "TimeSeries.otp",
+      "template_sha256": "ebe487cd9626437e522ae82e6fc302a280110bed4b26564984d4b0263eeb660c",
+      "chart_ids": [
+        "K19"
+      ],
+      "manual_edit_representative": "K19",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F16": {
+      "template_filename": "Heat_Map.otpu",
+      "template_sha256": "9bd8240ca582bbedfec797ea27b1ec5c2906939e304fa343cd1821bae2ffbb9f",
+      "chart_ids": [
+        "K20"
+      ],
+      "manual_edit_representative": "K20",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F17": {
+      "template_filename": "Heat_Map_With_Labels.otpu",
+      "template_sha256": "d1a7fcd8af232aef9ca348eb178466a13a744eb700da7d49d39cfbe16c935c7d",
+      "chart_ids": [
+        "K21",
+        "S61"
+      ],
+      "manual_edit_representative": "K21",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F10": {
+      "template_filename": "CONTOUR.otpu",
+      "template_sha256": "b4915054edd419955245e485b606784dbb6b4965dd6359b45603e00a866628e2",
+      "chart_ids": [
+        "K22"
+      ],
+      "manual_edit_representative": "K22",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F23": {
+      "template_filename": "mgroups.otpu",
+      "template_sha256": "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+      "chart_ids": [
+        "K24",
+        "K25"
+      ],
+      "manual_edit_representative": "K24",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F31": {
+      "template_filename": "SurvivalPlot.otp",
+      "template_sha256": "0b8759367ce19f1a82cfb9630ffefd849e0c600bce1e909985645c0a47de046b",
+      "chart_ids": [
+        "S01"
+      ],
+      "manual_edit_representative": "S01",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F28": {
+      "template_filename": "SCATTERINTERVAL.otp",
+      "template_sha256": "fb319b1a6918427767373917ddda2cc5b95a88d9d295ff06e866762b955dd161",
+      "chart_ids": [
+        "S21"
+      ],
+      "manual_edit_representative": "S21",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F12": {
+      "template_filename": "DROPLINE.OTP",
+      "template_sha256": "69cbcf9349249092e2e32c8955c88c0a265ac47a46811885593d9eced643299f",
+      "chart_ids": [
+        "X02"
+      ],
+      "manual_edit_representative": "X02",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F22": {
+      "template_filename": "Lollipop.otpu",
+      "template_sha256": "f76fc89b9438947bbcd601b53e03cf16732a931621143b469233e584f88ba58b",
+      "chart_ids": [
+        "X03"
+      ],
+      "manual_edit_representative": "X03",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F15": {
+      "template_filename": "FLOATBAR.OTP",
+      "template_sha256": "7fd8331a4f91170ce7a7b35428659e48b985fc6ce8164c706ea31b4e41dee93b",
+      "chart_ids": [
+        "X09"
+      ],
+      "manual_edit_representative": "X09",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F26": {
+      "template_filename": "PopulationPyramid.otpu",
+      "template_sha256": "2c5958a91130d62cf8a6708f197bfd6248a3b22d81fc68eed1abe5f10988fbab",
+      "chart_ids": [
+        "X13"
+      ],
+      "manual_edit_representative": "X13",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F11": {
+      "template_filename": "DOUBLEY.OTP",
+      "template_sha256": "487547eb206e4645f3380a9a021ceb7fbcf4ec4d1fdb0a870d1eb0cde0c7641b",
+      "chart_ids": [
+        "X23"
+      ],
+      "manual_edit_representative": "X23",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F25": {
+      "template_filename": "ParetoRaw.otpu",
+      "template_sha256": "5f273e70f87c2e22d230417b35907c2524dc293476070e74312f872a7ff00a7b",
+      "chart_ids": [
+        "X24"
+      ],
+      "manual_edit_representative": "X24",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F01": {
+      "template_filename": "2Ys_Col.otpu",
+      "template_sha256": "cba0737aaa4c2ab24a62062cfe37c095c5651d9048519b3fc2a3e9ccaa058ca9",
+      "chart_ids": [
+        "X35"
+      ],
+      "manual_edit_representative": "X35",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F02": {
+      "template_filename": "2Ys_ColSymb.otpu",
+      "template_sha256": "6e951a3dd1f08cb2122cac48ce37476eef54d54c9fb424211e9fce39c677e1ab",
+      "chart_ids": [
+        "X36"
+      ],
+      "manual_edit_representative": "X36",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F24": {
+      "template_filename": "OffsetStackY.otp",
+      "template_sha256": "c6d7548cf7389e5d53282c6d1873aa2e8e184de96ae54d2cd71937f0a56d98d3",
+      "chart_ids": [
+        "X38"
+      ],
+      "manual_edit_representative": "X38",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F06": {
+      "template_filename": "BoxLser.otpu",
+      "template_sha256": "8396fd58435c4ded363b889d7eb3c8cf8a3b22e82eb539e8cc85f6b58481ec83",
+      "chart_ids": [
+        "X39"
+      ],
+      "manual_edit_representative": "X39",
+      "manual_edit_status": "UNVERIFIED"
+    },
+    "F04": {
+      "template_filename": "BeforeAfter.otpu",
+      "template_sha256": "d37a1c2949696f29cd2a2fcf856a2c8b5f8be29e8ab040a83a9c2c9f0e262c0b",
+      "chart_ids": [
+        "X40"
+      ],
+      "manual_edit_representative": "X40",
+      "manual_edit_status": "UNVERIFIED"
+    }
+  },
+  "charts": {
+    "K01": {
+      "chart_type_id": "K01",
+      "case_id": "K01_line",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "LINE.otpu",
+      "template_sha256": "76a7ce886e2290d29444ac3a92c736a2057d2583aea8867091db439cb23dc648",
+      "template_family_id": "F20",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "a379f4f939c27caf256cf2a0ef0ad72c225c37714994d8f2893f6bc7802f51b2",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 0.61586,
+        "after": 0.6097014,
+        "table_sha256_after": "e00f317f1f025ce109cc3195eda5ed817076077975e7d020d5edf3a06bd5bac2"
+      },
+      "default_data_sha256": "ea173569a7d7b15dfab7f13859d0b18ba422f49c748c70b2c79536df5d7d3779",
+      "edited_data_sha256": "4e0317df2a7536ee4de12370a2900b65de4b4143a1bea6ad1f60e91d7c7abee1",
+      "default_style_sha256": "494f99e700b18f0eba32848e5634b8a17c113e74e9f381d822e3ccbbe856f948",
+      "edited_style_sha256": "1f9a23ea09b4502faeb5808b6fb3d1c8e22943aa2aca3ea570a6160980e4c3c2",
+      "opju_sha256": "39054ea300ba94f98c6aec54b6d7fb669fa1ebd4bb18e5677322606975070b6d",
+      "evidence_sha256": {
+        "official-template-default.png": "4d3cf484b12b0e0d56c9829eead0e524e9871ebf1199c30fa3b3baedac4b7e9d",
+        "matplotlib-default.png": "a894fa5edebba14254855e474c113e9a2fd5ec93922100dd2b9cabecc163cfdd",
+        "origin-default.png": "37017955b0b66150c0571c83b83429342caf7e88b6adf807eb339dae967cede6",
+        "matplotlib-edited.png": "40077fc700720497ee57cd619488891a2097d94a3c176f7a54c884b5c4591d77",
+        "origin-edited.png": "8f391c4e0a42d53f0ea7c977ea5a3ac2f5f4f5e688c6c21b8f350241340a13f4"
+      }
+    },
+    "K02": {
+      "chart_type_id": "K02",
+      "case_id": "K02_line_symbol",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "LINESYMB.otpu",
+      "template_sha256": "2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",
+      "template_family_id": "F21",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "a379f4f939c27caf256cf2a0ef0ad72c225c37714994d8f2893f6bc7802f51b2",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 0.61586,
+        "after": 0.6097014,
+        "table_sha256_after": "e00f317f1f025ce109cc3195eda5ed817076077975e7d020d5edf3a06bd5bac2"
+      },
+      "default_data_sha256": "70d1e1aec1ed5dcb7a0150f16bb74376eca997fe3ed199aacdfcfbb5b72281e4",
+      "edited_data_sha256": "1f9dedcc5e3b642cc515ff5ee96db155c4c09cb7f69f08595ba4c0e9783c2178",
+      "default_style_sha256": "a74583404991cf8449627cd79b37eb658c14a837258576c227937736194b3ebb",
+      "edited_style_sha256": "5738e93666cd128d8799eac8bad357f83e58d091e39b77f00e957065299302d4",
+      "opju_sha256": "350af45285fff4166f4bfc539ab4a1544bfb88775129ee74d7dbe20bf983ca40",
+      "evidence_sha256": {
+        "official-template-default.png": "591a1b8368c4d16ee6fe58950b8617169c3b4e0f152e11f5e49eee0d6fa9aabe",
+        "matplotlib-default.png": "40875167c561f1f17c178972e52475855e04b6c6eaab00769dbbec80a5a58cea",
+        "origin-default.png": "5c49c5e43dbe5ae548c3365e4ed63871952b7b61f1f2defd1c717ec72ff7e81c",
+        "matplotlib-edited.png": "c1a655a5afcbf57d311d1743a2f3a78bb2243eb3492b75321ae1855873f760ce",
+        "origin-edited.png": "b6ea869d0898b4bb8e151cd9bdb4448059581a755b0658dd1f5a65d55b0742ce"
+      }
+    },
+    "K03": {
+      "chart_type_id": "K03",
+      "case_id": "K03_scatter",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "SCATTER.OTP",
+      "template_sha256": "efef85d7c3db5028c565a57e15c86f97d6ebeded6d779c1cdb11328a7fbd4a99",
+      "template_family_id": "F27",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "5828a3a9c39030c74aeaf1fcc3b9dc1eab441be80f3a1e566ccd49187bb5861a",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 0.19344,
+        "after": 0.1915056,
+        "table_sha256_after": "dbc0a1fcbe4d532afc02f7e71cacfdf7db7e260370d6fbcb8c578e741ce8dc62"
+      },
+      "default_data_sha256": "06cb4ae2722dedd95fc65afd4dd171cbf192fdd665a3691dd49d08981a5b0cc4",
+      "edited_data_sha256": "f03361da725e1e962423f802ca33d12884d1659f79aff757c49bdf3d148c33e8",
+      "default_style_sha256": "242c40a55530c9408a90d66c3f6e645c5b08a04fc23a60b85c4970bb883bb2bb",
+      "edited_style_sha256": "9f779ecba4f1dd029fa8809969575b58fb3d18055a76aa540f23e96571cdc3ff",
+      "opju_sha256": "5ecff8efbaa55f8561421292af5889fb64d2dd4155f1762d6e81b517af483a9b",
+      "evidence_sha256": {
+        "official-template-default.png": "490e771da1d77f00add494542576ea61696d4a213d9507c35f08251a35c5f976",
+        "matplotlib-default.png": "b9a870ac9b76941b236a6ccf1bac65caa3dece324b7700e7728d94ef824fab58",
+        "origin-default.png": "dd364525b1d0ab60e32ffe97ac443ee06200b7554f96d15b1aa6d6d342d77a8f",
+        "matplotlib-edited.png": "288278c01fce76e8bd393fdce63bbb9fc481445a32d528ce390a1abcf0211cd2",
+        "origin-edited.png": "0f1a58e32d9c987169f0f8426b48cd1e8284e7dc5d808ab1bbb931952ee8ed89"
+      }
+    },
+    "K04": {
+      "chart_type_id": "K04",
+      "case_id": "K04_bubble_colormap",
+      "lane": "matrix",
+      "tier": "T2",
+      "template_filename": "bubble.otpu",
+      "template_sha256": "abc20768493ef817b567bd3e58bb0c3da1a8ec59c56f0d1b92c2341479560b44",
+      "template_family_id": "F07",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "f105887bc1eaf032cc4b6abb34480810ddb66650f85fc06fc54bf4983a381ff7",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 120.0,
+        "after": 121.2,
+        "table_sha256_after": "329d59dcdf2e2c7b0637ffc07a25e7f8b3022bfa0c8a99685701d292af5ef1d5"
+      },
+      "default_data_sha256": "7c6f16679f892d454ed09b4cfc7649692a599c3b41c6380a119ecf095407d239",
+      "edited_data_sha256": "35717c794d3963a516efed00952dc7deda249ac18d0845a6debf4eb27c101a06",
+      "default_style_sha256": "cecd4c70c71d1166df9792b3a0844e1b3e70f338addab0bcbdbed77faa7ed65c",
+      "edited_style_sha256": "557ffca402221734def88d92cb219881a2225111b7b86a9736f607a805139226",
+      "opju_sha256": "a888879a0f8a5be0a3e35ef70715249281c524df2f131d2bf4e8495a5c2ee4a4",
+      "evidence_sha256": {
+        "official-template-default.png": "c54f7fcb4ba59aa6eaa68321c1b4d564ca6f955f17cacfb9de4ee10c214b7647",
+        "matplotlib-default.png": "afad9088f8ca1df58479e694ebaa8e6b4f7f5eb336a40428ab0dbc923caab3e1",
+        "origin-default.png": "cc71f78123d98fe68c06d3322fb610b202b4021e02803bcf2b14d00165753f09",
+        "matplotlib-edited.png": "d06b817e92aa64156808606318b6a2a602c07ea89494146c926ad3ca7a075b1d",
+        "origin-edited.png": "d984cafe5e509b46e22ee3c87970239b50103fdfcd39210391caf08189f1114e"
+      }
+    },
+    "K06": {
+      "chart_type_id": "K06",
+      "case_id": "K06_point_error",
+      "lane": "fixed",
+      "tier": "T1",
+      "template_filename": "ERRBAR.otpu",
+      "template_sha256": "c17ebd8f68f8585c3bb4c431e75f4dc1724e3f54ee1fd7d0977b6cadcf1c599b",
+      "template_family_id": "F13",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "d7e52ab1e27e73e4e0aadc01f1584b31eddd63a013a3fecc6ebb6df286eb59fd",
+        "field_id": "field:resolved.0.center",
+        "row_position": 0,
+        "before": 5.24667188724,
+        "after": 5.2991386061123995,
+        "table_sha256_after": "f36be74d23fc2f72f7c9317fee733d6c24e3e3c29f87437b4a1087c05e33a78f"
+      },
+      "default_data_sha256": "8ecabb3024920d3c73ea15a719205b8d1f4e2dfb739af77f1c35beb5ca97a3eb",
+      "edited_data_sha256": "e09be523de55e613e7632a3650b2cc76ddb3f4e62ec9086f4d66d9adaf939397",
+      "default_style_sha256": "b60e84aa5b50baa80c3f88dabcc720dfaf5a524d0ef1a3f205579abc5af89699",
+      "edited_style_sha256": "97cfd3992d0106d19bdc3423ed8e841d5cebdc28a7f2a3f5a5faabb7b665eea9",
+      "opju_sha256": "179a679fd25d47220379413f38c4d10a4747b4699d725a46dd544f0107cee9b9",
+      "evidence_sha256": {
+        "official-template-default.png": "b1f0f9421d98a12ca79f0f088dc5e428580badd6a587f6e03581c5309bdadea6",
+        "matplotlib-default.png": "c683f411428a3863aafa05193b10081823237261cbfb58d1f1b55fd16b172014",
+        "origin-default.png": "1ed2111beb1af923db2a78752e98be7e4310c89c1eb71e2a24b6c1ecb5ba31e2",
+        "matplotlib-edited.png": "671fed29989bf666cd59ddbd52740dc6ca7ba6d0e9add35daa65c960a7f21d90",
+        "origin-edited.png": "62fe9c7dfb9d801d82bb0135c8bb9195945b570e1d8392f8adc70bd0f7b37d2a"
+      }
+    },
+    "K07": {
+      "chart_type_id": "K07",
+      "case_id": "K07_error_band",
+      "lane": "fixed",
+      "tier": "T1",
+      "template_filename": "ERRORBAND.otp",
+      "template_sha256": "dfd36bf19bf3cf81bebd7d2b7d04a0ef05f07f90243678ddf3d03eded342c763",
+      "template_family_id": "F14",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "34a00812639092f88ef9124c645aadab24d6647dd41cdfe701265af01658ec58",
+        "field_id": "field:resolved.0.center",
+        "row_position": 0,
+        "before": 23.1153690909,
+        "after": 23.346522781809,
+        "table_sha256_after": "5922e49d96f1edfc722f1ec5dcd59deb8b06ec03b6187cb196c23dd579221ce9"
+      },
+      "default_data_sha256": "24ddbf88cd003c25a495d80192314f5e65b9074162dc4b2acebfedf3ea9d1f80",
+      "edited_data_sha256": "0fd88986b7ab9d1a61c9111af905e13b96fce1b498cc3a455af18f81fc5b3fb9",
+      "default_style_sha256": "88f0e19c343893244fc537ab43de1c63f98ca47deb7a3f15b3adf9c4a4e04ddd",
+      "edited_style_sha256": "67da3d6e8d00a3c319477948c03831596153179ffe517e8de6eb7fae667c288b",
+      "opju_sha256": "208c0101d7868849c2b7fc83d2d6ee84f3695343319c583e823537ae3f2d3ae5",
+      "evidence_sha256": {
+        "official-template-default.png": "2f79a6c0511af13727508f4863e9740000a320271729e5daf9850e3a3abea193",
+        "matplotlib-default.png": "a4c604d8f0573a1b508ff2f06480d0b3906295147403291a3cf58bc882e44fb7",
+        "origin-default.png": "daca0ba5cbd6b1f42f2f6724be86eae1bd28120da0d361286a6a79b9e8dacb91",
+        "matplotlib-edited.png": "aad8b2a95b8a4e4074920e3ed2552bdc7cd1a8c7406e77e77311554e03bcb3b9",
+        "origin-edited.png": "2f50d1882ca6fa50cfe1d2ad36e8e00b1225b676d6c5bf66ab066863b6601de0"
+      }
+    },
+    "K08": {
+      "chart_type_id": "K08",
+      "case_id": "K08_column",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "COLUMN.otpu",
+      "template_sha256": "ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
+      "template_family_id": "F08",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "f84978044d422d8ac337b8d5bf2a017074449fe19a134a7d19d8a8f4eb9fe893",
+        "field_id": "field:resolved.0.height",
+        "row_position": 0,
+        "before": 40.0,
+        "after": 40.4,
+        "table_sha256_after": "080fe8b49e3bb5bbd07a191e82d3b9ca70a2ddfc5a531cd31def280818847327"
+      },
+      "default_data_sha256": "b59de48c646f4efe3e9f9528139044748535f511577d57acf896cf41ea220e6c",
+      "edited_data_sha256": "16625242177a0f51ebebb43ec018628c8dd4e9a391085541132d141668c8679c",
+      "default_style_sha256": "b992b19b52ebbc6fe480585f43f6cbef3fd10b986934d1a3f5f0e6b8d23f2d7e",
+      "edited_style_sha256": "5d1f01b30b5fa7651fac7a5378fdff6a9764dd8d40ec31f2114c3146ef65b8be",
+      "opju_sha256": "bb7cf5dbf426aeb41e7294a6f8d55efb0b3681e7e4d106d48249a6717ef7f4e1",
+      "evidence_sha256": {
+        "official-template-default.png": "9567c603f03fd129337472b6ca6f044a3d73a33eef48bc8dad83564635b6232f",
+        "matplotlib-default.png": "31a418b88c608d80d29f4c879841d89f3b97d35b7040a9c77b5321e3f2b2d653",
+        "origin-default.png": "610f420639e34e621aa1d910228a07faecb344e963e03a963ee690d0329c326e",
+        "matplotlib-edited.png": "e597651254b27154c12129735540c0bc61ae1a03cff19f752cd1aacd4ccfed7e",
+        "origin-edited.png": "6a33bfb9d658cf55e40a5088216279b743ac0d6b24b9afdb0a3192620bae8549"
+      }
+    },
+    "K09": {
+      "chart_type_id": "K09",
+      "case_id": "K09_grouped_column",
+      "lane": "seq20",
+      "tier": "T2",
+      "template_filename": "COLUMN.otpu",
+      "template_sha256": "ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
+      "template_family_id": "F08",
+      "family_edit_representative": false,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "c3a80309647329af81e7541beb97e6690ef8f2053eb96f441e754008a0c0ddaa",
+        "field_id": "field:resolved.0.height",
+        "row_position": 0,
+        "before": 40.0,
+        "after": 40.4,
+        "table_sha256_after": "b9cde25cefef6cf5ffdfc451e482629197ffccbc2782b8db84b13219e15f7fdb"
+      },
+      "default_data_sha256": "57ba56b38884f0d3dd9ad7b259ef7cd6975a6d74eb837c42b4688525b2f52fa1",
+      "edited_data_sha256": "a1330008b875f3b285afe6bbbb39abf68f1de27b08fcee404b2617ab3313e0a2",
+      "default_style_sha256": "af08b5f5dc6dc69a7345b75dddfc6a116cabea225c6096a817a17b8df24d6503",
+      "edited_style_sha256": "e621ffd2f6e5016b0a9eaf09f35c025b5a4d4bf17aa08afaa926148f7618c0ef",
+      "opju_sha256": "df3501dbb0274a03660fe18cba18eff68d9a1b6edca63246427ce8845d6040ee",
+      "evidence_sha256": {
+        "official-template-default.png": "12d8c392f545f57eda27cfe93ea254432308cac3c1bec96459f4e38bfc1289e6",
+        "matplotlib-default.png": "ef8f28afec93f59025f52ea3576ad752fefb17c23aad93785fe83743f69c4e87",
+        "origin-default.png": "09c78ed3bc385030682c733ea8d1257c1a21d5891d441e053462b84d2a2820a9",
+        "matplotlib-edited.png": "b7ba5b09811191c5704b468aadcea9474a030b7a1527dddf1425fea393b8f3ab",
+        "origin-edited.png": "f624f29474773721b2e4ca83fcfc47b8a2cf78448f5af26ddc23ae941c02a997"
+      }
+    },
+    "K10": {
+      "chart_type_id": "K10",
+      "case_id": "K10_stacked_column",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "STACKCOLUMN.otp",
+      "template_sha256": "3ffd84ea777e414c60daab6e3b162b207379b94341ef1497c144a725f0caa264",
+      "template_family_id": "F30",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "f84978044d422d8ac337b8d5bf2a017074449fe19a134a7d19d8a8f4eb9fe893",
+        "field_id": "field:resolved.0.height",
+        "row_position": 0,
+        "before": 40.0,
+        "after": 40.4,
+        "table_sha256_after": "080fe8b49e3bb5bbd07a191e82d3b9ca70a2ddfc5a531cd31def280818847327"
+      },
+      "default_data_sha256": "bd54a3cbd235fba47ad404b92d8edbb4d60e5f4eefb472471cd2882bd3c1f8f4",
+      "edited_data_sha256": "3b25e4be1658612a16c3e0495487316ebfa2a338d4c139e3ca5420748eebcca7",
+      "default_style_sha256": "c54f9c0e06f76f842f2784f731487cff874fc4aa1cd0bd6c68fffab8466a6e5c",
+      "edited_style_sha256": "9e57a3654b18e46da2c084c8bcd35eeeb6194d75096dedff4d4801ea1c232640",
+      "opju_sha256": "80b6ed4a8e260915595d4b3b2f37a51c04e85f46035776efdd77313bbdeac630",
+      "evidence_sha256": {
+        "official-template-default.png": "735eef3be02543c36aa6245e42bb61ed3fa8b1ef42836f08ddfa0019a4bd440b",
+        "matplotlib-default.png": "85c8a654b7fe9c4ee2beb2e30a46722144dfa835f08921d1643fe7b034ee1a74",
+        "origin-default.png": "c33028b6e63cc2fb15dcb7c03b91c693b8891a9636f988e942b31b24bef368ce",
+        "matplotlib-edited.png": "71234bde68207385c04ac4084f5df6da13383c5c1bee8870e3edfdb8be8a8052",
+        "origin-edited.png": "931332120bbb233a3595bcdbb01f7fb3bf79de52ec45cabbc30b2a6151eed1f5"
+      }
+    },
+    "K11": {
+      "chart_type_id": "K11",
+      "case_id": "K11_percent_stack",
+      "lane": "fixed",
+      "tier": "T1",
+      "template_filename": "StackColP.otp",
+      "template_sha256": "2094be00706be51883e7d5f8212e79e5eb1ac01ff66af45ba4953761ba8fe7d3",
+      "template_family_id": "F29",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "d1a0dc22c18b4309e279e2b278289940fe9968744654c064d9289d72dd6ece28",
+        "field_id": "field:resolved.0.height",
+        "row_position": 0,
+        "before": 0.229489386116,
+        "after": 0.22719449225484,
+        "table_sha256_after": "8a88f5d9c48f3a477081bd8311c29c81f33fbf7b5ddfe010b8e72fa30ca66b20"
+      },
+      "default_data_sha256": "b4b8359d85cda4e5da19540388f19bbe46f244ab91a77dc5a8c9a46a49c7620f",
+      "edited_data_sha256": "75d3a6e49fba46b816c5637cfdb6b34bf62848e6d1a87fda46f388a73b7d3376",
+      "default_style_sha256": "4e8cca0bfeee7ab95000b534411b653be99b6c19b935b2cea607c7fe892eb6df",
+      "edited_style_sha256": "02c09c386994a7577f4fef1a6e33b40d5713a867df882a36febcb59f7a2810ae",
+      "opju_sha256": "7194b4dc0cdf01ec3be5538bbfad226a7cab6d8f4a823a59a9b26fdf16deb78c",
+      "evidence_sha256": {
+        "official-template-default.png": "a32f88a03977663c06cd287982fea809ca294c841bb95b033e161305e18cfb07",
+        "matplotlib-default.png": "63a27adb7c32153e54742e25f27abdba5954108e659526d0112b3ccefb2afd4e",
+        "origin-default.png": "e2044b2e99a2d4b97984e1176cbc77877a7df2cdd8c334462c2a76338c040379",
+        "matplotlib-edited.png": "6126c730b54f7862d0eb19acc6f0da67315f0b82eee9fa453181ae1a34648dac",
+        "origin-edited.png": "3a0817655901704bf335633d6abe221c11151ef512b215405e837e25f77e75a0"
+      }
+    },
+    "K12": {
+      "chart_type_id": "K12",
+      "case_id": "K12_strip",
+      "lane": "matrix",
+      "tier": "T2",
+      "template_filename": "ColumnScatter.otp",
+      "template_sha256": "e9bfbf3b74bc78db041208505bf1c1b32b387378cc8aac91462d017a662c425d",
+      "template_family_id": "F09",
+      "family_edit_representative": false,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "b21cbd140b740cc67206ab3be141bddfbebe5ea4be8c0dddd59fa129de938a78",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 2.3,
+        "after": 2.323,
+        "table_sha256_after": "97f531fae88f033bfbc59f449ae833226c19588aa3bdb4a371d8ee5a4184c587"
+      },
+      "default_data_sha256": "01ca7b8b0265ad27e62b7fb7628bf4737c5ec538038e7e480501e0e2ce050cc1",
+      "edited_data_sha256": "9c0ed2130abf55d0a5fc790521e838fdb0870e0c6ec8f8c20635577a5b3e1661",
+      "default_style_sha256": "36f7030de0287720ea9653fc52c2b98b87092b0f35dae628d72d716d5fd949f6",
+      "edited_style_sha256": "45e961ce207af0db3e80199d174665af26dfac1add394824a2bd4a6e00684840",
+      "opju_sha256": "83ae55af773ff5d61382552fe947db10485531ccf222be740e50451ccf18e023",
+      "evidence_sha256": {
+        "official-template-default.png": "80b71167338482bef0adb6353447643497ba3d353a7ee88df75f913267cf61e6",
+        "matplotlib-default.png": "8e0101aa821e9235f1ae12ad3c382a837d4ea8aadfea028fb7161e937ca2ebf3",
+        "origin-default.png": "dbb6e9420edc5d55dc200a9304285aad072999382ebedcb17115b9e8c7349ba0",
+        "matplotlib-edited.png": "e8bf0c1aa02413f86dbc8d5073592ef7a1e7fbe0f8f37acee9f28e5ce96dc336",
+        "origin-edited.png": "9fefdfc7ae1c404205576e2c97ff3ed4cbbd49b07be2e6bb5340fd6615f309a4"
+      }
+    },
+    "K13": {
+      "chart_type_id": "K13",
+      "case_id": "K13_tukey_box",
+      "lane": "fixed",
+      "tier": "T1",
+      "template_filename": "BOX.OTP",
+      "template_sha256": "a1f26e68a6a070aba0769905c6b143766a51abd0d7e6039ad93de49ab600daaa",
+      "template_family_id": "F05",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "9f5752d53730a19557b0f25e431538022ec703778cd3ae89ed0389e2fd3d233b",
+        "field_id": "field:resolved.0.group",
+        "row_position": 0,
+        "before": 0.0,
+        "after": 0.01,
+        "table_sha256_after": "47c6c6c52004523a2e9cd2fa3ba77b1c76e0565320fe63be940f262ceaa24911"
+      },
+      "default_data_sha256": "479f07837064a1071248b000e167ffe38f0968bb78a78b4e3b08173e37ffe639",
+      "edited_data_sha256": "15f436c20dfcc23cade0ce0dfbd769958fc88f1ef02b37f1f70dbe1b0c96dd0d",
+      "default_style_sha256": "ea96c7a3fa016282055085f553c8a0e42ed7cb54c3af8cca2bf3ee2520ec5252",
+      "edited_style_sha256": "506aea5f4ec2eb26d1bfc5b0365715d460f975989bbeea4a3d6240c71ca3ad56",
+      "opju_sha256": "5711f27bc4e84e03ed278e9b8837e6b7dd5283f16d46c4b327ab69dfaf34c0cf",
+      "evidence_sha256": {
+        "official-template-default.png": "3cab06684dd2336ee8ead3d4b9db69a3c3fd6be5f75a64d1b477778c41f7338b",
+        "matplotlib-default.png": "47e2ef15e68a13980ca20535a41c38410cf90aa168802d59d71cec71c2bae128",
+        "origin-default.png": "8bd2041bed3dc2af84b461a3592fbff43c769df4f79688e4c1fedbb44dfdab42",
+        "matplotlib-edited.png": "31d4cd40ac50150084f15d9d84dace8221df17713bb351eac13af853bd155c41",
+        "origin-edited.png": "3f52c6ea84b2446d977c4c8533f454553cb4706ec80771258bf9496fb281b162"
+      }
+    },
+    "K14": {
+      "chart_type_id": "K14",
+      "case_id": "K14_violin",
+      "lane": "fixed",
+      "tier": "T1",
+      "template_filename": "Violin.otpu",
+      "template_sha256": "ee71ef5fb2bf15cfc403444494f1779999df31d43c0a3e24001cb35b838bc1eb",
+      "template_family_id": "F33",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "ddcaa342e78fb9cde7584c4c28ed0461cead1850e437ae6b159abb884c0d85a5",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 2.106,
+        "after": 2.1270599999999997,
+        "table_sha256_after": "143acde0fba3a2f6ecedd66411f0992eb2e409019b52cfac1c4a81539a718c42"
+      },
+      "default_data_sha256": "b5abe9c47fa45c53f157ce7b1028806cb2a198b42661633b9fa4222c809bf044",
+      "edited_data_sha256": "463e6446fe606187f1ffdaf56208bf90012001e042e9c573be99db660fcf60f6",
+      "default_style_sha256": "cb425e8e90fbcd06ff696717b412df524bd87046603de0ce3962baeb3b99ab4a",
+      "edited_style_sha256": "a44543979fff41cb43ed1e1094ebc50583bbc182dbd072f94d6e04d9f538574c",
+      "opju_sha256": "e323dda7ade58d4489b5c36546399aadb43690e4b7e075dba43883969964e44c",
+      "evidence_sha256": {
+        "official-template-default.png": "733a9a559c49100456f3ff90704abed096baac0e6533a32c8c3224505adcb63b",
+        "matplotlib-default.png": "8cb606f3e73a40771c680d1e65d1c44a18cb97135f77eb46a14de0952f7c1b78",
+        "origin-default.png": "f772348542dcf450438a167f007903d54ce21df32d9ffd8249afbeb9ce06baa6",
+        "matplotlib-edited.png": "0af18ccee8355995987eb4f5f445fa93bfb55d6457d40f48a3f51f5906d4804a",
+        "origin-edited.png": "65f9f7453bb500bd643722c36925c7970adc98d7d0bcd66619e11e3fd5f575e5"
+      }
+    },
+    "K15": {
+      "chart_type_id": "K15",
+      "case_id": "K15_histogram",
+      "lane": "fixed",
+      "tier": "T1",
+      "template_filename": "Hist.otpu",
+      "template_sha256": "cc1d7edd9f07f8bb0e1b0fe6f9ea0f36439afa912d209efc29329df9c2f00cfa",
+      "template_family_id": "F18",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "9581d419dd677bdd4b0bcb405e35d9264cf352207ba0262096116bf785689f72",
+        "field_id": "field:resolved.0.height",
+        "row_position": 0,
+        "before": 1.0,
+        "after": 0.99,
+        "table_sha256_after": "8ce6c597bf1f89803be50ba02e98240b94f16f45bf295eaf0ef756774d2b734e"
+      },
+      "default_data_sha256": "8cbd806de7924f9942400e4329cdb02374c8eaaa0a645d41b0d364e9469e4bb7",
+      "edited_data_sha256": "c0b20457722c50428aeb3d29b57af73aee3b3dc92f8fa5e8271f33277ac12126",
+      "default_style_sha256": "b89d5d065b566dbf13c0a1f0bccad8c2944d4088484e1dacee87b415be054d54",
+      "edited_style_sha256": "d14054debab5af7d49c0e0b16298a2c77195821f535725c42f2e727f1081246d",
+      "opju_sha256": "6512ec7ed91271f68e3a57fed3d840fe8bc39f74d12852266dba7bf6a50501bf",
+      "evidence_sha256": {
+        "official-template-default.png": "7b5bc9771a2ff0a69e82ac363cec4564d450128e0927a1924d8fe056747158ec",
+        "matplotlib-default.png": "1558baecf711a6e2c746db3a8e3d841d0bfa381e326751c23563a88f2c43fb38",
+        "origin-default.png": "4d8e10fcbdd16c996f0782442b8dd211ac389cbf2b01f8de1189e8e4aefde7f4",
+        "matplotlib-edited.png": "091c2bfabe3ce9a70e5800f5d9193b65d3335390584c2c3c0dd051eacc6f122a",
+        "origin-edited.png": "c668c38fc754fba5b4f6cc8bdb0ad79a82ba75d9f7805ebf6f99092b55b37a7c"
+      }
+    },
+    "K16": {
+      "chart_type_id": "K16",
+      "case_id": "K16_density",
+      "lane": "fixed",
+      "tier": "T2",
+      "template_filename": "HISTDIST.otpu",
+      "template_sha256": "a584e2ee70fa332c592cce714a0339e31e3a7d937889d3096f37722b7fcd50e7",
+      "template_family_id": "F19",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "6d03de4ffafe90b25714d2f6afccf9dfe59c5848adb3e47c65fa5c50ded6ea9f",
+        "field_id": "field:resolved.0.grid",
+        "row_position": 0,
+        "before": 12.6517414827,
+        "after": 12.778258897527,
+        "table_sha256_after": "057fa9b5f9ef07b4a64bd627961208cd67e67151bb2afd3f19ab4491c25ec926"
+      },
+      "default_data_sha256": "0cbd0fe7c383dda1ac6a943d8e7f35391d7011066e2518147f8b553d06ca4285",
+      "edited_data_sha256": "5597faeef4ac00a19268dd0c528ebe0342e5ae393ffedee16fe552ccad6fa7ad",
+      "default_style_sha256": "0fea1dcf8ecd3d02b833b9e33fa99c49386a87f58c76ed4224c88c2c1170b573",
+      "edited_style_sha256": "f94f720d0e2e5d315c6362526d61ac3ee11dde2eba45cf28e7904aca6b3bdccd",
+      "opju_sha256": "f8e01f9de5ac5b9c03ca97f34540d75c21cb7545c23686e3f6d7802a8ddb1a9d",
+      "evidence_sha256": {
+        "official-template-default.png": "f1a79cb20189a492e177d132a96d51aa0e7cc46a239e442e28afb4966e1b295b",
+        "matplotlib-default.png": "5b8ae05be72d4fedef8d30a25f2f826eecf39953e3935dc8b58e891eff947a82",
+        "origin-default.png": "f171c4586da61a53512773e2aa4240b8ed3c2a64f121775db07e0f71bc2fd0b0",
+        "matplotlib-edited.png": "dd11c5b791f126d25e4c2139159f02293714dd36cfa1fcbb23a7dd1b36798053",
+        "origin-edited.png": "bbc85e536da452c5ad89a24d3e7cd35359bb7637c2eb5e65abcc33ea5d22e69e"
+      }
+    },
+    "K18": {
+      "chart_type_id": "K18",
+      "case_id": "K18_area",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "AREA.otpu",
+      "template_sha256": "c14ad432ffd60db09f6763b7b988de4aa554dcf0d9772b18334970fb83eddaec",
+      "template_family_id": "F03",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "ce2f0ae6d9a61674d79b2366d9295e2f48c5546257eb14d55e8a5c211ac114ea",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 154.11,
+        "after": 155.6511,
+        "table_sha256_after": "d3858dbb52160cbcc3be3e8a4137035ed70a94a99a672014a3aeae0eec288ea8"
+      },
+      "default_data_sha256": "e504525afcace2c26fb1ffcf10c2334612e1982d3aea7cccd771ddd9949de257",
+      "edited_data_sha256": "cac0cd8b11a7ee79e6ff69657727fa3830a2790512c8f5d50f494a3fd93271d0",
+      "default_style_sha256": "62ad702fe0337851acf02f05796f48600a1e74c447121ce2651364574a25b77b",
+      "edited_style_sha256": "14a3d028ef81999635e8ac4e7db3cf6a6272b3ce318fe82957f96d614bab6127",
+      "opju_sha256": "694c0811132537a245187b6043e228bffee858a7c77b4a182c07c05c5c80d9e5",
+      "evidence_sha256": {
+        "official-template-default.png": "337224f84f004fe57cb6e3bf02de4cea8be40a5896f0fa959e60e72c62c13c83",
+        "matplotlib-default.png": "885d1d2626966b9c4d1d6caa8a7e19fed5e4564ff1a4932e90bb769993332aca",
+        "origin-default.png": "db74bcc8781c867cf0708d46f7fca22376f03459f6550160cf409e0102d46ac4",
+        "matplotlib-edited.png": "ad784c73c1721ea64991787ba0241e22fdb1f24209cb3be84511f250f8f65d7c",
+        "origin-edited.png": "4da6339da3efda3f58e8d45060984789458ef1661d234ad86ec13ecb19ae76b7"
+      }
+    },
+    "K19": {
+      "chart_type_id": "K19",
+      "case_id": "K19_time_series",
+      "lane": "matrix",
+      "tier": "T1",
+      "template_filename": "TimeSeries.otp",
+      "template_sha256": "ebe487cd9626437e522ae82e6fc302a280110bed4b26564984d4b0263eeb660c",
+      "template_family_id": "F32",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "ad54295bf2ff638e6d27e0c0a3e809a50744b281bf5ddd163ccb92151f81466c",
+        "field_id": "field:resolved.0.value",
+        "row_position": 0,
+        "before": 85.55,
+        "after": 86.4055,
+        "table_sha256_after": "1d66e6e7baa0ed9e1c1d472ca83dfc499c68808127c2dcb631984ebdcfd3c2b5"
+      },
+      "default_data_sha256": "dc0772d6c8518d4132494ac19c9a519c9c26fe9380a18f0e4a5b233c29cf12b9",
+      "edited_data_sha256": "fc3fd78796a4ab9373314f8c59fce3de241161b41209efc0408640a3667c311a",
+      "default_style_sha256": "c1ad8530cf10ab02b1891c91cca533209786f364aef816a31ffddf9a75913d1e",
+      "edited_style_sha256": "c161f6c5bddff99a05ae6261f59b8c6078ddcd9b4d1022592ee18467e0ccaa1f",
+      "opju_sha256": "f5d63671ff75857be0474fb891d64a3eaaba98f80060e2737f6f022c61984254",
+      "evidence_sha256": {
+        "official-template-default.png": "a0d816544e0c18d8adb539ddff0cb6b84c5899489e8c6e3fbe4f14883d8e93d4",
+        "matplotlib-default.png": "fe251253fff0fa5cc4c31b7e96c8c7f22ce653f1d546b507d7b7c0587375f828",
+        "origin-default.png": "1f21a75034698ef5f80e935cdee1ae9b3d339d3afff4c327cf98d6196795367c",
+        "matplotlib-edited.png": "159b39c46c93c985bb2ba4c281f55c4e80ef79ae1f02776a3995c97a36b495e6",
+        "origin-edited.png": "c968f0836577389d606638c77f7e1f5ac6d79a9daedcd36b8a923811255c0d9c"
+      }
+    },
+    "K20": {
+      "chart_type_id": "K20",
+      "case_id": "K20_heatmap",
+      "lane": "fixed",
+      "tier": "T1",
+      "template_filename": "Heat_Map.otpu",
+      "template_sha256": "9bd8240ca582bbedfec797ea27b1ec5c2906939e304fa343cd1821bae2ffbb9f",
+      "template_family_id": "F16",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "51ffabb902a400a4df571ab4bb53f6a94fef9d7a37e70598762c4a48ca6c7bd0",
+        "field_id": "field:resolved.0.value",
+        "row_position": 0,
+        "before": 1.0,
+        "after": 0.99,
+        "table_sha256_after": "4b03a93f5f7f83698274d7fcc97a8c74dd390a71c25c51accb144f4e00de8f63"
+      },
+      "default_data_sha256": "068e9280157029ca214f23b964258f2d1e8b8743d64b882c6c3dd62d3d92b710",
+      "edited_data_sha256": "2b49bba9d7dd48626311ec3dcccac56769446588de2036b0b0bd2ca52b9b40ae",
+      "default_style_sha256": "572ddbc694e39997262b7e1a2ca4aa4b131edd929728962fd1e8f4859d8b0246",
+      "edited_style_sha256": "248fe99b76b5d7dd7105b1df8a2c625638ecd2af2e36464148b2205955b3f221",
+      "opju_sha256": "2fd5d80244c8c960f1c9b3720c867b7ea235ec2e41564ee72babf14a0ea75b4a",
+      "evidence_sha256": {
+        "official-template-default.png": "d60dbb049e68213cede7c6e45ddc414a31ccb071ccac34df221cad211a0d8370",
+        "matplotlib-default.png": "aadf7c029edc303da6bc64a0bdfcbba8032d07441dfa312b4e1f0549715f3f02",
+        "origin-default.png": "ae4fa01fcd30b5c6bf722d46d4802349d9eacec5eada34c742d0eecfb84062b8",
+        "matplotlib-edited.png": "56a83224cdc4c2a9c85e51bbcb2a862530fc9205497d46205779397e35632787",
+        "origin-edited.png": "c059e0d0a550eba49d1ed2eb258b35d1fefbe6ad8eadd5c5e45bf612906c1581"
+      }
+    },
+    "K21": {
+      "chart_type_id": "K21",
+      "case_id": "K21_correlation_matrix_synthetic",
+      "lane": "matrix",
+      "tier": "T1",
+      "template_filename": "Heat_Map_With_Labels.otpu",
+      "template_sha256": "d1a7fcd8af232aef9ca348eb178466a13a744eb700da7d49d39cfbe16c935c7d",
+      "template_family_id": "F17",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "8d4584aed6c84f40503c9a8a5421eb83975da30fc18036f7b29dbcbe1919a8de",
+        "field_id": "field:resolved.0.value",
+        "row_position": 0,
+        "before": 1.0,
+        "after": 0.99,
+        "table_sha256_after": "61226981a114aa801ba7797e4ae620bba914d2398a3196fc75b142a79df17ff6"
+      },
+      "default_data_sha256": "07787292935419c9b3a1011285146cad46c9309417292497aed77ecbbcb2e952",
+      "edited_data_sha256": "0b0d849fcc6e0e36c944eb38c67518086e1d5fc875f74ce84bc6bbaa473ee6dd",
+      "default_style_sha256": "e34923736f1459beeed07930b9206e6bb361a3406d9168f342bf76bf0a78cbf4",
+      "edited_style_sha256": "3dbce063fdbebaba179992c46f32b2993e091158912d07df0567764508c03f8f",
+      "opju_sha256": "fc81763b0f16078ca0c91d6756e1e8cb2179abd6320eaf85e29e0377c784e2a7",
+      "evidence_sha256": {
+        "official-template-default.png": "5b7a7287a54a26673ba54fdea02896c7ad2de80336df0771c55a8b7966e0e2d0",
+        "matplotlib-default.png": "4538a564c79b175e3ba31932b735ee91c310226191fcb5d22f3038583f511ed9",
+        "origin-default.png": "66966b95375c1ce9317ce206f020ce581bc9e3736c2668a9d389a38b99895fdd",
+        "matplotlib-edited.png": "6281287270f96079484c5954bf3995bd868a548676b90de5f35a3d728a5401f5",
+        "origin-edited.png": "bab76b2835829e5cc9710a71a2318b617be00f708e57d51b0981c1ce9490e99a"
+      }
+    },
+    "K22": {
+      "chart_type_id": "K22",
+      "case_id": "K22_contour",
+      "lane": "matrix",
+      "tier": "T1",
+      "template_filename": "CONTOUR.otpu",
+      "template_sha256": "b4915054edd419955245e485b606784dbb6b4965dd6359b45603e00a866628e2",
+      "template_family_id": "F10",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "b05881be7b39d1fe30f92eaaa3be8b2b80dac5b39279db152da3287378f2df0d",
+        "field_id": "field:resolved.0.z",
+        "row_position": 0,
+        "before": 2.406,
+        "after": 2.43006,
+        "table_sha256_after": "ddc3b1d2bf66ae64d74fe058818a1ada7c8aec4fcdc5d57536a5c2926dc609f3"
+      },
+      "default_data_sha256": "6adec09ece668f5d1e52f3609719383c52e83dd2557e7eca99270ea23be47bd7",
+      "edited_data_sha256": "df3aa4d644afb2f168aebc75156674599496565893ac7b44eb798735ccd15ef0",
+      "default_style_sha256": "f3199cb1fe147c507ef01cb9ce1dc9a409c17ddf25b8a1920a9b2c127ffbc0af",
+      "edited_style_sha256": "d129416b10a5f9b1a00a71a787a201bba8ebcbd2825e47c735b0c7e9480eb8a1",
+      "opju_sha256": "2bf41b1ee3ba5b2ba5cc7fcb81866d3466a8c1dfd23abc8fcc7748fab978b25d",
+      "evidence_sha256": {
+        "official-template-default.png": "d34ce3587a048291315d48eaeaaa6bcba6467e138a5b568577f08cd177292453",
+        "matplotlib-default.png": "163785083739604f1146c0b6c6d5d5683bec71ea022c19ad37699d859343c28a",
+        "origin-default.png": "02d99ddbb77c4e78376f285dc3bd6ded750f66b2903f439e86421ce8f2223570",
+        "matplotlib-edited.png": "7d71f5076cef3f5392120ed6b5a353936a8213865c832b693e8384b99986b2d7",
+        "origin-edited.png": "e8e916ec504e7407c0228e681bfd09ebc1d190072c7eda86999a6e7862a0b061"
+      }
+    },
+    "K24": {
+      "chart_type_id": "K24",
+      "case_id": "K24_facet",
+      "lane": "structural",
+      "tier": "T2",
+      "template_filename": "mgroups.otpu",
+      "template_sha256": "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+      "template_family_id": "F23",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "0ecc5edaf5599c9b024778c2f69acaa0030b32cc60dca1bad8ed636c76f23393",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 1.338417,
+        "after": 1.3518011699999999,
+        "table_sha256_after": "0d2947f2e80019735a6ed0f6842acd8747391b248260e2d6a1233804a0c6773d"
+      },
+      "default_data_sha256": "25f6feda7808d5c9b2993858255e1611b71e04e17215a0f9bbf33d403238e0ac",
+      "edited_data_sha256": "03dcf7e4e82a837763e67efcc5f2abdbe71c52233b6daa05e1b5e72d1b45eade",
+      "default_style_sha256": "572fe4e3f8e13bb45fca628d7bb5a1c5860afe252b874c2fb8153fe3e9e57888",
+      "edited_style_sha256": "9728f04962222c960494ea18fdfad39f1f1e98b699feb0a2c70fa1ecfbe0018d",
+      "opju_sha256": "2b99e1b48b3295317394f1e5f8735379065a0162bbc8c4a8e423a307ff3397e0",
+      "evidence_sha256": {
+        "official-template-default.png": "3c1a7e3153b8c4431ca58f2114dcae53b953a5808858d155f67c9775defe20ba",
+        "matplotlib-default.png": "3a700846d4c8e3ee188c679dc009f1ece05e64fb9080c8211319460ad0642126",
+        "origin-default.png": "17058e138f48f5d635894bafdc3c944dc89cbeadbb20590a4902c01155add2ae",
+        "matplotlib-edited.png": "2ba138b6dc9730c09a140fdfe04ebc7d8b0769c6ef264bdebf508a4427bbd7d1",
+        "origin-edited.png": "bad47a44948d50e6912f882ddd3ecdfb032d2a7f9a8b5c02971540913e1db864"
+      }
+    },
+    "K25": {
+      "chart_type_id": "K25",
+      "case_id": "K25_multi_panel",
+      "lane": "structural",
+      "tier": "T2",
+      "template_filename": "mgroups.otpu",
+      "template_sha256": "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+      "template_family_id": "F23",
+      "family_edit_representative": false,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "5878015326375d45b7178167b024d4ca3a2ae23c3bf8e407b3f7fbe0055a0418",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 0.35,
+        "after": 0.3465,
+        "table_sha256_after": "ed7415ec0447e2b164d8d24fd7c33da6a1eb4a681ce260a23ec2f85944c08a05"
+      },
+      "default_data_sha256": "ffcd08aa9d38d05701c8df5203cf1192f96ebddea2a9e0915b279af7a5c18505",
+      "edited_data_sha256": "2ffda8ad8af6d3cdfea87dddb21a28b8bf60971609895f3cb279a951274585b9",
+      "default_style_sha256": "ee868b95e6b339d1e4b4d3b54c98b25983de3922fe76769ecf07e134590081ac",
+      "edited_style_sha256": "b54cb65c0deefb87a460778122129203578a803f5fceec82a5214dcde3594ba8",
+      "opju_sha256": "c4d69eeab6f2d222d54342b6baddfcad29ab5ab73fdc49c12c60f4e6658143fb",
+      "evidence_sha256": {
+        "official-template-default.png": "f5b3d966ae4f3d859f8774131380485e3e7f8f83fc36fc7534019483290b34c7",
+        "matplotlib-default.png": "940f2084208a97e2e35ce03586e83f6ae189939e59d5d177a459640d4f401c7c",
+        "origin-default.png": "c4029c29c1385ee812fe6b02ec7f7ad1bdaca67233d63c6b75cfac06149d6375",
+        "matplotlib-edited.png": "28a267f63614419e36ac044a830a7165a3f6e7b375c803c7da3fe9a0bb723bcc",
+        "origin-edited.png": "c4445238c9cd63517c9480dc8b125b39b757216821e1d8a66c784f78e4a887d1"
+      }
+    },
+    "S01": {
+      "chart_type_id": "S01",
+      "case_id": "S01_precomputed_survival",
+      "lane": "structural",
+      "tier": "T2",
+      "template_filename": "SurvivalPlot.otp",
+      "template_sha256": "0b8759367ce19f1a82cfb9630ffefd849e0c600bce1e909985645c0a47de046b",
+      "template_family_id": "F31",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "8adf4f6422ce99078bbd6d590c1d0eb9cf8a9d4ef6bf8109f9ea255eb891c638",
+        "field_id": "field:resolved.0.survival",
+        "row_position": 0,
+        "before": 1.0,
+        "after": 0.99,
+        "table_sha256_after": "9d03321689f04039a4ea31231cfbe9c6c3e56d0a2fbadc96b4f4eb16ada6d343"
+      },
+      "default_data_sha256": "9f3215da34e60a3a6958e67088f34d6195d3f702e533b61478f45cf014199e25",
+      "edited_data_sha256": "0a89bb389671b90d146fdb380b891c7975e4df29966fc2650596357a20648905",
+      "default_style_sha256": "2f5e5cdc0de016b76df6074249c262c0f455cbdf612b67dffa33b5a3af7fbd19",
+      "edited_style_sha256": "d91c2f42520f816185f7d558dc16a401e915a02cdc10a2599b53d501263010ec",
+      "opju_sha256": "4695b4a21bd04316890546ff8a63c9fdfc3c27fc57d479bf752b62e01d35660a",
+      "evidence_sha256": {
+        "official-template-default.png": "15bf065f74bdddecc49f433e76544e14bfefee05bd8dd272042709b4847b7634",
+        "matplotlib-default.png": "8a05c93a387a674190209b60367f48b1f9bba60d1d0ea6ad8d35371faa2e9edb",
+        "origin-default.png": "b5d447de6384660d896d12485d7144def95c0309afd44f7a3d124a27165f93a8",
+        "matplotlib-edited.png": "c263f92918a01ef6adfdaad3e620ef3925f21c9881a684916240bc4e9efb49cc",
+        "origin-edited.png": "ed2a937a4bc9ae42773a481ed1334d0297f76fbf1ad9bdef16a00b5ecd32cd3b"
+      }
+    },
+    "S21": {
+      "chart_type_id": "S21",
+      "case_id": "S21_forest_synthetic",
+      "lane": "matrix",
+      "tier": "T2",
+      "template_filename": "SCATTERINTERVAL.otp",
+      "template_sha256": "fb319b1a6918427767373917ddda2cc5b95a88d9d295ff06e866762b955dd161",
+      "template_family_id": "F28",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "aa0cd729bd4a0ff3532d0c87263f4ebf8bb0442b4da1c8efcb40165ed3fc2ae7",
+        "field_id": "field:resolved.0.upper",
+        "row_position": 0,
+        "before": 1.280846,
+        "after": 1.29365446,
+        "table_sha256_after": "37031ea31fe8a25807fb084d4dd670d77e132da4d14a4cff2022c0d5628bcd1a"
+      },
+      "default_data_sha256": "a474289fa4c0d23f0db784323569a403057d2d583574cd2c228ceb91e902743b",
+      "edited_data_sha256": "2a5703e9f829de8523ca556519b0ac8028f4f41c4446c3c0c5f41e6b900f5051",
+      "default_style_sha256": "828f481f23baff6c4e3a3a984aa32290f7e934b4b47fd2bac1d88adfce19c9de",
+      "edited_style_sha256": "bce2497802505f5a862247a45de838ee8526238dfd287974034a51278d98ec73",
+      "opju_sha256": "22286460bee952ba3b16689abca426ddf3bb761c3355ab9a094555d446fcdb84",
+      "evidence_sha256": {
+        "official-template-default.png": "c9f752c9b37a7682e704a080ec13fce221038bf4de3988c22d8a5155c372154c",
+        "matplotlib-default.png": "e976f72e13c85ce378223ea9a52c25e047d4fc381a21ecbeb31788ee7b04563d",
+        "origin-default.png": "97d4e49860f39c1348e51e4bc2783813171e449447ed53bc138c5d3120ad3450",
+        "matplotlib-edited.png": "a6e98e7ce330694229e8caeae1f33b37cf664e081a59cb1b499aa979319bdccf",
+        "origin-edited.png": "e902bef74c8f65bc8359501f29b88de44d41ea92d28f9818cabc4370620e04ba"
+      }
+    },
+    "S34": {
+      "chart_type_id": "S34",
+      "case_id": "S34_nyquist_synthetic",
+      "lane": "matrix",
+      "tier": "T2",
+      "template_filename": "LINESYMB.otpu",
+      "template_sha256": "2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",
+      "template_family_id": "F21",
+      "family_edit_representative": false,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "dc09f346f7ef41b0418e3c4cd8c961ce3b96dc04750192440b6af79c8468b05e",
+        "field_id": "field:resolved.0.z_real",
+        "row_position": 0,
+        "before": 0.1798352,
+        "after": 0.178036848,
+        "table_sha256_after": "3e65273ca43005925153db005ca8355c2c2b5c9bb0c8af2567cb7c8388843e9e"
+      },
+      "default_data_sha256": "bcefeb2d0103ad372de4d3d3ac27f9f14ffce1cb4e67147ee7cca91d30ede0a3",
+      "edited_data_sha256": "19d83ab32c2ea576044cdc943cff7523d16d58d1765d29aad2d943dda59d2ba7",
+      "default_style_sha256": "4cbb08d7b8a8b53dde75ad9651ea3d6a197d8ee0f1ab19a4cd7232612d93ea09",
+      "edited_style_sha256": "263a1ae14fe0b06892f52d0266f890d839a263e6ba49ec87d2f2d95c3b18cf27",
+      "opju_sha256": "7d19c96b197afa260ad5e9293d4882252bf5e5f547ffc7b5263bd8bfd9a51038",
+      "evidence_sha256": {
+        "official-template-default.png": "7fb9fe8346621cfb00c8f4b07c05f99dae31adc78c2a375af632867e0d003e21",
+        "matplotlib-default.png": "5f10167b7033840f4b96f4270aec3849ea031d85083ea9471c533988710a5cf6",
+        "origin-default.png": "e48cd046cacdd0371021a0f733cd50c46cf21eba6d0bbdf1cf9619ad5104b16a",
+        "matplotlib-edited.png": "b80007d2b2b454d73b4bbd92534d4f97aefead98d9020661532ecf0ec0b5ebcd",
+        "origin-edited.png": "9a027a69775d76a29d2a2921b30eabfddf768a86be80c214b92333731975ba38"
+      }
+    },
+    "S61": {
+      "chart_type_id": "S61",
+      "case_id": "S61_confusion",
+      "lane": "fixed",
+      "tier": "T2",
+      "template_filename": "Heat_Map_With_Labels.otpu",
+      "template_sha256": "d1a7fcd8af232aef9ca348eb178466a13a744eb700da7d49d39cfbe16c935c7d",
+      "template_family_id": "F17",
+      "family_edit_representative": false,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "0fd9b8bb51640391bb99346d32085ce2089582d20f45b70d590174fd952ac345",
+        "field_id": "field:resolved.0.value",
+        "row_position": 0,
+        "before": 63.0,
+        "after": 64.0,
+        "table_sha256_after": "2558da7efe9bf64ad481ca126c268946e397509eb95d8d0315c0dbf0890e957c"
+      },
+      "default_data_sha256": "0b8c4c16f387309da17f5385024f401cc32a2ee7281458def01daa824a8ba4c1",
+      "edited_data_sha256": "8ffadc2afd3bf7f0a9aff8eadcbe22486229f6c17ab9a2af51a72f49f6f387c2",
+      "default_style_sha256": "5ab7b310979843fcf8c4f7dee873f4e4fb3d383ccfc076a34b0c5ae0d5722b95",
+      "edited_style_sha256": "1d7d9728497ee4ea739aeb383eb8fa308acaf9b167d82fc3a70c884ff03becb1",
+      "opju_sha256": "cf1e4fc57ffc1e7538f0aedbc48f6c082a90c615b8bda3b4647629ab9fbc065a",
+      "evidence_sha256": {
+        "official-template-default.png": "c69a7d246960fa8ab03e75df4cd8ee1884efc44dee1570740c98343aeb7d6732",
+        "matplotlib-default.png": "9bb51e21598c55d2bdb65a1071bb40206da3f41f11c4eafd719111fe6fe22c26",
+        "origin-default.png": "ce7a7dcf138351a23c90183a24165d8cf7ce50bf1809d1ef2f5b4e4cc166d123",
+        "matplotlib-edited.png": "32fd849ffb0500ea4b17126d0c24d2d066da36f9cdc7204ec79076ea60778e0e",
+        "origin-edited.png": "c27d88ee9a51d3cf3c3784b6c594f803f5247d12fc769b16d1e9a6ba1f3fc1a1"
+      }
+    },
+    "X02": {
+      "chart_type_id": "X02",
+      "case_id": "X02_drop_line",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "DROPLINE.OTP",
+      "template_sha256": "69cbcf9349249092e2e32c8955c88c0a265ac47a46811885593d9eced643299f",
+      "template_family_id": "F12",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "364277875cf6d7656f2d422f421a539e74fc4890c23d71303b13c10e7ad9228f",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": -0.08277,
+        "after": -0.0819423,
+        "table_sha256_after": "ec4ec75697e55a7b99cd14cc6d3b5958d12f0eae5a7866644d5f52136bd143a1"
+      },
+      "default_data_sha256": "57b2b54ad5d6b1c81bfdec5d303922d820177c8f93f2e2280f2924b880e54b49",
+      "edited_data_sha256": "d0cc4923e8824c5c32125fb567d785ed69599c3621dd665b0fb4ae38e4102499",
+      "default_style_sha256": "eb0b05fdaac2ed8ae5daccd9d0cfb63ac6429a79a228bb74865e3eaf409cf841",
+      "edited_style_sha256": "c4b13055c8f407167f636a0f40813bf47d71a000ad9fda0ca2ea90c224d0d96f",
+      "opju_sha256": "f8384dd541fe734342f95ce080b50651aa0d18eeb5148b74d3a299dba59e55a8",
+      "evidence_sha256": {
+        "official-template-default.png": "96f55913f53805d4235739fa27008422d648f0239786c9a6c55c16532870b174",
+        "matplotlib-default.png": "48851e6909d14c1d085149f33df971ef1ba71014ce63e50e4367a2579145f709",
+        "origin-default.png": "5dcd771285c4f4a0b1865b48ca86cd82bb80eac4cbb7a1e55d2671ed5cb047e5",
+        "matplotlib-edited.png": "d5f4e69008fad77be880eae188110e5ffcfbe3e2abe787762f591f6083099cd7",
+        "origin-edited.png": "6da5f55e9091af00dec368f628e3ef75f204c4920fb6d48b902cae6d194b185d"
+      }
+    },
+    "X03": {
+      "chart_type_id": "X03",
+      "case_id": "X03_origin_lollipop",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "Lollipop.otpu",
+      "template_sha256": "f76fc89b9438947bbcd601b53e03cf16732a931621143b469233e584f88ba58b",
+      "template_family_id": "F22",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "0fc50dbdde74876f57d37e04e015081594709220ce903c005ebf3ad06aaab6a9",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 0.0,
+        "after": 0.01,
+        "table_sha256_after": "cd99783cae0654f2372243eac0e36e657e23e0b76802fc843c65a732c4a01da5"
+      },
+      "default_data_sha256": "7a175a8f5875778d9f28a3c66754d0e8ba7ceaefc537fc9d6c7cebec62f02845",
+      "edited_data_sha256": "13683ea801d13b9c4e0ea2a001497d39c588db811d26c7e2bc6975b1d3ee6a9c",
+      "default_style_sha256": "7af981fe23f5b82fed7756a6aa7c73d01c0a96d3d29df2d82ba7f064e24b7aca",
+      "edited_style_sha256": "fa28f344122ff4f2f472ad8d58bb15652d29bcaf635ddd14fdd5edd3a693238c",
+      "opju_sha256": "a43add34b822e9d838182015ec5ec17a2c0392e76dd9238ed64d6cb73f9d29c9",
+      "evidence_sha256": {
+        "official-template-default.png": "2d6aa05d785e4733bab8f559d9e607f91c3cbef750f25a89ad9c756dbf19c6b6",
+        "matplotlib-default.png": "c794d75e6484c0ff6b6c5db5214a39ad21cf4151377487583f90b02dd51c93be",
+        "origin-default.png": "c67ab12a41ffa387a0ff4357631678bb4994bd233a4b1037d4511b58e2b14717",
+        "matplotlib-edited.png": "ae776e1471bcc845ace9ddb04406fd43b6a29b40c3390c03991ec01b639909a1",
+        "origin-edited.png": "ed91da21282725813e3324ae3a6b1dbe5b7cb9e706c574f25b9c2bffb34b0228"
+      }
+    },
+    "X05": {
+      "chart_type_id": "X05",
+      "case_id": "X05_beeswarm",
+      "lane": "structural",
+      "tier": "T1",
+      "template_filename": "ColumnScatter.otp",
+      "template_sha256": "e9bfbf3b74bc78db041208505bf1c1b32b387378cc8aac91462d017a662c425d",
+      "template_family_id": "F09",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "7965347fcdfab221a7191e59da110c0cc7ab46843e4e1c445cc5fb7863cc3ae6",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 2.3,
+        "after": 2.323,
+        "table_sha256_after": "90386060ce1c97ba8f7c1b149c34bfddce442762910bdac0a773c79b363326bd"
+      },
+      "default_data_sha256": "cda256650a7bb74f795f085f5338236595e3a3b9326d8ff02f40a73138b90cd9",
+      "edited_data_sha256": "38b86c2c71c071b40617ef0070decb276379a3b1ace567beebe0b1d46adf9dd1",
+      "default_style_sha256": "36f7030de0287720ea9653fc52c2b98b87092b0f35dae628d72d716d5fd949f6",
+      "edited_style_sha256": "702cb18b1e85a0b2c338c8c0d8fe54d60bc617bd121affeefc8ccc4ff3822441",
+      "opju_sha256": "d009cda83a02a47d2b8f0c228688c90755a40b47c1ef8229a6e7c2b3205399de",
+      "evidence_sha256": {
+        "official-template-default.png": "eb96c8b32827d1febd0148ac83a093731a4b1ee57f4c97c629e10bc212cacaf2",
+        "matplotlib-default.png": "bb4dc910eb0f0cebdb596e12e7dddfaddfe09e9f1c93000b1938c54a1fc74ece",
+        "origin-default.png": "2796169b68e3f8a08b4b182a5859b57740f1a068216aedef756e6383ebce2d19",
+        "matplotlib-edited.png": "dbbdc512e261adf54402715c15841e95625aa7c08e357180b1ae7ac5b170af46",
+        "origin-edited.png": "a578f3b3be41b3f6dc62fa5caafffe1cdce0d6b8e6738b78e2d65aa0002a7db7"
+      }
+    },
+    "X09": {
+      "chart_type_id": "X09",
+      "case_id": "X09_floating_interval",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "FLOATBAR.OTP",
+      "template_sha256": "7fd8331a4f91170ce7a7b35428659e48b985fc6ce8164c706ea31b4e41dee93b",
+      "template_family_id": "F15",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "cc7d2b60e47d17e1949d64e95c972e6fcd028cd6e7e94619205df4de245aad80",
+        "field_id": "field:resolved.0.height",
+        "row_position": 0,
+        "before": 5.0,
+        "after": 5.05,
+        "table_sha256_after": "7505a23406f897f6bec5d9e939df1859ddb4709025e65954ef974d67f417d29f"
+      },
+      "default_data_sha256": "3ba52778e77e80788882476311a9b966c11b0798453ddf477eae1dc10b495f97",
+      "edited_data_sha256": "a9f31a26a71e5e0ca6257dad8eb4855de991f35884b7c4068433e80b9f3ff3e9",
+      "default_style_sha256": "ecac30ee77b01e444a1d4ede5bdc3f965ad204a599d4329fee23d01e02e127eb",
+      "edited_style_sha256": "ee8a6431cb0acf975cc3a7a7e112998dbba0e680ea95750eea6c3bdc5b356a1a",
+      "opju_sha256": "74bc671888099c3f123d6141e05094871c738758f14a87179d4e7ae4b4152125",
+      "evidence_sha256": {
+        "official-template-default.png": "d62da3ee3e6705cf0112fc704200546f9d82ee19597f4a5d329ab9f258f5cc86",
+        "matplotlib-default.png": "81f9d53868ae4770c9b3955d61972fa2b2a9b9e97b09900841f66c5e06568157",
+        "origin-default.png": "c5ab25cff3bb4cddc04d3de4ec5a4b5c64f594fddd8a4ce5486d37a5b5001fbb",
+        "matplotlib-edited.png": "8d90adaf492228850a6306a4d984c058a3f4a9375aa585d3d0fe725f6e0b112a",
+        "origin-edited.png": "faa0945c73e73ba3378ff31a3dfad8480158b01a264979cccad02a5d702b7062"
+      }
+    },
+    "X13": {
+      "chart_type_id": "X13",
+      "case_id": "X13_population_pyramid",
+      "lane": "structural",
+      "tier": "T1",
+      "template_filename": "PopulationPyramid.otpu",
+      "template_sha256": "2c5958a91130d62cf8a6708f197bfd6248a3b22d81fc68eed1abe5f10988fbab",
+      "template_family_id": "F26",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "b562fcad0966dee6f3e7b80fb96cc318b62e3cd4cc0eb3b493e784b486d1d1be",
+        "field_id": "field:resolved.0.height",
+        "row_position": 0,
+        "before": 0.72,
+        "after": 0.7128,
+        "table_sha256_after": "bc1d597c2d8271419c47a8d1cf26be2d9775331d5ef3deac4aad557f3797a7d2"
+      },
+      "default_data_sha256": "e3fab644038b1f50e6a26511758b9c87cb6af02f88000ed5ae5abec97da0312a",
+      "edited_data_sha256": "226261ce43490c4d34ceac50d03d391e1b041152b81016c35e5d30bb4d4e11ae",
+      "default_style_sha256": "c329d7f2c03afbf41486be2c2cd2517fb7787e01d1d1a5c96f1f4f9f744ccef9",
+      "edited_style_sha256": "f996528a349650bf09990ee967b92976de1c9556f6afd0e21b7263f74096aa93",
+      "opju_sha256": "3692e3102136d6546a3b83d131624f853c451bc4fa3f190fe9b176843be49b53",
+      "evidence_sha256": {
+        "official-template-default.png": "df817a972dc2ddb88f360f16a7dc4e3a9fea29dc0dc1c4b1586105facc93fd81",
+        "matplotlib-default.png": "318ac97cf503c232b7c7dbeb3177a4852c333e668917e627d5279215369b50e6",
+        "origin-default.png": "63e11a6a7d0e6034bc4f5f50cffd45cc45196f3b1c8f90ead7a75edcaa4779f6",
+        "matplotlib-edited.png": "956bc36824ed8d8dabeb6b06c53e65be2b41970aa998bbb9ec59747c1fb59ef6",
+        "origin-edited.png": "c208a06a1430814feee5d1f32da09eded9bfd8d181bd5fef56dadaa865403d0e"
+      }
+    },
+    "X23": {
+      "chart_type_id": "X23",
+      "case_id": "X23_dual_y_line",
+      "lane": "structural",
+      "tier": "T1",
+      "template_filename": "DOUBLEY.OTP",
+      "template_sha256": "487547eb206e4645f3380a9a021ceb7fbcf4ec4d1fdb0a870d1eb0cde0c7641b",
+      "template_family_id": "F11",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "e0778d92d3b6505f10ed863e15e9a2e061646eb392ee064d25931e6f70bf316a",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 1382323332.0,
+        "after": 1396146565.32,
+        "table_sha256_after": "ecc517bf3b89d66bfb885fec030ae40b382bb8572b3fc99c1787234b1cf40e15"
+      },
+      "default_data_sha256": "7196703633f2ca09600f9a3c52fe8695b98ab8b66a3fc79e9814cbd492f50b84",
+      "edited_data_sha256": "31692068b5dcb45ce2d53086333303cf7bc8f3e0ede9fb65f83a64741a901961",
+      "default_style_sha256": "dd1e640a326bc2d4028b252ab62ce0690edbbe8738e1a93d8317a821708b71ae",
+      "edited_style_sha256": "d34cefaea3d0140d7ac9e3442689ab4c8d627040512bc738259fef55eda00d24",
+      "opju_sha256": "3566344281e54130f7a49bbc1205849b4edbd0bfbc2f18f9a3036122467ca6a7",
+      "evidence_sha256": {
+        "official-template-default.png": "012e852c27c0f207a2ebafd2cd01d647aa7dece6d01febdfba1b3283b75ef39b",
+        "matplotlib-default.png": "fed8ba6bb9e7a284f1aa90385f9a5fc45ab7102a2334e81378c560e9d206a8cf",
+        "origin-default.png": "f15fb427d82d0145a32b3450d8d7ba21d924154d0fb0baaa17ca7c8c4cc81776",
+        "matplotlib-edited.png": "624070785b0a957931f0f2448b491c515293ef72992a9641436f2523b3fcf6ef",
+        "origin-edited.png": "0579df155f73f39bdc24d5fb518e37bf127f5ff7ef79740d73d177f4683ede5e"
+      }
+    },
+    "X24": {
+      "chart_type_id": "X24",
+      "case_id": "X24_pareto",
+      "lane": "fixed",
+      "tier": "T1",
+      "template_filename": "ParetoRaw.otpu",
+      "template_sha256": "5f273e70f87c2e22d230417b35907c2524dc293476070e74312f872a7ff00a7b",
+      "template_family_id": "F25",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "382694f30e9a4da87e7b19a5934c0249e96443dcc7fc311d9d73340c586bb32e",
+        "field_id": "field:resolved.0.height",
+        "row_position": 0,
+        "before": 153.0,
+        "after": 154.53,
+        "table_sha256_after": "ca06b98db6414167fe7dcfdf6321bc8bcbb6ade4babe60c73e79396bd83e3cab"
+      },
+      "default_data_sha256": "a52e905c6c7d4ff2278d97882cf732aae1952390272ad170141139726a03b68e",
+      "edited_data_sha256": "895b7a1cee1dd08c77f45b3fad1b74af21b9a371649a295053fdcf0a9894886a",
+      "default_style_sha256": "6cc36c01bc9505bc339639e7587490624c9fa0a46af1b406b9e468ce21527947",
+      "edited_style_sha256": "380193bc4fca84bfdf129d8fd51bc552c181c8091fa7aefaee3a02649b0ac0a3",
+      "opju_sha256": "389c3785759d1d1033dc38559aae8cf42bafffda934de2083549037f4df295ef",
+      "evidence_sha256": {
+        "official-template-default.png": "dcea2ee16033c4dd8e2546e6ca7fe85dcff323c430355cfd256e4283690963cb",
+        "matplotlib-default.png": "b2a4d957e0fabb8a1fc19e1f60d93451c94a4eec4233f3440ace858ef0dd5d7f",
+        "origin-default.png": "7c644d656913d0c84c29cc3c59df094c085901bca0a58b661ba579d0ad34dcca",
+        "matplotlib-edited.png": "d1d5714e197b8cb5f818ad5aaea0817893454c4c1fdb135b66cee72c341f2fd4",
+        "origin-edited.png": "60ebe6eb0db5507af982dac9f80295b1c8cd63d14d2e4c40b46f2231740da179"
+      }
+    },
+    "X35": {
+      "chart_type_id": "X35",
+      "case_id": "X35_dual_y_column",
+      "lane": "structural",
+      "tier": "T1",
+      "template_filename": "2Ys_Col.otpu",
+      "template_sha256": "cba0737aaa4c2ab24a62062cfe37c095c5651d9048519b3fc2a3e9ccaa058ca9",
+      "template_family_id": "F01",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "d36d14a1a9f0c0860053cf1d64715879f510b892dc346b6ac538158a8f7cc540",
+        "field_id": "field:resolved.0.height",
+        "row_position": 0,
+        "before": 1382323332.0,
+        "after": 1396146565.32,
+        "table_sha256_after": "f1c0e57eea50883baa2430d661ca868de5e8659ac755e1e9a57b31d2d1973d99"
+      },
+      "default_data_sha256": "a81c2f14f2f8d433f51b739a5c3427d7f15bfae7a1216c6444b2d8e4bea5851a",
+      "edited_data_sha256": "81cfd9502783d133b3b25c1905f84f6843479019b196822f3c0e30744bd5345f",
+      "default_style_sha256": "bf846da7ffbe6e47c50d24267b9c459c0e665bb6697bd0c05ee284602676394d",
+      "edited_style_sha256": "adf165768a21b6e1b020f78f7908f30e7e023719cd7b5b5f7ebdf4f47d76ea44",
+      "opju_sha256": "746e79304166121a6d36f8a5082d38433299eeb461a97c7b62653eac4a39c734",
+      "evidence_sha256": {
+        "official-template-default.png": "b0406b033ef33fd0559156b9ddbd01536d66721134bfc6a50bc85bbf2c9ba404",
+        "matplotlib-default.png": "72a64d38f8847d276d77aa3fea4029c153ecae12c955a94c370ef93c5c91b377",
+        "origin-default.png": "ccfd129a700616a4eb2d759be306fdc6abd9f6fb68f716d79b1f6caf1a820d81",
+        "matplotlib-edited.png": "ce05f1513fdc6b16e4c2a5300fa3b2cce8aef888ad706095ea00f73371dee784",
+        "origin-edited.png": "f6279538b0dd928796be99cc339d567e94192dc0548e33a6bcbe075d9116b924"
+      }
+    },
+    "X36": {
+      "chart_type_id": "X36",
+      "case_id": "X36_dual_y_column_line",
+      "lane": "structural",
+      "tier": "T1",
+      "template_filename": "2Ys_ColSymb.otpu",
+      "template_sha256": "6e951a3dd1f08cb2122cac48ce37476eef54d54c9fb424211e9fce39c677e1ab",
+      "template_family_id": "F02",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "1f3f5371e3265087d283608c49c3f42cc88c3def490d0e53f0e638011dc59f34",
+        "field_id": "field:resolved.0.height",
+        "row_position": 0,
+        "before": 1382323332.0,
+        "after": 1396146565.32,
+        "table_sha256_after": "df17f62ccddd7f01f5daa1ebcaafd8d0132423386420c9a59edc66f0cd13a4ae"
+      },
+      "default_data_sha256": "b3342148762f1c0eded4c936d6e1cd85e3e2b1e27d856dd2b1207afc0c6fc7fd",
+      "edited_data_sha256": "785a86c3c1fc4f3600be48b669d367e5b02447bb5092a637b51ca1e46a1dafdd",
+      "default_style_sha256": "62c3acdb6098a69eeb4edb71622a910aeb1820df8720c77cc723353cfce261a5",
+      "edited_style_sha256": "4f7c2e66f297cd6325fc2df97cc984454b0281c61e802b367c1b3ff4e0b5720a",
+      "opju_sha256": "7ae747955f6285236699b647edd33d180fdd8efb670bc4c38eb453fc619df601",
+      "evidence_sha256": {
+        "official-template-default.png": "e1a3191b1aab4c8071df42f3b6a4aaf632f57eabea33ed491bd78ae70306365f",
+        "matplotlib-default.png": "689341776541df1aeb554a28613c7b24b8d925346096069fe2d483cb2d5259d9",
+        "origin-default.png": "f9b35e44a8857d20e36332b7937ccd4147c43c4ef864dfb7df5bdb7e29817a64",
+        "matplotlib-edited.png": "b2c2228ca286f2feba713ea45e94cccb38e2cd19a30e7f0eb20dba9f977667dc",
+        "origin-edited.png": "30e12a077df3d3cf5bb83c7999233264ed7e93cb382349d3a4fb66cb6afd0d1f"
+      }
+    },
+    "X38": {
+      "chart_type_id": "X38",
+      "case_id": "X38_offset_stack_y",
+      "lane": "structural",
+      "tier": "T1",
+      "template_filename": "OffsetStackY.otp",
+      "template_sha256": "c6d7548cf7389e5d53282c6d1873aa2e8e184de96ae54d2cd71937f0a56d98d3",
+      "template_family_id": "F24",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "0ae8d92e41374501380f1c9dcbea0fce5323b95275b504b1f33a341881bf7f8e",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 0.880134115675,
+        "after": 0.87133277451825,
+        "table_sha256_after": "c0473ffea09ee7a2b0fd86bd22c135f82da7971555902d363ca241b1ac542507"
+      },
+      "default_data_sha256": "d60c226c4c2de5782bea2ee82eedb5deab569e897c1350a3cf36e581c3be7fb6",
+      "edited_data_sha256": "698264ab76a4e3484a843ffc3463b8fafda5144c25639a4cfdaaf66c6257cdcf",
+      "default_style_sha256": "39c4142c85e40ce5518a83c972da2be05eb06eb5130fef3c190e7fcfb5b1f7d3",
+      "edited_style_sha256": "b7cb63d7fdd555339e5d55068dbd41c2014dad6e47e95ea338d22fdfa9e898d3",
+      "opju_sha256": "01989a526d5e69d7ef84f052cb88a3d0e57fef32db52bcb28dee67d613e54c40",
+      "evidence_sha256": {
+        "official-template-default.png": "5f32cc0fbc47373419c7420d5b0d8d472ee6f2b03ebb9af80b36f8e63ecf6fe7",
+        "matplotlib-default.png": "ca003a6168b83f298e81d11a6caf7f887aeec2b46a7be1fe610dabdf33dd8391",
+        "origin-default.png": "45853a6cffc702bf279da0821aaee67c9065750200188cc214873db1ab75b5f5",
+        "matplotlib-edited.png": "3e8de44e8a5576eebaa3dd9de106d2cedbbb32449d59d812c0c04c4d4f9f2866",
+        "origin-edited.png": "7df166114f298e79f1b8d4e6963f66ad03216b63c2ae15277137a03e66839fa2"
+      }
+    },
+    "X39": {
+      "chart_type_id": "X39",
+      "case_id": "X39_line_series",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "BoxLser.otpu",
+      "template_sha256": "8396fd58435c4ded363b889d7eb3c8cf8a3b22e82eb539e8cc85f6b58481ec83",
+      "template_family_id": "F06",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "cb1ccf4b0d0dfd175a146132d22695415e57c3f4600d27bdf0631abb8149de82",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 0.165,
+        "after": 0.16335,
+        "table_sha256_after": "60b1ad09e48868d0cb569fc525181f766155e46f60073734858c48e439ee0998"
+      },
+      "default_data_sha256": "eda16a2a7a7999e58c39fdc2e3ca0a9d63d29e0fe1eed47933d3e61c99fa21be",
+      "edited_data_sha256": "a18e945a932c5d903336beb3b694faec19adf5f4607cafe0e5d0e48266c0f93e",
+      "default_style_sha256": "e0a51a449ccd56455a0d64fe6527f5ea62b3461407aa6571f4f44b80e278f8be",
+      "edited_style_sha256": "4019c3f54ac916cb1fc48879f8474313a996b60c7b3457eb5e722b1871014089",
+      "opju_sha256": "92c66477070d4b5164e4c168eba10ad8e38f36d0d59afbe2a5dcd9d57979c4ed",
+      "evidence_sha256": {
+        "official-template-default.png": "85d465d9c4b113648f9bf041f4635c48d6f4417ea79746056bc770aaa6d7df35",
+        "matplotlib-default.png": "2ad00e6936df2d376fa386f8be938f702eaa6adde03d2f492d727f05e705a01e",
+        "origin-default.png": "24c95039f64347ae91bd66f8c8cbc0ee7c00e5db6ecd941fd97dadd548440cc1",
+        "matplotlib-edited.png": "9a1778755c0a3e64ead6f45b84cd9135b4e9b48b3f1acea2832d978a78538b07",
+        "origin-edited.png": "aff8d7783431459ec5f3871089f620c10c5dcf71d58ea65412f1fa726ab62f79"
+      }
+    },
+    "X40": {
+      "chart_type_id": "X40",
+      "case_id": "X40_before_after",
+      "lane": "seq20",
+      "tier": "T1",
+      "template_filename": "BeforeAfter.otpu",
+      "template_sha256": "d37a1c2949696f29cd2a2fcf856a2c8b5f8be29e8ab040a83a9c2c9f0e262c0b",
+      "template_family_id": "F04",
+      "family_edit_representative": true,
+      "mechanical_status": "PASS",
+      "visual_status": "UNVERIFIED",
+      "fresh_reopen_identical": true,
+      "representative_data_mutation": {
+        "table_sha256_before": "d44a390993b130ed3418dc3961aba35457d7688cd7e28bbedafbcaeadf8a5b26",
+        "field_id": "field:resolved.0.y",
+        "row_position": 0,
+        "before": 0.165,
+        "after": 0.16335,
+        "table_sha256_after": "71dc9d7d657ace60cf0022e5f5f118cd407f3fea34b8c1f6df62c02fb743fc94"
+      },
+      "default_data_sha256": "1f1608c644f5677d6b6f53bf0e594a649a084ee04c9f356ac95793f8a8c6433b",
+      "edited_data_sha256": "4e42d593bf45d31caba89e94f231ad2db298a8eb5768372aa09686d3c1023f2b",
+      "default_style_sha256": "184d01ea5978a8cffdccd75f67cee51e79cbd6e275ac2fd37148b01c76910da4",
+      "edited_style_sha256": "8046048a05f9630251f06d6add4bcf0e7d90ad7306edad92110e6c4e863ac75d",
+      "opju_sha256": "395a661ff94776d9bc61a33bc64f94ba3b2658091346a710ea30f15525bce463",
+      "evidence_sha256": {
+        "official-template-default.png": "d26c2b562aa5d39d09c33abadb9f0c23913f761e201184f8b49e7c905e0009ab",
+        "matplotlib-default.png": "d59ebb31e3872d785ba87a86da06eb6a052eae89d85a606fde46c6bd3ba6d67b",
+        "origin-default.png": "d1d7d63879ce84c14439d3c2f8f88388111b87cc00f9672c3df40b1f7a86fbaf",
+        "matplotlib-edited.png": "91177d6e9665079e9b24183737f97689d64eb7be91cffd1225e312c41ce07968",
+        "origin-edited.png": "d01277e0d2c85c3186aea5c7e73b343b1e6c2f18ee189d42579c1d97a75403ee"
+      }
+    }
+  }
+}

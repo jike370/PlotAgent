@@ -1,6 +1,6 @@
 # PlotAgent v1 规格索引与小规模邀请制 Beta 设计基线
 
-> 状态：正式范围已收敛为 T1/T2 共38图；官方模板目录、裸模板动态测试、生产模板加载和38/38默认态fresh-reopen已完成；逐图机械编辑读回与统一视觉签名仍未完成，新引擎重新资格前不进入 Beta
+> 状态：正式范围已收敛为 T1/T2 共38图；官方模板目录、裸模板动态测试、生产模板加载、38/38逐图机械编辑读回与统一视觉审查页均已完成；用户逐图视觉签名与模板家族人工编辑签名仍未完成，新引擎重新资格前不进入 Beta
 > 基线日期：2026-08-10
 > 适用范围：权威文档、冲突优先级、requirement/evidence matrix、workstream 入口与冻结变更流程
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)、[SEQ-10 前端差距审计](./SEQ-10-FRONTEND-GAP-AUDIT.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
@@ -11,7 +11,7 @@
 
 - 第一轮产品行为、对象边界、进程/云/本地信任边界和跨模块 Schema 语义已足够直接拆分实施。
 - 正式范围固定为 T1 直接官方模板28图与 T2 官方模板＋少量原生配置10图。`K05`、`K17`、`S05`、`S07`、`S25`、`S31`、`X01` 从生产能力删除；历史43/45图声明仅保留为旧证据背景，不再构成发布范围。
-- 当前最高优先级是完成38图逐图机械修改读回与统一视觉审查；ProjectContext、TaskPlan、跨轮次Agent链路保留既有成果，但不代替新绘图引擎重新资格。生产新链固定为 Agent-native 强类型动作、语义 PlotSpec、平坦 ChartProfile、每图 Matplotlib renderer 与 Origin 官方模板绑定器；StructureUnitDefinition/ChartRecipe 和统一最终几何计划不再是本轮目标。
+- 当前最高优先级是由用户审查 `build/visual-audit/template-first-38/index.html` 中的 38 图，并按 33 个 Origin 官方模板文件家族人工编辑代表图；机械证据已冻结在 `tests/fixtures/origin_template_migration/manifest.json`。ProjectContext、TaskPlan、跨轮次Agent链路保留既有成果，但不代替新绘图引擎视觉资格。生产新链固定为 Agent-native 强类型动作、语义 PlotSpec、平坦 ChartProfile、每图 Matplotlib renderer 与 Origin 官方模板绑定器；StructureUnitDefinition/ChartRecipe 和统一最终几何计划不再是本轮目标。
 - 每项核心需求都有权威契约、workstream、计划入口、稳定错误 owner 和未来验收 evidence。
 - 冲突审计已按本文件矩阵完成，当前已知旧口径已清除。
 - 后续产品或跨模块行为变化必须新增/更新 Decision ID 并同步权威文档，不得由实现自行选择。

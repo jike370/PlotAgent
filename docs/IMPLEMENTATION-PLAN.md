@@ -1,6 +1,8 @@
 # PlotAgent v1 实施拆分与里程碑计划
 
-> 状态：38 图范围、官方模板目录、裸模板动态测试和生产模板加载已完成；旧 K01 导出 spike 已删除；正在完成逐图机械修改读回与统一视觉审查页，视觉签名前不恢复 Beta 资格
+> 状态：38 图范围、官方模板目录、裸模板动态测试、生产模板加载和逐图机械修改读回均已完成；旧 K01 导出 spike 已删除；统一视觉审查页已生成，正在等待用户逐图视觉签名与 33 个 Origin 官方模板文件家族的代表图人工编辑签名，签名前不恢复 Beta 资格
+
+当前交付证据：`build/visual-audit/template-first-38/index.html`；38/38 独立 OPJU 均包含默认态与代表编辑态，数据值、代表样式和 fresh-reopen 读回通过。冻结机械清单为 `tests/fixtures/origin_template_migration/manifest.json`，视觉状态统一保持 `UNVERIFIED`。
 > 日期：2026-08-10
 > 适用范围：W0–W10 workstreams、依赖、风险 spikes、里程碑、验收证据与错误归属
 > 相关文档：[规格索引与 Beta 设计基线](./SPEC-INDEX.md)、[前端/P0/辨识度实施顺序](./FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md)、[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)

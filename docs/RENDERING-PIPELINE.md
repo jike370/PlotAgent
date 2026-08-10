@@ -1,6 +1,6 @@
 # PlotAgent 渲染管线与跨 Renderer 一致性契约
 
-> 状态：历史统一解析链保留为兼容实现；正式38图迁移采用平坦ChartProfile、每图Matplotlib renderer与Origin官方模板绑定器，逐图机械资格尚未全部关闭
+> 状态：历史统一解析链保留为兼容实现；正式38图迁移采用平坦ChartProfile、每图Matplotlib renderer与Origin官方模板绑定器，38/38逐图机械资格已关闭，统一视觉审查等待用户签名
 > 日期：2026-08-10
 > 适用范围：ResolvedRenderPlan、逐图编辑能力、Origin 对齐符号/色板、质量层级、坐标范围、刻度、物理尺寸、安全文本、Matplotlib/Origin 语义一致性与导出验证
 > 相关文档：[小规模 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
