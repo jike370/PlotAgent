@@ -4,6 +4,7 @@ import inspect
 from pathlib import Path
 
 import pytest
+from matplotlib.axes import Axes
 
 from plotagent.engine import (
     CreatePlot,
@@ -20,6 +21,8 @@ from plotagent.engine.backends.matplotlib import (
     K02LineSymbolRenderer,
     K06PointErrorRenderer,
     K07ErrorBandRenderer,
+    K18AreaRenderer,
+    X02DropLineRenderer,
 )
 
 HASH = "3" * 64
@@ -127,6 +130,26 @@ def _case(
             ),
             "error_band_series",
         ),
+        (
+            K18AreaRenderer(),
+            "K18",
+            ("x", "y"),
+            (
+                _column("field:x", "Time", (0.0, 1.0, 2.0, 3.0)),
+                _column("field:y", "Amount", (1.0, 3.0, None, 2.0)),
+            ),
+            "area_series",
+        ),
+        (
+            X02DropLineRenderer(),
+            "X02",
+            ("x", "y"),
+            (
+                _column("field:x", "Position", (0.0, 1.0, 2.0, 3.0)),
+                _column("field:y", "Signal", (-1.0, 3.0, 1.5, -0.5)),
+            ),
+            "drop_line_series",
+        ),
     ),
 )
 def test_t1_family_renders_from_engine_data_without_legacy_resolver(
@@ -186,3 +209,33 @@ def test_k07_rejects_inverted_band_bounds(tmp_path: Path) -> None:
             tmp_path / "preview.png",
             tmp_path / "preview.svg",
         )
+
+
+def test_x02_drop_lines_end_at_the_visible_bottom_axis_not_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    baselines: list[float] = []
+    original = Axes.vlines
+
+    def capture(self, x, ymin, ymax, *args, **kwargs):
+        baselines.append(float(ymin))
+        return original(self, x, ymin, ymax, *args, **kwargs)
+
+    monkeypatch.setattr(Axes, "vlines", capture)
+    columns = (
+        _column("field:x", "X", (1.0, 2.0)),
+        _column("field:y", "Y", (-2.0, 3.0)),
+    )
+    document, actions, view = _case("X02", ("x", "y"), columns)
+
+    X02DropLineRenderer().render(
+        document,
+        actions,
+        view,
+        tmp_path / "preview.png",
+        tmp_path / "preview.svg",
+    )
+
+    assert len(baselines) == 1
+    assert baselines[0] < -2.0
+    assert baselines[0] != 0.0

@@ -63,6 +63,13 @@ K08_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+K18_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K18",
+    filename="AREA.otpu",
+    sha256="c14ad432ffd60db09f6763b7b988de4aa554dcf0d9772b18334970fb83eddaec",
+    tier="T1",
+)
+
 K20_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K20",
     filename="Heat_Map.otpu",
@@ -74,6 +81,13 @@ X23_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="X23",
     filename="DOUBLEY.OTP",
     sha256="487547eb206e4645f3380a9a021ceb7fbcf4ec4d1fdb0a870d1eb0cde0c7641b",
+    tier="T1",
+)
+
+X02_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X02",
+    filename="DROPLINE.OTP",
+    sha256="69cbcf9349249092e2e32c8955c88c0a265ac47a46811885593d9eced643299f",
     tier="T1",
 )
 

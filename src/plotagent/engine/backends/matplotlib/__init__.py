@@ -1,7 +1,9 @@
 """Independent Matplotlib renderers for Agent Native profiles."""
 
+from .area import K18AreaRenderer
 from .backend import MatplotlibBackend
 from .column import K08ColumnRenderer
+from .drop_line import X02DropLineRenderer
 from .dual_y import X23DualYRenderer
 from .error_band import K07ErrorBandRenderer
 from .heatmap import K20HeatmapRenderer
@@ -17,7 +19,9 @@ __all__ = [
     "K06PointErrorRenderer",
     "K07ErrorBandRenderer",
     "K08ColumnRenderer",
+    "K18AreaRenderer",
     "K20HeatmapRenderer",
     "MatplotlibBackend",
+    "X02DropLineRenderer",
     "X23DualYRenderer",
 ]

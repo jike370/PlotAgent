@@ -8,6 +8,8 @@ import pytest
 import plotagent.engine.backends.origin.k03 as k03_module
 import plotagent.engine.backends.origin.k06 as k06_module
 import plotagent.engine.backends.origin.k07 as k07_module
+import plotagent.engine.backends.origin.k18 as k18_module
+import plotagent.engine.backends.origin.x02 as x02_module
 import plotagent.engine.backends.origin.xy as xy_module
 from plotagent.engine import (
     BindFields,
@@ -28,12 +30,16 @@ from plotagent.engine.backends.origin import (
     K03_ORIGIN_PROFILE,
     K06_ORIGIN_PROFILE,
     K07_ORIGIN_PROFILE,
+    K18_ORIGIN_PROFILE,
+    X02_ORIGIN_PROFILE,
 )
 from plotagent.engine.backends.origin.k02 import K02OriginProject
 from plotagent.engine.backends.origin.k03 import K03OriginProject
 from plotagent.engine.backends.origin.k03 import _effective_actions as k03_effective_actions
 from plotagent.engine.backends.origin.k06 import K06OriginProject
 from plotagent.engine.backends.origin.k07 import K07OriginProject
+from plotagent.engine.backends.origin.k18 import K18OriginProject
+from plotagent.engine.backends.origin.x02 import X02OriginProject
 
 HASH = "4" * 64
 
@@ -276,6 +282,14 @@ def test_new_t1_official_template_identities_are_hash_pinned() -> None:
         "ERRORBAND.otp",
         "dfd36bf19bf3cf81bebd7d2b7d04a0ef05f07f90243678ddf3d03eded342c763",
     )
+    assert (K18_ORIGIN_PROFILE.filename, K18_ORIGIN_PROFILE.sha256) == (
+        "AREA.otpu",
+        "c14ad432ffd60db09f6763b7b988de4aa554dcf0d9772b18334970fb83eddaec",
+    )
+    assert (X02_ORIGIN_PROFILE.filename, X02_ORIGIN_PROFILE.sha256) == (
+        "DROPLINE.OTP",
+        "69cbcf9349249092e2e32c8955c88c0a265ac47a46811885593d9eced643299f",
+    )
 
 
 def test_k02_binds_one_native_line_symbol_identity(
@@ -515,8 +529,66 @@ def test_k07_binds_center_and_band_without_boundary_legend_entries(
     assert "error_band_series" in {item.object_kind for item in readback.objects}
 
 
+@pytest.mark.parametrize(
+    ("profile_id", "project_type", "style", "object_kind"),
+    (
+        (
+            "K18",
+            K18OriginProject,
+            {"line_width_pt": 2.0, "line_style": "dash"},
+            "area_series",
+        ),
+        (
+            "X02",
+            X02OriginProject,
+            {
+                "line_width_pt": 1.5,
+                "line_style": "dot",
+                "symbol": "diamond",
+                "symbol_size_pt": 6.0,
+            },
+            "drop_line_series",
+        ),
+    ),
+)
+def test_official_template_native_xy_profiles_keep_template_plot_type(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    profile_id: str,
+    project_type,
+    style: dict[str, object],
+    object_kind: str,
+) -> None:
+    columns = (
+        _column("field:x", "X", (0.0, 1.0, 2.0)),
+        _column("field:y", "Y", (-1.0, 3.0, 2.0)),
+    )
+    document, actions, view = _case(profile_id, ("x", "y"), columns, style=style)
+    monkeypatch.setattr(
+        xy_module,
+        "resolve_official_template",
+        lambda install, profile: tmp_path / profile.filename,
+    )
+    origin = FakeOrigin()
+    project = project_type(origin)
+    project.create(tmp_path, document, view)
+    for action in actions:
+        project.apply(document, action, view)
+    readback = project.verify(document, actions, view)
+
+    assert origin.graph.layer.add_calls == [{"coly": 1, "colx": 0, "type": "?"}]
+    assert object_kind in {item.object_kind for item in readback.objects}
+
+
 def test_new_t1_origin_binders_do_not_import_the_legacy_compiler() -> None:
-    for module in (xy_module, k03_module, k06_module, k07_module):
+    for module in (
+        xy_module,
+        k03_module,
+        k06_module,
+        k07_module,
+        k18_module,
+        x02_module,
+    ):
         source = inspect.getsource(module)
         assert "plotagent.origin" not in source
         assert "plotagent.rendering" not in source

@@ -189,6 +189,62 @@ K08_COLUMN_PROFILE = EngineProfile(
     ),
 )
 
+K18_AREA_PROFILE = EngineProfile(
+    profile_id="K18",
+    display_name="Area",
+    required_roles=("x", "y"),
+    optional_roles=("label",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="primary"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "line_width_pt", "line_style"),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+X02_DROP_LINE_PROFILE = EngineProfile(
+    profile_id="X02",
+    display_name="Drop line",
+    required_roles=("x", "y"),
+    optional_roles=("label",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="primary"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=(
+                "color",
+                "line_width_pt",
+                "line_style",
+                "symbol",
+                "symbol_size_pt",
+            ),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
 K20_HEATMAP_PROFILE = EngineProfile(
     profile_id="K20",
     display_name="Heatmap",
@@ -242,6 +298,8 @@ ENGINE_PROFILES = (
     K06_POINT_ERROR_PROFILE,
     K07_ERROR_BAND_PROFILE,
     K08_COLUMN_PROFILE,
+    K18_AREA_PROFILE,
     K20_HEATMAP_PROFILE,
+    X02_DROP_LINE_PROFILE,
     X23_DUAL_Y_LINE_PROFILE,
 )

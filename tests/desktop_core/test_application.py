@@ -228,7 +228,9 @@ def test_agent_native_engine_rpc_uses_project_data_and_restores_documents(
         "K06",
         "K07",
         "K08",
+        "K18",
         "K20",
+        "X02",
         "X23",
     }
 

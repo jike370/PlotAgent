@@ -67,7 +67,7 @@
 | S21 | 森林图 | D；独立 Origin interval 参考 | `SCATTERINTERVAL.otp` `fb319b1a6918` | T2 | 绑定 effect/lower/upper、行标签、无效线和权重符号 | 本机无 Forest 命名模板；先实机确认 interval 端帽与权重符号兼容性 |
 | S34 | Nyquist 图 | D；独立 Origin line-symbol 参考 | `LINESYMB.otpu` `2f1292a939ea` | T2 | 绑定 Z′/−Z″、等比例轴、方向/频率编码 | 本机未找到 Nyquist 命名模板；不可把频率误作坐标轴 |
 | S61 | 混淆矩阵 | C；官方 `LogRegData.dat` | `Heat_Map_With_Labels.otpu` `d1a7fcd8af23` | T2 | 写入预聚合 Count 矩阵、轴类目和单元格标签 | 必须支持原始样本计数与预聚合 Count，两者都落为同一原生矩阵语义 |
-| X02 | 垂线图 | C；官方 step signal 数据 | `DROPLINE.OTP` `69cbcf934924` | T1 | 绑定 X/Y、symbol 和 drop-line 样式 | 按已确认产品语义落到 y=0；不与 X03 混淆 |
+| X02 | 垂线图 | C；官方 step signal 数据 | `DROPLINE.OTP` `69cbcf934924` | T1 | 绑定 X/Y、symbol 和 drop-line 样式 | 垂线落到当前绘图区底部 X 轴；不与 X03 混淆 |
 | X03 | 棒棒糖图 | A；`Lollipop.opju` Graph1 | `Lollipop.otpu` `f76fc89b9438` | T1 | 绑定类别和 2+ 数值系列、动态系列颜色 | 两系列形成哑铃预设；保持当前正式命名 |
 | X05 | 蜂群图 | A；`ColumnScatter.opju` Graph10 | `ColumnScatter.otp` `e9bfbf3b74bc` | T1 | 绑定原始值/分组和避让参数 | 使用模板原生 Column Scatter/Beeswarm 结构 |
 | X09 | 范围柱条图 | A；`FLOATBAR.opju` Graph5 | `FLOATBAR.OTP` `7fd8331a4f91` | T1 | 绑定 start/middle/end，动态区段色 | middle/end 作为边界，不暴露成多余图例项 |

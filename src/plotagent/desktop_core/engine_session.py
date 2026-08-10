@@ -34,8 +34,10 @@ from plotagent.engine.backends.matplotlib import (
     K06PointErrorRenderer,
     K07ErrorBandRenderer,
     K08ColumnRenderer,
+    K18AreaRenderer,
     K20HeatmapRenderer,
     MatplotlibBackend,
+    X02DropLineRenderer,
     X23DualYRenderer,
 )
 from plotagent.engine.profiles import ENGINE_PROFILES
@@ -72,7 +74,9 @@ class DesktopEngineSession:
                 K06PointErrorRenderer(),
                 K07ErrorBandRenderer(),
                 K08ColumnRenderer(),
+                K18AreaRenderer(),
                 K20HeatmapRenderer(),
+                X02DropLineRenderer(),
                 X23DualYRenderer(),
             ),
         )

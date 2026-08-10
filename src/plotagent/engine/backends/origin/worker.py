@@ -11,8 +11,10 @@ from .k03 import execute_k03_request
 from .k06 import execute_k06_request
 from .k07 import execute_k07_request
 from .k08 import execute_k08_request
+from .k18 import execute_k18_request
 from .k20 import execute_k20_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
+from .x02 import execute_x02_request
 from .x23 import execute_x23_request
 
 
@@ -29,7 +31,9 @@ def main(argv: list[str] | None = None) -> int:
         "K06": execute_k06_request,
         "K07": execute_k07_request,
         "K08": execute_k08_request,
+        "K18": execute_k18_request,
         "K20": execute_k20_request,
+        "X02": execute_x02_request,
         "X23": execute_x23_request,
     }
     try:
