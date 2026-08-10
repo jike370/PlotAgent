@@ -1,0 +1,7434 @@
+{
+  "charts": {
+    "K01": {
+      "binder_id": "plotagent.origin.template.line",
+      "build_structures": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0100",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0101",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0102",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 40,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0103",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0104",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "graph_name": "PK0105",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K01",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "f12c957a95c932cdb0d1cd66cc22b301ff252ac2cd7dc28163aa5d253d4796ba",
+      "opju_size": 180178,
+      "template_filename": "LINE.otpu",
+      "template_sha256": "76a7ce886e2290d29444ac3a92c736a2057d2583aea8867091db439cb23dc648",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "default",
+          "row_count": 20
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 40
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 20
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 20
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "name": "edited",
+          "row_count": 20
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K02": {
+      "binder_id": "plotagent.origin.template.line_symbol",
+      "build_structures": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0200",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0201",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0202",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 40,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0203",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0204",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "graph_name": "PK0205",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K02",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "74f7ebd5fdd7b7c3de07a3345a99e6d1d6bbee19b2e77fbe3f4aa2f656b287dc",
+      "opju_size": 190762,
+      "template_filename": "LINESYMB.otpu",
+      "template_sha256": "2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "default",
+          "row_count": 20
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 40
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 20
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 20
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "name": "edited",
+          "row_count": 20
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K03": {
+      "binder_id": "plotagent.origin.template.scatter",
+      "build_structures": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0300",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0301",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0302",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 40,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0303",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0304",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "graph_name": "PK0305",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K03",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "81da837aad7ed9eb1b71f876d45b0f0975cf8098b4acb6b19d66046998533be4",
+      "opju_size": 129314,
+      "template_filename": "SCATTER.OTP",
+      "template_sha256": "efef85d7c3db5028c565a57e15c86f97d6ebeded6d779c1cdb11328a7fbd4a99",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "default",
+          "row_count": 20
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 40
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 20
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 20
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "name": "edited",
+          "row_count": 20
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K04": {
+      "binder_id": "plotagent.origin.template.bubble",
+      "build_structures": [
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PK0400",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 10,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PK0401",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PK0402",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 30,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PK0403",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 10,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PK0404",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 10,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 4,
+          "edited": true,
+          "graph_name": "PK0405",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 10,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K04",
+      "conclusion": "DECLARED_PATCH",
+      "declared_patch_evidence": [
+        {
+          "bare_phase_status": "CONFIRMED_ABSENT",
+          "expected": "bind size/color and keep the color scale opt-in",
+          "observed_graph_count": 6,
+          "observed_native_plot_count": 6,
+          "patch_id": "color_scale_visibility",
+          "reason": "the bare-template phase forbids chart-specific native configuration"
+        }
+      ],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "3b0bf05e1a5055706806c8d59c67ad14e7934ceafd12f857dbfb1e90b016dd61",
+      "opju_size": 177783,
+      "template_filename": "bubble.otpu",
+      "template_sha256": "abc20768493ef817b567bd3e58bb0c3da1a8ec59c56f0d1b92c2341479560b44",
+      "tier": "T2",
+      "variants": [
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "default",
+          "row_count": 10
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 10
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 10
+        },
+        {
+          "column_count": 4,
+          "edited": true,
+          "name": "edited",
+          "row_count": 10
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K06": {
+      "binder_id": "plotagent.origin.template.point_error",
+      "build_structures": [
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK0600",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 8,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK0601",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK0602",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 30,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK0603",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 8,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK0604",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 8,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 6,
+          "edited": true,
+          "graph_name": "PK0605",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 8,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K06",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "c7821cc68980f1e39be460a5e7cc4a815522c2dfefe93842849146b8711765f6",
+      "opju_size": 162593,
+      "template_filename": "ERRBAR.otpu",
+      "template_sha256": "c17ebd8f68f8585c3bb4c431e75f4dc1724e3f54ee1fd7d0977b6cadcf1c599b",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "default",
+          "row_count": 8
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 8
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 8
+        },
+        {
+          "column_count": 6,
+          "edited": true,
+          "name": "edited",
+          "row_count": 8
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K07": {
+      "binder_id": "plotagent.origin.template.error_band",
+      "build_structures": [
+        {
+          "column_count": 7,
+          "edited": false,
+          "graph_name": "PK0700",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 45,
+          "total_plot_count": 6,
+          "variant": "default"
+        },
+        {
+          "column_count": 7,
+          "edited": false,
+          "graph_name": "PK0701",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 3,
+          "total_plot_count": 6,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 7,
+          "edited": false,
+          "graph_name": "PK0702",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 90,
+          "total_plot_count": 6,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 7,
+          "edited": false,
+          "graph_name": "PK0703",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 45,
+          "total_plot_count": 6,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 7,
+          "edited": false,
+          "graph_name": "PK0704",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 45,
+          "total_plot_count": 6,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PK0705",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 45,
+          "total_plot_count": 3,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 10,
+          "edited": false,
+          "graph_name": "PK0706",
+          "layer_count": 1,
+          "plot_counts": [
+            9
+          ],
+          "row_count": 45,
+          "total_plot_count": 9,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 16,
+          "edited": false,
+          "graph_name": "PK0707",
+          "layer_count": 1,
+          "plot_counts": [
+            15
+          ],
+          "row_count": 45,
+          "total_plot_count": 15,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 7,
+          "edited": true,
+          "graph_name": "PK0708",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 45,
+          "total_plot_count": 6,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K07",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "644dc0f1fd63ddeb42dfa0241c32955e7461b8756a5928f323f1162a35bb778d",
+      "opju_size": 277179,
+      "template_filename": "ERRORBAND.otp",
+      "template_sha256": "dfd36bf19bf3cf81bebd7d2b7d04a0ef05f07f90243678ddf3d03eded342c763",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 7,
+          "edited": false,
+          "name": "default",
+          "row_count": 45
+        },
+        {
+          "column_count": 7,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 7,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 90
+        },
+        {
+          "column_count": 7,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 45
+        },
+        {
+          "column_count": 7,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 45
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 45
+        },
+        {
+          "column_count": 10,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 45
+        },
+        {
+          "column_count": 16,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 45
+        },
+        {
+          "column_count": 7,
+          "edited": true,
+          "name": "edited",
+          "row_count": 45
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K08": {
+      "binder_id": "plotagent.origin.template.column",
+      "build_structures": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0800",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0801",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0802",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 30,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0803",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0804",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0805",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0806",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0807",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 10,
+          "total_plot_count": 1,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK0808",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 30,
+          "total_plot_count": 1,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "graph_name": "PK0809",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K08",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "de5e9ca689a81ea103cc6f8f0b58695d0317458ca8985acec6227c4cc9658c0a",
+      "opju_size": 254360,
+      "template_filename": "COLUMN.otpu",
+      "template_sha256": "ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "default",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 10
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 30
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "name": "edited",
+          "row_count": 3
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K09": {
+      "binder_id": "plotagent.origin.template.grouped_column",
+      "build_structures": [
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0900",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0901",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0902",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 30,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0903",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0904",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0905",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0906",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0907",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 30,
+          "total_plot_count": 3,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0908",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 90,
+          "total_plot_count": 3,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0909",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0910",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PK0911",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 15,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 5,
+          "edited": true,
+          "graph_name": "PK0912",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K09",
+      "conclusion": "DECLARED_PATCH",
+      "declared_patch_evidence": [
+        {
+          "bare_phase_status": "CONFIRMED_ABSENT",
+          "expected": "derive native group width and gap from the current group count",
+          "observed_graph_count": 13,
+          "observed_native_plot_count": 39,
+          "patch_id": "dynamic_plot_group",
+          "reason": "the bare-template phase forbids chart-specific native configuration"
+        }
+      ],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "8f3183a20be821c9c5b095e6ebc76f075c7f03728061a099e21d95d5fe7c5d14",
+      "opju_size": 353749,
+      "template_filename": "COLUMN.otpu",
+      "template_sha256": "ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
+      "tier": "T2",
+      "variants": [
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "default",
+          "row_count": 9
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 9
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 9
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 9
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 9
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 30
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 90
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 3
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 9
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 15
+        },
+        {
+          "column_count": 5,
+          "edited": true,
+          "name": "edited",
+          "row_count": 9
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K10": {
+      "binder_id": "plotagent.origin.template.stacked_column",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1000",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1001",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1002",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 30,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1003",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1004",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1005",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1006",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1007",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 30,
+          "total_plot_count": 3,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1008",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 90,
+          "total_plot_count": 3,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1009",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1010",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1011",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 15,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PK1012",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K10",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "db88dd5d6ef7bd17f770b56bc329fb01995d91665cac28e42cc92bcd3abdb946",
+      "opju_size": 276800,
+      "template_filename": "STACKCOLUMN.otp",
+      "template_sha256": "3ffd84ea777e414c60daab6e3b162b207379b94341ef1497c144a725f0caa264",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 90
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 15
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 9
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K11": {
+      "binder_id": "plotagent.origin.template.percent_stack",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1100",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1101",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1102",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 30,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1103",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1104",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1105",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1106",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1107",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 30,
+          "total_plot_count": 3,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1108",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 90,
+          "total_plot_count": 3,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1109",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1110",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1111",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 15,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PK1112",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K11",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "3d6d93485f6e6f9f7f47eacd05d4ae88f51ab2f5e6f26a6891f4d89119e23bc5",
+      "opju_size": 289874,
+      "template_filename": "StackColP.otp",
+      "template_sha256": "2094be00706be51883e7d5f8212e79e5eb1ac01ff66af45ba4953761ba8fe7d3",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 90
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 15
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 9
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K12": {
+      "binder_id": "plotagent.origin.template.strip",
+      "build_structures": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1200",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1201",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1202",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 1606,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1203",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1204",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1205",
+          "layer_count": 1,
+          "plot_counts": [
+            803
+          ],
+          "row_count": 803,
+          "total_plot_count": 803,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1206",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1207",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 2673,
+          "total_plot_count": 10,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1208",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 8030,
+          "total_plot_count": 30,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1209",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 264,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1210",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1211",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 1191,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "graph_name": "PK1212",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K12",
+      "conclusion": "DECLARED_PATCH",
+      "declared_patch_evidence": [
+        {
+          "bare_phase_status": "CONFIRMED_ABSENT",
+          "expected": "derive native grouped-strip placement from long-table groups",
+          "observed_graph_count": 13,
+          "observed_native_plot_count": 872,
+          "patch_id": "long_table_grouping",
+          "reason": "the bare-template phase forbids chart-specific native configuration"
+        }
+      ],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "80345eef40dcb98c3a3387bba99a2ee6f3ad5a21950b31212058d5d16065045b",
+      "opju_size": 2063370,
+      "template_filename": "ColumnScatter.otp",
+      "template_sha256": "e9bfbf3b74bc78db041208505bf1c1b32b387378cc8aac91462d017a662c425d",
+      "tier": "T2",
+      "variants": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "default",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 1606
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 2673
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 8030
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 264
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 1191
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "name": "edited",
+          "row_count": 803
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K13": {
+      "binder_id": "plotagent.origin.template.box",
+      "build_structures": [
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK1300",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK1301",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK1302",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 30,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK1303",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK1304",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK1305",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK1306",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK1307",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 10,
+          "total_plot_count": 10,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PK1308",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 30,
+          "total_plot_count": 30,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 6,
+          "edited": true,
+          "graph_name": "PK1309",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K13",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "92f24c29e4f6040459b7ed7724259a228ac203df35c3a358ec0aef1851853b81",
+      "opju_size": 306541,
+      "template_filename": "BOX.OTP",
+      "template_sha256": "a1f26e68a6a070aba0769905c6b143766a51abd0d7e6039ad93de49ab600daaa",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "default",
+          "row_count": 3
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 3
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 3
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 3
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 3
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 10
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 30
+        },
+        {
+          "column_count": 6,
+          "edited": true,
+          "name": "edited",
+          "row_count": 3
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K14": {
+      "binder_id": "plotagent.origin.template.violin",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1400",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 384,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1401",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1402",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 768,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1403",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 384,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1404",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 384,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1405",
+          "layer_count": 1,
+          "plot_counts": [
+            384
+          ],
+          "row_count": 384,
+          "total_plot_count": 384,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1406",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 384,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1407",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 1280,
+          "total_plot_count": 10,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1408",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 3840,
+          "total_plot_count": 30,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1409",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 128,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1410",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 384,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1411",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 640,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PK1412",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 384,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K14",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "9643a6b9528816c91e758219ae8854d34c5a721dc955e361b4176bb1209f140c",
+      "opju_size": 1600409,
+      "template_filename": "Violin.otpu",
+      "template_sha256": "ee71ef5fb2bf15cfc403444494f1779999df31d43c0a3e24001cb35b838bc1eb",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 384
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 768
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 384
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 384
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 384
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 384
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 1280
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 3840
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 128
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 384
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 640
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 384
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K15": {
+      "binder_id": "plotagent.origin.template.histogram",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1500",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 17,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1501",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1502",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 34,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1503",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 17,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1504",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 17,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PK1505",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 17,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K15",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "ee402ab497acd8b42a1ef1b1ec3b23410abbf82dea46fa289e78665c903f7cf3",
+      "opju_size": 215221,
+      "template_filename": "Hist.otpu",
+      "template_sha256": "cc1d7edd9f07f8bb0e1b0fe6f9ea0f36439afa912d209efc29329df9c2f00cfa",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 17
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 34
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 17
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 17
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 17
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K16": {
+      "binder_id": "plotagent.origin.template.density",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1600",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 320,
+          "total_plot_count": 2,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1601",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1602",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 640,
+          "total_plot_count": 2,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1603",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 320,
+          "total_plot_count": 2,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1604",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 320,
+          "total_plot_count": 2,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1605",
+          "layer_count": 1,
+          "plot_counts": [
+            320
+          ],
+          "row_count": 320,
+          "total_plot_count": 320,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1606",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 480,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1607",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 1600,
+          "total_plot_count": 10,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1608",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 4800,
+          "total_plot_count": 30,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1609",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 160,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1610",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 480,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK1611",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 800,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PK1612",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 320,
+          "total_plot_count": 2,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K16",
+      "conclusion": "DECLARED_PATCH",
+      "declared_patch_evidence": [
+        {
+          "bare_phase_status": "CONFIRMED_ABSENT",
+          "expected": "hide template histogram/rug components for density-only output",
+          "observed_graph_count": 13,
+          "observed_native_plot_count": 384,
+          "patch_id": "density_component_visibility",
+          "reason": "the bare-template phase forbids chart-specific native configuration"
+        }
+      ],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "0b2190d20a77a3bb38ef8b3c3d6bdbf8ea2e19d4c4be3b276012796ef3e1ccb5",
+      "opju_size": 869286,
+      "template_filename": "HISTDIST.otpu",
+      "template_sha256": "a584e2ee70fa332c592cce714a0339e31e3a7d937889d3096f37722b7fcd50e7",
+      "tier": "T2",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 320
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 640
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 320
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 320
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 320
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 480
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 1600
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 4800
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 160
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 480
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 800
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 320
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K18": {
+      "binder_id": "plotagent.origin.template.area",
+      "build_structures": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1800",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 378,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1801",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1802",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 756,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1803",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 378,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1804",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 378,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "graph_name": "PK1805",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 378,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K18",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "0d73e00e5db902bdd0302c2c62f79b52084fb9615c669d86f89f63c7167f6c70",
+      "opju_size": 275433,
+      "template_filename": "AREA.otpu",
+      "template_sha256": "c14ad432ffd60db09f6763b7b988de4aa554dcf0d9772b18334970fb83eddaec",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "default",
+          "row_count": 378
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 756
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 378
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 378
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "name": "edited",
+          "row_count": 378
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K19": {
+      "binder_id": "plotagent.origin.template.time_series",
+      "build_structures": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1900",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 360,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1901",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1902",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 720,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1903",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 360,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PK1904",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 360,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "graph_name": "PK1905",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 360,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K19",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "b36792efaac0db1f2e51194edb890f695e70b0dc4877739546caf83ba47c2257",
+      "opju_size": 146561,
+      "template_filename": "TimeSeries.otp",
+      "template_sha256": "ebe487cd9626437e522ae82e6fc302a280110bed4b26564984d4b0263eeb660c",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "default",
+          "row_count": 360
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 720
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 360
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 360
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "name": "edited",
+          "row_count": 360
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K20": {
+      "binder_id": "plotagent.origin.template.heatmap",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2000",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 36,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2001",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2002",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 72,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2003",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 36,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2004",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 36,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2005",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 36,
+          "total_plot_count": 1,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2006",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 18,
+          "total_plot_count": 1,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2007",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 60,
+          "total_plot_count": 1,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2008",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 180,
+          "total_plot_count": 1,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PK2009",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 36,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K20",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "561dce77a94b7f3322d2b95450845fd65be0848d3566944a01595d4cc2dfdf23",
+      "opju_size": 333604,
+      "template_filename": "Heat_Map.otpu",
+      "template_sha256": "9bd8240ca582bbedfec797ea27b1ec5c2906939e304fa343cd1821bae2ffbb9f",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 36
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 72
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 36
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 36
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 36
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 18
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 60
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 180
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 36
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K21": {
+      "binder_id": "plotagent.origin.template.correlation_matrix",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2100",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 36,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2101",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2102",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 72,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2103",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 36,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2104",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 36,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2105",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 36,
+          "total_plot_count": 1,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2106",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 18,
+          "total_plot_count": 1,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2107",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 60,
+          "total_plot_count": 1,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2108",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 180,
+          "total_plot_count": 1,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PK2109",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 36,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K21",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "01c76b53576bb74564800d928908794283506ad4b69f7966195605fe99d7e1ef",
+      "opju_size": 460084,
+      "template_filename": "Heat_Map_With_Labels.otpu",
+      "template_sha256": "d1a7fcd8af232aef9ca348eb178466a13a744eb700da7d49d39cfbe16c935c7d",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 36
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 72
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 36
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 36
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 36
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 18
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 60
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 180
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 36
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K22": {
+      "binder_id": "plotagent.origin.template.contour",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2200",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 5120,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2201",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2202",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 10240,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2203",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 5120,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2204",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 5120,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PK2205",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 5120,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K22",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "cf535acbc741b02d71e539a95deb520da27c88b41756a3ec4a4cb641dae2fdc9",
+      "opju_size": 429905,
+      "template_filename": "CONTOUR.otpu",
+      "template_sha256": "b4915054edd419955245e485b606784dbb6b4965dd6359b45603e00a866628e2",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 5120
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 10240
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 5120
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 5120
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 5120
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K24": {
+      "binder_id": "plotagent.origin.template.facet",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2400",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 27,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2401",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2402",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 54,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2403",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 27,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2404",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 27,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2405",
+          "layer_count": 1,
+          "plot_counts": [
+            27
+          ],
+          "row_count": 27,
+          "total_plot_count": 27,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2406",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 27,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2407",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 90,
+          "total_plot_count": 10,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2408",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 270,
+          "total_plot_count": 30,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2409",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2410",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 27,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2411",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 45,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PK2412",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 27,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K24",
+      "conclusion": "DECLARED_PATCH",
+      "declared_patch_evidence": [
+        {
+          "bare_phase_status": "CONFIRMED_ABSENT",
+          "expected": "create and bind one native layer for every current facet",
+          "observed_graph_count": 13,
+          "observed_native_plot_count": 97,
+          "patch_id": "dynamic_facet_layers",
+          "reason": "the bare-template phase forbids chart-specific native configuration"
+        }
+      ],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "3847c654fca4679ec4b31a63aa227fff18891f6207f2fc433cb9ab918a77d98d",
+      "opju_size": 1578545,
+      "template_filename": "mgroups.otpu",
+      "template_sha256": "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+      "tier": "T2",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 27
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 54
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 27
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 27
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 27
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 27
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 90
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 270
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 27
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 45
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 27
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "K25": {
+      "binder_id": "plotagent.origin.template.multi_panel",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2500",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 33,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2501",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2502",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 66,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2503",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 33,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2504",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 33,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2505",
+          "layer_count": 1,
+          "plot_counts": [
+            33
+          ],
+          "row_count": 33,
+          "total_plot_count": 33,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2506",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 33,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2507",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 110,
+          "total_plot_count": 10,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2508",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 330,
+          "total_plot_count": 30,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2509",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 11,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2510",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 33,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PK2511",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 55,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PK2512",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 33,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "K25",
+      "conclusion": "DECLARED_PATCH",
+      "declared_patch_evidence": [
+        {
+          "bare_phase_status": "CONFIRMED_ABSENT",
+          "expected": "compose current child plots as native editable panels",
+          "observed_graph_count": 13,
+          "observed_native_plot_count": 103,
+          "patch_id": "native_panel_composition",
+          "reason": "the bare-template phase forbids chart-specific native configuration"
+        }
+      ],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "d56956e25ee50ea80c11266e1a4d147661b61bc16bb524bd9cc7fea7c26ccef3",
+      "opju_size": 1657671,
+      "template_filename": "mgroups.otpu",
+      "template_sha256": "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+      "tier": "T2",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 33
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 66
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 33
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 33
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 33
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 33
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 110
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 330
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 11
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 33
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 55
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 33
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "S01": {
+      "binder_id": "plotagent.origin.template.survival",
+      "build_structures": [
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0100",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 18,
+          "total_plot_count": 6,
+          "variant": "default"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0101",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 3,
+          "total_plot_count": 6,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0102",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 36,
+          "total_plot_count": 6,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0103",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 18,
+          "total_plot_count": 6,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0104",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 18,
+          "total_plot_count": 6,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0105",
+          "layer_count": 1,
+          "plot_counts": [
+            54
+          ],
+          "row_count": 18,
+          "total_plot_count": 54,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0106",
+          "layer_count": 1,
+          "plot_counts": [
+            9
+          ],
+          "row_count": 27,
+          "total_plot_count": 9,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0107",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 90,
+          "total_plot_count": 30,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0108",
+          "layer_count": 1,
+          "plot_counts": [
+            90
+          ],
+          "row_count": 270,
+          "total_plot_count": 90,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0109",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 9,
+          "total_plot_count": 3,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0110",
+          "layer_count": 1,
+          "plot_counts": [
+            9
+          ],
+          "row_count": 27,
+          "total_plot_count": 9,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PS0111",
+          "layer_count": 1,
+          "plot_counts": [
+            15
+          ],
+          "row_count": 45,
+          "total_plot_count": 15,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 6,
+          "edited": true,
+          "graph_name": "PS0112",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 18,
+          "total_plot_count": 6,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "S01",
+      "conclusion": "DECLARED_PATCH",
+      "declared_patch_evidence": [
+        {
+          "bare_phase_status": "CONFIRMED_ABSENT",
+          "expected": "bind step curves, confidence bands, and the dynamic risk table",
+          "observed_graph_count": 13,
+          "observed_native_plot_count": 246,
+          "patch_id": "risk_table_and_step_band",
+          "reason": "the bare-template phase forbids chart-specific native configuration"
+        }
+      ],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "df680afb520d7b556b41c26ba5a9bbff8a0ffeb8a0b86e7d025653ef2f9f3d70",
+      "opju_size": 1303881,
+      "template_filename": "SurvivalPlot.otp",
+      "template_sha256": "0b8759367ce19f1a82cfb9630ffefd849e0c600bce1e909985645c0a47de046b",
+      "tier": "T2",
+      "variants": [
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "default",
+          "row_count": 18
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 36
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 18
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 18
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 18
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 27
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 90
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 270
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 9
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 27
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 45
+        },
+        {
+          "column_count": 6,
+          "edited": true,
+          "name": "edited",
+          "row_count": 18
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "S21": {
+      "binder_id": "plotagent.origin.template.forest",
+      "build_structures": [
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PS2100",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 7,
+          "total_plot_count": 2,
+          "variant": "default"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PS2101",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PS2102",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PS2103",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 7,
+          "total_plot_count": 2,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PS2104",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 7,
+          "total_plot_count": 2,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PS2105",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 7,
+          "total_plot_count": 2,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PS2106",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PS2107",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 10,
+          "total_plot_count": 2,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PS2108",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 5,
+          "edited": true,
+          "graph_name": "PS2109",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 7,
+          "total_plot_count": 2,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "S21",
+      "conclusion": "DECLARED_PATCH",
+      "declared_patch_evidence": [
+        {
+          "bare_phase_status": "CONFIRMED_ABSENT",
+          "expected": "bind intervals and encode study weight in marker size",
+          "observed_graph_count": 10,
+          "observed_native_plot_count": 20,
+          "patch_id": "interval_weight_encoding",
+          "reason": "the bare-template phase forbids chart-specific native configuration"
+        }
+      ],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "b2c7c5b5a43ae326842f3473feb2ee4bfb11bc17fe9d9452c328a2263657edaa",
+      "opju_size": 222965,
+      "template_filename": "SCATTERINTERVAL.otp",
+      "template_sha256": "fb319b1a6918427767373917ddda2cc5b95a88d9d295ff06e866762b955dd161",
+      "tier": "T2",
+      "variants": [
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "default",
+          "row_count": 7
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 7
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 7
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 7
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 3
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 10
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 30
+        },
+        {
+          "column_count": 5,
+          "edited": true,
+          "name": "edited",
+          "row_count": 7
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "S34": {
+      "binder_id": "plotagent.origin.template.nyquist",
+      "build_structures": [
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3400",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 84,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3401",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3402",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 168,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3403",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 84,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3404",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 84,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3405",
+          "layer_count": 1,
+          "plot_counts": [
+            84
+          ],
+          "row_count": 84,
+          "total_plot_count": 84,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3406",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 84,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3407",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 280,
+          "total_plot_count": 10,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3408",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 840,
+          "total_plot_count": 30,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3409",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 28,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3410",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 84,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PS3411",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 140,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 4,
+          "edited": true,
+          "graph_name": "PS3412",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 84,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "S34",
+      "conclusion": "DECLARED_PATCH",
+      "declared_patch_evidence": [
+        {
+          "bare_phase_status": "CONFIRMED_ABSENT",
+          "expected": "enforce equal axes and retain frequency direction encoding",
+          "observed_graph_count": 13,
+          "observed_native_plot_count": 154,
+          "patch_id": "equal_axis_and_direction_encoding",
+          "reason": "the bare-template phase forbids chart-specific native configuration"
+        }
+      ],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "169c9a77eed454eee96986cced447f1d187286516aecb0e23591887078048d59",
+      "opju_size": 2438353,
+      "template_filename": "LINESYMB.otpu",
+      "template_sha256": "2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",
+      "tier": "T2",
+      "variants": [
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "default",
+          "row_count": 84
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 168
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 84
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 84
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 84
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 84
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 280
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 840
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 28
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 84
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 140
+        },
+        {
+          "column_count": 4,
+          "edited": true,
+          "name": "edited",
+          "row_count": 84
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "S61": {
+      "binder_id": "plotagent.origin.template.confusion_matrix",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PS6100",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 4,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PS6101",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PS6102",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 30,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PS6103",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 4,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PS6104",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 4,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PS6105",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 4,
+          "total_plot_count": 1,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PS6106",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 6,
+          "total_plot_count": 1,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PS6107",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 20,
+          "total_plot_count": 1,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PS6108",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 60,
+          "total_plot_count": 1,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PS6109",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 4,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "S61",
+      "conclusion": "DECLARED_PATCH",
+      "declared_patch_evidence": [
+        {
+          "bare_phase_status": "CONFIRMED_ABSENT",
+          "expected": "bind category axes and native per-cell count labels",
+          "observed_graph_count": 10,
+          "observed_native_plot_count": 10,
+          "patch_id": "matrix_count_labels",
+          "reason": "the bare-template phase forbids chart-specific native configuration"
+        }
+      ],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "1ba9341eb27712d4dea6e486c4726abee0e1ec188c40aec94f24c9179eac2dbf",
+      "opju_size": 456904,
+      "template_filename": "Heat_Map_With_Labels.otpu",
+      "template_sha256": "d1a7fcd8af232aef9ca348eb178466a13a744eb700da7d49d39cfbe16c935c7d",
+      "tier": "T2",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 4
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 4
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 4
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 4
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 6
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 20
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 60
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 4
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X02": {
+      "binder_id": "plotagent.origin.template.drop_line",
+      "build_structures": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0200",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 1024,
+          "total_plot_count": 1,
+          "variant": "default"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0201",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 1,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0202",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 2048,
+          "total_plot_count": 1,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0203",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 1024,
+          "total_plot_count": 1,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0204",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 1024,
+          "total_plot_count": 1,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "graph_name": "PX0205",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 1024,
+          "total_plot_count": 1,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X02",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "33d0019280c4981973548a39acccd535b16272a72ed02b12e2ac9b4a2b274dc1",
+      "opju_size": 164101,
+      "template_filename": "DROPLINE.OTP",
+      "template_sha256": "69cbcf9349249092e2e32c8955c88c0a265ac47a46811885593d9eced643299f",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "default",
+          "row_count": 1024
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 2048
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 1024
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 1024
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "name": "edited",
+          "row_count": 1024
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X03": {
+      "binder_id": "plotagent.origin.template.lollipop",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX0300",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX0301",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX0302",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX0303",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX0304",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX0305",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX0306",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX0307",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 10,
+          "total_plot_count": 2,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX0308",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0309",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 8,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX0310",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 8,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "graph_name": "PX0311",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 8,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PX0312",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X03",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "e7223004e9454fb42eea58195b949fdaa422fabb684c91320ecc9407d737e38f",
+      "opju_size": 330705,
+      "template_filename": "Lollipop.otpu",
+      "template_sha256": "f76fc89b9438947bbcd601b53e03cf16732a931621143b469233e584f88ba58b",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 8
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 8
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 8
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 8
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 10
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 30
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 8
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 8
+        },
+        {
+          "column_count": 6,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 8
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 8
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X05": {
+      "binder_id": "plotagent.origin.template.beeswarm",
+      "build_structures": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0500",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "default"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0501",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0502",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 1606,
+          "total_plot_count": 3,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0503",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0504",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0505",
+          "layer_count": 1,
+          "plot_counts": [
+            803
+          ],
+          "row_count": 803,
+          "total_plot_count": 803,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0506",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0507",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 2673,
+          "total_plot_count": 10,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0508",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 8030,
+          "total_plot_count": 30,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0509",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 264,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0510",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX0511",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 1191,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "graph_name": "PX0512",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 803,
+          "total_plot_count": 3,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X05",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "82962ab03222bc85a45cac7fef16ca73cf15cbd3a162ef339b585324ee864c50",
+      "opju_size": 2063405,
+      "template_filename": "ColumnScatter.otp",
+      "template_sha256": "e9bfbf3b74bc78db041208505bf1c1b32b387378cc8aac91462d017a662c425d",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "default",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 1606
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 2673
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 8030
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 264
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 803
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 1191
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "name": "edited",
+          "row_count": 803
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X09": {
+      "binder_id": "plotagent.origin.template.floating_interval",
+      "build_structures": [
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX0900",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "default"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX0901",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX0902",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX0903",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX0904",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX0905",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX0906",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX0907",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 10,
+          "total_plot_count": 2,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX0908",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 4,
+          "edited": true,
+          "graph_name": "PX0909",
+          "layer_count": 1,
+          "plot_counts": [
+            2
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X09",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "3bf5a2344de8c5246fadc1542b98bdf7a7e8a7f04b9b3787a1cda2857580edd5",
+      "opju_size": 212218,
+      "template_filename": "FLOATBAR.OTP",
+      "template_sha256": "7fd8331a4f91170ce7a7b35428659e48b985fc6ce8164c706ea31b4e41dee93b",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "default",
+          "row_count": 8
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 8
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 8
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 8
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 3
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 10
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 30
+        },
+        {
+          "column_count": 4,
+          "edited": true,
+          "name": "edited",
+          "row_count": 8
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X13": {
+      "binder_id": "plotagent.origin.template.population_pyramid",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX1300",
+          "layer_count": 2,
+          "plot_counts": [
+            2,
+            0
+          ],
+          "row_count": 18,
+          "total_plot_count": 2,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX1301",
+          "layer_count": 2,
+          "plot_counts": [
+            2,
+            0
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX1302",
+          "layer_count": 2,
+          "plot_counts": [
+            2,
+            0
+          ],
+          "row_count": 36,
+          "total_plot_count": 2,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX1303",
+          "layer_count": 2,
+          "plot_counts": [
+            2,
+            0
+          ],
+          "row_count": 18,
+          "total_plot_count": 2,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX1304",
+          "layer_count": 2,
+          "plot_counts": [
+            2,
+            0
+          ],
+          "row_count": 18,
+          "total_plot_count": 2,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX1305",
+          "layer_count": 2,
+          "plot_counts": [
+            2,
+            0
+          ],
+          "row_count": 18,
+          "total_plot_count": 2,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX1306",
+          "layer_count": 2,
+          "plot_counts": [
+            2,
+            0
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX1307",
+          "layer_count": 2,
+          "plot_counts": [
+            2,
+            0
+          ],
+          "row_count": 10,
+          "total_plot_count": 2,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX1308",
+          "layer_count": 2,
+          "plot_counts": [
+            2,
+            0
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PX1309",
+          "layer_count": 2,
+          "plot_counts": [
+            2,
+            0
+          ],
+          "row_count": 18,
+          "total_plot_count": 2,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X13",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "0adbdcdb96120025c4d4b458598bf7d9e0ed99446da8ac2d08b683abf7d97a7f",
+      "opju_size": 310742,
+      "template_filename": "PopulationPyramid.otpu",
+      "template_sha256": "2c5958a91130d62cf8a6708f197bfd6248a3b22d81fc68eed1abe5f10988fbab",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 18
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 36
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 18
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 18
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 18
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 10
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 18
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X23": {
+      "binder_id": "plotagent.origin.template.dual_y_line",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX2300",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX2301",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX2302",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX2303",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX2304",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PX2305",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X23",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "13de531e16032798b37d3f099be9416b4ccd771c144539a3666c24d78b702c3f",
+      "opju_size": 171775,
+      "template_filename": "DOUBLEY.OTP",
+      "template_sha256": "487547eb206e4645f3380a9a021ceb7fbcf4ec4d1fdb0a870d1eb0cde0c7641b",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 9
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X24": {
+      "binder_id": "plotagent.origin.template.pareto",
+      "build_structures": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX2400",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "default"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX2401",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX2402",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX2403",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "graph_name": "PX2404",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "graph_name": "PX2405",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 8,
+          "total_plot_count": 2,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X24",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "56075159f7482c266149975eceb1583b2c9a08ae2a649596c477c46381db5b30",
+      "opju_size": 241892,
+      "template_filename": "ParetoRaw.otpu",
+      "template_sha256": "5f273e70f87c2e22d230417b35907c2524dc293476070e74312f872a7ff00a7b",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "default",
+          "row_count": 8
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 8
+        },
+        {
+          "column_count": 2,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 8
+        },
+        {
+          "column_count": 2,
+          "edited": true,
+          "name": "edited",
+          "row_count": 8
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X35": {
+      "binder_id": "plotagent.origin.template.dual_y_column",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3500",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3501",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3502",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3503",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3504",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3505",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3506",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3507",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 10,
+          "total_plot_count": 2,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3508",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PX3509",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X35",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "7df129e0d407e183fa06afb7b78fad67182bdb0f1ac27863ec8b15f511128f29",
+      "opju_size": 348098,
+      "template_filename": "2Ys_Col.otpu",
+      "template_sha256": "cba0737aaa4c2ab24a62062cfe37c095c5651d9048519b3fc2a3e9ccaa058ca9",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 10
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 9
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X36": {
+      "binder_id": "plotagent.origin.template.dual_y_column_line",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3600",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3601",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3602",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3603",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3604",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3605",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3606",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 3,
+          "total_plot_count": 2,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3607",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 10,
+          "total_plot_count": 2,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3608",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 30,
+          "total_plot_count": 2,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PX3609",
+          "layer_count": 2,
+          "plot_counts": [
+            1,
+            1
+          ],
+          "row_count": 9,
+          "total_plot_count": 2,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X36",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "b35c0bf6d143853bacbf1c6c82e43b778538e0392b8812517f4f6957a3207ad9",
+      "opju_size": 608743,
+      "template_filename": "2Ys_ColSymb.otpu",
+      "template_sha256": "6e951a3dd1f08cb2122cac48ce37476eef54d54c9fb424211e9fce39c677e1ab",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 9
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 10
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 9
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X38": {
+      "binder_id": "plotagent.origin.template.offset_stack_y",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3800",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 2694,
+          "total_plot_count": 6,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3801",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3802",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 5388,
+          "total_plot_count": 6,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3803",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 2694,
+          "total_plot_count": 6,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3804",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 2694,
+          "total_plot_count": 6,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3805",
+          "layer_count": 1,
+          "plot_counts": [
+            2694
+          ],
+          "row_count": 2694,
+          "total_plot_count": 2694,
+          "variant": "labels_long_cjk"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3806",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 1347,
+          "total_plot_count": 3,
+          "variant": "categories_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3807",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 4490,
+          "total_plot_count": 10,
+          "variant": "categories_10"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3808",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 13470,
+          "total_plot_count": 30,
+          "variant": "categories_30"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3809",
+          "layer_count": 1,
+          "plot_counts": [
+            1
+          ],
+          "row_count": 449,
+          "total_plot_count": 1,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3810",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 1347,
+          "total_plot_count": 3,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3811",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 2245,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PX3812",
+          "layer_count": 1,
+          "plot_counts": [
+            6
+          ],
+          "row_count": 2694,
+          "total_plot_count": 6,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X38",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "f95bb7bc7dea5988627f340591d3de43457f5b179d4b3f456eefb9b16a447b93",
+      "opju_size": 2809830,
+      "template_filename": "OffsetStackY.otp",
+      "template_sha256": "c6d7548cf7389e5d53282c6d1873aa2e8e184de96ae54d2cd71937f0a56d98d3",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 2694
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 5388
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 2694
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 2694
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "labels_long_cjk",
+          "row_count": 2694
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_3",
+          "row_count": 1347
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_10",
+          "row_count": 4490
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "categories_30",
+          "row_count": 13470
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 449
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 1347
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 2245
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 2694
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X39": {
+      "binder_id": "plotagent.origin.template.line_series",
+      "build_structures": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3900",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 10,
+          "total_plot_count": 10,
+          "variant": "default"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3901",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3902",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 30,
+          "total_plot_count": 30,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3903",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 10,
+          "total_plot_count": 10,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3904",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 10,
+          "total_plot_count": 10,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 1,
+          "edited": false,
+          "graph_name": "PX3905",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 10,
+          "total_plot_count": 10,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX3906",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 10,
+          "total_plot_count": 10,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PX3907",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 10,
+          "total_plot_count": 10,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "graph_name": "PX3908",
+          "layer_count": 1,
+          "plot_counts": [
+            10
+          ],
+          "row_count": 10,
+          "total_plot_count": 10,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X39",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "99a2c05ac00d980f5ab517da752e48218cc6856054c6620f7572d1253f16da51",
+      "opju_size": 433336,
+      "template_filename": "BoxLser.otpu",
+      "template_sha256": "8396fd58435c4ded363b889d7eb3c8cf8a3b22e82eb539e8cc85f6b58481ec83",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "default",
+          "row_count": 10
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 10
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 10
+        },
+        {
+          "column_count": 1,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 10
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 10
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 10
+        },
+        {
+          "column_count": 3,
+          "edited": true,
+          "name": "edited",
+          "row_count": 10
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    },
+    "X40": {
+      "binder_id": "plotagent.origin.template.before_after",
+      "build_structures": [
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX4000",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 5,
+          "total_plot_count": 5,
+          "variant": "default"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX4001",
+          "layer_count": 1,
+          "plot_counts": [
+            3
+          ],
+          "row_count": 3,
+          "total_plot_count": 3,
+          "variant": "rows_min"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX4002",
+          "layer_count": 1,
+          "plot_counts": [
+            30
+          ],
+          "row_count": 30,
+          "total_plot_count": 30,
+          "variant": "rows_large"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX4003",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 5,
+          "total_plot_count": 5,
+          "variant": "range_cross_zero"
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "graph_name": "PX4004",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 5,
+          "total_plot_count": 5,
+          "variant": "missing_middle"
+        },
+        {
+          "column_count": 1,
+          "edited": false,
+          "graph_name": "PX4005",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 5,
+          "total_plot_count": 5,
+          "variant": "series_1"
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "graph_name": "PX4006",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 5,
+          "total_plot_count": 5,
+          "variant": "series_3"
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "graph_name": "PX4007",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 5,
+          "total_plot_count": 5,
+          "variant": "series_5"
+        },
+        {
+          "column_count": 4,
+          "edited": true,
+          "graph_name": "PX4008",
+          "layer_count": 1,
+          "plot_counts": [
+            5
+          ],
+          "row_count": 5,
+          "total_plot_count": 5,
+          "variant": "edited"
+        }
+      ],
+      "chart_type_id": "X40",
+      "conclusion": "AUTO",
+      "declared_patch_evidence": [],
+      "fresh_reopen_identical": true,
+      "opju_sha256": "d3ccaa9b94b158fa28f92edafe1141cc033f2e22da32d7a7db40574d906aae5f",
+      "opju_size": 471495,
+      "template_filename": "BeforeAfter.otpu",
+      "template_sha256": "d37a1c2949696f29cd2a2fcf856a2c8b5f8be29e8ab040a83a9c2c9f0e262c0b",
+      "tier": "T1",
+      "variants": [
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "default",
+          "row_count": 5
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "rows_min",
+          "row_count": 3
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "rows_large",
+          "row_count": 30
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "range_cross_zero",
+          "row_count": 5
+        },
+        {
+          "column_count": 4,
+          "edited": false,
+          "name": "missing_middle",
+          "row_count": 5
+        },
+        {
+          "column_count": 1,
+          "edited": false,
+          "name": "series_1",
+          "row_count": 5
+        },
+        {
+          "column_count": 3,
+          "edited": false,
+          "name": "series_3",
+          "row_count": 5
+        },
+        {
+          "column_count": 5,
+          "edited": false,
+          "name": "series_5",
+          "row_count": 5
+        },
+        {
+          "column_count": 4,
+          "edited": true,
+          "name": "edited",
+          "row_count": 5
+        }
+      ],
+      "visual_status": "UNVERIFIED"
+    }
+  },
+  "environment": {
+    "official_template_root": "D:\\origin",
+    "origin_display_version": "10.10.178",
+    "originpro_version": "1.1.15"
+  },
+  "probe_source_sha256": "be379ca8dc564f627aed58efeeb5c730ba90b3a026f492abb1aa22145846148b",
+  "probe_version": "origin-bare-template-probe.v1",
+  "rules": {
+    "allowed_operations": [
+      "write_native_worksheet_or_matrix",
+      "apply_registered_official_template",
+      "add_native_data_plot",
+      "representative_native_style_edit",
+      "save_and_fresh_reopen"
+    ],
+    "contact_sheet_generated": false,
+    "plotagent_renderer_used": false,
+    "visual_pass_allowed": false
+  },
+  "schema_version": "1.0",
+  "summary": {
+    "auto": 28,
+    "build_passed": 38,
+    "chart_count": 38,
+    "declared_patch": 10,
+    "fresh_reopen_passed": 38,
+    "visual_status": "UNVERIFIED"
+  }
+}

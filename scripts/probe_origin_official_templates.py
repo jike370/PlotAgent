@@ -32,11 +32,12 @@ from plotagent.contracts.engine_profiles import CHART_PROFILES_BY_ID, ChartProfi
 from plotagent.contracts.registry import PRODUCT_CHART_IDS
 from scripts import build_per_chart_opju
 
-Phase = Literal["prepare", "build", "reopen", "all"]
+Phase = Literal["prepare", "build", "reopen", "freeze", "all"]
 
 ORIGIN_INSTALL = Path(os.environ.get("PLOTAGENT_ORIGIN_HOME", r"D:\origin"))
 OUTPUT = REPOSITORY / "build" / "origin-template-probe"
 MANIFEST_PATH = OUTPUT / "manifest.json"
+FROZEN_MANIFEST_PATH = REPOSITORY / "tests" / "fixtures" / "origin_template_probe" / "manifest.json"
 PROBE_VERSION = "origin-bare-template-probe.v1"
 
 
@@ -90,6 +91,45 @@ _LONG_SERIES_COLUMNS: dict[str, str] = {
 
 _WIDE_SERIES_CHARTS = frozenset({"K07", "X03", "X39", "X40"})
 
+_T2_PATCH_EXPECTATIONS: dict[str, dict[str, str]] = {
+    "K04": {
+        "color_scale_visibility": "bind size/color and keep the color scale opt-in",
+    },
+    "K09": {
+        "dynamic_plot_group": "derive native group width and gap from the current group count",
+    },
+    "K12": {
+        "long_table_grouping": "derive native grouped-strip placement from long-table groups",
+    },
+    "K16": {
+        "density_component_visibility": (
+            "hide template histogram/rug components for density-only output"
+        ),
+    },
+    "K24": {
+        "dynamic_facet_layers": "create and bind one native layer for every current facet",
+    },
+    "K25": {
+        "native_panel_composition": "compose current child plots as native editable panels",
+    },
+    "S01": {
+        "risk_table_and_step_band": (
+            "bind step curves, confidence bands, and the dynamic risk table"
+        ),
+    },
+    "S21": {
+        "interval_weight_encoding": "bind intervals and encode study weight in marker size",
+    },
+    "S34": {
+        "equal_axis_and_direction_encoding": (
+            "enforce equal axes and retain frequency direction encoding"
+        ),
+    },
+    "S61": {
+        "matrix_count_labels": "bind category axes and native per-cell count labels",
+    },
+}
+
 _IDENTIFIER_COLUMNS = frozenset(
     {
         "actual",
@@ -123,6 +163,21 @@ def _sha256(path: Path) -> str:
 
 def _json_text(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+
+
+def _probe_source_sha256() -> str:
+    digest = hashlib.sha256()
+    for path in (
+        REPOSITORY / "src" / "plotagent" / "contracts" / "engine_profiles.py",
+        Path(__file__).resolve(),
+    ):
+        relative = path.relative_to(REPOSITORY).as_posix().encode("utf-8")
+        content = path.read_bytes()
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -333,9 +388,15 @@ def _new_matrix(op: Any, name: str, values: np.ndarray) -> Any:
 
 
 def _new_graph(op: Any, name: str, profile: ChartProfile) -> Any:
+    template_path = (ORIGIN_INSTALL / profile.origin.filename).resolve()
+    # originpro 1.1.15 rejects an otherwise valid absolute template path when
+    # the on-disk extension is uppercase (for example SCATTER.OTP).  Windows
+    # resolves the same file case-insensitively; normalize only the argument
+    # suffix and keep the frozen official file and hash untouched.
+    template_argument = template_path.with_suffix(template_path.suffix.lower())
     graph = op.new_graph(
         name,
-        template=str((ORIGIN_INSTALL / profile.origin.filename).resolve()),
+        template=str(template_argument),
         hidden=True,
     )
     if graph is None:
@@ -752,6 +813,9 @@ def prepare(chart_ids: tuple[str, ...]) -> dict[str, object]:
             )
         frame = _base_frame(chart_id)
         variants = probe_variants(chart_id, frame)
+        patch_expectations = _T2_PATCH_EXPECTATIONS.get(chart_id, {})
+        if tuple(patch_expectations) != profile.origin.declared_patch_ids:
+            raise RuntimeError(f"{chart_id} declared patch evidence is out of sync")
         charts[chart_id] = {
             "chart_type_id": chart_id,
             "tier": profile.origin.tier,
@@ -759,6 +823,15 @@ def prepare(chart_ids: tuple[str, ...]) -> dict[str, object]:
             "template_sha256": actual_sha256,
             "binder_id": profile.origin.binder_id,
             "declared_patch_ids": list(profile.origin.declared_patch_ids),
+            "declared_patch_evidence": [
+                {
+                    "patch_id": patch_id,
+                    "expected": expectation,
+                    "bare_phase_status": "NOT_APPLIED",
+                    "reason": "the bare-template phase forbids chart-specific native configuration",
+                }
+                for patch_id, expectation in patch_expectations.items()
+            ],
             "input_columns": [str(column) for column in frame.columns],
             "input_row_count": len(frame),
             "variants": [
@@ -860,6 +933,17 @@ def build(chart_ids: tuple[str, ...]) -> dict[str, Any]:
                     "opju_size": target.stat().st_size,
                     "opju_sha256": _sha256(target),
                     "build_structures": structures,
+                    "declared_patch_evidence": [
+                        {
+                            **evidence,
+                            "bare_phase_status": "CONFIRMED_ABSENT",
+                            "observed_graph_count": len(structures),
+                            "observed_native_plot_count": sum(
+                                int(structure["total_plot_count"]) for structure in structures
+                            ),
+                        }
+                        for evidence in charts[chart_id]["declared_patch_evidence"]
+                    ],
                 }
             )
             _write_json(MANIFEST_PATH, manifest)
@@ -899,6 +983,12 @@ def reopen(chart_ids: tuple[str, ...]) -> dict[str, Any]:
                 actual["variant"] = expected_graph["variant"]
                 reopen_structures.append(actual)
             profile = CHART_PROFILES_BY_ID[cast(Any, chart_id)]
+            patch_evidence = cast(list[dict[str, Any]], entry["declared_patch_evidence"])
+            if profile.origin.tier == "T2" and (
+                not patch_evidence
+                or any(item["bare_phase_status"] != "CONFIRMED_ABSENT" for item in patch_evidence)
+            ):
+                raise RuntimeError(f"{chart_id} has no confirmed bare-template patch gap")
             conclusion = "AUTO" if profile.origin.tier == "T1" else "DECLARED_PATCH"
             entry.update(
                 {
@@ -927,6 +1017,67 @@ def reopen(chart_ids: tuple[str, ...]) -> dict[str, Any]:
     return manifest
 
 
+def freeze() -> dict[str, object]:
+    manifest = _load_manifest()
+    charts = cast(dict[str, dict[str, Any]], manifest["charts"])
+    if tuple(manifest["chart_ids"]) != tuple(PRODUCT_CHART_IDS) or set(charts) != set(
+        PRODUCT_CHART_IDS
+    ):
+        raise RuntimeError("only a complete 38-chart probe can be frozen")
+
+    frozen_charts: dict[str, object] = {}
+    for chart_id in PRODUCT_CHART_IDS:
+        entry = charts[chart_id]
+        profile = CHART_PROFILES_BY_ID[chart_id]
+        expected_conclusion = "AUTO" if profile.origin.tier == "T1" else "DECLARED_PATCH"
+        if (
+            entry.get("build_status") != "passed"
+            or entry.get("fresh_reopen_status") != "passed"
+            or entry.get("fresh_reopen_identical") is not True
+            or entry.get("conclusion") != expected_conclusion
+            or entry.get("visual_status") != "UNVERIFIED"
+        ):
+            raise RuntimeError(f"{chart_id} is not mechanically qualified for freezing")
+        frozen_charts[chart_id] = {
+            "chart_type_id": chart_id,
+            "tier": entry["tier"],
+            "template_filename": entry["template_filename"],
+            "template_sha256": entry["template_sha256"],
+            "binder_id": entry["binder_id"],
+            "declared_patch_evidence": entry["declared_patch_evidence"],
+            "variants": entry["variants"],
+            "build_structures": entry["build_structures"],
+            "fresh_reopen_identical": True,
+            "opju_size": entry["opju_size"],
+            "opju_sha256": entry["opju_sha256"],
+            "conclusion": expected_conclusion,
+            "visual_status": "UNVERIFIED",
+        }
+
+    frozen: dict[str, object] = {
+        "schema_version": "1.0",
+        "probe_version": PROBE_VERSION,
+        "probe_source_sha256": _probe_source_sha256(),
+        "environment": {
+            "origin_display_version": "10.10.178",
+            "originpro_version": "1.1.15",
+            "official_template_root": r"D:\origin",
+        },
+        "rules": manifest["rules"],
+        "summary": {
+            "chart_count": 38,
+            "auto": 28,
+            "declared_patch": 10,
+            "build_passed": 38,
+            "fresh_reopen_passed": 38,
+            "visual_status": "UNVERIFIED",
+        },
+        "charts": frozen_charts,
+    }
+    _write_json(FROZEN_MANIFEST_PATH, frozen)
+    return frozen
+
+
 def _run_fresh_phase(phase: Literal["build", "reopen"], charts: str) -> None:
     command = [
         sys.executable,
@@ -941,7 +1092,11 @@ def _run_fresh_phase(phase: Literal["build", "reopen"], charts: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--phase", choices=("prepare", "build", "reopen", "all"), default="all")
+    parser.add_argument(
+        "--phase",
+        choices=("prepare", "build", "reopen", "freeze", "all"),
+        default="all",
+    )
     parser.add_argument("--charts", default="all", help="all or comma-separated product chart ids")
     args = parser.parse_args()
     chart_ids = _selected_chart_ids(args.charts)
@@ -952,10 +1107,16 @@ def main() -> int:
         build(chart_ids)
     elif args.phase == "reopen":
         reopen(chart_ids)
+    elif args.phase == "freeze":
+        if args.charts != "all":
+            raise ValueError("freeze always requires --charts all")
+        freeze()
     else:
         prepare(chart_ids)
         _run_fresh_phase("build", chart_argument)
         _run_fresh_phase("reopen", chart_argument)
+        if args.charts == "all":
+            freeze()
     return 0
 
 
