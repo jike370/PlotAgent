@@ -443,6 +443,66 @@ X02_DROP_LINE_PROFILE = EngineProfile(
     ),
 )
 
+X03_LOLLIPOP_PROFILE = EngineProfile(
+    profile_id="X03",
+    display_name="Lollipop",
+    required_roles=("category", "series_1", "series_2"),
+    repeatable_role_prefixes=("series",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series",
+            object_kind="series",
+            object_key_prefix="column",
+        ),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "line_width_pt", "line_style", "symbol", "symbol_size_pt"),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+X39_LINE_SERIES_PROFILE = EngineProfile(
+    profile_id="X39",
+    display_name="Line series",
+    required_roles=("series_1", "series_2"),
+    repeatable_role_prefixes=("series",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series",
+            object_kind="series",
+            object_key_prefix="row",
+        ),
+    ),
+    capabilities=X03_LOLLIPOP_PROFILE.capabilities,
+)
+
+X40_BEFORE_AFTER_PROFILE = EngineProfile(
+    profile_id="X40",
+    display_name="Before and after",
+    required_roles=("series_1", "series_2"),
+    objects=X39_LINE_SERIES_PROFILE.objects,
+    repeatable_objects=X39_LINE_SERIES_PROFILE.repeatable_objects,
+    capabilities=X03_LOLLIPOP_PROFILE.capabilities,
+)
+
 K20_HEATMAP_PROFILE = EngineProfile(
     profile_id="K20",
     display_name="Heatmap",
@@ -508,5 +568,8 @@ ENGINE_PROFILES = (
     K18_AREA_PROFILE,
     K20_HEATMAP_PROFILE,
     X02_DROP_LINE_PROFILE,
+    X03_LOLLIPOP_PROFILE,
     X23_DUAL_Y_LINE_PROFILE,
+    X39_LINE_SERIES_PROFILE,
+    X40_BEFORE_AFTER_PROFILE,
 )

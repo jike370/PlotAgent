@@ -18,6 +18,7 @@ from .k08 import execute_k08_request
 from .k18 import execute_k18_request
 from .k20 import execute_k20_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
+from .wide_series import execute_x03_request, execute_x39_request, execute_x40_request
 from .x02 import execute_x02_request
 from .x23 import execute_x23_request
 
@@ -47,7 +48,10 @@ def main(argv: list[str] | None = None) -> int:
         "K18": execute_k18_request,
         "K20": execute_k20_request,
         "X02": execute_x02_request,
+        "X03": execute_x03_request,
         "X23": execute_x23_request,
+        "X39": execute_x39_request,
+        "X40": execute_x40_request,
     }
     try:
         binder = binders[request.document.profile_id]

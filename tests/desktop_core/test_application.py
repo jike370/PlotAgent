@@ -240,7 +240,10 @@ def test_agent_native_engine_rpc_uses_project_data_and_restores_documents(
         "K18",
         "K20",
         "X02",
+        "X03",
         "X23",
+        "X39",
+        "X40",
     }
 
     created = harness.call(

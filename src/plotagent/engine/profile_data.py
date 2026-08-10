@@ -147,6 +147,26 @@ class DensityData:
     value_field_name: str
 
 
+@dataclass(frozen=True, slots=True)
+class WideColumnData:
+    labels: tuple[str, ...]
+    values: tuple[tuple[float, ...], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class LollipopData:
+    categories: tuple[str, ...]
+    columns: WideColumnData
+    category_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class TransposedSeriesData:
+    axis_labels: tuple[str, ...]
+    rows: tuple[tuple[float, ...], ...]
+    row_labels: tuple[str, ...]
+
+
 def xy_series(document: PlotDocument, data: EngineDataView, *, profile_id: str) -> XYSeriesData:
     """Return one numeric X/Y series for a fixed-role profile."""
 
@@ -432,6 +452,61 @@ def k16_density(document: PlotDocument, data: EngineDataView) -> DensityData:
     return DensityData(series=tuple(series), value_field_name=distribution.value_field_name)
 
 
+def x03_lollipop(document: PlotDocument, data: EngineDataView) -> LollipopData:
+    """Return one category column plus a contiguous 2+ numeric series set."""
+
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    try:
+        category = columns[bindings["category"]]
+    except KeyError as error:
+        raise ValueError("X03 requires a category binding") from error
+    roles = _contiguous_series_roles(bindings, "X03", minimum=2)
+    selected = tuple(columns[bindings[role]] for role in roles)
+    categories = tuple(_label(value, "category") for value in category.values)
+    if len(categories) != len(set(categories)):
+        raise ValueError("X03 category labels must be unique")
+    return LollipopData(
+        categories=categories,
+        columns=WideColumnData(
+            labels=tuple(column.field.name for column in selected),
+            values=tuple(
+                _numeric_values(column, role, "X03", allow_missing=True)
+                for role, column in zip(roles, selected, strict=True)
+            ),
+        ),
+        category_field_name=category.field.name,
+    )
+
+
+def transposed_series(
+    document: PlotDocument,
+    data: EngineDataView,
+    *,
+    profile_id: Literal["X39", "X40"],
+) -> TransposedSeriesData:
+    """Transpose bound numeric columns so each source row becomes one native series."""
+
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    roles = _contiguous_series_roles(bindings, profile_id, minimum=2)
+    if profile_id == "X40" and len(roles) != 2:
+        raise ValueError("X40 requires exactly two paired value columns")
+    selected = tuple(columns[bindings[role]] for role in roles)
+    column_values = tuple(
+        _numeric_values(column, role, profile_id, allow_missing=False)
+        for role, column in zip(roles, selected, strict=True)
+    )
+    rows = tuple(
+        tuple(values[index] for values in column_values) for index in range(len(data.row_ids))
+    )
+    return TransposedSeriesData(
+        axis_labels=tuple(column.field.name for column in selected),
+        rows=rows,
+        row_labels=tuple(f"Row {index}" for index in range(1, len(rows) + 1)),
+    )
+
+
 def k20_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:
     """Materialize a deterministic K20 grid from one immutable long table.
 
@@ -524,6 +599,28 @@ def x23_series(document: PlotDocument, data: EngineDataView) -> X23SeriesData:
 
 def _ordered_labels(column: EngineColumn, role: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(_label(value, role) for value in column.values))
+
+
+def _contiguous_series_roles(
+    bindings: dict[str, str],
+    profile_id: str,
+    *,
+    minimum: int,
+) -> tuple[str, ...]:
+    indexed: list[tuple[int, str]] = []
+    for role in bindings:
+        prefix, separator, suffix = role.rpartition("_")
+        if prefix != "series" or separator != "_" or not suffix.isdigit():
+            continue
+        indexed.append((int(suffix), role))
+    indexed.sort()
+    ordinals = tuple(index for index, _role in indexed)
+    expected = tuple(range(1, len(indexed) + 1))
+    if len(indexed) < minimum or ordinals != expected:
+        raise ValueError(
+            f"{profile_id} requires contiguous series_1..series_N bindings with N >= {minimum}"
+        )
+    return tuple(role for _index, role in indexed)
 
 
 def _label(value: object, role: str) -> str:

@@ -154,6 +154,27 @@ X02_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+X03_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X03",
+    filename="Lollipop.otpu",
+    sha256="f76fc89b9438947bbcd601b53e03cf16732a931621143b469233e584f88ba58b",
+    tier="T1",
+)
+
+X39_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X39",
+    filename="BoxLser.otpu",
+    sha256="8396fd58435c4ded363b889d7eb3c8cf8a3b22e82eb539e8cc85f6b58481ec83",
+    tier="T1",
+)
+
+X40_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="X40",
+    filename="BeforeAfter.otpu",
+    sha256="d37a1c2949696f29cd2a2fcf856a2c8b5f8be29e8ab040a83a9c2c9f0e262c0b",
+    tier="T1",
+)
+
 
 def resolve_official_template(
     install_dir: Path,

@@ -135,7 +135,7 @@ PlotDocument 只保存：
 
 ## 7. 当前迁移证据
 
-截至本分支当前实现，新架构已经完成十九类代码级纵向切片：
+截至本分支当前实现，新架构已经完成二十二类代码级纵向切片：
 
 | Profile | 数据语义 | Matplotlib | Origin 官方模板 | 原生结构 |
 |---|---|---|---|---|
@@ -157,9 +157,12 @@ PlotDocument 只保存：
 | K18 | `x / y` | 独立面积图 renderer | `AREA.otpu` | worksheet + 官方模板原生面积 Plot |
 | K20 | `row / column / value` | 独立热图 renderer | `Heat_Map.otpu` | matrixbook + 1 个原生 matrix plot |
 | X02 | `x / y` | 独立底轴垂线 renderer | `DROPLINE.OTP` | worksheet + 官方模板原生 drop-line Plot |
+| X03 | `category / series_1 / series_2 / series_N?` | 独立动态多系列棒棒糖 renderer | `Lollipop.otpu` | worksheet + 每个值列一条模板原生 lollipop Plot |
 | X23 | `x / left / right` | 独立双 Y renderer | `DOUBLEY.OTP` | worksheet + 2 个模板图层，各 1 条原生线 |
+| X39 | `series_1 / series_2 / series_N?` | 独立逐行线条序列 renderer | `BoxLser.otpu` | 绑定值列转置为 worksheet；每个源行一条模板原生 line-series Plot |
+| X40 | `series_1 / series_2` | 独立前后对比 renderer | `BeforeAfter.otpu` | 两个值列转置为 worksheet；每个源行一条模板原生 before-after Plot |
 
-十九个切片均只消费 `EngineDataView`、`PlotDocument` 和公开 Engine Action，不导入旧
-`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。K01/K02/K03/K04/K06/K07/K08/K09/K10/K11/K12/K13/K14/K15/K16/K18/K20/X02/X23 已有独立渲染、
+二十二个切片均只消费 `EngineDataView`、`PlotDocument` 和公开 Engine Action，不导入旧
+`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。K01/K02/K03/K04/K06/K07/K08/K09/K10/K11/K12/K13/K14/K15/K16/K18/K20/X02/X03/X23/X39/X40 已有独立渲染、
 模板哈希、对象结构和修改读回门禁；真实 Origin fresh-reopen 与人工视觉签名仍须在
 不占用用户 Origin 实例的受控资格批次中执行，未完成前不得声称这些 Profile 已发布。

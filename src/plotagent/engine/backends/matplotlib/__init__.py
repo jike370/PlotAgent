@@ -19,6 +19,7 @@ from .line import K01LineRenderer
 from .line_symbol import K02LineSymbolRenderer
 from .point_error import K06PointErrorRenderer
 from .scatter import K03ScatterRenderer
+from .wide_series import X03LollipopRenderer, X39LineSeriesRenderer, X40BeforeAfterRenderer
 
 __all__ = [
     "K01LineRenderer",
@@ -40,5 +41,8 @@ __all__ = [
     "K20HeatmapRenderer",
     "MatplotlibBackend",
     "X02DropLineRenderer",
+    "X03LollipopRenderer",
     "X23DualYRenderer",
+    "X39LineSeriesRenderer",
+    "X40BeforeAfterRenderer",
 ]

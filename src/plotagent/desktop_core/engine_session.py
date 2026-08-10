@@ -47,7 +47,10 @@ from plotagent.engine.backends.matplotlib import (
     K20HeatmapRenderer,
     MatplotlibBackend,
     X02DropLineRenderer,
+    X03LollipopRenderer,
     X23DualYRenderer,
+    X39LineSeriesRenderer,
+    X40BeforeAfterRenderer,
 )
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.storage.project import ProjectStore
@@ -95,7 +98,10 @@ class DesktopEngineSession:
                 K18AreaRenderer(),
                 K20HeatmapRenderer(),
                 X02DropLineRenderer(),
+                X03LollipopRenderer(),
                 X23DualYRenderer(),
+                X39LineSeriesRenderer(),
+                X40BeforeAfterRenderer(),
             ),
         )
         runtime = PlotEngineRuntime(
