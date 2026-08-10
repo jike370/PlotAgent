@@ -9,6 +9,7 @@ an Origin graph.
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import Field, StringConstraints, model_validator
@@ -64,7 +65,7 @@ class FieldBinding(StrictModel):
     field_id: FieldId
 
 
-EngineScalar = bool | int | float | str | None
+EngineScalar = bool | int | float | str | date | datetime | None
 
 
 class EngineField(StrictModel):

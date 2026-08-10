@@ -22,6 +22,7 @@ from .contracts import (
     SetSeriesStyle,
     SetTitle,
 )
+from .data import EngineDataError, ProjectEngineDataProvider
 from .ports import (
     EngineArtifact,
     EngineDataProvider,
@@ -45,6 +46,7 @@ __all__ = [
     "EngineColumn",
     "EngineCommandError",
     "EngineDataProvider",
+    "EngineDataError",
     "EngineDataRef",
     "EngineDataView",
     "EngineField",
@@ -58,6 +60,7 @@ __all__ = [
     "PlotDocument",
     "PlotDocumentRepository",
     "PlotDocumentRef",
+    "ProjectEngineDataProvider",
     "PlotEngineAction",
     "PlotEngineRuntime",
     "PlotEngineService",
