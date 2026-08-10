@@ -42,6 +42,10 @@ def test_each_chart_compiles_default_and_edited_into_one_project() -> None:
         assert len(pair) == 2
         assert pair[0].plan.chart_type_id == pair[1].plan.chart_type_id == case.chart_id
         assert len(plan.graph_objects) == 2
+        assert builder._graph_data_sha256(plan, 0) != builder._graph_data_sha256(plan, 1)
+        assert builder._graph_style_sha256(
+            plan.graph_objects[0]
+        ) != builder._graph_style_sha256(plan.graph_objects[1])
 
 
 def test_former_evidence_gaps_compile_default_and_edited_into_one_project() -> None:
