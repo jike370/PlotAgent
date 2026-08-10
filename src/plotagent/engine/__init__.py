@@ -23,6 +23,11 @@ from .contracts import (
     SetTitle,
 )
 from .data import EngineDataError, ProjectEngineDataProvider
+from .derived_data import (
+    DerivedEngineDataProvider,
+    engine_view_from_calculation,
+    engine_view_from_prepared,
+)
 from .ports import (
     EngineArtifact,
     EngineDataProvider,
@@ -41,6 +46,7 @@ __all__ = [
     "AppliedAction",
     "BindFields",
     "CreatePlot",
+    "DerivedEngineDataProvider",
     "EngineArtifact",
     "EngineActionCodec",
     "EngineCapability",
@@ -75,4 +81,6 @@ __all__ = [
     "SetTitle",
     "StoredPlotDocument",
     "document_ref",
+    "engine_view_from_calculation",
+    "engine_view_from_prepared",
 ]
