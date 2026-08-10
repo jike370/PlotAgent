@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from .calculated_distribution import execute_k15_request, execute_k16_request
 from .column_family import execute_k09_request, execute_k10_request, execute_k11_request
 from .distribution import execute_k12_request, execute_k13_request, execute_k14_request
 from .k01 import execute_k01_request
@@ -41,6 +42,8 @@ def main(argv: list[str] | None = None) -> int:
         "K12": execute_k12_request,
         "K13": execute_k13_request,
         "K14": execute_k14_request,
+        "K15": execute_k15_request,
+        "K16": execute_k16_request,
         "K18": execute_k18_request,
         "K20": execute_k20_request,
         "X02": execute_x02_request,

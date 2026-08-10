@@ -335,6 +335,58 @@ K14_VIOLIN_PROFILE = EngineProfile(
     capabilities=K13_BOX_PROFILE.capabilities,
 )
 
+K15_HISTOGRAM_PROFILE = EngineProfile(
+    profile_id="K15",
+    display_name="Histogram",
+    required_roles=("value",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="primary"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(operation="set_series_style", parameters=("color", "line_width_pt")),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+K16_DENSITY_PROFILE = EngineProfile(
+    profile_id="K16",
+    display_name="Kernel density",
+    required_roles=("value",),
+    optional_roles=("group",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series",
+            object_kind="series",
+            object_key_prefix="group",
+        ),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "line_width_pt", "line_style"),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
 K18_AREA_PROFILE = EngineProfile(
     profile_id="K18",
     display_name="Area",
@@ -451,6 +503,8 @@ ENGINE_PROFILES = (
     K12_STRIP_PROFILE,
     K13_BOX_PROFILE,
     K14_VIOLIN_PROFILE,
+    K15_HISTOGRAM_PROFILE,
+    K16_DENSITY_PROFILE,
     K18_AREA_PROFILE,
     K20_HEATMAP_PROFILE,
     X02_DROP_LINE_PROFILE,

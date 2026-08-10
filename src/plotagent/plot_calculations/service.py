@@ -45,10 +45,10 @@ from plotagent.contracts.calculations import (
 from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.plot_calculations.errors import PlotCalculationError
 from plotagent.plot_calculations.inputs import PlotCalculationInput
+from plotagent.plot_calculations.kernels import histogram_geometry, scott_kde_geometry
 
 ALGORITHM_VERSION = "1.0.0"
 _ROW_ID_PATTERN = re.compile(r"^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$")
-_SQRT_TWO_PI = math.sqrt(2.0 * math.pi)
 _CategoryScalar = str | bool | int | float
 _Scalar = _CategoryScalar | None
 _CategoryIdentity = tuple[str, str]
@@ -412,39 +412,21 @@ def _histogram(
         ],
         dtype=np.float64,
     )
-    minimum = float(np.min(values))
-    maximum = float(np.max(values))
-    if minimum == maximum:
-        bin_count = 1
-        edges = np.asarray((minimum - 0.5, maximum + 0.5), dtype=np.float64)
-        binning_rule = "constant"
-    else:
-        q1, q3 = np.quantile(values, (0.25, 0.75), method="linear")
-        iqr = float(q3 - q1)
-        if iqr > 0:
-            width = 2.0 * iqr * values.size ** (-1.0 / 3.0)
-            bin_count = max(1, math.ceil((maximum - minimum) / width))
-            binning_rule = "freedman_diaconis"
-        else:
-            bin_count = max(1, math.ceil(math.log2(values.size) + 1.0))
-            binning_rule = "sturges"
-        edges = np.linspace(minimum, maximum, bin_count + 1, dtype=np.float64)
-    counts, _ = np.histogram(values, bins=edges)
-    widths = np.diff(edges)
-    density = counts.astype(np.float64) / (float(values.size) * widths)
+    geometry = histogram_geometry(
+        tuple(float(value) for value in values),
+        normalization=spec.normalization,
+    )
+    bin_count = len(geometry.center)
     rows = []
     for index in range(bin_count):
-        plotted_value: int | float = (
-            int(counts[index]) if spec.normalization == "count" else float(density[index])
-        )
         rows.append(
             (
                 index,
-                float(edges[index]),
-                float(edges[index + 1]),
-                float((edges[index] + edges[index + 1]) / 2.0),
-                int(counts[index]),
-                plotted_value,
+                geometry.left[index],
+                geometry.right[index],
+                geometry.center[index],
+                geometry.count[index],
+                geometry.height[index],
             )
         )
     table = _table(
@@ -474,7 +456,7 @@ def _histogram(
         algorithm_id=spec.algorithm_id,
         bin_count=bin_count,
         normalization=spec.normalization,
-        binning_rule=binning_rule,
+        binning_rule=geometry.rule,
     )
 
 
@@ -581,15 +563,6 @@ def _tukey_box(
     )
 
 
-def _gaussian_density(values: np.ndarray, grid: np.ndarray, bandwidth: float) -> np.ndarray:
-    density_sum = np.zeros(grid.size, dtype=np.float64)
-    for start in range(0, values.size, 4096):
-        chunk = values[start : start + 4096]
-        scaled = (grid[:, None] - chunk[None, :]) / bandwidth
-        density_sum += np.exp(-0.5 * scaled * scaled).sum(axis=1)
-    return density_sum / (float(values.size) * bandwidth * _SQRT_TWO_PI)
-
-
 def _kde(
     spec: ViolinKDESpec | DensityKDESpec,
     data: PlotCalculationInput,
@@ -617,24 +590,21 @@ def _kde(
             [_number(data.columns[spec.value_field][i], spec.value_field) for i in group.indices],
             dtype=np.float64,
         )
-        standard_deviation = float(np.std(values, ddof=1))
-        bandwidth = standard_deviation * values.size ** (-1.0 / 5.0)
-        if not math.isfinite(bandwidth) or bandwidth <= 0:
+        extend = 0.0 if isinstance(spec, ViolinKDESpec) else 3.0
+        try:
+            geometry = scott_kde_geometry(
+                tuple(float(value) for value in values),
+                grid_points=spec.grid_points,
+                extend_bandwidths=extend,
+            )
+        except ValueError as error:
             raise _failure(
                 "PLOTSPEC_CALCULATION_DOMAIN_INVALID",
                 "Scott KDE requires positive sample variance in every group",
                 group_index=group_index,
-            )
-        minimum = float(np.min(values))
-        maximum = float(np.max(values))
-        if isinstance(spec, ViolinKDESpec):
-            grid_start, grid_end = minimum, maximum
-        else:
-            grid_start, grid_end = minimum - 3.0 * bandwidth, maximum + 3.0 * bandwidth
-        grid = np.linspace(grid_start, grid_end, spec.grid_points, dtype=np.float64)
-        density = _gaussian_density(values, grid, bandwidth)
+            ) from error
         group_value = group.values[0] if group.values else None
-        bandwidths.append(bandwidth)
+        bandwidths.append(geometry.bandwidth)
         rows.extend(
             (
                 group_index,
@@ -642,10 +612,12 @@ def _kde(
                 grid_index,
                 float(x_value),
                 float(density_value),
-                bandwidth,
+                geometry.bandwidth,
                 len(group.indices),
             )
-            for grid_index, (x_value, density_value) in enumerate(zip(grid, density, strict=True))
+            for grid_index, (x_value, density_value) in enumerate(
+                zip(geometry.grid, geometry.density, strict=True)
+            )
         )
     table = _table(
         (

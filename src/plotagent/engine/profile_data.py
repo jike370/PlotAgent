@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from math import isfinite, nan
 from typing import Literal
 
+from plotagent.plot_calculations.kernels import histogram_geometry, scott_kde_geometry
+
 from .contracts import EngineColumn, EngineDataView, PlotDocument
 
 
@@ -116,6 +118,32 @@ class DistributionGroupData:
 @dataclass(frozen=True, slots=True)
 class DistributionData:
     groups: tuple[DistributionGroupData, ...]
+    value_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class HistogramData:
+    left: tuple[float, ...]
+    right: tuple[float, ...]
+    center: tuple[float, ...]
+    height: tuple[int | float, ...]
+    count: tuple[int, ...]
+    value_field_name: str
+    normalization: Literal["count", "density"]
+    rule: Literal["freedman_diaconis", "sturges", "constant"]
+
+
+@dataclass(frozen=True, slots=True)
+class DensitySeriesData:
+    label: str
+    grid: tuple[float, ...]
+    density: tuple[float, ...]
+    bandwidth: float
+
+
+@dataclass(frozen=True, slots=True)
+class DensityData:
+    series: tuple[DensitySeriesData, ...]
     value_field_name: str
 
 
@@ -333,7 +361,7 @@ def distribution_groups(
     document: PlotDocument,
     data: EngineDataView,
     *,
-    profile_id: Literal["K12", "K13", "K14"],
+    profile_id: Literal["K12", "K13", "K14", "K15", "K16"],
 ) -> DistributionData:
     """Return raw observations split by optional group in first-appearance order."""
 
@@ -362,6 +390,46 @@ def distribution_groups(
                 raise ValueError(f"{profile_id} group {label!r} has no finite observations")
             grouped.append(DistributionGroupData(label=label, values=observations))
     return DistributionData(groups=tuple(grouped), value_field_name=value.field.name)
+
+
+def k15_histogram(document: PlotDocument, data: EngineDataView) -> HistogramData:
+    """Calculate fixed bins once; both render targets consume these exact bins."""
+
+    distribution = distribution_groups(document, data, profile_id="K15")
+    if len(distribution.groups) != 1:
+        raise ValueError("K15 accepts one value series")
+    geometry = histogram_geometry(distribution.groups[0].values, normalization="count")
+    return HistogramData(
+        left=geometry.left,
+        right=geometry.right,
+        center=geometry.center,
+        height=geometry.height,
+        count=geometry.count,
+        value_field_name=distribution.value_field_name,
+        normalization="count",
+        rule=geometry.rule,
+    )
+
+
+def k16_density(document: PlotDocument, data: EngineDataView) -> DensityData:
+    """Calculate the frozen Scott KDE over raw observations and optional groups."""
+
+    distribution = distribution_groups(document, data, profile_id="K16")
+    series: list[DensitySeriesData] = []
+    for index, group in enumerate(distribution.groups, start=1):
+        try:
+            geometry = scott_kde_geometry(group.values)
+        except ValueError as error:
+            raise ValueError(f"K16 group {index} cannot produce a density: {error}") from error
+        series.append(
+            DensitySeriesData(
+                label=group.label,
+                grid=geometry.grid,
+                density=geometry.density,
+                bandwidth=geometry.bandwidth,
+            )
+        )
+    return DensityData(series=tuple(series), value_field_name=distribution.value_field_name)
 
 
 def k20_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:

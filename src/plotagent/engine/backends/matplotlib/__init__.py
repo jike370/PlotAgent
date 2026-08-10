@@ -3,6 +3,7 @@
 from .area import K18AreaRenderer
 from .backend import MatplotlibBackend
 from .bubble import K04BubbleRenderer
+from .calculated_distribution import K15HistogramRenderer, K16DensityRenderer
 from .column import K08ColumnRenderer
 from .column_family import (
     K09GroupedColumnRenderer,
@@ -33,6 +34,8 @@ __all__ = [
     "K12StripRenderer",
     "K13BoxRenderer",
     "K14ViolinRenderer",
+    "K15HistogramRenderer",
+    "K16DensityRenderer",
     "K18AreaRenderer",
     "K20HeatmapRenderer",
     "MatplotlibBackend",

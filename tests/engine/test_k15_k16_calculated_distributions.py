@@ -1,0 +1,241 @@
+from __future__ import annotations
+
+import inspect
+from pathlib import Path
+
+import pytest
+
+import plotagent.engine.backends.origin.calculated_distribution as origin_module
+from plotagent.engine import (
+    CreatePlot,
+    EngineColumn,
+    EngineDataRef,
+    EngineDataView,
+    EngineField,
+    FieldBinding,
+    PlotDocument,
+)
+from plotagent.engine.backends.matplotlib import K15HistogramRenderer, K16DensityRenderer
+from plotagent.engine.backends.origin import K15_ORIGIN_PROFILE, K16_ORIGIN_PROFILE
+from plotagent.engine.backends.origin.calculated_distribution import (
+    CalculatedDistributionOriginProject,
+)
+from plotagent.engine.profile_data import k15_histogram, k16_density
+from plotagent.plot_calculations.kernels import histogram_geometry, scott_kde_geometry
+
+HASH = "5" * 64
+
+
+def _case(profile_id: str, *, grouped: bool = False):
+    data = EngineDataRef(
+        kind="source",
+        dataset_id=f"dataset.{profile_id.lower()}",
+        version=1,
+        content_hash=HASH,
+    )
+    bindings = [FieldBinding(role="value", field_id="field:value")]
+    columns = [
+        EngineColumn(
+            field=EngineField(
+                field_id="field:value",
+                name="Measurement",
+                logical_type="numeric",
+            ),
+            values=(1.0, 1.5, 2.0, 2.5, 4.0, 4.5),
+        )
+    ]
+    if grouped:
+        bindings.append(FieldBinding(role="group", field_id="field:group"))
+        columns.append(
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:group",
+                    name="Cohort",
+                    logical_type="categorical",
+                ),
+                values=("A", "A", "A", "B", "B", "B"),
+            )
+        )
+    create = CreatePlot(
+        action_id=f"action:create-{profile_id.lower()}",
+        plot_id=f"plot:{profile_id.lower()}-case",
+        profile_id=profile_id,
+        data=data,
+        bindings=tuple(bindings),
+    )
+    document = PlotDocument(
+        plot_id=create.plot_id,
+        plot_version=1,
+        profile_id=profile_id,
+        data=data,
+        bindings=tuple(bindings),
+        applied_action_ids=(create.action_id,),
+    )
+    view = EngineDataView(
+        data=data,
+        row_ids=tuple(f"row:{index}" for index in range(6)),
+        columns=tuple(columns),
+    )
+    return document, (create,), view
+
+
+def test_k15_and_legacy_calculation_share_one_histogram_kernel() -> None:
+    document, _, view = _case("K15")
+    histogram = k15_histogram(document, view)
+    kernel = histogram_geometry((1.0, 1.5, 2.0, 2.5, 4.0, 4.5))
+
+    assert histogram.center == kernel.center
+    assert histogram.height == kernel.height
+    assert histogram.left == kernel.left
+    assert histogram.right == kernel.right
+
+
+def test_k16_groups_use_the_frozen_scott_kernel() -> None:
+    document, _, view = _case("K16", grouped=True)
+    density = k16_density(document, view)
+
+    assert tuple(series.label for series in density.series) == ("A", "B")
+    assert density.series[0].grid == scott_kde_geometry((1.0, 1.5, 2.0)).grid
+    assert density.series[1].density == scott_kde_geometry((2.5, 4.0, 4.5)).density
+
+
+@pytest.mark.parametrize(
+    ("profile_id", "renderer", "grouped"),
+    (("K15", K15HistogramRenderer(), False), ("K16", K16DensityRenderer(), True)),
+)
+def test_calculated_distribution_matplotlib_renderers_accept_raw_observations(
+    tmp_path: Path,
+    profile_id: str,
+    renderer,
+    grouped: bool,
+) -> None:
+    document, actions, view = _case(profile_id, grouped=grouped)
+    readback = renderer.render(
+        document,
+        actions,
+        view,
+        tmp_path / f"{profile_id}.png",
+        tmp_path / f"{profile_id}.svg",
+    )
+
+    assert readback.document.plot_id == document.plot_id
+    assert (tmp_path / f"{profile_id}.png").stat().st_size > 0
+    assert (tmp_path / f"{profile_id}.svg").stat().st_size > 0
+
+
+class _Plot:
+    def __init__(self) -> None:
+        self.values = {"show": 1}
+        self.command = ""
+
+    def set_int(self, name: str, value: int) -> None:
+        self.values[name] = value
+
+    def get_int(self, name: str) -> int:
+        return self.values.get(name, 0)
+
+    def set_cmd(self, command: str) -> None:
+        self.command = command
+
+
+class _Layer:
+    def __init__(self) -> None:
+        self.plots: list[_Plot] = []
+        self.add_calls: list[dict[str, object]] = []
+
+    def plot_list(self) -> list[_Plot]:
+        return self.plots
+
+    def add_plot(self, sheet, **kwargs) -> _Plot:
+        plot = _Plot()
+        self.plots.append(plot)
+        self.add_calls.append(kwargs)
+        return plot
+
+    def rescale(self) -> None:
+        return None
+
+
+class _Graph:
+    def __init__(self) -> None:
+        self.layer = _Layer()
+
+    def __getitem__(self, index: int) -> _Layer:
+        assert index == 0
+        return self.layer
+
+
+class _Sheet:
+    def __init__(self) -> None:
+        self.columns: dict[int, list[object]] = {}
+
+    def from_list(self, index: int, values, **kwargs) -> None:
+        self.columns[index] = list(values)
+
+
+class _Book:
+    def __init__(self) -> None:
+        self.sheet = _Sheet()
+
+    def __getitem__(self, index: int) -> _Sheet:
+        assert index == 0
+        return self.sheet
+
+
+class _Origin:
+    def __init__(self) -> None:
+        self.book = _Book()
+        self.graph = _Graph()
+        self.template = ""
+
+    def new(self, *, asksave: bool) -> None:
+        return None
+
+    def new_book(self, *args, **kwargs) -> _Book:
+        return self.book
+
+    def new_graph(self, name: str, *, template: str, hidden: bool) -> _Graph:
+        self.template = template
+        return self.graph
+
+
+@pytest.mark.parametrize(
+    ("profile_id", "profile", "grouped", "expected_calls"),
+    (
+        ("K15", K15_ORIGIN_PROFILE, False, 1),
+        ("K16", K16_ORIGIN_PROFILE, True, 2),
+    ),
+)
+def test_origin_binders_start_from_official_template_and_bind_calculated_geometry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    profile_id: str,
+    profile,
+    grouped: bool,
+    expected_calls: int,
+) -> None:
+    document, _, view = _case(profile_id, grouped=grouped)
+    monkeypatch.setattr(
+        origin_module,
+        "resolve_official_template",
+        lambda install, selected: tmp_path / selected.filename,
+    )
+    origin = _Origin()
+    project = CalculatedDistributionOriginProject(origin, profile_id=profile_id)
+    project.create(tmp_path, document, view)
+
+    assert Path(origin.template).name == profile.filename
+    assert len(origin.graph.layer.add_calls) == expected_calls
+    if profile_id == "K15":
+        assert origin.graph.layer.plots[0].command == "-vg 0"
+        assert set(origin.book.sheet.columns) == {0, 1, 2, 3, 4}
+    else:
+        assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
+
+
+def test_k15_k16_new_path_has_no_legacy_compiler_dependency() -> None:
+    modules = (K15HistogramRenderer.__module__, CalculatedDistributionOriginProject.__module__)
+    source = "\n".join(inspect.getsource(__import__(module, fromlist=["*"])) for module in modules)
+    assert "plotagent.rendering" not in source
+    assert "PlotSpec" not in source
+    assert "ResolvedPlot" not in source

@@ -54,8 +54,8 @@
 | K12 | 单变量点图与条带图 | A；`ColumnScatter.opju` Graph11 | `ColumnScatter.otp` `e9bfbf3b74bc` | T2 | 长表映射、组内散点偏移、动态组标签 | 大样本下图例应避开观测点 |
 | K13 | 箱线图 | A；`Box.opju` Graph1 | `BOX.OTP` `a1f26e68a6a0` | T1 | 绑定原始值与可选分组；冻结 Tukey 规则 | 优先让 Origin 创建原生 box plot，不拼箱体线条 |
 | K14 | 小提琴图 | C；`Box.opju` 原始值＋系统 Violin 重建 | `Violin.otpu` `ee71ef5fb2bf` | T1 | 绑定原始值与分组、KDE/内部统计参数 | 高优先级迁移：禁止用普通线和 fill_area 模拟外轮廓，避免边缘竖线复现 |
-| K15 | 直方图 | A；`Histogram.opju` Graph2 | `Hist.otpu` `cc1d7edd9f07` | T1 | 传入冻结 bin edges/counts 或明确让 Origin 分箱 | 只能选择一个分箱权威，避免 Matplotlib/Origin 分箱不同 |
-| K16 | 核密度图 | A；`Histogram.opju` Graph7 | `HISTDIST.otpu` `a584e2ee70fa`，以 Graph7 样式为准 | T2 | 绑定预计算 KDE；隐藏不需要的 histogram/rug 组件 | 本机无独立“纯 KDE”模板，需验证模板组件开关 |
+| K15 | 直方图 | A；`Histogram.opju` Graph2 | `Hist.otpu` `cc1d7edd9f07` | T1 | 共享确定性计算内核冻结 bin edges/counts，两端只绑定该几何 | 分箱权威已固定为数据计算层；Origin 不得再次自行分箱 |
+| K16 | 核密度图 | A；`Histogram.opju` Graph7 | `HISTDIST.otpu` `a584e2ee70fa`，以 Graph7 样式为准 | T2 | 共享 Scott KDE 内核生成每组 grid/density，绑定原生线 | histogram/rug 组件默认不启用；待真实 Origin 批次验证模板空组件状态 |
 | K18 | 面积图 | A；`Area.opju` Graph1 | `AREA.otpu` `c14ad432ffd6` | T1 | 绑定 X/Y、基线和透明度 | 多系列时明确堆积与覆盖语义 |
 | K19 | 时间序列图 | C；`Custom Date and Time.dat` | `TimeSeries.otp` `ebe487cd9626` | T1 | 绑定真实日期时间列、缺失值和事件标记 | 保留时间精度与 Origin 日期格式 |
 | K20 | 热图 | A；`Heatmap.opju` Graph1 | `Heat_Map.otpu` `9bd8240ca582` | T1 | 写入 Matrixbook 或规则矩阵、设置 palette/range | 行列语义和色标位置显式控制 |

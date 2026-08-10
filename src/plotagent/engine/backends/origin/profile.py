@@ -112,6 +112,20 @@ K14_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+K15_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K15",
+    filename="Hist.otpu",
+    sha256="cc1d7edd9f07f8bb0e1b0fe6f9ea0f36439afa912d209efc29329df9c2f00cfa",
+    tier="T1",
+)
+
+K16_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K16",
+    filename="HISTDIST.otpu",
+    sha256="a584e2ee70fa332c592cce714a0339e31e3a7d937889d3096f37722b7fcd50e7",
+    tier="T2",
+)
+
 K18_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K18",
     filename="AREA.otpu",
