@@ -135,13 +135,14 @@ PlotDocument 只保存：
 
 ## 7. 当前迁移证据
 
-截至本分支当前实现，新架构已经完成十六类代码级纵向切片：
+截至本分支当前实现，新架构已经完成十七类代码级纵向切片：
 
 | Profile | 数据语义 | Matplotlib | Origin 官方模板 | 原生结构 |
 |---|---|---|---|---|
 | K01 | `x / y` | 独立折线 renderer | `LINE.otpu` | worksheet + 1 条原生线 |
 | K02 | `x / y` | 独立线点 renderer | `LINESYMB.otpu` | worksheet + 1 条原生复合线点系列 |
 | K03 | `x / y / group?` | 独立动态分组散点 renderer | `SCATTER.OTP` | 每个分组一对 X/Y 列和一条原生散点 Plot |
+| K04 | `x / y / size? / color?` | 独立气泡与数值着色 renderer | `bubble.otpu` | worksheet + 原生 size/color 列修饰器；色带与尺寸标尺仅由显式动作开启 |
 | K06 | `x / center / x_error / y_error` | 独立双向误差棒 renderer | `ERRBAR.otpu` | worksheet + 原生 X/Y 误差列与中心点 |
 | K07 | `x / center / lower / upper` | 独立误差带 renderer | `ERRORBAND.otp` | worksheet + 中心线、下界和上界原生 Plot |
 | K08 | `category / value` | 独立柱图 renderer | `COLUMN.otpu` | worksheet + 1 组原生柱 |
@@ -156,7 +157,7 @@ PlotDocument 只保存：
 | X02 | `x / y` | 独立底轴垂线 renderer | `DROPLINE.OTP` | worksheet + 官方模板原生 drop-line Plot |
 | X23 | `x / left / right` | 独立双 Y renderer | `DOUBLEY.OTP` | worksheet + 2 个模板图层，各 1 条原生线 |
 
-十六个切片均只消费 `EngineDataView`、`PlotDocument` 和公开 Engine Action，不导入旧
-`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。K01/K02/K03/K06/K07/K08/K09/K10/K11/K12/K13/K14/K18/K20/X02/X23 已有独立渲染、
+十七个切片均只消费 `EngineDataView`、`PlotDocument` 和公开 Engine Action，不导入旧
+`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。K01/K02/K03/K04/K06/K07/K08/K09/K10/K11/K12/K13/K14/K18/K20/X02/X23 已有独立渲染、
 模板哈希、对象结构和修改读回门禁；真实 Origin fresh-reopen 与人工视觉签名仍须在
 不占用用户 Origin 实例的受控资格批次中执行，未完成前不得声称这些 Profile 已发布。

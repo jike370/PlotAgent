@@ -81,6 +81,18 @@ class K03ScatterData:
 
 
 @dataclass(frozen=True, slots=True)
+class K04BubbleData:
+    x_values: tuple[float, ...]
+    y_values: tuple[float, ...]
+    size_values: tuple[float, ...] | None
+    color_values: tuple[float, ...] | None
+    x_field_name: str
+    y_field_name: str
+    size_field_name: str | None
+    color_field_name: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class CategorySeriesGrid:
     """Stable long-to-wide data used by one column-family profile.
 
@@ -190,6 +202,45 @@ def k03_scatter(document: PlotDocument, data: EngineDataView) -> K03ScatterData:
         groups=groups,
         x_field_name=x.field.name,
         y_field_name=y.field.name,
+    )
+
+
+def k04_bubble(document: PlotDocument, data: EngineDataView) -> K04BubbleData:
+    """Return the four native bubble dimensions without inventing a scale object.
+
+    Binding a numeric color or size field controls point appearance.  It does
+    not imply that either explanatory scale is visible; visibility remains an
+    explicit public chart parameter in both backends.
+    """
+
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    try:
+        x = columns[bindings["x"]]
+        y = columns[bindings["y"]]
+    except KeyError as error:
+        raise ValueError("K04 requires x and y bindings") from error
+    size = columns[bindings["size"]] if "size" in bindings else None
+    color = columns[bindings["color"]] if "color" in bindings else None
+    size_values = None if size is None else _numeric_values(size, "size", "K04", allow_missing=True)
+    if size_values is not None and not any(isfinite(value) for value in size_values):
+        raise ValueError("K04 size binding requires at least one finite value")
+    if size_values is not None and any(isfinite(value) and value < 0 for value in size_values):
+        raise ValueError("K04 size values must be non-negative")
+    color_values = (
+        None if color is None else _numeric_values(color, "color", "K04", allow_missing=True)
+    )
+    if color_values is not None and not any(isfinite(value) for value in color_values):
+        raise ValueError("K04 color binding requires at least one finite value")
+    return K04BubbleData(
+        x_values=_numeric_values(x, "x", "K04", allow_missing=True),
+        y_values=_numeric_values(y, "y", "K04", allow_missing=True),
+        size_values=size_values,
+        color_values=color_values,
+        x_field_name=x.field.name,
+        y_field_name=y.field.name,
+        size_field_name=None if size is None else size.field.name,
+        color_field_name=None if color is None else color.field.name,
     )
 
 

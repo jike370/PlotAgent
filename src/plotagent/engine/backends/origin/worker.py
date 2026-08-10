@@ -10,6 +10,7 @@ from .distribution import execute_k12_request, execute_k13_request, execute_k14_
 from .k01 import execute_k01_request
 from .k02 import execute_k02_request
 from .k03 import execute_k03_request
+from .k04 import execute_k04_request
 from .k06 import execute_k06_request
 from .k07 import execute_k07_request
 from .k08 import execute_k08_request
@@ -30,6 +31,7 @@ def main(argv: list[str] | None = None) -> int:
         "K01": execute_k01_request,
         "K02": execute_k02_request,
         "K03": execute_k03_request,
+        "K04": execute_k04_request,
         "K06": execute_k06_request,
         "K07": execute_k07_request,
         "K08": execute_k08_request,

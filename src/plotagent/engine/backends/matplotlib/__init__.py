@@ -2,6 +2,7 @@
 
 from .area import K18AreaRenderer
 from .backend import MatplotlibBackend
+from .bubble import K04BubbleRenderer
 from .column import K08ColumnRenderer
 from .column_family import (
     K09GroupedColumnRenderer,
@@ -22,6 +23,7 @@ __all__ = [
     "K01LineRenderer",
     "K02LineSymbolRenderer",
     "K03ScatterRenderer",
+    "K04BubbleRenderer",
     "K06PointErrorRenderer",
     "K07ErrorBandRenderer",
     "K08ColumnRenderer",

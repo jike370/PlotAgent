@@ -105,6 +105,38 @@ K03_SCATTER_PROFILE = EngineProfile(
     ),
 )
 
+K04_BUBBLE_PROFILE = EngineProfile(
+    profile_id="K04",
+    display_name="Bubble and color-mapped scatter",
+    required_roles=("x", "y"),
+    optional_roles=("size", "color"),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="primary"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(
+            operation="set_axis",
+            parameters=("label", "scale", "bounds", "reverse"),
+        ),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "symbol", "symbol_size_pt"),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(
+            operation="set_chart_parameter",
+            parameters=("color_scale_visible", "size_key_visible"),
+        ),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
 K06_POINT_ERROR_PROFILE = EngineProfile(
     profile_id="K06",
     display_name="Point estimate and error bar",
@@ -409,6 +441,7 @@ ENGINE_PROFILES = (
     K01_LINE_PROFILE,
     K02_LINE_SYMBOL_PROFILE,
     K03_SCATTER_PROFILE,
+    K04_BUBBLE_PROFILE,
     K06_POINT_ERROR_PROFILE,
     K07_ERROR_BAND_PROFILE,
     K08_COLUMN_PROFILE,

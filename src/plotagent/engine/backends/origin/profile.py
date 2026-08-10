@@ -42,6 +42,13 @@ K03_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+K04_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K04",
+    filename="bubble.otpu",
+    sha256="abc20768493ef817b567bd3e58bb0c3da1a8ec59c56f0d1b92c2341479560b44",
+    tier="T2",
+)
+
 K06_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K06",
     filename="ERRBAR.otpu",
