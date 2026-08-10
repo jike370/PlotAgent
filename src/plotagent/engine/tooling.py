@@ -38,6 +38,14 @@ class EngineActionCodec:
                 "required_roles": profile.required_roles,
                 "optional_roles": profile.optional_roles,
                 "repeatable_role_prefixes": profile.repeatable_role_prefixes,
+                "objects": tuple(
+                    {
+                        "object_alias": item.object_alias,
+                        "object_kind": item.object_kind,
+                        "object_key": item.object_key,
+                    }
+                    for item in profile.objects
+                ),
                 "capabilities": tuple(
                     {
                         "operation": capability.operation,

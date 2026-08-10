@@ -29,6 +29,14 @@ def test_agent_neutral_tool_schema_is_closed_and_profile_discoverable() -> None:
             "required_roles": ("x", "y"),
             "optional_roles": ("label",),
             "repeatable_role_prefixes": (),
+            "objects": tuple(
+                {
+                    "object_alias": item.object_alias,
+                    "object_kind": item.object_kind,
+                    "object_key": item.object_key,
+                }
+                for item in K01_LINE_PROFILE.objects
+            ),
             "capabilities": tuple(
                 {
                     "operation": item.operation,

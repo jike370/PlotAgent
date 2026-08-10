@@ -326,6 +326,21 @@ class EngineCapability(StrictModel):
     parameters: tuple[Token, ...] = ()
 
 
+class EngineObjectTemplate(StrictModel):
+    """Stable model-facing alias for one profile-owned semantic object."""
+
+    object_alias: Annotated[
+        str,
+        StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,63}$", strict=True),
+    ]
+    object_kind: Literal["axis", "series", "legend", "panel"]
+    object_key: Token
+
+    def instantiate(self, plot_id: PlotId) -> SemanticObjectId:
+        token = plot_id.removeprefix("plot:")
+        return f"{self.object_kind}:{token}.{self.object_key}"
+
+
 class EngineProfile(StrictModel):
     """One chart profile exposed to agents by the engine catalog."""
 
@@ -334,6 +349,7 @@ class EngineProfile(StrictModel):
     required_roles: Annotated[tuple[Token, ...], Field(min_length=1)]
     optional_roles: tuple[Token, ...] = ()
     repeatable_role_prefixes: tuple[Token, ...] = ()
+    objects: tuple[EngineObjectTemplate, ...] = ()
     capabilities: Annotated[tuple[EngineCapability, ...], Field(min_length=1)]
 
     @model_validator(mode="after")
@@ -345,6 +361,9 @@ class EngineProfile(StrictModel):
             raise ValueError("repeatable role prefixes must be unique")
         if set(self.repeatable_role_prefixes) & set(roles):
             raise ValueError("repeatable role prefixes cannot also be fixed roles")
+        object_aliases = tuple(item.object_alias for item in self.objects)
+        if len(object_aliases) != len(set(object_aliases)):
+            raise ValueError("engine profile object aliases must be unique")
         operations = tuple(capability.operation for capability in self.capabilities)
         if len(operations) != len(set(operations)):
             raise ValueError("engine profile capabilities must be unique")
