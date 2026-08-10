@@ -452,14 +452,14 @@ class FakeFigureRepository:
         ref: PlotSpecRef,
         *,
         numeric: bool = True,
-        x_unit: str = HASH_A,
-        y_unit: str = HASH_B,
+        x_unit: str | None = HASH_A,
+        y_unit: str | None = HASH_B,
     ) -> None:
         snapshot = FigureSourceSnapshot(
             ref,
             numeric,
-            AxisCompatibilitySignature("linear", x_unit),
-            AxisCompatibilitySignature("linear", y_unit),
+            None if x_unit is None else AxisCompatibilitySignature("linear", x_unit),
+            None if y_unit is None else AxisCompatibilitySignature("linear", y_unit),
         )
         self.sources[ref] = snapshot
         if (
@@ -550,6 +550,24 @@ def test_figure_rejects_image_sources_and_incompatible_shared_axes() -> None:
         figure_request((first, second), key="independent"), axis_policy="independent"
     )
     assert isinstance(service.create(independent), FigureResult)
+
+
+def test_figure_allows_generated_axes_only_when_panels_are_independent() -> None:
+    repository = FakeFigureRepository()
+    explicit, generated = plot_ref("explicit"), plot_ref("generated")
+    repository.add_source(explicit)
+    repository.add_source(generated, x_unit=None, y_unit=None)
+    service = FigureService(repository)
+
+    independent = replace(
+        figure_request((explicit, generated), key="generated-independent"),
+        axis_policy="independent",
+    )
+    assert isinstance(service.create(independent), FigureResult)
+    assert isinstance(
+        service.create(figure_request((explicit, generated), key="generated-shared")),
+        Unsupported,
+    )
 
 
 def test_figure_source_updates_are_advisory_until_explicit_version_upgrade() -> None:

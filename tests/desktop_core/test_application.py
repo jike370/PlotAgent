@@ -1011,6 +1011,7 @@ def test_desktop_application_creates_and_renders_exact_45_product_chart_surface(
         {"project_id": project_id, "figure_id": "figure:matrix.k25"},
     )
     assert Path(preview["artifact"]["path"]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
     assert len(plot_refs) + 1 == 45
 
     plot_destination = tmp_path / "non-k01.opju"
@@ -1142,6 +1143,44 @@ def test_desktop_variadic_series_mapping_preserves_every_selected_column(
         },
     )
     assert Path(preview["artifact"]["path"]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+    if chart_type_id == "X40":
+        companion = harness.call(
+            "plots.create",
+            {
+                "project_id": project_id,
+                "plot_id": "plot:k01-figure-companion",
+                "chart_type_id": "K01",
+                "source_dataset_id": dataset["source_dataset_id"],
+                "source_version": dataset["source_version"],
+                "field_mapping": {
+                    "x": field_by_name["measurement_1"],
+                    "y": field_by_name["measurement_2"],
+                },
+                "idempotency_key": "create-k01-figure-companion",
+                "expected_version": created["project_version"],
+            },
+        )
+        figure = harness.call(
+            "figures.create",
+            {
+                "project_id": project_id,
+                "figure_id": "figure:variadic-and-explicit",
+                "plot_refs": [
+                    {"plot_id": created["plot_id"], "plot_version": created["plot_version"]},
+                    {
+                        "plot_id": companion["plot_id"],
+                        "plot_version": companion["plot_version"],
+                    },
+                ],
+                "layout": "1x2",
+                "idempotency_key": "create-variadic-and-explicit-figure",
+                "expected_version": companion["project_version"],
+            },
+        )
+        assert [
+            panel["plot_version_ref"]["plot_id"] for panel in figure["figure"]["panels"]
+        ] == [created["plot_id"], companion["plot_id"]]
 
 
 def test_isomorphic_batch_runs_from_one_confirmed_mapping(

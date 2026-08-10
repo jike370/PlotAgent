@@ -195,7 +195,10 @@ class FigureService:
             )
         if (
             axis_policy in {"shared_x", "shared_both"}
-            and len({snapshot.x_axis for snapshot in snapshots}) != 1
+            and (
+                any(snapshot.x_axis is None for snapshot in snapshots)
+                or len({snapshot.x_axis for snapshot in snapshots}) != 1
+            )
         ):
             return Unsupported(
                 target_alias="active_target",
@@ -204,7 +207,10 @@ class FigureService:
             )
         if (
             axis_policy in {"shared_y", "shared_both"}
-            and len({snapshot.y_axis for snapshot in snapshots}) != 1
+            and (
+                any(snapshot.y_axis is None for snapshot in snapshots)
+                or len({snapshot.y_axis for snapshot in snapshots}) != 1
+            )
         ):
             return Unsupported(
                 target_alias="active_target",

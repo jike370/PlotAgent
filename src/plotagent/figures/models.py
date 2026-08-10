@@ -23,8 +23,8 @@ class AxisCompatibilitySignature:
 class FigureSourceSnapshot:
     plot_ref: PlotSpecRef
     numeric_only: bool
-    x_axis: AxisCompatibilitySignature
-    y_axis: AxisCompatibilitySignature
+    x_axis: AxisCompatibilitySignature | None
+    y_axis: AxisCompatibilitySignature | None
 
 
 @dataclass(frozen=True, slots=True)

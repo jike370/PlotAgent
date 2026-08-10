@@ -4545,17 +4545,22 @@ class _SessionFigureRepository(FigureRepository):
         mapping = {binding.role: binding.field for binding in stored.field_mapping.bindings}
         axes = {axis.orientation: axis for axis in stored.plot.axes}
         scales = {scale.scale_id: scale for scale in stored.plot.scales}
+
+        def axis_signature(orientation: Literal["x", "y"]) -> AxisCompatibilitySignature | None:
+            field = mapping.get(orientation)
+            if field is None:
+                return None
+            axis = axes[orientation]
+            return AxisCompatibilitySignature(
+                scales[axis.scale_id].kind,
+                canonical_hash(field.unit),
+            )
+
         return FigureSourceSnapshot(
             plot_ref=plot_ref,
             numeric_only=True,
-            x_axis=AxisCompatibilitySignature(
-                scales[axes["x"].scale_id].kind,
-                canonical_hash(mapping["x"].unit),
-            ),
-            y_axis=AxisCompatibilitySignature(
-                scales[axes["y"].scale_id].kind,
-                canonical_hash(mapping["y"].unit),
-            ),
+            x_axis=axis_signature("x"),
+            y_axis=axis_signature("y"),
         )
 
     def get_latest_plot_ref(self, plot_id: str) -> PlotSpecRef:
