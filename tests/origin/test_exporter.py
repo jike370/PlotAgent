@@ -1,3 +1,7 @@
+import json
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 from plotagent.origin import _process, exporter
@@ -32,6 +36,119 @@ def _ready(target: Path) -> OriginPreflightSuccess:
             license_available=True,
         ),
     )
+
+
+def test_plan_transport_accepts_flushed_result_before_worker_cleanup_finishes() -> None:
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json,sys,time; sys.stdin.read(); "
+                "print(json.dumps({'status':'ok'}), flush=True); time.sleep(30)"
+            ),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+    )
+    started = time.monotonic()
+
+    result = _process._communicate_plan_worker(
+        process,
+        "reopen-plan",
+        "{}",
+        2.0,
+        None,
+        cleanup_grace_seconds=0.1,
+    )
+
+    assert not isinstance(result, WorkerInvocation)
+    stdout, stderr, accepted = result
+    assert accepted is True
+    assert json.loads(stdout) == {"status": "ok"}
+    assert stderr == ""
+    assert process.poll() is not None
+    assert time.monotonic() - started < 2.0
+
+
+def test_plan_transport_waits_for_stable_opju_before_reaping_build_worker(
+    tmp_path: Path,
+) -> None:
+    temporary_opju = tmp_path / "building.opju"
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json,pathlib,sys,time; request=json.loads(sys.stdin.read()); "
+                "print(json.dumps({'status':'ok'}), flush=True); "
+                "pathlib.Path(request['temporary_opju_path']).write_bytes(b'opju'); "
+                "time.sleep(30)"
+            ),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+    )
+    request = json.dumps({"temporary_opju_path": str(temporary_opju)})
+
+    result = _process._communicate_plan_worker(
+        process,
+        "build-plan",
+        request,
+        3.0,
+        None,
+        cleanup_grace_seconds=0.1,
+    )
+
+    assert not isinstance(result, WorkerInvocation)
+    stdout, stderr, accepted = result
+    assert accepted is True
+    assert json.loads(stdout) == {"status": "ok"}
+    assert stderr == ""
+    assert temporary_opju.read_bytes() == b"opju"
+    assert process.poll() is not None
+
+
+def test_plan_transport_returns_build_error_without_waiting_for_an_opju() -> None:
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json,sys,time; sys.stdin.read(); "
+                "print(json.dumps({'status':'error'}), flush=True); time.sleep(30)"
+            ),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+    )
+    started = time.monotonic()
+
+    result = _process._communicate_plan_worker(
+        process,
+        "build-plan",
+        "{}",
+        2.0,
+        None,
+        cleanup_grace_seconds=0.1,
+    )
+
+    assert not isinstance(result, WorkerInvocation)
+    stdout, stderr, accepted = result
+    assert accepted is True
+    assert json.loads(stdout) == {"status": "error"}
+    assert stderr == ""
+    assert process.poll() is not None
+    assert time.monotonic() - started < 2.0
 
 
 def test_publish_occurs_only_after_matching_fresh_reopen(

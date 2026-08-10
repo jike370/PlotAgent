@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -716,6 +717,8 @@ def build_native_project(
     backend: NativeOriginBackend,
     plan: OriginExportPlan,
     temporary_path: str,
+    *,
+    on_validated: Callable[[dict[str, object]], None] | None = None,
 ) -> dict[str, object]:
     """Build, inspect, then save one project through the closed backend protocol."""
 
@@ -733,6 +736,8 @@ def build_native_project(
     report = backend.inspect(plan)
     if report != expected_validation_report(plan):
         raise ValueError("live native Origin report differs from the typed execution plan")
+    if on_validated is not None:
+        on_validated(report)
     backend.save(temporary_path)
     return report
 

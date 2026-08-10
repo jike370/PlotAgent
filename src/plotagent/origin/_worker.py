@@ -9,6 +9,7 @@ from __future__ import annotations
 import gc
 import json
 import math
+import os
 import sys
 import traceback
 from contextlib import suppress
@@ -292,6 +293,20 @@ def _probe(payload: dict[str, Any]) -> dict[str, Any]:
         op.exit()
 
 
+def _prepare_origin_session_exit(op: Any, backend: Any | None = None) -> None:
+    """Close the saved project and release its native handles.
+
+    OriginExt can block in ``Application.Exit`` while a saved project remains
+    current.  Switching to a fresh unsaved project first invalidates its native
+    page proxies and lets the synchronous exit complete normally.
+    """
+
+    op.new(asksave=False)
+    if backend is not None:
+        backend.release_native_handles()
+    gc.collect()
+
+
 def _build(payload: dict[str, Any]) -> dict[str, Any]:
     if set(payload) != {"plan", "install_dir", "temporary_opju_path"}:
         _fail("BUILD_FAILURE", "build payload contains missing or unknown fields")
@@ -450,6 +465,10 @@ def _reopen(payload: dict[str, Any]) -> dict[str, Any]:
         op.exit()
 
 
+def _write_worker_response(payload: dict[str, Any]) -> None:
+    print(json.dumps(payload, ensure_ascii=False, sort_keys=True), flush=True)
+
+
 def _build_plan(payload: dict[str, Any]) -> dict[str, Any]:
     if set(payload) != {"plan", "install_dir", "temporary_opju_path"}:
         _fail("BUILD_FAILURE", "typed-plan build payload contains missing or unknown fields")
@@ -465,13 +484,38 @@ def _build_plan(payload: dict[str, Any]) -> dict[str, Any]:
 
     try:
         backend = OriginProBackend(op, template, install_dir)
-        report = build_native_project(backend, plan, str(temporary_path))
+        runtime_version = float(op.org_ver())
+        report_sha256 = expected_validation_sha256(plan)
+
+        def emit_validated_report(report: dict[str, object]) -> None:
+            # OriginExt Save may finish writing the OPJU while its COM call stays
+            # blocked.  Give the parent the already-validated report first; the
+            # transport independently waits for a stable non-empty file before
+            # it accepts this response and reaps the worker.
+            _write_worker_response(
+                {
+                    "status": "ok",
+                    "runtime_version": runtime_version,
+                    "validation": {
+                        "report": report,
+                        "report_sha256": report_sha256,
+                    },
+                    "temporary_size": 0,
+                }
+            )
+
+        report = build_native_project(
+            backend,
+            plan,
+            str(temporary_path),
+            on_validated=emit_validated_report,
+        )
         return {
             "status": "ok",
-            "runtime_version": float(op.org_ver()),
+            "runtime_version": runtime_version,
             "validation": {
                 "report": report,
-                "report_sha256": expected_validation_sha256(plan),
+                "report_sha256": report_sha256,
             },
             "temporary_size": temporary_path.stat().st_size,
         }
@@ -480,8 +524,7 @@ def _build_plan(payload: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         _fail("BUILD_FAILURE", "typed native Origin construction failed", error=str(exc))
     finally:
-        gc.collect()
-        op.exit()
+        _prepare_origin_session_exit(op, locals().get("backend"))
 
 
 def _reopen_plan(payload: dict[str, Any]) -> dict[str, Any]:
@@ -518,8 +561,26 @@ def _reopen_plan(payload: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         _fail("REOPEN_FAILURE", "typed native Origin fresh reopen failed", error=str(exc))
     finally:
-        gc.collect()
+        _prepare_origin_session_exit(op, locals().get("backend"))
+
+
+def _finalize_plan_worker(exit_code: int) -> NoReturn:
+    import originpro as op
+
+    try:
         op.exit()
+    finally:
+        os._exit(exit_code)
+
+
+def _emit_worker_response(payload: dict[str, Any], exit_code: int) -> int:
+    _write_worker_response(payload)
+    if len(sys.argv) == 2 and sys.argv[1] in {"build-plan", "reopen-plan"}:
+        # Emit the complete result before OriginExt begins its potentially
+        # blocking Application.Exit call.  The parent transport accepts this
+        # line and reaps the isolated worker after a short cleanup grace period.
+        _finalize_plan_worker(exit_code)
+    return exit_code
 
 
 def _main() -> int:
@@ -550,40 +611,31 @@ def _main() -> int:
             "build-plan": _build_plan,
             "reopen-plan": _reopen_plan,
         }[sys.argv[1]](payload)
-        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
-        return 0
+        return _emit_worker_response(result, 0)
     except WorkerFailure as exc:
-        print(
-            json.dumps(
-                {
-                    "status": "error",
-                    "error": {
-                        "code": exc.code,
-                        "message": exc.message,
-                        "details": exc.details,
-                    },
+        return _emit_worker_response(
+            {
+                "status": "error",
+                "error": {
+                    "code": exc.code,
+                    "message": exc.message,
+                    "details": exc.details,
                 },
-                ensure_ascii=False,
-                sort_keys=True,
-            )
+            },
+            2,
         )
-        return 2
     except Exception as exc:
-        print(
-            json.dumps(
-                {
-                    "status": "error",
-                    "error": {
-                        "code": "START_FAILURE",
-                        "message": str(exc),
-                        "details": {"traceback": traceback.format_exc(limit=5)},
-                    },
+        return _emit_worker_response(
+            {
+                "status": "error",
+                "error": {
+                    "code": "START_FAILURE",
+                    "message": str(exc),
+                    "details": {"traceback": traceback.format_exc(limit=5)},
                 },
-                ensure_ascii=False,
-                sort_keys=True,
-            )
+            },
+            2,
         )
-        return 2
 
 
 if __name__ == "__main__":

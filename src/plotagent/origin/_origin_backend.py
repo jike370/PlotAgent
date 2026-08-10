@@ -1243,6 +1243,14 @@ class OriginProBackend:
         self._folders: dict[str, Any] = {}
         self._data_sheets: dict[str, Any] = {}
 
+    def release_native_handles(self) -> None:
+        """Drop cached proxies after the project has been closed."""
+
+        self._data_sheets.clear()
+        self._folders.clear()
+        self._root = None
+        self._op = None
+
     def _assert_palette_asset(self, palette: ResolvedPalette) -> None:
         relative = (
             Path("Themes") / "Color" / palette.origin_source_name

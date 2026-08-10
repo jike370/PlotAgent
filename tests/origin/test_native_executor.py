@@ -13,6 +13,7 @@ from plotagent.contracts.rendering import (
     OriginGraphObject,
     ResolvedAnnotation,
 )
+from plotagent.origin import _worker as origin_worker
 from plotagent.origin._origin_backend import (
     NativeOriginError,
     _apply_right_y_axis_style,
@@ -53,6 +54,47 @@ from tests.rendering.fixture_factory import build_plot_and_store, resolve_chart
 def _plan(chart_id: str) -> OriginExportPlan:
     resolved = resolve_chart(chart_id)
     return compile_origin_plan((resolved,), build_origin_export_spec((resolved,)))
+
+
+def test_plan_worker_flushes_response_before_forced_process_exit(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_codes: list[int] = []
+    monkeypatch.setattr(origin_worker.sys, "argv", ["_worker.py", "build-plan"])
+    monkeypatch.setattr(origin_worker, "_finalize_plan_worker", exit_codes.append)
+
+    result = origin_worker._emit_worker_response({"status": "ok"}, 0)
+
+    assert result == 0
+    assert exit_codes == [0]
+    assert capsys.readouterr().out == '{"status": "ok"}\n'
+
+
+def test_plan_worker_prepares_project_before_origin_exit() -> None:
+    class FakeBackend:
+        def __init__(self, calls: list[object]) -> None:
+            self.calls = calls
+
+        def release_native_handles(self) -> None:
+            self.calls.append("release")
+
+    class FakeOrigin:
+        def __init__(self) -> None:
+            self.calls: list[object] = []
+
+        def new(self, *, asksave: bool) -> None:
+            self.calls.append(("new", asksave))
+
+        def exit(self) -> None:
+            self.calls.append("exit")
+
+    origin = FakeOrigin()
+    backend = FakeBackend(origin.calls)
+
+    origin_worker._prepare_origin_session_exit(origin, backend)
+
+    assert origin.calls == [("new", False), "release"]
 
 
 def test_s07_uses_native_legend_samples_from_fixed_resolved_series() -> None:
