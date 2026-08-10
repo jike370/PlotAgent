@@ -84,6 +84,27 @@ K11_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+K12_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K12",
+    filename="ColumnScatter.otp",
+    sha256="e9bfbf3b74bc78db041208505bf1c1b32b387378cc8aac91462d017a662c425d",
+    tier="T2",
+)
+
+K13_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K13",
+    filename="BOX.OTP",
+    sha256="a1f26e68a6a070aba0769905c6b143766a51abd0d7e6039ad93de49ab600daaa",
+    tier="T1",
+)
+
+K14_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K14",
+    filename="Violin.otpu",
+    sha256="ee71ef5fb2bf15cfc403444494f1779999df31d43c0a3e24001cb35b838bc1eb",
+    tier="T1",
+)
+
 K18_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K18",
     filename="AREA.otpu",

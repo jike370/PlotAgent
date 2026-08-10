@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .column_family import execute_k09_request, execute_k10_request, execute_k11_request
+from .distribution import execute_k12_request, execute_k13_request, execute_k14_request
 from .k01 import execute_k01_request
 from .k02 import execute_k02_request
 from .k03 import execute_k03_request
@@ -35,6 +36,9 @@ def main(argv: list[str] | None = None) -> int:
         "K09": execute_k09_request,
         "K10": execute_k10_request,
         "K11": execute_k11_request,
+        "K12": execute_k12_request,
+        "K13": execute_k13_request,
+        "K14": execute_k14_request,
         "K18": execute_k18_request,
         "K20": execute_k20_request,
         "X02": execute_x02_request,

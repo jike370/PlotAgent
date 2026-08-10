@@ -95,6 +95,18 @@ class CategorySeriesGrid:
     value_field_name: str
 
 
+@dataclass(frozen=True, slots=True)
+class DistributionGroupData:
+    label: str
+    values: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DistributionData:
+    groups: tuple[DistributionGroupData, ...]
+    value_field_name: str
+
+
 def xy_series(document: PlotDocument, data: EngineDataView, *, profile_id: str) -> XYSeriesData:
     """Return one numeric X/Y series for a fixed-role profile."""
 
@@ -266,6 +278,41 @@ def category_series_grid(
     )
 
 
+def distribution_groups(
+    document: PlotDocument,
+    data: EngineDataView,
+    *,
+    profile_id: Literal["K12", "K13", "K14"],
+) -> DistributionData:
+    """Return raw observations split by optional group in first-appearance order."""
+
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    try:
+        value = columns[bindings["value"]]
+    except KeyError as error:
+        raise ValueError(f"{profile_id} requires a value binding") from error
+    group_field_id = bindings.get("group")
+    grouped: list[DistributionGroupData] = []
+    if group_field_id is None:
+        values = _finite_observations(value, profile_id)
+        grouped.append(DistributionGroupData(label=value.field.name, values=values))
+    else:
+        group = columns[group_field_id]
+        labels = _ordered_labels(group, "group")
+        for label in labels:
+            observations = tuple(
+                cell
+                for group_value, raw_value in zip(group.values, value.values, strict=True)
+                if _label(group_value, "group") == label
+                for cell in _optional_finite_observation(raw_value, profile_id)
+            )
+            if not observations:
+                raise ValueError(f"{profile_id} group {label!r} has no finite observations")
+            grouped.append(DistributionGroupData(label=label, values=observations))
+    return DistributionData(groups=tuple(grouped), value_field_name=value.field.name)
+
+
 def k20_grid(document: PlotDocument, data: EngineDataView) -> K20Grid:
     """Materialize a deterministic K20 grid from one immutable long table.
 
@@ -392,6 +439,23 @@ def _numeric_value(
     if not isfinite(number):
         raise ValueError(f"{profile_id} {role} values must be finite")
     return number
+
+
+def _optional_finite_observation(value: object, profile_id: str) -> tuple[float, ...]:
+    if value is None:
+        return ()
+    return (_numeric_value(value, profile_id, "value"),)
+
+
+def _finite_observations(column: EngineColumn, profile_id: str) -> tuple[float, ...]:
+    values = tuple(
+        number
+        for raw_value in column.values
+        for number in _optional_finite_observation(raw_value, profile_id)
+    )
+    if not values:
+        raise ValueError(f"{profile_id} requires at least one finite observation")
+    return values
 
 
 def _bound_columns(

@@ -8,6 +8,7 @@ from .column_family import (
     K10StackedColumnRenderer,
     K11PercentStackRenderer,
 )
+from .distribution import K12StripRenderer, K13BoxRenderer, K14ViolinRenderer
 from .drop_line import X02DropLineRenderer
 from .dual_y import X23DualYRenderer
 from .error_band import K07ErrorBandRenderer
@@ -27,6 +28,9 @@ __all__ = [
     "K09GroupedColumnRenderer",
     "K10StackedColumnRenderer",
     "K11PercentStackRenderer",
+    "K12StripRenderer",
+    "K13BoxRenderer",
+    "K14ViolinRenderer",
     "K18AreaRenderer",
     "K20HeatmapRenderer",
     "MatplotlibBackend",

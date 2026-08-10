@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 import plotagent.engine.backends.origin.column_family as origin_module
+import plotagent.engine.backends.origin.distribution as distribution_origin_module
 from plotagent.engine import (
     CreatePlot,
     EngineColumn,
@@ -24,15 +25,22 @@ from plotagent.engine.backends.matplotlib import (
     K09GroupedColumnRenderer,
     K10StackedColumnRenderer,
     K11PercentStackRenderer,
+    K12StripRenderer,
+    K13BoxRenderer,
+    K14ViolinRenderer,
     MatplotlibBackend,
 )
 from plotagent.engine.backends.origin import (
     K09_ORIGIN_PROFILE,
     K10_ORIGIN_PROFILE,
     K11_ORIGIN_PROFILE,
+    K12_ORIGIN_PROFILE,
+    K13_ORIGIN_PROFILE,
+    K14_ORIGIN_PROFILE,
 )
 from plotagent.engine.backends.origin.column_family import ColumnFamilyOriginProject
-from plotagent.engine.profile_data import category_series_grid
+from plotagent.engine.backends.origin.distribution import DistributionOriginProject
+from plotagent.engine.profile_data import category_series_grid, distribution_groups
 
 HASH = "9" * 64
 
@@ -399,3 +407,165 @@ def test_column_family_new_path_has_no_legacy_compiler_dependency() -> None:
     assert "plotagent.rendering" not in source
     assert "PlotSpec" not in source
     assert "ResolvedPlot" not in source
+
+
+def _distribution_case(
+    profile_id: str,
+    group_count: int,
+) -> tuple[PlotDocument, tuple[PlotEngineAction, ...], EngineDataView]:
+    data = EngineDataRef(
+        kind="source",
+        dataset_id=f"dataset.{profile_id.lower()}",
+        version=1,
+        content_hash=HASH,
+    )
+    rows = tuple(
+        (f"G{group}", float(group * 10 + observation))
+        for group in range(1, group_count + 1)
+        for observation in range(1, 7)
+    )
+    bindings = (
+        FieldBinding(role="value", field_id="field:value"),
+        FieldBinding(role="group", field_id="field:group"),
+    )
+    create = CreatePlot(
+        action_id=f"action:create-{profile_id.lower()}",
+        plot_id=f"plot:{profile_id.lower()}-distribution",
+        profile_id=profile_id,
+        data=data,
+        bindings=bindings,
+    )
+    style_arguments: dict[str, object] = {"color": "#AA3300"}
+    if profile_id == "K12":
+        style_arguments.update(symbol="diamond", symbol_size_pt=7.0)
+    else:
+        style_arguments.update(line_width_pt=1.4)
+    style = SetSeriesStyle(
+        action_id=f"action:style-{profile_id.lower()}",
+        target=f"series:{profile_id.lower()}-distribution.group_{group_count}",
+        expected_plot_version=1,
+        **style_arguments,
+    )
+    legend = SetLegend(
+        action_id=f"action:legend-{profile_id.lower()}",
+        target=f"legend:{profile_id.lower()}-distribution.main",
+        expected_plot_version=2,
+        visible=True,
+    )
+    actions: tuple[PlotEngineAction, ...] = (create, style, legend)
+    document = PlotDocument(
+        plot_id=create.plot_id,
+        plot_version=3,
+        parent_version=2,
+        profile_id=profile_id,
+        data=data,
+        bindings=bindings,
+        applied_action_ids=tuple(action.action_id for action in actions),
+    )
+    view = EngineDataView(
+        data=data,
+        row_ids=tuple(f"row:{index}" for index in range(len(rows))),
+        columns=(
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:value", name="Measurement", logical_type="numeric"
+                ),
+                values=tuple(row[1] for row in rows),
+            ),
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:group", name="Cohort", logical_type="categorical"
+                ),
+                values=tuple(row[0] for row in rows),
+            ),
+        ),
+    )
+    return document, actions, view
+
+
+@pytest.mark.parametrize("profile_id", ("K12", "K13", "K14"))
+@pytest.mark.parametrize("group_count", (1, 3, 5))
+def test_distribution_profiles_use_raw_dynamic_groups(
+    profile_id: str,
+    group_count: int,
+) -> None:
+    document, _, view = _distribution_case(profile_id, group_count)
+    distribution = distribution_groups(document, view, profile_id=profile_id)  # type: ignore[arg-type]
+    assert tuple(group.label for group in distribution.groups) == tuple(
+        f"G{index}" for index in range(1, group_count + 1)
+    )
+    assert all(len(group.values) == 6 for group in distribution.groups)
+
+
+@pytest.mark.parametrize(
+    ("profile_id", "renderer", "object_kind"),
+    (
+        ("K12", K12StripRenderer(), "strip_series"),
+        ("K13", K13BoxRenderer(), "box_series"),
+        ("K14", K14ViolinRenderer(), "violin_series"),
+    ),
+)
+def test_distribution_renderers_are_independent_and_dynamic(
+    tmp_path: Path,
+    profile_id: str,
+    renderer,
+    object_kind: str,
+) -> None:
+    document, actions, view = _distribution_case(profile_id, 3)
+    backend = MatplotlibBackend(tmp_path / profile_id, (renderer,))
+    change = backend.stage(document, actions, view)
+    change.publish()
+    readback = backend.readback(document)
+    assert len([item for item in readback.objects if item.object_kind == object_kind]) == 3
+
+
+def test_k14_matplotlib_omits_extrema_edge_lines() -> None:
+    document, actions, view = _distribution_case("K14", 2)
+    renderer = K14ViolinRenderer()
+    distribution = distribution_groups(document, view, profile_id="K14")
+    state = renderer._state(document, actions, distribution)
+    figure, axis = plt.subplots()
+    renderer._draw(axis, distribution, state)
+    segments = tuple(
+        segment
+        for collection in axis.collections
+        if hasattr(collection, "get_segments")
+        for segment in collection.get_segments()
+    )
+    plt.close(figure)
+    assert segments
+    assert all(segment[0][1] == pytest.approx(segment[-1][1]) for segment in segments)
+
+
+@pytest.mark.parametrize(
+    ("profile_id", "profile"),
+    (("K12", K12_ORIGIN_PROFILE), ("K13", K13_ORIGIN_PROFILE), ("K14", K14_ORIGIN_PROFILE)),
+)
+def test_distribution_origin_uses_only_the_official_native_plot_type(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    profile_id: str,
+    profile,
+) -> None:
+    document, actions, view = _distribution_case(profile_id, 3)
+    monkeypatch.setattr(
+        distribution_origin_module,
+        "resolve_official_template",
+        lambda install, selected: tmp_path / selected.filename,
+    )
+    origin = _Origin()
+    project = DistributionOriginProject(origin, profile_id=profile_id)  # type: ignore[arg-type]
+    project.create(tmp_path, document, view)
+    for action in actions:
+        project.apply(document, action, view)
+    readback = project.verify(document, actions, view)
+
+    assert Path(origin.template).name.lower() == profile.filename.lower()
+    assert origin.graph.layer.add_calls == [
+        {"coly": index, "colx": "#", "type": "?"} for index in range(3)
+    ]
+    assert (
+        len([item for item in readback.objects if item.object_kind.endswith("native_group")]) == 3
+    )
+    assert "line" not in str(origin.graph.layer.add_calls).lower()
+    assert "fill" not in str(origin.graph.layer.add_calls).lower()
