@@ -1,14 +1,13 @@
-"""Exact Origin O1 adapter registry for the current 54-chart surface."""
+"""Template-first Origin O1 adapter registry for the 38-chart product surface."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal, Never
 
-from plotagent.charts.registry import CHARTS_BY_ID as RENDER_CHARTS_BY_ID
 from plotagent.contracts.base import ChartTypeId
-
-from .constants import ORIGIN_TEMPLATE_ID, ORIGIN_TEMPLATE_SHA256
+from plotagent.contracts.engine_profiles import CHART_PROFILES_BY_ID, TemplateTier
+from plotagent.contracts.registry import PRODUCT_CHART_IDS
 
 OriginAdapterFamily = Literal["xy", "bar", "distribution", "matrix", "special", "facet"]
 OriginDataLayout = Literal["worksheet", "matrixbook"]
@@ -22,89 +21,91 @@ class OriginAdapterRegistration:
     data_layout: OriginDataLayout
     adapter_id: str
     adapter_version: str
-    template_id: str = ORIGIN_TEMPLATE_ID
-    template_sha256: str = ORIGIN_TEMPLATE_SHA256
+    template_filename: str
+    template_sha256: str
+    template_tier: TemplateTier
+    binder_id: str
+    declared_patch_ids: tuple[str, ...]
     capability: Literal["O1"] = "O1"
     known_differences: tuple[str, ...] = ()
 
 
-def _entry(
-    chart_type_id: ChartTypeId,
-    family: OriginAdapterFamily,
-    geometries: tuple[str, ...],
-    layout: OriginDataLayout = "worksheet",
-) -> OriginAdapterRegistration:
+# family, allowed geometries, native data layout. Template identity and binder
+# come exclusively from the frozen ChartProfile catalog.
+_ADAPTER_ROWS: dict[
+    ChartTypeId,
+    tuple[OriginAdapterFamily, tuple[str, ...], OriginDataLayout],
+] = {
+    "K01": ("xy", ("xy.line",), "worksheet"),
+    "K02": ("xy", ("xy.line", "xy.symbol"), "worksheet"),
+    "K03": ("xy", ("xy.symbol",), "worksheet"),
+    "K04": ("xy", ("xy.bubble",), "worksheet"),
+    "K06": ("xy", ("xy.symbol", "xy.error"), "worksheet"),
+    "K07": ("xy", ("xy.line", "xy.band"), "worksheet"),
+    "K08": ("bar", ("bar.single",), "worksheet"),
+    "K09": ("bar", ("bar.grouped",), "worksheet"),
+    "K10": ("bar", ("bar.stacked",), "worksheet"),
+    "K11": ("bar", ("bar.percent",), "worksheet"),
+    "K12": ("distribution", ("distribution.strip",), "worksheet"),
+    "K13": ("distribution", ("distribution.box",), "worksheet"),
+    "K14": ("distribution", ("distribution.violin",), "worksheet"),
+    "K15": ("distribution", ("distribution.histogram",), "worksheet"),
+    "K16": ("distribution", ("distribution.density",), "worksheet"),
+    "K18": ("xy", ("xy.area",), "worksheet"),
+    "K19": ("xy", ("xy.datetime_line",), "worksheet"),
+    "K20": ("matrix", ("matrix.heatmap",), "matrixbook"),
+    "K21": ("matrix", ("matrix.correlation",), "matrixbook"),
+    "K22": ("matrix", ("matrix.contour",), "matrixbook"),
+    "K24": ("facet", ("facet.xy",), "worksheet"),
+    "K25": ("facet", ("xy.line", "xy.symbol", "xy.error", "xy.band", "xy.area"), "worksheet"),
+    "S01": (
+        "special",
+        ("special.survival_step", "special.survival_band", "special.risk_table"),
+        "worksheet",
+    ),
+    "S21": (
+        "special",
+        ("special.forest_interval", "special.forest_symbol"),
+        "worksheet",
+    ),
+    "S34": ("xy", ("xy.nyquist",), "worksheet"),
+    "S61": ("matrix", ("matrix.confusion",), "matrixbook"),
+    "X02": ("special", ("special.drop_line",), "worksheet"),
+    "X03": ("special", ("xy.line", "xy.symbol"), "worksheet"),
+    "X05": ("special", ("distribution.strip",), "worksheet"),
+    "X09": ("special", ("bar.floating",), "worksheet"),
+    "X13": ("special", ("bar.horizontal",), "worksheet"),
+    "X23": ("special", ("xy.line",), "worksheet"),
+    "X24": ("special", ("bar.single", "xy.line"), "worksheet"),
+    "X35": ("special", ("bar.floating",), "worksheet"),
+    "X36": ("special", ("bar.single", "xy.line"), "worksheet"),
+    "X38": ("special", ("xy.line",), "worksheet"),
+    "X39": ("special", ("xy.line", "xy.symbol"), "worksheet"),
+    "X40": ("special", ("xy.line", "xy.symbol"), "worksheet"),
+}
+
+
+def _entry(chart_type_id: ChartTypeId) -> OriginAdapterRegistration:
+    family, geometries, layout = _ADAPTER_ROWS[chart_type_id]
+    profile = CHART_PROFILES_BY_ID[chart_type_id]
     return OriginAdapterRegistration(
         chart_type_id=chart_type_id,
         adapter_family=family,
         allowed_geometries=geometries,
         data_layout=layout,
-        adapter_id=f"plotagent.origin.{family}.{chart_type_id.lower()}",
-        adapter_version="1.0.0",
+        adapter_id=profile.origin.binder_id,
+        adapter_version=profile.profile_version,
+        template_filename=profile.origin.filename,
+        template_sha256=profile.origin.sha256,
+        template_tier=profile.origin.tier,
+        binder_id=profile.origin.binder_id,
+        declared_patch_ids=profile.origin.declared_patch_ids,
     )
 
 
-ORIGIN_ADAPTERS: tuple[OriginAdapterRegistration, ...] = (
-    _entry("K01", "xy", ("xy.line",)),
-    _entry("K02", "xy", ("xy.line", "xy.symbol")),
-    _entry("K03", "xy", ("xy.symbol",)),
-    _entry("K04", "xy", ("xy.bubble",)),
-    _entry("K05", "xy", ("xy.symbol", "xy.line", "xy.band")),
-    _entry("K06", "xy", ("xy.symbol", "xy.error")),
-    _entry("K07", "xy", ("xy.line", "xy.band")),
-    _entry("K08", "bar", ("bar.single",)),
-    _entry("K09", "bar", ("bar.grouped",)),
-    _entry("K10", "bar", ("bar.stacked",)),
-    _entry("K11", "bar", ("bar.percent",)),
-    _entry("K12", "distribution", ("distribution.strip",)),
-    _entry("K13", "distribution", ("distribution.box",)),
-    _entry("K14", "distribution", ("distribution.violin",)),
-    _entry("K15", "distribution", ("distribution.histogram",)),
-    _entry("K16", "distribution", ("distribution.density",)),
-    _entry("K17", "distribution", ("distribution.step",)),
-    _entry("K18", "xy", ("xy.area",)),
-    _entry("K19", "xy", ("xy.datetime_line",)),
-    _entry("K20", "matrix", ("matrix.heatmap",), "matrixbook"),
-    _entry("K21", "matrix", ("matrix.correlation",), "matrixbook"),
-    _entry("K22", "matrix", ("matrix.contour",), "matrixbook"),
-    _entry("K24", "facet", ("facet.xy",)),
-    _entry("K25", "facet", ("xy.line", "xy.symbol", "xy.error", "xy.band", "xy.area")),
-    _entry(
-        "S01",
-        "special",
-        ("special.survival_step", "special.survival_band", "special.risk_table"),
-    ),
-    _entry("S05", "xy", ("xy.symbol", "xy.line", "xy.band")),
-    _entry("S21", "special", ("special.forest_interval", "special.forest_symbol")),
-    _entry("S25", "xy", ("xy.spectrum",)),
-    _entry("S31", "xy", ("xy.spectrum",)),
-    _entry("S34", "xy", ("xy.nyquist",)),
-    _entry("S61", "matrix", ("matrix.confusion",), "matrixbook"),
-    _entry("X01", "special", ("distribution.step",)),
-    _entry("X02", "special", ("special.drop_line",)),
-    _entry("X03", "special", ("xy.line", "xy.symbol")),
-    _entry("X05", "special", ("distribution.strip",)),
-    _entry("X07", "special", ("xy.line",)),
-    _entry("X09", "special", ("bar.floating",)),
-    _entry("X11", "special", ("bar.stacked",)),
-    _entry("X12", "special", ("bar.single", "xy.symbol")),
-    _entry("X13", "special", ("bar.horizontal",)),
-    _entry("X15", "special", ("distribution.histogram", "xy.symbol")),
-    _entry("X16", "special", ("matrix.heatmap",), "matrixbook"),
-    _entry("X17", "special", ("xy.symbol", "distribution.histogram", "xy.line")),
-    _entry("X18", "special", ("xy.symbol", "xy.line")),
-    _entry("X19", "special", ("xy.symbol", "xy.line")),
-    _entry("X23", "special", ("xy.line",)),
-    _entry("X24", "special", ("bar.single", "xy.line")),
-    _entry("X35", "special", ("bar.floating",)),
-    _entry("X36", "special", ("bar.single", "xy.line")),
-    _entry("X37", "special", ("distribution.box",)),
-    _entry("X38", "special", ("xy.line",)),
-    _entry("X39", "special", ("xy.line", "xy.symbol")),
-    _entry("X40", "special", ("xy.line", "xy.symbol")),
-    _entry("S07", "special", ("xy.symbol", "xy.line")),
+ORIGIN_ADAPTERS: tuple[OriginAdapterRegistration, ...] = tuple(
+    _entry(chart_type_id) for chart_type_id in PRODUCT_CHART_IDS
 )
-
 ORIGIN_ADAPTERS_BY_ID = {entry.chart_type_id: entry for entry in ORIGIN_ADAPTERS}
 
 
@@ -112,10 +113,10 @@ def _registry_failure(message: str) -> Never:
     raise RuntimeError(message)
 
 
-if len(ORIGIN_ADAPTERS) != 54 or len(ORIGIN_ADAPTERS_BY_ID) != 54:
-    _registry_failure("the Origin adapter registry must contain exactly 54 unique chart IDs")
-if set(ORIGIN_ADAPTERS_BY_ID) != set(RENDER_CHARTS_BY_ID):
-    _registry_failure("the Origin registry must exactly match the rendering registry")
+if set(_ADAPTER_ROWS) != set(PRODUCT_CHART_IDS):
+    _registry_failure("Origin adapter rows must exactly match the 38-chart product surface")
+if len(ORIGIN_ADAPTERS) != 38 or len(ORIGIN_ADAPTERS_BY_ID) != 38:
+    _registry_failure("the Origin adapter registry must contain exactly 38 unique chart IDs")
 for _chart_id, _adapter in ORIGIN_ADAPTERS_BY_ID.items():
     if _adapter.capability != "O1" or _adapter.known_differences:
         _registry_failure(f"{_chart_id} must declare O1 with no known differences")
@@ -126,11 +127,11 @@ class OriginAdapterNotFoundError(ValueError):
 
 
 def get_origin_adapter(chart_type_id: str) -> OriginAdapterRegistration:
-    """Return only a frozen first-release adapter; unknown IDs are rejected."""
+    """Return one frozen template-first product adapter; all other IDs are rejected."""
 
     try:
         return ORIGIN_ADAPTERS_BY_ID[chart_type_id]  # type: ignore[index]
     except KeyError as error:
         raise OriginAdapterNotFoundError(
-            f"{chart_type_id!r} has no qualified v1 Origin O1 adapter"
+            f"{chart_type_id!r} has no template-first Origin O1 adapter"
         ) from error

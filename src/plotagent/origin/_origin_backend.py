@@ -39,6 +39,7 @@ from .native import (
     physical_plot_count,
     primitive_book_name,
 )
+from .template_catalog import official_template_path
 from .validation import (
     expected_validation_report,
     expected_validation_sha256,
@@ -95,10 +96,35 @@ _RISK_TABLE_GROUP_PREFIX = "_RISK_GROUP_"
 _RISK_TABLE_VALUE_PREFIX = "_RISK_VALUE_"
 _COLOR_SCALE_OBJECT_TYPE = 13
 _ELLIPSE_OBJECT_TYPE = 9
+_PAGE_UNITS_PER_INCH = {
+    0: 1.0,  # inch
+    1: 2.54,  # centimetre
+    2: 25.4,  # millimetre
+    3: 96.0,  # screen pixel (Origin's automation display basis)
+    4: 72.0,  # point
+}
 
 
 class NativeOriginError(RuntimeError):
     pass
+
+
+def _page_length_from_mm(value_mm: float, page_units: int) -> float:
+    """Convert a typed physical length into the official template's page units."""
+
+    units_per_inch = _PAGE_UNITS_PER_INCH.get(page_units)
+    if units_per_inch is None:
+        raise NativeOriginError(f"unsupported official template page units: {page_units}")
+    return value_mm / 25.4 * units_per_inch
+
+
+def _page_length_to_mm(value: float, page_units: int) -> float:
+    """Convert an official-template page length back to physical millimetres."""
+
+    units_per_inch = _PAGE_UNITS_PER_INCH.get(page_units)
+    if units_per_inch is None:
+        raise NativeOriginError(f"unsupported official template page units: {page_units}")
+    return value / units_per_inch * 25.4
 
 
 @dataclass(frozen=True, slots=True)
@@ -1235,9 +1261,8 @@ def _reference_entries(
 class OriginProBackend:
     """One independent hidden Origin project, owned by one dedicated worker process."""
 
-    def __init__(self, op: Any, template_path: Path, install_dir: Path) -> None:
+    def __init__(self, op: Any, install_dir: Path) -> None:
         self._op = op
-        self._template_path = template_path
         self._install_dir = install_dir
         self._root = op.root_folder()
         self._folders: dict[str, Any] = {}
@@ -1493,12 +1518,19 @@ class OriginProBackend:
             if primitive.transform in {"band", "step_band"}
             else plot_plan.alpha
         )
-        if alpha < 1:
-            transparency_targets = (
-                created_plots[:1] if primitive.transform in {"band", "step_band"} else created_plots
-            )
-            for created_plot in transparency_targets:
-                created_plot.transparency = round((1 - alpha) * 100)
+        # Official templates may carry a non-zero sample transparency.  The typed
+        # plan owns this value even when alpha is fully opaque, so always write it
+        # instead of allowing the template default to leak into the result.
+        expected_transparency = round((1 - alpha) * 100)
+        transparencies = (
+            (expected_transparency, 0)
+            if primitive.transform in {"band", "step_band"}
+            else (expected_transparency,) * len(created_plots)
+        )
+        for created_plot, transparency in zip(
+            created_plots, transparencies, strict=True
+        ):
+            created_plot.transparency = transparency
         return plot
 
     def _configure_axis(
@@ -1849,13 +1881,15 @@ class OriginProBackend:
 
     def write_graph_object(self, graph_plan: OriginGraphObject) -> None:
         self._folder("Graphs").Activate()
+        template_path = official_template_path(self._install_dir, graph_plan.template)
         graph = self._op.new_graph(
             graph_plan.internal_name,
-            template=str(self._template_path),
+            template=str(template_path),
             hidden=True,
         )
         if graph is None:
             raise NativeOriginError(f"could not create graph {graph_plan.internal_name}")
+        page_units = int(graph.obj.GetUnits())
         template_y_style = _read_template_y_axis_style(graph[0])
         graph.name = graph_plan.internal_name
         graph.lname = graph_plan.long_name
@@ -1865,15 +1899,16 @@ class OriginProBackend:
         graph.set_int("connect", 0)
         # The qualified base template has printer-derived sizing disabled, so the
         # typed physical canvas can be applied through the native page API.
-        graph.obj.SetWidth(graph_plan.page_width_mm)
-        graph.obj.SetHeight(graph_plan.page_height_mm)
+        graph.obj.SetWidth(_page_length_from_mm(graph_plan.page_width_mm, page_units))
+        graph.obj.SetHeight(_page_length_from_mm(graph_plan.page_height_mm, page_units))
         data_by_id = {
             object_id: self._data_sheets[object_id] for object_id in graph_plan.data_object_ids
         }
         legend_entries = _visible_legend_entries(graph_plan, self._active_plan.data_objects)
+        template_layer_count = len(graph)
         for layer_index, layer_plan in enumerate(graph_plan.layers):
-            if layer_index == 0:
-                layer = graph[0]
+            if layer_index < template_layer_count:
+                layer = graph[layer_index]
             else:
                 native_layer = graph.obj.AddLayer()
                 if native_layer is None or not native_layer.IsValid():
@@ -2109,8 +2144,8 @@ class OriginProBackend:
         # Reapply both typed dimensions after construction so inspection and save see
         # the final physical canvas.
         graph.obj.Activate()
-        graph.obj.PutWidth(graph_plan.page_width_mm)
-        graph.obj.PutHeight(graph_plan.page_height_mm)
+        graph.obj.PutWidth(_page_length_from_mm(graph_plan.page_width_mm, page_units))
+        graph.obj.PutHeight(_page_length_from_mm(graph_plan.page_height_mm, page_units))
         first_layer = graph[0]
         first_layer_plan = graph_plan.layers[0]
         title = first_layer.label(_PLOT_TITLE_LABEL)
@@ -2236,13 +2271,8 @@ class OriginProBackend:
             if graph.lname != graph_plan.long_name or len(graph) != len(graph_plan.layers):
                 raise NativeOriginError(f"graph structure differs for {graph_plan.graph_id}")
             page_units = int(graph.obj.GetUnits())
-            if page_units != 2:
-                raise NativeOriginError(
-                    f"qualified graph template units differ for {graph_plan.graph_id}: "
-                    f"actual={page_units}, expected=2 (mm)"
-                )
-            width_mm = float(graph.obj.GetWidth())
-            height_mm = float(graph.obj.GetHeight())
+            width_mm = _page_length_to_mm(float(graph.obj.GetWidth()), page_units)
+            height_mm = _page_length_to_mm(float(graph.obj.GetHeight()), page_units)
             if not math.isclose(
                 width_mm, graph_plan.page_width_mm, abs_tol=0.2
             ) or not math.isclose(height_mm, graph_plan.page_height_mm, abs_tol=0.2):

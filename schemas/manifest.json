@@ -22,7 +22,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "0b61d4b05fc16b4ff7e351ef6ce1ea21787d3f6c61e512dfeae8093cd62c2546"
+      "sha256": "58bdcb46f1514196fddc7b6be31e019ba5ee2b00a64ec4165c836e976f4c08db"
     },
     {
       "path": "schemas/error-registry.json",
@@ -50,7 +50,7 @@
     },
     {
       "path": "schemas/origin-export-plan.schema.json",
-      "sha256": "b63d49767a466fee1e7535936ee0122bcb74f7e7b27c7bb10a7de9ea3c91d275"
+      "sha256": "2dc244198caaadd2bdfd54da6d225a586a6b7b3a52cada4b4e325cf0630a7a55"
     },
     {
       "path": "schemas/patch-transaction.schema.json",
@@ -98,7 +98,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "ecec7686d5c88a727e712b55082f3b74cb01534b2eaa5ba584ebc03f33d68990"
+      "sha256": "9f2e95d25c5ede15dac5f29f2617a7b2c0abcc0647ecad93f0ac9901cd3705a2"
     },
     {
       "path": "src/shared/generated/style-catalog.json",

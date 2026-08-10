@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from plotagent.charts.registry import CHARTS
+from plotagent.contracts.registry import PRODUCT_CHART_IDS
 from plotagent.origin import export_origin
 from plotagent.origin.models import OriginExportSuccess
 from plotagent.origin.planner import build_origin_export_spec, compile_origin_plan
@@ -21,9 +21,9 @@ SELECTED = {
 
 @pytest.mark.skipif(
     not RUN_LIVE,
-    reason="set PLOTAGENT_RUN_ORIGIN_LIVE_MATRIX=1 to run the 54-chart Origin matrix",
+    reason="set PLOTAGENT_RUN_ORIGIN_LIVE_MATRIX=1 to run the 38-chart Origin matrix",
 )
-@pytest.mark.parametrize("chart_id", [entry.chart_type_id for entry in CHARTS])
+@pytest.mark.parametrize("chart_id", PRODUCT_CHART_IDS)
 def test_representative_chart_is_native_after_fresh_origin_reopen(
     chart_id: str, tmp_path: Path
 ) -> None:

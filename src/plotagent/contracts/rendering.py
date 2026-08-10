@@ -282,8 +282,23 @@ class OriginExactVersion(StrictModel):
 
 class OriginTemplateRef(StrictModel):
     template_resource: ResourceRef
+    filename: Annotated[
+        str,
+        StringConstraints(pattern=r"^[A-Za-z0-9_. -]+\.[Oo][Tt][Pp][Uu]?$", strict=True),
+    ]
     template_hash: Sha256
     signature_hash: Sha256
+    tier: Literal["T1", "T2"]
+    binder_id: Token
+    declared_patch_ids: tuple[Token, ...] = ()
+
+    @model_validator(mode="after")
+    def valid_template_tier(self) -> OriginTemplateRef:
+        if self.tier == "T1" and self.declared_patch_ids:
+            raise ValueError("T1 Origin templates cannot declare native patches")
+        if self.tier == "T2" and not self.declared_patch_ids:
+            raise ValueError("T2 Origin templates require a declared native patch")
+        return self
 
 
 type OriginScalar = str | int | float | bool | None
@@ -489,6 +504,7 @@ class OriginSizeKeyPlan(StrictModel):
 
 class OriginGraphObject(StrictModel):
     graph_id: Token
+    template: OriginTemplateRef
     folder: Literal["Graphs"] = "Graphs"
     internal_name: Annotated[
         str,
@@ -562,7 +578,6 @@ class OriginExportPlan(StrictModel):
     adapter_version: Token
     capability: Literal["O1"] = "O1"
     origin_version: OriginExactVersion
-    template: OriginTemplateRef
     project_folders: Literal["Data/Analysis/Graphs/Metadata"] = "Data/Analysis/Graphs/Metadata"
     data_objects: Annotated[tuple[OriginDataObject, ...], Field(min_length=1)]
     graph_objects: Annotated[tuple[OriginGraphObject, ...], Field(min_length=1)]

@@ -462,6 +462,9 @@
             "visible": false
           }
         },
+        "template": {
+          "$ref": "#/$defs/OriginTemplateRef"
+        },
         "title": {
           "default": "",
           "maxLength": 512,
@@ -471,6 +474,7 @@
       },
       "required": [
         "graph_id",
+        "template",
         "internal_name",
         "long_name",
         "page_width_mm",
@@ -1161,6 +1165,25 @@
     "OriginTemplateRef": {
       "additionalProperties": false,
       "properties": {
+        "binder_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Binder Id",
+          "type": "string"
+        },
+        "declared_patch_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Declared Patch Ids",
+          "type": "array"
+        },
+        "filename": {
+          "pattern": "^[A-Za-z0-9_. -]+\\.[Oo][Tt][Pp][Uu]?$",
+          "title": "Filename",
+          "type": "string"
+        },
         "signature_hash": {
           "pattern": "^[0-9a-f]{64}$",
           "title": "Signature Hash",
@@ -1173,12 +1196,23 @@
         },
         "template_resource": {
           "$ref": "#/$defs/ResourceRef"
+        },
+        "tier": {
+          "enum": [
+            "T1",
+            "T2"
+          ],
+          "title": "Tier",
+          "type": "string"
         }
       },
       "required": [
         "template_resource",
+        "filename",
         "template_hash",
-        "signature_hash"
+        "signature_hash",
+        "tier",
+        "binder_id"
       ],
       "title": "OriginTemplateRef",
       "type": "object"
@@ -1685,9 +1719,6 @@
       "title": "Schema Version",
       "type": "string"
     },
-    "template": {
-      "$ref": "#/$defs/OriginTemplateRef"
-    },
     "validation": {
       "$ref": "#/$defs/OriginValidationPlan",
       "default": {
@@ -1706,7 +1737,6 @@
     "adapter_id",
     "adapter_version",
     "origin_version",
-    "template",
     "data_objects",
     "graph_objects",
     "manifest"

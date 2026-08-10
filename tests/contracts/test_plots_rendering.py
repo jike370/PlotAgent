@@ -366,14 +366,6 @@ def test_export_and_origin_plans_never_carry_paths_or_arbitrary_properties() -> 
         adapter_id="origin.adapter.k01",
         adapter_version="adapter.v1",
         origin_version=OriginExactVersion(version="2026", build="10.0.0"),
-        template=OriginTemplateRef(
-            template_resource=ResourceRef(
-                resource_id="resource:signed_template",
-                resource_kind="authorized_file",
-            ),
-            template_hash=HASH_A,
-            signature_hash=HASH_B,
-        ),
         data_objects=(
             OriginDataObject(
                 object_id="data.main",
@@ -410,6 +402,17 @@ def test_export_and_origin_plans_never_carry_paths_or_arbitrary_properties() -> 
         graph_objects=(
             OriginGraphObject(
                 graph_id="graph.main",
+                template=OriginTemplateRef(
+                    template_resource=ResourceRef(
+                        resource_id="resource:signed_template",
+                        resource_kind="authorized_file",
+                    ),
+                    filename="LINE.otpu",
+                    template_hash=HASH_A,
+                    signature_hash=HASH_A,
+                    tier="T1",
+                    binder_id="plotagent.origin.template.line",
+                ),
                 internal_name="GraphMain",
                 long_name="Graph Main",
                 page_width_mm=89.0,

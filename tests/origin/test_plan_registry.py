@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from plotagent.contracts.registry import PRODUCT_CHART_IDS, REMOVED_CHART_IDS
 from plotagent.contracts.rendering import OriginExportPlan
 from plotagent.origin.planner import (
     OriginPlanError,
@@ -20,41 +21,7 @@ from plotagent.origin.registry import (
 from plotagent.rendering import PlotResolver
 from tests.rendering.fixture_factory import build_plot_and_store, resolve_chart
 
-EXPECTED_CHART_IDS = {
-    *(f"K{index:02d}" for index in range(1, 23)),
-    "K24",
-    "K25",
-    "S01",
-    "S05",
-    "S21",
-    "S25",
-    "S31",
-    "S34",
-    "S61",
-    "X01",
-    "X02",
-    "X03",
-    "X05",
-    "X07",
-    "X09",
-    "X11",
-    "X12",
-    "X13",
-    "X15",
-    "X16",
-    "X17",
-    "X18",
-    "X19",
-    "X23",
-    "X24",
-    "X35",
-    "X36",
-    "X37",
-    "X38",
-    "X39",
-    "X40",
-    "S07",
-}
+EXPECTED_CHART_IDS = set(PRODUCT_CHART_IDS)
 FIXTURE_MANIFEST = Path(__file__).parents[1] / "fixtures" / "rendering" / "chart-fixtures.json"
 
 
@@ -64,14 +31,17 @@ def _compile(chart_id: str) -> OriginExportPlan:
     return compile_origin_plan((resolved,), export)
 
 
-def test_origin_registry_is_exactly_the_frozen_54_o1_surface() -> None:
-    assert len(ORIGIN_ADAPTERS) == 54
+def test_origin_registry_is_exactly_the_template_first_38_o1_surface() -> None:
+    assert len(ORIGIN_ADAPTERS) == 38
     assert {entry.chart_type_id for entry in ORIGIN_ADAPTERS} == EXPECTED_CHART_IDS
     assert all(
         entry.capability == "O1" and not entry.known_differences for entry in ORIGIN_ADAPTERS
     )
-    for rejected in ("K23", "S45", "K26", "unknown"):
-        with pytest.raises(OriginAdapterNotFoundError, match="no qualified"):
+    assert all(
+        entry.template_filename.lower().endswith((".otp", ".otpu")) for entry in ORIGIN_ADAPTERS
+    )
+    for rejected in (*REMOVED_CHART_IDS, "K23", "S45", "K26", "unknown"):
+        with pytest.raises(OriginAdapterNotFoundError, match="no template-first"):
             get_origin_adapter(rejected)
 
 
@@ -104,11 +74,14 @@ def test_frozen_minimal_representative_edge_matrix_all_compiles_without_origin()
     compiled: list[str] = []
     for chart in manifest["charts"]:
         chart_id = chart["chart_type_id"]
+        if chart_id not in EXPECTED_CHART_IDS:
+            continue
         for case in chart["cases"]:
             plan = _compile(chart_id)
             assert plan.manifest.chart_type_ids == (chart_id,)
             compiled.append(case["case_id"])
-    assert len(compiled) == len(set(compiled)) == 162
+    assert len(compiled) == len(set(compiled))
+    assert {case_id.split(".", 1)[0] for case_id in compiled} == EXPECTED_CHART_IDS
 
 
 def test_matrix_and_explicit_panel_plans_remain_native_structures() -> None:

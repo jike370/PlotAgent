@@ -475,7 +475,6 @@ def _build_plan(payload: dict[str, Any]) -> dict[str, Any]:
     plan = OriginExportPlan.model_validate_json(json.dumps(payload["plan"], ensure_ascii=False))
     temporary_path = Path(str(payload["temporary_opju_path"])).resolve(strict=False)
     install_dir = Path(str(payload["install_dir"])).resolve(strict=True)
-    template = qualified_template_path()
     import originpro as op
 
     from ._origin_backend import OriginProBackend
@@ -483,7 +482,7 @@ def _build_plan(payload: dict[str, Any]) -> dict[str, Any]:
     from .validation import expected_validation_sha256
 
     try:
-        backend = OriginProBackend(op, template, install_dir)
+        backend = OriginProBackend(op, install_dir)
         runtime_version = float(op.org_ver())
         report_sha256 = expected_validation_sha256(plan)
 
@@ -533,7 +532,6 @@ def _reopen_plan(payload: dict[str, Any]) -> dict[str, Any]:
     plan = OriginExportPlan.model_validate_json(json.dumps(payload["plan"], ensure_ascii=False))
     temporary_path = Path(str(payload["temporary_opju_path"])).resolve(strict=True)
     install_dir = Path(str(payload["install_dir"])).resolve(strict=True)
-    template = qualified_template_path()
     import originpro as op
 
     from ._origin_backend import OriginProBackend
@@ -546,7 +544,7 @@ def _reopen_plan(payload: dict[str, Any]) -> dict[str, Any]:
             _fail("REOPEN_FAILURE", "fresh validation instance was not blank before load")
         if not op.open(str(temporary_path), readonly=True, asksave=False):
             _fail("REOPEN_FAILURE", "fresh Origin instance could not open the temporary OPJU")
-        backend = OriginProBackend(op, template, install_dir)
+        backend = OriginProBackend(op, install_dir)
         report = inspect_native_project(backend, plan)
         return {
             "status": "ok",

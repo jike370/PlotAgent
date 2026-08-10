@@ -1006,7 +1006,6 @@ export type OriginExportPlan = {
   readonly adapter_version: string;
   readonly capability?: "O1";
   readonly origin_version: OriginExactVersion;
-  readonly template: OriginTemplateRef;
   readonly project_folders?: "Data/Analysis/Graphs/Metadata";
   readonly data_objects: ReadonlyArray<OriginDataObject>;
   readonly graph_objects: ReadonlyArray<OriginGraphObject>;
@@ -1016,6 +1015,7 @@ export type OriginExportPlan = {
 
 export type OriginGraphObject = {
   readonly graph_id: string;
+  readonly template: OriginTemplateRef;
   readonly folder?: "Graphs";
   readonly internal_name: string;
   readonly long_name: string;
@@ -1132,8 +1132,12 @@ export type OriginSizeKeyPlan = {
 
 export type OriginTemplateRef = {
   readonly template_resource: ResourceRef;
+  readonly filename: string;
   readonly template_hash: string;
   readonly signature_hash: string;
+  readonly tier: "T1" | "T2";
+  readonly binder_id: string;
+  readonly declared_patch_ids?: ReadonlyArray<string>;
 }
 
 export type OriginTickPlan = {

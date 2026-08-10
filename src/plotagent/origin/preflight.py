@@ -22,9 +22,7 @@ from .constants import (
     DECLARED_ORIGINPRO_VERSION,
     MIN_FREE_TARGET_BYTES,
     ORIGIN_EXECUTABLE,
-    ORIGIN_TEMPLATE_SHA256,
     WORKER_DEFAULT_TIMEOUT_SECONDS,
-    qualified_template_path,
 )
 from .models import (
     JsonValue,
@@ -36,6 +34,7 @@ from .models import (
     OriginPreflightSuccess,
     OriginStage,
 )
+from .template_catalog import OriginTemplateCatalogError, validate_official_template_catalog
 
 
 @dataclass(frozen=True, slots=True)
@@ -377,20 +376,14 @@ def preflight_origin(
             f"this build supports only originpro {DECLARED_ORIGINPRO_VERSION}",
             details={"detected_originpro_version": originpro_version},
         )
-    template = qualified_template_path()
-    if not template.is_file():
+    try:
+        template_hash = validate_official_template_catalog(installation.install_dir)
+    except OriginTemplateCatalogError as error:
         return _error(
             target,
             OriginErrorCode.TEMPLATE_OR_FONT_MISSING,
-            "the build-owned qualified Origin template is missing",
-        )
-    template_hash = _sha256_file(template)
-    if template_hash.lower() != ORIGIN_TEMPLATE_SHA256:
-        return _error(
-            target,
-            OriginErrorCode.TEMPLATE_OR_FONT_MISSING,
-            "the build-owned Origin template does not match the qualified content hash",
-            details={"detected_template_sha256": template_hash},
+            "the registered Origin official template catalog is unavailable or modified",
+            details={"error": str(error)},
         )
     probe = run_worker(
         "probe",

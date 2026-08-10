@@ -7,6 +7,7 @@ import pytest
 
 from plotagent.contracts.base import ColorValue
 from plotagent.contracts.plots import BarAreaEditSpec, SpecialistEditSpec
+from plotagent.contracts.registry import PRODUCT_CHART_IDS
 from plotagent.contracts.rendering import (
     OriginDataObject,
     OriginExportPlan,
@@ -23,6 +24,8 @@ from plotagent.origin._origin_backend import (
     _legend_labels,
     _legend_text,
     _native_layer_frame,
+    _page_length_from_mm,
+    _page_length_to_mm,
     _PageRect,
     _place_inside_legend,
     _place_page_color_scale,
@@ -54,6 +57,24 @@ from tests.rendering.fixture_factory import build_plot_and_store, resolve_chart
 def _plan(chart_id: str) -> OriginExportPlan:
     resolved = resolve_chart(chart_id)
     return compile_origin_plan((resolved,), build_origin_export_spec((resolved,)))
+
+
+@pytest.mark.parametrize(
+    ("page_units", "expected"),
+    ((0, 1.0), (1, 2.54), (2, 25.4), (3, 96.0), (4, 72.0)),
+)
+def test_official_template_page_units_preserve_physical_size(
+    page_units: int, expected: float
+) -> None:
+    native = _page_length_from_mm(25.4, page_units)
+
+    assert native == pytest.approx(expected)
+    assert _page_length_to_mm(native, page_units) == pytest.approx(25.4)
+
+
+def test_unsupported_official_template_page_units_are_rejected() -> None:
+    with pytest.raises(NativeOriginError, match="unsupported official template page units"):
+        _page_length_from_mm(25.4, 7)
 
 
 def test_plan_worker_flushes_response_before_forced_process_exit(
@@ -95,19 +116,6 @@ def test_plan_worker_prepares_project_before_origin_exit() -> None:
     origin_worker._prepare_origin_session_exit(origin, backend)
 
     assert origin.calls == [("new", False), "release"]
-
-
-def test_s07_uses_native_legend_samples_from_fixed_resolved_series() -> None:
-    plan = _plan("S07")
-    entries = _legend_entries(plan.graph_objects[0], plan.data_objects)
-
-    assert _legend_text(entries) == (
-        r"\l(1, style:s) Down"
-        "\n"
-        r"\l(2, style:s) Not significant"
-        "\n"
-        r"\l(3, style:s) Up"
-    )
 
 
 def test_nonfixed_legend_uses_native_samples_and_blocks_enhanced_text_injection() -> None:
@@ -271,7 +279,7 @@ def test_survival_band_materializes_as_a_stepped_native_fill_area() -> None:
 
 
 def test_duplicate_physical_styles_share_one_origin_legend_row() -> None:
-    plan = _plan("K05")
+    plan = _plan("K07")
     graph = plan.graph_objects[0]
     layer = graph.layers[0]
     base = layer.plots[0]
@@ -420,7 +428,6 @@ def test_separate_line_and_symbol_targets_share_one_logical_legend_row() -> None
         ("X03", ["start", "middle", "end"], [[5], [6], [7]]),
         ("K07", ["Series 1", "Series 2"], [[1], [2]]),
         ("K11", ["C1", "C2"], [[1], [3]]),
-        ("S07", ["Down", "Not significant", "Up"], [[1], [2], [3]]),
     ],
 )
 def test_origin_legend_mapping_is_native_plot_order_aware(
@@ -437,13 +444,9 @@ def test_origin_legend_uses_explicit_layer_and_plot_indexes_for_dual_axis_overla
     plan = _plan("X35")
     entries = _legend_entries(plan.graph_objects[0], plan.data_objects)
 
-    assert _legend_text(entries) == (
-        r"\l(1) Left" "\n" r"\l(2.1) Right"
-    )
+    assert _legend_text(entries) == (r"\l(1) Left" "\n" r"\l(2.1) Right")
     assert [
-        (sample.layer_index, sample.plot_index)
-        for entry in entries
-        for sample in entry.samples
+        (sample.layer_index, sample.plot_index) for entry in entries for sample in entry.samples
     ] == [(1, 1), (2, 1)]
 
 
@@ -468,9 +471,7 @@ def test_origin_error_legend_row_maps_interval_and_point_primitives() -> None:
         "point_interval",
         "direct",
     ]
-    assert _legend_text(entries) == (
-        r"\l(1, style:l) \l(2, style:s) Estimate"
-    )
+    assert _legend_text(entries) == (r"\l(1, style:l) \l(2, style:s) Estimate")
 
 
 class _FakePageObject:
@@ -503,7 +504,7 @@ class _ScalingFakePageObject(_FakePageObject):
         super().set_float(key, value)
 
 
-@pytest.mark.parametrize("chart_id", ["X01", "K05", "S05", "S25", "X03"])
+@pytest.mark.parametrize("chart_id", ["K01", "K07", "K19", "X03"])
 def test_shared_title_layout_is_page_attached_and_above_plot_frame(chart_id: str) -> None:
     graph_plan = _plan(chart_id).graph_objects[0].model_copy(update={"title": f"{chart_id} title"})
     page = _FakePageObject(width=890.0, height=600.0)
@@ -520,9 +521,9 @@ def test_shared_title_layout_is_page_attached_and_above_plot_frame(chart_id: str
     assert top + title.get_float("height") <= layer_top - 1.0
 
 
-def test_s05_legend_is_page_attached_and_clamped_inside_canvas() -> None:
+def test_product_legend_is_page_attached_and_clamped_inside_canvas() -> None:
     graph_plan = (
-        _plan("S05")
+        _plan("X38")
         .graph_objects[0]
         .model_copy(update={"legend_visible": True, "legend_anchor_x": 1.0, "legend_anchor_y": 1.0})
     )
@@ -541,8 +542,10 @@ def test_s05_legend_is_page_attached_and_clamped_inside_canvas() -> None:
 
 
 def test_composite_line_symbol_legend_reserves_its_persisted_source_width() -> None:
-    graph_plan = _plan("K02").graph_objects[0].model_copy(
-        update={"legend_visible": True, "legend_anchor_x": 1.0, "legend_anchor_y": 1.0}
+    graph_plan = (
+        _plan("K02")
+        .graph_objects[0]
+        .model_copy(update={"legend_visible": True, "legend_anchor_x": 1.0, "legend_anchor_y": 1.0})
     )
     page = _FakePageObject(width=2102.0, height=1417.0)
     # Measured from the supported Origin build after the safe two-token legend
@@ -551,9 +554,7 @@ def test_composite_line_symbol_legend_reserves_its_persisted_source_width() -> N
 
     _place_inside_legend(page, graph_plan, graph_plan.layers[0], legend)
 
-    frame_left, _, frame_width, _ = _frame_page_bounds(
-        page, graph_plan, graph_plan.layers[0]
-    )
+    frame_left, _, frame_width, _ = _frame_page_bounds(page, graph_plan, graph_plan.layers[0])
     legend_left = legend.get_float("x1") * page.get_float("width")
     assert legend_left >= frame_left + frame_width + page.get_float("width") * 0.005
     assert legend_left + legend.get_float("width") <= page.get_float("width")
@@ -789,43 +790,8 @@ class _RecordingBackend:
         self.calls.append(("save", path))
 
 
-@pytest.mark.parametrize(
-    "chart_id",
-    [
-        *(f"K{index:02d}" for index in range(1, 23)),
-        "K24",
-        "K25",
-        "S01",
-        "S05",
-        "S21",
-        "S25",
-        "S31",
-        "S34",
-        "S61",
-        "X01",
-        "X02",
-        "X03",
-        "X05",
-        "X07",
-        "X09",
-        "X11",
-        "X12",
-        "X13",
-        "X15",
-        "X16",
-        "X17",
-        "X18",
-        "X19",
-        "X23",
-        "X24",
-        "X35",
-        "X36",
-        "X37",
-        "X38",
-        "S07",
-    ],
-)
-def test_all_54_plans_normalize_to_fixed_native_primitives(chart_id: str) -> None:
+@pytest.mark.parametrize("chart_id", PRODUCT_CHART_IDS)
+def test_all_38_plans_normalize_to_fixed_native_primitives(chart_id: str) -> None:
     plan = _plan(chart_id)
     primitives = [
         primitive
@@ -1035,9 +1001,7 @@ def test_forest_interval_includes_weight_sized_point_estimates() -> None:
 def test_nyquist_uses_native_line_symbol_geometry() -> None:
     plot = _plan("S34").graph_objects[0].layers[0].plots[0]
 
-    assert native_primitives(plot) == (
-        NativePrimitive("line_symbol", "z_real", "z_imaginary"),
-    )
+    assert native_primitives(plot) == (NativePrimitive("line_symbol", "z_real", "z_imaginary"),)
 
 
 def test_drop_line_uses_one_native_symbol_plot_with_frame_drop_lines() -> None:

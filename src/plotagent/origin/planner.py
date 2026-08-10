@@ -42,11 +42,9 @@ from plotagent.rendering.size_key import representative_size_key
 from .constants import (
     DECLARED_ORIGIN_DISPLAY_VERSION,
     DECLARED_ORIGIN_RUNTIME_VERSION,
-    ORIGIN_TEMPLATE_ID,
-    ORIGIN_TEMPLATE_SHA256,
     ORIGIN_VARIABLE_SIZE_FACTOR,
 )
-from .registry import OriginAdapterRegistration, get_origin_adapter
+from .registry import get_origin_adapter
 
 _NATIVE_KINDS = {
     "xy.line": "line",
@@ -373,7 +371,6 @@ def compile_origin_plan(
     graph_objects: list[OriginGraphObject] = []
     object_map: list[OriginObjectMapEntry] = []
     data_by_key: dict[tuple[str, str, str], str] = {}
-    adapters: list[OriginAdapterRegistration] = []
     data_chains: list[str] = []
 
     for graph_index, resolved in enumerate(resolved_plots):
@@ -383,7 +380,6 @@ def compile_origin_plan(
         if plan.chart_type_id is None:
             raise OriginPlanError("Origin export requires an explicit chart type ID")
         adapter = get_origin_adapter(plan.chart_type_id)
-        adapters.append(adapter)
         actual_geometries = {layer.geometry for layer in plan.layers}
         if not actual_geometries.issubset(set(adapter.allowed_geometries)):
             raise OriginPlanError(
@@ -519,6 +515,18 @@ def compile_origin_plan(
         graph_objects.append(
             OriginGraphObject(
                 graph_id=graph_id,
+                template=OriginTemplateRef(
+                    template_resource=ResourceRef(
+                        resource_id=f"resource:origin_template_{plan.chart_type_id.lower()}",
+                        resource_kind="authorized_file",
+                    ),
+                    filename=adapter.template_filename,
+                    template_hash=adapter.template_sha256,
+                    signature_hash=adapter.template_sha256,
+                    tier=adapter.template_tier,
+                    binder_id=adapter.binder_id,
+                    declared_patch_ids=adapter.declared_patch_ids,
+                ),
                 internal_name=graph_name,
                 long_name=f"{plan.chart_type_id} Native Plot",
                 page_width_mm=plan.canvas.width.value,
@@ -554,7 +562,6 @@ def compile_origin_plan(
             dict.fromkeys(item.plan.resolver_version for item in resolved_plots)
         ),
     )
-    adapter_families = "+".join(dict.fromkeys(adapter.adapter_family for adapter in adapters))
     return OriginExportPlan(
         origin_plan_id=f"originplan:{export_spec.export_id.removeprefix('export:')}",
         origin_plan_version=1,
@@ -564,19 +571,11 @@ def compile_origin_plan(
             content_hash=canonical_hash(export_spec),
         ),
         render_plan_hash=export_spec.render_plan_hash,
-        adapter_id=f"plotagent.origin.registry.{adapter_families}",
-        adapter_version="1.0.0",
+        adapter_id="plotagent.origin.template_first",
+        adapter_version="engine-profile.v1",
         origin_version=OriginExactVersion(
             version=DECLARED_ORIGIN_DISPLAY_VERSION,
             build=f"{DECLARED_ORIGIN_RUNTIME_VERSION:.6f}",
-        ),
-        template=OriginTemplateRef(
-            template_resource=ResourceRef(
-                resource_id=f"resource:{ORIGIN_TEMPLATE_ID.replace('-', '_')}",
-                resource_kind="authorized_file",
-            ),
-            template_hash=ORIGIN_TEMPLATE_SHA256,
-            signature_hash=ORIGIN_TEMPLATE_SHA256,
         ),
         data_objects=tuple(data_objects),
         graph_objects=tuple(graph_objects),
