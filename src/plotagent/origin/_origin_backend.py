@@ -947,6 +947,21 @@ def _place_inside_legend(
     left = min(left, max(page_width - legend_width - page_inset, page_inset))
     top = min(max(top, page_inset), max(page_height - legend_height - page_inset, page_inset))
     _set_page_position(legend, page_width=page_width, page_height=page_height, left=left, top=top)
+    # A linked Origin legend can retain a right-edge horizontal anchor even when
+    # it is attached to the page.  Other graph labels use a left-edge anchor.
+    # Normalize against the computed, read-only bounds after the first write so
+    # both native object variants land on the same requested page rectangle.
+    try:
+        actual_left = _finite_float(legend.get_float("left"))
+        actual_top = _finite_float(legend.get_float("top"))
+        current_x = _finite_float(legend.get_float("x1"))
+        current_y = _finite_float(legend.get_float("y1"))
+    except (KeyError, NativeOriginError):
+        return
+    if abs(actual_left - left) > 0.5:
+        legend.set_float("x1", current_x + (left - actual_left) / page_width)
+    if abs(actual_top - top) > 0.5:
+        legend.set_float("y1", current_y + (top - actual_top) / page_height)
 
 
 def _set_page_position(
@@ -2856,7 +2871,8 @@ class OriginProBackend:
                         or legend.get_float("top") + legend.get_float("height") > page_height + 1e-9
                     ):
                         raise NativeOriginError(
-                            f"native legend crosses page edge for {graph_plan.graph_id}: "
+                            f"native legend overlaps the data frame or crosses the page edge "
+                            f"for {graph_plan.graph_id}: "
                             f"bounds=({legend.get_float('left'):.6f}, "
                             f"{legend.get_float('top'):.6f}, "
                             f"{legend.get_float('width'):.6f}, "

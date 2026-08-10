@@ -504,6 +504,22 @@ class _ScalingFakePageObject(_FakePageObject):
         super().set_float(key, value)
 
 
+class _RightAnchoredLegend(_FakePageObject):
+    """Model Origin's linked-legend X anchor for the placement regression."""
+
+    def __init__(self, *, page_width: float, page_height: float, **values: float) -> None:
+        super().__init__(**values)
+        self.page_width = page_width
+        self.page_height = page_height
+
+    def get_float(self, key: str) -> float:
+        if key == "left":
+            return super().get_float("x1") * self.page_width - super().get_float("width")
+        if key == "top":
+            return super().get_float("y1") * self.page_height
+        return super().get_float(key)
+
+
 @pytest.mark.parametrize("chart_id", ["K01", "K07", "K19", "X03"])
 def test_shared_title_layout_is_page_attached_and_above_plot_frame(chart_id: str) -> None:
     graph_plan = _plan(chart_id).graph_objects[0].model_copy(update={"title": f"{chart_id} title"})
@@ -558,6 +574,28 @@ def test_composite_line_symbol_legend_reserves_its_persisted_source_width() -> N
     legend_left = legend.get_float("x1") * page.get_float("width")
     assert legend_left >= frame_left + frame_width + page.get_float("width") * 0.005
     assert legend_left + legend.get_float("width") <= page.get_float("width")
+
+
+def test_linked_legend_right_anchor_is_normalized_to_requested_page_bounds() -> None:
+    graph_plan = (
+        _plan("X03")
+        .graph_objects[0]
+        .model_copy(update={"legend_visible": True, "legend_anchor_x": 1.0, "legend_anchor_y": 1.0})
+    )
+    page = _FakePageObject(width=2102.0, height=1417.0)
+    legend = _RightAnchoredLegend(
+        page_width=2102.0,
+        page_height=1417.0,
+        width=440.0,
+        height=168.0,
+        fillcolor=0.0,
+    )
+
+    _place_inside_legend(page, graph_plan, graph_plan.layers[0], legend)
+
+    frame_left, _, frame_width, _ = _frame_page_bounds(page, graph_plan, graph_plan.layers[0])
+    assert legend.get_float("left") >= frame_left + frame_width + page.get_float("width") * 0.005
+    assert legend.get_float("left") + legend.get_float("width") <= page.get_float("width")
 
 
 @pytest.mark.parametrize("chart_id", ["X05", "X23", "X35", "X36", "X38"])
