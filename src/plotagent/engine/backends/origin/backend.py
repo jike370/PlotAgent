@@ -10,8 +10,13 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Literal, Protocol
 
-from plotagent.engine.contracts import EngineDataView, PlotDocument, PlotEngineAction
-from plotagent.engine.ports import EngineArtifact, EngineReadback, PlotBackendChange
+from plotagent.engine.contracts import PlotDocument, PlotEngineAction
+from plotagent.engine.ports import (
+    EngineArtifact,
+    EngineReadback,
+    EngineRenderSource,
+    PlotBackendChange,
+)
 
 from .messages import OriginWorkerRequest, OriginWorkerResponse
 
@@ -94,7 +99,7 @@ class OriginBackend:
         self,
         document: PlotDocument,
         actions: tuple[PlotEngineAction, ...],
-        data: EngineDataView,
+        source: EngineRenderSource,
     ) -> PlotBackendChange:
         staging = self._root / ".staging" / uuid.uuid4().hex
         staging.mkdir(parents=True)
@@ -114,7 +119,11 @@ class OriginBackend:
             previous_opju=None if previous is None else str(previous),
             document=document,
             actions=actions,
-            data=data,
+            source=source,
+            component_opjus=tuple(
+                str(self._version_dir(component.document) / "plot.opju")
+                for component in source.components
+            ),
         )
         response = self._worker.run(request)
         if not (staging / "plot.opju").is_file():

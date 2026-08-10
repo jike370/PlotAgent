@@ -135,8 +135,8 @@ PlotDocument 只保存：
 
 ## 7. 当前迁移证据
 
-截至本分支当前实现，新架构已经完成三十七类代码级纵向切片；唯一尚未完成的
-正式 Profile 是引用多个既有 `PlotDocument` 的 K25 组合图：
+截至本分支当前实现，新架构已经完成全部三十八类代码级纵向切片。K25 不伪装成
+数据图：它引用 2–4 个既有 `PlotDocument` 的精确版本，并保持子图自己的数据与原生对象：
 
 | Profile | 数据语义 | Matplotlib | Origin 官方模板 | 原生结构 |
 |---|---|---|---|---|
@@ -161,6 +161,7 @@ PlotDocument 只保存：
 | K21 | `row_label / column_label / value` | 独立相关矩阵 renderer | `Heat_Map_With_Labels.otpu` | 预计算相关矩阵写入 matrixbook；模板原生标签热图 |
 | K22 | `x / y / z` | 独立规则网格等高 renderer | `CONTOUR.otpu` | 完整规则网格写入 matrixbook；模板原生填色等值 Plot，禁止插值补洞 |
 | K24 | `facet / base_x / base_y` | 独立动态分面 renderer | `mgroups.otpu` | worksheet + 按 facet 数扩展的原生图层和线系列 |
+| K25 | `2–4 个 PlotDocumentRef` | 原生 SVG 子树与 PNG 面板组合 renderer | `mgroups.otpu` | 追加精确子 OPJU，保留子工作表/图页，再用 Origin `merge_graph` 合并原生图层；禁止嵌套组合与栅格化 OPJU |
 | S01 | `time / survival / lower? / upper? / risk_count? / group?` | 独立阶梯生存曲线与风险表 renderer | `SurvivalPlot.otp` | worksheet + 原生阶梯线/置信带/风险文本层；只消费预计算生存数据 |
 | S21 | `label / effect / lower / upper / weight?` | 独立森林图 renderer | `SCATTERINTERVAL.otp` | worksheet + 原生区间线、权重点和无效线 |
 | S34 | `z_real / z_imaginary / frequency? / series?` | 独立 Nyquist renderer | `LINESYMB.otpu` | worksheet + 动态原生 line-symbol 系列；频率保留为元数据而非坐标 |
@@ -178,7 +179,8 @@ PlotDocument 只保存：
 | X39 | `series_1 / series_2 / series_N?` | 独立逐行线条序列 renderer | `BoxLser.otpu` | 绑定值列转置为 worksheet；每个源行一条模板原生 line-series Plot |
 | X40 | `series_1 / series_2` | 独立前后对比 renderer | `BeforeAfter.otpu` | 两个值列转置为 worksheet；每个源行一条模板原生 before-after Plot |
 
-三十七个切片均只消费 `EngineDataView`、`PlotDocument` 和公开 Engine Action，不导入旧
-`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。除 K25 外的 37 个正式 Profile 已有独立渲染、
-模板哈希、对象结构和修改读回门禁；真实 Origin fresh-reopen 与人工视觉签名仍须在
+三十八个切片均只消费 `EngineRenderSource`、`PlotDocument` 和公开 Engine Action，不导入旧
+`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。38 个正式 Profile 已有代码级独立渲染、
+模板哈希、对象结构和修改读回门禁；K25 额外固定子图版本、禁止嵌套，并在 SVG 中保留
+矢量子树、在 OPJU 中保留原生子图。真实 Origin fresh-reopen 与人工视觉签名仍须在
 不占用用户 Origin 实例的受控资格批次中执行，未完成前不得声称这些 Profile 已发布。

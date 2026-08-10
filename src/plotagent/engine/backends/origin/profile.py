@@ -168,6 +168,13 @@ K24_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T2",
 )
 
+K25_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K25",
+    filename="mgroups.otpu",
+    sha256="391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+    tier="T2",
+)
+
 S01_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="S01",
     filename="SurvivalPlot.otp",

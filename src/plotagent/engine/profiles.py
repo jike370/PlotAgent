@@ -815,6 +815,31 @@ K24_FACET_PROFILE = EngineProfile(
     ),
 )
 
+K25_COMPOSITE_PROFILE = EngineProfile(
+    profile_id="K25",
+    display_name="Composite figure",
+    source_kind="plots",
+    minimum_components=2,
+    maximum_components=4,
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="panel",
+            object_kind="panel",
+            object_key_prefix="component",
+        ),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_chart_parameter", parameters=("panel_columns",)),
+        EngineCapability(
+            operation="add_annotation",
+            parameters=("text", "x", "y", "coordinate_system"),
+        ),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
 S01_SURVIVAL_PROFILE = EngineProfile(
     profile_id="S01",
     display_name="Precomputed survival curve",
@@ -942,6 +967,7 @@ ENGINE_PROFILES = (
     K21_CORRELATION_MATRIX_PROFILE,
     K22_CONTOUR_PROFILE,
     K24_FACET_PROFILE,
+    K25_COMPOSITE_PROFILE,
     S01_SURVIVAL_PROFILE,
     S21_FOREST_PROFILE,
     S34_NYQUIST_PROFILE,

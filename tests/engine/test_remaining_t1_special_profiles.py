@@ -14,6 +14,7 @@ from plotagent.engine import (
     EngineDataRef,
     EngineDataView,
     EngineField,
+    EngineRenderSource,
     FieldBinding,
     PlotDocument,
     PlotEngineAction,
@@ -219,7 +220,7 @@ def test_independent_matplotlib_renderers_emit_semantic_objects(
 ) -> None:
     document, actions, view = case()
     backend = MatplotlibBackend(tmp_path / renderer.profile_id, (renderer,))
-    change = backend.stage(document, actions, view)
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
     change.publish()
     readback = backend.readback(document)
     assert len([item for item in readback.objects if item.object_kind == kind]) == count

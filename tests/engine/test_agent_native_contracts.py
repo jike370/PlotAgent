@@ -49,6 +49,7 @@ def test_plot_document_is_minimal_and_has_no_renderer_plan() -> None:
         "profile_id",
         "data",
         "bindings",
+        "components",
         "applied_action_ids",
     }
     serialized = document.model_dump_json()

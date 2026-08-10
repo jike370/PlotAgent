@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine.contracts import EngineDataView, PlotDocument, PlotEngineAction
 from plotagent.engine.ports import (
+    EngineComponentInput,
     EngineDataProvider,
     EngineReadback,
+    EngineRenderSource,
     PlotBackend,
     PlotBackendChange,
 )
@@ -63,7 +64,7 @@ class PlotEngineRuntime:
                 readbacks=tuple(backend.readback(replay) for backend in self.backends),
             )
         transition = self.service.prepare(action)
-        data = self._materialize(transition.after)
+        source = self._materialize(transition.after)
         prior_actions = tuple(
             record.action for record in self.service.repository.actions(transition.after.plot_id)
         )
@@ -74,8 +75,8 @@ class PlotEngineRuntime:
         published: list[PlotBackendChange] = []
         try:
             for backend in self.backends:
-                change = backend.stage(transition.after, actions, data)
-                self._validate_readback(change.readback, transition.after, data)
+                change = backend.stage(transition.after, actions, source)
+                self._validate_readback(change.readback, transition.after, source)
                 changes.append(change)
             for change in changes:
                 change.publish()
@@ -97,7 +98,34 @@ class PlotEngineRuntime:
             readbacks=tuple(change.readback for change in changes),
         )
 
-    def _materialize(self, document: PlotDocument) -> EngineDataView:
+    def _materialize(self, document: PlotDocument) -> EngineRenderSource:
+        if document.components:
+            components: list[EngineComponentInput] = []
+            for reference in document.components:
+                stored = self.service.repository.get(reference.plot_id, reference.plot_version)
+                if stored.content_hash != reference.content_hash:
+                    raise PlotRuntimeError(
+                        f"component plot content hash differs from {reference.plot_id}"
+                    )
+                child = stored.document
+                child_data = self._materialize_data(child)
+                components.append(
+                    EngineComponentInput(
+                        document=child,
+                        actions=tuple(
+                            record.action
+                            for record in self.service.repository.actions(child.plot_id)
+                            if record.action.action_id in set(child.applied_action_ids)
+                        ),
+                        data=child_data,
+                    )
+                )
+            return EngineRenderSource(components=tuple(components))
+        return EngineRenderSource(data=self._materialize_data(document))
+
+    def _materialize_data(self, document: PlotDocument) -> EngineDataView:
+        if document.data is None:
+            raise PlotRuntimeError("a data-backed component has no immutable data source")
         field_ids = tuple(binding.field_id for binding in document.bindings)
         view = self.data_provider.materialize(document.data, field_ids)
         if view.data != document.data:
@@ -111,9 +139,9 @@ class PlotEngineRuntime:
     def _validate_readback(
         readback: EngineReadback,
         document: PlotDocument,
-        data: EngineDataView,
+        source: EngineRenderSource,
     ) -> None:
         if readback.document != document_ref(document):
             raise PlotRuntimeError("backend readback does not identify the staged plot document")
-        if readback.data_hash != canonical_hash(data):
-            raise PlotRuntimeError("backend readback data hash differs from the input revision")
+        if readback.data_hash != source.source_hash():
+            raise PlotRuntimeError("backend readback source hash differs from the input revision")

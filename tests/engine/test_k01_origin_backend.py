@@ -14,6 +14,7 @@ from plotagent.engine import (
     EngineDataRef,
     EngineDataView,
     EngineField,
+    EngineRenderSource,
     FieldBinding,
     PlotDocument,
     SetAxis,
@@ -121,7 +122,7 @@ def test_origin_backend_stages_opju_without_legacy_plan(tmp_path: Path) -> None:
     document, action, view = _document()
     worker = Worker()
     backend = OriginBackend(tmp_path / "origin", tmp_path / "install", worker)
-    change = backend.stage(document, (action,), view)
+    change = backend.stage(document, (action,), EngineRenderSource(data=view))
 
     assert worker.requests[0].document == document
     assert worker.requests[0].data == view

@@ -15,6 +15,7 @@ from plotagent.engine import (
     EngineDataRef,
     EngineDataView,
     EngineField,
+    EngineRenderSource,
     FieldBinding,
     PlotDocument,
 )
@@ -253,7 +254,7 @@ def test_t2_matplotlib_renderers_are_independent_and_semantic(
 ) -> None:
     document, actions, view = case()
     backend = MatplotlibBackend(tmp_path / renderer.profile_id, (renderer,))
-    change = backend.stage(document, actions, view)
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
     change.publish()
     assert any(item.object_kind == object_kind for item in change.readback.objects)
     target = tmp_path / renderer.profile_id / document.plot_id.removeprefix("plot:") / "v1"

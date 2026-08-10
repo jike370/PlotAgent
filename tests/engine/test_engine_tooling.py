@@ -24,11 +24,14 @@ def test_agent_neutral_tool_schema_is_closed_and_profile_discoverable() -> None:
     assert "export_plot" in serialized
     assert codec.profile_manifest() == (
         {
-            "profile_id": "K01",
-            "display_name": "Line",
-            "required_roles": ("x", "y"),
-            "optional_roles": ("label",),
-            "repeatable_role_prefixes": (),
+                "profile_id": "K01",
+                "display_name": "Line",
+                "source_kind": "data",
+                "required_roles": ("x", "y"),
+                "optional_roles": ("label",),
+                "repeatable_role_prefixes": (),
+                "minimum_components": 0,
+                "maximum_components": 0,
             "objects": tuple(
                 {
                     "object_alias": item.object_alias,

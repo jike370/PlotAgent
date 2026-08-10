@@ -12,6 +12,7 @@ from plotagent.engine import (
     EngineDataRef,
     EngineDataView,
     EngineField,
+    EngineRenderSource,
     FieldBinding,
     PlotDocument,
     PlotEngineAction,
@@ -143,7 +144,7 @@ def test_k04_binding_color_and_size_does_not_imply_visible_scales(tmp_path: Path
     assert bubble.color_values == (0.1, 0.3, 0.7, 1.0)
 
     backend = MatplotlibBackend(tmp_path / "artifacts", (K04BubbleRenderer(),))
-    change = backend.stage(document, actions, view)
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
     change.publish()
     kinds = {item.object_kind for item in backend.readback(document).objects}
 
@@ -155,7 +156,7 @@ def test_k04_binding_color_and_size_does_not_imply_visible_scales(tmp_path: Path
 def test_k04_scales_are_explicit_shared_parameters(tmp_path: Path) -> None:
     document, actions, view = _case(scales=True, edits=True)
     backend = MatplotlibBackend(tmp_path / "artifacts", (K04BubbleRenderer(),))
-    change = backend.stage(document, actions, view)
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
     change.publish()
 
     kinds = {item.object_kind for item in backend.readback(document).objects}

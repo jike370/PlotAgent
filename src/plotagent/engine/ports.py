@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, Protocol
 
+from pydantic import model_validator
+
 from plotagent.contracts.base import FieldId, Sha256, StrictModel, Token
 from plotagent.engine.contracts import (
     EngineDataRef,
@@ -14,6 +16,51 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
     SemanticObjectId,
 )
+
+
+class EngineComponentInput(StrictModel):
+    """Exact immutable child plot state consumed by a composition profile."""
+
+    document: PlotDocument
+    actions: tuple[PlotEngineAction, ...]
+    data: EngineDataView
+
+    @model_validator(mode="after")
+    def coherent_component(self) -> EngineComponentInput:
+        if tuple(item.action_id for item in self.actions) != self.document.applied_action_ids:
+            raise ValueError("component action history differs from its plot document")
+        if self.document.data != self.data.data:
+            raise ValueError("component data view differs from its plot document")
+        if self.document.components:
+            raise ValueError("nested plot compositions are not supported")
+        return self
+
+
+class EngineRenderSource(StrictModel):
+    """Materialized source for one backend transaction.
+
+    Normal profiles receive one bounded data view.  Composition profiles
+    receive exact child documents plus their own immutable data and action
+    histories; neither case exposes backend-native object identifiers.
+    """
+
+    data: EngineDataView | None = None
+    components: tuple[EngineComponentInput, ...] = ()
+
+    @model_validator(mode="after")
+    def exactly_one_source(self) -> EngineRenderSource:
+        if (self.data is not None) == bool(self.components):
+            raise ValueError("render source requires exactly one data or component input")
+        return self
+
+    def source_hash(self) -> Sha256:
+        from plotagent.contracts.canonical import canonical_hash
+
+        if self.data is not None:
+            return canonical_hash(self.data)
+        return canonical_hash(
+            [component.document.model_dump(mode="json") for component in self.components]
+        )
 
 
 class EngineDataProvider(Protocol):
@@ -75,7 +122,7 @@ class PlotBackend(Protocol):
         self,
         document: PlotDocument,
         actions: tuple[PlotEngineAction, ...],
-        data: EngineDataView,
+        source: EngineRenderSource,
     ) -> PlotBackendChange: ...
 
     def readback(self, document: PlotDocument) -> EngineReadback: ...

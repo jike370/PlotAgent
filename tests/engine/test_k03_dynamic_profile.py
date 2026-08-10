@@ -11,6 +11,7 @@ from plotagent.engine import (
     EngineDataRef,
     EngineDataView,
     EngineField,
+    EngineRenderSource,
     FieldBinding,
     PlotDocument,
     PlotEngineAction,
@@ -98,7 +99,7 @@ def test_k03_group_order_and_semantic_series_are_data_driven(tmp_path: Path) -> 
     assert tuple(group.label for group in scatter.groups) == ("B", "A", "C")
 
     backend = MatplotlibBackend(tmp_path / "artifacts", (K03ScatterRenderer(),))
-    change = backend.stage(document, actions, view)
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
     change.publish()
     readback = backend.readback(document)
 
@@ -125,7 +126,7 @@ def test_k03_rejects_series_ordinals_outside_materialized_data(tmp_path: Path) -
     backend = MatplotlibBackend(tmp_path / "artifacts", (K03ScatterRenderer(),))
 
     with pytest.raises(ValueError, match="outside the materialized groups"):
-        backend.stage(document, actions, view)
+        backend.stage(document, actions, EngineRenderSource(data=view))
 
 
 def test_k03_rebinding_resets_obsolete_data_derived_series_styles(tmp_path: Path) -> None:
@@ -147,7 +148,9 @@ def test_k03_rebinding_resets_obsolete_data_derived_series_styles(tmp_path: Path
     )
     backend = MatplotlibBackend(tmp_path / "artifacts", (K03ScatterRenderer(),))
 
-    change = backend.stage(rebound_document, rebound_actions, view)
+    change = backend.stage(
+        rebound_document, rebound_actions, EngineRenderSource(data=view)
+    )
     change.publish()
 
     assert backend.readback(rebound_document).document.plot_version == 4

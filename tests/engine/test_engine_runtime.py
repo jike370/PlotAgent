@@ -6,7 +6,6 @@ from typing import Literal
 
 import pytest
 
-from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine import (
     CreatePlot,
     EngineColumn,
@@ -97,7 +96,7 @@ class FakeBackend:
     def backend_id(self) -> Literal["matplotlib", "origin"]:
         return self._backend_id
 
-    def stage(self, document, actions, data) -> PlotBackendChange:
+    def stage(self, document, actions, source) -> PlotBackendChange:
         if self.fail_stage:
             raise RuntimeError("stage failed")
         change = FakeChange(
@@ -105,7 +104,7 @@ class FakeBackend:
                 document=document_ref(document),
                 backend=self.backend_id,
                 objects=(),
-                data_hash=canonical_hash(data),
+                data_hash=source.source_hash(),
                 style_hash=STYLE_HASH,
             ),
             fail_publish=self.fail_publish,

@@ -11,6 +11,7 @@ from .column_family import (
     K10StackedColumnRenderer,
     K11PercentStackRenderer,
 )
+from .composite import K25CompositeRenderer
 from .distribution import K12StripRenderer, K13BoxRenderer, K14ViolinRenderer, X05BeeswarmRenderer
 from .drop_line import X02DropLineRenderer
 from .dual_y import X23DualYRenderer
@@ -60,6 +61,7 @@ __all__ = [
     "K21CorrelationMatrixRenderer",
     "K22ContourRenderer",
     "K24FacetRenderer",
+    "K25CompositeRenderer",
     "MatplotlibBackend",
     "S01SurvivalRenderer",
     "S21ForestRenderer",

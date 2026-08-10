@@ -15,6 +15,7 @@ from plotagent.engine import (
     EngineDataRef,
     EngineDataView,
     EngineField,
+    EngineRenderSource,
     FieldBinding,
     PlotDocument,
     PlotEngineAction,
@@ -176,7 +177,7 @@ def test_independent_column_renderers_emit_one_semantic_series_per_data_series(
 ) -> None:
     document, actions, view = _case(profile_id, 3)
     backend = MatplotlibBackend(tmp_path / profile_id, (renderer,))
-    change = backend.stage(document, actions, view)
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
     change.publish()
     readback = backend.readback(document)
 
@@ -513,7 +514,7 @@ def test_distribution_renderers_are_independent_and_dynamic(
 ) -> None:
     document, actions, view = _distribution_case(profile_id, 3)
     backend = MatplotlibBackend(tmp_path / profile_id, (renderer,))
-    change = backend.stage(document, actions, view)
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
     change.publish()
     readback = backend.readback(document)
     assert len([item for item in readback.objects if item.object_kind == object_kind]) == 3

@@ -33,9 +33,11 @@ from .derived_data import (
 )
 from .ports import (
     EngineArtifact,
+    EngineComponentInput,
     EngineDataProvider,
     EngineObjectRef,
     EngineReadback,
+    EngineRenderSource,
     PlotBackend,
     PlotBackendChange,
 )
@@ -61,6 +63,7 @@ __all__ = [
     "EngineCapability",
     "EngineCatalog",
     "EngineColumn",
+    "EngineComponentInput",
     "EngineCommandError",
     "EngineVersionConflict",
     "EngineDataProvider",
@@ -74,6 +77,7 @@ __all__ = [
     "EngineRepeatableObjectTemplate",
     "EngineProfile",
     "EngineReadback",
+    "EngineRenderSource",
     "ExportPlot",
     "FieldBinding",
     "PlotBackend",

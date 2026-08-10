@@ -25,6 +25,7 @@ from .k08 import execute_k08_request
 from .k18 import execute_k18_request
 from .k19 import execute_k19_request
 from .k20 import execute_k20_request
+from .k25 import execute_k25_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
 from .s61 import execute_s61_request
 from .scientific_t2 import execute_s21_request, execute_s34_request
@@ -66,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         "K21": execute_k21_request,
         "K22": execute_k22_request,
         "K24": execute_k24_request,
+        "K25": execute_k25_request,
         "S01": execute_s01_request,
         "S21": execute_s21_request,
         "S34": execute_s34_request,

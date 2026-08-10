@@ -35,9 +35,12 @@ class EngineActionCodec:
             {
                 "profile_id": profile.profile_id,
                 "display_name": profile.display_name,
+                "source_kind": profile.source_kind,
                 "required_roles": profile.required_roles,
                 "optional_roles": profile.optional_roles,
                 "repeatable_role_prefixes": profile.repeatable_role_prefixes,
+                "minimum_components": profile.minimum_components,
+                "maximum_components": profile.maximum_components,
                 "objects": tuple(
                     {
                         "object_alias": item.object_alias,
