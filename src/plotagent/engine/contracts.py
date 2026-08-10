@@ -16,6 +16,7 @@ from pydantic import Field, StringConstraints, model_validator
 from plotagent.contracts.base import (
     FieldId,
     FiniteNumber,
+    RowId,
     SafeOutputName,
     Sha256,
     StrictModel,
@@ -61,6 +62,48 @@ class FieldBinding(StrictModel):
         StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,63}$", strict=True),
     ]
     field_id: FieldId
+
+
+EngineScalar = bool | int | float | str | None
+
+
+class EngineField(StrictModel):
+    """Renderer-neutral field metadata exposed by the data layer."""
+
+    field_id: FieldId
+    name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    logical_type: Literal["numeric", "categorical", "datetime", "boolean", "text"]
+    unit_label: Annotated[str, StringConstraints(max_length=128, strict=True)] | None = None
+
+
+class EngineColumn(StrictModel):
+    """One immutable field and its ordered values."""
+
+    field: EngineField
+    values: tuple[EngineScalar, ...]
+
+
+class EngineDataView(StrictModel):
+    """A bounded materialization shared by every plotting backend.
+
+    Importers and preparation services own parsing and transformations.  The
+    plotting engine receives only the requested immutable fields in row order.
+    """
+
+    data: EngineDataRef
+    row_ids: Annotated[tuple[RowId, ...], Field(min_length=1)]
+    columns: Annotated[tuple[EngineColumn, ...], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def rectangular_unique_data(self) -> EngineDataView:
+        field_ids = tuple(column.field.field_id for column in self.columns)
+        if len(field_ids) != len(set(field_ids)):
+            raise ValueError("engine data fields must be unique")
+        if len(self.row_ids) != len(set(self.row_ids)):
+            raise ValueError("engine data row ids must be unique")
+        if any(len(column.values) != len(self.row_ids) for column in self.columns):
+            raise ValueError("engine data columns must match the row count")
+        return self
 
 
 class PlotDocumentRef(StrictModel):
@@ -259,6 +302,7 @@ class EngineProfile(StrictModel):
     display_name: Annotated[str, StringConstraints(min_length=1, max_length=128, strict=True)]
     required_roles: Annotated[tuple[Token, ...], Field(min_length=1)]
     optional_roles: tuple[Token, ...] = ()
+    repeatable_role_prefixes: tuple[Token, ...] = ()
     capabilities: Annotated[tuple[EngineCapability, ...], Field(min_length=1)]
 
     @model_validator(mode="after")
@@ -266,8 +310,11 @@ class EngineProfile(StrictModel):
         roles = self.required_roles + self.optional_roles
         if len(roles) != len(set(roles)):
             raise ValueError("engine profile roles must be unique")
+        if len(self.repeatable_role_prefixes) != len(set(self.repeatable_role_prefixes)):
+            raise ValueError("repeatable role prefixes must be unique")
+        if set(self.repeatable_role_prefixes) & set(roles):
+            raise ValueError("repeatable role prefixes cannot also be fixed roles")
         operations = tuple(capability.operation for capability in self.capabilities)
         if len(operations) != len(set(operations)):
             raise ValueError("engine profile capabilities must be unique")
         return self
-

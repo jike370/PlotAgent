@@ -57,8 +57,9 @@ def test_repository_persists_new_plot_documents_without_legacy_plot_specs(tmp_pa
         assert stored.content_hash == applied.document_after.content_hash
         table_names = {
             str(row[0])
-            for row in project._assert_writer()  # noqa: SLF001
-            .execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+            for row in project._assert_writer().execute(  # noqa: SLF001
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
         }
         assert "engine_plot_document_versions" in table_names
         assert "engine_plot_action_journal" in table_names
@@ -108,4 +109,3 @@ def test_repository_rejects_stale_versions_and_history_mismatch(tmp_path: Path) 
                 version_one.model_copy(update={"plot_version": 2, "parent_version": 1}),
                 title,
             )
-

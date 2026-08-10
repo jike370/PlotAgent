@@ -5,7 +5,10 @@ from .contracts import (
     AppliedAction,
     CreatePlot,
     EngineCapability,
+    EngineColumn,
     EngineDataRef,
+    EngineDataView,
+    EngineField,
     EngineProfile,
     ExportPlot,
     FieldBinding,
@@ -18,8 +21,9 @@ from .contracts import (
     SetSeriesStyle,
     SetTitle,
 )
-from .ports import EngineArtifact, EngineObjectRef, EngineReadback, PlotBackend
+from .ports import EngineArtifact, EngineDataProvider, EngineObjectRef, EngineReadback, PlotBackend
 from .repository import PlotDocumentRepository, StoredPlotDocument, document_ref
+from .service import EngineCatalog, EngineCommandError, PlotEngineService, PlotTransition
 
 __all__ = [
     "AddAnnotation",
@@ -27,7 +31,13 @@ __all__ = [
     "CreatePlot",
     "EngineArtifact",
     "EngineCapability",
+    "EngineCatalog",
+    "EngineColumn",
+    "EngineCommandError",
+    "EngineDataProvider",
     "EngineDataRef",
+    "EngineDataView",
+    "EngineField",
     "EngineObjectRef",
     "EngineProfile",
     "EngineReadback",
@@ -38,6 +48,8 @@ __all__ = [
     "PlotDocumentRepository",
     "PlotDocumentRef",
     "PlotEngineAction",
+    "PlotEngineService",
+    "PlotTransition",
     "SetAxis",
     "SetChartParameter",
     "SetLegend",

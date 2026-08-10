@@ -5,7 +5,10 @@ from pydantic import TypeAdapter, ValidationError
 
 from plotagent.engine import (
     CreatePlot,
+    EngineColumn,
     EngineDataRef,
+    EngineDataView,
+    EngineField,
     FieldBinding,
     PlotDocument,
     PlotEngineAction,
@@ -94,4 +97,56 @@ def test_backend_specific_or_empty_edits_are_rejected() -> None:
                 "action_id": "action:unsafe",
                 "script": "run.section(foo)",
             }
+        )
+
+
+def test_engine_data_view_is_rectangular_and_renderer_neutral() -> None:
+    data = _data()
+    view = EngineDataView(
+        data=data,
+        row_ids=("row:1", "row:2"),
+        columns=(
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:x",
+                    name="Time",
+                    logical_type="numeric",
+                    unit_label="s",
+                ),
+                values=(0.0, 1.0),
+            ),
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:y",
+                    name="Signal",
+                    logical_type="numeric",
+                ),
+                values=(2.0, 3.0),
+            ),
+        ),
+    )
+
+    assert view.data.content_hash == HASH
+    assert tuple(column.field.name for column in view.columns) == ("Time", "Signal")
+    serialized = view.model_dump_json().casefold()
+    assert "origin" not in serialized
+    assert "matplotlib" not in serialized
+
+
+def test_engine_data_view_rejects_jagged_or_duplicate_data() -> None:
+    field = EngineField(field_id="field:x", name="X", logical_type="numeric")
+    with pytest.raises(ValidationError, match="row count"):
+        EngineDataView(
+            data=_data(),
+            row_ids=("row:1", "row:2"),
+            columns=(EngineColumn(field=field, values=(1.0,)),),
+        )
+    with pytest.raises(ValidationError, match="fields must be unique"):
+        EngineDataView(
+            data=_data(),
+            row_ids=("row:1",),
+            columns=(
+                EngineColumn(field=field, values=(1.0,)),
+                EngineColumn(field=field, values=(2.0,)),
+            ),
         )

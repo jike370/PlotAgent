@@ -7,11 +7,23 @@ from typing import Literal, Protocol
 
 from plotagent.contracts.base import Sha256, StrictModel, Token
 from plotagent.engine.contracts import (
+    EngineDataRef,
+    EngineDataView,
     PlotDocument,
     PlotDocumentRef,
     PlotEngineAction,
     SemanticObjectId,
 )
+
+
+class EngineDataProvider(Protocol):
+    """Adapter from project data storage to a bounded engine data view."""
+
+    def materialize(
+        self,
+        data: EngineDataRef,
+        field_ids: tuple[str, ...],
+    ) -> EngineDataView: ...
 
 
 class EngineObjectRef(StrictModel):
@@ -44,9 +56,14 @@ class PlotBackend(Protocol):
     @property
     def backend_id(self) -> Literal["matplotlib", "origin"]: ...
 
-    def create(self, document: PlotDocument) -> EngineReadback: ...
+    def create(self, document: PlotDocument, data: EngineDataView) -> EngineReadback: ...
 
-    def apply(self, document: PlotDocument, action: PlotEngineAction) -> EngineReadback: ...
+    def apply(
+        self,
+        document: PlotDocument,
+        action: PlotEngineAction,
+        data: EngineDataView,
+    ) -> EngineReadback: ...
 
     def readback(self, document: PlotDocument) -> EngineReadback: ...
 
