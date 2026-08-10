@@ -14,6 +14,7 @@ from pydantic.json_schema import models_json_schema
 
 from plotagent.contracts.base import SCHEMA_VERSION
 from plotagent.contracts.datasets import FieldMapping, PreparedDataset, SourceDataset
+from plotagent.contracts.engine_profiles import ChartProfileRegistry
 from plotagent.contracts.errors import STABLE_ERROR_REGISTRY, ErrorRegistry, ErrorResponse
 from plotagent.contracts.plots import BatchSpec, FigureSpec, PatchTransaction, PlotSpec
 from plotagent.contracts.registry import CHART_REGISTRY, ChartRegistry
@@ -48,6 +49,7 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("plot-calculation-spec", PlotCalculationSpecContract),
     ("plot-calculation-result", PlotCalculationResultContract),
     ("chart-registry", ChartRegistry),
+    ("chart-profile-registry", ChartProfileRegistry),
     ("plot-spec", PlotSpec),
     ("plot-patch", PlotPatchContract),
     ("patch-transaction", PatchTransaction),

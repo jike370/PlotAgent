@@ -231,6 +231,22 @@ export type ChartParametersIntent = {
   readonly parameters: ChartParameterEditSpec;
 }
 
+export type ChartProfile = {
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "X39" | "X40" | "S07";
+  readonly profile_version?: "engine-profile.v1";
+  readonly required_roles: ReadonlyArray<string>;
+  readonly optional_roles: ReadonlyArray<string>;
+  readonly repeatable_roles: ReadonlyArray<string>;
+  readonly edit_capabilities: ReadonlyArray<"plot_title" | "axis_label" | "axis_range" | "axis_scale" | "axis_ticks" | "font" | "legend_visibility" | "legend_position" | "canvas_size" | "publication_profile" | "safe_annotation" | "series_color" | "line_width" | "line_style" | "marker_size" | "symbol_shape" | "symbol_interior" | "palette" | "bar_fill" | "bar_edge" | "bar_width" | "bar_gap" | "error_style" | "band_style" | "colorbar" | "dual_y_style" | "panel_style" | "y_offset" | "chart_parameters">;
+  readonly matplotlib_renderer_id: string;
+  readonly origin: OriginOfficialTemplateProfile;
+}
+
+export type ChartProfileRegistry = {
+  readonly schema_version?: "1.0";
+  readonly profiles: ReadonlyArray<ChartProfile>;
+}
+
 export type ChartRegistration = {
   readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K05" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K17" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S05" | "S21" | "S25" | "S31" | "S34" | "S61" | "X01" | "X02" | "X03" | "X05" | "X07" | "X09" | "X11" | "X12" | "X13" | "X15" | "X16" | "X17" | "X18" | "X19" | "X23" | "X24" | "X35" | "X36" | "X37" | "X38" | "X39" | "X40" | "S07";
   readonly english_name: string;
@@ -1056,6 +1072,15 @@ export type OriginMatrixPlan = {
 export type OriginObjectMapEntry = {
   readonly plotagent_object_id: string;
   readonly origin_object_ref: string;
+}
+
+export type OriginOfficialTemplateProfile = {
+  readonly filename: string;
+  readonly sha256: string;
+  readonly tier: "T1" | "T2";
+  readonly binder_id: string;
+  readonly declared_patch_ids?: ReadonlyArray<string>;
+  readonly bare_template_status?: "pending" | "AUTO" | "DECLARED_PATCH" | "REMOVE_OR_RECLASSIFY";
 }
 
 export type OriginPlotPlan = {

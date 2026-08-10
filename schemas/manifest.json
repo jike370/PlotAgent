@@ -9,6 +9,10 @@
       "sha256": "88182ed1e0003145cac2975076196395cbd2c2529ded4a8d2e3f8b93058072cd"
     },
     {
+      "path": "schemas/chart-profile-registry.schema.json",
+      "sha256": "0e01a84d891e0f44bbc8944579c86af9b6f28e5dc4cb23cdcb242e6c31e21bf1"
+    },
+    {
       "path": "schemas/chart-registry.schema.json",
       "sha256": "93e817a599150564ab5e59d7277fac7383a67a94964f8d7533693807602f33fc"
     },
@@ -18,7 +22,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "bf12054d0ef584f08df631ccc1a9e329436d202abe7fd27af96d78f29dc03684"
+      "sha256": "0b61d4b05fc16b4ff7e351ef6ce1ea21787d3f6c61e512dfeae8093cd62c2546"
     },
     {
       "path": "schemas/error-registry.json",
@@ -94,7 +98,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "69542ac0bb132b6e2390a3aef70eb0b2ae878a33e1377956a5f00adfc95260bb"
+      "sha256": "ecec7686d5c88a727e712b55082f3b74cb01534b2eaa5ba584ebc03f33d68990"
     },
     {
       "path": "src/shared/generated/style-catalog.json",

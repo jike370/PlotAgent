@@ -1722,6 +1722,180 @@
       "title": "ChartParametersIntent",
       "type": "object"
     },
+    "ChartProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "chart_type_id": {
+          "enum": [
+            "K01",
+            "K02",
+            "K03",
+            "K04",
+            "K05",
+            "K06",
+            "K07",
+            "K08",
+            "K09",
+            "K10",
+            "K11",
+            "K12",
+            "K13",
+            "K14",
+            "K15",
+            "K16",
+            "K17",
+            "K18",
+            "K19",
+            "K20",
+            "K21",
+            "K22",
+            "K24",
+            "K25",
+            "S01",
+            "S05",
+            "S21",
+            "S25",
+            "S31",
+            "S34",
+            "S61",
+            "X01",
+            "X02",
+            "X03",
+            "X05",
+            "X07",
+            "X09",
+            "X11",
+            "X12",
+            "X13",
+            "X15",
+            "X16",
+            "X17",
+            "X18",
+            "X19",
+            "X23",
+            "X24",
+            "X35",
+            "X36",
+            "X37",
+            "X38",
+            "X39",
+            "X40",
+            "S07"
+          ],
+          "title": "Chart Type Id",
+          "type": "string"
+        },
+        "edit_capabilities": {
+          "items": {
+            "enum": [
+              "plot_title",
+              "axis_label",
+              "axis_range",
+              "axis_scale",
+              "axis_ticks",
+              "font",
+              "legend_visibility",
+              "legend_position",
+              "canvas_size",
+              "publication_profile",
+              "safe_annotation",
+              "series_color",
+              "line_width",
+              "line_style",
+              "marker_size",
+              "symbol_shape",
+              "symbol_interior",
+              "palette",
+              "bar_fill",
+              "bar_edge",
+              "bar_width",
+              "bar_gap",
+              "error_style",
+              "band_style",
+              "colorbar",
+              "dual_y_style",
+              "panel_style",
+              "y_offset",
+              "chart_parameters"
+            ],
+            "type": "string"
+          },
+          "title": "Edit Capabilities",
+          "type": "array"
+        },
+        "matplotlib_renderer_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{2,127}$",
+          "title": "Matplotlib Renderer Id",
+          "type": "string"
+        },
+        "optional_roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Optional Roles",
+          "type": "array"
+        },
+        "origin": {
+          "$ref": "#/$defs/OriginOfficialTemplateProfile"
+        },
+        "profile_version": {
+          "const": "engine-profile.v1",
+          "default": "engine-profile.v1",
+          "title": "Profile Version",
+          "type": "string"
+        },
+        "repeatable_roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Repeatable Roles",
+          "type": "array"
+        },
+        "required_roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Roles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "chart_type_id",
+        "required_roles",
+        "optional_roles",
+        "repeatable_roles",
+        "edit_capabilities",
+        "matplotlib_renderer_id",
+        "origin"
+      ],
+      "title": "ChartProfile",
+      "type": "object"
+    },
+    "ChartProfileRegistry": {
+      "additionalProperties": false,
+      "properties": {
+        "profiles": {
+          "items": {
+            "$ref": "#/$defs/ChartProfile"
+          },
+          "maxItems": 38,
+          "minItems": 38,
+          "title": "Profiles",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profiles"
+      ],
+      "title": "ChartProfileRegistry",
+      "type": "object"
+    },
     "ChartRegistration": {
       "additionalProperties": false,
       "properties": {
@@ -7053,6 +7227,62 @@
         "origin_object_ref"
       ],
       "title": "OriginObjectMapEntry",
+      "type": "object"
+    },
+    "OriginOfficialTemplateProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "bare_template_status": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "AUTO",
+            "DECLARED_PATCH",
+            "REMOVE_OR_RECLASSIFY"
+          ],
+          "title": "Bare Template Status",
+          "type": "string"
+        },
+        "binder_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{2,127}$",
+          "title": "Binder Id",
+          "type": "string"
+        },
+        "declared_patch_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.-]{2,127}$",
+            "type": "string"
+          },
+          "title": "Declared Patch Ids",
+          "type": "array"
+        },
+        "filename": {
+          "pattern": "^[A-Za-z0-9_. -]+\\.[Oo][Tt][Pp][Uu]?$",
+          "title": "Filename",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "tier": {
+          "enum": [
+            "T1",
+            "T2"
+          ],
+          "title": "Tier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "filename",
+        "sha256",
+        "tier",
+        "binder_id"
+      ],
+      "title": "OriginOfficialTemplateProfile",
       "type": "object"
     },
     "OriginPlotPlan": {
@@ -14249,6 +14479,9 @@
     },
     "batch-spec": {
       "$ref": "#/$defs/BatchSpec"
+    },
+    "chart-profile-registry": {
+      "$ref": "#/$defs/ChartProfileRegistry"
     },
     "chart-registry": {
       "$ref": "#/$defs/ChartRegistry"
