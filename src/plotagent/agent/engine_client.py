@@ -241,11 +241,7 @@ class BundledEngineAgentBinder:
                     objects,
                     fields,
                 )
-                plot_id = (
-                    "plot:agent."
-                    + plan.plan_id.removeprefix("plan:")
-                    + f".{position}"
-                )
+                plot_id = "plot:agent." + plan.plan_id.removeprefix("plan:") + f".{position}"
                 action = CreatePlot(
                     action_id=proposed.action_id,
                     plot_id=plot_id,
@@ -368,11 +364,27 @@ class BundledEngineAgentBinder:
             (candidate for candidate in profile.objects if candidate.object_alias == alias),
             None,
         )
-        if item is None or item.object_kind != expected_kind:
-            raise EngineCommandError(
-                f"profile {profile.profile_id} does not expose {expected_kind} alias {alias}"
-            )
-        return item.instantiate(plot.plot_id)
+        if item is not None:
+            if item.object_kind != expected_kind:
+                raise EngineCommandError(
+                    f"profile {profile.profile_id} does not expose {expected_kind} alias {alias}"
+                )
+            return item.instantiate(plot.plot_id)
+        for repeatable in profile.repeatable_objects:
+            prefix = repeatable.object_alias_prefix + "_"
+            if not alias.startswith(prefix):
+                continue
+            ordinal_text = alias.removeprefix(prefix)
+            if (
+                repeatable.object_kind == expected_kind
+                and ordinal_text.isdigit()
+                and int(ordinal_text) >= 1
+                and ordinal_text == str(int(ordinal_text))
+            ):
+                return repeatable.instantiate(plot.plot_id, int(ordinal_text))
+        raise EngineCommandError(
+            f"profile {profile.profile_id} does not expose {expected_kind} alias {alias}"
+        )
 
     @staticmethod
     def _plot(plots: Mapping[str, _PlotBinding], alias: str) -> _PlotBinding:

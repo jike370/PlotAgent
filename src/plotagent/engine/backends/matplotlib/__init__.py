@@ -8,10 +8,12 @@ from .heatmap import K20HeatmapRenderer
 from .line import K01LineRenderer
 from .line_symbol import K02LineSymbolRenderer
 from .point_error import K06PointErrorRenderer
+from .scatter import K03ScatterRenderer
 
 __all__ = [
     "K01LineRenderer",
     "K02LineSymbolRenderer",
+    "K03ScatterRenderer",
     "K06PointErrorRenderer",
     "K07ErrorBandRenderer",
     "K08ColumnRenderer",

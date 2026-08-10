@@ -341,6 +341,29 @@ class EngineObjectTemplate(StrictModel):
         return f"{self.object_kind}:{token}.{self.object_key}"
 
 
+class EngineRepeatableObjectTemplate(StrictModel):
+    """Bounded alias pattern for data-dependent semantic objects.
+
+    The model sees aliases such as ``series_1`` rather than native plot ids.
+    The local client converts the positive ordinal to a stable semantic id;
+    the profile backend remains responsible for rejecting an ordinal that is
+    outside the materialized data.
+    """
+
+    object_alias_prefix: Annotated[
+        str,
+        StringConstraints(pattern=r"^[a-z][a-z0-9]{0,31}$", strict=True),
+    ]
+    object_kind: Literal["series", "panel"]
+    object_key_prefix: Token
+
+    def instantiate(self, plot_id: PlotId, ordinal: int) -> SemanticObjectId:
+        if ordinal < 1:
+            raise ValueError("repeatable object ordinals start at one")
+        token = plot_id.removeprefix("plot:")
+        return f"{self.object_kind}:{token}.{self.object_key_prefix}_{ordinal}"
+
+
 class EngineProfile(StrictModel):
     """One chart profile exposed to agents by the engine catalog."""
 
@@ -350,6 +373,7 @@ class EngineProfile(StrictModel):
     optional_roles: tuple[Token, ...] = ()
     repeatable_role_prefixes: tuple[Token, ...] = ()
     objects: tuple[EngineObjectTemplate, ...] = ()
+    repeatable_objects: tuple[EngineRepeatableObjectTemplate, ...] = ()
     capabilities: Annotated[tuple[EngineCapability, ...], Field(min_length=1)]
 
     @model_validator(mode="after")
@@ -364,6 +388,15 @@ class EngineProfile(StrictModel):
         object_aliases = tuple(item.object_alias for item in self.objects)
         if len(object_aliases) != len(set(object_aliases)):
             raise ValueError("engine profile object aliases must be unique")
+        repeatable_prefixes = tuple(item.object_alias_prefix for item in self.repeatable_objects)
+        if len(repeatable_prefixes) != len(set(repeatable_prefixes)):
+            raise ValueError("engine profile repeatable object prefixes must be unique")
+        if any(
+            alias == prefix or alias.startswith(prefix + "_")
+            for alias in object_aliases
+            for prefix in repeatable_prefixes
+        ):
+            raise ValueError("fixed object aliases cannot overlap repeatable aliases")
         operations = tuple(capability.operation for capability in self.capabilities)
         if len(operations) != len(set(operations)):
             raise ValueError("engine profile capabilities must be unique")

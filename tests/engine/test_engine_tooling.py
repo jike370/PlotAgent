@@ -5,7 +5,7 @@ import inspect
 import pytest
 
 from plotagent.engine import EngineActionCodec, EngineCatalog, EngineCommandError
-from plotagent.engine.profiles import K01_LINE_PROFILE
+from plotagent.engine.profiles import K01_LINE_PROFILE, K03_SCATTER_PROFILE
 
 
 def _codec() -> EngineActionCodec:
@@ -37,6 +37,7 @@ def test_agent_neutral_tool_schema_is_closed_and_profile_discoverable() -> None:
                 }
                 for item in K01_LINE_PROFILE.objects
             ),
+            "repeatable_objects": (),
             "capabilities": tuple(
                 {
                     "operation": item.operation,
@@ -85,3 +86,16 @@ def test_tool_surface_does_not_import_the_bundled_agent() -> None:
     source = inspect.getsource(__import__(EngineActionCodec.__module__, fromlist=["*"]))
     assert "plotagent.agent" not in source
     assert "PlotSpec" not in source
+
+
+def test_dynamic_profile_manifest_publishes_bounded_series_alias_pattern() -> None:
+    codec = EngineActionCodec(EngineCatalog((K03_SCATTER_PROFILE,)))
+
+    assert codec.profile_manifest()[0]["repeatable_objects"] == (
+        {
+            "object_alias_pattern": "series_{ordinal}",
+            "object_kind": "series",
+            "object_key_prefix": "group",
+            "ordinal_minimum": 1,
+        },
+    )

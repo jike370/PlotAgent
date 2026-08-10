@@ -30,6 +30,7 @@ from plotagent.engine import (
 from plotagent.engine.backends.matplotlib import (
     K01LineRenderer,
     K02LineSymbolRenderer,
+    K03ScatterRenderer,
     K06PointErrorRenderer,
     K07ErrorBandRenderer,
     K08ColumnRenderer,
@@ -67,6 +68,7 @@ class DesktopEngineSession:
             (
                 K01LineRenderer(),
                 K02LineSymbolRenderer(),
+                K03ScatterRenderer(),
                 K06PointErrorRenderer(),
                 K07ErrorBandRenderer(),
                 K08ColumnRenderer(),

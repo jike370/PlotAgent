@@ -5,10 +5,12 @@ from pathlib import Path
 
 import pytest
 
+import plotagent.engine.backends.origin.k03 as k03_module
 import plotagent.engine.backends.origin.k06 as k06_module
 import plotagent.engine.backends.origin.k07 as k07_module
 import plotagent.engine.backends.origin.xy as xy_module
 from plotagent.engine import (
+    BindFields,
     CreatePlot,
     EngineColumn,
     EngineDataRef,
@@ -23,10 +25,13 @@ from plotagent.engine import (
 )
 from plotagent.engine.backends.origin import (
     K02_ORIGIN_PROFILE,
+    K03_ORIGIN_PROFILE,
     K06_ORIGIN_PROFILE,
     K07_ORIGIN_PROFILE,
 )
 from plotagent.engine.backends.origin.k02 import K02OriginProject
+from plotagent.engine.backends.origin.k03 import K03OriginProject
+from plotagent.engine.backends.origin.k03 import _effective_actions as k03_effective_actions
 from plotagent.engine.backends.origin.k06 import K06OriginProject
 from plotagent.engine.backends.origin.k07 import K07OriginProject
 
@@ -98,6 +103,7 @@ class FakeLayer:
         self.axes = {"x": FakeAxis(), "y": FakeAxis()}
         self.plots: list[FakePlot] = []
         self.add_calls: list[dict[str, object]] = []
+        self.group_calls: list[tuple[object, ...]] = []
 
     def add_plot(self, sheet, **kwargs):
         self.add_calls.append(kwargs)
@@ -110,6 +116,9 @@ class FakeLayer:
 
     def rescale(self) -> None:
         return None
+
+    def group(self, *args) -> None:
+        self.group_calls.append(args)
 
     def label(self, name: str):
         direct = self.labels.get(name)
@@ -259,6 +268,10 @@ def test_new_t1_official_template_identities_are_hash_pinned() -> None:
         "ERRBAR.otpu",
         "c17ebd8f68f8585c3bb4c431e75f4dc1724e3f54ee1fd7d0977b6cadcf1c599b",
     )
+    assert (K03_ORIGIN_PROFILE.filename, K03_ORIGIN_PROFILE.sha256) == (
+        "SCATTER.OTP",
+        "efef85d7c3db5028c565a57e15c86f97d6ebeded6d779c1cdb11328a7fbd4a99",
+    )
     assert (K07_ORIGIN_PROFILE.filename, K07_ORIGIN_PROFILE.sha256) == (
         "ERRORBAND.otp",
         "dfd36bf19bf3cf81bebd7d2b7d04a0ef05f07f90243678ddf3d03eded342c763",
@@ -299,6 +312,135 @@ def test_k02_binds_one_native_line_symbol_identity(
     assert origin.graph.layer.plots[0].symbol_kind == 5
     assert origin.graph.layer.labels["legend"].text.count("\\l(") == 1
     assert "line_symbol_series" in {item.object_kind for item in readback.objects}
+
+
+def test_k03_binds_one_native_scatter_plot_per_data_group(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data = EngineDataRef(
+        kind="source",
+        dataset_id="dataset.k03",
+        version=1,
+        content_hash=HASH,
+    )
+    columns = (
+        _column("field:x", "Dose", (0.0, 1.0, 2.0, 3.0)),
+        _column("field:y", "Response", (1.0, 2.0, 4.0, 3.0)),
+        EngineColumn(
+            field=EngineField(
+                field_id="field:group",
+                name="Cohort",
+                logical_type="categorical",
+            ),
+            values=("Control", "Treatment", "Control", "Treatment"),
+        ),
+    )
+    bindings = (
+        FieldBinding(role="x", field_id="field:x"),
+        FieldBinding(role="y", field_id="field:y"),
+        FieldBinding(role="group", field_id="field:group"),
+    )
+    create = CreatePlot(
+        action_id="action:create-k03",
+        plot_id="plot:k03-origin",
+        profile_id="K03",
+        data=data,
+        bindings=bindings,
+    )
+    style = SetSeriesStyle(
+        action_id="action:style-k03",
+        target="series:k03-origin.group_2",
+        expected_plot_version=1,
+        color="#AA3300",
+        symbol="diamond",
+        symbol_size_pt=7,
+    )
+    legend = SetLegend(
+        action_id="action:legend-k03",
+        target="legend:k03-origin.main",
+        expected_plot_version=2,
+        visible=True,
+    )
+    actions: tuple[PlotEngineAction, ...] = (create, style, legend)
+    document = PlotDocument(
+        plot_id=create.plot_id,
+        plot_version=3,
+        parent_version=2,
+        profile_id="K03",
+        data=data,
+        bindings=bindings,
+        applied_action_ids=tuple(action.action_id for action in actions),
+    )
+    view = EngineDataView(
+        data=data,
+        row_ids=("row:1", "row:2", "row:3", "row:4"),
+        columns=columns,
+    )
+    monkeypatch.setattr(
+        k03_module,
+        "resolve_official_template",
+        lambda install, profile: tmp_path / profile.filename,
+    )
+    origin = FakeOrigin()
+    project = K03OriginProject(origin)
+    project.create(tmp_path, document, view)
+    for action in actions:
+        project.apply(document, action, view)
+    readback = project.verify(document, actions, view)
+
+    assert origin.graph.layer.add_calls == [
+        {"coly": 1, "colx": 0, "type": "s"},
+        {"coly": 3, "colx": 2, "type": "s"},
+    ]
+    assert origin.graph.layer.group_calls == [(True, 0, 1)]
+    assert origin.graph.layer.labels["legend"].text == ("\\l(1) Control\n\\l(2) Treatment")
+    assert origin.graph.layer.plots[1].symbol_kind == 5
+    assert {
+        item.semantic_id for item in readback.objects if item.object_kind == "scatter_series"
+    } == {
+        "series:k03-origin.group_1",
+        "series:k03-origin.group_2",
+    }
+
+
+def test_k03_rebinding_discards_only_prior_data_derived_series_styles() -> None:
+    create = CreatePlot(
+        action_id="action:create",
+        plot_id="plot:k03-reset",
+        profile_id="K03",
+        data=EngineDataRef(
+            kind="source",
+            dataset_id="dataset.k03",
+            version=1,
+            content_hash=HASH,
+        ),
+        bindings=(FieldBinding(role="x", field_id="field:x"),),
+    )
+    old_style = SetSeriesStyle(
+        action_id="action:old-style",
+        target="series:k03-reset.group_2",
+        expected_plot_version=1,
+        color="#AA3300",
+    )
+    rebind = BindFields(
+        action_id="action:rebind",
+        target=create.plot_id,
+        expected_plot_version=2,
+        data=create.data,
+        bindings=create.bindings,
+    )
+    title = SetTitle(
+        action_id="action:title",
+        target=create.plot_id,
+        expected_plot_version=3,
+        text="Retained title",
+    )
+
+    assert k03_effective_actions((create, old_style, rebind, title)) == (
+        create,
+        rebind,
+        title,
+    )
 
 
 def test_k06_binds_real_x_and_y_error_columns(
@@ -374,7 +516,7 @@ def test_k07_binds_center_and_band_without_boundary_legend_entries(
 
 
 def test_new_t1_origin_binders_do_not_import_the_legacy_compiler() -> None:
-    for module in (xy_module, k06_module, k07_module):
+    for module in (xy_module, k03_module, k06_module, k07_module):
         source = inspect.getsource(module)
         assert "plotagent.origin" not in source
         assert "plotagent.rendering" not in source

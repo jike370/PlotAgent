@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from .contracts import EngineCapability, EngineObjectTemplate, EngineProfile
+from .contracts import (
+    EngineCapability,
+    EngineObjectTemplate,
+    EngineProfile,
+    EngineRepeatableObjectTemplate,
+)
 
 K01_LINE_PROFILE = EngineProfile(
     profile_id="K01",
@@ -60,6 +65,40 @@ K02_LINE_SYMBOL_PROFILE = EngineProfile(
                 "symbol",
                 "symbol_size_pt",
             ),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
+)
+
+K03_SCATTER_PROFILE = EngineProfile(
+    profile_id="K03",
+    display_name="Scatter",
+    required_roles=("x", "y"),
+    optional_roles=("group",),
+    objects=(
+        EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
+        EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series",
+            object_kind="series",
+            object_key_prefix="group",
+        ),
+    ),
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(
+            operation="set_axis",
+            parameters=("label", "scale", "bounds", "reverse"),
+        ),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "symbol", "symbol_size_pt"),
         ),
         EngineCapability(operation="set_legend", parameters=("visible",)),
         EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
@@ -199,6 +238,7 @@ X23_DUAL_Y_LINE_PROFILE = EngineProfile(
 ENGINE_PROFILES = (
     K01_LINE_PROFILE,
     K02_LINE_SYMBOL_PROFILE,
+    K03_SCATTER_PROFILE,
     K06_POINT_ERROR_PROFILE,
     K07_ERROR_BAND_PROFILE,
     K08_COLUMN_PROFILE,

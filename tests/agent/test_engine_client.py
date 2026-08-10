@@ -48,6 +48,12 @@ def _source_context(*, revision: int = 4):
                 source_dataset_id="source:experiment",
                 source_version=2,
             ),
+            ContextFieldBinding(
+                field_alias="group",
+                field_id="field:group",
+                source_dataset_id="source:experiment",
+                source_version=2,
+            ),
         ),
     )
 
@@ -168,5 +174,65 @@ def test_bundled_agent_cannot_style_a_profile_that_does_not_publish_series_edits
             ),
         ),
     )
+    with pytest.raises(EngineCommandError, match="does not expose series alias"):
+        _binder().bind(plan, _source_context())
+
+
+def test_bundled_agent_binds_repeatable_k03_series_aliases_locally() -> None:
+    plan = EngineAgentPlan(
+        plan_id="plan:grouped-scatter",
+        target_alias="active_data",
+        actions=(
+            AgentCreatePlot(
+                action_id="action:create-scatter",
+                plot_alias="result",
+                profile_id="K03",
+                source_alias="active_data",
+                bindings=(
+                    AgentFieldBinding(role="x", field_alias="time"),
+                    AgentFieldBinding(role="y", field_alias="signal"),
+                    AgentFieldBinding(role="group", field_alias="group"),
+                ),
+            ),
+            AgentSetSeriesStyle(
+                action_id="action:style-second-group",
+                plot_alias="result",
+                series_alias="series_2",
+                color="#AA3300",
+                symbol="diamond",
+            ),
+        ),
+    )
+
+    bound = _binder().bind(plan, _source_context())
+
+    assert bound.actions[1].target == "series:agent.grouped-scatter.1.group_2"
+
+
+@pytest.mark.parametrize("alias", ("series_0", "series_two", "series_01"))
+def test_bundled_agent_rejects_invalid_repeatable_series_alias(alias: str) -> None:
+    plan = EngineAgentPlan(
+        plan_id="plan:bad-group",
+        target_alias="active_data",
+        actions=(
+            AgentCreatePlot(
+                action_id="action:create-scatter",
+                plot_alias="result",
+                profile_id="K03",
+                source_alias="active_data",
+                bindings=(
+                    AgentFieldBinding(role="x", field_alias="time"),
+                    AgentFieldBinding(role="y", field_alias="signal"),
+                ),
+            ),
+            AgentSetSeriesStyle(
+                action_id="action:bad-style",
+                plot_alias="result",
+                series_alias=alias,
+                color="#AA3300",
+            ),
+        ),
+    )
+
     with pytest.raises(EngineCommandError, match="does not expose series alias"):
         _binder().bind(plan, _source_context())

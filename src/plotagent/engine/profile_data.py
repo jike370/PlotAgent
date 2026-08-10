@@ -66,6 +66,20 @@ class ErrorBandData:
     center_field_name: str
 
 
+@dataclass(frozen=True, slots=True)
+class ScatterGroupData:
+    label: str
+    x_values: tuple[float, ...]
+    y_values: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class K03ScatterData:
+    groups: tuple[ScatterGroupData, ...]
+    x_field_name: str
+    y_field_name: str
+
+
 def xy_series(document: PlotDocument, data: EngineDataView, *, profile_id: str) -> XYSeriesData:
     """Return one numeric X/Y series for a fixed-role profile."""
 
@@ -104,6 +118,51 @@ def k06_point_error(document: PlotDocument, data: EngineDataView) -> PointErrorD
         y_errors=y_errors,
         x_field_name=x.field.name,
         center_field_name=center.field.name,
+    )
+
+
+def k03_scatter(document: PlotDocument, data: EngineDataView) -> K03ScatterData:
+    """Split one optional group field into stable first-appearance series."""
+
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    try:
+        x = columns[bindings["x"]]
+        y = columns[bindings["y"]]
+    except KeyError as error:
+        raise ValueError("K03 requires x and y bindings") from error
+    x_values = _numeric_values(x, "x", "K03", allow_missing=True)
+    y_values = _numeric_values(y, "y", "K03", allow_missing=True)
+    group_field_id = bindings.get("group")
+    groups: tuple[ScatterGroupData, ...]
+    if group_field_id is None:
+        groups = (
+            ScatterGroupData(
+                label=y.field.name,
+                x_values=x_values,
+                y_values=y_values,
+            ),
+        )
+    else:
+        group = columns[group_field_id]
+        ordered_labels = _ordered_labels(group, "group")
+        grouped: list[ScatterGroupData] = []
+        for label in ordered_labels:
+            indexes = tuple(
+                index for index, value in enumerate(group.values) if _label(value, "group") == label
+            )
+            grouped.append(
+                ScatterGroupData(
+                    label=label,
+                    x_values=tuple(x_values[index] for index in indexes),
+                    y_values=tuple(y_values[index] for index in indexes),
+                )
+            )
+        groups = tuple(grouped)
+    return K03ScatterData(
+        groups=groups,
+        x_field_name=x.field.name,
+        y_field_name=y.field.name,
     )
 
 
@@ -235,10 +294,10 @@ def _ordered_labels(column: EngineColumn, role: str) -> tuple[str, ...]:
 
 def _label(value: object, role: str) -> str:
     if value is None:
-        raise ValueError(f"K20 {role} categories cannot be missing")
+        raise ValueError(f"{role} categories cannot be missing")
     label = str(value).strip()
     if not label:
-        raise ValueError(f"K20 {role} categories cannot be empty")
+        raise ValueError(f"{role} categories cannot be empty")
     return label
 
 

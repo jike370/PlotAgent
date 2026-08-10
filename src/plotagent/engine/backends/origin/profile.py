@@ -35,6 +35,13 @@ K02_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
+K03_ORIGIN_PROFILE = OriginTemplateProfile(
+    profile_id="K03",
+    filename="SCATTER.OTP",
+    sha256="efef85d7c3db5028c565a57e15c86f97d6ebeded6d779c1cdb11328a7fbd4a99",
+    tier="T1",
+)
+
 K06_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K06",
     filename="ERRBAR.otpu",

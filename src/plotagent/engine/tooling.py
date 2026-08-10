@@ -46,6 +46,15 @@ class EngineActionCodec:
                     }
                     for item in profile.objects
                 ),
+                "repeatable_objects": tuple(
+                    {
+                        "object_alias_pattern": item.object_alias_prefix + "_{ordinal}",
+                        "object_kind": item.object_kind,
+                        "object_key_prefix": item.object_key_prefix,
+                        "ordinal_minimum": 1,
+                    }
+                    for item in profile.repeatable_objects
+                ),
                 "capabilities": tuple(
                     {
                         "operation": capability.operation,
