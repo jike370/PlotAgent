@@ -265,7 +265,9 @@ class _Axis:
 
 
 class _Plot:
-    def __init__(self, native_type: object) -> None:
+    def __init__(self, native_type: object, dataset_name: str = "") -> None:
+        self.obj = self
+        self.DatasetName = dataset_name
         self.native_type = native_type
         self.ints = {"show": 1, "line.style": 0}
         self.floats = {"line.width": 1.0}
@@ -452,7 +454,10 @@ class _Origin:
 
     def lt_exec(self, command: str) -> None:
         self.commands.append(command)
-        if command.startswith("plot_paretobin "):
+        if "!page.active=" in command:
+            active = command.rsplit("!page.active=", 1)[1].split(";", 1)[0]
+            self.active_layer = int(active) - 1
+        elif command.startswith("plot_paretobin "):
             source = self.book[0]
             totals: dict[str, float] = {}
             for label, value in zip(source.columns[0], source.columns[1], strict=True):
@@ -470,12 +475,26 @@ class _Origin:
             report.from_list(2, cumulative)
             self.book.sheets.append(report)
             self.graph = _Graph(2, self, (203, 202))
+        elif "run.section(plot,2YsCol)" in command:
+            self.graph = _Graph(2, self, (203, 203))
+            self.graph.layers[0].plots = [_Plot(203, f"{self.book.name}_B")]
+            self.graph.layers[1].plots = [_Plot(203, f"{self.book.name}_C")]
+        elif "run.section(plot,2YsColSymb)" in command:
+            self.graph = _Graph(2, self, (203, 202))
+            self.graph.layers[0].plots = [_Plot(203, f"{self.book.name}_B")]
+            self.graph.layers[1].plots = [_Plot(202, f"{self.book.name}_C")]
 
     def lt_float(self, expression: str) -> float:
         if expression == "layer.plot1.pid":
             return float(self.graph.layers[self.active_layer].pid)
+        if expression.startswith(("__X35PT", "__X36PT")):
+            return float(self.graph.layers[self.active_layer].pid)
         if expression.startswith('color("'):
             return 42.0
+        if "SYS" in expression:
+            return 1.0
+        if "SY" in expression:
+            return 0.0
         return 0.0
 
 
@@ -497,7 +516,7 @@ def test_origin_x24_delegates_sort_merge_and_cumulative_to_paretobin(monkeypatch
     assert [layer.pid for layer in project._layers()] == [203, 202]
 
 
-@pytest.mark.parametrize(("profile_id", "types"), (("X35", (203, 203)), ("X36", (203, "?"))))
+@pytest.mark.parametrize(("profile_id", "types"), (("X35", (203, 203)), ("X36", (203, 202))))
 def test_origin_dual_y_special_uses_both_official_layers(
     monkeypatch, profile_id: str, types
 ) -> None:
@@ -505,11 +524,24 @@ def test_origin_dual_y_special_uses_both_official_layers(
         dual_origin, "resolve_official_template", lambda *_args: Path(f"{profile_id}.otpu")
     )
     document, actions, view = _dual_case(profile_id)
-    project = DualYSpecialOriginProject(_Origin(), profile_id=profile_id)  # type: ignore[arg-type]
+    origin = _Origin()
+    project = DualYSpecialOriginProject(origin, profile_id=profile_id)  # type: ignore[arg-type]
     project.create(Path("."), document, view)
     project.reconcile(document, actions, view)
     assert tuple(plot.native_type for plot in project._plots()) == types
     assert project.sheet.columns[0] == ["Jan", "Feb", "Mar"]
+    assert any(
+        "!page.active=1; set %C -pfb" in command for command in origin.commands
+    )
+    assert any("!page.active=2; set %C" in command for command in origin.commands)
+
+
+def test_origin_dual_y_save_refuses_stale_probe_artifact(tmp_path: Path) -> None:
+    target = tmp_path / "plot.opju"
+    target.write_bytes(b"stale")
+    project = DualYSpecialOriginProject(_Origin(), profile_id="X35")  # type: ignore[arg-type]
+    with pytest.raises(FileExistsError, match="refuses to overwrite"):
+        project.save(target)
 
 
 @pytest.mark.parametrize("group_count", (1, 3, 5))

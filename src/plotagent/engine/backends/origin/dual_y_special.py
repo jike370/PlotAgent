@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
+from math import isclose, isnan
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -29,10 +30,10 @@ from .profile import (
     OriginTemplateProfile,
     resolve_official_template,
 )
+from .trace import origin_trace_step, record_origin_trace
 
-_COLUMN = 203
 _LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
-_SYMBOL = {"circle": 1, "square": 0, "diamond": 3, "triangle": 2, "triangle_up": 2}
+_SYMBOL = {"circle": 2, "square": 1, "diamond": 5, "triangle": 3, "triangle_up": 3}
 _TITLE_NAME = "_ENGINE_TITLE"
 
 
@@ -76,140 +77,146 @@ class DualYSpecialOriginProject:
         self.graph: Any = None
         self.layers: tuple[Any, Any] | None = None
         self.plots: tuple[Any, Any] | None = None
+        self.book: Any = None
         self.sheet: Any = None
 
     def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
-        template = resolve_official_template(install_dir, self.profile)
-        self.op.new(asksave=False)
+        with origin_trace_step(
+            "official_template_resolve",
+            details={"template_filename": self.profile.filename},
+        ):
+            template = resolve_official_template(install_dir, self.profile)
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("w", f"D{token}", hidden=True)
-        if book is None:
-            raise RuntimeError(f"Origin could not create the {self.profile_id} workbook")
-        self.sheet = book[0]
+        with origin_trace_step("workbook_create"):
+            self.book = self.op.new_book("w", f"D{token}", hidden=True)
+            if self.book is None:
+                raise RuntimeError(f"Origin could not create the {self.profile_id} workbook")
+            for residue in tuple(self.op.pages("w")):
+                if residue.name == "Book1" and residue.name != self.book.name:
+                    residue.destroy()
+            self.sheet = self.book[0]
         values = self._data(document, data)
-        self._write(values)
-        self.graph = self.op.new_graph(
-            f"G{token}", template=str(template.with_suffix(template.suffix.lower())), hidden=True
-        )
-        if self.graph is None:
-            raise RuntimeError(
-                f"Origin could not create {self.profile_id} from the official template"
+        with origin_trace_step(
+            "source_data_write",
+            details={"column_count": 3, "row_count": len(values.left_values)},
+        ):
+            self._write(values)
+        section = "2YsCol" if self.profile_id == "X35" else "2YsColSymb"
+        with origin_trace_step(
+            "official_plot_section_execute",
+            details={"plot_section": section, "template_filename": template.name},
+        ):
+            self.sheet.activate()
+            self.op.lt_exec(
+                f"worksheet -s 1 0 3 0; run.section(plot,{section});"
             )
-        layers = list(self.graph)
-        if len(layers) != 2:
-            raise RuntimeError(f"Origin {self.profile.filename} must provide exactly two layers")
-        self.layers = (layers[0], layers[1])
-        left = self.layers[0].add_plot(self.sheet, coly=1, colx=0, type=_COLUMN)
-        right_type: int | str = _COLUMN if self.profile_id == "X35" else "?"
-        right = self.layers[1].add_plot(self.sheet, coly=2, colx=0, type=right_type)
-        if left is None or right is None:
-            raise RuntimeError(f"Origin {self.profile.filename} rejected a native plot")
-        self.plots = (left, right)
-        for layer in self._layers():
-            layer.rescale()
+        with origin_trace_step("native_structure_readback"):
+            graphs = list(self.op.pages("g"))
+            if len(graphs) != 1:
+                raise RuntimeError(
+                    f"Origin official {section} section must create exactly one graph"
+                )
+            self.graph = graphs[0]
+            self.graph.name = f"G{token}"
+            self.graph.lname = f"{self.profile_id} {template.stem} / {document.plot_id}"
+            layers = tuple(self.graph)
+            if len(layers) != 2:
+                raise RuntimeError(
+                    f"Origin {self.profile.filename} must provide exactly two layers"
+                )
+            self.layers = (layers[0], layers[1])
+            native = tuple(tuple(layer.plot_list()) for layer in self.layers)
+            if tuple(len(items) for items in native) != (1, 1):
+                raise RuntimeError(
+                    f"Origin {self.profile_id} must create one native plot per layer"
+                )
+            self.plots = (native[0][0], native[1][0])
+            self._assert_native_structure(verify_offsets=False)
+        record_origin_trace(
+            "native_structure_confirmed",
+            "completed",
+            details={
+                "layer_count": 2,
+                "native_plot_ids": [203, 203] if self.profile_id == "X35" else [203, 202],
+                "plot_offsets": "verified_after_reopen",
+            },
+        )
 
     def open(self, project_path: Path) -> None:
-        self.op.new(asksave=False)
-        if not self.op.open(str(project_path), readonly=False, asksave=False):
-            raise RuntimeError(f"Origin could not open the prior {self.profile_id} project")
+        with origin_trace_step("saved_project_reopen", details={"readonly": False}):
+            self.op.new(asksave=False)
+            if not self.op.open(str(project_path), readonly=False, asksave=False):
+                raise RuntimeError(f"Origin could not open the prior {self.profile_id} project")
         graphs = list(self.op.pages("g"))
         books = list(self.op.pages("w"))
         if len(graphs) != 1 or len(books) != 1:
             raise RuntimeError(f"{self.profile_id} project must contain one graph and workbook")
-        self.graph = graphs[0]
-        layers = list(self.graph)
+        self.graph, self.book = graphs[0], books[0]
+        layers = tuple(self.graph)
         if len(layers) != 2:
             raise RuntimeError(f"{self.profile_id} project lost one official layer")
         self.layers = (layers[0], layers[1])
-        native = tuple(layer.plot_list() for layer in self.layers)
+        native = tuple(tuple(layer.plot_list()) for layer in self.layers)
         if tuple(len(items) for items in native) != (1, 1):
             raise RuntimeError(f"{self.profile_id} project must retain one plot per layer")
         self.plots = (native[0][0], native[1][0])
-        self.sheet = books[0][0]
-
-    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
-        token = document.plot_id.removeprefix("plot:")
-        if isinstance(action, CreatePlot):
-            return
-        if isinstance(action, BindFields):
-            self._write(self._data(document, data))
-            for layer in self._layers():
-                layer.rescale()
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError(f"{self.profile_id} title target does not belong to this plot")
-            return
-        if isinstance(action, SetAxis):
-            if action.target not in {
-                f"axis:{token}.x",
-                f"axis:{token}.y_left",
-                f"axis:{token}.y_right",
-            }:
-                raise ValueError(f"{self.profile_id} axis target does not belong to this plot")
-            return
-        if isinstance(action, SetSeriesStyle):
-            if action.target not in {f"series:{token}.left", f"series:{token}.right"}:
-                raise ValueError(f"{self.profile_id} series target does not belong to this plot")
-            if self.profile_id == "X35" and (
-                action.line_style is not None
-                or action.symbol is not None
-                or action.symbol_size_pt is not None
-            ):
-                raise ValueError("X35 columns expose only color and border width")
-            if action.target.endswith(".left") and (
-                action.line_style is not None
-                or action.symbol is not None
-                or action.symbol_size_pt is not None
-            ):
-                raise ValueError(f"{self.profile_id} left column exposes no line or symbol edit")
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main" or action.anchor is not None:
-                raise ValueError(f"{self.profile_id} exposes only legend visibility")
-            return
-        raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
+        self.sheet = self.book[0]
 
     def reconcile(
         self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: EngineDataView
     ) -> None:
         values = self._data(document, data)
         state = self._state(document, actions, values)
-        self._set_title(state.title)
-        for layer in self._layers():
-            self._configure_x(layer, values, state.x_axis)
-        self._configure_y(self._layers()[0], "yl", state.left_axis)
-        self._configure_y(self._layers()[1], "yr", state.right_axis)
-        self._apply_style(self._plots()[0], state.left_series, allow_symbol=False)
-        self._apply_style(
-            self._plots()[1], state.right_series, allow_symbol=self.profile_id == "X36"
-        )
-        self._set_legend(values, state.legend_visible)
+        with origin_trace_step(
+            "agent_actions_apply", details={"action_count": len(actions)}
+        ):
+            self._set_title(state.title)
+            self._configure_x(values, state.x_axis)
+            self._configure_y(self._layers()[0], "yl", state.left_axis)
+            self._configure_y(self._layers()[1], "yr", state.right_axis)
+            self._apply_column_style(1, state.left_series)
+            if self.profile_id == "X35":
+                self._apply_column_style(2, state.right_series)
+            else:
+                self._apply_line_symbol_style(2, state.right_series)
+            self._set_legend(values, state.legend_visible)
 
     def save(self, output: Path) -> None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        self.op.save(str(output))
-        if not output.is_file() or output.stat().st_size <= 0:
-            raise RuntimeError(f"Origin did not save a non-empty {self.profile_id} project")
+        with origin_trace_step("opju_save", details={"filename": output.name}):
+            output.parent.mkdir(parents=True, exist_ok=True)
+            if output.exists():
+                raise FileExistsError(
+                    f"Origin refuses to overwrite existing {self.profile_id} artifact: {output}"
+                )
+            self.op.save(str(output))
+            if not output.is_file() or output.stat().st_size <= 0:
+                raise RuntimeError(f"Origin did not save a non-empty {self.profile_id} project")
 
     def verify(
         self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: EngineDataView
     ) -> EngineReadback:
         values = self._data(document, data)
         state = self._state(document, actions, values)
-        self._assert_values(self.sheet.to_list(0), tuple(values.x_values), "category")
-        self._assert_values(self.sheet.to_list(1), values.left_values, "left")
-        self._assert_values(self.sheet.to_list(2), values.right_values, "right")
-        if tuple(len(layer.plot_list()) for layer in self._layers()) != (1, 1):
-            raise RuntimeError(f"Origin {self.profile_id} native plot count differs after reopen")
-        title = self._layers()[0].label(_TITLE_NAME)
-        if state.title and (
-            title is None or title.text != state.title or not title.get_int("show")
+        with origin_trace_step("reopened_native_structure_verify"):
+            self._assert_native_structure(verify_offsets=True)
+        record_origin_trace(
+            "reopened_native_offsets_confirmed",
+            "completed",
+            details={"plot_offsets": [[0.0, 1.0], [0.0, 1.0]]},
+        )
+        with origin_trace_step(
+            "reopened_source_data_verify",
+            details={"column_count": 3, "row_count": len(values.left_values)},
         ):
-            raise RuntimeError(f"Origin {self.profile_id} title did not survive readback")
-        legend = self._layers()[0].label("legend")
-        if legend is None or bool(legend.get_int("show")) != state.legend_visible:
-            raise RuntimeError(f"Origin {self.profile_id} legend did not survive readback")
+            self._assert_values(self.sheet.to_list(0), tuple(values.x_values), "category")
+            self._assert_values(self.sheet.to_list(1), values.left_values, "left")
+            self._assert_values(self.sheet.to_list(2), values.right_values, "right")
+        with origin_trace_step("reopened_agent_edits_verify"):
+            self._assert_labels(state)
+            self._assert_styles(state)
+            self._assert_legend(state.legend_visible)
         token = document.plot_id.removeprefix("plot:")
         objects = (
             EngineObjectRef(
@@ -262,7 +269,18 @@ class DualYSpecialOriginProject:
             backend="origin",
             objects=objects,
             data_hash=canonical_hash(data),
-            style_hash=canonical_hash(cast(JsonValue, asdict(state))),
+            style_hash=canonical_hash(
+                cast(
+                    JsonValue,
+                    {
+                        "native_plot_ids": (
+                            [203, 203] if self.profile_id == "X35" else [203, 202]
+                        ),
+                        "state": asdict(state),
+                        "template": self.profile.filename,
+                    },
+                )
+            ),
         )
 
     def _data(self, document: PlotDocument, data: EngineDataView) -> X23SeriesData:
@@ -271,20 +289,26 @@ class DualYSpecialOriginProject:
         )
 
     def _write(self, values: X23SeriesData) -> None:
+        self.sheet.cols = 3
         self.sheet.from_list(0, list(values.x_values), lname=values.x_field_name, axis="X")
         self.sheet.from_list(1, list(values.left_values), lname=values.left_field_name, axis="Y")
         self.sheet.from_list(2, list(values.right_values), lname=values.right_field_name, axis="Y")
+        self.sheet.lt_exec("wks.col1.categorical.type=2;")
 
-    def _configure_x(self, layer: Any, values: X23SeriesData, state: _AxisState) -> None:
+    def _configure_x(self, values: X23SeriesData, state: _AxisState) -> None:
         if values.x_labels is None or state.scale != "categorical":
             raise ValueError(f"Origin {self.profile_id} requires categorical X data")
-        begin, end = 0.5, len(values.x_labels) + 0.5
-        if state.reverse:
-            begin, end = end, begin
-        layer.axis("x").set_limits(begin, end, 1.0)
-        layer.set_int("x.label.type", 10)
-        layer.set_str("x.label.string", " ".join(f'"{label}"' for label in values.x_labels))
         self._set_axis_label(self._layers()[0], "xb", state.label)
+        for layer in self._layers():
+            axis = layer.axis("x")
+            if state.minimum is not None and state.maximum is not None:
+                begin, end = state.minimum, state.maximum
+                if state.reverse:
+                    begin, end = end, begin
+                axis.set_limits(begin, end)
+            elif state.reverse:
+                limits = tuple(float(item) for item in axis.limits)
+                axis.set_limits(limits[1], limits[0], limits[2])
 
     def _configure_y(self, layer: Any, label_name: str, state: _AxisState) -> None:
         if state.scale not in {"linear", "log10"}:
@@ -301,12 +325,21 @@ class DualYSpecialOriginProject:
     def _set_title(self, text: str) -> None:
         title = self._layers()[0].label(_TITLE_NAME)
         if title is None and text:
-            title = self._layers()[0].add_label(text, 40, 2)
+            self._layers()[0].activate()
+            if not self._layers()[0].obj.LT_execute(
+                f"label -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
+            ):
+                raise RuntimeError(f"Origin could not create the {self.profile_id} title")
+            title = self._layers()[0].label(_TITLE_NAME)
             if title is None:
                 raise RuntimeError(f"Origin could not create the {self.profile_id} title")
-            title.name = _TITLE_NAME
         if title is not None:
             title.text = text
+            title.set_int("attach", 1)
+            title.set_float("x1", 0.5)
+            title.set_float("y1", 0.012)
+            title.set_int("fsize", 18)
+            title.set_int("background", 0)
             title.set_int("show", int(bool(text)))
 
     @staticmethod
@@ -336,26 +369,212 @@ class DualYSpecialOriginProject:
             f"\\l(2.1, style:{sample}) {values.right_field_name}"
         )
         legend.set_int("link", 1)
+        legend.set_int("attach", 1)
+        legend.set_float("x1", 0.08)
+        legend.set_float("y1", 0.045)
+        legend.set_int("fsize", 14)
+        legend.set_int("background", 0)
         legend.set_int("show", int(visible))
 
-    @staticmethod
-    def _apply_style(plot: Any, state: _SeriesState, *, allow_symbol: bool) -> None:
+    def _graph_layer_prefix(self, layer_index: int) -> str:
+        """Return a LabTalk prefix that scopes the same command to one layer.
+
+        ``GraphLayer.activate()`` does not reliably change ``page.active`` for
+        linked double-Y templates in Origin 2024.  All ``set/get %C`` commands
+        therefore use the documented one-based ``page.active`` property in the
+        *same* LabTalk command as the edit/readback.  Keeping activation and
+        mutation in separate RPC calls was observed to reset to Layer2.
+        """
+
+        return (
+            f"window -a {self.graph.name}; "
+            f"{self.graph.name}!page.active={layer_index}; "
+        )
+
+    def _apply_column_style(self, layer_index: int, state: _SeriesState) -> None:
+        if (
+            state.line_style is not None
+            or state.symbol is not None
+            or state.symbol_size_pt is not None
+        ):
+            raise ValueError("Origin column series exposes only color and border width")
+        commands: list[str] = []
         if state.color is not None:
-            plot.color = state.color
+            commands.extend(
+                (
+                    f'set %C -pfb color("{state.color}")',
+                    f'set %C -pbc color("{state.color}")',
+                )
+            )
         if state.line_width_pt is not None:
-            plot.set_float("line.width", state.line_width_pt)
+            commands.append(f"set %C -pbw {state.line_width_pt}")
+        if commands:
+            self.op.lt_exec(
+                self._graph_layer_prefix(layer_index) + "; ".join(commands) + ";"
+            )
+
+    def _apply_line_symbol_style(self, layer_index: int, state: _SeriesState) -> None:
+        commands: list[str] = []
+        if state.color is not None:
+            commands.extend(
+                (
+                    f'set %C -cl color("{state.color}")',
+                    f'set %C -cse color("{state.color}")',
+                    f'set %C -csf color("{state.color}")',
+                )
+            )
+        if state.line_width_pt is not None:
+            commands.append(f"set %C -wp {state.line_width_pt}")
         if state.line_style is not None:
             if state.line_style == "none":
                 raise ValueError("Origin dual-Y series cannot be hidden through line style")
-            plot.set_int("line.style", _LINE_STYLE[state.line_style])
+            commands.append(f"set %C -d {_LINE_STYLE[state.line_style]}")
         if state.symbol is not None:
-            if not allow_symbol:
-                raise ValueError("Origin column series has no symbol")
-            plot.symbol_kind = _SYMBOL[state.symbol]
+            commands.append(f"set %C -k {_SYMBOL[state.symbol]}")
         if state.symbol_size_pt is not None:
-            if not allow_symbol:
-                raise ValueError("Origin column series has no symbol size")
-            plot.symbol_size = state.symbol_size_pt
+            commands.append(f"set %C -z {state.symbol_size_pt}")
+        if commands:
+            self.op.lt_exec(
+                self._graph_layer_prefix(layer_index) + "; ".join(commands) + ";"
+            )
+
+    def _assert_native_structure(self, *, verify_offsets: bool) -> None:
+        expected = [203, 203] if self.profile_id == "X35" else [203, 202]
+        observed: list[int] = []
+        for index, _layer in enumerate(self._layers(), 1):
+            prefix = f"__{self.profile_id}PT{index}"
+            command = self._graph_layer_prefix(index) + f"get %C -pt {prefix};"
+            if verify_offsets:
+                command += (
+                    f" get %C -sy __{self.profile_id}SY{index}; "
+                    f"get %C -sys __{self.profile_id}SYS{index};"
+                )
+            self.op.lt_exec(command)
+            plot_id = float(self.op.lt_float(prefix))
+            if isnan(plot_id):
+                raise RuntimeError(f"Origin {self.profile_id} native plot type is unreadable")
+            observed.append(int(plot_id))
+            if verify_offsets:
+                offset = float(self.op.lt_float(f"__{self.profile_id}SY{index}"))
+                multiplier = float(self.op.lt_float(f"__{self.profile_id}SYS{index}"))
+                if not isclose(offset, 0.0, abs_tol=1e-8) or not isclose(
+                    multiplier, 1.0, abs_tol=1e-8
+                ):
+                    raise RuntimeError(
+                        f"Origin {self.profile_id} columns/line must retain "
+                        f"zero Y offset and unit scale; observed layer {index}: "
+                        f"offset={offset}, multiplier={multiplier}"
+                    )
+        if observed != expected:
+            raise RuntimeError(
+                f"Origin {self.profile_id} native plot IDs {observed} differ from {expected}"
+            )
+        datasets = tuple(str(plot.obj.DatasetName) for plot in self._plots())
+        if not datasets[0].endswith("_B") or not datasets[1].endswith("_C"):
+            raise RuntimeError(
+                f"Origin {self.profile_id} plots are not bound directly to source Y columns B/C"
+            )
+
+    def _assert_labels(self, state: _State) -> None:
+        for layer, name, expected in (
+            (self._layers()[0], "xb", state.x_axis.label),
+            (self._layers()[0], "yl", state.left_axis.label),
+            (self._layers()[1], "yr", state.right_axis.label),
+        ):
+            label = layer.label(name)
+            if label is None or label.text != expected or label.get_int("show") == 0:
+                raise RuntimeError(f"Origin {self.profile_id} axis label {name} changed")
+        title = self._layers()[0].label(_TITLE_NAME)
+        if state.title and (
+            title is None or title.text != state.title or title.get_int("show") == 0
+        ):
+            raise RuntimeError(f"Origin {self.profile_id} title changed after reopen")
+
+    def _assert_styles(self, state: _State) -> None:
+        self._assert_column_style(1, state.left_series, "left")
+        if self.profile_id == "X35":
+            self._assert_column_style(2, state.right_series, "right")
+        else:
+            self._assert_line_symbol_style(2, state.right_series)
+
+    def _assert_column_style(
+        self, layer_index: int, state: _SeriesState, role: str
+    ) -> None:
+        if state.color is None and state.line_width_pt is None:
+            return
+        self.op.lt_exec(
+            self._graph_layer_prefix(layer_index)
+            + f"get %C -pfb __{self.profile_id}{role}C; "
+            f"get %C -pbw __{self.profile_id}{role}W;"
+        )
+        if state.color is not None:
+            expected = int(self.op.lt_float(f'color("{state.color}")'))
+            if int(self.op.lt_float(f"__{self.profile_id}{role}C")) != expected:
+                raise RuntimeError(f"Origin {self.profile_id} {role} column color changed")
+        if state.line_width_pt is not None and not isclose(
+            float(self.op.lt_float(f"__{self.profile_id}{role}W")),
+            state.line_width_pt,
+            abs_tol=1e-8,
+        ):
+            raise RuntimeError(f"Origin {self.profile_id} {role} column border width changed")
+
+    def _assert_line_symbol_style(self, layer_index: int, state: _SeriesState) -> None:
+        if all(
+            value is None
+            for value in (
+                state.color,
+                state.line_width_pt,
+                state.line_style,
+                state.symbol,
+                state.symbol_size_pt,
+            )
+        ):
+            return
+        self.op.lt_exec(
+            self._graph_layer_prefix(layer_index)
+            + f"get %C -cl __{self.profile_id}LC; get %C -w __{self.profile_id}LW; "
+            f"get %C -d __{self.profile_id}LS; get %C -k __{self.profile_id}SK; "
+            f"get %C -z __{self.profile_id}SZ;"
+        )
+        if state.color is not None:
+            expected = int(self.op.lt_float(f'color("{state.color}")'))
+            if int(self.op.lt_float(f"__{self.profile_id}LC")) != expected:
+                raise RuntimeError(f"Origin {self.profile_id} line color changed")
+        if state.line_width_pt is not None and not isclose(
+            float(self.op.lt_float(f"__{self.profile_id}LW")) / 500.0,
+            state.line_width_pt,
+            abs_tol=1e-8,
+        ):
+            raise RuntimeError(f"Origin {self.profile_id} line width changed")
+        if state.line_style is not None and int(
+            self.op.lt_float(f"__{self.profile_id}LS")
+        ) != _LINE_STYLE[state.line_style]:
+            raise RuntimeError(f"Origin {self.profile_id} line style changed")
+        if state.symbol is not None and int(
+            self.op.lt_float(f"__{self.profile_id}SK")
+        ) != _SYMBOL[state.symbol]:
+            raise RuntimeError(f"Origin {self.profile_id} symbol changed")
+        if state.symbol_size_pt is not None and not isclose(
+            float(self.op.lt_float(f"__{self.profile_id}SZ")),
+            state.symbol_size_pt,
+            abs_tol=1e-8,
+        ):
+            raise RuntimeError(f"Origin {self.profile_id} symbol size changed")
+
+    def _assert_legend(self, visible: bool) -> None:
+        legend = self._layers()[0].label("legend")
+        if visible:
+            if (
+                legend is None
+                or legend.get_int("show") == 0
+                or str(legend.text).count(r"\l(") != 2
+                or legend.get_int("attach") != 1
+                or not isclose(legend.get_float("x1"), 0.08, abs_tol=1e-8)
+                or not isclose(legend.get_float("y1"), 0.045, abs_tol=1e-8)
+            ):
+                raise RuntimeError(f"Origin {self.profile_id} native legend changed")
+        elif legend is not None and legend.get_int("show") != 0:
+            raise RuntimeError(f"Origin {self.profile_id} hidden legend reappeared")
 
     def _state(
         self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: X23SeriesData
@@ -371,14 +590,23 @@ class DualYSpecialOriginProject:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
             if isinstance(action, SetTitle):
+                if action.target != document.plot_id:
+                    raise ValueError(f"{self.profile_id} title target does not belong")
                 state = replace(state, title=action.text)
             elif isinstance(action, SetAxis):
                 key = {
                     f"axis:{token}.x": "x_axis",
                     f"axis:{token}.y_left": "left_axis",
                     f"axis:{token}.y_right": "right_axis",
-                }[action.target]
+                }.get(action.target)
+                if key is None:
+                    raise ValueError(f"{self.profile_id} axis target does not belong")
                 current = getattr(state, key)
+                requested_scale = current.scale if action.scale is None else action.scale
+                if (key == "x_axis" and requested_scale != "categorical") or (
+                    key != "x_axis" and requested_scale not in {"linear", "log10"}
+                ):
+                    raise ValueError(f"{self.profile_id} axis scale is not supported")
                 state = replace(
                     state,
                     **{
@@ -396,7 +624,21 @@ class DualYSpecialOriginProject:
                 key = {
                     f"series:{token}.left": "left_series",
                     f"series:{token}.right": "right_series",
-                }[action.target]
+                }.get(action.target)
+                if key is None:
+                    raise ValueError(f"{self.profile_id} series target does not belong")
+                if key == "left_series" and (
+                    action.line_style is not None
+                    or action.symbol is not None
+                    or action.symbol_size_pt is not None
+                ):
+                    raise ValueError(f"{self.profile_id} left column exposes no line or symbol")
+                if self.profile_id == "X35" and key == "right_series" and (
+                    action.line_style is not None
+                    or action.symbol is not None
+                    or action.symbol_size_pt is not None
+                ):
+                    raise ValueError("X35 right column exposes no line or symbol")
                 current = getattr(state, key)
                 state = replace(
                     state,
@@ -418,6 +660,8 @@ class DualYSpecialOriginProject:
                     },
                 )
             elif isinstance(action, SetLegend):
+                if action.target != f"legend:{token}.main" or action.anchor is not None:
+                    raise ValueError(f"{self.profile_id} exposes only native legend visibility")
                 state = replace(
                     state,
                     legend_visible=state.legend_visible
@@ -458,20 +702,34 @@ def _execute(
     output: Path,
     profile_id: Literal["X35", "X36"],
 ) -> EngineReadback:
+    structure_output = output.with_name(f"{output.stem}.official-structure.opju")
     project = DualYSpecialOriginProject(op, profile_id=profile_id)
-    if request.previous_opju is None:
-        project.create(install_dir, request.document, request.data)
-        pending = request.actions
-    else:
-        project.open(Path(request.previous_opju))
-        pending = request.actions[-1:]
-    for action in pending:
-        project.apply(request.document, action, request.data)
-    project.reconcile(request.document, request.actions, request.data)
-    project.save(output)
+    project.create(install_dir, request.document, request.data)
+    project.save(structure_output)
+
+    # Origin 2024's linked double-Y templates restore Layer1's template style
+    # when the never-saved graph is reopened.  Freeze the official structure
+    # once, then apply Agent edits to that native project.  This mirrors the
+    # documented UI workflow (create graph, then edit Plot Details) and makes
+    # both layers' edits persist independently.
+    editable = DualYSpecialOriginProject(op, profile_id=profile_id)
+    editable.open(structure_output)
+    editable.reconcile(request.document, request.actions, request.data)
+    with origin_trace_step("native_agent_edits_verify"):
+        state = editable._state(
+            request.document,
+            request.actions,
+            editable._data(request.document, request.data),
+        )
+        editable._assert_styles(state)
+    editable.save(output)
+    with origin_trace_step("saved_agent_edits_verify"):
+        editable._assert_styles(state)
     reopened = DualYSpecialOriginProject(op, profile_id=profile_id)
     reopened.open(output)
-    return reopened.verify(request.document, request.actions, request.data)
+    readback = reopened.verify(request.document, request.actions, request.data)
+    structure_output.unlink(missing_ok=True)
+    return readback
 
 
 def execute_x35_request(
