@@ -17,6 +17,7 @@ from .distribution import K12StripRenderer, K13BoxRenderer, K14ViolinRenderer, X
 from .drop_line import X02DropLineRenderer
 from .dual_y import X23DualYRenderer
 from .error_band import K07ErrorBandRenderer
+from .facet import K24FacetRenderer
 from .floating_interval import X09FloatingIntervalRenderer
 from .heatmap import K20HeatmapRenderer
 from .line import K01LineRenderer
@@ -31,7 +32,6 @@ from .special_t1 import (
     X38OffsetStackRenderer,
 )
 from .special_t2 import (
-    K24FacetRenderer,
     S01SurvivalRenderer,
     S21ForestRenderer,
     S34NyquistRenderer,

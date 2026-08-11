@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import plotagent.engine.backends.origin.k24 as k24_origin
 import plotagent.engine.backends.origin.s61 as s61_origin
 import plotagent.engine.backends.origin.scientific_t2 as scientific_origin
 import plotagent.engine.backends.origin.structural_t2 as structural_origin
@@ -35,9 +36,10 @@ from plotagent.engine.backends.origin import (
     S34_ORIGIN_PROFILE,
     S61_ORIGIN_PROFILE,
 )
+from plotagent.engine.backends.origin.k24 import K24OriginProject
 from plotagent.engine.backends.origin.s61 import S61OriginProject
 from plotagent.engine.backends.origin.scientific_t2 import S21OriginProject, S34OriginProject
-from plotagent.engine.backends.origin.structural_t2 import K24OriginProject, S01OriginProject
+from plotagent.engine.backends.origin.structural_t2 import S01OriginProject
 from plotagent.engine.backends.origin.trace import OriginExecutionTrace
 from plotagent.engine.profile_data import (
     k24_facets,
@@ -405,6 +407,12 @@ class _Sheet:
     def to_list(self, index):
         return self.columns[index]
 
+    def get_int(self, name: str) -> int:
+        if name.startswith("col") and name.endswith(".type"):
+            index = int(name.removeprefix("col").removesuffix(".type")) - 1
+            return {"X": 4, "Y": 1, "N": 2}[str(self.column_options[index]["axis"])]
+        raise KeyError(name)
+
     def from_np(self, values) -> None:
         self.matrix = np.asarray(values)
 
@@ -460,9 +468,18 @@ class _Origin:
             self.graph = _Graph(1)
 
     def lt_float(self, expression: str) -> float:
-        if expression == "layer.plot1.pid":
+        if expression in {"layer.plot1.pid", "__K24PID"}:
             return self.native_plot_id
+        if expression == "__K24COUNT":
+            return 1.0
         return float("nan")
+
+    def get_lt_str(self, expression: str) -> str:
+        if expression == "__K24XS":
+            return '[DK24]Sheet1!A"Time"'
+        if expression == "__K24YS":
+            return '[DK24]Sheet1!B"Signal"'
+        return ""
 
 
 @pytest.mark.parametrize("panel_count", (2, 3, 5))
@@ -470,7 +487,7 @@ def test_origin_k24_uses_one_native_trellis_layer(
     monkeypatch, tmp_path: Path, panel_count: int
 ) -> None:
     monkeypatch.setattr(
-        structural_origin, "resolve_official_template", lambda *_: Path("Grouped.otp")
+        k24_origin, "resolve_official_template", lambda *_: Path("Grouped.otp")
     )
     document, actions, view = _k24_case(panel_count)
     origin = _Origin()
@@ -485,6 +502,8 @@ def test_origin_k24_uses_one_native_trellis_layer(
     with trace.activate():
         project.create(Path("."), document, view)
         project.reconcile(document, actions, view)
+    assert K24FacetRenderer.__module__.endswith(".facet")
+    assert K24OriginProject.__module__.endswith(".k24")
     assert len(tuple(project.graph)) == 1
     assert int(origin.lt_float("layer.plot1.pid")) == 202
     assert any(
@@ -500,6 +519,20 @@ def test_origin_k24_uses_one_native_trellis_layer(
     assert project.sheet.column_options[1]["axis"] == "Y"
     assert project.sheet.column_options[2]["axis"] == "N"
     assert len(set(project.sheet.columns[2])) == panel_count
+    assert project.last_native_structure == {
+        "official_route": "plot_group",
+        "official_template": "Grouped.otp",
+        "ordinary_primitive_fallback_used": False,
+        "layer_count": 1,
+        "plot_count": 1,
+        "native_plot_type": 202,
+        "x_source": '[DK24]Sheet1!A"Time"',
+        "y_source": '[DK24]Sheet1!B"Signal"',
+        "source_designations": [4, 1, 2],
+        "facet_column_storage": "text N grouping column",
+        "facet_count": panel_count,
+        "facet_labels": [f"Panel {index + 1}" for index in range(panel_count)],
+    }
     trace_rows = [
         json.loads(line)
         for line in trace.path.read_text(encoding="utf-8").splitlines()

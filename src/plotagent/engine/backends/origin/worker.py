@@ -29,12 +29,13 @@ from .k19 import execute_k19_request
 from .k20 import execute_k20_request
 from .k21 import execute_k21_request
 from .k22 import execute_k22_request
+from .k24 import execute_k24_request
 from .k25 import execute_k25_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
 from .recipe import origin_recipe
 from .renderer import OriginRendererRegistry
 from .scientific_t2 import execute_s34_request
-from .structural_t2 import execute_k24_request, execute_s01_request
+from .structural_t2 import execute_s01_request
 from .trace import OriginExecutionTrace
 from .wide_series import execute_x03_request, execute_x39_request, execute_x40_request
 from .x02 import execute_x02_request
