@@ -26,6 +26,8 @@ from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import K20Grid, k20_grid
 from plotagent.engine.repository import document_ref
 
+from .font import resolve_font_family
+
 
 @dataclass(frozen=True, slots=True)
 class _K20State:
@@ -51,33 +53,45 @@ class K20HeatmapRenderer:
         state = self._state(document, actions, grid)
         values = np.asarray(grid.values, dtype=float)
 
-        figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
-        image = axis.imshow(
-            values,
-            cmap="cividis",
-            interpolation="nearest",
-            aspect="auto",
-            origin="upper",
-        )
-        axis.set_xticks(np.arange(len(grid.column_labels)), grid.column_labels)
-        axis.set_yticks(np.arange(len(grid.row_labels)), grid.row_labels)
-        axis.set_title(state.title)
-        axis.set_xlabel(state.x_label)
-        axis.set_ylabel(state.y_label)
-        if state.x_reverse:
-            axis.invert_xaxis()
-        if state.y_reverse:
-            axis.invert_yaxis()
-        colorbar = figure.colorbar(image, ax=axis)
-        colorbar.set_label(
+        colorbar_label = (
             grid.value_field_name
             if grid.value_unit is None
             else f"{grid.value_field_name} ({grid.value_unit})"
         )
-        png_path.parent.mkdir(parents=True, exist_ok=True)
-        figure.savefig(png_path, dpi=160)
-        figure.savefig(svg_path)
-        plt.close(figure)
+        font_family = resolve_font_family(
+            (
+                state.title,
+                state.x_label,
+                state.y_label,
+                colorbar_label,
+                *grid.column_labels,
+                *grid.row_labels,
+            )
+        )
+        with matplotlib.rc_context({"font.family": font_family}):
+            figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
+            image = axis.imshow(
+                values,
+                cmap="cividis",
+                interpolation="nearest",
+                aspect="auto",
+                origin="upper",
+            )
+            axis.set_xticks(np.arange(len(grid.column_labels)), grid.column_labels)
+            axis.set_yticks(np.arange(len(grid.row_labels)), grid.row_labels)
+            axis.set_title(state.title)
+            axis.set_xlabel(state.x_label)
+            axis.set_ylabel(state.y_label)
+            if state.x_reverse:
+                axis.invert_xaxis()
+            if state.y_reverse:
+                axis.invert_yaxis()
+            colorbar = figure.colorbar(image, ax=axis)
+            colorbar.set_label(colorbar_label)
+            png_path.parent.mkdir(parents=True, exist_ok=True)
+            figure.savefig(png_path, dpi=160)
+            figure.savefig(svg_path)
+            plt.close(figure)
 
         token = document.plot_id.removeprefix("plot:")
         objects = (
