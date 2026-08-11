@@ -463,27 +463,9 @@ def _offset_state(
                 },
             )
         elif isinstance(action, SetSeriesStyle):
-            prefix = f"series:{token}.group_"
-            suffix = action.target.removeprefix(prefix) if action.target.startswith(prefix) else ""
-            if (
-                not suffix.isdigit()
-                or not 1 <= int(suffix) <= len(state.series)
-                or action.symbol is not None
-                or action.symbol_size_pt is not None
-            ):
-                raise ValueError("X38 series target or style is unsupported")
-            index = int(suffix) - 1
-            current = state.series[index]
-            updated = replace(
-                current,
-                color=current.color if action.color is None else action.color,
-                line_width_pt=current.line_width_pt
-                if action.line_width_pt is None
-                else action.line_width_pt,
-                line_style=current.line_style if action.line_style is None else action.line_style,
-            )
-            state = replace(
-                state, series=(*state.series[:index], updated, *state.series[index + 1 :])
+            raise ValueError(
+                "X38 keeps the official dependent style group and does not expose "
+                "per-series style edits"
             )
         elif isinstance(action, SetLegend):
             if action.target != f"legend:{token}.main" or action.anchor is not None:

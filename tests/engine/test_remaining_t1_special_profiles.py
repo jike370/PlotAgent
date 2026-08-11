@@ -173,7 +173,7 @@ def _x38_case(group_count: int = 3):
             ("field:y", "Intensity", "numeric", y_values),
             ("field:series", "Spectrum", "categorical", labels),
         ),
-        styles=((f"group_{group_count}", {"color": "#663399", "line_style": "dot"}),),
+        styles=(),
     )
 
 
@@ -483,12 +483,20 @@ class _Origin:
             self.graph = _Graph(2, self, (203, 202))
             self.graph.layers[0].plots = [_Plot(203, f"{self.book.name}_B")]
             self.graph.layers[1].plots = [_Plot(202, f"{self.book.name}_C")]
+        elif "run.section(plot,OffsetYs)" in command:
+            self.graph = _Graph(1, self, (200,))
+            self.graph.layers[0].plots = [
+                _Plot(200, f"{self.book.name}_{chr(66 + index)}")
+                for index in range(self.book[0].cols - 1)
+            ]
 
     def lt_float(self, expression: str) -> float:
         if expression == "layer.plot1.pid":
             return float(self.graph.layers[self.active_layer].pid)
         if expression.startswith(("__X35PT", "__X36PT")):
             return float(self.graph.layers[self.active_layer].pid)
+        if expression.startswith("__X38P") and expression.endswith("PT"):
+            return 200.0
         if expression.startswith('color("'):
             return 42.0
         if "SYS" in expression:
@@ -552,13 +560,73 @@ def test_origin_x38_keeps_raw_y_and_creates_dynamic_template_plots(
         x38_origin, "resolve_official_template", lambda *_args: Path("OffsetStackY.otp")
     )
     document, actions, view = _x38_case(group_count)
-    project = X38OriginProject(_Origin())
+    origin = _Origin()
+    project = X38OriginProject(origin)
     project.create(Path("."), document, view)
     project.reconcile(document, actions, view)
     offset = x38_offset_stack(document, view)
     assert len(project.plots) == group_count
     for index, series in enumerate(offset.series, start=1):
         assert project.sheet.columns[index] == list(series.y_values)
+    assert any("run.section(plot,OffsetYs)" in command for command in origin.commands)
+    assert not any(" -gm " in command for command in origin.commands)
+
+
+def test_origin_x38_default_preserves_official_template_styling(monkeypatch) -> None:
+    monkeypatch.setattr(
+        x38_origin, "resolve_official_template", lambda *_args: Path("OffsetStackY.otp")
+    )
+    document, actions, view = _x38_case()
+    create = actions[0]
+    document = document.model_copy(
+        update={
+            "plot_version": 1,
+            "parent_version": None,
+            "applied_action_ids": (create.action_id,),
+        }
+    )
+    origin = _Origin()
+    project = X38OriginProject(origin)
+    project.create(Path("."), document, view)
+    project.reconcile(document, (create,), view)
+    assert not any(" -gm " in command for command in origin.commands)
+    assert not any(" -wp " in command for command in origin.commands)
+    assert not any("_ENGINE_TITLE" in command for command in origin.commands)
+
+
+def test_origin_x38_save_refuses_stale_probe_artifact(tmp_path: Path) -> None:
+    target = tmp_path / "plot.opju"
+    target.write_bytes(b"stale")
+    project = X38OriginProject(_Origin())
+    with pytest.raises(FileExistsError, match="refuses to overwrite"):
+        project.save(target)
+
+
+def test_x38_rejects_per_series_width_that_breaks_native_offsets(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        x38_origin, "resolve_official_template", lambda *_args: Path("OffsetStackY.otp")
+    )
+    document, actions, view = _x38_case()
+    width = SetSeriesStyle(
+        action_id="action:x38-unsupported-width",
+        target="series:x38-t1.group_1",
+        expected_plot_version=1,
+        line_width_pt=2.0,
+    )
+    project = X38OriginProject(_Origin())
+    project.create(Path("."), document, view)
+    with pytest.raises(ValueError, match="does not expose per-series style edits"):
+        project.reconcile(document, (actions[0], width), view)
+    with pytest.raises(ValueError, match="does not expose per-series style edits"):
+        X38OffsetStackRenderer().render(
+            document,
+            (actions[0], width),
+            view,
+            tmp_path / "x38.png",
+            tmp_path / "x38.svg",
+        )
 
 
 def test_remaining_t1_profiles_pin_official_templates_and_public_actions() -> None:
@@ -589,6 +657,9 @@ def test_remaining_t1_profiles_pin_official_templates_and_public_actions() -> No
         capability.operation for capability in profiles["X24"].capabilities
     }
     assert profiles["X38"].repeatable_objects[0].object_key_prefix == "group"
+    assert "set_series_style" not in {
+        capability.operation for capability in profiles["X38"].capabilities
+    }
 
 
 def test_remaining_t1_implementation_does_not_import_old_plot_compiler() -> None:
@@ -603,3 +674,7 @@ def test_remaining_t1_implementation_does_not_import_old_plot_compiler() -> None
     assert "plotagent.rendering" not in source
     assert "PlotSpec" not in source
     assert "ResolvedPlot" not in source
+    x38_source = inspect.getsource(x38_origin)
+    assert "run.section(plot,OffsetYs)" in x38_source
+    assert ".new_graph(" not in x38_source
+    assert ".add_plot(" not in x38_source
