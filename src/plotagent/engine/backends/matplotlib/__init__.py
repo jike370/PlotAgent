@@ -1,6 +1,6 @@
 """Independent Matplotlib renderers for Agent Native profiles."""
 
-from .advanced_matrix import K21CorrelationMatrixRenderer, K22ContourRenderer
+from .advanced_matrix import K22ContourRenderer
 from .area import K18AreaRenderer
 from .backend import MatplotlibBackend
 from .bubble import K04BubbleRenderer
@@ -12,6 +12,7 @@ from .column_family import (
     K11PercentStackRenderer,
 )
 from .composite import K25CompositeRenderer
+from .correlation_matrix import K21CorrelationMatrixRenderer
 from .distribution import K12StripRenderer, K13BoxRenderer, K14ViolinRenderer, X05BeeswarmRenderer
 from .drop_line import X02DropLineRenderer
 from .dual_y import X23DualYRenderer

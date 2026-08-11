@@ -173,7 +173,7 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | K18 | `x / series_1..series_N` | 独立多系列面积图 renderer | `AREA.otpu` | X+全部Y一次性执行官方 Area 菜单，保留原生 PID204 与源列绑定 |
 | K19 | `time / series_1..series_N` | 独立原生日期时间折线 renderer | `LINE.otpu` | 数值型 Date/Time X + 1–N 个 Y；一次调用官方 Line 菜单创建 PID 200；同日显示时间、跨日显示日期 |
 | K20 | `row / column / value` | 独立热图 renderer | `Heat_Map.otpu` | matrixbook + 1 个原生 matrix plot |
-| K21 | `row_label / column_label / value` | 独立相关矩阵 renderer | `Heat_Map_With_Labels.otpu` | 预计算相关矩阵写入 matrixbook；模板原生标签热图 |
+| K21 | `row_label / column_label / value` | 独立相关矩阵 renderer | `Heat_Map_With_Labels.otpu` | 完整预计算相关矩阵写入 matrixbook；PID105 和 Z 值标签由官方模板创建；full/lower/upper 只调整 Origin 原生显示枚举，不把被隐藏单元写成 NaN |
 | K22 | `x / y / z` | 独立规则网格等高 renderer | `CONTOUR.otpu` | 完整规则网格写入 matrixbook；模板原生填色等值 Plot，禁止插值补洞 |
 | K24 | `facet / base_x / base_y` | 独立动态分面 renderer | `mgroups.otpu` | worksheet + 按 facet 数扩展的原生图层和线系列 |
 | K25 | `2–4 个 PlotDocumentRef` | 原生 SVG 子树与 PNG 面板组合 renderer | `mgroups.otpu` | 追加精确子 OPJU，保留子工作表/图页，再用 Origin `merge_graph` 合并原生图层；禁止嵌套组合与栅格化 OPJU |

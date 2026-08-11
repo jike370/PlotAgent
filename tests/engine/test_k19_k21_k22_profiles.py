@@ -11,6 +11,7 @@ import pytest
 import plotagent.engine.backends.origin.advanced_matrix as matrix_origin_module
 import plotagent.engine.backends.origin.k18 as k18_origin_module
 import plotagent.engine.backends.origin.k19 as k19_origin_module
+import plotagent.engine.backends.origin.k21 as k21_origin_module
 from plotagent.engine import (
     CreatePlot,
     EngineColumn,
@@ -37,9 +38,10 @@ from plotagent.engine.backends.origin import (
     K21_ORIGIN_PROFILE,
     K22_ORIGIN_PROFILE,
 )
-from plotagent.engine.backends.origin.advanced_matrix import K21OriginProject, K22OriginProject
+from plotagent.engine.backends.origin.advanced_matrix import K22OriginProject
 from plotagent.engine.backends.origin.k18 import K18OriginProject
 from plotagent.engine.backends.origin.k19 import K19OriginProject
+from plotagent.engine.backends.origin.k21 import K21OriginProject
 from plotagent.engine.profile_data import (
     k18_area_series,
     k19_time_series,
@@ -552,14 +554,46 @@ class FakeAxis:
         )
 
 
+class FakeThemeNode:
+    def __init__(self, name: str, value=None, children=()) -> None:
+        self.Name = name
+        self._value = value
+        self.Children = list(children)
+
+    def GetValue(self):
+        return self._value
+
+    def SetIntValue(self, value: int) -> None:
+        self._value = value
+
+
+class FakeGraphObject:
+    def __init__(self, name: str, object_type: int) -> None:
+        self.Name = name
+        self._object_type = object_type
+
+    def GetObjectType(self) -> int:
+        return self._object_type
+
+
 class FakePlot:
     def __init__(self) -> None:
+        self.obj = self
+        self.DatasetName = "Book1"
         self.color = (0, 0, 0)
         self.symbol_kind = 0
         self.symbol_size = 5.0
         self.floats = {"line.width": 1.5}
         self.ints = {"line.style": 0}
         self._zlevels = {"minors": 0, "levels": [0.0, 1.0]}
+        self.theme = FakeThemeNode(
+            "Root",
+            children=(
+                FakeThemeNode("Label", children=(FakeThemeNode("Enable", 1),)),
+                FakeThemeNode("FillDispl", 1),
+                FakeThemeNode("LabelDispl", 0),
+            ),
+        )
 
     def set_float(self, name: str, value: float) -> None:
         self.floats[name] = value
@@ -581,6 +615,12 @@ class FakePlot:
     def zlevels(self, value) -> None:
         self._zlevels = value
 
+    def GetTheme(self):
+        return self.theme
+
+    def PutTheme(self, theme) -> None:
+        self.theme = theme
+
 
 class FakeLayer:
     def __init__(self) -> None:
@@ -590,6 +630,8 @@ class FakeLayer:
         self.plots: list[FakePlot] = []
         self.added_type: int | str | None = None
         self.strings: dict[str, str] = {}
+        self.ints: dict[str, int] = {}
+        self.GraphObjects = [FakeGraphObject("SPECTRUM1", 13)]
 
     def add_plot(self, sheet, *, coly, colx, type):
         assert (colx, coly) == (0, 1)
@@ -636,10 +678,16 @@ class FakeLayer:
         return True
 
     def set_int(self, name: str, value: int) -> None:
-        return None
+        self.ints[name] = value
+
+    def get_int(self, name: str) -> int:
+        return self.ints[name]
 
     def set_str(self, name: str, value: str) -> None:
         self.strings[name] = value
+
+    def get_str(self, name: str) -> str:
+        return self.strings[name]
 
 
 class FakeGraph:
@@ -652,6 +700,9 @@ class FakeGraph:
         assert index == 0
         return self.layer
 
+    def __len__(self) -> int:
+        return 1
+
     def activate(self) -> None:
         return None
 
@@ -663,6 +714,10 @@ class FakeColumn:
 
     def GetDataFormat(self) -> int:
         return self.sheet.data_formats[self.index]
+
+    @property
+    def DatasetName(self) -> str:
+        return "Book1"
 
 
 class FakeSheet:
@@ -811,6 +866,20 @@ class FakeOrigin:
             )
             label.name = "legend"
             self.graph.layer.labels["legend"] = label
+        if "__K21COUNT" in command:
+            self.lt_values.update(
+                {
+                    "__K21COUNT": 1,
+                    "__K21PID": 105,
+                    "__K21ZMIN": -1,
+                    "__K21ZMAX": 1,
+                    "__K21CMAPTYPE": 0,
+                }
+            )
+        return True
+
+    def set_lt_str(self, name: str, value: str) -> bool:
+        self.lt_strings[name] = value
         return True
 
     def lt_float(self, name: str) -> float:
@@ -868,7 +937,7 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
 
     k21_document, k21_actions, k21_view = _k21_case()
     monkeypatch.setattr(
-        matrix_origin_module,
+        k21_origin_module,
         "resolve_official_template",
         lambda _install, profile: tmp_path / profile.filename,
     )
@@ -878,9 +947,19 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
     k21.reconcile(k21_document, k21_actions, k21_view)
     assert Path(k21_op.template).name == "Heat_Map_With_Labels.otpu"
     assert k21_op.graph.layer.added_type == 105
-    assert np.isnan(k21_op.book.sheet.values[0, 1])
+    assert np.array_equal(
+        k21_op.book.sheet.values,
+        np.asarray(((1.0, 0.25), (0.25, 1.0))),
+    )
+    assert k21_op.graph.layer.plots[0].theme.Children[1].GetValue() == 4
+    assert k21_op.graph.layer.plots[0].theme.Children[2].GetValue() == 2
 
     k22_document, k22_actions, k22_view = _k22_case()
+    monkeypatch.setattr(
+        matrix_origin_module,
+        "resolve_official_template",
+        lambda _install, profile: tmp_path / profile.filename,
+    )
     k22_op = FakeOrigin()
     k22 = K22OriginProject(k22_op)
     k22.create(tmp_path, k22_document, k22_view)

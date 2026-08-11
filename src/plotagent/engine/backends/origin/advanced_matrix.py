@@ -1,10 +1,10 @@
-"""Official-template Origin binders for K21 correlation and K22 contour matrices."""
+"""Official-template Origin binder for K22 contour matrices."""
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -20,21 +20,11 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import (
-    K20Grid,
-    RegularGridData,
-    k21_correlation_grid,
-    k22_regular_grid,
-)
+from plotagent.engine.profile_data import RegularGridData, k22_regular_grid
 from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
-from .profile import (
-    K21_ORIGIN_PROFILE,
-    K22_ORIGIN_PROFILE,
-    OriginTemplateProfile,
-    resolve_official_template,
-)
+from .profile import K22_ORIGIN_PROFILE, OriginTemplateProfile, resolve_official_template
 
 _TITLE_NAME = "_ENGINE_TITLE"
 
@@ -46,7 +36,6 @@ class _MatrixState:
     y_label: str
     x_reverse: bool = False
     y_reverse: bool = False
-    triangle: Literal["full", "lower", "upper"] = "full"
     levels: int = 12
     x_minimum: float | None = None
     x_maximum: float | None = None
@@ -56,21 +45,13 @@ class _MatrixState:
 
 @dataclass(frozen=True, slots=True)
 class _Definition:
-    profile_id: Literal["K21", "K22"]
+    profile_id: str
     template: OriginTemplateProfile
     plot_type: int
     object_kind: str
 
 
-_K21 = _Definition("K21", K21_ORIGIN_PROFILE, 105, "correlation_matrix")
 _K22 = _Definition("K22", K22_ORIGIN_PROFILE, 226, "filled_contour")
-
-
-def _tick_string(labels: tuple[str, ...]) -> str:
-    return " ".join(
-        f'"{label.replace(chr(34), chr(92) + chr(34)).replace(chr(10), " ")}"'
-        for label in labels
-    )
 
 
 class AdvancedMatrixOriginProject:
@@ -139,11 +120,10 @@ class AdvancedMatrixOriginProject:
             axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
             if axis_name is None:
                 raise ValueError(f"{self.definition.profile_id} axis target does not belong")
-            expected_scale = "categorical" if self.definition.profile_id == "K21" else "linear"
-            if action.scale not in {None, expected_scale}:
+            if action.scale not in {None, "linear"}:
                 raise ValueError(
                     f"Origin {self.definition.profile_id} {axis_name} axis "
-                    f"requires {expected_scale}"
+                    "requires linear"
                 )
             if action.label is not None:
                 self._set_axis_label(axis_name, action.label)
@@ -158,33 +138,16 @@ class AdvancedMatrixOriginProject:
         actions: tuple[PlotEngineAction, ...],
         data: EngineDataView,
     ) -> None:
-        if self.definition.profile_id == "K21":
-            grid = k21_correlation_grid(document, data)
-            state = self._state(document, actions, grid.column_field_name, grid.row_field_name)
-            values = np.asarray(grid.values, dtype=float)
-            if state.triangle == "lower":
-                values = np.where(np.tri(len(grid.row_labels), dtype=bool), values, np.nan)
-            elif state.triangle == "upper":
-                values = np.where(np.triu(np.ones(values.shape, dtype=bool)), values, np.nan)
-            self.sheet.from_np(values)
-            self.sheet.xymap = (
-                1.0,
-                float(len(grid.column_labels)),
-                1.0,
-                float(len(grid.row_labels)),
-            )
-            self._configure_k21(grid, state)
-        else:
-            grid22 = k22_regular_grid(document, data)
-            state = self._state(document, actions, grid22.x_field_name, grid22.y_field_name)
-            self.sheet.from_np(np.asarray(grid22.z_values, dtype=float))
-            self.sheet.xymap = (
-                grid22.x_values[0],
-                grid22.x_values[-1],
-                grid22.y_values[0],
-                grid22.y_values[-1],
-            )
-            self._configure_k22(grid22, state)
+        grid22 = k22_regular_grid(document, data)
+        state = self._state(document, actions, grid22.x_field_name, grid22.y_field_name)
+        self.sheet.from_np(np.asarray(grid22.z_values, dtype=float))
+        self.sheet.xymap = (
+            grid22.x_values[0],
+            grid22.x_values[-1],
+            grid22.y_values[0],
+            grid22.y_values[-1],
+        )
+        self._configure_k22(grid22, state)
         self._set_title(state.title)
 
     def save(self, output_path: Path) -> None:
@@ -201,21 +164,12 @@ class AdvancedMatrixOriginProject:
         actions: tuple[PlotEngineAction, ...],
         data: EngineDataView,
     ) -> EngineReadback:
-        if self.definition.profile_id == "K21":
-            grid = k21_correlation_grid(document, data)
-            state = self._state(document, actions, grid.column_field_name, grid.row_field_name)
-            expected = np.asarray(grid.values, dtype=float)
-            if state.triangle == "lower":
-                expected = np.where(np.tri(len(grid.row_labels), dtype=bool), expected, np.nan)
-            elif state.triangle == "upper":
-                expected = np.where(np.triu(np.ones(expected.shape, dtype=bool)), expected, np.nan)
-        else:
-            grid22 = k22_regular_grid(document, data)
-            state = self._state(document, actions, grid22.x_field_name, grid22.y_field_name)
-            expected = np.asarray(grid22.z_values, dtype=float)
-            levels = tuple(float(value) for value in self.plot.zlevels["levels"])
-            if len(levels) != state.levels + 1:
-                raise RuntimeError("Origin K22 contour levels differ after reopen")
+        grid22 = k22_regular_grid(document, data)
+        state = self._state(document, actions, grid22.x_field_name, grid22.y_field_name)
+        expected = np.asarray(grid22.z_values, dtype=float)
+        levels = tuple(float(value) for value in self.plot.zlevels["levels"])
+        if len(levels) != state.levels + 1:
+            raise RuntimeError("Origin K22 contour levels differ after reopen")
         actual = np.asarray(self.sheet.to_np2d(), dtype=float)
         if actual.shape != expected.shape or not np.allclose(
             actual, expected, rtol=0, atol=1e-12, equal_nan=True
@@ -257,40 +211,14 @@ class AdvancedMatrixOriginProject:
         )
 
     def _write_default(self, document: PlotDocument, data: EngineDataView) -> None:
-        if self.definition.profile_id == "K21":
-            grid = k21_correlation_grid(document, data)
-            self.sheet.from_np(np.asarray(grid.values, dtype=float))
-            self.sheet.xymap = (
-                1.0,
-                float(len(grid.column_labels)),
-                1.0,
-                float(len(grid.row_labels)),
-            )
-        else:
-            grid22 = k22_regular_grid(document, data)
-            self.sheet.from_np(np.asarray(grid22.z_values, dtype=float))
-            self.sheet.xymap = (
-                grid22.x_values[0],
-                grid22.x_values[-1],
-                grid22.y_values[0],
-                grid22.y_values[-1],
-            )
-
-    def _configure_k21(self, grid: K20Grid, state: _MatrixState) -> None:
-        x_begin, x_end = 0.5, len(grid.column_labels) + 0.5
-        y_begin, y_end = len(grid.row_labels) + 0.5, 0.5
-        if state.x_reverse:
-            x_begin, x_end = x_end, x_begin
-        if state.y_reverse:
-            y_begin, y_end = y_end, y_begin
-        self.layer.axis("x").set_limits(x_begin, x_end, 1.0)
-        self.layer.axis("y").set_limits(y_begin, y_end, 1.0)
-        self.layer.set_int("x.label.type", 10)
-        self.layer.set_int("y.label.type", 10)
-        self.layer.set_str("x.label.string", _tick_string(grid.column_labels))
-        self.layer.set_str("y.label.string", _tick_string(grid.row_labels))
-        self._set_axis_label("x", state.x_label)
-        self._set_axis_label("y", state.y_label)
+        grid22 = k22_regular_grid(document, data)
+        self.sheet.from_np(np.asarray(grid22.z_values, dtype=float))
+        self.sheet.xymap = (
+            grid22.x_values[0],
+            grid22.x_values[-1],
+            grid22.y_values[0],
+            grid22.y_values[-1],
+        )
 
     def _configure_k22(self, grid: RegularGridData, state: _MatrixState) -> None:
         x_begin = grid.x_values[0] if state.x_minimum is None else state.x_minimum
@@ -363,81 +291,44 @@ class AdvancedMatrixOriginProject:
                 axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
                 if axis_name is None:
                     raise ValueError("matrix axis target does not belong to this plot")
-                expected_scale = "categorical" if self.definition.profile_id == "K21" else "linear"
-                if action.scale not in {None, expected_scale}:
-                    raise ValueError(f"matrix {axis_name} axis requires {expected_scale}")
-                if self.definition.profile_id == "K21":
-                    if action.minimum is not None or action.maximum is not None:
-                        raise ValueError("K21 public axes do not expose numeric bounds")
-                    if axis_name == "x":
-                        state = replace(
-                            state,
-                            x_label=state.x_label if action.label is None else action.label,
-                            x_reverse=(
-                                state.x_reverse if action.reverse is None else action.reverse
-                            ),
-                        )
-                    else:
-                        state = replace(
-                            state,
-                            y_label=state.y_label if action.label is None else action.label,
-                            y_reverse=(
-                                state.y_reverse if action.reverse is None else action.reverse
-                            ),
-                        )
+                if action.scale not in {None, "linear"}:
+                    raise ValueError(f"matrix {axis_name} axis requires linear")
+                if axis_name == "x":
+                    state = replace(
+                        state,
+                        x_label=state.x_label if action.label is None else action.label,
+                        x_reverse=(
+                            state.x_reverse if action.reverse is None else action.reverse
+                        ),
+                        x_minimum=action.minimum,
+                        x_maximum=action.maximum,
+                    )
                 else:
-                    if axis_name == "x":
-                        state = replace(
-                            state,
-                            x_label=state.x_label if action.label is None else action.label,
-                            x_reverse=(
-                                state.x_reverse if action.reverse is None else action.reverse
-                            ),
-                            x_minimum=action.minimum,
-                            x_maximum=action.maximum,
-                        )
-                    else:
-                        state = replace(
-                            state,
-                            y_label=state.y_label if action.label is None else action.label,
-                            y_reverse=(
-                                state.y_reverse if action.reverse is None else action.reverse
-                            ),
-                            y_minimum=action.minimum,
-                            y_maximum=action.maximum,
-                        )
+                    state = replace(
+                        state,
+                        y_label=state.y_label if action.label is None else action.label,
+                        y_reverse=(
+                            state.y_reverse if action.reverse is None else action.reverse
+                        ),
+                        y_minimum=action.minimum,
+                        y_maximum=action.maximum,
+                    )
             elif isinstance(action, SetChartParameter):
                 if action.target != document.plot_id:
                     raise ValueError("matrix parameter target does not belong to this plot")
-                if self.definition.profile_id == "K21":
-                    if (
-                        action.parameter != "triangle"
-                        or action.value not in {"full", "lower", "upper"}
-                    ):
-                        raise ValueError("K21 exposes triangle=full|lower|upper")
-                    state = replace(
-                        state,
-                        triangle=cast(Literal["full", "lower", "upper"], action.value),
-                    )
-                else:
-                    if (
-                        action.parameter != "levels"
-                        or isinstance(action.value, bool)
-                        or not isinstance(action.value, int)
-                        or not 2 <= action.value <= 64
-                    ):
-                        raise ValueError("K22 levels must be an integer from 2 to 64")
-                    state = replace(state, levels=action.value)
+                if (
+                    action.parameter != "levels"
+                    or isinstance(action.value, bool)
+                    or not isinstance(action.value, int)
+                    or not 2 <= action.value <= 64
+                ):
+                    raise ValueError("K22 levels must be an integer from 2 to 64")
+                state = replace(state, levels=action.value)
             else:
                 raise ValueError(
                     f"Origin {self.definition.profile_id} binder cannot apply {action.operation}"
                 )
         return state
-
-
-class K21OriginProject(AdvancedMatrixOriginProject):
-    def __init__(self, op: Any) -> None:
-        super().__init__(op, _K21)
 
 
 class K22OriginProject(AdvancedMatrixOriginProject):
@@ -463,12 +354,6 @@ def _execute(
     project.save(output)
     project.open(output)
     return project.verify(request.document, request.actions, request.data)
-
-
-def execute_k21_request(
-    op: Any, request: OriginWorkerRequest, install_dir: Path, output: Path
-) -> EngineReadback:
-    return _execute(K21OriginProject(op), request, install_dir, output)
 
 
 def execute_k22_request(
