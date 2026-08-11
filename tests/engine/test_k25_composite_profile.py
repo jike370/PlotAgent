@@ -32,7 +32,6 @@ from plotagent.engine.backends.matplotlib import (
 )
 from plotagent.engine.backends.origin import K25_ORIGIN_PROFILE, OriginBackend
 from plotagent.engine.backends.origin.k25 import (
-    _GRAPH_NAME,
     _append_project_command,
     _merge_command,
     execute_k25_request,
@@ -301,10 +300,9 @@ class _Origin:
         if command.startswith("doc -a"):
             self.graphs.append(_Graph(f"Imported{len(self.graphs) + 1}"))
         elif command.startswith("merge_graph"):
-            output = next(graph for graph in self.graphs if graph.name == _GRAPH_NAME)
             sources = [graph for graph in self.graphs if graph.name.startswith("K25C")]
             count = sum(len(tuple(item)) for item in sources)
-            output.layers = [_Layer() for _index in range(count)]
+            self.graphs.append(_Graph("Graph1", count))
 
     def new_graph(self, name: str, *, template: str, hidden: bool):
         graph = _Graph(name)
@@ -372,7 +370,7 @@ def test_k25_origin_uses_only_native_append_template_and_merge_commands(
     merge = next(command for command in op.commands if command.startswith("merge_graph"))
     assert 'graphs:="K25C1"+char(10)$+"K25C2"' in merge
     assert "row:=1 col:=2" in merge
-    assert "ogp:=[K25Merged]" in merge
+    assert "ogp:=" not in merge
     assert _append_project_command(first_opju).startswith('doc -a "')
     assert "keep:=1" in _merge_command(("K25C1", "K25C2"), rows=1, columns=2)
 

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from .advanced_matrix import execute_k21_request, execute_k22_request
 from .calculated_distribution import execute_k15_request, execute_k16_request
@@ -37,6 +39,33 @@ from .x13 import execute_x13_request
 from .x23 import execute_x23_request
 from .x24 import execute_x24_request
 from .x38 import execute_x38_request
+
+
+def _install_template_workbook_guard(op: Any) -> Callable[[], None]:
+    """Discard workbooks created as side effects of loading a graph template.
+
+    Official graph templates may carry an empty ``Book1``.  Data-backed
+    binders create their authoritative workbook before ``new_graph``; any new
+    workbook introduced by that call is therefore template residue, not plot
+    data.  Keeping it would make a fresh OPJU contain unrelated editable data.
+    """
+
+    original = op.new_graph
+
+    def new_graph(*args: object, **kwargs: object) -> Any:
+        existing = {book.name for book in op.pages("w")}
+        graph = original(*args, **kwargs)
+        for book in tuple(op.pages("w")):
+            if book.name == "Book1" or book.name not in existing:
+                book.destroy()
+        return graph
+
+    op.new_graph = new_graph
+
+    def restore() -> None:
+        op.new_graph = original
+
+    return restore
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -93,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     import originpro as op  # type: ignore[import-untyped]
 
     op.set_show(False)
+    restore_new_graph = _install_template_workbook_guard(op)
     try:
         readback = binder(
             op,
@@ -105,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
             encoding="utf-8",
         )
     finally:
+        restore_new_graph()
         op.exit()
     return 0
 

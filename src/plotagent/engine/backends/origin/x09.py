@@ -155,8 +155,14 @@ class X09OriginProject:
                 for value in (action.line_style, action.symbol, action.symbol_size_pt)
             ):
                 raise ValueError("Origin X09 exposes interval color and edge width only")
-            for plot in self.segments[target]:
-                if action.color is not None:
+            for index, plot in enumerate(self.segments[target]):
+                # A native floating column is represented by a grouped pair:
+                # the first boundary plot owns the visible fill colour while
+                # the second remains the native edge/boundary source.  Origin
+                # restores the latter from its group list after reopen, so
+                # claiming that both plots retain an arbitrary colour would be
+                # a false public capability.
+                if action.color is not None and index == 0:
                     plot.color = action.color
                 if action.line_width_pt is not None:
                     plot.set_float("line.width", action.line_width_pt)
@@ -231,7 +237,7 @@ class X09OriginProject:
                     expected_color = tuple(
                         int(action.color[index : index + 2], 16) for index in (1, 3, 5)
                     )
-                    if any(tuple(plot.color) != expected_color for plot in self.segments[ordinal]):
+                    if tuple(self.segments[ordinal][0].color) != expected_color:
                         raise RuntimeError("Origin X09 segment color did not survive readback")
             elif isinstance(action, SetLegend) and action.visible is not None:
                 legend = self.layer.label("legend")

@@ -452,6 +452,8 @@ def test_x09_origin_uses_two_native_xyy_segments(
     assert origin.graph is not None
     assert [call[1] for call in origin.graph[0].native_calls] == [207, 207]
     assert origin.graph[0].group_calls == [(True, 0, 1), (True, 2, 3)]
+    assert origin.graph[0].plots[0].color == (34, 85, 170)
+    assert origin.graph[0].plots[2].color == (204, 102, 0)
     assert (
         len([item for item in readback.objects if item.object_kind == "native_floating_interval"])
         == 2

@@ -25,6 +25,7 @@ from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.repository import document_ref
 
 from .profile import OriginTemplateProfile, resolve_official_template
+from .readback import axis_scale_matches
 
 _LINE_STYLE_CODES = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3, "none": 10}
 _SYMBOL_CODES = {
@@ -270,7 +271,7 @@ class OriginXYProject:
             elif isinstance(action, SetAxis):
                 axis_name = "x" if action.target == f"axis:{token}.x" else "y"
                 axis = self.layer.axis(axis_name)
-                if action.scale is not None and axis.scale != action.scale:
+                if action.scale is not None and not axis_scale_matches(axis.scale, action.scale):
                     raise RuntimeError(
                         f"Origin {self.profile_id} axis scale did not survive readback"
                     )

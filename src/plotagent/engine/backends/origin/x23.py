@@ -24,6 +24,7 @@ from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
 from .profile import X23_ORIGIN_PROFILE, resolve_official_template
+from .readback import axis_scale_matches
 
 _LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
 _TITLE_NAME = "_ENGINE_TITLE"
@@ -373,7 +374,7 @@ class X23OriginProject:
             (self._layers()[1], "yr", state.right_axis),
         ):
             axis = layer.axis("y")
-            if axis.scale != axis_state.scale:
+            if not axis_scale_matches(axis.scale, axis_state.scale):
                 raise RuntimeError("Origin X23 y-axis scale did not survive readback")
             label = layer.label(label_name) or (layer.label("yl") if label_name == "yr" else None)
             if label is None or label.text != axis_state.label:

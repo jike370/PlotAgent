@@ -976,8 +976,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt"
+            "color"
           ]
         },
         {
@@ -1060,8 +1059,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt"
+            "color"
           ]
         },
         {

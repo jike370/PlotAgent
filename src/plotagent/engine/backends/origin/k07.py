@@ -24,6 +24,7 @@ from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
 from .profile import K07_ORIGIN_PROFILE, resolve_official_template
+from .readback import axis_scale_matches
 
 _LINE_STYLE_CODES = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3, "none": 10}
 _TITLE_NAME = "_ENGINE_TITLE"
@@ -212,7 +213,7 @@ class K07OriginProject:
             elif isinstance(action, SetAxis):
                 axis_name = "x" if action.target == f"axis:{token}.x" else "y"
                 axis = self.layer.axis(axis_name)
-                if action.scale is not None and axis.scale != action.scale:
+                if action.scale is not None and not axis_scale_matches(axis.scale, action.scale):
                     raise RuntimeError("Origin K07 axis scale did not survive readback")
                 if action.label is not None:
                     label = self.layer.label("xb" if axis_name == "x" else "yl")

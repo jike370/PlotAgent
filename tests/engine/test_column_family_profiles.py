@@ -439,8 +439,6 @@ def _distribution_case(
     style_arguments: dict[str, object] = {"color": "#AA3300"}
     if profile_id == "K12":
         style_arguments.update(symbol="diamond", symbol_size_pt=7.0)
-    else:
-        style_arguments.update(line_width_pt=1.4)
     style = SetSeriesStyle(
         action_id=f"action:style-{profile_id.lower()}",
         target=f"series:{profile_id.lower()}-distribution.group_{group_count}",

@@ -23,6 +23,7 @@ from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
 from .profile import K03_ORIGIN_PROFILE, resolve_official_template
+from .readback import axis_scale_matches
 
 _SYMBOL_CODES = {"square": 1, "circle": 2, "triangle": 3, "triangle_up": 3, "diamond": 5}
 _TITLE_NAME = "_ENGINE_TITLE"
@@ -160,6 +161,13 @@ class K03OriginProject:
             return
         if isinstance(action, SetSeriesStyle):
             ordinal = self._series_ordinal(action.target, token, len(self.plots))
+            # Origin's grouped-plot increment list owns the member styles.  A
+            # direct assignment to one grouped member appears to succeed in
+            # memory but is recomputed from that list when the project opens
+            # again.  Once a user edits an individual logical group, preserve
+            # the current native styles and release that automatic linkage.
+            if len(self.plots) > 1:
+                self.layer.group(False, 0, len(self.plots) - 1)
             plot = self.plots[ordinal - 1]
             if action.color is not None:
                 plot.color = action.color
@@ -221,7 +229,7 @@ class K03OriginProject:
             elif isinstance(action, SetAxis):
                 axis_name = "x" if action.target == f"axis:{token}.x" else "y"
                 axis = self.layer.axis(axis_name)
-                if action.scale is not None and axis.scale != action.scale:
+                if action.scale is not None and not axis_scale_matches(axis.scale, action.scale):
                     raise RuntimeError("Origin K03 axis scale did not survive readback")
                 if action.label is not None:
                     label = self.layer.label("xb" if axis_name == "x" else "yl")
@@ -231,7 +239,10 @@ class K03OriginProject:
                 ordinal = self._series_ordinal(action.target, token, len(self.plots))
                 plot = self.plots[ordinal - 1]
                 if action.color is not None and tuple(plot.color) != self._hex_rgb(action.color):
-                    raise RuntimeError("Origin K03 series color did not survive readback")
+                    raise RuntimeError(
+                        "Origin K03 series color did not survive readback: "
+                        f"expected {self._hex_rgb(action.color)!r}, observed {tuple(plot.color)!r}"
+                    )
                 if action.symbol_size_pt is not None and (
                     abs(float(plot.symbol_size) - action.symbol_size_pt) > 0.01
                 ):

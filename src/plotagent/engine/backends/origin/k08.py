@@ -23,6 +23,7 @@ from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
 from .profile import K08_ORIGIN_PROFILE, resolve_official_template
+from .readback import axis_scale_matches
 
 _TITLE_NAME = "_ENGINE_TITLE"
 
@@ -199,7 +200,11 @@ class K08OriginProject:
             elif isinstance(action, SetAxis):
                 axis_name = "x" if action.target == f"axis:{token}.x" else "y"
                 axis = self.layer.axis(axis_name)
-                if axis_name == "y" and action.scale is not None and axis.scale != action.scale:
+                if (
+                    axis_name == "y"
+                    and action.scale is not None
+                    and not axis_scale_matches(axis.scale, action.scale)
+                ):
                     raise RuntimeError("Origin K08 axis scale did not survive readback")
                 if action.label is not None:
                     label = self.layer.label("xb" if axis_name == "x" else "yl")

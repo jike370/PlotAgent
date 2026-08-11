@@ -54,8 +54,7 @@ def _merge_command(graph_names: tuple[str, ...], *, rows: int, columns: int) -> 
     return (
         "merge_graph option:=specified "
         f"graphs:={graphs} keep:=1 arrange:=1 row:={rows} col:={columns} "
-        "newlayer:=1 groupgraph:=1 smartarrange:=0 "
-        f"ogp:=[{_GRAPH_NAME}];"
+        "newlayer:=1 groupgraph:=1 smartarrange:=0;"
     )
 
 
@@ -79,7 +78,11 @@ class K25OriginProject:
             raise ValueError("K25 component OPJU count differs from its PlotDocument")
         if not 2 <= len(component_opjus) <= 4:
             raise ValueError("K25 requires two to four component OPJUs")
-        template = resolve_official_template(install_dir, K25_ORIGIN_PROFILE)
+        # Validate the official multi-panel family asset up front.  K25 then
+        # uses Origin's native merge_graph X-Function because merge_graph only
+        # supports a newly-created output page; targeting a graph pre-created
+        # from the template is rejected by Origin and leaves an empty layer.
+        resolve_official_template(install_dir, K25_ORIGIN_PROFILE)
         self.op.new(asksave=False)
         source_graphs: list[Any] = []
         layer_counts: list[int] = []
@@ -99,15 +102,9 @@ class K25OriginProject:
             source_graphs.append(graph)
             layer_counts.append(count)
 
-        merged = self.op.new_graph(
-            _GRAPH_NAME,
-            template=str(template.with_suffix(template.suffix.lower())),
-            hidden=True,
-        )
-        if merged is None:
-            raise RuntimeError("Origin could not create K25 from mgroups.otpu")
         columns = state.columns or ceil(sqrt(len(source_graphs)))
         rows = ceil(len(source_graphs) / columns)
+        before_merge = {item.name for item in self.op.pages("g")}
         self.op.lt_exec(
             _merge_command(
                 tuple(item.name for item in source_graphs),
@@ -115,10 +112,11 @@ class K25OriginProject:
                 columns=columns,
             )
         )
-        graphs = tuple(self.op.pages("g"))
-        self.graph = next((item for item in graphs if item.name == _GRAPH_NAME), None)
-        if self.graph is None:
-            raise RuntimeError("Origin merge_graph did not produce the requested K25 page")
+        merged = tuple(item for item in self.op.pages("g") if item.name not in before_merge)
+        if len(merged) != 1:
+            raise RuntimeError("Origin merge_graph did not produce exactly one K25 page")
+        self.graph = merged[0]
+        self.graph.name = _GRAPH_NAME
         self.source_graphs = tuple(source_graphs)
         self.component_layer_counts = tuple(layer_counts)
         self._decorate(document, state)

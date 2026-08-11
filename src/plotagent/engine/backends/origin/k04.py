@@ -25,6 +25,7 @@ from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
 from .profile import K04_ORIGIN_PROFILE, resolve_official_template
+from .readback import axis_scale_matches
 
 _BUBBLE_SCALE_NAME = "BUBBLELEGEND1"
 _COLOR_SCALE_NAME = "SPECTRUM1"
@@ -262,8 +263,11 @@ class K04OriginProject:
             elif isinstance(action, SetAxis):
                 axis_name = "x" if action.target == f"axis:{token}.x" else "y"
                 axis = self.layer.axis(axis_name)
-                if action.scale is not None and axis.scale != action.scale:
-                    raise RuntimeError("Origin K04 axis scale did not survive readback")
+                if action.scale is not None and not axis_scale_matches(axis.scale, action.scale):
+                    raise RuntimeError(
+                        "Origin K04 axis scale did not survive readback: "
+                        f"expected {action.scale!r}, observed {axis.scale!r}"
+                    )
                 if action.label is not None:
                     label = self.layer.label("xb" if axis_name == "x" else "yl")
                     if label is None or label.text != action.label:

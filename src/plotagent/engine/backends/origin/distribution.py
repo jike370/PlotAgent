@@ -184,9 +184,11 @@ class DistributionOriginProject:
             ordinal = self._series_ordinal(action.target, token, len(self.plots))
             plot = self.plots[ordinal - 1]
             if action.color is not None:
-                plot.color = action.color
+                self._set_series_rgb(distribution, ordinal, action.color)
             if action.line_width_pt is not None:
-                plot.set_float("line.width", action.line_width_pt)
+                raise ValueError(
+                    f"Origin {self.profile_id} does not expose a common series line-width edit"
+                )
             if action.symbol is not None:
                 if self.profile_id not in {"K12", "X05"}:
                     raise ValueError(f"Origin {self.profile_id} does not expose symbol edits")
@@ -251,17 +253,8 @@ class DistributionOriginProject:
                     raise RuntimeError(f"Origin {self.profile_id} title did not survive readback")
             elif isinstance(action, SetSeriesStyle):
                 ordinal = self._series_ordinal(action.target, token, len(self.plots))
-                plot = self.plots[ordinal - 1]
-                if action.color is not None and tuple(plot.color) != self._hex_rgb(action.color):
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} series color did not survive readback"
-                    )
-                if action.line_width_pt is not None and (
-                    abs(float(plot.get_float("line.width")) - action.line_width_pt) > 0.01
-                ):
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} line width did not survive readback"
-                    )
+                if action.color is not None:
+                    self._assert_series_rgb(distribution, ordinal, action.color)
             elif isinstance(action, SetLegend) and action.visible is not None:
                 legend = self.layer.label("legend")
                 if legend is None or bool(legend.get_int("show")) != action.visible:
@@ -317,6 +310,45 @@ class DistributionOriginProject:
     def _write_data(self, distribution: DistributionData) -> None:
         for index, group in enumerate(distribution.groups):
             self.sheet.from_list(index, list(group.values), lname=group.label, axis="Y")
+
+    def _set_series_rgb(
+        self,
+        distribution: DistributionData,
+        ordinal: int,
+        color: str,
+    ) -> None:
+        rgb = self._hex_rgb(color)
+        group_count = len(distribution.groups)
+        base_column = group_count + (ordinal - 1) * 3
+        row_count = len(distribution.groups[ordinal - 1].values)
+        for offset, (channel, value) in enumerate(zip("RGB", rgb, strict=True)):
+            self.sheet.from_list(
+                base_column + offset,
+                [value] * row_count,
+                lname=f"Style {ordinal} {channel}",
+            )
+        plot = self.plots[ordinal - 1]
+        if hasattr(self.op, "color_col"):
+            plot.color = self.op.color_col(base_column - (ordinal - 1), "r")
+        else:
+            plot.color = color
+
+    def _assert_series_rgb(
+        self,
+        distribution: DistributionData,
+        ordinal: int,
+        color: str,
+    ) -> None:
+        expected = self._hex_rgb(color)
+        group_count = len(distribution.groups)
+        base_column = group_count + (ordinal - 1) * 3
+        row_count = len(distribution.groups[ordinal - 1].values)
+        for offset, value in enumerate(expected):
+            observed = self.sheet.to_list(base_column + offset)
+            if len(observed) != row_count or any(int(item) != value for item in observed):
+                raise RuntimeError(
+                    f"Origin {self.profile_id} series RGB modifier did not survive readback"
+                )
 
     def _series_ordinal(self, target: str, token: str, group_count: int) -> int:
         prefix = f"series:{token}.group_"

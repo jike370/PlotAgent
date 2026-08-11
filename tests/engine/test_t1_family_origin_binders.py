@@ -406,7 +406,7 @@ def test_k03_binds_one_native_scatter_plot_per_data_group(
         {"coly": 1, "colx": 0, "type": "s"},
         {"coly": 3, "colx": 2, "type": "s"},
     ]
-    assert origin.graph.layer.group_calls == [(True, 0, 1)]
+    assert origin.graph.layer.group_calls == [(True, 0, 1), (False, 0, 1)]
     assert origin.graph.layer.labels["legend"].text == ("\\l(1) Control\n\\l(2) Treatment")
     assert origin.graph.layer.plots[1].symbol_kind == 5
     assert {

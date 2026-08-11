@@ -26,6 +26,7 @@ from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
 from .profile import K19_ORIGIN_PROFILE, resolve_official_template
+from .readback import datetime_values_match
 
 _TITLE_NAME = "_ENGINE_TITLE"
 _LINE_STYLE_CODES = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3, "none": 10}
@@ -180,7 +181,7 @@ class K19OriginProject:
         expected = k19_time_series(document, data)
         frame = self.sheet.to_df()
         observed_times = tuple(pd.to_datetime(frame.iloc[:, 0]).dt.to_pydatetime())
-        if observed_times != expected.time_values:
+        if not datetime_values_match(observed_times, expected.time_values):
             raise RuntimeError("Origin K19 datetime values differ after reopen")
         observed_values = frame.iloc[:, 1].to_numpy(dtype=float)
         if not np.allclose(observed_values, expected.values, rtol=0, atol=1e-12, equal_nan=True):
