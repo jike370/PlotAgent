@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -18,7 +18,11 @@ from plotagent.engine import (
     EngineField,
     FieldBinding,
     PlotDocument,
+    SetAxis,
     SetChartParameter,
+    SetLegend,
+    SetSeriesStyle,
+    SetTitle,
 )
 from plotagent.engine.backends.matplotlib import (
     K19TimeSeriesRenderer,
@@ -89,7 +93,8 @@ def _view(
 def _k19_case() -> tuple[PlotDocument, tuple[CreatePlot, ...], EngineDataView]:
     bindings = (
         FieldBinding(role="time", field_id="field:time"),
-        FieldBinding(role="value", field_id="field:value"),
+        FieldBinding(role="series_1", field_id="field:value-a"),
+        FieldBinding(role="series_2", field_id="field:value-b"),
     )
     data_ref = EngineDataRef(
         kind="source", dataset_id="dataset.k19", version=1, content_hash=HASH
@@ -112,7 +117,8 @@ def _k19_case() -> tuple[PlotDocument, tuple[CreatePlot, ...], EngineDataView]:
                 "datetime",
                 tuple(start + timedelta(hours=i) for i in range(5)),
             ),
-            ("field:value", "Signal", "numeric", (1.0, 1.4, 1.1, 2.0, 1.8)),
+            ("field:value-a", "Signal A", "numeric", (1.0, 1.4, 1.1, 2.0, 1.8)),
+            ("field:value-b", "Signal B", "numeric", (0.7, 0.9, 1.2, 1.0, 1.5)),
         ),
     )
     return document, (create,), view
@@ -183,7 +189,12 @@ def _k22_case() -> tuple[PlotDocument, tuple[CreatePlot, ...], EngineDataView]:
 
 def test_profile_data_validates_datetime_correlation_and_complete_grid() -> None:
     k19_document, _k19_actions, k19_view = _k19_case()
-    assert k19_time_series(k19_document, k19_view).time_values[0] == datetime(2026, 1, 1, 8)
+    time_series = k19_time_series(k19_document, k19_view)
+    assert time_series.time_values[0] == datetime(2026, 1, 1, 8)
+    assert tuple(item.value_field_name for item in time_series.series) == (
+        "Signal A",
+        "Signal B",
+    )
 
     k21_document, _k21_actions, k21_view = _k21_case()
     correlation = k21_correlation_grid(k21_document, k21_view)
@@ -197,7 +208,7 @@ def test_profile_data_validates_datetime_correlation_and_complete_grid() -> None
     assert contour.z_values == ((1.0, 2.0), (3.0, 4.0))
 
 
-def test_k19_rejects_non_increasing_time_and_k22_never_interpolates() -> None:
+def test_k19_preserves_input_order_rejects_timezone_and_k22_never_interpolates() -> None:
     document, _actions, view = _k19_case()
     repeated = view.model_copy(
         update={
@@ -205,12 +216,47 @@ def test_k19_rejects_non_increasing_time_and_k22_never_interpolates() -> None:
                 view.columns[0].model_copy(
                     update={"values": (datetime(2026, 1, 1),) * len(view.row_ids)}
                 ),
-                view.columns[1],
+                *view.columns[1:],
             )
         }
     )
-    with pytest.raises(ValueError, match="strictly increasing"):
-        k19_time_series(document, repeated)
+    assert len(set(k19_time_series(document, repeated).time_values)) == 1
+
+    timezone_aware = view.model_copy(
+        update={
+            "columns": (
+                view.columns[0].model_copy(
+                    update={
+                        "values": tuple(
+                            datetime(2026, 1, 1, hour, tzinfo=UTC)
+                            for hour in range(5)
+                        )
+                    }
+                ),
+                *view.columns[1:],
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="timezone offset"):
+        k19_time_series(document, timezone_aware)
+
+    sub_millisecond = view.model_copy(
+        update={
+            "columns": (
+                view.columns[0].model_copy(
+                    update={
+                        "values": tuple(
+                            datetime(2026, 1, 1, hour, microsecond=1)
+                            for hour in range(5)
+                        )
+                    }
+                ),
+                *view.columns[1:],
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="millisecond precision"):
+        k19_time_series(document, sub_millisecond)
 
     k22_document, _actions, k22_view = _k22_case()
     incomplete = k22_view.model_copy(
@@ -248,6 +294,103 @@ def test_independent_matplotlib_profiles_render(renderer, case, tmp_path: Path) 
     assert (tmp_path / f"{renderer.profile_id}.svg").stat().st_size > 1_000
 
 
+def test_k19_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Path) -> None:
+    document, (create,), view = _k19_case()
+    actions = (
+        create,
+        SetSeriesStyle(
+            action_id="action:k19-style",
+            expected_plot_version=1,
+            target="series:k19-demo.line_2",
+            color="#AA3300",
+            line_width_pt=2.5,
+            line_style="dash",
+        ),
+        SetAxis(
+            action_id="action:k19-axis",
+            expected_plot_version=2,
+            target="axis:k19-demo.y",
+            scale="linear",
+            minimum=0.5,
+            maximum=2.5,
+            reverse=False,
+            label="Edited signal",
+        ),
+        SetLegend(
+            action_id="action:k19-legend",
+            expected_plot_version=3,
+            target="legend:k19-demo.main",
+            visible=True,
+            anchor="inside",
+        ),
+        SetTitle(
+            action_id="action:k19-title",
+            expected_plot_version=4,
+            target="plot:k19-demo",
+            text="K19 edited",
+        ),
+    )
+    edited = document.model_copy(
+        update={
+            "plot_version": 5,
+            "parent_version": 4,
+            "applied_action_ids": tuple(action.action_id for action in actions),
+        }
+    )
+    renderer = K19TimeSeriesRenderer()
+    state = renderer._state(
+        edited,
+        actions,
+        "Recorded at",
+        ("Signal A", "Signal B"),
+    )
+    assert state.lines[0].color == "#1676D2"
+    assert state.lines[1].color == "#AA3300"
+    assert state.lines[1].line_width_pt == 2.5
+    assert state.lines[1].line_style == "dash"
+    assert (state.y_minimum, state.y_maximum, state.y_label) == (
+        0.5,
+        2.5,
+        "Edited signal",
+    )
+    assert state.legend_visible and state.title == "K19 edited"
+    readback = renderer.render(
+        edited,
+        actions,
+        view,
+        tmp_path / "k19-edited.png",
+        tmp_path / "k19-edited.svg",
+    )
+    assert [
+        item.semantic_id for item in readback.objects if item.object_kind == "datetime_line"
+    ] == ["series:k19-demo.line_1", "series:k19-demo.line_2"]
+
+
+def test_k19_origin_axis_display_follows_calendar_span() -> None:
+    document, _actions, view = _k19_case()
+    same_day = k19_time_series(document, view)
+    assert K19OriginProject._axis_tick_display(same_day) == (3, 1, "Time / HH:mm")
+
+    across_days = view.model_copy(
+        update={
+            "columns": (
+                view.columns[0].model_copy(
+                    update={
+                        "values": tuple(
+                            datetime(2026, 1, 1) + timedelta(days=index)
+                            for index in range(5)
+                        )
+                    }
+                ),
+                *view.columns[1:],
+            )
+        }
+    )
+    assert K19OriginProject._axis_tick_display(
+        k19_time_series(document, across_days)
+    ) == (4, 1, "Date / Windows Short Date")
+
+
 class FakeLabel:
     def __init__(self, text: str = "") -> None:
         self.text = text
@@ -260,10 +403,17 @@ class FakeLabel:
     def get_int(self, name: str) -> int:
         return self.values.get(name, 0)
 
+    def set_float(self, name: str, value: float) -> None:
+        self.values[name] = value
+
+    def get_float(self, name: str) -> float:
+        return float(self.values.get(name, 0.0))
+
 
 class FakeAxis:
     def __init__(self) -> None:
         self.limits = (0.0, 1.0, 1.0)
+        self.scale = "linear"
 
     def set_limits(self, begin=None, end=None, step=None) -> None:
         self.limits = (
@@ -305,6 +455,7 @@ class FakePlot:
 
 class FakeLayer:
     def __init__(self) -> None:
+        self.obj = self
         self.labels = {"xb": FakeLabel("X"), "yl": FakeLabel("Y")}
         self.axes = {"x": FakeAxis(), "y": FakeAxis()}
         self.plots: list[FakePlot] = []
@@ -345,6 +496,16 @@ class FakeLayer:
     def axis(self, name: str):
         return self.axes[name]
 
+    def activate(self) -> None:
+        return None
+
+    def LT_execute(self, command: str) -> bool:
+        if "label -j" in command:
+            label = FakeLabel("PlotAgentTitlePlaceholder")
+            label.name = "_ENGINE_TITLE"
+            self.labels["title"] = label
+        return True
+
     def set_int(self, name: str, value: int) -> None:
         return None
 
@@ -355,11 +516,24 @@ class FakeLayer:
 class FakeGraph:
     def __init__(self) -> None:
         self.name = "Gdemo"
+        self.lname = ""
         self.layer = FakeLayer()
 
     def __getitem__(self, index: int):
         assert index == 0
         return self.layer
+
+    def activate(self) -> None:
+        return None
+
+
+class FakeColumn:
+    def __init__(self, sheet: FakeSheet, index: int) -> None:
+        self.sheet = sheet
+        self.index = index
+
+    def GetDataFormat(self) -> int:
+        return self.sheet.data_formats[self.index]
 
 
 class FakeSheet:
@@ -368,15 +542,38 @@ class FakeSheet:
         self.values = np.empty((0, 0))
         self.xymap = (0.0, 0.0, 0.0, 0.0)
         self.designation = ""
+        self.data_formats = [0, 0]
+        self.obj = self
 
     def from_df(self, frame: pd.DataFrame) -> None:
         self.frame = frame.copy()
+        self.data_formats = [0] * len(frame.columns)
 
     def to_df(self) -> pd.DataFrame:
         return self.frame.copy()
 
     def cols_axis(self, value: str) -> None:
         self.designation = value
+
+    @property
+    def cols(self) -> int:
+        return len(self.frame.columns)
+
+    def activate(self) -> None:
+        return None
+
+    def as_date(self, index: int, display: str) -> None:
+        assert index == 0
+        assert display == "yyyy-MM-dd HH:mm:ss"
+        self.data_formats[index] = 3
+
+    def get_int(self, name: str) -> int:
+        assert name.startswith("col") and name.endswith(".type")
+        index = int(name.removeprefix("col").removesuffix(".type")) - 1
+        return {"x": 4, "y": 1}[self.designation[index]]
+
+    def __getitem__(self, index: int) -> FakeColumn:
+        return FakeColumn(self, index)
 
     def from_np(self, values) -> None:
         self.values = np.asarray(values, dtype=float)
@@ -387,11 +584,15 @@ class FakeSheet:
 
 class FakeBook:
     def __init__(self) -> None:
+        self.name = "Book1"
         self.sheet = FakeSheet()
 
     def __getitem__(self, index: int):
         assert index == 0
         return self.sheet
+
+    def destroy(self) -> None:
+        return None
 
 
 class FakeOrigin:
@@ -400,6 +601,9 @@ class FakeOrigin:
         self.graph = FakeGraph()
         self.book_kind = ""
         self.template = ""
+        self.lt_values: dict[str, float] = {}
+        self.lt_strings: dict[str, str] = {}
+        self.commands: list[str] = []
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -412,6 +616,61 @@ class FakeOrigin:
         self.graph.name = name
         self.template = template
         return self.graph
+
+    def lt_exec(self, command: str) -> bool:
+        self.commands.append(command)
+        if "worksheet -p 200 Line" in command:
+            self.graph.layer.plots = [
+                FakePlot() for _index in range(self.book.sheet.cols - 1)
+            ]
+        if "__k19_count" in command:
+            self.lt_values["__k19_count"] = len(self.graph.layer.plots)
+        if "range __k19_plot=" in command:
+            plot_index = int(command.split("]1!", 1)[1].split(";", 1)[0])
+            column = chr(65 + plot_index)
+            self.lt_values["__k19_pid"] = 200
+            self.lt_strings.update(
+                {
+                    "__k19_xs": '[Book1]Sheet1!A"Recorded at"',
+                    "__k19_ys": f'[Book1]Sheet1!{column}"Signal {plot_index}"',
+                }
+            )
+        if "__k19_axis_label_type" in command:
+            configured = next(
+                (
+                    prior
+                    for prior in reversed(self.commands)
+                    if "layer.x.label.type=" in prior
+                ),
+                "layer.x.label.type=4; layer.x.label.timeFormat=1;",
+            )
+            self.lt_values["__k19_axis_label_type"] = (
+                3 if "layer.x.label.type=3" in configured else 4
+            )
+            self.lt_values["__k19_axis_time_format"] = 1
+        if "legendupdate" in command:
+            label = FakeLabel(
+                "\n".join(
+                    f"\\l({index}) Signal {index}"
+                    for index in range(1, len(self.graph.layer.plots) + 1)
+                )
+            )
+            label.name = "legend"
+            self.graph.layer.labels["legend"] = label
+        return True
+
+    def lt_float(self, name: str) -> float:
+        return self.lt_values[name]
+
+    def get_lt_str(self, name: str) -> str:
+        return self.lt_strings[name]
+
+    def pages(self, kind: str):
+        if kind == "g":
+            return (self.graph,)
+        if kind == "w":
+            return (self.book,)
+        return ()
 
 
 def test_origin_profiles_bind_official_templates_and_native_objects(
@@ -426,9 +685,12 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
     )
     k19_op = FakeOrigin()
     K19OriginProject(k19_op).create(tmp_path, k19_document, k19_view)
-    assert Path(k19_op.template).name == "LINE.otpu"
-    assert k19_op.book.sheet.designation == "xy"
+    assert K19_ORIGIN_PROFILE.filename == "LINE.otpu"
+    assert k19_op.book.sheet.designation == "xyy"
     assert pd.api.types.is_datetime64_any_dtype(k19_op.book.sheet.frame.iloc[:, 0])
+    assert any("worksheet -p 200 Line" in command for command in k19_op.commands)
+    assert len(k19_op.graph.layer.plots) == 2
+    assert k19_op.book.sheet.data_formats[0] == 3
 
     k21_document, k21_actions, k21_view = _k21_case()
     monkeypatch.setattr(

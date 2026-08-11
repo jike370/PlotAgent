@@ -233,7 +233,7 @@ Origin 官方资料称提供 100+ 图形类型；当前帮助的不同页面也�
 | K10 堆积柱形图 | `O-SYS`：[Stacked Column](https://docs.originlab.com/origin-help/stack-column-graph/)，`COLUMN.OTP` | 后一成分从前一成分终点开始，整栈以 X 居中 | 成分顺序和颜色跨类别保持一致，必须有成分图例；总量由栈顶表达。正负混合数据需分别从零累计或拒绝含糊方案，不能把分组柱误作堆积柱。 |
 | K11 百分比堆积柱形图 | `O-SYS`：[100% Stacked Column](https://docs.originlab.com/origin-help/100-stack-column-graph/)，`COLUMN.OTP` | 每栈归一为百分比，可显示百分比标签 | 每个非空类别严格合计 100%，值轴固定 0–100% 并标明百分比，保留成分图例；零总和类别给明确错误/缺失，不制造比例。标签仅在不拥挤时显示。 |
 | K18 面积图 | `O-SYS`：[Area Graph](https://docs.originlab.com/origin-help/area-graph/)，`AREA.OTP` | 数据曲线与指定 `From Y` 基线之间填充 | 基线必须明确，默认线性轴填到 0；边界线保持可见；多面积重叠时使用透明度或显式堆积，不能靠遮盖隐藏后画系列。 |
-| K19 时间序列 | `O-SYS`：`LINE.OTP`；时间列作为关联 X，基础结构见 [Line Graph](https://docs.originlab.com/origin-help/line-graph/) | 按时间轴绘制一个或多个连续序列 | 时间按解析后的时间值排序和缩放，刻度用人类可读日期/时间；缺失区间默认断开，不跨缺失插值；多系列用固定颜色/线型并显示图例，`event` 只在输入提供时标注。独立的 Time Series Explorer 是 2024b 扩展模板，不作为 2024 SR1 证据或依赖。 |
+| K19 日期时间折线 | `O-SYS`：`LINE.OTP`；时间列作为关联 X，基础结构见 [Line Graph](https://docs.originlab.com/origin-help/line-graph/) | 按日期时间轴绘制一个或多个连续序列 | 保留输入行序与数值型 Date/Time X；同日显示时间、跨日显示日期；缺失值不插值；1–N 系列由官方 Line 菜单一次创建。独立的 Time Series Explorer 不是本图依赖。 |
 
 #### 4.6.2 分布图
 
@@ -564,7 +564,7 @@ P0 的目标不是声称“已获期刊认证”，而是提供**来源可追溯
 | K16 | 核密度图 / KDE density | 分布 | `Y + group` | kernel、带宽、边界、归一化 | 统计、生医、社会、数据科学 | △ / 层·面 | ✓/✓/原 | P0 |
 | K17 | 经验累积分布 / ECDF/CCDF | 分布 | `Y + group` | 累积方向、删失/权重、置信带 | 物理、工程、生医、社会 | △ / 层·面 | ✓/✓/原 | P0 |
 | K18 | 面积图 / Area plot | 时间/组成 | `XY/XYY` | 基线、透明度、正负填充、堆积方式 | 环境、经济、信号 | ✓ / 层·面 | ✓/✓/原 | P0 |
-| K19 | 时间序列图 / Time-series plot | 时间 | `time + value + series` | 时区/频率、缺失、聚合、事件线、区间 | 全学科 | ✓ / 层·面 | ✓/✓/原 | P0 |
+| K19 | 日期时间折线图 / Date-time line plot | 时间 | `time + series_1..series_N` | 时区、毫秒精度、缺失；不做排序/聚合/重采样 | 全学科 | ✓ / 层·面 | ✓/✓/原 | P0 |
 | K20 | 热图 / Heatmap | 矩阵 | `matrix/XYZ/long` | 聚合、色域、缺失、标准化、标签 | 全学科 | ✓ / 层·面 | ✓/✓/原 | P0 |
 | K21 | 相关矩阵图 / Correlation matrix | 矩阵/关系 | `wide` 或相关矩阵 | Pearson/Spearman、显著性、多重校正、上/下三角 | 全学科 | △ / 面 | ✓/✓/原 | P0 |
 | K22 | 等高线/填色等值图 / Contour | 二维场 | `XYZ/grid` | gridding、插值、level、边界、色板、实测点 | 地学、物理、材料、工程 | ✓ / 层·面 | ✓/✓/原 | P0 |

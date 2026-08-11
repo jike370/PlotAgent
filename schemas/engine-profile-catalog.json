@@ -1384,6 +1384,8 @@
           "operation": "set_axis",
           "parameters": [
             "label",
+            "scale",
+            "bounds",
             "reverse"
           ]
         },
@@ -1392,9 +1394,7 @@
           "parameters": [
             "color",
             "line_width_pt",
-            "line_style",
-            "symbol",
-            "symbol_size_pt"
+            "line_style"
           ]
         },
         {
@@ -1427,11 +1427,6 @@
           "object_kind": "axis"
         },
         {
-          "object_alias": "series_1",
-          "object_key": "primary",
-          "object_kind": "series"
-        },
-        {
           "object_alias": "legend",
           "object_key": "main",
           "object_kind": "legend"
@@ -1439,11 +1434,19 @@
       ],
       "optional_roles": [],
       "profile_id": "K19",
-      "repeatable_objects": [],
-      "repeatable_role_prefixes": [],
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "line",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [
+        "series"
+      ],
       "required_roles": [
         "time",
-        "value"
+        "series_1"
       ],
       "source_kind": "data"
     },

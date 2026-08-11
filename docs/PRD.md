@@ -420,7 +420,7 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 | K16 KDE 密度图 | G、L、B | 带宽仅 Scott 或显式正数；变更走固定 PlotCalculation，不增加核函数 |
 | K17 ECDF/CCDF | G、L | ECDF/CCDF 模式、阶梯线样式；模式变化走固定 PlotCalculation |
 | K18 面积图 | G、L、B | 面积填充、边界线、透明度 |
-| K19 时间序列 | G、L | 时间轴格式、事件参考标记；不做重采样 |
+| K19 日期时间折线 | G、L | Date/Time X、1–N 连续系列、逐系列线样式；不排序、不重采样 |
 | K20 热图 | G、P | 色板、色带、范围、单元格标签显示 |
 | K21 已提供相关矩阵 | G、P | 色板、对称色域、色带、数值标签；不计算相关 |
 | K22 规则网格等高线 | G、P、L | 显式 levels/登记色阶数、线宽、标签和色带；不插值散点 |

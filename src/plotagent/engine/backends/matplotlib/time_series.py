@@ -36,7 +36,21 @@ _LINE_STYLES: dict[str, Literal["-", "--", ":", "-.", ""]] = {
     "dash_dot": "-.",
     "none": "",
 }
-_MARKERS = {"none": "", "circle": "o", "square": "s", "triangle": "^", "diamond": "D"}
+_PALETTE = (
+    "#1676D2",
+    "#D84A4A",
+    "#299764",
+    "#7656B5",
+    "#D97800",
+    "#008A99",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _K19LineState:
+    color: str
+    line_width_pt: float = 1.5
+    line_style: str = "solid"
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,11 +60,10 @@ class _K19State:
     y_label: str
     x_reverse: bool = False
     y_reverse: bool = False
-    color: str = "#1676D2"
-    line_width_pt: float = 1.5
-    line_style: str = "solid"
-    symbol: str = "none"
-    symbol_size_pt: float = 5.0
+    y_scale: str = "linear"
+    y_minimum: float | None = None
+    y_maximum: float | None = None
+    lines: tuple[_K19LineState, ...] = ()
     legend_visible: bool = False
 
 
@@ -66,19 +79,25 @@ class K19TimeSeriesRenderer:
         svg_path: Path,
     ) -> EngineReadback:
         series = k19_time_series(document, data)
-        state = self._state(document, actions, series.time_field_name, series.value_field_name)
+        state = self._state(
+            document,
+            actions,
+            series.time_field_name,
+            tuple(item.value_field_name for item in series.series),
+        )
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
         date_values = mdates.date2num(series.time_values)  # type: ignore[no-untyped-call]
-        (line,) = axis.plot(
-            date_values,
-            series.values,
-            color=state.color,
-            linewidth=state.line_width_pt,
-            linestyle=_LINE_STYLES[state.line_style],
-            marker=_MARKERS.get(state.symbol, state.symbol),
-            markersize=state.symbol_size_pt,
-            label=series.value_field_name,
-        )
+        lines = []
+        for item, line_state in zip(series.series, state.lines, strict=True):
+            (line,) = axis.plot(
+                date_values,
+                item.values,
+                color=line_state.color,
+                linewidth=line_state.line_width_pt,
+                linestyle=_LINE_STYLES[line_state.line_style],
+                label=item.value_field_name,
+            )
+            lines.append(line)
         locator = mdates.AutoDateLocator()  # type: ignore[no-untyped-call]
         axis.xaxis.set_major_locator(locator)
         axis.xaxis.set_major_formatter(
@@ -87,6 +106,9 @@ class K19TimeSeriesRenderer:
         axis.set_title(state.title)
         axis.set_xlabel(state.x_label)
         axis.set_ylabel(state.y_label)
+        axis.set_yscale(state.y_scale)
+        if state.y_minimum is not None and state.y_maximum is not None:
+            axis.set_ylim(state.y_minimum, state.y_maximum)
         if state.x_reverse:
             axis.invert_xaxis()
         if state.y_reverse:
@@ -121,11 +143,14 @@ class K19TimeSeriesRenderer:
                     object_kind="axis",
                     native_ref="axes:0.yaxis",
                 ),
-                EngineObjectRef(
-                    semantic_id=f"series:{token}.primary",
-                    backend="matplotlib",
-                    object_kind="datetime_line",
-                    native_ref=f"axes:0.line:{line.get_gid() or 0}",
+                *(
+                    EngineObjectRef(
+                        semantic_id=f"series:{token}.line_{index}",
+                        backend="matplotlib",
+                        object_kind="datetime_line",
+                        native_ref=f"axes:0.line:{line.get_gid() or index - 1}",
+                    )
+                    for index, line in enumerate(lines, start=1)
                 ),
                 EngineObjectRef(
                     semantic_id=f"legend:{token}.main",
@@ -143,10 +168,19 @@ class K19TimeSeriesRenderer:
         document: PlotDocument,
         actions: tuple[PlotEngineAction, ...],
         time_name: str,
-        value_name: str,
+        value_names: tuple[str, ...],
     ) -> _K19State:
         token = document.plot_id.removeprefix("plot:")
-        state = _K19State(title="", x_label=time_name, y_label=value_name)
+        state = _K19State(
+            title="",
+            x_label=time_name,
+            y_label=value_names[0] if len(value_names) == 1 else "Value",
+            lines=tuple(
+                _K19LineState(color=_PALETTE[index % len(_PALETTE)])
+                for index in range(len(value_names))
+            ),
+            legend_visible=len(value_names) > 1,
+        )
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
@@ -158,10 +192,13 @@ class K19TimeSeriesRenderer:
                 axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
                 if axis_name is None:
                     raise ValueError("K19 axis target does not belong to this plot")
-                expected_scale = "datetime" if axis_name == "x" else "linear"
-                if action.scale not in {None, expected_scale}:
-                    raise ValueError(f"K19 {axis_name} axis requires {expected_scale} scale")
-                if action.minimum is not None or action.maximum is not None:
+                if axis_name == "x" and action.scale not in {None, "datetime"}:
+                    raise ValueError("K19 x axis requires datetime scale")
+                if axis_name == "y" and action.scale not in {None, "linear", "log10"}:
+                    raise ValueError("K19 y axis supports only linear or log10 scale")
+                if axis_name == "x" and (
+                    action.minimum is not None or action.maximum is not None
+                ):
                     raise ValueError("K19 public datetime axes do not expose numeric bounds")
                 if axis_name == "x":
                     state = replace(
@@ -174,25 +211,50 @@ class K19TimeSeriesRenderer:
                         state,
                         y_label=state.y_label if action.label is None else action.label,
                         y_reverse=state.y_reverse if action.reverse is None else action.reverse,
+                        y_scale=state.y_scale if action.scale is None else action.scale,
+                        y_minimum=(
+                            state.y_minimum
+                            if action.minimum is None
+                            else float(action.minimum)
+                        ),
+                        y_maximum=(
+                            state.y_maximum
+                            if action.maximum is None
+                            else float(action.maximum)
+                        ),
                     )
             elif isinstance(action, SetSeriesStyle):
-                if action.target != f"series:{token}.primary":
+                prefix = f"series:{token}.line_"
+                if not action.target.startswith(prefix):
                     raise ValueError("K19 series target does not belong to this plot")
-                state = replace(
-                    state,
-                    color=state.color if action.color is None else action.color,
+                try:
+                    ordinal = int(action.target.removeprefix(prefix))
+                except ValueError as error:
+                    raise ValueError("K19 series target requires a numeric ordinal") from error
+                if ordinal < 1 or ordinal > len(state.lines):
+                    raise ValueError("K19 series target ordinal is outside the bound data")
+                if action.symbol is not None or action.symbol_size_pt is not None:
+                    raise ValueError("K19 Line does not expose symbol edits")
+                if action.line_style == "none":
+                    raise ValueError("K19 Line cannot hide its line through series style")
+                current = state.lines[ordinal - 1]
+                updated = replace(
+                    current,
+                    color=current.color if action.color is None else action.color,
                     line_width_pt=(
-                        state.line_width_pt
+                        current.line_width_pt
                         if action.line_width_pt is None
                         else action.line_width_pt
                     ),
-                    line_style=state.line_style if action.line_style is None else action.line_style,
-                    symbol=state.symbol if action.symbol is None else action.symbol,
-                    symbol_size_pt=(
-                        state.symbol_size_pt
-                        if action.symbol_size_pt is None
-                        else action.symbol_size_pt
+                    line_style=(
+                        current.line_style if action.line_style is None else action.line_style
                     ),
+                )
+                lines = list(state.lines)
+                lines[ordinal - 1] = updated
+                state = replace(
+                    state,
+                    lines=tuple(lines),
                 )
             elif isinstance(action, SetLegend):
                 if action.target != f"legend:{token}.main":

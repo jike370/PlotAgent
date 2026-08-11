@@ -171,7 +171,7 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | K15 | `value` | 独立固定分箱直方图 renderer | `Hist.otpu` | 共享计算内核产生唯一 bin edges/counts；worksheet + 零间隙原生柱 |
 | K16 | `value / group?` | 独立 Scott KDE renderer | `HISTDIST.otpu` | 共享计算内核产生每组 KDE 网格；worksheet + 原生密度线，模板直方/rug 组件不启用 |
 | K18 | `x / y` | 独立面积图 renderer | `AREA.otpu` | worksheet + 官方模板原生面积 Plot |
-| K19 | `time / value` | 独立原生日期时间轴 renderer | `TimeSeries.otp` | datetime worksheet + 模板原生时间序列 Plot |
+| K19 | `time / series_1..series_N` | 独立原生日期时间折线 renderer | `LINE.otpu` | 数值型 Date/Time X + 1–N 个 Y；一次调用官方 Line 菜单创建 PID 200；同日显示时间、跨日显示日期 |
 | K20 | `row / column / value` | 独立热图 renderer | `Heat_Map.otpu` | matrixbook + 1 个原生 matrix plot |
 | K21 | `row_label / column_label / value` | 独立相关矩阵 renderer | `Heat_Map_With_Labels.otpu` | 预计算相关矩阵写入 matrixbook；模板原生标签热图 |
 | K22 | `x / y / z` | 独立规则网格等高 renderer | `CONTOUR.otpu` | 完整规则网格写入 matrixbook；模板原生填色等值 Plot，禁止插值补洞 |

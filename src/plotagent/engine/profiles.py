@@ -423,21 +423,30 @@ K18_AREA_PROFILE = EngineProfile(
 K19_TIME_SERIES_PROFILE = EngineProfile(
     profile_id="K19",
     display_name="Time series",
-    required_roles=("time", "value"),
+    required_roles=("time", "series_1"),
+    repeatable_role_prefixes=("series",),
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
         EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
-        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="primary"),
         EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series",
+            object_kind="series",
+            object_key_prefix="line",
+        ),
     ),
     capabilities=(
         EngineCapability(operation="create_plot"),
         EngineCapability(operation="bind_fields"),
         EngineCapability(operation="set_title", parameters=("text",)),
-        EngineCapability(operation="set_axis", parameters=("label", "reverse")),
+        EngineCapability(
+            operation="set_axis", parameters=("label", "scale", "bounds", "reverse")
+        ),
         EngineCapability(
             operation="set_series_style",
-            parameters=("color", "line_width_pt", "line_style", "symbol", "symbol_size_pt"),
+            parameters=("color", "line_width_pt", "line_style"),
         ),
         EngineCapability(operation="set_legend", parameters=("visible",)),
         EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),

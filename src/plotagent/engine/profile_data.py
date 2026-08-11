@@ -253,11 +253,17 @@ class TransposedSeriesData:
 
 
 @dataclass(frozen=True, slots=True)
+class TimeSeriesLine:
+    role: str
+    values: tuple[float, ...]
+    value_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class TimeSeriesData:
     time_values: tuple[datetime, ...]
-    values: tuple[float, ...]
+    series: tuple[TimeSeriesLine, ...]
     time_field_name: str
-    value_field_name: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -762,17 +768,28 @@ def transposed_series(
 
 
 def k19_time_series(document: PlotDocument, data: EngineDataView) -> TimeSeriesData:
-    """Return strictly increasing timestamps and their numeric observations."""
+    """Return numeric Date/Time X values and contiguous ``series_1..series_N`` data."""
 
-    time_column, value_column = _bound_columns(document, data, ("time", "value"), "K19")
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    if "time" not in bindings:
+        raise ValueError("K19 requires a time binding")
+    roles = _contiguous_series_roles(bindings, "K19", minimum=1)
+    time_column = columns[bindings["time"]]
     times = tuple(_datetime_value(value, "K19 time") for value in time_column.values)
-    if any(left >= right for left, right in zip(times[:-1], times[1:], strict=True)):
-        raise ValueError("K19 time values must be strictly increasing")
     return TimeSeriesData(
         time_values=times,
-        values=_numeric_values(value_column, "value", "K19", allow_missing=True),
+        series=tuple(
+            TimeSeriesLine(
+                role=role,
+                values=_numeric_values(
+                    columns[bindings[role]], role, "K19", allow_missing=True
+                ),
+                value_field_name=columns[bindings[role]].field.name,
+            )
+            for role in roles
+        ),
         time_field_name=time_column.field.name,
-        value_field_name=value_column.field.name,
     )
 
 
@@ -1339,16 +1356,21 @@ def _label(value: object, role: str) -> str:
 
 def _datetime_value(value: object, role: str) -> datetime:
     if isinstance(value, datetime):
-        return value.replace(tzinfo=None) if value.tzinfo is not None else value
-    if isinstance(value, date):
-        return datetime.combine(value, datetime.min.time())
-    if isinstance(value, str):
+        parsed = value
+    elif isinstance(value, date):
+        parsed = datetime.combine(value, datetime.min.time())
+    elif isinstance(value, str):
         try:
             parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
         except ValueError as error:
             raise ValueError(f"{role} values must be ISO date/time values") from error
-        return parsed.replace(tzinfo=None) if parsed.tzinfo is not None else parsed
-    raise ValueError(f"{role} values must be date/time values")
+    elif not isinstance(value, datetime):
+        raise ValueError(f"{role} values must be date/time values")
+    if parsed.tzinfo is not None:
+        raise ValueError(f"{role} values must not contain a timezone offset")
+    if parsed.microsecond % 1_000:
+        raise ValueError(f"{role} values must use millisecond precision or coarser")
+    return parsed
 
 
 def _numeric(value: object) -> float:
