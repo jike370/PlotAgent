@@ -42,7 +42,7 @@
 | K19 | 日期时间折线图 | `LINE.otpu` + Date/Time X | 模板 | 原生结构已证 |
 | K20 | 热图 | `Heat_Map.otpu` + Matrix | 模板 | 专属属性人工门禁 |
 | K21 | 带标签热图 | `Heat_Map_With_Labels.otpu` + Matrix | 模板 | PID105、MatrixBook 源绑定、Z 值标签、±1 色域和 full/lower/upper 原生 `FillDispl`/`LabelDispl` 均已经独立进程 fresh-reopen 读回 |
-| K22 | 填色等高线 | `CONTOUR.otpu` + Matrix | 模板 | 专属属性人工门禁 |
+| K22 | 填色等高线 | `CONTOUR.otpu` + Matrix | 模板 | 完整等距规则网格、PID226、MatrixBook 源绑定、坐标映射、色阶边界和色标均已经独立进程 fresh-reopen 读回 |
 | K24 | Trellis分面图 | `Grouped.otp` + `plot_group` | X-Function | 专属属性人工门禁 |
 | K25 | 多面板组合图 | `mgroups.otpu` / Merge Graph Windows | 组合 | 原生结构已证 |
 | S01 | Kaplan-Meier生存曲线 | `kaplanmeier` 官方分析 | 分析 | 专属属性人工门禁 |

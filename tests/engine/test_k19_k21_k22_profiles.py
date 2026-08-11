@@ -8,10 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import plotagent.engine.backends.origin.advanced_matrix as matrix_origin_module
 import plotagent.engine.backends.origin.k18 as k18_origin_module
 import plotagent.engine.backends.origin.k19 as k19_origin_module
 import plotagent.engine.backends.origin.k21 as k21_origin_module
+import plotagent.engine.backends.origin.k22 as k22_origin_module
 from plotagent.engine import (
     CreatePlot,
     EngineColumn,
@@ -38,10 +38,10 @@ from plotagent.engine.backends.origin import (
     K21_ORIGIN_PROFILE,
     K22_ORIGIN_PROFILE,
 )
-from plotagent.engine.backends.origin.advanced_matrix import K22OriginProject
 from plotagent.engine.backends.origin.k18 import K18OriginProject
 from plotagent.engine.backends.origin.k19 import K19OriginProject
 from plotagent.engine.backends.origin.k21 import K21OriginProject
+from plotagent.engine.backends.origin.k22 import K22OriginProject
 from plotagent.engine.profile_data import (
     k18_area_series,
     k19_time_series,
@@ -314,6 +314,17 @@ def test_k19_preserves_input_order_rejects_timezone_and_k22_never_interpolates()
     )
     with pytest.raises(ValueError, match="never interpolates"):
         k22_regular_grid(k22_document, incomplete)
+
+    irregular = _view(
+        "K22",
+        (
+            ("field:x", "Wavelength", "numeric", (1.0, 2.0, 4.0, 1.0, 2.0, 4.0)),
+            ("field:y", "Temperature", "numeric", (10.0, 10.0, 10.0, 20.0, 20.0, 20.0)),
+            ("field:z", "Amplitude", "numeric", (1.0, 2.0, 4.0, 3.0, 5.0, 7.0)),
+        ),
+    )
+    with pytest.raises(ValueError, match="evenly spaced"):
+        k22_regular_grid(k22_document, irregular)
 
 
 @pytest.mark.parametrize(
@@ -876,6 +887,8 @@ class FakeOrigin:
                     "__K21CMAPTYPE": 0,
                 }
             )
+        if "__K22COUNT" in command:
+            self.lt_values.update({"__K22COUNT": 1, "__K22PID": 226})
         return True
 
     def set_lt_str(self, name: str, value: str) -> bool:
@@ -956,7 +969,7 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
 
     k22_document, k22_actions, k22_view = _k22_case()
     monkeypatch.setattr(
-        matrix_origin_module,
+        k22_origin_module,
         "resolve_official_template",
         lambda _install, profile: tmp_path / profile.filename,
     )
@@ -964,9 +977,17 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
     k22 = K22OriginProject(k22_op)
     k22.create(tmp_path, k22_document, k22_view)
     k22.reconcile(k22_document, k22_actions, k22_view)
+    k22_readback = k22.verify(k22_document, k22_actions, k22_view)
     assert Path(k22_op.template).name == "CONTOUR.otpu"
     assert k22_op.graph.layer.added_type == 226
     assert len(k22_op.graph.layer.plots[0].zlevels["levels"]) == 13
+    assert [item.object_kind for item in k22_readback.objects] == [
+        "graph",
+        "axis",
+        "axis",
+        "filled_contour",
+        "colorbar",
+    ]
 
 
 def test_template_hashes_and_modules_exclude_the_legacy_compiler() -> None:

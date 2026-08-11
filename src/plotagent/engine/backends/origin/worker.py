@@ -8,7 +8,6 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from .advanced_matrix import execute_k22_request
 from .calculated_distribution import execute_k15_request
 from .column_family import execute_k09_request, execute_k10_request, execute_k11_request
 from .distribution import (
@@ -29,6 +28,7 @@ from .k18 import execute_k18_request
 from .k19 import execute_k19_request
 from .k20 import execute_k20_request
 from .k21 import execute_k21_request
+from .k22 import execute_k22_request
 from .k25 import execute_k25_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
 from .recipe import origin_recipe

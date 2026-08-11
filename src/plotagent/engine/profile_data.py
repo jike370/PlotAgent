@@ -889,6 +889,23 @@ def k22_regular_grid(document: PlotDocument, data: EngineDataView) -> RegularGri
     z_raw = _numeric_values(z_column, "z", "K22", allow_missing=False)
     x_values = tuple(sorted(set(x_raw)))
     y_values = tuple(sorted(set(y_raw)))
+    if len(x_values) < 2 or len(y_values) < 2:
+        raise ValueError("K22 requires at least a 2 by 2 regular grid")
+    for axis_name, axis_values in (("x", x_values), ("y", y_values)):
+        first_step = axis_values[1] - axis_values[0]
+        tolerance = 1e-12 * max(1.0, abs(first_step))
+        if any(
+            not isclose(
+                axis_values[index] - axis_values[index - 1],
+                first_step,
+                rel_tol=1e-12,
+                abs_tol=tolerance,
+            )
+            for index in range(2, len(axis_values))
+        ):
+            raise ValueError(
+                f"K22 {axis_name} coordinates must be evenly spaced for a matrix contour"
+            )
     positions: dict[tuple[float, float], float] = {}
     for x_value, y_value, z_value in zip(x_raw, y_raw, z_raw, strict=True):
         key = (x_value, y_value)
@@ -905,6 +922,8 @@ def k22_regular_grid(document: PlotDocument, data: EngineDataView) -> RegularGri
         raise ValueError(
             "K22 requires a complete regular grid and never interpolates missing cells"
         )
+    if isclose(min(z_raw), max(z_raw), rel_tol=0, abs_tol=1e-12):
+        raise ValueError("K22 contour values must span more than one Z level")
     return RegularGridData(
         x_values=x_values,
         y_values=y_values,
