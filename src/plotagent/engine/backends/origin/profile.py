@@ -212,8 +212,8 @@ X23_ORIGIN_PROFILE = OriginTemplateProfile(
 
 X24_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="X24",
-    filename="ParetoRaw.otpu",
-    sha256="5f273e70f87c2e22d230417b35907c2524dc293476070e74312f872a7ff00a7b",
+    filename="ParetoBin.otpu",
+    sha256="fa991237fbf2f5a0139b4acd6ba44372928f55922a8c347941d3a6442559ba84",
     tier="T1",
 )
 

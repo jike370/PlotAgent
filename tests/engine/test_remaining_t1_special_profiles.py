@@ -18,7 +18,6 @@ from plotagent.engine import (
     FieldBinding,
     PlotDocument,
     PlotEngineAction,
-    SetChartParameter,
     SetLegend,
     SetSeriesStyle,
 )
@@ -38,7 +37,13 @@ from plotagent.engine.backends.origin import (
 from plotagent.engine.backends.origin.dual_y_special import DualYSpecialOriginProject
 from plotagent.engine.backends.origin.x24 import X24OriginProject
 from plotagent.engine.backends.origin.x38 import X38OriginProject
-from plotagent.engine.profile_data import x24_pareto, x35_series, x36_series, x38_offset_stack
+from plotagent.engine.profile_data import (
+    x24_pareto,
+    x24_pareto_source,
+    x35_series,
+    x36_series,
+    x38_offset_stack,
+)
 from plotagent.engine.profiles import (
     X24_PARETO_PROFILE,
     X35_DUAL_Y_COLUMN_PROFILE,
@@ -55,7 +60,6 @@ def _case(
     columns: tuple[tuple[str, str, str, tuple[object, ...]], ...],
     *,
     styles: tuple[tuple[str, dict[str, object]], ...] = (),
-    parameter: tuple[str, float] | None = None,
 ):
     data = EngineDataRef(
         kind="source",
@@ -82,16 +86,6 @@ def _case(
                 target=f"series:{profile_id.lower()}-t1.{target}",
                 expected_plot_version=len(actions),
                 **arguments,
-            )
-        )
-    if parameter is not None:
-        actions.append(
-            SetChartParameter(
-                action_id=f"action:parameter-{profile_id.lower()}",
-                target=create.plot_id,
-                expected_plot_version=len(actions),
-                parameter=parameter[0],
-                value=parameter[1],
             )
         )
     actions.append(
@@ -134,7 +128,7 @@ def _x24_case():
         "X24",
         ("category", "value"),
         (
-            ("field:category", "Cause", "categorical", ("A", "B", "C", "D")),
+            ("field:category", "Cause", "categorical", ("A", "B", "A", "D")),
             ("field:value", "Count", "numeric", (5.0, 20.0, 10.0, 0.0)),
         ),
         styles=(
@@ -148,7 +142,6 @@ def _x24_case():
                 },
             ),
         ),
-        parameter=("pareto_reference_percent", 75.0),
     )
 
 
@@ -186,8 +179,12 @@ def _x38_case(group_count: int = 3):
 
 def test_profile_data_preserves_authoritative_semantics() -> None:
     document, _actions, view = _x24_case()
+    source = x24_pareto_source(document, view)
+    assert source.categories == ("A", "B", "A", "D")
+    assert source.values == (5.0, 20.0, 10.0, 0.0)
     pareto = x24_pareto(document, view)
-    assert pareto.categories == ("B", "C", "A", "D")
+    assert pareto.categories == ("B", "A", "D")
+    assert pareto.values == (20.0, 15.0, 0.0)
     assert pareto.cumulative_percent[-1] == pytest.approx(100.0)
 
     for profile_id, normalizer in (("X35", x35_series), ("X36", x36_series)):
@@ -239,12 +236,19 @@ class _Label:
         self.text = text
         self.name = ""
         self.ints = {"show": 1}
+        self.floats: dict[str, float] = {}
 
     def set_int(self, name: str, value: int) -> None:
         self.ints[name] = value
 
     def get_int(self, name: str) -> int:
         return self.ints.get(name, 0)
+
+    def set_float(self, name: str, value: float) -> None:
+        self.floats[name] = value
+
+    def get_float(self, name: str) -> float:
+        return self.floats.get(name, 0.0)
 
 
 class _Axis:
@@ -283,12 +287,17 @@ class _Plot:
 
 
 class _Layer:
-    def __init__(self, *, right: bool = False) -> None:
+    def __init__(self, origin=None, index: int = 0, *, right: bool = False, pid: int = 0) -> None:
         self.obj = self
+        self.origin = origin
+        self.index = index
+        self.pid = pid
         self.labels = {"xb": _Label("X"), "yl": _Label("Y")}
         if right:
             self.labels["yr"] = _Label("Y2")
         self.axes = {"x": _Axis(), "y": _Axis()}
+        if right:
+            self.axes["y"].limits = (0.0, 110.0, 20.0)
         self.plots: list[_Plot] = []
         self.ints: dict[str, int] = {}
         self.floats: dict[str, float] = {}
@@ -334,18 +343,34 @@ class _Layer:
         self.strings[name] = value
 
     def activate(self) -> None:
-        return None
+        if self.origin is not None:
+            self.origin.active_layer = self.index
 
     def LT_execute(self, command: str) -> bool:
-        assert command == "legend"
-        self.labels["legend"] = _Label()
+        if command == "legend":
+            self.labels["legend"] = _Label()
+        elif "_ENGINE_TITLE" in command:
+            title = _Label()
+            title.name = "_ENGINE_TITLE"
+            self.labels["_ENGINE_TITLE"] = title
+        else:
+            raise AssertionError(command)
         return True
 
 
 class _Graph:
-    def __init__(self, layer_count: int) -> None:
+    def __init__(self, layer_count: int, origin=None, pids: tuple[int, ...] = ()) -> None:
         self.name = "Gspecial"
-        self.layers = tuple(_Layer(right=index == 1) for index in range(layer_count))
+        self.lname = ""
+        self.layers = tuple(
+            _Layer(
+                origin,
+                index,
+                right=index == 1,
+                pid=pids[index] if index < len(pids) else 0,
+            )
+            for index in range(layer_count)
+        )
 
     def __iter__(self):
         return iter(self.layers)
@@ -353,57 +378,123 @@ class _Graph:
     def __getitem__(self, index: int):
         return self.layers[index]
 
+    def activate(self) -> None:
+        return None
+
 
 class _Sheet:
-    def __init__(self) -> None:
+    def __init__(self, name: str = "Sheet1") -> None:
+        self.name = name
         self.columns: dict[int, list[object]] = {}
+        self.column_options: dict[int, dict[str, object]] = {}
+        self.cols = 0
 
     def from_list(self, index, values, **kwargs) -> None:
         self.columns[index] = list(values)
+        self.column_options[index] = dict(kwargs)
+        self.cols = max(self.cols, index + 1)
 
     def to_list(self, index):
         return self.columns[index]
 
+    @property
+    def rows(self) -> int:
+        return max((len(values) for values in self.columns.values()), default=0)
+
+    def activate(self) -> None:
+        return None
+
+    def lt_exec(self, _command: str) -> None:
+        return None
+
+    def lt_range(self, _include_sheet: bool) -> str:
+        return "[DX24]Sheet1"
+
 
 class _Book:
     def __init__(self) -> None:
-        self.sheet = _Sheet()
+        self.name = "DX24"
+        self.sheets = [_Sheet()]
 
     def __getitem__(self, index: int):
-        assert index == 0
-        return self.sheet
+        return self.sheets[index]
+
+    def __iter__(self):
+        return iter(self.sheets)
+
+    def destroy(self) -> None:
+        return None
 
 
 class _Origin:
     def __init__(self) -> None:
         self.book = _Book()
-        self.graph = _Graph(1)
+        self.graph = _Graph(1, self)
+        self.active_layer = 0
+        self.commands: list[str] = []
 
     def new(self, *, asksave: bool) -> None:
         return None
 
     def new_book(self, kind, name, *, hidden):
+        self.book = _Book()
+        self.book.name = name
         return self.book
 
     def new_graph(self, name, *, template, hidden):
         layer_count = 1 if "offsetstacky" in template.lower() else 2
-        self.graph = _Graph(layer_count)
+        self.graph = _Graph(layer_count, self)
         self.graph.name = name
         return self.graph
 
+    def pages(self, kind: str):
+        return [self.book] if kind == "w" else [self.graph]
 
-def test_origin_x24_binds_sorted_values_cumulative_curve_and_reference(monkeypatch) -> None:
+    def lt_exec(self, command: str) -> None:
+        self.commands.append(command)
+        if command.startswith("plot_paretobin "):
+            source = self.book[0]
+            totals: dict[str, float] = {}
+            for label, value in zip(source.columns[0], source.columns[1], strict=True):
+                totals[str(label)] = totals.get(str(label), 0.0) + float(value)
+            ordered = sorted(totals.items(), key=lambda item: item[1], reverse=True)
+            total = sum(value for _label, value in ordered)
+            running = 0.0
+            report = _Sheet("ParetoBin1")
+            report.from_list(0, [label for label, _value in ordered])
+            report.from_list(1, [value for _label, value in ordered])
+            cumulative: list[float] = []
+            for _label, value in ordered:
+                running += value
+                cumulative.append(running / total * 100.0)
+            report.from_list(2, cumulative)
+            self.book.sheets.append(report)
+            self.graph = _Graph(2, self, (203, 202))
+
+    def lt_float(self, expression: str) -> float:
+        if expression == "layer.plot1.pid":
+            return float(self.graph.layers[self.active_layer].pid)
+        if expression.startswith('color("'):
+            return 42.0
+        return 0.0
+
+
+def test_origin_x24_delegates_sort_merge_and_cumulative_to_paretobin(monkeypatch) -> None:
     monkeypatch.setattr(
-        x24_origin, "resolve_official_template", lambda *_args: Path("ParetoRaw.otpu")
+        x24_origin, "resolve_official_template", lambda *_args: Path("ParetoBin.otpu")
     )
     document, actions, view = _x24_case()
-    project = X24OriginProject(_Origin())
+    origin = _Origin()
+    project = X24OriginProject(origin)
     project.create(Path("."), document, view)
     project.reconcile(document, actions, view)
-    assert project.sheet.columns[0] == ["B", "C", "A", "D"]
-    assert project.sheet.columns[2][-1] == pytest.approx(100.0)
-    assert project._layers()[1].get_float("y.refline1.value") == 75.0
-    assert tuple(plot.native_type for plot in project._plots()) == (203, "?")
+    assert project.source_sheet.columns[0] == ["A", "B", "A", "D"]
+    assert project.report_sheet.columns[0] == ["B", "A", "D"]
+    assert project.report_sheet.columns[1] == [20.0, 15.0, 0.0]
+    assert project.report_sheet.columns[2][-1] == pytest.approx(100.0)
+    assert any(command.startswith("plot_paretobin ") for command in origin.commands)
+    assert all("plot_paretoraw" not in command for command in origin.commands)
+    assert [layer.pid for layer in project._layers()] == [203, 202]
 
 
 @pytest.mark.parametrize(("profile_id", "types"), (("X35", (203, 203)), ("X36", (203, "?"))))
@@ -457,16 +548,14 @@ def test_remaining_t1_profiles_pin_official_templates_and_public_actions() -> No
             X38_ORIGIN_PROFILE,
         )
     } == {
-        "X24": "5f273e70f87c2e22d230417b35907c2524dc293476070e74312f872a7ff00a7b",
+        "X24": "fa991237fbf2f5a0139b4acd6ba44372928f55922a8c347941d3a6442559ba84",
         "X35": "cba0737aaa4c2ab24a62062cfe37c095c5651d9048519b3fc2a3e9ccaa058ca9",
         "X36": "6e951a3dd1f08cb2122cac48ce37476eef54d54c9fb424211e9fce39c677e1ab",
         "X38": "c6d7548cf7389e5d53282c6d1873aa2e8e184de96ae54d2cd71937f0a56d98d3",
     }
-    assert "pareto_reference_percent" in next(
-        cap.parameters
-        for cap in profiles["X24"].capabilities
-        if cap.operation == "set_chart_parameter"
-    )
+    assert "set_chart_parameter" not in {
+        capability.operation for capability in profiles["X24"].capabilities
+    }
     assert profiles["X38"].repeatable_objects[0].object_key_prefix == "group"
 
 

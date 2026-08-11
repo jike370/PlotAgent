@@ -169,6 +169,16 @@ class ParetoData:
 
 
 @dataclass(frozen=True, slots=True)
+class ParetoSourceData:
+    """Raw binned rows consumed by Origin's native ``plot_paretobin`` workflow."""
+
+    categories: tuple[str, ...]
+    values: tuple[float, ...]
+    category_field_name: str
+    value_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class OffsetSeriesData:
     label: str
     x_values: tuple[float, ...]
@@ -992,23 +1002,16 @@ def _dual_y_series(
 
 
 def x24_pareto(document: PlotDocument, data: EngineDataView) -> ParetoData:
-    """Sort non-negative contributions and calculate one authoritative cumulative curve."""
+    """Aggregate and sort contributions for the independent Matplotlib backend."""
 
-    category, value = _bound_columns(document, data, ("category", "value"), "X24")
-    labels = tuple(_label(item, "category") for item in category.values)
-    if len(labels) != len(set(labels)):
-        raise ValueError("X24 category labels must be unique")
-    values = _numeric_values(value, "value", "X24", allow_missing=False)
-    if any(item < 0 for item in values):
-        raise ValueError("X24 contributions must be non-negative")
-    total = sum(values)
-    if total <= 0:
-        raise ValueError("X24 requires a positive total contribution")
-    ordered = tuple(
-        sorted(zip(labels, values, strict=True), key=lambda item: item[1], reverse=True)
-    )
+    source = x24_pareto_source(document, data)
+    aggregated: dict[str, float] = {}
+    for label, value in zip(source.categories, source.values, strict=True):
+        aggregated[label] = aggregated.get(label, 0.0) + value
+    ordered = tuple(sorted(aggregated.items(), key=lambda item: item[1], reverse=True))
     ordered_labels = tuple(item[0] for item in ordered)
     ordered_values = tuple(item[1] for item in ordered)
+    total = sum(ordered_values)
     running = 0.0
     cumulative: list[float] = []
     for item in ordered_values:
@@ -1018,6 +1021,24 @@ def x24_pareto(document: PlotDocument, data: EngineDataView) -> ParetoData:
         categories=ordered_labels,
         values=ordered_values,
         cumulative_percent=tuple(cumulative),
+        category_field_name=source.category_field_name,
+        value_field_name=source.value_field_name,
+    )
+
+
+def x24_pareto_source(document: PlotDocument, data: EngineDataView) -> ParetoSourceData:
+    """Preserve unsorted binned rows for Origin to aggregate, sort and cumulate."""
+
+    category, value = _bound_columns(document, data, ("category", "value"), "X24")
+    labels = tuple(_label(item, "category") for item in category.values)
+    values = _numeric_values(value, "value", "X24", allow_missing=False)
+    if any(item < 0 for item in values):
+        raise ValueError("X24 contributions must be non-negative")
+    if sum(values) <= 0:
+        raise ValueError("X24 requires a positive total contribution")
+    return ParetoSourceData(
+        categories=labels,
+        values=values,
         category_field_name=category.field.name,
         value_field_name=value.field.name,
     )

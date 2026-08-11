@@ -23,7 +23,6 @@ from plotagent.engine.contracts import (
     PlotDocument,
     PlotEngineAction,
     SetAxis,
-    SetChartParameter,
     SetLegend,
     SetSeriesStyle,
     SetTitle,
@@ -86,7 +85,7 @@ class X24ParetoRenderer:
         svg_path: Path,
     ) -> EngineReadback:
         pareto = x24_pareto(document, data)
-        state, reference = _pareto_state(document, actions, pareto)
+        state = _pareto_state(document, actions, pareto)
         figure, left = plt.subplots(figsize=(7.2, 4.8), layout="constrained")
         right = left.twinx()
         positions = np.arange(len(pareto.categories), dtype=float)
@@ -110,8 +109,8 @@ class X24ParetoRenderer:
             markersize=state.right_series.symbol_size_pt,
             label="Cumulative (%)",
         )[0]
-        right.axhline(reference, color="#6B7280", linestyle="--", linewidth=1.0)
-        right.set_ylim(0.0, 100.0)
+        right.axhline(80.0, color="#6B7280", linestyle="--", linewidth=1.0)
+        right.set_ylim(0.0, 110.0)
         left.set_xticks(positions, pareto.categories)
         _finish_dual(figure, left, right, state, (bars, line), png_path, svg_path)
         return _dual_readback(
@@ -123,7 +122,7 @@ class X24ParetoRenderer:
             extra=("pareto_reference_line",),
             left_key="bars",
             right_key="cumulative",
-            style_extra={"pareto_reference_percent": reference},
+            style_extra={"pareto_reference_percent": 80.0},
         )
 
 
@@ -301,37 +300,24 @@ class X38OffsetStackRenderer:
 
 def _pareto_state(
     document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: ParetoData
-) -> tuple[_DualState, float]:
+) -> _DualState:
     state = _DualState(
         title="",
-        x_axis=_AxisState(data.category_field_name, "categorical"),
+        x_axis=_AxisState("", "categorical"),
         left_axis=_AxisState(data.value_field_name),
         right_axis=_AxisState("Cumulative (%)"),
         left_series=_SeriesState("#1676D2"),
         right_series=_SeriesState("#D97800"),
+        legend_visible=False,
     )
-    reference = 80.0
     token = document.plot_id.removeprefix("plot:")
     for action in actions:
         if isinstance(action, (CreatePlot, BindFields)):
             continue
-        if isinstance(action, SetChartParameter):
-            if (
-                action.target != document.plot_id
-                or action.parameter != "pareto_reference_percent"
-                or not isinstance(action.value, (int, float))
-                or isinstance(action.value, bool)
-                or not 0 < float(action.value) <= 100
-            ):
-                raise ValueError(
-                    "X24 pareto_reference_percent requires a plot target and 0 < value <= 100"
-                )
-            reference = float(action.value)
-            continue
         state = _apply_dual_action(
             document, state, action, token, "X24", allow_left_symbol=False, allow_right_symbol=True
         )
-    return state, reference
+    return state
 
 
 def _dual_state(

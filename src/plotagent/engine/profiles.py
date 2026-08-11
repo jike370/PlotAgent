@@ -723,7 +723,6 @@ X24_PARETO_PROFILE = EngineProfile(
             parameters=("color", "line_width_pt", "line_style"),
         ),
         EngineCapability(operation="set_legend", parameters=("visible",)),
-        EngineCapability(operation="set_chart_parameter", parameters=("pareto_reference_percent",)),
         EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
     ),
 )
