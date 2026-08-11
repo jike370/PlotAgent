@@ -29,6 +29,7 @@ from plotagent.storage.schema import (
     PROJECT_SCHEMA_VERSION,
     initialize_project_schema,
     migrate_project_v1_to_v2,
+    migrate_project_v2_to_v3,
     validate_schema,
 )
 from plotagent.storage.workspace import ensure_local_fixed_workspace
@@ -132,7 +133,12 @@ class ProjectStore:
                 except StorageProblem as error:
                     if str(error.code) != "SCHEMA_VERSION_UNSUPPORTED":
                         raise
-                    migrate_project_v1_to_v2(self._connection)
+                    version = int(self._connection.execute("PRAGMA user_version").fetchone()[0])
+                    if version == 1:
+                        migrate_project_v1_to_v2(self._connection)
+                        version = 2
+                    if version == 2:
+                        migrate_project_v2_to_v3(self._connection)
                     validate_schema(
                         self._connection,
                         PROJECT_SCHEMA_VERSION,

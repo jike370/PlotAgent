@@ -102,7 +102,7 @@
 
 1. 图形注册表、生成 Schema 和前端图形库。
 2. Agent create/edit capability、搜索别名和字段映射规则。
-3. PlotSpec 创建入口、计算入口、Matplotlib/Origin renderer 与导出计划。
+3. PlotDocument 创建入口、固定计算入口、Matplotlib/Origin Profile 与导出动作。
 4. 通用编辑白名单、专属编辑参数和批量/组合候选入口。
 5. 视觉 fixture、逐图 OPJU 清单、资格测试和发布能力声明。
 6. 旧项目兼容读取：保留 ID 识别，只返回稳定的 `CHART_TYPE_REMOVED` 诊断；不恢复渲染能力，也不自动替换图形。
@@ -165,7 +165,7 @@
 7. **删除旧绘图路径。** 38图全部通过后，删除被替代的专属 Origin 几何拼装、旧图形分支和过期视觉证据。
 8. **重新资格。** 以38图新引擎统一生成默认态、动态状态、代表性编辑态和逐图 OPJU；先完成38图全部机械修改读回，再一次性生成统一审查页交由用户逐图视觉判断，人工实际编辑按 Origin 模板家族选代表图。
 
-截至 2026-08-11：步骤 1–3 的范围、模板与哈希继续有效；此前 `template-first-38` 的 OPJU、读回和审查页只保留为旧执行路径的历史证据。当前正在以新 Agent Native 引擎重新完成步骤 4–6，已覆盖 37/38 个 Profile；步骤 7 的删除对象是整个旧 PlotSpec/compiler/resolver/plan renderer 体系，必须等新生产入口覆盖 38 图后一次性物理删除；步骤 8 必须由新路径重新生成，不得沿用旧 manifest 冒充通过。
+截至 2026-08-11：步骤 1–6 已由 Agent Native 引擎覆盖 38/38 个 Profile；旧绘图 compiler、resolver、共享 plan 与旧 Origin renderer 已从生产源码和 schema 删除。新的默认/代表性编辑 OPJU、读回与审查页已重新生成在 `build/visual-audit/agent-native-38/`，但人工视觉状态仍全部为 `UNVERIFIED`。
 
 重构不预先规定“每图一个 renderer”或“所有图共用一个 renderer”。选择标准只有三个：Origin 映射正确、行为稳定、后续 Agent 容易操作。新 `PlotDocument`、`EngineDataView` 与公开 Engine Action 是唯一生产契约；旧 `PlotSpec`、compiler、resolver、`ResolvedPlot` 和 Origin plan 不得进入新执行路径，也不得作为迁移兜底。
 

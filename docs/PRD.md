@@ -120,22 +120,15 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 被其他对象引用的资源禁止直接删除，必须先展示并解除依赖。
 - 只有用户明确选择“保存到项目”或“保存为全局设置”时才持久化偏好，不使用隐藏记忆。
 
-### 4.7 结构单元与图形配方
+### 4.7 已撤销的通用绘图编译设计
 
-> 历史设计说明：本节不再作为当前绘图引擎的实现或验收前置。当前权威架构见 §4.8；StructureUnit/ChartRecipe 仅保留为未来可选研究，不得约束第一阶段 renderer。
-
-- 结构单元是可复用的视觉构件或图形关系，覆盖基础标记、分布、场/矩阵、坐标、布局、附着、视觉编码和受控科研标注，不局限于折线、柱和误差棒。
-- 图形配方是版本化组件图：组件通过语义端口接收数据，并通过覆盖、并列、堆积、附着、连接、偏移、分面和坐标归属等封闭关系连接。
-- 图形配方不保存真实数据、工作表、FieldId、文件路径、对话、凭据、PlotCalculationResult 或自动坐标范围；它只保存结构、语义槽位、关系、坐标策略、默认样式和用户明确的模板常量。
-- 官方图形与未来用户自定义图形使用同一 Schema、compiler、PlotSpec、ResolvedRenderPlan、Matplotlib 与 Origin 路径；官方身份只表示完成更严格的证据门禁。
-- PlotSpec 是一张具体图的版本化实例，固定图形配方版本、当前字段映射、数据、样式和计算结果；FigureSpec 仍只负责多面板布局和明确的 PlotSpec 版本引用。
-- 图形配方升级不静默修改已有图；显式升级先预览并生成新 PlotSpec 版本。删除配方默认只从图形库隐藏，被历史图引用的版本继续保留。
+StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何已经从生产实现删除，不是未来迭代的默认方向。新增图形优先增加一个明确 Profile、两个独立 backend 和公共动作能力；只有证明新的抽象能降低复杂度且不损害输出时才讨论复用。
 
 ### 4.8 当前绘图引擎与 Agent 边界
 
 - 产品流程与能力目标不变；本轮只替换绘图实现。
-- Agent 通过少量强类型业务动作创建/修改语义 PlotSpec，本地 validator 与事务拥有执行权。
-- 每张正式图由平坦 ChartProfile 声明字段角色、共同编辑、Matplotlib renderer、Origin 官方模板/绑定器和验证规则。
+- 任意 Agent 或手动 UI 通过少量强类型公共 Engine Action 创建/修改 PlotDocument，本地 validator 与事务拥有执行权。
+- 每张正式图由平坦 EngineProfile 声明字段角色、共同编辑、Matplotlib renderer、Origin 官方模板/绑定器和验证规则。
 - Matplotlib 使用每图独立 renderer；Origin 使用官方模板优先的 T1/T2 路径。两者共享语义，不要求共享最终几何或像素布局。
 - UI 与 Agent 只开放两个后端都能稳定表达、保存和读回的能力；target-only 请求稳定返回不支持。
 - 用户不必事先完成全部常规整理；受控数据准备生成可追溯派生数据，科研计算与任意脚本不藏在 renderer 中。
@@ -210,14 +203,11 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 组合图布局修改不反向修改源图。
 
-### 5.6 单图结构组合与后期搭建器
+### 5.6 单图复合结构
 
-- 折线+柱+误差、堆积+误差、散点+区间和双 Y 轴等共享一个绘图区的组合属于一个 PlotSpec/图形配方，不属于多面板 FigureSpec。
-- M6 先完成内部结构单元、图形配方与 validator/compiler，并迁移 K01/K02/K03/K05/K08/K09/K10/K18/S05/S25/X01/X02/X03/X09 共 14 个低风险正式图；其余 29 个正式图和九个内部隐藏 adapter 保留既有 PlotSpec/Resolver/renderer 路径，不阻塞 compiler v1。
-- 在基础图形泛化门禁通过后才实现组合 compiler；测试 oracle 与组合架构不得同时变化。
-- M6 后提供全窗口图形搭建器，默认从当前图复制修改，空白搭建作为进阶入口；左侧为结构单元目录，中央为实时预览，右侧为结构树、语义槽位和关系检查器。
-- 搭建器组合科研图义，不提供任意拖动画线、自由矢量绘制、Python、LabTalk、公式节点或 renderer 代码。
-- 一次性结构只随当前图保存；用户明确操作后才保存到项目或本机个人图形库。声明式配方包可以迁移，但不得携带真实科研数据或可执行内容。
+- 折线+柱+误差、堆积+误差、散点+区间和双 Y 轴等共享绘图区结构由对应 Profile 自己实现。
+- 第一阶段不提供开放式图形搭建器、任意结构图、Python、LabTalk、公式节点或 renderer 代码入口。
+- 新复合图先定义数据语义、公共动作和双后端验收，再分别实现两个 backend；不得恢复通用 compiler 作为前置条件。
 
 ## 6. 信息架构与界面
 
@@ -261,7 +251,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 - 第一阶段只支持真实缩略图网格、多选、状态筛选、异常标记、失败项局部重试和从本次导出排除；列表/轮播、自由排序和图像叠加比较后移。
 - 可临时统一适用图形的坐标范围；统一编辑只作用于成员共同 capability，并在 ChangeSet 中列出 skipped/unsupported 项。
-- 批量执行按图形配方版本、最终语义签名和 renderer capability 分组；每张结果卡记录输入数据版本、配方版本、PlotSpec 版本、状态和稳定诊断码。
+- 批量执行按 Profile、最终语义签名和 backend capability 分组；每张结果卡记录输入数据版本、PlotDocument 版本、状态和稳定诊断码。
 - 初次批量绘图允许部分成功并保留成功结果；已经生成的一批图执行批量修改时仍遵守事务语义：全部通过才提交，失败项不产生半更新版本。
 - 一个批次只包含一种用户明确指定的图形；批量资格范围先固定为首迁 14 图。一次对话可以依次创建多个不同图形批次。
 - 一批只确认一次字段映射，且只在字段签名精确兼容时复用；缺列、歧义或类型不兼容进入 `NeedsInput`，不做模糊猜测。
@@ -279,7 +269,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 不提供任意单元格编辑。
 - 原始数据只读。
 - SourceDataset 保存 ImportRecipe、schema/UnitSpec、数据 hash、稳定 field/row id、质量摘要以及 sheet/block/line/cell 来源坐标。
-- 本地 compiler 把一次 FieldMapping 编译为封闭 PreparationSpec，只允许字段选择、结构投影、完全同构纵向 concat、metadata label、plot order 与 plot mask。
+- 本地准备服务把一次字段确认生成封闭 PreparationSpec，只允许字段选择、结构投影、完全同构纵向 concat、metadata label、plot order 与 plot mask。
 - PreparedDataset/Plot Data 可持久化以复现，但不是可任意继续加工的新数据资源。
 - v1 不提供 TransformPipeline、通用 derived-dataset workflow、filter/dedupe/join/unit conversion/arithmetic/log/zscore/baseline/normalize/category recode、单元格编辑、SQL/Python/UDF。
 - Excel 多 sheet 默认独立批量；只有用户明确且 schema/类型/单位/语义一致时纵向 concat 并保留 `source_sheet`，绝不自动跨 sheet join。
@@ -297,7 +287,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 从列名、单位行和 Excel 表头识别的单位只是建议，确认后的数据库 UnitSpec 才是权威；Parquet metadata 只镜像。
 - 字段映射同时展示名称、数据类型和单位。
 - 同一坐标轴出现不兼容单位时阻止执行。
-- v1 不执行单位换算；用户需外部生成明确数值并重新导入。系统不得在 PreparationSpec、PlotSpec、renderer 或 Origin 中隐式换算。
+- v1 不执行单位换算；用户需外部生成明确数值并重新导入。系统不得在 PreparationSpec、PlotDocument、renderer 或 Origin 中隐式换算。
 - UnitSpec 用于同构、坐标兼容与审计；opaque 仅同名兼容。
 - 数据精度与显示精度分离。
 - 系统不根据数值大小擅自换算单位。
@@ -500,7 +490,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 只有一个对话编排 Agent；一个会话可有多个 FigureTask/BatchTask，但每次运行只返回一个决策，并携带常驻 active target。
 - ActionPlan 候选必须通过本地 Schema、对象版本、capability、permission 与科研业务校验，之后才由本地 Executor 映射到领域服务。
 - 模型不生成或执行任意 Python、LabTalk、SQL、命令行或脚本。
-- 模型只表达业务意图，不输出 pandas/Python/Matplotlib/Origin、文件/SQL、内部表 ID 或处理步骤；PreparationSpec 由本地 compiler 生成。
+- 模型只表达业务意图，不输出 pandas/Python/Matplotlib/Origin、文件/SQL、内部表 ID 或处理步骤；PreparationSpec 由本地准备服务生成。
 - 首版不支持自定义 Python 节点。
 
 ### 9.2 固定计算与预计算科学结果
@@ -589,7 +579,7 @@ Origin 能力分级：
 - 默认不覆盖已有文件，自动追加版本号。
 - PNG 支持尺寸、DPI 和透明背景，第一轮颜色固定为 sRGB；SVG 保留矢量对象，默认文字转路径，可选 editable text。
 - PNG 校验 signature/pixel/DPI/content；SVG 校验 parse/viewBox/size、无 script/external refs 和预期 element count；OPJU 在新受控实例中重新打开读回对象。
-- 每个正式 ExportSpec 固定 ResolvedRenderPlan hash，临时产物验证通过后才原子移动。
+- 每个正式导出固定 PlotDocument 版本、数据哈希与 backend 读回摘要，临时产物验证通过后才原子移动。
 - 批量导出生成清单，记录来源、版本、参数与失败项。
 - 正式导出仅提供 PNG、SVG 和 OPJU；不提供 PDF、EPS、EMF。
 - 剪贴板 PNG/SVG 是快捷复制，不生成正式导出记录。
@@ -662,11 +652,11 @@ Origin 能力分级：
 - 第一轮采用单 Agent 有界规划，不使用多 Agent 或开放式自主循环。
 - Provider 只返回 `ActionPlan | NeedsInput | Unsupported | NoChange` 四类 AgentDecision；ActionPlan 是本地校验前的候选，手动 UI 直接生成相同 ActionPlan 并复用本地执行链。
 - 数学、安全、对象版本和产品硬规则由本地 validator 产生稳定阻断错误，不设置模型自报的 blocked 分支。
-- 版本化 PlotSpec 与不可变引用是结构化真值，单一 resolver 生成带 hash 的 ResolvedRenderPlan；Matplotlib、PNG、SVG 和 Origin 不再各自解析坐标或默认样式。
-- Matplotlib 是第一轮唯一正式预览、PNG 和 SVG adapter；Origin 由独立串行 Worker 从同一 ResolvedRenderPlan 重建原生对象。
+- 版本化 PlotDocument、不可变数据引用和公共动作日志是绘图真值；没有共享最终几何或中间绘图语言。
+- Matplotlib Profile 负责预览、PNG 和 SVG；Origin Profile 在独立串行 Worker 中加载官方模板并修改原生对象。两者共享公开语义，不共享内部图元。
 - Python Core 按 Project、Import、Preparation、PlotCalculation、Plot、Batch、Composition、Export、Origin 和 Task 领域服务拆分；v1 无通用 Transform/Analysis/Fit 服务。
 - 详细协议、数据结构、任务状态与实现顺序以 [后端与 Agent 架构](./BACKEND-ARCHITECTURE.md) 为准。
-- PlotSpec、PlotPatch、BatchSpec、FigureSpec、ActionPlan 和 Schema 兼容规则以 [领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md) 为准。
+- PlotDocument、公共 Engine Action、任务计划和 Schema 兼容规则以 [领域契约](./DOMAIN-CONTRACTS.md) 为准。
 - ContextEnvelope、ConversationState、AgentDecision、Provider、DataDisclosure 与 ModelRunAudit 以 [Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md) 为准。
 
 ### 14.3 本地优先
@@ -742,7 +732,7 @@ Origin 能力分级：
 - 七个首批发表规格。
 - 基础固定布局组合图。
 - 用户配置的 OpenAI-compatible 模型端点。
-- M6 补充先收口图形目录语义、Origin 图例和同源视觉资格，再交付 ProjectContext、TaskPlan/TaskOrchestrator、部分失败/局部恢复、跨轮次作用对象解析、真实模型计划和 Agent 前端纵向链路；最后用固定任务集、机器指标和目标科研用户完成 Agent 资格。ChartRecipe、首批图迁移、完整模板和用户搭建器后移到第二阶段，不阻塞首轮 Agent 与邀请制试用。
+- 当前阶段先完成 38 图视觉签名与正式桌面黑盒，再用固定任务集、机器指标和目标科研用户完成内置 Agent 资格。通用图形编译器和开放式搭建器不在计划内。
 
 ### 16.2 第二轮：扩展能力
 
@@ -817,7 +807,7 @@ Origin 能力分级：
 - 38图编辑能力与PRD §8.5逐项一致；白名单操作在Matplotlib/Origin均可执行，未声明请求稳定不支持且不创建部分版本。全部12种符号、闭合符号3种interior、`plus/cross`非适用拒绝、16冻结sRGB色板、15/16/超容量类别编码和X23/X24/X35/X36默认中性非加粗细轴均通过双后端与Origin fresh-reopen验证。
 - ProjectContext 可从本地权威对象确定性重建并跨对话复用，旧版本/删除/作用域变化会使计划稳定过期；模型上下文不包含路径、secret、内部 ID 或未授权数据。
 - TaskPlan 的依赖、确认、幂等、部分成功、NeedsInput、Interrupted、局部重试和用户明确恢复均通过状态机与重启 E2E；恢复不重做成功项、不续跑进程内部状态、不产生半成品版本。
-- 真实模型对固定任务集的候选计划、本地作用对象绑定和跨轮次指代达到资格门槛；越权、陈旧、歧义或无效输出稳定拒绝/追问。ChartRecipe 与首批图迁移不是本轮第一阶段门禁。
+- 真实模型对固定任务集的候选计划、本地作用对象绑定和跨轮次指代达到资格门槛；越权、陈旧、歧义或无效输出稳定拒绝/追问。模型资格不替代绘图引擎资格。
 - 完整生产前端在统一新应用壳中覆盖所有现有生产页面和第一阶段批量页面；不存在长期新旧壳混用，也不展示尚未实现的样式库、数据重放、对象树、完整模板或搭建器入口。
 
 ## 20. 小规模邀请制 Beta Qualification
@@ -828,7 +818,7 @@ Origin 能力分级：
 - 导入只qualification 100MB CSV≤12s、50MB XLSX≤30s；常规峰值内存≤2GB。100k PNG≤5s、SVG≤10s、single OPJU≤60s、20-chart OPJU≤180s。
 - 38图的formal PNG/SVG以minimal/representative/edge离线矩阵覆盖，共342个三格式逻辑MatrixKey；preview另测。每个build只声明一个Origin exact version，其OPJU对38图各运行一份代表性live+fresh-reopen，minimal/edge/error使用离线contract、validator与稳定失败测试；其他版本`VERSION_UNSUPPORTED`。历史实跑只作为背景证据。
 - Data corruption、silent wrong science/semantic change、formal抽稀/算法替换、假O1、secret泄漏、声明图形失败、签名绕过、已知blocker/critical或靠retry变绿仍不可豁免。
-- 每个 Beta build 固定 manifest/source/test-runner/app/PlotSpec/model/prompt/Unicode/dependency/fixture hashes，提交导入golden、38图PNG/SVG离线矩阵、单Origin 38图代表性实跑、编辑capability/符号/色板报告、固定计算/预计算、local security、quota幂等、安装包hash和known issues检查单；不要求商业级SBOM、多角色签署、长soak、每图三次昂贵Origin自动化或全OS/云攻击矩阵。
+- 每个 Beta build 固定 manifest/source/test-runner/app/PlotDocument/action/model/prompt/Unicode/dependency/fixture hashes，提交导入golden、38图PNG/SVG离线矩阵、单Origin 38图代表性实跑、编辑capability报告、固定计算/预计算、local security、quota幂等、安装包hash和known issues检查单；不要求商业级SBOM、多角色签署、长soak、每图三次昂贵Origin自动化或全OS/云攻击矩阵。
 - 首批10–15人的80%/60%/60%、至少一名batch与一名Origin继续编辑指标仍决定第二批go/no-go，使用经同意观察/访谈而非analytics。
 - 完整预算、MatrixKey、检查单与后续工程边界见 [小规模邀请制 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。这些是未来Beta gate，当前文档不表示真实实现或测试已通过。
 - 实施按W0–W10依赖与M0–M7 evidence里程碑执行，详见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；需求权威、实现入口和future evidence映射见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。

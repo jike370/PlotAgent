@@ -1,8 +1,8 @@
 # PlotAgent 已确认产品决策基线
 
-> 状态：当前正式范围固定为 T1/T2 共 38 图；绘图引擎正在按 Origin 官方模板优先、每图 ChartProfile/Matplotlib renderer 与 Agent-native 动作全面重构；历史 43/45 图资格不继承；M7 尚未执行
+> 状态：当前正式范围固定为 T1/T2 共 38 图；Agent Native 绘图引擎已替换旧编译链，人工视觉与正式黑盒尚未签名。
 
-> 阅读规则：`PD-AC01`—`PD-AC19` 是当前绘图产品边界。此前 E/I/K/P/W/AA/AB 章节中关于 43/45 图正式范围、旧 renderer、StructureUnit/ChartRecipe 和历史资格的条款只保留决策追溯用途；与 AC 章节冲突时一律以 AC 为准，不得继续作为实现或发布依据。
+> 阅读规则：`PD-AD01`—`PD-AD08` 是当前绘图实现边界，`PD-AC01`—`PD-AC19` 保留产品范围与验收原则。此前章节及 AC09—AC13 中关于 PlotSpec、resolver 或旧 renderer 的内容只作追溯；冲突时以 AD 为准。
 > 产品代号：PlotAgent  
 > 基线日期：2026-08-07
 > 适用关系：本文件记录全部已确认细节；[PRD](./PRD.md) 将其组织为可实施需求；[DESIGN](../DESIGN.md) 约束视觉与交互表达。三者发生冲突时，应先记录新的用户确认，再同时更新相关文件，不得由实现自行改变产品边界。
@@ -634,5 +634,16 @@
 - **PD-AC19 视觉审查后置且一次性交付。** 迁移中不做探索性或分批视觉审查；先完成 38 图双后端、动态数据、共同编辑、OPJU/fresh-reopen 和逐图机械修改读回，再统一生成 38 图审查页交由用户逐图判断。机械完成不自动产生视觉 PASS，用户签名前一律保持 `UNVERIFIED`；人工 Origin 实际编辑另按模板家族抽代表图。
 
 完整映射与 Origin 裸模板矩阵见 [38图 Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)；完整多后端架构、Agent 动作与验收门禁见 [绘图引擎重构与验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md)。
+
+## AD. Agent Native 引擎最终边界
+
+- **PD-AD01 引擎是独立产品能力。** PlotAgent 的核心是可被任意 Agent 调用的本地绘图引擎；内置 Agent 只是一个可能适配更好的客户端，不是引擎组成部分。
+- **PD-AD02 公共调用面。** 任意客户端通过能力目录、九类强类型 Engine Action、版本化目标和稳定错误接入；不得要求使用内置提示词、Provider 或别名绑定器。
+- **PD-AD03 PlotDocument 取代 PlotSpec。** 绘图真值为不可变数据引用、字段绑定、Profile、线性 PlotDocument 版本与动作日志；旧 PlotSpec、resolver、共享最终 plan 和旧 Origin renderer 退出生产与存储。
+- **PD-AD04 每图 backend。** 正式38图各自拥有 Matplotlib renderer 和 Origin 官方模板绑定器；可以共享基础工具，但不建立统一中间绘图语言或强制共享几何。
+- **PD-AD05 模板优先。** Origin 默认态直接使用固定官方模板；Python只写数据、designation、必要动态绑定与用户明确动作，不全量重建模板对象。
+- **PD-AD06 数据与编排保留。** 导入、SourceDataset、CAS、受控准备、ProjectContext、确认、部分失败与恢复执行保留，并改接 EngineDataView 和公共动作。
+- **PD-AD07 旧存储不兼容回退。** 项目 schema v3 保留科研数据、项目和 Agent 运行时，移除旧绘图编译状态；不得以迁移兼容为由重新执行旧 renderer。
+- **PD-AD08 完成定义。** 工程测试、机械读回、人工视觉和正式桌面黑盒分开记账；当前38图机械通过但视觉均为 UNVERIFIED，不能宣称发布完成。
 
 完整W0–W10范围、依赖、spikes与M0–M7见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；权威范围、Requirement/Evidence Matrix与冲突审计见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。

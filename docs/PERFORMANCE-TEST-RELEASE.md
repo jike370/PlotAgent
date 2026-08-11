@@ -161,7 +161,7 @@ Preview/interactive 是另外的必测路径，不计入 387。`edge_error` 可�
 
 ### 7.3 覆盖维度
 
-- PlotSpec canonical JSON、ResolvedRenderPlan normalized hash/golden。
+- PlotDocument canonical JSON、公共动作日志和 EngineReadback golden。
 - thumbnail/interactive、formal PNG/SVG、O1 live+fresh-reopen OPJU。
 - BatchSpec、FigureSpec、PreparedDataset/PlotCalculationResult/预计算字段、axes/ticks、error/warning。
 - 中文、英文与中英混合科研术语、SafeRichText 与字体 fallback。
@@ -195,9 +195,9 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 - 最小追问 5：每例只能生成一个明确问题。
 - 可操作拒绝 5：超出清单、重复规范化列名、无缓存公式值等稳定拒绝。
 
-边界变体由冻结 generator/version/seed 从基础 fixture 生成，但 expected oracle 随 manifest 固定，不能在运行时从被测实现生成。正式 43 图另有字段映射/准备/固定计算/预计算/PlotSpec fixtures。
+边界变体由冻结 generator/version/seed 从基础 fixture 生成，但 expected oracle 随 manifest 固定，不能在运行时从被测实现生成。正式 38 图另有字段绑定、准备、固定计算、预计算和 PlotDocument fixtures。
 
-每个 case 保存分层快照：`file read → region candidates/selection → table parse → mapping → PreparedDataset/PlotCalculationResult → PlotSpec → render → export`。首次偏差决定责任层；下游不得用容错掩盖上游错误。错误族按 `IMPORT/MAPPING/PREPARE/PLOTSPEC/RENDER/EXPORT/TEST` 归档并支持分层回放。
+每个 case 保存分层快照：`file read → region candidates/selection → table parse → binding → PreparedDataset/PlotCalculationResult → PlotDocument/action → render → export`。首次偏差决定责任层；下游不得用容错掩盖上游错误。错误族按 `IMPORT/BINDING/PREPARE/ENGINE/RENDER/EXPORT/TEST` 归档并支持分层回放。
 
 ### 7.6 基础图形参数化泛化门禁
 
@@ -213,7 +213,7 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 ### 7.7 逐图编辑、符号与色板门禁
 
 - 冻结 43 图 `ChartEditCapabilityProfile` snapshot，并与 PRD §8.5 逐图白名单逐项对照；UI capability、Agent Context、validator 和 export adapter 必须由同一 profile 生成。九个隐藏 ID 出现在任一产品 capability 即失败。
-- 每个 allowed operation 至少有一条成功 path，并验证新 PlotSpec/version/hash、Matplotlib 输出、Origin typed mapping 和适用时 fresh-reopen readback；每个未声明 operation/target/payload field 至少有稳定 `Unsupported`/`PATCH_CAPABILITY_NOT_SUPPORTED` 证据，原版本与批量事务不变。
+- 每个 allowed operation 至少有一条成功 path，并验证新 PlotDocument/version/hash、Matplotlib 输出、Origin 原生映射和适用时 fresh-reopen readback；每个未声明 operation/target/payload field 至少有稳定拒绝证据，原版本与任务事务不变。
 - 全部 12 种 MarkerSymbol 与闭合符号的 `solid/open/hollow` 在代表性 line/scatter/error/dual-Y 结构中覆盖；`open` 必须遮住下层线，`hollow` 必须保留下层线，`plus/cross` 的 `open/hollow` 必须稳定不支持。Origin 原生值与 Matplotlib marker 可不同，但读回语义必须相同。
 - 16 个 PaletteRef 固定 palette/version/source/hash 和全部 8-bit sRGB colors/stops；覆盖分类、连续、发散、反向、离散 levels 与自定义 `#RRGGBB`。跨 renderer RGB 每通道精确；指定 Origin 官方资产缺失或 hash 不一致时稳定失败，不得读取用户色板、同名替代品或产生漂移结果。
 - 类别数 15、16 和超过颜色+符号容量的边界分别验证不循环、稳定 identity、联合编码与 warning/阻止；X23/X24/X35/X36 默认左右轴均为中性正常字重细线，显式轴着色只改变样式。
@@ -277,7 +277,7 @@ Evidence 固定 input/reference dataset、spec/plan、artifact/validator、depen
 10. 人工分发安装包的 SHA-256、发布签名与 Windows code signature 验证。
 11. Known issues、稳定错误、恢复动作和单一 go/no-go 记录。
 
-每份 evidence 固定 manifest/source/test-runner/app/PlotSpec/model/profile/prompt/Unicode normalization hashes；任何一项变化都形成新 evidence。测试运行时不得生成 oracle。
+每份 evidence 固定 manifest/source/test-runner/app/PlotDocument/action/model/profile/prompt/Unicode normalization hashes；任何一项变化都形成新 evidence。测试运行时不得生成 oracle。
 
 检查单由指定 Beta release owner 汇总并由对应科学/Origin实现负责人复核其专业证据；不要求商业级多角色签署链。任何 build 内容变化都生成新的 build/hash/checklist。
 

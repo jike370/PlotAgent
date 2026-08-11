@@ -16,7 +16,7 @@
 ## 2. 明确不在 Beta 云端的能力
 
 - 账号、登录、团队、联系人、云端项目/会话/图表同步。
-- 原始文件、项目包、PlotSpec/PlotCalculationResult 或完整对话的云存储。
+- 原始文件、项目包、PlotDocument/PlotCalculationResult 或完整对话的云存储。
 - 远程科研计算、远程渲染、远程 Origin/OPJU。
 - 短期 access token 与 refresh-token rotation、复杂 scope delegation。
 - usage-token reserve/settle、unused release、reconciliation job 或多阶段计费恢复。

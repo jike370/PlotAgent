@@ -38,7 +38,7 @@ Local ConversationState reducer
 
 第一轮只有一个对话编排 Agent。一个会话可以包含多个 FigureTask/BatchTask，但每次 InteractionRun 仍严格遵循 `ContextEnvelope → 单个 AgentDecision → 本地校验/编译 → 执行 → 验证/提交 → reducer`，并携带常驻 active target。没有子 Agent、角色 Agent 或领域 Agent。
 
-模型只表达中英/混合科研术语的业务意图。它不得输出 pandas/Python/Matplotlib/Origin、文件/SQL、内部 table ID、PreparationStep 或数据处理步骤。导入器回答“数据在哪里”，FieldMapping 回答“字段在图中是什么”，PlotSpec 回答“怎么画”；这些权威对象由本地程序生成。
+模型只表达中英/混合科研术语的业务意图。它不得输出 pandas/Python/Matplotlib/Origin、文件/SQL、内部 table ID、PreparationStep 或数据处理步骤。导入器回答“数据在哪里”，字段绑定回答“字段在图中是什么”，公共 Engine Action 回答“创建或修改什么”；这些权威对象由本地程序校验并提交。
 
 ## 2. 不可信数据与指令隔离
 

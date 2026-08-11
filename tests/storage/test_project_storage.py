@@ -10,6 +10,7 @@ from plotagent.contracts import SourceDataset
 from plotagent.importing import Clarification, Rejection
 from plotagent.storage import Catalog, ImportResource, ProjectImportService, ProjectStore
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
+from plotagent.storage.schema import migrate_project_v1_to_v2, migrate_project_v2_to_v3
 
 FILES_ROOT = Path(__file__).parents[1] / "fixtures" / "import" / "files"
 
@@ -53,6 +54,102 @@ def test_project_layout_wal_single_writer_lock_and_minimal_catalog(
     finally:
         connection.close()
     assert tables == {"schema_info", "projects", "settings"}
+
+
+def test_fresh_project_does_not_create_retired_plot_compiler_tables(
+    storage_root: Path,
+) -> None:
+    workspace = storage_root / "project"
+    with ProjectStore.create(workspace) as project:
+        tables = {
+            str(row[0])
+            for row in project._assert_writer().execute(  # noqa: SLF001
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+    assert not tables.intersection(
+        {
+            "plot_inputs",
+            "plot_spec_versions",
+            "batch_spec_versions",
+            "figure_spec_versions",
+            "export_records",
+        }
+    )
+    assert {"source_dataset_versions", "project_context_snapshots", "task_plans"} <= tables
+
+
+def test_v2_to_v3_removes_only_retired_plot_state() -> None:
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.executescript(
+            """
+            PRAGMA user_version = 2;
+            CREATE TABLE schema_info (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO schema_info VALUES ('schema_kind', 'plotagent-project');
+            INSERT INTO schema_info VALUES ('schema_version', '2');
+            CREATE TABLE source_dataset_versions (source_dataset_id TEXT PRIMARY KEY);
+            INSERT INTO source_dataset_versions VALUES ('source:keep');
+            CREATE TABLE plot_inputs (plot_id TEXT PRIMARY KEY);
+            CREATE TABLE plot_spec_versions (plot_id TEXT PRIMARY KEY);
+            CREATE TABLE batch_spec_versions (batch_id TEXT PRIMARY KEY);
+            CREATE TABLE figure_spec_versions (figure_id TEXT PRIMARY KEY);
+            CREATE TABLE export_records (export_id TEXT PRIMARY KEY);
+            """
+        )
+        migrate_project_v2_to_v3(connection)
+        tables = {
+            str(row[0])
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        schema_info = dict(connection.execute("SELECT key, value FROM schema_info"))
+        assert schema_info["schema_version"] == "3"
+        assert connection.execute("SELECT * FROM source_dataset_versions").fetchall() == [
+            ("source:keep",)
+        ]
+        assert not tables.intersection(
+            {
+                "plot_inputs",
+                "plot_spec_versions",
+                "batch_spec_versions",
+                "figure_spec_versions",
+                "export_records",
+            }
+        )
+    finally:
+        connection.close()
+
+
+def test_v1_project_can_upgrade_sequentially_to_v3() -> None:
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.executescript(
+            """
+            PRAGMA user_version = 1;
+            CREATE TABLE schema_info (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO schema_info VALUES ('schema_kind', 'plotagent-project');
+            INSERT INTO schema_info VALUES ('schema_version', '1');
+            CREATE TABLE plot_inputs (plot_id TEXT PRIMARY KEY);
+            CREATE TABLE plot_spec_versions (plot_id TEXT PRIMARY KEY);
+            """
+        )
+        migrate_project_v1_to_v2(connection)
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_plans'"
+        ).fetchone() == (1,)
+
+        migrate_project_v2_to_v3(connection)
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='plot_spec_versions'"
+        ).fetchone() is None
+        assert connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_plans'"
+        ).fetchone() == (1,)
+    finally:
+        connection.close()
 
 
 def test_correct_import_registers_contracts_and_immutable_cas(storage_root: Path) -> None:

@@ -148,7 +148,7 @@ PNG、SVG 和 OPJU 每个目标文件分别执行：
 
 ## 6. 版本、引用与幂等
 
-- 每个任务创建时固定 SourceDataset、PreparedDataset、PlotCalculationResult、PlotSpec、FigureSpec 等输入引用。
+- 每个任务创建时固定 SourceDataset、PreparedDataset、PlotCalculationResult、PlotDocument 或组合组件等输入引用。
 - 写操作携带 `expected_version`；提交时不匹配则返回版本冲突，绝不覆盖较新的修改。
 - 冲突结果可以由用户选择基于旧版本形成分支，或使用最新版本重新运行；系统不能静默选择。
 - 被 queued、preparing、running、committing 或 cancelling 任务引用的数据和对象禁止删除，资源库必须展示活跃任务依赖。

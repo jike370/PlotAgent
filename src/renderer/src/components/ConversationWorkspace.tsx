@@ -375,7 +375,7 @@ function PlotObject({
     <section className="object-block product-plot-object" aria-labelledby="plot-title">
       <header className="object-header">
         <span className="object-icon object-icon--batch"><FileChartColumn size={17} /></span>
-        <div><h3 id="plot-title">{chart?.name ?? plot.chartId} · v{plot.plotVersion}</h3><p>{plot.plotId} · {plot.chartId} · ResolvedRenderPlan</p></div>
+        <div><h3 id="plot-title">{chart?.name ?? plot.chartId} · v{plot.plotVersion}</h3><p>{plot.plotId} · {plot.chartId} · Agent Native</p></div>
         <span className="status-label status-label--success"><Check size={13} />{previewMode ? '界面预览' : '已渲染'}</span>
       </header>
       <div className="product-preview">

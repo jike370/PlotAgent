@@ -133,7 +133,7 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 
 ## 6. 执行、版本与批量
 
-- 单图计算作为 FigureTask 中的原子阶段；只有 PlotCalculationResult 与 PlotSpec 均验证通过才更新 current pointer。
+- 单图计算作为任务中的原子阶段；只有 PlotCalculationResult 与引用它的 PlotDocument 均验证通过才更新当前版本。
 - 完全同构批次使用规范化后相同的 FieldMapping、PreparationSpec 与 PlotCalculationSpec；没有逐文件算法或参数例外。
 - 单项可失败并形成部分成功批次；失败不改变其他项，也不自动更换算法。
 - preview 与 formal 使用同一 PlotCalculationResult。样式 patch 不重算；计算参数 patch 创建新 FigureVersion。

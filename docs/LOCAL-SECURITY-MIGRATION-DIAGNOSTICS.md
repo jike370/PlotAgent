@@ -149,7 +149,7 @@ LocalDiagnosticBundleManifest
 4. 验证 object counts/refs/hashes、rows/columns、version DAG/current pointers 与科学/视觉语义 hash。
 5. 全部通过后原子切换到新工作副本；失败/取消继续使用原项目且无半迁移状态。
 
-迁移只能改变存储表示，不得改变 chart type、FieldMapping、PreparationSpec、UnitSpec、PlotCalculation 算法/参数、用户预计算字段、style、renderer snapshot 或 visual result。任何科学/渲染语义升级必须由用户明确 adopt 并创建新的 PlotCalculationResult/PlotSpec/FigureSpec；未来 AnalysisSpec/FitSpec 若启用也必须遵循同一原则。
+迁移只能改变存储表示，不得改变 Profile、字段绑定、PreparationSpec、UnitSpec、PlotCalculation 算法/参数、用户预计算字段、style、renderer snapshot 或 visual result。任何科学/渲染语义升级必须由用户明确采用并创建新的 PlotCalculationResult/PlotDocument 或组合版本；未来分析/拟合能力若启用也必须遵循同一原则。
 
 ```text
 KnownVersionMigrationRecord

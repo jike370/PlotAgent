@@ -14,7 +14,7 @@ v1 不定义、执行或验收 FitSpec/FitResult。以下能力全部后移：
 - residual、R²、外推判断、IC50/EC50/ED50 估计。
 - 回归/相关/显著性、KM 估计、平滑、基线、归一化或等效电路拟合。
 
-不得把这些运算藏在 PreparationSpec、PlotSpec、renderer、Matplotlib、Origin worksheet formula、Origin Analysis Template 或 LabTalk 中。模型不能输出拟合代码、公式、参数求解步骤或工具调用。
+不得把这些运算藏在 PreparationSpec、PlotDocument、renderer、Matplotlib、Origin worksheet formula、Origin Analysis Template 或 LabTalk 中。模型不能输出拟合代码、公式、参数求解步骤或工具调用。
 
 ## 2. v1 预计算输入
 
@@ -31,11 +31,11 @@ v1 不定义、执行或验收 FitSpec/FitResult。以下能力全部后移：
 
 图形库详情页必须显示“需要预计算字段”和具体字段清单。缺少结果时图形仍可见，执行被 `PLOTSPEC_PRECOMPUTED_INPUT_REQUIRED` 阻断并提供可操作说明。
 
-## 3. PlotSpec 与渲染
+## 3. PlotDocument 与渲染
 
-- PlotSpec 精确引用 PreparedDataset 或用户提供的预计算数值表。
+- PlotDocument 精确引用 PreparedDataset 或用户提供的预计算数值表。
 - 预计算 curve/band/step/matrix 是普通已确认 Plot Data，不标记为 PlotAgent FitResult/AnalysisResult。
-- ResolvedRenderPlan 只解析几何、坐标、样式和完整数值引用；renderer 不拟合、不插值、不估计区间。
+- Profile renderer 只消费明确字段绑定与完整数值引用；renderer 不拟合、不插值、不估计区间。
 - 数据更新不会自动刷新外部分析结果；用户重新导入并重绘会创建新的 FigureVersion。
 - 正式 PNG、SVG、OPJU 使用同一组持久化预计算数值。
 
@@ -56,7 +56,7 @@ OPJU 中预计算曲线作为 Plot Data 工作表列进入原生、可编辑 Gra
 
 - 模型白名单与版本化公式、输入层级、权重语义、初始化/边界和失败规则。
 - 区间种类、随机种子、完整数值诊断、持久化曲线和科学 reference fixtures。
-- PlotSpec/ResolvedRenderPlan/Origin 如何引用单一持久化结果的契约。
+- PlotDocument/EngineDataView/Origin 如何引用单一持久化结果的契约。
 - 新 Decision ID、Action 联合、稳定错误、迁移/兼容、权限与 release gate。
 
 这些长期方向不是当前 v1 承诺，也不进入 W0–W10 当前完成定义。实现者不得因为本文件保留未来边界而预置可被 v1 UI 或 Agent 触达的隐藏拟合入口。
