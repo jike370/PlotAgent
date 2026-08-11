@@ -159,33 +159,53 @@ class _Layer:
 class _Graph:
     def __init__(self) -> None:
         self.layer = _Layer()
+        self.lname = ""
 
     def __getitem__(self, index: int) -> _Layer:
         assert index == 0
         return self.layer
 
+    def activate(self) -> None:
+        return None
+
 
 class _Sheet:
-    def __init__(self) -> None:
+    def __init__(self, origin: _Origin) -> None:
+        self.origin = origin
         self.columns: dict[int, list[object]] = {}
+        self.cols = 0
+        self.command = ""
 
     def from_list(self, index: int, values, **kwargs) -> None:
         self.columns[index] = list(values)
+        self.cols = max(self.cols, index + 1)
+
+    def activate(self) -> None:
+        return None
+
+    def lt_exec(self, command: str) -> None:
+        self.command = command
+        if "worksheet -p 219 Hist" in command:
+            self.origin.graph.layer.add_plot(self, coly=0, colx="#", type=219)
 
 
 class _Book:
-    def __init__(self) -> None:
-        self.sheet = _Sheet()
+    def __init__(self, origin: _Origin) -> None:
+        self.name = "DataBook"
+        self.sheet = _Sheet(origin)
 
     def __getitem__(self, index: int) -> _Sheet:
         assert index == 0
         return self.sheet
 
+    def destroy(self) -> None:
+        raise AssertionError("the authoritative data workbook must not be destroyed")
+
 
 class _Origin:
     def __init__(self) -> None:
-        self.book = _Book()
         self.graph = _Graph()
+        self.book = _Book(self)
         self.template = ""
 
     def new(self, *, asksave: bool) -> None:
@@ -198,6 +218,13 @@ class _Origin:
         self.template = template
         return self.graph
 
+    def pages(self, kind: str):
+        return [self.graph] if kind == "g" else [self.book]
+
+    def lt_float(self, expression: str) -> float:
+        assert expression == "layer.plot1.pid"
+        return 219.0
+
 
 @pytest.mark.parametrize(
     ("profile_id", "profile", "grouped", "expected_calls"),
@@ -206,7 +233,7 @@ class _Origin:
         ("K16", K16_ORIGIN_PROFILE, True, 2),
     ),
 )
-def test_origin_binders_start_from_official_template_and_bind_calculated_geometry(
+def test_origin_binders_use_native_origin_geometry_from_raw_observations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     profile_id: str,
@@ -224,11 +251,18 @@ def test_origin_binders_start_from_official_template_and_bind_calculated_geometr
     project = CalculatedDistributionOriginProject(origin, profile_id=profile_id)
     project.create(tmp_path, document, view)
 
-    assert Path(origin.template).name == profile.filename
+    if profile_id == "K15":
+        assert origin.template == ""
+    else:
+        assert Path(origin.template).name == profile.filename
     assert len(origin.graph.layer.add_calls) == expected_calls
     if profile_id == "K15":
-        assert origin.graph.layer.plots[0].command == "-vg 0"
-        assert set(origin.book.sheet.columns) == {0, 1, 2, 3, 4}
+        assert origin.book.sheet.command.endswith("worksheet -p 219 Hist;")
+        assert origin.graph.layer.add_calls == [
+            {"coly": 0, "colx": "#", "type": 219}
+        ]
+        assert set(origin.book.sheet.columns) == {0}
+        assert origin.book.sheet.columns[0] == [1.0, 1.5, 2.0, 2.5, 4.0, 4.5]
     else:
         assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
 
