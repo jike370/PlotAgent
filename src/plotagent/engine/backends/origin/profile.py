@@ -163,8 +163,8 @@ K22_ORIGIN_PROFILE = OriginTemplateProfile(
 
 K24_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K24",
-    filename="mgroups.otpu",
-    sha256="391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+    filename="Grouped.otp",
+    sha256="b3a1999cc9e95e55d661863e60efbcc792af415bc83b0962f01f1636d35c7af0",
     tier="T2",
 )
 

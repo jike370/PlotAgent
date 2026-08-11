@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 from pathlib import Path
 
 import numpy as np
@@ -37,6 +38,7 @@ from plotagent.engine.backends.origin import (
 from plotagent.engine.backends.origin.s61 import S61OriginProject
 from plotagent.engine.backends.origin.scientific_t2 import S21OriginProject, S34OriginProject
 from plotagent.engine.backends.origin.structural_t2 import K24OriginProject, S01OriginProject
+from plotagent.engine.backends.origin.trace import OriginExecutionTrace
 from plotagent.engine.profile_data import (
     k24_facets,
     s01_survival,
@@ -372,6 +374,7 @@ class _Layer:
 class _Graph:
     def __init__(self, layers: int) -> None:
         self.name = "GT2"
+        self.lname = ""
         self.layers = [_Layer() for _index in range(layers)]
 
     def __iter__(self):
@@ -383,15 +386,21 @@ class _Graph:
     def add_layer(self, _kind: int) -> None:
         self.layers.append(_Layer())
 
+    def activate(self) -> None:
+        return None
+
 
 class _Sheet:
     def __init__(self) -> None:
         self.columns: dict[int, list[object]] = {}
+        self.column_options: dict[int, dict[str, object]] = {}
+        self.cols = 0
         self.matrix = np.empty((0, 0))
         self.xymap = (0.0, 1.0, 0.0, 1.0)
 
     def from_list(self, index, values, **kwargs) -> None:
         self.columns[index] = list(values)
+        self.column_options[index] = dict(kwargs)
 
     def to_list(self, index):
         return self.columns[index]
@@ -402,25 +411,38 @@ class _Sheet:
     def to_np2d(self):
         return self.matrix
 
+    def activate(self) -> None:
+        return None
+
+    def lt_range(self, _include_sheet: bool) -> str:
+        return "[DK24]Sheet1"
+
 
 class _Book:
     def __init__(self) -> None:
+        self.name = "DK24"
         self.sheet = _Sheet()
 
     def __getitem__(self, index: int):
         return self.sheet
+
+    def destroy(self) -> None:
+        return None
 
 
 class _Origin:
     def __init__(self) -> None:
         self.book = _Book()
         self.graph = _Graph(1)
+        self.commands: list[str] = []
+        self.native_plot_id = 202.0
 
     def new(self, *, asksave: bool) -> None:
         return None
 
     def new_book(self, kind, name, *, hidden):
         self.book = _Book()
+        self.book.name = name
         return self.book
 
     def new_graph(self, name, *, template, hidden):
@@ -429,18 +451,90 @@ class _Origin:
         self.graph.name = name
         return self.graph
 
+    def pages(self, kind: str):
+        return [self.book] if kind == "w" else [self.graph]
+
+    def lt_exec(self, command: str) -> None:
+        self.commands.append(command)
+        if command.startswith("plot_group "):
+            self.graph = _Graph(1)
+
+    def lt_float(self, expression: str) -> float:
+        if expression == "layer.plot1.pid":
+            return self.native_plot_id
+        return float("nan")
+
 
 @pytest.mark.parametrize("panel_count", (2, 3, 5))
-def test_origin_k24_uses_dynamic_native_template_layers(monkeypatch, panel_count: int) -> None:
+def test_origin_k24_uses_one_native_trellis_layer(
+    monkeypatch, tmp_path: Path, panel_count: int
+) -> None:
     monkeypatch.setattr(
-        structural_origin, "resolve_official_template", lambda *_: Path("mgroups.otpu")
+        structural_origin, "resolve_official_template", lambda *_: Path("Grouped.otp")
     )
     document, actions, view = _k24_case(panel_count)
-    project = K24OriginProject(_Origin())
-    project.create(Path("."), document, view)
-    project.reconcile(document, actions, view)
-    assert len(project.plots) == panel_count
-    assert all(plot.plot_type == 200 for plot in project.plots)
+    origin = _Origin()
+    project = K24OriginProject(origin)
+    trace = OriginExecutionTrace(
+        path=tmp_path / "execution-trace.jsonl",
+        profile_id="K24",
+        plot_id=document.plot_id,
+        plot_version=1,
+    )
+    trace.reset()
+    with trace.activate():
+        project.create(Path("."), document, view)
+        project.reconcile(document, actions, view)
+    assert len(tuple(project.graph)) == 1
+    assert int(origin.lt_float("layer.plot1.pid")) == 202
+    assert any(
+        "plot_group " in command
+        and "type:=linesymb" in command
+        and "horz:=[DK24]Sheet1!(C)" in command
+        and "color:=[DK24]Sheet1!(C)" in command
+        and "template:=Grouped" in command
+        for command in origin.commands
+    )
+    assert project.sheet.cols == 3
+    assert project.sheet.column_options[0]["axis"] == "X"
+    assert project.sheet.column_options[1]["axis"] == "Y"
+    assert project.sheet.column_options[2]["axis"] == "N"
+    assert len(set(project.sheet.columns[2])) == panel_count
+    trace_rows = [
+        json.loads(line)
+        for line in trace.path.read_text(encoding="utf-8").splitlines()
+    ]
+    completed = {
+        row["step"] for row in trace_rows if row["status"] == "completed"
+    }
+    assert {
+        "official_template_resolve",
+        "origin_project_initialize",
+        "workbook_create",
+        "source_data_write",
+        "official_plot_group_execute",
+        "native_structure_readback",
+        "native_structure_confirmed",
+        "agent_actions_apply",
+    } <= completed
+    assert [row["sequence"] for row in trace_rows] == list(
+        range(1, len(trace_rows) + 1)
+    )
+
+
+def test_k24_agent_surface_matches_native_trellis_editability() -> None:
+    capabilities = {
+        capability.operation: capability.parameters
+        for capability in K24_FACET_PROFILE.capabilities
+    }
+    assert capabilities == {
+        "create_plot": (),
+        "bind_fields": (),
+        "set_title": ("text",),
+        "set_axis": ("label", "scale", "bounds", "reverse"),
+        "set_series_style": ("color",),
+        "export_plot": ("png", "svg", "opju"),
+    }
 
 
 def test_origin_s01_keeps_native_steps_bands_and_editable_risk_labels(monkeypatch) -> None:
@@ -498,7 +592,7 @@ def test_t2_profiles_pin_templates_and_do_not_import_old_compiler() -> None:
             S61_ORIGIN_PROFILE,
         )
     } == {
-        "K24": "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b",
+        "K24": "b3a1999cc9e95e55d661863e60efbcc792af415bc83b0962f01f1636d35c7af0",
         "S01": "0b8759367ce19f1a82cfb9630ffefd849e0c600bce1e909985645c0a47de046b",
         "S21": "fb319b1a6918427767373917ddda2cc5b95a88d9d295ff06e866762b955dd161",
         "S34": "2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",

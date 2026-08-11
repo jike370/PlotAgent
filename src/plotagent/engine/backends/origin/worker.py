@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Callable
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,7 @@ from .recipe import origin_recipe
 from .renderer import OriginRendererRegistry
 from .scientific_t2 import execute_s34_request
 from .structural_t2 import execute_k24_request, execute_s01_request
+from .trace import OriginExecutionTrace
 from .wide_series import execute_x03_request, execute_x39_request, execute_x40_request
 from .x02 import execute_x02_request
 from .x09 import execute_x09_request
@@ -115,26 +117,79 @@ def main(argv: list[str] | None = None) -> int:
         }
     )
     recipe = origin_recipe(request.document.profile_id)
-
-    import originpro as op  # type: ignore[import-untyped]
-
-    op.set_show(False)
-    restore_new_graph = _install_template_workbook_guard(op)
-    try:
-        readback = renderers.execute(
-            recipe,
-            op,
-            request,
-            Path(request.install_dir).resolve(),
-            Path(request.output_opju).resolve(),
+    output = Path(request.output_opju).resolve()
+    trace = OriginExecutionTrace(
+        path=output.parent / "execution-trace.jsonl",
+        profile_id=request.document.profile_id,
+        plot_id=request.document.plot_id,
+        plot_version=request.document.plot_version,
+    )
+    trace.reset()
+    with trace.activate():
+        trace.record(
+            "request_validated",
+            "completed",
+            details={
+                "action_count": len(request.actions),
+                "data_backed": request.source.data is not None,
+                "recipe_id": recipe.profile_id,
+                "template_filename": (
+                    None if recipe.primary_template is None else recipe.primary_template.filename
+                ),
+            },
         )
-        response_path.write_text(
-            OriginWorkerResponse(readback=readback).model_dump_json(indent=2),
-            encoding="utf-8",
-        )
-    finally:
-        restore_new_graph()
-        op.exit()
+        op: Any | None = None
+        restore_new_graph: Callable[[], None] | None = None
+        try:
+            with trace.step("origin_session_start"):
+                import originpro as op_module  # type: ignore[import-untyped]
+
+                op = op_module
+                op.set_show(False)
+                restore_new_graph = _install_template_workbook_guard(op)
+            with trace.step(
+                "renderer_dispatch",
+                details={
+                    "binder_key": recipe.binder_key,
+                    "template_filename": (
+                        None
+                        if recipe.primary_template is None
+                        else recipe.primary_template.filename
+                    ),
+                },
+            ):
+                readback = renderers.execute(
+                    recipe,
+                    op,
+                    request,
+                    Path(request.install_dir).resolve(),
+                    output,
+                )
+            with trace.step("response_write"):
+                response_path.write_text(
+                    OriginWorkerResponse(readback=readback).model_dump_json(indent=2),
+                    encoding="utf-8",
+                )
+            trace.record(
+                "worker_completed",
+                "completed",
+                details={
+                    "data_hash": readback.data_hash,
+                    "object_count": len(readback.objects),
+                    "opju_sha256": sha256(output.read_bytes()).hexdigest(),
+                    "opju_size": output.stat().st_size,
+                    "style_hash": readback.style_hash,
+                },
+            )
+        except BaseException as exc:
+            trace.record("worker_failed", "failed", error=exc)
+            raise
+        finally:
+            if restore_new_graph is not None:
+                restore_new_graph()
+            if op is not None:
+                with trace.step("origin_session_exit"):
+                    op.exit()
     return 0
 
 

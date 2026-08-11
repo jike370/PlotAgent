@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
-from math import ceil, sqrt
+from math import isnan
 from pathlib import Path
 from typing import Any, cast
 
@@ -21,11 +21,17 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import FacetData, SurvivalData, k24_facets, s01_survival
+from plotagent.engine.profile_data import (
+    SurvivalData,
+    TrellisData,
+    k24_trellis_data,
+    s01_survival,
+)
 from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
 from .profile import K24_ORIGIN_PROFILE, S01_ORIGIN_PROFILE, resolve_official_template
+from .trace import origin_trace_step, record_origin_trace
 
 _TITLE = "_ENGINE_TITLE"
 _COLORS = ("#2A6FDB", "#D94B4B", "#2A9D6F", "#8A5CC2", "#D88700")
@@ -50,7 +56,6 @@ class _State:
     x_reverse: bool = False
     y_reverse: bool = False
     legend_visible: bool = False
-    layout_columns: int | None = None
     show_risk_table: bool = True
 
 
@@ -121,101 +126,119 @@ class K24OriginProject:
     def __init__(self, op: Any) -> None:
         self.op = op
         self.graph: Any = None
-        self.layers: tuple[Any, ...] = ()
-        self.plots: tuple[Any, ...] = ()
+        self.layer: Any = None
         self.sheet: Any = None
 
     def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
-        template = resolve_official_template(install_dir, K24_ORIGIN_PROFILE)
-        self.op.new(asksave=False)
+        with origin_trace_step(
+            "official_template_resolve",
+            details={"template_filename": K24_ORIGIN_PROFILE.filename},
+        ):
+            template = resolve_official_template(install_dir, K24_ORIGIN_PROFILE)
+        trellis = k24_trellis_data(document, data)
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("w", f"D{token}", hidden=True)
-        if book is None:
-            raise RuntimeError("Origin could not create K24 workbook")
-        self.sheet = book[0]
-        facets = k24_facets(document, data)
-        self._write(facets)
-        self.graph = self.op.new_graph(
-            f"G{token}", template=str(template.with_suffix(template.suffix.lower())), hidden=True
+        with origin_trace_step("workbook_create"):
+            book = self.op.new_book("w", f"D{token}", hidden=True)
+            if book is None:
+                raise RuntimeError("Origin could not create K24 workbook")
+            for residue in tuple(self.op.pages("w")):
+                if residue.name == "Book1" and residue.name != book.name:
+                    residue.destroy()
+            self.sheet = book[0]
+        with origin_trace_step(
+            "source_data_write",
+            details={"column_count": 3, "row_count": len(trellis.x_values)},
+        ):
+            self._write(trellis)
+        with origin_trace_step(
+            "official_plot_group_execute",
+            details={
+                "plot_type": "linesymb",
+                "horizontal_group_role": "facet",
+                "color_group_role": "facet",
+                "template_filename": template.name,
+            },
+        ):
+            self.sheet.activate()
+            source = self.sheet.lt_range(False)
+            self.op.lt_exec(
+                f"plot_group iy:={source}!(A,B) type:=linesymb dyaxes:=0 "
+                f"horz:={source}!(C) color:={source}!(C) template:={template.stem};"
+            )
+        with origin_trace_step("native_structure_readback"):
+            graphs = list(self.op.pages("g"))
+            if len(graphs) != 1:
+                raise RuntimeError("Origin plot_group must create exactly one K24 graph")
+            self.graph = graphs[0]
+            self.graph.lname = f"K24 Trellis / {document.plot_id}"
+            layers = tuple(self.graph)
+            if len(layers) != 1:
+                raise RuntimeError("Origin K24 Trellis must remain one native layer")
+            self.layer = layers[0]
+            self._assert_native_plot()
+            self.layer.rescale()
+        record_origin_trace(
+            "native_structure_confirmed",
+            "completed",
+            details={"graph_count": 1, "layer_count": 1, "native_plot_id": 202},
         )
-        if self.graph is None:
-            raise RuntimeError("Origin could not create K24 from mgroups.otpu")
-        layers = _ensure_layers(self.graph, len(facets.panels))
-        for layer in layers:
-            for plot in layer.plot_list():
-                plot.set_int("show", 0)
-        plots: list[Any] = []
-        for index, _panel in enumerate(facets.panels):
-            plot = layers[index].add_plot(self.sheet, coly=index * 2 + 1, colx=index * 2, type=200)
-            if plot is None:
-                raise RuntimeError("Origin K24 template rejected a facet line")
-            plots.append(plot)
-        self.layers, self.plots = layers, tuple(plots)
 
     def open(self, output: Path) -> None:
-        self.op.new(asksave=False)
-        if not self.op.open(str(output), readonly=False, asksave=False):
-            raise RuntimeError("Origin could not reopen K24")
+        with origin_trace_step("saved_project_reopen", details={"readonly": False}):
+            self.op.new(asksave=False)
+            if not self.op.open(str(output), readonly=False, asksave=False):
+                raise RuntimeError("Origin could not reopen K24")
         graphs, books = list(self.op.pages("g")), list(self.op.pages("w"))
         if len(graphs) != 1 or len(books) != 1:
             raise RuntimeError("K24 must contain one graph and workbook")
         self.graph, self.sheet = graphs[0], books[0][0]
-        self.layers = tuple(self.graph)
-        self.plots = tuple(
-            plot for layer in self.layers for plot in layer.plot_list() if plot.get_int("show") != 0
-        )
+        layers = tuple(self.graph)
+        if len(layers) != 1:
+            raise RuntimeError("K24 Trellis changed from its one-layer native structure")
+        self.layer = layers[0]
+        self._assert_native_plot()
 
     def reconcile(
         self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: EngineDataView
     ) -> None:
-        facets = k24_facets(document, data)
-        self._write(facets)
-        state, styles = self._state(document, actions, facets)
-        columns = state.layout_columns or max(1, ceil(sqrt(len(facets.panels))))
-        rows = ceil(len(facets.panels) / columns)
-        gap = 4.0
-        width = (88.0 - (columns - 1) * gap) / columns
-        height = (79.0 - (rows - 1) * gap) / rows
-        for index, (panel, layer, plot, style) in enumerate(
-            zip(facets.panels, self.layers, self.plots, styles, strict=False)
+        trellis = k24_trellis_data(document, data)
+        with origin_trace_step(
+            "agent_actions_apply", details={"action_count": len(actions)}
         ):
-            row, column = divmod(index, columns)
-            layer.lt_exec(
-                f"layer.left={6.0 + column * (width + gap)};"
-                f"layer.top={10.0 + row * (height + gap)};"
-                f"layer.width={width};layer.height={height};"
-            )
-            plot.color = style.color or _COLORS[index % len(_COLORS)]
-            plot.set_float("line.width", style.line_width_pt)
-            plot.set_int("line.style", _line_style(style.line_style))
-            plot.set_int("show", 1)
-            layer.rescale()
-            _apply_axis_state(layer, state)
-            panel_title = layer.label("_ENGINE_PANEL") or layer.add_label(panel.label, 40, 2)
-            if panel_title is None:
-                raise RuntimeError("Origin could not create K24 panel title")
-            panel_title.name = "_ENGINE_PANEL"
-            panel_title.text = panel.label
-            panel_title.set_int("show", 1)
-            legend = layer.label("legend")
-            if legend is not None:
-                legend.text = f"\\l(1) {panel.label}"
-                legend.set_int("show", int(state.legend_visible))
-        for layer in self.layers[len(facets.panels) :]:
-            layer.set_int("show", 0)
-        _title(self.layers[0], state.title)
+            self._write(trellis)
+            state, styles = self._state(document, actions, trellis)
+            self.layer.rescale()
+            _apply_axis_state(self.layer, state)
+            self._set_title(state.title)
+            self._apply_facet_colors(styles)
 
     def save(self, output: Path) -> None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        self.op.save(str(output))
+        with origin_trace_step("opju_save", details={"filename": output.name}):
+            output.parent.mkdir(parents=True, exist_ok=True)
+            self.op.save(str(output))
+            if not output.is_file() or output.stat().st_size <= 0:
+                raise RuntimeError("Origin did not save a non-empty K24 project")
 
     def verify(
         self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: EngineDataView
     ) -> EngineReadback:
-        facets = k24_facets(document, data)
-        state, styles = self._state(document, actions, facets)
-        if len(self.plots) != len(facets.panels):
-            raise RuntimeError("Origin K24 facet count differs after reopen")
+        trellis = k24_trellis_data(document, data)
+        state, styles = self._state(document, actions, trellis)
+        with origin_trace_step("reopened_native_structure_verify"):
+            self._assert_native_plot()
+        with origin_trace_step(
+            "reopened_source_data_verify",
+            details={"column_count": 3, "row_count": len(trellis.x_values)},
+        ):
+            self._assert_values(self.sheet.to_list(0), trellis.x_values, "X")
+            self._assert_values(self.sheet.to_list(1), trellis.y_values, "Y")
+            self._assert_values(self.sheet.to_list(2), trellis.facet_values, "facet")
+        with origin_trace_step("reopened_agent_edits_verify"):
+            self._assert_labels(state)
+            self._assert_axis_limits(state)
+            self._assert_facet_colors(styles)
         token = document.plot_id.removeprefix("plot:")
         objects: list[EngineObjectRef] = [
             EngineObjectRef(
@@ -228,35 +251,29 @@ class K24OriginProject:
                 semantic_id=f"axis:{token}.x",
                 backend="origin",
                 object_kind="axis",
-                native_ref=f"graph:{self.graph.name}.layers:all.axis:x",
+                native_ref=f"graph:{self.graph.name}.layer:1.axis:x",
             ),
             EngineObjectRef(
                 semantic_id=f"axis:{token}.y",
                 backend="origin",
                 object_kind="axis",
-                native_ref=f"graph:{self.graph.name}.layers:all.axis:y",
-            ),
-            EngineObjectRef(
-                semantic_id=f"legend:{token}.main",
-                backend="origin",
-                object_kind="legend",
-                native_ref=f"graph:{self.graph.name}.layers:all.label:legend",
+                native_ref=f"graph:{self.graph.name}.layer:1.axis:y",
             ),
         ]
-        for index in range(len(facets.panels)):
+        for index in range(len(trellis.facet_labels)):
             objects.extend(
                 (
                     EngineObjectRef(
                         semantic_id=f"panel:{token}.facet_{index + 1}",
                         backend="origin",
                         object_kind="facet_panel",
-                        native_ref=f"graph:{self.graph.name}.layer:{index + 1}",
+                        native_ref=f"graph:{self.graph.name}.layer:1.plot:1.panel:{index + 1}",
                     ),
                     EngineObjectRef(
                         semantic_id=f"series:{token}.facet_{index + 1}",
                         backend="origin",
                         object_kind="facet_series",
-                        native_ref=f"graph:{self.graph.name}.layer:{index + 1}.plot:1",
+                        native_ref=f"graph:{self.graph.name}.layer:1.plot:1.subset:{index + 1}",
                     ),
                 )
             )
@@ -268,29 +285,42 @@ class K24OriginProject:
             style_hash=canonical_hash(
                 cast(
                     JsonValue,
-                    {"state": asdict(state), "styles": [asdict(style) for style in styles]},
+                    {
+                        "state": asdict(state),
+                        "styles": [asdict(style) for style in styles],
+                        "native_plot_id": 202,
+                        "template": K24_ORIGIN_PROFILE.filename,
+                    },
                 )
             ),
         )
 
-    def _write(self, facets: FacetData) -> None:
-        for index, panel in enumerate(facets.panels):
-            self.sheet.from_list(
-                index * 2, list(panel.x_values), lname=facets.x_field_name, axis="X"
-            )
-            self.sheet.from_list(index * 2 + 1, list(panel.y_values), lname=panel.label, axis="Y")
+    def _write(self, trellis: TrellisData) -> None:
+        self.sheet.cols = 3
+        self.sheet.from_list(0, list(trellis.x_values), lname=trellis.x_field_name, axis="X")
+        self.sheet.from_list(1, list(trellis.y_values), lname=trellis.y_field_name, axis="Y")
+        self.sheet.from_list(
+            2,
+            list(trellis.facet_values),
+            lname=trellis.facet_field_name,
+            axis="N",
+        )
 
     @staticmethod
     def _state(
-        document: PlotDocument, actions: tuple[PlotEngineAction, ...], facets: FacetData
+        document: PlotDocument,
+        actions: tuple[PlotEngineAction, ...],
+        trellis: TrellisData,
     ) -> tuple[_State, tuple[_Style, ...]]:
         token = document.plot_id.removeprefix("plot:")
-        state = _State(x_label=facets.x_field_name, y_label=facets.y_field_name)
-        styles = tuple(_Style() for _panel in facets.panels)
+        state = _State(x_label=trellis.x_field_name, y_label=trellis.y_field_name)
+        styles = tuple(_Style() for _label in trellis.facet_labels)
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
             if isinstance(action, SetTitle):
+                if action.target != document.plot_id:
+                    raise ValueError("K24 title target does not belong")
                 state = replace(state, title=action.text)
             elif isinstance(action, SetAxis):
                 state = _axis_state(state, action, token, allow_scale=True)
@@ -299,30 +329,142 @@ class K24OriginProject:
                 if not action.target.startswith(prefix):
                     raise ValueError("K24 series target does not belong")
                 index = int(action.target.removeprefix(prefix)) - 1
-                mutable = list(styles)
-                mutable[index] = _style(mutable[index], action)
-                styles = tuple(mutable)
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("K24 exposes only legend visibility")
-                state = replace(
-                    state,
-                    legend_visible=state.legend_visible
-                    if action.visible is None
-                    else action.visible,
-                )
-            elif isinstance(action, SetChartParameter):
+                if not 0 <= index < len(styles):
+                    raise ValueError("K24 facet series target is out of range")
                 if (
-                    action.parameter != "facet_columns"
-                    or isinstance(action.value, bool)
-                    or not isinstance(action.value, int)
-                    or not 1 <= action.value <= 5
+                    action.color is None
+                    or action.line_width_pt is not None
+                    or action.line_style is not None
+                    or action.symbol is not None
+                    or action.symbol_size_pt is not None
                 ):
-                    raise ValueError("K24 facet_columns must be an integer from 1 to 5")
-                state = replace(state, layout_columns=action.value)
+                    raise ValueError("K24 exposes only per-facet color")
+                mutable = list(styles)
+                mutable[index] = replace(mutable[index], color=action.color)
+                styles = tuple(mutable)
+            elif isinstance(action, (SetLegend, SetChartParameter)):
+                raise ValueError(
+                    "K24 native Trellis exposes neither a standalone legend nor manual panel layout"
+                )
             else:
                 raise ValueError(f"Origin K24 cannot apply {action.operation}")
         return state, styles
+
+    def _assert_native_plot(self) -> None:
+        self.graph.activate()
+        plot_id = float(self.op.lt_float("layer.plot1.pid"))
+        if isnan(plot_id) or int(plot_id) != 202:
+            raise RuntimeError("Origin K24 did not retain its native Line+Symbol Trellis DataPlot")
+
+    def _set_title(self, text: str) -> None:
+        title = self.layer.label(_TITLE)
+        if title is None and text:
+            self.layer.activate()
+            if not self.layer.obj.LT_execute(
+                f"label -b 4 -j 1 -n {_TITLE} PlotAgentTitlePlaceholder;"
+            ):
+                raise RuntimeError("Origin could not create the K24 title")
+            title = self.layer.label(_TITLE)
+        if title is not None:
+            title.text = text
+            title.set_int("attach", 1)
+            title.set_float("x1", 0.5)
+            title.set_float("y1", 0.06)
+            title.set_int("show", int(bool(text)))
+
+    def _apply_facet_colors(self, styles: tuple[_Style, ...]) -> None:
+        if not any(style.color is not None for style in styles):
+            return
+        native = self._read_color_list("-cu", len(styles), "__K24DEFAULT")
+        values: list[str] = []
+        for index, style in enumerate(styles):
+            if style.color is not None:
+                values.append(f'color("{style.color}")')
+            elif index < len(native) and not isnan(native[index]):
+                values.append(str(int(native[index])))
+            else:
+                values.append(f'color("{_COLORS[index % len(_COLORS)]}")')
+        expression = ",".join(values)
+        self.graph.activate()
+        self.op.lt_exec(
+            f"dataset __K24COLORS={{{expression}}}; "
+            "set %C -cue 1; set %C -cu __K24COLORS; "
+            "set %C -cus __K24COLORS; set %C -cusf __K24COLORS;"
+        )
+
+    def _assert_facet_colors(self, styles: tuple[_Style, ...]) -> None:
+        edited = tuple(
+            (index, style.color)
+            for index, style in enumerate(styles, start=1)
+            if style.color
+        )
+        if not edited:
+            return
+        self.graph.activate()
+        self.op.lt_exec("get %C -cue __K24ENABLED;")
+        if int(self.op.lt_float("__K24ENABLED")) != 1:
+            raise RuntimeError("Origin K24 facet color list was disabled after reopen")
+        for option, variable in (
+            ("-cu", "__K24LINE"),
+            ("-cus", "__K24SYMBOL"),
+            ("-cusf", "__K24FILL"),
+        ):
+            values = self._read_color_list(option, len(styles), variable)
+            for ordinal, color in edited:
+                expected = int(self.op.lt_float(f'color("{color}")'))
+                if ordinal > len(values) or int(values[ordinal - 1]) != expected:
+                    raise RuntimeError(
+                        f"Origin K24 {option} facet color did not survive readback"
+                    )
+
+    def _read_color_list(self, option: str, count: int, variable: str) -> tuple[float, ...]:
+        self.graph.activate()
+        self.op.lt_exec(f"dataset {variable}; get %C {option} {variable};")
+        return tuple(
+            float(self.op.lt_float(f"{variable}[{index}]"))
+            for index in range(1, count + 1)
+        )
+
+    def _assert_labels(self, state: _State) -> None:
+        x_label = self.layer.label("xb")
+        y_label = self.layer.label("yl")
+        if x_label is None or x_label.text != state.x_label:
+            raise RuntimeError("Origin K24 X-axis label did not survive readback")
+        if y_label is None or y_label.text != state.y_label:
+            raise RuntimeError("Origin K24 Y-axis label did not survive readback")
+        title = self.layer.label(_TITLE)
+        if state.title and (
+            title is None or title.text != state.title or title.get_int("show") == 0
+        ):
+            raise RuntimeError("Origin K24 title did not survive readback")
+
+    def _assert_axis_limits(self, state: _State) -> None:
+        for axis_name in ("x", "y"):
+            minimum = getattr(state, f"{axis_name}_minimum")
+            maximum = getattr(state, f"{axis_name}_maximum")
+            if minimum is None or maximum is None:
+                continue
+            observed = tuple(float(value) for value in self.layer.axis(axis_name).limits[:2])
+            expected = (float(minimum), float(maximum))
+            if getattr(state, f"{axis_name}_reverse"):
+                expected = expected[::-1]
+            differs = any(
+                abs(left - right) > 1e-8
+                for left, right in zip(observed, expected, strict=True)
+            )
+            if differs:
+                raise RuntimeError(f"Origin K24 {axis_name.upper()} limits changed after reopen")
+
+    @staticmethod
+    def _assert_values(actual: list[Any], expected: tuple[Any, ...], label: str) -> None:
+        if len(actual) != len(expected):
+            raise RuntimeError(f"Origin K24 {label} row count changed after reopen")
+        for observed, wanted in zip(actual, expected, strict=True):
+            if isinstance(wanted, float) and isnan(wanted):
+                if not isinstance(observed, float) or not isnan(observed):
+                    raise RuntimeError(f"Origin K24 {label} missing value changed after reopen")
+            elif observed != wanted:
+                raise RuntimeError(f"Origin K24 {label} values changed after reopen")
 
 
 class S01OriginProject:

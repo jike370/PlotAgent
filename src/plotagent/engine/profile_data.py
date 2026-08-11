@@ -184,6 +184,19 @@ class OffsetStackData:
 
 
 @dataclass(frozen=True, slots=True)
+class TrellisData:
+    """Unpivoted rows consumed by Origin's native ``plot_group`` X-Function."""
+
+    x_values: tuple[float, ...]
+    y_values: tuple[float, ...]
+    facet_values: tuple[str, ...]
+    facet_labels: tuple[str, ...]
+    facet_field_name: str
+    x_field_name: str
+    y_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class HistogramData:
     left: tuple[float, ...]
     right: tuple[float, ...]
@@ -1042,27 +1055,46 @@ def x38_offset_stack(document: PlotDocument, data: EngineDataView) -> OffsetStac
 
 
 def k24_facets(document: PlotDocument, data: EngineDataView) -> FacetData:
-    facet, x, y = _bound_columns(document, data, ("facet", "base_x", "base_y"), "K24")
-    facet_labels = tuple(_label(item, "facet") for item in facet.values)
-    x_values = _numeric_values(x, "base_x", "K24", allow_missing=False)
-    y_values = _numeric_values(y, "base_y", "K24", allow_missing=True)
+    trellis = k24_trellis_data(document, data)
     panels: list[FacetSeriesData] = []
-    for label in dict.fromkeys(facet_labels):
-        indexes = tuple(index for index, value in enumerate(facet_labels) if value == label)
-        if len(indexes) < 2:
-            raise ValueError("K24 requires at least two observations in every facet")
+    for label in trellis.facet_labels:
+        indexes = tuple(
+            index for index, value in enumerate(trellis.facet_values) if value == label
+        )
         panels.append(
             FacetSeriesData(
                 label=label,
-                x_values=tuple(x_values[index] for index in indexes),
-                y_values=tuple(y_values[index] for index in indexes),
+                x_values=tuple(trellis.x_values[index] for index in indexes),
+                y_values=tuple(trellis.y_values[index] for index in indexes),
             )
         )
     return FacetData(
+        facet_field_name=trellis.facet_field_name,
+        x_field_name=trellis.x_field_name,
+        y_field_name=trellis.y_field_name,
+        panels=tuple(panels),
+    )
+
+
+def k24_trellis_data(document: PlotDocument, data: EngineDataView) -> TrellisData:
+    """Preserve K24's long rows for Origin's official Trellis workflow."""
+
+    facet, x, y = _bound_columns(document, data, ("facet", "base_x", "base_y"), "K24")
+    facet_values = tuple(_label(item, "facet") for item in facet.values)
+    x_values = _numeric_values(x, "base_x", "K24", allow_missing=False)
+    y_values = _numeric_values(y, "base_y", "K24", allow_missing=True)
+    facet_labels = tuple(dict.fromkeys(facet_values))
+    for label in facet_labels:
+        if sum(value == label for value in facet_values) < 2:
+            raise ValueError("K24 requires at least two observations in every facet")
+    return TrellisData(
+        x_values=x_values,
+        y_values=y_values,
+        facet_values=facet_values,
+        facet_labels=facet_labels,
         facet_field_name=facet.field.name,
         x_field_name=x.field.name,
         y_field_name=y.field.name,
-        panels=tuple(panels),
     )
 
 

@@ -799,7 +799,6 @@ K24_FACET_PROFILE = EngineProfile(
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
         EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
-        EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
     ),
     repeatable_objects=(
         EngineRepeatableObjectTemplate(
@@ -814,11 +813,7 @@ K24_FACET_PROFILE = EngineProfile(
         EngineCapability(operation="bind_fields"),
         EngineCapability(operation="set_title", parameters=("text",)),
         EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
-        EngineCapability(
-            operation="set_series_style", parameters=("color", "line_width_pt", "line_style")
-        ),
-        EngineCapability(operation="set_legend", parameters=("visible",)),
-        EngineCapability(operation="set_chart_parameter", parameters=("facet_columns",)),
+        EngineCapability(operation="set_series_style", parameters=("color",)),
         EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
     ),
 )

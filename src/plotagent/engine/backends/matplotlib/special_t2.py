@@ -171,8 +171,8 @@ class K24FacetRenderer:
         svg_path: Path,
     ) -> EngineReadback:
         facets = k24_facets(document, data)
-        axes_state, styles, visible, columns = self._state(document, actions, facets)
-        column_count = columns or max(1, ceil(sqrt(len(facets.panels))))
+        axes_state, styles = self._state(document, actions, facets)
+        column_count = max(1, ceil(sqrt(len(facets.panels))))
         row_count = ceil(len(facets.panels) / column_count)
         figure, axes = plt.subplots(
             row_count,
@@ -196,8 +196,6 @@ class K24FacetRenderer:
             )
             local = replace(axes_state, title=panel.label)
             _apply_axes(axis, local)
-            if visible:
-                axis.legend()
             objects.extend(
                 (
                     EngineObjectRef(
@@ -230,7 +228,6 @@ class K24FacetRenderer:
                     {
                         "axes": asdict(axes_state),
                         "styles": [asdict(style) for style in styles],
-                        "legend": visible,
                         "facet_columns": column_count,
                     },
                 )
@@ -240,12 +237,10 @@ class K24FacetRenderer:
     @staticmethod
     def _state(
         document: PlotDocument, actions: tuple[PlotEngineAction, ...], facets: FacetData
-    ) -> tuple[_AxesState, tuple[_Style, ...], bool, int | None]:
+    ) -> tuple[_AxesState, tuple[_Style, ...]]:
         token = document.plot_id.removeprefix("plot:")
         axes = _AxesState(x_label=facets.x_field_name, y_label=facets.y_field_name)
         styles = tuple(_Style() for _panel in facets.panels)
-        visible = False
-        columns: int | None = None
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
@@ -262,26 +257,24 @@ class K24FacetRenderer:
                 index = int(action.target.removeprefix(prefix)) - 1
                 if not 0 <= index < len(styles):
                     raise ValueError("K24 facet series target is out of range")
-                mutable = list(styles)
-                mutable[index] = _style(mutable[index], action)
-                styles = tuple(mutable)
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("K24 exposes only legend visibility")
-                visible = visible if action.visible is None else action.visible
-            elif isinstance(action, SetChartParameter):
                 if (
-                    action.target != document.plot_id
-                    or action.parameter != "facet_columns"
-                    or isinstance(action.value, bool)
-                    or not isinstance(action.value, int)
-                    or not 1 <= action.value <= 5
+                    action.color is None
+                    or action.line_width_pt is not None
+                    or action.line_style is not None
+                    or action.symbol is not None
+                    or action.symbol_size_pt is not None
                 ):
-                    raise ValueError("K24 facet_columns must be an integer from 1 to 5")
-                columns = action.value
+                    raise ValueError("K24 exposes only per-facet color")
+                mutable = list(styles)
+                mutable[index] = replace(mutable[index], color=action.color)
+                styles = tuple(mutable)
+            elif isinstance(action, (SetLegend, SetChartParameter)):
+                raise ValueError(
+                    "K24 exposes neither a standalone legend nor manual panel layout"
+                )
             else:
                 raise ValueError(f"K24 Matplotlib renderer cannot apply {action.operation}")
-        return axes, styles, visible, columns
+        return axes, styles
 
 
 class S01SurvivalRenderer:
