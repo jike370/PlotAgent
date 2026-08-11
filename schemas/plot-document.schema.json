@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "EngineDataRef": {
+      "additionalProperties": false,
+      "description": "Immutable data revision consumed by a plot document.",
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "source",
+            "prepared",
+            "calculated"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "dataset_id",
+        "version",
+        "content_hash"
+      ],
+      "title": "EngineDataRef",
+      "type": "object"
+    },
+    "FieldBinding": {
+      "additionalProperties": false,
+      "description": "Semantic chart role bound to one immutable field.",
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "field_id"
+      ],
+      "title": "FieldBinding",
+      "type": "object"
+    },
+    "PlotDocumentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "plot_id": {
+          "pattern": "^plot:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "plot_version": {
+          "minimum": 1,
+          "title": "Plot Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "plot_id",
+        "plot_version",
+        "content_hash"
+      ],
+      "title": "PlotDocumentRef",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/plot-document.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Minimal, renderer-neutral state for one plotted data revision.\n\nVisual defaults belong to the selected engine profile (for Origin, the\nofficial template).  Only explicit user/agent actions are journaled here.",
+  "properties": {
+    "applied_action_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Applied Action Ids",
+      "type": "array"
+    },
+    "bindings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FieldBinding"
+      },
+      "title": "Bindings",
+      "type": "array"
+    },
+    "components": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PlotDocumentRef"
+      },
+      "maxItems": 4,
+      "title": "Components",
+      "type": "array"
+    },
+    "data": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineDataRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "parent_version": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Version"
+    },
+    "plot_id": {
+      "pattern": "^plot:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Plot Id",
+      "type": "string"
+    },
+    "plot_version": {
+      "minimum": 1,
+      "title": "Plot Version",
+      "type": "integer"
+    },
+    "profile_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "2.0",
+      "default": "2.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plot_id",
+    "plot_version",
+    "profile_id"
+  ],
+  "title": "PlotDocument",
+  "type": "object"
+}

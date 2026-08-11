@@ -1,0 +1,40 @@
+{
+  "$id": "https://schemas.plotagent.local/v2/engine-data-ref.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Immutable data revision consumed by a plot document.",
+  "properties": {
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "dataset_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Dataset Id",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "source",
+        "prepared",
+        "calculated"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "kind",
+    "dataset_id",
+    "version",
+    "content_hash"
+  ],
+  "title": "EngineDataRef",
+  "type": "object"
+}

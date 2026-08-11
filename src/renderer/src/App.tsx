@@ -35,7 +35,6 @@ import { ChartLibrary } from './components/ChartLibrary'
 import { CompositionEditor } from './components/CompositionEditor'
 import {
   ConversationWorkspace,
-  type AgentChangeSetView,
   type ExportRecordView,
   type ProductNotice,
   type ScopeMode,
@@ -103,28 +102,6 @@ function readExportRecord(
   }
 }
 
-function readAgentChangeSet(value: JsonValue): AgentChangeSetView | undefined {
-  if (!isJsonRecord(value) || typeof value.plan_id !== 'string' || typeof value.state !== 'string') return undefined
-  return {
-    planId: value.plan_id,
-    state: value.state,
-    items: (Array.isArray(value.items) ? value.items : []).flatMap((item) => {
-      if (!isJsonRecord(item) || typeof item.task_item_id !== 'string' || typeof item.state !== 'string') return []
-      const failure = isJsonRecord(item.failure) && typeof item.failure.message === 'string'
-        ? item.failure.message : undefined
-      return [{
-        taskItemId: item.task_item_id,
-        actionType: typeof item.action_type === 'string' ? item.action_type : 'unknown',
-        state: item.state,
-        attemptCount: typeof item.attempt_count === 'number' ? item.attempt_count : 0,
-        beforeCount: Array.isArray(item.before) ? item.before.length : 0,
-        afterCount: Array.isArray(item.after) ? item.after.length : 0,
-        ...(failure === undefined ? {} : { failure }),
-      }]
-    }),
-  }
-}
-
 interface ProviderSettingsProps {
   busy: boolean
   notice?: ProductNotice
@@ -176,7 +153,6 @@ export function App(): React.JSX.Element {
   const [plot, setPlot] = useState<ProductPlot>()
   const [figureCandidates, setFigureCandidates] = useState<ProductPlot[]>([])
   const [exportRecord, setExportRecord] = useState<ExportRecordView>()
-  const [changeSet, setChangeSet] = useState<AgentChangeSetView>()
   const [notice, setNotice] = useState<ProductNotice>()
   const [agentOutcome, setAgentOutcome] = useState<AgentOutcome>()
   const [agentPlan, setAgentPlan] = useState<AgentPlanView>()
@@ -337,7 +313,6 @@ export function App(): React.JSX.Element {
     setPlot(undefined)
     setFigureCandidates([])
     setExportRecord(undefined)
-    setChangeSet(undefined)
     setAgentOutcome(undefined)
     setAgentPlan(undefined)
     setScreen('workspace')
@@ -560,7 +535,7 @@ export function App(): React.JSX.Element {
       const next = { ...(known ?? { projectId, name: '本机项目', projectVersion: 0, isOpen: true }), projectVersion: projectVersionFrom(opened, 0), isOpen: true }
       setProject(next); setDatasets(readDatasets(listed)); setActiveDatasetId(readDatasets(listed)[0]?.datasetId)
       setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined); setFigureCandidates([])
-      setAgentPlan(undefined); setAgentOutcome(undefined); setChangeSet(undefined); setExportRecord(undefined)
+      setAgentPlan(undefined); setAgentOutcome(undefined); setExportRecord(undefined)
       const recovery = await recoverLatestPlot(projectId)
       if (recovery.plot) {
         setPlot(recovery.plot)
@@ -662,9 +637,6 @@ export function App(): React.JSX.Element {
       const plan = readAgentPlan(value)
       if (!plan) throw new Error('Core 未返回任务计划状态。')
       setAgentPlan(plan)
-      if (isJsonRecord(value) && value.change_set !== undefined) {
-        setChangeSet(readAgentChangeSet(value.change_set))
-      }
       await syncPlanOutput(plan)
       setAgentOutcome({
         kind: 'action_plan',
@@ -926,7 +898,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} changeSet={changeSet} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { invalidateAgentRequest(); setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen(plot?.chartId === 'K25' ? 'composition' : 'focus')} onOpenTasks={() => setTasksOpen(true)} />
+          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { invalidateAgentRequest(); setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen(plot?.chartId === 'K25' ? 'composition' : 'focus')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && plot?.chartId === 'K25' && <CompositionEditor plot={plot} onClose={() => setScreen('workspace')} />}

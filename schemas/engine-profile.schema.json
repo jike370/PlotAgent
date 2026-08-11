@@ -1,0 +1,200 @@
+{
+  "$defs": {
+    "EngineCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "enum": [
+            "create_plot",
+            "bind_fields",
+            "set_title",
+            "set_axis",
+            "set_series_style",
+            "set_legend",
+            "set_chart_parameter",
+            "add_annotation",
+            "export_plot"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "parameters": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Parameters",
+          "type": "array"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "title": "EngineCapability",
+      "type": "object"
+    },
+    "EngineObjectTemplate": {
+      "additionalProperties": false,
+      "description": "Stable model-facing alias for one profile-owned semantic object.",
+      "properties": {
+        "object_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Object Alias",
+          "type": "string"
+        },
+        "object_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Object Key",
+          "type": "string"
+        },
+        "object_kind": {
+          "enum": [
+            "axis",
+            "series",
+            "legend",
+            "panel"
+          ],
+          "title": "Object Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object_alias",
+        "object_kind",
+        "object_key"
+      ],
+      "title": "EngineObjectTemplate",
+      "type": "object"
+    },
+    "EngineRepeatableObjectTemplate": {
+      "additionalProperties": false,
+      "description": "Bounded alias pattern for data-dependent semantic objects.\n\nThe model sees aliases such as ``series_1`` rather than native plot ids.\nThe local client converts the positive ordinal to a stable semantic id;\nthe profile backend remains responsible for rejecting an ordinal that is\noutside the materialized data.",
+      "properties": {
+        "object_alias_prefix": {
+          "pattern": "^[a-z][a-z0-9]{0,31}$",
+          "title": "Object Alias Prefix",
+          "type": "string"
+        },
+        "object_key_prefix": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Object Key Prefix",
+          "type": "string"
+        },
+        "object_kind": {
+          "enum": [
+            "series",
+            "panel"
+          ],
+          "title": "Object Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object_alias_prefix",
+        "object_kind",
+        "object_key_prefix"
+      ],
+      "title": "EngineRepeatableObjectTemplate",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/engine-profile.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One chart profile exposed to agents by the engine catalog.",
+  "properties": {
+    "capabilities": {
+      "items": {
+        "$ref": "#/$defs/EngineCapability"
+      },
+      "minItems": 1,
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "display_name": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Display Name",
+      "type": "string"
+    },
+    "maximum_components": {
+      "default": 0,
+      "maximum": 4,
+      "minimum": 0,
+      "title": "Maximum Components",
+      "type": "integer"
+    },
+    "minimum_components": {
+      "default": 0,
+      "maximum": 4,
+      "minimum": 0,
+      "title": "Minimum Components",
+      "type": "integer"
+    },
+    "objects": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EngineObjectTemplate"
+      },
+      "title": "Objects",
+      "type": "array"
+    },
+    "optional_roles": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Optional Roles",
+      "type": "array"
+    },
+    "profile_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "repeatable_objects": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EngineRepeatableObjectTemplate"
+      },
+      "title": "Repeatable Objects",
+      "type": "array"
+    },
+    "repeatable_role_prefixes": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Repeatable Role Prefixes",
+      "type": "array"
+    },
+    "required_roles": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Required Roles",
+      "type": "array"
+    },
+    "source_kind": {
+      "default": "data",
+      "enum": [
+        "data",
+        "plots"
+      ],
+      "title": "Source Kind",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profile_id",
+    "display_name",
+    "capabilities"
+  ],
+  "title": "EngineProfile",
+  "type": "object"
+}

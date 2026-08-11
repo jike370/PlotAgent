@@ -1,6 +1,14 @@
 """Official-template Origin backend for Agent Native profiles."""
 
 from .backend import OriginBackend, SubprocessOriginWorker
+from .environment import (
+    OriginEnvironment,
+    OriginErrorCode,
+    OriginPreflightFailure,
+    OriginPreflightResult,
+    OriginPreflightSuccess,
+    preflight_origin,
+)
 from .profile import (
     K01_ORIGIN_PROFILE,
     K02_ORIGIN_PROFILE,
@@ -84,7 +92,13 @@ __all__ = [
     "X39_ORIGIN_PROFILE",
     "X40_ORIGIN_PROFILE",
     "OriginBackend",
+    "OriginEnvironment",
+    "OriginErrorCode",
+    "OriginPreflightFailure",
+    "OriginPreflightResult",
+    "OriginPreflightSuccess",
     "OriginTemplateProfile",
     "SubprocessOriginWorker",
     "resolve_official_template",
+    "preflight_origin",
 ]

@@ -94,6 +94,78 @@
       "title": "FieldMappingRef",
       "type": "object"
     },
+    "FilterRowsSpec": {
+      "additionalProperties": false,
+      "description": "Keep a deterministic subset of rows before calculation or plotting.",
+      "properties": {
+        "compiler_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Field Ids",
+          "type": "array"
+        },
+        "field_mapping_ref": {
+          "$ref": "#/$defs/FieldMappingRef"
+        },
+        "input_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceDatasetRef"
+          },
+          "minItems": 1,
+          "title": "Input Refs",
+          "type": "array"
+        },
+        "kind": {
+          "const": "filter_rows",
+          "default": "filter_rows",
+          "title": "Kind",
+          "type": "string"
+        },
+        "missing_policy": {
+          "enum": [
+            "fail",
+            "exclude_with_report"
+          ],
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "preparation_spec_id": {
+          "pattern": "^preparation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Preparation Spec Id",
+          "type": "string"
+        },
+        "preparation_version": {
+          "minimum": 1,
+          "title": "Preparation Version",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preparation_spec_id",
+        "preparation_version",
+        "input_refs",
+        "field_mapping_ref",
+        "compiler_version",
+        "field_ids",
+        "missing_policy"
+      ],
+      "title": "FilterRowsSpec",
+      "type": "object"
+    },
     "IsomorphicConcatSpec": {
       "additionalProperties": false,
       "properties": {
@@ -159,77 +231,6 @@
         "source_label_field_id"
       ],
       "title": "IsomorphicConcatSpec",
-      "type": "object"
-    },
-    "MaskForPlotSpec": {
-      "additionalProperties": false,
-      "properties": {
-        "compiler_version": {
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-          "title": "Compiler Version",
-          "type": "string"
-        },
-        "field_ids": {
-          "items": {
-            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Field Ids",
-          "type": "array"
-        },
-        "field_mapping_ref": {
-          "$ref": "#/$defs/FieldMappingRef"
-        },
-        "input_refs": {
-          "items": {
-            "$ref": "#/$defs/SourceDatasetRef"
-          },
-          "minItems": 1,
-          "title": "Input Refs",
-          "type": "array"
-        },
-        "kind": {
-          "const": "mask_for_plot",
-          "default": "mask_for_plot",
-          "title": "Kind",
-          "type": "string"
-        },
-        "missing_policy": {
-          "enum": [
-            "fail",
-            "exclude_with_report"
-          ],
-          "title": "Missing Policy",
-          "type": "string"
-        },
-        "preparation_spec_id": {
-          "pattern": "^preparation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Preparation Spec Id",
-          "type": "string"
-        },
-        "preparation_version": {
-          "minimum": 1,
-          "title": "Preparation Version",
-          "type": "integer"
-        },
-        "schema_version": {
-          "const": "1.0",
-          "default": "1.0",
-          "title": "Schema Version",
-          "type": "string"
-        }
-      },
-      "required": [
-        "preparation_spec_id",
-        "preparation_version",
-        "input_refs",
-        "field_mapping_ref",
-        "compiler_version",
-        "field_ids",
-        "missing_policy"
-      ],
-      "title": "MaskForPlotSpec",
       "type": "object"
     },
     "ProjectMetadataLabelSpec": {
@@ -468,13 +469,13 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.plotagent.local/v1/preparation-spec.schema.json",
+  "$id": "https://schemas.plotagent.local/v2/preparation-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "discriminator": {
     "mapping": {
       "apply_plot_order": "#/$defs/ApplyPlotOrderSpec",
+      "filter_rows": "#/$defs/FilterRowsSpec",
       "isomorphic_concat": "#/$defs/IsomorphicConcatSpec",
-      "mask_for_plot": "#/$defs/MaskForPlotSpec",
       "project_metadata_label": "#/$defs/ProjectMetadataLabelSpec",
       "project_structure": "#/$defs/ProjectStructureSpec",
       "select_fields": "#/$defs/SelectFieldsSpec"
@@ -498,7 +499,7 @@
       "$ref": "#/$defs/ApplyPlotOrderSpec"
     },
     {
-      "$ref": "#/$defs/MaskForPlotSpec"
+      "$ref": "#/$defs/FilterRowsSpec"
     }
   ],
   "title": "PreparationSpecContract"

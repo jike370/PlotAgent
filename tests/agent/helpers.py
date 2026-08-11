@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 
 from plotagent.agent.context import (
@@ -20,61 +19,12 @@ from plotagent.agent.providers import (
     ProviderUsage,
     ProviderWireResponse,
 )
-from plotagent.agent.validation import ValidationAuthority
 from plotagent.contracts.agent_context import (
     ChartCapabilities,
     ContextFieldSummary,
     ContextMessage,
     ContextObjectRef,
 )
-
-
-def no_change_payload(explanation: str = "当前状态已满足 mixed scientific request.") -> str:
-    return json.dumps(
-        {
-            "schema_version": "1.0",
-            "decision_type": "no_change",
-            "target_alias": "active_target",
-            "explanation": explanation,
-        },
-        ensure_ascii=False,
-    )
-
-
-def action_plan_payload(*, include_unsupported: bool = False) -> str:
-    actions: list[dict[str, object]] = [
-        {
-            "action_type": "create_plot",
-            "action_id": "action:create",
-            "target_alias": "active_target",
-            "chart_type_id": "K01",
-            "field_selections": [
-                {"role": "x", "context_field_alias": "x_field"},
-                {"role": "y", "context_field_alias": "y_field"},
-            ],
-        }
-    ]
-    if include_unsupported:
-        actions.append(
-            {
-                "action_type": "export_artifact",
-                "action_id": "action:export",
-                "depends_on": ["action:create"],
-                "target_alias": "active_target",
-                "format": "opju",
-                "target_scope": "figure",
-                "output_name": "result",
-            }
-        )
-    return json.dumps(
-        {
-            "schema_version": "1.0",
-            "decision_type": "action_plan",
-            "plan_id": "plan:test",
-            "target_alias": "active_target",
-            "actions": actions,
-        }
-    )
 
 
 def target(*, version: int = 1) -> ContextObjectRef:
@@ -128,11 +78,20 @@ def context_request(*, field_count: int = 2, row_count: int = 25) -> ContextBuil
         ),
         conversation_state=ConversationState(current_target=current),
         chart_capabilities=ChartCapabilities(
-            capability_version="charts-v1",
+            capability_version="engine-v1",
             allowed_chart_type_ids=("K01",),
-            allowed_action_types=("create_plot", "patch_plot", "export_artifact"),
-            allowed_patch_operations=("set_axis_scale",),
-            export_formats=("png",),
+            allowed_action_types=(
+                "create_plot",
+                "bind_fields",
+                "set_title",
+                "set_axis",
+                "set_series_style",
+                "set_legend",
+                "set_chart_parameter",
+                "add_annotation",
+                "export_plot",
+            ),
+            export_formats=("png", "svg", "opju"),
         ),
         disclosure_grant=DisclosureGrant(
             provider_type="custom",
@@ -150,20 +109,6 @@ def context_request(*, field_count: int = 2, row_count: int = 25) -> ContextBuil
                 }
             ),
         ),
-    )
-
-
-def authority(*, current: ContextObjectRef | None = None) -> ValidationAuthority:
-    return ValidationAuthority(
-        current_target=current or target(),
-        allowed_target_aliases=frozenset({"active_target"}),
-        allowed_field_aliases=frozenset({"x_field", "y_field"}),
-        allowed_action_types=frozenset({"create_plot", "patch_plot"}),
-        allowed_chart_type_ids=frozenset({"K01"}),
-        allowed_patch_operations=frozenset({"set_axis_scale"}),
-        allowed_export_formats=frozenset({"png"}),
-        allowed_export_scopes=frozenset({"current_plot"}),
-        permission_grants=frozenset({"create_plot", "patch_plot"}),
     )
 
 

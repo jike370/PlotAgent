@@ -1771,7 +1771,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.plotagent.local/v1/plot-calculation-result.schema.json",
+  "$id": "https://schemas.plotagent.local/v2/plot-calculation-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "discriminator": {
     "mapping": {

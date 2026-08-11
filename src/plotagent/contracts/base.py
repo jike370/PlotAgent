@@ -13,8 +13,8 @@ ObjectId = Annotated[
     str,
     StringConstraints(
         pattern=(
-            r"^(source|mapping|preparation|prepared|plotcalc|plot|batch|figure|export|"
-            r"renderplan|originplan|plan|project):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            r"^(source|mapping|preparation|prepared|plotcalc|plot|export|plan|project):"
+            r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
         ),
         strict=True,
     ),
@@ -26,13 +26,6 @@ FieldId = Annotated[
 RowId = Annotated[
     str,
     StringConstraints(pattern=r"^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$", strict=True),
-]
-SemanticTargetId = Annotated[
-    str,
-    StringConstraints(
-        pattern=r"^(plot|series|axis|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-        strict=True,
-    ),
 ]
 SemanticAlias = Annotated[
     str,
@@ -61,7 +54,6 @@ ChartTypeId = Literal[
     "K02",
     "K03",
     "K04",
-    "K05",
     "K06",
     "K07",
     "K08",
@@ -73,7 +65,6 @@ ChartTypeId = Literal[
     "K14",
     "K15",
     "K16",
-    "K17",
     "K18",
     "K19",
     "K20",
@@ -82,35 +73,21 @@ ChartTypeId = Literal[
     "K24",
     "K25",
     "S01",
-    "S05",
     "S21",
-    "S25",
-    "S31",
     "S34",
     "S61",
-    "X01",
     "X02",
     "X03",
     "X05",
-    "X07",
     "X09",
-    "X11",
-    "X12",
     "X13",
-    "X15",
-    "X16",
-    "X17",
-    "X18",
-    "X19",
     "X23",
     "X24",
     "X35",
     "X36",
-    "X37",
     "X38",
     "X39",
     "X40",
-    "S07",
 ]
 CalculationKind = Literal[
     "histogram_binning",
@@ -124,33 +101,6 @@ CalculationKind = Literal[
     "confusion_count",
 ]
 MissingPolicy = Literal["fail", "exclude_with_report"]
-FamilyKind = Literal[
-    "xy",
-    "categorical",
-    "distribution",
-    "matrix",
-    "survival",
-    "dose_response",
-    "forest",
-    "facet",
-    "special",
-]
-OriginCapability = Literal["O0", "O1", "O2", "O3"]
-PrecomputedKind = Literal[
-    "curve",
-    "band",
-    "matrix",
-    "matrix_grid",
-    "step_curve",
-    "risk_table",
-    "parameter_table",
-    "spectrum",
-    "peak_labels",
-    "complex_curve",
-    "effect_interval",
-]
-
-
 class StrictModel(BaseModel):
     """Base class for immutable, strict, unknown-field-rejecting contracts."""
 
@@ -216,29 +166,6 @@ class PlotCalculationResultRef(StrictModel):
     result_version: VersionId
     calculation_kind: CalculationKind
     content_hash: Sha256
-
-
-class PlotSpecRef(StrictModel):
-    plot_id: Annotated[
-        str,
-        StringConstraints(pattern=r"^plot:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
-    ]
-    plot_version: VersionId
-    content_hash: Sha256
-
-
-class ExportSpecRef(StrictModel):
-    export_id: Annotated[
-        str,
-        StringConstraints(pattern=r"^export:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
-    ]
-    export_version: VersionId
-    content_hash: Sha256
-
-
-class ObjectVersionRef(StrictModel):
-    object_id: ObjectId
-    expected_version: VersionId
 
 
 class ResourceRef(StrictModel):

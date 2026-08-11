@@ -12,8 +12,8 @@ from plotagent.contracts.datasets import (
     ApplyPlotOrderSpec,
     FieldRoleBinding,
     FieldSnapshot,
+    FilterRowsSpec,
     IsomorphicConcatSpec,
-    MaskForPlotSpec,
     PreparationSpec,
     ProjectMetadataLabelSpec,
     ProjectStructureSpec,
@@ -135,7 +135,7 @@ def test_mask_reports_without_mutating_source() -> None:
     original_rows = artifacts[0].rows
     mapping = _mapping(artifacts)
     field_id = artifacts[0].source_dataset.field_schema[1].field_id
-    spec = MaskForPlotSpec(
+    spec = FilterRowsSpec(
         **_common("mask", artifacts, mapping),
         field_ids=(field_id,),
         missing_policy="exclude_with_report",

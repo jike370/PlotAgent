@@ -18,7 +18,11 @@ from plotagent.agent.engine_client import (
     BundledEngineAgentBinder,
     EngineAgentPlan,
 )
-from plotagent.agent.engine_orchestrator import EngineAgentOrchestrator, EngineAgentRunResult
+from plotagent.agent.engine_orchestrator import (
+    DecisionMetadata,
+    EngineAgentOrchestrator,
+    EngineAgentRunResult,
+)
 from plotagent.agent.engine_tasks import (
     EngineAgentPlanRepository,
     EngineTaskExecutionError,
@@ -26,11 +30,9 @@ from plotagent.agent.engine_tasks import (
     PersistentEngineTaskOrchestrator,
 )
 from plotagent.agent.errors import AgentRuntimeError
-from plotagent.agent.orchestrator import AgentRunResult, DecisionMetadata, SingleAgentOrchestrator
 
 __all__ = [
     "AgentRuntimeError",
-    "AgentRunResult",
     "AgentCreatePlot",
     "AgentFieldBinding",
     "AuthoritativeField",
@@ -51,6 +53,5 @@ __all__ = [
     "EngineTaskExecutionError",
     "EngineTaskPlanSnapshot",
     "DecisionMetadata",
-    "SingleAgentOrchestrator",
     "PersistentEngineTaskOrchestrator",
 ]

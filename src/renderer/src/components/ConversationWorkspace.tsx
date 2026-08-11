@@ -53,20 +53,6 @@ export interface ExportRecordView {
   artifactSize?: number
 }
 
-export interface AgentChangeSetView {
-  planId: string
-  state: string
-  items: {
-    taskItemId: string
-    actionType: string
-    state: string
-    attemptCount: number
-    beforeCount: number
-    afterCount: number
-    failure?: string
-  }[]
-}
-
 interface ConversationWorkspaceProps {
   core: CoreStatus
   project?: ProductProject
@@ -77,7 +63,6 @@ interface ConversationWorkspaceProps {
   figureCandidateCount: number
   plotIsFigureCandidate: boolean
   exportRecord?: ExportRecordView
-  changeSet?: AgentChangeSetView
   notice?: ProductNotice
   busyAction?: string
   agentOutcome?: AgentOutcome
@@ -549,7 +534,7 @@ function AgentPlanObject({
 }
 
 export function ConversationWorkspace(props: ConversationWorkspaceProps): React.JSX.Element {
-  const { project, datasets, activeDataset, selectedChart, plot, exportRecord, changeSet, notice, busyAction } = props
+  const { project, datasets, activeDataset, selectedChart, plot, exportRecord, notice, busyAction } = props
   const [manualMappingOpen, setManualMappingOpen] = useState(false)
   return (
     <main className="workspace-main" id="conversation-main">
@@ -573,7 +558,6 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
                 {manualMappingOpen && selectedChart && activeDataset && !plot && <MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} onConfirm={props.onConfirmMapping} />}
                 {plot && <PlotObject {...props} chart={selectedChart} />}
                 {props.agentPlan && <AgentPlanObject plan={props.agentPlan} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} />}
-                {changeSet && <section className="object-block product-result-strip" aria-label="更改记录"><ListChecks size={17} /><div><strong>ChangeSet · {changeSet.state}</strong><p>{changeSet.planId} · {changeSet.items.filter((item) => item.state === 'succeeded').length}/{changeSet.items.length} 项已提交</p></div></section>}
                 {exportRecord && <section className="object-block product-result-strip" aria-label="导出记录"><Download size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出记录</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
               </>
             )}

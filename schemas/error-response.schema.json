@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.plotagent.local/v1/error-response.schema.json",
+  "$id": "https://schemas.plotagent.local/v2/error-response.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {

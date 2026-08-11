@@ -1,0 +1,41 @@
+{
+  "$id": "https://schemas.plotagent.local/v2/engine-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Artifact Hash",
+      "type": "string"
+    },
+    "artifact_size": {
+      "title": "Artifact Size",
+      "type": "integer"
+    },
+    "backend": {
+      "enum": [
+        "matplotlib",
+        "origin"
+      ],
+      "title": "Backend",
+      "type": "string"
+    },
+    "format": {
+      "enum": [
+        "png",
+        "svg",
+        "opju"
+      ],
+      "title": "Format",
+      "type": "string"
+    }
+  },
+  "required": [
+    "backend",
+    "format",
+    "artifact_hash",
+    "artifact_size"
+  ],
+  "title": "EngineArtifact",
+  "type": "object"
+}

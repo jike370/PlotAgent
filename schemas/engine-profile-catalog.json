@@ -1,0 +1,3227 @@
+{
+  "profile_count": 38,
+  "profiles": [
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Line",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "primary",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "label"
+      ],
+      "profile_id": "K01",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "y"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Line and symbol",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "primary",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "label"
+      ],
+      "profile_id": "K02",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "y"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Scatter",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "group"
+      ],
+      "profile_id": "K03",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "y"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "color_scale_visible",
+            "size_key_visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Bubble and color-mapped scatter",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "primary",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "size",
+        "color"
+      ],
+      "profile_id": "K04",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "y"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Point estimate and error bar",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "primary",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "label"
+      ],
+      "profile_id": "K06",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "center",
+        "x_error",
+        "y_error"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Error ribbon",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "primary",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "label"
+      ],
+      "profile_id": "K07",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "center",
+        "lower",
+        "upper"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Column",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "primary",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "label"
+      ],
+      "profile_id": "K08",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "category",
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Grouped column",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "K09",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "category",
+        "group",
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Stacked column",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "K10",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "component",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "category",
+        "component",
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "100% stacked column",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "K11",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "component",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "category",
+        "component",
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Strip plot",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "group"
+      ],
+      "profile_id": "K12",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Box plot",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "group"
+      ],
+      "profile_id": "K13",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Violin plot",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "group"
+      ],
+      "profile_id": "K14",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Histogram",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "primary",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "K15",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Kernel density",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "group"
+      ],
+      "profile_id": "K16",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Area",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "primary",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "label"
+      ],
+      "profile_id": "K18",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "y"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Time series",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "primary",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "K19",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "time",
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Heatmap",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "K20",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "row",
+        "column",
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "triangle"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Correlation matrix",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "matrix",
+          "object_kind": "series"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "K21",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "row_label",
+        "column_label",
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "levels"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Filled contour",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "matrix",
+          "object_kind": "series"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "K22",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "y",
+        "z"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "facet_columns"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Faceted plot",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "K24",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "panel",
+          "object_key_prefix": "facet",
+          "object_kind": "panel"
+        },
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "facet",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "facet",
+        "base_x",
+        "base_y"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "panel_columns"
+          ]
+        },
+        {
+          "operation": "add_annotation",
+          "parameters": [
+            "text",
+            "x",
+            "y",
+            "coordinate_system"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Composite figure",
+      "maximum_components": 4,
+      "minimum_components": 2,
+      "objects": [],
+      "optional_roles": [],
+      "profile_id": "K25",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "panel",
+          "object_key_prefix": "component",
+          "object_kind": "panel"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [],
+      "source_kind": "plots"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "show_risk_table"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Precomputed survival curve",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "risk_panel",
+          "object_key": "risk",
+          "object_kind": "panel"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "lower",
+        "upper",
+        "risk_count",
+        "group"
+      ],
+      "profile_id": "S01",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "time",
+        "survival"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "null_effect"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Forest plot from supplied effects",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "intervals",
+          "object_key": "interval",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "points",
+          "object_key": "points",
+          "object_kind": "series"
+        }
+      ],
+      "optional_roles": [
+        "weight"
+      ],
+      "profile_id": "S21",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "label",
+        "effect",
+        "lower",
+        "upper"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "equal_axes"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Nyquist plot",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "frequency",
+        "series"
+      ],
+      "profile_id": "S34",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "z_real",
+        "z_imaginary"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "show_counts"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Confusion matrix",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "matrix",
+          "object_kind": "series"
+        }
+      ],
+      "optional_roles": [
+        "count"
+      ],
+      "profile_id": "S61",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "actual",
+        "predicted"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Drop line",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "primary",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "label"
+      ],
+      "profile_id": "X02",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "y"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Lollipop",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "X03",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "column",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [
+        "series"
+      ],
+      "required_roles": [
+        "category",
+        "series_1",
+        "series_2"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Beeswarm",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "group"
+      ],
+      "profile_id": "X05",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Floating interval",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "lower_interval",
+          "object_key": "lower",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "upper_interval",
+          "object_key": "upper",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [
+        "middle"
+      ],
+      "profile_id": "X09",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "category",
+        "start",
+        "end"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Population pyramid",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "left",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "series_2",
+          "object_key": "right",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "X13",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "category",
+        "left",
+        "right"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Dual-Y line",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y_left",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "right_y_axis",
+          "object_key": "y_right",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "left",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "series_2",
+          "object_key": "right",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "X23",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "left",
+        "right"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "pareto_reference_percent"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Pareto",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y_left",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "right_y_axis",
+          "object_key": "y_right",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "bars",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "series_2",
+          "object_key": "cumulative",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "X24",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "category",
+        "value"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Dual-Y column",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y_left",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "right_y_axis",
+          "object_key": "y_right",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "left",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "series_2",
+          "object_key": "right",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "X35",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "category",
+        "left",
+        "right"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Dual-Y column and line",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y_left",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "right_y_axis",
+          "object_key": "y_right",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "left",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "series_2",
+          "object_key": "right",
+          "object_kind": "series"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "X36",
+      "repeatable_objects": [],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "category",
+        "left",
+        "right"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Y-offset stacked line",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "X38",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "x",
+        "y",
+        "series"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Line series",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "X39",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "row",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [
+        "series"
+      ],
+      "required_roles": [
+        "series_1",
+        "series_2"
+      ],
+      "source_kind": "data"
+    },
+    {
+      "capabilities": [
+        {
+          "operation": "create_plot",
+          "parameters": []
+        },
+        {
+          "operation": "bind_fields",
+          "parameters": []
+        },
+        {
+          "operation": "set_title",
+          "parameters": [
+            "text"
+          ]
+        },
+        {
+          "operation": "set_axis",
+          "parameters": [
+            "label",
+            "scale",
+            "bounds",
+            "reverse"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "color",
+            "line_width_pt",
+            "line_style",
+            "symbol",
+            "symbol_size_pt"
+          ]
+        },
+        {
+          "operation": "set_legend",
+          "parameters": [
+            "visible"
+          ]
+        },
+        {
+          "operation": "export_plot",
+          "parameters": [
+            "png",
+            "svg",
+            "opju"
+          ]
+        }
+      ],
+      "display_name": "Before and after",
+      "maximum_components": 0,
+      "minimum_components": 0,
+      "objects": [
+        {
+          "object_alias": "x_axis",
+          "object_key": "x",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "y_axis",
+          "object_key": "y",
+          "object_kind": "axis"
+        },
+        {
+          "object_alias": "legend",
+          "object_key": "main",
+          "object_kind": "legend"
+        }
+      ],
+      "optional_roles": [],
+      "profile_id": "X40",
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "row",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [],
+      "required_roles": [
+        "series_1",
+        "series_2"
+      ],
+      "source_kind": "data"
+    }
+  ],
+  "schema_version": "engine-profile.v1"
+}

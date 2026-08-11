@@ -55,7 +55,7 @@
           "type": "string"
         },
         "object_id": {
-          "pattern": "^(source|mapping|preparation|prepared|plotcalc|plot|batch|figure|export|renderplan|originplan|plan|project):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(source|mapping|preparation|prepared|plotcalc|plot|export|plan|project):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Object Id",
           "type": "string"
         },
@@ -64,8 +64,6 @@
             "source_dataset",
             "prepared_dataset",
             "plot",
-            "batch",
-            "figure",
             "export",
             "project"
           ],
@@ -164,105 +162,101 @@
       ],
       "title": "ConversationStateProjection",
       "type": "object"
-    },
-    "ProjectContextSnapshot": {
-      "additionalProperties": false,
-      "description": "Local authority used to compile a provider proposal into executable work.\n\nThe provider receives a minimized ``ContextEnvelope`` projection.  This richer\nsnapshot remains local and binds aliases to stable object ids and versions.",
-      "properties": {
-        "conversation_id": {
-          "pattern": "^conversation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Conversation Id",
-          "type": "string"
-        },
-        "conversation_state": {
-          "$ref": "#/$defs/ConversationStateProjection"
-        },
-        "field_bindings": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/ContextFieldBinding"
-          },
-          "maxItems": 256,
-          "title": "Field Bindings",
-          "type": "array"
-        },
-        "known_objects": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/ContextObjectRef"
-          },
-          "maxItems": 128,
-          "title": "Known Objects",
-          "type": "array"
-        },
-        "project_id": {
-          "pattern": "^project:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Project Id",
-          "type": "string"
-        },
-        "project_revision": {
-          "minimum": 0,
-          "title": "Project Revision",
-          "type": "integer"
-        },
-        "project_rule_ids": {
-          "default": [],
-          "items": {
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-            "type": "string"
-          },
-          "title": "Project Rule Ids",
-          "type": "array"
-        },
-        "recent_result_objects": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/ContextObjectRef"
-          },
-          "maxItems": 16,
-          "title": "Recent Result Objects",
-          "type": "array"
-        },
-        "saved_setting_refs": {
-          "default": [],
-          "items": {
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-            "type": "string"
-          },
-          "title": "Saved Setting Refs",
-          "type": "array"
-        },
-        "schema_version": {
-          "const": "1.0",
-          "default": "1.0",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "snapshot_hash": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Snapshot Hash",
-          "type": "string"
-        },
-        "snapshot_id": {
-          "pattern": "^context:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Snapshot Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "snapshot_id",
-        "snapshot_hash",
-        "project_id",
-        "project_revision",
-        "conversation_id",
-        "conversation_state"
-      ],
-      "title": "ProjectContextSnapshot",
-      "type": "object"
     }
   },
-  "$id": "https://schemas.plotagent.local/v1/project-context-snapshot.schema.json",
-  "$ref": "#/$defs/ProjectContextSnapshot",
+  "$id": "https://schemas.plotagent.local/v2/project-context-snapshot.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ProjectContextSnapshotContract"
+  "additionalProperties": false,
+  "description": "Local authority used to compile a provider proposal into executable work.\n\nThe provider receives a minimized ``ContextEnvelope`` projection.  This richer\nsnapshot remains local and binds aliases to stable object ids and versions.",
+  "properties": {
+    "conversation_id": {
+      "pattern": "^conversation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Conversation Id",
+      "type": "string"
+    },
+    "conversation_state": {
+      "$ref": "#/$defs/ConversationStateProjection"
+    },
+    "field_bindings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ContextFieldBinding"
+      },
+      "maxItems": 256,
+      "title": "Field Bindings",
+      "type": "array"
+    },
+    "known_objects": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ContextObjectRef"
+      },
+      "maxItems": 128,
+      "title": "Known Objects",
+      "type": "array"
+    },
+    "project_id": {
+      "pattern": "^project:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "project_revision": {
+      "minimum": 0,
+      "title": "Project Revision",
+      "type": "integer"
+    },
+    "project_rule_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Project Rule Ids",
+      "type": "array"
+    },
+    "recent_result_objects": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ContextObjectRef"
+      },
+      "maxItems": 16,
+      "title": "Recent Result Objects",
+      "type": "array"
+    },
+    "saved_setting_refs": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Saved Setting Refs",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "snapshot_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Snapshot Hash",
+      "type": "string"
+    },
+    "snapshot_id": {
+      "pattern": "^context:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Snapshot Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "snapshot_hash",
+    "project_id",
+    "project_revision",
+    "conversation_id",
+    "conversation_state"
+  ],
+  "title": "ProjectContextSnapshot",
+  "type": "object"
 }

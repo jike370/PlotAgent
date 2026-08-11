@@ -171,7 +171,7 @@ def test_field_mapping_is_unique_and_source_bound() -> None:
             {"field_id": "field:value", "ordered_values": ["control", "treated"]},
         ),
         (
-            "mask_for_plot",
+            "filter_rows",
             {"field_ids": ["field:value"], "missing_policy": "exclude_with_report"},
         ),
     ],

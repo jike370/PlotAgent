@@ -1,4 +1,9 @@
-"""Deterministic JSON Schema and TypeScript contract generation."""
+"""Deterministic JSON Schema and TypeScript contract generation.
+
+Only data, context, Agent Native engine and error contracts are published.
+Renderer plans, backend-native objects and the removed PlotSpec compiler are
+deliberately absent from this bundle.
+"""
 
 from __future__ import annotations
 
@@ -9,37 +14,56 @@ import re
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, RootModel, TypeAdapter
 from pydantic.json_schema import models_json_schema
 
+from plotagent.agent.engine_client import BoundEnginePlan, EngineAgentDecision, EngineAgentPlan
+from plotagent.contracts.agent_context import ContextEnvelope
 from plotagent.contracts.base import SCHEMA_VERSION
-from plotagent.contracts.datasets import FieldMapping, PreparedDataset, SourceDataset
-from plotagent.contracts.engine_profiles import ChartProfileRegistry
+from plotagent.contracts.calculations import PlotCalculationResult, PlotCalculationSpec
+from plotagent.contracts.datasets import (
+    FieldMapping,
+    PreparationSpec,
+    PreparedDataset,
+    SourceDataset,
+)
 from plotagent.contracts.errors import STABLE_ERROR_REGISTRY, ErrorRegistry, ErrorResponse
-from plotagent.contracts.plots import BatchSpec, FigureSpec, PatchTransaction, PlotSpec
-from plotagent.contracts.registry import CHART_REGISTRY, ChartRegistry
-from plotagent.contracts.rendering import ExportSpec, OriginExportPlan, ResolvedRenderPlan
-from plotagent.contracts.schema_roots import (
-    AgentDecisionContract,
-    ContextEnvelopeContract,
-    PlotCalculationResultContract,
-    PlotCalculationSpecContract,
-    PlotPatchContract,
-    PreparationSpecContract,
-    ProjectContextSnapshotContract,
-    TaskPlanSnapshotContract,
+from plotagent.contracts.project_context import ProjectContextSnapshot
+from plotagent.engine.contracts import (
+    EngineDataRef,
+    EngineDataView,
+    EngineProfile,
+    PlotDocument,
+    PlotEngineAction,
 )
-from plotagent.contracts.styles import (
-    ORIGIN_INTERIOR_CODES,
-    PALETTE_IDS,
-    SYMBOL_MAPPINGS,
-    resolve_palette,
-)
+from plotagent.engine.ports import EngineArtifact, EngineReadback
+from plotagent.engine.profiles import ENGINE_PROFILES
 
 type JsonObject = dict[str, Any]
 SchemaModel = type[BaseModel]
 SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
-SCHEMA_ID_BASE = "https://schemas.plotagent.local/v1"
+SCHEMA_ID_BASE = "https://schemas.plotagent.local/v2"
+
+
+class PreparationSpecContract(RootModel[PreparationSpec]):
+    pass
+
+
+class PlotCalculationSpecContract(RootModel[PlotCalculationSpec]):
+    pass
+
+
+class PlotCalculationResultContract(RootModel[PlotCalculationResult]):
+    pass
+
+
+class PlotEngineActionContract(RootModel[PlotEngineAction]):
+    pass
+
+
+class EngineAgentDecisionContract(RootModel[EngineAgentDecision]):
+    pass
+
 
 SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("source-dataset", SourceDataset),
@@ -48,20 +72,18 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("prepared-dataset", PreparedDataset),
     ("plot-calculation-spec", PlotCalculationSpecContract),
     ("plot-calculation-result", PlotCalculationResultContract),
-    ("chart-registry", ChartRegistry),
-    ("chart-profile-registry", ChartProfileRegistry),
-    ("plot-spec", PlotSpec),
-    ("plot-patch", PlotPatchContract),
-    ("patch-transaction", PatchTransaction),
-    ("batch-spec", BatchSpec),
-    ("figure-spec", FigureSpec),
-    ("export-spec", ExportSpec),
-    ("resolved-render-plan", ResolvedRenderPlan),
-    ("origin-export-plan", OriginExportPlan),
-    ("agent-decision", AgentDecisionContract),
-    ("context-envelope", ContextEnvelopeContract),
-    ("project-context-snapshot", ProjectContextSnapshotContract),
-    ("task-plan-snapshot", TaskPlanSnapshotContract),
+    ("context-envelope", ContextEnvelope),
+    ("project-context-snapshot", ProjectContextSnapshot),
+    ("engine-data-ref", EngineDataRef),
+    ("engine-data-view", EngineDataView),
+    ("engine-profile", EngineProfile),
+    ("plot-document", PlotDocument),
+    ("plot-engine-action", PlotEngineActionContract),
+    ("engine-readback", EngineReadback),
+    ("engine-artifact", EngineArtifact),
+    ("engine-agent-plan", EngineAgentPlan),
+    ("bound-engine-plan", BoundEnginePlan),
+    ("engine-agent-decision", EngineAgentDecisionContract),
     ("error-registry", ErrorRegistry),
     ("error-response", ErrorResponse),
 )
@@ -91,11 +113,13 @@ def build_schemas() -> tuple[dict[str, str], JsonObject]:
     outputs: dict[str, str] = {}
     for slug, model in SCHEMA_EXPORTS:
         schema = TypeAdapter(model).json_schema(mode="validation")
-        outputs[f"schemas/{slug}.schema.json"] = _json_text(_with_schema_metadata(schema, slug))
+        outputs[f"schemas/{slug}.schema.json"] = _json_text(
+            _with_schema_metadata(schema, slug)
+        )
 
     model_schemas, definitions = models_json_schema(
         [(model, "validation") for _, model in SCHEMA_EXPORTS],
-        title="PlotAgent v1 contract bundle",
+        title="PlotAgent Agent Native engine contract bundle",
     )
     definitions["roots"] = {
         slug: model_schemas[(model, "validation")] for slug, model in SCHEMA_EXPORTS
@@ -200,45 +224,17 @@ def desired_outputs() -> dict[str, str]:
     outputs["schemas/error-registry.json"] = _json_text(
         STABLE_ERROR_REGISTRY.model_dump(mode="json")
     )
+    profile_catalog = {
+        "schema_version": "engine-profile.v1",
+        "profile_count": len(ENGINE_PROFILES),
+        "profiles": [profile.model_dump(mode="json") for profile in ENGINE_PROFILES],
+    }
+    outputs["schemas/engine-profile-catalog.json"] = _json_text(profile_catalog)
+    outputs["src/shared/generated/engine-profile-catalog.json"] = _json_text(profile_catalog)
     outputs["src/shared/generated/contracts.ts"] = generate_typescript(bundle)
-    outputs["src/shared/generated/style-catalog.json"] = _json_text(
-        {
-            "schema_version": SCHEMA_VERSION,
-            "capability_version": "edit-profile.v1",
-            "charts": [
-                {
-                    "chart_type_id": chart.chart_type_id,
-                    "admission": chart.admission,
-                    "visual_evidence": chart.visual_evidence,
-                    "edit_capabilities": list(chart.edit_capabilities),
-                }
-                for chart in CHART_REGISTRY
-            ],
-            "palettes": [
-                resolve_palette(palette_id).model_dump(mode="json")
-                for palette_id in PALETTE_IDS
-            ],
-            "symbols": [
-                {
-                    "shape": shape,
-                    "origin_code": origin_code,
-                    "matplotlib_marker": marker,
-                    "allowed_interiors": (
-                        ["solid"]
-                        if shape in {"plus", "cross"}
-                        else list(ORIGIN_INTERIOR_CODES)
-                    ),
-                }
-                for shape, (origin_code, marker) in SYMBOL_MAPPINGS.items()
-            ],
-        }
-    )
 
     manifest_entries = [
-        {
-            "path": path,
-            "sha256": _sha256_text(content),
-        }
+        {"path": path, "sha256": _sha256_text(content)}
         for path, content in sorted(outputs.items())
     ]
     outputs["schemas/manifest.json"] = _json_text(
@@ -252,20 +248,40 @@ def desired_outputs() -> dict[str, str]:
     return outputs
 
 
+def _managed_outputs(root: Path) -> set[str]:
+    schema_files = {
+        path.relative_to(root).as_posix()
+        for path in (root / "schemas").glob("*.schema.json")
+    }
+    optional = {
+        "schemas/error-registry.json",
+        "schemas/engine-profile-catalog.json",
+        "schemas/manifest.json",
+        "src/shared/generated/contracts.ts",
+        "src/shared/generated/engine-profile-catalog.json",
+        "src/shared/generated/style-catalog.json",
+    }
+    return schema_files | {path for path in optional if (root / path).exists()}
+
+
 def write_outputs(root: Path) -> None:
-    for relative_path, content in desired_outputs().items():
+    desired = desired_outputs()
+    for stale in sorted(_managed_outputs(root) - set(desired)):
+        (root / stale).unlink()
+    for relative_path, content in desired.items():
         target = root / relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8", newline="\n")
 
 
 def check_outputs(root: Path) -> list[str]:
-    stale: list[str] = []
-    for relative_path, content in desired_outputs().items():
+    desired = desired_outputs()
+    stale = sorted(_managed_outputs(root) - set(desired))
+    for relative_path, content in desired.items():
         target = root / relative_path
         if not target.exists() or target.read_text(encoding="utf-8") != content:
             stale.append(relative_path)
-    return stale
+    return sorted(set(stale))
 
 
 def main() -> int:

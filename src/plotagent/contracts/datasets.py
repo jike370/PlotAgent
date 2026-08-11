@@ -222,8 +222,10 @@ class ApplyPlotOrderSpec(PreparationBase):
     ordered_values: Annotated[tuple[str, ...], Field(min_length=1)]
 
 
-class MaskForPlotSpec(PreparationBase):
-    kind: Literal["mask_for_plot"] = "mask_for_plot"
+class FilterRowsSpec(PreparationBase):
+    """Keep a deterministic subset of rows before calculation or plotting."""
+
+    kind: Literal["filter_rows"] = "filter_rows"
     field_ids: Annotated[tuple[FieldId, ...], Field(min_length=1)]
     missing_policy: MissingPolicy
 
@@ -234,7 +236,7 @@ PreparationSpec = Annotated[
     | IsomorphicConcatSpec
     | ProjectMetadataLabelSpec
     | ApplyPlotOrderSpec
-    | MaskForPlotSpec,
+    | FilterRowsSpec,
     Field(discriminator="kind"),
 ]
 

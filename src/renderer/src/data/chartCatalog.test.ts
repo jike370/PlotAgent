@@ -18,18 +18,18 @@ const baseFilters = {
 }
 
 describe('chart catalog', () => {
-  it('exposes exactly 38 qualified charts and distinguishes removed charts', () => {
+  it('exposes exactly the 38 Agent Native engine profiles', () => {
     expect(chartCatalog).toHaveLength(38)
-    expect(allChartCatalog).toHaveLength(54)
+    expect(allChartCatalog).toHaveLength(38)
     expect(chartCatalog.some((chart) => chart.id === 'S61')).toBe(true)
     expect(chartCatalog.some((chart) => chart.id === 'X24')).toBe(true)
     expect(chartCatalog.some((chart) => chart.id === 'S07' || chart.id === 'K05')).toBe(false)
     expect(chartCatalog.some((chart) => chart.id === 'X07' || chart.id === 'X37')).toBe(false)
     expect(chartCatalog.some((chart) => chart.id === 'K23' || chart.id === 'S45')).toBe(false)
     expect(chartCatalog.every((chart) => chart.export.svg === 'vector')).toBe(true)
-    expect(chartProductMetadata.X07?.admission).toBe('internal_only')
-    expect(chartProductMetadata.S07?.admission).toBe('removed')
-    expect(chartProductMetadata.X24?.visualEvidence).toBe('synthetic_visual')
+    expect(chartProductMetadata.X07).toBeUndefined()
+    expect(chartProductMetadata.S07).toBeUndefined()
+    expect(chartProductMetadata.X24?.visualEvidence).toBe('engine_acceptance')
   })
 
   it('searches aliases and stable IDs', () => {
@@ -45,13 +45,11 @@ describe('chart catalog', () => {
     expect(favorites.every((chart) => chart.favorite)).toBe(true)
   })
 
-  it('loads the closed Origin style catalog from generated runtime metadata', () => {
-    expect(paletteCatalog).toHaveLength(16)
-    expect(symbolCatalog).toHaveLength(12)
-    expect(paletteCatalog.find((palette) => palette.palette_id === 'GrayScale')?.source_hash)
-      .toBe('9bafc5fca3adfdc8270b9f132e09c66ef9d7df6d6c42109009e11aa6208d05fc')
+  it('keeps only common Matplotlib and Origin style choices', () => {
+    expect(paletteCatalog).toHaveLength(1)
+    expect(symbolCatalog).toHaveLength(7)
     expect(symbolCatalog.find((symbol) => symbol.shape === 'diamond')?.allowed_interiors)
-      .toEqual(['solid', 'open', 'hollow'])
+      .toEqual(['solid'])
     expect(symbolCatalog.find((symbol) => symbol.shape === 'plus')?.allowed_interiors)
       .toEqual(['solid'])
   })

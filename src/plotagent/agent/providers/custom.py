@@ -8,6 +8,7 @@ from typing import Any, cast
 
 from pydantic import TypeAdapter, ValidationError
 
+from plotagent.agent.engine_client import EngineAgentDecision
 from plotagent.agent.errors import AgentRuntimeError
 from plotagent.agent.providers.base import (
     OutputCapability,
@@ -19,10 +20,11 @@ from plotagent.agent.providers.base import (
     ProviderWireResponse,
     normalize_endpoint_origin,
 )
-from plotagent.agent.providers.prompt import AGENT_PROMPT
+from plotagent.agent.providers.engine_prompt import engine_agent_prompt
 from plotagent.contracts.agent_context import ContextEnvelope
 from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
-from plotagent.contracts.decisions import AgentDecision
+from plotagent.engine import EngineActionCodec, EngineCatalog
+from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.security.network import (
     HttpMethod,
     NetworkPurpose,
@@ -73,13 +75,15 @@ class OpenAICompatibleProvider:
     async def resolve_capabilities(self) -> ProviderCapabilities:
         if self._capabilities is not None:
             return self._capabilities
-        schema = TypeAdapter(AgentDecision).json_schema(mode="validation")
+        schema = TypeAdapter(EngineAgentDecision).json_schema(mode="validation")
         synthetic = ProviderDecisionRequest(
             client_model_run_id="synthetic-probe",
             envelope=_synthetic_envelope(),
             decision_schema=schema,
             decision_schema_hash=canonical_hash(schema),
-            prompt_template=AGENT_PROMPT,
+            prompt_template=engine_agent_prompt(
+                EngineActionCodec(EngineCatalog(ENGINE_PROFILES))
+            ),
         )
         try:
             wire = self._invoke(synthetic, ProviderProtocol.RESPONSES, strict=True)
@@ -376,7 +380,7 @@ def _provider_usage(value: object) -> ProviderUsage:
 
 def _valid_decision(value: str) -> bool:
     try:
-        TypeAdapter(AgentDecision).validate_json(value)
+        TypeAdapter(EngineAgentDecision).validate_json(value)
     except ValidationError:
         return False
     return True

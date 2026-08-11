@@ -72,9 +72,9 @@ from plotagent.engine import (
     FieldBinding,
     PlotEngineAction,
 )
+from plotagent.engine.backends.origin import preflight_origin
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.importing.models import Clarification, Rejection
-from plotagent.origin import preflight_origin
 from plotagent.security import CredentialStore, NetworkMode, create_credential_store
 from plotagent.storage import (
     AgentRuntimeRepository,
@@ -918,7 +918,6 @@ class DesktopApplication:
             engine=DesktopEngineSession.open(store),
             engine_agent_plans=EngineAgentPlanRepository(store),
         )
-        session.agent_runtime.recover_interrupted()
         self._sessions[project_id] = session
         self.catalog.touch_project(project_id)
         return self._session_summary(session, replayed=replayed)
@@ -1300,7 +1299,17 @@ class DesktopApplication:
             chart_capabilities=ChartCapabilities(
                 capability_version="agent-native-engine-v1",
                 allowed_chart_type_ids=cast(Any, enabled_profiles),
-                allowed_action_types=("create_plot", "patch_plot", "export_artifact"),
+                allowed_action_types=(
+                    "create_plot",
+                    "bind_fields",
+                    "set_title",
+                    "set_axis",
+                    "set_series_style",
+                    "set_legend",
+                    "set_chart_parameter",
+                    "add_annotation",
+                    "export_plot",
+                ),
                 export_formats=("png", "svg", "opju"),
             ),
             disclosure_grant=DisclosureGrant(

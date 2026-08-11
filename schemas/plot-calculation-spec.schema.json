@@ -1053,7 +1053,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.plotagent.local/v1/plot-calculation-spec.schema.json",
+  "$id": "https://schemas.plotagent.local/v2/plot-calculation-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "discriminator": {
     "mapping": {

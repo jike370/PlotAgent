@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -20,8 +21,8 @@ from plotagent.agent.engine_client import (
     EngineAgentDecision,
     EngineAgentPlan,
 )
+from plotagent.agent.engine_decisions import InputQuestion, NeedsInput
 from plotagent.agent.errors import AgentRuntimeError
-from plotagent.agent.orchestrator import DecisionMetadata
 from plotagent.agent.providers import (
     ModelProvider,
     OutputCapability,
@@ -32,15 +33,48 @@ from plotagent.agent.providers import (
     ProviderWireResponse,
 )
 from plotagent.agent.providers.engine_prompt import engine_agent_prompt
-from plotagent.agent.validation import is_unspecified_chart_request
 from plotagent.contracts.agent_context import ContextEnvelope
 from plotagent.contracts.canonical import canonical_hash
-from plotagent.contracts.decisions import InputQuestion, NeedsInput
 from plotagent.contracts.project_context import ProjectContextSnapshot
 from plotagent.engine import EngineActionCodec, EngineCommandError
 from plotagent.security import LocalSecurityError, NetworkMode
 
 _DECISION_ADAPTER: TypeAdapter[EngineAgentDecision] = TypeAdapter(EngineAgentDecision)
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionMetadata:
+    context_hash: str
+    prompt_template_hash: str
+    decision_schema_hash: str
+    provider_response_hash: str
+    decision_hash: str
+
+
+def is_unspecified_chart_request(instruction: str) -> bool:
+    normalized = re.sub(r"[^\w]+", "", instruction.casefold()).replace("_", "")
+    return normalized in {
+        "画图",
+        "画一个图",
+        "画一张图",
+        "请画图",
+        "请画一个图",
+        "请画一张图",
+        "帮我画图",
+        "绘图",
+        "绘制一个图",
+        "绘制一张图",
+        "用这些数据画图",
+        "用这个数据画图",
+        "drawchart",
+        "drawachart",
+        "drawit",
+        "makeaplot",
+        "makeachart",
+        "plot",
+        "plotachart",
+        "plotit",
+    }
 
 
 @dataclass(frozen=True, slots=True)

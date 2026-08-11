@@ -1,0 +1,169 @@
+{
+  "$defs": {
+    "EngineColumn": {
+      "additionalProperties": false,
+      "description": "One immutable field and its ordered values.",
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/EngineField"
+        },
+        "values": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "field",
+        "values"
+      ],
+      "title": "EngineColumn",
+      "type": "object"
+    },
+    "EngineDataRef": {
+      "additionalProperties": false,
+      "description": "Immutable data revision consumed by a plot document.",
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "source",
+            "prepared",
+            "calculated"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "dataset_id",
+        "version",
+        "content_hash"
+      ],
+      "title": "EngineDataRef",
+      "type": "object"
+    },
+    "EngineField": {
+      "additionalProperties": false,
+      "description": "Renderer-neutral field metadata exposed by the data layer.",
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "logical_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "unit_label": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Label"
+        }
+      },
+      "required": [
+        "field_id",
+        "name",
+        "logical_type"
+      ],
+      "title": "EngineField",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/engine-data-view.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A bounded materialization shared by every plotting backend.\n\nImporters and preparation services own parsing and transformations.  The\nplotting engine receives only the requested immutable fields in row order.",
+  "properties": {
+    "columns": {
+      "items": {
+        "$ref": "#/$defs/EngineColumn"
+      },
+      "minItems": 1,
+      "title": "Columns",
+      "type": "array"
+    },
+    "data": {
+      "$ref": "#/$defs/EngineDataRef"
+    },
+    "row_ids": {
+      "items": {
+        "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Row Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "data",
+    "row_ids",
+    "columns"
+  ],
+  "title": "EngineDataView",
+  "type": "object"
+}

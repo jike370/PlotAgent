@@ -15,9 +15,9 @@ from typing import Annotated, Literal
 
 from pydantic import Field, StringConstraints, model_validator
 
+from plotagent.agent.engine_decisions import NeedsInput, NoChange, Unsupported
 from plotagent.contracts.agent_context import ContextObjectRef
 from plotagent.contracts.base import FiniteNumber, StrictModel, Token
-from plotagent.contracts.decisions import NeedsInput, NoChange, Unsupported
 from plotagent.contracts.project_context import ContextFieldBinding, ProjectContextSnapshot
 from plotagent.engine import (
     AddAnnotation,

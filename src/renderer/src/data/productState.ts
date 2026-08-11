@@ -644,29 +644,6 @@ export function readAgentOutcome(value: JsonValue): AgentOutcome {
   return { kind: 'rejected', title: '结果已拒绝', message: decisionMessage(decision) }
 }
 
-function actionTitle(action: JsonRecord): string {
-  const actionType = stringValue(action, 'action_type') ?? 'unknown'
-  if (actionType === 'create_plot') {
-    const chart = stringValue(action, 'chart_type_id')
-    return chart === undefined ? '创建图形' : `绘制 ${chart}`
-  }
-  if (actionType === 'patch_plot') {
-    const patches = Array.isArray(action.patches) ? action.patches.filter(isJsonRecord) : []
-    const operations = patches.flatMap((patch) => typeof patch.operation === 'string' ? [patch.operation] : [])
-    const labels: Record<string, string> = {
-      set_plot_title: '修改标题', set_axis_range: '调整坐标范围', set_axis_scale: '修改坐标尺度',
-      set_axis_label: '修改坐标标题', set_series_style: '修改系列样式', set_palette: '修改色板',
-      set_legend_visibility: '修改图例', move_legend: '移动图例', add_annotation: '添加标注',
-    }
-    return operations.length === 0 ? '修改图形' : operations.map((item) => labels[item] ?? '修改图形').join('、')
-  }
-  const labels: Record<string, string> = {
-    create_batch: '创建批量绘图', patch_batch: '修改绘图批次', create_figure: '创建组合图',
-    patch_figure: '修改组合图', export_artifact: '导出结果',
-  }
-  return labels[actionType] ?? '执行任务'
-}
-
 function engineActionTitle(action: JsonRecord): string {
   const operation = stringValue(action, 'operation') ?? 'unknown'
   const labels: Record<string, string> = {
@@ -741,56 +718,7 @@ function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
 }
 
 export function readAgentPlan(value: JsonValue): AgentPlanView | undefined {
-  const enginePlan = readEngineAgentPlan(value)
-  if (enginePlan !== undefined) return enginePlan
-  const plan = records(value, (record) => (
-    typeof record.plan_id === 'string' && Array.isArray(record.items) && isJsonRecord(record.source_plan)
-  )).at(0)
-  if (plan === undefined) return undefined
-  const source = plan.source_plan as JsonRecord
-  const warnings = Array.isArray(source.warnings)
-    ? source.warnings.flatMap((warning) => isJsonRecord(warning) && typeof warning.message === 'string' ? [warning.message] : [])
-    : []
-  const steps = (plan.items as JsonValue[]).flatMap((item): AgentPlanStep[] => {
-    if (!isJsonRecord(item) || typeof item.task_item_id !== 'string' || !isJsonRecord(item.action)) return []
-    const failure = isJsonRecord(item.failure) && typeof item.failure.code === 'string' && typeof item.failure.message === 'string'
-      ? {
-        code: item.failure.code,
-        message: item.failure.message,
-        retryable: item.failure.retryable === true,
-      }
-      : undefined
-    const objectOutputs = Array.isArray(item.outputs)
-      ? item.outputs.flatMap((candidate) => {
-        if (!isJsonRecord(candidate) || !isJsonRecord(candidate.object_ref)) return []
-        return [candidate.object_ref]
-      })
-      : []
-    const output = objectOutputs.flatMap((object) => (
-      object.object_type === 'plot' && typeof object.object_id === 'string' && typeof object.object_version === 'number'
-        ? [{ plotId: object.object_id, plotVersion: object.object_version }]
-        : []
-    )).at(-1)
-    return [{
-      taskItemId: item.task_item_id,
-      actionType: stringValue(item.action, 'action_type') ?? 'unknown',
-      title: actionTitle(item.action),
-      state: stringValue(item, 'state') ?? 'pending',
-      attemptCount: numberValue(item, 'attempt_count') ?? 0,
-      ...(failure === undefined ? {} : { failure }),
-      ...(output === undefined ? {} : { outputPlot: output }),
-    }]
-  })
-  const state = stringValue(plan, 'state') ?? 'draft'
-  return {
-    planId: plan.plan_id as string,
-    state,
-    confirmationState: stringValue(plan, 'confirmation_state') ?? 'not_required',
-    warnings,
-    steps,
-    completedCount: steps.filter((step) => ['succeeded', 'skipped'].includes(step.state)).length,
-    resumable: ['partial_success', 'failed', 'interrupted'].includes(state),
-  }
+  return readEngineAgentPlan(value)
 }
 
 export function readAgentPlans(value: JsonValue): AgentPlanView[] {

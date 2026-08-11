@@ -143,41 +143,44 @@ function agentDecisionWithPlan(plan: JsonValue): JsonValue {
   }
 }
 
-function batchPlanFixture(
-  state = 'needs_confirmation',
-  stepState = state === 'succeeded' ? 'succeeded' : 'pending',
-): JsonValue {
-  const action = {
-    action_type: 'create_batch',
+function batchPlanFixture(state = 'needs_confirmation'): JsonValue {
+  const proposalAction = {
+    operation: 'create_plot',
     action_id: 'action:batch',
-    target_alias: 'batch_result',
-    chart_type_id: 'K01',
-    field_selections: [
-      { role: 'x', context_field_alias: 'd1_x' },
-      { role: 'y', context_field_alias: 'd1_y' },
+    plot_alias: 'plot_1',
+    profile_id: 'K01',
+    source_alias: 'source_1',
+    bindings: [
+      { role: 'x', field_alias: 'field_1' },
+      { role: 'y', field_alias: 'field_2' },
     ],
   }
   return {
     plan_id: 'plan:batch',
     state,
     confirmation_state: state === 'needs_confirmation' ? 'pending' : 'confirmed',
-    source_plan: {
-      schema_version: '1.0',
+    next_action_index: state === 'succeeded' ? 1 : 0,
+    current_project_revision: state === 'succeeded' ? 3 : 2,
+    error_code: null,
+    proposal: {
+      schema_version: 'engine-agent.v1',
       decision_type: 'action_plan',
       plan_id: 'plan:batch',
-      target_alias: 'batch_result',
-      confirmation: 'required',
-      actions: [action],
+      target_alias: 'source_1',
+      actions: [proposalAction],
     },
-    items: [{
-      task_item_id: 'taskitem:batch',
-      action,
-      state: stepState,
-      attempt_count: stepState === 'pending' ? 0 : 1,
-      outputs: stepState === 'succeeded'
-        ? [{ object_ref: { object_type: 'batch', object_id: 'batch:one', object_version: 1 } }]
-        : [],
-    }],
+    bound_plan: {
+      plan_id: 'plan:batch',
+      expected_project_revision: 2,
+      actions: [{
+        operation: 'create_plot',
+        action_id: 'action:batch',
+        plot_id: 'plot:batch.one',
+        profile_id: 'K01',
+        data: { kind: 'source', dataset_id: 'source:temperature', version: 1, content_hash: 'a'.repeat(64) },
+        bindings: [{ role: 'x', field_id: 'field:time' }, { role: 'y', field_id: 'field:signal' }],
+      }],
+    },
   }
 }
 
@@ -497,11 +500,11 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(await screen.findByRole('button', { name: '示例' }))
     await user.click(await screen.findByRole('button', { name: '跨重启项目' }))
 
-    expect(getPlot).toHaveBeenCalledWith({
-      projectId: 'project:recovered',
-      plotId: 'plot:alpha',
-      plotVersion: 2,
-    })
+    await waitFor(() => expect(getPlot).toHaveBeenCalledWith({
+        projectId: 'project:recovered',
+        plotId: 'plot:alpha',
+        plotVersion: 2,
+      }))
     expect(await screen.findByRole('img', { name: '线点图 真实渲染预览' })).toBeInTheDocument()
     expect(screen.getByText('plot:alpha · v2')).toBeInTheDocument()
   })
@@ -674,9 +677,9 @@ describe('PlotAgent real desktop workflow', () => {
   it('creates a persistent batch plan from dataset-specific immutable bindings', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop({
-      confirmAgentPlan: vi.fn(async () => ok(batchPlanFixture('ready', 'ready'))),
+      confirmAgentPlan: vi.fn(async () => ok(batchPlanFixture('ready'))),
       runAgentPlan: vi.fn(async () => ok({
-        task_plan: batchPlanFixture('succeeded', 'succeeded'),
+        task_plan: batchPlanFixture('succeeded'),
         change_set: { plan_id: 'plan:batch', state: 'succeeded', items: [] },
       })),
     })
@@ -693,7 +696,7 @@ describe('PlotAgent real desktop workflow', () => {
     }))
     expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '确认并执行' }))
-    expect(screen.getByRole('region', { name: '更改记录' })).toHaveTextContent('ChangeSet · succeeded')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
   })
 
   it('allows retry on a new target and ignores a late decision from the old target', async () => {
@@ -745,7 +748,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '选择其他图形' }))
     await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K25')
-    await user.click(screen.getByRole('button', { name: /K25.*多面板复合图/ }))
+    await user.click(screen.getByRole('button', { name: /K25.*多面板组合图/ }))
 
     expect(screen.getByText('还需加入 1 张图')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '创建组合图' })).toBeDisabled()
@@ -785,7 +788,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '选择其他图形' }))
     await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K25')
-    await user.click(screen.getByRole('button', { name: /K25.*多面板复合图/ }))
+    await user.click(screen.getByRole('button', { name: /K25.*多面板组合图/ }))
     await user.click(screen.getByRole('button', { name: '创建组合图' }))
 
     expect(api.executePlotAction).toHaveBeenLastCalledWith(expect.objectContaining({

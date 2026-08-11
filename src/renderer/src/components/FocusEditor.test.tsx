@@ -62,7 +62,7 @@ describe('FocusEditor Agent Native actions', () => {
     render(<FocusEditor initialIndex={0} plot={plot('K03', commonCapabilities)} onPatch={onPatch} onClose={() => undefined} />)
 
     await user.click(screen.getByRole('button', { name: '参数' }))
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Origin 符号' }), 'diamond')
+    await user.selectOptions(screen.getByRole('combobox', { name: '符号' }), 'diamond')
     await user.selectOptions(screen.getByRole('combobox', { name: '线型' }), 'dash')
     await user.click(screen.getByRole('button', { name: '应用系列样式' }))
 

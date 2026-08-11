@@ -3,8 +3,8 @@
 from plotagent.contracts.datasets import (
     ApplyPlotOrderSpec,
     FieldMapping,
+    FilterRowsSpec,
     IsomorphicConcatSpec,
-    MaskForPlotSpec,
     PreparationSpec,
     PreparedDataset,
     ProjectMetadataLabelSpec,
@@ -24,7 +24,7 @@ __all__ = [
     "FieldMapping",
     "ImportedSourceResolver",
     "IsomorphicConcatSpec",
-    "MaskForPlotSpec",
+    "FilterRowsSpec",
     "PreparationSpec",
     "PreparedArtifact",
     "PreparedDataset",

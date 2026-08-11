@@ -8,7 +8,7 @@ from plotagent.contracts.calculations import HistogramBinningSpec
 from plotagent.contracts.datasets import (
     FieldRoleBinding,
     FieldSnapshot,
-    MaskForPlotSpec,
+    FilterRowsSpec,
 )
 from plotagent.engine import (
     DerivedEngineDataProvider,
@@ -56,7 +56,7 @@ def _prepared_artifact(tmp_path: Path):
         ),
         content_hash=mapping_hash,
     )
-    spec = MaskForPlotSpec(
+    spec = FilterRowsSpec(
         preparation_spec_id="preparation:engine-derived",
         preparation_version=1,
         input_refs=(source_ref,),

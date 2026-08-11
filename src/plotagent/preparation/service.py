@@ -23,8 +23,8 @@ from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.datasets import (
     ApplyPlotOrderSpec,
     FieldMapping,
+    FilterRowsSpec,
     IsomorphicConcatSpec,
-    MaskForPlotSpec,
     PreparationSpec,
     PreparedDataset,
     PreparedDatasetProvenance,
@@ -369,11 +369,11 @@ def prepare(
             )
         fields, rows = first.source_dataset.field_schema, first.rows
         plot_order = spec.ordered_values
-    elif isinstance(spec, MaskForPlotSpec):
+    elif isinstance(spec, FilterRowsSpec):
         if len(tables) != 1:
             raise PreparationProblem(
                 PreparationErrorCode.PREPARE_UNSUPPORTED,
-                "mask_for_plot 只接受一个来源。",
+                "filter_rows 只接受一个来源。",
             )
         indexes = _field_index(first.source_dataset)
         if any(field_id not in indexes for field_id in spec.field_ids):
@@ -408,7 +408,7 @@ def prepare(
             "PreparationSpec kind 不在封闭联合中。",
         )
 
-    if not isinstance(spec, MaskForPlotSpec):
+    if not isinstance(spec, FilterRowsSpec):
         row_mask = tuple(True for _row in rows)
     parquet_bytes = _serialize(fields, rows, coordinates, row_mask)
     output_hash = hashlib.sha256(parquet_bytes).hexdigest()

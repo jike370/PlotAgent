@@ -7,12 +7,14 @@
           "items": {
             "enum": [
               "create_plot",
-              "patch_plot",
-              "create_batch",
-              "patch_batch",
-              "create_figure",
-              "patch_figure",
-              "export_artifact"
+              "bind_fields",
+              "set_title",
+              "set_axis",
+              "set_series_style",
+              "set_legend",
+              "set_chart_parameter",
+              "add_annotation",
+              "export_plot"
             ],
             "type": "string"
           },
@@ -27,7 +29,6 @@
               "K02",
               "K03",
               "K04",
-              "K05",
               "K06",
               "K07",
               "K08",
@@ -39,7 +40,6 @@
               "K14",
               "K15",
               "K16",
-              "K17",
               "K18",
               "K19",
               "K20",
@@ -48,85 +48,31 @@
               "K24",
               "K25",
               "S01",
-              "S05",
               "S21",
-              "S25",
-              "S31",
               "S34",
               "S61",
-              "X01",
               "X02",
               "X03",
               "X05",
-              "X07",
               "X09",
-              "X11",
-              "X12",
               "X13",
-              "X15",
-              "X16",
-              "X17",
-              "X18",
-              "X19",
               "X23",
               "X24",
               "X35",
               "X36",
-              "X37",
               "X38",
               "X39",
-              "X40",
-              "S07"
+              "X40"
             ],
             "type": "string"
           },
           "title": "Allowed Chart Type Ids",
           "type": "array"
         },
-        "allowed_patch_operations": {
-          "default": [],
-          "items": {
-            "enum": [
-              "set_plot_title",
-              "set_axis_range",
-              "set_axis_scale",
-              "set_axis_label",
-              "set_axis_reverse",
-              "set_axis_ticks",
-              "set_font_size",
-              "set_bar_area_style",
-              "set_uncertainty_style",
-              "set_colorbar_style",
-              "set_dual_y_style",
-              "set_facet_style",
-              "set_y_offset_style",
-              "set_chart_parameters",
-              "set_series_style",
-              "set_category_color",
-              "set_palette",
-              "set_legend_visibility",
-              "move_legend",
-              "apply_publication_profile",
-              "set_canvas_size",
-              "add_annotation"
-            ],
-            "type": "string"
-          },
-          "title": "Allowed Patch Operations",
-          "type": "array"
-        },
         "capability_version": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
           "title": "Capability Version",
           "type": "string"
-        },
-        "chart_edit_capabilities": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/ChartEditCapabilities"
-          },
-          "title": "Chart Edit Capabilities",
-          "type": "array"
         },
         "export_formats": {
           "default": [],
@@ -156,168 +102,6 @@
         "allowed_action_types"
       ],
       "title": "ChartCapabilities",
-      "type": "object"
-    },
-    "ChartEditCapabilities": {
-      "additionalProperties": false,
-      "properties": {
-        "allowed_patch_operations": {
-          "items": {
-            "enum": [
-              "set_plot_title",
-              "set_axis_range",
-              "set_axis_scale",
-              "set_axis_label",
-              "set_axis_reverse",
-              "set_axis_ticks",
-              "set_font_size",
-              "set_bar_area_style",
-              "set_uncertainty_style",
-              "set_colorbar_style",
-              "set_dual_y_style",
-              "set_facet_style",
-              "set_y_offset_style",
-              "set_chart_parameters",
-              "set_series_style",
-              "set_category_color",
-              "set_palette",
-              "set_legend_visibility",
-              "move_legend",
-              "apply_publication_profile",
-              "set_canvas_size",
-              "add_annotation"
-            ],
-            "type": "string"
-          },
-          "title": "Allowed Patch Operations",
-          "type": "array"
-        },
-        "chart_type_id": {
-          "enum": [
-            "K01",
-            "K02",
-            "K03",
-            "K04",
-            "K05",
-            "K06",
-            "K07",
-            "K08",
-            "K09",
-            "K10",
-            "K11",
-            "K12",
-            "K13",
-            "K14",
-            "K15",
-            "K16",
-            "K17",
-            "K18",
-            "K19",
-            "K20",
-            "K21",
-            "K22",
-            "K24",
-            "K25",
-            "S01",
-            "S05",
-            "S21",
-            "S25",
-            "S31",
-            "S34",
-            "S61",
-            "X01",
-            "X02",
-            "X03",
-            "X05",
-            "X07",
-            "X09",
-            "X11",
-            "X12",
-            "X13",
-            "X15",
-            "X16",
-            "X17",
-            "X18",
-            "X19",
-            "X23",
-            "X24",
-            "X35",
-            "X36",
-            "X37",
-            "X38",
-            "X39",
-            "X40",
-            "S07"
-          ],
-          "title": "Chart Type Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "chart_type_id",
-        "allowed_patch_operations"
-      ],
-      "title": "ChartEditCapabilities",
-      "type": "object"
-    },
-    "ContextEnvelope": {
-      "additionalProperties": false,
-      "properties": {
-        "chart_capabilities": {
-          "$ref": "#/$defs/ChartCapabilities"
-        },
-        "context_hash": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Context Hash",
-          "type": "string"
-        },
-        "conversation_state": {
-          "$ref": "#/$defs/ConversationStateProjection"
-        },
-        "data_disclosure": {
-          "$ref": "#/$defs/DataDisclosure"
-        },
-        "locale": {
-          "pattern": "^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$",
-          "title": "Locale",
-          "type": "string"
-        },
-        "prompt_template_version": {
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-          "title": "Prompt Template Version",
-          "type": "string"
-        },
-        "schema_version": {
-          "const": "1.0",
-          "default": "1.0",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "selected_context": {
-          "$ref": "#/$defs/SelectedContext"
-        },
-        "target_snapshot": {
-          "$ref": "#/$defs/ContextObjectRef"
-        },
-        "user_instruction": {
-          "maxLength": 4000,
-          "minLength": 1,
-          "title": "User Instruction",
-          "type": "string"
-        }
-      },
-      "required": [
-        "prompt_template_version",
-        "locale",
-        "user_instruction",
-        "target_snapshot",
-        "conversation_state",
-        "chart_capabilities",
-        "selected_context",
-        "data_disclosure",
-        "context_hash"
-      ],
-      "title": "ContextEnvelope",
       "type": "object"
     },
     "ContextField": {
@@ -513,7 +297,7 @@
           "type": "string"
         },
         "object_id": {
-          "pattern": "^(source|mapping|preparation|prepared|plotcalc|plot|batch|figure|export|renderplan|originplan|plan|project):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(source|mapping|preparation|prepared|plotcalc|plot|export|plan|project):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Object Id",
           "type": "string"
         },
@@ -522,8 +306,6 @@
             "source_dataset",
             "prepared_dataset",
             "plot",
-            "batch",
-            "figure",
             "export",
             "project"
           ],
@@ -821,8 +603,64 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.plotagent.local/v1/context-envelope.schema.json",
-  "$ref": "#/$defs/ContextEnvelope",
+  "$id": "https://schemas.plotagent.local/v2/context-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ContextEnvelopeContract"
+  "additionalProperties": false,
+  "properties": {
+    "chart_capabilities": {
+      "$ref": "#/$defs/ChartCapabilities"
+    },
+    "context_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Context Hash",
+      "type": "string"
+    },
+    "conversation_state": {
+      "$ref": "#/$defs/ConversationStateProjection"
+    },
+    "data_disclosure": {
+      "$ref": "#/$defs/DataDisclosure"
+    },
+    "locale": {
+      "pattern": "^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$",
+      "title": "Locale",
+      "type": "string"
+    },
+    "prompt_template_version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Prompt Template Version",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selected_context": {
+      "$ref": "#/$defs/SelectedContext"
+    },
+    "target_snapshot": {
+      "$ref": "#/$defs/ContextObjectRef"
+    },
+    "user_instruction": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "User Instruction",
+      "type": "string"
+    }
+  },
+  "required": [
+    "prompt_template_version",
+    "locale",
+    "user_instruction",
+    "target_snapshot",
+    "conversation_state",
+    "chart_capabilities",
+    "selected_context",
+    "data_disclosure",
+    "context_hash"
+  ],
+  "title": "ContextEnvelope",
+  "type": "object"
 }

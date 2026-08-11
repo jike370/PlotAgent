@@ -1,0 +1,110 @@
+{
+  "$defs": {
+    "EngineObjectRef": {
+      "additionalProperties": false,
+      "description": "Read-only semantic link to a backend-native editable object.",
+      "properties": {
+        "backend": {
+          "enum": [
+            "matplotlib",
+            "origin"
+          ],
+          "title": "Backend",
+          "type": "string"
+        },
+        "native_ref": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Native Ref",
+          "type": "string"
+        },
+        "object_kind": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Object Kind",
+          "type": "string"
+        },
+        "semantic_id": {
+          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Semantic Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "semantic_id",
+        "backend",
+        "object_kind",
+        "native_ref"
+      ],
+      "title": "EngineObjectRef",
+      "type": "object"
+    },
+    "PlotDocumentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "plot_id": {
+          "pattern": "^plot:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "plot_version": {
+          "minimum": 1,
+          "title": "Plot Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "plot_id",
+        "plot_version",
+        "content_hash"
+      ],
+      "title": "PlotDocumentRef",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/engine-readback.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "backend": {
+      "enum": [
+        "matplotlib",
+        "origin"
+      ],
+      "title": "Backend",
+      "type": "string"
+    },
+    "data_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Data Hash",
+      "type": "string"
+    },
+    "document": {
+      "$ref": "#/$defs/PlotDocumentRef"
+    },
+    "objects": {
+      "items": {
+        "$ref": "#/$defs/EngineObjectRef"
+      },
+      "title": "Objects",
+      "type": "array"
+    },
+    "style_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Style Hash",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document",
+    "backend",
+    "objects",
+    "data_hash",
+    "style_hash"
+  ],
+  "title": "EngineReadback",
+  "type": "object"
+}
