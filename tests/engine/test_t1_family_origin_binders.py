@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import re
 from pathlib import Path
 
 import pytest
@@ -49,12 +50,19 @@ class FakeLabel:
         self.text = text
         self.name = ""
         self.values = {"show": 1}
+        self.floats: dict[str, float] = {}
 
     def set_int(self, name: str, value: int) -> None:
         self.values[name] = value
 
     def get_int(self, name: str) -> int:
         return self.values.get(name, 0)
+
+    def set_float(self, name: str, value: float) -> None:
+        self.floats[name] = value
+
+    def get_float(self, name: str) -> float:
+        return self.floats.get(name, 0.0)
 
 
 class FakeAxis:
@@ -72,6 +80,8 @@ class FakeAxis:
 
 class FakePlot:
     def __init__(self) -> None:
+        self.obj = self
+        self.DatasetName = "Book1_B"
         self._color = (22, 118, 210)
         self.floats = {"line.width": 1.5}
         self.ints = {"line.style": 0}
@@ -144,25 +154,40 @@ class FakeLayer:
         return None
 
     def LT_execute(self, command: str) -> bool:
-        assert command == "legend"
-        self.labels["legend"] = FakeLabel()
-        return True
+        if command == "legend":
+            self.labels["legend"] = FakeLabel()
+            return True
+        match = re.fullmatch(r"label -j 1 -n (\S+) PlotAgentTitlePlaceholder;", command)
+        if match is not None:
+            title = FakeLabel("PlotAgentTitlePlaceholder")
+            title.name = match.group(1)
+            self.labels[match.group(1)] = title
+            return True
+        raise AssertionError(f"unexpected LabTalk label command: {command}")
+
+    def __iter__(self):
+        yield self
 
 
 class FakeGraph:
     def __init__(self, name: str) -> None:
         self.name = name
+        self.lname = name
         self.layer = FakeLayer()
 
     def __getitem__(self, index: int):
         assert index == 0
         return self.layer
 
+    def __iter__(self):
+        yield self.layer
+
 
 class FakeSheet:
     def __init__(self) -> None:
         self.columns: dict[int, list[object]] = {}
         self.designations: dict[int, str] = {}
+        self.cols = 0
 
     def from_list(self, col, data, **kwargs) -> None:
         self.columns[col] = list(data)
@@ -171,9 +196,13 @@ class FakeSheet:
     def to_list(self, col):
         return self.columns[col]
 
+    def activate(self) -> None:
+        return None
+
 
 class FakeBook:
     def __init__(self) -> None:
+        self.name = "Book1"
         self.sheet = FakeSheet()
 
     def __getitem__(self, index: int):
@@ -185,16 +214,83 @@ class FakeOrigin:
     def __init__(self) -> None:
         self.book = FakeBook()
         self.graph = FakeGraph("G")
+        self.graph_created = False
+        self.commands: list[str] = []
+        self.lt_values: dict[str, float] = {
+            "__X02COUNT": 1.0,
+            "__X02PT": 201.0,
+            "__X02LV": 1.0,
+            "__X02SY": 0.0,
+            "__X02SYS": 1.0,
+            "__X02C": 0.0,
+            "__X02LVC": 0.0,
+            "__X02LVW": 500.0,
+            "__X02LVS": 0.0,
+            "__X02K": 2.0,
+            "__X02Z": 5.0,
+        }
 
     def new(self, *, asksave: bool) -> None:
         return None
 
     def new_book(self, *args, **kwargs):
+        self.book.name = str(args[1])
         return self.book
 
     def new_graph(self, name, **kwargs):
         self.graph.name = name
         return self.graph
+
+    def pages(self, kind: str):
+        if kind == "w":
+            return (self.book,)
+        if kind == "g":
+            return (self.graph,) if self.graph_created else ()
+        return ()
+
+    @staticmethod
+    def _color(value: str) -> float:
+        return float(int(value.removeprefix("#"), 16))
+
+    def lt_exec(self, command: str) -> None:
+        self.commands.append(command)
+        if "worksheet -p 201 DROPLINE" in command:
+            self.graph_created = True
+            plot = FakePlot()
+            plot.DatasetName = f"{self.book.name}_B"
+            self.graph.layer.plots = [plot]
+        for option, destination in (
+            ("-c", "__X02C"),
+            ("-lvc", "__X02LVC"),
+            ("-lvw", "__X02LVW"),
+            ("-lvs", "__X02LVS"),
+            ("-k", "__X02K"),
+            ("-z", "__X02Z"),
+        ):
+            match = re.search(
+                rf"set __X02P {re.escape(option)} (color\(\"#[0-9A-Fa-f]{{6}}\"\)|[-+0-9.]+)",
+                command,
+            )
+            if match is None:
+                continue
+            token = match.group(1)
+            color_match = re.fullmatch(r'color\("(#[0-9A-Fa-f]{6})"\)', token)
+            self.lt_values[destination] = (
+                self._color(color_match.group(1)) if color_match is not None else float(token)
+            )
+
+    def lt_float(self, expression: str) -> float:
+        color_match = re.fullmatch(r'color\("(#[0-9A-Fa-f]{6})"\)', expression)
+        if color_match is not None:
+            return self._color(color_match.group(1))
+        return self.lt_values[expression]
+
+    def get_lt_str(self, expression: str) -> str:
+        if expression == "__X02XS":
+            return f'[{self.book.name}]Sheet1!A"Time"'
+        if expression == "__X02YS":
+            return f'[{self.book.name}]Sheet1!B"Signal"'
+        raise KeyError(expression)
 
 
 def _column(field_id: str, name: str, values: tuple[object, ...]) -> EngineColumn:
@@ -538,17 +634,6 @@ def test_k07_binds_center_and_band_without_boundary_legend_entries(
             {"line_width_pt": 2.0, "line_style": "dash"},
             "area_series",
         ),
-        (
-            "X02",
-            X02OriginProject,
-            {
-                "line_width_pt": 1.5,
-                "line_style": "dot",
-                "symbol": "diamond",
-                "symbol_size_pt": 6.0,
-            },
-            "drop_line_series",
-        ),
     ),
 )
 def test_official_template_native_xy_profiles_keep_template_plot_type(
@@ -578,6 +663,64 @@ def test_official_template_native_xy_profiles_keep_template_plot_type(
 
     assert origin.graph.layer.add_calls == [{"coly": 1, "colx": 0, "type": "?"}]
     assert object_kind in {item.object_kind for item in readback.objects}
+
+
+@pytest.mark.parametrize("row_count", (1, 7, 20))
+def test_x02_uses_official_drop_line_command_and_preserves_raw_dynamic_data(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    row_count: int,
+) -> None:
+    x_values = tuple(float(index) for index in range(row_count))
+    y_values = tuple(10.0 + float(index % 5) for index in range(row_count))
+    columns = (
+        _column("field:x", "Time", x_values),
+        _column("field:y", "Signal", y_values),
+    )
+    document, actions, view = _case(
+        "X02",
+        ("x", "y"),
+        columns,
+        style={
+            "line_width_pt": 2.0,
+            "line_style": "dot",
+            "symbol": "diamond",
+            "symbol_size_pt": 6.0,
+        },
+    )
+    monkeypatch.setattr(
+        x02_module,
+        "resolve_official_template",
+        lambda install, profile: tmp_path / profile.filename,
+    )
+    origin = FakeOrigin()
+    project = X02OriginProject(origin)
+    project.create(tmp_path, document, view)
+    project.reconcile(document, actions, view)
+    readback = project.verify(document, actions, view)
+
+    assert any(
+        "worksheet -s 1 0 2 0; worksheet -p 201 DROPLINE;" in command
+        for command in origin.commands
+    )
+    assert origin.graph.layer.add_calls == []
+    assert origin.book.sheet.designations == {0: "X", 1: "Y"}
+    assert origin.book.sheet.columns == {0: list(x_values), 1: list(y_values)}
+    assert origin.lt_values["__X02PT"] == 201.0
+    assert origin.lt_values["__X02LV"] == 1.0
+    assert origin.lt_values["__X02SY"] == 0.0
+    assert origin.lt_values["__X02SYS"] == 1.0
+    assert "drop_line_series" in {item.object_kind for item in readback.objects}
+
+
+def test_x02_renderer_has_no_generic_graph_or_plot_construction() -> None:
+    source = inspect.getsource(x02_module)
+
+    assert "OriginXYProject" not in source
+    assert ".new_graph(" not in source
+    assert ".add_plot(" not in source
+    assert ".plot_list(" not in source
+    assert "worksheet -p 201 DROPLINE" in source
 
 
 def test_new_t1_origin_binders_do_not_import_the_legacy_compiler() -> None:

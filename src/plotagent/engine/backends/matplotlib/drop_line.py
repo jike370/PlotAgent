@@ -226,6 +226,12 @@ class X02DropLineRenderer:
             elif isinstance(action, SetSeriesStyle):
                 if action.target != f"series:{token}.primary":
                     raise ValueError("X02 series target does not belong to this plot")
+                if action.line_style == "none":
+                    raise ValueError("X02 cannot hide drop lines through line style")
+                if action.line_width_pt is not None and not float(
+                    action.line_width_pt
+                ).is_integer():
+                    raise ValueError("X02 exposes drop-line width in whole points only")
                 state = replace(
                     state,
                     color=state.color if action.color is None else action.color,
@@ -245,8 +251,8 @@ class X02DropLineRenderer:
                     ),
                 )
             elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError("X02 legend target does not belong to this plot")
+                if action.target != f"legend:{token}.main" or action.anchor is not None:
+                    raise ValueError("X02 exposes only legend visibility")
                 state = replace(
                     state,
                     legend_visible=(
