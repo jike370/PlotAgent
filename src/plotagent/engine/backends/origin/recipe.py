@@ -134,6 +134,14 @@ _T = {
     "column": _template(
         "COLUMN.otpu", "ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd"
     ),
+    "stack_column": _template(
+        "STACKCOLUMN.otp",
+        "3ffd84ea777e414c60daab6e3b162b207379b94341ef1497c144a725f0caa264",
+    ),
+    "percent_stack_column": _template(
+        "StackColP.otp",
+        "2094be00706be51883e7d5f8212e79e5eb1ac01ff66af45ba4953761ba8fe7d3",
+    ),
     "gcolumn": _template(
         "gColumn.otpu", "7178d8b38efdb448909d3e0956d12347ef9340773be3c8f4625fe5b4cca06d0e"
     ),
@@ -382,10 +390,10 @@ _RECIPES = (
         "graph_template",
         "worksheet_wide",
         ("categorical X", "one or more Y"),
-        ("native columns", "Layer Stack.Offset=1", "StackOffset=0", "complete legend"),
-        template_keys=("column",),
+        ("native PID 213 group", "Layer Stack.Offset=1", "StackOffset=0", "complete legend"),
+        template_keys=("stack_column",),
         binder_key="K10",
-        native_plot_types=(203,),
+        native_plot_types=(213,),
     ),
     _r(
         "K11",
@@ -397,15 +405,15 @@ _RECIPES = (
         "worksheet_wide",
         ("categorical X", "one or more Y"),
         (
-            "native columns",
+            "native PID 213 group",
             "Layer Stack.Offset=1",
             "StackOffset=1",
             "Y maximum=100",
             "complete legend",
         ),
-        template_keys=("column",),
+        template_keys=("percent_stack_column",),
         binder_key="K11",
-        native_plot_types=(203,),
+        native_plot_types=(213,),
     ),
     _r(
         "K12",

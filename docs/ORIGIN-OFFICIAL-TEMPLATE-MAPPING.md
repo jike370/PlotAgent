@@ -49,8 +49,8 @@
 | K07 | 误差带与置信带 | A；`ERRORBAND.opju` Graph1 | `ERRORBAND.otp` `dfd36bf19bf3` | T1 | 绑定 X/Center/Lower/Upper、系列数 | 使用原生 fill-to-next；禁止上下界进入图例 |
 | K08 | 柱状图 | C；`Column.opju` Book2 | `COLUMN.otpu` `ec9e654e8860` | T1 | 绑定 Category/Value；动态标签留白 | 长标签的旋转/换行仍需数据驱动 |
 | K09 | 分组柱状图 | A；`Column.opju` Graph2 | `COLUMN.otpu` `ec9e654e8860`，以 `Column.opju` Graph2 分组设置为准 | T2 | 按组数建立 Origin plot group、动态宽度和 gap | 1/2/3/5 组均不得重叠 |
-| K10 | 堆积柱状图 | A；`Column.opju` Graph9 | `STACKCOLUMN.otp` `3ffd84ea777e` | T1 | 绑定类别/组成/值、动态组成数 | 系列顺序决定堆积顺序 |
-| K11 | 百分比堆积图 | A；`Column.opju` Graph11 | `StackColP.otp` `2094be00706b` | T1 | 使用预计算百分比并绑定类别/组成 | 不让 Origin 再次归一化造成双重计算 |
+| K10 | 堆积柱状图 | A；用户修正默认 OPJU + 本机菜单 `StackColumn` | `STACKCOLUMN.otp` `3ffd84ea777e` | T1 | 原始 category + 动态 Y 一次选中，调用 `worksheet -p 213 StackColumn`；读回 PID 213、`Stack.Offset=1`、`StackOffset=0` | 系列顺序决定堆积顺序；禁止空 `COLUMN` + AddPlot 重构 |
+| K11 | 100% 堆积柱状图 | A；用户修正默认 OPJU + 本机菜单 `StackColP` | `StackColP.otp` `2094be00706b` | T1 | 原始 category + 动态 Y 一次选中，调用 `worksheet -p 213 StackColP`；读回 PID 213、`Stack.Offset=1`、`StackOffset=1` | 禁止 Python 预归一化、空图重构或二次归一化 |
 | K12 | 单变量点图与条带图 | A；`ColumnScatter.opju` Graph11 | `ColumnScatter.otp` `e9bfbf3b74bc` | T2 | 长表映射、组内散点偏移、动态组标签 | 大样本下图例应避开观测点 |
 | K13 | 箱线图 | A；`Box.opju` Graph1 | `BOX.OTP` `a1f26e68a6a0` | T1 | 绑定原始值与可选分组；冻结 Tukey 规则 | 优先让 Origin 创建原生 box plot，不拼箱体线条 |
 | K14 | 小提琴图 | C；`Box.opju` 原始值＋系统 Violin 重建 | `Violin.otpu` `ee71ef5fb2bf` | T1 | 绑定原始值与分组、KDE/内部统计参数 | 高优先级迁移：禁止用普通线和 fill_area 模拟外轮廓，避免边缘竖线复现 |

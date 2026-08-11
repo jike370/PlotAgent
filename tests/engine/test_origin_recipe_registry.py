@@ -44,8 +44,8 @@ def test_renderable_recipes_have_closed_routes_and_pinned_template_assets() -> N
     ("profile_id", "filename"),
     (
         ("K09", "gColumn.otpu"),
-        ("K10", "COLUMN.otpu"),
-        ("K11", "COLUMN.otpu"),
+        ("K10", "STACKCOLUMN.otp"),
+        ("K11", "StackColP.otp"),
         ("K19", "LINE.otpu"),
         ("K24", "Grouped.otp"),
         ("X05", "Beeswarm.otpu"),

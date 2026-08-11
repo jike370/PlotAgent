@@ -163,8 +163,8 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | K07 | `x / center / lower / upper` | 独立误差带 renderer | `ERRORBAND.otp` | worksheet + 中心线、下界和上界原生 Plot |
 | K08 | `category / value` | 独立柱图 renderer | `COLUMN.otpu` | worksheet + 1 组原生柱 |
 | K09 | `category / group / value` | 独立动态分组柱 renderer | `COLUMN.otpu` | worksheet + 动态原生分组柱；柱宽只按组数受控调整 |
-| K10 | `category / component / value` | 独立堆积柱 renderer | `STACKCOLUMN.otp` | worksheet + 模板定义的动态原生堆积系列 |
-| K11 | `category / component / value` | 独立百分比堆积 renderer | `StackColP.otp` | worksheet 写入单次预计算百分比 + 模板原生堆积系列 |
+| K10 | `category / component / value` | 独立堆积柱 renderer | `STACKCOLUMN.otp` | 原始 worksheet + 一次性官方 `StackColumn` 创建；PID 213、`Stack.Offset=1`、`StackOffset=0` |
+| K11 | `category / component / value` | 独立百分比堆积 renderer | `StackColP.otp` | 原始 worksheet + 一次性官方 `StackColP` 创建；PID 213、`Stack.Offset=1`、`StackOffset=1`，百分比只由 Origin 原生归一化 |
 | K12 | `value / group?` | 独立确定性条带 renderer | `ColumnScatter.otp` | 每组一列原始观测 + 模板原生 Column Scatter plot |
 | K13 | `value / group?` | 独立 Tukey 箱线 renderer | `BOX.OTP` | 每组一列原始观测 + 模板原生 box plot |
 | K14 | `value / group?` | 独立小提琴 renderer | `Violin.otpu` | 每组一列原始观测 + 模板原生 violin plot；禁止线/填充模拟轮廓 |

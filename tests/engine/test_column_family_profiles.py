@@ -21,6 +21,7 @@ from plotagent.engine import (
     PlotEngineAction,
     SetLegend,
     SetSeriesStyle,
+    SetTitle,
 )
 from plotagent.engine.backends.matplotlib import (
     K09GroupedColumnRenderer,
@@ -244,6 +245,9 @@ class _Label:
     def set_int(self, name: str, value: int) -> None:
         self.values[name] = value
 
+    def set_float(self, name: str, value: float) -> None:
+        self.values[name] = value
+
     def get_int(self, name: str) -> int:
         return self.values.get(name, 0)
 
@@ -351,8 +355,12 @@ class _Layer:
         return None
 
     def LT_execute(self, command: str) -> bool:
-        assert command == "legend"
-        self.labels["legend"] = _Label()
+        if command == "legend":
+            self.labels["legend"] = _Label()
+        elif command.startswith("label -j 1 -n _ENGINE_TITLE"):
+            self.labels["_ENGINE_TITLE"] = _Label("PlotAgentTitlePlaceholder")
+        else:
+            raise AssertionError(command)
         return True
 
     def GetTheme(self):
@@ -380,10 +388,12 @@ class _Sheet:
     def __init__(self, origin: _Origin) -> None:
         self.origin = origin
         self.columns: dict[int, list[object]] = {}
+        self.designations: dict[int, int] = {}
         self.cols = 0
 
     def from_list(self, column: int, values, **kwargs) -> None:
         self.columns[column] = list(values)
+        self.designations[column] = {"X": 4, "Y": 1, "N": 6}.get(kwargs.get("axis"), 0)
         self.cols = max(self.cols, column + 1)
 
     def to_list(self, column: int):
@@ -395,6 +405,10 @@ class _Sheet:
     def lt_range(self, include_sheet: bool) -> str:
         assert include_sheet is False
         return "[DataBook]Sheet1"
+
+    def get_int(self, name: str) -> int:
+        column = int(name.removeprefix("col").split(".", 1)[0]) - 1
+        return self.designations[column]
 
 
 class _Book:
@@ -418,6 +432,8 @@ class _Origin:
         self.commands: list[str] = []
         self.color_col_calls: list[tuple[int, str]] = []
         self.k09_colors: list[int] = []
+        self.group_edit_mode = 0
+        self.member_fill = 0
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -441,22 +457,60 @@ class _Origin:
             self.graph.layer.labels["legend"] = _Label(
                 "\n".join(f"\\l(1.{index}) {label}" for index, label in enumerate(groups, 1))
             )
-        elif command.startswith("dataset __K09COLORS"):
+        elif "worksheet -p 213" in command:
+            menu_name = command.split("worksheet -p 213 ", 1)[1].split(";", 1)[0]
+            for _index in range(1, self.book.sheet.cols):
+                self.graph.layer.add_plot(self.book.sheet, official=menu_name)
+            stack = self.graph.layer.theme.Children[0]
+            stack.Children[0].nVal = 1
+            stack.Children[1].nVal = int(menu_name == "StackColP")
+            self.graph.layer.labels["legend"] = _Label(
+                "\n".join(
+                    f"\\l({index}) %({index})"
+                    for index in range(self.book.sheet.cols - 1, 0, -1)
+                )
+            )
+        elif command.startswith("legendupdate"):
+            self.graph.layer.labels["legend"] = _Label(
+                "\n".join(
+                    f"\\l({index}) %({index})"
+                    for index in range(self.book.sheet.cols - 1, 0, -1)
+                )
+            )
+        elif command.startswith("dataset __K") and "COLORS" in command:
             payload = command.split("{", 1)[1].split("}", 1)[0]
             self.k09_colors = [
                 int(item.split('"', 2)[1][1:], 16) for item in payload.split(",")
             ]
+        elif " -gm 1" in command and " -pfb color" in command:
+            self.group_edit_mode = 1
+            self.member_fill = int(command.split('color("', 1)[1].split('"', 1)[0][1:], 16)
 
     def lt_float(self, expression: str) -> float:
-        if expression == "layer.plot1.pid":
-            return 203.0
-        if expression == "__K09ENABLED":
+        if expression.startswith("layer.plot") and expression.endswith(".pid"):
+            return 203.0 if self.commands[0].startswith("plot_gindexed") else 213.0
+        if expression.startswith("__K") and expression.endswith("ENABLED"):
             return 1.0
-        if expression.startswith("__K09READ["):
-            return float(self.k09_colors[int(expression.removeprefix("__K09READ[")[:-1]) - 1])
+        if expression.startswith("__K") and expression.endswith("GROUPMODE"):
+            return float(self.group_edit_mode)
+        if expression.startswith("__K") and expression.endswith("FILL"):
+            return float(self.member_fill)
+        if expression.startswith("__K") and "READ[" in expression:
+            return float(self.k09_colors[int(expression.split("READ[", 1)[1][:-1]) - 1])
         if expression.startswith('color("'):
             return float(int(expression.split('"', 2)[1][1:], 16))
+        if expression.startswith(("__K10COUNT", "__K11COUNT")):
+            return float(len(self.graph.layer.plots))
+        if expression.startswith(("__K10PT", "__K11PT")):
+            return 213.0
         raise AssertionError(expression)
+
+    def get_lt_str(self, name: str) -> str:
+        if "XS" in name:
+            return f"[{self.book.name}]Sheet1!A\"Category\""
+        plot_index = int(name.split("YS", 1)[1])
+        letter = chr(ord("B") + plot_index - 1)
+        return f"[{self.book.name}]Sheet1!{letter}\"S{plot_index}\""
 
     def color_col(self, offset: int, mode: str) -> str:
         self.color_col_calls.append((offset, mode))
@@ -496,11 +550,20 @@ def test_column_family_origin_binders_start_from_pinned_official_template(
         assert origin.graph.layer.group_calls == []
         assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
     else:
-        assert Path(origin.template).name.lower() == profile.filename.lower()
+        assert origin.template == ""
+        menu_name = "StackColumn" if profile_id == "K10" else "StackColP"
+        assert origin.commands[0] == (
+            f"worksheet -s 1 0 4 0; worksheet -p 213 {menu_name};"
+        )
+        assert (
+            "legendupdate dest:=layer update:=reconstruct "
+            "legend:=separate mode:=lname;"
+        ) in origin.commands
         assert origin.graph.layer.add_calls == [
-            {"coly": index, "colx": 0, "type": 203} for index in range(1, 4)
+            {"official": menu_name} for _index in range(1, 4)
         ]
-        assert origin.graph.layer.group_calls == [(True, 0, 2)]
+        assert origin.graph.layer.group_calls == []
+        assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
     assert origin.graph.layer.labels["legend"].text.count("\\l(") == 3
     native_members = [
         item
@@ -516,6 +579,9 @@ def test_column_family_origin_binders_start_from_pinned_official_template(
         stack = origin.graph.layer.theme.Children[0]
         assert stack.Children[0].nVal == 1
         assert stack.Children[1].nVal == int(profile_id == "K11")
+        assert origin.group_edit_mode == 1
+        assert origin.member_fill == 0xAA3300
+        assert origin.color_col_calls == []
     if profile_id == "K11":
         assert origin.book.sheet.columns[1] == [11.0, 21.0]
 
@@ -531,6 +597,43 @@ def test_column_family_new_path_has_no_legacy_compiler_dependency() -> None:
     assert "plotagent.rendering" not in source
     assert "PlotSpec" not in source
     assert "ResolvedPlot" not in source
+
+
+def test_official_stack_title_is_page_attached_and_survives_readback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document, actions, view = _case("K10", 3)
+    title = SetTitle(
+        action_id="action:title-k10",
+        target=document.plot_id,
+        expected_plot_version=document.plot_version,
+        text="K10 representative edit",
+    )
+    document = document.model_copy(
+        update={
+            "plot_version": document.plot_version + 1,
+            "parent_version": document.plot_version,
+            "applied_action_ids": (*document.applied_action_ids, title.action_id),
+        }
+    )
+    monkeypatch.setattr(
+        origin_module,
+        "resolve_official_template",
+        lambda install, selected: tmp_path / selected.filename,
+    )
+    origin = _Origin()
+    project = ColumnFamilyOriginProject(origin, profile_id="K10")
+    project.create(tmp_path, document, view)
+    for action in (*actions, title):
+        project.apply(document, action, view)
+    project.verify(document, (*actions, title), view)
+
+    label = origin.graph.layer.labels["_ENGINE_TITLE"]
+    assert label.text == "K10 representative edit"
+    assert label.get_int("attach") == 1
+    assert label.values["x1"] == 0.5
+    assert label.values["y1"] == 0.012
 
 
 def _distribution_case(

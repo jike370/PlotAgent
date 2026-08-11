@@ -79,15 +79,15 @@ K09_ORIGIN_PROFILE = OriginTemplateProfile(
 
 K10_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K10",
-    filename="COLUMN.otpu",
-    sha256="ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
+    filename="STACKCOLUMN.otp",
+    sha256="3ffd84ea777e414c60daab6e3b162b207379b94341ef1497c144a725f0caa264",
     tier="T1",
 )
 
 K11_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K11",
-    filename="COLUMN.otpu",
-    sha256="ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
+    filename="StackColP.otp",
+    sha256="2094be00706be51883e7d5f8212e79e5eb1ac01ff66af45ba4953761ba8fe7d3",
     tier="T1",
 )
 

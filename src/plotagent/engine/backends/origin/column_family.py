@@ -35,6 +35,7 @@ from .profile import (
     OriginTemplateProfile,
     resolve_official_template,
 )
+from .trace import origin_trace_step, record_origin_trace
 
 _TITLE_NAME = "_ENGINE_TITLE"
 _PALETTE = (
@@ -47,19 +48,6 @@ _PALETTE = (
     "#A55A2A",
     "#667085",
 )
-
-
-def _safe_label(value: str) -> str:
-    output: list[str] = []
-    for character in value:
-        codepoint = ord(character)
-        if character in {"\\", "%", "$"}:
-            output.append(f"\\x({codepoint:04X})")
-        elif character in {"\r", "\n", "\t"} or codepoint < 0x20 or codepoint == 0x7F:
-            output.append(" ")
-        else:
-            output.append(character)
-    return "".join(output).strip()
 
 
 def _effective_actions(
@@ -95,18 +83,26 @@ class ColumnFamilyOriginProject:
         self.series_key = "group" if profile_id == "K09" else "component"
         self.graph: Any = None
         self.layer: Any = None
+        self.book: Any = None
         self.sheet: Any = None
         self.plots: list[Any] = []
-        self._k09_color_overrides: dict[int, str] = {}
+        self._color_overrides: dict[int, str] = {}
 
     def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
-        template = resolve_official_template(install_dir, self.profile)
+        with origin_trace_step(
+            "official_template_resolve",
+            details={"template_filename": self.profile.filename},
+        ):
+            template = resolve_official_template(install_dir, self.profile)
         grid = self._grid(document, data)
-        self.op.new(asksave=False)
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("w", f"D{token}", hidden=True)
+        with origin_trace_step("workbook_create"):
+            book = self.op.new_book("w", f"D{token}", hidden=True)
         if book is None:
             raise RuntimeError(f"Origin could not create the {self.profile_id} workbook")
+        self.book = book
         if self.profile_id == "K09":
             for residue in tuple(self.op.pages("w")):
                 if residue.name == "Book1" and residue.name != book.name:
@@ -114,12 +110,18 @@ class ColumnFamilyOriginProject:
         self.sheet = book[0]
         if self.profile_id == "K09":
             indexed = k09_grouped_indexed_data(document, data)
-            self._write_grouped_indexed(indexed)
+            with origin_trace_step(
+                "source_data_write",
+                details={"column_count": 4, "row_count": len(indexed.values)},
+            ):
+                self._write_grouped_indexed(indexed)
             self.sheet.activate()
             source = self.sheet.lt_range(False)
-            self.op.lt_exec(
-                f"plot_gindexed iy:={source}!(,B) group:={source}!(C,D) plottype:=0;"
-            )
+            command = f"plot_gindexed iy:={source}!(,B) group:={source}!(C,D) plottype:=0;"
+            with origin_trace_step(
+                "official_plot_command_execute", details={"labtalk": command}
+            ):
+                self.op.lt_exec(command)
             graphs = list(self.op.pages("g"))
             if len(graphs) != 1:
                 raise RuntimeError("Origin plot_gindexed must create exactly one graph")
@@ -135,38 +137,99 @@ class ColumnFamilyOriginProject:
             if legend is None or legend.text.count("\\l(") != len(indexed.group_labels):
                 raise RuntimeError("Origin K09 did not create one legend sample per subgroup")
             self.layer.rescale()
-            return
-        self._write_data(grid)
-        self.graph = self.op.new_graph(
-            f"G{token}",
-            template=str(template.with_suffix(template.suffix.lower())),
-            hidden=True,
-        )
-        if self.graph is None:
-            raise RuntimeError(
-                f"Origin could not create {self.profile_id} from {self.profile.filename}"
+            record_origin_trace(
+                "native_column_family_confirmed",
+                "completed",
+                details={"native_plot_count": 1, "profile_id": self.profile_id},
             )
+            return
+        with origin_trace_step(
+            "source_data_write",
+            details={
+                "column_count": len(grid.series_labels) + 1,
+                "row_count": len(grid.category_labels),
+                "series_order": list(grid.series_labels),
+            },
+        ):
+            self._write_data(grid)
+        menu_name = "StackColumn" if self.profile_id == "K10" else "StackColP"
+        self.sheet.activate()
+        command = (
+            f"worksheet -s 1 0 {len(grid.series_labels) + 1} 0; "
+            f"worksheet -p 213 {menu_name};"
+        )
+        with origin_trace_step(
+            "official_plot_command_execute",
+            details={
+                "labtalk": command,
+                "menu_name": menu_name,
+                "template_filename": template.name,
+            },
+        ):
+            self.op.lt_exec(command)
+        with origin_trace_step(
+            "template_residue_remove",
+            details={"authoritative_workbook": book.name},
+        ):
+            for residue in tuple(self.op.pages("w")):
+                if residue.name != book.name:
+                    residue.destroy()
+        graphs = list(self.op.pages("g"))
+        if len(graphs) != 1:
+            raise RuntimeError(
+                f"Origin {menu_name} must create exactly one native graph"
+            )
+        self.graph = graphs[0]
+        self.graph.lname = f"{self.profile_id} Official Stack / {document.plot_id}"
         self.layer = self.graph[0]
-        self.plots = []
-        for index in range(len(grid.series_labels)):
-            plot_type: int | str = 203 if self.profile_id in {"K10", "K11"} else "?"
-            plot = self.layer.add_plot(self.sheet, coly=index + 1, colx=0, type=plot_type)
-            if plot is None:
-                raise RuntimeError(f"Origin rejected {self.profile_id} native series {index + 1}")
-            self.plots.append(plot)
-        if len(self.plots) > 1:
-            self.layer.group(True, 0, len(self.plots) - 1)
-        if self.profile_id in {"K10", "K11"}:
-            self._set_native_stack(percent=self.profile_id == "K11")
+        self.plots = list(self.layer.plot_list())
+        if len(self.plots) != len(grid.series_labels):
+            raise RuntimeError(
+                f"Origin {menu_name} did not create one native member per source Y"
+            )
+        native_structure = self._native_stack_structure(grid)
+        native_plot_ids = tuple(cast(list[int], native_structure["plot_ids"]))
+        offset, percent = self._native_stack_state()
+        if offset != 1 or percent != int(self.profile_id == "K11"):
+            raise RuntimeError(
+                f"Origin {menu_name} did not retain its native stack semantics"
+            )
         self.layer.rescale()
-        self._set_legend(grid, True)
+        with origin_trace_step(
+            "native_legend_reconstruct",
+            details={"entry_count": len(grid.series_labels), "mode": "lname"},
+        ):
+            self.graph.activate()
+            self.op.lt_exec(
+                "legendupdate dest:=layer update:=reconstruct "
+                "legend:=separate mode:=lname;"
+            )
+        legend = self.layer.label("legend")
+        if legend is None or legend.text.count("\\l(") != len(grid.series_labels):
+            raise RuntimeError(f"Origin {menu_name} did not create a complete native legend")
+        record_origin_trace(
+            "native_column_family_confirmed",
+            "completed",
+            details={
+                "native_plot_count": len(self.plots),
+                "native_plot_ids": list(native_plot_ids),
+                "source_bindings": native_structure["source_bindings"],
+                "official_menu_name": menu_name,
+                "profile_id": self.profile_id,
+                "stack_state": [offset, percent],
+            },
+        )
 
     def reopen(self, project_path: Path) -> None:
-        self.op.new(asksave=False)
-        if not self.op.open(str(project_path), readonly=True, asksave=False):
-            raise RuntimeError(
-                f"fresh Origin session could not reopen the staged {self.profile_id} project"
-            )
+        with origin_trace_step(
+            "saved_project_reopen",
+            details={"filename": project_path.name, "readonly": False},
+        ):
+            self.op.new(asksave=False)
+            if not self.op.open(str(project_path), readonly=False, asksave=False):
+                raise RuntimeError(
+                    f"fresh Origin session could not reopen the staged {self.profile_id} project"
+                )
         graphs = list(self.op.pages("g"))
         books = list(self.op.pages("w"))
         if len(graphs) != 1 or len(books) != 1:
@@ -176,7 +239,8 @@ class ColumnFamilyOriginProject:
         self.graph = graphs[0]
         self.layer = self.graph[0]
         self.plots = list(self.layer.plot_list())
-        self.sheet = books[0][0]
+        self.book = books[0]
+        self.sheet = self.book[0]
 
     def apply(
         self,
@@ -192,13 +256,26 @@ class ColumnFamilyOriginProject:
             if action.target != document.plot_id:
                 raise ValueError(f"{self.profile_id} title target does not belong to this plot")
             label = self.layer.label(_TITLE_NAME)
-            if label is None:
-                label = self.layer.add_label(action.text, 40, 2)
+            if label is None and action.text:
+                self.layer.activate()
+                if not self.layer.obj.LT_execute(
+                    f"label -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
+                ):
+                    raise RuntimeError(
+                        f"Origin could not create the {self.profile_id} title"
+                    )
+                label = self.layer.label(_TITLE_NAME)
                 if label is None:
                     raise RuntimeError(f"Origin could not create the {self.profile_id} title")
-                label.name = _TITLE_NAME
-            label.text = action.text
-            label.set_int("show", 1)
+            if label is not None:
+                label.text = action.text
+                label.set_int("attach", 1)
+                label.set_float("x1", 0.5)
+                label.set_float("y1", 0.012)
+                label.set_int("fsize", 14)
+                label.set_int("fstyle", 0)
+                label.set_int("background", 0)
+                label.set_int("show", int(bool(action.text)))
             return
         if isinstance(action, SetAxis):
             axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
@@ -251,10 +328,18 @@ class ColumnFamilyOriginProject:
         raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
 
     def save(self, output_path: Path) -> None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        self.op.save(str(output_path))
-        if not output_path.is_file() or output_path.stat().st_size <= 0:
-            raise RuntimeError(f"Origin did not save a non-empty {self.profile_id} project")
+        with origin_trace_step("opju_save", details={"filename": output_path.name}):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            if output_path.exists():
+                raise FileExistsError(
+                    f"Origin refuses to overwrite existing {self.profile_id} artifact: "
+                    f"{output_path}"
+                )
+            self.op.save(str(output_path))
+            if not output_path.is_file() or output_path.stat().st_size <= 0:
+                raise RuntimeError(
+                    f"Origin did not save a non-empty {self.profile_id} project"
+                )
 
     def verify(
         self,
@@ -285,6 +370,8 @@ class ColumnFamilyOriginProject:
             self._assert_values(self.sheet.to_list(0), grid.category_labels, "category")
             for index, expected in enumerate(zip(*grid.values, strict=True), start=1):
                 self._assert_values(self.sheet.to_list(index), tuple(expected), f"series {index}")
+            native_structure = self._native_stack_structure(grid)
+            native_plot_ids = tuple(cast(list[int], native_structure["plot_ids"]))
         token = document.plot_id.removeprefix("plot:")
         snapshot: dict[str, object] = {
             "series_count": len(grid.series_labels),
@@ -298,10 +385,17 @@ class ColumnFamilyOriginProject:
                 )
             snapshot["native_stack_offset"] = offset
             snapshot["native_percent_normalization"] = percent
+            snapshot["native_plot_ids"] = list(native_plot_ids)
+            snapshot["source_bindings"] = native_structure["source_bindings"]
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
-                if title is None or title.text != action.text or not title.get_int("show"):
+                if (
+                    title is None
+                    or title.text != action.text
+                    or not title.get_int("show")
+                    or title.get_int("attach") != 1
+                ):
                     raise RuntimeError(f"Origin {self.profile_id} title did not survive readback")
                 snapshot["title"] = title.text
             elif isinstance(action, SetAxis) and action.label is not None:
@@ -373,6 +467,9 @@ class ColumnFamilyOriginProject:
                 native_ref=f"graph:{self.graph.name}.layer:1.label:legend",
             ),
         )
+        record_origin_trace(
+            "reopened_column_family_confirmed", "completed", details=snapshot
+        )
         return EngineReadback(
             document=document_ref(document),
             backend="origin",
@@ -437,6 +534,79 @@ class ColumnFamilyOriginProject:
         ):
             self.sheet.from_list(index, list(values), lname=label, axis="Y")
 
+    def _native_stack_structure(self, grid: CategorySeriesGrid) -> dict[str, object]:
+        expected_count = len(grid.series_labels)
+        commands = [
+            f"window -a {self.graph.name}",
+            f"{self.graph.name}!page.active=1",
+            "layer -c",
+            f"__{self.profile_id}COUNT=count",
+        ]
+        for plot_index in range(1, expected_count + 1):
+            commands.extend(
+                (
+                    f"range __{self.profile_id}P{plot_index}="
+                    f"[{self.graph.name}]Layer1!{plot_index}",
+                    f"get __{self.profile_id}P{plot_index} -pt "
+                    f"__{self.profile_id}PT{plot_index}",
+                    f"range -wx __{self.profile_id}X{plot_index}={plot_index}",
+                    f"range -wy __{self.profile_id}Y{plot_index}={plot_index}",
+                    f"string __{self.profile_id}XS{plot_index}$="
+                    f"%(__{self.profile_id}X{plot_index})",
+                    f"string __{self.profile_id}YS{plot_index}$="
+                    f"%(__{self.profile_id}Y{plot_index})",
+                )
+            )
+        self.op.lt_exec("; ".join(commands) + ";")
+        observed_count = int(self.op.lt_float(f"__{self.profile_id}COUNT"))
+        if observed_count != expected_count:
+            raise RuntimeError(
+                f"Origin {self.profile_id} native group count changed: {observed_count}"
+            )
+        source_prefix = f"[{self.book.name}]"
+        source_bindings: list[dict[str, object]] = []
+        plot_ids: list[int] = []
+        for plot_index in range(1, expected_count + 1):
+            plot_id = int(self.op.lt_float(f"__{self.profile_id}PT{plot_index}"))
+            x_range = str(self.op.get_lt_str(f"__{self.profile_id}XS{plot_index}"))
+            y_range = str(self.op.get_lt_str(f"__{self.profile_id}YS{plot_index}"))
+            expected_y_letter = chr(ord("B") + plot_index - 1)
+            if plot_id != 213:
+                raise RuntimeError(
+                    f"Origin {self.profile_id} plot {plot_index} is not native PID 213"
+                )
+            if not x_range.startswith(source_prefix) or '!A"' not in x_range:
+                raise RuntimeError(
+                    f"Origin {self.profile_id} plot {plot_index} lost category source A"
+                )
+            if (
+                not y_range.startswith(source_prefix)
+                or f'!{expected_y_letter}"' not in y_range
+            ):
+                raise RuntimeError(
+                    f"Origin {self.profile_id} plot {plot_index} lost source "
+                    f"{expected_y_letter}: {y_range!r}"
+                )
+            plot_ids.append(plot_id)
+            source_bindings.append(
+                {"plot": plot_index, "x": x_range, "y": y_range}
+            )
+        expected_designations = [4, *([1] * expected_count)]
+        actual_designations = [
+            self.sheet.get_int(f"col{index + 1}.type")
+            for index in range(len(expected_designations))
+        ]
+        if actual_designations != expected_designations:
+            raise RuntimeError(
+                f"Origin {self.profile_id} worksheet designations changed: "
+                f"{actual_designations}"
+            )
+        return {
+            "designations": actual_designations,
+            "plot_ids": plot_ids,
+            "source_bindings": source_bindings,
+        }
+
     def _write_grouped_indexed(self, indexed: GroupedIndexedData) -> None:
         self.sheet.cols = 4
         self.sheet.from_list(0, list(indexed.indexes), lname="Index", axis="X")
@@ -468,33 +638,28 @@ class ColumnFamilyOriginProject:
         """Persist an arbitrary member color without breaking native grouping."""
 
         if self.profile_id == "K09":
-            self._k09_color_overrides[ordinal] = color
+            self._color_overrides[ordinal] = color
             colors = tuple(
-                self._k09_color_overrides.get(index, _PALETTE[(index - 1) % len(_PALETTE)])
+                self._color_overrides.get(index, _PALETTE[(index - 1) % len(_PALETTE)])
                 for index in range(1, len(grid.series_labels) + 1)
             )
             values = ",".join(f'color("{item}")' for item in colors)
             self.graph.activate()
             self.op.lt_exec(
                 f"dataset __K09COLORS={{{values}}}; "
-                "set %C -cue 1; set %C -cuf __K09COLORS;"
+                "set %C -pfbi 1; set %C -cue 1; set %C -cuf __K09COLORS;"
             )
             return
-        rgb = self._hex_rgb(color)
-        series_count = len(grid.series_labels)
-        base_column = 1 + series_count + (ordinal - 1) * 3
-        row_count = len(grid.category_labels)
-        for offset, (channel, value) in enumerate(zip("RGB", rgb, strict=True)):
-            self.sheet.from_list(
-                base_column + offset,
-                [value] * row_count,
-                lname=f"Style {ordinal} {channel}",
-            )
-        plot = self.plots[ordinal - 1]
-        if hasattr(self.op, "color_col"):
-            plot.color = self.op.color_col(base_column - ordinal, "r")
-        else:
-            plot.color = color
+        prefix = (
+            f"window -a {self.graph.name}; {self.graph.name}!page.active=1; "
+        )
+        self.op.lt_exec(
+            prefix
+            + f"range __{self.profile_id}HEAD=[{self.graph.name}]Layer1!1; "
+            + f"range __{self.profile_id}MEMBER=[{self.graph.name}]Layer1!{ordinal}; "
+            + f"set __{self.profile_id}HEAD -gm 1; "
+            + f'set __{self.profile_id}MEMBER -pfb color("{color}");'
+        )
 
     def _assert_series_rgb(
         self,
@@ -502,7 +667,6 @@ class ColumnFamilyOriginProject:
         ordinal: int,
         color: str,
     ) -> None:
-        expected = self._hex_rgb(color)
         if self.profile_id == "K09":
             self.graph.activate()
             self.op.lt_exec(
@@ -513,17 +677,36 @@ class ColumnFamilyOriginProject:
             observed = int(self.op.lt_float(f"__K09READ[{ordinal}]"))
             wanted = int(self.op.lt_float(f'color("{color}")'))
             if enabled != 1 or observed != wanted:
-                raise RuntimeError("Origin K09 subgroup color list did not survive readback")
-            return
-        series_count = len(grid.series_labels)
-        base_column = 1 + series_count + (ordinal - 1) * 3
-        row_count = len(grid.category_labels)
-        for offset, value in enumerate(expected):
-            observed = self.sheet.to_list(base_column + offset)
-            if len(observed) != row_count or any(int(item) != value for item in observed):
                 raise RuntimeError(
-                    f"Origin {self.profile_id} series RGB modifier did not survive readback"
+                    "Origin K09 native group color list did not survive readback"
                 )
+            return
+        prefix = (
+            f"window -a {self.graph.name}; {self.graph.name}!page.active=1; "
+        )
+        self.op.lt_exec(
+            prefix
+            + f"range __{self.profile_id}HEAD=[{self.graph.name}]Layer1!1; "
+            + f"range __{self.profile_id}MEMBER=[{self.graph.name}]Layer1!{ordinal}; "
+            + f"get __{self.profile_id}HEAD -gm __{self.profile_id}GROUPMODE; "
+            + f"get __{self.profile_id}MEMBER -pfb __{self.profile_id}FILL;"
+        )
+        mode = int(self.op.lt_float(f"__{self.profile_id}GROUPMODE"))
+        observed = int(self.op.lt_float(f"__{self.profile_id}FILL"))
+        wanted = int(self.op.lt_float(f'color("{color}")'))
+        if mode != 1 or observed != wanted:
+            raise RuntimeError(
+                f"Origin {self.profile_id} native member fill did not survive readback"
+            )
+        record_origin_trace(
+            "reopened_native_member_color_confirmed",
+            "completed",
+            details={
+                "group_edit_mode": mode,
+                "ordinal": ordinal,
+                "resolved_color": observed,
+            },
+        )
 
     def _set_legend(self, grid: CategorySeriesGrid, visible: bool) -> None:
         legend = self.layer.label("legend")
@@ -540,10 +723,10 @@ class ColumnFamilyOriginProject:
                 raise RuntimeError(f"Origin could not create the {self.profile_id} legend")
             legend = self.layer.label("legend")
         if legend is not None:
-            legend.text = "\n".join(
-                f"\\l({index}, style:b) {_safe_label(label)}"
-                for index, label in enumerate(grid.series_labels, start=1)
-            )
+            if legend.text.count("\\l(") != len(grid.series_labels):
+                raise RuntimeError(
+                    f"Origin {self.profile_id} native legend does not match source series"
+                )
             legend.set_int("link", 1)
             legend.set_int("show", int(visible))
 
@@ -553,10 +736,6 @@ class ColumnFamilyOriginProject:
         if not suffix.isdigit() or not 1 <= int(suffix) <= series_count:
             raise ValueError(f"{self.profile_id} series target is outside the materialized data")
         return int(suffix)
-
-    @staticmethod
-    def _hex_rgb(value: str) -> tuple[int, int, int]:
-        return cast(tuple[int, int, int], tuple(int(value[i : i + 2], 16) for i in (1, 3, 5)))
 
     def _assert_values(
         self,
@@ -589,12 +768,16 @@ def _execute(
     project = ColumnFamilyOriginProject(op, profile_id=profile_id)
     project.create(install_dir, request.document, request.data)
     actions = _effective_actions(request.actions)
-    for action in actions:
-        project.apply(request.document, action, request.data)
+    with origin_trace_step("agent_actions_apply", details={"action_count": len(actions)}):
+        for action in actions:
+            details = cast(dict[str, object], action.model_dump(exclude_none=True))
+            with origin_trace_step("agent_action_apply", details=details):
+                project.apply(request.document, action, request.data)
     project.save(output)
     reopened = ColumnFamilyOriginProject(op, profile_id=profile_id)
     reopened.reopen(output)
-    return reopened.verify(request.document, actions, request.data)
+    with origin_trace_step("reopened_native_structure_verify"):
+        return reopened.verify(request.document, actions, request.data)
 
 
 def execute_k09_request(
