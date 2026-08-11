@@ -41,7 +41,11 @@ from plotagent.engine.backends.origin import (
 )
 from plotagent.engine.backends.origin.column_family import ColumnFamilyOriginProject
 from plotagent.engine.backends.origin.distribution import DistributionOriginProject
-from plotagent.engine.profile_data import category_series_grid, distribution_groups
+from plotagent.engine.profile_data import (
+    category_series_grid,
+    distribution_groups,
+    k09_grouped_indexed_data,
+)
 
 HASH = "9" * 64
 
@@ -80,7 +84,7 @@ def _case(
         target=f"series:{profile_id.lower()}-columns.{series_role}_{series_count}",
         expected_plot_version=1,
         color="#AA3300",
-        line_width_pt=1.2,
+        line_width_pt=None if profile_id == "K09" else 1.2,
     )
     legend = SetLegend(
         action_id=f"action:legend-{profile_id.lower()}",
@@ -221,6 +225,16 @@ def test_k11_normalizes_each_category_to_exactly_one_hundred_percent() -> None:
     assert tuple(np.sum(values, axis=1)) == pytest.approx((100.0, 100.0))
 
 
+def test_k09_preserves_long_rows_for_origin_grouped_indexed_route() -> None:
+    document, _, view = _case("K09", 3)
+    indexed = k09_grouped_indexed_data(document, view)
+
+    assert indexed.indexes == (1, 2, 3, 4, 5, 6)
+    assert indexed.categories == ("B", "B", "B", "A", "A", "A")
+    assert indexed.groups == ("S1", "S2", "S3", "S1", "S2", "S3")
+    assert indexed.values == (11.0, 12.0, 13.0, 21.0, 22.0, 23.0)
+
+
 class _Label:
     def __init__(self, text: str = "") -> None:
         self.text = text
@@ -247,6 +261,7 @@ class _Plot:
         self._color = (22, 118, 210)
         self.floats = {"line.width": 0.8}
         self.commands: list[str] = []
+        self.ints = {"show": 1}
 
     @property
     def color(self):
@@ -264,6 +279,9 @@ class _Plot:
 
     def set_cmd(self, command: str) -> None:
         self.commands.append(command)
+
+    def get_int(self, name: str) -> int:
+        return self.ints.get(name, 0)
 
 
 class _ThemeNode:
@@ -347,38 +365,59 @@ class _Layer:
 class _Graph:
     def __init__(self) -> None:
         self.name = "G"
+        self.lname = ""
         self.layer = _Layer()
 
     def __getitem__(self, index: int):
         assert index == 0
         return self.layer
 
+    def activate(self) -> None:
+        return None
+
 
 class _Sheet:
-    def __init__(self) -> None:
+    def __init__(self, origin: _Origin) -> None:
+        self.origin = origin
         self.columns: dict[int, list[object]] = {}
+        self.cols = 0
 
     def from_list(self, column: int, values, **kwargs) -> None:
         self.columns[column] = list(values)
+        self.cols = max(self.cols, column + 1)
 
     def to_list(self, column: int):
         return self.columns[column]
 
+    def activate(self) -> None:
+        return None
+
+    def lt_range(self, include_sheet: bool) -> str:
+        assert include_sheet is False
+        return "[DataBook]Sheet1"
+
 
 class _Book:
-    def __init__(self) -> None:
-        self.sheet = _Sheet()
+    def __init__(self, origin: _Origin) -> None:
+        self.name = "DataBook"
+        self.sheet = _Sheet(origin)
 
     def __getitem__(self, index: int):
         assert index == 0
         return self.sheet
 
+    def destroy(self) -> None:
+        raise AssertionError("the authoritative data workbook must not be destroyed")
+
 
 class _Origin:
     def __init__(self) -> None:
-        self.book = _Book()
         self.graph = _Graph()
+        self.book = _Book(self)
         self.template = ""
+        self.commands: list[str] = []
+        self.color_col_calls: list[tuple[int, str]] = []
+        self.k09_colors: list[int] = []
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -390,6 +429,38 @@ class _Origin:
         self.graph.name = name
         self.template = template
         return self.graph
+
+    def pages(self, kind: str):
+        return [self.book] if kind == "w" else [self.graph]
+
+    def lt_exec(self, command: str) -> None:
+        self.commands.append(command)
+        if command.startswith("plot_gindexed"):
+            self.graph.layer.add_plot(self.book.sheet, official="plot_gindexed")
+            groups = tuple(dict.fromkeys(self.book.sheet.columns[3]))
+            self.graph.layer.labels["legend"] = _Label(
+                "\n".join(f"\\l(1.{index}) {label}" for index, label in enumerate(groups, 1))
+            )
+        elif command.startswith("dataset __K09COLORS"):
+            payload = command.split("{", 1)[1].split("}", 1)[0]
+            self.k09_colors = [
+                int(item.split('"', 2)[1][1:], 16) for item in payload.split(",")
+            ]
+
+    def lt_float(self, expression: str) -> float:
+        if expression == "layer.plot1.pid":
+            return 203.0
+        if expression == "__K09ENABLED":
+            return 1.0
+        if expression.startswith("__K09READ["):
+            return float(self.k09_colors[int(expression.removeprefix("__K09READ[")[:-1]) - 1])
+        if expression.startswith('color("'):
+            return float(int(expression.split('"', 2)[1][1:], 16))
+        raise AssertionError(expression)
+
+    def color_col(self, offset: int, mode: str) -> str:
+        self.color_col_calls.append((offset, mode))
+        return "#AA3300"
 
 
 @pytest.mark.parametrize(
@@ -415,18 +486,32 @@ def test_column_family_origin_binders_start_from_pinned_official_template(
         project.apply(document, action, view)
     readback = project.verify(document, actions, view)
 
-    assert Path(origin.template).name.lower() == profile.filename.lower()
-    expected_type: int | str = "?" if profile_id == "K09" else 203
-    assert origin.graph.layer.add_calls == [
-        {"coly": index, "colx": 0, "type": expected_type} for index in range(1, 4)
-    ]
-    assert origin.graph.layer.group_calls == [(True, 0, 2)]
-    assert origin.graph.layer.labels["legend"].text.count("\\l(") == 3
-    assert (
-        len([item for item in readback.objects if item.object_kind.endswith("native_series")]) == 3
-    )
     if profile_id == "K09":
-        assert origin.graph.layer.plots[0].commands == ["-vg 73"]
+        assert origin.template == ""
+        assert origin.commands[0] == (
+            "plot_gindexed iy:=[DataBook]Sheet1!(,B) "
+            "group:=[DataBook]Sheet1!(C,D) plottype:=0;"
+        )
+        assert origin.graph.layer.add_calls == [{"official": "plot_gindexed"}]
+        assert origin.graph.layer.group_calls == []
+        assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
+    else:
+        assert Path(origin.template).name.lower() == profile.filename.lower()
+        assert origin.graph.layer.add_calls == [
+            {"coly": index, "colx": 0, "type": 203} for index in range(1, 4)
+        ]
+        assert origin.graph.layer.group_calls == [(True, 0, 2)]
+    assert origin.graph.layer.labels["legend"].text.count("\\l(") == 3
+    native_members = [
+        item
+        for item in readback.objects
+        if item.object_kind.endswith("native_series") or item.object_kind == "k09_native_subset"
+    ]
+    assert len(native_members) == 3
+    if profile_id == "K09":
+        assert origin.graph.layer.plots[0].commands == []
+        assert origin.color_col_calls == []
+        assert origin.k09_colors == [0x1676D2, 0xD97800, 0xAA3300]
     else:
         stack = origin.graph.layer.theme.Children[0]
         assert stack.Children[0].nVal == 1

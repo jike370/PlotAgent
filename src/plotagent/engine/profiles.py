@@ -242,7 +242,7 @@ K09_GROUPED_COLUMN_PROFILE = EngineProfile(
         EngineCapability(operation="bind_fields"),
         EngineCapability(operation="set_title", parameters=("text",)),
         EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
-        EngineCapability(operation="set_series_style", parameters=("color", "line_width_pt")),
+        EngineCapability(operation="set_series_style", parameters=("color",)),
         EngineCapability(operation="set_legend", parameters=("visible",)),
         EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
     ),
@@ -264,7 +264,15 @@ K10_STACKED_COLUMN_PROFILE = EngineProfile(
             object_key_prefix="component",
         ),
     ),
-    capabilities=K09_GROUPED_COLUMN_PROFILE.capabilities,
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(operation="set_series_style", parameters=("color", "line_width_pt")),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
 )
 
 K11_PERCENT_STACK_PROFILE = EngineProfile(
@@ -273,7 +281,7 @@ K11_PERCENT_STACK_PROFILE = EngineProfile(
     required_roles=("category", "component", "value"),
     objects=K10_STACKED_COLUMN_PROFILE.objects,
     repeatable_objects=K10_STACKED_COLUMN_PROFILE.repeatable_objects,
-    capabilities=K09_GROUPED_COLUMN_PROFILE.capabilities,
+    capabilities=K10_STACKED_COLUMN_PROFILE.capabilities,
 )
 
 K12_STRIP_PROFILE = EngineProfile(

@@ -19,7 +19,12 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import CategorySeriesGrid, category_series_grid
+from plotagent.engine.profile_data import (
+    CategorySeriesGrid,
+    GroupedIndexedData,
+    category_series_grid,
+    k09_grouped_indexed_data,
+)
 from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
@@ -32,6 +37,16 @@ from .profile import (
 )
 
 _TITLE_NAME = "_ENGINE_TITLE"
+_PALETTE = (
+    "#1676D2",
+    "#D97800",
+    "#299764",
+    "#C53D4D",
+    "#7656B5",
+    "#008A99",
+    "#A55A2A",
+    "#667085",
+)
 
 
 def _safe_label(value: str) -> str:
@@ -82,6 +97,7 @@ class ColumnFamilyOriginProject:
         self.layer: Any = None
         self.sheet: Any = None
         self.plots: list[Any] = []
+        self._k09_color_overrides: dict[int, str] = {}
 
     def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
         template = resolve_official_template(install_dir, self.profile)
@@ -91,7 +107,35 @@ class ColumnFamilyOriginProject:
         book = self.op.new_book("w", f"D{token}", hidden=True)
         if book is None:
             raise RuntimeError(f"Origin could not create the {self.profile_id} workbook")
+        if self.profile_id == "K09":
+            for residue in tuple(self.op.pages("w")):
+                if residue.name == "Book1" and residue.name != book.name:
+                    residue.destroy()
         self.sheet = book[0]
+        if self.profile_id == "K09":
+            indexed = k09_grouped_indexed_data(document, data)
+            self._write_grouped_indexed(indexed)
+            self.sheet.activate()
+            source = self.sheet.lt_range(False)
+            self.op.lt_exec(
+                f"plot_gindexed iy:={source}!(,B) group:={source}!(C,D) plottype:=0;"
+            )
+            graphs = list(self.op.pages("g"))
+            if len(graphs) != 1:
+                raise RuntimeError("Origin plot_gindexed must create exactly one graph")
+            self.graph = graphs[0]
+            self.graph.lname = f"K09 Grouped Columns / {document.plot_id}"
+            self.layer = self.graph[0]
+            self.plots = [
+                plot for plot in self.layer.plot_list() if plot.get_int("show") != 0
+            ]
+            if len(self.plots) != 1:
+                raise RuntimeError("Origin K09 must retain one native indexed DataPlot")
+            legend = self.layer.label("legend")
+            if legend is None or legend.text.count("\\l(") != len(indexed.group_labels):
+                raise RuntimeError("Origin K09 did not create one legend sample per subgroup")
+            self.layer.rescale()
+            return
         self._write_data(grid)
         self.graph = self.op.new_graph(
             f"G{token}",
@@ -114,12 +158,6 @@ class ColumnFamilyOriginProject:
             self.layer.group(True, 0, len(self.plots) - 1)
         if self.profile_id in {"K10", "K11"}:
             self._set_native_stack(percent=self.profile_id == "K11")
-        if self.profile_id == "K09":
-            # One explicit, bounded native edit.  The official COLUMN template
-            # defines all other appearance; width only prevents dynamic groups
-            # from overlapping as their count changes.
-            width_ratio = 0.8 / len(self.plots)
-            self.plots[0].set_cmd(f"-vg {round((1.0 - width_ratio) * 100)}")
         self.layer.rescale()
         self._set_legend(grid, True)
 
@@ -194,11 +232,15 @@ class ColumnFamilyOriginProject:
                 label.set_int("show", 1)
             return
         if isinstance(action, SetSeriesStyle):
-            ordinal = self._series_ordinal(action.target, token, len(self.plots))
-            plot = self.plots[ordinal - 1]
+            ordinal = self._series_ordinal(action.target, token, len(grid.series_labels))
+            plot = self.plots[0] if self.profile_id == "K09" else self.plots[ordinal - 1]
             if action.color is not None:
                 self._set_series_rgb(grid, ordinal, action.color)
             if action.line_width_pt is not None:
+                if self.profile_id == "K09":
+                    raise ValueError(
+                        "Origin K09 exposes subgroup fill color but not per-subgroup edge width"
+                    )
                 plot.set_float("line.width", action.line_width_pt)
             return
         if isinstance(action, SetLegend):
@@ -221,11 +263,28 @@ class ColumnFamilyOriginProject:
         data: EngineDataView,
     ) -> EngineReadback:
         grid = self._grid(document, data)
-        if len(self.plots) != len(grid.series_labels):
-            raise RuntimeError(f"Origin {self.profile_id} native series count differs after reopen")
-        self._assert_values(self.sheet.to_list(0), grid.category_labels, "category")
-        for index, expected in enumerate(zip(*grid.values, strict=True), start=1):
-            self._assert_values(self.sheet.to_list(index), tuple(expected), f"series {index}")
+        if self.profile_id == "K09":
+            indexed = k09_grouped_indexed_data(document, data)
+            if len(self.plots) != 1:
+                raise RuntimeError("Origin K09 lost its single native indexed DataPlot")
+            self._assert_values(self.sheet.to_list(0), indexed.indexes, "row index")
+            self._assert_values(self.sheet.to_list(1), indexed.values, "values")
+            self._assert_values(self.sheet.to_list(2), indexed.categories, "categories")
+            self._assert_values(self.sheet.to_list(3), indexed.groups, "groups")
+            self.graph.activate()
+            if int(self.op.lt_float("layer.plot1.pid")) != 203:
+                raise RuntimeError("Origin K09 did not retain a native grouped-column DataPlot")
+            legend = self.layer.label("legend")
+            if legend is None or legend.text.count("\\l(") != len(grid.series_labels):
+                raise RuntimeError("Origin K09 legend lost a subgroup sample")
+        else:
+            if len(self.plots) != len(grid.series_labels):
+                raise RuntimeError(
+                    f"Origin {self.profile_id} native series count differs after reopen"
+                )
+            self._assert_values(self.sheet.to_list(0), grid.category_labels, "category")
+            for index, expected in enumerate(zip(*grid.values, strict=True), start=1):
+                self._assert_values(self.sheet.to_list(index), tuple(expected), f"series {index}")
         token = document.plot_id.removeprefix("plot:")
         snapshot: dict[str, object] = {
             "series_count": len(grid.series_labels),
@@ -253,8 +312,8 @@ class ColumnFamilyOriginProject:
                         f"Origin {self.profile_id} axis label did not survive readback"
                     )
             elif isinstance(action, SetSeriesStyle):
-                ordinal = self._series_ordinal(action.target, token, len(self.plots))
-                plot = self.plots[ordinal - 1]
+                ordinal = self._series_ordinal(action.target, token, len(grid.series_labels))
+                plot = self.plots[0] if self.profile_id == "K09" else self.plots[ordinal - 1]
                 if action.color is not None:
                     self._assert_series_rgb(grid, ordinal, action.color)
                 if action.line_width_pt is not None and (
@@ -294,10 +353,18 @@ class ColumnFamilyOriginProject:
                 EngineObjectRef(
                     semantic_id=f"series:{token}.{self.series_key}_{index}",
                     backend="origin",
-                    object_kind=f"{self.profile_id.lower()}_native_series",
-                    native_ref=f"graph:{self.graph.name}.layer:1.plot:{index}",
+                    object_kind=(
+                        "k09_native_subset"
+                        if self.profile_id == "K09"
+                        else f"{self.profile_id.lower()}_native_series"
+                    ),
+                    native_ref=(
+                        f"graph:{self.graph.name}.layer:1.plot:1.subset:{index}"
+                        if self.profile_id == "K09"
+                        else f"graph:{self.graph.name}.layer:1.plot:{index}"
+                    ),
                 )
-                for index in range(1, len(self.plots) + 1)
+                for index in range(1, len(grid.series_labels) + 1)
             ),
             EngineObjectRef(
                 semantic_id=f"legend:{token}.main",
@@ -370,9 +437,49 @@ class ColumnFamilyOriginProject:
         ):
             self.sheet.from_list(index, list(values), lname=label, axis="Y")
 
-    def _set_series_rgb(self, grid: CategorySeriesGrid, ordinal: int, color: str) -> None:
+    def _write_grouped_indexed(self, indexed: GroupedIndexedData) -> None:
+        self.sheet.cols = 4
+        self.sheet.from_list(0, list(indexed.indexes), lname="Index", axis="X")
+        self.sheet.from_list(
+            1,
+            list(indexed.values),
+            lname=indexed.value_field_name,
+            axis="Y",
+        )
+        self.sheet.from_list(
+            2,
+            list(indexed.categories),
+            lname=indexed.category_field_name,
+            axis="N",
+        )
+        self.sheet.from_list(
+            3,
+            list(indexed.groups),
+            lname=indexed.group_field_name,
+            axis="N",
+        )
+
+    def _set_series_rgb(
+        self,
+        grid: CategorySeriesGrid,
+        ordinal: int,
+        color: str,
+    ) -> None:
         """Persist an arbitrary member color without breaking native grouping."""
 
+        if self.profile_id == "K09":
+            self._k09_color_overrides[ordinal] = color
+            colors = tuple(
+                self._k09_color_overrides.get(index, _PALETTE[(index - 1) % len(_PALETTE)])
+                for index in range(1, len(grid.series_labels) + 1)
+            )
+            values = ",".join(f'color("{item}")' for item in colors)
+            self.graph.activate()
+            self.op.lt_exec(
+                f"dataset __K09COLORS={{{values}}}; "
+                "set %C -cue 1; set %C -cuf __K09COLORS;"
+            )
+            return
         rgb = self._hex_rgb(color)
         series_count = len(grid.series_labels)
         base_column = 1 + series_count + (ordinal - 1) * 3
@@ -396,6 +503,18 @@ class ColumnFamilyOriginProject:
         color: str,
     ) -> None:
         expected = self._hex_rgb(color)
+        if self.profile_id == "K09":
+            self.graph.activate()
+            self.op.lt_exec(
+                "get %C -cue __K09ENABLED; "
+                "dataset __K09READ; get %C -cuf __K09READ;"
+            )
+            enabled = int(self.op.lt_float("__K09ENABLED"))
+            observed = int(self.op.lt_float(f"__K09READ[{ordinal}]"))
+            wanted = int(self.op.lt_float(f'color("{color}")'))
+            if enabled != 1 or observed != wanted:
+                raise RuntimeError("Origin K09 subgroup color list did not survive readback")
+            return
         series_count = len(grid.series_labels)
         base_column = 1 + series_count + (ordinal - 1) * 3
         row_count = len(grid.category_labels)
@@ -408,6 +527,13 @@ class ColumnFamilyOriginProject:
 
     def _set_legend(self, grid: CategorySeriesGrid, visible: bool) -> None:
         legend = self.layer.label("legend")
+        if self.profile_id == "K09":
+            if legend is None:
+                raise RuntimeError("Origin K09 native grouped-column graph lost its legend")
+            if legend.text.count("\\l(") != len(grid.series_labels):
+                raise RuntimeError("Origin K09 native legend does not match subgroup count")
+            legend.set_int("show", int(visible))
+            return
         if visible and legend is None:
             self.layer.activate()
             if not self.layer.obj.LT_execute("legend"):

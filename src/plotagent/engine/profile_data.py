@@ -111,6 +111,21 @@ class CategorySeriesGrid:
 
 
 @dataclass(frozen=True, slots=True)
+class GroupedIndexedData:
+    """Unpivoted summarized data for Origin's native ``plot_gindexed`` route."""
+
+    indexes: tuple[int, ...]
+    values: tuple[float, ...]
+    categories: tuple[str, ...]
+    groups: tuple[str, ...]
+    category_labels: tuple[str, ...]
+    group_labels: tuple[str, ...]
+    category_field_name: str
+    group_field_name: str
+    value_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class DistributionGroupData:
     label: str
     values: tuple[float, ...]
@@ -497,6 +512,41 @@ def category_series_grid(
         series_labels=series_labels,
         values=tuple(tuple(row) for row in matrix),
         category_field_name=category.field.name,
+        value_field_name=value.field.name,
+    )
+
+
+def k09_grouped_indexed_data(
+    document: PlotDocument,
+    data: EngineDataView,
+) -> GroupedIndexedData:
+    """Preserve K09's long table for Origin's summarized-data graph.
+
+    ``category_series_grid`` remains the shared validation authority for
+    duplicate cells and first-appearance order.  This view deliberately does
+    not pivot those cells: Origin receives Value as Y plus Category/Group as
+    two native grouping columns, exactly as ``plot_gindexed`` expects.
+    """
+
+    grid = category_series_grid(document, data, profile_id="K09")
+    category, group, value = _bound_columns(
+        document,
+        data,
+        ("category", "group", "value"),
+        "K09",
+    )
+    categories = tuple(_label(item, "category") for item in category.values)
+    groups = tuple(_label(item, "group") for item in group.values)
+    values = _numeric_values(value, "value", "K09", allow_missing=True)
+    return GroupedIndexedData(
+        indexes=tuple(range(1, len(values) + 1)),
+        values=values,
+        categories=categories,
+        groups=groups,
+        category_labels=grid.category_labels,
+        group_labels=grid.series_labels,
+        category_field_name=category.field.name,
+        group_field_name=group.field.name,
         value_field_name=value.field.name,
     )
 

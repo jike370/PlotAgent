@@ -72,8 +72,8 @@ K08_ORIGIN_PROFILE = OriginTemplateProfile(
 
 K09_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K09",
-    filename="COLUMN.otpu",
-    sha256="ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
+    filename="gColumn.otpu",
+    sha256="7178d8b38efdb448909d3e0956d12347ef9340773be3c8f4625fe5b4cca06d0e",
     tier="T2",
 )
 
