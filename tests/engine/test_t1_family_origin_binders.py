@@ -39,7 +39,6 @@ from plotagent.engine.backends.origin.k03 import K03OriginProject
 from plotagent.engine.backends.origin.k03 import _effective_actions as k03_effective_actions
 from plotagent.engine.backends.origin.k06 import K06OriginProject
 from plotagent.engine.backends.origin.k07 import K07OriginProject
-from plotagent.engine.backends.origin.k18 import K18OriginProject
 from plotagent.engine.backends.origin.x02 import X02OriginProject
 
 HASH = "4" * 64
@@ -623,46 +622,6 @@ def test_k07_binds_center_and_band_without_boundary_legend_entries(
     assert origin.graph.layer.labels["legend"].text.count("\\l(") == 1
     assert len({plot.color for plot in origin.graph.layer.plots}) == 1
     assert "error_band_series" in {item.object_kind for item in readback.objects}
-
-
-@pytest.mark.parametrize(
-    ("profile_id", "project_type", "style", "object_kind"),
-    (
-        (
-            "K18",
-            K18OriginProject,
-            {"line_width_pt": 2.0, "line_style": "dash"},
-            "area_series",
-        ),
-    ),
-)
-def test_official_template_native_xy_profiles_keep_template_plot_type(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    profile_id: str,
-    project_type,
-    style: dict[str, object],
-    object_kind: str,
-) -> None:
-    columns = (
-        _column("field:x", "X", (0.0, 1.0, 2.0)),
-        _column("field:y", "Y", (-1.0, 3.0, 2.0)),
-    )
-    document, actions, view = _case(profile_id, ("x", "y"), columns, style=style)
-    monkeypatch.setattr(
-        xy_module,
-        "resolve_official_template",
-        lambda install, profile: tmp_path / profile.filename,
-    )
-    origin = FakeOrigin()
-    project = project_type(origin)
-    project.create(tmp_path, document, view)
-    for action in actions:
-        project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
-
-    assert origin.graph.layer.add_calls == [{"coly": 1, "colx": 0, "type": "?"}]
-    assert object_kind in {item.object_kind for item in readback.objects}
 
 
 @pytest.mark.parametrize("row_count", (1, 7, 20))

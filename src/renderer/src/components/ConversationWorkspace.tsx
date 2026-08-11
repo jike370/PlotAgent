@@ -145,7 +145,7 @@ function mappingRoles(chartId: string): MappingRole[] {
     K11: { required: ['category', 'component', 'value'], optional: [] }, K12: { required: ['value'], optional: ['group'] },
     K13: { required: ['value'], optional: ['group'] }, K14: { required: ['value'], optional: ['group'] },
     K15: { required: ['value'], optional: [] }, K16: { required: ['value'], optional: ['group'] },
-    K18: { required: ['x', 'y'], optional: [] }, K19: { required: ['time', 'series_1'], optional: ['series_2', 'series_3'] },
+    K18: { required: ['x', 'series_1'], optional: ['series_2', 'series_3'] }, K19: { required: ['time', 'series_1'], optional: ['series_2', 'series_3'] },
     K20: { required: ['row', 'column', 'value'], optional: [] }, K21: { required: ['row_label', 'column_label', 'value'], optional: [] },
     K22: { required: ['x', 'y', 'z'], optional: [] }, K24: { required: ['facet', 'base_x', 'base_y'], optional: [] },
     K25: { required: ['panel'], optional: [] }, S01: { required: ['time', 'survival'], optional: ['lower', 'upper', 'risk_count', 'group'] },

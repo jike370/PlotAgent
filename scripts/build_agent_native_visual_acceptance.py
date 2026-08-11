@@ -190,14 +190,7 @@ def _cases() -> tuple[AuditCase, ...]:
         "K14": lambda: column_cases._distribution_case("K14", 3),
         "K15": lambda: calculated_cases._case("K15"),
         "K16": lambda: calculated_cases._case("K16", grouped=True),
-        "K18": lambda: t1_cases._case(
-            "K18",
-            ("x", "y"),
-            (
-                t1_cases._column("field:x", "Time", (0.0, 1.0, 2.0, 3.0)),
-                t1_cases._column("field:y", "Amount", (1.0, 3.0, 2.4, 3.6)),
-            ),
-        ),
+        "K18": matrix_cases._k18_case,
         "K19": matrix_cases._k19_case,
         "K20": k20_cases._case,
         "K21": matrix_cases._k21_case,

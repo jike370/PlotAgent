@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 import plotagent.engine.backends.origin.advanced_matrix as matrix_origin_module
+import plotagent.engine.backends.origin.k18 as k18_origin_module
 import plotagent.engine.backends.origin.k19 as k19_origin_module
 from plotagent.engine import (
     CreatePlot,
@@ -25,23 +26,28 @@ from plotagent.engine import (
     SetTitle,
 )
 from plotagent.engine.backends.matplotlib import (
+    K18AreaRenderer,
     K19TimeSeriesRenderer,
     K21CorrelationMatrixRenderer,
     K22ContourRenderer,
 )
 from plotagent.engine.backends.origin import (
+    K18_ORIGIN_PROFILE,
     K19_ORIGIN_PROFILE,
     K21_ORIGIN_PROFILE,
     K22_ORIGIN_PROFILE,
 )
 from plotagent.engine.backends.origin.advanced_matrix import K21OriginProject, K22OriginProject
+from plotagent.engine.backends.origin.k18 import K18OriginProject
 from plotagent.engine.backends.origin.k19 import K19OriginProject
 from plotagent.engine.profile_data import (
+    k18_area_series,
     k19_time_series,
     k21_correlation_grid,
     k22_regular_grid,
 )
 from plotagent.engine.profiles import (
+    K18_AREA_PROFILE,
     K19_TIME_SERIES_PROFILE,
     K21_CORRELATION_MATRIX_PROFILE,
     K22_CONTOUR_PROFILE,
@@ -124,6 +130,34 @@ def _k19_case() -> tuple[PlotDocument, tuple[CreatePlot, ...], EngineDataView]:
     return document, (create,), view
 
 
+def _k18_case() -> tuple[PlotDocument, tuple[CreatePlot, ...], EngineDataView]:
+    bindings = (
+        FieldBinding(role="x", field_id="field:x"),
+        FieldBinding(role="series_1", field_id="field:value-a"),
+        FieldBinding(role="series_2", field_id="field:value-b"),
+    )
+    data_ref = EngineDataRef(
+        kind="source", dataset_id="dataset.k18", version=1, content_hash=HASH
+    )
+    create = CreatePlot(
+        action_id="action:k18-create",
+        plot_id="plot:k18-demo",
+        profile_id="K18",
+        data=data_ref,
+        bindings=bindings,
+    )
+    document = _document("K18", bindings, (create,))
+    view = _view(
+        "K18",
+        (
+            ("field:x", "Time", "numeric", (0.0, 1.0, 2.0, 3.0, 4.0)),
+            ("field:value-a", "Signal A", "numeric", (1.0, 2.2, -0.5, 1.7, 2.4)),
+            ("field:value-b", "Signal B", "numeric", (0.4, 1.1, 1.8, -0.2, 1.3)),
+        ),
+    )
+    return document, (create,), view
+
+
 def _k21_case() -> tuple[PlotDocument, tuple[object, ...], EngineDataView]:
     bindings = (
         FieldBinding(role="row_label", field_id="field:row-label"),
@@ -188,6 +222,14 @@ def _k22_case() -> tuple[PlotDocument, tuple[CreatePlot, ...], EngineDataView]:
 
 
 def test_profile_data_validates_datetime_correlation_and_complete_grid() -> None:
+    k18_document, _k18_actions, k18_view = _k18_case()
+    area = k18_area_series(k18_document, k18_view)
+    assert area.x_values == (0.0, 1.0, 2.0, 3.0, 4.0)
+    assert tuple(item.value_field_name for item in area.series) == (
+        "Signal A",
+        "Signal B",
+    )
+
     k19_document, _k19_actions, k19_view = _k19_case()
     time_series = k19_time_series(k19_document, k19_view)
     assert time_series.time_values[0] == datetime(2026, 1, 1, 8)
@@ -275,6 +317,7 @@ def test_k19_preserves_input_order_rejects_timezone_and_k22_never_interpolates()
 @pytest.mark.parametrize(
     ("renderer", "case"),
     (
+        (K18AreaRenderer(), _k18_case),
         (K19TimeSeriesRenderer(), _k19_case),
         (K21CorrelationMatrixRenderer(), _k21_case),
         (K22ContourRenderer(), _k22_case),
@@ -364,6 +407,92 @@ def test_k19_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Pat
     assert [
         item.semantic_id for item in readback.objects if item.object_kind == "datetime_line"
     ] == ["series:k19-demo.line_1", "series:k19-demo.line_2"]
+
+
+def test_k18_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Path) -> None:
+    document, (create,), view = _k18_case()
+    actions = (
+        create,
+        SetSeriesStyle(
+            action_id="action:k18-style",
+            expected_plot_version=1,
+            target="series:k18-demo.area_2",
+            color="#AA3300",
+            line_width_pt=2.5,
+            line_style="dash",
+        ),
+        SetLegend(
+            action_id="action:k18-legend",
+            expected_plot_version=2,
+            target="legend:k18-demo.main",
+            visible=True,
+            anchor="inside",
+        ),
+        SetTitle(
+            action_id="action:k18-title",
+            expected_plot_version=3,
+            target="plot:k18-demo",
+            text="K18 edited",
+        ),
+    )
+    edited = document.model_copy(
+        update={
+            "plot_version": 4,
+            "parent_version": 3,
+            "applied_action_ids": tuple(action.action_id for action in actions),
+        }
+    )
+    state = K18AreaRenderer._state(
+        edited,
+        actions,
+        "Time",
+        ("Signal A", "Signal B"),
+    )
+    assert state.areas[0].color == "#1676D2"
+    assert state.areas[1].color == "#AA3300"
+    assert state.areas[1].line_width_pt == 2.5
+    assert state.areas[1].line_style == "dash"
+    assert state.legend_visible and state.title == "K18 edited"
+    readback = K18AreaRenderer().render(
+        edited,
+        actions,
+        view,
+        tmp_path / "k18-edited.png",
+        tmp_path / "k18-edited.svg",
+    )
+    assert [
+        item.semantic_id for item in readback.objects if item.object_kind == "area_series"
+    ] == ["series:k18-demo.area_1", "series:k18-demo.area_2"]
+
+
+def test_k18_requires_contiguous_series_and_rejects_log_with_non_positive_data() -> None:
+    document, _actions, view = _k18_case()
+    gapped = document.model_copy(
+        update={
+            "bindings": (
+                document.bindings[0],
+                document.bindings[1].model_copy(update={"role": "series_2"}),
+                document.bindings[2].model_copy(update={"role": "series_3"}),
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="contiguous series_1"):
+        k18_area_series(gapped, view)
+
+    log_action = SetAxis(
+        action_id="action:k18-log",
+        expected_plot_version=1,
+        target="axis:k18-demo.y",
+        scale="log10",
+    )
+    with pytest.raises(ValueError, match="must be positive"):
+        K18AreaRenderer().render(
+            document,
+            (_actions[0], log_action),
+            view,
+            Path("unused.png"),
+            Path("unused.svg"),
+        )
 
 
 def test_k19_origin_axis_display_follows_calendar_span() -> None:
@@ -619,6 +748,31 @@ class FakeOrigin:
 
     def lt_exec(self, command: str) -> bool:
         self.commands.append(command)
+        if "worksheet -p 204 Area" in command:
+            self.graph.layer.plots = [
+                FakePlot() for _index in range(self.book.sheet.cols - 1)
+            ]
+        if "__K18COUNT" in command:
+            self.lt_values["__K18COUNT"] = len(self.graph.layer.plots)
+        if "range __K18P=" in command:
+            plot_index = int(command.split("]1!", 1)[1].split(";", 1)[0])
+            column = chr(65 + plot_index)
+            plot = self.graph.layer.plots[plot_index - 1]
+            self.lt_values.update(
+                {
+                    "__K18PID": 204,
+                    "__K18LINE": 1,
+                    "__K18FILL": 2,
+                    "__K18STYLE": plot.ints["line.style"],
+                    "__K18WIDTH": plot.floats["line.width"] * 500,
+                }
+            )
+            self.lt_strings.update(
+                {
+                    "__K18XS": '[Book1]Sheet1!A"Time"',
+                    "__K18YS": f'[Book1]Sheet1!{column}"Signal {plot_index}"',
+                }
+            )
         if "worksheet -p 200 Line" in command:
             self.graph.layer.plots = [
                 FakePlot() for _index in range(self.book.sheet.cols - 1)
@@ -677,6 +831,26 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    k18_document, k18_actions, k18_view = _k18_case()
+    monkeypatch.setattr(
+        k18_origin_module,
+        "resolve_official_template",
+        lambda *_: tmp_path / "AREA.otpu",
+    )
+    k18_op = FakeOrigin()
+    k18 = K18OriginProject(k18_op)
+    k18.create(tmp_path, k18_document, k18_view)
+    k18_readback = k18.verify(k18_document, k18_actions, k18_view)
+    assert K18_ORIGIN_PROFILE.filename == "AREA.otpu"
+    assert k18_op.book.sheet.designation == "xyy"
+    assert any("worksheet -p 204 Area" in command for command in k18_op.commands)
+    assert len(k18_op.graph.layer.plots) == 2
+    assert [
+        item.semantic_id
+        for item in k18_readback.objects
+        if item.object_kind == "area_series"
+    ] == ["series:k18-demo.area_1", "series:k18-demo.area_2"]
+
     k19_document, _actions, k19_view = _k19_case()
     monkeypatch.setattr(
         k19_origin_module,
@@ -717,19 +891,23 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
 
 
 def test_template_hashes_and_modules_exclude_the_legacy_compiler() -> None:
+    assert K18_ORIGIN_PROFILE.sha256.startswith("c14ad432ffd6")
     assert K19_ORIGIN_PROFILE.sha256.startswith("76a7ce886e22")
     assert K21_ORIGIN_PROFILE.sha256.startswith("d1a7fcd8af23")
     assert K22_ORIGIN_PROFILE.sha256.startswith("b4915054edd4")
     assert K19_TIME_SERIES_PROFILE.profile_id == "K19"
+    assert K18_AREA_PROFILE.profile_id == "K18"
     assert K21_CORRELATION_MATRIX_PROFILE.profile_id == "K21"
     assert K22_CONTOUR_PROFILE.profile_id == "K22"
     sources = "\n".join(
         inspect.getsource(__import__(item.__module__, fromlist=["*"]))
         for item in (
+            K18AreaRenderer,
             K19TimeSeriesRenderer,
             K21CorrelationMatrixRenderer,
             K22ContourRenderer,
             K19OriginProject,
+            K18OriginProject,
             K21OriginProject,
             K22OriginProject,
         )

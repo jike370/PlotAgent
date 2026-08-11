@@ -56,7 +56,7 @@
 | K14 | 小提琴图 | C；`Box.opju` 原始值＋系统 Violin 重建 | `Violin.otpu` `ee71ef5fb2bf` | T1 | 绑定原始值与分组、KDE/内部统计参数 | 高优先级迁移：禁止用普通线和 fill_area 模拟外轮廓，避免边缘竖线复现 |
 | K15 | 直方图 | A；`Histogram.opju` Graph2 | `Hist.otpu` `cc1d7edd9f07` | T1 | 共享确定性计算内核冻结 bin edges/counts，两端只绑定该几何 | 分箱权威已固定为数据计算层；Origin 不得再次自行分箱 |
 | K16 | 核密度图 | A；`Histogram.opju` Graph7 | `HISTDIST.otpu` `a584e2ee70fa`，以 Graph7 样式为准 | T2 | 共享 Scott KDE 内核生成每组 grid/density，绑定原生线 | histogram/rug 组件默认不启用；待真实 Origin 批次验证模板空组件状态 |
-| K18 | 面积图 | A；`Area.opju` Graph1 | `AREA.otpu` `c14ad432ffd6` | T1 | 绑定 X/Y、基线和透明度 | 多系列时明确堆积与覆盖语义 |
+| K18 | 面积图 | A；`Area.opju` Graph1 | `AREA.otpu` `c14ad432ffd6` | T1 | 绑定 X 与 1..N 个 Y，官方菜单一次性创建；开放共同的颜色与边界线样式 | 默认保持官方覆盖语义，不擅自改成累计/堆积；精确 From Y 仍需人工视觉确认 |
 | K19 | 日期时间折线图 | B；Origin Help `Line Graph` + 本机 Origin 2024 原生实证 | `LINE.otpu` `76a7ce886e22` | T1 | 绑定数值型 Date/Time X 与 `series_1..series_N`，一次调用官方 Line 菜单 | PID 200 与源列逐项读回；同日显示 `Time/HH:mm`，跨日显示 `Date/Short Date`；不使用 Time Series Explorer |
 | K20 | 热图 | A；`Heatmap.opju` Graph1 | `Heat_Map.otpu` `9bd8240ca582` | T1 | 写入 Matrixbook 或规则矩阵、设置 palette/range | 行列语义和色标位置显式控制 |
 | K21 | 相关矩阵图 | D；独立 Origin 矩阵参考 | `Heat_Map_With_Labels.otpu` `d1a7fcd8af23` | T1 | 写入预计算相关矩阵、对角/上下三角策略 | 模板负责标签与色标，相关计算仍由引擎负责 |

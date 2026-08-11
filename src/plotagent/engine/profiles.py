@@ -398,13 +398,19 @@ K16_DENSITY_PROFILE = EngineProfile(
 K18_AREA_PROFILE = EngineProfile(
     profile_id="K18",
     display_name="Area",
-    required_roles=("x", "y"),
-    optional_roles=("label",),
+    required_roles=("x", "series_1"),
+    repeatable_role_prefixes=("series",),
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
         EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
-        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="primary"),
         EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
+    ),
+    repeatable_objects=(
+        EngineRepeatableObjectTemplate(
+            object_alias_prefix="series",
+            object_kind="series",
+            object_key_prefix="area",
+        ),
     ),
     capabilities=(
         EngineCapability(operation="create_plot"),

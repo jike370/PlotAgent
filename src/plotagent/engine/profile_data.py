@@ -267,6 +267,20 @@ class TimeSeriesData:
 
 
 @dataclass(frozen=True, slots=True)
+class AreaSeriesLine:
+    role: str
+    values: tuple[float, ...]
+    value_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class AreaSeriesData:
+    x_values: tuple[float, ...]
+    series: tuple[AreaSeriesLine, ...]
+    x_field_name: str
+
+
+@dataclass(frozen=True, slots=True)
 class RegularGridData:
     x_values: tuple[float, ...]
     y_values: tuple[float, ...]
@@ -790,6 +804,31 @@ def k19_time_series(document: PlotDocument, data: EngineDataView) -> TimeSeriesD
             for role in roles
         ),
         time_field_name=time_column.field.name,
+    )
+
+
+def k18_area_series(document: PlotDocument, data: EngineDataView) -> AreaSeriesData:
+    """Return one numeric X column and contiguous ``series_1..series_N`` areas."""
+
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    if "x" not in bindings:
+        raise ValueError("K18 requires an x binding")
+    roles = _contiguous_series_roles(bindings, "K18", minimum=1)
+    x_column = columns[bindings["x"]]
+    return AreaSeriesData(
+        x_values=_numeric_values(x_column, "x", "K18", allow_missing=False),
+        series=tuple(
+            AreaSeriesLine(
+                role=role,
+                values=_numeric_values(
+                    columns[bindings[role]], role, "K18", allow_missing=True
+                ),
+                value_field_name=columns[bindings[role]].field.name,
+            )
+            for role in roles
+        ),
+        x_field_name=x_column.field.name,
     )
 
 

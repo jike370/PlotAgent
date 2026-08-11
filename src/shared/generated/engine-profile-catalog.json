@@ -1342,25 +1342,26 @@
           "object_kind": "axis"
         },
         {
-          "object_alias": "series_1",
-          "object_key": "primary",
-          "object_kind": "series"
-        },
-        {
           "object_alias": "legend",
           "object_key": "main",
           "object_kind": "legend"
         }
       ],
-      "optional_roles": [
-        "label"
-      ],
+      "optional_roles": [],
       "profile_id": "K18",
-      "repeatable_objects": [],
-      "repeatable_role_prefixes": [],
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "area",
+          "object_kind": "series"
+        }
+      ],
+      "repeatable_role_prefixes": [
+        "series"
+      ],
       "required_roles": [
         "x",
-        "y"
+        "series_1"
       ],
       "source_kind": "data"
     },

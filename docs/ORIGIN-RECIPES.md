@@ -38,7 +38,7 @@
 | K13 | 箱线图 | `BOX.OTP` + Tukey 1.5×IQR | 模板 | 专属属性人工门禁 |
 | K14 | 小提琴图 | `Violin.otpu` | 模板 | 专属属性人工门禁 |
 | K15 | 直方图 | `Hist.otpu` / plot type 219 | 模板 | 原生结构已证 |
-| K18 | 面积图 | `AREA.otpu` | 模板 | 专属属性人工门禁 |
+| K18 | 面积图 | `AREA.otpu` | `worksheet -p 204 Area` | X+1..N Y、PID204、源绑定、颜色/边界线样式机械读回；From Y 专属枚举人工门禁 |
 | K19 | 日期时间折线图 | `LINE.otpu` + Date/Time X | 模板 | 原生结构已证 |
 | K20 | 热图 | `Heat_Map.otpu` + Matrix | 模板 | 专属属性人工门禁 |
 | K21 | 带标签热图 | `Heat_Map_With_Labels.otpu` + Matrix | 模板 | 专属属性人工门禁 |

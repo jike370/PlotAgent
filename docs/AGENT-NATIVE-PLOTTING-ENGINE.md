@@ -170,7 +170,7 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | K14 | `value / group?` | 独立小提琴 renderer | `Violin.otpu` | 每组一列原始观测 + 模板原生 violin plot；禁止线/填充模拟轮廓 |
 | K15 | `value` | 独立固定分箱直方图 renderer | `Hist.otpu` | 共享计算内核产生唯一 bin edges/counts；worksheet + 零间隙原生柱 |
 | K16 | `value / group?` | 独立 Scott KDE renderer | `HISTDIST.otpu` | 共享计算内核产生每组 KDE 网格；worksheet + 原生密度线，模板直方/rug 组件不启用 |
-| K18 | `x / y` | 独立面积图 renderer | `AREA.otpu` | worksheet + 官方模板原生面积 Plot |
+| K18 | `x / series_1..series_N` | 独立多系列面积图 renderer | `AREA.otpu` | X+全部Y一次性执行官方 Area 菜单，保留原生 PID204 与源列绑定 |
 | K19 | `time / series_1..series_N` | 独立原生日期时间折线 renderer | `LINE.otpu` | 数值型 Date/Time X + 1–N 个 Y；一次调用官方 Line 菜单创建 PID 200；同日显示时间、跨日显示日期 |
 | K20 | `row / column / value` | 独立热图 renderer | `Heat_Map.otpu` | matrixbook + 1 个原生 matrix plot |
 | K21 | `row_label / column_label / value` | 独立相关矩阵 renderer | `Heat_Map_With_Labels.otpu` | 预计算相关矩阵写入 matrixbook；模板原生标签热图 |

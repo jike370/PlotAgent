@@ -59,7 +59,11 @@ def _case(
     )
     style = SetSeriesStyle(
         action_id=f"action:style-{profile_id.lower()}",
-        target=f"series:{profile_id.lower()}-demo.primary",
+        target=(
+            f"series:{profile_id.lower()}-demo.area_1"
+            if profile_id == "K18"
+            else f"series:{profile_id.lower()}-demo.primary"
+        ),
         expected_plot_version=1,
         color="#AA3300",
         line_width_pt=2.0,
@@ -133,7 +137,7 @@ def _case(
         (
             K18AreaRenderer(),
             "K18",
-            ("x", "y"),
+            ("x", "series_1"),
             (
                 _column("field:x", "Time", (0.0, 1.0, 2.0, 3.0)),
                 _column("field:y", "Amount", (1.0, 3.0, None, 2.0)),
