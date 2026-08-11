@@ -1,4 +1,4 @@
-"""Independent X09 floating-interval renderer."""
+"""Independent X09 Floating Bar renderer."""
 
 from __future__ import annotations
 
@@ -29,6 +29,8 @@ from plotagent.engine.contracts import (
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import FloatingIntervalData, x09_floating_intervals
 from plotagent.engine.repository import document_ref
+
+from .font import resolve_font_family
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,53 +72,65 @@ class X09FloatingIntervalRenderer:
         intervals = x09_floating_intervals(document, data)
         state = self._state(document, actions, intervals)
         positions = np.arange(len(intervals.categories), dtype=float)
-        figure, axis = plt.subplots(figsize=(6.4, 4.8), layout="constrained")
-        if intervals.middle_values is None:
-            axis.bar(
-                positions,
-                np.subtract(intervals.end_values, intervals.start_values),
-                bottom=intervals.start_values,
-                width=0.72,
-                color=state.lower.color,
-                edgecolor="#1A1A1A",
-                linewidth=state.lower.edge_width_pt,
-                label=intervals.end_field_name,
+        font_family = resolve_font_family(
+            (
+                state.title,
+                state.x_axis.label,
+                state.y_axis.label,
+                *intervals.categories,
+                intervals.start_field_name,
+                intervals.end_field_name,
+                intervals.middle_field_name or "",
             )
-            segment_count = 1
-        else:
-            axis.bar(
-                positions,
-                np.subtract(intervals.middle_values, intervals.start_values),
-                bottom=intervals.start_values,
-                width=0.72,
-                color=state.lower.color,
-                edgecolor="#1A1A1A",
-                linewidth=state.lower.edge_width_pt,
-                label=intervals.middle_field_name,
-            )
-            axis.bar(
-                positions,
-                np.subtract(intervals.end_values, intervals.middle_values),
-                bottom=intervals.middle_values,
-                width=0.72,
-                color=state.upper.color,
-                edgecolor="#1A1A1A",
-                linewidth=state.upper.edge_width_pt,
-                label=intervals.end_field_name,
-            )
-            segment_count = 2
-        axis.set_xticks(positions, intervals.categories)
-        axis.set_title(state.title)
-        axis.set_xlabel(state.x_axis.label)
-        axis.set_ylabel(state.y_axis.label)
-        self._apply_axis(axis, "x", state.x_axis)
-        self._apply_axis(axis, "y", state.y_axis)
-        if state.legend_visible:
-            axis.legend(loc="best")
-        png_path.parent.mkdir(parents=True, exist_ok=True)
-        figure.savefig(png_path, dpi=160)
-        figure.savefig(svg_path)
-        plt.close(figure)
+        )
+        with matplotlib.rc_context({"font.family": font_family}):
+            figure, axis = plt.subplots(figsize=(6.4, 4.8), layout="constrained")
+            if intervals.middle_values is None:
+                axis.barh(
+                    positions,
+                    np.subtract(intervals.end_values, intervals.start_values),
+                    left=intervals.start_values,
+                    height=0.72,
+                    color=state.lower.color,
+                    edgecolor="#1A1A1A",
+                    linewidth=state.lower.edge_width_pt,
+                    label=intervals.end_field_name,
+                )
+                segment_count = 1
+            else:
+                axis.barh(
+                    positions,
+                    np.subtract(intervals.middle_values, intervals.start_values),
+                    left=intervals.start_values,
+                    height=0.72,
+                    color=state.lower.color,
+                    edgecolor="#1A1A1A",
+                    linewidth=state.lower.edge_width_pt,
+                    label=intervals.middle_field_name,
+                )
+                axis.barh(
+                    positions,
+                    np.subtract(intervals.end_values, intervals.middle_values),
+                    left=intervals.middle_values,
+                    height=0.72,
+                    color=state.upper.color,
+                    edgecolor="#1A1A1A",
+                    linewidth=state.upper.edge_width_pt,
+                    label=intervals.end_field_name,
+                )
+                segment_count = 2
+            axis.set_yticks(positions, intervals.categories)
+            axis.set_title(state.title)
+            axis.set_xlabel(state.x_axis.label)
+            axis.set_ylabel(state.y_axis.label)
+            self._apply_axis(axis, "x", state.x_axis)
+            self._apply_axis(axis, "y", state.y_axis)
+            if state.legend_visible:
+                axis.legend(loc="best")
+            png_path.parent.mkdir(parents=True, exist_ok=True)
+            figure.savefig(png_path, dpi=160)
+            figure.savefig(svg_path)
+            plt.close(figure)
 
         token = document.plot_id.removeprefix("plot:")
         objects = [
@@ -141,7 +155,7 @@ class X09FloatingIntervalRenderer:
             EngineObjectRef(
                 semantic_id=f"series:{token}.lower",
                 backend="matplotlib",
-                object_kind="floating_interval_segment",
+                object_kind="floating_bar_segment",
                 native_ref="axes:0.bar_container:0",
             ),
         ]
@@ -150,7 +164,7 @@ class X09FloatingIntervalRenderer:
                 EngineObjectRef(
                     semantic_id=f"series:{token}.upper",
                     backend="matplotlib",
-                    object_kind="floating_interval_segment",
+                    object_kind="floating_bar_segment",
                     native_ref="axes:0.bar_container:1",
                 )
             )
@@ -172,12 +186,12 @@ class X09FloatingIntervalRenderer:
 
     @staticmethod
     def _apply_axis(axis: Axes, name: Literal["x", "y"], state: _AxisState) -> None:
-        if name == "x" and state.scale != "categorical":
-            raise ValueError("X09 category axis supports only categorical scale")
-        if name == "y":
+        if name == "x":
             if state.scale not in {"linear", "log10"}:
-                raise ValueError("X09 interval axis supports only linear or log10")
-            axis.set_yscale("log" if state.scale == "log10" else "linear")
+                raise ValueError("X09 horizontal value axis supports linear or log10")
+            axis.set_xscale("log" if state.scale == "log10" else "linear")
+        if name == "y" and state.scale != "categorical":
+            raise ValueError("X09 vertical category axis supports only categorical scale")
         if state.minimum is not None and state.maximum is not None:
             getattr(axis, f"set_{name}lim")((state.minimum, state.maximum))
         if state.reverse:
@@ -192,8 +206,10 @@ class X09FloatingIntervalRenderer:
         token = document.plot_id.removeprefix("plot:")
         state = _FloatingState(
             title="",
-            x_axis=_AxisState(intervals.category_field_name, "categorical"),
-            y_axis=_AxisState(f"{intervals.start_field_name}–{intervals.end_field_name}", "linear"),
+            x_axis=_AxisState(
+                f"{intervals.start_field_name}–{intervals.end_field_name}", "linear"
+            ),
+            y_axis=_AxisState(intervals.category_field_name, "categorical"),
         )
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):

@@ -49,7 +49,7 @@ def test_renderable_recipes_have_closed_routes_and_pinned_template_assets() -> N
         ("K19", "LINE.otpu"),
         ("K24", "Grouped.otp"),
         ("X05", "Beeswarm.otpu"),
-        ("X09", "FloatCol.otp"),
+        ("X09", "FloatBar.otp"),
         ("X24", "ParetoBin.otpu"),
     ),
 )
@@ -75,7 +75,7 @@ def test_manual_native_property_recipes_keep_the_exact_human_gate() -> None:
         if recipe.proof_level == "manual_native_property"
     }
 
-    assert len(manual) == 19
+    assert len(manual) == 18
     assert all(recipe.manual_gate for recipe in manual.values())
     assert "Whisker" in manual["K13"].manual_gate
     assert "Drop To" in manual["X02"].manual_gate

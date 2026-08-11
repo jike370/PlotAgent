@@ -70,7 +70,7 @@
 | X02 | 垂线图 | C；官方 step signal 数据 | `DROPLINE.OTP` `69cbcf934924` | T1 | 绑定 X/Y、symbol 和 drop-line 样式 | 垂线落到当前绘图区底部 X 轴；不与 X03 混淆 |
 | X03 | 棒棒糖图 | A；`Lollipop.opju` Graph1 | `Lollipop.otpu` `f76fc89b9438` | T1 | 绑定类别和 2+ 数值系列、动态系列颜色 | 两系列形成哑铃预设；保持当前正式命名 |
 | X05 | 蜂群图 | A；`ColumnScatter.opju` Graph10 | `ColumnScatter.otp` `e9bfbf3b74bc` | T1 | 绑定原始值/分组和避让参数 | 使用模板原生 Column Scatter/Beeswarm 结构 |
-| X09 | 范围柱条图 | A；`FLOATBAR.opju` Graph5 | `FLOATBAR.OTP` `7fd8331a4f91` | T1 | 绑定 start/middle/end，动态区段色 | middle/end 作为边界，不暴露成多余图例项 |
+| X09 | 浮动条形图 | A；用户修正默认 OPJU + `FLOATBAR.opju` | `FLOATBAR.OTP` `7fd8331a4f91` | T1 | 一次绑定 category + 有序 start/middle/end 边界；样式编辑前按官方 `-gm 1` 切 Independent，再编辑相邻边界成员 | 类别沿纵轴；不得用 `FLOATCOL.OTP`、普通柱形、预计算 bottom/width 或 dependent 组内假改色替代 |
 | X13 | 人口金字塔 | C；官方 `African_population.dat` | `PopulationPyramid.otpu` `2c5958a91130` | T1 | 绑定 category/left/right、中心零轴 | 左右符号和显示格式遵循模板 |
 | X23 | 双 Y 轴折线图 | A；`Double Y.opju` Graph1 | `DOUBLEY.OTP` `487547eb206e` | T1 | 绑定共享 X 和左右 Y、轴颜色与图例 | 保持两个原生 linked layers/axes |
 | X24 | 帕累托图 | C；官方 `Counts.dat` | `ParetoRaw.otpu` `5f273e70f87c` | T1 | 绑定类别/值，使用预计算或模板累计百分比 | 只能有一个累计百分比权威来源 |

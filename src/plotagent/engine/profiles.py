@@ -577,7 +577,7 @@ X05_BEESWARM_PROFILE = EngineProfile(
 
 X09_FLOATING_INTERVAL_PROFILE = EngineProfile(
     profile_id="X09",
-    display_name="Floating interval",
+    display_name="Floating bar",
     required_roles=("category", "start", "end"),
     optional_roles=("middle",),
     objects=(

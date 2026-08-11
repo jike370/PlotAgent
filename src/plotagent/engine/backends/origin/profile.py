@@ -261,8 +261,8 @@ X05_ORIGIN_PROFILE = OriginTemplateProfile(
 
 X09_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="X09",
-    filename="FloatCol.otp",
-    sha256="f1ea445735f9cf3fa93ed3de9ff187db0fc83ccba92578e6939fbafafeddb3f6",
+    filename="FloatBar.otp",
+    sha256="7fd8331a4f91170ce7a7b35428659e48b985fc6ce8164c706ea31b4e41dee93b",
     tier="T1",
 )
 

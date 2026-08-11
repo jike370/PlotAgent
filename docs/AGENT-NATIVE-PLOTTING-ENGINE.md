@@ -97,6 +97,21 @@ PlotDocument 只保存：
 
 两端不要求内部结构相同，只要求共同公开动作、数据语义和用户可见结果一致。
 
+### 3.5 执行记录
+
+每次 Origin 渲染必须在产物目录写入 `execution-trace.jsonl`。记录至少包括：
+
+- 官方模板解析与哈希；
+- 原始字段、designation、行列数与写入顺序；
+- 官方菜单等价命令或分析流程；
+- 创建后原生 PID、图层、源范围与方向读回；
+- 每一条 Agent Action 的完整参数、开始、完成或失败状态；
+- OPJU 保存、文件哈希、全新项目重开；
+- 重开后的数据、结构和编辑属性复核。
+
+trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `recipe.md` / `proof.json`
+时，不得冒充具备逐动作追踪；迁入正式 renderer 后必须补齐统一 trace。
+
 ## 4. 内置 Agent 的位置
 
 仓库内置 Agent 是新引擎的一个客户端，不是引擎的组成部分。它继续负责：
@@ -169,7 +184,7 @@ PlotDocument 只保存：
 | X02 | `x / y` | 独立底轴垂线 renderer | `DROPLINE.OTP` | worksheet + 官方模板原生 drop-line Plot |
 | X03 | `category / series_1 / series_2 / series_N?` | 独立动态多系列棒棒糖 renderer | `Lollipop.otpu` | worksheet + 每个值列一条模板原生 lollipop Plot |
 | X05 | `value / group?` | 独立确定性蜂群 renderer | `ColumnScatter.otp` | 每组一列原始观测 + 模板原生 Column Scatter plot；组数动态扩展 |
-| X09 | `category / start / end / middle?` | 独立浮动区间 renderer | `FLOATBAR.OTP` | worksheet + 一段或两段原生浮动柱；中值存在时保留上下段语义 |
+| X09 | `category / start / end / middle?` | 独立浮动条形图 renderer | `FLOATBAR.OTP` | 保留有序边界列并一次执行官方 Floating Bar 流程；PID 207、ExchangeXY、相邻边界、两/三边界、Independent 样式编辑及 fresh-reopen 均已机械读回 |
 | X13 | `category / left / right` | 独立人口金字塔 renderer | `PopulationPyramid.otpu` | 非负源幅值写入 worksheet + 官方双层模板原生横向柱；左侧符号仅在渲染层表达 |
 | X23 | `x / left / right` | 独立双 Y renderer | `DOUBLEY.OTP` | worksheet + 2 个模板图层，各 1 条原生线 |
 | X24 | `category / value` | 独立帕累托 renderer | `ParetoRaw.otpu` | worksheet 保存排序贡献与唯一累计百分比 + 官方双层模板原生柱/累计线/参考线 |

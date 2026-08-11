@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import warnings
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ from plotagent.engine import (
     FieldBinding,
     PlotDocument,
     PlotEngineAction,
+    SetAxis,
     SetLegend,
     SetSeriesStyle,
 )
@@ -177,23 +179,25 @@ def test_x05_preserves_dynamic_raw_groups(group_count: int) -> None:
     assert all(len(group.values) == 5 for group in groups.groups)
 
 
-def test_x09_preserves_rows_and_validates_all_boundaries() -> None:
+def test_x09_preserves_rows_and_ordered_boundaries_without_sorting() -> None:
     document, _actions, view = _x09_case()
     intervals = x09_floating_intervals(document, view)
     assert intervals.categories == ("C", "A", "B")
     assert intervals.middle_values == (2.0, 3.0, 2.5)
-    invalid = view.model_copy(
+    descending = view.model_copy(
         update={
             "columns": tuple(
-                column.model_copy(update={"values": (0.5, *column.values[1:])})
+                column.model_copy(update={"values": (0.5, 4.5, 2.5)})
                 if column.field.field_id == "field:middle"
                 else column
                 for column in view.columns
             )
         }
     )
-    with pytest.raises(ValueError, match="start <= middle <= end"):
-        x09_floating_intervals(document, invalid)
+    observed = x09_floating_intervals(document, descending)
+    assert observed.start_values == (1.0, 2.0, 1.5)
+    assert observed.middle_values == (0.5, 4.5, 2.5)
+    assert observed.end_values == (3.0, 4.0, 3.5)
 
 
 def test_x13_preserves_positive_magnitudes_and_rejects_negative_input() -> None:
@@ -218,7 +222,7 @@ def test_x13_preserves_positive_magnitudes_and_rejects_negative_input() -> None:
     ("renderer", "case", "object_kind", "count"),
     (
         (X05BeeswarmRenderer(), _x05_case, "beeswarm_series", 3),
-        (X09FloatingIntervalRenderer(), _x09_case, "floating_interval_segment", 2),
+        (X09FloatingIntervalRenderer(), _x09_case, "floating_bar_segment", 2),
         (X13PopulationPyramidRenderer(), _x13_case, "population_bar_series", 2),
     ),
 )
@@ -433,31 +437,108 @@ def test_x05_origin_binds_dynamic_groups_to_official_template(
     )
 
 
-def test_x09_origin_uses_two_native_xyy_segments(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_x09_origin_uses_one_official_floatbar_command_without_generic_rebuild() -> None:
+    source = inspect.getsource(x09_origin)
+    matplotlib_source = inspect.getsource(X09FloatingIntervalRenderer)
+
+    assert "worksheet -p 207 FloatBar" in source
+    assert 'set __X09P -gm 1' in source
+    assert "FloatCol" not in source
+    assert ".new_graph(" not in source
+    assert ".AddPlot(" not in source
+    assert ".add_plot(" not in source
+    assert ".plot_list(" not in source
+    assert ".barh(" in matplotlib_source
+    assert ".bar(" not in matplotlib_source
+
+
+def test_x09_without_middle_writes_only_category_start_and_end() -> None:
+    document, _actions, view = _x09_case(middle=False)
+    intervals = x09_floating_intervals(document, view)
+    project = X09OriginProject(None)
+    project.sheet = _Sheet()
+
+    project._write(intervals)
+
+    assert project.sheet.columns == {
+        0: ["C", "A", "B"],
+        1: [1.0, 2.0, 1.5],
+        2: [3.0, 4.0, 3.5],
+    }
+
+
+def test_x09_maps_semantic_axes_to_exchanged_origin_axes() -> None:
+    project = X09OriginProject(None)
+    project.layer = _Layer()
+
+    project._apply_axis(
+        "x",
+        SetAxis(
+            action_id="action:x09-horizontal-value-axis",
+            target="axis:x09-native.x",
+            expected_plot_version=1,
+            label="Interval value",
+            scale="log10",
+            minimum=0.1,
+            maximum=10.0,
+        ),
+    )
+    project._apply_axis(
+        "y",
+        SetAxis(
+            action_id="action:x09-vertical-category-axis",
+            target="axis:x09-native.y",
+            expected_plot_version=2,
+            label="Sample",
+            scale="categorical",
+        ),
+    )
+
+    assert project.layer.axes["y"].scale == "log10"
+    assert project.layer.axes["y"].limits[:2] == (0.1, 10.0)
+    assert project.layer.labels["yl"].text == "Interval value"
+    assert project.layer.labels["xb"].text == "Sample"
+
+
+def test_x09_matplotlib_selects_a_font_covering_visible_cjk(tmp_path: Path) -> None:
     document, actions, view = _x09_case()
-    monkeypatch.setattr(
-        x09_origin,
-        "resolve_official_template",
-        lambda _install, profile: tmp_path / profile.filename,
+    names = {
+        "field:category": "样本",
+        "field:start": "起点",
+        "field:end": "终点",
+        "field:middle": "中间边界",
+    }
+    cjk_view = view.model_copy(
+        update={
+            "columns": tuple(
+                column.model_copy(
+                    update={
+                        "field": column.field.model_copy(
+                            update={"name": names[column.field.field_id]}
+                        ),
+                        "values": (
+                            ("样本甲", "样本乙", "样本丙")
+                            if column.field.field_id == "field:category"
+                            else column.values
+                        ),
+                    }
+                )
+                for column in view.columns
+            )
+        }
     )
-    origin = _Origin()
-    project = X09OriginProject(origin)
-    project.create(tmp_path, document, view)
-    for action in actions:
-        project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
-    assert Path(origin.template).name.lower() == X09_ORIGIN_PROFILE.filename.lower()
-    assert origin.graph is not None
-    assert [call[1] for call in origin.graph[0].native_calls] == [207, 207]
-    assert origin.graph[0].group_calls == [(True, 0, 1), (True, 2, 3)]
-    assert origin.graph[0].plots[0].color == (34, 85, 170)
-    assert origin.graph[0].plots[2].color == (204, 102, 0)
-    assert (
-        len([item for item in readback.objects if item.object_kind == "native_floating_interval"])
-        == 2
-    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        X09FloatingIntervalRenderer().render(
+            document,
+            actions,
+            cjk_view,
+            tmp_path / "x09-cjk.png",
+            tmp_path / "x09-cjk.svg",
+        )
+
+    assert not [warning for warning in caught if "Glyph" in str(warning.message)]
 
 
 def test_x13_origin_uses_both_official_template_layers(
@@ -491,7 +572,8 @@ def test_profiles_publish_only_shared_agent_actions_and_pinned_templates() -> No
     assert X09_FLOATING_INTERVAL_PROFILE.optional_roles == ("middle",)
     assert X13_POPULATION_PYRAMID_PROFILE.required_roles == ("category", "left", "right")
     assert X05_ORIGIN_PROFILE.sha256.startswith("301dd6c8c293")
-    assert X09_ORIGIN_PROFILE.sha256.startswith("f1ea445735f9")
+    assert X09_ORIGIN_PROFILE.filename == "FloatBar.otp"
+    assert X09_ORIGIN_PROFILE.sha256.startswith("7fd8331a4f91")
     assert X13_ORIGIN_PROFILE.sha256.startswith("2c5958a91130")
     operations = {
         profile.profile_id: tuple(capability.operation for capability in profile.capabilities)

@@ -639,8 +639,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt"
+            "color"
           ]
         },
         {
@@ -1673,21 +1672,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt",
-            "line_style"
-          ]
-        },
-        {
-          "operation": "set_legend",
-          "parameters": [
-            "visible"
-          ]
-        },
-        {
-          "operation": "set_chart_parameter",
-          "parameters": [
-            "facet_columns"
+            "color"
           ]
         },
         {
@@ -1712,11 +1697,6 @@
           "object_alias": "y_axis",
           "object_key": "y",
           "object_kind": "axis"
-        },
-        {
-          "object_alias": "legend",
-          "object_key": "main",
-          "object_kind": "legend"
         }
       ],
       "optional_roles": [],
@@ -2453,7 +2433,7 @@
           ]
         }
       ],
-      "display_name": "Floating interval",
+      "display_name": "Floating bar",
       "maximum_components": 0,
       "minimum_components": 0,
       "objects": [
@@ -2711,12 +2691,6 @@
           "operation": "set_legend",
           "parameters": [
             "visible"
-          ]
-        },
-        {
-          "operation": "set_chart_parameter",
-          "parameters": [
-            "pareto_reference_percent"
           ]
         },
         {
@@ -2984,14 +2958,6 @@
             "label",
             "scale",
             "reverse"
-          ]
-        },
-        {
-          "operation": "set_series_style",
-          "parameters": [
-            "color",
-            "line_width_pt",
-            "line_style"
           ]
         },
         {

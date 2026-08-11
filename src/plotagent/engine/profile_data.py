@@ -625,18 +625,11 @@ def x09_floating_intervals(
         raise ValueError("X09 requires category, start and end bindings") from error
     middle = columns[bindings["middle"]] if "middle" in bindings else None
     categories = tuple(_label(value, "category") for value in category.values)
-    if len(categories) != len(set(categories)):
-        raise ValueError("X09 category labels must be unique")
     start_values = _numeric_values(start, "start", "X09", allow_missing=False)
     end_values = _numeric_values(end, "end", "X09", allow_missing=False)
     middle_values = (
         None if middle is None else _numeric_values(middle, "middle", "X09", allow_missing=False)
     )
-    for index, (lower, upper) in enumerate(zip(start_values, end_values, strict=True), start=1):
-        if lower > upper:
-            raise ValueError(f"X09 row {index} requires start <= end")
-        if middle_values is not None and not lower <= middle_values[index - 1] <= upper:
-            raise ValueError(f"X09 row {index} requires start <= middle <= end")
     return FloatingIntervalData(
         categories=categories,
         start_values=start_values,

@@ -50,7 +50,7 @@
 | X02 | 垂线图 | `DROPLINE.OTP` | 模板 | 专属属性人工门禁 |
 | X03 | 棒棒糖图 | `Lollipop.otpu` | 模板 | 专属属性人工门禁 |
 | X05 | 蜂群图 | `Beeswarm.otpu` | 模板 | 专属属性人工门禁 |
-| X09 | 浮动柱状图 | `FloatCol.otp` | 模板 | 专属属性人工门禁 |
+| X09 | 浮动条形图 | `FloatBar.otp` | 模板 | PID 207、相邻原始边界绑定、XY 交换、两/三边界与 Agent 编辑均经 fresh-reopen 机械读回 |
 | X13 | 人口金字塔 | `PopulationPyramid.otpu` | 模板 | 专属属性人工门禁 |
 | X23 | 双Y轴Y-Y图 | `DOUBLEY.OTP` | 模板 | 原生结构已证 |
 | X24 | 帕累托图（分箱数据） | `ParetoBin.otpu` + `plot_paretobin` | X-Function | 专属属性人工门禁 |
@@ -75,4 +75,3 @@
 `set_series_style`、`set_legend`、`set_chart_parameter`、
 `add_annotation` 和 `export_plot`。各 Profile 只开放 Matplotlib 与 Origin
 都能稳定表达并读回的参数；Origin 专属创建细节完全留在 renderer 内部。
-
