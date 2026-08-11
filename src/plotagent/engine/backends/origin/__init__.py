@@ -51,6 +51,13 @@ from .profile import (
     OriginTemplateProfile,
     resolve_official_template,
 )
+from .recipe import (
+    ORIGIN_RECIPES,
+    ORIGIN_RENDERABLE_RECIPES,
+    OriginRecipe,
+    OriginTemplateIdentity,
+    origin_recipe,
+)
 
 __all__ = [
     "K01_ORIGIN_PROFILE",
@@ -98,7 +105,12 @@ __all__ = [
     "OriginPreflightResult",
     "OriginPreflightSuccess",
     "OriginTemplateProfile",
+    "OriginRecipe",
+    "OriginTemplateIdentity",
+    "ORIGIN_RECIPES",
+    "ORIGIN_RENDERABLE_RECIPES",
     "SubprocessOriginWorker",
     "resolve_official_template",
+    "origin_recipe",
     "preflight_origin",
 ]
