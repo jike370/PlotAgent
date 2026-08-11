@@ -134,6 +134,23 @@ def test_origin_backend_stages_opju_without_legacy_plan(tmp_path: Path) -> None:
     assert exported.artifact_size == len(b"fake-opju")
 
 
+@pytest.mark.parametrize("profile_id", ("K16", "S21", "S61"))
+def test_origin_backend_rejects_unproven_recipes_before_worker_launch(
+    tmp_path: Path,
+    profile_id: str,
+) -> None:
+    document, action, view = _document()
+    blocked = document.model_copy(update={"profile_id": profile_id})
+    worker = Worker()
+    backend = OriginBackend(tmp_path / "origin", tmp_path / "install", worker)
+
+    with pytest.raises(ValueError, match=profile_id):
+        backend.stage(blocked, (action,), EngineRenderSource(data=view))
+
+    assert worker.requests == []
+    assert not (tmp_path / "origin" / ".staging").exists()
+
+
 def test_k01_origin_binder_has_no_legacy_plan_or_renderer_import() -> None:
     source = inspect.getsource(__import__(K01OriginProject.__module__, fromlist=["*"]))
     assert "plotagent.origin" not in source

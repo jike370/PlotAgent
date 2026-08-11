@@ -19,6 +19,7 @@ from plotagent.engine.ports import (
 )
 
 from .messages import OriginWorkerRequest, OriginWorkerResponse
+from .recipe import origin_recipe
 
 
 class OriginWorker(Protocol):
@@ -101,6 +102,10 @@ class OriginBackend:
         actions: tuple[PlotEngineAction, ...],
         source: EngineRenderSource,
     ) -> PlotBackendChange:
+        # Reject an unproven Origin route before creating staging files or
+        # launching Origin. Matplotlib support for the same public profile is
+        # independent; this check closes only the native OPJU path.
+        origin_recipe(document.profile_id)
         staging = self._root / ".staging" / uuid.uuid4().hex
         staging.mkdir(parents=True)
         previous = None

@@ -58,6 +58,7 @@ from .recipe import (
     OriginTemplateIdentity,
     origin_recipe,
 )
+from .renderer import OriginRendererRegistry
 
 __all__ = [
     "K01_ORIGIN_PROFILE",
@@ -106,6 +107,7 @@ __all__ = [
     "OriginPreflightSuccess",
     "OriginTemplateProfile",
     "OriginRecipe",
+    "OriginRendererRegistry",
     "OriginTemplateIdentity",
     "ORIGIN_RECIPES",
     "ORIGIN_RENDERABLE_RECIPES",
