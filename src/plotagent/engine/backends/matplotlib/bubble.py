@@ -1,4 +1,4 @@
-"""Independent K04 bubble renderer with opt-in explanatory scales."""
+"""Independent K04 renderer matching Origin's Bubble Scale default."""
 
 from __future__ import annotations
 
@@ -176,6 +176,7 @@ class K04BubbleRenderer:
             title="",
             x_axis=_AxisState(bubble.x_field_name),
             y_axis=_AxisState(bubble.y_field_name),
+            size_key_visible=bubble.size_values is not None,
         )
         last_binding = max(
             (index for index, action in enumerate(actions) if isinstance(action, BindFields)),

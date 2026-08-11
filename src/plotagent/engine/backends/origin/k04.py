@@ -94,9 +94,13 @@ class K04OriginProject:
         if columns.get("color") is not None:
             self.plot.color = self.op.color_col(cast(int, columns["color"]) - 1, "m")
         self.layer.rescale()
-        # bubble.otpu contains BUBBLELEGEND1.  Template presence is not user
-        # intent, so both explanatory scales are explicitly hidden by default.
-        self._set_auxiliary(_BUBBLE_SCALE_NAME, _BUBBLE_SCALE_OBJECT_TYPE, False)
+        # Origin's official Bubble + Color Mapped default keeps the Bubble
+        # Scale when a size field is bound. The Color Scale remains opt-in.
+        self._set_auxiliary(
+            _BUBBLE_SCALE_NAME,
+            _BUBBLE_SCALE_OBJECT_TYPE,
+            bubble.size_values is not None,
+        )
         self._set_auxiliary(_COLOR_SCALE_NAME, _COLOR_SCALE_OBJECT_TYPE, False)
 
     def reopen(self, project_path: Path) -> None:
@@ -425,7 +429,7 @@ class K04OriginProject:
         actions: tuple[PlotEngineAction, ...],
         bubble: K04BubbleData,
     ) -> _K04State:
-        state = _K04State()
+        state = _K04State(size_key_visible=bubble.size_values is not None)
         for action in actions:
             if isinstance(action, SetTitle):
                 state = replace(state, title=action.text)

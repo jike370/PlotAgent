@@ -105,12 +105,15 @@ class ColumnFamilyOriginProject:
         self.layer = self.graph[0]
         self.plots = []
         for index in range(len(grid.series_labels)):
-            plot = self.layer.add_plot(self.sheet, coly=index + 1, colx=0, type="?")
+            plot_type: int | str = 203 if self.profile_id in {"K10", "K11"} else "?"
+            plot = self.layer.add_plot(self.sheet, coly=index + 1, colx=0, type=plot_type)
             if plot is None:
                 raise RuntimeError(f"Origin rejected {self.profile_id} native series {index + 1}")
             self.plots.append(plot)
         if len(self.plots) > 1:
             self.layer.group(True, 0, len(self.plots) - 1)
+        if self.profile_id in {"K10", "K11"}:
+            self._set_native_stack(percent=self.profile_id == "K11")
         if self.profile_id == "K09":
             # One explicit, bounded native edit.  The official COLUMN template
             # defines all other appearance; width only prevents dynamic groups
@@ -228,6 +231,14 @@ class ColumnFamilyOriginProject:
             "series_count": len(grid.series_labels),
             "profile": self.profile_id,
         }
+        if self.profile_id in {"K10", "K11"}:
+            offset, percent = self._native_stack_state()
+            if offset != 1 or percent != int(self.profile_id == "K11"):
+                raise RuntimeError(
+                    f"Origin {self.profile_id} native stack state differs after reopen"
+                )
+            snapshot["native_stack_offset"] = offset
+            snapshot["native_percent_normalization"] = percent
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
@@ -305,25 +316,46 @@ class ColumnFamilyOriginProject:
 
     def _grid(self, document: PlotDocument, data: EngineDataView) -> CategorySeriesGrid:
         grid = category_series_grid(document, data, profile_id=self.profile_id)
-        if self.profile_id != "K11":
-            return grid
-        values = tuple(tuple(value for value in row) for row in grid.values)
-        if any(value < 0 for row in values for value in row if not isnan(value)):
+        if self.profile_id == "K11" and any(
+            value < 0 for row in grid.values for value in row if not isnan(value)
+        ):
             raise ValueError("K11 percent-stack values must be non-negative")
-        totals = tuple(sum(value for value in row if not isnan(value)) for row in values)
-        if any(total <= 0 for total in totals):
+        if self.profile_id == "K11" and any(
+            sum(value for value in row if not isnan(value)) <= 0 for row in grid.values
+        ):
             raise ValueError("K11 each category must have a positive total")
-        normalized = tuple(
-            tuple(float("nan") if isnan(value) else value / total * 100.0 for value in row)
-            for row, total in zip(values, totals, strict=True)
+        return grid
+
+    def _set_native_stack(self, *, percent: bool) -> None:
+        theme = self.layer.obj.GetTheme()
+        stack = next((node for node in theme.Children if node.Name == "Stack"), None)
+        if stack is None:
+            raise RuntimeError(f"Origin {self.profile_id} COLUMN template has no Stack theme")
+        offset = next((node for node in stack.Children if node.Name == "Offset"), None)
+        normalize = next(
+            (node for node in stack.Children if node.Name == "StackOffset"),
+            None,
         )
-        return CategorySeriesGrid(
-            category_labels=grid.category_labels,
-            series_labels=grid.series_labels,
-            values=normalized,
-            category_field_name=grid.category_field_name,
-            value_field_name="Percent",
-        )
+        if offset is None or normalize is None:
+            raise RuntimeError(f"Origin {self.profile_id} Stack theme is incomplete")
+        offset.SetIntValue(1)
+        normalize.SetIntValue(int(percent))
+        self.layer.obj.PutTheme(theme)
+        self.layer.rescale()
+
+    def _native_stack_state(self) -> tuple[int, int]:
+        theme = self.layer.obj.GetTheme()
+        stack = next((node for node in theme.Children if node.Name == "Stack"), None)
+        if stack is None:
+            raise RuntimeError(f"Origin {self.profile_id} lost the native Stack theme")
+        values = {
+            node.Name: int(node.GetValue())
+            for node in stack.Children
+            if node.Name in {"Offset", "StackOffset"}
+        }
+        if set(values) != {"Offset", "StackOffset"}:
+            raise RuntimeError(f"Origin {self.profile_id} lost native stack properties")
+        return values["Offset"], values["StackOffset"]
 
     def _write_data(self, grid: CategorySeriesGrid) -> None:
         self.sheet.from_list(

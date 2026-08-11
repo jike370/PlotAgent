@@ -137,7 +137,9 @@ def _case(
     return document, actions, view
 
 
-def test_k04_binding_color_and_size_does_not_imply_visible_scales(tmp_path: Path) -> None:
+def test_k04_binding_size_keeps_bubble_scale_but_color_scale_is_opt_in(
+    tmp_path: Path,
+) -> None:
     document, actions, view = _case()
     bubble = k04_bubble(document, view)
     assert bubble.size_values == (1.0, 4.0, 9.0, 16.0)
@@ -149,7 +151,7 @@ def test_k04_binding_color_and_size_does_not_imply_visible_scales(tmp_path: Path
     kinds = {item.object_kind for item in backend.readback(document).objects}
 
     assert "color_scale" not in kinds
-    assert "size_key" not in kinds
+    assert "size_key" in kinds
     assert (tmp_path / "artifacts" / "k04-bubble" / "v1" / "preview.png").stat().st_size > 0
 
 
@@ -335,7 +337,7 @@ class _Origin:
         return label
 
 
-def test_k04_origin_uses_official_template_and_hides_template_scale_by_default(
+def test_k04_origin_keeps_official_bubble_scale_and_hides_color_scale_by_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -356,7 +358,8 @@ def test_k04_origin_uses_official_template_and_hides_template_scale_by_default(
     assert origin.graph.layer.add_call == {"coly": 1, "colx": 0, "type": "s"}
     assert origin.graph.layer.plot.symbol_size == ("size", 1)
     assert origin.graph.layer.plot.color == ("color", 2, "m")
-    assert origin.graph.layer.labels["BUBBLELEGEND1"].get_int("show") == 0
+    assert origin.graph.layer.labels["BUBBLELEGEND1"].get_int("show") == 1
+    assert "size_key" in {item.object_kind for item in readback.objects}
     assert "color_scale" not in {item.object_kind for item in readback.objects}
 
 

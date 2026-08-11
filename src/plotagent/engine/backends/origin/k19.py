@@ -1,4 +1,4 @@
-"""K19 official TimeSeries template binder with native datetime data."""
+"""K19 official LINE template binder with native Origin Date/Time X data."""
 
 from __future__ import annotations
 
@@ -61,11 +61,11 @@ class K19OriginProject:
             f"G{token}", template=str(template.with_suffix(template.suffix.lower())), hidden=True
         )
         if self.graph is None:
-            raise RuntimeError("Origin could not create K19 from TimeSeries.otp")
+            raise RuntimeError("Origin could not create K19 from LINE.otpu")
         self.layer = self.graph[0]
         self.plot = self.layer.add_plot(self.sheet, coly=1, colx=0, type="?")
         if self.plot is None:
-            raise RuntimeError("Origin TimeSeries.otp rejected the native datetime line")
+            raise RuntimeError("Origin LINE.otpu rejected the native datetime line")
         self.layer.rescale()
 
     def open(self, project_path: Path) -> None:
@@ -124,7 +124,7 @@ class K19OriginProject:
                 if label is None:
                     label = self.layer.add_label(action.label)
                 if label is None:
-                    raise RuntimeError("Origin TimeSeries.otp has no writable axis label")
+                    raise RuntimeError("Origin LINE.otpu has no writable axis label")
                 label.text = action.label
                 label.set_int("show", 1)
             return

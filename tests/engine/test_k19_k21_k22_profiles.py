@@ -422,11 +422,11 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
     monkeypatch.setattr(
         k19_origin_module,
         "resolve_official_template",
-        lambda *_: tmp_path / "TimeSeries.otp",
+        lambda *_: tmp_path / "LINE.otpu",
     )
     k19_op = FakeOrigin()
     K19OriginProject(k19_op).create(tmp_path, k19_document, k19_view)
-    assert Path(k19_op.template).name == "TimeSeries.otp"
+    assert Path(k19_op.template).name == "LINE.otpu"
     assert k19_op.book.sheet.designation == "xy"
     assert pd.api.types.is_datetime64_any_dtype(k19_op.book.sheet.frame.iloc[:, 0])
 
@@ -455,7 +455,7 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
 
 
 def test_template_hashes_and_modules_exclude_the_legacy_compiler() -> None:
-    assert K19_ORIGIN_PROFILE.sha256.startswith("ebe487cd9626")
+    assert K19_ORIGIN_PROFILE.sha256.startswith("76a7ce886e22")
     assert K21_ORIGIN_PROFILE.sha256.startswith("d1a7fcd8af23")
     assert K22_ORIGIN_PROFILE.sha256.startswith("b4915054edd4")
     assert K19_TIME_SERIES_PROFILE.profile_id == "K19"

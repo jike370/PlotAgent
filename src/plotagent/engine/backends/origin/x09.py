@@ -1,4 +1,4 @@
-"""X09 official FLOATBAR template binder with native XYY intervals."""
+"""X09 official FloatCol template binder with native XYY intervals."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ class X09OriginProject:
             hidden=True,
         )
         if self.graph is None:
-            raise RuntimeError("Origin could not create a graph from FLOATBAR.OTP")
+            raise RuntimeError("Origin could not create a graph from FloatCol.otp")
         self.layer = self.graph[0]
         boundaries = ((1, 2), (2, 3)) if intervals.middle_values is not None else ((1, 2),)
         segments: list[tuple[Any, ...]] = []
@@ -70,7 +70,7 @@ class X09OriginProject:
             )
             native = self.layer.obj.AddPlot(data_range, _FLOATING_COLUMN, True)
             if native is None or not native.IsValid():
-                raise RuntimeError("Origin FLOATBAR.OTP rejected one native interval segment")
+                raise RuntimeError("Origin FloatCol.otp rejected one native interval segment")
             created = tuple(self.layer.plot_list()[before:])
             if len(created) != 2:
                 raise RuntimeError("one native X09 interval must create exactly two boundary plots")

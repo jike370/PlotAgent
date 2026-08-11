@@ -79,15 +79,15 @@ K09_ORIGIN_PROFILE = OriginTemplateProfile(
 
 K10_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K10",
-    filename="STACKCOLUMN.otp",
-    sha256="3ffd84ea777e414c60daab6e3b162b207379b94341ef1497c144a725f0caa264",
+    filename="COLUMN.otpu",
+    sha256="ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
     tier="T1",
 )
 
 K11_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K11",
-    filename="StackColP.otp",
-    sha256="2094be00706be51883e7d5f8212e79e5eb1ac01ff66af45ba4953761ba8fe7d3",
+    filename="COLUMN.otpu",
+    sha256="ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
     tier="T1",
 )
 
@@ -135,8 +135,8 @@ K18_ORIGIN_PROFILE = OriginTemplateProfile(
 
 K19_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K19",
-    filename="TimeSeries.otp",
-    sha256="ebe487cd9626437e522ae82e6fc302a280110bed4b26564984d4b0263eeb660c",
+    filename="LINE.otpu",
+    sha256="76a7ce886e2290d29444ac3a92c736a2057d2583aea8867091db439cb23dc648",
     tier="T1",
 )
 
@@ -254,15 +254,15 @@ X03_ORIGIN_PROFILE = OriginTemplateProfile(
 
 X05_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="X05",
-    filename="ColumnScatter.otp",
-    sha256="e9bfbf3b74bc78db041208505bf1c1b32b387378cc8aac91462d017a662c425d",
+    filename="Beeswarm.otpu",
+    sha256="301dd6c8c2938b4459bcad1bc04233e1c24d7aaf94f53474db1231692769a979",
     tier="T1",
 )
 
 X09_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="X09",
-    filename="FLOATBAR.OTP",
-    sha256="7fd8331a4f91170ce7a7b35428659e48b985fc6ce8164c706ea31b4e41dee93b",
+    filename="FloatCol.otp",
+    sha256="f1ea445735f9cf3fa93ed3de9ff187db0fc83ccba92578e6939fbafafeddb3f6",
     tier="T1",
 )
 

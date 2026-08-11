@@ -266,6 +266,19 @@ class _Plot:
         self.commands.append(command)
 
 
+class _ThemeNode:
+    def __init__(self, name: str, value: int = 0, children=()) -> None:
+        self.Name = name
+        self.nVal = value
+        self.Children = list(children)
+
+    def SetIntValue(self, value: int) -> None:
+        self.nVal = value
+
+    def GetValue(self) -> int:
+        return self.nVal
+
+
 class _Layer:
     def __init__(self) -> None:
         self.obj = self
@@ -274,6 +287,18 @@ class _Layer:
         self.plots: list[_Plot] = []
         self.add_calls: list[dict[str, object]] = []
         self.group_calls: list[tuple[object, ...]] = []
+        self.theme = _ThemeNode(
+            "Root",
+            children=(
+                _ThemeNode(
+                    "Stack",
+                    children=(
+                        _ThemeNode("Offset"),
+                        _ThemeNode("StackOffset"),
+                    ),
+                ),
+            ),
+        )
 
     def add_plot(self, sheet, **kwargs):
         self.add_calls.append(kwargs)
@@ -311,6 +336,12 @@ class _Layer:
         assert command == "legend"
         self.labels["legend"] = _Label()
         return True
+
+    def GetTheme(self):
+        return self.theme
+
+    def PutTheme(self, theme) -> None:
+        assert theme is self.theme
 
 
 class _Graph:
@@ -385,8 +416,9 @@ def test_column_family_origin_binders_start_from_pinned_official_template(
     readback = project.verify(document, actions, view)
 
     assert Path(origin.template).name.lower() == profile.filename.lower()
+    expected_type: int | str = "?" if profile_id == "K09" else 203
     assert origin.graph.layer.add_calls == [
-        {"coly": index, "colx": 0, "type": "?"} for index in range(1, 4)
+        {"coly": index, "colx": 0, "type": expected_type} for index in range(1, 4)
     ]
     assert origin.graph.layer.group_calls == [(True, 0, 2)]
     assert origin.graph.layer.labels["legend"].text.count("\\l(") == 3
@@ -395,6 +427,12 @@ def test_column_family_origin_binders_start_from_pinned_official_template(
     )
     if profile_id == "K09":
         assert origin.graph.layer.plots[0].commands == ["-vg 73"]
+    else:
+        stack = origin.graph.layer.theme.Children[0]
+        assert stack.Children[0].nVal == 1
+        assert stack.Children[1].nVal == int(profile_id == "K11")
+    if profile_id == "K11":
+        assert origin.book.sheet.columns[1] == [11.0, 21.0]
 
 
 def test_column_family_new_path_has_no_legacy_compiler_dependency() -> None:

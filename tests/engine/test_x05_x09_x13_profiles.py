@@ -490,8 +490,8 @@ def test_profiles_publish_only_shared_agent_actions_and_pinned_templates() -> No
     assert X05_BEESWARM_PROFILE.required_roles == ("value",)
     assert X09_FLOATING_INTERVAL_PROFILE.optional_roles == ("middle",)
     assert X13_POPULATION_PYRAMID_PROFILE.required_roles == ("category", "left", "right")
-    assert X05_ORIGIN_PROFILE.sha256.startswith("e9bfbf3b74bc")
-    assert X09_ORIGIN_PROFILE.sha256.startswith("7fd8331a4f91")
+    assert X05_ORIGIN_PROFILE.sha256.startswith("301dd6c8c293")
+    assert X09_ORIGIN_PROFILE.sha256.startswith("f1ea445735f9")
     assert X13_ORIGIN_PROFILE.sha256.startswith("2c5958a91130")
     operations = {
         profile.profile_id: tuple(capability.operation for capability in profile.capabilities)
