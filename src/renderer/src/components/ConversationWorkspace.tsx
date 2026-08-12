@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   ArrowRight,
@@ -558,7 +558,7 @@ function AgentPlanObject({
       </header>
       <div className="agent-plan__context">
         <span><strong>对象</strong>{plot ? `${plot.plotId} · v${plot.plotVersion}` : `${selectedChart?.id ?? '待定'} · 新图`}</span>
-        <span><strong>输出</strong>Matplotlib 预览 · Origin 原生项目</span>
+        <span><strong>输出</strong>Matplotlib 预览 · 可导出 Origin 原生项目</span>
       </div>
       {bindingRows.length > 0 && <div className="agent-plan__bindings" aria-label="字段绑定声明">
         <strong>字段绑定</strong>
@@ -578,6 +578,7 @@ function AgentPlanObject({
             </span>
             <div>
               <strong>{step.title}</strong>
+              {step.detail && <p className="agent-plan-step__detail">{step.detail}</p>}
               {step.outputPlot && <p className="agent-plan-step__output">{step.outputPlot.plotId} · v{step.outputPlot.plotVersion}</p>}
               {step.failure && <p>{step.failure.message}</p>}
             </div>
@@ -645,6 +646,36 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
     project ? readConversationMessages(window.localStorage, project.projectId) : []
   ))
 
+  useEffect(() => {
+    const outcome = props.agentOutcome
+    if (!project || !outcome || outcome.kind === 'action_plan') return
+    queueMicrotask(() => setMessages((current) => {
+      const last = current.at(-1)
+      if (last?.role === 'agent' && last.title === outcome.title && last.text === outcome.message) return current
+      const updated = [...current, {
+        id: `message:agent:${crypto.randomUUID()}`,
+        role: 'agent' as const,
+        title: outcome.title,
+        text: outcome.message,
+        createdAt: new Date().toISOString(),
+        kind: outcome.kind === 'rejected' ? 'error' as const : outcome.kind === 'needs_input' ? 'warning' as const : 'info' as const,
+      }]
+      writeConversationMessages(window.localStorage, project.projectId, updated)
+      return updated
+    }))
+  }, [project, props.agentOutcome])
+
+  const visibleMessages = useMemo(() => {
+    const outcome = props.agentOutcome
+    if (!outcome || outcome.kind === 'action_plan') return messages
+    return messages.filter((message, index) => !(
+      index === messages.length - 1
+      && message.role === 'agent'
+      && message.title === outcome.title
+      && message.text === outcome.message
+    ))
+  }, [messages, props.agentOutcome])
+
   const submitInstruction = (instruction: string, scope: ScopeMode): void => {
     if (!project) return
     const message: ConversationMessage = {
@@ -678,7 +709,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             ) : (
               <>
                 <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedAgentDatasetIds={props.selectedAgentDatasetIds} onToggleAgentDataset={props.onToggleAgentDataset} /></div></div>
-                <ConversationHistory messages={messages} />
+                <ConversationHistory messages={visibleMessages} />
                 {props.agentOutcome && props.agentOutcome.kind !== 'action_plan' && <div className={`message message--agent conversation-history-message conversation-history-message--${props.agentOutcome.kind === 'rejected' ? 'error' : props.agentOutcome.kind === 'needs_input' ? 'warning' : 'info'}`} role={props.agentOutcome.kind === 'rejected' ? 'alert' : 'status'}>
                   <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><strong>{props.agentOutcome.title}</strong><p>{props.agentOutcome.message}</p>{props.agentOutcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div>
                 </div>}

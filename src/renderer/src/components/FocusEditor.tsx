@@ -13,7 +13,6 @@ import {
   FileImage,
   FileType2,
   Grid2X2,
-  History,
   Image,
   Layers3,
   Link2,
@@ -40,6 +39,7 @@ import { symbolCatalog } from '../data/chartCatalog'
 interface FocusEditorProps {
   initialIndex: number
   plot?: ProductPlot & { title: string }
+  previousPlot?: ProductPlot
   onPatch?: (patch: JsonValue) => Promise<void>
   canUndo?: boolean
   canRedo?: boolean
@@ -136,7 +136,7 @@ function ChartParameterEditor({
   </>
 }
 
-export function FocusEditor({ initialIndex, plot, onPatch, canUndo = false, canRedo = false, onUndo, onRedo, onClose }: FocusEditorProps): React.JSX.Element {
+export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo = false, canRedo = false, onUndo, onRedo, onClose }: FocusEditorProps): React.JSX.Element {
   const initialSeriesStyle = plot?.seriesStyles[0]?.style ?? plot?.style
   const initialAxisState = plot?.axisStates.y ?? plot?.axisStates.x
   const [activeIndex, setActiveIndex] = useState(Math.min(initialIndex, 2))
@@ -322,8 +322,8 @@ export function FocusEditor({ initialIndex, plot, onPatch, canUndo = false, canR
           <button type="button" aria-label="撤销" disabled={!canUndo} onClick={onUndo}><Undo2 size={17} /></button>
           <button type="button" aria-label="重做" disabled={!canRedo} onClick={onRedo}><Redo2 size={17} /></button>
           <span className="toolbar-divider" />
-          <button className={compareOpen ? 'is-active' : ''} type="button" onClick={() => setCompareOpen((open) => !open)}><Columns2 size={16} />比较版本</button>
-          <button type="button"><History size={16} />版本 v3<ChevronDown size={14} /></button>
+          <button className={compareOpen ? 'is-active' : ''} type="button" disabled={!previousPlot} onClick={() => setCompareOpen((open) => !open)}><Columns2 size={16} />比较上一版本</button>
+          <span className="focus-version-label">版本 v{plot?.plotVersion ?? 1}</span>
         </div>
         <div className="focus-header-actions">
           <button className={panelOpen ? 'is-active' : ''} type="button" onClick={() => setPanelOpen((open) => !open)}><SlidersHorizontal size={16} />参数</button>
@@ -372,11 +372,11 @@ export function FocusEditor({ initialIndex, plot, onPatch, canUndo = false, canR
           </div>
 
           <div className={`plot-stage${compareOpen ? ' is-comparing' : ''}`}>
-            {compareOpen && (
-              <div className="compare-label compare-label--left"><span>v2</span>修改前</div>
+            {compareOpen && previousPlot && (
+              <div className="compare-label compare-label--left"><span>v{previousPlot.plotVersion}</span>修改前</div>
             )}
             <div className="canvas-paper canvas-paper--previous" aria-hidden={!compareOpen}>
-              {compareOpen && (plot?.preview?.url ? <img className="focus-real-preview" src={plot.preview.url} alt={`${plot.title} 上一版本预览`} /> : <BatchPlot title={active.title} series={active.series} />)}
+              {compareOpen && previousPlot && (previousPlot.preview?.url ? <img className="focus-real-preview" src={previousPlot.preview.url} alt={`${plot?.title ?? active.title} v${previousPlot.plotVersion} 预览`} /> : <BatchPlot title={active.title} series={active.series} />)}
             </div>
             <div className="canvas-paper canvas-paper--current">
               {plot?.preview?.url ? <img className="focus-real-preview" src={plot.preview.url} alt={`${plot.title} Core 预览`} /> : <BatchPlot title={active.title} series={active.series} />}
@@ -407,8 +407,8 @@ export function FocusEditor({ initialIndex, plot, onPatch, canUndo = false, canR
                 <span>峰值区</span><ArrowUpRight size={14} />
               </button>}
             </div>
-            {compareOpen && (
-              <div className="compare-label compare-label--right"><span>v3</span>当前版本</div>
+            {compareOpen && plot && (
+              <div className="compare-label compare-label--right"><span>v{plot.plotVersion}</span>当前版本</div>
             )}
           </div>
           <div className="canvas-status"><Sparkles size={13} /><span>参数应用后创建新版本，原始数据保持只读</span><span className="zoom-status">100%</span></div>

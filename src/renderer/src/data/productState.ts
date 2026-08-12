@@ -158,6 +158,7 @@ export interface AgentPlanStep {
   taskItemId: string
   actionType: string
   title: string
+  detail?: string
   state: string
   attemptCount: number
   failure?: { code: string; message: string; retryable: boolean }
@@ -667,6 +668,40 @@ function engineActionTitle(action: JsonRecord): string {
   return labels[operation] ?? operation
 }
 
+function engineActionDetail(action: JsonRecord): string | undefined {
+  const operation = stringValue(action, 'operation')
+  const target = stringValue(action, 'target')
+  if (operation === 'create_plot') return `图形 ${stringValue(action, 'profile_id') ?? '待定'} · ${stringValue(action, 'plot_id') ?? '新对象'}`
+  if (operation === 'set_title' && typeof action.text === 'string') return `标题 → “${action.text}”`
+  if (operation === 'set_axis') {
+    const changes = [
+      typeof action.label === 'string' ? `标题“${action.label}”` : undefined,
+      typeof action.scale === 'string' ? `尺度 ${action.scale}` : undefined,
+      typeof action.minimum === 'number' && typeof action.maximum === 'number' ? `范围 ${action.minimum}–${action.maximum}` : undefined,
+      typeof action.reverse === 'boolean' ? action.reverse ? '反向' : '正向' : undefined,
+    ].filter((item): item is string => item !== undefined)
+    return `${target ?? '坐标轴'}${changes.length > 0 ? ` · ${changes.join(' · ')}` : ''}`
+  }
+  if (operation === 'set_series_style') {
+    const changes = Object.entries(action)
+      .filter(([key]) => ['color', 'line_width_pt', 'line_style', 'symbol', 'symbol_size_pt'].includes(key))
+      .map(([key, value]) => `${key}=${String(value)}`)
+    return `${target ?? '系列'}${changes.length > 0 ? ` · ${changes.join(' · ')}` : ''}`
+  }
+  if (operation === 'set_legend') {
+    const changes = [
+      typeof action.visible === 'boolean' ? action.visible ? '显示' : '隐藏' : undefined,
+      typeof action.anchor === 'string' ? `位置 ${action.anchor}` : undefined,
+    ].filter((item): item is string => item !== undefined)
+    return `${target ?? '图例'}${changes.length > 0 ? ` · ${changes.join(' · ')}` : ''}`
+  }
+  if (operation === 'set_chart_parameter' && typeof action.parameter === 'string') return `${action.parameter} → ${String(action.value)}`
+  if (operation === 'add_annotation' && typeof action.text === 'string') return `文本“${action.text}”`
+  if (operation === 'bind_fields') return '按下方角色→字段映射更新绑定'
+  if (operation === 'export_plot') return `导出 ${stringValue(action, 'format') ?? '产物'}`
+  return target
+}
+
 function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
   const plan = records(value, (record) => (
     typeof record.plan_id === 'string'
@@ -709,6 +744,7 @@ function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
       taskItemId: stringValue(action, 'action_id') ?? `action:${index + 1}`,
       actionType: stringValue(action, 'operation') ?? 'unknown',
       title: engineActionTitle(action),
+      ...(engineActionDetail(bound) ? { detail: engineActionDetail(bound) } : {}),
       state: succeeded ? 'succeeded' : failed ? 'failed' : running ? 'running' : 'pending',
       attemptCount: succeeded || failed ? 1 : 0,
       ...(failed ? {

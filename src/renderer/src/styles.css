@@ -2632,6 +2632,13 @@ input[type="checkbox"] {
   margin-left: auto;
 }
 
+.focus-version-label {
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
 .focus-history-tools button,
 .focus-header-actions > button,
 .composition-header-tools > button:not(.primary-button) {
@@ -5104,6 +5111,7 @@ input[type="checkbox"] {
 .agent-plan-step strong { font-size: 12px; font-weight: 650; }
 .agent-plan-step p { margin: 3px 0 0; color: var(--danger); font-size: 11px; line-height: 1.45; }
 .agent-plan-step p.agent-plan-step__output { color: var(--muted); font-family: var(--font-mono); }
+.agent-plan-step p.agent-plan-step__detail { color: var(--muted-strong); }
 .agent-plan-step__attempt { color: var(--muted); font-size: 10px; }
 
 .agent-plan__warnings,

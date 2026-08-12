@@ -697,6 +697,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('字段绑定')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('时间')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('图形 K01')
     await user.click(screen.getByRole('button', { name: '确认并执行' }))
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
   })
@@ -898,6 +899,11 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), 'Y axis 改为 log10')
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
     expect(await screen.findByText(expectedTitle)).toBeInTheDocument()
+    if (_kind !== 'action_plan') {
+      await waitFor(() => expect(
+        Array.from({ length: window.localStorage.length }, (_, index) => window.localStorage.getItem(window.localStorage.key(index) ?? '')).join('\n'),
+      ).toContain(expectedTitle))
+    }
   })
 
   it('opens provider settings when an unconfigured user sends an Agent instruction', async () => {

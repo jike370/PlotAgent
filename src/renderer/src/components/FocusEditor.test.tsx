@@ -56,6 +56,25 @@ const commonCapabilities = {
 } as const
 
 describe('FocusEditor Agent Native actions', () => {
+  it('compares the current plot with a real adjacent version', async () => {
+    const user = userEvent.setup()
+    const current = plot('K01', commonCapabilities)
+    current.preview = { resourceId: 'resource:current', kind: 'preview', url: 'plotagent-resource://local/current', mimeType: 'image/png' }
+    const previous = plot('K01', commonCapabilities)
+    previous.plotVersion = 2
+    previous.preview = { resourceId: 'resource:previous', kind: 'preview', url: 'plotagent-resource://local/previous', mimeType: 'image/png' }
+    const { rerender } = render(<FocusEditor initialIndex={0} plot={current} onClose={() => undefined} />)
+
+    expect(screen.getByRole('button', { name: '比较上一版本' })).toBeDisabled()
+    rerender(<FocusEditor initialIndex={0} plot={current} previousPlot={previous} onClose={() => undefined} />)
+    await user.click(screen.getByRole('button', { name: '比较上一版本' }))
+
+    expect(screen.getByText('v2')).toBeInTheDocument()
+    expect(screen.getByText('v3')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /v2 预览/ })).toHaveAttribute('src', 'plotagent-resource://local/previous')
+    expect(screen.getByRole('img', { name: /Core 预览/ })).toHaveAttribute('src', 'plotagent-resource://local/current')
+  })
+
   it('exposes only history operations backed by the parent version controller', async () => {
     const user = userEvent.setup()
     const onUndo = vi.fn()
