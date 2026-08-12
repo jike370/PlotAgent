@@ -592,18 +592,13 @@ X05_BEESWARM_PROFILE = EngineProfile(
 
 X09_FLOATING_INTERVAL_PROFILE = EngineProfile(
     profile_id="X09",
-    display_name="Floating bar",
+    display_name="Floating column",
     required_roles=("category", "start", "end"),
     optional_roles=("middle",),
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
         EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
-        EngineObjectTemplate(
-            object_alias="lower_interval", object_kind="series", object_key="lower"
-        ),
-        EngineObjectTemplate(
-            object_alias="upper_interval", object_kind="series", object_key="upper"
-        ),
+        EngineObjectTemplate(object_alias="series_1", object_kind="series", object_key="primary"),
         EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
     ),
     capabilities=(
@@ -611,7 +606,6 @@ X09_FLOATING_INTERVAL_PROFILE = EngineProfile(
         EngineCapability(operation="bind_fields"),
         EngineCapability(operation="set_title", parameters=("text",)),
         EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
-        EngineCapability(operation="set_series_style", parameters=("color", "line_width_pt")),
         EngineCapability(operation="set_legend", parameters=("visible",)),
         EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
     ),

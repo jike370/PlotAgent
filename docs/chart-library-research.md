@@ -584,7 +584,7 @@ P0 的目标不是声称“已获期刊认证”，而是提供**来源可追溯
 | X06 | 云雨图 / Raincloud | 分布比较 | `long` | half-violin、box/interval、jitter、配对 | 生医、心理 | △ / 面 | ✓/✓/组 | P1 |
 | X07 | 山脊图 / Ridgeline | 多分布 | `value + group/order` | KDE 带宽、重叠、归一化、组序 | 组学、环境、社会 | △ / 面 | ✓/✓/原 | P1 |
 | X08 | 箱须增强图 / Boxen/letter-value | 多分布 | `long` | 分位层数、尾部、异常点、原始点 | 大样本数据科学 | △ / 面 | ✓/✓/组 | P1 |
-| X09 | 浮动条形图 / Floating Bar | 区间 | `category + start + end` | 有序边界、方向、区间标签 | 工程、临床、计划 | ✓ / 层·面 | ✓/✓/原 | P1 |
+| X09 | 浮动柱状图 / Floating Column | 区间 | `category + start + end` | 原始有序边界、纵向方向、区间标签 | 工程、临床、计划 | ✓ / 层·面 | ✓/✓/原 | P1 |
 | X10 | 甘特/泳道时间线 / Gantt & timeline | 时间区间 | `entity + start + end + status` | 时间尺度、重叠、里程碑、泳道顺序 | 临床、工程、计算机 | △ / 面 | ✓/✓/组 | P1 |
 | X11 | 桥图/瀑布图 / Bridge waterfall | 累计变化 | `category + delta/total` | 起点、累计、subtotal、正负色 | 经济、工程、质量 | ✓ / 面 | ✓/✓/原 | P1 |
 | X12 | 子弹图 / Bullet chart | 目标比较 | `item + actual + target + ranges` | 目标线、定性区间、统一尺度 | 工程、项目监控 | ✓ / 面 | ✓/✓/原 | P1 |

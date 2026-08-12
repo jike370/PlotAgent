@@ -2416,13 +2416,6 @@
           ]
         },
         {
-          "operation": "set_series_style",
-          "parameters": [
-            "color",
-            "line_width_pt"
-          ]
-        },
-        {
           "operation": "set_legend",
           "parameters": [
             "visible"
@@ -2437,7 +2430,7 @@
           ]
         }
       ],
-      "display_name": "Floating bar",
+      "display_name": "Floating column",
       "maximum_components": 0,
       "minimum_components": 0,
       "objects": [
@@ -2452,13 +2445,8 @@
           "object_kind": "axis"
         },
         {
-          "object_alias": "lower_interval",
-          "object_key": "lower",
-          "object_kind": "series"
-        },
-        {
-          "object_alias": "upper_interval",
-          "object_key": "upper",
+          "object_alias": "series_1",
+          "object_key": "primary",
           "object_kind": "series"
         },
         {

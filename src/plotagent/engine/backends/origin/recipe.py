@@ -187,8 +187,8 @@ _T = {
     "beeswarm": _template(
         "Beeswarm.otpu", "301dd6c8c2938b4459bcad1bc04233e1c24d7aaf94f53474db1231692769a979"
     ),
-    "floatbar": _template(
-        "FloatBar.otp", "7fd8331a4f91170ce7a7b35428659e48b985fc6ce8164c706ea31b4e41dee93b"
+    "floatcol": _template(
+        "FloatCol.otp", "f1ea445735f9cf3fa93ed3de9ff187db0fc83ccba92578e6939fbafafeddb3f6"
     ),
     "population": _template(
         "PopulationPyramid.otpu",
@@ -744,20 +744,20 @@ _RECIPES = (
     ),
     _r(
         "X09",
-        "浮动条形图",
-        "Floating Bar Graph",
-        "https://docs.originlab.com/origin-help/floating-bar-graph/",
-        "Plot > Bar Pie Area > Floating Bar",
+        "浮动柱状图",
+        "Floating Column Graph",
+        "https://docs.originlab.com/origin-help/floating-column-graph/",
+        "Plot > Bar Pie Area > Floating Column",
         "graph_template",
         "worksheet_wide",
         ("optional X", "start Y", "optional middle Y", "end Y"),
         (
-            "native floating-bar plot",
+            "native floating-column plot",
             "ordered adjacent boundary binding",
             "category source",
-            "exchanged XY direction",
+            "vertical column direction",
         ),
-        template_keys=("floatbar",),
+        template_keys=("floatcol",),
         binder_key="X09",
         native_plot_types=(207,),
         proof_level="proven_native_structure",

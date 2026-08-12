@@ -49,7 +49,7 @@ def test_renderable_recipes_have_closed_routes_and_pinned_template_assets() -> N
         ("K19", "LINE.otpu"),
         ("K24", "Grouped.otp"),
         ("X05", "Beeswarm.otpu"),
-        ("X09", "FloatBar.otp"),
+        ("X09", "FloatCol.otp"),
         ("X24", "ParetoBin.otpu"),
     ),
 )

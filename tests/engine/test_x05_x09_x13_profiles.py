@@ -150,11 +150,10 @@ def _x09_case(*, middle: bool = True):
         ("field:end", "End", "numeric", (3.0, 4.0, 3.5)),
     ]
     roles = ["category", "start", "end"]
-    styles = [("lower", "#2255AA")]
+    styles: list[tuple[str, str]] = []
     if middle:
         roles.append("middle")
         columns.append(("field:middle", "Middle", "numeric", (2.0, 3.0, 2.5)))
-        styles.append(("upper", "#CC6600"))
     return _case("X09", tuple(roles), tuple(columns), tuple(styles))
 
 
@@ -222,7 +221,7 @@ def test_x13_preserves_positive_magnitudes_and_rejects_negative_input() -> None:
     ("renderer", "case", "object_kind", "count"),
     (
         (X05BeeswarmRenderer(), _x05_case, "beeswarm_series", 3),
-        (X09FloatingIntervalRenderer(), _x09_case, "floating_bar_segment", 2),
+        (X09FloatingIntervalRenderer(), _x09_case, "floating_column_group", 1),
         (X13PopulationPyramidRenderer(), _x13_case, "population_bar_series", 2),
     ),
 )
@@ -437,19 +436,19 @@ def test_x05_origin_binds_dynamic_groups_to_official_template(
     )
 
 
-def test_x09_origin_uses_one_official_floatbar_command_without_generic_rebuild() -> None:
+def test_x09_origin_uses_one_official_floatcol_command_without_generic_rebuild() -> None:
     source = inspect.getsource(x09_origin)
     matplotlib_source = inspect.getsource(X09FloatingIntervalRenderer)
 
-    assert "worksheet -p 207 FloatBar" in source
-    assert 'set __X09P -gm 1' in source
-    assert "FloatCol" not in source
+    assert "worksheet -p 207 FloatCol" in source
+    assert 'set __X09P -gm 1' not in source
+    assert "FloatBar" not in source
     assert ".new_graph(" not in source
     assert ".AddPlot(" not in source
     assert ".add_plot(" not in source
     assert ".plot_list(" not in source
-    assert ".barh(" in matplotlib_source
-    assert ".bar(" not in matplotlib_source
+    assert ".bar(" in matplotlib_source
+    assert ".barh(" not in matplotlib_source
 
 
 def test_x09_without_middle_writes_only_category_start_and_end() -> None:
@@ -467,15 +466,22 @@ def test_x09_without_middle_writes_only_category_start_and_end() -> None:
     }
 
 
-def test_x09_maps_semantic_axes_to_exchanged_origin_axes() -> None:
+def test_x09_rebuilds_legend_from_visible_intervals_after_official_creation() -> None:
+    source = inspect.getsource(X09OriginProject.create)
+
+    assert '"native_legend_rebuild"' in source
+    assert "self._set_legend(intervals, True)" in source
+
+
+def test_x09_maps_semantic_axes_to_vertical_floating_column_axes() -> None:
     project = X09OriginProject(None)
     project.layer = _Layer()
 
     project._apply_axis(
-        "x",
+        "y",
         SetAxis(
-            action_id="action:x09-horizontal-value-axis",
-            target="axis:x09-native.x",
+            action_id="action:x09-vertical-value-axis",
+            target="axis:x09-native.y",
             expected_plot_version=1,
             label="Interval value",
             scale="log10",
@@ -484,10 +490,10 @@ def test_x09_maps_semantic_axes_to_exchanged_origin_axes() -> None:
         ),
     )
     project._apply_axis(
-        "y",
+        "x",
         SetAxis(
-            action_id="action:x09-vertical-category-axis",
-            target="axis:x09-native.y",
+            action_id="action:x09-horizontal-category-axis",
+            target="axis:x09-native.x",
             expected_plot_version=2,
             label="Sample",
             scale="categorical",
@@ -572,8 +578,8 @@ def test_profiles_publish_only_shared_agent_actions_and_pinned_templates() -> No
     assert X09_FLOATING_INTERVAL_PROFILE.optional_roles == ("middle",)
     assert X13_POPULATION_PYRAMID_PROFILE.required_roles == ("category", "left", "right")
     assert X05_ORIGIN_PROFILE.sha256.startswith("301dd6c8c293")
-    assert X09_ORIGIN_PROFILE.filename == "FloatBar.otp"
-    assert X09_ORIGIN_PROFILE.sha256.startswith("7fd8331a4f91")
+    assert X09_ORIGIN_PROFILE.filename == "FloatCol.otp"
+    assert X09_ORIGIN_PROFILE.sha256.startswith("f1ea445735f9")
     assert X13_ORIGIN_PROFILE.sha256.startswith("2c5958a91130")
     operations = {
         profile.profile_id: tuple(capability.operation for capability in profile.capabilities)

@@ -1,4 +1,4 @@
-"""X09 native Floating Bar binder using Origin's official plot command."""
+"""X09 native Floating Column binder using Origin's official plot command."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
     SetAxis,
     SetLegend,
-    SetSeriesStyle,
     SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
@@ -28,7 +27,7 @@ from .profile import X09_ORIGIN_PROFILE, resolve_official_template
 from .readback import axis_scale_matches
 from .trace import origin_trace_step, record_origin_trace
 
-_FLOATING_BAR = 207
+_FLOATING_COLUMN = 207
 _TITLE_NAME = "_ENGINE_TITLE"
 
 
@@ -42,18 +41,10 @@ class _AxisEdits:
 
 
 @dataclass(frozen=True, slots=True)
-class _SegmentEdits:
-    color: str | None = None
-    line_width_pt: float | None = None
-
-
-@dataclass(frozen=True, slots=True)
 class _State:
     title: str | None = None
     x_axis: _AxisEdits = _AxisEdits()
     y_axis: _AxisEdits = _AxisEdits()
-    lower: _SegmentEdits = _SegmentEdits()
-    upper: _SegmentEdits = _SegmentEdits()
     legend_visible: bool | None = None
 
 
@@ -120,7 +111,7 @@ class X09OriginProject:
             self._write(intervals)
         command = (
             f"worksheet -s 1 0 {len(boundaries) + 1} 0; "
-            "worksheet -p 207 FloatBar;"
+            "worksheet -p 207 FloatCol;"
         )
         with origin_trace_step(
             "official_plot_command_execute",
@@ -131,13 +122,18 @@ class X09OriginProject:
         with origin_trace_step("native_structure_readback"):
             graphs = list(self.op.pages("g"))
             if len(graphs) != 1:
-                raise RuntimeError("Origin FLOATBAR must create exactly one graph")
+                raise RuntimeError("Origin FLOATCOL must create exactly one graph")
             self.graph = graphs[0]
             self.graph.name = f"G{token}"
             self.graph.lname = f"X09 {template.stem} / {document.plot_id}"
             self._bind_native_objects()
+            with origin_trace_step(
+                "native_legend_rebuild",
+                details={"visible_interval_count": max(len(boundaries) - 1, 1)},
+            ):
+                self._set_legend(intervals, True)
             native = self._assert_native_structure(intervals)
-        record_origin_trace("native_floating_bar_confirmed", "completed", details=native)
+        record_origin_trace("native_floating_column_confirmed", "completed", details=native)
 
     def open(self, path: Path) -> None:
         with origin_trace_step(
@@ -188,7 +184,7 @@ class X09OriginProject:
         state = self._state(document, actions, intervals)
         with origin_trace_step("reopened_native_structure_verify"):
             native = self._assert_native_structure(intervals)
-        record_origin_trace("reopened_floating_bar_confirmed", "completed", details=native)
+        record_origin_trace("reopened_floating_column_confirmed", "completed", details=native)
         with origin_trace_step(
             "reopened_source_data_verify",
             details={
@@ -212,30 +208,21 @@ class X09OriginProject:
                 semantic_id=f"axis:{token}.x",
                 backend="origin",
                 object_kind="axis",
-                native_ref=f"graph:{self.graph.name}.layer:1.axis:y",
+                native_ref=f"graph:{self.graph.name}.layer:1.axis:x",
             ),
             EngineObjectRef(
                 semantic_id=f"axis:{token}.y",
                 backend="origin",
                 object_kind="axis",
-                native_ref=f"graph:{self.graph.name}.layer:1.axis:x",
+                native_ref=f"graph:{self.graph.name}.layer:1.axis:y",
             ),
             EngineObjectRef(
-                semantic_id=f"series:{token}.lower",
+                semantic_id=f"series:{token}.primary",
                 backend="origin",
-                object_kind="native_floating_bar_segment",
-                native_ref=f"graph:{self.graph.name}.layer:1.plot:2",
+                object_kind="native_floating_column_group",
+                native_ref=f"graph:{self.graph.name}.layer:1.group:1",
             ),
         ]
-        if intervals.middle_values is not None:
-            objects.append(
-                EngineObjectRef(
-                    semantic_id=f"series:{token}.upper",
-                    backend="origin",
-                    object_kind="native_floating_bar_segment",
-                    native_ref=f"graph:{self.graph.name}.layer:1.plot:3",
-                )
-            )
         objects.append(
             EngineObjectRef(
                 semantic_id=f"legend:{token}.main",
@@ -253,7 +240,7 @@ class X09OriginProject:
                 cast(
                     JsonValue,
                     {
-                        "native_plot_id": _FLOATING_BAR,
+                        "native_plot_id": _FLOATING_COLUMN,
                         "state": asdict(state),
                         "template": X09_ORIGIN_PROFILE.filename,
                     },
@@ -264,7 +251,7 @@ class X09OriginProject:
     def _bind_native_objects(self) -> None:
         layers = tuple(self.graph)
         if len(layers) != 1:
-            raise RuntimeError("Origin FLOATBAR must remain a single-layer graph")
+            raise RuntimeError("Origin FLOATCOL must remain a single-layer graph")
         self.layer = layers[0]
 
     def _write(self, intervals: FloatingIntervalData) -> None:
@@ -302,23 +289,6 @@ class X09OriginProject:
                 raise ValueError("X09 axis target does not belong to this plot")
             self._validate_axis(axis_name, action)
             self._apply_axis(axis_name, action)
-            return
-        if isinstance(action, SetSeriesStyle):
-            segment = {
-                f"series:{token}.lower": 0,
-                f"series:{token}.upper": 1,
-            }.get(action.target)
-            if segment is None or (segment == 1 and intervals.middle_values is None):
-                raise ValueError("X09 series target is outside the bound interval data")
-            if any(
-                value is not None
-                for value in (action.line_style, action.symbol, action.symbol_size_pt)
-            ):
-                raise ValueError("X09 exposes interval fill color and edge width only")
-            self._apply_segment(
-                segment,
-                _SegmentEdits(color=action.color, line_width_pt=action.line_width_pt),
-            )
             return
         if isinstance(action, SetLegend):
             if action.target != f"legend:{token}.main" or action.anchor is not None:
@@ -370,33 +340,6 @@ class X09OriginProject:
                         )
                     },
                 )
-            elif isinstance(action, SetSeriesStyle):
-                segment_attribute = {
-                    f"series:{token}.lower": "lower",
-                    f"series:{token}.upper": "upper",
-                }.get(action.target)
-                if segment_attribute is None or (
-                    segment_attribute == "upper" and intervals.middle_values is None
-                ):
-                    raise ValueError("X09 series target is outside the bound interval data")
-                if any(
-                    value is not None
-                    for value in (action.line_style, action.symbol, action.symbol_size_pt)
-                ):
-                    raise ValueError("X09 exposes interval fill color and edge width only")
-                current = getattr(state, segment_attribute)
-                state = replace(
-                    state,
-                    **{
-                        segment_attribute: replace(
-                            current,
-                            color=current.color if action.color is None else action.color,
-                            line_width_pt=current.line_width_pt
-                            if action.line_width_pt is None
-                            else action.line_width_pt,
-                        )
-                    },
-                )
             elif isinstance(action, SetLegend):
                 if action.target != f"legend:{token}.main" or action.anchor is not None:
                     raise ValueError("X09 exposes only legend visibility")
@@ -412,10 +355,10 @@ class X09OriginProject:
 
     @staticmethod
     def _validate_axis(axis_name: str, action: SetAxis) -> None:
-        if axis_name == "x" and action.scale not in {None, "linear", "log10"}:
-            raise ValueError("X09 horizontal value axis supports linear or log10")
-        if axis_name == "y" and action.scale not in {None, "categorical"}:
-            raise ValueError("X09 vertical category axis supports only categorical scale")
+        if axis_name == "x" and action.scale not in {None, "categorical"}:
+            raise ValueError("X09 horizontal category axis supports only categorical scale")
+        if axis_name == "y" and action.scale not in {None, "linear", "log10"}:
+            raise ValueError("X09 vertical value axis supports linear or log10")
 
     def _set_title(self, text: str) -> None:
         title = self.layer.label(_TITLE_NAME)
@@ -439,13 +382,9 @@ class X09OriginProject:
             title.set_int("show", int(bool(text)))
 
     def _apply_axis(self, axis_name: str, action: SetAxis) -> None:
-        # FLOATBAR exchanges its axes: Origin's internal Y axis is the visible
-        # horizontal value axis, while its internal X axis is the visible
-        # vertical category axis.
-        origin_axis_name = "y" if axis_name == "x" else "x"
-        label_name = "yl" if axis_name == "x" else "xb"
-        axis = self.layer.axis(origin_axis_name)
-        if action.scale is not None and axis_name == "x":
+        label_name = "xb" if axis_name == "x" else "yl"
+        axis = self.layer.axis(axis_name)
+        if action.scale is not None and axis_name == "y":
             axis.scale = action.scale
         if action.minimum is not None and action.maximum is not None:
             begin, end = float(action.minimum), float(action.maximum)
@@ -463,32 +402,6 @@ class X09OriginProject:
             label.text = action.label
             label.set_int("fstyle", 0)
             label.set_int("show", int(bool(action.label)))
-
-    def _plot_prefix(self, plot_index: int) -> str:
-        return (
-            f"window -a {self.graph.name}; {self.graph.name}!page.active=1; "
-            f"range __X09P=[{self.graph.name}]Layer1!{plot_index}; "
-        )
-
-    def _apply_segment(self, segment: int, edits: _SegmentEdits) -> None:
-        # Plot 1 is the raw starting boundary. Each later native plot owns the
-        # visible bar between itself and the previous boundary.
-        plot_index = segment + 2
-        # FLOATBAR is created as a dependent group. Origin's documented -gm
-        # switch is required before member-specific Pattern/Border edits can
-        # control the rendered bars instead of being overridden by the group
-        # increment list.
-        self.op.lt_exec(self._plot_prefix(1) + "set __X09P -gm 1;")
-        if edits.color is not None:
-            self.op.lt_exec(
-                self._plot_prefix(plot_index)
-                + f'set __X09P -pfb color("{edits.color}");'
-            )
-        if edits.line_width_pt is not None:
-            self.op.lt_exec(
-                self._plot_prefix(plot_index)
-                + f"set __X09P -pbw {edits.line_width_pt};"
-            )
 
     def _set_legend(self, intervals: FloatingIntervalData, visible: bool) -> None:
         legend = self.layer.label("legend")
@@ -536,10 +449,10 @@ class X09OriginProject:
         plot_count = float(self.op.lt_float("__X09COUNT"))
         exchange_xy = float(self.op.lt_float("__X09EXCHANGE"))
         if not isclose(plot_count, float(expected_plot_count)) or not isclose(
-            exchange_xy, 1.0
+            exchange_xy, 0.0
         ):
             raise RuntimeError(
-                "Origin X09 FLOATBAR structure changed: "
+                "Origin X09 FLOATCOL structure changed: "
                 f"plots={plot_count}, exchange_xy={exchange_xy}"
             )
         x_ranges: list[str] = []
@@ -549,9 +462,9 @@ class X09OriginProject:
             plot_id = float(self.op.lt_float(f"__X09PT{plot_index}"))
             x_range = str(self.op.get_lt_str(f"__X09XS{plot_index}"))
             y_range = str(self.op.get_lt_str(f"__X09YS{plot_index}"))
-            if isnan(plot_id) or int(plot_id) != _FLOATING_BAR:
+            if isnan(plot_id) or int(plot_id) != _FLOATING_COLUMN:
                 raise RuntimeError(
-                    f"Origin X09 plot {plot_index} is not native type {_FLOATING_BAR}"
+                    f"Origin X09 plot {plot_index} is not native type {_FLOATING_COLUMN}"
                 )
             source_prefix = f"[{self.book.name}]"
             if not x_range.startswith(source_prefix) or '!A"' not in x_range:
@@ -576,13 +489,36 @@ class X09OriginProject:
                 "Origin X09 worksheet designation changed: "
                 f"expected={expected_designations}, actual={actual_designations}"
             )
+        expected_legend_labels = (
+            (intervals.end_field_name,)
+            if intervals.middle_values is None
+            else (cast(str, intervals.middle_field_name), intervals.end_field_name)
+        )
+        legend = self.layer.label("legend")
+        legend_text = "" if legend is None else str(legend.text)
+        if (
+            legend is None
+            or not bool(legend.get_int("show"))
+            or legend_text.count(r"\l(") != len(expected_legend_labels)
+            or any(
+                _safe_legend_label(label) not in legend_text
+                for label in expected_legend_labels
+            )
+        ):
+            raise RuntimeError(
+                "Origin X09 linked legend does not match the visible intervals: "
+                f"expected={expected_legend_labels!r}, actual={legend_text!r}"
+            )
         return {
             "native_plot_ids": plot_ids,
-            "exchange_xy": True,
+            "exchange_xy": False,
+            "orientation": "vertical_floating_column",
             "x_ranges": x_ranges,
             "y_ranges": y_ranges,
             "boundary_order": [name for name, _values in boundaries],
             "worksheet_designations": actual_designations,
+            "linked_legend_entry_count": len(expected_legend_labels),
+            "linked_legend_labels": list(expected_legend_labels),
         }
 
     def _assert_source_data(self, intervals: FloatingIntervalData) -> None:
@@ -604,14 +540,14 @@ class X09OriginProject:
                 or bool(title.get_int("show")) != bool(state.title)
             ):
                 raise RuntimeError("Origin X09 title changed after reopen")
-        for axis_name, origin_axis_name, label_name, edits in (
-            ("x", "y", "yl", state.x_axis),
-            ("y", "x", "xb", state.y_axis),
+        for axis_name, label_name, edits in (
+            ("x", "xb", state.x_axis),
+            ("y", "yl", state.y_axis),
         ):
             if edits == _AxisEdits():
                 continue
-            axis = self.layer.axis(origin_axis_name)
-            if edits.scale is not None and axis_name == "x" and not axis_scale_matches(
+            axis = self.layer.axis(axis_name)
+            if edits.scale is not None and axis_name == "y" and not axis_scale_matches(
                 axis.scale, edits.scale
             ):
                 raise RuntimeError(f"Origin X09 {axis_name} scale changed after reopen")
@@ -639,35 +575,6 @@ class X09OriginProject:
                     raise RuntimeError(
                         f"Origin X09 {axis_name} direction changed after reopen"
                     )
-        for segment, segment_edits in enumerate((state.lower, state.upper)):
-            if segment == 1 and intervals.middle_values is None:
-                continue
-            if segment_edits == _SegmentEdits():
-                continue
-            plot_index = segment + 2
-            commands = [
-                self._plot_prefix(plot_index),
-                "get __X09P -pfb __X09FILL",
-                "get __X09P -pbw __X09WIDTH",
-            ]
-            self.op.lt_exec("; ".join(commands) + ";")
-            self.op.lt_exec(self._plot_prefix(1) + "get __X09P -gm __X09GROUPMODE;")
-            if not isclose(float(self.op.lt_float("__X09GROUPMODE")), 1.0):
-                raise RuntimeError(
-                    "Origin X09 member style requires independent group edit mode"
-                )
-            if segment_edits.color is not None:
-                expected_color = int(
-                    self.op.lt_float(f'color("{segment_edits.color}")')
-                )
-                if int(self.op.lt_float("__X09FILL")) != expected_color:
-                    raise RuntimeError("Origin X09 segment fill changed after reopen")
-            if segment_edits.line_width_pt is not None and not isclose(
-                float(self.op.lt_float("__X09WIDTH")),
-                segment_edits.line_width_pt,
-                abs_tol=1e-8,
-            ):
-                raise RuntimeError("Origin X09 segment edge width changed after reopen")
         if state.legend_visible is not None:
             legend = self.layer.label("legend")
             if legend is None or bool(legend.get_int("show")) != state.legend_visible:

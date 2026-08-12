@@ -64,7 +64,7 @@ const copy: Readonly<Record<string, CatalogCopy>> = {
   X02: { name: '垂线图', category: '趋势与关系', family: '垂线', purpose: '从数据点向坐标框底部绘制垂线' },
   X03: { name: '棒棒糖图', category: '比较', family: '棒棒糖', purpose: '逐类别连接两个或更多数值系列' },
   X05: { name: '蜂群图', category: '分布', family: '蜂群', purpose: '无重叠展示分组原始观测' },
-  X09: { name: '浮动条形图', category: '比较', family: '浮动区间', purpose: '展示每个类别的有序边界区间' },
+  X09: { name: '浮动柱状图', category: '比较', family: '浮动区间', purpose: '展示每个类别的有序边界区间' },
   X13: { name: '人口金字塔', category: '比较', family: '金字塔', purpose: '围绕共同零点比较两侧类别值' },
   X23: { name: '双 Y 轴折线图', category: '多轴', family: '双轴折线', purpose: '在明确轴归属下比较两组量纲' },
   X24: { name: '帕累托图', category: '比较', family: '帕累托', purpose: '显示降序频数与累计百分比' },

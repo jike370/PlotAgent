@@ -50,7 +50,7 @@
 | X02 | 垂线图 | `DROPLINE.OTP` | 模板 | 专属属性人工门禁 |
 | X03 | 棒棒糖图 | `Lollipop.otpu` | 模板 | 专属属性人工门禁 |
 | X05 | 蜂群图 | `Beeswarm.otpu` | 模板 | 专属属性人工门禁 |
-| X09 | 浮动条形图 | `FloatBar.otp` | 模板 | PID 207、相邻原始边界绑定、XY 交换、两/三边界与 Agent 编辑均经 fresh-reopen 机械读回 |
+| X09 | 浮动柱状图 | `FloatCol.otp` | 模板 | 原始有序边界一次创建；PID 207、纵向方向、两/三边界、下降/交叉边界与 Agent 公共编辑均经独立 fresh-reopen 机械读回 |
 | X13 | 人口金字塔 | `PopulationPyramid.otpu` | 模板 | 专属属性人工门禁 |
 | X23 | 双Y轴Y-Y图 | `DOUBLEY.OTP` | 模板 | 原生结构已证 |
 | X24 | 帕累托图（分箱数据） | `ParetoBin.otpu` + `plot_paretobin` | X-Function | 专属属性人工门禁 |

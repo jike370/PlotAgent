@@ -1,4 +1,4 @@
-"""Independent X09 Floating Bar renderer."""
+"""Independent X09 Floating Column renderer."""
 
 from __future__ import annotations
 
@@ -23,7 +23,6 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
     SetAxis,
     SetLegend,
-    SetSeriesStyle,
     SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
@@ -43,22 +42,16 @@ class _AxisState:
 
 
 @dataclass(frozen=True, slots=True)
-class _SegmentStyle:
-    color: str
-    edge_width_pt: float = 0.8
-
-
-@dataclass(frozen=True, slots=True)
 class _FloatingState:
     title: str
     x_axis: _AxisState
     y_axis: _AxisState
-    lower: _SegmentStyle = _SegmentStyle("#1676D2")
-    upper: _SegmentStyle = _SegmentStyle("#D97800")
     legend_visible: bool = True
 
 
 class X09FloatingIntervalRenderer:
+    """Mirror Origin FLOATCOL semantics without sorting its boundary columns."""
+
     profile_id = "X09"
 
     def render(
@@ -86,40 +79,38 @@ class X09FloatingIntervalRenderer:
         with matplotlib.rc_context({"font.family": font_family}):
             figure, axis = plt.subplots(figsize=(6.4, 4.8), layout="constrained")
             if intervals.middle_values is None:
-                axis.barh(
+                axis.bar(
                     positions,
                     np.subtract(intervals.end_values, intervals.start_values),
-                    left=intervals.start_values,
-                    height=0.72,
-                    color=state.lower.color,
+                    bottom=intervals.start_values,
+                    width=0.72,
+                    color="#1676D2",
                     edgecolor="#1A1A1A",
-                    linewidth=state.lower.edge_width_pt,
+                    linewidth=0.8,
                     label=intervals.end_field_name,
                 )
-                segment_count = 1
             else:
-                axis.barh(
+                axis.bar(
                     positions,
                     np.subtract(intervals.middle_values, intervals.start_values),
-                    left=intervals.start_values,
-                    height=0.72,
-                    color=state.lower.color,
+                    bottom=intervals.start_values,
+                    width=0.72,
+                    color="#1676D2",
                     edgecolor="#1A1A1A",
-                    linewidth=state.lower.edge_width_pt,
+                    linewidth=0.8,
                     label=intervals.middle_field_name,
                 )
-                axis.barh(
+                axis.bar(
                     positions,
                     np.subtract(intervals.end_values, intervals.middle_values),
-                    left=intervals.middle_values,
-                    height=0.72,
-                    color=state.upper.color,
+                    bottom=intervals.middle_values,
+                    width=0.72,
+                    color="#D97800",
                     edgecolor="#1A1A1A",
-                    linewidth=state.upper.edge_width_pt,
+                    linewidth=0.8,
                     label=intervals.end_field_name,
                 )
-                segment_count = 2
-            axis.set_yticks(positions, intervals.categories)
+            axis.set_xticks(positions, intervals.categories)
             axis.set_title(state.title)
             axis.set_xlabel(state.x_axis.label)
             axis.set_ylabel(state.y_axis.label)
@@ -133,65 +124,53 @@ class X09FloatingIntervalRenderer:
             plt.close(figure)
 
         token = document.plot_id.removeprefix("plot:")
-        objects = [
-            EngineObjectRef(
-                semantic_id=document.plot_id,
-                backend="matplotlib",
-                object_kind="figure",
-                native_ref="figure:0",
-            ),
-            EngineObjectRef(
-                semantic_id=f"axis:{token}.x",
-                backend="matplotlib",
-                object_kind="axis",
-                native_ref="axes:0.xaxis",
-            ),
-            EngineObjectRef(
-                semantic_id=f"axis:{token}.y",
-                backend="matplotlib",
-                object_kind="axis",
-                native_ref="axes:0.yaxis",
-            ),
-            EngineObjectRef(
-                semantic_id=f"series:{token}.lower",
-                backend="matplotlib",
-                object_kind="floating_bar_segment",
-                native_ref="axes:0.bar_container:0",
-            ),
-        ]
-        if segment_count == 2:
-            objects.append(
-                EngineObjectRef(
-                    semantic_id=f"series:{token}.upper",
-                    backend="matplotlib",
-                    object_kind="floating_bar_segment",
-                    native_ref="axes:0.bar_container:1",
-                )
-            )
-        objects.append(
-            EngineObjectRef(
-                semantic_id=f"legend:{token}.main",
-                backend="matplotlib",
-                object_kind="legend",
-                native_ref="axes:0.legend",
-            )
-        )
         return EngineReadback(
             document=document_ref(document),
             backend="matplotlib",
-            objects=tuple(objects),
+            objects=(
+                EngineObjectRef(
+                    semantic_id=document.plot_id,
+                    backend="matplotlib",
+                    object_kind="figure",
+                    native_ref="figure:0",
+                ),
+                EngineObjectRef(
+                    semantic_id=f"axis:{token}.x",
+                    backend="matplotlib",
+                    object_kind="axis",
+                    native_ref="axes:0.xaxis",
+                ),
+                EngineObjectRef(
+                    semantic_id=f"axis:{token}.y",
+                    backend="matplotlib",
+                    object_kind="axis",
+                    native_ref="axes:0.yaxis",
+                ),
+                EngineObjectRef(
+                    semantic_id=f"series:{token}.primary",
+                    backend="matplotlib",
+                    object_kind="floating_column_group",
+                    native_ref="axes:0.bar_containers",
+                ),
+                EngineObjectRef(
+                    semantic_id=f"legend:{token}.main",
+                    backend="matplotlib",
+                    object_kind="legend",
+                    native_ref="axes:0.legend",
+                ),
+            ),
             data_hash=canonical_hash(data),
             style_hash=canonical_hash(asdict(state)),
         )
 
     @staticmethod
     def _apply_axis(axis: Axes, name: Literal["x", "y"], state: _AxisState) -> None:
-        if name == "x":
+        if name == "x" and state.scale != "categorical":
+            raise ValueError("X09 horizontal category axis supports only categorical scale")
+        if name == "y":
             if state.scale not in {"linear", "log10"}:
-                raise ValueError("X09 horizontal value axis supports linear or log10")
-            axis.set_xscale("log" if state.scale == "log10" else "linear")
-        if name == "y" and state.scale != "categorical":
-            raise ValueError("X09 vertical category axis supports only categorical scale")
+                raise ValueError("X09 vertical value axis supports linear or log10")
+            axis.set_yscale("log" if state.scale == "log10" else "linear")
         if state.minimum is not None and state.maximum is not None:
             getattr(axis, f"set_{name}lim")((state.minimum, state.maximum))
         if state.reverse:
@@ -206,10 +185,10 @@ class X09FloatingIntervalRenderer:
         token = document.plot_id.removeprefix("plot:")
         state = _FloatingState(
             title="",
-            x_axis=_AxisState(
+            x_axis=_AxisState(intervals.category_field_name, "categorical"),
+            y_axis=_AxisState(
                 f"{intervals.start_field_name}–{intervals.end_field_name}", "linear"
             ),
-            y_axis=_AxisState(intervals.category_field_name, "categorical"),
         )
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
@@ -218,7 +197,8 @@ class X09FloatingIntervalRenderer:
                 if action.target != document.plot_id:
                     raise ValueError("X09 title target does not belong to this plot")
                 state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
+                continue
+            if isinstance(action, SetAxis):
                 attribute = {
                     f"axis:{token}.x": "x_axis",
                     f"axis:{token}.y": "y_axis",
@@ -233,40 +213,22 @@ class X09FloatingIntervalRenderer:
                             current,
                             label=current.label if action.label is None else action.label,
                             scale=current.scale if action.scale is None else action.scale,
-                            minimum=current.minimum if action.minimum is None else action.minimum,
-                            maximum=current.maximum if action.maximum is None else action.maximum,
+                            minimum=(
+                                current.minimum
+                                if action.minimum is None
+                                else action.minimum
+                            ),
+                            maximum=(
+                                current.maximum
+                                if action.maximum is None
+                                else action.maximum
+                            ),
                             reverse=current.reverse if action.reverse is None else action.reverse,
                         )
                     },
                 )
-            elif isinstance(action, SetSeriesStyle):
-                attribute = {
-                    f"series:{token}.lower": "lower",
-                    f"series:{token}.upper": "upper",
-                }.get(action.target)
-                if attribute is None or (attribute == "upper" and intervals.middle_values is None):
-                    raise ValueError("X09 series target is outside the bound interval data")
-                if any(
-                    value is not None
-                    for value in (action.line_style, action.symbol, action.symbol_size_pt)
-                ):
-                    raise ValueError("X09 exposes interval fill color and edge width only")
-                current = getattr(state, attribute)
-                state = replace(
-                    state,
-                    **{
-                        attribute: replace(
-                            current,
-                            color=current.color if action.color is None else action.color,
-                            edge_width_pt=(
-                                current.edge_width_pt
-                                if action.line_width_pt is None
-                                else action.line_width_pt
-                            ),
-                        )
-                    },
-                )
-            elif isinstance(action, SetLegend):
+                continue
+            if isinstance(action, SetLegend):
                 if action.target != f"legend:{token}.main" or action.anchor is not None:
                     raise ValueError("X09 legend target or anchor is not supported")
                 state = replace(
@@ -275,6 +237,6 @@ class X09FloatingIntervalRenderer:
                         state.legend_visible if action.visible is None else action.visible
                     ),
                 )
-            else:
-                raise ValueError(f"X09 renderer cannot apply {action.operation}")
+                continue
+            raise ValueError(f"X09 renderer cannot apply {action.operation}")
         return state

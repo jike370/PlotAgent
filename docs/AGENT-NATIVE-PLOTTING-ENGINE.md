@@ -184,7 +184,7 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | X02 | `x / y` | 独立底轴垂线 renderer | `DROPLINE.OTP` | worksheet + 官方模板原生 drop-line Plot |
 | X03 | `category / series_1 / series_2 / series_N?` | 独立动态多系列棒棒糖 renderer | `Lollipop.otpu` | worksheet + 每个值列一条模板原生 lollipop Plot |
 | X05 | `value / group?` | 独立确定性蜂群 renderer | `ColumnScatter.otp` | 每组一列原始观测 + 模板原生 Column Scatter plot；组数动态扩展 |
-| X09 | `category / start / end / middle?` | 独立浮动条形图 renderer | `FLOATBAR.OTP` | 保留有序边界列并一次执行官方 Floating Bar 流程；PID 207、ExchangeXY、相邻边界、两/三边界、Independent 样式编辑及 fresh-reopen 均已机械读回 |
+| X09 | `category / start / end / middle?` | 独立浮动柱状图 renderer | `FloatCol.otp` | 保留原始有序边界列并一次执行官方 Floating Column 流程；PID 207、纵向方向、两/三边界、下降/交叉边界及独立 fresh-reopen 均已机械读回；官方模板默认填充不开放分段改色 |
 | X13 | `category / left / right` | 独立人口金字塔 renderer | `PopulationPyramid.otpu` | 非负源幅值写入 worksheet + 官方双层模板原生横向柱；左侧符号仅在渲染层表达 |
 | X23 | `x / left / right` | 独立双 Y renderer | `DOUBLEY.OTP` | worksheet + 2 个模板图层，各 1 条原生线 |
 | X24 | `category / value` | 独立帕累托 renderer | `ParetoRaw.otpu` | worksheet 保存排序贡献与唯一累计百分比 + 官方双层模板原生柱/累计线/参考线 |
