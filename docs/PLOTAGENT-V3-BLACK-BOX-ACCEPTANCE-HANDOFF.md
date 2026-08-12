@@ -1,6 +1,6 @@
 # PlotAgent v3 黑盒验收交接文档
 
-> 产品与现行产品文档基线：`e345f30`（分支 `codex/agent-native-engine-rewrite`）；交接修正可位于其后的纯 `docs/**` 提交
+> 产品与现行产品文档基线：`cc35964`（分支 `codex/agent-native-engine-rewrite`）；交接修正可位于其后的纯 `docs/**` 提交
 > 交接日期：2026-08-13
 > 被测范围：Windows桌面产品可见行为、35图创建与编辑、Agent、批量、组合、恢复及PNG/SVG/OPJU导出
 > 约束：本文件不披露或要求验收人员理解任何底层架构、实现原理、源码或内部测试。
@@ -32,12 +32,12 @@
 ```powershell
 git rev-parse --short HEAD
 git status --short
-git diff --exit-code e345f30 -- . ':(exclude)docs/**'
+git diff --exit-code cc35964 -- . ':(exclude)docs/**'
 ```
 
 预期：
 
-- 记录实际HEAD；非 `docs/**` 文件相对 `e345f30` 无差异，只允许其后的纯 `docs/**` 交接修正；
+- 记录实际HEAD；非 `docs/**` 文件相对 `cc35964` 无差异，只允许其后的纯 `docs/**` 交接修正；
 - `git status --short` 无输出；
 - 上述 `git diff` 退出码为0；
 - 若任一项不符，停止验收并记 `ENV-01 = BLOCKED`，不得自行切换提交、还原文件或继续以其他代码状态测试。
@@ -118,7 +118,7 @@ pnpm dev
 
 | 案件 | 操作 | 必须观察到的结果 |
 |---|---|---|
-| ENV-01 | 记录实际HEAD、状态、相对产品代码基线的差异检查和 `pnpm dev` 终端，打开桌面窗口 | 工作树干净；非 `docs/**` 文件相对 `e345f30` 无差异；正式Electron窗口可见；无旧进程或浏览器预览混入 |
+| ENV-01 | 记录实际HEAD、状态、相对产品代码基线的差异检查和 `pnpm dev` 终端，打开桌面窗口 | 工作树干净；非 `docs/**` 文件相对 `cc35964` 无差异；正式Electron窗口可见；无旧进程或浏览器预览混入 |
 | ENV-02 | 查看左侧服务状态 | 本地服务、模型服务和Origin状态分别显示，不能互相冒充 |
 | PRJ-01 | 新建唯一项目 | 项目真实创建并激活，不是只清空界面 |
 | IMP-01 | 导入主工作簿 | 各表以可读的“文件名 > 工作表名”显示，不出现内部哈希名 |
@@ -348,7 +348,7 @@ case_id,domain,status,input_file,input_sheet,project_id,object_id,version,expect
 ## 15. 可直接发送给黑盒任务的交接摘要
 
 ```text
-请以 D:\plotv3 当前干净HEAD执行一次全新PlotAgent v3 Windows桌面黑盒验收；非docs文件必须与基线e345f30一致，允许差异仅限其后的纯docs交接修正。
+请以 D:\plotv3 当前干净HEAD执行一次全新PlotAgent v3 Windows桌面黑盒验收；非docs文件必须与基线cc35964一致，允许差异仅限其后的纯docs交接修正。
 唯一入口为 pnpm dev；禁止使用dev:web、浏览器预览、静态审计页、源码或单测作为PASS证据。
 新建唯一项目和独立输出目录，不复用旧进程、旧项目或旧报告。
 严格按 docs/PLOTAGENT-V3-BLACK-BOX-ACCEPTANCE-HANDOFF.md 执行，覆盖35图、共同编辑、Agent、UX-01至UX-09任务型对话、K25、批量恢复、重启以及PNG/SVG/OPJU。
