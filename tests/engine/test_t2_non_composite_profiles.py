@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 import plotagent.engine.backends.origin.k24 as k24_origin
+import plotagent.engine.backends.origin.s34 as s34_origin
 import plotagent.engine.backends.origin.s61 as s61_origin
 import plotagent.engine.backends.origin.scientific_t2 as scientific_origin
 import plotagent.engine.backends.origin.structural_t2 as structural_origin
@@ -37,8 +39,9 @@ from plotagent.engine.backends.origin import (
     S61_ORIGIN_PROFILE,
 )
 from plotagent.engine.backends.origin.k24 import K24OriginProject
+from plotagent.engine.backends.origin.s34 import S34OriginProject
 from plotagent.engine.backends.origin.s61 import S61OriginProject
-from plotagent.engine.backends.origin.scientific_t2 import S21OriginProject, S34OriginProject
+from plotagent.engine.backends.origin.scientific_t2 import S21OriginProject
 from plotagent.engine.backends.origin.structural_t2 import S01OriginProject
 from plotagent.engine.backends.origin.trace import OriginExecutionTrace
 from plotagent.engine.profile_data import (
@@ -313,6 +316,9 @@ class _Plot:
     def set_float(self, name: str, value: float) -> None:
         self.floats[name] = value
 
+    def get_float(self, name: str) -> float:
+        return self.floats.get(name, 0.0)
+
     def set_fill_area(self, **kwargs) -> None:
         self.fill = kwargs
 
@@ -326,6 +332,15 @@ class _Layer:
         self.ints: dict[str, int] = {}
         self.strings: dict[str, str] = {}
         self.layout = ""
+        self.floats = {"width": 60.0, "height": 60.0}
+
+    @property
+    def xlim(self):
+        return self.axes["x"].limits
+
+    @property
+    def ylim(self):
+        return self.axes["y"].limits
 
     def add_plot(self, sheet, *, coly, colx, type):
         plot = _Plot(type)
@@ -356,6 +371,12 @@ class _Layer:
     def set_int(self, name: str, value: int) -> None:
         self.ints[name] = value
 
+    def set_float(self, name: str, value: float) -> None:
+        self.floats[name] = value
+
+    def get_float(self, name: str) -> float:
+        return self.floats[name]
+
     def set_str(self, name: str, value: str) -> None:
         self.strings[name] = value
 
@@ -378,6 +399,7 @@ class _Graph:
         self.name = "GT2"
         self.lname = ""
         self.layers = [_Layer() for _index in range(layers)]
+        self.floats = {"width": 1000.0, "height": 1000.0}
 
     def __iter__(self):
         return iter(self.layers)
@@ -390,6 +412,9 @@ class _Graph:
 
     def activate(self) -> None:
         return None
+
+    def get_float(self, name: str) -> float:
+        return self.floats[name]
 
 
 class _Sheet:
@@ -466,8 +491,17 @@ class _Origin:
         self.commands.append(command)
         if command.startswith("plot_group "):
             self.graph = _Graph(1)
+        if "worksheet -p 202 LINESYMB" in command:
+            match = re.search(r"worksheet -s 1 0 (\d+) 0", command)
+            assert match is not None
+            self.graph = _Graph(1)
+            self.graph.layers[0].plots = [
+                _Plot(202) for _index in range(int(match.group(1)) // 2)
+            ]
 
     def lt_float(self, expression: str) -> float:
+        if expression.startswith("__S34PID"):
+            return 202.0
         if expression in {"layer.plot1.pid", "__K24PID"}:
             return self.native_plot_id
         if expression == "__K24COUNT":
@@ -475,6 +509,14 @@ class _Origin:
         return float("nan")
 
     def get_lt_str(self, expression: str) -> str:
+        if expression.startswith("__S34XS"):
+            ordinal = int(expression.removeprefix("__S34XS"))
+            letter = chr(65 + (ordinal - 1) * 2)
+            return f"[DS34]Sheet1!{letter}"
+        if expression.startswith("__S34YS"):
+            ordinal = int(expression.removeprefix("__S34YS"))
+            letter = chr(66 + (ordinal - 1) * 2)
+            return f"[DS34]Sheet1!{letter}"
         if expression == "__K24XS":
             return '[DK24]Sheet1!A"Time"'
         if expression == "__K24YS":
@@ -588,6 +630,9 @@ def test_origin_s21_and_s34_use_native_dynamic_plots(monkeypatch) -> None:
     monkeypatch.setattr(
         scientific_origin, "resolve_official_template", lambda *_: Path("template.otp")
     )
+    monkeypatch.setattr(
+        s34_origin, "resolve_official_template", lambda *_: Path("LINESYMB.otpu")
+    )
     document, actions, view = _s21_case(5)
     forest = S21OriginProject(_Origin())
     forest.create(Path("."), document, view)
@@ -598,8 +643,33 @@ def test_origin_s21_and_s34_use_native_dynamic_plots(monkeypatch) -> None:
     nyquist = S34OriginProject(_Origin())
     nyquist.create(Path("."), document, view)
     nyquist.reconcile(document, actions, view)
+    assert S34OriginProject.__module__.endswith(".s34")
+    assert S34NyquistRenderer.__module__.endswith(".nyquist")
     assert len(nyquist.plots) == 4
     assert all(plot.plot_type == 202 for plot in nyquist.plots)
+    assert any(
+        command == "worksheet -s 1 0 8 0; worksheet -p 202 LINESYMB;"
+        for command in nyquist.op.commands
+    )
+    assert nyquist.last_native_structure is not None
+    assert nyquist.last_native_structure["official_template"] == "LINESYMB.otpu"
+    assert nyquist.last_native_structure["official_plot_type"] == 202
+    assert nyquist.last_native_structure["ordinary_primitive_fallback_used"] is False
+    assert nyquist.last_native_structure["source_designations"] == [
+        4,
+        1,
+        4,
+        1,
+        4,
+        1,
+        4,
+        1,
+        2,
+        2,
+        2,
+        2,
+    ]
+    assert nyquist.last_native_structure["frequency_columns_plotted"] is False
 
 
 def test_origin_s61_writes_one_native_labeled_matrix(monkeypatch) -> None:
@@ -642,7 +712,8 @@ def test_t2_profiles_pin_templates_and_do_not_import_old_compiler() -> None:
         )
     } == {"K24", "S01", "S21", "S34", "S61"}
     source = "\n".join(
-        inspect.getsource(module) for module in (structural_origin, scientific_origin, s61_origin)
+        inspect.getsource(module)
+        for module in (structural_origin, scientific_origin, s34_origin, s61_origin)
     )
     assert "plotagent.rendering" not in source
     assert "PlotSpec" not in source

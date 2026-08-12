@@ -1,4 +1,4 @@
-"""Official-template Origin binders for S21, S34 and S61."""
+"""Official-template Origin binder for S21 forest plots."""
 
 from __future__ import annotations
 
@@ -17,20 +17,15 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
     SetAxis,
     SetChartParameter,
-    SetLegend,
     SetSeriesStyle,
     SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import ForestData, NyquistData, s21_forest, s34_nyquist
+from plotagent.engine.profile_data import ForestData, s21_forest
 from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
-from .profile import (
-    S21_ORIGIN_PROFILE,
-    S34_ORIGIN_PROFILE,
-    resolve_official_template,
-)
+from .profile import S21_ORIGIN_PROFILE, resolve_official_template
 
 _TITLE = "_ENGINE_TITLE"
 
@@ -361,214 +356,6 @@ class S21OriginProject:
         return axes, interval, point, null_effect
 
 
-class S34OriginProject:
-    def __init__(self, op: Any) -> None:
-        self.op = op
-        self.graph: Any = None
-        self.layer: Any = None
-        self.sheet: Any = None
-        self.plots: tuple[Any, ...] = ()
-
-    def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
-        template = resolve_official_template(install_dir, S34_ORIGIN_PROFILE)
-        self.op.new(asksave=False)
-        token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("w", f"D{token}", hidden=True)
-        if book is None:
-            raise RuntimeError("Origin could not create S34 workbook")
-        self.sheet = book[0]
-        nyquist = s34_nyquist(document, data)
-        self._write(nyquist)
-        self.graph = self.op.new_graph(
-            f"G{token}", template=str(template.with_suffix(template.suffix.lower())), hidden=True
-        )
-        if self.graph is None:
-            raise RuntimeError("Origin could not create S34 from LINESYMB.otpu")
-        self.layer = self.graph[0]
-        for plot in self.layer.plot_list():
-            plot.set_int("show", 0)
-        plots = []
-        for index in range(len(nyquist.series)):
-            plot = self.layer.add_plot(self.sheet, coly=index * 3 + 1, colx=index * 3, type=202)
-            if plot is None:
-                raise RuntimeError("Origin S34 template rejected a line-symbol plot")
-            plots.append(plot)
-        self.plots = tuple(plots)
-
-    def open(self, output: Path) -> None:
-        self.op.new(asksave=False)
-        if not self.op.open(str(output), readonly=False, asksave=False):
-            raise RuntimeError("Origin could not reopen S34")
-        graphs, books = list(self.op.pages("g")), list(self.op.pages("w"))
-        self.graph, self.sheet = graphs[0], books[0][0]
-        self.layer = self.graph[0]
-        self.plots = tuple(plot for plot in self.layer.plot_list() if plot.get_int("show") != 0)
-
-    def reconcile(
-        self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: EngineDataView
-    ) -> None:
-        nyquist = s34_nyquist(document, data)
-        self._write(nyquist)
-        axes, styles, legend_visible, equal_axes = self._state(document, actions, nyquist)
-        for index, (plot, style) in enumerate(zip(self.plots, styles, strict=True)):
-            plot.color = (
-                style.color or ("#2A6FDB", "#D94B4B", "#2A9D6F", "#8A5CC2", "#D88700")[index % 5]
-            )
-            plot.set_float("line.width", style.line_width_pt)
-            plot.set_int("line.style", _line_style(style.line_style))
-            plot.symbol_kind = _symbol(style.symbol)
-            plot.symbol_size = style.symbol_size_pt
-            plot.set_int("show", 1)
-        self.layer.rescale()
-        if equal_axes and axes.x_minimum is None and axes.y_minimum is None:
-            upper = (
-                max(
-                    max(value for series in nyquist.series for value in series.z_real),
-                    max(value for series in nyquist.series for value in series.z_imaginary),
-                )
-                * 1.08
-            )
-            self.layer.axis("x").set_limits(0.0, upper)
-            self.layer.axis("y").set_limits(0.0, upper)
-        _set_title(self.layer, axes.title)
-        _set_axis(self.layer, "x", axes)
-        _set_axis(self.layer, "y", axes)
-        legend = self.layer.label("legend")
-        if legend is None:
-            self.layer.activate()
-            self.layer.obj.LT_execute("legend")
-            legend = self.layer.label("legend")
-        if legend is None:
-            raise RuntimeError("S34 template has no writable legend")
-        legend.text = "\n".join(
-            f"\\l({index + 1}) {series.label}" for index, series in enumerate(nyquist.series)
-        )
-        legend.set_int("show", int(legend_visible))
-        legend.set_int("link", 0)
-
-    def save(self, output: Path) -> None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        self.op.save(str(output))
-
-    def verify(
-        self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: EngineDataView
-    ) -> EngineReadback:
-        nyquist = s34_nyquist(document, data)
-        axes, styles, legend_visible, equal_axes = self._state(document, actions, nyquist)
-        if len(self.plots) != len(nyquist.series):
-            raise RuntimeError("Origin S34 series count differs after reopen")
-        token = document.plot_id.removeprefix("plot:")
-        objects = list(_origin_base_objects(document, self.graph.name))
-        objects.append(
-            EngineObjectRef(
-                semantic_id=f"legend:{token}.main",
-                backend="origin",
-                object_kind="legend",
-                native_ref=f"graph:{self.graph.name}.layer:1.label:legend",
-            )
-        )
-        objects.extend(
-            EngineObjectRef(
-                semantic_id=f"series:{token}.group_{index + 1}",
-                backend="origin",
-                object_kind="nyquist_series",
-                native_ref=f"graph:{self.graph.name}.layer:1.plot:{index + 1}",
-            )
-            for index in range(len(self.plots))
-        )
-        return EngineReadback(
-            document=document_ref(document),
-            backend="origin",
-            objects=tuple(objects),
-            data_hash=canonical_hash(data),
-            style_hash=canonical_hash(
-                cast(
-                    JsonValue,
-                    {
-                        "axes": asdict(axes),
-                        "styles": [asdict(style) for style in styles],
-                        "legend": legend_visible,
-                        "equal_axes": equal_axes,
-                    },
-                )
-            ),
-        )
-
-    def _write(self, nyquist: NyquistData) -> None:
-        for index, series in enumerate(nyquist.series):
-            self.sheet.from_list(
-                index * 3, list(series.z_real), lname=nyquist.z_real_field_name, axis="X"
-            )
-            self.sheet.from_list(
-                index * 3 + 1, list(series.z_imaginary), lname=series.label, axis="Y"
-            )
-            self.sheet.from_list(
-                index * 3 + 2, list(series.frequency or ()), lname="Frequency", axis="N"
-            )
-
-    @staticmethod
-    def _state(
-        document: PlotDocument, actions: tuple[PlotEngineAction, ...], nyquist: NyquistData
-    ) -> tuple[_AxesState, tuple[_Style, ...], bool, bool]:
-        token = document.plot_id.removeprefix("plot:")
-        axes = _AxesState(x_label=nyquist.z_real_field_name, y_label=nyquist.z_imaginary_field_name)
-        styles = tuple(_Style() for _series in nyquist.series)
-        legend_visible, equal_axes = len(nyquist.series) > 1, True
-        for action in actions:
-            if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                axes = replace(axes, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-                if axis is None or action.scale not in {None, "linear"}:
-                    raise ValueError("S34 axis edit is invalid")
-                axes = _edit_axes(axes, action, token)
-            elif isinstance(action, SetSeriesStyle):
-                prefix = f"series:{token}.group_"
-                if not action.target.startswith(prefix):
-                    raise ValueError("S34 series target does not belong")
-                index = int(action.target.removeprefix(prefix)) - 1
-                mutable = list(styles)
-                mutable[index] = _style(mutable[index], action)
-                styles = tuple(mutable)
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("S34 exposes only legend visibility")
-                legend_visible = legend_visible if action.visible is None else action.visible
-            elif isinstance(action, SetChartParameter):
-                if action.parameter != "equal_axes" or not isinstance(action.value, bool):
-                    raise ValueError("S34 equal_axes must be boolean")
-                equal_axes = action.value
-            else:
-                raise ValueError(f"Origin S34 cannot apply {action.operation}")
-        return axes, styles, legend_visible, equal_axes
-
-
-def _origin_base_objects(document: PlotDocument, graph_name: str) -> tuple[EngineObjectRef, ...]:
-    token = document.plot_id.removeprefix("plot:")
-    return (
-        EngineObjectRef(
-            semantic_id=document.plot_id,
-            backend="origin",
-            object_kind="graph",
-            native_ref=f"graph:{graph_name}",
-        ),
-        EngineObjectRef(
-            semantic_id=f"axis:{token}.x",
-            backend="origin",
-            object_kind="axis",
-            native_ref=f"graph:{graph_name}.layer:1.axis:x",
-        ),
-        EngineObjectRef(
-            semantic_id=f"axis:{token}.y",
-            backend="origin",
-            object_kind="axis",
-            native_ref=f"graph:{graph_name}.layer:1.axis:y",
-        ),
-    )
-
-
 def _execute(
     project: Any, request: OriginWorkerRequest, install_dir: Path, output: Path
 ) -> EngineReadback:
@@ -587,9 +374,3 @@ def execute_s21_request(
     op: Any, request: OriginWorkerRequest, install_dir: Path, output: Path
 ) -> EngineReadback:
     return _execute(S21OriginProject(op), request, install_dir, output)
-
-
-def execute_s34_request(
-    op: Any, request: OriginWorkerRequest, install_dir: Path, output: Path
-) -> EngineReadback:
-    return _execute(S34OriginProject(op), request, install_dir, output)

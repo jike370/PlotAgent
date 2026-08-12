@@ -22,6 +22,7 @@ from .floating_interval import X09FloatingIntervalRenderer
 from .heatmap import K20HeatmapRenderer
 from .line import K01LineRenderer
 from .line_symbol import K02LineSymbolRenderer
+from .nyquist import S34NyquistRenderer
 from .point_error import K06PointErrorRenderer
 from .population_pyramid import X13PopulationPyramidRenderer
 from .scatter import K03ScatterRenderer
@@ -34,7 +35,6 @@ from .special_t1 import (
 from .special_t2 import (
     S01SurvivalRenderer,
     S21ForestRenderer,
-    S34NyquistRenderer,
     S61ConfusionRenderer,
 )
 from .time_series import K19TimeSeriesRenderer

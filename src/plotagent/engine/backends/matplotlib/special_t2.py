@@ -30,11 +30,9 @@ from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import (
     ForestData,
     K20Grid,
-    NyquistData,
     SurvivalData,
     s01_survival,
     s21_forest,
-    s34_nyquist,
     s61_confusion_grid,
 )
 from plotagent.engine.repository import document_ref
@@ -421,112 +419,6 @@ class S21ForestRenderer:
             else:
                 raise ValueError(f"S21 Matplotlib renderer cannot apply {action.operation}")
         return axes, interval, point, null_effect
-
-
-class S34NyquistRenderer:
-    profile_id = "S34"
-
-    def render(
-        self,
-        document: PlotDocument,
-        actions: tuple[PlotEngineAction, ...],
-        data: EngineDataView,
-        png_path: Path,
-        svg_path: Path,
-    ) -> EngineReadback:
-        nyquist = s34_nyquist(document, data)
-        axes, styles, legend_visible, equal_axes = self._state(document, actions, nyquist)
-        figure, axis = plt.subplots(figsize=(6.2, 5.4), constrained_layout=True)
-        token = document.plot_id.removeprefix("plot:")
-        objects = list(_base_objects(document))
-        for index, series in enumerate(nyquist.series):
-            style = styles[index]
-            axis.plot(
-                series.z_real,
-                series.z_imaginary,
-                color=style.color or _COLORS[index % len(_COLORS)],
-                linewidth=style.line_width_pt,
-                linestyle=_line_style(style.line_style),
-                marker=_SYMBOLS.get(style.symbol, style.symbol),
-                markersize=style.symbol_size_pt,
-                label=series.label,
-            )
-            objects.append(
-                EngineObjectRef(
-                    semantic_id=f"series:{token}.group_{index + 1}",
-                    backend="matplotlib",
-                    object_kind="nyquist_series",
-                    native_ref=f"axes:0.line:{index}",
-                )
-            )
-        _apply_axes(axis, axes)
-        if equal_axes:
-            axis.set_aspect("equal", adjustable="box")
-        if legend_visible and len(nyquist.series) > 1:
-            axis.legend()
-        _save(figure, png_path, svg_path)
-        return EngineReadback(
-            document=document_ref(document),
-            backend="matplotlib",
-            objects=tuple(objects),
-            data_hash=canonical_hash(data),
-            style_hash=canonical_hash(
-                cast(
-                    JsonValue,
-                    {
-                        "axes": asdict(axes),
-                        "styles": [asdict(style) for style in styles],
-                        "legend": legend_visible,
-                        "equal_axes": equal_axes,
-                    },
-                )
-            ),
-        )
-
-    @staticmethod
-    def _state(
-        document: PlotDocument, actions: tuple[PlotEngineAction, ...], nyquist: NyquistData
-    ) -> tuple[_AxesState, tuple[_Style, ...], bool, bool]:
-        token = document.plot_id.removeprefix("plot:")
-        axes = _AxesState(
-            x_label=nyquist.z_real_field_name,
-            y_label=nyquist.z_imaginary_field_name,
-        )
-        styles = tuple(_Style() for _series in nyquist.series)
-        legend_visible = len(nyquist.series) > 1
-        equal_axes = True
-        for action in actions:
-            if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                axes = replace(axes, title=action.text)
-            elif isinstance(action, SetAxis):
-                if action.scale not in {None, "linear"}:
-                    raise ValueError("S34 axes require linear scale")
-                axes = _axis_edit(axes, action, token)
-            elif isinstance(action, SetSeriesStyle):
-                prefix = f"series:{token}.group_"
-                if not action.target.startswith(prefix):
-                    raise ValueError("S34 series target does not belong to this plot")
-                index = int(action.target.removeprefix(prefix)) - 1
-                mutable = list(styles)
-                mutable[index] = _style(mutable[index], action)
-                styles = tuple(mutable)
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("S34 exposes only legend visibility")
-                legend_visible = legend_visible if action.visible is None else action.visible
-            elif isinstance(action, SetChartParameter):
-                if (
-                    action.target != document.plot_id
-                    or action.parameter != "equal_axes"
-                    or not isinstance(action.value, bool)
-                ):
-                    raise ValueError("S34 equal_axes must be boolean")
-                equal_axes = action.value
-            else:
-                raise ValueError(f"S34 Matplotlib renderer cannot apply {action.operation}")
-        return axes, styles, legend_visible, equal_axes
 
 
 class S61ConfusionRenderer:
