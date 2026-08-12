@@ -641,13 +641,16 @@ X39_LINE_SERIES_PROFILE = EngineProfile(
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
         EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
+        EngineObjectTemplate(
+            object_alias="connector", object_kind="series", object_key="connector"
+        ),
         EngineObjectTemplate(object_alias="legend", object_kind="legend", object_key="main"),
     ),
     repeatable_objects=(
         EngineRepeatableObjectTemplate(
             object_alias_prefix="series",
             object_kind="series",
-            object_key_prefix="row",
+            object_key_prefix="column",
         ),
     ),
     capabilities=X03_LOLLIPOP_PROFILE.capabilities,

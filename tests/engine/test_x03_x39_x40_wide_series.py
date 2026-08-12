@@ -22,9 +22,12 @@ from plotagent.engine.backends.matplotlib import (
 )
 from plotagent.engine.backends.origin import (
     X03_ORIGIN_PROFILE,
+    X39_ORIGIN_PROFILE,
+    X40_ORIGIN_PROFILE,
 )
 from plotagent.engine.backends.origin.wide_series import WideSeriesOriginProject
-from plotagent.engine.profile_data import transposed_series, x03_lollipop
+from plotagent.engine.profile_data import wide_series, x03_lollipop
+from plotagent.engine.profiles import X39_LINE_SERIES_PROFILE, X40_BEFORE_AFTER_PROFILE
 
 HASH = "6" * 64
 
@@ -98,19 +101,38 @@ def test_x03_accepts_contiguous_dynamic_series_columns() -> None:
     assert len(data.columns.values) == 4
 
 
-def test_x39_transposes_each_source_row_into_one_series() -> None:
+def test_x39_preserves_bound_values_as_source_y_columns() -> None:
     document, _, view = _case("X39", series_count=3, row_count=5)
-    data = transposed_series(document, view, profile_id="X39")
+    data = wide_series(document, view, profile_id="X39")
 
-    assert data.axis_labels == ("Measure 1", "Measure 2", "Measure 3")
-    assert len(data.rows) == 5
-    assert data.rows[0] == (1.0, 2.0, 3.0)
+    assert data.column_labels == ("Measure 1", "Measure 2", "Measure 3")
+    assert data.column_values == (
+        (1.0, 2.0, 3.0, 4.0, 5.0),
+        (2.0, 3.0, 4.0, 5.0, 6.0),
+        (3.0, 4.0, 5.0, 6.0, 7.0),
+    )
+    assert data.row_count == 5
 
 
 def test_x40_rejects_unpaired_third_value_column() -> None:
     document, _, view = _case("X40", series_count=3)
     with pytest.raises(ValueError, match="exactly two"):
-        transposed_series(document, view, profile_id="X40")
+        wide_series(document, view, profile_id="X40")
+
+
+@pytest.mark.parametrize(
+    "profile",
+    (X39_LINE_SERIES_PROFILE, X40_BEFORE_AFTER_PROFILE),
+)
+def test_row_wise_profiles_expose_columns_and_one_connector_group(profile) -> None:
+    assert tuple(item.object_alias for item in profile.objects) == (
+        "x_axis",
+        "y_axis",
+        "connector",
+        "legend",
+    )
+    assert profile.objects[2].object_key == "connector"
+    assert profile.repeatable_objects[0].object_key_prefix == "column"
 
 
 @pytest.mark.parametrize(
@@ -139,6 +161,18 @@ def test_wide_series_matplotlib_renderers_follow_dynamic_data(
     assert readback.document.plot_id == document.plot_id
     assert (tmp_path / f"{profile_id}.png").stat().st_size > 0
     assert (tmp_path / f"{profile_id}.svg").stat().st_size > 0
+    if profile_id in {"X39", "X40"}:
+        semantic_ids = tuple(item.semantic_id for item in readback.objects)
+        token = document.plot_id.removeprefix("plot:")
+        assert f"series:{token}.connector" in semantic_ids
+        assert tuple(
+            semantic_id
+            for semantic_id in semantic_ids
+            if semantic_id.startswith(f"series:{token}.column_")
+        ) == tuple(
+            f"series:{token}.column_{index}" for index in range(1, series_count + 1)
+        )
+        assert not any(".row_" in semantic_id for semantic_id in semantic_ids)
 
 
 class _Plot:
@@ -195,6 +229,7 @@ class _Sheet:
     def __init__(self) -> None:
         self.columns: dict[int, list[object]] = {}
         self.designations: dict[int, int] = {}
+        self.long_names: dict[int, str] = {}
         self.activated = False
         self.categorical_type = 0
         self.categorical_sort = 0
@@ -202,6 +237,10 @@ class _Sheet:
     def from_list(self, index: int, values, **kwargs) -> None:
         self.columns[index] = list(values)
         self.designations[index] = {"X": 4, "Y": 1}.get(kwargs.get("axis"), 2)
+        self.long_names[index] = kwargs.get("lname", "")
+
+    def to_list(self, index: int) -> list[object]:
+        return self.columns[index]
 
     def get_int(self, expression: str) -> int:
         index = int(expression.removeprefix("col").removesuffix(".type")) - 1
@@ -238,6 +277,9 @@ class _Origin:
         self.graph = _Graph()
         self.template = ""
         self.commands: list[str] = []
+        self.native_member_count = 0
+        self.native_plot_type = 0
+        self.subgroup_size = 0
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -260,6 +302,23 @@ class _Origin:
             self.graph.layer.plots = [
                 _Plot(201) for _index in range(len(self.book.sheet.columns) - 1)
             ]
+            self.native_member_count = len(self.graph.layer.plots)
+            self.native_plot_type = 201
+        elif "run.section(Plot,LineSeries)" in command:
+            self.graph = _Graph()
+            self.native_member_count = len(self.book.sheet.columns)
+            self.native_plot_type = 206
+            self.graph.layer.plots = [
+                _Plot(206) for _index in range(self.native_member_count)
+            ]
+        elif "run.section(Plot,BeforeAfter)" in command:
+            self.graph = _Graph()
+            self.native_member_count = len(self.book.sheet.columns)
+            self.native_plot_type = 206
+            self.subgroup_size = 2
+            self.graph.layer.plots = [
+                _Plot(206) for _index in range(self.native_member_count)
+            ]
         return True
 
     def lt_float(self, expression: str) -> float:
@@ -271,6 +330,16 @@ class _Origin:
             return float(len(self.graph.layer.plots))
         if expression.startswith("__X03PT"):
             return 201.0
+        if expression in {"__X39COUNT", "__X40COUNT"}:
+            return float(self.native_member_count)
+        if expression.startswith(("__X39PT", "__X40PT")):
+            return float(self.native_plot_type)
+        if expression == "layer.plot1.subgroupsize":
+            return float(self.subgroup_size)
+        if expression == "layer.plot1.subgrouplabelrow":
+            return 0.0
+        if expression == "layer.plot1.boxchart.type":
+            return 2.0
         return 0.0
 
 
@@ -304,6 +373,78 @@ def test_x03_origin_uses_official_lollipop_menu_command_without_xy_rebuild(
     assert origin.graph.layer.add_calls == []
     assert [plot.get_int("type") for plot in origin.graph.layer.plots] == [201] * 4
     assert origin.book.sheet.designations == {0: 4, 1: 1, 2: 1, 3: 1, 4: 1}
+
+
+@pytest.mark.parametrize(
+    ("profile_id", "profile", "series_count", "expected_command"),
+    (
+        (
+            "X39",
+            X39_ORIGIN_PROFILE,
+            4,
+            "worksheet -s 1 0 4 0; run.section(Plot,LineSeries);",
+        ),
+        (
+            "X40",
+            X40_ORIGIN_PROFILE,
+            2,
+            "worksheet -s 1 0 2 0; run.section(Plot,BeforeAfter);",
+        ),
+    ),
+)
+def test_x39_x40_origin_keep_official_wide_table_and_menu_group(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    profile_id: str,
+    profile,
+    series_count: int,
+    expected_command: str,
+) -> None:
+    document, _, view = _case(
+        profile_id,
+        series_count=series_count,
+        row_count=5,
+    )
+    resolved: list[str] = []
+
+    def _resolve(_install, selected):
+        resolved.append(selected.filename)
+        return tmp_path / selected.filename
+
+    monkeypatch.setattr(origin_module, "resolve_official_template", _resolve)
+    origin = _Origin()
+    project = WideSeriesOriginProject(origin, profile_id=profile_id)
+    project.create(tmp_path, document, view)
+
+    expected_columns = {
+        index: list(view.columns[index].values) for index in range(series_count)
+    }
+    assert resolved == [profile.filename]
+    assert origin.commands[0] == expected_command
+    assert origin.template == ""
+    assert origin.book.sheet.columns == expected_columns
+    assert origin.book.sheet.designations == {index: 1 for index in range(series_count)}
+    assert origin.book.sheet.long_names == {
+        index: view.columns[index].field.name for index in range(series_count)
+    }
+    assert origin.graph.layer.add_calls == []
+    assert project.plots == []
+    assert project.native_member_count == series_count
+    assert project.native_snapshot["native_plot_types"] == [206] * series_count
+    assert project.native_snapshot["source_layout"] == "worksheet_wide"
+    if profile_id == "X40":
+        assert project.native_snapshot["subgroup_size"] == 2
+
+
+def test_x39_x40_matplotlib_use_one_collection_not_one_public_plot_per_row() -> None:
+    source = inspect.getsource(origin_module.WideSeriesOriginProject.create)
+    matplotlib_source = inspect.getsource(X39LineSeriesRenderer.render) + inspect.getsource(
+        X40BeforeAfterRenderer.render
+    )
+
+    assert "transposed" not in source
+    assert "add_plot" not in source
+    assert "_draw_wide_series" in matplotlib_source
 
 
 def test_x03_matplotlib_draws_follow_plot_segments_not_zero_baseline_stems() -> None:

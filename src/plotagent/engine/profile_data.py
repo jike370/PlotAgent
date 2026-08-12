@@ -246,10 +246,22 @@ class LollipopData:
 
 
 @dataclass(frozen=True, slots=True)
-class TransposedSeriesData:
-    axis_labels: tuple[str, ...]
-    rows: tuple[tuple[float, ...], ...]
-    row_labels: tuple[str, ...]
+class WideSeriesData:
+    """Official Origin row-wise source shape for X39 and X40.
+
+    The worksheet remains wide: every bound value field is one Y column and
+    every input observation remains one worksheet row.  Rendering backends may
+    iterate equal-position values to draw the row-wise connectors, but they
+    must not materialize those rows as public series objects or rewrite the
+    source into one physical plot per row.
+    """
+
+    column_labels: tuple[str, ...]
+    column_values: tuple[tuple[float, ...], ...]
+
+    @property
+    def row_count(self) -> int:
+        return len(self.column_values[0])
 
 
 @dataclass(frozen=True, slots=True)
@@ -753,13 +765,13 @@ def x03_lollipop(document: PlotDocument, data: EngineDataView) -> LollipopData:
     )
 
 
-def transposed_series(
+def wide_series(
     document: PlotDocument,
     data: EngineDataView,
     *,
     profile_id: Literal["X39", "X40"],
-) -> TransposedSeriesData:
-    """Transpose bound numeric columns so each source row becomes one native series."""
+) -> WideSeriesData:
+    """Keep X39/X40 bound values in the official wide worksheet layout."""
 
     bindings = {binding.role: binding.field_id for binding in document.bindings}
     columns = {column.field.field_id: column for column in data.columns}
@@ -771,13 +783,9 @@ def transposed_series(
         _numeric_values(column, role, profile_id, allow_missing=False)
         for role, column in zip(roles, selected, strict=True)
     )
-    rows = tuple(
-        tuple(values[index] for values in column_values) for index in range(len(data.row_ids))
-    )
-    return TransposedSeriesData(
-        axis_labels=tuple(column.field.name for column in selected),
-        rows=rows,
-        row_labels=tuple(f"Row {index}" for index in range(1, len(rows) + 1)),
+    return WideSeriesData(
+        column_labels=tuple(column.field.name for column in selected),
+        column_values=column_values,
     )
 
 

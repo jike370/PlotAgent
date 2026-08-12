@@ -13,8 +13,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
+from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
-from matplotlib.lines import Line2D
 
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine.contracts import (
@@ -29,7 +29,7 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import TransposedSeriesData, transposed_series, x03_lollipop
+from plotagent.engine.profile_data import WideSeriesData, wide_series, x03_lollipop
 from plotagent.engine.repository import document_ref
 
 _PALETTE = ("#1676D2", "#D97800", "#299764", "#C53D4D", "#7656B5", "#008A99")
@@ -67,11 +67,19 @@ class _SeriesState:
 
 
 @dataclass(frozen=True, slots=True)
+class _ConnectorState:
+    color: str = "#202020"
+    line_width_pt: float = 1.2
+    line_style: str = "solid"
+
+
+@dataclass(frozen=True, slots=True)
 class _State:
     title: str
     x_axis: _AxisState
     y_axis: _AxisState
     series: tuple[_SeriesState, ...]
+    connector: _ConnectorState | None = None
     legend_visible: bool = True
 
 
@@ -122,7 +130,14 @@ class X03LollipopRenderer:
                 )
         axis.set_yticks(category_positions, lollipop.categories)
         _finish(axis, figure, state, png_path, svg_path)
-        return _readback(document, data, state, "lollipop_series", len(state.series), "column")
+        return _readback(
+            document,
+            data,
+            state,
+            "lollipop_series",
+            len(state.series),
+            "column",
+        )
 
 
 class X39LineSeriesRenderer:
@@ -136,19 +151,27 @@ class X39LineSeriesRenderer:
         png_path: Path,
         svg_path: Path,
     ) -> EngineReadback:
-        series = transposed_series(document, data, profile_id="X39")
+        series = wide_series(document, data, profile_id="X39")
         state = _state(
             document,
             actions,
             x_label="Series",
             y_label="Value",
-            count=len(series.rows),
+            count=len(series.column_values),
             profile_id="X39",
         )
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
-        _draw_rows(axis, series, state)
+        _draw_wide_series(axis, series, state)
         _finish(axis, figure, state, png_path, svg_path)
-        return _readback(document, data, state, "line_series", len(state.series), "row")
+        return _readback(
+            document,
+            data,
+            state,
+            "line_series_column",
+            len(state.series),
+            "column",
+            connector_kind="line_series_connector",
+        )
 
 
 class X40BeforeAfterRenderer:
@@ -162,66 +185,65 @@ class X40BeforeAfterRenderer:
         png_path: Path,
         svg_path: Path,
     ) -> EngineReadback:
-        series = transposed_series(document, data, profile_id="X40")
+        series = wide_series(document, data, profile_id="X40")
         state = _state(
             document,
             actions,
             x_label="Series",
             y_label="Value",
-            count=len(series.rows),
+            count=len(series.column_values),
             profile_id="X40",
         )
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
-        x_values = np.asarray((0.0, 1.0))
-        for row, style in zip(series.rows, state.series, strict=True):
-            if style.line_style == "none":
-                raise ValueError("X40 cannot hide a paired connector")
-            axis.plot(
-                x_values,
-                row,
-                color=style.color,
-                linewidth=style.line_width_pt,
-                linestyle=_LINE_STYLES[style.line_style],
-                zorder=1,
-            )
-            axis.scatter(
-                x_values,
-                row,
-                color=("#2E73D2", "#D94A4A"),
-                marker=_MARKERS.get(style.symbol, "o"),
-                s=style.symbol_size_pt**2,
-                zorder=2,
-            )
-        axis.set_xticks(x_values, series.axis_labels)
-        if state.legend_visible:
-            axis.legend(
-                handles=(
-                    Line2D([], [], marker="o", linestyle="none", color="#2E73D2"),
-                    Line2D([], [], marker="o", linestyle="none", color="#D94A4A"),
-                ),
-                labels=series.axis_labels,
-                loc="best",
-            )
-        _finish(axis, figure, replace(state, legend_visible=False), png_path, svg_path)
-        return _readback(document, data, state, "before_after_row", len(state.series), "row")
-
-
-def _draw_rows(axis: Axes, series: TransposedSeriesData, state: _State) -> None:
-    x_values = np.arange(len(series.axis_labels), dtype=float)
-    for row, label, style in zip(series.rows, series.row_labels, state.series, strict=True):
-        if style.line_style == "none":
-            raise ValueError("X39 cannot hide a line series")
-        axis.plot(
-            x_values,
-            row,
-            color=style.color,
-            linewidth=style.line_width_pt,
-            linestyle=_LINE_STYLES[style.line_style],
-            marker=_MARKERS.get(style.symbol, "o"),
-            markersize=style.symbol_size_pt,
-            label=label,
+        _draw_wide_series(axis, series, state)
+        _finish(axis, figure, state, png_path, svg_path)
+        return _readback(
+            document,
+            data,
+            state,
+            "before_after_column",
+            len(state.series),
+            "column",
+            connector_kind="before_after_connector",
         )
-    axis.set_xticks(x_values, series.axis_labels)
+
+
+def _draw_wide_series(axis: Axes, series: WideSeriesData, state: _State) -> None:
+    connector = state.connector
+    if connector is None or connector.line_style == "none":
+        raise ValueError("X39/X40 require one visible native connector group")
+    x_values = np.arange(len(series.column_labels), dtype=float)
+    rows = tuple(zip(*series.column_values, strict=True))
+    segments = tuple(
+        np.column_stack((x_values, np.asarray(row, dtype=float))) for row in rows
+    )
+    axis.add_collection(
+        LineCollection(
+            segments,
+            colors=connector.color,
+            linewidths=connector.line_width_pt,
+            linestyles=_LINE_STYLES[connector.line_style],
+            zorder=1,
+        )
+    )
+    for x_value, label, values, style in zip(
+        x_values,
+        series.column_labels,
+        series.column_values,
+        state.series,
+        strict=True,
+    ):
+        axis.scatter(
+            np.full(series.row_count, x_value),
+            values,
+            color=style.color,
+            marker=_MARKERS.get(style.symbol, "o"),
+            s=style.symbol_size_pt**2,
+            label=label,
+            zorder=2,
+        )
+    axis.set_xticks(x_values, series.column_labels)
+    axis.autoscale_view()
 
 
 def _finish(
@@ -270,7 +292,10 @@ def _state(
         title="",
         x_axis=_AxisState(x_label, scale="linear" if profile_id == "X03" else "categorical"),
         y_axis=_AxisState(y_label, scale="categorical" if profile_id == "X03" else "linear"),
-        series=tuple(_SeriesState(_PALETTE[index % len(_PALETTE)]) for index in range(count)),
+        series=tuple(
+            _SeriesState(_column_color(profile_id, index)) for index in range(count)
+        ),
+        connector=None if profile_id == "X03" else _ConnectorState(),
     )
     last_binding = max(
         (index for index, action in enumerate(actions) if isinstance(action, BindFields)),
@@ -322,7 +347,42 @@ def _state(
         elif isinstance(action, SetSeriesStyle):
             if index < last_binding:
                 continue
-            ordinal = _row_or_column_ordinal(action.target, token, count, profile_id)
+            if action.target == f"series:{token}.connector":
+                if profile_id == "X03" or state.connector is None:
+                    raise ValueError(f"{profile_id} has no connector-group target")
+                if action.symbol is not None or action.symbol_size_pt is not None:
+                    raise ValueError(
+                        f"{profile_id} connector supports line style, width and color only"
+                    )
+                if action.line_style == "none":
+                    raise ValueError(f"{profile_id} cannot hide its connector group")
+                state = replace(
+                    state,
+                    connector=replace(
+                        state.connector,
+                        color=(
+                            state.connector.color if action.color is None else action.color
+                        ),
+                        line_width_pt=(
+                            state.connector.line_width_pt
+                            if action.line_width_pt is None
+                            else action.line_width_pt
+                        ),
+                        line_style=(
+                            state.connector.line_style
+                            if action.line_style is None
+                            else action.line_style
+                        ),
+                    ),
+                )
+                continue
+            ordinal = _column_ordinal(action.target, token, count, profile_id)
+            if profile_id != "X03" and (
+                action.line_width_pt is not None or action.line_style is not None
+            ):
+                raise ValueError(
+                    f"{profile_id} column targets support marker color, symbol and size only"
+                )
             current = state.series[ordinal - 1]
             updated = replace(
                 current,
@@ -355,13 +415,18 @@ def _state(
     return state
 
 
-def _row_or_column_ordinal(target: str, token: str, count: int, profile_id: str) -> int:
-    key = "column" if profile_id == "X03" else "row"
-    prefix = f"series:{token}.{key}_"
+def _column_ordinal(target: str, token: str, count: int, profile_id: str) -> int:
+    prefix = f"series:{token}.column_"
     suffix = target.removeprefix(prefix) if target.startswith(prefix) else ""
     if not suffix.isdigit() or not 1 <= int(suffix) <= count:
         raise ValueError(f"{profile_id} series target is outside the materialized data")
     return int(suffix)
+
+
+def _column_color(profile_id: str, zero_based_index: int) -> str:
+    if profile_id == "X40":
+        return ("#2E73D2", "#D94A4A")[zero_based_index]
+    return _PALETTE[zero_based_index % len(_PALETTE)]
 
 
 def _readback(
@@ -371,6 +436,8 @@ def _readback(
     object_kind: str,
     count: int,
     key: str,
+    *,
+    connector_kind: str | None = None,
 ) -> EngineReadback:
     token = document.plot_id.removeprefix("plot:")
     objects = (
@@ -391,6 +458,18 @@ def _readback(
             backend="matplotlib",
             object_kind="axis",
             native_ref="axes:0.yaxis",
+        ),
+        *(
+            (
+                EngineObjectRef(
+                    semantic_id=f"series:{token}.connector",
+                    backend="matplotlib",
+                    object_kind=connector_kind,
+                    native_ref="axes:0.collection:connector",
+                ),
+            )
+            if connector_kind is not None
+            else ()
         ),
         *tuple(
             EngineObjectRef(

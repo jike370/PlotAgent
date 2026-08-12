@@ -20,8 +20,8 @@ from plotagent.engine.contracts import (
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import (
     LollipopData,
-    TransposedSeriesData,
-    transposed_series,
+    WideSeriesData,
+    wide_series,
     x03_lollipop,
 )
 from plotagent.engine.repository import document_ref
@@ -37,11 +37,18 @@ from .profile import (
 from .trace import origin_trace_step, record_origin_trace
 
 _LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
+_LINE_TYPE = {"solid": 1, "dash": 2, "dot": 3, "dash_dot": 4}
 _SYMBOL_CODES = {"circle": 2, "square": 1, "triangle": 3, "triangle_up": 3, "diamond": 5}
 _TITLE_NAME = "_ENGINE_TITLE"
 _X03_OFFICIAL_MENU_COMMAND = (
     "worksheet -s 1 0 {last_column} 0; "
     "run.section(Plot,general,201 Lollipop 0);"
+)
+_X39_OFFICIAL_MENU_COMMAND = (
+    "worksheet -s 1 0 {last_column} 0; run.section(Plot,LineSeries);"
+)
+_X40_OFFICIAL_MENU_COMMAND = (
+    "worksheet -s 1 0 {last_column} 0; run.section(Plot,BeforeAfter);"
 )
 
 
@@ -83,6 +90,8 @@ class WideSeriesOriginProject:
         self.layer: Any = None
         self.sheet: Any = None
         self.plots: list[Any] = []
+        self.native_member_count = 0
+        self.native_snapshot: dict[str, object] = {}
 
     def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
         with origin_trace_step(
@@ -135,28 +144,49 @@ class WideSeriesOriginProject:
             self.layer.rescale()
             return
 
-        # X39 and X40 are intentionally left on their existing implementation
-        # until the box-based row-wise group interface has live readback proof.
-        # Their official menu commands create one native type-206 object rather
-        # than one ordinary XY plot per source row; substituting that structure
-        # without a verified action/readback mapping would be another guess.
-        self.graph = self.op.new_graph(
-            f"G{token}",
-            template=str(template.with_suffix(template.suffix.lower())),
-            hidden=True,
+        series = wide_series(document, data, profile_id=self.profile_id)
+        with origin_trace_step(
+            "source_data_write",
+            details={
+                "column_count": len(series.column_values),
+                "row_count": series.row_count,
+                "source_layout": "worksheet_wide",
+            },
+        ):
+            self._write_wide(series)
+            self._remove_workbook_residue(book)
+        command_template = (
+            _X39_OFFICIAL_MENU_COMMAND
+            if self.profile_id == "X39"
+            else _X40_OFFICIAL_MENU_COMMAND
         )
-        if self.graph is None:
-            raise RuntimeError(
-                f"Origin could not create {self.profile_id} from {self.profile.filename}"
-            )
-        self.layer = self.graph[0]
-        for plot in self.layer.plot_list():
-            plot.set_int("show", 0)
-        self.plots = []
-        series = transposed_series(document, data, profile_id=self.profile_id)
-        self._write_transposed(series)
-        for index in range(len(series.rows)):
-            self._add_plot(colx=0, coly=index + 1)
+        command = command_template.format(last_column=len(series.column_values))
+        with origin_trace_step(
+            "official_plot_command_execute",
+            details={"labtalk": command, "template_filename": template.name},
+        ):
+            self.sheet.activate()
+            self.op.lt_exec(command)
+        with origin_trace_step("native_structure_readback"):
+            graphs = list(self.op.pages("g"))
+            if len(graphs) != 1:
+                raise RuntimeError(
+                    f"Origin {self.profile_id} official menu command must create one graph"
+                )
+            if len(list(self.op.pages("w"))) != 1:
+                raise RuntimeError(
+                    f"Origin {self.profile_id} must preserve one authoritative wide workbook"
+                )
+            self.graph = graphs[0]
+            self.graph.name = f"G{token}"
+            self.graph.lname = f"{self.profile_id} {template.stem} / {document.plot_id}"
+            self.layer = self.graph[0]
+            self.native_snapshot = self._assert_official_wide_structure(series)
+        record_origin_trace(
+            "native_row_wise_group_confirmed",
+            "completed",
+            details=self.native_snapshot,
+        )
         self.layer.rescale()
 
     def _remove_workbook_residue(self, authoritative_book: Any) -> None:
@@ -165,14 +195,6 @@ class WideSeriesOriginProject:
                 continue
             if residue.name == "Book1":
                 residue.destroy()
-
-    def _add_plot(self, *, colx: int, coly: int) -> None:
-        plot = self.layer.add_plot(self.sheet, coly=coly, colx=colx, type="?")
-        if plot is None:
-            raise RuntimeError(
-                f"Origin {self.profile.filename} rejected native plot {len(self.plots) + 1}"
-            )
-        self.plots.append(plot)
 
     def reopen(self, project_path: Path) -> None:
         self.op.new(asksave=False)
@@ -188,7 +210,11 @@ class WideSeriesOriginProject:
             )
         self.graph = graphs[0]
         self.layer = self.graph[0]
-        self.plots = [plot for plot in self.layer.plot_list() if plot.get_int("show") != 0]
+        self.plots = (
+            [plot for plot in self.layer.plot_list() if plot.get_int("show") != 0]
+            if self.profile_id == "X03"
+            else []
+        )
         self.sheet = books[0][0]
 
     def apply(
@@ -251,6 +277,9 @@ class WideSeriesOriginProject:
                 label.set_int("show", 1)
             return
         if isinstance(action, SetSeriesStyle):
+            if self.profile_id != "X03":
+                self._apply_wide_series_style(action, token)
+                return
             ordinal = self._series_ordinal(action.target, token)
             plot = self.plots[ordinal - 1]
             if action.color is not None:
@@ -284,15 +313,57 @@ class WideSeriesOriginProject:
                     raise RuntimeError(f"Origin could not create the {self.profile_id} legend")
                 legend = self.layer.label("legend")
             if legend is not None and action.visible is not None:
-                if self.profile_id != "X40":
-                    legend.text = "\n".join(
-                        f"\\l({index}) {_safe_label(label)}"
-                        for index, label in enumerate(self._legend_labels(document, data), start=1)
-                    )
-                    legend.set_int("link", 1)
+                legend.text = "\n".join(
+                    f"\\l({index}) {_safe_label(label)}"
+                    for index, label in enumerate(self._legend_labels(document, data), start=1)
+                )
+                legend.set_int("link", 1)
                 legend.set_int("show", int(action.visible))
             return
         raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
+
+    def _apply_wide_series_style(self, action: SetSeriesStyle, token: str) -> None:
+        self.graph.activate()
+        commands = ["page.active=1"]
+        if action.target == f"series:{token}.connector":
+            if action.symbol is not None or action.symbol_size_pt is not None:
+                raise ValueError(
+                    f"Origin {self.profile_id} connector supports line style, width and "
+                    "color only"
+                )
+            if action.line_style == "none":
+                raise ValueError(
+                    f"Origin {self.profile_id} cannot hide its native connector group"
+                )
+            if action.color is not None:
+                commands.append(f"layer.plot1.color=color({action.color})")
+            if action.line_width_pt is not None:
+                commands.append(f"layer.plot1.line.width={action.line_width_pt:.12g}")
+            if action.line_style is not None:
+                commands.append(f"layer.plot1.line.type={_LINE_TYPE[action.line_style]}")
+        else:
+            ordinal = self._series_ordinal(action.target, token)
+            if action.line_width_pt is not None or action.line_style is not None:
+                raise ValueError(
+                    f"Origin {self.profile_id} column targets support marker color, symbol "
+                    "and size only"
+                )
+            if action.color is not None:
+                commands.append(f"layer.plot{ordinal}.color=color({action.color})")
+            if action.symbol is not None:
+                try:
+                    symbol = _SYMBOL_CODES[action.symbol]
+                except KeyError as error:
+                    raise ValueError(
+                        f"Origin {self.profile_id} does not support symbol {action.symbol}"
+                    ) from error
+                commands.append(f"layer.plot{ordinal}.symbol.kind={symbol}")
+            if action.symbol_size_pt is not None:
+                commands.append(
+                    f"layer.plot{ordinal}.symbol.size={action.symbol_size_pt:.12g}"
+                )
+        if len(commands) > 1:
+            self.op.lt_exec("; ".join(commands) + ";")
 
     def save(self, output_path: Path) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -307,38 +378,79 @@ class WideSeriesOriginProject:
         data: EngineDataView,
     ) -> EngineReadback:
         expected = self._expected_columns(document, data)
-        if len(self.plots) != len(expected) - 1:
-            raise RuntimeError(f"Origin {self.profile_id} native plot count differs after reopen")
         for index, values in enumerate(expected):
             self._assert_values(self.sheet.to_list(index), values, f"column {index + 1}")
         token = document.plot_id.removeprefix("plot:")
-        snapshot: dict[str, object] = {"profile": self.profile_id, "series": len(self.plots)}
+        snapshot: dict[str, object] = {"profile": self.profile_id}
         if self.profile_id == "X03":
+            if len(self.plots) != len(expected) - 1:
+                raise RuntimeError(
+                    "Origin X03 native plot count differs after reopen"
+                )
+            snapshot["series"] = len(self.plots)
             snapshot.update(self._assert_official_x03_structure(x03_lollipop(document, data)))
+        else:
+            series = wide_series(document, data, profile_id=self.profile_id)
+            snapshot["series"] = len(series.column_values)
+            snapshot["connector_groups"] = 1
+            snapshot.update(self._assert_official_wide_structure(series))
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
                 if title is None or title.text != action.text or not title.get_int("show"):
                     raise RuntimeError(f"Origin {self.profile_id} title did not survive readback")
             elif isinstance(action, SetSeriesStyle):
-                ordinal = self._series_ordinal(action.target, token)
-                plot = self.plots[ordinal - 1]
-                if action.color is not None and tuple(plot.color) != self._hex_rgb(action.color):
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} series color did not survive readback"
-                    )
-                if action.symbol_size_pt is not None and (
-                    abs(float(plot.symbol_size) - action.symbol_size_pt) > 0.01
-                ):
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} symbol size did not survive readback"
-                    )
+                if self.profile_id == "X03":
+                    ordinal = self._series_ordinal(action.target, token)
+                    plot = self.plots[ordinal - 1]
+                    if action.color is not None and tuple(plot.color) != self._hex_rgb(
+                        action.color
+                    ):
+                        raise RuntimeError(
+                            "Origin X03 series color did not survive readback"
+                        )
+                    if action.symbol_size_pt is not None and (
+                        abs(float(plot.symbol_size) - action.symbol_size_pt) > 0.01
+                    ):
+                        raise RuntimeError(
+                            "Origin X03 symbol size did not survive readback"
+                        )
+                else:
+                    self._verify_wide_series_style(action, token)
             elif isinstance(action, SetLegend) and action.visible is not None:
                 legend = self.layer.label("legend")
                 if legend is None or bool(legend.get_int("show")) != action.visible:
                     raise RuntimeError(
                         f"Origin {self.profile_id} legend visibility did not survive readback"
                     )
+        if self.profile_id == "X03":
+            native_series_objects = tuple(
+                EngineObjectRef(
+                    semantic_id=f"series:{token}.column_{index}",
+                    backend="origin",
+                    object_kind="x03_native_series",
+                    native_ref=f"graph:{self.graph.name}.layer:1.plot:{index}",
+                )
+                for index in range(1, len(self.plots) + 1)
+            )
+        else:
+            native_series_objects = (
+                EngineObjectRef(
+                    semantic_id=f"series:{token}.connector",
+                    backend="origin",
+                    object_kind=f"{self.profile_id.lower()}_native_connector_group",
+                    native_ref=f"graph:{self.graph.name}.layer:1.plot-group:1.connect-data",
+                ),
+                *tuple(
+                    EngineObjectRef(
+                        semantic_id=f"series:{token}.column_{index}",
+                        backend="origin",
+                        object_kind=f"{self.profile_id.lower()}_native_column_position",
+                        native_ref=f"graph:{self.graph.name}.layer:1.plot:{index}",
+                    )
+                    for index in range(1, self.native_member_count + 1)
+                ),
+            )
         objects = (
             EngineObjectRef(
                 semantic_id=document.plot_id,
@@ -358,15 +470,7 @@ class WideSeriesOriginProject:
                 object_kind="axis",
                 native_ref=f"graph:{self.graph.name}.layer:1.axis:y",
             ),
-            *tuple(
-                EngineObjectRef(
-                    semantic_id=f"series:{token}.{self._series_key}_{index}",
-                    backend="origin",
-                    object_kind=f"{self.profile_id.lower()}_native_series",
-                    native_ref=f"graph:{self.graph.name}.layer:1.plot:{index}",
-                )
-                for index in range(1, len(self.plots) + 1)
-            ),
+            *native_series_objects,
             EngineObjectRef(
                 semantic_id=f"legend:{token}.main",
                 backend="origin",
@@ -382,14 +486,11 @@ class WideSeriesOriginProject:
             style_hash=canonical_hash(cast(JsonValue, snapshot)),
         )
 
-    @property
-    def _series_key(self) -> str:
-        return "column" if self.profile_id == "X03" else "row"
-
     def _series_ordinal(self, target: str, token: str) -> int:
-        prefix = f"series:{token}.{self._series_key}_"
+        prefix = f"series:{token}.column_"
         suffix = target.removeprefix(prefix) if target.startswith(prefix) else ""
-        if not suffix.isdigit() or not 1 <= int(suffix) <= len(self.plots):
+        count = len(self.plots) if self.profile_id == "X03" else self.native_member_count
+        if not suffix.isdigit() or not 1 <= int(suffix) <= count:
             raise ValueError(f"{self.profile_id} series target is outside materialized data")
         return int(suffix)
 
@@ -466,23 +567,129 @@ class WideSeriesOriginProject:
             "axes_exchanged_and_drop_to_follow_plot": "requires_live_theme_readback",
         }
 
-    def _write_transposed(self, series: TransposedSeriesData) -> None:
-        self.sheet.from_list(
-            0,
-            list(range(1, len(series.axis_labels) + 1)),
-            lname="Series",
-            axis="X",
-        )
+    def _write_wide(self, series: WideSeriesData) -> None:
         for index, (label, values) in enumerate(
-            zip(series.row_labels, series.rows, strict=True),
-            start=1,
+            zip(series.column_labels, series.column_values, strict=True)
         ):
             self.sheet.from_list(index, list(values), lname=label, axis="Y")
-        self.layer.set_int("x.label.type", 10)
-        self.layer.set_str(
-            "x.label.string",
-            " ".join(f'"{_safe_label(label)}"' for label in series.axis_labels),
+
+    def _assert_official_wide_structure(
+        self, series: WideSeriesData
+    ) -> dict[str, object]:
+        expected_count = len(series.column_values)
+        expected_designations = [1] * expected_count
+        actual_designations = [
+            int(self.sheet.get_int(f"col{index + 1}.type"))
+            for index in range(expected_count)
+        ]
+        if actual_designations != expected_designations:
+            raise RuntimeError(
+                f"Origin {self.profile_id} worksheet must contain only selected Y columns: "
+                f"expected={expected_designations}, actual={actual_designations}"
+            )
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe Origin {self.profile_id} graph name: {graph_name!r}")
+        probe = f"__{self.profile_id}"
+        self.graph.activate()
+        self.op.lt_exec(
+            f"page.active=1; {probe}COUNT=0; "
+            f"doc -e D {{{probe}COUNT={probe}COUNT+1;}};"
         )
+        self.native_member_count = int(self.op.lt_float(f"{probe}COUNT"))
+        plot_types: list[int] = []
+        for index in range(1, self.native_member_count + 1):
+            self.op.lt_exec(
+                f"range {probe}P=[{graph_name}]1!{index}; "
+                f"get {probe}P -pt {probe}PT{index};"
+            )
+            plot_types.append(int(self.op.lt_float(f"{probe}PT{index}")))
+        if self.native_member_count != expected_count or any(
+            plot_type != 206 for plot_type in plot_types
+        ):
+            raise RuntimeError(
+                f"Origin {self.profile_id} must keep one type-206 group member per source "
+                f"Y column: count={self.native_member_count}, plot_types={plot_types}, "
+                f"source_y_count={expected_count}"
+            )
+        subgroup_size = int(self.op.lt_float("layer.plot1.subgroupsize"))
+        subgroup_label_row = int(self.op.lt_float("layer.plot1.subgrouplabelrow"))
+        if self.profile_id == "X40" and subgroup_size != 2:
+            raise RuntimeError(
+                "Origin X40 official BeforeAfter group must keep Subgroup Size=2; "
+                f"observed={subgroup_size}"
+            )
+        command = (
+            _X39_OFFICIAL_MENU_COMMAND
+            if self.profile_id == "X39"
+            else _X40_OFFICIAL_MENU_COMMAND
+        ).format(last_column=expected_count)
+        return {
+            "official_menu_command": command,
+            "source_layout": "worksheet_wide",
+            "source_column_count": expected_count,
+            "source_row_count": series.row_count,
+            "worksheet_designations": actual_designations,
+            "native_member_count": self.native_member_count,
+            "native_plot_types": plot_types,
+            "boxchart_type": int(self.op.lt_float("layer.plot1.boxchart.type")),
+            "subgroup_size": subgroup_size,
+            "subgroup_label_row": subgroup_label_row,
+            "connector_semantics": "manual_live_plot_details_gate",
+        }
+
+    def _verify_wide_series_style(self, action: SetSeriesStyle, token: str) -> None:
+        self.graph.activate()
+        self.op.lt_exec("page.active=1;")
+        if action.target == f"series:{token}.connector":
+            prefix = "layer.plot1"
+            if action.color is not None:
+                self._assert_lt_float(
+                    f"{prefix}.color",
+                    self.op.lt_float(f"color({action.color})"),
+                    "connector color",
+                )
+            if action.line_width_pt is not None:
+                self._assert_lt_float(
+                    f"{prefix}.line.width",
+                    action.line_width_pt,
+                    "connector line width",
+                )
+            if action.line_style is not None:
+                self._assert_lt_float(
+                    f"{prefix}.line.type",
+                    float(_LINE_TYPE[action.line_style]),
+                    "connector line type",
+                )
+            return
+        ordinal = self._series_ordinal(action.target, token)
+        prefix = f"layer.plot{ordinal}"
+        if action.color is not None:
+            self._assert_lt_float(
+                f"{prefix}.color",
+                self.op.lt_float(f"color({action.color})"),
+                f"column {ordinal} marker color",
+            )
+        if action.symbol is not None:
+            self._assert_lt_float(
+                f"{prefix}.symbol.kind",
+                float(_SYMBOL_CODES[action.symbol]),
+                f"column {ordinal} symbol",
+            )
+        if action.symbol_size_pt is not None:
+            self._assert_lt_float(
+                f"{prefix}.symbol.size",
+                action.symbol_size_pt,
+                f"column {ordinal} symbol size",
+            )
+
+    def _assert_lt_float(self, expression: str, expected: float, name: str) -> None:
+        observed = float(self.op.lt_float(expression))
+        if abs(observed - expected) > 0.01:
+            raise RuntimeError(
+                f"Origin {self.profile_id} {name} did not survive readback: "
+                f"expected={expected}, observed={observed}"
+            )
 
     def _expected_columns(
         self, document: PlotDocument, data: EngineDataView
@@ -490,16 +697,13 @@ class WideSeriesOriginProject:
         if self.profile_id == "X03":
             lollipop = x03_lollipop(document, data)
             return (lollipop.categories, *lollipop.columns.values)
-        series = transposed_series(document, data, profile_id=self.profile_id)
-        return (
-            tuple(range(1, len(series.axis_labels) + 1)),
-            *series.rows,
-        )
+        series = wide_series(document, data, profile_id=self.profile_id)
+        return series.column_values
 
     def _legend_labels(self, document: PlotDocument, data: EngineDataView) -> tuple[str, ...]:
         if self.profile_id == "X03":
             return x03_lollipop(document, data).columns.labels
-        return transposed_series(document, data, profile_id=self.profile_id).row_labels
+        return wide_series(document, data, profile_id=self.profile_id).column_labels
 
     @staticmethod
     def _assert_values(actual: list[object], expected: tuple[object, ...], name: str) -> None:
