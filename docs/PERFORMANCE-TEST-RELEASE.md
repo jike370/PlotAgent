@@ -1,6 +1,6 @@
 # PlotAgent 小规模邀请制 Beta 性能测试与发布门禁契约
 
-> 状态：发布门禁已重开；Origin/OPJU正式范围为35图，三个候选稳定拒绝，历史38/43图合并证据不继承，须等待模板优先引擎统一视觉签名和完整Beta qualification
+> 状态：发布门禁已重开；Origin/OPJU正式范围为35图，三个候选稳定拒绝，历史38/43图合并证据不继承；35/35图视觉已签名通过，仍须完成正式桌面黑盒与完整Beta qualification
 > 日期：2026-08-10
 > 适用范围：唯一正式平台与规模基线、35图证据矩阵、逐图编辑/Origin样式映射、单一Origin版本qualification、Beta发布检查单与用户成功标准
 > 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)、[任务运行时、取消与崩溃恢复](./TASK-RUNTIME.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[本地安全、诊断与 Beta Schema 兼容契约](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)

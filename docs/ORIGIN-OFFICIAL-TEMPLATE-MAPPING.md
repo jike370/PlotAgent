@@ -1,6 +1,6 @@
 # PlotAgent v3：38 个候选图—35 图 Origin renderer 映射与重构基线
 
-状态：38 个候选图的官方资料与本机资产已经审计；其中 35 图进入 Origin renderer，核密度图、Kaplan–Meier 生存曲线、森林图明确排除。旧模板优先链的历史证据只作选型追溯，不代表当前 renderer 资格。35 个可用切片已完成代码、机械读回与 fresh-reopen；全范围人工视觉签名尚未完成。
+状态：38 个候选图的官方资料与本机资产已经审计；其中 35 图进入 Origin renderer，核密度图、Kaplan–Meier 生存曲线、森林图明确排除。旧模板优先链的历史证据只作选型追溯，不代表当前 renderer 资格。35 个可用切片已完成代码、机械读回与 fresh-reopen；产品负责人于 2026-08-12 确认 35/35 图视觉验收通过。
 
 核对环境：OriginPro 2024 SR1 `10.10.178`，`originpro 1.1.15`
 
@@ -166,7 +166,7 @@
 7. **删除旧绘图路径。** 35 个可用图全部通过后，删除被替代的专属 Origin 几何拼装、旧图形分支和过期视觉证据。
 8. **重新资格。** 以 35 图新引擎统一生成默认态、动态状态、代表性编辑态和逐图 OPJU；完成全部机械修改读回后，一次性生成统一审查页交由用户逐图视觉判断，人工实际编辑按 Origin 模板家族选代表图。
 
-截至 2026-08-12：35 个 Origin 可渲染 Profile 已完成新引擎切片；3 个排除项在 recipe 选择阶段 fail closed。旧绘图 compiler、resolver、共享 plan 与旧 Origin renderer 已从生产路径删除。统一视觉入口位于 `build/visual-audit/origin-recipe-renderer-35/index.html`，人工视觉状态仍全部为 `UNVERIFIED`。
+截至 2026-08-12：35 个 Origin 可渲染 Profile 已完成新引擎切片；3 个排除项在 recipe 选择阶段 fail closed。旧绘图 compiler、resolver、共享 plan 与旧 Origin renderer 已从生产路径删除。统一视觉入口位于 `build/visual-audit/origin-recipe-renderer-35/index.html`，35/35 图人工视觉状态为 `PASS`。
 
 重构不预先规定“每图一个 renderer”或“所有图共用一个 renderer”。选择标准只有三个：Origin 映射正确、行为稳定、后续 Agent 容易操作。新 `PlotDocument`、`EngineDataView` 与公开 Engine Action 是唯一生产契约；旧 `PlotSpec`、compiler、resolver、`ResolvedPlot` 和 Origin plan 不得进入新执行路径，也不得作为迁移兜底。
 

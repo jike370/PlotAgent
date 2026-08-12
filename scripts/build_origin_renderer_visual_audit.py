@@ -21,6 +21,9 @@ VISUAL_ROOT = REPOSITORY / "build" / "visual-audit"
 FIRST_BATCH = VISUAL_ROOT / "agent-native-renderer"
 FINAL_BATCH = VISUAL_ROOT / "origin-recipe-renderer-final"
 OUTPUT = VISUAL_ROOT / "origin-recipe-renderer-35"
+VISUAL_REVIEW_STATUS = "approved"
+VISUAL_REVIEWED_ON = "2026-08-12"
+VISUAL_REVIEW_NOTE = "产品负责人确认35图视觉验收通过"
 
 
 class _AuditPageParser(HTMLParser):
@@ -157,7 +160,7 @@ def _card(profile_id: str) -> tuple[str, dict[str, object]]:
     template_name = "原生组合流程" if template is None else template.filename
     card = f"""
 <article id="{profile_id}" data-name="{html.escape(recipe.chinese_name)} {html.escape(recipe.official_name)}">
-  <header><div><h2>{html.escape(recipe.chinese_name)}</h2><p>{html.escape(recipe.official_name)}</p></div><span>待你视觉签名</span></header>
+  <header><div><h2>{html.escape(recipe.chinese_name)}</h2><p>{html.escape(recipe.official_name)}</p></div><span>视觉验收通过</span></header>
   <p class="route"><b>Origin 模板/流程：</b>{html.escape(template_name)}　<b>创建入口：</b>{html.escape(recipe.official_entry)}</p>
   <p class="links">{'　'.join(links)}</p>
   <div class="figures">{panels}</div>
@@ -172,7 +175,8 @@ def _card(profile_id: str) -> tuple[str, dict[str, object]]:
         "figure_count": len(figures),
         "figures": [{"caption": label, "uri": uri} for label, uri in figures],
         "opju": [{"label": label, "uri": uri} for label, uri in opju_links],
-        "visual_status": "pending_user_review",
+        "visual_status": VISUAL_REVIEW_STATUS,
+        "visual_reviewed_on": VISUAL_REVIEWED_ON,
     }
     return card, manifest
 
@@ -214,7 +218,7 @@ figure{{margin:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;
 img{{display:block;width:100%;height:430px;object-fit:contain;background:#fff}}@media(max-width:900px){{main{{padding:12px}}.figures{{grid-template-columns:1fr}}img{{height:auto}}}}
 </style></head><body><main><section class="intro"><h1>PlotAgent OriginRecipe renderer｜35 图视觉审计</h1>
 <p>本页是当前可用 Origin renderer 的统一视觉交付：35 类均来自已经核实的 Origin 2024 官方模板、菜单、X-Function 或原生组合流程。</p>
-<p>结构、数据绑定和 fresh reopen 已通过机械验证，但不替代你的视觉判断。核密度图、Kaplan–Meier 生存曲线、森林图已明确排除，不在本页伪装实现。</p>
+<p>结构、数据绑定和 fresh reopen 已通过机械验证；产品负责人已于2026-08-12确认35图视觉验收通过。核密度图、Kaplan–Meier 生存曲线、森林图已明确排除，不在本页伪装实现。</p>
 <p><a href="audit-manifest.json">审计清单</a>　<a href="../origin-recipe-renderer-final/index.html">最后 8 图原始审计页</a>　<a href="../agent-native-renderer/index.html">前批次原始审计页</a></p>
 <input id="filter" type="search" placeholder="输入中文图类名或 Origin 官方名称筛选"><nav>{nav}</nav></section>{cards}
 <script>const q=document.querySelector('#filter');q.addEventListener('input',()=>{{const v=q.value.trim().toLowerCase();document.querySelectorAll('article').forEach(x=>x.hidden=v&&!x.dataset.name.toLowerCase().includes(v));}});</script>
@@ -227,7 +231,13 @@ img{{display:block;width:100%;height:430px;object-fit:contain;background:#fff}}@
         ).strip(),
         "renderable_count": len(rows),
         "excluded_count": len(excluded),
-        "qualification": "mechanically qualified; user visual review pending",
+        "qualification": "mechanically qualified; user visual review approved",
+        "visual_review": {
+            "status": VISUAL_REVIEW_STATUS,
+            "reviewed_on": VISUAL_REVIEWED_ON,
+            "note": VISUAL_REVIEW_NOTE,
+            "scope": "all 35 Origin-renderable profiles",
+        },
         "charts": rows,
         "excluded": excluded,
     }

@@ -1,6 +1,6 @@
 # PlotAgent 产品需求文档
 
-> 状态：候选 Profile 保留38个；Origin/OPJU正式范围为35图，核密度图、Kaplan–Meier生存曲线、森林图稳定拒绝；35图统一视觉审查待产品负责人签名，新引擎通过前不进入 Beta
+> 状态：候选 Profile 保留38个；Origin/OPJU正式范围为35图，核密度图、Kaplan–Meier生存曲线、森林图稳定拒绝；产品负责人已于2026-08-12确认35/35图视觉验收通过，正式桌面黑盒与发布门禁尚未完成
 > 产品代号：PlotAgent  
 > 日期：2026-08-10
 > 相关资料：[Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)、[规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta 兼容](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
@@ -724,7 +724,7 @@ Origin 能力分级：
 - 七个首批发表规格。
 - 基础固定布局组合图。
 - 用户配置的 OpenAI-compatible 模型端点。
-- 当前阶段先完成35图视觉签名与正式桌面黑盒，再用固定任务集、机器指标和目标科研用户完成内置 Agent 资格。通用图形编译器和开放式搭建器不在计划内。
+- 35图视觉签名已完成；当前阶段下一门禁是正式桌面黑盒，随后用固定任务集、机器指标和目标科研用户完成内置 Agent 资格。通用图形编译器和开放式搭建器不在计划内。
 
 ### 16.2 第二轮：扩展能力
 
