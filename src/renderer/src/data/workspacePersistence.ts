@@ -1,6 +1,7 @@
 import type { FieldMappingInput } from '../../../shared/desktop-contract'
 
 const STORAGE_PREFIX = 'plotagent.workspace.v1:'
+const AGENT_DATASET_MODE = 'explicit_extras_v1'
 
 export interface PersistedWorkspaceSelection {
   datasetId?: string
@@ -33,9 +34,10 @@ export function readWorkspaceSelection(
     if (raw === null || raw.length > 16_384) return undefined
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
-    const record = parsed as { datasetId?: unknown; agentDatasetIds?: unknown; chartId?: unknown; mapping?: unknown }
+    const record = parsed as { datasetId?: unknown; agentDatasetIds?: unknown; agentDatasetMode?: unknown; chartId?: unknown; mapping?: unknown }
     const datasetId = isSafeId(record.datasetId) ? record.datasetId : undefined
-    const agentDatasetIds = Array.isArray(record.agentDatasetIds)
+    const agentDatasetIds = record.agentDatasetMode === AGENT_DATASET_MODE
+      && Array.isArray(record.agentDatasetIds)
       && record.agentDatasetIds.length > 0
       && record.agentDatasetIds.length <= 8
       && record.agentDatasetIds.every(isSafeId)
@@ -61,7 +63,7 @@ export function writeWorkspaceSelection(
   selection: PersistedWorkspaceSelection,
 ): void {
   try {
-    storage.setItem(STORAGE_PREFIX + projectId, JSON.stringify(selection))
+    storage.setItem(STORAGE_PREFIX + projectId, JSON.stringify({ ...selection, agentDatasetMode: AGENT_DATASET_MODE }))
   } catch {
     // Workspace persistence is a convenience; storage failures must not block plotting.
   }

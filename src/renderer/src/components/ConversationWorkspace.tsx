@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   ArrowRight,
@@ -645,6 +645,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
   const [messages, setMessages] = useState<ConversationMessage[]>(() => (
     project ? readConversationMessages(window.localStorage, project.projectId) : []
   ))
+  const activeTurnRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const outcome = props.agentOutcome
@@ -675,6 +676,11 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       && message.text === outcome.message
     ))
   }, [messages, props.agentOutcome])
+
+  useEffect(() => {
+    if (messages.length === 0 && busyAction === undefined && props.agentOutcome === undefined && props.agentPlan === undefined) return
+    queueMicrotask(() => activeTurnRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' }))
+  }, [busyAction, messages.length, props.agentOutcome, props.agentPlan])
 
   const submitInstruction = (instruction: string, scope: ScopeMode): void => {
     if (!project) return
@@ -710,14 +716,15 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
               <>
                 <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedAgentDatasetIds={props.selectedAgentDatasetIds} onToggleAgentDataset={props.onToggleAgentDataset} /></div></div>
                 <ConversationHistory messages={visibleMessages} />
+                <div ref={activeTurnRef} className="conversation-turn-anchor" aria-hidden="true" />
+                <ActivityMessage busyAction={busyAction} tasks={props.taskEvents} onCancel={props.onCancelTask} />
                 {props.agentOutcome && props.agentOutcome.kind !== 'action_plan' && <div className={`message message--agent conversation-history-message conversation-history-message--${props.agentOutcome.kind === 'rejected' ? 'error' : props.agentOutcome.kind === 'needs_input' ? 'warning' : 'info'}`} role={props.agentOutcome.kind === 'rejected' ? 'alert' : 'status'}>
                   <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><strong>{props.agentOutcome.title}</strong><p>{props.agentOutcome.message}</p>{props.agentOutcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div>
                 </div>}
+                {props.agentPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><AgentPlanObject plan={props.agentPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onEdit={(planId) => { props.onRejectAgentPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} /></div></div>}
                 {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
                 {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>请确认这次绘图使用的字段。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} onConfirm={props.onConfirmMapping} /></div></div>}
                 {plot && <PlotObject {...props} chart={selectedChart} />}
-                {props.agentPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><AgentPlanObject plan={props.agentPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onEdit={(planId) => { props.onRejectAgentPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} /></div></div>}
-                <ActivityMessage busyAction={busyAction} tasks={props.taskEvents} onCancel={props.onCancelTask} />
                 {exportRecord && <section className="object-block product-result-strip" aria-label="导出记录"><Download size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出记录</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
               </>
             )}

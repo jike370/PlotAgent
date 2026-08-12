@@ -27,4 +27,13 @@ describe('workspace persistence', () => {
     expect(readWorkspaceSelection({ getItem: () => '{"mapping":{"roles":{"x":"C:\\\\secret"}}}' }, 'project:one'))
       .toBeUndefined()
   })
+
+  it('drops legacy implicit Agent dataset accumulation during migration', () => {
+    expect(readWorkspaceSelection({
+      getItem: () => JSON.stringify({
+        datasetId: 'source:eight',
+        agentDatasetIds: Array.from({ length: 8 }, (_, index) => `source:${index + 1}`),
+      }),
+    }, 'project:one')).toEqual({ datasetId: 'source:eight' })
+  })
 })

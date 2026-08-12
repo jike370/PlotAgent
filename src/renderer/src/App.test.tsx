@@ -38,6 +38,16 @@ const dataset = {
   source_coordinate_kinds: ['text_row'],
 }
 
+const secondDataset = {
+  ...dataset,
+  source_dataset_id: 'source:pressure',
+  content_hash: 'c'.repeat(64),
+  fields: dataset.fields.map((field) => ({
+    ...field,
+    field_id: field.field_id.replace('field:', 'field:pressure.'),
+  })),
+}
+
 function enginePlotFixture(
   plotId = 'plot:one',
   plotVersion = 1,
@@ -740,6 +750,63 @@ describe('PlotAgent real desktop workflow', () => {
     })
     expect(screen.queryByText('陈旧结果不应显示')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+  })
+
+  it('keeps live Agent feedback and its confirmation card before the existing plot', async () => {
+    const user = userEvent.setup()
+    let finishDecision: ((result: DesktopDataResult) => void) | undefined
+    const decideAgent = vi.fn(() => new Promise<DesktopDataResult>((resolve) => { finishDecision = resolve }))
+    installApi(fakeDesktop({ decideAgent }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '把标题改成温度响应')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    const activity = await screen.findByText('正在理解你的要求…')
+    const plotCard = screen.getByRole('img', { name: '折线图 真实渲染预览' }).closest('section')
+    expect(activity.closest('.message')?.compareDocumentPosition(plotCard as Node) ?? 0)
+      .toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+
+    await act(async () => {
+      finishDecision?.(ok(agentDecisionWithPlan(agentPlanFixture())))
+    })
+    const planMessage = (await screen.findByRole('heading', { name: '任务计划' })).closest('.message')
+    expect(planMessage?.compareDocumentPosition(plotCard as Node) ?? 0)
+      .toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it('does not silently accumulate browsed worksheets in the Agent context', async () => {
+    const user = userEvent.setup()
+    const decideAgent = vi.fn(async () => ok(agentDecisionWithPlan(agentPlanFixture())))
+    installApi(fakeDesktop({
+      decideAgent,
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    const datasetSwitcher = await screen.findByRole('combobox', { name: '数据表' })
+    await user.selectOptions(datasetSwitcher, 'source:pressure')
+    await user.selectOptions(datasetSwitcher, 'source:temperature')
+    expect(screen.getByText('1/8')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '声明字段绑定')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    await screen.findByRole('heading', { name: '任务计划' })
+    expect(decideAgent).toHaveBeenLastCalledWith(expect.objectContaining({
+      sourceDatasetId: 'source:temperature',
+      selectedDatasets: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
+    }))
   })
 
   it('undoes an Agent edit by creating a new inverse-action version', async () => {

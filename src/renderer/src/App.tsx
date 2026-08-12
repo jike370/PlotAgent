@@ -318,7 +318,7 @@ export function App(): React.JSX.Element {
     if (nextDatasets.length > 0) {
       setDatasets(nextDatasets)
       setActiveDatasetId(nextDatasets[0].datasetId)
-      setAgentDatasetIds([nextDatasets[0].datasetId])
+      setAgentDatasetIds([])
     }
     return nextProject
   }, [mergeProjects])
@@ -469,7 +469,7 @@ export function App(): React.JSX.Element {
     setDatasets((current) => [...new Map([...current, ...imported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()])
     if (datasets.length === 0 && imported[0]) {
       setActiveDatasetId(imported[0].datasetId)
-      setAgentDatasetIds([imported[0].datasetId])
+      setAgentDatasetIds([])
     }
     const version = projectVersionFrom(value, targetProject.projectVersion)
     const nextProject = projectWithVersion(targetProject, version)
@@ -572,9 +572,8 @@ export function App(): React.JSX.Element {
       const nextDataset = nextDatasets.find((item) => item.datasetId === persisted?.datasetId) ?? nextDatasets[0]
       const availableDatasetIds = new Set(nextDatasets.map((item) => item.datasetId))
       const nextAgentDatasetIds = (persisted?.agentDatasetIds ?? [])
-        .filter((datasetId) => availableDatasetIds.has(datasetId))
-        .slice(0, 8)
-      if (nextDataset && !nextAgentDatasetIds.includes(nextDataset.datasetId)) nextAgentDatasetIds.unshift(nextDataset.datasetId)
+        .filter((datasetId) => availableDatasetIds.has(datasetId) && datasetId !== nextDataset?.datasetId)
+        .slice(0, 7)
       const persistedChart = chartCatalog.find((item) => item.id === persisted?.chartId)
       const availableFields = new Set(nextDataset?.fields.map((field) => field.fieldId) ?? [])
       const persistedMapping = persisted?.mapping !== undefined &&
@@ -1059,7 +1058,7 @@ export function App(): React.JSX.Element {
   const selectDataset = (datasetId: string): void => {
     invalidateAgentRequest()
     setActiveDatasetId(datasetId)
-    const nextAgentDatasetIds = [datasetId, ...agentDatasetIds.filter((id) => id !== datasetId)].slice(0, 8)
+    const nextAgentDatasetIds = agentDatasetIds.filter((id) => id !== datasetId).slice(0, 7)
     setAgentDatasetIds(nextAgentDatasetIds)
     setConfirmedMapping(undefined)
     setPlot(undefined)
@@ -1073,7 +1072,7 @@ export function App(): React.JSX.Element {
     if (datasetId === activeDataset?.datasetId) return
     const next = agentDatasetIds.includes(datasetId)
       ? agentDatasetIds.filter((id) => id !== datasetId)
-      : [...agentDatasetIds, datasetId].slice(0, 8)
+      : [...agentDatasetIds, datasetId].slice(0, 7)
     setAgentDatasetIds(next)
     rememberWorkspace({ agentDatasetIds: next })
   }
@@ -1108,7 +1107,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedAgentDatasetIds={agentDatasetIds} selectedChart={selectedChart} plot={plot} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleAgentDataset={toggleAgentDataset} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedAgentDatasetIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...agentDatasetIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleAgentDataset={toggleAgentDataset} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && plot?.chartId === 'K25' && <CompositionEditor plot={plot} onClose={() => setScreen('workspace')} />}
