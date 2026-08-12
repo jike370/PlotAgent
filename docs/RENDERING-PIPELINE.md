@@ -1,6 +1,6 @@
 # PlotAgent v3 绘图执行管线
 
-> 状态：38 个正式 Profile 的现行执行与验收边界，2026-08-11。
+> 状态：35 个 Origin 可渲染 Profile 的现行执行与验收边界，2026-08-12。
 
 ## 1. 执行顺序
 
@@ -39,6 +39,6 @@
 
 - 机械资格：创建、代表性编辑、读回、fresh-reopen、数据哈希、对象类型与导出存在性。
 - 视觉资格：由产品负责人逐图审查默认态和编辑态。
-- 机械通过不能自动写成视觉 PASS；当前 38 图视觉状态保持 `UNVERIFIED`，直到人工签名。
+- 机械通过不能自动写成视觉 PASS；当前 35 图视觉状态保持 `UNVERIFIED`，直到人工签名。
 
-产物入口：`build/visual-audit/agent-native-38/index.html`。
+产物入口：`build/visual-audit/origin-recipe-renderer-35/index.html`。

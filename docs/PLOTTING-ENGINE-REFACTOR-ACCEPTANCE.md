@@ -1,6 +1,6 @@
 # Agent Native 绘图引擎验收基线
 
-> 状态：代码重写和 38 图机械资格完成；人工视觉签名与正式黑盒待执行。
+> 状态：代码重写和 35 图 Origin 机械资格完成；3 图明确拒绝；人工视觉签名与正式黑盒待执行。
 
 ## 1. 验收对象
 
@@ -20,7 +20,7 @@
 - 非法字段、对象、版本和参数在 backend 前拒绝；
 - 动作 Schema 不包含 Python、Matplotlib、Origin 脚本或对象路径。
 
-### Gate C：38 图纵向能力
+### Gate C：35 图纵向能力
 
 - 每图有独立 Profile、Matplotlib renderer 和 Origin 官方模板绑定器；
 - 默认态与代表性编辑态均可生成；
@@ -45,7 +45,8 @@
 
 ## 3. 当前证据
 
-- 38/38 机械通过，38/38 视觉未签名；
-- 审查页：`build/visual-audit/agent-native-38/index.html`；
+- 35/35 机械通过，35/35 视觉未签名；
+- 核密度图、Kaplan–Meier 生存曲线、森林图在 OriginRecipe 选择阶段明确拒绝；
+- 审查页：`build/visual-audit/origin-recipe-renderer-35/index.html`；
 - 默认/编辑 contact sheet 与每图 OPJU/PNG/readback 位于同目录；
 - 当前无签名安装包，正式开发入口为仓库根目录执行 `pnpm dev`。

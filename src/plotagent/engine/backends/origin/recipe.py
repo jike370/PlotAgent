@@ -748,13 +748,13 @@ _RECIPES = (
             "no Kaplan-Meier estimation or equality test",
         ),
         template_keys=("survival",),
-        binder_key="S01",
         rebuild_policy="recreate_from_source",
-        proof_level="manual_native_property",
+        support_status="structural_fail",
+        proof_level="blocked",
         manual_gate=(
-            "Confirm step connection, confidence fill and risk-table layout after "
-            "fresh reopen. The product accepts supplied survival geometry and must "
-            "not invoke kaplanmeier, Log-Rank, Breslow or Tarone-Ware."
+            "Origin 2024 cannot provide the accepted supplied-geometry survival layout "
+            "with stable confidence bands, risk table and common Agent edits after "
+            "fresh reopen; analysis or hand-built primitive fallbacks are forbidden."
         ),
     ),
     _r(

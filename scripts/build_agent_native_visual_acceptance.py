@@ -51,7 +51,6 @@ from plotagent.engine.backends.matplotlib import (  # noqa: E402
     K13BoxRenderer,
     K14ViolinRenderer,
     K15HistogramRenderer,
-    K16DensityRenderer,
     K18AreaRenderer,
     K19TimeSeriesRenderer,
     K20HeatmapRenderer,
@@ -59,8 +58,6 @@ from plotagent.engine.backends.matplotlib import (  # noqa: E402
     K22ContourRenderer,
     K24FacetRenderer,
     K25CompositeRenderer,
-    S01SurvivalRenderer,
-    S21ForestRenderer,
     S34NyquistRenderer,
     S61ConfusionRenderer,
     X02DropLineRenderer,
@@ -80,6 +77,7 @@ from plotagent.engine.backends.matplotlib.backend import (  # noqa: E402
     MatplotlibComponentArtifact,
 )
 from plotagent.engine.backends.origin import (  # noqa: E402
+    ORIGIN_RENDERABLE_RECIPES,
     SubprocessOriginWorker,
     preflight_origin,
 )
@@ -106,7 +104,7 @@ from tests.engine import test_x03_x39_x40_wide_series as wide_cases  # noqa: E40
 from tests.engine import test_x05_x09_x13_profiles as x_cases  # noqa: E402
 from tests.engine import test_x23_matplotlib_backend as x23_cases  # noqa: E402
 
-OUTPUT = REPOSITORY / "build" / "visual-audit" / "agent-native-38"
+OUTPUT = REPOSITORY / "build" / "visual-audit" / "agent-native-35"
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,15 +191,12 @@ def _cases() -> tuple[AuditCase, ...]:
         "K13": lambda: column_cases._distribution_case("K13", 3),
         "K14": lambda: column_cases._distribution_case("K14", 3),
         "K15": lambda: calculated_cases._case("K15"),
-        "K16": lambda: calculated_cases._case("K16", grouped=True),
         "K18": matrix_cases._k18_case,
         "K19": matrix_cases._k19_case,
         "K20": k20_cases._case,
         "K21": matrix_cases._k21_case,
         "K22": matrix_cases._k22_case,
         "K24": t2_cases._k24_case,
-        "S01": t2_cases._s01_case,
-        "S21": t2_cases._s21_case,
         "S34": t2_cases._s34_case,
         "S61": t2_cases._s61_case,
         "X02": lambda: t1_cases._case(
@@ -224,9 +219,7 @@ def _cases() -> tuple[AuditCase, ...]:
         "X39": lambda: wide_cases._case("X39", series_count=4, row_count=5),
         "X40": lambda: wide_cases._case("X40", series_count=2, row_count=6),
     }
-    expected = tuple(
-        profile.profile_id for profile in ENGINE_PROFILES if profile.profile_id != "K25"
-    )
+    expected = tuple(profile_id for profile_id in ORIGIN_RENDERABLE_RECIPES if profile_id != "K25")
     if set(factories) != set(expected):
         raise RuntimeError(
             f"audit case inventory differs: {sorted(set(expected) ^ set(factories))}"
@@ -261,15 +254,12 @@ RENDERERS = {
         K13BoxRenderer(),
         K14ViolinRenderer(),
         K15HistogramRenderer(),
-        K16DensityRenderer(),
         K18AreaRenderer(),
         K19TimeSeriesRenderer(),
         K20HeatmapRenderer(),
         K21CorrelationMatrixRenderer(),
         K22ContourRenderer(),
         K24FacetRenderer(),
-        S01SurvivalRenderer(),
-        S21ForestRenderer(),
         S34NyquistRenderer(),
         S61ConfusionRenderer(),
         X02DropLineRenderer(),
@@ -472,9 +462,9 @@ def _render_origin(cases: tuple[AuditCase, ...], *, resume: bool = False) -> Non
             case_dir / "origin-edited-readback.json",
         )
         if resume and all(path.is_file() for path in required):
-            print(f"[{index:02d}/38] Origin {case.profile_id} · resume skip", flush=True)
+            print(f"[{index:02d}/35] Origin {case.profile_id} · resume skip", flush=True)
             continue
-        print(f"[{index:02d}/38] Origin {case.profile_id}", flush=True)
+        print(f"[{index:02d}/35] Origin {case.profile_id}", flush=True)
         default_document, default_actions = _state(case, False)
         _edited_document, edited_actions = _state(case, True)
         default = case_dir / "origin-default.opju"
@@ -520,9 +510,9 @@ def _render_origin(cases: tuple[AuditCase, ...], *, resume: bool = False) -> Non
         k25_dir / "origin-edited-readback.json",
     )
     if resume and all(path.is_file() for path in k25_required):
-        print("[38/38] Origin K25 · resume skip", flush=True)
+        print("[35/35] Origin K25 · resume skip", flush=True)
     else:
-        print("[38/38] Origin K25", flush=True)
+        print("[35/35] Origin K25", flush=True)
         _render_k25_origin(worker, install_dir)
     _export_origin_previews((*cases,))
 
@@ -605,7 +595,11 @@ def _export_origin_previews(cases: tuple[AuditCase, ...]) -> None:
 
 
 def _manifest() -> dict[str, Any]:
-    profile_map = {profile.profile_id: profile for profile in ENGINE_PROFILES}
+    profile_map = {
+        profile.profile_id: profile
+        for profile in ENGINE_PROFILES
+        if profile.profile_id in ORIGIN_RENDERABLE_RECIPES
+    }
     templates = {
         profile_id: getattr(origin_profiles, f"{profile_id}_ORIGIN_PROFILE")
         for profile_id in profile_map
@@ -664,7 +658,7 @@ def _manifest() -> dict[str, Any]:
         "source_commit": subprocess.check_output(
             ("git", "rev-parse", "HEAD"), cwd=REPOSITORY, text=True
         ).strip(),
-        "scope": "38 formal Agent Native profiles; 37 official Origin templates plus K25 native merge; default and representative edit",
+        "scope": "35 Origin-renderable Agent Native profiles; 34 official routes plus K25 native merge; default and representative edit",
         "summary": {
             "profile_count": len(entries),
             "mechanical_pass": sum(item["mechanical_status"] == "PASS" for item in entries),
@@ -700,9 +694,9 @@ def _index(manifest: dict[str, Any]) -> None:
 <p>Origin 图族资产：<code>{html.escape(str(template["filename"]))}</code> · {template["tier"]} · {origin_caption}</p>
 <div class="figures">{figures}</div>
 <footer><a href="{profile_id}/origin-default.opju">默认 OPJU</a><a href="{profile_id}/origin-edited.opju">编辑 OPJU</a><a href="{profile_id}/data-view.json">数据</a><a href="{profile_id}/origin-edited-readback.json">Origin 读回</a></footer></article>''')
-    content = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PlotAgent Agent Native · 38 图视觉验收</title><style>
+    content = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PlotAgent Agent Native · 35 图视觉验收</title><style>
 :root{{--bg:#f4f4f2;--card:#fff;--line:#d8d8d3;--text:#171715;--muted:#676761;--accent:#0a6847}}*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Microsoft YaHei UI",sans-serif}}main{{max-width:1680px;margin:auto;padding:32px}}h1{{font-size:28px;margin:0 0 8px}}.intro{{color:var(--muted);max-width:920px;margin:0 0 24px}}nav{{position:sticky;top:0;background:rgba(244,244,242,.95);padding:12px 0;z-index:2;display:flex;gap:8px;flex-wrap:wrap}}nav a{{color:var(--text);text-decoration:none;border:1px solid var(--line);background:white;padding:4px 8px;border-radius:6px}}article{{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:0 0 22px;overflow:hidden}}article header{{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;font-size:17px}}article header span{{color:#865a00;font-size:12px}}article p{{padding:0 18px;color:var(--muted)}}.figures{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line)}}figure{{margin:0;background:#fff;padding:12px}}figcaption{{font-weight:600;margin-bottom:8px}}img{{display:block;width:100%;height:420px;object-fit:contain;background:#fff}}footer{{display:flex;gap:16px;padding:12px 18px}}footer a{{color:var(--accent)}}code{{font-family:Consolas,monospace}}@media(max-width:900px){{.figures{{grid-template-columns:1fr}}img{{height:auto}}main{{padding:16px}}}}</style></head><body><main>
-<h1>PlotAgent Agent Native · 38 图视觉验收</h1><p class="intro">这是新引擎的唯一视觉验收面。37 张数据图直接使用对应 Origin 官方模板；K25 使用 Origin 原生图页合并。每张图并列展示 Matplotlib 与 Origin 的默认态、代表编辑态。机械通过不等于视觉通过；请按图审查后记录结论。当前机械读回 38/38，视觉结论 0/38，全部保持 UNVERIFIED。</p>
+<h1>PlotAgent Agent Native · 35 图视觉验收</h1><p class="intro">这是当前 Origin 可渲染范围的统一视觉验收面。34 张数据图使用已核实的 Origin 官方模板、菜单或 X-Function；K25 使用 Origin 原生图页合并。每张图并列展示 Matplotlib 与 Origin 的默认态、代表编辑态。机械通过不等于视觉通过；请按图审查后记录结论。当前机械读回 35/35，视觉结论 0/35，全部保持 UNVERIFIED。</p>
 <p class="intro"><a href="origin-default-contact-sheet.png">Origin 默认态总览</a> · <a href="origin-edited-contact-sheet.png">Origin 代表编辑态总览</a> · <a href="manifest.json">机械清单</a></p>
 <nav>{"".join(f'<a href="#{item["profile_id"]}">{item["profile_id"]}</a>' for item in manifest["profiles"])}</nav>{"".join(cards)}</main></body></html>"""
     (OUTPUT / "index.html").write_text(content, encoding="utf-8")
@@ -745,8 +739,8 @@ def main() -> int:
         shutil.rmtree(OUTPUT)
     OUTPUT.mkdir(parents=True, exist_ok=True)
     cases = _cases()
-    if len(cases) != 37:
-        raise RuntimeError(f"expected 37 data profiles plus K25, got {len(cases)}")
+    if len(cases) != 34:
+        raise RuntimeError(f"expected 34 data profiles plus K25, got {len(cases)}")
     if args.phase in {"all", "matplotlib"}:
         _render_matplotlib(cases)
     if args.phase in {"all", "origin"}:
@@ -755,7 +749,7 @@ def main() -> int:
         manifest = _manifest()
         _write_json(OUTPUT / "manifest.json", manifest)
         _index(manifest)
-        if manifest["summary"]["mechanical_pass"] != 38:  # type: ignore[index]
+        if manifest["summary"]["mechanical_pass"] != 35:  # type: ignore[index]
             raise RuntimeError("visual acceptance is incomplete")
     return 0
 

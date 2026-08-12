@@ -22,7 +22,7 @@
 7. `local_dispatch` 固定本机 `Plot.ogs`/`Plot3D.ogs` 菜单段、X-Function、
    分析或组合入口。模板文件正确但 dispatcher 不同，仍视为错误实现。
 
-## 36 图 Origin renderer 范围
+## 35 图 Origin renderer 范围
 
 | ID | 中文名称 | 官方模板或流程 | 创建类型 | 证据 |
 |---|---|---|---|---|
@@ -47,7 +47,6 @@
 | K22 | 填色等高线 | `CONTOUR.otpu` + Matrix | 模板 | 完整等距规则网格、PID226、MatrixBook 源绑定、坐标映射、色阶边界和色标均已经独立进程 fresh-reopen 读回 |
 | K24 | Trellis分面图 | `Grouped.otp` + `plot_group` | X-Function | 专属属性人工门禁 |
 | K25 | 多面板组合图 | `Graph > Merge Graph Windows` / `merge_graph` | 组合 | 2–4 个异构原生子图与独立进程 fresh-reopen 已证；无 MGROUPS 运行依赖 |
-| S01 | Kaplan-Meier生存曲线 | 官方 `SurvivalPlot.otp` 输出模板；绑定用户提供的阶梯/区间/风险人数 | 模板+组合 | 不运行 KM/检验；阶梯、置信带和风险表 fresh-reopen 人工门禁 |
 | S34 | Nyquist图 | `LINESYMB.otpu` + EIS语义 | 模板 | 原生结构已证 |
 | X02 | 垂线图 | `DROPLINE.OTP` | 模板 | 专属属性人工门禁 |
 | X03 | 棒棒糖图 | `Lollipop.otpu` | 模板 | 专属属性人工门禁 |
@@ -63,11 +62,12 @@
 | X40 | 前后对比图 | `Plot.ogs [BeforeAfter]` / `BeforeAfter.otpu` | 菜单＋模板 | 两列宽表原位、单一 PID206 组、Subgroup Size=2；6→15行及 Agent 组/成员编辑均已独立 fresh 读回 |
 | S61 | 带标签热图（混淆矩阵语义） | `plotvm` / `Heat_Map_With_Labels.otpu` | X-Function＋模板 | clean dynamic rebuild 与 fresh-reopen 已闭合 |
 
-## 暂不进入 Origin renderer 的 2 图
+## 不进入 Origin renderer 的 3 图
 
 | ID | 原因 | 禁止的替代实现 |
 |---|---|---|
 | K16 | Origin 2024 fresh reopen 后 bins 重新显示，当前不构成纯 KDE | 不得用预计算 XY 密度线冒充官方流程 |
+| S01 | `SurvivalPlot.otp` 无法稳定保留已接受的阶梯、置信带、风险表与共同 Agent 编辑布局 | 不得改跑 Kaplan–Meier 分析，也不得以手工图元拼出生存图 |
 | S21 | 官方 Forest Plot App 尚未安装和实证 | 不得用普通误差棒、手工线段或 Python 森林图替代 |
 
 ## 本机 dispatcher 门禁

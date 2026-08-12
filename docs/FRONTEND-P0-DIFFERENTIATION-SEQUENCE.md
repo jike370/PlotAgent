@@ -5,7 +5,7 @@
 > 适用范围：前端、Origin 绘图 P0、项目级上下文、可恢复任务编排与自然语言画图/改图的产品辨识度
 > 相关文档：[产品需求文档](./PRD.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[领域契约](./DOMAIN-CONTRACTS.md)、[渲染管线](./RENDERING-PIPELINE.md)、[实施计划](./IMPLEMENTATION-PLAN.md)、[Beta 测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)
 
-> 阅读规则：本文记录的45图视觉批次与SEQ-20证据属于重构前工作；当前正式38图模板优先引擎的机械/视觉资格不得由这些历史状态继承。
+> 阅读规则：本文记录的45图视觉批次与SEQ-20证据属于重构前工作；当前35图模板优先 Origin 引擎的机械/视觉资格不得由这些历史状态继承，三个拒绝项也不得由历史证据恢复。
 
 ## 1. 文档目的
 
@@ -202,7 +202,7 @@ flowchart TD
 - **冻结输入：** 对应逐图 fixture、参考图、provenance 和 `batch-3.manifest.json` 位于 `tests/fixtures/visual_regression/seq20/`；三批合计严格覆盖 K01、K02、K03、K08、K18、X01、X02、X09、K05、K09、K10、S05、S25、X03。
 - **运行产物：** `build/visual-audit/seq20-origin-baseline/batch-3/index.html`；默认态与代表性编辑态均完成 Matplotlib、合并 O1 OPJU 和独立 fresh-reopen 导出。
 - **自动证据结论：** 三批 14 图均存在同源参考图与冻结数据，默认/编辑两种状态均固定 PlotSpec、RenderPlan、Matplotlib、Origin PNG、OPJU、adapter、exact Origin version 与 hash；所有 OPJU build/fresh-reopen validation 完全一致。无同源数据、合成数据或旧 oracle 改写进入本基线。该结论只证明证据生成完成。
-- **测试（历史口径）：** 旧 SEQ-20 分批页面只保留为迁移历史，不再充当当前产品资格 gate。当前正式门禁由 `tests/rendering/test_per_chart_opju_builder.py` 与 `tests/rendering/test_template_first_visual_review.py` 共同验证：38 图逐图数据/样式/fresh-reopen 机械读回必须与当前渲染源码一致；机械通过后视觉状态仍必须为 `UNVERIFIED`，直到用户签名。此前 Python/Origin/前端回归数字继续作为历史证据，不得替代视觉 gate。
+- **测试（历史口径）：** 旧 SEQ-20 分批页面只保留为迁移历史，不再充当当前产品资格 gate。当前35图准入由 Agent Native 引擎的逐图契约、Origin 原生读回与统一视觉页共同验收；机械通过后视觉状态仍必须为 `UNVERIFIED`，直到用户签名。此前 Python/Origin/前端回归数字继续作为历史证据，不得替代视觉 gate。
 - **第三批视觉观察：** S05 Origin 图例右侧被页面边缘截断且标题未置顶；S25/X03 Origin 标题未置顶。K10 的堆积结构与数据总量一致。
 - **未完成项：** K02 `SERIES_IDENTITY_MISMATCH`、K05 `NATIVE_BAND_FILL_MISMATCH`、K09 `GROUPED_BAR_OVERLAP` 三个可机械验证 P0 尚未关闭；用户尚未对标题、图例及其余并排证据完成视觉签名。
 - **是否允许进入下一阶段：** **否（视觉 NO-GO）。** 当前只完成证据生成与完整性校验，不存在“SEQ-20 自动工程门禁已通过”的结论。修复必须保持冻结数据与参考图不变，不得修改旧 oracle 或放宽容差；三个 P0 自动阻断项清零、证据绑定当前 source build identity 且取得用户视觉签名后，方可把 SEQ-20 标为“完成”并进入 SEQ-30。

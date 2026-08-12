@@ -1,6 +1,6 @@
-# PlotAgent v3：38 图—Origin 官方模板映射与绘图引擎重构基线
+# PlotAgent v3：38 个候选图—35 图 Origin renderer 映射与重构基线
 
-状态：38 图官方模板目录已冻结；旧模板优先链曾完成裸模板 368 变体、38/38 build/fresh-reopen 与逐图修改读回，但该证据仅作模板选型历史，不代表重写后的 Agent Native 引擎已取得资格。新引擎已完成 38/38 个代码级纵向切片；K25 已通过 2–4 个异构原生子图的 `Merge Graph Windows` 创建与独立进程 fresh-reopen。全范围人工视觉签名尚未完成。
+状态：38 个候选图的官方资料与本机资产已经审计；其中 35 图进入 Origin renderer，核密度图、Kaplan–Meier 生存曲线、森林图明确排除。旧模板优先链的历史证据只作选型追溯，不代表当前 renderer 资格。35 个可用切片已完成代码、机械读回与 fresh-reopen；全范围人工视觉签名尚未完成。
 
 核对环境：OriginPro 2024 SR1 `10.10.178`，`originpro 1.1.15`
 
@@ -8,7 +8,7 @@
 
 历史图形范围：旧证据清单中的 45 图，仅作迁移追溯，不再作为产品库存
 
-重构后正式范围：仅 T1/T2，共 38 图
+重构后 Origin renderer 范围：仅 T1/T2，共 35 图；另保留 3 个明确拒绝的候选记录
 
 ## 1. 使用原则
 
@@ -31,13 +31,14 @@
 
 ### 正式范围决定
 
-- **正式纳入：T1 直接模板 28 图、T2 模板＋小补 10 图，共 38 图。**
+- **正式纳入 Origin renderer：35 图。**
+- **明确排除：核密度图、Kaplan–Meier 生存曲线、森林图。** 不允许以预计算折线、手工图元或错误模板替代。
 - **从正式产品删除：T3 2 图（K05、S25）与 T4 5 图（K17、S05、S07、S31、X01）。**
 - 删除覆盖图形库、搜索、创建能力、Agent capability、字段映射、编辑入口、Origin 导出、资格清单与发布声明；不得仅在前端隐藏而保留可调用入口。
 - 历史数据或项目若引用这 7 个 ID，只允许给出明确的“不再支持”迁移诊断，不静默替换为近似图形。
-- 删除工作与绘图引擎全面重构同时实施；重构完成后正式图形清单、测试与文档必须统一为 38 图。
+- 删除工作与绘图引擎全面重构同时实施；重构完成后 Origin 可渲染清单、测试与文档必须统一为 35 图，并保留 3 个 fail-closed 记录。
 
-## 2. 正式 38 图映射
+## 2. 38 个候选图映射（35 可用＋3 排除）
 
 | ID | 图形 | 现有证据 | 首选 Origin 官方资产 | 等级 | Python 需要补充的最小逻辑 | 迁移注意事项 |
 |---|---|---|---|---|---|---|
@@ -55,7 +56,7 @@
 | K13 | 箱线图 | A；`Box.opju` Graph1 | `BOX.OTP` `a1f26e68a6a0` | T1 | 绑定原始值与可选分组；冻结 Tukey 规则 | 优先让 Origin 创建原生 box plot，不拼箱体线条 |
 | K14 | 小提琴图 | C；`Box.opju` 原始值＋系统 Violin 重建 | `Violin.otpu` `ee71ef5fb2bf` | T1 | 绑定原始值与分组、KDE/内部统计参数 | 高优先级迁移：禁止用普通线和 fill_area 模拟外轮廓，避免边缘竖线复现 |
 | K15 | 直方图 | A；`Histogram.opju` Graph2 | `Hist.otpu` `cc1d7edd9f07` | T1 | 原始观测绑定 PID219；共享计算内核只冻结 bin begin/end/size 与 Count 口径 | Origin 使用原生 Histogram 对象，不创建预计算普通柱；fresh reopen 必须读回固定分箱 |
-| K16 | 核密度图 | A；`Histogram.opju` Graph7 | `HISTDIST.otpu` `a584e2ee70fa`，以 Graph7 样式为准 | T2 | 共享 Scott KDE 内核生成每组 grid/density，绑定原生线 | histogram/rug 组件默认不启用；待真实 Origin 批次验证模板空组件状态 |
+| K16 | 核密度图 | A；`Histogram.opju` Graph7 | `HISTDIST.otpu` `a584e2ee70fa` | 排除 | 不进入 Origin renderer | Origin 2024 fresh reopen 会恢复 histogram bins；不得以预计算 XY 密度线冒充纯 KDE |
 | K18 | 面积图 | A；`Area.opju` Graph1 | `AREA.otpu` `c14ad432ffd6` | T1 | 绑定 X 与 1..N 个 Y，官方菜单一次性创建；开放共同的颜色与边界线样式 | 默认保持官方覆盖语义，不擅自改成累计/堆积；精确 From Y 仍需人工视觉确认 |
 | K19 | 日期时间折线图 | B；Origin Help `Line Graph` + 本机 Origin 2024 原生实证 | `LINE.otpu` `76a7ce886e22` | T1 | 绑定数值型 Date/Time X 与 `series_1..series_N`，一次调用官方 Line 菜单 | PID 200 与源列逐项读回；同日显示 `Time/HH:mm`，跨日显示 `Date/Short Date`；不使用 Time Series Explorer |
 | K20 | 热图 | A；`Heatmap.opju` Graph1 | `Heat_Map.otpu` `9bd8240ca582` | T1 | 写入 Matrixbook 或规则矩阵、设置 palette/range | 行列语义和色标位置显式控制 |
@@ -63,8 +64,8 @@
 | K22 | 等高线与填色等值图 | A；`Contour.opju` Graph1 | `CONTOUR.otpu` `b4915054edd4` | T1 | 写入规则 Matrix 或 XYZ 网格、levels/palette | 色标不得覆盖数据框或被裁切 |
 | K24 | 格状分面图 | D；官方 Trellis 路径的 Agent Native 实证 | `Grouped.otp` `b3a1999cc9e9` + `plot_group` | T2 | 长表绑定 facet/X/Y，并由官方 X-Function 动态生成单层 2–5 面板 | 不复制普通图层；保持 PID 202、源 facet 顺序和原生 Trellis 面板 |
 | K25 | 多面板组合图 | D；异构原生子图合并实证 | `Graph > Merge Graph Windows` / `merge_graph` | T2 | 追加 2–4 个精确版本子 OPJU，再调用官方合并流程并重放公共编辑 | MGROUPS 只适用于同构多面板，不是 K25 运行依赖；子图 Worksheet、Plot 与 PID 必须保持，不栅格化 |
-| S01 | KM 生存曲线 | D；独立 Origin 生存图参考 | `SurvivalPlot.otp` `0b8759367ce1` | T2 | 绑定预计算 step/CI/risk counts；动态风险表行高 | 不在 renderer 内偷偷重新做生存分析 |
-| S21 | 森林图 | D；独立 Origin interval 参考 | `SCATTERINTERVAL.otp` `fb319b1a6918` | T2 | 绑定 effect/lower/upper、行标签、无效线和权重符号 | 本机无 Forest 命名模板；先实机确认 interval 端帽与权重符号兼容性 |
+| S01 | KM 生存曲线 | D；独立 Origin 生存图参考 | `SurvivalPlot.otp` `0b8759367ce1` | 排除 | 不进入 Origin renderer | 阶梯、置信带、风险表与共同 Agent 编辑布局不能稳定 fresh-reopen；不得改跑统计分析或手工拼图 |
+| S21 | 森林图 | D；官方 Forest Plot App | 本机未安装官方 App | 排除 | 不进入 Origin renderer | 不得用 `SCATTERINTERVAL.otp`、普通误差棒或手工线段冒充官方森林图 |
 | S34 | Nyquist 图 | D；独立 Origin line-symbol 参考 | `LINESYMB.otpu` `2f1292a939ea` | T2 | 绑定 Z′/−Z″、等比例轴、方向/频率编码 | 本机未找到 Nyquist 命名模板；不可把频率误作坐标轴 |
 | S61 | 混淆矩阵 | C；官方 `LogRegData.dat` | `Heat_Map_With_Labels.otpu` `d1a7fcd8af23` | T2 | 写入预聚合 Count 矩阵、轴类目和单元格标签 | 必须支持原始样本计数与预聚合 Count，两者都落为同一原生矩阵语义 |
 | X02 | 垂线图 | C；官方 step signal 数据 | `DROPLINE.OTP` `69cbcf934924` | T1 | 绑定 X/Y、symbol 和 drop-line 样式 | 垂线落到当前绘图区底部 X 轴；不与 X03 混淆 |
@@ -94,7 +95,7 @@
 
 ### 第三批：其余 T2 小补模板
 
-`K12`、`K16`、`K24`、`K25`、`S01`、`S21`、`S34`、`S61`。
+`K12`、`K24`、`K25`、`S34`、`S61`。`K16`、`S01`、`S21` 已在候选审计后明确排除，不进入实现批次。
 
 ## 4. 删除清单
 
@@ -107,11 +108,11 @@
 5. 视觉 fixture、逐图 OPJU 清单、资格测试和发布能力声明。
 6. 旧项目兼容读取：保留 ID 识别，只返回稳定的 `CHART_TYPE_REMOVED` 诊断；不恢复渲染能力，也不自动替换图形。
 
-删除完成的判据不是“界面搜不到”，而是任何生产入口都不能再创建、编辑、渲染或导出这 7 图，且正式库存严格等于 38。
+删除完成的判据不是“界面搜不到”，而是任何生产 Origin 入口都不能再分派到已排除的图；`ORIGIN_RENDERABLE_RECIPES` 必须严格等于 35。
 
-## 5. 38 图裸模板动态数据测试
+## 5. 35 图裸模板动态数据测试
 
-全面重构开始前，先对 38 图逐一执行裸模板测试。测试的目的不是证明当前 renderer，而是测清 Origin 官方模板自身能处理到什么程度。
+全面重构开始前，对候选图逐一执行裸模板测试。正式 renderer 的动态测试只覆盖最终保留的 35 图；测试的目的不是证明当前 renderer，而是测清 Origin 官方模板自身能处理到什么程度。
 
 ### 5.1 裸模板允许的操作
 
@@ -150,22 +151,22 @@
 
 - **AUTO**：Origin 模板自动适应，生产实现只保留数据绑定和用户编辑。
 - **DECLARED_PATCH**：模板主体正确，但确实需要一项已声明的 T2 原生配置；必须有失败证据和最小补丁测试。
-- **REMOVE_OR_RECLASSIFY**：裸模板无法达到要求，且需要超出 T2 的专属 renderer；该图不得留在正式 38 图中，需重新决策，不能偷偷扩张实现。
+- **REMOVE_OR_RECLASSIFY**：裸模板无法达到要求，且需要超出 T2 的专属 renderer；该图不得留在正式 Origin renderer 中，需明确拒绝，不能偷偷扩张实现。
 
 测试产物至少包含输入数据、模板哈希、默认/变化状态 PNG、OPJU、fresh-reopen 检查结果和结论清单。
 
 ## 6. 绘图引擎全面重构顺序
 
-1. **冻结38图范围。** 完成7图删除清单，所有库存和能力声明统一为38。
+1. **冻结候选与正式范围。** 候选资料保留 38 图；Origin renderer、测试和能力声明统一为 35 图可用、3 图拒绝。
 2. **运行裸模板测试。** 先测 Origin 自动能力，不修改现有 renderer 来追求通过。
 3. **冻结模板目录。** 每图记录官方模板、版本、哈希、数据 designation、AUTO/DECLARED_PATCH 结论和允许编辑项。
 4. **建立模板优先执行路径。** 生产链只完成数据导入、列角色、模板应用、必要的声明式原生配置、用户编辑和保存检查。
-5. **迁移 T1。** 28图逐图替换旧 Origin 构建路径；禁止回退到旧几何模拟。
-6. **迁移 T2。** 10图只实现裸模板证据证明必需的最小补丁；每项补丁独立测试。
-7. **删除旧绘图路径。** 38图全部通过后，删除被替代的专属 Origin 几何拼装、旧图形分支和过期视觉证据。
-8. **重新资格。** 以38图新引擎统一生成默认态、动态状态、代表性编辑态和逐图 OPJU；先完成38图全部机械修改读回，再一次性生成统一审查页交由用户逐图视觉判断，人工实际编辑按 Origin 模板家族选代表图。
+5. **迁移 T1。** 28 图逐图替换旧 Origin 构建路径；禁止回退到旧几何模拟。
+6. **迁移 T2。** 7 图只实现裸模板证据证明必需的最小补丁；每项补丁独立测试。
+7. **删除旧绘图路径。** 35 个可用图全部通过后，删除被替代的专属 Origin 几何拼装、旧图形分支和过期视觉证据。
+8. **重新资格。** 以 35 图新引擎统一生成默认态、动态状态、代表性编辑态和逐图 OPJU；完成全部机械修改读回后，一次性生成统一审查页交由用户逐图视觉判断，人工实际编辑按 Origin 模板家族选代表图。
 
-截至 2026-08-11：步骤 1–6 已由 Agent Native 引擎覆盖 38/38 个 Profile；旧绘图 compiler、resolver、共享 plan 与旧 Origin renderer 已从生产源码和 schema 删除。新的默认/代表性编辑 OPJU、读回与审查页已重新生成在 `build/visual-audit/agent-native-38/`，但人工视觉状态仍全部为 `UNVERIFIED`。
+截至 2026-08-12：35 个 Origin 可渲染 Profile 已完成新引擎切片；3 个排除项在 recipe 选择阶段 fail closed。旧绘图 compiler、resolver、共享 plan 与旧 Origin renderer 已从生产路径删除。统一视觉入口位于 `build/visual-audit/origin-recipe-renderer-35/index.html`，人工视觉状态仍全部为 `UNVERIFIED`。
 
 重构不预先规定“每图一个 renderer”或“所有图共用一个 renderer”。选择标准只有三个：Origin 映射正确、行为稳定、后续 Agent 容易操作。新 `PlotDocument`、`EngineDataView` 与公开 Engine Action 是唯一生产契约；旧 `PlotSpec`、compiler、resolver、`ResolvedPlot` 和 Origin plan 不得进入新执行路径，也不得作为迁移兜底。
 
@@ -181,7 +182,7 @@
 6. 保存 OPJU 后退出 Origin，以新会话重新打开。
 7. fresh-reopen 后重新读取数据、Plot 类型、图层、图例、色带和对象属性。
 8. 动态组数/系列数不能造成错误的数据几何重叠；标签长度输出只记录文本、字体和原始排版证据，不以裁切/重叠阻断。
-9. 38图逐图机械修改数据值和代表性样式并 fresh-reopen 读回；迁移期间不做探索性视觉审查。38图全部机械完成后统一交付参考图、Matplotlib、Origin 对照与 OPJU，由用户逐图签名；人工实际编辑按模板家族选代表图，机械成功不能代替视觉通过。
+9. 35 图逐图机械修改数据值和代表性样式并 fresh-reopen 读回；机械完成后统一交付 Matplotlib、Origin 对照与 OPJU，由用户逐图签名；人工实际编辑按模板家族选代表图，机械成功不能代替视觉通过。
 
 ## 8. 官方依据
 

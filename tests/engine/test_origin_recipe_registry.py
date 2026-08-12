@@ -17,9 +17,14 @@ def test_recipe_registry_covers_the_public_catalog_and_closes_the_origin_scope()
 
     assert set(ORIGIN_RECIPES) == public_ids
     assert len(ORIGIN_RECIPES) == 38
-    assert len(ORIGIN_RENDERABLE_RECIPES) == 36
-    assert set(ORIGIN_RECIPES) - set(ORIGIN_RENDERABLE_RECIPES) == {"K16", "S21"}
+    assert len(ORIGIN_RENDERABLE_RECIPES) == 35
+    assert set(ORIGIN_RECIPES) - set(ORIGIN_RENDERABLE_RECIPES) == {
+        "K16",
+        "S01",
+        "S21",
+    }
     assert ORIGIN_RECIPES["K16"].support_status == "structural_fail"
+    assert ORIGIN_RECIPES["S01"].support_status == "structural_fail"
     assert ORIGIN_RECIPES["S21"].support_status == "dependency_blocked"
     assert ORIGIN_RECIPES["S61"].support_status == "renderable"
 
@@ -145,7 +150,7 @@ def test_row_wise_boxchart_recipes_preserve_the_source_wide_table() -> None:
 
 
 def test_survival_recipe_preserves_the_supplied_geometry_product_contract() -> None:
-    recipe = origin_recipe("S01")
+    recipe = origin_recipe("S01", require_renderable=False)
 
     assert recipe.creation_kind == "graph_template"
     assert recipe.primary_template is not None
@@ -153,10 +158,12 @@ def test_survival_recipe_preserves_the_supplied_geometry_product_contract() -> N
     assert recipe.source_layout == "worksheet_wide"
     assert "no Kaplan-Meier estimation or equality test" in recipe.readback_contract
     assert "without running kaplanmeier" in recipe.local_dispatch
+    assert recipe.support_status == "structural_fail"
+    assert recipe.binder_key is None
 
 
 def test_blocked_profiles_fail_before_origin_automation() -> None:
-    for profile_id in ("K16", "S21"):
+    for profile_id in ("K16", "S01", "S21"):
         with pytest.raises(ValueError, match=profile_id):
             origin_recipe(profile_id)
         assert origin_recipe(profile_id, require_renderable=False).profile_id == profile_id
@@ -169,7 +176,7 @@ def test_manual_native_property_recipes_keep_the_exact_human_gate() -> None:
         if recipe.proof_level == "manual_native_property"
     }
 
-    assert len(manual) == 20
+    assert len(manual) == 19
     assert all(recipe.manual_gate for recipe in manual.values())
     assert "Whisker" in manual["K13"].manual_gate
     assert "Drop To" in manual["X02"].manual_gate

@@ -150,8 +150,9 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 
 ## 7. 当前迁移证据
 
-截至本分支当前实现，新架构已经完成全部三十八类代码级纵向切片。K25 不伪装成
-数据图：它引用 2–4 个既有 `PlotDocument` 的精确版本，并保持子图自己的数据与原生对象：
+截至本分支当前实现，新架构已经完成三十五类可用 Origin 纵向切片。K25 不伪装成
+数据图：它引用 2–4 个既有 `PlotDocument` 的精确版本，并保持子图自己的数据与原生对象。
+核密度图、Kaplan–Meier 生存曲线和森林图均已从 Origin 可渲染注册表移除，禁止用近似图元冒充：
 
 | Profile | 数据语义 | Matplotlib | Origin 官方模板 | 原生结构 |
 |---|---|---|---|---|
@@ -169,7 +170,6 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | K13 | `value / group?` | 独立 Tukey 箱线 renderer | `BOX.OTP` | 每组一列原始观测 + 模板原生 box plot |
 | K14 | `value / group?` | 独立小提琴 renderer | `Violin.otpu` | 每组一列原始观测 + 模板原生 violin plot；禁止线/填充模拟轮廓 |
 | K15 | `value` | 独立固定分箱直方图 renderer | `Hist.otpu` | 原始观测保留在 worksheet；官方 PID219 Histogram 使用共享 FD/Sturges 边界与 Count 高度 |
-| K16 | `value / group?` | 独立 Scott KDE renderer | `HISTDIST.otpu` | 共享计算内核产生每组 KDE 网格；worksheet + 原生密度线，模板直方/rug 组件不启用 |
 | K18 | `x / series_1..series_N` | 独立多系列面积图 renderer | `AREA.otpu` | X+全部Y一次性执行官方 Area 菜单，保留原生 PID204 与源列绑定 |
 | K19 | `time / series_1..series_N` | 独立原生日期时间折线 renderer | `LINE.otpu` | 数值型 Date/Time X + 1–N 个 Y；一次调用官方 Line 菜单创建 PID 200；同日显示时间、跨日显示日期 |
 | K20 | `row / column / value` | 独立热图 renderer | `Heat_Map.otpu` | matrixbook + 1 个原生 matrix plot |
@@ -177,8 +177,6 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | K22 | `x / y / z` | 独立规则网格等高 renderer | `CONTOUR.otpu` | 完整、等距 XY 规则网格写入 matrixbook；模板原生 PID226 填色等值 Plot；色阶数、轴编辑、动态网格均做原生读回；禁止插值补洞或改用 XYZ triangulation |
 | K24 | `facet / base_x / base_y` | 独立动态分面 renderer | `Grouped.otp` + `plot_group` | worksheet + 单个 Trellis 图层；按 facet 值动态生成 2–5 个原生面板与 PID 202 线点系列 |
 | K25 | `2–4 个 PlotDocumentRef` | 原生 SVG 子树与 PNG 面板组合 renderer | `Graph > Merge Graph Windows` | 追加精确子 OPJU，保留子工作表/图页，再用官方 `merge_graph` 合并原生图层；MGROUPS 不是运行依赖；禁止嵌套组合与栅格化 OPJU |
-| S01 | `time / survival / lower? / upper? / risk_count? / group?` | 独立阶梯生存曲线与风险表 renderer | `SurvivalPlot.otp` | worksheet + 原生阶梯线/置信带/风险文本层；只消费预计算生存数据 |
-| S21 | `label / effect / lower / upper / weight?` | 独立森林图 renderer | `SCATTERINTERVAL.otp` | worksheet + 原生区间线、权重点和无效线 |
 | S34 | `z_real / z_imaginary / frequency? / series?` | 独立 Nyquist renderer | `LINESYMB.otpu` | worksheet + 动态原生 line-symbol 系列；频率保留为元数据而非坐标 |
 | S61 | `actual / predicted / count?` | 独立混淆矩阵 renderer | `Heat_Map_With_Labels.otpu` | 原始样本或预聚合 Count 统一写入原生 matrixbook 与标签热图 |
 | X02 | `x / y` | 独立底轴垂线 renderer | `DROPLINE.OTP` | worksheet + 官方模板原生 drop-line Plot |
@@ -194,10 +192,16 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | X39 | `series_1 / series_2 / series_N?` | 独立逐行线条序列 renderer | `BoxLser.otpu` | 宽表原位写入；一个 PID206 原生组跨列逐行连接，对象数随列数而非行数变化 |
 | X40 | `series_1 / series_2` | 独立前后对比 renderer | `BeforeAfter.otpu` | 两列宽表原位写入；一个 PID206 原生组以 Subgroup Size=2 逐行配对连接 |
 
-三十八个切片均只消费 `EngineRenderSource`、`PlotDocument` 和公开 Engine Action，不导入旧
-`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。38 个正式 Profile 已有代码级独立渲染、
+三十五个可用切片均只消费 `EngineRenderSource`、`PlotDocument` 和公开 Engine Action，不导入旧
+`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。35 个 Origin 可渲染 Profile 已有代码级独立渲染、
 模板哈希、对象结构和修改读回门禁；K25 额外固定子图版本、禁止嵌套，并在 SVG 中保留
 矢量子树、在 OPJU 中保留原生子图。K25 已完成 2 图默认态、标题与单列编辑态、4 图
 动态态的真实 Origin 创建与独立进程 fresh-reopen；合并层分别读回原生 PID
 `200/203` 与 `200/203/105/226`。这仍不替代全范围人工视觉签名，未完成发布门禁前
 不得声称全部 Profile 已发布。
+
+### 明确不进入 Origin renderer
+
+- **核密度图**：Origin 2024 重开后会恢复直方柱，不能稳定得到纯 KDE。
+- **Kaplan–Meier 生存曲线**：官方输出模板不能稳定保持已接受的阶梯、置信带、风险表与共同 Agent 编辑布局；不改跑统计分析，也不手工拼图。
+- **森林图**：本机未安装并实证官方 Forest Plot App；普通误差棒和手工线段不构成替代实现。
