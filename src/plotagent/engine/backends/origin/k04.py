@@ -26,6 +26,7 @@ from plotagent.engine.repository import document_ref
 from .messages import OriginWorkerRequest
 from .profile import K04_ORIGIN_PROFILE, resolve_official_template
 from .readback import axis_scale_matches
+from .trace import origin_trace_step, record_origin_trace
 
 _BUBBLE_SCALE_NAME = "BUBBLELEGEND1"
 _COLOR_SCALE_NAME = "SPECTRUM1"
@@ -33,6 +34,8 @@ _BUBBLE_SCALE_OBJECT_TYPE = 29
 _COLOR_SCALE_OBJECT_TYPE = 13
 _TITLE_NAME = "_ENGINE_TITLE"
 _SYMBOL_CODES = {"square": 1, "circle": 2, "triangle": 3, "triangle_up": 3, "diamond": 5}
+_OFFICIAL_HELP_URL = "https://docs.originlab.com/origin-help/bubble-color-map-graph/"
+_OFFICIAL_MENU = "Plot > Basic 2D: Bubble + Color Mapped"
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,39 +72,65 @@ class K04OriginProject:
         self.sheet: Any = None
 
     def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
-        template = resolve_official_template(install_dir, K04_ORIGIN_PROFILE)
+        with origin_trace_step(
+            "official_template_resolve",
+            details={"template_filename": K04_ORIGIN_PROFILE.filename},
+        ):
+            template = resolve_official_template(install_dir, K04_ORIGIN_PROFILE)
         bubble = k04_bubble(document, data)
-        self.op.new(asksave=False)
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("w", f"D{token}", hidden=True)
+        with origin_trace_step("workbook_create"):
+            book = self.op.new_book("w", f"D{token}", hidden=True)
         if book is None:
             raise RuntimeError("Origin could not create the K04 workbook")
         self.sheet = book[0]
-        columns = self._write_data(bubble)
-        self.graph = self.op.new_graph(
-            f"G{token}",
-            template=str(template.with_suffix(template.suffix.lower())),
-            hidden=True,
-        )
-        if self.graph is None:
-            raise RuntimeError("Origin could not create K04 from bubble.otpu")
+        with origin_trace_step(
+            "source_data_write",
+            details={"designation": "XYYY", "row_count": len(bubble.x_values)},
+        ):
+            columns = self._write_data(bubble)
+        plot_id, plot_template = self._official_plot_route(bubble)
+        column_count = len(self._column_values(bubble))
+        command = f"worksheet -s 1 0 {column_count} 0; worksheet -p {plot_id} {plot_template};"
+        with origin_trace_step(
+            "official_plot_command_execute",
+            details={
+                "labtalk": command,
+                "native_plot_type": plot_id,
+                "official_help_url": _OFFICIAL_HELP_URL,
+                "official_menu": _OFFICIAL_MENU,
+                "template_filename": template.name,
+            },
+        ):
+            self.sheet.activate()
+            if not self.op.lt_exec(command):
+                raise RuntimeError("Origin could not execute the official K04 Bubble menu")
+        graphs = list(self.op.pages("g"))
+        if len(graphs) != 1:
+            raise RuntimeError("Origin Bubble menu must create exactly one graph")
+        self.graph = graphs[0]
+        self.graph.name = f"G{token}"
+        self.graph.lname = f"K04 Bubble / {document.plot_id}"
         self.layer = self.graph[0]
-        self.plot = self.layer.add_plot(self.sheet, coly=1, colx=0, type="s")
-        if self.plot is None:
-            raise RuntimeError("Origin bubble.otpu rejected the native scatter plot")
-        if columns.get("size") is not None:
-            self.plot.symbol_size = self.op.modi_col(cast(int, columns["size"]) - 1)
-        if columns.get("color") is not None:
-            self.plot.color = self.op.color_col(cast(int, columns["color"]) - 1, "m")
+        plots = list(self.layer.plot_list())
+        if len(plots) != 1:
+            raise RuntimeError("Origin Bubble menu must create one native bubble plot")
+        self.plot = plots[0]
+        with origin_trace_step("template_residue_remove"):
+            for residue in tuple(self.op.pages("w")):
+                if residue.name != book.name:
+                    residue.destroy()
         self.layer.rescale()
-        # Origin's official Bubble + Color Mapped default keeps the Bubble
-        # Scale when a size field is bound. The Color Scale remains opt-in.
-        self._set_auxiliary(
-            _BUBBLE_SCALE_NAME,
-            _BUBBLE_SCALE_OBJECT_TYPE,
-            bubble.size_values is not None,
-        )
-        self._set_auxiliary(_COLOR_SCALE_NAME, _COLOR_SCALE_OBJECT_TYPE, False)
+        # The official Bubble + Color Mapped menu creates Bubble Scale itself.
+        # Color Scale is optional in Origin and remains opt-in in PlotAgent.
+        self._assert_auxiliary(_BUBBLE_SCALE_NAME, bubble.size_values is not None)
+        color_scale = self.layer.label(_COLOR_SCALE_NAME)
+        if color_scale is not None:
+            color_scale.set_int("show", 0)
+        native = self._assert_native_structure(bubble, columns, plot_id)
+        record_origin_trace("native_bubble_confirmed", "completed", details=native)
 
     def reopen(self, project_path: Path) -> None:
         self.op.new(asksave=False)
@@ -256,6 +285,18 @@ class K04OriginProject:
                 if abs(float(observed) - wanted) > 1e-12:
                     raise RuntimeError(f"Origin K04 {role} values differ after reopen")
         state = self._state(document, actions, bubble)
+        plot_id, _ = self._official_plot_route(bubble)
+        columns = {
+            "x": 0,
+            "y": 1,
+            "size": 2 if bubble.size_values is not None else None,
+            "color": (
+                2 + int(bubble.size_values is not None)
+                if bubble.color_values is not None
+                else None
+            ),
+        }
+        native = self._assert_native_structure(bubble, columns, plot_id)
         self._assert_auxiliary(_COLOR_SCALE_NAME, state.color_scale_visible)
         self._assert_auxiliary(_BUBBLE_SCALE_NAME, state.size_key_visible)
         token = document.plot_id.removeprefix("plot:")
@@ -363,6 +404,7 @@ class K04OriginProject:
                     JsonValue,
                     {
                         "state": asdict(state),
+                        "native_structure": native,
                         "actions": [action.model_dump(mode="json") for action in actions],
                     },
                 )
@@ -371,6 +413,7 @@ class K04OriginProject:
 
     def _write_data(self, bubble: K04BubbleData) -> dict[str, int | None]:
         columns: dict[str, int | None] = {"x": 0, "y": 1, "size": None, "color": None}
+        self.sheet.cols = len(self._column_values(bubble))
         self.sheet.from_list(0, list(bubble.x_values), lname=bubble.x_field_name, axis="X")
         self.sheet.from_list(1, list(bubble.y_values), lname=bubble.y_field_name, axis="Y")
         next_column = 2
@@ -380,7 +423,7 @@ class K04OriginProject:
                 next_column,
                 list(bubble.size_values),
                 lname=bubble.size_field_name or "Size",
-                axis="N",
+                axis="Y",
             )
             next_column += 1
         if bubble.color_values is not None:
@@ -389,9 +432,88 @@ class K04OriginProject:
                 next_column,
                 list(bubble.color_values),
                 lname=bubble.color_field_name or "Color",
-                axis="N",
+                axis="Y",
             )
         return columns
+
+    @staticmethod
+    def _official_plot_route(bubble: K04BubbleData) -> tuple[int, str]:
+        if bubble.size_values is not None and bubble.color_values is not None:
+            return 248, "Bubble"
+        if bubble.size_values is not None:
+            return 193, "Bubble"
+        if bubble.color_values is not None:
+            return 247, "SCATTER"
+        return 201, "SCATTER"
+
+    def _assert_native_structure(
+        self,
+        bubble: K04BubbleData,
+        columns: dict[str, int | None],
+        expected_plot_id: int,
+    ) -> dict[str, object]:
+        if len(list(self.layer.plot_list())) != 1:
+            raise RuntimeError("Origin K04 native plot count differs after reopen")
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError("Origin K04 graph name is not safe for native readback")
+        self.graph.activate()
+        self.op.lt_exec(
+            f"range __K04P=[{graph_name}]Layer1!1; get __K04P -pt __K04PID;"
+        )
+        observed_plot_id = int(float(self.op.lt_float("__K04PID")))
+        if observed_plot_id != 201:
+            raise RuntimeError(
+                "Origin K04 official Bubble command must persist as one native Scatter "
+                f"DataPlot with modifiers; observed PID {observed_plot_id}"
+            )
+        expected_designations = [4, 1]
+        if bubble.size_values is not None:
+            expected_designations.append(1)
+        if bubble.color_values is not None:
+            expected_designations.append(1)
+        observed_designations = [
+            int(self.sheet.get_int(f"col{index}.type"))
+            for index in range(1, len(expected_designations) + 1)
+        ]
+        if observed_designations != expected_designations:
+            raise RuntimeError("Origin K04 worksheet designation differs after reopen")
+        size_modifier: object = None
+        if columns["size"] is not None:
+            size_modifier = self.plot.symbol_size
+            expected_modifier = self.op.modi_col(columns["size"] - 1)
+            if size_modifier != expected_modifier:
+                raise RuntimeError("Origin K04 size column modifier is not native")
+        color_range: list[float] | None = None
+        if columns["color"] is not None:
+            theme = self.plot.obj.GetTheme()
+            color_map = self._theme_child(theme, "ColorMap")
+            minimum = float(self._theme_child(color_map, "Min").GetValue())
+            maximum = float(self._theme_child(color_map, "Max").GetValue())
+            major_levels = int(self._theme_child(color_map, "MajorLevels").GetValue())
+            values = tuple(value for value in bubble.color_values or () if value == value)
+            if (
+                not values
+                or abs(minimum - min(values)) > 1e-9
+                or abs(maximum - max(values)) > 1e-9
+                or major_levels != 8
+            ):
+                raise RuntimeError("Origin K04 color modifier is not bound to its source range")
+            color_range = [minimum, maximum]
+        return {
+            "column_designations": observed_designations,
+            "color_map_range": color_range,
+            "official_creation_plot_id": expected_plot_id,
+            "native_plot_id": observed_plot_id,
+            "size_modifier": size_modifier,
+        }
+
+    @staticmethod
+    def _theme_child(parent: Any, name: str) -> Any:
+        try:
+            return next(child for child in parent.Children if str(child.Name) == name)
+        except StopIteration as error:
+            raise RuntimeError(f"Origin K04 theme is missing {name}") from error
 
     @staticmethod
     def _column_values(bubble: K04BubbleData) -> tuple[tuple[str, tuple[float, ...]], ...]:

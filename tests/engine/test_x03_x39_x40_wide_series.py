@@ -22,8 +22,6 @@ from plotagent.engine.backends.matplotlib import (
 )
 from plotagent.engine.backends.origin import (
     X03_ORIGIN_PROFILE,
-    X39_ORIGIN_PROFILE,
-    X40_ORIGIN_PROFILE,
 )
 from plotagent.engine.backends.origin.wide_series import WideSeriesOriginProject
 from plotagent.engine.profile_data import transposed_series, x03_lollipop
@@ -144,8 +142,8 @@ def test_wide_series_matplotlib_renderers_follow_dynamic_data(
 
 
 class _Plot:
-    def __init__(self) -> None:
-        self.values = {"show": 1}
+    def __init__(self, plot_type: int = 206) -> None:
+        self.values = {"show": 1, "type": plot_type}
 
     def set_int(self, name: str, value: int) -> None:
         self.values[name] = value
@@ -181,28 +179,57 @@ class _Layer:
 
 class _Graph:
     def __init__(self) -> None:
+        self.name = "G"
+        self.lname = ""
         self.layer = _Layer()
 
     def __getitem__(self, index: int) -> _Layer:
         assert index == 0
         return self.layer
 
+    def activate(self) -> None:
+        return None
+
 
 class _Sheet:
     def __init__(self) -> None:
         self.columns: dict[int, list[object]] = {}
+        self.designations: dict[int, int] = {}
+        self.activated = False
+        self.categorical_type = 0
+        self.categorical_sort = 0
 
     def from_list(self, index: int, values, **kwargs) -> None:
         self.columns[index] = list(values)
+        self.designations[index] = {"X": 4, "Y": 1}.get(kwargs.get("axis"), 2)
+
+    def get_int(self, expression: str) -> int:
+        index = int(expression.removeprefix("col").removesuffix(".type")) - 1
+        return self.designations[index]
+
+    def activate(self) -> None:
+        self.activated = True
+
+    def lt_exec(self, command: str) -> bool:
+        assert command == (
+            "wks.col1.categorical.type=2; wks.col1.categorical.sort=0;"
+        )
+        self.categorical_type = 2
+        self.categorical_sort = 0
+        return True
 
 
 class _Book:
     def __init__(self) -> None:
+        self.name = "D"
         self.sheet = _Sheet()
 
     def __getitem__(self, index: int) -> _Sheet:
         assert index == 0
         return self.sheet
+
+    def destroy(self) -> None:
+        raise AssertionError("authoritative workbook must not be destroyed")
 
 
 class _Origin:
@@ -210,6 +237,7 @@ class _Origin:
         self.book = _Book()
         self.graph = _Graph()
         self.template = ""
+        self.commands: list[str] = []
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -219,38 +247,71 @@ class _Origin:
 
     def new_graph(self, name: str, *, template: str, hidden: bool) -> _Graph:
         self.template = template
+        self.graph.name = name
         return self.graph
 
+    def pages(self, kind: str):
+        return [self.book] if kind == "w" else [self.graph]
 
-@pytest.mark.parametrize(
-    ("profile_id", "profile", "series_count", "expected_plots"),
-    (
-        ("X03", X03_ORIGIN_PROFILE, 4, 4),
-        ("X39", X39_ORIGIN_PROFILE, 3, 4),
-        ("X40", X40_ORIGIN_PROFILE, 2, 4),
-    ),
-)
-def test_wide_series_origin_binders_use_official_template_and_dynamic_native_plots(
+    def lt_exec(self, command: str) -> bool:
+        self.commands.append(command)
+        if "Lollipop" in command:
+            self.graph = _Graph()
+            self.graph.layer.plots = [
+                _Plot(201) for _index in range(len(self.book.sheet.columns) - 1)
+            ]
+        return True
+
+    def lt_float(self, expression: str) -> float:
+        if expression == "__X03CATTYPE":
+            return float(self.book.sheet.categorical_type)
+        if expression == "__X03CATSORT":
+            return float(self.book.sheet.categorical_sort)
+        if expression == "__X03COUNT":
+            return float(len(self.graph.layer.plots))
+        if expression.startswith("__X03PT"):
+            return 201.0
+        return 0.0
+
+
+def test_x03_origin_uses_official_lollipop_menu_command_without_xy_rebuild(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    profile_id: str,
-    profile,
-    series_count: int,
-    expected_plots: int,
 ) -> None:
-    document, _, view = _case(profile_id, series_count=series_count, row_count=4)
+    document, _, view = _case("X03", series_count=4, row_count=4)
+    resolved: list[str] = []
+
+    def _resolve(_install, selected):
+        resolved.append(selected.filename)
+        return tmp_path / selected.filename
+
     monkeypatch.setattr(
         origin_module,
         "resolve_official_template",
-        lambda install, selected: tmp_path / selected.filename,
+        _resolve,
     )
     origin = _Origin()
-    project = WideSeriesOriginProject(origin, profile_id=profile_id)
+    project = WideSeriesOriginProject(origin, profile_id="X03")
     project.create(tmp_path, document, view)
 
-    assert Path(origin.template).name == profile.filename
-    assert len(origin.graph.layer.add_calls) == expected_plots
-    assert all(call["type"] == "?" for call in origin.graph.layer.add_calls)
+    assert resolved == [X03_ORIGIN_PROFILE.filename]
+    assert origin.commands[0] == (
+        "worksheet -s 1 0 5 0; run.section(Plot,general,201 Lollipop 0);"
+    )
+    assert "__X03CATTYPE=wks.col1.categorical.type" in origin.commands[1]
+    assert "layer -c" in origin.commands[2]
+    assert sum("get __X03P -pt" in command for command in origin.commands) == 4
+    assert origin.graph.layer.add_calls == []
+    assert [plot.get_int("type") for plot in origin.graph.layer.plots] == [201] * 4
+    assert origin.book.sheet.designations == {0: 4, 1: 1, 2: 1, 3: 1, 4: 1}
+
+
+def test_x03_matplotlib_draws_follow_plot_segments_not_zero_baseline_stems() -> None:
+    source = inspect.getsource(X03LollipopRenderer.render)
+
+    assert ".hlines(" in source
+    assert ".vlines(" not in source
+    assert "axhline(0.0" not in source
 
 
 def test_wide_series_new_path_has_no_legacy_compiler_dependency() -> None:

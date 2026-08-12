@@ -274,6 +274,7 @@ class _Plot:
     def __init__(self) -> None:
         self._color = (22, 118, 210)
         self.floats = {"line.width": 0.8}
+        self.values = {"type": 206, "show": 1}
         self.symbol_kind = 2
         self.symbol_size = 5.0
 
@@ -290,6 +291,9 @@ class _Plot:
 
     def get_float(self, name: str) -> float:
         return self.floats[name]
+
+    def get_int(self, name: str) -> int:
+        return self.values.get(name, 0)
 
 
 class _Native:
@@ -361,29 +365,47 @@ class _Graph:
     def __iter__(self):
         return iter(self.layers)
 
+    def activate(self) -> None:
+        return None
+
 
 class _Sheet:
     def __init__(self) -> None:
         self.obj = self
         self.columns: dict[int, list[object]] = {}
+        self.designations: dict[int, int] = {}
+        self.activated = False
 
     def __getitem__(self, index: int):
         return index
 
-    def from_list(self, column: int, values, **_kwargs) -> None:
+    def from_list(self, column: int, values, **kwargs) -> None:
         self.columns[column] = list(values)
+        if "axis" in kwargs:
+            self.designations[column] = {"X": 4, "Y": 1}.get(kwargs["axis"], 2)
 
     def to_list(self, column: int):
         return self.columns[column]
 
+    def get_int(self, expression: str) -> int:
+        index = int(expression.removeprefix("col").removesuffix(".type")) - 1
+        return self.designations[index]
+
+    def activate(self) -> None:
+        self.activated = True
+
 
 class _Book:
     def __init__(self) -> None:
+        self.name = "D"
         self.sheet = _Sheet()
 
     def __getitem__(self, index: int):
         assert index == 0
         return self.sheet
+
+    def destroy(self) -> None:
+        raise AssertionError("authoritative workbook must not be destroyed")
 
 
 class _Origin:
@@ -392,6 +414,7 @@ class _Origin:
         self.graph: _Graph | None = None
         self.template = ""
         self.ranges: list[tuple[object, ...]] = []
+        self.commands: list[str] = []
 
     def new(self, *, asksave: bool) -> None:
         assert asksave is False
@@ -410,15 +433,44 @@ class _Origin:
         self.ranges.append(args)
         return args
 
+    def pages(self, kind: str):
+        if kind == "w":
+            return [self.book]
+        return [] if self.graph is None else [self.graph]
+
+    def lt_exec(self, command: str) -> bool:
+        self.commands.append(command)
+        if "Beeswarm" in command:
+            self.graph = _Graph(1)
+            self.graph[0].plots = [_Plot() for _index in range(len(self.book.sheet.columns))]
+        elif command.startswith("legendbox"):
+            assert self.graph is not None
+            self.graph[0].labels["legend"] = _Label("data symbols")
+        return True
+
+    def lt_float(self, expression: str) -> float:
+        assert self.graph is not None
+        if expression == "__X05COUNT":
+            return float(len(self.graph[0].plots))
+        if expression.startswith("__X05PT"):
+            return 206.0
+        return 0.0
+
 
 def test_x05_origin_binds_dynamic_groups_to_official_template(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     document, actions, view = _x05_case(3)
+    resolved: list[str] = []
+
+    def _resolve(_install, profile):
+        resolved.append(profile.filename)
+        return tmp_path / profile.filename
+
     monkeypatch.setattr(
         distribution_origin,
         "resolve_official_template",
-        lambda _install, profile: tmp_path / profile.filename,
+        _resolve,
     )
     origin = _Origin()
     project = DistributionOriginProject(origin, profile_id="X05")
@@ -426,11 +478,14 @@ def test_x05_origin_binds_dynamic_groups_to_official_template(
     for action in actions:
         project.apply(document, action, view)
     readback = project.verify(document, actions, view)
-    assert Path(origin.template).name.lower() == X05_ORIGIN_PROFILE.filename.lower()
+    assert resolved == [X05_ORIGIN_PROFILE.filename]
+    assert origin.commands[0] == "worksheet -s 1 0 3 0; worksheet -p 206 Beeswarm;"
+    assert sum("layer -c" in command for command in origin.commands) == 2
+    assert sum("get __X05P -pt" in command for command in origin.commands) == 6
+    assert sum(command.startswith("legendbox") for command in origin.commands) == 2
     assert origin.graph is not None
-    assert origin.graph[0].add_calls == [
-        {"coly": index, "colx": "#", "type": "?"} for index in range(3)
-    ]
+    assert origin.graph[0].add_calls == []
+    assert [plot.get_int("type") for plot in origin.graph[0].plots] == [206, 206, 206]
     assert (
         len([item for item in readback.objects if item.object_kind.endswith("native_group")]) == 3
     )

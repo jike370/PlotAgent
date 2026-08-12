@@ -90,39 +90,37 @@ class X03LollipopRenderer:
         state = _state(
             document,
             actions,
-            x_label=lollipop.category_field_name,
-            y_label="Value",
+            x_label="Value",
+            y_label=lollipop.category_field_name,
             count=len(lollipop.columns.values),
             profile_id="X03",
         )
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
-        positions = np.arange(len(lollipop.categories), dtype=float)
-        span = 0.48
-        step = span / max(len(lollipop.columns.values), 1)
+        category_positions = np.arange(len(lollipop.categories), dtype=float)
         for index, (label, values, style) in enumerate(
             zip(lollipop.columns.labels, lollipop.columns.values, state.series, strict=True)
         ):
-            offset = (index - (len(state.series) - 1) / 2.0) * step
-            x_values = positions + offset
-            axis.vlines(
-                x_values,
-                0.0,
-                values,
-                color=style.color,
-                linewidth=style.line_width_pt,
-                linestyles=_LINE_STYLES.get(style.line_style, "-"),
-            )
             axis.scatter(
-                x_values,
                 values,
+                category_positions,
                 color=style.color,
                 marker=_MARKERS.get(style.symbol, "o"),
                 s=style.symbol_size_pt**2,
                 label=label,
                 zorder=3,
             )
-        axis.axhline(0.0, color="#1A1A1A", linewidth=0.8)
-        axis.set_xticks(positions, lollipop.categories)
+            if index + 1 < len(lollipop.columns.values) and style.line_style != "none":
+                next_values = lollipop.columns.values[index + 1]
+                axis.hlines(
+                    category_positions,
+                    values,
+                    next_values,
+                    color=style.color,
+                    linewidth=style.line_width_pt,
+                    linestyles=_LINE_STYLES.get(style.line_style, "-"),
+                    zorder=1,
+                )
+        axis.set_yticks(category_positions, lollipop.categories)
         _finish(axis, figure, state, png_path, svg_path)
         return _readback(document, data, state, "lollipop_series", len(state.series), "column")
 
@@ -247,13 +245,11 @@ def _finish(
 
 
 def _apply_axis(axis: Axes, name: Literal["x", "y"], state: _AxisState) -> None:
-    if name == "x" and state.scale not in {"linear", "categorical"}:
-        raise ValueError("wide-series X axes support only categorical scale")
-    if name == "y":
+    if state.scale != "categorical":
         scale = "log" if state.scale == "log10" else state.scale
         if scale not in {"linear", "log"}:
-            raise ValueError("wide-series Y axes support only linear or log10 scale")
-        axis.set_yscale(scale)
+            raise ValueError("wide-series numeric axes support only linear or log10 scale")
+        getattr(axis, f"set_{name}scale")(scale)
     if state.minimum is not None and state.maximum is not None:
         getattr(axis, f"set_{name}lim")((state.minimum, state.maximum))
     if state.reverse:
@@ -272,8 +268,8 @@ def _state(
     token = document.plot_id.removeprefix("plot:")
     state = _State(
         title="",
-        x_axis=_AxisState(x_label, scale="categorical"),
-        y_axis=_AxisState(y_label),
+        x_axis=_AxisState(x_label, scale="linear" if profile_id == "X03" else "categorical"),
+        y_axis=_AxisState(y_label, scale="categorical" if profile_id == "X03" else "linear"),
         series=tuple(_SeriesState(_PALETTE[index % len(_PALETTE)]) for index in range(count)),
     )
     last_binding = max(
@@ -294,6 +290,17 @@ def _state(
             if name is None:
                 raise ValueError(f"{profile_id} axis target does not belong to this plot")
             current = getattr(state, name)
+            if action.scale is not None:
+                categorical_axis = "y_axis" if profile_id == "X03" else "x_axis"
+                if name == categorical_axis and action.scale != "categorical":
+                    raise ValueError(
+                        f"{profile_id} {name.removesuffix('_axis').upper()} axis is categorical"
+                    )
+                if name != categorical_axis and action.scale not in {"linear", "log10"}:
+                    raise ValueError(
+                        f"{profile_id} {name.removesuffix('_axis').upper()} axis supports "
+                        "linear or log10"
+                    )
             bounds = (
                 (current.minimum, current.maximum)
                 if action.minimum is None

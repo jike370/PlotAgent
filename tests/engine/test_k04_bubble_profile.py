@@ -23,7 +23,6 @@ from plotagent.engine import (
     SetTitle,
 )
 from plotagent.engine.backends.matplotlib import K04BubbleRenderer, MatplotlibBackend
-from plotagent.engine.backends.origin import K04_ORIGIN_PROFILE
 from plotagent.engine.backends.origin.k04 import K04OriginProject
 from plotagent.engine.profile_data import k04_bubble
 
@@ -235,9 +234,40 @@ class _Axis:
 class _Plot:
     def __init__(self) -> None:
         self.color: object = (22, 118, 210)
-        self.symbol_size: object = 10.0
+        self.symbol_size: object = ("size", 1)
         self.symbol_sizefactor = 1.0
         self.symbol_kind = 2
+        self.obj = _PlotObject()
+
+
+class _ThemeNode:
+    def __init__(self, name: str, value: object = None, children=()) -> None:
+        self.Name = name
+        self._value = value
+        self.Children = tuple(children)
+
+    def GetValue(self) -> object:
+        return self._value
+
+
+class _PlotObject:
+    DatasetName = "DK04_B"
+
+    @staticmethod
+    def GetTheme() -> _ThemeNode:
+        return _ThemeNode(
+            "Root",
+            children=(
+                _ThemeNode(
+                    "ColorMap",
+                    children=(
+                        _ThemeNode("Min", 0.1),
+                        _ThemeNode("Max", 1.0),
+                        _ThemeNode("MajorLevels", 8),
+                    ),
+                ),
+            ),
+        )
 
 
 class _Layer:
@@ -285,32 +315,50 @@ class _Graph:
         assert index == 0
         return self.layer
 
+    def activate(self) -> None:
+        return None
+
 
 class _Sheet:
     def __init__(self) -> None:
         self.columns: dict[int, list[object]] = {}
+        self.designations: dict[int, int] = {}
+        self.cols = 0
 
     def from_list(self, column: int, values, **kwargs) -> None:
         self.columns[column] = list(values)
+        self.designations[column + 1] = {"X": 4, "Y": 1, "N": 2}[kwargs["axis"]]
 
     def to_list(self, column: int) -> list[object]:
         return self.columns[column]
+
+    def activate(self) -> None:
+        return None
+
+    def get_int(self, expression: str) -> int:
+        return self.designations[int(expression.removeprefix("col").removesuffix(".type"))]
 
 
 class _Book:
     def __init__(self) -> None:
         self.sheet = _Sheet()
+        self.name = "DK04"
 
     def __getitem__(self, index: int) -> _Sheet:
         assert index == 0
         return self.sheet
+
+    def destroy(self) -> None:
+        return None
 
 
 class _Origin:
     def __init__(self) -> None:
         self.book = _Book()
         self.graph = _Graph()
-        self.template = ""
+        self.commands: list[str] = []
+        self.native_pid = 0
+        self.graph_created = False
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -318,18 +366,27 @@ class _Origin:
     def new_book(self, *args, **kwargs) -> _Book:
         return self.book
 
-    def new_graph(self, name: str, *, template: str, hidden: bool) -> _Graph:
-        self.graph.name = name
-        self.template = template
-        return self.graph
+    def pages(self, kind: str):
+        if kind == "w":
+            return (self.book,)
+        if kind == "g":
+            return (self.graph,) if self.graph_created else ()
+        return ()
+
+    def lt_exec(self, command: str) -> bool:
+        self.commands.append(command)
+        if "worksheet -p 248 Bubble" in command:
+            self.graph_created = True
+            self.native_pid = 201
+        return True
+
+    def lt_float(self, expression: str) -> float:
+        assert expression == "__K04PID"
+        return float(self.native_pid)
 
     @staticmethod
     def modi_col(offset: int) -> tuple[str, int]:
         return ("size", offset)
-
-    @staticmethod
-    def color_col(offset: int, mode: str) -> tuple[str, int, str]:
-        return ("color", offset, mode)
 
     def Label(self, native: _NativeObject, layer_obj: _LayerObject) -> _Label:
         label = _Label()
@@ -354,10 +411,9 @@ def test_k04_origin_keeps_official_bubble_scale_and_hides_color_scale_by_default
         project.apply(document, action, view)
     readback = project.verify(document, actions, view)
 
-    assert Path(origin.template).name == K04_ORIGIN_PROFILE.filename
-    assert origin.graph.layer.add_call == {"coly": 1, "colx": 0, "type": "s"}
+    assert any("worksheet -p 248 Bubble" in command for command in origin.commands)
+    assert origin.graph.layer.add_call is None
     assert origin.graph.layer.plot.symbol_size == ("size", 1)
-    assert origin.graph.layer.plot.color == ("color", 2, "m")
     assert origin.graph.layer.labels["BUBBLELEGEND1"].get_int("show") == 1
     assert "size_key" in {item.object_kind for item in readback.objects}
     assert "color_scale" not in {item.object_kind for item in readback.objects}
