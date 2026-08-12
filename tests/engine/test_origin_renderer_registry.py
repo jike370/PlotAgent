@@ -20,10 +20,10 @@ def _complete_mapping():
     }
 
 
-def test_registry_requires_exactly_the_35_renderable_recipes() -> None:
+def test_registry_requires_exactly_the_36_renderable_recipes() -> None:
     registry = OriginRendererRegistry(_complete_mapping())
 
-    assert len(registry.binder_keys) == 35
+    assert len(registry.binder_keys) == 36
     assert set(registry.binder_keys) == set(ORIGIN_RENDERABLE_RECIPES)
 
 

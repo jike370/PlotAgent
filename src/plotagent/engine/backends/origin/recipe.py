@@ -683,12 +683,8 @@ _RECIPES = (
         ("precomputed confusion-count matrix",),
         ("native labeled heatmap", "labels bound to Z"),
         template_keys=("heatmap_labels",),
-        support_status="automation_blocked",
-        proof_level="blocked",
-        manual_gate=(
-            "A clean dynamic rebuild has not completed; the template itself is not "
-            "classified as a product failure."
-        ),
+        binder_key="S61",
+        native_plot_types=(105,),
     ),
     _r(
         "X02",

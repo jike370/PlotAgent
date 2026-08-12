@@ -35,6 +35,7 @@ from .messages import OriginWorkerRequest, OriginWorkerResponse
 from .recipe import origin_recipe
 from .renderer import OriginRendererRegistry
 from .s34 import execute_s34_request
+from .s61 import execute_s61_request
 from .structural_t2 import execute_s01_request
 from .trace import OriginExecutionTrace
 from .wide_series import execute_x03_request, execute_x39_request, execute_x40_request
@@ -104,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
             "K25": execute_k25_request,
             "S01": execute_s01_request,
             "S34": execute_s34_request,
+            "S61": execute_s61_request,
             "X02": execute_x02_request,
             "X03": execute_x03_request,
             "X05": execute_x05_request,

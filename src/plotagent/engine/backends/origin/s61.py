@@ -1,7 +1,8 @@
-"""Official Heat Map with Labels binder for the S61 confusion matrix."""
+"""S61 official Heat_Map_With_Labels binder with native matrix readback."""
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, cast
@@ -25,119 +26,238 @@ from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
 from .profile import S61_ORIGIN_PROFILE, resolve_official_template
+from .trace import origin_trace_step, record_origin_trace
 
-_TITLE = "_ENGINE_TITLE"
+_TITLE_NAME = "_ENGINE_TITLE"
 
 
 @dataclass(frozen=True, slots=True)
-class _State:
-    title: str = ""
-    x_label: str = "Predicted"
-    y_label: str = "Actual"
+class _S61State:
+    title: str
+    x_label: str
+    y_label: str
     x_reverse: bool = False
     y_reverse: bool = False
     show_counts: bool = True
 
 
-def _ticks(labels: tuple[str, ...]) -> str:
-    return " ".join(f'"{label.replace(chr(34), chr(92) + chr(34))}"' for label in labels)
+def _origin_tick_string(labels: tuple[str, ...]) -> str:
+    return " ".join(
+        f'"{label.replace(chr(34), chr(92) + chr(34)).replace(chr(10), " ")}"'
+        for label in labels
+    )
+
+
+def _display_labels(labels: tuple[str, ...], begin: float, end: float) -> tuple[str, ...]:
+    return tuple(reversed(labels)) if begin > end else labels
+
+
+def _theme_child(parent: Any, name: str) -> Any:
+    try:
+        return next(child for child in parent.Children if str(child.Name) == name)
+    except StopIteration as error:
+        raise RuntimeError(f"Origin S61 theme is missing {name}") from error
 
 
 class S61OriginProject:
+    """Bind one S61 document to one editable native labeled heatmap."""
+
     def __init__(self, op: Any) -> None:
         self.op = op
         self.graph: Any = None
         self.layer: Any = None
         self.plot: Any = None
         self.sheet: Any = None
+        self.last_native_structure: dict[str, object] | None = None
 
-    def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
-        template = resolve_official_template(install_dir, S61_ORIGIN_PROFILE)
-        self.op.new(asksave=False)
+    def create(
+        self,
+        install_dir: Path,
+        document: PlotDocument,
+        data: EngineDataView,
+    ) -> None:
+        with origin_trace_step(
+            "official_template_resolve",
+            details={"template_filename": S61_ORIGIN_PROFILE.filename},
+        ):
+            template = resolve_official_template(install_dir, S61_ORIGIN_PROFILE)
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("m", f"D{token}", hidden=True)
+        with origin_trace_step("matrixbook_create"):
+            book = self.op.new_book("m", f"D{token}", hidden=True)
         if book is None:
-            raise RuntimeError("Origin could not create S61 matrixbook")
+            raise RuntimeError("Origin could not create the S61 matrixbook")
         self.sheet = book[0]
         grid = s61_confusion_grid(document, data)
-        self._write(grid)
-        self.graph = self.op.new_graph(
-            f"G{token}", template=str(template.with_suffix(template.suffix.lower())), hidden=True
-        )
+        with origin_trace_step(
+            "source_count_matrix_write",
+            details={
+                "row_count": len(grid.row_labels),
+                "column_count": len(grid.column_labels),
+                "actual_field": grid.row_field_name,
+                "predicted_field": grid.column_field_name,
+                "count_field": grid.value_field_name,
+                "source_values_preserved": True,
+            },
+        ):
+            self._write_grid(grid)
+        argument = template.with_suffix(template.suffix.lower())
+        with origin_trace_step(
+            "official_heatmap_with_labels_create",
+            details={
+                "route": "matrixbook + Heat_Map_With_Labels.otpu + add_mplot",
+                "template_filename": template.name,
+                "native_plot_type": 105,
+            },
+        ):
+            self.graph = self.op.new_graph(
+                f"G{token}", template=str(argument), hidden=True
+            )
         if self.graph is None:
-            raise RuntimeError("Origin could not create S61 from Heat_Map_With_Labels.otpu")
+            raise RuntimeError(
+                "Origin could not create S61 from Heat_Map_With_Labels.otpu"
+            )
+        self.graph.lname = f"S61 Confusion Matrix / {document.plot_id}"
         self.layer = self.graph[0]
-        for plot in self.layer.plot_list():
-            plot.set_int("show", 0)
         self.plot = self.layer.add_mplot(self.sheet, 0, type=105)
         if self.plot is None:
-            raise RuntimeError("Origin S61 template rejected the confusion matrix")
+            raise RuntimeError(
+                "Origin Heat_Map_With_Labels.otpu rejected the S61 matrix"
+            )
         self.layer.rescale()
+        state = _S61State("", grid.column_field_name, grid.row_field_name)
+        self._configure_axes(grid, state)
+        self._configure_labels(state.show_counts)
+        self._configure_color_scale(grid)
+        native = self._native_structure(state)
+        self.last_native_structure = native
+        record_origin_trace(
+            "native_labeled_heatmap_confirmed", "completed", details=native
+        )
 
-    def open(self, output: Path) -> None:
-        self.op.new(asksave=False)
-        if not self.op.open(str(output), readonly=False, asksave=False):
-            raise RuntimeError("Origin could not reopen S61")
-        graphs, books = list(self.op.pages("g")), list(self.op.pages("m"))
+    def open(self, project_path: Path, *, readonly: bool = False) -> None:
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
+        with origin_trace_step(
+            "opju_open", details={"filename": project_path.name, "readonly": readonly}
+        ):
+            if not self.op.open(str(project_path), readonly=readonly, asksave=False):
+                raise RuntimeError(f"Origin could not open the S61 project: {project_path}")
+        graphs = list(self.op.pages("g"))
+        books = list(self.op.pages("m"))
         if len(graphs) != 1 or len(books) != 1:
-            raise RuntimeError("S61 must contain one graph and matrixbook")
-        self.graph, self.sheet = graphs[0], books[0][0]
+            raise RuntimeError("S61 project must contain one graph and one matrixbook")
+        self.graph = graphs[0]
         self.layer = self.graph[0]
-        visible = tuple(plot for plot in self.layer.plot_list() if plot.get_int("show") != 0)
-        if len(visible) != 1:
-            raise RuntimeError("S61 must retain one visible native matrix plot")
-        self.plot = visible[0]
+        plots = list(self.layer.plot_list() or [])
+        if len(plots) != 1:
+            raise RuntimeError("S61 project must contain one native matrix plot")
+        self.plot = plots[0]
+        self.sheet = books[0][0]
+
+    def apply(
+        self,
+        document: PlotDocument,
+        action: PlotEngineAction,
+        data: EngineDataView,
+    ) -> None:
+        token = document.plot_id.removeprefix("plot:")
+        if isinstance(action, CreatePlot):
+            return
+        if isinstance(action, BindFields):
+            grid = s61_confusion_grid(document, data)
+            self._write_grid(grid)
+            self.layer.rescale()
+            self._configure_color_scale(grid)
+            return
+        if isinstance(action, SetTitle):
+            if action.target != document.plot_id:
+                raise ValueError("S61 title target does not belong to this plot")
+            self._set_title(action.text)
+            return
+        if isinstance(action, SetAxis):
+            axis_name = {
+                f"axis:{token}.x": "x",
+                f"axis:{token}.y": "y",
+            }.get(action.target)
+            if axis_name is None:
+                raise ValueError("S61 axis target does not belong to this plot")
+            if action.scale not in {None, "categorical"}:
+                raise ValueError("Origin S61 axes support only categorical scale")
+            if action.minimum is not None or action.maximum is not None:
+                raise ValueError("Origin S61 public axes do not expose numeric bounds")
+            if action.label is not None:
+                self._set_axis_label(axis_name, action.label)
+            return
+        if isinstance(action, SetChartParameter):
+            if (
+                action.target != document.plot_id
+                or action.parameter != "show_counts"
+                or not isinstance(action.value, bool)
+            ):
+                raise ValueError("S61 show_counts must be boolean")
+            self._configure_labels(action.value)
+            return
+        raise ValueError(f"Origin S61 binder cannot apply {action.operation}")
 
     def reconcile(
-        self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: EngineDataView
+        self,
+        document: PlotDocument,
+        actions: tuple[PlotEngineAction, ...],
+        data: EngineDataView,
     ) -> None:
         grid = s61_confusion_grid(document, data)
         state = self._state(document, actions, grid)
-        self._write(grid)
-        self.plot.set_int("show", 1)
-        self.plot.set_int("label.show", int(state.show_counts))
-        self.plot.set_float("label.fsize", 10.0)
-        x_begin, x_end = 0.5, len(grid.column_labels) + 0.5
-        y_begin, y_end = 0.5, len(grid.row_labels) + 0.5
-        if state.x_reverse:
-            x_begin, x_end = x_end, x_begin
-        if state.y_reverse:
-            y_begin, y_end = y_end, y_begin
-        self.layer.axis("x").set_limits(x_begin, x_end, 1.0)
-        self.layer.axis("y").set_limits(y_begin, y_end, 1.0)
-        self.layer.set_int("x.label.type", 10)
-        self.layer.set_int("y.label.type", 10)
-        self.layer.set_str("x.label.string", _ticks(grid.column_labels))
-        self.layer.set_str("y.label.string", _ticks(grid.row_labels))
-        self._axis_label("x", state.x_label)
-        self._axis_label("y", state.y_label)
-        title = self.layer.label(_TITLE)
-        if title is None and state.title:
-            title = self.layer.add_label(state.title, 40, 2)
-            if title is None:
-                raise RuntimeError("Origin could not create S61 title")
-            title.name = _TITLE
-        if title is not None:
-            title.text = state.title
-            title.set_int("show", int(bool(state.title)))
+        self._write_grid(grid)
         self.layer.rescale()
+        self._set_title(state.title)
+        self._configure_axes(grid, state)
+        self._configure_labels(state.show_counts)
+        self._configure_color_scale(grid)
 
-    def save(self, output: Path) -> None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        self.op.save(str(output))
+    def save(self, output_path: Path) -> None:
+        with origin_trace_step("opju_save", details={"filename": output_path.name}):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            if output_path.exists():
+                raise FileExistsError(
+                    f"Origin refuses to overwrite existing S61 artifact: {output_path}"
+                )
+            self.op.save(str(output_path))
+            if not output_path.is_file() or output_path.stat().st_size <= 0:
+                raise RuntimeError("Origin did not save a non-empty S61 project")
 
     def verify(
-        self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: EngineDataView
+        self,
+        document: PlotDocument,
+        actions: tuple[PlotEngineAction, ...],
+        data: EngineDataView,
     ) -> EngineReadback:
         grid = s61_confusion_grid(document, data)
-        state = self._state(document, actions, grid)
         expected = np.asarray(grid.values, dtype=float)
         actual = np.asarray(self.sheet.to_np2d(), dtype=float)
-        if actual.shape != expected.shape or not np.allclose(actual, expected, rtol=0, atol=0):
-            raise RuntimeError("Origin S61 counts differ after reopen")
-        if bool(self.plot.get_int("label.show")) != state.show_counts:
-            raise RuntimeError("Origin S61 count labels differ after reopen")
+        if actual.shape != expected.shape or not np.allclose(
+            actual, expected, rtol=0, atol=1e-12, equal_nan=True
+        ):
+            raise RuntimeError("Origin S61 count matrix differs after reopen")
+        expected_map = (
+            1.0,
+            float(len(grid.column_labels)),
+            1.0,
+            float(len(grid.row_labels)),
+        )
+        if any(
+            not math.isclose(float(observed), wanted, rel_tol=0, abs_tol=1e-12)
+            for observed, wanted in zip(self.sheet.xymap, expected_map, strict=True)
+        ):
+            raise RuntimeError("Origin S61 matrix coordinate map differs after reopen")
+
+        state = self._state(document, actions, grid)
+        self._assert_state(grid, state)
+        native = self._native_structure(state)
+        self.last_native_structure = native
         token = document.plot_id.removeprefix("plot:")
+        color_scale_name = cast(str, native["color_scale_name"])
         return EngineReadback(
             document=document_ref(document),
             backend="origin",
@@ -166,12 +286,22 @@ class S61OriginProject:
                     object_kind="confusion_matrix",
                     native_ref=f"graph:{self.graph.name}.layer:1.matrix_plot:1",
                 ),
+                EngineObjectRef(
+                    semantic_id=f"legend:{token}.colorbar",
+                    backend="origin",
+                    object_kind="colorbar",
+                    native_ref=(
+                        f"graph:{self.graph.name}.layer:1.graph_object:{color_scale_name}"
+                    ),
+                ),
             ),
             data_hash=canonical_hash(data),
-            style_hash=canonical_hash(cast(JsonValue, asdict(state))),
+            style_hash=canonical_hash(
+                cast(JsonValue, {"state": asdict(state), "native_structure": native})
+            ),
         )
 
-    def _write(self, grid: K20Grid) -> None:
+    def _write_grid(self, grid: K20Grid) -> None:
         self.sheet.from_np(np.asarray(grid.values, dtype=float))
         self.sheet.xymap = (
             1.0,
@@ -180,33 +310,194 @@ class S61OriginProject:
             float(len(grid.row_labels)),
         )
 
-    def _axis_label(self, axis: str, text: str) -> None:
-        label = self.layer.label("xb" if axis == "x" else "yl") or self.layer.add_label(text)
+    def _configure_labels(self, show_counts: bool) -> None:
+        theme = self.plot.obj.GetTheme()
+        label = _theme_child(theme, "Label")
+        _theme_child(label, "Enable").SetIntValue(int(show_counts))
+        self.plot.obj.PutTheme(theme)
+
+    def _configure_color_scale(self, grid: K20Grid) -> None:
+        maximum = max(1.0, max(float(value) for row in grid.values for value in row))
+        self.graph.activate()
+        if not self.op.lt_exec(
+            "page.active=1; layer.cmap.type=0; layer.cmap.zmin=0; "
+            f"layer.cmap.zmax={maximum:.17g}; layer.cmap.SetLevels(1); "
+            "layer.cmap.updateScale();"
+        ):
+            raise RuntimeError("Origin could not set the S61 count color scale")
+        if not self.op.set_lt_str("__S61CSTITLE", grid.value_field_name):
+            raise RuntimeError("Origin could not stage the S61 color-scale title")
+        if not self.op.lt_exec(
+            "page.active=1; Spectrum1.title=1; Spectrum1.title$=__S61CSTITLE$;"
+        ):
+            raise RuntimeError("Origin could not set the S61 color-scale title")
+
+    def _native_structure(self, state: _S61State) -> dict[str, object]:
+        self.graph.activate()
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe S61 graph name for native readback: {graph_name!r}")
+        if not self.op.lt_exec(
+            "page.active=1; layer -c; __S61COUNT=count; "
+            f"range __S61P=[{graph_name}]1!1; get __S61P -pt __S61PID; "
+            "__S61ZMIN=layer.cmap.zmin; __S61ZMAX=layer.cmap.zmax; "
+            "__S61CMAPTYPE=layer.cmap.type;"
+        ):
+            raise RuntimeError("Origin could not read the native S61 structure")
+        plot_count = int(self.op.lt_float("__S61COUNT"))
+        plot_type = int(self.op.lt_float("__S61PID"))
+        plots = list(self.layer.plot_list() or [])
+        if len(self.graph) != 1 or plot_count != 1 or len(plots) != 1 or plot_type != 105:
+            raise RuntimeError("Origin S61 must retain one native PID 105 heatmap")
+        matrix_dataset = str(self.sheet.obj[0].DatasetName)
+        plot_dataset = str(plots[0].obj.DatasetName)
+        if not matrix_dataset or plot_dataset != matrix_dataset:
+            raise RuntimeError("Origin S61 lost its native matrix source binding")
+        theme = plots[0].obj.GetTheme()
+        label_enabled = int(_theme_child(_theme_child(theme, "Label"), "Enable").GetValue())
+        if label_enabled != int(state.show_counts):
+            raise RuntimeError("Origin S61 native count-label state differs after readback")
+        z_min = float(self.op.lt_float("__S61ZMIN"))
+        z_max = float(self.op.lt_float("__S61ZMAX"))
+        cmap_type = int(self.op.lt_float("__S61CMAPTYPE"))
+        if not math.isclose(z_min, 0.0, rel_tol=0, abs_tol=1e-12) or z_max < 1.0:
+            raise RuntimeError("Origin S61 count color range differs after readback")
+        if cmap_type not in {0, 1}:
+            raise RuntimeError("Origin S61 colormap must remain linear")
+        color_scales = [
+            item
+            for item in self.layer.obj.GraphObjects
+            if int(item.GetObjectType()) == 13
+        ]
+        if len(color_scales) != 1:
+            raise RuntimeError("Origin S61 must retain one native color scale object")
+        return {
+            "official_template": S61_ORIGIN_PROFILE.filename,
+            "ordinary_primitive_fallback_used": False,
+            "layer_count": len(self.graph),
+            "plot_count": plot_count,
+            "native_plot_type": plot_type,
+            "matrix_dataset": matrix_dataset,
+            "plot_dataset": plot_dataset,
+            "native_z_label_contract": (
+                "native matrix Z source + Heat_Map_With_Labels Label.Enable"
+            ),
+            "label_enabled": label_enabled,
+            "color_scale_minimum": z_min,
+            "color_scale_maximum": z_max,
+            "color_scale_type": cmap_type,
+            "color_scale_name": str(color_scales[0].Name),
+            "color_scale_object_type": 13,
+        }
+
+    def _configure_axes(self, grid: K20Grid, state: _S61State) -> None:
+        x_begin, x_end = 0.5, len(grid.column_labels) + 0.5
+        y_begin, y_end = len(grid.row_labels) + 0.5, 0.5
+        if state.x_reverse:
+            x_begin, x_end = x_end, x_begin
+        if state.y_reverse:
+            y_begin, y_end = y_end, y_begin
+        self.layer.axis("x").set_limits(
+            x_begin, x_end, -1.0 if x_begin > x_end else 1.0
+        )
+        self.layer.axis("y").set_limits(
+            y_begin, y_end, -1.0 if y_begin > y_end else 1.0
+        )
+        self.layer.set_int("x.label.type", 10)
+        self.layer.set_int("y.label.type", 10)
+        self.layer.set_str(
+            "x.label.string",
+            _origin_tick_string(_display_labels(grid.column_labels, x_begin, x_end)),
+        )
+        self.layer.set_str(
+            "y.label.string",
+            _origin_tick_string(_display_labels(grid.row_labels, y_begin, y_end)),
+        )
+        self._set_axis_label("x", state.x_label)
+        self._set_axis_label("y", state.y_label)
+
+    def _set_title(self, text: str) -> None:
+        title = self.layer.label(_TITLE_NAME)
+        if title is None and text:
+            self.layer.activate()
+            if not self.layer.obj.LT_execute(
+                f"label -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
+            ):
+                raise RuntimeError("Origin could not create the S61 title")
+            title = self.layer.label(_TITLE_NAME)
+            if title is None:
+                raise RuntimeError("Origin could not create the S61 title")
+        if title is not None:
+            title.text = text
+            title.set_int("attach", 1)
+            title.set_float("x1", 0.5)
+            title.set_float("y1", 0.012)
+            title.set_int("fsize", 14)
+            title.set_int("fstyle", 0)
+            title.set_int("background", 0)
+            title.set_int("show", int(bool(text)))
+
+    def _set_axis_label(self, axis_name: str, text: str) -> None:
+        label = self.layer.label("xb" if axis_name == "x" else "yl")
+        if label is None:
+            label = self.layer.add_label(text)
         if label is None:
             raise RuntimeError("Origin S61 template has no writable axis label")
         label.text = text
         label.set_int("show", 1)
 
+    def _assert_state(self, grid: K20Grid, state: _S61State) -> None:
+        title = self.layer.label(_TITLE_NAME)
+        if state.title:
+            if title is None or title.text != state.title or not title.get_int("show"):
+                raise RuntimeError("Origin S61 title did not survive readback")
+        elif title is not None and title.get_int("show"):
+            raise RuntimeError("Origin S61 empty title is unexpectedly visible")
+        for axis_name, axis_label, labels, reverse in (
+            ("x", state.x_label, grid.column_labels, state.x_reverse),
+            ("y", state.y_label, grid.row_labels, state.y_reverse),
+        ):
+            if self.layer.get_int(f"{axis_name}.label.type") != 10:
+                raise RuntimeError("Origin S61 categorical tick mode did not survive")
+            label = self.layer.label("xb" if axis_name == "x" else "yl")
+            if label is None or label.text != axis_label:
+                raise RuntimeError("Origin S61 axis label did not survive readback")
+            begin, end, step = (float(value) for value in self.layer.axis(axis_name).limits)
+            expected_descending = (axis_name == "y") != reverse
+            if (begin > end) != expected_descending or (step < 0) != expected_descending:
+                raise RuntimeError("Origin S61 axis direction did not survive readback")
+            expected_labels = _origin_tick_string(_display_labels(labels, begin, end))
+            if self.layer.get_str(f"{axis_name}.label.string") != expected_labels:
+                raise RuntimeError("Origin S61 category labels did not survive readback")
+
     @staticmethod
     def _state(
-        document: PlotDocument, actions: tuple[PlotEngineAction, ...], grid: K20Grid
-    ) -> _State:
+        document: PlotDocument,
+        actions: tuple[PlotEngineAction, ...],
+        grid: K20Grid,
+    ) -> _S61State:
         token = document.plot_id.removeprefix("plot:")
-        state = _State(x_label=grid.column_field_name, y_label=grid.row_field_name)
+        state = _S61State("", grid.column_field_name, grid.row_field_name)
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
             if isinstance(action, SetTitle):
+                if action.target != document.plot_id:
+                    raise ValueError("S61 title target does not belong to this plot")
                 state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-                if (
-                    axis is None
-                    or action.scale not in {None, "categorical"}
-                    or action.minimum is not None
-                ):
-                    raise ValueError("S61 axes expose labels and reverse only")
-                if axis == "x":
+                continue
+            if isinstance(action, SetAxis):
+                axis_name = {
+                    f"axis:{token}.x": "x",
+                    f"axis:{token}.y": "y",
+                }.get(action.target)
+                if axis_name is None:
+                    raise ValueError("S61 axis target does not belong to this plot")
+                if action.scale not in {None, "categorical"}:
+                    raise ValueError("Origin S61 axes support only categorical scale")
+                if action.minimum is not None or action.maximum is not None:
+                    raise ValueError("Origin S61 public axes do not expose numeric bounds")
+                if axis_name == "x":
                     state = replace(
                         state,
                         x_label=state.x_label if action.label is None else action.label,
@@ -218,7 +509,8 @@ class S61OriginProject:
                         y_label=state.y_label if action.label is None else action.label,
                         y_reverse=state.y_reverse if action.reverse is None else action.reverse,
                     )
-            elif isinstance(action, SetChartParameter):
+                continue
+            if isinstance(action, SetChartParameter):
                 if (
                     action.target != document.plot_id
                     or action.parameter != "show_counts"
@@ -226,18 +518,34 @@ class S61OriginProject:
                 ):
                     raise ValueError("S61 show_counts must be boolean")
                 state = replace(state, show_counts=action.value)
-            else:
-                raise ValueError(f"Origin S61 cannot apply {action.operation}")
+                continue
+            raise ValueError(f"Origin S61 binder cannot apply {action.operation}")
         return state
 
 
 def execute_s61_request(
-    op: Any, request: OriginWorkerRequest, install_dir: Path, output: Path
+    op: Any,
+    request: OriginWorkerRequest,
+    install_dir: Path,
+    output: Path,
 ) -> EngineReadback:
     project = S61OriginProject(op)
-    project.create(install_dir, request.document, request.data)
-    project.reconcile(request.document, request.actions, request.data)
+    if request.previous_opju is None:
+        project.create(install_dir, request.document, request.data)
+        pending = request.actions
+    else:
+        project.open(Path(request.previous_opju))
+        pending = request.actions[-1:]
+    with origin_trace_step("agent_actions_apply", details={"action_count": len(pending)}):
+        for action in pending:
+            with origin_trace_step(
+                "agent_action_apply",
+                details=cast(dict[str, object], action.model_dump(exclude_none=True)),
+            ):
+                project.apply(request.document, action, request.data)
+        project.reconcile(request.document, request.actions, request.data)
     project.save(output)
     reopened = S61OriginProject(op)
-    reopened.open(output)
-    return reopened.verify(request.document, request.actions, request.data)
+    reopened.open(output, readonly=True)
+    with origin_trace_step("reopened_native_structure_verify"):
+        return reopened.verify(request.document, request.actions, request.data)

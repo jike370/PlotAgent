@@ -676,12 +676,34 @@ def test_origin_s61_writes_one_native_labeled_matrix(monkeypatch) -> None:
     monkeypatch.setattr(
         s61_origin, "resolve_official_template", lambda *_: Path("Heat_Map_With_Labels.otpu")
     )
+    monkeypatch.setattr(
+        S61OriginProject,
+        "_configure_labels",
+        lambda self, show: self.plot.set_int("label.show", int(show)),
+    )
+    monkeypatch.setattr(S61OriginProject, "_configure_color_scale", lambda *_: None)
+    monkeypatch.setattr(
+        S61OriginProject,
+        "_native_structure",
+        lambda *_: {
+            "official_template": "Heat_Map_With_Labels.otpu",
+            "native_plot_type": 105,
+            "ordinary_primitive_fallback_used": False,
+        },
+    )
     document, actions, view = _s61_case()
     project = S61OriginProject(_Origin())
     project.create(Path("."), document, view)
     project.reconcile(document, actions, view)
+    assert S61OriginProject.__module__.endswith(".s61")
+    assert S61ConfusionRenderer.__module__.endswith(".confusion_matrix")
     assert project.plot.plot_type == 105
     assert project.sheet.matrix.tolist()[0] == [42.0, 4.0, 0.0]
+    assert project.last_native_structure == {
+        "official_template": "Heat_Map_With_Labels.otpu",
+        "native_plot_type": 105,
+        "ordinary_primitive_fallback_used": False,
+    }
 
 
 def test_t2_profiles_pin_templates_and_do_not_import_old_compiler() -> None:

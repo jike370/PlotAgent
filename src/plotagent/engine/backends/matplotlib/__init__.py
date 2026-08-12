@@ -11,6 +11,7 @@ from .column_family import (
     K11PercentStackRenderer,
 )
 from .composite import K25CompositeRenderer
+from .confusion_matrix import S61ConfusionRenderer
 from .contour import K22ContourRenderer
 from .correlation_matrix import K21CorrelationMatrixRenderer
 from .distribution import K12StripRenderer, K13BoxRenderer, K14ViolinRenderer, X05BeeswarmRenderer
@@ -35,7 +36,6 @@ from .special_t1 import (
 from .special_t2 import (
     S01SurvivalRenderer,
     S21ForestRenderer,
-    S61ConfusionRenderer,
 )
 from .time_series import K19TimeSeriesRenderer
 from .wide_series import X03LollipopRenderer, X39LineSeriesRenderer, X40BeforeAfterRenderer

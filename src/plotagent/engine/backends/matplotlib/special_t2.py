@@ -27,14 +27,7 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import (
-    ForestData,
-    K20Grid,
-    SurvivalData,
-    s01_survival,
-    s21_forest,
-    s61_confusion_grid,
-)
+from plotagent.engine.profile_data import ForestData, SurvivalData, s01_survival, s21_forest
 from plotagent.engine.repository import document_ref
 
 _COLORS = ("#2A6FDB", "#D94B4B", "#2A9D6F", "#8A5CC2", "#D88700")
@@ -419,83 +412,3 @@ class S21ForestRenderer:
             else:
                 raise ValueError(f"S21 Matplotlib renderer cannot apply {action.operation}")
         return axes, interval, point, null_effect
-
-
-class S61ConfusionRenderer:
-    profile_id = "S61"
-
-    def render(
-        self,
-        document: PlotDocument,
-        actions: tuple[PlotEngineAction, ...],
-        data: EngineDataView,
-        png_path: Path,
-        svg_path: Path,
-    ) -> EngineReadback:
-        matrix = s61_confusion_grid(document, data)
-        axes, show_counts = self._state(document, actions, matrix)
-        values = np.asarray(matrix.values, dtype=float)
-        figure, axis = plt.subplots(figsize=(6.0, 5.4), constrained_layout=True)
-        axis.imshow(values, cmap="Blues", origin="upper")
-        axis.set_xticks(np.arange(len(matrix.column_labels)), matrix.column_labels)
-        axis.set_yticks(np.arange(len(matrix.row_labels)), matrix.row_labels)
-        if show_counts:
-            midpoint = (float(values.min()) + float(values.max())) / 2.0
-            for row, values_row in enumerate(values):
-                for column, value in enumerate(values_row):
-                    axis.text(
-                        column,
-                        row,
-                        str(int(value)),
-                        ha="center",
-                        va="center",
-                        color="white" if value > midpoint else "black",
-                    )
-        _apply_axes(axis, axes)
-        _save(figure, png_path, svg_path)
-        token = document.plot_id.removeprefix("plot:")
-        return EngineReadback(
-            document=document_ref(document),
-            backend="matplotlib",
-            objects=_base_objects(document)
-            + (
-                EngineObjectRef(
-                    semantic_id=f"series:{token}.matrix",
-                    backend="matplotlib",
-                    object_kind="confusion_matrix",
-                    native_ref="axes:0.image:0",
-                ),
-            ),
-            data_hash=canonical_hash(data),
-            style_hash=canonical_hash(
-                cast(JsonValue, {"axes": asdict(axes), "show_counts": show_counts})
-            ),
-        )
-
-    @staticmethod
-    def _state(
-        document: PlotDocument, actions: tuple[PlotEngineAction, ...], matrix: K20Grid
-    ) -> tuple[_AxesState, bool]:
-        token = document.plot_id.removeprefix("plot:")
-        axes = _AxesState(x_label=matrix.column_field_name, y_label=matrix.row_field_name)
-        show_counts = True
-        for action in actions:
-            if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                axes = replace(axes, title=action.text)
-            elif isinstance(action, SetAxis):
-                if action.scale not in {None, "categorical"} or action.minimum is not None:
-                    raise ValueError("S61 axes expose labels and reverse only")
-                axes = _axis_edit(axes, action, token)
-            elif isinstance(action, SetChartParameter):
-                if (
-                    action.target != document.plot_id
-                    or action.parameter != "show_counts"
-                    or not isinstance(action.value, bool)
-                ):
-                    raise ValueError("S61 show_counts must be boolean")
-                show_counts = action.value
-            else:
-                raise ValueError(f"S61 Matplotlib renderer cannot apply {action.operation}")
-        return axes, show_counts

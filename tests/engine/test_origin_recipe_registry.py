@@ -17,11 +17,11 @@ def test_recipe_registry_covers_the_public_catalog_and_closes_the_origin_scope()
 
     assert set(ORIGIN_RECIPES) == public_ids
     assert len(ORIGIN_RECIPES) == 38
-    assert len(ORIGIN_RENDERABLE_RECIPES) == 35
-    assert set(ORIGIN_RECIPES) - set(ORIGIN_RENDERABLE_RECIPES) == {"K16", "S21", "S61"}
+    assert len(ORIGIN_RENDERABLE_RECIPES) == 36
+    assert set(ORIGIN_RECIPES) - set(ORIGIN_RENDERABLE_RECIPES) == {"K16", "S21"}
     assert ORIGIN_RECIPES["K16"].support_status == "structural_fail"
     assert ORIGIN_RECIPES["S21"].support_status == "dependency_blocked"
-    assert ORIGIN_RECIPES["S61"].support_status == "automation_blocked"
+    assert ORIGIN_RECIPES["S61"].support_status == "renderable"
 
 
 def test_renderable_recipes_have_closed_routes_and_pinned_template_assets() -> None:
@@ -62,7 +62,7 @@ def test_recipe_registry_rejects_the_previous_wrong_template_mappings(
 
 
 def test_blocked_profiles_fail_before_origin_automation() -> None:
-    for profile_id in ("K16", "S21", "S61"):
+    for profile_id in ("K16", "S21"):
         with pytest.raises(ValueError, match=profile_id):
             origin_recipe(profile_id)
         assert origin_recipe(profile_id, require_renderable=False).profile_id == profile_id
