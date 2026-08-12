@@ -78,6 +78,19 @@ class FakeAxis:
         )
 
 
+class FakeThemeNode:
+    def __init__(self, name: str, value: int = 0, children=()) -> None:
+        self.Name = name
+        self.value = value
+        self.Children = list(children)
+
+    def GetValue(self):
+        return self.value
+
+    def SetIntValue(self, value: int) -> None:
+        self.value = value
+
+
 class FakePlot:
     def __init__(self) -> None:
         self.obj = self
@@ -87,6 +100,24 @@ class FakePlot:
         self.ints = {"line.style": 0}
         self.symbol_kind = 2
         self.symbol_size = 5.0
+        self.theme = FakeThemeNode(
+            "Root",
+            children=(
+                FakeThemeNode(
+                    "ErrorBar2D",
+                    children=tuple(
+                        FakeThemeNode(name)
+                        for name in (
+                            "DirectionX",
+                            "DirectionPlus",
+                            "DirectionMinus",
+                            "ConnectLineMode",
+                            "ConnectLineFillArea",
+                        )
+                    ),
+                ),
+            ),
+        )
 
     @property
     def color(self):
@@ -110,6 +141,12 @@ class FakePlot:
 
     def get_int(self, name: str) -> int:
         return self.ints[name]
+
+    def GetTheme(self):
+        return self.theme
+
+    def PutTheme(self, theme) -> None:
+        self.theme = theme
 
 
 class FakeLayer:
@@ -202,9 +239,12 @@ class FakeSheet:
     def activate(self) -> None:
         return None
 
+    def lt_range(self, *_args) -> str:
+        return "[DataBook]Sheet1"
+
     def get_int(self, name: str) -> int:
         ordinal = int(name.removeprefix("col").removesuffix(".type")) - 1
-        return {"x": 4, "y": 1}[self.designations[ordinal].casefold()]
+        return {"x": 4, "y": 1, "n": 2, "e": 3, "m": 7}[self.designations[ordinal].casefold()]
 
 
 class FakeBook:
@@ -275,6 +315,19 @@ class FakeOrigin:
             match = re.search(r"worksheet -s 1 0 (\d+) 0", command)
             assert match is not None
             self.graph.layer.plots = [FakePlot() for _ in range(int(match.group(1)) // 2)]
+        if "worksheet -p 201 ERRBAR" in command:
+            self.graph_created = True
+            self.native_pid = 201
+            self.graph.layer.plots = [FakePlot(), FakePlot(), FakePlot()]
+        if "run.section(plot,ScatterErrorBand)" in command:
+            self.graph_created = True
+            self.native_pid = 201
+            self.graph.layer.plots = [FakePlot(), FakePlot(), FakePlot()]
+        if "set __K07MINUS -om __K07CENTER" in command:
+            minus = self.graph.layer.plots[1].GetTheme().Children[0].Children
+            plus = self.graph.layer.plots[2].GetTheme().Children[0].Children
+            next(item for item in minus if item.Name == "DirectionMinus").value = 1
+            next(item for item in plus if item.Name == "DirectionPlus").value = 1
         if "worksheet -p 201 DROPLINE" in command:
             self.graph_created = True
             self.native_pid = 201
@@ -309,9 +362,9 @@ class FakeOrigin:
         color_match = re.fullmatch(r'color\("(#[0-9A-Fa-f]{6})"\)', expression)
         if color_match is not None:
             return self._color(color_match.group(1))
-        if expression in {"__K02COUNT", "__K03COUNT"}:
+        if expression in {"__K02COUNT", "__K03COUNT", "__K06COUNT", "__K07COUNT"}:
             return float(len(self.graph.layer.plots))
-        if expression in {"__K02PID", "__K03PID"}:
+        if expression in {"__K02PID", "__K03PID", "__K06PID", "__K07PID"}:
             return float(self.native_pid)
         return self.lt_values[expression]
 
@@ -326,6 +379,10 @@ class FakeOrigin:
         if expression == "__K03YS":
             letter = chr(66 + (self.k03_plot_index - 1) * 2)
             return f'[{self.book.name}]Sheet1!{letter}"Y"'
+        if expression in {"__K06XS", "__K07XS"}:
+            return f'[{self.book.name}]Sheet1!A"X"'
+        if expression in {"__K06YS", "__K07YS"}:
+            return f'[{self.book.name}]Sheet1!B"Center"'
         if expression == "__X02XS":
             return f'[{self.book.name}]Sheet1!A"Time"'
         if expression == "__X02YS":
@@ -619,10 +676,11 @@ def test_k06_binds_real_x_and_y_error_columns(
         project.apply(document, action, view)
     readback = project.verify(document, actions, view)
 
-    assert origin.graph.layer.add_calls == [
-        {"coly": 1, "colx": 0, "colyerr": 2, "colxerr": 3, "type": "s"}
-    ]
+    assert any("worksheet -p 201 ERRBAR" in command for command in origin.commands)
+    assert origin.graph.layer.add_calls == []
     assert origin.book.sheet.designations == {0: "X", 1: "Y", 2: "E", 3: "M"}
+    assert origin.book.sheet.columns[2] == [0.3, 0.4, 0.2]
+    assert origin.book.sheet.columns[3] == [0.1, 0.2, 0.1]
     assert origin.graph.layer.plots[0].symbol_kind == 1
     assert "point_error_series" in {item.object_kind for item in readback.objects}
 
@@ -654,11 +712,17 @@ def test_k07_binds_center_and_band_without_boundary_legend_entries(
         project.apply(document, action, view)
     readback = project.verify(document, actions, view)
 
-    assert origin.graph.layer.add_calls == [
-        {"coly": 1, "colx": 0, "type": "?"},
-        {"coly": 2, "colx": 0, "type": "?"},
-        {"coly": 3, "colx": 0, "type": "?"},
-    ]
+    assert any("run.section(plot,ScatterErrorBand)" in command for command in origin.commands)
+    assert any("set __K07MINUS -om __K07CENTER" in command for command in origin.commands)
+    assert any("set __K07PLUS -op __K07CENTER" in command for command in origin.commands)
+    for plot in origin.graph.layer.plots[1:]:
+        values = {item.Name: item.GetValue() for item in plot.GetTheme().Children[0].Children}
+        assert values["ConnectLineMode"] == 1
+        assert values["ConnectLineFillArea"] == 1
+    assert origin.graph.layer.add_calls == []
+    assert origin.book.sheet.designations == {0: "X", 1: "Y", 2: "E", 3: "E"}
+    assert origin.book.sheet.columns[2] == pytest.approx([0.5, 0.6, 0.8])
+    assert origin.book.sheet.columns[3] == pytest.approx([0.5, 0.8, 0.9])
     assert origin.graph.layer.labels["legend"].text.count("\\l(") == 1
     assert len({plot.color for plot in origin.graph.layer.plots}) == 1
     assert "error_band_series" in {item.object_kind for item in readback.objects}
@@ -699,8 +763,7 @@ def test_x02_uses_official_drop_line_command_and_preserves_raw_dynamic_data(
     readback = project.verify(document, actions, view)
 
     assert any(
-        "worksheet -s 1 0 2 0; worksheet -p 201 DROPLINE;" in command
-        for command in origin.commands
+        "worksheet -s 1 0 2 0; worksheet -p 201 DROPLINE;" in command for command in origin.commands
     )
     assert origin.graph.layer.add_calls == []
     assert origin.book.sheet.designations == {0: "X", 1: "Y"}
@@ -720,6 +783,23 @@ def test_x02_renderer_has_no_generic_graph_or_plot_construction() -> None:
     assert ".add_plot(" not in source
     assert ".plot_list(" not in source
     assert "worksheet -p 201 DROPLINE" in source
+
+
+@pytest.mark.parametrize(
+    ("module", "official_command"),
+    (
+        (k06_module, "worksheet -p 201 ERRBAR"),
+        (k07_module, "run.section(plot,ScatterErrorBand)"),
+    ),
+)
+def test_error_renderers_use_official_menu_without_generic_plot_construction(
+    module: object, official_command: str
+) -> None:
+    source = inspect.getsource(module)
+
+    assert ".new_graph(" not in source
+    assert ".add_plot(" not in source
+    assert official_command in source
 
 
 def test_new_t1_origin_binders_do_not_import_the_legacy_compiler() -> None:

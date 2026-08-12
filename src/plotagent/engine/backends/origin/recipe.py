@@ -236,7 +236,10 @@ _LOCAL_DISPATCH: Mapping[str, str] = MappingProxyType(
         "K06": "menu 33336 -> worksheet -p 201 ERRBAR",
         "K07": "Plot.ogs [ScatterErrorBand] -> general,201 ERRORBAND",
         "K08": "Plot.ogs [Column] -> general,203 Column",
-        "K09": "Plot.ogs [GroupedCols] -> plot_gindexed plottype:=column template:=gColumn",
+        "K09": (
+            "Plot.ogs [GroupedCols] -> worksheet -px ? gColumn "
+            "plot_gindexed plottype:=0"
+        ),
         "K10": "Plot.ogs [StackCol] -> general,213 StackColumn",
         "K11": "Plot.ogs [StackColPercentage] -> general,213 StackColP",
         "K12": "Plot.ogs [ColumnScatter] -> BoxChartImp ColumnScatter",

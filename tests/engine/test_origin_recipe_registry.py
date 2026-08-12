@@ -67,7 +67,7 @@ def test_recipe_registry_rejects_the_previous_wrong_template_mappings(
     (
         ("K06", "worksheet -p 201 ERRBAR"),
         ("K07", "general,201 ERRORBAND"),
-        ("K09", "plot_gindexed plottype:=column template:=gColumn"),
+        ("K09", "worksheet -px ? gColumn plot_gindexed plottype:=0"),
         ("K10", "general,213 StackColumn"),
         ("K11", "general,213 StackColP"),
         ("X03", "general,201 Lollipop"),

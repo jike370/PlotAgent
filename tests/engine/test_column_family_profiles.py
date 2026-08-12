@@ -393,7 +393,7 @@ class _Sheet:
 
     def from_list(self, column: int, values, **kwargs) -> None:
         self.columns[column] = list(values)
-        self.designations[column] = {"X": 4, "Y": 1, "N": 6}.get(kwargs.get("axis"), 0)
+        self.designations[column] = {"X": 4, "Y": 1, "N": 2}.get(kwargs.get("axis"), 0)
         self.cols = max(self.cols, column + 1)
 
     def to_list(self, column: int):
@@ -449,9 +449,9 @@ class _Origin:
     def pages(self, kind: str):
         return [self.book] if kind == "w" else [self.graph]
 
-    def lt_exec(self, command: str) -> None:
+    def lt_exec(self, command: str) -> bool:
         self.commands.append(command)
-        if command.startswith("plot_gindexed"):
+        if "plot_gindexed" in command:
             self.graph.layer.add_plot(self.book.sheet, official="plot_gindexed")
             groups = tuple(dict.fromkeys(self.book.sheet.columns[3]))
             self.graph.layer.labels["legend"] = _Label(
@@ -466,29 +466,26 @@ class _Origin:
             stack.Children[1].nVal = int(menu_name == "StackColP")
             self.graph.layer.labels["legend"] = _Label(
                 "\n".join(
-                    f"\\l({index}) %({index})"
-                    for index in range(self.book.sheet.cols - 1, 0, -1)
+                    f"\\l({index}) %({index})" for index in range(self.book.sheet.cols - 1, 0, -1)
                 )
             )
         elif command.startswith("legendupdate"):
             self.graph.layer.labels["legend"] = _Label(
                 "\n".join(
-                    f"\\l({index}) %({index})"
-                    for index in range(self.book.sheet.cols - 1, 0, -1)
+                    f"\\l({index}) %({index})" for index in range(self.book.sheet.cols - 1, 0, -1)
                 )
             )
         elif command.startswith("dataset __K") and "COLORS" in command:
             payload = command.split("{", 1)[1].split("}", 1)[0]
-            self.k09_colors = [
-                int(item.split('"', 2)[1][1:], 16) for item in payload.split(",")
-            ]
+            self.k09_colors = [int(item.split('"', 2)[1][1:], 16) for item in payload.split(",")]
         elif " -gm 1" in command and " -pfb color" in command:
             self.group_edit_mode = 1
             self.member_fill = int(command.split('color("', 1)[1].split('"', 1)[0][1:], 16)
+        return True
 
     def lt_float(self, expression: str) -> float:
         if expression.startswith("layer.plot") and expression.endswith(".pid"):
-            return 203.0 if self.commands[0].startswith("plot_gindexed") else 213.0
+            return 203.0 if "plot_gindexed" in self.commands[0] else 213.0
         if expression.startswith("__K") and expression.endswith("ENABLED"):
             return 1.0
         if expression.startswith("__K") and expression.endswith("GROUPMODE"):
@@ -503,14 +500,22 @@ class _Origin:
             return float(len(self.graph.layer.plots))
         if expression.startswith(("__K10PT", "__K11PT")):
             return 213.0
+        if expression == "__K09COUNT":
+            return float(len(self.graph.layer.plots))
+        if expression == "__K09PID":
+            return 203.0
         raise AssertionError(expression)
 
     def get_lt_str(self, name: str) -> str:
+        if name == "__K09XS":
+            return f'[{self.book.name}]Sheet1!A"Index"'
+        if name == "__K09YS":
+            return f'[{self.book.name}]Sheet1!B"Value"'
         if "XS" in name:
-            return f"[{self.book.name}]Sheet1!A\"Category\""
+            return f'[{self.book.name}]Sheet1!A"Category"'
         plot_index = int(name.split("YS", 1)[1])
         letter = chr(ord("B") + plot_index - 1)
-        return f"[{self.book.name}]Sheet1!{letter}\"S{plot_index}\""
+        return f'[{self.book.name}]Sheet1!{letter}"S{plot_index}"'
 
     def color_col(self, offset: int, mode: str) -> str:
         self.color_col_calls.append((offset, mode))
@@ -543,25 +548,24 @@ def test_column_family_origin_binders_start_from_pinned_official_template(
     if profile_id == "K09":
         assert origin.template == ""
         assert origin.commands[0] == (
-            "plot_gindexed iy:=[DataBook]Sheet1!(,B) "
+            "worksheet -px ? gColumn plot_gindexed iy:=[DataBook]Sheet1!(,B) "
             "group:=[DataBook]Sheet1!(C,D) plottype:=0;"
         )
         assert origin.graph.layer.add_calls == [{"official": "plot_gindexed"}]
         assert origin.graph.layer.group_calls == []
         assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
+        assert all(
+            label in origin.graph.layer.labels["legend"].text
+            for label in ("S1", "S2", "S3")
+        )
     else:
         assert origin.template == ""
         menu_name = "StackColumn" if profile_id == "K10" else "StackColP"
-        assert origin.commands[0] == (
-            f"worksheet -s 1 0 4 0; worksheet -p 213 {menu_name};"
-        )
+        assert origin.commands[0] == (f"worksheet -s 1 0 4 0; worksheet -p 213 {menu_name};")
         assert (
-            "legendupdate dest:=layer update:=reconstruct "
-            "legend:=separate mode:=lname;"
+            "legendupdate dest:=layer update:=reconstruct legend:=separate mode:=lname;"
         ) in origin.commands
-        assert origin.graph.layer.add_calls == [
-            {"official": menu_name} for _index in range(1, 4)
-        ]
+        assert origin.graph.layer.add_calls == [{"official": menu_name} for _index in range(1, 4)]
         assert origin.graph.layer.group_calls == []
         assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
     assert origin.graph.layer.labels["legend"].text.count("\\l(") == 3
@@ -597,6 +601,16 @@ def test_column_family_new_path_has_no_legacy_compiler_dependency() -> None:
     assert "plotagent.rendering" not in source
     assert "PlotSpec" not in source
     assert "ResolvedPlot" not in source
+
+
+def test_k09_origin_route_explicitly_binds_official_xfunction_and_template() -> None:
+    source = inspect.getsource(origin_module)
+
+    assert "plot_gindexed" in source
+    assert "worksheet -px ? gColumn plot_gindexed" in source
+    assert "plottype:=0" in source
+    assert ".new_graph(" not in source
+    assert ".add_plot(" not in source
 
 
 def test_official_stack_title_is_page_attached_and_survives_readback(

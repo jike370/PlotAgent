@@ -25,6 +25,7 @@ from plotagent.engine.repository import document_ref
 from .messages import OriginWorkerRequest
 from .profile import K06_ORIGIN_PROFILE, resolve_official_template
 from .readback import axis_scale_matches
+from .trace import origin_trace_step, record_origin_trace
 
 _SYMBOL_CODES = {
     "square": 1,
@@ -34,6 +35,10 @@ _SYMBOL_CODES = {
     "diamond": 5,
 }
 _TITLE_NAME = "_ENGINE_TITLE"
+_OFFICIAL_HELP = "https://docs.originlab.com/origin-help/xy-errbar-graph/"
+_OFFICIAL_MENU = "Plot > Basic 2D: XY Error"
+_OFFICIAL_MENU_ID = 33336
+_OFFICIAL_COMMAND = "worksheet -s 1 0 4 0; worksheet -p 201 ERRBAR;"
 
 
 def _hex_rgb(value: str) -> tuple[int, int, int]:
@@ -59,6 +64,7 @@ class K06OriginProject:
         self.graph: Any = None
         self.layer: Any = None
         self.plot: Any = None
+        self.plots: list[Any] = []
         self.sheet: Any = None
 
     def create(
@@ -67,36 +73,71 @@ class K06OriginProject:
         document: PlotDocument,
         data: EngineDataView,
     ) -> None:
-        template = resolve_official_template(install_dir, K06_ORIGIN_PROFILE)
+        with origin_trace_step(
+            "official_template_resolve",
+            details={
+                "help_url": _OFFICIAL_HELP,
+                "template_filename": K06_ORIGIN_PROFILE.filename,
+                "template_sha256": K06_ORIGIN_PROFILE.sha256,
+            },
+        ):
+            template = resolve_official_template(install_dir, K06_ORIGIN_PROFILE)
         k06_point_error(document, data)
-        self.op.new(asksave=False)
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("w", f"D{token}", hidden=True)
+        with origin_trace_step("workbook_create"):
+            book = self.op.new_book("w", f"D{token}", hidden=True)
         if book is None:
             raise RuntimeError("Origin could not create the K06 data workbook")
         self.sheet = book[0]
-        self._write_data(document, data)
-        argument = template.with_suffix(template.suffix.lower())
-        self.graph = self.op.new_graph(f"G{token}", template=str(argument), hidden=True)
-        if self.graph is None:
-            raise RuntimeError("Origin could not create a graph from ERRBAR.otpu")
+        with origin_trace_step(
+            "source_data_write",
+            details={"designation": "XYEM", "order": ["x", "center", "y_error", "x_error"]},
+        ):
+            self._write_data(document, data)
+        with origin_trace_step(
+            "official_plot_command_execute",
+            details={
+                "labtalk": _OFFICIAL_COMMAND,
+                "menu": _OFFICIAL_MENU,
+                "menu_id": _OFFICIAL_MENU_ID,
+                "native_plot_type": 201,
+                "template_filename": template.name,
+            },
+        ):
+            self.sheet.activate()
+            if not self.op.lt_exec(_OFFICIAL_COMMAND):
+                raise RuntimeError("Origin could not execute the official K06 XY Error menu")
+        graphs = list(self.op.pages("g"))
+        if len(graphs) != 1:
+            raise RuntimeError("Origin XY Error menu must create exactly one graph")
+        self.graph = graphs[0]
+        self.graph.name = f"G{token}"
+        self.graph.lname = f"K06 XY Error / {document.plot_id}"
         self.layer = self.graph[0]
-        self.plot = self.layer.add_plot(
-            self.sheet,
-            coly=1,
-            colx=0,
-            colyerr=2,
-            colxerr=3,
-            type="s",
-        )
-        if self.plot is None:
-            raise RuntimeError("Origin ERRBAR.otpu rejected the native error-bar plot")
+        self.plots = list(self.layer.plot_list())
+        if not self.plots:
+            raise RuntimeError("Origin ERRBAR.otpu did not create a native XY error plot")
+        self.plot = self.plots[0]
+        with origin_trace_step(
+            "template_residue_remove", details={"authoritative_workbook": book.name}
+        ):
+            for residue in tuple(self.op.pages("w")):
+                if residue.name != book.name:
+                    residue.destroy()
         self.layer.rescale()
+        native = self._assert_native_structure()
+        record_origin_trace("native_xy_error_confirmed", "completed", details=native)
 
     def open(self, project_path: Path) -> None:
-        self.op.new(asksave=False)
-        if not self.op.open(str(project_path), readonly=False, asksave=False):
-            raise RuntimeError(f"Origin could not open the previous project: {project_path}")
+        with origin_trace_step(
+            "previous_project_reopen",
+            details={"filename": project_path.name, "readonly": False},
+        ):
+            self.op.new(asksave=False)
+            if not self.op.open(str(project_path), readonly=False, asksave=False):
+                raise RuntimeError(f"Origin could not open the previous project: {project_path}")
         graphs = list(self.op.pages("g"))
         books = list(self.op.pages("w"))
         if len(graphs) != 1 or len(books) != 1:
@@ -106,7 +147,8 @@ class K06OriginProject:
         plots = self.layer.plot_list()
         if not plots:
             raise RuntimeError("K06 Origin project must contain a native point plot")
-        self.plot = plots[0]
+        self.plots = list(plots)
+        self.plot = self.plots[0]
         self.sheet = books[0][0]
 
     def apply(
@@ -167,9 +209,11 @@ class K06OriginProject:
             if action.target != f"series:{token}.primary":
                 raise ValueError("K06 series target does not belong to this plot")
             if action.color is not None:
-                self.plot.color = action.color
+                for plot in self.plots:
+                    plot.color = action.color
             if action.line_width_pt is not None:
-                self.plot.set_float("line.width", action.line_width_pt)
+                for plot in self.plots:
+                    plot.set_float("line.width", action.line_width_pt)
             if action.symbol is not None:
                 try:
                     self.plot.symbol_kind = _SYMBOL_CODES[action.symbol]
@@ -198,10 +242,11 @@ class K06OriginProject:
         raise ValueError(f"Origin K06 binder cannot apply {action.operation}")
 
     def save(self, output_path: Path) -> None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        self.op.save(str(output_path))
-        if not output_path.is_file() or output_path.stat().st_size <= 0:
-            raise RuntimeError("Origin did not save a non-empty K06 project")
+        with origin_trace_step("opju_save", details={"filename": output_path.name}):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            self.op.save(str(output_path))
+            if not output_path.is_file() or output_path.stat().st_size <= 0:
+                raise RuntimeError("Origin did not save a non-empty K06 project")
 
     def verify(
         self,
@@ -209,13 +254,15 @@ class K06OriginProject:
         actions: tuple[PlotEngineAction, ...],
         data: EngineDataView,
     ) -> EngineReadback:
+        native = self._assert_native_structure()
+        record_origin_trace("reopened_xy_error_confirmed", "completed", details=native)
         columns = self._bound_columns(document, data)
         for index, (role, column) in enumerate(
             zip(("x", "center", "y_error", "x_error"), columns, strict=True)
         ):
             self._assert_values(self.sheet.to_list(index), column.values, role)
         token = document.plot_id.removeprefix("plot:")
-        style_snapshot: dict[str, object] = {}
+        style_snapshot: dict[str, object] = {"native_structure": native}
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
@@ -236,11 +283,13 @@ class K06OriginProject:
                     "limits": tuple(float(value) for value in axis.limits),
                 }
             elif isinstance(action, SetSeriesStyle):
-                if action.color is not None and tuple(self.plot.color) != _hex_rgb(action.color):
+                if action.color is not None and any(
+                    tuple(plot.color) != _hex_rgb(action.color) for plot in self.plots
+                ):
                     raise RuntimeError("Origin K06 color did not survive readback")
-                if (
-                    action.line_width_pt is not None
-                    and abs(self.plot.get_float("line.width") - action.line_width_pt) > 0.01
+                if action.line_width_pt is not None and any(
+                    abs(plot.get_float("line.width") - action.line_width_pt) > 0.01
+                    for plot in self.plots
                 ):
                     raise RuntimeError("Origin K06 error width did not survive readback")
                 if action.symbol_size_pt is not None and (
@@ -250,6 +299,7 @@ class K06OriginProject:
                 style_snapshot["series"] = {
                     "color": tuple(self.plot.color),
                     "line_width": self.plot.get_float("line.width"),
+                    "native_member_count": len(self.plots),
                 }
             elif isinstance(action, SetLegend) and action.visible is not None:
                 legend = self.layer.label("legend")
@@ -279,7 +329,7 @@ class K06OriginProject:
                 semantic_id=f"series:{token}.primary",
                 backend="origin",
                 object_kind="point_error_series",
-                native_ref=f"graph:{self.graph.name}.layer:1.plot:1",
+                native_ref=f"graph:{self.graph.name}.layer:1.plots:1-{len(self.plots)}",
             ),
             EngineObjectRef(
                 semantic_id=f"legend:{token}.main",
@@ -323,6 +373,45 @@ class K06OriginProject:
             columns[bindings["x_error"]],
         )
 
+    def _assert_native_structure(self) -> dict[str, object]:
+        self.graph.activate()
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe K06 graph name for native readback: {graph_name!r}")
+        command = (
+            "page.active=1; layer -c; __K06COUNT=count; "
+            f"range __K06P=[{graph_name}]1!1; "
+            "range -wx __K06X=__K06P; range -wy __K06Y=__K06P; "
+            "get __K06P -pt __K06PID; "
+            "string __K06XS$=%(__K06X); string __K06YS$=%(__K06Y);"
+        )
+        if not self.op.lt_exec(command):
+            raise RuntimeError("Origin could not read the native K06 XY Error structure")
+        plot_count = int(self.op.lt_float("__K06COUNT"))
+        plot_id = int(self.op.lt_float("__K06PID"))
+        designations = tuple(int(self.sheet.get_int(f"col{index}.type")) for index in range(1, 5))
+        x_range = str(self.op.get_lt_str("__K06XS"))
+        y_range = str(self.op.get_lt_str("__K06YS"))
+        if plot_count < 1 or plot_id != 201:
+            raise RuntimeError("Origin K06 must retain a native PID 201 point/error plot")
+        if designations != (4, 1, 3, 7):
+            raise RuntimeError("Origin K06 worksheet must retain X/Y/YErr/XErr designations")
+        if not x_range.split('"', 1)[0].endswith("!A") or not y_range.split('"', 1)[0].endswith(
+            "!B"
+        ):
+            raise RuntimeError("Origin K06 XY Error lost its center-point source binding")
+        return {
+            "designation_codes": list(designations),
+            "help_url": _OFFICIAL_HELP,
+            "native_plot_count": plot_count,
+            "native_plot_type": plot_id,
+            "official_menu": _OFFICIAL_MENU,
+            "official_menu_id": _OFFICIAL_MENU_ID,
+            "official_template": K06_ORIGIN_PROFILE.filename,
+            "x_range": x_range,
+            "y_range": y_range,
+        }
+
     @staticmethod
     def _assert_values(actual: list[object], expected: tuple[object, ...], role: str) -> None:
         if len(actual) != len(expected):
@@ -351,13 +440,19 @@ def execute_k06_request(
     else:
         project.open(Path(request.previous_opju))
         pending = request.actions[-1:]
-    for action in pending:
-        project.apply(request.document, action, request.data)
+    with origin_trace_step("agent_actions_apply", details={"action_count": len(pending)}):
+        for action in pending:
+            details = cast(dict[str, object], action.model_dump(exclude_none=True))
+            with origin_trace_step("agent_action_apply", details=details):
+                project.apply(request.document, action, request.data)
     project.save(output)
 
-    op.new(asksave=False)
-    if not op.open(str(output), readonly=True, asksave=False):
-        raise RuntimeError("fresh Origin session could not reopen the staged K06 project")
+    with origin_trace_step(
+        "saved_project_reopen", details={"filename": output.name, "readonly": True}
+    ):
+        op.new(asksave=False)
+        if not op.open(str(output), readonly=True, asksave=False):
+            raise RuntimeError("fresh Origin session could not reopen the staged K06 project")
     reopened = K06OriginProject(op)
     graphs = list(op.pages("g"))
     books = list(op.pages("w"))
@@ -368,6 +463,8 @@ def execute_k06_request(
     plots = reopened.layer.plot_list()
     if not plots:
         raise RuntimeError("fresh K06 project has no native plot")
-    reopened.plot = plots[0]
+    reopened.plots = list(plots)
+    reopened.plot = reopened.plots[0]
     reopened.sheet = books[0][0]
-    return reopened.verify(request.document, request.actions, request.data)
+    with origin_trace_step("reopened_native_structure_verify"):
+        return reopened.verify(request.document, request.actions, request.data)

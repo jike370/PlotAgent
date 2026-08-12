@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import isnan
 from pathlib import Path
 from typing import Any, cast
 
@@ -25,9 +26,14 @@ from plotagent.engine.repository import document_ref
 from .messages import OriginWorkerRequest
 from .profile import K07_ORIGIN_PROFILE, resolve_official_template
 from .readback import axis_scale_matches
+from .trace import origin_trace_step, record_origin_trace
 
 _LINE_STYLE_CODES = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3, "none": 10}
 _TITLE_NAME = "_ENGINE_TITLE"
+_OFFICIAL_HELP = "https://docs.originlab.com/origin-help/error-band-graph/"
+_OFFICIAL_MENU = "Plot > Basic 2D: Error Band"
+_OFFICIAL_MENU_ID = 2097172
+_OFFICIAL_COMMAND = "worksheet -s 1 0 4 0; run.section(plot,ScatterErrorBand);"
 
 
 def _hex_rgb(value: str) -> tuple[int, int, int]:
@@ -65,31 +71,91 @@ class K07OriginProject:
         document: PlotDocument,
         data: EngineDataView,
     ) -> None:
-        template = resolve_official_template(install_dir, K07_ORIGIN_PROFILE)
+        with origin_trace_step(
+            "official_template_resolve",
+            details={
+                "help_url": _OFFICIAL_HELP,
+                "template_filename": K07_ORIGIN_PROFILE.filename,
+                "template_sha256": K07_ORIGIN_PROFILE.sha256,
+            },
+        ):
+            template = resolve_official_template(install_dir, K07_ORIGIN_PROFILE)
         k07_error_band(document, data)
-        self.op.new(asksave=False)
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("w", f"D{token}", hidden=True)
+        with origin_trace_step("workbook_create"):
+            book = self.op.new_book("w", f"D{token}", hidden=True)
         if book is None:
             raise RuntimeError("Origin could not create the K07 data workbook")
         self.sheet = book[0]
-        self._write_data(document, data)
-        argument = template.with_suffix(template.suffix.lower())
-        self.graph = self.op.new_graph(f"G{token}", template=str(argument), hidden=True)
-        if self.graph is None:
-            raise RuntimeError("Origin could not create a graph from ERRORBAND.otp")
+        with origin_trace_step(
+            "source_data_write",
+            details={
+                "designation": "XYEE",
+                "error_values": ["center-lower", "upper-center"],
+            },
+        ):
+            self._write_data(document, data)
+        with origin_trace_step(
+            "official_plot_command_execute",
+            details={
+                "labtalk": _OFFICIAL_COMMAND,
+                "menu": _OFFICIAL_MENU,
+                "menu_id": _OFFICIAL_MENU_ID,
+                "native_plot_type": 201,
+                "template_filename": template.name,
+            },
+        ):
+            self.sheet.activate()
+            if not self.op.lt_exec(_OFFICIAL_COMMAND):
+                raise RuntimeError("Origin could not execute the official K07 Error Band menu")
+        graphs = list(self.op.pages("g"))
+        if len(graphs) != 1:
+            raise RuntimeError("Origin Error Band menu must create exactly one graph")
+        self.graph = graphs[0]
+        self.graph.name = f"G{token}"
+        self.graph.lname = f"K07 Error Band / {document.plot_id}"
         self.layer = self.graph[0]
-        self.plots = [
-            self.layer.add_plot(self.sheet, coly=index, colx=0, type="?") for index in (1, 2, 3)
-        ]
-        if any(plot is None for plot in self.plots):
-            raise RuntimeError("Origin ERRORBAND.otp rejected a native band component")
+        self.plots = list(self.layer.plot_list())
+        if len(self.plots) != 3:
+            raise RuntimeError("Origin ERRORBAND.otp must create center/minus/plus native plots")
+        with origin_trace_step(
+            "native_asymmetric_direction_assign",
+            details={
+                "minus": "center-lower",
+                "plus": "upper-center",
+                "source": "official LabTalk set -om/-op",
+            },
+        ):
+            self._set_error_directions()
+        with origin_trace_step(
+            "native_error_band_fill_enable",
+            details={
+                "connect_line_mode": 1,
+                "connect_line_fill_area": 1,
+                "source": "official Error Bar theme",
+            },
+        ):
+            self._enable_error_band_fill()
+        with origin_trace_step(
+            "template_residue_remove", details={"authoritative_workbook": book.name}
+        ):
+            for residue in tuple(self.op.pages("w")):
+                if residue.name != book.name:
+                    residue.destroy()
         self.layer.rescale()
+        native = self._assert_native_structure()
+        record_origin_trace("native_error_band_confirmed", "completed", details=native)
 
     def open(self, project_path: Path) -> None:
-        self.op.new(asksave=False)
-        if not self.op.open(str(project_path), readonly=False, asksave=False):
-            raise RuntimeError(f"Origin could not open the previous project: {project_path}")
+        with origin_trace_step(
+            "previous_project_reopen",
+            details={"filename": project_path.name, "readonly": False},
+        ):
+            self.op.new(asksave=False)
+            if not self.op.open(str(project_path), readonly=False, asksave=False):
+                raise RuntimeError(f"Origin could not open the previous project: {project_path}")
         graphs = list(self.op.pages("g"))
         books = list(self.op.pages("w"))
         if len(graphs) != 1 or len(books) != 1:
@@ -186,10 +252,11 @@ class K07OriginProject:
         raise ValueError(f"Origin K07 binder cannot apply {action.operation}")
 
     def save(self, output_path: Path) -> None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        self.op.save(str(output_path))
-        if not output_path.is_file() or output_path.stat().st_size <= 0:
-            raise RuntimeError("Origin did not save a non-empty K07 project")
+        with origin_trace_step("opju_save", details={"filename": output_path.name}):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            self.op.save(str(output_path))
+            if not output_path.is_file() or output_path.stat().st_size <= 0:
+                raise RuntimeError("Origin did not save a non-empty K07 project")
 
     def verify(
         self,
@@ -197,13 +264,27 @@ class K07OriginProject:
         actions: tuple[PlotEngineAction, ...],
         data: EngineDataView,
     ) -> EngineReadback:
-        columns = self._bound_columns(document, data)
-        for index, (role, column) in enumerate(
-            zip(("x", "center", "lower", "upper"), columns, strict=True)
+        native = self._assert_native_structure()
+        record_origin_trace("reopened_error_band_confirmed", "completed", details=native)
+        band = k07_error_band(document, data)
+        expected_columns = (
+            band.x_values,
+            band.center_values,
+            tuple(
+                center - lower
+                for center, lower in zip(band.center_values, band.lower_values, strict=True)
+            ),
+            tuple(
+                upper - center
+                for center, upper in zip(band.center_values, band.upper_values, strict=True)
+            ),
+        )
+        for index, (role, values) in enumerate(
+            zip(("x", "center", "minus_error", "plus_error"), expected_columns, strict=True)
         ):
-            self._assert_values(self.sheet.to_list(index), column.values, role)
+            self._assert_values(self.sheet.to_list(index), values, role)
         token = document.plot_id.removeprefix("plot:")
-        style_snapshot: dict[str, object] = {}
+        style_snapshot: dict[str, object] = {"native_structure": native}
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
@@ -285,14 +366,144 @@ class K07OriginProject:
         )
 
     def _write_data(self, document: PlotDocument, data: EngineDataView) -> None:
-        for index, column in enumerate(self._bound_columns(document, data)):
+        band = k07_error_band(document, data)
+        x, center, lower, upper = self._bound_columns(document, data)
+        minus_error = tuple(
+            middle - low for middle, low in zip(band.center_values, band.lower_values, strict=True)
+        )
+        plus_error = tuple(
+            high - middle
+            for middle, high in zip(band.center_values, band.upper_values, strict=True)
+        )
+        values = (band.x_values, band.center_values, minus_error, plus_error)
+        names = (
+            x.field.name,
+            center.field.name,
+            f"{lower.field.name} (center-lower)",
+            f"{upper.field.name} (upper-center)",
+        )
+        units = (
+            x.field.unit_label or "",
+            center.field.unit_label or "",
+            lower.field.unit_label or center.field.unit_label or "",
+            upper.field.unit_label or center.field.unit_label or "",
+        )
+        for index, (column_values, name, unit, designation) in enumerate(
+            zip(values, names, units, ("X", "Y", "E", "E"), strict=True)
+        ):
             self.sheet.from_list(
                 index,
-                list(column.values),
-                lname=column.field.name,
-                units=column.field.unit_label or "",
-                axis="X" if index == 0 else "Y",
+                list(column_values),
+                lname=name,
+                units=unit,
+                axis=designation,
             )
+
+    def _set_error_directions(self) -> None:
+        source = self.sheet.lt_range(False)
+        command = (
+            f"range __K07CENTER={source}!B; "
+            f"range __K07MINUS={source}!C; "
+            f"range __K07PLUS={source}!D; "
+            "set __K07MINUS -om __K07CENTER; "
+            "set __K07PLUS -op __K07CENTER;"
+        )
+        if not self.op.lt_exec(command):
+            raise RuntimeError("Origin could not assign native K07 minus/plus error directions")
+
+    @staticmethod
+    def _theme_child(node: Any, name: str) -> Any | None:
+        if node is None:
+            return None
+        return next((item for item in node.Children if str(item.Name) == name), None)
+
+    def _enable_error_band_fill(self) -> None:
+        if len(self.plots) != 3:
+            raise RuntimeError("Origin K07 requires center/minus/plus before enabling the band")
+        for plot in self.plots[1:]:
+            theme = plot.obj.GetTheme()
+            error = self._theme_child(theme, "ErrorBar2D")
+            connect = self._theme_child(error, "ConnectLineMode")
+            fill = self._theme_child(error, "ConnectLineFillArea")
+            if connect is None or fill is None:
+                raise RuntimeError("Origin K07 ErrorBar2D theme lacks the official band fields")
+            connect.SetIntValue(1)
+            fill.SetIntValue(1)
+            plot.obj.PutTheme(theme)
+
+    def _native_error_band_state(self) -> list[dict[str, int]]:
+        states: list[dict[str, int]] = []
+        for plot in self.plots[1:]:
+            theme = plot.obj.GetTheme()
+            error = self._theme_child(theme, "ErrorBar2D")
+            values: dict[str, int] = {}
+            for name in (
+                "DirectionX",
+                "DirectionPlus",
+                "DirectionMinus",
+                "ConnectLineMode",
+                "ConnectLineFillArea",
+            ):
+                child = self._theme_child(error, name)
+                if child is None:
+                    raise RuntimeError(f"Origin K07 ErrorBar2D theme lacks {name}")
+                values[name] = int(child.GetValue())
+            states.append(values)
+        expected_directions = {(0, 0, 1), (0, 1, 0)}
+        observed_directions = {
+            (item["DirectionX"], item["DirectionPlus"], item["DirectionMinus"])
+            for item in states
+        }
+        if observed_directions != expected_directions:
+            raise RuntimeError("Origin K07 lost the native minus/plus error directions")
+        if any(
+            item["ConnectLineMode"] != 1 or item["ConnectLineFillArea"] != 1
+            for item in states
+        ):
+            raise RuntimeError("Origin K07 lost the official connected filled error band")
+        return states
+
+    def _assert_native_structure(self) -> dict[str, object]:
+        self.graph.activate()
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe K07 graph name for native readback: {graph_name!r}")
+        command = (
+            "page.active=1; layer -c; __K07COUNT=count; "
+            f"range __K07P=[{graph_name}]1!1; "
+            "range -wx __K07X=__K07P; range -wy __K07Y=__K07P; "
+            "get __K07P -pt __K07PID; "
+            "string __K07XS$=%(__K07X); string __K07YS$=%(__K07Y);"
+        )
+        if not self.op.lt_exec(command):
+            raise RuntimeError("Origin could not read the native K07 Error Band structure")
+        plot_count = int(self.op.lt_float("__K07COUNT"))
+        plot_id = int(self.op.lt_float("__K07PID"))
+        designations = tuple(int(self.sheet.get_int(f"col{index}.type")) for index in range(1, 5))
+        x_range = str(self.op.get_lt_str("__K07XS"))
+        y_range = str(self.op.get_lt_str("__K07YS"))
+        if plot_count != 3 or plot_id != 201:
+            raise RuntimeError("Origin K07 must retain center/minus/plus with PID 201 center")
+        if designations != (4, 1, 3, 3):
+            raise RuntimeError("Origin K07 worksheet must retain X/Y/YErr/YErr designations")
+        if not x_range.split('"', 1)[0].endswith("!A") or not y_range.split('"', 1)[0].endswith(
+            "!B"
+        ):
+            raise RuntimeError("Origin K07 Error Band lost its center-curve source binding")
+        error_band_state = self._native_error_band_state()
+        return {
+            "designation_codes": list(designations),
+            "error_direction_command": "set minus -om center; set plus -op center",
+            "error_band_state": error_band_state,
+            "help_url": _OFFICIAL_HELP,
+            "native_plot_count": plot_count,
+            "native_plot_type": plot_id,
+            "official_menu": _OFFICIAL_MENU,
+            "official_menu_id": _OFFICIAL_MENU_ID,
+            "official_template": K07_ORIGIN_PROFILE.filename,
+            "x_range": x_range,
+            "y_range": y_range,
+        }
 
     @staticmethod
     def _bound_columns(
@@ -315,6 +526,8 @@ class K07OriginProject:
         for observed, wanted in zip(actual, expected, strict=True):
             if observed is None and wanted is None:
                 continue
+            if isinstance(wanted, float) and isnan(wanted) and observed is None:
+                continue
             if isinstance(wanted, (int, float)) and not isinstance(wanted, bool):
                 if abs(float(cast(Any, observed)) - float(wanted)) <= 1e-12:
                     continue
@@ -336,13 +549,19 @@ def execute_k07_request(
     else:
         project.open(Path(request.previous_opju))
         pending = request.actions[-1:]
-    for action in pending:
-        project.apply(request.document, action, request.data)
+    with origin_trace_step("agent_actions_apply", details={"action_count": len(pending)}):
+        for action in pending:
+            details = cast(dict[str, object], action.model_dump(exclude_none=True))
+            with origin_trace_step("agent_action_apply", details=details):
+                project.apply(request.document, action, request.data)
     project.save(output)
 
-    op.new(asksave=False)
-    if not op.open(str(output), readonly=True, asksave=False):
-        raise RuntimeError("fresh Origin session could not reopen the staged K07 project")
+    with origin_trace_step(
+        "saved_project_reopen", details={"filename": output.name, "readonly": True}
+    ):
+        op.new(asksave=False)
+        if not op.open(str(output), readonly=True, asksave=False):
+            raise RuntimeError("fresh Origin session could not reopen the staged K07 project")
     reopened = K07OriginProject(op)
     graphs = list(op.pages("g"))
     books = list(op.pages("w"))
@@ -354,4 +573,5 @@ def execute_k07_request(
     if len(reopened.plots) != 3:
         raise RuntimeError("fresh K07 project has an unexpected native plot count")
     reopened.sheet = books[0][0]
-    return reopened.verify(request.document, request.actions, request.data)
+    with origin_trace_step("reopened_native_structure_verify"):
+        return reopened.verify(request.document, request.actions, request.data)
