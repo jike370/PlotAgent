@@ -389,6 +389,10 @@ class _Sheet:
         self.name = name
         self.columns: dict[int, list[object]] = {}
         self.column_options: dict[int, dict[str, object]] = {}
+        self.properties = {
+            "col1.categorical.type": 0,
+            "col1.categorical.sort": 0,
+        }
         self.cols = 0
 
     def from_list(self, index, values, **kwargs) -> None:
@@ -406,8 +410,17 @@ class _Sheet:
     def activate(self) -> None:
         return None
 
-    def lt_exec(self, _command: str) -> None:
-        return None
+    def lt_exec(self, command: str) -> None:
+        if "wks.col1.categorical.type=2" in command:
+            self.properties["col1.categorical.type"] = 2
+        if "wks.col1.categorical.sort=0" in command:
+            self.properties["col1.categorical.sort"] = 0
+
+    def set_int(self, expression: str, value: int) -> None:
+        self.properties[expression] = value
+
+    def get_int(self, expression: str) -> int:
+        return int(self.properties.get(expression, 0))
 
     def lt_range(self, _include_sheet: bool) -> str:
         return "[DX24]Sheet1"
@@ -495,6 +508,10 @@ class _Origin:
             return float(self.graph.layers[self.active_layer].pid)
         if expression.startswith(("__X35PT", "__X36PT")):
             return float(self.graph.layers[self.active_layer].pid)
+        if expression.endswith("CATTYPE"):
+            return float(self.book[0].properties["col1.categorical.type"])
+        if expression.endswith("CATSORT"):
+            return float(self.book[0].properties["col1.categorical.sort"])
         if expression.startswith("__X38P") and expression.endswith("PT"):
             return 200.0
         if expression.startswith('color("'):
@@ -538,10 +555,30 @@ def test_origin_dual_y_special_uses_both_official_layers(
     project.reconcile(document, actions, view)
     assert tuple(plot.native_type for plot in project._plots()) == types
     assert project.sheet.columns[0] == ["Jan", "Feb", "Mar"]
+    assert project.sheet.properties["col1.categorical.type"] == 2
+    assert project.sheet.properties["col1.categorical.sort"] == 0
+    assert any(command == "doc -u;" for command in origin.commands)
     assert any(
         "!page.active=1; set %C -pfb" in command for command in origin.commands
     )
     assert any("!page.active=2; set %C" in command for command in origin.commands)
+
+
+def test_origin_x35_rejects_automatic_axis_that_makes_right_column_float(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        dual_origin, "resolve_official_template", lambda *_args: Path("2Ys_Col.otpu")
+    )
+    document, actions, view = _dual_case("X35")
+    origin = _Origin()
+    project = DualYSpecialOriginProject(origin, profile_id="X35")
+    project.create(Path("."), document, view)
+    project.reconcile(document, actions, view)
+    origin.graph.layers[1].axes["y"].limits = (4.0, 12.0, 2.0)
+    state = project._state(document, actions, project._data(document, view))
+    with pytest.raises(RuntimeError, match="ordinary column cannot appear floating"):
+        project._assert_default_column_baselines(state)
 
 
 def test_origin_dual_y_save_refuses_stale_probe_artifact(tmp_path: Path) -> None:

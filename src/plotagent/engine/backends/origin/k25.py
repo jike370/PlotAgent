@@ -25,6 +25,9 @@ from .trace import origin_trace_step, record_origin_trace
 
 _TITLE = "_ENGINE_TITLE"
 _GRAPH_NAME = "K25Merged"
+_OFFICIAL_HELP_URL = "https://docs.originlab.com/origin-help/multilayer-graph/"
+_OFFICIAL_MENU = "Graph > Merge Graph Windows"
+_OFFICIAL_X_FUNCTION = "merge_graph"
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,7 +122,9 @@ class K25OriginProject:
         with origin_trace_step(
             "official_merge_graph_execute",
             details={
-                "official_process": "Graph > Merge Graph Windows",
+                "official_help_url": _OFFICIAL_HELP_URL,
+                "official_process": _OFFICIAL_MENU,
+                "x_function": _OFFICIAL_X_FUNCTION,
                 "component_count": len(source_graphs),
                 "rows": rows,
                 "columns": columns,

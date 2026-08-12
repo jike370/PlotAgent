@@ -28,6 +28,9 @@ from .profile import X38_ORIGIN_PROFILE, resolve_official_template
 from .trace import origin_trace_step, record_origin_trace
 
 _TITLE_NAME = "_ENGINE_TITLE"
+_OFFICIAL_HELP_URL = "https://docs.originlab.com/origin-help/stacklineyoffset-graph"
+_OFFICIAL_MENU = "Plot > Basic 2D > Stacked Lines by Y Offsets"
+_OFFICIAL_SECTION = "OffsetYs"
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,7 +87,9 @@ class X38OriginProject:
         with origin_trace_step(
             "official_plot_section_execute",
             details={
-                "plot_section": "OffsetYs",
+                "official_help_url": _OFFICIAL_HELP_URL,
+                "official_menu": _OFFICIAL_MENU,
+                "plot_section": _OFFICIAL_SECTION,
                 "template_filename": template.name,
             },
         ):
@@ -411,12 +416,18 @@ class X38OriginProject:
             native_y = [item[0] for item in offsets]
             if not isclose(native_y[0], 0.0, abs_tol=1e-8):
                 raise RuntimeError("Origin X38 first native line must retain zero Y offset")
-            if any(
-                left >= right
+            deltas = [
+                right - left
                 for left, right in zip(native_y[:-1], native_y[1:], strict=True)
-            ):
+            ]
+            if not deltas or any(isclose(delta, 0.0, abs_tol=1e-8) for delta in deltas):
                 raise RuntimeError(
-                    f"Origin X38 native Individual offsets are not increasing: {native_y}"
+                    f"Origin X38 native Individual offsets are not distinct: {native_y}"
+                )
+            direction = 1.0 if deltas[0] > 0 else -1.0
+            if any(delta * direction <= 0.0 for delta in deltas):
+                raise RuntimeError(
+                    f"Origin X38 native Individual offsets are not monotonic: {native_y}"
                 )
         return offsets
 

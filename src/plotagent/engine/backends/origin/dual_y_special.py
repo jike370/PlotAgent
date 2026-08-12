@@ -35,6 +35,15 @@ from .trace import origin_trace_step, record_origin_trace
 _LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
 _SYMBOL = {"circle": 2, "square": 1, "diamond": 5, "triangle": 3, "triangle_up": 3}
 _TITLE_NAME = "_ENGINE_TITLE"
+_OFFICIAL_HELP_URLS = {
+    "X35": "https://docs.originlab.com/origin-help/2ys-column-graph/",
+    "X36": "https://docs.originlab.com/origin-help/2ys-column-linesym-graph/",
+}
+_OFFICIAL_MENUS = {
+    "X35": "Plot > Multi-Panel/Axis > 2Ys Column",
+    "X36": "Plot > Multi-Panel/Axis > 2Ys Column - Line Symbol",
+}
+_OFFICIAL_SECTIONS = {"X35": "2YsCol", "X36": "2YsColSymb"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,15 +112,33 @@ class DualYSpecialOriginProject:
             details={"column_count": 3, "row_count": len(values.left_values)},
         ):
             self._write(values)
-        section = "2YsCol" if self.profile_id == "X35" else "2YsColSymb"
+        section = _OFFICIAL_SECTIONS[self.profile_id]
         with origin_trace_step(
             "official_plot_section_execute",
-            details={"plot_section": section, "template_filename": template.name},
+            details={
+                "official_help_url": _OFFICIAL_HELP_URLS[self.profile_id],
+                "official_menu": _OFFICIAL_MENUS[self.profile_id],
+                "plot_section": section,
+                "template_filename": template.name,
+            },
         ):
             self.sheet.activate()
             self.op.lt_exec(
                 f"worksheet -s 1 0 3 0; run.section(plot,{section});"
             )
+        with origin_trace_step(
+            "categorical_source_order_restore",
+            details={"categorical_sort": "first_source_appearance"},
+        ):
+            # The Origin 2024 double-Y menu sections reset the worksheet X
+            # column's categorical flag while constructing the graph.  Restore
+            # the documented Unsorted map *after* the official section and
+            # update the native plots so linked layers use source-row order.
+            self.sheet.activate()
+            self.sheet.lt_exec(
+                "wks.col1.categorical.type=2; wks.col1.categorical.sort=0;"
+            )
+            self.op.lt_exec("doc -u;")
         with origin_trace_step("native_structure_readback"):
             graphs = list(self.op.pages("g"))
             if len(graphs) != 1:
@@ -201,10 +228,16 @@ class DualYSpecialOriginProject:
         state = self._state(document, actions, values)
         with origin_trace_step("reopened_native_structure_verify"):
             self._assert_native_structure(verify_offsets=True)
+            self._assert_default_column_baselines(state)
         record_origin_trace(
             "reopened_native_offsets_confirmed",
             "completed",
-            details={"plot_offsets": [[0.0, 1.0], [0.0, 1.0]]},
+            details={
+                "plot_offsets": [[0.0, 1.0], [0.0, 1.0]],
+                "x35_default_column_baselines": (
+                    "zero_in_both_y_axis_ranges" if self.profile_id == "X35" else "not_applicable"
+                ),
+            },
         )
         with origin_trace_step(
             "reopened_source_data_verify",
@@ -293,7 +326,14 @@ class DualYSpecialOriginProject:
         self.sheet.from_list(0, list(values.x_values), lname=values.x_field_name, axis="X")
         self.sheet.from_list(1, list(values.left_values), lname=values.left_field_name, axis="Y")
         self.sheet.from_list(2, list(values.right_values), lname=values.right_field_name, axis="Y")
-        self.sheet.lt_exec("wks.col1.categorical.type=2;")
+        # Origin templates can retain an ascending/descending categorical sort
+        # from their saved state.  Auto-categorical alone therefore does not
+        # guarantee source-row order.  The official ``categorical.sort``
+        # contract defines 0 as Unsorted, i.e. first appearance in the source
+        # column, which is the canonical order for these two chart profiles.
+        self.sheet.lt_exec(
+            "wks.col1.categorical.type=2; wks.col1.categorical.sort=0;"
+        )
 
     def _configure_x(self, values: X23SeriesData, state: _AxisState) -> None:
         if values.x_labels is None or state.scale != "categorical":
@@ -439,6 +479,18 @@ class DualYSpecialOriginProject:
             )
 
     def _assert_native_structure(self, *, verify_offsets: bool) -> None:
+        self.sheet.activate()
+        self.op.lt_exec(
+            f"__{self.profile_id}CATTYPE=wks.col1.categorical.type; "
+            f"__{self.profile_id}CATSORT=wks.col1.categorical.sort;"
+        )
+        category_type = int(self.op.lt_float(f"__{self.profile_id}CATTYPE"))
+        category_sort = int(self.op.lt_float(f"__{self.profile_id}CATSORT"))
+        if category_type != 2 or category_sort != 0:
+            raise RuntimeError(
+                f"Origin {self.profile_id} category order must follow first source "
+                f"appearance; observed type={category_type}, sort={category_sort}"
+            )
         expected = [203, 203] if self.profile_id == "X35" else [203, 202]
         observed: list[int] = []
         for index, _layer in enumerate(self._layers(), 1):
@@ -474,6 +526,37 @@ class DualYSpecialOriginProject:
             raise RuntimeError(
                 f"Origin {self.profile_id} plots are not bound directly to source Y columns B/C"
             )
+
+    def _assert_default_column_baselines(self, state: _State) -> None:
+        """Reject an unintended floating-column appearance in X35's default state.
+
+        The official 2Ys Column graph uses two ordinary Column plots (PID 203),
+        each with zero plot offset.  For automatic linear axes, zero must also
+        remain inside both native Y-axis ranges; otherwise a positive-only axis
+        can make a correctly bound column look like a floating interval.
+        Explicit user bounds and logarithmic axes are respected and are not
+        treated as renderer regressions.
+        """
+
+        if self.profile_id != "X35":
+            return
+        for ordinal, (layer, axis_state) in enumerate(
+            zip(self._layers(), (state.left_axis, state.right_axis), strict=True),
+            start=1,
+        ):
+            if (
+                axis_state.scale != "linear"
+                or axis_state.minimum is not None
+                or axis_state.maximum is not None
+            ):
+                continue
+            begin, end, *_rest = (float(value) for value in layer.axis("y").limits)
+            if min(begin, end) > 0.0 or max(begin, end) < 0.0:
+                raise RuntimeError(
+                    "Origin X35 automatic Y axis must include zero so its ordinary "
+                    f"column cannot appear floating; observed layer {ordinal}: "
+                    f"begin={begin}, end={end}"
+                )
 
     def _assert_labels(self, state: _State) -> None:
         for layer, name, expected in (
