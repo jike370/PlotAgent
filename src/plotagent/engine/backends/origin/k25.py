@@ -6,9 +6,9 @@ from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from math import ceil, sqrt
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-from plotagent.contracts.canonical import canonical_hash
+from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.engine.contracts import (
     AddAnnotation,
     CreatePlot,
@@ -21,7 +21,7 @@ from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
-from .profile import K25_ORIGIN_PROFILE, resolve_official_template
+from .trace import origin_trace_step, record_origin_trace
 
 _TITLE = "_ENGINE_TITLE"
 _GRAPH_NAME = "K25Merged"
@@ -66,6 +66,7 @@ class K25OriginProject:
         self.graph: Any = None
         self.source_graphs: tuple[Any, ...] = ()
         self.component_layer_counts: tuple[int, ...] = ()
+        self.last_native_structure: dict[str, JsonValue] | None = None
 
     def create(
         self,
@@ -78,19 +79,29 @@ class K25OriginProject:
             raise ValueError("K25 component OPJU count differs from its PlotDocument")
         if not 2 <= len(component_opjus) <= 4:
             raise ValueError("K25 requires two to four component OPJUs")
-        # Validate the official multi-panel family asset up front.  K25 then
-        # uses Origin's native merge_graph X-Function because merge_graph only
-        # supports a newly-created output page; targeting a graph pre-created
-        # from the template is rejected by Origin and leaves an empty layer.
-        resolve_official_template(install_dir, K25_ORIGIN_PROFILE)
-        self.op.new(asksave=False)
+        del install_dir
+        # K25 accepts heterogeneous child graphs.  Its canonical Origin route
+        # is Graph > Merge Graph Windows (merge_graph), not the homogeneous
+        # MGROUPS template family.
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
         source_graphs: list[Any] = []
         layer_counts: list[int] = []
         for index, project in enumerate(component_opjus, start=1):
             if not project.is_file():
                 raise FileNotFoundError(f"K25 component OPJU is missing: {project}")
             before = {item.name for item in self.op.pages("g")}
-            self.op.lt_exec(_append_project_command(project))
+            with origin_trace_step(
+                "component_project_append",
+                details={
+                    "component_index": index,
+                    "component_plot_id": document.components[index - 1].plot_id,
+                    "component_plot_version": document.components[index - 1].plot_version,
+                    "component_content_hash": document.components[index - 1].content_hash,
+                    "component_opju_sha256": sha256(project.read_bytes()).hexdigest(),
+                },
+            ):
+                self.op.lt_exec(_append_project_command(project))
             added = tuple(item for item in self.op.pages("g") if item.name not in before)
             if len(added) != 1:
                 raise RuntimeError("each K25 component OPJU must contain exactly one graph page")
@@ -105,13 +116,23 @@ class K25OriginProject:
         columns = state.columns or ceil(sqrt(len(source_graphs)))
         rows = ceil(len(source_graphs) / columns)
         before_merge = {item.name for item in self.op.pages("g")}
-        self.op.lt_exec(
-            _merge_command(
-                tuple(item.name for item in source_graphs),
-                rows=rows,
-                columns=columns,
+        with origin_trace_step(
+            "official_merge_graph_execute",
+            details={
+                "official_process": "Graph > Merge Graph Windows",
+                "component_count": len(source_graphs),
+                "rows": rows,
+                "columns": columns,
+                "ordinary_primitive_fallback_used": False,
+            },
+        ):
+            self.op.lt_exec(
+                _merge_command(
+                    tuple(item.name for item in source_graphs),
+                    rows=rows,
+                    columns=columns,
+                )
             )
-        )
         merged = tuple(item for item in self.op.pages("g") if item.name not in before_merge)
         if len(merged) != 1:
             raise RuntimeError("Origin merge_graph did not produce exactly one K25 page")
@@ -119,12 +140,28 @@ class K25OriginProject:
         self.graph.name = _GRAPH_NAME
         self.source_graphs = tuple(source_graphs)
         self.component_layer_counts = tuple(layer_counts)
-        self._decorate(document, state)
+        with origin_trace_step(
+            "agent_actions_apply",
+            details={
+                "title_present": bool(state.title),
+                "annotation_count": len(state.annotations),
+                "panel_columns": columns,
+            },
+        ):
+            self._decorate(document, state)
+        with origin_trace_step("native_structure_readback"):
+            native = self._native_structure(document)
+        self.last_native_structure = native
+        record_origin_trace("native_merge_confirmed", "completed", details=native)
 
-    def open(self, output: Path, document: PlotDocument) -> None:
-        self.op.new(asksave=False)
-        if not self.op.open(str(output), readonly=False, asksave=False):
-            raise RuntimeError("Origin could not reopen K25")
+    def open(self, output: Path, document: PlotDocument, *, readonly: bool = False) -> None:
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
+        with origin_trace_step(
+            "opju_open", details={"filename": output.name, "readonly": readonly}
+        ):
+            if not self.op.open(str(output), readonly=readonly, asksave=False):
+                raise RuntimeError("Origin could not reopen K25")
         graphs = tuple(self.op.pages("g"))
         self.graph = next((item for item in graphs if item.name == _GRAPH_NAME), None)
         if self.graph is None:
@@ -139,20 +176,25 @@ class K25OriginProject:
         self.component_layer_counts = tuple(len(tuple(item)) for item in sources)
 
     def save(self, output: Path) -> None:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        self.op.save(str(output))
+        with origin_trace_step("opju_save", details={"filename": output.name}):
+            output.parent.mkdir(parents=True, exist_ok=True)
+            if output.exists():
+                raise FileExistsError(
+                    f"Origin refuses to overwrite existing K25 artifact: {output}"
+                )
+            self.op.save(str(output))
+            if not output.is_file() or output.stat().st_size <= 0:
+                raise RuntimeError("Origin did not save a non-empty K25 project")
 
     def verify(
         self,
         request: OriginWorkerRequest,
         state: _CompositeState,
     ) -> EngineReadback:
-        if len(self.source_graphs) != len(request.document.components):
-            raise RuntimeError("Origin K25 component graph count differs after reopen")
+        with origin_trace_step("reopened_native_structure_verify"):
+            native = self._native_structure(request.document)
+        self.last_native_structure = native
         merged_layers = tuple(self.graph)
-        expected_layers = sum(self.component_layer_counts)
-        if len(merged_layers) != expected_layers:
-            raise RuntimeError("Origin K25 merged layer count differs after reopen")
         first = merged_layers[0]
         title = first.label(_TITLE)
         if state.title and (
@@ -180,9 +222,7 @@ class K25OriginProject:
                     semantic_id=f"panel:{token}.component_{index}",
                     backend="origin",
                     object_kind="component_panel",
-                    native_ref=(
-                        f"graph:{self.graph.name}.layers:{offset + 1}-{offset + count}"
-                    ),
+                    native_ref=(f"graph:{self.graph.name}.layers:{offset + 1}-{offset + count}"),
                 )
             )
             offset += count
@@ -194,10 +234,57 @@ class K25OriginProject:
             style_hash=canonical_hash(
                 {
                     "state": asdict(state),
-                    "template_sha256": K25_ORIGIN_PROFILE.sha256,
-                    "component_layer_counts": list(self.component_layer_counts),
+                    "official_process": "merge_graph",
+                    "native_structure": native,
                 }
             ),
+        )
+
+    def _native_structure(self, document: PlotDocument) -> dict[str, JsonValue]:
+        if len(self.source_graphs) != len(document.components):
+            raise RuntimeError("Origin K25 component graph count differs after reopen")
+        merged_layers = tuple(self.graph)
+        expected_layers = sum(self.component_layer_counts)
+        if len(merged_layers) != expected_layers:
+            raise RuntimeError("Origin K25 merged layer count differs after reopen")
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe K25 graph name for readback: {graph_name!r}")
+        plot_counts: list[int] = []
+        plot_types: list[list[int]] = []
+        self.graph.activate()
+        for layer_index in range(1, len(merged_layers) + 1):
+            count_name = f"__K25COUNT{layer_index}"
+            self.op.lt_exec(f"page.active={layer_index}; layer -c; {count_name}=count;")
+            count = int(self.op.lt_float(count_name))
+            if count < 1:
+                raise RuntimeError("Origin K25 contains an empty or raster-only merged layer")
+            layer_types: list[int] = []
+            for plot_index in range(1, count + 1):
+                pid_name = f"__K25PID{layer_index}_{plot_index}"
+                self.op.lt_exec(
+                    f"range __K25P=[{graph_name}]{layer_index}!{plot_index}; "
+                    f"get __K25P -pt {pid_name};"
+                )
+                pid = int(self.op.lt_float(pid_name))
+                if pid <= 0:
+                    raise RuntimeError("Origin K25 merged layer lost a native DataPlot")
+                layer_types.append(pid)
+            plot_counts.append(count)
+            plot_types.append(layer_types)
+        return cast(
+            dict[str, JsonValue],
+            {
+                "official_process": "Graph > Merge Graph Windows / merge_graph",
+                "ordinary_primitive_fallback_used": False,
+                "component_count": len(document.components),
+                "component_plot_ids": [item.plot_id for item in document.components],
+                "component_plot_versions": [item.plot_version for item in document.components],
+                "source_component_layer_counts": list(self.component_layer_counts),
+                "merged_layer_count": len(merged_layers),
+                "merged_layer_plot_counts": plot_counts,
+                "merged_layer_native_plot_types": plot_types,
+            },
         )
 
     def _decorate(self, document: PlotDocument, state: _CompositeState) -> None:
@@ -320,5 +407,5 @@ def execute_k25_request(
     )
     project.save(output)
     reopened = K25OriginProject(op)
-    reopened.open(output, request.document)
+    reopened.open(output, request.document, readonly=True)
     return reopened.verify(request, state)

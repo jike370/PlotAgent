@@ -149,8 +149,12 @@ def _provider_case(
 
 
 def _cases() -> tuple[AuditCase, ...]:
-    factories: dict[str, Callable[[], tuple[PlotDocument, tuple[PlotEngineAction, ...], EngineDataView]]] = {
-        "K01": lambda: _provider_case(k25_cases._child_action("acceptance", "a" * 64), _K01Provider()),
+    factories: dict[
+        str, Callable[[], tuple[PlotDocument, tuple[PlotEngineAction, ...], EngineDataView]]
+    ] = {
+        "K01": lambda: _provider_case(
+            k25_cases._child_action("acceptance", "a" * 64), _K01Provider()
+        ),
         "K02": lambda: t1_cases._case(
             "K02",
             ("x", "y"),
@@ -220,9 +224,13 @@ def _cases() -> tuple[AuditCase, ...]:
         "X39": lambda: wide_cases._case("X39", series_count=4, row_count=5),
         "X40": lambda: wide_cases._case("X40", series_count=2, row_count=6),
     }
-    expected = tuple(profile.profile_id for profile in ENGINE_PROFILES if profile.profile_id != "K25")
+    expected = tuple(
+        profile.profile_id for profile in ENGINE_PROFILES if profile.profile_id != "K25"
+    )
     if set(factories) != set(expected):
-        raise RuntimeError(f"audit case inventory differs: {sorted(set(expected) ^ set(factories))}")
+        raise RuntimeError(
+            f"audit case inventory differs: {sorted(set(expected) ^ set(factories))}"
+        )
     return tuple(AuditCase(profile_id, *factories[profile_id]()) for profile_id in expected)
 
 
@@ -231,23 +239,50 @@ class _K01Provider:
         action = k25_cases._child_action("acceptance", "a" * 64)
         view = k25_cases._view(action)
         columns = {column.field.field_id: column for column in view.columns}
-        return view.model_copy(update={"data": data, "columns": tuple(columns[item] for item in field_ids)})
+        return view.model_copy(
+            update={"data": data, "columns": tuple(columns[item] for item in field_ids)}
+        )
 
 
 RENDERERS = {
     renderer.profile_id: renderer
     for renderer in (
-        K01LineRenderer(), K02LineSymbolRenderer(), K03ScatterRenderer(), K04BubbleRenderer(),
-        K06PointErrorRenderer(), K07ErrorBandRenderer(), K08ColumnRenderer(),
-        K09GroupedColumnRenderer(), K10StackedColumnRenderer(), K11PercentStackRenderer(),
-        K12StripRenderer(), K13BoxRenderer(), K14ViolinRenderer(), K15HistogramRenderer(),
-        K16DensityRenderer(), K18AreaRenderer(), K19TimeSeriesRenderer(), K20HeatmapRenderer(),
-        K21CorrelationMatrixRenderer(), K22ContourRenderer(), K24FacetRenderer(),
-        S01SurvivalRenderer(), S21ForestRenderer(), S34NyquistRenderer(),
-        S61ConfusionRenderer(), X02DropLineRenderer(), X03LollipopRenderer(),
-        X05BeeswarmRenderer(), X09FloatingIntervalRenderer(), X13PopulationPyramidRenderer(),
-        X23DualYRenderer(), X24ParetoRenderer(), X35DualYColumnRenderer(),
-        X36DualYColumnLineRenderer(), X38OffsetStackRenderer(), X39LineSeriesRenderer(),
+        K01LineRenderer(),
+        K02LineSymbolRenderer(),
+        K03ScatterRenderer(),
+        K04BubbleRenderer(),
+        K06PointErrorRenderer(),
+        K07ErrorBandRenderer(),
+        K08ColumnRenderer(),
+        K09GroupedColumnRenderer(),
+        K10StackedColumnRenderer(),
+        K11PercentStackRenderer(),
+        K12StripRenderer(),
+        K13BoxRenderer(),
+        K14ViolinRenderer(),
+        K15HistogramRenderer(),
+        K16DensityRenderer(),
+        K18AreaRenderer(),
+        K19TimeSeriesRenderer(),
+        K20HeatmapRenderer(),
+        K21CorrelationMatrixRenderer(),
+        K22ContourRenderer(),
+        K24FacetRenderer(),
+        S01SurvivalRenderer(),
+        S21ForestRenderer(),
+        S34NyquistRenderer(),
+        S61ConfusionRenderer(),
+        X02DropLineRenderer(),
+        X03LollipopRenderer(),
+        X05BeeswarmRenderer(),
+        X09FloatingIntervalRenderer(),
+        X13PopulationPyramidRenderer(),
+        X23DualYRenderer(),
+        X24ParetoRenderer(),
+        X35DualYColumnRenderer(),
+        X36DualYColumnLineRenderer(),
+        X38OffsetStackRenderer(),
+        X39LineSeriesRenderer(),
         X40BeforeAfterRenderer(),
     )
 }
@@ -259,12 +294,15 @@ def _state(case: AuditCase, edited: bool) -> tuple[PlotDocument, tuple[PlotEngin
         raise TypeError("audit histories must begin with create_plot")
     actions = case.actions if edited else (create,)
     if edited and not any(action.operation == "set_title" for action in actions):
-        actions = (*actions, SetTitle(
-            action_id=f"action:acceptance-title-{case.profile_id.lower()}",
-            target=create.plot_id,
-            expected_plot_version=len(actions),
-            text=f"{case.profile_id} representative edit",
-        ))
+        actions = (
+            *actions,
+            SetTitle(
+                action_id=f"action:acceptance-title-{case.profile_id.lower()}",
+                target=create.plot_id,
+                expected_plot_version=len(actions),
+                text=f"{case.profile_id} representative edit",
+            ),
+        )
     return _document_from_history(create, tuple(actions)), tuple(actions)
 
 
@@ -315,12 +353,17 @@ def _render_matplotlib(cases: tuple[AuditCase, ...]) -> None:
                 case_dir / f"matplotlib-{name}.png",
                 case_dir / f"matplotlib-{name}.svg",
             )
-            _write_json(case_dir / f"matplotlib-{name}-readback.json", readback.model_dump(mode="json"))
+            _write_json(
+                case_dir / f"matplotlib-{name}-readback.json", readback.model_dump(mode="json")
+            )
     _render_k25_matplotlib()
 
 
 def _k25_inputs() -> tuple[
-    tuple[EngineComponentInput, ...], tuple[_ComponentArtifact, ...], PlotDocument, tuple[PlotEngineAction, ...]
+    tuple[EngineComponentInput, ...],
+    tuple[_ComponentArtifact, ...],
+    PlotDocument,
+    tuple[PlotEngineAction, ...],
 ]:
     components: list[EngineComponentInput] = []
     artifacts: list[_ComponentArtifact] = []
@@ -330,9 +373,13 @@ def _k25_inputs() -> tuple[
         view = k25_cases._view(action)
         component = EngineComponentInput(document=document, actions=(action,), data=view)
         target = OUTPUT / "K25" / "components" / suffix
-        K01LineRenderer().render(document, (action,), view, target / "preview.png", target / "preview.svg")
+        K01LineRenderer().render(
+            document, (action,), view, target / "preview.png", target / "preview.svg"
+        )
         components.append(component)
-        artifacts.append(_ComponentArtifact(component, target / "preview.png", target / "preview.svg"))
+        artifacts.append(
+            _ComponentArtifact(component, target / "preview.png", target / "preview.svg")
+        )
     create = k25_cases._create_composite(tuple(document_ref(item.document) for item in components))
     edit = SetTitle(
         action_id="action:acceptance-title-k25",
@@ -368,8 +415,11 @@ def _render_k25_matplotlib() -> None:
         (edited_document, actions, "edited"),
     ):
         readback = renderer.render(
-            document, history, artifacts,
-            case_dir / f"matplotlib-{name}.png", case_dir / f"matplotlib-{name}.svg",
+            document,
+            history,
+            artifacts,
+            case_dir / f"matplotlib-{name}.png",
+            case_dir / f"matplotlib-{name}.svg",
         )
         _write_json(case_dir / f"matplotlib-{name}-readback.json", readback.model_dump(mode="json"))
     _write_json(
@@ -391,15 +441,17 @@ def _run_origin_request(
 ) -> OriginWorkerResponse:
     if output.exists():
         output.unlink()
-    response = worker.run(OriginWorkerRequest(
-        install_dir=str(install_dir),
-        output_opju=str(output),
-        previous_opju=None if previous is None else str(previous),
-        document=document,
-        actions=actions,
-        source=source,
-        component_opjus=tuple(str(path) for path in component_opjus),
-    ))
+    response = worker.run(
+        OriginWorkerRequest(
+            install_dir=str(install_dir),
+            output_opju=str(output),
+            previous_opju=None if previous is None else str(previous),
+            document=document,
+            actions=actions,
+            source=source,
+            component_opjus=tuple(str(path) for path in component_opjus),
+        )
+    )
     if not output.is_file():
         raise RuntimeError(f"Origin did not create {output}")
     return response
@@ -427,10 +479,16 @@ def _render_origin(cases: tuple[AuditCase, ...], *, resume: bool = False) -> Non
         _edited_document, edited_actions = _state(case, True)
         default = case_dir / "origin-default.opju"
         response = _run_origin_request(
-            worker, install_dir, default, default_document, default_actions,
+            worker,
+            install_dir,
+            default,
+            default_document,
+            default_actions,
             EngineRenderSource(data=case.view),
         )
-        _write_json(case_dir / "origin-default-readback.json", response.readback.model_dump(mode="json"))
+        _write_json(
+            case_dir / "origin-default-readback.json", response.readback.model_dump(mode="json")
+        )
         previous = default
         create = _create_from(edited_actions)
         for version in range(2, len(edited_actions) + 1):
@@ -442,11 +500,18 @@ def _render_origin(cases: tuple[AuditCase, ...], *, resume: bool = False) -> Non
                 else case_dir / f".origin-v{version}.opju"
             )
             response = _run_origin_request(
-                worker, install_dir, target, document, history,
-                EngineRenderSource(data=case.view), previous=previous,
+                worker,
+                install_dir,
+                target,
+                document,
+                history,
+                EngineRenderSource(data=case.view),
+                previous=previous,
             )
             previous = target
-        _write_json(case_dir / "origin-edited-readback.json", response.readback.model_dump(mode="json"))
+        _write_json(
+            case_dir / "origin-edited-readback.json", response.readback.model_dump(mode="json")
+        )
     k25_dir = OUTPUT / "K25"
     k25_required = (
         k25_dir / "origin-default.opju",
@@ -467,9 +532,15 @@ def _render_k25_origin(worker: SubprocessOriginWorker, install_dir: Path) -> Non
     case_dir = OUTPUT / "K25"
     child_opjus: list[Path] = []
     for component in components:
-        child_path = case_dir / "components" / f"{component.document.plot_id.removeprefix('plot:')}.opju"
+        child_path = (
+            case_dir / "components" / f"{component.document.plot_id.removeprefix('plot:')}.opju"
+        )
         _run_origin_request(
-            worker, install_dir, child_path, component.document, component.actions,
+            worker,
+            install_dir,
+            child_path,
+            component.document,
+            component.actions,
             EngineRenderSource(data=component.data),
         )
         child_opjus.append(child_path)
@@ -484,13 +555,26 @@ def _render_k25_origin(worker: SubprocessOriginWorker, install_dir: Path) -> Non
     source = EngineRenderSource(components=components)
     default = case_dir / "origin-default.opju"
     response = _run_origin_request(
-        worker, install_dir, default, default_document, (create,), source,
+        worker,
+        install_dir,
+        default,
+        default_document,
+        (create,),
+        source,
         component_opjus=tuple(child_opjus),
     )
-    _write_json(case_dir / "origin-default-readback.json", response.readback.model_dump(mode="json"))
+    _write_json(
+        case_dir / "origin-default-readback.json", response.readback.model_dump(mode="json")
+    )
     response = _run_origin_request(
-        worker, install_dir, case_dir / "origin-edited.opju", edited_document, actions, source,
-        previous=default, component_opjus=tuple(child_opjus),
+        worker,
+        install_dir,
+        case_dir / "origin-edited.opju",
+        edited_document,
+        actions,
+        source,
+        previous=default,
+        component_opjus=tuple(child_opjus),
     )
     _write_json(case_dir / "origin-edited-readback.json", response.readback.model_dump(mode="json"))
 
@@ -511,7 +595,10 @@ def _export_origin_previews(cases: tuple[AuditCase, ...]) -> None:
                 if not graphs:
                     raise RuntimeError(f"fresh-reopened {profile_id} has no graph")
                 graphs[-1].save_fig(
-                    str(case_dir / f"origin-{name}.png"), type="png", replace=True, width=1600,
+                    str(case_dir / f"origin-{name}.png"),
+                    type="png",
+                    replace=True,
+                    width=1600,
                 )
     finally:
         op.exit()
@@ -522,6 +609,7 @@ def _manifest() -> dict[str, Any]:
     templates = {
         profile_id: getattr(origin_profiles, f"{profile_id}_ORIGIN_PROFILE")
         for profile_id in profile_map
+        if profile_id != "K25"
     }
     entries: list[dict[str, object]] = []
     for profile_id in profile_map:
@@ -529,30 +617,47 @@ def _manifest() -> dict[str, Any]:
         files = {
             name: case_dir / name
             for name in (
-                "matplotlib-default.png", "matplotlib-edited.png",
-                "origin-default.png", "origin-edited.png",
-                "origin-default.opju", "origin-edited.opju",
-                "matplotlib-default-readback.json", "matplotlib-edited-readback.json",
-                "origin-default-readback.json", "origin-edited-readback.json",
+                "matplotlib-default.png",
+                "matplotlib-edited.png",
+                "origin-default.png",
+                "origin-edited.png",
+                "origin-default.opju",
+                "origin-edited.opju",
+                "matplotlib-default-readback.json",
+                "matplotlib-edited-readback.json",
+                "origin-default-readback.json",
+                "origin-edited-readback.json",
             )
         }
         missing = [name for name, path in files.items() if not path.is_file()]
-        template = templates[profile_id]
-        entries.append({
-            "profile_id": profile_id,
-            "display_name": profile_map[profile_id].display_name,
-            "template": template.model_dump(mode="json"),
-            "origin_construction": (
-                "native_merge" if profile_id == "K25" else "official_template"
-            ),
-            "mechanical_status": "PASS" if not missing else "INCOMPLETE",
-            "visual_status": "UNVERIFIED",
-            "missing": missing,
-            "artifacts": {
-                name: {"path": str(path), "sha256": _sha(path), "size": path.stat().st_size}
-                for name, path in files.items() if path.is_file()
-            },
-        })
+        template = templates.get(profile_id)
+        entries.append(
+            {
+                "profile_id": profile_id,
+                "display_name": profile_map[profile_id].display_name,
+                "template": (
+                    {
+                        "profile_id": "K25",
+                        "filename": "Graph > Merge Graph Windows",
+                        "sha256": None,
+                        "tier": "T2",
+                    }
+                    if template is None
+                    else template.model_dump(mode="json")
+                ),
+                "origin_construction": (
+                    "native_merge" if profile_id == "K25" else "official_template"
+                ),
+                "mechanical_status": "PASS" if not missing else "INCOMPLETE",
+                "visual_status": "UNVERIFIED",
+                "missing": missing,
+                "artifacts": {
+                    name: {"path": str(path), "sha256": _sha(path), "size": path.stat().st_size}
+                    for name, path in files.items()
+                    if path.is_file()
+                },
+            }
+        )
     return {
         "schema_version": "agent-native-visual.v1",
         "generated_at": datetime.now(UTC).isoformat(),
@@ -582,7 +687,7 @@ def _index(manifest: dict[str, Any]) -> None:
             else "Origin 官方模板"
         )
         figures = "".join(
-            f'<figure><figcaption>{html.escape(caption)}</figcaption>'
+            f"<figure><figcaption>{html.escape(caption)}</figcaption>"
             f'<a href="{profile_id}/{filename}"><img loading="lazy" src="{profile_id}/{filename}"></a></figure>'
             for filename, caption in (
                 ("matplotlib-default.png", "Matplotlib · 默认态"),
@@ -591,15 +696,15 @@ def _index(manifest: dict[str, Any]) -> None:
                 ("origin-edited.png", f"{origin_caption} · 代表编辑态"),
             )
         )
-        cards.append(f'''<article id="{profile_id}"><header><div><b>{profile_id}</b> {html.escape(str(entry['display_name']))}</div><span>UNVERIFIED</span></header>
-<p>Origin 图族资产：<code>{html.escape(str(template['filename']))}</code> · {template['tier']} · {origin_caption}</p>
+        cards.append(f'''<article id="{profile_id}"><header><div><b>{profile_id}</b> {html.escape(str(entry["display_name"]))}</div><span>UNVERIFIED</span></header>
+<p>Origin 图族资产：<code>{html.escape(str(template["filename"]))}</code> · {template["tier"]} · {origin_caption}</p>
 <div class="figures">{figures}</div>
 <footer><a href="{profile_id}/origin-default.opju">默认 OPJU</a><a href="{profile_id}/origin-edited.opju">编辑 OPJU</a><a href="{profile_id}/data-view.json">数据</a><a href="{profile_id}/origin-edited-readback.json">Origin 读回</a></footer></article>''')
-    content = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PlotAgent Agent Native · 38 图视觉验收</title><style>
+    content = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PlotAgent Agent Native · 38 图视觉验收</title><style>
 :root{{--bg:#f4f4f2;--card:#fff;--line:#d8d8d3;--text:#171715;--muted:#676761;--accent:#0a6847}}*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Microsoft YaHei UI",sans-serif}}main{{max-width:1680px;margin:auto;padding:32px}}h1{{font-size:28px;margin:0 0 8px}}.intro{{color:var(--muted);max-width:920px;margin:0 0 24px}}nav{{position:sticky;top:0;background:rgba(244,244,242,.95);padding:12px 0;z-index:2;display:flex;gap:8px;flex-wrap:wrap}}nav a{{color:var(--text);text-decoration:none;border:1px solid var(--line);background:white;padding:4px 8px;border-radius:6px}}article{{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:0 0 22px;overflow:hidden}}article header{{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;font-size:17px}}article header span{{color:#865a00;font-size:12px}}article p{{padding:0 18px;color:var(--muted)}}.figures{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line)}}figure{{margin:0;background:#fff;padding:12px}}figcaption{{font-weight:600;margin-bottom:8px}}img{{display:block;width:100%;height:420px;object-fit:contain;background:#fff}}footer{{display:flex;gap:16px;padding:12px 18px}}footer a{{color:var(--accent)}}code{{font-family:Consolas,monospace}}@media(max-width:900px){{.figures{{grid-template-columns:1fr}}img{{height:auto}}main{{padding:16px}}}}</style></head><body><main>
 <h1>PlotAgent Agent Native · 38 图视觉验收</h1><p class="intro">这是新引擎的唯一视觉验收面。37 张数据图直接使用对应 Origin 官方模板；K25 使用 Origin 原生图页合并。每张图并列展示 Matplotlib 与 Origin 的默认态、代表编辑态。机械通过不等于视觉通过；请按图审查后记录结论。当前机械读回 38/38，视觉结论 0/38，全部保持 UNVERIFIED。</p>
 <p class="intro"><a href="origin-default-contact-sheet.png">Origin 默认态总览</a> · <a href="origin-edited-contact-sheet.png">Origin 代表编辑态总览</a> · <a href="manifest.json">机械清单</a></p>
-<nav>{''.join(f'<a href="#{item["profile_id"]}">{item["profile_id"]}</a>' for item in manifest['profiles'])}</nav>{''.join(cards)}</main></body></html>'''
+<nav>{"".join(f'<a href="#{item["profile_id"]}">{item["profile_id"]}</a>' for item in manifest["profiles"])}</nav>{"".join(cards)}</main></body></html>"""
     (OUTPUT / "index.html").write_text(content, encoding="utf-8")
 
 
@@ -621,7 +726,12 @@ def _contact_sheet(manifest: dict[str, Any], state: str) -> None:
         x = (index % columns) * cell_width + (cell_width - preview.width) // 2
         y = (index // columns) * cell_height + 34
         sheet.paste(preview, (x, y))
-        draw.text(((index % columns) * cell_width + 12, (index // columns) * cell_height + 6), profile_id, fill="black", font=font)
+        draw.text(
+            ((index % columns) * cell_width + 12, (index // columns) * cell_height + 6),
+            profile_id,
+            fill="black",
+            font=font,
+        )
     sheet.save(OUTPUT / f"origin-{state}-contact-sheet.png", optimize=True)
 
 

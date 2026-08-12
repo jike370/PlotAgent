@@ -29,6 +29,8 @@ from plotagent.engine.contracts import (
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.repository import document_ref
 
+from .font import resolve_font_family
+
 if TYPE_CHECKING:
     from plotagent.engine.backends.matplotlib.backend import MatplotlibComponentArtifact
 
@@ -62,8 +64,11 @@ class K25CompositeRenderer:
         state = self._state(document, actions, len(components))
         columns = state.columns or ceil(sqrt(len(components)))
         rows = ceil(len(components) / columns)
-        self._render_png(components, state, columns, rows, png_path)
-        self._render_svg(components, state, columns, rows, svg_path)
+        font_family = resolve_font_family(
+            (state.title, *(annotation.text for annotation in state.annotations))
+        )
+        self._render_png(components, state, columns, rows, font_family, png_path)
+        self._render_svg(components, state, columns, rows, font_family, svg_path)
 
         token = document.plot_id.removeprefix("plot:")
         objects = [
@@ -99,35 +104,37 @@ class K25CompositeRenderer:
         state: _CompositeState,
         columns: int,
         rows: int,
+        font_family: str,
         destination: Path,
     ) -> None:
-        figure, axes = plt.subplots(
-            rows,
-            columns,
-            figsize=(6.4 * columns, 4.8 * rows),
-            squeeze=False,
-            constrained_layout=True,
-        )
-        for index, axis in enumerate(axes.flat):
-            axis.set_axis_off()
-            if index < len(components):
-                axis.imshow(mpimg.imread(components[index].png_path))
-        if state.title:
-            figure.suptitle(state.title)
-        for annotation in state.annotations:
-            if annotation.coordinate_system == "page":
-                figure.text(annotation.x, annotation.y, annotation.text)
-                continue
-            panel_index = K25CompositeRenderer._panel_index(annotation, len(components))
-            axes.flat[panel_index].text(
-                annotation.x,
-                annotation.y,
-                annotation.text,
-                transform=axes.flat[panel_index].transAxes,
+        with matplotlib.rc_context({"font.family": font_family}):
+            figure, axes = plt.subplots(
+                rows,
+                columns,
+                figsize=(6.4 * columns, 4.8 * rows),
+                squeeze=False,
+                constrained_layout=True,
             )
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        figure.savefig(destination, dpi=160)
-        plt.close(figure)
+            for index, axis in enumerate(axes.flat):
+                axis.set_axis_off()
+                if index < len(components):
+                    axis.imshow(mpimg.imread(components[index].png_path))
+            if state.title:
+                figure.suptitle(state.title)
+            for annotation in state.annotations:
+                if annotation.coordinate_system == "page":
+                    figure.text(annotation.x, annotation.y, annotation.text)
+                    continue
+                panel_index = K25CompositeRenderer._panel_index(annotation, len(components))
+                axes.flat[panel_index].text(
+                    annotation.x,
+                    annotation.y,
+                    annotation.text,
+                    transform=axes.flat[panel_index].transAxes,
+                )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            figure.savefig(destination, dpi=160)
+            plt.close(figure)
 
     @staticmethod
     def _render_svg(
@@ -135,6 +142,7 @@ class K25CompositeRenderer:
         state: _CompositeState,
         columns: int,
         rows: int,
+        font_family: str,
         destination: Path,
     ) -> None:
         ET.register_namespace("", _SVG)
@@ -161,6 +169,7 @@ class K25CompositeRenderer:
                     "y": "30",
                     "text-anchor": "middle",
                     "font-size": "22",
+                    "font-family": font_family,
                 },
             )
             title.text = state.title
@@ -202,7 +211,12 @@ class K25CompositeRenderer:
             label = ET.SubElement(
                 parent,
                 f"{{{_SVG}}}text",
-                {"x": str(x), "y": str(y), "font-size": "16"},
+                {
+                    "x": str(x),
+                    "y": str(y),
+                    "font-size": "16",
+                    "font-family": font_family,
+                },
             )
             label.text = annotation.text
         destination.parent.mkdir(parents=True, exist_ok=True)

@@ -175,8 +175,8 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | K20 | `row / column / value` | 独立热图 renderer | `Heat_Map.otpu` | matrixbook + 1 个原生 matrix plot |
 | K21 | `row_label / column_label / value` | 独立相关矩阵 renderer | `Heat_Map_With_Labels.otpu` | 完整预计算相关矩阵写入 matrixbook；PID105 和 Z 值标签由官方模板创建；full/lower/upper 只调整 Origin 原生显示枚举，不把被隐藏单元写成 NaN |
 | K22 | `x / y / z` | 独立规则网格等高 renderer | `CONTOUR.otpu` | 完整、等距 XY 规则网格写入 matrixbook；模板原生 PID226 填色等值 Plot；色阶数、轴编辑、动态网格均做原生读回；禁止插值补洞或改用 XYZ triangulation |
-| K24 | `facet / base_x / base_y` | 独立动态分面 renderer | `mgroups.otpu` | worksheet + 按 facet 数扩展的原生图层和线系列 |
-| K25 | `2–4 个 PlotDocumentRef` | 原生 SVG 子树与 PNG 面板组合 renderer | `mgroups.otpu` | 追加精确子 OPJU，保留子工作表/图页，再用 Origin `merge_graph` 合并原生图层；禁止嵌套组合与栅格化 OPJU |
+| K24 | `facet / base_x / base_y` | 独立动态分面 renderer | `Grouped.otp` + `plot_group` | worksheet + 单个 Trellis 图层；按 facet 值动态生成 2–5 个原生面板与 PID 202 线点系列 |
+| K25 | `2–4 个 PlotDocumentRef` | 原生 SVG 子树与 PNG 面板组合 renderer | `Graph > Merge Graph Windows` | 追加精确子 OPJU，保留子工作表/图页，再用官方 `merge_graph` 合并原生图层；MGROUPS 不是运行依赖；禁止嵌套组合与栅格化 OPJU |
 | S01 | `time / survival / lower? / upper? / risk_count? / group?` | 独立阶梯生存曲线与风险表 renderer | `SurvivalPlot.otp` | worksheet + 原生阶梯线/置信带/风险文本层；只消费预计算生存数据 |
 | S21 | `label / effect / lower / upper / weight?` | 独立森林图 renderer | `SCATTERINTERVAL.otp` | worksheet + 原生区间线、权重点和无效线 |
 | S34 | `z_real / z_imaginary / frequency? / series?` | 独立 Nyquist renderer | `LINESYMB.otpu` | worksheet + 动态原生 line-symbol 系列；频率保留为元数据而非坐标 |
@@ -197,5 +197,7 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 三十八个切片均只消费 `EngineRenderSource`、`PlotDocument` 和公开 Engine Action，不导入旧
 `PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。38 个正式 Profile 已有代码级独立渲染、
 模板哈希、对象结构和修改读回门禁；K25 额外固定子图版本、禁止嵌套，并在 SVG 中保留
-矢量子树、在 OPJU 中保留原生子图。真实 Origin fresh-reopen 与人工视觉签名仍须在
-不占用用户 Origin 实例的受控资格批次中执行，未完成前不得声称这些 Profile 已发布。
+矢量子树、在 OPJU 中保留原生子图。K25 已完成 2 图默认态、标题与单列编辑态、4 图
+动态态的真实 Origin 创建与独立进程 fresh-reopen；合并层分别读回原生 PID
+`200/203` 与 `200/203/105/226`。这仍不替代全范围人工视觉签名，未完成发布门禁前
+不得声称全部 Profile 已发布。

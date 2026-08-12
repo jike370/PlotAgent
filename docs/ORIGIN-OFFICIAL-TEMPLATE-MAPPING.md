@@ -1,6 +1,6 @@
 # PlotAgent v3：38 图—Origin 官方模板映射与绘图引擎重构基线
 
-状态：38 图官方模板目录已冻结；旧模板优先链曾完成裸模板 368 变体、38/38 build/fresh-reopen 与逐图修改读回，但该证据仅作模板选型历史，不代表重写后的 Agent Native 引擎已取得资格。新引擎当前完成 37/38 个代码级纵向切片，唯一未完成项为引用多个既有 PlotDocument 的 K25 组合图；新路径的真实 Origin fresh-reopen 与人工视觉签名尚未执行
+状态：38 图官方模板目录已冻结；旧模板优先链曾完成裸模板 368 变体、38/38 build/fresh-reopen 与逐图修改读回，但该证据仅作模板选型历史，不代表重写后的 Agent Native 引擎已取得资格。新引擎已完成 38/38 个代码级纵向切片；K25 已通过 2–4 个异构原生子图的 `Merge Graph Windows` 创建与独立进程 fresh-reopen。全范围人工视觉签名尚未完成。
 
 核对环境：OriginPro 2024 SR1 `10.10.178`，`originpro 1.1.15`
 
@@ -61,8 +61,8 @@
 | K20 | 热图 | A；`Heatmap.opju` Graph1 | `Heat_Map.otpu` `9bd8240ca582` | T1 | 写入 Matrixbook 或规则矩阵、设置 palette/range | 行列语义和色标位置显式控制 |
 | K21 | 相关矩阵图 | D；独立 Origin 矩阵参考 | `Heat_Map_With_Labels.otpu` `d1a7fcd8af23` | T1 | 写入预计算相关矩阵、对角/上下三角策略 | 模板负责标签与色标，相关计算仍由引擎负责 |
 | K22 | 等高线与填色等值图 | A；`Contour.opju` Graph1 | `CONTOUR.otpu` `b4915054edd4` | T1 | 写入规则 Matrix 或 XYZ 网格、levels/palette | 色标不得覆盖数据框或被裁切 |
-| K24 | 分面图 | D；独立 Origin 多面板参考 | `mgroups.otpu` `391e5689e8f5` | T2 | 根据 facet 值动态复制 layer、绑定每面板数据 | 2/3/5 面板布局与共享轴策略必须泛化 |
-| K25 | 多面板复合图 | D；独立 Origin 多面板参考 | `mgroups.otpu` `391e5689e8f5` | T2 | 将已生成的原生子图合并/复制到面板，统一标签 | 子图仍保持各自 Worksheet 与 Plot；不栅格化；当前产品行为保持 |
+| K24 | 格状分面图 | D；官方 Trellis 路径的 Agent Native 实证 | `Grouped.otp` `b3a1999cc9e9` + `plot_group` | T2 | 长表绑定 facet/X/Y，并由官方 X-Function 动态生成单层 2–5 面板 | 不复制普通图层；保持 PID 202、源 facet 顺序和原生 Trellis 面板 |
+| K25 | 多面板组合图 | D；异构原生子图合并实证 | `Graph > Merge Graph Windows` / `merge_graph` | T2 | 追加 2–4 个精确版本子 OPJU，再调用官方合并流程并重放公共编辑 | MGROUPS 只适用于同构多面板，不是 K25 运行依赖；子图 Worksheet、Plot 与 PID 必须保持，不栅格化 |
 | S01 | KM 生存曲线 | D；独立 Origin 生存图参考 | `SurvivalPlot.otp` `0b8759367ce1` | T2 | 绑定预计算 step/CI/risk counts；动态风险表行高 | 不在 renderer 内偷偷重新做生存分析 |
 | S21 | 森林图 | D；独立 Origin interval 参考 | `SCATTERINTERVAL.otp` `fb319b1a6918` | T2 | 绑定 effect/lower/upper、行标签、无效线和权重符号 | 本机无 Forest 命名模板；先实机确认 interval 端帽与权重符号兼容性 |
 | S34 | Nyquist 图 | D；独立 Origin line-symbol 参考 | `LINESYMB.otpu` `2f1292a939ea` | T2 | 绑定 Z′/−Z″、等比例轴、方向/频率编码 | 本机未找到 Nyquist 命名模板；不可把频率误作坐标轴 |

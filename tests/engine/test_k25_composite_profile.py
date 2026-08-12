@@ -30,13 +30,14 @@ from plotagent.engine.backends.matplotlib import (
     K25CompositeRenderer,
     MatplotlibBackend,
 )
-from plotagent.engine.backends.origin import K25_ORIGIN_PROFILE, OriginBackend
+from plotagent.engine.backends.origin import OriginBackend, origin_recipe
 from plotagent.engine.backends.origin.k25 import (
     _append_project_command,
     _merge_command,
     execute_k25_request,
 )
 from plotagent.engine.backends.origin.messages import OriginWorkerRequest, OriginWorkerResponse
+from plotagent.engine.backends.origin.trace import OriginExecutionTrace
 from plotagent.engine.profiles import ENGINE_PROFILES, K25_COMPOSITE_PROFILE
 from plotagent.engine.repository import document_ref
 from plotagent.engine.service import EngineCatalog, EngineCommandError
@@ -128,10 +129,11 @@ def test_k25_profile_is_plot_backed_and_has_no_field_binding_surface() -> None:
     assert K25_COMPOSITE_PROFILE.minimum_components == 2
     assert K25_COMPOSITE_PROFILE.maximum_components == 4
     assert K25_COMPOSITE_PROFILE.required_roles == ()
-    assert "bind_fields" not in {
-        item.operation for item in K25_COMPOSITE_PROFILE.capabilities
-    }
-    assert K25_ORIGIN_PROFILE.filename == "mgroups.otpu"
+    assert "bind_fields" not in {item.operation for item in K25_COMPOSITE_PROFILE.capabilities}
+    recipe = origin_recipe("K25")
+    assert recipe.creation_kind == "composition"
+    assert recipe.official_entry == "Graph > Merge Graph Windows"
+    assert recipe.templates == ()
 
 
 def test_k25_service_pins_exact_component_versions_and_rejects_invalid_graphs(
@@ -163,9 +165,7 @@ def test_k25_service_pins_exact_component_versions_and_rejects_invalid_graphs(
                         references[0].model_copy(update={"content_hash": "c" * 64}),
                         references[1],
                     )
-                ).model_copy(
-                    update={"plot_id": "plot:stale", "action_id": "action:stale"}
-                )
+                ).model_copy(update={"plot_id": "plot:stale", "action_id": "action:stale"})
             )
         with pytest.raises(EngineCommandError, match="nested plot compositions"):
             service.prepare(
@@ -199,7 +199,7 @@ def test_k25_matplotlib_composes_exact_child_versions_as_vector_svg(tmp_path: Pa
                 action_id="action:k25-title",
                 target=composite.plot_id,
                 expected_plot_version=1,
-                text="Native composite",
+                text="原生组合图",
             )
         ).document
         columns_document = runtime.execute(
@@ -232,7 +232,8 @@ def test_k25_matplotlib_composes_exact_child_versions_as_vector_svg(tmp_path: Pa
         target = tmp_path / "artifacts" / "composite" / "v4"
         svg = target.joinpath("preview.svg").read_text(encoding="utf-8")
         assert "component-1" in svg and "component-2" in svg
-        assert "Native composite" in svg
+        assert "原生组合图" in svg
+        assert "font-family" in svg
         assert "data:image" not in svg
         assert "<image" not in svg
         parsed = ET.parse(target / "preview.svg").getroot()
@@ -281,6 +282,9 @@ class _Graph:
     def __iter__(self):
         return iter(self.layers)
 
+    def activate(self) -> None:
+        return None
+
 
 class _Origin:
     def __init__(self) -> None:
@@ -304,6 +308,13 @@ class _Origin:
             count = sum(len(tuple(item)) for item in sources)
             self.graphs.append(_Graph("Graph1", count))
 
+    def lt_float(self, expression: str) -> float:
+        if expression.startswith("__K25COUNT"):
+            return 1.0
+        if expression.startswith("__K25PID"):
+            return 200.0
+        raise AssertionError(f"unexpected LabTalk scalar read: {expression}")
+
     def new_graph(self, name: str, *, template: str, hidden: bool):
         graph = _Graph(name)
         self.graphs.append(graph)
@@ -326,14 +337,11 @@ def _component(action: CreatePlot) -> EngineComponentInput:
     )
 
 
-def test_k25_origin_uses_only_native_append_template_and_merge_commands(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_k25_origin_uses_native_append_and_official_merge_graph(
+    tmp_path: Path,
 ) -> None:
     install = tmp_path / "install"
     install.mkdir()
-    template = install / "mgroups.otpu"
-    template.write_bytes(b"template")
-    monkeypatch.setattr(origin_k25, "resolve_official_template", lambda *_args: template)
     first, second = _child_action("first", HASH_A), _child_action("second", HASH_B)
     components = (_component(first), _component(second))
     document = PlotDocument(
@@ -357,7 +365,16 @@ def test_k25_origin_uses_only_native_append_template_and_merge_commands(
         component_opjus=(str(first_opju), str(second_opju)),
     )
     op = _Origin()
-    readback = execute_k25_request(op, request, install, output)
+    trace_path = tmp_path / "execution-trace.jsonl"
+    trace = OriginExecutionTrace(
+        path=trace_path,
+        profile_id="K25",
+        plot_id=document.plot_id,
+        plot_version=document.plot_version,
+    )
+    trace.reset()
+    with trace.activate():
+        readback = execute_k25_request(op, request, install, output)
 
     assert output.read_bytes() == b"fake-opju"
     assert readback.data_hash == request.source.source_hash()
@@ -371,8 +388,27 @@ def test_k25_origin_uses_only_native_append_template_and_merge_commands(
     assert 'graphs:="K25C1"+char(10)$+"K25C2"' in merge
     assert "row:=1 col:=2" in merge
     assert "ogp:=" not in merge
+    assert "mgroups" not in " ".join(op.commands).lower()
     assert _append_project_command(first_opju).startswith('doc -a "')
     assert "keep:=1" in _merge_command(("K25C1", "K25C2"), rows=1, columns=2)
+    trace_steps = {
+        item["step"]
+        for item in map(
+            __import__("json").loads,
+            trace_path.read_text(encoding="utf-8").splitlines(),
+        )
+        if item["status"] == "completed"
+    }
+    assert {
+        "origin_project_initialize",
+        "component_project_append",
+        "official_merge_graph_execute",
+        "agent_actions_apply",
+        "native_structure_readback",
+        "opju_save",
+        "opju_open",
+        "reopened_native_structure_verify",
+    } <= trace_steps
 
 
 class _Worker:
