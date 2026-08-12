@@ -168,7 +168,7 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | K12 | `value / group?` | 独立确定性条带 renderer | `ColumnScatter.otp` | 每组一列原始观测 + 模板原生 Column Scatter plot |
 | K13 | `value / group?` | 独立 Tukey 箱线 renderer | `BOX.OTP` | 每组一列原始观测 + 模板原生 box plot |
 | K14 | `value / group?` | 独立小提琴 renderer | `Violin.otpu` | 每组一列原始观测 + 模板原生 violin plot；禁止线/填充模拟轮廓 |
-| K15 | `value` | 独立固定分箱直方图 renderer | `Hist.otpu` | 共享计算内核产生唯一 bin edges/counts；worksheet + 零间隙原生柱 |
+| K15 | `value` | 独立固定分箱直方图 renderer | `Hist.otpu` | 原始观测保留在 worksheet；官方 PID219 Histogram 使用共享 FD/Sturges 边界与 Count 高度 |
 | K16 | `value / group?` | 独立 Scott KDE renderer | `HISTDIST.otpu` | 共享计算内核产生每组 KDE 网格；worksheet + 原生密度线，模板直方/rug 组件不启用 |
 | K18 | `x / series_1..series_N` | 独立多系列面积图 renderer | `AREA.otpu` | X+全部Y一次性执行官方 Area 菜单，保留原生 PID204 与源列绑定 |
 | K19 | `time / series_1..series_N` | 独立原生日期时间折线 renderer | `LINE.otpu` | 数值型 Date/Time X + 1–N 个 Y；一次调用官方 Line 菜单创建 PID 200；同日显示时间、跨日显示日期 |
@@ -186,13 +186,13 @@ trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `
 | X05 | `value / group?` | 独立确定性蜂群 renderer | `ColumnScatter.otp` | 每组一列原始观测 + 模板原生 Column Scatter plot；组数动态扩展 |
 | X09 | `category / start / end / middle?` | 独立浮动柱状图 renderer | `FloatCol.otp` | 保留原始有序边界列并一次执行官方 Floating Column 流程；PID 207、纵向方向、两/三边界、下降/交叉边界及独立 fresh-reopen 均已机械读回；官方模板默认填充不开放分段改色 |
 | X13 | `category / left / right` | 独立人口金字塔 renderer | `PopulationPyramid.otpu` | 非负源幅值写入 worksheet + 官方双层模板原生横向柱；左侧符号仅在渲染层表达 |
-| X23 | `x / left / right` | 独立双 Y renderer | `DOUBLEY.OTP` | worksheet + 2 个模板图层，各 1 条原生线 |
+| X23 | `x / left / right` | 独立双 Y renderer | `DOUBLEY.OTP` | worksheet + 2 个模板图层，各 1 个原生 Line+Symbol；X 1:1 链接、Y 独立 |
 | X24 | `category / value` | 独立帕累托 renderer | `ParetoRaw.otpu` | worksheet 保存排序贡献与唯一累计百分比 + 官方双层模板原生柱/累计线/参考线 |
 | X35 | `category / left / right` | 独立双 Y 柱 renderer | `2Ys_Col.otpu` | worksheet + 官方双层模板各 1 组原生柱 |
 | X36 | `category / left / right` | 独立双 Y 柱线 renderer | `2Ys_ColSymb.otpu` | worksheet + 官方双层模板原生左柱和右线点 |
 | X38 | `x / y / series` | 独立 Y 偏移线 renderer | `OffsetStackY.otp` | worksheet 保留未偏移原始 Y + 官方模板动态原生线系列与显示偏移 |
-| X39 | `series_1 / series_2 / series_N?` | 独立逐行线条序列 renderer | `BoxLser.otpu` | 绑定值列转置为 worksheet；每个源行一条模板原生 line-series Plot |
-| X40 | `series_1 / series_2` | 独立前后对比 renderer | `BeforeAfter.otpu` | 两个值列转置为 worksheet；每个源行一条模板原生 before-after Plot |
+| X39 | `series_1 / series_2 / series_N?` | 独立逐行线条序列 renderer | `BoxLser.otpu` | 宽表原位写入；一个 PID206 原生组跨列逐行连接，对象数随列数而非行数变化 |
+| X40 | `series_1 / series_2` | 独立前后对比 renderer | `BeforeAfter.otpu` | 两列宽表原位写入；一个 PID206 原生组以 Subgroup Size=2 逐行配对连接 |
 
 三十八个切片均只消费 `EngineRenderSource`、`PlotDocument` 和公开 Engine Action，不导入旧
 `PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。38 个正式 Profile 已有代码级独立渲染、

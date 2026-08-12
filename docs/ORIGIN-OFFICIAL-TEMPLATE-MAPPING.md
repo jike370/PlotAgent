@@ -54,7 +54,7 @@
 | K12 | 单变量点图与条带图 | A；`ColumnScatter.opju` Graph11 | `ColumnScatter.otp` `e9bfbf3b74bc` | T2 | 长表映射、组内散点偏移、动态组标签 | 大样本下图例应避开观测点 |
 | K13 | 箱线图 | A；`Box.opju` Graph1 | `BOX.OTP` `a1f26e68a6a0` | T1 | 绑定原始值与可选分组；冻结 Tukey 规则 | 优先让 Origin 创建原生 box plot，不拼箱体线条 |
 | K14 | 小提琴图 | C；`Box.opju` 原始值＋系统 Violin 重建 | `Violin.otpu` `ee71ef5fb2bf` | T1 | 绑定原始值与分组、KDE/内部统计参数 | 高优先级迁移：禁止用普通线和 fill_area 模拟外轮廓，避免边缘竖线复现 |
-| K15 | 直方图 | A；`Histogram.opju` Graph2 | `Hist.otpu` `cc1d7edd9f07` | T1 | 共享确定性计算内核冻结 bin edges/counts，两端只绑定该几何 | 分箱权威已固定为数据计算层；Origin 不得再次自行分箱 |
+| K15 | 直方图 | A；`Histogram.opju` Graph2 | `Hist.otpu` `cc1d7edd9f07` | T1 | 原始观测绑定 PID219；共享计算内核只冻结 bin begin/end/size 与 Count 口径 | Origin 使用原生 Histogram 对象，不创建预计算普通柱；fresh reopen 必须读回固定分箱 |
 | K16 | 核密度图 | A；`Histogram.opju` Graph7 | `HISTDIST.otpu` `a584e2ee70fa`，以 Graph7 样式为准 | T2 | 共享 Scott KDE 内核生成每组 grid/density，绑定原生线 | histogram/rug 组件默认不启用；待真实 Origin 批次验证模板空组件状态 |
 | K18 | 面积图 | A；`Area.opju` Graph1 | `AREA.otpu` `c14ad432ffd6` | T1 | 绑定 X 与 1..N 个 Y，官方菜单一次性创建；开放共同的颜色与边界线样式 | 默认保持官方覆盖语义，不擅自改成累计/堆积；精确 From Y 仍需人工视觉确认 |
 | K19 | 日期时间折线图 | B；Origin Help `Line Graph` + 本机 Origin 2024 原生实证 | `LINE.otpu` `76a7ce886e22` | T1 | 绑定数值型 Date/Time X 与 `series_1..series_N`，一次调用官方 Line 菜单 | PID 200 与源列逐项读回；同日显示 `Time/HH:mm`，跨日显示 `Date/Short Date`；不使用 Time Series Explorer |
@@ -72,13 +72,13 @@
 | X05 | 蜂群图 | A；`ColumnScatter.opju` Graph10 | `ColumnScatter.otp` `e9bfbf3b74bc` | T1 | 绑定原始值/分组和避让参数 | 使用模板原生 Column Scatter/Beeswarm 结构 |
 | X09 | 浮动柱状图 | A；用户修正默认 OPJU + 官方 Floating Column 帮助 | `FloatCol.otp` `f1ea445735f9` | T1 | 一次绑定 category + 原始有序 start/middle/end 边界，直接执行官方 Floating Column 创建；默认样式由模板管理 | 类别沿横轴、数值沿纵轴；不得改用水平 `FloatBar.otp`、普通柱形、预计算 bottom/height、排序边界或复制 end；PID 207 的分段颜色未获官方稳定证据，暂不开放 |
 | X13 | 人口金字塔 | C；官方 `African_population.dat` | `PopulationPyramid.otpu` `2c5958a91130` | T1 | 绑定 category/left/right、中心零轴 | 左右符号和显示格式遵循模板 |
-| X23 | 双 Y 轴折线图 | A；`Double Y.opju` Graph1 | `DOUBLEY.OTP` `487547eb206e` | T1 | 绑定共享 X 和左右 Y、轴颜色与图例 | 保持两个原生 linked layers/axes |
+| X23 | 双 Y 轴Y-Y图 | A；`Double Y.opju` Graph1 | `DOUBLEY.OTP` `487547eb206e` | T1 | 绑定共享 X 和左右 Y、线点样式与图例 | 保持两个 PID202 Line+Symbol、X straight 1:1 linked layers、左右Y独立 |
 | X24 | 帕累托图 | C；官方 `Counts.dat` | `ParetoRaw.otpu` `5f273e70f87c` | T1 | 绑定类别/值，使用预计算或模板累计百分比 | 只能有一个累计百分比权威来源 |
 | X35 | 双 Y 轴柱状图 | A；`Double Y.opju` Graph2 | `2Ys_Col.otpu` `cba0737aaa4c` | T1 | 绑定类别和左右值、动态柱宽 | 右轴默认不加粗；两侧柱不重叠 |
 | X36 | 双 Y 轴柱线图 | A；`Double Y.opju` Graph3 | `2Ys_ColSymb.otpu` `6e951a3dd1f0` | T1 | 左柱、右线/点、共享类别和图例 | 右轴默认不加粗，模板层关系不拆散 |
 | X38 | Y 偏移堆积线图 | C；官方 `waterfall.opju` 数据 | `OffsetStackY.otp` `c6d7548cf738` | T1 | 绑定多系列、计算显示 offset、轴/图例 | offset 只影响显示，不写回原始 Y |
-| X39 | 线条序列图 | A；`BoxLser.opju` Graph2 | `BoxLser.otpu` `8396fd58435c` | T1 | 每行跨 2+ 数值列形成原生线点序列 | 动态列数、奇数末列和源列标签必须保持 |
-| X40 | 前后对比图 | A；`BeforeAfter.opju` Graph1 | `BeforeAfter.otpu` `d37a1c294969` | T1 | 绑定成对数值列和系列标签 | 按用户决定保持现有实现，不在本轮修改 |
+| X39 | 线条序列图 | A；`BoxLser.opju` Graph2 | `BoxLser.otpu` `8396fd58435c` | T1 | 宽表不转置；每行跨 2+ 数值列形成原生线点序列 | 单一 PID206 组；动态列数、行数与源列标签 fresh 保持 |
+| X40 | 前后对比图 | A；`BeforeAfter.opju` Graph1 | `BeforeAfter.otpu` `d37a1c294969` | T1 | 两列宽表不转置；Subgroup Size=2 逐行成对连接 | 单一 PID206 组；对象数不随受试者行数增长，动态15行 fresh 保持 |
 
 ## 3. 迁移优先级
 

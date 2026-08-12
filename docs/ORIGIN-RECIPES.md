@@ -36,10 +36,10 @@
 | K09 | 分组柱状图（索引数据） | `gColumn.otpu` + `plot_gindexed` | X-Function | 专属属性人工门禁 |
 | K10 | 堆积柱状图 | `STACKCOLUMN.otp` / `Plot.ogs [StackCol]` | 菜单＋模板 | 原生累计堆积与完整图例已证 |
 | K11 | 100%堆积柱状图 | `StackColP.otp` / `Plot.ogs [StackColPercentage]` | 菜单＋模板 | Origin 原生百分比归一化与完整图例已证 |
-| K12 | 列散点图 | `Plot.ogs [ColumnScatter]` / `ColumnScatter.otp` | 菜单＋模板 | 原始观测Y；需确认 Box Type=Data、Dots/Jitter |
-| K13 | 箱线图 | `Plot.ogs [BoxChart]` / `BOX.OTP` + Tukey 1.5×IQR | 菜单＋模板 | 裸模板是5/95；必须另设 Outlier/Coef=1.5并核对离群值 |
-| K14 | 小提琴图 | `Plot.ogs [ViolinPlot]` / `Violin.otpu` | 菜单＋模板 | 必须固定 Kernel Smooth、共同带宽、Extend=0、对称与Width缩放 |
-| K15 | 直方图 | `Plot.ogs [Histogram]` / `Hist.otpu` / plot type 219 | 菜单＋模板 | 原始观测Y；必须把共同FD/Sturges几何写入原生bin并以Count读回 |
+| K12 | 列散点图 | `Plot.ogs [ColumnScatter]` / `ColumnScatter.otp` | 菜单＋模板 | PID206、原始Y列、源绑定和官方 Data/Jitter 外观已完成 live/fresh 门禁；图例使用 `legendbox id:=L` 的原生数据符号 |
+| K13 | Tukey箱线图 | `Plot.ogs [BoxChart]` / `BOX.OTP` + Tukey 1.5×IQR | 菜单＋模板 | 原生 Layer Format 已固定 Box 25/75、Whisker Outlier、Coef=1.5、离群点开启，并在 fresh reopen 读回 |
+| K14 | 小提琴图 | `Plot.ogs [ViolinPlot]` / `Violin.otpu` | 菜单＋模板 | Kernel Smooth、共同绝对带宽、Extend=0、Width缩放和100%曲线尺度均由原生 Layer Format 写入并 fresh 读回 |
+| K15 | 直方图 | `Plot.ogs [Histogram]` / `Hist.otpu` / plot type 219 | 菜单＋模板 | 原始观测Y保留；FD/Sturges begin/end/bin size 与 Count 高度写入 PID219 并 fresh 读回，不生成预计算柱 |
 | K18 | 面积图 | `AREA.otpu` | `worksheet -p 204 Area` | X+1..N Y、PID204、源绑定、颜色/边界线样式机械读回；From Y 专属枚举人工门禁 |
 | K19 | 日期时间折线图 | `LINE.otpu` + Date/Time X | 模板 | 原生结构已证 |
 | K20 | 热图 | `Heat_Map.otpu` + Matrix | 模板 | 专属属性人工门禁 |
@@ -53,14 +53,14 @@
 | X03 | 棒棒糖图 | `Lollipop.otpu` | 模板 | 专属属性人工门禁 |
 | X05 | 蜂群图 | `Beeswarm.otpu` | 模板 | 专属属性人工门禁 |
 | X09 | 浮动柱状图 | `FloatCol.otp` | 模板 | 原始有序边界一次创建；PID 207、纵向方向、两/三边界、下降/交叉边界与 Agent 公共编辑均经独立 fresh-reopen 机械读回 |
-| X13 | 人口金字塔 | `Plot.ogs [PopulationPyramid]` / `PopulationPyramid.otpu` | 菜单＋模板 | 官方要求 X＋恰好2个Y；当前 renderer 尚未走官方菜单，待重做 |
-| X23 | 双Y轴Y-Y图 | `Plot.ogs [2Ys_Y-Y]` / `DOUBLEY.OTP` | 菜单＋模板 | 官方默认是两层 Line+Symbol（PID202），当前 line-only renderer 待重做 |
+| X13 | 人口金字塔 | `Plot.ogs [PopulationPyramid]` / `PopulationPyramid.otpu` | 菜单＋模板 | X＋恰好2个Y；两层 PID203、ExchangeXY、链接签名 `(1,1,2)`、A/B与A/C源绑定及跨层图例均已 live/fresh 读回 |
+| X23 | 双Y轴Y-Y图 | `Plot.ogs [2Ys_Y-Y]` / `DOUBLEY.OTP` | 菜单＋模板 | 两层 PID202 Line+Symbol；第二层 X 1:1 链接、Y独立，线点样本图例及 Agent 标题在 fresh reopen 保持 |
 | X24 | 帕累托图（分箱数据） | `ParetoBin.otpu` + `plot_paretobin` | X-Function | 专属属性人工门禁 |
 | X35 | 双Y轴柱状图 | `2Ys_Col.otpu` | 模板 | 原生结构已证 |
 | X36 | 双Y轴柱线图 | `2Ys_ColSymb.otpu` | 模板 | 原生结构已证 |
 | X38 | Y偏移堆叠线图 | `OffsetStackY.otp` | 模板 | 专属属性人工门禁 |
-| X39 | 线条序列图 | `Plot.ogs [LineSeries]` / `BoxLser.otpu` | 菜单＋模板 | 宽表原位、跨列按行连接；禁止转置为每行一个普通XY Plot |
-| X40 | 前后对比图 | `Plot.ogs [BeforeAfter]` / `BeforeAfter.otpu` | 菜单＋模板 | 宽表相邻Before/After列对、Subgroup Size=2；禁止按受试者转置 |
+| X39 | 线条序列图 | `Plot.ogs [LineSeries]` / `BoxLser.otpu` | 菜单＋模板 | 宽表原位、单一 PID206 组跨列按行连接；3→5列、5→12行及 Agent 组/成员编辑均已独立 fresh 读回 |
+| X40 | 前后对比图 | `Plot.ogs [BeforeAfter]` / `BeforeAfter.otpu` | 菜单＋模板 | 两列宽表原位、单一 PID206 组、Subgroup Size=2；6→15行及 Agent 组/成员编辑均已独立 fresh 读回 |
 | S61 | 带标签热图（混淆矩阵语义） | `plotvm` / `Heat_Map_With_Labels.otpu` | X-Function＋模板 | clean dynamic rebuild 与 fresh-reopen 已闭合 |
 
 ## 暂不进入 Origin renderer 的 2 图
@@ -79,8 +79,8 @@
 - 热图与带标签热图固定为本机 `GenericHeatMap ... 105 1 1`/`plotvm`
   路线；数据源必须是 MatrixBook 或明确的 Virtual Matrix，不能以图片代替。
 - 线条序列、前后对比固定走 `BoxChartImp BoxLser` 与
-  `general,206 BeforeAfter`。在 row-wise/subgroup 结构完成 live 读回前，
-  旧的“转置成多条普通 XY 线”实现不得计入 renderer 完成范围。
+  `general,206 BeforeAfter`。row-wise/subgroup 结构已经由官方样例、默认态、
+  编辑态、动态数据和独立 fresh reopen 实证；旧的“转置成多条普通 XY 线”路径已移除。
 
 ## 与公开 Agent 动作的关系
 
