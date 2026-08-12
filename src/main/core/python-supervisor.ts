@@ -125,6 +125,23 @@ function frameErrorToCoreError(code: FrameErrorCode): CoreErrorCode {
     : 'CORE_PROTOCOL_INVALID_FRAME'
 }
 
+const NON_RETRYABLE_REQUEST_CODES = new Set([
+  'INVALID_PARAMS',
+  'METHOD_NOT_FOUND',
+  'ENGINE_ACTION_INVALID',
+  'ENGINE_TARGET_INVALID',
+])
+
+export function coreRequestFailure(response: Extract<CoreResponse, { error: unknown }>): PublicError {
+  const fallback = publicCoreError('CORE_REQUEST_FAILED')
+  const message = response.error.message.trim()
+  return {
+    ...fallback,
+    message: message.length > 0 ? message.slice(0, 240) : fallback.message,
+    retryable: !NON_RETRYABLE_REQUEST_CODES.has(response.error.code),
+  }
+}
+
 export class PythonCoreSupervisor {
   private status: CoreStatus = INITIAL_CORE_STATUS
   private child?: ChildProcessWithoutNullStreams
@@ -356,7 +373,7 @@ export class PythonCoreSupervisor {
     this.pendingRequests.delete(response.id)
     clearTimeout(pending.timer)
     if ('error' in response) {
-      pending.reject(new CoreRequestError(publicCoreError('CORE_REQUEST_FAILED')))
+      pending.reject(new CoreRequestError(coreRequestFailure(response)))
     } else {
       pending.resolve(response.result)
     }

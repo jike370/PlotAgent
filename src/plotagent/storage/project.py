@@ -58,6 +58,24 @@ def _hash_file(path: Path) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
+def read_project_revision(workspace: str | Path) -> int:
+    """Read one project revision without taking its single-writer lock."""
+
+    resolved = ensure_local_fixed_workspace(Path(workspace))
+    database_path = resolved / "project.sqlite3"
+    if not database_path.is_file():
+        raise StorageProblem(StorageErrorCode.PROJECT_NOT_FOUND, "项目数据不存在。")
+    uri = database_path.resolve().as_uri() + "?mode=ro"
+    with closing(sqlite3.connect(uri, uri=True)) as connection:
+        row = connection.execute("SELECT revision FROM project_meta LIMIT 1").fetchone()
+    if row is None:
+        raise StorageProblem(StorageErrorCode.PROJECT_NOT_FOUND, "项目版本信息不存在。")
+    revision = int(row[0])
+    if revision < 0:
+        raise StorageProblem(StorageErrorCode.PROJECT_NOT_FOUND, "项目版本信息无效。")
+    return revision
+
+
 def _source_dataset_record(row: tuple[object, ...]) -> SourceDatasetRecord:
     contract_json, logical_id, recipe_id, created_at, metadata_json = row
     try:

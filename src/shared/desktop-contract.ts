@@ -111,13 +111,21 @@ export interface TaskProgress {
   readonly unit: TaskProgressUnit
 }
 
+export interface TaskFailure {
+  readonly code: string
+  readonly message: string
+}
+
 export interface TaskEvent {
   readonly schemaVersion: DesktopApiVersion
   readonly eventType: 'task.state'
   readonly taskId: string
   readonly sequence: number
   readonly state: TaskState
+  readonly taskKind?: string
+  readonly label?: string
   readonly progress?: TaskProgress
+  readonly error?: TaskFailure
 }
 
 export interface TaskSummary {
@@ -125,7 +133,10 @@ export interface TaskSummary {
   readonly sequence: number
   readonly state: TaskState
   readonly cancellable: boolean
+  readonly taskKind?: string
+  readonly label?: string
   readonly progress?: TaskProgress
+  readonly error?: TaskFailure
 }
 
 export interface TaskSnapshot {
@@ -223,6 +234,10 @@ export interface EngineBatchPlanCreateInput extends ProjectIdInput {
 export interface AgentDecideInput extends ProjectIdInput {
   readonly sourceDatasetId: string
   readonly sourceVersion: number
+  readonly selectedDatasets?: readonly {
+    readonly datasetId: string
+    readonly sourceVersion: number
+  }[]
   readonly expectedVersion: number
   readonly conversationId?: string
   readonly selectedChartId?: string
@@ -422,6 +437,11 @@ function hasControlCharacter(value: string): boolean {
   return [...value].some((character) => character.charCodeAt(0) < 32)
 }
 
+function isShortText(value: unknown, maximum: number): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= maximum &&
+    !hasControlCharacter(value)
+}
+
 export function isSafeRendererPayload(value: unknown, depth = 0): value is JsonValue {
   if (depth > 12 || !isJsonValue(value, depth)) return false
   if (typeof value === 'string') return value.length <= 16_384 && !ABSOLUTE_PATH_VALUE.test(value)
@@ -592,7 +612,7 @@ export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {
   if (!isRecord(value) || !hasExactKeys(
     value,
     ['projectId', 'sourceDatasetId', 'sourceVersion', 'expectedVersion', 'scope', 'utterance', 'executionMode'],
-    ['conversationId', 'selectedChartId', 'target'],
+    ['conversationId', 'selectedChartId', 'selectedDatasets', 'target'],
   )) return null
   const parsed = value
   const projectId = parseId(parsed.projectId)
@@ -609,12 +629,31 @@ export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {
   const selectedChartId = parsed.selectedChartId === undefined ? undefined : parsed.selectedChartId
   if (selectedChartId !== undefined && (typeof selectedChartId !== 'string' || !CHART_IDS.has(selectedChartId))) return null
   if (typeof parsed.utterance !== 'string') return null
+  const selectedDatasets = parsed.selectedDatasets === undefined
+    ? undefined
+    : Array.isArray(parsed.selectedDatasets)
+      ? parsed.selectedDatasets.map((item) => {
+        if (!isRecord(item) || !hasExactKeys(item, ['datasetId', 'sourceVersion'])) return null
+        const datasetId = parseId(item.datasetId)
+        const version = parseVersion(item.sourceVersion, 1)
+        return datasetId === null || version === null ? null : { datasetId, sourceVersion: version }
+      })
+      : null
+  if (selectedDatasets === null || selectedDatasets?.some((item) => item === null) ||
+    (selectedDatasets !== undefined && (selectedDatasets.length === 0 || selectedDatasets.length > 8 ||
+      new Set(selectedDatasets.map((item) => item?.datasetId)).size !== selectedDatasets.length ||
+      !selectedDatasets.some((item) => item?.datasetId === sourceDatasetId && item.sourceVersion === sourceVersion)))) {
+    return null
+  }
   const utterance = parsed.utterance.trim()
   if (utterance.length === 0 || utterance.length > 4_000 || utterance.includes('\0')) return null
   return {
     projectId,
     sourceDatasetId,
     sourceVersion,
+    ...(selectedDatasets === undefined
+      ? {}
+      : { selectedDatasets: selectedDatasets as { datasetId: string; sourceVersion: number }[] }),
     expectedVersion,
     ...(typeof conversationId === 'string' ? { conversationId } : {}),
     ...(selectedChartId === undefined ? {} : { selectedChartId }),
@@ -717,13 +756,18 @@ export function parseTaskEvent(value: unknown): TaskEvent | null {
   if (!isRecord(value) || !hasExactKeys(
     value,
     ['schema_version', 'event_type', 'task_id', 'sequence', 'state'],
-    ['progress'],
+    ['task_kind', 'label', 'progress', 'error'],
   )) return null
   if (value.schema_version !== DESKTOP_API_VERSION || value.event_type !== 'task.state') return null
   if (!isIdentifier(value.task_id) || !Number.isSafeInteger(value.sequence) || Number(value.sequence) < 0) {
     return null
   }
   if (typeof value.state !== 'string' || !TASK_STATES.has(value.state as TaskState)) return null
+
+  const taskKind = Object.hasOwn(value, 'task_kind') ? value.task_kind : undefined
+  if (taskKind !== undefined && !isShortText(taskKind, 48)) return null
+  const label = Object.hasOwn(value, 'label') ? value.label : undefined
+  if (label !== undefined && !isShortText(label, 120)) return null
 
   let progress: TaskProgress | undefined
   if (Object.hasOwn(value, 'progress')) {
@@ -743,13 +787,23 @@ export function parseTaskEvent(value: unknown): TaskEvent | null {
     }
   }
 
+  let error: TaskFailure | undefined
+  if (Object.hasOwn(value, 'error')) {
+    if (!isRecord(value.error) || !hasExactKeys(value.error, ['code', 'message'])) return null
+    if (!isShortText(value.error.code, 64) || !isShortText(value.error.message, 240)) return null
+    error = { code: value.error.code, message: value.error.message }
+  }
+
   return {
     schemaVersion: DESKTOP_API_VERSION,
     eventType: 'task.state',
     taskId: value.task_id,
     sequence: Number(value.sequence),
     state: value.state as TaskState,
+    ...(taskKind === undefined ? {} : { taskKind }),
+    ...(label === undefined ? {} : { label }),
     ...(progress === undefined ? {} : { progress }),
+    ...(error === undefined ? {} : { error }),
   }
 }
 

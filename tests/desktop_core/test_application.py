@@ -166,6 +166,10 @@ def test_engine_rpc_uses_imported_data_and_restores_latest_document(
     assert created["document"]["schema_version"] == "2.0"
     assert Path(cast(str, created["preview"]["path"])).is_file()
 
+    listed = harness.call("projects.list", {})
+    listed_project = cast(list[dict[str, Any]], listed["projects"])[0]
+    assert listed_project["project_version"] == created["project_version"]
+
     edited = harness.call(
         "engine.actions.execute",
         {
@@ -189,6 +193,51 @@ def test_engine_rpc_uses_imported_data_and_restores_latest_document(
     latest = cast(list[dict[str, Any]], restored["plots"])[0]
     assert (latest["plot_id"], latest["plot_version"]) == ("plot:desktop", 2)
     assert Path(cast(str, latest["preview"]["path"])).is_file()
+
+
+def test_agent_context_contains_each_explicitly_selected_dataset(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-selected-data")
+    datasets = cast(list[dict[str, Any]], imported["datasets"])
+    assert len(datasets) == 2
+
+    result = harness.call(
+        "agent.engine.decide",
+        {
+            "project_id": project_id,
+            "source_dataset_id": datasets[0]["source_dataset_id"],
+            "source_version": datasets[0]["source_version"],
+            "selected_source_datasets": [
+                {
+                    "source_dataset_id": item["source_dataset_id"],
+                    "source_version": item["source_version"],
+                }
+                for item in datasets
+            ],
+            "selected_profile_id": "K01",
+            "user_instruction": "为选中的两张数据表分别绘制折线图",
+            "client_model_run_id": "model-run:selected-data",
+            "expected_version": imported["project_version"],
+        },
+    )
+    assert result["accepted"] is False
+    assert cast(dict[str, object], result["error"])["code"] == "PROVIDER_NOT_CONFIGURED"
+
+    session = harness.application._sessions[project_id]  # noqa: SLF001
+    snapshot = session.agent_runtime.latest_context_snapshot(
+        harness.application._default_conversation_id(project_id)  # noqa: SLF001
+    )
+    assert snapshot is not None
+    source_ids = {
+        item.object_id
+        for item in snapshot.known_objects
+        if item.object_type == "source_dataset"
+    }
+    assert source_ids == {item["source_dataset_id"] for item in datasets}
+    assert {item.source_dataset_id for item in snapshot.field_bindings} == source_ids
+    assert all(item.field_alias.startswith("data_") for item in snapshot.field_bindings)
 
 
 def test_public_export_action_writes_png_without_mutating_plot(

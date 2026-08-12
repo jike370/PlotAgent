@@ -57,7 +57,14 @@ export function applyTaskEvent(
     sequence: event.sequence,
     state: event.state,
     cancellable: isTaskCancellable(event.state),
+    ...(event.taskKind === undefined
+      ? previous?.taskKind === undefined ? {} : { taskKind: previous.taskKind }
+      : { taskKind: event.taskKind }),
+    ...(event.label === undefined
+      ? previous?.label === undefined ? {} : { label: previous.label }
+      : { label: event.label }),
     ...(event.progress === undefined ? {} : { progress: event.progress }),
+    ...(event.error === undefined ? {} : { error: event.error }),
   }
 }
 

@@ -86,6 +86,7 @@ from plotagent.storage import (
     ProjectPackageService,
     ProjectStore,
     SourceDatasetRecord,
+    read_project_revision,
 )
 from plotagent.storage.errors import StorageProblem
 from plotagent.storage.schema import migrate_catalog_v1_to_v2
@@ -286,7 +287,7 @@ class DesktopApplication:
         action = values["action"]
         if not isinstance(action, dict):
             raise RpcServiceError("INVALID_PARAMS", "Engine action must be an object.")
-        task_id = self._begin_task(context, "engine-action")
+        task_id = self._begin_task(context, "engine-action", label="绘图任务")
         try:
             context.tasks.transition(task_id, "running")
             payload = session.engine.execute(
@@ -308,8 +309,8 @@ class DesktopApplication:
                     **payload,
                 },
             )
-        except Exception:
-            self._fail_task(context.tasks, task_id)
+        except Exception as error:
+            self._fail_task(context.tasks, task_id, error)
             raise
 
     def _engine_plots_list(
@@ -358,7 +359,11 @@ class DesktopApplication:
             if preflight.status != "ready":
                 raise RpcServiceError(preflight.error.code.value, preflight.error.message)
             install_dir = Path(preflight.environment.install_dir)
-        task_id = self._begin_task(context, "engine-export")
+        task_id = self._begin_task(
+            context,
+            "engine-export",
+            label=f"导出 {destination.name}",
+        )
         try:
             context.tasks.transition(task_id, "running")
             payload = session.engine.export(
@@ -388,8 +393,8 @@ class DesktopApplication:
                     **payload,
                 },
             )
-        except Exception:
-            self._fail_task(context.tasks, task_id)
+        except Exception as error:
+            self._fail_task(context.tasks, task_id, error)
             raise
 
     def _engine_plots_get(
@@ -579,7 +584,7 @@ class DesktopApplication:
         values = _object(params, required={"project_id", "plan_id"})
         session = self._session(_text(values["project_id"], "project_id"))
         plan_id = _text(values["plan_id"], "plan_id")
-        task_id = self._begin_task(context, "engine-agent-plan")
+        task_id = self._begin_task(context, "engine-agent-plan", label="执行绘图计划")
         try:
             context.tasks.transition(task_id, "running")
             stored = PersistentEngineTaskOrchestrator(
@@ -606,10 +611,10 @@ class DesktopApplication:
                 **payload,
             }
         except EngineTaskExecutionError as error:
-            self._fail_task(context.tasks, task_id)
+            self._fail_task(context.tasks, task_id, error)
             raise RpcServiceError(error.code, str(error)) from None
-        except Exception:
-            self._fail_task(context.tasks, task_id)
+        except Exception as error:
+            self._fail_task(context.tasks, task_id, error)
             raise
 
     @staticmethod
@@ -799,7 +804,16 @@ class DesktopApplication:
         _object(params, required=set())
         return {
             "projects": [
-                self._project_summary(item.project_id, item.display_name, item.last_opened_at)
+                self._project_summary(
+                    item.project_id,
+                    item.display_name,
+                    item.last_opened_at,
+                    project_version=(
+                        self._sessions[item.project_id].domain.revision
+                        if item.project_id in self._sessions
+                        else read_project_revision(item.workspace_path)
+                    ),
+                )
                 for item in self.catalog.list_projects()
             ]
         }
@@ -823,7 +837,10 @@ class DesktopApplication:
                 )
             return {
                 **self._project_summary(
-                    existing.project_id, existing.display_name, existing.last_opened_at
+                    existing.project_id,
+                    existing.display_name,
+                    existing.last_opened_at,
+                    project_version=read_project_revision(existing.workspace_path),
                 ),
                 "replayed": True,
             }
@@ -839,6 +856,7 @@ class DesktopApplication:
                 catalog_project.project_id,
                 catalog_project.display_name,
                 catalog_project.last_opened_at,
+                project_version=0,
             ),
             "replayed": False,
         }
@@ -854,6 +872,11 @@ class DesktopApplication:
             renamed.project_id,
             renamed.display_name,
             renamed.last_opened_at,
+            project_version=(
+                self._sessions[project_id].domain.revision
+                if project_id in self._sessions
+                else read_project_revision(renamed.workspace_path)
+            ),
         )
 
     def _projects_delete(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
@@ -1014,7 +1037,7 @@ class DesktopApplication:
         commit_revision = session.domain.revision
         if expected > commit_revision:
             session.domain.require_revision(expected)
-        task_id = self._begin_task(context, "import")
+        task_id = self._begin_task(context, "import", label=f"导入 {source_path.name}")
         try:
             context.workers.submit(source_path.stat).result()
             context.tasks.transition(
@@ -1047,7 +1070,15 @@ class DesktopApplication:
                 before_commit=before_commit,
             )
             if isinstance(outcome, (Clarification, Rejection)):
-                context.tasks.transition(task_id, "failed")
+                context.tasks.fail(
+                    task_id,
+                    code=outcome.code,
+                    message=(
+                        outcome.question
+                        if isinstance(outcome, Clarification)
+                        else outcome.message
+                    ),
+                )
                 return cast(
                     RpcJsonValue,
                     {
@@ -1073,8 +1104,8 @@ class DesktopApplication:
         except TaskControlError:
             self._cancel_task(context.tasks, task_id)
             raise
-        except Exception:
-            self._fail_task(context.tasks, task_id)
+        except Exception as error:
+            self._fail_task(context.tasks, task_id, error)
             raise
 
     def _datasets_list(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
@@ -1136,6 +1167,7 @@ class DesktopApplication:
                 "network_mode",
                 "provider",
                 "retention_acknowledged",
+                "selected_source_datasets",
                 "target_plot_id",
             },
         )
@@ -1147,18 +1179,69 @@ class DesktopApplication:
             _integer(values["source_version"], "source_version", minimum=1),
         )
         source_table = session.domain.resolve_source(source)
-        source_ref = ContextObjectRef(
-            object_alias="active_data",
-            object_id=source.source_dataset_id,
-            object_version=source.source_version,
-            object_type="source_dataset",
-            content_hash=source.content_hash,
+        selected_sources: list[SourceDataset] = [source]
+        selected_value = values.get("selected_source_datasets")
+        if selected_value is not None:
+            if not isinstance(selected_value, list) or not 1 <= len(selected_value) <= 8:
+                raise RpcServiceError(
+                    "INVALID_PARAMS", "Selected datasets must contain one to eight items."
+                )
+            selected_sources = []
+            selected_keys: set[tuple[str, int]] = set()
+            for item in selected_value:
+                selected_item = _object(
+                    item,
+                    required={"source_dataset_id", "source_version"},
+                )
+                selected_source = session.domain.source_record(
+                    _text(selected_item["source_dataset_id"], "source_dataset_id"),
+                    _integer(
+                        selected_item["source_version"],
+                        "source_version",
+                        minimum=1,
+                    ),
+                )
+                selected_key = (
+                    selected_source.source_dataset_id,
+                    selected_source.source_version,
+                )
+                if selected_key in selected_keys:
+                    raise RpcServiceError(
+                        "INVALID_PARAMS", "Selected datasets must be unique."
+                    )
+                selected_keys.add(selected_key)
+                selected_sources.append(selected_source)
+            primary_key = (source.source_dataset_id, source.source_version)
+            if primary_key not in selected_keys:
+                raise RpcServiceError(
+                    "INVALID_PARAMS", "The active dataset must be selected."
+                )
+            selected_sources.sort(key=lambda item: (item != source, item.source_dataset_id))
+
+        source_records = {
+            (
+                record.source_dataset.source_dataset_id,
+                record.source_dataset.source_version,
+            ): record
+            for record in session.store.list_source_datasets()
+        }
+        multi_source = len(selected_sources) > 1
+        source_refs = tuple(
+            ContextObjectRef(
+                object_alias=("active_data" if not multi_source else f"data_{index}"),
+                object_id=item.source_dataset_id,
+                object_version=item.source_version,
+                object_type="source_dataset",
+                content_hash=item.content_hash,
+            )
+            for index, item in enumerate(selected_sources, start=1)
         )
+        source_ref = source_refs[0]
         target_plot_id = _optional_text(values.get("target_plot_id"), "target_plot_id")
         target_profiles: dict[str, str] = {}
         if target_plot_id is None:
             target = source_ref.model_copy(update={"object_alias": "active_target"})
-            selected_objects: tuple[ContextObjectRef, ...] = ()
+            selected_objects = source_refs[1:]
         else:
             stored = session.engine.documents.get(target_plot_id)
             target = ContextObjectRef(
@@ -1168,7 +1251,7 @@ class DesktopApplication:
                 object_type="plot",
                 content_hash=stored.content_hash,
             )
-            selected_objects = (source_ref,)
+            selected_objects = source_refs
             target_profiles["active_target"] = stored.document.profile_id
 
         selected_profile = _optional_text(
@@ -1220,7 +1303,46 @@ class DesktopApplication:
                     expected_state_version=persisted.state_version,
                 )
 
-        fields, alias_to_field = self._agent_fields(source, source_table.rows)
+        all_fields: list[AuthoritativeField] = []
+        all_aliases: list[tuple[str, str, SourceDataset]] = []
+        all_rows: list[AuthoritativeSampleRow] = []
+        for source_index, selected_source in enumerate(selected_sources, start=1):
+            table = (
+                source_table
+                if selected_source == source
+                else session.domain.resolve_source(selected_source)
+            )
+            record = source_records.get(
+                (selected_source.source_dataset_id, selected_source.source_version)
+            )
+            display_name = (
+                record.display_name
+                if record is not None and record.display_name
+                else selected_source.source_dataset_id
+            )
+            fields, alias_to_field = self._agent_fields(
+                selected_source,
+                table.rows,
+                alias_prefix=f"data_{source_index}_" if multi_source else "",
+                display_prefix=f"{display_name} / " if multi_source else "",
+            )
+            all_fields.extend(fields)
+            all_aliases.extend(
+                (alias, field_id, selected_source)
+                for alias, field_id in alias_to_field.items()
+            )
+            if not multi_source:
+                all_rows.extend(
+                    AuthoritativeSampleRow(
+                        row_id=f"row:context.{source_index}.{row_index + 1}",
+                        values={
+                            field.field_id: table.rows[row_index][field_index]
+                            for field_index, field in enumerate(fields)
+                        },
+                    )
+                    for row_index in range(len(table.rows))
+                )
+        fields = tuple(all_fields)
         known_objects = (target, *selected_objects)
         project_context = ProjectContextService().build_snapshot(
             project_id=session.project_id,
@@ -1232,23 +1354,14 @@ class DesktopApplication:
                 ContextFieldBinding(
                     field_alias=alias,
                     field_id=field_id,
-                    source_dataset_id=source.source_dataset_id,
-                    source_version=source.source_version,
+                    source_dataset_id=field_source.source_dataset_id,
+                    source_version=field_source.source_version,
                 )
-                for alias, field_id in alias_to_field.items()
+                for alias, field_id, field_source in all_aliases
             ),
         )
         session.agent_runtime.save_context_snapshot(project_context)
-        sample_rows = tuple(
-            AuthoritativeSampleRow(
-                row_id=source_table.coordinates[index].source_row_id,
-                values={
-                    field.field_id: source_table.rows[index][field_index]
-                    for field_index, field in enumerate(fields)
-                },
-            )
-            for index in range(len(source_table.rows))
-        )
+        sample_rows = tuple(all_rows)
 
         saved_provider = self._saved_provider_config()
         mode_value = values.get("network_mode")
@@ -1289,11 +1402,13 @@ class DesktopApplication:
             locale=_optional_text(values.get("locale"), "locale") or "zh-CN",
             project=AuthoritativeProjectContext(
                 target=target,
-                dataset_content_hash=source.content_hash,
+                dataset_content_hash=canonical_hash(
+                    cast(JsonValue, [item.content_hash for item in selected_sources])
+                ),
                 fields=fields,
                 sample_rows=sample_rows,
                 selected_objects=selected_objects,
-                explicit_field_aliases=tuple(alias_to_field),
+                explicit_field_aliases=tuple(alias for alias, _, _ in all_aliases),
             ),
             conversation_state=conversation,
             chart_capabilities=ChartCapabilities(
@@ -1378,12 +1493,20 @@ class DesktopApplication:
         return payload
 
     def _agent_fields(
-        self, source: SourceDataset, rows: tuple[tuple[Any, ...], ...]
+        self,
+        source: SourceDataset,
+        rows: tuple[tuple[Any, ...], ...],
+        *,
+        alias_prefix: str = "",
+        display_prefix: str = "",
     ) -> tuple[tuple[AuthoritativeField, ...], dict[str, str]]:
         aliases: dict[str, str] = {}
         fields: list[AuthoritativeField] = []
         for index, field in enumerate(source.field_schema):
-            alias = "x_field" if index == 0 else "y_field" if index == 1 else f"field_{index}"
+            base_alias = (
+                "x_field" if index == 0 else "y_field" if index == 1 else f"field_{index}"
+            )
+            alias = alias_prefix + base_alias
             aliases[alias] = field.field_id
             finite = [
                 float(row[index])
@@ -1396,7 +1519,7 @@ class DesktopApplication:
                 AuthoritativeField(
                     field_alias=cast(Any, alias),
                     field_id=field.field_id,
-                    name=field.name,
+                    name=display_prefix + field.name,
                     logical_type=field.logical_type,
                     unit_text=field.unit.source_text,
                     semantic_role=_semantic_role_from_field_name(field.name),
@@ -1422,7 +1545,12 @@ class DesktopApplication:
         return f"conversation:{suffix}.main"
 
     def _project_summary(
-        self, project_id: str, display_name: str | None, last_opened_at: str
+        self,
+        project_id: str,
+        display_name: str | None,
+        last_opened_at: str,
+        *,
+        project_version: int,
     ) -> dict[str, RpcJsonValue]:
         return {
             "project_id": project_id,
@@ -1430,6 +1558,7 @@ class DesktopApplication:
             "display_name": display_name,
             "last_opened_at": last_opened_at,
             "is_open": project_id in self._sessions,
+            "project_version": project_version,
         }
 
     def _session_summary(
@@ -1501,12 +1630,12 @@ class DesktopApplication:
         }
 
     @staticmethod
-    def _begin_task(context: RpcContext, prefix: str) -> str:
+    def _begin_task(context: RpcContext, prefix: str, *, label: str | None = None) -> str:
         suffix = hashlib.sha256(
             f"{prefix}\0{context.request_id}\0{uuid.uuid4().hex}".encode()
         ).hexdigest()[:24]
         task_id = f"task:{suffix}"
-        context.tasks.register(task_id)
+        context.tasks.register(task_id, kind=prefix, label=label)
         context.tasks.transition(task_id, "preparing")
         return task_id
 
@@ -1524,10 +1653,16 @@ class DesktopApplication:
             tasks.transition(task_id, "cancelled")
 
     @staticmethod
-    def _fail_task(tasks: TaskRegistry, task_id: str) -> None:
+    def _fail_task(tasks: TaskRegistry, task_id: str, error: Exception) -> None:
         state = tasks.state(task_id)
         if state in {"preparing", "running", "committing"}:
-            tasks.transition(task_id, "failed")
+            code = getattr(error, "code", "TASK_FAILED")
+            message = getattr(error, "message", "任务未完成，请检查输入后重试。")
+            if not isinstance(code, str) or not code or len(code) > 64:
+                code = "TASK_FAILED"
+            if not isinstance(message, str) or not message or len(message) > 240:
+                message = "任务未完成，请检查输入后重试。"
+            tasks.fail(task_id, code=code, message=message)
 
 
 @dataclass(frozen=True, slots=True)

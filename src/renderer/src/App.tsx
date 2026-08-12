@@ -31,6 +31,7 @@ import {
   type ProductPlot,
   type ProductProject,
 } from './data/productState'
+import { readWorkspaceSelection, writeWorkspaceSelection } from './data/workspacePersistence'
 import { ChartLibrary } from './components/ChartLibrary'
 import { CompositionEditor } from './components/CompositionEditor'
 import {
@@ -178,6 +179,22 @@ export function App(): React.JSX.Element {
   const activeDataset = datasets.find((dataset) => dataset.datasetId === activeDatasetId) ?? datasets[0]
   const taskCount = Object.values(taskEvents).filter((event) => !['succeeded', 'failed', 'cancelled', 'partially_succeeded', 'interrupted'].includes(event.state)).length
   const activeProjectId = project?.projectId
+
+  const rememberWorkspace = useCallback((selection: {
+    datasetId?: string
+    chartId?: string
+    mapping?: FieldMappingInput | null
+  }): void => {
+    if (!project) return
+    const datasetId = selection.datasetId ?? activeDatasetId
+    const chartId = selection.chartId ?? selectedChart?.id
+    const mapping = selection.mapping === null ? undefined : selection.mapping ?? confirmedMapping
+    writeWorkspaceSelection(window.localStorage, project.projectId, {
+      ...(datasetId === undefined ? {} : { datasetId }),
+      ...(chartId === undefined ? {} : { chartId }),
+      ...(mapping === undefined ? {} : { mapping }),
+    })
+  }, [activeDatasetId, confirmedMapping, project, selectedChart?.id])
 
   const refreshOriginStatus = useCallback(async (reportResult = false): Promise<boolean> => {
     if (!api) return false
@@ -533,8 +550,17 @@ export function App(): React.JSX.Element {
       const opened = valueOrThrow(await api.activateProject({ projectId }))
       const listed = valueOrThrow(await api.listDatasets({ projectId }))
       const next = { ...(known ?? { projectId, name: '本机项目', projectVersion: 0, isOpen: true }), projectVersion: projectVersionFrom(opened, 0), isOpen: true }
-      setProject(next); setDatasets(readDatasets(listed)); setActiveDatasetId(readDatasets(listed)[0]?.datasetId)
-      setPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined); setFigureCandidates([])
+      const nextDatasets = readDatasets(listed)
+      const persisted = readWorkspaceSelection(window.localStorage, projectId)
+      const nextDataset = nextDatasets.find((item) => item.datasetId === persisted?.datasetId) ?? nextDatasets[0]
+      const persistedChart = chartCatalog.find((item) => item.id === persisted?.chartId)
+      const availableFields = new Set(nextDataset?.fields.map((field) => field.fieldId) ?? [])
+      const persistedMapping = persisted?.mapping !== undefined &&
+        Object.values(persisted.mapping.roles).every((fieldId) => availableFields.has(fieldId))
+        ? persisted.mapping
+        : undefined
+      setProject(next); mergeProjects([next]); setDatasets(nextDatasets); setActiveDatasetId(nextDataset?.datasetId)
+      setPlot(undefined); setSelectedChart(persistedChart); setConfirmedMapping(persistedMapping); setFigureCandidates([])
       setAgentPlan(undefined); setAgentOutcome(undefined); setExportRecord(undefined)
       const recovery = await recoverLatestPlot(projectId)
       if (recovery.plot) {
@@ -548,6 +574,11 @@ export function App(): React.JSX.Element {
   const confirmMapping = async (mapping: FieldMappingInput): Promise<void> => {
     if (!api || !project || !activeDataset || !selectedChart) return
     setConfirmedMapping(mapping)
+    rememberWorkspace({
+      datasetId: activeDataset.datasetId,
+      chartId: selectedChart.id,
+      mapping,
+    })
     setBusyAction('plot'); setNotice(undefined)
     try {
       if (!activeDataset.contentHash) throw new Error('当前数据缺少不可变内容标识。')
@@ -898,7 +929,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { invalidateAgentRequest(); setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen(plot?.chartId === 'K25' ? 'composition' : 'focus')} onOpenTasks={() => setTasksOpen(true)} />
+          <ConversationWorkspace core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedChart={selectedChart} plot={plot} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={(id) => { invalidateAgentRequest(); setActiveDatasetId(id); setConfirmedMapping(undefined); setPlot(undefined); setAgentPlan(undefined); rememberWorkspace({ datasetId: id, mapping: null }) }} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen(plot?.chartId === 'K25' ? 'composition' : 'focus')} onOpenTasks={() => setTasksOpen(true)} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && plot?.chartId === 'K25' && <CompositionEditor plot={plot} onClose={() => setScreen('workspace')} />}
@@ -907,7 +938,7 @@ export function App(): React.JSX.Element {
         setLibraryOpen(false)
         if (chart.id === 'K25') { void createComposition(); return }
         invalidateAgentRequest()
-        setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setAgentOutcome(undefined)
+        setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setAgentOutcome(undefined); rememberWorkspace({ chartId: chart.id, mapping: null })
         setNotice(activeDataset ? undefined : { kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '可以继续上传数据。' })
       }} />}
       {tasksOpen && <TaskDrawer tasks={Object.values(taskEvents)} onCancel={(taskId) => { if (api) void api.cancelTask(taskId) }} onClose={() => setTasksOpen(false)} />}

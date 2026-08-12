@@ -56,6 +56,23 @@ describe('desktop contract validation', () => {
     expect(parseCloseResponse({ requestId: 'close:one', choice: 'force-quit' })).toBeNull()
   })
 
+  it('preserves bounded task labels and failure details', () => {
+    expect(parseTaskEvent({
+      schema_version: '1.0',
+      event_type: 'task.state',
+      task_id: 'task:one',
+      sequence: 2,
+      state: 'failed',
+      task_kind: 'import',
+      label: '导入 measurements.csv',
+      error: { code: 'IMPORT_HEADER_AMBIGUOUS', message: '无法确定表头，请指定表头行。' },
+    })).toMatchObject({
+      taskKind: 'import',
+      label: '导入 measurements.csv',
+      error: { code: 'IMPORT_HEADER_AMBIGUOUS', message: '无法确定表头，请指定表头行。' },
+    })
+  })
+
   it('accepts only narrow product inputs without paths or credentials', () => {
     expect(parseProjectResourceInput({ resourceId: 'resource:one' })).toEqual({
       resourceId: 'resource:one',
@@ -126,6 +143,38 @@ describe('desktop contract validation', () => {
       .toEqual({ projectId: 'project:one', planId: 'plan:one', accept: true })
     expect(parseAgentPlanConfirmInput({ projectId: 'project:one', planId: 'plan:one', accept: 'yes' }))
       .toBeNull()
+  })
+
+  it('accepts a bounded explicit multi-dataset Agent context', () => {
+    expect(parseAgentDecideInput({
+      projectId: 'project:one',
+      sourceDatasetId: 'source:one',
+      sourceVersion: 1,
+      selectedDatasets: [
+        { datasetId: 'source:one', sourceVersion: 1 },
+        { datasetId: 'source:two', sourceVersion: 2 },
+      ],
+      expectedVersion: 4,
+      selectedChartId: 'K01',
+      executionMode: 'plan_only',
+      scope: 'selected',
+      utterance: '为选中的数据表分别绘图',
+    })).toMatchObject({
+      selectedDatasets: [
+        { datasetId: 'source:one', sourceVersion: 1 },
+        { datasetId: 'source:two', sourceVersion: 2 },
+      ],
+    })
+    expect(parseAgentDecideInput({
+      projectId: 'project:one',
+      sourceDatasetId: 'source:one',
+      sourceVersion: 1,
+      selectedDatasets: [{ datasetId: 'source:two', sourceVersion: 1 }],
+      expectedVersion: 4,
+      executionMode: 'plan_only',
+      scope: 'selected',
+      utterance: '绘图',
+    })).toBeNull()
   })
 
   it('accepts HTTPS and loopback HTTP custom-provider configuration', () => {

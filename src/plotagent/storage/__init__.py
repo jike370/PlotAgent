@@ -15,7 +15,7 @@ from plotagent.storage.models import (
     SourceDatasetRecord,
 )
 from plotagent.storage.package import OpenedProjectPackage, ProjectPackageService
-from plotagent.storage.project import ProjectStore
+from plotagent.storage.project import ProjectStore, read_project_revision
 
 __all__ = [
     "Catalog",
@@ -32,5 +32,6 @@ __all__ = [
     "ProjectPackageService",
     "ProjectPackageType",
     "ProjectStore",
+    "read_project_revision",
     "SourceDatasetRecord",
 ]

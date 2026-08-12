@@ -4,10 +4,24 @@ import { describe, expect, it } from 'vitest'
 
 import {
   PACKAGED_CORE_RELATIVE_PATH,
+  coreRequestFailure,
   resolveCoreLaunchSpec,
 } from './python-supervisor.js'
 
 describe('resolveCoreLaunchSpec', () => {
+  it('keeps a bounded Core rejection reason for the user', () => {
+    expect(coreRequestFailure({
+      jsonrpc: '2.0',
+      protocol_version: '1.0',
+      id: 'req:one',
+      error: { code: 'INVALID_PARAMS', message: '字段绑定不完整。' },
+    })).toEqual({
+      code: 'CORE_REQUEST_FAILED',
+      message: '字段绑定不完整。',
+      retryable: false,
+    })
+  })
+
   it('uses the bundled onedir sidecar in packaged builds', () => {
     const appPath = join('C:', 'Program Files', 'PlotAgent', 'resources', 'app.asar')
     const resourcesPath = join('C:', 'Program Files', 'PlotAgent', 'resources')

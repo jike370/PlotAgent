@@ -705,6 +705,12 @@ export function registerDesktopIpc({
         project_id: input.projectId,
         source_dataset_id: input.sourceDatasetId,
         source_version: input.sourceVersion,
+        ...(input.selectedDatasets === undefined ? {} : {
+          selected_source_datasets: input.selectedDatasets.map((item) => ({
+            source_dataset_id: item.datasetId,
+            source_version: item.sourceVersion,
+          })),
+        }),
         user_instruction: input.utterance,
         client_model_run_id: `model-run:${randomUUID()}`,
         expected_version: input.expectedVersion,

@@ -39,4 +39,23 @@ describe('ExecutionTask state', () => {
     expect(isLegalTaskTransition('cancelling', 'committing')).toBe(true)
     expect(isLegalTaskTransition('committing', 'succeeded')).toBe(true)
   })
+
+  it('keeps task context and exposes the terminal failure reason', () => {
+    const tracker = new TaskTracker()
+    expect(tracker.apply({
+      ...event('queued', 0),
+      taskKind: 'engine-action',
+      label: '绘图任务',
+    })).toBe(true)
+    expect(tracker.apply(event('preparing', 1))).toBe(true)
+    expect(tracker.apply({
+      ...event('failed', 2),
+      error: { code: 'ENGINE_ACTION_INVALID', message: '字段绑定不完整。' },
+    })).toBe(true)
+    expect(tracker.get('task:one')).toMatchObject({
+      taskKind: 'engine-action',
+      label: '绘图任务',
+      error: { code: 'ENGINE_ACTION_INVALID', message: '字段绑定不完整。' },
+    })
+  })
 })

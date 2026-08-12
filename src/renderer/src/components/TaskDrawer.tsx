@@ -12,6 +12,19 @@ interface TaskDrawerProps {
 
 const terminalStates = new Set(['succeeded', 'failed', 'cancelled', 'partially_succeeded', 'interrupted'])
 
+const stateLabels: Readonly<Record<TaskEvent['state'], string>> = {
+  queued: '排队中',
+  preparing: '准备中',
+  running: '处理中',
+  committing: '保存中',
+  cancelling: '正在取消',
+  succeeded: '已完成',
+  cancelled: '已取消',
+  failed: '失败',
+  partially_succeeded: '部分完成',
+  interrupted: '已中断',
+}
+
 export function TaskDrawer({ tasks, onCancel, onClose }: TaskDrawerProps): React.JSX.Element {
   const [view, setView] = useState<'active' | 'all'>('active')
   const dialogRef = useDialogFocus<HTMLElement>()
@@ -36,11 +49,12 @@ export function TaskDrawer({ tasks, onCancel, onClose }: TaskDrawerProps): React
               <article className={`task-item task-item--${failed ? 'warning' : terminal ? 'success' : task.state === 'queued' ? 'queued' : 'running'}`} key={task.taskId}>
                 <div className="task-item__icon"><Icon className={!terminal && task.state !== 'queued' ? 'spin' : undefined} size={17} /></div>
                 <div className="task-item__content">
-                  <header><strong>{task.taskId}</strong><span>{progress === undefined ? task.state : `${progress}%`}</span></header>
-                  <p>状态 {task.state} · 事件序号 {task.sequence}</p>
+                  <header><strong>{task.label ?? '后台任务'}</strong><span>{progress === undefined ? stateLabels[task.state] : `${progress}%`}</span></header>
+                  <p>{task.error?.message ?? `${stateLabels[task.state]} · ${task.taskKind ?? '通用任务'}`}</p>
                   {progress !== undefined && <div className="task-progress" aria-label={`进度 ${progress}%`}><span style={{ width: `${progress}%` }} /></div>}
+                  {task.error && <small>{task.error.code}</small>}
                 </div>
-                {!terminal && <button type="button" onClick={() => onCancel(task.taskId)} aria-label={`取消任务 ${task.taskId}`}><X size={15} /></button>}
+                {!terminal && <button type="button" onClick={() => onCancel(task.taskId)} aria-label={`取消任务 ${task.label ?? task.taskId}`}><X size={15} /></button>}
               </article>
             )
           })}

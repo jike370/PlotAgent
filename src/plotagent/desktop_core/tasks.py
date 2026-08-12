@@ -59,7 +59,10 @@ class TaskRecord:
     state: str
     sequence: int
     token: CancellationToken
+    kind: str | None = None
+    label: str | None = None
     progress: dict[str, JsonValue] | None = None
+    error: dict[str, JsonValue] | None = None
 
 
 type TaskNotifier = Callable[[dict[str, JsonValue]], None]
@@ -73,14 +76,30 @@ class TaskRegistry:
         self._records: dict[str, TaskRecord] = {}
         self._lock = threading.RLock()
 
-    def register(self, task_id: str, *, state: str = "queued") -> CancellationToken:
+    def register(
+        self,
+        task_id: str,
+        *,
+        state: str = "queued",
+        kind: str | None = None,
+        label: str | None = None,
+    ) -> CancellationToken:
         if not is_identifier(task_id) or state not in _LEGAL_TRANSITIONS:
             raise ValueError("invalid task registration")
+        _validate_task_text(kind, maximum=48, field="kind")
+        _validate_task_text(label, maximum=120, field="label")
         with self._lock:
             if task_id in self._records:
                 raise ValueError("task id is already registered")
             token = CancellationToken()
-            record = TaskRecord(task_id=task_id, state=state, sequence=0, token=token)
+            record = TaskRecord(
+                task_id=task_id,
+                state=state,
+                sequence=0,
+                token=token,
+                kind=kind,
+                label=label,
+            )
             self._records[task_id] = record
             event = self._event(record)
         self._notifier(event)
@@ -120,6 +139,24 @@ class TaskRegistry:
                 )
             record.sequence += 1
             record.progress = progress
+            event = self._event(record)
+        self._notifier(event)
+
+    def fail(self, task_id: str, *, code: str, message: str) -> None:
+        """Finish an active task with a bounded, user-safe failure reason."""
+
+        _validate_task_text(code, maximum=64, field="error code")
+        _validate_task_text(message, maximum=240, field="error message")
+        with self._lock:
+            record = self._require(task_id)
+            if "failed" not in _LEGAL_TRANSITIONS[record.state]:
+                raise TaskControlError(
+                    "TASK_STATE_INVALID",
+                    "The task cannot fail in its current state.",
+                )
+            record.state = "failed"
+            record.sequence += 1
+            record.error = {"code": code, "message": message}
             event = self._event(record)
         self._notifier(event)
 
@@ -167,7 +204,10 @@ class TaskRegistry:
                     "sequence": record.sequence,
                     "state": record.state,
                     "cancellable": record.state in _CANCELLABLE_STATES,
+                    **({"task_kind": record.kind} if record.kind is not None else {}),
+                    **({"label": record.label} if record.label is not None else {}),
                     **({"progress": record.progress} if record.progress is not None else {}),
+                    **({"error": record.error} if record.error is not None else {}),
                 }
                 for record in self._records.values()
             ]
@@ -203,7 +243,10 @@ class TaskRegistry:
             "task_id": record.task_id,
             "sequence": record.sequence,
             "state": record.state,
+            **({"task_kind": record.kind} if record.kind is not None else {}),
+            **({"label": record.label} if record.label is not None else {}),
             **({"progress": record.progress} if record.progress is not None else {}),
+            **({"error": record.error} if record.error is not None else {}),
         }
 
 
@@ -267,3 +310,17 @@ def _validate_progress(progress: dict[str, JsonValue] | None) -> None:
         )
     ):
         raise ValueError("invalid task progress")
+
+
+def _validate_task_text(
+    value: str | None,
+    *,
+    maximum: int,
+    field: str,
+) -> None:
+    if value is None:
+        return
+    if not isinstance(value, str) or not value.strip() or len(value) > maximum:
+        raise ValueError(f"invalid task {field}")
+    if any(ord(character) < 32 for character in value):
+        raise ValueError(f"invalid task {field}")
