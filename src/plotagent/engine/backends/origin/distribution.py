@@ -20,6 +20,7 @@ from plotagent.engine.contracts import (
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import DistributionData, distribution_groups
 from plotagent.engine.repository import document_ref
+from plotagent.plot_calculations.kernels import scott_kde_geometry
 
 from .messages import OriginWorkerRequest
 from .profile import (
@@ -35,6 +36,25 @@ from .trace import origin_trace_step, record_origin_trace
 _TITLE_NAME = "_ENGINE_TITLE"
 _SYMBOL_CODES = {"circle": 2, "square": 1, "triangle": 3, "triangle_up": 3, "diamond": 5}
 _X05_OFFICIAL_MENU_COMMAND = "worksheet -s 1 0 {last_column} 0; worksheet -p 206 Beeswarm;"
+_OFFICIAL_MENU_COMMANDS = {
+    "K12": "worksheet -s 1 0 {last_column} 0; worksheet -p 206 ColumnScatter;",
+    "K13": "worksheet -s 1 0 {last_column} 0; worksheet -p 206 Box;",
+    "K14": "worksheet -s 1 0 {last_column} 0; worksheet -p 206 Violin;",
+}
+
+# Origin 2024's native BoxChart enums (OriginC/System/OC_const.h).
+_BOX_TYPE_BOX = 0
+_BOX_TYPE_DATA = 1
+_BOX_RANGE_25_75 = 2
+_WHISKER_RANGE_OUTLIER = 6
+_DATA_DOTS = 0
+_ARRANGE_JITTER = 1
+
+# Distribution tab order documented by Origin: Scott, Silverman, k*SD, Custom.
+_KERNEL_SMOOTH = 8
+_BANDWIDTH_CUSTOM = 3
+_VIOLIN_SCALE_WIDTH = 1
+_VIOLIN_GRID_POINTS = 256
 
 
 def _safe_label(value: str) -> str:
@@ -106,6 +126,8 @@ class DistributionOriginProject:
             },
         ):
             self._write_data(distribution)
+        if self.profile_id != "X05":
+            self._remove_workbook_residue(book)
         if self.profile_id == "X05":
             command = _X05_OFFICIAL_MENU_COMMAND.format(
                 last_column=len(distribution.groups)
@@ -131,25 +153,36 @@ class DistributionOriginProject:
             record_origin_trace("native_beeswarm_confirmed", "completed", details=native)
             self.layer.rescale()
             return
-        self.graph = self.op.new_graph(
-            f"G{token}",
-            template=str(template.with_suffix(template.suffix.lower())),
-            hidden=True,
+        command = _OFFICIAL_MENU_COMMANDS[self.profile_id].format(
+            last_column=len(distribution.groups)
         )
-        if self.graph is None:
-            raise RuntimeError(
-                f"Origin could not create {self.profile_id} from {self.profile.filename}"
-            )
-        self.layer = self.graph[0]
-        self.plots = []
-        for index in range(len(distribution.groups)):
-            # '?' asks the selected official template for its native plot type.
-            # In particular, K14 must remain a native violin and may never be
-            # simulated with line/fill primitives that create edge artifacts.
-            plot = self.layer.add_plot(self.sheet, coly=index, colx="#", type="?")
-            if plot is None:
-                raise RuntimeError(f"Origin rejected {self.profile_id} native group {index + 1}")
-            self.plots.append(plot)
+        with origin_trace_step(
+            "official_plot_command_execute",
+            details={"labtalk": command, "template_filename": template.name},
+        ):
+            self.sheet.activate()
+            if not self.op.lt_exec(command):
+                raise RuntimeError(
+                    f"Origin rejected the official {self.profile_id} plot command"
+                )
+        with origin_trace_step("native_structure_readback"):
+            graphs = list(self.op.pages("g"))
+            if len(graphs) != 1:
+                raise RuntimeError(
+                    f"Origin {self.profile_id} command must create exactly one graph"
+                )
+            self.graph = graphs[0]
+            self.graph.name = f"G{token}"
+            self.graph.lname = f"{self.profile_id} {template.stem} / {document.plot_id}"
+            self.layer = self.graph[0]
+            self.plots = list(self.layer.plot_list())
+            self._configure_native_profile(distribution)
+            native = self._assert_official_structure(distribution)
+        record_origin_trace(
+            f"native_{self.profile_id.lower()}_confirmed",
+            "completed",
+            details=native,
+        )
         self.layer.rescale()
 
     def _remove_workbook_residue(self, authoritative_book: Any) -> None:
@@ -306,6 +339,8 @@ class DistributionOriginProject:
         }
         if self.profile_id == "X05":
             snapshot.update(self._assert_official_x05_structure(distribution))
+        else:
+            snapshot.update(self._assert_official_structure(distribution))
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
@@ -370,6 +405,237 @@ class DistributionOriginProject:
     def _write_data(self, distribution: DistributionData) -> None:
         for index, group in enumerate(distribution.groups):
             self.sheet.from_list(index, list(group.values), lname=group.label, axis="Y")
+
+    @staticmethod
+    def _theme_descendant(node: Any, name: str) -> Any | None:
+        if node is None:
+            return None
+        if str(node.Name) == name:
+            return node
+        for child in node.Children:
+            match = DistributionOriginProject._theme_descendant(child, name)
+            if match is not None:
+                return match
+        return None
+
+    @classmethod
+    def _required_theme_node(cls, theme: Any, name: str, profile_id: str) -> Any:
+        node = cls._theme_descendant(theme, name)
+        if node is None:
+            raise RuntimeError(
+                f"Origin {profile_id} official template lacks native theme node {name}"
+            )
+        return node
+
+    def _configure_native_profile(self, distribution: DistributionData) -> None:
+        if len(self.plots) != len(distribution.groups):
+            raise RuntimeError(
+                f"Origin {self.profile_id} official command produced the wrong group count"
+            )
+        for plot, group in zip(self.plots, distribution.groups, strict=True):
+            theme = plot.obj.GetTheme()
+            if self.profile_id == "K12":
+                self._required_theme_node(theme, "BoxType", "K12").SetIntValue(
+                    _BOX_TYPE_DATA
+                )
+                self._required_theme_node(theme, "DotPlotType", "K12").SetIntValue(
+                    _DATA_DOTS
+                )
+                self._required_theme_node(theme, "ArrangePoints", "K12").SetIntValue(
+                    _ARRANGE_JITTER
+                )
+            elif self.profile_id == "K13":
+                self._required_theme_node(theme, "BoxType", "K13").SetIntValue(
+                    _BOX_TYPE_BOX
+                )
+                self._required_theme_node(theme, "BoxRange", "K13").SetIntValue(
+                    _BOX_RANGE_25_75
+                )
+                self._required_theme_node(theme, "WhiskerRange", "K13").SetIntValue(
+                    _WHISKER_RANGE_OUTLIER
+                )
+                self._required_theme_node(theme, "WhiskerCoeff", "K13").SetDoubleValue(
+                    1.5
+                )
+                self._required_theme_node(theme, "HasOutliers", "K13").SetIntValue(1)
+            else:
+                bandwidth = scott_kde_geometry(
+                    group.values,
+                    grid_points=_VIOLIN_GRID_POINTS,
+                    extend_bandwidths=0.0,
+                ).bandwidth
+                self._required_theme_node(theme, "CurveType", "K14").SetIntValue(
+                    _KERNEL_SMOOTH
+                )
+                self._required_theme_node(theme, "CurveScale", "K14").SetIntValue(1)
+                self._required_theme_node(theme, "ScaleType", "K14").SetIntValue(
+                    _VIOLIN_SCALE_WIDTH
+                )
+                self._required_theme_node(theme, "KernelSmoothBandwidth", "K14").SetIntValue(
+                    _BANDWIDTH_CUSTOM
+                )
+                self._required_theme_node(
+                    theme, "KernelSmoothBandwidthFactor", "K14"
+                ).SetDoubleValue(bandwidth)
+                self._required_theme_node(theme, "KernelSmoothExtend", "K14").SetDoubleValue(
+                    0.0
+                )
+            plot.obj.PutTheme(theme)
+
+    def _assert_official_structure(
+        self, distribution: DistributionData
+    ) -> dict[str, object]:
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(
+                f"unsafe Origin {self.profile_id} graph name: {graph_name!r}"
+            )
+        self.graph.activate()
+        variable_prefix = f"__{self.profile_id}"
+        self.op.lt_exec(f"page.active=1; layer -c; {variable_prefix}COUNT=count;")
+        plot_count = int(self.op.lt_float(f"{variable_prefix}COUNT"))
+        plot_types: list[int] = []
+        for index in range(1, plot_count + 1):
+            self.op.lt_exec(
+                f"range {variable_prefix}P=[{graph_name}]1!{index}; "
+                f"get {variable_prefix}P -pt {variable_prefix}PT{index};"
+            )
+            plot_types.append(int(self.op.lt_float(f"{variable_prefix}PT{index}")))
+        if plot_count != len(distribution.groups) or any(
+            plot_type != 206 for plot_type in plot_types
+        ):
+            raise RuntimeError(
+                f"Origin {self.profile_id} is not the official PID 206 group structure: "
+                f"plot_types={plot_types}, group_count={len(distribution.groups)}"
+            )
+        actual_designations = [
+            int(self.sheet.get_int(f"col{index + 1}.type"))
+            for index in range(len(distribution.groups))
+        ]
+        if actual_designations != [1] * len(distribution.groups):
+            raise RuntimeError(
+                f"Origin {self.profile_id} source columns must remain native Y columns"
+            )
+        expected_sources = [
+            str(self.sheet.obj[index].DatasetName)
+            for index in range(len(distribution.groups))
+        ]
+        actual_sources = [str(plot.obj.DatasetName) for plot in self.plots]
+        if actual_sources != expected_sources:
+            raise RuntimeError(
+                f"Origin {self.profile_id} native source bindings changed after readback"
+            )
+
+        native_settings: list[dict[str, int | float]] = []
+        for index, (plot, group) in enumerate(
+            zip(self.plots, distribution.groups, strict=True), start=1
+        ):
+            theme = plot.obj.GetTheme()
+            if self.profile_id == "K12":
+                state: dict[str, int | float] = {
+                    "BoxType": int(
+                        self._required_theme_node(theme, "BoxType", "K12").GetIntValue()
+                    ),
+                    "DotPlotType": int(
+                        self._required_theme_node(theme, "DotPlotType", "K12").GetIntValue()
+                    ),
+                    "ArrangePoints": int(
+                        self._required_theme_node(
+                            theme, "ArrangePoints", "K12"
+                        ).GetIntValue()
+                    ),
+                }
+                if state != {
+                    "BoxType": _BOX_TYPE_DATA,
+                    "DotPlotType": _DATA_DOTS,
+                    "ArrangePoints": _ARRANGE_JITTER,
+                }:
+                    raise RuntimeError("Origin K12 lost its native jittered-dot contract")
+            elif self.profile_id == "K13":
+                state = {
+                    "BoxType": int(
+                        self._required_theme_node(theme, "BoxType", "K13").GetIntValue()
+                    ),
+                    "BoxRange": int(
+                        self._required_theme_node(theme, "BoxRange", "K13").GetIntValue()
+                    ),
+                    "WhiskerRange": int(
+                        self._required_theme_node(
+                            theme, "WhiskerRange", "K13"
+                        ).GetIntValue()
+                    ),
+                    "WhiskerCoeff": float(
+                        self._required_theme_node(
+                            theme, "WhiskerCoeff", "K13"
+                        ).GetDoubleValue()
+                    ),
+                    "HasOutliers": int(
+                        self._required_theme_node(
+                            theme, "HasOutliers", "K13"
+                        ).GetIntValue()
+                    ),
+                }
+                if state != {
+                    "BoxType": _BOX_TYPE_BOX,
+                    "BoxRange": _BOX_RANGE_25_75,
+                    "WhiskerRange": _WHISKER_RANGE_OUTLIER,
+                    "WhiskerCoeff": 1.5,
+                    "HasOutliers": 1,
+                }:
+                    raise RuntimeError("Origin K13 lost its explicit Tukey 1.5 x IQR contract")
+            else:
+                expected_bandwidth = scott_kde_geometry(
+                    group.values,
+                    grid_points=_VIOLIN_GRID_POINTS,
+                    extend_bandwidths=0.0,
+                ).bandwidth
+                state = {
+                    "CurveType": int(
+                        self._required_theme_node(theme, "CurveType", "K14").GetIntValue()
+                    ),
+                    "CurveScale": int(
+                        self._required_theme_node(theme, "CurveScale", "K14").GetIntValue()
+                    ),
+                    "ScaleType": int(
+                        self._required_theme_node(theme, "ScaleType", "K14").GetIntValue()
+                    ),
+                    "BandwidthMode": int(
+                        self._required_theme_node(
+                            theme, "KernelSmoothBandwidth", "K14"
+                        ).GetIntValue()
+                    ),
+                    "Bandwidth": float(
+                        self._required_theme_node(
+                            theme, "KernelSmoothBandwidthFactor", "K14"
+                        ).GetDoubleValue()
+                    ),
+                    "Extend": float(
+                        self._required_theme_node(
+                            theme, "KernelSmoothExtend", "K14"
+                        ).GetDoubleValue()
+                    ),
+                }
+                if (
+                    state["CurveType"] != _KERNEL_SMOOTH
+                    or state["CurveScale"] != 1
+                    or state["ScaleType"] != _VIOLIN_SCALE_WIDTH
+                    or state["BandwidthMode"] != _BANDWIDTH_CUSTOM
+                    or abs(float(state["Bandwidth"]) - expected_bandwidth) > 1e-12
+                    or abs(float(state["Extend"])) > 1e-12
+                ):
+                    raise RuntimeError(
+                        f"Origin K14 group {index} lost the shared violin bandwidth contract"
+                    )
+            native_settings.append(state)
+        return {
+            "official_menu_command": _OFFICIAL_MENU_COMMANDS[self.profile_id].format(
+                last_column=len(distribution.groups)
+            ),
+            "native_plot_types": plot_types,
+            "worksheet_designations": actual_designations,
+            "native_sources": actual_sources,
+            "native_settings": native_settings,
+        }
 
     def _assert_official_x05_structure(
         self, distribution: DistributionData

@@ -332,21 +332,27 @@ class K14ViolinRenderer(_DistributionRenderer):
         distribution: DistributionData,
         state: _DistributionState,
     ) -> tuple[int, ...]:
-        result = axis.violinplot(
-            [group.values for group in distribution.groups],
-            positions=np.arange(1, len(distribution.groups) + 1),
-            widths=0.75,
-            showmeans=False,
-            showmedians=True,
-            showextrema=False,
-        )
-        bodies = cast(list[Any], result["bodies"])
-        for group, style, body in zip(
-            distribution.groups,
-            state.series,
-            bodies,
-            strict=True,
+        # Draw each group independently so ``bw_method`` is an explicit
+        # per-group covariance factor.  Matplotlib multiplies this factor by
+        # the sample SD, matching the absolute bandwidth written into
+        # Origin's Custom bandwidth field: sample_SD * n**(-1/5).
+        for position, (group, style) in enumerate(
+            zip(distribution.groups, state.series, strict=True), start=1
         ):
+            result = axis.violinplot(
+                [group.values],
+                positions=[position],
+                widths=0.75,
+                showmeans=False,
+                showmedians=True,
+                showextrema=False,
+                points=256,
+                bw_method=len(group.values) ** (-1.0 / 5.0),
+            )
+            bodies = cast(list[Any], result["bodies"])
+            if len(bodies) != 1:
+                raise RuntimeError("Matplotlib K14 must create one body per raw group")
+            body = bodies[0]
             body.set_facecolor(style.color)
             body.set_edgecolor("#1A1A1A")
             body.set_linewidth(style.line_width_pt)

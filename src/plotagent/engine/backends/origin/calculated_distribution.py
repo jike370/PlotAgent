@@ -21,7 +21,9 @@ from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import (
     DensityData,
     DistributionData,
+    HistogramData,
     distribution_groups,
+    k15_histogram,
     k16_density,
 )
 from plotagent.engine.repository import document_ref
@@ -36,6 +38,8 @@ from .profile import (
 
 _LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
 _TITLE_NAME = "_ENGINE_TITLE"
+_HISTOGRAM_PID = 219
+_HISTOGRAM_DATA_HEIGHT_COUNT = 0
 
 
 def _safe_label(value: str) -> str:
@@ -105,6 +109,8 @@ class CalculatedDistributionOriginProject:
             ]
             if len(self.plots) != 1:
                 raise RuntimeError("Origin Hist command must create one native histogram plot")
+            self._configure_native_histogram(k15_histogram(document, data))
+            self._assert_native_histogram(k15_histogram(document, data))
             self.layer.rescale()
             return
         self.graph = self.op.new_graph(
@@ -271,6 +277,7 @@ class CalculatedDistributionOriginProject:
         actions: tuple[PlotEngineAction, ...],
         data: EngineDataView,
     ) -> EngineReadback:
+        native_histogram: dict[str, object] | None = None
         if self.profile_id == "K15":
             distribution = distribution_groups(document, data, profile_id="K15")
             if len(distribution.groups) != 1:
@@ -284,9 +291,8 @@ class CalculatedDistributionOriginProject:
                 distribution.groups[0].values,
                 "raw observations",
             )
-            self.graph.activate()
-            if int(self.op.lt_float("layer.plot1.pid")) != 219:
-                raise RuntimeError("Origin K15 did not retain the native Histogram plot type")
+            histogram = k15_histogram(document, data)
+            native_histogram = self._assert_native_histogram(histogram)
         else:
             density = k16_density(document, data)
             if len(self.plots) != len(density.series):
@@ -298,6 +304,8 @@ class CalculatedDistributionOriginProject:
                 )
         token = document.plot_id.removeprefix("plot:")
         snapshot: dict[str, object] = {"profile": self.profile_id, "series": len(self.plots)}
+        if native_histogram is not None:
+            snapshot["native_histogram"] = native_histogram
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
@@ -379,6 +387,100 @@ class CalculatedDistributionOriginProject:
             lname=distribution.value_field_name,
             axis="Y",
         )
+
+    @staticmethod
+    def _theme_descendant(node: Any, name: str) -> Any | None:
+        if node is None:
+            return None
+        if str(node.Name) == name:
+            return node
+        for child in node.Children:
+            match = CalculatedDistributionOriginProject._theme_descendant(child, name)
+            if match is not None:
+                return match
+        return None
+
+    @classmethod
+    def _required_theme_node(cls, theme: Any, name: str) -> Any:
+        node = cls._theme_descendant(theme, name)
+        if node is None:
+            raise RuntimeError(f"Origin K15 official template lacks native theme node {name}")
+        return node
+
+    def _configure_native_histogram(self, histogram: HistogramData) -> None:
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe Origin K15 graph name: {graph_name!r}")
+        if len(histogram.left) == 0 or len(histogram.right) != len(histogram.left):
+            raise RuntimeError("K15 frozen histogram has invalid bin geometry")
+        begin = float(histogram.left[0])
+        end = float(histogram.right[-1])
+        size = float(histogram.right[0] - histogram.left[0])
+        if size <= 0:
+            raise RuntimeError("K15 frozen histogram bin size must be positive")
+        self.graph.activate()
+        command = (
+            f"range __K15P=[{graph_name}]1!1; "
+            f"set __K15P -hbb {begin:.17g}; "
+            f"set __K15P -hbe {end:.17g}; "
+            f"set __K15P -hbs {size:.17g};"
+        )
+        if not self.op.lt_exec(command):
+            raise RuntimeError("Origin could not write the frozen K15 native histogram bins")
+        theme = self.plots[0].obj.GetTheme()
+        self._required_theme_node(theme, "DataHeightType").SetIntValue(
+            _HISTOGRAM_DATA_HEIGHT_COUNT
+        )
+        self.plots[0].obj.PutTheme(theme)
+
+    def _assert_native_histogram(self, histogram: HistogramData) -> dict[str, object]:
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe Origin K15 graph name: {graph_name!r}")
+        self.graph.activate()
+        command = (
+            f"range __K15P=[{graph_name}]1!1; "
+            "get __K15P -pt __K15PID; "
+            "get __K15P -hbb __K15BEGIN; "
+            "get __K15P -hbe __K15END; "
+            "get __K15P -hbs __K15SIZE;"
+        )
+        if not self.op.lt_exec(command):
+            raise RuntimeError("Origin could not read the K15 native histogram properties")
+        plot_type = int(self.op.lt_float("__K15PID"))
+        begin = float(self.op.lt_float("__K15BEGIN"))
+        end = float(self.op.lt_float("__K15END"))
+        size = float(self.op.lt_float("__K15SIZE"))
+        expected_begin = float(histogram.left[0])
+        expected_end = float(histogram.right[-1])
+        expected_size = float(histogram.right[0] - histogram.left[0])
+        if plot_type != _HISTOGRAM_PID:
+            raise RuntimeError("Origin K15 did not retain the native PID 219 Histogram")
+        for label, actual, expected in (
+            ("begin", begin, expected_begin),
+            ("end", end, expected_end),
+            ("size", size, expected_size),
+        ):
+            tolerance = max(1e-12, abs(expected) * 1e-12)
+            if abs(actual - expected) > tolerance:
+                raise RuntimeError(
+                    f"Origin K15 frozen histogram {label} differs after native readback"
+                )
+        theme = self.plots[0].obj.GetTheme()
+        data_height = int(
+            self._required_theme_node(theme, "DataHeightType").GetIntValue()
+        )
+        if data_height != _HISTOGRAM_DATA_HEIGHT_COUNT:
+            raise RuntimeError("Origin K15 Data Height must read back as Count")
+        return {
+            "plot_type": plot_type,
+            "bin_begin": begin,
+            "bin_end": end,
+            "bin_size": size,
+            "bin_count": len(histogram.count),
+            "data_height": "Count",
+            "rule": histogram.rule,
+        }
 
     def _write_density(self, density: DensityData) -> None:
         for index, series in enumerate(density.series):

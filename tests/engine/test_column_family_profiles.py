@@ -261,11 +261,46 @@ class _Axis:
 
 
 class _Plot:
-    def __init__(self) -> None:
+    def __init__(self, dataset_name: str = "") -> None:
+        self.obj = self
+        self.DatasetName = dataset_name
         self._color = (22, 118, 210)
         self.floats = {"line.width": 0.8}
         self.commands: list[str] = []
         self.ints = {"show": 1}
+        self.theme = _ThemeNode(
+            "Root",
+            children=(
+                _ThemeNode(
+                    "Histogram",
+                    children=(
+                        _ThemeNode(
+                            "BoxChart",
+                            children=(
+                                _ThemeNode("BoxType"),
+                                _ThemeNode("BoxRange"),
+                                _ThemeNode("WhiskerRange"),
+                                _ThemeNode("WhiskerCoeff", double=1.0),
+                                _ThemeNode("HasOutliers"),
+                                _ThemeNode("DotPlotType"),
+                                _ThemeNode("ArrangePoints"),
+                            ),
+                        ),
+                        _ThemeNode(
+                            "Distribution",
+                            children=(
+                                _ThemeNode("CurveType"),
+                                _ThemeNode("CurveScale"),
+                                _ThemeNode("ScaleType"),
+                                _ThemeNode("KernelSmoothBandwidth"),
+                                _ThemeNode("KernelSmoothBandwidthFactor", double=0.0),
+                                _ThemeNode("KernelSmoothExtend", double=0.0),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
 
     @property
     def color(self):
@@ -287,11 +322,25 @@ class _Plot:
     def get_int(self, name: str) -> int:
         return self.ints.get(name, 0)
 
+    def GetTheme(self):
+        return self.theme
+
+    def PutTheme(self, theme) -> None:
+        assert theme is self.theme
+
 
 class _ThemeNode:
-    def __init__(self, name: str, value: int = 0, children=()) -> None:
+    def __init__(
+        self,
+        name: str,
+        value: int = 0,
+        children=(),
+        *,
+        double: float | None = None,
+    ) -> None:
         self.Name = name
         self.nVal = value
+        self.dVal = float(value) if double is None else double
         self.Children = list(children)
 
     def SetIntValue(self, value: int) -> None:
@@ -299,6 +348,15 @@ class _ThemeNode:
 
     def GetValue(self) -> int:
         return self.nVal
+
+    def GetIntValue(self) -> int:
+        return self.nVal
+
+    def SetDoubleValue(self, value: float) -> None:
+        self.dVal = value
+
+    def GetDoubleValue(self) -> float:
+        return self.dVal
 
 
 class _Layer:
@@ -324,7 +382,9 @@ class _Layer:
 
     def add_plot(self, sheet, **kwargs):
         self.add_calls.append(kwargs)
-        plot = _Plot()
+        coly = kwargs.get("coly")
+        dataset_name = "" if coly is None else sheet.obj[int(coly)].DatasetName
+        plot = _Plot(dataset_name)
         self.plots.append(plot)
         return plot
 
@@ -410,6 +470,18 @@ class _Sheet:
         column = int(name.removeprefix("col").split(".", 1)[0]) - 1
         return self.designations[column]
 
+    @property
+    def obj(self):
+        return self
+
+    def __getitem__(self, column: int):
+        return _DataColumn(f"{self.origin.book.name}_Sheet1_{column + 1}")
+
+
+class _DataColumn:
+    def __init__(self, dataset_name: str) -> None:
+        self.DatasetName = dataset_name
+
 
 class _Book:
     def __init__(self, origin: _Origin) -> None:
@@ -469,6 +541,16 @@ class _Origin:
                     f"\\l({index}) %({index})" for index in range(self.book.sheet.cols - 1, 0, -1)
                 )
             )
+        elif "worksheet -p 206" in command:
+            menu_name = command.split("worksheet -p 206 ", 1)[1].split(";", 1)[0]
+            self.graph.layer.plots.clear()
+            self.graph.layer.add_calls.clear()
+            for column in range(self.book.sheet.cols):
+                self.graph.layer.add_plot(
+                    self.book.sheet,
+                    coly=column,
+                    official=menu_name,
+                )
         elif command.startswith("legendupdate"):
             self.graph.layer.labels["legend"] = _Label(
                 "\n".join(
@@ -484,6 +566,10 @@ class _Origin:
         return True
 
     def lt_float(self, expression: str) -> float:
+        if expression.startswith(("__K12COUNT", "__K13COUNT", "__K14COUNT")):
+            return float(len(self.graph.layer.plots))
+        if expression.startswith(("__K12PT", "__K13PT", "__K14PT")):
+            return 206.0
         if expression.startswith("layer.plot") and expression.endswith(".pid"):
             return 203.0 if "plot_gindexed" in self.commands[0] else 213.0
         if expression.startswith("__K") and expression.endswith("ENABLED"):
@@ -799,12 +885,66 @@ def test_distribution_origin_uses_only_the_official_native_plot_type(
         project.apply(document, action, view)
     readback = project.verify(document, actions, view)
 
-    assert Path(origin.template).name.lower() == profile.filename.lower()
+    assert origin.template == ""
+    menu_name = {"K12": "ColumnScatter", "K13": "Box", "K14": "Violin"}[profile_id]
+    assert origin.commands[0] == (
+        f"worksheet -s 1 0 3 0; worksheet -p 206 {menu_name};"
+    )
     assert origin.graph.layer.add_calls == [
-        {"coly": index, "colx": "#", "type": "?"} for index in range(3)
+        {"coly": index, "official": menu_name} for index in range(3)
     ]
     assert (
         len([item for item in readback.objects if item.object_kind.endswith("native_group")]) == 3
     )
     assert "line" not in str(origin.graph.layer.add_calls).lower()
     assert "fill" not in str(origin.graph.layer.add_calls).lower()
+
+    first_theme = origin.graph.layer.plots[0].GetTheme()
+    histogram = first_theme.Children[0]
+    box_chart, distribution = histogram.Children
+    box_values = {node.Name: node for node in box_chart.Children}
+    distribution_values = {node.Name: node for node in distribution.Children}
+    if profile_id == "K12":
+        assert box_values["BoxType"].GetIntValue() == 1
+        assert box_values["DotPlotType"].GetIntValue() == 0
+        assert box_values["ArrangePoints"].GetIntValue() == 1
+    elif profile_id == "K13":
+        assert box_values["BoxType"].GetIntValue() == 0
+        assert box_values["BoxRange"].GetIntValue() == 2
+        assert box_values["WhiskerRange"].GetIntValue() == 6
+        assert box_values["WhiskerCoeff"].GetDoubleValue() == pytest.approx(1.5)
+        assert box_values["HasOutliers"].GetIntValue() == 1
+    else:
+        expected_bandwidth = np.std((11, 12, 13, 14, 15, 16), ddof=1) * 6 ** (-1 / 5)
+        assert distribution_values["CurveType"].GetIntValue() == 8
+        assert distribution_values["CurveScale"].GetIntValue() == 1
+        assert distribution_values["ScaleType"].GetIntValue() == 1
+        assert distribution_values["KernelSmoothBandwidth"].GetIntValue() == 3
+        assert distribution_values[
+            "KernelSmoothBandwidthFactor"
+        ].GetDoubleValue() == pytest.approx(expected_bandwidth)
+        assert distribution_values["KernelSmoothExtend"].GetDoubleValue() == 0.0
+
+
+def test_k14_matplotlib_writes_the_same_per_group_scott_bandwidth_contract() -> None:
+    document, actions, view = _distribution_case("K14", 3)
+    renderer = K14ViolinRenderer()
+    distribution = distribution_groups(document, view, profile_id="K14")
+    state = renderer._state(document, actions, distribution)
+    figure, axis = plt.subplots()
+    original = axis.violinplot
+    calls: list[dict[str, object]] = []
+
+    def capture(*args, **kwargs):
+        calls.append(dict(kwargs))
+        return original(*args, **kwargs)
+
+    axis.violinplot = capture  # type: ignore[method-assign]
+    renderer._draw(axis, distribution, state)
+    plt.close(figure)
+
+    assert len(calls) == 3
+    for call, group in zip(calls, distribution.groups, strict=True):
+        assert call["bw_method"] == pytest.approx(len(group.values) ** (-1 / 5))
+        assert call["points"] == 256
+        assert call["showextrema"] is False

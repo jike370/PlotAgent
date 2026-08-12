@@ -124,9 +124,25 @@ def test_calculated_distribution_matplotlib_renderers_accept_raw_observations(
 
 
 class _Plot:
-    def __init__(self) -> None:
+    def __init__(self, dataset_name: str = "") -> None:
+        self.obj = self
+        self.DatasetName = dataset_name
         self.values = {"show": 1}
         self.command = ""
+        self.theme = _ThemeNode(
+            "Root",
+            children=(
+                _ThemeNode(
+                    "Histogram",
+                    children=(
+                        _ThemeNode(
+                            "BoxChart",
+                            children=(_ThemeNode("DataHeightType"),),
+                        ),
+                    ),
+                ),
+            ),
+        )
 
     def set_int(self, name: str, value: int) -> None:
         self.values[name] = value
@@ -136,6 +152,25 @@ class _Plot:
 
     def set_cmd(self, command: str) -> None:
         self.command = command
+
+    def GetTheme(self):
+        return self.theme
+
+    def PutTheme(self, theme) -> None:
+        assert theme is self.theme
+
+
+class _ThemeNode:
+    def __init__(self, name: str, value: int = 0, children=()) -> None:
+        self.Name = name
+        self.nVal = value
+        self.Children = list(children)
+
+    def SetIntValue(self, value: int) -> None:
+        self.nVal = value
+
+    def GetIntValue(self) -> int:
+        return self.nVal
 
 
 class _Layer:
@@ -147,7 +182,9 @@ class _Layer:
         return self.plots
 
     def add_plot(self, sheet, **kwargs) -> _Plot:
-        plot = _Plot()
+        coly = kwargs.get("coly")
+        dataset_name = "" if coly is None else f"DataBook_Sheet1_{int(coly) + 1}"
+        plot = _Plot(dataset_name)
         self.plots.append(plot)
         self.add_calls.append(kwargs)
         return plot
@@ -158,6 +195,7 @@ class _Layer:
 
 class _Graph:
     def __init__(self) -> None:
+        self.name = "Graph1"
         self.layer = _Layer()
         self.lname = ""
 
@@ -207,6 +245,7 @@ class _Origin:
         self.graph = _Graph()
         self.book = _Book(self)
         self.template = ""
+        self.histogram_values: dict[str, float] = {}
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -221,9 +260,27 @@ class _Origin:
     def pages(self, kind: str):
         return [self.graph] if kind == "g" else [self.book]
 
+    def lt_exec(self, command: str) -> bool:
+        for option, variable in (
+            ("-hbb", "__K15BEGIN"),
+            ("-hbe", "__K15END"),
+            ("-hbs", "__K15SIZE"),
+        ):
+            marker = f"set __K15P {option} "
+            if marker in command:
+                self.histogram_values[variable] = float(
+                    command.split(marker, 1)[1].split(";", 1)[0]
+                )
+        return True
+
     def lt_float(self, expression: str) -> float:
-        assert expression == "layer.plot1.pid"
-        return 219.0
+        if expression == "__K15PID":
+            return 219.0
+        if expression in self.histogram_values:
+            return self.histogram_values[expression]
+        if expression == "layer.plot1.pid":
+            return 219.0
+        raise AssertionError(expression)
 
 
 @pytest.mark.parametrize(
@@ -263,6 +320,21 @@ def test_origin_binders_use_native_origin_geometry_from_raw_observations(
         ]
         assert set(origin.book.sheet.columns) == {0}
         assert origin.book.sheet.columns[0] == [1.0, 1.5, 2.0, 2.5, 4.0, 4.5]
+        histogram = k15_histogram(document, view)
+        assert origin.histogram_values == {
+            "__K15BEGIN": pytest.approx(histogram.left[0]),
+            "__K15END": pytest.approx(histogram.right[-1]),
+            "__K15SIZE": pytest.approx(histogram.right[0] - histogram.left[0]),
+        }
+        data_height = (
+            origin.graph.layer.plots[0]
+            .GetTheme()
+            .Children[0]
+            .Children[0]
+            .Children[0]
+        )
+        assert data_height.Name == "DataHeightType"
+        assert data_height.GetIntValue() == 0
     else:
         assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
 
