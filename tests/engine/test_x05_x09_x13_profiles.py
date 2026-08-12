@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import re
 import warnings
 from pathlib import Path
 
@@ -415,6 +416,13 @@ class _Origin:
         self.template = ""
         self.ranges: list[tuple[object, ...]] = []
         self.commands: list[str] = []
+        self.active_layer = 1
+        self.x13_styles = {
+            1: {"color": 0, "width": 1.0},
+            2: {"color": 0, "width": 1.0},
+        }
+        self.x13_plot_ids = {1: 203.0, 2: 203.0}
+        self.x13_exchange_xy = {1: 1.0, 2: 1.0}
 
     def new(self, *, asksave: bool) -> None:
         assert asksave is False
@@ -440,21 +448,60 @@ class _Origin:
 
     def lt_exec(self, command: str) -> bool:
         self.commands.append(command)
-        if "Beeswarm" in command:
+        active = re.search(r"page\.active=(\d+)", command)
+        if active:
+            self.active_layer = int(active.group(1))
+        if "run.section(plot,PopulationPyramid)" in command:
+            self.graph = _Graph(2)
+            for layer in self.graph:
+                layer.plots = [_Plot()]
+        elif "Beeswarm" in command:
             self.graph = _Graph(1)
             self.graph[0].plots = [_Plot() for _index in range(len(self.book.sheet.columns))]
         elif command.startswith("legendbox"):
             assert self.graph is not None
             self.graph[0].labels["legend"] = _Label("data symbols")
+        color = re.search(r'set %C -pfb color\("(#[0-9A-Fa-f]{6})"\)', command)
+        if color:
+            self.x13_styles[self.active_layer]["color"] = int(color.group(1)[1:], 16)
+        width = re.search(r"set %C -pbw ([0-9.]+)", command)
+        if width:
+            self.x13_styles[self.active_layer]["width"] = float(width.group(1))
         return True
 
     def lt_float(self, expression: str) -> float:
+        color = re.fullmatch(r'color\("(#[0-9A-Fa-f]{6})"\)', expression)
+        if color:
+            return float(int(color.group(1)[1:], 16))
         assert self.graph is not None
         if expression == "__X05COUNT":
             return float(len(self.graph[0].plots))
         if expression.startswith("__X05PT"):
             return 206.0
+        native = re.fullmatch(r"__X13([12])(PT|SX|SXS|SY|SYS)", expression)
+        if native:
+            if native.group(2) == "PT":
+                return self.x13_plot_ids[int(native.group(1))]
+            return {
+                "SX": 0.0,
+                "SXS": 1.0,
+                "SY": 0.0,
+                "SYS": 1.0,
+            }[native.group(2)]
+        exchange = re.fullmatch(r"__X13EX([12])", expression)
+        if exchange:
+            return self.x13_exchange_xy[int(exchange.group(1))]
+        style = re.fullmatch(r"__X13STYLE([12])([CW])", expression)
+        if style:
+            key = "color" if style.group(2) == "C" else "width"
+            return float(self.x13_styles[int(style.group(1))][key])
         return 0.0
+
+    def get_lt_str(self, expression: str) -> str:
+        source = re.fullmatch(r"__X13([12])([XY])S", expression)
+        assert source is not None
+        column = "A" if source.group(2) == "X" else ("B" if source.group(1) == "1" else "C")
+        return f'[{self.book.name}]Sheet1!{column}"'
 
 
 def test_x05_origin_binds_dynamic_groups_to_official_template(
@@ -617,15 +664,57 @@ def test_x13_origin_uses_both_official_template_layers(
     for action in actions:
         project.apply(document, action, view)
     readback = project.verify(document, actions, view)
-    assert Path(origin.template).name.lower() == X13_ORIGIN_PROFILE.filename.lower()
+    assert any("run.section(plot,PopulationPyramid)" in command for command in origin.commands)
     assert origin.graph is not None
-    assert [layer.add_calls for layer in origin.graph] == [
-        [{"coly": 1, "colx": 0, "type": 215}],
-        [{"coly": 2, "colx": 0, "type": 215}],
-    ]
+    assert [layer.add_calls for layer in origin.graph] == [[], []]
     assert (
-        len([item for item in readback.objects if item.object_kind == "native_population_bar"]) == 2
+        len(
+            [
+                item
+                for item in readback.objects
+                if item.object_kind == "native_population_column"
+            ]
+        )
+        == 2
     )
+
+
+def test_x13_origin_uses_official_column_exchange_section_without_bar_rebuild() -> None:
+    source = inspect.getsource(x13_origin)
+
+    assert "run.section(plot,PopulationPyramid)" in source
+    assert "_COLUMN = 203" in source
+    assert "layer.exchangexy" in source
+    assert ".add_plot(" not in inspect.getsource(X13OriginProject)
+    assert "215" not in inspect.getsource(X13OriginProject)
+
+
+@pytest.mark.parametrize(
+    ("plot_ids", "exchange_xy", "message"),
+    (
+        ({1: 215.0, 2: 203.0}, {1: 1.0, 2: 1.0}, "ordinary Column PID 203"),
+        ({1: 203.0, 2: 203.0}, {1: 0.0, 2: 1.0}, "lost PopulationPyramid ExchangeXY"),
+    ),
+)
+def test_x13_rejects_bar_or_non_exchanged_template_structure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    plot_ids: dict[int, float],
+    exchange_xy: dict[int, float],
+    message: str,
+) -> None:
+    document, _actions, view = _x13_case()
+    monkeypatch.setattr(
+        x13_origin,
+        "resolve_official_template",
+        lambda _install, profile: tmp_path / profile.filename,
+    )
+    origin = _Origin()
+    origin.x13_plot_ids = plot_ids
+    origin.x13_exchange_xy = exchange_xy
+
+    with pytest.raises(RuntimeError, match=message):
+        X13OriginProject(origin).create(tmp_path, document, view)
 
 
 def test_profiles_publish_only_shared_agent_actions_and_pinned_templates() -> None:

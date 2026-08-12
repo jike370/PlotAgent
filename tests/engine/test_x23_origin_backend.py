@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import re
 from pathlib import Path
 
 import pytest
@@ -92,10 +93,7 @@ class FakeLayer:
         self.strings: dict[str, str] = {}
 
     def add_plot(self, sheet, *, coly, colx, type):
-        assert type == "l"
-        plot = FakePlot()
-        self.plots.append(plot)
-        return plot
+        raise AssertionError("X23 must not manually add plots after the official menu section")
 
     def plot_list(self):
         return self.plots
@@ -161,21 +159,42 @@ class FakeSheet:
     def cols_axis(self, value: str) -> None:
         self.designation = value
 
+    def get_int(self, expression: str) -> int:
+        index = int(expression.removeprefix("col").removesuffix(".type")) - 1
+        return (4, 1, 1)[index]
+
+    def activate(self) -> None:
+        return None
+
+    def lt_exec(self, command: str) -> bool:
+        return True
+
 
 class FakeBook:
     def __init__(self) -> None:
+        self.name = "Dorigin_dual"
         self.sheet = FakeSheet()
 
     def __getitem__(self, index: int):
         assert index == 0
         return self.sheet
 
+    def destroy(self) -> None:
+        raise AssertionError("the authoritative X23 workbook must not be destroyed")
+
 
 class FakeOrigin:
     def __init__(self) -> None:
         self.book = FakeBook()
         self.graph = FakeGraph()
-        self.template = ""
+        self.commands: list[str] = []
+        self.active_layer = 1
+        self.styles = {
+            1: {"color": 0, "width": 500.0, "style": 0},
+            2: {"color": 0, "width": 500.0, "style": 0},
+        }
+        self.plot_ids = {1: 202.0, 2: 202.0}
+        self.links = {"target": 1.0, "x": 1.0, "y": 0.0}
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -184,10 +203,59 @@ class FakeOrigin:
         assert kind == "w"
         return self.book
 
-    def new_graph(self, name, *, template, hidden):
-        self.graph.name = name
-        self.template = template
-        return self.graph
+    def pages(self, kind: str):
+        return [self.book] if kind == "w" else [self.graph]
+
+    def lt_exec(self, command: str) -> bool:
+        self.commands.append(command)
+        active = re.search(r"page\.active=(\d+)", command)
+        if active:
+            self.active_layer = int(active.group(1))
+        if "run.section(plot,2Ys_Y-Y)" in command:
+            for layer in self.graph.layers:
+                layer.plots = [FakePlot()]
+        color = re.search(r'set %C -cl color\("(#[0-9A-Fa-f]{6})"\)', command)
+        if color:
+            self.styles[self.active_layer]["color"] = int(color.group(1)[1:], 16)
+        width = re.search(r"set %C -wp ([0-9.]+)", command)
+        if width:
+            self.styles[self.active_layer]["width"] = float(width.group(1)) * 500.0
+        style = re.search(r"set %C -d (\d+)", command)
+        if style:
+            self.styles[self.active_layer]["style"] = int(style.group(1))
+        return True
+
+    def lt_float(self, expression: str) -> float:
+        color = re.fullmatch(r'color\("(#[0-9A-Fa-f]{6})"\)', expression)
+        if color:
+            return float(int(color.group(1)[1:], 16))
+        if expression in {"__X23LINK", "__X23XLINK"}:
+            return self.links["target" if expression == "__X23LINK" else "x"]
+        if expression == "__X23YLINK":
+            return self.links["y"]
+        native = re.fullmatch(r"__X23([12])(PT|K|Z|SX|SXS|SY|SYS)", expression)
+        if native:
+            if native.group(2) == "PT":
+                return self.plot_ids[int(native.group(1))]
+            return {
+                "K": 2.0,
+                "Z": 5.0,
+                "SX": 0.0,
+                "SXS": 1.0,
+                "SY": 0.0,
+                "SYS": 1.0,
+            }[native.group(2)]
+        style = re.fullmatch(r"__X23STYLE([12])([CWD])", expression)
+        if style:
+            key = {"C": "color", "W": "width", "D": "style"}[style.group(2)]
+            return float(self.styles[int(style.group(1))][key])
+        return 0.0
+
+    def get_lt_str(self, expression: str) -> str:
+        source = re.fullmatch(r"__X23([12])([XY])S", expression)
+        assert source is not None
+        column = "A" if source.group(2) == "X" else ("B" if source.group(1) == "1" else "C")
+        return f'[{self.book.name}]Sheet1!{column}"'
 
 
 def _case():
@@ -303,13 +371,49 @@ def test_x23_binder_uses_doubley_template_and_two_native_layers(
     readback = project.verify(document, actions, view)
 
     assert readback.document.plot_version == 6
-    assert Path(op.template).name.casefold() == X23_ORIGIN_PROFILE.filename.casefold()
+    assert any("run.section(plot,2Ys_Y-Y)" in command for command in op.commands)
     assert [len(layer.plots) for layer in op.graph.layers] == [1, 1]
     assert op.book.sheet.designation == "xyy"
-    assert op.graph.layers[0].plots[0].color == (15, 118, 110)
-    assert op.graph.layers[1].plots[0].color == (190, 18, 60)
-    assert "\\l(1, style:l)" in op.graph.layers[0].labels["legend"].text
-    assert "\\l(2.1, style:l)" in op.graph.layers[0].labels["legend"].text
+    assert op.styles[1]["color"] == int("0F766E", 16)
+    assert op.styles[2]["color"] == int("BE123C", 16)
+    assert "\\l(1)" in op.graph.layers[0].labels["legend"].text
+    assert "\\l(2.1)" in op.graph.layers[0].labels["legend"].text
+
+
+def test_x23_origin_uses_official_line_symbol_section_without_manual_line_rebuild() -> None:
+    source = inspect.getsource(x23_module)
+
+    assert "run.section(plot,2Ys_Y-Y)" in source
+    assert "_LINE_SYMBOL = 202" in source
+    assert ".add_plot(" not in inspect.getsource(X23OriginProject)
+    assert 'type="l"' not in inspect.getsource(X23OriginProject)
+    assert "style:l" not in source
+
+
+@pytest.mark.parametrize(
+    ("plot_ids", "links", "message"),
+    (
+        ({1: 200.0, 2: 202.0}, {"target": 1.0, "x": 1.0, "y": 0.0}, "Line\\+Symbol PID 202"),
+        ({1: 202.0, 2: 202.0}, {"target": 1.0, "x": 0.0, "y": 0.0}, "straight 1:1 X"),
+        ({1: 202.0, 2: 202.0}, {"target": 1.0, "x": 1.0, "y": 1.0}, "independent Y"),
+    ),
+)
+def test_x23_rejects_plain_line_or_invalid_layer_linkage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    plot_ids: dict[int, float],
+    links: dict[str, float],
+    message: str,
+) -> None:
+    document, _actions, view = _case()
+    template = tmp_path / X23_ORIGIN_PROFILE.filename
+    monkeypatch.setattr(x23_module, "resolve_official_template", lambda install, profile: template)
+    op = FakeOrigin()
+    op.plot_ids = plot_ids
+    op.links = links
+
+    with pytest.raises(RuntimeError, match=message):
+        X23OriginProject(op).create(tmp_path, document, view)
 
 
 def test_x23_template_identity_is_pinned_to_doubley_otp() -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import isclose, isnan
 from pathlib import Path
 from typing import Any, cast
 
@@ -24,7 +25,8 @@ from plotagent.engine.repository import document_ref
 from .messages import OriginWorkerRequest
 from .profile import X13_ORIGIN_PROFILE, resolve_official_template
 
-_HORIZONTAL_BAR = 215
+_COLUMN = 203
+_OFFICIAL_COMMAND = "worksheet -s 1 0 3 0; run.section(plot,PopulationPyramid);"
 _TITLE_NAME = "_ENGINE_TITLE"
 
 
@@ -41,6 +43,7 @@ class X13OriginProject:
         self.graph: Any = None
         self.layers: tuple[Any, Any] | None = None
         self.plots: tuple[Any, Any] | None = None
+        self.book: Any = None
         self.sheet: Any = None
 
     def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
@@ -48,48 +51,38 @@ class X13OriginProject:
         pyramid = x13_population_pyramid(document, data)
         self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("w", f"D{token}", hidden=True)
-        if book is None:
+        self.book = self.op.new_book("w", f"D{token}", hidden=True)
+        if self.book is None:
             raise RuntimeError("Origin could not create the X13 data workbook")
-        self.sheet = book[0]
+        for residue in tuple(self.op.pages("w")):
+            if residue.name == "Book1" and residue.name != self.book.name:
+                residue.destroy()
+        self.sheet = self.book[0]
         self._write_data(pyramid)
-        self.graph = self.op.new_graph(
-            f"G{token}",
-            template=str(template.with_suffix(template.suffix.lower())),
-            hidden=True,
-        )
-        if self.graph is None:
-            raise RuntimeError("Origin could not create a graph from PopulationPyramid.otpu")
-        native_layers = list(self.graph)
-        if len(native_layers) != 2:
-            raise RuntimeError("Origin PopulationPyramid.otpu must provide exactly two layers")
-        self.layers = (native_layers[0], native_layers[1])
-        left = self.layers[0].add_plot(self.sheet, coly=1, colx=0, type=_HORIZONTAL_BAR)
-        right = self.layers[1].add_plot(self.sheet, coly=2, colx=0, type=_HORIZONTAL_BAR)
-        if left is None or right is None:
-            raise RuntimeError("Origin population template rejected one native bar series")
-        self.plots = (left, right)
-        for layer in self.layers:
-            layer.rescale()
+        self.sheet.activate()
+        self.op.lt_exec(_OFFICIAL_COMMAND)
+        graphs = list(self.op.pages("g"))
+        if len(graphs) != 1:
+            raise RuntimeError(
+                "Origin PopulationPyramid menu section must create exactly one graph"
+            )
+        self.graph = graphs[0]
+        self.graph.name = f"G{token}"
+        self.graph.lname = f"X13 {template.stem} / {document.plot_id}"
+        self._bind_native_graph()
+        self._assert_native_structure(verify_offsets=False)
 
-    def reopen(self, project_path: Path) -> None:
+    def reopen(self, project_path: Path, *, readonly: bool = True) -> None:
         self.op.new(asksave=False)
-        if not self.op.open(str(project_path), readonly=True, asksave=False):
+        if not self.op.open(str(project_path), readonly=readonly, asksave=False):
             raise RuntimeError("fresh Origin session could not reopen the staged X13 project")
         graphs = list(self.op.pages("g"))
         books = list(self.op.pages("w"))
         if len(graphs) != 1 or len(books) != 1:
             raise RuntimeError("fresh X13 project has unexpected graph or workbook count")
-        self.graph = graphs[0]
-        native_layers = list(self.graph)
-        if len(native_layers) != 2:
-            raise RuntimeError("fresh X13 project lost one official template layer")
-        self.layers = (native_layers[0], native_layers[1])
-        plots = tuple(tuple(layer.plot_list()) for layer in self.layers)
-        if any(len(layer_plots) != 1 for layer_plots in plots):
-            raise RuntimeError("fresh X13 project has an invalid native series count")
-        self.plots = (plots[0][0], plots[1][0])
-        self.sheet = books[0][0]
+        self.graph, self.book = graphs[0], books[0]
+        self.sheet = self.book[0]
+        self._bind_native_graph()
 
     def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
         if self.layers is None or self.plots is None:
@@ -117,12 +110,17 @@ class X13OriginProject:
             expected_scale = "linear" if axis_name == "x" else "categorical"
             if action.scale is not None and action.scale != expected_scale:
                 raise ValueError("Origin X13 axes are fixed by the official template")
-            axes = tuple(layer.axis(axis_name) for layer in self.layers)
+            # PopulationPyramid.otpu uses ordinary Column plots and exchanges
+            # native X/Y.  The semantic horizontal population axis is native
+            # Y; the semantic vertical category axis is native X.
+            native_axis = "y" if axis_name == "x" else "x"
+            axes = tuple(layer.axis(native_axis) for layer in self.layers)
             if action.minimum is not None and action.maximum is not None:
                 if axis_name == "x":
                     bound = max(abs(action.minimum), abs(action.maximum))
-                    axes[0].set_limits(bound, 0.0)
-                    axes[1].set_limits(0.0, bound)
+                    begin, end = (bound, 0.0) if action.reverse else (0.0, bound)
+                    for axis in axes:
+                        axis.set_limits(begin, end)
                 else:
                     for axis in axes:
                         axis.set_limits(action.minimum, action.maximum)
@@ -135,7 +133,7 @@ class X13OriginProject:
             if action.label is not None:
                 target_layers = self.layers if axis_name == "x" else self.layers[:1]
                 for layer in target_layers:
-                    label = layer.label("xb" if axis_name == "x" else "yl")
+                    label = layer.label("yl" if axis_name == "x" else "xb")
                     if label is None:
                         label = layer.add_label(action.label)
                     if label is None:
@@ -155,11 +153,20 @@ class X13OriginProject:
                 for value in (action.line_style, action.symbol, action.symbol_size_pt)
             ):
                 raise ValueError("Origin X13 exposes bar fill color and edge width only")
-            plot = self.plots[ordinal]
+            commands: list[str] = []
             if action.color is not None:
-                plot.color = action.color
+                commands.extend(
+                    (
+                        f'set %C -pfb color("{action.color}")',
+                        f'set %C -pbc color("{action.color}")',
+                    )
+                )
             if action.line_width_pt is not None:
-                plot.set_float("line.width", action.line_width_pt)
+                commands.append(f"set %C -pbw {action.line_width_pt}")
+            if commands:
+                self.op.lt_exec(
+                    self._graph_layer_prefix(ordinal + 1) + "; ".join(commands) + ";"
+                )
             return
         if isinstance(action, SetLegend):
             if action.target != f"legend:{token}.main" or action.anchor is not None:
@@ -195,6 +202,7 @@ class X13OriginProject:
         if self.layers is None or self.plots is None:
             raise RuntimeError("X13 project is not initialized")
         pyramid = x13_population_pyramid(document, data)
+        native = self._assert_native_structure(verify_offsets=True)
         expected = (pyramid.categories, pyramid.left_values, pyramid.right_values)
         for index, values in enumerate(expected):
             actual = tuple(self.sheet.to_list(index))
@@ -212,13 +220,9 @@ class X13OriginProject:
                 title = self.layers[0].label(_TITLE_NAME)
                 if title is None or title.text != action.text or not title.get_int("show"):
                     raise RuntimeError("Origin X13 title did not survive readback")
-            elif isinstance(action, SetSeriesStyle) and action.color is not None:
+            elif isinstance(action, SetSeriesStyle):
                 ordinal = 0 if action.target == f"series:{token}.left" else 1
-                expected_color = tuple(
-                    int(action.color[index : index + 2], 16) for index in (1, 3, 5)
-                )
-                if tuple(self.plots[ordinal].color) != expected_color:
-                    raise RuntimeError("Origin X13 series color did not survive readback")
+                self._assert_column_style(ordinal + 1, action)
             elif isinstance(action, SetLegend) and action.visible is not None:
                 legend = self.layers[0].label("legend")
                 if legend is None or bool(legend.get_int("show")) != action.visible:
@@ -248,13 +252,13 @@ class X13OriginProject:
                 EngineObjectRef(
                     semantic_id=f"series:{token}.left",
                     backend="origin",
-                    object_kind="native_population_bar",
+                    object_kind="native_population_column",
                     native_ref=f"graph:{self.graph.name}.layer:1.plot:1",
                 ),
                 EngineObjectRef(
                     semantic_id=f"series:{token}.right",
                     backend="origin",
-                    object_kind="native_population_bar",
+                    object_kind="native_population_column",
                     native_ref=f"graph:{self.graph.name}.layer:2.plot:1",
                 ),
                 EngineObjectRef(
@@ -265,8 +269,116 @@ class X13OriginProject:
                 ),
             ),
             data_hash=canonical_hash(data),
-            style_hash=canonical_hash(cast(JsonValue, snapshot)),
+            style_hash=canonical_hash(cast(JsonValue, {**snapshot, **native})),
         )
+
+    def _bind_native_graph(self) -> None:
+        native_layers = tuple(self.graph)
+        if len(native_layers) != 2:
+            raise RuntimeError("Origin PopulationPyramid.otpu must provide exactly two layers")
+        self.layers = (native_layers[0], native_layers[1])
+        native_plots = tuple(tuple(layer.plot_list()) for layer in self.layers)
+        if tuple(len(items) for items in native_plots) != (1, 1):
+            raise RuntimeError("Origin PopulationPyramid must create one native plot per layer")
+        self.plots = (native_plots[0][0], native_plots[1][0])
+
+    def _graph_layer_prefix(self, layer_index: int) -> str:
+        return (
+            f"window -a {self.graph.name}; "
+            f"{self.graph.name}!page.active={layer_index}; "
+        )
+
+    def _assert_native_structure(self, *, verify_offsets: bool) -> dict[str, object]:
+        if self.book is None:
+            raise RuntimeError("X13 source workbook is not initialized")
+        expected_y_columns = ("B", "C")
+        plot_ids: list[int] = []
+        x_ranges: list[str] = []
+        y_ranges: list[str] = []
+        for layer_index, expected_y in enumerate(expected_y_columns, start=1):
+            prefix = f"__X13{layer_index}"
+            command = (
+                self._graph_layer_prefix(layer_index)
+                + f"__X13EX{layer_index}=layer.exchangexy; "
+                + f"get %C -pt {prefix}PT; "
+                + f"range -wx {prefix}X=1; range -wy {prefix}Y=1; "
+                + f"string {prefix}XS$=%({prefix}X); "
+                + f"string {prefix}YS$=%({prefix}Y);"
+            )
+            if verify_offsets:
+                command += (
+                    f" get %C -sx {prefix}SX; get %C -sxs {prefix}SXS;"
+                    f" get %C -sy {prefix}SY; get %C -sys {prefix}SYS;"
+                )
+            self.op.lt_exec(command)
+            plot_id = float(self.op.lt_float(f"{prefix}PT"))
+            exchange_xy = float(self.op.lt_float(f"__X13EX{layer_index}"))
+            if isnan(plot_id) or int(plot_id) != _COLUMN:
+                raise RuntimeError(
+                    f"Origin X13 layer {layer_index} is not ordinary Column PID {_COLUMN}"
+                )
+            if not isclose(exchange_xy, 1.0, abs_tol=1e-8):
+                raise RuntimeError(
+                    f"Origin X13 layer {layer_index} lost PopulationPyramid ExchangeXY"
+                )
+            x_range = str(self.op.get_lt_str(f"{prefix}XS"))
+            y_range = str(self.op.get_lt_str(f"{prefix}YS"))
+            source_prefix = f"[{self.book.name}]"
+            if not x_range.startswith(source_prefix) or '!A"' not in x_range:
+                raise RuntimeError(
+                    f"Origin X13 layer {layer_index} lost category source A: {x_range!r}"
+                )
+            if not y_range.startswith(source_prefix) or f'!{expected_y}"' not in y_range:
+                raise RuntimeError(
+                    f"Origin X13 layer {layer_index} lost source {expected_y}: {y_range!r}"
+                )
+            if verify_offsets:
+                values = (
+                    float(self.op.lt_float(f"{prefix}SX")),
+                    float(self.op.lt_float(f"{prefix}SXS")),
+                    float(self.op.lt_float(f"{prefix}SY")),
+                    float(self.op.lt_float(f"{prefix}SYS")),
+                )
+                if any(
+                    not isclose(actual, expected, abs_tol=1e-8)
+                    for actual, expected in zip(values, (0.0, 1.0, 0.0, 1.0), strict=True)
+                ):
+                    raise RuntimeError(
+                        f"Origin X13 layer {layer_index} has non-native plot offset/scale {values}"
+                    )
+            plot_ids.append(int(plot_id))
+            x_ranges.append(x_range)
+            y_ranges.append(y_range)
+        designations = [self.sheet.get_int(f"col{index}.type") for index in range(1, 4)]
+        if designations != [4, 1, 1]:
+            raise RuntimeError(
+                f"Origin X13 source designation must remain XYY; observed {designations}"
+            )
+        return {
+            "official_menu_command": _OFFICIAL_COMMAND,
+            "native_plot_ids": plot_ids,
+            "exchange_xy": [True, True],
+            "source_x_ranges": x_ranges,
+            "source_y_ranges": y_ranges,
+            "worksheet_designations": designations,
+        }
+
+    def _assert_column_style(self, layer_index: int, action: SetSeriesStyle) -> None:
+        if action.color is None and action.line_width_pt is None:
+            return
+        prefix = f"__X13STYLE{layer_index}"
+        self.op.lt_exec(
+            self._graph_layer_prefix(layer_index)
+            + f"get %C -pfb {prefix}C; get %C -pbw {prefix}W;"
+        )
+        if action.color is not None:
+            expected = int(self.op.lt_float(f'color("{action.color}")'))
+            if int(self.op.lt_float(f"{prefix}C")) != expected:
+                raise RuntimeError("Origin X13 column fill color did not survive readback")
+        if action.line_width_pt is not None and not isclose(
+            float(self.op.lt_float(f"{prefix}W")), action.line_width_pt, abs_tol=1e-8
+        ):
+            raise RuntimeError("Origin X13 column border width did not survive readback")
 
     def _write_data(self, pyramid: PopulationPyramidData) -> None:
         columns: tuple[tuple[str, tuple[object, ...], str], ...] = (
@@ -281,11 +393,19 @@ class X13OriginProject:
 def execute_x13_request(
     op: Any, request: OriginWorkerRequest, install_dir: Path, output: Path
 ) -> EngineReadback:
+    structure_output = output.with_name(f"{output.stem}.official-structure.opju")
     project = X13OriginProject(op)
     project.create(install_dir, request.document, request.data)
+    project.save(structure_output)
+
+    editable = X13OriginProject(op)
+    editable.reopen(structure_output, readonly=False)
     for action in request.actions:
-        project.apply(request.document, action, request.data)
-    project.save(output)
+        editable.apply(request.document, action, request.data)
+    editable.save(output)
+
     reopened = X13OriginProject(op)
     reopened.reopen(output)
-    return reopened.verify(request.document, request.actions, request.data)
+    readback = reopened.verify(request.document, request.actions, request.data)
+    structure_output.unlink(missing_ok=True)
+    return readback
