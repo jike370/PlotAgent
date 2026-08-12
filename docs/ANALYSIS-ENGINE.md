@@ -18,17 +18,16 @@ v1 只保留与图形几何不可分割、由图形注册表固定的 `PlotCalcu
 
 ## 2. 封闭 PlotCalculationSpec 联合
 
-v1 只允许以下九个 kind：
+v1 只允许以下八个 kind：
 
 1. `HistogramBinningSpec`
 2. `TukeyBoxSpec`
 3. `ViolinKDESpec`
-4. `DensityKDESpec`
-5. `ECDFSpec`
-6. `SummaryErrorSpec`
-7. `PercentStackSpec`
-8. `MatrixProjectionSpec`
-9. `ConfusionCountSpec`
+4. `ECDFSpec`
+5. `SummaryErrorSpec`
+6. `PercentStackSpec`
+7. `MatrixProjectionSpec`
+8. `ConfusionCountSpec`
 
 没有 fallback kind。图形注册表未声明的计算必须返回 `PLOTSPEC_CALCULATION_UNSUPPORTED`；不能降级为 pandas/Origin/Matplotlib 默认计算。
 
@@ -102,18 +101,12 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 
 ## 4. 需要预计算字段的正式图形
 
-正式 43 图均保留在图形库；本节列出的九图依赖用户预计算字段，详情页和执行前确认区明确显示“需要预计算字段”。缺少输入时返回 `PLOTSPEC_PRECOMPUTED_INPUT_REQUIRED`。九个 `internal_hidden` adapter 不属于正式范围，也不会因具备预计算输入而开放：
+正式图形库固定为35图；其中下列三图依赖用户预计算字段，详情页和执行前确认区明确显示“需要预计算字段”。缺少输入时返回 `PLOTSPEC_PRECOMPUTED_INPUT_REQUIRED`。研究清单、内部adapter和已删除ID不会因具备预计算输入而开放：
 
 | 图形 | v1 接受的预计算输入 | v1 不执行 |
 | --- | --- | --- |
-| K05 回归散点/置信带 | raw points；curve X/Y；lower/upper | 回归、区间估计 |
 | K21 相关矩阵 | 已计算矩阵及标签 | Pearson/Spearman/显著性 |
 | K22 等高线 | 规则 X×Y grid 与 Z | gridding/interpolation |
-| S01 KM | step curve、可选 CI、风险人数表 | KM/Greenwood/Log-rank/Cox |
-| S05 剂量反应 | raw points、拟合曲线、参数表/标签 | 4PL/5PL 或其他拟合 |
-| S21 森林图 | effect、lower、upper、可选 weight | Meta 合并/效应计算 |
-| S25 连续谱图 | 已准备的 X/Y 谱线 | baseline、平滑、归一化 |
-| S31 XRD | 已准备的 angle/intensity 与可选峰标 | 背景、寻峰、拟合 |
 | S34 Nyquist | 已准备的 Z′/Z″ 与可选曲线 | 等效电路拟合 |
 
 预计算输入仍须通过字段类型、单位、长度、范围与结构校验。PlotAgent 不把用户提供的分析结果宣传为本应用计算所得。
@@ -143,13 +136,13 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 
 AnalysisSpec/Result、FitSpec/Result、统计检验、科学拟合、平滑、基线、归一化与可物化分析输出均为后续能力。未来启用时必须新增/更新 Decision ID、Schema、错误、fixtures、provider context、storage 和 release gate；不得复用 v1 PlotCalculationSpec 作为开放分析后门。
 
-正式 43 图在 v1 的准入只验证各图适用的直接数据、固定计算或预计算字段路径，不验证上述后续算法的科学正确性；新增 12 图不会扩大 AnalysisSpec/FitSpec 范围。
+正式35图在v1的准入只验证各图适用的直接数据、固定计算或预计算字段路径，不验证上述后续算法的科学正确性；图形目录变化不会自动扩大AnalysisSpec/FitSpec范围。
 
 ## 8. 稳定错误与契约测试
 
 至少覆盖：
 
-- 九类 kind 的 schema 拒绝未知字段、禁止自由串联和禁止模型选择。
+- 八类kind的schema拒绝未知字段、禁止自由串联和禁止模型选择。
 - 固定算法 golden：FD/Sturges/常量 histogram、Tukey outlier、KDE grid、ECDF ties、summary/error、percent stack、matrix duplicate、confusion normalization。
 - `0/False` 有效、NaN/Inf/missing、`fail` 与 `exclude_with_report`。
 - Log10 非正值阻断、固定 jitter seed、完整数据输入、result hash 可复现。

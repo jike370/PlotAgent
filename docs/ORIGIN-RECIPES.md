@@ -62,13 +62,11 @@
 | X40 | 前后对比图 | `Plot.ogs [BeforeAfter]` / `BeforeAfter.otpu` | 菜单＋模板 | 两列宽表原位、单一 PID206 组、Subgroup Size=2；6→15行及 Agent 组/成员编辑均已独立 fresh 读回 |
 | S61 | 带标签热图（混淆矩阵语义） | `plotvm` / `Heat_Map_With_Labels.otpu` | X-Function＋模板 | clean dynamic rebuild 与 fresh-reopen 已闭合 |
 
-## 不进入 Origin renderer 的 3 图
+## 已删除 ID 的兼容边界
 
-| ID | 原因 | 禁止的替代实现 |
-|---|---|---|
-| K16 | Origin 2024 fresh reopen 后 bins 重新显示，当前不构成纯 KDE | 不得用预计算 XY 密度线冒充官方流程 |
-| S01 | `SurvivalPlot.otp` 无法稳定保留已接受的阶梯、置信带、风险表与共同 Agent 编辑布局 | 不得改跑 Kaplan–Meier 分析，也不得以手工图元拼出生存图 |
-| S21 | 官方 Forest Plot App 尚未安装和实证 | 不得用普通误差棒、手工线段或 Python 森林图替代 |
+`K16`、`S01`、`S21` 不属于 `OriginRecipe`、图形目录或任何 renderer/export
+能力。旧项目引用这些 ID 时，引擎只返回 `CHART_TYPE_REMOVED`，不得创建
+worksheet、graph、OPJU 或近似替代图。兼容墓碑不是隐藏 recipe，也不参与35图资格计数。
 
 ## 本机 dispatcher 门禁
 

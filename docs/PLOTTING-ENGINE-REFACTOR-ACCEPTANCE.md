@@ -1,6 +1,6 @@
 # Agent Native 绘图引擎验收基线
 
-> 状态：代码重写和 35 图 Origin 机械资格完成；3 图明确拒绝；产品负责人已确认 35/35 图视觉验收通过，正式桌面黑盒待执行。
+> 状态：代码重写和35图 Origin机械资格完成；三个旧图形ID已从产品删除，仅保留旧项目迁移墓碑；产品负责人已确认35/35图视觉验收通过，正式桌面黑盒待执行。
 
 ## 1. 验收对象
 
@@ -46,7 +46,7 @@
 ## 3. 当前证据
 
 - 35/35 机械通过，35/35 视觉已于 2026-08-12 签名通过；
-- 核密度图、Kaplan–Meier 生存曲线、森林图在 OriginRecipe 选择阶段明确拒绝；
+- 图形目录、Agent capability、字段映射和双后端清单严格等于35；旧项目引用已删除ID时只返回 `CHART_TYPE_REMOVED`；
 - 审查页：`build/visual-audit/origin-recipe-renderer-35/index.html`；
 - 默认/编辑 contact sheet 与每图 OPJU/PNG/readback 位于同目录；
 - 当前无签名安装包，正式开发入口为仓库根目录执行 `pnpm dev`。

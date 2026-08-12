@@ -18,14 +18,11 @@ v1 不定义、执行或验收 FitSpec/FitResult。以下能力全部后移：
 
 ## 2. v1 预计算输入
 
-用户可以导入外部软件已经计算好的数值结果，并明确选择相应图形：
+用户可以导入外部软件已经计算好的数值结果，并明确选择相应的正式图形：
 
-- K05：原始点可选；必须提供 curve X/Y；置信带需要 lower/upper。
-- S05：原始点可选；必须提供拟合曲线；参数仅作为用户提供的标签/表格，不由 PlotAgent 复核求解。
-- S01：提供 KM step curve；CI 和风险人数为可选的预计算输入。
 - K21：提供已经计算的相关矩阵。
-- S21：提供 effect/lower/upper/weight。
-- S25/S31/S34：只绘制用户提供的数值序列或曲线，不执行学科处理。
+- K22：提供规则网格与Z值，不执行插值或gridding。
+- S34：提供Z′/Z″与可选曲线，不执行等效电路拟合。
 
 字段映射只确认这些列的图形角色。系统进行类型、单位、形状、单调性（适用时）、上下界次序和有限性等结构校验，但不重新计算科学结果，也不替用户判断模型是否适当。
 
@@ -64,7 +61,7 @@ OPJU 中预计算曲线作为 Plot Data 工作表列进入原生、可编辑 Gra
 ## 6. v1 契约测试
 
 - 全局 Schema 与 Action 联合不存在可执行 FitSpec/FitResult/AnalysisSpec/AnalysisResult。
-- K05/S05/S01/K21/S21/S25/S31/S34 的预计算字段有效、缺失和结构错误 fixtures。
+- K21/K22/S34 的预计算字段有效、缺失和结构错误 fixtures。
 - 同一预计算表在 preview、formal PNG/SVG 和 O1 OPJU 中保持数值与版本一致。
 - Origin Manifest 正确区分 direct、fixed PlotCalculationResult 与 user-provided precomputed。
 - 禁止 renderer fitting、Origin Analysis Template、worksheet formula、LabTalk 和模型拟合步骤。

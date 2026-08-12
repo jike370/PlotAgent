@@ -118,7 +118,7 @@ pnpm dev
 | X39 | 线条序列图 | 至少两个系列 | — |
 | X40 | 前后对比图 | 两个系列 | — |
 
-核密度图、Kaplan–Meier生存曲线、森林图保留候选记录，但Origin renderer必须稳定返回不支持，不得创建近似图或半成品OPJU。下列旧编号也不属于本轮正式图形范围：K05、K17、S05、S07、S25、S31、X01。界面不应把这些项目表示为本轮已支持Origin图形。
+核密度图、Kaplan–Meier生存曲线、森林图已从产品图形库、Agent能力、字段映射、Matplotlib、Origin和导出能力中删除。下列旧编号同样不属于本轮正式图形范围：K05、K17、S05、S07、S25、S31、X01。界面和能力目录不得显示这些项目；旧项目引用时只允许返回 `CHART_TYPE_REMOVED`，不得创建图或半成品OPJU。
 
 ## 6. 公开绘图与编辑能力
 
@@ -232,7 +232,7 @@ PDF、EPS、EMF 不属于当前正式导出承诺。
 
 1. 新项目、项目搜索/置顶/重命名/删除菜单和重启恢复。
 2. CSV、多工作表 XLSX、一次多文件和一个歧义文本导入。
-3. 35图分别用兼容数据创建一次，核对字段角色和图形身份；另验证3个拒绝项不创建任何图或OPJU。
+3. 35图分别用兼容数据创建一次，核对字段角色和图形身份；另验证已删除ID不出现在图形库/Agent能力中，旧项目引用稳定返回 `CHART_TYPE_REMOVED` 且不创建图或OPJU。
 4. 对支持项执行标题、轴、系列、图例、专属参数和标注动作；确认版本与读回。
 5. K04 默认态不应无故出现色带；用户明确开启色带后才出现。
 6. K06 同时具有水平与垂直误差棒；K14 不出现无关的边缘竖线。
@@ -269,7 +269,7 @@ Origin 版本：
 项目与重启：PASS / FAIL / BLOCKED / UNVERIFIED
 数据导入：PASS / FAIL / BLOCKED / UNVERIFIED
 35图创建：通过数 / 35
-3个拒绝项：稳定拒绝数 / 3
+已删除ID兼容：目录不可见且墓碑正确 / PASS / FAIL / UNVERIFIED
 公开编辑动作：PASS / FAIL / BLOCKED / UNVERIFIED
 批量与恢复：PASS / FAIL / BLOCKED / UNVERIFIED
 Agent 计划与对象：PASS / FAIL / BLOCKED / UNVERIFIED

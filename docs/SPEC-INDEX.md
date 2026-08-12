@@ -15,10 +15,10 @@
 |---|---|
 | [后端架构](./BACKEND-ARCHITECTURE.md) | Agent 中立引擎、进程与依赖方向 |
 | [领域契约](./DOMAIN-CONTRACTS.md) | EngineDataView、PlotDocument、公共动作和版本 |
-| [Agent Native 引擎基线](./AGENT-NATIVE-PLOTTING-ENGINE.md) | 重写取舍、35图Origin正式范围、3图稳定拒绝与内置 Agent 位置 |
+| [Agent Native 引擎基线](./AGENT-NATIVE-PLOTTING-ENGINE.md) | 重写取舍、正式35图、删除墓碑与内置 Agent 位置 |
 | [绘图执行管线](./RENDERING-PIPELINE.md) | 每图 renderer、模板、动态数据和视觉门禁 |
 | [Origin 导出](./ORIGIN-EXPORT.md) | 原生 OPJU、安全与 fresh-reopen |
-| [Origin 模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md) | 38图—官方模板映射 |
+| [Origin 模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md) | 正式35图—Origin官方模板与流程映射 |
 | [项目存储](./PROJECT-STORAGE.md) | 数据、CAS、项目 schema v3 与动作日志 |
 | [数据准备](./DATA-TRANSFORMS.md) | 受控派生数据与来源追溯 |
 | [Agent 上下文](./AGENT-CONTEXT-AND-PROVIDERS.md) | ProjectContext、模型和披露边界 |

@@ -1,6 +1,6 @@
 # PlotAgent 已确认产品决策基线
 
-> 状态：候选 Profile 保留 38 个；Origin/OPJU 正式范围为 35 图，核密度图、Kaplan–Meier 生存曲线、森林图稳定拒绝；Agent Native 绘图引擎已替换旧编译链，35/35 图人工视觉已签名通过，正式黑盒尚未完成。
+> 状态：公开产品范围固定为35图；核密度图、Kaplan–Meier生存曲线、森林图已从目录、Agent、双后端和导出能力中删除，仅为旧项目保留 `CHART_TYPE_REMOVED` 墓碑；Agent Native 绘图引擎已替换旧编译链，35/35图人工视觉已签名通过，正式黑盒尚未完成。
 
 > 阅读规则：`PD-AD01`—`PD-AD08` 是当前绘图实现边界，`PD-AC01`—`PD-AC19` 保留产品范围与验收原则。此前章节及 AC09—AC13 中关于 PlotSpec、resolver 或旧 renderer 的内容只作追溯；冲突时以 AD 为准。
 > 产品代号：PlotAgent  
@@ -75,7 +75,7 @@
 - **PD-E05 完整候选体系。** 图形调研目录的 157 个稳定条目是长期上限框架，不等于第一轮全部开放。
 - **PD-E06 正式库准入。** 只有通过 PNG、SVG、OPJU 生成和重新打开验证的图形才进入正式库；未完成验证的能力不以“即将推出”占据正式界面。
 - **PD-E07 官方图形包。** 采用官方核心包与官方学科包，包必须签名和版本化；第一轮不开放第三方插件或社区市场。
-- **PD-E08 原始核心 31 项。** 正式范围的基础集合为 K01–K22、K24–K25、S01、S05、S21、S25、S31、S34、S61，共 31 项纯数值图表；最终第一轮总范围以 PD-E25 的 43 图为准。
+- **PD-E08 原始核心31项（历史）。** 早期曾以K01–K22、K24–K25及若干S图构成31项基础集合，并由PD-E25扩至43图；该范围已被PD-AC01的正式35图完整取代，不得用于当前目录、能力或发布计数。
 - **PD-E09 Origin P1 候选代码面。** 在不引入双 Y 轴网格图的前提下曾增加 X01、X02、X03、X05、X07、X09、X11、X12、X13、X15、X16、X17、X18、X19、X23、X24、X35、X36、X37、X38、S07，形成 52 图内部代码面。代码存在不等于正式产品准入；视觉测试优先锚定 Origin 示例图与同一来源数据，A 级直接使用随附 OPJU，C 级只允许用 Origin 官方样例数据在 Origin 中重新生成参考图。
 - **PD-E24 第一轮排除项。** K23 科学图像面板与 S45 专题地图不进入第一轮；专题地图需要空间几何、CRS 与 GeoJSON，待扩展数据范围后再评估。
 - **PD-E10 基础组合图。** 第一轮提供 1×2、2×1、2×2 等固定布局、A/B/C/D 面板编号和公共图例，仅组合数值数据图表。
@@ -338,7 +338,7 @@
 ## S. 固定绘图计算与科学边界
 
 - **PD-S01 v1 封闭计算。** 第一轮只执行与图形几何不可分割的 PlotCalculationSpec/Result；通用 AnalysisSpec/Result、统计、拟合、平滑、基线和归一化后移。
-- **PD-S02 九类联合。** 仅允许 HistogramBinning、TukeyBox、ViolinKDE、DensityKDE、ECDF、SummaryError、PercentStack、MatrixProjection 和 ConfusionCount 九类规格。
+- **PD-S02 八类联合。** 仅允许 HistogramBinning、TukeyBox、ViolinKDE、ECDF、SummaryError、PercentStack、MatrixProjection 和 ConfusionCount 八类规格。
 - **PD-S03 无开放链。** PlotCalculationSpec 不允许新 kind、任意表达式、自由串联或发布为通用数据集；由本地 compiler 生成，模型不能选择或编排。
 - **PD-S04 完整持久化。** 参数、算法版本、input/output hash、纳入/排除行数、missing policy 与固定 seed 必须持久化；参数变化创建新 FigureVersion。
 - **PD-S05 Histogram。** 默认 Freedman–Diaconis；IQR=0 回退 Sturges；常量数据单箱。
@@ -351,7 +351,7 @@
 - **PD-S12 Confusion。** 支持 count、按真实类和按预测类归一化；不训练或评价模型。
 - **PD-S13 公共数值规则。** jitter 固定 seed；log axis 第一轮仅 Log10，非正值阻断且不静默跳过。
 - **PD-S14 缺失策略。** 只允许 `fail` 或 `exclude_with_report`；后者保存排除行与原因，SourceDataset 不变。
-- **PD-S15 预计算图形。** K05/K21/K22/S01/S05/S21/S25/S31/S34 只接受规定的预计算字段，不执行对应回归、相关、插值、生存、剂量反应、光谱/XRD/Nyquist 分析。
+- **PD-S15 预计算图形。** 当前正式图中 K21/K22/S34 只接受规定的预计算字段，不执行对应相关、插值或Nyquist分析；其余历史条目已退出正式产品能力。
 - **PD-S16 不隐藏图形。** 需要分析结果的图仍显示，详情页和执行前明确“需要预计算字段”；缺失时稳定阻断并说明字段。
 - **PD-S17 同一结果消费。** Matplotlib、SVG 与 Origin 消费同一持久化 PlotCalculationResult 或用户预计算 Plot Data，不各自重算。
 - **PD-S18 完整数据。** 固定绘图计算在声明支持规模内使用完整数据；preview 简化不改变范围、计算或输入。
@@ -367,9 +367,7 @@
 - **PD-T03 K05 输入。** 回归散点/置信带由用户提供 curve X/Y 和可选 lower/upper；PlotAgent 不回归或估计区间。
 - **PD-T04 K21 输入。** 相关矩阵由用户提供已计算矩阵和标签；不执行 Pearson/Spearman、p 值或多重校正。
 - **PD-T05 K22 输入。** 等高线只接受规则 X×Y grid/Z；不执行 scattered gridding 或 interpolation。
-- **PD-T06 S01 输入。** KM 图由用户提供 step curve、可选 CI 和风险人数；不执行 KM/Greenwood/Log-rank/Cox。
 - **PD-T07 S05 输入。** 剂量反应由用户提供拟合曲线与可选参数标签；不执行 4PL/5PL、IC50/EC50/ED50 估计。
-- **PD-T08 S21 输入。** 森林图由用户提供 effect/lower/upper/weight；不做 Meta 合并或效应计算。
 - **PD-T09 S25 输入。** 连续谱图只绘制提供的数值谱线；不做 baseline、平滑或归一化。
 - **PD-T10 S31 输入。** XRD 只绘制 angle/intensity 和可选用户峰标；不做背景、寻峰或拟合。
 - **PD-T11 S34 输入。** Nyquist 只绘制 Z′/Z″ 和可选用户曲线；不做等效电路拟合。
@@ -613,12 +611,12 @@
 
 ## AC. Origin 模板优先的 35 图绘图引擎重构
 
-- **PD-AC01 候选38图，Origin正式35图。** 候选资料保留 T1/T2 共38图；经过官方文档、本机模板、菜单命令和原生读回实证后，35图进入 Origin/OPJU 正式能力。核密度图、Kaplan–Meier 生存曲线、森林图不允许近似实现，稳定返回不支持。`K05`、`K17`、`S05`、`S07`、`S25`、`S31`、`X01` 仍从产品能力中删除。此前文档中的43/45图正式范围由本决定取代。
-- **PD-AC02 删除不是隐藏。** 七图必须退出图形库、Agent capability、字段映射、编辑、批量/组合候选、渲染、Origin 导出、资格清单与发布声明。旧项目只返回 `CHART_TYPE_REMOVED`，不得静默替换近似图。
-- **PD-AC03 裸模板测试先于实现。** 38个候选先核查官方文档、本机模板和菜单命令；35个准入图再执行行数、系列/组数、类别数、长中英文标签、数值范围、缺失值、编辑和 fresh-reopen 动态矩阵。测试阶段禁止按图形 ID 修布局或用几何模拟 Origin 原生 Plot。
+- **PD-AC01 正式35图。** 公开产品、Agent capability、字段映射、计算、Matplotlib、Origin/OPJU、批量/组合候选、资格清单与发布声明统一为35图。核密度图、Kaplan–Meier生存曲线、森林图与此前已删除的 `K05`、`K17`、`S05`、`S07`、`S25`、`S31`、`X01` 均不属于产品能力。此前文档中的38/43/45图正式范围由本决定取代。
+- **PD-AC02 删除不是隐藏。** 已删除ID必须退出全部可发现、可调用和可导出路径。旧项目只返回 `CHART_TYPE_REMOVED`，不得静默替换近似图；墓碑不是候选、隐藏能力或renderer。
+- **PD-AC03 裸模板测试先于实现。** 35个正式图逐图核查官方文档、本机模板和菜单命令，再执行行数、系列/组数、类别数、长中英文标签、数值范围、缺失值、编辑和 fresh-reopen 动态矩阵。测试阶段禁止按图形 ID 修布局或用几何模拟 Origin 原生 Plot。
 - **PD-AC04 Origin承担动态显示。** 数据范围、轴缩放、分组间距、原生图例/色带、标签和模板已支持的布局优先由 Origin 自动处理。Python只绑定数据角色、应用模板、执行证据证明必需的 T2 原生配置和用户编辑。
 - **PD-AC05 不预设 renderer 形态。** 不再以 StructureUnit、统一 renderer、逐图 renderer 或 compiler 完整性作为目标；只以 Origin 映射正确、动态数据稳定、Agent 易操作和原生可编辑为选择标准。
-- **PD-AC06 禁止旧路径回退。** 迁移后的35图不得回退到手工几何拼装、任意 Origin property/script 或 Matplotlib 位图嵌入。被拒绝的3图不得保留可达的近似 Origin binder；迁移完成后删除被替代的旧 Origin 构建分支与过期视觉证据。
+- **PD-AC06 禁止旧路径回退。** 迁移后的35图不得回退到手工几何拼装、任意 Origin property/script 或 Matplotlib 位图嵌入。已删除图不得保留可达的 Profile、计算、Matplotlib/Origin binder或近似图元；只允许迁移墓碑。
 - **PD-AC07 资格重新建立。** 每图必须记录官方模板版本与哈希、裸模板结论、最小补丁、动态矩阵、默认/编辑态 OPJU、fresh-reopen 原生对象检查和人工视觉签名；历史45图通过记录不自动继承到新引擎。
 - **PD-AC08 产品行为不随实现缩减。** 导入、受控数据准备、明确选图/映射、自然语言与手动共同编辑、批量、组合图、项目上下文、任务恢复、PNG/SVG 与原生可编辑 OPJU 的产品目标保持；本轮只替换绘图引擎实现。
 - **PD-AC09 Agent-native 动作层。** Agent 只生成少量强类型业务动作，由本地 resolver、validator、事务和任务编排执行；模型不得输出 renderer 参数、Origin 对象路径、脚本或自由 PlotSpec JSON。
@@ -628,22 +626,22 @@
 - **PD-AC13 公共能力取交集。** 正式 UI 和 Agent 只开放 Matplotlib 与 Origin 都能稳定表达、保存和读回的共同能力；任一后端不支持时返回 Unsupported，不静默忽略、近似替换或产生 target-only PlotSpec 状态。
 - **PD-AC14 数据准备不转嫁用户。** 常规选择、类型、筛选、排序、reshape、聚合和登记派生列由强类型 `prepare_data` 生成可追溯 PreparedDataset；原始数据只读，科研计算独立显式，任意脚本与无法确定语义的加工仍需用户确认或外部处理。
 - **PD-AC15 验收状态严格区分。** 测试执行、退出码为零、OPJU 可打开或 fresh-reopen 一致均不自动等于 PASS；只有预设判据和原始证据全部满足才 PASS，FAIL、BLOCKED、UNVERIFIED 分开记录，未实测不得由源码或单测推断。
-- **PD-AC16 分层资格。** 新引擎依次通过契约冻结、38候选官方路线核查、四图纵向切片、35图双后端/动态/编辑、Agent与工作流、正式桌面与发布六层门禁；任一关键门禁有 FAIL/BLOCKED/UNVERIFIED 均不得宣称完整资格。
+- **PD-AC16 分层资格。** 新引擎依次通过契约冻结、35图官方路线核查、四图纵向切片、35图双后端/动态/编辑、Agent与工作流、正式桌面与发布六层门禁；任一关键门禁有 FAIL/BLOCKED/UNVERIFIED 均不得宣称完整资格。
 - **PD-AC17 Origin 编辑抽检口径。** 35个准入图全部自动修改数据值与代表性允许样式并在 fresh-reopen 后机械读回；人工实际编辑按官方模板哈希、原生结构和 T2 补丁签名划分的 Origin 模板家族选代表图，每家族至少一图，不再要求35图逐一人工编辑。
 - **PD-AC18 标签排版不作阻断。** 长标签、中文和多标签仍保存原始证据并校验文本内容、数据关联和字体，但标签裁切、换行、重叠等自动排版体验不作为本轮绘图引擎资格阻断；数据几何、轴语义、系列身份和原生对象错误仍是阻断项。
 - **PD-AC19 视觉审查后置且一次性交付。** 迁移中不做探索性或分批视觉审查；先完成35图双后端、动态数据、共同编辑、OPJU/fresh-reopen和逐图机械修改读回，再统一生成35图审查页交由用户逐图判断。机械完成不自动产生视觉 PASS；本轮产品负责人已于2026-08-12确认35/35图视觉通过。人工 Origin 实际编辑另按模板家族抽代表图。
 
-完整候选映射与35图准入矩阵见 [Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)；完整多后端架构、Agent 动作与验收门禁见 [绘图引擎重构与验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md)。
+完整35图映射与准入矩阵见 [Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)；完整多后端架构、Agent 动作与验收门禁见 [绘图引擎重构与验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md)。
 
 ## AD. Agent Native 引擎最终边界
 
 - **PD-AD01 引擎是独立产品能力。** PlotAgent 的核心是可被任意 Agent 调用的本地绘图引擎；内置 Agent 只是一个可能适配更好的客户端，不是引擎组成部分。
 - **PD-AD02 公共调用面。** 任意客户端通过能力目录、九类强类型 Engine Action、版本化目标和稳定错误接入；不得要求使用内置提示词、Provider 或别名绑定器。
 - **PD-AD03 PlotDocument 取代 PlotSpec。** 绘图真值为不可变数据引用、字段绑定、Profile、线性 PlotDocument 版本与动作日志；旧 PlotSpec、resolver、共享最终 plan 和旧 Origin renderer 退出生产与存储。
-- **PD-AD04 每图 backend。** 正式35图各自拥有 Matplotlib renderer 和 Origin 官方模板绑定器；可以共享基础工具，但不建立统一中间绘图语言或强制共享几何。三个拒绝项不得以旧 binder 或近似图元补位。
+- **PD-AD04 每图 backend。** 正式35图各自拥有 Matplotlib renderer 和 Origin 官方模板绑定器；可以共享基础工具，但不建立统一中间绘图语言或强制共享几何。已删除ID不得以旧 binder 或近似图元补位。
 - **PD-AD05 模板优先。** Origin 默认态直接使用固定官方模板；Python只写数据、designation、必要动态绑定与用户明确动作，不全量重建模板对象。
 - **PD-AD06 数据与编排保留。** 导入、SourceDataset、CAS、受控准备、ProjectContext、确认、部分失败与恢复执行保留，并改接 EngineDataView 和公共动作。
 - **PD-AD07 旧存储不兼容回退。** 项目 schema v3 保留科研数据、项目和 Agent 运行时，移除旧绘图编译状态；不得以迁移兼容为由重新执行旧 renderer。
-- **PD-AD08 完成定义。** 工程测试、机械读回、人工视觉和正式桌面黑盒分开记账；产品负责人已于2026-08-12确认35/35图视觉验收通过，但正式桌面黑盒与发布门禁尚未完成，不能宣称发布完成。三个拒绝项单列，不计作通过或未验证。
+- **PD-AD08 完成定义。** 工程测试、机械读回、人工视觉和正式桌面黑盒分开记账；产品负责人已于2026-08-12确认35/35图视觉验收通过，但正式桌面黑盒与发布门禁尚未完成，不能宣称发布完成。已删除ID只验证目录不可见和墓碑错误，不计入图形通过数。
 
 完整W0–W10范围、依赖、spikes与M0–M7见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；权威范围、Requirement/Evidence Matrix与冲突审计见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。
