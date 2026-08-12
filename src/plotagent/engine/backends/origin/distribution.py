@@ -23,6 +23,21 @@ from plotagent.engine.repository import document_ref
 from plotagent.plot_calculations.kernels import scott_kde_geometry
 
 from .messages import OriginWorkerRequest
+from .native_distribution import (
+    BOX_RANGE,
+    BOX_TYPE,
+    DIST_BANDWIDTH,
+    DIST_BANDWIDTH_FACTOR,
+    DIST_CURVE_SCALE,
+    DIST_CURVE_TYPE,
+    DIST_EXTEND,
+    DIST_SCALE_TYPE,
+    HAS_OUTLIERS,
+    WHISKER_COEFF,
+    WHISKER_RANGE,
+    configure_native_distribution,
+    read_native_distribution_value,
+)
 from .profile import (
     K12_ORIGIN_PROFILE,
     K13_ORIGIN_PROFILE,
@@ -44,15 +59,14 @@ _OFFICIAL_MENU_COMMANDS = {
 
 # Origin 2024's native BoxChart enums (OriginC/System/OC_const.h).
 _BOX_TYPE_BOX = 0
-_BOX_TYPE_DATA = 1
 _BOX_RANGE_25_75 = 2
 _WHISKER_RANGE_OUTLIER = 6
-_DATA_DOTS = 0
-_ARRANGE_JITTER = 1
 
-# Distribution tab order documented by Origin: Scott, Silverman, k*SD, Custom.
+# Origin 2024 distribution fields: Kernel Smooth curve, negative custom
+# bandwidth selector (report_utils.c), and Width scale (Count/Width/Area order).
 _KERNEL_SMOOTH = 8
-_BANDWIDTH_CUSTOM = 3
+_BANDWIDTH_CUSTOM = -1
+_BANDWIDTH_CUSTOM_READBACK = 255
 _VIOLIN_SCALE_WIDTH = 1
 _VIOLIN_GRID_POINTS = 256
 
@@ -148,7 +162,7 @@ class DistributionOriginProject:
                 self.layer = self.graph[0]
                 self.plots = list(self.layer.plot_list())
                 with origin_trace_step("native_data_legend_rebuild"):
-                    self._rebuild_x05_data_legend()
+                    self._rebuild_native_data_legend()
                 native = self._assert_official_x05_structure(distribution)
             record_origin_trace("native_beeswarm_confirmed", "completed", details=native)
             self.layer.rescale()
@@ -290,24 +304,35 @@ class DistributionOriginProject:
                 raise ValueError(f"{self.profile_id} legend target does not belong to this plot")
             if self.profile_id == "X05":
                 legend = (
-                    self._rebuild_x05_data_legend()
+                    self._rebuild_native_data_legend()
                     if action.visible
                     else self.layer.label("legend")
                 )
                 if legend is not None and action.visible is not None:
                     legend.set_int("show", int(action.visible))
                 return
+            if self.profile_id == "K12":
+                legend = (
+                    self._rebuild_native_data_legend()
+                    if action.visible
+                    else self.layer.label("legend")
+                )
+                if legend is not None and action.visible is not None:
+                    legend.set_int("link", 1)
+                    legend.set_int("show", int(action.visible))
+                return
             legend = self.layer.label("legend")
-            if action.visible and legend is None:
+            if action.visible:
                 self.layer.activate()
-                if not self.layer.obj.LT_execute("legend"):
-                    raise RuntimeError(f"Origin could not create the {self.profile_id} legend")
+                if not self.op.lt_exec(
+                    "legendupdate dest:=layer update:=reconstruct "
+                    "legend:=separate mode:=lname;"
+                ):
+                    raise RuntimeError(
+                        f"Origin could not rebuild the native {self.profile_id} legend"
+                    )
                 legend = self.layer.label("legend")
             if legend is not None and action.visible is not None:
-                legend.text = "\n".join(
-                    f"\\l({index}) {_safe_label(group.label)}"
-                    for index, group in enumerate(distribution.groups, start=1)
-                )
                 legend.set_int("link", 1)
                 legend.set_int("show", int(action.visible))
             return
@@ -406,81 +431,47 @@ class DistributionOriginProject:
         for index, group in enumerate(distribution.groups):
             self.sheet.from_list(index, list(group.values), lname=group.label, axis="Y")
 
-    @staticmethod
-    def _theme_descendant(node: Any, name: str) -> Any | None:
-        if node is None:
-            return None
-        if str(node.Name) == name:
-            return node
-        for child in node.Children:
-            match = DistributionOriginProject._theme_descendant(child, name)
-            if match is not None:
-                return match
-        return None
-
-    @classmethod
-    def _required_theme_node(cls, theme: Any, name: str, profile_id: str) -> Any:
-        node = cls._theme_descendant(theme, name)
-        if node is None:
-            raise RuntimeError(
-                f"Origin {profile_id} official template lacks native theme node {name}"
-            )
-        return node
-
     def _configure_native_profile(self, distribution: DistributionData) -> None:
         if len(self.plots) != len(distribution.groups):
             raise RuntimeError(
                 f"Origin {self.profile_id} official command produced the wrong group count"
             )
-        for plot, group in zip(self.plots, distribution.groups, strict=True):
-            theme = plot.obj.GetTheme()
-            if self.profile_id == "K12":
-                self._required_theme_node(theme, "BoxType", "K12").SetIntValue(
-                    _BOX_TYPE_DATA
-                )
-                self._required_theme_node(theme, "DotPlotType", "K12").SetIntValue(
-                    _DATA_DOTS
-                )
-                self._required_theme_node(theme, "ArrangePoints", "K12").SetIntValue(
-                    _ARRANGE_JITTER
-                )
-            elif self.profile_id == "K13":
-                self._required_theme_node(theme, "BoxType", "K13").SetIntValue(
-                    _BOX_TYPE_BOX
-                )
-                self._required_theme_node(theme, "BoxRange", "K13").SetIntValue(
-                    _BOX_RANGE_25_75
-                )
-                self._required_theme_node(theme, "WhiskerRange", "K13").SetIntValue(
-                    _WHISKER_RANGE_OUTLIER
-                )
-                self._required_theme_node(theme, "WhiskerCoeff", "K13").SetDoubleValue(
-                    1.5
-                )
-                self._required_theme_node(theme, "HasOutliers", "K13").SetIntValue(1)
-            else:
-                bandwidth = scott_kde_geometry(
-                    group.values,
-                    grid_points=_VIOLIN_GRID_POINTS,
-                    extend_bandwidths=0.0,
-                ).bandwidth
-                self._required_theme_node(theme, "CurveType", "K14").SetIntValue(
-                    _KERNEL_SMOOTH
-                )
-                self._required_theme_node(theme, "CurveScale", "K14").SetIntValue(1)
-                self._required_theme_node(theme, "ScaleType", "K14").SetIntValue(
-                    _VIOLIN_SCALE_WIDTH
-                )
-                self._required_theme_node(theme, "KernelSmoothBandwidth", "K14").SetIntValue(
-                    _BANDWIDTH_CUSTOM
-                )
-                self._required_theme_node(
-                    theme, "KernelSmoothBandwidthFactor", "K14"
-                ).SetDoubleValue(bandwidth)
-                self._required_theme_node(theme, "KernelSmoothExtend", "K14").SetDoubleValue(
-                    0.0
-                )
-            plot.obj.PutTheme(theme)
+        if self.profile_id == "K12":
+            # ColumnScatter.otp owns the official defaults.  OriginExt returns
+            # no reliable native format tree for this plot, so only PID/source
+            # structure is mechanically asserted and appearance stays a live
+            # visual gate.
+            return
+        if self.profile_id == "K14":
+            graph_name = str(self.graph.name)
+            self.graph.activate()
+            if not self.op.lt_exec(
+                f"range __K14HEAD=[{graph_name}]1!1; set __K14HEAD -gm 1;"
+            ):
+                raise RuntimeError("Origin could not make K14 group formatting independent")
+        if self.profile_id == "K13":
+            configure_native_distribution(
+                self.op,
+                str(self.graph.name),
+                1,
+                13,
+            )
+            return
+        pooled_values = tuple(
+            value for group in distribution.groups for value in group.values
+        )
+        bandwidth = scott_kde_geometry(
+            pooled_values,
+            grid_points=_VIOLIN_GRID_POINTS,
+            extend_bandwidths=0.0,
+        ).bandwidth
+        configure_native_distribution(
+            self.op,
+            str(self.graph.name),
+            1,
+            14,
+            bandwidth=bandwidth,
+        )
 
     def _assert_official_structure(
         self, distribution: DistributionData
@@ -526,53 +517,52 @@ class DistributionOriginProject:
                 f"Origin {self.profile_id} native source bindings changed after readback"
             )
 
+        if self.profile_id == "K12":
+            return {
+                "official_menu_command": _OFFICIAL_MENU_COMMANDS[self.profile_id].format(
+                    last_column=len(distribution.groups)
+                ),
+                "native_plot_types": plot_types,
+                "worksheet_designations": actual_designations,
+                "native_sources": actual_sources,
+                "native_settings": "official_default_requires_live_visual_gate",
+            }
+
         native_settings: list[dict[str, int | float]] = []
-        for index, (plot, group) in enumerate(
-            zip(self.plots, distribution.groups, strict=True), start=1
-        ):
-            theme = plot.obj.GetTheme()
-            if self.profile_id == "K12":
+        if self.profile_id == "K14":
+            self.op.lt_exec(
+                f"range __K14HEAD=[{graph_name}]1!1; "
+                "get __K14HEAD -gm __K14GROUPMODE;"
+            )
+            if int(self.op.lt_float("__K14GROUPMODE")) != 1:
+                raise RuntimeError("Origin K14 must retain independent per-group formatting")
+        pooled_bandwidth = None
+        if self.profile_id == "K14":
+            pooled_values = tuple(
+                value for group in distribution.groups for value in group.values
+            )
+            pooled_bandwidth = scott_kde_geometry(
+                pooled_values,
+                grid_points=_VIOLIN_GRID_POINTS,
+                extend_bandwidths=0.0,
+            ).bandwidth
+        for index, _group in enumerate(distribution.groups, start=1):
+            if self.profile_id == "K13":
                 state: dict[str, int | float] = {
-                    "BoxType": int(
-                        self._required_theme_node(theme, "BoxType", "K12").GetIntValue()
+                    "BoxType": read_native_distribution_value(
+                        self.op, graph_name, index, BOX_TYPE, numeric_type="int"
                     ),
-                    "DotPlotType": int(
-                        self._required_theme_node(theme, "DotPlotType", "K12").GetIntValue()
+                    "BoxRange": read_native_distribution_value(
+                        self.op, graph_name, index, BOX_RANGE, numeric_type="int"
                     ),
-                    "ArrangePoints": int(
-                        self._required_theme_node(
-                            theme, "ArrangePoints", "K12"
-                        ).GetIntValue()
+                    "WhiskerRange": read_native_distribution_value(
+                        self.op, graph_name, index, WHISKER_RANGE, numeric_type="int"
                     ),
-                }
-                if state != {
-                    "BoxType": _BOX_TYPE_DATA,
-                    "DotPlotType": _DATA_DOTS,
-                    "ArrangePoints": _ARRANGE_JITTER,
-                }:
-                    raise RuntimeError("Origin K12 lost its native jittered-dot contract")
-            elif self.profile_id == "K13":
-                state = {
-                    "BoxType": int(
-                        self._required_theme_node(theme, "BoxType", "K13").GetIntValue()
+                    "WhiskerCoeff": read_native_distribution_value(
+                        self.op, graph_name, index, WHISKER_COEFF, numeric_type="double"
                     ),
-                    "BoxRange": int(
-                        self._required_theme_node(theme, "BoxRange", "K13").GetIntValue()
-                    ),
-                    "WhiskerRange": int(
-                        self._required_theme_node(
-                            theme, "WhiskerRange", "K13"
-                        ).GetIntValue()
-                    ),
-                    "WhiskerCoeff": float(
-                        self._required_theme_node(
-                            theme, "WhiskerCoeff", "K13"
-                        ).GetDoubleValue()
-                    ),
-                    "HasOutliers": int(
-                        self._required_theme_node(
-                            theme, "HasOutliers", "K13"
-                        ).GetIntValue()
+                    "HasOutliers": read_native_distribution_value(
+                        self.op, graph_name, index, HAS_OUTLIERS, numeric_type="int"
                     ),
                 }
                 if state != {
@@ -584,47 +574,45 @@ class DistributionOriginProject:
                 }:
                     raise RuntimeError("Origin K13 lost its explicit Tukey 1.5 x IQR contract")
             else:
-                expected_bandwidth = scott_kde_geometry(
-                    group.values,
-                    grid_points=_VIOLIN_GRID_POINTS,
-                    extend_bandwidths=0.0,
-                ).bandwidth
+                expected_bandwidth = pooled_bandwidth
+                if expected_bandwidth is None:
+                    raise RuntimeError("Origin K14 pooled bandwidth is unavailable")
                 state = {
-                    "CurveType": int(
-                        self._required_theme_node(theme, "CurveType", "K14").GetIntValue()
+                    "CurveType": read_native_distribution_value(
+                        self.op, graph_name, index, DIST_CURVE_TYPE, numeric_type="int"
                     ),
-                    "CurveScale": int(
-                        self._required_theme_node(theme, "CurveScale", "K14").GetIntValue()
+                    "CurveScale": read_native_distribution_value(
+                        self.op, graph_name, index, DIST_CURVE_SCALE, numeric_type="int"
                     ),
-                    "ScaleType": int(
-                        self._required_theme_node(theme, "ScaleType", "K14").GetIntValue()
+                    "ScaleType": read_native_distribution_value(
+                        self.op, graph_name, index, DIST_SCALE_TYPE, numeric_type="int"
                     ),
-                    "BandwidthMode": int(
-                        self._required_theme_node(
-                            theme, "KernelSmoothBandwidth", "K14"
-                        ).GetIntValue()
+                    "BandwidthMode": read_native_distribution_value(
+                        self.op, graph_name, index, DIST_BANDWIDTH, numeric_type="int"
                     ),
-                    "Bandwidth": float(
-                        self._required_theme_node(
-                            theme, "KernelSmoothBandwidthFactor", "K14"
-                        ).GetDoubleValue()
+                    "Bandwidth": read_native_distribution_value(
+                        self.op,
+                        graph_name,
+                        index,
+                        DIST_BANDWIDTH_FACTOR,
+                        numeric_type="double",
                     ),
-                    "Extend": float(
-                        self._required_theme_node(
-                            theme, "KernelSmoothExtend", "K14"
-                        ).GetDoubleValue()
+                    "Extend": read_native_distribution_value(
+                        self.op, graph_name, index, DIST_EXTEND, numeric_type="double"
                     ),
                 }
                 if (
                     state["CurveType"] != _KERNEL_SMOOTH
-                    or state["CurveScale"] != 1
+                    or state["CurveScale"] != 100
                     or state["ScaleType"] != _VIOLIN_SCALE_WIDTH
-                    or state["BandwidthMode"] != _BANDWIDTH_CUSTOM
+                    or state["BandwidthMode"] != _BANDWIDTH_CUSTOM_READBACK
                     or abs(float(state["Bandwidth"]) - expected_bandwidth) > 1e-12
                     or abs(float(state["Extend"])) > 1e-12
                 ):
                     raise RuntimeError(
-                        f"Origin K14 group {index} lost the shared violin bandwidth contract"
+                        f"Origin K14 group {index} lost the shared violin bandwidth "
+                        f"contract: observed={state!r}, expected_bandwidth="
+                        f"{expected_bandwidth:.17g}"
                     )
             native_settings.append(state)
         return {
@@ -680,16 +668,18 @@ class DistributionOriginProject:
             "arrange_points": "requires_live_theme_readback",
         }
 
-    def _rebuild_x05_data_legend(self) -> Any:
+    def _rebuild_native_data_legend(self) -> Any:
         self.layer.activate()
         self.op.lt_exec(
             "legendbox mode:=replace box:=0 range:=0 whisker:=0 mdl:=0 ml:=0 "
             "max:=0 perc99:=0 mean:=0 Median:=0 perc1:=0 min:=0 cp:=0 "
-            "data:=1 dataid:=L outlier:=0 extreme:=0 cm:=0 cmd:=0 cd:=0 ccp:=0;"
+            "data:=1 id:=L outlier:=0 extreme:=0 cm:=0 cmd:=0 cd:=0 ccp:=0;"
         )
         legend = self.layer.label("legend")
         if legend is None:
-            raise RuntimeError("Origin X05 could not build its data-symbol-only legend")
+            raise RuntimeError(
+                f"Origin {self.profile_id} could not build its data-symbol-only legend"
+            )
         return legend
 
     def _set_series_rgb(

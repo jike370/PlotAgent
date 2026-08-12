@@ -38,6 +38,9 @@ class FakeLabel:
     def get_int(self, name: str) -> int:
         return self.values.get(name, 0)
 
+    def set_float(self, name: str, value: float) -> None:
+        self.values[name] = value
+
 
 class FakeAxis:
     def __init__(self) -> None:
@@ -53,7 +56,9 @@ class FakeAxis:
 
 
 class FakePlot:
-    def __init__(self) -> None:
+    def __init__(self, dataset_name: str = "Dorigin_dual_B") -> None:
+        self.obj = self
+        self.DatasetName = dataset_name
         self._color = (0, 0, 0)
         self.floats = {"line.width": 1.0}
         self.ints = {"line.style": 0}
@@ -195,6 +200,11 @@ class FakeOrigin:
         }
         self.plot_ids = {1: 202.0, 2: 202.0}
         self.links = {"target": 1.0, "x": 1.0, "y": 0.0}
+        self.offsets = {
+            1: {"SX": 0.0, "SXS": 1.0, "SY": 0.0, "SYS": 1.0},
+            2: {"SX": 0.0, "SXS": 1.0, "SY": 0.0, "SYS": 1.0},
+        }
+        self.source_columns = {1: {"X": "A", "Y": "B"}, 2: {"X": "A", "Y": "C"}}
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -212,8 +222,8 @@ class FakeOrigin:
         if active:
             self.active_layer = int(active.group(1))
         if "run.section(plot,2Ys_Y-Y)" in command:
-            for layer in self.graph.layers:
-                layer.plots = [FakePlot()]
+            self.graph.layers[0].plots = [FakePlot(f"{self.book.name}_B")]
+            self.graph.layers[1].plots = [FakePlot(f"{self.book.name}_C")]
         color = re.search(r'set %C -cl color\("(#[0-9A-Fa-f]{6})"\)', command)
         if color:
             self.styles[self.active_layer]["color"] = int(color.group(1)[1:], 16)
@@ -237,14 +247,9 @@ class FakeOrigin:
         if native:
             if native.group(2) == "PT":
                 return self.plot_ids[int(native.group(1))]
-            return {
-                "K": 2.0,
-                "Z": 5.0,
-                "SX": 0.0,
-                "SXS": 1.0,
-                "SY": 0.0,
-                "SYS": 1.0,
-            }[native.group(2)]
+            if native.group(2) in {"K", "Z"}:
+                return {"K": 2.0, "Z": 5.0}[native.group(2)]
+            return self.offsets[int(native.group(1))][native.group(2)]
         style = re.fullmatch(r"__X23STYLE([12])([CWD])", expression)
         if style:
             key = {"C": "color", "W": "width", "D": "style"}[style.group(2)]
@@ -254,7 +259,7 @@ class FakeOrigin:
     def get_lt_str(self, expression: str) -> str:
         source = re.fullmatch(r"__X23([12])([XY])S", expression)
         assert source is not None
-        column = "A" if source.group(2) == "X" else ("B" if source.group(1) == "1" else "C")
+        column = self.source_columns[int(source.group(1))][source.group(2)]
         return f'[{self.book.name}]Sheet1!{column}"'
 
 
@@ -414,6 +419,64 @@ def test_x23_rejects_plain_line_or_invalid_layer_linkage(
 
     with pytest.raises(RuntimeError, match=message):
         X23OriginProject(op).create(tmp_path, document, view)
+
+
+def test_x23_uses_only_stable_labtalk_structure_readback() -> None:
+    source = inspect.getsource(X23OriginProject._assert_native_structure)
+
+    assert "get %C -pt" in source and "get %C -k" in source and "get %C -z" in source
+    assert "range -wx" in source and "range -wy" in source
+    assert "layer.link" in source and "layer.x.link" in source and "layer.y.link" in source
+    assert all(switch in source for switch in ("-sx", "-sxs", "-sy", "-sys"))
+    assert "plot.obj.DatasetName" in source
+    assert "OriginExt" not in source and "Theme" not in source
+
+
+@pytest.mark.parametrize(
+    ("mutator", "message"),
+    (
+        (lambda origin: origin.source_columns[2].update(X="D"), "lost shared X source A"),
+        (lambda origin: origin.offsets[2].update(SXS=2.0), "non-native offset/scale"),
+    ),
+)
+def test_x23_fresh_gate_rejects_source_or_offset_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutator,
+    message: str,
+) -> None:
+    document, actions, view = _case()
+    template = tmp_path / X23_ORIGIN_PROFILE.filename
+    monkeypatch.setattr(x23_module, "resolve_official_template", lambda install, profile: template)
+    op = FakeOrigin()
+    project = X23OriginProject(op)
+    project.create(tmp_path, document, view)
+    for action in actions:
+        project.apply(document, action, view)
+    project.reconcile(document, actions, view)
+    mutator(op)
+
+    with pytest.raises(RuntimeError, match=message):
+        project.verify(document, actions, view)
+
+
+def test_x23_fresh_gate_rejects_unlinked_or_incomplete_legend(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    document, actions, view = _case()
+    template = tmp_path / X23_ORIGIN_PROFILE.filename
+    monkeypatch.setattr(x23_module, "resolve_official_template", lambda install, profile: template)
+    op = FakeOrigin()
+    project = X23OriginProject(op)
+    project.create(tmp_path, document, view)
+    for action in actions:
+        project.apply(document, action, view)
+    project.reconcile(document, actions, view)
+    legend = op.graph.layers[0].labels["legend"]
+    legend.set_int("link", 0)
+
+    with pytest.raises(RuntimeError, match="legend visibility"):
+        project.verify(document, actions, view)
 
 
 def test_x23_template_identity_is_pinned_to_doubley_otp() -> None:

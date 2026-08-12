@@ -29,6 +29,7 @@ from plotagent.engine.contracts import (
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import DistributionData, distribution_groups
 from plotagent.engine.repository import document_ref
+from plotagent.plot_calculations.kernels import scott_kde_geometry
 
 _PALETTE = ("#1676D2", "#D97800", "#299764", "#C53D4D", "#7656B5", "#008A99")
 
@@ -332,13 +333,23 @@ class K14ViolinRenderer(_DistributionRenderer):
         distribution: DistributionData,
         state: _DistributionState,
     ) -> tuple[int, ...]:
-        # Draw each group independently so ``bw_method`` is an explicit
-        # per-group covariance factor.  Matplotlib multiplies this factor by
-        # the sample SD, matching the absolute bandwidth written into
-        # Origin's Custom bandwidth field: sample_SD * n**(-1/5).
+        pooled_values = tuple(
+            value for group in distribution.groups for value in group.values
+        )
+        shared_bandwidth = scott_kde_geometry(
+            pooled_values,
+            grid_points=256,
+            extend_bandwidths=0.0,
+        ).bandwidth
+        # Origin stores one absolute KDE bandwidth for the native violin
+        # group. Matplotlib accepts a covariance factor per call, so divide
+        # the shared absolute bandwidth by each group's sample SD.
         for position, (group, style) in enumerate(
             zip(distribution.groups, state.series, strict=True), start=1
         ):
+            sample_sd = float(np.std(group.values, ddof=1))
+            if sample_sd <= 0:
+                raise ValueError("K14 violin groups require non-zero sample variance")
             result = axis.violinplot(
                 [group.values],
                 positions=[position],
@@ -347,7 +358,7 @@ class K14ViolinRenderer(_DistributionRenderer):
                 showmedians=True,
                 showextrema=False,
                 points=256,
-                bw_method=len(group.values) ** (-1.0 / 5.0),
+                bw_method=shared_bandwidth / sample_sd,
             )
             bodies = cast(list[Any], result["bodies"])
             if len(bodies) != 1:

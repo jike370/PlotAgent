@@ -94,14 +94,27 @@ class X13OriginProject:
         if isinstance(action, SetTitle):
             if action.target != document.plot_id:
                 raise ValueError("X13 title target does not belong to this plot")
+            # Keep the page-attached title on the template's primary layer.
+            # Creating it through the linked mirror layer changes the active
+            # overlay that Origin exports on reopen.
             label = self.layers[0].label(_TITLE_NAME)
-            if label is None:
-                label = self.layers[0].add_label(action.text, 40, 2)
+            if label is None and action.text:
+                self.layers[0].activate()
+                if not self.layers[0].obj.LT_execute(
+                    f"label -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
+                ):
+                    raise RuntimeError("Origin could not create the X13 title")
+                label = self.layers[0].label(_TITLE_NAME)
                 if label is None:
                     raise RuntimeError("Origin could not create the X13 title")
-                label.name = _TITLE_NAME
-            label.text = action.text
-            label.set_int("show", 1)
+            if label is not None:
+                label.text = action.text
+                label.set_int("attach", 1)
+                label.set_float("x1", 0.5)
+                label.set_float("y1", 0.012)
+                label.set_int("fsize", 14)
+                label.set_int("background", 0)
+                label.set_int("show", int(bool(action.text)))
             return
         if isinstance(action, SetAxis):
             axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
@@ -179,7 +192,7 @@ class X13OriginProject:
                 legend = self.layers[0].label("legend")
             if legend is not None and action.visible is not None:
                 legend.text = (
-                    f"\\l(1) {_safe_label(pyramid.left_field_name)}\n"
+                    f"\\l(1.1) {_safe_label(pyramid.left_field_name)}\n"
                     f"\\l(2.1) {_safe_label(pyramid.right_field_name)}"
                 )
                 legend.set_int("link", 1)
@@ -189,6 +202,11 @@ class X13OriginProject:
 
     def save(self, output_path: Path) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        # Origin persists the active layer as part of the project view.  The
+        # official population-pyramid page is intended to open on layer 1;
+        # leaving layer 2 active can show only its opaque overlay on reopen.
+        self.graph.activate()
+        self.op.lt_exec(f"{self.graph.name}!page.active=1;")
         self.op.save(str(output_path))
         if not output_path.is_file() or output_path.stat().st_size <= 0:
             raise RuntimeError("Origin did not save a non-empty X13 project")
@@ -215,6 +233,7 @@ class X13OriginProject:
                 raise RuntimeError(f"Origin X13 data column {index} differs after reopen")
         token = document.plot_id.removeprefix("plot:")
         snapshot: dict[str, object] = {"layers": 2, "categories": pyramid.categories}
+        legend_action: SetLegend | None = None
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layers[0].label(_TITLE_NAME)
@@ -224,9 +243,15 @@ class X13OriginProject:
                 ordinal = 0 if action.target == f"series:{token}.left" else 1
                 self._assert_column_style(ordinal + 1, action)
             elif isinstance(action, SetLegend) and action.visible is not None:
+                legend_action = action
                 legend = self.layers[0].label("legend")
                 if legend is None or bool(legend.get_int("show")) != action.visible:
                     raise RuntimeError("Origin X13 legend visibility did not survive readback")
+        self._assert_legend(
+            pyramid,
+            visible=True if legend_action is None else bool(legend_action.visible),
+            labels_written=legend_action is not None,
+        )
         return EngineReadback(
             document=document_ref(document),
             backend="origin",
@@ -354,14 +379,63 @@ class X13OriginProject:
             raise RuntimeError(
                 f"Origin X13 source designation must remain XYY; observed {designations}"
             )
+        datasets = tuple(str(plot.obj.DatasetName) for plot in self.plots or ())
+        if len(datasets) != 2 or not datasets[0].endswith("_B") or not datasets[1].endswith(
+            "_C"
+        ):
+            raise RuntimeError(
+                f"Origin X13 Origin C datasets are not the native B/C sources: {datasets}"
+            )
+        self.op.lt_exec(
+            self._graph_layer_prefix(2)
+            + "__X13LINK=layer.link; __X13XLINK=layer.x.link; __X13YLINK=layer.y.link;"
+        )
+        link_target = int(self.op.lt_float("__X13LINK"))
+        x_link = int(self.op.lt_float("__X13XLINK"))
+        y_link = int(self.op.lt_float("__X13YLINK"))
+        # PopulationPyramid.otpu links layer 2 to layer 1 with straight X
+        # alignment and a custom mirrored Y transform. Origin's LINKED_AXIS
+        # enum is None=0, Straight=1, Custom=2, Align=3.
+        if (link_target, x_link, y_link) != (1, 1, 2):
+            raise RuntimeError(
+                "Origin X13 layer 2 lost its official parent/axis link signature; "
+                f"observed {(link_target, x_link, y_link)}"
+            )
         return {
             "official_menu_command": _OFFICIAL_COMMAND,
             "native_plot_ids": plot_ids,
             "exchange_xy": [True, True],
             "source_x_ranges": x_ranges,
             "source_y_ranges": y_ranges,
+            "origin_c_datasets": list(datasets),
+            "layer2_link": {"target": link_target, "x": x_link, "y": y_link},
             "worksheet_designations": designations,
         }
+
+    def _assert_legend(
+        self,
+        pyramid: PopulationPyramidData,
+        *,
+        visible: bool,
+        labels_written: bool,
+    ) -> None:
+        legend = self.layers[0].label("legend") if self.layers is not None else None
+        if legend is None or legend.get_int("link") != 1:
+            raise RuntimeError("Origin X13 legend is not a linked native legend")
+        if bool(legend.get_int("show")) != visible:
+            raise RuntimeError("Origin X13 legend visibility changed after reopen")
+        text = str(legend.text)
+        if (
+            text.count(r"\l(") != 2
+            or r"\l(1.1)" not in text
+            or r"\l(2.1)" not in text
+        ):
+            raise RuntimeError("Origin X13 legend lost its two cross-layer native samples")
+        if labels_written and any(
+            _safe_label(label) not in text
+            for label in (pyramid.left_field_name, pyramid.right_field_name)
+        ):
+            raise RuntimeError("Origin X13 legend labels changed after reopen")
 
     def _assert_column_style(self, layer_index: int, action: SetSeriesStyle) -> None:
         if action.color is None and action.line_width_pt is None:

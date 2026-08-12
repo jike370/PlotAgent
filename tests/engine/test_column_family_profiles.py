@@ -42,6 +42,19 @@ from plotagent.engine.backends.origin import (
 )
 from plotagent.engine.backends.origin.column_family import ColumnFamilyOriginProject
 from plotagent.engine.backends.origin.distribution import DistributionOriginProject
+from plotagent.engine.backends.origin.native_distribution import (
+    BOX_RANGE,
+    BOX_TYPE,
+    DIST_BANDWIDTH,
+    DIST_BANDWIDTH_FACTOR,
+    DIST_CURVE_SCALE,
+    DIST_CURVE_TYPE,
+    DIST_EXTEND,
+    DIST_SCALE_TYPE,
+    HAS_OUTLIERS,
+    WHISKER_COEFF,
+    WHISKER_RANGE,
+)
 from plotagent.engine.profile_data import (
     category_series_grid,
     distribution_groups,
@@ -268,39 +281,6 @@ class _Plot:
         self.floats = {"line.width": 0.8}
         self.commands: list[str] = []
         self.ints = {"show": 1}
-        self.theme = _ThemeNode(
-            "Root",
-            children=(
-                _ThemeNode(
-                    "Histogram",
-                    children=(
-                        _ThemeNode(
-                            "BoxChart",
-                            children=(
-                                _ThemeNode("BoxType"),
-                                _ThemeNode("BoxRange"),
-                                _ThemeNode("WhiskerRange"),
-                                _ThemeNode("WhiskerCoeff", double=1.0),
-                                _ThemeNode("HasOutliers"),
-                                _ThemeNode("DotPlotType"),
-                                _ThemeNode("ArrangePoints"),
-                            ),
-                        ),
-                        _ThemeNode(
-                            "Distribution",
-                            children=(
-                                _ThemeNode("CurveType"),
-                                _ThemeNode("CurveScale"),
-                                _ThemeNode("ScaleType"),
-                                _ThemeNode("KernelSmoothBandwidth"),
-                                _ThemeNode("KernelSmoothBandwidthFactor", double=0.0),
-                                _ThemeNode("KernelSmoothExtend", double=0.0),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        )
 
     @property
     def color(self):
@@ -321,13 +301,6 @@ class _Plot:
 
     def get_int(self, name: str) -> int:
         return self.ints.get(name, 0)
-
-    def GetTheme(self):
-        return self.theme
-
-    def PutTheme(self, theme) -> None:
-        assert theme is self.theme
-
 
 class _ThemeNode:
     def __init__(
@@ -557,12 +530,21 @@ class _Origin:
                     f"\\l({index}) %({index})" for index in range(self.book.sheet.cols - 1, 0, -1)
                 )
             )
+        elif command.startswith("legendbox"):
+            self.graph.layer.labels["legend"] = _Label(
+                "\n".join(
+                    f"\\l({index}) %({index}, @L)"
+                    for index in range(1, self.book.sheet.cols + 1)
+                )
+            )
         elif command.startswith("dataset __K") and "COLORS" in command:
             payload = command.split("{", 1)[1].split("}", 1)[0]
             self.k09_colors = [int(item.split('"', 2)[1][1:], 16) for item in payload.split(",")]
         elif " -gm 1" in command and " -pfb color" in command:
             self.group_edit_mode = 1
             self.member_fill = int(command.split('color("', 1)[1].split('"', 1)[0][1:], 16)
+        elif "set __K14HEAD -gm 1" in command:
+            self.group_edit_mode = 1
         return True
 
     def lt_float(self, expression: str) -> float:
@@ -878,6 +860,35 @@ def test_distribution_origin_uses_only_the_official_native_plot_type(
         "resolve_official_template",
         lambda install, selected: tmp_path / selected.filename,
     )
+    native_values: dict[tuple[int, int], int | float] = {}
+
+    def configure(_op, _graph, plot_index, native_profile, *, bandwidth=0.0) -> None:
+        if native_profile == 13:
+            values = {
+                BOX_TYPE: 0,
+                BOX_RANGE: 2,
+                WHISKER_RANGE: 6,
+                WHISKER_COEFF: 1.5,
+                HAS_OUTLIERS: 1,
+            }
+        else:
+            values = {
+                DIST_CURVE_TYPE: 8,
+                DIST_CURVE_SCALE: 100,
+                DIST_SCALE_TYPE: 1,
+                DIST_BANDWIDTH: 255,
+                DIST_BANDWIDTH_FACTOR: bandwidth,
+                DIST_EXTEND: 0.0,
+            }
+        native_values.update(
+            {(plot_index, theme_id): value for theme_id, value in values.items()}
+        )
+
+    def read(_op, _graph, plot_index, theme_id, *, numeric_type):
+        return native_values[(1, theme_id)]
+
+    monkeypatch.setattr(distribution_origin_module, "configure_native_distribution", configure)
+    monkeypatch.setattr(distribution_origin_module, "read_native_distribution_value", read)
     origin = _Origin()
     project = DistributionOriginProject(origin, profile_id=profile_id)  # type: ignore[arg-type]
     project.create(tmp_path, document, view)
@@ -899,34 +910,31 @@ def test_distribution_origin_uses_only_the_official_native_plot_type(
     assert "line" not in str(origin.graph.layer.add_calls).lower()
     assert "fill" not in str(origin.graph.layer.add_calls).lower()
 
-    first_theme = origin.graph.layer.plots[0].GetTheme()
-    histogram = first_theme.Children[0]
-    box_chart, distribution = histogram.Children
-    box_values = {node.Name: node for node in box_chart.Children}
-    distribution_values = {node.Name: node for node in distribution.Children}
     if profile_id == "K12":
-        assert box_values["BoxType"].GetIntValue() == 1
-        assert box_values["DotPlotType"].GetIntValue() == 0
-        assert box_values["ArrangePoints"].GetIntValue() == 1
+        assert native_values == {}
     elif profile_id == "K13":
-        assert box_values["BoxType"].GetIntValue() == 0
-        assert box_values["BoxRange"].GetIntValue() == 2
-        assert box_values["WhiskerRange"].GetIntValue() == 6
-        assert box_values["WhiskerCoeff"].GetDoubleValue() == pytest.approx(1.5)
-        assert box_values["HasOutliers"].GetIntValue() == 1
+        assert native_values[(1, BOX_TYPE)] == 0
+        assert native_values[(1, BOX_RANGE)] == 2
+        assert native_values[(1, WHISKER_RANGE)] == 6
+        assert native_values[(1, WHISKER_COEFF)] == pytest.approx(1.5)
+        assert native_values[(1, HAS_OUTLIERS)] == 1
     else:
-        expected_bandwidth = np.std((11, 12, 13, 14, 15, 16), ddof=1) * 6 ** (-1 / 5)
-        assert distribution_values["CurveType"].GetIntValue() == 8
-        assert distribution_values["CurveScale"].GetIntValue() == 1
-        assert distribution_values["ScaleType"].GetIntValue() == 1
-        assert distribution_values["KernelSmoothBandwidth"].GetIntValue() == 3
-        assert distribution_values[
-            "KernelSmoothBandwidthFactor"
-        ].GetDoubleValue() == pytest.approx(expected_bandwidth)
-        assert distribution_values["KernelSmoothExtend"].GetDoubleValue() == 0.0
+        pooled = tuple(
+            value for start in (11, 21, 31) for value in range(start, start + 6)
+        )
+        expected_bandwidth = np.std(pooled, ddof=1) * len(pooled) ** (-1 / 5)
+        assert native_values[(1, DIST_CURVE_TYPE)] == 8
+        assert native_values[(1, DIST_CURVE_SCALE)] == 100
+        assert native_values[(1, DIST_SCALE_TYPE)] == 1
+        assert native_values[(1, DIST_BANDWIDTH)] == 255
+        assert native_values[(1, DIST_BANDWIDTH_FACTOR)] == pytest.approx(
+            expected_bandwidth
+        )
+        assert native_values[(1, DIST_EXTEND)] == 0.0
+        assert origin.group_edit_mode == 1
 
 
-def test_k14_matplotlib_writes_the_same_per_group_scott_bandwidth_contract() -> None:
+def test_k14_matplotlib_writes_the_same_shared_absolute_bandwidth_contract() -> None:
     document, actions, view = _distribution_case("K14", 3)
     renderer = K14ViolinRenderer()
     distribution = distribution_groups(document, view, profile_id="K14")
@@ -944,7 +952,10 @@ def test_k14_matplotlib_writes_the_same_per_group_scott_bandwidth_contract() -> 
     plt.close(figure)
 
     assert len(calls) == 3
+    pooled = tuple(value for group in distribution.groups for value in group.values)
+    shared_bandwidth = np.std(pooled, ddof=1) * len(pooled) ** (-1 / 5)
     for call, group in zip(calls, distribution.groups, strict=True):
-        assert call["bw_method"] == pytest.approx(len(group.values) ** (-1 / 5))
+        expected_factor = shared_bandwidth / np.std(group.values, ddof=1)
+        assert call["bw_method"] == pytest.approx(expected_factor)
         assert call["points"] == 256
         assert call["showextrema"] is False

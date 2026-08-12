@@ -29,6 +29,11 @@ from plotagent.engine.profile_data import (
 from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
+from .native_distribution import (
+    DATA_HEIGHT_TYPE,
+    configure_native_distribution,
+    read_native_distribution_value,
+)
 from .profile import (
     K15_ORIGIN_PROFILE,
     K16_ORIGIN_PROFILE,
@@ -104,6 +109,7 @@ class CalculatedDistributionOriginProject:
             self.graph = graphs[0]
             self.graph.lname = f"K15 Histogram / {document.plot_id}"
             self.layer = self.graph[0]
+            self._hide_blank_opposite_axis_titles()
             self.plots = [
                 plot for plot in self.layer.plot_list() if plot.get_int("show") != 0
             ]
@@ -139,6 +145,19 @@ class CalculatedDistributionOriginProject:
                 raise RuntimeError(f"Origin HISTDIST.otpu rejected density {index + 1}")
             self.plots.append(plot)
         self.layer.rescale()
+
+    def _hide_blank_opposite_axis_titles(self) -> None:
+        """Hide whitespace-only top/right titles shipped by Hist.otpu.
+
+        Origin renders those blank title objects as detached black dashes in
+        exported PNGs. They carry no data or axis semantics; bottom/left
+        titles remain linked to the native histogram source.
+        """
+
+        for name in ("XT", "YR"):
+            label = self.layer.label(name)
+            if label is not None and not str(label.text).strip():
+                label.set_int("show", 0)
 
     def reopen(
         self,
@@ -388,25 +407,6 @@ class CalculatedDistributionOriginProject:
             axis="Y",
         )
 
-    @staticmethod
-    def _theme_descendant(node: Any, name: str) -> Any | None:
-        if node is None:
-            return None
-        if str(node.Name) == name:
-            return node
-        for child in node.Children:
-            match = CalculatedDistributionOriginProject._theme_descendant(child, name)
-            if match is not None:
-                return match
-        return None
-
-    @classmethod
-    def _required_theme_node(cls, theme: Any, name: str) -> Any:
-        node = cls._theme_descendant(theme, name)
-        if node is None:
-            raise RuntimeError(f"Origin K15 official template lacks native theme node {name}")
-        return node
-
     def _configure_native_histogram(self, histogram: HistogramData) -> None:
         graph_name = str(self.graph.name)
         if not graph_name.replace("_", "").isalnum():
@@ -427,11 +427,12 @@ class CalculatedDistributionOriginProject:
         )
         if not self.op.lt_exec(command):
             raise RuntimeError("Origin could not write the frozen K15 native histogram bins")
-        theme = self.plots[0].obj.GetTheme()
-        self._required_theme_node(theme, "DataHeightType").SetIntValue(
-            _HISTOGRAM_DATA_HEIGHT_COUNT
+        configure_native_distribution(
+            self.op,
+            graph_name,
+            1,
+            15,
         )
-        self.plots[0].obj.PutTheme(theme)
 
     def _assert_native_histogram(self, histogram: HistogramData) -> dict[str, object]:
         graph_name = str(self.graph.name)
@@ -466,9 +467,14 @@ class CalculatedDistributionOriginProject:
                 raise RuntimeError(
                     f"Origin K15 frozen histogram {label} differs after native readback"
                 )
-        theme = self.plots[0].obj.GetTheme()
         data_height = int(
-            self._required_theme_node(theme, "DataHeightType").GetIntValue()
+            read_native_distribution_value(
+                self.op,
+                graph_name,
+                1,
+                DATA_HEIGHT_TYPE,
+                numeric_type="int",
+            )
         )
         if data_height != _HISTOGRAM_DATA_HEIGHT_COUNT:
             raise RuntimeError("Origin K15 Data Height must read back as Count")

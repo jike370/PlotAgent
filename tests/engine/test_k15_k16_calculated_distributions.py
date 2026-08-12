@@ -20,6 +20,7 @@ from plotagent.engine.backends.origin import K15_ORIGIN_PROFILE, K16_ORIGIN_PROF
 from plotagent.engine.backends.origin.calculated_distribution import (
     CalculatedDistributionOriginProject,
 )
+from plotagent.engine.backends.origin.native_distribution import DATA_HEIGHT_TYPE
 from plotagent.engine.profile_data import k15_histogram, k16_density
 from plotagent.plot_calculations.kernels import histogram_geometry, scott_kde_geometry
 
@@ -129,20 +130,6 @@ class _Plot:
         self.DatasetName = dataset_name
         self.values = {"show": 1}
         self.command = ""
-        self.theme = _ThemeNode(
-            "Root",
-            children=(
-                _ThemeNode(
-                    "Histogram",
-                    children=(
-                        _ThemeNode(
-                            "BoxChart",
-                            children=(_ThemeNode("DataHeightType"),),
-                        ),
-                    ),
-                ),
-            ),
-        )
 
     def set_int(self, name: str, value: int) -> None:
         self.values[name] = value
@@ -153,30 +140,21 @@ class _Plot:
     def set_cmd(self, command: str) -> None:
         self.command = command
 
-    def GetTheme(self):
-        return self.theme
 
-    def PutTheme(self, theme) -> None:
-        assert theme is self.theme
+class _Label:
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.values = {"show": 1}
 
-
-class _ThemeNode:
-    def __init__(self, name: str, value: int = 0, children=()) -> None:
-        self.Name = name
-        self.nVal = value
-        self.Children = list(children)
-
-    def SetIntValue(self, value: int) -> None:
-        self.nVal = value
-
-    def GetIntValue(self) -> int:
-        return self.nVal
+    def set_int(self, name: str, value: int) -> None:
+        self.values[name] = value
 
 
 class _Layer:
     def __init__(self) -> None:
         self.plots: list[_Plot] = []
         self.add_calls: list[dict[str, object]] = []
+        self.labels = {"XT": _Label(" "), "YR": _Label(" ")}
 
     def plot_list(self) -> list[_Plot]:
         return self.plots
@@ -191,6 +169,9 @@ class _Layer:
 
     def rescale(self) -> None:
         return None
+
+    def label(self, name: str):
+        return self.labels.get(name)
 
 
 class _Graph:
@@ -304,6 +285,17 @@ def test_origin_binders_use_native_origin_geometry_from_raw_observations(
         "resolve_official_template",
         lambda install, selected: tmp_path / selected.filename,
     )
+    native_values: dict[tuple[int, int], int | float] = {}
+
+    def configure(_op, _graph, plot_index, native_profile, *, bandwidth=0.0) -> None:
+        assert native_profile == 15
+        native_values[(plot_index, DATA_HEIGHT_TYPE)] = 0
+
+    def read(_op, _graph, plot_index, theme_id, *, numeric_type):
+        return native_values[(plot_index, theme_id)]
+
+    monkeypatch.setattr(origin_module, "configure_native_distribution", configure)
+    monkeypatch.setattr(origin_module, "read_native_distribution_value", read)
     origin = _Origin()
     project = CalculatedDistributionOriginProject(origin, profile_id=profile_id)
     project.create(tmp_path, document, view)
@@ -320,21 +312,15 @@ def test_origin_binders_use_native_origin_geometry_from_raw_observations(
         ]
         assert set(origin.book.sheet.columns) == {0}
         assert origin.book.sheet.columns[0] == [1.0, 1.5, 2.0, 2.5, 4.0, 4.5]
+        assert origin.graph.layer.labels["XT"].values["show"] == 0
+        assert origin.graph.layer.labels["YR"].values["show"] == 0
         histogram = k15_histogram(document, view)
         assert origin.histogram_values == {
             "__K15BEGIN": pytest.approx(histogram.left[0]),
             "__K15END": pytest.approx(histogram.right[-1]),
             "__K15SIZE": pytest.approx(histogram.right[0] - histogram.left[0]),
         }
-        data_height = (
-            origin.graph.layer.plots[0]
-            .GetTheme()
-            .Children[0]
-            .Children[0]
-            .Children[0]
-        )
-        assert data_height.Name == "DataHeightType"
-        assert data_height.GetIntValue() == 0
+        assert native_values[(1, DATA_HEIGHT_TYPE)] == 0
     else:
         assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
 

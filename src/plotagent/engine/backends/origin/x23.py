@@ -184,6 +184,11 @@ class X23OriginProject:
 
     def save(self, output_path: Path) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        # Native readback visits layer 2.  Persist the official DOUBLEY page
+        # with its primary layer active or Origin may reopen/export only the
+        # transparent linked overlay instead of the complete two-layer page.
+        self.graph.activate()
+        self.op.lt_exec(f"{self.graph.name}!page.active=1;")
         self.op.save(str(output_path))
         if not output_path.is_file() or output_path.stat().st_size <= 0:
             raise RuntimeError("Origin did not save a non-empty X23 project")
@@ -268,12 +273,17 @@ class X23OriginProject:
         layer = self._layers()[0]
         title = layer.label(_TITLE_NAME)
         if title is None and text:
-            title = layer.add_label(text, 40, 2)
+            title = layer.add_label(text)
             if title is None:
                 raise RuntimeError("Origin could not create the X23 title")
             title.name = _TITLE_NAME
         if title is not None:
             title.text = text
+            title.set_int("attach", 1)
+            title.set_float("x1", 0.5)
+            title.set_float("y1", 0.012)
+            title.set_int("fsize", 14)
+            title.set_int("background", 0)
             title.set_int("show", int(bool(text)))
 
     def _configure_x_axis(self, data: X23SeriesData, state: _AxisState) -> None:
@@ -395,9 +405,20 @@ class X23OriginProject:
         ):
             self._assert_series_style(layer_index, edit)
         legend = self._layers()[0].label("legend")
-        if legend is None or bool(legend.get_int("show")) != state.legend_visible:
+        if (
+            legend is None
+            or legend.get_int("link") != 1
+            or bool(legend.get_int("show")) != state.legend_visible
+        ):
             raise RuntimeError("Origin X23 legend visibility did not survive readback")
-        if "\\l(1)" not in legend.text or "\\l(2.1)" not in legend.text:
+        legend_text = str(legend.text)
+        if (
+            legend_text.count(r"\l(") != 2
+            or r"\l(1)" not in legend_text
+            or r"\l(2.1)" not in legend_text
+            or _safe_legend_label(data.left_field_name) not in legend_text
+            or _safe_legend_label(data.right_field_name) not in legend_text
+        ):
             raise RuntimeError("Origin X23 legend lost a native cross-layer sample")
 
     def _bind_native_graph(self) -> None:
@@ -496,6 +517,11 @@ class X23OriginProject:
             raise RuntimeError(
                 f"Origin X23 source designation must remain XYY; observed {designations}"
             )
+        datasets = tuple(str(plot.obj.DatasetName) for plot in self._plots())
+        if not datasets[0].endswith("_B") or not datasets[1].endswith("_C"):
+            raise RuntimeError(
+                f"Origin X23 Origin C datasets are not the native B/C sources: {datasets}"
+            )
         return {
             "official_menu_command": _OFFICIAL_COMMAND,
             "native_plot_ids": plot_ids,
@@ -503,6 +529,7 @@ class X23OriginProject:
             "symbol_sizes": symbol_sizes,
             "source_x_ranges": x_ranges,
             "source_y_ranges": y_ranges,
+            "origin_c_datasets": list(datasets),
             "layer2_link": {"target": link_target, "x": x_link, "y": y_link},
             "worksheet_designations": designations,
         }

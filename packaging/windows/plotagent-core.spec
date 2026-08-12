@@ -6,12 +6,29 @@ project_root = Path(SPECPATH).resolve().parents[1]
 wheel_site_packages = os.environ.get("PLOTAGENT_WHEEL_SITE_PACKAGES")
 if not wheel_site_packages:
     raise RuntimeError("PLOTAGENT_WHEEL_SITE_PACKAGES must point to the staged wheel install")
+native_distribution_source = (
+    Path(wheel_site_packages)
+    / "plotagent"
+    / "engine"
+    / "backends"
+    / "origin"
+    / "native_distribution.c"
+)
+if not native_distribution_source.is_file():
+    raise RuntimeError(
+        f"staged wheel is missing the Origin distribution bridge: {native_distribution_source}"
+    )
 
 analysis = Analysis(
     [str(project_root / "packaging" / "windows" / "desktop_core_entry.py")],
     pathex=[wheel_site_packages],
     binaries=[],
-    datas=[],
+    datas=[
+        (
+            str(native_distribution_source),
+            "plotagent/engine/backends/origin",
+        ),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
