@@ -1,6 +1,6 @@
 # PlotAgent v3 规格索引
 
-> 状态：Agent Native 绘图引擎现行文档入口，2026-08-11。
+> 状态：Agent Native 绘图引擎与任务型对话现行文档入口，2026-08-13。
 
 ## 权威顺序
 
@@ -23,9 +23,10 @@
 | [数据准备](./DATA-TRANSFORMS.md) | 受控派生数据与来源追溯 |
 | [Agent 上下文](./AGENT-CONTEXT-AND-PROVIDERS.md) | ProjectContext、模型和披露边界 |
 | [任务运行时](./TASK-RUNTIME.md) | 确认、部分失败与恢复 |
+| [任务型对话与交互验收](./CONVERSATIONAL-INTERACTION.md) | 对话循环、上下文、确认卡、真实阶段、错误恢复、撤销/重做、P0/P1与黑盒验收 |
 | [验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md) | 机械、视觉、黑盒与发布 Gate |
 | [黑盒能力说明](./PLOTAGENT-V3-BLACK-BOX-CAPABILITY.md) | 外部验收可见功能与边界，不披露内部实现 |
-| [黑盒验收交接](./PLOTAGENT-V3-BLACK-BOX-ACCEPTANCE-HANDOFF.md) | 正式桌面验收步骤、冻结输入、证据与判定模板；产品代码基线为`3dc154c` |
+| [黑盒验收交接](./PLOTAGENT-V3-BLACK-BOX-ACCEPTANCE-HANDOFF.md) | 正式桌面验收步骤、冻结输入、证据与判定模板；每轮必须在报告中记录实际 `git rev-parse HEAD`，不得沿用旧基线 |
 
 ## 历史材料
 
