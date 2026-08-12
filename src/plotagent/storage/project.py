@@ -7,7 +7,9 @@ import json
 import os
 import shutil
 import sqlite3
+import sys
 import threading
+import time
 import uuid
 from collections.abc import Callable, Iterable
 from contextlib import closing, suppress
@@ -37,6 +39,9 @@ from plotagent.storage.workspace import ensure_local_fixed_workspace
 type FaultInjector = Callable[[str], None]
 type ImportResponseFactory = Callable[[ImportCommitResult, int], dict[str, Any]]
 
+_LOCK_RECOVERY_GRACE_SECONDS = 2.0
+_LOCK_RECOVERY_RETRIES = 10
+
 
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds")
@@ -56,6 +61,106 @@ def _hash_file(path: Path) -> tuple[str, int]:
             digest.update(chunk)
             size += len(chunk)
     return digest.hexdigest(), size
+
+
+def _lock_owner_pid(path: Path) -> int | None:
+    try:
+        encoded = path.read_text(encoding="ascii").strip()
+    except OSError:
+        return None
+    if encoded.isdecimal():
+        return int(encoded)
+    try:
+        value = json.loads(encoded)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(value, dict):
+        return None
+    pid = value.get("pid")
+    return pid if isinstance(pid, int) and pid > 0 else None
+
+
+def _pid_is_running(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    if sys.platform == "win32":
+        # ``os.kill(pid, 0)`` is not a safe existence probe on Windows. Querying the
+        # process handle is read-only and works for the same-user desktop Core.
+        import ctypes
+        from ctypes import wintypes
+
+        process_query_limited_information = 0x1000
+        still_active = 259
+        error_invalid_parameter = 87
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+        kernel32.GetExitCodeProcess.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+        if not handle:
+            return ctypes.get_last_error() != error_invalid_parameter
+        try:
+            exit_code = wintypes.DWORD()
+            if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                return True
+            return exit_code.value == still_active
+        finally:
+            kernel32.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return True
+    return True
+
+
+def _recover_stale_lock(lock_path: Path) -> bool:
+    """Remove a crash-left lock while serializing competing recovery attempts."""
+
+    recovery_path = lock_path.with_name(lock_path.name + ".recovery")
+    recovery_fd: int | None = None
+    for _attempt in range(_LOCK_RECOVERY_RETRIES):
+        try:
+            recovery_fd = os.open(recovery_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(recovery_fd, str(os.getpid()).encode("ascii"))
+            os.fsync(recovery_fd)
+            break
+        except FileExistsError:
+            recovery_owner = _lock_owner_pid(recovery_path)
+            if recovery_owner is not None and not _pid_is_running(recovery_owner):
+                with suppress(OSError):
+                    recovery_path.unlink()
+                continue
+            time.sleep(0.02)
+    if recovery_fd is None:
+        return False
+    try:
+        if not lock_path.exists():
+            return True
+        owner = _lock_owner_pid(lock_path)
+        if owner is not None:
+            if _pid_is_running(owner):
+                return False
+        else:
+            try:
+                age = time.time() - lock_path.stat().st_mtime
+            except OSError:
+                return True
+            if age < _LOCK_RECOVERY_GRACE_SECONDS:
+                return False
+        with suppress(OSError):
+            lock_path.unlink()
+        return not lock_path.exists()
+    finally:
+        os.close(recovery_fd)
+        with suppress(OSError):
+            recovery_path.unlink()
 
 
 def read_project_revision(workspace: str | Path) -> int:
@@ -114,16 +219,30 @@ class ProjectStore:
         self._writer_thread_id = threading.get_ident()
         self._closed = False
         self._lock_fd: int | None = None
+        self._lock_payload: str | None = None
         self._connection: sqlite3.Connection | None = None
 
-        try:
-            self._lock_fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(self._lock_fd, str(os.getpid()).encode("ascii"))
-        except FileExistsError as exc:
-            raise StorageProblem(
-                StorageErrorCode.PROJECT_ALREADY_OPEN,
-                "项目工作区已有写入器。",
-            ) from exc
+        for attempt in range(2):
+            try:
+                self._lock_fd = os.open(
+                    self.lock_path,
+                    os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                )
+                self._lock_payload = json.dumps(
+                    {"pid": os.getpid(), "token": uuid.uuid4().hex},
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+                os.write(self._lock_fd, self._lock_payload.encode("ascii"))
+                os.fsync(self._lock_fd)
+                break
+            except FileExistsError as exc:
+                if attempt == 0 and _recover_stale_lock(self.lock_path):
+                    continue
+                raise StorageProblem(
+                    StorageErrorCode.PROJECT_ALREADY_OPEN,
+                    "项目工作区已有写入器。",
+                ) from exc
 
         try:
             self._connection = sqlite3.connect(
@@ -224,8 +343,15 @@ class ProjectStore:
         if self._lock_fd is not None:
             os.close(self._lock_fd)
             self._lock_fd = None
-        with suppress(OSError):
-            self.lock_path.unlink(missing_ok=True)
+        if self._lock_payload is not None:
+            try:
+                owns_lock = self.lock_path.read_text(encoding="ascii") == self._lock_payload
+            except OSError:
+                owns_lock = False
+            if owns_lock:
+                with suppress(OSError):
+                    self.lock_path.unlink(missing_ok=True)
+            self._lock_payload = None
 
     def journal_mode(self) -> str:
         return str(self._assert_writer().execute("PRAGMA journal_mode").fetchone()[0])

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import sqlite3
 import threading
 from pathlib import Path
@@ -54,6 +56,40 @@ def test_project_layout_wal_single_writer_lock_and_minimal_catalog(
     finally:
         connection.close()
     assert tables == {"schema_info", "projects", "settings"}
+
+
+def test_project_open_recovers_a_lock_left_by_a_dead_writer(storage_root: Path) -> None:
+    workspace = storage_root / "project"
+    with ProjectStore.create(workspace, project_id="project:stale-lock"):
+        pass
+
+    lock_path = workspace / "project.lock"
+    lock_path.write_text("2147483647", encoding="ascii")
+
+    with ProjectStore.open(workspace) as reopened:
+        assert reopened.project_id == "project:stale-lock"
+        payload = json.loads(lock_path.read_text(encoding="ascii"))
+        assert payload["pid"] == os.getpid()
+        assert isinstance(payload["token"], str)
+
+    assert not lock_path.exists()
+
+
+def test_project_open_does_not_remove_a_live_legacy_writer_lock(
+    storage_root: Path,
+) -> None:
+    workspace = storage_root / "project"
+    with ProjectStore.create(workspace, project_id="project:live-lock"):
+        pass
+    lock_path = workspace / "project.lock"
+    lock_path.write_text(str(os.getpid()), encoding="ascii")
+    try:
+        with pytest.raises(StorageProblem) as caught:
+            ProjectStore.open(workspace)
+        assert caught.value.code == StorageErrorCode.PROJECT_ALREADY_OPEN
+        assert lock_path.read_text(encoding="ascii") == str(os.getpid())
+    finally:
+        lock_path.unlink()
 
 
 def test_fresh_project_does_not_create_retired_plot_compiler_tables(
