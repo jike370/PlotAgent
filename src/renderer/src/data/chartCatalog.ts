@@ -49,7 +49,6 @@ const copy: Readonly<Record<string, CatalogCopy>> = {
   K13: { name: '箱线图', category: '分布', family: '箱线', purpose: '以分位数概括分布' },
   K14: { name: '小提琴图', category: '分布', family: '小提琴', purpose: '比较分组分布形状' },
   K15: { name: '直方图', category: '分布', family: '直方', purpose: '查看连续变量的频数分布' },
-  K16: { name: '核密度图', category: '分布', family: '密度', purpose: '比较连续变量的平滑密度' },
   K18: { name: '面积图', category: '趋势与关系', family: '面积', purpose: '强调连续变化的累计量或区间' },
   K19: { name: '时间序列图', category: '趋势与关系', family: '时间序列', purpose: '展示日期时间上的连续变化' },
   K20: { name: '热图', category: '矩阵与场', family: '热图', purpose: '用颜色呈现二维数值矩阵' },
@@ -57,8 +56,6 @@ const copy: Readonly<Record<string, CatalogCopy>> = {
   K22: { name: '填色等高线图', category: '矩阵与场', family: '等高线', purpose: '呈现二维连续场的等值范围' },
   K24: { name: '分面图', category: '组合与布局', family: '分面', purpose: '按变量拆分为共享语法的小面板' },
   K25: { name: '多面板组合图', category: '组合与布局', family: '多面板', purpose: '组合多个已有图形文档' },
-  S01: { name: '生存曲线', category: '专业图形', family: '生存', purpose: '呈现用户提供的生存率、区间和风险人数' },
-  S21: { name: '森林图', category: '专业图形', family: '森林图', purpose: '呈现用户提供的效应值、区间和权重' },
   S34: { name: 'Nyquist 图', category: '专业图形', family: '阻抗', purpose: '呈现复阻抗响应', aliases: ['EIS', '阻抗'] },
   S61: { name: '混淆矩阵', category: '专业图形', family: '混淆矩阵', purpose: '比较真实类别与预测类别', aliases: ['分类性能'] },
   X02: { name: '垂线图', category: '趋势与关系', family: '垂线', purpose: '从数据点向坐标框底部绘制垂线' },
@@ -75,9 +72,9 @@ const copy: Readonly<Record<string, CatalogCopy>> = {
   X40: { name: '前后对比图', category: '比较', family: '前后对比', purpose: '连接同一对象的前后测量' },
 }
 
-const panelProfiles = new Set(['K20', 'K21', 'K22', 'K24', 'K25', 'S01', 'S61', 'X23', 'X35', 'X36'])
-const conditionalProfiles = new Set(['K13', 'K14', 'K15', 'K16', 'K21', 'S01', 'S21', 'S61'])
-const favorites = new Set(['K01', 'K03', 'K13', 'K20', 'K25', 'S21'])
+const panelProfiles = new Set(['K20', 'K21', 'K22', 'K24', 'K25', 'S61', 'X23', 'X35', 'X36'])
+const conditionalProfiles = new Set(['K13', 'K14', 'K15', 'K21', 'S61'])
+const favorites = new Set(['K01', 'K03', 'K13', 'K20', 'K25'])
 const recent = new Set(['K01', 'K03', 'K13', 'K21'])
 
 export type EditCapability =

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from plotagent.engine import (
+    REMOVED_CHART_TYPE_ERROR_CODE,
     BindFields,
     CreatePlot,
     EngineCapability,
@@ -16,6 +17,7 @@ from plotagent.engine import (
     FieldBinding,
     PlotDocumentRepository,
     PlotEngineService,
+    RemovedChartTypeError,
     SetAxis,
     SetLegend,
     SetSeriesStyle,
@@ -99,6 +101,15 @@ def test_service_rejects_profile_role_and_capability_mismatches(tmp_path: Path) 
                     visible=False,
                 )
             )
+
+
+@pytest.mark.parametrize("profile_id", ("K16", "S01", "S21"))
+def test_catalog_returns_a_stable_tombstone_for_removed_chart_types(profile_id: str) -> None:
+    with pytest.raises(RemovedChartTypeError) as raised:
+        _catalog().get(profile_id)
+
+    assert raised.value.code == REMOVED_CHART_TYPE_ERROR_CODE
+    assert str(raised.value) == f"CHART_TYPE_REMOVED: {profile_id}"
 
 
 def test_service_rebinds_data_and_fields_as_one_new_version(tmp_path: Path) -> None:

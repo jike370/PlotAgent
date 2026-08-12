@@ -255,179 +255,6 @@
       "title": "ContentTableRef",
       "type": "object"
     },
-    "DensityKDEResult": {
-      "additionalProperties": false,
-      "properties": {
-        "algorithm_id": {
-          "const": "gaussian_scott_three_bandwidth",
-          "default": "gaussian_scott_three_bandwidth",
-          "title": "Algorithm Id",
-          "type": "string"
-        },
-        "algorithm_version": {
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-          "title": "Algorithm Version",
-          "type": "string"
-        },
-        "bandwidths": {
-          "items": {
-            "type": "number"
-          },
-          "title": "Bandwidths",
-          "type": "array"
-        },
-        "calculation_id": {
-          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Calculation Id",
-          "type": "string"
-        },
-        "excluded_row_count": {
-          "minimum": 0,
-          "title": "Excluded Row Count",
-          "type": "integer"
-        },
-        "exclusions": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/RowExclusion"
-          },
-          "title": "Exclusions",
-          "type": "array"
-        },
-        "fixed_seed": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Fixed Seed"
-        },
-        "grid_points": {
-          "const": 256,
-          "default": 256,
-          "title": "Grid Points",
-          "type": "integer"
-        },
-        "group_count": {
-          "minimum": 1,
-          "title": "Group Count",
-          "type": "integer"
-        },
-        "included_row_count": {
-          "minimum": 0,
-          "title": "Included Row Count",
-          "type": "integer"
-        },
-        "included_row_ids": {
-          "items": {
-            "pattern": "^row:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
-            "type": "string"
-          },
-          "title": "Included Row Ids",
-          "type": "array"
-        },
-        "input_hash": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Input Hash",
-          "type": "string"
-        },
-        "kind": {
-          "const": "density_kde",
-          "default": "density_kde",
-          "title": "Kind",
-          "type": "string"
-        },
-        "missing_policy": {
-          "enum": [
-            "fail",
-            "exclude_with_report"
-          ],
-          "title": "Missing Policy",
-          "type": "string"
-        },
-        "nonfinite_counts": {
-          "$ref": "#/$defs/NonFiniteCounts",
-          "default": {
-            "missing": 0,
-            "nan": 0,
-            "negative_inf": 0,
-            "positive_inf": 0
-          }
-        },
-        "output_data_ref": {
-          "$ref": "#/$defs/ContentTableRef"
-        },
-        "output_hash": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Output Hash",
-          "type": "string"
-        },
-        "output_table": {
-          "$ref": "#/$defs/CalculationTable"
-        },
-        "prepared_dataset_ref": {
-          "$ref": "#/$defs/PreparedDatasetRef"
-        },
-        "producer_build_hash": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Producer Build Hash",
-          "type": "string"
-        },
-        "result_version": {
-          "minimum": 1,
-          "title": "Result Version",
-          "type": "integer"
-        },
-        "schema_version": {
-          "const": "1.0",
-          "default": "1.0",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "spec_ref": {
-          "$ref": "#/$defs/PlotCalculationSpecRef"
-        },
-        "total_row_count": {
-          "minimum": 0,
-          "title": "Total Row Count",
-          "type": "integer"
-        },
-        "warnings": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/WarningRecord"
-          },
-          "title": "Warnings",
-          "type": "array"
-        }
-      },
-      "required": [
-        "calculation_id",
-        "result_version",
-        "spec_ref",
-        "prepared_dataset_ref",
-        "algorithm_version",
-        "missing_policy",
-        "input_hash",
-        "output_hash",
-        "output_data_ref",
-        "output_table",
-        "total_row_count",
-        "included_row_count",
-        "excluded_row_count",
-        "included_row_ids",
-        "producer_build_hash",
-        "group_count",
-        "bandwidths"
-      ],
-      "title": "DensityKDEResult",
-      "type": "object"
-    },
     "ECDFResult": {
       "additionalProperties": false,
       "properties": {
@@ -1147,7 +974,6 @@
             "histogram_binning",
             "tukey_box",
             "violin_kde",
-            "density_kde",
             "ecdf",
             "summary_error",
             "percent_stack",
@@ -1776,7 +1602,6 @@
   "discriminator": {
     "mapping": {
       "confusion_count": "#/$defs/ConfusionCountResult",
-      "density_kde": "#/$defs/DensityKDEResult",
       "ecdf": "#/$defs/ECDFResult",
       "histogram_binning": "#/$defs/HistogramBinningResult",
       "matrix_projection": "#/$defs/MatrixProjectionResult",
@@ -1796,9 +1621,6 @@
     },
     {
       "$ref": "#/$defs/ViolinKDEResult"
-    },
-    {
-      "$ref": "#/$defs/DensityKDEResult"
     },
     {
       "$ref": "#/$defs/ECDFResult"

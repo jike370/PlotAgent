@@ -123,111 +123,6 @@
       "title": "ConfusionCountSpec",
       "type": "object"
     },
-    "DensityKDESpec": {
-      "additionalProperties": false,
-      "properties": {
-        "algorithm_id": {
-          "const": "gaussian_scott_three_bandwidth",
-          "default": "gaussian_scott_three_bandwidth",
-          "title": "Algorithm Id",
-          "type": "string"
-        },
-        "algorithm_version": {
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-          "title": "Algorithm Version",
-          "type": "string"
-        },
-        "calculation_id": {
-          "pattern": "^plotcalc:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Calculation Id",
-          "type": "string"
-        },
-        "calculation_version": {
-          "minimum": 1,
-          "title": "Calculation Version",
-          "type": "integer"
-        },
-        "fixed_seed": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Fixed Seed"
-        },
-        "grid_points": {
-          "const": 256,
-          "default": 256,
-          "title": "Grid Points",
-          "type": "integer"
-        },
-        "group_field": {
-          "anyOf": [
-            {
-              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Group Field"
-        },
-        "kind": {
-          "const": "density_kde",
-          "default": "density_kde",
-          "title": "Kind",
-          "type": "string"
-        },
-        "log10_fields": {
-          "default": [],
-          "items": {
-            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-            "type": "string"
-          },
-          "title": "Log10 Fields",
-          "type": "array"
-        },
-        "missing_policy": {
-          "enum": [
-            "fail",
-            "exclude_with_report"
-          ],
-          "title": "Missing Policy",
-          "type": "string"
-        },
-        "prepared_dataset_ref": {
-          "$ref": "#/$defs/PreparedDatasetRef"
-        },
-        "schema_version": {
-          "const": "1.0",
-          "default": "1.0",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "value_field": {
-          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Value Field",
-          "type": "string"
-        }
-      },
-      "required": [
-        "calculation_id",
-        "calculation_version",
-        "prepared_dataset_ref",
-        "algorithm_version",
-        "missing_policy",
-        "value_field"
-      ],
-      "title": "DensityKDESpec",
-      "type": "object"
-    },
     "ECDFSpec": {
       "additionalProperties": false,
       "properties": {
@@ -1058,7 +953,6 @@
   "discriminator": {
     "mapping": {
       "confusion_count": "#/$defs/ConfusionCountSpec",
-      "density_kde": "#/$defs/DensityKDESpec",
       "ecdf": "#/$defs/ECDFSpec",
       "histogram_binning": "#/$defs/HistogramBinningSpec",
       "matrix_projection": "#/$defs/MatrixProjectionSpec",
@@ -1078,9 +972,6 @@
     },
     {
       "$ref": "#/$defs/ViolinKDESpec"
-    },
-    {
-      "$ref": "#/$defs/DensityKDESpec"
     },
     {
       "$ref": "#/$defs/ECDFSpec"

@@ -16,16 +16,9 @@ def test_recipe_registry_covers_the_public_catalog_and_closes_the_origin_scope()
     public_ids = {profile.profile_id for profile in ENGINE_PROFILES}
 
     assert set(ORIGIN_RECIPES) == public_ids
-    assert len(ORIGIN_RECIPES) == 38
+    assert len(ORIGIN_RECIPES) == 35
     assert len(ORIGIN_RENDERABLE_RECIPES) == 35
-    assert set(ORIGIN_RECIPES) - set(ORIGIN_RENDERABLE_RECIPES) == {
-        "K16",
-        "S01",
-        "S21",
-    }
-    assert ORIGIN_RECIPES["K16"].support_status == "structural_fail"
-    assert ORIGIN_RECIPES["S01"].support_status == "structural_fail"
-    assert ORIGIN_RECIPES["S21"].support_status == "dependency_blocked"
+    assert ORIGIN_RECIPES == ORIGIN_RENDERABLE_RECIPES
     assert ORIGIN_RECIPES["S61"].support_status == "renderable"
 
 
@@ -149,24 +142,10 @@ def test_row_wise_boxchart_recipes_preserve_the_source_wide_table() -> None:
     assert "BeforeAfter 0 1" in before_after.local_dispatch
 
 
-def test_survival_recipe_preserves_the_supplied_geometry_product_contract() -> None:
-    recipe = origin_recipe("S01", require_renderable=False)
-
-    assert recipe.creation_kind == "graph_template"
-    assert recipe.primary_template is not None
-    assert recipe.primary_template.filename == "SurvivalPlot.otp"
-    assert recipe.source_layout == "worksheet_wide"
-    assert "no Kaplan-Meier estimation or equality test" in recipe.readback_contract
-    assert "without running kaplanmeier" in recipe.local_dispatch
-    assert recipe.support_status == "structural_fail"
-    assert recipe.binder_key is None
-
-
-def test_blocked_profiles_fail_before_origin_automation() -> None:
+def test_removed_profiles_have_no_origin_recipe() -> None:
     for profile_id in ("K16", "S01", "S21"):
         with pytest.raises(ValueError, match=profile_id):
             origin_recipe(profile_id)
-        assert origin_recipe(profile_id, require_renderable=False).profile_id == profile_id
 
 
 def test_manual_native_property_recipes_keep_the_exact_human_gate() -> None:

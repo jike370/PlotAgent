@@ -119,13 +119,6 @@ K15_ORIGIN_PROFILE = OriginTemplateProfile(
     tier="T1",
 )
 
-K16_ORIGIN_PROFILE = OriginTemplateProfile(
-    profile_id="K16",
-    filename="HISTDIST.otpu",
-    sha256="a584e2ee70fa332c592cce714a0339e31e3a7d937889d3096f37722b7fcd50e7",
-    tier="T2",
-)
-
 K18_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K18",
     filename="AREA.otpu",
@@ -165,20 +158,6 @@ K24_ORIGIN_PROFILE = OriginTemplateProfile(
     profile_id="K24",
     filename="Grouped.otp",
     sha256="b3a1999cc9e95e55d661863e60efbcc792af415bc83b0962f01f1636d35c7af0",
-    tier="T2",
-)
-
-S01_ORIGIN_PROFILE = OriginTemplateProfile(
-    profile_id="S01",
-    filename="SurvivalPlot.otp",
-    sha256="0b8759367ce19f1a82cfb9630ffefd849e0c600bce1e909985645c0a47de046b",
-    tier="T2",
-)
-
-S21_ORIGIN_PROFILE = OriginTemplateProfile(
-    profile_id="S21",
-    filename="SCATTERINTERVAL.otp",
-    sha256="fb319b1a6918427767373917ddda2cc5b95a88d9d295ff06e866762b955dd161",
     tier="T2",
 )
 

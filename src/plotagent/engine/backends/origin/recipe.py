@@ -157,9 +157,6 @@ _T = {
     "hist": _template(
         "Hist.otpu", "cc1d7edd9f07f8bb0e1b0fe6f9ea0f36439afa912d209efc29329df9c2f00cfa"
     ),
-    "histdist": _template(
-        "HISTDIST.otpu", "a584e2ee70fa332c592cce714a0339e31e3a7d937889d3096f37722b7fcd50e7"
-    ),
     "area": _template(
         "AREA.otpu", "c14ad432ffd60db09f6763b7b988de4aa554dcf0d9772b18334970fb83eddaec"
     ),
@@ -178,10 +175,6 @@ _T = {
     ),
     "mgroups": _template(
         "mgroups.otpu", "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b"
-    ),
-    "survival": _template(
-        "SurvivalPlot.otp",
-        "0b8759367ce19f1a82cfb9630ffefd849e0c600bce1e909985645c0a47de046b",
     ),
     "dropline": _template(
         "DROPLINE.OTP", "69cbcf9349249092e2e32c8955c88c0a265ac47a46811885593d9eced643299f"
@@ -250,7 +243,6 @@ _LOCAL_DISPATCH: Mapping[str, str] = MappingProxyType(
         "K13": "Plot.ogs [BoxChart] -> BoxChartImp Box",
         "K14": "Plot.ogs [ViolinPlot] -> ViolinPlotImp 206 Violin",
         "K15": "Plot.ogs [Histogram] -> worksheet -p 219 Hist",
-        "K16": "Plot.ogs [HistDist] -> worksheet -p 219 HistDist; Kernel Smooth; Hide Bins",
         "K18": "Plot.ogs [Area] -> general,204 Area",
         "K19": "Plot.ogs [Line] -> general,200 Line",
         "K20": "Plot3D.ogs [HeatMap] -> GenericHeatMap Heat_Map 105 1 1",
@@ -261,11 +253,6 @@ _LOCAL_DISPATCH: Mapping[str, str] = MappingProxyType(
         "K22": "Plot3D.ogs [ContourColor] -> matrix PID226 CONTOUR",
         "K24": "plot_group type:=linesymb template:=Grouped",
         "K25": "Graph > Merge Graph Windows -> merge_graph",
-        "S01": (
-            "KaplanMeier.OGS [MakeSurvivalPlot] -> doc -cp SurvivalPlot; "
-            "PlotAgent binds supplied steps without running kaplanmeier"
-        ),
-        "S21": "Origin App Gallery -> Forest Plot App fid=362",
         "S34": "Plot.ogs [LineSymbol] -> general,202 LineSymb",
         "S61": "plotvm type:=105 template:=Heat_Map_With_Labels",
         "X02": "worksheet -p 201 DROPLINE",
@@ -591,24 +578,6 @@ _RECIPES = (
         ),
     ),
     _r(
-        "K16",
-        "一维核密度图",
-        "1D Kernel Density Workflow",
-        "https://docs.originlab.com/quick-help/kernel_density_graph/",
-        "Histogram > Distribution > Kernel Smooth > Hide Bins",
-        "graph_template",
-        "worksheet_wide",
-        ("raw observation Y",),
-        ("Kernel Smooth", "bins hidden after reopen"),
-        template_keys=("histdist",),
-        support_status="structural_fail",
-        proof_level="blocked",
-        manual_gate=(
-            "Observed Origin 2024 projects restore visible histogram bins; "
-            "current output is not a pure KDE."
-        ),
-    ),
-    _r(
         "K18",
         "面积图",
         "Area Graph",
@@ -724,55 +693,6 @@ _RECIPES = (
         ("component graph identity", "native merged layers", "no rasterized subplots"),
         binder_key="K25",
         rebuild_policy="recompose_components",
-    ),
-    _r(
-        "S01",
-        "Kaplan-Meier生存曲线",
-        "Survival Plot (supplied Kaplan-Meier steps)",
-        "https://docs.originlab.com/origin-help/kaplanmeier-dialog/",
-        "Kaplan-Meier analysis output: Survival Plot",
-        "graph_template",
-        "worksheet_wide",
-        (
-            "time",
-            "survival",
-            "optional lower and upper confidence bounds",
-            "optional risk count",
-            "optional group",
-        ),
-        (
-            "official SurvivalPlot.otp output template",
-            "supplied step geometry remains linked to worksheet data",
-            "optional native confidence fill",
-            "optional editable risk-count text layer",
-            "no Kaplan-Meier estimation or equality test",
-        ),
-        template_keys=("survival",),
-        rebuild_policy="recreate_from_source",
-        support_status="structural_fail",
-        proof_level="blocked",
-        manual_gate=(
-            "Origin 2024 cannot provide the accepted supplied-geometry survival layout "
-            "with stable confidence bands, risk table and common Agent edits after "
-            "fresh reopen; analysis or hand-built primitive fallbacks are forbidden."
-        ),
-    ),
-    _r(
-        "S21",
-        "森林图",
-        "Forest Plot",
-        "https://cloud.originlab.com/fileexchange/index.aspx?fid=362",
-        "Apps Gallery > Forest Plot App",
-        "app",
-        "worksheet_xy",
-        ("effect", "lower CI", "upper CI", "optional weight/label"),
-        ("official Forest Plot App output",),
-        support_status="dependency_blocked",
-        proof_level="blocked",
-        manual_gate=(
-            "The official Forest Plot App is not installed/proven; "
-            "primitive error-bar fallbacks are forbidden."
-        ),
     ),
     _r(
         "S34",

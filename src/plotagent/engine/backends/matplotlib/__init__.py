@@ -3,7 +3,7 @@
 from .area import K18AreaRenderer
 from .backend import MatplotlibBackend
 from .bubble import K04BubbleRenderer
-from .calculated_distribution import K15HistogramRenderer, K16DensityRenderer
+from .calculated_distribution import K15HistogramRenderer
 from .column import K08ColumnRenderer
 from .column_family import (
     K09GroupedColumnRenderer,
@@ -33,10 +33,6 @@ from .special_t1 import (
     X36DualYColumnLineRenderer,
     X38OffsetStackRenderer,
 )
-from .special_t2 import (
-    S01SurvivalRenderer,
-    S21ForestRenderer,
-)
 from .time_series import K19TimeSeriesRenderer
 from .wide_series import X03LollipopRenderer, X39LineSeriesRenderer, X40BeforeAfterRenderer
 
@@ -55,7 +51,6 @@ __all__ = [
     "K13BoxRenderer",
     "K14ViolinRenderer",
     "K15HistogramRenderer",
-    "K16DensityRenderer",
     "K18AreaRenderer",
     "K19TimeSeriesRenderer",
     "K20HeatmapRenderer",
@@ -64,8 +59,6 @@ __all__ = [
     "K24FacetRenderer",
     "K25CompositeRenderer",
     "MatplotlibBackend",
-    "S01SurvivalRenderer",
-    "S21ForestRenderer",
     "S34NyquistRenderer",
     "S61ConfusionRenderer",
     "X02DropLineRenderer",

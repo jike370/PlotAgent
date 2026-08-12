@@ -11,8 +11,6 @@ import pytest
 import plotagent.engine.backends.origin.k24 as k24_origin
 import plotagent.engine.backends.origin.s34 as s34_origin
 import plotagent.engine.backends.origin.s61 as s61_origin
-import plotagent.engine.backends.origin.scientific_t2 as scientific_origin
-import plotagent.engine.backends.origin.structural_t2 as structural_origin
 from plotagent.engine import (
     CreatePlot,
     EngineColumn,
@@ -26,35 +24,25 @@ from plotagent.engine import (
 from plotagent.engine.backends.matplotlib import (
     K24FacetRenderer,
     MatplotlibBackend,
-    S01SurvivalRenderer,
-    S21ForestRenderer,
     S34NyquistRenderer,
     S61ConfusionRenderer,
 )
 from plotagent.engine.backends.origin import (
     K24_ORIGIN_PROFILE,
-    S01_ORIGIN_PROFILE,
-    S21_ORIGIN_PROFILE,
     S34_ORIGIN_PROFILE,
     S61_ORIGIN_PROFILE,
 )
 from plotagent.engine.backends.origin.k24 import K24OriginProject
 from plotagent.engine.backends.origin.s34 import S34OriginProject
 from plotagent.engine.backends.origin.s61 import S61OriginProject
-from plotagent.engine.backends.origin.scientific_t2 import S21OriginProject
-from plotagent.engine.backends.origin.structural_t2 import S01OriginProject
 from plotagent.engine.backends.origin.trace import OriginExecutionTrace
 from plotagent.engine.profile_data import (
     k24_facets,
-    s01_survival,
-    s21_forest,
     s34_nyquist,
     s61_confusion_grid,
 )
 from plotagent.engine.profiles import (
     K24_FACET_PROFILE,
-    S01_SURVIVAL_PROFILE,
-    S21_FOREST_PROFILE,
     S34_NYQUIST_PROFILE,
     S61_CONFUSION_PROFILE,
 )
@@ -117,58 +105,6 @@ def _k24_case(panel_count: int = 3):
     )
 
 
-def _s01_case(group_count: int = 2):
-    groups = tuple(f"Group {index + 1}" for index in range(group_count) for _time in range(4))
-    time = tuple(float(value) for _group in range(group_count) for value in (0, 2, 4, 6))
-    survival = tuple(
-        max(0.1, 1.0 - 0.1 * group - 0.12 * point)
-        for group in range(group_count)
-        for point in range(4)
-    )
-    lower = tuple(max(0.0, value - 0.05) for value in survival)
-    upper = tuple(min(1.0, value + 0.05) for value in survival)
-    risk = tuple(
-        max(0, 40 - group * 4 - point * 6) for group in range(group_count) for point in range(4)
-    )
-    return _case(
-        "S01",
-        (
-            ("time", "field:time", "Time", "numeric", time),
-            ("survival", "field:survival", "Survival", "numeric", survival),
-            ("lower", "field:lower", "Lower", "numeric", lower),
-            ("upper", "field:upper", "Upper", "numeric", upper),
-            ("risk_count", "field:risk", "At risk", "numeric", risk),
-            ("group", "field:group", "Group", "categorical", groups),
-        ),
-    )
-
-
-def _s21_case(studies: int = 5):
-    effect = tuple(0.7 + index * 0.08 for index in range(studies))
-    return _case(
-        "S21",
-        (
-            (
-                "label",
-                "field:label",
-                "Study",
-                "categorical",
-                tuple(f"Study {i + 1}" for i in range(studies)),
-            ),
-            ("effect", "field:effect", "Effect", "numeric", effect),
-            ("lower", "field:lower", "Lower", "numeric", tuple(value - 0.12 for value in effect)),
-            ("upper", "field:upper", "Upper", "numeric", tuple(value + 0.16 for value in effect)),
-            (
-                "weight",
-                "field:weight",
-                "Weight",
-                "numeric",
-                tuple(float(i + 1) for i in range(studies)),
-            ),
-        ),
-    )
-
-
 def _s34_case(series_count: int = 3):
     labels = tuple(f"Cell {index + 1}" for index in range(series_count) for _point in range(5))
     real = tuple(float(point + series) for series in range(series_count) for point in range(5))
@@ -211,23 +147,6 @@ def test_k24_materializes_dynamic_facets(panel_count: int) -> None:
     assert all(len(panel.x_values) == 4 for panel in facets.panels)
 
 
-@pytest.mark.parametrize("group_count", (1, 2, 4))
-def test_s01_preserves_precomputed_steps_bands_and_risk(group_count: int) -> None:
-    document, _actions, view = _s01_case(group_count)
-    survival = s01_survival(document, view)
-    assert len(survival.groups) == group_count
-    assert survival.groups[-1].risk_count is not None
-    assert survival.groups[-1].lower is not None
-
-
-@pytest.mark.parametrize("studies", (3, 11))
-def test_s21_preserves_supplied_effect_intervals_and_weight(studies: int) -> None:
-    document, _actions, view = _s21_case(studies)
-    forest = s21_forest(document, view)
-    assert len(forest.labels) == studies
-    assert forest.lower[0] < forest.effect[0] < forest.upper[0]
-
-
 @pytest.mark.parametrize("series_count", (1, 4, 5))
 def test_s34_preserves_frequency_as_metadata_for_dynamic_series(series_count: int) -> None:
     document, _actions, view = _s34_case(series_count)
@@ -250,8 +169,6 @@ def test_s61_accepts_raw_samples_and_preaggregated_integer_counts() -> None:
     ("renderer", "case", "object_kind"),
     (
         (K24FacetRenderer(), _k24_case, "facet_series"),
-        (S01SurvivalRenderer(), _s01_case, "survival_step_series"),
-        (S21ForestRenderer(), _s21_case, "forest_intervals"),
         (S34NyquistRenderer(), _s34_case, "nyquist_series"),
         (S61ConfusionRenderer(), _s61_case, "confusion_matrix"),
     ),
@@ -622,53 +539,10 @@ def test_k24_agent_surface_matches_native_trellis_editability() -> None:
     }
 
 
-def test_origin_s01_keeps_native_steps_bands_and_editable_risk_labels(monkeypatch) -> None:
-    monkeypatch.setattr(
-        structural_origin, "resolve_official_template", lambda *_: Path("SurvivalPlot.otp")
-    )
-    document, actions, view = _s01_case(2)
-    project = S01OriginProject(_Origin())
-    project.create(Path("."), document, view)
-    project.reconcile(document, actions, view)
-    assert len(project.plots) == 6
-    assert project.last_native_structure == {
-        "official_help_url": "https://docs.originlab.com/origin-help/kaplanmeier-dialog/",
-        "official_output_template": "SurvivalPlot.otp",
-        "kaplan_meier_estimation_executed": False,
-        "layer_count": 2,
-        "native_plot_count": 6,
-        "group_count": 2,
-        "source_designations": [4, 1, 1, 1, 2, 2, 2, 2, 2] * 2,
-        "risk_table_layer": 2,
-    }
-    assert any(
-        label.name.startswith("_ENGINE_RISK_") for label in project._layers()[1].labels.values()
-    )
-    main, risk = project._layers()
-    assert "axis -ps X L 0" in main.layout
-    assert main.labels["Title"].ints["show"] == 0
-    assert main.activated is True
-    assert risk.ints["y.label.type"] == 10
-    assert risk.strings["y.label.string"] == '"Group 2" "Group 1"'
-    assert all(project.plots[index].fill == {"above": 2, "type": 9} for index in (0, 3))
-    assert all(project.plots[index].transparency == 70 for index in (0, 3))
-    assert all(project.plots[index].commands == ["-wp 0"] for index in (0, 1, 3, 4))
-    assert risk.labels.get("legend") is None or risk.labels["legend"].ints["show"] == 0
-
-
-def test_origin_s21_and_s34_use_native_dynamic_plots(monkeypatch) -> None:
-    monkeypatch.setattr(
-        scientific_origin, "resolve_official_template", lambda *_: Path("template.otp")
-    )
+def test_origin_s34_uses_native_dynamic_plots(monkeypatch) -> None:
     monkeypatch.setattr(
         s34_origin, "resolve_official_template", lambda *_: Path("LINESYMB.otpu")
     )
-    document, actions, view = _s21_case(5)
-    forest = S21OriginProject(_Origin())
-    forest.create(Path("."), document, view)
-    forest.reconcile(document, actions, view)
-    assert len(forest.plots) == 7
-
     document, actions, view = _s34_case(4)
     nyquist = S34OriginProject(_Origin())
     nyquist.create(Path("."), document, view)
@@ -741,15 +615,11 @@ def test_t2_profiles_pin_templates_and_do_not_import_old_compiler() -> None:
         profile.profile_id: profile.sha256
         for profile in (
             K24_ORIGIN_PROFILE,
-            S01_ORIGIN_PROFILE,
-            S21_ORIGIN_PROFILE,
             S34_ORIGIN_PROFILE,
             S61_ORIGIN_PROFILE,
         )
     } == {
         "K24": "b3a1999cc9e95e55d661863e60efbcc792af415bc83b0962f01f1636d35c7af0",
-        "S01": "0b8759367ce19f1a82cfb9630ffefd849e0c600bce1e909985645c0a47de046b",
-        "S21": "fb319b1a6918427767373917ddda2cc5b95a88d9d295ff06e866762b955dd161",
         "S34": "2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",
         "S61": "d1a7fcd8af232aef9ca348eb178466a13a744eb700da7d49d39cfbe16c935c7d",
     }
@@ -757,15 +627,13 @@ def test_t2_profiles_pin_templates_and_do_not_import_old_compiler() -> None:
         profile.profile_id
         for profile in (
             K24_FACET_PROFILE,
-            S01_SURVIVAL_PROFILE,
-            S21_FOREST_PROFILE,
             S34_NYQUIST_PROFILE,
             S61_CONFUSION_PROFILE,
         )
-    } == {"K24", "S01", "S21", "S34", "S61"}
+    } == {"K24", "S34", "S61"}
     source = "\n".join(
         inspect.getsource(module)
-        for module in (structural_origin, scientific_origin, s34_origin, s61_origin)
+        for module in (s34_origin, s61_origin)
     )
     assert "plotagent.rendering" not in source
     assert "PlotSpec" not in source

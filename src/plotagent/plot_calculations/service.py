@@ -23,8 +23,6 @@ from plotagent.contracts.calculations import (
     CalculationTable,
     ConfusionCountResult,
     ConfusionCountSpec,
-    DensityKDEResult,
-    DensityKDESpec,
     ECDFResult,
     ECDFSpec,
     HistogramBinningResult,
@@ -564,13 +562,13 @@ def _tukey_box(
 
 
 def _kde(
-    spec: ViolinKDESpec | DensityKDESpec,
+    spec: ViolinKDESpec,
     data: PlotCalculationInput,
     *,
     input_hash: str,
     producer_build_hash: str,
     result_version: int,
-) -> ViolinKDEResult | DensityKDEResult:
+) -> ViolinKDEResult:
     required = (
         (spec.value_field,) if spec.group_field is None else (spec.value_field, spec.group_field)
     )
@@ -590,12 +588,11 @@ def _kde(
             [_number(data.columns[spec.value_field][i], spec.value_field) for i in group.indices],
             dtype=np.float64,
         )
-        extend = 0.0 if isinstance(spec, ViolinKDESpec) else 3.0
         try:
             geometry = scott_kde_geometry(
                 tuple(float(value) for value in values),
                 grid_points=spec.grid_points,
-                extend_bandwidths=extend,
+                extend_bandwidths=0.0,
             )
         except ValueError as error:
             raise _failure(
@@ -647,9 +644,7 @@ def _kde(
         "grid_points": spec.grid_points,
         "bandwidths": tuple(bandwidths),
     }
-    if isinstance(spec, ViolinKDESpec):
-        return _result(ViolinKDEResult, base, **specific)
-    return _result(DensityKDEResult, base, **specific)
+    return _result(ViolinKDEResult, base, **specific)
 
 
 def _ecdf(
@@ -1266,7 +1261,7 @@ class PlotCalculationService:
                 producer_build_hash=producer_build_hash,
                 result_version=result_version,
             )
-        if isinstance(spec, (ViolinKDESpec, DensityKDESpec)):
+        if isinstance(spec, ViolinKDESpec):
             return _kde(
                 spec,
                 data,

@@ -1,9 +1,9 @@
-"""Official-template binders for calculated K15/K16 distributions."""
+"""Official-template binder for the native K15 histogram."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.engine.contracts import (
@@ -19,12 +19,10 @@ from plotagent.engine.contracts import (
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import (
-    DensityData,
     DistributionData,
     HistogramData,
     distribution_groups,
     k15_histogram,
-    k16_density,
 )
 from plotagent.engine.repository import document_ref
 
@@ -36,12 +34,10 @@ from .native_distribution import (
 )
 from .profile import (
     K15_ORIGIN_PROFILE,
-    K16_ORIGIN_PROFILE,
     OriginTemplateProfile,
     resolve_official_template,
 )
 
-_LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
 _TITLE_NAME = "_ENGINE_TITLE"
 _HISTOGRAM_PID = 219
 _HISTOGRAM_DATA_HEIGHT_COUNT = 0
@@ -73,77 +69,44 @@ def _effective_actions(actions: tuple[PlotEngineAction, ...]) -> tuple[PlotEngin
 
 
 class CalculatedDistributionOriginProject:
-    def __init__(self, op: Any, *, profile_id: Literal["K15", "K16"]) -> None:
+    def __init__(self, op: Any) -> None:
         self.op = op
-        self.profile_id = profile_id
-        self.profile: OriginTemplateProfile = (
-            K15_ORIGIN_PROFILE if profile_id == "K15" else K16_ORIGIN_PROFILE
-        )
+        self.profile_id = "K15"
+        self.profile: OriginTemplateProfile = K15_ORIGIN_PROFILE
         self.graph: Any = None
         self.layer: Any = None
         self.sheet: Any = None
         self.plots: list[Any] = []
 
     def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
-        template = resolve_official_template(install_dir, self.profile)
+        resolve_official_template(install_dir, self.profile)
         self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
         book = self.op.new_book("w", f"D{token}", hidden=True)
         if book is None:
             raise RuntimeError(f"Origin could not create the {self.profile_id} workbook")
-        if self.profile_id == "K15":
-            for residue in tuple(self.op.pages("w")):
-                if residue.name == "Book1" and residue.name != book.name:
-                    residue.destroy()
+        for residue in tuple(self.op.pages("w")):
+            if residue.name == "Book1" and residue.name != book.name:
+                residue.destroy()
         self.sheet = book[0]
-        if self.profile_id == "K15":
-            distribution = distribution_groups(document, data, profile_id="K15")
-            if len(distribution.groups) != 1:
-                raise ValueError("K15 accepts one raw observation series")
-            self._write_histogram_source(distribution)
-            self.sheet.activate()
-            self.sheet.lt_exec("worksheet -s 1 0 1 0; worksheet -p 219 Hist;")
-            graphs = list(self.op.pages("g"))
-            if len(graphs) != 1:
-                raise RuntimeError("Origin Hist command must create exactly one graph")
-            self.graph = graphs[0]
-            self.graph.lname = f"K15 Histogram / {document.plot_id}"
-            self.layer = self.graph[0]
-            self._hide_blank_opposite_axis_titles()
-            self.plots = [
-                plot for plot in self.layer.plot_list() if plot.get_int("show") != 0
-            ]
-            if len(self.plots) != 1:
-                raise RuntimeError("Origin Hist command must create one native histogram plot")
-            self._configure_native_histogram(k15_histogram(document, data))
-            self._assert_native_histogram(k15_histogram(document, data))
-            self.layer.rescale()
-            return
-        self.graph = self.op.new_graph(
-            f"G{token}",
-            template=str(template.with_suffix(template.suffix.lower())),
-            hidden=True,
-        )
-        if self.graph is None:
-            raise RuntimeError(
-                f"Origin could not create {self.profile_id} from {self.profile.filename}"
-            )
+        distribution = distribution_groups(document, data, profile_id="K15")
+        if len(distribution.groups) != 1:
+            raise ValueError("K15 accepts one raw observation series")
+        self._write_histogram_source(distribution)
+        self.sheet.activate()
+        self.sheet.lt_exec("worksheet -s 1 0 1 0; worksheet -p 219 Hist;")
+        graphs = list(self.op.pages("g"))
+        if len(graphs) != 1:
+            raise RuntimeError("Origin Hist command must create exactly one graph")
+        self.graph = graphs[0]
+        self.graph.lname = f"K15 Histogram / {document.plot_id}"
         self.layer = self.graph[0]
-        for plot in self.layer.plot_list():
-            plot.set_int("show", 0)
-        density = k16_density(document, data)
-        self._write_density(density)
-        self.plots = []
-        for index in range(len(density.series)):
-            plot = self.layer.add_plot(
-                self.sheet,
-                coly=index * 2 + 1,
-                colx=index * 2,
-                type="l",
-            )
-            if plot is None:
-                raise RuntimeError(f"Origin HISTDIST.otpu rejected density {index + 1}")
-            self.plots.append(plot)
+        self._hide_blank_opposite_axis_titles()
+        self.plots = [plot for plot in self.layer.plot_list() if plot.get_int("show") != 0]
+        if len(self.plots) != 1:
+            raise RuntimeError("Origin Hist command must create one native histogram plot")
+        self._configure_native_histogram(k15_histogram(document, data))
+        self._assert_native_histogram(k15_histogram(document, data))
         self.layer.rescale()
 
     def _hide_blank_opposite_axis_titles(self) -> None:
@@ -177,25 +140,20 @@ class CalculatedDistributionOriginProject:
         self.graph = graphs[0]
         self.layer = self.graph[0]
         self.plots = [plot for plot in self.layer.plot_list() if plot.get_int("show") != 0]
-        if self.profile_id == "K15":
-            distribution = distribution_groups(document, data, profile_id="K15")
-            expected = distribution.groups[0].values
-            candidates = [
-                book[0]
-                for book in books
-                if len(book)
-                and int(book[0].cols) == 1
-                and self._values_match(book[0].to_list(0), expected)
-            ]
-            if len(candidates) != 1:
-                raise RuntimeError(
-                    "fresh K15 project cannot uniquely locate the raw observation worksheet"
-                )
-            self.sheet = candidates[0]
-        else:
-            if len(books) != 1:
-                raise RuntimeError("fresh K16 project has unexpected workbook count")
-            self.sheet = books[0][0]
+        distribution = distribution_groups(document, data, profile_id="K15")
+        expected = distribution.groups[0].values
+        candidates = [
+            book[0]
+            for book in books
+            if len(book)
+            and int(book[0].cols) == 1
+            and self._values_match(book[0].to_list(0), expected)
+        ]
+        if len(candidates) != 1:
+            raise RuntimeError(
+                "fresh K15 project cannot uniquely locate the raw observation worksheet"
+            )
+        self.sheet = candidates[0]
 
     def apply(
         self,
@@ -256,11 +214,7 @@ class CalculatedDistributionOriginProject:
             if action.line_width_pt is not None:
                 plot.set_float("line.width", action.line_width_pt)
             if action.line_style is not None:
-                if self.profile_id == "K15":
-                    raise ValueError("Origin K15 does not expose a line style")
-                if action.line_style == "none":
-                    raise ValueError("Origin K16 cannot hide a density series")
-                plot.set_int("line.style", _LINE_STYLE[action.line_style])
+                raise ValueError("Origin K15 does not expose a line style")
             return
         if isinstance(action, SetLegend):
             if action.target != f"legend:{token}.main":
@@ -274,9 +228,8 @@ class CalculatedDistributionOriginProject:
                 legend = self.layer.label("legend")
             if legend is not None and visible is not None:
                 labels = self._labels(document, data)
-                style = "b" if self.profile_id == "K15" else "l"
                 legend.text = "\n".join(
-                    f"\\l({index}, style:{style}) {_safe_label(label)}"
+                    f"\\l({index}, style:b) {_safe_label(label)}"
                     for index, label in enumerate(labels, start=1)
                 )
                 legend.set_int("link", 1)
@@ -296,35 +249,23 @@ class CalculatedDistributionOriginProject:
         actions: tuple[PlotEngineAction, ...],
         data: EngineDataView,
     ) -> EngineReadback:
-        native_histogram: dict[str, object] | None = None
-        if self.profile_id == "K15":
-            distribution = distribution_groups(document, data, profile_id="K15")
-            if len(distribution.groups) != 1:
-                raise ValueError("K15 accepts one raw observation series")
-            if len(self.plots) != 1:
-                raise RuntimeError("Origin K15 must contain one visible native histogram series")
-            if int(self.sheet.cols) != 1:
-                raise RuntimeError("Origin K15 source workbook must retain exactly one raw column")
-            self._assert_values(
-                self.sheet.to_list(0),
-                distribution.groups[0].values,
-                "raw observations",
-            )
-            histogram = k15_histogram(document, data)
-            native_histogram = self._assert_native_histogram(histogram)
-        else:
-            density = k16_density(document, data)
-            if len(self.plots) != len(density.series):
-                raise RuntimeError("Origin K16 density count differs after reopen")
-            for index, series in enumerate(density.series):
-                self._assert_values(self.sheet.to_list(index * 2), series.grid, "KDE grid")
-                self._assert_values(
-                    self.sheet.to_list(index * 2 + 1), series.density, "KDE density"
-                )
+        distribution = distribution_groups(document, data, profile_id="K15")
+        if len(distribution.groups) != 1:
+            raise ValueError("K15 accepts one raw observation series")
+        if len(self.plots) != 1:
+            raise RuntimeError("Origin K15 must contain one visible native histogram series")
+        if int(self.sheet.cols) != 1:
+            raise RuntimeError("Origin K15 source workbook must retain exactly one raw column")
+        self._assert_values(
+            self.sheet.to_list(0),
+            distribution.groups[0].values,
+            "raw observations",
+        )
+        histogram = k15_histogram(document, data)
+        native_histogram = self._assert_native_histogram(histogram)
         token = document.plot_id.removeprefix("plot:")
         snapshot: dict[str, object] = {"profile": self.profile_id, "series": len(self.plots)}
-        if native_histogram is not None:
-            snapshot["native_histogram"] = native_histogram
+        snapshot["native_histogram"] = native_histogram
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
@@ -370,15 +311,9 @@ class CalculatedDistributionOriginProject:
             ),
             *tuple(
                 EngineObjectRef(
-                    semantic_id=(
-                        f"series:{token}.primary"
-                        if self.profile_id == "K15"
-                        else f"series:{token}.group_{index}"
-                    ),
+                    semantic_id=f"series:{token}.primary",
                     backend="origin",
-                    object_kind=(
-                        "histogram_series" if self.profile_id == "K15" else "density_series"
-                    ),
+                    object_kind="histogram_series",
                     native_ref=f"graph:{self.graph.name}.layer:1.plot:{index}",
                 )
                 for index in range(1, len(self.plots) + 1)
@@ -488,31 +423,13 @@ class CalculatedDistributionOriginProject:
             "rule": histogram.rule,
         }
 
-    def _write_density(self, density: DensityData) -> None:
-        for index, series in enumerate(density.series):
-            self.sheet.from_list(
-                index * 2,
-                list(series.grid),
-                lname=density.value_field_name,
-                axis="X",
-            )
-            self.sheet.from_list(index * 2 + 1, list(series.density), lname=series.label, axis="Y")
-
     def _labels(self, document: PlotDocument, data: EngineDataView) -> tuple[str, ...]:
-        if self.profile_id == "K15":
-            return (distribution_groups(document, data, profile_id="K15").value_field_name,)
-        return tuple(series.label for series in k16_density(document, data).series)
+        return (distribution_groups(document, data, profile_id="K15").value_field_name,)
 
     def _series_ordinal(self, target: str, token: str) -> int:
-        if self.profile_id == "K15":
-            if target != f"series:{token}.primary":
-                raise ValueError("K15 series target does not belong to this plot")
-            return 1
-        prefix = f"series:{token}.group_"
-        suffix = target.removeprefix(prefix) if target.startswith(prefix) else ""
-        if not suffix.isdigit() or not 1 <= int(suffix) <= len(self.plots):
-            raise ValueError("K16 series target is outside the materialized groups")
-        return int(suffix)
+        if target != f"series:{token}.primary":
+            raise ValueError("K15 series target does not belong to this plot")
+        return 1
 
     @staticmethod
     def _assert_values(actual: list[object], expected: tuple[object, ...], name: str) -> None:
@@ -547,15 +464,14 @@ def _execute(
     request: OriginWorkerRequest,
     install_dir: Path,
     output: Path,
-    profile_id: Literal["K15", "K16"],
 ) -> EngineReadback:
-    project = CalculatedDistributionOriginProject(op, profile_id=profile_id)
+    project = CalculatedDistributionOriginProject(op)
     project.create(install_dir, request.document, request.data)
     actions = _effective_actions(request.actions)
     for action in actions:
         project.apply(request.document, action, request.data)
     project.save(output)
-    reopened = CalculatedDistributionOriginProject(op, profile_id=profile_id)
+    reopened = CalculatedDistributionOriginProject(op)
     reopened.reopen(output, request.document, request.data)
     return reopened.verify(request.document, actions, request.data)
 
@@ -563,10 +479,4 @@ def _execute(
 def execute_k15_request(
     op: Any, request: OriginWorkerRequest, install_dir: Path, output: Path
 ) -> EngineReadback:
-    return _execute(op, request, install_dir, output, "K15")
-
-
-def execute_k16_request(
-    op: Any, request: OriginWorkerRequest, install_dir: Path, output: Path
-) -> EngineReadback:
-    return _execute(op, request, install_dir, output, "K16")
+    return _execute(op, request, install_dir, output)

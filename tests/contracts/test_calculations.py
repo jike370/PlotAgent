@@ -14,7 +14,6 @@ SPEC_CASES: tuple[tuple[str, dict[str, object]], ...] = (
     ("histogram_binning", {"value_field": "field:value", "normalization": "count"}),
     ("tukey_box", {"value_field": "field:value"}),
     ("violin_kde", {"value_field": "field:value", "grid_points": 256}),
-    ("density_kde", {"value_field": "field:value", "grid_points": 256}),
     ("ecdf", {"value_field": "field:value", "mode": "ccdf"}),
     ("summary_error", {"method": "mean_sd", "value_field": "field:value"}),
     (
@@ -48,7 +47,6 @@ ALGORITHMS = {
     "histogram_binning": "freedman_diaconis_sturges",
     "tukey_box": "linear_quantile_tukey_1_5_iqr",
     "violin_kde": "gaussian_scott_observed_range",
-    "density_kde": "gaussian_scott_three_bandwidth",
     "ecdf": "right_continuous_empirical_cdf",
     "summary_error": "fixed_summary_error",
     "percent_stack": "category_nonnegative_percent",
@@ -72,7 +70,7 @@ def spec_payload(kind: str, specific: dict[str, object]) -> dict[str, object]:
 
 
 @pytest.mark.parametrize(("kind", "specific"), SPEC_CASES)
-def test_nine_calculation_specs_accept_only_their_closed_shape(
+def test_eight_calculation_specs_accept_only_their_closed_shape(
     kind: str, specific: dict[str, object]
 ) -> None:
     adapter = TypeAdapter(PlotCalculationSpec)
@@ -91,7 +89,6 @@ def test_nine_calculation_specs_accept_only_their_closed_shape(
         ),
         ("tukey_box", {"group_count": 1}),
         ("violin_kde", {"group_count": 1, "grid_points": 256, "bandwidths": [1.0]}),
-        ("density_kde", {"group_count": 1, "grid_points": 256, "bandwidths": [1.0]}),
         ("ecdf", {"mode": "ecdf"}),
         ("summary_error", {"method": "mean_sd", "group_count": 1}),
         ("percent_stack", {"category_count": 2, "component_count": 2}),
@@ -105,7 +102,7 @@ def test_nine_calculation_specs_accept_only_their_closed_shape(
         ),
     ),
 )
-def test_nine_calculation_results_are_hash_bound(kind: str, specific: dict[str, object]) -> None:
+def test_eight_calculation_results_are_hash_bound(kind: str, specific: dict[str, object]) -> None:
     output_table = {
         "field_ids": ["field:result"],
         "rows": [[1], [2]],

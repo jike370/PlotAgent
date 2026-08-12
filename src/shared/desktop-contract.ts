@@ -376,8 +376,8 @@ const TASK_PROGRESS_UNITS = new Set<TaskProgressUnit>([
 const CLOSE_CHOICES = new Set<CloseChoice>(['wait', 'cancel-and-quit', 'return'])
 const CHART_IDS = new Set([
   'K01', 'K02', 'K03', 'K04', 'K05', 'K06', 'K07', 'K08', 'K09', 'K10', 'K11',
-  'K12', 'K13', 'K14', 'K15', 'K16', 'K17', 'K18', 'K19', 'K20', 'K21', 'K22',
-  'K24', 'K25', 'S01', 'S05', 'S21', 'S25', 'S31', 'S34', 'S61',
+  'K12', 'K13', 'K14', 'K15', 'K17', 'K18', 'K19', 'K20', 'K21', 'K22',
+  'K24', 'K25', 'S05', 'S25', 'S31', 'S34', 'S61',
   'X01', 'X02', 'X03', 'X05', 'X07', 'X09', 'X11', 'X12', 'X13', 'X15', 'X16',
   'X17', 'X18', 'X19', 'X23', 'X24', 'X35', 'X36', 'X37', 'X38', 'X39', 'X40',
   'S07',

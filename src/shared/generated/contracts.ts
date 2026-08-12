@@ -136,7 +136,7 @@ export type CalculationTable = {
 
 export type ChartCapabilities = {
   readonly capability_version: string;
-  readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S21" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
+  readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
   readonly allowed_action_types: ReadonlyArray<"create_plot" | "bind_fields" | "set_title" | "set_axis" | "set_series_style" | "set_legend" | "set_chart_parameter" | "add_annotation" | "export_plot">;
   readonly export_formats?: ReadonlyArray<"png" | "svg" | "opju">;
   readonly limitation_ids?: ReadonlyArray<string>;
@@ -296,50 +296,6 @@ export type DataQualitySummary = {
   readonly negative_inf_values: number;
   readonly unparseable_values: number;
   readonly warnings?: ReadonlyArray<WarningRecord>;
-}
-
-export type DensityKDEResult = {
-  readonly schema_version?: "1.0";
-  readonly calculation_id: string;
-  readonly result_version: number;
-  readonly spec_ref: PlotCalculationSpecRef;
-  readonly prepared_dataset_ref: PreparedDatasetRef;
-  readonly algorithm_version: string;
-  readonly missing_policy: "fail" | "exclude_with_report";
-  readonly input_hash: string;
-  readonly output_hash: string;
-  readonly output_data_ref: ContentTableRef;
-  readonly output_table: CalculationTable;
-  readonly total_row_count: number;
-  readonly included_row_count: number;
-  readonly excluded_row_count: number;
-  readonly included_row_ids: ReadonlyArray<string>;
-  readonly exclusions?: ReadonlyArray<RowExclusion>;
-  readonly nonfinite_counts?: NonFiniteCounts;
-  readonly fixed_seed?: number | null;
-  readonly warnings?: ReadonlyArray<WarningRecord>;
-  readonly producer_build_hash: string;
-  readonly kind?: "density_kde";
-  readonly algorithm_id?: "gaussian_scott_three_bandwidth";
-  readonly group_count: number;
-  readonly grid_points?: 256;
-  readonly bandwidths: ReadonlyArray<number>;
-}
-
-export type DensityKDESpec = {
-  readonly schema_version?: "1.0";
-  readonly calculation_id: string;
-  readonly calculation_version: number;
-  readonly prepared_dataset_ref: PreparedDatasetRef;
-  readonly algorithm_version: string;
-  readonly missing_policy: "fail" | "exclude_with_report";
-  readonly log10_fields?: ReadonlyArray<string>;
-  readonly fixed_seed?: number | null;
-  readonly kind?: "density_kde";
-  readonly algorithm_id?: "gaussian_scott_three_bandwidth";
-  readonly value_field: string;
-  readonly group_field?: string | null;
-  readonly grid_points?: 256;
 }
 
 export type ECDFResult = {
@@ -518,7 +474,7 @@ export type FieldMapping = {
   readonly schema_version?: "1.0";
   readonly field_mapping_id: string;
   readonly mapping_version: number;
-  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K16" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S01" | "S21" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40";
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40";
   readonly source_dataset_refs: ReadonlyArray<SourceDatasetRef>;
   readonly bindings: ReadonlyArray<FieldRoleBinding>;
   readonly content_hash: string;
@@ -737,14 +693,14 @@ export type PercentStackSpec = {
   readonly value_field: string;
 }
 
-export type PlotCalculationResultContract = HistogramBinningResult | TukeyBoxResult | ViolinKDEResult | DensityKDEResult | ECDFResult | SummaryErrorResult | PercentStackResult | MatrixProjectionResult | ConfusionCountResult
+export type PlotCalculationResultContract = HistogramBinningResult | TukeyBoxResult | ViolinKDEResult | ECDFResult | SummaryErrorResult | PercentStackResult | MatrixProjectionResult | ConfusionCountResult
 
-export type PlotCalculationSpecContract = HistogramBinningSpec | TukeyBoxSpec | ViolinKDESpec | DensityKDESpec | ECDFSpec | SummaryErrorSpec | PercentStackSpec | MatrixProjectionSpec | ConfusionCountSpec
+export type PlotCalculationSpecContract = HistogramBinningSpec | TukeyBoxSpec | ViolinKDESpec | ECDFSpec | SummaryErrorSpec | PercentStackSpec | MatrixProjectionSpec | ConfusionCountSpec
 
 export type PlotCalculationSpecRef = {
   readonly calculation_id: string;
   readonly calculation_version: number;
-  readonly calculation_kind: "histogram_binning" | "tukey_box" | "violin_kde" | "density_kde" | "ecdf" | "summary_error" | "percent_stack" | "matrix_projection" | "confusion_count";
+  readonly calculation_kind: "histogram_binning" | "tukey_box" | "violin_kde" | "ecdf" | "summary_error" | "percent_stack" | "matrix_projection" | "confusion_count";
   readonly content_hash: string;
 }
 

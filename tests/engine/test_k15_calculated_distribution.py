@@ -15,19 +15,18 @@ from plotagent.engine import (
     FieldBinding,
     PlotDocument,
 )
-from plotagent.engine.backends.matplotlib import K15HistogramRenderer, K16DensityRenderer
-from plotagent.engine.backends.origin import K15_ORIGIN_PROFILE, K16_ORIGIN_PROFILE
+from plotagent.engine.backends.matplotlib import K15HistogramRenderer
 from plotagent.engine.backends.origin.calculated_distribution import (
     CalculatedDistributionOriginProject,
 )
 from plotagent.engine.backends.origin.native_distribution import DATA_HEIGHT_TYPE
-from plotagent.engine.profile_data import k15_histogram, k16_density
-from plotagent.plot_calculations.kernels import histogram_geometry, scott_kde_geometry
+from plotagent.engine.profile_data import k15_histogram
+from plotagent.plot_calculations.kernels import histogram_geometry
 
 HASH = "5" * 64
 
 
-def _case(profile_id: str, *, grouped: bool = False):
+def _case(profile_id: str = "K15"):
     data = EngineDataRef(
         kind="source",
         dataset_id=f"dataset.{profile_id.lower()}",
@@ -45,18 +44,6 @@ def _case(profile_id: str, *, grouped: bool = False):
             values=(1.0, 1.5, 2.0, 2.5, 4.0, 4.5),
         )
     ]
-    if grouped:
-        bindings.append(FieldBinding(role="group", field_id="field:group"))
-        columns.append(
-            EngineColumn(
-                field=EngineField(
-                    field_id="field:group",
-                    name="Cohort",
-                    logical_type="categorical",
-                ),
-                values=("A", "A", "A", "B", "B", "B"),
-            )
-        )
     create = CreatePlot(
         action_id=f"action:create-{profile_id.lower()}",
         plot_id=f"plot:{profile_id.lower()}-case",
@@ -91,26 +78,12 @@ def test_k15_and_legacy_calculation_share_one_histogram_kernel() -> None:
     assert histogram.right == kernel.right
 
 
-def test_k16_groups_use_the_frozen_scott_kernel() -> None:
-    document, _, view = _case("K16", grouped=True)
-    density = k16_density(document, view)
-
-    assert tuple(series.label for series in density.series) == ("A", "B")
-    assert density.series[0].grid == scott_kde_geometry((1.0, 1.5, 2.0)).grid
-    assert density.series[1].density == scott_kde_geometry((2.5, 4.0, 4.5)).density
-
-
-@pytest.mark.parametrize(
-    ("profile_id", "renderer", "grouped"),
-    (("K15", K15HistogramRenderer(), False), ("K16", K16DensityRenderer(), True)),
-)
-def test_calculated_distribution_matplotlib_renderers_accept_raw_observations(
+def test_histogram_matplotlib_renderer_accepts_raw_observations(
     tmp_path: Path,
-    profile_id: str,
-    renderer,
-    grouped: bool,
 ) -> None:
-    document, actions, view = _case(profile_id, grouped=grouped)
+    profile_id = "K15"
+    renderer = K15HistogramRenderer()
+    document, actions, view = _case()
     readback = renderer.render(
         document,
         actions,
@@ -264,22 +237,11 @@ class _Origin:
         raise AssertionError(expression)
 
 
-@pytest.mark.parametrize(
-    ("profile_id", "profile", "grouped", "expected_calls"),
-    (
-        ("K15", K15_ORIGIN_PROFILE, False, 1),
-        ("K16", K16_ORIGIN_PROFILE, True, 2),
-    ),
-)
-def test_origin_binders_use_native_origin_geometry_from_raw_observations(
+def test_origin_binder_uses_native_origin_geometry_from_raw_observations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    profile_id: str,
-    profile,
-    grouped: bool,
-    expected_calls: int,
 ) -> None:
-    document, _, view = _case(profile_id, grouped=grouped)
+    document, _, view = _case()
     monkeypatch.setattr(
         origin_module,
         "resolve_official_template",
@@ -297,35 +259,27 @@ def test_origin_binders_use_native_origin_geometry_from_raw_observations(
     monkeypatch.setattr(origin_module, "configure_native_distribution", configure)
     monkeypatch.setattr(origin_module, "read_native_distribution_value", read)
     origin = _Origin()
-    project = CalculatedDistributionOriginProject(origin, profile_id=profile_id)
+    project = CalculatedDistributionOriginProject(origin)
     project.create(tmp_path, document, view)
 
-    if profile_id == "K15":
-        assert origin.template == ""
-    else:
-        assert Path(origin.template).name == profile.filename
-    assert len(origin.graph.layer.add_calls) == expected_calls
-    if profile_id == "K15":
-        assert origin.book.sheet.command.endswith("worksheet -p 219 Hist;")
-        assert origin.graph.layer.add_calls == [
-            {"coly": 0, "colx": "#", "type": 219}
-        ]
-        assert set(origin.book.sheet.columns) == {0}
-        assert origin.book.sheet.columns[0] == [1.0, 1.5, 2.0, 2.5, 4.0, 4.5]
-        assert origin.graph.layer.labels["XT"].values["show"] == 0
-        assert origin.graph.layer.labels["YR"].values["show"] == 0
-        histogram = k15_histogram(document, view)
-        assert origin.histogram_values == {
-            "__K15BEGIN": pytest.approx(histogram.left[0]),
-            "__K15END": pytest.approx(histogram.right[-1]),
-            "__K15SIZE": pytest.approx(histogram.right[0] - histogram.left[0]),
-        }
-        assert native_values[(1, DATA_HEIGHT_TYPE)] == 0
-    else:
-        assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
+    assert origin.template == ""
+    assert len(origin.graph.layer.add_calls) == 1
+    assert origin.book.sheet.command.endswith("worksheet -p 219 Hist;")
+    assert origin.graph.layer.add_calls == [{"coly": 0, "colx": "#", "type": 219}]
+    assert set(origin.book.sheet.columns) == {0}
+    assert origin.book.sheet.columns[0] == [1.0, 1.5, 2.0, 2.5, 4.0, 4.5]
+    assert origin.graph.layer.labels["XT"].values["show"] == 0
+    assert origin.graph.layer.labels["YR"].values["show"] == 0
+    histogram = k15_histogram(document, view)
+    assert origin.histogram_values == {
+        "__K15BEGIN": pytest.approx(histogram.left[0]),
+        "__K15END": pytest.approx(histogram.right[-1]),
+        "__K15SIZE": pytest.approx(histogram.right[0] - histogram.left[0]),
+    }
+    assert native_values[(1, DATA_HEIGHT_TYPE)] == 0
 
 
-def test_k15_k16_new_path_has_no_legacy_compiler_dependency() -> None:
+def test_k15_new_path_has_no_legacy_compiler_dependency() -> None:
     modules = (K15HistogramRenderer.__module__, CalculatedDistributionOriginProject.__module__)
     source = "\n".join(inspect.getsource(__import__(module, fromlist=["*"])) for module in modules)
     assert "plotagent.rendering" not in source

@@ -10,7 +10,6 @@ from plotagent.contracts.base import PreparedDatasetRef
 from plotagent.contracts.calculations import (
     CalculationResultBase,
     ConfusionCountSpec,
-    DensityKDESpec,
     ECDFSpec,
     HistogramBinningSpec,
     MatrixProjectionSpec,
@@ -203,8 +202,8 @@ def test_tukey_group_order_is_first_seen_and_invalid_numeric_type_blocks() -> No
     assert raised.value.code == "PLOTSPEC_CALCULATION_SHAPE_INVALID"
 
 
-@pytest.mark.parametrize("kind", ["violin", "density"])
-def test_kde_gaussian_scott_grid_and_density_golden(kind: str) -> None:
+def test_violin_kde_gaussian_scott_grid_and_density_golden() -> None:
+    kind = "violin"
     common = {
         "calculation_id": f"plotcalc:{kind}",
         "calculation_version": 1,
@@ -213,7 +212,7 @@ def test_kde_gaussian_scott_grid_and_density_golden(kind: str) -> None:
         "missing_policy": "fail",
         "value_field": "field:value",
     }
-    spec = ViolinKDESpec(**common) if kind == "violin" else DensityKDESpec(**common)
+    spec = ViolinKDESpec(**common)
     result = calculate_plot(
         spec,
         data({"field:value": (0, 2)}),
@@ -227,18 +226,14 @@ def test_kde_gaussian_scott_grid_and_density_golden(kind: str) -> None:
     assert len(result.output_table.rows) == 256
     first = result.output_table.rows[0]
     last = result.output_table.rows[-1]
-    if kind == "violin":
-        assert first[3] == 0.0
-        assert last[3] == 2.0
-        assert first[4] == pytest.approx(expected_at_zero, rel=1e-14)
-        assert last[4] == pytest.approx(expected_at_zero, rel=1e-14)
-    else:
-        assert first[3] == pytest.approx(-3.0 * bandwidth)
-        assert last[3] == pytest.approx(2.0 + 3.0 * bandwidth)
+    assert first[3] == 0.0
+    assert last[3] == 2.0
+    assert first[4] == pytest.approx(expected_at_zero, rel=1e-14)
+    assert last[4] == pytest.approx(expected_at_zero, rel=1e-14)
 
 
-@pytest.mark.parametrize("kind", ["violin", "density"])
-def test_kde_constant_or_singleton_groups_block(kind: str) -> None:
+def test_violin_kde_constant_groups_block() -> None:
+    kind = "violin"
     common = {
         "calculation_id": f"plotcalc:{kind}-invalid",
         "calculation_version": 1,
@@ -247,13 +242,9 @@ def test_kde_constant_or_singleton_groups_block(kind: str) -> None:
         "missing_policy": "fail",
         "value_field": "field:value",
     }
-    spec = ViolinKDESpec(**common) if kind == "violin" else DensityKDESpec(**common)
-    values = (1, 1) if kind == "violin" else (1,)
-    expected = (
-        "PLOTSPEC_CALCULATION_DOMAIN_INVALID"
-        if kind == "violin"
-        else "PLOTSPEC_CALCULATION_INSUFFICIENT_DATA"
-    )
+    spec = ViolinKDESpec(**common)
+    values = (1, 1)
+    expected = "PLOTSPEC_CALCULATION_DOMAIN_INVALID"
     with pytest.raises(PlotCalculationError) as raised:
         calculate_plot(spec, data({"field:value": values}), producer_build_hash=BUILD_HASH)
     assert raised.value.code == expected

@@ -11,10 +11,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urljoin, urlparse
 
-from plotagent.engine.backends.origin.recipe import (
-    ORIGIN_RECIPES,
-    ORIGIN_RENDERABLE_RECIPES,
-)
+from plotagent.engine.backends.origin.recipe import ORIGIN_RENDERABLE_RECIPES
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 VISUAL_ROOT = REPOSITORY / "build" / "visual-audit"
@@ -189,16 +186,6 @@ def main() -> None:
     cards_and_rows = [_card(profile_id) for profile_id in profile_ids]
     cards = "".join(card for card, _row in cards_and_rows)
     rows = [row for _card_html, row in cards_and_rows]
-    excluded = [
-        {
-            "profile_id": str(profile_id),
-            "chinese_name": recipe.chinese_name,
-            "support_status": recipe.support_status,
-            "reason": recipe.manual_gate,
-        }
-        for profile_id, recipe in ORIGIN_RECIPES.items()
-        if recipe.support_status != "renderable"
-    ]
     nav = "".join(
         f'<a href="#{html.escape(str(row["profile_id"]))}">{html.escape(str(row["chinese_name"]))}</a>'
         for row in rows
@@ -230,7 +217,6 @@ img{{display:block;width:100%;height:430px;object-fit:contain;background:#fff}}@
             ("git", "rev-parse", "HEAD"), cwd=REPOSITORY, text=True
         ).strip(),
         "renderable_count": len(rows),
-        "excluded_count": len(excluded),
         "qualification": "mechanically qualified; user visual review approved",
         "visual_review": {
             "status": VISUAL_REVIEW_STATUS,
@@ -239,7 +225,6 @@ img{{display:block;width:100%;height:430px;object-fit:contain;background:#fff}}@
             "scope": "all 35 Origin-renderable profiles",
         },
         "charts": rows,
-        "excluded": excluded,
     }
     (OUTPUT / "audit-manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"

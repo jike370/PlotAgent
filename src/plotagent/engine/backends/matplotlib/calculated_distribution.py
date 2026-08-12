@@ -1,4 +1,4 @@
-"""Independent K15/K16 renderers over shared deterministic calculations."""
+"""Independent K15 histogram renderer over shared deterministic calculations."""
 
 from __future__ import annotations
 
@@ -28,11 +28,10 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import DensityData, k15_histogram, k16_density
+from plotagent.engine.profile_data import k15_histogram
 from plotagent.engine.repository import document_ref
 
 _PALETTE = ("#1676D2", "#D97800", "#299764", "#C53D4D", "#7656B5", "#008A99")
-_LINE_STYLES = {"solid": "-", "dash": "--", "dot": ":", "dash_dot": "-."}
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +47,6 @@ class _AxisState:
 class _SeriesState:
     color: str
     line_width_pt: float = 1.2
-    line_style: str = "solid"
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,7 +122,7 @@ class K15HistogramRenderer:
         svg_path: Path,
     ) -> EngineReadback:
         histogram = k15_histogram(document, data)
-        state = _state(document, actions, histogram.value_field_name, "Count", 1, "K15")
+        state = _state(document, actions, histogram.value_field_name, "Count")
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
         axis.bar(
             histogram.center,
@@ -143,52 +141,6 @@ class K15HistogramRenderer:
             objects=_objects(document, "histogram_series", 1),
             data_hash=canonical_hash(data),
             style_hash=canonical_hash(asdict(state)),
-        )
-
-
-class K16DensityRenderer:
-    profile_id = "K16"
-
-    def render(
-        self,
-        document: PlotDocument,
-        actions: tuple[PlotEngineAction, ...],
-        data: EngineDataView,
-        png_path: Path,
-        svg_path: Path,
-    ) -> EngineReadback:
-        density = k16_density(document, data)
-        state = _state(
-            document,
-            actions,
-            density.value_field_name,
-            "Density",
-            len(density.series),
-            "K16",
-        )
-        figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
-        _draw_density(axis, density, state)
-        _finish(axis, figure, state, png_path, svg_path)
-        return EngineReadback(
-            document=document_ref(document),
-            backend="matplotlib",
-            objects=_objects(document, "density_series", len(density.series)),
-            data_hash=canonical_hash(data),
-            style_hash=canonical_hash(asdict(state)),
-        )
-
-
-def _draw_density(axis: Axes, density: DensityData, state: _State) -> None:
-    for series, style in zip(density.series, state.series, strict=True):
-        if style.line_style == "none":
-            raise ValueError("K16 cannot hide a density series")
-        axis.plot(
-            series.grid,
-            series.density,
-            color=style.color,
-            linewidth=style.line_width_pt,
-            linestyle=_LINE_STYLES[style.line_style],
-            label=series.label,
         )
 
 
@@ -217,17 +169,13 @@ def _state(
     actions: tuple[PlotEngineAction, ...],
     x_label: str,
     y_label: str,
-    series_count: int,
-    profile_id: Literal["K15", "K16"],
 ) -> _State:
     token = document.plot_id.removeprefix("plot:")
     state = _State(
         title="",
         x_axis=_AxisState(x_label),
         y_axis=_AxisState(y_label),
-        series=tuple(
-            _SeriesState(_PALETTE[index % len(_PALETTE)]) for index in range(series_count)
-        ),
+        series=(_SeriesState(_PALETTE[0]),),
     )
     last_binding = max(
         (index for index, action in enumerate(actions) if isinstance(action, BindFields)),
@@ -238,14 +186,14 @@ def _state(
             continue
         if isinstance(action, SetTitle):
             if action.target != document.plot_id:
-                raise ValueError(f"{profile_id} title target does not belong to this plot")
+                raise ValueError("K15 title target does not belong to this plot")
             state = replace(state, title=action.text)
         elif isinstance(action, SetAxis):
             name = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(
                 action.target
             )
             if name is None:
-                raise ValueError(f"{profile_id} axis target does not belong to this plot")
+                raise ValueError("K15 axis target does not belong to this plot")
             current = getattr(state, name)
             bounds = (
                 (current.minimum, current.maximum)
@@ -268,7 +216,7 @@ def _state(
         elif isinstance(action, SetSeriesStyle):
             if index < last_binding:
                 continue
-            ordinal = _series_ordinal(action.target, token, series_count, profile_id)
+            ordinal = _series_ordinal(action.target, token)
             current = state.series[ordinal - 1]
             updated = replace(
                 current,
@@ -278,30 +226,23 @@ def _state(
                     if action.line_width_pt is None
                     else action.line_width_pt
                 ),
-                line_style=current.line_style if action.line_style is None else action.line_style,
             )
             items = list(state.series)
             items[ordinal - 1] = updated
             state = replace(state, series=tuple(items))
         elif isinstance(action, SetLegend):
             if action.target != f"legend:{token}.main":
-                raise ValueError(f"{profile_id} legend target does not belong to this plot")
+                raise ValueError("K15 legend target does not belong to this plot")
             state = replace(
                 state,
                 legend_visible=(state.legend_visible if action.visible is None else action.visible),
             )
         else:
-            raise ValueError(f"{profile_id} renderer cannot apply {action.operation}")
+            raise ValueError(f"K15 renderer cannot apply {action.operation}")
     return state
 
 
-def _series_ordinal(target: str, token: str, count: int, profile_id: str) -> int:
-    if profile_id == "K15":
-        if target != f"series:{token}.primary":
-            raise ValueError("K15 series target does not belong to this plot")
-        return 1
-    prefix = f"series:{token}.group_"
-    suffix = target.removeprefix(prefix) if target.startswith(prefix) else ""
-    if not suffix.isdigit() or not 1 <= int(suffix) <= count:
-        raise ValueError("K16 series target is outside the materialized groups")
-    return int(suffix)
+def _series_ordinal(target: str, token: str) -> int:
+    if target != f"series:{token}.primary":
+        raise ValueError("K15 series target does not belong to this plot")
+    return 1

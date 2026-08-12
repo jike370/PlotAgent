@@ -25,11 +25,21 @@ from plotagent.engine.contracts import (
     SetSeriesStyle,
     SetTitle,
 )
+from plotagent.engine.removed import (
+    REMOVED_CHART_TYPE_ERROR_CODE,
+    REMOVED_CHART_TYPE_IDS,
+)
 from plotagent.engine.repository import EngineRepositoryConflict, PlotDocumentRepository
 
 
 class EngineCommandError(ValueError):
     pass
+
+
+class RemovedChartTypeError(EngineCommandError):
+    """Stable failure raised when an old project references a removed chart."""
+
+    code = REMOVED_CHART_TYPE_ERROR_CODE
 
 
 class EngineVersionConflict(EngineCommandError):
@@ -47,6 +57,10 @@ class EngineCatalog:
         return tuple(self._profiles.values())
 
     def get(self, profile_id: str) -> EngineProfile:
+        if profile_id in REMOVED_CHART_TYPE_IDS:
+            raise RemovedChartTypeError(
+                f"{REMOVED_CHART_TYPE_ERROR_CODE}: {profile_id}"
+            )
         try:
             return self._profiles[profile_id]
         except KeyError as exc:

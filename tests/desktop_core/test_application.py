@@ -152,7 +152,7 @@ def test_engine_rpc_uses_imported_data_and_restores_latest_document(
     imported = _import_dataset(harness, project_id, revision, key="engine-data")
     catalog = harness.call("engine.catalog.get", {"project_id": project_id})
     assert catalog["tool_name"] == "plot_engine_action"
-    assert len(cast(list[object], catalog["profiles"])) == 38
+    assert len(cast(list[object], catalog["profiles"])) == 35
 
     created = _create_line(
         harness,

@@ -6,11 +6,11 @@
     },
     {
       "path": "schemas/context-envelope.schema.json",
-      "sha256": "d66f17ee50029898f9a877b905b88b4ac65678f60e97e30a33150231f53aac8b"
+      "sha256": "54078b6b05c0c699a7200c03f157b13dcd93d693344798d6f55242b7e2bf638c"
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "113eef4ffabc8e955af5384c79467504ca831985d40ec7e51b608def60a3642a"
+      "sha256": "fa65d48a13caf88417bed7352c9abd954153d54f473e7d7a1d6ff07b8ad42feb"
     },
     {
       "path": "schemas/engine-agent-decision.schema.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "schemas/engine-profile-catalog.json",
-      "sha256": "07277950c00ff3fd06d43faed5ca3fb715ff94d7f04da9a6948a212dec815551"
+      "sha256": "cd4a42b6de7a27064db2c5e3f4b79cf120d6044c56156f317d8666d323ef7e09"
     },
     {
       "path": "schemas/engine-profile.schema.json",
@@ -58,15 +58,15 @@
     },
     {
       "path": "schemas/field-mapping.schema.json",
-      "sha256": "13a29913619f2d6ee5b37e21224b05f61518ceb3bdffe406f0a2913b582a941f"
+      "sha256": "0eb7e10eb6998daca9ab9dc0cb78fe5ea6177726542f9722a8007931a6a4f829"
     },
     {
       "path": "schemas/plot-calculation-result.schema.json",
-      "sha256": "7d652ad7b541024398fc128cc87f35ea23d99d60806929e7cc3acfe3d8c65fca"
+      "sha256": "160d0f9d6eac7b3bd20b212636855126c424b49a88575a7dc104129ab0fc6ac5"
     },
     {
       "path": "schemas/plot-calculation-spec.schema.json",
-      "sha256": "c37ffa148db35fab3fb53b6551cb5d8af521dd84c3aca481c27c6aa0b8e21862"
+      "sha256": "bbf4ce1a7cb056daf1e9781f66e29a989888fade17686c35272bd1f6d7c6c4e9"
     },
     {
       "path": "schemas/plot-document.schema.json",
@@ -94,11 +94,11 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "0ee469b52671e30b2fc4f17448f3397eda68d55eac4a0648dca94a2a43247b8e"
+      "sha256": "047403519edbbf45b5ee5dec1716a73c4c7448762ef5b062b53b66f5990fcfe4"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",
-      "sha256": "07277950c00ff3fd06d43faed5ca3fb715ff94d7f04da9a6948a212dec815551"
+      "sha256": "cd4a42b6de7a27064db2c5e3f4b79cf120d6044c56156f317d8666d323ef7e09"
     }
   ],
   "generator": "plotagent.contracts.codegen",

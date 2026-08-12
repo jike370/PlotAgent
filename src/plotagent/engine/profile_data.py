@@ -13,7 +13,7 @@ from datetime import date, datetime
 from math import isclose, isfinite, nan
 from typing import Literal
 
-from plotagent.plot_calculations.kernels import histogram_geometry, scott_kde_geometry
+from plotagent.plot_calculations.kernels import histogram_geometry
 
 from .contracts import EngineColumn, EngineDataView, PlotDocument
 
@@ -219,20 +219,6 @@ class HistogramData:
 
 
 @dataclass(frozen=True, slots=True)
-class DensitySeriesData:
-    label: str
-    grid: tuple[float, ...]
-    density: tuple[float, ...]
-    bandwidth: float
-
-
-@dataclass(frozen=True, slots=True)
-class DensityData:
-    series: tuple[DensitySeriesData, ...]
-    value_field_name: str
-
-
-@dataclass(frozen=True, slots=True)
 class WideColumnData:
     labels: tuple[str, ...]
     values: tuple[tuple[float, ...], ...]
@@ -316,34 +302,6 @@ class FacetData:
     x_field_name: str
     y_field_name: str
     panels: tuple[FacetSeriesData, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class SurvivalGroupData:
-    label: str
-    time: tuple[float, ...]
-    survival: tuple[float, ...]
-    lower: tuple[float, ...] | None
-    upper: tuple[float, ...] | None
-    risk_count: tuple[int, ...] | None
-
-
-@dataclass(frozen=True, slots=True)
-class SurvivalData:
-    time_field_name: str
-    survival_field_name: str
-    groups: tuple[SurvivalGroupData, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class ForestData:
-    label_field_name: str
-    effect_field_name: str
-    labels: tuple[str, ...]
-    effect: tuple[float, ...]
-    lower: tuple[float, ...]
-    upper: tuple[float, ...]
-    weight: tuple[float, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -610,7 +568,7 @@ def distribution_groups(
     document: PlotDocument,
     data: EngineDataView,
     *,
-    profile_id: Literal["K12", "K13", "K14", "K15", "K16", "X05"],
+    profile_id: Literal["K12", "K13", "K14", "K15", "X05"],
 ) -> DistributionData:
     """Return raw observations split by optional group in first-appearance order."""
 
@@ -715,27 +673,6 @@ def k15_histogram(document: PlotDocument, data: EngineDataView) -> HistogramData
         normalization="count",
         rule=geometry.rule,
     )
-
-
-def k16_density(document: PlotDocument, data: EngineDataView) -> DensityData:
-    """Calculate the frozen Scott KDE over raw observations and optional groups."""
-
-    distribution = distribution_groups(document, data, profile_id="K16")
-    series: list[DensitySeriesData] = []
-    for index, group in enumerate(distribution.groups, start=1):
-        try:
-            geometry = scott_kde_geometry(group.values)
-        except ValueError as error:
-            raise ValueError(f"K16 group {index} cannot produce a density: {error}") from error
-        series.append(
-            DensitySeriesData(
-                label=group.label,
-                grid=geometry.grid,
-                density=geometry.density,
-                bandwidth=geometry.bandwidth,
-            )
-        )
-    return DensityData(series=tuple(series), value_field_name=distribution.value_field_name)
 
 
 def x03_lollipop(document: PlotDocument, data: EngineDataView) -> LollipopData:
@@ -1192,123 +1129,6 @@ def k24_trellis_data(document: PlotDocument, data: EngineDataView) -> TrellisDat
         facet_field_name=facet.field.name,
         x_field_name=x.field.name,
         y_field_name=y.field.name,
-    )
-
-
-def s01_survival(document: PlotDocument, data: EngineDataView) -> SurvivalData:
-    time_column, survival_column = _bound_columns(document, data, ("time", "survival"), "S01")
-    bindings = {binding.role: binding.field_id for binding in document.bindings}
-    columns = {column.field.field_id: column for column in data.columns}
-    lower_column = columns.get(bindings.get("lower", ""))
-    upper_column = columns.get(bindings.get("upper", ""))
-    risk_column = columns.get(bindings.get("risk_count", ""))
-    group_column = columns.get(bindings.get("group", ""))
-    if (lower_column is None) != (upper_column is None):
-        raise ValueError("S01 lower and upper confidence bounds must be bound together")
-    groups = (
-        tuple(_label(value, "group") for value in group_column.values)
-        if group_column is not None
-        else tuple("Survival" for _value in time_column.values)
-    )
-    time_values = _numeric_values(time_column, "time", "S01", allow_missing=False)
-    survival_values = _numeric_values(survival_column, "survival", "S01", allow_missing=False)
-    lower_values = (
-        _numeric_values(lower_column, "lower", "S01", allow_missing=False)
-        if lower_column is not None
-        else None
-    )
-    upper_values = (
-        _numeric_values(upper_column, "upper", "S01", allow_missing=False)
-        if upper_column is not None
-        else None
-    )
-    materialized: list[SurvivalGroupData] = []
-    for label in dict.fromkeys(groups):
-        indexes = tuple(index for index, group in enumerate(groups) if group == label)
-        group_time = tuple(time_values[index] for index in indexes)
-        group_survival = tuple(survival_values[index] for index in indexes)
-        if len(group_time) < 2 or any(
-            left >= right for left, right in zip(group_time[:-1], group_time[1:], strict=True)
-        ):
-            raise ValueError("S01 time must be strictly increasing within every group")
-        if any(not 0.0 <= value <= 1.0 for value in group_survival):
-            raise ValueError("S01 survival values must be between zero and one")
-        group_lower = (
-            tuple(lower_values[index] for index in indexes) if lower_values is not None else None
-        )
-        group_upper = (
-            tuple(upper_values[index] for index in indexes) if upper_values is not None else None
-        )
-        if (
-            group_lower is not None
-            and group_upper is not None
-            and any(
-                not lower <= survival <= upper <= 1.0
-                for lower, survival, upper in zip(
-                    group_lower, group_survival, group_upper, strict=True
-                )
-            )
-        ):
-            raise ValueError("S01 confidence bounds must contain survival and stay in [0, 1]")
-        group_risk: tuple[int, ...] | None = None
-        if risk_column is not None:
-            counts: list[int] = []
-            for index in indexes:
-                value = risk_column.values[index]
-                if isinstance(value, bool) or not isinstance(value, (int, float)):
-                    raise ValueError("S01 risk_count values must be non-negative integers")
-                number = float(value)
-                if not isfinite(number) or number < 0 or not number.is_integer():
-                    raise ValueError("S01 risk_count values must be non-negative integers")
-                counts.append(int(number))
-            group_risk = tuple(counts)
-        materialized.append(
-            SurvivalGroupData(
-                label=label,
-                time=group_time,
-                survival=group_survival,
-                lower=group_lower,
-                upper=group_upper,
-                risk_count=group_risk,
-            )
-        )
-    return SurvivalData(
-        time_field_name=time_column.field.name,
-        survival_field_name=survival_column.field.name,
-        groups=tuple(materialized),
-    )
-
-
-def s21_forest(document: PlotDocument, data: EngineDataView) -> ForestData:
-    label_column, effect_column, lower_column, upper_column = _bound_columns(
-        document, data, ("label", "effect", "lower", "upper"), "S21"
-    )
-    bindings = {binding.role: binding.field_id for binding in document.bindings}
-    columns = {column.field.field_id: column for column in data.columns}
-    weight_column = columns.get(bindings.get("weight", ""))
-    labels = tuple(_label(value, "label") for value in label_column.values)
-    effect = _numeric_values(effect_column, "effect", "S21", allow_missing=False)
-    lower = _numeric_values(lower_column, "lower", "S21", allow_missing=False)
-    upper = _numeric_values(upper_column, "upper", "S21", allow_missing=False)
-    if any(
-        not low <= center <= high for low, center, high in zip(lower, effect, upper, strict=True)
-    ):
-        raise ValueError("S21 intervals must contain their effect estimate")
-    weight = (
-        _numeric_values(weight_column, "weight", "S21", allow_missing=False)
-        if weight_column is not None
-        else tuple(1.0 for _label_value in labels)
-    )
-    if any(value <= 0 for value in weight):
-        raise ValueError("S21 weights must be positive")
-    return ForestData(
-        label_field_name=label_column.field.name,
-        effect_field_name=effect_column.field.name,
-        labels=labels,
-        effect=effect,
-        lower=lower,
-        upper=upper,
-        weight=weight,
     )
 
 

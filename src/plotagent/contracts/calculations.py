@@ -112,20 +112,6 @@ class ViolinKDESpec(CalculationSpecBase):
         return self
 
 
-class DensityKDESpec(CalculationSpecBase):
-    kind: Literal["density_kde"] = "density_kde"
-    algorithm_id: Literal["gaussian_scott_three_bandwidth"] = "gaussian_scott_three_bandwidth"
-    value_field: FieldId
-    group_field: FieldId | None = None
-    grid_points: Literal[256] = 256
-
-    @model_validator(mode="after")
-    def distinct_fields(self) -> DensityKDESpec:
-        if self.group_field == self.value_field:
-            raise ValueError("group_field must differ from value_field")
-        return self
-
-
 class ECDFSpec(CalculationSpecBase):
     kind: Literal["ecdf"] = "ecdf"
     algorithm_id: Literal["right_continuous_empirical_cdf"] = "right_continuous_empirical_cdf"
@@ -260,7 +246,6 @@ PlotCalculationSpec = Annotated[
     HistogramBinningSpec
     | TukeyBoxSpec
     | ViolinKDESpec
-    | DensityKDESpec
     | ECDFSpec
     | SummaryErrorSpec
     | PercentStackSpec
@@ -346,14 +331,6 @@ class ViolinKDEResult(CalculationResultBase):
     bandwidths: tuple[FiniteNumber, ...]
 
 
-class DensityKDEResult(CalculationResultBase):
-    kind: Literal["density_kde"] = "density_kde"
-    algorithm_id: Literal["gaussian_scott_three_bandwidth"] = "gaussian_scott_three_bandwidth"
-    group_count: PositiveInt
-    grid_points: Literal[256] = 256
-    bandwidths: tuple[FiniteNumber, ...]
-
-
 class ECDFResult(CalculationResultBase):
     kind: Literal["ecdf"] = "ecdf"
     algorithm_id: Literal["right_continuous_empirical_cdf"] = "right_continuous_empirical_cdf"
@@ -394,7 +371,6 @@ PlotCalculationResult = Annotated[
     HistogramBinningResult
     | TukeyBoxResult
     | ViolinKDEResult
-    | DensityKDEResult
     | ECDFResult
     | SummaryErrorResult
     | PercentStackResult

@@ -41,6 +41,7 @@ from .ports import (
     PlotBackend,
     PlotBackendChange,
 )
+from .removed import REMOVED_CHART_TYPE_ERROR_CODE, REMOVED_CHART_TYPE_IDS
 from .repository import PlotDocumentRepository, StoredPlotDocument, document_ref
 from .runtime import PlotEngineRuntime, RuntimeResult
 from .service import (
@@ -49,6 +50,7 @@ from .service import (
     EngineVersionConflict,
     PlotEngineService,
     PlotTransition,
+    RemovedChartTypeError,
 )
 from .tooling import EngineActionCodec
 
@@ -90,6 +92,9 @@ __all__ = [
     "PlotEngineRuntime",
     "PlotEngineService",
     "PlotTransition",
+    "REMOVED_CHART_TYPE_ERROR_CODE",
+    "REMOVED_CHART_TYPE_IDS",
+    "RemovedChartTypeError",
     "RuntimeResult",
     "RoutedEngineDataProvider",
     "SetAxis",
