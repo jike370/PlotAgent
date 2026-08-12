@@ -47,7 +47,7 @@
 | K22 | 填色等高线 | `CONTOUR.otpu` + Matrix | 模板 | 完整等距规则网格、PID226、MatrixBook 源绑定、坐标映射、色阶边界和色标均已经独立进程 fresh-reopen 读回 |
 | K24 | Trellis分面图 | `Grouped.otp` + `plot_group` | X-Function | 专属属性人工门禁 |
 | K25 | 多面板组合图 | `Graph > Merge Graph Windows` / `merge_graph` | 组合 | 2–4 个异构原生子图与独立进程 fresh-reopen 已证；无 MGROUPS 运行依赖 |
-| S01 | Kaplan-Meier生存曲线 | `kaplanmeier` 官方分析 | 分析 | 专属属性人工门禁 |
+| S01 | Kaplan-Meier生存曲线 | 官方 `SurvivalPlot.otp` 输出模板；绑定用户提供的阶梯/区间/风险人数 | 模板+组合 | 不运行 KM/检验；阶梯、置信带和风险表 fresh-reopen 人工门禁 |
 | S34 | Nyquist图 | `LINESYMB.otpu` + EIS语义 | 模板 | 原生结构已证 |
 | X02 | 垂线图 | `DROPLINE.OTP` | 模板 | 专属属性人工门禁 |
 | X03 | 棒棒糖图 | `Lollipop.otpu` | 模板 | 专属属性人工门禁 |

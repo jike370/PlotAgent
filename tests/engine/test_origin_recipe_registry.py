@@ -144,6 +144,17 @@ def test_row_wise_boxchart_recipes_preserve_the_source_wide_table() -> None:
     assert "BeforeAfter 0 1" in before_after.local_dispatch
 
 
+def test_survival_recipe_preserves_the_supplied_geometry_product_contract() -> None:
+    recipe = origin_recipe("S01")
+
+    assert recipe.creation_kind == "graph_template"
+    assert recipe.primary_template is not None
+    assert recipe.primary_template.filename == "SurvivalPlot.otp"
+    assert recipe.source_layout == "worksheet_wide"
+    assert "no Kaplan-Meier estimation or equality test" in recipe.readback_contract
+    assert "without running kaplanmeier" in recipe.local_dispatch
+
+
 def test_blocked_profiles_fail_before_origin_automation() -> None:
     for profile_id in ("K16", "S21"):
         with pytest.raises(ValueError, match=profile_id):

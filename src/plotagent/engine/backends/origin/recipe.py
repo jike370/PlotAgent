@@ -179,6 +179,10 @@ _T = {
     "mgroups": _template(
         "mgroups.otpu", "391e5689e8f5436f029099086a9e65b50679606120275a6a958417d235f1dd9b"
     ),
+    "survival": _template(
+        "SurvivalPlot.otp",
+        "0b8759367ce19f1a82cfb9630ffefd849e0c600bce1e909985645c0a47de046b",
+    ),
     "dropline": _template(
         "DROPLINE.OTP", "69cbcf9349249092e2e32c8955c88c0a265ac47a46811885593d9eced643299f"
     ),
@@ -257,7 +261,10 @@ _LOCAL_DISPATCH: Mapping[str, str] = MappingProxyType(
         "K22": "Plot3D.ogs [ContourColor] -> matrix PID226 CONTOUR",
         "K24": "plot_group type:=linesymb template:=Grouped",
         "K25": "Graph > Merge Graph Windows -> merge_graph",
-        "S01": "Statistics > Survival Analysis -> kaplanmeier",
+        "S01": (
+            "KaplanMeier.OGS [MakeSurvivalPlot] -> doc -cp SurvivalPlot; "
+            "PlotAgent binds supplied steps without running kaplanmeier"
+        ),
         "S21": "Origin App Gallery -> Forest Plot App fid=362",
         "S34": "Plot.ogs [LineSymbol] -> general,202 LineSymb",
         "S61": "plotvm type:=105 template:=Heat_Map_With_Labels",
@@ -721,24 +728,33 @@ _RECIPES = (
     _r(
         "S01",
         "Kaplan-Meier生存曲线",
-        "Kaplan-Meier Estimator",
-        "https://docs.originlab.com/origin-help/kaplanmeier-estimator/",
-        "Statistics > Survival Analysis > Kaplan-Meier Estimator",
-        "analysis",
-        "analysis_table",
-        ("Time", "Censor", "optional Group"),
+        "Survival Plot (supplied Kaplan-Meier steps)",
+        "https://docs.originlab.com/origin-help/kaplanmeier-dialog/",
+        "Kaplan-Meier analysis output: Survival Plot",
+        "graph_template",
+        "worksheet_wide",
         (
-            "kaplanmeier report table",
-            "analysis lock/input binding",
-            "native survival graph",
-            "censor marks",
+            "time",
+            "survival",
+            "optional lower and upper confidence bounds",
+            "optional risk count",
+            "optional group",
         ),
+        (
+            "official SurvivalPlot.otp output template",
+            "supplied step geometry remains linked to worksheet data",
+            "optional native confidence fill",
+            "optional editable risk-count text layer",
+            "no Kaplan-Meier estimation or equality test",
+        ),
+        template_keys=("survival",),
         binder_key="S01",
-        rebuild_policy="recompute_analysis",
+        rebuild_policy="recreate_from_source",
         proof_level="manual_native_property",
         manual_gate=(
-            "Confirm analysis-lock source dependency and group categorical state; "
-            "Origin 2024 does not support plot-in-one with sfci simultaneously."
+            "Confirm step connection, confidence fill and risk-table layout after "
+            "fresh reopen. The product accepts supplied survival geometry and must "
+            "not invoke kaplanmeier, Log-Rank, Breslow or Tarone-Ware."
         ),
     ),
     _r(

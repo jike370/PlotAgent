@@ -28,9 +28,12 @@ from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
 from .profile import S01_ORIGIN_PROFILE, resolve_official_template
+from .trace import origin_trace_step, record_origin_trace
 
 _TITLE = "_ENGINE_TITLE"
 _COLORS = ("#2A6FDB", "#D94B4B", "#2A9D6F", "#8A5CC2", "#D88700")
+_OFFICIAL_HELP_URL = "https://docs.originlab.com/origin-help/kaplanmeier-dialog/"
+_OFFICIAL_OUTPUT_TEMPLATE = "SurvivalPlot.otp"
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +75,10 @@ def _line_style(value: str) -> int:
     if value == "none":
         raise ValueError("structural T2 series cannot hide its native line")
     return {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}[value]
+
+
+def _tick_string(labels: tuple[str, ...]) -> str:
+    return " ".join(f'"{label.replace(chr(34), chr(92) + chr(34))}"' for label in labels)
 
 
 def _ensure_layers(graph: Any, count: int) -> tuple[Any, ...]:
@@ -125,20 +132,45 @@ class S01OriginProject:
         self.layers: tuple[Any, Any] | None = None
         self.sheet: Any = None
         self.plots: tuple[Any, ...] = ()
+        self.last_native_structure: dict[str, object] | None = None
 
     def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
-        template = resolve_official_template(install_dir, S01_ORIGIN_PROFILE)
-        self.op.new(asksave=False)
+        with origin_trace_step(
+            "official_template_resolve",
+            details={
+                "help_url": _OFFICIAL_HELP_URL,
+                "template_filename": S01_ORIGIN_PROFILE.filename,
+                "template_sha256": S01_ORIGIN_PROFILE.sha256,
+                "product_input_contract": "supplied survival geometry",
+            },
+        ):
+            template = resolve_official_template(install_dir, S01_ORIGIN_PROFILE)
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("w", f"D{token}", hidden=True)
+        with origin_trace_step("workbook_create"):
+            book = self.op.new_book("w", f"D{token}", hidden=True)
         if book is None:
             raise RuntimeError("Origin could not create S01 workbook")
         self.sheet = book[0]
         survival = s01_survival(document, data)
-        self._write(survival)
-        self.graph = self.op.new_graph(
-            f"G{token}", template=str(template.with_suffix(template.suffix.lower())), hidden=True
-        )
+        with origin_trace_step(
+            "source_data_write",
+            details={"group_count": len(survival.groups), "precomputed": True},
+        ):
+            self._write(survival)
+        with origin_trace_step(
+            "official_survival_output_template_create",
+            details={
+                "official_output_template": _OFFICIAL_OUTPUT_TEMPLATE,
+                "kaplan_meier_estimation_executed": False,
+            },
+        ):
+            self.graph = self.op.new_graph(
+                f"G{token}",
+                template=str(template.with_suffix(template.suffix.lower())),
+                hidden=True,
+            )
         if self.graph is None:
             raise RuntimeError("Origin could not create S01 from SurvivalPlot.otp")
         layers = _ensure_layers(self.graph, 2)
@@ -146,6 +178,12 @@ class S01OriginProject:
         for layer in self.layers:
             for plot in layer.plot_list():
                 plot.set_int("show", 0)
+            template_legend = layer.label("legend")
+            if template_legend is not None:
+                template_legend.set_int("show", 0)
+            template_title = layer.label("Title")
+            if template_title is not None:
+                template_title.set_int("show", 0)
         plots: list[Any] = []
         for index, _group in enumerate(survival.groups):
             for offset in (1, 2, 3):
@@ -156,6 +194,12 @@ class S01OriginProject:
                     raise RuntimeError("Origin S01 template rejected a survival plot")
                 plots.append(plot)
         self.plots = tuple(plots)
+        self.last_native_structure = self._native_structure(survival)
+        record_origin_trace(
+            "native_survival_composition_confirmed",
+            "completed",
+            details=self.last_native_structure,
+        )
 
     def open(self, output: Path) -> None:
         self.op.new(asksave=False)
@@ -174,23 +218,36 @@ class S01OriginProject:
         self._write(survival)
         state, styles = self._state(document, actions, survival)
         main, risk = self._layers()
+        main.activate()
         for index, (group, style) in enumerate(zip(survival.groups, styles, strict=True)):
             lower, upper, step = self.plots[index * 3 : index * 3 + 3]
             color = style.color or _COLORS[index % len(_COLORS)]
             for plot in (lower, upper, step):
                 plot.color = color
-                plot.set_int("line.style", _line_style(style.line_style))
                 plot.set_int("show", 1)
-            lower.set_float("line.width", 0.5)
-            upper.set_float("line.width", 0.5)
-            step.set_float("line.width", style.line_width_pt)
+            lower.set_cmd("-wp 0")
+            upper.set_cmd("-wp 0")
+            step.set_cmd(
+                f"-d {_line_style(style.line_style)}",
+                f"-wp {style.line_width_pt}",
+            )
             if group.lower is not None:
-                lower.set_fill_area(above=color, type=9)
+                # originpro.set_fill_area requires an Origin color index, not a CSS
+                # colour string.  Passing the hex string produces a saved line pair
+                # without a native confidence fill in Origin 2024.
+                origin_color = int(self.op.lt_float(f'color("{color}")'))
+                lower.set_fill_area(above=origin_color, type=9)
+                lower.transparency = 70
         group_count = len(survival.groups)
-        risk_height = 12.0 + 5.0 * group_count
-        main.lt_exec(f"layer.left=13;layer.top=7;layer.width=79;layer.height={76.0 - risk_height};")
+        risk_height = 8.0 + 6.0 * group_count
+        risk_top = 84.0 - risk_height
+        main_height = risk_top - 14.0
+        main.lt_exec(
+            f"layer.left=13;layer.top=7;layer.width=79;layer.height={main_height};"
+            "axis -ps X L 0;"
+        )
         risk.lt_exec(
-            f"layer.left=13;layer.top={70.0 - risk_height / 2};"
+            f"layer.left=13;layer.top={risk_top};"
             f"layer.width=79;layer.height={risk_height};"
         )
         main.rescale()
@@ -201,7 +258,13 @@ class S01OriginProject:
             0.2,
         )
         _axis_label(main, "x", "")
+        top_x_title = main.label("xt")
+        if top_x_title is not None:
+            top_x_title.set_int("show", 0)
         _title(main, state.title)
+        risk_template_legend = risk.label("legend")
+        if risk_template_legend is not None:
+            risk_template_legend.set_int("show", 0)
         legend = main.label("legend")
         if legend is None:
             main.activate()
@@ -225,6 +288,7 @@ class S01OriginProject:
         state, styles = self._state(document, actions, survival)
         if len(self.plots) != len(survival.groups) * 3:
             raise RuntimeError("Origin S01 native plot count differs after reopen")
+        self.last_native_structure = self._native_structure(survival)
         for group_index, group in enumerate(survival.groups):
             raw_time = self.sheet.to_list(group_index * 10 + 5)
             raw_survival = self.sheet.to_list(group_index * 10 + 6)
@@ -311,23 +375,46 @@ class S01OriginProject:
                 base + 9, list(group.risk_count or ()), lname="Risk count", axis="N"
             )
 
+    def _native_structure(self, survival: SurvivalData) -> dict[str, object]:
+        layers = self._layers()
+        if len(self.plots) != len(survival.groups) * 3:
+            raise RuntimeError("Origin S01 must retain lower/upper/step plots per group")
+        designation_codes: list[int] = []
+        for group_index in range(len(survival.groups)):
+            base = group_index * 10
+            designation_codes.extend(
+                int(self.sheet.get_int(f"col{base + offset + 1}.type"))
+                for offset in (0, 1, 2, 3, 5, 6, 7, 8, 9)
+            )
+        expected = [4, 1, 1, 1, 2, 2, 2, 2, 2] * len(survival.groups)
+        if designation_codes != expected:
+            raise RuntimeError("Origin S01 supplied survival worksheet designations changed")
+        return {
+            "official_help_url": _OFFICIAL_HELP_URL,
+            "official_output_template": _OFFICIAL_OUTPUT_TEMPLATE,
+            "kaplan_meier_estimation_executed": False,
+            "layer_count": len(layers),
+            "native_plot_count": len(self.plots),
+            "group_count": len(survival.groups),
+            "source_designations": designation_codes,
+            "risk_table_layer": 2,
+        }
+
     def _risk_labels(self, layer: Any, survival: SurvivalData, visible: bool) -> None:
         layer.axis("x").set_limits(
             min(group.time[0] for group in survival.groups),
             max(group.time[-1] for group in survival.groups),
         )
         layer.axis("y").set_limits(0.5, len(survival.groups) + 0.5, 1.0)
+        layer.set_int("y.label.type", 10)
+        layer.set_str(
+            "y.label.string",
+            _tick_string(tuple(group.label for group in reversed(survival.groups))),
+        )
         _axis_label(layer, "x", survival.time_field_name)
         _axis_label(layer, "y", "At risk")
         for group_index, group in enumerate(survival.groups):
             row = float(len(survival.groups) - group_index)
-            group_label = layer.label(f"_ENGINE_RISK_GROUP_{group_index}") or layer.add_label(
-                group.label, group.time[0], row
-            )
-            if group_label is not None:
-                group_label.name = f"_ENGINE_RISK_GROUP_{group_index}"
-                group_label.text = group.label
-                group_label.set_int("show", int(visible and group.risk_count is not None))
             if group.risk_count is None:
                 continue
             for value_index, (time, count) in enumerate(

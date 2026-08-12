@@ -306,6 +306,8 @@ class _Plot:
         self.color: object = "#000000"
         self.symbol_kind = 1
         self.symbol_size = 6.0
+        self.transparency = 0
+        self.commands: list[str] = []
 
     def set_int(self, name: str, value: int) -> None:
         self.ints[name] = value
@@ -322,6 +324,9 @@ class _Plot:
     def set_fill_area(self, **kwargs) -> None:
         self.fill = kwargs
 
+    def set_cmd(self, *commands: str) -> None:
+        self.commands.extend(commands)
+
 
 class _Layer:
     def __init__(self) -> None:
@@ -333,6 +338,7 @@ class _Layer:
         self.strings: dict[str, str] = {}
         self.layout = ""
         self.floats = {"width": 60.0, "height": 60.0}
+        self.activated = False
 
     @property
     def xlim(self):
@@ -384,10 +390,10 @@ class _Layer:
         return None
 
     def lt_exec(self, command: str) -> None:
-        self.layout = command
+        self.layout += command
 
     def activate(self) -> None:
-        return None
+        self.activated = True
 
     def LT_execute(self, command: str) -> bool:
         self.labels["legend"] = _Label()
@@ -482,6 +488,8 @@ class _Origin:
         layers = 2 if "survival" in template.lower() else 1
         self.graph = _Graph(layers)
         self.graph.name = name
+        if "survival" in template.lower():
+            self.graph.layers[0].labels["Title"] = _Label("template title")
         return self.graph
 
     def pages(self, kind: str):
@@ -500,6 +508,8 @@ class _Origin:
             ]
 
     def lt_float(self, expression: str) -> float:
+        if expression.startswith('color("'):
+            return 2.0
         if expression.startswith("__S34PID"):
             return 202.0
         if expression in {"layer.plot1.pid", "__K24PID"}:
@@ -621,9 +631,29 @@ def test_origin_s01_keeps_native_steps_bands_and_editable_risk_labels(monkeypatc
     project.create(Path("."), document, view)
     project.reconcile(document, actions, view)
     assert len(project.plots) == 6
+    assert project.last_native_structure == {
+        "official_help_url": "https://docs.originlab.com/origin-help/kaplanmeier-dialog/",
+        "official_output_template": "SurvivalPlot.otp",
+        "kaplan_meier_estimation_executed": False,
+        "layer_count": 2,
+        "native_plot_count": 6,
+        "group_count": 2,
+        "source_designations": [4, 1, 1, 1, 2, 2, 2, 2, 2] * 2,
+        "risk_table_layer": 2,
+    }
     assert any(
         label.name.startswith("_ENGINE_RISK_") for label in project._layers()[1].labels.values()
     )
+    main, risk = project._layers()
+    assert "axis -ps X L 0" in main.layout
+    assert main.labels["Title"].ints["show"] == 0
+    assert main.activated is True
+    assert risk.ints["y.label.type"] == 10
+    assert risk.strings["y.label.string"] == '"Group 2" "Group 1"'
+    assert all(project.plots[index].fill == {"above": 2, "type": 9} for index in (0, 3))
+    assert all(project.plots[index].transparency == 70 for index in (0, 3))
+    assert all(project.plots[index].commands == ["-wp 0"] for index in (0, 1, 3, 4))
+    assert risk.labels.get("legend") is None or risk.labels["legend"].ints["show"] == 0
 
 
 def test_origin_s21_and_s34_use_native_dynamic_plots(monkeypatch) -> None:
