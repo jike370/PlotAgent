@@ -34,6 +34,9 @@ from .trace import origin_trace_step, record_origin_trace
 
 _TITLE = "_ENGINE_TITLE"
 _STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
+_OFFICIAL_HELP_URL = "https://docs.originlab.com/origin-help/paretochart-bindata/"
+_OFFICIAL_MENU = "Plot > Statistical > Pareto > Binned Data"
+_OFFICIAL_X_FUNCTION = "plot_paretobin"
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,8 +97,11 @@ class X24OriginProject:
             "official_plot_paretobin_execute",
             details={
                 "combine_smaller_values": False,
+                "official_help_url": _OFFICIAL_HELP_URL,
+                "official_menu": _OFFICIAL_MENU,
                 "show_cumulative_percent": True,
                 "template_filename": template.name,
+                "x_function": _OFFICIAL_X_FUNCTION,
             },
         ):
             self.source_sheet.activate()

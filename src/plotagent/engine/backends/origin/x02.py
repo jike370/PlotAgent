@@ -31,6 +31,9 @@ from .trace import origin_trace_step, record_origin_trace
 _LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
 _SYMBOL = {"square": 1, "circle": 2, "triangle": 3, "triangle_up": 3, "diamond": 5}
 _TITLE_NAME = "_ENGINE_TITLE"
+_OFFICIAL_HELP_URL = "https://docs.originlab.com/origin-help/vertical-drop-line/"
+_OFFICIAL_MENU = "Plot > Basic 2D > Vertical Drop Line"
+_OFFICIAL_COMMAND = "worksheet -p 201 DROPLINE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,7 +110,9 @@ class X02OriginProject:
         with origin_trace_step(
             "official_plot_command_execute",
             details={
-                "labtalk": "worksheet -p 201 DROPLINE",
+                "official_help_url": _OFFICIAL_HELP_URL,
+                "official_menu": _OFFICIAL_MENU,
+                "labtalk": _OFFICIAL_COMMAND,
                 "template_filename": template.name,
             },
         ):

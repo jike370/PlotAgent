@@ -195,6 +195,7 @@ class K03ScatterRenderer:
             series=tuple(
                 _SeriesState(color=_PALETTE[index % len(_PALETTE)]) for index in range(group_count)
             ),
+            legend_visible=group_count > 1,
         )
         last_binding = max(
             (index for index, action in enumerate(actions) if isinstance(action, BindFields)),

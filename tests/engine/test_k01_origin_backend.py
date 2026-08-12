@@ -255,37 +255,55 @@ class FakeLayer:
 class FakeGraph:
     def __init__(self, name: str) -> None:
         self.name = name
+        self.lname = name
         self.layer = FakeLayer()
 
     def __getitem__(self, index: int):
         assert index == 0
         return self.layer
 
+    def activate(self) -> None:
+        return None
+
 
 class FakeSheet:
     def __init__(self) -> None:
         self.columns: dict[int, list[object]] = {}
+        self.designations: dict[int, int] = {}
 
     def from_list(self, col, data, **kwargs) -> None:
         self.columns[col] = list(data)
+        self.designations[col] = {"x": 4, "y": 1}[str(kwargs["axis"]).casefold()]
 
     def to_list(self, col):
         return self.columns[col]
 
+    def activate(self) -> None:
+        return None
+
+    def get_int(self, name: str) -> int:
+        ordinal = int(name.removeprefix("col").removesuffix(".type")) - 1
+        return self.designations[ordinal]
+
 
 class FakeBook:
     def __init__(self) -> None:
+        self.name = "Data"
         self.sheet = FakeSheet()
 
     def __getitem__(self, index: int):
         assert index == 0
         return self.sheet
 
+    def destroy(self) -> None:
+        raise AssertionError("the authoritative workbook must not be removed")
+
 
 class FakeOrigin:
     def __init__(self) -> None:
         self.book = FakeBook()
         self.graph = FakeGraph("Gline")
+        self.pid = 0
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -296,6 +314,36 @@ class FakeOrigin:
     def new_graph(self, name, **kwargs):
         self.graph.name = name
         return self.graph
+
+    def pages(self, kind: str):
+        if kind == "g":
+            return (self.graph,) if self.pid else ()
+        if kind == "w":
+            return (self.book,)
+        return ()
+
+    def lt_exec(self, command: str) -> bool:
+        if "worksheet -p 200 Line" in command:
+            self.pid = 200
+            self.graph.layer.plots = [FakePlot()]
+        elif "worksheet -p 203 Column" in command:
+            self.pid = 203
+            self.graph.layer.plots = [FakePlot()]
+        return True
+
+    def lt_float(self, expression: str) -> float:
+        if expression.endswith("COUNT"):
+            return 1.0
+        if expression.endswith("PID"):
+            return float(self.pid)
+        raise KeyError(expression)
+
+    def get_lt_str(self, expression: str) -> str:
+        if expression.endswith("XS"):
+            return '[Book1]Sheet1!A"X"'
+        if expression.endswith("YS"):
+            return '[Book1]Sheet1!B"Y"'
+        raise KeyError(expression)
 
 
 def test_k01_binder_applies_typed_actions_to_native_objects(

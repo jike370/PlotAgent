@@ -24,6 +24,7 @@ from plotagent.engine.repository import document_ref
 from .messages import OriginWorkerRequest
 from .profile import K01_ORIGIN_PROFILE, resolve_official_template
 from .readback import axis_scale_matches
+from .trace import origin_trace_step, record_origin_trace
 
 _LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
 _TITLE_NAME = "_ENGINE_TITLE"
@@ -60,23 +61,51 @@ class K01OriginProject:
         document: PlotDocument,
         data: EngineDataView,
     ) -> None:
-        template = resolve_official_template(install_dir, K01_ORIGIN_PROFILE)
-        self.op.new(asksave=False)
+        with origin_trace_step(
+            "official_template_resolve",
+            details={"template_filename": K01_ORIGIN_PROFILE.filename},
+        ):
+            template = resolve_official_template(install_dir, K01_ORIGIN_PROFILE)
+        with origin_trace_step("origin_project_initialize"):
+            self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
-        book = self.op.new_book("w", f"D{token}", hidden=True)
+        with origin_trace_step("workbook_create"):
+            book = self.op.new_book("w", f"D{token}", hidden=True)
         if book is None:
             raise RuntimeError("Origin could not create the K01 data workbook")
         self.sheet = book[0]
-        self._write_data(document, data)
-        argument = template.with_suffix(template.suffix.lower())
-        self.graph = self.op.new_graph(f"G{token}", template=str(argument), hidden=True)
-        if self.graph is None:
-            raise RuntimeError("Origin could not create a graph from LINE.otpu")
+        with origin_trace_step("source_data_write", details={"designation": "XY"}):
+            self._write_data(document, data)
+        command = "worksheet -s 1 0 2 0; worksheet -p 200 Line;"
+        with origin_trace_step(
+            "official_plot_command_execute",
+            details={
+                "labtalk": command,
+                "native_plot_type": 200,
+                "template_filename": template.name,
+            },
+        ):
+            self.sheet.activate()
+            if not self.op.lt_exec(command):
+                raise RuntimeError("Origin could not execute the official K01 Line menu")
+        graphs = list(self.op.pages("g"))
+        if len(graphs) != 1:
+            raise RuntimeError("Origin Line menu must create exactly one graph")
+        self.graph = graphs[0]
+        self.graph.name = f"G{token}"
+        self.graph.lname = f"K01 Line / {document.plot_id}"
         self.layer = self.graph[0]
-        self.plot = self.layer.add_plot(self.sheet, coly=1, colx=0, type="l")
-        if self.plot is None:
-            raise RuntimeError("Origin LINE.otpu rejected the native XY line")
+        plots = list(self.layer.plot_list())
+        if len(plots) != 1:
+            raise RuntimeError("Origin Line menu must create one native line")
+        self.plot = plots[0]
+        with origin_trace_step("template_residue_remove"):
+            for residue in tuple(self.op.pages("w")):
+                if residue.name != book.name:
+                    residue.destroy()
         self.layer.rescale()
+        native = self._assert_native_structure()
+        record_origin_trace("native_line_confirmed", "completed", details=native)
 
     def open(self, project_path: Path) -> None:
         self.op.new(asksave=False)
@@ -186,11 +215,13 @@ class K01OriginProject:
         actions: tuple[PlotEngineAction, ...],
         data: EngineDataView,
     ) -> EngineReadback:
+        native = self._assert_native_structure()
+        record_origin_trace("reopened_line_confirmed", "completed", details=native)
         x_column, y_column = self._bound_columns(document, data)
         self._assert_values(self.sheet.to_list(0), x_column.values, "x")
         self._assert_values(self.sheet.to_list(1), y_column.values, "y")
         token = document.plot_id.removeprefix("plot:")
-        style_snapshot: dict[str, object] = {}
+        style_snapshot: dict[str, object] = {"native_structure": native}
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
@@ -306,6 +337,43 @@ class K01OriginProject:
             axis="Y",
         )
 
+    def _assert_native_structure(self) -> dict[str, object]:
+        self.graph.activate()
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe K01 graph name for native readback: {graph_name!r}")
+        command = (
+            "page.active=1; layer -c; __K01COUNT=count; "
+            f"range __K01P=[{graph_name}]1!1; "
+            "range -wx __K01X=__K01P; range -wy __K01Y=__K01P; "
+            "get __K01P -pt __K01PID; "
+            "string __K01XS$=%(__K01X); string __K01YS$=%(__K01Y);"
+        )
+        if not self.op.lt_exec(command):
+            raise RuntimeError("Origin could not read the native K01 Line structure")
+        plot_count = int(self.op.lt_float("__K01COUNT"))
+        plot_id = int(self.op.lt_float("__K01PID"))
+        designations = tuple(int(self.sheet.get_int(f"col{index}.type")) for index in (1, 2))
+        x_range = str(self.op.get_lt_str("__K01XS"))
+        y_range = str(self.op.get_lt_str("__K01YS"))
+        if plot_count != 1 or plot_id != 200:
+            raise RuntimeError("Origin K01 must retain one native PID 200 Line plot")
+        if designations != (4, 1):
+            raise RuntimeError("Origin K01 worksheet must retain X/Y designations")
+        if not x_range.split('"', 1)[0].endswith("!A") or not y_range.split('"', 1)[0].endswith(
+            "!B"
+        ):
+            raise RuntimeError("Origin K01 Line lost its source-column binding")
+        return {
+            "official_template": K01_ORIGIN_PROFILE.filename,
+            "official_menu": "Plot > Basic 2D: Line",
+            "native_plot_type": plot_id,
+            "plot_count": plot_count,
+            "designation_codes": list(designations),
+            "x_range": x_range,
+            "y_range": y_range,
+        }
+
     @staticmethod
     def _bound_columns(
         document: PlotDocument,
@@ -337,14 +405,12 @@ def execute_k01_request(
     output: Path,
 ) -> EngineReadback:
     project = K01OriginProject(op)
-    if request.previous_opju is None:
-        project.create(install_dir, request.document, request.data)
-        pending = request.actions
-    else:
-        project.open(Path(request.previous_opju))
-        pending = request.actions[-1:]
-    for action in pending:
-        project.apply(request.document, action, request.data)
+    project.create(install_dir, request.document, request.data)
+    with origin_trace_step(
+        "agent_actions_apply", details={"action_count": len(request.actions)}
+    ):
+        for action in request.actions:
+            project.apply(request.document, action, request.data)
     project.save(output)
 
     op.new(asksave=False)
@@ -359,4 +425,5 @@ def execute_k01_request(
     reopened.layer = reopened.graph[0]
     reopened.plot = reopened.layer.plot_list()[0]
     reopened.sheet = books[0][0]
-    return reopened.verify(request.document, request.actions, request.data)
+    with origin_trace_step("reopened_native_structure_verify"):
+        return reopened.verify(request.document, request.actions, request.data)

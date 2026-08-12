@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import plotagent.engine.backends.origin.k02 as k02_module
 import plotagent.engine.backends.origin.k03 as k03_module
 import plotagent.engine.backends.origin.k06 as k06_module
 import plotagent.engine.backends.origin.k07 as k07_module
@@ -181,6 +182,9 @@ class FakeGraph:
     def __iter__(self):
         yield self.layer
 
+    def activate(self) -> None:
+        return None
+
 
 class FakeSheet:
     def __init__(self) -> None:
@@ -197,6 +201,10 @@ class FakeSheet:
 
     def activate(self) -> None:
         return None
+
+    def get_int(self, name: str) -> int:
+        ordinal = int(name.removeprefix("col").removesuffix(".type")) - 1
+        return {"x": 4, "y": 1}[self.designations[ordinal].casefold()]
 
 
 class FakeBook:
@@ -215,6 +223,8 @@ class FakeOrigin:
         self.graph = FakeGraph("G")
         self.graph_created = False
         self.commands: list[str] = []
+        self.native_pid = 0
+        self.k03_plot_index = 1
         self.lt_values: dict[str, float] = {
             "__X02COUNT": 1.0,
             "__X02PT": 201.0,
@@ -251,13 +261,29 @@ class FakeOrigin:
     def _color(value: str) -> float:
         return float(int(value.removeprefix("#"), 16))
 
-    def lt_exec(self, command: str) -> None:
+    def lt_exec(self, command: str) -> bool:
         self.commands.append(command)
+        if "legendupdate dest:=layer update:=reconstruct" in command:
+            self.graph.layer.labels["legend"] = FakeLabel()
+        if "worksheet -p 202 LineSymb" in command:
+            self.graph_created = True
+            self.native_pid = 202
+            self.graph.layer.plots = [FakePlot()]
+        if "worksheet -p 201 Scatter" in command:
+            self.graph_created = True
+            self.native_pid = 201
+            match = re.search(r"worksheet -s 1 0 (\d+) 0", command)
+            assert match is not None
+            self.graph.layer.plots = [FakePlot() for _ in range(int(match.group(1)) // 2)]
         if "worksheet -p 201 DROPLINE" in command:
             self.graph_created = True
+            self.native_pid = 201
             plot = FakePlot()
             plot.DatasetName = f"{self.book.name}_B"
             self.graph.layer.plots = [plot]
+        k03_match = re.search(r"range __K03P=\[[^]]+\]1!(\d+)", command)
+        if k03_match is not None:
+            self.k03_plot_index = int(k03_match.group(1))
         for option, destination in (
             ("-c", "__X02C"),
             ("-lvc", "__X02LVC"),
@@ -277,14 +303,29 @@ class FakeOrigin:
             self.lt_values[destination] = (
                 self._color(color_match.group(1)) if color_match is not None else float(token)
             )
+        return True
 
     def lt_float(self, expression: str) -> float:
         color_match = re.fullmatch(r'color\("(#[0-9A-Fa-f]{6})"\)', expression)
         if color_match is not None:
             return self._color(color_match.group(1))
+        if expression in {"__K02COUNT", "__K03COUNT"}:
+            return float(len(self.graph.layer.plots))
+        if expression in {"__K02PID", "__K03PID"}:
+            return float(self.native_pid)
         return self.lt_values[expression]
 
     def get_lt_str(self, expression: str) -> str:
+        if expression == "__K02XS":
+            return f'[{self.book.name}]Sheet1!A"Time"'
+        if expression == "__K02YS":
+            return f'[{self.book.name}]Sheet1!B"Signal"'
+        if expression == "__K03XS":
+            letter = chr(65 + (self.k03_plot_index - 1) * 2)
+            return f'[{self.book.name}]Sheet1!{letter}"X"'
+        if expression == "__K03YS":
+            letter = chr(66 + (self.k03_plot_index - 1) * 2)
+            return f'[{self.book.name}]Sheet1!{letter}"Y"'
         if expression == "__X02XS":
             return f'[{self.book.name}]Sheet1!A"Time"'
         if expression == "__X02YS":
@@ -406,7 +447,7 @@ def test_k02_binds_one_native_line_symbol_identity(
         },
     )
     monkeypatch.setattr(
-        xy_module,
+        k02_module,
         "resolve_official_template",
         lambda install, profile: tmp_path / profile.filename,
     )
@@ -417,7 +458,8 @@ def test_k02_binds_one_native_line_symbol_identity(
         project.apply(document, action, view)
     readback = project.verify(document, actions, view)
 
-    assert origin.graph.layer.add_calls == [{"coly": 1, "colx": 0, "type": "y"}]
+    assert any("worksheet -p 202 LineSymb" in command for command in origin.commands)
+    assert origin.graph.layer.add_calls == []
     assert origin.graph.layer.plots[0].symbol_kind == 5
     assert origin.graph.layer.labels["legend"].text.count("\\l(") == 1
     assert "line_symbol_series" in {item.object_kind for item in readback.objects}
@@ -497,12 +539,10 @@ def test_k03_binds_one_native_scatter_plot_per_data_group(
         project.apply(document, action, view)
     readback = project.verify(document, actions, view)
 
-    assert origin.graph.layer.add_calls == [
-        {"coly": 1, "colx": 0, "type": "s"},
-        {"coly": 3, "colx": 2, "type": "s"},
-    ]
-    assert origin.graph.layer.group_calls == [(True, 0, 1), (False, 0, 1)]
-    assert origin.graph.layer.labels["legend"].text == ("\\l(1) Control\n\\l(2) Treatment")
+    assert any("worksheet -p 201 Scatter" in command for command in origin.commands)
+    assert origin.graph.layer.add_calls == []
+    assert origin.graph.layer.group_calls == [(False, 0, 1)]
+    assert origin.graph.layer.labels["legend"].text == ("\\l(1) %(1)\n\\l(2) %(2)")
     assert origin.graph.layer.plots[1].symbol_kind == 5
     assert {
         item.semantic_id for item in readback.objects if item.object_kind == "scatter_series"
