@@ -56,6 +56,18 @@ const commonCapabilities = {
 } as const
 
 describe('FocusEditor Agent Native actions', () => {
+  it('exposes only history operations backed by the parent version controller', async () => {
+    const user = userEvent.setup()
+    const onUndo = vi.fn()
+    const onRedo = vi.fn()
+    render(<FocusEditor initialIndex={0} plot={plot('K01', commonCapabilities)} canUndo onUndo={onUndo} canRedo={false} onRedo={onRedo} onClose={() => undefined} />)
+
+    await user.click(screen.getByRole('button', { name: '撤销' }))
+    expect(onUndo).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: '重做' })).toBeDisabled()
+    expect(onRedo).not.toHaveBeenCalled()
+  })
+
   it('submits one public series-style action to the selected semantic object', async () => {
     const user = userEvent.setup()
     const onPatch = vi.fn<(patch: JsonValue) => Promise<void>>(async () => undefined)

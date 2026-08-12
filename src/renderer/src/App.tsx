@@ -32,6 +32,7 @@ import {
   type ProductProject,
 } from './data/productState'
 import { readWorkspaceSelection, writeWorkspaceSelection } from './data/workspacePersistence'
+import { plotHistoryEntry, type PlotHistoryEntry } from './data/plotHistory'
 import { ChartLibrary } from './components/ChartLibrary'
 import { CompositionEditor } from './components/CompositionEditor'
 import {
@@ -159,6 +160,8 @@ export function App(): React.JSX.Element {
   const [agentOutcome, setAgentOutcome] = useState<AgentOutcome>()
   const [agentPlan, setAgentPlan] = useState<AgentPlanView>()
   const [agentConfigured, setAgentConfigured] = useState(false)
+  const [undoStack, setUndoStack] = useState<PlotHistoryEntry[]>([])
+  const [redoStack, setRedoStack] = useState<PlotHistoryEntry[]>([])
   const [providerOpen, setProviderOpen] = useState(false)
   const [providerNotice, setProviderNotice] = useState<ProductNotice>()
 
@@ -337,6 +340,8 @@ export function App(): React.JSX.Element {
     setExportRecord(undefined)
     setAgentOutcome(undefined)
     setAgentPlan(undefined)
+    setUndoStack([])
+    setRedoStack([])
     setScreen('workspace')
   }, [invalidateAgentRequest])
 
@@ -616,6 +621,8 @@ export function App(): React.JSX.Element {
       const nextPlot = readPlot(created)
       if (!nextPlot) throw new Error('Core 未返回 PlotDocument 版本。')
       setPlot(nextPlot)
+      setUndoStack([])
+      setRedoStack([])
       setProject(projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1)))
       setNotice({
         kind: 'success',
@@ -677,19 +684,22 @@ export function App(): React.JSX.Element {
     }
   }
 
-  const syncPlanOutput = async (plan: AgentPlanView): Promise<void> => {
-    if (!api || !project) return
+  const syncPlanOutput = async (plan: AgentPlanView): Promise<ProductPlot | undefined> => {
+    if (!api || !project) return undefined
     const output = plan.steps.flatMap((step) => step.outputPlot ? [step.outputPlot] : []).at(-1)
-    if (!output) return
+    if (!output) return undefined
     const stored = valueOrThrow(await api.getPlot({ projectId: project.projectId, plotId: output.plotId, plotVersion: output.plotVersion }))
     const nextPlot = readPlot(stored)
-    if (!nextPlot) return
+    if (!nextPlot) return undefined
     setPlot(nextPlot)
     setProject(projectWithVersion(project, Math.max(project.projectVersion, nextPlot.projectVersion)))
+    return nextPlot
   }
 
   const executeAgentPlan = async (planId: string, resume = false): Promise<void> => {
     if (!api || !project || busyAction !== undefined) return
+    const historyEntry = plot && agentPlan?.planId === planId
+      ? plotHistoryEntry(plot, agentPlan.boundActions) : undefined
     setBusyAction('agent-plan')
     setNotice(undefined)
     setAgentPlan((current) => current?.planId === planId ? { ...current, state: 'running' } : current)
@@ -701,6 +711,10 @@ export function App(): React.JSX.Element {
       if (!plan) throw new Error('Core 未返回任务计划状态。')
       setAgentPlan(plan)
       await syncPlanOutput(plan)
+      if (plan.state === 'succeeded' && historyEntry) {
+        setUndoStack((current) => [...current, historyEntry].slice(-50))
+        setRedoStack([])
+      }
       setAgentOutcome({
         kind: 'action_plan',
         title: plan.state === 'succeeded' ? '任务已完成' : plan.state === 'partial_success' ? '任务部分完成' : '任务未完成',
@@ -755,6 +769,7 @@ export function App(): React.JSX.Element {
     if (!isJsonRecord(patch) || typeof patch.operation !== 'string') {
       throw new Error('绘图动作无效。')
     }
+    const historyEntry = plotHistoryEntry(plot, [patch])
     setBusyAction('plot-patch'); setNotice(undefined)
     try {
       const value = valueOrThrow(await api.executePlotAction({
@@ -770,6 +785,10 @@ export function App(): React.JSX.Element {
       if (!nextPlot) throw new Error('Core 未返回新的 PlotDocument 版本。')
       setPlot(nextPlot)
       setProject(projectWithVersion(project, projectVersionFrom(value, project.projectVersion + 1)))
+      if (historyEntry) {
+        setUndoStack((current) => [...current, historyEntry].slice(-50))
+        setRedoStack([])
+      }
       setNotice({ kind: 'success', title: '修改已应用', message: `已创建图形版本 v${nextPlot.plotVersion}。` })
     } catch (error) {
       setNotice(errorNotice(error))
@@ -778,6 +797,77 @@ export function App(): React.JSX.Element {
       setBusyAction(undefined)
     }
   }
+
+  const executeHistoryEntry = useCallback(async (
+    entry: PlotHistoryEntry,
+    direction: 'undo' | 'redo',
+  ): Promise<boolean> => {
+    if (!api || !project || !plot || plot.plotId !== entry.plotId || busyAction !== undefined) return false
+    setBusyAction(direction)
+    setNotice(undefined)
+    let nextPlot = plot
+    let nextProjectVersion = project.projectVersion
+    try {
+      for (const action of direction === 'undo' ? entry.undoActions : entry.redoActions) {
+        if (!isJsonRecord(action)) throw new Error('历史动作无效。')
+        const value = valueOrThrow(await api.executePlotAction({
+          projectId: project.projectId,
+          expectedProjectVersion: nextProjectVersion,
+          action: {
+            ...action,
+            action_id: `action:ui.${direction}.${crypto.randomUUID()}`,
+            expected_plot_version: nextPlot.plotVersion,
+          },
+        }))
+        const restored = readPlot(value)
+        if (!restored) throw new Error('Core 未返回恢复后的 PlotDocument。')
+        nextPlot = restored
+        nextProjectVersion = projectVersionFrom(value, nextProjectVersion + 1)
+      }
+      setPlot(nextPlot)
+      setProject(projectWithVersion(project, nextProjectVersion))
+      setNotice({
+        kind: 'success',
+        title: direction === 'undo' ? '已撤销本轮修改' : '已重做本轮修改',
+        message: `${entry.label}已保存为新版本 v${nextPlot.plotVersion}。`,
+      })
+      return true
+    } catch (error) {
+      setNotice(errorNotice(error))
+      return false
+    } finally {
+      setBusyAction(undefined)
+    }
+  }, [api, busyAction, plot, project])
+
+  const undoPlotChange = useCallback(async (): Promise<void> => {
+    const entry = undoStack.at(-1)
+    if (!entry || await executeHistoryEntry(entry, 'undo') === false) return
+    setUndoStack((current) => current.slice(0, -1))
+    setRedoStack((current) => [...current, entry].slice(-50))
+  }, [executeHistoryEntry, undoStack])
+
+  const redoPlotChange = useCallback(async (): Promise<void> => {
+    const entry = redoStack.at(-1)
+    if (!entry || await executeHistoryEntry(entry, 'redo') === false) return
+    setRedoStack((current) => current.slice(0, -1))
+    setUndoStack((current) => [...current, entry].slice(-50))
+  }, [executeHistoryEntry, redoStack])
+
+  useEffect(() => {
+    const onHistoryKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target
+      if (target instanceof HTMLElement && (
+        target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+      )) return
+      if (!event.ctrlKey || event.altKey || event.key.toLocaleLowerCase('en-US') !== 'z') return
+      event.preventDefault()
+      if (event.shiftKey) void redoPlotChange()
+      else void undoPlotChange()
+    }
+    window.addEventListener('keydown', onHistoryKeyDown)
+    return () => window.removeEventListener('keydown', onHistoryKeyDown)
+  }, [redoPlotChange, undoPlotChange])
 
   const exportArtifact = async (format: 'png' | 'svg' | 'opju'): Promise<void> => {
     if (!api || !project || plot === undefined) return
@@ -922,6 +1012,8 @@ export function App(): React.JSX.Element {
       const composition = readPlot(created)
       if (!composition) throw new Error('Core 未返回 K25 PlotDocument。')
       setPlot(composition)
+      setUndoStack([])
+      setRedoStack([])
       setSelectedChart(chartCatalog.find((chart) => chart.id === 'K25'))
       setConfirmedMapping(undefined)
       setProject(projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1)))
@@ -952,6 +1044,8 @@ export function App(): React.JSX.Element {
   const plotIsFigureCandidate = plot !== undefined && figureCandidates.some((item) => (
     item.plotId === plot.plotId && item.plotVersion === plot.plotVersion
   ))
+  const canUndo = undoStack.at(-1)?.plotId === plot?.plotId
+  const canRedo = redoStack.at(-1)?.plotId === plot?.plotId
   const modalOpen = libraryOpen || tasksOpen || providerOpen
   const selectDataset = (datasetId: string): void => {
     invalidateAgentRequest()
@@ -961,6 +1055,8 @@ export function App(): React.JSX.Element {
     setConfirmedMapping(undefined)
     setPlot(undefined)
     setAgentPlan(undefined)
+    setUndoStack([])
+    setRedoStack([])
     rememberWorkspace({ datasetId, agentDatasetIds: nextAgentDatasetIds, mapping: null })
   }
   const toggleAgentDataset = (datasetId: string): void => {
@@ -979,9 +1075,9 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedAgentDatasetIds={agentDatasetIds} selectedChart={selectedChart} plot={plot} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleAgentDataset={toggleAgentDataset} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen(plot?.chartId === 'K25' ? 'composition' : 'focus')} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedAgentDatasetIds={agentDatasetIds} selectedChart={selectedChart} plot={plot} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleAgentDataset={toggleAgentDataset} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => setScreen(plot?.chartId === 'K25' ? 'composition' : 'focus')} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
         </>}
-        {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} onClose={() => setScreen('workspace')} />}
+        {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onClose={() => setScreen('workspace')} />}
         {screen === 'composition' && plot?.chartId === 'K25' && <CompositionEditor plot={plot} onClose={() => setScreen('workspace')} />}
       </div>
       {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} availablePlotCount={figureCandidateCount} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
@@ -989,6 +1085,7 @@ export function App(): React.JSX.Element {
         if (chart.id === 'K25') { void createComposition(); return }
         invalidateAgentRequest()
         setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setAgentOutcome(undefined); rememberWorkspace({ chartId: chart.id, mapping: null })
+        setUndoStack([]); setRedoStack([])
         setNotice(activeDataset ? undefined : { kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '可以继续上传数据。' })
       }} />}
       {tasksOpen && <TaskDrawer tasks={Object.values(taskEvents)} onCancel={(taskId) => { if (api) void api.cancelTask(taskId) }} onClose={() => setTasksOpen(false)} />}

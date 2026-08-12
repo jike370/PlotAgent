@@ -18,11 +18,13 @@ import {
   LoaderCircle,
   PanelTop,
   Play,
+  Redo2,
   SendHorizontal,
   Settings2,
   StopCircle,
   TableProperties,
   TriangleAlert,
+  Undo2,
 } from 'lucide-react'
 
 import type { CoreStatus, FieldMappingInput, TaskEvent } from '../../../shared/desktop-contract'
@@ -96,6 +98,10 @@ interface ConversationWorkspaceProps {
   onOpenFocus: () => void
   onOpenTasks: () => void
   onCancelTask: (taskId: string) => void
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
 }
 
 const numericKinds = new Set(['integer', 'float', 'number', 'numeric', 'decimal'])
@@ -501,6 +507,8 @@ function AgentPlanObject({
   onConfirm,
   onReject,
   onEdit,
+  canUndo,
+  onUndo,
   onRun,
   onResume,
 }: {
@@ -512,6 +520,8 @@ function AgentPlanObject({
   onConfirm: (planId: string) => void
   onReject: (planId: string) => void
   onEdit: (planId: string) => void
+  canUndo: boolean
+  onUndo: () => void
   onRun: (planId: string) => void
   onResume: (planId: string) => void
 }): React.JSX.Element {
@@ -581,7 +591,7 @@ function AgentPlanObject({
         {plan.state === 'needs_confirmation' && <><button type="button" onClick={() => onReject(plan.planId)} disabled={busy}>取消</button><button type="button" onClick={() => onEdit(plan.planId)} disabled={busy}>修改绑定</button><button className="primary-button" type="button" onClick={() => onConfirm(plan.planId)} disabled={busy}>确认并执行</button></>}
         {plan.state === 'ready' && <button className="primary-button" type="button" onClick={() => onRun(plan.planId)} disabled={busy}>执行计划</button>}
         {plan.resumable && <button className="primary-button" type="button" onClick={() => onResume(plan.planId)} disabled={busy}>继续未完成步骤</button>}
-        {plan.state === 'succeeded' && <span className="agent-plan__saved"><CircleCheck size={14} />更改已保存</span>}
+        {plan.state === 'succeeded' && <><span className="agent-plan__saved"><CircleCheck size={14} />更改已保存</span>{canUndo && <button type="button" onClick={onUndo} disabled={busy}><Undo2 size={14} />撤销本轮</button>}</>}
       </footer>
     </section>
   )
@@ -608,6 +618,8 @@ function ActivityMessage({
   else if (busyAction === 'plot') label = task?.state === 'committing' ? '正在保存图形版本…' : '正在调用 Matplotlib 渲染器…'
   else if (busyAction === 'agent-plan') label = task?.state === 'committing' ? '正在保存图形版本…' : '正在执行已确认的绘图动作…'
   else if (busyAction === 'plot-patch') label = task?.state === 'committing' ? '正在保存新版本…' : '正在验证图形修改…'
+  else if (busyAction === 'undo') label = '正在创建撤销版本…'
+  else if (busyAction === 'redo') label = '正在创建重做版本…'
   else if (busyAction === 'export-opju') label = '正在调用 Origin 渲染器…'
   else if (busyAction.startsWith('export-')) label = '正在生成导出文件…'
   return <div className="message message--agent conversation-activity" role="status" aria-live="polite">
@@ -654,7 +666,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         <div className="workspace-heading">
           <h1>{project ? project.name : '开始使用'}</h1>
         </div>
-        {project && <div className="workspace-header__actions"><button type="button" onClick={props.onOpenTasks}><Activity size={15} />任务</button><span className="autosave-status"><CircleCheck size={14} />项目 v{project.projectVersion}</span></div>}
+        {project && <div className="workspace-header__actions"><button type="button" onClick={props.onUndo} disabled={!props.canUndo || busyAction !== undefined} aria-label="撤销本轮修改"><Undo2 size={15} />撤销</button><button type="button" onClick={props.onRedo} disabled={!props.canRedo || busyAction !== undefined} aria-label="重做本轮修改"><Redo2 size={15} />重做</button><button type="button" onClick={props.onOpenTasks}><Activity size={15} />任务</button><span className="autosave-status"><CircleCheck size={14} />项目 v{project.projectVersion}</span></div>}
       </header>
 
       {!project ? <Startup {...props} /> : (
@@ -673,7 +685,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
                 {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
                 {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>请确认这次绘图使用的字段。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} onConfirm={props.onConfirmMapping} /></div></div>}
                 {plot && <PlotObject {...props} chart={selectedChart} />}
-                {props.agentPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><AgentPlanObject plan={props.agentPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onEdit={(planId) => { props.onRejectAgentPlan(planId); setManualMappingOpen(true) }} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} /></div></div>}
+                {props.agentPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><AgentPlanObject plan={props.agentPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onEdit={(planId) => { props.onRejectAgentPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} /></div></div>}
                 <ActivityMessage busyAction={busyAction} tasks={props.taskEvents} onCancel={props.onCancelTask} />
                 {exportRecord && <section className="object-block product-result-strip" aria-label="导出记录"><Download size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出记录</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
               </>

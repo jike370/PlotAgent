@@ -741,6 +741,31 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' })).toBeInTheDocument()
   })
 
+  it('undoes an Agent edit by creating a new inverse-action version', async () => {
+    const user = userEvent.setup()
+    let version = 0
+    const api = fakeDesktop({
+      executePlotAction: vi.fn(async (input) => {
+        version += 1
+        const action = input.action as Record<string, JsonValue>
+        return ok(enginePlotFixture('plot:one', version, typeof action.profile_id === 'string' ? action.profile_id : 'K01', version + 1, [input.action]))
+      }),
+    })
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '修改标题')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+    await user.click(await screen.findByRole('button', { name: '撤销本轮' }))
+
+    expect(api.executePlotAction).toHaveBeenLastCalledWith(expect.objectContaining({
+      action: expect.objectContaining({ operation: 'set_title', target: 'plot:one', text: '' }),
+    }))
+    expect(await screen.findByText('已撤销本轮修改')).toBeInTheDocument()
+  })
+
   it('keeps K25 out of field mapping and requires two explicit figure candidates', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop()

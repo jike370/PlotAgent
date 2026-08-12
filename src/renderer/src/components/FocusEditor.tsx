@@ -41,6 +41,10 @@ interface FocusEditorProps {
   initialIndex: number
   plot?: ProductPlot & { title: string }
   onPatch?: (patch: JsonValue) => Promise<void>
+  canUndo?: boolean
+  canRedo?: boolean
+  onUndo?: () => void
+  onRedo?: () => void
   onClose: () => void
 }
 
@@ -132,7 +136,7 @@ function ChartParameterEditor({
   </>
 }
 
-export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEditorProps): React.JSX.Element {
+export function FocusEditor({ initialIndex, plot, onPatch, canUndo = false, canRedo = false, onUndo, onRedo, onClose }: FocusEditorProps): React.JSX.Element {
   const initialSeriesStyle = plot?.seriesStyles[0]?.style ?? plot?.style
   const initialAxisState = plot?.axisStates.y ?? plot?.axisStates.x
   const [activeIndex, setActiveIndex] = useState(Math.min(initialIndex, 2))
@@ -315,8 +319,8 @@ export function FocusEditor({ initialIndex, plot, onPatch, onClose }: FocusEdito
           <span>{plot ? `${plot.plotId} · v${plot.plotVersion}` : '线点图 · v3'}</span>
         </div>
         <div className="focus-history-tools">
-          <button type="button" aria-label="撤销"><Undo2 size={17} /></button>
-          <button type="button" aria-label="重做" disabled><Redo2 size={17} /></button>
+          <button type="button" aria-label="撤销" disabled={!canUndo} onClick={onUndo}><Undo2 size={17} /></button>
+          <button type="button" aria-label="重做" disabled={!canRedo} onClick={onRedo}><Redo2 size={17} /></button>
           <span className="toolbar-divider" />
           <button className={compareOpen ? 'is-active' : ''} type="button" onClick={() => setCompareOpen((open) => !open)}><Columns2 size={16} />比较版本</button>
           <button type="button"><History size={16} />版本 v3<ChevronDown size={14} /></button>
