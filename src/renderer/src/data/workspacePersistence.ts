@@ -4,6 +4,7 @@ const STORAGE_PREFIX = 'plotagent.workspace.v1:'
 
 export interface PersistedWorkspaceSelection {
   datasetId?: string
+  agentDatasetIds?: string[]
   chartId?: string
   mapping?: FieldMappingInput
 }
@@ -32,13 +33,20 @@ export function readWorkspaceSelection(
     if (raw === null || raw.length > 16_384) return undefined
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
-    const record = parsed as { datasetId?: unknown; chartId?: unknown; mapping?: unknown }
+    const record = parsed as { datasetId?: unknown; agentDatasetIds?: unknown; chartId?: unknown; mapping?: unknown }
     const datasetId = isSafeId(record.datasetId) ? record.datasetId : undefined
+    const agentDatasetIds = Array.isArray(record.agentDatasetIds)
+      && record.agentDatasetIds.length > 0
+      && record.agentDatasetIds.length <= 8
+      && record.agentDatasetIds.every(isSafeId)
+      && new Set(record.agentDatasetIds).size === record.agentDatasetIds.length
+      ? record.agentDatasetIds : undefined
     const chartId = isSafeId(record.chartId) ? record.chartId : undefined
     const mapping = readMapping(record.mapping)
-    if (datasetId === undefined && chartId === undefined && mapping === undefined) return undefined
+    if (datasetId === undefined && agentDatasetIds === undefined && chartId === undefined && mapping === undefined) return undefined
     return {
       ...(datasetId === undefined ? {} : { datasetId }),
+      ...(agentDatasetIds === undefined ? {} : { agentDatasetIds }),
       ...(chartId === undefined ? {} : { chartId }),
       ...(mapping === undefined ? {} : { mapping }),
     }

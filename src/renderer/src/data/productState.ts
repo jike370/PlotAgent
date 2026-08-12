@@ -164,6 +164,11 @@ export interface AgentPlanStep {
   outputPlot?: { plotId: string; plotVersion: number }
 }
 
+export interface AgentBindingView {
+  role: string
+  fieldId: string
+}
+
 export interface AgentPlanView {
   planId: string
   state: string
@@ -172,6 +177,8 @@ export interface AgentPlanView {
   steps: AgentPlanStep[]
   completedCount: number
   resumable: boolean
+  bindings: AgentBindingView[]
+  boundActions: JsonValue[]
 }
 
 export interface AgentOutcome {
@@ -673,6 +680,15 @@ function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
     ? proposal.actions.filter(isJsonRecord) : []
   const boundActions = Array.isArray(boundPlan.actions)
     ? boundPlan.actions.filter(isJsonRecord) : []
+  const bindings = boundActions.flatMap((action): AgentBindingView[] => {
+    if (!Array.isArray(action.bindings)) return []
+    return action.bindings.flatMap((binding) => {
+      if (!isJsonRecord(binding)) return []
+      const role = stringValue(binding, 'role')
+      const fieldId = stringValue(binding, 'field_id')
+      return role === undefined || fieldId === undefined ? [] : [{ role, fieldId }]
+    })
+  })
   const state = stringValue(plan, 'state') ?? 'needs_confirmation'
   const nextActionIndex = numberValue(plan, 'next_action_index') ?? 0
   const errorCode = stringValue(plan, 'error_code')
@@ -714,6 +730,8 @@ function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
     steps,
     completedCount: steps.filter((step) => step.state === 'succeeded').length,
     resumable: state === 'partially_failed',
+    bindings,
+    boundActions,
   }
 }
 

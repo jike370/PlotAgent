@@ -983,6 +983,52 @@ kbd {
   padding: 7px 12px 9px;
 }
 
+.agent-dataset-context {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.agent-dataset-context summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  color: var(--muted-strong);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.agent-dataset-context summary span {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.agent-dataset-context > div {
+  max-height: 210px;
+  overflow: auto;
+  display: grid;
+  gap: 2px;
+  padding: 0 8px 8px;
+}
+
+.agent-dataset-context label {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.agent-dataset-context label:hover { background: var(--surface-2); }
+.agent-dataset-context label > span { min-width: 0; display: grid; gap: 2px; }
+.agent-dataset-context label strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-dataset-context label small { color: var(--muted); }
+
 .schema-row {
   display: grid;
   grid-template-columns: 1.3fr 0.8fr 0.7fr 1.3fr;
@@ -4960,6 +5006,74 @@ input[type="checkbox"] {
   margin: 0;
   padding: 4px 12px;
   list-style: none;
+}
+
+.agent-plan__context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.agent-plan__context span { display: inline-flex; gap: 6px; }
+.agent-plan__context strong { color: var(--ink); }
+
+.agent-plan__bindings {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 11px;
+}
+
+.agent-plan__bindings > strong { display: block; margin-bottom: 7px; }
+.agent-plan__bindings dl { display: grid; gap: 5px; margin: 0; }
+.agent-plan__bindings dl > div { display: grid; grid-template-columns: minmax(90px, .45fr) minmax(0, 1.55fr); gap: 10px; }
+.agent-plan__bindings dt { color: var(--muted); }
+.agent-plan__bindings dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+
+.conversation-history-message { margin: 4px 0 14px; }
+.conversation-history-message--error .agent-response > p { color: var(--danger); }
+.conversation-history-message--warning .agent-response > p { color: var(--warning); }
+
+.conversation-activity { margin: 4px 0 16px; }
+.activity-message {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-strong);
+  font-size: 11.5px;
+}
+
+.activity-message button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 5px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--canvas);
+  font-size: 10px;
+}
+
+.activity-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: activity-breathe 1.4s ease-in-out infinite;
+}
+
+@keyframes activity-breathe {
+  0%, 100% { opacity: .35; transform: scale(.82); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-pulse { animation: none; }
 }
 
 .agent-plan-step {

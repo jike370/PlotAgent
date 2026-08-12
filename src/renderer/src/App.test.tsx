@@ -695,6 +695,8 @@ describe('PlotAgent real desktop workflow', () => {
       })],
     }))
     expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('字段绑定')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('时间')
     await user.click(screen.getByRole('button', { name: '确认并执行' }))
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
   })
@@ -722,8 +724,10 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '新目标请求')
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
     expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(screen.getByText('新目标请求')).toBeInTheDocument()
     expect(decideAgent).toHaveBeenLastCalledWith(expect.objectContaining({
       selectedChartId: 'K02',
+      selectedDatasets: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
       utterance: '新目标请求',
     }))
 
