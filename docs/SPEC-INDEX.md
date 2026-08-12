@@ -25,6 +25,7 @@
 | [任务运行时](./TASK-RUNTIME.md) | 确认、部分失败与恢复 |
 | [验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md) | 机械、视觉、黑盒与发布 Gate |
 | [黑盒能力说明](./PLOTAGENT-V3-BLACK-BOX-CAPABILITY.md) | 外部验收可见功能与边界，不披露内部实现 |
+| [黑盒验收交接](./PLOTAGENT-V3-BLACK-BOX-ACCEPTANCE-HANDOFF.md) | 正式桌面验收步骤、冻结输入、证据与判定模板；产品代码基线为`3dc154c` |
 
 ## 历史材料
 
