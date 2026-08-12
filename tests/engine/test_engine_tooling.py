@@ -85,6 +85,31 @@ def test_tool_decodes_a_typed_action_and_rejects_unknown_arguments() -> None:
         )
 
 
+def test_tool_decodes_json_array_fields_from_the_desktop_boundary() -> None:
+    action = _codec().decode(
+        {
+            "operation": "create_plot",
+            "action_id": "action:desktop-create",
+            "plot_id": "plot:desktop-create",
+            "profile_id": "K01",
+            "data": {
+                "kind": "source",
+                "dataset_id": "source:desktop",
+                "version": 1,
+                "content_hash": "a" * 64,
+            },
+            "bindings": [
+                {"role": "x", "field_id": "field:x"},
+                {"role": "y", "field_id": "field:y"},
+            ],
+            "components": [],
+        }
+    )
+
+    assert tuple(binding.role for binding in action.bindings) == ("x", "y")
+    assert action.components == ()
+
+
 def test_tool_surface_does_not_import_the_bundled_agent() -> None:
     source = inspect.getsource(__import__(EngineActionCodec.__module__, fromlist=["*"]))
     assert "plotagent.agent" not in source

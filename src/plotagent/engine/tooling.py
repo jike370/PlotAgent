@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -71,8 +72,14 @@ class EngineActionCodec:
 
     def decode(self, arguments: Mapping[str, object]) -> PlotEngineAction:
         try:
-            action = _ACTION_ADAPTER.validate_python(dict(arguments))
-        except ValidationError as exc:
+            encoded = json.dumps(
+                dict(arguments),
+                ensure_ascii=False,
+                allow_nan=False,
+                separators=(",", ":"),
+            )
+            action = _ACTION_ADAPTER.validate_json(encoded)
+        except (TypeError, ValueError, ValidationError) as exc:
             raise EngineCommandError("invalid plot engine action arguments") from exc
         if action.operation == "create_plot":
             self._catalog.validate_create(action)

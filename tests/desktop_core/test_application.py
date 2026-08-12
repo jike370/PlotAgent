@@ -121,10 +121,11 @@ def _create_line(
                     "version": dataset["source_version"],
                     "content_hash": dataset["content_hash"],
                 },
-                "bindings": (
+                "bindings": [
                     {"role": "x", "field_id": numeric[0]},
                     {"role": "y", "field_id": numeric[1]},
-                ),
+                ],
+                "components": [],
             },
         },
     )
