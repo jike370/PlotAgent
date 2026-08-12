@@ -75,6 +75,7 @@ class OriginRecipe(StrictModel):
     official_name: _NonEmpty
     official_help_url: _HelpUrl
     official_entry: _NonEmpty
+    local_dispatch: _NonEmpty
     creation_kind: OriginCreationKind
     binder_key: Token | None
     templates: tuple[OriginTemplateIdentity, ...] = ()
@@ -221,6 +222,61 @@ _T = {
 }
 
 
+# Exact creation routes recovered from the inspected Origin 2024 Build 178
+# installation.  These are provenance signatures, not Agent-visible scripts:
+# binders still own parameter substitution and execution.  Keeping the route in
+# the recipe prevents a renderer from loading the right template through a
+# different, visually similar construction path.
+_LOCAL_DISPATCH: Mapping[str, str] = MappingProxyType(
+    {
+        "K01": "Plot.ogs [Line] -> general,200 Line",
+        "K02": "Plot.ogs [LineSymbol] -> general,202 LineSymb",
+        "K03": "Plot.ogs [Scatter] -> general,201 Scatter",
+        "K04": "worksheet -p 248 Bubble",
+        "K06": "menu 33336 -> worksheet -p 201 ERRBAR",
+        "K07": "Plot.ogs [ScatterErrorBand] -> general,201 ERRORBAND",
+        "K08": "Plot.ogs [Column] -> general,203 Column",
+        "K09": "Plot.ogs [GroupedCols] -> plot_gindexed plottype:=column template:=gColumn",
+        "K10": "Plot.ogs [StackCol] -> general,213 StackColumn",
+        "K11": "Plot.ogs [StackColPercentage] -> general,213 StackColP",
+        "K12": "Plot.ogs [ColumnScatter] -> BoxChartImp ColumnScatter",
+        "K13": "Plot.ogs [BoxChart] -> BoxChartImp Box",
+        "K14": "Plot.ogs [ViolinPlot] -> ViolinPlotImp 206 Violin",
+        "K15": "Plot.ogs [Histogram] -> worksheet -p 219 Hist",
+        "K16": "Plot.ogs [HistDist] -> worksheet -p 219 HistDist; Kernel Smooth; Hide Bins",
+        "K18": "Plot.ogs [Area] -> general,204 Area",
+        "K19": "Plot.ogs [Line] -> general,200 Line",
+        "K20": "Plot3D.ogs [HeatMap] -> GenericHeatMap Heat_Map 105 1 1",
+        "K21": (
+            "Plot3D.ogs [HeatMapWithLabels] -> "
+            "GenericHeatMap Heat_Map_With_Labels 105 1 1"
+        ),
+        "K22": "Plot3D.ogs [ContourColor] -> matrix PID226 CONTOUR",
+        "K24": "plot_group type:=linesymb template:=Grouped",
+        "K25": "Graph > Merge Graph Windows -> merge_graph",
+        "S01": "Statistics > Survival Analysis -> kaplanmeier",
+        "S21": "Origin App Gallery -> Forest Plot App fid=362",
+        "S34": "Plot.ogs [LineSymbol] -> general,202 LineSymb",
+        "S61": "plotvm type:=105 template:=Heat_Map_With_Labels",
+        "X02": "worksheet -p 201 DROPLINE",
+        "X03": "Plot.ogs [Lollipop] -> general,201 Lollipop",
+        "X05": "Plot.ogs [Beeswarm] -> worksheet -p 206 Beeswarm",
+        "X09": "Plot.ogs [FloatColumn] -> general,207 FloatCol",
+        "X13": "Plot.ogs [PopulationPyramid] -> PlotToTemplate PopulationPyramid",
+        "X23": "Plot.ogs [2Ys_Y-Y] -> PlotToTemplate DOUBLEY",
+        "X24": "plot_paretobin template:=ParetoBin",
+        "X35": "Plot.ogs [2YsCol] -> PlotToTemplate 2Ys_Col",
+        "X36": "Plot.ogs [2YsColSymb] -> PlotToTemplate 2Ys_ColSymb",
+        "X38": "Plot.ogs [OffsetYs] -> worksheet -P 200 OffsetStackY",
+        "X39": (
+            "Plot.ogs [LineSeries] -> run.section(,BoxChartImp,BoxLser 0) "
+            "-> worksheet -p 206 BoxLser"
+        ),
+        "X40": "Plot.ogs [BeforeAfter] -> run.section(,general,206 BeforeAfter 0 1)",
+    }
+)
+
+
 def _r(
     profile_id: ChartTypeId,
     chinese_name: str,
@@ -247,6 +303,7 @@ def _r(
         official_name=official_name,
         official_help_url=help_url,
         official_entry=entry,
+        local_dispatch=_LOCAL_DISPATCH[str(profile_id)],
         creation_kind=kind,
         binder_key=binder_key,
         templates=templates,
@@ -321,7 +378,9 @@ _RECIPES = (
         ),
         template_keys=("bubble",),
         binder_key="K04",
-        native_plot_types=(248,),
+        # The menu dispatcher uses creation type 248, but Origin persists the
+        # result as one Scatter DataPlot (PID 201) with size/color modifiers.
+        native_plot_types=(201,),
     ),
     _r(
         "K06",
@@ -331,10 +390,11 @@ _RECIPES = (
         "Plot > Basic 2D: XY Error",
         "graph_template",
         "worksheet_xy",
-        ("X", "Y", "X error", "Y error"),
+        ("X", "Y", "Y error", "X error"),
         ("horizontal ErrorBar2D", "vertical ErrorBar2D", "cap width"),
         template_keys=("errorbar",),
         binder_key="K06",
+        native_plot_types=(201,),
     ),
     _r(
         "K07",
@@ -348,6 +408,7 @@ _RECIPES = (
         ("native ErrorBand", "fill relation", "source designation"),
         template_keys=("errorband",),
         binder_key="K07",
+        native_plot_types=(201,),
     ),
     _r(
         "K08",
@@ -375,6 +436,7 @@ _RECIPES = (
         ("plot_gindexed output", "Subset groups", "category order"),
         template_keys=("gcolumn",),
         binder_key="K09",
+        native_plot_types=(203,),
         proof_level="manual_native_property",
         manual_gate=(
             "Origin 2024 does not expose the nested Subset depth reliably; "
@@ -423,8 +485,13 @@ _RECIPES = (
         "Plot > Basic 2D: Column Scatter",
         "graph_template",
         "worksheet_wide",
-        ("one Y per group",),
-        ("one native data plot per group", "source columns"),
+        ("one raw-observation Y per group",),
+        (
+            "raw observations unchanged",
+            "all source designation codes=1",
+            "one native PID 206 per source Y",
+            "ordered source-Y binding",
+        ),
         template_keys=("column_scatter",),
         binder_key="K12",
         native_plot_types=(206,),
@@ -442,8 +509,16 @@ _RECIPES = (
         "Plot > Statistical: Box Chart",
         "graph_template",
         "worksheet_wide",
-        ("one Y per group",),
-        ("native box plots", "source columns"),
+        ("one raw-observation Y per group",),
+        (
+            "raw observations unchanged",
+            "all source designation codes=1",
+            "native PID 206 source binding",
+            "Box Range=25/75",
+            "Whisker Range=Outlier",
+            "coefficient=1.5",
+            "outlier membership matches the frozen Tukey calculation",
+        ),
         template_keys=("box",),
         binder_key="K13",
         native_plot_types=(206,),
@@ -461,8 +536,18 @@ _RECIPES = (
         "Plot > Statistical: Violin Plot",
         "graph_template",
         "worksheet_wide",
-        ("one Y per group",),
-        ("native violin plots", "Kernel Smooth distribution", "source columns"),
+        ("one raw-observation Y per group",),
+        (
+            "raw observations unchanged",
+            "all source designation codes=1",
+            "one native PID 206 per source Y",
+            "ordered source-Y binding",
+            "Curve Type=Kernel Smooth",
+            "custom bandwidth matches the shared frozen geometry",
+            "Extend=0",
+            "symmetric distribution enabled",
+            "Scale=Width",
+        ),
         template_keys=("violin",),
         binder_key="K14",
         native_plot_types=(206,),
@@ -476,12 +561,24 @@ _RECIPES = (
         "https://docs.originlab.com/origin-help/histogram-graph/",
         "Plot > Statistical: Histogram",
         "graph_template",
-        "worksheet_xy",
+        "worksheet_wide",
         ("raw observation Y",),
-        ("native histogram computation", "raw source binding", "plot type 219"),
+        (
+            "one raw Y column unchanged",
+            "designation code=1",
+            "one native PID 219",
+            "ordered raw source binding",
+            "bin begin/end/size/count match frozen histogram geometry",
+            "Data Height=Count",
+        ),
         template_keys=("hist",),
         binder_key="K15",
         native_plot_types=(219,),
+        proof_level="manual_native_property",
+        manual_gate=(
+            "Confirm Data Height=Count and that native bin edges/counts match the "
+            "shared frozen histogram geometry; PID 219 and raw source alone are insufficient."
+        ),
     ),
     _r(
         "K16",
@@ -528,7 +625,7 @@ _RECIPES = (
         "Plot > Basic 2D: Line",
         "graph_template",
         "worksheet_xy",
-        ("numeric Date/Time X", "Y"),
+        ("numeric Date/Time X", "one or more Y"),
         ("native line", "worksheet Date format", "X tick label type=Date/Time"),
         template_keys=("line",),
         binder_key="K19",
@@ -765,19 +862,27 @@ _RECIPES = (
     _r(
         "X13",
         "人口金字塔（龙卷风/蝴蝶图）",
-        "Population Pyramid Graph",
+        "Population Pyramid Graph (Tornado Chart)",
         "https://docs.originlab.com/origin-help/population-pyramid-graph/",
         "Plot > Statistical > Population Pyramid",
         "graph_template",
         "worksheet_wide",
-        ("category label", "left Y", "right Y"),
-        ("two template layers", "shared category axis", "native horizontal columns"),
+        ("categorical X", "left Y", "right Y"),
+        (
+            "exactly two native template layers",
+            "one native column plot per layer",
+            "both plots bind the category X source",
+            "left/right Y bind source columns B/C",
+            "template horizontal orientation",
+            "zero plot offsets and unit plot scales",
+        ),
         template_keys=("population",),
         binder_key="X13",
+        native_plot_types=(203, 203),
         proof_level="manual_native_property",
         manual_gate=(
-            "Compare the shared category designation with the official sample; "
-            "the help page does not specify it fully."
+            "Confirm both PID 203 plots, Display/ExchangeXY, exact layer-2 link modes, "
+            "X/Y source ranges and reopen stability."
         ),
     ),
     _r(
@@ -788,11 +893,24 @@ _RECIPES = (
         "Plot > Multi-Panel/Axis > 2Ys Y-Y",
         "graph_template",
         "worksheet_wide",
-        ("X/left Y/right Y or XYXY",),
-        ("two native layers", "one native line per layer", "independent Y axes", "X link policy"),
+        ("shared X", "left Y", "right Y"),
+        (
+            "exactly two native template layers",
+            "one native line-symbol plot per layer",
+            "both plots bind the shared X source",
+            "left/right Y bind source columns B/C",
+            "layer 2 has a straight 1:1 X link to layer 1",
+            "independent left and right Y scales",
+            "zero plot offsets and unit plot scales",
+        ),
         template_keys=("doubley",),
         binder_key="X23",
-        native_plot_types=(200,),
+        native_plot_types=(202, 202),
+        proof_level="manual_native_property",
+        manual_gate=(
+            "Confirm both PID 202 plots, line+symbol visibility, exact X link, "
+            "independent Y scales, source ranges and reopen stability."
+        ),
     ),
     _r(
         "X24",
@@ -877,14 +995,27 @@ _RECIPES = (
         "Plot > Basic 2D > Line Series",
         "graph_template",
         "worksheet_wide",
-        ("two or more numeric columns", "each source row is one series"),
-        ("native BoxChart line-series object", "row-wise connection", "source Long Name/Comments"),
+        (
+            "optional N row label retained as unselected metadata",
+            "Y series_1",
+            "Y series_2",
+            "repeatable Y series_3..series_N; source rows remain rows",
+        ),
+        (
+            "PID 206 native BoxChart plot group",
+            "native member count equals selected Y-column count",
+            "source rows, values, Long Name and Comments survive unchanged",
+            "Connect Data Points joins equal-row values across selected columns",
+            "no hidden or transposed worksheet",
+        ),
         template_keys=("box_line_series",),
         binder_key="X39",
         native_plot_types=(206,),
         proof_level="manual_native_property",
         manual_gate=(
-            "Confirm row-wise BoxLser structure and Long Name/Comments mapping in Plot Details."
+            "After fresh reopen confirm Plot Details > Connect Lines > Connect Data Points "
+            "and one connector per source row; the BoxChart connector flag has no stable "
+            "documented LabTalk readback."
         ),
     ),
     _r(
@@ -895,18 +1026,35 @@ _RECIPES = (
         "Plot > Basic 2D > Before - After",
         "graph_template",
         "worksheet_wide",
-        ("Before", "After", "each source row is one pair"),
-        ("native BoxChart before-after object", "Subgroup Size=2", "row-wise source binding"),
+        (
+            "optional N subject label retained as unselected metadata",
+            "Y Before",
+            "Y After",
+            "PlotAgent supported subset: exactly one adjacent Y-column pair",
+        ),
+        (
+            "PID 206 native BoxChart plot group",
+            "Subgroup By Size equals 2",
+            "column-label subgrouping is disabled and does not override size",
+            "source rows and adjacent Before/After columns survive unchanged",
+            "Connect Data Points is restricted to the adjacent pair",
+            "no per-subject transpose",
+        ),
         template_keys=("before_after",),
         binder_key="X40",
         native_plot_types=(206,),
         proof_level="manual_native_property",
-        manual_gate="Confirm Subgroup Size=2 and row-wise binding in Plot Details.",
+        manual_gate=(
+            "After fresh reopen compare subgroup properties with the official BeforeAfter "
+            "sample, then confirm Connect Data Points within Subgroup in Plot Details."
+        ),
     ),
 )
 
 if len({recipe.profile_id for recipe in _RECIPES}) != len(_RECIPES):
     raise RuntimeError("Origin recipe profile ids must be unique")
+if set(_LOCAL_DISPATCH) != {str(recipe.profile_id) for recipe in _RECIPES}:
+    raise RuntimeError("Origin local dispatcher evidence must cover the exact recipe catalog")
 
 ORIGIN_RECIPES: Mapping[ChartTypeId, OriginRecipe] = MappingProxyType(
     {recipe.profile_id: recipe for recipe in _RECIPES}

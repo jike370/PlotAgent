@@ -19,25 +19,27 @@
 5. `manual_native_property` 表示 Origin 2024 自动化接口不能稳定读回某一专属
    属性，不表示可以跳过检查；该属性必须在最终视觉审计时人工确认。
 6. 模板文件名以本机 Origin 2024 Build 178 的实际资产为准，并固定 SHA-256。
+7. `local_dispatch` 固定本机 `Plot.ogs`/`Plot3D.ogs` 菜单段、X-Function、
+   分析或组合入口。模板文件正确但 dispatcher 不同，仍视为错误实现。
 
-## 35 图 Origin renderer 范围
+## 36 图 Origin renderer 范围
 
 | ID | 中文名称 | 官方模板或流程 | 创建类型 | 证据 |
 |---|---|---|---|---|
 | K01 | 折线图 | `LINE.otpu` | 模板 | 原生结构已证 |
 | K02 | 线+符号图 | `LINESYMB.otpu` | 模板 | 原生结构已证 |
 | K03 | 二维散点图 | `SCATTER.OTP` | 模板 | 原生结构已证 |
-| K04 | 索引大小气泡与颜色映射图 | `bubble.otpu` | 模板 | 原生结构已证 |
-| K06 | XY双向误差棒图 | `ERRBAR.otpu` | 模板 | 原生结构已证 |
-| K07 | 误差带图 | `ERRORBAND.otp` | 模板 | 原生结构已证 |
+| K04 | 索引大小气泡与颜色映射图 | `worksheet -p 248 Bubble` / `bubble.otpu` | 菜单＋模板 | 原生 size/color modifier 已证；默认只显示 Bubble Scale |
+| K06 | XY双向误差棒图 | 菜单 33336 / `worksheet -p 201 ERRBAR` | 菜单＋模板 | 列顺序固定为 X/Y/YErr/XErr；renderer live 待收口 |
+| K07 | 误差带图 | `Plot.ogs [ScatterErrorBand]` / `ERRORBAND.otp` | 菜单＋模板 | 上下界转 YEr-/YEr+；renderer live 待收口 |
 | K08 | 柱状图 | `COLUMN.otpu` | 模板 | 原生结构已证 |
 | K09 | 分组柱状图（索引数据） | `gColumn.otpu` + `plot_gindexed` | X-Function | 专属属性人工门禁 |
-| K10 | 堆积柱状图 | `COLUMN.otpu` + 原生累计堆积 | 模板 | 原生结构已证 |
-| K11 | 100%堆积柱状图 | `COLUMN.otpu` + 原生百分比堆积 | 模板 | 原生结构已证 |
-| K12 | 列散点图 | `ColumnScatter.otp` | 模板 | 专属属性人工门禁 |
-| K13 | 箱线图 | `BOX.OTP` + Tukey 1.5×IQR | 模板 | 专属属性人工门禁 |
-| K14 | 小提琴图 | `Violin.otpu` | 模板 | 专属属性人工门禁 |
-| K15 | 直方图 | `Hist.otpu` / plot type 219 | 模板 | 原生结构已证 |
+| K10 | 堆积柱状图 | `STACKCOLUMN.otp` / `Plot.ogs [StackCol]` | 菜单＋模板 | 原生累计堆积与完整图例已证 |
+| K11 | 100%堆积柱状图 | `StackColP.otp` / `Plot.ogs [StackColPercentage]` | 菜单＋模板 | Origin 原生百分比归一化与完整图例已证 |
+| K12 | 列散点图 | `Plot.ogs [ColumnScatter]` / `ColumnScatter.otp` | 菜单＋模板 | 原始观测Y；需确认 Box Type=Data、Dots/Jitter |
+| K13 | 箱线图 | `Plot.ogs [BoxChart]` / `BOX.OTP` + Tukey 1.5×IQR | 菜单＋模板 | 裸模板是5/95；必须另设 Outlier/Coef=1.5并核对离群值 |
+| K14 | 小提琴图 | `Plot.ogs [ViolinPlot]` / `Violin.otpu` | 菜单＋模板 | 必须固定 Kernel Smooth、共同带宽、Extend=0、对称与Width缩放 |
+| K15 | 直方图 | `Plot.ogs [Histogram]` / `Hist.otpu` / plot type 219 | 菜单＋模板 | 原始观测Y；必须把共同FD/Sturges几何写入原生bin并以Count读回 |
 | K18 | 面积图 | `AREA.otpu` | `worksheet -p 204 Area` | X+1..N Y、PID204、源绑定、颜色/边界线样式机械读回；From Y 专属枚举人工门禁 |
 | K19 | 日期时间折线图 | `LINE.otpu` + Date/Time X | 模板 | 原生结构已证 |
 | K20 | 热图 | `Heat_Map.otpu` + Matrix | 模板 | 专属属性人工门禁 |
@@ -51,22 +53,34 @@
 | X03 | 棒棒糖图 | `Lollipop.otpu` | 模板 | 专属属性人工门禁 |
 | X05 | 蜂群图 | `Beeswarm.otpu` | 模板 | 专属属性人工门禁 |
 | X09 | 浮动柱状图 | `FloatCol.otp` | 模板 | 原始有序边界一次创建；PID 207、纵向方向、两/三边界、下降/交叉边界与 Agent 公共编辑均经独立 fresh-reopen 机械读回 |
-| X13 | 人口金字塔 | `PopulationPyramid.otpu` | 模板 | 专属属性人工门禁 |
-| X23 | 双Y轴Y-Y图 | `DOUBLEY.OTP` | 模板 | 原生结构已证 |
+| X13 | 人口金字塔 | `Plot.ogs [PopulationPyramid]` / `PopulationPyramid.otpu` | 菜单＋模板 | 官方要求 X＋恰好2个Y；当前 renderer 尚未走官方菜单，待重做 |
+| X23 | 双Y轴Y-Y图 | `Plot.ogs [2Ys_Y-Y]` / `DOUBLEY.OTP` | 菜单＋模板 | 官方默认是两层 Line+Symbol（PID202），当前 line-only renderer 待重做 |
 | X24 | 帕累托图（分箱数据） | `ParetoBin.otpu` + `plot_paretobin` | X-Function | 专属属性人工门禁 |
 | X35 | 双Y轴柱状图 | `2Ys_Col.otpu` | 模板 | 原生结构已证 |
 | X36 | 双Y轴柱线图 | `2Ys_ColSymb.otpu` | 模板 | 原生结构已证 |
 | X38 | Y偏移堆叠线图 | `OffsetStackY.otp` | 模板 | 专属属性人工门禁 |
-| X39 | 线条序列图 | `BoxLser.otpu` | 模板 | 专属属性人工门禁 |
-| X40 | 前后对比图 | `BeforeAfter.otpu` | 模板 | 专属属性人工门禁 |
+| X39 | 线条序列图 | `Plot.ogs [LineSeries]` / `BoxLser.otpu` | 菜单＋模板 | 宽表原位、跨列按行连接；禁止转置为每行一个普通XY Plot |
+| X40 | 前后对比图 | `Plot.ogs [BeforeAfter]` / `BeforeAfter.otpu` | 菜单＋模板 | 宽表相邻Before/After列对、Subgroup Size=2；禁止按受试者转置 |
+| S61 | 带标签热图（混淆矩阵语义） | `plotvm` / `Heat_Map_With_Labels.otpu` | X-Function＋模板 | clean dynamic rebuild 与 fresh-reopen 已闭合 |
 
-## 暂不进入 Origin renderer 的 3 图
+## 暂不进入 Origin renderer 的 2 图
 
 | ID | 原因 | 禁止的替代实现 |
 |---|---|---|
 | K16 | Origin 2024 fresh reopen 后 bins 重新显示，当前不构成纯 KDE | 不得用预计算 XY 密度线冒充官方流程 |
 | S21 | 官方 Forest Plot App 尚未安装和实证 | 不得用普通误差棒、手工线段或 Python 森林图替代 |
-| S61 | clean dynamic rebuild 自动化链尚未闭合 | 不得把已有静态热图证据当作动态 renderer 通过 |
+
+## 本机 dispatcher 门禁
+
+- 基础菜单图必须执行 Recipe 中对应的 `Plot.ogs`/`Plot3D.ogs` section 或
+  `worksheet -p` 路线，不得改成“空模板＋逐个 AddPlot”。
+- 分组柱、Trellis、帕累托分别固定为 `plot_gindexed`、`plot_group`、
+  `plot_paretobin`；多面板组合固定为 `merge_graph`。
+- 热图与带标签热图固定为本机 `GenericHeatMap ... 105 1 1`/`plotvm`
+  路线；数据源必须是 MatrixBook 或明确的 Virtual Matrix，不能以图片代替。
+- 线条序列、前后对比固定走 `BoxChartImp BoxLser` 与
+  `general,206 BeforeAfter`。在 row-wise/subgroup 结构完成 live 读回前，
+  旧的“转置成多条普通 XY 线”实现不得计入 renderer 完成范围。
 
 ## 与公开 Agent 动作的关系
 
