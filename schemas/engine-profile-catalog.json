@@ -3069,6 +3069,11 @@
           "object_kind": "axis"
         },
         {
+          "object_alias": "connector",
+          "object_key": "connector",
+          "object_kind": "series"
+        },
+        {
           "object_alias": "legend",
           "object_key": "main",
           "object_kind": "legend"
@@ -3079,7 +3084,7 @@
       "repeatable_objects": [
         {
           "object_alias_prefix": "series",
-          "object_key_prefix": "row",
+          "object_key_prefix": "column",
           "object_kind": "series"
         }
       ],
@@ -3157,6 +3162,11 @@
           "object_kind": "axis"
         },
         {
+          "object_alias": "connector",
+          "object_key": "connector",
+          "object_kind": "series"
+        },
+        {
           "object_alias": "legend",
           "object_key": "main",
           "object_kind": "legend"
@@ -3167,7 +3177,7 @@
       "repeatable_objects": [
         {
           "object_alias_prefix": "series",
-          "object_key_prefix": "row",
+          "object_key_prefix": "column",
           "object_kind": "series"
         }
       ],

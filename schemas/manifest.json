@@ -34,7 +34,7 @@
     },
     {
       "path": "schemas/engine-profile-catalog.json",
-      "sha256": "610affcab63f576a3fceb70f74b19cea11e6e665b6824f2422af4ad222cbcd0b"
+      "sha256": "07277950c00ff3fd06d43faed5ca3fb715ff94d7f04da9a6948a212dec815551"
     },
     {
       "path": "schemas/engine-profile.schema.json",
@@ -98,7 +98,7 @@
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",
-      "sha256": "610affcab63f576a3fceb70f74b19cea11e6e665b6824f2422af4ad222cbcd0b"
+      "sha256": "07277950c00ff3fd06d43faed5ca3fb715ff94d7f04da9a6948a212dec815551"
     }
   ],
   "generator": "plotagent.contracts.codegen",

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import inspect
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -25,7 +28,10 @@ from plotagent.engine.backends.origin import (
     X39_ORIGIN_PROFILE,
     X40_ORIGIN_PROFILE,
 )
-from plotagent.engine.backends.origin.wide_series import WideSeriesOriginProject
+from plotagent.engine.backends.origin.wide_series import (
+    WideSeriesOriginProject,
+    read_wide_series_native_snapshot,
+)
 from plotagent.engine.profile_data import wide_series, x03_lollipop
 from plotagent.engine.profiles import X39_LINE_SERIES_PROFILE, X40_BEFORE_AFTER_PROFILE
 
@@ -230,6 +236,7 @@ class _Sheet:
         self.columns: dict[int, list[object]] = {}
         self.designations: dict[int, int] = {}
         self.long_names: dict[int, str] = {}
+        self.comments: dict[int, str] = {}
         self.activated = False
         self.categorical_type = 0
         self.categorical_sort = 0
@@ -238,6 +245,11 @@ class _Sheet:
         self.columns[index] = list(values)
         self.designations[index] = {"X": 4, "Y": 1}.get(kwargs.get("axis"), 2)
         self.long_names[index] = kwargs.get("lname", "")
+        self.comments[index] = kwargs.get("comments", "")
+
+    @property
+    def cols(self) -> int:
+        return len(self.columns)
 
     def to_list(self, index: int) -> list[object]:
         return self.columns[index]
@@ -245,6 +257,10 @@ class _Sheet:
     def get_int(self, expression: str) -> int:
         index = int(expression.removeprefix("col").removesuffix(".type")) - 1
         return self.designations[index]
+
+    def get_labels(self, kind: str) -> list[str]:
+        labels = self.long_names if kind == "L" else self.comments
+        return [labels[index] for index in range(self.cols)]
 
     def activate(self) -> None:
         self.activated = True
@@ -340,7 +356,43 @@ class _Origin:
             return 0.0
         if expression == "layer.plot1.boxchart.type":
             return 2.0
+        if expression == "layer.plot1.usepropssubgroup":
+            return 0.0
+        if expression == "layer.plot1.color":
+            return 1.0
+        if expression == "layer.plot1.line.width":
+            return 1.2
+        if expression == "layer.plot1.line.type":
+            return 1.0
+        if expression.startswith("layer.plot") and expression.endswith(".color"):
+            return 1.0
+        if expression.startswith("layer.plot") and expression.endswith(".symbol.kind"):
+            return 2.0
+        if expression.startswith("layer.plot") and expression.endswith(".symbol.size"):
+            return 6.0
+        if expression.startswith("layer.plot") and expression.endswith(".pid"):
+            return float(self.native_plot_type)
+        if expression.startswith("layer.plot") and expression.endswith(".index"):
+            index = expression.removeprefix("layer.plot").removesuffix(".index")
+            return float(index)
         return 0.0
+
+    def get_lt_str(self, variable: str) -> str:
+        prefix = "__X39" if variable.startswith("__X39") else "__X40"
+        names = tuple(
+            f"{self.book.name}_{chr(ord('A') + index)}"
+            for index in range(self.native_member_count or self.book.sheet.cols)
+        )
+        if variable.startswith(prefix + "SOURCE"):
+            index = int(variable.removeprefix(prefix + "SOURCE")) - 1
+            return names[index]
+        if variable == prefix + "NAMES":
+            return "".join(f"|{name}" for name in names)
+        if variable == prefix + "MEMBERS":
+            return "".join(f"|{index}" for index in range(1, len(names) + 1))
+        if variable == prefix + "HEADS":
+            return "|1" * len(names)
+        return ""
 
 
 def test_x03_origin_uses_official_lollipop_menu_command_without_xy_rebuild(
@@ -427,13 +479,78 @@ def test_x39_x40_origin_keep_official_wide_table_and_menu_group(
     assert origin.book.sheet.long_names == {
         index: view.columns[index].field.name for index in range(series_count)
     }
+    assert origin.book.sheet.comments == {index: "" for index in range(series_count)}
     assert origin.graph.layer.add_calls == []
     assert project.plots == []
     assert project.native_member_count == series_count
-    assert project.native_snapshot["native_plot_types"] == [206] * series_count
+    assert project.native_snapshot["native_plot_types"] == (206,) * series_count
     assert project.native_snapshot["source_layout"] == "worksheet_wide"
+    assert project.native_snapshot["native_group_count"] == 1
+    assert project.native_snapshot["native_group_heads"] == (1,)
+    assert project.native_snapshot["members_bind_source_columns"] is True
+    assert project.native_snapshot["long_names"] == tuple(
+        view.columns[index].field.name for index in range(series_count)
+    )
+    assert project.native_snapshot["comments"] == ("",) * series_count
     if profile_id == "X40":
         assert project.native_snapshot["subgroup_size"] == 2
+
+
+@pytest.mark.parametrize(
+    ("profile_id", "long_names", "comments", "subgroup_size"),
+    (
+        ("X39", ("Week1", "Week2", "Week3"), ("", "", ""), 0),
+        (
+            "X40",
+            ("Before", "After", "Before", "After"),
+            ("6 to 10", "6 to 10", "11-16", "11-16"),
+            2,
+        ),
+    ),
+)
+def test_official_sample_snapshot_records_group_and_label_metadata_without_plot_list(
+    profile_id: str,
+    long_names: tuple[str, ...],
+    comments: tuple[str, ...],
+    subgroup_size: int,
+) -> None:
+    origin = _Origin()
+    origin.book.name = "Book1"
+    origin.native_member_count = len(long_names)
+    origin.native_plot_type = 206
+    origin.subgroup_size = subgroup_size
+    for index, (long_name, comment) in enumerate(
+        zip(long_names, comments, strict=True)
+    ):
+        origin.book.sheet.from_list(
+            index,
+            [float(index + row) for row in range(5)],
+            lname=long_name,
+            comments=comment,
+            axis="Y",
+        )
+    snapshot = read_wide_series_native_snapshot(
+        origin,
+        origin.book.sheet,
+        origin.graph,
+        profile_id=profile_id,
+        column_count=len(long_names),
+    )
+
+    assert snapshot["source_layout"] == "worksheet_wide"
+    assert snapshot["worksheet_column_count"] == len(long_names)
+    assert snapshot["source_row_counts"] == (5,) * len(long_names)
+    assert snapshot["long_names"] == long_names
+    assert snapshot["comments"] == comments
+    assert snapshot["native_plot_types"] == (206,) * len(long_names)
+    assert snapshot["native_group_count"] == 1
+    assert snapshot["native_group_heads"] == (1,)
+    assert snapshot["members_bind_source_columns"] is True
+    assert snapshot["subgroup_size"] == subgroup_size
+    probe_source = inspect.getsource(read_wide_series_native_snapshot)
+    assert "doc -e D" in probe_source
+    assert "plot_list(" not in probe_source
+    assert "Theme" not in probe_source
 
 
 def test_x39_x40_matplotlib_use_one_collection_not_one_public_plot_per_row() -> None:
@@ -461,3 +578,28 @@ def test_wide_series_new_path_has_no_legacy_compiler_dependency() -> None:
     assert "plotagent.rendering" not in source
     assert "PlotSpec" not in source
     assert "ResolvedPlot" not in source
+
+
+def test_x39_x40_live_probe_plan_is_com_free_and_explicit() -> None:
+    script = Path(__file__).parents[2] / "scripts" / "probe_x39_x40_origin_live.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--phase", "plan"],
+        cwd=script.parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    plan = json.loads(result.stdout)
+
+    assert plan["profiles"]["X39"]["official_menu"] == (
+        "run.section(Plot,LineSeries)"
+    )
+    assert plan["profiles"]["X40"]["official_menu"] == (
+        "run.section(Plot,BeforeAfter)"
+    )
+    assert "fresh" in plan["phases"]
+    assert "Connect Within Subgroup" in plan["manual_gate"]
+    script_source = script.read_text(encoding="utf-8")
+    assert "--allow-origin-com" in script_source
+    assert "plot_list(" not in script_source
+    assert "Theme" not in script_source

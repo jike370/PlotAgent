@@ -52,6 +52,120 @@ _X40_OFFICIAL_MENU_COMMAND = (
 )
 
 
+def _pipe_strings(value: str) -> tuple[str, ...]:
+    return tuple(item for item in value.split("|") if item)
+
+
+def _pipe_ints(value: str) -> tuple[int, ...]:
+    return tuple(int(item) for item in _pipe_strings(value))
+
+
+def read_wide_series_native_snapshot(
+    op: Any,
+    sheet: Any,
+    graph: Any,
+    *,
+    profile_id: Literal["X39", "X40"],
+    column_count: int,
+) -> dict[str, object]:
+    """Read the documented type-206 row-wise signature without ``plot_list``.
+
+    Origin's Python ``GraphLayer_GetDataPlots`` bridge is unstable for the
+    box-chart-backed Line Series family.  This probe therefore uses only the
+    documented LabTalk plot/group objects, ``doc -e D`` iteration, worksheet
+    dataset names and worksheet label-row accessors.
+    """
+
+    if column_count < 2:
+        raise ValueError("row-wise Line Series snapshots require at least two Y columns")
+    graph_name = str(graph.name)
+    if not graph_name.replace("_", "").isalnum():
+        raise RuntimeError(f"unsafe Origin {profile_id} graph name: {graph_name!r}")
+    probe = f"__{profile_id}"
+    sheet.activate()
+    source_dataset_names: list[str] = []
+    for index in range(1, column_count + 1):
+        variable = f"{probe}SOURCE{index}"
+        op.lt_exec(f"{variable}$=nameof(!wcol({index}))$;")
+        source_dataset_names.append(str(op.get_lt_str(variable)))
+    graph.activate()
+    op.lt_exec(
+        f'page.active=1; {probe}COUNT=0; {probe}NAMES$=""; '
+        f'{probe}MEMBERS$=""; {probe}HEADS$=""; '
+        f"doc -e D {{{probe}COUNT={probe}COUNT+1; "
+        f'{probe}NAMES$={probe}NAMES$+"|%C"; '
+        f'{probe}MEMBERS$={probe}MEMBERS$+"|$(layer.plot0.index)"; '
+        f'{probe}HEADS$={probe}HEADS$+"|$(layer.plot.index)";}};'
+    )
+    member_count = int(op.lt_float(f"{probe}COUNT"))
+    member_dataset_names = _pipe_strings(str(op.get_lt_str(f"{probe}NAMES")))
+    member_indices = _pipe_ints(str(op.get_lt_str(f"{probe}MEMBERS")))
+    group_head_indices = _pipe_ints(str(op.get_lt_str(f"{probe}HEADS")))
+    native_plot_types = tuple(
+        int(op.lt_float(f"layer.plot{index}.pid"))
+        for index in range(1, member_count + 1)
+    )
+    plot_indices = tuple(
+        int(op.lt_float(f"layer.plot{index}.index"))
+        for index in range(1, member_count + 1)
+    )
+    member_colors = tuple(
+        int(op.lt_float(f"layer.plot{index}.color"))
+        for index in range(1, member_count + 1)
+    )
+    member_symbol_kinds = tuple(
+        int(op.lt_float(f"layer.plot{index}.symbol.kind"))
+        for index in range(1, member_count + 1)
+    )
+    member_symbol_sizes = tuple(
+        float(op.lt_float(f"layer.plot{index}.symbol.size"))
+        for index in range(1, member_count + 1)
+    )
+    values = tuple(tuple(sheet.to_list(index)) for index in range(column_count))
+    long_names = tuple(str(value) for value in sheet.get_labels("L")[:column_count])
+    comments = tuple(str(value) for value in sheet.get_labels("C")[:column_count])
+    designations = tuple(
+        int(sheet.get_int(f"col{index}.type")) for index in range(1, column_count + 1)
+    )
+    row_counts = tuple(len(column) for column in values)
+    unique_heads = tuple(dict.fromkeys(group_head_indices))
+    return {
+        "profile_id": profile_id,
+        "graph_name": graph_name,
+        "source_layout": "worksheet_wide",
+        "worksheet_column_count": int(sheet.cols),
+        "source_column_count": column_count,
+        "source_row_counts": row_counts,
+        "worksheet_designations": designations,
+        "long_names": long_names,
+        "comments": comments,
+        "source_dataset_names": tuple(source_dataset_names),
+        "native_member_count": member_count,
+        "native_plot_types": native_plot_types,
+        "plot_indices": plot_indices,
+        "member_colors": member_colors,
+        "member_symbol_kinds": member_symbol_kinds,
+        "member_symbol_sizes": member_symbol_sizes,
+        "iterated_member_indices": member_indices,
+        "group_head_indices": group_head_indices,
+        "native_group_count": len(unique_heads),
+        "native_group_heads": unique_heads,
+        "member_dataset_names": member_dataset_names,
+        "members_bind_source_columns": (
+            member_dataset_names == tuple(source_dataset_names)
+        ),
+        "boxchart_type": int(op.lt_float("layer.plot1.boxchart.type")),
+        "subgroup_size": int(op.lt_float("layer.plot1.subgroupsize")),
+        "subgroup_label_row": int(op.lt_float("layer.plot1.subgrouplabelrow")),
+        "use_properties_by_subgroup": int(
+            op.lt_float("layer.plot1.usepropssubgroup")
+        ),
+        "connector_color": int(op.lt_float("layer.plot1.color")),
+        "connector_line_width": float(op.lt_float("layer.plot1.line.width")),
+        "connector_line_type": int(op.lt_float("layer.plot1.line.type")),
+    }
+
+
 def _safe_label(value: str) -> str:
     output: list[str] = []
     for character in value:
@@ -571,39 +685,59 @@ class WideSeriesOriginProject:
         for index, (label, values) in enumerate(
             zip(series.column_labels, series.column_values, strict=True)
         ):
-            self.sheet.from_list(index, list(values), lname=label, axis="Y")
+            self.sheet.from_list(
+                index,
+                list(values),
+                lname=label,
+                comments="",
+                axis="Y",
+            )
 
     def _assert_official_wide_structure(
         self, series: WideSeriesData
     ) -> dict[str, object]:
+        if self.profile_id not in {"X39", "X40"}:
+            raise RuntimeError("wide-series structure readback is only valid for X39/X40")
+        profile_id = cast(Literal["X39", "X40"], self.profile_id)
         expected_count = len(series.column_values)
-        expected_designations = [1] * expected_count
-        actual_designations = [
-            int(self.sheet.get_int(f"col{index + 1}.type"))
-            for index in range(expected_count)
-        ]
-        if actual_designations != expected_designations:
+        snapshot = read_wide_series_native_snapshot(
+            self.op,
+            self.sheet,
+            self.graph,
+            profile_id=profile_id,
+            column_count=expected_count,
+        )
+        self.native_member_count = cast(int, snapshot["native_member_count"])
+        if snapshot["worksheet_column_count"] != expected_count:
+            raise RuntimeError(
+                f"Origin {self.profile_id} worksheet must remain the untransposed "
+                f"{expected_count}-column source table: "
+                f"actual={snapshot['worksheet_column_count']}"
+            )
+        expected_designations = (1,) * expected_count
+        if snapshot["worksheet_designations"] != expected_designations:
             raise RuntimeError(
                 f"Origin {self.profile_id} worksheet must contain only selected Y columns: "
-                f"expected={expected_designations}, actual={actual_designations}"
+                f"expected={expected_designations}, "
+                f"actual={snapshot['worksheet_designations']}"
             )
-        graph_name = str(self.graph.name)
-        if not graph_name.replace("_", "").isalnum():
-            raise RuntimeError(f"unsafe Origin {self.profile_id} graph name: {graph_name!r}")
-        probe = f"__{self.profile_id}"
-        self.graph.activate()
-        self.op.lt_exec(
-            f"page.active=1; {probe}COUNT=0; "
-            f"doc -e D {{{probe}COUNT={probe}COUNT+1;}};"
-        )
-        self.native_member_count = int(self.op.lt_float(f"{probe}COUNT"))
-        plot_types: list[int] = []
-        for index in range(1, self.native_member_count + 1):
-            self.op.lt_exec(
-                f"range {probe}P=[{graph_name}]1!{index}; "
-                f"get {probe}P -pt {probe}PT{index};"
+        expected_rows = (series.row_count,) * expected_count
+        if snapshot["source_row_counts"] != expected_rows:
+            raise RuntimeError(
+                f"Origin {self.profile_id} wide worksheet changed row shape: "
+                f"expected={expected_rows}, actual={snapshot['source_row_counts']}"
             )
-            plot_types.append(int(self.op.lt_float(f"{probe}PT{index}")))
+        if snapshot["long_names"] != series.column_labels:
+            raise RuntimeError(
+                f"Origin {self.profile_id} Long Name metadata changed: "
+                f"expected={series.column_labels}, actual={snapshot['long_names']}"
+            )
+        if snapshot["comments"] != ("",) * expected_count:
+            raise RuntimeError(
+                f"Origin {self.profile_id} renderer must preserve empty source Comments: "
+                f"actual={snapshot['comments']}"
+            )
+        plot_types = cast(tuple[int, ...], snapshot["native_plot_types"])
         if self.native_member_count != expected_count or any(
             plot_type != 206 for plot_type in plot_types
         ):
@@ -612,8 +746,34 @@ class WideSeriesOriginProject:
                 f"Y column: count={self.native_member_count}, plot_types={plot_types}, "
                 f"source_y_count={expected_count}"
             )
-        subgroup_size = int(self.op.lt_float("layer.plot1.subgroupsize"))
-        subgroup_label_row = int(self.op.lt_float("layer.plot1.subgrouplabelrow"))
+        if snapshot["boxchart_type"] != 2:
+            raise RuntimeError(
+                f"Origin {self.profile_id} must remain a data-only BoxChart row-wise "
+                f"group: boxchart.type={snapshot['boxchart_type']}"
+            )
+        expected_indices = tuple(range(1, expected_count + 1))
+        if snapshot["plot_indices"] != expected_indices or snapshot[
+            "iterated_member_indices"
+        ] != expected_indices:
+            raise RuntimeError(
+                f"Origin {self.profile_id} type-206 member order changed: "
+                f"plot_indices={snapshot['plot_indices']}, "
+                f"iterated={snapshot['iterated_member_indices']}"
+            )
+        if snapshot["native_group_count"] != 1 or snapshot[
+            "native_group_heads"
+        ] != (1,):
+            raise RuntimeError(
+                f"Origin {self.profile_id} must retain one native plot group headed by "
+                f"member 1: heads={snapshot['group_head_indices']}"
+            )
+        if not snapshot["members_bind_source_columns"]:
+            raise RuntimeError(
+                f"Origin {self.profile_id} members no longer bind the unchanged source "
+                f"Y columns: source={snapshot['source_dataset_names']}, "
+                f"members={snapshot['member_dataset_names']}"
+            )
+        subgroup_size = cast(int, snapshot["subgroup_size"])
         if self.profile_id == "X40" and subgroup_size != 2:
             raise RuntimeError(
                 "Origin X40 official BeforeAfter group must keep Subgroup Size=2; "
@@ -625,16 +785,9 @@ class WideSeriesOriginProject:
             else _X40_OFFICIAL_MENU_COMMAND
         ).format(last_column=expected_count)
         return {
+            **snapshot,
             "official_menu_command": command,
-            "source_layout": "worksheet_wide",
-            "source_column_count": expected_count,
             "source_row_count": series.row_count,
-            "worksheet_designations": actual_designations,
-            "native_member_count": self.native_member_count,
-            "native_plot_types": plot_types,
-            "boxchart_type": int(self.op.lt_float("layer.plot1.boxchart.type")),
-            "subgroup_size": subgroup_size,
-            "subgroup_label_row": subgroup_label_row,
             "connector_semantics": "manual_live_plot_details_gate",
         }
 
