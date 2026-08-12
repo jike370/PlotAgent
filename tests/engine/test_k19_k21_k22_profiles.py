@@ -422,6 +422,17 @@ def test_k19_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Pat
     ] == ["series:k19-demo.line_1", "series:k19-demo.line_2"]
 
 
+def test_k19_origin_readback_publishes_and_checks_the_linked_legend() -> None:
+    source = inspect.getsource(K19OriginProject.verify)
+    legend_source = inspect.getsource(K19OriginProject._assert_linked_legend)
+
+    assert 'object_kind="legend"' in source
+    assert "self._assert_linked_legend(expected)" in source
+    assert 'f"\\\\l({index}) %({index})"' in legend_source
+    assert 'legend.get_int("link")' in legend_source
+    assert "self.sheet.to_df().columns[1:]" in legend_source
+
+
 def test_k18_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Path) -> None:
     document, (create,), view = _k18_case()
     actions = (

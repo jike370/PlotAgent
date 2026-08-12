@@ -277,6 +277,7 @@ class K19OriginProject:
         if len(self.plots) != len(expected.series):
             raise RuntimeError("Origin K19 series count differs after reopen")
         native_structure = self._native_line_structure(expected)
+        self._assert_linked_legend(expected)
         token = document.plot_id.removeprefix("plot:")
         style_snapshot: dict[str, object] = {}
         for action in actions:
@@ -391,6 +392,12 @@ class K19OriginProject:
                     )
                     for index in range(1, len(expected.series) + 1)
                 ),
+                EngineObjectRef(
+                    semantic_id=f"legend:{token}.main",
+                    backend="origin",
+                    object_kind="legend",
+                    native_ref=f"graph:{self.graph.name}.layer:1.label:legend",
+                ),
             ),
             data_hash=canonical_hash(data),
             style_hash=canonical_hash(cast(JsonValue, style_snapshot)),
@@ -495,6 +502,36 @@ class K19OriginProject:
         legend.set_int("show", int(visible))
         if visible and legend.text.count("\\l(") != len(expected.series):
             raise RuntimeError("Origin K19 legend entry count differs from the series count")
+
+    def _assert_linked_legend(self, expected: TimeSeriesData) -> None:
+        legend = self.layer.label("legend")
+        should_be_visible = len(expected.series) > 1
+        if legend is None:
+            if should_be_visible:
+                raise RuntimeError("Origin K19 lost the required multi-series legend")
+            return
+        if bool(legend.get_int("show")) != should_be_visible:
+            raise RuntimeError("Origin K19 default legend visibility differs from series count")
+        if not should_be_visible:
+            return
+        text = str(legend.text)
+        expected_names = tuple(item.value_field_name for item in expected.series)
+        expected_tokens = tuple(
+            f"\\l({index}) %({index})"
+            for index in range(1, len(expected_names) + 1)
+        )
+        actual_tokens = tuple(line.strip() for line in text.splitlines() if line.strip())
+        if actual_tokens != expected_tokens or int(legend.get_int("link")) != 1:
+            raise RuntimeError(
+                "Origin K19 linked legend tokens differ from the native plot order: "
+                f"expected={expected_tokens!r}, actual={actual_tokens!r}"
+            )
+        frame_names = tuple(str(value) for value in self.sheet.to_df().columns[1:])
+        if frame_names != expected_names:
+            raise RuntimeError(
+                "Origin K19 legend metadata source differs from the bound series: "
+                f"expected={expected_names!r}, actual={frame_names!r}"
+            )
 
     def _line_style_code(self, ordinal: int) -> int:
         self.graph.activate()
