@@ -156,6 +156,70 @@ def test_unspecified_chart_is_asked_locally_without_model_call() -> None:
     assert provider.resolve_calls == provider.decide_calls == 0
 
 
+def test_external_pi_decision_accepts_json_arrays_under_strict_contract() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, snapshot = _request_and_snapshot()
+    request = replace(
+        request,
+        user_instruction="画一张图。",
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K01", "K08"),
+            allowed_action_types=("create_plot",),
+        ),
+    )
+    runtime = _runtime(provider)
+    decision = runtime.preflight(request)
+    assert decision is not None
+
+    accepted = runtime.accept_external(
+        decision.model_dump(mode="json"),
+        envelope=ContextBuilder().build(request),
+        project_context=snapshot,
+        client_model_run_id="run:external-json",
+    )
+
+    assert accepted.accepted is True
+    assert accepted.decision is not None
+    assert accepted.decision.decision_type == "needs_input"
+
+
+def test_external_pi_action_plan_binds_nested_json_arrays() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, snapshot = _request_and_snapshot()
+    runtime = _runtime(provider)
+    payload = {
+        "schema_version": "engine-agent.v1",
+        "decision_type": "action_plan",
+        "plan_id": "plan:external-json",
+        "target_alias": "active_target",
+        "actions": [
+            {
+                "operation": "create_plot",
+                "action_id": "action:create",
+                "plot_alias": "result",
+                "profile_id": "K01",
+                "source_alias": "active_target",
+                "bindings": [
+                    {"role": "x", "field_alias": "x_field"},
+                    {"role": "y", "field_alias": "y_field"},
+                ],
+            }
+        ],
+    }
+
+    accepted = runtime.accept_external(
+        payload,
+        envelope=ContextBuilder().build(request),
+        project_context=snapshot,
+        client_model_run_id="run:external-plan-json",
+    )
+
+    assert accepted.accepted is True
+    assert accepted.bound_plan is not None
+    assert isinstance(accepted.bound_plan.actions[0], CreatePlot)
+
+
 def test_profile_outside_local_capability_is_rejected_without_binding() -> None:
     response = json.dumps(
         {

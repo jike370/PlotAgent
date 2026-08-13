@@ -208,7 +208,7 @@ function assistantStream(kind: 'none' | 'multiple'): ReturnType<StreamFn> {
       type: 'toolCall' as const,
       id: `call-${index}`,
       name: 'submit_plotagent_decision',
-      arguments: SIMPLE_DECISION,
+      arguments: { decision: SIMPLE_DECISION },
     }))
   const message: AssistantMessage = {
     role: 'assistant',
@@ -336,7 +336,7 @@ async function runtimeScenario(task: EvalTask, repeat: number): Promise<EvalReco
           type: 'toolCall' as const,
           id: 'call-1',
           name: 'submit_plotagent_decision',
-          arguments: SIMPLE_DECISION,
+          arguments: { decision: SIMPLE_DECISION },
         }
         const message: AssistantMessage = {
           role: 'assistant', content: [call], api: 'openai-completions', provider: 'seq70',

@@ -29,7 +29,7 @@ function toolCallStream(): ReturnType<StreamFn> {
       type: 'toolCall',
       id: 'call-1',
       name: 'submit_plotagent_decision',
-      arguments: decision,
+      arguments: { decision },
     }],
     api: 'openai-completions',
     provider: 'test',
@@ -86,7 +86,7 @@ function multipleDecisionStream(): ReturnType<StreamFn> {
     type: 'toolCall' as const,
     id: `call-${index}`,
     name: 'submit_plotagent_decision',
-    arguments: decision,
+    arguments: { decision },
   }))
   const message: AssistantMessage = {
     role: 'assistant',

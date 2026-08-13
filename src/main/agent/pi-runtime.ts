@@ -100,6 +100,15 @@ function acceptedCoreDecision(value: JsonValue): JsonValue {
   throw new PiRuntimeError(code, 'Core rejected the model decision.')
 }
 
+function decisionToolSchema(decisionSchema: Record<string, unknown>): TSchema {
+  return {
+    type: 'object',
+    properties: { decision: decisionSchema },
+    required: ['decision'],
+    additionalProperties: false,
+  } as unknown as TSchema
+}
+
 function modelFor(provider: RuntimeProvider): Model<'openai-completions'> {
   return {
     id: provider.modelId,
@@ -178,8 +187,8 @@ export class PiAgentRuntime {
       const tool: AgentTool<TSchema, { accepted: boolean }> = {
         name: 'submit_plotagent_decision',
         label: '提交 PlotAgent 决策',
-        description: 'Submit exactly one decision that conforms to the supplied PlotAgent decision schema.',
-        parameters: prepared.decisionSchema as unknown as TSchema,
+        description: 'Submit exactly one decision in the decision property. The decision must conform to the supplied PlotAgent decision schema.',
+        parameters: decisionToolSchema(prepared.decisionSchema),
         constrainedSampling: { type: 'json_schema', strict: 'prefer' },
         executionMode: 'sequential',
         execute: async (_toolCallId, args) => {
@@ -187,7 +196,11 @@ export class PiAgentRuntime {
           if (decisionCount > 1) {
             throw new PiRuntimeError('PI_MULTIPLE_DECISIONS', 'Only one decision is allowed.')
           }
-          decision = args as JsonValue
+          const payload = record(args as JsonValue, 'Pi decision tool arguments')
+          if (payload.decision === undefined) {
+            throw new PiRuntimeError('PI_RUNTIME_PROTOCOL_INVALID', 'The decision tool payload is missing.')
+          }
+          decision = payload.decision
           return {
             content: [{ type: 'text', text: 'Decision received. Local validation is authoritative.' }],
             details: { accepted: true },

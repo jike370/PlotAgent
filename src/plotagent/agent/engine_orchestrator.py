@@ -8,7 +8,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -34,7 +34,7 @@ from plotagent.agent.providers import (
 )
 from plotagent.agent.providers.engine_prompt import engine_agent_prompt
 from plotagent.contracts.agent_context import ContextEnvelope
-from plotagent.contracts.canonical import canonical_hash
+from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
 from plotagent.contracts.project_context import ProjectContextSnapshot
 from plotagent.engine import EngineActionCodec, EngineCommandError
 from plotagent.security import LocalSecurityError, NetworkMode
@@ -303,7 +303,9 @@ class EngineAgentOrchestrator:
         """Validate and bind a decision produced by Pi or another trusted runtime."""
 
         try:
-            decision = _DECISION_ADAPTER.validate_python(decision_payload)
+            decision = _DECISION_ADAPTER.validate_json(
+                canonical_json(cast(JsonValue, decision_payload))
+            )
             self._validate_decision(decision, envelope)
             bound = (
                 self._binder.bind(
