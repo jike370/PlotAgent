@@ -160,6 +160,56 @@ def _k18_case() -> tuple[PlotDocument, tuple[CreatePlot, ...], EngineDataView]:
     return document, (create,), view
 
 
+def _k18_grouped_long_case() -> tuple[PlotDocument, EngineDataView]:
+    bindings = (
+        FieldBinding(role="x", field_id="field:x"),
+        FieldBinding(role="series_1", field_id="field:value"),
+        FieldBinding(role="group", field_id="field:group"),
+    )
+    create = CreatePlot(
+        action_id="action:k18-grouped-create",
+        plot_id="plot:k18-grouped",
+        profile_id="K18",
+        data=EngineDataRef(
+            kind="source", dataset_id="dataset.k18-grouped", version=1, content_hash=HASH
+        ),
+        bindings=bindings,
+    )
+    document = _document("K18", bindings, (create,))
+    view = _view(
+        "K18",
+        (
+            ("field:x", "Time", "numeric", (1.0, 2.0, 3.0, 1.0, 2.0, 3.0)),
+            ("field:value", "Signal", "numeric", (2.0, 3.0, 4.0, 5.0, 4.0, 6.0)),
+            (
+                "field:group",
+                "Group",
+                "text",
+                ("Base", "Base", "Base", "Edited", "Edited", "Edited"),
+            ),
+        ),
+    )
+    return document, view
+
+
+def test_k18_grouped_long_data_pivots_to_independent_area_series() -> None:
+    document, view = _k18_grouped_long_case()
+    prepared = k18_area_series(document, view)
+    assert prepared.x_values == (1.0, 2.0, 3.0)
+    assert [(item.role, item.value_field_name, item.values) for item in prepared.series] == [
+        ("series_1", "Base", (2.0, 3.0, 4.0)),
+        ("series_2", "Edited", (5.0, 4.0, 6.0)),
+    ]
+
+
+def test_k18_grouped_long_data_rejects_misaligned_x_coordinates() -> None:
+    document, view = _k18_grouped_long_case()
+    columns = list(view.columns)
+    columns[0] = columns[0].model_copy(update={"values": (1.0, 2.0, 3.0, 1.0, 2.0, 4.0)})
+    with pytest.raises(ValueError, match="identical ordered x values"):
+        k18_area_series(document, view.model_copy(update={"columns": tuple(columns)}))
+
+
 def _k21_case() -> tuple[PlotDocument, tuple[object, ...], EngineDataView]:
     bindings = (
         FieldBinding(role="row_label", field_id="field:row-label"),

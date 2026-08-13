@@ -818,16 +818,64 @@ def k19_time_series(document: PlotDocument, data: EngineDataView) -> TimeSeriesD
 
 
 def k18_area_series(document: PlotDocument, data: EngineDataView) -> AreaSeriesData:
-    """Return one numeric X column and contiguous ``series_1..series_N`` areas."""
+    """Return native area series from wide data or one explicitly grouped long series.
+
+    Origin's Area graph and Matplotlib both consume one shared X column plus
+    one Y column per area.  A long table therefore has to be pivoted before it
+    reaches either backend; otherwise the last point of one group is joined to
+    the first point of the next group.  The pivot is deliberately strict: each
+    group must contain the same ordered X coordinates and duplicate X values
+    within a group are rejected.
+    """
 
     bindings = {binding.role: binding.field_id for binding in document.bindings}
     columns = {column.field.field_id: column for column in data.columns}
     if "x" not in bindings:
         raise ValueError("K18 requires an x binding")
-    roles = _contiguous_series_roles(bindings, "K18", minimum=1)
     x_column = columns[bindings["x"]]
+    roles = _contiguous_series_roles(bindings, "K18", minimum=1)
+    x_values = _numeric_values(x_column, "x", "K18", allow_missing=False)
+    group_field_id = bindings.get("group")
+    if group_field_id is not None:
+        if len(roles) != 1:
+            raise ValueError("K18 grouped long data requires exactly one bound series")
+        value_column = columns[bindings[roles[0]]]
+        values = _numeric_values(value_column, roles[0], "K18", allow_missing=True)
+        group_column = columns[group_field_id]
+        labels = _ordered_labels(group_column, "group")
+        grouped_series: list[AreaSeriesLine] = []
+        shared_x: tuple[float, ...] | None = None
+        for ordinal, label in enumerate(labels, start=1):
+            indexes = tuple(
+                index
+                for index, raw_label in enumerate(group_column.values)
+                if _label(raw_label, "group") == label
+            )
+            group_x = tuple(x_values[index] for index in indexes)
+            if len(group_x) != len(set(group_x)):
+                raise ValueError(f"K18 group {label!r} contains duplicate x values")
+            if shared_x is None:
+                shared_x = group_x
+            elif group_x != shared_x:
+                raise ValueError(
+                    "K18 grouped long data requires identical ordered x values per group"
+                )
+            grouped_series.append(
+                AreaSeriesLine(
+                    role=f"series_{ordinal}",
+                    values=tuple(values[index] for index in indexes),
+                    value_field_name=label,
+                )
+            )
+        if shared_x is None:
+            raise ValueError("K18 grouped long data contains no groups")
+        return AreaSeriesData(
+            x_values=shared_x,
+            series=tuple(grouped_series),
+            x_field_name=x_column.field.name,
+        )
     return AreaSeriesData(
-        x_values=_numeric_values(x_column, "x", "K18", allow_missing=False),
+        x_values=x_values,
         series=tuple(
             AreaSeriesLine(
                 role=role,

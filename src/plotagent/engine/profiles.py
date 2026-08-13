@@ -368,6 +368,7 @@ K18_AREA_PROFILE = EngineProfile(
     profile_id="K18",
     display_name="Area",
     required_roles=("x", "series_1"),
+    optional_roles=("group",),
     repeatable_role_prefixes=("series",),
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
