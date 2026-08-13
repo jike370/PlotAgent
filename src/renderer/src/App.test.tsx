@@ -34,6 +34,13 @@ const dataset = {
     { field_id: 'field:signal', name: 'fluorescence_au', logical_type: 'numeric', physical_type: 'float64', unit: { symbol: 'a.u.' } },
     { field_id: 'field:condition', name: 'condition', logical_type: 'categorical', physical_type: 'string', unit: null },
   ],
+  sample_rows: [
+    [1, 3.2, 'Control'],
+    [2, 3.9, 'Control'],
+    [3, 4.8, 'Treatment'],
+    [4, 5.4, 'Treatment'],
+    [5, 6.1, 'Treatment'],
+  ],
   quality: { missing_count: 0, nonfinite_count: 0 },
   source_coordinate_kinds: ['text_row'],
 }
@@ -273,7 +280,7 @@ async function openSampleAndCreatePlot(user: ReturnType<typeof userEvent.setup>)
   await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
   await user.click(screen.getByRole('button', { name: '选择此图形' }))
   await user.click(screen.getByRole('button', { name: '手动映射' }))
-  await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
+  await user.click(screen.getByRole('button', { name: '确认并绘图' }))
   expect(await screen.findByRole('img', { name: '折线图 真实渲染预览' })).toHaveAttribute('src', expect.stringMatching(/^plotagent-resource:/))
   expect(screen.getByText('绘图完成')).toHaveClass('composer-success')
 }
@@ -371,7 +378,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
     await user.click(screen.getByRole('button', { name: '手动映射' }))
-    await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
+    await user.click(screen.getByRole('button', { name: '确认并绘图' }))
 
     expect(await screen.findByRole('img', { name: '折线图 界面预览' })).toHaveAttribute('src', expect.stringMatching(/^data:image\/svg\+xml/))
   })
@@ -411,7 +418,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '上传数据' }))
     expect(await screen.findByText('已选择图形')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '手动映射' }))
-    expect(screen.getByRole('heading', { name: '确认字段映射' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '数据预览与字段绑定' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '折线图' })).toBeInTheDocument()
   })
 
@@ -548,8 +555,8 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
     await user.click(screen.getByRole('button', { name: '手动映射' }))
-    expect(screen.getByRole('heading', { name: '确认字段映射' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
+    expect(screen.getByRole('heading', { name: '数据预览与字段绑定' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '确认并绘图' }))
     expect(api.executePlotAction).toHaveBeenCalledWith(expect.objectContaining({
       expectedProjectVersion: 1,
       action: expect.objectContaining({
@@ -559,6 +566,54 @@ describe('PlotAgent real desktop workflow', () => {
       }),
     }))
     expect(await screen.findByRole('img')).toHaveAttribute('src', expect.stringMatching(/^plotagent-resource:/))
+  })
+
+  it('reviews sample rows and edits field roles from the column headers', async () => {
+    const user = userEvent.setup()
+    const datasetSummary = Object.fromEntries(
+      Object.entries(dataset).filter(([key]) => key !== 'sample_rows'),
+    ) as JsonValue
+    const api = fakeDesktop({
+      importDatasets: vi.fn(async () => ok({
+        imports: [{ kind: 'committed', project_version: 1, datasets: [datasetSummary] }],
+        project_version: 1,
+      })),
+      describeDataset: vi.fn(async () => ok({ dataset })),
+    })
+    installApi(api)
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.click(screen.getByRole('button', { name: '手动映射' }))
+
+    const review = screen.getByRole('group', { name: '数据预览与字段绑定' })
+    expect(within(review).getByText('是否确认创建')).toBeInTheDocument()
+    expect(within(review).getByText('K01 折线图')).toBeInTheDocument()
+    expect(await within(review).findByText('3.2')).toBeInTheDocument()
+    expect(api.describeDataset).toHaveBeenCalledWith({
+      projectId: 'project:test', datasetId: 'source:temperature', sourceVersion: 1,
+    })
+
+    const yRoleTrigger = within(review).getByRole('button', { name: '荧光强度 的绘图角色：Y' })
+    await user.click(yRoleTrigger)
+    expect(screen.getByRole('menu', { name: '荧光强度 的绘图角色' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu', { name: '荧光强度 的绘图角色' })).not.toBeInTheDocument()
+    expect(yRoleTrigger).toHaveFocus()
+
+    await user.click(yRoleTrigger)
+    const roleMenu = screen.getByRole('menu', { name: '荧光强度 的绘图角色' })
+    await user.click(within(roleMenu).getByRole('menuitemradio', { name: '未使用' }))
+    expect(within(review).getByText('还需绑定：Y')).toBeInTheDocument()
+    expect(within(review).getByRole('button', { name: '确认并绘图' })).toBeDisabled()
+
+    await user.click(within(review).getByRole('button', { name: '恢复 Agent 建议' }))
+    expect(within(review).getByRole('button', { name: '荧光强度 的绘图角色：Y' })).toBeInTheDocument()
+    expect(within(review).getByRole('button', { name: '确认并绘图' })).toBeEnabled()
   })
 
   it('shows a user-facing file and worksheet identity instead of the internal dataset id', async () => {
@@ -871,7 +926,9 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: /S61.*混淆矩阵/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
     await user.click(screen.getByRole('button', { name: '手动映射' }))
-    expect(screen.getByText('已聚合计数（可选）')).toBeInTheDocument()
+    const review = screen.getByRole('group', { name: '数据预览与字段绑定' })
+    await user.click(within(review).getByRole('button', { name: /时间 的绘图角色/ }))
+    expect(screen.getByRole('menuitemradio', { name: '已聚合计数（可选）' })).toBeInTheDocument()
   })
 
   it('restores a partial plan and resumes only its unfinished work', async () => {

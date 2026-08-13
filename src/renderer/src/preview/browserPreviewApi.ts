@@ -61,6 +61,16 @@ function previewDataset(datasetId: string, label: string, index: number): JsonRe
       { field_id: `${datasetId}:category`, name: 'category', logical_type: 'categorical', physical_type: 'string', unit: null },
       { field_id: `${datasetId}:label`, name: label, logical_type: 'categorical', physical_type: 'string', unit: null },
     ],
+    sample_rows: Array.from({ length: 5 }, (_, row) => [
+      row + 1,
+      Number((3.2 + index * 0.4 + row * 0.73).toFixed(3)),
+      Number((12 + row * 2.5).toFixed(1)),
+      Number((0.4 + row * 0.08).toFixed(2)),
+      Number((0.05 / (row + 1)).toFixed(4)),
+      row < 3 ? 'Control' : 'Treatment',
+      `Category ${row + 1}`,
+      `${label}-${row + 1}`,
+    ]),
     quality: { missing_count: index === 2 ? 1 : 0, nonfinite_count: 0 },
     source_coordinate_kinds: ['preview_row'],
   }

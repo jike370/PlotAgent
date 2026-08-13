@@ -18,6 +18,7 @@ describe('product plot state', () => {
             row_count: 2,
             field_count: 1,
             fields: [{ field_id: 'field:x', name: 'Time_s', logical_type: 'numeric', physical_type: 'float64', unit: { symbol: 's' } }],
+            sample_rows: [[1], [2]],
             quality: {},
             source_coordinate_kinds: ['excel'],
           }],
@@ -31,6 +32,7 @@ describe('product plot state', () => {
       displayName: '仪器记录.xlsx > 动力学',
       sourceFileName: '仪器记录.xlsx',
       sourceSheetName: '动力学',
+      sampleRows: [[1], [2]],
     })
     expect(readImportSummary(value)).toEqual({
       fileCount: 2,

@@ -12,6 +12,7 @@ import uuid
 from collections.abc import Callable, Mapping
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -96,6 +97,20 @@ type ProductHandler = Callable[[RpcContext, RpcJsonValue | None], RpcJsonValue]
 
 _PROVIDER_SETTING_KEY = "agent.provider.active"
 _CUSTOM_PROVIDER_CONFIG_ID = "custom.default"
+
+
+def _preview_scalar(value: object) -> RpcJsonValue:
+    """Return a bounded, JSON-safe display value without changing source data."""
+
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, float) and not math.isfinite(value):
+        if math.isnan(value):
+            return "NaN"
+        return "∞" if value > 0 else "-∞"
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    return str(value)
 
 
 @dataclass(slots=True)
@@ -1159,20 +1174,25 @@ class DesktopApplication:
             _text(values["source_dataset_id"], "source_dataset_id"),
             _integer(values["source_version"], "source_version", minimum=1),
         )
+        record = next(
+            (
+                item
+                for item in session.store.list_source_datasets()
+                if item.source_dataset.source_dataset_id == source.source_dataset_id
+                and item.source_dataset.source_version == source.source_version
+            ),
+            source,
+        )
+        resolved = session.domain.resolve_source(source)
+        summary = self._dataset_summary(record)
+        summary["sample_rows"] = [
+            [_preview_scalar(value) for value in row]
+            for row in resolved.rows[:5]
+        ]
         return {
             "project_id": session.project_id,
             "project_version": session.domain.revision,
-            "dataset": self._dataset_summary(
-                next(
-                    (
-                        record
-                        for record in session.store.list_source_datasets()
-                        if record.source_dataset.source_dataset_id == source.source_dataset_id
-                        and record.source_dataset.source_version == source.source_version
-                    ),
-                    source,
-                )
-            ),
+            "dataset": summary,
         }
 
     def _agent_engine_decide(

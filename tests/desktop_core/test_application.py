@@ -145,6 +145,30 @@ def test_projects_are_managed_without_plot_compiler_state(
     assert harness.call("projects.list", {}) == {"projects": []}
 
 
+def test_dataset_description_returns_a_bounded_read_only_sample(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="dataset-preview")
+    dataset = cast(dict[str, Any], cast(list[object], imported["datasets"])[0])
+
+    described = harness.call(
+        "datasets.describe",
+        {
+            "project_id": project_id,
+            "source_dataset_id": dataset["source_dataset_id"],
+            "source_version": dataset["source_version"],
+        },
+    )
+
+    detailed = cast(dict[str, Any], described["dataset"])
+    rows = cast(list[list[object]], detailed["sample_rows"])
+    assert len(rows) == min(5, detailed["row_count"])
+    assert all(len(row) == detailed["field_count"] for row in rows)
+    assert detailed["row_count"] == dataset["row_count"]
+    assert "sample_rows" not in dataset
+
+
 def test_engine_rpc_uses_imported_data_and_restores_latest_document(
     harness: ApplicationHarness,
 ) -> None:

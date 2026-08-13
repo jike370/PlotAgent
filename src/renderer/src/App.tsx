@@ -185,6 +185,37 @@ export function App(): React.JSX.Element {
   const taskCount = Object.values(taskEvents).filter((event) => !['succeeded', 'failed', 'cancelled', 'partially_succeeded', 'interrupted'].includes(event.state)).length
   const activeProjectId = project?.projectId
 
+  useEffect(() => {
+    if (!api || !project || !activeDataset || activeDataset.sampleRows !== undefined || activeDataset.samplePreviewUnavailable) return
+    let active = true
+    const markUnavailable = (): void => {
+      if (!active) return
+      setDatasets((current) => current.map((dataset) => (
+        dataset.datasetId === activeDataset.datasetId && dataset.sourceVersion === activeDataset.sourceVersion
+          ? { ...dataset, samplePreviewUnavailable: true }
+          : dataset
+      )))
+    }
+    void api.describeDataset({
+      projectId: project.projectId,
+      datasetId: activeDataset.datasetId,
+      sourceVersion: activeDataset.sourceVersion,
+    }).then((result) => {
+      if (!active || !result.ok) { markUnavailable(); return }
+      const described = readDatasets(result.value).find((dataset) => (
+        dataset.datasetId === activeDataset.datasetId
+        && dataset.sourceVersion === activeDataset.sourceVersion
+      ))
+      if (!described || described.sampleRows === undefined) { markUnavailable(); return }
+      setDatasets((current) => current.map((dataset) => (
+        dataset.datasetId === described.datasetId && dataset.sourceVersion === described.sourceVersion
+          ? { ...dataset, ...described }
+          : dataset
+      )))
+    }).catch(markUnavailable)
+    return () => { active = false }
+  }, [activeDataset, api, project])
+
   const rememberWorkspace = useCallback((selection: {
     datasetId?: string
     agentDatasetIds?: string[]

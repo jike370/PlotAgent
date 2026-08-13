@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Activity,
   ArrowRight,
   Check,
   CheckCircle2,
+  ChevronDown,
   CircleAlert,
   CircleCheck,
   Download,
@@ -195,6 +197,51 @@ function mappingRoles(chartId: string): MappingRole[] {
   ]
 }
 
+function suggestedFieldMapping(roles: MappingRole[], dataset: ProductDataset): Record<string, string> {
+  const numeric = dataset.fields.filter((field) => numericKinds.has(field.logicalType.toLocaleLowerCase('en-US')))
+  const other = dataset.fields.filter((field) => !numeric.includes(field))
+  const normalizedName = (name: string): string => name.toLocaleLowerCase('en-US').replace(/[^a-z0-9]+/g, '')
+  const optionalHints: Record<string, string[]> = {
+    color: ['color', 'colour'],
+    count: ['count', 'frequency', 'freq', 'weight'],
+    error: ['error', 'err'],
+    group: ['group', 'condition', 'class', 'treatment'],
+    label: ['label', 'name'],
+    middle: ['middle', 'mid'],
+    pvalue: ['pvalue', 'pval'],
+    qvalue: ['qvalue', 'qval', 'fdr'],
+    series_2: ['series2'],
+    series_3: ['series3'],
+    size: ['size', 'bubble'],
+  }
+  const used = new Set<string>()
+  const mapping: Record<string, string> = {}
+  const orderedRoles = [...roles.filter((role) => role.required), ...roles.filter((role) => !role.required)]
+  for (const role of orderedRoles) {
+    const candidates = role.numeric ? numeric : other.length > 0 ? other : dataset.fields
+    const hints = optionalHints[role.role] ?? [normalizedName(role.role)]
+    const matchingField = candidates.find((candidate) => {
+      if (used.has(candidate.fieldId)) return false
+      const name = normalizedName(candidate.name)
+      return hints.some((hint) => name.includes(hint))
+    })
+    const field = matchingField ?? (role.required
+      ? candidates.find((candidate) => !used.has(candidate.fieldId))
+      : undefined)
+    if (!field) continue
+    mapping[role.role] = field.fieldId
+    used.add(field.fieldId)
+  }
+  return mapping
+}
+
+function previewValue(value: string | number | boolean | null | undefined): string {
+  if (value === null) return '空值'
+  if (value === undefined) return '—'
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  return String(value)
+}
+
 function Startup({
   core,
   busyAction,
@@ -316,11 +363,13 @@ function MappingObject({
   dataset,
   busy,
   onConfirm,
+  onCancel,
 }: {
   chart: ChartType
   dataset: ProductDataset
   busy: boolean
   onConfirm: (mapping: FieldMappingInput) => void
+  onCancel: () => void
 }): React.JSX.Element {
   const variadicSeries = ['X03', 'X38', 'X39', 'X40'].includes(chart.id)
   const [seriesRoleCount, setSeriesRoleCount] = useState(2)
@@ -338,34 +387,139 @@ function MappingObject({
       })),
     ]
   }, [chart.id, seriesRoleCount, variadicSeries])
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const numeric = dataset.fields.filter((field) => numericKinds.has(field.logicalType.toLocaleLowerCase('en-US')))
-    const other = dataset.fields.filter((field) => !numeric.includes(field))
-    const next: Record<string, string> = {}
-    roles.forEach((role, index) => {
-      if (!role.required) { next[role.role] = ''; return }
-      const candidates = role.numeric ? numeric : other.length > 0 ? other : dataset.fields
-      next[role.role] = candidates[index % Math.max(candidates.length, 1)]?.fieldId ?? dataset.fields[0]?.fieldId ?? ''
+  const suggestions = useMemo(() => suggestedFieldMapping(roles, dataset), [dataset, roles])
+  const [values, setValues] = useState<Record<string, string>>(() => suggestions)
+  const [picker, setPicker] = useState<{ fieldId: string; left: number; top: number }>()
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const triggerRefs = useRef(new Map<string, HTMLButtonElement>())
+  const missingRoles = roles.filter((role) => role.required && !values[role.role])
+  const complete = missingRoles.length === 0
+  const assignedRole = (fieldId: string): MappingRole | undefined => roles.find((role) => values[role.role] === fieldId)
+  const closePicker = useCallback((restoreFocus = false): void => {
+    const trigger = picker ? triggerRefs.current.get(picker.fieldId) : undefined
+    setPicker(undefined)
+    if (restoreFocus) window.requestAnimationFrame(() => trigger?.focus())
+  }, [picker])
+  const openPicker = (fieldId: string): void => {
+    const trigger = triggerRefs.current.get(fieldId)
+    if (!trigger) return
+    if (picker?.fieldId === fieldId) { closePicker(true); return }
+    const rect = trigger.getBoundingClientRect()
+    const menuWidth = 224
+    const menuHeight = 44 + Math.ceil((roles.length + 1) / 2) * 38
+    const left = Math.min(rect.left, window.innerWidth - menuWidth - 12)
+    const top = rect.bottom + 6 + menuHeight <= window.innerHeight
+      ? rect.bottom + 6
+      : Math.max(12, rect.top - menuHeight - 6)
+    setPicker({ fieldId, left: Math.max(12, left), top })
+  }
+  const setFieldRole = (fieldId: string, roleName: string): void => {
+    setValues((current) => {
+      const next = Object.fromEntries(Object.entries(current).filter(([, assignedField]) => assignedField !== fieldId))
+      if (roleName) next[roleName] = fieldId
+      return next
     })
-    return next
-  })
-  const complete = roles.filter((role) => role.required).every((role) => values[role.role])
+    closePicker(false)
+    window.requestAnimationFrame(() => triggerRefs.current.get(fieldId)?.focus())
+  }
+  const movePickerFocus = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    const items = [...(pickerRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not(:disabled)') ?? [])]
+    if (items.length === 0) return
+    event.preventDefault()
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement)
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? items.length - 1
+        : event.key === 'ArrowDown'
+          ? (currentIndex + 1 + items.length) % items.length
+          : (currentIndex - 1 + items.length) % items.length
+    items[nextIndex]?.focus()
+  }
+
+  useEffect(() => {
+    if (!picker) return
+    const onPointerDown = (event: PointerEvent): void => {
+      const target = event.target as Node
+      if (pickerRef.current?.contains(target) || triggerRefs.current.get(picker.fieldId)?.contains(target)) return
+      closePicker(false)
+    }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      closePicker(true)
+    }
+    const onViewportChange = (): void => closePicker(false)
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    window.addEventListener('resize', onViewportChange)
+    window.addEventListener('scroll', onViewportChange, true)
+    const frame = window.requestAnimationFrame(() => {
+      const selected = pickerRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')
+      const first = pickerRef.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"]')
+      ;(selected ?? first)?.focus()
+    })
+    return () => {
+      window.cancelAnimationFrame(frame)
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('resize', onViewportChange)
+      window.removeEventListener('scroll', onViewportChange, true)
+    }
+  }, [closePicker, picker])
+
   return (
-    <section className="object-block mapping-object" aria-labelledby="mapping-title">
-      <header className="object-header">
-        <span className="object-icon object-icon--mapping"><TableProperties size={17} /></span>
-        <div><h3 id="mapping-title">确认字段映射</h3><p>{chart.name}</p></div>
+    <div className="mapping-review" role="group" aria-labelledby="mapping-title">
+      <header className="mapping-data-context">
+        <span className="object-icon object-icon--mapping" aria-hidden="true"><TableProperties size={17} /></span>
+        <div><h3 id="mapping-title">数据预览与字段绑定</h3><p>{dataset.displayName} · 原始数据只读</p></div>
       </header>
-      <div className="mapping-form">
-        {roles.map((role) => (
-          <label key={role.role}><span>{role.label}{role.required ? '' : '（可选）'}</span>
-            <select value={values[role.role] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [role.role]: event.target.value }))}>
-              <option value="">选择字段</option>
-              {dataset.fields.map((field) => <option key={field.fieldId} value={field.fieldId}>{displayFieldName(field.name)} · {displayLogicalType(field.logicalType)} · {field.unit}</option>)}
-            </select>
-          </label>
-        ))}
+      <div className="mapping-review__toolbar">
+        <span>
+          <strong>{dataset.sampleRows === undefined
+            ? dataset.samplePreviewUnavailable ? '样本预览不可用' : '正在读取样本'
+            : `预览前 ${Math.min(dataset.sampleRows.length, 5)} 行`}</strong>
+          ，共 {dataset.rowCount.toLocaleString('zh-CN')} 行
+        </span>
+        <span>字段角色位于原始列名上方</span>
       </div>
+      <section className="mapping-preview-object">
+        <div className="mapping-preview-scroll" tabIndex={0} aria-label="字段映射和数据预览，可横向滚动">
+          <table className="mapping-preview-table" style={{ minWidth: `${Math.max(680, dataset.fields.length * 148)}px` }}>
+            <thead><tr>{dataset.fields.map((field) => {
+              const role = assignedRole(field.fieldId)
+              return <th key={field.fieldId} scope="col">
+                <div className="mapping-column-head">
+                  <button
+                    className="mapping-role-trigger"
+                    type="button"
+                    ref={(node) => { if (node) triggerRefs.current.set(field.fieldId, node); else triggerRefs.current.delete(field.fieldId) }}
+                    aria-label={`${displayFieldName(field.name)} 的绘图角色：${role?.label ?? '未使用'}`}
+                    aria-haspopup="menu"
+                    aria-expanded={picker?.fieldId === field.fieldId}
+                    data-empty={role === undefined}
+                    disabled={busy}
+                    onClick={() => openPicker(field.fieldId)}
+                  >
+                    <span>{role?.label ?? '未使用'}</span><ChevronDown size={12} aria-hidden="true" />
+                  </button>
+                  <strong title={field.name}>{displayFieldName(field.name)}</strong>
+                  <small>{displayLogicalType(field.logicalType)} · {field.unit}</small>
+                </div>
+              </th>
+            })}</tr></thead>
+            <tbody>{dataset.sampleRows === undefined
+              ? <tr><td className="mapping-preview-empty" colSpan={dataset.fields.length}>{dataset.samplePreviewUnavailable ? '样本预览暂不可用，仍可按字段名称与类型完成映射。' : '正在读取样本…'}</td></tr>
+              : dataset.sampleRows.length === 0
+                ? <tr><td className="mapping-preview-empty" colSpan={dataset.fields.length}>没有可预览的数据行。</td></tr>
+                : dataset.sampleRows.map((row, rowIndex) => <tr key={`preview-row-${rowIndex}`}>{dataset.fields.map((field, columnIndex) => {
+                  const value = previewValue(row[columnIndex])
+                  return <td key={field.fieldId} title={value}>{value}</td>
+                })}</tr>)}</tbody>
+          </table>
+        </div>
+      </section>
       {variadicSeries && (
         <div className="mapping-series-actions">
           <button type="button" onClick={() => setSeriesRoleCount((count) => count + 1)}>添加系列</button>
@@ -380,12 +534,42 @@ function MappingObject({
           }}>移除末项</button>
         </div>
       )}
-      <footer className="mapping-confirmation">
-        <button className="primary-button" type="button" disabled={!complete || busy} onClick={() => onConfirm({ roles: Object.fromEntries(Object.entries(values).filter(([, field]) => field)) })}>
-          {busy ? <LoaderCircle className="spin" size={15} /> : <CheckCircle2 size={15} />}确认映射并绘图
-        </button>
-      </footer>
-    </section>
+      <section className="mapping-decision" data-state={complete ? 'valid' : 'invalid'} aria-labelledby="mapping-decision-title">
+        <div className="mapping-decision__copy">
+          <span>是否确认创建</span>
+          <strong id="mapping-decision-title">{chart.id} {chart.name}</strong>
+          <div className="mapping-validation" data-state={complete ? 'valid' : 'invalid'} role="status">
+            <span aria-hidden="true" />
+            {complete
+              ? `必填字段已完成：${roles.filter((role) => role.required).map((role) => role.label).join('、')}`
+              : `还需绑定：${missingRoles.map((role) => role.label).join('、')}`}
+          </div>
+        </div>
+        <div className="mapping-decision__actions">
+          <button type="button" disabled={busy} onClick={() => { closePicker(false); onCancel() }}>取消</button>
+          <button type="button" disabled={busy} onClick={() => { closePicker(false); setValues(suggestions) }}>恢复 Agent 建议</button>
+          <button className="primary-button" type="button" disabled={!complete || busy} onClick={() => onConfirm({ roles: Object.fromEntries(Object.entries(values).filter(([, field]) => field)) })}>
+            {busy ? <LoaderCircle className="spin" size={15} /> : <CheckCircle2 size={15} />}{busy ? '正在绘图' : '确认并绘图'}
+          </button>
+        </div>
+      </section>
+      {picker && createPortal(
+        <div className="mapping-role-menu" ref={pickerRef} role="menu" aria-label={`${displayFieldName(dataset.fields.find((field) => field.fieldId === picker.fieldId)?.name ?? picker.fieldId)} 的绘图角色`} style={{ left: picker.left, top: picker.top }} onKeyDown={movePickerFocus}>
+          <span>选择字段角色</span>
+          <div>
+            {[{ role: '', label: '未使用', numeric: false, required: false }, ...roles].map((role) => {
+              const selected = (assignedRole(picker.fieldId)?.role ?? '') === role.role
+              const field = dataset.fields.find((candidate) => candidate.fieldId === picker.fieldId)
+              const incompatible = Boolean(role.role && role.numeric && field && !numericKinds.has(field.logicalType.toLocaleLowerCase('en-US')))
+              return <button key={role.role || 'unused'} type="button" role="menuitemradio" aria-checked={selected} disabled={incompatible} title={incompatible ? '该角色需要数值字段' : undefined} onClick={() => setFieldRole(picker.fieldId, role.role)}>
+                <span aria-hidden="true">{selected ? '✓' : ''}</span>{role.label}{role.required ? '' : role.role ? '（可选）' : ''}
+              </button>
+            })}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
   )
 }
 
@@ -719,7 +903,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
                 {props.agentPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><AgentPlanObject plan={props.agentPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onEdit={(planId) => { props.onRejectAgentPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} /></div></div>}
                 {exportRecord && <section className="object-block product-result-strip product-result-strip--success" aria-label="导出记录" role="status" aria-live="polite"><CircleCheck size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize.toLocaleString('zh-CN')} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
                 {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
-                {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>请确认这次绘图使用的字段。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} onConfirm={props.onConfirmMapping} /></div></div>}
+                {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} onConfirm={props.onConfirmMapping} onCancel={() => setManualMappingOpen(false)} /></div></div>}
                 {plot && <PlotObject {...props} chart={selectedChart} />}
               </>
             )}

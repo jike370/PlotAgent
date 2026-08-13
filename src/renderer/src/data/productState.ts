@@ -16,6 +16,8 @@ export interface ProductField {
   unit: string
 }
 
+export type ProductPreviewValue = string | number | boolean | null
+
 export interface ProductDataset {
   datasetId: string
   contentHash?: string
@@ -29,6 +31,8 @@ export interface ProductDataset {
   missingCount: number
   nonFiniteCount: number
   coordinateKinds: string[]
+  sampleRows?: ProductPreviewValue[][]
+  samplePreviewUnavailable?: boolean
 }
 
 export type ProductOriginAvailability =
@@ -258,6 +262,20 @@ function countQuality(value: JsonValue | undefined, keys: string[]): number {
   return keys.reduce((total, key) => total + (typeof value[key] === 'number' ? value[key] : 0), 0)
 }
 
+function readSampleRows(value: JsonValue | undefined): ProductPreviewValue[][] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value)) return []
+  return value.slice(0, 5).flatMap((row): ProductPreviewValue[][] => {
+    if (!Array.isArray(row)) return []
+    const values = row.flatMap((item): ProductPreviewValue[] => (
+      item === null || typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean'
+        ? [item]
+        : []
+    ))
+    return values.length === row.length ? [values] : []
+  })
+}
+
 export function readDatasets(value: JsonValue): ProductDataset[] {
   const candidates = records(value, (record) => typeof record.source_dataset_id === 'string' && Array.isArray(record.fields))
   return [...new Map(candidates.map((record) => {
@@ -278,6 +296,7 @@ export function readDatasets(value: JsonValue): ProductDataset[] {
     const sourceFileName = stringValue(record, 'source_file_name', 'file_name', 'workbook_name')
     const sourceSheetName = stringValue(record, 'source_sheet_name', 'sheet_name')
     const sourceTableIndex = numberValue(record, 'source_table_index')
+    const sampleRows = readSampleRows(record.sample_rows)
     const displayName = sourceFileName === undefined
       ? stringValue(record, 'display_name') ?? datasetId
       : sourceSheetName !== undefined
@@ -301,6 +320,7 @@ export function readDatasets(value: JsonValue): ProductDataset[] {
       coordinateKinds: Array.isArray(record.source_coordinate_kinds)
         ? record.source_coordinate_kinds.filter((item): item is string => typeof item === 'string')
         : [],
+      ...(sampleRows === undefined ? {} : { sampleRows }),
     } satisfies ProductDataset]
   })).values()]
 }
