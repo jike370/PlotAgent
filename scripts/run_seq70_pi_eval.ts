@@ -525,13 +525,55 @@ async function modelTask(
   task: EvalTask,
   repeat: number,
   core: PythonCoreSupervisor,
-  projectId: string,
-  projectVersion: number,
-  datasets: Map<string, ImportedDataset>,
-  plotId: string,
+  dataDir: string,
 ): Promise<EvalRecord> {
-  const fixture = task.fixture === undefined ? undefined : datasets.get(task.fixture)
-  if (fixture === undefined) throw new Error(`Missing fixture for ${task.task_id}`)
+  if (task.fixture === undefined) throw new Error(`Missing fixture for ${task.task_id}`)
+  const created = asObject(await core.request('projects.create', {
+    display_name: `SEQ-70 ${task.task_id}.r${repeat}`,
+    idempotency_key: `seq70-${task.task_id}-${repeat}-${randomUUID()}`,
+  }), 'created task project')
+  const projectId = String(created.project_id)
+  const opened = asObject(await core.request('projects.open', {
+    project_id: projectId,
+  }), 'opened task project')
+  let projectVersion = Number(opened.project_version)
+  const imported = asObject(await core.request('datasets.import', {
+    project_id: projectId,
+    resource_id: `resource:seq70.${task.fixture}.${task.task_id}.${repeat}`,
+    source_path: join(dataDir, `${task.fixture}.csv`),
+    idempotency_key: `seq70-import-${task.task_id}-${repeat}-${randomUUID()}`,
+    expected_version: projectVersion,
+    options: {},
+  }, 60_000), 'import task fixture')
+  projectVersion = Number(imported.project_version)
+  if (!Array.isArray(imported.datasets) || imported.datasets.length !== 1) {
+    throw new Error(`Fixture ${task.fixture} did not import as one dataset`)
+  }
+  const fixture = imported.datasets[0] as unknown as ImportedDataset
+  const plotId = `plot:seq70.${task.task_id.toLowerCase()}.${repeat}`
+  if (task.target === 'plot') {
+    const createdPlot = asObject(await core.request('engine.actions.execute', {
+      project_id: projectId,
+      expected_project_version: projectVersion,
+      action: {
+        operation: 'create_plot',
+        action_id: `action:setup-${task.task_id.toLowerCase()}-${repeat}`,
+        plot_id: plotId,
+        profile_id: task.selected_profile_id ?? 'K01',
+        data: {
+          kind: 'source',
+          dataset_id: fixture.source_dataset_id,
+          version: fixture.source_version,
+          content_hash: fixture.content_hash,
+        },
+        bindings: [
+          { role: 'x', field_id: fixture.fields[0].field_id },
+          { role: 'y', field_id: fixture.fields[1].field_id },
+        ],
+      },
+    }, 60_000), 'create task plot')
+    projectVersion = Number(createdPlot.project_version)
+  }
   const events: PiAgentRuntimeEvent[] = []
   const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
   const runtime = new PiAgentRuntime({
@@ -586,6 +628,8 @@ async function modelTask(
       usage,
       metrics: { plan_legal: false },
     }
+  } finally {
+    await core.request('projects.close', { project_id: projectId }).catch(() => undefined)
   }
 }
 
@@ -697,7 +741,8 @@ function aggregate(taskSet: TaskSet, records: EvalRecord[]): JsonObject {
     runtime_task_success_rate: rates.runtime_task_success_rate >= thresholds.runtime_task_success_rate,
     model_latency_p95_seconds: rates.model_latency_p95_seconds <= thresholds.model_latency_p95_seconds_max,
   }
-  const miss = Math.max(0, usage.input - usage.cacheRead)
+  const miss = usage.input
+  const totalInput = usage.input + usage.cacheRead
   const pricing = taskSet.pricing_cny_per_million_tokens
   const estimatedCost = (
     usage.cacheRead * pricing.input_cache_hit
@@ -715,7 +760,12 @@ function aggregate(taskSet: TaskSet, records: EvalRecord[]): JsonObject {
       passed: records.filter((item) => item.passed).length,
       failed: records.filter((item) => !item.passed).length,
     },
-    usage: { ...usage, input_cache_miss: miss, estimated_cost_cny: estimatedCost },
+    usage: {
+      ...usage,
+      input_total: totalInput,
+      input_cache_miss: miss,
+      estimated_cost_cny: estimatedCost,
+    },
   }
 }
 
@@ -753,7 +803,7 @@ ${rows.join('\n')}
 - 中位延迟：${Number(rates.model_latency_median_seconds).toFixed(4)} 秒
 - P95：${Number(rates.model_latency_p95_seconds).toFixed(4)} 秒
 - 最大：${Number(rates.model_latency_max_seconds).toFixed(4)} 秒
-- 输入 token：${usage.input}（cache read ${usage.cacheRead} / miss ${usage.input_cache_miss}）
+- 输入 token：${usage.input_total}（cache read ${usage.cacheRead} / miss ${usage.input_cache_miss}）
 - 输出 token：${usage.output}
 - 估算成本：¥${Number(usage.estimated_cost_cny).toFixed(6)}
 
@@ -852,10 +902,7 @@ async function main(): Promise<void> {
           item.task,
           item.repeat,
           supervisor,
-          setup.projectId,
-          setup.projectVersion,
-          setup.datasets,
-          setup.plotId,
+          join(output, 'data'),
         )
         : await runtimeScenario(item.task, item.repeat)
       records.push(record)
