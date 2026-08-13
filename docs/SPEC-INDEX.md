@@ -9,9 +9,10 @@
 5. [Origin Recipes](./ORIGIN-RECIPES.md)：运行时 recipe 合同。
 6. [绘图引擎验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md)：机械、视觉和黑盒门禁。
 7. [黑盒能力说明](./PLOTAGENT-V3-BLACK-BOX-CAPABILITY.md)：只描述用户可见能力和边界。
-8. [黑盒交接](./PLOTAGENT-V3-BLACK-BOX-ACCEPTANCE-HANDOFF.md)：正式 Windows Electron 执行步骤。
-9. [对话交互](./CONVERSATIONAL-INTERACTION.md)：确认卡、阶段反馈、撤销和错误恢复。
-10. [发布门禁](./PERFORMANCE-TEST-RELEASE.md)：Beta qualification。
+8. [探索性黑盒功能简报](./PLOTAGENT-V3-EXPLORATORY-BLACK-BOX-BRIEF.md)：只提供用户可见功能和边界，不提供测试答案。
+9. [冻结黑盒回归](./PLOTAGENT-V3-BLACK-BOX-ACCEPTANCE-HANDOFF.md)：正式 Windows Electron 回归执行清单。
+10. [对话交互](./CONVERSATIONAL-INTERACTION.md)：确认卡、阶段反馈、撤销和错误恢复。
+11. [发布门禁](./PERFORMANCE-TEST-RELEASE.md)：Beta qualification。
 
 ## 阅读规则
 
