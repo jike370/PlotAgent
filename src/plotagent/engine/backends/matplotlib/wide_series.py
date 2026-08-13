@@ -29,7 +29,12 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import WideSeriesData, wide_series, x03_lollipop
+from plotagent.engine.profile_data import (
+    WideSeriesData,
+    wide_series,
+    x03_lollipop,
+    x40_identity_label_positions,
+)
 from plotagent.engine.repository import document_ref
 
 _PALETTE = ("#1676D2", "#D97800", "#299764", "#C53D4D", "#7656B5", "#008A99")
@@ -104,7 +109,9 @@ class X03LollipopRenderer:
             profile_id="X03",
         )
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
-        category_positions = np.arange(len(lollipop.categories), dtype=float)
+        category_positions: np.ndarray = np.arange(
+            len(lollipop.categories), dtype=float
+        )
         for index, (label, values, style) in enumerate(
             zip(lollipop.columns.labels, lollipop.columns.values, state.series, strict=True)
         ):
@@ -212,11 +219,9 @@ def _draw_wide_series(axis: Axes, series: WideSeriesData, state: _State) -> None
     connector = state.connector
     if connector is None or connector.line_style == "none":
         raise ValueError("X39/X40 require one visible native connector group")
-    x_values = np.arange(len(series.column_labels), dtype=float)
+    x_values: np.ndarray = np.arange(len(series.column_labels), dtype=float)
     rows = tuple(zip(*series.column_values, strict=True))
-    segments = tuple(
-        np.column_stack((x_values, np.asarray(row, dtype=float))) for row in rows
-    )
+    segments = tuple(np.column_stack((x_values, np.asarray(row, dtype=float))) for row in rows)
     axis.add_collection(
         LineCollection(
             segments,
@@ -244,18 +249,25 @@ def _draw_wide_series(axis: Axes, series: WideSeriesData, state: _State) -> None
         )
     if series.row_labels is not None:
         after_x = x_values[-1]
-        for row, (subject, after_value) in enumerate(
-            zip(series.row_labels, series.column_values[-1], strict=True)
+        label_positions = x40_identity_label_positions(series.column_values[-1])
+        for row, (subject, after_value, label_y) in enumerate(
+            zip(
+                series.row_labels,
+                series.column_values[-1],
+                label_positions,
+                strict=True,
+            )
         ):
             group = "" if series.row_groups is None else f" · {series.row_groups[row]}"
             axis.annotate(
                 f"{subject}{group}",
                 (after_x, after_value),
-                xytext=(6, 0),
-                textcoords="offset points",
+                xytext=(after_x + 0.03, label_y),
+                textcoords="data",
                 ha="left",
                 va="center",
                 fontsize=8,
+                arrowprops={"arrowstyle": "-", "color": "#666666", "linewidth": 0.6},
             )
     axis.set_xticks(x_values, series.column_labels)
     axis.autoscale_view()
@@ -307,9 +319,7 @@ def _state(
         title="",
         x_axis=_AxisState(x_label, scale="linear" if profile_id == "X03" else "categorical"),
         y_axis=_AxisState(y_label, scale="categorical" if profile_id == "X03" else "linear"),
-        series=tuple(
-            _SeriesState(_column_color(profile_id, index)) for index in range(count)
-        ),
+        series=tuple(_SeriesState(_column_color(profile_id, index)) for index in range(count)),
         connector=None if profile_id == "X03" else _ConnectorState(),
     )
     last_binding = max(
@@ -324,9 +334,7 @@ def _state(
                 raise ValueError(f"{profile_id} title target does not belong to this plot")
             state = replace(state, title=action.text)
         elif isinstance(action, SetAxis):
-            name = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(
-                action.target
-            )
+            name = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(action.target)
             if name is None:
                 raise ValueError(f"{profile_id} axis target does not belong to this plot")
             current = getattr(state, name)
@@ -375,9 +383,7 @@ def _state(
                     state,
                     connector=replace(
                         state.connector,
-                        color=(
-                            state.connector.color if action.color is None else action.color
-                        ),
+                        color=(state.connector.color if action.color is None else action.color),
                         line_width_pt=(
                             state.connector.line_width_pt
                             if action.line_width_pt is None
@@ -393,19 +399,19 @@ def _state(
                 continue
             ordinal = _column_ordinal(action.target, token, count, profile_id)
             if profile_id != "X03" and (
-                action.line_width_pt is not None or action.line_style is not None
+                action.line_width_pt is not None
+                or action.line_style is not None
+                or action.symbol_size_pt is not None
             ):
                 raise ValueError(
-                    f"{profile_id} column targets support marker color, symbol and size only"
+                    f"{profile_id} column targets support marker color and symbol only"
                 )
             current = state.series[ordinal - 1]
             updated = replace(
                 current,
                 color=current.color if action.color is None else action.color,
                 line_width_pt=(
-                    current.line_width_pt
-                    if action.line_width_pt is None
-                    else action.line_width_pt
+                    current.line_width_pt if action.line_width_pt is None else action.line_width_pt
                 ),
                 line_style=current.line_style if action.line_style is None else action.line_style,
                 symbol=current.symbol if action.symbol is None else action.symbol,

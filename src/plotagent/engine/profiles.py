@@ -416,9 +416,7 @@ K19_TIME_SERIES_PROFILE = EngineProfile(
         EngineCapability(operation="create_plot"),
         EngineCapability(operation="bind_fields"),
         EngineCapability(operation="set_title", parameters=("text",)),
-        EngineCapability(
-            operation="set_axis", parameters=("label", "scale", "bounds", "reverse")
-        ),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
         EngineCapability(
             operation="set_series_style",
             parameters=("color", "line_width_pt", "line_style"),
@@ -622,7 +620,18 @@ X39_LINE_SERIES_PROFILE = EngineProfile(
             object_key_prefix="column",
         ),
     ),
-    capabilities=X03_LOLLIPOP_PROFILE.capabilities,
+    capabilities=(
+        EngineCapability(operation="create_plot"),
+        EngineCapability(operation="bind_fields"),
+        EngineCapability(operation="set_title", parameters=("text",)),
+        EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
+        EngineCapability(
+            operation="set_series_style",
+            parameters=("color", "line_width_pt", "line_style", "symbol"),
+        ),
+        EngineCapability(operation="set_legend", parameters=("visible",)),
+        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
+    ),
 )
 
 X40_BEFORE_AFTER_PROFILE = EngineProfile(

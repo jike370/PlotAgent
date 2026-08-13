@@ -254,6 +254,32 @@ class WideSeriesData:
         return len(self.column_values[0])
 
 
+def x40_identity_label_positions(values: tuple[float, ...]) -> tuple[float, ...]:
+    """Spread colliding identity labels without changing source observations."""
+
+    if not values:
+        return ()
+    span = max(values) - min(values)
+    minimum_gap = max(span * 0.04, 0.1)
+    ordered = sorted(range(len(values)), key=lambda index: (values[index], index))
+    output = list(values)
+    start = 0
+    while start < len(ordered):
+        end = start + 1
+        while end < len(ordered) and (
+            values[ordered[end]] - values[ordered[end - 1]] < minimum_gap
+        ):
+            end += 1
+        cluster = ordered[start:end]
+        if len(cluster) > 1:
+            center = sum(values[index] for index in cluster) / len(cluster)
+            first = center - minimum_gap * (len(cluster) - 1) / 2
+            for offset, index in enumerate(cluster):
+                output[index] = first + minimum_gap * offset
+        start = end
+    return tuple(output)
+
+
 @dataclass(frozen=True, slots=True)
 class TimeSeriesLine:
     role: str
@@ -782,9 +808,7 @@ def k19_time_series(document: PlotDocument, data: EngineDataView) -> TimeSeriesD
         series=tuple(
             TimeSeriesLine(
                 role=role,
-                values=_numeric_values(
-                    columns[bindings[role]], role, "K19", allow_missing=True
-                ),
+                values=_numeric_values(columns[bindings[role]], role, "K19", allow_missing=True),
                 value_field_name=columns[bindings[role]].field.name,
             )
             for role in roles
@@ -807,9 +831,7 @@ def k18_area_series(document: PlotDocument, data: EngineDataView) -> AreaSeriesD
         series=tuple(
             AreaSeriesLine(
                 role=role,
-                values=_numeric_values(
-                    columns[bindings[role]], role, "K18", allow_missing=True
-                ),
+                values=_numeric_values(columns[bindings[role]], role, "K18", allow_missing=True),
                 value_field_name=columns[bindings[role]].field.name,
             )
             for role in roles
@@ -1117,9 +1139,7 @@ def x38_offset_stack(document: PlotDocument, data: EngineDataView) -> OffsetStac
         OffsetSeriesData(
             label=columns[bindings[role]].field.name,
             x_values=x_values,
-            y_values=_numeric_values(
-                columns[bindings[role]], role, "X38", allow_missing=True
-            ),
+            y_values=_numeric_values(columns[bindings[role]], role, "X38", allow_missing=True),
         )
         for role in roles
     ]
@@ -1135,9 +1155,7 @@ def k24_facets(document: PlotDocument, data: EngineDataView) -> FacetData:
     trellis = k24_trellis_data(document, data)
     panels: list[FacetSeriesData] = []
     for label in trellis.facet_labels:
-        indexes = tuple(
-            index for index, value in enumerate(trellis.facet_values) if value == label
-        )
+        indexes = tuple(index for index, value in enumerate(trellis.facet_values) if value == label)
         panels.append(
             FacetSeriesData(
                 label=label,

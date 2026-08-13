@@ -32,7 +32,11 @@ from plotagent.engine.backends.origin.wide_series import (
     WideSeriesOriginProject,
     read_wide_series_native_snapshot,
 )
-from plotagent.engine.profile_data import wide_series, x03_lollipop
+from plotagent.engine.profile_data import (
+    wide_series,
+    x03_lollipop,
+    x40_identity_label_positions,
+)
 from plotagent.engine.profiles import X39_LINE_SERIES_PROFILE, X40_BEFORE_AFTER_PROFILE
 
 HASH = "6" * 64
@@ -158,6 +162,17 @@ def test_x40_preserves_subject_and_group_identity() -> None:
     assert data.row_groups == ("Control", "Control", "Treatment", "Treatment")
 
 
+def test_x40_spreads_duplicate_identity_labels_without_changing_data() -> None:
+    values = (12.0, 14.0, 14.0, 14.0, 15.0)
+
+    positions = x40_identity_label_positions(values)
+
+    assert positions[0] == values[0]
+    assert positions[4] == values[4]
+    assert positions[1] < positions[2] < positions[3]
+    assert sum(positions[1:4]) / 3 == pytest.approx(14.0)
+
+
 def test_x40_rejects_unpaired_third_value_column() -> None:
     document, _, view = _case("X40", series_count=3)
     with pytest.raises(ValueError, match="exactly two"):
@@ -213,9 +228,7 @@ def test_wide_series_matplotlib_renderers_follow_dynamic_data(
             semantic_id
             for semantic_id in semantic_ids
             if semantic_id.startswith(f"series:{token}.column_")
-        ) == tuple(
-            f"series:{token}.column_{index}" for index in range(1, series_count + 1)
-        )
+        ) == tuple(f"series:{token}.column_{index}" for index in range(1, series_count + 1))
         assert not any(".row_" in semantic_id for semantic_id in semantic_ids)
 
 
@@ -230,11 +243,31 @@ class _Plot:
         return self.values.get(name, 0)
 
 
+class _Label:
+    def __init__(self, text: str, x: float, y: float) -> None:
+        self.name = ""
+        self.text = text
+        self.values: dict[str, float | int] = {"x1": x, "y1": y, "show": 1}
+
+    def set_int(self, name: str, value: int) -> None:
+        self.values[name] = value
+
+    def get_int(self, name: str) -> int:
+        return int(self.values.get(name, 0))
+
+    def get_float(self, name: str) -> float:
+        return float(self.values.get(name, 0.0))
+
+    def set_float(self, name: str, value: float) -> None:
+        self.values[name] = value
+
+
 class _Layer:
     def __init__(self) -> None:
         self.plots: list[_Plot] = []
         self.add_calls: list[dict[str, object]] = []
         self.values: dict[str, object] = {}
+        self.labels: list[_Label] = []
 
     def plot_list(self) -> list[_Plot]:
         return self.plots
@@ -244,6 +277,14 @@ class _Layer:
         self.plots.append(plot)
         self.add_calls.append(kwargs)
         return plot
+
+    def add_label(self, text: str, x: float, y: float) -> _Label:
+        label = _Label(text, x, y)
+        self.labels.append(label)
+        return label
+
+    def label(self, name: str) -> _Label | None:
+        return next((label for label in self.labels if label.name == name), None)
 
     def set_int(self, name: str, value: int) -> None:
         self.values[name] = value
@@ -304,9 +345,7 @@ class _Sheet:
         self.activated = True
 
     def lt_exec(self, command: str) -> bool:
-        assert command == (
-            "wks.col1.categorical.type=2; wks.col1.categorical.sort=0;"
-        )
+        assert command == ("wks.col1.categorical.type=2; wks.col1.categorical.sort=0;")
         self.categorical_type = 2
         self.categorical_sort = 0
         return True
@@ -362,9 +401,7 @@ class _Origin:
             self.graph = _Graph()
             self.native_member_count = len(self.book.sheet.columns)
             self.native_plot_type = 206
-            self.graph.layer.plots = [
-                _Plot(206) for _index in range(self.native_member_count)
-            ]
+            self.graph.layer.plots = [_Plot(206) for _index in range(self.native_member_count)]
         elif "run.section(Plot,BeforeAfter)" in command:
             self.graph = _Graph()
             match = __import__("re").search(r"worksheet -s 1 0 (\d+) 0", command)
@@ -372,9 +409,7 @@ class _Origin:
             self.native_member_count = int(match.group(1))
             self.native_plot_type = 206
             self.subgroup_size = 2
-            self.graph.layer.plots = [
-                _Plot(206) for _index in range(self.native_member_count)
-            ]
+            self.graph.layer.plots = [_Plot(206) for _index in range(self.native_member_count)]
         return True
 
     def lt_float(self, expression: str) -> float:
@@ -456,9 +491,7 @@ def test_x03_origin_uses_official_lollipop_menu_command_without_xy_rebuild(
     project.create(tmp_path, document, view)
 
     assert resolved == [X03_ORIGIN_PROFILE.filename]
-    assert origin.commands[0] == (
-        "worksheet -s 1 0 5 0; run.section(Plot,general,201 Lollipop 0);"
-    )
+    assert origin.commands[0] == ("worksheet -s 1 0 5 0; run.section(Plot,general,201 Lollipop 0);")
     assert "__X03CATTYPE=wks.col1.categorical.type" in origin.commands[1]
     assert "layer -c" in origin.commands[2]
     assert sum("get __X03P -pt" in command for command in origin.commands) == 4
@@ -540,7 +573,16 @@ def test_x39_x40_origin_keep_official_wide_table_and_menu_group(
     assert project.native_snapshot["comments"] == ("",) * series_count
     if profile_id == "X40":
         assert project.native_snapshot["subgroup_size"] == 2
-        assert any("set __X40AFTER -q 1" in command for command in origin.commands)
+        assert tuple(label.name for label in origin.graph.layer.labels) == tuple(
+            f"X40S{index:04d}" for index in range(1, 6)
+        )
+        assert tuple(label.text for label in origin.graph.layer.labels) == (
+            "P01 · Control",
+            "P02 · Control",
+            "P03 · Treatment",
+            "P04 · Treatment",
+            "P05 · Treatment",
+        )
 
 
 @pytest.mark.parametrize(
@@ -566,9 +608,7 @@ def test_official_sample_snapshot_records_group_and_label_metadata_without_plot_
     origin.native_member_count = len(long_names)
     origin.native_plot_type = 206
     origin.subgroup_size = subgroup_size
-    for index, (long_name, comment) in enumerate(
-        zip(long_names, comments, strict=True)
-    ):
+    for index, (long_name, comment) in enumerate(zip(long_names, comments, strict=True)):
         origin.book.sheet.from_list(
             index,
             [float(index + row) for row in range(5)],
@@ -638,12 +678,8 @@ def test_x39_x40_live_probe_plan_is_com_free_and_explicit() -> None:
     )
     plan = json.loads(result.stdout)
 
-    assert plan["profiles"]["X39"]["official_menu"] == (
-        "run.section(Plot,LineSeries)"
-    )
-    assert plan["profiles"]["X40"]["official_menu"] == (
-        "run.section(Plot,BeforeAfter)"
-    )
+    assert plan["profiles"]["X39"]["official_menu"] == ("run.section(Plot,LineSeries)")
+    assert plan["profiles"]["X40"]["official_menu"] == ("run.section(Plot,BeforeAfter)")
     assert "fresh" in plan["phases"]
     assert "Connect Within Subgroup" in plan["manual_gate"]
     script_source = script.read_text(encoding="utf-8")

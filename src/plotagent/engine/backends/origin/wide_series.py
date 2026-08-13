@@ -23,6 +23,7 @@ from plotagent.engine.profile_data import (
     WideSeriesData,
     wide_series,
     x03_lollipop,
+    x40_identity_label_positions,
 )
 from plotagent.engine.repository import document_ref
 
@@ -40,16 +41,12 @@ _LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
 _LINE_TYPE = {"solid": 1, "dash": 2, "dot": 3, "dash_dot": 4}
 _SYMBOL_CODES = {"circle": 2, "square": 1, "triangle": 3, "triangle_up": 3, "diamond": 5}
 _TITLE_NAME = "_ENGINE_TITLE"
+_X40_SUBJECT_PREFIX = "X40S"
 _X03_OFFICIAL_MENU_COMMAND = (
-    "worksheet -s 1 0 {last_column} 0; "
-    "run.section(Plot,general,201 Lollipop 0);"
+    "worksheet -s 1 0 {last_column} 0; run.section(Plot,general,201 Lollipop 0);"
 )
-_X39_OFFICIAL_MENU_COMMAND = (
-    "worksheet -s 1 0 {last_column} 0; run.section(Plot,LineSeries);"
-)
-_X40_OFFICIAL_MENU_COMMAND = (
-    "worksheet -s 1 0 {last_column} 0; run.section(Plot,BeforeAfter);"
-)
+_X39_OFFICIAL_MENU_COMMAND = "worksheet -s 1 0 {last_column} 0; run.section(Plot,LineSeries);"
+_X40_OFFICIAL_MENU_COMMAND = "worksheet -s 1 0 {last_column} 0; run.section(Plot,BeforeAfter);"
 
 
 def _pipe_strings(value: str) -> tuple[str, ...]:
@@ -102,24 +99,19 @@ def read_wide_series_native_snapshot(
     member_indices = _pipe_ints(str(op.get_lt_str(f"{probe}MEMBERS")))
     group_head_indices = _pipe_ints(str(op.get_lt_str(f"{probe}HEADS")))
     native_plot_types = tuple(
-        int(op.lt_float(f"layer.plot{index}.pid"))
-        for index in range(1, member_count + 1)
+        int(op.lt_float(f"layer.plot{index}.pid")) for index in range(1, member_count + 1)
     )
     plot_indices = tuple(
-        int(op.lt_float(f"layer.plot{index}.index"))
-        for index in range(1, member_count + 1)
+        int(op.lt_float(f"layer.plot{index}.index")) for index in range(1, member_count + 1)
     )
     member_colors = tuple(
-        int(op.lt_float(f"layer.plot{index}.color"))
-        for index in range(1, member_count + 1)
+        int(op.lt_float(f"layer.plot{index}.color")) for index in range(1, member_count + 1)
     )
     member_symbol_kinds = tuple(
-        int(op.lt_float(f"layer.plot{index}.symbol.kind"))
-        for index in range(1, member_count + 1)
+        int(op.lt_float(f"layer.plot{index}.symbol.kind")) for index in range(1, member_count + 1)
     )
     member_symbol_sizes = tuple(
-        float(op.lt_float(f"layer.plot{index}.symbol.size"))
-        for index in range(1, member_count + 1)
+        float(op.lt_float(f"layer.plot{index}.symbol.size")) for index in range(1, member_count + 1)
     )
     values = tuple(tuple(sheet.to_list(index)) for index in range(column_count))
     long_names = tuple(str(value) for value in sheet.get_labels("L")[:column_count])
@@ -151,15 +143,11 @@ def read_wide_series_native_snapshot(
         "native_group_count": len(unique_heads),
         "native_group_heads": unique_heads,
         "member_dataset_names": member_dataset_names,
-        "members_bind_source_columns": (
-            member_dataset_names == tuple(source_dataset_names)
-        ),
+        "members_bind_source_columns": (member_dataset_names == tuple(source_dataset_names)),
         "boxchart_type": int(op.lt_float("layer.plot1.boxchart.type")),
         "subgroup_size": int(op.lt_float("layer.plot1.subgroupsize")),
         "subgroup_label_row": int(op.lt_float("layer.plot1.subgrouplabelrow")),
-        "use_properties_by_subgroup": int(
-            op.lt_float("layer.plot1.usepropssubgroup")
-        ),
+        "use_properties_by_subgroup": int(op.lt_float("layer.plot1.usepropssubgroup")),
         "connector_color": int(op.lt_float("layer.plot1.color")),
         "connector_line_width": float(op.lt_float("layer.plot1.line.width")),
         "connector_line_type": int(op.lt_float("layer.plot1.line.type")),
@@ -250,9 +238,7 @@ class WideSeriesOriginProject:
                 self.graph.name = f"G{token}"
                 self.graph.lname = f"X03 {template.stem} / {document.plot_id}"
                 self.layer = self.graph[0]
-                self.plots = [
-                    plot for plot in self.layer.plot_list() if plot.get_int("show") != 0
-                ]
+                self.plots = [plot for plot in self.layer.plot_list() if plot.get_int("show") != 0]
                 native = self._assert_official_x03_structure(lollipop)
             record_origin_trace("native_lollipop_confirmed", "completed", details=native)
             self.layer.rescale()
@@ -272,9 +258,7 @@ class WideSeriesOriginProject:
             self._write_wide(series)
             self._remove_workbook_residue(book)
         command_template = (
-            _X39_OFFICIAL_MENU_COMMAND
-            if self.profile_id == "X39"
-            else _X40_OFFICIAL_MENU_COMMAND
+            _X39_OFFICIAL_MENU_COMMAND if self.profile_id == "X39" else _X40_OFFICIAL_MENU_COMMAND
         )
         command = command_template.format(last_column=len(series.column_values))
         with origin_trace_step(
@@ -299,7 +283,7 @@ class WideSeriesOriginProject:
             self.layer = self.graph[0]
             self.native_snapshot = self._assert_official_wide_structure(series)
             if self.profile_id == "X40":
-                self._enable_x40_subject_labels(series)
+                self._materialize_x40_identity_labels(series)
         record_origin_trace(
             "native_row_wise_group_confirmed",
             "completed",
@@ -349,12 +333,21 @@ class WideSeriesOriginProject:
                 raise ValueError(f"{self.profile_id} title target does not belong to this plot")
             title = self.layer.label(_TITLE_NAME)
             if title is None:
-                title = self.layer.add_label(action.text, 40, 2)
+                self.graph.activate()
+                self.layer.activate()
+                if not self.op.lt_exec(
+                    f"label -p 50 0 -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
+                ):
+                    raise RuntimeError(
+                        f"Origin could not create the {self.profile_id} title"
+                    )
+                title = self.layer.label(_TITLE_NAME)
                 if title is None:
                     raise RuntimeError(f"Origin could not create the {self.profile_id} title")
-                title.name = _TITLE_NAME
             title.text = action.text
             title.set_int("show", 1)
+            title.set_int("background", 0)
+            title.set_float("fsize", 14.0)
             return
         if isinstance(action, SetAxis):
             axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
@@ -437,37 +430,54 @@ class WideSeriesOriginProject:
                 )
                 legend.set_int("link", 1)
                 legend.set_int("show", int(action.visible))
+                legend.set_int("background", 0)
+                legend.set_float("fsize", 9.0)
             return
         raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
 
     def _apply_wide_series_style(self, action: SetSeriesStyle, token: str) -> None:
         self.graph.activate()
-        commands = ["page.active=1"]
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe Origin {self.profile_id} graph name: {graph_name!r}")
+        ordinal = 1
         if action.target == f"series:{token}.connector":
             if action.symbol is not None or action.symbol_size_pt is not None:
                 raise ValueError(
-                    f"Origin {self.profile_id} connector supports line style, width and "
-                    "color only"
+                    f"Origin {self.profile_id} connector supports line style, width and color only"
                 )
             if action.line_style == "none":
-                raise ValueError(
-                    f"Origin {self.profile_id} cannot hide its native connector group"
-                )
-            if action.color is not None:
-                commands.append(f"layer.plot1.color=color({action.color})")
-            if action.line_width_pt is not None:
-                commands.append(f"layer.plot1.line.width={action.line_width_pt:.12g}")
-            if action.line_style is not None:
-                commands.append(f"layer.plot1.line.type={_LINE_TYPE[action.line_style]}")
+                raise ValueError(f"Origin {self.profile_id} cannot hide its native connector group")
         else:
             ordinal = self._series_ordinal(action.target, token)
-            if action.line_width_pt is not None or action.line_style is not None:
+            if (
+                action.line_width_pt is not None
+                or action.line_style is not None
+                or action.symbol_size_pt is not None
+            ):
                 raise ValueError(
-                    f"Origin {self.profile_id} column targets support marker color, symbol "
-                    "and size only"
+                    f"Origin {self.profile_id} column targets support marker color and symbol only"
                 )
+        range_name = f"__{self.profile_id}STYLE"
+        commands = [
+            "page.active=1",
+            f"range {range_name}=[{graph_name}]1!{ordinal}",
+        ]
+        if action.target == f"series:{token}.connector":
             if action.color is not None:
-                commands.append(f"layer.plot{ordinal}.color=color({action.color})")
+                commands.append(f'set {range_name} -cl color("{action.color}")')
+            if action.line_width_pt is not None:
+                commands.append(f"set {range_name} -w {action.line_width_pt * 500:.12g}")
+            if action.line_style is not None:
+                commands.append(f"set {range_name} -d {_LINE_STYLE[action.line_style]}")
+        else:
+            if action.color is not None:
+                commands.extend(
+                    (
+                        f'set {range_name} -cse color("{action.color}")',
+                        f'set {range_name} -csf color("{action.color}")',
+                    )
+                )
             if action.symbol is not None:
                 try:
                     symbol = _SYMBOL_CODES[action.symbol]
@@ -475,13 +485,9 @@ class WideSeriesOriginProject:
                     raise ValueError(
                         f"Origin {self.profile_id} does not support symbol {action.symbol}"
                     ) from error
-                commands.append(f"layer.plot{ordinal}.symbol.kind={symbol}")
-            if action.symbol_size_pt is not None:
-                commands.append(
-                    f"layer.plot{ordinal}.symbol.size={action.symbol_size_pt:.12g}"
-                )
-        if len(commands) > 1:
-            self.op.lt_exec("; ".join(commands) + ";")
+                commands.append(f"set {range_name} -k {symbol}")
+        if len(commands) > 2 and not self.op.lt_exec("; ".join(commands) + ";"):
+            raise RuntimeError(f"Origin could not apply {self.profile_id} native style")
 
     def save(self, output_path: Path) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -502,9 +508,7 @@ class WideSeriesOriginProject:
         snapshot: dict[str, object] = {"profile": self.profile_id}
         if self.profile_id == "X03":
             if len(self.plots) != len(expected) - 1:
-                raise RuntimeError(
-                    "Origin X03 native plot count differs after reopen"
-                )
+                raise RuntimeError("Origin X03 native plot count differs after reopen")
             snapshot["series"] = len(self.plots)
             snapshot.update(self._assert_official_x03_structure(x03_lollipop(document, data)))
         else:
@@ -512,6 +516,9 @@ class WideSeriesOriginProject:
             snapshot["series"] = len(series.column_values)
             snapshot["connector_groups"] = 1
             snapshot.update(self._assert_official_wide_structure(series))
+            if self.profile_id == "X40":
+                self._verify_x40_identity_labels(series)
+                snapshot["identity_labels"] = series.row_count
         for action in actions:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
@@ -524,15 +531,11 @@ class WideSeriesOriginProject:
                     if action.color is not None and tuple(plot.color) != self._hex_rgb(
                         action.color
                     ):
-                        raise RuntimeError(
-                            "Origin X03 series color did not survive readback"
-                        )
+                        raise RuntimeError("Origin X03 series color did not survive readback")
                     if action.symbol_size_pt is not None and (
                         abs(float(plot.symbol_size) - action.symbol_size_pt) > 0.01
                     ):
-                        raise RuntimeError(
-                            "Origin X03 symbol size did not survive readback"
-                        )
+                        raise RuntimeError("Origin X03 symbol size did not survive readback")
                 else:
                     self._verify_wide_series_style(action, token)
             elif isinstance(action, SetLegend) and action.visible is not None:
@@ -622,9 +625,7 @@ class WideSeriesOriginProject:
         # Origin 2024's external Column proxy does not expose the newer
         # SetAsCategorical API.  The official sample uses auto-generated
         # categorical levels on the associated X column.
-        self.sheet.lt_exec(
-            "wks.col1.categorical.type=2; wks.col1.categorical.sort=0;"
-        )
+        self.sheet.lt_exec("wks.col1.categorical.type=2; wks.col1.categorical.sort=0;")
         for index, (label, values) in enumerate(
             zip(lollipop.columns.labels, lollipop.columns.values, strict=True),
             start=1,
@@ -634,8 +635,7 @@ class WideSeriesOriginProject:
     def _assert_official_x03_structure(self, lollipop: LollipopData) -> dict[str, object]:
         self.sheet.activate()
         self.op.lt_exec(
-            "__X03CATTYPE=wks.col1.categorical.type; "
-            "__X03CATSORT=wks.col1.categorical.sort;"
+            "__X03CATTYPE=wks.col1.categorical.type; __X03CATSORT=wks.col1.categorical.sort;"
         )
         category_type = int(self.op.lt_float("__X03CATTYPE"))
         category_sort = int(self.op.lt_float("__X03CATSORT"))
@@ -652,10 +652,7 @@ class WideSeriesOriginProject:
         plot_count = int(self.op.lt_float("__X03COUNT"))
         plot_types: list[int] = []
         for index in range(1, plot_count + 1):
-            self.op.lt_exec(
-                f"range __X03P=[{graph_name}]1!{index}; "
-                f"get __X03P -pt __X03PT{index};"
-            )
+            self.op.lt_exec(f"range __X03P=[{graph_name}]1!{index}; get __X03P -pt __X03PT{index};")
             plot_types.append(int(self.op.lt_float(f"__X03PT{index}")))
         if len(plot_types) != len(lollipop.columns.values) or any(
             plot_type != 201 for plot_type in plot_types
@@ -715,23 +712,70 @@ class WideSeriesOriginProject:
                 axis="N",
             )
 
-    def _enable_x40_subject_labels(self, series: WideSeriesData) -> None:
+    @staticmethod
+    def _x40_identity_text(series: WideSeriesData, row: int) -> str:
         if series.row_labels is None:
             raise RuntimeError("X40 requires subject labels")
-        graph_name = str(self.graph.name)
-        label_column = len(series.column_values) + 1
-        command = (
-            f"range __X40AFTER=[{graph_name}]1!2; "
-            "set __X40AFTER -q 1; set __X40AFTER -qm 5; "
-            f"set __X40AFTER -j -qms %(wcol({label_column})[i]$); "
-            "set __X40AFTER -qp 3;"
-        )
-        if not self.op.lt_exec(command):
-            raise RuntimeError("Origin could not link X40 labels to the Subject column")
+        subject = series.row_labels[row]
+        if series.row_groups is None:
+            return subject
+        return f"{subject} · {series.row_groups[row]}"
 
-    def _assert_official_wide_structure(
-        self, series: WideSeriesData
-    ) -> dict[str, object]:
+    def _materialize_x40_identity_labels(self, series: WideSeriesData) -> None:
+        if series.row_labels is None:
+            raise RuntimeError("X40 requires subject labels")
+        after_values = series.column_values[-1]
+        label_positions = x40_identity_label_positions(after_values)
+        for row, (after_value, label_y) in enumerate(
+            zip(after_values, label_positions, strict=True)
+        ):
+            label = self.layer.add_label(
+                self._x40_identity_text(series, row),
+                2.08,
+                label_y,
+            )
+            if label is None:
+                raise RuntimeError(f"Origin could not create X40 identity label for row {row + 1}")
+            label.name = f"{_X40_SUBJECT_PREFIX}{row + 1:04d}"
+            label.set_int("show", 1)
+            label.set_int("background", 0)
+            label.set_float("fsize", 8.0)
+            if abs(label_y - float(after_value)) > 1e-9:
+                leader = self.layer.add_line(2.0, float(after_value), 2.06, label_y)
+                if leader is None:
+                    raise RuntimeError(
+                        f"Origin could not create X40 identity leader for row {row + 1}"
+                    )
+                leader.name = f"X40L{row + 1:04d}"
+                leader.set_float("lineWidth", 0.6)
+
+    def _verify_x40_identity_labels(self, series: WideSeriesData) -> None:
+        after_values = series.column_values[-1]
+        label_positions = x40_identity_label_positions(after_values)
+        for row, (after_value, label_y) in enumerate(
+            zip(after_values, label_positions, strict=True)
+        ):
+            name = f"{_X40_SUBJECT_PREFIX}{row + 1:04d}"
+            label = self.layer.label(name)
+            expected_text = self._x40_identity_text(series, row)
+            if label is None or label.text != expected_text or not label.get_int("show"):
+                raise RuntimeError(f"Origin X40 identity label did not survive readback: {name}")
+            if (
+                abs(float(label.get_float("x1")) - 2.08) > 0.01
+                or abs(float(label.get_float("y1")) - label_y) > 0.01
+            ):
+                raise RuntimeError(
+                    f"Origin X40 identity label moved away from its After value: {name}"
+                )
+            if (
+                abs(label_y - float(after_value)) > 1e-9
+                and self.layer.label(f"X40L{row + 1:04d}") is None
+            ):
+                raise RuntimeError(
+                    f"Origin X40 identity leader did not survive readback: row {row + 1}"
+                )
+
+    def _assert_official_wide_structure(self, series: WideSeriesData) -> dict[str, object]:
         if self.profile_id not in {"X39", "X40"}:
             raise RuntimeError("wide-series structure readback is only valid for X39/X40")
         profile_id = cast(Literal["X39", "X40"], self.profile_id)
@@ -790,17 +834,16 @@ class WideSeriesOriginProject:
                 f"group: boxchart.type={snapshot['boxchart_type']}"
             )
         expected_indices = tuple(range(1, expected_count + 1))
-        if snapshot["plot_indices"] != expected_indices or snapshot[
-            "iterated_member_indices"
-        ] != expected_indices:
+        if (
+            snapshot["plot_indices"] != expected_indices
+            or snapshot["iterated_member_indices"] != expected_indices
+        ):
             raise RuntimeError(
                 f"Origin {self.profile_id} type-206 member order changed: "
                 f"plot_indices={snapshot['plot_indices']}, "
                 f"iterated={snapshot['iterated_member_indices']}"
             )
-        if snapshot["native_group_count"] != 1 or snapshot[
-            "native_group_heads"
-        ] != (1,):
+        if snapshot["native_group_count"] != 1 or snapshot["native_group_heads"] != (1,):
             raise RuntimeError(
                 f"Origin {self.profile_id} must retain one native plot group headed by "
                 f"member 1: heads={snapshot['group_head_indices']}"
@@ -818,9 +861,7 @@ class WideSeriesOriginProject:
                 f"observed={subgroup_size}"
             )
         command = (
-            _X39_OFFICIAL_MENU_COMMAND
-            if self.profile_id == "X39"
-            else _X40_OFFICIAL_MENU_COMMAND
+            _X39_OFFICIAL_MENU_COMMAND if self.profile_id == "X39" else _X40_OFFICIAL_MENU_COMMAND
         ).format(last_column=expected_count)
         return {
             **snapshot,
@@ -831,51 +872,60 @@ class WideSeriesOriginProject:
 
     def _verify_wide_series_style(self, action: SetSeriesStyle, token: str) -> None:
         self.graph.activate()
-        self.op.lt_exec("page.active=1;")
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe Origin {self.profile_id} graph name: {graph_name!r}")
+        ordinal = (
+            1
+            if action.target == f"series:{token}.connector"
+            else self._series_ordinal(action.target, token)
+        )
+        range_name = f"__{self.profile_id}VERIFY"
+        if not self.op.lt_exec(f"page.active=1; range {range_name}=[{graph_name}]1!{ordinal};"):
+            raise RuntimeError(f"Origin could not address {self.profile_id} native style")
         if action.target == f"series:{token}.connector":
-            prefix = "layer.plot1"
             if action.color is not None:
-                self._assert_lt_float(
-                    f"{prefix}.color",
+                self._assert_lt_option(
+                    range_name,
+                    "-cl",
                     self.op.lt_float(f"color({action.color})"),
                     "connector color",
                 )
             if action.line_width_pt is not None:
-                self._assert_lt_float(
-                    f"{prefix}.line.width",
-                    action.line_width_pt,
+                self._assert_lt_option(
+                    range_name,
+                    "-w",
+                    action.line_width_pt * 500,
                     "connector line width",
                 )
             if action.line_style is not None:
-                self._assert_lt_float(
-                    f"{prefix}.line.type",
-                    float(_LINE_TYPE[action.line_style]),
+                self._assert_lt_option(
+                    range_name,
+                    "-d",
+                    float(_LINE_STYLE[action.line_style]),
                     "connector line type",
                 )
             return
-        ordinal = self._series_ordinal(action.target, token)
-        prefix = f"layer.plot{ordinal}"
         if action.color is not None:
-            self._assert_lt_float(
-                f"{prefix}.color",
+            self._assert_lt_option(
+                range_name,
+                "-cse",
                 self.op.lt_float(f"color({action.color})"),
                 f"column {ordinal} marker color",
             )
         if action.symbol is not None:
-            self._assert_lt_float(
-                f"{prefix}.symbol.kind",
+            self._assert_lt_option(
+                range_name,
+                "-k",
                 float(_SYMBOL_CODES[action.symbol]),
                 f"column {ordinal} symbol",
             )
-        if action.symbol_size_pt is not None:
-            self._assert_lt_float(
-                f"{prefix}.symbol.size",
-                action.symbol_size_pt,
-                f"column {ordinal} symbol size",
-            )
 
-    def _assert_lt_float(self, expression: str, expected: float, name: str) -> None:
-        observed = float(self.op.lt_float(expression))
+    def _assert_lt_option(self, range_name: str, option: str, expected: float, name: str) -> None:
+        variable = f"__{self.profile_id}OBSERVED"
+        if not self.op.lt_exec(f"get {range_name} {option} {variable};"):
+            raise RuntimeError(f"Origin could not read {self.profile_id} {name}")
+        observed = float(self.op.lt_float(variable))
         if abs(observed - expected) > 0.01:
             raise RuntimeError(
                 f"Origin {self.profile_id} {name} did not survive readback: "
