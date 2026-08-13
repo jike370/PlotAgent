@@ -616,6 +616,66 @@ describe('PlotAgent real desktop workflow', () => {
     expect(within(review).getByRole('button', { name: '确认并绘图' })).toBeEnabled()
   })
 
+  it('closes a manual mapping review when the user cancels', async () => {
+    const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.click(screen.getByRole('button', { name: '手动映射' }))
+
+    const review = screen.getByRole('group', { name: '数据预览与字段绑定' })
+    await user.click(within(review).getByRole('button', { name: '取消' }))
+
+    expect(screen.queryByRole('group', { name: '数据预览与字段绑定' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '手动映射' })).toBeEnabled()
+    expect(api.executePlotAction).not.toHaveBeenCalled()
+  })
+
+  it('submits only engine-supported K04 roles from the generated profile', async () => {
+    const user = userEvent.setup()
+    const bubbleDataset = {
+      ...dataset,
+      field_count: 5,
+      fields: [
+        ...dataset.fields,
+        { field_id: 'field:size', name: 'bubble_size', logical_type: 'numeric', physical_type: 'float64', unit: null },
+        { field_id: 'field:color', name: 'color_value', logical_type: 'numeric', physical_type: 'float64', unit: null },
+      ],
+      sample_rows: dataset.sample_rows.map((row, index) => [...row, index + 5, index / 4]),
+    }
+    const api = fakeDesktop({
+      importDatasets: vi.fn(async () => ok({
+        imports: [{ kind: 'committed', project_version: 1, datasets: [bubbleDataset] }],
+        project_version: 1,
+      })),
+      describeDataset: vi.fn(async () => ok({ dataset: bubbleDataset })),
+    })
+    installApi(api)
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K04')
+    await user.click(screen.getByRole('button', { name: /K04.*气泡图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.click(screen.getByRole('button', { name: '手动映射' }))
+
+    const review = screen.getByRole('group', { name: '数据预览与字段绑定' })
+    expect(within(review).queryByRole('menuitemradio', { name: /分组/ })).not.toBeInTheDocument()
+    await user.click(within(review).getByRole('button', { name: '确认并绘图' }))
+
+    await waitFor(() => expect(api.executePlotAction).toHaveBeenCalledTimes(1))
+    const action = vi.mocked(api.executePlotAction).mock.calls[0]?.[0].action as { bindings: { role: string }[] }
+    expect(action.bindings.map((binding) => binding.role)).toEqual(['x', 'y', 'size', 'color'])
+    expect(action.bindings.some((binding) => binding.role === 'group')).toBe(false)
+  })
+
   it('shows a user-facing file and worksheet identity instead of the internal dataset id', async () => {
     const user = userEvent.setup()
     installApi(fakeDesktop({

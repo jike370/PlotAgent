@@ -54,4 +54,26 @@ describe('chart catalog', () => {
     expect(symbolCatalog.find((symbol) => symbol.shape === 'plus')?.allowed_interiors)
       .toEqual(['solid'])
   })
+
+  it('projects mapping roles from the generated engine profile catalog', () => {
+    const bubble = chartCatalog.find((chart) => chart.id === 'K04')
+    const area = chartCatalog.find((chart) => chart.id === 'K18')
+    const beforeAfter = chartCatalog.find((chart) => chart.id === 'X40')
+
+    expect(bubble).toMatchObject({
+      requiredFields: ['x', 'y'],
+      optionalFields: ['size', 'color'],
+      repeatableRolePrefixes: [],
+    })
+    expect(area).toMatchObject({
+      requiredFields: ['x', 'series_1'],
+      optionalFields: [],
+      repeatableRolePrefixes: ['series'],
+    })
+    expect(beforeAfter).toMatchObject({
+      requiredFields: ['label', 'series_1', 'series_2'],
+      optionalFields: ['group'],
+      repeatableRolePrefixes: [],
+    })
+  })
 })

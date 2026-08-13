@@ -150,32 +150,7 @@ interface MappingRole {
   required: boolean
 }
 
-function mappingRoles(chartId: string): MappingRole[] {
-  const registry: Record<string, { required: string[]; optional: string[] }> = {
-    K01: { required: ['x', 'y'], optional: [] }, K02: { required: ['x', 'y'], optional: [] },
-    K03: { required: ['x', 'y'], optional: ['group'] }, K04: { required: ['x', 'y'], optional: ['size', 'color', 'group'] },
-    K06: { required: ['x', 'center', 'x_lower', 'x_upper', 'lower', 'upper'], optional: ['group'] },
-    K07: { required: ['x', 'center', 'lower', 'upper'], optional: ['group'] }, K08: { required: ['category', 'value'], optional: [] },
-    K09: { required: ['category', 'group', 'value'], optional: [] }, K10: { required: ['category', 'component', 'value'], optional: [] },
-    K11: { required: ['category', 'component', 'value'], optional: [] }, K12: { required: ['value'], optional: ['group'] },
-    K13: { required: ['value'], optional: ['group'] }, K14: { required: ['value'], optional: ['group'] },
-    K15: { required: ['value'], optional: [] },
-    K18: { required: ['x', 'series_1'], optional: ['series_2', 'series_3'] }, K19: { required: ['time', 'series_1'], optional: ['series_2', 'series_3'] },
-    K20: { required: ['row', 'column', 'value'], optional: [] }, K21: { required: ['row_label', 'column_label', 'value'], optional: [] },
-    K22: { required: ['x', 'y', 'z'], optional: [] }, K24: { required: ['facet', 'base_x', 'base_y'], optional: [] },
-    S34: { required: ['z_real', 'z_imaginary'], optional: ['frequency'] }, S61: { required: ['actual', 'predicted'], optional: ['count'] },
-    X02: { required: ['x', 'y'], optional: [] },
-    X03: { required: ['category', 'series_1', 'series_2'], optional: ['series_3'] }, X05: { required: ['value'], optional: ['group'] },
-    X07: { required: ['value', 'group'], optional: [] }, X09: { required: ['category', 'start', 'end'], optional: ['middle'] },
-    X11: { required: ['category', 'delta'], optional: [] }, X12: { required: ['item', 'actual_value', 'target'], optional: ['range1', 'range2', 'range3'] },
-    X13: { required: ['category', 'left', 'right'], optional: [] }, X15: { required: ['x', 'y', 'z'], optional: [] },
-    X16: { required: ['x', 'y'], optional: [] }, X17: { required: ['x', 'y'], optional: [] },
-    X18: { required: ['value'], optional: [] }, X19: { required: ['method_a', 'method_b'], optional: [] },
-    X23: { required: ['x', 'left', 'right'], optional: [] }, X24: { required: ['category', 'value'], optional: [] },
-    X35: { required: ['category', 'left', 'right'], optional: [] }, X36: { required: ['category', 'left', 'right'], optional: [] },
-    X37: { required: ['group', 'left', 'right'], optional: [] }, X38: { required: ['x', 'series_1'], optional: ['series_2', 'series_3'] },
-    X39: { required: ['series_1', 'series_2'], optional: ['series_3'] }, X40: { required: ['label', 'series_1', 'series_2'], optional: ['group'] },
-  }
+function mappingRoles(chart: ChartType): MappingRole[] {
   const labels: Record<string, string> = {
     middle: '中间界限',
     x: 'X', y: 'Y', z: 'Z', category: '类别', group: '分组', component: '组成', value: '数值',
@@ -190,10 +165,9 @@ function mappingRoles(chartId: string): MappingRole[] {
     method_a: '方法 A', method_b: '方法 B', series: '系列', feature: '特征', log2fc: 'log2FC', pvalue: 'P 值', qvalue: 'Q 值',
   }
   const categorical = new Set(['category', 'group', 'component', 'event', 'row', 'column', 'row_label', 'column_label', 'facet', 'panel', 'parameter', 'label', 'peak_label', 'actual', 'predicted', 'item', 'series', 'feature'])
-  const entry = registry[chartId] ?? registry.K01
   return [
-    ...entry.required.map((role) => ({ role, label: labels[role] ?? role, numeric: !categorical.has(role), required: true })),
-    ...entry.optional.map((role) => ({ role, label: labels[role] ?? role, numeric: !categorical.has(role), required: false })),
+    ...chart.requiredFields.map((role) => ({ role, label: labels[role] ?? role, numeric: !categorical.has(role), required: true })),
+    ...chart.optionalFields.map((role) => ({ role, label: labels[role] ?? role, numeric: !categorical.has(role), required: false })),
   ]
 }
 
@@ -371,10 +345,14 @@ function MappingObject({
   onConfirm: (mapping: FieldMappingInput) => void
   onCancel: () => void
 }): React.JSX.Element {
-  const variadicSeries = ['X03', 'X38', 'X39', 'X40'].includes(chart.id)
-  const [seriesRoleCount, setSeriesRoleCount] = useState(2)
+  const variadicSeries = chart.repeatableRolePrefixes.includes('series')
+  const minimumSeriesRoleCount = Math.max(
+    1,
+    chart.requiredFields.filter((role) => role.startsWith('series_')).length,
+  )
+  const [seriesRoleCount, setSeriesRoleCount] = useState(minimumSeriesRoleCount)
   const roles = useMemo(() => {
-    const configured = mappingRoles(chart.id)
+    const configured = mappingRoles(chart)
     if (!variadicSeries) return configured
     const fixed = configured.filter((role) => !role.role.startsWith('series_'))
     return [
@@ -386,7 +364,7 @@ function MappingObject({
         required: true,
       })),
     ]
-  }, [chart.id, seriesRoleCount, variadicSeries])
+  }, [chart, seriesRoleCount, variadicSeries])
   const suggestions = useMemo(() => suggestedFieldMapping(roles, dataset), [dataset, roles])
   const [values, setValues] = useState<Record<string, string>>(() => suggestions)
   const [picker, setPicker] = useState<{ fieldId: string; left: number; top: number }>()
@@ -523,14 +501,14 @@ function MappingObject({
       {variadicSeries && (
         <div className="mapping-series-actions">
           <button type="button" onClick={() => setSeriesRoleCount((count) => count + 1)}>添加系列</button>
-          <button type="button" disabled={seriesRoleCount <= 2} onClick={() => {
+          <button type="button" disabled={seriesRoleCount <= minimumSeriesRoleCount} onClick={() => {
             const role = `series_${seriesRoleCount}`
             setValues((current) => {
               const next = { ...current }
               delete next[role]
               return next
             })
-            setSeriesRoleCount((count) => Math.max(2, count - 1))
+            setSeriesRoleCount((count) => Math.max(minimumSeriesRoleCount, count - 1))
           }}>移除末项</button>
         </div>
       )}
