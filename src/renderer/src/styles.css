@@ -5221,9 +5221,19 @@ input[type="checkbox"] {
   padding: 12px 14px;
 }
 
+.product-result-strip--success {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.product-result-strip--success code {
+  color: color-mix(in srgb, var(--success) 78%, var(--text));
+}
+
 .product-result-strip > div { min-width: 0; flex: 1; }
-.product-result-strip strong { font-size: 11px; }
-.product-result-strip p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+.product-result-strip strong { font-size: 13px; }
+.product-result-strip p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.product-result-strip code { font-size: 12px; }
 
 .agent-outcome {
   width: min(820px, calc(100% - 28px));

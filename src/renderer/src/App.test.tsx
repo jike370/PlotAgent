@@ -655,9 +655,36 @@ describe('PlotAgent real desktop workflow', () => {
       format: 'png',
     })
     expect(await screen.findAllByText('已导出 PNG')).not.toHaveLength(0)
-    expect(screen.getByRole('region', { name: '导出记录' })).toHaveTextContent('PNG 导出记录')
-    expect(screen.getByRole('region', { name: '导出记录' })).toHaveTextContent('export:one')
+    expect(screen.getByRole('status', { name: '导出记录' })).toHaveTextContent('PNG 导出完成')
+    expect(screen.getByRole('status', { name: '导出记录' })).toHaveTextContent('export:one')
     expect(document.body.textContent).not.toMatch(/[A-Za-z]:\\/)
+  })
+
+  it('keeps OPJU progress explicit and announces a durable completion result', async () => {
+    const user = userEvent.setup()
+    let finishExport: ((result: DesktopDataResult) => void) | undefined
+    const exportOrigin = vi.fn(() => new Promise<DesktopDataResult>((resolve) => { finishExport = resolve }))
+    const api = fakeDesktop({ exportOrigin })
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '导出 OPJU' }))
+    expect(await screen.findByText('正在生成并验证 OPJU…')).toBeInTheDocument()
+    expect(screen.queryByText('OPJU 导出完成')).not.toBeInTheDocument()
+
+    finishExport?.(ok({
+      export_id: 'export:origin',
+      plot_id: 'plot:one',
+      artifact: { content_hash: 'b'.repeat(64), size: 29_999 },
+    }))
+
+    const result = await screen.findByRole('status', { name: '导出记录' })
+    expect(result).toHaveTextContent('OPJU 导出完成')
+    expect(result).toHaveTextContent('29,999 B')
+    expect(result).toHaveTextContent('bbbbbbbbbbbb…')
+    expect(screen.queryByText('正在生成并验证 OPJU…')).not.toBeInTheDocument()
+    expect(screen.getByText('已导出 OPJU')).toHaveClass('composer-success')
   })
 
   it('preflights Origin before OPJU export and keeps the save flow closed when unavailable', async () => {
