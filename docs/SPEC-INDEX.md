@@ -1,33 +1,21 @@
 # PlotAgent v3 规格索引
 
-> 状态：Agent Native 绘图引擎与任务型对话现行文档入口，2026-08-13。
+## 当前权威文档
 
-## 权威顺序
+1. [PRD](./PRD.md)：产品目标、用户流程和范围。
+2. [产品决策](./PRODUCT-DECISIONS.md)：不可回退的产品与工程决定。
+3. [Agent Native 绘图引擎](./AGENT-NATIVE-PLOTTING-ENGINE.md)：Pi、Core 与 renderer 边界。
+4. [Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)：34 图逐图官方路线。
+5. [Origin Recipes](./ORIGIN-RECIPES.md)：运行时 recipe 合同。
+6. [绘图引擎验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md)：机械、视觉和黑盒门禁。
+7. [黑盒能力说明](./PLOTAGENT-V3-BLACK-BOX-CAPABILITY.md)：只描述用户可见能力和边界。
+8. [黑盒交接](./PLOTAGENT-V3-BLACK-BOX-ACCEPTANCE-HANDOFF.md)：正式 Windows Electron 执行步骤。
+9. [对话交互](./CONVERSATIONAL-INTERACTION.md)：确认卡、阶段反馈、撤销和错误恢复。
+10. [发布门禁](./PERFORMANCE-TEST-RELEASE.md)：Beta qualification。
 
-1. 用户最新明确决定；
-2. [产品决策](./PRODUCT-DECISIONS.md) 与 [PRD](./PRD.md)；
-3. 本页列出的当前领域契约；
-4. 研究、差距审计和历史实施记录仅供追溯，不指导实现。
+## 阅读规则
 
-## 当前领域契约
-
-| 文档 | 权威范围 |
-|---|---|
-| [后端架构](./BACKEND-ARCHITECTURE.md) | Agent 中立引擎、进程与依赖方向 |
-| [领域契约](./DOMAIN-CONTRACTS.md) | EngineDataView、PlotDocument、公共动作和版本 |
-| [Agent Native 引擎基线](./AGENT-NATIVE-PLOTTING-ENGINE.md) | 重写取舍、正式35图、删除墓碑与内置 Agent 位置 |
-| [绘图执行管线](./RENDERING-PIPELINE.md) | 每图 renderer、模板、动态数据和视觉门禁 |
-| [Origin 导出](./ORIGIN-EXPORT.md) | 原生 OPJU、安全与 fresh-reopen |
-| [Origin 模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md) | 正式35图—Origin官方模板与流程映射 |
-| [项目存储](./PROJECT-STORAGE.md) | 数据、CAS、项目 schema v3 与动作日志 |
-| [数据准备](./DATA-TRANSFORMS.md) | 受控派生数据与来源追溯 |
-| [Agent 上下文](./AGENT-CONTEXT-AND-PROVIDERS.md) | ProjectContext、模型和披露边界 |
-| [任务运行时](./TASK-RUNTIME.md) | 确认、部分失败与恢复 |
-| [任务型对话与交互验收](./CONVERSATIONAL-INTERACTION.md) | 对话循环、上下文、确认卡、真实阶段、错误恢复、撤销/重做、P0/P1与黑盒验收 |
-| [验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md) | 机械、视觉、黑盒与发布 Gate |
-| [黑盒能力说明](./PLOTAGENT-V3-BLACK-BOX-CAPABILITY.md) | 外部验收可见功能与边界，不披露内部实现 |
-| [黑盒验收交接](./PLOTAGENT-V3-BLACK-BOX-ACCEPTANCE-HANDOFF.md) | 正式桌面验收步骤、冻结输入、证据与判定模板；每轮必须在报告中记录实际 `git rev-parse HEAD`，不得沿用旧基线 |
-
-## 历史材料
-
-`FRONTEND-P0-DIFFERENTIATION-SEQUENCE.md`、`SEQ-10-FRONTEND-GAP-AUDIT.md`、`chart-library-research.md` 和旧决策段落只记录探索过程。若与上述现行契约冲突，以现行契约为准。
+- 当前正式产品是 34 张单图；不支持组合图，K25 已删除。
+- Pi 是可替换的通用 Agent runtime；PlotAgent Core 是领域权威。
+- 历史 SEQ 报告、旧视觉页和 35/38/43/45 图资料只作追溯，不能覆盖当前权威文档。
+- `chart-library-research.md` 是长期研究 taxonomy，不是当前目录。

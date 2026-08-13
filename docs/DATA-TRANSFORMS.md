@@ -110,7 +110,7 @@ PreparedDataset 至少保存：
 - SourceDataset 精确版本、FieldMapping、PreparationSpec 和 compiler version。
 - 输入/输出 schema、单位、row/field provenance 与内容 SHA-256。
 - 纳入/排除计数、来源 sheet/block/channel 分布和结构化 warning。
-- 与 PlotCalculationResult、PlotDocument、任务和组合图组件版本的引用关系。
+- 与 PlotCalculationResult、PlotDocument 和任务版本的引用关系。
 
 PreparedDataset 可进入完整/结果 `.plotproj` 与 OPJU 的 Plot Data，但 UI 不把它宣传为可任意加工的派生数据集。来源关系应显示“从何处导入、如何映射、为哪张图准备”。
 

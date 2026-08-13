@@ -132,7 +132,7 @@ description: 面向通用科研用户的对话式本地绘图工作台
 - **Windows desktop：** 标准控件、可预测 Tab 顺序、明确初始焦点、统一焦点视觉和键盘完整可达。
 - **Notion：** 同一权威对象可以在对话、资源库和专业工作区用不同视图表达；显式项目对象引用是后续增强，不依赖隐藏记忆。
 - **Linear：** 批量审阅支持搜索、筛选、多选和同一套键盘/鼠标动作；相同操作在列表和缩略图视图保持语义一致。
-- **Figma：** 只有进入聚焦编辑或组合图等专业工作区时才显示上下文属性；主对话不长期承担检查器。
+- **Figma：** 只有进入聚焦编辑或批量审阅等专业工作区时才显示上下文属性；主对话不长期承担检查器。
 - **Raycast：** `Ctrl+K`、搜索和 Action menu 提供专家效率，同时所有关键动作仍可通过可见界面发现。
 
 模式来源：[Microsoft Windows keyboard interactions](https://learn.microsoft.com/en-us/windows/apps/develop/input/keyboard-interactions)、[Microsoft accessible Windows apps](https://learn.microsoft.com/en-au/windows/apps/design/accessibility/developing-inclusive-windows-apps)、[Notion database views](https://www.notion.com/help/category/database-views)、[Notion keyboard shortcuts](https://www.notion.com/help/keyboard-shortcuts)、[Linear board layout](https://linear.app/docs/board-layout)、[Figma properties panel](https://help.figma.com/hc/en-us/articles/360039832014-Design-Prototype-and-view-Code-in-the-Properties-Panel)、[Raycast keyboard shortcuts](https://manual.raycast.com/keyboard-shortcuts)。这些来源只作为交互原则依据，不改变 PlotAgent 已冻结的本地、明确选图、无常驻右栏和非分析平台边界。

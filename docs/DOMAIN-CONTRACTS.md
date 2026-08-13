@@ -13,7 +13,7 @@ renderer 不读取导入器内部对象，也不写回原始数据。
 
 ## 2. 绘图合同
 
-`EngineProfile` 声明：Profile ID、字段角色、可重复角色、数据来源类型、语义对象、公共能力和组合图组件数量。
+`EngineProfile` 声明：Profile ID、字段角色、可重复角色、数据来源类型、语义对象和公共能力。
 
 `PlotDocument` 是绘图状态的唯一领域真值：
 

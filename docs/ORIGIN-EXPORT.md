@@ -1,40 +1,32 @@
-# PlotAgent v3 Origin 导出契约
+# PlotAgent v3 原生 Origin OPJU 导出
 
-> 状态：官方模板优先的原生 OPJU 导出，2026-08-11。
+> 正式范围：34张单图。K25和组合图不属于导出能力。
 
-## 1. 目标
+## 产品承诺
 
-OPJU 必须包含实际绘图数据、worksheet/matrix、graph、layer、plot、坐标轴、图例和注释等原生对象，可脱离 PlotAgent 在 Origin 中继续编辑。嵌入 PNG 或未链接图元不算通过。
+OPJU必须包含原生worksheet/matrix、plot/layer、数据绑定和可编辑对象；不得嵌入Matplotlib图片冒充Origin项目。
 
-## 2. 执行模型
+## 创建流程
 
-每个 Origin Profile 固定：官方模板文件与哈希、数据布局、列 designation、允许修改的原生对象、动态绑定逻辑和读回断言。执行器只消费 `EngineRenderSource`，不接收模型脚本或任意属性字符串。
+1. 运行Origin可用性预检；
+2. 解析并校验图类的官方recipe与本机资产；
+3. 写入源数据、列designation或matrix坐标；
+4. 调用官方模板、菜单section或X-Function；
+5. 应用用户明确的共同编辑；
+6. 读回数据、原生结构和编辑；
+7. 原子保存OPJU；
+8. 在新的Origin会话中重开并重复读回。
 
-默认态直接加载官方模板。代表性编辑只修改公共动作明确要求的对象。K25 使用 Origin 原生 graph merge 保留子图数据与图层，不把页面栅格化。
+## UI行为
 
-## 3. 安全边界
+- Origin不可用时，在系统保存对话框前给出可操作诊断；
+- 导出运行中显示真实阶段；
+- 成功后明确显示文件名、路径和完成状态；
+- 失败不得留下已登记成功的导出记录或半版本；
+- 不覆盖旧文件，除非用户明确确认。
 
-- 模板来自 build-pinned 目录并校验哈希；
-- 不执行用户、模型或数据提供的 LabTalk/Python/Origin C；
-- 不修改用户全局模板；
-- 自动化只控制自己启动的 Origin 实例；
-- 目标文件用临时路径构建、验证后原子替换。
+## 资格
 
-## 4. 验证
+文件存在或可打开不等于PASS。代表性OPJU必须在Origin中修改数据或样式、保存并重开，确认图页、数据对象和编辑仍然存在。34图每图至少一份当前build的live+fresh-reopen证据。
 
-每次正式导出必须完成：
-
-1. build 后原生对象读回；
-2. 保存 OPJU；
-3. 新受控 Origin 会话 fresh-reopen；
-4. 再次核对数据、图对象和公开编辑状态；
-5. 记录文件哈希、大小和读回摘要。
-
-当前 Origin/OPJU 正式范围为35图；核密度图、Kaplan–Meier生存曲线、森林图不属于导出候选，旧项目引用只返回 `CHART_TYPE_REMOVED`。机械读回通过不等于视觉通过。
-
-## 5. 非目标
-
-- 不读取或合并用户修改后的 OPJU；
-- 不承诺在 Origin 中重跑 PlotAgent 的固定计算；
-- 不复制无关项目数据、对话或凭据；
-- 不为追求像素一致重建模板内部全部图元。
+删除图类只返回`CHART_TYPE_REMOVED`，不创建近似OPJU。

@@ -1,80 +1,49 @@
-# Agent Native 科研绘图引擎重写基线
+# PlotAgent v3 Agent Native 绘图引擎
 
-> 状态：当前唯一有效的绘图引擎重写边界。旧 PlotSpec、resolver、Origin plan 和统一 renderer 文档仅作为历史记录，不得指导新实现。
+> 当前基线：Pi 承担通用 Agent 运行循环；PlotAgent Core 负责领域约束、确认、版本与执行；34 张正式图各自拥有 Matplotlib renderer 与 Origin 官方模板绑定器。产品不支持组合图。
 
-## 1. 产品目标
+## 1. 产品结构
 
-PlotAgent v3 的核心交付物是一个 **Agent Native 科研绘图引擎**，而不是一套只能由仓库内置 Agent 使用的绘图流程。
+PlotAgent v3 是“绘图 Agent + 可独立接入的绘图引擎”，不是聊天壳，也不是开放式画布。
 
-引擎必须允许不同 Agent 通过受控、强类型动作完成：
+```text
+用户目标、指定图类、数据
+        ↓
+Pi Agent runtime
+        ↓ typed decision / tool call
+PlotAgent Core
+  ├─ 数据身份与字段契约
+  ├─ 对象、权限、确认和版本
+  ├─ 任务事务、恢复与审计
+  └─ renderer 分派
+        ↓
+每图独立 renderer
+  ├─ Matplotlib：PNG / SVG
+  └─ Origin：官方模板 / 菜单 / X-Function → 原生 OPJU
+```
 
-1. 选择图形 Profile 并绑定数据字段；
-2. 创建高质量默认图；
-3. 修改标题、坐标轴、系列样式、图例、图形专属参数和注释；
-4. 批量执行、部分失败保真、恢复执行和幂等重放；
-5. 导出 Matplotlib PNG/SVG；
-6. 导出包含原生数据表和原生图对象、可在 Origin 中继续编辑的 OPJU。
+Pi 可以替换，领域边界不能绕过。任何外部 Agent 也只能提交同一套强类型请求，由 Core 校验后执行。
 
-Origin 的官方模板是 Origin 默认视觉的事实来源。Agent 只修改公开参数，不负责重建模板内每个对象。
+## 2. 正式图形范围
 
-## 2. 现有代码的取舍
+正式范围是 34 张单图：
 
-### 2.1 保留能力和基础设施
+`K01 K02 K03 K04 K06 K07 K08 K09 K10 K11 K12 K13 K14 K15 K18 K19 K20 K21 K22 K24 S34 S61 X02 X03 X05 X09 X13 X23 X24 X35 X36 X38 X39 X40`
 
-- 安全文件导入、表格识别和多工作表身份；
-- 不可变 SourceDataset、字段快照、单位、来源坐标和质量摘要；
-- 项目目录、CAS、SQLite 单写者、项目打包和重启恢复；
-- 模型 Provider、凭据边界、ProjectContext、TaskPlan、确认、任务事件、取消、部分失败和恢复语义；
-- Electron 安全壳、资源授权、预览和导出对话框；
-- 确定性固定计算，但其输入输出必须改接新数据视图。
+多面板组合图 `K25` 已从图形库、Agent capability、字段映射、契约、双后端、导出和验收清单删除。旧项目引用只返回 `CHART_TYPE_REMOVED`，不得创建近似图。
 
-保留的是这些产品能力，不承诺保留其当前类名、数据库表或调用路径。
+## 3. Renderer 设计原则
 
-### 2.2 必须重写的接线
+1. 每张图先核对 Origin 官方帮助、本机模板和菜单命令，再实现 renderer；禁止凭视觉猜结构。
+2. Origin 默认态直接使用官方模板、菜单 dispatcher 或 X-Function；Python 只做数据适配、明确的图形参数和 Agent 编辑。
+3. Matplotlib 与 Origin 共享语义契约，不共享几何实现，也不引入统一的中间绘图语言。
+4. 默认样式尽量由模板管理；用户动作只修改被请求的对象。
+5. 结构变化时允许从源数据重建图，并重放已验证的声明式编辑；不得回退到旧 renderer 或用位图伪装 OPJU。
+6. OPJU 必须保留 worksheet、原生 plot/layer、数据绑定和可编辑对象。
 
-- 内置 Agent 的绘图决策：从生成 PlotSpec 改为调用公开 Engine Action；
-- 绘图存储：从序列化 PlotSpec 改为保存 PlotDocument 与动作日志；
-- Desktop Core 的 create/patch/render/export 路径；
-- 绘图准备中所有 PlotSpec 专属对象；
-- 前端和 RPC 中所有直接暴露旧 PlotSpec/Patch 的契约。
+## 4. Agent 可用动作
 
-### 2.3 必须删除的旧绘图体系
-
-- PlotSpec 作为渲染权威；
-- resolver / ResolvedPlot / ResolvedRenderPlan；
-- Origin plan compiler 和旧 Origin renderer；
-- 统一 Matplotlib renderer 及按旧结构单元组合最终图元的路径；
-- 为旧路径冻结的视觉资格、兼容分支和生成脚本。
-
-旧体系只有在新纵向切片接管生产路径后才能物理删除，但不得再新增功能或修视觉问题。
-
-## 3. 新的稳定边界
-
-### 3.1 EngineDataView
-
-数据层把指定不可变数据版本物化为有界、矩形的数据视图：
-
-- 数据版本与内容哈希；
-- 稳定字段 ID、用户可读名称、逻辑类型和单位；
-- 稳定行 ID 和按行对齐的列值。
-
-数据层负责解析、来源、缺失值和受控计算；renderer 不读取导入器内部对象，也不自行改变数据。
-
-### 3.2 PlotDocument
-
-PlotDocument 只保存：
-
-- 图对象 ID 与线性版本；
-- Profile ID；
-- 不可变数据引用；
-- 语义字段绑定；
-- 已应用动作 ID。
-
-它不是场景图，不保存 Origin 图层、Matplotlib Artist 或模板内部对象。
-
-### 3.3 Public Engine Actions
-
-顶层动作固定为小而稳定的集合：
+顶层动作保持少而强类型化：
 
 - `create_plot`
 - `bind_fields`
@@ -85,122 +54,34 @@ PlotDocument 只保存：
 - `set_chart_parameter`
 - `add_annotation`
 - `export_plot`
+- `undo` / `redo`
 
-每个 Profile 声明自己支持的动作、字段角色和参数。参数不在能力表内时，本地校验必须在调用 renderer 前拒绝。
+只开放 Matplotlib 与 Origin 都能稳定表达并读回的共同能力。后端专属枚举、任意脚本、任意统计分析和开放式数据变换不向 Agent 暴露。
 
-### 3.4 Backend Profile
+## 5. 数据与图类契约
 
-同一个公开 Profile 对应两个独立后端实现：
+- 用户仍须选择图类；Agent 不在信息不足时擅自选图。
+- Agent 可以提出字段绑定并生成确认卡；用户确认后才创建或修改版本。
+- 数据层负责文件/工作表身份、类型识别、明确的宽长表适配和少量冻结计算。
+- Renderer 不擅自排序、聚合、补列或改变科学含义。
+- 预聚合与原始样本两种路径必须在图类契约中明确区分。
 
-- **Origin Profile**：加载构建固定的官方模板，写入数据列与 designation，调用模板自身的动态行为，只对公开动作做最小原生修改并读回验证；
-- **Matplotlib Profile**：每图独立 renderer，可共享字体、色板、边距和导出工具，但不经过旧统一 resolver。
+本轮黑盒问题对应的现行契约包括：双向误差棒使用绝对上下界；误差带使用中心/下界/上界；面积图、日期时间折线图和 Y 偏移堆叠线图支持 `series_1..series_N`；相关矩阵长表可适配为矩阵；蜂群图接受原始值与分组；前后对比图保留 Subject 与可选 Group 身份。
 
-两端不要求内部结构相同，只要求共同公开动作、数据语义和用户可见结果一致。
+## 6. 可编辑产物
 
-### 3.5 执行记录
+- PNG/SVG 是正式静态导出。
+- OPJU 由 Origin 原生模板流程生成，不嵌入 Matplotlib 图片。
+- 保存前与全新 Origin 会话重开后都要读回数据源、plot/layer 类型、Agent 编辑和文件身份。
+- “文件存在”不等于可编辑通过；必须在 Origin 中打开、修改数据或样式、保存并重开验证。
 
-每次 Origin 渲染必须在产物目录写入 `execution-trace.jsonl`。记录至少包括：
+## 7. 验收
 
-- 官方模板解析与哈希；
-- 原始字段、designation、行列数与写入顺序；
-- 官方菜单等价命令或分析流程；
-- 创建后原生 PID、图层、源范围与方向读回；
-- 每一条 Agent Action 的完整参数、开始、完成或失败状态；
-- OPJU 保存、文件哈希、全新项目重开；
-- 重开后的数据、结构和编辑属性复核。
+资格分四层，不能互相替代：
 
-trace 是机械审计记录，不代替视觉审查。研究期旧脚本只有 `recipe.md` / `proof.json`
-时，不得冒充具备逐动作追踪；迁入正式 renderer 后必须补齐统一 trace。
+1. 契约与单元测试；
+2. Origin 原生结构、动态数据和 fresh-reopen 机械读回；
+3. 34 图统一视觉审查；
+4. 正式 Windows Electron 黑盒。
 
-## 4. 内置 Agent 的位置
-
-仓库内置 Agent 是新引擎的一个客户端，不是引擎的组成部分。它继续负责：
-
-- 理解用户目标和项目上下文；
-- 解析跨轮次作用对象；
-- 生成可审查的任务计划；
-- 选择并填写公开 Engine Action；
-- 在确认后执行，记录部分成功并恢复未完成项。
-
-它不得输出 Origin 脚本、Matplotlib 代码、模板对象 ID 或任意未声明参数。其它 Agent 可以使用同一动作 Schema 和能力目录接入。
-
-## 5. 重写顺序
-
-1. 冻结 PlotDocument、EngineDataView、公共动作、Profile 与后端端口；
-2. 建立新动作日志和版本存储，不复用 PlotSpec JSON 表；
-3. 选四个不同模板家族做新纵向切片，接通数据、动作、Matplotlib、Origin 和读回；
-4. 将内置 Agent 与 Desktop Core 改接新服务；
-5. 按图迁移其余正式 Profile；
-6. 新路径覆盖生产入口后，物理删除旧绘图编译体系及绑定测试；
-7. 重新执行动态数据、机械修改读回、视觉、Agent 任务、重启恢复和黑盒资格。
-
-迁移期间禁止用旧 renderer 兜底冒充新 Profile 成功。
-
-## 6. 验收原则
-
-- **默认正确性**：Origin 默认态来自指定官方模板；Matplotlib 默认态按独立 Profile 验收；
-- **动态数据**：行数、系列数、类别、范围和缺失值变化不破坏数据语义；
-- **动作读回**：声明开放的动作在两端执行后可机械读回；
-- **Origin 原生性**：OPJU 重开后数据表、图层、坐标轴、系列、图例和注释可继续人工编辑；
-- **Agent 可控性**：未开放参数拒绝，确认前无副作用，部分失败不重复成功项；
-- **独立接入**：不使用内置 Agent，也能通过公开 Schema 创建和编辑图；
-- **无旧路径**：生产代码、运行时依赖和测试清单中不存在旧 PlotSpec/resolver/plan renderer 兜底。
-
-视觉审查位于每个 Profile 完成动态与机械读回之后、发布资格之前。机械通过不能代替人工视觉签名。
-
-## 7. 当前迁移证据
-
-截至本分支当前实现，新架构已经完成三十五类可用 Origin 纵向切片。K25 不伪装成
-数据图：它引用 2–4 个既有 `PlotDocument` 的精确版本，并保持子图自己的数据与原生对象。
-核密度图、Kaplan–Meier 生存曲线和森林图均已从 Origin 可渲染注册表移除，禁止用近似图元冒充：
-
-| Profile | 数据语义 | Matplotlib | Origin 官方模板 | 原生结构 |
-|---|---|---|---|---|
-| K01 | `x / y` | 独立折线 renderer | `LINE.otpu` | worksheet + 1 条原生线 |
-| K02 | `x / y` | 独立线点 renderer | `LINESYMB.otpu` | worksheet + 1 条原生复合线点系列 |
-| K03 | `x / y / group?` | 独立动态分组散点 renderer | `SCATTER.OTP` | 每个分组一对 X/Y 列和一条原生散点 Plot |
-| K04 | `x / y / size? / color?` | 独立气泡与数值着色 renderer | `bubble.otpu` | worksheet + 原生 size/color 列修饰器；色带与尺寸标尺仅由显式动作开启 |
-| K06 | `x / center / x_error / y_error` | 独立双向误差棒 renderer | `ERRBAR.otpu` | worksheet + 原生 X/Y 误差列与中心点 |
-| K07 | `x / center / lower / upper` | 独立误差带 renderer | `ERRORBAND.otp` | worksheet + 中心线、下界和上界原生 Plot |
-| K08 | `category / value` | 独立柱图 renderer | `COLUMN.otpu` | worksheet + 1 组原生柱 |
-| K09 | `category / group / value` | 独立动态分组柱 renderer | `COLUMN.otpu` | worksheet + 动态原生分组柱；柱宽只按组数受控调整 |
-| K10 | `category / component / value` | 独立堆积柱 renderer | `STACKCOLUMN.otp` | 原始 worksheet + 一次性官方 `StackColumn` 创建；PID 213、`Stack.Offset=1`、`StackOffset=0` |
-| K11 | `category / component / value` | 独立百分比堆积 renderer | `StackColP.otp` | 原始 worksheet + 一次性官方 `StackColP` 创建；PID 213、`Stack.Offset=1`、`StackOffset=1`，百分比只由 Origin 原生归一化 |
-| K12 | `value / group?` | 独立确定性条带 renderer | `ColumnScatter.otp` | 每组一列原始观测 + 模板原生 Column Scatter plot |
-| K13 | `value / group?` | 独立 Tukey 箱线 renderer | `BOX.OTP` | 每组一列原始观测 + 模板原生 box plot |
-| K14 | `value / group?` | 独立小提琴 renderer | `Violin.otpu` | 每组一列原始观测 + 模板原生 violin plot；禁止线/填充模拟轮廓 |
-| K15 | `value` | 独立固定分箱直方图 renderer | `Hist.otpu` | 原始观测保留在 worksheet；官方 PID219 Histogram 使用共享 FD/Sturges 边界与 Count 高度 |
-| K18 | `x / series_1..series_N` | 独立多系列面积图 renderer | `AREA.otpu` | X+全部Y一次性执行官方 Area 菜单，保留原生 PID204 与源列绑定 |
-| K19 | `time / series_1..series_N` | 独立原生日期时间折线 renderer | `LINE.otpu` | 数值型 Date/Time X + 1–N 个 Y；一次调用官方 Line 菜单创建 PID 200；同日显示时间、跨日显示日期 |
-| K20 | `row / column / value` | 独立热图 renderer | `Heat_Map.otpu` | matrixbook + 1 个原生 matrix plot |
-| K21 | `row_label / column_label / value` | 独立相关矩阵 renderer | `Heat_Map_With_Labels.otpu` | 完整预计算相关矩阵写入 matrixbook；PID105 和 Z 值标签由官方模板创建；full/lower/upper 只调整 Origin 原生显示枚举，不把被隐藏单元写成 NaN |
-| K22 | `x / y / z` | 独立规则网格等高 renderer | `CONTOUR.otpu` | 完整、等距 XY 规则网格写入 matrixbook；模板原生 PID226 填色等值 Plot；色阶数、轴编辑、动态网格均做原生读回；禁止插值补洞或改用 XYZ triangulation |
-| K24 | `facet / base_x / base_y` | 独立动态分面 renderer | `Grouped.otp` + `plot_group` | worksheet + 单个 Trellis 图层；按 facet 值动态生成 2–5 个原生面板与 PID 202 线点系列 |
-| K25 | `2–4 个 PlotDocumentRef` | 原生 SVG 子树与 PNG 面板组合 renderer | `Graph > Merge Graph Windows` | 追加精确子 OPJU，保留子工作表/图页，再用官方 `merge_graph` 合并原生图层；MGROUPS 不是运行依赖；禁止嵌套组合与栅格化 OPJU |
-| S34 | `z_real / z_imaginary / frequency? / series?` | 独立 Nyquist renderer | `LINESYMB.otpu` | worksheet + 动态原生 line-symbol 系列；频率保留为元数据而非坐标 |
-| S61 | `actual / predicted / count?` | 独立混淆矩阵 renderer | `Heat_Map_With_Labels.otpu` | 原始样本或预聚合 Count 统一写入原生 matrixbook 与标签热图 |
-| X02 | `x / y` | 独立底轴垂线 renderer | `DROPLINE.OTP` | worksheet + 官方模板原生 drop-line Plot |
-| X03 | `category / series_1 / series_2 / series_N?` | 独立动态多系列棒棒糖 renderer | `Lollipop.otpu` | worksheet + 每个值列一条模板原生 lollipop Plot |
-| X05 | `value / group?` | 独立确定性蜂群 renderer | `ColumnScatter.otp` | 每组一列原始观测 + 模板原生 Column Scatter plot；组数动态扩展 |
-| X09 | `category / start / end / middle?` | 独立浮动柱状图 renderer | `FloatCol.otp` | 保留原始有序边界列并一次执行官方 Floating Column 流程；PID 207、纵向方向、两/三边界、下降/交叉边界及独立 fresh-reopen 均已机械读回；官方模板默认填充不开放分段改色 |
-| X13 | `category / left / right` | 独立人口金字塔 renderer | `PopulationPyramid.otpu` | 非负源幅值写入 worksheet + 官方双层模板原生横向柱；左侧符号仅在渲染层表达 |
-| X23 | `x / left / right` | 独立双 Y renderer | `DOUBLEY.OTP` | worksheet + 2 个模板图层，各 1 个原生 Line+Symbol；X 1:1 链接、Y 独立 |
-| X24 | `category / value` | 独立帕累托 renderer | `ParetoRaw.otpu` | worksheet 保存排序贡献与唯一累计百分比 + 官方双层模板原生柱/累计线/参考线 |
-| X35 | `category / left / right` | 独立双 Y 柱 renderer | `2Ys_Col.otpu` | worksheet + 官方双层模板各 1 组原生柱 |
-| X36 | `category / left / right` | 独立双 Y 柱线 renderer | `2Ys_ColSymb.otpu` | worksheet + 官方双层模板原生左柱和右线点 |
-| X38 | `x / y / series` | 独立 Y 偏移线 renderer | `OffsetStackY.otp` | worksheet 保留未偏移原始 Y + 官方模板动态原生线系列与显示偏移 |
-| X39 | `series_1 / series_2 / series_N?` | 独立逐行线条序列 renderer | `BoxLser.otpu` | 宽表原位写入；一个 PID206 原生组跨列逐行连接，对象数随列数而非行数变化 |
-| X40 | `series_1 / series_2` | 独立前后对比 renderer | `BeforeAfter.otpu` | 两列宽表原位写入；一个 PID206 原生组以 Subgroup Size=2 逐行配对连接 |
-
-三十五个可用切片均只消费 `EngineRenderSource`、`PlotDocument` 和公开 Engine Action，不导入旧
-`PlotSpec`、resolver、`ResolvedPlot` 或 Origin plan。35 个 Origin 可渲染 Profile 已有代码级独立渲染、
-模板哈希、对象结构和修改读回门禁；K25 额外固定子图版本、禁止嵌套，并在 SVG 中保留
-矢量子树、在 OPJU 中保留原生子图。K25 已完成 2 图默认态、标题与单列编辑态、4 图
-动态态的真实 Origin 创建与独立进程 fresh-reopen；合并层分别读回原生 PID
-`200/203` 与 `200/203/105/226`。产品负责人已于 2026-08-12 完成全范围人工视觉签名；正式桌面黑盒与发布门禁未完成前，仍不得声称全部 Profile 已发布。
-
-### 已删除 ID
-
-核密度图、Kaplan–Meier生存曲线和森林图已从公共 Profile、Agent capability、
-字段映射、计算、Matplotlib、Origin/OPJU、批量/组合与发布资格中删除。引擎只为
-旧项目引用保留 `CHART_TYPE_REMOVED` 墓碑；墓碑不可创建、编辑或导出图形。
+2026-08-12 的旧 35 图视觉审查包含现已删除的 K25。本轮又改变了 K06、X13、X38、X40 的当前实现，因此旧页面不能自动证明当前 34 图全部通过；这些变更图必须在新提交上复测。

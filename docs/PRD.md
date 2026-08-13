@@ -1,17 +1,17 @@
 # PlotAgent 产品需求文档
 
-> 状态：正式产品范围固定为35图；核密度图、Kaplan–Meier生存曲线、森林图已从公开产品能力删除，仅为旧项目引用保留 `CHART_TYPE_REMOVED` 迁移墓碑；产品负责人已于2026-08-12确认35/35图视觉验收通过；“确认映射并绘图→Core拒绝”和本轮交互P0/P1实现范围已完成代码修复，正式 Windows Electron 完整重测尚未完成，当前不得宣称黑盒通过
+> 状态：正式产品范围固定为34张单图，不支持组合图；K25与核密度图、Kaplan–Meier生存曲线、森林图已从公开产品能力删除，仅为旧项目引用保留 `CHART_TYPE_REMOVED` 迁移墓碑；Pi 已接管通用 Agent 循环，PlotAgent Core 仍为领域权威；本轮 renderer 与交互修复尚待正式 Windows Electron 和视觉复测，当前不得宣称完整黑盒通过
 > 产品代号：PlotAgent  
 > 日期：2026-08-13
 > 相关资料：[Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)、[任务型对话与交互验收契约](./CONVERSATIONAL-INTERACTION.md)、[Pi 通用 Agent 运行时接入契约](./PI-AGENT-RUNTIME.md)、[规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta 兼容](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
-PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在类似 ChatGPT 的项目对话中导入数据，明确选择图形，设置或确认一次字段映射，由本地绘图引擎生成单图、批量图和组合图。用户可以继续用自然语言修改，并导出 PNG、SVG 和原生可编辑的 Origin `.opju`。
+PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在类似 ChatGPT 的项目对话中导入数据，明确选择图形，设置或确认一次字段映射，由本地绘图引擎生成单图和批量图。用户可以继续用自然语言修改，并导出 PNG、SVG 和原生可编辑的 Origin `.opju`。
 
 首版不试图取代 Excel、Origin 或完整统计软件。产品聚焦于把“数据到投稿图”的高频工作流变得更快、更清楚、更可追溯。
 
-> 阅读规则：正文中仍出现的38/43/45图、StructureUnit/ChartRecipe和旧统一 renderer 描述属于历史需求记录；当前公开目录、Agent、Matplotlib、Origin/OPJU与发布资格均只包含35图，执行链以本文状态、`PRODUCT-DECISIONS.md` 的 PD-AC 章节及 `PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md` 为准。
+> 阅读规则：正文中仍出现的35/38/43/45图、组合图、StructureUnit/ChartRecipe和旧统一 renderer 描述均属于历史需求记录，不构成现行能力；当前公开目录、Agent、Matplotlib、Origin/OPJU与发布资格只包含34张单图，执行链以本文状态、`PRODUCT-DECISIONS.md` 的 AF 章节及 `PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md` 为准。
 
 ## 2. 用户与成功标准
 
@@ -39,7 +39,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 ## 3. 产品原则
 
-1. **对话就是工作流。** 导入、映射、绘图、修改、组合和导出都留在连续任务上下文中。
+1. **对话就是工作流。** 导入、映射、绘图、修改和导出都留在连续任务上下文中。
 2. **用户明确选择图形。** Agent 不主动推荐或替换图形类型。
 3. **原始数据永远只读。** v1 只通过可追溯的受控 PreparationSpec 生成绘图用 Plot Data，不提供通用派生数据平台。
 4. **一段对话可以产出多个批次。** 对话不是一张图的容器。
@@ -63,7 +63,6 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 │  │  │  └─ 图表版本
 │  │  └─ 批次任务与导出记录
 │  └─ 结构化操作记录
-├─ 组合图
 ├─ 绘图流程模板
 ├─ 项目资源库与回收站
 └─ 项目设置与显式偏好
@@ -103,7 +102,6 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 - 当前对可逆编辑支持会话内撤销、重做和相邻版本比较；任意历史与命名检查点后移。
 - 底层版本结构允许分支，界面只展示简洁时间线。
 - 从旧版本继续修改时创建新分支，第一轮不提供分支合并。
-- 组合图引用具体图表版本，源图更新时只提示，不自动替换。
 
 ### 4.5 SourceDataset 与绘图数据版本
 
@@ -114,7 +112,7 @@ PlotAgent 是面向通用科研用户的 Windows 桌面绘图软件。用户在�
 
 ### 4.6 项目资源与偏好
 
-- 项目资源库包含原始数据、PreparedDataset/Plot Data、批次、图表、组合图、模板和导出记录；Plot Data 明确标示为绘图复现产物。
+- 项目资源库包含原始数据、PreparedDataset/Plot Data、批次、图表、模板和导出记录；Plot Data 明确标示为绘图复现产物。
 - 支持搜索、重命名、版本、血缘、引用对话、归档和删除保护。
 - 删除进入项目回收站，回收站不自动清空；永久删除由用户手动执行。
 - 被其他对象引用的资源禁止直接删除，必须先展示并解除依赖。
@@ -143,7 +141,7 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 3. 用户首次需要内置 Agent 时再输入邀请码兑换设备令牌；也可选择自定义 provider，任何服务选择都不阻止本地工作入口。
 4. 启动空状态提供三个入口：主按钮“用示例项目试用”、次按钮“导入自己的数据”、文字入口“打开已有 `.plotproj`”。
 5. 打开示例项目时创建本地副本；示例使用合成数值数据，可离线修改，不改变内置模板。
-6. 示例项目包含时间序列、分组实验、材料连续谱与 2×2 数值组合图三个对话，示例指令明确指定图形类型。
+6. 示例项目包含时间序列、分组实验和材料连续谱三个对话，示例指令明确指定图形类型。
 7. 用户导入真实数据时自动创建项目，名称由文件名生成，可随后修改。
 8. 系统展示数据摘要，用户明确选择图形并确认一次字段映射。
 9. 首张图成功后，再按上下文介绍批量、模板和 `.opju` 导出。
@@ -168,7 +166,7 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 
 - 输入框始终显示当前作用对象和范围。
 - 作用范围包括当前图、选中图和整个批次。
-- 用户可点击系列、坐标轴、图例、结构化标注和组合图面板，选中对象显示为目标标签。
+- 用户可点击系列、坐标轴、图例和结构化标注，选中对象显示为目标标签。
 - 图形子对象使用稳定语义 ID；支持多选，不依赖屏幕坐标解释后续指令。
 - 对话中只有一个合理目标时自动绑定；存在歧义时必须追问。
 - 可逆样式修改直接执行，并显示摘要和撤销。
@@ -185,23 +183,7 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 
 ### 5.5 组合图
 
-第一轮提供：
-
-- 1×2、2×1、2×2 等固定布局。
-- A/B/C/D 面板编号。
-- 公共图例。
-- 仅组合数值数据生成的图表，不接收图片面板。
-- 组合图绑定具体源图版本，源图更新后只提示；只有用户确认才替换引用。
-
-第二轮提供：
-
-- 不等宽、跨行跨列和自由布局。
-- 局部放大图与嵌套面板。
-- 共享坐标轴和更精确的对齐控制。
-- 数值图表与科研图像的混合面板。
-- 源图版本更新与布局重新校验。
-
-组合图布局修改不反向修改源图。
+当前产品不支持组合图、固定多面板编排或自由画布。K25 已删除；未来是否重新立项必须重新定义数据、版本、编辑和双后端验收，不继承旧实现。
 
 ### 5.6 单图复合结构
 
@@ -229,16 +211,16 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 
 - 用户可以随时从输入框旁打开图形库。
 - 支持中英文名、别名、缩写、学科、数据形状、坐标系、固定计算/预计算要求和导出能力搜索。
-- 每种图显示真实缩略图、适用数据、必需字段、可选参数、批量能力、组合能力和 Origin 等级。
+- 每种图显示真实缩略图、适用数据、必需字段、可选参数、批量能力和 Origin 等级。
 - 上传数据后，不隐藏不兼容图形，只说明缺少字段、结构或“需要预计算字段”。
 - 提供最近使用和收藏，不提供“猜你喜欢”。
 - 用户必须主动选择，系统不能自动替换图形类型。
 - 正式界面只展示已经通过准入验证的图形，不放置“即将推出”占位项。
 - 图形能力通过签名、版本化的官方核心包与官方学科包交付；第一轮不开放第三方插件。
 
-完整分类以 [科研图形库调研](./chart-library-research.md) 的157个稳定条目作为研究 taxonomy，不构成当前产品库存。当前正式产品固定为35图；核密度图、Kaplan–Meier生存曲线、森林图已从图形库、Agent capability、字段映射、计算、Matplotlib、Origin/OPJU与发布资格中删除。旧项目引用这些ID时只返回 `CHART_TYPE_REMOVED`，不创建近似图或半成品。精确映射见 [Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)。
+完整分类以 [科研图形库调研](./chart-library-research.md) 的157个稳定条目作为研究 taxonomy，不构成当前产品库存。当前正式产品固定为34张单图；K25、核密度图、Kaplan–Meier生存曲线和森林图已从图形库、Agent capability、字段映射、计算、Matplotlib、Origin/OPJU与发布资格中删除。旧项目引用这些ID时只返回 `CHART_TYPE_REMOVED`，不创建近似图或半成品。精确映射见 [Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)。
 
-`K05`、`K17`、`S05`、`S07`、`S25`、`S31`、`X01` 已删除；旧项目只返回 `CHART_TYPE_REMOVED`。核密度图、Kaplan–Meier生存曲线、森林图保留候选身份用于稳定诊断，但不暴露正式 Origin create/edit/export capability。内部仍可暂存 X07、X11、X12、X15、X16、X17、X18、X19、X37 的历史 adapter、fixture 与回归，但这些 ID 不显示在图形库，不进入 Agent create capability，也不承诺 PNG/SVG/OPJU 导出；被新引擎替代的旧分支在35图迁移完成后删除。
+`K05`、`K16`、`K17`、`K25`、`S01`、`S05`、`S07`、`S21`、`S25`、`S31`、`X01` 已删除；旧项目只返回 `CHART_TYPE_REMOVED`。内部历史 adapter、fixture 或研究条目不得显示在图形库，不进入 Agent create capability，也不承诺 PNG/SVG/OPJU 导出。
 
 ### 6.3 Agent 回复
 
@@ -360,7 +342,7 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 
 - 项目可选择通用单栏、双栏、通栏、演示或自定义尺寸。
 - 用户明确选择期刊或刊群，Agent 不推断投稿目标。
-- 导出检查尺寸、DPI、字体、线宽、色彩、矢量保真和组合图标注。
+- 导出检查尺寸、DPI、字体、线宽、色彩和矢量保真。
 - 规格带版本与来源日期。
 - 第一轮优先 Nature、JACS、IEEE Journals、Physical Review、PLOS Biology、AIP Journals 和 Elsevier Default。
 - 规格更新必须签名和版本化，项目固定已使用的规格快照。
@@ -393,7 +375,7 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 - 动态布局至少保证图元有限、同组柱不重叠、正负堆积分别累加、误差棒绑定正确系列、轴范围覆盖全部可见数据和误差、系列—颜色—图例身份一致。
 - 当物理画布无法同时满足最小图元宽度、间距或文字可读性时，系统必须明确警告并提供扩大画布、减少系列/标签或拆图的操作，不得以重叠、丢弃、截断或无限缩小伪装成功。具体阈值以 Origin 官方模板、同源样例或期刊规范证据版本化，不由实现者臆测。
 
-### 8.5 正式35图编辑能力白名单
+### 8.5 正式34图编辑能力白名单
 
 所有编辑能力以“容易确定性实现，且能映射到 Origin 原生对象并 fresh-reopen 读回”为准。UI 控件、自然语言 Agent 与本地 validator 读取同一版本化能力 profile；未列出的操作返回 `Unsupported`，不能近似成其他修改。能力代码如下：
 
@@ -433,7 +415,6 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 | K21 已提供相关矩阵 | G、P | 色板、对称色域、色带、数值标签；不计算相关 |
 | K22 规则网格等高线 | G、P、L | 显式 levels/登记色阶数、线宽、标签和色带；不插值散点 |
 | K24 分面图 | G、F、L、M | 面板顺序、编号、共享轴、公共图例 |
-| K25 多面板图 | G、F | 只在已有固定布局间切换，不进入自由布局 |
 | S34 Nyquist | G、L、M | 线点样式、等单位比例；不做等效电路拟合 |
 | S61 混淆矩阵 | G、P | 色板、色带、计数/比例标签显示 |
 | X02 棒棒糖图 | G、L、M | 棒线、圆点和显式 baseline；默认 baseline 固定为数据坐标 `Y=0`，调整 Y 轴显示范围不移动横轴；显式修改 baseline 时棒线起点与横轴交点同步移动 |
@@ -507,7 +488,7 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 - AnalysisSpec/Result、FitSpec/Result、回归/相关/显著性/统计检验/KM/4PL/5PL/平滑/基线/归一化全部后移，不进入 v1 实现和门禁。
 - Log axis v1 仅 Log10，非正值阻断；missing policy 只允许 `fail`/`exclude_with_report`，原始数据不变。
 - Matplotlib、SVG 与 Origin 消费同一 PlotCalculationResult 或用户预计算 Plot Data，不各自重算。完整契约见[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)和[拟合能力分期边界](./FITTING-SYSTEM.md)。
-- “图形不可分割的固定计算”只能作为已注册结构单元的封闭输入端口：计算 kind、算法版本和输出语义均由图形配方声明，不能借组合能力开放任意公式、拟合、分析节点或通用派生数据流程。
+- “图形不可分割的固定计算”只能作为已注册 Profile 的封闭输入端口：计算 kind、算法版本和输出语义均由图形契约声明，不能借任何图形能力开放任意公式、拟合、分析节点或通用派生数据流程。
 
 ### 9.3 三级校验
 
@@ -538,15 +519,15 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 - 无法映射为 Origin 原生对象时，必须提前提示，不能静默嵌入图片。
 - 尚未通过完整测试的图形只进入实验性目录，不进入正式内测图形库。
 - 图形默认外观与泛化能力使用两套独立证据：前者必须锚定 Origin 官方模板/随附项目或期刊图及其同源数据；后者使用冻结生成器、seed、manifest 和独立 oracle 验证数据变化后结构不失真。重新使用已准入配方只执行普通输入校验与产物验证，不为每次用户复用重新跑准入测试。
-- 基础图形先通过组数、点数/类别数、数值尺度与平移、跨零/全负、零/对称/非对称误差、长中英文标签和可选字段缺失等泛化门禁，才允许实现或准入由这些结构单元组成的新组合图。
-- 正式35图还必须逐图验证编辑 capability snapshot：白名单操作在 Matplotlib/Origin 中都成功，未声明操作稳定返回不支持，全部12种符号、闭合符号3种interior、`plus/cross`非适用拒绝、16色板与双Y默认轴样式按 ChartProfile 映射并 fresh-reopen 读回；内部图与已删除图不得出现在正式 capability 中。
+- 基础图形先通过组数、点数/类别数、数值尺度与平移、跨零/全负、零/对称/非对称误差、长中英文标签和可选字段缺失等泛化门禁，才允许实现或准入新的复合单图。
+- 正式34图还必须逐图验证编辑 capability snapshot：白名单操作在 Matplotlib/Origin 中都成功，未声明操作稳定返回不支持，全部12种符号、闭合符号3种interior、`plus/cross`非适用拒绝、16色板与双Y默认轴样式按 EngineProfile 映射并 fresh-reopen 读回；内部图与已删除图不得出现在正式 capability 中。
 
 Origin 能力分级：
 
 - O1：full native semantic parity，数据 linked，graph/layer/plot、axis/ticks、legend/annotation/page 原生可编辑。
 - O2：数据仍 linked 且对象原生可编辑，但有预先声明的非关键视觉差异。
 - O3：visual embedded/unlinked；O0：unavailable。
-- 正式35图全部必须达到 O1 才显示 OPJU；每图须基于当前声明的 exact Origin version 重新完成官方模板绑定、build/fresh-reopen 与机械读回。已删除ID不参与Origin能力分级。历史31/38/43/45图证据不继承新引擎资格。O2只为未来高级图形保留并需执行前披露，O3/O0不生成正式OPJU。
+- 正式34图全部必须达到 O1 才显示 OPJU；每图须基于当前声明的 exact Origin version 重新完成官方模板绑定、build/fresh-reopen 与机械读回。已删除ID不参与Origin能力分级。历史31/35/38/43/45图证据不继承新引擎资格。O2只为未来高级图形保留并需执行前披露，O3/O0不生成正式OPJU。
 
 ### 10.2 `.opju` 内容
 
@@ -577,7 +558,7 @@ Origin 能力分级：
 
 ### 10.4 文件导出
 
-- 支持当前图、选中图、整个批次和组合图。
+- 支持当前图、选中图和整个批次。
 - 文件名模板支持来源、图形类型和版本。
 - 默认不覆盖已有文件，自动追加版本号。
 - PNG 支持尺寸、DPI 和透明背景，第一轮颜色固定为 sRGB；SVG 保留矢量对象，默认文字转路径，可选 editable text。
@@ -671,7 +652,7 @@ Origin 能力分级：
 - 临时文件在隔离目录中创建并在任务结束后清理。
 - 主窗口工作入口始终是“用示例项目试用 / 导入自己的数据 / 打开已有 `.plotproj`”。builtin invite、custom provider、local_only 是首次需要 Agent 或模型设置中的服务模式，不是启动入口。
 - `NetworkMode=local_only` 禁止 credential/quota/model/config/update/analytics/diagnostics/远程 URL 全部出站；第一轮无 update-only 例外，localhost provider 仍属于 custom provider。模式切换不修改项目。
-- local_only/断网时手动 UI 仍生成同一种 ActionPlan，导入、Preparation、PlotCalculation、正式35图、批量/组合和PNG/SVG/OPJU全部本地可用；内部图与已删除图不会因离线模式而开放。
+- local_only/断网时手动 UI 仍生成同一种 ActionPlan，导入、Preparation、PlotCalculation、正式34图、批量和PNG/SVG/OPJU全部本地可用；内部图与已删除图不会因离线模式而开放。
 
 ### 14.4 最小云端控制面
 
@@ -718,7 +699,7 @@ Origin 能力分级：
 
 ### 16.1 第一轮：核心闭环
 
-- 历史第一轮曾定义43项数值图形；该清单已被当前正式35图决定取代，不得用于界面、Agent capability或发布计数。K23科学图像面板、S45专题地图和双Y轴网格图仍不进入第一轮。
+- 历史第一轮曾定义43项数值图形；该清单已被当前正式34图决定取代，不得用于界面、Agent capability或发布计数。K23科学图像面板、S45专题地图和双Y轴网格图仍不进入第一轮。
 - 内部代码面仍为 52 图，但 X07、X11、X12、X15、X16、X17、X18、X19、X37 标记为隐藏：不显示、不接受 Agent 创建、不承诺正式导出。正式图绘图规范以 Origin 模板/随附项目优先，不以团队主观猜测替代证据；X24/S07 仅允许标注为冻结合成视觉验证，不能冒充 Origin 官方同源案例。
 - 三入口启动空状态与可复制的本地合成数据示例项目。
 - 本地项目、多对话与自动保存。
@@ -733,21 +714,19 @@ Origin 能力分级：
 - 版本、撤销、科研有效性校验。
 - PNG、SVG、原生 `.opju`。
 - 七个首批发表规格。
-- 基础固定布局组合图。
 - 用户配置的 OpenAI-compatible 模型端点。
-- 35图视觉签名已完成；当前阶段下一门禁是正式桌面黑盒，随后用固定任务集、机器指标和目标科研用户完成内置 Agent 资格。通用图形编译器和开放式搭建器不在计划内。
+- 历史视觉签名已完成；当前阶段下一门禁是34图当前提交的视觉与正式桌面黑盒，随后用固定任务集、机器指标和目标科研用户完成内置 Agent 资格。通用图形编译器和开放式搭建器不在计划内。
 
 ### 16.2 第二轮：扩展能力
 
 - 扩大正式图形库。
 - 通用 AnalysisSpec/Result、FitSpec/Result、统计检验、拟合、平滑、基线和归一化需独立决策与验证后再进入后续阶段。
 - 完整结构化标注。
-- 高级组合图编辑。
 - 扩展数据格式与大数据压力测试。
 - 绘图流程模板。
 - 持久化命名样式预设、数据替换/重放和精确对象树。
 - 全窗口图形搭建器、从当前图复制修改、进阶空白搭建，以及项目/本机个人图形配方库；官方与自定义配方继续使用同一运行时和导出链。
-- 其余 29 个正式图的分批配方迁移、K25 `FigureRecipe`、双 Y/分面/跨轴关系和新增固定计算。
+- 其余正式图的分批配方迁移、双 Y/分面/跨轴关系和新增固定计算。
 - 科研图像与空间数据在完成独立产品验证后再评估开放。
 
 ## 17. 明确不做
@@ -765,7 +744,7 @@ Origin 能力分级：
 - 第一轮 PDF、EPS、EMF 正式导出。
 - 第一轮多主窗口、系统托盘驻留、版本分支合并和外部数据链接模式。
 - 第三方图形插件、社区市场和教程市场。
-- M6 内开放用户图形搭建器、任意画布/矢量绘制、代码节点、公式节点或可执行图形包；这些能力不得以“组合图”名义提前进入基础泛化阶段。
+- M6 内不开放用户图形搭建器、任意画布/矢量绘制、代码节点、公式节点或可执行图形包。
 - 图注、方法摘要和论文式科研写作。
 - 对科研结果进行自动解释或生成结论。
 
@@ -793,7 +772,6 @@ Origin 能力分级：
 - 八类固定绘图计算在完整数据上可复现，参数变化创建新 FigureVersion，双后端消费同一结果。
 - 批量任务部分失败时保留成功结果，并可重试失败项。
 - 首迁 14 图的批量结果可用真实缩略图网格审阅、多选、按状态筛选、标记异常、局部重试失败项并从本次导出排除。
-- 基础组合图可组合数值数据图表，并生成统一面板编号。
 - 正式图形可导出 PNG、SVG 和原生 `.opju`。
 - 普通数据图的 OPJU 达到 O1；受控 Origin 实例重新打开后核心对象仍可编辑。
 - Origin 不可用时只禁用 `.opju`，不阻断其他功能。
@@ -804,10 +782,10 @@ Origin 能力分级：
 - 第一轮无 usage analytics；DiagnosticBundle 仅用户主动生成、逐项预览并保存到本地，默认只含结构/统计/hash；仅本次明确同意后可加入已预览的脱敏数据，仍不含 DB原件、提示、路径或 secret。
 - 多设备共享 InviteGrant 额度，重装、超时、重试和服务重启不会获得新额度或重复扣费；控制面完全不可达时仍可启动、打开项目并使用全部本地手动能力。
 - 第一轮无应用内更新或 update_only；strict local_only 抓包为零。人工取得的安装包在应用外验证发布签名、SHA-256 与 Windows code signature，异常即阻断。
-- local_only 全进程抓包为零出站；断网仍可完成手动绘图、批量/组合和 PNG/SVG/OPJU。恶意 archive、宏/外链/公式、日志/诊断泄露与 Electron 注入均被阻止。
+- local_only 全进程抓包为零出站；断网仍可完成手动绘图、批量和 PNG/SVG/OPJU。恶意 archive、宏/外链/公式、日志/诊断泄露与 Electron 注入均被阻止。
 - 未知 schema 明确拒绝；已知 source→target 一次性迁移失败后原项目仍可打开且科学/视觉语义不变；旧组件缺失不静默换算法。任务崩溃不损坏已有权威状态，用户明确重试。
-- 35个准入图先完成官方裸模板动态矩阵及结构不变量检查；Matplotlib覆盖完整正式矩阵，Origin逐图使用声明的官方模板与最小T2补丁。内部图与已删除图的兼容诊断不计正式图形覆盖。基础门禁未通过时不得进入批量/组合资格。
-- 35图编辑能力与PRD §8.5逐项一致；白名单操作在Matplotlib/Origin均可执行，未声明请求稳定不支持且不创建部分版本。全部12种符号、闭合符号3种interior、`plus/cross`非适用拒绝、16冻结sRGB色板、15/16/超容量类别编码和X23/X24/X35/X36默认中性非加粗细轴均通过双后端与Origin fresh-reopen验证。
+- 34个准入图先完成官方裸模板动态矩阵及结构不变量检查；Matplotlib覆盖完整正式矩阵，Origin逐图使用声明的官方模板与最小T2补丁。内部图与已删除图的兼容诊断不计正式图形覆盖。基础门禁未通过时不得进入批量资格。
+- 34图编辑能力与PRD §8.5逐项一致；白名单操作在Matplotlib/Origin均可执行，未声明请求稳定不支持且不创建部分版本。全部12种符号、闭合符号3种interior、`plus/cross`非适用拒绝、16冻结sRGB色板、15/16/超容量类别编码和X23/X24/X35/X36默认中性非加粗细轴均通过双后端与Origin fresh-reopen验证。
 - ProjectContext 可从本地权威对象确定性重建并跨对话复用，旧版本/删除/作用域变化会使计划稳定过期；模型上下文不包含路径、secret、内部 ID 或未授权数据。
 - TaskPlan 的依赖、确认、幂等、部分成功、NeedsInput、Interrupted、局部重试和用户明确恢复均通过状态机与重启 E2E；恢复不重做成功项、不续跑进程内部状态、不产生半成品版本。
 - 真实模型对固定任务集的候选计划、本地作用对象绑定和跨轮次指代达到资格门槛；越权、陈旧、歧义或无效输出稳定拒绝/追问。模型资格不替代绘图引擎资格。
@@ -819,9 +797,9 @@ Origin 能力分级：
 - 唯一正式规模为100k rows×20 columns、常规10 charts、单图≤100k plotted primitives、批量20 files/charts×每图10k、项目≤100 charts。超范围显示“超出Beta已验证范围”后best effort，资源不足稳定拒绝并建议外部准备较小数据或缩小批次，不暴露隐藏筛选/聚合。
 - Thumbnail≤5k、interactive≤20k visible primitives；100k preview P95≤3s且range/PlotCalculation full data。声明规模内formal PNG/SVG/OPJU一律full data，不静默抽稀、栅格或换算法。
 - 导入只qualification 100MB CSV≤12s、50MB XLSX≤30s；常规峰值内存≤2GB。100k PNG≤5s、SVG≤10s、single OPJU≤60s、20-chart OPJU≤180s。
-- 35图的formal PNG/SVG以minimal/representative/edge离线矩阵覆盖，共315个三格式逻辑MatrixKey；preview另测。每个build只声明一个Origin exact version，其OPJU对35图各运行一份代表性live+fresh-reopen，minimal/edge/error使用离线contract、validator与稳定失败测试；其他版本`VERSION_UNSUPPORTED`。历史实跑只作为背景证据。
+- 34图的formal PNG/SVG以minimal/representative/edge离线矩阵覆盖，共306个三格式逻辑MatrixKey；preview另测。每个build只声明一个Origin exact version，其OPJU对34图各运行一份代表性live+fresh-reopen，minimal/edge/error使用离线contract、validator与稳定失败测试；其他版本`VERSION_UNSUPPORTED`。历史实跑只作为背景证据。
 - Data corruption、silent wrong science/semantic change、formal抽稀/算法替换、假O1、secret泄漏、声明图形失败、签名绕过、已知blocker/critical或靠retry变绿仍不可豁免。
-- 每个 Beta build 固定 manifest/source/test-runner/app/PlotDocument/action/model/prompt/Unicode/dependency/fixture hashes，提交导入golden、35图PNG/SVG离线矩阵、单Origin 35图代表性实跑、编辑capability报告、固定计算/预计算、local security、quota幂等、安装包hash和known issues检查单；不要求商业级SBOM、多角色签署、长soak、每图三次昂贵Origin自动化或全OS/云攻击矩阵。
+- 每个 Beta build 固定 manifest/source/test-runner/app/PlotDocument/action/model/prompt/Unicode/dependency/fixture hashes，提交导入golden、34图PNG/SVG离线矩阵、单Origin 34图代表性实跑、编辑capability报告、固定计算/预计算、local security、quota幂等、安装包hash和known issues检查单；不要求商业级SBOM、多角色签署、长soak、每图三次昂贵Origin自动化或全OS/云攻击矩阵。
 - 首批10–15人的80%/60%/60%、至少一名batch与一名Origin继续编辑指标仍决定第二批go/no-go，使用经同意观察/访谈而非analytics。
 - 完整预算、MatrixKey、检查单与后续工程边界见 [小规模邀请制 Beta 性能测试与发布门禁契约](./PERFORMANCE-TEST-RELEASE.md)。这些是未来Beta gate，当前文档不表示真实实现或测试已通过。
 - 实施按W0–W10依赖与M0–M7 evidence里程碑执行，详见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；需求权威、实现入口和future evidence映射见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。

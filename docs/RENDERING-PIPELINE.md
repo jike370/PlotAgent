@@ -1,44 +1,44 @@
-# PlotAgent v3 绘图执行管线
+# PlotAgent v3 渲染管线
 
-> 状态：35 个 Origin 可渲染 Profile 的现行执行与验收边界，2026-08-12。
+> 当前范围：34张单图；Matplotlib和Origin各自使用每图独立renderer。不支持组合图。
 
-## 1. 执行顺序
+## 执行链
 
 ```text
-公共 Engine Action
-  → Profile 能力校验
-  → PlotDocument 版本事务
-  → EngineDataView 解析
-  → Profile 专属 backend
-  → 原生读回
-  → 正式产物
+SourceDataset / PreparedDataset
+        ↓ EngineDataView + FieldBinding
+immutable PlotDocument
+        ↓ validated EngineAction
+profile-specific renderer
+        ├─ Matplotlib → preview / PNG / SVG
+        └─ Origin recipe → native OPJU
 ```
 
-不存在中间统一绘图语言、统一最终几何或跨 backend compiler。
+Pi或手动UI都不直接调用renderer。PlotAgent Core先验证profile、字段、对象、版本、权限、确认与动作，再进入同一渲染链。
 
-## 2. 默认态
+## 共同语义
 
-- Origin 默认态来自该 Profile 固定的官方模板；只写数据、designation 和模板需要的最小动态绑定。
-- Matplotlib 默认态由该 Profile 的独立 renderer 负责。
-- 模板本身已有的布局、坐标、图例和样式不由 Python 重画。
+两端共享：数据版本、字段角色、系列身份、标题、轴语义、允许的系列样式、图例、图形参数和标注。两端不共享最终几何、artist、Origin对象路径或像素布局。
 
-## 3. 编辑态
+## Matplotlib
 
-公共动作只开放两端都能稳定表达并读回的能力。动作执行后：
+- 每图独立实现；
+- 共享字体、色板、轴、图例、导出和边界工具；
+- preview与formal export使用同一PlotDocument；
+- 不为迁就Origin而退化成通用几何。
 
-- PlotDocument 产生新版本；
-- Matplotlib renderer 消费新版本生成预览/导出；
-- Origin 在模板原生对象上做最小修改并重新打开验证；
-- 任一 backend 不支持时在执行前拒绝，不静默忽略或近似替换。
+## Origin
 
-## 4. 动态数据
+- 每图绑定官方模板、菜单section或X-Function；
+- 写入worksheet/matrix与designation后走官方创建入口；
+- 只应用用户明确动作和已实证的必要T2配置；
+- 保存前读回，另启全新Origin会话重开再读回；
+- 禁止嵌入Matplotlib位图、手工近似专属图或回退旧renderer。
 
-每个 Profile 必须覆盖与其语义相关的行数、系列数、类别数、范围、缺失值和可选字段变化。动态布局属于 Profile 或模板自身行为；公共层只负责验证数据形状与身份，不替每张图决定图元。
+## 一致性
 
-## 5. 视觉与机械资格
+一致性指科学语义、数据身份、系列对象和用户编辑一致，不要求像素一比一。默认态分别遵循Matplotlib设计和Origin官方模板；Agent只开放两端都能稳定表达与读回的共同能力。
 
-- 机械资格：创建、代表性编辑、读回、fresh-reopen、数据哈希、对象类型与导出存在性。
-- 视觉资格：由产品负责人逐图审查默认态和编辑态。
-- 机械通过不能自动写成视觉 PASS；产品负责人已于 2026-08-12 独立确认当前 35/35 图视觉验收通过。
+## 证据
 
-产物入口：`build/visual-audit/origin-recipe-renderer-35/index.html`。
+机械通过不能自动写成视觉PASS。2026-08-12旧35图视觉页只作历史；本轮K06、X13、X38、X40发生变化，需当前提交的新视觉与正式UI证据。

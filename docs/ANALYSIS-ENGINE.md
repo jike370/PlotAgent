@@ -101,7 +101,7 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 
 ## 4. 需要预计算字段的正式图形
 
-正式图形库固定为35图；其中下列三图依赖用户预计算字段，详情页和执行前确认区明确显示“需要预计算字段”。缺少输入时返回 `PLOTSPEC_PRECOMPUTED_INPUT_REQUIRED`。研究清单、内部adapter和已删除ID不会因具备预计算输入而开放：
+正式图形库固定为34张单图；依赖用户预计算字段的图在详情页和执行前确认区明确显示“需要预计算字段”。缺少输入时返回稳定的预计算输入错误。研究清单、内部 adapter 和已删除 ID 不会因具备预计算输入而开放：
 
 | 图形 | v1 接受的预计算输入 | v1 不执行 |
 | --- | --- | --- |
@@ -136,7 +136,7 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 
 AnalysisSpec/Result、FitSpec/Result、统计检验、科学拟合、平滑、基线、归一化与可物化分析输出均为后续能力。未来启用时必须新增/更新 Decision ID、Schema、错误、fixtures、provider context、storage 和 release gate；不得复用 v1 PlotCalculationSpec 作为开放分析后门。
 
-正式35图在v1的准入只验证各图适用的直接数据、固定计算或预计算字段路径，不验证上述后续算法的科学正确性；图形目录变化不会自动扩大AnalysisSpec/FitSpec范围。
+正式34图在v1的准入只验证各图适用的直接数据、固定计算或预计算字段路径，不验证上述后续算法的科学正确性；图形目录变化不会自动扩大 AnalysisSpec/FitSpec 范围。
 
 ## 8. 稳定错误与契约测试
 
