@@ -9,6 +9,7 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 export const IPC_CHANNELS = {
   agentDecide: 'plotagent:agent:decide',
+  agentRuntimeEvent: 'plotagent:agent:runtime-event',
   agentPlanConfirm: 'plotagent:agent:plan-confirm',
   agentPlanGet: 'plotagent:agent:plan-get',
   agentPlanList: 'plotagent:agent:plan-list',
@@ -250,6 +251,24 @@ export interface AgentDecideInput extends ProjectIdInput {
   readonly utterance: string
 }
 
+export type AgentRuntimeStage =
+  | 'preparing_context'
+  | 'planning'
+  | 'validating_decision'
+  | 'saving_plan'
+  | 'completed'
+  | 'cancelled'
+  | 'failed'
+
+export interface AgentRuntimeEvent {
+  readonly schemaVersion: DesktopApiVersion
+  readonly runId: string
+  readonly projectId: string
+  readonly sequence: number
+  readonly stage: AgentRuntimeStage
+  readonly label: string
+}
+
 export interface AgentPlanInput extends ProjectIdInput {
   readonly planId: string
 }
@@ -328,6 +347,7 @@ export interface PlotAgentDesktopApi {
   respondToCloseRequest(response: CloseResponse): Promise<DesktopActionResult>
   onCoreStatus(listener: (status: CoreStatus) => void): Unsubscribe
   onTaskEvent(listener: (event: TaskEvent) => void): Unsubscribe
+  onAgentRuntimeEvent(listener: (event: AgentRuntimeEvent) => void): Unsubscribe
   onOpenResourceRequested(listener: (request: OpenResourceRequest) => void): Unsubscribe
   onCloseRequested(listener: (request: CloseRequest) => void): Unsubscribe
 }

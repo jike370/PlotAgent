@@ -120,7 +120,7 @@ class EngineAgentOrchestrator:
         project_context: ProjectContextSnapshot,
         target_profiles: dict[str, str] | None = None,
     ) -> EngineAgentRunResult:
-        preflight = self._preflight(context_request)
+        preflight = self.preflight(context_request)
         if preflight is not None:
             return EngineAgentRunResult(
                 client_model_run_id=client_model_run_id,
@@ -259,7 +259,8 @@ class EngineAgentOrchestrator:
             audit=failure_audit,
         )
 
-    def _preflight(self, request: ContextBuildRequest) -> NeedsInput | None:
+    def preflight(self, request: ContextBuildRequest) -> NeedsInput | None:
+        """Return a deterministic question before any model runtime is invoked."""
         target = request.project.target
         if target.object_type != "source_dataset":
             return None
@@ -274,6 +275,68 @@ class EngineAgentOrchestrator:
         return NeedsInput(
             target_alias=target.object_alias,
             questions=(InputQuestion(question_key="chart_type", prompt=prompt, input_kind="text"),),
+        )
+
+    def prepare_external(
+        self, request: ContextBuildRequest
+    ) -> tuple[ContextEnvelope, dict[str, object], str]:
+        """Build the bounded context and public decision contract for an external runtime.
+
+        The external runtime may deliberate and call its own tools, but the returned
+        decision still has to pass :meth:`accept_external` before it can become a
+        PlotAgent plan.
+        """
+
+        envelope = self._context_builder.build(request)
+        schema = _DECISION_ADAPTER.json_schema(mode="validation")
+        return envelope, schema, engine_agent_prompt(self._codec).text
+
+    def accept_external(
+        self,
+        decision_payload: object,
+        *,
+        envelope: ContextEnvelope,
+        project_context: ProjectContextSnapshot,
+        target_profiles: dict[str, str] | None = None,
+        client_model_run_id: str,
+    ) -> EngineAgentRunResult:
+        """Validate and bind a decision produced by Pi or another trusted runtime."""
+
+        try:
+            decision = _DECISION_ADAPTER.validate_python(decision_payload)
+            self._validate_decision(decision, envelope)
+            bound = (
+                self._binder.bind(
+                    decision,
+                    project_context,
+                    target_profiles=target_profiles,
+                )
+                if isinstance(decision, EngineAgentPlan)
+                else None
+            )
+        except ValidationError:
+            return EngineAgentRunResult(
+                client_model_run_id=client_model_run_id,
+                accepted=False,
+                error_code="SCHEMA_INVALID",
+            )
+        except AgentRuntimeError as error:
+            return EngineAgentRunResult(
+                client_model_run_id=client_model_run_id,
+                accepted=False,
+                error_code=error.code,
+            )
+        except EngineCommandError:
+            return EngineAgentRunResult(
+                client_model_run_id=client_model_run_id,
+                accepted=False,
+                error_code="ENGINE_PLAN_INVALID",
+            )
+        return EngineAgentRunResult(
+            client_model_run_id=client_model_run_id,
+            accepted=True,
+            decision=decision,
+            bound_plan=bound,
         )
 
     @staticmethod

@@ -536,6 +536,7 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
     respondToCloseRequest: actionOk,
     onCoreStatus: () => () => undefined,
     onTaskEvent: () => () => undefined,
+    onAgentRuntimeEvent: () => () => undefined,
     onOpenResourceRequested: () => () => undefined,
     onCloseRequested: () => () => undefined,
   }

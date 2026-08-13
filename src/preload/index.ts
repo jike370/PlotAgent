@@ -8,6 +8,7 @@ import {
   type CoreStatus,
   type CustomProviderConfigureInput,
   type AgentDecideInput,
+  type AgentRuntimeEvent,
   type AgentPlanConfirmInput,
   type AgentPlanInput,
   type EngineBatchPlanCreateInput,
@@ -51,6 +52,7 @@ function createEventBridge<T>(channel: string, bufferLimit = 128): {
 
 const coreStatusEvents = createEventBridge<CoreStatus>(IPC_CHANNELS.coreStatusChanged, 8)
 const taskEvents = createEventBridge<TaskEvent>(IPC_CHANNELS.taskEvent)
+const agentRuntimeEvents = createEventBridge<AgentRuntimeEvent>(IPC_CHANNELS.agentRuntimeEvent, 32)
 const openResourceEvents = createEventBridge<OpenResourceRequest>(IPC_CHANNELS.openResourceRequested, 32)
 const closeRequestEvents = createEventBridge<CloseRequest>(IPC_CHANNELS.lifecycleCloseRequested, 4)
 
@@ -101,6 +103,8 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.closeResponse, response),
   onCoreStatus: (listener: (status: CoreStatus) => void) => coreStatusEvents.subscribe(listener),
   onTaskEvent: (listener: (event: TaskEvent) => void) => taskEvents.subscribe(listener),
+  onAgentRuntimeEvent: (listener: (event: AgentRuntimeEvent) => void) =>
+    agentRuntimeEvents.subscribe(listener),
   onOpenResourceRequested: (listener: (request: OpenResourceRequest) => void) =>
     openResourceEvents.subscribe(listener),
   onCloseRequested: (listener: (request: CloseRequest) => void) =>

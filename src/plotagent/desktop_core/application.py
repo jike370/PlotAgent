@@ -256,6 +256,7 @@ class DesktopApplication:
             "agent.engine.plans.run": self._engine_agent_plan_run,
             "agent.engine.plans.resume": self._engine_agent_plan_run,
             "provider.status": self._provider_status,
+            "provider.runtime.get": self._provider_runtime_get,
             "provider.configure": self._provider_configure,
             "provider.clear": self._provider_clear,
             "origin.status": self._origin_status,
@@ -680,6 +681,35 @@ class DesktopApplication:
             "model_profile": _optional_text(config.get("model_profile"), "model_profile")
             or "custom-fixed",
             "retention_acknowledged": bool(config.get("retention_acknowledged", False)),
+        }
+
+    def _provider_runtime_get(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        """Return provider material only to the trusted desktop main process.
+
+        This RPC is intentionally not exposed through the preload bridge.  It lets
+        the Pi runtime reuse the credential already protected by the platform
+        credential store without copying it into renderer state or a second file.
+        """
+
+        _object(params, required=set())
+        config = self._saved_provider_config()
+        if config is None:
+            raise RpcServiceError(
+                "PROVIDER_NOT_CONFIGURED", "A custom model provider is not configured."
+            )
+        config_id = _text(config["provider_config_id"], "provider_config_id")
+        api_key = self._credential_store.get_custom_api_key(config_id)
+        if api_key is None:
+            raise RpcServiceError(
+                "PROVIDER_NOT_CONFIGURED", "A custom model provider API key is required."
+            )
+        return {
+            "provider_config_id": config_id,
+            "base_url": _text(config["base_url"], "base_url"),
+            "model_id": _text(config["model_id"], "model_id"),
+            "api_key": api_key,
         }
 
     def _provider_configure(
@@ -1169,6 +1199,8 @@ class DesktopApplication:
                 "retention_acknowledged",
                 "selected_source_datasets",
                 "target_plot_id",
+                "prepare_only",
+                "external_decision",
             },
         )
         session = self._session(_text(values["project_id"], "project_id"))
@@ -1435,23 +1467,63 @@ class DesktopApplication:
                 allowed_categories=categories,
             ),
         )
-        result = asyncio.run(
-            EngineAgentOrchestrator(
-                network_mode=mode,
-                context_builder=ContextBuilder(),
-                provider=provider,
-                binder=BundledEngineAgentBinder(session.engine.catalog),
-                codec=session.engine.codec,
-                audit_sink=InMemoryAuditSink(),
-            ).run(
+        orchestrator = EngineAgentOrchestrator(
+            network_mode=mode,
+            context_builder=ContextBuilder(),
+            provider=provider,
+            binder=BundledEngineAgentBinder(session.engine.catalog),
+            codec=session.engine.codec,
+            audit_sink=InMemoryAuditSink(),
+        )
+        client_model_run_id = _text(
+            values["client_model_run_id"], "client_model_run_id"
+        )
+        if values.get("prepare_only") is True:
+            deterministic = orchestrator.preflight(context_request)
+            if deterministic is None:
+                envelope, decision_schema, system_prompt = orchestrator.prepare_external(
+                    context_request
+                )
+                return cast(
+                    RpcJsonValue,
+                    {
+                        "accepted": True,
+                        "prepared": True,
+                        "conversation_id": conversation_id,
+                        "context_snapshot_id": project_context.snapshot_id,
+                        "context_hash": project_context.snapshot_hash,
+                        "context_envelope": envelope.model_dump(mode="json"),
+                        "decision_schema": decision_schema,
+                        "system_prompt": system_prompt,
+                    },
+                )
+            result = orchestrator.accept_external(
+                deterministic.model_dump(mode="json"),
+                envelope=ContextBuilder().build(context_request),
+                project_context=project_context,
+                target_profiles=target_profiles,
+                client_model_run_id=client_model_run_id,
+            )
+        elif "external_decision" in values:
+            envelope = ContextBuilder().build(context_request)
+            result = orchestrator.accept_external(
+                values["external_decision"],
+                envelope=envelope,
+                project_context=project_context,
+                target_profiles=target_profiles,
+                client_model_run_id=client_model_run_id,
+            )
+        else:
+            result = asyncio.run(
+                orchestrator.run(
                 client_model_run_id=_text(
                     values["client_model_run_id"], "client_model_run_id"
                 ),
                 context_request=context_request,
                 project_context=project_context,
                 target_profiles=target_profiles,
+                )
             )
-        )
         if not result.accepted or result.decision is None:
             return _agent_failure_payload(result.error_code)
         decision = result.decision

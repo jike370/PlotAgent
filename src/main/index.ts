@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, protocol, session } from 'electron'
 
 import { PythonCoreSupervisor, resolveCoreLaunchSpec } from './core/python-supervisor.js'
+import { PiAgentRuntime } from './agent/pi-runtime.js'
 import { registerDesktopIpc, requestCoreAction } from './ipc/desktop-ipc.js'
 import { AppCloseController } from './lifecycle/app-close-controller.js'
 import {
@@ -42,6 +43,11 @@ function sendToRenderer(channel: string, value: unknown): void {
   if (mainWindow === undefined || mainWindow.isDestroyed()) return
   mainWindow.webContents.send(channel, value)
 }
+
+const piAgentRuntime = new PiAgentRuntime({
+  core: supervisor,
+  emit: (event) => sendToRenderer(IPC_CHANNELS.agentRuntimeEvent, event),
+})
 
 const closeController = new AppCloseController({
   getTasks: () => tasks.snapshot(),
@@ -151,6 +157,7 @@ if (!hasSingleInstanceLock) {
       getWindow: () => mainWindow,
       resources: resourceRegistry,
       ensureSampleSource: () => ensureBundledSampleSource(app.getPath('userData')),
+      piAgentRuntime,
     })
     mainWindow = createWindow()
     mainWindow.webContents.once('did-finish-load', () => {

@@ -253,6 +253,7 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     respondToCloseRequest: vi.fn(actionOk),
     onCoreStatus: vi.fn((listener) => { coreListener = listener; return () => { coreListener = undefined } }),
     onTaskEvent: vi.fn((listener) => { taskListener = listener; return () => { taskListener = undefined } }),
+    onAgentRuntimeEvent: vi.fn(() => () => undefined),
     onOpenResourceRequested: vi.fn(() => () => undefined),
     onCloseRequested: vi.fn(() => () => undefined),
     ...overrides,

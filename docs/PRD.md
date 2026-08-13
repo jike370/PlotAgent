@@ -3,7 +3,7 @@
 > 状态：正式产品范围固定为35图；核密度图、Kaplan–Meier生存曲线、森林图已从公开产品能力删除，仅为旧项目引用保留 `CHART_TYPE_REMOVED` 迁移墓碑；产品负责人已于2026-08-12确认35/35图视觉验收通过；“确认映射并绘图→Core拒绝”和本轮交互P0/P1实现范围已完成代码修复，正式 Windows Electron 完整重测尚未完成，当前不得宣称黑盒通过
 > 产品代号：PlotAgent  
 > 日期：2026-08-13
-> 相关资料：[Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)、[任务型对话与交互验收契约](./CONVERSATIONAL-INTERACTION.md)、[规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta 兼容](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
+> 相关资料：[Origin 官方模板映射与绘图引擎重构基线](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)、[任务型对话与交互验收契约](./CONVERSATIONAL-INTERACTION.md)、[Pi 通用 Agent 运行时接入契约](./PI-AGENT-RUNTIME.md)、[规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)、[实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)、[已确认产品决策基线](./PRODUCT-DECISIONS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[Agent 上下文、模型供应商与数据出境契约](./AGENT-CONTEXT-AND-PROVIDERS.md)、[邀请、共享额度与最小 Beta 云控制面](./CLOUD-CONTROL-PLANE.md)、[本地安全、诊断与 Beta 兼容](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[小规模 Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[项目存储、项目包与数据导入](./PROJECT-STORAGE.md)、[受控数据准备、单位与来源追溯契约](./DATA-TRANSFORMS.md)、[任务运行时、取消和崩溃恢复](./TASK-RUNTIME.md)、[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[原生 Origin OPJU 导出契约](./ORIGIN-EXPORT.md)、[科研图形库调研](./chart-library-research.md)、[产品战略](../PRODUCT.md)、[设计种子](../DESIGN.md)
 
 ## 1. 产品概述
 
@@ -489,7 +489,7 @@ StructureUnit、ChartRecipe、PlotSpec、共享 resolver 和统一最终几何�
 
 ### 9.1 执行模型
 
-- 模型没有数据处理、统计、绘图、导出、文件、数据库、Origin 或 URL 工具，也没有 tool loop；只返回一个结构化 AgentDecision 候选。
+- Pi 提供有界的模型会话与工具循环，但只开放一个强类型 `submit_plotagent_decision` 工具；模型没有数据处理、统计、绘图、导出、文件、数据库、Origin 或 URL 工具，也不能直接写项目。
 - 只有一个对话编排 Agent；一个会话可有多个 FigureTask/BatchTask，但每次运行只返回一个决策，并携带常驻 active target。
 - ActionPlan 候选必须通过本地 Schema、对象版本、capability、permission 与科研业务校验，之后才由本地 Executor 映射到领域服务。
 - 模型不生成或执行任意 Python、LabTalk、SQL、命令行或脚本。
@@ -652,7 +652,7 @@ Origin 能力分级：
 
 ### 14.2 Agent 与绘图核心
 
-- 第一轮采用单 Agent 有界规划，不使用多 Agent 或开放式自主循环。
+- 第一轮采用 Pi 单 Agent 有界规划，不使用多 Agent、Shell/文件工具或开放式自主循环；Pi 负责流式、工具轮次、取消与 steering，PlotAgent Core 负责领域校验和提交。
 - Provider 只返回 `ActionPlan | NeedsInput | Unsupported | NoChange` 四类 AgentDecision；ActionPlan 是本地校验前的候选，手动 UI 直接生成相同 ActionPlan 并复用本地执行链。
 - 数学、安全、对象版本和产品硬规则由本地 validator 产生稳定阻断错误，不设置模型自报的 blocked 分支。
 - 版本化 PlotDocument、不可变数据引用和公共动作日志是绘图真值；没有共享最终几何或中间绘图语言。

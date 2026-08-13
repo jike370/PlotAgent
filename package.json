@@ -20,6 +20,8 @@
     "release:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release-windows.ps1"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "0.84.1",
+    "@earendil-works/pi-ai": "0.84.1",
     "lucide-react": "1.28.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"

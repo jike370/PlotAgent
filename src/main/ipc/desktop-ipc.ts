@@ -31,6 +31,7 @@ import {
   type JsonValue,
 } from '../../shared/desktop-contract.js'
 import type { PythonCoreSupervisor } from '../core/python-supervisor.js'
+import type { PiAgentRuntime } from '../agent/pi-runtime.js'
 import type { AppCloseController } from '../lifecycle/app-close-controller.js'
 import type { ResourceRegistry } from '../single-instance-routing.js'
 import { isTaskCancellable, type TaskTracker } from '../tasks/task-state.js'
@@ -54,6 +55,7 @@ export interface RegisterDesktopIpcOptions {
   readonly getWindow: () => BrowserWindow | undefined
   readonly resources: ResourceRegistry
   readonly ensureSampleSource: () => Promise<string>
+  readonly piAgentRuntime: PiAgentRuntime
 }
 
 function invalidArgument(message: string): DesktopActionResult {
@@ -375,6 +377,7 @@ export function registerDesktopIpc({
   getWindow,
   resources,
   ensureSampleSource,
+  piAgentRuntime,
 }: RegisterDesktopIpcOptions): () => void {
   const datasetIdentities = new Map<string, DatasetIdentity>()
   const identityKey = (projectId: string, datasetId: string, sourceVersion: number): string => (
@@ -416,6 +419,7 @@ export function registerDesktopIpc({
     IPC_CHANNELS.lifecycleCloseRequested,
     IPC_CHANNELS.openResourceRequested,
     IPC_CHANNELS.taskEvent,
+    IPC_CHANNELS.agentRuntimeEvent,
   ])
   const channels = Object.values(IPC_CHANNELS).filter((channel) => !eventChannels.has(channel))
   for (const channel of channels) ipcMain.removeHandler(channel)
@@ -701,7 +705,7 @@ export function registerDesktopIpc({
       : input.scope !== 'current'
         || (input.target !== undefined && input.target.kind !== 'plot')
         ? invalidDataArgument('Agent Native currently accepts a dataset or one plot target.')
-        : requestAgentDecision(supervisor, resources, {
+        : piAgentRuntime.decide({
         project_id: input.projectId,
         source_dataset_id: input.sourceDatasetId,
         source_version: input.sourceVersion,
@@ -720,7 +724,8 @@ export function registerDesktopIpc({
         ...(input.selectedChartId === undefined
           ? {} : { selected_profile_id: input.selectedChartId }),
         ...(input.target === undefined ? {} : { target_plot_id: input.target.id }),
-      })
+      }).then((result) => ({ ok: true, value: sanitizeCoreResult(result, resources) } satisfies DesktopDataResult))
+        .catch((error: unknown) => ({ ok: false, error: supervisor.toPublicResult(error) } satisfies DesktopDataResult))
   })
 
   for (const [channel, method] of [

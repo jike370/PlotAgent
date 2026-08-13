@@ -240,6 +240,61 @@ def test_agent_context_contains_each_explicitly_selected_dataset(
     assert all(item.field_alias.startswith("data_") for item in snapshot.field_bindings)
 
 
+def test_pi_runtime_handoff_reuses_protected_provider_and_local_authority(
+    harness: ApplicationHarness,
+) -> None:
+    harness.call(
+        "provider.configure",
+        {
+            "mode": "custom_provider",
+            "provider_config_id": "custom.default",
+            "base_url": "https://model.example/v1",
+            "model_id": "test-model",
+            "api_key": "secret-api-key",
+            "retention_acknowledged": True,
+        },
+    )
+    runtime = harness.call("provider.runtime.get", {})
+    assert runtime == {
+        "provider_config_id": "custom.default",
+        "base_url": "https://model.example/v1",
+        "model_id": "test-model",
+        "api_key": "secret-api-key",
+    }
+
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="pi-handoff")
+    dataset = cast(list[dict[str, Any]], imported["datasets"])[0]
+    request: dict[str, JsonValue] = {
+        "project_id": project_id,
+        "source_dataset_id": cast(str, dataset["source_dataset_id"]),
+        "source_version": cast(int, dataset["source_version"]),
+        "selected_profile_id": "K01",
+        "user_instruction": "Create the selected line chart.",
+        "client_model_run_id": "model-run:pi",
+        "expected_version": cast(int, imported["project_version"]),
+    }
+    prepared = harness.call("agent.engine.decide", {**request, "prepare_only": True})
+    assert prepared["prepared"] is True
+    assert cast(dict[str, Any], prepared["context_envelope"])["context_hash"]
+    assert cast(dict[str, Any], prepared["decision_schema"])["$defs"]
+
+    accepted = harness.call(
+        "agent.engine.decide",
+        {
+            **request,
+            "external_decision": {
+                "schema_version": "engine-agent.v1",
+                "decision_type": "no_change",
+                "target_alias": "active_target",
+                "explanation": "The requested chart already matches the current goal.",
+            },
+        },
+    )
+    assert accepted["accepted"] is True
+    assert cast(dict[str, Any], accepted["decision"])["decision_type"] == "no_change"
+
+
 def test_public_export_action_writes_png_without_mutating_plot(
     harness: ApplicationHarness,
     tmp_path: Path,
