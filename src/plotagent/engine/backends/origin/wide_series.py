@@ -431,6 +431,9 @@ class WideSeriesOriginProject:
                 legend.set_int("link", 1)
                 legend.set_int("show", int(action.visible))
                 legend.set_int("background", 0)
+                legend.set_int("attach", 1)
+                legend.set_float("x1", 0.02)
+                legend.set_float("y1", 0.02)
                 legend.set_float("fsize", 9.0)
             return
         raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")

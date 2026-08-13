@@ -688,6 +688,8 @@ def test_k06_converts_absolute_bounds_to_native_asymmetric_errors(
     assert origin.book.sheet.columns[4] == pytest.approx([0.1, 0.2, 0.1])
     assert origin.book.sheet.columns[5] == pytest.approx([0.2, 0.3, 0.1])
     assert any("set __K06YMINUS -om __K06CENTER" in command for command in origin.commands)
+    assert any("set __K06XMINUS -oxm __K06CENTER" in command for command in origin.commands)
+    assert all("set __K06XMINUS -om __K06CENTER" not in command for command in origin.commands)
     assert origin.graph.layer.plots[0].symbol_kind == 1
     assert "point_error_series" in {item.object_kind for item in readback.objects}
 

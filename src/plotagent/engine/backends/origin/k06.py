@@ -382,7 +382,7 @@ class K06OriginProject:
             f"range __K06YMINUS={source}!C; range __K06YPLUS={source}!D; "
             f"range __K06XMINUS={source}!E; range __K06XPLUS={source}!F; "
             "set __K06YMINUS -om __K06CENTER; set __K06YPLUS -op __K06CENTER; "
-            "set __K06XMINUS -om __K06CENTER; set __K06XPLUS -op __K06CENTER;"
+            "set __K06XMINUS -oxm __K06CENTER; set __K06XPLUS -oxp __K06CENTER;"
         )
         if not self.op.lt_exec(command):
             raise RuntimeError("Origin could not bind asymmetric K06 error directions")

@@ -258,8 +258,14 @@ class _Label:
     def set_int(self, name: str, value: int) -> None:
         self.values[name] = value
 
+    def set_float(self, name: str, value: float) -> None:
+        self.values[name] = value
+
     def get_int(self, name: str) -> int:
         return self.values.get(name, 0)
+
+    def get_float(self, name: str) -> float:
+        return float(self.values.get(name, 0.0))
 
 
 class _Axis:
@@ -342,6 +348,10 @@ class _Layer:
 
     def add_label(self, text: str, _x=None, _y=None):
         label = _Label(text)
+        if _x is not None:
+            label.values["x1"] = float(_x)
+        if _y is not None:
+            label.values["y1"] = float(_y)
         self.labels[f"new-{len(self.labels)}"] = label
         return label
 
@@ -469,6 +479,12 @@ class _Origin:
         elif command.startswith("legendbox"):
             assert self.graph is not None
             self.graph[0].labels["legend"] = _Label("data symbols")
+        category = re.search(r"-n (X13C\d{4}) CategoryPlaceholder", command)
+        if category:
+            assert self.graph is not None
+            label = _Label("CategoryPlaceholder")
+            label.name = category.group(1)
+            self.graph[0].labels[category.group(1)] = label
         color = re.search(r'set %C -pfb color\("(#[0-9A-Fa-f]{6})"\)', command)
         if color:
             self.x13_styles[self.active_layer]["color"] = int(color.group(1)[1:], 16)

@@ -28,6 +28,7 @@ from .profile import X13_ORIGIN_PROFILE, resolve_official_template
 _COLUMN = 203
 _OFFICIAL_COMMAND = "worksheet -s 1 0 3 0; run.section(plot,PopulationPyramid);"
 _TITLE_NAME = "_ENGINE_TITLE"
+_CATEGORY_PREFIX = "X13C"
 
 
 def _safe_label(value: str) -> str:
@@ -71,6 +72,7 @@ class X13OriginProject:
         self.graph.lname = f"X13 {template.stem} / {document.plot_id}"
         self._bind_native_graph()
         self._assert_native_structure(verify_offsets=False)
+        self._materialize_center_categories(pyramid)
 
     def reopen(self, project_path: Path, *, readonly: bool = True) -> None:
         self.op.new(asksave=False)
@@ -233,6 +235,7 @@ class X13OriginProject:
                 raise RuntimeError(f"Origin X13 data column {index} differs after reopen")
         token = document.plot_id.removeprefix("plot:")
         snapshot: dict[str, object] = {"layers": 2, "categories": pyramid.categories}
+        self._verify_center_categories(pyramid)
         legend_action: SetLegend | None = None
         for action in actions:
             if isinstance(action, SetTitle):
@@ -306,6 +309,46 @@ class X13OriginProject:
         if tuple(len(items) for items in native_plots) != (1, 1):
             raise RuntimeError("Origin PopulationPyramid must create one native plot per layer")
         self.plots = (native_plots[0][0], native_plots[1][0])
+
+    def _materialize_center_categories(self, pyramid: PopulationPyramidData) -> None:
+        if self.layers is None:
+            raise RuntimeError("X13 project is not initialized")
+        for layer_index in (1, 2):
+            if not self.op.lt_exec(
+                self._graph_layer_prefix(layer_index) + "axis -ps X L 0;"
+            ):
+                raise RuntimeError("Origin could not hide X13 outer category tick labels")
+        layer = self.layers[0]
+        count = len(pyramid.categories)
+        for row, category in enumerate(pyramid.categories, start=1):
+            name = f"{_CATEGORY_PREFIX}{row:04d}"
+            y_percent = self._category_page_y(row, count) * 100.0
+            if not self.op.lt_exec(
+                self._graph_layer_prefix(1)
+                + f"label -p 100 {y_percent:.12g} -j 1 -n {name} CategoryPlaceholder;"
+            ):
+                raise RuntimeError(f"Origin could not create X13 category label {row}")
+            label = layer.label(name)
+            if label is None:
+                raise RuntimeError(f"Origin could not address X13 category label {row}")
+            label.text = str(category)
+            label.set_int("show", 1)
+            label.set_int("background", 1)
+            label.set_int("fsize", 10)
+
+    def _verify_center_categories(self, pyramid: PopulationPyramidData) -> None:
+        if self.layers is None:
+            raise RuntimeError("X13 project is not initialized")
+        for row, category in enumerate(pyramid.categories, start=1):
+            label = self.layers[0].label(f"{_CATEGORY_PREFIX}{row:04d}")
+            if label is None or label.text != str(category) or not label.get_int("show"):
+                raise RuntimeError(f"Origin X13 center category label {row} changed")
+
+    @staticmethod
+    def _category_page_y(row: int, count: int) -> float:
+        if count <= 1:
+            return 0.5
+        return 1.0 - (row - 0.5) / count
 
     def _graph_layer_prefix(self, layer_index: int) -> str:
         return (

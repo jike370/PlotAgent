@@ -446,7 +446,7 @@ def _column_ordinal(target: str, token: str, count: int, profile_id: str) -> int
 
 def _column_color(profile_id: str, zero_based_index: int) -> str:
     if profile_id == "X40":
-        return ("#2E73D2", "#D94A4A")[zero_based_index]
+        return ("#F04444", "#2875D8")[zero_based_index]
     return _PALETTE[zero_based_index % len(_PALETTE)]
 
 

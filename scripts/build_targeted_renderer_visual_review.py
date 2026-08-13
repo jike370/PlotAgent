@@ -271,8 +271,10 @@ def _cases() -> tuple[ReviewCase, ...]:
                     ),
                 ),
                 (
-                    ("connector", {"color": "#444444", "line_width_pt": 1.2}),
-                    ("column_2", {"color": "#CC4A4A", "symbol": "diamond"}),
+                    (
+                        "connector",
+                        {"color": "#7A1F5C", "line_width_pt": 2.0, "line_style": "dash"},
+                    ),
                 ),
             ),
         ),

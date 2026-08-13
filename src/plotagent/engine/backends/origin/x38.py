@@ -111,6 +111,7 @@ class X38OriginProject:
             self.layer = layers[0]
             self.plots = list(self.layer.plot_list())
             self._assert_native_structure(offset, verify_offsets=False)
+            self._set_legend(offset, True)
         record_origin_trace(
             "native_structure_confirmed",
             "completed",
