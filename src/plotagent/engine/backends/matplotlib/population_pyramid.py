@@ -92,7 +92,17 @@ class X13PopulationPyramidRenderer:
             label=state.right.label,
         )
         axis.axvline(0.0, color="#1A1A1A", linewidth=0.8)
-        axis.set_yticks(positions, pyramid.categories)
+        axis.set_yticks(positions, ())
+        for position, category in zip(positions, pyramid.categories, strict=True):
+            axis.text(
+                0.0,
+                position,
+                category,
+                ha="center",
+                va="center",
+                zorder=4,
+                bbox={"facecolor": "white", "edgecolor": "none", "pad": 1.5, "alpha": 0.88},
+            )
         axis.xaxis.set_major_formatter(FuncFormatter(lambda value, _position: f"{abs(value):g}"))
         axis.set_title(state.title)
         axis.set_xlabel(state.x_axis.label)

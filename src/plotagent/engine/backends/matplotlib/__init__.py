@@ -10,7 +10,6 @@ from .column_family import (
     K10StackedColumnRenderer,
     K11PercentStackRenderer,
 )
-from .composite import K25CompositeRenderer
 from .confusion_matrix import S61ConfusionRenderer
 from .contour import K22ContourRenderer
 from .correlation_matrix import K21CorrelationMatrixRenderer
@@ -57,7 +56,6 @@ __all__ = [
     "K21CorrelationMatrixRenderer",
     "K22ContourRenderer",
     "K24FacetRenderer",
-    "K25CompositeRenderer",
     "MatplotlibBackend",
     "S34NyquistRenderer",
     "S61ConfusionRenderer",

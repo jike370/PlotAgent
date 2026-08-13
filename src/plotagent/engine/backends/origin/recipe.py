@@ -25,7 +25,6 @@ OriginCreationKind = Literal[
     "graph_template",
     "x_function",
     "analysis",
-    "composition",
     "app",
 ]
 OriginSourceLayout = Literal[
@@ -34,7 +33,6 @@ OriginSourceLayout = Literal[
     "worksheet_long_indexed",
     "matrix",
     "analysis_table",
-    "plot_components",
 ]
 OriginSupportStatus = Literal[
     "renderable",
@@ -46,7 +44,6 @@ OriginProofLevel = Literal["proven_native_structure", "manual_native_property", 
 OriginRebuildPolicy = Literal[
     "recreate_from_source",
     "recompute_analysis",
-    "recompose_components",
 ]
 
 _HelpUrl = Annotated[
@@ -252,7 +249,6 @@ _LOCAL_DISPATCH: Mapping[str, str] = MappingProxyType(
         ),
         "K22": "Plot3D.ogs [ContourColor] -> matrix PID226 CONTOUR",
         "K24": "plot_group type:=linesymb template:=Grouped",
-        "K25": "Graph > Merge Graph Windows -> merge_graph",
         "S34": "Plot.ogs [LineSymbol] -> general,202 LineSymb",
         "S61": "plotvm type:=105 template:=Heat_Map_With_Labels",
         "X02": "worksheet -p 201 DROPLINE",
@@ -680,19 +676,6 @@ _RECIPES = (
             "Confirm Trellis panel properties; GraphLayer_GetDataPlots is unstable "
             "for this template in Origin 2024."
         ),
-    ),
-    _r(
-        "K25",
-        "多面板组合图",
-        "Merge Graph Windows",
-        "https://docs.originlab.com/origin-help/multipanel-graph/",
-        "Graph > Merge Graph Windows",
-        "composition",
-        "plot_components",
-        ("two to four immutable PlotDocument components",),
-        ("component graph identity", "native merged layers", "no rasterized subplots"),
-        binder_key="K25",
-        rebuild_policy="recompose_components",
     ),
     _r(
         "S34",

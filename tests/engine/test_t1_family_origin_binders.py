@@ -649,18 +649,20 @@ def test_k03_rebinding_discards_only_prior_data_derived_series_styles() -> None:
     )
 
 
-def test_k06_binds_real_x_and_y_error_columns(
+def test_k06_converts_absolute_bounds_to_native_asymmetric_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     columns = (
         _column("field:x", "X", (1.0, 2.0, 3.0)),
         _column("field:center", "Estimate", (2.0, 3.0, 4.0)),
-        _column("field:xerr", "X error", (0.1, 0.2, 0.1)),
-        _column("field:yerr", "Y error", (0.3, 0.4, 0.2)),
+        _column("field:xl", "X lower", (0.9, 1.8, 2.9)),
+        _column("field:xu", "X upper", (1.2, 2.3, 3.1)),
+        _column("field:lower", "Lower", (1.7, 2.6, 3.8)),
+        _column("field:upper", "Upper", (2.4, 3.5, 4.3)),
     )
     document, actions, view = _case(
         "K06",
-        ("x", "center", "x_error", "y_error"),
+        ("x", "center", "x_lower", "x_upper", "lower", "upper"),
         columns,
         style={"line_width_pt": 1.8, "symbol": "square", "symbol_size_pt": 6.0},
     )
@@ -678,9 +680,14 @@ def test_k06_binds_real_x_and_y_error_columns(
 
     assert any("worksheet -p 201 ERRBAR" in command for command in origin.commands)
     assert origin.graph.layer.add_calls == []
-    assert origin.book.sheet.designations == {0: "X", 1: "Y", 2: "E", 3: "M"}
-    assert origin.book.sheet.columns[2] == [0.3, 0.4, 0.2]
-    assert origin.book.sheet.columns[3] == [0.1, 0.2, 0.1]
+    assert origin.book.sheet.designations == {
+        0: "X", 1: "Y", 2: "E", 3: "E", 4: "M", 5: "M"
+    }
+    assert origin.book.sheet.columns[2] == pytest.approx([0.3, 0.4, 0.2])
+    assert origin.book.sheet.columns[3] == pytest.approx([0.4, 0.5, 0.3])
+    assert origin.book.sheet.columns[4] == pytest.approx([0.1, 0.2, 0.1])
+    assert origin.book.sheet.columns[5] == pytest.approx([0.2, 0.3, 0.1])
+    assert any("set __K06YMINUS -om __K06CENTER" in command for command in origin.commands)
     assert origin.graph.layer.plots[0].symbol_kind == 1
     assert "point_error_series" in {item.object_kind for item in readback.objects}
 

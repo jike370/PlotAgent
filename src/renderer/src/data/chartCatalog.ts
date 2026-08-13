@@ -2,7 +2,7 @@ import engineProfileCatalog from '../../../shared/generated/engine-profile-catal
 
 export type ChartLayer = 'core' | 'validation'
 export type BatchMode = 'direct' | 'conditional' | 'manual'
-export type CompositionMode = 'layer' | 'panel'
+export type LayoutMode = 'layer' | 'panel'
 export type OpjuLevel = 'O1' | 'O2' | 'O3'
 
 export interface ChartType {
@@ -18,7 +18,7 @@ export interface ChartType {
   requiredFields: string[]
   optionalParameters: string[]
   batchMode: BatchMode
-  compositionMode: CompositionMode
+  layoutMode: LayoutMode
   export: { png: true; svg: 'vector'; opju: OpjuLevel }
   risk?: 'warning' | 'parameters'
   aliases?: string[]
@@ -55,7 +55,6 @@ const copy: Readonly<Record<string, CatalogCopy>> = {
   K21: { name: '相关矩阵图', category: '矩阵与场', family: '相关矩阵', purpose: '呈现已经计算好的相关矩阵' },
   K22: { name: '填色等高线图', category: '矩阵与场', family: '等高线', purpose: '呈现二维连续场的等值范围' },
   K24: { name: '分面图', category: '组合与布局', family: '分面', purpose: '按变量拆分为共享语法的小面板' },
-  K25: { name: '多面板组合图', category: '组合与布局', family: '多面板', purpose: '组合多个已有图形文档' },
   S34: { name: 'Nyquist 图', category: '专业图形', family: '阻抗', purpose: '呈现复阻抗响应', aliases: ['EIS', '阻抗'] },
   S61: { name: '混淆矩阵', category: '专业图形', family: '混淆矩阵', purpose: '比较真实类别与预测类别', aliases: ['分类性能'] },
   X02: { name: '垂线图', category: '趋势与关系', family: '垂线', purpose: '从数据点向坐标框底部绘制垂线' },
@@ -72,9 +71,9 @@ const copy: Readonly<Record<string, CatalogCopy>> = {
   X40: { name: '前后对比图', category: '比较', family: '前后对比', purpose: '连接同一对象的前后测量' },
 }
 
-const panelProfiles = new Set(['K20', 'K21', 'K22', 'K24', 'K25', 'S61', 'X23', 'X35', 'X36'])
+const panelProfiles = new Set(['K20', 'K21', 'K22', 'K24', 'S61', 'X23', 'X35', 'X36'])
 const conditionalProfiles = new Set(['K13', 'K14', 'K15', 'K21', 'S61'])
-const favorites = new Set(['K01', 'K03', 'K13', 'K20', 'K25'])
+const favorites = new Set(['K01', 'K03', 'K13', 'K20'])
 const recent = new Set(['K01', 'K03', 'K13', 'K21'])
 
 export type EditCapability =
@@ -153,9 +152,9 @@ const toChart = (profile: EngineProfile): ChartType => {
     domains: profile.profile_id.startsWith('S') ? ['专业科研'] : ['通用科研'],
     requiredFields: [...profile.required_roles],
     optionalParameters: [...profile.optional_roles, ...chartParameters],
-    batchMode: profile.profile_id === 'K25' ? 'manual' : conditionalProfiles.has(profile.profile_id) ? 'conditional' : 'direct',
-    compositionMode: panelProfiles.has(profile.profile_id) ? 'panel' : 'layer',
-    export: { png: true, svg: 'vector', opju: profile.profile_id === 'K24' || profile.profile_id === 'K25' ? 'O2' : 'O1' },
+    batchMode: conditionalProfiles.has(profile.profile_id) ? 'conditional' : 'direct',
+    layoutMode: panelProfiles.has(profile.profile_id) ? 'panel' : 'layer',
+    export: { png: true, svg: 'vector', opju: profile.profile_id === 'K24' ? 'O2' : 'O1' },
     aliases: item.aliases,
     favorite: favorites.has(profile.profile_id),
     recent: recent.has(profile.profile_id),
@@ -169,7 +168,7 @@ export interface ChartFilters {
   query: string
   layer: 'all' | ChartLayer
   category: string
-  capability: 'all' | 'batch' | 'composition' | 'opju'
+  capability: 'all' | 'batch' | 'layout' | 'opju'
   collection: 'all' | 'favorites' | 'recent'
 }
 
@@ -190,7 +189,7 @@ export function filterCharts(charts: ChartType[], filters: ChartFilters): ChartT
         || (filters.collection === 'recent' && item.recent === true))
       && (filters.capability === 'all'
         || (filters.capability === 'batch' && item.batchMode !== 'manual')
-        || (filters.capability === 'composition' && item.compositionMode !== 'layer')
+        || (filters.capability === 'layout' && item.layoutMode !== 'layer')
         || (filters.capability === 'opju' && item.export.opju !== 'O3'))
   })
 }

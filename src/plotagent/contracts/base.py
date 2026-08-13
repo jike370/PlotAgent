@@ -70,7 +70,6 @@ ChartTypeId = Literal[
     "K21",
     "K22",
     "K24",
-    "K25",
     "S34",
     "S61",
     "X02",

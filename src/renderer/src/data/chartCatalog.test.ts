@@ -18,15 +18,15 @@ const baseFilters = {
 }
 
 describe('chart catalog', () => {
-  it('exposes exactly the 35 Agent Native engine profiles', () => {
-    expect(chartCatalog).toHaveLength(35)
-    expect(allChartCatalog).toHaveLength(35)
+  it('exposes exactly the 34 Agent Native engine profiles', () => {
+    expect(chartCatalog).toHaveLength(34)
+    expect(allChartCatalog).toHaveLength(34)
     expect(chartCatalog.some((chart) => chart.id === 'S61')).toBe(true)
     expect(chartCatalog.some((chart) => chart.id === 'X24')).toBe(true)
     expect(chartCatalog.some((chart) => chart.id === 'S07' || chart.id === 'K05')).toBe(false)
     expect(chartCatalog.some((chart) => chart.id === 'X07' || chart.id === 'X37')).toBe(false)
     expect(chartCatalog.some((chart) => chart.id === 'K23' || chart.id === 'S45')).toBe(false)
-    expect(chartCatalog.some((chart) => ['K16', 'S01', 'S21'].includes(chart.id))).toBe(false)
+    expect(chartCatalog.some((chart) => ['K16', 'K25', 'S01', 'S21'].includes(chart.id))).toBe(false)
     expect(chartCatalog.every((chart) => chart.export.svg === 'vector')).toBe(true)
     expect(chartProductMetadata.X07).toBeUndefined()
     expect(chartProductMetadata.S07).toBeUndefined()

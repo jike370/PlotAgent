@@ -162,17 +162,21 @@ def _dual_case(profile_id: str):
 
 
 def _x38_case(group_count: int = 3):
-    x_values = tuple(float(x) for group in range(group_count) for x in range(1, 5))
-    y_values = tuple(float(group * 10 + x) for group in range(group_count) for x in range(1, 5))
-    labels = tuple(f"Spectrum {group + 1}" for group in range(group_count) for _x in range(4))
+    x_values = tuple(float(x) for x in range(1, 5))
+    roles = ("x",) + tuple(f"series_{index + 1}" for index in range(group_count))
+    columns = (("field:x", "Energy", "numeric", x_values),) + tuple(
+        (
+            f"field:series-{index + 1}",
+            f"Spectrum {index + 1}",
+            "numeric",
+            tuple(float(index * 10 + x) for x in range(1, 5)),
+        )
+        for index in range(group_count)
+    )
     return _case(
         "X38",
-        ("x", "y", "series"),
-        (
-            ("field:x", "Energy", "numeric", x_values),
-            ("field:y", "Intensity", "numeric", y_values),
-            ("field:series", "Spectrum", "categorical", labels),
-        ),
+        roles,
+        columns,
         styles=(),
     )
 

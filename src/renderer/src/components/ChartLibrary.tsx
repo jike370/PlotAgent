@@ -30,7 +30,6 @@ import { useDialogFocus } from './useDialogFocus'
 
 interface ChartLibraryProps {
   currentChartId?: string
-  availablePlotCount?: number
   datasetCompatibility?: {
     numericFieldCount: number
     categoricalFieldCount: number
@@ -54,7 +53,7 @@ const batchLabels = {
   manual: '人工布局',
 }
 
-const compositionLabels = {
+const layoutLabels = {
   layer: '同层组合',
   panel: '面板组合',
 }
@@ -62,14 +61,14 @@ const compositionLabels = {
 const coreChartCount = chartCatalog.filter((chart) => chart.layer === 'core').length
 const validationChartCount = chartCatalog.filter((chart) => chart.layer === 'validation').length
 
-export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCompatibility, onClose, onSelect }: ChartLibraryProps): React.JSX.Element {
+export function ChartLibrary({ currentChartId, datasetCompatibility, onClose, onSelect }: ChartLibraryProps): React.JSX.Element {
   const dialogRef = useDialogFocus<HTMLDivElement>()
   const [filters, setFilters] = useState(initialFilters)
   const [selectedId, setSelectedId] = useState(currentChartId ?? 'K02')
   const filteredCharts = useMemo(() => filterCharts(chartCatalog, filters), [filters])
   const selectedChart = filteredCharts.find((item) => item.id === selectedId) ?? filteredCharts[0]
   const compatibility = selectedChart
-    ? chartCompatibility(selectedChart, datasetCompatibility, availablePlotCount)
+    ? chartCompatibility(selectedChart, datasetCompatibility)
     : { compatible: false }
 
   const updateFilter = <Key extends keyof ChartFilters>(key: Key, value: ChartFilters[Key]): void => {
@@ -132,7 +131,7 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
               {[
                 ['all', '全部能力'],
                 ['batch', '支持批量'],
-                ['composition', '面板组合'],
+                ['layout', '多面板布局'],
                 ['opju', '原生/组合 OPJU'],
               ].map(([value, label]) => (
                 <button className={filters.capability === value ? 'is-active' : ''} key={value} type="button" onClick={() => updateFilter('capability', value as ChartFilters['capability'])}>{label}</button>
@@ -187,7 +186,7 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
               <div><dt>典型学科</dt><dd>{selectedChart.domains.join(' · ')}</dd></div>
               <div><dt>核心参数</dt><dd>{selectedChart.optionalParameters.join(' · ')}</dd></div>
               <div><dt>批量模式</dt><dd>{batchLabels[selectedChart.batchMode]}</dd></div>
-              <div><dt>组合方式</dt><dd>{compositionLabels[selectedChart.compositionMode]}</dd></div>
+              <div><dt>布局结构</dt><dd>{layoutLabels[selectedChart.layoutMode]}</dd></div>
             </dl>
 
             <div className="export-contract">
@@ -201,12 +200,10 @@ export function ChartLibrary({ currentChartId, availablePlotCount = 0, datasetCo
 
             <div className={`compatibility-check${compatibility.compatible ? '' : ' is-incompatible'}`}>
               {compatibility.compatible ? <Check size={16} /> : <CircleAlert size={16} />}
-              <strong>{selectedChart.id === 'K25' && !compatibility.compatible
-                ? `还需加入 ${Math.max(0, 2 - availablePlotCount)} 张图`
-                : compatibility.awaitingData ? '可先选择图形' : compatibility.compatible ? '当前数据可进入映射' : '当前数据尚不兼容'}</strong>
+              <strong>{compatibility.awaitingData ? '可先选择图形' : compatibility.compatible ? '当前数据可进入映射' : '当前数据尚不兼容'}</strong>
             </div>
 
-            <button className="select-chart-button" type="button" disabled={!compatibility.compatible} onClick={() => onSelect(selectedChart)}>{selectedChart.id === 'K25' ? '创建组合图' : '选择此图形'}</button>
+            <button className="select-chart-button" type="button" disabled={!compatibility.compatible} onClick={() => onSelect(selectedChart)}>选择此图形</button>
           </aside>
         )}
       </div>

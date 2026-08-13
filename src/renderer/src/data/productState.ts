@@ -142,7 +142,6 @@ export interface ProductPlot {
   }
   chartParameters?: Readonly<Record<string, string | number | boolean>>
   engineCapabilities?: Readonly<Record<string, readonly string[]>>
-  components: { plotId: string; plotVersion: number; contentHash: string }[]
   preview?: DesktopResource
 }
 
@@ -542,18 +541,6 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
     },
     chartParameters,
     engineCapabilities: capabilities,
-    components: (Array.isArray(document.components) ? document.components : []).flatMap(
-      (component) => isJsonRecord(component)
-        && typeof component.plot_id === 'string'
-        && typeof component.plot_version === 'number'
-        && typeof component.content_hash === 'string'
-        ? [{
-          plotId: component.plot_id,
-          plotVersion: component.plot_version,
-          contentHash: component.content_hash,
-        }]
-        : [],
-    ),
     preview: readResource(value),
   }
 }

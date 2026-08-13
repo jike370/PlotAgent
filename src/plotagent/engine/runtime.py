@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from plotagent.engine.contracts import EngineDataView, PlotDocument, PlotEngineAction
 from plotagent.engine.ports import (
-    EngineComponentInput,
     EngineDataProvider,
     EngineReadback,
     EngineRenderSource,
@@ -115,12 +114,6 @@ class PlotEngineRuntime:
                 document.plot_version - 1,
             ).document
             self.materialize_backend(backend, previous)
-        for component in document.components:
-            child = self.service.repository.get(
-                component.plot_id,
-                component.plot_version,
-            ).document
-            self.materialize_backend(backend, child)
         source = self._materialize(document)
         applied = set(document.applied_action_ids)
         actions = tuple(
@@ -141,33 +134,9 @@ class PlotEngineRuntime:
         return change.readback
 
     def _materialize(self, document: PlotDocument) -> EngineRenderSource:
-        if document.components:
-            components: list[EngineComponentInput] = []
-            for reference in document.components:
-                stored = self.service.repository.get(reference.plot_id, reference.plot_version)
-                if stored.content_hash != reference.content_hash:
-                    raise PlotRuntimeError(
-                        f"component plot content hash differs from {reference.plot_id}"
-                    )
-                child = stored.document
-                child_data = self._materialize_data(child)
-                components.append(
-                    EngineComponentInput(
-                        document=child,
-                        actions=tuple(
-                            record.action
-                            for record in self.service.repository.actions(child.plot_id)
-                            if record.action.action_id in set(child.applied_action_ids)
-                        ),
-                        data=child_data,
-                    )
-                )
-            return EngineRenderSource(components=tuple(components))
         return EngineRenderSource(data=self._materialize_data(document))
 
     def _materialize_data(self, document: PlotDocument) -> EngineDataView:
-        if document.data is None:
-            raise PlotRuntimeError("a data-backed component has no immutable data source")
         field_ids = tuple(binding.field_id for binding in document.bindings)
         view = self.data_provider.materialize(document.data, field_ids)
         if view.data != document.data:

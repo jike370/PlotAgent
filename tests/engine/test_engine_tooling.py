@@ -26,12 +26,9 @@ def test_agent_neutral_tool_schema_is_closed_and_profile_discoverable() -> None:
         {
                 "profile_id": "K01",
                 "display_name": "Line",
-                "source_kind": "data",
                 "required_roles": ("x", "y"),
                 "optional_roles": ("label",),
                 "repeatable_role_prefixes": (),
-                "minimum_components": 0,
-                "maximum_components": 0,
             "objects": tuple(
                 {
                     "object_alias": item.object_alias,
@@ -102,12 +99,10 @@ def test_tool_decodes_json_array_fields_from_the_desktop_boundary() -> None:
                 {"role": "x", "field_id": "field:x"},
                 {"role": "y", "field_id": "field:y"},
             ],
-            "components": [],
         }
     )
 
     assert tuple(binding.role for binding in action.bindings) == ("x", "y")
-    assert action.components == ()
 
 
 def test_tool_surface_does_not_import_the_bundled_agent() -> None:

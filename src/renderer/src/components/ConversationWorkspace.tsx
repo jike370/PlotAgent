@@ -16,7 +16,6 @@ import {
   Library,
   ListChecks,
   LoaderCircle,
-  PanelTop,
   Play,
   Redo2,
   SendHorizontal,
@@ -69,8 +68,6 @@ interface ConversationWorkspaceProps {
   selectedAgentDatasetIds: string[]
   selectedChart?: ChartType
   plot?: ProductPlot
-  figureCandidateCount: number
-  plotIsFigureCandidate: boolean
   exportRecord?: ExportRecordView
   notice?: ProductNotice
   busyAction?: string
@@ -95,7 +92,6 @@ interface ConversationWorkspaceProps {
   onConfigureAgent: () => void
   onExport: (format: 'png' | 'svg' | 'opju') => void
   onCreateBatch: () => void
-  onToggleFigureCandidate: () => void
   onOpenFocus: () => void
   onOpenTasks: () => void
   onCancelTask: (taskId: string) => void
@@ -156,8 +152,8 @@ function mappingRoles(chartId: string): MappingRole[] {
   const registry: Record<string, { required: string[]; optional: string[] }> = {
     K01: { required: ['x', 'y'], optional: [] }, K02: { required: ['x', 'y'], optional: [] },
     K03: { required: ['x', 'y'], optional: ['group'] }, K04: { required: ['x', 'y'], optional: ['size', 'color', 'group'] },
-    K06: { required: ['center'], optional: ['x', 'x_lower', 'x_upper', 'lower', 'upper', 'error', 'group'] },
-    K07: { required: ['x', 'center'], optional: ['lower', 'upper', 'group'] }, K08: { required: ['category', 'value'], optional: [] },
+    K06: { required: ['x', 'center', 'x_lower', 'x_upper', 'lower', 'upper'], optional: ['group'] },
+    K07: { required: ['x', 'center', 'lower', 'upper'], optional: ['group'] }, K08: { required: ['category', 'value'], optional: [] },
     K09: { required: ['category', 'group', 'value'], optional: [] }, K10: { required: ['category', 'component', 'value'], optional: [] },
     K11: { required: ['category', 'component', 'value'], optional: [] }, K12: { required: ['value'], optional: ['group'] },
     K13: { required: ['value'], optional: ['group'] }, K14: { required: ['value'], optional: ['group'] },
@@ -165,7 +161,6 @@ function mappingRoles(chartId: string): MappingRole[] {
     K18: { required: ['x', 'series_1'], optional: ['series_2', 'series_3'] }, K19: { required: ['time', 'series_1'], optional: ['series_2', 'series_3'] },
     K20: { required: ['row', 'column', 'value'], optional: [] }, K21: { required: ['row_label', 'column_label', 'value'], optional: [] },
     K22: { required: ['x', 'y', 'z'], optional: [] }, K24: { required: ['facet', 'base_x', 'base_y'], optional: [] },
-    K25: { required: ['panel'], optional: [] },
     S34: { required: ['z_real', 'z_imaginary'], optional: ['frequency'] }, S61: { required: ['actual', 'predicted'], optional: ['count'] },
     X02: { required: ['x', 'y'], optional: [] },
     X03: { required: ['category', 'series_1', 'series_2'], optional: ['series_3'] }, X05: { required: ['value'], optional: ['group'] },
@@ -176,8 +171,8 @@ function mappingRoles(chartId: string): MappingRole[] {
     X18: { required: ['value'], optional: [] }, X19: { required: ['method_a', 'method_b'], optional: [] },
     X23: { required: ['x', 'left', 'right'], optional: [] }, X24: { required: ['category', 'value'], optional: [] },
     X35: { required: ['category', 'left', 'right'], optional: [] }, X36: { required: ['category', 'left', 'right'], optional: [] },
-    X37: { required: ['group', 'left', 'right'], optional: [] }, X38: { required: ['x', 'y', 'series'], optional: [] },
-    X39: { required: ['series_1', 'series_2'], optional: ['series_3'] }, X40: { required: ['series_1', 'series_2'], optional: ['series_3'] },
+    X37: { required: ['group', 'left', 'right'], optional: [] }, X38: { required: ['x', 'series_1'], optional: ['series_2', 'series_3'] },
+    X39: { required: ['series_1', 'series_2'], optional: ['series_3'] }, X40: { required: ['label', 'series_1', 'series_2'], optional: ['group'] },
   }
   const labels: Record<string, string> = {
     middle: '中间界限',
@@ -327,11 +322,12 @@ function MappingObject({
   busy: boolean
   onConfirm: (mapping: FieldMappingInput) => void
 }): React.JSX.Element {
-  const variadicSeries = ['X03', 'X39', 'X40'].includes(chart.id)
+  const variadicSeries = ['X03', 'X38', 'X39', 'X40'].includes(chart.id)
   const [seriesRoleCount, setSeriesRoleCount] = useState(2)
   const roles = useMemo(() => {
-    const fixed = mappingRoles(chart.id).filter((role) => !role.role.startsWith('series_'))
-    if (!variadicSeries) return fixed
+    const configured = mappingRoles(chart.id)
+    if (!variadicSeries) return configured
+    const fixed = configured.filter((role) => !role.role.startsWith('series_'))
     return [
       ...fixed,
       ...Array.from({ length: seriesRoleCount }, (_, index) => ({
@@ -402,10 +398,7 @@ function PlotObject({
   onOpenLibrary,
   onOpenFocus,
   onCreateBatch,
-  figureCandidateCount,
-  plotIsFigureCandidate,
-  onToggleFigureCandidate,
-}: Pick<ConversationWorkspaceProps, 'plot' | 'selectedChart' | 'busyAction' | 'previewMode' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch' | 'figureCandidateCount' | 'plotIsFigureCandidate' | 'onToggleFigureCandidate'> & { chart?: ChartType }): React.JSX.Element {
+}: Pick<ConversationWorkspaceProps, 'plot' | 'selectedChart' | 'busyAction' | 'previewMode' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch'> & { chart?: ChartType }): React.JSX.Element {
   if (!plot) return <div />
   return (
     <section className="object-block product-plot-object" aria-labelledby="plot-title">
@@ -421,9 +414,6 @@ function PlotObject({
         <button type="button" onClick={onOpenLibrary}><Library size={15} />选择其他图形</button>
         <button type="button" onClick={onOpenFocus}><Settings2 size={15} />聚焦编辑</button>
         <button type="button" onClick={onCreateBatch}><Images size={15} />创建批次</button>
-        <button type="button" onClick={onToggleFigureCandidate} aria-pressed={plotIsFigureCandidate}>
-          <PanelTop size={15} />{plotIsFigureCandidate ? '移出组合图' : `加入组合图 (${figureCandidateCount}/4)`}
-        </button>
         <span />
         {(['png', 'svg', 'opju'] as const).map((format) => (
           <button key={format} type="button" onClick={() => onExport(format)} disabled={busyAction === `export-${format}`}>

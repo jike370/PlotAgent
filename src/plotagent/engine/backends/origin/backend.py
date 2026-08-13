@@ -125,10 +125,6 @@ class OriginBackend:
             document=document,
             actions=actions,
             source=source,
-            component_opjus=tuple(
-                str(self._version_dir(component.document) / "plot.opju")
-                for component in source.components
-            ),
         )
         response = self._worker.run(request)
         if not (staging / "plot.opju").is_file():

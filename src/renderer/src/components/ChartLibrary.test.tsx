@@ -14,7 +14,7 @@ describe('chart library dataset compatibility', () => {
     for (const chartId of ['K09', 'K10', 'K11']) {
       const chart = chartCatalog.find((item) => item.id === chartId)
       expect(chart).toBeDefined()
-      expect(chartCompatibility(chart!, summary, 0)).toEqual({ compatible: true })
+      expect(chartCompatibility(chart!, summary)).toEqual({ compatible: true })
     }
   })
 
@@ -25,6 +25,6 @@ describe('chart library dataset compatibility', () => {
       numericFieldCount: 1,
       categoricalFieldCount: 2,
       totalFieldCount: 3,
-    }, 0)).toEqual({ compatible: false })
+    })).toEqual({ compatible: false })
   })
 })

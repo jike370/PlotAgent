@@ -73,7 +73,7 @@ function enginePlotFixture(
       profile_id: profileId,
       data: { kind: 'source', dataset_id: 'source:temperature', version: 1, content_hash: 'a'.repeat(64) },
       bindings: [{ role: 'x', field_id: 'field:time' }, { role: 'y', field_id: 'field:signal' }],
-      components: [], applied_action_ids: actions.map((_, index) => `action:test.${index + 1}`),
+      applied_action_ids: actions.map((_, index) => `action:test.${index + 1}`),
     },
     actions,
     profile: {
@@ -345,7 +345,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(within(detail).queryByText(/可在 Origin 中继续编辑/)).not.toBeInTheDocument()
     expect(within(detail).queryByText(/选择后将写入稳定类型/)).not.toBeInTheDocument()
     expect(within(detail).getByText('批量模式')).toBeInTheDocument()
-    expect(within(detail).getByText('组合方式')).toBeInTheDocument()
+    expect(within(detail).getByText('布局结构')).toBeInTheDocument()
     expect(within(library).getAllByText('直接批量')).toHaveLength(1)
     const k01Card = within(library).getByRole('button', { name: 'K01 折线图' })
     expect(k01Card).not.toHaveAttribute('aria-pressed')
@@ -860,75 +860,6 @@ describe('PlotAgent real desktop workflow', () => {
       action: expect.objectContaining({ operation: 'set_title', target: 'plot:one', text: '' }),
     }))
     expect(await screen.findByText('已撤销本轮修改')).toBeInTheDocument()
-  })
-
-  it('keeps K25 out of field mapping and requires two explicit figure candidates', async () => {
-    const user = userEvent.setup()
-    const api = fakeDesktop()
-    installApi(api)
-    render(<App />)
-    await openSampleAndCreatePlot(user)
-    await user.click(screen.getByRole('button', { name: /加入组合图/ }))
-
-    await user.click(screen.getByRole('button', { name: '选择其他图形' }))
-    await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
-    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K25')
-    await user.click(screen.getByRole('button', { name: /K25.*多面板组合图/ }))
-
-    expect(screen.getByText('还需加入 1 张图')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '创建组合图' })).toBeDisabled()
-    expect(api.executePlotAction).toHaveBeenCalledTimes(1)
-  })
-
-  it('creates K25 as one component-backed PlotDocument', async () => {
-    const user = userEvent.setup()
-    let plotSequence = 0
-    const api = fakeDesktop({
-      executePlotAction: vi.fn(async (input) => {
-        plotSequence += 1
-        const action = input.action as Record<string, JsonValue>
-        return ok(enginePlotFixture(
-          `plot:${plotSequence}`,
-          1,
-          typeof action.profile_id === 'string' ? action.profile_id : 'K01',
-          plotSequence + 1,
-          [input.action],
-        ))
-      }),
-    })
-    installApi(api)
-    render(<App />)
-    await openSampleAndCreatePlot(user)
-    await user.click(screen.getByRole('button', { name: /加入组合图/ }))
-
-    await user.click(screen.getByRole('button', { name: '选择其他图形' }))
-    await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
-    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K02')
-    await user.click(screen.getByRole('button', { name: /K02.*线点图/ }))
-    await user.click(screen.getByRole('button', { name: '选择此图形' }))
-    await user.click(screen.getByRole('button', { name: '确认映射并绘图' }))
-    await screen.findByRole('img', { name: '线点图 真实渲染预览' })
-    await user.click(screen.getByRole('button', { name: /加入组合图/ }))
-
-    await user.click(screen.getByRole('button', { name: '选择其他图形' }))
-    await user.clear(screen.getByRole('textbox', { name: '搜索图形库' }))
-    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K25')
-    await user.click(screen.getByRole('button', { name: /K25.*多面板组合图/ }))
-    await user.click(screen.getByRole('button', { name: '创建组合图' }))
-
-    expect(api.executePlotAction).toHaveBeenLastCalledWith(expect.objectContaining({
-      action: expect.objectContaining({
-        operation: 'create_plot',
-        profile_id: 'K25',
-        components: [
-          { plot_id: 'plot:1', plot_version: 1, content_hash: 'b'.repeat(64) },
-          { plot_id: 'plot:2', plot_version: 1, content_hash: 'b'.repeat(64) },
-        ],
-      }),
-    }))
-    expect(api.executePlotAction).toHaveBeenCalledTimes(3)
-    expect(await screen.findByText('plot:3')).toBeInTheDocument()
-    expect(screen.getByText(/PlotDocument v1/)).toBeInTheDocument()
   })
 
   it('offers the optional count role for an aggregated S61 confusion matrix', async () => {

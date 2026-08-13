@@ -11,7 +11,6 @@ from typing import Literal, Protocol, cast
 from plotagent.engine.contracts import EngineDataView, PlotDocument, PlotEngineAction
 from plotagent.engine.ports import (
     EngineArtifact,
-    EngineComponentInput,
     EngineReadback,
     EngineRenderSource,
     PlotBackendChange,
@@ -29,36 +28,6 @@ class MatplotlibProfileRenderer(Protocol):
         png_path: Path,
         svg_path: Path,
     ) -> EngineReadback: ...
-
-
-class MatplotlibComponentArtifact(Protocol):
-    component: EngineComponentInput
-    png_path: Path
-    svg_path: Path
-
-
-class MatplotlibCompositeRenderer(Protocol):
-    profile_id: str
-
-    def render(
-        self,
-        document: PlotDocument,
-        actions: tuple[PlotEngineAction, ...],
-        components: tuple[MatplotlibComponentArtifact, ...],
-        png_path: Path,
-        svg_path: Path,
-    ) -> EngineReadback: ...
-
-
-class _ComponentArtifact:
-    def __init__(self, component: EngineComponentInput, root: Path) -> None:
-        self.component = component
-        self.png_path = root / "preview.png"
-        self.svg_path = root / "preview.svg"
-        if not self.png_path.is_file() or not self.svg_path.is_file():
-            raise FileNotFoundError(
-                f"component Matplotlib artifact is missing: {component.document.plot_id}"
-            )
 
 
 class _Change:
@@ -98,21 +67,12 @@ class MatplotlibBackend:
         self,
         root: Path,
         renderers: tuple[MatplotlibProfileRenderer, ...],
-        composite_renderers: tuple[MatplotlibCompositeRenderer, ...] = (),
     ) -> None:
         profile_ids = tuple(renderer.profile_id for renderer in renderers)
         if len(profile_ids) != len(set(profile_ids)):
             raise ValueError("Matplotlib profile renderer ids must be unique")
         self._root = root
         self._renderers = {renderer.profile_id: renderer for renderer in renderers}
-        composite_ids = tuple(renderer.profile_id for renderer in composite_renderers)
-        if len(composite_ids) != len(set(composite_ids)):
-            raise ValueError("Matplotlib composite renderer ids must be unique")
-        if set(profile_ids) & set(composite_ids):
-            raise ValueError("a Matplotlib profile cannot have two renderer kinds")
-        self._composite_renderers = {
-            renderer.profile_id: renderer for renderer in composite_renderers
-        }
 
     def stage(
         self,
@@ -122,36 +82,17 @@ class MatplotlibBackend:
     ) -> PlotBackendChange:
         staging = self._root / ".staging" / uuid.uuid4().hex
         staging.mkdir(parents=True)
-        if source.data is not None:
-            try:
-                renderer = self._renderers[document.profile_id]
-            except KeyError as error:
-                raise ValueError(f"no Matplotlib renderer for {document.profile_id}") from error
-            readback = renderer.render(
-                document,
-                actions,
-                source.data,
-                staging / "preview.png",
-                staging / "preview.svg",
-            )
-        else:
-            try:
-                composite = self._composite_renderers[document.profile_id]
-            except KeyError as error:
-                raise ValueError(
-                    f"no Matplotlib composite renderer for {document.profile_id}"
-                ) from error
-            component_artifacts = tuple(
-                _ComponentArtifact(component, self._version_dir(component.document))
-                for component in source.components
-            )
-            readback = composite.render(
-                document,
-                actions,
-                component_artifacts,
-                staging / "preview.png",
-                staging / "preview.svg",
-            )
+        try:
+            renderer = self._renderers[document.profile_id]
+        except KeyError as error:
+            raise ValueError(f"no Matplotlib renderer for {document.profile_id}") from error
+        readback = renderer.render(
+            document,
+            actions,
+            source.data,
+            staging / "preview.png",
+            staging / "preview.svg",
+        )
         (staging / "readback.json").write_text(readback.model_dump_json(indent=2), encoding="utf-8")
         final = self._version_dir(document)
         return _Change(staging, final, readback)

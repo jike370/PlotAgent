@@ -242,6 +242,21 @@ def _draw_wide_series(axis: Axes, series: WideSeriesData, state: _State) -> None
             label=label,
             zorder=2,
         )
+    if series.row_labels is not None:
+        after_x = x_values[-1]
+        for row, (subject, after_value) in enumerate(
+            zip(series.row_labels, series.column_values[-1], strict=True)
+        ):
+            group = "" if series.row_groups is None else f" · {series.row_groups[row]}"
+            axis.annotate(
+                f"{subject}{group}",
+                (after_x, after_value),
+                xytext=(6, 0),
+                textcoords="offset points",
+                ha="left",
+                va="center",
+                fontsize=8,
+            )
     axis.set_xticks(x_values, series.column_labels)
     axis.autoscale_view()
 

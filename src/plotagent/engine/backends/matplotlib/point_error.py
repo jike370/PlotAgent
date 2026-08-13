@@ -71,8 +71,12 @@ class K06PointErrorRenderer:
         container = axis.errorbar(
             np.asarray(series.x_values, dtype=float),
             np.asarray(series.center_values, dtype=float),
-            xerr=np.asarray(series.x_errors, dtype=float),
-            yerr=np.asarray(series.y_errors, dtype=float),
+            xerr=np.asarray(
+                (series.x_minus_errors, series.x_plus_errors), dtype=float
+            ),
+            yerr=np.asarray(
+                (series.y_minus_errors, series.y_plus_errors), dtype=float
+            ),
             fmt=self._marker(state.symbol),
             linestyle="none",
             color=state.color,

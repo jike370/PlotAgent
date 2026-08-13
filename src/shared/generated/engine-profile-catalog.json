@@ -1,5 +1,5 @@
 {
-  "profile_count": 35,
+  "profile_count": 34,
   "profiles": [
     {
       "capabilities": [
@@ -50,8 +50,6 @@
         }
       ],
       "display_name": "Line",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -83,8 +81,7 @@
       "required_roles": [
         "x",
         "y"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -137,8 +134,6 @@
         }
       ],
       "display_name": "Line and symbol",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -170,8 +165,7 @@
       "required_roles": [
         "x",
         "y"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -222,8 +216,6 @@
         }
       ],
       "display_name": "Scatter",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -256,8 +248,7 @@
       "required_roles": [
         "x",
         "y"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -315,8 +306,6 @@
         }
       ],
       "display_name": "Bubble and color-mapped scatter",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -349,8 +338,7 @@
       "required_roles": [
         "x",
         "y"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -402,8 +390,6 @@
         }
       ],
       "display_name": "Point estimate and error bar",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -427,7 +413,7 @@
         }
       ],
       "optional_roles": [
-        "label"
+        "group"
       ],
       "profile_id": "K06",
       "repeatable_objects": [],
@@ -435,10 +421,11 @@
       "required_roles": [
         "x",
         "center",
-        "x_error",
-        "y_error"
-      ],
-      "source_kind": "data"
+        "x_lower",
+        "x_upper",
+        "lower",
+        "upper"
+      ]
     },
     {
       "capabilities": [
@@ -489,8 +476,6 @@
         }
       ],
       "display_name": "Error ribbon",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -514,7 +499,7 @@
         }
       ],
       "optional_roles": [
-        "label"
+        "group"
       ],
       "profile_id": "K07",
       "repeatable_objects": [],
@@ -524,8 +509,7 @@
         "center",
         "lower",
         "upper"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -575,8 +559,6 @@
         }
       ],
       "display_name": "Column",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -608,8 +590,7 @@
       "required_roles": [
         "category",
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -658,8 +639,6 @@
         }
       ],
       "display_name": "Grouped column",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -691,8 +670,7 @@
         "category",
         "group",
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -742,8 +720,6 @@
         }
       ],
       "display_name": "Stacked column",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -775,8 +751,7 @@
         "category",
         "component",
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -826,8 +801,6 @@
         }
       ],
       "display_name": "100% stacked column",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -859,8 +832,7 @@
         "category",
         "component",
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -911,8 +883,6 @@
         }
       ],
       "display_name": "Strip plot",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -944,8 +914,7 @@
       "repeatable_role_prefixes": [],
       "required_roles": [
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -994,8 +963,6 @@
         }
       ],
       "display_name": "Box plot",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1027,8 +994,7 @@
       "repeatable_role_prefixes": [],
       "required_roles": [
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1077,8 +1043,6 @@
         }
       ],
       "display_name": "Violin plot",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1110,8 +1074,7 @@
       "repeatable_role_prefixes": [],
       "required_roles": [
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1161,8 +1124,6 @@
         }
       ],
       "display_name": "Histogram",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1191,8 +1152,7 @@
       "repeatable_role_prefixes": [],
       "required_roles": [
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1243,8 +1203,6 @@
         }
       ],
       "display_name": "Area",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1277,8 +1235,7 @@
       "required_roles": [
         "x",
         "series_1"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1329,8 +1286,6 @@
         }
       ],
       "display_name": "Time series",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1363,8 +1318,7 @@
       "required_roles": [
         "time",
         "series_1"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1399,8 +1353,6 @@
         }
       ],
       "display_name": "Heatmap",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1421,8 +1373,7 @@
         "row",
         "column",
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1463,8 +1414,6 @@
         }
       ],
       "display_name": "Correlation matrix",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1490,8 +1439,7 @@
         "row_label",
         "column_label",
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1533,8 +1481,6 @@
         }
       ],
       "display_name": "Filled contour",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1560,8 +1506,7 @@
         "x",
         "y",
         "z"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1604,8 +1549,6 @@
         }
       ],
       "display_name": "Faceted plot",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1637,61 +1580,7 @@
         "facet",
         "base_x",
         "base_y"
-      ],
-      "source_kind": "data"
-    },
-    {
-      "capabilities": [
-        {
-          "operation": "create_plot",
-          "parameters": []
-        },
-        {
-          "operation": "set_title",
-          "parameters": [
-            "text"
-          ]
-        },
-        {
-          "operation": "set_chart_parameter",
-          "parameters": [
-            "panel_columns"
-          ]
-        },
-        {
-          "operation": "add_annotation",
-          "parameters": [
-            "text",
-            "x",
-            "y",
-            "coordinate_system"
-          ]
-        },
-        {
-          "operation": "export_plot",
-          "parameters": [
-            "png",
-            "svg",
-            "opju"
-          ]
-        }
-      ],
-      "display_name": "Composite figure",
-      "maximum_components": 4,
-      "minimum_components": 2,
-      "objects": [],
-      "optional_roles": [],
-      "profile_id": "K25",
-      "repeatable_objects": [
-        {
-          "object_alias_prefix": "panel",
-          "object_key_prefix": "component",
-          "object_kind": "panel"
-        }
-      ],
-      "repeatable_role_prefixes": [],
-      "required_roles": [],
-      "source_kind": "plots"
+      ]
     },
     {
       "capabilities": [
@@ -1749,8 +1638,6 @@
         }
       ],
       "display_name": "Nyquist plot",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1784,8 +1671,7 @@
       "required_roles": [
         "z_real",
         "z_imaginary"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1826,8 +1712,6 @@
         }
       ],
       "display_name": "Confusion matrix",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1854,8 +1738,7 @@
       "required_roles": [
         "actual",
         "predicted"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1908,8 +1791,6 @@
         }
       ],
       "display_name": "Drop line",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -1941,8 +1822,7 @@
       "required_roles": [
         "x",
         "y"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -1995,8 +1875,6 @@
         }
       ],
       "display_name": "Lollipop",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2030,8 +1908,7 @@
         "category",
         "series_1",
         "series_2"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -2082,8 +1959,6 @@
         }
       ],
       "display_name": "Beeswarm",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2115,8 +1990,7 @@
       "repeatable_role_prefixes": [],
       "required_roles": [
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -2159,8 +2033,6 @@
         }
       ],
       "display_name": "Floating column",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2193,8 +2065,7 @@
         "category",
         "start",
         "end"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -2243,8 +2114,6 @@
         }
       ],
       "display_name": "Population pyramid",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2280,8 +2149,7 @@
         "category",
         "left",
         "right"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -2332,8 +2200,6 @@
         }
       ],
       "display_name": "Dual-Y line",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2374,8 +2240,7 @@
         "x",
         "left",
         "right"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -2423,8 +2288,6 @@
         }
       ],
       "display_name": "Pareto",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2464,8 +2327,7 @@
       "required_roles": [
         "category",
         "value"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -2515,8 +2377,6 @@
         }
       ],
       "display_name": "Dual-Y column",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2557,8 +2417,7 @@
         "category",
         "left",
         "right"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -2611,8 +2470,6 @@
         }
       ],
       "display_name": "Dual-Y column and line",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2653,8 +2510,7 @@
         "category",
         "left",
         "right"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -2696,8 +2552,6 @@
         }
       ],
       "display_name": "Y-offset stacked line",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2724,13 +2578,13 @@
           "object_kind": "series"
         }
       ],
-      "repeatable_role_prefixes": [],
-      "required_roles": [
-        "x",
-        "y",
+      "repeatable_role_prefixes": [
         "series"
       ],
-      "source_kind": "data"
+      "required_roles": [
+        "x",
+        "series_1"
+      ]
     },
     {
       "capabilities": [
@@ -2783,8 +2637,6 @@
         }
       ],
       "display_name": "Line series",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2822,8 +2674,7 @@
       "required_roles": [
         "series_1",
         "series_2"
-      ],
-      "source_kind": "data"
+      ]
     },
     {
       "capabilities": [
@@ -2876,8 +2727,6 @@
         }
       ],
       "display_name": "Before and after",
-      "maximum_components": 0,
-      "minimum_components": 0,
       "objects": [
         {
           "object_alias": "x_axis",
@@ -2900,7 +2749,9 @@
           "object_kind": "legend"
         }
       ],
-      "optional_roles": [],
+      "optional_roles": [
+        "group"
+      ],
       "profile_id": "X40",
       "repeatable_objects": [
         {
@@ -2911,10 +2762,10 @@
       ],
       "repeatable_role_prefixes": [],
       "required_roles": [
+        "label",
         "series_1",
         "series_2"
-      ],
-      "source_kind": "data"
+      ]
     }
   ],
   "schema_version": "engine-profile.v1"

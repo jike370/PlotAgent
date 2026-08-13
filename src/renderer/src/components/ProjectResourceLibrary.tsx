@@ -5,7 +5,6 @@ import {
   Check,
   ChevronRight,
   Clock3,
-  Columns3,
   Database,
   ExternalLink,
   FileChartColumn,
@@ -47,7 +46,6 @@ const resourceKindIcons: Record<ResourceKind, LucideIcon> = {
   'derived-data': Table2,
   'plot-batch': Images,
   chart: FileChartColumn,
-  composition: Columns3,
   template: LayoutTemplate,
   export: FileOutput,
 }

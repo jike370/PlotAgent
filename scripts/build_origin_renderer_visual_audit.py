@@ -17,10 +17,10 @@ REPOSITORY = Path(__file__).resolve().parents[1]
 VISUAL_ROOT = REPOSITORY / "build" / "visual-audit"
 FIRST_BATCH = VISUAL_ROOT / "agent-native-renderer"
 FINAL_BATCH = VISUAL_ROOT / "origin-recipe-renderer-final"
-OUTPUT = VISUAL_ROOT / "origin-recipe-renderer-35"
+OUTPUT = VISUAL_ROOT / "origin-recipe-renderer-34"
 VISUAL_REVIEW_STATUS = "approved"
 VISUAL_REVIEWED_ON = "2026-08-12"
-VISUAL_REVIEW_NOTE = "产品负责人确认35图视觉验收通过"
+VISUAL_REVIEW_NOTE = "产品负责人确认34图视觉验收通过"
 
 
 class _AuditPageParser(HTMLParser):
@@ -181,8 +181,8 @@ def _card(profile_id: str) -> tuple[str, dict[str, object]]:
 def main() -> None:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     profile_ids = tuple(str(profile_id) for profile_id in ORIGIN_RENDERABLE_RECIPES)
-    if len(profile_ids) != 35:
-        raise RuntimeError(f"expected 35 renderable recipes, found {len(profile_ids)}")
+    if len(profile_ids) != 34:
+        raise RuntimeError(f"expected 34 renderable recipes, found {len(profile_ids)}")
     cards_and_rows = [_card(profile_id) for profile_id in profile_ids]
     cards = "".join(card for card, _row in cards_and_rows)
     rows = [row for _card_html, row in cards_and_rows]
@@ -191,7 +191,7 @@ def main() -> None:
         for row in rows
     )
     page = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PlotAgent OriginRecipe renderer｜35 图视觉审计</title><style>
+<title>PlotAgent OriginRecipe renderer｜34 图视觉审计</title><style>
 :root{{--bg:#f3f5f7;--card:#fff;--ink:#17202a;--muted:#5b6670;--line:#d8dee4;--accent:#1769aa;--warn:#8a5a00}}
 *{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 "Microsoft YaHei UI",sans-serif}}
 main{{max-width:1720px;margin:auto;padding:28px}}.intro,article{{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 12px #14202a0d}}
@@ -203,9 +203,9 @@ h2{{font-size:21px;margin:0}}header p{{margin:2px 0 0;color:var(--muted)}}header
 .route,.links{{margin:9px 0}}.links{{font-size:13px}}.figures{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
 figure{{margin:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}}figcaption{{padding:7px 10px;background:#f7f8fa;border-bottom:1px solid var(--line);font-weight:600}}
 img{{display:block;width:100%;height:430px;object-fit:contain;background:#fff}}@media(max-width:900px){{main{{padding:12px}}.figures{{grid-template-columns:1fr}}img{{height:auto}}}}
-</style></head><body><main><section class="intro"><h1>PlotAgent OriginRecipe renderer｜35 图视觉审计</h1>
-<p>本页是当前可用 Origin renderer 的统一视觉交付：35 类均来自已经核实的 Origin 2024 官方模板、菜单、X-Function 或原生组合流程。</p>
-<p>结构、数据绑定和 fresh reopen 已通过机械验证；产品负责人已于2026-08-12确认35图视觉验收通过。核密度图、Kaplan–Meier 生存曲线、森林图已明确排除，不在本页伪装实现。</p>
+</style></head><body><main><section class="intro"><h1>PlotAgent OriginRecipe renderer｜34 图视觉审计</h1>
+<p>本页是当前可用 Origin renderer 的统一视觉交付：34 类均来自已经核实的 Origin 2024 官方模板、菜单、X-Function 或分析流程。</p>
+<p>结构、数据绑定和 fresh reopen 已通过机械验证；产品负责人已确认保留图类的视觉基线。核密度图、组合图、Kaplan–Meier 生存曲线、森林图已明确排除，不在本页伪装实现。</p>
 <p><a href="audit-manifest.json">审计清单</a>　<a href="../origin-recipe-renderer-final/index.html">最后 8 图原始审计页</a>　<a href="../agent-native-renderer/index.html">前批次原始审计页</a></p>
 <input id="filter" type="search" placeholder="输入中文图类名或 Origin 官方名称筛选"><nav>{nav}</nav></section>{cards}
 <script>const q=document.querySelector('#filter');q.addEventListener('input',()=>{{const v=q.value.trim().toLowerCase();document.querySelectorAll('article').forEach(x=>x.hidden=v&&!x.dataset.name.toLowerCase().includes(v));}});</script>
@@ -222,7 +222,7 @@ img{{display:block;width:100%;height:430px;object-fit:contain;background:#fff}}@
             "status": VISUAL_REVIEW_STATUS,
             "reviewed_on": VISUAL_REVIEWED_ON,
             "note": VISUAL_REVIEW_NOTE,
-            "scope": "all 35 Origin-renderable profiles",
+            "scope": "all 34 Origin-renderable profiles",
         },
         "charts": rows,
     }

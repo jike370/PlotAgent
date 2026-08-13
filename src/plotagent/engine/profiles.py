@@ -140,8 +140,8 @@ K04_BUBBLE_PROFILE = EngineProfile(
 K06_POINT_ERROR_PROFILE = EngineProfile(
     profile_id="K06",
     display_name="Point estimate and error bar",
-    required_roles=("x", "center", "x_error", "y_error"),
-    optional_roles=("label",),
+    required_roles=("x", "center", "x_lower", "x_upper", "lower", "upper"),
+    optional_roles=("group",),
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
         EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
@@ -169,7 +169,7 @@ K07_ERROR_BAND_PROFILE = EngineProfile(
     profile_id="K07",
     display_name="Error ribbon",
     required_roles=("x", "center", "lower", "upper"),
-    optional_roles=("label",),
+    optional_roles=("group",),
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
         EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
@@ -628,7 +628,8 @@ X39_LINE_SERIES_PROFILE = EngineProfile(
 X40_BEFORE_AFTER_PROFILE = EngineProfile(
     profile_id="X40",
     display_name="Before and after",
-    required_roles=("series_1", "series_2"),
+    required_roles=("label", "series_1", "series_2"),
+    optional_roles=("group",),
     objects=X39_LINE_SERIES_PROFILE.objects,
     repeatable_objects=X39_LINE_SERIES_PROFILE.repeatable_objects,
     capabilities=X03_LOLLIPOP_PROFILE.capabilities,
@@ -746,7 +747,8 @@ X36_DUAL_Y_COLUMN_LINE_PROFILE = EngineProfile(
 X38_OFFSET_STACK_PROFILE = EngineProfile(
     profile_id="X38",
     display_name="Y-offset stacked line",
-    required_roles=("x", "y", "series"),
+    required_roles=("x", "series_1"),
+    repeatable_role_prefixes=("series",),
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),
         EngineObjectTemplate(object_alias="y_axis", object_kind="axis", object_key="y"),
@@ -791,31 +793,6 @@ K24_FACET_PROFILE = EngineProfile(
         EngineCapability(operation="set_title", parameters=("text",)),
         EngineCapability(operation="set_axis", parameters=("label", "scale", "bounds", "reverse")),
         EngineCapability(operation="set_series_style", parameters=("color",)),
-        EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
-    ),
-)
-
-K25_COMPOSITE_PROFILE = EngineProfile(
-    profile_id="K25",
-    display_name="Composite figure",
-    source_kind="plots",
-    minimum_components=2,
-    maximum_components=4,
-    repeatable_objects=(
-        EngineRepeatableObjectTemplate(
-            object_alias_prefix="panel",
-            object_kind="panel",
-            object_key_prefix="component",
-        ),
-    ),
-    capabilities=(
-        EngineCapability(operation="create_plot"),
-        EngineCapability(operation="set_title", parameters=("text",)),
-        EngineCapability(operation="set_chart_parameter", parameters=("panel_columns",)),
-        EngineCapability(
-            operation="add_annotation",
-            parameters=("text", "x", "y", "coordinate_system"),
-        ),
         EngineCapability(operation="export_plot", parameters=("png", "svg", "opju")),
     ),
 )
@@ -891,7 +868,6 @@ ENGINE_PROFILES = (
     K21_CORRELATION_MATRIX_PROFILE,
     K22_CONTOUR_PROFILE,
     K24_FACET_PROFILE,
-    K25_COMPOSITE_PROFILE,
     S34_NYQUIST_PROFILE,
     S61_CONFUSION_PROFILE,
     X02_DROP_LINE_PROFILE,

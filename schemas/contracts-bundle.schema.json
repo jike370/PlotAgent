@@ -901,7 +901,6 @@
               "K21",
               "K22",
               "K24",
-              "K25",
               "S34",
               "S61",
               "X02",
@@ -1735,32 +1734,15 @@
           "type": "string"
         },
         "bindings": {
-          "default": [],
           "items": {
             "$ref": "#/$defs/FieldBinding"
           },
+          "minItems": 1,
           "title": "Bindings",
           "type": "array"
         },
-        "components": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/PlotDocumentRef"
-          },
-          "maxItems": 4,
-          "title": "Components",
-          "type": "array"
-        },
         "data": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/EngineDataRef"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+          "$ref": "#/$defs/EngineDataRef"
         },
         "operation": {
           "const": "create_plot",
@@ -1782,7 +1764,9 @@
       "required": [
         "action_id",
         "plot_id",
-        "profile_id"
+        "profile_id",
+        "data",
+        "bindings"
       ],
       "title": "CreatePlot",
       "type": "object"
@@ -2629,20 +2613,6 @@
           "title": "Display Name",
           "type": "string"
         },
-        "maximum_components": {
-          "default": 0,
-          "maximum": 4,
-          "minimum": 0,
-          "title": "Maximum Components",
-          "type": "integer"
-        },
-        "minimum_components": {
-          "default": 0,
-          "maximum": 4,
-          "minimum": 0,
-          "title": "Minimum Components",
-          "type": "integer"
-        },
         "objects": {
           "default": [],
           "items": {
@@ -2683,27 +2653,19 @@
           "type": "array"
         },
         "required_roles": {
-          "default": [],
           "items": {
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
             "type": "string"
           },
+          "minItems": 1,
           "title": "Required Roles",
           "type": "array"
-        },
-        "source_kind": {
-          "default": "data",
-          "enum": [
-            "data",
-            "plots"
-          ],
-          "title": "Source Kind",
-          "type": "string"
         }
       },
       "required": [
         "profile_id",
         "display_name",
+        "required_roles",
         "capabilities"
       ],
       "title": "EngineProfile",
@@ -3043,7 +3005,6 @@
             "K21",
             "K22",
             "K24",
-            "K25",
             "S34",
             "S61",
             "X02",
@@ -4503,32 +4464,15 @@
           "type": "array"
         },
         "bindings": {
-          "default": [],
           "items": {
             "$ref": "#/$defs/FieldBinding"
           },
+          "minItems": 1,
           "title": "Bindings",
           "type": "array"
         },
-        "components": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/PlotDocumentRef"
-          },
-          "maxItems": 4,
-          "title": "Components",
-          "type": "array"
-        },
         "data": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/EngineDataRef"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+          "$ref": "#/$defs/EngineDataRef"
         },
         "parent_version": {
           "anyOf": [
@@ -4568,7 +4512,9 @@
       "required": [
         "plot_id",
         "plot_version",
-        "profile_id"
+        "profile_id",
+        "data",
+        "bindings"
       ],
       "title": "PlotDocument",
       "type": "object"

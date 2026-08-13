@@ -35,7 +35,6 @@ import {
 import { readWorkspaceSelection, writeWorkspaceSelection } from './data/workspacePersistence'
 import { plotHistoryEntry, type PlotHistoryEntry } from './data/plotHistory'
 import { ChartLibrary } from './components/ChartLibrary'
-import { CompositionEditor } from './components/CompositionEditor'
 import {
   ConversationWorkspace,
   type ExportRecordView,
@@ -48,7 +47,7 @@ import { TaskDrawer } from './components/TaskDrawer'
 import { useDialogFocus } from './components/useDialogFocus'
 import { resolveDesktopRuntime } from './preview/browserPreviewApi'
 
-type Screen = 'workspace' | 'focus' | 'composition'
+type Screen = 'workspace' | 'focus'
 
 const initialCore: CoreStatus = { phase: 'starting', restartAttempt: 0 }
 
@@ -156,7 +155,6 @@ export function App(): React.JSX.Element {
   const [confirmedMapping, setConfirmedMapping] = useState<FieldMappingInput>()
   const [plot, setPlot] = useState<ProductPlot>()
   const [previousPlot, setPreviousPlot] = useState<ProductPlot>()
-  const [figureCandidates, setFigureCandidates] = useState<ProductPlot[]>([])
   const [exportRecord, setExportRecord] = useState<ExportRecordView>()
   const [notice, setNotice] = useState<ProductNotice>()
   const [agentOutcome, setAgentOutcome] = useState<AgentOutcome>()
@@ -340,7 +338,6 @@ export function App(): React.JSX.Element {
     setConfirmedMapping(undefined)
     setPlot(undefined)
     setPreviousPlot(undefined)
-    setFigureCandidates([])
     setExportRecord(undefined)
     setAgentOutcome(undefined)
     setAgentPlan(undefined)
@@ -584,7 +581,7 @@ export function App(): React.JSX.Element {
         ? persisted.mapping
         : undefined
       setProject(next); mergeProjects([next]); setDatasets(nextDatasets); setActiveDatasetId(nextDataset?.datasetId); setAgentDatasetIds(nextAgentDatasetIds)
-      setPlot(undefined); setPreviousPlot(undefined); setSelectedChart(persistedChart); setConfirmedMapping(persistedMapping); setFigureCandidates([])
+      setPlot(undefined); setPreviousPlot(undefined); setSelectedChart(persistedChart); setConfirmedMapping(persistedMapping)
       setAgentPlan(undefined); setAgentOutcome(undefined); setExportRecord(undefined)
       const recovery = await recoverLatestPlot(projectId)
       if (recovery.plot) {
@@ -621,7 +618,6 @@ export function App(): React.JSX.Element {
             content_hash: activeDataset.contentHash,
           },
           bindings: Object.entries(mapping.roles).map(([role, field_id]) => ({ role, field_id })),
-          components: [],
         },
       }))
       const nextPlot = readPlot(created)
@@ -962,80 +958,6 @@ export function App(): React.JSX.Element {
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
-  const toggleFigureCandidate = (): void => {
-    if (!plot) {
-      setNotice({ kind: 'warning', title: '无法加入组合图', message: '当前没有已渲染的图形。' })
-      return
-    }
-    const exactMatch = figureCandidates.some((item) => (
-      item.plotId === plot.plotId && item.plotVersion === plot.plotVersion
-    ))
-    if (exactMatch) {
-      setFigureCandidates((current) => current.filter((item) => !(
-        item.plotId === plot.plotId && item.plotVersion === plot.plotVersion
-      )))
-      setNotice({ kind: 'info', title: '已移出组合图', message: `${plot.plotId} · v${plot.plotVersion}` })
-      return
-    }
-    const replacingVersion = figureCandidates.some((item) => item.plotId === plot.plotId)
-    if (!replacingVersion && figureCandidates.length >= 4) {
-      setNotice({ kind: 'warning', title: '组合图已满', message: '第一版组合图最多包含 4 张图。' })
-      return
-    }
-    setFigureCandidates((current) => [
-      ...current.filter((item) => item.plotId !== plot.plotId),
-      plot,
-    ])
-    setNotice({
-      kind: 'success',
-      title: replacingVersion ? '已更新组合图候选' : '已加入组合图',
-      message: `${plot.plotId} · v${plot.plotVersion}`,
-    })
-  }
-
-  const createComposition = async (): Promise<void> => {
-    if (!api || !project || busyAction !== undefined) return
-    if (figureCandidates.length < 2) {
-      setNotice({ kind: 'warning', title: '还需要候选图', message: `已加入 ${figureCandidates.length} 张，请先将至少 2 张已渲染图加入组合图。` })
-      return
-    }
-    setBusyAction('composition'); setNotice(undefined)
-    try {
-      if (figureCandidates.some((item) => item.contentHash === undefined)) {
-        throw new Error('候选图缺少不可变内容标识，请重新打开后再组合。')
-      }
-      const created = valueOrThrow(await api.executePlotAction({
-        projectId: project.projectId,
-        expectedProjectVersion: project.projectVersion,
-        action: {
-          operation: 'create_plot',
-          action_id: `action:ui.compose.${crypto.randomUUID()}`,
-          plot_id: `plot:ui.composition.${crypto.randomUUID()}`,
-          profile_id: 'K25',
-          components: figureCandidates.map((item) => ({
-            plot_id: item.plotId,
-            plot_version: item.plotVersion,
-            content_hash: item.contentHash!,
-          })),
-        },
-      }))
-      const composition = readPlot(created)
-      if (!composition) throw new Error('Core 未返回 K25 PlotDocument。')
-      setPlot(composition)
-      setPreviousPlot(undefined)
-      setUndoStack([])
-      setRedoStack([])
-      setSelectedChart(chartCatalog.find((chart) => chart.id === 'K25'))
-      setConfirmedMapping(undefined)
-      setProject(projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1)))
-      setFigureCandidates([])
-      setScreen('composition')
-      setNotice({ kind: 'success', title: '组合图已创建', message: `${composition.plotId} · v${composition.plotVersion}` })
-    } catch (error) {
-      setNotice({ kind: 'error', title: '组合图创建失败', message: errorNotice(error).message })
-    } finally { setBusyAction(undefined) }
-  }
-
   const configureProvider = async (input: CustomProviderConfigureInput): Promise<void> => {
     if (!api) return
     setBusyAction('provider'); setProviderNotice(undefined)
@@ -1051,10 +973,6 @@ export function App(): React.JSX.Element {
     categoricalFieldCount: activeDataset?.fields.filter((field) => ['string', 'categorical', 'category', 'boolean'].includes(field.logicalType.toLocaleLowerCase('en-US'))).length ?? 0,
     totalFieldCount: activeDataset?.fields.length ?? 0,
   }), [activeDataset])
-  const figureCandidateCount = figureCandidates.length
-  const plotIsFigureCandidate = plot !== undefined && figureCandidates.some((item) => (
-    item.plotId === plot.plotId && item.plotVersion === plot.plotVersion
-  ))
   const canUndo = undoStack.at(-1)?.plotId === plot?.plotId
   const canRedo = redoStack.at(-1)?.plotId === plot?.plotId
   const modalOpen = libraryOpen || tasksOpen || providerOpen
@@ -1082,10 +1000,6 @@ export function App(): React.JSX.Element {
 
   const openFocusEditor = async (): Promise<void> => {
     if (!plot) return
-    if (plot.chartId === 'K25') {
-      setScreen('composition')
-      return
-    }
     if (api && project && plot.plotVersion > 1) {
       try {
         const stored = valueOrThrow(await api.getPlot({
@@ -1110,14 +1024,12 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedAgentDatasetIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...agentDatasetIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} figureCandidateCount={figureCandidateCount} plotIsFigureCandidate={plotIsFigureCandidate} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleAgentDataset={toggleAgentDataset} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onToggleFigureCandidate={toggleFigureCandidate} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedAgentDatasetIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...agentDatasetIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleAgentDataset={toggleAgentDataset} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onClose={() => setScreen('workspace')} />}
-        {screen === 'composition' && plot?.chartId === 'K25' && <CompositionEditor plot={plot} onClose={() => setScreen('workspace')} />}
       </div>
-      {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} availablePlotCount={figureCandidateCount} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
+      {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
         setLibraryOpen(false)
-        if (chart.id === 'K25') { void createComposition(); return }
         invalidateAgentRequest()
         setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setPreviousPlot(undefined); setAgentOutcome(undefined); rememberWorkspace({ chartId: chart.id, mapping: null })
         setUndoStack([]); setRedoStack([])

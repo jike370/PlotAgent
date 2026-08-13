@@ -33,7 +33,6 @@ from .derived_data import (
 )
 from .ports import (
     EngineArtifact,
-    EngineComponentInput,
     EngineDataProvider,
     EngineObjectRef,
     EngineReadback,
@@ -65,7 +64,6 @@ __all__ = [
     "EngineCapability",
     "EngineCatalog",
     "EngineColumn",
-    "EngineComponentInput",
     "EngineCommandError",
     "EngineVersionConflict",
     "EngineDataProvider",

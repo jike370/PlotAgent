@@ -59,33 +59,6 @@
       ],
       "title": "FieldBinding",
       "type": "object"
-    },
-    "PlotDocumentRef": {
-      "additionalProperties": false,
-      "properties": {
-        "content_hash": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Content Hash",
-          "type": "string"
-        },
-        "plot_id": {
-          "pattern": "^plot:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Plot Id",
-          "type": "string"
-        },
-        "plot_version": {
-          "minimum": 1,
-          "title": "Plot Version",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "plot_id",
-        "plot_version",
-        "content_hash"
-      ],
-      "title": "PlotDocumentRef",
-      "type": "object"
     }
   },
   "$id": "https://schemas.plotagent.local/v2/plot-document.schema.json",
@@ -103,32 +76,15 @@
       "type": "array"
     },
     "bindings": {
-      "default": [],
       "items": {
         "$ref": "#/$defs/FieldBinding"
       },
+      "minItems": 1,
       "title": "Bindings",
       "type": "array"
     },
-    "components": {
-      "default": [],
-      "items": {
-        "$ref": "#/$defs/PlotDocumentRef"
-      },
-      "maxItems": 4,
-      "title": "Components",
-      "type": "array"
-    },
     "data": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/EngineDataRef"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
+      "$ref": "#/$defs/EngineDataRef"
     },
     "parent_version": {
       "anyOf": [
@@ -168,7 +124,9 @@
   "required": [
     "plot_id",
     "plot_version",
-    "profile_id"
+    "profile_id",
+    "data",
+    "bindings"
   ],
   "title": "PlotDocument",
   "type": "object"

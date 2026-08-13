@@ -18,7 +18,6 @@ const plot = {
   annotations: [],
   specialist: {},
   style: { legendVisible: true, legendPlacement: 'inside' },
-  components: [],
 } as unknown as ProductPlot
 
 describe('plot history', () => {

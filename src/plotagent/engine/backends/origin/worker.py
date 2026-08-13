@@ -30,7 +30,6 @@ from .k20 import execute_k20_request
 from .k21 import execute_k21_request
 from .k22 import execute_k22_request
 from .k24 import execute_k24_request
-from .k25 import execute_k25_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
 from .recipe import origin_recipe
 from .renderer import OriginRendererRegistry
@@ -101,7 +100,6 @@ def main(argv: list[str] | None = None) -> int:
             "K21": execute_k21_request,
             "K22": execute_k22_request,
             "K24": execute_k24_request,
-            "K25": execute_k25_request,
             "S34": execute_s34_request,
             "S61": execute_s61_request,
             "X02": execute_x02_request,

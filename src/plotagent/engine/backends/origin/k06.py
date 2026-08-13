@@ -1,4 +1,4 @@
-"""K06 official ERRBAR template binder with symmetric X/Y error columns."""
+"""K06 official ERRBAR binder with asymmetric absolute X/Y bounds."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.engine.contracts import (
     BindFields,
     CreatePlot,
-    EngineColumn,
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
@@ -38,7 +37,7 @@ _TITLE_NAME = "_ENGINE_TITLE"
 _OFFICIAL_HELP = "https://docs.originlab.com/origin-help/xy-errbar-graph/"
 _OFFICIAL_MENU = "Plot > Basic 2D: XY Error"
 _OFFICIAL_MENU_ID = 33336
-_OFFICIAL_COMMAND = "worksheet -s 1 0 4 0; worksheet -p 201 ERRBAR;"
+_OFFICIAL_COMMAND = "worksheet -s 1 0 6 0; worksheet -p 201 ERRBAR;"
 
 
 def _hex_rgb(value: str) -> tuple[int, int, int]:
@@ -93,7 +92,10 @@ class K06OriginProject:
         self.sheet = book[0]
         with origin_trace_step(
             "source_data_write",
-            details={"designation": "XYEM", "order": ["x", "center", "y_error", "x_error"]},
+            details={
+                "designation": "XYEEMM",
+                "order": ["x", "center", "y_minus", "y_plus", "x_minus", "x_plus"],
+            },
         ):
             self._write_data(document, data)
         with origin_trace_step(
@@ -120,6 +122,7 @@ class K06OriginProject:
         if not self.plots:
             raise RuntimeError("Origin ERRBAR.otpu did not create a native XY error plot")
         self.plot = self.plots[0]
+        self._bind_asymmetric_directions()
         with origin_trace_step(
             "template_residue_remove", details={"authoritative_workbook": book.name}
         ):
@@ -163,6 +166,7 @@ class K06OriginProject:
         if isinstance(action, BindFields):
             k06_point_error(document, data)
             self._write_data(document, data)
+            self._bind_asymmetric_directions()
             self.layer.rescale()
             return
         if isinstance(action, SetTitle):
@@ -234,7 +238,7 @@ class K06OriginProject:
                     raise RuntimeError("Origin could not create a linked K06 legend")
                 legend = self.layer.label("legend")
             if legend is not None and action.visible is not None:
-                center_name = self._bound_columns(document, data)[1].field.name
+                center_name = k06_point_error(document, data).center_field_name
                 legend.text = f"\\l(1) {_safe_legend_label(center_name)}"
                 legend.set_int("link", 1)
                 legend.set_int("show", int(action.visible))
@@ -256,11 +260,23 @@ class K06OriginProject:
     ) -> EngineReadback:
         native = self._assert_native_structure()
         record_origin_trace("reopened_xy_error_confirmed", "completed", details=native)
-        columns = self._bound_columns(document, data)
-        for index, (role, column) in enumerate(
-            zip(("x", "center", "y_error", "x_error"), columns, strict=True)
+        series = k06_point_error(document, data)
+        expected_columns = (
+            series.x_values,
+            series.center_values,
+            series.y_minus_errors,
+            series.y_plus_errors,
+            series.x_minus_errors,
+            series.x_plus_errors,
+        )
+        for index, (role, values) in enumerate(
+            zip(
+                ("x", "center", "y_minus", "y_plus", "x_minus", "x_plus"),
+                expected_columns,
+                strict=True,
+            )
         ):
-            self._assert_values(self.sheet.to_list(index), column.values, role)
+            self._assert_values(self.sheet.to_list(index), values, role)
         token = document.plot_id.removeprefix("plot:")
         style_snapshot: dict[str, object] = {"native_structure": native}
         for action in actions:
@@ -347,31 +363,29 @@ class K06OriginProject:
         )
 
     def _write_data(self, document: PlotDocument, data: EngineDataView) -> None:
-        x, center, y_error, x_error = self._bound_columns(document, data)
-        for index, (column, designation) in enumerate(
-            zip((x, center, y_error, x_error), ("X", "Y", "E", "M"), strict=True)
-        ):
-            self.sheet.from_list(
-                index,
-                list(column.values),
-                lname=column.field.name,
-                units=column.field.unit_label or "",
-                axis=designation,
-            )
-
-    @staticmethod
-    def _bound_columns(
-        document: PlotDocument,
-        data: EngineDataView,
-    ) -> tuple[EngineColumn, EngineColumn, EngineColumn, EngineColumn]:
-        bindings = {binding.role: binding.field_id for binding in document.bindings}
-        columns = {column.field.field_id: column for column in data.columns}
-        return (
-            columns[bindings["x"]],
-            columns[bindings["center"]],
-            columns[bindings["y_error"]],
-            columns[bindings["x_error"]],
+        series = k06_point_error(document, data)
+        columns = (
+            (series.x_field_name, series.x_values, "X"),
+            (series.center_field_name, series.center_values, "Y"),
+            ("Y Error -", series.y_minus_errors, "E"),
+            ("Y Error +", series.y_plus_errors, "E"),
+            ("X Error -", series.x_minus_errors, "M"),
+            ("X Error +", series.x_plus_errors, "M"),
         )
+        for index, (name, values, designation) in enumerate(columns):
+            self.sheet.from_list(index, list(values), lname=name, units="", axis=designation)
+
+    def _bind_asymmetric_directions(self) -> None:
+        source = self.sheet.lt_range()
+        command = (
+            f"range __K06CENTER={source}!B; "
+            f"range __K06YMINUS={source}!C; range __K06YPLUS={source}!D; "
+            f"range __K06XMINUS={source}!E; range __K06XPLUS={source}!F; "
+            "set __K06YMINUS -om __K06CENTER; set __K06YPLUS -op __K06CENTER; "
+            "set __K06XMINUS -om __K06CENTER; set __K06XPLUS -op __K06CENTER;"
+        )
+        if not self.op.lt_exec(command):
+            raise RuntimeError("Origin could not bind asymmetric K06 error directions")
 
     def _assert_native_structure(self) -> dict[str, object]:
         self.graph.activate()
@@ -389,13 +403,15 @@ class K06OriginProject:
             raise RuntimeError("Origin could not read the native K06 XY Error structure")
         plot_count = int(self.op.lt_float("__K06COUNT"))
         plot_id = int(self.op.lt_float("__K06PID"))
-        designations = tuple(int(self.sheet.get_int(f"col{index}.type")) for index in range(1, 5))
+        designations = tuple(int(self.sheet.get_int(f"col{index}.type")) for index in range(1, 7))
         x_range = str(self.op.get_lt_str("__K06XS"))
         y_range = str(self.op.get_lt_str("__K06YS"))
         if plot_count < 1 or plot_id != 201:
             raise RuntimeError("Origin K06 must retain a native PID 201 point/error plot")
-        if designations != (4, 1, 3, 7):
-            raise RuntimeError("Origin K06 worksheet must retain X/Y/YErr/XErr designations")
+        if designations != (4, 1, 3, 3, 7, 7):
+            raise RuntimeError(
+                "Origin K06 worksheet must retain X/Y/YErr-/YErr+/XErr-/XErr+ designations"
+            )
         if not x_range.split('"', 1)[0].endswith("!A") or not y_range.split('"', 1)[0].endswith(
             "!B"
         ):

@@ -3,7 +3,6 @@ export type ResourceKind =
   | 'derived-data'
   | 'plot-batch'
   | 'chart'
-  | 'composition'
   | 'template'
   | 'export'
 
@@ -42,7 +41,6 @@ export const resourceKindLabels: Record<ResourceKind, string> = {
   'derived-data': '派生数据',
   'plot-batch': '绘图批次',
   chart: '图表',
-  composition: '组合图',
   template: '模板',
   export: '导出',
 }
@@ -129,7 +127,7 @@ export const projectResources: ProjectResource[] = [
     updatedAt: '今天 14:51',
     format: '4 个任务',
     parentIds: ['RAW-001', 'DER-001'],
-    referencedBy: ['CHART-001', 'CHART-002', 'COMP-001'],
+    referencedBy: ['CHART-001', 'CHART-002'],
     conversations: ['温度响应批量绘图'],
     versions: [
       { id: 'batch-v3', label: '批次设置 v3', detail: '统一图例位置与 0.8 pt 线宽', createdAt: '今天 14:51', author: '你' },
@@ -145,7 +143,7 @@ export const projectResources: ProjectResource[] = [
     updatedAt: '今天 14:51',
     format: 'SVG 场景',
     parentIds: ['DER-001', 'BATCH-024'],
-    referencedBy: ['COMP-001', 'EXPORT-001'],
+    referencedBy: ['EXPORT-001'],
     conversations: ['温度响应批量绘图'],
     versions: [
       { id: 'chart-a-v3', label: 'v3 当前版本', detail: '图例移至右上，线宽调整为 0.8 pt', createdAt: '今天 14:51', author: '你' },
@@ -161,26 +159,11 @@ export const projectResources: ProjectResource[] = [
     updatedAt: '今天 14:49',
     format: 'SVG 场景',
     parentIds: ['DER-002', 'BATCH-024'],
-    referencedBy: ['COMP-001', 'EXPORT-001'],
+    referencedBy: ['EXPORT-001'],
     conversations: ['温度响应批量绘图'],
     versions: [
       { id: 'chart-b-v2', label: 'v2 当前版本', detail: '改用标准差误差线并显示 n', createdAt: '今天 14:49', author: '你' },
       { id: 'chart-b-v1', label: 'v1', detail: '使用分组汇总数据首次生成', createdAt: '今天 14:44', author: 'PlotAgent' },
-    ],
-  },
-  {
-    id: 'COMP-001',
-    kind: 'composition',
-    name: 'Figure 1 · 温度响应总览',
-    summary: '2×2 面板，公共图例，含 4 张数值数据图表',
-    updatedAt: '今天 15:12',
-    format: '组合图',
-    parentIds: ['BATCH-024', 'CHART-001', 'CHART-002'],
-    referencedBy: ['EXPORT-001'],
-    conversations: ['温度响应批量绘图'],
-    versions: [
-      { id: 'comp-v2', label: 'v2 当前版本', detail: '统一面板间距并增加公共图例', createdAt: '今天 15:12', author: '你' },
-      { id: 'comp-v1', label: 'v1', detail: '创建 2×2 固定布局并加入 A–D 编号', createdAt: '今天 15:09', author: '你' },
     ],
   },
   {
@@ -206,7 +189,7 @@ export const projectResources: ProjectResource[] = [
     updatedAt: '今天 15:18',
     size: '8.6 MB',
     format: '外部文件记录',
-    parentIds: ['CHART-001', 'CHART-002', 'COMP-001'],
+    parentIds: ['CHART-001', 'CHART-002'],
     referencedBy: [],
     conversations: ['温度响应批量绘图'],
     externalPath: 'D:\\exports\\temperature_series',

@@ -53,8 +53,10 @@ class XYSeriesData:
 class PointErrorData:
     x_values: tuple[float, ...]
     center_values: tuple[float, ...]
-    x_errors: tuple[float, ...]
-    y_errors: tuple[float, ...]
+    x_minus_errors: tuple[float, ...]
+    x_plus_errors: tuple[float, ...]
+    y_minus_errors: tuple[float, ...]
+    y_plus_errors: tuple[float, ...]
     x_field_name: str
     center_field_name: str
 
@@ -244,6 +246,8 @@ class WideSeriesData:
 
     column_labels: tuple[str, ...]
     column_values: tuple[tuple[float, ...], ...]
+    row_labels: tuple[str, ...] | None = None
+    row_groups: tuple[str, ...] | None = None
 
     @property
     def row_count(self) -> int:
@@ -333,28 +337,55 @@ def xy_series(document: PlotDocument, data: EngineDataView, *, profile_id: str) 
 
 
 def k06_point_error(document: PlotDocument, data: EngineDataView) -> PointErrorData:
-    """Validate the symmetric X/Y error representation consumed by ERRBAR."""
+    """Convert absolute asymmetric bounds to native X/Y error magnitudes."""
 
-    x, center, x_error, y_error = _bound_columns(
+    x, center, x_lower, x_upper, lower, upper = _bound_columns(
         document,
         data,
-        ("x", "center", "x_error", "y_error"),
+        ("x", "center", "x_lower", "x_upper", "lower", "upper"),
         "K06",
     )
+    x_values = _numeric_values(x, "x", "K06")
     center_values = _numeric_values(center, "center", "K06", allow_missing=True)
-    x_errors = _numeric_values(x_error, "x_error", "K06", allow_missing=True)
-    y_errors = _numeric_values(y_error, "y_error", "K06", allow_missing=True)
-    if any(isfinite(value) and value < 0 for value in x_errors + y_errors):
-        raise ValueError("K06 error magnitudes must be non-negative")
-    for row, values in enumerate(zip(center_values, x_errors, y_errors, strict=True), start=1):
+    x_lower_values = _numeric_values(x_lower, "x_lower", "K06", allow_missing=True)
+    x_upper_values = _numeric_values(x_upper, "x_upper", "K06", allow_missing=True)
+    lower_values = _numeric_values(lower, "lower", "K06", allow_missing=True)
+    upper_values = _numeric_values(upper, "upper", "K06", allow_missing=True)
+    for row, values in enumerate(
+        zip(
+            x_values,
+            center_values,
+            x_lower_values,
+            x_upper_values,
+            lower_values,
+            upper_values,
+            strict=True,
+        ),
+        start=1,
+    ):
         present = tuple(isfinite(value) for value in values)
         if any(present) and not all(present):
-            raise ValueError(f"K06 row {row} must provide center and both errors together")
+            raise ValueError(f"K06 row {row} must provide center and all four bounds together")
+        x_value, middle, x_low, x_high, low, high = values
+        if all(present) and not (x_low <= x_value <= x_high and low <= middle <= high):
+            raise ValueError(
+                f"K06 row {row} must satisfy x_lower <= x <= x_upper and lower <= center <= upper"
+            )
     return PointErrorData(
-        x_values=_numeric_values(x, "x", "K06"),
+        x_values=x_values,
         center_values=center_values,
-        x_errors=x_errors,
-        y_errors=y_errors,
+        x_minus_errors=tuple(
+            value - bound for value, bound in zip(x_values, x_lower_values, strict=True)
+        ),
+        x_plus_errors=tuple(
+            bound - value for value, bound in zip(x_values, x_upper_values, strict=True)
+        ),
+        y_minus_errors=tuple(
+            value - bound for value, bound in zip(center_values, lower_values, strict=True)
+        ),
+        y_plus_errors=tuple(
+            bound - value for value, bound in zip(center_values, upper_values, strict=True)
+        ),
         x_field_name=x.field.name,
         center_field_name=center.field.name,
     )
@@ -723,6 +754,16 @@ def wide_series(
     return WideSeriesData(
         column_labels=tuple(column.field.name for column in selected),
         column_values=column_values,
+        row_labels=(
+            None
+            if profile_id != "X40"
+            else tuple(_label(value, "label") for value in columns[bindings["label"]].values)
+        ),
+        row_groups=(
+            None
+            if profile_id != "X40" or "group" not in bindings
+            else tuple(_label(value, "group") for value in columns[bindings["group"]].values)
+        ),
     )
 
 
@@ -1058,33 +1099,35 @@ def x24_pareto_source(document: PlotDocument, data: EngineDataView) -> ParetoSou
 
 
 def x38_offset_stack(document: PlotDocument, data: EngineDataView) -> OffsetStackData:
-    """Return aligned raw series; display offsets remain backend-owned and never alter source Y."""
+    """Preserve Origin OffsetYs' canonical wide X + N Y worksheet layout."""
 
-    x, y, series_column = _bound_columns(document, data, ("x", "y", "series"), "X38")
+    bindings = {binding.role: binding.field_id for binding in document.bindings}
+    columns = {column.field.field_id: column for column in data.columns}
+    try:
+        x = columns[bindings["x"]]
+    except KeyError as error:
+        raise ValueError("X38 requires an x binding") from error
+    roles = _contiguous_series_roles(bindings, "X38", minimum=1)
     x_values = _numeric_values(x, "x", "X38", allow_missing=False)
-    y_values = _numeric_values(y, "y", "X38", allow_missing=True)
-    labels = tuple(_label(item, "series") for item in series_column.values)
-    ordered_labels = tuple(dict.fromkeys(labels))
-    materialized: list[OffsetSeriesData] = []
-    expected_x: tuple[float, ...] | None = None
-    for label in ordered_labels:
-        indexes = tuple(index for index, item in enumerate(labels) if item == label)
-        series_x = tuple(x_values[index] for index in indexes)
-        series_y = tuple(y_values[index] for index in indexes)
-        if len(series_x) < 2 or any(
-            left >= right for left, right in zip(series_x[:-1], series_x[1:], strict=True)
-        ):
-            raise ValueError("X38 requires each series X values to be strictly increasing")
-        if expected_x is None:
-            expected_x = series_x
-        elif series_x != expected_x:
-            raise ValueError("X38 requires every series to share the same X grid")
-        materialized.append(OffsetSeriesData(label=label, x_values=series_x, y_values=series_y))
+    if len(x_values) < 2 or any(
+        left >= right for left, right in zip(x_values[:-1], x_values[1:], strict=True)
+    ):
+        raise ValueError("X38 requires strictly increasing X values")
+    materialized = [
+        OffsetSeriesData(
+            label=columns[bindings[role]].field.name,
+            x_values=x_values,
+            y_values=_numeric_values(
+                columns[bindings[role]], role, "X38", allow_missing=True
+            ),
+        )
+        for role in roles
+    ]
     return OffsetStackData(
         series=tuple(materialized),
         x_field_name=x.field.name,
-        y_field_name=y.field.name,
-        series_field_name=series_column.field.name,
+        y_field_name="Value",
+        series_field_name="Series",
     )
 
 

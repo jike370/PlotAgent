@@ -136,7 +136,7 @@ export type CalculationTable = {
 
 export type ChartCapabilities = {
   readonly capability_version: string;
-  readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
+  readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
   readonly allowed_action_types: ReadonlyArray<"create_plot" | "bind_fields" | "set_title" | "set_axis" | "set_series_style" | "set_legend" | "set_chart_parameter" | "add_annotation" | "export_plot">;
   readonly export_formats?: ReadonlyArray<"png" | "svg" | "opju">;
   readonly limitation_ids?: ReadonlyArray<string>;
@@ -269,9 +269,8 @@ export type CreatePlot = {
   readonly action_id: string;
   readonly plot_id: string;
   readonly profile_id: string;
-  readonly data?: EngineDataRef | null;
-  readonly bindings?: ReadonlyArray<FieldBinding>;
-  readonly components?: ReadonlyArray<PlotDocumentRef>;
+  readonly data: EngineDataRef;
+  readonly bindings: ReadonlyArray<FieldBinding>;
 }
 
 export type DataDisclosure = {
@@ -402,12 +401,9 @@ export type EngineObjectTemplate = {
 export type EngineProfile = {
   readonly profile_id: string;
   readonly display_name: string;
-  readonly source_kind?: "data" | "plots";
-  readonly required_roles?: ReadonlyArray<string>;
+  readonly required_roles: ReadonlyArray<string>;
   readonly optional_roles?: ReadonlyArray<string>;
   readonly repeatable_role_prefixes?: ReadonlyArray<string>;
-  readonly minimum_components?: number;
-  readonly maximum_components?: number;
   readonly objects?: ReadonlyArray<EngineObjectTemplate>;
   readonly repeatable_objects?: ReadonlyArray<EngineRepeatableObjectTemplate>;
   readonly capabilities: ReadonlyArray<EngineCapability>;
@@ -474,7 +470,7 @@ export type FieldMapping = {
   readonly schema_version?: "1.0";
   readonly field_mapping_id: string;
   readonly mapping_version: number;
-  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "K25" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40";
+  readonly chart_type_id: "K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40";
   readonly source_dataset_refs: ReadonlyArray<SourceDatasetRef>;
   readonly bindings: ReadonlyArray<FieldRoleBinding>;
   readonly content_hash: string;
@@ -710,9 +706,8 @@ export type PlotDocument = {
   readonly plot_version: number;
   readonly parent_version?: number | null;
   readonly profile_id: string;
-  readonly data?: EngineDataRef | null;
-  readonly bindings?: ReadonlyArray<FieldBinding>;
-  readonly components?: ReadonlyArray<PlotDocumentRef>;
+  readonly data: EngineDataRef;
+  readonly bindings: ReadonlyArray<FieldBinding>;
   readonly applied_action_ids?: ReadonlyArray<string>;
 }
 

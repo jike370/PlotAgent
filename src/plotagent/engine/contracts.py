@@ -125,9 +125,8 @@ class PlotDocument(StrictModel):
     plot_version: VersionId
     parent_version: VersionId | None = None
     profile_id: Token
-    data: EngineDataRef | None = None
-    bindings: tuple[FieldBinding, ...] = ()
-    components: Annotated[tuple[PlotDocumentRef, ...], Field(max_length=4)] = ()
+    data: EngineDataRef
+    bindings: Annotated[tuple[FieldBinding, ...], Field(min_length=1)]
     applied_action_ids: tuple[ActionId, ...] = ()
 
     @model_validator(mode="after")
@@ -137,19 +136,6 @@ class PlotDocument(StrictModel):
             raise ValueError("plot document bindings must have unique roles")
         if len(self.applied_action_ids) != len(set(self.applied_action_ids)):
             raise ValueError("plot document action ids must be unique")
-        has_data = self.data is not None
-        has_components = bool(self.components)
-        if has_data == has_components:
-            raise ValueError("a plot document requires exactly one data or component source")
-        if has_data and not self.bindings:
-            raise ValueError("a data-backed plot document requires field bindings")
-        if has_components and self.bindings:
-            raise ValueError("a component-backed plot document cannot bind data fields")
-        component_ids = tuple(item.plot_id for item in self.components)
-        if len(component_ids) != len(set(component_ids)):
-            raise ValueError("plot document component plots must be unique")
-        if self.plot_id in component_ids:
-            raise ValueError("a plot document cannot contain itself")
         if self.plot_version == 1 and self.parent_version is not None:
             raise ValueError("the first plot document version cannot have a parent")
         if self.plot_version > 1 and self.parent_version != self.plot_version - 1:
@@ -162,26 +148,8 @@ class CreatePlot(StrictModel):
     action_id: ActionId
     plot_id: PlotId
     profile_id: Token
-    data: EngineDataRef | None = None
-    bindings: tuple[FieldBinding, ...] = ()
-    components: Annotated[tuple[PlotDocumentRef, ...], Field(max_length=4)] = ()
-
-    @model_validator(mode="after")
-    def one_plot_source(self) -> CreatePlot:
-        has_data = self.data is not None
-        has_components = bool(self.components)
-        if has_data == has_components:
-            raise ValueError("create_plot requires exactly one data or component source")
-        if has_data and not self.bindings:
-            raise ValueError("a data-backed create_plot requires field bindings")
-        if has_components and self.bindings:
-            raise ValueError("a component-backed create_plot cannot bind fields")
-        component_ids = tuple(item.plot_id for item in self.components)
-        if len(component_ids) != len(set(component_ids)):
-            raise ValueError("create_plot component plots must be unique")
-        if self.plot_id in component_ids:
-            raise ValueError("create_plot cannot contain its own plot id")
-        return self
+    data: EngineDataRef
+    bindings: Annotated[tuple[FieldBinding, ...], Field(min_length=1)]
 
 
 class VersionedPlotAction(StrictModel):
@@ -401,12 +369,9 @@ class EngineProfile(StrictModel):
 
     profile_id: Token
     display_name: Annotated[str, StringConstraints(min_length=1, max_length=128, strict=True)]
-    source_kind: Literal["data", "plots"] = "data"
-    required_roles: tuple[Token, ...] = ()
+    required_roles: Annotated[tuple[Token, ...], Field(min_length=1)]
     optional_roles: tuple[Token, ...] = ()
     repeatable_role_prefixes: tuple[Token, ...] = ()
-    minimum_components: Annotated[int, Field(ge=0, le=4)] = 0
-    maximum_components: Annotated[int, Field(ge=0, le=4)] = 0
     objects: tuple[EngineObjectTemplate, ...] = ()
     repeatable_objects: tuple[EngineRepeatableObjectTemplate, ...] = ()
     capabilities: Annotated[tuple[EngineCapability, ...], Field(min_length=1)]
@@ -420,18 +385,6 @@ class EngineProfile(StrictModel):
             raise ValueError("repeatable role prefixes must be unique")
         if set(self.repeatable_role_prefixes) & set(roles):
             raise ValueError("repeatable role prefixes cannot also be fixed roles")
-        if self.source_kind == "data":
-            if not self.required_roles:
-                raise ValueError("a data profile requires at least one field role")
-            if self.minimum_components or self.maximum_components:
-                raise ValueError("a data profile cannot declare component bounds")
-        else:
-            if roles or self.repeatable_role_prefixes:
-                raise ValueError("a plot-composition profile cannot declare field roles")
-            if self.minimum_components < 2:
-                raise ValueError("a plot-composition profile requires at least two components")
-            if self.maximum_components < self.minimum_components:
-                raise ValueError("component maximum must not be lower than its minimum")
         object_aliases = tuple(item.object_alias for item in self.objects)
         if len(object_aliases) != len(set(object_aliases)):
             raise ValueError("engine profile object aliases must be unique")
@@ -447,6 +400,4 @@ class EngineProfile(StrictModel):
         operations = tuple(capability.operation for capability in self.capabilities)
         if len(operations) != len(set(operations)):
             raise ValueError("engine profile capabilities must be unique")
-        if self.source_kind == "plots" and "bind_fields" in operations:
-            raise ValueError("a plot-composition profile cannot expose bind_fields")
         return self

@@ -43,7 +43,6 @@ function plot(
     },
     style: { legendVisible: true, legendPlacement: 'inside' },
     engineCapabilities: capabilities,
-    components: [],
   }
 }
 

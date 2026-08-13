@@ -16,8 +16,8 @@ def test_recipe_registry_covers_the_public_catalog_and_closes_the_origin_scope()
     public_ids = {profile.profile_id for profile in ENGINE_PROFILES}
 
     assert set(ORIGIN_RECIPES) == public_ids
-    assert len(ORIGIN_RECIPES) == 35
-    assert len(ORIGIN_RENDERABLE_RECIPES) == 35
+    assert len(ORIGIN_RECIPES) == 34
+    assert len(ORIGIN_RENDERABLE_RECIPES) == 34
     assert ORIGIN_RECIPES == ORIGIN_RENDERABLE_RECIPES
     assert ORIGIN_RECIPES["S61"].support_status == "renderable"
 
@@ -143,7 +143,7 @@ def test_row_wise_boxchart_recipes_preserve_the_source_wide_table() -> None:
 
 
 def test_removed_profiles_have_no_origin_recipe() -> None:
-    for profile_id in ("K16", "S01", "S21"):
+    for profile_id in ("K16", "K25", "S01", "S21"):
         with pytest.raises(ValueError, match=profile_id):
             origin_recipe(profile_id)
 

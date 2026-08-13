@@ -310,8 +310,8 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
           },
           document: {
             schema_version: '2.0', plot_id: plotId, plot_version: 1, parent_version: null,
-            profile_id: profileId, data: input.action.data ?? null,
-            bindings: input.action.bindings ?? [], components: input.action.components ?? [],
+            profile_id: profileId, data: input.action.data,
+            bindings: input.action.bindings ?? [],
             applied_action_ids: [input.action.action_id],
           },
           actions: [input.action],
@@ -401,7 +401,6 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
         },
         bindings: Object.entries(dataset.bindings).sort(([left], [right]) => left.localeCompare(right))
           .map(([role, field_id]) => ({ role, field_id })),
-        components: [],
       }))
       const plan: PreviewAgentPlan = {
         projectId: input.projectId,
@@ -507,7 +506,6 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
               { role: 'x', field_id: `${plan.input.sourceDatasetId}:time` },
               { role: 'y', field_id: `${plan.input.sourceDatasetId}:signal` },
             ],
-            components: [],
           },
         })
         if (!created.ok || typeof created.value !== 'object' || created.value === null || Array.isArray(created.value)) return created

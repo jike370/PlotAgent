@@ -263,6 +263,8 @@ class WideSeriesOriginProject:
             "source_data_write",
             details={
                 "column_count": len(series.column_values),
+                "metadata_column_count": int(series.row_labels is not None)
+                + int(series.row_groups is not None),
                 "row_count": series.row_count,
                 "source_layout": "worksheet_wide",
             },
@@ -296,6 +298,8 @@ class WideSeriesOriginProject:
             self.graph.lname = f"{self.profile_id} {template.stem} / {document.plot_id}"
             self.layer = self.graph[0]
             self.native_snapshot = self._assert_official_wide_structure(series)
+            if self.profile_id == "X40":
+                self._enable_x40_subject_labels(series)
         record_origin_trace(
             "native_row_wise_group_confirmed",
             "completed",
@@ -692,6 +696,38 @@ class WideSeriesOriginProject:
                 comments="",
                 axis="Y",
             )
+        next_column = len(series.column_values)
+        if series.row_labels is not None:
+            self.sheet.from_list(
+                next_column,
+                list(series.row_labels),
+                lname="Subject",
+                comments="",
+                axis="L",
+            )
+            next_column += 1
+        if series.row_groups is not None:
+            self.sheet.from_list(
+                next_column,
+                list(series.row_groups),
+                lname="Group",
+                comments="",
+                axis="N",
+            )
+
+    def _enable_x40_subject_labels(self, series: WideSeriesData) -> None:
+        if series.row_labels is None:
+            raise RuntimeError("X40 requires subject labels")
+        graph_name = str(self.graph.name)
+        label_column = len(series.column_values) + 1
+        command = (
+            f"range __X40AFTER=[{graph_name}]1!2; "
+            "set __X40AFTER -q 1; set __X40AFTER -qm 5; "
+            f"set __X40AFTER -j -qms %(wcol({label_column})[i]$); "
+            "set __X40AFTER -qp 3;"
+        )
+        if not self.op.lt_exec(command):
+            raise RuntimeError("Origin could not link X40 labels to the Subject column")
 
     def _assert_official_wide_structure(
         self, series: WideSeriesData
@@ -708,10 +744,12 @@ class WideSeriesOriginProject:
             column_count=expected_count,
         )
         self.native_member_count = cast(int, snapshot["native_member_count"])
-        if snapshot["worksheet_column_count"] != expected_count:
+        metadata_count = int(series.row_labels is not None) + int(series.row_groups is not None)
+        if snapshot["worksheet_column_count"] != expected_count + metadata_count:
             raise RuntimeError(
                 f"Origin {self.profile_id} worksheet must remain the untransposed "
-                f"{expected_count}-column source table: "
+                f"{expected_count}-value-column source table plus {metadata_count} "
+                "metadata columns: "
                 f"actual={snapshot['worksheet_column_count']}"
             )
         expected_designations = (1,) * expected_count
@@ -851,7 +889,12 @@ class WideSeriesOriginProject:
             lollipop = x03_lollipop(document, data)
             return (lollipop.categories, *lollipop.columns.values)
         series = wide_series(document, data, profile_id=self.profile_id)
-        return series.column_values
+        metadata: tuple[tuple[object, ...], ...] = ()
+        if series.row_labels is not None:
+            metadata += (series.row_labels,)
+        if series.row_groups is not None:
+            metadata += (series.row_groups,)
+        return (*series.column_values, *metadata)
 
     def _legend_labels(self, document: PlotDocument, data: EngineDataView) -> tuple[str, ...]:
         if self.profile_id == "X03":

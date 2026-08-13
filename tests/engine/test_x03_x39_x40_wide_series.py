@@ -75,6 +75,36 @@ def _case(profile_id: str, *, series_count: int = 2, row_count: int = 4):
                 values=tuple(float(row + index) for row in range(row_count)),
             )
         )
+    if profile_id == "X40":
+        bindings.extend(
+            (
+                FieldBinding(role="label", field_id="field:subject"),
+                FieldBinding(role="group", field_id="field:group"),
+            )
+        )
+        columns.extend(
+            (
+                EngineColumn(
+                    field=EngineField(
+                        field_id="field:subject",
+                        name="Subject",
+                        logical_type="categorical",
+                    ),
+                    values=tuple(f"P{index + 1:02d}" for index in range(row_count)),
+                ),
+                EngineColumn(
+                    field=EngineField(
+                        field_id="field:group",
+                        name="Group",
+                        logical_type="categorical",
+                    ),
+                    values=tuple(
+                        "Control" if index < row_count // 2 else "Treatment"
+                        for index in range(row_count)
+                    ),
+                ),
+            )
+        )
     create = CreatePlot(
         action_id=f"action:create-{profile_id.lower()}",
         plot_id=f"plot:{profile_id.lower()}-wide",
@@ -118,6 +148,14 @@ def test_x39_preserves_bound_values_as_source_y_columns() -> None:
         (3.0, 4.0, 5.0, 6.0, 7.0),
     )
     assert data.row_count == 5
+
+
+def test_x40_preserves_subject_and_group_identity() -> None:
+    document, _, view = _case("X40", row_count=4)
+    data = wide_series(document, view, profile_id="X40")
+
+    assert data.row_labels == ("P01", "P02", "P03", "P04")
+    assert data.row_groups == ("Control", "Control", "Treatment", "Treatment")
 
 
 def test_x40_rejects_unpaired_third_value_column() -> None:
@@ -329,7 +367,9 @@ class _Origin:
             ]
         elif "run.section(Plot,BeforeAfter)" in command:
             self.graph = _Graph()
-            self.native_member_count = len(self.book.sheet.columns)
+            match = __import__("re").search(r"worksheet -s 1 0 (\d+) 0", command)
+            assert match is not None
+            self.native_member_count = int(match.group(1))
             self.native_plot_type = 206
             self.subgroup_size = 2
             self.graph.layer.plots = [
@@ -468,18 +508,24 @@ def test_x39_x40_origin_keep_official_wide_table_and_menu_group(
     project = WideSeriesOriginProject(origin, profile_id=profile_id)
     project.create(tmp_path, document, view)
 
-    expected_columns = {
-        index: list(view.columns[index].values) for index in range(series_count)
-    }
+    expected_columns = {index: list(view.columns[index].values) for index in range(series_count)}
+    if profile_id == "X40":
+        expected_columns[series_count] = list(view.columns[series_count].values)
+        expected_columns[series_count + 1] = list(view.columns[series_count + 1].values)
     assert resolved == [profile.filename]
     assert origin.commands[0] == expected_command
     assert origin.template == ""
     assert origin.book.sheet.columns == expected_columns
-    assert origin.book.sheet.designations == {index: 1 for index in range(series_count)}
-    assert origin.book.sheet.long_names == {
-        index: view.columns[index].field.name for index in range(series_count)
-    }
-    assert origin.book.sheet.comments == {index: "" for index in range(series_count)}
+    expected_designations = {index: 1 for index in range(series_count)}
+    expected_names = {index: view.columns[index].field.name for index in range(series_count)}
+    expected_comments = {index: "" for index in range(series_count)}
+    if profile_id == "X40":
+        expected_designations.update({series_count: 2, series_count + 1: 2})
+        expected_names.update({series_count: "Subject", series_count + 1: "Group"})
+        expected_comments.update({series_count: "", series_count + 1: ""})
+    assert origin.book.sheet.designations == expected_designations
+    assert origin.book.sheet.long_names == expected_names
+    assert origin.book.sheet.comments == expected_comments
     assert origin.graph.layer.add_calls == []
     assert project.plots == []
     assert project.native_member_count == series_count
@@ -494,6 +540,7 @@ def test_x39_x40_origin_keep_official_wide_table_and_menu_group(
     assert project.native_snapshot["comments"] == ("",) * series_count
     if profile_id == "X40":
         assert project.native_snapshot["subgroup_size"] == 2
+        assert any("set __X40AFTER -q 1" in command for command in origin.commands)
 
 
 @pytest.mark.parametrize(

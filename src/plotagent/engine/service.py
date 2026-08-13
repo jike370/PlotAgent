@@ -68,26 +68,7 @@ class EngineCatalog:
 
     def validate_create(self, action: CreatePlot) -> EngineProfile:
         profile = self.get(action.profile_id)
-        if profile.source_kind == "data":
-            if action.data is None or action.components:
-                raise EngineCommandError(
-                    f"engine profile {profile.profile_id} requires one immutable data source"
-                )
-            self.validate_bindings(profile, tuple(binding.role for binding in action.bindings))
-        else:
-            if action.data is not None or action.bindings:
-                raise EngineCommandError(
-                    f"engine profile {profile.profile_id} requires component plot references"
-                )
-            if not (
-                profile.minimum_components
-                <= len(action.components)
-                <= profile.maximum_components
-            ):
-                bounds = f"{profile.minimum_components}-{profile.maximum_components}"
-                raise EngineCommandError(
-                    f"engine profile {profile.profile_id} requires {bounds} component plots"
-                )
+        self.validate_bindings(profile, tuple(binding.role for binding in action.bindings))
         self.validate_action(profile, action)
         return profile
 
@@ -184,11 +165,9 @@ class PlotEngineService:
         if isinstance(action, ExportPlot):
             raise EngineCommandError("export_plot is non-mutating and must use the export service")
         if isinstance(action, CreatePlot):
-            profile = self.catalog.validate_create(action)
+            self.catalog.validate_create(action)
             if self.repository.latest_version(action.plot_id) is not None:
                 raise EngineCommandError(f"plot document already exists: {action.plot_id}")
-            if profile.source_kind == "plots":
-                self._validate_component_references(action)
             return PlotTransition(
                 before=None,
                 after=PlotDocument(
@@ -197,7 +176,6 @@ class PlotEngineService:
                     profile_id=action.profile_id,
                     data=action.data,
                     bindings=action.bindings,
-                    components=action.components,
                     applied_action_ids=(action.action_id,),
                 ),
                 action=action,
@@ -214,8 +192,6 @@ class PlotEngineService:
         self.catalog.validate_action(profile, action)
         updates: dict[str, object] = {}
         if isinstance(action, BindFields):
-            if stored.document.data is None:
-                raise EngineCommandError("a plot composition cannot bind data fields")
             self.catalog.validate_bindings(
                 profile,
                 tuple(binding.role for binding in action.bindings),
@@ -233,23 +209,6 @@ class PlotEngineService:
             ),
             action=action,
         )
-
-    def _validate_component_references(self, action: CreatePlot) -> None:
-        for reference in action.components:
-            try:
-                stored = self.repository.get(reference.plot_id, reference.plot_version)
-            except KeyError as error:
-                raise EngineCommandError(
-                    f"component plot was not found: {reference.plot_id}@{reference.plot_version}"
-                ) from error
-            if stored.content_hash != reference.content_hash:
-                raise EngineCommandError(
-                    f"component plot content hash is stale: "
-                    f"{reference.plot_id}@{reference.plot_version}"
-                )
-            child_profile = self.catalog.get(stored.document.profile_id)
-            if child_profile.source_kind != "data":
-                raise EngineCommandError("nested plot compositions are not supported")
 
     def commit(
         self,

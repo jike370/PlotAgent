@@ -48,7 +48,6 @@ from plotagent.engine.backends.matplotlib import (
     K21CorrelationMatrixRenderer,
     K22ContourRenderer,
     K24FacetRenderer,
-    K25CompositeRenderer,
     MatplotlibBackend,
     S34NyquistRenderer,
     S61ConfusionRenderer,
@@ -130,7 +129,6 @@ class DesktopEngineSession:
                 X39LineSeriesRenderer(),
                 X40BeforeAfterRenderer(),
             ),
-            composite_renderers=(K25CompositeRenderer(),),
         )
         runtime = PlotEngineRuntime(
             service,
