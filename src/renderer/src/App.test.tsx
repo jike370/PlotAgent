@@ -13,6 +13,7 @@ import {
   type TaskEvent,
 } from '../../shared/desktop-contract'
 import { App } from './App'
+import { suggestedFieldMapping } from './components/mappingSuggestions'
 
 const ok = (value: JsonValue): DesktopDataResult => ({ ok: true, value })
 const actionOk = async (): Promise<DesktopActionResult> => ({ ok: true })
@@ -674,6 +675,34 @@ describe('PlotAgent real desktop workflow', () => {
     const action = vi.mocked(api.executePlotAction).mock.calls[0]?.[0].action as { bindings: { role: string }[] }
     expect(action.bindings.map((binding) => binding.role)).toEqual(['x', 'y', 'size', 'color'])
     expect(action.bindings.some((binding) => binding.role === 'group')).toBe(false)
+  })
+
+  it('suggests the optional group role for grouped long K18 data', () => {
+    const areaDataset = {
+      ...dataset,
+      row_count: 6,
+      fields: [
+        { fieldId: 'field:x', name: 'X', logicalType: 'numeric', physicalType: 'int64', unit: null },
+        { fieldId: 'field:y', name: 'Y', logicalType: 'numeric', physicalType: 'float64', unit: null },
+        { fieldId: 'field:group', name: 'Group', logicalType: 'categorical', physicalType: 'string', unit: null },
+      ],
+      sample_rows: [
+        [1, 2.0, 'Base'],
+        [2, 3.2, 'Base'],
+        [3, 3.7, 'Base'],
+        [1, 1.5, 'Variant'],
+        [2, 2.7, 'Variant'],
+      ],
+    }
+    expect(suggestedFieldMapping([
+      { role: 'x', numeric: true, required: true },
+      { role: 'series_1', numeric: true, required: true },
+      { role: 'group', numeric: false, required: false },
+    ], areaDataset as never)).toEqual({
+      x: 'field:x',
+      series_1: 'field:y',
+      group: 'field:group',
+    })
   })
 
   it('shows a user-facing file and worksheet identity instead of the internal dataset id', async () => {

@@ -67,7 +67,7 @@ describe('chart catalog', () => {
     })
     expect(area).toMatchObject({
       requiredFields: ['x', 'series_1'],
-      optionalFields: [],
+      optionalFields: ['group'],
       repeatableRolePrefixes: ['series'],
     })
     expect(beforeAfter).toMatchObject({

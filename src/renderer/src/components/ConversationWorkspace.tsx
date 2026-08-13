@@ -42,6 +42,7 @@ import {
   writeConversationMessages,
   type ConversationMessage,
 } from '../data/conversationPersistence'
+import { suggestedFieldMapping } from './mappingSuggestions'
 
 export type ScopeMode = 'current' | 'selected'
 
@@ -169,44 +170,6 @@ function mappingRoles(chart: ChartType): MappingRole[] {
     ...chart.requiredFields.map((role) => ({ role, label: labels[role] ?? role, numeric: !categorical.has(role), required: true })),
     ...chart.optionalFields.map((role) => ({ role, label: labels[role] ?? role, numeric: !categorical.has(role), required: false })),
   ]
-}
-
-function suggestedFieldMapping(roles: MappingRole[], dataset: ProductDataset): Record<string, string> {
-  const numeric = dataset.fields.filter((field) => numericKinds.has(field.logicalType.toLocaleLowerCase('en-US')))
-  const other = dataset.fields.filter((field) => !numeric.includes(field))
-  const normalizedName = (name: string): string => name.toLocaleLowerCase('en-US').replace(/[^a-z0-9]+/g, '')
-  const optionalHints: Record<string, string[]> = {
-    color: ['color', 'colour'],
-    count: ['count', 'frequency', 'freq', 'weight'],
-    error: ['error', 'err'],
-    group: ['group', 'condition', 'class', 'treatment'],
-    label: ['label', 'name'],
-    middle: ['middle', 'mid'],
-    pvalue: ['pvalue', 'pval'],
-    qvalue: ['qvalue', 'qval', 'fdr'],
-    series_2: ['series2'],
-    series_3: ['series3'],
-    size: ['size', 'bubble'],
-  }
-  const used = new Set<string>()
-  const mapping: Record<string, string> = {}
-  const orderedRoles = [...roles.filter((role) => role.required), ...roles.filter((role) => !role.required)]
-  for (const role of orderedRoles) {
-    const candidates = role.numeric ? numeric : other.length > 0 ? other : dataset.fields
-    const hints = optionalHints[role.role] ?? [normalizedName(role.role)]
-    const matchingField = candidates.find((candidate) => {
-      if (used.has(candidate.fieldId)) return false
-      const name = normalizedName(candidate.name)
-      return hints.some((hint) => name.includes(hint))
-    })
-    const field = matchingField ?? (role.required
-      ? candidates.find((candidate) => !used.has(candidate.fieldId))
-      : undefined)
-    if (!field) continue
-    mapping[role.role] = field.fieldId
-    used.add(field.fieldId)
-  }
-  return mapping
 }
 
 function previewValue(value: string | number | boolean | null | undefined): string {
