@@ -1,29 +1,13 @@
 <?xml version='1.0' encoding='utf-8'?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="768" viewBox="23.6167 -11.6261 450.4697 337.8523" version="1.1" preserveAspectRatio="xMidYMid meet">
- <defs>
-  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
- </defs>
- <g id="figure_1">
-  <g id="patch_1">
-   <path d="M 0 345.6  L 460.8 345.6  L 460.8 0  L 0 0  z " style="fill: #ffffff" />
-  </g>
-  <g id="axes_1">
-   <g id="FillBetweenPolyCollection_1">
-    <defs>
-     <path id="m756b5d7bbd" d="M 58.898656 -123.850469  L 58.898656 -48.027491  L 185.533927 -123.850469  L 312.169198 -161.761958  L 438.804469 -222.42034  L 438.804469 -328.572509  L 438.804469 -328.572509  L 312.169198 -313.407914  L 185.533927 -214.838042  L 58.898656 -123.850469  z " />
-    </defs>
-    <g clip-path="url(#pf085cac624)">
-     <use xlink:href="#m756b5d7bbd" x="0" y="345.6" style="fill: #d95555; fill-opacity: 0.25" />
-    </g>
-   </g>
-   <g id="line2d_16">
-    <path d="M 58.898656 259.66102  L 185.533927 183.838042  L 312.169198 108.015064  L 438.804469 70.103575  " clip-path="url(#pf085cac624)" style="fill: none; stroke: #d95555; stroke-width: 2.2; stroke-linecap: square" />
-   </g>
-   </g>
- </g>
- <defs>
-  <clipPath id="pf085cac624">
-   <rect x="39.903365" y="3.00024" width="417.896395" height="308.59952" />
-  </clipPath>
- </defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 120 90" preserveAspectRatio="xMidYMid meet">
+ <rect x="0" y="0" width="120" height="90" fill="#ffffff" />
+ <rect x="7" y="7" width="106" height="70" fill="#ffffff" stroke="#15191f" stroke-width="1.35" />
+ <path d="M 12 62 C 28 53, 38 30, 53 39 S 75 18, 88 25 S 100 19, 108 13 L 108 38 C 96 43, 88 46, 77 49 S 55 56, 43 58 S 24 69, 12 71 Z" fill="#62a6e3" stroke="none" stroke-width="0" stroke-linecap="round" stroke-linejoin="round" opacity="0.75" />
+ <polyline points="13,64 32,47 50,43 69,32 87,35 107,22" fill="none" stroke="#1676d2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+ <circle cx="13" cy="64" r="2.2" fill="#1676d2" />
+ <circle cx="32" cy="47" r="2.2" fill="#1676d2" />
+ <circle cx="50" cy="43" r="2.2" fill="#1676d2" />
+ <circle cx="69" cy="32" r="2.2" fill="#1676d2" />
+ <circle cx="87" cy="35" r="2.2" fill="#1676d2" />
+ <circle cx="107" cy="22" r="2.2" fill="#1676d2" />
 </svg>

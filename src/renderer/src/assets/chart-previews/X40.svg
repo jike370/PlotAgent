@@ -1,52 +1,17 @@
 <?xml version='1.0' encoding='utf-8'?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="768" viewBox="-7.2532 -9.9792 446.0759 334.5569" version="1.1" preserveAspectRatio="xMidYMid meet">
- <defs>
-  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
- </defs>
- <g id="figure_1">
-  <g id="patch_1">
-   <path d="M 0 345.6  L 460.8 345.6  L 460.8 0  L 0 0  z " style="fill: #ffffff" />
-  </g>
-  <g id="axes_1">
-   <g id="LineCollection_1">
-    <path d="M 47.219994 297.571018  L 384.349442 250.813751  " clip-path="url(#p69f34b9fee)" style="fill: none; stroke: #d95555; stroke-width: 2.2" />
-    <path d="M 47.219994 250.813751  L 384.349442 204.056485  " clip-path="url(#p69f34b9fee)" style="fill: none; stroke: #d95555; stroke-width: 2.2" />
-    <path d="M 47.219994 204.056485  L 384.349442 157.299219  " clip-path="url(#p69f34b9fee)" style="fill: none; stroke: #d95555; stroke-width: 2.2" />
-    <path d="M 47.219994 157.299219  L 384.349442 110.541952  " clip-path="url(#p69f34b9fee)" style="fill: none; stroke: #d95555; stroke-width: 2.2" />
-    <path d="M 47.219994 110.541952  L 384.349442 63.784686  " clip-path="url(#p69f34b9fee)" style="fill: none; stroke: #d95555; stroke-width: 2.2" />
-    <path d="M 47.219994 63.784686  L 384.349442 17.02742  " clip-path="url(#p69f34b9fee)" style="fill: none; stroke: #d95555; stroke-width: 2.2" />
-   </g>
-   <g id="PathCollection_1">
-    <defs>
-     <path id="ma4f8a63c2d" d="M 0 3  C 0.795609 3 1.55874 2.683901 2.12132 2.12132  C 2.683901 1.55874 3 0.795609 3 0  C 3 -0.795609 2.683901 -1.55874 2.12132 -2.12132  C 1.55874 -2.683901 0.795609 -3 0 -3  C -0.795609 -3 -1.55874 -2.683901 -2.12132 -2.12132  C -2.683901 -1.55874 -3 -0.795609 -3 0  C -3 0.795609 -2.683901 1.55874 -2.12132 2.12132  C -1.55874 2.683901 -0.795609 3 0 3  z " style="stroke: #d95555" />
-    </defs>
-    <g clip-path="url(#p69f34b9fee)">
-     <use xlink:href="#ma4f8a63c2d" x="47.219994" y="297.571018" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#ma4f8a63c2d" x="47.219994" y="250.813751" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#ma4f8a63c2d" x="47.219994" y="204.056485" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#ma4f8a63c2d" x="47.219994" y="157.299219" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#ma4f8a63c2d" x="47.219994" y="110.541952" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#ma4f8a63c2d" x="47.219994" y="63.784686" style="fill: #d95555; stroke: #d95555" />
-    </g>
-   </g>
-   <g id="PathCollection_2">
-    <defs>
-     <path id="m3ab21f527c" d="M 0 3  C 0.795609 3 1.55874 2.683901 2.12132 2.12132  C 2.683901 1.55874 3 0.795609 3 0  C 3 -0.795609 2.683901 -1.55874 2.12132 -2.12132  C 1.55874 -2.683901 0.795609 -3 0 -3  C -0.795609 -3 -1.55874 -2.683901 -2.12132 -2.12132  C -2.683901 -1.55874 -3 -0.795609 -3 0  C -3 0.795609 -2.683901 1.55874 -2.12132 2.12132  C -1.55874 2.683901 -0.795609 3 0 3  z " style="stroke: #d95555" />
-    </defs>
-    <g clip-path="url(#p69f34b9fee)">
-     <use xlink:href="#m3ab21f527c" x="384.349442" y="250.813751" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m3ab21f527c" x="384.349442" y="204.056485" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m3ab21f527c" x="384.349442" y="157.299219" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m3ab21f527c" x="384.349442" y="110.541952" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m3ab21f527c" x="384.349442" y="63.784686" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m3ab21f527c" x="384.349442" y="17.02742" style="fill: #d95555; stroke: #d95555" />
-    </g>
-   </g>
-   </g>
- </g>
- <defs>
-  <clipPath id="p69f34b9fee">
-   <rect x="30.363521" y="3.00024" width="370.842394" height="308.597958" />
-  </clipPath>
- </defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 120 90" preserveAspectRatio="xMidYMid meet">
+ <rect x="0" y="0" width="120" height="90" fill="#ffffff" />
+ <rect x="7" y="7" width="106" height="70" fill="#ffffff" stroke="#15191f" stroke-width="1.35" />
+ <line x1="23" y1="18" x2="97" y2="28" stroke="#15191f" stroke-width="1.5" stroke-linecap="round" />
+ <circle cx="23" cy="18" r="2.7" fill="#1676d2" />
+ <circle cx="97" cy="28" r="2.7" fill="#ef4b4b" />
+ <line x1="23" y1="31" x2="97" y2="52" stroke="#15191f" stroke-width="1.5" stroke-linecap="round" />
+ <circle cx="23" cy="31" r="2.7" fill="#1676d2" />
+ <circle cx="97" cy="52" r="2.7" fill="#ef4b4b" />
+ <line x1="23" y1="45" x2="97" y2="34" stroke="#15191f" stroke-width="1.5" stroke-linecap="round" />
+ <circle cx="23" cy="45" r="2.7" fill="#1676d2" />
+ <circle cx="97" cy="34" r="2.7" fill="#ef4b4b" />
+ <line x1="23" y1="59" x2="97" y2="66" stroke="#15191f" stroke-width="1.5" stroke-linecap="round" />
+ <circle cx="23" cy="59" r="2.7" fill="#1676d2" />
+ <circle cx="97" cy="66" r="2.7" fill="#ef4b4b" />
 </svg>

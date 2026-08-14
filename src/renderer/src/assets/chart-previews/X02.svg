@@ -1,35 +1,13 @@
 <?xml version='1.0' encoding='utf-8'?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="768" viewBox="28.1986 -11.3328 449.6865 337.2649" version="1.1" preserveAspectRatio="xMidYMid meet">
- <defs>
-  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
- </defs>
- <g id="figure_1">
-  <g id="patch_1">
-   <path d="M 0 345.6  L 460.8 345.6  L 460.8 0  L 0 0  z " style="fill: #ffffff" />
-  </g>
-  <g id="axes_1">
-   <g id="LineCollection_1">
-    <path d="M 66.898194 311.598979  L 66.898194 297.571763  " clip-path="url(#pe5d0d4c000)" style="fill: none; stroke: #d95555" />
-    <path d="M 190.993929 311.598979  L 190.993929 17.027455  " clip-path="url(#pe5d0d4c000)" style="fill: none; stroke: #d95555" />
-    <path d="M 315.089664 311.598979  L 315.089664 122.231571  " clip-path="url(#pe5d0d4c000)" style="fill: none; stroke: #d95555" />
-    <path d="M 439.1854 311.598979  L 439.1854 262.503725  " clip-path="url(#pe5d0d4c000)" style="fill: none; stroke: #d95555" />
-   </g>
-   <g id="PathCollection_1">
-    <defs>
-     <path id="m0a1441a7d1" d="M 0 2.5  C 0.663008 2.5 1.29895 2.236584 1.767767 1.767767  C 2.236584 1.29895 2.5 0.663008 2.5 0  C 2.5 -0.663008 2.236584 -1.29895 1.767767 -1.767767  C 1.29895 -2.236584 0.663008 -2.5 0 -2.5  C -0.663008 -2.5 -1.29895 -2.236584 -1.767767 -1.767767  C -2.236584 -1.29895 -2.5 -0.663008 -2.5 0  C -2.5 0.663008 -2.236584 1.29895 -1.767767 1.767767  C -1.29895 2.236584 -0.663008 2.5 0 2.5  z " style="stroke: #d95555" />
-    </defs>
-    <g clip-path="url(#pe5d0d4c000)">
-     <use xlink:href="#m0a1441a7d1" x="66.898194" y="297.571763" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m0a1441a7d1" x="190.993929" y="17.027455" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m0a1441a7d1" x="315.089664" y="122.231571" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m0a1441a7d1" x="439.1854" y="262.503725" style="fill: #d95555; stroke: #d95555" />
-    </g>
-   </g>
-   </g>
- </g>
- <defs>
-  <clipPath id="pe5d0d4c000">
-   <rect x="48.283834" y="3.00024" width="409.515926" height="308.598739" />
-  </clipPath>
- </defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 120 90" preserveAspectRatio="xMidYMid meet">
+ <rect x="0" y="0" width="120" height="90" fill="#ffffff" />
+ <rect x="7" y="7" width="106" height="70" fill="#ffffff" stroke="#15191f" stroke-width="1.35" />
+ <line x1="22" y1="55" x2="22" y2="70" stroke="#1676d2" stroke-width="1.8" stroke-linecap="round" />
+ <circle cx="22" cy="55" r="3" fill="#1676d2" />
+ <line x1="46" y1="25" x2="46" y2="70" stroke="#1676d2" stroke-width="1.8" stroke-linecap="round" />
+ <circle cx="46" cy="25" r="3" fill="#1676d2" />
+ <line x1="72" y1="42" x2="72" y2="70" stroke="#1676d2" stroke-width="1.8" stroke-linecap="round" />
+ <circle cx="72" cy="42" r="3" fill="#1676d2" />
+ <line x1="99" y1="18" x2="99" y2="70" stroke="#1676d2" stroke-width="1.8" stroke-linecap="round" />
+ <circle cx="99" cy="18" r="3" fill="#1676d2" />
 </svg>

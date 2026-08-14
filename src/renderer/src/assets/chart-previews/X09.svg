@@ -1,36 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="21.3650 -11.7178 452.3547 339.2660" version="1.1" preserveAspectRatio="xMidYMid meet">
- <defs>
-  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
- </defs>
- <g id="figure_1">
-  <g id="patch_1">
-   <path d="M 0 345.6  L 460.8 345.6  L 460.8 0  L 0 0  z " style="fill: #ffffff" />
-  </g>
-  <g id="axes_1">
-   <g id="patch_3">
-    <path d="M 56.399313 312.830229  L 157.592703 312.830229  L 157.592703 214.471502  L 56.399313 214.471502  z " clip-path="url(#p4e8f5e2a63)" style="fill: #1676d2; stroke: #1a1a1a; stroke-width: 0.8; stroke-linejoin: miter" />
-   </g>
-   <g id="patch_4">
-    <path d="M 196.945688 214.471502  L 298.139078 214.471502  L 298.139078 116.112776  L 196.945688 116.112776  z " clip-path="url(#p4e8f5e2a63)" style="fill: #1676d2; stroke: #1a1a1a; stroke-width: 0.8; stroke-linejoin: miter" />
-   </g>
-   <g id="patch_5">
-    <path d="M 337.492063 263.650865  L 438.685453 263.650865  L 438.685453 165.292139  L 337.492063 165.292139  z " clip-path="url(#p4e8f5e2a63)" style="fill: #1676d2; stroke: #1a1a1a; stroke-width: 0.8; stroke-linejoin: miter" />
-   </g>
-   <g id="patch_6">
-    <path d="M 56.399313 214.471502  L 157.592703 214.471502  L 157.592703 116.112776  L 56.399313 116.112776  z " clip-path="url(#p4e8f5e2a63)" style="fill: #62a6e3; stroke: #1a1a1a; stroke-width: 0.8; stroke-linejoin: miter" />
-   </g>
-   <g id="patch_7">
-    <path d="M 196.945688 116.112776  L 298.139078 116.112776  L 298.139078 17.754049  L 196.945688 17.754049  z " clip-path="url(#p4e8f5e2a63)" style="fill: #62a6e3; stroke: #1a1a1a; stroke-width: 0.8; stroke-linejoin: miter" />
-   </g>
-   <g id="patch_8">
-    <path d="M 337.492063 165.292139  L 438.685453 165.292139  L 438.685453 66.933412  L 337.492063 66.933412  z " clip-path="url(#p4e8f5e2a63)" style="fill: #62a6e3; stroke: #1a1a1a; stroke-width: 0.8; stroke-linejoin: miter" />
-   </g>
-   </g>
- </g>
- <defs>
-  <clipPath id="p4e8f5e2a63">
-   <rect x="37.285006" y="3.00024" width="420.514754" height="309.829989" />
-  </clipPath>
- </defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 120 90" preserveAspectRatio="xMidYMid meet">
+ <rect x="0" y="0" width="120" height="90" fill="#ffffff" />
+ <rect x="7" y="7" width="106" height="70" fill="#ffffff" stroke="#15191f" stroke-width="1.35" />
+ <rect x="19" y="19" width="20" height="23" fill="#62a6e3" stroke="#0f55a8" stroke-width="1.05" />
+ <rect x="19" y="42" width="20" height="23" fill="#1676d2" stroke="#0f55a8" stroke-width="1.05" />
+ <rect x="51" y="12" width="20" height="22" fill="#62a6e3" stroke="#0f55a8" stroke-width="1.05" />
+ <rect x="51" y="34" width="20" height="23" fill="#1676d2" stroke="#0f55a8" stroke-width="1.05" />
+ <rect x="83" y="29" width="20" height="18" fill="#62a6e3" stroke="#0f55a8" stroke-width="1.05" />
+ <rect x="83" y="47" width="20" height="23" fill="#1676d2" stroke="#0f55a8" stroke-width="1.05" />
 </svg>

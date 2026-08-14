@@ -1,30 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="768" viewBox="24.5991 -10.1540 448.5058 336.3793" version="1.1" preserveAspectRatio="xMidYMid meet">
- <defs>
-  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
- </defs>
- <g id="figure_1">
-  <g id="patch_1">
-   <path d="M 0 345.6  L 460.8 345.6  L 460.8 0  L 0 0  z " style="fill: #ffffff" />
-  </g>
-  <g id="axes_1">
-   <g id="line2d_14">
-    <path d="M 58.899401 297.638678  L 185.534436 158.035667  L 312.16947 204.570004  L 438.804505 18.432655  " clip-path="url(#p184d5a6bdc)" style="fill: none; stroke: #d95555; stroke-width: 2.2; stroke-linecap: square" />
-    <defs>
-     <path id="m0a1441a7d1" d="M 0 4.5  C 1.193414 4.5 2.33811 4.025851 3.181981 3.181981  C 4.025851 2.33811 4.5 1.193414 4.5 0  C 4.5 -1.193414 4.025851 -2.33811 3.181981 -3.181981  C 2.33811 -4.025851 1.193414 -4.5 0 -4.5  C -1.193414 -4.5 -2.33811 -4.025851 -3.181981 -3.181981  C -4.025851 -2.33811 -4.5 -1.193414 -4.5 0  C -4.5 1.193414 -4.025851 2.33811 -3.181981 3.181981  C -2.33811 4.025851 -1.193414 4.5 0 4.5  z " style="fill: #d95555; stroke: #d95555" />
-    </defs>
-    <g clip-path="url(#p184d5a6bdc)">
-     <use xlink:href="#m0a1441a7d1" x="58.899401" y="297.638678" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m0a1441a7d1" x="185.534436" y="158.035667" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m0a1441a7d1" x="312.16947" y="204.570004" style="fill: #d95555; stroke: #d95555" />
-     <use xlink:href="#m0a1441a7d1" x="438.804505" y="18.432655" style="fill: #d95555; stroke: #d95555" />
-    </g>
-   </g>
-   </g>
- </g>
- <defs>
-  <clipPath id="p184d5a6bdc">
-   <rect x="39.904146" y="4.472354" width="417.895614" height="307.126624" />
-  </clipPath>
- </defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 120 90" preserveAspectRatio="xMidYMid meet">
+ <rect x="0" y="0" width="120" height="90" fill="#ffffff" />
+ <rect x="7" y="7" width="106" height="70" fill="#ffffff" stroke="#15191f" stroke-width="1.35" />
+ <polyline points="15,62 35,39 55,49 77,28 104,42" fill="none" stroke="#1676d2" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" />
+ <circle cx="15" cy="62" r="3.1" fill="#1676d2" />
+ <circle cx="35" cy="39" r="3.1" fill="#1676d2" />
+ <circle cx="55" cy="49" r="3.1" fill="#1676d2" />
+ <circle cx="77" cy="28" r="3.1" fill="#1676d2" />
+ <circle cx="104" cy="42" r="3.1" fill="#1676d2" />
 </svg>

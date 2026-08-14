@@ -11,7 +11,7 @@ const previewMarkup = import.meta.glob<string>('../assets/chart-previews/*.svg',
 })
 
 describe('chart preview assets', () => {
-  it('has one current renderer image for every public chart', () => {
+  it('has one Origin gallery replica for every public chart', () => {
     const catalogIds = chartCatalog.map((chart) => chart.id).sort()
     const assetIds = Object.keys(chartPreviewAssets).sort()
     const manifestIds = previewManifest.entries.map((entry) => entry.profile_id).sort()
@@ -19,23 +19,21 @@ describe('chart preview assets', () => {
     expect(assetIds).toEqual(catalogIds)
     expect(manifestIds).toEqual(catalogIds)
     expect(previewManifest.count).toBe(34)
-    expect(previewManifest.schema_version).toBe('plotagent.chart-library-previews.v4')
-    expect(previewManifest.source_policy).toContain('production Matplotlib default state')
-    expect(previewManifest.simplification_policy).toContain('remove titles, axes')
-    expect(previewManifest.preview_palette).toEqual({
-      line_and_point: '#d95555',
-      bar_primary: '#1676d2',
-      bar_secondary: '#62a6e3',
-      bar_tertiary: '#a6ccee',
-    })
+    expect(previewManifest.schema_version).toBe('plotagent.chart-library-previews.v5')
+    expect(previewManifest.source_policy).toContain('OriginPro 2024 graph-gallery previews')
+    expect(previewManifest.reference_policy).toContain('OriginPro gallery screenshots')
+    expect(previewManifest.preview_policy).toContain('canonical graph-type symbol')
+    expect(previewManifest.entries.every((entry) => entry.backend === 'origin-gallery-replica')).toBe(true)
+    expect(previewManifest.entries.every((entry) => entry.origin_preview_name.length > 0)).toBe(true)
+    expect(previewManifest.entries.every((entry) => entry.origin_template.length > 0)).toBe(true)
     expect(previewManifest.entries.every((entry) => entry.asset_format === 'svg')).toBe(true)
     expect(previewManifest.entries.every((entry) => entry.width === 1024 && entry.height === 768)).toBe(true)
-    const emphasisById = Object.fromEntries(
-      previewManifest.entries.map((entry) => [entry.profile_id, entry.preview_emphasis]),
+    const templateById = Object.fromEntries(
+      previewManifest.entries.map((entry) => [entry.profile_id, entry.origin_template]),
     )
-    expect(emphasisById.K02).toContain('markers enlarged')
-    expect(emphasisById.K03).toContain('markers enlarged')
-    expect(emphasisById.K04).toContain('bubble radii progressively enlarged')
+    expect(templateById.K01).toBe('LINE.OTP')
+    expect(templateById.K13).toBe('BOX.OTP')
+    expect(templateById.X40).toBe('BeforeAfter.otpu')
   })
 
   it('fails closed instead of substituting a generic family image', () => {
@@ -43,31 +41,28 @@ describe('chart preview assets', () => {
     expect(() => chartPreviewSource('REMOVED')).toThrow('Missing chart preview asset')
   })
 
-  it('keeps geometry while removing full-chart furniture', () => {
+  it('uses lightweight vector geometry without embedded renderer output', () => {
     expect(Object.keys(previewMarkup)).toHaveLength(34)
     for (const markup of Object.values(previewMarkup)) {
-      expect(markup).toContain('viewBox=')
-      expect(markup).not.toMatch(/id="(?:matplotlib\.axis_|legend_|text_)/)
-      expect(markup).toMatch(/<(?:path|image|use|rect)\b/)
+      expect(markup).toContain('viewBox="0 0 120 90"')
+      expect(markup).not.toContain('matplotlib')
+      expect(markup).not.toContain('data:image')
+      expect(markup).toMatch(/<(?:path|polyline|line|circle|rect)\b/)
     }
   })
 
-  it('uses element semantics instead of one categorical palette', () => {
+  it('preserves the distinguishing Origin gallery motif for representative families', () => {
     const markupFor = (profileId: string): string => {
       const entry = Object.entries(previewMarkup).find(([path]) => path.endsWith(`/${profileId}.svg`))
       expect(entry, `missing raw preview for ${profileId}`).toBeDefined()
       return entry![1].toLowerCase()
     }
 
-    for (const profileId of ['K01', 'K02', 'K03', 'K06', 'K07']) {
-      expect(markupFor(profileId)).toContain('#d95555')
-    }
-    const groupedBars = markupFor('K09')
-    expect(groupedBars).toContain('#1676d2')
-    expect(groupedBars).toContain('#62a6e3')
-    expect(groupedBars).toContain('#a6ccee')
-    for (const markup of Object.values(previewMarkup)) {
-      expect(markup).not.toMatch(/#(?:7478a8|4f8c84)/i)
-    }
+    expect(markupFor('K03').match(/<circle\b/g)?.length).toBeGreaterThanOrEqual(8)
+    expect(markupFor('K06').match(/<line\b/g)?.length).toBeGreaterThanOrEqual(12)
+    expect(markupFor('K10').match(/<rect\b/g)?.length).toBeGreaterThanOrEqual(11)
+    expect(markupFor('K20').match(/<rect\b/g)?.length).toBeGreaterThanOrEqual(11)
+    expect(markupFor('K24').match(/<polyline\b/g)?.length).toBe(4)
+    expect(markupFor('X40').match(/<line\b/g)?.length).toBe(4)
   })
 })

@@ -1,563 +1,710 @@
-"""Generate production chart-library previews from the current renderers.
+"""Build Origin-style chart-library preview icons.
 
-The chart library must show what PlotAgent renders first, not a hand-drawn
-family icon or a remote Origin help screenshot. This command uses the
-representative engine fixtures and every production Matplotlib renderer to
-create one default-state PNG per public profile. Origin qualification remains
-tracked separately by the native renderer audit.
+The chart library is a type picker, so its previews follow the compact visual
+grammar used by OriginPro 2024's graph gallery instead of embedding a reduced
+production render.  Every icon is a deterministic, code-native SVG replica
+linked to an explicit Origin gallery name and template family.
 """
-
-# ruff: noqa: E402,I001,PLC2701 -- fixture imports intentionally mirror tests.
 
 from __future__ import annotations
 
-import importlib
+import html
 import json
 import re
 import subprocess
-import sys
 import xml.etree.ElementTree as ET
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
-
-from matplotlib import rcParams
 
 REPOSITORY = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY))
-
-from plotagent.engine import CreatePlot, EngineDataView, PlotDocument, PlotEngineAction
-from plotagent.engine.backends.matplotlib import (
-    K01LineRenderer,
-    K02LineSymbolRenderer,
-    K03ScatterRenderer,
-    K04BubbleRenderer,
-    K06PointErrorRenderer,
-    K07ErrorBandRenderer,
-    K08ColumnRenderer,
-    K09GroupedColumnRenderer,
-    K10StackedColumnRenderer,
-    K11PercentStackRenderer,
-    K12StripRenderer,
-    K13BoxRenderer,
-    K14ViolinRenderer,
-    K15HistogramRenderer,
-    K18AreaRenderer,
-    K19TimeSeriesRenderer,
-    K20HeatmapRenderer,
-    K21CorrelationMatrixRenderer,
-    K22ContourRenderer,
-    K24FacetRenderer,
-    S34NyquistRenderer,
-    S61ConfusionRenderer,
-    X02DropLineRenderer,
-    X03LollipopRenderer,
-    X05BeeswarmRenderer,
-    X09FloatingIntervalRenderer,
-    X13PopulationPyramidRenderer,
-    X23DualYRenderer,
-    X24ParetoRenderer,
-    X35DualYColumnRenderer,
-    X36DualYColumnLineRenderer,
-    X38OffsetStackRenderer,
-    X39LineSeriesRenderer,
-    X40BeforeAfterRenderer,
-)
-from plotagent.engine.backends.matplotlib.backend import MatplotlibProfileRenderer
-from plotagent.engine.profiles import ENGINE_PROFILES
-
-
-
-def _fixture_module(name: str) -> Any:
-    """Load frozen fixture modules without making them runtime dependencies."""
-
-    return importlib.import_module(f"tests.engine.{name}")
-
-
-column_cases = _fixture_module("test_column_family_profiles")
-k01_cases = _fixture_module("test_k01_matplotlib_backend")
-k03_cases = _fixture_module("test_k03_dynamic_profile")
-k04_cases = _fixture_module("test_k04_bubble_profile")
-k08_cases = _fixture_module("test_k08_matplotlib_backend")
-calculated_cases = _fixture_module("test_k15_calculated_distribution")
-matrix_cases = _fixture_module("test_k19_k21_k22_profiles")
-k20_cases = _fixture_module("test_k20_origin_backend")
-special_cases = _fixture_module("test_remaining_t1_special_profiles")
-t1_cases = _fixture_module("test_t1_family_matplotlib_backends")
-t2_cases = _fixture_module("test_t2_non_composite_profiles")
-wide_cases = _fixture_module("test_x03_x39_x40_wide_series")
-x_cases = _fixture_module("test_x05_x09_x13_profiles")
-x23_cases = _fixture_module("test_x23_matplotlib_backend")
-
 OUTPUT = REPOSITORY / "src" / "renderer" / "src" / "assets" / "chart-previews"
 EXPECTED_SIZE = (1024, 768)
+VIEW_SIZE = (120, 90)
 SVG_NAMESPACE = "http://www.w3.org/2000/svg"
-XLINK_NAMESPACE = "http://www.w3.org/1999/xlink"
-XLINK_HREF = f"{{{XLINK_NAMESPACE}}}href"
 ET.register_namespace("", SVG_NAMESPACE)
-ET.register_namespace("xlink", XLINK_NAMESPACE)
+
+INK = "#15191f"
+BLUE = "#1676d2"
+BLUE_DARK = "#0f55a8"
+BLUE_LIGHT = "#62a6e3"
+BLUE_PALE = "#b8d7f2"
+RED = "#ef4b4b"
+RED_PALE = "#f6aaaa"
+GREEN = "#42ad6d"
+GRAY = "#77818f"
+GRAY_PALE = "#e8edf3"
+WHITE = "#ffffff"
 
 
 @dataclass(frozen=True, slots=True)
-class PreviewCase:
+class OriginPreviewSpec:
     profile_id: str
-    document: PlotDocument
-    actions: tuple[PlotEngineAction, ...]
-    view: EngineDataView
+    origin_preview_name: str
+    origin_template: str
+    gallery_group: str
+    draw: Callable[[ET.Element], None]
 
 
-def _document_for(create: CreatePlot) -> PlotDocument:
-    return PlotDocument(
-        plot_id=create.plot_id,
-        plot_version=1,
-        profile_id=create.profile_id,
-        data=create.data,
-        bindings=create.bindings,
-        applied_action_ids=(create.action_id,),
-    )
+def _tag(name: str) -> str:
+    return f"{{{SVG_NAMESPACE}}}{name}"
 
 
-def _provider_case(
-    create: CreatePlot,
-    provider: Any,
-) -> tuple[PlotDocument, tuple[PlotEngineAction, ...], EngineDataView]:
-    if create.data is None:
-        raise ValueError("chart preview fixtures must be data-backed")
-    field_ids = tuple(binding.field_id for binding in create.bindings)
-    view = provider.materialize(create.data, field_ids)
-    return _document_for(create), (create,), view
-
-
-def _cases() -> tuple[PreviewCase, ...]:
-    factories: dict[
-        str,
-        Callable[[], tuple[PlotDocument, tuple[PlotEngineAction, ...], EngineDataView]],
-    ] = {
-        "K01": lambda: _provider_case(k01_cases._create(), k01_cases.Provider()),
-        "K02": lambda: t1_cases._case(
-            "K02",
-            ("x", "y"),
-            (
-                t1_cases._column("field:x", "Time", (0.0, 1.0, 2.0, 3.0)),
-                t1_cases._column("field:y", "Signal", (1.0, 2.2, 1.8, 3.4)),
-            ),
-        ),
-        "K03": lambda: k03_cases._case(("Control", "Low", "Control", "High", "Low")),
-        "K04": lambda: k04_cases._case(scales=True, edits=True),
-        "K06": lambda: t1_cases._case(
-            "K06",
-            ("x", "center", "x_lower", "x_upper", "lower", "upper"),
-            (
-                t1_cases._column("field:x", "Time", (1.0, 2.0, 3.0, 4.0)),
-                t1_cases._column("field:center", "Estimate", (2.0, 3.0, 4.0, 3.5)),
-                t1_cases._column("field:x-lower", "X lower", (0.75, 1.8, 2.65, 3.7)),
-                t1_cases._column("field:x-upper", "X upper", (1.15, 2.35, 3.2, 4.4)),
-                t1_cases._column("field:lower", "Y lower", (1.55, 2.45, 3.65, 2.9)),
-                t1_cases._column("field:upper", "Y upper", (2.4, 3.65, 4.25, 4.2)),
-            ),
-        ),
-        "K07": lambda: t1_cases._case(
-            "K07",
-            ("x", "center", "lower", "upper"),
-            (
-                t1_cases._column("field:x", "Dose", (0.0, 1.0, 2.0, 3.0)),
-                t1_cases._column("field:center", "Response", (2.0, 3.0, 4.0, 4.5)),
-                t1_cases._column("field:lower", "Lower", (1.5, 2.5, 3.0, 3.8)),
-                t1_cases._column("field:upper", "Upper", (2.5, 3.7, 5.0, 5.2)),
-            ),
-        ),
-        "K08": lambda: _provider_case(k08_cases._create(), k08_cases.Provider()),
-        "K09": lambda: column_cases._case("K09", 3),
-        "K10": lambda: column_cases._case("K10", 3),
-        "K11": lambda: column_cases._case("K11", 3),
-        "K12": lambda: column_cases._distribution_case("K12", 3),
-        "K13": lambda: column_cases._distribution_case("K13", 3),
-        "K14": lambda: column_cases._distribution_case("K14", 3),
-        "K15": lambda: calculated_cases._case("K15"),
-        "K18": matrix_cases._k18_case,
-        "K19": matrix_cases._k19_case,
-        "K20": k20_cases._case,
-        "K21": matrix_cases._k21_case,
-        "K22": matrix_cases._k22_case,
-        "K24": t2_cases._k24_case,
-        "S34": t2_cases._s34_case,
-        "S61": t2_cases._s61_case,
-        "X02": lambda: t1_cases._case(
-            "X02",
-            ("x", "y"),
-            (
-                t1_cases._column("field:x", "Position", (0.0, 1.0, 2.0, 3.0)),
-                t1_cases._column("field:y", "Signal", (-1.0, 3.0, 1.5, -0.5)),
-            ),
-        ),
-        "X03": lambda: wide_cases._case("X03", series_count=4, row_count=5),
-        "X05": x_cases._x05_case,
-        "X09": x_cases._x09_case,
-        "X13": x_cases._x13_case,
-        "X23": lambda: _provider_case(x23_cases._create(), x23_cases.Provider()),
-        "X24": special_cases._x24_case,
-        "X35": lambda: special_cases._dual_case("X35"),
-        "X36": lambda: special_cases._dual_case("X36"),
-        "X38": special_cases._x38_case,
-        "X39": lambda: wide_cases._case("X39", series_count=4, row_count=5),
-        "X40": lambda: wide_cases._case("X40", series_count=2, row_count=6),
+def _attrs(values: dict[str, object]) -> dict[str, str]:
+    return {
+        key.rstrip("_").replace("_", "-"): str(value)
+        for key, value in values.items()
+        if value is not None
     }
-    expected = tuple(profile.profile_id for profile in ENGINE_PROFILES)
-    if set(factories) != set(expected):
-        raise RuntimeError(
-            f"chart preview fixture inventory differs: {sorted(set(expected) ^ set(factories))}"
-        )
-    return tuple(PreviewCase(profile_id, *factories[profile_id]()) for profile_id in expected)
 
 
-RENDERERS: dict[str, MatplotlibProfileRenderer] = {
-    renderer.profile_id: renderer
-    for renderer in (
-        K01LineRenderer(), K02LineSymbolRenderer(), K03ScatterRenderer(), K04BubbleRenderer(),
-        K06PointErrorRenderer(), K07ErrorBandRenderer(), K08ColumnRenderer(),
-        K09GroupedColumnRenderer(), K10StackedColumnRenderer(), K11PercentStackRenderer(),
-        K12StripRenderer(), K13BoxRenderer(), K14ViolinRenderer(), K15HistogramRenderer(),
-        K18AreaRenderer(), K19TimeSeriesRenderer(), K20HeatmapRenderer(),
-        K21CorrelationMatrixRenderer(), K22ContourRenderer(), K24FacetRenderer(),
-        S34NyquistRenderer(), S61ConfusionRenderer(), X02DropLineRenderer(),
-        X03LollipopRenderer(), X05BeeswarmRenderer(), X09FloatingIntervalRenderer(),
-        X13PopulationPyramidRenderer(), X23DualYRenderer(), X24ParetoRenderer(),
-        X35DualYColumnRenderer(), X36DualYColumnLineRenderer(), X38OffsetStackRenderer(),
-        X39LineSeriesRenderer(), X40BeforeAfterRenderer(),
-    )
-}
+def _add(parent: ET.Element, name: str, **attributes: object) -> ET.Element:
+    return ET.SubElement(parent, _tag(name), _attrs(attributes))
 
 
-def _default_state(case: PreviewCase) -> tuple[PlotDocument, tuple[PlotEngineAction, ...]]:
-    create = case.actions[0]
-    if not isinstance(create, CreatePlot):
-        raise TypeError(f"{case.profile_id} preview history must begin with create_plot")
-    return _document_for(create), (create,)
-
-
-def _sha(path: Path) -> str:
-    return sha256(path.read_bytes()).hexdigest()
-
-
-def _fixture_sha(view: EngineDataView) -> str:
-    payload = json.dumps(
-        view.model_dump(mode="json"),
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return sha256(payload).hexdigest()
-
-
-def _element_id(element: ET.Element) -> str:
-    return element.attrib.get("id", "")
-
-
-def _clip_bounds(root: ET.Element, axes: ET.Element) -> tuple[float, float, float, float] | None:
-    clip_ids = {
-        clip.removeprefix("url(#").removesuffix(")")
-        for element in axes.iter()
-        if (clip := element.attrib.get("clip-path", "")).startswith("url(#")
-    }
-    for clip_id in clip_ids:
-        clip_path = next(
-            (element for element in root.iter() if _element_id(element) == clip_id),
-            None,
-        )
-        if clip_path is None:
-            continue
-        rect = next(
-            (element for element in clip_path if element.tag.endswith("rect")),
-            None,
-        )
-        if rect is None:
-            continue
-        return (
-            float(rect.attrib["x"]),
-            float(rect.attrib["y"]),
-            float(rect.attrib["width"]),
-            float(rect.attrib["height"]),
-        )
-    return None
-
-
-def _expanded_view_box(
-    bounds: tuple[float, float, float, float],
-    target_aspect: float,
-) -> tuple[float, float, float, float]:
-    x, y, width, height = bounds
-    padding = max(width, height) * 0.035
-    x -= padding
-    y -= padding
-    width += padding * 2
-    height += padding * 2
-    current_aspect = width / height
-    if current_aspect < target_aspect:
-        expanded_width = height * target_aspect
-        x -= (expanded_width - width) / 2
-        width = expanded_width
-    else:
-        expanded_height = width / target_aspect
-        y -= (expanded_height - height) / 2
-        height = expanded_height
-    return x, y, width, height
-
-
-def _scale_marker_definition(path: ET.Element, factor: float) -> None:
-    number = re.compile(r"(?<![A-Za-z])[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?")
-
-    def scaled(match: re.Match[str]) -> str:
-        return f"{float(match.group()) * factor:.6f}".rstrip("0").rstrip(".")
-
-    path.attrib["d"] = number.sub(scaled, path.attrib["d"])
-
-
-def _apply_preview_emphasis(profile_id: str, root: ET.Element) -> str:
-    if profile_id in {"K02", "K03"}:
-        marker_groups = [
-            element
-            for element in root.iter()
-            if _element_id(element).startswith(
-                ("line2d_", "PathCollection_")
-            )
-        ]
-        marker_uses = [
-            element
-            for group in marker_groups
-            for element in group.iter()
-            if element.tag.endswith("use")
-        ]
-        marker_ids = {
-            href.removeprefix("#")
-            for marker in marker_uses
-            if (href := marker.attrib.get(XLINK_HREF, "")).startswith("#")
-        }
-        for path in root.iter():
-            if _element_id(path) in marker_ids and "d" in path.attrib:
-                _scale_marker_definition(path, 1.8)
-                path.attrib["style"] = "fill: #d95555; stroke: #d95555"
-        for marker in marker_uses:
-            marker.attrib["style"] = "fill: #d95555; stroke: #d95555"
-        return "markers enlarged 1.8x and unified to the line-and-point red"
-
-    if profile_id == "K04":
-        bubble_group = next(
-            (
-                element
-                for element in root.iter()
-                if _element_id(element) == "PathCollection_1"
-            ),
-            None,
-        )
-        if bubble_group is None:
-            raise RuntimeError("K04 preview has no bubble collection")
-        bubbles = [element for element in bubble_group if element.tag.endswith("path")]
-        scales = (1.35, 1.65, 1.95, 2.25)
-        if len(bubbles) != len(scales):
-            raise RuntimeError(f"K04 preview expected 4 bubbles, got {len(bubbles)}")
-        coordinate = re.compile(r"[-+]?(?:\d*\.\d+|\d+\.?)")
-        for bubble, scale in zip(bubbles, scales, strict=True):
-            values = [float(value) for value in coordinate.findall(bubble.attrib["d"])]
-            x_values = values[0::2]
-            y_values = values[1::2]
-            center_x = (min(x_values) + max(x_values)) / 2
-            center_y = (min(y_values) + max(y_values)) / 2
-            bubble.attrib["transform"] = (
-                f"translate({center_x:.6f} {center_y:.6f}) scale({scale}) "
-                f"translate({-center_x:.6f} {-center_y:.6f})"
-            )
-        return "bubble radii progressively enlarged from 1.35x to 2.25x"
-
-    return "none"
-
-
-def _normalize_preview_palette(root: ET.Element) -> None:
-    color_map = {
-        "#1f77b4": "#1676d2",
-        "#2875d8": "#1676d2",
-        "#2a6fdb": "#1676d2",
-        "#d97800": "#62a6e3",
-        "#d97706": "#62a6e3",
-        "#ff7f0e": "#62a6e3",
-        "#c53d4d": "#62a6e3",
-        "#d84a4a": "#62a6e3",
-        "#d94b4b": "#62a6e3",
-        "#f04444": "#62a6e3",
-        "#299764": "#a6ccee",
-        "#2a9d6f": "#a6ccee",
-        "#2ca02c": "#a6ccee",
-    }
-    for element in root.iter():
-        for attribute, value in tuple(element.attrib.items()):
-            normalized = value
-            for source, destination in color_map.items():
-                normalized = re.sub(
-                    re.escape(source),
-                    destination,
-                    normalized,
-                    flags=re.IGNORECASE,
-                )
-            element.attrib[attribute] = normalized
-
-
-def _replace_style_paint(style: str, property_name: str, color: str) -> str:
-    pattern = re.compile(rf"({property_name}:\s*)([^;]+)", re.IGNORECASE)
-
-    def replaced(match: re.Match[str]) -> str:
-        if match.group(2).strip().lower() == "none":
-            return match.group(0)
-        return f"{match.group(1)}{color}"
-
-    return pattern.sub(replaced, style)
-
-
-def _color_artist(artist: ET.Element, color: str) -> set[str]:
-    referenced_ids: set[str] = set()
-    for element in artist.iter():
-        href = element.attrib.get(XLINK_HREF, "")
-        if href.startswith("#"):
-            referenced_ids.add(href.removeprefix("#"))
-        style = element.attrib.get("style")
-        if style is not None:
-            style = _replace_style_paint(style, "stroke", color)
-            style = _replace_style_paint(style, "fill", color)
-            element.attrib["style"] = style
-        for attribute in ("stroke", "fill"):
-            value = element.attrib.get(attribute)
-            if value is not None and value.lower() != "none":
-                element.attrib[attribute] = color
-    return referenced_ids
-
-
-def _apply_preview_color_semantics(profile_id: str, root: ET.Element) -> None:
-    continuous_color_profiles = {"K04", "K20", "K21", "K22", "S61"}
-    if profile_id not in continuous_color_profiles:
-        referenced_ids: set[str] = set()
-        for artist in root.iter():
-            if _element_id(artist).startswith(
-                ("line2d_", "LineCollection_", "PathCollection_")
-            ):
-                referenced_ids.update(_color_artist(artist, "#d95555"))
-        for element in root.iter():
-            if _element_id(element) in referenced_ids:
-                _color_artist(element, "#d95555")
-
-    if profile_id == "K07":
-        for artist in root.iter():
-            if "PolyCollection_" in _element_id(artist):
-                _color_artist(artist, "#d95555")
-
-
-def _normalize_preview_line_weights(root: ET.Element) -> None:
-    artist_prefixes = ("line2d_", "LineCollection_")
-    width_pattern = re.compile(r"stroke-width:\s*([0-9.]+)")
-    for artist in root.iter():
-        if not _element_id(artist).startswith(artist_prefixes):
-            continue
-        for element in artist.iter():
-            style = element.attrib.get("style")
-            if style is None:
-                continue
-
-            def widened(match: re.Match[str]) -> str:
-                return f"stroke-width: {max(float(match.group(1)), 2.2):g}"
-
-            element.attrib["style"] = width_pattern.sub(widened, style)
-
-
-def _simplify_svg(source: Path, destination: Path, profile_id: str) -> str:
-    """Reduce a full chart to its recognisable geometry for a library card."""
-
-    tree = ET.parse(source)
-    root = tree.getroot()
-    for child in list(root):
-        if child.tag.endswith("metadata"):
-            root.remove(child)
-    parent_by_child = {child: parent for parent in root.iter() for child in parent}
-    axes = [element for element in root.iter() if _element_id(element).startswith("axes_")]
-    axes_with_bounds = [
-        (element, bounds)
-        for element in axes
-        if (bounds := _clip_bounds(root, element)) is not None
-    ]
-    if not axes_with_bounds:
-        raise RuntimeError(f"no Matplotlib axes clip found in {source}")
-
-    max_area = max(bounds[2] * bounds[3] for _, bounds in axes_with_bounds)
-    selected = [
-        (element, bounds)
-        for element, bounds in axes_with_bounds
-        if bounds[2] * bounds[3] >= max_area * 0.25
-    ]
-    selected_axes = {element for element, _ in selected}
-
-    for element in axes:
-        if element not in selected_axes and (parent := parent_by_child.get(element)) is not None:
-            parent.remove(element)
-
-    removable_prefixes = ("matplotlib.axis_", "legend_", "text_")
-    parent_by_child = {child: parent for parent in root.iter() for child in parent}
-    for element in list(root.iter()):
-        if _element_id(element).startswith(removable_prefixes) and (
-            parent := parent_by_child.get(element)
-        ) is not None:
-            parent.remove(element)
-
-    for axes_element in selected_axes:
-        patches = [
-            child
-            for child in list(axes_element)
-            if _element_id(child).startswith("patch_")
-        ]
-        if patches:
-            axes_element.remove(patches[0])
-        for patch in patches[1:]:
-            styles = " ".join(
-                child.attrib.get("style", "") for child in patch.iter()
-            ).lower()
-            if "fill: none" in styles and "stroke:" in styles:
-                axes_element.remove(patch)
-
-    left = min(bounds[0] for _, bounds in selected)
-    top = min(bounds[1] for _, bounds in selected)
-    right = max(bounds[0] + bounds[2] for _, bounds in selected)
-    bottom = max(bounds[1] + bounds[3] for _, bounds in selected)
-    view_box = _expanded_view_box(
-        (left, top, right - left, bottom - top),
-        EXPECTED_SIZE[0] / EXPECTED_SIZE[1],
-    )
-    root.attrib.update(
+def _root() -> ET.Element:
+    root = ET.Element(
+        _tag("svg"),
         {
             "width": str(EXPECTED_SIZE[0]),
             "height": str(EXPECTED_SIZE[1]),
-            "viewBox": " ".join(f"{value:.4f}" for value in view_box),
+            "viewBox": f"0 0 {VIEW_SIZE[0]} {VIEW_SIZE[1]}",
             "preserveAspectRatio": "xMidYMid meet",
-        }
+        },
     )
-    _normalize_preview_palette(root)
-    _apply_preview_color_semantics(profile_id, root)
-    _normalize_preview_line_weights(root)
-    emphasis = _apply_preview_emphasis(profile_id, root)
-    tree.write(destination, encoding="utf-8", xml_declaration=True)
-    return emphasis
+    _add(root, "rect", x=0, y=0, width=120, height=90, fill=WHITE)
+    return root
+
+
+def _frame(
+    parent: ET.Element,
+    *,
+    x: float = 7,
+    y: float = 7,
+    width: float = 106,
+    height: float = 70,
+    fill: str = WHITE,
+) -> None:
+    _add(
+        parent,
+        "rect",
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+        fill=fill,
+        stroke=INK,
+        stroke_width=1.35,
+    )
+
+
+def _points(values: Iterable[tuple[float, float]]) -> str:
+    return " ".join(f"{x:g},{y:g}" for x, y in values)
+
+
+def _polyline(
+    parent: ET.Element,
+    values: Iterable[tuple[float, float]],
+    *,
+    color: str = BLUE,
+    width: float = 2.3,
+    fill: str = "none",
+    dash: str | None = None,
+) -> None:
+    _add(
+        parent,
+        "polyline",
+        points=_points(values),
+        fill=fill,
+        stroke=color,
+        stroke_width=width,
+        stroke_linecap="round",
+        stroke_linejoin="round",
+        stroke_dasharray=dash,
+    )
+
+
+def _line(
+    parent: ET.Element,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    *,
+    color: str = BLUE,
+    width: float = 2,
+    dash: str | None = None,
+) -> None:
+    _add(
+        parent,
+        "line",
+        x1=x1,
+        y1=y1,
+        x2=x2,
+        y2=y2,
+        stroke=color,
+        stroke_width=width,
+        stroke_linecap="round",
+        stroke_dasharray=dash,
+    )
+
+
+def _dot(
+    parent: ET.Element,
+    x: float,
+    y: float,
+    *,
+    radius: float = 2.8,
+    fill: str = BLUE,
+    stroke: str | None = None,
+    stroke_width: float = 1.2,
+) -> None:
+    _add(
+        parent,
+        "circle",
+        cx=x,
+        cy=y,
+        r=radius,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width if stroke else None,
+    )
+
+
+def _dots(
+    parent: ET.Element,
+    values: Iterable[tuple[float, float]],
+    *,
+    radius: float = 2.8,
+    fill: str = BLUE,
+) -> None:
+    for x, y in values:
+        _dot(parent, x, y, radius=radius, fill=fill)
+
+
+def _bar(
+    parent: ET.Element,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    *,
+    fill: str = BLUE,
+    stroke: str = BLUE_DARK,
+) -> None:
+    _add(
+        parent,
+        "rect",
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=1.05,
+    )
+
+
+def _path(
+    parent: ET.Element,
+    data: str,
+    *,
+    fill: str = "none",
+    stroke: str = BLUE,
+    width: float = 2,
+    opacity: float | None = None,
+) -> None:
+    _add(
+        parent,
+        "path",
+        d=data,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=width,
+        stroke_linecap="round",
+        stroke_linejoin="round",
+        opacity=opacity,
+    )
+
+
+def _error_bar(
+    parent: ET.Element,
+    x: float,
+    y: float,
+    *,
+    horizontal: float = 0,
+    vertical: float = 10,
+    color: str = BLUE,
+) -> None:
+    if vertical:
+        _line(parent, x, y - vertical, x, y + vertical, color=color, width=1.8)
+        _line(parent, x - 4, y - vertical, x + 4, y - vertical, color=color, width=1.8)
+        _line(parent, x - 4, y + vertical, x + 4, y + vertical, color=color, width=1.8)
+    if horizontal:
+        _line(parent, x - horizontal, y, x + horizontal, y, color=color, width=1.8)
+        _line(parent, x - horizontal, y - 4, x - horizontal, y + 4, color=color, width=1.8)
+        _line(parent, x + horizontal, y - 4, x + horizontal, y + 4, color=color, width=1.8)
+    _dot(parent, x, y, radius=3, fill=color)
+
+
+def _draw_line(parent: ET.Element) -> None:
+    _frame(parent)
+    _path(parent, "M 13 58 C 28 31, 37 24, 48 50 S 72 20, 82 39 S 100 32, 108 17")
+
+
+def _draw_line_symbol(parent: ET.Element) -> None:
+    _frame(parent)
+    values = ((15, 62), (35, 39), (55, 49), (77, 28), (104, 42))
+    _polyline(parent, values)
+    _dots(parent, values, radius=3.1)
+
+
+def _draw_scatter(parent: ET.Element) -> None:
+    _frame(parent)
+    _dots(
+        parent,
+        ((18, 59), (28, 31), (39, 52), (50, 24), (61, 42), (73, 17), (89, 35), (103, 20)),
+        radius=3,
+    )
+
+
+def _draw_bubble(parent: ET.Element) -> None:
+    _frame(parent)
+    bubbles = (
+        (18, 59, 2.7, RED),
+        (34, 49, 4, "#ffb000"),
+        (51, 43, 5.8, GREEN),
+        (72, 35, 7.5, "#18a0ae"),
+        (98, 24, 10, WHITE),
+    )
+    for x, y, radius, fill in bubbles:
+        _dot(
+            parent,
+            x,
+            y,
+            radius=radius,
+            fill=fill,
+            stroke=BLUE if fill == WHITE else fill,
+            stroke_width=1.8,
+        )
+
+
+def _draw_error(parent: ET.Element) -> None:
+    _frame(parent)
+    for x, y, horizontal, vertical, color in (
+        (22, 56, 8, 9, BLUE),
+        (48, 37, 7, 12, RED),
+        (76, 48, 10, 8, BLUE),
+        (100, 26, 7, 10, RED),
+    ):
+        _error_bar(parent, x, y, horizontal=horizontal, vertical=vertical, color=color)
+
+
+def _draw_error_band(parent: ET.Element) -> None:
+    _frame(parent)
+    _path(
+        parent,
+        (
+            "M 12 62 C 28 53, 38 30, 53 39 S 75 18, 88 25 "
+            "S 100 19, 108 13 L 108 38 C 96 43, 88 46, 77 49 "
+            "S 55 56, 43 58 S 24 69, 12 71 Z"
+        ),
+        fill=BLUE_LIGHT,
+        stroke="none",
+        width=0,
+        opacity=0.75,
+    )
+    values = ((13, 64), (32, 47), (50, 43), (69, 32), (87, 35), (107, 22))
+    _polyline(parent, values, width=2.2)
+    _dots(parent, values, radius=2.2)
+
+
+def _draw_column(parent: ET.Element) -> None:
+    _frame(parent)
+    for x, y, height in ((20, 43, 29), (48, 22, 50), (78, 35, 37)):
+        _bar(parent, x, y, 18, height)
+
+
+def _draw_grouped_column(parent: ET.Element) -> None:
+    _frame(parent)
+    for index, (left, first, second) in enumerate(((16, 28, 44), (51, 46, 32), (86, 38, 54))):
+        _bar(parent, left, 72 - first, 12, first, fill=BLUE)
+        _bar(parent, left + 13, 72 - second, 12, second, fill=BLUE_LIGHT, stroke=BLUE)
+        if index == 2:
+            _line(parent, left + 26, 72, left + 26, 72, color=BLUE)
+
+
+def _draw_stacked(parent: ET.Element, *, percent: bool = False) -> None:
+    _frame(parent)
+    totals = (58, 65, 50) if not percent else (62, 62, 62)
+    for index, (x, total) in enumerate(zip((17, 51, 85), totals, strict=True)):
+        parts = (
+            (0.34, 0.31, 0.35)
+            if percent
+            else ((0.38, 0.27, 0.35), (0.48, 0.25, 0.27), (0.3, 0.4, 0.3))[index]
+        )
+        bottom = 72.0
+        for fraction, color in zip(parts, (BLUE, BLUE_LIGHT, BLUE_PALE), strict=True):
+            height = total * fraction
+            bottom -= height
+            _bar(parent, x, bottom, 20, height, fill=color, stroke=BLUE_DARK)
+
+
+def _draw_strip(parent: ET.Element) -> None:
+    _frame(parent)
+    for index, x in enumerate((31, 61, 91)):
+        ys = (61, 53, 48, 41, 34, 27) if index != 1 else (63, 57, 49, 40, 35, 23, 18)
+        for offset, y in zip((-3, 2, -1, 3, 0, -2, 2), ys, strict=False):
+            _dot(parent, x + offset, y, radius=2.3)
+
+
+def _draw_box(parent: ET.Element) -> None:
+    _frame(parent)
+    for x, top, bottom, median in ((34, 24, 61, 43), (78, 18, 57, 34)):
+        _line(parent, x, top - 8, x, bottom + 8, width=1.5)
+        _line(parent, x - 8, top - 8, x + 8, top - 8, width=1.5)
+        _line(parent, x - 8, bottom + 8, x + 8, bottom + 8, width=1.5)
+        _add(
+            parent,
+            "rect",
+            x=x - 12,
+            y=top,
+            width=24,
+            height=bottom - top,
+            fill=BLUE_PALE,
+            stroke=BLUE,
+            stroke_width=1.5,
+        )
+        _line(parent, x - 12, median, x + 12, median, color=RED, width=1.8)
+
+
+def _draw_violin(parent: ET.Element) -> None:
+    _frame(parent)
+    for x, scale in ((30, 0.8), (60, 1.15), (90, 0.92)):
+        half = 11 * scale
+        data = (
+            f"M {x:g} 16 C {x - 2:g} 25, {x - half:g} 31, {x - half:g} 42 "
+            f"C {x - half:g} 54, {x - 3:g} 60, {x:g} 69 "
+            f"C {x + 3:g} 60, {x + half:g} 54, {x + half:g} 42 "
+            f"C {x + half:g} 31, {x + 2:g} 25, {x:g} 16 Z"
+        )
+        _path(parent, data, fill=BLUE_PALE, stroke=BLUE, width=1.5)
+        _line(parent, x - 4, 42, x + 4, 42, color=RED, width=1.4)
+
+
+def _draw_histogram(parent: ET.Element) -> None:
+    _frame(parent)
+    heights = (14, 27, 48, 61, 50, 31, 17)
+    for index, height in enumerate(heights):
+        _bar(
+            parent,
+            15 + index * 13,
+            72 - height,
+            13,
+            height,
+            fill=BLUE_LIGHT if index in {1, 5} else BLUE,
+        )
+
+
+def _draw_area(parent: ET.Element) -> None:
+    _frame(parent)
+    _path(
+        parent,
+        "M 12 72 L 12 58 L 33 34 L 54 48 L 76 22 L 108 39 L 108 72 Z",
+        fill=BLUE_LIGHT,
+        stroke=BLUE,
+        width=1.8,
+        opacity=0.82,
+    )
+
+
+def _draw_time_series(parent: ET.Element) -> None:
+    _frame(parent)
+    values = ((12, 62), (30, 43), (48, 53), (62, 26), (78, 34), (94, 17), (108, 27))
+    _polyline(parent, values)
+    _dots(parent, values, radius=2.4)
+
+
+def _draw_heatmap(
+    parent: ET.Element, *, correlation: bool = False, confusion: bool = False
+) -> None:
+    _frame(parent)
+    colors = (
+        ("#103f82", "#8bb8e7", "#d8e7f7"),
+        ("#a7c9ed", "#165fae", "#9ec3ea"),
+        ("#e1edf9", "#83b2e4", "#0f4f9a"),
+    )
+    if correlation:
+        colors = (
+            ("#c44255", "#f2b7ae", "#dceafb"),
+            ("#f3c2b9", "#b92845", "#f0a79d"),
+            ("#deebf8", "#f1b8ad", "#c12543"),
+        )
+    if confusion:
+        colors = (
+            ("#0f4a91", "#e1ecf8", "#f3f7fb"),
+            ("#deebf7", "#145da8", "#e5eff8"),
+            ("#f4f7fb", "#dbe9f6", "#1c6ab5"),
+        )
+    cell = 20
+    for row in range(3):
+        for column in range(3):
+            _add(
+                parent,
+                "rect",
+                x=30 + column * cell,
+                y=12 + row * cell,
+                width=cell,
+                height=cell,
+                fill=colors[row][column],
+                stroke=WHITE,
+                stroke_width=1.1,
+            )
+
+
+def _draw_contour(parent: ET.Element) -> None:
+    _frame(parent)
+    bands = (
+        ("M 8 72 C 32 63, 36 37, 60 35 S 88 18, 113 11 L 113 77 L 8 77 Z", "#155aa8"),
+        (
+            "M 8 61 C 29 53, 40 31, 62 28 S 88 14, 113 9 "
+            "L 113 22 C 87 28, 78 43, 57 45 S 30 67, 8 71 Z",
+            "#3f8ad0",
+        ),
+        (
+            "M 8 45 C 28 41, 40 21, 62 19 S 90 9, 113 7 "
+            "L 113 15 C 91 19, 83 32, 60 34 S 30 54, 8 60 Z",
+            "#78b4e8",
+        ),
+        (
+            "M 8 29 C 28 26, 43 11, 66 10 S 94 7, 113 7 "
+            "L 113 11 C 92 12, 84 20, 61 23 S 29 41, 8 44 Z",
+            "#c9e0f5",
+        ),
+    )
+    for data, color in bands:
+        _path(parent, data, fill=color, stroke=color, width=0.8)
+
+
+def _draw_trellis(parent: ET.Element) -> None:
+    for row in range(2):
+        for column in range(2):
+            x = 8 + column * 55
+            y = 8 + row * 36
+            _frame(parent, x=x, y=y, width=49, height=30)
+            values = (
+                (x + 5, y + 23),
+                (x + 15, y + 13 + row * 2),
+                (x + 27, y + 19 - column * 3),
+                (x + 42, y + 7 + row * 3),
+            )
+            _polyline(parent, values, width=1.7)
+            _dots(parent, values, radius=1.8)
+
+
+def _draw_nyquist(parent: ET.Element) -> None:
+    _frame(parent)
+    values = ((17, 64), (25, 48), (37, 32), (53, 21), (70, 18), (87, 27), (102, 45))
+    _path(parent, "M 17 64 C 28 32, 44 17, 67 18 C 84 18, 96 32, 102 45")
+    _dots(parent, values, radius=2.5)
+
+
+def _draw_dropline(parent: ET.Element) -> None:
+    _frame(parent)
+    for x, y in ((22, 55), (46, 25), (72, 42), (99, 18)):
+        _line(parent, x, y, x, 70, color=BLUE, width=1.8)
+        _dot(parent, x, y, radius=3)
+
+
+def _draw_lollipop(parent: ET.Element) -> None:
+    _frame(parent)
+    for y, left, right in ((18, 63, 102), (34, 43, 91), (50, 29, 79), (66, 17, 61)):
+        _line(parent, left, y, right, y, color=GRAY, width=1.7)
+        _dot(parent, left, y, radius=2.8, fill=BLUE)
+        _dot(parent, right, y, radius=2.8, fill=RED)
+
+
+def _draw_beeswarm(parent: ET.Element) -> None:
+    _frame(parent)
+    for group, x in enumerate((29, 60, 91)):
+        for index, y in enumerate((62, 56, 49, 43, 36, 30, 24, 18)):
+            offset = ((index * 5 + group * 2) % 11) - 5
+            _dot(parent, x + offset, y, radius=2.1, fill=BLUE if group != 1 else RED)
+
+
+def _draw_floating(parent: ET.Element) -> None:
+    _frame(parent)
+    for x, top, split, bottom in ((19, 19, 42, 65), (51, 12, 34, 57), (83, 29, 47, 70)):
+        _bar(parent, x, top, 20, split - top, fill=BLUE_LIGHT, stroke=BLUE_DARK)
+        _bar(parent, x, split, 20, bottom - split, fill=BLUE, stroke=BLUE_DARK)
+
+
+def _draw_pyramid(parent: ET.Element) -> None:
+    _frame(parent)
+    _line(parent, 60, 10, 60, 73, color=INK, width=1.25)
+    widths = (20, 30, 40, 48)
+    for index, width in enumerate(widths):
+        y = 14 + index * 14
+        _bar(parent, 60 - width, y, width, 11, fill=BLUE, stroke=BLUE_DARK)
+        _bar(parent, 60, y, width * 0.88, 11, fill=BLUE_LIGHT, stroke=BLUE_DARK)
+
+
+def _draw_dual_y(parent: ET.Element) -> None:
+    _frame(parent)
+    blue_values = ((13, 60), (34, 43), (56, 50), (78, 25), (106, 35))
+    red_values = ((13, 30), (34, 38), (56, 22), (78, 43), (106, 16))
+    _polyline(parent, blue_values, color=BLUE)
+    _polyline(parent, red_values, color=RED)
+    _dots(parent, blue_values, radius=2.4, fill=BLUE)
+    _dots(parent, red_values, radius=2.4, fill=RED)
+
+
+def _draw_pareto(parent: ET.Element) -> None:
+    _frame(parent)
+    heights = (55, 43, 31, 22, 14)
+    cumulative = ((18, 61), (38, 43), (58, 30), (78, 20), (98, 14))
+    for index, height in enumerate(heights):
+        _bar(parent, 12 + index * 19, 72 - height, 15, height, fill=BLUE)
+    _polyline(parent, cumulative, color=RED, width=2)
+    _dots(parent, cumulative, radius=2.5, fill=RED)
+
+
+def _draw_dual_column(parent: ET.Element) -> None:
+    _frame(parent)
+    for index, x in enumerate((17, 47, 77)):
+        _bar(parent, x, 72 - (31 + index * 10), 13, 31 + index * 10, fill=BLUE)
+        _bar(parent, x + 14, 72 - (50 - index * 7), 13, 50 - index * 7, fill=RED, stroke="#bd3030")
+
+
+def _draw_column_line(parent: ET.Element) -> None:
+    _frame(parent)
+    values = ((23, 49), (49, 27), (75, 40), (101, 18))
+    for index, (x, _y) in enumerate(values):
+        height = (27, 42, 31, 49)[index]
+        _bar(parent, x - 7, 72 - height, 14, height, fill=BLUE)
+    _polyline(parent, values, color=RED, width=2.2)
+    _dots(parent, values, radius=2.7, fill=RED)
+
+
+def _draw_offset(parent: ET.Element) -> None:
+    _frame(parent)
+    colors = (BLUE, GREEN, RED)
+    for index, color in enumerate(colors):
+        y = 20 + index * 20
+        _path(
+            parent,
+            f"M 12 {y + 8} C 30 {y - 6}, 48 {y + 10}, 66 {y - 2} S 94 {y - 8}, 108 {y + 2}",
+            stroke=color,
+            width=2,
+        )
+
+
+def _draw_line_series(parent: ET.Element) -> None:
+    _frame(parent)
+    for ys in ((17, 30, 24), (30, 42, 35), (44, 55, 48), (58, 66, 61)):
+        values = ((18, ys[0]), (60, ys[1]), (102, ys[2]))
+        _polyline(parent, values, color=INK, width=1.5)
+        for column, (x, y) in enumerate(values):
+            _dot(parent, x, y, radius=2.4, fill=(BLUE, GREEN, RED)[column])
+
+
+def _draw_before_after(parent: ET.Element) -> None:
+    _frame(parent)
+    pairs = ((18, 28), (31, 52), (45, 34), (59, 66))
+    for start, end in pairs:
+        _line(parent, 23, start, 97, end, color=INK, width=1.5)
+        _dot(parent, 23, start, radius=2.7, fill=BLUE)
+        _dot(parent, 97, end, radius=2.7, fill=RED)
+
+
+PREVIEW_SPECS = (
+    OriginPreviewSpec("K01", "折线图", "LINE.OTP", "基础 2D 图", _draw_line),
+    OriginPreviewSpec("K02", "点线图", "LINESYMB.OTP", "基础 2D 图", _draw_line_symbol),
+    OriginPreviewSpec("K03", "散点图", "SCATTER.OTP", "基础 2D 图", _draw_scatter),
+    OriginPreviewSpec("K04", "气泡+颜色映射图", "Bubble.OTP", "基础 2D 图", _draw_bubble),
+    OriginPreviewSpec("K06", "XY 误差图", "ERRBAR.OTP", "基础 2D 图", _draw_error),
+    OriginPreviewSpec("K07", "误差带图", "ERRORBAND.OTP", "基础 2D 图", _draw_error_band),
+    OriginPreviewSpec("K08", "柱状图", "COLUMN.OTP", "条形图、饼图、面积图", _draw_column),
+    OriginPreviewSpec(
+        "K09", "分组柱状图", "gColumn.otpu", "条形图、饼图、面积图", _draw_grouped_column
+    ),
+    OriginPreviewSpec(
+        "K10",
+        "堆积柱状图",
+        "STACKCOLUMN.otp",
+        "条形图、饼图、面积图",
+        lambda root: _draw_stacked(root),
+    ),
+    OriginPreviewSpec(
+        "K11",
+        "百分比堆积柱状图",
+        "StackColP.otp",
+        "条形图、饼图、面积图",
+        lambda root: _draw_stacked(root, percent=True),
+    ),
+    OriginPreviewSpec("K12", "列散点图", "ColumnScatter.otp", "统计图", _draw_strip),
+    OriginPreviewSpec("K13", "箱线图", "BOX.OTP", "统计图", _draw_box),
+    OriginPreviewSpec("K14", "小提琴图", "Violin.otpu", "统计图", _draw_violin),
+    OriginPreviewSpec("K15", "直方图", "Hist.otpu", "统计图", _draw_histogram),
+    OriginPreviewSpec("K18", "面积图", "AREA.OTP", "条形图、饼图、面积图", _draw_area),
+    OriginPreviewSpec("K19", "折线图（日期时间 X）", "LINE.OTP", "基础 2D 图", _draw_time_series),
+    OriginPreviewSpec("K20", "热图", "Heat_Map.otpu", "等高线图", _draw_heatmap),
+    OriginPreviewSpec(
+        "K21",
+        "带标签热图",
+        "Heat_Map_With_Labels.otpu",
+        "等高线图",
+        lambda root: _draw_heatmap(root, correlation=True),
+    ),
+    OriginPreviewSpec("K22", "填色等高线图", "CONTOUR.OTP", "等高线图", _draw_contour),
+    OriginPreviewSpec("K24", "Trellis 图", "Grouped.otp", "多面板、多轴", _draw_trellis),
+    OriginPreviewSpec("S34", "点线图（Nyquist 语义）", "LINESYMB.OTP", "基础 2D 图", _draw_nyquist),
+    OriginPreviewSpec(
+        "S61",
+        "带标签热图（混淆矩阵语义）",
+        "Heat_Map_With_Labels.otpu",
+        "等高线图",
+        lambda root: _draw_heatmap(root, confusion=True),
+    ),
+    OriginPreviewSpec("X02", "垂线图", "DROPLINE.OTP", "基础 2D 图", _draw_dropline),
+    OriginPreviewSpec("X03", "棒棒糖图", "Lollipop.otpu", "基础 2D 图", _draw_lollipop),
+    OriginPreviewSpec("X05", "蜂群图", "Beeswarm.otpu", "统计图", _draw_beeswarm),
+    OriginPreviewSpec("X09", "浮动柱状图", "FloatCol.otp", "条形图、饼图、面积图", _draw_floating),
+    OriginPreviewSpec("X13", "人口金字塔", "PopulationPyramid.otpu", "统计图", _draw_pyramid),
+    OriginPreviewSpec("X23", "2Ys Y-Y 图", "DOUBLEY.OTP", "多面板、多轴", _draw_dual_y),
+    OriginPreviewSpec("X24", "帕累托图", "ParetoBin.otpu", "统计图", _draw_pareto),
+    OriginPreviewSpec("X35", "2Ys 柱状图", "2Ys_Col.otpu", "多面板、多轴", _draw_dual_column),
+    OriginPreviewSpec("X36", "2Ys 柱线图", "2Ys_ColSymb.otpu", "多面板、多轴", _draw_column_line),
+    OriginPreviewSpec("X38", "Y 偏移堆积线图", "OffsetStackY.otp", "基础 2D 图", _draw_offset),
+    OriginPreviewSpec("X39", "线条序列", "BoxLser.otpu", "基础 2D 图", _draw_line_series),
+    OriginPreviewSpec("X40", "前后对比图", "BeforeAfter.otpu", "基础 2D 图", _draw_before_after),
+)
+
+
+def _source_commit() -> str:
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPOSITORY,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def _write_audit_page(entries: list[dict[str, object]]) -> Path:
     catalog_source = (
         REPOSITORY / "src" / "renderer" / "src" / "data" / "chartCatalog.ts"
     ).read_text(encoding="utf-8")
-    chinese_names = dict(
-        re.findall(r"^\s*(\w+): \{ name: '([^']+)'", catalog_source, re.MULTILINE)
-    )
+    chinese_names = dict(re.findall(r"^\s*(\w+): \{ name: '([^']+)'", catalog_source, re.MULTILINE))
     audit_directory = REPOSITORY / "build" / "visual-audit" / "chart-library-previews"
     audit_directory.mkdir(parents=True, exist_ok=True)
     cards = "\n".join(
         (
             '<article><img src="../../../src/renderer/src/assets/chart-previews/'
             f'{entry["profile_id"]}.svg" alt=""><footer><strong>{entry["profile_id"]}</strong>'
-            f'<span>{chinese_names.get(str(entry["profile_id"]), "")}</span></footer></article>'
+            f"<span>{html.escape(chinese_names.get(str(entry['profile_id']), ''))}</span>"
+            f"<small>{html.escape(str(entry['origin_preview_name']))}</small></footer></article>"
         )
         for entry in entries
     )
@@ -566,7 +713,7 @@ def _write_audit_page(entries: list[dict[str, object]]) -> Path:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>图形库轻量预览审计</title>
+  <title>图形库 Origin 预览复刻审计</title>
   <style>
     * {{ box-sizing: border-box; }}
     body {{
@@ -575,108 +722,91 @@ def _write_audit_page(entries: list[dict[str, object]]) -> Path:
     }}
     header {{
       display: flex; align-items: end; justify-content: space-between;
-      margin: 0 auto 24px; max-width: 1440px;
+      margin-bottom: 22px;
     }}
     h1 {{ margin: 0; font-size: 24px; }}
-    header p {{ margin: 0; color: #5c667a; }}
+    p {{ margin: 2px 0 0; color: #607086; }}
     main {{
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 14px; max-width: 1440px; margin: auto;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 14px;
     }}
     article {{
-      overflow: hidden; background: #fff; border: 1px solid #dbe0e8;
-      border-radius: 10px;
+      overflow: hidden; border: 1px solid #d9e0e8; border-radius: 10px;
+      background: #fff;
     }}
     img {{
       display: block; width: 100%; aspect-ratio: 4 / 3;
       object-fit: contain; background: #fff;
     }}
     footer {{
-      display: flex; gap: 9px; align-items: baseline; padding: 10px 12px;
-      border-top: 1px solid #edf0f4;
+      display: grid; grid-template-columns: auto 1fr; column-gap: 8px;
+      padding: 9px 11px 10px; border-top: 1px solid #e6ebf0;
     }}
-    footer strong {{ color: #1768e5; font-variant-numeric: tabular-nums; }}
+    footer strong {{ color: #0968e5; }}
+    footer span {{ font-weight: 650; }}
+    footer small {{ grid-column: 2; color: #68778c; font-size: 11px; }}
   </style>
 </head>
 <body>
   <header>
-    <div><h1>图形库轻量预览</h1><p>仅保留图类核心几何，无坐标轴、标题、图例和色标</p></div>
-    <p>{len(entries)} 张</p>
+    <div><h1>图形库 Origin 预览复刻</h1>
+      <p>依据 OriginPro 2024 图形库预览、本机模板名称和官方菜单语义重绘</p>
+    </div>
+    <strong>{len(entries)} 张</strong>
   </header>
   <main>{cards}</main>
 </body>
 </html>
 """
-    output = audit_directory / "index.html"
-    output.write_text(page, encoding="utf-8")
-    return output
+    target = audit_directory / "index.html"
+    target.write_text(page, encoding="utf-8")
+    return target
 
 
 def main() -> None:
-    rcParams["svg.hashsalt"] = "plotagent-chart-library-preview"
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    source_commit = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=REPOSITORY, text=True
-    ).strip()
-    cases = _cases()
-    if set(RENDERERS) != {case.profile_id for case in cases}:
-        raise RuntimeError("chart preview renderer inventory differs from public profiles")
-
     entries: list[dict[str, object]] = []
-    for index, case in enumerate(cases, start=1):
-        preview = OUTPUT / f"{case.profile_id}.svg"
-        raw_png = OUTPUT / f".{case.profile_id}.raw.png"
-        raw_svg = OUTPUT / f".{case.profile_id}.raw.svg"
-        preview.unlink(missing_ok=True)
-        raw_png.unlink(missing_ok=True)
-        raw_svg.unlink(missing_ok=True)
-        document, actions = _default_state(case)
-        renderer = RENDERERS[case.profile_id]
-        renderer.render(document, actions, case.view, raw_png, raw_svg)
-        emphasis = _simplify_svg(raw_svg, preview, case.profile_id)
-        raw_png.unlink(missing_ok=True)
-        raw_svg.unlink(missing_ok=True)
-        width, height = EXPECTED_SIZE
+    source_commit = _source_commit()
+    expected_names = {f"{spec.profile_id}.svg" for spec in PREVIEW_SPECS}
+    for index, spec in enumerate(PREVIEW_SPECS, start=1):
+        root = _root()
+        spec.draw(root)
+        ET.indent(root, space=" ")
+        destination = OUTPUT / f"{spec.profile_id}.svg"
+        ET.ElementTree(root).write(destination, encoding="utf-8", xml_declaration=True)
         entries.append(
             {
-                "profile_id": case.profile_id,
-                "backend": "matplotlib",
-                "state": "default",
-                "renderer": type(renderer).__name__,
-                "fixture_sha256": _fixture_sha(case.view),
+                "profile_id": spec.profile_id,
+                "backend": "origin-gallery-replica",
+                "state": "type-preview",
+                "origin_preview_name": spec.origin_preview_name,
+                "origin_template": spec.origin_template,
+                "origin_gallery_group": spec.gallery_group,
                 "asset_format": "svg",
-                "asset_sha256": _sha(preview),
-                "preview_emphasis": emphasis,
-                "width": width,
-                "height": height,
+                "asset_sha256": sha256(destination.read_bytes()).hexdigest(),
+                "width": EXPECTED_SIZE[0],
+                "height": EXPECTED_SIZE[1],
             }
         )
-        print(
-            f"[{index:02d}/{len(cases)}] {case.profile_id} -> {preview.name}",
-            flush=True,
-        )
-
-    expected_names = {f"{case.profile_id}.svg" for case in cases}
-    for old in (*OUTPUT.glob("*.png"), *OUTPUT.glob("*.svg")):
+        print(f"[{index:02d}/{len(PREVIEW_SPECS)}] {spec.profile_id} -> {destination.name}")
+    for old in OUTPUT.glob("*.svg"):
         if old.name not in expected_names:
             old.unlink()
     manifest = {
-        "schema_version": "plotagent.chart-library-previews.v4",
+        "schema_version": "plotagent.chart-library-previews.v5",
         "source_commit": source_commit,
         "source_policy": (
-            "simplified vector preview derived from the production Matplotlib default "
-            "state and representative engine fixtures"
+            "code-native SVG replicas of OriginPro 2024 graph-gallery previews, "
+            "mapped to verified local template names"
         ),
-        "simplification_policy": (
-            "retain chart geometry; remove titles, axes, ticks, labels, legends, and color scales"
+        "reference_policy": (
+            "visual grammar follows the five user-provided OriginPro gallery screenshots; "
+            "chart identity follows docs/ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md"
         ),
-        "preview_palette": {
-            "line_and_point": "#d95555",
-            "bar_primary": "#1676d2",
-            "bar_secondary": "#62a6e3",
-            "bar_tertiary": "#a6ccee",
-        },
-        "origin_qualification": "tracked separately by the native Origin renderer audit",
+        "preview_policy": (
+            "show the canonical graph-type symbol inside an Origin-style plot frame; "
+            "omit axes labels, legends, and data-specific decoration"
+        ),
         "count": len(entries),
         "entries": entries,
     }
@@ -685,7 +815,7 @@ def main() -> None:
         encoding="utf-8",
     )
     audit_page = _write_audit_page(entries)
-    print(f"audit -> {audit_page}", flush=True)
+    print(f"audit -> {audit_page}")
 
 
 if __name__ == "__main__":
