@@ -1,4 +1,4 @@
-const previewModules = import.meta.glob<string>('../assets/chart-previews/*.png', {
+const previewModules = import.meta.glob<string>('../assets/chart-previews/*.svg', {
   eager: true,
   import: 'default',
   query: '?url',
@@ -6,7 +6,7 @@ const previewModules = import.meta.glob<string>('../assets/chart-previews/*.png'
 
 export const chartPreviewAssets: Readonly<Record<string, string>> = Object.freeze(
   Object.fromEntries(Object.entries(previewModules).map(([path, url]) => {
-    const match = /\/([^/]+)\.png$/.exec(path)
+    const match = /\/([^/]+)\.svg$/.exec(path)
     if (!match) throw new Error(`Invalid chart preview asset path: ${path}`)
     return [match[1], url]
   })),

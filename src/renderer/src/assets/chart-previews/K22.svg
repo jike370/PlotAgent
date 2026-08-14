@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="576" viewBox="-85.1350 -5.5540 587.6950 330.5784" version="1.1" preserveAspectRatio="xMidYMid meet">
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 345.6  L 460.8 345.6  L 460.8 0  L 0 0  z " style="fill: #ffffff" />
+  </g>
+  <g id="axes_1">
+   <g id="QuadContourSet_1">
+    <path d="M 34.506881 274.556326  L 34.506881 312.830033  L 121.609681 312.830033  z " clip-path="url(#p9b27b066af)" style="fill: #471063" />
+    <path d="M 34.506881 236.282619  L 34.506881 274.556326  L 121.609681 312.830033  L 208.712481 312.830033  z " clip-path="url(#p9b27b066af)" style="fill: #472d7b" />
+    <path d="M 34.506881 198.008912  L 34.506881 236.282619  L 208.712481 312.830033  L 295.815281 312.830033  z " clip-path="url(#p9b27b066af)" style="fill: #404688" />
+    <path d="M 382.91808 312.830033  L 382.91808 312.830033  L 34.506881 159.735205  L 34.506881 198.008912  L 295.815281 312.830033  z " clip-path="url(#p9b27b066af)" style="fill: #365d8d" />
+    <path d="M 382.91808 312.830033  L 382.91808 274.556326  L 34.506881 121.461498  L 34.506881 159.735205  z " clip-path="url(#p9b27b066af)" style="fill: #2c728e" />
+    <path d="M 382.91808 274.556326  L 382.91808 236.282619  L 34.506881 83.187791  L 34.506881 121.461498  z " clip-path="url(#p9b27b066af)" style="fill: #24868e" />
+    <path d="M 382.91808 236.282619  L 382.91808 198.008912  L 34.506881 44.914084  L 34.506881 83.187791  z " clip-path="url(#p9b27b066af)" style="fill: #1f9a8a" />
+    <path d="M 382.91808 198.008912  L 382.91808 159.735205  L 34.506881 6.640377  L 34.506881 6.640377  L 34.506881 44.914084  z " clip-path="url(#p9b27b066af)" style="fill: #28ae80" />
+    <path d="M 382.91808 159.735205  L 382.91808 121.461498  L 121.609681 6.640377  L 34.506881 6.640377  z " clip-path="url(#p9b27b066af)" style="fill: #48c16e" />
+    <path d="M 382.91808 121.461498  L 382.91808 83.187791  L 208.712481 6.640377  L 121.609681 6.640377  z " clip-path="url(#p9b27b066af)" style="fill: #75d054" />
+    <path d="M 382.91808 83.187791  L 382.91808 44.914084  L 295.815281 6.640377  L 208.712481 6.640377  z " clip-path="url(#p9b27b066af)" style="fill: #addc30" />
+    <path d="M 382.91808 44.914084  L 382.91808 6.640377  L 295.815281 6.640377  z " clip-path="url(#p9b27b066af)" style="fill: #e5e419" />
+   </g>
+   </g>
+  </g>
+ <defs>
+  <clipPath id="p9b27b066af">
+   <rect x="34.506881" y="6.640377" width="348.4112" height="306.189657" />
+  </clipPath>
+  <clipPath id="p493e20e712">
+   <rect x="407.28864" y="6.640377" width="15.309483" height="306.189657" />
+  </clipPath>
+ </defs>
+</svg>

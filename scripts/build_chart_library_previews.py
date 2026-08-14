@@ -13,15 +13,17 @@ from __future__ import annotations
 
 import importlib
 import json
+import re
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from PIL import Image
+from matplotlib import rcParams
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY))
@@ -90,7 +92,11 @@ x_cases = _fixture_module("test_x05_x09_x13_profiles")
 x23_cases = _fixture_module("test_x23_matplotlib_backend")
 
 OUTPUT = REPOSITORY / "src" / "renderer" / "src" / "assets" / "chart-previews"
-EXPECTED_SIZE = (1024, 768)
+EXPECTED_SIZE = (1024, 576)
+SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+XLINK_NAMESPACE = "http://www.w3.org/1999/xlink"
+ET.register_namespace("", SVG_NAMESPACE)
+ET.register_namespace("xlink", XLINK_NAMESPACE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,7 +250,202 @@ def _fixture_sha(view: EngineDataView) -> str:
     return sha256(payload).hexdigest()
 
 
+def _element_id(element: ET.Element) -> str:
+    return element.attrib.get("id", "")
+
+
+def _clip_bounds(root: ET.Element, axes: ET.Element) -> tuple[float, float, float, float] | None:
+    clip_ids = {
+        clip.removeprefix("url(#").removesuffix(")")
+        for element in axes.iter()
+        if (clip := element.attrib.get("clip-path", "")).startswith("url(#")
+    }
+    for clip_id in clip_ids:
+        clip_path = next(
+            (element for element in root.iter() if _element_id(element) == clip_id),
+            None,
+        )
+        if clip_path is None:
+            continue
+        rect = next(
+            (element for element in clip_path if element.tag.endswith("rect")),
+            None,
+        )
+        if rect is None:
+            continue
+        return (
+            float(rect.attrib["x"]),
+            float(rect.attrib["y"]),
+            float(rect.attrib["width"]),
+            float(rect.attrib["height"]),
+        )
+    return None
+
+
+def _expanded_view_box(
+    bounds: tuple[float, float, float, float],
+    target_aspect: float,
+) -> tuple[float, float, float, float]:
+    x, y, width, height = bounds
+    padding = max(width, height) * 0.035
+    x -= padding
+    y -= padding
+    width += padding * 2
+    height += padding * 2
+    current_aspect = width / height
+    if current_aspect < target_aspect:
+        expanded_width = height * target_aspect
+        x -= (expanded_width - width) / 2
+        width = expanded_width
+    else:
+        expanded_height = width / target_aspect
+        y -= (expanded_height - height) / 2
+        height = expanded_height
+    return x, y, width, height
+
+
+def _simplify_svg(source: Path, destination: Path) -> None:
+    """Reduce a full chart to its recognisable geometry for a library card."""
+
+    tree = ET.parse(source)
+    root = tree.getroot()
+    for child in list(root):
+        if child.tag.endswith("metadata"):
+            root.remove(child)
+    parent_by_child = {child: parent for parent in root.iter() for child in parent}
+    axes = [element for element in root.iter() if _element_id(element).startswith("axes_")]
+    axes_with_bounds = [
+        (element, bounds)
+        for element in axes
+        if (bounds := _clip_bounds(root, element)) is not None
+    ]
+    if not axes_with_bounds:
+        raise RuntimeError(f"no Matplotlib axes clip found in {source}")
+
+    max_area = max(bounds[2] * bounds[3] for _, bounds in axes_with_bounds)
+    selected = [
+        (element, bounds)
+        for element, bounds in axes_with_bounds
+        if bounds[2] * bounds[3] >= max_area * 0.25
+    ]
+    selected_axes = {element for element, _ in selected}
+
+    for element in axes:
+        if element not in selected_axes and (parent := parent_by_child.get(element)) is not None:
+            parent.remove(element)
+
+    removable_prefixes = ("matplotlib.axis_", "legend_", "text_")
+    parent_by_child = {child: parent for parent in root.iter() for child in parent}
+    for element in list(root.iter()):
+        if _element_id(element).startswith(removable_prefixes) and (
+            parent := parent_by_child.get(element)
+        ) is not None:
+            parent.remove(element)
+
+    for axes_element in selected_axes:
+        patches = [
+            child
+            for child in list(axes_element)
+            if _element_id(child).startswith("patch_")
+        ]
+        if patches:
+            axes_element.remove(patches[0])
+        for patch in patches[1:]:
+            styles = " ".join(
+                child.attrib.get("style", "") for child in patch.iter()
+            ).lower()
+            if "fill: none" in styles and "stroke:" in styles:
+                axes_element.remove(patch)
+
+    left = min(bounds[0] for _, bounds in selected)
+    top = min(bounds[1] for _, bounds in selected)
+    right = max(bounds[0] + bounds[2] for _, bounds in selected)
+    bottom = max(bounds[1] + bounds[3] for _, bounds in selected)
+    view_box = _expanded_view_box(
+        (left, top, right - left, bottom - top),
+        EXPECTED_SIZE[0] / EXPECTED_SIZE[1],
+    )
+    root.attrib.update(
+        {
+            "width": str(EXPECTED_SIZE[0]),
+            "height": str(EXPECTED_SIZE[1]),
+            "viewBox": " ".join(f"{value:.4f}" for value in view_box),
+            "preserveAspectRatio": "xMidYMid meet",
+        }
+    )
+    tree.write(destination, encoding="utf-8", xml_declaration=True)
+
+
+def _write_audit_page(entries: list[dict[str, object]]) -> Path:
+    catalog_source = (
+        REPOSITORY / "src" / "renderer" / "src" / "data" / "chartCatalog.ts"
+    ).read_text(encoding="utf-8")
+    chinese_names = dict(
+        re.findall(r"^\s*(\w+): \{ name: '([^']+)'", catalog_source, re.MULTILINE)
+    )
+    audit_directory = REPOSITORY / "build" / "visual-audit" / "chart-library-previews"
+    audit_directory.mkdir(parents=True, exist_ok=True)
+    cards = "\n".join(
+        (
+            '<article><img src="../../../src/renderer/src/assets/chart-previews/'
+            f'{entry["profile_id"]}.svg" alt=""><footer><strong>{entry["profile_id"]}</strong>'
+            f'<span>{chinese_names.get(str(entry["profile_id"]), "")}</span></footer></article>'
+        )
+        for entry in entries
+    )
+    page = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>图形库轻量预览审计</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0; padding: 32px; background: #f4f6f8; color: #172033;
+      font: 14px/1.45 system-ui, sans-serif;
+    }}
+    header {{
+      display: flex; align-items: end; justify-content: space-between;
+      margin: 0 auto 24px; max-width: 1440px;
+    }}
+    h1 {{ margin: 0; font-size: 24px; }}
+    header p {{ margin: 0; color: #5c667a; }}
+    main {{
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px; max-width: 1440px; margin: auto;
+    }}
+    article {{
+      overflow: hidden; background: #fff; border: 1px solid #dbe0e8;
+      border-radius: 10px;
+    }}
+    img {{
+      display: block; width: 100%; aspect-ratio: 16 / 9;
+      object-fit: contain; background: #fff;
+    }}
+    footer {{
+      display: flex; gap: 9px; align-items: baseline; padding: 10px 12px;
+      border-top: 1px solid #edf0f4;
+    }}
+    footer strong {{ color: #1768e5; font-variant-numeric: tabular-nums; }}
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>图形库轻量预览</h1><p>仅保留图类核心几何，无坐标轴、标题、图例和色标</p></div>
+    <p>{len(entries)} 张</p>
+  </header>
+  <main>{cards}</main>
+</body>
+</html>
+"""
+    output = audit_directory / "index.html"
+    output.write_text(page, encoding="utf-8")
+    return output
+
+
 def main() -> None:
+    rcParams["svg.hashsalt"] = "plotagent-chart-library-preview"
     OUTPUT.mkdir(parents=True, exist_ok=True)
     source_commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=REPOSITORY, text=True
@@ -255,27 +456,18 @@ def main() -> None:
 
     entries: list[dict[str, object]] = []
     for index, case in enumerate(cases, start=1):
-        png = OUTPUT / f"{case.profile_id}.png"
+        preview = OUTPUT / f"{case.profile_id}.svg"
         raw_png = OUTPUT / f".{case.profile_id}.raw.png"
-        svg = OUTPUT / f".{case.profile_id}.svg"
-        png.unlink(missing_ok=True)
+        raw_svg = OUTPUT / f".{case.profile_id}.raw.svg"
+        preview.unlink(missing_ok=True)
         raw_png.unlink(missing_ok=True)
-        svg.unlink(missing_ok=True)
+        raw_svg.unlink(missing_ok=True)
         document, actions = _default_state(case)
         renderer = RENDERERS[case.profile_id]
-        renderer.render(document, actions, case.view, raw_png, svg)
-        svg.unlink(missing_ok=True)
-        with Image.open(raw_png) as rendered:
-            image = rendered.convert("RGBA")
-            image.thumbnail(EXPECTED_SIZE, Image.Resampling.LANCZOS)
-            canvas = Image.new("RGBA", EXPECTED_SIZE, "white")
-            offset = (
-                (EXPECTED_SIZE[0] - image.width) // 2,
-                (EXPECTED_SIZE[1] - image.height) // 2,
-            )
-            canvas.alpha_composite(image, offset)
-            canvas.save(png, format="PNG", optimize=True)
+        renderer.render(document, actions, case.view, raw_png, raw_svg)
+        _simplify_svg(raw_svg, preview)
         raw_png.unlink(missing_ok=True)
+        raw_svg.unlink(missing_ok=True)
         width, height = EXPECTED_SIZE
         entries.append(
             {
@@ -284,21 +476,31 @@ def main() -> None:
                 "state": "default",
                 "renderer": type(renderer).__name__,
                 "fixture_sha256": _fixture_sha(case.view),
-                "png_sha256": _sha(png),
+                "asset_format": "svg",
+                "asset_sha256": _sha(preview),
                 "width": width,
                 "height": height,
             }
         )
-        print(f"[{index:02d}/{len(cases)}] {case.profile_id} -> {png.name}", flush=True)
+        print(
+            f"[{index:02d}/{len(cases)}] {case.profile_id} -> {preview.name}",
+            flush=True,
+        )
 
-    expected_names = {f"{case.profile_id}.png" for case in cases}
-    for old in OUTPUT.glob("*.png"):
+    expected_names = {f"{case.profile_id}.svg" for case in cases}
+    for old in (*OUTPUT.glob("*.png"), *OUTPUT.glob("*.svg")):
         if old.name not in expected_names:
             old.unlink()
     manifest = {
-        "schema_version": "plotagent.chart-library-previews.v1",
+        "schema_version": "plotagent.chart-library-previews.v2",
         "source_commit": source_commit,
-        "source_policy": "production Matplotlib default state from representative engine fixtures",
+        "source_policy": (
+            "simplified vector preview derived from the production Matplotlib default "
+            "state and representative engine fixtures"
+        ),
+        "simplification_policy": (
+            "retain chart geometry; remove titles, axes, ticks, labels, legends, and color scales"
+        ),
         "origin_qualification": "tracked separately by the native Origin renderer audit",
         "count": len(entries),
         "entries": entries,
@@ -307,6 +509,8 @@ def main() -> None:
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    audit_page = _write_audit_page(entries)
+    print(f"audit -> {audit_page}", flush=True)
 
 
 if __name__ == "__main__":
