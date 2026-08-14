@@ -337,10 +337,10 @@ def _apply_preview_emphasis(profile_id: str, root: ET.Element) -> str:
         for path in root.iter():
             if _element_id(path) in marker_ids and "d" in path.attrib:
                 _scale_marker_definition(path, 1.8)
-                path.attrib["style"] = "fill: #1676d2; stroke: #1676d2"
+                path.attrib["style"] = "fill: #d95555; stroke: #d95555"
         for marker in marker_uses:
-            marker.attrib["style"] = "fill: #1676d2; stroke: #1676d2"
-        return "markers enlarged 1.8x and unified to the primary series color"
+            marker.attrib["style"] = "fill: #d95555; stroke: #d95555"
+        return "markers enlarged 1.8x and unified to the line-and-point red"
 
     if profile_id == "K04":
         bubble_group = next(
@@ -378,16 +378,16 @@ def _normalize_preview_palette(root: ET.Element) -> None:
         "#1f77b4": "#1676d2",
         "#2875d8": "#1676d2",
         "#2a6fdb": "#1676d2",
-        "#d97800": "#7478a8",
-        "#d97706": "#7478a8",
-        "#ff7f0e": "#7478a8",
-        "#c53d4d": "#7478a8",
-        "#d84a4a": "#7478a8",
-        "#d94b4b": "#7478a8",
-        "#f04444": "#7478a8",
-        "#299764": "#4f8c84",
-        "#2a9d6f": "#4f8c84",
-        "#2ca02c": "#4f8c84",
+        "#d97800": "#62a6e3",
+        "#d97706": "#62a6e3",
+        "#ff7f0e": "#62a6e3",
+        "#c53d4d": "#62a6e3",
+        "#d84a4a": "#62a6e3",
+        "#d94b4b": "#62a6e3",
+        "#f04444": "#62a6e3",
+        "#299764": "#a6ccee",
+        "#2a9d6f": "#a6ccee",
+        "#2ca02c": "#a6ccee",
     }
     for element in root.iter():
         for attribute, value in tuple(element.attrib.items()):
@@ -400,6 +400,54 @@ def _normalize_preview_palette(root: ET.Element) -> None:
                     flags=re.IGNORECASE,
                 )
             element.attrib[attribute] = normalized
+
+
+def _replace_style_paint(style: str, property_name: str, color: str) -> str:
+    pattern = re.compile(rf"({property_name}:\s*)([^;]+)", re.IGNORECASE)
+
+    def replaced(match: re.Match[str]) -> str:
+        if match.group(2).strip().lower() == "none":
+            return match.group(0)
+        return f"{match.group(1)}{color}"
+
+    return pattern.sub(replaced, style)
+
+
+def _color_artist(artist: ET.Element, color: str) -> set[str]:
+    referenced_ids: set[str] = set()
+    for element in artist.iter():
+        href = element.attrib.get(XLINK_HREF, "")
+        if href.startswith("#"):
+            referenced_ids.add(href.removeprefix("#"))
+        style = element.attrib.get("style")
+        if style is not None:
+            style = _replace_style_paint(style, "stroke", color)
+            style = _replace_style_paint(style, "fill", color)
+            element.attrib["style"] = style
+        for attribute in ("stroke", "fill"):
+            value = element.attrib.get(attribute)
+            if value is not None and value.lower() != "none":
+                element.attrib[attribute] = color
+    return referenced_ids
+
+
+def _apply_preview_color_semantics(profile_id: str, root: ET.Element) -> None:
+    continuous_color_profiles = {"K04", "K20", "K21", "K22", "S61"}
+    if profile_id not in continuous_color_profiles:
+        referenced_ids: set[str] = set()
+        for artist in root.iter():
+            if _element_id(artist).startswith(
+                ("line2d_", "LineCollection_", "PathCollection_")
+            ):
+                referenced_ids.update(_color_artist(artist, "#d95555"))
+        for element in root.iter():
+            if _element_id(element) in referenced_ids:
+                _color_artist(element, "#d95555")
+
+    if profile_id == "K07":
+        for artist in root.iter():
+            if "PolyCollection_" in _element_id(artist):
+                _color_artist(artist, "#d95555")
 
 
 def _normalize_preview_line_weights(root: ET.Element) -> None:
@@ -489,6 +537,7 @@ def _simplify_svg(source: Path, destination: Path, profile_id: str) -> str:
         }
     )
     _normalize_preview_palette(root)
+    _apply_preview_color_semantics(profile_id, root)
     _normalize_preview_line_weights(root)
     emphasis = _apply_preview_emphasis(profile_id, root)
     tree.write(destination, encoding="utf-8", xml_declaration=True)
@@ -612,7 +661,7 @@ def main() -> None:
         if old.name not in expected_names:
             old.unlink()
     manifest = {
-        "schema_version": "plotagent.chart-library-previews.v3",
+        "schema_version": "plotagent.chart-library-previews.v4",
         "source_commit": source_commit,
         "source_policy": (
             "simplified vector preview derived from the production Matplotlib default "
@@ -622,9 +671,10 @@ def main() -> None:
             "retain chart geometry; remove titles, axes, ticks, labels, legends, and color scales"
         ),
         "preview_palette": {
-            "primary": "#1676d2",
-            "secondary": "#7478a8",
-            "tertiary": "#4f8c84",
+            "line_and_point": "#d95555",
+            "bar_primary": "#1676d2",
+            "bar_secondary": "#62a6e3",
+            "bar_tertiary": "#a6ccee",
         },
         "origin_qualification": "tracked separately by the native Origin renderer audit",
         "count": len(entries),

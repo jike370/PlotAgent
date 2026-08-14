@@ -13,11 +13,11 @@
      <path id="m756b5d7bbd" d="M 58.898656 -123.850469  L 58.898656 -48.027491  L 185.533927 -123.850469  L 312.169198 -161.761958  L 438.804469 -222.42034  L 438.804469 -328.572509  L 438.804469 -328.572509  L 312.169198 -313.407914  L 185.533927 -214.838042  L 58.898656 -123.850469  z " />
     </defs>
     <g clip-path="url(#pf085cac624)">
-     <use xlink:href="#m756b5d7bbd" x="0" y="345.6" style="fill: #1676d2; fill-opacity: 0.25" />
+     <use xlink:href="#m756b5d7bbd" x="0" y="345.6" style="fill: #d95555; fill-opacity: 0.25" />
     </g>
    </g>
    <g id="line2d_16">
-    <path d="M 58.898656 259.66102  L 185.533927 183.838042  L 312.169198 108.015064  L 438.804469 70.103575  " clip-path="url(#pf085cac624)" style="fill: none; stroke: #1676d2; stroke-width: 2.2; stroke-linecap: square" />
+    <path d="M 58.898656 259.66102  L 185.533927 183.838042  L 312.169198 108.015064  L 438.804469 70.103575  " clip-path="url(#pf085cac624)" style="fill: none; stroke: #d95555; stroke-width: 2.2; stroke-linecap: square" />
    </g>
    </g>
  </g>

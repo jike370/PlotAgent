@@ -20,18 +20,18 @@
    </g>
   <g id="axes_2">
    <g id="line2d_19">
-    <path d="M 115.250811 158.015594  L 260.788672 32.327469  L 406.326533 32.327469  " clip-path="url(#p68edafc316)" style="fill: none; stroke: #7478a8; stroke-width: 2.2; stroke-linecap: square" />
+    <path d="M 115.250811 158.015594  L 260.788672 32.327469  L 406.326533 32.327469  " clip-path="url(#p68edafc316)" style="fill: none; stroke: #d95555; stroke-width: 2.2; stroke-linecap: square" />
     <defs>
-     <path id="mb584fc922d" d="M 0 3  C 0.795609 3 1.55874 2.683901 2.12132 2.12132  C 2.683901 1.55874 3 0.795609 3 0  C 3 -0.795609 2.683901 -1.55874 2.12132 -2.12132  C 1.55874 -2.683901 0.795609 -3 0 -3  C -0.795609 -3 -1.55874 -2.683901 -2.12132 -2.12132  C -2.683901 -1.55874 -3 -0.795609 -3 0  C -3 0.795609 -2.683901 1.55874 -2.12132 2.12132  C -1.55874 2.683901 -0.795609 3 0 3  z " style="stroke: #7478a8" />
+     <path id="mb584fc922d" d="M 0 3  C 0.795609 3 1.55874 2.683901 2.12132 2.12132  C 2.683901 1.55874 3 0.795609 3 0  C 3 -0.795609 2.683901 -1.55874 2.12132 -2.12132  C 1.55874 -2.683901 0.795609 -3 0 -3  C -0.795609 -3 -1.55874 -2.683901 -2.12132 -2.12132  C -2.683901 -1.55874 -3 -0.795609 -3 0  C -3 0.795609 -2.683901 1.55874 -2.12132 2.12132  C -1.55874 2.683901 -0.795609 3 0 3  z " style="stroke: #d95555" />
     </defs>
     <g clip-path="url(#p68edafc316)">
-     <use xlink:href="#mb584fc922d" x="115.250811" y="158.015594" style="fill: #7478a8; stroke: #7478a8" />
-     <use xlink:href="#mb584fc922d" x="260.788672" y="32.327469" style="fill: #7478a8; stroke: #7478a8" />
-     <use xlink:href="#mb584fc922d" x="406.326533" y="32.327469" style="fill: #7478a8; stroke: #7478a8" />
+     <use xlink:href="#mb584fc922d" x="115.250811" y="158.015594" style="fill: #d95555; stroke: #d95555" />
+     <use xlink:href="#mb584fc922d" x="260.788672" y="32.327469" style="fill: #d95555; stroke: #d95555" />
+     <use xlink:href="#mb584fc922d" x="406.326533" y="32.327469" style="fill: #d95555; stroke: #d95555" />
     </g>
    </g>
    <g id="line2d_20">
-    <path d="M 46.265865 90.981927  L 475.311479 90.981927  " clip-path="url(#p68edafc316)" style="fill: none; stroke-dasharray: 3.7,1.6; stroke-dashoffset: 0; stroke: #6b7280" />
+    <path d="M 46.265865 90.981927  L 475.311479 90.981927  " clip-path="url(#p68edafc316)" style="fill: none; stroke-dasharray: 3.7,1.6; stroke-dashoffset: 0; stroke: #d95555" />
    </g>
    </g>
  </g>

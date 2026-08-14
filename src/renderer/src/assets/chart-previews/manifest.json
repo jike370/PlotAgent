@@ -1,12 +1,13 @@
 {
-  "schema_version": "plotagent.chart-library-previews.v3",
-  "source_commit": "cf5cd453c53257c65ddbb587982d5e3095fec235",
+  "schema_version": "plotagent.chart-library-previews.v4",
+  "source_commit": "30b2df37ff475ba32a3a744234d04277043819f9",
   "source_policy": "simplified vector preview derived from the production Matplotlib default state and representative engine fixtures",
   "simplification_policy": "retain chart geometry; remove titles, axes, ticks, labels, legends, and color scales",
   "preview_palette": {
-    "primary": "#1676d2",
-    "secondary": "#7478a8",
-    "tertiary": "#4f8c84"
+    "line_and_point": "#d95555",
+    "bar_primary": "#1676d2",
+    "bar_secondary": "#62a6e3",
+    "bar_tertiary": "#a6ccee"
   },
   "origin_qualification": "tracked separately by the native Origin renderer audit",
   "count": 34,
@@ -18,7 +19,7 @@
       "renderer": "K01LineRenderer",
       "fixture_sha256": "c94802f1385ba755b349aa63d1653385f03153e3c065ec2aa96717b8a42ab254",
       "asset_format": "svg",
-      "asset_sha256": "31b959da82abfb3681a069d5956bcebd9b0d95556d53a50989382dfff58418bc",
+      "asset_sha256": "23419449bffd01cd13dc10ee9dab0ff8559c48098f106a91d4785d99a5e07e95",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -30,8 +31,8 @@
       "renderer": "K02LineSymbolRenderer",
       "fixture_sha256": "803c05a51250148b5f9e9c79d5078830e5c43dab1fdce6eebc8918f341267b21",
       "asset_format": "svg",
-      "asset_sha256": "78e1aa0663df67bb2a9b315e330f39f752e1dded3d9d539afda5d960151c29c8",
-      "preview_emphasis": "markers enlarged 1.8x and unified to the primary series color",
+      "asset_sha256": "5b89296ed5c99fcf7d457f29c12f51f3b49865d5db9fdf4ee81d189a57ece9c7",
+      "preview_emphasis": "markers enlarged 1.8x and unified to the line-and-point red",
       "width": 1024,
       "height": 768
     },
@@ -42,8 +43,8 @@
       "renderer": "K03ScatterRenderer",
       "fixture_sha256": "751098b99905d483b50cdf323b7628d5d5f314b8bc7792038e896e260f481628",
       "asset_format": "svg",
-      "asset_sha256": "bc4f2ae3020fc6d029bcbfc6e2d6276bf9293c76732ab60cc88bf5e6c2f36ae8",
-      "preview_emphasis": "markers enlarged 1.8x and unified to the primary series color",
+      "asset_sha256": "8ab51c4c94cec4fc28d96861e23bc9b1ce7be209034bfcb6f2b53999c402310b",
+      "preview_emphasis": "markers enlarged 1.8x and unified to the line-and-point red",
       "width": 1024,
       "height": 768
     },
@@ -66,7 +67,7 @@
       "renderer": "K06PointErrorRenderer",
       "fixture_sha256": "36deb757fca8d39ae6db86027b98121c81be3cc82c3d9592202d094def969f0d",
       "asset_format": "svg",
-      "asset_sha256": "d57ac4950883222d1f4cdfca423a7199ede2e3f2bb42813ac884e71d09c45bbd",
+      "asset_sha256": "189b5468cfbf8f9450f45598c36fef364e20752df0d44bc5b9e64907ab2c64aa",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -78,7 +79,7 @@
       "renderer": "K07ErrorBandRenderer",
       "fixture_sha256": "a88def21ac0e617c4fce6f641b663a57ce71f8889081479a103557e7f726df68",
       "asset_format": "svg",
-      "asset_sha256": "bd30025527173bee60a2d216d9963520a2bcf516240f16e4331be269d5c8e94b",
+      "asset_sha256": "1f18af8d9f4f664cfdcc6066787d7c4a63a1332a93e8ed76dce42d0262b4d9d0",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -102,7 +103,7 @@
       "renderer": "K09GroupedColumnRenderer",
       "fixture_sha256": "f121e36c2c0e1d09d5aa1af52ba9174d576fe1e3a15f4cf2e95a4c24985a4aca",
       "asset_format": "svg",
-      "asset_sha256": "ac239c489b07835d357fa68de29d3a5b3c42bec251ee0cb41ffdb11d1e5246f8",
+      "asset_sha256": "dfa188abe6e9c1ec911bff47b15e5ef376e05943fbbad493d695750a13c0186c",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -114,7 +115,7 @@
       "renderer": "K10StackedColumnRenderer",
       "fixture_sha256": "29df0a9b18fb7cdeb684dea058e065241af8c3b0cf9af90310ecf463c19238b3",
       "asset_format": "svg",
-      "asset_sha256": "a8cf59bffa72d4fb4fbac8cd1b94ee4039ebb1999dc7ef6e377c3eb28f5a5733",
+      "asset_sha256": "8c4555d575cacd0c5e4257a637b11e0adba774120f36148f8258ce6b4cf7d3f1",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -126,7 +127,7 @@
       "renderer": "K11PercentStackRenderer",
       "fixture_sha256": "a0cd44f0e3d894279aa0381bea542c0facd1e9e466e69bcf015d250c2e4cee9b",
       "asset_format": "svg",
-      "asset_sha256": "f34c0dc93c86b52395f0c319ba227469d108ee79b201386c3a217913f0d3b61e",
+      "asset_sha256": "71bb4eb16da4ca44aa1996861026b37a3946afdd4fadc3b587d0b19c59090017",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -138,7 +139,7 @@
       "renderer": "K12StripRenderer",
       "fixture_sha256": "17e44d1c050c1ec0e7ed2b0cd1a96c31b6a93f4a6d893ed5501f8cf0e49f6171",
       "asset_format": "svg",
-      "asset_sha256": "19619ea04e30da71c3d357f9d8e02f50e5dc5ccd3ad140b091786eb278b7a021",
+      "asset_sha256": "ea0422b70d56cbd5fd461b9c2f4dc98bb15be0ed423b9a9768aab511d6ec0250",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -150,7 +151,7 @@
       "renderer": "K13BoxRenderer",
       "fixture_sha256": "2d639a99296e92b4ede34d1317185e01132ad95448dfdf2f6d63693dfe6840c4",
       "asset_format": "svg",
-      "asset_sha256": "f34cd6def7cd3f8ba449f76143b9fe60c4bcec6f82515c60a2eb092f792f3adb",
+      "asset_sha256": "a6e044dcb70476cc24352d747d99e42f01064778a3436fd252b22c89d2f9a247",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -162,7 +163,7 @@
       "renderer": "K14ViolinRenderer",
       "fixture_sha256": "eba457821892f3fe787badcf4bf710844a13f22e9d7c036dd3618ab882378194",
       "asset_format": "svg",
-      "asset_sha256": "99861e9897ee45178438951ba5a35af7b8ea50d5d587715892fb37abd9796cc5",
+      "asset_sha256": "5959ac12f6ad02505f8db52dca09d275ea4cac7e931a5724cc2562c06b755579",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -186,7 +187,7 @@
       "renderer": "K18AreaRenderer",
       "fixture_sha256": "d160a165664eb4446ef4859f0de349f8bd02b114acaaafad1676f17b08a95279",
       "asset_format": "svg",
-      "asset_sha256": "9e944712239d51b5e9e462e39a774db74a86a37b98cb24df049c5b6109a12dd7",
+      "asset_sha256": "2e998e13969254656877f696b5fa3fc99eb37ae01a850302b9dc9b74a5782171",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -198,7 +199,7 @@
       "renderer": "K19TimeSeriesRenderer",
       "fixture_sha256": "526ad802a9f24ed399489fb3999bf7aade253f98493e9ca6df6209ed187f6f66",
       "asset_format": "svg",
-      "asset_sha256": "0cc78f12631b3e5a6a2443048baab5a67290ecc7adf65d630a5d8cb0bda10c43",
+      "asset_sha256": "0ccd0245eb376435069c9cbb3b1198e52172d4ea152fa541f3e2dc04518c5a47",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -246,7 +247,7 @@
       "renderer": "K24FacetRenderer",
       "fixture_sha256": "0ad27a3216e10d51cb9ae2052468aac6495436f1ab87500d6405063dc9629abd",
       "asset_format": "svg",
-      "asset_sha256": "defd0d5e9caa3cbbfa7c0fa53528a63b7196c18f5b01f7eed9c952456ee98029",
+      "asset_sha256": "d6caeb1106d4f81d18b01e30e7124f003f8d1b9f977cceca2a867be69322fe6b",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -258,7 +259,7 @@
       "renderer": "S34NyquistRenderer",
       "fixture_sha256": "61588fbdbb941b4a50d103ab8c9bacb8e1e419923a9e69212b99e8283f80017f",
       "asset_format": "svg",
-      "asset_sha256": "63b58882161f2737dd40faa8b24cef54c33d5d536c67b0b9fffa795eeaf5bbb2",
+      "asset_sha256": "ce15f6647d2e9352b8a63cb2366b75acfc42eb40c8597bf150f9dc8eb5ca2453",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -282,7 +283,7 @@
       "renderer": "X02DropLineRenderer",
       "fixture_sha256": "29dc692b34cadce283c36ee54526cb154849f953280bb5188cc9bf83aec36234",
       "asset_format": "svg",
-      "asset_sha256": "91be3d440d6f1e2bb979787367fbf0e3d57a21db556d6fc8e1cd18645b4cf66f",
+      "asset_sha256": "26260a537e47b03ccc3ba2027cf141f654359c05e5063dbe21bb9dc4376fd540",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -294,7 +295,7 @@
       "renderer": "X03LollipopRenderer",
       "fixture_sha256": "6289b76ca119e632eeae61e131e1d5a6e7bb117edd1dc58c025feb31170a5f4e",
       "asset_format": "svg",
-      "asset_sha256": "585e0039ff4ec9ef9a3e6072be43842fbd71c0bf60c6ffaad0b05f18bdebbaff",
+      "asset_sha256": "4d44702701fc013128a4eece0872bee4f7e0f1edfb5dfb71e2e1d7e57d539c13",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -306,7 +307,7 @@
       "renderer": "X05BeeswarmRenderer",
       "fixture_sha256": "7df0e04ef748a582e9882979d455685e0889e292aa417bff41e3053f4e5b181b",
       "asset_format": "svg",
-      "asset_sha256": "029cb1af814abbd5ed09a950281388c874aff5c21d1beffdbc52a9b18b246dc3",
+      "asset_sha256": "6054ad57e93d5962083e3d2878bba5a015ff0bda42592c7ac5421a3c086fca9b",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -318,7 +319,7 @@
       "renderer": "X09FloatingIntervalRenderer",
       "fixture_sha256": "20a142c8d588321a0db1286516bf9493a1264310025a56bf8a8856dd9f1d99fa",
       "asset_format": "svg",
-      "asset_sha256": "3c3151f232d957a39ba22dfd35a94fd0e3c54da69309ec664865dd0778eb0068",
+      "asset_sha256": "504f3779de79542f4e96c130cc18f43bca2119146a7fd60f87f99c32dbf44588",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -330,7 +331,7 @@
       "renderer": "X13PopulationPyramidRenderer",
       "fixture_sha256": "75acbbfb1058e50f2a4785b1c3574a9f180bb1d9e85f12591e7c3f3a02006943",
       "asset_format": "svg",
-      "asset_sha256": "2ffcea56ea0b728d49da59233d93ec683247600948e45aed0ffc7bf5b2e27eac",
+      "asset_sha256": "ea6a501450b0ab7c8d934f4b94a9a7d3044ac32e3e5d38e97e1a5193cf7f8d1a",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -342,7 +343,7 @@
       "renderer": "X23DualYRenderer",
       "fixture_sha256": "9ba6b78bd8902573384d34e97a6d92758967688849292075468d6e4aca254575",
       "asset_format": "svg",
-      "asset_sha256": "34bf7899e9a6046c0de43e5b8afbd98b88e02ca631c1413ffe22c75aa8b26acb",
+      "asset_sha256": "c8995a11dbd3d5fa574bffd4cff1d1f3c4a454383f12beb241923c7f5e6edcb7",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -354,7 +355,7 @@
       "renderer": "X24ParetoRenderer",
       "fixture_sha256": "37199b72eeaa53beaa1a963786b187f93cbcbac6fe224ec94126276ef42905d1",
       "asset_format": "svg",
-      "asset_sha256": "a339da8943846856d6466badf87847c575653032c25096d88251de64cd71753b",
+      "asset_sha256": "92f967594cb4a27c60abebc8b15525f3ff53e1b21b0480b92d2e395680c70a41",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -366,7 +367,7 @@
       "renderer": "X35DualYColumnRenderer",
       "fixture_sha256": "687b408f82dd4aae3921ab8d9f99dce4f4d39ed3aa62b568ce3a7d7aadc3cd8c",
       "asset_format": "svg",
-      "asset_sha256": "9375cd18575fa4b8b97f63aee7a1a3a2670ed53a5c964d76dd267100b6dbf981",
+      "asset_sha256": "9a0c005df5f2101b27f848697ff7527757b8533d5ed82fd88cd53fa8fc6ce659",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -378,7 +379,7 @@
       "renderer": "X36DualYColumnLineRenderer",
       "fixture_sha256": "1fd6f0f83ac55cd4a94bb55b507a8fa9a7a876aa710de4ba3f7e227e956a3cb3",
       "asset_format": "svg",
-      "asset_sha256": "7db0c0d460a323641266f3b6d9c4a9f1483f9d0b87b3952b66169542e42eeb5c",
+      "asset_sha256": "d508f7653148dca9da8705e01ea997f824e1a887161248d3f42fa1bc02ddbbb6",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -390,7 +391,7 @@
       "renderer": "X38OffsetStackRenderer",
       "fixture_sha256": "479c4a250414552cf3e452f10779b815bc090eb3334307f96a61e4dc269ada76",
       "asset_format": "svg",
-      "asset_sha256": "4aaf9785279368112e21dc6228f6294e8b6d2db36a1cc485c5ade2d2ffe438d8",
+      "asset_sha256": "5a0adfbf379871a3bbbdc98603592d1ea24e7a743bd2914504b0d97b779e0abe",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -402,7 +403,7 @@
       "renderer": "X39LineSeriesRenderer",
       "fixture_sha256": "6c6ffd45127895fb3dba8c0e3ffc6d937795e85533f39cb120bf847778c541a5",
       "asset_format": "svg",
-      "asset_sha256": "1da0b20263b83dc504d94fea58592ff8d2b31691ed201a814f0db7795ea5ed8a",
+      "asset_sha256": "c1adbf2777bfeb7974a6b221a00f2bcfbcce4de815477eb4936edfc36b5dce1a",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
@@ -414,7 +415,7 @@
       "renderer": "X40BeforeAfterRenderer",
       "fixture_sha256": "d938baf6d2d7088340b0bf785ca5ef0db2f255bba5ceb80d1074e29ff611f280",
       "asset_format": "svg",
-      "asset_sha256": "9edff838984f6a7a521f1e823d15d34ad356c37915d125cd409acf8deaa27432",
+      "asset_sha256": "b14e2b2f06ba480930d0bdf43780e06574270db218c0660b96416f431b0771c7",
       "preview_emphasis": "none",
       "width": 1024,
       "height": 768
