@@ -4407,6 +4407,10 @@ input[type="checkbox"] {
   line-height: 1.5;
 }
 
+.product-notice p {
+  white-space: pre-line;
+}
+
 .product-notice {
   width: 100%;
   border: 1px solid var(--border);

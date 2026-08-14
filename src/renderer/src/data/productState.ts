@@ -829,7 +829,11 @@ export interface ImportSummary {
   committedCount: number
   attentionCount: number
   failedCount: number
+  committedFiles: string[]
+  attentionFiles: string[]
   failedFiles: string[]
+  attentionDetails: string[]
+  failedDetails: string[]
 }
 
 export function readImportSummary(value: JsonValue): ImportSummary {
@@ -838,18 +842,44 @@ export function readImportSummary(value: JsonValue): ImportSummary {
       .includes(record.kind as string)
   ))
   const committedCount = entries.filter((entry) => entry.kind === 'committed' || entry.kind === 'imported').length
-  const attentionCount = entries.filter((entry) => entry.kind === 'clarification' || entry.kind === 'needs_input').length
+  const committed = entries.filter((entry) => entry.kind === 'committed' || entry.kind === 'imported')
+  const attention = entries.filter((entry) => entry.kind === 'clarification' || entry.kind === 'needs_input')
   const failed = entries.filter((entry) => ['rejection', 'rejected', 'failed'].includes(entry.kind as string))
+  const selectedContainer = records(value, (record) => Array.isArray(record.selected_files)).at(0)
+  const selectedFiles = selectedContainer !== undefined && Array.isArray(selectedContainer.selected_files)
+    ? selectedContainer.selected_files.flatMap((item) => typeof item === 'string' ? [item] : [])
+    : []
+  const fileName = (entry: JsonRecord): string | undefined => (
+    typeof entry.source_file_name === 'string' ? entry.source_file_name : undefined
+  )
+  const issueMessage = (entry: JsonRecord): string => {
+    const candidate = records(entry, (record) => ['question', 'message', 'reason', 'remediation'].some((key) => typeof record[key] === 'string')).at(0)
+    return candidate === undefined
+      ? '未返回可显示的处理原因。'
+      : stringValue(candidate, 'question', 'message', 'reason', 'remediation') ?? '未返回可显示的处理原因。'
+  }
+  const reportedFiles = new Set(entries.flatMap((entry) => fileName(entry) ?? []))
+  const unreportedFiles = selectedFiles.filter((name) => !reportedFiles.has(name))
+  const committedFiles = committed.flatMap((entry) => fileName(entry) ?? [])
+  const attentionFiles = attention.flatMap((entry) => fileName(entry) ?? [])
+  const rejectedFiles = failed.flatMap((entry) => fileName(entry) ?? [])
   return {
-    fileCount: entries.length,
+    fileCount: selectedFiles.length || entries.length,
     committedCount,
-    attentionCount,
-    failedCount: failed.length,
-    failedFiles: failed.flatMap((entry) => typeof entry.source_file_name === 'string' ? [entry.source_file_name] : []),
+    attentionCount: attention.length,
+    failedCount: failed.length + unreportedFiles.length,
+    committedFiles,
+    attentionFiles,
+    failedFiles: [...rejectedFiles, ...unreportedFiles],
+    attentionDetails: attention.map((entry) => `${fileName(entry) ?? '所选文件'}：${issueMessage(entry)}`),
+    failedDetails: [
+      ...failed.map((entry) => `${fileName(entry) ?? '所选文件'}：${issueMessage(entry)}`),
+      ...unreportedFiles.map((name) => `${name}：未返回处理结果，请重试。`),
+    ],
   }
 }
 
 export function resultMessage(value: JsonValue): string | undefined {
-  const candidate = records(value, (record) => ['prompt', 'message', 'reason'].some((key) => typeof record[key] === 'string')).at(0)
-  return candidate === undefined ? undefined : stringValue(candidate, 'prompt', 'message', 'reason')
+  const candidate = records(value, (record) => ['prompt', 'question', 'message', 'reason', 'remediation'].some((key) => typeof record[key] === 'string')).at(0)
+  return candidate === undefined ? undefined : stringValue(candidate, 'prompt', 'question', 'message', 'reason', 'remediation')
 }

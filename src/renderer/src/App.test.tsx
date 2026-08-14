@@ -750,6 +750,7 @@ describe('PlotAgent real desktop workflow', () => {
     const user = userEvent.setup()
     installApi(fakeDesktop({
       importDatasets: vi.fn(async () => ok({
+        selected_files: ['有效数据.xlsx', '损坏数据.txt', '未回执.dat'],
         imports: [
           {
             kind: 'committed',
@@ -768,6 +769,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(await screen.findByRole('heading', { name: '有效数据.xlsx > Sheet 1' })).toBeInTheDocument()
     expect(screen.getByText('部分文件未导入')).toBeInTheDocument()
     expect(screen.getByText(/未导入：损坏数据.txt/)).toBeInTheDocument()
+    expect(screen.getByText(/未导入：未回执.dat：未返回处理结果，请重试。/)).toBeInTheDocument()
   })
 
   it('prevents a second import while the first import request is pending', async () => {
@@ -794,11 +796,14 @@ describe('PlotAgent real desktop workflow', () => {
     ['rejection', { kind: 'rejection', message: '文件中没有可识别的数值数据块。' }, '数据未导入'],
   ])('renders an actionable import %s instead of fake data', async (_kind, result, expectedTitle) => {
     const user = userEvent.setup()
-    installApi(fakeDesktop({ importDatasets: vi.fn(async () => ok(result)) }))
+    const importDatasets = vi.fn(async () => ok(result))
+    installApi(fakeDesktop({ importDatasets }))
     render(<App />)
     await user.click(await screen.findByRole('button', { name: /^导入/ }))
     expect(await screen.findByText(expectedTitle)).toBeInTheDocument()
     expect(screen.queryByText('source:temperature')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '重新选择文件' }))
+    expect(importDatasets).toHaveBeenCalledTimes(2)
   })
 
   it('keeps the three entry points visible but disabled while Core is offline', async () => {

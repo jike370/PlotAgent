@@ -233,6 +233,8 @@ def _typed_count(cells: tuple[str, ...], decimal_mark: str) -> int:
 def _header_index(
     group: tuple[_TableLine, ...], decimal_mark: str, requested: int | None
 ) -> tuple[int | None, int]:
+    if requested == 0:
+        return None, 0
     if requested is not None:
         for index, row in enumerate(group):
             if row.line.number == requested:

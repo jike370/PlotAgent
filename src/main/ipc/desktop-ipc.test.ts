@@ -4,6 +4,8 @@ import { InMemoryResourceRegistry } from '../single-instance-routing.js'
 import type { PythonCoreSupervisor } from '../core/python-supervisor.js'
 import {
   AGENT_DECIDE_REQUEST_TIMEOUT_MS,
+  importOptionLabel,
+  importOptionPatch,
   normalizeOriginStatus,
   ORIGIN_EXPORT_REQUEST_TIMEOUT_MS,
   ORIGIN_STATUS_REQUEST_TIMEOUT_MS,
@@ -11,11 +13,36 @@ import {
   requestAgentDecision,
   requestOriginExport,
   requestPlotList,
+  readImportClarification,
   sanitizeCoreResult,
   withImportSourceIdentity,
 } from './desktop-ipc.js'
 
 describe('desktop product IPC boundary', () => {
+  it('turns supported import clarifications into safe retry options', () => {
+    expect(readImportClarification({
+      kind: 'clarification',
+      code: 'IMPORT_DELIMITER_AMBIGUOUS',
+      question: '请选择分隔符。',
+      options: [
+        { value: ',', label: ',' },
+        { value: '\t', label: '\t' },
+      ],
+    })).toEqual({
+      code: 'IMPORT_DELIMITER_AMBIGUOUS',
+      question: '请选择分隔符。',
+      options: [
+        { value: ',', label: ',' },
+        { value: '\t', label: '\t' },
+      ],
+    })
+    expect(importOptionPatch('IMPORT_DELIMITER_AMBIGUOUS', '\t')).toEqual({ delimiter: '\t' })
+    expect(importOptionLabel('IMPORT_DELIMITER_AMBIGUOUS', '\t', '\t')).toBe('制表符（Tab）')
+    expect(importOptionPatch('IMPORT_HEADER_AMBIGUOUS', 'line:3')).toEqual({ header_row: 3 })
+    expect(importOptionPatch('IMPORT_HEADER_AMBIGUOUS', 'none')).toEqual({ header_row: 0 })
+    expect(importOptionPatch('IMPORT_REGION_AMBIGUOUS', 'A1:B3')).toBeUndefined()
+  })
+
   it('replaces Core artifact paths with random registered resources', () => {
     const registry = new InMemoryResourceRegistry()
     const result = sanitizeCoreResult({

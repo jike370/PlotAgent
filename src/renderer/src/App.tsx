@@ -482,19 +482,30 @@ export function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [createNewProject, libraryOpen, providerOpen, screen, tasksOpen])
 
-  const importIntoProject = async (targetProject: ProductProject): Promise<void> => {
+  async function importIntoProject(targetProject: ProductProject): Promise<void> {
     if (!api) return
     const value = valueOrThrow(await api.importDatasets({ projectId: targetProject.projectId }))
     const summary = readImportSummary(value)
     const importKind = resultKind(value)
     const imported = readDatasets(value)
     if (imported.length === 0 && (summary.attentionCount > 0 || importKind === 'clarification' || importKind === 'needs_input')) {
-      setNotice({ kind: 'warning', title: '导入需要确认', message: resultMessage(value) ?? 'Core 无法唯一确定表头、分隔符或小数格式，请按提示重新导入。' })
+      setNotice({
+        kind: 'warning',
+        title: '导入需要确认',
+        message: summary.attentionDetails.join('\n') || resultMessage(value) || '无法唯一确定表头、分隔符或小数格式。',
+        actionLabel: '重新选择文件',
+        onAction: () => { retryImportIntoProject(targetProject) },
+      })
       return
     }
     if (imported.length === 0 && (summary.failedCount > 0 || importKind === 'rejection' || importKind === 'rejected' || importKind === 'failed')) {
-      const failedNames = summary.failedFiles.length > 0 ? `：${summary.failedFiles.join('、')}` : ''
-      setNotice({ kind: 'error', title: '数据未导入', message: resultMessage(value) ?? `所选文件均未导入${failedNames}。` })
+      setNotice({
+        kind: 'error',
+        title: '数据未导入',
+        message: summary.failedDetails.join('\n') || resultMessage(value) || '所选文件均未导入。',
+        actionLabel: '重新选择文件',
+        onAction: () => { retryImportIntoProject(targetProject) },
+      })
       return
     }
     setDatasets((current) => [...new Map([...current, ...imported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()])
@@ -507,11 +518,17 @@ export function App(): React.JSX.Element {
     setProject(nextProject); mergeProjects([nextProject])
     if (datasets.length === 0) { setConfirmedMapping(undefined); setPlot(undefined) }
     const partial = summary.failedCount > 0 || summary.attentionCount > 0
-    const failedNames = summary.failedFiles.length > 0 ? `；未导入：${summary.failedFiles.join('、')}` : ''
+    const outcomeLines = [
+      `已导入 ${summary.committedCount} 个文件，共 ${imported.length} 个工作表或数据块。`,
+      ...summary.attentionDetails.map((detail) => `待确认：${detail}`),
+      ...summary.failedDetails.map((detail) => `未导入：${detail}`),
+    ]
     setNotice(partial ? {
       kind: 'warning',
       title: '部分文件未导入',
-      message: `已导入 ${imported.length} 个数据表${failedNames}。`,
+      message: outcomeLines.join('\n'),
+      actionLabel: summary.attentionCount > 0 ? '继续处理' : '重新选择文件',
+      onAction: () => { retryImportIntoProject(targetProject) },
     } : {
       kind: 'success',
       title: '数据已导入',
@@ -519,6 +536,23 @@ export function App(): React.JSX.Element {
         ? `已载入 ${imported.length} 个内存示例数据集，可继续检查字段与界面流程。`
         : `已导入 ${summary.committedCount || 1} 个文件，共 ${imported.length} 个工作表或数据块。`,
     })
+  }
+
+  function retryImportIntoProject(targetProject: ProductProject): void {
+    if (!api || importInFlight.current) return
+    importInFlight.current = true
+    setBusyAction('import')
+    setNotice(undefined)
+    void importIntoProject(targetProject)
+      .then(refreshProjects)
+      .catch((error: unknown) => {
+        if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'DIALOG_CANCELLED') setNotice(undefined)
+        else setNotice(errorNotice(error))
+      })
+      .finally(() => {
+        importInFlight.current = false
+        setBusyAction(undefined)
+      })
   }
 
   const openSample = async (): Promise<void> => {

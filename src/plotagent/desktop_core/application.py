@@ -1106,7 +1106,7 @@ class DesktopApplication:
                 encoding=_optional_text(options.get("encoding"), "encoding"),
                 delimiter=_optional_text(options.get("delimiter"), "delimiter"),
                 decimal_mark=_optional_text(options.get("decimal_mark"), "decimal_mark"),
-                header_row=_optional_integer(options.get("header_row"), "header_row", minimum=1),
+                header_row=_optional_integer(options.get("header_row"), "header_row", minimum=0),
                 sheet=_optional_text(options.get("sheet"), "sheet"),
                 expected_revision=commit_revision,
                 idempotency_key=key,

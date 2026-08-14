@@ -6,6 +6,7 @@ import { readDatasets, readImportSummary, readPlot, readPlots } from './productS
 describe('product plot state', () => {
   it('prefers file and worksheet identity and summarizes per-file import outcomes', () => {
     const value: JsonValue = {
+      selected_files: ['仪器记录.xlsx', '损坏.csv'],
       imports: [
         {
           kind: 'committed',
@@ -39,7 +40,36 @@ describe('product plot state', () => {
       committedCount: 1,
       attentionCount: 0,
       failedCount: 1,
+      committedFiles: ['仪器记录.xlsx'],
+      attentionFiles: [],
       failedFiles: ['损坏.csv'],
+      attentionDetails: [],
+      failedDetails: ['损坏.csv：无法解析'],
+    })
+  })
+
+  it('accounts for every selected import file and keeps clarification details actionable', () => {
+    expect(readImportSummary({
+      selected_files: ['清晰.csv', '待确认.txt', '无回执.dat'],
+      imports: [
+        { kind: 'committed', source_file_name: '清晰.csv', datasets: [] },
+        {
+          kind: 'clarification',
+          source_file_name: '待确认.txt',
+          question: '请选择分隔符。',
+          options: [{ value: ',', label: ',' }, { value: ';', label: ';' }],
+        },
+      ],
+    })).toEqual({
+      fileCount: 3,
+      committedCount: 1,
+      attentionCount: 1,
+      failedCount: 1,
+      committedFiles: ['清晰.csv'],
+      attentionFiles: ['待确认.txt'],
+      failedFiles: ['无回执.dat'],
+      attentionDetails: ['待确认.txt：请选择分隔符。'],
+      failedDetails: ['无回执.dat：未返回处理结果，请重试。'],
     })
   })
 

@@ -242,6 +242,9 @@ def _typed_count(row: tuple[Scalar, ...]) -> int:
 def _header(
     sheet: _SheetMatrix, region: _Region, requested: int | None
 ) -> tuple[tuple[str, ...], int | None, int]:
+    if requested == 0:
+        width = region.end_col - region.start_col + 1
+        return tuple(f"column_{index}" for index in range(1, width + 1)), None, region.start_row
     first = _row_values(sheet, region, region.start_row)
     second = _row_values(sheet, region, region.start_row + 1)
     if requested is not None:

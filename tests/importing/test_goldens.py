@@ -92,3 +92,25 @@ def test_manifest_has_approximately_thirty_fixed_oracles() -> None:
     assert manifest["schema_version"] == "import-golden-manifest-v1"
     assert 30 <= len(manifest["fixtures"]) <= 36
     assert len({fixture["id"] for fixture in manifest["fixtures"]}) == len(manifest["fixtures"])
+
+
+@pytest.mark.parametrize(
+    "filename,expected_rows",
+    [
+        ("clarify_header.csv", 3),
+        ("excel_header_ambiguous.xlsx", 3),
+    ],
+)
+def test_explicit_no_header_keeps_the_first_candidate_row(
+    filename: str,
+    expected_rows: int,
+) -> None:
+    result = inspect_source(FILES_ROOT / filename, header_row=0)
+
+    assert isinstance(result, Imported)
+    assert len(result.sources) == 1
+    source = result.sources[0]
+    assert source.recipe.header_row is None
+    assert source.recipe.column_names == ("column_1", "column_2")
+    assert len(source.rows) == expected_rows
+    assert source.rows[0] == ("alpha", "beta")

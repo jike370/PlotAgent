@@ -339,8 +339,8 @@ function MappingObject({
   const assignedRole = (fieldId: string): MappingRole | undefined => roles.find((role) => values[role.role] === fieldId)
   const closePicker = useCallback((restoreFocus = false): void => {
     const trigger = picker ? triggerRefs.current.get(picker.fieldId) : undefined
+    if (restoreFocus) trigger?.focus()
     setPicker(undefined)
-    if (restoreFocus) window.requestAnimationFrame(() => trigger?.focus())
   }, [picker])
   const openPicker = (fieldId: string): void => {
     const trigger = triggerRefs.current.get(fieldId)

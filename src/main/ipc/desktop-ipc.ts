@@ -44,7 +44,52 @@ const PRIVATE_RESULT_KEY = /(?:path|secret|token|credential|api[_-]?key)/i
 const ARTIFACT_PATH_KEY = /^(?:artifact|preview|output)_path$/i
 const ABSOLUTE_PATH_VALUE = /^(?:[A-Za-z]:[\\/]|\\\\|file:\/\/)/i
 
-type DesktopDialog = Pick<Dialog, 'showOpenDialog' | 'showSaveDialog'>
+type DesktopDialog = Pick<Dialog, 'showMessageBox' | 'showOpenDialog' | 'showSaveDialog'>
+
+export interface ImportClarificationChoice {
+  readonly code: string
+  readonly question: string
+  readonly options: ReadonlyArray<{ readonly value: string; readonly label: string }>
+}
+
+export function readImportClarification(value: JsonValue): ImportClarificationChoice | undefined {
+  if (value === null || Array.isArray(value) || typeof value !== 'object') return undefined
+  if (value.kind !== 'clarification' || typeof value.code !== 'string' || typeof value.question !== 'string' || !Array.isArray(value.options)) return undefined
+  const options = value.options.flatMap((item) => (
+    item !== null && !Array.isArray(item) && typeof item === 'object' &&
+    typeof item.value === 'string' && typeof item.label === 'string'
+      ? [{ value: item.value, label: item.label }]
+      : []
+  ))
+  return options.length === 0 ? undefined : { code: value.code, question: value.question, options }
+}
+
+export function importOptionPatch(code: string, value: string): Record<string, JsonValue> | undefined {
+  if (code === 'IMPORT_DELIMITER_AMBIGUOUS') return { delimiter: value === 'TAB' || value === '\t' ? '\t' : value }
+  if (code === 'IMPORT_DECIMAL_AMBIGUOUS') return { decimal_mark: value }
+  if (code === 'IMPORT_HEADER_AMBIGUOUS') {
+    if (value === 'none') return { header_row: 0 }
+    const match = /^line:(\d+)$/.exec(value)
+    return match === null ? undefined : { header_row: Number(match[1]) }
+  }
+  return undefined
+}
+
+export function importOptionLabel(code: string, value: string, fallback: string): string {
+  if (code === 'IMPORT_DELIMITER_AMBIGUOUS') {
+    if (value === ',') return '逗号（,）'
+    if (value === ';') return '分号（;）'
+    if (value === 'TAB' || value === '\t') return '制表符（Tab）'
+    if (value === '|') return '竖线（|）'
+  }
+  if (code === 'IMPORT_HEADER_AMBIGUOUS') {
+    if (value === 'none') return '无表头'
+    const match = /^line:(\d+)$/.exec(value)
+    if (match !== null) return `第 ${match[1]} 行作为表头`
+  }
+  if (code === 'IMPORT_DECIMAL_AMBIGUOUS') return value === ',' ? '逗号小数' : '句点小数'
+  return fallback
+}
 
 export interface RegisterDesktopIpcOptions {
   readonly ipcMain: IpcMain
@@ -599,13 +644,36 @@ export function registerDesktopIpc({
     for (const path of choice.filePaths) {
       try {
         const resource = resources.registerFile(path, 'import-source')
-        const result = await supervisor.request('datasets.import', {
-          project_id: input.projectId,
-          resource_id: resource.resourceId,
-          source_path: path,
-          idempotency_key: `dataset-import:${randomUUID()}`,
-          expected_version: expectedVersion,
-        })
+        let options: Record<string, JsonValue> = {}
+        let result: JsonValue = null
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          result = await supervisor.request('datasets.import', {
+            project_id: input.projectId,
+            resource_id: resource.resourceId,
+            source_path: path,
+            idempotency_key: `dataset-import:${randomUUID()}`,
+            expected_version: expectedVersion,
+            options,
+          })
+          const clarification = readImportClarification(result)
+          if (clarification === undefined) break
+          const patches = clarification.options.map((option) => importOptionPatch(clarification.code, option.value))
+          if (patches.some((patch) => patch === undefined)) break
+          const labels = clarification.options.map((option) => importOptionLabel(clarification.code, option.value, option.label))
+          const cancelId = labels.length
+          const answer = await dialog.showMessageBox(owner, {
+            type: 'question',
+            title: '确认导入规则',
+            message: clarification.question,
+            detail: `文件：${basename(path)}\n选择后继续本次导入，不会创建临时数据表。`,
+            buttons: [...labels, '暂不导入'],
+            defaultId: 0,
+            cancelId,
+            noLink: true,
+          })
+          if (answer.response === cancelId) break
+          options = { ...options, ...patches[answer.response] }
+        }
         const identified = withImportSourceIdentity(result, basename(path))
         rememberDatasetIdentities(input.projectId, identified)
         imported.push(identified)
@@ -623,7 +691,14 @@ export function registerDesktopIpc({
         })
       }
     }
-    return { ok: true, value: sanitizeCoreResult({ imports: imported, project_version: expectedVersion }, resources) }
+    return {
+      ok: true,
+      value: sanitizeCoreResult({
+        imports: imported,
+        project_version: expectedVersion,
+        selected_files: choice.filePaths.map((path) => basename(path)),
+      }, resources),
+    }
   })
   ipcMain.handle(IPC_CHANNELS.datasetList, async (_event, value: unknown) => {
     const input = parseProjectIdInput(value)
