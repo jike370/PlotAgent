@@ -95,6 +95,7 @@ OUTPUT = REPOSITORY / "src" / "renderer" / "src" / "assets" / "chart-previews"
 EXPECTED_SIZE = (1024, 576)
 SVG_NAMESPACE = "http://www.w3.org/2000/svg"
 XLINK_NAMESPACE = "http://www.w3.org/1999/xlink"
+XLINK_HREF = f"{{{XLINK_NAMESPACE}}}href"
 ET.register_namespace("", SVG_NAMESPACE)
 ET.register_namespace("xlink", XLINK_NAMESPACE)
 
@@ -304,7 +305,75 @@ def _expanded_view_box(
     return x, y, width, height
 
 
-def _simplify_svg(source: Path, destination: Path) -> None:
+def _scale_marker_definition(path: ET.Element, factor: float) -> None:
+    number = re.compile(r"(?<![A-Za-z])[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?")
+
+    def scaled(match: re.Match[str]) -> str:
+        return f"{float(match.group()) * factor:.6f}".rstrip("0").rstrip(".")
+
+    path.attrib["d"] = number.sub(scaled, path.attrib["d"])
+
+
+def _apply_preview_emphasis(profile_id: str, root: ET.Element) -> str:
+    if profile_id in {"K02", "K03"}:
+        marker_groups = [
+            element
+            for element in root.iter()
+            if _element_id(element).startswith(
+                ("line2d_", "PathCollection_")
+            )
+        ]
+        marker_uses = [
+            element
+            for group in marker_groups
+            for element in group.iter()
+            if element.tag.endswith("use")
+        ]
+        marker_ids = {
+            href.removeprefix("#")
+            for marker in marker_uses
+            if (href := marker.attrib.get(XLINK_HREF, "")).startswith("#")
+        }
+        for path in root.iter():
+            if _element_id(path) in marker_ids and "d" in path.attrib:
+                _scale_marker_definition(path, 1.8)
+                path.attrib["style"] = "fill: #1676d2; stroke: #1676d2"
+        for marker in marker_uses:
+            marker.attrib["style"] = "fill: #1676d2; stroke: #1676d2"
+        return "markers enlarged 1.8x and unified to the primary series color"
+
+    if profile_id == "K04":
+        bubble_group = next(
+            (
+                element
+                for element in root.iter()
+                if _element_id(element) == "PathCollection_1"
+            ),
+            None,
+        )
+        if bubble_group is None:
+            raise RuntimeError("K04 preview has no bubble collection")
+        bubbles = [element for element in bubble_group if element.tag.endswith("path")]
+        scales = (1.35, 1.65, 1.95, 2.25)
+        if len(bubbles) != len(scales):
+            raise RuntimeError(f"K04 preview expected 4 bubbles, got {len(bubbles)}")
+        coordinate = re.compile(r"[-+]?(?:\d*\.\d+|\d+\.?)")
+        for bubble, scale in zip(bubbles, scales, strict=True):
+            values = [float(value) for value in coordinate.findall(bubble.attrib["d"])]
+            x_values = values[0::2]
+            y_values = values[1::2]
+            center_x = (min(x_values) + max(x_values)) / 2
+            center_y = (min(y_values) + max(y_values)) / 2
+            bubble.attrib["transform"] = (
+                f"translate({center_x:.6f} {center_y:.6f}) scale({scale}) "
+                f"translate({-center_x:.6f} {-center_y:.6f})"
+            )
+        return "bubble radii progressively enlarged from 1.35x to 2.25x"
+
+    return "none"
+
+
+def _simplify_svg(source: Path, destination: Path, profile_id: str) -> str:
     """Reduce a full chart to its recognisable geometry for a library card."""
 
     tree = ET.parse(source)
@@ -373,7 +442,9 @@ def _simplify_svg(source: Path, destination: Path) -> None:
             "preserveAspectRatio": "xMidYMid meet",
         }
     )
+    emphasis = _apply_preview_emphasis(profile_id, root)
     tree.write(destination, encoding="utf-8", xml_declaration=True)
+    return emphasis
 
 
 def _write_audit_page(entries: list[dict[str, object]]) -> Path:
@@ -465,7 +536,7 @@ def main() -> None:
         document, actions = _default_state(case)
         renderer = RENDERERS[case.profile_id]
         renderer.render(document, actions, case.view, raw_png, raw_svg)
-        _simplify_svg(raw_svg, preview)
+        emphasis = _simplify_svg(raw_svg, preview, case.profile_id)
         raw_png.unlink(missing_ok=True)
         raw_svg.unlink(missing_ok=True)
         width, height = EXPECTED_SIZE
@@ -478,6 +549,7 @@ def main() -> None:
                 "fixture_sha256": _fixture_sha(case.view),
                 "asset_format": "svg",
                 "asset_sha256": _sha(preview),
+                "preview_emphasis": emphasis,
                 "width": width,
                 "height": height,
             }

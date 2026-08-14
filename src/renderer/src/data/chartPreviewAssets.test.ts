@@ -22,6 +22,12 @@ describe('chart preview assets', () => {
     expect(previewManifest.source_policy).toContain('production Matplotlib default state')
     expect(previewManifest.simplification_policy).toContain('remove titles, axes')
     expect(previewManifest.entries.every((entry) => entry.asset_format === 'svg')).toBe(true)
+    const emphasisById = Object.fromEntries(
+      previewManifest.entries.map((entry) => [entry.profile_id, entry.preview_emphasis]),
+    )
+    expect(emphasisById.K02).toContain('markers enlarged')
+    expect(emphasisById.K03).toContain('markers enlarged')
+    expect(emphasisById.K04).toContain('bubble radii progressively enlarged')
   })
 
   it('fails closed instead of substituting a generic family image', () => {
