@@ -421,10 +421,10 @@
       "required_roles": [
         "x",
         "center",
-        "x_lower",
-        "x_upper",
-        "lower",
-        "upper"
+        "x_err_minus",
+        "x_err_plus",
+        "y_err_minus",
+        "y_err_plus"
       ]
     },
     {

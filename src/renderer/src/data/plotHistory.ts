@@ -18,7 +18,9 @@ const actionLabels: Record<string, string> = {
 
 function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValue; redo: JsonValue } | undefined {
   if (!isJsonRecord(value) || typeof value.operation !== 'string' || typeof value.target !== 'string') return undefined
-  const redo = Object.fromEntries(Object.entries(value).filter(([key]) => !['action_id', 'expected_plot_version'].includes(key)))
+  const redo = Object.fromEntries(Object.entries(value).filter(([key, fieldValue]) => (
+    !['action_id', 'expected_plot_version'].includes(key) && fieldValue !== null
+  )))
   if (value.operation === 'set_title' && typeof value.text === 'string') {
     return { undo: { operation: 'set_title', target: value.target, text: plot.plotTitle }, redo }
   }
@@ -51,7 +53,7 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
     } as const
     const undo: Record<string, JsonValue> = { operation: 'set_series_style', target: value.target }
     for (const [key, previous] of Object.entries(mappings)) {
-      if (!Object.hasOwn(value, key)) continue
+      if (!Object.hasOwn(value, key) || value[key] === null) continue
       if (previous === undefined) return undefined
       undo[key] = previous
     }

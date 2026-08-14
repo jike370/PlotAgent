@@ -31,7 +31,7 @@ import {
   type JsonValue,
 } from '../../shared/desktop-contract.js'
 import type { PythonCoreSupervisor } from '../core/python-supervisor.js'
-import type { PiAgentRuntime } from '../agent/pi-runtime.js'
+import { publicPiAgentError, type PiAgentRuntime } from '../agent/pi-runtime.js'
 import type { AppCloseController } from '../lifecycle/app-close-controller.js'
 import type { ResourceRegistry } from '../single-instance-routing.js'
 import { isTaskCancellable, type TaskTracker } from '../tasks/task-state.js'
@@ -800,7 +800,10 @@ export function registerDesktopIpc({
           ? {} : { selected_profile_id: input.selectedChartId }),
         ...(input.target === undefined ? {} : { target_plot_id: input.target.id }),
       }).then((result) => ({ ok: true, value: sanitizeCoreResult(result, resources) } satisfies DesktopDataResult))
-        .catch((error: unknown) => ({ ok: false, error: supervisor.toPublicResult(error) } satisfies DesktopDataResult))
+        .catch((error: unknown) => ({
+          ok: false,
+          error: publicPiAgentError(error) ?? supervisor.toPublicResult(error),
+        } satisfies DesktopDataResult))
   })
 
   for (const [channel, method] of [

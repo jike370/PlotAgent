@@ -113,14 +113,14 @@ def _case(
         (
             K06PointErrorRenderer(),
             "K06",
-            ("x", "center", "x_lower", "x_upper", "lower", "upper"),
+            ("x", "center", "x_err_minus", "x_err_plus", "y_err_minus", "y_err_plus"),
             (
                 _column("field:x", "Time", (1.0, 2.0, 3.0)),
                 _column("field:center", "Estimate", (2.0, 3.0, 4.0)),
-                _column("field:xl", "X lower", (0.9, 1.8, 2.9)),
-                _column("field:xu", "X upper", (1.2, 2.3, 3.1)),
-                _column("field:lower", "Lower", (1.7, 2.6, 3.8)),
-                _column("field:upper", "Upper", (2.4, 3.5, 4.3)),
+                _column("field:xm", "XErrMinus", (0.1, 0.2, 0.1)),
+                _column("field:xp", "XErrPlus", (0.2, 0.3, 0.1)),
+                _column("field:ym", "YErrMinus", (0.3, 0.4, 0.2)),
+                _column("field:yp", "YErrPlus", (0.4, 0.5, 0.3)),
             ),
             "point_error_series",
         ),
@@ -181,19 +181,21 @@ def test_t1_family_renders_from_engine_data_without_legacy_resolver(
     assert "ResolvedPlot" not in source
 
 
-def test_k06_rejects_bounds_that_do_not_contain_the_point(tmp_path: Path) -> None:
+def test_k06_rejects_negative_error_magnitudes(tmp_path: Path) -> None:
     columns = (
         _column("field:x", "X", (1.0, 2.0)),
         _column("field:center", "Y", (2.0, 3.0)),
-        _column("field:xl", "X lower", (0.9, 2.2)),
-        _column("field:xu", "X upper", (1.1, 2.4)),
-        _column("field:lower", "Lower", (1.8, 2.7)),
-        _column("field:upper", "Upper", (2.2, 3.3)),
+        _column("field:xm", "XErrMinus", (0.1, -0.2)),
+        _column("field:xp", "XErrPlus", (0.1, 0.4)),
+        _column("field:ym", "YErrMinus", (0.2, 0.3)),
+        _column("field:yp", "YErrPlus", (0.2, 0.3)),
     )
     document, actions, view = _case(
-        "K06", ("x", "center", "x_lower", "x_upper", "lower", "upper"), columns
+        "K06",
+        ("x", "center", "x_err_minus", "x_err_plus", "y_err_minus", "y_err_plus"),
+        columns,
     )
-    with pytest.raises(ValueError, match="x_lower <= x <= x_upper"):
+    with pytest.raises(ValueError, match="error magnitudes must be non-negative"):
         K06PointErrorRenderer().render(
             document,
             actions,

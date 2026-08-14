@@ -2,7 +2,12 @@ import { createAssistantMessageEventStream, type AssistantMessage, type JsonValu
 import type { StreamFn } from '@earendil-works/pi-agent-core'
 import { describe, expect, it } from 'vitest'
 
-import { PiAgentRuntime, type PiAgentRuntimeEvent, type PiCoreBridge } from './pi-runtime.js'
+import {
+  PiAgentRuntime,
+  publicPiAgentError,
+  type PiAgentRuntimeEvent,
+  type PiCoreBridge,
+} from './pi-runtime.js'
 
 const decision = {
   decision_type: 'no_change',
@@ -222,6 +227,34 @@ describe('PiAgentRuntime', () => {
       project_id: 'project:test',
       client_model_run_id: 'model-run:no-decision',
     })).rejects.toMatchObject({ code: 'PI_DECISION_MISSING' })
+    expect(events.at(-1)?.stage).toBe('failed')
+  })
+
+  it('hard-stops a stalled model request and exposes a retryable timeout', async () => {
+    const events: PiAgentRuntimeEvent[] = []
+    const core: PiCoreBridge = {
+      request: async (method) => method === 'provider.runtime.get'
+        ? configuredProvider()
+        : preparedHandoff(),
+    }
+    const runtime = new PiAgentRuntime({
+      core,
+      emit: (event) => events.push(event),
+      streamFn: (() => createAssistantMessageEventStream()) as StreamFn,
+      timeoutMs: 5,
+    })
+
+    const error = await runtime.decide({
+      project_id: 'project:test',
+      client_model_run_id: 'model-run:timeout',
+    }).catch((caught: unknown) => caught)
+
+    expect(error).toMatchObject({ code: 'PI_MODEL_TIMEOUT' })
+    expect(publicPiAgentError(error)).toEqual({
+      code: 'CORE_REQUEST_TIMEOUT',
+      message: '模型响应超时，本轮没有修改项目。请重试。',
+      retryable: true,
+    })
     expect(events.at(-1)?.stage).toBe('failed')
   })
 

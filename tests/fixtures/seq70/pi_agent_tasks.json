@@ -29,8 +29,8 @@
       "rows": [[1, 2, "A"], [2, 3, "B"], [3, 5, "A"], [4, 7, "B"]]
     },
     "error_xy": {
-      "header": ["x", "center", "x_lower", "x_upper", "lower", "upper"],
-      "rows": [[1, 2, 0.8, 1.2, 1.6, 2.4], [2, 3, 1.7, 2.4, 2.5, 3.7], [3, 4, 2.6, 3.3, 3.4, 4.5]]
+      "header": ["x", "center", "x_err_minus", "x_err_plus", "y_err_minus", "y_err_plus"],
+      "rows": [[1, 2, 0.2, 0.2, 0.4, 0.4], [2, 3, 0.3, 0.4, 0.5, 0.7], [3, 4, 0.4, 0.3, 0.6, 0.5]]
     },
     "grouped": {
       "header": ["category", "group", "value"],
@@ -73,8 +73,8 @@
       "fixture": "error_xy",
       "target": "source",
       "selected_profile_id": "K06",
-      "instruction": "创建 K06 双向误差棒图：x→x，center→center，x_lower→x_lower，x_upper→x_upper，lower→lower，upper→upper。",
-      "expectation": {"decision_types": ["action_plan"], "operation": "create_plot", "profile_id": "K06", "bindings": {"x": "x_field", "center": "y_field", "x_lower": "field_2", "x_upper": "field_3", "lower": "field_4", "upper": "field_5"}}
+      "instruction": "创建 K06 双向误差棒图：x→x，center→center，x_err_minus→x_err_minus，x_err_plus→x_err_plus，y_err_minus→y_err_minus，y_err_plus→y_err_plus。",
+      "expectation": {"decision_types": ["action_plan"], "operation": "create_plot", "profile_id": "K06", "bindings": {"x": "x_field", "center": "y_field", "x_err_minus": "field_2", "x_err_plus": "field_3", "y_err_minus": "field_4", "y_err_plus": "field_5"}}
     },
     {
       "task_id": "D04",

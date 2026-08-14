@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import warnings
 from pathlib import Path
 
 from plotagent.engine import (
@@ -138,3 +139,64 @@ def test_k01_backend_source_does_not_import_legacy_rendering() -> None:
     assert "plotagent.rendering" not in source
     assert "PlotSpec" not in source
     assert "ResolvedPlot" not in source
+
+
+def test_k01_backend_uses_a_cjk_capable_font_for_title_and_field_names(
+    tmp_path: Path,
+) -> None:
+    class ChineseProvider:
+        def materialize(self, data, field_ids):
+            columns = {
+                "field:time": EngineColumn(
+                    field=EngineField(
+                        field_id="field:time",
+                        name="时间",
+                        logical_type="numeric",
+                        unit_label="秒",
+                    ),
+                    values=(1.0, 2.0, 3.0),
+                ),
+                "field:signal": EngineColumn(
+                    field=EngineField(
+                        field_id="field:signal",
+                        name="响应",
+                        logical_type="numeric",
+                        unit_label="毫伏",
+                    ),
+                    values=(2.0, 4.0, 8.0),
+                ),
+            }
+            return EngineDataView(
+                data=data,
+                row_ids=("row:1", "row:2", "row:3"),
+                columns=tuple(columns[field_id] for field_id in field_ids),
+            )
+
+    with ProjectStore.create(tmp_path / "project", project_id="project:k01-cjk") as project:
+        backend = MatplotlibBackend(tmp_path / "artifacts", (K01LineRenderer(),))
+        runtime = PlotEngineRuntime(
+            PlotEngineService(
+                EngineCatalog((K01_LINE_PROFILE,)),
+                PlotDocumentRepository(project),
+            ),
+            ChineseProvider(),
+            (backend,),
+        )
+        runtime.execute(_create())
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = runtime.execute(
+                SetTitle(
+                    action_id="action:title-cjk",
+                    target="plot:line-demo",
+                    expected_plot_version=1,
+                    text="中文标题：温度响应",
+                )
+            )
+
+        assert not [warning for warning in caught if "missing from font" in str(warning.message)]
+        version_dir = tmp_path / "artifacts" / "line-demo" / "v2"
+        assert (version_dir / "preview.png").stat().st_size > 1_000
+        svg = (version_dir / "preview.svg").read_text(encoding="utf-8")
+        assert "<!-- 中文标题：温度响应 -->" in svg
+        assert backend.readback(result.document).document.plot_version == 2

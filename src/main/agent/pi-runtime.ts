@@ -44,9 +44,36 @@ interface RuntimeProvider {
   readonly apiKey: string
 }
 
-class PiRuntimeError extends Error {
+export class PiRuntimeError extends Error {
   constructor(readonly code: string, message: string) {
     super(message)
+  }
+}
+
+export function publicPiAgentError(error: unknown): {
+  code: 'CORE_REQUEST_TIMEOUT' | 'CORE_REQUEST_FAILED'
+  message: string
+  retryable: boolean
+} | undefined {
+  if (!(error instanceof PiRuntimeError)) return undefined
+  if (error.code === 'PI_MODEL_TIMEOUT') {
+    return {
+      code: 'CORE_REQUEST_TIMEOUT',
+      message: '模型响应超时，本轮没有修改项目。请重试。',
+      retryable: true,
+    }
+  }
+  if (error.code === 'PI_RUN_SUPERSEDED') {
+    return {
+      code: 'CORE_REQUEST_FAILED',
+      message: '本轮请求已被更新的 Agent 请求替代。',
+      retryable: false,
+    }
+  }
+  return {
+    code: 'CORE_REQUEST_FAILED',
+    message: 'Agent 未能生成有效计划，本轮没有修改项目。请重试。',
+    retryable: true,
   }
 }
 
@@ -166,6 +193,7 @@ export class PiAgentRuntime {
     const generation = ++this.generation
     let agent: Agent | undefined
     let timeout: ReturnType<typeof setTimeout> | undefined
+    let timedOut = false
     try {
       this.emit(runId, projectId, 'preparing_context', '正在读取数据结构和图形能力…')
       const preparedValue = await this.core.request(
@@ -228,8 +256,16 @@ export class PiAgentRuntime {
         if (next !== undefined) this.emit(runId, projectId, next.stage, next.label)
       })
       this.active = { runId, generation, agent }
-      timeout = setTimeout(() => agent?.abort(), this.timeoutMs)
-      await agent.prompt(JSON.stringify({ context_envelope: prepared.contextEnvelope }))
+      await Promise.race([
+        agent.prompt(JSON.stringify({ context_envelope: prepared.contextEnvelope })),
+        new Promise<never>((_resolve, reject) => {
+          timeout = setTimeout(() => {
+            timedOut = true
+            agent?.abort()
+            reject(new PiRuntimeError('PI_MODEL_TIMEOUT', 'The model decision exceeded its fixed timeout.'))
+          }, this.timeoutMs)
+        }),
+      ])
       this.assertCurrent(generation)
       if (decisionCount > 1) {
         throw new PiRuntimeError('PI_MULTIPLE_DECISIONS', 'Only one decision is allowed.')
@@ -250,7 +286,7 @@ export class PiAgentRuntime {
     } catch (error: unknown) {
       const superseded = generation !== this.generation
       if (!superseded) {
-        const aborted = agent?.signal?.aborted === true
+        const aborted = !timedOut && agent?.signal?.aborted === true
         this.emit(
           runId,
           projectId,

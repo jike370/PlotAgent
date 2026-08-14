@@ -8,6 +8,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Literal, Protocol, cast
 
+import matplotlib
+
 from plotagent.engine.contracts import EngineDataView, PlotDocument, PlotEngineAction
 from plotagent.engine.ports import (
     EngineArtifact,
@@ -15,6 +17,43 @@ from plotagent.engine.ports import (
     EngineRenderSource,
     PlotBackendChange,
 )
+
+from .font import resolve_font_family
+
+
+def _visible_text(
+    document: PlotDocument,
+    actions: tuple[PlotEngineAction, ...],
+    data: EngineDataView,
+) -> tuple[str, ...]:
+    """Collect renderer-visible text before selecting one shared font.
+
+    Independent profile renderers draw titles, axis labels, annotations, field
+    names, units and categorical values.  Resolving the font once at the backend
+    boundary keeps all profiles on the same CJK-safe contract instead of relying
+    on each renderer to remember its own rc_context.
+    """
+
+    result: list[str] = [document.profile_id]
+
+    def collect(value: object) -> None:
+        if isinstance(value, str):
+            result.append(value)
+        elif isinstance(value, dict):
+            for nested in value.values():
+                collect(nested)
+        elif isinstance(value, (list, tuple)):
+            for nested in value:
+                collect(nested)
+
+    for action in actions:
+        collect(action.model_dump(mode="json"))
+    for column in data.columns:
+        result.append(column.field.name)
+        if column.field.unit_label is not None:
+            result.append(column.field.unit_label)
+        collect(column.values)
+    return tuple(result)
 
 
 class MatplotlibProfileRenderer(Protocol):
@@ -86,13 +125,20 @@ class MatplotlibBackend:
             renderer = self._renderers[document.profile_id]
         except KeyError as error:
             raise ValueError(f"no Matplotlib renderer for {document.profile_id}") from error
-        readback = renderer.render(
-            document,
-            actions,
-            source.data,
-            staging / "preview.png",
-            staging / "preview.svg",
-        )
+        font_family = resolve_font_family(_visible_text(document, actions, source.data))
+        with matplotlib.rc_context(
+            {
+                "font.family": font_family,
+                "axes.unicode_minus": False,
+            }
+        ):
+            readback = renderer.render(
+                document,
+                actions,
+                source.data,
+                staging / "preview.png",
+                staging / "preview.svg",
+            )
         (staging / "readback.json").write_text(readback.model_dump_json(indent=2), encoding="utf-8")
         final = self._version_dir(document)
         return _Change(staging, final, readback)

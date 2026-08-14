@@ -40,4 +40,19 @@ describe('plot history', () => {
     expect(plotHistoryEntry(plot, [{ operation: 'add_annotation', target: 'plot:one', text: 'x' }]))
       .toBeUndefined()
   })
+
+  it('ignores nullable optional fields emitted by an Agent style action', () => {
+    expect(plotHistoryEntry(plot, [{
+      operation: 'set_series_style',
+      target: 'series:one',
+      color: '#ff0000',
+      line_style: null,
+      line_width_pt: null,
+      symbol: null,
+      symbol_size_pt: null,
+    }])).toMatchObject({
+      undoActions: [{ operation: 'set_series_style', target: 'series:one', color: '#112233' }],
+      redoActions: [{ operation: 'set_series_style', target: 'series:one', color: '#ff0000' }],
+    })
+  })
 })

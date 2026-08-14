@@ -38,6 +38,10 @@ export function suggestedFieldMapping(
     series_3: ['series3'],
     size: ['size', 'bubble'],
     time: ['timestamp', 'datetime', 'date', 'time'],
+    x_err_minus: ['xerrminus', 'xerrorminus'],
+    x_err_plus: ['xerrplus', 'xerrorplus'],
+    y_err_minus: ['yerrminus', 'yerrorminus'],
+    y_err_plus: ['yerrplus', 'yerrorplus'],
   }
   const used = new Set<string>()
   const mapping: Record<string, string> = {}

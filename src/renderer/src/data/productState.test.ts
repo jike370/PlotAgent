@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { JsonValue } from '../../../shared/desktop-contract'
-import { readDatasets, readImportSummary, readPlot, readPlots } from './productState'
+import { readAgentPlan, readDatasets, readImportSummary, readPlot, readPlots } from './productState'
 
 describe('product plot state', () => {
   it('prefers file and worksheet identity and summarizes per-file import outcomes', () => {
@@ -162,5 +162,32 @@ describe('product plot state', () => {
       'plot:alpha@2',
     ])
     expect(plots.at(-1)?.chartId).toBe('K02')
+  })
+
+  it('derives the output plot for nested Agent targets with dotted plot ids', () => {
+    const plan = readAgentPlan({
+      project_version: 6,
+      plan_id: 'plan:set-y-log',
+      state: 'succeeded',
+      confirmation_state: 'confirmed',
+      next_action_index: 1,
+      proposal: {
+        actions: [{ action_id: 'action:set-y-log', operation: 'set_axis' }],
+      },
+      bound_plan: {
+        actions: [{
+          action_id: 'action:set-y-log',
+          operation: 'set_axis',
+          target: 'axis:agent.line_temp_response.1.y',
+          expected_plot_version: 4,
+          scale: 'log10',
+        }],
+      },
+    })
+
+    expect(plan?.steps[0]?.outputPlot).toEqual({
+      plotId: 'plot:agent.line_temp_response.1',
+      plotVersion: 5,
+    })
   })
 })

@@ -764,6 +764,36 @@ describe('PlotAgent real desktop workflow', () => {
     })
   })
 
+  it('maps K06 error-magnitude columns to explicit asymmetric error roles', () => {
+    const errorDataset = {
+      ...dataset,
+      fields: [
+        { fieldId: 'field:x', name: 'X', logicalType: 'numeric', physicalType: 'int64', unit: null },
+        { fieldId: 'field:y', name: 'Y', logicalType: 'numeric', physicalType: 'float64', unit: null },
+        { fieldId: 'field:xm', name: 'XErrMinus', logicalType: 'numeric', physicalType: 'float64', unit: null },
+        { fieldId: 'field:xp', name: 'XErrPlus', logicalType: 'numeric', physicalType: 'float64', unit: null },
+        { fieldId: 'field:ym', name: 'YErrMinus', logicalType: 'numeric', physicalType: 'float64', unit: null },
+        { fieldId: 'field:yp', name: 'YErrPlus', logicalType: 'numeric', physicalType: 'float64', unit: null },
+      ],
+    }
+
+    expect(suggestedFieldMapping([
+      { role: 'x', numeric: true, required: true },
+      { role: 'center', numeric: true, required: true },
+      { role: 'x_err_minus', numeric: true, required: true },
+      { role: 'x_err_plus', numeric: true, required: true },
+      { role: 'y_err_minus', numeric: true, required: true },
+      { role: 'y_err_plus', numeric: true, required: true },
+    ], errorDataset as never)).toEqual({
+      x: 'field:x',
+      center: 'field:y',
+      x_err_minus: 'field:xm',
+      x_err_plus: 'field:xp',
+      y_err_minus: 'field:ym',
+      y_err_plus: 'field:yp',
+    })
+  })
+
   it('keeps K19 datetime, value and long-series roles type safe', () => {
     const timeSeriesDataset = {
       ...dataset,

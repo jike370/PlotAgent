@@ -260,9 +260,13 @@ class PlotEngineService:
         if target.startswith("plot:"):
             return target
         # Nested semantic ids are globally stable and encode their owning plot
-        # after the kind prefix: ``series:<plot-token>.<series-token>``.
+        # after the kind prefix: ``series:<plot-token>.<series-token>``. Plot
+        # tokens may themselves contain dots (Agent-created ids intentionally
+        # use namespaced tokens), while semantic object keys never do. Split
+        # from the right so ``axis:agent.line_temp_response.1.y`` resolves to
+        # ``plot:agent.line_temp_response.1`` rather than ``plot:agent``.
         _, separator, value = target.partition(":")
-        owner, dot, _child = value.partition(".")
+        owner, dot, _child = value.rpartition(".")
         if not separator or not dot or not owner:
             raise EngineCommandError(
                 "nested semantic targets must encode their owning plot as kind:<plot>.<object>"

@@ -364,55 +364,43 @@ def xy_series(document: PlotDocument, data: EngineDataView, *, profile_id: str) 
 
 
 def k06_point_error(document: PlotDocument, data: EngineDataView) -> PointErrorData:
-    """Convert absolute asymmetric bounds to native X/Y error magnitudes."""
+    """Return the explicit asymmetric X/Y error magnitudes unchanged."""
 
-    x, center, x_lower, x_upper, lower, upper = _bound_columns(
+    x, center, x_err_minus, x_err_plus, y_err_minus, y_err_plus = _bound_columns(
         document,
         data,
-        ("x", "center", "x_lower", "x_upper", "lower", "upper"),
+        ("x", "center", "x_err_minus", "x_err_plus", "y_err_minus", "y_err_plus"),
         "K06",
     )
     x_values = _numeric_values(x, "x", "K06")
     center_values = _numeric_values(center, "center", "K06", allow_missing=True)
-    x_lower_values = _numeric_values(x_lower, "x_lower", "K06", allow_missing=True)
-    x_upper_values = _numeric_values(x_upper, "x_upper", "K06", allow_missing=True)
-    lower_values = _numeric_values(lower, "lower", "K06", allow_missing=True)
-    upper_values = _numeric_values(upper, "upper", "K06", allow_missing=True)
+    x_minus_errors = _numeric_values(x_err_minus, "x_err_minus", "K06", allow_missing=True)
+    x_plus_errors = _numeric_values(x_err_plus, "x_err_plus", "K06", allow_missing=True)
+    y_minus_errors = _numeric_values(y_err_minus, "y_err_minus", "K06", allow_missing=True)
+    y_plus_errors = _numeric_values(y_err_plus, "y_err_plus", "K06", allow_missing=True)
     for row, values in enumerate(
         zip(
-            x_values,
             center_values,
-            x_lower_values,
-            x_upper_values,
-            lower_values,
-            upper_values,
+            x_minus_errors,
+            x_plus_errors,
+            y_minus_errors,
+            y_plus_errors,
             strict=True,
         ),
         start=1,
     ):
         present = tuple(isfinite(value) for value in values)
         if any(present) and not all(present):
-            raise ValueError(f"K06 row {row} must provide center and all four bounds together")
-        x_value, middle, x_low, x_high, low, high = values
-        if all(present) and not (x_low <= x_value <= x_high and low <= middle <= high):
-            raise ValueError(
-                f"K06 row {row} must satisfy x_lower <= x <= x_upper and lower <= center <= upper"
-            )
+            raise ValueError(f"K06 row {row} must provide center and all four errors together")
+        if all(present) and any(value < 0 for value in values[1:]):
+            raise ValueError(f"K06 row {row} error magnitudes must be non-negative")
     return PointErrorData(
         x_values=x_values,
         center_values=center_values,
-        x_minus_errors=tuple(
-            value - bound for value, bound in zip(x_values, x_lower_values, strict=True)
-        ),
-        x_plus_errors=tuple(
-            bound - value for value, bound in zip(x_values, x_upper_values, strict=True)
-        ),
-        y_minus_errors=tuple(
-            value - bound for value, bound in zip(center_values, lower_values, strict=True)
-        ),
-        y_plus_errors=tuple(
-            bound - value for value, bound in zip(center_values, upper_values, strict=True)
-        ),
+        x_minus_errors=x_minus_errors,
+        x_plus_errors=x_plus_errors,
+        y_minus_errors=y_minus_errors,
+        y_plus_errors=y_plus_errors,
         x_field_name=x.field.name,
         center_field_name=center.field.name,
     )

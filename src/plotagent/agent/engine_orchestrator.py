@@ -21,7 +21,7 @@ from plotagent.agent.engine_client import (
     EngineAgentDecision,
     EngineAgentPlan,
 )
-from plotagent.agent.engine_decisions import InputQuestion, NeedsInput
+from plotagent.agent.engine_decisions import InputQuestion, NeedsInput, Unsupported
 from plotagent.agent.errors import AgentRuntimeError
 from plotagent.agent.providers import (
     ModelProvider,
@@ -75,6 +75,24 @@ def is_unspecified_chart_request(instruction: str) -> bool:
         "plotachart",
         "plotit",
     }
+
+
+def is_removed_composition_request(instruction: str) -> bool:
+    """Recognize requests for the removed multi-plot composition product surface."""
+
+    normalized = re.sub(r"\s+", "", instruction.casefold()).replace("_", "").replace("-", "")
+    return any(
+        marker in normalized
+        for marker in (
+            "组合图",
+            "合并图",
+            "图形拼接",
+            "拼接图",
+            "mergegraph",
+            "combineplots",
+            "compositefigure",
+        )
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,9 +277,23 @@ class EngineAgentOrchestrator:
             audit=failure_audit,
         )
 
-    def preflight(self, request: ContextBuildRequest) -> NeedsInput | None:
-        """Return a deterministic question before any model runtime is invoked."""
+    def preflight(self, request: ContextBuildRequest) -> NeedsInput | Unsupported | None:
+        """Return a deterministic bounded decision before any model runtime is invoked."""
         target = request.project.target
+        if is_removed_composition_request(request.user_instruction):
+            explanation = (
+                "当前产品不提供组合图或图形合并。请编辑单张已选图，或选择受支持的单图图类。"
+                if request.locale.casefold().startswith("zh")
+                else (
+                    "Plot composition and graph merging are not supported. "
+                    "Edit one selected plot or choose a supported single-plot chart type."
+                )
+            )
+            return Unsupported(
+                target_alias=target.object_alias,
+                category="profile_capability",
+                explanation=explanation,
+            )
         if target.object_type != "source_dataset":
             return None
         profiles = request.chart_capabilities.allowed_chart_type_ids

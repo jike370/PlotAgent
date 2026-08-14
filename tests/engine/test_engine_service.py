@@ -83,6 +83,27 @@ def test_service_builds_minimal_versions_from_public_actions(tmp_path: Path) -> 
         assert service.repository.actions("plot:demo")[1].action.operation == "set_axis"
 
 
+def test_service_resolves_nested_targets_for_namespaced_plot_ids(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:engine") as project:
+        service = PlotEngineService(_catalog(), PlotDocumentRepository(project))
+        created = _create(x="field:x", y="field:y").model_copy(
+            update={"plot_id": "plot:agent.line_temp_response.1"}
+        )
+        service.execute(created)
+
+        edited = service.execute(
+            SetAxis(
+                action_id="action:namespaced-y-log",
+                target="axis:agent.line_temp_response.1.y",
+                expected_plot_version=1,
+                scale="log10",
+            )
+        )
+
+        assert edited.plot_id == "plot:agent.line_temp_response.1"
+        assert edited.plot_version == 2
+
+
 def test_service_rejects_profile_role_and_capability_mismatches(tmp_path: Path) -> None:
     with ProjectStore.create(tmp_path / "project", project_id="project:engine") as project:
         service = PlotEngineService(_catalog(), PlotDocumentRepository(project))

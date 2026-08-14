@@ -739,9 +739,8 @@ function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
     const succeeded = index < nextActionIndex || state === 'succeeded'
     const failed = state === 'partially_failed' && index === nextActionIndex
     const running = state === 'running' && index === nextActionIndex
-    const plotId = stringValue(bound, 'plot_id')
-      ?? (typeof bound.target === 'string' && bound.target.startsWith('plot:')
-        ? bound.target : undefined)
+    const target = stringValue(bound, 'target')
+    const plotId = stringValue(bound, 'plot_id') ?? plotIdFromSemanticTarget(target)
     const outputVersion = bound.operation === 'create_plot'
       ? 1
       : typeof bound.expected_plot_version === 'number'
@@ -776,6 +775,15 @@ function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
     bindings,
     boundActions,
   }
+}
+
+function plotIdFromSemanticTarget(target: string | undefined): string | undefined {
+  if (target === undefined) return undefined
+  if (target.startsWith('plot:')) return target
+  const separator = target.indexOf(':')
+  const lastDot = target.lastIndexOf('.')
+  if (separator <= 0 || lastDot <= separator + 1) return undefined
+  return `plot:${target.slice(separator + 1, lastDot)}`
 }
 
 export function readAgentPlan(value: JsonValue): AgentPlanView | undefined {

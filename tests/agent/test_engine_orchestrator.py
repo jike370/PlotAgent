@@ -156,6 +156,27 @@ def test_unspecified_chart_is_asked_locally_without_model_call() -> None:
     assert provider.resolve_calls == provider.decide_calls == 0
 
 
+def test_removed_plot_composition_is_rejected_locally_without_model_call() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, snapshot = _request_and_snapshot()
+    request = replace(request, user_instruction="把当前图和另一张图创建成多面板组合图")
+
+    result = asyncio.run(
+        _runtime(provider).run(
+            client_model_run_id="run:removed-composition",
+            context_request=request,
+            project_context=snapshot,
+        )
+    )
+
+    assert result.accepted is True
+    assert result.decision is not None
+    assert result.decision.decision_type == "unsupported"
+    assert result.decision.category == "profile_capability"
+    assert "组合图" in result.decision.explanation
+    assert provider.resolve_calls == provider.decide_calls == 0
+
+
 def test_external_pi_decision_accepts_json_arrays_under_strict_contract() -> None:
     provider = FakeProvider(OutputCapability.P1, [])
     request, snapshot = _request_and_snapshot()

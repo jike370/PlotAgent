@@ -140,7 +140,14 @@ K04_BUBBLE_PROFILE = EngineProfile(
 K06_POINT_ERROR_PROFILE = EngineProfile(
     profile_id="K06",
     display_name="Point estimate and error bar",
-    required_roles=("x", "center", "x_lower", "x_upper", "lower", "upper"),
+    required_roles=(
+        "x",
+        "center",
+        "x_err_minus",
+        "x_err_plus",
+        "y_err_minus",
+        "y_err_plus",
+    ),
     optional_roles=("group",),
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),

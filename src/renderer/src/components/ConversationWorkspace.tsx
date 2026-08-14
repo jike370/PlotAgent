@@ -155,7 +155,7 @@ function mappingRoles(chart: ChartType): MappingRole[] {
   const labels: Record<string, string> = {
     middle: '中间界限',
     x: 'X', y: 'Y', z: 'Z', category: '类别', group: '分组', component: '组成', value: '数值',
-    center: '中心值', x_lower: 'X 下限', x_upper: 'X 上限', lower: '下限', upper: '上限', error: '误差', size: '大小', color: '颜色',
+    center: '中心值', x_err_minus: 'X 负误差', x_err_plus: 'X 正误差', y_err_minus: 'Y 负误差', y_err_plus: 'Y 正误差', lower: '下限', upper: '上限', error: '误差', size: '大小', color: '颜色',
     time: '时间', event: '事件', row: '行', column: '列', row_label: '行标签', column_label: '列标签',
     facet: '分面', base_x: '基础 X', base_y: '基础 Y', panel: '面板图', survival: '生存率', risk_count: '风险人数',
     dose: '剂量', response: '响应', parameter: '预计算参数', label: '标签', effect: '效应值', weight: '权重',
