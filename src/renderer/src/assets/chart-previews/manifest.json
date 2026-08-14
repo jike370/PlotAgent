@@ -1,0 +1,349 @@
+{
+  "schema_version": "plotagent.chart-library-previews.v1",
+  "source_commit": "8bc775efee014728eb8129b2224214862aa17e1e",
+  "source_policy": "production Matplotlib default state from representative engine fixtures",
+  "origin_qualification": "tracked separately by the native Origin renderer audit",
+  "count": 34,
+  "entries": [
+    {
+      "profile_id": "K01",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K01LineRenderer",
+      "fixture_sha256": "c94802f1385ba755b349aa63d1653385f03153e3c065ec2aa96717b8a42ab254",
+      "png_sha256": "9128986e19ed21a80da76702d8ec6744b19e802a858e5cd7904ee37b6cc61f72",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K02",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K02LineSymbolRenderer",
+      "fixture_sha256": "803c05a51250148b5f9e9c79d5078830e5c43dab1fdce6eebc8918f341267b21",
+      "png_sha256": "b792929193554763f80eac0c10a42d241d4dc9897a20aa1d32073a5118b589bf",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K03",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K03ScatterRenderer",
+      "fixture_sha256": "751098b99905d483b50cdf323b7628d5d5f314b8bc7792038e896e260f481628",
+      "png_sha256": "3a641c4e039cf068ed10fd9a9fcec889927e0d21af418f13048a6693c5ba851e",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K04",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K04BubbleRenderer",
+      "fixture_sha256": "c285b62be2de410d34415eeb40e1cf14fec55d78679bb6e287e6d4bf9e5d1f60",
+      "png_sha256": "252ddddea1e8f08a8c4274250dcde3b3d6fba15952407b0603857212b3c47fd7",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K06",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K06PointErrorRenderer",
+      "fixture_sha256": "36deb757fca8d39ae6db86027b98121c81be3cc82c3d9592202d094def969f0d",
+      "png_sha256": "e115768c9e986fd4c7b89d22e89cafc4a285acbcb5afaa31a6bb0904f1a2c6b6",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K07",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K07ErrorBandRenderer",
+      "fixture_sha256": "a88def21ac0e617c4fce6f641b663a57ce71f8889081479a103557e7f726df68",
+      "png_sha256": "795db555701b65da297813558dae9d1840f21ff7d0ec491fa1d756a834df70eb",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K08",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K08ColumnRenderer",
+      "fixture_sha256": "95591883abdd8d3d25dd8f29d3724d626799a949f6c6f7e0335c38ad5d1c43ec",
+      "png_sha256": "54a6c7268d80caedf06267c77217beb9a112cbd0d37e2983920550e1faf89499",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K09",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K09GroupedColumnRenderer",
+      "fixture_sha256": "f121e36c2c0e1d09d5aa1af52ba9174d576fe1e3a15f4cf2e95a4c24985a4aca",
+      "png_sha256": "94b258cbceeead2c67d915352cd5966d9e6992548f9ee805b8c497d2137e0bd9",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K10",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K10StackedColumnRenderer",
+      "fixture_sha256": "29df0a9b18fb7cdeb684dea058e065241af8c3b0cf9af90310ecf463c19238b3",
+      "png_sha256": "493cd1ccb400c2cf61ec25273982755b8e1665f8bfb8a4c58af2ffc72e08b4d3",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K11",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K11PercentStackRenderer",
+      "fixture_sha256": "a0cd44f0e3d894279aa0381bea542c0facd1e9e466e69bcf015d250c2e4cee9b",
+      "png_sha256": "59ba8a2b143f0496e1c1c356bb144e1c441cafc3b8520fbe9684aea3e1ed9f6e",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K12",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K12StripRenderer",
+      "fixture_sha256": "17e44d1c050c1ec0e7ed2b0cd1a96c31b6a93f4a6d893ed5501f8cf0e49f6171",
+      "png_sha256": "4de177f073fbf428004595e6c39166ffe65cfb1a04ea94689c376458d66ce672",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K13",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K13BoxRenderer",
+      "fixture_sha256": "2d639a99296e92b4ede34d1317185e01132ad95448dfdf2f6d63693dfe6840c4",
+      "png_sha256": "c97870307bfd49b1e873cd5056a9d59a1374922404a8e222662a7d78ada068f2",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K14",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K14ViolinRenderer",
+      "fixture_sha256": "eba457821892f3fe787badcf4bf710844a13f22e9d7c036dd3618ab882378194",
+      "png_sha256": "2b1dff24abc4509f2bf3df681cb24d6b8c76785f5c1ea44cb30a52954d610663",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K15",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K15HistogramRenderer",
+      "fixture_sha256": "f87118cc3803327046378683975846431bd4c31f469d6dca206421b4a660e9e3",
+      "png_sha256": "443dedcf25d474dbd4b95325c92b355fea7954b98714a1f70b06c367fc2f8f66",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K18",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K18AreaRenderer",
+      "fixture_sha256": "d160a165664eb4446ef4859f0de349f8bd02b114acaaafad1676f17b08a95279",
+      "png_sha256": "cd95696085f656fa6bca6dee22aa513c7e72324d95095e64a679f18fdc34afa4",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K19",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K19TimeSeriesRenderer",
+      "fixture_sha256": "526ad802a9f24ed399489fb3999bf7aade253f98493e9ca6df6209ed187f6f66",
+      "png_sha256": "aef0df2f08531b9398e1527a8922451c8884abe6a7ee2e39d9d175ebee1077d6",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K20",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K20HeatmapRenderer",
+      "fixture_sha256": "d996093c23e8f1c6a1e4e8cd009d196a7282f994accbde54f913887abf5c217e",
+      "png_sha256": "b806ab2bf780601085f74da6ddd445cdea09513afb5dbfcd78925e91f15c7b65",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K21",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K21CorrelationMatrixRenderer",
+      "fixture_sha256": "74e4efcc173bd21a085dc76534e07a37d476183fa989b4c30e8207cb725cc005",
+      "png_sha256": "784903d7d73221367b409a36e1ec09506102a78b278f9a16cfbb525c432d5ab3",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K22",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K22ContourRenderer",
+      "fixture_sha256": "744d50aa1d0de8ed6babb006da74d535aa74ef7d3773b536a509b30bb2ef2491",
+      "png_sha256": "1a53e46c7ee36c2d74550004d9f4bbc4a880c092c6be9b7886da89aef99bc797",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "K24",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "K24FacetRenderer",
+      "fixture_sha256": "0ad27a3216e10d51cb9ae2052468aac6495436f1ab87500d6405063dc9629abd",
+      "png_sha256": "53e9c0fd8c0aa6cd5e8fca684912f3ea9275456abf58590c9721dc39162bf6c0",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "S34",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "S34NyquistRenderer",
+      "fixture_sha256": "61588fbdbb941b4a50d103ab8c9bacb8e1e419923a9e69212b99e8283f80017f",
+      "png_sha256": "759e47f2f39c72c6897854796c43fd84b70bcd0850911540476758dc2cac33c0",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "S61",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "S61ConfusionRenderer",
+      "fixture_sha256": "06a212f2127ed75662a5987e8414d45442f7daeb2edd1c97749be65ed83ddc01",
+      "png_sha256": "fb036c6a63ee8b77ef798d06f0f4856a7d19ec44dc1802c292cd22be2ec1b80a",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X02",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X02DropLineRenderer",
+      "fixture_sha256": "29dc692b34cadce283c36ee54526cb154849f953280bb5188cc9bf83aec36234",
+      "png_sha256": "a36b87bac22e82edc65119b76dbb63837e0ffaf9ca7a2c2405dc93c38f6c03c1",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X03",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X03LollipopRenderer",
+      "fixture_sha256": "6289b76ca119e632eeae61e131e1d5a6e7bb117edd1dc58c025feb31170a5f4e",
+      "png_sha256": "68ab8bb0c5acce312ab3c52cf6e14d51f8fd4b8f9b2ff08b030aa02e00af9358",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X05",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X05BeeswarmRenderer",
+      "fixture_sha256": "7df0e04ef748a582e9882979d455685e0889e292aa417bff41e3053f4e5b181b",
+      "png_sha256": "c5e50acfa3f2dc317173ead892b48b98fa3b68a4768c95bbfaf5d84030970ee6",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X09",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X09FloatingIntervalRenderer",
+      "fixture_sha256": "20a142c8d588321a0db1286516bf9493a1264310025a56bf8a8856dd9f1d99fa",
+      "png_sha256": "3f479ed4c8b012cde8f58784bc9280951d9c268950286e204df189b2b9d15c8f",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X13",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X13PopulationPyramidRenderer",
+      "fixture_sha256": "75acbbfb1058e50f2a4785b1c3574a9f180bb1d9e85f12591e7c3f3a02006943",
+      "png_sha256": "447484d2e6e4b04abd3d204f6c25428118d13b28c2c77f99020d74005ea7b1ee",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X23",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X23DualYRenderer",
+      "fixture_sha256": "9ba6b78bd8902573384d34e97a6d92758967688849292075468d6e4aca254575",
+      "png_sha256": "a736e945a910724963e454b4a1ffc4ef8fa05de1e6b547f4f5dbbf7044b4cc7b",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X24",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X24ParetoRenderer",
+      "fixture_sha256": "37199b72eeaa53beaa1a963786b187f93cbcbac6fe224ec94126276ef42905d1",
+      "png_sha256": "7664bf91af30113caf5f5b9d77694a2f3d009eb3f39c355b657398af550fbe62",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X35",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X35DualYColumnRenderer",
+      "fixture_sha256": "687b408f82dd4aae3921ab8d9f99dce4f4d39ed3aa62b568ce3a7d7aadc3cd8c",
+      "png_sha256": "6d6151fbe00ec7e433fc83d55967d40825db5df6091b515796dd7108f790a093",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X36",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X36DualYColumnLineRenderer",
+      "fixture_sha256": "1fd6f0f83ac55cd4a94bb55b507a8fa9a7a876aa710de4ba3f7e227e956a3cb3",
+      "png_sha256": "297bbfb6a4c69f73de4936ff353ace456c7ddb6543c2fa5dc03d0bb0151b53f3",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X38",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X38OffsetStackRenderer",
+      "fixture_sha256": "479c4a250414552cf3e452f10779b815bc090eb3334307f96a61e4dc269ada76",
+      "png_sha256": "6f13b6a885d40d7e4f7c9ea733c730a7ea922a7fcb33ae5d33ff87c08267da72",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X39",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X39LineSeriesRenderer",
+      "fixture_sha256": "6c6ffd45127895fb3dba8c0e3ffc6d937795e85533f39cb120bf847778c541a5",
+      "png_sha256": "ff78b27c79dcf15ec68a6c6cbf5994a87f9e556dcb94522ec2cd8cbd36a251e9",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "profile_id": "X40",
+      "backend": "matplotlib",
+      "state": "default",
+      "renderer": "X40BeforeAfterRenderer",
+      "fixture_sha256": "d938baf6d2d7088340b0bf785ca5ef0db2f255bba5ceb80d1074e29ff611f280",
+      "png_sha256": "92fd260f6b724bae3d5799838bcda796d028e9e7ce5ccac7b17cd1dda8367ae9",
+      "width": 1024,
+      "height": 768
+    }
+  ]
+}

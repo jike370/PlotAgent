@@ -1410,6 +1410,12 @@ input[type="checkbox"] {
   display: block;
 }
 
+.chart-preview {
+  object-fit: contain;
+  object-position: center;
+  background: var(--canvas);
+}
+
 .batch-plot {
   transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
