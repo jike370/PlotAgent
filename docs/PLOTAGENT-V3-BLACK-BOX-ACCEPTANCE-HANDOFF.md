@@ -1,10 +1,19 @@
 # PlotAgent v3 Windows 黑盒验收交接
 
-> 适用基线：产品代码 `cb0a4f6321b7e688b55f83068458d6f6a51c0698`。允许该提交之后只有 `docs/**` 发生变化。
+> 适用基线：产品代码 `358fc7ba00b54593268dff54e80f5f8aee529d49`。允许该提交之后只有 `docs/**` 发生变化。
 >
 > 被测范围：34 张正式单图、桌面自然语言交互、字段确认、版本与撤销重做、重启恢复、PNG/SVG/OPJU。
 >
 > 本文只规定用户可见行为和证据，不得读取产品源码、调用内部接口或用单元测试代替黑盒观察。
+
+## 0. 当前执行进度（2026-08-14）
+
+- 产品冻结基线：`358fc7ba00b54593268dff54e80f5f8aee529d49`。
+- `B1` 已完整执行并经定向补测闭环：`18 PASS / 0 FAIL / 0 BLOCKED / 0 UNVERIFIED`。
+- `DATA-02`、`DATA-03`、`DATA-04` 的定向复测均为 PASS；后续批次不得把这三项重新写成未执行或 UNVERIFIED。
+- 原始 B1 报告：`D:\v3-test\outputs\plotv3-blackbox-pi34-aedddf0-20260814-125053-B1\`。
+- B1 定向复测报告：`D:\v3-test\outputs\plotv3-blackbox-b1-r1-d74298c-20260814\PLOTAGENT-V3-BLACKBOX-B1-R1-REPORT.md`；报告内记录的实际被测源码为 `358fc7ba00b54593268dff54e80f5f8aee529d49`。
+- 下一步从 `B2` 开始。除非发现 B1 证据损坏，否则不要重复运行 B1；六批全部结束后再合并 71 项总表。
 
 ## 1. 验收目标
 
@@ -26,7 +35,7 @@
 ```powershell
 git rev-parse HEAD
 git status --short
-git diff --exit-code cb0a4f6321b7e688b55f83068458d6f6a51c0698 -- . ':(exclude)docs/**'
+git diff --exit-code 358fc7ba00b54593268dff54e80f5f8aee529d49 -- . ':(exclude)docs/**'
 ```
 
 要求：
