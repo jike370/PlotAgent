@@ -283,6 +283,7 @@ def x40_identity_label_positions(values: tuple[float, ...]) -> tuple[float, ...]
 @dataclass(frozen=True, slots=True)
 class TimeSeriesLine:
     role: str
+    time_values: tuple[datetime, ...]
     values: tuple[float, ...]
     value_field_name: str
 
@@ -794,7 +795,13 @@ def wide_series(
 
 
 def k19_time_series(document: PlotDocument, data: EngineDataView) -> TimeSeriesData:
-    """Return numeric Date/Time X values and contiguous ``series_1..series_N`` data."""
+    """Return native Date/Time lines from wide or explicitly grouped long data.
+
+    A wide table binds one shared time field and one or more value fields.  A
+    long table binds one value field plus ``group``; each group keeps its own
+    observed timestamps so neither backend joins rows from different series or
+    invents/interpolates missing observations.
+    """
 
     bindings = {binding.role: binding.field_id for binding in document.bindings}
     columns = {column.field.field_id: column for column in data.columns}
@@ -803,11 +810,44 @@ def k19_time_series(document: PlotDocument, data: EngineDataView) -> TimeSeriesD
     roles = _contiguous_series_roles(bindings, "K19", minimum=1)
     time_column = columns[bindings["time"]]
     times = tuple(_datetime_value(value, "K19 time") for value in time_column.values)
+    group_field_id = bindings.get("group")
+    if group_field_id is not None:
+        if len(roles) != 1:
+            raise ValueError("K19 grouped long data requires exactly one bound series")
+        value_column = columns[bindings[roles[0]]]
+        values = _numeric_values(value_column, roles[0], "K19", allow_missing=True)
+        group_column = columns[group_field_id]
+        materialized: list[TimeSeriesLine] = []
+        for ordinal, label in enumerate(_ordered_labels(group_column, "group"), start=1):
+            indexes = tuple(
+                index
+                for index, raw_label in enumerate(group_column.values)
+                if _label(raw_label, "group") == label
+            )
+            group_times = tuple(times[index] for index in indexes)
+            if len(group_times) != len(set(group_times)):
+                raise ValueError(f"K19 group {label!r} contains duplicate time values")
+            materialized.append(
+                TimeSeriesLine(
+                    role=f"series_{ordinal}",
+                    time_values=group_times,
+                    values=tuple(values[index] for index in indexes),
+                    value_field_name=label,
+                )
+            )
+        if not materialized:
+            raise ValueError("K19 grouped long data contains no groups")
+        return TimeSeriesData(
+            time_values=times,
+            series=tuple(materialized),
+            time_field_name=time_column.field.name,
+        )
     return TimeSeriesData(
         time_values=times,
         series=tuple(
             TimeSeriesLine(
                 role=role,
+                time_values=times,
                 values=_numeric_values(columns[bindings[role]], role, "K19", allow_missing=True),
                 value_field_name=columns[bindings[role]].field.name,
             )

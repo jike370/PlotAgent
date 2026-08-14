@@ -42,7 +42,11 @@ import {
   writeConversationMessages,
   type ConversationMessage,
 } from '../data/conversationPersistence'
-import { suggestedFieldMapping } from './mappingSuggestions'
+import {
+  fieldMatchesRole,
+  suggestedFieldMapping,
+  type MappingSuggestionRole,
+} from './mappingSuggestions'
 
 export type ScopeMode = 'current' | 'selected'
 
@@ -104,7 +108,6 @@ interface ConversationWorkspaceProps {
   onRedo: () => void
 }
 
-const numericKinds = new Set(['integer', 'float', 'number', 'numeric', 'decimal'])
 const fieldNames: Record<string, string> = {
   time_min: '时间',
   signal_au: '信号',
@@ -144,11 +147,8 @@ function displayPhysicalType(type: string): string {
   return physicalTypes[type.toLocaleLowerCase('en-US')] ?? type
 }
 
-interface MappingRole {
-  role: string
+interface MappingRole extends MappingSuggestionRole {
   label: string
-  numeric: boolean
-  required: boolean
 }
 
 function mappingRoles(chart: ChartType): MappingRole[] {
@@ -167,8 +167,8 @@ function mappingRoles(chart: ChartType): MappingRole[] {
   }
   const categorical = new Set(['category', 'group', 'component', 'event', 'row', 'column', 'row_label', 'column_label', 'facet', 'panel', 'parameter', 'label', 'peak_label', 'actual', 'predicted', 'item', 'series', 'feature'])
   return [
-    ...chart.requiredFields.map((role) => ({ role, label: labels[role] ?? role, numeric: !categorical.has(role), required: true })),
-    ...chart.optionalFields.map((role) => ({ role, label: labels[role] ?? role, numeric: !categorical.has(role), required: false })),
+    ...chart.requiredFields.map((role) => ({ role, label: labels[role] ?? role, numeric: role !== 'time' && !categorical.has(role), datetime: role === 'time', required: true })),
+    ...chart.optionalFields.map((role) => ({ role, label: labels[role] ?? role, numeric: role !== 'time' && !categorical.has(role), datetime: role === 'time', required: false })),
   ]
 }
 
@@ -324,6 +324,7 @@ function MappingObject({
         role: `series_${index + 1}`,
         label: `系列 ${index + 1}`,
         numeric: true,
+        datetime: false,
         required: true,
       })),
     ]
@@ -501,8 +502,8 @@ function MappingObject({
             {[{ role: '', label: '未使用', numeric: false, required: false }, ...roles].map((role) => {
               const selected = (assignedRole(picker.fieldId)?.role ?? '') === role.role
               const field = dataset.fields.find((candidate) => candidate.fieldId === picker.fieldId)
-              const incompatible = Boolean(role.role && role.numeric && field && !numericKinds.has(field.logicalType.toLocaleLowerCase('en-US')))
-              return <button key={role.role || 'unused'} type="button" role="menuitemradio" aria-checked={selected} disabled={incompatible} title={incompatible ? '该角色需要数值字段' : undefined} onClick={() => setFieldRole(picker.fieldId, role.role)}>
+              const incompatible = Boolean(role.role && field && !fieldMatchesRole(role, field))
+              return <button key={role.role || 'unused'} type="button" role="menuitemradio" aria-checked={selected} disabled={incompatible} title={incompatible ? '该字段类型不适用于此角色' : undefined} onClick={() => setFieldRole(picker.fieldId, role.role)}>
                 <span aria-hidden="true">{selected ? '✓' : ''}</span>{role.label}{role.required ? '' : role.role ? '（可选）' : ''}
               </button>
             })}

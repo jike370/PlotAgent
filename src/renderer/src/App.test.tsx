@@ -705,6 +705,27 @@ describe('PlotAgent real desktop workflow', () => {
     })
   })
 
+  it('keeps K19 datetime, value and long-series roles type safe', () => {
+    const timeSeriesDataset = {
+      ...dataset,
+      fields: [
+        { fieldId: 'field:timestamp', name: 'Timestamp', logicalType: 'datetime', physicalType: 'datetime64', unit: null },
+        { fieldId: 'field:value', name: 'Value', logicalType: 'numeric', physicalType: 'float64', unit: null },
+        { fieldId: 'field:series', name: 'Series', logicalType: 'categorical', physicalType: 'string', unit: null },
+      ],
+    }
+
+    expect(suggestedFieldMapping([
+      { role: 'time', numeric: false, datetime: true, required: true },
+      { role: 'series_1', numeric: true, required: true },
+      { role: 'group', numeric: false, required: false },
+    ], timeSeriesDataset as never)).toEqual({
+      time: 'field:timestamp',
+      series_1: 'field:value',
+      group: 'field:series',
+    })
+  })
+
   it('shows a user-facing file and worksheet identity instead of the internal dataset id', async () => {
     const user = userEvent.setup()
     installApi(fakeDesktop({

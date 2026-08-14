@@ -86,9 +86,9 @@ class K19TimeSeriesRenderer:
             tuple(item.value_field_name for item in series.series),
         )
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
-        date_values = mdates.date2num(series.time_values)  # type: ignore[no-untyped-call]
         lines = []
         for item, line_state in zip(series.series, state.lines, strict=True):
+            date_values = mdates.date2num(item.time_values)  # type: ignore[no-untyped-call]
             (line,) = axis.plot(
                 date_values,
                 item.values,
@@ -196,9 +196,7 @@ class K19TimeSeriesRenderer:
                     raise ValueError("K19 x axis requires datetime scale")
                 if axis_name == "y" and action.scale not in {None, "linear", "log10"}:
                     raise ValueError("K19 y axis supports only linear or log10 scale")
-                if axis_name == "x" and (
-                    action.minimum is not None or action.maximum is not None
-                ):
+                if axis_name == "x" and (action.minimum is not None or action.maximum is not None):
                     raise ValueError("K19 public datetime axes do not expose numeric bounds")
                 if axis_name == "x":
                     state = replace(
@@ -213,14 +211,10 @@ class K19TimeSeriesRenderer:
                         y_reverse=state.y_reverse if action.reverse is None else action.reverse,
                         y_scale=state.y_scale if action.scale is None else action.scale,
                         y_minimum=(
-                            state.y_minimum
-                            if action.minimum is None
-                            else float(action.minimum)
+                            state.y_minimum if action.minimum is None else float(action.minimum)
                         ),
                         y_maximum=(
-                            state.y_maximum
-                            if action.maximum is None
-                            else float(action.maximum)
+                            state.y_maximum if action.maximum is None else float(action.maximum)
                         ),
                     )
             elif isinstance(action, SetSeriesStyle):

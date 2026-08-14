@@ -104,9 +104,7 @@ def _k19_case() -> tuple[PlotDocument, tuple[CreatePlot, ...], EngineDataView]:
         FieldBinding(role="series_1", field_id="field:value-a"),
         FieldBinding(role="series_2", field_id="field:value-b"),
     )
-    data_ref = EngineDataRef(
-        kind="source", dataset_id="dataset.k19", version=1, content_hash=HASH
-    )
+    data_ref = EngineDataRef(kind="source", dataset_id="dataset.k19", version=1, content_hash=HASH)
     create = CreatePlot(
         action_id="action:k19-create",
         plot_id="plot:k19-demo",
@@ -132,15 +130,44 @@ def _k19_case() -> tuple[PlotDocument, tuple[CreatePlot, ...], EngineDataView]:
     return document, (create,), view
 
 
+def _k19_grouped_long_case() -> tuple[PlotDocument, EngineDataView]:
+    bindings = (
+        FieldBinding(role="time", field_id="field:time"),
+        FieldBinding(role="series_1", field_id="field:value"),
+        FieldBinding(role="group", field_id="field:series"),
+    )
+    create = CreatePlot(
+        action_id="action:k19-grouped-create",
+        plot_id="plot:k19-grouped",
+        profile_id="K19",
+        data=EngineDataRef(kind="source", dataset_id="dataset.k19", version=1, content_hash=HASH),
+        bindings=bindings,
+    )
+    document = _document("K19", bindings, (create,))
+    start = datetime(2026, 1, 1)
+    view = _view(
+        "K19",
+        (
+            (
+                "field:time",
+                "Timestamp",
+                "datetime",
+                tuple(start + timedelta(days=index) for index in range(6)),
+            ),
+            ("field:value", "Value", "numeric", (20.0, 21.0, 22.0, 23.0, 24.0, 25.0)),
+            ("field:series", "Series", "categorical", ("Sensor A", "Sensor B") * 3),
+        ),
+    )
+    return document, view
+
+
 def _k18_case() -> tuple[PlotDocument, tuple[CreatePlot, ...], EngineDataView]:
     bindings = (
         FieldBinding(role="x", field_id="field:x"),
         FieldBinding(role="series_1", field_id="field:value-a"),
         FieldBinding(role="series_2", field_id="field:value-b"),
     )
-    data_ref = EngineDataRef(
-        kind="source", dataset_id="dataset.k18", version=1, content_hash=HASH
-    )
+    data_ref = EngineDataRef(kind="source", dataset_id="dataset.k18", version=1, content_hash=HASH)
     create = CreatePlot(
         action_id="action:k18-create",
         plot_id="plot:k18-demo",
@@ -302,6 +329,18 @@ def test_profile_data_validates_datetime_correlation_and_complete_grid() -> None
     assert contour.z_values == ((1.0, 2.0), (3.0, 4.0))
 
 
+def test_k19_grouped_long_data_preserves_each_series_timestamps() -> None:
+    document, view = _k19_grouped_long_case()
+    prepared = k19_time_series(document, view)
+
+    assert [item.role for item in prepared.series] == ["series_1", "series_2"]
+    assert [item.value_field_name for item in prepared.series] == ["Sensor A", "Sensor B"]
+    assert prepared.series[0].time_values == prepared.time_values[::2]
+    assert prepared.series[1].time_values == prepared.time_values[1::2]
+    assert prepared.series[0].values == (20.0, 22.0, 24.0)
+    assert prepared.series[1].values == (21.0, 23.0, 25.0)
+
+
 def test_k19_preserves_input_order_rejects_timezone_and_k22_never_interpolates() -> None:
     document, _actions, view = _k19_case()
     repeated = view.model_copy(
@@ -321,10 +360,7 @@ def test_k19_preserves_input_order_rejects_timezone_and_k22_never_interpolates()
             "columns": (
                 view.columns[0].model_copy(
                     update={
-                        "values": tuple(
-                            datetime(2026, 1, 1, hour, tzinfo=UTC)
-                            for hour in range(5)
-                        )
+                        "values": tuple(datetime(2026, 1, 1, hour, tzinfo=UTC) for hour in range(5))
                     }
                 ),
                 *view.columns[1:],
@@ -340,8 +376,7 @@ def test_k19_preserves_input_order_rejects_timezone_and_k22_never_interpolates()
                 view.columns[0].model_copy(
                     update={
                         "values": tuple(
-                            datetime(2026, 1, 1, hour, microsecond=1)
-                            for hour in range(5)
+                            datetime(2026, 1, 1, hour, microsecond=1) for hour in range(5)
                         )
                     }
                 ),
@@ -480,7 +515,7 @@ def test_k19_origin_readback_publishes_and_checks_the_linked_legend() -> None:
     assert "self._assert_linked_legend(expected)" in source
     assert 'f"\\\\l({index}) %({index})"' in legend_source
     assert 'legend.get_int("link")' in legend_source
-    assert "self.sheet.to_df().columns[1:]" in legend_source
+    assert "self._uses_shared_time_axis(expected)" in legend_source
 
 
 def test_k18_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Path) -> None:
@@ -534,9 +569,10 @@ def test_k18_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Pat
         tmp_path / "k18-edited.png",
         tmp_path / "k18-edited.svg",
     )
-    assert [
-        item.semantic_id for item in readback.objects if item.object_kind == "area_series"
-    ] == ["series:k18-demo.area_1", "series:k18-demo.area_2"]
+    assert [item.semantic_id for item in readback.objects if item.object_kind == "area_series"] == [
+        "series:k18-demo.area_1",
+        "series:k18-demo.area_2",
+    ]
 
 
 def test_k18_requires_contiguous_series_and_rejects_log_with_non_positive_data() -> None:
@@ -580,8 +616,7 @@ def test_k19_origin_axis_display_follows_calendar_span() -> None:
                 view.columns[0].model_copy(
                     update={
                         "values": tuple(
-                            datetime(2026, 1, 1) + timedelta(days=index)
-                            for index in range(5)
+                            datetime(2026, 1, 1) + timedelta(days=index) for index in range(5)
                         )
                     }
                 ),
@@ -589,9 +624,11 @@ def test_k19_origin_axis_display_follows_calendar_span() -> None:
             )
         }
     )
-    assert K19OriginProject._axis_tick_display(
-        k19_time_series(document, across_days)
-    ) == (4, 1, "Date / Windows Short Date")
+    assert K19OriginProject._axis_tick_display(k19_time_series(document, across_days)) == (
+        4,
+        1,
+        "Date / Windows Short Date",
+    )
 
 
 class FakeLabel:
@@ -819,7 +856,6 @@ class FakeSheet:
         return None
 
     def as_date(self, index: int, display: str) -> None:
-        assert index == 0
         assert display == "yyyy-MM-dd HH:mm:ss"
         self.data_formats[index] = 3
 
@@ -876,9 +912,7 @@ class FakeOrigin:
     def lt_exec(self, command: str) -> bool:
         self.commands.append(command)
         if "worksheet -p 204 Area" in command:
-            self.graph.layer.plots = [
-                FakePlot() for _index in range(self.book.sheet.cols - 1)
-            ]
+            self.graph.layer.plots = [FakePlot() for _index in range(self.book.sheet.cols - 1)]
         if "__K18COUNT" in command:
             self.lt_values["__K18COUNT"] = len(self.graph.layer.plots)
         if "range __K18P=" in command:
@@ -901,9 +935,7 @@ class FakeOrigin:
                 }
             )
         if "worksheet -p 200 Line" in command:
-            self.graph.layer.plots = [
-                FakePlot() for _index in range(self.book.sheet.cols - 1)
-            ]
+            self.graph.layer.plots = [FakePlot() for _index in range(self.book.sheet.cols - 1)]
         if "__k19_count" in command:
             self.lt_values["__k19_count"] = len(self.graph.layer.plots)
         if "range __k19_plot=" in command:
@@ -918,11 +950,7 @@ class FakeOrigin:
             )
         if "__k19_axis_label_type" in command:
             configured = next(
-                (
-                    prior
-                    for prior in reversed(self.commands)
-                    if "layer.x.label.type=" in prior
-                ),
+                (prior for prior in reversed(self.commands) if "layer.x.label.type=" in prior),
                 "layer.x.label.type=4; layer.x.label.timeFormat=1;",
             )
             self.lt_values["__k19_axis_label_type"] = (
@@ -989,9 +1017,7 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
     assert any("worksheet -p 204 Area" in command for command in k18_op.commands)
     assert len(k18_op.graph.layer.plots) == 2
     assert [
-        item.semantic_id
-        for item in k18_readback.objects
-        if item.object_kind == "area_series"
+        item.semantic_id for item in k18_readback.objects if item.object_kind == "area_series"
     ] == ["series:k18-demo.area_1", "series:k18-demo.area_2"]
 
     k19_document, _actions, k19_view = _k19_case()
@@ -1051,12 +1077,34 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
     ]
 
 
+def test_k19_grouped_long_origin_layout_uses_native_xy_pairs() -> None:
+    document, view = _k19_grouped_long_case()
+    fake = FakeOrigin()
+    project = K19OriginProject(fake)
+    project.book = fake.book
+    project.sheet = fake.book.sheet
+
+    project._write_data(document, view)
+
+    assert fake.book.sheet.designation == "xyxy"
+    assert fake.book.sheet.data_formats == [3, 0, 3, 0]
+    assert list(fake.book.sheet.frame.columns) == [
+        "Timestamp · Sensor A",
+        "Sensor A",
+        "Timestamp · Sensor B",
+        "Sensor B",
+    ]
+    assert fake.book.sheet.frame["Sensor A"].dropna().tolist() == [20.0, 22.0, 24.0]
+    assert fake.book.sheet.frame["Sensor B"].dropna().tolist() == [21.0, 23.0, 25.0]
+
+
 def test_template_hashes_and_modules_exclude_the_legacy_compiler() -> None:
     assert K18_ORIGIN_PROFILE.sha256.startswith("c14ad432ffd6")
     assert K19_ORIGIN_PROFILE.sha256.startswith("76a7ce886e22")
     assert K21_ORIGIN_PROFILE.sha256.startswith("d1a7fcd8af23")
     assert K22_ORIGIN_PROFILE.sha256.startswith("b4915054edd4")
     assert K19_TIME_SERIES_PROFILE.profile_id == "K19"
+    assert K19_TIME_SERIES_PROFILE.optional_roles == ("group",)
     assert K18_AREA_PROFILE.profile_id == "K18"
     assert K21_CORRELATION_MATRIX_PROFILE.profile_id == "K21"
     assert K22_CONTOUR_PROFILE.profile_id == "K22"

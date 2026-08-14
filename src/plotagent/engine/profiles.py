@@ -400,6 +400,7 @@ K19_TIME_SERIES_PROFILE = EngineProfile(
     profile_id="K19",
     display_name="Time series",
     required_roles=("time", "series_1"),
+    optional_roles=("group",),
     repeatable_role_prefixes=("series",),
     objects=(
         EngineObjectTemplate(object_alias="x_axis", object_kind="axis", object_key="x"),

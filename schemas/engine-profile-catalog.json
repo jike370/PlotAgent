@@ -1305,7 +1305,9 @@
           "object_kind": "legend"
         }
       ],
-      "optional_roles": [],
+      "optional_roles": [
+        "group"
+      ],
       "profile_id": "K19",
       "repeatable_objects": [
         {

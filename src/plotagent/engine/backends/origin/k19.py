@@ -59,21 +59,20 @@ class K19OriginProject:
         self.book = book
         self.sheet = book[0]
         series = k19_time_series(document, data)
+        column_count = self._worksheet_column_count(series)
         with origin_trace_step(
             "source_data_write",
             details={
-                "column_count": len(series.series) + 1,
-                "row_count": len(series.time_values),
+                "column_count": column_count,
+                "row_count": max(len(item.time_values) for item in series.series),
                 "time_field": series.time_field_name,
                 "series_fields": [item.value_field_name for item in series.series],
+                "layout": "shared_x" if self._uses_shared_time_axis(series) else "paired_xy",
             },
         ):
             self._write_data(document, data)
         self.sheet.activate()
-        command = (
-            f"worksheet -s 1 0 {len(series.series) + 1} 0; "
-            "worksheet -p 200 Line;"
-        )
+        command = f"worksheet -s 1 0 {column_count} 0; worksheet -p 200 Line;"
         with origin_trace_step(
             "official_plot_command_execute",
             details={
@@ -181,13 +180,9 @@ class K19OriginProject:
             axis = self.layer.axis(axis_name)
             if axis_name == "y" and action.scale is not None:
                 axis.scale = action.scale
-            if axis_name == "x" and (
-                action.minimum is not None or action.maximum is not None
-            ):
+            if axis_name == "x" and (action.minimum is not None or action.maximum is not None):
                 raise ValueError("K19 public datetime axes do not expose numeric bounds")
-            if axis_name == "y" and (
-                action.minimum is not None or action.maximum is not None
-            ):
+            if axis_name == "y" and (action.minimum is not None or action.maximum is not None):
                 if action.minimum is None or action.maximum is None:
                     raise ValueError("K19 y-axis bounds require both minimum and maximum")
                 begin, end = action.minimum, action.maximum
@@ -265,14 +260,17 @@ class K19OriginProject:
     ) -> EngineReadback:
         expected = k19_time_series(document, data)
         frame = self.sheet.to_df()
-        observed_times = tuple(pd.to_datetime(frame.iloc[:, 0]).dt.to_pydatetime())
-        if not datetime_values_match(observed_times, expected.time_values):
-            raise RuntimeError("Origin K19 datetime values differ after reopen")
+        shared_time_axis = self._uses_shared_time_axis(expected)
         for index, item in enumerate(expected.series, start=1):
-            observed_values = frame.iloc[:, index].to_numpy(dtype=float)
-            if not np.allclose(
-                observed_values, item.values, rtol=0, atol=1e-12, equal_nan=True
-            ):
+            time_column = 0 if shared_time_axis else (index - 1) * 2
+            value_column = index if shared_time_axis else time_column + 1
+            observed_times = tuple(
+                pd.to_datetime(frame.iloc[: len(item.time_values), time_column]).dt.to_pydatetime()
+            )
+            if not datetime_values_match(observed_times, item.time_values):
+                raise RuntimeError(f"Origin K19 series {index} datetime values differ after reopen")
+            observed_values = frame.iloc[: len(item.values), value_column].to_numpy(dtype=float)
+            if not np.allclose(observed_values, item.values, rtol=0, atol=1e-12, equal_nan=True):
                 raise RuntimeError(f"Origin K19 series {index} values differ after reopen")
         if len(self.plots) != len(expected.series):
             raise RuntimeError("Origin K19 series count differs after reopen")
@@ -284,19 +282,13 @@ class K19OriginProject:
             if isinstance(action, SetTitle):
                 title = self.layer.label(_TITLE_NAME)
                 if action.text:
-                    if (
-                        title is None
-                        or title.text != action.text
-                        or not title.get_int("show")
-                    ):
+                    if title is None or title.text != action.text or not title.get_int("show"):
                         raise RuntimeError("Origin K19 title did not survive readback")
                 elif title is not None and title.get_int("show"):
                     raise RuntimeError("Origin K19 cleared title became visible again")
                 style_snapshot["title"] = action.text
             elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(
-                    action.target
-                )
+                axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
                 if axis_name is None:
                     raise RuntimeError("Origin K19 axis target changed during readback")
                 axis = self.layer.axis(axis_name)
@@ -307,8 +299,7 @@ class K19OriginProject:
                 if (
                     axis_name == "y"
                     and action.scale is not None
-                    and self._axis_scale_code(axis_name)
-                    != {"linear": 0, "log10": 1}[action.scale]
+                    and self._axis_scale_code(axis_name) != {"linear": 0, "log10": 1}[action.scale]
                 ):
                     raise RuntimeError("Origin K19 y-axis scale did not survive readback")
                 begin, end, step = (float(value) for value in axis.limits)
@@ -318,9 +309,7 @@ class K19OriginProject:
                     expected_limits = (action.minimum, action.maximum)
                     if action.reverse:
                         expected_limits = (expected_limits[1], expected_limits[0])
-                    if not np.allclose(
-                        (begin, end), expected_limits, rtol=0, atol=1e-12
-                    ):
+                    if not np.allclose((begin, end), expected_limits, rtol=0, atol=1e-12):
                         raise RuntimeError("Origin K19 y-axis bounds did not survive readback")
                 if action.reverse is not None and ((begin > end) != action.reverse):
                     raise RuntimeError("Origin K19 axis direction did not survive readback")
@@ -339,14 +328,16 @@ class K19OriginProject:
                     )
                     if observed_color != expected_color:
                         raise RuntimeError("Origin K19 series color did not survive readback")
-                if action.line_width_pt is not None and abs(
-                    plot.get_float("line.width") - action.line_width_pt
-                ) > 0.01:
+                if (
+                    action.line_width_pt is not None
+                    and abs(plot.get_float("line.width") - action.line_width_pt) > 0.01
+                ):
                     raise RuntimeError("Origin K19 line width did not survive readback")
                 style_code = self._line_style_code(ordinal)
-                if action.line_style is not None and style_code != _LINE_STYLE_CODES[
-                    action.line_style
-                ]:
+                if (
+                    action.line_style is not None
+                    and style_code != _LINE_STYLE_CODES[action.line_style]
+                ):
                     raise RuntimeError("Origin K19 line style did not survive readback")
                 style_snapshot[f"series_{ordinal}"] = {
                     "color": tuple(int(value) for value in plot.color),
@@ -405,14 +396,27 @@ class K19OriginProject:
 
     def _write_data(self, document: PlotDocument, data: EngineDataView) -> None:
         series = k19_time_series(document, data)
-        columns: dict[str, object] = {
-            series.time_field_name: pd.to_datetime(series.time_values)
-        }
-        for item in series.series:
-            columns[item.value_field_name] = item.values
+        shared_time_axis = self._uses_shared_time_axis(series)
+        columns: dict[str, object] = {}
+        date_columns: tuple[int, ...]
+        if shared_time_axis:
+            columns[series.time_field_name] = pd.Series(pd.to_datetime(series.time_values))
+            for item in series.series:
+                columns[item.value_field_name] = pd.Series(item.values, dtype=float)
+            designation = "x" + "y" * len(series.series)
+            date_columns = (0,)
+        else:
+            for item in series.series:
+                columns[f"{series.time_field_name} · {item.value_field_name}"] = pd.Series(
+                    pd.to_datetime(item.time_values)
+                )
+                columns[item.value_field_name] = pd.Series(item.values, dtype=float)
+            designation = "xy" * len(series.series)
+            date_columns = tuple(range(0, len(series.series) * 2, 2))
         self.sheet.from_df(pd.DataFrame(columns))
-        self.sheet.cols_axis("x" + "y" * len(series.series))
-        self.sheet.as_date(0, "yyyy-MM-dd HH:mm:ss")
+        self.sheet.cols_axis(designation)
+        for index in date_columns:
+            self.sheet.as_date(index, "yyyy-MM-dd HH:mm:ss")
 
     def _native_line_structure(self, expected: TimeSeriesData) -> dict[str, object]:
         self.graph.activate()
@@ -448,19 +452,26 @@ class K19OriginProject:
             raise RuntimeError("Origin could not read the K19 Date tick-label type")
         axis_label_type = int(self.op.lt_float("__k19_axis_label_type"))
         axis_time_format = int(self.op.lt_float("__k19_axis_time_format"))
+        column_count = self._worksheet_column_count(expected)
         designation = tuple(
-            int(self.sheet.get_int(f"col{index + 1}.type"))
-            for index in range(len(expected.series) + 1)
+            int(self.sheet.get_int(f"col{index + 1}.type")) for index in range(column_count)
         )
-        date_format_code = int(self.sheet.obj[0].GetDataFormat())
-        if plot_count != len(expected.series) or any(
-            item["plot_id"] != 200 for item in plots
-        ):
+        shared_time_axis = self._uses_shared_time_axis(expected)
+        expected_designation = (
+            (4,) + (1,) * len(expected.series)
+            if shared_time_axis
+            else (4, 1) * len(expected.series)
+        )
+        date_column_ordinals = (1,) if shared_time_axis else tuple(range(1, column_count + 1, 2))
+        date_format_codes = tuple(
+            int(self.sheet.obj[ordinal - 1].GetDataFormat()) for ordinal in date_column_ordinals
+        )
+        if plot_count != len(expected.series) or any(item["plot_id"] != 200 for item in plots):
             raise RuntimeError("Origin K19 must retain one native PID 200 plot per series")
-        if designation != (4,) + (1,) * len(expected.series):
-            raise RuntimeError("Origin K19 worksheet must retain X + N Y designations")
-        if date_format_code != 3:
-            raise RuntimeError("Origin K19 X column must retain Origin Date format")
+        if designation != expected_designation:
+            raise RuntimeError("Origin K19 worksheet lost its native X/Y designations")
+        if any(code != 3 for code in date_format_codes):
+            raise RuntimeError("Origin K19 X columns must retain Origin Date format")
         expected_label_type, expected_time_format, expected_display = self._axis_tick_display(
             expected
         )
@@ -471,16 +482,19 @@ class K19OriginProject:
         for index, item in enumerate(plots, start=1):
             x_head = str(item["x_range"]).split('"', 1)[0]
             y_head = str(item["y_range"]).split('"', 1)[0]
-            if not x_head.endswith("!A") or not y_head.endswith(
-                "!" + self._column_name(index + 1)
+            x_ordinal = 1 if shared_time_axis else index * 2 - 1
+            y_ordinal = index + 1 if shared_time_axis else index * 2
+            if not x_head.endswith("!" + self._column_name(x_ordinal)) or not y_head.endswith(
+                "!" + self._column_name(y_ordinal)
             ):
                 raise RuntimeError("Origin K19 native Line plot lost its X/Y source bindings")
         return {
             "axis_label_type": axis_label_type,
             "axis_time_format": axis_time_format,
             "axis_display": expected_display,
-            "date_format_code": date_format_code,
+            "date_format_codes": list(date_format_codes),
             "designation_codes": list(designation),
+            "layout": "shared_x" if shared_time_axis else "paired_xy",
             "plot_count": plot_count,
             "plots": plots,
         }
@@ -517,8 +531,7 @@ class K19OriginProject:
         text = str(legend.text)
         expected_names = tuple(item.value_field_name for item in expected.series)
         expected_tokens = tuple(
-            f"\\l({index}) %({index})"
-            for index in range(1, len(expected_names) + 1)
+            f"\\l({index}) %({index})" for index in range(1, len(expected_names) + 1)
         )
         actual_tokens = tuple(line.strip() for line in text.splitlines() if line.strip())
         if actual_tokens != expected_tokens or int(legend.get_int("link")) != 1:
@@ -526,7 +539,11 @@ class K19OriginProject:
                 "Origin K19 linked legend tokens differ from the native plot order: "
                 f"expected={expected_tokens!r}, actual={actual_tokens!r}"
             )
-        frame_names = tuple(str(value) for value in self.sheet.to_df().columns[1:])
+        frame = self.sheet.to_df()
+        frame_names = tuple(
+            str(frame.columns[index if self._uses_shared_time_axis(expected) else index * 2 - 1])
+            for index in range(1, len(expected.series) + 1)
+        )
         if frame_names != expected_names:
             raise RuntimeError(
                 "Origin K19 legend metadata source differs from the bound series: "
@@ -539,8 +556,7 @@ class K19OriginProject:
         if not graph_name.replace("_", "").isalnum():
             raise RuntimeError("unsafe K19 graph name for native style readback")
         command = (
-            f"range __K19STYLE=[{graph_name}]Layer1!{ordinal}; "
-            "get __K19STYLE -d __K19STYLECODE;"
+            f"range __K19STYLE=[{graph_name}]Layer1!{ordinal}; get __K19STYLE -d __K19STYLECODE;"
         )
         if not self.op.lt_exec(command):
             raise RuntimeError("Origin could not read the K19 native line style")
@@ -561,6 +577,18 @@ class K19OriginProject:
         if len(calendar_dates) == 1:
             return 3, _DEFAULT_DATE_TIME_FORMAT, "Time / HH:mm"
         return 4, _DEFAULT_DATE_TIME_FORMAT, "Date / Windows Short Date"
+
+    @staticmethod
+    def _uses_shared_time_axis(expected: TimeSeriesData) -> bool:
+        return all(item.time_values == expected.time_values for item in expected.series)
+
+    @classmethod
+    def _worksheet_column_count(cls, expected: TimeSeriesData) -> int:
+        return (
+            len(expected.series) + 1
+            if cls._uses_shared_time_axis(expected)
+            else 2 * len(expected.series)
+        )
 
     @staticmethod
     def _series_ordinal(target: str, token: str, series_count: int) -> int:
@@ -598,9 +626,7 @@ def execute_k19_request(
     # an artifact reproducible from its request and avoids inheriting stale
     # Date/Time axis state from a previous OPJU revision.
     project.create(install_dir, request.document, request.data)
-    with origin_trace_step(
-        "agent_actions_apply", details={"action_count": len(request.actions)}
-    ):
+    with origin_trace_step("agent_actions_apply", details={"action_count": len(request.actions)}):
         for action in request.actions:
             with origin_trace_step(
                 "agent_action_apply",
