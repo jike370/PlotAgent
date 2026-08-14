@@ -10,10 +10,12 @@
 
 - 产品冻结基线：`358fc7ba00b54593268dff54e80f5f8aee529d49`。
 - `B1` 已完整执行并经定向补测闭环：`18 PASS / 0 FAIL / 0 BLOCKED / 0 UNVERIFIED`。
+- `B2` 已完整执行：`9 PASS / 0 FAIL / 0 BLOCKED / 0 UNVERIFIED`。累计 `27 PASS / 0 FAIL / 0 BLOCKED / 0 UNVERIFIED`。
 - `DATA-02`、`DATA-03`、`DATA-04` 的定向复测均为 PASS；后续批次不得把这三项重新写成未执行或 UNVERIFIED。
 - 原始 B1 报告：`D:\v3-test\outputs\plotv3-blackbox-pi34-aedddf0-20260814-125053-B1\`。
 - B1 定向复测报告：`D:\v3-test\outputs\plotv3-blackbox-b1-r1-d74298c-20260814\PLOTAGENT-V3-BLACKBOX-B1-R1-REPORT.md`；报告内记录的实际被测源码为 `358fc7ba00b54593268dff54e80f5f8aee529d49`。
-- 下一步从 `B2` 开始。除非发现 B1 证据损坏，否则不要重复运行 B1；六批全部结束后再合并 71 项总表。
+- B2 报告：`D:\v3-test\outputs\plotv3-blackbox-pi34-d1fffba-20260814-141732\PLOTAGENT-V3-BLACK-BOX-REPORT.md`。
+- 下一步从 `B3` 开始。除非发现既有证据损坏，否则不要重复运行 B1/B2；六批全部结束后再合并 71 项总表。
 
 ## 1. 验收目标
 
