@@ -768,6 +768,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(await screen.findByRole('button', { name: /^导入/ }))
     expect(await screen.findByRole('heading', { name: '有效数据.xlsx > Sheet 1' })).toBeInTheDocument()
     expect(screen.getByText('部分文件未导入')).toBeInTheDocument()
+    expect(screen.getByText(/已导入：有效数据.xlsx/)).toBeInTheDocument()
     expect(screen.getByText(/未导入：损坏数据.txt/)).toBeInTheDocument()
     expect(screen.getByText(/未导入：未回执.dat：未返回处理结果，请重试。/)).toBeInTheDocument()
   })

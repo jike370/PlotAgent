@@ -520,6 +520,7 @@ export function App(): React.JSX.Element {
     const partial = summary.failedCount > 0 || summary.attentionCount > 0
     const outcomeLines = [
       `已导入 ${summary.committedCount} 个文件，共 ${imported.length} 个工作表或数据块。`,
+      ...summary.committedFiles.map((name) => `已导入：${name}`),
       ...summary.attentionDetails.map((detail) => `待确认：${detail}`),
       ...summary.failedDetails.map((detail) => `未导入：${detail}`),
     ]
@@ -534,7 +535,7 @@ export function App(): React.JSX.Element {
       title: '数据已导入',
       message: previewMode
         ? `已载入 ${imported.length} 个内存示例数据集，可继续检查字段与界面流程。`
-        : `已导入 ${summary.committedCount || 1} 个文件，共 ${imported.length} 个工作表或数据块。`,
+        : outcomeLines.join('\n'),
     })
   }
 
