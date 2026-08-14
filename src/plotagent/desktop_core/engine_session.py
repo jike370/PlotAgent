@@ -8,12 +8,14 @@ legacy PlotSpec/compiler/rendering pipeline.
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from plotagent.engine import (
+    REMOVED_CHART_TYPE_IDS,
     EngineActionCodec,
     EngineCatalog,
     EngineDataViewRepository,
@@ -23,6 +25,7 @@ from plotagent.engine import (
     PlotEngineRuntime,
     PlotEngineService,
     ProjectEngineDataProvider,
+    RemovedChartTypeError,
     RoutedEngineDataProvider,
     RuntimeResult,
     document_ref,
@@ -180,7 +183,35 @@ class DesktopEngineSession:
         return self._document_payload(stored.document)
 
     def list_latest(self) -> tuple[dict[str, object], ...]:
-        return tuple(self._document_payload(item.document) for item in self.documents.list_latest())
+        payloads: list[dict[str, object]] = []
+        for item in self.documents.list_latest_records():
+            raw_document = json.loads(item.document_json)
+            if (
+                isinstance(raw_document, dict)
+                and raw_document.get("profile_id") in REMOVED_CHART_TYPE_IDS
+            ):
+                payloads.append(
+                    {
+                        "plot_id": item.plot_id,
+                        "plot_version": item.plot_version,
+                        "plot_ref": {
+                            "plot_id": item.plot_id,
+                            "plot_version": item.plot_version,
+                            "content_hash": item.content_hash,
+                        },
+                        "profile_id": raw_document["profile_id"],
+                        "document": raw_document,
+                        "actions": (),
+                        "profile_removed": True,
+                    }
+                )
+                continue
+            payloads.append(
+                self._document_payload(
+                    self.documents.get(item.plot_id, item.plot_version).document
+                )
+            )
+        return tuple(payloads)
 
     def export(
         self,
@@ -237,20 +268,25 @@ class DesktopEngineSession:
 
     def _document_payload(self, document: PlotDocument) -> dict[str, object]:
         applied_ids = set(document.applied_action_ids)
-        actions = tuple(
-            item.action.model_dump(mode="json")
-            for item in self.documents.actions(document.plot_id)
-            if item.action.action_id in applied_ids
-        )
         payload: dict[str, object] = {
             "plot_id": document.plot_id,
             "plot_version": document.plot_version,
             "plot_ref": document_ref(document).model_dump(mode="json"),
             "profile_id": document.profile_id,
             "document": document.model_dump(mode="json"),
-            "actions": actions,
-            "profile": self.catalog.get(document.profile_id).model_dump(mode="json"),
+            "actions": (),
         }
+        try:
+            payload["profile"] = self.catalog.get(document.profile_id).model_dump(mode="json")
+        except RemovedChartTypeError:
+            payload["profile_removed"] = True
+            return payload
+        actions = tuple(
+            item.action.model_dump(mode="json")
+            for item in self.documents.actions(document.plot_id)
+            if item.action.action_id in applied_ids
+        )
+        payload["actions"] = actions
         preview = self._preview_descriptor(document, "png")
         if preview is not None:
             payload["preview"] = preview

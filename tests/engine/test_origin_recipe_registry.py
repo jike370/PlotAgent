@@ -143,7 +143,7 @@ def test_row_wise_boxchart_recipes_preserve_the_source_wide_table() -> None:
 
 
 def test_removed_profiles_have_no_origin_recipe() -> None:
-    for profile_id in ("K16", "K25", "S01", "S21"):
+    for profile_id in ("K05", "K16", "K17", "K25", "S01", "S05", "S07", "S21", "S25", "S31", "X01"):
         with pytest.raises(ValueError, match=profile_id):
             origin_recipe(profile_id)
 

@@ -134,7 +134,10 @@ def test_origin_backend_stages_opju_without_legacy_plan(tmp_path: Path) -> None:
     assert exported.artifact_size == len(b"fake-opju")
 
 
-@pytest.mark.parametrize("profile_id", ("K16", "K25", "S01", "S21"))
+@pytest.mark.parametrize(
+    "profile_id",
+    ("K05", "K16", "K17", "K25", "S01", "S05", "S07", "S21", "S25", "S31", "X01"),
+)
 def test_origin_backend_rejects_removed_recipes_before_worker_launch(
     tmp_path: Path,
     profile_id: str,

@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine.contracts import (
@@ -23,6 +23,34 @@ from plotagent.engine.contracts import (
 from plotagent.storage.project import ProjectStore
 
 _ACTION_ADAPTER: TypeAdapter[PlotEngineAction] = TypeAdapter(PlotEngineAction)
+
+
+def _document_from_json(value: str) -> PlotDocument:
+    try:
+        return PlotDocument.model_validate_json(value)
+    except ValidationError:
+        payload = json.loads(value)
+        if not isinstance(payload, dict) or payload.get("schema_version") != "2.0":
+            raise
+        payload.pop("components", None)
+        if isinstance(payload.get("bindings"), list):
+            payload["bindings"] = tuple(payload["bindings"])
+        if isinstance(payload.get("applied_action_ids"), list):
+            payload["applied_action_ids"] = tuple(payload["applied_action_ids"])
+        return PlotDocument.model_validate(payload)
+
+
+def _action_from_json(value: str) -> PlotEngineAction:
+    try:
+        return _ACTION_ADAPTER.validate_json(value)
+    except ValidationError:
+        payload = json.loads(value)
+        if not isinstance(payload, dict):
+            raise
+        payload.pop("components", None)
+        if isinstance(payload.get("bindings"), list):
+            payload["bindings"] = tuple(payload["bindings"])
+        return _ACTION_ADAPTER.validate_python(payload)
 
 
 def _utc_now() -> str:
@@ -46,6 +74,15 @@ def document_ref(document: PlotDocument) -> PlotDocumentRef:
 @dataclass(frozen=True, slots=True)
 class StoredPlotDocument:
     document: PlotDocument
+    content_hash: str
+    created_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class StoredPlotRecord:
+    plot_id: str
+    plot_version: int
+    document_json: str
     content_hash: str
     created_at: str
 
@@ -121,9 +158,36 @@ class PlotDocumentRepository:
         if row is None:
             raise KeyError(f"plot document {plot_id}@{version} was not found")
         return StoredPlotDocument(
-            document=PlotDocument.model_validate_json(str(row[0])),
+            document=_document_from_json(str(row[0])),
             content_hash=str(row[1]),
             created_at=str(row[2]),
+        )
+
+    def list_latest_records(self) -> tuple[StoredPlotRecord, ...]:
+        rows = self._project._assert_writer().execute(  # noqa: SLF001
+            """
+            SELECT documents.plot_id, documents.plot_version,
+                   documents.document_json, documents.content_hash, documents.created_at
+            FROM engine_plot_document_versions AS documents
+            INNER JOIN (
+                SELECT plot_id, MAX(plot_version) AS plot_version
+                FROM engine_plot_document_versions
+                GROUP BY plot_id
+            ) AS latest
+            ON documents.plot_id = latest.plot_id
+               AND documents.plot_version = latest.plot_version
+            ORDER BY documents.rowid
+            """
+        )
+        return tuple(
+            StoredPlotRecord(
+                plot_id=str(plot_id),
+                plot_version=int(plot_version),
+                document_json=str(document_json),
+                content_hash=str(content_hash),
+                created_at=str(created_at),
+            )
+            for plot_id, plot_version, document_json, content_hash, created_at in rows
         )
 
     def list_latest(self) -> tuple[StoredPlotDocument, ...]:
@@ -242,7 +306,7 @@ class PlotDocumentRepository:
         for action_json, before_json, after_json, applied_at in rows:
             result.append(
                 AppliedAction(
-                    action=_ACTION_ADAPTER.validate_json(str(action_json)),
+                    action=_action_from_json(str(action_json)),
                     document_before=(
                         None
                         if before_json is None
@@ -267,7 +331,7 @@ class PlotDocumentRepository:
             return None
         action_json, before_json, after_json, applied_at = row
         return AppliedAction(
-            action=_ACTION_ADAPTER.validate_json(str(action_json)),
+            action=_action_from_json(str(action_json)),
             document_before=(
                 None
                 if before_json is None

@@ -103,7 +103,10 @@ def test_service_rejects_profile_role_and_capability_mismatches(tmp_path: Path) 
             )
 
 
-@pytest.mark.parametrize("profile_id", ("K16", "K25", "S01", "S21"))
+@pytest.mark.parametrize(
+    "profile_id",
+    ("K05", "K16", "K17", "K25", "S01", "S05", "S07", "S21", "S25", "S31", "X01"),
+)
 def test_catalog_returns_a_stable_tombstone_for_removed_chart_types(profile_id: str) -> None:
     with pytest.raises(RemovedChartTypeError) as raised:
         _catalog().get(profile_id)

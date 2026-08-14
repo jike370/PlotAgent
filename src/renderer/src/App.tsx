@@ -280,14 +280,24 @@ export function App(): React.JSX.Element {
     if (!api) return {}
     try {
       const listed = valueOrThrow(await api.listPlots({ projectId }))
-      const latest = readPlots(listed).at(-1)
-      if (!latest) return {}
+      const plots = readPlots(listed)
+      const supportedChartIds = new Set(chartCatalog.map((chart) => chart.id))
+      const removedPlots = plots.filter((plot) => !supportedChartIds.has(plot.chartId))
+      const latest = plots.filter((plot) => supportedChartIds.has(plot.chartId)).at(-1)
+      const removedNotice = removedPlots.length > 0
+        ? {
+            kind: 'warning' as const,
+            title: '图类已移除',
+            message: `此项目包含已从当前版本移除的图类：${[...new Set(removedPlots.map((plot) => plot.chartId))].join('、')}。这些历史图形不会被替换或重新渲染。`,
+          }
+        : undefined
+      if (!latest) return { notice: removedNotice }
       const stored = valueOrThrow(await api.getPlot({
         projectId,
         plotId: latest.plotId,
         plotVersion: latest.plotVersion,
       }))
-      return { plot: readPlot(stored) ?? latest }
+      return { plot: readPlot(stored) ?? latest, notice: removedNotice }
     } catch (error) {
       return {
         notice: { kind: 'warning', title: '图形恢复未完成', message: errorNotice(error).message },
@@ -631,9 +641,16 @@ export function App(): React.JSX.Element {
     try {
       const known = projects.find((item) => item.projectId === projectId)
       const opened = valueOrThrow(await api.activateProject({ projectId }))
-      const listed = valueOrThrow(await api.listDatasets({ projectId }))
       const next = { ...(known ?? { projectId, name: '本机项目', projectVersion: 0, isOpen: true }), projectVersion: projectVersionFrom(opened, 0), isOpen: true }
-      const nextDatasets = readDatasets(listed)
+      setProject(next); mergeProjects([next])
+      setDatasets([]); setActiveDatasetId(undefined); setAgentDatasetIds([])
+      setPlot(undefined); setPreviousPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined)
+      setAgentPlan(undefined); setAgentOutcome(undefined); setExportRecord(undefined)
+
+      let datasetNotice: ProductNotice | undefined
+      try {
+        const listed = valueOrThrow(await api.listDatasets({ projectId }))
+        const nextDatasets = readDatasets(listed)
       const persisted = readWorkspaceSelection(window.localStorage, projectId)
       const nextDataset = nextDatasets.find((item) => item.datasetId === persisted?.datasetId) ?? nextDatasets[0]
       const availableDatasetIds = new Set(nextDatasets.map((item) => item.datasetId))
@@ -646,15 +663,22 @@ export function App(): React.JSX.Element {
         Object.values(persisted.mapping.roles).every((fieldId) => availableFields.has(fieldId))
         ? persisted.mapping
         : undefined
-      setProject(next); mergeProjects([next]); setDatasets(nextDatasets); setActiveDatasetId(nextDataset?.datasetId); setAgentDatasetIds(nextAgentDatasetIds)
-      setPlot(undefined); setPreviousPlot(undefined); setSelectedChart(persistedChart); setConfirmedMapping(persistedMapping)
-      setAgentPlan(undefined); setAgentOutcome(undefined); setExportRecord(undefined)
+        setDatasets(nextDatasets); setActiveDatasetId(nextDataset?.datasetId); setAgentDatasetIds(nextAgentDatasetIds)
+        setSelectedChart(persistedChart); setConfirmedMapping(persistedMapping)
+      } catch (error) {
+        datasetNotice = {
+          kind: 'warning',
+          title: '项目数据暂不可用',
+          message: errorNotice(error).message,
+        }
+      }
       const recovery = await recoverLatestPlot(projectId)
       if (recovery.plot) {
         setPlot(recovery.plot)
         setSelectedChart(chartCatalog.find((chart) => chart.id === recovery.plot?.chartId))
       }
       if (recovery.notice) setNotice(recovery.notice)
+      else if (datasetNotice) setNotice(datasetNotice)
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 

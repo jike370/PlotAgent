@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
@@ -216,6 +217,42 @@ def test_engine_rpc_uses_imported_data_and_restores_latest_document(
     latest = cast(list[dict[str, Any]], restored["plots"])[0]
     assert (latest["plot_id"], latest["plot_version"]) == ("plot:desktop", 2)
     assert Path(cast(str, latest["preview"]["path"])).is_file()
+
+
+def test_historical_removed_plot_is_listed_as_a_tombstone(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="removed-plot")
+    created = _create_line(
+        harness,
+        project_id,
+        imported,
+        plot_id="plot:removed",
+        action_id="action:create-removed",
+    )
+    session = harness.application._sessions[project_id]  # noqa: SLF001
+    connection = session.store._assert_writer()  # noqa: SLF001
+    row = connection.execute(
+        "SELECT document_json FROM engine_plot_document_versions WHERE plot_id = ?",
+        ("plot:removed",),
+    ).fetchone()
+    assert row is not None
+    document = json.loads(str(row[0]))
+    document["profile_id"] = "K25"
+    connection.execute(
+        "UPDATE engine_plot_document_versions SET document_json = ? WHERE plot_id = ?",
+        (json.dumps(document, ensure_ascii=False, separators=(",", ":")), "plot:removed"),
+    )
+    connection.commit()
+
+    listed = harness.call("engine.plots.list", {"project_id": project_id})
+    tombstone = cast(list[dict[str, Any]], listed["plots"])[0]
+    assert tombstone["profile_id"] == "K25"
+    assert tombstone["profile_removed"] is True
+    assert "profile" not in tombstone
+    assert "preview" not in tombstone
+    assert listed["project_version"] == created["project_version"]
 
 
 def test_agent_context_contains_each_explicitly_selected_dataset(

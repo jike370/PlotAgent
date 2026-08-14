@@ -402,6 +402,22 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('button', { name: '上传数据' })).toBeInTheDocument()
   })
 
+  it('keeps no-data Agent requests and guidance in the conversation timeline', async () => {
+    const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /新建项目/ }))
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '把标题改成温度响应')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(await screen.findByText('把标题改成温度响应')).toBeInTheDocument()
+    expect(await screen.findByText('请先上传数据')).toBeInTheDocument()
+    expect(screen.getByText('收到你的要求了。上传数据后，我会继续声明字段绑定。')).toBeInTheDocument()
+    expect(api.decideAgent).not.toHaveBeenCalled()
+  })
+
   it('lets the user choose a chart before uploading data', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop()
@@ -503,7 +519,10 @@ describe('PlotAgent real desktop workflow', () => {
         ],
       })),
       activateProject: vi.fn(async ({ projectId }) => ok({ project_id: projectId, project_version: 7, status: 'open' })),
-      listDatasets: vi.fn(async ({ projectId }) => ok({ project_id: projectId, project_version: 7, datasets: [dataset] })),
+      listDatasets: vi.fn(async (): Promise<DesktopDataResult> => ({
+        ok: false,
+        error: { code: 'IPC_INVALID_ARGUMENT', message: 'Legacy dataset metadata is unavailable.', retryable: false },
+      })),
       listPlots: vi.fn(async ({ projectId }) => ok({
         project_id: projectId,
         project_version: 7,
@@ -526,6 +545,46 @@ describe('PlotAgent real desktop workflow', () => {
       }))
     expect(await screen.findByRole('img', { name: '线点图 真实渲染预览' })).toBeInTheDocument()
     expect(screen.getByText('plot:alpha · v2')).toBeInTheDocument()
+  })
+
+  it('opens historical projects without silently replacing removed chart types', async () => {
+    const user = userEvent.setup()
+    const getPlot = vi.fn(async (input) => ok(
+      enginePlotFixture(input.plotId, input.plotVersion, 'K02', 7),
+    ))
+    const api = fakeDesktop({
+      listProjects: vi.fn(async () => ok({
+        projects: [
+          { project_id: 'project:historical', display_name: '历史项目', project_version: 7, is_open: false },
+        ],
+      })),
+      activateProject: vi.fn(async ({ projectId }) => ok({ project_id: projectId, project_version: 7, status: 'open' })),
+      listDatasets: vi.fn(async ({ projectId }) => ok({ project_id: projectId, project_version: 7, datasets: [dataset] })),
+      listPlots: vi.fn(async ({ projectId }) => ok({
+        project_id: projectId,
+        project_version: 7,
+        plots: [
+          enginePlotFixture('plot:removed', 1, 'K25', 6),
+          enginePlotFixture('plot:supported', 2, 'K02', 7),
+        ],
+      })),
+      getPlot,
+    })
+    installApi(api)
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '历史项目' }))
+
+    expect(await screen.findByText('图类已移除')).toBeInTheDocument()
+    expect(screen.getByText(/K25.*不会被替换或重新渲染/)).toBeInTheDocument()
+    expect(getPlot).toHaveBeenCalledWith({
+      projectId: 'project:historical',
+      plotId: 'plot:supported',
+      plotVersion: 2,
+    })
+    expect(getPlot).not.toHaveBeenCalledWith(expect.objectContaining({ plotId: 'plot:removed' }))
+    expect(await screen.findByRole('img', { name: '线点图 真实渲染预览' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '历史项目' })).toBeInTheDocument()
   })
 
   it('opens a persisted project with no plots in the normal data-ready empty state', async () => {

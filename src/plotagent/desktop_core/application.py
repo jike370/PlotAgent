@@ -1656,14 +1656,26 @@ class DesktopApplication:
     def _session_summary(
         self, session: ProjectSession, *, replayed: bool
     ) -> dict[str, RpcJsonValue]:
+        dataset_count = 0
+        plot_count = 0
+        compatibility_warnings: list[str] = []
+        try:
+            dataset_count = len(session.store.list_source_datasets())
+        except (StorageProblem, ValidationError):
+            compatibility_warnings.append("legacy_dataset_metadata")
+        try:
+            plot_count = len(session.engine.documents.list_latest())
+        except (StorageProblem, ValidationError):
+            compatibility_warnings.append("legacy_plot_metadata")
         return {
             "project_id": session.project_id,
             "resource_id": "resource:project." + session.project_id.removeprefix("project:"),
             "project_version": session.domain.revision,
-            "dataset_count": len(session.store.list_source_datasets()),
-            "plot_count": len(session.engine.documents.list_latest()),
+            "dataset_count": dataset_count,
+            "plot_count": plot_count,
             "status": "open",
             "replayed": replayed,
+            "compatibility_warnings": cast(list[RpcJsonValue], compatibility_warnings),
         }
 
     def _dataset_summary(
