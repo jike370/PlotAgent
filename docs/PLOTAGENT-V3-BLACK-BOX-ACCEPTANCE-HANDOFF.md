@@ -1,6 +1,6 @@
 # PlotAgent v3 Windows 黑盒验收交接
 
-> 适用基线：产品代码 `aac5852c16b61df7f999bd3e05a8830d6f44da46`。允许该提交之后只有 `docs/**` 发生变化。
+> 适用基线：产品代码 `cb0a4f6321b7e688b55f83068458d6f6a51c0698`。允许该提交之后只有 `docs/**` 发生变化。
 >
 > 被测范围：34 张正式单图、桌面自然语言交互、字段确认、版本与撤销重做、重启恢复、PNG/SVG/OPJU。
 >
@@ -26,7 +26,7 @@
 ```powershell
 git rev-parse HEAD
 git status --short
-git diff --exit-code aac5852c16b61df7f999bd3e05a8830d6f44da46 -- . ':(exclude)docs/**'
+git diff --exit-code cb0a4f6321b7e688b55f83068458d6f6a51c0698 -- . ':(exclude)docs/**'
 ```
 
 要求：
