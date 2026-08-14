@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="576" viewBox="-50.1519 -10.1540 598.0077 336.3793" version="1.1" preserveAspectRatio="xMidYMid meet">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="768" viewBox="24.5991 -10.1540 448.5058 336.3793" version="1.1" preserveAspectRatio="xMidYMid meet">
  <defs>
   <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
  </defs>
@@ -9,7 +9,7 @@
   </g>
   <g id="axes_1">
    <g id="line2d_14">
-    <path d="M 58.899401 297.638678  L 185.534436 158.035667  L 312.16947 204.570004  L 438.804505 18.432655  " clip-path="url(#p184d5a6bdc)" style="fill: none; stroke: #1676d2; stroke-width: 1.5; stroke-linecap: square" />
+    <path d="M 58.899401 297.638678  L 185.534436 158.035667  L 312.16947 204.570004  L 438.804505 18.432655  " clip-path="url(#p184d5a6bdc)" style="fill: none; stroke: #1676d2; stroke-width: 2.2; stroke-linecap: square" />
     <defs>
      <path id="m0a1441a7d1" d="M 0 4.5  C 1.193414 4.5 2.33811 4.025851 3.181981 3.181981  C 4.025851 2.33811 4.5 1.193414 4.5 0  C 4.5 -1.193414 4.025851 -2.33811 3.181981 -3.181981  C 2.33811 -4.025851 1.193414 -4.5 0 -4.5  C -1.193414 -4.5 -2.33811 -4.025851 -3.181981 -3.181981  C -4.025851 -2.33811 -4.5 -1.193414 -4.5 0  C -4.5 1.193414 -4.025851 2.33811 -3.181981 3.181981  C -2.33811 4.025851 -1.193414 4.5 0 4.5  z " style="fill: #1676d2; stroke: #1676d2" />
     </defs>

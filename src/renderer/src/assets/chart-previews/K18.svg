@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="576" viewBox="-50.7437 -11.5134 602.4128 338.8572" version="1.1" preserveAspectRatio="xMidYMid meet">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="768" viewBox="24.5579 -11.5134 451.8096 338.8572" version="1.1" preserveAspectRatio="xMidYMid meet">
  <defs>
   <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
  </defs>
@@ -18,17 +18,17 @@
    </g>
    <g id="FillBetweenPolyCollection_2">
     <defs>
-     <path id="mb1585e38fa" d="M 61.974455 -95.415647  L 61.974455 -134.265802  L 156.218575 -202.253574  L 250.462695 -270.241346  L 344.706816 -75.990569  L 438.950936 -221.678652  L 438.950936 -95.415647  L 438.950936 -95.415647  L 344.706816 -95.415647  L 250.462695 -95.415647  L 156.218575 -95.415647  L 61.974455 -95.415647  z " style="stroke: #d84a4a; stroke-opacity: 0.35" />
+     <path id="mb1585e38fa" d="M 61.974455 -95.415647  L 61.974455 -134.265802  L 156.218575 -202.253574  L 250.462695 -270.241346  L 344.706816 -75.990569  L 438.950936 -221.678652  L 438.950936 -95.415647  L 438.950936 -95.415647  L 344.706816 -95.415647  L 250.462695 -95.415647  L 156.218575 -95.415647  L 61.974455 -95.415647  z " style="stroke: #7478a8; stroke-opacity: 0.35" />
     </defs>
     <g clip-path="url(#p12f8d59a2c)">
-     <use xlink:href="#mb1585e38fa" x="0" y="345.6" style="fill: #d84a4a; fill-opacity: 0.35; stroke: #d84a4a; stroke-opacity: 0.35" />
+     <use xlink:href="#mb1585e38fa" x="0" y="345.6" style="fill: #7478a8; fill-opacity: 0.35; stroke: #7478a8; stroke-opacity: 0.35" />
     </g>
    </g>
    <g id="line2d_17">
-    <path d="M 61.974455 153.058965  L 156.218575 36.508499  L 250.462695 298.747047  L 344.706816 85.071193  L 438.950936 17.083421  " clip-path="url(#p12f8d59a2c)" style="fill: none; stroke: #1676d2; stroke-width: 1.5; stroke-linecap: square" />
+    <path d="M 61.974455 153.058965  L 156.218575 36.508499  L 250.462695 298.747047  L 344.706816 85.071193  L 438.950936 17.083421  " clip-path="url(#p12f8d59a2c)" style="fill: none; stroke: #1676d2; stroke-width: 2.2; stroke-linecap: square" />
    </g>
    <g id="line2d_18">
-    <path d="M 61.974455 211.334198  L 156.218575 143.346426  L 250.462695 75.358654  L 344.706816 269.609431  L 438.950936 123.921348  " clip-path="url(#p12f8d59a2c)" style="fill: none; stroke: #d84a4a; stroke-width: 1.5; stroke-linecap: square" />
+    <path d="M 61.974455 211.334198  L 156.218575 143.346426  L 250.462695 75.358654  L 344.706816 269.609431  L 438.950936 123.921348  " clip-path="url(#p12f8d59a2c)" style="fill: none; stroke: #7478a8; stroke-width: 2.2; stroke-linecap: square" />
    </g>
    </g>
  </g>

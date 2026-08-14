@@ -153,11 +153,9 @@ export function ChartLibrary({ currentChartId, datasetCompatibility, onClose, on
                   <div className="chart-card__preview"><ChartPreview chart={chart} /></div>
                   <div className="chart-card__heading">
                     <span className={`chart-id chart-id--${chart.layer}`}>{chart.id}</span>
-                    <span><strong>{chart.name}</strong><small>{chart.englishName}</small></span>
+                    <strong>{chart.name}</strong>
                     {chart.favorite && <Star className="favorite-star" size={15} fill="currentColor" aria-label="已收藏" />}
                   </div>
-                  <p>{chart.purpose}</p>
-                  <div className="data-shapes">{chart.dataShape.slice(0, 2).map((shape) => <span key={shape}>{shape}</span>)}</div>
                   {chart.id === currentChartId && <span className="current-chart"><Check size={12} />当前</span>}
                 </button>
               ))}
@@ -180,6 +178,7 @@ export function ChartLibrary({ currentChartId, datasetCompatibility, onClose, on
               <div><h3>{selectedChart.name}</h3><p>{selectedChart.englishName}</p></div>
               <button type="button" aria-label={selectedChart.favorite ? '取消收藏' : '收藏图形'}><Star size={17} fill={selectedChart.favorite ? 'currentColor' : 'none'} /></button>
             </div>
+            <p className="chart-detail__purpose">{selectedChart.purpose}</p>
             <dl className="detail-list">
               <div><dt>所需字段</dt><dd>{selectedChart.requiredFields.join(' · ')}</dd></div>
               <div><dt>数据形状</dt><dd>{selectedChart.dataShape.join(' / ')}</dd></div>

@@ -19,9 +19,16 @@ describe('chart preview assets', () => {
     expect(assetIds).toEqual(catalogIds)
     expect(manifestIds).toEqual(catalogIds)
     expect(previewManifest.count).toBe(34)
+    expect(previewManifest.schema_version).toBe('plotagent.chart-library-previews.v3')
     expect(previewManifest.source_policy).toContain('production Matplotlib default state')
     expect(previewManifest.simplification_policy).toContain('remove titles, axes')
+    expect(previewManifest.preview_palette).toEqual({
+      primary: '#1676d2',
+      secondary: '#7478a8',
+      tertiary: '#4f8c84',
+    })
     expect(previewManifest.entries.every((entry) => entry.asset_format === 'svg')).toBe(true)
+    expect(previewManifest.entries.every((entry) => entry.width === 1024 && entry.height === 768)).toBe(true)
     const emphasisById = Object.fromEntries(
       previewManifest.entries.map((entry) => [entry.profile_id, entry.preview_emphasis]),
     )

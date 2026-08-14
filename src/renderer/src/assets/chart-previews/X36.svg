@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="576" viewBox="-83.5487 -8.5519 589.6930 331.7023" version="1.1" preserveAspectRatio="xMidYMid meet">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="768" viewBox="-9.8371 -8.5519 442.2698 331.7023" version="1.1" preserveAspectRatio="xMidYMid meet">
  <defs>
   <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
  </defs>
@@ -20,14 +20,14 @@
    </g>
   <g id="axes_2">
    <g id="line2d_21">
-    <path d="M 96.772366 297.571018  L 211.297807 157.299219  L 325.823248 17.02742  " clip-path="url(#pc9b8b390e3)" style="fill: none; stroke: #d97800; stroke-width: 1.4; stroke-linecap: square" />
+    <path d="M 96.772366 297.571018  L 211.297807 157.299219  L 325.823248 17.02742  " clip-path="url(#pc9b8b390e3)" style="fill: none; stroke: #7478a8; stroke-width: 2.2; stroke-linecap: square" />
     <defs>
-     <path id="mb584fc922d" d="M 0 3  C 0.795609 3 1.55874 2.683901 2.12132 2.12132  C 2.683901 1.55874 3 0.795609 3 0  C 3 -0.795609 2.683901 -1.55874 2.12132 -2.12132  C 1.55874 -2.683901 0.795609 -3 0 -3  C -0.795609 -3 -1.55874 -2.683901 -2.12132 -2.12132  C -2.683901 -1.55874 -3 -0.795609 -3 0  C -3 0.795609 -2.683901 1.55874 -2.12132 2.12132  C -1.55874 2.683901 -0.795609 3 0 3  z " style="stroke: #d97800" />
+     <path id="mb584fc922d" d="M 0 3  C 0.795609 3 1.55874 2.683901 2.12132 2.12132  C 2.683901 1.55874 3 0.795609 3 0  C 3 -0.795609 2.683901 -1.55874 2.12132 -2.12132  C 1.55874 -2.683901 0.795609 -3 0 -3  C -0.795609 -3 -1.55874 -2.683901 -2.12132 -2.12132  C -2.683901 -1.55874 -3 -0.795609 -3 0  C -3 0.795609 -2.683901 1.55874 -2.12132 2.12132  C -1.55874 2.683901 -0.795609 3 0 3  z " style="stroke: #7478a8" />
     </defs>
     <g clip-path="url(#pc9b8b390e3)">
-     <use xlink:href="#mb584fc922d" x="96.772366" y="297.571018" style="fill: #d97800; stroke: #d97800" />
-     <use xlink:href="#mb584fc922d" x="211.297807" y="157.299219" style="fill: #d97800; stroke: #d97800" />
-     <use xlink:href="#mb584fc922d" x="325.823248" y="17.02742" style="fill: #d97800; stroke: #d97800" />
+     <use xlink:href="#mb584fc922d" x="96.772366" y="297.571018" style="fill: #7478a8; stroke: #7478a8" />
+     <use xlink:href="#mb584fc922d" x="211.297807" y="157.299219" style="fill: #7478a8; stroke: #7478a8" />
+     <use xlink:href="#mb584fc922d" x="325.823248" y="17.02742" style="fill: #7478a8; stroke: #7478a8" />
     </g>
    </g>
    </g>

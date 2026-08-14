@@ -2298,8 +2298,8 @@ input[type="checkbox"] {
 
 .chart-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
-  gap: 9px;
+  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+  gap: 10px;
   padding-top: 12px;
 }
 
@@ -2308,7 +2308,7 @@ input[type="checkbox"] {
   min-width: 0;
   display: block;
   overflow: hidden;
-  padding: 0 0 9px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--canvas);
@@ -2325,37 +2325,27 @@ input[type="checkbox"] {
 }
 
 .chart-card__preview {
-  height: 118px;
-  padding: 5px;
+  aspect-ratio: 4 / 3;
+  height: auto;
+  padding: 8px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 
 .chart-card__heading {
-  min-height: 40px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 7px 9px 2px;
-}
-
-.chart-card__heading > span:nth-child(2) {
-  min-width: 0;
-  display: grid;
-  gap: 1px;
+  padding: 8px 9px;
 }
 
 .chart-card__heading strong {
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
-  font-size: 10.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chart-card__heading small {
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2382,38 +2372,6 @@ input[type="checkbox"] {
 .favorite-star {
   margin-left: auto;
   color: var(--warning);
-}
-
-.chart-card > p {
-  min-height: 27px;
-  margin: 2px 9px 6px;
-  color: var(--muted);
-  font-size: 9.5px;
-  line-height: 1.45;
-}
-
-.data-shapes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  padding: 0 9px;
-}
-
-.data-shapes {
-  min-height: 17px;
-  margin-bottom: 5px;
-}
-
-.data-shapes span {
-  padding: 2px 5px;
-  border-radius: 5px;
-  font-size: 8.5px;
-}
-
-.data-shapes span {
-  color: var(--info);
-  background: var(--info-soft);
-  font-family: "Cascadia Mono", Consolas, monospace;
 }
 
 .current-chart {
@@ -2465,7 +2423,8 @@ input[type="checkbox"] {
 }
 
 .chart-detail__preview {
-  height: 158px;
+  aspect-ratio: 4 / 3;
+  height: auto;
   overflow: hidden;
   margin-bottom: 11px;
   border: 1px solid var(--border);
@@ -2508,6 +2467,13 @@ input[type="checkbox"] {
 
 .chart-detail__title button:hover {
   background: var(--surface);
+}
+
+.chart-detail__purpose {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .detail-list {
@@ -5244,7 +5210,7 @@ input[type="checkbox"] {
   }
 
   .chart-grid {
-    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
   }
 
   .mapping-decision { grid-template-columns: 1fr; }

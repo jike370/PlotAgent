@@ -92,7 +92,7 @@ x_cases = _fixture_module("test_x05_x09_x13_profiles")
 x23_cases = _fixture_module("test_x23_matplotlib_backend")
 
 OUTPUT = REPOSITORY / "src" / "renderer" / "src" / "assets" / "chart-previews"
-EXPECTED_SIZE = (1024, 576)
+EXPECTED_SIZE = (1024, 768)
 SVG_NAMESPACE = "http://www.w3.org/2000/svg"
 XLINK_NAMESPACE = "http://www.w3.org/1999/xlink"
 XLINK_HREF = f"{{{XLINK_NAMESPACE}}}href"
@@ -373,6 +373,52 @@ def _apply_preview_emphasis(profile_id: str, root: ET.Element) -> str:
     return "none"
 
 
+def _normalize_preview_palette(root: ET.Element) -> None:
+    color_map = {
+        "#1f77b4": "#1676d2",
+        "#2875d8": "#1676d2",
+        "#2a6fdb": "#1676d2",
+        "#d97800": "#7478a8",
+        "#d97706": "#7478a8",
+        "#ff7f0e": "#7478a8",
+        "#c53d4d": "#7478a8",
+        "#d84a4a": "#7478a8",
+        "#d94b4b": "#7478a8",
+        "#f04444": "#7478a8",
+        "#299764": "#4f8c84",
+        "#2a9d6f": "#4f8c84",
+        "#2ca02c": "#4f8c84",
+    }
+    for element in root.iter():
+        for attribute, value in tuple(element.attrib.items()):
+            normalized = value
+            for source, destination in color_map.items():
+                normalized = re.sub(
+                    re.escape(source),
+                    destination,
+                    normalized,
+                    flags=re.IGNORECASE,
+                )
+            element.attrib[attribute] = normalized
+
+
+def _normalize_preview_line_weights(root: ET.Element) -> None:
+    artist_prefixes = ("line2d_", "LineCollection_")
+    width_pattern = re.compile(r"stroke-width:\s*([0-9.]+)")
+    for artist in root.iter():
+        if not _element_id(artist).startswith(artist_prefixes):
+            continue
+        for element in artist.iter():
+            style = element.attrib.get("style")
+            if style is None:
+                continue
+
+            def widened(match: re.Match[str]) -> str:
+                return f"stroke-width: {max(float(match.group(1)), 2.2):g}"
+
+            element.attrib["style"] = width_pattern.sub(widened, style)
+
+
 def _simplify_svg(source: Path, destination: Path, profile_id: str) -> str:
     """Reduce a full chart to its recognisable geometry for a library card."""
 
@@ -442,6 +488,8 @@ def _simplify_svg(source: Path, destination: Path, profile_id: str) -> str:
             "preserveAspectRatio": "xMidYMid meet",
         }
     )
+    _normalize_preview_palette(root)
+    _normalize_preview_line_weights(root)
     emphasis = _apply_preview_emphasis(profile_id, root)
     tree.write(destination, encoding="utf-8", xml_declaration=True)
     return emphasis
@@ -491,7 +539,7 @@ def _write_audit_page(entries: list[dict[str, object]]) -> Path:
       border-radius: 10px;
     }}
     img {{
-      display: block; width: 100%; aspect-ratio: 16 / 9;
+      display: block; width: 100%; aspect-ratio: 4 / 3;
       object-fit: contain; background: #fff;
     }}
     footer {{
@@ -564,7 +612,7 @@ def main() -> None:
         if old.name not in expected_names:
             old.unlink()
     manifest = {
-        "schema_version": "plotagent.chart-library-previews.v2",
+        "schema_version": "plotagent.chart-library-previews.v3",
         "source_commit": source_commit,
         "source_policy": (
             "simplified vector preview derived from the production Matplotlib default "
@@ -573,6 +621,11 @@ def main() -> None:
         "simplification_policy": (
             "retain chart geometry; remove titles, axes, ticks, labels, legends, and color scales"
         ),
+        "preview_palette": {
+            "primary": "#1676d2",
+            "secondary": "#7478a8",
+            "tertiary": "#4f8c84",
+        },
         "origin_qualification": "tracked separately by the native Origin renderer audit",
         "count": len(entries),
         "entries": entries,

@@ -1,8 +1,13 @@
 {
-  "schema_version": "plotagent.chart-library-previews.v2",
-  "source_commit": "06e80e90ad524ac7d7c5c1710ed76f288749f3cf",
+  "schema_version": "plotagent.chart-library-previews.v3",
+  "source_commit": "cf5cd453c53257c65ddbb587982d5e3095fec235",
   "source_policy": "simplified vector preview derived from the production Matplotlib default state and representative engine fixtures",
   "simplification_policy": "retain chart geometry; remove titles, axes, ticks, labels, legends, and color scales",
+  "preview_palette": {
+    "primary": "#1676d2",
+    "secondary": "#7478a8",
+    "tertiary": "#4f8c84"
+  },
   "origin_qualification": "tracked separately by the native Origin renderer audit",
   "count": 34,
   "entries": [
@@ -13,10 +18,10 @@
       "renderer": "K01LineRenderer",
       "fixture_sha256": "c94802f1385ba755b349aa63d1653385f03153e3c065ec2aa96717b8a42ab254",
       "asset_format": "svg",
-      "asset_sha256": "6e84da3d91ee3ba0bf9b4101a24947e9d011255cc698093890cf8957a39a9607",
+      "asset_sha256": "31b959da82abfb3681a069d5956bcebd9b0d95556d53a50989382dfff58418bc",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K02",
@@ -25,10 +30,10 @@
       "renderer": "K02LineSymbolRenderer",
       "fixture_sha256": "803c05a51250148b5f9e9c79d5078830e5c43dab1fdce6eebc8918f341267b21",
       "asset_format": "svg",
-      "asset_sha256": "6efb2073c68f422b1f0dff4439dfd0fb87eb65eb422efdbd4a58c8a9b0aaa3d9",
+      "asset_sha256": "78e1aa0663df67bb2a9b315e330f39f752e1dded3d9d539afda5d960151c29c8",
       "preview_emphasis": "markers enlarged 1.8x and unified to the primary series color",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K03",
@@ -37,10 +42,10 @@
       "renderer": "K03ScatterRenderer",
       "fixture_sha256": "751098b99905d483b50cdf323b7628d5d5f314b8bc7792038e896e260f481628",
       "asset_format": "svg",
-      "asset_sha256": "400282879d0c88c1644f8feb8b4fb3f33ac2e8cf8c5c3f1c6b9bd14e54b35ec5",
+      "asset_sha256": "bc4f2ae3020fc6d029bcbfc6e2d6276bf9293c76732ab60cc88bf5e6c2f36ae8",
       "preview_emphasis": "markers enlarged 1.8x and unified to the primary series color",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K04",
@@ -49,10 +54,10 @@
       "renderer": "K04BubbleRenderer",
       "fixture_sha256": "c285b62be2de410d34415eeb40e1cf14fec55d78679bb6e287e6d4bf9e5d1f60",
       "asset_format": "svg",
-      "asset_sha256": "b954b0072027f5096a45b0ef849db8a0df0330bbb006052af52b46da50c9e207",
+      "asset_sha256": "fc64a314293998c724cabbaf66ed696c8e91bf55503c9110110a7fb4e6cb8962",
       "preview_emphasis": "bubble radii progressively enlarged from 1.35x to 2.25x",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K06",
@@ -61,10 +66,10 @@
       "renderer": "K06PointErrorRenderer",
       "fixture_sha256": "36deb757fca8d39ae6db86027b98121c81be3cc82c3d9592202d094def969f0d",
       "asset_format": "svg",
-      "asset_sha256": "7d9597e1fa4bf53704ea02f1384d598369344737d44f013194a89c5a3d967759",
+      "asset_sha256": "d57ac4950883222d1f4cdfca423a7199ede2e3f2bb42813ac884e71d09c45bbd",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K07",
@@ -73,10 +78,10 @@
       "renderer": "K07ErrorBandRenderer",
       "fixture_sha256": "a88def21ac0e617c4fce6f641b663a57ce71f8889081479a103557e7f726df68",
       "asset_format": "svg",
-      "asset_sha256": "47f155b2bd22cda60900d2a749cad9e84361a18fee024de633411b988856402d",
+      "asset_sha256": "bd30025527173bee60a2d216d9963520a2bcf516240f16e4331be269d5c8e94b",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K08",
@@ -85,10 +90,10 @@
       "renderer": "K08ColumnRenderer",
       "fixture_sha256": "95591883abdd8d3d25dd8f29d3724d626799a949f6c6f7e0335c38ad5d1c43ec",
       "asset_format": "svg",
-      "asset_sha256": "7dc01a508c3b1cddc040bb8534ec090e1fd3d7f24dfdca15c27cbe258038f4fc",
+      "asset_sha256": "6b26a47d980f1412a1ac11fd3bbfcf16a28667c9e5f2c7105f92fc2ab1e82f8a",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K09",
@@ -97,10 +102,10 @@
       "renderer": "K09GroupedColumnRenderer",
       "fixture_sha256": "f121e36c2c0e1d09d5aa1af52ba9174d576fe1e3a15f4cf2e95a4c24985a4aca",
       "asset_format": "svg",
-      "asset_sha256": "0ca5296da367149674dccb1fc81a51ae6b7efa6ef46086822a744de0ee1f5167",
+      "asset_sha256": "ac239c489b07835d357fa68de29d3a5b3c42bec251ee0cb41ffdb11d1e5246f8",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K10",
@@ -109,10 +114,10 @@
       "renderer": "K10StackedColumnRenderer",
       "fixture_sha256": "29df0a9b18fb7cdeb684dea058e065241af8c3b0cf9af90310ecf463c19238b3",
       "asset_format": "svg",
-      "asset_sha256": "7485d6ed0cf89b91a1d1c378ba42f42cf6bd7e3b181104d558a18ff0edd08cc0",
+      "asset_sha256": "a8cf59bffa72d4fb4fbac8cd1b94ee4039ebb1999dc7ef6e377c3eb28f5a5733",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K11",
@@ -121,10 +126,10 @@
       "renderer": "K11PercentStackRenderer",
       "fixture_sha256": "a0cd44f0e3d894279aa0381bea542c0facd1e9e466e69bcf015d250c2e4cee9b",
       "asset_format": "svg",
-      "asset_sha256": "98e1be1457b3a543bc5cc2e5c0197146092d1d73a72db754060c574fe8d018c5",
+      "asset_sha256": "f34c0dc93c86b52395f0c319ba227469d108ee79b201386c3a217913f0d3b61e",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K12",
@@ -133,10 +138,10 @@
       "renderer": "K12StripRenderer",
       "fixture_sha256": "17e44d1c050c1ec0e7ed2b0cd1a96c31b6a93f4a6d893ed5501f8cf0e49f6171",
       "asset_format": "svg",
-      "asset_sha256": "52d748b159cbdcdbf1a78786869f65936c175d944bff724781893b7e45a86b3a",
+      "asset_sha256": "19619ea04e30da71c3d357f9d8e02f50e5dc5ccd3ad140b091786eb278b7a021",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K13",
@@ -145,10 +150,10 @@
       "renderer": "K13BoxRenderer",
       "fixture_sha256": "2d639a99296e92b4ede34d1317185e01132ad95448dfdf2f6d63693dfe6840c4",
       "asset_format": "svg",
-      "asset_sha256": "03da9d892d53a410a4266ea75f7c7da7c0e87b693eefacfbc228d5f86642bd6b",
+      "asset_sha256": "f34cd6def7cd3f8ba449f76143b9fe60c4bcec6f82515c60a2eb092f792f3adb",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K14",
@@ -157,10 +162,10 @@
       "renderer": "K14ViolinRenderer",
       "fixture_sha256": "eba457821892f3fe787badcf4bf710844a13f22e9d7c036dd3618ab882378194",
       "asset_format": "svg",
-      "asset_sha256": "e8eb058489f6df7b551d827b03cb8dda1ef88723bef52f137f39c87569df8655",
+      "asset_sha256": "99861e9897ee45178438951ba5a35af7b8ea50d5d587715892fb37abd9796cc5",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K15",
@@ -169,10 +174,10 @@
       "renderer": "K15HistogramRenderer",
       "fixture_sha256": "f87118cc3803327046378683975846431bd4c31f469d6dca206421b4a660e9e3",
       "asset_format": "svg",
-      "asset_sha256": "62d5c58e00f0e565fbcafa892d2b6a9676d4606b89c41fb05c99666fcb1d348a",
+      "asset_sha256": "6e530242c3a6be26a0ee8f80769c0389d37423b7e04d69ce9451f640b8c4d6d2",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K18",
@@ -181,10 +186,10 @@
       "renderer": "K18AreaRenderer",
       "fixture_sha256": "d160a165664eb4446ef4859f0de349f8bd02b114acaaafad1676f17b08a95279",
       "asset_format": "svg",
-      "asset_sha256": "f8f07e95e6274cfe06073154e4d54c7bf0bd4fa70c4629d0b0d555bea163bba5",
+      "asset_sha256": "9e944712239d51b5e9e462e39a774db74a86a37b98cb24df049c5b6109a12dd7",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K19",
@@ -193,10 +198,10 @@
       "renderer": "K19TimeSeriesRenderer",
       "fixture_sha256": "526ad802a9f24ed399489fb3999bf7aade253f98493e9ca6df6209ed187f6f66",
       "asset_format": "svg",
-      "asset_sha256": "5ce099b0e0f08e1fe842d980e59f5b93a70d23e98b0ad3fe8672532f7b067b8b",
+      "asset_sha256": "0cc78f12631b3e5a6a2443048baab5a67290ecc7adf65d630a5d8cb0bda10c43",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K20",
@@ -205,10 +210,10 @@
       "renderer": "K20HeatmapRenderer",
       "fixture_sha256": "d996093c23e8f1c6a1e4e8cd009d196a7282f994accbde54f913887abf5c217e",
       "asset_format": "svg",
-      "asset_sha256": "b14fddf4669d853d89643cd7e3487765aac48338d6431cce9f15ee323579afd3",
+      "asset_sha256": "3e8f00f25cd95e1366870010b5bfe602b8bd1f9cf424e5cd426350df59e08b42",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K21",
@@ -217,10 +222,10 @@
       "renderer": "K21CorrelationMatrixRenderer",
       "fixture_sha256": "74e4efcc173bd21a085dc76534e07a37d476183fa989b4c30e8207cb725cc005",
       "asset_format": "svg",
-      "asset_sha256": "8d71cc0ae824c9bcded001e7fd6d2b556dde97d838279ab9ebea53fded2f4eec",
+      "asset_sha256": "609973d5d21909a1e0fd9a403d4a4826e038a497c5f0ed1ed3b91c115010f19a",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K22",
@@ -229,10 +234,10 @@
       "renderer": "K22ContourRenderer",
       "fixture_sha256": "744d50aa1d0de8ed6babb006da74d535aa74ef7d3773b536a509b30bb2ef2491",
       "asset_format": "svg",
-      "asset_sha256": "8f165932753b77107b79d32093baf331309b4f6973b026ec9afae0ccc7403507",
+      "asset_sha256": "3c17a269a4e3258978f6aec98a2f6eb5a8c3cd5864117a0d07aa4024dc6a6f8f",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "K24",
@@ -241,10 +246,10 @@
       "renderer": "K24FacetRenderer",
       "fixture_sha256": "0ad27a3216e10d51cb9ae2052468aac6495436f1ab87500d6405063dc9629abd",
       "asset_format": "svg",
-      "asset_sha256": "91031a32bb1695cba66440dbf4639472db34eac67785adc3929d9f9766e0caa9",
+      "asset_sha256": "defd0d5e9caa3cbbfa7c0fa53528a63b7196c18f5b01f7eed9c952456ee98029",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "S34",
@@ -253,10 +258,10 @@
       "renderer": "S34NyquistRenderer",
       "fixture_sha256": "61588fbdbb941b4a50d103ab8c9bacb8e1e419923a9e69212b99e8283f80017f",
       "asset_format": "svg",
-      "asset_sha256": "bfe6bc22a78708e1312dbc7c9bfb79c7f4a3bb4f03407c56c99eb5ed05eb627c",
+      "asset_sha256": "63b58882161f2737dd40faa8b24cef54c33d5d536c67b0b9fffa795eeaf5bbb2",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "S61",
@@ -265,10 +270,10 @@
       "renderer": "S61ConfusionRenderer",
       "fixture_sha256": "06a212f2127ed75662a5987e8414d45442f7daeb2edd1c97749be65ed83ddc01",
       "asset_format": "svg",
-      "asset_sha256": "b86b3b8eecf51025e1319f414ac77af28deb7f1ac2175980ea81e25214ab1f51",
+      "asset_sha256": "bc0d132a98b8896e69e1f4cf76400f03f4accfdf5a2f38b3558e45ec8e0c7515",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X02",
@@ -277,10 +282,10 @@
       "renderer": "X02DropLineRenderer",
       "fixture_sha256": "29dc692b34cadce283c36ee54526cb154849f953280bb5188cc9bf83aec36234",
       "asset_format": "svg",
-      "asset_sha256": "13ad496e40b5df4ca76f5c78a2c9c4ca42cf30713893ed1f94650d56afb7b332",
+      "asset_sha256": "91be3d440d6f1e2bb979787367fbf0e3d57a21db556d6fc8e1cd18645b4cf66f",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X03",
@@ -289,10 +294,10 @@
       "renderer": "X03LollipopRenderer",
       "fixture_sha256": "6289b76ca119e632eeae61e131e1d5a6e7bb117edd1dc58c025feb31170a5f4e",
       "asset_format": "svg",
-      "asset_sha256": "b3d7e062bbec91431699f9f0141b58c864169679f50c36798fee49d6f953a1ad",
+      "asset_sha256": "585e0039ff4ec9ef9a3e6072be43842fbd71c0bf60c6ffaad0b05f18bdebbaff",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X05",
@@ -301,10 +306,10 @@
       "renderer": "X05BeeswarmRenderer",
       "fixture_sha256": "7df0e04ef748a582e9882979d455685e0889e292aa417bff41e3053f4e5b181b",
       "asset_format": "svg",
-      "asset_sha256": "c5a4187a98a0242319fa1c6b75b7a43f936e5f5f88983a10942fea2a48bb9dcc",
+      "asset_sha256": "029cb1af814abbd5ed09a950281388c874aff5c21d1beffdbc52a9b18b246dc3",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X09",
@@ -313,10 +318,10 @@
       "renderer": "X09FloatingIntervalRenderer",
       "fixture_sha256": "20a142c8d588321a0db1286516bf9493a1264310025a56bf8a8856dd9f1d99fa",
       "asset_format": "svg",
-      "asset_sha256": "e03ba89b6518b5b634043c04351e07742caf61f2fa583e90b90ea3e4b42822c1",
+      "asset_sha256": "3c3151f232d957a39ba22dfd35a94fd0e3c54da69309ec664865dd0778eb0068",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X13",
@@ -325,10 +330,10 @@
       "renderer": "X13PopulationPyramidRenderer",
       "fixture_sha256": "75acbbfb1058e50f2a4785b1c3574a9f180bb1d9e85f12591e7c3f3a02006943",
       "asset_format": "svg",
-      "asset_sha256": "c3334a4f14ca379c79d726543c6fa40f9619907b84279a53aef0e8bf4f112d2b",
+      "asset_sha256": "2ffcea56ea0b728d49da59233d93ec683247600948e45aed0ffc7bf5b2e27eac",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X23",
@@ -337,10 +342,10 @@
       "renderer": "X23DualYRenderer",
       "fixture_sha256": "9ba6b78bd8902573384d34e97a6d92758967688849292075468d6e4aca254575",
       "asset_format": "svg",
-      "asset_sha256": "1c9205594f808988b296d6ac0aae3fb6420c548eadb0710bee1436f088c088f4",
+      "asset_sha256": "34bf7899e9a6046c0de43e5b8afbd98b88e02ca631c1413ffe22c75aa8b26acb",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X24",
@@ -349,10 +354,10 @@
       "renderer": "X24ParetoRenderer",
       "fixture_sha256": "37199b72eeaa53beaa1a963786b187f93cbcbac6fe224ec94126276ef42905d1",
       "asset_format": "svg",
-      "asset_sha256": "357a9b45c4ade2541771f034bd8d10361d532a398dc9dc412cbac6b317debba9",
+      "asset_sha256": "a339da8943846856d6466badf87847c575653032c25096d88251de64cd71753b",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X35",
@@ -361,10 +366,10 @@
       "renderer": "X35DualYColumnRenderer",
       "fixture_sha256": "687b408f82dd4aae3921ab8d9f99dce4f4d39ed3aa62b568ce3a7d7aadc3cd8c",
       "asset_format": "svg",
-      "asset_sha256": "e300210351689fa7388105e91d1723e61550ecfad0d1c398046f7b274e1d23fb",
+      "asset_sha256": "9375cd18575fa4b8b97f63aee7a1a3a2670ed53a5c964d76dd267100b6dbf981",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X36",
@@ -373,10 +378,10 @@
       "renderer": "X36DualYColumnLineRenderer",
       "fixture_sha256": "1fd6f0f83ac55cd4a94bb55b507a8fa9a7a876aa710de4ba3f7e227e956a3cb3",
       "asset_format": "svg",
-      "asset_sha256": "b69c78b0ff5bf157a3f5efb7103b2784775a2485f450cacde6e645deb3c07c97",
+      "asset_sha256": "7db0c0d460a323641266f3b6d9c4a9f1483f9d0b87b3952b66169542e42eeb5c",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X38",
@@ -385,10 +390,10 @@
       "renderer": "X38OffsetStackRenderer",
       "fixture_sha256": "479c4a250414552cf3e452f10779b815bc090eb3334307f96a61e4dc269ada76",
       "asset_format": "svg",
-      "asset_sha256": "654fb41620278171c3e021cd5a8b005d51d94e1cba21c73a536421c054bb4537",
+      "asset_sha256": "4aaf9785279368112e21dc6228f6294e8b6d2db36a1cc485c5ade2d2ffe438d8",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X39",
@@ -397,10 +402,10 @@
       "renderer": "X39LineSeriesRenderer",
       "fixture_sha256": "6c6ffd45127895fb3dba8c0e3ffc6d937795e85533f39cb120bf847778c541a5",
       "asset_format": "svg",
-      "asset_sha256": "39009f38f711c1a384d17a7b0a4a816d67c86f5cb6fe84caa7ce2b196cab88c8",
+      "asset_sha256": "1da0b20263b83dc504d94fea58592ff8d2b31691ed201a814f0db7795ea5ed8a",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     },
     {
       "profile_id": "X40",
@@ -409,10 +414,10 @@
       "renderer": "X40BeforeAfterRenderer",
       "fixture_sha256": "d938baf6d2d7088340b0bf785ca5ef0db2f255bba5ceb80d1074e29ff611f280",
       "asset_format": "svg",
-      "asset_sha256": "667cd5969eefc4998879a64331292a696a723e739c10e4952ca249b09c7b5d05",
+      "asset_sha256": "9edff838984f6a7a521f1e823d15d34ad356c37915d125cd409acf8deaa27432",
       "preview_emphasis": "none",
       "width": 1024,
-      "height": 576
+      "height": 768
     }
   ]
 }
