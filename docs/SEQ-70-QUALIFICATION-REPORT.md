@@ -1,20 +1,20 @@
 # PlotAgent v3 SEQ-70 Pi Agent 资格报告
 
-日期：2026-08-14
+日期：2026-08-15
 最终判定：**GO**
 
 ## 1. 冻结范围
 
-- 评测时 HEAD：`d1fffba164655b5dd65a95e1be499496a0cdd189`
-- 产品代码基线：`358fc7ba00b54593268dff54e80f5f8aee529d49`（HEAD 之后仅含黑盒交接文档提交）
+- 评测时 HEAD：`4901f14f721d0f91dd1d4672e1c57a37c0089b48`
+- 产品代码基线：`4901f14f721d0f91dd1d4672e1c57a37c0089b48`
 - 运行时：生产 `PiAgentRuntime` + 隔离 desktop Core
 - Provider：`custom.default`
 - 模型：`deepseek-v4-flash`
 - 冻结任务：24 项，每项重复 3 次，共 72 次
 - 模型任务：18×3 = 54 次
 - 运行时任务：6×3 = 18 次
-- Task set SHA-256：`6ab81cc1188a6ec1f0b788c7ba787e5772952b96b2b2340eefab83e0aace5398`
-- 正式产物：`D:\plotv3\build\seq70-agent-eval\20260814-release-358fc7b`
+- Task set SHA-256：`a592572cf698168036aa184fe2ae338eb40e4f3246f7df6eb956a5bb7a270b99`
+- 正式产物：`D:\plotv3\build\seq70-agent-eval\20260815-release-4901f14-final`
 
 评测使用合成数据和独立项目。每个模型任务×重复轮次使用独立项目、数据和计划命名空间，不读取或修改用户项目。密钥仅由 Core 从 Windows 凭据存储取得，未写入报告或评测目录。
 
@@ -31,7 +31,7 @@
 | 无效追问率 | 0% | ≤5% | PASS |
 | 模型任务精确成功率 | 100% | ≥90% | PASS |
 | 运行时任务成功率 | 100% | 100% | PASS |
-| 模型延迟 P95 | 6.9210 秒 | ≤30 秒 | PASS |
+| 模型延迟 P95 | 6.3131 秒 | ≤30 秒 | PASS |
 
 计数：`72 PASS / 0 FAIL`。
 
@@ -58,19 +58,19 @@
 
 ## 4. 延迟与成本
 
-- 模型延迟中位数：4.3525 秒
-- 模型延迟 P95：6.9210 秒
-- 模型延迟最大值：8.0984 秒
-- 输入 token：709,144（cache read 641,024 / cache miss 68,120）
-- 输出 token：29,284
-- 按冻结价格估算成本：¥0.139508
+- 模型延迟中位数：3.8374 秒
+- 模型延迟 P95：6.3131 秒
+- 模型延迟最大值：6.9996 秒
+- 输入 token：709,564（cache read 641,024 / cache miss 68,540）
+- 输出 token：28,826
+- 按冻结价格估算成本：¥0.139012
 
-## 5. 评测期间发现并关闭的问题
+## 5. 本轮冻结验证
 
-1. Pi 工具参数原先直接使用判别联合 Schema，DeepSeek function calling 要求顶层 `type: object`。现改为 `{ decision: <EngineAgentDecision> }` 包装，Core 仍校验内部完整决策。
-2. 外部 Pi JSON 原先用严格 Python 对象模式校验，JSON list 会被误判为非 tuple。现按 canonical JSON 合同校验，不放松业务 Schema。
-3. Pi Core 返回结构化拒绝时，运行时原先仍可能显示 completed。现所有 `accepted=false` 都进入 failed，不生成成功状态。
-4. 评测器最初跨重复轮次复用同一项目，稳定 plan/action ID 会造成评测自身的状态冲突。正式运行改为每个任务×轮次独立项目，冻结任务和门槛不变。
+1. 当前 K06 合同使用中心值加四个非负误差幅度；创建和缺字段追问均由当前任务集重新验证。
+2. Pi 运行时超时、Core 结构化拒绝、缺少工具调用和同轮多决策均保持 fail-closed，不产生半完成计划。
+3. 已删除的组合图能力会被确定性拒绝，不调用模型，也不会静默替换为其他图类。
+4. 每个任务×轮次使用独立项目、数据和计划命名空间；72 次运行没有修改用户项目。
 
 ## 6. 结论边界
 
