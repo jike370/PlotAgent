@@ -250,6 +250,9 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     getPlot: vi.fn(async (input) => ok(enginePlotFixture(input.plotId, input.plotVersion))),
     listPlots: vi.fn(async () => ok({ project_version: 1, plots: [] })),
     createPlotBatchPlan: vi.fn(async () => ok({ task_plan: batchPlanFixture() })),
+    createCombinedPlot: vi.fn(async (input) => ok(enginePlotFixture(
+      'plot:combined.one', 1, input.profileId, input.expectedProjectVersion + 1,
+    ))),
     decideAgent: vi.fn(async () => ok(agentDecisionWithPlan(agentPlanFixture()))),
     getAgentPlan: vi.fn(async () => ok({})),
     listAgentPlans: vi.fn(async () => ok({ plans: [] })),
@@ -1000,6 +1003,46 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
   })
 
+  it('combines explicitly selected isomorphic datasets into one grouped plot', async () => {
+    const user = userEvent.setup()
+    const createCombinedPlot = vi.fn(async (input) => ok(enginePlotFixture(
+      'plot:combined.one', 1, input.profileId, input.expectedProjectVersion + 1,
+    )))
+    installApi(fakeDesktop({
+      createCombinedPlot,
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByText('提供给 Agent 的数据表'))
+    await user.click(screen.getByRole('checkbox', { name: /source:pressure/ }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K03')
+    await user.click(screen.getByRole('button', { name: /K03.*散点图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '2 个数据表同图绘制' }))
+
+    expect(createCombinedPlot).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: 'K03',
+      datasets: [
+        expect.objectContaining({
+          datasetId: 'source:temperature',
+          bindings: { x: 'field:time', y: 'field:signal' },
+        }),
+        expect.objectContaining({
+          datasetId: 'source:pressure',
+          bindings: { x: 'field:pressure.time', y: 'field:pressure.signal' },
+        }),
+      ],
+    }))
+    expect(await screen.findByText('多数据同图绘制完成')).toBeInTheDocument()
+  })
+
   it('allows retry on a new target and ignores a late decision from the old target', async () => {
     const user = userEvent.setup()
     let finishOldDecision: ((result: DesktopDataResult) => void) | undefined
@@ -1099,7 +1142,10 @@ describe('PlotAgent real desktop workflow', () => {
 
   it('lets an explicit multi-dataset request choose different chart types without a preselected chart', async () => {
     const user = userEvent.setup()
-    const decideAgent = vi.fn(async (_input: unknown) => ok(agentDecisionWithPlan(batchPlanFixture())))
+    const decideAgent = vi.fn(async (input: unknown) => {
+      void input
+      return ok(agentDecisionWithPlan(batchPlanFixture()))
+    })
     installApi(fakeDesktop({
       decideAgent,
       openSampleProject: vi.fn(async () => ok({

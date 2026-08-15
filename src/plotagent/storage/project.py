@@ -203,6 +203,12 @@ def _source_dataset_record(row: tuple[object, ...]) -> SourceDatasetRecord:
         source_file_name=identity("__plotagent_source_file_name"),
         sheet_name=identity("__plotagent_sheet_name"),
         source_block=identity("__plotagent_source_block"),
+        instrument_metadata={
+            str(key): str(value)
+            for key, value in metadata.items()
+            if not str(key).startswith("__plotagent_")
+            and isinstance(value, (str, int, float, bool))
+        },
     )
 
 
@@ -657,6 +663,7 @@ class ProjectStore:
                         source_file_name=source_object.path.name,
                         sheet_name=item.artifact.recipe.sheet,
                         source_block=item.artifact.recipe.block,
+                        instrument_metadata=item.artifact.instrument_metadata,
                     )
                 )
             if fault_injector:

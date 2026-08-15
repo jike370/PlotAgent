@@ -113,7 +113,11 @@ class ProjectDomainRepository:
             self._coordinate(values, index, source) for index in range(source.data_ref.row_count)
         )
         metadata = json.loads(str(row[0]))
+        display_name: str | None = None
         if isinstance(metadata, dict):
+            raw_display_name = metadata.get("__plotagent_display_name")
+            if isinstance(raw_display_name, str) and raw_display_name:
+                display_name = raw_display_name
             metadata = {
                 key: value
                 for key, value in metadata.items()
@@ -124,6 +128,7 @@ class ProjectDomainRepository:
             rows=rows,
             coordinates=coordinates,
             instrument_metadata=metadata,
+            display_name=display_name,
         )
 
     @staticmethod

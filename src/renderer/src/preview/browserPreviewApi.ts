@@ -423,6 +423,26 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       agentPlans.set(plan.planId, plan)
       return ok({ project_version: project.projectVersion, task_plan: agentPlanRecord(plan) })
     },
+    createCombinedPlot: async (input) => {
+      const first = input.datasets[0]
+      if (!first) return missing('同图绘制至少需要两个数据表。')
+      const token = crypto.randomUUID()
+      return api.executePlotAction({
+        projectId: input.projectId,
+        expectedProjectVersion: input.expectedProjectVersion,
+        action: {
+          operation: 'create_plot',
+          action_id: `action:combined.${token}`,
+          plot_id: `plot:combined.${token}`,
+          profile_id: input.profileId,
+          data: { kind: 'source', dataset_id: first.datasetId, version: first.sourceVersion, content_hash: first.contentHash },
+          bindings: [
+            ...Object.entries(first.bindings).filter(([role]) => role !== 'group').map(([role, field_id]) => ({ role, field_id })),
+            { role: 'group', field_id: 'field:preview_source_dataset' },
+          ],
+        },
+      })
+    },
     decideAgent: async (input) => {
       const project = projects.get(input.projectId)
       if (!project) return missing('界面预览中没有找到该项目。')

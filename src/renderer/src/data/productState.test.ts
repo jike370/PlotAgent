@@ -48,6 +48,32 @@ describe('product plot state', () => {
     })
   })
 
+  it('keeps text data blocks distinct and exposes preserved instrument metadata', () => {
+    const datasets = readDatasets({
+      datasets: [{
+        source_dataset_id: 'source:block-two',
+        source_file_name: 'instrument.txt',
+        source_block: 'Sweep 2',
+        source_version: 1,
+        row_count: 2,
+        field_count: 2,
+        fields: [
+          { field_id: 'field:x', name: 'x', logical_type: 'numeric', physical_type: 'float64', unit: null },
+          { field_id: 'field:y', name: 'y', logical_type: 'numeric', physical_type: 'float64', unit: null },
+        ],
+        instrument_metadata: { Instrument: 'Spectrometer', Operator: 'Test' },
+        quality: {},
+        source_coordinate_kinds: ['text'],
+      }],
+    })
+
+    expect(datasets[0]).toMatchObject({
+      displayName: 'instrument.txt > Sweep 2',
+      sourceBlock: 'Sweep 2',
+      instrumentMetadata: { Instrument: 'Spectrometer', Operator: 'Test' },
+    })
+  })
+
   it('accounts for every selected import file and keeps clarification details actionable', () => {
     expect(readImportSummary({
       selected_files: ['清晰.csv', '待确认.txt', '无回执.dat'],

@@ -16,6 +16,7 @@ export const IPC_CHANNELS = {
   agentPlanResume: 'plotagent:agent:plan-resume',
   agentPlanRun: 'plotagent:agent:plan-run',
   engineBatchPlanCreate: 'plotagent:engine:plans:create-batch',
+  engineCombinedPlotCreate: 'plotagent:engine:plots:create-combined',
   cancelTask: 'plotagent:tasks:cancel',
   closeResponse: 'plotagent:lifecycle:close-response',
   coreStatusChanged: 'plotagent:core:status-changed',
@@ -232,6 +233,17 @@ export interface EngineBatchPlanCreateInput extends ProjectIdInput {
   readonly expectedProjectVersion: number
 }
 
+export interface EngineCombinedPlotCreateInput extends ProjectIdInput {
+  readonly datasets: readonly {
+    readonly datasetId: string
+    readonly sourceVersion: number
+    readonly contentHash: string
+    readonly bindings: Readonly<Record<string, string>>
+  }[]
+  readonly profileId: string
+  readonly expectedProjectVersion: number
+}
+
 export interface AgentDecideInput extends ProjectIdInput {
   readonly sourceDatasetId: string
   readonly sourceVersion: number
@@ -336,6 +348,7 @@ export interface PlotAgentDesktopApi {
   getPlot(input: PlotIdInput): Promise<DesktopDataResult>
   listPlots(input: ProjectIdInput): Promise<DesktopDataResult>
   createPlotBatchPlan(input: EngineBatchPlanCreateInput): Promise<DesktopDataResult>
+  createCombinedPlot(input: EngineCombinedPlotCreateInput): Promise<DesktopDataResult>
   decideAgent(input: AgentDecideInput): Promise<DesktopDataResult>
   getAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
   listAgentPlans(input: ProjectIdInput): Promise<DesktopDataResult>
@@ -626,6 +639,12 @@ export function parseEngineBatchPlanCreateInput(value: unknown): EngineBatchPlan
     profileId: parsed.profileId,
     expectedProjectVersion,
   }
+}
+
+export function parseEngineCombinedPlotCreateInput(value: unknown): EngineCombinedPlotCreateInput | null {
+  const parsed = parseEngineBatchPlanCreateInput(value)
+  if (parsed === null || parsed.datasets.length < 2 || parsed.datasets.length > 8) return null
+  return parsed
 }
 
 export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {

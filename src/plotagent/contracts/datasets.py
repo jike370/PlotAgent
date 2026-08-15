@@ -200,7 +200,7 @@ class ProjectStructureSpec(PreparationBase):
 
 class IsomorphicConcatSpec(PreparationBase):
     kind: Literal["isomorphic_concat"] = "isomorphic_concat"
-    source_label_kind: Literal["source_sheet", "source_block"]
+    source_label_kind: Literal["source_sheet", "source_block", "source_dataset"]
     source_label_field_id: FieldId
 
     @model_validator(mode="after")

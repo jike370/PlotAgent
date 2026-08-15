@@ -55,8 +55,15 @@ from plotagent.contracts.agent_context import (
     ContextObjectRef,
     DisclosureCategory,
 )
+from plotagent.contracts.base import FieldMappingRef, SourceDatasetRef
 from plotagent.contracts.canonical import JsonValue, canonical_hash
-from plotagent.contracts.datasets import SourceDataset
+from plotagent.contracts.datasets import (
+    FieldMapping,
+    FieldRoleBinding,
+    FieldSnapshot,
+    IsomorphicConcatSpec,
+    SourceDataset,
+)
 from plotagent.contracts.project_context import ContextFieldBinding, ProjectContextSnapshot
 from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue as RpcJsonValue
@@ -72,10 +79,14 @@ from plotagent.engine import (
     EngineVersionConflict,
     FieldBinding,
     PlotEngineAction,
+    engine_view_from_prepared,
 )
 from plotagent.engine.backends.origin import preflight_origin
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.importing.models import Clarification, Rejection
+from plotagent.preparation import prepare
+from plotagent.preparation.artifacts import ResolvedSourceTable
+from plotagent.preparation.errors import PreparationProblem
 from plotagent.security import CredentialStore, NetworkMode, create_credential_store
 from plotagent.storage import (
     AgentRuntimeRepository,
@@ -97,6 +108,7 @@ type ProductHandler = Callable[[RpcContext, RpcJsonValue | None], RpcJsonValue]
 
 _PROVIDER_SETTING_KEY = "agent.provider.active"
 _CUSTOM_PROVIDER_CONFIG_ID = "custom.default"
+_COMBINED_SOURCE_PROFILE_IDS = frozenset({"K03", "K12", "K13", "K14", "K18", "K19", "X05"})
 
 
 def _preview_scalar(value: object) -> RpcJsonValue:
@@ -262,6 +274,7 @@ class DesktopApplication:
             "engine.exports.execute": self._engine_exports_execute,
             "engine.plots.list": self._engine_plots_list,
             "engine.plots.get": self._engine_plots_get,
+            "engine.plots.create_combined": self._engine_combined_plot_create,
             "agent.engine.plans.create": self._engine_agent_plan_create,
             "agent.engine.plans.create_batch": self._engine_agent_batch_plan_create,
             "agent.engine.plans.get": self._engine_agent_plan_get,
@@ -560,6 +573,179 @@ class DesktopApplication:
         )
         return self._engine_agent_plan_payload(session, stored)
 
+    def _engine_combined_plot_create(
+        self, context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        """Create one grouped plot from explicitly selected isomorphic datasets."""
+
+        values = _object(
+            params,
+            required={"project_id", "profile_id", "datasets", "expected_project_version"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        expected = _integer(
+            values["expected_project_version"], "expected_project_version", minimum=0
+        )
+        session.domain.require_revision(expected)
+        profile_id = _text(values["profile_id"], "profile_id")
+        if profile_id not in _COMBINED_SOURCE_PROFILE_IDS:
+            raise RpcServiceError(
+                "COMBINED_PROFILE_UNSUPPORTED",
+                "当前图类不支持按数据来源分组的同图绘制。请选择散点、分布、面积或时间序列图。",
+            )
+        profile = session.engine.catalog.get(profile_id)
+        if "group" not in profile.optional_roles:
+            raise RpcServiceError(
+                "COMBINED_PROFILE_UNSUPPORTED",
+                "当前图类没有可绑定的数据来源分组角色。",
+            )
+        datasets_value = values["datasets"]
+        if not isinstance(datasets_value, list) or not 2 <= len(datasets_value) <= 8:
+            raise RpcServiceError(
+                "INVALID_PARAMS", "同图绘制需要选择 2 至 8 个数据表。"
+            )
+
+        sources: list[SourceDataset] = []
+        source_refs: list[SourceDatasetRef] = []
+        canonical_bindings: dict[str, str] | None = None
+        canonical_role_names: dict[str, str] | None = None
+        seen_sources: set[tuple[str, int]] = set()
+        for item_value in datasets_value:
+            item = _object(
+                item_value,
+                required={"dataset_id", "version", "content_hash", "bindings"},
+            )
+            dataset_id = _text(item["dataset_id"], "dataset_id")
+            version = _integer(item["version"], "version", minimum=1)
+            source_key = (dataset_id, version)
+            if source_key in seen_sources:
+                raise RpcServiceError("INVALID_PARAMS", "同图数据表必须互不重复。")
+            seen_sources.add(source_key)
+            source = session.domain.source_record(dataset_id, version)
+            if source.content_hash != _text(item["content_hash"], "content_hash"):
+                raise RpcServiceError(
+                    "SOURCE_VERSION_CONFLICT", "数据在字段确认后发生了变化，请重新确认。"
+                )
+            binding_values = item["bindings"]
+            if not isinstance(binding_values, dict) or not binding_values:
+                raise RpcServiceError("INVALID_PARAMS", "每个数据表都必须提供字段绑定。")
+            bindings = {
+                _text(role, "role"): _text(field_id, "field_id")
+                for role, field_id in binding_values.items()
+                if role != "group"
+            }
+            if not bindings:
+                raise RpcServiceError("INVALID_PARAMS", "同图绘制缺少有效字段绑定。")
+            fields = {field.field_id: field for field in source.field_schema}
+            if any(field_id not in fields for field_id in bindings.values()):
+                raise RpcServiceError("INVALID_PARAMS", "字段绑定不属于对应数据表。")
+            role_names = {role: fields[field_id].name for role, field_id in bindings.items()}
+            if canonical_bindings is None:
+                canonical_bindings = bindings
+                canonical_role_names = role_names
+            elif set(bindings) != set(canonical_bindings) or role_names != canonical_role_names:
+                raise RpcServiceError(
+                    "PREPARE_NON_ISOMORPHIC",
+                    "同图绘制要求每个数据表具有相同的角色和字段名称。",
+                )
+            sources.append(source)
+            source_refs.append(
+                SourceDatasetRef(
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                    content_hash=source.content_hash,
+                )
+            )
+
+        assert canonical_bindings is not None
+        first = sources[0]
+        first_fields = {field.field_id: field for field in first.field_schema}
+        mapping_payload = cast(
+            JsonValue,
+            {
+                "profile_id": profile_id,
+                "sources": [ref.model_dump(mode="json") for ref in source_refs],
+                "bindings": canonical_bindings,
+            },
+        )
+        mapping_hash = canonical_hash(mapping_payload)
+        mapping = FieldMapping(
+            field_mapping_id=f"mapping:combined.{mapping_hash[:24]}",
+            mapping_version=1,
+            chart_type_id=cast(Any, profile_id),
+            source_dataset_refs=tuple(source_refs),
+            bindings=tuple(
+                FieldRoleBinding(
+                    role=role,
+                    field=FieldSnapshot(
+                        field_id=field_id,
+                        name=first_fields[field_id].name,
+                        logical_type=first_fields[field_id].logical_type,
+                        unit=first_fields[field_id].unit,
+                        source_dataset_ref=source_refs[0],
+                    ),
+                )
+                for role, field_id in sorted(canonical_bindings.items())
+            ),
+            content_hash=mapping_hash,
+        )
+        label_field_id = f"field:source_dataset_{mapping_hash[:16]}"
+        spec = IsomorphicConcatSpec(
+            preparation_spec_id=f"preparation:combined.{mapping_hash[:24]}",
+            preparation_version=1,
+            input_refs=tuple(source_refs),
+            field_mapping_ref=FieldMappingRef(
+                field_mapping_id=mapping.field_mapping_id,
+                mapping_version=mapping.mapping_version,
+                content_hash=mapping.content_hash,
+            ),
+            compiler_version="preparation.compiler.v1",
+            source_label_kind="source_dataset",
+            source_label_field_id=label_field_id,
+        )
+        task_id = self._begin_task(context, "engine-combined-plot", label="合并数据并绘图")
+        try:
+            context.tasks.transition(task_id, "running")
+            artifact = prepare(
+                tuple(sources),
+                mapping,
+                spec,
+                _DomainSourceResolver(session.domain),
+            )
+            data_view = session.engine.data_views.register(engine_view_from_prepared(artifact))
+            token = uuid.uuid4().hex
+            action = CreatePlot(
+                action_id=f"action:combined.{token}",
+                plot_id=f"plot:combined.{token}",
+                profile_id=profile_id,
+                data=data_view.data,
+                bindings=tuple(
+                    FieldBinding(role=role, field_id=field_id)
+                    for role, field_id in sorted(canonical_bindings.items())
+                )
+                + (FieldBinding(role="group", field_id=label_field_id),),
+            )
+            payload = session.engine.execute_action(
+                action,
+                expected_project_revision=expected,
+            )
+            context.tasks.transition(task_id, "committing")
+            context.tasks.transition(task_id, "succeeded")
+            return cast(
+                RpcJsonValue,
+                {
+                    "task_id": task_id,
+                    "project_id": session.project_id,
+                    "project_version": session.domain.revision,
+                    "combined_source_count": len(sources),
+                    "source_label_field_id": label_field_id,
+                    **payload,
+                },
+            )
+        except Exception as error:
+            self._fail_task(context.tasks, task_id, error)
+            raise
+
     def _engine_agent_plan_list(
         self, _context: RpcContext, params: RpcJsonValue | None
     ) -> RpcJsonValue:
@@ -834,6 +1020,8 @@ class DesktopApplication:
                 raise RpcServiceError(str(error.code), error.message) from None
             except EngineVersionConflict as error:
                 raise RpcServiceError("ENGINE_VERSION_CONFLICT", str(error)) from None
+            except PreparationProblem as error:
+                raise RpcServiceError(str(error.code), error.message) from None
             except ValidationError:
                 raise RpcServiceError(
                     "INVALID_PARAMS", "The request parameters were invalid."
@@ -1693,6 +1881,9 @@ class DesktopApplication:
                 "source_file_name": record.source_file_name,
                 "sheet_name": record.sheet_name,
                 "source_block": record.source_block,
+                "instrument_metadata": cast(
+                    dict[str, RpcJsonValue], record.instrument_metadata
+                ),
             }
         else:
             source = record
@@ -1789,6 +1980,14 @@ class _DesktopEngineActionExecutor:
             expected_project_revision=expected_project_revision,
         )
         return self.session.domain.revision
+
+
+@dataclass(frozen=True, slots=True)
+class _DomainSourceResolver:
+    domain: ProjectDomainRepository
+
+    def resolve(self, source_dataset: SourceDataset) -> ResolvedSourceTable:
+        return self.domain.resolve_source(source_dataset)
 
 
 def _agent_failure_payload(error_code: str | None) -> dict[str, RpcJsonValue]:

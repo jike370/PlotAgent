@@ -50,6 +50,7 @@ class SourceDatasetRecord(StrictModel):
     source_file_name: str | None = None
     sheet_name: str | None = None
     source_block: str | None = None
+    instrument_metadata: dict[str, str] = Field(default_factory=dict)
 
 
 class ImportCommitResult(StrictModel):

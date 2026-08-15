@@ -26,6 +26,7 @@ class ResolvedSourceTable(StrictModel):
     rows: tuple[tuple[Scalar, ...], ...]
     coordinates: tuple[SourceCoordinate, ...]
     instrument_metadata: dict[str, str]
+    display_name: str | None = None
 
 
 class SourceTableResolver(Protocol):
@@ -62,6 +63,7 @@ class ImportedSourceResolver:
             rows=artifact.rows,
             coordinates=artifact.coordinates,
             instrument_metadata=artifact.instrument_metadata,
+            display_name=artifact.display_name,
         )
 
 

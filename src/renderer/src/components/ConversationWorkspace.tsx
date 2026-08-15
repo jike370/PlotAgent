@@ -91,6 +91,7 @@ interface ConversationWorkspaceProps {
   onSelectDataset: (datasetId: string) => void
   onToggleAgentDataset: (datasetId: string) => void
   onConfirmMapping: (mapping: FieldMappingInput) => void
+  onConfirmCombinedMapping: (mapping: FieldMappingInput) => void
   onAgentInstruction: (instruction: string, scope: ScopeMode) => void
   onConfirmAgentPlan: (planId: string) => void
   onRejectAgentPlan: (planId: string) => void
@@ -264,6 +265,10 @@ function DatasetObject({
         <span><strong>{activeDataset.nonFiniteCount}</strong> 非有限值</span>
         <span><strong>{activeDataset.coordinateKinds.length || 1}</strong> 来源坐标类型</span>
       </div>
+      {Object.keys(activeDataset.instrumentMetadata).length > 0 && <dl className="dataset-instrument-metadata" aria-label="仪器信息">
+        <dt>仪器信息</dt>
+        {Object.entries(activeDataset.instrumentMetadata).slice(0, 6).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}
+      </dl>}
       <div className="schema-strip" role="table" aria-label="字段、类型与单位">
         <div role="row" className="schema-row schema-row--heading"><span role="columnheader">字段</span><span role="columnheader">逻辑类型</span><span role="columnheader">物理类型</span><span role="columnheader">单位</span></div>
         {activeDataset.fields.map((field) => (
@@ -300,14 +305,20 @@ function MappingObject({
   dataset,
   busy,
   onConfirm,
+  onConfirmCombined,
   onCancel,
+  selectedDataCount,
 }: {
   chart: ChartType
   dataset: ProductDataset
   busy: boolean
   onConfirm: (mapping: FieldMappingInput) => void
+  onConfirmCombined: (mapping: FieldMappingInput) => void
   onCancel: () => void
+  selectedDataCount: number
 }): React.JSX.Element {
+  const combinedProfiles = new Set(['K03', 'K12', 'K13', 'K14', 'K18', 'K19', 'X05'])
+  const canCombine = selectedDataCount >= 2 && combinedProfiles.has(chart.id)
   const variadicSeries = chart.repeatableRolePrefixes.includes('series')
   const minimumSeriesRoleCount = Math.max(
     1,
@@ -490,6 +501,9 @@ function MappingObject({
         <div className="mapping-decision__actions">
           <button type="button" disabled={busy} onClick={() => { closePicker(false); onCancel() }}>取消</button>
           <button type="button" disabled={busy} onClick={() => { closePicker(false); setValues(suggestions) }}>恢复 Agent 建议</button>
+          {canCombine && <button type="button" disabled={!complete || busy} onClick={() => onConfirmCombined({ roles: Object.fromEntries(Object.entries(values).filter(([role, field]) => role !== 'group' && field)) })}>
+            {busy ? <LoaderCircle className="spin" size={15} /> : <Layers3 size={15} />}{busy ? '正在合并绘图' : `${selectedDataCount} 个数据表同图绘制`}
+          </button>}
           <button className="primary-button" type="button" disabled={!complete || busy} onClick={() => onConfirm({ roles: Object.fromEntries(Object.entries(values).filter(([, field]) => field)) })}>
             {busy ? <LoaderCircle className="spin" size={15} /> : <CheckCircle2 size={15} />}{busy ? '正在绘图' : '确认并绘图'}
           </button>
@@ -845,7 +859,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             {props.agentPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><AgentPlanObject plan={props.agentPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onEdit={(planId) => { props.onRejectAgentPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} /></div></div>}
             {exportRecord && <section className="object-block product-result-strip product-result-strip--success" aria-label="导出记录" role="status" aria-live="polite"><CircleCheck size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize.toLocaleString('zh-CN')} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
             {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
-            {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} onConfirm={props.onConfirmMapping} onCancel={() => setManualMappingOpen(false)} /></div></div>}
+            {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedAgentDatasetIds.length} onConfirm={props.onConfirmMapping} onConfirmCombined={props.onConfirmCombinedMapping} onCancel={() => setManualMappingOpen(false)} /></div></div>}
             {plot && <PlotObject {...props} chart={selectedChart} />}
           </div>
         </div>

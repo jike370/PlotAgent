@@ -215,7 +215,8 @@
         "source_label_kind": {
           "enum": [
             "source_sheet",
-            "source_block"
+            "source_block",
+            "source_dataset"
           ],
           "title": "Source Label Kind",
           "type": "string"

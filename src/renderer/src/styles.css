@@ -983,6 +983,39 @@ kbd {
   font-size: 12px;
 }
 
+.dataset-instrument-metadata {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted-strong);
+  font-size: 11px;
+}
+
+.dataset-instrument-metadata > dt {
+  color: var(--ink-strong);
+  font-weight: 750;
+}
+
+.dataset-instrument-metadata > div {
+  display: inline-flex;
+  gap: 5px;
+  min-width: 0;
+}
+
+.dataset-instrument-metadata > div dt { color: var(--muted); }
+.dataset-instrument-metadata > div dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .schema-strip {
   padding: 7px 12px 9px;
 }

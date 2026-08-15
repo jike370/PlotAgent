@@ -12,6 +12,7 @@ import {
   type AgentPlanConfirmInput,
   type AgentPlanInput,
   type EngineBatchPlanCreateInput,
+  type EngineCombinedPlotCreateInput,
   type DatasetDescribeInput,
   type EngineActionInput,
   type OpenResourceRequest,
@@ -86,6 +87,8 @@ const desktop = {
   listPlots: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.enginePlotList, input),
   createPlotBatchPlan: (input: EngineBatchPlanCreateInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.engineBatchPlanCreate, input),
+  createCombinedPlot: (input: EngineCombinedPlotCreateInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.engineCombinedPlotCreate, input),
   decideAgent: (input: AgentDecideInput) => ipcRenderer.invoke(IPC_CHANNELS.agentDecide, input),
   getAgentPlan: (input: AgentPlanInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.agentPlanGet, input),

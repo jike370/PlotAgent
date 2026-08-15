@@ -24,6 +24,8 @@ export interface ProductDataset {
   displayName: string
   sourceFileName?: string
   sourceSheetName?: string
+  sourceBlock?: string
+  instrumentMetadata: Readonly<Record<string, string>>
   sourceVersion: number
   rowCount: number
   fieldCount: number
@@ -295,13 +297,21 @@ export function readDatasets(value: JsonValue): ProductDataset[] {
     const quality = isJsonRecord(record.quality) ? record.quality : undefined
     const sourceFileName = stringValue(record, 'source_file_name', 'file_name', 'workbook_name')
     const sourceSheetName = stringValue(record, 'source_sheet_name', 'sheet_name')
+    const sourceBlock = stringValue(record, 'source_block')
+    const instrumentMetadata = isJsonRecord(record.instrument_metadata)
+      ? Object.fromEntries(Object.entries(record.instrument_metadata).flatMap(([key, value]) => (
+        typeof value === 'string' ? [[key, value]] : []
+      )))
+      : {}
     const sourceTableIndex = numberValue(record, 'source_table_index')
     const sampleRows = readSampleRows(record.sample_rows)
     const displayName = sourceFileName === undefined
       ? stringValue(record, 'display_name') ?? datasetId
       : sourceSheetName !== undefined
         ? `${sourceFileName} > ${sourceSheetName}`
-        : Array.isArray(record.source_coordinate_kinds) && record.source_coordinate_kinds.includes('excel')
+        : sourceBlock !== undefined
+          ? `${sourceFileName} > ${sourceBlock}`
+          : Array.isArray(record.source_coordinate_kinds) && record.source_coordinate_kinds.includes('excel')
           ? `${sourceFileName} > 工作表 ${sourceTableIndex ?? 1}`
           : sourceFileName
     return [`${datasetId}@${numberValue(record, 'source_version') ?? 1}`, {
@@ -311,6 +321,8 @@ export function readDatasets(value: JsonValue): ProductDataset[] {
       displayName,
       ...(sourceFileName === undefined ? {} : { sourceFileName }),
       ...(sourceSheetName === undefined ? {} : { sourceSheetName }),
+      ...(sourceBlock === undefined ? {} : { sourceBlock }),
+      instrumentMetadata,
       sourceVersion: numberValue(record, 'source_version') ?? 1,
       rowCount: numberValue(record, 'row_count') ?? 0,
       fieldCount: numberValue(record, 'field_count') ?? fields.length,

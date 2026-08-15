@@ -9,6 +9,7 @@ import {
   parseCoreProtocolMessage,
   parseCustomProviderConfigureInput,
   parseEngineActionInput,
+  parseEngineCombinedPlotCreateInput,
   parseProjectRenameInput,
   parseProjectResourceInput,
   parseTaskEvent,
@@ -174,6 +175,27 @@ describe('desktop contract validation', () => {
       executionMode: 'plan_only',
       scope: 'selected',
       utterance: '绘图',
+    })).toBeNull()
+  })
+
+  it('accepts only two to eight immutable datasets for one combined plot', () => {
+    const dataset = (id: string) => ({
+      datasetId: `source:${id}`,
+      sourceVersion: 1,
+      contentHash: id.repeat(64).slice(0, 64),
+      bindings: { x: 'field:x', y: 'field:y' },
+    })
+    expect(parseEngineCombinedPlotCreateInput({
+      projectId: 'project:one',
+      datasets: [dataset('a'), dataset('b')],
+      profileId: 'K03',
+      expectedProjectVersion: 2,
+    })).toMatchObject({ profileId: 'K03', datasets: [{ datasetId: 'source:a' }, { datasetId: 'source:b' }] })
+    expect(parseEngineCombinedPlotCreateInput({
+      projectId: 'project:one',
+      datasets: [dataset('a')],
+      profileId: 'K03',
+      expectedProjectVersion: 2,
     })).toBeNull()
   })
 

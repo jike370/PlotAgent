@@ -570,7 +570,7 @@ export type IsomorphicConcatSpec = {
   readonly field_mapping_ref: FieldMappingRef;
   readonly compiler_version: string;
   readonly kind?: "isomorphic_concat";
-  readonly source_label_kind: "source_sheet" | "source_block";
+  readonly source_label_kind: "source_sheet" | "source_block" | "source_dataset";
   readonly source_label_field_id: string;
 }
 

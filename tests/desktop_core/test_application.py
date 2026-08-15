@@ -17,6 +17,7 @@ from plotagent.desktop_core.application import DesktopApplication
 from plotagent.desktop_core.protocol import JsonValue
 from plotagent.desktop_core.services import RpcContext, ServiceRegistry
 from plotagent.desktop_core.tasks import BoundedWorkerExecutor, TaskRegistry
+from plotagent.engine import EngineDataRef
 from plotagent.security.credentials import InMemoryCredentialStore
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "import" / "files"
@@ -170,6 +171,44 @@ def test_dataset_description_returns_a_bounded_read_only_sample(
     assert "sample_rows" not in dataset
 
 
+def test_text_import_exposes_instrument_metadata_and_distinct_table_blocks(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    instrument = harness.call(
+        "datasets.import",
+        {
+            "project_id": project_id,
+            "resource_id": "resource:instrument-text",
+            "source_path": str(FIXTURES / "txt_metadata.txt"),
+            "idempotency_key": "instrument-text",
+            "expected_version": revision,
+            "options": {},
+        },
+    )
+    instrument_dataset = cast(dict[str, Any], cast(list[object], instrument["datasets"])[0])
+    assert instrument_dataset["instrument_metadata"] == {
+        "Instrument": "Spectrometer",
+        "Operator": "Test",
+    }
+
+    blocked = harness.call(
+        "datasets.import",
+        {
+            "project_id": project_id,
+            "resource_id": "resource:multi-block-text",
+            "source_path": str(FIXTURES / "txt_multi_block.txt"),
+            "idempotency_key": "multi-block-text",
+            "expected_version": instrument["project_version"],
+            "options": {},
+        },
+    )
+    block_datasets = cast(list[dict[str, Any]], blocked["datasets"])
+    assert len(block_datasets) == 2
+    assert len({item["display_name"] for item in block_datasets}) == 2
+    assert {item["source_block"] for item in block_datasets} == {"block_1", "block_2"}
+
+
 def test_engine_rpc_uses_imported_data_and_restores_latest_document(
     harness: ApplicationHarness,
 ) -> None:
@@ -217,6 +256,62 @@ def test_engine_rpc_uses_imported_data_and_restores_latest_document(
     latest = cast(list[dict[str, Any]], restored["plots"])[0]
     assert (latest["plot_id"], latest["plot_version"]) == ("plot:desktop", 2)
     assert Path(cast(str, latest["preview"]["path"])).is_file()
+
+
+def test_combined_plot_materializes_selected_sheets_as_one_grouped_prepared_view(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="combined-plot")
+    datasets = cast(list[dict[str, Any]], imported["datasets"])
+    assert len(datasets) == 2
+    requests: list[dict[str, Any]] = []
+    for dataset in datasets:
+        numeric = [
+            cast(str, item["field_id"])
+            for item in cast(list[dict[str, object]], dataset["fields"])
+            if item["logical_type"] == "numeric"
+        ]
+        assert len(numeric) >= 2
+        requests.append(
+            {
+                "dataset_id": dataset["source_dataset_id"],
+                "version": dataset["source_version"],
+                "content_hash": dataset["content_hash"],
+                "bindings": {"x": numeric[0], "y": numeric[1]},
+            }
+        )
+
+    combined = harness.call(
+        "engine.plots.create_combined",
+        {
+            "project_id": project_id,
+            "profile_id": "K03",
+            "datasets": requests,
+            "expected_project_version": imported["project_version"],
+        },
+    )
+
+    assert combined["combined_source_count"] == 2
+    document = cast(dict[str, Any], combined["document"])
+    assert cast(dict[str, Any], document["data"])["kind"] == "prepared"
+    bindings = {
+        item["role"]: item["field_id"]
+        for item in cast(list[dict[str, str]], document["bindings"])
+    }
+    assert set(bindings) == {"x", "y", "group"}
+    assert bindings["group"] == combined["source_label_field_id"]
+    session = harness.application._sessions[project_id]  # noqa: SLF001
+    data_ref = EngineDataRef.model_validate(document["data"])
+    view = session.engine.data_views.get(data_ref)
+    columns = {column.field.field_id: column for column in view.columns}
+    expected_labels = [
+        cast(str, dataset["display_name"])
+        for dataset in datasets
+        for _row in range(cast(int, dataset["row_count"]))
+    ]
+    assert list(columns[bindings["group"]].values) == expected_labels
+    assert Path(cast(str, combined["preview"]["path"])).is_file()
 
 
 def test_historical_removed_plot_is_listed_as_a_tombstone(

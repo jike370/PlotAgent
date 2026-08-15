@@ -727,6 +727,70 @@ export function App(): React.JSX.Element {
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
+  const confirmCombinedMapping = async (mapping: FieldMappingInput): Promise<void> => {
+    if (!api || !project || !activeDataset || !selectedChart) return
+    const selectedIds = [activeDataset.datasetId, ...agentDatasetIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)
+    const combinedSources = selectedIds.flatMap((id) => {
+      const dataset = datasets.find((candidate) => candidate.datasetId === id)
+      return dataset ? [dataset] : []
+    })
+    if (combinedSources.length < 2) {
+      setNotice({ kind: 'warning', title: '还需选择数据表', message: '请在“提供给 Agent 的数据表”中至少勾选两个数据表。' })
+      return
+    }
+    setBusyAction('plot'); setNotice(undefined)
+    try {
+      const activeFields = new Map(activeDataset.fields.map((field) => [field.fieldId, field.name]))
+      const roles = Object.entries(mapping.roles)
+        .filter(([role]) => role !== 'group')
+        .map(([role, fieldId]) => {
+          const name = activeFields.get(fieldId)
+          if (name === undefined) throw new Error(`当前映射字段已不存在：${fieldId}`)
+          return { role, name }
+        })
+      const requests = combinedSources.map((dataset) => {
+        if (!dataset.contentHash) throw new Error(`${dataset.displayName} 缺少不可变内容标识。`)
+        const byName = new Map<string, string[]>()
+        for (const field of dataset.fields) {
+          const key = field.name.trim().toLocaleLowerCase('en-US')
+          byName.set(key, [...(byName.get(key) ?? []), field.fieldId])
+        }
+        const bindings = Object.fromEntries(roles.map(({ role, name }) => {
+          const matches = byName.get(name.trim().toLocaleLowerCase('en-US')) ?? []
+          if (matches.length !== 1) {
+            throw new Error(`${dataset.displayName} 无法唯一匹配字段“${name}”，未执行同图绘制。`)
+          }
+          return [role, matches[0]]
+        }))
+        return {
+          datasetId: dataset.datasetId,
+          sourceVersion: dataset.sourceVersion,
+          contentHash: dataset.contentHash,
+          bindings,
+        }
+      })
+      const created = valueOrThrow(await api.createCombinedPlot({
+        projectId: project.projectId,
+        datasets: requests,
+        profileId: selectedChart.id,
+        expectedProjectVersion: project.projectVersion,
+      }))
+      const nextPlot = readPlot(created)
+      if (!nextPlot) throw new Error('Core 未返回多数据同图的 PlotDocument。')
+      setConfirmedMapping(mapping)
+      setPlot(nextPlot)
+      setPreviousPlot(undefined)
+      setUndoStack([])
+      setRedoStack([])
+      setProject(projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1)))
+      setNotice({
+        kind: 'success',
+        title: '多数据同图绘制完成',
+        message: `${combinedSources.length} 个同构数据表已合并，数据来源作为原生分组字段保留。`,
+      })
+    } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
+  }
+
   const runAgent = async (instruction: string, scope: ScopeMode): Promise<void> => {
     if (!project) return
     if (!activeDataset) {
@@ -1110,7 +1174,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedAgentDatasetIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...agentDatasetIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleAgentDataset={toggleAgentDataset} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedAgentDatasetIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...agentDatasetIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleAgentDataset={toggleAgentDataset} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmCombinedMapping={(mapping) => void confirmCombinedMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onClose={() => setScreen('workspace')} />}
       </div>

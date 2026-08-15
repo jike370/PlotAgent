@@ -175,6 +175,22 @@ def test_isomorphic_concat_is_explicit_and_preserves_sheet_label() -> None:
     )
 
 
+def test_isomorphic_concat_can_label_separately_uploaded_dataset_identities() -> None:
+    artifacts = _imported("excel_two_sheets.xlsx").sources
+    mapping = _mapping(artifacts)
+    spec = IsomorphicConcatSpec(
+        **_common("concat_dataset", artifacts, mapping),
+        source_label_kind="source_dataset",
+        source_label_field_id="field:source_dataset",
+    )
+
+    prepared = _prepare(artifacts, mapping, spec)
+
+    expected = [artifact.display_name for artifact in artifacts for _row in artifact.rows]
+    assert [row[-1] for row in prepared.rows] == expected
+    assert prepared.fields[-1].name == "source_dataset"
+
+
 def test_non_isomorphic_concat_is_rejected_without_join_fallback() -> None:
     artifacts = (
         _imported("csv_basic.csv").sources[0],

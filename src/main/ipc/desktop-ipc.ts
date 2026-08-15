@@ -12,6 +12,7 @@ import {
   parseAgentPlanConfirmInput,
   parseAgentPlanInput,
   parseEngineBatchPlanCreateInput,
+  parseEngineCombinedPlotCreateInput,
   parseCloseResponse,
   parseCustomProviderConfigureInput,
   parseDatasetDescribeInput,
@@ -765,6 +766,22 @@ export function registerDesktopIpc({
         project_id: input.projectId,
         profile_id: input.profileId,
         source_datasets: input.datasets.map((item) => ({
+          dataset_id: item.datasetId,
+          version: item.sourceVersion,
+          content_hash: item.contentHash,
+          bindings: item.bindings,
+        })),
+        expected_project_version: input.expectedProjectVersion,
+      })
+  })
+  ipcMain.handle(IPC_CHANNELS.engineCombinedPlotCreate, (_event, value: unknown) => {
+    const input = parseEngineCombinedPlotCreateInput(value)
+    return input === null
+      ? invalidDataArgument('多数据同图请求无效。')
+      : requestCoreData(supervisor, resources, 'engine.plots.create_combined', {
+        project_id: input.projectId,
+        profile_id: input.profileId,
+        datasets: input.datasets.map((item) => ({
           dataset_id: item.datasetId,
           version: item.sourceVersion,
           content_hash: item.contentHash,

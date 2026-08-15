@@ -205,6 +205,8 @@ def _wide_to_long(
 
 
 def _source_label(table: ResolvedSourceTable, kind: str) -> str:
+    if kind == "source_dataset":
+        return table.display_name or table.source_dataset.source_dataset_id
     for coordinate in table.coordinates:
         if kind == "source_sheet" and coordinate.kind == "excel":
             return coordinate.sheet_name
