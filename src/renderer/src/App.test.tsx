@@ -1097,6 +1097,40 @@ describe('PlotAgent real desktop workflow', () => {
     }))
   })
 
+  it('lets an explicit multi-dataset request choose different chart types without a preselected chart', async () => {
+    const user = userEvent.setup()
+    const decideAgent = vi.fn(async (_input: unknown) => ok(agentDecisionWithPlan(batchPlanFixture())))
+    installApi(fakeDesktop({
+      decideAgent,
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    await user.click(screen.getByText('提供给 Agent 的数据表'))
+    await user.click(screen.getByRole('checkbox', { name: /source:pressure/ }))
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '数据一画 K01 折线图，数据二画 K03 散点图',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(decideAgent).toHaveBeenLastCalledWith(expect.objectContaining({
+      sourceDatasetId: 'source:temperature',
+      selectedDatasets: [
+        { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
+      ],
+      utterance: '数据一画 K01 折线图，数据二画 K03 散点图',
+    }))
+    expect(decideAgent.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedChartId')
+  })
+
   it('undoes an Agent edit by creating a new inverse-action version', async () => {
     const user = userEvent.setup()
     let version = 0

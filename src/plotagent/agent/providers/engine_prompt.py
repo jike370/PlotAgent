@@ -26,7 +26,12 @@ def engine_agent_prompt(codec: EngineActionCodec) -> PromptTemplate:
             "Do not emit an edit merely to preserve existing "
             "state. If a required chart/profile, field, object or value is genuinely ambiguous, "
             "return needs_input with only the minimum question. Do not recommend or silently "
-            "substitute a chart type. Do not claim execution.\nTRUSTED_ENGINE_PROFILE_CATALOG="
+            "substitute a chart type. When the user explicitly assigns different selected "
+            "datasets to different chart types, emit one create_plot action per dataset, use "
+            "the matching data_N source and field aliases, and preserve the user's chart-to-data "
+            "assignment. A selected chart constrains every new plot to that profile; without a "
+            "selected chart, only explicit chart types in the instruction may be used. Do not "
+            "claim execution.\nTRUSTED_ENGINE_PROFILE_CATALOG="
             + catalog
         ),
     )

@@ -1292,7 +1292,12 @@ class DesktopApplication:
         target_plot_id = _optional_text(values.get("target_plot_id"), "target_plot_id")
         target_profiles: dict[str, str] = {}
         if target_plot_id is None:
-            target = source_ref.model_copy(update={"object_alias": "active_target"})
+            # A multi-dataset request exposes the first source as ``data_1`` as well as
+            # prefixing its fields with ``data_1_``.  Keeping those aliases aligned makes
+            # heterogeneous batch plans unambiguous to both Pi and the local binder.
+            target = source_ref.model_copy(
+                update={"object_alias": "data_1" if multi_source else "active_target"}
+            )
             selected_objects = source_refs[1:]
         else:
             stored = session.engine.documents.get(target_plot_id)

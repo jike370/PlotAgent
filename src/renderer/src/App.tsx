@@ -733,12 +733,8 @@ export function App(): React.JSX.Element {
       setAgentOutcome({ kind: 'needs_input', title: '请先上传数据', message: '收到你的要求了。上传数据后，我会继续声明字段绑定。' })
       return
     }
-    if (!selectedChart) {
-      setAgentOutcome({ kind: 'needs_input', title: '请选择图形', message: '数据已经就绪。请选择一种图形，我不会替你猜图类。' })
-      return
-    }
     if (!agentConfigured) {
-      setAgentOutcome({ kind: 'needs_input', title: '请配置模型服务', message: '数据和图形已经就绪，配置模型服务后即可生成字段绑定计划。' })
+      setAgentOutcome({ kind: 'needs_input', title: '请配置模型服务', message: '数据已经就绪，配置模型服务后即可生成绘图任务计划。' })
       setProviderOpen(true)
       return
     }
@@ -758,7 +754,7 @@ export function App(): React.JSX.Element {
         sourceVersion: activeDataset.sourceVersion,
         selectedDatasets,
         expectedVersion: project.projectVersion,
-        selectedChartId: selectedChart.id,
+        ...(selectedChart === undefined ? {} : { selectedChartId: selectedChart.id }),
         executionMode: 'plan_only',
         ...(target === undefined ? {} : { target }),
         scope,

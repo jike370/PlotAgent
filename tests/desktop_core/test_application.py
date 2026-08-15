@@ -300,6 +300,115 @@ def test_agent_context_contains_each_explicitly_selected_dataset(
     assert all(item.field_alias.startswith("data_") for item in snapshot.field_bindings)
 
 
+def test_agent_binds_explicit_heterogeneous_batch_to_each_selected_dataset(
+    harness: ApplicationHarness,
+) -> None:
+    harness.call(
+        "provider.configure",
+        {
+            "mode": "custom_provider",
+            "provider_config_id": "custom.default",
+            "base_url": "https://model.example/v1",
+            "model_id": "test-model",
+            "api_key": "secret-api-key",
+            "retention_acknowledged": True,
+        },
+    )
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-heterogeneous-batch")
+    datasets = cast(list[dict[str, Any]], imported["datasets"])
+    assert len(datasets) == 2
+    selected = [
+        {
+            "source_dataset_id": item["source_dataset_id"],
+            "source_version": item["source_version"],
+        }
+        for item in datasets
+    ]
+    request: dict[str, JsonValue] = {
+        "project_id": project_id,
+        "source_dataset_id": cast(str, datasets[0]["source_dataset_id"]),
+        "source_version": cast(int, datasets[0]["source_version"]),
+        "selected_source_datasets": selected,
+        "user_instruction": "数据一画 K01 折线图，数据二画 K03 散点图",
+        "client_model_run_id": "model-run:heterogeneous-batch",
+        "expected_version": cast(int, imported["project_version"]),
+    }
+    prepared = harness.call("agent.engine.decide", {**request, "prepare_only": True})
+    assert prepared["prepared"] is True
+
+    session = harness.application._sessions[project_id]  # noqa: SLF001
+    snapshot = session.agent_runtime.latest_context_snapshot(
+        harness.application._default_conversation_id(project_id)  # noqa: SLF001
+    )
+    assert snapshot is not None
+    assert snapshot.conversation_state.current_target.object_alias == "data_1"
+    aliases_by_source: dict[str, list[str]] = {}
+    for binding in snapshot.field_bindings:
+        aliases_by_source.setdefault(binding.source_dataset_id, []).append(binding.field_alias)
+    numeric_aliases: list[list[str]] = []
+    for index, dataset in enumerate(datasets, start=1):
+        source_id = cast(str, dataset["source_dataset_id"])
+        numeric_fields = {
+            cast(str, field["field_id"])
+            for field in cast(list[dict[str, object]], dataset["fields"])
+            if field["logical_type"] == "numeric"
+        }
+        aliases = [
+            binding.field_alias
+            for binding in snapshot.field_bindings
+            if binding.source_dataset_id == source_id and binding.field_id in numeric_fields
+        ]
+        assert len(aliases) >= 2
+        assert all(alias.startswith(f"data_{index}_") for alias in aliases)
+        numeric_aliases.append(aliases)
+
+    accepted = harness.call(
+        "agent.engine.decide",
+        {
+            **request,
+            "external_decision": {
+                "schema_version": "engine-agent.v1",
+                "decision_type": "action_plan",
+                "plan_id": "plan:heterogeneous-batch",
+                "target_alias": "data_1",
+                "actions": [
+                    {
+                        "operation": "create_plot",
+                        "action_id": "action:create-line",
+                        "plot_alias": "line_result",
+                        "profile_id": "K01",
+                        "source_alias": "data_1",
+                        "bindings": [
+                            {"role": "x", "field_alias": numeric_aliases[0][0]},
+                            {"role": "y", "field_alias": numeric_aliases[0][1]},
+                        ],
+                    },
+                    {
+                        "operation": "create_plot",
+                        "action_id": "action:create-scatter",
+                        "plot_alias": "scatter_result",
+                        "profile_id": "K03",
+                        "source_alias": "data_2",
+                        "bindings": [
+                            {"role": "x", "field_alias": numeric_aliases[1][0]},
+                            {"role": "y", "field_alias": numeric_aliases[1][1]},
+                        ],
+                    },
+                ],
+            },
+        },
+    )
+    assert accepted["accepted"] is True
+    task_plan = cast(dict[str, Any], accepted["task_plan"])
+    bound = cast(dict[str, Any], task_plan["bound_plan"])
+    actions = cast(list[dict[str, Any]], bound["actions"])
+    assert [action["profile_id"] for action in actions] == ["K01", "K03"]
+    assert [action["data"]["dataset_id"] for action in actions] == [
+        item["source_dataset_id"] for item in datasets
+    ]
+
+
 def test_pi_runtime_handoff_reuses_protected_provider_and_local_authority(
     harness: ApplicationHarness,
 ) -> None:
