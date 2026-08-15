@@ -601,6 +601,15 @@ def test_agent_combines_two_explicit_sources_into_one_prepared_plot(
     assert action["operation"] == "create_plot"
     assert action["data"]["kind"] == "prepared"
     assert [item["role"] for item in action["bindings"]] == ["x", "y", "group"]
+    harness.call(
+        "agent.engine.plans.confirm",
+        {"project_id": project_id, "plan_id": "plan:combined"},
+    )
+    completed = harness.call(
+        "agent.engine.plans.run",
+        {"project_id": project_id, "plan_id": "plan:combined"},
+    )
+    assert completed["state"] == "succeeded"
 
 
 def test_pi_runtime_handoff_reuses_protected_provider_and_local_authority(

@@ -245,6 +245,7 @@ def build_candidate(
     source_hash: str,
     recipe: ImportRecipe,
     headers: tuple[str, ...],
+    unit_source_texts: tuple[str, ...] | None = None,
     rows: tuple[tuple[Scalar, ...], ...],
     coordinates: tuple[SourceCoordinate, ...],
     metadata: dict[str, str] | None = None,
@@ -273,6 +274,8 @@ def build_candidate(
             "请在源文件中重命名重复列，或明确选择不同的解析区域。",
         )
     width = len(normalized)
+    if unit_source_texts is not None and len(unit_source_texts) != width:
+        raise ValueError("one unit source text is required for every field")
     if any(len(row) != width for row in rows):
         raise ImportProblem(
             ImportErrorCode.ROW_WIDTH_MISMATCH,
@@ -303,7 +306,11 @@ def build_candidate(
                 name=normalized_name,
                 logical_type=logical_type,
                 physical_type="+".join(sorted(useful_types)) if useful_types else "null",
-                unit=_unit(normalized_name),
+                unit=(
+                    _unit(f"[{unit_source_texts[index]}]")
+                    if unit_source_texts is not None and unit_source_texts[index]
+                    else _unit(normalized_name)
+                ),
                 source_column_index=index,
                 precision_digits=precision,
             )

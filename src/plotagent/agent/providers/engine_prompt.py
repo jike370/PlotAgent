@@ -9,8 +9,14 @@ from plotagent.contracts.canonical import JsonValue, canonical_json
 from plotagent.engine.tooling import EngineActionCodec
 
 
-def engine_agent_prompt(codec: EngineActionCodec) -> PromptTemplate:
-    catalog = canonical_json(cast(JsonValue, codec.profile_manifest()))
+def engine_agent_prompt(
+    codec: EngineActionCodec, profile_ids: tuple[str, ...] | None = None
+) -> PromptTemplate:
+    manifest = codec.profile_manifest()
+    if profile_ids is not None:
+        allowed = set(profile_ids)
+        manifest = tuple(item for item in manifest if item["profile_id"] in allowed)
+    catalog = canonical_json(cast(JsonValue, manifest))
     return PromptTemplate(
         version="engine-agent-v1",
         text=(
@@ -31,6 +37,11 @@ def engine_agent_prompt(codec: EngineActionCodec) -> PromptTemplate:
             "the matching data_N source and field aliases, and preserve the user's chart-to-data "
             "assignment. A selected chart constrains every new plot to that profile; without a "
             "selected chart, only explicit chart types in the instruction may be used. Do not "
+            "bind datetime, categorical, text or boolean fields to numeric roles. The time role "
+            "requires a datetime field; numeric roles such as x, y, value, size, color, center, "
+            "lower, upper and series_N require numeric fields. Category and grouping roles may "
+            "use datetime or textual identities. If an explicitly requested chart cannot satisfy "
+            "these field-type rules, return needs_input instead of a partially executable plan. "
             "claim execution.\nTRUSTED_ENGINE_PROFILE_CATALOG="
             + catalog
         ),

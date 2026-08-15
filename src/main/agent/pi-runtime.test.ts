@@ -26,15 +26,18 @@ const decisionSchema = {
   additionalProperties: false,
 }
 
-function toolCallStream(): ReturnType<StreamFn> {
+function decisionToolCallStream(
+  candidate: typeof decision,
+  callId: string,
+): ReturnType<StreamFn> {
   const stream = createAssistantMessageEventStream()
   const message: AssistantMessage = {
     role: 'assistant',
     content: [{
       type: 'toolCall',
-      id: 'call-1',
+      id: callId,
       name: 'submit_plotagent_decision',
-      arguments: { decision },
+      arguments: { decision: candidate },
     }],
     api: 'openai-completions',
     provider: 'test',
@@ -57,6 +60,18 @@ function toolCallStream(): ReturnType<StreamFn> {
     stream.push({ type: 'done', reason: 'toolUse', message })
   })
   return stream
+}
+
+function toolCallStream(): ReturnType<StreamFn> {
+  return decisionToolCallStream(decision, 'call-1')
+}
+
+function twoTurnDecisionStream(): StreamFn {
+  let turn = 0
+  return (() => {
+    turn += 1
+    return decisionToolCallStream(decision, `call-${turn}`)
+  }) as StreamFn
 }
 
 function noDecisionStream(): ReturnType<StreamFn> {
@@ -331,6 +346,39 @@ describe('PiAgentRuntime', () => {
     })).rejects.toMatchObject({ code: 'ENGINE_PLAN_INVALID' })
     expect(events.at(-1)?.stage).toBe('failed')
     expect(events.filter((event) => event.stage === 'completed')).toHaveLength(0)
+  })
+
+  it('lets Pi replace one locally rejected candidate within the same run', async () => {
+    const externalDecisions: JsonValue[] = []
+    const events: PiAgentRuntimeEvent[] = []
+    const core: PiCoreBridge = {
+      request: async (method, params) => {
+        if (method === 'provider.runtime.get') return configuredProvider()
+        const request = params as Record<string, JsonValue>
+        if (request.prepare_only === true) return preparedHandoff()
+        externalDecisions.push(request.external_decision)
+        if (externalDecisions.length === 1) {
+          return {
+            accepted: false,
+            error: { code: 'FIELD_TYPE_INCOMPATIBLE' },
+          } as JsonValue
+        }
+        return { accepted: true, decision } as JsonValue
+      },
+    }
+    const runtime = new PiAgentRuntime({
+      core,
+      emit: (event) => events.push(event),
+      streamFn: twoTurnDecisionStream(),
+    })
+
+    await expect(runtime.decide({
+      project_id: 'project:test',
+      client_model_run_id: 'model-run:repaired',
+    })).resolves.toEqual({ accepted: true, decision })
+    expect(externalDecisions).toHaveLength(2)
+    expect(events.at(-1)?.stage).toBe('completed')
+    expect(events.filter((event) => event.stage === 'failed')).toHaveLength(0)
   })
 
   it('prevents an older preparation request from saving after a newer run starts', async () => {

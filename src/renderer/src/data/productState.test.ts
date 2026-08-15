@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import type { JsonValue } from '../../../shared/desktop-contract'
-import { readAgentPlan, readDatasets, readImportSummary, readPlot, readPlots } from './productState'
+import {
+  disambiguateDatasetDisplayNames,
+  readAgentPlan,
+  readDatasets,
+  readImportSummary,
+  readPlot,
+  readPlots,
+} from './productState'
 
 describe('product plot state', () => {
   it('prefers file and worksheet identity and summarizes per-file import outcomes', () => {
@@ -86,6 +93,25 @@ describe('product plot state', () => {
     })
 
     expect(datasets.map((dataset) => dataset.displayName)).toEqual([
+      'sample.xlsx > Data · 12345678',
+      'sample.xlsx > Data · 87654321',
+    ])
+  })
+
+  it('disambiguates same-name sources after separate imports are merged', () => {
+    const response = (datasetId: string): JsonValue => ({
+      datasets: [{
+        source_dataset_id: datasetId,
+        source_file_name: 'sample.xlsx',
+        source_sheet_name: 'Data',
+        source_version: 1,
+        fields: [{ field_id: 'field:x', name: 'x' }],
+      }],
+    })
+    const first = readDatasets(response('source:directory-one-12345678'))
+    const second = readDatasets(response('source:directory-two-87654321'))
+
+    expect(disambiguateDatasetDisplayNames([...first, ...second]).map((dataset) => dataset.displayName)).toEqual([
       'sample.xlsx > Data · 12345678',
       'sample.xlsx > Data · 87654321',
     ])

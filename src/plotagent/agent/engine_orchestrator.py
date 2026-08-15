@@ -14,10 +14,12 @@ from pydantic import TypeAdapter, ValidationError
 
 from plotagent.agent.audit import AuditSink, HashedModelRunAudit, ModelRunAudit
 from plotagent.agent.audit.models import AuditTargetRef, AuditUsage
-from plotagent.agent.context import ContextBuilder, ContextBuildRequest
+from plotagent.agent.context import AuthoritativeField, ContextBuilder, ContextBuildRequest
 from plotagent.agent.engine_client import (
+    AgentBindFields,
     AgentCreateCombinedPlot,
     AgentCreatePlot,
+    AgentFieldBinding,
     BoundEnginePlan,
     BundledEngineAgentBinder,
     EngineAgentDecision,
@@ -42,6 +44,136 @@ from plotagent.engine import EngineActionCodec, EngineCommandError
 from plotagent.security import LocalSecurityError, NetworkMode
 
 _DECISION_ADAPTER: TypeAdapter[EngineAgentDecision] = TypeAdapter(EngineAgentDecision)
+
+_NON_NUMERIC_FIELD_ROLES = frozenset(
+    {
+        "actual",
+        "category",
+        "column",
+        "column_label",
+        "component",
+        "event",
+        "facet",
+        "feature",
+        "group",
+        "item",
+        "label",
+        "panel",
+        "parameter",
+        "predicted",
+        "row",
+        "row_label",
+        "series",
+        "time",
+    }
+)
+
+_PROFILE_ALIASES: dict[str, tuple[str, ...]] = {
+    "K01": ("折线图", "line graph", "line"),
+    "K02": ("线点图", "线符号图", "line and symbol", "line+symbol"),
+    "K03": ("散点图", "scatter plot", "scatter"),
+    "K04": ("气泡图", "bubble plot", "bubble"),
+    "K06": ("点估计与误差棒", "xy误差棒", "point estimate and error bar"),
+    "K07": ("误差带", "误差带图", "error ribbon", "error band"),
+    "K08": ("柱状图", "column chart", "column"),
+    "K09": ("分组柱状图", "grouped column"),
+    "K10": ("堆积柱状图", "stacked column"),
+    "K11": ("百分比堆积柱状图", "100% stacked column"),
+    "K12": ("条带图", "列散点图", "strip plot", "column scatter"),
+    "K13": ("箱线图", "box plot"),
+    "K14": ("小提琴图", "violin plot"),
+    "K15": ("直方图", "histogram"),
+    "K18": ("面积图", "area plot", "area chart"),
+    "K19": ("时间序列图", "time series"),
+    "K20": ("热图", "heatmap", "heat map"),
+    "K21": ("相关矩阵图", "correlation matrix"),
+    "K22": ("填色等高线图", "filled contour"),
+    "K24": ("分面图", "faceted plot", "facet plot"),
+    "S34": ("nyquist图", "nyquist plot", "nyquist"),
+    "S61": ("混淆矩阵", "confusion matrix"),
+    "X02": ("垂线图", "drop line"),
+    "X03": ("棒棒糖图", "lollipop"),
+    "X05": ("蜂群图", "beeswarm"),
+    "X09": ("浮动柱状图", "floating column"),
+    "X13": ("人口金字塔", "population pyramid"),
+    "X23": ("双y轴折线图", "dual-y line", "dual y line"),
+    "X24": ("帕累托图", "pareto"),
+    "X35": ("双y轴柱状图", "dual-y column", "dual y column"),
+    "X36": ("双y轴柱线图", "dual-y column and line", "dual y column and line"),
+    "X38": ("y偏移堆叠线图", "y-offset stacked line", "y offset stacked line"),
+    "X39": ("线条序列图", "line series"),
+    "X40": ("前后对比图", "before and after"),
+}
+
+
+def _explicit_profile_ids(request: ContextBuildRequest) -> tuple[str, ...]:
+    allowed = tuple(request.chart_capabilities.allowed_chart_type_ids)
+    folded = re.sub(r"\s+", "", request.user_instruction.casefold())
+    direct = tuple(profile_id for profile_id in allowed if profile_id.casefold() in folded)
+    if direct:
+        return direct
+    candidates = sorted(
+        (
+            (re.sub(r"\s+", "", alias.casefold()), profile_id)
+            for profile_id in allowed
+            for alias in _PROFILE_ALIASES.get(profile_id, ())
+        ),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+    remaining = folded
+    found: list[str] = []
+    for alias, profile_id in candidates:
+        if alias and alias in remaining:
+            if profile_id not in found:
+                found.append(profile_id)
+            remaining = remaining.replace(alias, "", 1)
+    return tuple(profile_id for profile_id in allowed if profile_id in found)
+
+
+def _prompt_profile_ids(request: ContextBuildRequest) -> tuple[str, ...]:
+    allowed = tuple(request.chart_capabilities.allowed_chart_type_ids)
+    return _explicit_profile_ids(request) or allowed
+
+
+def _field_groups(fields: tuple[AuthoritativeField, ...]) -> tuple[tuple[str, ...], ...]:
+    grouped: dict[str, list[str]] = {}
+    for field in fields:
+        match = re.match(r"^(data_\d+)_", field.field_alias)
+        key = match.group(1) if match is not None else "active_target"
+        grouped.setdefault(key, []).append(field.logical_type)
+    return tuple(tuple(logical_types) for logical_types in grouped.values())
+
+
+def _roles_match_field_types(required_roles: tuple[str, ...], field_types: tuple[str, ...]) -> bool:
+    candidates: list[tuple[int, ...]] = []
+    for role in required_roles:
+        if role == "time":
+            matching = tuple(
+                index
+                for index, logical_type in enumerate(field_types)
+                if logical_type == "datetime"
+            )
+        elif role in _NON_NUMERIC_FIELD_ROLES:
+            matching = tuple(range(len(field_types)))
+        else:
+            matching = tuple(
+                index for index, logical_type in enumerate(field_types) if logical_type == "numeric"
+            )
+        if not matching:
+            return False
+        candidates.append(matching)
+
+    def assign(position: int, used: frozenset[int]) -> bool:
+        if position == len(candidates):
+            return True
+        return any(
+            index not in used and assign(position + 1, used | {index})
+            for index in candidates[position]
+        )
+
+    candidates.sort(key=len)
+    return assign(0, frozenset())
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +233,11 @@ def is_multi_source_same_chart_request(instruction: str) -> bool:
     """Recognize data concatenation into one grouped chart, not graph composition."""
 
     normalized = re.sub(r"\s+", "", instruction.casefold()).replace("_", "")
+    chinese_same_chart = (
+        any(marker in normalized for marker in ("同一张", "同一幅", "同一个"))
+        and any(marker in normalized for marker in ("图", "绘制", "画"))
+        and any(marker in normalized for marker in ("合并", "放到", "放在", "画到", "画在"))
+    )
     return any(
         marker in normalized
         for marker in (
@@ -116,7 +253,7 @@ def is_multi_source_same_chart_request(instruction: str) -> bool:
             "oneplot",
             "groupedbysource",
         )
-    )
+    ) or chinese_same_chart
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,7 +323,7 @@ class EngineAgentOrchestrator:
         error_code: str | None = None
         repair_count = 0
         status: Literal["completed", "failed", "cancelled"] = "failed"
-        prompt = engine_agent_prompt(self._codec)
+        prompt = engine_agent_prompt(self._codec, _prompt_profile_ids(context_request))
         schema = _DECISION_ADAPTER.json_schema(mode="validation")
         schema_hash = canonical_hash(schema)
 
@@ -344,6 +481,55 @@ class EngineAgentOrchestrator:
                         ),
                     ),
                 )
+        requested_profiles = _explicit_profile_ids(request)
+        if not requested_profiles and len(request.chart_capabilities.allowed_chart_type_ids) == 1:
+            requested_profiles = request.chart_capabilities.allowed_chart_type_ids
+        if requested_profiles:
+            manifests = {
+                str(item["profile_id"]): item for item in self._codec.profile_manifest()
+            }
+            source_field_groups = _field_groups(request.project.fields)
+            incompatible: list[str] = []
+            for profile_id in requested_profiles:
+                manifest = manifests.get(profile_id)
+                if manifest is None:
+                    continue
+                required_value = manifest.get("required_roles", ())
+                required_roles = (
+                    tuple(str(role) for role in required_value)
+                    if isinstance(required_value, (tuple, list))
+                    else ()
+                )
+                if required_roles and not any(
+                    _roles_match_field_types(required_roles, field_types)
+                    for field_types in source_field_groups
+                ):
+                    if request.locale.casefold().startswith("zh"):
+                        aliases = _PROFILE_ALIASES.get(profile_id, ())
+                        incompatible.append(aliases[0] if aliases else profile_id)
+                    else:
+                        incompatible.append(str(manifest.get("display_name", profile_id)))
+            if incompatible:
+                names = "、".join(incompatible)
+                prompt = (
+                    f"当前数据字段类型无法满足 {names} 的必填角色。"
+                    "请补充兼容字段，或选择适合当前数据的图类。"
+                    if request.locale.casefold().startswith("zh")
+                    else (
+                        f"The current field types cannot satisfy the required roles for {names}. "
+                        "Provide compatible fields or choose a chart type that fits this data."
+                    )
+                )
+                return NeedsInput(
+                    target_alias=target.object_alias,
+                    questions=(
+                        InputQuestion(
+                            question_key="field_types",
+                            prompt=prompt,
+                            input_kind="text",
+                        ),
+                    ),
+                )
         profiles = request.chart_capabilities.allowed_chart_type_ids
         if len(profiles) <= 1 or not is_unspecified_chart_request(request.user_instruction):
             return None
@@ -369,7 +555,9 @@ class EngineAgentOrchestrator:
 
         envelope = self._context_builder.build(request)
         schema = _DECISION_ADAPTER.json_schema(mode="validation")
-        return envelope, schema, engine_agent_prompt(self._codec).text
+        return envelope, schema, engine_agent_prompt(
+            self._codec, _prompt_profile_ids(request)
+        ).text
 
     def accept_external(
         self,
@@ -437,6 +625,31 @@ class EngineAgentOrchestrator:
                 if action.operation == "create_plot"
             ):
                 raise AgentRuntimeError("CHART_CAPABILITY_DENIED")
+            fields = {
+                item.field_alias: item.logical_type
+                for item in envelope.selected_context.fields
+            }
+            for action in decision.actions:
+                if isinstance(action, (AgentCreatePlot, AgentBindFields)):
+                    binding_groups: tuple[tuple[AgentFieldBinding, ...], ...] = (
+                        action.bindings,
+                    )
+                elif isinstance(action, AgentCreateCombinedPlot):
+                    binding_groups = tuple(source.bindings for source in action.sources)
+                else:
+                    continue
+                for bindings in binding_groups:
+                    for binding in bindings:
+                        logical_type = fields.get(binding.field_alias)
+                        if logical_type is None:
+                            continue
+                        if binding.role == "time" and logical_type != "datetime":
+                            raise AgentRuntimeError("FIELD_TYPE_INCOMPATIBLE")
+                        if (
+                            binding.role not in _NON_NUMERIC_FIELD_ROLES
+                            and logical_type != "numeric"
+                        ):
+                            raise AgentRuntimeError("FIELD_TYPE_INCOMPATIBLE")
             if is_multi_source_same_chart_request(envelope.user_instruction):
                 create_actions = tuple(
                     action

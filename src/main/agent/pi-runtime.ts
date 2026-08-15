@@ -127,6 +127,30 @@ function acceptedCoreDecision(value: JsonValue): JsonValue {
   throw new PiRuntimeError(code, 'Core rejected the model decision.')
 }
 
+const REPAIRABLE_DECISION_CODES = new Set([
+  'COMBINED_ACTION_REQUIRED',
+  'ENGINE_PLAN_INVALID',
+  'FIELD_TYPE_INCOMPATIBLE',
+  'SCHEMA_INVALID',
+])
+
+function rejectedCoreDecisionCode(value: JsonValue): string | undefined {
+  const payload = record(value, 'Core Agent response')
+  if (payload.accepted === true) return undefined
+  const error = payload.error
+  return error !== null && !Array.isArray(error) && typeof error === 'object'
+    && typeof error.code === 'string'
+    ? error.code
+    : 'PI_CORE_DECISION_REJECTED'
+}
+
+function repairInstruction(code: string): string {
+  if (code === 'FIELD_TYPE_INCOMPATIBLE') {
+    return 'Local validation rejected the previous decision because a field logical type is incompatible with its proposed chart role. Re-read context_envelope field logical_type values, choose compatible roles or a compatible chart profile, and submit exactly one corrected decision.'
+  }
+  return `Local validation rejected the previous decision with ${code}. Re-read the supplied context and decision contract, then submit exactly one corrected decision.`
+}
+
 function decisionToolSchema(decisionSchema: Record<string, unknown>): TSchema {
   return {
     type: 'object',
@@ -215,7 +239,7 @@ export class PiAgentRuntime {
       const tool: AgentTool<TSchema, { accepted: boolean }> = {
         name: 'submit_plotagent_decision',
         label: '提交 PlotAgent 决策',
-        description: 'Submit exactly one decision in the decision property. The decision must conform to the supplied PlotAgent decision schema.',
+        description: 'Submit exactly one candidate decision for this turn. PlotAgent Core validates it locally before it can become a plan.',
         parameters: decisionToolSchema(prepared.decisionSchema),
         constrainedSampling: { type: 'json_schema', strict: 'prefer' },
         executionMode: 'sequential',
@@ -230,15 +254,15 @@ export class PiAgentRuntime {
           }
           decision = payload.decision
           return {
-            content: [{ type: 'text', text: 'Decision received. Local validation is authoritative.' }],
-            details: { accepted: true },
+            content: [{ type: 'text', text: 'Decision candidate received. PlotAgent Core validation follows.' }],
+            details: { accepted: false },
             terminate: true,
           }
         },
       }
       agent = new Agent({
         initialState: {
-          systemPrompt: `${prepared.systemPrompt}\n\nUse submit_plotagent_decision exactly once. Do not claim that any project mutation has occurred.`,
+          systemPrompt: `${prepared.systemPrompt}\n\nUse submit_plotagent_decision exactly once per turn. If local validation rejects the first candidate, correct it from the validation feedback and submit one replacement in the next turn. Never submit more than one candidate in a turn or more than two candidates in total. Do not claim that any project mutation has occurred.`,
           model: modelFor(provider),
           thinkingLevel: 'off',
           tools: [tool],
@@ -256,8 +280,42 @@ export class PiAgentRuntime {
         if (next !== undefined) this.emit(runId, projectId, next.stage, next.label)
       })
       this.active = { runId, generation, agent }
+      let accepted: JsonValue | undefined
+      const decideAndValidate = async (): Promise<void> => {
+        let prompt = JSON.stringify({ context_envelope: prepared.contextEnvelope })
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          decision = undefined
+          decisionCount = 0
+          await agent?.prompt(prompt)
+          this.assertCurrent(generation)
+          if (decisionCount > 1) {
+            throw new PiRuntimeError('PI_MULTIPLE_DECISIONS', 'Only one decision is allowed per turn.')
+          }
+          if (decision === undefined || decisionCount !== 1) {
+            if (agent?.state.errorMessage) {
+              throw new PiRuntimeError('PI_MODEL_FAILED', agent.state.errorMessage)
+            }
+            throw new PiRuntimeError('PI_DECISION_MISSING', 'The model did not submit a PlotAgent decision.')
+          }
+          const response = await this.core.request(
+            'agent.engine.decide',
+            { ...input, external_decision: decision },
+            10_000,
+          )
+          this.assertCurrent(generation)
+          const rejectionCode = rejectedCoreDecisionCode(response)
+          if (rejectionCode === undefined) {
+            accepted = response
+            return
+          }
+          if (!REPAIRABLE_DECISION_CODES.has(rejectionCode) || attempt === 1) {
+            throw new PiRuntimeError(rejectionCode, 'Core rejected the model decision.')
+          }
+          prompt = repairInstruction(rejectionCode)
+        }
+      }
       await Promise.race([
-        agent.prompt(JSON.stringify({ context_envelope: prepared.contextEnvelope })),
+        decideAndValidate(),
         new Promise<never>((_resolve, reject) => {
           timeout = setTimeout(() => {
             timedOut = true
@@ -267,20 +325,10 @@ export class PiAgentRuntime {
         }),
       ])
       this.assertCurrent(generation)
-      if (decisionCount > 1) {
-        throw new PiRuntimeError('PI_MULTIPLE_DECISIONS', 'Only one decision is allowed.')
-      }
-      if (decision === undefined || decisionCount !== 1) {
-        if (agent.state.errorMessage) throw new PiRuntimeError('PI_MODEL_FAILED', agent.state.errorMessage)
-        throw new PiRuntimeError('PI_DECISION_MISSING', 'The model did not submit a PlotAgent decision.')
+      if (accepted === undefined) {
+        throw new PiRuntimeError('PI_DECISION_MISSING', 'The model did not submit an accepted PlotAgent decision.')
       }
       this.emit(runId, projectId, 'saving_plan', '正在绑定对象并保存待确认计划…')
-      const accepted = acceptedCoreDecision(await this.core.request(
-        'agent.engine.decide',
-        { ...input, external_decision: decision },
-        10_000,
-      ))
-      this.assertCurrent(generation)
       this.emit(runId, projectId, 'completed', '计划已生成，等待确认。')
       return accepted
     } catch (error: unknown) {

@@ -12,6 +12,7 @@ import type {
 } from '../../shared/desktop-contract'
 import { chartCatalog, type ChartType } from './data/chartCatalog'
 import {
+  disambiguateDatasetDisplayNames,
   isJsonRecord,
   projectVersionFrom,
   readAgentOutcome,
@@ -518,7 +519,9 @@ export function App(): React.JSX.Element {
       })
       return
     }
-    setDatasets((current) => [...new Map([...current, ...imported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()])
+    setDatasets((current) => disambiguateDatasetDisplayNames(
+      [...new Map([...current, ...imported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()],
+    ))
     if (datasets.length === 0 && imported[0]) {
       setActiveDatasetId(imported[0].datasetId)
       setAgentDatasetIds([])

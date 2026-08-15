@@ -124,6 +124,9 @@ def test_provider_alias_plan_is_bound_to_public_engine_actions() -> None:
     prompt = provider.requests[0].prompt_template.text
     assert "TRUSTED_ENGINE_PROFILE_CATALOG" in prompt
     assert '"profile_id":"K01"' in prompt
+    assert '"profile_id":"K03"' not in prompt
+    assert "The time role requires a datetime field" in prompt
+    assert "series_N require numeric fields" in prompt
     assert "PlotSpec" not in prompt
     assert "Matplotlib" not in prompt
     assert "Origin" not in prompt
@@ -174,6 +177,172 @@ def test_same_chart_request_requires_two_selected_sources_before_model_call() ->
     assert decision is not None
     assert decision.decision_type == "needs_input"
     assert decision.questions[0].question_key == "source_datasets"
+    assert provider.resolve_calls == provider.decide_calls == 0
+
+
+def test_single_source_merge_wording_requires_another_source_without_model_call() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, _snapshot = _request_and_snapshot()
+    request = replace(
+        request,
+        user_instruction="把当前这一个数据源合并到同一张散点图中，保留来源身份。",
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K03",),
+            allowed_action_types=("create_plot", "create_combined_plot"),
+        ),
+    )
+
+    decision = _runtime(provider).preflight(request)
+
+    assert decision is not None
+    assert decision.decision_type == "needs_input"
+    assert decision.questions[0].question_key == "source_datasets"
+    assert provider.resolve_calls == provider.decide_calls == 0
+
+
+def test_external_handoff_catalog_is_reduced_to_explicit_batch_chart_types() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, _snapshot = _request_and_snapshot()
+    request = replace(
+        request,
+        user_instruction="数据 A 画折线图，数据 B 画散点图。",
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K01", "K03", "K04", "K15"),
+            allowed_action_types=("create_plot",),
+        ),
+    )
+
+    _envelope, _schema, prompt = _runtime(provider).prepare_external(request)
+
+    assert '"profile_id":"K01"' in prompt
+    assert '"profile_id":"K03"' in prompt
+    assert '"profile_id":"K04"' not in prompt
+    assert '"profile_id":"K15"' not in prompt
+
+
+def test_datetime_and_numeric_fields_ask_before_model_for_numeric_xy_chart() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, snapshot = _request_and_snapshot()
+    request = replace(
+        request,
+        user_instruction="用这些数据画散点图。",
+        project=replace(
+            request.project,
+            fields=(
+                replace(request.project.fields[0], logical_type="datetime"),
+                request.project.fields[1],
+            ),
+        ),
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K03",),
+            allowed_action_types=("create_plot",),
+        ),
+    )
+
+    result = asyncio.run(
+        _runtime(provider).run(
+            client_model_run_id="run:field-type-preflight",
+            context_request=request,
+            project_context=snapshot,
+        )
+    )
+
+    assert result.accepted is True
+    assert result.decision is not None
+    assert result.decision.decision_type == "needs_input"
+    assert result.decision.questions[0].question_key == "field_types"
+    assert provider.resolve_calls == provider.decide_calls == 0
+
+
+def test_datetime_and_numeric_fields_fit_time_series_preflight() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, _snapshot = _request_and_snapshot()
+    request = replace(
+        request,
+        user_instruction="画时间序列图。",
+        project=replace(
+            request.project,
+            fields=(
+                replace(request.project.fields[0], logical_type="datetime"),
+                request.project.fields[1],
+            ),
+        ),
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K19",),
+            allowed_action_types=("create_plot",),
+        ),
+    )
+
+    assert _runtime(provider).preflight(request) is None
+
+
+def test_datetime_category_and_numeric_value_fit_column_preflight() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, _snapshot = _request_and_snapshot()
+    request = replace(
+        request,
+        user_instruction="画柱状图。",
+        project=replace(
+            request.project,
+            fields=(
+                replace(request.project.fields[0], logical_type="datetime"),
+                request.project.fields[1],
+            ),
+        ),
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K08",),
+            allowed_action_types=("create_plot",),
+        ),
+    )
+
+    assert _runtime(provider).preflight(request) is None
+
+
+def test_mixed_batch_with_datetime_sources_asks_before_model() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, _snapshot = _request_and_snapshot()
+    fields = tuple(
+        replacement
+        for source_index in range(1, 4)
+        for replacement in (
+            replace(
+                request.project.fields[0],
+                field_alias=f"data_{source_index}_time",
+                field_id=f"field:data{source_index}time",
+                name="Time",
+                logical_type="datetime",
+            ),
+            replace(
+                request.project.fields[1],
+                field_alias=f"data_{source_index}_signal",
+                field_id=f"field:data{source_index}signal",
+                name="Signal",
+            ),
+        )
+    )
+    request = replace(
+        request,
+        user_instruction="数据 A 画折线图，数据 B 画散点图，数据 C 画柱状图。",
+        project=replace(request.project, fields=fields),
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K01", "K03", "K08"),
+            allowed_action_types=("create_plot",),
+        ),
+    )
+
+    decision = _runtime(provider).preflight(request)
+
+    assert decision is not None
+    assert decision.decision_type == "needs_input"
+    assert decision.questions[0].question_key == "field_types"
+    assert "折线图" in decision.questions[0].prompt
+    assert "散点图" in decision.questions[0].prompt
     assert provider.resolve_calls == provider.decide_calls == 0
 
 
@@ -315,6 +484,104 @@ def test_external_pi_action_plan_binds_nested_json_arrays() -> None:
     assert accepted.accepted is True
     assert accepted.bound_plan is not None
     assert isinstance(accepted.bound_plan.actions[0], CreatePlot)
+
+
+def test_external_pi_rejects_datetime_bound_to_numeric_x_before_plan_is_saved() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, snapshot = _request_and_snapshot()
+    request = replace(
+        request,
+        project=replace(
+            request.project,
+            fields=(
+                replace(request.project.fields[0], logical_type="datetime"),
+                request.project.fields[1],
+            ),
+        ),
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K03",),
+            allowed_action_types=("create_plot",),
+        ),
+    )
+
+    result = _runtime(provider).accept_external(
+        {
+            "schema_version": "engine-agent.v1",
+            "decision_type": "action_plan",
+            "plan_id": "plan:datetime-scatter",
+            "target_alias": "active_target",
+            "actions": [
+                {
+                    "operation": "create_plot",
+                    "action_id": "action:create",
+                    "plot_alias": "result",
+                    "profile_id": "K03",
+                    "source_alias": "active_target",
+                    "bindings": [
+                        {"role": "x", "field_alias": "x_field"},
+                        {"role": "y", "field_alias": "y_field"},
+                    ],
+                }
+            ],
+        },
+        envelope=ContextBuilder().build(request),
+        project_context=snapshot,
+        client_model_run_id="run:datetime-scatter",
+    )
+
+    assert result.accepted is False
+    assert result.error_code == "FIELD_TYPE_INCOMPATIBLE"
+    assert result.bound_plan is None
+
+
+def test_external_pi_accepts_datetime_bound_to_time_role() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, snapshot = _request_and_snapshot()
+    request = replace(
+        request,
+        project=replace(
+            request.project,
+            fields=(
+                replace(request.project.fields[0], logical_type="datetime"),
+                request.project.fields[1],
+            ),
+        ),
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K19",),
+            allowed_action_types=("create_plot",),
+        ),
+    )
+
+    result = _runtime(provider).accept_external(
+        {
+            "schema_version": "engine-agent.v1",
+            "decision_type": "action_plan",
+            "plan_id": "plan:datetime-series",
+            "target_alias": "active_target",
+            "actions": [
+                {
+                    "operation": "create_plot",
+                    "action_id": "action:create",
+                    "plot_alias": "result",
+                    "profile_id": "K19",
+                    "source_alias": "active_target",
+                    "bindings": [
+                        {"role": "time", "field_alias": "x_field"},
+                        {"role": "series_1", "field_alias": "y_field"},
+                    ],
+                }
+            ],
+        },
+        envelope=ContextBuilder().build(request),
+        project_context=snapshot,
+        client_model_run_id="run:datetime-series",
+    )
+
+    assert result.accepted is True
+    assert result.bound_plan is not None
+    assert isinstance(result.bound_plan.actions[0], CreatePlot)
 
 
 def test_profile_outside_local_capability_is_rejected_without_binding() -> None:

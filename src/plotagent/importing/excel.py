@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from importlib.metadata import version
@@ -239,6 +240,28 @@ def _typed_count(row: tuple[Scalar, ...]) -> int:
     return sum(value is None or not isinstance(value, str) for value in row)
 
 
+_UNIT_CELL = re.compile(r"^\[([^\[\]]+)\]$")
+
+
+def _declared_units(row: tuple[Scalar, ...]) -> tuple[str, ...] | None:
+    """Return a strict bracketed unit row, never an arbitrary text data row."""
+
+    units: list[str] = []
+    found = False
+    for value in row:
+        if value is None or (isinstance(value, str) and not value.strip()):
+            units.append("")
+            continue
+        if not isinstance(value, str):
+            return None
+        match = _UNIT_CELL.fullmatch(value.strip())
+        if match is None:
+            return None
+        units.append(match.group(1).strip())
+        found = True
+    return tuple(units) if found else None
+
+
 def _header(
     sheet: _SheetMatrix, region: _Region, requested: int | None
 ) -> tuple[tuple[str, ...], int | None, int]:
@@ -269,7 +292,7 @@ def _header(
         return tuple(f"column_{index}" for index in range(1, width + 1)), None, region.start_row
     if first_typed == 0 and second_typed == 0:
         text_first = tuple("" if value is None else str(value) for value in first)
-        if looks_like_declared_header(text_first):
+        if looks_like_declared_header(text_first) or _declared_units(second) is not None:
             return text_first, region.start_row, region.start_row + 1
         raise ImportProblem(
             ImportErrorCode.HEADER_AMBIGUOUS,
@@ -301,6 +324,13 @@ def _candidate(
     header_row: int | None,
 ) -> SourceDatasetArtifact:
     headers, actual_header, data_start = _header(sheet, region, header_row)
+    declared_units = (
+        _declared_units(_row_values(sheet, region, data_start))
+        if actual_header is not None and data_start <= region.end_row
+        else None
+    )
+    if declared_units is not None:
+        data_start += 1
     rows = tuple(_row_values(sheet, region, row) for row in range(data_start, region.end_row + 1))
     coordinates = tuple(
         ExcelSourceCoordinate(
@@ -334,6 +364,7 @@ def _candidate(
                 "rows": len(rows),
                 "columns": region.end_col - region.start_col + 1,
                 "formula_uncached": formula_missing,
+                "declared_unit_row": declared_units is not None,
             },
         ),
     )
@@ -354,6 +385,7 @@ def _candidate(
         source_hash=source_hash,
         recipe=recipe,
         headers=headers,
+        unit_source_texts=declared_units,
         rows=rows,
         coordinates=coordinates,
         provenance=provenance,

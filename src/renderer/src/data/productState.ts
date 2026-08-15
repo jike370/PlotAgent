@@ -37,6 +37,35 @@ export interface ProductDataset {
   samplePreviewUnavailable?: boolean
 }
 
+function canonicalDatasetDisplayName(dataset: ProductDataset): string {
+  if (dataset.sourceFileName === undefined) return dataset.displayName
+  if (dataset.sourceSheetName !== undefined) {
+    return `${dataset.sourceFileName} > ${dataset.sourceSheetName}`
+  }
+  if (dataset.sourceBlock !== undefined) {
+    return `${dataset.sourceFileName} > ${dataset.sourceBlock}`
+  }
+  return dataset.sourceFileName
+}
+
+export function disambiguateDatasetDisplayNames(datasets: ProductDataset[]): ProductDataset[] {
+  const canonical = datasets.map((dataset) => ({
+    ...dataset,
+    displayName: canonicalDatasetDisplayName(dataset),
+  }))
+  const collisions = new Map<string, ProductDataset[]>()
+  for (const dataset of canonical) {
+    const key = dataset.displayName.trim().toLocaleLowerCase('en-US')
+    collisions.set(key, [...(collisions.get(key) ?? []), dataset])
+  }
+  return canonical.map((dataset) => {
+    const peers = collisions.get(dataset.displayName.trim().toLocaleLowerCase('en-US')) ?? []
+    if (peers.length < 2) return dataset
+    const stableSuffix = dataset.datasetId.replace(/^source:/, '').slice(-8)
+    return { ...dataset, displayName: `${dataset.displayName} · ${stableSuffix}` }
+  })
+}
+
 export type ProductOriginAvailability =
   | {
     available: true
@@ -335,17 +364,7 @@ export function readDatasets(value: JsonValue): ProductDataset[] {
       ...(sampleRows === undefined ? {} : { sampleRows }),
     } satisfies ProductDataset]
   })).values()]
-  const collisions = new Map<string, ProductDataset[]>()
-  for (const dataset of datasets) {
-    const key = dataset.displayName.trim().toLocaleLowerCase('en-US')
-    collisions.set(key, [...(collisions.get(key) ?? []), dataset])
-  }
-  return datasets.map((dataset) => {
-    const peers = collisions.get(dataset.displayName.trim().toLocaleLowerCase('en-US')) ?? []
-    if (peers.length < 2) return dataset
-    const stableSuffix = dataset.datasetId.replace(/^source:/, '').slice(-8)
-    return { ...dataset, displayName: `${dataset.displayName} · ${stableSuffix}` }
-  })
+  return disambiguateDatasetDisplayNames(datasets)
 }
 
 function readResource(value: JsonValue): DesktopResource | undefined {
