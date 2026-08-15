@@ -7,6 +7,7 @@ import pytest
 from plotagent.agent.engine_client import (
     AgentCreatePlot,
     AgentFieldBinding,
+    AgentSetLegend,
     AgentSetTitle,
     BoundEnginePlan,
     EngineAgentPlan,
@@ -18,7 +19,14 @@ from plotagent.agent.engine_tasks import (
     decode_action,
     encode_action,
 )
-from plotagent.engine import CreatePlot, EngineDataRef, FieldBinding, PlotEngineAction, SetTitle
+from plotagent.engine import (
+    CreatePlot,
+    EngineDataRef,
+    FieldBinding,
+    PlotEngineAction,
+    SetLegend,
+    SetTitle,
+)
 from plotagent.storage.project import ProjectStore
 
 
@@ -131,6 +139,89 @@ def test_bound_action_serialization_remains_the_public_engine_contract() -> None
     restored = decode_action(encode_action(bound.actions[1]))
     assert restored == bound.actions[1]
     assert "PlotSpec" not in encode_action(restored)
+
+
+def test_independent_plot_items_continue_and_redrive_only_failed_work(tmp_path: Path) -> None:
+    proposal, bound = _plans()
+    first_create = bound.actions[0]
+    assert isinstance(first_create, CreatePlot)
+    second_create = first_create.model_copy(
+        update={"action_id": "action:create-b", "plot_id": "plot:agent.persistent.2"}
+    )
+    expanded_proposal = proposal.model_copy(
+        update={
+            "actions": (
+                proposal.actions[0],
+                proposal.actions[1],
+                AgentSetLegend(
+                    action_id="action:legend-a",
+                    plot_alias="result",
+                    visible=True,
+                ),
+                proposal.actions[0].model_copy(
+                    update={"action_id": "action:create-b", "plot_alias": "result_b"}
+                ),
+                proposal.actions[1].model_copy(
+                    update={"action_id": "action:title-b", "plot_alias": "result_b"}
+                ),
+            )
+        }
+    )
+    expanded_bound = bound.model_copy(
+        update={
+            "actions": (
+                first_create,
+                bound.actions[1],
+                SetLegend(
+                    action_id="action:legend-a",
+                    target="legend:agent.persistent.1.main",
+                    expected_plot_version=1,
+                    visible=True,
+                ),
+                second_create,
+                SetTitle(
+                    action_id="action:title-b",
+                    target=second_create.plot_id,
+                    expected_plot_version=1,
+                    text="Second title",
+                ),
+            )
+        }
+    )
+    workspace = tmp_path / "isolated"
+    with ProjectStore.create(workspace, project_id="project:isolated") as project:
+        repository = EngineAgentPlanRepository(project)
+        repository.create(expanded_proposal, expanded_bound)
+        repository.confirm(expanded_proposal.plan_id)
+        first_executor = FakeExecutor(fail_once="action:title")
+        partial = PersistentEngineTaskOrchestrator(repository, first_executor).run(
+            expanded_proposal.plan_id
+        )
+
+        assert partial.state == "partially_failed"
+        assert partial.current_project_revision == 13
+        assert tuple(item.state for item in partial.action_progress) == (
+            "succeeded",
+            "failed",
+            "blocked",
+            "succeeded",
+            "succeeded",
+        )
+        assert first_executor.calls == [
+            "action:create",
+            "action:title",
+            "action:create-b",
+            "action:title-b",
+        ]
+
+        resumed_executor = FakeExecutor()
+        completed = PersistentEngineTaskOrchestrator(repository, resumed_executor).run(
+            expanded_proposal.plan_id
+        )
+        assert completed.state == "succeeded"
+        assert completed.current_project_revision == 15
+        assert resumed_executor.calls == ["action:title", "action:legend-a"]
+        assert tuple(item.attempt_count for item in completed.action_progress) == (1, 2, 1, 1, 1)
 
 
 def test_pending_plans_can_be_listed_and_explicitly_cancelled(tmp_path: Path) -> None:

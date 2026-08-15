@@ -757,11 +757,22 @@ function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
   const state = stringValue(plan, 'state') ?? 'needs_confirmation'
   const nextActionIndex = numberValue(plan, 'next_action_index') ?? 0
   const errorCode = stringValue(plan, 'error_code')
+  const actionProgress = Array.isArray(plan.action_progress)
+    ? plan.action_progress.filter(isJsonRecord)
+    : []
   const steps = proposedActions.map((action, index): AgentPlanStep => {
     const bound = boundActions[index] ?? {}
-    const succeeded = index < nextActionIndex || state === 'succeeded'
-    const failed = state === 'partially_failed' && index === nextActionIndex
-    const running = state === 'running' && index === nextActionIndex
+    const progress = actionProgress.find((item) => numberValue(item, 'action_index') === index)
+    const progressState = stringValue(progress ?? {}, 'state')
+    const succeeded = progressState === undefined
+      ? index < nextActionIndex || state === 'succeeded'
+      : progressState === 'succeeded'
+    const failed = progressState === undefined
+      ? state === 'partially_failed' && index === nextActionIndex
+      : progressState === 'failed' || progressState === 'blocked'
+    const running = progressState === undefined
+      ? state === 'running' && index === nextActionIndex
+      : progressState === 'running'
     const target = stringValue(bound, 'target')
     const plotId = stringValue(bound, 'plot_id') ?? plotIdFromSemanticTarget(target)
     const outputVersion = bound.operation === 'create_plot'
@@ -775,10 +786,10 @@ function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
       title: engineActionTitle(action),
       ...(engineActionDetail(bound) ? { detail: engineActionDetail(bound) } : {}),
       state: succeeded ? 'succeeded' : failed ? 'failed' : running ? 'running' : 'pending',
-      attemptCount: succeeded || failed ? 1 : 0,
+      attemptCount: numberValue(progress ?? {}, 'attempt_count') ?? (succeeded || failed ? 1 : 0),
       ...(failed ? {
         failure: {
-          code: errorCode ?? 'ENGINE_ACTION_FAILED',
+          code: stringValue(progress ?? {}, 'error_code') ?? errorCode ?? 'ENGINE_ACTION_FAILED',
           message: '该动作未完成，可以从这里继续执行。',
           retryable: true,
         },

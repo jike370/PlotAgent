@@ -800,7 +800,7 @@ class DesktopApplication:
                     "succeeded"
                     if stored.state == "succeeded"
                     else "partially_succeeded"
-                    if stored.next_action_index > 0
+                    if stored.completed_action_count > 0
                     else "failed"
                 ),
             )
@@ -856,6 +856,15 @@ class DesktopApplication:
                 "next_action_index": snapshot.next_action_index,
                 "current_project_revision": snapshot.current_project_revision,
                 "error_code": snapshot.error_code,
+                "action_progress": tuple(
+                    {
+                        "action_index": item.action_index,
+                        "state": item.state,
+                        "attempt_count": item.attempt_count,
+                        "error_code": item.error_code,
+                    }
+                    for item in snapshot.action_progress
+                ),
                 "proposal": snapshot.proposal.model_dump(mode="json"),
                 "bound_plan": snapshot.bound.model_dump(mode="json"),
                 "created_at": snapshot.created_at,

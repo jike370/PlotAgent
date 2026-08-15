@@ -43,6 +43,21 @@ EngineTaskPlanState = Literal[
     "succeeded",
     "cancelled",
 ]
+EngineActionState = Literal["pending", "running", "succeeded", "failed", "blocked"]
+
+_ENGINE_ACTION_PROGRESS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS engine_agent_task_action_progress (
+    plan_id TEXT NOT NULL,
+    action_index INTEGER NOT NULL CHECK (action_index >= 0),
+    state TEXT NOT NULL CHECK (state IN (
+        'pending', 'running', 'succeeded', 'failed', 'blocked'
+    )),
+    attempt_count INTEGER NOT NULL CHECK (attempt_count >= 0),
+    error_code TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (plan_id, action_index)
+)
+"""
 
 
 def _utc_now() -> str:
@@ -65,6 +80,14 @@ class EngineActionExecutor(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class EngineActionProgress:
+    action_index: int
+    state: EngineActionState
+    attempt_count: int
+    error_code: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class EngineTaskPlanSnapshot:
     proposal: EngineAgentPlan
     bound: BoundEnginePlan
@@ -73,8 +96,13 @@ class EngineTaskPlanSnapshot:
     next_action_index: int
     current_project_revision: int
     error_code: str | None
+    action_progress: tuple[EngineActionProgress, ...]
     created_at: str
     updated_at: str
+
+    @property
+    def completed_action_count(self) -> int:
+        return sum(item.state == "succeeded" for item in self.action_progress)
 
 
 class EngineAgentPlanRepository:
@@ -104,6 +132,7 @@ class EngineAgentPlanRepository:
                 COMMIT;
                 """
             )
+        writer.execute(_ENGINE_ACTION_PROGRESS_TABLE_SQL)
 
     def create(
         self,
@@ -133,6 +162,14 @@ class EngineAgentPlanRepository:
                 now,
             ),
         )
+        self._project._assert_writer().executemany(  # noqa: SLF001
+            """
+            INSERT INTO engine_agent_task_action_progress (
+                plan_id, action_index, state, attempt_count, error_code, updated_at
+            ) VALUES (?, ?, 'pending', 0, NULL, ?)
+            """,
+            tuple((proposal.plan_id, index, now) for index in range(len(bound.actions))),
+        )
         return self.get(proposal.plan_id)
 
     def get(self, plan_id: str) -> EngineTaskPlanSnapshot:
@@ -147,9 +184,17 @@ class EngineAgentPlanRepository:
         ).fetchone()
         if row is None:
             raise KeyError(f"engine Agent plan was not found: {plan_id}")
+        bound = BoundEnginePlan.model_validate_json(str(row[1]))
+        action_progress = self._action_progress(
+            plan_id,
+            action_count=len(bound.actions),
+            legacy_state=str(row[2]),
+            legacy_next_action_index=int(row[4]),
+            legacy_error_code=None if row[6] is None else str(row[6]),
+        )
         return EngineTaskPlanSnapshot(
             proposal=EngineAgentPlan.model_validate_json(str(row[0])),
-            bound=BoundEnginePlan.model_validate_json(str(row[1])),
+            bound=bound,
             state=cast(EngineTaskPlanState, row[2]),
             confirmation_state=cast(
                 Literal["pending", "confirmed", "rejected", "not_required"], row[3]
@@ -157,8 +202,84 @@ class EngineAgentPlanRepository:
             next_action_index=int(row[4]),
             current_project_revision=int(row[5]),
             error_code=None if row[6] is None else str(row[6]),
+            action_progress=action_progress,
             created_at=str(row[7]),
             updated_at=str(row[8]),
+        )
+
+    def update_action(
+        self,
+        plan_id: str,
+        action_index: int,
+        *,
+        state: EngineActionState,
+        attempt_count: int,
+        error_code: str | None,
+    ) -> None:
+        cursor = self._project._assert_writer().execute(  # noqa: SLF001
+            """
+            UPDATE engine_agent_task_action_progress
+            SET state = ?, attempt_count = ?, error_code = ?, updated_at = ?
+            WHERE plan_id = ? AND action_index = ?
+            """,
+            (state, attempt_count, error_code, _utc_now(), plan_id, action_index),
+        )
+        if cursor.rowcount != 1:
+            raise KeyError(f"engine Agent action progress was not found: {plan_id}@{action_index}")
+
+    def _action_progress(
+        self,
+        plan_id: str,
+        *,
+        action_count: int,
+        legacy_state: str,
+        legacy_next_action_index: int,
+        legacy_error_code: str | None,
+    ) -> tuple[EngineActionProgress, ...]:
+        rows = self._project._assert_writer().execute(  # noqa: SLF001
+            """
+            SELECT action_index, state, attempt_count, error_code
+            FROM engine_agent_task_action_progress
+            WHERE plan_id = ? ORDER BY action_index ASC
+            """,
+            (plan_id,),
+        ).fetchall()
+        if len(rows) != action_count:
+            if rows:
+                raise ValueError("engine Agent action progress is incomplete")
+            now = _utc_now()
+            seeded: list[tuple[str, int, str, int, str | None, str]] = []
+            for index in range(action_count):
+                if legacy_state == "succeeded" or index < legacy_next_action_index:
+                    state, attempts, error = "succeeded", 1, None
+                elif legacy_state == "partially_failed" and index == legacy_next_action_index:
+                    state, attempts, error = "failed", 1, legacy_error_code
+                else:
+                    state, attempts, error = "pending", 0, None
+                seeded.append((plan_id, index, state, attempts, error, now))
+            self._project._assert_writer().executemany(  # noqa: SLF001
+                """
+                INSERT INTO engine_agent_task_action_progress (
+                    plan_id, action_index, state, attempt_count, error_code, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                seeded,
+            )
+            return self._action_progress(
+                plan_id,
+                action_count=action_count,
+                legacy_state=legacy_state,
+                legacy_next_action_index=legacy_next_action_index,
+                legacy_error_code=legacy_error_code,
+            )
+        return tuple(
+            EngineActionProgress(
+                action_index=int(row[0]),
+                state=cast(EngineActionState, row[1]),
+                attempt_count=int(row[2]),
+                error_code=None if row[3] is None else str(row[3]),
+            )
+            for row in rows
         )
 
     def list_all(self) -> tuple[EngineTaskPlanSnapshot, ...]:
@@ -255,7 +376,7 @@ class EngineAgentPlanRepository:
 
 
 class PersistentEngineTaskOrchestrator:
-    """Execute only persisted, locally bound actions and resume at failure."""
+    """Execute persisted actions with per-plot failure isolation and redrive."""
 
     def __init__(
         self,
@@ -281,7 +402,29 @@ class PersistentEngineTaskOrchestrator:
             project_revision=snapshot.current_project_revision,
             error_code=None,
         )
-        for index in range(snapshot.next_action_index, len(snapshot.bound.actions)):
+        failed_plot_ids: set[str] = set()
+        for index, action in enumerate(snapshot.bound.actions):
+            progress = snapshot.action_progress[index]
+            if progress.state == "succeeded":
+                continue
+            plot_id = _action_plot_id(action)
+            if plot_id in failed_plot_ids:
+                self._repository.update_action(
+                    plan_id,
+                    index,
+                    state="blocked",
+                    attempt_count=progress.attempt_count,
+                    error_code="UPSTREAM_ACTION_FAILED",
+                )
+                snapshot = self._repository.get(plan_id)
+                continue
+            self._repository.update_action(
+                plan_id,
+                index,
+                state="running",
+                attempt_count=progress.attempt_count + 1,
+                error_code=None,
+            )
             action = snapshot.bound.actions[index]
             try:
                 revision = self._executor.execute_action(
@@ -290,13 +433,16 @@ class PersistentEngineTaskOrchestrator:
                 )
             except Exception as error:
                 code = getattr(error, "code", type(error).__name__)
-                return self._repository.update_execution(
+                self._repository.update_action(
                     plan_id,
-                    state="partially_failed",
-                    next_action_index=index,
-                    project_revision=snapshot.current_project_revision,
+                    index,
+                    state="failed",
+                    attempt_count=progress.attempt_count + 1,
                     error_code=str(code),
                 )
+                failed_plot_ids.add(plot_id)
+                snapshot = self._repository.get(plan_id)
+                continue
             expected_revision = snapshot.current_project_revision + (
                 0 if isinstance(action, ExportPlot) else 1
             )
@@ -305,6 +451,13 @@ class PersistentEngineTaskOrchestrator:
                     "PROJECT_VERSION_INVALID",
                     "The engine action returned an unexpected project version.",
                 )
+            self._repository.update_action(
+                plan_id,
+                index,
+                state="succeeded",
+                attempt_count=progress.attempt_count + 1,
+                error_code=None,
+            )
             snapshot = self._repository.update_execution(
                 plan_id,
                 state="running",
@@ -312,13 +465,42 @@ class PersistentEngineTaskOrchestrator:
                 project_revision=revision,
                 error_code=None,
             )
+        snapshot = self._repository.get(plan_id)
+        unfinished = tuple(
+            item for item in snapshot.action_progress if item.state != "succeeded"
+        )
+        first_unfinished = unfinished[0] if unfinished else None
         return self._repository.update_execution(
             plan_id,
-            state="succeeded",
-            next_action_index=len(snapshot.bound.actions),
+            state="partially_failed" if unfinished else "succeeded",
+            next_action_index=(
+                first_unfinished.action_index
+                if first_unfinished is not None
+                else len(snapshot.bound.actions)
+            ),
             project_revision=snapshot.current_project_revision,
-            error_code=None,
+            error_code=(
+                next(
+                    (item.error_code for item in unfinished if item.state == "failed"),
+                    "UPSTREAM_ACTION_FAILED",
+                )
+                if unfinished
+                else None
+            ),
         )
+
+
+def _action_plot_id(action: PlotEngineAction) -> str:
+    if hasattr(action, "plot_id"):
+        return cast(str, action.plot_id)
+    target = action.target
+    if target.startswith("plot:"):
+        return target
+    separator = target.find(":")
+    last_dot = target.rfind(".")
+    if separator <= 0 or last_dot <= separator + 1:
+        raise EngineTaskExecutionError("ACTION_TARGET_INVALID", "The action target is invalid.")
+    return "plot:" + target[separator + 1 : last_dot]
 
 
 def encode_action(action: PlotEngineAction) -> str:

@@ -233,4 +233,32 @@ describe('product plot state', () => {
       plotVersion: 5,
     })
   })
+
+  it('uses per-action progress for isolated batch failures and retry attempts', () => {
+    const plan = readAgentPlan({
+      plan_id: 'plan:isolated',
+      state: 'partially_failed',
+      confirmation_state: 'confirmed',
+      next_action_index: 1,
+      error_code: 'INVALID_SCALE',
+      proposal: {
+        actions: [
+          { action_id: 'action:a-create', operation: 'create_plot' },
+          { action_id: 'action:a-scale', operation: 'set_axis' },
+          { action_id: 'action:b-create', operation: 'create_plot' },
+        ],
+      },
+      bound_plan: { actions: [{}, {}, {}] },
+      action_progress: [
+        { action_index: 0, state: 'succeeded', attempt_count: 1 },
+        { action_index: 1, state: 'failed', attempt_count: 2, error_code: 'INVALID_SCALE' },
+        { action_index: 2, state: 'succeeded', attempt_count: 1 },
+      ],
+    })
+
+    expect(plan?.steps.map((step) => step.state)).toEqual(['succeeded', 'failed', 'succeeded'])
+    expect(plan?.steps[1]?.attemptCount).toBe(2)
+    expect(plan?.steps[1]?.failure?.code).toBe('INVALID_SCALE')
+    expect(plan?.completedCount).toBe(2)
+  })
 })

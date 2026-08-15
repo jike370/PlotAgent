@@ -681,6 +681,10 @@ def test_bound_plan_requires_confirmation_and_persists_completion(
     )
     assert completed["state"] == "succeeded"
     assert completed["next_action_index"] == 2
+    assert [item["state"] for item in completed["action_progress"]] == [
+        "succeeded",
+        "succeeded",
+    ]
     restored = harness.call(
         "agent.engine.plans.get",
         {"project_id": project_id, "plan_id": "plan:desktop"},
