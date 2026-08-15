@@ -74,6 +74,23 @@ describe('product plot state', () => {
     })
   })
 
+  it('adds a stable identity suffix when source labels collide', () => {
+    const fields = [
+      { field_id: 'field:x', name: 'x', logical_type: 'numeric', physical_type: 'float64', unit: null },
+    ]
+    const datasets = readDatasets({
+      datasets: [
+        { source_dataset_id: 'source:directory-one-12345678', source_file_name: 'sample.xlsx', source_sheet_name: 'Data', source_version: 1, fields },
+        { source_dataset_id: 'source:directory-two-87654321', source_file_name: 'sample.xlsx', source_sheet_name: 'Data', source_version: 1, fields },
+      ],
+    })
+
+    expect(datasets.map((dataset) => dataset.displayName)).toEqual([
+      'sample.xlsx > Data · 12345678',
+      'sample.xlsx > Data · 87654321',
+    ])
+  })
+
   it('accounts for every selected import file and keeps clarification details actionable', () => {
     expect(readImportSummary({
       selected_files: ['清晰.csv', '待确认.txt', '无回执.dat'],

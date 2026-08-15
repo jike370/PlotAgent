@@ -246,6 +246,7 @@ export type ContextObjectRef = {
   readonly object_version: number;
   readonly object_type: "source_dataset" | "prepared_dataset" | "plot" | "export" | "project";
   readonly content_hash?: string | null;
+  readonly display_name?: string | null;
 }
 
 export type ContextSampleRow = {

@@ -280,7 +280,7 @@ function readSampleRows(value: JsonValue | undefined): ProductPreviewValue[][] |
 
 export function readDatasets(value: JsonValue): ProductDataset[] {
   const candidates = records(value, (record) => typeof record.source_dataset_id === 'string' && Array.isArray(record.fields))
-  return [...new Map(candidates.map((record) => {
+  const datasets = [...new Map(candidates.map((record) => {
     const datasetId = stringValue(record, 'source_dataset_id')!
     const fields = (Array.isArray(record.fields) ? record.fields : []).flatMap((field): ProductField[] => {
       if (!isJsonRecord(field)) return []
@@ -335,6 +335,17 @@ export function readDatasets(value: JsonValue): ProductDataset[] {
       ...(sampleRows === undefined ? {} : { sampleRows }),
     } satisfies ProductDataset]
   })).values()]
+  const collisions = new Map<string, ProductDataset[]>()
+  for (const dataset of datasets) {
+    const key = dataset.displayName.trim().toLocaleLowerCase('en-US')
+    collisions.set(key, [...(collisions.get(key) ?? []), dataset])
+  }
+  return datasets.map((dataset) => {
+    const peers = collisions.get(dataset.displayName.trim().toLocaleLowerCase('en-US')) ?? []
+    if (peers.length < 2) return dataset
+    const stableSuffix = dataset.datasetId.replace(/^source:/, '').slice(-8)
+    return { ...dataset, displayName: `${dataset.displayName} · ${stableSuffix}` }
+  })
 }
 
 function readResource(value: JsonValue): DesktopResource | undefined {

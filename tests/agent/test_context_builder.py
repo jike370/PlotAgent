@@ -19,10 +19,10 @@ def test_context_is_deterministic_and_obeys_disclosure_hard_budgets() -> None:
 
     assert first == second
     assert first.context_hash == second.context_hash
-    assert len(first.selected_context.fields) == 12
-    assert len(first.selected_context.sample_rows) == 16
-    assert first.data_disclosure.field_count == 12
-    assert first.data_disclosure.row_count == 16
+    assert len(first.selected_context.fields) == 64
+    assert len(first.selected_context.sample_rows) == 3
+    assert first.data_disclosure.field_count == 64
+    assert first.data_disclosure.row_count == 3
     assert first.data_disclosure.scalar_count == 192
     assert "field_249" not in canonical_json(first)
 

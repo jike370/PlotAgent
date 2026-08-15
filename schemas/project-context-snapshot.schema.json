@@ -49,6 +49,20 @@
           "default": null,
           "title": "Content Hash"
         },
+        "display_name": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Name"
+        },
         "object_alias": {
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Object Alias",

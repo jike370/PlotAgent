@@ -33,7 +33,7 @@ SAMPLING_RULE_VERSION = "context-sample-v1"
 @dataclass(frozen=True, slots=True)
 class ContextBudget:
     max_rows: int = 20
-    max_fields: int = 12
+    max_fields: int = 64
     max_scalars: int = 200
     max_bytes: int = 65_536
     max_messages: int = 8
@@ -42,7 +42,7 @@ class ContextBudget:
     def __post_init__(self) -> None:
         if not (0 <= self.max_rows <= 20):
             raise ValueError("max_rows must be within the product limit")
-        if not (0 <= self.max_fields <= 12):
+        if not (0 <= self.max_fields <= 64):
             raise ValueError("max_fields must be within the product limit")
         if not (0 <= self.max_scalars <= 200):
             raise ValueError("max_scalars must be within the product limit")

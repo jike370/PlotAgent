@@ -54,6 +54,10 @@ class ContextObjectRef(StrictModel):
         "project",
     ]
     content_hash: Sha256 | None = None
+    display_name: Annotated[
+        str,
+        StringConstraints(min_length=1, max_length=256, strict=True),
+    ] | None = None
 
 
 class ConversationStateProjection(StrictModel):
@@ -137,8 +141,8 @@ class SelectedContext(StrictModel):
 
     @model_validator(mode="after")
     def bounded_and_consistent(self) -> SelectedContext:
-        if len(self.fields) > 12:
-            raise ValueError("selected context exceeds the 12-field limit")
+        if len(self.fields) > 64:
+            raise ValueError("selected context exceeds the 64-field limit")
         if len(self.sample_rows) > 20:
             raise ValueError("selected context exceeds the 20-row limit")
         aliases = {field.field_alias for field in self.fields}
@@ -179,7 +183,7 @@ class DataDisclosure(StrictModel):
     def disclosure_counts_match(self) -> DataDisclosure:
         if self.field_count != len(self.field_aliases):
             raise ValueError("disclosure field count must match field aliases")
-        if self.field_count > 12 or self.row_count > 20 or self.scalar_count > 200:
+        if self.field_count > 64 or self.row_count > 20 or self.scalar_count > 200:
             raise ValueError("disclosure exceeds the default hard budget")
         if self.scalar_count > self.field_count * self.row_count:
             raise ValueError("disclosure scalar count exceeds the field/row product")

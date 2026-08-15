@@ -1473,6 +1473,12 @@ class DesktopApplication:
                 object_version=item.source_version,
                 object_type="source_dataset",
                 content_hash=item.content_hash,
+                display_name=(
+                    source_records[(item.source_dataset_id, item.source_version)].display_name
+                    if (item.source_dataset_id, item.source_version) in source_records
+                    and source_records[(item.source_dataset_id, item.source_version)].display_name
+                    else item.source_dataset_id
+                ),
             )
             for index, item in enumerate(selected_sources, start=1)
         )
