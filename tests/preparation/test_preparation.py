@@ -191,6 +191,26 @@ def test_isomorphic_concat_can_label_separately_uploaded_dataset_identities() ->
     assert prepared.fields[-1].name == "source_dataset"
 
 
+def test_isomorphic_concat_disambiguates_duplicate_source_display_names() -> None:
+    imported = _imported("excel_two_sheets.xlsx").sources
+    artifacts = tuple(
+        item.model_copy(update={"display_name": "sample.xlsx > Data"})
+        for item in imported
+    )
+    mapping = _mapping(artifacts)
+    spec = IsomorphicConcatSpec(
+        **_common("concat_duplicate_labels", artifacts, mapping),
+        source_label_kind="source_dataset",
+        source_label_field_id="field:source_dataset",
+    )
+
+    prepared = _prepare(artifacts, mapping, spec)
+    labels = tuple(dict.fromkeys(row[-1] for row in prepared.rows))
+
+    assert len(labels) == 2
+    assert all(str(label).startswith("sample.xlsx > Data · ") for label in labels)
+
+
 def test_non_isomorphic_concat_is_rejected_without_join_fallback() -> None:
     artifacts = (
         _imported("csv_basic.csv").sources[0],

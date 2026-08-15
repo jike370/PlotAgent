@@ -22,6 +22,7 @@ from plotagent.contracts.base import (
 
 EngineActionType = Literal[
     "create_plot",
+    "create_combined_plot",
     "bind_fields",
     "set_title",
     "set_axis",

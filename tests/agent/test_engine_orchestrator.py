@@ -156,6 +156,82 @@ def test_unspecified_chart_is_asked_locally_without_model_call() -> None:
     assert provider.resolve_calls == provider.decide_calls == 0
 
 
+def test_same_chart_request_requires_two_selected_sources_before_model_call() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, _snapshot = _request_and_snapshot()
+    request = replace(
+        request,
+        user_instruction="把数据画在同一张散点图中，并按数据来源分组。",
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K03",),
+            allowed_action_types=("create_plot", "create_combined_plot"),
+        ),
+    )
+
+    decision = _runtime(provider).preflight(request)
+
+    assert decision is not None
+    assert decision.decision_type == "needs_input"
+    assert decision.questions[0].question_key == "source_datasets"
+    assert provider.resolve_calls == provider.decide_calls == 0
+
+
+def test_same_chart_request_rejects_a_single_source_create_plan() -> None:
+    provider = FakeProvider(OutputCapability.P1, [])
+    request, snapshot = _request_and_snapshot()
+    second = request.project.target.model_copy(
+        update={
+            "object_alias": "data_2",
+            "object_id": "source:second",
+            "content_hash": "e" * 64,
+        }
+    )
+    request = replace(
+        request,
+        user_instruction="Plot both datasets on the same chart, grouped by source.",
+        project=replace(request.project, selected_objects=(second,)),
+        chart_capabilities=ChartCapabilities(
+            capability_version="engine-v1",
+            allowed_chart_type_ids=("K03",),
+            allowed_action_types=("create_plot", "create_combined_plot"),
+        ),
+    )
+    snapshot = snapshot.model_copy(
+        update={"known_objects": (*snapshot.known_objects, second)}
+    )
+    runtime = _runtime(provider)
+    envelope = ContextBuilder().build(request)
+
+    result = runtime.accept_external(
+        {
+            "schema_version": "engine-agent.v1",
+            "decision_type": "action_plan",
+            "plan_id": "plan:wrong-single-source",
+            "target_alias": "active_target",
+            "actions": [
+                {
+                    "operation": "create_plot",
+                    "action_id": "action:create",
+                    "plot_alias": "result",
+                    "profile_id": "K03",
+                    "source_alias": "active_target",
+                    "bindings": [
+                        {"role": "x", "field_alias": "x_field"},
+                        {"role": "y", "field_alias": "y_field"},
+                    ],
+                }
+            ],
+        },
+        envelope=envelope,
+        project_context=snapshot,
+        client_model_run_id="run:wrong-single-source",
+    )
+
+    assert result.accepted is False
+    assert result.error_code == "COMBINED_ACTION_REQUIRED"
+
+
 def test_removed_plot_composition_is_rejected_locally_without_model_call() -> None:
     provider = FakeProvider(OutputCapability.P1, [])
     request, snapshot = _request_and_snapshot()

@@ -504,6 +504,105 @@ def test_agent_binds_explicit_heterogeneous_batch_to_each_selected_dataset(
     ]
 
 
+def test_agent_combines_two_explicit_sources_into_one_prepared_plot(
+    harness: ApplicationHarness,
+) -> None:
+    harness.call(
+        "provider.configure",
+        {
+            "mode": "custom_provider",
+            "provider_config_id": "custom.default",
+            "base_url": "https://model.example/v1",
+            "model_id": "test-model",
+            "api_key": "secret-api-key",
+            "retention_acknowledged": True,
+        },
+    )
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-combined")
+    datasets = cast(list[dict[str, Any]], imported["datasets"])
+    request: dict[str, JsonValue] = {
+        "project_id": project_id,
+        "source_dataset_id": cast(str, datasets[0]["source_dataset_id"]),
+        "source_version": cast(int, datasets[0]["source_version"]),
+        "selected_source_datasets": [
+            {
+                "source_dataset_id": item["source_dataset_id"],
+                "source_version": item["source_version"],
+            }
+            for item in datasets
+        ],
+        "selected_profile_id": "K03",
+        "user_instruction": "把两个数据表画在同一张散点图中，按数据来源分组。",
+        "client_model_run_id": "model-run:combined",
+        "expected_version": cast(int, imported["project_version"]),
+    }
+    prepared = harness.call("agent.engine.decide", {**request, "prepare_only": True})
+    assert prepared["prepared"] is True
+    session = harness.application._sessions[project_id]  # noqa: SLF001
+    snapshot = session.agent_runtime.latest_context_snapshot(
+        harness.application._default_conversation_id(project_id)  # noqa: SLF001
+    )
+    assert snapshot is not None
+    source_aliases = {
+        item.object_id: item.object_alias
+        for item in snapshot.known_objects
+        if item.object_type == "source_dataset"
+    }
+    source_bindings: list[dict[str, object]] = []
+    for dataset in datasets:
+        source_id = cast(str, dataset["source_dataset_id"])
+        numeric_ids = {
+            cast(str, field["field_id"])
+            for field in cast(list[dict[str, object]], dataset["fields"])
+            if field["logical_type"] == "numeric"
+        }
+        aliases = [
+            binding.field_alias
+            for binding in snapshot.field_bindings
+            if binding.source_dataset_id == source_id and binding.field_id in numeric_ids
+        ]
+        source_bindings.append(
+            {
+                "source_alias": source_aliases[source_id],
+                "bindings": [
+                    {"role": "x", "field_alias": aliases[0]},
+                    {"role": "y", "field_alias": aliases[1]},
+                ],
+            }
+        )
+
+    accepted = harness.call(
+        "agent.engine.decide",
+        {
+            **request,
+            "external_decision": {
+                "schema_version": "engine-agent.v1",
+                "decision_type": "action_plan",
+                "plan_id": "plan:combined",
+                "target_alias": "data_1",
+                "actions": [
+                    {
+                        "operation": "create_combined_plot",
+                        "action_id": "action:combined",
+                        "plot_alias": "combined_result",
+                        "profile_id": "K03",
+                        "sources": source_bindings,
+                    }
+                ],
+            },
+        },
+    )
+
+    assert accepted["accepted"] is True
+    task_plan = cast(dict[str, Any], accepted["task_plan"])
+    bound = cast(dict[str, Any], task_plan["bound_plan"])
+    action = cast(list[dict[str, Any]], bound["actions"])[0]
+    assert action["operation"] == "create_plot"
+    assert action["data"]["kind"] == "prepared"
+    assert [item["role"] for item in action["bindings"]] == ["x", "y", "group"]
+
+
 def test_pi_runtime_handoff_reuses_protected_provider_and_local_authority(
     harness: ApplicationHarness,
 ) -> None:

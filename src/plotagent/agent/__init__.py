@@ -12,10 +12,13 @@ from plotagent.agent.context import (
     DisclosureGrant,
 )
 from plotagent.agent.engine_client import (
+    AgentCombinedSource,
+    AgentCreateCombinedPlot,
     AgentCreatePlot,
     AgentFieldBinding,
     BoundEnginePlan,
     BundledEngineAgentBinder,
+    CombinedSourceBinding,
     EngineAgentPlan,
 )
 from plotagent.agent.engine_orchestrator import (
@@ -33,6 +36,8 @@ from plotagent.agent.errors import AgentRuntimeError
 
 __all__ = [
     "AgentRuntimeError",
+    "AgentCombinedSource",
+    "AgentCreateCombinedPlot",
     "AgentCreatePlot",
     "AgentFieldBinding",
     "AuthoritativeField",
@@ -40,6 +45,7 @@ __all__ = [
     "AuthoritativeSampleRow",
     "BoundEnginePlan",
     "BundledEngineAgentBinder",
+    "CombinedSourceBinding",
     "ContextBudget",
     "ContextBuildRequest",
     "ContextBuilder",

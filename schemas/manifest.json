@@ -6,19 +6,19 @@
     },
     {
       "path": "schemas/context-envelope.schema.json",
-      "sha256": "6ca921d5395e0acc72c4b915260b7856053971577b15eaff5245dcdb1d52cac5"
+      "sha256": "a27e3db342787a3c6892ad761bd8f77e83eb4d1fe2dcb2d3e425669532cdb7b8"
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "63077d517c7d03ca664e1f3606122b86695d13e762ab62c507e37441a365c2a3"
+      "sha256": "4b2200e57a927e9a4a0908ed467216091f326a895889e1832410abc81afc3a84"
     },
     {
       "path": "schemas/engine-agent-decision.schema.json",
-      "sha256": "4eaa673f8f23d799c9fb7eb28532ef5424124c1c5a3710ed151dad58acec48c0"
+      "sha256": "6b1d33e87fb95154d8e9c0a838a416f919cda7d9c70f9d998b397015e4b04699"
     },
     {
       "path": "schemas/engine-agent-plan.schema.json",
-      "sha256": "0359d106a908f8322314c0b88498ed3ef190c8accade7320a37d51aa4c2d8bd0"
+      "sha256": "169f1c768cbea6b916a2393679eeb9d80cc907befe25f38b463f2f7633167699"
     },
     {
       "path": "schemas/engine-artifact.schema.json",
@@ -94,7 +94,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "93fab46bc058051e877f0da128cd78b86596a7221504e73afda1e1442cfe381d"
+      "sha256": "f1743d7a995f161ad0fb44ef0e47de4908ac8165731af8613f4613c98529ce86"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

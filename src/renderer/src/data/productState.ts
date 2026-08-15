@@ -686,6 +686,7 @@ function engineActionTitle(action: JsonRecord): string {
   const operation = stringValue(action, 'operation') ?? 'unknown'
   const labels: Record<string, string> = {
     create_plot: '创建图形',
+    create_combined_plot: '合并数据并创建图形',
     bind_fields: '更新字段绑定',
     set_title: '修改标题',
     set_axis: '修改坐标轴',
@@ -702,6 +703,10 @@ function engineActionDetail(action: JsonRecord): string | undefined {
   const operation = stringValue(action, 'operation')
   const target = stringValue(action, 'target')
   if (operation === 'create_plot') return `图形 ${stringValue(action, 'profile_id') ?? '待定'} · ${stringValue(action, 'plot_id') ?? '新对象'}`
+  if (operation === 'create_combined_plot') {
+    const sourceCount = Array.isArray(action.sources) ? action.sources.length : 0
+    return `图形 ${stringValue(action, 'profile_id') ?? '待定'} · ${sourceCount} 个数据源`
+  }
   if (operation === 'set_title' && typeof action.text === 'string') return `标题 → “${action.text}”`
   if (operation === 'set_axis') {
     const changes = [

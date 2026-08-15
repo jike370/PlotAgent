@@ -3,18 +3,29 @@ from __future__ import annotations
 import pytest
 
 from plotagent.agent.engine_client import (
+    AgentCombinedSource,
+    AgentCreateCombinedPlot,
     AgentCreatePlot,
     AgentFieldBinding,
     AgentSetAxis,
     AgentSetSeriesStyle,
     AgentSetTitle,
     BundledEngineAgentBinder,
+    CombinedSourceBinding,
     EngineAgentPlan,
 )
 from plotagent.agent.project_context import ProjectContextService
 from plotagent.contracts.agent_context import ContextObjectRef, ConversationStateProjection
 from plotagent.contracts.project_context import ContextFieldBinding
-from plotagent.engine import CreatePlot, EngineCatalog, EngineCommandError, SetAxis, SetTitle
+from plotagent.engine import (
+    CreatePlot,
+    EngineCatalog,
+    EngineCommandError,
+    EngineDataRef,
+    FieldBinding,
+    SetAxis,
+    SetTitle,
+)
 from plotagent.engine.profiles import ENGINE_PROFILES
 
 HASH = "7" * 64
@@ -113,6 +124,97 @@ def test_bundled_agent_binds_aliases_to_public_engine_actions_and_versions() -> 
     assert bound.actions[2].expected_plot_version == 2
     assert bound.actions[3].target == "series:agent.line-demo.1.primary"
     assert bound.actions[3].expected_plot_version == 3
+
+
+def test_bundled_agent_prepares_two_sources_as_one_combined_create_action() -> None:
+    first = ContextObjectRef(
+        object_alias="data_1",
+        object_id="source:first",
+        object_version=1,
+        object_type="source_dataset",
+        content_hash="1" * 64,
+    )
+    second = first.model_copy(
+        update={"object_alias": "data_2", "object_id": "source:second", "content_hash": "2" * 64}
+    )
+    context = ProjectContextService().build_snapshot(
+        project_id="project:combined",
+        project_revision=3,
+        conversation_id="conversation:combined",
+        conversation_state=ConversationStateProjection(
+            state_version=1,
+            current_target=first,
+            selected_objects=(second,),
+        ),
+        known_objects=(first, second),
+        field_bindings=tuple(
+            ContextFieldBinding(
+                field_alias=f"data_{source}_{name}",
+                field_id=f"field:{name}",
+                source_dataset_id=f"source:{'first' if source == 1 else 'second'}",
+                source_version=1,
+            )
+            for source in (1, 2)
+            for name in ("x", "y")
+        ),
+    )
+    captured: list[tuple[str, tuple[CombinedSourceBinding, ...]]] = []
+
+    def combine(
+        profile_id: str,
+        sources: tuple[CombinedSourceBinding, ...],
+    ) -> tuple[EngineDataRef, tuple[FieldBinding, ...]]:
+        captured.append((profile_id, sources))
+        return (
+            EngineDataRef(
+                kind="prepared",
+                dataset_id="prepared:combined",
+                version=1,
+                content_hash="3" * 64,
+            ),
+            (
+                FieldBinding(role="x", field_id="field:x"),
+                FieldBinding(role="y", field_id="field:y"),
+                FieldBinding(role="group", field_id="field:source"),
+            ),
+        )
+
+    plan = EngineAgentPlan(
+        plan_id="plan:combined",
+        target_alias="data_1",
+        actions=(
+            AgentCreateCombinedPlot(
+                action_id="action:combined",
+                plot_alias="result",
+                profile_id="K03",
+                sources=tuple(
+                    AgentCombinedSource(
+                        source_alias=f"data_{source}",
+                        bindings=(
+                            AgentFieldBinding(role="x", field_alias=f"data_{source}_x"),
+                            AgentFieldBinding(role="y", field_alias=f"data_{source}_y"),
+                        ),
+                    )
+                    for source in (1, 2)
+                ),
+            ),
+        ),
+    )
+
+    bound = BundledEngineAgentBinder(
+        EngineCatalog(ENGINE_PROFILES),
+        combine,
+    ).bind(plan, context)
+
+    assert len(captured) == 1
+    assert captured[0][0] == "K03"
+    assert [item.data.dataset_id for item in captured[0][1]] == [
+        "source:first",
+        "source:second",
+    ]
+    assert isinstance(bound.actions[0], CreatePlot)
+    assert bound.actions[0].data.dataset_id == "prepared:combined"
+    assert tuple(item.role for item in bound.actions[0].bindings) == ("x", "y", "group")
 
 
 def test_bundled_agent_rejects_unexposed_native_objects() -> None:

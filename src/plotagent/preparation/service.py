@@ -229,15 +229,27 @@ def _concat(
         )
     canonical_fields = tables[0].source_dataset.field_schema
     canonical_ids = tuple(field.field_id for field in canonical_fields)
+    source_labels = tuple(_source_label(table, spec.source_label_kind) for table in tables)
+    label_counts: dict[str, int] = {}
+    for label in source_labels:
+        key = label.strip().casefold()
+        label_counts[key] = label_counts.get(key, 0) + 1
     rows: list[tuple[Scalar, ...]] = []
-    for table in tables:
+    for table, source_label in zip(tables, source_labels, strict=True):
         indexes = _field_index(table.source_dataset)
         if set(indexes) != set(canonical_ids):
             raise PreparationProblem(
                 PreparationErrorCode.PREPARE_NON_ISOMORPHIC,
                 "拼接来源的字段集合不一致。",
             )
-        label = _source_label(table, spec.source_label_kind)
+        label = (
+            source_label
+            if label_counts[source_label.strip().casefold()] == 1
+            else (
+                f"{source_label} · "
+                f"{table.source_dataset.source_dataset_id.removeprefix('source:')[-8:]}"
+            )
+        )
         rows.extend(
             tuple(row[indexes[field_id]] for field_id in canonical_ids) + (label,)
             for row in table.rows

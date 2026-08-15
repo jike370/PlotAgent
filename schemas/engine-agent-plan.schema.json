@@ -102,6 +102,73 @@
       "title": "AgentBindFields",
       "type": "object"
     },
+    "AgentCombinedSource": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/AgentFieldBinding"
+          },
+          "minItems": 1,
+          "title": "Bindings",
+          "type": "array"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "bindings"
+      ],
+      "title": "AgentCombinedSource",
+      "type": "object"
+    },
+    "AgentCreateCombinedPlot": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "operation": {
+          "const": "create_combined_plot",
+          "default": "create_combined_plot",
+          "title": "Operation",
+          "type": "string"
+        },
+        "plot_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Plot Alias",
+          "type": "string"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/AgentCombinedSource"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "action_id",
+        "plot_alias",
+        "profile_id",
+        "sources"
+      ],
+      "title": "AgentCreateCombinedPlot",
+      "type": "object"
+    },
     "AgentCreatePlot": {
       "additionalProperties": false,
       "properties": {
@@ -572,6 +639,7 @@
           "mapping": {
             "add_annotation": "#/$defs/AgentAddAnnotation",
             "bind_fields": "#/$defs/AgentBindFields",
+            "create_combined_plot": "#/$defs/AgentCreateCombinedPlot",
             "create_plot": "#/$defs/AgentCreatePlot",
             "export_plot": "#/$defs/AgentExportPlot",
             "set_axis": "#/$defs/AgentSetAxis",
@@ -585,6 +653,9 @@
         "oneOf": [
           {
             "$ref": "#/$defs/AgentCreatePlot"
+          },
+          {
+            "$ref": "#/$defs/AgentCreateCombinedPlot"
           },
           {
             "$ref": "#/$defs/AgentBindFields"

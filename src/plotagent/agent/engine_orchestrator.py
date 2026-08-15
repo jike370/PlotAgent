@@ -16,6 +16,8 @@ from plotagent.agent.audit import AuditSink, HashedModelRunAudit, ModelRunAudit
 from plotagent.agent.audit.models import AuditTargetRef, AuditUsage
 from plotagent.agent.context import ContextBuilder, ContextBuildRequest
 from plotagent.agent.engine_client import (
+    AgentCreateCombinedPlot,
+    AgentCreatePlot,
     BoundEnginePlan,
     BundledEngineAgentBinder,
     EngineAgentDecision,
@@ -91,6 +93,28 @@ def is_removed_composition_request(instruction: str) -> bool:
             "mergegraph",
             "combineplots",
             "compositefigure",
+        )
+    )
+
+
+def is_multi_source_same_chart_request(instruction: str) -> bool:
+    """Recognize data concatenation into one grouped chart, not graph composition."""
+
+    normalized = re.sub(r"\s+", "", instruction.casefold()).replace("_", "")
+    return any(
+        marker in normalized
+        for marker in (
+            "同一张图",
+            "同一幅图",
+            "同图",
+            "合在一张图",
+            "画在一张图",
+            "按数据来源分组",
+            "samechart",
+            "sameplot",
+            "onechart",
+            "oneplot",
+            "groupedbysource",
         )
     )
 
@@ -296,6 +320,30 @@ class EngineAgentOrchestrator:
             )
         if target.object_type != "source_dataset":
             return None
+        if is_multi_source_same_chart_request(request.user_instruction):
+            source_count = 1 + sum(
+                item.object_type == "source_dataset"
+                for item in request.project.selected_objects
+            )
+            if source_count < 2:
+                prompt = (
+                    "请至少再选择一个数据表；同图绘制需要 2 至 8 个同构数据源。"
+                    if request.locale.casefold().startswith("zh")
+                    else (
+                        "Select at least one more dataset; a combined plot needs "
+                        "2 to 8 isomorphic sources."
+                    )
+                )
+                return NeedsInput(
+                    target_alias=target.object_alias,
+                    questions=(
+                        InputQuestion(
+                            question_key="source_datasets",
+                            prompt=prompt,
+                            input_kind="text",
+                        ),
+                    ),
+                )
         profiles = request.chart_capabilities.allowed_chart_type_ids
         if len(profiles) <= 1 or not is_unspecified_chart_request(request.user_instruction):
             return None
@@ -389,6 +437,17 @@ class EngineAgentOrchestrator:
                 if action.operation == "create_plot"
             ):
                 raise AgentRuntimeError("CHART_CAPABILITY_DENIED")
+            if is_multi_source_same_chart_request(envelope.user_instruction):
+                create_actions = tuple(
+                    action
+                    for action in decision.actions
+                    if isinstance(action, (AgentCreatePlot, AgentCreateCombinedPlot))
+                )
+                if not create_actions or any(
+                    not isinstance(action, AgentCreateCombinedPlot)
+                    for action in create_actions
+                ):
+                    raise AgentRuntimeError("COMBINED_ACTION_REQUIRED")
 
     async def _cancel_safely(self, client_model_run_id: str) -> None:
         with contextlib.suppress(BaseException):

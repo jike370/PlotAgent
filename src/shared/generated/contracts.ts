@@ -33,6 +33,19 @@ export type AgentBindFields = {
   readonly bindings: ReadonlyArray<AgentFieldBinding>;
 }
 
+export type AgentCombinedSource = {
+  readonly source_alias: string;
+  readonly bindings: ReadonlyArray<AgentFieldBinding>;
+}
+
+export type AgentCreateCombinedPlot = {
+  readonly operation?: "create_combined_plot";
+  readonly action_id: string;
+  readonly plot_alias: string;
+  readonly profile_id: string;
+  readonly sources: ReadonlyArray<AgentCombinedSource>;
+}
+
 export type AgentCreatePlot = {
   readonly operation?: "create_plot";
   readonly action_id: string;
@@ -137,7 +150,7 @@ export type CalculationTable = {
 export type ChartCapabilities = {
   readonly capability_version: string;
   readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
-  readonly allowed_action_types: ReadonlyArray<"create_plot" | "bind_fields" | "set_title" | "set_axis" | "set_series_style" | "set_legend" | "set_chart_parameter" | "add_annotation" | "export_plot">;
+  readonly allowed_action_types: ReadonlyArray<"create_plot" | "create_combined_plot" | "bind_fields" | "set_title" | "set_axis" | "set_series_style" | "set_legend" | "set_chart_parameter" | "add_annotation" | "export_plot">;
   readonly export_formats?: ReadonlyArray<"png" | "svg" | "opju">;
   readonly limitation_ids?: ReadonlyArray<string>;
 }
@@ -346,7 +359,7 @@ export type EngineAgentPlan = {
   readonly decision_type?: "action_plan";
   readonly plan_id: string;
   readonly target_alias: string;
-  readonly actions: ReadonlyArray<AgentCreatePlot | AgentBindFields | AgentSetTitle | AgentSetAxis | AgentSetSeriesStyle | AgentSetLegend | AgentSetChartParameter | AgentAddAnnotation | AgentExportPlot>;
+  readonly actions: ReadonlyArray<AgentCreatePlot | AgentCreateCombinedPlot | AgentBindFields | AgentSetTitle | AgentSetAxis | AgentSetSeriesStyle | AgentSetLegend | AgentSetChartParameter | AgentAddAnnotation | AgentExportPlot>;
 }
 
 export type EngineArtifact = {

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Protocol
 
 from pydantic import Field, StringConstraints, model_validator
 
@@ -58,6 +58,26 @@ class AgentCreatePlot(StrictModel):
     profile_id: Token
     source_alias: AgentAlias
     bindings: Annotated[tuple[AgentFieldBinding, ...], Field(min_length=1)]
+
+
+class AgentCombinedSource(StrictModel):
+    source_alias: AgentAlias
+    bindings: Annotated[tuple[AgentFieldBinding, ...], Field(min_length=1)]
+
+
+class AgentCreateCombinedPlot(StrictModel):
+    operation: Literal["create_combined_plot"] = "create_combined_plot"
+    action_id: AgentActionId
+    plot_alias: AgentAlias
+    profile_id: Token
+    sources: Annotated[tuple[AgentCombinedSource, ...], Field(min_length=2, max_length=8)]
+
+    @model_validator(mode="after")
+    def unique_sources(self) -> AgentCreateCombinedPlot:
+        aliases = tuple(item.source_alias for item in self.sources)
+        if len(aliases) != len(set(aliases)):
+            raise ValueError("combined plot sources must be unique")
+        return self
 
 
 class AgentBindFields(StrictModel):
@@ -152,6 +172,7 @@ class AgentExportPlot(StrictModel):
 
 AgentEngineAction = Annotated[
     AgentCreatePlot
+    | AgentCreateCombinedPlot
     | AgentBindFields
     | AgentSetTitle
     | AgentSetAxis
@@ -201,11 +222,30 @@ class _PlotBinding:
     profile_id: str
 
 
+@dataclass(frozen=True, slots=True)
+class CombinedSourceBinding:
+    data: EngineDataRef
+    bindings: tuple[FieldBinding, ...]
+
+
+class CombinedPlotBinder(Protocol):
+    def __call__(
+        self,
+        profile_id: str,
+        sources: tuple[CombinedSourceBinding, ...],
+    ) -> tuple[EngineDataRef, tuple[FieldBinding, ...]]: ...
+
+
 class BundledEngineAgentBinder:
     """Bind one provider proposal to local ids, versions and capabilities."""
 
-    def __init__(self, catalog: EngineCatalog) -> None:
+    def __init__(
+        self,
+        catalog: EngineCatalog,
+        combined_plot_binder: CombinedPlotBinder | None = None,
+    ) -> None:
         self._catalog = catalog
+        self._combined_plot_binder = combined_plot_binder
 
     def bind(
         self,
@@ -240,6 +280,36 @@ class BundledEngineAgentBinder:
                     proposed.bindings,
                     objects,
                     fields,
+                )
+                plot_id = "plot:agent." + plan.plan_id.removeprefix("plan:") + f".{position}"
+                action = CreatePlot(
+                    action_id=proposed.action_id,
+                    plot_id=plot_id,
+                    profile_id=proposed.profile_id,
+                    data=data,
+                    bindings=bindings,
+                )
+                self._catalog.validate_create(action)
+                plots[proposed.plot_alias] = _PlotBinding(plot_id, 1, proposed.profile_id)
+            elif isinstance(proposed, AgentCreateCombinedPlot):
+                if proposed.plot_alias in plots:
+                    raise EngineCommandError("agent create_combined_plot alias already exists")
+                if self._combined_plot_binder is None:
+                    raise EngineCommandError("combined plot preparation is unavailable")
+                combined_sources = tuple(
+                    CombinedSourceBinding(
+                        *self._bind_data(
+                            item.source_alias,
+                            item.bindings,
+                            objects,
+                            fields,
+                        )
+                    )
+                    for item in proposed.sources
+                )
+                data, bindings = self._combined_plot_binder(
+                    proposed.profile_id,
+                    combined_sources,
                 )
                 plot_id = "plot:agent." + plan.plan_id.removeprefix("plan:") + f".{position}"
                 action = CreatePlot(
