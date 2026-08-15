@@ -683,4 +683,16 @@
 - **PD-AG05 Excel 与文本。** Excel 多工作表分别登记为可选数据表；TXT/CSV 的 InstrumentMetadata、DataBlock 与 postamble 分离，多个 block 分别登记。界面显示“文件名 > 工作表/数据块”和只读仪器元数据；元数据不会静默参与绘图。
 - **PD-AG06 黑盒边界。** 资格至少覆盖：自然语言异构两项计划、同类两数据批量、受支持图类的两数据同图、非同构稳定拒绝、多 Sheet 可区分、仪器 TXT 元数据与多 block 可区分、部分失败不重做成功项。未经正式 Windows UI 实测的能力只记 `UNVERIFIED`。
 
+## AH. T1 视觉语言与成本感知编排硬切换（当前最终决定）
+
+- **PD-AH01 本轮只做视觉 T1。** 当前施工只实现 `ORIGIN-VISUAL-CAPABILITY-MATRIX.md` 定义的 T1 公共视觉语言；T2 逐图参数只保留现有已验证能力，不在本轮扩展，T3 不实现。
+- **PD-AH02 一个视觉合同。** 自然语言、前端控件、撤销/重做、Matplotlib 与 Origin 必须消费同一套 line/marker/fill/text/axis/legend/color-map/error 强类型语义；禁止为手动 UI 和 Agent 分别维护参数或转换逻辑。
+- **PD-AH03 连续量不枚举。** 线宽、符号大小、符号边缘宽度、填充/线/符号透明度、字号、边框宽度和误差棒端帽等使用带 profile 范围的有限连续数值；离散枚举只用于线型、符号形状、interior、字体字重、图例位置和命名色板等类别属性。
+- **PD-AH04 颜色职责分离。** 公共 `color` 不再模糊表示线、符号和填充；新合同分别保存 `stroke_color`、`fill_color`、marker fill/stroke、错误对象颜色与色板映射。旧 `color` 不保留别名或运行时兼容分支。
+- **PD-AH05 新编排唯一入口。** WorkflowRouter→TaskDraft→TaskCompiler→TaskPlan 是确认和执行的唯一链路；L0 确定性解析、WorkflowRecipe、L1 单轮 Agent、L2 只读数据探索按成本顺序路由。
+- **PD-AH06 旧编排硬删除。** 切换时删除 `agent.engine.decide`、EngineAgentPlan/Decision、旧 binder/orchestrator、旧 ContextEnvelope provider payload、一次性 repair loop、旧计划表与迁移/fallback；不双写、不双读、不自动迁移旧未执行计划。
+- **PD-AH07 权限分离。** Agent 可以在预算内只读检查原始数据、规划封闭 DataOperation 和翻译 T1 绘图参数，但不能执行任意代码、直接修改 SourceDataset/项目数据库、调用 renderer 或绕过确认与 Core 校验。
+- **PD-AH08 WorkflowRecipe 明示保存。** 只有任务成功并正式导出后才提示用户固化；未经明确确认不保存。命中同构数据仍须完整校验并进入确认，版本不兼容直接失效，不提供兼容重放。
+- **PD-AH09 完成门禁。** 除功能测试外，必须用源码搜索和负向测试证明旧 RPC、Schema、表、状态与 fallback 消失；T1 每项须通过自然语言、前端控件、双后端语义、Origin 新会话读回、撤销和不适用图类 Unsupported。
+
 完整W0–W10范围、依赖、spikes与M0–M7见 [实施拆分与里程碑计划](./IMPLEMENTATION-PLAN.md)；权威范围、Requirement/Evidence Matrix与冲突审计见 [规格索引与小规模 Beta 设计基线](./SPEC-INDEX.md)。
