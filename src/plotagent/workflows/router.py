@@ -39,6 +39,27 @@ _NON_NUMERIC_ROLES = frozenset(
     }
 )
 
+_AGENT_GOAL_DETAIL = re.compile(
+    r"(?:"
+    r"标题|颜色|色板|填充|边框|线宽|虚线|点线|点划线|实线|"
+    r"符号|点大小|符号大小|透明|图例|字体|字号|加粗|旋转|"
+    r"网格|刻度|坐标范围|轴范围|对数|log10|反向|数据标签|"
+    r"端帽|注释|参考线|中点|筛选|过滤|排序|宽转长|长转宽|"
+    r"拼接|合并|只保留|排除|剔除|#[0-9a-fA-F]{6}"
+    r")"
+)
+
+
+def _needs_agent_interpretation(instruction: str) -> bool:
+    """Keep the cheap route from silently discarding requested work.
+
+    The deterministic resolver currently owns chart/field binding only.  Any
+    visible style request or closed data operation must therefore be translated
+    into a TaskDraft by Pi instead of being accepted as a bare create request.
+    """
+
+    return _AGENT_GOAL_DETAIL.search(instruction) is not None
+
 
 @dataclass(frozen=True, slots=True)
 class RouteDecision:
@@ -220,7 +241,11 @@ class WorkflowRouter:
         self._deterministic = DeterministicResolver(catalog)
 
     def route(self, context: WorkflowContext) -> RouteDecision:
-        deterministic = self._deterministic.resolve(context)
+        deterministic = (
+            None
+            if _needs_agent_interpretation(context.instruction)
+            else self._deterministic.resolve(context)
+        )
         if deterministic is not None:
             route: WorkflowRoute = (
                 "deterministic" if deterministic.outcome == "draft_ready" else "needs_input"

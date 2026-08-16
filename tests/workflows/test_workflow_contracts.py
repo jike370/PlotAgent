@@ -102,6 +102,22 @@ def test_unspecified_chart_is_a_local_question_not_an_agent_guess() -> None:
     assert decision.deterministic.questions[0].question_key == "chart_type"
 
 
+@pytest.mark.parametrize(
+    "instruction",
+    (
+        "用这个数据画 K01 折线图，线条改成红色虚线",
+        "用这个数据画 K01 折线图，只保留 Response 大于 2 的行",
+    ),
+)
+def test_goal_details_are_never_dropped_by_the_deterministic_create_route(
+    instruction: str,
+) -> None:
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(_context(instruction))
+
+    assert decision.route == "agent_single_turn"
+    assert decision.deterministic is None
+
+
 def test_multi_source_batch_goal_routes_to_bounded_exploration() -> None:
     decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(
         _context(
