@@ -693,6 +693,34 @@ class DeterministicResolver:
                         break
                 if role in explicit:
                     break
+            if role in explicit:
+                continue
+            role_labels = tuple(
+                dict.fromkeys((role, *_EXPLICIT_ROLE_LABELS.get(role, ()), *_role_tokens(role)))
+            )
+            role_pattern = "|".join(re.escape(label) for label in role_labels)
+            semantic_binding = re.search(
+                rf"(?<!\w)(?:{role_pattern})\s*{_BINDING_OPERATOR}\s*"
+                rf"(?<!\w)(?:{role_pattern})(?!\w)",
+                instruction,
+                flags=re.IGNORECASE,
+            )
+            if semantic_binding is None:
+                continue
+            candidates = sorted(
+                (
+                    (score, index, field)
+                    for index, field in enumerate(fields)
+                    if (score := _field_score(role, field.name, field.logical_type, index))
+                    is not None
+                    and score >= 70
+                ),
+                key=lambda item: (-item[0], item[1]),
+            )
+            if candidates and (
+                len(candidates) == 1 or candidates[0][0] > candidates[1][0]
+            ):
+                explicit[role] = candidates[0][2]
         used: set[str] = set()
         bindings: list[DraftFieldBinding] = []
         for role in required_roles:

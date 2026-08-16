@@ -300,6 +300,22 @@ def test_binding_word_is_treated_as_an_explicit_field_role_operator() -> None:
     ]
 
 
+def test_localized_role_binding_resolves_an_unambiguous_source_field() -> None:
+    draft = _draft(
+        _context(
+            "K03",
+            "在当前数据表绘制 K03 散点图，X 绑定 X，Y 绑定 Y，分组绑定 分组。",
+            (("X", "numeric"), ("Y", "numeric"), ("Group", "text")),
+        )
+    )
+
+    assert [(binding.role, binding.field_alias) for binding in draft.items[0].bindings] == [
+        ("x", "field_1"),
+        ("y", "field_2"),
+        ("group", "field_3"),
+    ]
+
+
 def test_unhandled_explicit_goal_escalates_instead_of_dropping_parameters() -> None:
     context = _context(
         "K01",
