@@ -284,6 +284,22 @@ def test_explicit_unsupported_role_fails_closed_instead_of_being_dropped() -> No
     assert decision.deterministic.reason_code == "ROLE_UNAVAILABLE"
 
 
+def test_binding_word_is_treated_as_an_explicit_field_role_operator() -> None:
+    draft = _draft(
+        _context(
+            "K03",
+            "在当前数据表绘制 K03 散点图，X 绑定 X，Y 绑定 Y，分组绑定 分组。",
+            (("X", "numeric"), ("Y", "numeric"), ("分组", "categorical")),
+        )
+    )
+
+    assert [(binding.role, binding.field_alias) for binding in draft.items[0].bindings] == [
+        ("x", "field_1"),
+        ("y", "field_2"),
+        ("group", "field_3"),
+    ]
+
+
 def test_unhandled_explicit_goal_escalates_instead_of_dropping_parameters() -> None:
     context = _context(
         "K01",

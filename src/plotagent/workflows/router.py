@@ -58,6 +58,8 @@ _OPTIONAL_ROLE_LABELS: dict[str, tuple[str, ...]] = {
     "count": ("count", "计数", "频数"),
 }
 
+_BINDING_OPERATOR = r"(?:映射|绑定|→|->|=|作为|为)"
+
 @dataclass(frozen=True, slots=True)
 class RouteDecision:
     route: WorkflowRoute
@@ -480,9 +482,9 @@ class DeterministicResolver:
         field_name = re.escape(field.name)
         return any(
             re.search(
-                rf"(?:(?<!\w){field_name}(?!\w)\s*(?:映射|→|->|=|作为|为)\s*"
+                rf"(?:(?<!\w){field_name}\s*{_BINDING_OPERATOR}\s*"
                 rf"(?<!\w){re.escape(label)}(?!\w)"
-                rf"|(?<!\w){re.escape(label)}(?!\w)\s*(?:映射|→|->|=|作为|为)\s*"
+                rf"|(?<!\w){re.escape(label)}\s*{_BINDING_OPERATOR}\s*"
                 rf"(?<!\w){field_name}(?!\w))",
                 instruction,
                 flags=re.IGNORECASE,
@@ -531,9 +533,9 @@ class DeterministicResolver:
                 field_name = re.escape(field.name)
                 if any(
                     re.search(
-                        rf"(?:(?<!\w){field_name}(?!\w)\s*(?:映射|→|->|=|作为|为)\s*"
+                        rf"(?:(?<!\w){field_name}\s*{_BINDING_OPERATOR}\s*"
                         rf"(?<!\w){re.escape(label)}(?!\w)"
-                        rf"|(?<!\w){re.escape(label)}(?!\w)\s*(?:映射|→|->|=|作为|为)\s*"
+                        rf"|(?<!\w){re.escape(label)}\s*{_BINDING_OPERATOR}\s*"
                         rf"(?<!\w){field_name}(?!\w))",
                         instruction,
                         flags=re.IGNORECASE,
@@ -674,12 +676,15 @@ class DeterministicResolver:
         for role in all_roles:
             for field in fields:
                 field_name = re.escape(field.name)
-                for role_label in _EXPLICIT_ROLE_LABELS.get(role, (role,)):
+                role_labels = tuple(
+                    dict.fromkeys((role, *_EXPLICIT_ROLE_LABELS.get(role, ()), *_role_tokens(role)))
+                )
+                for role_label in role_labels:
                     role_name = re.escape(role_label)
                     if re.search(
-                    rf"(?:(?<!\w){field_name}(?!\w)\s*(?:映射|→|->|=|作为|为)\s*"
+                        rf"(?:(?<!\w){field_name}\s*{_BINDING_OPERATOR}\s*"
                         rf"(?<!\w){role_name}(?!\w)"
-                        rf"|(?<!\w){role_name}(?!\w)\s*(?:映射|→|->|=|作为|为)\s*"
+                        rf"|(?<!\w){role_name}\s*{_BINDING_OPERATOR}\s*"
                         rf"(?<!\w){field_name}(?!\w))",
                         instruction,
                         flags=re.IGNORECASE,

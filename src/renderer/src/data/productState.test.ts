@@ -301,4 +301,30 @@ describe('product plot state', () => {
     expect(plan?.steps[1]?.failure?.code).toBe('INVALID_SCALE')
     expect(plan?.completedCount).toBe(2)
   })
+
+  it('preserves the binding source when field ids repeat across datasets', () => {
+    const plan = readWorkflowPlan({
+      plan: {
+        plan_id: 'plan:source-qualified-bindings',
+        items: [{
+          item_id: 'item:create',
+          task_kind: 'create',
+          profile_id: 'K03',
+          sources: [{ source_alias: 'data_2', source_dataset_id: 'source:k03' }],
+          bindings: [
+            { role: 'x', source_alias: 'data_2', field_id: 'field:shared-x' },
+            { role: 'y', source_alias: 'data_2', field_id: 'field:shared-y' },
+          ],
+          visual_actions: [],
+        }],
+      },
+      state: 'awaiting_confirmation',
+      item_progress: [{ item_id: 'item:create', state: 'pending', attempt_count: 0 }],
+    })
+
+    expect(plan?.steps[0]?.bindings).toEqual([
+      { role: 'x', fieldId: 'field:shared-x', sourceDatasetId: 'source:k03' },
+      { role: 'y', fieldId: 'field:shared-y', sourceDatasetId: 'source:k03' },
+    ])
+  })
 })

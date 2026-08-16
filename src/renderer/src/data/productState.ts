@@ -260,6 +260,7 @@ export interface WorkflowPlanStep {
 export interface WorkflowBindingView {
   role: string
   fieldId: string
+  sourceDatasetId?: string
 }
 
 export interface WorkflowPlanView {
@@ -821,13 +822,26 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     if (!isJsonRecord(item) || typeof item.item_id !== 'string') return []
     const itemProgress: JsonRecord = progress.get(item.item_id) ?? {}
     const stepBindings: WorkflowBindingView[] = []
+    const sourceIds = new Map<string, string>()
+    if (Array.isArray(item.sources)) {
+      for (const source of item.sources) {
+        if (!isJsonRecord(source)) continue
+        const sourceAlias = stringValue(source, 'source_alias')
+        const sourceDatasetId = stringValue(source, 'source_dataset_id')
+        if (sourceAlias !== undefined && sourceDatasetId !== undefined) {
+          sourceIds.set(sourceAlias, sourceDatasetId)
+        }
+      }
+    }
     if (Array.isArray(item.bindings)) {
       for (const binding of item.bindings) {
         if (!isJsonRecord(binding)) continue
         const role = stringValue(binding, 'role')
         const fieldId = stringValue(binding, 'field_id')
+        const sourceAlias = stringValue(binding, 'source_alias')
         if (role !== undefined && fieldId !== undefined) {
-          const view = { role, fieldId }
+          const sourceDatasetId = sourceAlias === undefined ? undefined : sourceIds.get(sourceAlias)
+          const view = { role, fieldId, ...(sourceDatasetId === undefined ? {} : { sourceDatasetId }) }
           bindings.push(view)
           stepBindings.push(view)
         }

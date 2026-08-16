@@ -31,6 +31,7 @@ import {
 import type { CoreStatus, FieldMappingInput, TaskEvent } from '../../../shared/desktop-contract'
 import type { ChartType } from '../data/chartCatalog'
 import type {
+  WorkflowBindingView,
   WorkflowOutcome,
   WorkflowPlanView,
   ProductDataset,
@@ -667,14 +668,17 @@ function WorkflowPlanObject({
     cancelled: '已取消',
     rejected: '已拒绝',
   }
-  const fieldLabel = (fieldId: string): string => {
-    for (const dataset of datasets) {
-      const field = dataset.fields.find((candidate) => candidate.fieldId === fieldId)
+  const fieldLabel = (binding: WorkflowBindingView): string => {
+    const candidates = binding.sourceDatasetId === undefined
+      ? datasets
+      : datasets.filter((dataset) => dataset.datasetId === binding.sourceDatasetId)
+    for (const dataset of candidates) {
+      const field = dataset.fields.find((candidate) => candidate.fieldId === binding.fieldId)
       if (field) return datasets.length > 1
         ? `${dataset.displayName} · ${displayFieldName(field.name)}`
         : displayFieldName(field.name)
     }
-    return fieldId
+    return binding.fieldId
   }
   return (
     <section className={`agent-plan agent-plan--${plan.state}`} aria-labelledby={`plan-${plan.planId}`}>
@@ -704,7 +708,7 @@ function WorkflowPlanObject({
               {step.detail && <p className="agent-plan-step__detail">{step.detail}</p>}
               {step.bindings.length > 0 && <dl className="agent-plan-step__bindings" aria-label={`${step.title} 字段绑定`}>
                 <div className="agent-plan-step__section-label"><dt>字段绑定</dt><dd /></div>
-                {step.bindings.map((binding) => <div key={`${binding.role}:${binding.fieldId}`}><dt>{binding.role}</dt><dd>{fieldLabel(binding.fieldId)}</dd></div>)}
+                {step.bindings.map((binding) => <div key={`${binding.role}:${binding.fieldId}`}><dt>{binding.role}</dt><dd>{fieldLabel(binding)}</dd></div>)}
               </dl>}
               {step.changes.length > 0 && <ul className="agent-plan-step__changes" aria-label={`${step.title} 视觉修改`}>
                 {step.changes.map((change) => <li key={change}>{change}</li>)}
