@@ -1,5 +1,5 @@
 {
-  "schema_version": "seq70-workflow-eval-v1",
+  "schema_version": "seq70-workflow-eval-v2",
   "repeats": 3,
   "pricing_cny_per_million_tokens": {
     "input_cache_hit": 0.02,
@@ -57,7 +57,7 @@
       "instruction": "创建 K01 折线图，X 映射 X，Y 映射 Response；标题设为温度响应，线条改为 #D62728 红色虚线，宽度 2 pt。",
       "selected_profile_ids": ["K01"],
       "expected_outcome": "draft_ready",
-      "expected_route": "agent_single_turn",
+      "expected_route": "deterministic",
       "expected_profiles": ["K01"],
       "expected_bindings": {"x": "X", "y": "Response"},
       "expected_visual_actions": [
@@ -72,7 +72,7 @@
       "instruction": "创建 K03 散点图，X 映射 X，Y 映射 Response；点使用蓝色实心圆，大小 8 pt，边缘宽度 1 pt。",
       "selected_profile_ids": ["K03"],
       "expected_outcome": "draft_ready",
-      "expected_route": "agent_single_turn",
+      "expected_route": "deterministic",
       "expected_profiles": ["K03"],
       "expected_bindings": {"x": "X", "y": "Response"},
       "expected_visual_actions": [
@@ -86,7 +86,7 @@
       "instruction": "创建 K08 柱状图，Category 映射 category，Value 映射 value；柱填充 #4C78A8，边框 #1F4E79，边框宽 1.5 pt，并显示数据标签。",
       "selected_profile_ids": ["K08"],
       "expected_outcome": "draft_ready",
-      "expected_route": "agent_single_turn",
+      "expected_route": "deterministic",
       "expected_profiles": ["K08"],
       "expected_bindings": {"category": "Category", "value": "Value"},
       "expected_visual_actions": [
@@ -101,11 +101,11 @@
       "instruction": "创建 K20 热图，Row 映射 row，Column 映射 column，Value 映射 value；使用 RdBu 色板并反转，范围 -3 到 9，中点 0，色标标题设为表达量。",
       "selected_profile_ids": ["K20"],
       "expected_outcome": "draft_ready",
-      "expected_route": "agent_single_turn",
+      "expected_route": "deterministic",
       "expected_profiles": ["K20"],
       "expected_bindings": {"row": "Row", "column": "Column", "value": "Value"},
       "expected_visual_actions": [
-        {"operation": "set_colormap", "target_alias": "series_1", "palette": "RdBu", "reverse": true, "minimum": -3, "maximum": 9, "midpoint": 0, "colorbar_title": "表达量"}
+        {"operation": "set_colormap", "target_alias": "series_1", "palette": "red_white_blue", "reverse": true, "minimum": -3, "maximum": 9, "midpoint": 0, "colorbar_title": "表达量"}
       ]
     },
     {
@@ -115,9 +115,9 @@
       "instruction": "创建 K06 双向误差棒图：X→x，Mean→center，XLower→x_lower，XUpper→x_upper，Lower→lower，Upper→upper。误差棒颜色 #B63848、宽 1.5 pt、端帽 6 pt。",
       "selected_profile_ids": ["K06"],
       "expected_outcome": "draft_ready",
-      "expected_route": "agent_single_turn",
+      "expected_route": "deterministic",
       "expected_profiles": ["K06"],
-      "expected_bindings": {"x": "X", "center": "Mean", "x_lower": "XLower", "x_upper": "XUpper", "lower": "Lower", "upper": "Upper"},
+      "expected_bindings": {"x": "X", "center": "Mean", "x_err_minus": "XLower", "x_err_plus": "XUpper", "y_err_minus": "Lower", "y_err_plus": "Upper"},
       "expected_visual_actions": [
         {"operation": "set_error_style", "target_alias": "error", "bar_color": "#B63848", "bar_width_pt": 1.5, "cap_size_pt": 6}
       ]
@@ -129,7 +129,7 @@
       "instruction": "创建 K01 折线图，X 映射 X，Y 映射 Response；只保留 Response 大于 2 的行，然后按 X 降序排列。",
       "selected_profile_ids": ["K01"],
       "expected_outcome": "draft_ready",
-      "expected_route": "agent_single_turn",
+      "expected_route": "deterministic",
       "expected_profiles": ["K01"],
       "expected_bindings": {"x": "X", "y": "Response"},
       "expected_data_operations": ["filter_rows", "sort_rows"]
@@ -164,7 +164,7 @@
       "instruction": "把当前图标题改为实验结果，并把 y 轴标题改为响应值，其他保持不变。",
       "selected_profile_ids": [],
       "expected_outcome": "draft_ready",
-      "expected_route": "agent_single_turn",
+      "expected_route": "deterministic",
       "expected_profiles": ["K01"],
       "expected_visual_actions": [
         {"operation": "set_title", "text": "实验结果"},
@@ -179,7 +179,7 @@
       "instruction": "当前图第一条系列改为 #C33C54 红色点划线，菱形空心点 7 pt；显示图例并放到右侧。",
       "selected_profile_ids": [],
       "expected_outcome": "draft_ready",
-      "expected_route": "agent_single_turn",
+      "expected_route": "deterministic",
       "expected_profiles": ["K02"],
       "expected_visual_actions": [
         {"operation": "set_series_style", "target_alias": "series_1", "line_stroke_color": "#C33C54", "line_style": "dash_dot", "marker_shape": "diamond", "marker_size_pt": 7, "marker_interior": "hollow"},
@@ -202,7 +202,7 @@
       "instruction": "创建 K01 折线图，第一列 Alpha 作为 x，第二列 Beta 作为 y，标题为歧义列已确认。",
       "selected_profile_ids": ["K01"],
       "expected_outcome": "draft_ready",
-      "expected_route": "agent_single_turn",
+      "expected_route": "deterministic",
       "expected_profiles": ["K01"],
       "expected_bindings": {"x": "Alpha", "y": "Beta"},
       "expected_visual_actions": [{"operation": "set_title", "text": "歧义列已确认"}]
@@ -238,7 +238,7 @@
       "instruction": "创建 X40 前后对比图：Subject→label，Before→series_1，After→series_2，Group→group；连接线用 #7A7A7A、宽 1.5 pt，标题为干预前后。",
       "selected_profile_ids": ["X40"],
       "expected_outcome": "draft_ready",
-      "expected_route": "agent_single_turn",
+      "expected_route": "deterministic",
       "expected_profiles": ["X40"],
       "expected_bindings": {"label": "Subject", "series_1": "Before", "series_2": "After", "group": "Group"},
       "expected_visual_actions": [
