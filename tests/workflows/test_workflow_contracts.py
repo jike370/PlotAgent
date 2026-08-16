@@ -332,7 +332,7 @@ def test_compiler_accepts_the_concatenate_source_identity_field() -> None:
                         field_alias="data_1_response",
                     ),
                     DraftFieldBinding(
-                        role="label",
+                        role="group",
                         source_alias="data_1",
                         field_alias="source_group",
                     ),

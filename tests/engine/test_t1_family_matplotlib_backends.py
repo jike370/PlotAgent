@@ -63,6 +63,8 @@ def _case(
         target=(
             f"series:{profile_id.lower()}-demo.area_1"
             if profile_id == "K18"
+            else f"series:{profile_id.lower()}-demo.group_1"
+            if profile_id == "K02"
             else f"series:{profile_id.lower()}-demo.primary"
         ),
         expected_plot_version=1,
@@ -180,6 +182,35 @@ def test_t1_family_renders_from_engine_data_without_legacy_resolver(
     assert "plotagent.rendering" not in source
     assert "PlotSpec" not in source
     assert "ResolvedPlot" not in source
+
+
+def test_k02_materializes_one_line_symbol_series_per_group(tmp_path: Path) -> None:
+    columns = (
+        _column("field:x", "Time", (0.0, 1.0, 0.0, 1.0)),
+        _column("field:y", "Signal", (1.0, 2.0, 1.5, 3.0)),
+        EngineColumn(
+            field=EngineField(
+                field_id="field:group",
+                name="Source",
+                logical_type="categorical",
+            ),
+            values=("Data A", "Data A", "Data B", "Data B"),
+        ),
+    )
+    document, actions, view = _case("K02", ("x", "y", "group"), columns)
+    readback = K02LineSymbolRenderer().render(
+        document,
+        split_visual_actions(actions)[0],
+        view,
+        tmp_path / "k02-grouped.png",
+        tmp_path / "k02-grouped.svg",
+    )
+
+    assert {item.semantic_id for item in readback.objects} >= {
+        "series:k02-demo.group_1",
+        "series:k02-demo.group_2",
+        "legend:k02-demo.main",
+    }
 
 
 def test_k06_rejects_negative_error_magnitudes(tmp_path: Path) -> None:

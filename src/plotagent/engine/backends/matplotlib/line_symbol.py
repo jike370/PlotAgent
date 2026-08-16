@@ -22,7 +22,7 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import xy_series
+from plotagent.engine.profile_data import grouped_xy
 from plotagent.engine.repository import document_ref
 
 
@@ -50,7 +50,7 @@ class _K02State:
 
 
 class K02LineSymbolRenderer:
-    """Render one logical series as one line and symbol identity."""
+    """Render each source/group as one line-and-symbol identity."""
 
     profile_id = "K02"
 
@@ -62,20 +62,30 @@ class K02LineSymbolRenderer:
         png_path: Path,
         svg_path: Path,
     ) -> EngineReadback:
-        series = xy_series(document, data, profile_id=self.profile_id)
-        state = self._state(document, actions, series.x_field_name, series.y_field_name)
+        grouped = grouped_xy(document, data, profile_id=self.profile_id)
+        state = self._state(
+            document,
+            actions,
+            grouped.x_field_name,
+            grouped.y_field_name,
+            len(grouped.groups),
+        )
 
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
-        (artist,) = axis.plot(
-            series.x_values,
-            series.y_values,
-            color=state.color,
-            linewidth=state.line_width_pt,
-            linestyle=self._line_style(state.line_style),
-            marker=self._marker(state.symbol),
-            markersize=state.symbol_size_pt,
-            label=series.y_field_name,
-        )
+        palette = ("#1676D2", "#D97800", "#299764", "#C53D4D", "#7656B5")
+        artists = []
+        for index, group in enumerate(grouped.groups):
+            (artist,) = axis.plot(
+                group.x_values,
+                group.y_values,
+                color=palette[index % len(palette)],
+                linewidth=state.line_width_pt,
+                linestyle=self._line_style(state.line_style),
+                marker=self._marker(state.symbol),
+                markersize=state.symbol_size_pt,
+                label=group.label,
+            )
+            artists.append(artist)
         axis.set_title(state.title)
         axis.set_xlabel(state.x_axis.label)
         axis.set_ylabel(state.y_axis.label)
@@ -107,11 +117,14 @@ class K02LineSymbolRenderer:
                 object_kind="axis",
                 native_ref="axes:0.yaxis",
             ),
-            EngineObjectRef(
-                semantic_id=f"series:{token}.primary",
-                backend="matplotlib",
-                object_kind="line_symbol_series",
-                native_ref=f"axes:0.line:{artist.get_gid() or 0}",
+            *tuple(
+                EngineObjectRef(
+                    semantic_id=f"series:{token}.group_{index}",
+                    backend="matplotlib",
+                    object_kind="line_symbol_series",
+                    native_ref=f"axes:0.line:{index - 1}",
+                )
+                for index in range(1, len(artists) + 1)
             ),
             EngineObjectRef(
                 semantic_id=f"legend:{token}.main",
@@ -178,9 +191,15 @@ class K02LineSymbolRenderer:
         actions: tuple[PlotEngineAction, ...],
         x_name: str,
         y_name: str,
+        group_count: int,
     ) -> _K02State:
         document.plot_id.removeprefix("plot:")
-        state = _K02State(title="", x_axis=_AxisState(x_name), y_axis=_AxisState(y_name))
+        state = _K02State(
+            title="",
+            x_axis=_AxisState(x_name),
+            y_axis=_AxisState(y_name),
+            legend_visible=group_count > 1,
+        )
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue

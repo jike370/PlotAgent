@@ -170,12 +170,18 @@ K02_LINE_SYMBOL_PROFILE = _profile(
         "profile_id": "K02",
         "display_name": "Line and symbol",
         "required_roles": ("x", "y"),
-        "optional_roles": ("label",),
+        "optional_roles": ("group",),
         "objects": (
             {"object_alias": "x_axis", "object_kind": "axis", "object_key": "x"},
             {"object_alias": "y_axis", "object_kind": "axis", "object_key": "y"},
-            {"object_alias": "series_1", "object_kind": "series", "object_key": "primary"},
             {"object_alias": "legend", "object_kind": "legend", "object_key": "main"},
+        ),
+        "repeatable_objects": (
+            {
+                "object_alias_prefix": "series",
+                "object_kind": "series",
+                "object_key_prefix": "group",
+            },
         ),
     },
     series=(

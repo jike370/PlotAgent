@@ -264,6 +264,7 @@ class FakeOrigin:
         self.graph_created = False
         self.commands: list[str] = []
         self.native_pid = 0
+        self.k02_plot_index = 1
         self.k03_plot_index = 1
         self.lt_values: dict[str, float] = {
             "__X02COUNT": 1.0,
@@ -308,7 +309,9 @@ class FakeOrigin:
         if "worksheet -p 202 LineSymb" in command:
             self.graph_created = True
             self.native_pid = 202
-            self.graph.layer.plots = [FakePlot()]
+            match = re.search(r"worksheet -s 1 0 (\d+) 0", command)
+            assert match is not None
+            self.graph.layer.plots = [FakePlot() for _ in range(int(match.group(1)) // 2)]
         if "worksheet -p 201 Scatter" in command:
             self.graph_created = True
             self.native_pid = 201
@@ -334,6 +337,9 @@ class FakeOrigin:
             plot = FakePlot()
             plot.DatasetName = f"{self.book.name}_B"
             self.graph.layer.plots = [plot]
+        k02_match = re.search(r"range __K02P=\[[^]]+\]1!(\d+)", command)
+        if k02_match is not None:
+            self.k02_plot_index = int(k02_match.group(1))
         k03_match = re.search(r"range __K03P=\[[^]]+\]1!(\d+)", command)
         if k03_match is not None:
             self.k03_plot_index = int(k03_match.group(1))
@@ -370,9 +376,11 @@ class FakeOrigin:
 
     def get_lt_str(self, expression: str) -> str:
         if expression == "__K02XS":
-            return f'[{self.book.name}]Sheet1!A"Time"'
+            letter = chr(65 + (self.k02_plot_index - 1) * 2)
+            return f'[{self.book.name}]Sheet1!{letter}"Time"'
         if expression == "__K02YS":
-            return f'[{self.book.name}]Sheet1!B"Signal"'
+            letter = chr(66 + (self.k02_plot_index - 1) * 2)
+            return f'[{self.book.name}]Sheet1!{letter}"Signal"'
         if expression == "__K03XS":
             letter = chr(65 + (self.k03_plot_index - 1) * 2)
             return f'[{self.book.name}]Sheet1!{letter}"X"'
@@ -429,7 +437,11 @@ def _case(
     )
     series = SetSeriesStyle(
         action_id=f"action:style-{profile_id.lower()}",
-        target=f"series:{profile_id.lower()}-origin.primary",
+        target=(
+            f"series:{profile_id.lower()}-origin.group_1"
+            if profile_id == "K02"
+            else f"series:{profile_id.lower()}-origin.primary"
+        ),
         expected_plot_version=2,
         line_stroke_color="#AA3300",
         **style,
@@ -520,6 +532,46 @@ def test_k02_binds_one_native_line_symbol_identity(
     assert origin.graph.layer.plots[0].symbol_kind == 2
     assert "legend" not in origin.graph.layer.labels
     assert "line_symbol_series" in {item.object_kind for item in readback.objects}
+
+
+def test_k02_binds_one_native_line_symbol_plot_per_source_group(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    columns = (
+        _column("field:x", "Time", (0.0, 1.0, 0.0, 1.0)),
+        _column("field:y", "Signal", (1.0, 2.0, 1.5, 3.0)),
+        EngineColumn(
+            field=EngineField(
+                field_id="field:group",
+                name="Source",
+                logical_type="categorical",
+            ),
+            values=("Data A", "Data A", "Data B", "Data B"),
+        ),
+    )
+    document, actions, view = _case(
+        "K02",
+        ("x", "y", "group"),
+        columns,
+        style={"marker_shape": "circle"},
+    )
+    monkeypatch.setattr(
+        k02_module,
+        "resolve_official_template",
+        lambda install, profile: tmp_path / profile.filename,
+    )
+    origin = FakeOrigin()
+    project = K02OriginProject(origin)
+    project.create(tmp_path, document, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
+
+    assert len(origin.graph.layer.plots) == 2
+    assert {item.semantic_id for item in readback.objects} >= {
+        "series:k02-origin.group_1",
+        "series:k02-origin.group_2",
+        "legend:k02-origin.main",
+    }
+    assert origin.graph.layer.labels["legend"].get_int("show") == 1
 
 
 def test_k03_binds_one_native_scatter_plot_per_data_group(
