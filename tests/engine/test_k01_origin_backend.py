@@ -374,7 +374,7 @@ def test_k01_binder_applies_typed_actions_to_native_objects(
         ),
         SetSeriesStyle(
             action_id="action:style",
-            target="series:origin-line.primary",
+            target="series:origin-line.group_1",
             expected_plot_version=3,
             line_stroke_color="#AA2200",
             line_width_pt=2.0,

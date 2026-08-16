@@ -1351,6 +1351,10 @@
             {
               "enum": [
                 "inside",
+                "inside_top_left",
+                "inside_top_right",
+                "inside_bottom_left",
+                "inside_bottom_right",
                 "right",
                 "bottom",
                 "none"

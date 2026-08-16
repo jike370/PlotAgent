@@ -245,8 +245,12 @@ export interface WorkflowQuestion {
 export interface WorkflowPlanStep {
   taskItemId: string
   actionType: string
+  taskKind: 'create' | 'edit'
+  profileId: string
   title: string
   detail?: string
+  bindings: WorkflowBindingView[]
+  changes: string[]
   state: string
   attemptCount: number
   failure?: { code: string; message: string; retryable: boolean }
@@ -816,24 +820,39 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
   const steps = plan.items.flatMap((item): WorkflowPlanStep[] => {
     if (!isJsonRecord(item) || typeof item.item_id !== 'string') return []
     const itemProgress: JsonRecord = progress.get(item.item_id) ?? {}
+    const stepBindings: WorkflowBindingView[] = []
     if (Array.isArray(item.bindings)) {
       for (const binding of item.bindings) {
         if (!isJsonRecord(binding)) continue
         const role = stringValue(binding, 'role')
         const fieldId = stringValue(binding, 'field_id')
-        if (role !== undefined && fieldId !== undefined) bindings.push({ role, fieldId })
+        if (role !== undefined && fieldId !== undefined) {
+          const view = { role, fieldId }
+          bindings.push(view)
+          stepBindings.push(view)
+        }
       }
     }
-    if (Array.isArray(item.visual_actions)) boundActions.push(...item.visual_actions)
+    const visualActions = Array.isArray(item.visual_actions) ? item.visual_actions : []
+    boundActions.push(...visualActions)
+    const changes = visualActions.flatMap(workflowActionSummary)
     const state = stringValue(itemProgress, 'state') ?? 'pending'
+    const taskKind = stringValue(item, 'task_kind') === 'edit' ? 'edit' : 'create'
+    const profileId = stringValue(item, 'profile_id') ?? '图形'
     const outputPlotId = stringValue(itemProgress, 'output_plot_id')
     const outputPlotVersion = numberValue(itemProgress, 'output_plot_version')
     const errorCode = stringValue(itemProgress, 'error_code')
     return [{
       taskItemId: item.item_id,
       actionType: 'workflow_item',
-      title: `创建 ${stringValue(item, 'profile_id') ?? '图形'}`,
-      detail: `${Array.isArray(item.sources) ? item.sources.length : 0} 个数据来源 · ${Array.isArray(item.bindings) ? item.bindings.length : 0} 个字段角色`,
+      taskKind,
+      profileId,
+      title: `${taskKind === 'edit' ? '修改' : '创建'} ${profileId}`,
+      detail: taskKind === 'edit'
+        ? `${changes.length} 项视觉修改`
+        : `${Array.isArray(item.sources) ? item.sources.length : 0} 个数据来源 · ${stepBindings.length} 个字段角色`,
+      bindings: stepBindings,
+      changes,
       state,
       attemptCount: numberValue(itemProgress, 'attempt_count') ?? 0,
       ...(errorCode === undefined ? {} : {
@@ -861,6 +880,49 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     bindings,
     boundActions,
   }
+}
+
+function workflowActionSummary(value: JsonValue): string[] {
+  if (!isJsonRecord(value)) return []
+  const operation = stringValue(value, 'operation')
+  const target = stringValue(value, 'target_alias')
+  const values = Object.entries(value)
+    .filter(([key, item]) => !['operation', 'target_alias'].includes(key) && item !== null)
+    .map(([key, item]) => `${workflowParameterLabel(key)}=${String(item)}`)
+  if (values.length === 0) return []
+  const operationLabel: Record<string, string> = {
+    set_title: '标题',
+    set_axis: '坐标轴',
+    set_series_style: '系列样式',
+    set_legend: '图例',
+    set_colormap: '颜色映射',
+    set_error_style: '误差样式',
+    set_data_labels: '数据标签',
+    set_chart_parameter: '图形参数',
+    add_annotation: '标注',
+  }
+  const prefix = operation === undefined ? '视觉修改' : (operationLabel[operation] ?? operation)
+  return [`${prefix}${target === undefined || target === 'plot' ? '' : `（${target}）`}：${values.join('，')}`]
+}
+
+function workflowParameterLabel(key: string): string {
+  const labels: Record<string, string> = {
+    text: '文本',
+    label: '标题',
+    scale: '刻度',
+    reverse: '反向',
+    line_stroke_color: '线色',
+    line_width_pt: '线宽',
+    line_style: '线型',
+    marker_shape: '点形',
+    marker_size_pt: '点大小',
+    marker_fill_color: '点填充',
+    marker_stroke_color: '点边框',
+    fill_color: '填充色',
+    visible: '显示',
+    anchor: '位置',
+  }
+  return labels[key] ?? key
 }
 
 export function readWorkflowPlans(value: JsonValue): WorkflowPlanView[] {

@@ -206,6 +206,84 @@ def test_program_first_parses_existing_plot_edits_and_connector_style() -> None:
     assert connector.line_width_pt == 1.5
 
 
+def test_program_first_preserves_log_marker_and_exact_legend_corner() -> None:
+    edited = _draft(
+        _context(
+            "K03",
+            "把当前图标题改为复测结果，y 轴改为 log10，点改为红色实心方形，"
+            "图例放在左下角。",
+            (("X", "numeric"), ("Response", "numeric")),
+            edit=True,
+        )
+    )
+
+    assert [action.model_dump(exclude_none=True) for action in edited.items[0].visual_actions] == [
+        {"operation": "set_title", "target_alias": "plot", "text": "复测结果"},
+        {"operation": "set_axis", "target_alias": "y_axis", "scale": "log10"},
+        {
+            "operation": "set_series_style",
+            "target_alias": "series_1",
+            "marker_shape": "square",
+            "marker_interior": "solid",
+            "marker_fill_color": "#D62728",
+            "marker_stroke_color": "#D62728",
+        },
+        {
+            "operation": "set_legend",
+            "target_alias": "legend",
+            "visible": True,
+            "anchor": "inside_bottom_left",
+        },
+    ]
+
+
+def test_datetime_alias_selects_k19_and_ambiguous_time_fields_require_input() -> None:
+    explicit = _draft(
+        _context(
+            "K19",
+            "创建日期时间折线图，Time 映射 time，Response 映射 series_1。",
+            (("Time", "datetime"), ("Response", "numeric")),
+        )
+    )
+    assert explicit.items[0].profile_id == "K19"
+
+    ambiguous = WorkflowRouter(_CATALOG).route(
+        _context(
+            "K19",
+            "创建日期时间折线图。",
+            (
+                ("Time", "datetime"),
+                ("Time Local", "datetime"),
+                ("Response", "numeric"),
+            ),
+        )
+    )
+    assert ambiguous.route == "needs_input"
+    assert ambiguous.deterministic is not None
+    assert ambiguous.deterministic.outcome == "needs_input"
+    assert ambiguous.deterministic.questions[0].question_key == "field_time"
+
+
+def test_explicit_unsupported_role_fails_closed_instead_of_being_dropped() -> None:
+    decision = WorkflowRouter(_CATALOG).route(
+        _context(
+            "K04",
+            "创建 K04 气泡图：X→x，Y→y，BubbleSize→size，ColorValue→color，Group→group。",
+            (
+                ("X", "numeric"),
+                ("Y", "numeric"),
+                ("BubbleSize", "numeric"),
+                ("ColorValue", "numeric"),
+                ("Group", "categorical"),
+            ),
+        )
+    )
+    assert decision.route == "unsupported"
+    assert decision.deterministic is not None
+    assert decision.deterministic.outcome == "unsupported"
+    assert decision.deterministic.reason_code == "ROLE_UNAVAILABLE"
+
+
 def test_unhandled_explicit_goal_escalates_instead_of_dropping_parameters() -> None:
     context = _context(
         "K01",

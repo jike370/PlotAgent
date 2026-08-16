@@ -253,7 +253,7 @@ export type DraftSetLegend = {
   readonly operation?: "set_legend";
   readonly target_alias?: string;
   readonly visible?: boolean | null;
-  readonly anchor?: "inside" | "right" | "bottom" | "none" | null;
+  readonly anchor?: "inside" | "inside_top_left" | "inside_top_right" | "inside_bottom_left" | "inside_bottom_right" | "right" | "bottom" | "none" | null;
   readonly columns?: number | null;
   readonly title?: string | null;
   readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
@@ -911,7 +911,7 @@ export type SetLegend = {
   readonly action_id: string;
   readonly target: string;
   readonly visible?: boolean | null;
-  readonly anchor?: "inside" | "right" | "bottom" | "none" | null;
+  readonly anchor?: "inside" | "inside_top_left" | "inside_top_right" | "inside_bottom_left" | "inside_bottom_right" | "right" | "bottom" | "none" | null;
   readonly columns?: number | null;
   readonly title?: string | null;
   readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;

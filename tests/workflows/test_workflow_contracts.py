@@ -21,6 +21,7 @@ from plotagent.engine import EngineCatalog
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.workflows import DataInspectionService, DraftCompiler, WorkflowRouter
 from plotagent.workflows.inspection import InspectionError
+from plotagent.workflows.router import named_source_aliases
 
 _HASH = "a" * 64
 
@@ -132,19 +133,25 @@ def test_explicit_filter_and_sort_use_field_aliases_on_the_program_first_route()
     assert operations[1].keys[0].field_alias == "data_1_time"
 
 
-def test_multi_source_batch_goal_routes_to_bounded_exploration() -> None:
+def test_multi_source_batch_goal_builds_independent_items_without_a_model() -> None:
     decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(
         _context(
             "数据A画折线图，数据B画散点图",
             selected_sources=("data_1", "data_2"),
         )
     )
-    assert decision.route == "agent_exploration"
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    assert decision.deterministic.outcome == "draft_ready"
+    assert [
+        (item.source_aliases, item.profile_id)
+        for item in decision.deterministic.draft.items
+    ] == [(('data_1',), 'K01'), (('data_2',), 'K03')]
 
 
 def test_isomorphic_concat_uses_the_program_first_route_and_preserves_source_identity() -> None:
     context = _context(
-        "把 data_1 和 data_2 纵向拼接，在同一张 K02 线点图中绘制；Time 为 x，Response 为 y。",
+        "把 data_1 和 data_2 纵向拼接，在同一张 K03 散点图中绘制；Time 为 x，Response 为 y。",
         selected_sources=("data_1", "data_2"),
     )
     decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(context)
@@ -155,9 +162,55 @@ def test_isomorphic_concat_uses_the_program_first_route_and_preserves_source_ide
     item = draft.items[0]
     assert item.source_aliases == ("data_1", "data_2")
     assert item.data_operations[0].operation == "concatenate_sources"
-    assert item.bindings[-1].role == "label"
+    assert item.bindings[-1].role == "group"
     assert item.bindings[-1].field_alias == "source_group"
     assert DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(draft, context).valid
+
+
+def test_k01_multi_source_goal_uses_source_identity_as_the_group() -> None:
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(
+        _context(
+            "把 data_1 和 data_2 一起画在同一张 K01 折线图中。",
+            selected_sources=("data_1", "data_2"),
+        )
+    )
+
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    item = decision.deterministic.draft.items[0]
+    assert item.source_aliases == ("data_1", "data_2")
+    assert item.data_operations[0].operation == "concatenate_sources"
+    assert item.bindings[-1].role == "group"
+    assert item.bindings[-1].field_alias == "source_group"
+
+
+def test_multi_source_profile_without_group_support_fails_closed() -> None:
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(
+        _context(
+            "把 data_1 和 data_2 一起画在同一张 K04 气泡图中。",
+            selected_sources=("data_1", "data_2"),
+        )
+    )
+
+    assert decision.route == "unsupported"
+    assert decision.deterministic is not None
+    assert decision.deterministic.outcome == "unsupported"
+    assert decision.deterministic.reason_code == "MULTI_SOURCE_PROFILE_UNSUPPORTED"
+
+
+def test_full_worksheet_name_wins_over_a_shared_file_name() -> None:
+    assert named_source_aliases(
+        _context(
+            "使用 input.xlsx > Sheet2 创建 K01 折线图。",
+            selected_sources=("data_1", "data_2"),
+        )
+    ) == ("data_2",)
+    assert named_source_aliases(
+        _context(
+            "使用 input.xlsx 创建 K01 折线图。",
+            selected_sources=("data_1", "data_2"),
+        )
+    ) == ()
 
 
 def test_isomorphic_batch_with_explicit_titles_uses_the_program_first_route() -> None:

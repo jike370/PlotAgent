@@ -406,8 +406,13 @@ def k06_point_error(document: PlotDocument, data: EngineDataView) -> PointErrorD
     )
 
 
-def k03_scatter(document: PlotDocument, data: EngineDataView) -> K03ScatterData:
-    """Split one optional group field into stable first-appearance series."""
+def grouped_xy(
+    document: PlotDocument,
+    data: EngineDataView,
+    *,
+    profile_id: str,
+) -> K03ScatterData:
+    """Split an optional group field into stable first-appearance XY series."""
 
     bindings = {binding.role: binding.field_id for binding in document.bindings}
     columns = {column.field.field_id: column for column in data.columns}
@@ -415,9 +420,9 @@ def k03_scatter(document: PlotDocument, data: EngineDataView) -> K03ScatterData:
         x = columns[bindings["x"]]
         y = columns[bindings["y"]]
     except KeyError as error:
-        raise ValueError("K03 requires x and y bindings") from error
-    x_values = _numeric_values(x, "x", "K03", allow_missing=True)
-    y_values = _numeric_values(y, "y", "K03", allow_missing=True)
+        raise ValueError(f"{profile_id} requires x and y bindings") from error
+    x_values = _numeric_values(x, "x", profile_id, allow_missing=True)
+    y_values = _numeric_values(y, "y", profile_id, allow_missing=True)
     group_field_id = bindings.get("group")
     groups: tuple[ScatterGroupData, ...]
     if group_field_id is None:
@@ -449,6 +454,10 @@ def k03_scatter(document: PlotDocument, data: EngineDataView) -> K03ScatterData:
         x_field_name=x.field.name,
         y_field_name=y.field.name,
     )
+
+
+def k03_scatter(document: PlotDocument, data: EngineDataView) -> K03ScatterData:
+    return grouped_xy(document, data, profile_id="K03")
 
 
 def k04_bubble(document: PlotDocument, data: EngineDataView) -> K04BubbleData:

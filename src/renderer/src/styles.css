@@ -4971,6 +4971,13 @@ input[type="checkbox"] {
 .agent-plan-step p { margin: 3px 0 0; color: var(--danger); font-size: 11px; line-height: 1.45; }
 .agent-plan-step p.agent-plan-step__output { color: var(--muted); font-family: var(--font-mono); }
 .agent-plan-step p.agent-plan-step__detail { color: var(--muted-strong); }
+.agent-plan-step__bindings { display: grid; gap: 4px; margin: 8px 0 0; }
+.agent-plan-step__bindings > div { display: grid; grid-template-columns: minmax(72px, .35fr) minmax(0, 1.65fr); gap: 8px; }
+.agent-plan-step__bindings dt { color: var(--muted); font-size: 10px; }
+.agent-plan-step__bindings dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 600; }
+.agent-plan-step__bindings .agent-plan-step__section-label { display: block; }
+.agent-plan-step__bindings .agent-plan-step__section-label dt { color: var(--text); font-weight: 650; }
+.agent-plan-step__changes { display: grid; gap: 3px; margin: 8px 0 0; padding-left: 17px; color: var(--muted-strong); font-size: 11px; line-height: 1.45; }
 .agent-plan-step__attempt { color: var(--muted); font-size: 10px; }
 
 .agent-plan__warnings,

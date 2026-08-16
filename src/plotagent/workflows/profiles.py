@@ -21,7 +21,14 @@ PROFILE_ALIASES: dict[str, tuple[str, ...]] = {
     "K14": ("小提琴图", "violin plot"),
     "K15": ("直方图", "histogram"),
     "K18": ("面积图", "area plot", "area chart"),
-    "K19": ("时间序列图", "time series"),
+    "K19": (
+        "日期时间折线图",
+        "日期时间图",
+        "时间序列图",
+        "datetime line chart",
+        "date time line chart",
+        "time series",
+    ),
     "K20": ("热图", "heatmap", "heat map"),
     "K21": ("相关矩阵图", "correlation matrix"),
     "K22": ("填色等高线图", "filled contour"),
@@ -72,6 +79,34 @@ def explicit_profile_ids(instruction: str, allowed: Iterable[str]) -> tuple[str,
                 found.append(profile_id)
             remaining = remaining.replace(alias, "", 1)
     return tuple(profile_id for profile_id in allowed_ids if profile_id in found)
+
+
+def profile_mentions(instruction: str, allowed: Iterable[str]) -> tuple[tuple[str, int, int], ...]:
+    """Return non-overlapping explicit chart mentions in textual order.
+
+    Unlike :func:`explicit_profile_ids`, this preserves where each chart was
+    named.  The workflow resolver uses the positions to pair heterogeneous
+    batch clauses with their data sources instead of flattening all roles into
+    one task.
+    """
+
+    candidates: list[tuple[int, int, str]] = []
+    for profile_id in allowed:
+        labels = (profile_id, *PROFILE_ALIASES.get(profile_id, ()))
+        for label in labels:
+            for matched in re.finditer(re.escape(label), instruction, flags=re.IGNORECASE):
+                candidates.append((matched.start(), matched.end(), profile_id))
+    selected: list[tuple[int, int, str]] = []
+    occupied: list[tuple[int, int]] = []
+    for start, end, profile_id in sorted(
+        candidates,
+        key=lambda item: (item[0], -(item[1] - item[0]), item[2]),
+    ):
+        if any(start < used_end and end > used_start for used_start, used_end in occupied):
+            continue
+        selected.append((start, end, profile_id))
+        occupied.append((start, end))
+    return tuple((profile_id, start, end) for start, end, profile_id in selected)
 
 
 def unspecified_chart_request(instruction: str) -> bool:

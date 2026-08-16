@@ -441,11 +441,23 @@ def _apply_legend(figure: Figure, action: SetLegend) -> None:
             continue
         placements: dict[str, dict[str, object]] = {
             "inside": {"loc": "best"},
+            "inside_top_left": {"loc": "upper left"},
+            "inside_top_right": {"loc": "upper right"},
+            "inside_bottom_left": {"loc": "lower left"},
+            "inside_bottom_right": {"loc": "lower right"},
             "right": {"loc": "center left", "bbox_to_anchor": (1.02, 0.5)},
             "bottom": {"loc": "upper center", "bbox_to_anchor": (0.5, -0.15)},
         }
         anchor = cast(
-            Literal["inside", "right", "bottom"],
+            Literal[
+                "inside",
+                "inside_top_left",
+                "inside_top_right",
+                "inside_bottom_left",
+                "inside_bottom_right",
+                "right",
+                "bottom",
+            ],
             "inside" if action.anchor in {None, "none"} else action.anchor,
         )
         legend = axis.legend(  # type: ignore[call-overload]

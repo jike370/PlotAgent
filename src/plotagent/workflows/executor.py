@@ -47,6 +47,11 @@ class WorkflowExecutionError(RuntimeError):
 
 type PrepareTaskData = Callable[[CompiledTaskItem], tuple[EngineDataRef, tuple[FieldBinding, ...]]]
 type ExecuteEngineAction = Callable[[PlotEngineAction, int], int]
+type ValidatePreparedData = Callable[
+    [CompiledTaskItem, EngineDataRef, tuple[FieldBinding, ...]],
+    None,
+]
+type ValidateEditData = Callable[[CompiledTaskItem], None]
 
 
 @dataclass(slots=True)
@@ -55,6 +60,8 @@ class TaskPlanExecutor:
     catalog: EngineCatalog
     prepare_data: PrepareTaskData
     execute_action: ExecuteEngineAction
+    validate_prepared_data: ValidatePreparedData
+    validate_edit_data: ValidateEditData
 
     def run(self, plan_id: str) -> TaskPlanSnapshot:
         snapshot = self.repository.get_plan(plan_id)
@@ -148,6 +155,7 @@ class TaskPlanExecutor:
         current_revision = revision
         if item.task_kind == "create":
             data, bindings = self.prepare_data(item)
+            self.validate_prepared_data(item, data, bindings)
             create = CreatePlot(
                 action_id=f"action:{item.item_id.removeprefix('item:')}.create",
                 plot_id=item.plot_id,
@@ -164,6 +172,7 @@ class TaskPlanExecutor:
                     "WORKFLOW_EDIT_TARGET_INVALID", "待编辑图形目标不完整。"
                 )
             plot_version = item.target_plot_version
+            self.validate_edit_data(item)
         for position, draft in enumerate(item.visual_actions, start=1):
             action_id = f"action:{item.item_id.removeprefix('item:')}.edit{position}"
             action: PlotEngineAction

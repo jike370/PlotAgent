@@ -10,6 +10,7 @@ from typing import Any, cast
 import pytest
 
 from plotagent.desktop_core.application import DesktopApplication
+from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue
 from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
 from plotagent.desktop_core.tasks import BoundedWorkerExecutor, TaskRegistry
@@ -565,3 +566,91 @@ def test_workflow_program_first_edit_changes_the_selected_plot_without_a_source(
         "engine.plots.get", {"project_id": project_id, "plot_id": "plot:workflow-edit"}
     )
     assert cast(dict[str, Any], plot["document"])["plot_version"] == 2
+
+
+def test_workflow_log10_rejects_non_positive_data_before_creating_a_plot(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = harness.call(
+        "datasets.import",
+        {
+            "project_id": project_id,
+            "resource_id": "resource:workflow-log10",
+            "source_path": str(FIXTURES / "tsv_zero_false.tsv"),
+            "idempotency_key": "workflow-log10",
+            "expected_version": revision,
+            "options": {},
+        },
+    )
+    dataset = cast(list[dict[str, Any]], imported["datasets"])[0]
+    prepared = harness.call(
+        "workflow.prepare",
+        {
+            "project_id": project_id,
+            "expected_project_version": imported["project_version"],
+            "instruction": "创建 K01 折线图，index 映射 x，value 映射 y；y 轴改为 log10。",
+            "selected_sources": [
+                {
+                    "dataset_id": dataset["source_dataset_id"],
+                    "source_version": dataset["source_version"],
+                }
+            ],
+            "selected_profile_ids": ["K01"],
+        },
+    )
+    task_plan = cast(dict[str, Any], prepared["task_plan"])
+    plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
+    harness.call("workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id})
+    completed = harness.call(
+        "workflow.plans.run", {"project_id": project_id, "plan_id": plan_id}
+    )
+
+    assert completed["state"] == "failed"
+    progress = cast(list[dict[str, Any]], completed["item_progress"])
+    assert progress[0]["error_code"] == "LOG_SCALE_NON_POSITIVE"
+    assert completed["current_project_revision"] == imported["project_version"]
+    assert not harness.call("engine.plots.list", {"project_id": project_id})["plots"]
+
+
+def test_opju_export_failure_is_reported_as_an_origin_error(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="opju-error")
+    _create_line(
+        harness,
+        project_id,
+        imported,
+        plot_id="plot:opju-error",
+        action_id="action:opju-error.create",
+    )
+
+    def fail_export(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise RuntimeError("synthetic Origin worker failure")
+
+    monkeypatch.setattr(DesktopEngineSession, "export", fail_export)
+    destination = tmp_path / "failed.opju"
+    with pytest.raises(RpcServiceError) as captured:
+        harness.call(
+            "engine.exports.execute",
+            {
+                "project_id": project_id,
+                "action": {
+                    "operation": "export_plot",
+                    "action_id": "action:opju-error.export",
+                    "target": "plot:opju-error",
+                    "expected_plot_version": 1,
+                    "format": "opju",
+                    "output_name": destination.name,
+                },
+                "destination_resource_id": "resource:opju-error",
+                "destination_path": str(destination),
+            },
+        )
+
+    assert captured.value.code == "ORIGIN_EXPORT_FAILED"
+    assert "重新检测 Origin" in captured.value.message
+    assert not destination.exists()

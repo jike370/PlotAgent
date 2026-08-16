@@ -105,7 +105,7 @@ def test_k01_renders_and_replays_public_actions_without_legacy_resolver(tmp_path
         runtime.execute(
             SetSeriesStyle(
                 action_id="action:style",
-                target="series:line-demo.primary",
+                target="series:line-demo.group_1",
                 expected_plot_version=3,
                 line_stroke_color="#AA2200",
                 line_width_pt=2.0,
@@ -127,7 +127,7 @@ def test_k01_renders_and_replays_public_actions_without_legacy_resolver(tmp_path
         assert readback.document.plot_version == 5
         assert {item.semantic_id for item in readback.objects} >= {
             "axis:line-demo.y",
-            "series:line-demo.primary",
+            "series:line-demo.group_1",
             "legend:line-demo.main",
         }
         exported = backend.export(result.document, tmp_path / "out.png", "png")
@@ -200,3 +200,63 @@ def test_k01_backend_uses_a_cjk_capable_font_for_title_and_field_names(
         svg = (version_dir / "preview.svg").read_text(encoding="utf-8")
         assert "<!-- 中文标题：温度响应 -->" in svg
         assert backend.readback(result.document).document.plot_version == 2
+
+
+def test_k01_materializes_one_line_per_source_group(tmp_path: Path) -> None:
+    class GroupedProvider:
+        def materialize(self, data, field_ids):  # type: ignore[no-untyped-def]
+            columns = {
+                "field:time": EngineColumn(
+                    field=EngineField(
+                        field_id="field:time", name="Time", logical_type="numeric"
+                    ),
+                    values=(1.0, 2.0, 1.0, 2.0),
+                ),
+                "field:signal": EngineColumn(
+                    field=EngineField(
+                        field_id="field:signal", name="Signal", logical_type="numeric"
+                    ),
+                    values=(2.0, 4.0, 3.0, 6.0),
+                ),
+                "field:source": EngineColumn(
+                    field=EngineField(
+                        field_id="field:source", name="Source", logical_type="categorical"
+                    ),
+                    values=("Data A", "Data A", "Data B", "Data B"),
+                ),
+            }
+            return EngineDataView(
+                data=data,
+                row_ids=("row:1", "row:2", "row:3", "row:4"),
+                columns=tuple(columns[field_id] for field_id in field_ids),
+            )
+
+    create = _create().model_copy(
+        update={
+            "action_id": "action:create-grouped",
+            "plot_id": "plot:line-grouped",
+            "bindings": (
+                FieldBinding(role="x", field_id="field:time"),
+                FieldBinding(role="y", field_id="field:signal"),
+                FieldBinding(role="group", field_id="field:source"),
+            ),
+        }
+    )
+    with ProjectStore.create(tmp_path / "project", project_id="project:k01-grouped") as project:
+        backend = MatplotlibBackend(tmp_path / "artifacts", (K01LineRenderer(),))
+        runtime = PlotEngineRuntime(
+            PlotEngineService(
+                EngineCatalog((K01_LINE_PROFILE,)),
+                PlotDocumentRepository(project),
+            ),
+            GroupedProvider(),
+            (backend,),
+        )
+        result = runtime.execute(create)
+        readback = backend.readback(result.document)
+
+    assert {item.semantic_id for item in readback.objects} >= {
+        "series:line-grouped.group_1",
+        "series:line-grouped.group_2",
+        "legend:line-grouped.main",
+    }

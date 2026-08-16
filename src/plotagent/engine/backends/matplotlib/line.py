@@ -11,7 +11,6 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib.axes import Axes
 
 from plotagent.contracts.canonical import canonical_hash
@@ -23,6 +22,7 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.profile_data import grouped_xy
 from plotagent.engine.repository import document_ref
 
 
@@ -60,26 +60,31 @@ class K01LineRenderer:
         png_path: Path,
         svg_path: Path,
     ) -> EngineReadback:
-        columns = {column.field.field_id: column for column in data.columns}
-        bindings = {binding.role: binding.field_id for binding in document.bindings}
-        x_column = columns[bindings["x"]]
-        y_column = columns[bindings["y"]]
-        state = self._state(document, actions, x_column.field.name, y_column.field.name)
-        x = self._numeric(x_column.values, role="x")
-        y = self._numeric(y_column.values, role="y")
+        grouped = grouped_xy(document, data, profile_id="K01")
+        state = self._state(
+            document,
+            actions,
+            grouped.x_field_name,
+            grouped.y_field_name,
+            len(grouped.groups),
+        )
 
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
         marker = None if state.symbol == "none" else self._marker(state.symbol)
-        (line,) = axis.plot(
-            x,
-            y,
-            color=state.color,
-            linewidth=state.line_width_pt,
-            linestyle=self._line_style(state.line_style),
-            marker=marker,
-            markersize=state.symbol_size_pt,
-            label=y_column.field.name,
-        )
+        palette = ("#1676D2", "#D97800", "#299764", "#C53D4D", "#7656B5")
+        lines = []
+        for index, group in enumerate(grouped.groups):
+            (line,) = axis.plot(
+                group.x_values,
+                group.y_values,
+                color=palette[index % len(palette)],
+                linewidth=state.line_width_pt,
+                linestyle=self._line_style(state.line_style),
+                marker=marker,
+                markersize=state.symbol_size_pt,
+                label=group.label,
+            )
+            lines.append(line)
         axis.set_title(state.title)
         axis.set_xlabel(state.x_axis.label)
         axis.set_ylabel(state.y_axis.label)
@@ -120,11 +125,14 @@ class K01LineRenderer:
                 object_kind="axis",
                 native_ref="axes:0.yaxis",
             ),
-            EngineObjectRef(
-                semantic_id=f"series:{token}.primary",
-                backend="matplotlib",
-                object_kind="line",
-                native_ref=f"axes:0.line:{line.get_gid() or 0}",
+            *tuple(
+                EngineObjectRef(
+                    semantic_id=f"series:{token}.group_{index}",
+                    backend="matplotlib",
+                    object_kind="line",
+                    native_ref=f"axes:0.line:{index - 1}",
+                )
+                for index in range(1, len(lines) + 1)
             ),
             EngineObjectRef(
                 semantic_id=f"legend:{token}.main",
@@ -140,18 +148,6 @@ class K01LineRenderer:
             data_hash=canonical_hash(data),
             style_hash=canonical_hash(asdict(state)),
         )
-
-    @staticmethod
-    def _numeric(values: tuple[object, ...], *, role: str) -> np.ndarray:
-        result: list[float] = []
-        for value in values:
-            if value is None:
-                result.append(float("nan"))
-            elif isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise ValueError(f"K01 {role} values must be numeric")
-            else:
-                result.append(float(value))
-        return np.asarray(result, dtype=float)
 
     @staticmethod
     def _marker(symbol: str) -> str:
@@ -187,9 +183,15 @@ class K01LineRenderer:
         actions: tuple[PlotEngineAction, ...],
         x_name: str,
         y_name: str,
+        group_count: int,
     ) -> _LineState:
         document.plot_id.removeprefix("plot:")
-        state = _LineState(title="", x_axis=_AxisState(x_name), y_axis=_AxisState(y_name))
+        state = _LineState(
+            title="",
+            x_axis=_AxisState(x_name),
+            y_axis=_AxisState(y_name),
+            legend_visible=group_count > 1,
+        )
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue

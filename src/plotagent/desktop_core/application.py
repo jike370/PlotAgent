@@ -390,11 +390,19 @@ class DesktopApplication:
         )
         try:
             context.tasks.transition(task_id, "running")
-            payload = session.engine.export(
-                cast(dict[str, object], action),
-                destination,
-                origin_install_dir=install_dir,
-            )
+            try:
+                payload = session.engine.export(
+                    cast(dict[str, object], action),
+                    destination,
+                    origin_install_dir=install_dir,
+                )
+            except Exception as error:
+                if export_format != "opju":
+                    raise
+                raise RpcServiceError(
+                    "ORIGIN_EXPORT_FAILED",
+                    "Origin 原生项目生成失败，未写出文件。请重新检测 Origin 后再试一次。",
+                ) from error
             artifact = cast(dict[str, object], payload.pop("artifact"))
             session.workflow.record_export(
                 _text(cast(RpcJsonValue, artifact["artifact_hash"]), "artifact_hash"),

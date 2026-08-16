@@ -131,23 +131,45 @@ def _parse_title(text: str) -> DraftSetTitle | None:
 
 
 def _parse_axis(text: str) -> tuple[DraftSetAxis, ...] | None:
-    requested = re.search(r"(?:[xXyY横纵]\s*轴标题|横轴标题|纵轴标题)", text)
+    requested = re.search(
+        r"(?:[xXyY横纵]\s*轴标题|横轴标题|纵轴标题|"
+        r"[xXyY横纵]\s*轴[^，,；;。]*(?:log10|对数|反向|倒序))",
+        text,
+        flags=re.IGNORECASE,
+    )
     if requested is None:
         return ()
-    actions: list[DraftSetAxis] = []
+    changes: dict[str, dict[str, object]] = {}
     pattern = re.compile(
         r"([xXyY横纵])\s*轴标题\s*(?:设为|改为|为)\s*([^，,；;。]+)",
         flags=re.IGNORECASE,
     )
     for axis, label in pattern.findall(text):
         target = "x_axis" if axis.casefold() in {"x", "横"} else "y_axis"
-        actions.append(DraftSetAxis(target_alias=target, label=label.strip()))
-    return tuple(actions) if actions else None
+        changes.setdefault(target, {})["label"] = label.strip()
+    scale_pattern = re.compile(
+        r"([xXyY横纵])\s*轴[^，,；;。]*?(?:改为|设为|使用|为)?\s*(log10|对数)",
+        flags=re.IGNORECASE,
+    )
+    for axis, _scale in scale_pattern.findall(text):
+        target = "x_axis" if axis.casefold() in {"x", "横"} else "y_axis"
+        changes.setdefault(target, {})["scale"] = "log10"
+    reverse_pattern = re.compile(
+        r"([xXyY横纵])\s*轴[^，,；;。]*?(?:反向|倒序)",
+        flags=re.IGNORECASE,
+    )
+    for axis in reverse_pattern.findall(text):
+        target = "x_axis" if axis.casefold() in {"x", "横"} else "y_axis"
+        changes.setdefault(target, {})["reverse"] = True
+    return tuple(
+        DraftSetAxis(target_alias=target, **values)  # type: ignore[arg-type]
+        for target, values in changes.items()
+    ) if changes else None
 
 
 def _parse_series_style(text: str) -> DraftSetSeriesStyle | None:
     requested = re.search(
-        r"线条|连接线|线宽|虚线|点划线|点线|实线|实心|空心|菱形|圆点|点使用|"
+        r"线条|连接线|线宽|虚线|点划线|点线|实线|实心|空心|菱形|圆点|方形|点使用|点改为|"
         r"符号|填充|边框|边缘宽度",
         text,
     )
@@ -180,7 +202,7 @@ def _parse_series_style(text: str) -> DraftSetSeriesStyle | None:
         if width is not None:
             values["line_width_pt"] = width
 
-    marker_requested = re.search(r"实心|空心|菱形|圆点|点使用|符号", text) is not None
+    marker_requested = re.search(r"实心|空心|菱形|圆点|方形|点使用|点改为|符号", text) is not None
     if marker_requested:
         for label, shape in _MARKER_SHAPE.items():
             if label in text:
@@ -268,8 +290,25 @@ def _parse_legend(text: str) -> DraftSetLegend | None:
     if "图例" not in text:
         return None
     visible = not any(token in text for token in ("隐藏图例", "不显示图例", "关闭图例"))
-    anchor: Literal["inside", "right", "bottom", "none"] | None = None
-    if "右侧" in text or "右边" in text:
+    anchor: Literal[
+        "inside",
+        "inside_top_left",
+        "inside_top_right",
+        "inside_bottom_left",
+        "inside_bottom_right",
+        "right",
+        "bottom",
+        "none",
+    ] | None = None
+    if "右上" in text:
+        anchor = "inside_top_right"
+    elif "左上" in text:
+        anchor = "inside_top_left"
+    elif "右下" in text:
+        anchor = "inside_bottom_right"
+    elif "左下" in text:
+        anchor = "inside_bottom_left"
+    elif "右侧" in text or "右边" in text:
         anchor = "right"
     elif "底部" in text or "下方" in text:
         anchor = "bottom"
@@ -351,7 +390,7 @@ def parse_explicit_goal(
 
     text = context.instruction
     if re.search(
-        r"字体|字号|透明|网格|刻度|坐标范围|轴范围|对数|log10|反向|旋转|加粗|"
+        r"字体|字号|透明|网格|刻度|坐标范围|轴范围|旋转|加粗|"
         r"注释|参考线|宽转长|长转宽|拼接|合并|排除|剔除",
         text,
         flags=re.IGNORECASE,
@@ -359,9 +398,13 @@ def parse_explicit_goal(
         return None
     requested = {
         "title": re.search(r"(?:^|当前图|图)标题|[，,；;。]\s*标题", text) is not None,
-        "axis": re.search(r"[xXyY横纵]\s*轴标题", text) is not None,
+        "axis": re.search(
+            r"[xXyY横纵]\s*轴(?:标题|[^，,；;。]*(?:log10|对数|反向|倒序))",
+            text,
+            flags=re.IGNORECASE,
+        ) is not None,
         "style": re.search(
-            r"线条|连接线|线宽|虚线|点划线|点线|实线|实心|空心|菱形|圆点|点使用|"
+            r"线条|连接线|线宽|虚线|点划线|点线|实线|实心|空心|菱形|圆点|方形|点使用|点改为|"
             r"符号|填充|边框|边缘宽度",
             text,
         )

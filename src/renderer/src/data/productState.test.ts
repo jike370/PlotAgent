@@ -263,6 +263,14 @@ describe('product plot state', () => {
       plotId: 'plot:agent.line_temp_response.1',
       plotVersion: 5,
     })
+    expect(plan?.steps[0]).toMatchObject({
+      taskKind: 'edit',
+      profileId: 'K01',
+      title: '修改 K01',
+      detail: '1 项视觉修改',
+      bindings: [],
+      changes: ['坐标轴（y_axis）：刻度=log10'],
+    })
   })
 
   it('uses per-item progress for isolated batch failures and retry attempts', () => {

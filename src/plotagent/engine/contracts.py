@@ -384,7 +384,16 @@ class SetLegend(VersionedPlotAction):
     action_id: ActionId
     target: SemanticObjectId
     visible: bool | None = None
-    anchor: Literal["inside", "right", "bottom", "none"] | None = None
+    anchor: Literal[
+        "inside",
+        "inside_top_left",
+        "inside_top_right",
+        "inside_bottom_left",
+        "inside_bottom_right",
+        "right",
+        "bottom",
+        "none",
+    ] | None = None
     columns: Annotated[int, Field(ge=1, le=12)] | None = None
     title: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
     font_family: FontFamily | None = None

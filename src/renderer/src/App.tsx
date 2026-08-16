@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { FlaskConical, LoaderCircle, X } from 'lucide-react'
 
 import type {
@@ -105,6 +105,32 @@ function readExportRecord(
   }
 }
 
+function datasetsForInstruction(
+  instruction: string,
+  datasets: ProductDataset[],
+  activeDataset: ProductDataset,
+  selectedIds: string[],
+): ProductDataset[] {
+  const requested = instruction.toLocaleLowerCase('en-US')
+  const explicitlyNamed = datasets.filter((dataset) => {
+    const labels = [dataset.displayName, ...dataset.displayName.split(/\s*>\s*|[\\/]/)]
+      .map((label) => label.trim().toLocaleLowerCase('en-US'))
+      .filter((label) => label.length >= 3)
+    return labels.some((label) => requested.includes(label))
+  })
+  const orderedIds = [
+    activeDataset.datasetId,
+    ...selectedIds,
+    ...explicitlyNamed.map((dataset) => dataset.datasetId),
+  ]
+  return [...new Set(orderedIds)]
+    .flatMap((datasetId) => {
+      const dataset = datasets.find((candidate) => candidate.datasetId === datasetId)
+      return dataset === undefined ? [] : [dataset]
+    })
+    .slice(0, 8)
+}
+
 interface ProviderSettingsProps {
   busy: boolean
   notice?: ProductNotice
@@ -171,6 +197,9 @@ export function App(): React.JSX.Element {
   const [busyAction, setBusyAction] = useState<string>()
   const [taskEvents, setTaskEvents] = useState<Record<string, TaskEvent>>({})
   const [agentRuntimeEvent, setAgentRuntimeEvent] = useState<WorkflowRuntimeEvent>()
+  const pendingAgentRequest = useRef<{ instruction: string; scope: ScopeMode } | undefined>(
+    undefined,
+  )
   const [originStatus, setOriginStatus] = useState<'unknown' | 'checking' | 'available' | 'unavailable' | 'exporting'>('unknown')
   const [originDiagnostic, setOriginDiagnostic] = useState('Origin 环境未通过检测。请重新检测后再导出。')
   const importInFlight = useRef(false)
@@ -769,20 +798,24 @@ export function App(): React.JSX.Element {
   }
 
   const runAgent = async (instruction: string, _scope: ScopeMode): Promise<void> => {
-    void _scope
     if (!project) return
     if (!activeDataset) {
+      pendingAgentRequest.current = { instruction, scope: _scope }
       setWorkflowOutcome({ kind: 'needs_input', title: '请先上传数据', message: '收到你的要求了。上传数据后，我会继续声明字段绑定。' })
       return
     }
     if (!api) return
+    pendingAgentRequest.current = undefined
     const requestGeneration = agentRequestGeneration.current + 1
     agentRequestGeneration.current = requestGeneration
-    setBusyAction('agent'); setWorkflowOutcome(undefined); setNotice(undefined)
+    setBusyAction('agent'); setWorkflowOutcome(undefined); setWorkflowPlan(undefined); setNotice(undefined)
     try {
-      const selectedSources = datasets
-        .filter((dataset) => workflowSourceIds.includes(dataset.datasetId) || dataset.datasetId === activeDataset.datasetId)
-        .slice(0, 8)
+      const selectedSources = datasetsForInstruction(
+        instruction,
+        datasets,
+        activeDataset,
+        workflowSourceIds,
+      )
         .map((dataset) => ({ datasetId: dataset.datasetId, sourceVersion: dataset.sourceVersion }))
       const value = valueOrThrow(await api.runWorkflow({
         projectId: project.projectId,
@@ -804,6 +837,19 @@ export function App(): React.JSX.Element {
       if (agentRequestGeneration.current === requestGeneration) setBusyAction(undefined)
     }
   }
+  const resumePendingAgent = useEffectEvent(
+    (pending: { instruction: string; scope: ScopeMode }) => {
+      void runAgent(pending.instruction, pending.scope)
+    },
+  )
+
+  useEffect(() => {
+    const pending = pendingAgentRequest.current
+    if (!pending || !activeDataset || busyAction !== undefined) return
+    pendingAgentRequest.current = undefined
+    const timer = window.setTimeout(() => resumePendingAgent(pending), 0)
+    return () => window.clearTimeout(timer)
+  }, [activeDataset, busyAction])
 
   const syncPlanOutput = async (plan: WorkflowPlanView): Promise<ProductPlot | undefined> => {
     if (!api || !project) return undefined

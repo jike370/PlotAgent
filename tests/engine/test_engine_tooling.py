@@ -24,11 +24,11 @@ def test_agent_neutral_tool_schema_is_closed_and_profile_discoverable() -> None:
     assert "export_plot" in serialized
     assert codec.profile_manifest() == (
         {
-                "profile_id": "K01",
-                "display_name": "Line",
-                "required_roles": ("x", "y"),
-                "optional_roles": ("label",),
-                "repeatable_role_prefixes": (),
+            "profile_id": "K01",
+            "display_name": "Line",
+            "required_roles": ("x", "y"),
+            "optional_roles": ("group",),
+            "repeatable_role_prefixes": (),
             "objects": tuple(
                 {
                     "object_alias": item.object_alias,
@@ -37,7 +37,14 @@ def test_agent_neutral_tool_schema_is_closed_and_profile_discoverable() -> None:
                 }
                 for item in K01_LINE_PROFILE.objects
             ),
-            "repeatable_objects": (),
+            "repeatable_objects": (
+                {
+                    "object_alias_pattern": "series_{ordinal}",
+                    "object_kind": "series",
+                    "object_key_prefix": "group",
+                    "ordinal_minimum": 1,
+                },
+            ),
             "capabilities": tuple(
                 {
                     "operation": item.operation,

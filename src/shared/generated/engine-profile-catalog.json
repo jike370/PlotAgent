@@ -96,21 +96,22 @@
           "object_kind": "axis"
         },
         {
-          "object_alias": "series_1",
-          "object_key": "primary",
-          "object_kind": "series"
-        },
-        {
           "object_alias": "legend",
           "object_key": "main",
           "object_kind": "legend"
         }
       ],
       "optional_roles": [
-        "label"
+        "group"
       ],
       "profile_id": "K01",
-      "repeatable_objects": [],
+      "repeatable_objects": [
+        {
+          "object_alias_prefix": "series",
+          "object_key_prefix": "group",
+          "object_kind": "series"
+        }
+      ],
       "repeatable_role_prefixes": [],
       "required_roles": [
         "x",

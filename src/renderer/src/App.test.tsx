@@ -49,6 +49,7 @@ const dataset = {
 const secondDataset = {
   ...dataset,
   source_dataset_id: 'source:pressure',
+  source_file_name: 'pressure.csv',
   content_hash: 'c'.repeat(64),
   fields: dataset.fields.map((field) => ({
     ...field,
@@ -631,7 +632,10 @@ describe('PlotAgent real desktop workflow', () => {
       action: expect.objectContaining({
         operation: 'create_plot',
         profile_id: 'K01',
-        bindings: [{ role: 'x', field_id: 'field:time' }, { role: 'y', field_id: 'field:signal' }],
+        bindings: expect.arrayContaining([
+          { role: 'x', field_id: 'field:time' },
+          { role: 'y', field_id: 'field:signal' },
+        ]),
       }),
     }))
     expect(await screen.findByRole('img')).toHaveAttribute('src', expect.stringMatching(/^plotagent-resource:/))
@@ -1055,7 +1059,7 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
     await user.click(await screen.findByRole('button', { name: '示例' }))
     await user.click(screen.getByText('提供给 Agent 的数据表'))
-    await user.click(screen.getByRole('checkbox', { name: /source:pressure/ }))
+    await user.click(screen.getByRole('checkbox', { name: /pressure\.csv/ }))
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K03')
     await user.click(screen.getByRole('button', { name: /K03.*散点图/ }))
@@ -1171,6 +1175,34 @@ describe('PlotAgent real desktop workflow', () => {
     }))
   })
 
+  it('adds a data table explicitly named in the instruction without changing the active table', async () => {
+    const user = userEvent.setup()
+    const prepareWorkflow = vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture())))
+    installApi(fakeDesktop({
+      runWorkflow: prepareWorkflow,
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '把 pressure.csv 和当前数据画在同一张 K03 散点图中',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    await screen.findByRole('heading', { name: '任务计划' })
+    expect(prepareWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
+      selectedSources: [
+        { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
+      ],
+    }))
+  })
+
   it('lets an explicit multi-dataset request choose different chart types without a preselected chart', async () => {
     const user = userEvent.setup()
     const prepareWorkflow = vi.fn(async (input: unknown) => {
@@ -1189,7 +1221,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(await screen.findByRole('button', { name: '示例' }))
 
     await user.click(screen.getByText('提供给 Agent 的数据表'))
-    await user.click(screen.getByRole('checkbox', { name: /source:pressure/ }))
+    await user.click(screen.getByRole('checkbox', { name: /pressure\.csv/ }))
     await user.type(
       screen.getByRole('textbox', { name: '描述绘图要求' }),
       '数据一画 K01 折线图，数据二画 K03 散点图',

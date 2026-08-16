@@ -9,12 +9,12 @@ from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.engine.contracts import (
     BindFields,
     CreatePlot,
-    EngineColumn,
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.profile_data import K03ScatterData, grouped_xy
 from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
@@ -31,6 +31,7 @@ class K01OriginProject:
         self.graph: Any = None
         self.layer: Any = None
         self.plot: Any = None
+        self.plots: list[Any] = []
         self.sheet: Any = None
 
     def create(
@@ -52,9 +53,15 @@ class K01OriginProject:
         if book is None:
             raise RuntimeError("Origin could not create the K01 data workbook")
         self.sheet = book[0]
-        with origin_trace_step("source_data_write", details={"designation": "XY"}):
-            self._write_data(document, data)
-        command = "worksheet -s 1 0 2 0; worksheet -p 200 Line;"
+        grouped = grouped_xy(document, data, profile_id="K01")
+        with origin_trace_step(
+            "source_data_write",
+            details={"designation": "XY repeated", "group_count": len(grouped.groups)},
+        ):
+            self._write_data(grouped)
+        command = (
+            f"worksheet -s 1 0 {len(grouped.groups) * 2} 0; worksheet -p 200 Line;"
+        )
         with origin_trace_step(
             "official_plot_command_execute",
             details={
@@ -73,16 +80,17 @@ class K01OriginProject:
         self.graph.name = f"G{token}"
         self.graph.lname = f"K01 Line / {document.plot_id}"
         self.layer = self.graph[0]
-        plots = list(self.layer.plot_list())
-        if len(plots) != 1:
-            raise RuntimeError("Origin Line menu must create one native line")
-        self.plot = plots[0]
+        self.plots = list(self.layer.plot_list())
+        if len(self.plots) != len(grouped.groups):
+            raise RuntimeError("Origin Line menu must create one native line per data group")
+        self.plot = self.plots[0]
         with origin_trace_step("template_residue_remove"):
             for residue in tuple(self.op.pages("w")):
                 if residue.name != book.name:
                     residue.destroy()
         self.layer.rescale()
-        native = self._assert_native_structure()
+        self._set_legend(grouped, visible=len(grouped.groups) > 1)
+        native = self._assert_native_structure(grouped)
         record_origin_trace("native_line_confirmed", "completed", details=native)
 
     def open(self, project_path: Path) -> None:
@@ -95,10 +103,10 @@ class K01OriginProject:
             raise RuntimeError("K01 Origin project must contain one graph and one workbook")
         self.graph = graphs[0]
         self.layer = self.graph[0]
-        plots = self.layer.plot_list()
-        if len(plots) != 1:
-            raise RuntimeError("K01 Origin project must contain one native data plot")
-        self.plot = plots[0]
+        self.plots = list(self.layer.plot_list())
+        if not self.plots:
+            raise RuntimeError("K01 Origin project must contain native data plots")
+        self.plot = self.plots[0]
         self.sheet = books[0][0]
 
     def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
@@ -106,7 +114,11 @@ class K01OriginProject:
         if isinstance(action, CreatePlot):
             return
         if isinstance(action, BindFields):
-            self._write_data(document, data)
+            grouped = grouped_xy(document, data, profile_id="K01")
+            if len(grouped.groups) != len(self.plots):
+                raise RuntimeError("K01 group count changes require a native graph rebuild")
+            self._write_data(grouped)
+            self._set_legend(grouped, visible=len(grouped.groups) > 1)
             self.layer.rescale()
             return
         raise ValueError(f"Origin K01 binder cannot apply {action.operation}")
@@ -123,11 +135,13 @@ class K01OriginProject:
         actions: tuple[PlotEngineAction, ...],
         data: EngineDataView,
     ) -> EngineReadback:
-        native = self._assert_native_structure()
+        grouped = grouped_xy(document, data, profile_id="K01")
+        native = self._assert_native_structure(grouped)
         record_origin_trace("reopened_line_confirmed", "completed", details=native)
-        x_column, y_column = self._bound_columns(document, data)
-        self._assert_values(self.sheet.to_list(0), x_column.values, "x")
-        self._assert_values(self.sheet.to_list(1), y_column.values, "y")
+        self._assert_linked_legend(grouped, visible=len(grouped.groups) > 1)
+        for index, group in enumerate(grouped.groups):
+            self._assert_values(self.sheet.to_list(index * 2), group.x_values, "x")
+            self._assert_values(self.sheet.to_list(index * 2 + 1), group.y_values, "y")
         token = document.plot_id.removeprefix("plot:")
         style_snapshot: dict[str, object] = {"native_structure": native}
         objects = (
@@ -149,11 +163,14 @@ class K01OriginProject:
                 object_kind="axis",
                 native_ref=f"graph:{self.graph.name}.layer:1.axis:y",
             ),
-            EngineObjectRef(
-                semantic_id=f"series:{token}.primary",
-                backend="origin",
-                object_kind="line",
-                native_ref=f"graph:{self.graph.name}.layer:1.plot:1",
+            *tuple(
+                EngineObjectRef(
+                    semantic_id=f"series:{token}.group_{index}",
+                    backend="origin",
+                    object_kind="line",
+                    native_ref=f"graph:{self.graph.name}.layer:1.plot:{index}",
+                )
+                for index in range(1, len(grouped.groups) + 1)
             ),
             EngineObjectRef(
                 semantic_id=f"legend:{token}.main",
@@ -170,68 +187,115 @@ class K01OriginProject:
             style_hash=canonical_hash(cast(JsonValue, style_snapshot)),
         )
 
-    def _write_data(self, document: PlotDocument, data: EngineDataView) -> None:
-        x_column, y_column = self._bound_columns(document, data)
-        self.sheet.from_list(
-            0,
-            list(x_column.values),
-            lname=x_column.field.name,
-            units=x_column.field.unit_label or "",
-            axis="X",
-        )
-        self.sheet.from_list(
-            1,
-            list(y_column.values),
-            lname=y_column.field.name,
-            units=y_column.field.unit_label or "",
-            axis="Y",
-        )
+    def _write_data(self, grouped: K03ScatterData) -> None:
+        for index, group in enumerate(grouped.groups):
+            self.sheet.from_list(
+                index * 2,
+                list(group.x_values),
+                lname=grouped.x_field_name,
+                axis="X",
+            )
+            self.sheet.from_list(
+                index * 2 + 1,
+                list(group.y_values),
+                lname=group.label,
+                axis="Y",
+            )
 
-    def _assert_native_structure(self) -> dict[str, object]:
+    def _set_legend(self, grouped: K03ScatterData, *, visible: bool) -> None:
+        self.graph.activate()
+        if not self.op.lt_exec(
+            "page.active=1; legendupdate dest:=layer update:=reconstruct "
+            "legend:=separate mode:=lname;"
+        ):
+            raise RuntimeError("Origin could not reconstruct the linked K01 legend")
+        legend = self.layer.label("legend")
+        if legend is None:
+            if visible:
+                raise RuntimeError("Origin K01 did not create its linked legend")
+            return
+        legend.text = "\n".join(
+            f"\\l({index}) %({index})" for index in range(1, len(grouped.groups) + 1)
+        )
+        legend.set_int("link", 1)
+        legend.set_int("show", int(visible))
+
+    def _assert_linked_legend(self, grouped: K03ScatterData, *, visible: bool) -> None:
+        legend = self.layer.label("legend")
+        if legend is None:
+            if visible:
+                raise RuntimeError("Origin K01 lost its linked legend")
+            return
+        if bool(legend.get_int("show")) != visible:
+            raise RuntimeError("Origin K01 legend visibility differs after reopen")
+        expected = tuple(
+            f"\\l({index}) %({index})" for index in range(1, len(grouped.groups) + 1)
+        )
+        actual = tuple(line.strip() for line in str(legend.text).splitlines() if line.strip())
+        if actual != expected or int(legend.get_int("link")) != 1:
+            raise RuntimeError("Origin K01 legend lost a linked group entry")
+
+    def _assert_native_structure(self, grouped: K03ScatterData) -> dict[str, object]:
         self.graph.activate()
         graph_name = str(self.graph.name)
         if not graph_name.replace("_", "").isalnum():
             raise RuntimeError(f"unsafe K01 graph name for native readback: {graph_name!r}")
-        command = (
-            "page.active=1; layer -c; __K01COUNT=count; "
-            f"range __K01P=[{graph_name}]1!1; "
-            "range -wx __K01X=__K01P; range -wy __K01Y=__K01P; "
-            "get __K01P -pt __K01PID; "
-            "string __K01XS$=%(__K01X); string __K01YS$=%(__K01Y);"
-        )
-        if not self.op.lt_exec(command):
+        if not self.op.lt_exec("page.active=1; layer -c; __K01COUNT=count;"):
             raise RuntimeError("Origin could not read the native K01 Line structure")
         plot_count = int(self.op.lt_float("__K01COUNT"))
-        plot_id = int(self.op.lt_float("__K01PID"))
-        designations = tuple(int(self.sheet.get_int(f"col{index}.type")) for index in (1, 2))
-        x_range = str(self.op.get_lt_str("__K01XS"))
-        y_range = str(self.op.get_lt_str("__K01YS"))
-        if plot_count != 1 or plot_id != 200:
-            raise RuntimeError("Origin K01 must retain one native PID 200 Line plot")
-        if designations != (4, 1):
-            raise RuntimeError("Origin K01 worksheet must retain X/Y designations")
-        if not x_range.split('"', 1)[0].endswith("!A") or not y_range.split('"', 1)[0].endswith(
-            "!B"
-        ):
-            raise RuntimeError("Origin K01 Line lost its source-column binding")
+        if plot_count != len(grouped.groups):
+            raise RuntimeError("Origin K01 native plot count differs from data groups")
+        plots: list[dict[str, object]] = []
+        for index in range(1, plot_count + 1):
+            command = (
+                f"range __K01P=[{graph_name}]1!{index}; "
+                "range -wx __K01X=__K01P; range -wy __K01Y=__K01P; "
+                "get __K01P -pt __K01PID; "
+                "string __K01XS$=%(__K01X); string __K01YS$=%(__K01Y);"
+            )
+            if not self.op.lt_exec(command):
+                raise RuntimeError(f"Origin could not read K01 line group {index}")
+            plot_id = int(self.op.lt_float("__K01PID"))
+            x_range = str(self.op.get_lt_str("__K01XS"))
+            y_range = str(self.op.get_lt_str("__K01YS"))
+            x_letter = self._column_name(index * 2 - 1)
+            y_letter = self._column_name(index * 2)
+            if plot_id != 200:
+                raise RuntimeError("Origin K01 must retain only native PID 200 Line plots")
+            if not x_range.split('"', 1)[0].endswith(f"!{x_letter}") or not y_range.split(
+                '"', 1
+            )[0].endswith(f"!{y_letter}"):
+                raise RuntimeError("Origin K01 Line lost a group/source binding")
+            plots.append(
+                {
+                    "plot_index": index,
+                    "plot_id": plot_id,
+                    "x_range": x_range,
+                    "y_range": y_range,
+                }
+            )
+        designations = tuple(
+            int(self.sheet.get_int(f"col{index}.type"))
+            for index in range(1, plot_count * 2 + 1)
+        )
+        if designations != (4, 1) * plot_count:
+            raise RuntimeError("Origin K01 worksheet must retain repeated X/Y designations")
         return {
             "official_template": K01_ORIGIN_PROFILE.filename,
             "official_menu": "Plot > Basic 2D: Line",
-            "native_plot_type": plot_id,
             "plot_count": plot_count,
             "designation_codes": list(designations),
-            "x_range": x_range,
-            "y_range": y_range,
+            "plots": plots,
         }
 
     @staticmethod
-    def _bound_columns(
-        document: PlotDocument,
-        data: EngineDataView,
-    ) -> tuple[EngineColumn, EngineColumn]:
-        bindings = {binding.role: binding.field_id for binding in document.bindings}
-        columns = {column.field.field_id: column for column in data.columns}
-        return columns[bindings["x"]], columns[bindings["y"]]
+    def _column_name(ordinal: int) -> str:
+        output = ""
+        value = ordinal
+        while value:
+            value, remainder = divmod(value - 1, 26)
+            output = chr(65 + remainder) + output
+        return output
 
     @staticmethod
     def _assert_values(actual: list[object], expected: tuple[object, ...], role: str) -> None:
@@ -271,7 +335,8 @@ def execute_k01_request(
         raise RuntimeError("fresh K01 project has unexpected graph or workbook count")
     reopened.graph = graphs[0]
     reopened.layer = reopened.graph[0]
-    reopened.plot = reopened.layer.plot_list()[0]
+    reopened.plots = list(reopened.layer.plot_list())
+    reopened.plot = reopened.plots[0]
     reopened.sheet = books[0][0]
     with origin_trace_step("reopened_native_structure_verify"):
         return reopened.verify(request.document, request.actions, request.data)

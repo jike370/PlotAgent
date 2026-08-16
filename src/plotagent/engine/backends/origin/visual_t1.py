@@ -518,6 +518,10 @@ def _apply_legend(op: Any, graph: Any, action: SetLegend) -> None:
     if action.anchor is not None:
         positions = {
             "inside": (1, 0.72, 0.06),
+            "inside_top_left": (1, 0.06, 0.06),
+            "inside_top_right": (1, 0.72, 0.06),
+            "inside_bottom_left": (1, 0.06, 0.82),
+            "inside_bottom_right": (1, 0.72, 0.82),
             "right": (1, 0.84, 0.12),
             "bottom": (1, 0.25, 0.88),
             "none": (1, 0.72, 0.06),

@@ -8,12 +8,15 @@ paths and executable expressions never cross this boundary.
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, cast
 
 from plotagent.contracts.canonical import canonical_json
 from plotagent.contracts.workflows import (
+    CompiledTaskItem,
+    DraftSetAxis,
     TaskDraft,
     WorkflowBudget,
     WorkflowContext,
@@ -22,7 +25,12 @@ from plotagent.contracts.workflows import (
     WorkflowRecipe,
     WorkflowSource,
 )
-from plotagent.engine import ProjectEngineDataProvider
+from plotagent.engine import (
+    EngineDataRef,
+    FieldBinding,
+    ProjectEngineDataProvider,
+    RoutedEngineDataProvider,
+)
 from plotagent.storage import ProjectDomainRepository, ProjectStore
 from plotagent.workflows import (
     DraftCompiler,
@@ -34,10 +42,12 @@ from plotagent.workflows import (
     replay_recipe,
     structure_fingerprint,
 )
-from plotagent.workflows.data_ops import prepare_task_data
+from plotagent.workflows.data_ops import WorkflowDataError, prepare_task_data
 from plotagent.workflows.executor import TaskPlanExecutor
 from plotagent.workflows.inspection import DataInspectionService
-from plotagent.workflows.profiles import explicit_profile_ids
+from plotagent.workflows.natural_language import parse_explicit_goal
+from plotagent.workflows.profiles import explicit_profile_ids, profile_mentions
+from plotagent.workflows.router import named_source_aliases
 
 from .engine_session import DesktopEngineSession
 
@@ -218,6 +228,7 @@ class DesktopWorkflowService:
         # Route selection is a local cost/permission decision, never a model
         # choice.  Normalize the declarative draft before compilation.
         draft = draft.model_copy(update={"route": run.route})
+        self._validate_agent_draft(draft, context)
         plan = DraftCompiler(self.engine.catalog).compile(draft, context)
         self.repository.save_draft(draft)
         snapshot = self.repository.save_plan(plan)
@@ -273,8 +284,99 @@ class DesktopWorkflowService:
                 item, source_provider, self.engine.data_views
             ),
             execute_action=self._execute_action,
+            validate_prepared_data=self._validate_prepared_data,
+            validate_edit_data=self._validate_edit_data,
         )
         return executor.run(plan_id).model_dump(mode="json")
+
+    def _validate_prepared_data(
+        self,
+        item: CompiledTaskItem,
+        data: EngineDataRef,
+        bindings: tuple[FieldBinding, ...],
+    ) -> None:
+        self._validate_log10_axes(item, data, bindings)
+
+    def _validate_edit_data(self, item: CompiledTaskItem) -> None:
+        if item.target_plot_id is None or item.target_plot_version is None:
+            return
+        document = self.engine.documents.get(
+            item.target_plot_id,
+            item.target_plot_version,
+        ).document
+        self._validate_log10_axes(item, document.data, document.bindings)
+
+    def _validate_log10_axes(
+        self,
+        item: CompiledTaskItem,
+        data: EngineDataRef,
+        bindings: tuple[FieldBinding, ...],
+    ) -> None:
+        axes = {
+            action.target_alias
+            for action in item.visual_actions
+            if isinstance(action, DraftSetAxis) and action.scale == "log10"
+        }
+        if not axes:
+            return
+        roles = {
+            binding.role
+            for binding in bindings
+            if self._role_axis(binding.role) in axes
+        }
+        if not roles:
+            return
+        field_ids = tuple(
+            binding.field_id for binding in bindings if binding.role in roles
+        )
+        provider = RoutedEngineDataProvider(
+            ProjectEngineDataProvider(self.store),
+            self.engine.data_views,
+        )
+        view = provider.materialize(data, tuple(dict.fromkeys(field_ids)))
+        invalid = any(
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and value <= 0
+            for column in view.columns
+            for value in column.values
+            if value is not None
+        )
+        if invalid:
+            raise WorkflowDataError(
+                "LOG_SCALE_NON_POSITIVE",
+                "Log10 轴包含 0 或负值；任务未执行，项目没有发生变化。",
+            )
+
+    @staticmethod
+    def _role_axis(role: str) -> str | None:
+        if role in {
+            "x",
+            "time",
+            "category",
+            "column",
+            "column_label",
+            "predicted",
+            "base_x",
+            "z_real",
+        }:
+            return "x_axis"
+        if role in {
+            "group",
+            "label",
+            "facet",
+            "component",
+            "row",
+            "row_label",
+            "actual",
+            "feature",
+            "frequency",
+            "size",
+            "color",
+            "count",
+        }:
+            return None
+        return "y_axis"
 
     def save_recipe(
         self,
@@ -338,6 +440,105 @@ class DesktopWorkflowService:
                 )
                 return recipe
         return None
+
+    @staticmethod
+    def _validate_agent_draft(draft: TaskDraft, context: WorkflowContext) -> None:
+        """Enforce user intent after model generation and before compilation.
+
+        The model may propose a draft, but it cannot change named data sources,
+        chart types, target kind, or explicit visual parameters.  These checks
+        are semantic and therefore cannot be represented by JSON Schema alone.
+        """
+
+        mentioned_profiles = tuple(
+            dict.fromkeys(item[0] for item in profile_mentions(
+                context.instruction,
+                context.allowed_profile_ids,
+            ))
+        )
+        used_profiles = tuple(dict.fromkeys(item.profile_id for item in draft.items))
+        if mentioned_profiles and set(used_profiles) != set(mentioned_profiles):
+            raise WorkflowServiceError(
+                "WORKFLOW_PROFILE_INTENT_MISMATCH",
+                "任务草稿改变或遗漏了用户明确指定的图形类型。",
+            )
+        if (
+            not mentioned_profiles
+            and context.selected_profile_ids
+            and not set(used_profiles) <= set(context.selected_profile_ids)
+        ):
+            raise WorkflowServiceError(
+                "WORKFLOW_PROFILE_INTENT_MISMATCH",
+                "任务草稿使用了用户未选择的图形类型。",
+            )
+
+        named_sources = named_source_aliases(context)
+        multi_source_required = len(context.selected_source_aliases) > 1 and any(
+            token in context.instruction.casefold()
+            for token in (
+                "这些数据",
+                "这些表",
+                "每个",
+                "分别",
+                "批量",
+                "一起",
+                "合并",
+                "同一张",
+                "each",
+                "batch",
+                "together",
+            )
+        )
+        required_sources = (
+            named_sources
+            if named_sources
+            else context.selected_source_aliases
+            if multi_source_required
+            else ()
+        )
+        used_sources = tuple(
+            dict.fromkeys(alias for item in draft.items for alias in item.source_aliases)
+        )
+        if required_sources and set(used_sources) != set(required_sources):
+            raise WorkflowServiceError(
+                "WORKFLOW_SOURCE_INTENT_MISMATCH",
+                "任务草稿改变或遗漏了用户明确指定的数据表。",
+            )
+
+        explicit_create = re.search(
+            r"创建|新建|再画|再绘制|新增一张|create|new plot",
+            context.instruction,
+            flags=re.IGNORECASE,
+        ) is not None
+        if context.selected_plot_aliases and not explicit_create:
+            if any(item.task_kind != "edit" for item in draft.items):
+                raise WorkflowServiceError(
+                    "WORKFLOW_TARGET_INTENT_MISMATCH",
+                    "当前图编辑请求不能被替换成新建图形。",
+                )
+            if any(
+                item.target_plot_alias not in context.selected_plot_aliases
+                for item in draft.items
+            ):
+                raise WorkflowServiceError(
+                    "WORKFLOW_TARGET_INTENT_MISMATCH",
+                    "任务草稿改变了用户选择的图形对象。",
+                )
+
+        explicit_goal = parse_explicit_goal(context, source_alias=None)
+        if explicit_goal is not None and explicit_goal.visual_actions:
+            actual = tuple(
+                action.model_dump(mode="json", exclude_none=True)
+                for item in draft.items
+                for action in item.visual_actions
+            )
+            for expected in explicit_goal.visual_actions:
+                payload = expected.model_dump(mode="json", exclude_none=True)
+                if payload not in actual:
+                    raise WorkflowServiceError(
+                        "WORKFLOW_VISUAL_INTENT_MISMATCH",
+                        "任务草稿遗漏或改变了用户明确指定的视觉参数。",
+                    )
 
     def _execute_action(self, action, revision: int) -> int:  # type: ignore[no-untyped-def]
         self.engine.execute_action(action, expected_project_revision=revision)

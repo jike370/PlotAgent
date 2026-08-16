@@ -667,7 +667,6 @@ function WorkflowPlanObject({
     cancelled: '已取消',
     rejected: '已拒绝',
   }
-  const bindingRows = [...new Map(plan.bindings.map((binding) => [`${binding.role}:${binding.fieldId}`, binding])).values()]
   const fieldLabel = (fieldId: string): string => {
     for (const dataset of datasets) {
       const field = dataset.fields.find((candidate) => candidate.fieldId === fieldId)
@@ -688,10 +687,6 @@ function WorkflowPlanObject({
         <span><strong>对象</strong>{plot ? `${plot.plotId} · v${plot.plotVersion}` : `${selectedChart?.id ?? '待定'} · 新图`}</span>
         <span><strong>输出</strong>Matplotlib 预览 · 可导出 Origin 原生项目</span>
       </div>
-      {bindingRows.length > 0 && <div className="agent-plan__bindings" aria-label="字段绑定声明">
-        <strong>字段绑定</strong>
-        <dl>{bindingRows.map((binding) => <div key={`${binding.role}:${binding.fieldId}`}><dt>{binding.role}</dt><dd>{fieldLabel(binding.fieldId)}</dd></div>)}</dl>
-      </div>}
       <ol className="agent-plan__steps">
         {plan.steps.map((step) => (
           <li className={`agent-plan-step agent-plan-step--${step.state}`} key={step.taskItemId}>
@@ -707,6 +702,13 @@ function WorkflowPlanObject({
             <div>
               <strong>{step.title}</strong>
               {step.detail && <p className="agent-plan-step__detail">{step.detail}</p>}
+              {step.bindings.length > 0 && <dl className="agent-plan-step__bindings" aria-label={`${step.title} 字段绑定`}>
+                <div className="agent-plan-step__section-label"><dt>字段绑定</dt><dd /></div>
+                {step.bindings.map((binding) => <div key={`${binding.role}:${binding.fieldId}`}><dt>{binding.role}</dt><dd>{fieldLabel(binding.fieldId)}</dd></div>)}
+              </dl>}
+              {step.changes.length > 0 && <ul className="agent-plan-step__changes" aria-label={`${step.title} 视觉修改`}>
+                {step.changes.map((change) => <li key={change}>{change}</li>)}
+              </ul>}
               {step.outputPlot && <p className="agent-plan-step__output">{step.outputPlot.plotId} · v{step.outputPlot.plotVersion}</p>}
               {step.failure && <p>{step.failure.message}</p>}
             </div>
