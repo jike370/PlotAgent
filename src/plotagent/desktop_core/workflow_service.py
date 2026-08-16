@@ -97,11 +97,19 @@ class DesktopWorkflowService:
             table = self.domain.resolve_source(source)
             source_alias = f"data_{source_position}"
             record = records.get((dataset_id, version))
-            display_name = (
-                record.display_name
-                if record is not None and record.display_name
-                else table.display_name or dataset_id
-            )
+            if record is not None and record.source_file_name:
+                source_location = record.sheet_name or record.source_block
+                display_name = (
+                    record.source_file_name
+                    if not source_location
+                    else f"{record.source_file_name} > {source_location}"
+                )
+            else:
+                display_name = (
+                    record.display_name
+                    if record is not None and record.display_name
+                    else table.display_name or dataset_id
+                )
             sources.append(
                 WorkflowSource(
                     source_alias=source_alias,

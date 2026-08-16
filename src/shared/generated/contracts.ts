@@ -72,6 +72,7 @@ export type ConcatenateSources = {
   readonly operation?: "concatenate_sources";
   readonly source_aliases: ReadonlyArray<string>;
   readonly source_label_field?: string;
+  readonly source_labels?: ReadonlyArray<string>;
 }
 
 export type ConfusionCountResult = {
@@ -1076,6 +1077,8 @@ export type TaskItemProgress = {
   readonly state: "pending" | "running" | "succeeded" | "failed" | "blocked" | "cancelled";
   readonly attempt_count?: number;
   readonly error_code?: string | null;
+  readonly error_message?: string | null;
+  readonly error_retryable?: boolean | null;
   readonly output_plot_id?: string | null;
   readonly output_plot_version?: number | null;
 }

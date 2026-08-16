@@ -111,7 +111,11 @@ function enginePlotFixture(
 function workflowPlanFixture(
   state = 'awaiting_confirmation',
   stepState = state === 'succeeded' ? 'succeeded' : 'pending',
-  options: { planId?: string; plotVersion?: number; failure?: JsonValue } = {},
+  options: {
+    planId?: string
+    plotVersion?: number
+    failure?: { code: string; message: string; retryable: boolean }
+  } = {},
 ): JsonValue {
   const planId = options.planId ?? 'plan:one'
   const plotVersion = options.plotVersion
@@ -149,7 +153,11 @@ function workflowPlanFixture(
       item_id: 'item:one',
       state: progressState,
       attempt_count: progressState === 'pending' ? 0 : 1,
-      ...(options.failure === undefined ? {} : { error_code: 'SYNTHETIC_FAILURE' }),
+      ...(options.failure === undefined ? {} : {
+        error_code: options.failure.code,
+        error_message: options.failure.message,
+        error_retryable: options.failure.retryable,
+      }),
       ...(plotVersion === undefined ? {} : { output_plot_id: 'plot:one', output_plot_version: plotVersion }),
     }],
     created_at: '2026-08-16T00:00:00Z',
@@ -1314,7 +1322,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(await screen.findByRole('button', { name: '示例' }))
 
     expect(await screen.findByText('部分完成')).toBeInTheDocument()
-    expect(screen.getByText('该任务项未完成，其他已成功项会保留。')).toBeInTheDocument()
+    expect(screen.getByText('OPJU 导出未完成。')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '继续未完成步骤' }))
 
     expect(resumeWorkflowPlan).toHaveBeenCalledWith({ projectId: 'project:sample', planId: 'plan:one' })

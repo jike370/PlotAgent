@@ -162,6 +162,7 @@ def test_isomorphic_concat_uses_the_program_first_route_and_preserves_source_ide
     item = draft.items[0]
     assert item.source_aliases == ("data_1", "data_2")
     assert item.data_operations[0].operation == "concatenate_sources"
+    assert item.data_operations[0].source_labels == ()
     assert item.bindings[-1].role == "group"
     assert item.bindings[-1].field_alias == "source_group"
     assert DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(draft, context).valid
@@ -182,6 +183,78 @@ def test_k01_multi_source_goal_uses_source_identity_as_the_group() -> None:
     assert item.data_operations[0].operation == "concatenate_sources"
     assert item.bindings[-1].role == "group"
     assert item.bindings[-1].field_alias == "source_group"
+
+
+def test_same_chart_wording_uses_program_first_concat_without_extra_join_keyword() -> None:
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(
+        _context(
+            "将已提供的 2 个数据表画在同一张 K01 折线图中；各表 Time 绑定 x，Response 绑定 y。",
+            selected_sources=("data_1", "data_2"),
+        )
+    )
+
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    item = decision.deterministic.draft.items[0]
+    assert item.source_aliases == ("data_1", "data_2")
+    assert item.data_operations[0].operation == "concatenate_sources"
+    assert item.bindings[-1].role == "group"
+
+
+def test_explicit_file_names_limit_same_chart_sources_before_schema_comparison() -> None:
+    base = _context(
+        "将 series_A.xlsx、series_B.xlsx、series_C.xlsx 三个数据表画在同一张 K19 时间序列图中；"
+        "各表 Time 绑定 time，Signal 绑定 series_1；保留 A、B、C 数据来源身份作为系列名称。",
+        selected_sources=("data_1", "data_2"),
+    )
+    sources = tuple(
+        WorkflowSource(
+            source_alias=f"data_{position}",
+            source_dataset_id=f"source:{position}",
+            source_version=1,
+            content_hash=f"{position}" * 64,
+            display_name=(
+                f"series_{letter}.xlsx > Data"
+                if position < 4
+                else "unrelated.xlsx > K19"
+            ),
+            row_count=3,
+        )
+        for position, letter in enumerate(("A", "B", "C", "D"), start=1)
+    )
+    fields = tuple(
+        WorkflowField(
+            field_alias=f"data_{position}_{name.casefold()}",
+            source_alias=f"data_{position}",
+            field_id=f"field:{position}.{name.casefold()}",
+            name=name,
+            logical_type=logical_type,
+        )
+        for position in range(1, 5)
+        for name, logical_type in (
+            (("Time", "datetime"), ("Signal", "numeric"))
+            if position < 4
+            else (("Timestamp", "datetime"), ("Value", "numeric"))
+        )
+    )
+    context = base.model_copy(
+        update={
+            "sources": sources,
+            "fields": fields,
+            "selected_source_aliases": ("data_1", "data_2", "data_3", "data_4"),
+            "selected_profile_ids": ("K19",),
+        }
+    )
+    assert named_source_aliases(context) == ("data_1", "data_2", "data_3")
+
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(context)
+
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    item = decision.deterministic.draft.items[0]
+    assert item.source_aliases == ("data_1", "data_2", "data_3")
+    assert item.data_operations[0].operation == "concatenate_sources"
+    assert item.data_operations[0].source_labels == ("A", "B", "C")
 
 
 def test_multi_source_profile_without_group_support_fails_closed() -> None:
@@ -295,8 +368,12 @@ def test_task_draft_rejects_binding_outside_declared_sources() -> None:
 
 
 def test_concat_operation_preserves_explicit_source_order() -> None:
-    operation = ConcatenateSources(source_aliases=("data_2", "data_1"))
+    operation = ConcatenateSources(
+        source_aliases=("data_2", "data_1"),
+        source_labels=("Second", "First"),
+    )
     assert operation.source_aliases == ("data_2", "data_1")
+    assert operation.source_labels == ("Second", "First")
 
 
 def test_compiler_accepts_the_concatenate_source_identity_field() -> None:
@@ -318,6 +395,7 @@ def test_compiler_accepts_the_concatenate_source_identity_field() -> None:
                     ConcatenateSources(
                         source_aliases=("data_1", "data_2"),
                         source_label_field="source_group",
+                        source_labels=("Sheet1", "Sheet2"),
                     ),
                 ),
                 bindings=(

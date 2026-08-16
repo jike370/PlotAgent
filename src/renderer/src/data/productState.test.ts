@@ -291,15 +291,55 @@ describe('product plot state', () => {
       state: 'partially_succeeded',
       item_progress: [
         { item_id: 'item:a-create', state: 'succeeded', attempt_count: 1 },
-        { item_id: 'item:a-scale', state: 'failed', attempt_count: 2, error_code: 'INVALID_SCALE' },
+        {
+          item_id: 'item:a-scale',
+          state: 'failed',
+          attempt_count: 2,
+          error_code: 'PROJECT_VERSION_CONFLICT',
+          error_message: '项目版本已经变化，请重新执行。',
+          error_retryable: true,
+        },
         { item_id: 'item:b-create', state: 'succeeded', attempt_count: 1 },
       ],
     })
 
     expect(plan?.steps.map((step) => step.state)).toEqual(['succeeded', 'failed', 'succeeded'])
     expect(plan?.steps[1]?.attemptCount).toBe(2)
-    expect(plan?.steps[1]?.failure?.code).toBe('INVALID_SCALE')
+    expect(plan?.steps[1]?.failure).toEqual({
+      code: 'PROJECT_VERSION_CONFLICT',
+      message: '项目版本已经变化，请重新执行。',
+      retryable: true,
+    })
     expect(plan?.completedCount).toBe(2)
+    expect(plan?.resumable).toBe(true)
+  })
+
+  it('does not offer resume for a deterministic data failure', () => {
+    const plan = readWorkflowPlan({
+      plan: {
+        plan_id: 'plan:nonretryable',
+        items: [{
+          item_id: 'item:scale',
+          task_kind: 'edit',
+          profile_id: 'K01',
+          sources: [],
+          bindings: [],
+          visual_actions: [{ operation: 'set_axis', target_alias: 'y_axis', scale: 'log10' }],
+        }],
+      },
+      state: 'failed',
+      item_progress: [{
+        item_id: 'item:scale',
+        state: 'failed',
+        attempt_count: 1,
+        error_code: 'LOG_SCALE_NON_POSITIVE',
+        error_message: 'Log10 轴包含 0 或负值；任务未执行，项目没有发生变化。',
+        error_retryable: false,
+      }],
+    })
+
+    expect(plan?.steps[0]?.failure?.message).toContain('0 或负值')
+    expect(plan?.resumable).toBe(false)
   })
 
   it('preserves the binding source when field ids repeat across datasets', () => {

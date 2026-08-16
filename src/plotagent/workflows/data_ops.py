@@ -106,9 +106,13 @@ def prepare_task_data(
             )
         elif operation.operation == "concatenate_sources":
             selected = tuple(views[alias] for alias in operation.source_aliases)
+            source_by_alias = {source.source_alias: source for source in item.sources}
+            source_labels = operation.source_labels or tuple(
+                source_by_alias[alias].display_name for alias in operation.source_aliases
+            )
             combined = _concatenate(
                 selected,
-                operation.source_aliases,
+                source_labels,
                 _field_id(item, operation.source_label_field),
             )
             views = {operation.source_aliases[0]: combined}
@@ -354,7 +358,7 @@ def _long_to_wide(
 
 def _concatenate(
     views: tuple[EngineDataView, ...],
-    source_aliases: tuple[str, ...],
+    source_labels: tuple[str, ...],
     source_label_id: str,
 ) -> EngineDataView:
     baseline = views[0]
@@ -369,11 +373,11 @@ def _concatenate(
         )
     row_ids: list[str] = []
     output_values: list[list[WorkflowScalar]] = [[] for _ in baseline.columns]
-    source_labels: list[WorkflowScalar] = []
-    for source_index, (alias, view) in enumerate(zip(source_aliases, views, strict=True), start=1):
+    source_values: list[WorkflowScalar] = []
+    for source_index, (label, view) in enumerate(zip(source_labels, views, strict=True), start=1):
         for row_index, _row_id in enumerate(view.row_ids):
             row_ids.append(f"row:concat.{source_index}.{row_index + 1}")
-            source_labels.append(alias)
+            source_values.append(label)
         for position, column in enumerate(view.columns):
             output_values[position].extend(column.values)
     return EngineDataView(
@@ -390,7 +394,7 @@ def _concatenate(
                     name="Source",
                     logical_type="categorical",
                 ),
-                values=tuple(source_labels),
+                values=tuple(source_values),
             ),
         ),
     )

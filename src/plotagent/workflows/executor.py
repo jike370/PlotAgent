@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from plotagent.contracts.errors import ERRORS_BY_CODE
 from plotagent.contracts.workflows import (
     CompiledTaskItem,
     DraftAddAnnotation,
@@ -93,6 +94,8 @@ class TaskPlanExecutor:
                     item.item_id,
                     "blocked",
                     error_code="UPSTREAM_TASK_ITEM_FAILED",
+                    error_message="前置任务未完成，因此本任务尚未执行。",
+                    error_retryable=True,
                 )
                 failed_ids.add(item.item_id)
                 continue
@@ -117,11 +120,14 @@ class TaskPlanExecutor:
                 failed_ids.discard(item.item_id)
             except Exception as error:
                 code = getattr(error, "code", type(error).__name__)
+                code_text = str(code)
                 snapshot = self.repository.set_item_state(
                     plan_id,
                     item.item_id,
                     "failed",
-                    error_code=str(code),
+                    error_code=code_text,
+                    error_message=self._failure_message(error),
+                    error_retryable=self._failure_retryable(error, code_text),
                 )
                 failed_ids.add(item.item_id)
         snapshot = self.repository.get_plan(plan_id)
@@ -150,6 +156,29 @@ class TaskPlanExecutor:
             ),
         )
         return snapshot
+
+    @staticmethod
+    def _failure_message(error: Exception) -> str:
+        explicit = getattr(error, "message", None)
+        if isinstance(explicit, str) and explicit.strip():
+            return explicit.strip()[:512]
+        if isinstance(error, (ValueError, RuntimeError)):
+            rendered = str(error).strip()
+            if rendered:
+                return rendered[:512]
+        return "任务未完成；项目没有发生未确认的变化。"
+
+    @staticmethod
+    def _failure_retryable(error: Exception, code: str) -> bool:
+        response = getattr(error, "error", None)
+        response_retryable = getattr(response, "retryable", None)
+        if isinstance(response_retryable, bool):
+            return response_retryable
+        direct = getattr(error, "retryable", None)
+        if isinstance(direct, bool):
+            return direct
+        definition = ERRORS_BY_CODE.get(code)
+        return False if definition is None else definition.retryable
 
     def _execute_item(self, item: CompiledTaskItem, revision: int) -> tuple[int, int]:
         current_revision = revision

@@ -400,6 +400,9 @@ def test_workflow_agent_handoff_exposes_profile_contract_and_core_owns_route(
     assert '"authoritative_route":"agent_single_turn"' in prompt
 
     context = cast(dict[str, Any], prepared["workflow_context"])
+    assert cast(list[dict[str, Any]], context["sources"])[0]["display_name"] == (
+        "excel_two_sheets.xlsx > Run A"
+    )
     fields = cast(list[dict[str, Any]], context["fields"])
     numeric = [field for field in fields if field["logical_type"] == "numeric"][:2]
     source_alias = cast(str, cast(list[dict[str, Any]], context["sources"])[0]["source_alias"])
@@ -609,6 +612,10 @@ def test_workflow_log10_rejects_non_positive_data_before_creating_a_plot(
     assert completed["state"] == "failed"
     progress = cast(list[dict[str, Any]], completed["item_progress"])
     assert progress[0]["error_code"] == "LOG_SCALE_NON_POSITIVE"
+    assert progress[0]["error_message"] == (
+        "Log10 轴包含 0 或负值；任务未执行，项目没有发生变化。"
+    )
+    assert progress[0]["error_retryable"] is False
     assert completed["current_project_revision"] == imported["project_version"]
     assert not harness.call("engine.plots.list", {"project_id": project_id})["plots"]
 

@@ -122,7 +122,7 @@ def test_fresh_project_creates_only_the_workflow_schema(
     }
 
 
-@pytest.mark.parametrize("old_version", [1, 2, 3])
+@pytest.mark.parametrize("old_version", [1, 2, 3, 4])
 def test_old_project_schema_is_rejected_without_mutation(
     storage_root: Path, old_version: int
 ) -> None:

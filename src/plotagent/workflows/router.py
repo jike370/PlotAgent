@@ -58,7 +58,7 @@ _OPTIONAL_ROLE_LABELS: dict[str, tuple[str, ...]] = {
     "count": ("count", "计数", "频数"),
 }
 
-_BINDING_OPERATOR = r"(?:映射|绑定|→|->|=|作为|为)"
+_BINDING_OPERATOR = r"(?:映射(?:为|到)?|绑定(?:为|到)?|→|->|=|作为|设为|为)"
 
 @dataclass(frozen=True, slots=True)
 class RouteDecision:
@@ -89,9 +89,16 @@ def _source_mentions(context: WorkflowContext) -> tuple[_SourceMention, ...]:
             f"data{letter}",
             source.display_name,
         }
-        for part in re.split(r"\s*>\s*|[\\/]", source.display_name):
-            if part.strip():
-                labels.add(part.strip())
+        # A sheet or block name on its own is not a safe source identifier:
+        # names such as "K19" are also chart IDs.  Keep the complete
+        # "file > sheet" identity and the file portion, but never register the
+        # trailing sheet/block as an independent alias.
+        source_head = re.split(r"\s*>\s*|:", source.display_name, maxsplit=1)[0].strip()
+        if source_head:
+            labels.add(source_head)
+            basename = re.split(r"[\\/]", source_head)[-1].strip()
+            if basename:
+                labels.add(basename)
         for label in labels:
             for matched in re.finditer(re.escape(label), text, flags=re.IGNORECASE):
                 candidates.append(
@@ -133,6 +140,31 @@ def named_source_aliases(context: WorkflowContext) -> tuple[str, ...]:
     """Return only sources explicitly named in the user's instruction."""
 
     return tuple(item.source_alias for item in _source_mentions(context))
+
+
+def _requested_source_labels(
+    context: WorkflowContext,
+    source_aliases: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Resolve explicit series labels without exposing internal source aliases."""
+
+    patterns = (
+        r"(?:保留|使用|采用)\s*(?P<labels>.+?)\s*(?:数据)?来源身份作为系列名称",
+        r"系列名称(?:分别)?(?:使用|为|设为|命名为)\s*(?P<labels>[^。；;]+)",
+    )
+    for pattern in patterns:
+        matched = re.search(pattern, context.instruction, flags=re.IGNORECASE)
+        if matched is None:
+            continue
+        labels = tuple(
+            label.strip().strip('"\'“”‘’')
+            for label in re.split(r"\s*(?:[、,，/；;]|\b(?:and|和)\b)\s*", matched.group("labels"))
+            if label.strip().strip('"\'“”‘’')
+        )
+        unique_labels = {label.casefold() for label in labels}
+        if len(labels) == len(source_aliases) and len(unique_labels) == len(labels):
+            return labels
+    return ()
 
 
 def _has_create_intent(text: str) -> bool:
@@ -344,7 +376,9 @@ class DeterministicResolver:
             token in text
             for token in (
                 "同一张",
+                "同一幅",
                 "一张图中",
+                "一幅图中",
                 "画在一起",
                 "绘制在一起",
                 "各作为一条",
@@ -353,10 +387,12 @@ class DeterministicResolver:
                 "same chart",
             )
         )
-        return same_plot and any(
-            token in text
-            for token in ("纵向拼接", "拼接", "合并", "一起", "一条曲线", "one line")
-        )
+        # Naming a single target chart is already an explicit multi-source
+        # intent.  Requiring a second word such as "拼接" or "一起" sent the
+        # common instruction "把三个数据表画在同一张图中" to the model even
+        # though the selected sources and chart make the operation closed and
+        # deterministic.
+        return same_plot
 
     @staticmethod
     def _batch_titles(instruction: str, count: int) -> tuple[str, ...] | None:
@@ -596,6 +632,7 @@ class DeterministicResolver:
                 field_alias="source_group",
             ),
         )
+        source_labels = _requested_source_labels(context, aliases)
         token = context.workflow_run_id.removeprefix("workflow:")
         draft = TaskDraft(
             draft_id=f"draft:{token}",
@@ -613,6 +650,7 @@ class DeterministicResolver:
                         ConcatenateSources(
                             source_aliases=aliases,
                             source_label_field="source_group",
+                            source_labels=source_labels,
                         ),
                     ),
                     bindings=bindings,

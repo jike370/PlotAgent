@@ -856,6 +856,10 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     const outputPlotId = stringValue(itemProgress, 'output_plot_id')
     const outputPlotVersion = numberValue(itemProgress, 'output_plot_version')
     const errorCode = stringValue(itemProgress, 'error_code')
+    const errorMessage = stringValue(itemProgress, 'error_message')
+    const errorRetryable = typeof itemProgress.error_retryable === 'boolean'
+      ? itemProgress.error_retryable
+      : undefined
     return [{
       taskItemId: item.item_id,
       actionType: 'workflow_item',
@@ -869,11 +873,11 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       changes,
       state,
       attemptCount: numberValue(itemProgress, 'attempt_count') ?? 0,
-      ...(errorCode === undefined ? {} : {
+      ...(errorCode === undefined || errorMessage === undefined || errorRetryable === undefined ? {} : {
         failure: {
           code: errorCode,
-          message: '该任务项未完成，其他已成功项会保留。',
-          retryable: true,
+          message: errorMessage,
+          retryable: errorRetryable,
         },
       }),
       ...(outputPlotId === undefined || outputPlotVersion === undefined ? {} : {
@@ -890,7 +894,8 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     warnings: [],
     steps,
     completedCount: steps.filter((step) => step.state === 'succeeded').length,
-    resumable: state === 'partially_succeeded' || state === 'failed',
+    resumable: (state === 'partially_succeeded' || state === 'failed')
+      && steps.some((step) => step.failure?.retryable === true),
     bindings,
     boundActions,
   }

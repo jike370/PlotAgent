@@ -53,6 +53,17 @@
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Source Label Field",
           "type": "string"
+        },
+        "source_labels": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Source Labels",
+          "type": "array"
         }
       },
       "required": [

@@ -300,6 +300,25 @@ def test_binding_word_is_treated_as_an_explicit_field_role_operator() -> None:
     ]
 
 
+def test_mapping_to_role_preserves_an_explicit_underscored_field_name() -> None:
+    draft = _draft(
+        _context(
+            "K01",
+            "创建 K01 折线图，将 Frequency_Hz 映射为 x，将 Zimag_Ohm 映射为 y。",
+            (
+                ("Frequency_Hz", "numeric"),
+                ("Zreal_Ohm", "numeric"),
+                ("Zimag_Ohm", "numeric"),
+            ),
+        )
+    )
+
+    assert [(binding.role, binding.field_alias) for binding in draft.items[0].bindings] == [
+        ("x", "field_1"),
+        ("y", "field_3"),
+    ]
+
+
 def test_localized_role_binding_resolves_an_unambiguous_source_field() -> None:
     draft = _draft(
         _context(

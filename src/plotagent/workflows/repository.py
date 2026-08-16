@@ -256,8 +256,9 @@ class WorkflowRepository:
                     """
                     INSERT INTO workflow_task_items (
                         plan_id, item_id, position, state, attempt_count,
-                        error_code, output_plot_id, output_plot_version, updated_at
-                    ) VALUES (?, ?, ?, 'pending', 0, NULL, NULL, NULL, ?)
+                        error_code, error_message, error_retryable,
+                        output_plot_id, output_plot_version, updated_at
+                    ) VALUES (?, ?, ?, 'pending', 0, NULL, NULL, NULL, NULL, NULL, ?)
                     """,
                     (plan.plan_id, item.item_id, position, now),
                 )
@@ -294,8 +295,8 @@ class WorkflowRepository:
         plan = TaskPlan.model_validate_json(str(row[0]))
         progress_rows = self._connection.execute(
             """
-            SELECT item_id, state, attempt_count, error_code,
-                   output_plot_id, output_plot_version
+            SELECT item_id, state, attempt_count, error_code, error_message,
+                   error_retryable, output_plot_id, output_plot_version
             FROM workflow_task_items WHERE plan_id = ? ORDER BY position
             """,
             (plan_id,),
@@ -306,8 +307,10 @@ class WorkflowRepository:
                 state=cast(str, item[1]),  # type: ignore[arg-type]
                 attempt_count=int(item[2]),
                 error_code=cast(str | None, item[3]),
-                output_plot_id=cast(str | None, item[4]),
-                output_plot_version=cast(int | None, item[5]),
+                error_message=cast(str | None, item[4]),
+                error_retryable=(None if item[5] is None else bool(item[5])),
+                output_plot_id=cast(str | None, item[6]),
+                output_plot_version=cast(int | None, item[7]),
             )
             for item in progress_rows
         )
@@ -393,6 +396,8 @@ class WorkflowRepository:
         *,
         increment_attempt: bool = False,
         error_code: str | None = None,
+        error_message: str | None = None,
+        error_retryable: bool | None = None,
         output_plot_id: str | None = None,
         output_plot_version: int | None = None,
     ) -> TaskPlanSnapshot:
@@ -401,6 +406,7 @@ class WorkflowRepository:
             """
             UPDATE workflow_task_items SET state = ?,
                 attempt_count = attempt_count + ?, error_code = ?,
+                error_message = ?, error_retryable = ?,
                 output_plot_id = ?, output_plot_version = ?, updated_at = ?
             WHERE plan_id = ? AND item_id = ?
             """,
@@ -408,6 +414,8 @@ class WorkflowRepository:
                 state,
                 1 if increment_attempt else 0,
                 error_code,
+                error_message,
+                None if error_retryable is None else int(error_retryable),
                 output_plot_id,
                 output_plot_version,
                 now,

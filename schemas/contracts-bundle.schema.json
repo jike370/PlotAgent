@@ -569,6 +569,17 @@
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Source Label Field",
           "type": "string"
+        },
+        "source_labels": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Source Labels",
+          "type": "array"
         }
       },
       "required": [
@@ -8320,6 +8331,32 @@
           ],
           "default": null,
           "title": "Error Code"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "error_retryable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Retryable"
         },
         "item_id": {
           "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",

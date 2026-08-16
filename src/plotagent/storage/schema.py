@@ -6,7 +6,7 @@ import sqlite3
 
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 
-PROJECT_SCHEMA_VERSION = 4
+PROJECT_SCHEMA_VERSION = 5
 CATALOG_SCHEMA_VERSION = 2
 
 PROJECT_SCHEMA = """
@@ -155,6 +155,8 @@ CREATE TABLE workflow_task_items (
     )),
     attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count BETWEEN 0 AND 32),
     error_code TEXT,
+    error_message TEXT,
+    error_retryable INTEGER CHECK (error_retryable IS NULL OR error_retryable IN (0, 1)),
     output_plot_id TEXT,
     output_plot_version INTEGER CHECK (output_plot_version IS NULL OR output_plot_version > 0),
     updated_at TEXT NOT NULL,

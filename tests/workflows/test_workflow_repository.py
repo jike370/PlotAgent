@@ -98,6 +98,18 @@ def test_repository_persists_only_workflow_contracts(tmp_path: Path) -> None:
         confirmed = repository.confirm(plan.plan_id)
         assert confirmed.state == "ready"
 
+        failed = repository.set_item_state(
+            plan.plan_id,
+            plan.items[0].item_id,
+            "failed",
+            increment_attempt=True,
+            error_code="LOG_SCALE_NON_POSITIVE",
+            error_message="Log10 轴包含 0 或负值；任务未执行。",
+            error_retryable=False,
+        )
+        assert failed.item_progress[0].error_message == "Log10 轴包含 0 或负值；任务未执行。"
+        assert failed.item_progress[0].error_retryable is False
+
 
 def test_rejected_plan_cannot_be_confirmed(tmp_path: Path) -> None:
     with ProjectStore.create(tmp_path / "workflow", project_id="project:stored") as project:

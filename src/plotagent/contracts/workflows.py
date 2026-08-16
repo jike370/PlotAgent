@@ -46,6 +46,10 @@ WorkflowAlias = Annotated[
     str,
     StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,63}$", strict=True),
 ]
+WorkflowDisplayLabel = Annotated[
+    str,
+    StringConstraints(min_length=1, max_length=256, strict=True),
+]
 InstructionText = Annotated[
     str,
     StringConstraints(min_length=1, max_length=4_096, strip_whitespace=True, strict=True),
@@ -125,7 +129,7 @@ class WorkflowSource(StrictModel):
     source_dataset_id: Token
     source_version: VersionId
     content_hash: Sha256
-    display_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    display_name: WorkflowDisplayLabel
     row_count: Annotated[int, Field(ge=0)]
 
 
@@ -312,11 +316,17 @@ class ConcatenateSources(StrictModel):
     operation: Literal["concatenate_sources"] = "concatenate_sources"
     source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
     source_label_field: WorkflowAlias = "source_group"
+    source_labels: Annotated[tuple[WorkflowDisplayLabel, ...], Field(max_length=8)] = ()
 
     @model_validator(mode="after")
     def unique_sources(self) -> ConcatenateSources:
         if len(self.source_aliases) != len(set(self.source_aliases)):
             raise ValueError("concatenated sources must be unique")
+        if self.source_labels and len(self.source_labels) != len(self.source_aliases):
+            raise ValueError("source labels must match concatenated sources")
+        normalized = tuple(label.strip().casefold() for label in self.source_labels)
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("source labels must be unique")
         return self
 
 
@@ -756,8 +766,23 @@ class TaskItemProgress(StrictModel):
     ]
     attempt_count: Annotated[int, Field(ge=0, le=32)] = 0
     error_code: Token | None = None
+    error_message: Annotated[
+        str,
+        StringConstraints(min_length=1, max_length=512, strip_whitespace=True, strict=True),
+    ] | None = None
+    error_retryable: bool | None = None
     output_plot_id: Token | None = None
     output_plot_version: VersionId | None = None
+
+    @model_validator(mode="after")
+    def failure_metadata_matches_state(self) -> TaskItemProgress:
+        failure_values = (self.error_code, self.error_message, self.error_retryable)
+        if self.state in {"failed", "blocked"}:
+            if any(value is None for value in failure_values):
+                raise ValueError("failed task progress requires complete failure metadata")
+        elif any(value is not None for value in failure_values):
+            raise ValueError("non-failed task progress cannot retain failure metadata")
+        return self
 
 
 class TaskPlanSnapshot(StrictModel):
