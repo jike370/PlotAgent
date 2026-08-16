@@ -65,9 +65,11 @@ const request = {
 describe('PiAgentRuntime workflow orchestration', () => {
   it('bypasses the model when Core resolves a deterministic draft', async () => {
     const calls: string[] = []
+    const params: JsonValue[] = []
     const core: PiCoreBridge = {
-      request: async (method) => {
+      request: async (method, value) => {
         calls.push(method)
+        params.push(value ?? null)
         return { outcome: 'draft_ready', task_plan: { state: 'awaiting_confirmation' } }
       },
     }
@@ -75,6 +77,12 @@ describe('PiAgentRuntime workflow orchestration', () => {
 
     await expect(runtime.run(request)).resolves.toMatchObject({ outcome: 'draft_ready' })
     expect(calls).toEqual(['workflow.prepare'])
+    expect(params[0]).toEqual({
+      project_id: 'project:test',
+      expected_project_version: 0,
+      instruction: '画折线图',
+      selected_sources: [{ dataset_id: 'source:test', source_version: 1 }],
+    })
   })
 
   it('lets Pi submit a TaskDraft while Core remains the plan authority', async () => {

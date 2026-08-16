@@ -575,9 +575,10 @@ async function runRuntimeScenario(
         project_id: setup.projectId, plan_id: setup.planId,
       })
       try {
-        await harness.core.request('workflow.plans.run', {
+        const completed = record(await harness.core.request('workflow.plans.run', {
           project_id: setup.projectId, plan_id: setup.planId,
-        }, 20_000)
+        }, 20_000), 'stale plan result')
+        passed = completed.state === 'failed' && await plotCount(harness, setup.projectId) === 0
       } catch {
         passed = await plotCount(harness, setup.projectId) === 0
       }

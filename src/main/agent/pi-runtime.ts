@@ -181,7 +181,9 @@ export class PiAgentRuntime {
     let timedOut = false
     try {
       this.emit(clientRunId, projectId, 'preparing_context', '正在读取数据结构和图形能力…')
-      const preparedValue = await this.core.request('workflow.prepare', input, 10_000)
+      const prepareInput = { ...input }
+      delete prepareInput.client_run_id
+      const preparedValue = await this.core.request('workflow.prepare', prepareInput, 10_000)
       this.assertCurrent(generation)
       const prepared = preparedWorkflow(preparedValue)
       if (prepared === undefined) {
