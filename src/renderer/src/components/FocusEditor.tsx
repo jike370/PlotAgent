@@ -59,7 +59,9 @@ interface Position {
   y: number
 }
 
-type ParameterTab = 'general' | 'style' | 'specialist' | 'axis' | 'legend' | 'annotation'
+type ParameterTab =
+  | 'general' | 'style' | 'specialist' | 'axis' | 'legend'
+  | 'colormap' | 'uncertainty' | 'labels' | 'annotation'
 type AnnotationKind = 'text' | 'reference_line' | 'reference_band'
 type AnnotationAxis = 'x' | 'y'
 type EditState = 'idle' | 'saving' | 'saved' | 'error'
@@ -149,18 +151,58 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
   const [editState, setEditState] = useState<EditState>('idle')
   const [editMessage, setEditMessage] = useState('')
   const [seriesTargetIndex, setSeriesTargetIndex] = useState(0)
-  const [color, setColor] = useState(initialSeriesStyle?.color ?? '#2A6FDB')
+  const [lineColor, setLineColor] = useState(
+    initialSeriesStyle?.lineStrokeColor ?? '#2A6FDB',
+  )
   const [lineWidth, setLineWidth] = useState(initialSeriesStyle?.lineWidthPt ?? 0.8)
   const [lineStyle, setLineStyle] = useState(initialSeriesStyle?.lineStyle ?? 'solid')
+  const [lineOpacity, setLineOpacity] = useState(initialSeriesStyle?.lineOpacity ?? 1)
   const [markerSize, setMarkerSize] = useState(initialSeriesStyle?.markerSizePt ?? 4.5)
-  const [symbolShape, setSymbolShape] = useState(initialSeriesStyle?.symbolShape ?? 'circle')
+  const [markerShape, setMarkerShape] = useState(initialSeriesStyle?.markerShape ?? 'circle')
+  const [markerInterior, setMarkerInterior] = useState(
+    initialSeriesStyle?.markerInterior ?? 'solid',
+  )
+  const [markerFillColor, setMarkerFillColor] = useState(
+    initialSeriesStyle?.markerFillColor ?? '#2A6FDB',
+  )
+  const [markerStrokeColor, setMarkerStrokeColor] = useState(
+    initialSeriesStyle?.markerStrokeColor ?? '#2A6FDB',
+  )
+  const [markerStrokeWidth, setMarkerStrokeWidth] = useState(
+    initialSeriesStyle?.markerStrokeWidthPt ?? 0.8,
+  )
+  const [markerOpacity, setMarkerOpacity] = useState(initialSeriesStyle?.markerOpacity ?? 1)
+  const [fillColor, setFillColor] = useState(initialSeriesStyle?.fillColor ?? '#2A6FDB')
+  const [fillOpacity, setFillOpacity] = useState(initialSeriesStyle?.fillOpacity ?? 0.8)
+  const [fillStrokeColor, setFillStrokeColor] = useState(
+    initialSeriesStyle?.fillStrokeColor ?? '#1F4F99',
+  )
+  const [fillStrokeWidth, setFillStrokeWidth] = useState(
+    initialSeriesStyle?.fillStrokeWidthPt ?? 0.8,
+  )
   const [axisTarget, setAxisTarget] = useState<'x' | 'y' | 'yRight'>('y')
   const [axisScale, setAxisScale] = useState(initialAxisState?.scale ?? 'linear')
   const [axisLabel, setAxisLabel] = useState(initialAxisState?.label ?? '')
   const [axisMinimum, setAxisMinimum] = useState(initialAxisState?.minimum?.toString() ?? '')
   const [axisMaximum, setAxisMaximum] = useState(initialAxisState?.maximum?.toString() ?? '')
   const [axisReverse, setAxisReverse] = useState(initialAxisState?.reverse ?? false)
+  const [axisTitleColor, setAxisTitleColor] = useState('#111827')
+  const [axisTitleSize, setAxisTitleSize] = useState(10)
+  const [axisTickFormat, setAxisTickFormat] = useState('auto')
+  const [axisTickRotation, setAxisTickRotation] = useState(0)
+  const [axisTickSize, setAxisTickSize] = useState(9)
+  const [axisLineColor, setAxisLineColor] = useState('#111827')
+  const [axisLineWidth, setAxisLineWidth] = useState(0.8)
+  const [majorGridVisible, setMajorGridVisible] = useState(false)
+  const [minorGridVisible, setMinorGridVisible] = useState(false)
+  const [gridColor, setGridColor] = useState('#D1D5DB')
+  const [gridLineWidth, setGridLineWidth] = useState(0.5)
   const [plotTitle, setPlotTitle] = useState(plot?.plotTitle ?? '')
+  const [titleFontFamily, setTitleFontFamily] = useState('auto')
+  const [titleFontSize, setTitleFontSize] = useState(plot?.fontSizePt ?? 11)
+  const [titleFontWeight, setTitleFontWeight] = useState('normal')
+  const [titleItalic, setTitleItalic] = useState(false)
+  const [titleColor, setTitleColor] = useState('#111827')
   const [annotationKind, setAnnotationKind] = useState<AnnotationKind>('text')
   const [annotationAxis, setAnnotationAxis] = useState<AnnotationAxis>('y')
   const [annotationText, setAnnotationText] = useState('')
@@ -168,6 +210,74 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
   const [annotationEnd, setAnnotationEnd] = useState('')
   const [legendVisible, setLegendVisible] = useState(plot?.style.legendVisible ?? true)
   const [legendPlacement, setLegendPlacement] = useState(plot?.style.legendPlacement ?? 'inside')
+  const [legendColumns, setLegendColumns] = useState(1)
+  const [legendTitle, setLegendTitle] = useState('')
+  const [legendFontSize, setLegendFontSize] = useState(9)
+  const [legendFontColor, setLegendFontColor] = useState('#111827')
+  const [legendFrameVisible, setLegendFrameVisible] = useState(false)
+  const [legendFrameColor, setLegendFrameColor] = useState('#9CA3AF')
+  const initialColorMap = plot?.colorMaps[0]
+  const [palette, setPalette] = useState(initialColorMap?.palette ?? 'viridis')
+  const [paletteReverse, setPaletteReverse] = useState(initialColorMap?.reverse ?? false)
+  const [colorMapMode, setColorMapMode] = useState(initialColorMap?.mode ?? 'continuous')
+  const [colorMapMinimum, setColorMapMinimum] = useState(
+    initialColorMap?.minimum?.toString() ?? '',
+  )
+  const [colorMapMaximum, setColorMapMaximum] = useState(
+    initialColorMap?.maximum?.toString() ?? '',
+  )
+  const [colorMapMidpoint, setColorMapMidpoint] = useState(
+    initialColorMap?.midpoint?.toString() ?? '',
+  )
+  const [colorMapLevels, setColorMapLevels] = useState(initialColorMap?.levels ?? 8)
+  const [colorbarVisible, setColorbarVisible] = useState(
+    initialColorMap?.colorbarVisible ?? true,
+  )
+  const [colorbarTitle, setColorbarTitle] = useState(initialColorMap?.colorbarTitle ?? '')
+  const [colorbarAnchor, setColorbarAnchor] = useState(
+    initialColorMap?.colorbarAnchor ?? 'right',
+  )
+  const [colorbarTickFormat, setColorbarTickFormat] = useState(
+    initialColorMap?.colorbarTickFormat ?? 'auto',
+  )
+  const [missingColor, setMissingColor] = useState(initialColorMap?.missingColor ?? '#BDBDBD')
+  const [errorColor, setErrorColor] = useState(plot?.errorStyles[0]?.barColor ?? '#1F2937')
+  const [errorWidth, setErrorWidth] = useState(plot?.errorStyles[0]?.barWidthPt ?? 0.8)
+  const [errorCapSize, setErrorCapSize] = useState(plot?.errorStyles[0]?.capSizePt ?? 6)
+  const [errorOpacity, setErrorOpacity] = useState(plot?.errorStyles[0]?.barOpacity ?? 1)
+  const [bandFillColor, setBandFillColor] = useState(
+    plot?.errorStyles[0]?.bandFillColor ?? '#93C5FD',
+  )
+  const [bandFillOpacity, setBandFillOpacity] = useState(
+    plot?.errorStyles[0]?.bandFillOpacity ?? 0.25,
+  )
+  const [bandStrokeColor, setBandStrokeColor] = useState(
+    plot?.errorStyles[0]?.bandStrokeColor ?? '#2A6FDB',
+  )
+  const [bandStrokeWidth, setBandStrokeWidth] = useState(
+    plot?.errorStyles[0]?.bandStrokeWidthPt ?? 0.8,
+  )
+  const [labelsVisible, setLabelsVisible] = useState(plot?.dataLabelStyles[0]?.visible ?? false)
+  const [labelFormat, setLabelFormat] = useState(
+    plot?.dataLabelStyles[0]?.valueFormat ?? 'auto',
+  )
+  const [labelPosition, setLabelPosition] = useState(
+    plot?.dataLabelStyles[0]?.position ?? 'auto',
+  )
+  const [labelFontSize, setLabelFontSize] = useState(
+    plot?.dataLabelStyles[0]?.fontSizePt ?? 9,
+  )
+  const [labelPrefix, setLabelPrefix] = useState(plot?.dataLabelStyles[0]?.prefix ?? '')
+  const [labelSuffix, setLabelSuffix] = useState(plot?.dataLabelStyles[0]?.suffix ?? '')
+  const [labelRotation, setLabelRotation] = useState(
+    plot?.dataLabelStyles[0]?.rotationDeg ?? 0,
+  )
+  const [labelFontWeight, setLabelFontWeight] = useState(
+    plot?.dataLabelStyles[0]?.fontWeight ?? 'normal',
+  )
+  const [labelFontColor, setLabelFontColor] = useState(
+    plot?.dataLabelStyles[0]?.fontColor ?? '#111827',
+  )
   const [legendPosition, setLegendPosition] = useState<Position>({ x: 68, y: 17 })
   const [annotationPosition, setAnnotationPosition] = useState<Position>({ x: 53, y: 37 })
   const dragStart = useRef<{ pointerX: number; pointerY: number; position: Position; type: 'legend' | 'annotation' } | null>(null)
@@ -177,11 +287,53 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
     const validIndex = Math.min(index, Math.max(0, plot.seriesIds.length - 1))
     const seriesStyle = plot.seriesStyles[validIndex]?.style ?? plot.style
     setSeriesTargetIndex(validIndex)
-    setColor(seriesStyle.color ?? '#2A6FDB')
+    setLineColor(seriesStyle.lineStrokeColor ?? '#2A6FDB')
     setLineWidth(seriesStyle.lineWidthPt ?? 0.8)
     setLineStyle(seriesStyle.lineStyle ?? 'solid')
+    setLineOpacity(seriesStyle.lineOpacity ?? 1)
     setMarkerSize(seriesStyle.markerSizePt ?? 4.5)
-    setSymbolShape(seriesStyle.symbolShape ?? 'circle')
+    setMarkerShape(seriesStyle.markerShape ?? 'circle')
+    setMarkerInterior(seriesStyle.markerInterior ?? 'solid')
+    setMarkerFillColor(seriesStyle.markerFillColor ?? '#2A6FDB')
+    setMarkerStrokeColor(seriesStyle.markerStrokeColor ?? '#2A6FDB')
+    setMarkerStrokeWidth(seriesStyle.markerStrokeWidthPt ?? 0.8)
+    setMarkerOpacity(seriesStyle.markerOpacity ?? 1)
+    setFillColor(seriesStyle.fillColor ?? '#2A6FDB')
+    setFillOpacity(seriesStyle.fillOpacity ?? 0.8)
+    setFillStrokeColor(seriesStyle.fillStrokeColor ?? '#1F4F99')
+    setFillStrokeWidth(seriesStyle.fillStrokeWidthPt ?? 0.8)
+    const colorMap = plot.colorMaps[validIndex]
+    setPalette(colorMap?.palette ?? 'viridis')
+    setPaletteReverse(colorMap?.reverse ?? false)
+    setColorMapMode(colorMap?.mode ?? 'continuous')
+    setColorMapMinimum(colorMap?.minimum?.toString() ?? '')
+    setColorMapMaximum(colorMap?.maximum?.toString() ?? '')
+    setColorMapMidpoint(colorMap?.midpoint?.toString() ?? '')
+    setColorMapLevels(colorMap?.levels ?? 8)
+    setColorbarVisible(colorMap?.colorbarVisible ?? true)
+    setColorbarTitle(colorMap?.colorbarTitle ?? '')
+    setColorbarAnchor(colorMap?.colorbarAnchor ?? 'right')
+    setColorbarTickFormat(colorMap?.colorbarTickFormat ?? 'auto')
+    setMissingColor(colorMap?.missingColor ?? '#BDBDBD')
+    const errorStyle = plot.errorStyles[validIndex]
+    setErrorColor(errorStyle?.barColor ?? '#1F2937')
+    setErrorWidth(errorStyle?.barWidthPt ?? 0.8)
+    setErrorCapSize(errorStyle?.capSizePt ?? 6)
+    setErrorOpacity(errorStyle?.barOpacity ?? 1)
+    setBandFillColor(errorStyle?.bandFillColor ?? '#93C5FD')
+    setBandFillOpacity(errorStyle?.bandFillOpacity ?? 0.25)
+    setBandStrokeColor(errorStyle?.bandStrokeColor ?? '#2A6FDB')
+    setBandStrokeWidth(errorStyle?.bandStrokeWidthPt ?? 0.8)
+    const labelStyle = plot.dataLabelStyles[validIndex]
+    setLabelsVisible(labelStyle?.visible ?? false)
+    setLabelFormat(labelStyle?.valueFormat ?? 'auto')
+    setLabelPosition(labelStyle?.position ?? 'auto')
+    setLabelFontSize(labelStyle?.fontSizePt ?? 9)
+    setLabelPrefix(labelStyle?.prefix ?? '')
+    setLabelSuffix(labelStyle?.suffix ?? '')
+    setLabelRotation(labelStyle?.rotationDeg ?? 0)
+    setLabelFontWeight(labelStyle?.fontWeight ?? 'normal')
+    setLabelFontColor(labelStyle?.fontColor ?? '#111827')
   }
 
   const selectAxis = (target: 'x' | 'y' | 'yRight'): void => {
@@ -235,20 +387,36 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
   const seriesParameters = new Set(engineCapabilities.set_series_style ?? [])
   const axisParameters = new Set(engineCapabilities.set_axis ?? [])
   const legendParameters = new Set(engineCapabilities.set_legend ?? [])
+  const colorMapParameters = new Set(engineCapabilities.set_colormap ?? [])
+  const errorParameters = new Set(engineCapabilities.set_error_style ?? [])
+  const dataLabelParameters = new Set(engineCapabilities.set_data_labels ?? [])
   const chartParameterNames = engineCapabilities.set_chart_parameter ?? []
   const editCapabilities = new Set([
     ...(engineCapabilities.set_title ? ['plot_title'] : []),
-    ...(seriesParameters.has('color') ? ['series_color'] : []),
+    ...(seriesParameters.has('line_stroke_color') ? ['line_color'] : []),
     ...(seriesParameters.has('line_width_pt') ? ['line_width'] : []),
     ...(seriesParameters.has('line_style') ? ['line_style'] : []),
-    ...(seriesParameters.has('symbol') ? ['symbol_shape'] : []),
-    ...(seriesParameters.has('symbol_size_pt') ? ['marker_size'] : []),
+    ...(seriesParameters.has('line_opacity') ? ['line_opacity'] : []),
+    ...(seriesParameters.has('marker_shape') ? ['marker_shape'] : []),
+    ...(seriesParameters.has('marker_size_pt') ? ['marker_size'] : []),
+    ...(seriesParameters.has('marker_interior') ? ['marker_interior'] : []),
+    ...(seriesParameters.has('marker_fill_color') ? ['marker_fill_color'] : []),
+    ...(seriesParameters.has('marker_stroke_color') ? ['marker_stroke_color'] : []),
+    ...(seriesParameters.has('marker_stroke_width_pt') ? ['marker_stroke_width'] : []),
+    ...(seriesParameters.has('marker_opacity') ? ['marker_opacity'] : []),
+    ...(seriesParameters.has('fill_color') ? ['fill_color'] : []),
+    ...(seriesParameters.has('fill_opacity') ? ['fill_opacity'] : []),
+    ...(seriesParameters.has('fill_stroke_color') ? ['fill_stroke_color'] : []),
+    ...(seriesParameters.has('fill_stroke_width_pt') ? ['fill_stroke_width'] : []),
     ...(axisParameters.has('label') ? ['axis_label'] : []),
     ...(axisParameters.has('scale') ? ['axis_scale'] : []),
     ...(axisParameters.has('bounds') ? ['axis_range'] : []),
     ...(axisParameters.has('reverse') ? ['axis_reverse'] : []),
     ...(legendParameters.has('visible') ? ['legend_visibility'] : []),
     ...(legendParameters.has('anchor') ? ['legend_position'] : []),
+    ...(colorMapParameters.size > 0 ? ['colormap'] : []),
+    ...(errorParameters.size > 0 ? ['error_style'] : []),
+    ...(dataLabelParameters.size > 0 ? ['data_labels'] : []),
     ...(engineCapabilities.add_annotation ? ['safe_annotation'] : []),
   ])
   const hasSpecialistEdits = chartParameterNames.length > 0
@@ -283,12 +451,77 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
 
   const applySeriesStyle = async (): Promise<void> => {
     const values: Record<string, JsonValue> = {}
-    if (editCapabilities.has('series_color')) values.color = color
+    if (editCapabilities.has('line_color')) values.line_stroke_color = lineColor
     if (editCapabilities.has('line_width')) values.line_width_pt = lineWidth
     if (editCapabilities.has('line_style')) values.line_style = lineStyle
-    if (editCapabilities.has('marker_size')) values.symbol_size_pt = markerSize
-    if (editCapabilities.has('symbol_shape')) values.symbol = symbolShape
+    if (editCapabilities.has('line_opacity')) values.line_opacity = lineOpacity
+    if (editCapabilities.has('marker_size')) values.marker_size_pt = markerSize
+    if (editCapabilities.has('marker_shape')) values.marker_shape = markerShape
+    if (editCapabilities.has('marker_interior')) values.marker_interior = markerInterior
+    if (editCapabilities.has('marker_fill_color')) values.marker_fill_color = markerFillColor
+    if (editCapabilities.has('marker_stroke_color')) {
+      values.marker_stroke_color = markerStrokeColor
+    }
+    if (editCapabilities.has('marker_stroke_width')) {
+      values.marker_stroke_width_pt = markerStrokeWidth
+    }
+    if (editCapabilities.has('marker_opacity')) values.marker_opacity = markerOpacity
+    if (editCapabilities.has('fill_color')) values.fill_color = fillColor
+    if (editCapabilities.has('fill_opacity')) values.fill_opacity = fillOpacity
+    if (editCapabilities.has('fill_stroke_color')) {
+      values.fill_stroke_color = fillStrokeColor
+    }
+    if (editCapabilities.has('fill_stroke_width')) {
+      values.fill_stroke_width_pt = fillStrokeWidth
+    }
     await applyPatch('set_series_style', selectedSeriesId, values)
+  }
+
+  const applyColorMap = async (): Promise<void> => {
+    const values: Record<string, JsonValue> = {
+      palette,
+      reverse: paletteReverse,
+      mode: colorMapMode,
+      levels: colorMapLevels,
+      missing_color: missingColor,
+      colorbar_visible: colorbarVisible,
+      colorbar_anchor: colorbarAnchor,
+      colorbar_title: colorbarTitle,
+      colorbar_tick_format: colorbarTickFormat,
+    }
+    if (colorMapMinimum !== '' && colorMapMaximum !== '') {
+      values.minimum = Number(colorMapMinimum)
+      values.maximum = Number(colorMapMaximum)
+      if (colorMapMidpoint !== '') values.midpoint = Number(colorMapMidpoint)
+    }
+    await applyPatch('set_colormap', selectedSeriesId, values)
+  }
+
+  const applyErrorStyle = async (): Promise<void> => {
+    await applyPatch('set_error_style', selectedSeriesId, {
+      bar_color: errorColor,
+      bar_width_pt: errorWidth,
+      cap_size_pt: errorCapSize,
+      bar_opacity: errorOpacity,
+      band_fill_color: bandFillColor,
+      band_fill_opacity: bandFillOpacity,
+      band_stroke_color: bandStrokeColor,
+      band_stroke_width_pt: bandStrokeWidth,
+    })
+  }
+
+  const applyDataLabels = async (): Promise<void> => {
+    await applyPatch('set_data_labels', selectedSeriesId, {
+      visible: labelsVisible,
+      value_format: labelFormat,
+      prefix: labelPrefix,
+      suffix: labelSuffix,
+      position: labelPosition,
+      rotation_deg: labelRotation,
+      font_size_pt: labelFontSize,
+      font_weight: labelFontWeight,
+      font_color: labelFontColor,
+    })
   }
 
   const openAnnotationEditor = (kind: AnnotationKind): void => {
@@ -418,14 +651,24 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
           <aside className="parameter-panel" aria-label="图形参数">
             <header><div><strong>图形参数</strong><span>{scope === 'current' ? active.title : scope === 'selected' ? `${selected.length} 张选中图` : '批次 B-024'}</span></div><button type="button" onClick={() => setPanelOpen(false)} aria-label="关闭参数面板"><X size={17} /></button></header>
             <div className="parameter-tabs" role="tablist" aria-label="编辑类别">
-              {([['general', '常规'], ['style', '样式'], ...(hasSpecialistEdits ? [['specialist', '专属']] : []), ['axis', '坐标轴'], ['legend', '图例'], ['annotation', '标注']] as [ParameterTab, string][]).map(([value, label]) => (
+              {([
+                ['general', '常规'],
+                ['style', '系列'],
+                ...(editCapabilities.has('colormap') ? [['colormap', '色阶']] : []),
+                ...(editCapabilities.has('error_style') ? [['uncertainty', '误差']] : []),
+                ...(editCapabilities.has('data_labels') ? [['labels', '标签']] : []),
+                ...(hasSpecialistEdits ? [['specialist', '专属']] : []),
+                ['axis', '坐标轴'],
+                ['legend', '图例'],
+                ['annotation', '标注'],
+              ] as [ParameterTab, string][]).map(([value, label]) => (
                 <button key={value} className={parameterTab === value ? 'is-active' : ''} type="button" role="tab" aria-selected={parameterTab === value} onClick={() => setParameterTab(value)}>{label}</button>
               ))}
             </div>
 
             {parameterTab === 'general' && (
               <>
-                {editCapabilities.has('plot_title') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_title', plot?.plotId, { text: plotTitle.trim() }) }}><h3>图标题</h3><label><span>标题</span><input aria-label="图标题" value={plotTitle} maxLength={256} placeholder="留空即隐藏" onChange={(event) => setPlotTitle(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图标题</button></form>}
+                {editCapabilities.has('plot_title') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_title', plot?.plotId, { text: plotTitle.trim(), font_family: titleFontFamily, font_size_pt: titleFontSize, font_weight: titleFontWeight, italic: titleItalic, color: titleColor }) }}><h3>图标题</h3><label><span>标题</span><input aria-label="图标题" value={plotTitle} maxLength={256} placeholder="留空即隐藏" onChange={(event) => setPlotTitle(event.target.value)} /></label><details className="parameter-subsection"><summary>字体与颜色</summary><label><span>字体</span><select aria-label="标题字体" value={titleFontFamily} onChange={(event) => setTitleFontFamily(event.target.value)}><option value="auto">自动</option><option value="Arial">Arial</option><option value="Times New Roman">Times New Roman</option><option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option></select></label><label><span>字号</span><div className="unit-input"><input aria-label="标题字号" type="number" min="5" max="72" step="0.5" value={titleFontSize} onChange={(event) => setTitleFontSize(event.target.valueAsNumber)} /><span>pt</span></div></label><label><span>字重</span><select aria-label="标题字重" value={titleFontWeight} onChange={(event) => setTitleFontWeight(event.target.value)}><option value="normal">常规</option><option value="bold">粗体</option></select></label><label className="parameter-check"><input aria-label="标题斜体" type="checkbox" checked={titleItalic} onChange={(event) => setTitleItalic(event.target.checked)} /><span>斜体</span></label><label><span>颜色</span><input aria-label="标题颜色" type="color" value={titleColor} onChange={(event) => setTitleColor(event.target.value)} /></label></details><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图标题</button></form>}
               </>
             )}
 
@@ -434,17 +677,77 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
                 <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applySeriesStyle() }}>
                   <h3>系列样式</h3>
                   {plot && plot.seriesIds.length > 1 && <label><span>作用系列</span><select aria-label="作用系列" value={seriesTargetIndex} onChange={(event) => selectSeries(Number(event.target.value))}>{plot.seriesIds.map((seriesId, index) => <option key={seriesId} value={index}>系列 {index + 1}</option>)}</select></label>}
-                  {editCapabilities.has('series_color') && <label><span>颜色</span><input aria-label="系列颜色" type="color" value={color} onChange={(event) => setColor(event.target.value)} /></label>}
-                  {editCapabilities.has('line_width') && <label><span>线宽</span><div className="unit-input"><input aria-label="线宽" type="number" min="0.1" max="20" value={lineWidth} step="0.1" onChange={(event) => setLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>}
-                  {editCapabilities.has('line_style') && <label><span>线型</span><select aria-label="线型" value={lineStyle} onChange={(event) => setLineStyle(event.target.value)}><option value="solid">实线</option><option value="dash">虚线</option><option value="dot">点线</option><option value="dash_dot">点划线</option></select></label>}
-                  {editCapabilities.has('marker_size') && <label><span>符号大小</span><div className="unit-input"><input aria-label="符号大小" type="number" min="0.5" max="72" value={markerSize} step="0.5" onChange={(event) => setMarkerSize(event.target.valueAsNumber)} /><span>pt</span></div></label>}
-                  {editCapabilities.has('symbol_shape') && <label><span>符号</span><select aria-label="符号" value={symbolShape} onChange={(event) => setSymbolShape(event.target.value)}>{symbolCatalog.map((item) => <option key={item.shape} value={item.shape}>{symbolNames[item.shape] ?? item.shape}</option>)}</select></label>}
-                  {[...editCapabilities].some((item) => ['series_color', 'line_width', 'line_style', 'marker_size', 'symbol_shape'].includes(item))
+                  {[...editCapabilities].some((item) => item.startsWith('line_')) && <details className="parameter-subsection" open><summary>线条</summary>
+                    {editCapabilities.has('line_color') && <label><span>描边颜色</span><input aria-label="线条描边颜色" type="color" value={lineColor} onChange={(event) => setLineColor(event.target.value)} /></label>}
+                    {editCapabilities.has('line_width') && <label><span>线宽</span><div className="unit-input"><input aria-label="线宽" type="number" min="0.1" max="20" value={lineWidth} step="0.1" onChange={(event) => setLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>}
+                    {editCapabilities.has('line_style') && <label><span>线型</span><select aria-label="线型" value={lineStyle} onChange={(event) => setLineStyle(event.target.value)}><option value="solid">实线</option><option value="dash">虚线</option><option value="dot">点线</option><option value="dash_dot">点划线</option><option value="none">无线</option></select></label>}
+                    {editCapabilities.has('line_opacity') && <label><span>不透明度</span><div className="unit-input"><input aria-label="线条不透明度" type="range" min="0" max="1" value={lineOpacity} step="0.05" onChange={(event) => setLineOpacity(event.target.valueAsNumber)} /><span>{Math.round(lineOpacity * 100)}%</span></div></label>}
+                  </details>}
+                  {[...editCapabilities].some((item) => item.startsWith('marker_')) && <details className="parameter-subsection" open><summary>符号</summary>
+                    {editCapabilities.has('marker_shape') && <label><span>形状</span><select aria-label="符号形状" value={markerShape} onChange={(event) => setMarkerShape(event.target.value)}>{symbolCatalog.map((item) => <option key={item.shape} value={item.shape}>{symbolNames[item.shape] ?? item.shape}</option>)}</select></label>}
+                    {editCapabilities.has('marker_size') && <label><span>大小</span><div className="unit-input"><input aria-label="符号大小" type="number" min="0.5" max="72" value={markerSize} step="0.5" onChange={(event) => setMarkerSize(event.target.valueAsNumber)} /><span>pt</span></div></label>}
+                    {editCapabilities.has('marker_interior') && <label><span>内部</span><select aria-label="符号内部" value={markerInterior} onChange={(event) => setMarkerInterior(event.target.value)}><option value="solid">实心</option><option value="open">空心</option></select></label>}
+                    {editCapabilities.has('marker_fill_color') && <label><span>填充颜色</span><input aria-label="符号填充颜色" type="color" value={markerFillColor} onChange={(event) => setMarkerFillColor(event.target.value)} /></label>}
+                    {editCapabilities.has('marker_stroke_color') && <label><span>边缘颜色</span><input aria-label="符号边缘颜色" type="color" value={markerStrokeColor} onChange={(event) => setMarkerStrokeColor(event.target.value)} /></label>}
+                    {editCapabilities.has('marker_stroke_width') && <label><span>边缘宽度</span><div className="unit-input"><input aria-label="符号边缘宽度" type="number" min="0" max="10" value={markerStrokeWidth} step="0.1" onChange={(event) => setMarkerStrokeWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>}
+                    {editCapabilities.has('marker_opacity') && <label><span>不透明度</span><div className="unit-input"><input aria-label="符号不透明度" type="range" min="0" max="1" value={markerOpacity} step="0.05" onChange={(event) => setMarkerOpacity(event.target.valueAsNumber)} /><span>{Math.round(markerOpacity * 100)}%</span></div></label>}
+                  </details>}
+                  {[...editCapabilities].some((item) => item.startsWith('fill_')) && <details className="parameter-subsection" open><summary>填充</summary>
+                    {editCapabilities.has('fill_color') && <label><span>填充颜色</span><input aria-label="填充颜色" type="color" value={fillColor} onChange={(event) => setFillColor(event.target.value)} /></label>}
+                    {editCapabilities.has('fill_opacity') && <label><span>不透明度</span><div className="unit-input"><input aria-label="填充不透明度" type="range" min="0" max="1" value={fillOpacity} step="0.05" onChange={(event) => setFillOpacity(event.target.valueAsNumber)} /><span>{Math.round(fillOpacity * 100)}%</span></div></label>}
+                    {editCapabilities.has('fill_stroke_color') && <label><span>边框颜色</span><input aria-label="填充边框颜色" type="color" value={fillStrokeColor} onChange={(event) => setFillStrokeColor(event.target.value)} /></label>}
+                    {editCapabilities.has('fill_stroke_width') && <label><span>边框宽度</span><div className="unit-input"><input aria-label="填充边框宽度" type="number" min="0" max="20" value={fillStrokeWidth} step="0.1" onChange={(event) => setFillStrokeWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>}
+                  </details>}
+                  {[...editCapabilities].some((item) => item.startsWith('line_') || item.startsWith('marker_') || item.startsWith('fill_'))
                     ? <button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedSeriesId}>应用系列样式</button>
                     : <p className="parameter-empty">该图没有可移植的系列样式项。</p>}
                 </form>
 
               </>
+            )}
+
+            {parameterTab === 'colormap' && (
+              <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyColorMap() }}>
+                <h3>颜色映射与色标</h3>
+                {plot && plot.seriesIds.length > 1 && <label><span>作用系列</span><select aria-label="色阶作用系列" value={seriesTargetIndex} onChange={(event) => selectSeries(Number(event.target.value))}>{plot.seriesIds.map((seriesId, index) => <option key={seriesId} value={index}>系列 {index + 1}</option>)}</select></label>}
+                <label><span>色板</span><select aria-label="色板" value={palette} onChange={(event) => setPalette(event.target.value)}><option value="viridis">Viridis</option><option value="cividis">Cividis</option><option value="plasma">Plasma</option><option value="blue_white_red">蓝—白—红</option><option value="gray_scale">灰阶</option><option value="fire">Fire</option><option value="rainbow_modified">Modified Rainbow</option></select></label>
+                <label className="parameter-check"><input aria-label="反转色板" type="checkbox" checked={paletteReverse} onChange={(event) => setPaletteReverse(event.target.checked)} /><span>反转色板</span></label>
+                <label><span>模式</span><select aria-label="色阶模式" value={colorMapMode} onChange={(event) => setColorMapMode(event.target.value)}><option value="continuous">连续</option><option value="discrete">离散</option></select></label>
+                <label><span>等级数</span><input aria-label="色阶等级数" type="number" min="2" max="256" value={colorMapLevels} onChange={(event) => setColorMapLevels(event.target.valueAsNumber)} /></label>
+                <label><span>缺失值颜色</span><input aria-label="缺失值颜色" type="color" value={missingColor} onChange={(event) => setMissingColor(event.target.value)} /></label>
+                <details className="parameter-subsection"><summary>固定范围与中点</summary><label><span>最小值</span><input aria-label="色阶最小值" type="number" value={colorMapMinimum} onChange={(event) => setColorMapMinimum(event.target.value)} /></label><label><span>最大值</span><input aria-label="色阶最大值" type="number" value={colorMapMaximum} onChange={(event) => setColorMapMaximum(event.target.value)} /></label><label><span>中点</span><input aria-label="色阶中点" type="number" value={colorMapMidpoint} onChange={(event) => setColorMapMidpoint(event.target.value)} /></label></details>
+                <label className="parameter-check"><input aria-label="显示色标" type="checkbox" checked={colorbarVisible} onChange={(event) => setColorbarVisible(event.target.checked)} /><span>显示色标</span></label>
+                <label><span>色标标题</span><input aria-label="色标标题" value={colorbarTitle} onChange={(event) => setColorbarTitle(event.target.value)} /></label>
+                <label><span>色标位置</span><select aria-label="色标位置" value={colorbarAnchor} onChange={(event) => setColorbarAnchor(event.target.value)}><option value="right">右侧</option><option value="bottom">底部</option></select></label>
+                <label><span>色标格式</span><select aria-label="色标数值格式" value={colorbarTickFormat} onChange={(event) => setColorbarTickFormat(event.target.value)}><option value="auto">自动</option><option value="decimal">小数</option><option value="scientific">科学计数</option><option value="percent">百分比</option></select></label>
+                <button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedSeriesId || ((colorMapMinimum === '') !== (colorMapMaximum === '')) || (colorMapMidpoint !== '' && (colorMapMinimum === '' || Number(colorMapMidpoint) <= Number(colorMapMinimum) || Number(colorMapMidpoint) >= Number(colorMapMaximum)))}>应用色阶</button>
+              </form>
+            )}
+
+            {parameterTab === 'uncertainty' && (
+              <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyErrorStyle() }}>
+                <h3>误差棒</h3>
+                <label><span>颜色</span><input aria-label="误差棒颜色" type="color" value={errorColor} onChange={(event) => setErrorColor(event.target.value)} /></label>
+                <label><span>线宽</span><div className="unit-input"><input aria-label="误差棒线宽" type="number" min="0.1" max="20" step="0.1" value={errorWidth} onChange={(event) => setErrorWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>
+                <label><span>端帽大小</span><div className="unit-input"><input aria-label="误差棒端帽大小" type="number" min="0" max="72" step="0.5" value={errorCapSize} onChange={(event) => setErrorCapSize(event.target.valueAsNumber)} /><span>pt</span></div></label>
+                <label><span>不透明度</span><div className="unit-input"><input aria-label="误差棒不透明度" type="range" min="0" max="1" step="0.05" value={errorOpacity} onChange={(event) => setErrorOpacity(event.target.valueAsNumber)} /><span>{Math.round(errorOpacity * 100)}%</span></div></label>
+                <details className="parameter-subsection"><summary>误差带</summary><label><span>填充颜色</span><input aria-label="误差带填充颜色" type="color" value={bandFillColor} onChange={(event) => setBandFillColor(event.target.value)} /></label><label><span>填充不透明度</span><div className="unit-input"><input aria-label="误差带不透明度" type="range" min="0" max="1" step="0.05" value={bandFillOpacity} onChange={(event) => setBandFillOpacity(event.target.valueAsNumber)} /><span>{Math.round(bandFillOpacity * 100)}%</span></div></label><label><span>边缘颜色</span><input aria-label="误差带边缘颜色" type="color" value={bandStrokeColor} onChange={(event) => setBandStrokeColor(event.target.value)} /></label><label><span>边缘宽度</span><div className="unit-input"><input aria-label="误差带边缘宽度" type="number" min="0" max="20" step="0.1" value={bandStrokeWidth} onChange={(event) => setBandStrokeWidth(event.target.valueAsNumber)} /><span>pt</span></div></label></details>
+                <button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedSeriesId}>应用误差样式</button>
+              </form>
+            )}
+
+            {parameterTab === 'labels' && (
+              <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyDataLabels() }}>
+                <h3>数据标签</h3>
+                <label className="parameter-check"><input aria-label="显示数据标签" type="checkbox" checked={labelsVisible} onChange={(event) => setLabelsVisible(event.target.checked)} /><span>显示数据标签</span></label>
+                <label><span>数值格式</span><select aria-label="标签数值格式" value={labelFormat} onChange={(event) => setLabelFormat(event.target.value)}><option value="auto">自动</option><option value="decimal">小数</option><option value="scientific">科学计数</option><option value="percent">百分比</option></select></label>
+                <label><span>位置</span><select aria-label="数据标签位置" value={labelPosition} onChange={(event) => setLabelPosition(event.target.value)}><option value="auto">自动</option><option value="above">上方</option><option value="below">下方</option><option value="left">左侧</option><option value="right">右侧</option><option value="center">居中</option></select></label>
+                <label><span>前缀</span><input aria-label="数据标签前缀" value={labelPrefix} maxLength={32} onChange={(event) => setLabelPrefix(event.target.value)} /></label><label><span>后缀</span><input aria-label="数据标签后缀" value={labelSuffix} maxLength={32} onChange={(event) => setLabelSuffix(event.target.value)} /></label>
+                <label><span>旋转</span><div className="unit-input"><input aria-label="数据标签旋转" type="number" min="-180" max="180" value={labelRotation} onChange={(event) => setLabelRotation(event.target.valueAsNumber)} /><span>°</span></div></label>
+                <label><span>字号</span><div className="unit-input"><input aria-label="数据标签字号" type="number" min="5" max="72" step="0.5" value={labelFontSize} onChange={(event) => setLabelFontSize(event.target.valueAsNumber)} /><span>pt</span></div></label>
+                <label><span>字重</span><select aria-label="数据标签字重" value={labelFontWeight} onChange={(event) => setLabelFontWeight(event.target.value)}><option value="normal">常规</option><option value="bold">粗体</option></select></label><label><span>颜色</span><input aria-label="数据标签颜色" type="color" value={labelFontColor} onChange={(event) => setLabelFontColor(event.target.value)} /></label>
+                <button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedSeriesId}>应用数据标签</button>
+              </form>
             )}
 
             {parameterTab === 'specialist' && plot && (
@@ -470,6 +773,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
                 {editCapabilities.has('axis_scale') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { scale: axisScale }) }}><h3>轴尺度</h3><label><span>尺度</span><select aria-label="轴尺度" value={axisScale} onChange={(event) => setAxisScale(event.target.value)}><option value="linear">线性</option><option value="log10">Log10</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴尺度</button></form>}
                 {editCapabilities.has('axis_range') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { minimum: Number(axisMinimum), maximum: Number(axisMaximum) }) }}><h3>固定范围</h3><label><span>最小值</span><input aria-label="轴最小值" type="number" required value={axisMinimum} onChange={(event) => setAxisMinimum(event.target.value)} /></label><label><span>最大值</span><input aria-label="轴最大值" type="number" required value={axisMaximum} onChange={(event) => setAxisMaximum(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisMinimum === '' || axisMaximum === '' || Number(axisMinimum) >= Number(axisMaximum)}>应用固定范围</button></form>}
                 {editCapabilities.has('axis_reverse') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { reverse: axisReverse }) }}><h3>轴方向</h3><label className="parameter-check"><input aria-label="反向坐标轴" type="checkbox" checked={axisReverse} onChange={(event) => setAxisReverse(event.target.checked)} /><span>反向显示</span></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴方向</button></form>}
+                {axisParameters.has('title_font_size_pt') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { title_font_size_pt: axisTitleSize, title_color: axisTitleColor, tick_format: axisTickFormat, tick_rotation_deg: axisTickRotation, tick_font_size_pt: axisTickSize, axis_line_color: axisLineColor, axis_line_width_pt: axisLineWidth, major_grid_visible: majorGridVisible, minor_grid_visible: minorGridVisible, grid_color: gridColor, grid_line_width_pt: gridLineWidth }) }}><h3>刻度、轴线与网格</h3><details className="parameter-subsection" open><summary>轴标题</summary><label><span>字号</span><div className="unit-input"><input aria-label="轴标题字号" type="number" min="5" max="72" step="0.5" value={axisTitleSize} onChange={(event) => setAxisTitleSize(event.target.valueAsNumber)} /><span>pt</span></div></label><label><span>颜色</span><input aria-label="轴标题颜色" type="color" value={axisTitleColor} onChange={(event) => setAxisTitleColor(event.target.value)} /></label></details><details className="parameter-subsection"><summary>刻度标签</summary><label><span>数值格式</span><select aria-label="刻度数值格式" value={axisTickFormat} onChange={(event) => setAxisTickFormat(event.target.value)}><option value="auto">自动</option><option value="decimal">小数</option><option value="scientific">科学计数</option><option value="percent">百分比</option><option value="date">日期</option><option value="time">时间</option></select></label><label><span>旋转</span><div className="unit-input"><input aria-label="刻度旋转" type="number" min="-180" max="180" value={axisTickRotation} onChange={(event) => setAxisTickRotation(event.target.valueAsNumber)} /><span>°</span></div></label><label><span>字号</span><div className="unit-input"><input aria-label="刻度字号" type="number" min="5" max="72" step="0.5" value={axisTickSize} onChange={(event) => setAxisTickSize(event.target.valueAsNumber)} /><span>pt</span></div></label></details><details className="parameter-subsection"><summary>轴线与网格</summary><label><span>轴线颜色</span><input aria-label="轴线颜色" type="color" value={axisLineColor} onChange={(event) => setAxisLineColor(event.target.value)} /></label><label><span>轴线宽度</span><div className="unit-input"><input aria-label="轴线宽度" type="number" min="0.1" max="20" step="0.1" value={axisLineWidth} onChange={(event) => setAxisLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label><label className="parameter-check"><input aria-label="主网格" type="checkbox" checked={majorGridVisible} onChange={(event) => setMajorGridVisible(event.target.checked)} /><span>主网格</span></label><label className="parameter-check"><input aria-label="次网格" type="checkbox" checked={minorGridVisible} onChange={(event) => setMinorGridVisible(event.target.checked)} /><span>次网格</span></label><label><span>网格颜色</span><input aria-label="网格颜色" type="color" value={gridColor} onChange={(event) => setGridColor(event.target.value)} /></label><label><span>网格线宽</span><div className="unit-input"><input aria-label="网格线宽" type="number" min="0.1" max="20" step="0.1" value={gridLineWidth} onChange={(event) => setGridLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label></details><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴视觉</button></form>}
               </>
             )}
 
@@ -477,6 +781,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
               <>
                 {editCapabilities.has('legend_visibility') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_legend', `legend:${plot?.plotId.replace('plot:', '')}.main`, { visible: legendVisible }) }}><h3>显示</h3><label className="parameter-check"><input type="checkbox" checked={legendVisible} onChange={(event) => setLegendVisible(event.target.checked)} /><span>显示图例</span></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用显示状态</button></form>}
                 {editCapabilities.has('legend_position') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_legend', `legend:${plot?.plotId.replace('plot:', '')}.main`, { anchor: legendPlacement === 'outside_right' ? 'right' : legendPlacement === 'outside_bottom' ? 'bottom' : 'inside' }) }}><h3>位置</h3><label><span>布局</span><select aria-label="图例位置" value={legendPlacement} onChange={(event) => setLegendPlacement(event.target.value)}><option value="inside">图内</option><option value="outside_right">图外右侧</option><option value="outside_bottom">图外下方</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图例位置</button></form>}
+                {legendParameters.has('columns') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_legend', `legend:${plot?.plotId.replace('plot:', '')}.main`, { columns: legendColumns, title: legendTitle, font_size_pt: legendFontSize, font_color: legendFontColor, frame_visible: legendFrameVisible, frame_color: legendFrameColor }) }}><h3>排版与边框</h3><label><span>标题</span><input aria-label="图例标题" value={legendTitle} onChange={(event) => setLegendTitle(event.target.value)} /></label><label><span>列数</span><input aria-label="图例列数" type="number" min="1" max="8" value={legendColumns} onChange={(event) => setLegendColumns(event.target.valueAsNumber)} /></label><label><span>字号</span><div className="unit-input"><input aria-label="图例字号" type="number" min="5" max="72" step="0.5" value={legendFontSize} onChange={(event) => setLegendFontSize(event.target.valueAsNumber)} /><span>pt</span></div></label><label><span>文字颜色</span><input aria-label="图例文字颜色" type="color" value={legendFontColor} onChange={(event) => setLegendFontColor(event.target.value)} /></label><label className="parameter-check"><input aria-label="图例边框" type="checkbox" checked={legendFrameVisible} onChange={(event) => setLegendFrameVisible(event.target.checked)} /><span>显示边框</span></label>{legendFrameVisible && <label><span>边框颜色</span><input aria-label="图例边框颜色" type="color" value={legendFrameColor} onChange={(event) => setLegendFrameColor(event.target.value)} /></label>}<button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图例排版</button></form>}
               </>
             )}
 

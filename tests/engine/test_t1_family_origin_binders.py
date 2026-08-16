@@ -37,10 +37,10 @@ from plotagent.engine.backends.origin import (
 )
 from plotagent.engine.backends.origin.k02 import K02OriginProject
 from plotagent.engine.backends.origin.k03 import K03OriginProject
-from plotagent.engine.backends.origin.k03 import _effective_actions as k03_effective_actions
 from plotagent.engine.backends.origin.k06 import K06OriginProject
 from plotagent.engine.backends.origin.k07 import K07OriginProject
 from plotagent.engine.backends.origin.x02 import X02OriginProject
+from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "4" * 64
 
@@ -431,7 +431,7 @@ def _case(
         action_id=f"action:style-{profile_id.lower()}",
         target=f"series:{profile_id.lower()}-origin.primary",
         expected_plot_version=2,
-        color="#AA3300",
+        line_stroke_color="#AA3300",
         **style,
     )
     legend = SetLegend(
@@ -499,8 +499,8 @@ def test_k02_binds_one_native_line_symbol_identity(
         style={
             "line_width_pt": 2.0,
             "line_style": "dash",
-            "symbol": "diamond",
-            "symbol_size_pt": 7.0,
+            "marker_shape": "diamond",
+            "marker_size_pt": 7.0,
         },
     )
     monkeypatch.setattr(
@@ -511,14 +511,14 @@ def test_k02_binds_one_native_line_symbol_identity(
     origin = FakeOrigin()
     project = K02OriginProject(origin)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert any("worksheet -p 202 LineSymb" in command for command in origin.commands)
     assert origin.graph.layer.add_calls == []
-    assert origin.graph.layer.plots[0].symbol_kind == 5
-    assert origin.graph.layer.labels["legend"].text.count("\\l(") == 1
+    assert origin.graph.layer.plots[0].symbol_kind == 2
+    assert "legend" not in origin.graph.layer.labels
     assert "line_symbol_series" in {item.object_kind for item in readback.objects}
 
 
@@ -559,9 +559,9 @@ def test_k03_binds_one_native_scatter_plot_per_data_group(
         action_id="action:style-k03",
         target="series:k03-origin.group_2",
         expected_plot_version=1,
-        color="#AA3300",
-        symbol="diamond",
-        symbol_size_pt=7,
+        line_stroke_color="#AA3300",
+        marker_shape="diamond",
+        marker_size_pt=7,
     )
     legend = SetLegend(
         action_id="action:legend-k03",
@@ -592,15 +592,15 @@ def test_k03_binds_one_native_scatter_plot_per_data_group(
     origin = FakeOrigin()
     project = K03OriginProject(origin)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert any("worksheet -p 201 Scatter" in command for command in origin.commands)
     assert origin.graph.layer.add_calls == []
-    assert origin.graph.layer.group_calls == [(False, 0, 1)]
+    assert origin.graph.layer.group_calls == []
     assert origin.graph.layer.labels["legend"].text == ("\\l(1) %(1)\n\\l(2) %(2)")
-    assert origin.graph.layer.plots[1].symbol_kind == 5
+    assert origin.graph.layer.plots[1].symbol_kind == 2
     assert {
         item.semantic_id for item in readback.objects if item.object_kind == "scatter_series"
     } == {
@@ -626,7 +626,7 @@ def test_k03_rebinding_discards_only_prior_data_derived_series_styles() -> None:
         action_id="action:old-style",
         target="series:k03-reset.group_2",
         expected_plot_version=1,
-        color="#AA3300",
+        line_stroke_color="#AA3300",
     )
     rebind = BindFields(
         action_id="action:rebind",
@@ -642,11 +642,9 @@ def test_k03_rebinding_discards_only_prior_data_derived_series_styles() -> None:
         text="Retained title",
     )
 
-    assert k03_effective_actions((create, old_style, rebind, title)) == (
-        create,
-        rebind,
-        title,
-    )
+    structural, visual = split_visual_actions((create, old_style, rebind, title))
+    assert structural == (create, rebind)
+    assert visual == (title,)
 
 
 def test_k06_preserves_native_asymmetric_error_magnitudes(
@@ -664,7 +662,11 @@ def test_k06_preserves_native_asymmetric_error_magnitudes(
         "K06",
         ("x", "center", "x_err_minus", "x_err_plus", "y_err_minus", "y_err_plus"),
         columns,
-        style={"line_width_pt": 1.8, "symbol": "square", "symbol_size_pt": 6.0},
+        style={
+            "line_width_pt": 1.8,
+            "marker_shape": "square",
+            "marker_size_pt": 6.0,
+        },
     )
     monkeypatch.setattr(
         k06_module,
@@ -674,15 +676,13 @@ def test_k06_preserves_native_asymmetric_error_magnitudes(
     origin = FakeOrigin()
     project = K06OriginProject(origin)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert any("worksheet -p 201 ERRBAR" in command for command in origin.commands)
     assert origin.graph.layer.add_calls == []
-    assert origin.book.sheet.designations == {
-        0: "X", 1: "Y", 2: "E", 3: "E", 4: "M", 5: "M"
-    }
+    assert origin.book.sheet.designations == {0: "X", 1: "Y", 2: "E", 3: "E", 4: "M", 5: "M"}
     assert origin.book.sheet.columns[2] == pytest.approx([0.3, 0.4, 0.2])
     assert origin.book.sheet.columns[3] == pytest.approx([0.4, 0.5, 0.3])
     assert origin.book.sheet.columns[4] == pytest.approx([0.1, 0.2, 0.1])
@@ -690,7 +690,7 @@ def test_k06_preserves_native_asymmetric_error_magnitudes(
     assert any("set __K06YMINUS -om __K06CENTER" in command for command in origin.commands)
     assert any("set __K06XMINUS -oxm __K06CENTER" in command for command in origin.commands)
     assert all("set __K06XMINUS -om __K06CENTER" not in command for command in origin.commands)
-    assert origin.graph.layer.plots[0].symbol_kind == 1
+    assert origin.graph.layer.plots[0].symbol_kind == 2
     assert "point_error_series" in {item.object_kind for item in readback.objects}
 
 
@@ -717,9 +717,9 @@ def test_k07_binds_center_and_band_without_boundary_legend_entries(
     origin = FakeOrigin()
     project = K07OriginProject(origin)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert any("run.section(plot,ScatterErrorBand)" in command for command in origin.commands)
     assert any("set __K07MINUS -om __K07CENTER" in command for command in origin.commands)
@@ -732,7 +732,7 @@ def test_k07_binds_center_and_band_without_boundary_legend_entries(
     assert origin.book.sheet.designations == {0: "X", 1: "Y", 2: "E", 3: "E"}
     assert origin.book.sheet.columns[2] == pytest.approx([0.5, 0.6, 0.8])
     assert origin.book.sheet.columns[3] == pytest.approx([0.5, 0.8, 0.9])
-    assert origin.graph.layer.labels["legend"].text.count("\\l(") == 1
+    assert "legend" not in origin.graph.layer.labels
     assert len({plot.color for plot in origin.graph.layer.plots}) == 1
     assert "error_band_series" in {item.object_kind for item in readback.objects}
 
@@ -756,8 +756,8 @@ def test_x02_uses_official_drop_line_command_and_preserves_raw_dynamic_data(
         style={
             "line_width_pt": 2.0,
             "line_style": "dot",
-            "symbol": "diamond",
-            "symbol_size_pt": 6.0,
+            "marker_shape": "diamond",
+            "marker_size_pt": 6.0,
         },
     )
     monkeypatch.setattr(
@@ -768,8 +768,8 @@ def test_x02_uses_official_drop_line_command_and_preserves_raw_dynamic_data(
     origin = FakeOrigin()
     project = X02OriginProject(origin)
     project.create(tmp_path, document, view)
-    project.reconcile(document, actions, view)
-    readback = project.verify(document, actions, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert any(
         "worksheet -s 1 0 2 0; worksheet -p 201 DROPLINE;" in command for command in origin.commands

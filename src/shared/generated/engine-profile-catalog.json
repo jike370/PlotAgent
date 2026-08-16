@@ -14,7 +14,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -23,21 +28,50 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
-            "line_style"
+            "line_style",
+            "line_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -96,7 +130,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -105,23 +144,57 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "symbol",
-            "symbol_size_pt"
+            "line_opacity",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -180,7 +253,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -189,21 +267,53 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "symbol",
-            "symbol_size_pt"
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -263,7 +373,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -272,21 +387,69 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "symbol",
-            "symbol_size_pt"
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_colormap",
+          "parameters": [
+            "palette",
+            "reverse",
+            "bounds",
+            "midpoint",
+            "mode",
+            "levels",
+            "missing_color",
+            "colorbar_visible",
+            "colorbar_anchor",
+            "colorbar_title",
+            "colorbar_tick_format"
           ]
         },
         {
@@ -353,7 +516,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -362,22 +530,66 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt",
-            "symbol",
-            "symbol_size_pt"
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_error_style",
+          "parameters": [
+            "bar_color",
+            "bar_width_pt",
+            "cap_size_pt",
+            "bar_opacity",
+            "band_fill_color",
+            "band_fill_opacity",
+            "band_stroke_color",
+            "band_stroke_width_pt"
           ]
         },
         {
@@ -440,7 +652,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -449,21 +666,63 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
-            "line_style"
+            "line_style",
+            "line_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_error_style",
+          "parameters": [
+            "bar_color",
+            "bar_width_pt",
+            "cap_size_pt",
+            "bar_opacity",
+            "band_fill_color",
+            "band_fill_opacity",
+            "band_stroke_color",
+            "band_stroke_width_pt"
           ]
         },
         {
@@ -524,7 +783,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -533,20 +797,66 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt"
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -605,7 +915,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -614,19 +929,66 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color"
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -685,7 +1047,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -694,20 +1061,66 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt"
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -766,7 +1179,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -775,20 +1193,66 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt"
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -847,7 +1311,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -856,21 +1325,53 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "symbol",
-            "symbol_size_pt"
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -929,7 +1430,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -938,19 +1444,58 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color"
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -1009,7 +1554,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -1018,19 +1568,55 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color"
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style",
+            "line_stroke_color",
+            "line_width_pt",
+            "line_style",
+            "line_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -1089,7 +1675,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -1098,20 +1689,51 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt"
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -1167,7 +1789,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -1176,21 +1803,55 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
-            "line_style"
+            "line_style",
+            "line_opacity",
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -1252,7 +1913,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -1261,21 +1927,50 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
-            "line_style"
+            "line_style",
+            "line_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -1337,14 +2032,69 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
           "operation": "set_axis",
           "parameters": [
             "label",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_colormap",
+          "parameters": [
+            "palette",
+            "reverse",
+            "bounds",
+            "midpoint",
+            "mode",
+            "levels",
+            "missing_color",
+            "colorbar_visible",
+            "colorbar_anchor",
+            "colorbar_title",
+            "colorbar_tick_format"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -1367,6 +2117,11 @@
           "object_alias": "y_axis",
           "object_key": "y",
           "object_kind": "axis"
+        },
+        {
+          "object_alias": "series_1",
+          "object_key": "matrix",
+          "object_kind": "series"
         }
       ],
       "optional_roles": [],
@@ -1392,14 +2147,69 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
           "operation": "set_axis",
           "parameters": [
             "label",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_colormap",
+          "parameters": [
+            "palette",
+            "reverse",
+            "bounds",
+            "midpoint",
+            "mode",
+            "levels",
+            "missing_color",
+            "colorbar_visible",
+            "colorbar_anchor",
+            "colorbar_title",
+            "colorbar_tick_format"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -1458,7 +2268,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -1466,7 +2281,42 @@
           "parameters": [
             "label",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_colormap",
+          "parameters": [
+            "palette",
+            "reverse",
+            "bounds",
+            "midpoint",
+            "mode",
+            "levels",
+            "missing_color",
+            "colorbar_visible",
+            "colorbar_anchor",
+            "colorbar_title",
+            "colorbar_tick_format"
           ]
         },
         {
@@ -1525,7 +2375,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -1534,13 +2389,42 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color"
+            "line_stroke_color",
+            "line_width_pt",
+            "line_style",
+            "line_opacity",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
@@ -1599,7 +2483,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -1607,23 +2496,57 @@
           "parameters": [
             "label",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "symbol",
-            "symbol_size_pt"
+            "line_opacity",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -1690,14 +2613,69 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
           "operation": "set_axis",
           "parameters": [
             "label",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_colormap",
+          "parameters": [
+            "palette",
+            "reverse",
+            "bounds",
+            "midpoint",
+            "mode",
+            "levels",
+            "missing_color",
+            "colorbar_visible",
+            "colorbar_anchor",
+            "colorbar_title",
+            "colorbar_tick_format"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -1757,7 +2735,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -1766,23 +2749,57 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "symbol",
-            "symbol_size_pt"
+            "line_opacity",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -1841,7 +2858,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -1850,23 +2872,57 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "symbol",
-            "symbol_size_pt"
+            "line_opacity",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -1927,7 +2983,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -1936,21 +2997,53 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "symbol",
-            "symbol_size_pt"
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -2009,7 +3102,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -2018,13 +3116,66 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -2084,7 +3235,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -2092,20 +3248,66 @@
           "parameters": [
             "label",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt"
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -2168,7 +3370,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -2177,21 +3384,57 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
-            "line_style"
+            "line_style",
+            "line_opacity",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -2259,27 +3502,81 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
           "operation": "set_axis",
           "parameters": [
-            "label"
+            "label",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
-            "line_style"
+            "line_style",
+            "line_opacity",
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -2346,7 +3643,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -2355,20 +3657,66 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
-            "line_width_pt"
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -2436,7 +3784,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -2445,23 +3798,77 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "symbol",
-            "symbol_size_pt"
+            "line_opacity",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity",
+            "fill_color",
+            "fill_opacity",
+            "fill_stroke_color",
+            "fill_stroke_width_pt",
+            "fill_stroke_style"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_data_labels",
+          "parameters": [
+            "visible",
+            "value_format",
+            "prefix",
+            "suffix",
+            "position",
+            "rotation_deg",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "font_color"
           ]
         },
         {
@@ -2529,7 +3936,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -2537,13 +3949,50 @@
           "parameters": [
             "label",
             "scale",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "line_stroke_color",
+            "line_width_pt",
+            "line_style",
+            "line_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -2603,7 +4052,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -2612,22 +4066,57 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "symbol"
+            "line_opacity",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {
@@ -2692,7 +4181,12 @@
         {
           "operation": "set_title",
           "parameters": [
-            "text"
+            "text",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "color"
           ]
         },
         {
@@ -2701,23 +4195,57 @@
             "label",
             "scale",
             "bounds",
-            "reverse"
+            "reverse",
+            "title_font_family",
+            "title_font_size_pt",
+            "title_font_weight",
+            "title_italic",
+            "title_color",
+            "major_tick_step",
+            "minor_tick_count",
+            "tick_format",
+            "tick_rotation_deg",
+            "tick_font_family",
+            "tick_font_size_pt",
+            "tick_color",
+            "axis_line_color",
+            "axis_line_width_pt",
+            "major_grid_visible",
+            "minor_grid_visible",
+            "grid_color",
+            "grid_line_width_pt",
+            "grid_line_style"
           ]
         },
         {
           "operation": "set_series_style",
           "parameters": [
-            "color",
+            "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "symbol",
-            "symbol_size_pt"
+            "line_opacity",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_stroke_width_pt",
+            "marker_opacity"
           ]
         },
         {
           "operation": "set_legend",
           "parameters": [
-            "visible"
+            "visible",
+            "anchor",
+            "columns",
+            "title",
+            "font_family",
+            "font_size_pt",
+            "font_color",
+            "frame_visible",
+            "frame_color",
+            "frame_width_pt"
           ]
         },
         {

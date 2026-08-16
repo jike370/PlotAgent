@@ -48,6 +48,7 @@ from plotagent.engine.profiles import (
     X09_FLOATING_INTERVAL_PROFILE,
     X13_POPULATION_PYRAMID_PROFILE,
 )
+from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "7" * 64
 
@@ -77,9 +78,9 @@ def _case(
     )
     actions: list[PlotEngineAction] = [create]
     for index, (target, color) in enumerate(styles, start=1):
-        arguments: dict[str, object] = {"color": color}
+        arguments: dict[str, object] = {"line_stroke_color": color}
         if profile_id == "X05":
-            arguments.update(symbol="diamond", symbol_size_pt=6.0)
+            arguments.update(marker_shape="diamond", marker_size_pt=6.0)
         else:
             arguments.update(line_width_pt=1.2)
         actions.append(
@@ -512,9 +513,7 @@ class _Origin:
             return self.x13_exchange_xy[int(exchange.group(1))]
         if expression in {"__X13LINK", "__X13XLINK", "__X13YLINK"}:
             return self.x13_links[
-                {"__X13LINK": "target", "__X13XLINK": "x", "__X13YLINK": "y"}[
-                    expression
-                ]
+                {"__X13LINK": "target", "__X13XLINK": "x", "__X13YLINK": "y"}[expression]
             ]
         style = re.fullmatch(r"__X13STYLE([12])([CW])", expression)
         if style:
@@ -547,14 +546,14 @@ def test_x05_origin_binds_dynamic_groups_to_official_template(
     origin = _Origin()
     project = DistributionOriginProject(origin, profile_id="X05")
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
     assert resolved == [X05_ORIGIN_PROFILE.filename]
     assert origin.commands[0] == "worksheet -s 1 0 3 0; worksheet -p 206 Beeswarm;"
     assert sum("layer -c" in command for command in origin.commands) == 2
     assert sum("get __X05P -pt" in command for command in origin.commands) == 6
-    assert sum(command.startswith("legendbox") for command in origin.commands) == 2
+    assert sum(command.startswith("legendbox") for command in origin.commands) == 1
     assert origin.graph is not None
     assert origin.graph[0].add_calls == []
     assert [plot.get_int("type") for plot in origin.graph[0].plots] == [206, 206, 206]
@@ -568,7 +567,7 @@ def test_x09_origin_uses_one_official_floatcol_command_without_generic_rebuild()
     matplotlib_source = inspect.getsource(X09FloatingIntervalRenderer)
 
     assert "worksheet -p 207 FloatCol" in source
-    assert 'set __X09P -gm 1' not in source
+    assert "set __X09P -gm 1" not in source
     assert "FloatBar" not in source
     assert ".new_graph(" not in source
     assert ".AddPlot(" not in source
@@ -600,37 +599,21 @@ def test_x09_rebuilds_legend_from_visible_intervals_after_official_creation() ->
     assert "self._set_legend(intervals, True)" in source
 
 
-def test_x09_maps_semantic_axes_to_vertical_floating_column_axes() -> None:
-    project = X09OriginProject(None)
-    project.layer = _Layer()
-
-    project._apply_axis(
-        "y",
-        SetAxis(
-            action_id="action:x09-vertical-value-axis",
-            target="axis:x09-native.y",
-            expected_plot_version=1,
-            label="Interval value",
-            scale="log10",
-            minimum=0.1,
-            maximum=10.0,
-        ),
-    )
-    project._apply_axis(
-        "x",
-        SetAxis(
-            action_id="action:x09-horizontal-category-axis",
-            target="axis:x09-native.x",
-            expected_plot_version=2,
-            label="Sample",
-            scale="categorical",
-        ),
+def test_x09_axis_edits_are_routed_only_to_the_shared_visual_adapter() -> None:
+    action = SetAxis(
+        action_id="action:x09-vertical-value-axis",
+        target="axis:x09-native.y",
+        expected_plot_version=1,
+        label="Interval value",
+        scale="log10",
+        minimum=0.1,
+        maximum=10.0,
     )
 
-    assert project.layer.axes["y"].scale == "log10"
-    assert project.layer.axes["y"].limits[:2] == (0.1, 10.0)
-    assert project.layer.labels["yl"].text == "Interval value"
-    assert project.layer.labels["xb"].text == "Sample"
+    structural, visual = split_visual_actions((action,))
+
+    assert structural == ()
+    assert visual == (action,)
 
 
 def test_x09_matplotlib_selects_a_font_covering_visible_cjk(tmp_path: Path) -> None:
@@ -665,7 +648,7 @@ def test_x09_matplotlib_selects_a_font_covering_visible_cjk(tmp_path: Path) -> N
         warnings.simplefilter("always")
         X09FloatingIntervalRenderer().render(
             document,
-            actions,
+            split_visual_actions(actions)[0],
             cjk_view,
             tmp_path / "x09-cjk.png",
             tmp_path / "x09-cjk.svg",
@@ -686,20 +669,14 @@ def test_x13_origin_uses_both_official_template_layers(
     origin = _Origin()
     project = X13OriginProject(origin)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
     assert any("run.section(plot,PopulationPyramid)" in command for command in origin.commands)
     assert origin.graph is not None
     assert [layer.add_calls for layer in origin.graph] == [[], []]
     assert (
-        len(
-            [
-                item
-                for item in readback.objects
-                if item.object_kind == "native_population_column"
-            ]
-        )
+        len([item for item in readback.objects if item.object_kind == "native_population_column"])
         == 2
     )
 
@@ -777,15 +754,15 @@ def test_x13_fresh_gate_rejects_source_link_or_offset_drift(
     origin = _Origin()
     project = X13OriginProject(origin)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
     mutator(origin)
 
     with pytest.raises(RuntimeError, match=message):
-        project.verify(document, actions, view)
+        project.verify(document, split_visual_actions(actions)[0], view)
 
 
-def test_x13_fresh_gate_rejects_unlinked_or_incomplete_legend(
+def test_x13_structural_gate_does_not_depend_on_a_visual_legend(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     document, actions, view = _x13_case()
@@ -797,16 +774,11 @@ def test_x13_fresh_gate_rejects_unlinked_or_incomplete_legend(
     origin = _Origin()
     project = X13OriginProject(origin)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
     assert origin.graph is not None
-    legend = origin.graph[0].labels["legend"]
-    assert r"\l(1.1)" in legend.text
-    assert r"\l(2.1)" in legend.text
-    legend.set_int("link", 0)
-
-    with pytest.raises(RuntimeError, match="linked native legend"):
-        project.verify(document, actions, view)
+    assert "legend" not in origin.graph[0].labels
+    project.verify(document, split_visual_actions(actions)[0], view)
 
 
 def test_profiles_publish_only_shared_agent_actions_and_pinned_templates() -> None:

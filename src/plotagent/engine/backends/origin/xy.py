@@ -3,29 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 
 from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.engine.contracts import (
-    AddAnnotation,
     BindFields,
     CreatePlot,
     EngineColumn,
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.repository import document_ref
 
 from .profile import OriginTemplateProfile, resolve_official_template
-from .readback import axis_scale_matches
 
 _LINE_STYLE_CODES = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3, "none": 10}
 _SYMBOL_CODES = {
@@ -38,10 +31,6 @@ _SYMBOL_CODES = {
 _TITLE_NAME = "_ENGINE_TITLE"
 
 
-def _annotation_name(semantic_id: str) -> str:
-    return "_ENGINE_ANNOTATION_" + sha256(semantic_id.encode("utf-8")).hexdigest()[:16]
-
-
 @dataclass(frozen=True, slots=True)
 class OriginXYDefinition:
     template: OriginTemplateProfile
@@ -49,23 +38,6 @@ class OriginXYDefinition:
     object_kind: str
     supports_line: bool
     supports_symbol: bool
-
-
-def _hex_rgb(value: str) -> tuple[int, int, int]:
-    return tuple(int(value[index : index + 2], 16) for index in (1, 3, 5))  # type: ignore[return-value]
-
-
-def _safe_legend_label(value: str) -> str:
-    output: list[str] = []
-    for character in value:
-        codepoint = ord(character)
-        if character in {"\\", "%", "$"}:
-            output.append(f"\\x({codepoint:04X})")
-        elif character in {"\r", "\n", "\t"} or codepoint < 0x20 or codepoint == 0x7F:
-            output.append(" ")
-        else:
-            output.append(character)
-    return "".join(output).strip()
 
 
 class OriginXYProject:
@@ -131,117 +103,13 @@ class OriginXYProject:
         self.plot = plots[0]
         self.sheet = books[0][0]
 
-    def apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        data: EngineDataView,
-    ) -> None:
-        token = document.plot_id.removeprefix("plot:")
+    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, CreatePlot):
             return
         if isinstance(action, BindFields):
             self._write_data(document, data)
             self.layer.rescale()
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError(f"{self.profile_id} title target does not belong to this plot")
-            label = self.layer.label(_TITLE_NAME)
-            if label is None:
-                label = self.layer.add_label(action.text, 40, 2)
-                if label is None:
-                    raise RuntimeError(f"Origin could not create the {self.profile_id} title")
-                label.name = _TITLE_NAME
-            label.text = action.text
-            label.set_int("show", 1)
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-            if axis_name is None:
-                raise ValueError(f"{self.profile_id} axis target does not belong to this plot")
-            axis = self.layer.axis(axis_name)
-            if action.scale is not None:
-                if action.scale not in {"linear", "log10"}:
-                    raise ValueError(f"Origin {self.profile_id} axes support only linear or log10")
-                axis.scale = action.scale
-            if action.minimum is not None and action.maximum is not None:
-                begin, end = action.minimum, action.maximum
-                if action.reverse:
-                    begin, end = end, begin
-                axis.set_limits(begin, end)
-            elif action.reverse is not None:
-                begin, end, step = (float(value) for value in axis.limits)
-                should_reverse = begin < end if action.reverse else begin > end
-                if should_reverse:
-                    axis.set_limits(end, begin, abs(step))
-            if action.label is not None:
-                label = self.layer.label("xb" if axis_name == "x" else "yl")
-                if label is None:
-                    label = self.layer.add_label(action.label)
-                if label is None:
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} template has no writable axis label"
-                    )
-                label.text = action.label
-                label.set_int("show", 1)
-            return
-        if isinstance(action, SetSeriesStyle):
-            if action.target != f"series:{token}.primary":
-                raise ValueError(f"{self.profile_id} series target does not belong to this plot")
-            if action.color is not None:
-                self.plot.color = action.color
-            if action.line_width_pt is not None:
-                if not self.definition.supports_line:
-                    raise ValueError(f"{self.profile_id} does not expose a line width")
-                self.plot.set_float("line.width", action.line_width_pt)
-            if action.line_style is not None:
-                if not self.definition.supports_line:
-                    raise ValueError(f"{self.profile_id} does not expose a line style")
-                self.plot.set_int("line.style", _LINE_STYLE_CODES[action.line_style])
-            if action.symbol is not None:
-                if not self.definition.supports_symbol:
-                    raise ValueError(f"{self.profile_id} does not expose a symbol")
-                try:
-                    self.plot.symbol_kind = _SYMBOL_CODES[action.symbol]
-                except KeyError as error:
-                    raise ValueError(
-                        f"Origin {self.profile_id} does not support symbol {action.symbol}"
-                    ) from error
-            if action.symbol_size_pt is not None:
-                if not self.definition.supports_symbol:
-                    raise ValueError(f"{self.profile_id} does not expose a symbol size")
-                self.plot.symbol_size = action.symbol_size_pt
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main":
-                raise ValueError(f"{self.profile_id} legend target does not belong to this plot")
-            legend = self.layer.label("legend")
-            if action.visible and legend is None:
-                self.layer.activate()
-                if not self.layer.obj.LT_execute("legend"):
-                    raise RuntimeError(f"Origin could not create a linked {self.profile_id} legend")
-                legend = self.layer.label("legend")
-            if legend is not None and action.visible is not None:
-                value_name = self._bound_columns(document, data)[1].field.name
-                legend.text = f"\\l(1) {_safe_legend_label(value_name)}"
-                legend.set_int("link", 1)
-                legend.set_int("show", int(action.visible))
-            return
-        if isinstance(action, AddAnnotation):
-            if action.target != document.plot_id:
-                raise ValueError(
-                    f"{self.profile_id} annotation target does not belong to this plot"
-                )
-            native_name = _annotation_name(action.annotation_id)
-            label = self.layer.label(native_name)
-            if label is None:
-                label = self.layer.add_label(action.text, action.x, action.y)
-                if label is None:
-                    raise RuntimeError(f"Origin could not create the {self.profile_id} annotation")
-                label.name = native_name
-            label.text = action.text
-            label.set_int("show", 1)
             return
         raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
 
@@ -262,64 +130,6 @@ class OriginXYProject:
         self._assert_values(self.sheet.to_list(1), y_column.values, "y")
         token = document.plot_id.removeprefix("plot:")
         style_snapshot: dict[str, object] = {}
-        for action in actions:
-            if isinstance(action, SetTitle):
-                title = self.layer.label(_TITLE_NAME)
-                if title is None or title.text != action.text or not title.get_int("show"):
-                    raise RuntimeError(f"Origin {self.profile_id} title did not survive readback")
-                style_snapshot["title"] = title.text
-            elif isinstance(action, SetAxis):
-                axis_name = "x" if action.target == f"axis:{token}.x" else "y"
-                axis = self.layer.axis(axis_name)
-                if action.scale is not None and not axis_scale_matches(axis.scale, action.scale):
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} axis scale did not survive readback"
-                    )
-                if action.label is not None:
-                    label = self.layer.label("xb" if axis_name == "x" else "yl")
-                    if label is None or label.text != action.label:
-                        raise RuntimeError(
-                            f"Origin {self.profile_id} axis label did not survive readback"
-                        )
-                style_snapshot[f"axis_{axis_name}"] = {
-                    "scale": axis.scale,
-                    "limits": tuple(float(value) for value in axis.limits),
-                }
-            elif isinstance(action, SetSeriesStyle):
-                if action.color is not None and tuple(self.plot.color) != _hex_rgb(action.color):
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} series color did not survive readback"
-                    )
-                if (
-                    action.line_width_pt is not None
-                    and abs(self.plot.get_float("line.width") - action.line_width_pt) > 0.01
-                ):
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} line width did not survive readback"
-                    )
-                if action.symbol_size_pt is not None and (
-                    abs(float(self.plot.symbol_size) - action.symbol_size_pt) > 0.01
-                ):
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} symbol size did not survive readback"
-                    )
-                style_snapshot["series"] = {
-                    "color": tuple(self.plot.color),
-                    "line_width": self.plot.get_float("line.width"),
-                }
-            elif isinstance(action, SetLegend) and action.visible is not None:
-                legend = self.layer.label("legend")
-                if legend is None or bool(legend.get_int("show")) != action.visible:
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} legend visibility did not survive readback"
-                    )
-                style_snapshot["legend"] = {"visible": action.visible, "text": legend.text}
-            elif isinstance(action, AddAnnotation):
-                label = self.layer.label(_annotation_name(action.annotation_id))
-                if label is None or label.text != action.text or not label.get_int("show"):
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} annotation did not survive readback"
-                    )
         objects = (
             EngineObjectRef(
                 semantic_id=document.plot_id,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -22,10 +22,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import PopulationPyramidData, x13_population_pyramid
@@ -183,7 +179,7 @@ class X13PopulationPyramidRenderer:
         actions: tuple[PlotEngineAction, ...],
         pyramid: PopulationPyramidData,
     ) -> _PyramidState:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _PyramidState(
             title="",
             x_axis=_AxisState("Population", "linear"),
@@ -194,68 +190,5 @@ class X13PopulationPyramidRenderer:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("X13 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                attribute = {
-                    f"axis:{token}.x": "x_axis",
-                    f"axis:{token}.y": "y_axis",
-                }.get(action.target)
-                if attribute is None:
-                    raise ValueError("X13 axis target does not belong to this plot")
-                current = getattr(state, attribute)
-                if action.scale is not None and action.scale != current.scale:
-                    raise ValueError("X13 axis scale is fixed by its official profile")
-                state = replace(
-                    state,
-                    **{
-                        attribute: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            minimum=current.minimum if action.minimum is None else action.minimum,
-                            maximum=current.maximum if action.maximum is None else action.maximum,
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                attribute = {
-                    f"series:{token}.left": "left",
-                    f"series:{token}.right": "right",
-                }.get(action.target)
-                if attribute is None:
-                    raise ValueError("X13 series target does not belong to this plot")
-                if any(
-                    value is not None
-                    for value in (action.line_style, action.symbol, action.symbol_size_pt)
-                ):
-                    raise ValueError("X13 exposes bar fill color and edge width only")
-                current = getattr(state, attribute)
-                state = replace(
-                    state,
-                    **{
-                        attribute: replace(
-                            current,
-                            color=current.color if action.color is None else action.color,
-                            edge_width_pt=(
-                                current.edge_width_pt
-                                if action.line_width_pt is None
-                                else action.line_width_pt
-                            ),
-                        )
-                    },
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("X13 legend target or anchor is not supported")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
-            else:
-                raise ValueError(f"X13 renderer cannot apply {action.operation}")
+            raise ValueError(f"X13 renderer cannot apply {action.operation}")
         return state

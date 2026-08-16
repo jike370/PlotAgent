@@ -117,7 +117,7 @@ def test_x23_renders_two_independent_axes_and_replays_actions(tmp_path: Path) ->
                 action_id="action:left-style",
                 target="series:dual-demo.left",
                 expected_plot_version=3,
-                color="#0F766E",
+                line_stroke_color="#0F766E",
                 line_width_pt=2.0,
             )
         )
@@ -126,7 +126,7 @@ def test_x23_renders_two_independent_axes_and_replays_actions(tmp_path: Path) ->
                 action_id="action:right-style",
                 target="series:dual-demo.right",
                 expected_plot_version=4,
-                color="#BE123C",
+                line_stroke_color="#BE123C",
                 line_style="dash",
             )
         )

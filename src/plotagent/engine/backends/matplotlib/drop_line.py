@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -20,10 +20,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import xy_series
@@ -184,7 +180,7 @@ class X02DropLineRenderer:
         x_name: str,
         y_name: str,
     ) -> _DropLineState:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _DropLineState(
             title="",
             x_axis=_AxisState(x_name),
@@ -193,72 +189,5 @@ class X02DropLineRenderer:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("X02 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                attribute = {
-                    f"axis:{token}.x": "x_axis",
-                    f"axis:{token}.y": "y_axis",
-                }.get(action.target)
-                if attribute is None:
-                    raise ValueError("X02 axis target does not belong to this plot")
-                current = getattr(state, attribute)
-                bounds = (
-                    (current.minimum, current.maximum)
-                    if action.minimum is None
-                    else (action.minimum, action.maximum)
-                )
-                state = replace(
-                    state,
-                    **{
-                        attribute: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=bounds[0],
-                            maximum=bounds[1],
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                if action.target != f"series:{token}.primary":
-                    raise ValueError("X02 series target does not belong to this plot")
-                if action.line_style == "none":
-                    raise ValueError("X02 cannot hide drop lines through line style")
-                if action.line_width_pt is not None and not float(
-                    action.line_width_pt
-                ).is_integer():
-                    raise ValueError("X02 exposes drop-line width in whole points only")
-                state = replace(
-                    state,
-                    color=state.color if action.color is None else action.color,
-                    line_width_pt=(
-                        state.line_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt
-                    ),
-                    line_style=(
-                        state.line_style if action.line_style is None else action.line_style
-                    ),
-                    symbol=state.symbol if action.symbol is None else action.symbol,
-                    symbol_size_pt=(
-                        state.symbol_size_pt
-                        if action.symbol_size_pt is None
-                        else action.symbol_size_pt
-                    ),
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("X02 exposes only legend visibility")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
-            else:
-                raise ValueError(f"X02 renderer cannot apply {action.operation}")
+            raise ValueError(f"X02 renderer cannot apply {action.operation}")
         return state

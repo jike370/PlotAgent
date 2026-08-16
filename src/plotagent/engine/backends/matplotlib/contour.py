@@ -19,9 +19,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
     SetChartParameter,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import RegularGridData, k22_regular_grid
@@ -64,13 +62,9 @@ class K22ContourRenderer:
             state.levels + 1,
         )
         color_label = (
-            grid.z_field_name
-            if grid.z_unit is None
-            else f"{grid.z_field_name} ({grid.z_unit})"
+            grid.z_field_name if grid.z_unit is None else f"{grid.z_field_name} ({grid.z_unit})"
         )
-        font_family = resolve_font_family(
-            (state.title, state.x_label, state.y_label, color_label)
-        )
+        font_family = resolve_font_family((state.title, state.x_label, state.y_label, color_label))
         with matplotlib.rc_context({"font.family": font_family}):
             figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
             contour = axis.contourf(
@@ -144,53 +138,18 @@ class K22ContourRenderer:
         actions: tuple[PlotEngineAction, ...],
         grid: RegularGridData,
     ) -> _K22State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K22State("", grid.x_field_name, grid.y_field_name)
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K22 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-                continue
-            if isinstance(action, SetAxis):
-                axis_name = {
-                    f"axis:{token}.x": "x",
-                    f"axis:{token}.y": "y",
-                }.get(action.target)
-                if axis_name is None:
-                    raise ValueError("K22 axis target does not belong to this plot")
-                if action.scale not in {None, "linear"}:
-                    raise ValueError("K22 axes require linear scale")
-                if axis_name == "x":
-                    state = replace(
-                        state,
-                        x_label=state.x_label if action.label is None else action.label,
-                        x_minimum=action.minimum,
-                        x_maximum=action.maximum,
-                        x_reverse=(
-                            state.x_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
-                else:
-                    state = replace(
-                        state,
-                        y_label=state.y_label if action.label is None else action.label,
-                        y_minimum=action.minimum,
-                        y_maximum=action.maximum,
-                        y_reverse=(
-                            state.y_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
                 continue
             if isinstance(action, SetChartParameter):
                 if (
                     action.target != document.plot_id
                     or action.parameter != "levels"
                     or isinstance(action.value, bool)
-                    or not isinstance(action.value, int)
-                    or not 2 <= action.value <= 64
+                    or (not isinstance(action.value, int))
+                    or (not 2 <= action.value <= 64)
                 ):
                     raise ValueError("K22 levels must be an integer from 2 to 64")
                 state = replace(state, levels=action.value)

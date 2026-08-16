@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -20,10 +20,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import k03_scatter
@@ -187,7 +183,7 @@ class K03ScatterRenderer:
         y_name: str,
         group_count: int,
     ) -> _K03State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K03State(
             title="",
             x_axis=_AxisState(x_name),
@@ -197,77 +193,12 @@ class K03ScatterRenderer:
             ),
             legend_visible=group_count > 1,
         )
-        last_binding = max(
+        max(
             (index for index, action in enumerate(actions) if isinstance(action, BindFields)),
             default=-1,
         )
-        for index, action in enumerate(actions):
+        for _index, action in enumerate(actions):
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K03 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(
-                    action.target
-                )
-                if axis_name is None:
-                    raise ValueError("K03 axis target does not belong to this plot")
-                current = getattr(state, axis_name)
-                bounds = (
-                    (current.minimum, current.maximum)
-                    if action.minimum is None
-                    else (action.minimum, action.maximum)
-                )
-                state = replace(
-                    state,
-                    **{
-                        axis_name: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=bounds[0],
-                            maximum=bounds[1],
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                if index < last_binding:
-                    continue
-                ordinal = self._series_ordinal(action.target, token, group_count)
-                current = state.series[ordinal - 1]
-                updated = replace(
-                    current,
-                    color=current.color if action.color is None else action.color,
-                    symbol=current.symbol if action.symbol is None else action.symbol,
-                    symbol_size_pt=(
-                        current.symbol_size_pt
-                        if action.symbol_size_pt is None
-                        else action.symbol_size_pt
-                    ),
-                )
-                series = list(state.series)
-                series[ordinal - 1] = updated
-                state = replace(state, series=tuple(series))
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError("K03 legend target does not belong to this plot")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
-            else:
-                raise ValueError(f"K03 renderer cannot apply {action.operation}")
+            raise ValueError(f"K03 renderer cannot apply {action.operation}")
         return state
-
-    @staticmethod
-    def _series_ordinal(target: str, token: str, group_count: int) -> int:
-        prefix = f"series:{token}.group_"
-        suffix = target.removeprefix(prefix) if target.startswith(prefix) else ""
-        if not suffix.isdigit() or not 1 <= int(suffix) <= group_count:
-            raise ValueError("K03 series target is outside the materialized groups")
-        return int(suffix)

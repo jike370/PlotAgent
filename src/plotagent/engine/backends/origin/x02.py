@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from math import isclose, isnan
 from pathlib import Path
 from typing import Any, cast
@@ -14,10 +14,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import XYSeriesData, xy_series
@@ -254,87 +250,13 @@ class X02OriginProject:
         self.sheet.from_list(0, list(series.x_values), lname=series.x_field_name, axis="X")
         self.sheet.from_list(1, list(series.y_values), lname=series.y_field_name, axis="Y")
 
-    def _state(
-        self, document: PlotDocument, actions: tuple[PlotEngineAction, ...]
-    ) -> _State:
-        token = document.plot_id.removeprefix("plot:")
+    def _state(self, document: PlotDocument, actions: tuple[PlotEngineAction, ...]) -> _State:
+        document.plot_id.removeprefix("plot:")
         state = _State()
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("X02 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                attribute = {
-                    f"axis:{token}.x": "x_axis",
-                    f"axis:{token}.y": "y_axis",
-                }.get(action.target)
-                if attribute is None:
-                    raise ValueError("X02 axis target does not belong to this plot")
-                if action.scale not in {None, "linear", "log10"}:
-                    raise ValueError("X02 axes support linear or log10")
-                current = getattr(state, attribute)
-                state = replace(
-                    state,
-                    **{
-                        attribute: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=current.minimum
-                            if action.minimum is None
-                            else float(action.minimum),
-                            maximum=current.maximum
-                            if action.maximum is None
-                            else float(action.maximum),
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                if action.target != f"series:{token}.primary":
-                    raise ValueError("X02 series target does not belong to this plot")
-                if action.line_style == "none":
-                    raise ValueError("X02 cannot hide drop lines through line style")
-                if action.symbol is not None and action.symbol not in _SYMBOL:
-                    raise ValueError(f"X02 does not support symbol {action.symbol}")
-                if action.line_width_pt is not None and not float(
-                    action.line_width_pt
-                ).is_integer():
-                    raise ValueError(
-                        "Origin 2024 X02 exposes drop-line width in whole points only"
-                    )
-                current = state.series
-                state = replace(
-                    state,
-                    series=replace(
-                        current,
-                        color=current.color if action.color is None else action.color,
-                        line_width_pt=current.line_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt,
-                        line_style=current.line_style
-                        if action.line_style is None
-                        else action.line_style,
-                        symbol=current.symbol if action.symbol is None else action.symbol,
-                        symbol_size_pt=current.symbol_size_pt
-                        if action.symbol_size_pt is None
-                        else action.symbol_size_pt,
-                    ),
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("X02 exposes only legend visibility")
-                state = replace(
-                    state,
-                    legend_visible=state.legend_visible
-                    if action.visible is None
-                    else action.visible,
-                )
-            else:
-                raise ValueError(f"Origin X02 binder cannot apply {action.operation}")
+            raise ValueError(f"Origin X02 binder cannot apply {action.operation}")
         return state
 
     def _set_title(self, text: str) -> None:
@@ -426,8 +348,7 @@ class X02OriginProject:
 
     def _assert_native_structure(self, *, verify_transform: bool) -> dict[str, object]:
         command = (
-            self._plot_prefix()
-            + "layer -c; __X02COUNT=count; "
+            self._plot_prefix() + "layer -c; __X02COUNT=count; "
             "range -wx __X02X=1; range -wy __X02Y=1; "
             "get __X02P -pt __X02PT; get __X02P -lv __X02LV; "
             "string __X02XS$=%(__X02X); string __X02YS$=%(__X02Y);"
@@ -470,9 +391,7 @@ class X02OriginProject:
         if verify_transform:
             offset = float(self.op.lt_float("__X02SY"))
             multiplier = float(self.op.lt_float("__X02SYS"))
-            if not isclose(offset, 0.0, abs_tol=1e-8) or not isclose(
-                multiplier, 1.0, abs_tol=1e-8
-            ):
+            if not isclose(offset, 0.0, abs_tol=1e-8) or not isclose(multiplier, 1.0, abs_tol=1e-8):
                 raise RuntimeError(
                     f"Origin X02 plot transform changed: offset={offset}, scale={multiplier}"
                 )
@@ -499,11 +418,7 @@ class X02OriginProject:
                 raise RuntimeError(f"Origin X02 {axis_name} scale changed after reopen")
             if edits.label is not None:
                 label = self.layer.label(label_name)
-                if (
-                    label is None
-                    or label.text != edits.label
-                    or label.get_int("fstyle") != 0
-                ):
+                if label is None or label.text != edits.label or label.get_int("fstyle") != 0:
                     raise RuntimeError(f"Origin X02 {axis_name} label changed after reopen")
             if edits.minimum is not None and edits.maximum is not None:
                 expected = (
@@ -524,18 +439,14 @@ class X02OriginProject:
         series_edits = state.series
         if series_edits != _SeriesEdits():
             self.op.lt_exec(
-                self._plot_prefix()
-                + "get __X02P -c __X02C; get __X02P -lvc __X02LVC; "
+                self._plot_prefix() + "get __X02P -c __X02C; get __X02P -lvc __X02LVC; "
                 "get __X02P -lvw __X02LVW; get __X02P -lvs __X02LVS; "
                 "get __X02P -k __X02K; get __X02P -z __X02Z;"
             )
             if series_edits.color is not None:
-                expected_color = int(
-                    self.op.lt_float(f'color("{series_edits.color}")')
-                )
+                expected_color = int(self.op.lt_float(f'color("{series_edits.color}")'))
                 if any(
-                    int(self.op.lt_float(name)) != expected_color
-                    for name in ("__X02C", "__X02LVC")
+                    int(self.op.lt_float(name)) != expected_color for name in ("__X02C", "__X02LVC")
                 ):
                     raise RuntimeError("Origin X02 symbol/drop-line color changed")
             if series_edits.line_width_pt is not None and not isclose(
@@ -544,15 +455,15 @@ class X02OriginProject:
                 abs_tol=1e-8,
             ):
                 raise RuntimeError("Origin X02 drop-line width changed")
-            if series_edits.line_style is not None and int(
-                self.op.lt_float("__X02LVS")
-            ) != _LINE_STYLE[series_edits.line_style]:
+            if (
+                series_edits.line_style is not None
+                and int(self.op.lt_float("__X02LVS")) != _LINE_STYLE[series_edits.line_style]
+            ):
                 raise RuntimeError("Origin X02 drop-line style changed")
-            if series_edits.symbol is not None and int(
-                self.op.lt_float("__X02K")
-            ) != _SYMBOL[
-                series_edits.symbol
-            ]:
+            if (
+                series_edits.symbol is not None
+                and int(self.op.lt_float("__X02K")) != _SYMBOL[series_edits.symbol]
+            ):
                 raise RuntimeError("Origin X02 symbol changed")
             if series_edits.symbol_size_pt is not None and not isclose(
                 float(self.op.lt_float("__X02Z")),

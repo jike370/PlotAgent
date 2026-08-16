@@ -99,7 +99,7 @@ def test_actions_are_agent_neutral_and_discriminated() -> None:
             action_id="action:series",
             target="series:signal",
             expected_plot_version=1,
-            color="#0055AA",
+            line_stroke_color="#0055AA",
         ),
         SetLegend(
             action_id="action:legend",

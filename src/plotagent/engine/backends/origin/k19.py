@@ -15,10 +15,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import TimeSeriesData, k19_time_series
@@ -144,100 +140,9 @@ class K19OriginProject:
         self.sheet = self.book[0]
 
     def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
-        token = document.plot_id.removeprefix("plot:")
-        series = k19_time_series(document, data)
+        document.plot_id.removeprefix("plot:")
+        k19_time_series(document, data)
         if isinstance(action, (CreatePlot, BindFields)):
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("K19 title target does not belong to this plot")
-            label = self.layer.label(_TITLE_NAME)
-            if label is None and action.text:
-                self.layer.activate()
-                if not self.layer.obj.LT_execute(
-                    f"label -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
-                ):
-                    raise RuntimeError("Origin could not create the K19 title")
-                label = self.layer.label(_TITLE_NAME)
-            if label is not None:
-                label.text = action.text
-                label.set_int("attach", 1)
-                label.set_float("x1", 0.5)
-                label.set_float("y1", 0.012)
-                label.set_int("fsize", 14)
-                label.set_int("fstyle", 0)
-                label.set_int("background", 0)
-                label.set_int("show", int(bool(action.text)))
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-            if axis_name is None:
-                raise ValueError("K19 axis target does not belong to this plot")
-            if axis_name == "x" and action.scale not in {None, "datetime"}:
-                raise ValueError("K19 x axis requires datetime scale")
-            if axis_name == "y" and action.scale not in {None, "linear", "log10"}:
-                raise ValueError("K19 y axis supports only linear or log10 scale")
-            axis = self.layer.axis(axis_name)
-            if axis_name == "y" and action.scale is not None:
-                axis.scale = action.scale
-            if axis_name == "x" and (action.minimum is not None or action.maximum is not None):
-                raise ValueError("K19 public datetime axes do not expose numeric bounds")
-            if axis_name == "y" and (action.minimum is not None or action.maximum is not None):
-                if action.minimum is None or action.maximum is None:
-                    raise ValueError("K19 y-axis bounds require both minimum and maximum")
-                begin, end = action.minimum, action.maximum
-                if action.reverse:
-                    begin, end = end, begin
-                axis.set_limits(begin, end)
-            if action.reverse is not None:
-                begin, end, step = (float(value) for value in axis.limits)
-                should_reverse = begin < end if action.reverse else begin > end
-                if should_reverse:
-                    axis.set_limits(end, begin, abs(step))
-            if action.label is not None:
-                label = self.layer.label("xb" if axis_name == "x" else "yl")
-                if label is None:
-                    label = self.layer.add_label(action.label)
-                if label is None:
-                    raise RuntimeError("Origin LINE.otpu has no writable axis label")
-                label.text = action.label
-                label.set_int("show", 1)
-            return
-        if isinstance(action, SetSeriesStyle):
-            ordinal = self._series_ordinal(action.target, token, len(series.series))
-            plot = self.plots[ordinal - 1]
-            if action.symbol is not None or action.symbol_size_pt is not None:
-                raise ValueError("K19 Line does not expose symbol edits")
-            if action.line_style == "none":
-                raise ValueError("K19 Line cannot hide its line through series style")
-            self.graph.activate()
-            graph_name = str(self.graph.name)
-            if not graph_name.replace("_", "").isalnum():
-                raise RuntimeError("unsafe K19 graph name for native style edit")
-            if not self.op.lt_exec(
-                f"range __K19HEAD=[{graph_name}]Layer1!1; "
-                f"range __K19MEMBER=[{graph_name}]Layer1!{ordinal}; "
-                "set __K19HEAD -gm 1;"
-            ):
-                raise RuntimeError("Origin could not make the K19 line group independent")
-            if action.color is not None:
-                plot.color = action.color
-            if action.line_width_pt is not None:
-                plot.set_float("line.width", action.line_width_pt)
-            if action.line_style is not None and not self.op.lt_exec(
-                f"set __K19MEMBER -d {_LINE_STYLE_CODES[action.line_style]};"
-            ):
-                raise RuntimeError("Origin could not apply the K19 native line style")
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main":
-                raise ValueError("K19 legend target does not belong to this plot")
-            if action.anchor not in {None, "inside"}:
-                raise ValueError("K19 currently exposes only the template legend anchor")
-            self._set_legend(
-                series,
-                visible=len(series.series) > 1 if action.visible is None else action.visible,
-            )
             return
         raise ValueError(f"Origin K19 binder cannot apply {action.operation}")
 
@@ -278,79 +183,6 @@ class K19OriginProject:
         self._assert_linked_legend(expected)
         token = document.plot_id.removeprefix("plot:")
         style_snapshot: dict[str, object] = {}
-        for action in actions:
-            if isinstance(action, SetTitle):
-                title = self.layer.label(_TITLE_NAME)
-                if action.text:
-                    if title is None or title.text != action.text or not title.get_int("show"):
-                        raise RuntimeError("Origin K19 title did not survive readback")
-                elif title is not None and title.get_int("show"):
-                    raise RuntimeError("Origin K19 cleared title became visible again")
-                style_snapshot["title"] = action.text
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-                if axis_name is None:
-                    raise RuntimeError("Origin K19 axis target changed during readback")
-                axis = self.layer.axis(axis_name)
-                if action.label is not None:
-                    label = self.layer.label("xb" if axis_name == "x" else "yl")
-                    if label is None or label.text != action.label:
-                        raise RuntimeError("Origin K19 axis label did not survive readback")
-                if (
-                    axis_name == "y"
-                    and action.scale is not None
-                    and self._axis_scale_code(axis_name) != {"linear": 0, "log10": 1}[action.scale]
-                ):
-                    raise RuntimeError("Origin K19 y-axis scale did not survive readback")
-                begin, end, step = (float(value) for value in axis.limits)
-                if axis_name == "y" and action.minimum is not None:
-                    if action.maximum is None:
-                        raise RuntimeError("Origin K19 y-axis maximum disappeared")
-                    expected_limits = (action.minimum, action.maximum)
-                    if action.reverse:
-                        expected_limits = (expected_limits[1], expected_limits[0])
-                    if not np.allclose((begin, end), expected_limits, rtol=0, atol=1e-12):
-                        raise RuntimeError("Origin K19 y-axis bounds did not survive readback")
-                if action.reverse is not None and ((begin > end) != action.reverse):
-                    raise RuntimeError("Origin K19 axis direction did not survive readback")
-                style_snapshot[f"axis_{axis_name}"] = {
-                    "label": action.label,
-                    "scale_code": self._axis_scale_code(axis_name),
-                    "limits": [begin, end, step],
-                }
-            elif isinstance(action, SetSeriesStyle):
-                ordinal = self._series_ordinal(action.target, token, len(expected.series))
-                plot = self.plots[ordinal - 1]
-                if action.color is not None:
-                    observed_color = tuple(int(value) for value in plot.color)
-                    expected_color = tuple(
-                        int(action.color[index : index + 2], 16) for index in (1, 3, 5)
-                    )
-                    if observed_color != expected_color:
-                        raise RuntimeError("Origin K19 series color did not survive readback")
-                if (
-                    action.line_width_pt is not None
-                    and abs(plot.get_float("line.width") - action.line_width_pt) > 0.01
-                ):
-                    raise RuntimeError("Origin K19 line width did not survive readback")
-                style_code = self._line_style_code(ordinal)
-                if (
-                    action.line_style is not None
-                    and style_code != _LINE_STYLE_CODES[action.line_style]
-                ):
-                    raise RuntimeError("Origin K19 line style did not survive readback")
-                style_snapshot[f"series_{ordinal}"] = {
-                    "color": tuple(int(value) for value in plot.color),
-                    "line_width": plot.get_float("line.width"),
-                    "line_style": style_code,
-                }
-            elif isinstance(action, SetLegend) and action.visible is not None:
-                legend = self.layer.label("legend")
-                if legend is None or bool(legend.get_int("show")) != action.visible:
-                    raise RuntimeError("Origin K19 legend visibility did not survive readback")
-                if action.visible and legend.text.count("\\l(") != len(expected.series):
-                    raise RuntimeError("Origin K19 legend lost a linked series entry")
-                style_snapshot["legend"] = action.visible
         style_snapshot["native_structure"] = native_structure
         return EngineReadback(
             document=document_ref(document),
@@ -550,27 +382,6 @@ class K19OriginProject:
                 f"expected={expected_names!r}, actual={frame_names!r}"
             )
 
-    def _line_style_code(self, ordinal: int) -> int:
-        self.graph.activate()
-        graph_name = str(self.graph.name)
-        if not graph_name.replace("_", "").isalnum():
-            raise RuntimeError("unsafe K19 graph name for native style readback")
-        command = (
-            f"range __K19STYLE=[{graph_name}]Layer1!{ordinal}; get __K19STYLE -d __K19STYLECODE;"
-        )
-        if not self.op.lt_exec(command):
-            raise RuntimeError("Origin could not read the K19 native line style")
-        return int(self.op.lt_float("__K19STYLECODE"))
-
-    def _axis_scale_code(self, axis_name: str) -> int:
-        self.graph.activate()
-        axis_token = {"x": "X", "y": "Y"}.get(axis_name)
-        if axis_token is None:
-            raise ValueError("K19 native scale readback requires x or y axis")
-        if not self.op.lt_exec(f"axis -pg {axis_token} S __K19SCALECODE;"):
-            raise RuntimeError("Origin could not read the K19 native axis scale")
-        return int(self.op.lt_float("__K19SCALECODE"))
-
     @staticmethod
     def _axis_tick_display(expected: TimeSeriesData) -> tuple[int, int, str]:
         calendar_dates = {value.date() for value in expected.time_values}
@@ -589,19 +400,6 @@ class K19OriginProject:
             if cls._uses_shared_time_axis(expected)
             else 2 * len(expected.series)
         )
-
-    @staticmethod
-    def _series_ordinal(target: str, token: str, series_count: int) -> int:
-        prefix = f"series:{token}.line_"
-        if not target.startswith(prefix):
-            raise ValueError("K19 series target does not belong to this plot")
-        try:
-            ordinal = int(target.removeprefix(prefix))
-        except ValueError as error:
-            raise ValueError("K19 series target requires a numeric ordinal") from error
-        if ordinal < 1 or ordinal > series_count:
-            raise ValueError("K19 series target ordinal is outside the bound data")
-        return ordinal
 
     @staticmethod
     def _column_name(ordinal: int) -> str:

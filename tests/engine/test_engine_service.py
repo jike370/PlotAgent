@@ -170,13 +170,13 @@ def test_service_rejects_parameters_not_exposed_by_the_profile(tmp_path: Path) -
     with ProjectStore.create(tmp_path / "project", project_id="project:engine") as project:
         service = PlotEngineService(_catalog(), PlotDocumentRepository(project))
         service.execute(_create(x="field:x", y="field:y"))
-        with pytest.raises(EngineCommandError, match="parameters.*symbol"):
+        with pytest.raises(EngineCommandError, match="parameters.*marker_shape"):
             service.execute(
                 SetSeriesStyle(
                     action_id="action:symbol",
                     target="series:demo.primary",
                     expected_plot_version=1,
-                    symbol="circle",
+                    marker_shape="circle",
                 )
             )
 

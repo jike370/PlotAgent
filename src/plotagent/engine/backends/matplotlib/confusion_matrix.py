@@ -19,9 +19,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
     SetChartParameter,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import K20Grid, s61_confusion_grid
@@ -150,45 +148,16 @@ class S61ConfusionRenderer:
         actions: tuple[PlotEngineAction, ...],
         grid: K20Grid,
     ) -> _S61State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _S61State("", grid.column_field_name, grid.row_field_name)
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("S61 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-                continue
-            if isinstance(action, SetAxis):
-                axis_name = {
-                    f"axis:{token}.x": "x",
-                    f"axis:{token}.y": "y",
-                }.get(action.target)
-                if axis_name is None:
-                    raise ValueError("S61 axis target does not belong to this plot")
-                if action.scale not in {None, "categorical"}:
-                    raise ValueError("S61 axes require categorical scale")
-                if action.minimum is not None or action.maximum is not None:
-                    raise ValueError("S61 public axes do not expose numeric bounds")
-                if axis_name == "x":
-                    state = replace(
-                        state,
-                        x_label=state.x_label if action.label is None else action.label,
-                        x_reverse=state.x_reverse if action.reverse is None else action.reverse,
-                    )
-                else:
-                    state = replace(
-                        state,
-                        y_label=state.y_label if action.label is None else action.label,
-                        y_reverse=state.y_reverse if action.reverse is None else action.reverse,
-                    )
                 continue
             if isinstance(action, SetChartParameter):
                 if (
                     action.target != document.plot_id
                     or action.parameter != "show_counts"
-                    or not isinstance(action.value, bool)
+                    or (not isinstance(action.value, bool))
                 ):
                     raise ValueError("S61 show_counts must be boolean")
                 state = replace(state, show_counts=action.value)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from math import isnan
 from pathlib import Path
 from typing import Any, cast
@@ -14,11 +14,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
     SetChartParameter,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import TrellisData, k24_trellis_data
@@ -151,9 +147,7 @@ class K24OriginProject:
         data: EngineDataView,
     ) -> None:
         trellis = k24_trellis_data(document, data)
-        with origin_trace_step(
-            "agent_actions_apply", details={"action_count": len(actions)}
-        ):
+        with origin_trace_step("agent_actions_apply", details={"action_count": len(actions)}):
             state, styles = self._state(document, actions, trellis)
             self._set_axis_state(state)
             self._set_title(state.title)
@@ -217,17 +211,13 @@ class K24OriginProject:
                         semantic_id=f"panel:{token}.facet_{index + 1}",
                         backend="origin",
                         object_kind="facet_panel",
-                        native_ref=(
-                            f"graph:{self.graph.name}.layer:1.trellis_panel:{index + 1}"
-                        ),
+                        native_ref=(f"graph:{self.graph.name}.layer:1.trellis_panel:{index + 1}"),
                     ),
                     EngineObjectRef(
                         semantic_id=f"series:{token}.facet_{index + 1}",
                         backend="origin",
                         object_kind="facet_series",
-                        native_ref=(
-                            f"graph:{self.graph.name}.layer:1.trellis_subset:{index + 1}"
-                        ),
+                        native_ref=(f"graph:{self.graph.name}.layer:1.trellis_subset:{index + 1}"),
                     ),
                 )
             )
@@ -279,9 +269,7 @@ class K24OriginProject:
             raise RuntimeError("Origin K24 must retain one single-layer PID 202 Trellis")
         if "!A" not in x_source or "!B" not in y_source:
             raise RuntimeError("Origin K24 lost the source X/Y range binding")
-        designations = tuple(
-            int(self.sheet.get_int(f"col{index}.type")) for index in range(1, 4)
-        )
+        designations = tuple(int(self.sheet.get_int(f"col{index}.type")) for index in range(1, 4))
         if designations != (4, 1, 2):
             raise RuntimeError("Origin K24 source designations must remain X/Y/N")
         observed_labels = tuple(dict.fromkeys(str(value) for value in self.sheet.to_list(2)))
@@ -308,68 +296,14 @@ class K24OriginProject:
         actions: tuple[PlotEngineAction, ...],
         trellis: TrellisData,
     ) -> tuple[_K24State, tuple[_K24Style, ...]]:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K24State(x_label=trellis.x_field_name, y_label=trellis.y_field_name)
         styles = tuple(_K24Style() for _label in trellis.facet_labels)
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K24 title target does not belong")
-                state = replace(state, title=action.text)
-                continue
-            if isinstance(action, SetAxis):
-                axis_name = {
-                    f"axis:{token}.x": "x",
-                    f"axis:{token}.y": "y",
-                }.get(action.target)
-                if axis_name is None or action.scale not in {None, "linear"}:
-                    raise ValueError("K24 Trellis exposes only linear X/Y axes")
-                if axis_name == "x":
-                    state = replace(
-                        state,
-                        x_label=state.x_label if action.label is None else action.label,
-                        x_minimum=action.minimum,
-                        x_maximum=action.maximum,
-                        x_reverse=(
-                            state.x_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
-                else:
-                    state = replace(
-                        state,
-                        y_label=state.y_label if action.label is None else action.label,
-                        y_minimum=action.minimum,
-                        y_maximum=action.maximum,
-                        y_reverse=(
-                            state.y_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
-                continue
-            if isinstance(action, SetSeriesStyle):
-                prefix = f"series:{token}.facet_"
-                if not action.target.startswith(prefix):
-                    raise ValueError("K24 series target does not belong")
-                index = int(action.target.removeprefix(prefix)) - 1
-                if not 0 <= index < len(styles):
-                    raise ValueError("K24 facet series target is out of range")
-                if (
-                    action.color is None
-                    or action.line_width_pt is not None
-                    or action.line_style is not None
-                    or action.symbol is not None
-                    or action.symbol_size_pt is not None
-                ):
-                    raise ValueError("K24 exposes only per-facet color")
-                mutable = list(styles)
-                mutable[index] = replace(mutable[index], color=action.color)
-                styles = tuple(mutable)
-                continue
-            if isinstance(action, (SetLegend, SetChartParameter)):
-                raise ValueError(
-                    "K24 exposes neither a standalone legend nor manual panel layout"
-                )
+            if isinstance(action, SetChartParameter):
+                raise ValueError("K24 exposes neither a standalone legend nor manual panel layout")
             raise ValueError(f"Origin K24 cannot apply {action.operation}")
         return state, styles
 
@@ -437,9 +371,7 @@ class K24OriginProject:
 
     def _assert_facet_colors(self, styles: tuple[_K24Style, ...]) -> None:
         edited = tuple(
-            (index, style.color)
-            for index, style in enumerate(styles, start=1)
-            if style.color
+            (index, style.color) for index, style in enumerate(styles, start=1) if style.color
         )
         if not edited:
             return
@@ -456,16 +388,13 @@ class K24OriginProject:
             for ordinal, color in edited:
                 expected = int(self.op.lt_float(f'color("{color}")'))
                 if ordinal > len(values) or int(values[ordinal - 1]) != expected:
-                    raise RuntimeError(
-                        f"Origin K24 {option} facet color did not survive readback"
-                    )
+                    raise RuntimeError(f"Origin K24 {option} facet color did not survive readback")
 
     def _read_color_list(self, option: str, count: int, variable: str) -> tuple[float, ...]:
         self.graph.activate()
         self.op.lt_exec(f"dataset {variable}; get %C {option} {variable};")
         return tuple(
-            float(self.op.lt_float(f"{variable}[{index}]"))
-            for index in range(1, count + 1)
+            float(self.op.lt_float(f"{variable}[{index}]")) for index in range(1, count + 1)
         )
 
     def _assert_labels(self, state: _K24State) -> None:
@@ -492,12 +421,9 @@ class K24OriginProject:
             if getattr(state, f"{axis_name}_reverse"):
                 expected = expected[::-1]
             if any(
-                abs(left - right) > 1e-8
-                for left, right in zip(observed, expected, strict=True)
+                abs(left - right) > 1e-8 for left, right in zip(observed, expected, strict=True)
             ):
-                raise RuntimeError(
-                    f"Origin K24 {axis_name.upper()} limits changed after reopen"
-                )
+                raise RuntimeError(f"Origin K24 {axis_name.upper()} limits changed after reopen")
 
     @staticmethod
     def _assert_values(actual: list[Any], expected: tuple[Any, ...], label: str) -> None:
@@ -506,9 +432,7 @@ class K24OriginProject:
         for observed, wanted in zip(actual, expected, strict=True):
             if isinstance(wanted, float) and isnan(wanted):
                 if not isinstance(observed, float) or not isnan(observed):
-                    raise RuntimeError(
-                        f"Origin K24 {label} missing value changed after reopen"
-                    )
+                    raise RuntimeError(f"Origin K24 {label} missing value changed after reopen")
             elif observed != wanted:
                 raise RuntimeError(f"Origin K24 {label} values changed after reopen")
 

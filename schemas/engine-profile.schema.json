@@ -11,6 +11,9 @@
             "set_axis",
             "set_series_style",
             "set_legend",
+            "set_colormap",
+            "set_error_style",
+            "set_data_labels",
             "set_chart_parameter",
             "add_annotation",
             "export_plot"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -15,16 +15,11 @@ from matplotlib.axes import Axes
 
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine.contracts import (
-    AddAnnotation,
     BindFields,
     CreatePlot,
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import xy_series
@@ -52,7 +47,6 @@ class _K02State:
     symbol_size_pt: float = 5.0
     legend_visible: bool = False
     legend_anchor: str = "inside"
-    annotations: tuple[AddAnnotation, ...] = ()
 
 
 class K02LineSymbolRenderer:
@@ -87,9 +81,6 @@ class K02LineSymbolRenderer:
         axis.set_ylabel(state.y_axis.label)
         self._apply_axis(axis, "x", state.x_axis)
         self._apply_axis(axis, "y", state.y_axis)
-        for annotation in state.annotations:
-            transform = axis.transData if annotation.coordinate_system == "data" else axis.transAxes
-            axis.text(annotation.x, annotation.y, annotation.text, transform=transform)
         self._apply_legend(axis, state)
         png_path.parent.mkdir(parents=True, exist_ok=True)
         figure.savefig(png_path, dpi=160)
@@ -188,75 +179,10 @@ class K02LineSymbolRenderer:
         x_name: str,
         y_name: str,
     ) -> _K02State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K02State(title="", x_axis=_AxisState(x_name), y_axis=_AxisState(y_name))
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K02 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(
-                    action.target
-                )
-                if axis_name is None:
-                    raise ValueError("K02 axis target does not belong to this plot")
-                current = getattr(state, axis_name)
-                bounds = (
-                    (current.minimum, current.maximum)
-                    if action.minimum is None
-                    else (action.minimum, action.maximum)
-                )
-                state = replace(
-                    state,
-                    **{
-                        axis_name: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=bounds[0],
-                            maximum=bounds[1],
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                if action.target != f"series:{token}.primary":
-                    raise ValueError("K02 series target does not belong to this plot")
-                state = replace(
-                    state,
-                    color=state.color if action.color is None else action.color,
-                    line_width_pt=(
-                        state.line_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt
-                    ),
-                    line_style=(
-                        state.line_style if action.line_style is None else action.line_style
-                    ),
-                    symbol=state.symbol if action.symbol is None else action.symbol,
-                    symbol_size_pt=(
-                        state.symbol_size_pt
-                        if action.symbol_size_pt is None
-                        else action.symbol_size_pt
-                    ),
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError("K02 legend target does not belong to this plot")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                    legend_anchor=state.legend_anchor if action.anchor is None else action.anchor,
-                )
-            elif isinstance(action, AddAnnotation):
-                if action.target != document.plot_id:
-                    raise ValueError("K02 annotation target does not belong to this plot")
-                state = replace(state, annotations=state.annotations + (action,))
-            else:
-                raise ValueError(f"K02 renderer cannot apply {action.operation}")
+            raise ValueError(f"K02 renderer cannot apply {action.operation}")
         return state

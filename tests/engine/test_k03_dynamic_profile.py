@@ -49,9 +49,9 @@ def _case(
         action_id="action:style-second",
         target="series:k03-dynamic.group_2",
         expected_plot_version=1,
-        color="#AA3300",
-        symbol="diamond",
-        symbol_size_pt=8,
+        line_stroke_color="#AA3300",
+        marker_shape="diamond",
+        marker_size_pt=8,
     )
     legend = SetLegend(
         action_id="action:legend",
@@ -125,7 +125,7 @@ def test_k03_rejects_series_ordinals_outside_materialized_data(tmp_path: Path) -
     document, actions, view = _case(("A", "A"))
     backend = MatplotlibBackend(tmp_path / "artifacts", (K03ScatterRenderer(),))
 
-    with pytest.raises(ValueError, match="outside the materialized groups"):
+    with pytest.raises(ValueError, match="outside the materialized series"):
         backend.stage(document, actions, EngineRenderSource(data=view))
 
 
@@ -148,9 +148,7 @@ def test_k03_rebinding_resets_obsolete_data_derived_series_styles(tmp_path: Path
     )
     backend = MatplotlibBackend(tmp_path / "artifacts", (K03ScatterRenderer(),))
 
-    change = backend.stage(
-        rebound_document, rebound_actions, EngineRenderSource(data=view)
-    )
+    change = backend.stage(rebound_document, rebound_actions, EngineRenderSource(data=view))
     change.publish()
 
     assert backend.readback(rebound_document).document.plot_version == 4

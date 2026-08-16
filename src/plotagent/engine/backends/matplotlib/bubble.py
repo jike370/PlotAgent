@@ -24,11 +24,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
     SetChartParameter,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import K04BubbleData, k04_bubble
@@ -171,7 +167,7 @@ class K04BubbleRenderer:
         actions: tuple[PlotEngineAction, ...],
         bubble: K04BubbleData,
     ) -> _K04State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K04State(
             title="",
             x_axis=_AxisState(bubble.x_field_name),
@@ -185,62 +181,7 @@ class K04BubbleRenderer:
         for index, action in enumerate(actions):
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K04 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(
-                    action.target
-                )
-                if axis_name is None:
-                    raise ValueError("K04 axis target does not belong to this plot")
-                current = getattr(state, axis_name)
-                bounds = (
-                    (current.minimum, current.maximum)
-                    if action.minimum is None
-                    else (action.minimum, action.maximum)
-                )
-                state = replace(
-                    state,
-                    **{
-                        axis_name: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=bounds[0],
-                            maximum=bounds[1],
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                if index < last_binding:
-                    continue
-                if action.target != f"series:{token}.primary":
-                    raise ValueError("K04 series target does not belong to this plot")
-                if action.color is not None and bubble.color_values is not None:
-                    raise ValueError("K04 fixed series color conflicts with the bound color field")
-                state = replace(
-                    state,
-                    color=state.color if action.color is None else action.color,
-                    symbol=state.symbol if action.symbol is None else action.symbol,
-                    symbol_size_pt=(
-                        state.symbol_size_pt
-                        if action.symbol_size_pt is None
-                        else action.symbol_size_pt
-                    ),
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError("K04 legend target does not belong to this plot")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
-            elif isinstance(action, SetChartParameter):
+            if isinstance(action, SetChartParameter):
                 if index < last_binding:
                     continue
                 if action.target != document.plot_id or not isinstance(action.value, bool):

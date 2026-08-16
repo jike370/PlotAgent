@@ -559,7 +559,8 @@ export function parseDatasetDescribeInput(value: unknown): DatasetDescribeInput 
 
 const ENGINE_OPERATIONS = new Set([
   'create_plot', 'bind_fields', 'set_title', 'set_axis', 'set_series_style',
-  'set_legend', 'set_chart_parameter', 'add_annotation', 'export_plot',
+  'set_legend', 'set_colormap', 'set_error_style', 'set_data_labels',
+  'set_chart_parameter', 'add_annotation', 'export_plot',
 ])
 
 export function parseEngineActionInput(value: unknown): EngineActionInput | null {

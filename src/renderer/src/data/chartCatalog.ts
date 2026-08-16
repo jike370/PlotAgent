@@ -80,8 +80,9 @@ const recent = new Set(['K01', 'K03', 'K13', 'K21'])
 
 export type EditCapability =
   | 'plot_title' | 'axis_label' | 'axis_range' | 'axis_scale' | 'axis_reverse'
-  | 'legend_visibility' | 'legend_position' | 'safe_annotation' | 'series_color'
-  | 'line_width' | 'line_style' | 'marker_size' | 'symbol_shape' | 'chart_parameters'
+  | 'legend_visibility' | 'legend_position' | 'safe_annotation' | 'line_style'
+  | 'marker_style' | 'fill_style' | 'colormap' | 'error_style' | 'data_labels'
+  | 'chart_parameters'
 
 export interface ChartProductMetadata {
   admission: 'product'
@@ -102,11 +103,13 @@ const capabilityMap = (profile: EngineProfile): EditCapability[] => {
     ...(axis.has('scale') ? ['axis_scale' as const] : []),
     ...(axis.has('bounds') ? ['axis_range' as const] : []),
     ...(axis.has('reverse') ? ['axis_reverse' as const] : []),
-    ...(series.has('color') ? ['series_color' as const] : []),
-    ...(series.has('line_width_pt') ? ['line_width' as const] : []),
-    ...(series.has('line_style') ? ['line_style' as const] : []),
-    ...(series.has('symbol') ? ['symbol_shape' as const] : []),
-    ...(series.has('symbol_size_pt') ? ['marker_size' as const] : []),
+    ...([...series].some((item) => item.startsWith('line_')) ? ['line_style' as const] : []),
+    ...([...series].some((item) => item.startsWith('marker_'))
+      ? ['marker_style' as const] : []),
+    ...([...series].some((item) => item.startsWith('fill_')) ? ['fill_style' as const] : []),
+    ...(capabilities.has('set_colormap') ? ['colormap' as const] : []),
+    ...(capabilities.has('set_error_style') ? ['error_style' as const] : []),
+    ...(capabilities.has('set_data_labels') ? ['data_labels' as const] : []),
     ...(legend.has('visible') ? ['legend_visibility' as const] : []),
     ...(legend.has('anchor') ? ['legend_position' as const] : []),
     ...(capabilities.has('set_chart_parameter') ? ['chart_parameters' as const] : []),

@@ -20,6 +20,7 @@ from plotagent.engine import (
 )
 from plotagent.engine.backends.origin import K20_ORIGIN_PROFILE
 from plotagent.engine.backends.origin.k20 import K20OriginProject
+from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "3" * 64
 
@@ -305,10 +306,10 @@ def test_k20_binder_uses_official_template_and_native_matrix(
     project.create(tmp_path, document, view)
     assert op.graph.layer.axes["y"].limits == (2.5, 0.5, -1.0)
     assert op.graph.layer.strings["y.label.string"] == '"P1" "P2"'
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    project.reconcile(document, actions, view)
-    readback = project.verify(document, actions, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert readback.document.plot_version == 3
     assert op.book_kind == "m"
@@ -316,12 +317,9 @@ def test_k20_binder_uses_official_template_and_native_matrix(
     assert op.graph.layer.added_type == 105
     assert op.book.sheet.values.tolist() == [[2.0, 4.0], [1.0, 3.0]]
     assert op.graph.layer.strings["x.label.string"] == '"Control" "Drug"'
-    assert op.graph.layer.strings["y.label.string"] == '"P2" "P1"'
-    assert op.graph.layer.axes["y"].limits == (0.5, 2.5, 1.0)
-    title = op.graph.layer.labels["_ENGINE_TITLE"]
-    assert title.text == "Native heatmap"
-    assert title.values["attach"] == 1
-    assert title.floats == {"x1": 0.5, "y1": 0.012}
+    assert op.graph.layer.strings["y.label.string"] == '"P1" "P2"'
+    assert op.graph.layer.axes["y"].limits == (2.5, 0.5, -1.0)
+    assert "_ENGINE_TITLE" not in op.graph.layer.labels
     assert op.color_scale_title == "Expression"
     assert any(item.object_kind == "colorbar" for item in readback.objects)
 

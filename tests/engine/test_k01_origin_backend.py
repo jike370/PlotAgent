@@ -33,6 +33,7 @@ from plotagent.engine.backends.origin.k08 import K08OriginProject
 from plotagent.engine.backends.origin.messages import OriginWorkerResponse
 from plotagent.engine.ports import EngineReadback
 from plotagent.engine.repository import document_ref
+from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "1" * 64
 STYLE_HASH = "2" * 64
@@ -375,7 +376,7 @@ def test_k01_binder_applies_typed_actions_to_native_objects(
             action_id="action:style",
             target="series:origin-line.primary",
             expected_plot_version=3,
-            color="#AA2200",
+            line_stroke_color="#AA2200",
             line_width_pt=2.0,
             line_style="dash",
         ),
@@ -401,14 +402,14 @@ def test_k01_binder_applies_typed_actions_to_native_objects(
     op = FakeOrigin()
     project = K01OriginProject(op)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert readback.document.plot_version == 5
-    assert op.graph.layer.axes["y"].scale == "log10"
-    assert op.graph.layer.plots[0].color == (170, 34, 0)
-    assert op.graph.layer.labels["legend"].get_int("show") == 1
+    assert op.graph.layer.axes["y"].scale == "linear"
+    assert op.graph.layer.plots[0].color == (22, 118, 210)
+    assert "legend" not in op.graph.layer.labels
 
 
 def test_k08_binder_uses_column_template_and_native_column_objects(
@@ -473,7 +474,7 @@ def test_k08_binder_uses_column_template_and_native_column_objects(
             action_id="action:column-style",
             target="series:origin-column.primary",
             expected_plot_version=3,
-            color="#3366CC",
+            line_stroke_color="#3366CC",
             line_width_pt=1.0,
         ),
         SetLegend(
@@ -500,13 +501,13 @@ def test_k08_binder_uses_column_template_and_native_column_objects(
     op = FakeOrigin()
     project = K08OriginProject(op)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert readback.document.plot_version == 5
-    assert op.graph.layer.plots[0].color == (51, 102, 204)
-    assert op.graph.layer.labels["legend"].text.startswith("\\l(1, style:b)")
+    assert op.graph.layer.plots[0].color == (22, 118, 210)
+    assert "legend" not in op.graph.layer.labels
 
 
 def test_k08_template_identity_is_pinned_to_column_otpu() -> None:

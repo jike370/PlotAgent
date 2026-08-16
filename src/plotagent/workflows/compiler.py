@@ -257,6 +257,14 @@ class DraftCompiler:
                     "ACTION_NOT_ALLOWED",
                     f"{profile.display_name} 不支持动作 {action.operation}。",
                 )
+            used = DraftCompiler._visual_parameters(action)
+            unsupported = used - set(capability.parameters)
+            if unsupported:
+                raise WorkflowCompileError(
+                    "ACTION_PARAMETER_NOT_ALLOWED",
+                    f"{profile.display_name} 不支持 {action.operation} 参数："
+                    f"{', '.join(sorted(unsupported))}。",
+                )
             if action.target_alias == "plot":
                 continue
             fixed_aliases = {candidate.object_alias for candidate in profile.objects}
@@ -272,3 +280,17 @@ class DraftCompiler:
                     "TARGET_ALIAS_INVALID",
                     f"{profile.display_name} 没有目标 {action.target_alias}。",
                 )
+
+    @staticmethod
+    def _visual_parameters(action: DraftVisualAction) -> set[str]:
+        dumped = action.model_dump(exclude_none=True)
+        operation = dumped.pop("operation")
+        dumped.pop("target_alias", None)
+        if operation == "set_axis":
+            minimum = dumped.pop("minimum", None)
+            maximum = dumped.pop("maximum", None)
+            if minimum is not None or maximum is not None:
+                dumped["bounds"] = True
+        if operation == "set_chart_parameter":
+            return {str(dumped["parameter"])}
+        return set(dumped)

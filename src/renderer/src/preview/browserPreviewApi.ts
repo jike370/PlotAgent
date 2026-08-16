@@ -302,7 +302,13 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
             capabilities: [
               { operation: 'set_title', parameters: ['text'] },
               { operation: 'set_axis', parameters: ['label', 'scale', 'bounds', 'reverse'] },
-              { operation: 'set_series_style', parameters: ['color', 'line_width_pt', 'line_style', 'symbol', 'symbol_size_pt'] },
+              {
+                operation: 'set_series_style',
+                parameters: [
+                  'line_stroke_color', 'line_width_pt', 'line_style',
+                  'marker_shape', 'marker_size_pt',
+                ],
+              },
               { operation: 'set_legend', parameters: ['visible', 'anchor'] },
             ],
           },

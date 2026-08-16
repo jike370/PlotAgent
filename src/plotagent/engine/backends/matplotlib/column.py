@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -21,10 +21,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.repository import document_ref
@@ -166,7 +162,7 @@ class K08ColumnRenderer:
         category_name: str,
         value_name: str,
     ) -> _ColumnState:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _ColumnState(
             title="",
             x_axis=_AxisState(category_name, scale="categorical"),
@@ -175,51 +171,5 @@ class K08ColumnRenderer:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K08 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(
-                    action.target
-                )
-                if axis_name is None:
-                    raise ValueError("K08 axis target does not belong to this plot")
-                current = getattr(state, axis_name)
-                state = replace(
-                    state,
-                    **{
-                        axis_name: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=action.minimum,
-                            maximum=action.maximum,
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                if action.target != f"series:{token}.primary":
-                    raise ValueError("K08 series target does not belong to this plot")
-                state = replace(
-                    state,
-                    color=state.color if action.color is None else action.color,
-                    edge_width_pt=(
-                        state.edge_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt
-                    ),
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError("K08 legend target does not belong to this plot")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
-            else:
-                raise ValueError(f"K08 renderer cannot apply {action.operation}")
+            raise ValueError(f"K08 renderer cannot apply {action.operation}")
         return state

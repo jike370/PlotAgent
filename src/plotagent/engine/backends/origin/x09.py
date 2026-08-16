@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from math import isclose, isnan
 from pathlib import Path
 from typing import Any, cast
@@ -14,9 +14,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import FloatingIntervalData, x09_floating_intervals
@@ -109,10 +106,7 @@ class X09OriginProject:
             },
         ):
             self._write(intervals)
-        command = (
-            f"worksheet -s 1 0 {len(boundaries) + 1} 0; "
-            "worksheet -p 207 FloatCol;"
-        )
+        command = f"worksheet -s 1 0 {len(boundaries) + 1} 0; worksheet -p 207 FloatCol;"
         with origin_trace_step(
             "official_plot_command_execute",
             details={"labtalk": command, "template_filename": template.name},
@@ -267,34 +261,10 @@ class X09OriginProject:
             self.sheet.from_list(index, list(values), lname=name, axis="Y")
 
     def _apply_action(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        intervals: FloatingIntervalData,
+        self, document: PlotDocument, action: PlotEngineAction, intervals: FloatingIntervalData
     ) -> None:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, (CreatePlot, BindFields)):
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("X09 title target does not belong to this plot")
-            self._set_title(action.text)
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {
-                f"axis:{token}.x": "x",
-                f"axis:{token}.y": "y",
-            }.get(action.target)
-            if axis_name is None:
-                raise ValueError("X09 axis target does not belong to this plot")
-            self._validate_axis(axis_name, action)
-            self._apply_axis(axis_name, action)
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main" or action.anchor is not None:
-                raise ValueError("X09 exposes only legend visibility")
-            if action.visible is not None:
-                self._set_legend(intervals, action.visible)
             return
         raise ValueError(f"Origin X09 binder cannot apply {action.operation}")
 
@@ -304,104 +274,13 @@ class X09OriginProject:
         actions: tuple[PlotEngineAction, ...],
         intervals: FloatingIntervalData,
     ) -> _State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _State()
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("X09 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis_name = {
-                    f"axis:{token}.x": "x",
-                    f"axis:{token}.y": "y",
-                }.get(action.target)
-                if axis_name is None:
-                    raise ValueError("X09 axis target does not belong to this plot")
-                self._validate_axis(axis_name, action)
-                attribute = f"{axis_name}_axis"
-                current = getattr(state, attribute)
-                state = replace(
-                    state,
-                    **{
-                        attribute: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=current.minimum
-                            if action.minimum is None
-                            else float(action.minimum),
-                            maximum=current.maximum
-                            if action.maximum is None
-                            else float(action.maximum),
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("X09 exposes only legend visibility")
-                state = replace(
-                    state,
-                    legend_visible=state.legend_visible
-                    if action.visible is None
-                    else action.visible,
-                )
-            else:
-                raise ValueError(f"Origin X09 binder cannot apply {action.operation}")
+            raise ValueError(f"Origin X09 binder cannot apply {action.operation}")
         return state
-
-    @staticmethod
-    def _validate_axis(axis_name: str, action: SetAxis) -> None:
-        if axis_name == "x" and action.scale not in {None, "categorical"}:
-            raise ValueError("X09 horizontal category axis supports only categorical scale")
-        if axis_name == "y" and action.scale not in {None, "linear", "log10"}:
-            raise ValueError("X09 vertical value axis supports linear or log10")
-
-    def _set_title(self, text: str) -> None:
-        title = self.layer.label(_TITLE_NAME)
-        if title is None and text:
-            self.layer.activate()
-            if not self.layer.obj.LT_execute(
-                f"label -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
-            ):
-                raise RuntimeError("Origin could not create the X09 title")
-            title = self.layer.label(_TITLE_NAME)
-            if title is None:
-                raise RuntimeError("Origin did not expose the newly created X09 title")
-        if title is not None:
-            title.text = text
-            title.set_int("attach", 1)
-            title.set_float("x1", 0.5)
-            title.set_float("y1", 0.012)
-            title.set_int("fsize", 14)
-            title.set_int("fstyle", 0)
-            title.set_int("background", 0)
-            title.set_int("show", int(bool(text)))
-
-    def _apply_axis(self, axis_name: str, action: SetAxis) -> None:
-        label_name = "xb" if axis_name == "x" else "yl"
-        axis = self.layer.axis(axis_name)
-        if action.scale is not None and axis_name == "y":
-            axis.scale = action.scale
-        if action.minimum is not None and action.maximum is not None:
-            begin, end = float(action.minimum), float(action.maximum)
-            if action.reverse:
-                begin, end = end, begin
-            axis.set_limits(begin, end)
-        elif action.reverse is not None:
-            begin, end, step = (float(value) for value in axis.limits)
-            if (begin > end) != action.reverse:
-                axis.set_limits(end, begin, abs(step))
-        if action.label is not None:
-            label = self.layer.label(label_name) or self.layer.add_label(action.label)
-            if label is None:
-                raise RuntimeError("Origin X09 template has no writable axis label")
-            label.text = action.label
-            label.set_int("fstyle", 0)
-            label.set_int("show", int(bool(action.label)))
 
     def _set_legend(self, intervals: FloatingIntervalData, visible: bool) -> None:
         legend = self.layer.label("legend")
@@ -448,9 +327,7 @@ class X09OriginProject:
         self.op.lt_exec("; ".join(commands) + ";")
         plot_count = float(self.op.lt_float("__X09COUNT"))
         exchange_xy = float(self.op.lt_float("__X09EXCHANGE"))
-        if not isclose(plot_count, float(expected_plot_count)) or not isclose(
-            exchange_xy, 0.0
-        ):
+        if not isclose(plot_count, float(expected_plot_count)) or not isclose(exchange_xy, 0.0):
             raise RuntimeError(
                 "Origin X09 FLOATCOL structure changed: "
                 f"plots={plot_count}, exchange_xy={exchange_xy}"
@@ -500,10 +377,7 @@ class X09OriginProject:
             legend is None
             or not bool(legend.get_int("show"))
             or legend_text.count(r"\l(") != len(expected_legend_labels)
-            or any(
-                _safe_legend_label(label) not in legend_text
-                for label in expected_legend_labels
-            )
+            or any(_safe_legend_label(label) not in legend_text for label in expected_legend_labels)
         ):
             raise RuntimeError(
                 "Origin X09 linked legend does not match the visible intervals: "
@@ -547,16 +421,16 @@ class X09OriginProject:
             if edits == _AxisEdits():
                 continue
             axis = self.layer.axis(axis_name)
-            if edits.scale is not None and axis_name == "y" and not axis_scale_matches(
-                axis.scale, edits.scale
+            if (
+                edits.scale is not None
+                and axis_name == "y"
+                and not axis_scale_matches(axis.scale, edits.scale)
             ):
                 raise RuntimeError(f"Origin X09 {axis_name} scale changed after reopen")
             if edits.label is not None:
                 label = self.layer.label(label_name)
                 if label is None or label.text != edits.label or not label.get_int("show"):
-                    raise RuntimeError(
-                        f"Origin X09 {axis_name} label changed after reopen"
-                    )
+                    raise RuntimeError(f"Origin X09 {axis_name} label changed after reopen")
             if edits.minimum is not None and edits.maximum is not None:
                 expected = (
                     (edits.maximum, edits.minimum)
@@ -572,9 +446,7 @@ class X09OriginProject:
             elif edits.reverse is not None:
                 begin, end = (float(value) for value in axis.limits[:2])
                 if (begin > end) != edits.reverse:
-                    raise RuntimeError(
-                        f"Origin X09 {axis_name} direction changed after reopen"
-                    )
+                    raise RuntimeError(f"Origin X09 {axis_name} direction changed after reopen")
         if state.legend_visible is not None:
             legend = self.layer.label("legend")
             if legend is None or bool(legend.get_int("show")) != state.legend_visible:

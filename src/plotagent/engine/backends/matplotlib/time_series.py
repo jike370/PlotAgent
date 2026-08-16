@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -20,10 +20,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import k19_time_series
@@ -170,7 +166,7 @@ class K19TimeSeriesRenderer:
         time_name: str,
         value_names: tuple[str, ...],
     ) -> _K19State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K19State(
             title="",
             x_label=time_name,
@@ -184,83 +180,5 @@ class K19TimeSeriesRenderer:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K19 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-                if axis_name is None:
-                    raise ValueError("K19 axis target does not belong to this plot")
-                if axis_name == "x" and action.scale not in {None, "datetime"}:
-                    raise ValueError("K19 x axis requires datetime scale")
-                if axis_name == "y" and action.scale not in {None, "linear", "log10"}:
-                    raise ValueError("K19 y axis supports only linear or log10 scale")
-                if axis_name == "x" and (action.minimum is not None or action.maximum is not None):
-                    raise ValueError("K19 public datetime axes do not expose numeric bounds")
-                if axis_name == "x":
-                    state = replace(
-                        state,
-                        x_label=state.x_label if action.label is None else action.label,
-                        x_reverse=state.x_reverse if action.reverse is None else action.reverse,
-                    )
-                else:
-                    state = replace(
-                        state,
-                        y_label=state.y_label if action.label is None else action.label,
-                        y_reverse=state.y_reverse if action.reverse is None else action.reverse,
-                        y_scale=state.y_scale if action.scale is None else action.scale,
-                        y_minimum=(
-                            state.y_minimum if action.minimum is None else float(action.minimum)
-                        ),
-                        y_maximum=(
-                            state.y_maximum if action.maximum is None else float(action.maximum)
-                        ),
-                    )
-            elif isinstance(action, SetSeriesStyle):
-                prefix = f"series:{token}.line_"
-                if not action.target.startswith(prefix):
-                    raise ValueError("K19 series target does not belong to this plot")
-                try:
-                    ordinal = int(action.target.removeprefix(prefix))
-                except ValueError as error:
-                    raise ValueError("K19 series target requires a numeric ordinal") from error
-                if ordinal < 1 or ordinal > len(state.lines):
-                    raise ValueError("K19 series target ordinal is outside the bound data")
-                if action.symbol is not None or action.symbol_size_pt is not None:
-                    raise ValueError("K19 Line does not expose symbol edits")
-                if action.line_style == "none":
-                    raise ValueError("K19 Line cannot hide its line through series style")
-                current = state.lines[ordinal - 1]
-                updated = replace(
-                    current,
-                    color=current.color if action.color is None else action.color,
-                    line_width_pt=(
-                        current.line_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt
-                    ),
-                    line_style=(
-                        current.line_style if action.line_style is None else action.line_style
-                    ),
-                )
-                lines = list(state.lines)
-                lines[ordinal - 1] = updated
-                state = replace(
-                    state,
-                    lines=tuple(lines),
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError("K19 legend target does not belong to this plot")
-                if action.anchor not in {None, "inside"}:
-                    raise ValueError("K19 currently exposes only the template legend anchor")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
-            else:
-                raise ValueError(f"K19 Matplotlib renderer cannot apply {action.operation}")
+            raise ValueError(f"K19 Matplotlib renderer cannot apply {action.operation}")
         return state

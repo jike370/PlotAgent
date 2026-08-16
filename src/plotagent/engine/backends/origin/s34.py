@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from math import isclose, isfinite, isnan
 from pathlib import Path
 from typing import Any, cast
@@ -14,11 +14,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
     SetChartParameter,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import NyquistData, s34_nyquist
@@ -53,25 +49,6 @@ class _Style:
     line_style: str | None = None
     symbol: str | None = None
     symbol_size_pt: float | None = None
-
-
-def _style(current: _Style, action: SetSeriesStyle) -> _Style:
-    return replace(
-        current,
-        color=current.color if action.color is None else action.color,
-        line_width_pt=(
-            current.line_width_pt
-            if action.line_width_pt is None
-            else action.line_width_pt
-        ),
-        line_style=current.line_style if action.line_style is None else action.line_style,
-        symbol=current.symbol if action.symbol is None else action.symbol,
-        symbol_size_pt=(
-            current.symbol_size_pt
-            if action.symbol_size_pt is None
-            else action.symbol_size_pt
-        ),
-    )
 
 
 class S34OriginProject:
@@ -124,9 +101,7 @@ class S34OriginProject:
         ):
             self.sheet.activate()
             xy_columns = len(nyquist.series) * 2
-            self.op.lt_exec(
-                f"worksheet -s 1 0 {xy_columns} 0; worksheet -p 202 LINESYMB;"
-            )
+            self.op.lt_exec(f"worksheet -s 1 0 {xy_columns} 0; worksheet -p 202 LINESYMB;")
         graphs = tuple(self.op.pages("g"))
         if len(graphs) != 1:
             raise RuntimeError("Origin official Line + Symbol route must create one graph")
@@ -296,8 +271,7 @@ class S34OriginProject:
         if len(tuple(self.graph)) != 1 or len(self.plots) != series_count:
             raise RuntimeError("Origin S34 native series structure changed")
         designations = [
-            int(self.sheet.get_int(f"col{index + 1}.type"))
-            for index in range(series_count * 3)
+            int(self.sheet.get_int(f"col{index + 1}.type")) for index in range(series_count * 3)
         ]
         expected_designations = [value for _ in nyquist.series for value in (4, 1)] + [
             2
@@ -322,9 +296,7 @@ class S34OriginProject:
             y_letter = _column_letter(index * 2 + 1)
             if pid != 202 or f"!{x_letter}" not in x_source or f"!{y_letter}" not in y_source:
                 raise RuntimeError("Origin S34 lost PID 202 or its ordered XY source binding")
-            source_ranges.append(
-                {"plot": ordinal, "pid": pid, "x": x_source, "y": y_source}
-            )
+            source_ranges.append({"plot": ordinal, "pid": pid, "x": x_source, "y": y_source})
         for index, series in enumerate(nyquist.series):
             self._assert_values(self.sheet.to_list(index * 2), series.z_real, "z_real")
             self._assert_values(
@@ -354,9 +326,7 @@ class S34OriginProject:
         label = self.layer.label(_TITLE)
         if label is None and text:
             self.layer.activate()
-            if not self.layer.obj.LT_execute(
-                f"label -j 1 -n {_TITLE} PlotAgentTitlePlaceholder;"
-            ):
+            if not self.layer.obj.LT_execute(f"label -j 1 -n {_TITLE} PlotAgentTitlePlaceholder;"):
                 raise RuntimeError("Origin S34 could not create its title")
             label = self.layer.label(_TITLE)
             if label is None:
@@ -378,9 +348,7 @@ class S34OriginProject:
         if not graph_name.replace("_", "").isalnum():
             raise RuntimeError("Origin S34 graph name is unsafe for native style edits")
         self.graph.activate()
-        self.op.lt_exec(
-            f"range __S34HEAD=[{graph_name}]1!1; set __S34HEAD -gm 1;"
-        )
+        self.op.lt_exec(f"range __S34HEAD=[{graph_name}]1!1; set __S34HEAD -gm 1;")
         for ordinal, style in enumerate(styles, start=1):
             commands = [f"range __S34STYLE=[{graph_name}]1!{ordinal}"]
             if style.color is not None:
@@ -394,9 +362,7 @@ class S34OriginProject:
             if style.line_width_pt is not None:
                 commands.append(f"set __S34STYLE -wp {style.line_width_pt}")
             if style.line_style is not None:
-                commands.append(
-                    f"set __S34STYLE -d {_LINE_STYLE[style.line_style]}"
-                )
+                commands.append(f"set __S34STYLE -d {_LINE_STYLE[style.line_style]}")
             if style.symbol is not None:
                 commands.append(f"set __S34STYLE -k {_SYMBOL[style.symbol]}")
             if style.symbol_size_pt is not None:
@@ -507,12 +473,14 @@ class S34OriginProject:
                 abs_tol=0.01,
             ):
                 raise RuntimeError("Origin S34 line width changed")
-            if style.line_style is not None and int(self.op.lt_float("__S34LS")) != (
-                _LINE_STYLE[style.line_style]
+            if (
+                style.line_style is not None
+                and int(self.op.lt_float("__S34LS")) != (_LINE_STYLE[style.line_style])
             ):
                 raise RuntimeError("Origin S34 line style changed")
-            if style.symbol is not None and int(self.op.lt_float("__S34SK")) != (
-                _SYMBOL[style.symbol]
+            if (
+                style.symbol is not None
+                and int(self.op.lt_float("__S34SK")) != (_SYMBOL[style.symbol])
             ):
                 raise RuntimeError("Origin S34 symbol changed")
             if style.symbol_size_pt is not None and not isclose(
@@ -560,7 +528,7 @@ class S34OriginProject:
         actions: tuple[PlotEngineAction, ...],
         nyquist: NyquistData,
     ) -> tuple[_AxesState, tuple[_Style, ...], bool, bool]:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         axes = _AxesState(
             x_label=nyquist.z_real_field_name,
             y_label=nyquist.z_imaginary_field_name,
@@ -570,37 +538,11 @@ class S34OriginProject:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("S34 title target does not belong")
-                axes = replace(axes, title=action.text)
-            elif isinstance(action, SetAxis):
-                if action.scale not in {None, "linear"}:
-                    raise ValueError("S34 axes require linear scale")
-                axes = _edit_axis(axes, action, token)
-            elif isinstance(action, SetSeriesStyle):
-                prefix = f"series:{token}.group_"
-                if not action.target.startswith(prefix):
-                    raise ValueError("S34 series target does not belong")
-                if action.line_style == "none":
-                    raise ValueError("S34 Line + Symbol cannot hide its native line")
-                if action.symbol is not None and action.symbol not in _SYMBOL:
-                    raise ValueError("S34 symbol is outside the shared renderer vocabulary")
-                index = int(action.target.removeprefix(prefix)) - 1
-                if not 0 <= index < len(styles):
-                    raise ValueError("S34 series target is outside the current data")
-                mutable = list(styles)
-                mutable[index] = _style(mutable[index], action)
-                styles = tuple(mutable)
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("S34 exposes only legend visibility")
-                legend_visible = legend_visible if action.visible is None else action.visible
-            elif isinstance(action, SetChartParameter):
+            if isinstance(action, SetChartParameter):
                 if (
                     action.target != document.plot_id
                     or action.parameter != "equal_axes"
-                    or not isinstance(action.value, bool)
+                    or (not isinstance(action.value, bool))
                 ):
                     raise ValueError("S34 equal_axes must be boolean")
                 equal_axes = action.value
@@ -609,9 +551,7 @@ class S34OriginProject:
         return axes, styles, legend_visible, equal_axes
 
     @staticmethod
-    def _assert_values(
-        actual: list[object], expected: tuple[float, ...], role: str
-    ) -> None:
+    def _assert_values(actual: list[object], expected: tuple[float, ...], role: str) -> None:
         if len(actual) != len(expected):
             raise RuntimeError(f"Origin S34 {role} row count changed")
         for observed, wanted in zip(actual, expected, strict=True):
@@ -627,27 +567,6 @@ def _column_letter(zero_based: int) -> str:
         value, remainder = divmod(value - 1, 26)
         result = chr(65 + remainder) + result
     return result
-
-
-def _edit_axis(state: _AxesState, action: SetAxis, token: str) -> _AxesState:
-    axis = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-    if axis is None:
-        raise ValueError("S34 axis target does not belong")
-    if axis == "x":
-        return replace(
-            state,
-            x_label=state.x_label if action.label is None else action.label,
-            x_minimum=state.x_minimum if action.minimum is None else action.minimum,
-            x_maximum=state.x_maximum if action.maximum is None else action.maximum,
-            x_reverse=state.x_reverse if action.reverse is None else action.reverse,
-        )
-    return replace(
-        state,
-        y_label=state.y_label if action.label is None else action.label,
-        y_minimum=state.y_minimum if action.minimum is None else action.minimum,
-        y_maximum=state.y_maximum if action.maximum is None else action.maximum,
-        y_reverse=state.y_reverse if action.reverse is None else action.reverse,
-    )
 
 
 def execute_s34_request(

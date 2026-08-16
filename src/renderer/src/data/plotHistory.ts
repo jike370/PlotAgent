@@ -13,6 +13,9 @@ const actionLabels: Record<string, string> = {
   set_axis: '坐标轴修改',
   set_series_style: '系列样式修改',
   set_legend: '图例修改',
+  set_colormap: '色阶修改',
+  set_error_style: '误差样式修改',
+  set_data_labels: '数据标签修改',
   set_chart_parameter: '图形参数修改',
 }
 
@@ -51,16 +54,93 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
     const style = plot.seriesStyles.find((candidate) => candidate.seriesId === target)?.style
     if (!style) return undefined
     const mappings = {
-      color: style.color,
+      line_stroke_color: style.lineStrokeColor,
       line_width_pt: style.lineWidthPt,
-      symbol_size_pt: style.markerSizePt,
       line_style: style.lineStyle,
-      symbol: style.symbolShape,
-      symbol_interior: style.symbolInterior,
-      palette_id: style.paletteId,
-      palette_reverse: style.paletteReverse,
+      line_opacity: style.lineOpacity,
+      marker_shape: style.markerShape,
+      marker_size_pt: style.markerSizePt,
+      marker_interior: style.markerInterior,
+      marker_fill_color: style.markerFillColor,
+      marker_stroke_color: style.markerStrokeColor,
+      marker_stroke_width_pt: style.markerStrokeWidthPt,
+      marker_opacity: style.markerOpacity,
+      fill_color: style.fillColor,
+      fill_opacity: style.fillOpacity,
+      fill_stroke_color: style.fillStrokeColor,
+      fill_stroke_width_pt: style.fillStrokeWidthPt,
+      fill_stroke_style: style.fillStrokeStyle,
     } as const
     const undo: Record<string, JsonValue> = { operation: 'set_series_style', target }
+    for (const [key, previous] of Object.entries(mappings)) {
+      if (!Object.hasOwn(value, key) || value[key] === null) continue
+      if (previous === undefined) return undefined
+      undo[key] = previous
+    }
+    return Object.keys(undo).length > 2 ? { undo, redo } : undefined
+  }
+  if (value.operation === 'set_colormap') {
+    const state = plot.colorMaps.find((candidate) => candidate.seriesId === target)
+    if (!state) return undefined
+    const mappings = {
+      palette: state.palette,
+      reverse: state.reverse,
+      minimum: state.minimum,
+      maximum: state.maximum,
+      midpoint: state.midpoint,
+      mode: state.mode,
+      levels: state.levels,
+      missing_color: state.missingColor,
+      colorbar_visible: state.colorbarVisible,
+      colorbar_anchor: state.colorbarAnchor,
+      colorbar_title: state.colorbarTitle,
+      colorbar_tick_format: state.colorbarTickFormat,
+    } as const
+    const undo: Record<string, JsonValue> = { operation: 'set_colormap', target }
+    for (const [key, previous] of Object.entries(mappings)) {
+      if (!Object.hasOwn(value, key) || value[key] === null) continue
+      if (previous === undefined) return undefined
+      undo[key] = previous
+    }
+    return Object.keys(undo).length > 2 ? { undo, redo } : undefined
+  }
+  if (value.operation === 'set_error_style') {
+    const state = plot.errorStyles.find((candidate) => candidate.seriesId === target)
+    if (!state) return undefined
+    const mappings = {
+      bar_color: state.barColor,
+      bar_width_pt: state.barWidthPt,
+      cap_size_pt: state.capSizePt,
+      bar_opacity: state.barOpacity,
+      band_fill_color: state.bandFillColor,
+      band_fill_opacity: state.bandFillOpacity,
+      band_stroke_color: state.bandStrokeColor,
+      band_stroke_width_pt: state.bandStrokeWidthPt,
+    } as const
+    const undo: Record<string, JsonValue> = { operation: 'set_error_style', target }
+    for (const [key, previous] of Object.entries(mappings)) {
+      if (!Object.hasOwn(value, key) || value[key] === null) continue
+      if (previous === undefined) return undefined
+      undo[key] = previous
+    }
+    return Object.keys(undo).length > 2 ? { undo, redo } : undefined
+  }
+  if (value.operation === 'set_data_labels') {
+    const state = plot.dataLabelStyles.find((candidate) => candidate.seriesId === target)
+    if (!state) return undefined
+    const mappings = {
+      visible: state.visible,
+      value_format: state.valueFormat,
+      prefix: state.prefix,
+      suffix: state.suffix,
+      position: state.position,
+      rotation_deg: state.rotationDeg,
+      font_family: state.fontFamily,
+      font_size_pt: state.fontSizePt,
+      font_weight: state.fontWeight,
+      font_color: state.fontColor,
+    } as const
+    const undo: Record<string, JsonValue> = { operation: 'set_data_labels', target }
     for (const [key, previous] of Object.entries(mappings)) {
       if (!Object.hasOwn(value, key) || value[key] === null) continue
       if (previous === undefined) return undefined

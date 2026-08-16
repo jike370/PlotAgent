@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from math import ceil, sqrt
 from pathlib import Path
 from typing import Any, cast
@@ -20,11 +20,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
     SetChartParameter,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import FacetData, k24_facets
@@ -188,7 +184,7 @@ class K24FacetRenderer:
         actions: tuple[PlotEngineAction, ...],
         facets: FacetData,
     ) -> tuple[_K24Axes, tuple[_K24Style, ...]]:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         axes = _K24Axes(
             x_label=facets.x_field_name,
             y_label=facets.y_field_name,
@@ -197,59 +193,7 @@ class K24FacetRenderer:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K24 title target does not belong to this plot")
-                axes = replace(axes, title=action.text)
-                continue
-            if isinstance(action, SetAxis):
-                axis_name = {
-                    f"axis:{token}.x": "x",
-                    f"axis:{token}.y": "y",
-                }.get(action.target)
-                if axis_name is None:
-                    raise ValueError("K24 axis target does not belong to this plot")
-                if action.scale not in {None, "linear"}:
-                    raise ValueError("K24 Trellis axes currently expose only linear scale")
-                if axis_name == "x":
-                    axes = replace(
-                        axes,
-                        x_label=axes.x_label if action.label is None else action.label,
-                        x_minimum=action.minimum,
-                        x_maximum=action.maximum,
-                        x_reverse=axes.x_reverse if action.reverse is None else action.reverse,
-                    )
-                else:
-                    axes = replace(
-                        axes,
-                        y_label=axes.y_label if action.label is None else action.label,
-                        y_minimum=action.minimum,
-                        y_maximum=action.maximum,
-                        y_reverse=axes.y_reverse if action.reverse is None else action.reverse,
-                    )
-                continue
-            if isinstance(action, SetSeriesStyle):
-                prefix = f"series:{token}.facet_"
-                if not action.target.startswith(prefix):
-                    raise ValueError("K24 series target does not belong to this plot")
-                index = int(action.target.removeprefix(prefix)) - 1
-                if not 0 <= index < len(styles):
-                    raise ValueError("K24 facet series target is out of range")
-                if (
-                    action.color is None
-                    or action.line_width_pt is not None
-                    or action.line_style is not None
-                    or action.symbol is not None
-                    or action.symbol_size_pt is not None
-                ):
-                    raise ValueError("K24 exposes only per-facet color")
-                mutable = list(styles)
-                mutable[index] = replace(mutable[index], color=action.color)
-                styles = tuple(mutable)
-                continue
-            if isinstance(action, (SetLegend, SetChartParameter)):
-                raise ValueError(
-                    "K24 exposes neither a standalone legend nor manual panel layout"
-                )
+            if isinstance(action, SetChartParameter):
+                raise ValueError("K24 exposes neither a standalone legend nor manual panel layout")
             raise ValueError(f"K24 Matplotlib renderer cannot apply {action.operation}")
         return axes, styles

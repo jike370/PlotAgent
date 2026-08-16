@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal, cast
 
@@ -22,10 +22,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import (
@@ -360,72 +356,13 @@ def _apply_dual_action(
     allow_left_symbol: bool,
     allow_right_symbol: bool,
 ) -> _DualState:
-    if isinstance(action, SetTitle):
-        if action.target != document.plot_id:
-            raise ValueError(f"{profile_id} title target does not belong to this plot")
-        return replace(state, title=action.text)
-    if isinstance(action, SetAxis):
-        key = {
-            f"axis:{token}.x": "x_axis",
-            f"axis:{token}.y_left": "left_axis",
-            f"axis:{token}.y_right": "right_axis",
-        }.get(action.target)
-        if key is None:
-            raise ValueError(f"{profile_id} axis target does not belong to this plot")
-        current = getattr(state, key)
-        scale = current.scale if action.scale is None else action.scale
-        if key == "x_axis" and scale != "categorical":
-            raise ValueError(f"{profile_id} X axis is categorical")
-        if key != "x_axis" and scale not in {"linear", "log10"}:
-            raise ValueError(f"{profile_id} Y axes support linear or log10")
-        updated = replace(
-            current,
-            label=current.label if action.label is None else action.label,
-            scale=scale,
-            minimum=current.minimum if action.minimum is None else action.minimum,
-            maximum=current.maximum if action.maximum is None else action.maximum,
-            reverse=current.reverse if action.reverse is None else action.reverse,
-        )
-        return replace(state, **{key: updated})
-    if isinstance(action, SetSeriesStyle):
-        key = {
-            f"series:{token}.bars": "left_series",
-            f"series:{token}.cumulative": "right_series",
-            f"series:{token}.left": "left_series",
-            f"series:{token}.right": "right_series",
-        }.get(action.target)
-        if key is None:
-            raise ValueError(f"{profile_id} series target does not belong to this plot")
-        allow_symbol = allow_left_symbol if key == "left_series" else allow_right_symbol
-        if not allow_symbol and (action.symbol is not None or action.symbol_size_pt is not None):
-            raise ValueError(f"{profile_id} column series does not expose symbol edits")
-        current = getattr(state, key)
-        updated = replace(
-            current,
-            color=current.color if action.color is None else action.color,
-            line_width_pt=current.line_width_pt
-            if action.line_width_pt is None
-            else action.line_width_pt,
-            line_style=current.line_style if action.line_style is None else action.line_style,
-            symbol=current.symbol if action.symbol is None else action.symbol,
-            symbol_size_pt=current.symbol_size_pt
-            if action.symbol_size_pt is None
-            else action.symbol_size_pt,
-        )
-        return replace(state, **{key: updated})
-    if isinstance(action, SetLegend):
-        if action.target != f"legend:{token}.main" or action.anchor is not None:
-            raise ValueError(f"{profile_id} exposes only legend visibility")
-        return replace(
-            state, legend_visible=state.legend_visible if action.visible is None else action.visible
-        )
     raise ValueError(f"{profile_id} renderer cannot apply {action.operation}")
 
 
 def _offset_state(
     document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: OffsetStackData
 ) -> _OffsetState:
-    token = document.plot_id.removeprefix("plot:")
+    document.plot_id.removeprefix("plot:")
     state = _OffsetState(
         title="",
         x_axis=_AxisState(data.x_field_name),
@@ -437,45 +374,7 @@ def _offset_state(
     for action in actions:
         if isinstance(action, (CreatePlot, BindFields)):
             continue
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("X38 title target does not belong to this plot")
-            state = replace(state, title=action.text)
-        elif isinstance(action, SetAxis):
-            key = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(action.target)
-            if key is None:
-                raise ValueError("X38 axis target does not belong to this plot")
-            current = getattr(state, key)
-            scale = current.scale if action.scale is None else action.scale
-            if scale not in {"linear", "log10"}:
-                raise ValueError("X38 axes support linear or log10")
-            state = replace(
-                state,
-                **{
-                    key: replace(
-                        current,
-                        label=current.label if action.label is None else action.label,
-                        scale=scale,
-                        minimum=current.minimum if action.minimum is None else action.minimum,
-                        maximum=current.maximum if action.maximum is None else action.maximum,
-                        reverse=current.reverse if action.reverse is None else action.reverse,
-                    )
-                },
-            )
-        elif isinstance(action, SetSeriesStyle):
-            raise ValueError(
-                "X38 keeps the official dependent style group and does not expose "
-                "per-series style edits"
-            )
-        elif isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main" or action.anchor is not None:
-                raise ValueError("X38 exposes only legend visibility")
-            state = replace(
-                state,
-                legend_visible=state.legend_visible if action.visible is None else action.visible,
-            )
-        else:
-            raise ValueError(f"X38 renderer cannot apply {action.operation}")
+        raise ValueError(f"X38 renderer cannot apply {action.operation}")
     return state
 
 

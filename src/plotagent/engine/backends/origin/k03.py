@@ -12,10 +12,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import K03ScatterData, k03_scatter
@@ -23,7 +19,6 @@ from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
 from .profile import K03_ORIGIN_PROFILE, resolve_official_template
-from .readback import axis_scale_matches
 from .trace import origin_trace_step, record_origin_trace
 
 _SYMBOL_CODES = {"square": 1, "circle": 2, "triangle": 3, "triangle_up": 3, "diamond": 5}
@@ -33,17 +28,7 @@ _TITLE_NAME = "_ENGINE_TITLE"
 def _effective_actions(
     actions: tuple[PlotEngineAction, ...],
 ) -> tuple[PlotEngineAction, ...]:
-    """Reset data-derived series styles whenever fields are rebound."""
-
-    last_binding = max(
-        (index for index, action in enumerate(actions) if isinstance(action, BindFields)),
-        default=-1,
-    )
-    return tuple(
-        action
-        for index, action in enumerate(actions)
-        if not (isinstance(action, SetSeriesStyle) and index < last_binding)
-    )
+    return actions
 
 
 class K03OriginProject:
@@ -79,10 +64,7 @@ class K03OriginProject:
             },
         ):
             self._write_data(scatter)
-        command = (
-            f"worksheet -s 1 0 {len(scatter.groups) * 2} 0; "
-            "worksheet -p 201 Scatter;"
-        )
+        command = f"worksheet -s 1 0 {len(scatter.groups) * 2} 0; worksheet -p 201 Scatter;"
         with origin_trace_step(
             "official_plot_command_execute",
             details={
@@ -127,83 +109,10 @@ class K03OriginProject:
         self.plots = list(self.layer.plot_list())
         self.sheet = books[0][0]
 
-    def apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        data: EngineDataView,
-    ) -> None:
-        scatter = k03_scatter(document, data)
-        token = document.plot_id.removeprefix("plot:")
+    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
+        k03_scatter(document, data)
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, (CreatePlot, BindFields)):
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("K03 title target does not belong to this plot")
-            label = self.layer.label(_TITLE_NAME)
-            if label is None:
-                label = self.layer.add_label(action.text, 40, 2)
-                if label is None:
-                    raise RuntimeError("Origin could not create the K03 title")
-                label.name = _TITLE_NAME
-            label.text = action.text
-            label.set_int("show", 1)
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-            if axis_name is None:
-                raise ValueError("K03 axis target does not belong to this plot")
-            axis = self.layer.axis(axis_name)
-            if action.scale is not None:
-                if action.scale not in {"linear", "log10"}:
-                    raise ValueError("Origin K03 axes support only linear or log10")
-                axis.scale = action.scale
-            if action.minimum is not None and action.maximum is not None:
-                begin, end = action.minimum, action.maximum
-                if action.reverse:
-                    begin, end = end, begin
-                axis.set_limits(begin, end)
-            elif action.reverse is not None:
-                begin, end, step = (float(value) for value in axis.limits)
-                should_reverse = begin < end if action.reverse else begin > end
-                if should_reverse:
-                    axis.set_limits(end, begin, abs(step))
-            if action.label is not None:
-                label = self.layer.label("xb" if axis_name == "x" else "yl")
-                if label is None:
-                    label = self.layer.add_label(action.label)
-                if label is None:
-                    raise RuntimeError("Origin K03 template has no writable axis label")
-                label.text = action.label
-                label.set_int("show", 1)
-            return
-        if isinstance(action, SetSeriesStyle):
-            ordinal = self._series_ordinal(action.target, token, len(self.plots))
-            # Origin's grouped-plot increment list owns the member styles.  A
-            # direct assignment to one grouped member appears to succeed in
-            # memory but is recomputed from that list when the project opens
-            # again.  Once a user edits an individual logical group, preserve
-            # the current native styles and release that automatic linkage.
-            if len(self.plots) > 1:
-                self.layer.group(False, 0, len(self.plots) - 1)
-            plot = self.plots[ordinal - 1]
-            if action.color is not None:
-                plot.color = action.color
-            if action.symbol is not None:
-                try:
-                    plot.symbol_kind = _SYMBOL_CODES[action.symbol]
-                except KeyError as error:
-                    raise ValueError(
-                        f"Origin K03 does not support symbol {action.symbol}"
-                    ) from error
-            if action.symbol_size_pt is not None:
-                plot.symbol_size = action.symbol_size_pt
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main":
-                raise ValueError("K03 legend target does not belong to this plot")
-            if action.visible is not None:
-                self._set_legend(scatter, visible=action.visible)
             return
         raise ValueError(f"Origin K03 binder cannot apply {action.operation}")
 
@@ -221,13 +130,8 @@ class K03OriginProject:
     ) -> EngineReadback:
         scatter = k03_scatter(document, data)
         native = self._assert_native_structure(scatter)
-        record_origin_trace(
-            "reopened_scatter_groups_confirmed", "completed", details=native
-        )
+        record_origin_trace("reopened_scatter_groups_confirmed", "completed", details=native)
         visible = len(scatter.groups) > 1
-        for action in actions:
-            if isinstance(action, SetLegend) and action.visible is not None:
-                visible = action.visible
         self._assert_linked_legend(scatter, visible=visible)
         if len(self.plots) != len(scatter.groups):
             raise RuntimeError("Origin K03 native plot count differs after reopen")
@@ -239,41 +143,6 @@ class K03OriginProject:
             "group_count": len(scatter.groups),
             "native_structure": native,
         }
-        for action in actions:
-            if isinstance(action, SetTitle):
-                title = self.layer.label(_TITLE_NAME)
-                if title is None or title.text != action.text or not title.get_int("show"):
-                    raise RuntimeError("Origin K03 title did not survive readback")
-                snapshot["title"] = title.text
-            elif isinstance(action, SetAxis):
-                axis_name = "x" if action.target == f"axis:{token}.x" else "y"
-                axis = self.layer.axis(axis_name)
-                if action.scale is not None and not axis_scale_matches(axis.scale, action.scale):
-                    raise RuntimeError("Origin K03 axis scale did not survive readback")
-                if action.label is not None:
-                    label = self.layer.label("xb" if axis_name == "x" else "yl")
-                    if label is None or label.text != action.label:
-                        raise RuntimeError("Origin K03 axis label did not survive readback")
-            elif isinstance(action, SetSeriesStyle):
-                ordinal = self._series_ordinal(action.target, token, len(self.plots))
-                plot = self.plots[ordinal - 1]
-                if action.color is not None and tuple(plot.color) != self._hex_rgb(action.color):
-                    raise RuntimeError(
-                        "Origin K03 series color did not survive readback: "
-                        f"expected {self._hex_rgb(action.color)!r}, observed {tuple(plot.color)!r}"
-                    )
-                if action.symbol_size_pt is not None and (
-                    abs(float(plot.symbol_size) - action.symbol_size_pt) > 0.01
-                ):
-                    raise RuntimeError("Origin K03 symbol size did not survive readback")
-            elif isinstance(action, SetLegend) and action.visible is not None:
-                legend = self.layer.label("legend")
-                if action.visible and (legend is None or not bool(legend.get_int("show"))):
-                    raise RuntimeError("Origin K03 legend visibility did not survive readback")
-                if not action.visible and legend is not None and bool(legend.get_int("show")):
-                    raise RuntimeError("Origin K03 legend visibility did not survive readback")
-                if action.visible and legend.text.count("\\l(") != len(scatter.groups):
-                    raise RuntimeError("Origin K03 legend lost a group sample")
         objects = (
             EngineObjectRef(
                 semantic_id=document.plot_id,
@@ -359,9 +228,7 @@ class K03OriginProject:
             return
         if bool(legend.get_int("show")) != visible:
             raise RuntimeError("Origin K03 legend visibility differs after reopen")
-        expected = tuple(
-            f"\\l({index}) %({index})" for index in range(1, len(scatter.groups) + 1)
-        )
+        expected = tuple(f"\\l({index}) %({index})" for index in range(1, len(scatter.groups) + 1))
         actual = tuple(line.strip() for line in str(legend.text).splitlines() if line.strip())
         if actual != expected or int(legend.get_int("link")) != 1:
             raise RuntimeError("Origin K03 legend lost a linked group entry")
@@ -393,9 +260,9 @@ class K03OriginProject:
             y_letter = self._column_name(index * 2)
             if plot_id != 201:
                 raise RuntimeError("Origin K03 must retain only native PID 201 Scatter plots")
-            if not x_range.split('"', 1)[0].endswith(
-                f"!{x_letter}"
-            ) or not y_range.split('"', 1)[0].endswith(f"!{y_letter}"):
+            if not x_range.split('"', 1)[0].endswith(f"!{x_letter}") or not y_range.split('"', 1)[
+                0
+            ].endswith(f"!{y_letter}"):
                 raise RuntimeError("Origin K03 Scatter lost a group/source binding")
             plots.append(
                 {
@@ -406,8 +273,7 @@ class K03OriginProject:
                 }
             )
         designations = tuple(
-            int(self.sheet.get_int(f"col{index}.type"))
-            for index in range(1, plot_count * 2 + 1)
+            int(self.sheet.get_int(f"col{index}.type")) for index in range(1, plot_count * 2 + 1)
         )
         if designations != (4, 1) * plot_count:
             raise RuntimeError("Origin K03 worksheet must retain one X/Y pair per group")
@@ -427,18 +293,6 @@ class K03OriginProject:
             value, remainder = divmod(value - 1, 26)
             output = chr(65 + remainder) + output
         return output
-
-    @staticmethod
-    def _series_ordinal(target: str, token: str, group_count: int) -> int:
-        prefix = f"series:{token}.group_"
-        suffix = target.removeprefix(prefix) if target.startswith(prefix) else ""
-        if not suffix.isdigit() or not 1 <= int(suffix) <= group_count:
-            raise ValueError("K03 series target is outside the materialized groups")
-        return int(suffix)
-
-    @staticmethod
-    def _hex_rgb(value: str) -> tuple[int, int, int]:
-        return cast(tuple[int, int, int], tuple(int(value[i : i + 2], 16) for i in (1, 3, 5)))
 
     @staticmethod
     def _assert_values(actual: list[object], expected: tuple[float, ...], role: str) -> None:

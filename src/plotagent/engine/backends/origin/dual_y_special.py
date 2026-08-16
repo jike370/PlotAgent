@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from math import isclose, isnan
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -14,10 +14,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import X23SeriesData, x35_series, x36_series
@@ -123,9 +119,7 @@ class DualYSpecialOriginProject:
             },
         ):
             self.sheet.activate()
-            self.op.lt_exec(
-                f"worksheet -s 1 0 3 0; run.section(plot,{section});"
-            )
+            self.op.lt_exec(f"worksheet -s 1 0 3 0; run.section(plot,{section});")
         with origin_trace_step(
             "categorical_source_order_restore",
             details={"categorical_sort": "first_source_appearance"},
@@ -135,9 +129,7 @@ class DualYSpecialOriginProject:
             # the documented Unsorted map *after* the official section and
             # update the native plots so linked layers use source-row order.
             self.sheet.activate()
-            self.sheet.lt_exec(
-                "wks.col1.categorical.type=2; wks.col1.categorical.sort=0;"
-            )
+            self.sheet.lt_exec("wks.col1.categorical.type=2; wks.col1.categorical.sort=0;")
             self.op.lt_exec("doc -u;")
         with origin_trace_step("native_structure_readback"):
             graphs = list(self.op.pages("g"))
@@ -196,9 +188,7 @@ class DualYSpecialOriginProject:
     ) -> None:
         values = self._data(document, data)
         state = self._state(document, actions, values)
-        with origin_trace_step(
-            "agent_actions_apply", details={"action_count": len(actions)}
-        ):
+        with origin_trace_step("agent_actions_apply", details={"action_count": len(actions)}):
             self._set_title(state.title)
             self._configure_x(values, state.x_axis)
             self._configure_y(self._layers()[0], "yl", state.left_axis)
@@ -306,9 +296,7 @@ class DualYSpecialOriginProject:
                 cast(
                     JsonValue,
                     {
-                        "native_plot_ids": (
-                            [203, 203] if self.profile_id == "X35" else [203, 202]
-                        ),
+                        "native_plot_ids": ([203, 203] if self.profile_id == "X35" else [203, 202]),
                         "state": asdict(state),
                         "template": self.profile.filename,
                     },
@@ -331,9 +319,7 @@ class DualYSpecialOriginProject:
         # guarantee source-row order.  The official ``categorical.sort``
         # contract defines 0 as Unsorted, i.e. first appearance in the source
         # column, which is the canonical order for these two chart profiles.
-        self.sheet.lt_exec(
-            "wks.col1.categorical.type=2; wks.col1.categorical.sort=0;"
-        )
+        self.sheet.lt_exec("wks.col1.categorical.type=2; wks.col1.categorical.sort=0;")
 
     def _configure_x(self, values: X23SeriesData, state: _AxisState) -> None:
         if values.x_labels is None or state.scale != "categorical":
@@ -426,10 +412,7 @@ class DualYSpecialOriginProject:
         mutation in separate RPC calls was observed to reset to Layer2.
         """
 
-        return (
-            f"window -a {self.graph.name}; "
-            f"{self.graph.name}!page.active={layer_index}; "
-        )
+        return f"window -a {self.graph.name}; {self.graph.name}!page.active={layer_index}; "
 
     def _apply_column_style(self, layer_index: int, state: _SeriesState) -> None:
         if (
@@ -449,9 +432,7 @@ class DualYSpecialOriginProject:
         if state.line_width_pt is not None:
             commands.append(f"set %C -pbw {state.line_width_pt}")
         if commands:
-            self.op.lt_exec(
-                self._graph_layer_prefix(layer_index) + "; ".join(commands) + ";"
-            )
+            self.op.lt_exec(self._graph_layer_prefix(layer_index) + "; ".join(commands) + ";")
 
     def _apply_line_symbol_style(self, layer_index: int, state: _SeriesState) -> None:
         commands: list[str] = []
@@ -474,9 +455,7 @@ class DualYSpecialOriginProject:
         if state.symbol_size_pt is not None:
             commands.append(f"set %C -z {state.symbol_size_pt}")
         if commands:
-            self.op.lt_exec(
-                self._graph_layer_prefix(layer_index) + "; ".join(commands) + ";"
-            )
+            self.op.lt_exec(self._graph_layer_prefix(layer_index) + "; ".join(commands) + ";")
 
     def _assert_native_structure(self, *, verify_offsets: bool) -> None:
         self.sheet.activate()
@@ -580,14 +559,11 @@ class DualYSpecialOriginProject:
         else:
             self._assert_line_symbol_style(2, state.right_series)
 
-    def _assert_column_style(
-        self, layer_index: int, state: _SeriesState, role: str
-    ) -> None:
+    def _assert_column_style(self, layer_index: int, state: _SeriesState, role: str) -> None:
         if state.color is None and state.line_width_pt is None:
             return
         self.op.lt_exec(
-            self._graph_layer_prefix(layer_index)
-            + f"get %C -pfb __{self.profile_id}{role}C; "
+            self._graph_layer_prefix(layer_index) + f"get %C -pfb __{self.profile_id}{role}C; "
             f"get %C -pbw __{self.profile_id}{role}W;"
         )
         if state.color is not None:
@@ -629,13 +605,15 @@ class DualYSpecialOriginProject:
             abs_tol=1e-8,
         ):
             raise RuntimeError(f"Origin {self.profile_id} line width changed")
-        if state.line_style is not None and int(
-            self.op.lt_float(f"__{self.profile_id}LS")
-        ) != _LINE_STYLE[state.line_style]:
+        if (
+            state.line_style is not None
+            and int(self.op.lt_float(f"__{self.profile_id}LS")) != _LINE_STYLE[state.line_style]
+        ):
             raise RuntimeError(f"Origin {self.profile_id} line style changed")
-        if state.symbol is not None and int(
-            self.op.lt_float(f"__{self.profile_id}SK")
-        ) != _SYMBOL[state.symbol]:
+        if (
+            state.symbol is not None
+            and int(self.op.lt_float(f"__{self.profile_id}SK")) != _SYMBOL[state.symbol]
+        ):
             raise RuntimeError(f"Origin {self.profile_id} symbol changed")
         if state.symbol_size_pt is not None and not isclose(
             float(self.op.lt_float(f"__{self.profile_id}SZ")),
@@ -662,7 +640,7 @@ class DualYSpecialOriginProject:
     def _state(
         self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: X23SeriesData
     ) -> _State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _State(
             title="",
             x_axis=_AxisState(data.x_field_name, "categorical"),
@@ -672,87 +650,7 @@ class DualYSpecialOriginProject:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError(f"{self.profile_id} title target does not belong")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                key = {
-                    f"axis:{token}.x": "x_axis",
-                    f"axis:{token}.y_left": "left_axis",
-                    f"axis:{token}.y_right": "right_axis",
-                }.get(action.target)
-                if key is None:
-                    raise ValueError(f"{self.profile_id} axis target does not belong")
-                current = getattr(state, key)
-                requested_scale = current.scale if action.scale is None else action.scale
-                if (key == "x_axis" and requested_scale != "categorical") or (
-                    key != "x_axis" and requested_scale not in {"linear", "log10"}
-                ):
-                    raise ValueError(f"{self.profile_id} axis scale is not supported")
-                state = replace(
-                    state,
-                    **{
-                        key: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=current.minimum if action.minimum is None else action.minimum,
-                            maximum=current.maximum if action.maximum is None else action.maximum,
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                key = {
-                    f"series:{token}.left": "left_series",
-                    f"series:{token}.right": "right_series",
-                }.get(action.target)
-                if key is None:
-                    raise ValueError(f"{self.profile_id} series target does not belong")
-                if key == "left_series" and (
-                    action.line_style is not None
-                    or action.symbol is not None
-                    or action.symbol_size_pt is not None
-                ):
-                    raise ValueError(f"{self.profile_id} left column exposes no line or symbol")
-                if self.profile_id == "X35" and key == "right_series" and (
-                    action.line_style is not None
-                    or action.symbol is not None
-                    or action.symbol_size_pt is not None
-                ):
-                    raise ValueError("X35 right column exposes no line or symbol")
-                current = getattr(state, key)
-                state = replace(
-                    state,
-                    **{
-                        key: replace(
-                            current,
-                            color=current.color if action.color is None else action.color,
-                            line_width_pt=current.line_width_pt
-                            if action.line_width_pt is None
-                            else action.line_width_pt,
-                            line_style=current.line_style
-                            if action.line_style is None
-                            else action.line_style,
-                            symbol=current.symbol if action.symbol is None else action.symbol,
-                            symbol_size_pt=current.symbol_size_pt
-                            if action.symbol_size_pt is None
-                            else action.symbol_size_pt,
-                        )
-                    },
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError(f"{self.profile_id} exposes only native legend visibility")
-                state = replace(
-                    state,
-                    legend_visible=state.legend_visible
-                    if action.visible is None
-                    else action.visible,
-                )
-            else:
-                raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
+            raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
         return state
 
     def _layers(self) -> tuple[Any, Any]:

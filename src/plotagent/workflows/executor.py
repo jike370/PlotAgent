@@ -10,6 +10,9 @@ from plotagent.contracts.workflows import (
     DraftAddAnnotation,
     DraftSetAxis,
     DraftSetChartParameter,
+    DraftSetColorMap,
+    DraftSetDataLabels,
+    DraftSetErrorStyle,
     DraftSetLegend,
     DraftSetSeriesStyle,
     DraftSetTitle,
@@ -24,6 +27,9 @@ from plotagent.engine import (
     PlotEngineAction,
     SetAxis,
     SetChartParameter,
+    SetColorMap,
+    SetDataLabels,
+    SetErrorStyle,
     SetLegend,
     SetSeriesStyle,
     SetTitle,
@@ -166,37 +172,49 @@ class TaskPlanExecutor:
                     action_id=action_id,
                     target=item.plot_id,
                     expected_plot_version=plot_version,
-                    text=draft.text,
+                    **draft.model_dump(exclude={"operation", "target_alias"}),
                 )
             elif isinstance(draft, DraftSetAxis):
                 action = SetAxis(
                     action_id=action_id,
                     target=self._target(item, draft.target_alias, "axis"),
                     expected_plot_version=plot_version,
-                    label=draft.label,
-                    scale=draft.scale,
-                    minimum=draft.minimum,
-                    maximum=draft.maximum,
-                    reverse=draft.reverse,
+                    **draft.model_dump(exclude={"operation", "target_alias"}),
                 )
             elif isinstance(draft, DraftSetSeriesStyle):
                 action = SetSeriesStyle(
                     action_id=action_id,
                     target=self._target(item, draft.target_alias, "series"),
                     expected_plot_version=plot_version,
-                    color=draft.color,
-                    line_width_pt=draft.line_width_pt,
-                    line_style=draft.line_style,
-                    symbol=draft.symbol,
-                    symbol_size_pt=draft.symbol_size_pt,
+                    **draft.model_dump(exclude={"operation", "target_alias"}),
                 )
             elif isinstance(draft, DraftSetLegend):
                 action = SetLegend(
                     action_id=action_id,
                     target=self._target(item, draft.target_alias, "legend"),
                     expected_plot_version=plot_version,
-                    visible=draft.visible,
-                    anchor=draft.anchor,
+                    **draft.model_dump(exclude={"operation", "target_alias"}),
+                )
+            elif isinstance(draft, DraftSetColorMap):
+                action = SetColorMap(
+                    action_id=action_id,
+                    target=self._target(item, draft.target_alias, "series"),
+                    expected_plot_version=plot_version,
+                    **draft.model_dump(exclude={"operation", "target_alias"}),
+                )
+            elif isinstance(draft, DraftSetErrorStyle):
+                action = SetErrorStyle(
+                    action_id=action_id,
+                    target=self._target(item, draft.target_alias, "series"),
+                    expected_plot_version=plot_version,
+                    **draft.model_dump(exclude={"operation", "target_alias"}),
+                )
+            elif isinstance(draft, DraftSetDataLabels):
+                action = SetDataLabels(
+                    action_id=action_id,
+                    target=self._target(item, draft.target_alias, "series"),
+                    expected_plot_version=plot_version,
+                    **draft.model_dump(exclude={"operation", "target_alias"}),
                 )
             elif isinstance(draft, DraftSetChartParameter):
                 action = SetChartParameter(
@@ -217,6 +235,12 @@ class TaskPlanExecutor:
                     x=draft.x,
                     y=draft.y,
                     coordinate_system=draft.coordinate_system,
+                    font_family=draft.font_family,
+                    font_size_pt=draft.font_size_pt,
+                    font_weight=draft.font_weight,
+                    italic=draft.italic,
+                    color=draft.color,
+                    rotation_deg=draft.rotation_deg,
                 )
             else:
                 raise AssertionError("unknown workflow visual action")

@@ -12,10 +12,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import DistributionData, distribution_groups
@@ -71,31 +67,10 @@ _VIOLIN_SCALE_WIDTH = 1
 _VIOLIN_GRID_POINTS = 256
 
 
-def _safe_label(value: str) -> str:
-    output: list[str] = []
-    for character in value:
-        codepoint = ord(character)
-        if character in {"\\", "%", "$"}:
-            output.append(f"\\x({codepoint:04X})")
-        elif character in {"\r", "\n", "\t"} or codepoint < 0x20 or codepoint == 0x7F:
-            output.append(" ")
-        else:
-            output.append(character)
-    return "".join(output).strip()
-
-
 def _effective_actions(
     actions: tuple[PlotEngineAction, ...],
 ) -> tuple[PlotEngineAction, ...]:
-    last_binding = max(
-        (index for index, action in enumerate(actions) if isinstance(action, BindFields)),
-        default=-1,
-    )
-    return tuple(
-        action
-        for index, action in enumerate(actions)
-        if not (isinstance(action, SetSeriesStyle) and index < last_binding)
-    )
+    return actions
 
 
 class DistributionOriginProject:
@@ -143,9 +118,7 @@ class DistributionOriginProject:
         if self.profile_id != "X05":
             self._remove_workbook_residue(book)
         if self.profile_id == "X05":
-            command = _X05_OFFICIAL_MENU_COMMAND.format(
-                last_column=len(distribution.groups)
-            )
+            command = _X05_OFFICIAL_MENU_COMMAND.format(last_column=len(distribution.groups))
             with origin_trace_step(
                 "official_plot_command_execute",
                 details={"labtalk": command, "template_filename": template.name},
@@ -176,9 +149,7 @@ class DistributionOriginProject:
         ):
             self.sheet.activate()
             if not self.op.lt_exec(command):
-                raise RuntimeError(
-                    f"Origin rejected the official {self.profile_id} plot command"
-                )
+                raise RuntimeError(f"Origin rejected the official {self.profile_id} plot command")
         with origin_trace_step("native_structure_readback"):
             graphs = list(self.op.pages("g"))
             if len(graphs) != 1:
@@ -223,118 +194,10 @@ class DistributionOriginProject:
         self.plots = list(self.layer.plot_list())
         self.sheet = books[0][0]
 
-    def apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        data: EngineDataView,
-    ) -> None:
-        distribution = self._distribution(document, data)
-        token = document.plot_id.removeprefix("plot:")
+    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
+        self._distribution(document, data)
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, (CreatePlot, BindFields)):
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError(f"{self.profile_id} title target does not belong to this plot")
-            title = self.layer.label(_TITLE_NAME)
-            if title is None:
-                title = self.layer.add_label(action.text, 40, 2)
-                if title is None:
-                    raise RuntimeError(f"Origin could not create the {self.profile_id} title")
-                title.name = _TITLE_NAME
-            title.text = action.text
-            title.set_int("show", 1)
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-            if axis_name is None:
-                raise ValueError(f"{self.profile_id} axis target does not belong to this plot")
-            axis = self.layer.axis(axis_name)
-            if action.scale is not None:
-                if axis_name == "x" and action.scale != "categorical":
-                    raise ValueError("Origin distribution X axes support only categorical scale")
-                if axis_name == "y":
-                    if action.scale not in {"linear", "log10"}:
-                        raise ValueError("Origin distribution Y axes support only linear or log10")
-                    axis.scale = action.scale
-            if action.minimum is not None and action.maximum is not None:
-                begin, end = action.minimum, action.maximum
-                if action.reverse:
-                    begin, end = end, begin
-                axis.set_limits(begin, end)
-            elif action.reverse is not None:
-                begin, end, step = (float(value) for value in axis.limits)
-                should_reverse = begin < end if action.reverse else begin > end
-                if should_reverse:
-                    axis.set_limits(end, begin, abs(step))
-            if action.label is not None:
-                label = self.layer.label("xb" if axis_name == "x" else "yl")
-                if label is None:
-                    label = self.layer.add_label(action.label)
-                if label is None:
-                    raise RuntimeError(f"Origin {self.profile_id} has no writable axis label")
-                label.text = action.label
-                label.set_int("show", 1)
-            return
-        if isinstance(action, SetSeriesStyle):
-            ordinal = self._series_ordinal(action.target, token, len(self.plots))
-            plot = self.plots[ordinal - 1]
-            if action.color is not None:
-                self._set_series_rgb(distribution, ordinal, action.color)
-            if action.line_width_pt is not None:
-                raise ValueError(
-                    f"Origin {self.profile_id} does not expose a common series line-width edit"
-                )
-            if action.symbol is not None:
-                if self.profile_id not in {"K12", "X05"}:
-                    raise ValueError(f"Origin {self.profile_id} does not expose symbol edits")
-                try:
-                    plot.symbol_kind = _SYMBOL_CODES[action.symbol]
-                except KeyError as error:
-                    raise ValueError(
-                        f"Origin {self.profile_id} does not support symbol {action.symbol}"
-                    ) from error
-            if action.symbol_size_pt is not None:
-                if self.profile_id not in {"K12", "X05"}:
-                    raise ValueError(f"Origin {self.profile_id} does not expose symbol-size edits")
-                plot.symbol_size = action.symbol_size_pt
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main":
-                raise ValueError(f"{self.profile_id} legend target does not belong to this plot")
-            if self.profile_id == "X05":
-                legend = (
-                    self._rebuild_native_data_legend()
-                    if action.visible
-                    else self.layer.label("legend")
-                )
-                if legend is not None and action.visible is not None:
-                    legend.set_int("show", int(action.visible))
-                return
-            if self.profile_id == "K12":
-                legend = (
-                    self._rebuild_native_data_legend()
-                    if action.visible
-                    else self.layer.label("legend")
-                )
-                if legend is not None and action.visible is not None:
-                    legend.set_int("link", 1)
-                    legend.set_int("show", int(action.visible))
-                return
-            legend = self.layer.label("legend")
-            if action.visible:
-                self.layer.activate()
-                if not self.op.lt_exec(
-                    "legendupdate dest:=layer update:=reconstruct "
-                    "legend:=separate mode:=lname;"
-                ):
-                    raise RuntimeError(
-                        f"Origin could not rebuild the native {self.profile_id} legend"
-                    )
-                legend = self.layer.label("legend")
-            if legend is not None and action.visible is not None:
-                legend.set_int("link", 1)
-                legend.set_int("show", int(action.visible))
             return
         raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
 
@@ -366,21 +229,6 @@ class DistributionOriginProject:
             snapshot.update(self._assert_official_x05_structure(distribution))
         else:
             snapshot.update(self._assert_official_structure(distribution))
-        for action in actions:
-            if isinstance(action, SetTitle):
-                title = self.layer.label(_TITLE_NAME)
-                if title is None or title.text != action.text or not title.get_int("show"):
-                    raise RuntimeError(f"Origin {self.profile_id} title did not survive readback")
-            elif isinstance(action, SetSeriesStyle):
-                ordinal = self._series_ordinal(action.target, token, len(self.plots))
-                if action.color is not None:
-                    self._assert_series_rgb(distribution, ordinal, action.color)
-            elif isinstance(action, SetLegend) and action.visible is not None:
-                legend = self.layer.label("legend")
-                if legend is None or bool(legend.get_int("show")) != action.visible:
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} legend visibility did not survive readback"
-                    )
         objects = (
             EngineObjectRef(
                 semantic_id=document.plot_id,
@@ -445,9 +293,7 @@ class DistributionOriginProject:
         if self.profile_id == "K14":
             graph_name = str(self.graph.name)
             self.graph.activate()
-            if not self.op.lt_exec(
-                f"range __K14HEAD=[{graph_name}]1!1; set __K14HEAD -gm 1;"
-            ):
+            if not self.op.lt_exec(f"range __K14HEAD=[{graph_name}]1!1; set __K14HEAD -gm 1;"):
                 raise RuntimeError("Origin could not make K14 group formatting independent")
         if self.profile_id == "K13":
             configure_native_distribution(
@@ -457,9 +303,7 @@ class DistributionOriginProject:
                 13,
             )
             return
-        pooled_values = tuple(
-            value for group in distribution.groups for value in group.values
-        )
+        pooled_values = tuple(value for group in distribution.groups for value in group.values)
         bandwidth = scott_kde_geometry(
             pooled_values,
             grid_points=_VIOLIN_GRID_POINTS,
@@ -473,14 +317,10 @@ class DistributionOriginProject:
             bandwidth=bandwidth,
         )
 
-    def _assert_official_structure(
-        self, distribution: DistributionData
-    ) -> dict[str, object]:
+    def _assert_official_structure(self, distribution: DistributionData) -> dict[str, object]:
         graph_name = str(self.graph.name)
         if not graph_name.replace("_", "").isalnum():
-            raise RuntimeError(
-                f"unsafe Origin {self.profile_id} graph name: {graph_name!r}"
-            )
+            raise RuntimeError(f"unsafe Origin {self.profile_id} graph name: {graph_name!r}")
         self.graph.activate()
         variable_prefix = f"__{self.profile_id}"
         self.op.lt_exec(f"page.active=1; layer -c; {variable_prefix}COUNT=count;")
@@ -508,8 +348,7 @@ class DistributionOriginProject:
                 f"Origin {self.profile_id} source columns must remain native Y columns"
             )
         expected_sources = [
-            str(self.sheet.obj[index].DatasetName)
-            for index in range(len(distribution.groups))
+            str(self.sheet.obj[index].DatasetName) for index in range(len(distribution.groups))
         ]
         actual_sources = [str(plot.obj.DatasetName) for plot in self.plots]
         if actual_sources != expected_sources:
@@ -530,17 +369,12 @@ class DistributionOriginProject:
 
         native_settings: list[dict[str, int | float]] = []
         if self.profile_id == "K14":
-            self.op.lt_exec(
-                f"range __K14HEAD=[{graph_name}]1!1; "
-                "get __K14HEAD -gm __K14GROUPMODE;"
-            )
+            self.op.lt_exec(f"range __K14HEAD=[{graph_name}]1!1; get __K14HEAD -gm __K14GROUPMODE;")
             if int(self.op.lt_float("__K14GROUPMODE")) != 1:
                 raise RuntimeError("Origin K14 must retain independent per-group formatting")
         pooled_bandwidth = None
         if self.profile_id == "K14":
-            pooled_values = tuple(
-                value for group in distribution.groups for value in group.values
-            )
+            pooled_values = tuple(value for group in distribution.groups for value in group.values)
             pooled_bandwidth = scott_kde_geometry(
                 pooled_values,
                 grid_points=_VIOLIN_GRID_POINTS,
@@ -625,9 +459,7 @@ class DistributionOriginProject:
             "native_settings": native_settings,
         }
 
-    def _assert_official_x05_structure(
-        self, distribution: DistributionData
-    ) -> dict[str, object]:
+    def _assert_official_x05_structure(self, distribution: DistributionData) -> dict[str, object]:
         graph_name = str(self.graph.name)
         if not graph_name.replace("_", "").isalnum():
             raise RuntimeError(f"unsafe Origin X05 graph name: {graph_name!r}")
@@ -636,10 +468,7 @@ class DistributionOriginProject:
         plot_count = int(self.op.lt_float("__X05COUNT"))
         plot_types: list[int] = []
         for index in range(1, plot_count + 1):
-            self.op.lt_exec(
-                f"range __X05P=[{graph_name}]1!{index}; "
-                f"get __X05P -pt __X05PT{index};"
-            )
+            self.op.lt_exec(f"range __X05P=[{graph_name}]1!{index}; get __X05P -pt __X05PT{index};")
             plot_types.append(int(self.op.lt_float(f"__X05PT{index}")))
         if len(plot_types) != len(distribution.groups) or any(
             plot_type != 206 for plot_type in plot_types
@@ -681,52 +510,6 @@ class DistributionOriginProject:
                 f"Origin {self.profile_id} could not build its data-symbol-only legend"
             )
         return legend
-
-    def _set_series_rgb(
-        self,
-        distribution: DistributionData,
-        ordinal: int,
-        color: str,
-    ) -> None:
-        rgb = self._hex_rgb(color)
-        group_count = len(distribution.groups)
-        base_column = group_count + (ordinal - 1) * 3
-        row_count = len(distribution.groups[ordinal - 1].values)
-        for offset, (channel, value) in enumerate(zip("RGB", rgb, strict=True)):
-            self.sheet.from_list(
-                base_column + offset,
-                [value] * row_count,
-                lname=f"Style {ordinal} {channel}",
-            )
-        plot = self.plots[ordinal - 1]
-        if hasattr(self.op, "color_col"):
-            plot.color = self.op.color_col(base_column - (ordinal - 1), "r")
-        else:
-            plot.color = color
-
-    def _assert_series_rgb(
-        self,
-        distribution: DistributionData,
-        ordinal: int,
-        color: str,
-    ) -> None:
-        expected = self._hex_rgb(color)
-        group_count = len(distribution.groups)
-        base_column = group_count + (ordinal - 1) * 3
-        row_count = len(distribution.groups[ordinal - 1].values)
-        for offset, value in enumerate(expected):
-            observed = self.sheet.to_list(base_column + offset)
-            if len(observed) != row_count or any(int(item) != value for item in observed):
-                raise RuntimeError(
-                    f"Origin {self.profile_id} series RGB modifier did not survive readback"
-                )
-
-    def _series_ordinal(self, target: str, token: str, group_count: int) -> int:
-        prefix = f"series:{token}.group_"
-        suffix = target.removeprefix(prefix) if target.startswith(prefix) else ""
-        if not suffix.isdigit() or not 1 <= int(suffix) <= group_count:
-            raise ValueError(f"{self.profile_id} series target is outside the materialized groups")
-        return int(suffix)
 
     @staticmethod
     def _hex_rgb(value: str) -> tuple[int, int, int]:

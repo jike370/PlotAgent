@@ -50,6 +50,55 @@ InstructionText = Annotated[
     str,
     StringConstraints(min_length=1, max_length=4_096, strip_whitespace=True, strict=True),
 ]
+WorkflowColor = Annotated[
+    str,
+    StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$", strict=True),
+]
+WorkflowFontFamily = Literal[
+    "auto",
+    "Arial",
+    "Calibri",
+    "Times New Roman",
+    "Segoe UI",
+    "Microsoft YaHei",
+    "SimSun",
+]
+WorkflowFontWeight = Literal["normal", "bold"]
+WorkflowLineStyle = Literal["solid", "dash", "dot", "dash_dot", "none"]
+WorkflowMarkerShape = Literal[
+    "circle",
+    "square",
+    "triangle_up",
+    "triangle_down",
+    "triangle_left",
+    "triangle_right",
+    "diamond",
+    "plus",
+    "cross",
+    "hexagon",
+    "star",
+    "pentagon",
+    "none",
+]
+WorkflowMarkerInterior = Literal["solid", "open", "hollow"]
+WorkflowPalette = Literal[
+    "viridis",
+    "plasma",
+    "inferno",
+    "magma",
+    "cividis",
+    "turbo",
+    "blue_orange",
+    "red_white_blue",
+    "blue_white_red",
+    "gray_scale",
+    "fire",
+    "rainbow_modified",
+    "cool_warm",
+    "spectral",
+    "terrain",
+    "ocean",
+]
 
 WorkflowRoute = Literal[
     "deterministic",
@@ -305,7 +354,22 @@ class DraftFieldBinding(StrictModel):
 class DraftSetTitle(StrictModel):
     operation: Literal["set_title"] = "set_title"
     target_alias: WorkflowAlias = "plot"
-    text: Annotated[str, StringConstraints(max_length=512, strict=True)]
+    text: Annotated[str, StringConstraints(max_length=512, strict=True)] | None = None
+    font_family: WorkflowFontFamily | None = None
+    font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    font_weight: WorkflowFontWeight | None = None
+    italic: bool | None = None
+    color: WorkflowColor | None = None
+
+    @model_validator(mode="after")
+    def has_change(self) -> DraftSetTitle:
+        if all(
+            value is None
+            for name, value in self
+            if name not in {"operation", "target_alias"}
+        ):
+            raise ValueError("title edit needs at least one change")
+        return self
 
 
 class DraftSetAxis(StrictModel):
@@ -316,6 +380,25 @@ class DraftSetAxis(StrictModel):
     minimum: FiniteNumber | None = None
     maximum: FiniteNumber | None = None
     reverse: bool | None = None
+    title_font_family: WorkflowFontFamily | None = None
+    title_font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    title_font_weight: WorkflowFontWeight | None = None
+    title_italic: bool | None = None
+    title_color: WorkflowColor | None = None
+    major_tick_step: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    minor_tick_count: Annotated[int, Field(ge=0, le=20)] | None = None
+    tick_format: Literal["auto", "decimal", "scientific", "percent", "date", "time"] | None = None
+    tick_rotation_deg: Annotated[float, Field(ge=-180, le=180, allow_inf_nan=False)] | None = None
+    tick_font_family: WorkflowFontFamily | None = None
+    tick_font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    tick_color: WorkflowColor | None = None
+    axis_line_color: WorkflowColor | None = None
+    axis_line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
+    major_grid_visible: bool | None = None
+    minor_grid_visible: bool | None = None
+    grid_color: WorkflowColor | None = None
+    grid_line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
+    grid_line_style: WorkflowLineStyle | None = None
 
     @model_validator(mode="after")
     def valid_edit(self) -> DraftSetAxis:
@@ -325,7 +408,8 @@ class DraftSetAxis(StrictModel):
             raise ValueError("axis minimum must be lower than maximum")
         if all(
             value is None
-            for value in (self.label, self.scale, self.minimum, self.maximum, self.reverse)
+            for name, value in self
+            if name not in {"operation", "target_alias"}
         ):
             raise ValueError("axis edit needs at least one change")
         return self
@@ -334,25 +418,29 @@ class DraftSetAxis(StrictModel):
 class DraftSetSeriesStyle(StrictModel):
     operation: Literal["set_series_style"] = "set_series_style"
     target_alias: WorkflowAlias
-    color: Annotated[str, StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$", strict=True)] | None = (
-        None
-    )
+    line_stroke_color: WorkflowColor | None = None
     line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
-    line_style: Literal["solid", "dash", "dot", "dash_dot", "none"] | None = None
-    symbol: Token | None = None
-    symbol_size_pt: Annotated[float, Field(gt=0, le=72, allow_inf_nan=False)] | None = None
+    line_style: WorkflowLineStyle | None = None
+    line_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    marker_shape: WorkflowMarkerShape | None = None
+    marker_size_pt: Annotated[float, Field(gt=0, le=72, allow_inf_nan=False)] | None = None
+    marker_interior: WorkflowMarkerInterior | None = None
+    marker_fill_color: WorkflowColor | None = None
+    marker_stroke_color: WorkflowColor | None = None
+    marker_stroke_width_pt: Annotated[float, Field(ge=0, le=20, allow_inf_nan=False)] | None = None
+    marker_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    fill_color: WorkflowColor | None = None
+    fill_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    fill_stroke_color: WorkflowColor | None = None
+    fill_stroke_width_pt: Annotated[float, Field(ge=0, le=20, allow_inf_nan=False)] | None = None
+    fill_stroke_style: WorkflowLineStyle | None = None
 
     @model_validator(mode="after")
     def has_change(self) -> DraftSetSeriesStyle:
         if all(
             value is None
-            for value in (
-                self.color,
-                self.line_width_pt,
-                self.line_style,
-                self.symbol,
-                self.symbol_size_pt,
-            )
+            for name, value in self
+            if name not in {"operation", "target_alias"}
         ):
             raise ValueError("series style needs at least one change")
         return self
@@ -363,11 +451,95 @@ class DraftSetLegend(StrictModel):
     target_alias: WorkflowAlias = "legend"
     visible: bool | None = None
     anchor: Literal["inside", "right", "bottom", "none"] | None = None
+    columns: Annotated[int, Field(ge=1, le=12)] | None = None
+    title: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
+    font_family: WorkflowFontFamily | None = None
+    font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    font_color: WorkflowColor | None = None
+    frame_visible: bool | None = None
+    frame_color: WorkflowColor | None = None
+    frame_width_pt: Annotated[float, Field(ge=0, le=20, allow_inf_nan=False)] | None = None
 
     @model_validator(mode="after")
     def has_change(self) -> DraftSetLegend:
-        if self.visible is None and self.anchor is None:
+        if all(
+            value is None
+            for name, value in self
+            if name not in {"operation", "target_alias"}
+        ):
             raise ValueError("legend edit needs at least one change")
+        return self
+
+
+class DraftSetColorMap(StrictModel):
+    operation: Literal["set_colormap"] = "set_colormap"
+    target_alias: WorkflowAlias
+    palette: WorkflowPalette | None = None
+    reverse: bool | None = None
+    minimum: FiniteNumber | None = None
+    maximum: FiniteNumber | None = None
+    midpoint: FiniteNumber | None = None
+    mode: Literal["continuous", "discrete"] | None = None
+    levels: Annotated[int, Field(ge=2, le=256)] | None = None
+    missing_color: WorkflowColor | None = None
+    colorbar_visible: bool | None = None
+    colorbar_anchor: Literal["right", "bottom"] | None = None
+    colorbar_title: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
+    colorbar_tick_format: Literal["auto", "decimal", "scientific", "percent"] | None = None
+
+    @model_validator(mode="after")
+    def valid_edit(self) -> DraftSetColorMap:
+        if (self.minimum is None) != (self.maximum is None):
+            raise ValueError("colormap bounds must both be fixed or both automatic")
+        if self.midpoint is not None and self.minimum is None:
+            raise ValueError("colormap midpoint requires fixed minimum and maximum")
+        if self.minimum is not None and self.maximum is not None:
+            if self.minimum >= self.maximum:
+                raise ValueError("colormap minimum must be lower than maximum")
+            if self.midpoint is not None and not self.minimum < self.midpoint < self.maximum:
+                raise ValueError("colormap midpoint must lie inside fixed bounds")
+        if all(value is None for name, value in self if name not in {"operation", "target_alias"}):
+            raise ValueError("colormap edit needs at least one change")
+        return self
+
+
+class DraftSetErrorStyle(StrictModel):
+    operation: Literal["set_error_style"] = "set_error_style"
+    target_alias: WorkflowAlias
+    bar_color: WorkflowColor | None = None
+    bar_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
+    cap_size_pt: Annotated[float, Field(ge=0, le=72, allow_inf_nan=False)] | None = None
+    bar_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    band_fill_color: WorkflowColor | None = None
+    band_fill_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    band_stroke_color: WorkflowColor | None = None
+    band_stroke_width_pt: Annotated[float, Field(ge=0, le=20, allow_inf_nan=False)] | None = None
+
+    @model_validator(mode="after")
+    def has_change(self) -> DraftSetErrorStyle:
+        if all(value is None for name, value in self if name not in {"operation", "target_alias"}):
+            raise ValueError("error style needs at least one change")
+        return self
+
+
+class DraftSetDataLabels(StrictModel):
+    operation: Literal["set_data_labels"] = "set_data_labels"
+    target_alias: WorkflowAlias
+    visible: bool | None = None
+    value_format: Literal["auto", "decimal", "scientific", "percent"] | None = None
+    prefix: Annotated[str, StringConstraints(max_length=32, strict=True)] | None = None
+    suffix: Annotated[str, StringConstraints(max_length=32, strict=True)] | None = None
+    position: Literal["auto", "above", "below", "left", "right", "center"] | None = None
+    rotation_deg: Annotated[float, Field(ge=-180, le=180, allow_inf_nan=False)] | None = None
+    font_family: WorkflowFontFamily | None = None
+    font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    font_weight: WorkflowFontWeight | None = None
+    font_color: WorkflowColor | None = None
+
+    @model_validator(mode="after")
+    def has_change(self) -> DraftSetDataLabels:
+        if all(value is None for name, value in self if name not in {"operation", "target_alias"}):
+            raise ValueError("data label edit needs at least one change")
         return self
 
 
@@ -386,6 +558,12 @@ class DraftAddAnnotation(StrictModel):
     x: FiniteNumber
     y: FiniteNumber
     coordinate_system: Literal["data", "axes", "page"] = "data"
+    font_family: WorkflowFontFamily | None = None
+    font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    font_weight: WorkflowFontWeight | None = None
+    italic: bool | None = None
+    color: WorkflowColor | None = None
+    rotation_deg: Annotated[float, Field(ge=-180, le=180, allow_inf_nan=False)] | None = None
 
 
 DraftVisualAction = Annotated[
@@ -393,6 +571,9 @@ DraftVisualAction = Annotated[
     | DraftSetAxis
     | DraftSetSeriesStyle
     | DraftSetLegend
+    | DraftSetColorMap
+    | DraftSetErrorStyle
+    | DraftSetDataLabels
     | DraftSetChartParameter
     | DraftAddAnnotation,
     Field(discriminator="operation"),

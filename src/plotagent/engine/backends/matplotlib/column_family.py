@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal, cast
 
@@ -22,10 +22,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import CategorySeriesGrid, category_series_grid
@@ -227,7 +223,7 @@ class _ColumnFamilyRenderer:
         actions: tuple[PlotEngineAction, ...],
         grid: CategorySeriesGrid,
     ) -> _ColumnFamilyState:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _ColumnFamilyState(
             title="",
             x_axis=_AxisState(grid.category_field_name, scale="categorical"),
@@ -237,80 +233,15 @@ class _ColumnFamilyRenderer:
                 for index in range(len(grid.series_labels))
             ),
         )
-        last_binding = max(
+        max(
             (index for index, action in enumerate(actions) if isinstance(action, BindFields)),
             default=-1,
         )
-        for index, action in enumerate(actions):
+        for _index, action in enumerate(actions):
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError(f"{self.profile_id} title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(
-                    action.target
-                )
-                if axis_name is None:
-                    raise ValueError(f"{self.profile_id} axis target does not belong to this plot")
-                current = getattr(state, axis_name)
-                bounds = (
-                    (current.minimum, current.maximum)
-                    if action.minimum is None
-                    else (action.minimum, action.maximum)
-                )
-                state = replace(
-                    state,
-                    **{
-                        axis_name: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=bounds[0],
-                            maximum=bounds[1],
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                if index < last_binding:
-                    continue
-                ordinal = self._series_ordinal(action.target, token, len(grid.series_labels))
-                current = state.series[ordinal - 1]
-                updated = replace(
-                    current,
-                    color=current.color if action.color is None else action.color,
-                    edge_width_pt=(
-                        current.edge_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt
-                    ),
-                )
-                series = list(state.series)
-                series[ordinal - 1] = updated
-                state = replace(state, series=tuple(series))
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError(
-                        f"{self.profile_id} legend target does not belong to this plot"
-                    )
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
-            else:
-                raise ValueError(f"{self.profile_id} renderer cannot apply {action.operation}")
+            raise ValueError(f"{self.profile_id} renderer cannot apply {action.operation}")
         return state
-
-    def _series_ordinal(self, target: str, token: str, series_count: int) -> int:
-        prefix = f"series:{token}.{self.series_key}_"
-        suffix = target.removeprefix(prefix) if target.startswith(prefix) else ""
-        if not suffix.isdigit() or not 1 <= int(suffix) <= series_count:
-            raise ValueError(f"{self.profile_id} series target is outside the materialized data")
-        return int(suffix)
 
 
 class K09GroupedColumnRenderer(_ColumnFamilyRenderer):

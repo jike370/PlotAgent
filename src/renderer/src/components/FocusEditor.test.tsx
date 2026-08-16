@@ -20,6 +20,9 @@ function plot(
     projectVersion: 4,
     seriesIds: ['series:test.primary'],
     seriesStyles: [{ seriesId: 'series:test.primary', style: {} }],
+    colorMaps: [{ seriesId: 'series:test.primary' }],
+    errorStyles: [{ seriesId: 'series:test.primary' }],
+    dataLabelStyles: [{ seriesId: 'series:test.primary' }],
     axisIds: { x: 'axis:test.x', y: 'axis:test.y' },
     axisStates: {
       x: { axisId: 'axis:test.x', label: 'Time', scale: 'linear', reverse: false, numberFormat: 'auto', decimalPlaces: 2 },
@@ -48,7 +51,9 @@ function plot(
 
 const commonCapabilities = {
   set_title: ['text'],
-  set_series_style: ['color', 'line_width_pt', 'line_style', 'symbol', 'symbol_size_pt'],
+  set_series_style: [
+    'line_stroke_color', 'line_width_pt', 'line_style', 'marker_shape', 'marker_size_pt',
+  ],
   set_axis: ['label', 'scale', 'bounds', 'reverse'],
   set_legend: ['visible', 'anchor'],
   add_annotation: ['text'],
@@ -92,7 +97,7 @@ describe('FocusEditor Agent Native actions', () => {
     render(<FocusEditor initialIndex={0} plot={plot('K03', commonCapabilities)} onPatch={onPatch} onClose={() => undefined} />)
 
     await user.click(screen.getByRole('button', { name: '参数' }))
-    await user.selectOptions(screen.getByRole('combobox', { name: '符号' }), 'diamond')
+    await user.selectOptions(screen.getByRole('combobox', { name: '符号形状' }), 'diamond')
     await user.selectOptions(screen.getByRole('combobox', { name: '线型' }), 'dash')
     await user.click(screen.getByRole('button', { name: '应用系列样式' }))
 
@@ -100,22 +105,57 @@ describe('FocusEditor Agent Native actions', () => {
     expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
       operation: 'set_series_style',
       target: 'series:test.primary',
-      symbol: 'diamond',
+      marker_shape: 'diamond',
       line_style: 'dash',
     }))
+  })
+
+  it('exposes qualified colormap, error, and data-label actions as frontend controls', async () => {
+    const user = userEvent.setup()
+    const onPatch = vi.fn<(patch: JsonValue) => Promise<void>>(async () => undefined)
+    const value = plot('K04', {
+      ...commonCapabilities,
+      set_colormap: ['palette', 'reverse', 'mode', 'levels', 'colorbar_visible'],
+      set_error_style: ['bar_color', 'bar_width_pt', 'cap_size_pt', 'bar_opacity'],
+      set_data_labels: ['visible', 'value_format', 'position', 'font_size_pt'],
+    })
+    render(<FocusEditor
+      initialIndex={0}
+      plot={value}
+      onPatch={onPatch}
+      onClose={() => undefined}
+    />)
+
+    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('tab', { name: '色阶' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '色板' }), 'plasma')
+    await user.click(screen.getByRole('button', { name: '应用色阶' }))
+    await user.click(screen.getByRole('tab', { name: '误差' }))
+    await user.click(screen.getByRole('button', { name: '应用误差样式' }))
+    await user.click(screen.getByRole('tab', { name: '标签' }))
+    await user.click(screen.getByRole('checkbox', { name: '显示数据标签' }))
+    await user.click(screen.getByRole('button', { name: '应用数据标签' }))
+
+    await waitFor(() => expect(onPatch).toHaveBeenCalledTimes(3))
+    expect(onPatch.mock.calls.map(([action]) => (
+      typeof action === 'object' && action !== null && 'operation' in action
+        ? action.operation : undefined
+    ))).toEqual(['set_colormap', 'set_error_style', 'set_data_labels'])
   })
 
   it('does not expose edits omitted by the profile capability contract', async () => {
     const user = userEvent.setup()
     render(<FocusEditor
       initialIndex={0}
-      plot={plot('K01', { set_series_style: ['color', 'line_width_pt', 'line_style'] })}
+      plot={plot('K01', {
+        set_series_style: ['line_stroke_color', 'line_width_pt', 'line_style'],
+      })}
       onPatch={async () => undefined}
       onClose={() => undefined}
     />)
 
     await user.click(screen.getByRole('button', { name: '参数' }))
-    expect(screen.queryByRole('combobox', { name: 'Origin 符号' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: '符号形状' })).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: '线型' })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: '专属' })).not.toBeInTheDocument()
   })
@@ -127,7 +167,16 @@ describe('FocusEditor Agent Native actions', () => {
     value.seriesIds = ['series:test.one', 'series:test.two']
     value.seriesStyles = [
       { seriesId: 'series:test.one', style: {} },
-      { seriesId: 'series:test.two', style: { symbolShape: 'diamond' } },
+      { seriesId: 'series:test.two', style: { markerShape: 'diamond' } },
+    ]
+    value.colorMaps = [
+      { seriesId: 'series:test.one' }, { seriesId: 'series:test.two' },
+    ]
+    value.errorStyles = [
+      { seriesId: 'series:test.one' }, { seriesId: 'series:test.two' },
+    ]
+    value.dataLabelStyles = [
+      { seriesId: 'series:test.one' }, { seriesId: 'series:test.two' },
     ]
     render(<FocusEditor initialIndex={0} plot={value} onPatch={onPatch} onClose={() => undefined} />)
 
@@ -137,7 +186,7 @@ describe('FocusEditor Agent Native actions', () => {
 
     await waitFor(() => expect(onPatch).toHaveBeenCalledTimes(1))
     expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
-      operation: 'set_series_style', target: 'series:test.two', symbol: 'diamond',
+      operation: 'set_series_style', target: 'series:test.two', marker_shape: 'diamond',
     }))
   })
 
@@ -152,9 +201,10 @@ describe('FocusEditor Agent Native actions', () => {
     await user.type(screen.getByRole('textbox', { name: '图标题' }), '新标题')
     await user.click(screen.getByRole('button', { name: '应用图标题' }))
 
-    await waitFor(() => expect(onPatch).toHaveBeenCalledWith({
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
       operation: 'set_title', target: 'plot:test', text: '新标题',
-    }))
+      font_family: 'auto', font_size_pt: 10,
+    })))
   })
 
   it('emits a typed axis edit against the semantic Y axis', async () => {

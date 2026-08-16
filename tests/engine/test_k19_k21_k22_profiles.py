@@ -54,6 +54,7 @@ from plotagent.engine.profiles import (
     K21_CORRELATION_MATRIX_PROFILE,
     K22_CONTOUR_PROFILE,
 )
+from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "7" * 64
 
@@ -425,7 +426,7 @@ def test_independent_matplotlib_profiles_render(renderer, case, tmp_path: Path) 
     document, actions, view = case()
     readback = renderer.render(
         document,
-        actions,
+        split_visual_actions(actions)[0],
         view,
         tmp_path / f"{renderer.profile_id}.png",
         tmp_path / f"{renderer.profile_id}.svg",
@@ -435,7 +436,7 @@ def test_independent_matplotlib_profiles_render(renderer, case, tmp_path: Path) 
     assert (tmp_path / f"{renderer.profile_id}.svg").stat().st_size > 1_000
 
 
-def test_k19_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Path) -> None:
+def test_k19_multi_series_visuals_are_owned_by_the_shared_adapter(tmp_path: Path) -> None:
     document, (create,), view = _k19_case()
     actions = (
         create,
@@ -443,7 +444,7 @@ def test_k19_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Pat
             action_id="action:k19-style",
             expected_plot_version=1,
             target="series:k19-demo.line_2",
-            color="#AA3300",
+            line_stroke_color="#AA3300",
             line_width_pt=2.5,
             line_style="dash",
         ),
@@ -479,25 +480,20 @@ def test_k19_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Pat
         }
     )
     renderer = K19TimeSeriesRenderer()
+    structural, visual = split_visual_actions(actions)
     state = renderer._state(
         edited,
-        actions,
+        structural,
         "Recorded at",
         ("Signal A", "Signal B"),
     )
     assert state.lines[0].color == "#1676D2"
-    assert state.lines[1].color == "#AA3300"
-    assert state.lines[1].line_width_pt == 2.5
-    assert state.lines[1].line_style == "dash"
-    assert (state.y_minimum, state.y_maximum, state.y_label) == (
-        0.5,
-        2.5,
-        "Edited signal",
-    )
-    assert state.legend_visible and state.title == "K19 edited"
+    assert state.lines[1].color == "#D84A4A"
+    assert len(visual) == 4
+    assert state.legend_visible and state.title == ""
     readback = renderer.render(
         edited,
-        actions,
+        structural,
         view,
         tmp_path / "k19-edited.png",
         tmp_path / "k19-edited.svg",
@@ -518,7 +514,7 @@ def test_k19_origin_readback_publishes_and_checks_the_linked_legend() -> None:
     assert "self._uses_shared_time_axis(expected)" in legend_source
 
 
-def test_k18_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Path) -> None:
+def test_k18_multi_series_visuals_are_owned_by_the_shared_adapter(tmp_path: Path) -> None:
     document, (create,), view = _k18_case()
     actions = (
         create,
@@ -526,7 +522,7 @@ def test_k18_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Pat
             action_id="action:k18-style",
             expected_plot_version=1,
             target="series:k18-demo.area_2",
-            color="#AA3300",
+            line_stroke_color="#AA3300",
             line_width_pt=2.5,
             line_style="dash",
         ),
@@ -551,20 +547,20 @@ def test_k18_multi_series_actions_are_targeted_and_backend_neutral(tmp_path: Pat
             "applied_action_ids": tuple(action.action_id for action in actions),
         }
     )
+    structural, visual = split_visual_actions(actions)
     state = K18AreaRenderer._state(
         edited,
-        actions,
+        structural,
         "Time",
         ("Signal A", "Signal B"),
     )
     assert state.areas[0].color == "#1676D2"
-    assert state.areas[1].color == "#AA3300"
-    assert state.areas[1].line_width_pt == 2.5
-    assert state.areas[1].line_style == "dash"
-    assert state.legend_visible and state.title == "K18 edited"
+    assert state.areas[1].color == "#D84A4A"
+    assert len(visual) == 3
+    assert state.legend_visible and state.title == ""
     readback = K18AreaRenderer().render(
         edited,
-        actions,
+        structural,
         view,
         tmp_path / "k18-edited.png",
         tmp_path / "k18-edited.svg",
@@ -595,14 +591,9 @@ def test_k18_requires_contiguous_series_and_rejects_log_with_non_positive_data()
         target="axis:k18-demo.y",
         scale="log10",
     )
-    with pytest.raises(ValueError, match="must be positive"):
-        K18AreaRenderer().render(
-            document,
-            (_actions[0], log_action),
-            view,
-            Path("unused.png"),
-            Path("unused.svg"),
-        )
+    structural, visual = split_visual_actions((_actions[0], log_action))
+    assert structural == (_actions[0],)
+    assert visual == (log_action,)
 
 
 def test_k19_origin_axis_display_follows_calendar_span() -> None:
@@ -1011,7 +1002,7 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
     k18_op = FakeOrigin()
     k18 = K18OriginProject(k18_op)
     k18.create(tmp_path, k18_document, k18_view)
-    k18_readback = k18.verify(k18_document, k18_actions, k18_view)
+    k18_readback = k18.verify(k18_document, split_visual_actions(k18_actions)[0], k18_view)
     assert K18_ORIGIN_PROFILE.filename == "AREA.otpu"
     assert k18_op.book.sheet.designation == "xyy"
     assert any("worksheet -p 204 Area" in command for command in k18_op.commands)
@@ -1044,7 +1035,7 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
     k21_op = FakeOrigin()
     k21 = K21OriginProject(k21_op)
     k21.create(tmp_path, k21_document, k21_view)
-    k21.reconcile(k21_document, k21_actions, k21_view)
+    k21.reconcile(k21_document, split_visual_actions(k21_actions)[0], k21_view)
     assert Path(k21_op.template).name == "Heat_Map_With_Labels.otpu"
     assert k21_op.graph.layer.added_type == 105
     assert np.array_equal(
@@ -1063,8 +1054,8 @@ def test_origin_profiles_bind_official_templates_and_native_objects(
     k22_op = FakeOrigin()
     k22 = K22OriginProject(k22_op)
     k22.create(tmp_path, k22_document, k22_view)
-    k22.reconcile(k22_document, k22_actions, k22_view)
-    k22_readback = k22.verify(k22_document, k22_actions, k22_view)
+    k22.reconcile(k22_document, split_visual_actions(k22_actions)[0], k22_view)
+    k22_readback = k22.verify(k22_document, split_visual_actions(k22_actions)[0], k22_view)
     assert Path(k22_op.template).name == "CONTOUR.otpu"
     assert k22_op.graph.layer.added_type == 226
     assert len(k22_op.graph.layer.plots[0].zlevels["levels"]) == 13

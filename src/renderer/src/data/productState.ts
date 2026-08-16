@@ -81,14 +81,64 @@ export type ProductOriginAvailability =
   }
 
 export interface ProductSeriesStyle {
-  color?: string
+  lineStrokeColor?: string
   lineWidthPt?: number
-  markerSizePt?: number
   lineStyle?: string
-  symbolShape?: string
-  symbolInterior?: string
-  paletteId?: string
-  paletteReverse?: boolean
+  lineOpacity?: number
+  markerShape?: string
+  markerSizePt?: number
+  markerInterior?: string
+  markerFillColor?: string
+  markerStrokeColor?: string
+  markerStrokeWidthPt?: number
+  markerOpacity?: number
+  fillColor?: string
+  fillOpacity?: number
+  fillStrokeColor?: string
+  fillStrokeWidthPt?: number
+  fillStrokeStyle?: string
+}
+
+export interface ProductColorMapState {
+  seriesId: string
+  palette?: string
+  reverse?: boolean
+  minimum?: number
+  maximum?: number
+  midpoint?: number
+  mode?: string
+  levels?: number
+  missingColor?: string
+  colorbarVisible?: boolean
+  colorbarAnchor?: string
+  colorbarTitle?: string
+  colorbarTickFormat?: string
+}
+
+export interface ProductErrorStyle {
+  seriesId: string
+  barColor?: string
+  barWidthPt?: number
+  capSizePt?: number
+  barOpacity?: number
+  bandFillColor?: string
+  bandFillOpacity?: number
+  bandStrokeColor?: string
+  bandStrokeWidthPt?: number
+}
+
+export interface ProductDataLabelStyle {
+  seriesId: string
+  visible?: boolean
+  valueFormat?: string
+  prefix?: string
+  suffix?: string
+  position?: string
+  rotationDeg?: number
+  fontFamily?: string
+  fontSizePt?: number
+  fontWeight?: string
+  fontColor?: string
 }
 
 export interface ProductAxisState {
@@ -166,6 +216,9 @@ export interface ProductPlot {
   projectVersion: number
   seriesIds: string[]
   seriesStyles: { seriesId: string; style: ProductSeriesStyle }[]
+  colorMaps: ProductColorMapState[]
+  errorStyles: ProductErrorStyle[]
+  dataLabelStyles: ProductDataLabelStyle[]
   axisIds: { x?: string; y?: string; yRight?: string }
   legendId?: string
   axisStates: { x?: ProductAxisState; y?: ProductAxisState; yRight?: ProductAxisState }
@@ -474,11 +527,88 @@ function semanticObjectId(plotId: string, object: JsonRecord): string | undefine
 
 function engineSeriesStyle(action: JsonRecord): ProductSeriesStyle {
   return {
-    ...(typeof action.color === 'string' ? { color: action.color } : {}),
+    ...(typeof action.line_stroke_color === 'string'
+      ? { lineStrokeColor: action.line_stroke_color } : {}),
     ...(typeof action.line_width_pt === 'number' ? { lineWidthPt: action.line_width_pt } : {}),
     ...(typeof action.line_style === 'string' ? { lineStyle: action.line_style } : {}),
-    ...(typeof action.symbol === 'string' ? { symbolShape: action.symbol } : {}),
-    ...(typeof action.symbol_size_pt === 'number' ? { markerSizePt: action.symbol_size_pt } : {}),
+    ...(typeof action.line_opacity === 'number' ? { lineOpacity: action.line_opacity } : {}),
+    ...(typeof action.marker_shape === 'string' ? { markerShape: action.marker_shape } : {}),
+    ...(typeof action.marker_size_pt === 'number' ? { markerSizePt: action.marker_size_pt } : {}),
+    ...(typeof action.marker_interior === 'string'
+      ? { markerInterior: action.marker_interior } : {}),
+    ...(typeof action.marker_fill_color === 'string'
+      ? { markerFillColor: action.marker_fill_color } : {}),
+    ...(typeof action.marker_stroke_color === 'string'
+      ? { markerStrokeColor: action.marker_stroke_color } : {}),
+    ...(typeof action.marker_stroke_width_pt === 'number'
+      ? { markerStrokeWidthPt: action.marker_stroke_width_pt } : {}),
+    ...(typeof action.marker_opacity === 'number'
+      ? { markerOpacity: action.marker_opacity } : {}),
+    ...(typeof action.fill_color === 'string' ? { fillColor: action.fill_color } : {}),
+    ...(typeof action.fill_opacity === 'number' ? { fillOpacity: action.fill_opacity } : {}),
+    ...(typeof action.fill_stroke_color === 'string'
+      ? { fillStrokeColor: action.fill_stroke_color } : {}),
+    ...(typeof action.fill_stroke_width_pt === 'number'
+      ? { fillStrokeWidthPt: action.fill_stroke_width_pt } : {}),
+    ...(typeof action.fill_stroke_style === 'string'
+      ? { fillStrokeStyle: action.fill_stroke_style } : {}),
+  }
+}
+
+function engineColorMap(seriesId: string, action: JsonRecord): ProductColorMapState {
+  return {
+    seriesId,
+    ...(typeof action.palette === 'string' ? { palette: action.palette } : {}),
+    ...(typeof action.reverse === 'boolean' ? { reverse: action.reverse } : {}),
+    ...(typeof action.minimum === 'number' ? { minimum: action.minimum } : {}),
+    ...(typeof action.maximum === 'number' ? { maximum: action.maximum } : {}),
+    ...(typeof action.midpoint === 'number' ? { midpoint: action.midpoint } : {}),
+    ...(typeof action.mode === 'string' ? { mode: action.mode } : {}),
+    ...(typeof action.levels === 'number' ? { levels: action.levels } : {}),
+    ...(typeof action.missing_color === 'string'
+      ? { missingColor: action.missing_color } : {}),
+    ...(typeof action.colorbar_visible === 'boolean'
+      ? { colorbarVisible: action.colorbar_visible } : {}),
+    ...(typeof action.colorbar_anchor === 'string'
+      ? { colorbarAnchor: action.colorbar_anchor } : {}),
+    ...(typeof action.colorbar_title === 'string'
+      ? { colorbarTitle: action.colorbar_title } : {}),
+    ...(typeof action.colorbar_tick_format === 'string'
+      ? { colorbarTickFormat: action.colorbar_tick_format } : {}),
+  }
+}
+
+function engineErrorStyle(seriesId: string, action: JsonRecord): ProductErrorStyle {
+  return {
+    seriesId,
+    ...(typeof action.bar_color === 'string' ? { barColor: action.bar_color } : {}),
+    ...(typeof action.bar_width_pt === 'number' ? { barWidthPt: action.bar_width_pt } : {}),
+    ...(typeof action.cap_size_pt === 'number' ? { capSizePt: action.cap_size_pt } : {}),
+    ...(typeof action.bar_opacity === 'number' ? { barOpacity: action.bar_opacity } : {}),
+    ...(typeof action.band_fill_color === 'string'
+      ? { bandFillColor: action.band_fill_color } : {}),
+    ...(typeof action.band_fill_opacity === 'number'
+      ? { bandFillOpacity: action.band_fill_opacity } : {}),
+    ...(typeof action.band_stroke_color === 'string'
+      ? { bandStrokeColor: action.band_stroke_color } : {}),
+    ...(typeof action.band_stroke_width_pt === 'number'
+      ? { bandStrokeWidthPt: action.band_stroke_width_pt } : {}),
+  }
+}
+
+function engineDataLabelStyle(seriesId: string, action: JsonRecord): ProductDataLabelStyle {
+  return {
+    seriesId,
+    ...(typeof action.visible === 'boolean' ? { visible: action.visible } : {}),
+    ...(typeof action.value_format === 'string' ? { valueFormat: action.value_format } : {}),
+    ...(typeof action.prefix === 'string' ? { prefix: action.prefix } : {}),
+    ...(typeof action.suffix === 'string' ? { suffix: action.suffix } : {}),
+    ...(typeof action.position === 'string' ? { position: action.position } : {}),
+    ...(typeof action.rotation_deg === 'number' ? { rotationDeg: action.rotation_deg } : {}),
+    ...(typeof action.font_family === 'string' ? { fontFamily: action.font_family } : {}),
+    ...(typeof action.font_size_pt === 'number' ? { fontSizePt: action.font_size_pt } : {}),
+    ...(typeof action.font_weight === 'string' ? { fontWeight: action.font_weight } : {}),
+    ...(typeof action.font_color === 'string' ? { fontColor: action.font_color } : {}),
   }
 }
 
@@ -566,6 +696,18 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
       seriesId,
       style: engineSeriesStyle(actionTarget('set_series_style', seriesId).at(-1) ?? {}),
     })),
+    colorMaps: seriesIds.map((seriesId) => engineColorMap(
+      seriesId,
+      actionTarget('set_colormap', seriesId).at(-1) ?? {},
+    )),
+    errorStyles: seriesIds.map((seriesId) => engineErrorStyle(
+      seriesId,
+      actionTarget('set_error_style', seriesId).at(-1) ?? {},
+    )),
+    dataLabelStyles: seriesIds.map((seriesId) => engineDataLabelStyle(
+      seriesId,
+      actionTarget('set_data_labels', seriesId).at(-1) ?? {},
+    )),
     axisIds,
     ...(legendId === undefined ? {} : { legendId }),
     axisStates: {

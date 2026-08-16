@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from math import isclose, isnan
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -14,10 +14,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import X23SeriesData, x23_series
@@ -126,43 +122,14 @@ class X23OriginProject:
         self.sheet = self.book[0]
         self._bind_native_graph()
 
-    def apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        data: EngineDataView,
-    ) -> None:
-        token = document.plot_id.removeprefix("plot:")
+    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, CreatePlot):
             return
         if isinstance(action, BindFields):
             self._write_data(document, data)
             for layer in self._layers():
                 layer.rescale()
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("X23 title target does not belong to this plot")
-            return
-        if isinstance(action, SetAxis):
-            if action.target not in {
-                f"axis:{token}.x",
-                f"axis:{token}.y_left",
-                f"axis:{token}.y_right",
-            }:
-                raise ValueError("X23 axis target does not belong to this plot")
-            return
-        if isinstance(action, SetSeriesStyle):
-            if action.target not in {f"series:{token}.left", f"series:{token}.right"}:
-                raise ValueError("X23 series target does not belong to this plot")
-            if action.symbol is not None or action.symbol_size_pt is not None:
-                raise ValueError("Origin X23 does not expose symbol edits")
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main":
-                raise ValueError("X23 legend target does not belong to this plot")
-            if action.anchor is not None:
-                raise ValueError("Origin X23 does not expose legend anchor edits")
             return
         raise ValueError(f"Origin X23 binder cannot apply {action.operation}")
 
@@ -255,9 +222,7 @@ class X23OriginProject:
                 ),
             ),
             data_hash=canonical_hash(data),
-            style_hash=canonical_hash(
-                cast(JsonValue, {"state": asdict(state), **native})
-            ),
+            style_hash=canonical_hash(cast(JsonValue, {"state": asdict(state), **native})),
         )
 
     def _write_data(self, document: PlotDocument, data: EngineDataView) -> None:
@@ -357,9 +322,7 @@ class X23OriginProject:
                 raise ValueError("Origin X23 cannot hide one of its two lines")
             commands.append(f"set %C -d {_LINE_STYLE[state.line_style]}")
         if commands:
-            self.op.lt_exec(
-                self._graph_layer_prefix(layer_index) + "; ".join(commands) + ";"
-            )
+            self.op.lt_exec(self._graph_layer_prefix(layer_index) + "; ".join(commands) + ";")
 
     def _set_legend(self, data: X23SeriesData, visible: bool) -> None:
         layer = self._layers()[0]
@@ -400,9 +363,7 @@ class X23OriginProject:
             raise RuntimeError("Origin X23 x-axis label did not survive readback")
         for layer in self._layers():
             self._assert_direction(layer.axis("x"), state.x_axis.reverse)
-        for layer_index, edit in enumerate(
-            (state.left_series, state.right_series), start=1
-        ):
+        for layer_index, edit in enumerate((state.left_series, state.right_series), start=1):
             self._assert_series_style(layer_index, edit)
         legend = self._layers()[0].label("legend")
         if (
@@ -432,10 +393,7 @@ class X23OriginProject:
         self.plots = (native_plots[0][0], native_plots[1][0])
 
     def _graph_layer_prefix(self, layer_index: int) -> str:
-        return (
-            f"window -a {self.graph.name}; "
-            f"{self.graph.name}!page.active={layer_index}; "
-        )
+        return f"window -a {self.graph.name}; {self.graph.name}!page.active={layer_index}; "
 
     def _assert_native_structure(self, *, verify_offsets: bool) -> dict[str, object]:
         if self.book is None:
@@ -535,10 +493,7 @@ class X23OriginProject:
         }
 
     def _assert_series_style(self, layer_index: int, state: _SeriesEdit) -> None:
-        if all(
-            value is None
-            for value in (state.color, state.line_width_pt, state.line_style)
-        ):
+        if all(value is None for value in (state.color, state.line_width_pt, state.line_style)):
             return
         prefix = f"__X23STYLE{layer_index}"
         self.op.lt_exec(
@@ -555,9 +510,11 @@ class X23OriginProject:
             abs_tol=1e-8,
         ):
             raise RuntimeError("Origin X23 line width did not survive readback")
-        if state.line_style is not None and state.line_style != "none" and int(
-            self.op.lt_float(f"{prefix}D")
-        ) != _LINE_STYLE[state.line_style]:
+        if (
+            state.line_style is not None
+            and state.line_style != "none"
+            and int(self.op.lt_float(f"{prefix}D")) != _LINE_STYLE[state.line_style]
+        ):
             raise RuntimeError("Origin X23 line style did not survive readback")
 
     @staticmethod
@@ -594,75 +551,15 @@ class X23OriginProject:
         actions: tuple[PlotEngineAction, ...],
         data: X23SeriesData,
     ) -> _X23State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _X23State(
             title="",
             x_axis=_AxisState(data.x_field_name, cast(Any, data.x_scale)),
             left_axis=_AxisState(data.left_field_name, "linear"),
             right_axis=_AxisState(data.right_field_name, "linear"),
         )
-        axis_targets = {
-            f"axis:{token}.x": "x_axis",
-            f"axis:{token}.y_left": "left_axis",
-            f"axis:{token}.y_right": "right_axis",
-        }
-        series_targets = {
-            f"series:{token}.left": "left_series",
-            f"series:{token}.right": "right_series",
-        }
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                state = replace(state, title=action.text)
-                continue
-            if isinstance(action, SetAxis):
-                attribute = axis_targets[action.target]
-                current = getattr(state, attribute)
-                updated_axis = replace(
-                    current,
-                    label=current.label if action.label is None else action.label,
-                    scale=current.scale if action.scale is None else action.scale,
-                    minimum=current.minimum if action.minimum is None else action.minimum,
-                    maximum=current.maximum if action.maximum is None else action.maximum,
-                    reverse=current.reverse if action.reverse is None else action.reverse,
-                )
-                if attribute == "x_axis":
-                    state = replace(state, x_axis=updated_axis)
-                elif attribute == "left_axis":
-                    state = replace(state, left_axis=updated_axis)
-                else:
-                    state = replace(state, right_axis=updated_axis)
-                continue
-            if isinstance(action, SetSeriesStyle):
-                attribute = series_targets[action.target]
-                current_series = getattr(state, attribute)
-                updated_series = replace(
-                    current_series,
-                    color=current_series.color if action.color is None else action.color,
-                    line_width_pt=(
-                        current_series.line_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt
-                    ),
-                    line_style=(
-                        current_series.line_style
-                        if action.line_style is None
-                        else action.line_style
-                    ),
-                )
-                if attribute == "left_series":
-                    state = replace(state, left_series=updated_series)
-                else:
-                    state = replace(state, right_series=updated_series)
-                continue
-            if isinstance(action, SetLegend):
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
                 continue
             raise ValueError(f"Origin X23 binder cannot apply {action.operation}")
         return state

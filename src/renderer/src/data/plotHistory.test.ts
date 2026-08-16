@@ -11,7 +11,13 @@ const plot = {
   fontSizePt: 9,
   projectVersion: 4,
   seriesIds: ['series:one'],
-  seriesStyles: [{ seriesId: 'series:one', style: { color: '#112233', lineWidthPt: 1 } }],
+  seriesStyles: [{
+    seriesId: 'series:one',
+    style: { lineStrokeColor: '#112233', lineWidthPt: 1 },
+  }],
+  colorMaps: [{ seriesId: 'series:one' }],
+  errorStyles: [{ seriesId: 'series:one' }],
+  dataLabelStyles: [{ seriesId: 'series:one' }],
   axisIds: { y: 'axis:y' },
   axisStates: { y: { axisId: 'axis:y', label: 'Value', scale: 'linear', reverse: false, numberFormat: 'auto', decimalPlaces: 2 } },
   canvasSizeMm: { width: 183, height: 120 },
@@ -35,7 +41,9 @@ describe('plot history', () => {
   })
 
   it('does not claim undo when the previous native default is unknown', () => {
-    expect(plotHistoryEntry(plot, [{ operation: 'set_series_style', target: 'series:one', symbol: 'circle' }]))
+    expect(plotHistoryEntry(plot, [{
+      operation: 'set_series_style', target: 'series:one', marker_shape: 'circle',
+    }]))
       .toBeUndefined()
     expect(plotHistoryEntry(plot, [{ operation: 'add_annotation', target: 'plot:one', text: 'x' }]))
       .toBeUndefined()
@@ -45,14 +53,18 @@ describe('plot history', () => {
     expect(plotHistoryEntry(plot, [{
       operation: 'set_series_style',
       target: 'series:one',
-      color: '#ff0000',
+      line_stroke_color: '#ff0000',
       line_style: null,
       line_width_pt: null,
-      symbol: null,
-      symbol_size_pt: null,
+      marker_shape: null,
+      marker_size_pt: null,
     }])).toMatchObject({
-      undoActions: [{ operation: 'set_series_style', target: 'series:one', color: '#112233' }],
-      redoActions: [{ operation: 'set_series_style', target: 'series:one', color: '#ff0000' }],
+      undoActions: [{
+        operation: 'set_series_style', target: 'series:one', line_stroke_color: '#112233',
+      }],
+      redoActions: [{
+        operation: 'set_series_style', target: 'series:one', line_stroke_color: '#ff0000',
+      }],
     })
   })
 })

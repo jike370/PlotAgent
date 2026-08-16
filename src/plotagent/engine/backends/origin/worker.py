@@ -8,6 +8,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from plotagent.engine.visual_t1 import split_visual_actions, visual_style_hash
+
 from .calculated_distribution import execute_k15_request
 from .column_family import execute_k09_request, execute_k10_request, execute_k11_request
 from .distribution import (
@@ -36,6 +38,7 @@ from .renderer import OriginRendererRegistry
 from .s34 import execute_s34_request
 from .s61 import execute_s61_request
 from .trace import OriginExecutionTrace
+from .visual_t1 import apply_origin_visual_actions
 from .wide_series import execute_x03_request, execute_x39_request, execute_x40_request
 from .x02 import execute_x02_request
 from .x09 import execute_x09_request
@@ -158,12 +161,32 @@ def main(argv: list[str] | None = None) -> int:
                     ),
                 },
             ):
+                structural_actions, visual_actions = split_visual_actions(request.actions)
+                structural_request = request.model_copy(update={"actions": structural_actions})
                 readback = renderers.execute(
                     recipe,
                     op,
-                    request,
+                    structural_request,
                     Path(request.install_dir).resolve(),
                     output,
+                )
+                with trace.step(
+                    "t1_visual_actions_apply",
+                    details={"action_count": len(visual_actions)},
+                ):
+                    visual_snapshot = apply_origin_visual_actions(
+                        op,
+                        request.document,
+                        visual_actions,
+                        output,
+                    )
+                readback = readback.model_copy(
+                    update={"style_hash": visual_style_hash(readback, visual_actions)}
+                )
+                trace.record(
+                    "t1_visual_actions_verified",
+                    "completed",
+                    details=visual_snapshot,
                 )
             with trace.step("response_write"):
                 response_path.write_text(

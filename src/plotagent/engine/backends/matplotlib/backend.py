@@ -17,8 +17,10 @@ from plotagent.engine.ports import (
     EngineRenderSource,
     PlotBackendChange,
 )
+from plotagent.engine.visual_t1 import split_visual_actions, visual_style_hash
 
 from .font import resolve_font_family
+from .visual_t1 import apply_visuals_before_save
 
 
 def _visible_text(
@@ -126,19 +128,26 @@ class MatplotlibBackend:
         except KeyError as error:
             raise ValueError(f"no Matplotlib renderer for {document.profile_id}") from error
         font_family = resolve_font_family(_visible_text(document, actions, source.data))
-        with matplotlib.rc_context(
-            {
-                "font.family": font_family,
-                "axes.unicode_minus": False,
-            }
+        structural_actions, visual_actions = split_visual_actions(actions)
+        with (
+            matplotlib.rc_context(
+                {
+                    "font.family": font_family,
+                    "axes.unicode_minus": False,
+                }
+            ),
+            apply_visuals_before_save(document, visual_actions),
         ):
             readback = renderer.render(
                 document,
-                actions,
+                structural_actions,
                 source.data,
                 staging / "preview.png",
                 staging / "preview.svg",
             )
+        readback = readback.model_copy(
+            update={"style_hash": visual_style_hash(readback, visual_actions)}
+        )
         (staging / "readback.json").write_text(readback.model_dump_json(indent=2), encoding="utf-8")
         final = self._version_dir(document)
         return _Change(staging, final, readback)

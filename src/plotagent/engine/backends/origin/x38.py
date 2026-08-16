@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from math import isclose, isfinite, isnan
 from pathlib import Path
 from typing import Any, cast
@@ -14,10 +14,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import OffsetStackData, x38_offset_stack
@@ -95,8 +91,7 @@ class X38OriginProject:
         ):
             self.sheet.activate()
             self.op.lt_exec(
-                f"worksheet -s 1 0 {len(offset.series) + 1} 0; "
-                "run.section(plot,OffsetYs);"
+                f"worksheet -s 1 0 {len(offset.series) + 1} 0; run.section(plot,OffsetYs);"
             )
         with origin_trace_step("native_structure_readback"):
             graphs = list(self.op.pages("g"))
@@ -145,9 +140,7 @@ class X38OriginProject:
     ) -> None:
         offset = x38_offset_stack(document, data)
         state = self._state(document, actions, offset)
-        with origin_trace_step(
-            "agent_actions_apply", details={"action_count": len(actions)}
-        ):
+        with origin_trace_step("agent_actions_apply", details={"action_count": len(actions)}):
             if state.title_explicit:
                 self._set_title(state.title)
             if state.x_axis_explicit:
@@ -249,7 +242,7 @@ class X38OriginProject:
     def _state(
         self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: OffsetStackData
     ) -> _State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _State(
             title="",
             x_label=data.x_field_name,
@@ -258,52 +251,7 @@ class X38OriginProject:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("X38 title target does not belong to this plot")
-                state = replace(state, title=action.text, title_explicit=True)
-            elif isinstance(action, SetAxis):
-                if action.minimum is not None or action.maximum is not None:
-                    raise ValueError("X38 official offset template keeps automatic bounds")
-                if action.target == f"axis:{token}.x":
-                    if action.scale not in {None, "linear", "log10"}:
-                        raise ValueError("X38 X axis supports linear or log10")
-                    state = replace(
-                        state,
-                        x_label=state.x_label if action.label is None else action.label,
-                        x_scale=state.x_scale if action.scale is None else action.scale,
-                        x_reverse=state.x_reverse if action.reverse is None else action.reverse,
-                        x_axis_explicit=True,
-                    )
-                elif action.target == f"axis:{token}.y":
-                    if action.scale not in {None, "linear", "log10"}:
-                        raise ValueError("X38 Y axis supports linear or log10")
-                    state = replace(
-                        state,
-                        y_label=state.y_label if action.label is None else action.label,
-                        y_scale=state.y_scale if action.scale is None else action.scale,
-                        y_reverse=state.y_reverse if action.reverse is None else action.reverse,
-                        y_axis_explicit=True,
-                    )
-                else:
-                    raise ValueError("X38 axis target does not belong to this plot")
-            elif isinstance(action, SetSeriesStyle):
-                raise ValueError(
-                    "X38 keeps the official dependent style group and does not expose "
-                    "per-series style edits"
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("X38 exposes only legend visibility")
-                state = replace(
-                    state,
-                    legend_visible=state.legend_visible
-                    if action.visible is None
-                    else action.visible,
-                    legend_explicit=True,
-                )
-            else:
-                raise ValueError(f"Origin X38 binder cannot apply {action.operation}")
+            raise ValueError(f"Origin X38 binder cannot apply {action.operation}")
         return state
 
     def _write(self, data: OffsetStackData) -> None:
@@ -396,8 +344,7 @@ class X38OriginProject:
             expected_dataset = f"_{chr(65 + index)}"
             if not str(plot.obj.DatasetName).endswith(expected_dataset):
                 raise RuntimeError(
-                    f"Origin X38 plot {index} is not bound to source column "
-                    f"{chr(65 + index)}"
+                    f"Origin X38 plot {index} is not bound to source column {chr(65 + index)}"
                 )
             if verify_offsets:
                 offset = float(self.op.lt_float(f"{prefix}SY"))
@@ -410,17 +357,13 @@ class X38OriginProject:
                 offsets.append([offset, multiplier])
         if observed_ids != [200] * len(data.series):
             raise RuntimeError(
-                f"Origin X38 native line IDs {observed_ids} differ from "
-                f"{[200] * len(data.series)}"
+                f"Origin X38 native line IDs {observed_ids} differ from {[200] * len(data.series)}"
             )
         if verify_offsets:
             native_y = [item[0] for item in offsets]
             if not isclose(native_y[0], 0.0, abs_tol=1e-8):
                 raise RuntimeError("Origin X38 first native line must retain zero Y offset")
-            deltas = [
-                right - left
-                for left, right in zip(native_y[:-1], native_y[1:], strict=True)
-            ]
+            deltas = [right - left for left, right in zip(native_y[:-1], native_y[1:], strict=True)]
             if not deltas or any(isclose(delta, 0.0, abs_tol=1e-8) for delta in deltas):
                 raise RuntimeError(
                     f"Origin X38 native Individual offsets are not distinct: {native_y}"
@@ -443,14 +386,18 @@ class X38OriginProject:
             if label is None or label.text != expected or label.get_int("show") == 0:
                 raise RuntimeError(f"Origin X38 axis label {name} changed after reopen")
         title = self.layer.label(_TITLE_NAME)
-        if state.title_explicit and state.title and (
-            title is None
-            or title.text != state.title
-            or title.get_int("show") == 0
-            or title.get_int("attach") != 1
-            or title.get_int("fsize") != 14
-            or not isclose(title.get_float("x1"), 0.5, abs_tol=1e-8)
-            or not isclose(title.get_float("y1"), 0.012, abs_tol=1e-8)
+        if (
+            state.title_explicit
+            and state.title
+            and (
+                title is None
+                or title.text != state.title
+                or title.get_int("show") == 0
+                or title.get_int("attach") != 1
+                or title.get_int("fsize") != 14
+                or not isclose(title.get_float("x1"), 0.5, abs_tol=1e-8)
+                or not isclose(title.get_float("y1"), 0.012, abs_tol=1e-8)
+            )
         ):
             raise RuntimeError("Origin X38 title changed after reopen")
         if not state.legend_explicit:

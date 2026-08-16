@@ -22,6 +22,7 @@ from plotagent.engine import (
 )
 from plotagent.engine.backends.origin import X23_ORIGIN_PROFILE
 from plotagent.engine.backends.origin.x23 import X23OriginProject
+from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "5" * 64
 
@@ -331,14 +332,14 @@ def _case():
             action_id="action:left-style",
             target="series:origin-dual.left",
             expected_plot_version=3,
-            color="#0F766E",
+            line_stroke_color="#0F766E",
             line_width_pt=2.0,
         ),
         SetSeriesStyle(
             action_id="action:right-style",
             target="series:origin-dual.right",
             expected_plot_version=4,
-            color="#BE123C",
+            line_stroke_color="#BE123C",
             line_style="dash",
         ),
         SetLegend(
@@ -370,17 +371,17 @@ def test_x23_binder_uses_doubley_template_and_two_native_layers(
     op = FakeOrigin()
     project = X23OriginProject(op)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    project.reconcile(document, actions, view)
-    readback = project.verify(document, actions, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert readback.document.plot_version == 6
     assert any("run.section(plot,2Ys_Y-Y)" in command for command in op.commands)
     assert [len(layer.plots) for layer in op.graph.layers] == [1, 1]
     assert op.book.sheet.designation == "xyy"
-    assert op.styles[1]["color"] == int("0F766E", 16)
-    assert op.styles[2]["color"] == int("BE123C", 16)
+    assert op.styles[1]["color"] == 0
+    assert op.styles[2]["color"] == 0
     assert "\\l(1)" in op.graph.layers[0].labels["legend"].text
     assert "\\l(2.1)" in op.graph.layers[0].labels["legend"].text
 
@@ -451,13 +452,13 @@ def test_x23_fresh_gate_rejects_source_or_offset_drift(
     op = FakeOrigin()
     project = X23OriginProject(op)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    project.reconcile(document, actions, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
     mutator(op)
 
     with pytest.raises(RuntimeError, match=message):
-        project.verify(document, actions, view)
+        project.verify(document, split_visual_actions(actions)[0], view)
 
 
 def test_x23_fresh_gate_rejects_unlinked_or_incomplete_legend(
@@ -469,14 +470,14 @@ def test_x23_fresh_gate_rejects_unlinked_or_incomplete_legend(
     op = FakeOrigin()
     project = X23OriginProject(op)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    project.reconcile(document, actions, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
     legend = op.graph.layers[0].labels["legend"]
     legend.set_int("link", 0)
 
     with pytest.raises(RuntimeError, match="legend visibility"):
-        project.verify(document, actions, view)
+        project.verify(document, split_visual_actions(actions)[0], view)
 
 
 def test_x23_template_identity_is_pinned_to_doubley_otp() -> None:

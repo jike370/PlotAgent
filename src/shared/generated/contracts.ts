@@ -12,6 +12,12 @@ export type AddAnnotation = {
   readonly x: number;
   readonly y: number;
   readonly coordinate_system?: "data" | "axes" | "page";
+  readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly font_size_pt?: number | null;
+  readonly font_weight?: "normal" | "bold" | null;
+  readonly italic?: boolean | null;
+  readonly color?: string | null;
+  readonly rotation_deg?: number | null;
 }
 
 export type ApplyPlotOrderSpec = {
@@ -57,7 +63,7 @@ export type CompiledTaskItem = {
   readonly resolved_fields?: ReadonlyArray<ResolvedWorkflowField>;
   readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | CalculateChartData>;
   readonly bindings?: ReadonlyArray<ResolvedFieldBinding>;
-  readonly visual_actions: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetChartParameter | DraftAddAnnotation>;
+  readonly visual_actions: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
   readonly depends_on?: ReadonlyArray<string>;
   readonly idempotency_key: string;
 }
@@ -148,6 +154,12 @@ export type DraftAddAnnotation = {
   readonly x: number;
   readonly y: number;
   readonly coordinate_system?: "data" | "axes" | "page";
+  readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly font_size_pt?: number | null;
+  readonly font_weight?: "normal" | "bold" | null;
+  readonly italic?: boolean | null;
+  readonly color?: string | null;
+  readonly rotation_deg?: number | null;
 }
 
 export type DraftFieldBinding = {
@@ -164,6 +176,25 @@ export type DraftSetAxis = {
   readonly minimum?: number | null;
   readonly maximum?: number | null;
   readonly reverse?: boolean | null;
+  readonly title_font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly title_font_size_pt?: number | null;
+  readonly title_font_weight?: "normal" | "bold" | null;
+  readonly title_italic?: boolean | null;
+  readonly title_color?: string | null;
+  readonly major_tick_step?: number | null;
+  readonly minor_tick_count?: number | null;
+  readonly tick_format?: "auto" | "decimal" | "scientific" | "percent" | "date" | "time" | null;
+  readonly tick_rotation_deg?: number | null;
+  readonly tick_font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly tick_font_size_pt?: number | null;
+  readonly tick_color?: string | null;
+  readonly axis_line_color?: string | null;
+  readonly axis_line_width_pt?: number | null;
+  readonly major_grid_visible?: boolean | null;
+  readonly minor_grid_visible?: boolean | null;
+  readonly grid_color?: string | null;
+  readonly grid_line_width_pt?: number | null;
+  readonly grid_line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
 }
 
 export type DraftSetChartParameter = {
@@ -173,27 +204,96 @@ export type DraftSetChartParameter = {
   readonly value: string | number | boolean;
 }
 
+export type DraftSetColorMap = {
+  readonly operation?: "set_colormap";
+  readonly target_alias: string;
+  readonly palette?: "viridis" | "plasma" | "inferno" | "magma" | "cividis" | "turbo" | "blue_orange" | "red_white_blue" | "blue_white_red" | "gray_scale" | "fire" | "rainbow_modified" | "cool_warm" | "spectral" | "terrain" | "ocean" | null;
+  readonly reverse?: boolean | null;
+  readonly minimum?: number | null;
+  readonly maximum?: number | null;
+  readonly midpoint?: number | null;
+  readonly mode?: "continuous" | "discrete" | null;
+  readonly levels?: number | null;
+  readonly missing_color?: string | null;
+  readonly colorbar_visible?: boolean | null;
+  readonly colorbar_anchor?: "right" | "bottom" | null;
+  readonly colorbar_title?: string | null;
+  readonly colorbar_tick_format?: "auto" | "decimal" | "scientific" | "percent" | null;
+}
+
+export type DraftSetDataLabels = {
+  readonly operation?: "set_data_labels";
+  readonly target_alias: string;
+  readonly visible?: boolean | null;
+  readonly value_format?: "auto" | "decimal" | "scientific" | "percent" | null;
+  readonly prefix?: string | null;
+  readonly suffix?: string | null;
+  readonly position?: "auto" | "above" | "below" | "left" | "right" | "center" | null;
+  readonly rotation_deg?: number | null;
+  readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly font_size_pt?: number | null;
+  readonly font_weight?: "normal" | "bold" | null;
+  readonly font_color?: string | null;
+}
+
+export type DraftSetErrorStyle = {
+  readonly operation?: "set_error_style";
+  readonly target_alias: string;
+  readonly bar_color?: string | null;
+  readonly bar_width_pt?: number | null;
+  readonly cap_size_pt?: number | null;
+  readonly bar_opacity?: number | null;
+  readonly band_fill_color?: string | null;
+  readonly band_fill_opacity?: number | null;
+  readonly band_stroke_color?: string | null;
+  readonly band_stroke_width_pt?: number | null;
+}
+
 export type DraftSetLegend = {
   readonly operation?: "set_legend";
   readonly target_alias?: string;
   readonly visible?: boolean | null;
   readonly anchor?: "inside" | "right" | "bottom" | "none" | null;
+  readonly columns?: number | null;
+  readonly title?: string | null;
+  readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly font_size_pt?: number | null;
+  readonly font_color?: string | null;
+  readonly frame_visible?: boolean | null;
+  readonly frame_color?: string | null;
+  readonly frame_width_pt?: number | null;
 }
 
 export type DraftSetSeriesStyle = {
   readonly operation?: "set_series_style";
   readonly target_alias: string;
-  readonly color?: string | null;
+  readonly line_stroke_color?: string | null;
   readonly line_width_pt?: number | null;
   readonly line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
-  readonly symbol?: string | null;
-  readonly symbol_size_pt?: number | null;
+  readonly line_opacity?: number | null;
+  readonly marker_shape?: "circle" | "square" | "triangle_up" | "triangle_down" | "triangle_left" | "triangle_right" | "diamond" | "plus" | "cross" | "hexagon" | "star" | "pentagon" | "none" | null;
+  readonly marker_size_pt?: number | null;
+  readonly marker_interior?: "solid" | "open" | "hollow" | null;
+  readonly marker_fill_color?: string | null;
+  readonly marker_stroke_color?: string | null;
+  readonly marker_stroke_width_pt?: number | null;
+  readonly marker_opacity?: number | null;
+  readonly fill_color?: string | null;
+  readonly fill_opacity?: number | null;
+  readonly fill_stroke_color?: string | null;
+  readonly fill_stroke_width_pt?: number | null;
+  readonly fill_stroke_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
 }
 
 export type DraftSetTitle = {
   readonly operation?: "set_title";
   readonly target_alias?: string;
-  readonly text: string;
+  readonly text?: string | null;
+  readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly font_size_pt?: number | null;
+  readonly font_weight?: "normal" | "bold" | null;
+  readonly italic?: boolean | null;
+  readonly color?: string | null;
 }
 
 export type ECDFResult = {
@@ -245,7 +345,7 @@ export type EngineArtifact = {
 }
 
 export type EngineCapability = {
-  readonly operation: "create_plot" | "bind_fields" | "set_title" | "set_axis" | "set_series_style" | "set_legend" | "set_chart_parameter" | "add_annotation" | "export_plot";
+  readonly operation: "create_plot" | "bind_fields" | "set_title" | "set_axis" | "set_series_style" | "set_legend" | "set_colormap" | "set_error_style" | "set_data_labels" | "set_chart_parameter" | "add_annotation" | "export_plot";
   readonly parameters?: ReadonlyArray<string>;
 }
 
@@ -596,7 +696,7 @@ export type PlotDocumentRef = {
   readonly content_hash: string;
 }
 
-export type PlotEngineActionContract = CreatePlot | BindFields | SetTitle | SetAxis | SetSeriesStyle | SetLegend | SetChartParameter | AddAnnotation | ExportPlot
+export type PlotEngineActionContract = CreatePlot | BindFields | SetTitle | SetAxis | SetSeriesStyle | SetLegend | SetColorMap | SetErrorStyle | SetDataLabels | SetChartParameter | AddAnnotation | ExportPlot
 
 export type PreparationSpecContract = SelectFieldsSpec | ProjectStructureSpec | IsomorphicConcatSpec | ProjectMetadataLabelSpec | ApplyPlotOrderSpec | FilterRowsSpec
 
@@ -724,6 +824,25 @@ export type SetAxis = {
   readonly minimum?: number | null;
   readonly maximum?: number | null;
   readonly reverse?: boolean | null;
+  readonly title_font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly title_font_size_pt?: number | null;
+  readonly title_font_weight?: "normal" | "bold" | null;
+  readonly title_italic?: boolean | null;
+  readonly title_color?: string | null;
+  readonly major_tick_step?: number | null;
+  readonly minor_tick_count?: number | null;
+  readonly tick_format?: "auto" | "decimal" | "scientific" | "percent" | "date" | "time" | null;
+  readonly tick_rotation_deg?: number | null;
+  readonly tick_font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly tick_font_size_pt?: number | null;
+  readonly tick_color?: string | null;
+  readonly axis_line_color?: string | null;
+  readonly axis_line_width_pt?: number | null;
+  readonly major_grid_visible?: boolean | null;
+  readonly minor_grid_visible?: boolean | null;
+  readonly grid_color?: string | null;
+  readonly grid_line_width_pt?: number | null;
+  readonly grid_line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
 }
 
 export type SetChartParameter = {
@@ -735,6 +854,57 @@ export type SetChartParameter = {
   readonly value: string | number | boolean;
 }
 
+export type SetColorMap = {
+  readonly expected_plot_version: number;
+  readonly operation?: "set_colormap";
+  readonly action_id: string;
+  readonly target: string;
+  readonly palette?: "viridis" | "plasma" | "inferno" | "magma" | "cividis" | "turbo" | "blue_orange" | "red_white_blue" | "blue_white_red" | "gray_scale" | "fire" | "rainbow_modified" | "cool_warm" | "spectral" | "terrain" | "ocean" | null;
+  readonly reverse?: boolean | null;
+  readonly minimum?: number | null;
+  readonly maximum?: number | null;
+  readonly midpoint?: number | null;
+  readonly mode?: "continuous" | "discrete" | null;
+  readonly levels?: number | null;
+  readonly missing_color?: string | null;
+  readonly colorbar_visible?: boolean | null;
+  readonly colorbar_anchor?: "right" | "bottom" | null;
+  readonly colorbar_title?: string | null;
+  readonly colorbar_tick_format?: "auto" | "decimal" | "scientific" | "percent" | null;
+}
+
+export type SetDataLabels = {
+  readonly expected_plot_version: number;
+  readonly operation?: "set_data_labels";
+  readonly action_id: string;
+  readonly target: string;
+  readonly visible?: boolean | null;
+  readonly value_format?: "auto" | "decimal" | "scientific" | "percent" | null;
+  readonly prefix?: string | null;
+  readonly suffix?: string | null;
+  readonly position?: "auto" | "above" | "below" | "left" | "right" | "center" | null;
+  readonly rotation_deg?: number | null;
+  readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly font_size_pt?: number | null;
+  readonly font_weight?: "normal" | "bold" | null;
+  readonly font_color?: string | null;
+}
+
+export type SetErrorStyle = {
+  readonly expected_plot_version: number;
+  readonly operation?: "set_error_style";
+  readonly action_id: string;
+  readonly target: string;
+  readonly bar_color?: string | null;
+  readonly bar_width_pt?: number | null;
+  readonly cap_size_pt?: number | null;
+  readonly bar_opacity?: number | null;
+  readonly band_fill_color?: string | null;
+  readonly band_fill_opacity?: number | null;
+  readonly band_stroke_color?: string | null;
+  readonly band_stroke_width_pt?: number | null;
+}
+
 export type SetLegend = {
   readonly expected_plot_version: number;
   readonly operation?: "set_legend";
@@ -742,6 +912,14 @@ export type SetLegend = {
   readonly target: string;
   readonly visible?: boolean | null;
   readonly anchor?: "inside" | "right" | "bottom" | "none" | null;
+  readonly columns?: number | null;
+  readonly title?: string | null;
+  readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly font_size_pt?: number | null;
+  readonly font_color?: string | null;
+  readonly frame_visible?: boolean | null;
+  readonly frame_color?: string | null;
+  readonly frame_width_pt?: number | null;
 }
 
 export type SetSeriesStyle = {
@@ -749,11 +927,22 @@ export type SetSeriesStyle = {
   readonly operation?: "set_series_style";
   readonly action_id: string;
   readonly target: string;
-  readonly color?: string | null;
+  readonly line_stroke_color?: string | null;
   readonly line_width_pt?: number | null;
   readonly line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
-  readonly symbol?: string | null;
-  readonly symbol_size_pt?: number | null;
+  readonly line_opacity?: number | null;
+  readonly marker_shape?: "circle" | "square" | "triangle_up" | "triangle_down" | "triangle_left" | "triangle_right" | "diamond" | "plus" | "cross" | "hexagon" | "star" | "pentagon" | "none" | null;
+  readonly marker_size_pt?: number | null;
+  readonly marker_interior?: "solid" | "open" | "hollow" | null;
+  readonly marker_fill_color?: string | null;
+  readonly marker_stroke_color?: string | null;
+  readonly marker_stroke_width_pt?: number | null;
+  readonly marker_opacity?: number | null;
+  readonly fill_color?: string | null;
+  readonly fill_opacity?: number | null;
+  readonly fill_stroke_color?: string | null;
+  readonly fill_stroke_width_pt?: number | null;
+  readonly fill_stroke_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
 }
 
 export type SetTitle = {
@@ -761,7 +950,12 @@ export type SetTitle = {
   readonly operation?: "set_title";
   readonly action_id: string;
   readonly target: string;
-  readonly text: string;
+  readonly text?: string | null;
+  readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly font_size_pt?: number | null;
+  readonly font_weight?: "normal" | "bold" | null;
+  readonly italic?: boolean | null;
+  readonly color?: string | null;
 }
 
 export type SortKey = {
@@ -874,7 +1068,7 @@ export type TaskDraftItem = {
   readonly source_aliases?: ReadonlyArray<string>;
   readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | CalculateChartData>;
   readonly bindings?: ReadonlyArray<DraftFieldBinding>;
-  readonly visual_actions?: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetChartParameter | DraftAddAnnotation>;
+  readonly visual_actions?: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
 }
 
 export type TaskItemProgress = {

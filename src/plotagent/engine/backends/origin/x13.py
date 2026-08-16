@@ -13,10 +13,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import PopulationPyramidData, x13_population_pyramid
@@ -89,116 +85,9 @@ class X13OriginProject:
     def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
         if self.layers is None or self.plots is None:
             raise RuntimeError("X13 project is not initialized")
-        pyramid = x13_population_pyramid(document, data)
-        token = document.plot_id.removeprefix("plot:")
+        x13_population_pyramid(document, data)
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, (CreatePlot, BindFields)):
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("X13 title target does not belong to this plot")
-            # Keep the page-attached title on the template's primary layer.
-            # Creating it through the linked mirror layer changes the active
-            # overlay that Origin exports on reopen.
-            label = self.layers[0].label(_TITLE_NAME)
-            if label is None and action.text:
-                self.layers[0].activate()
-                if not self.layers[0].obj.LT_execute(
-                    f"label -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
-                ):
-                    raise RuntimeError("Origin could not create the X13 title")
-                label = self.layers[0].label(_TITLE_NAME)
-                if label is None:
-                    raise RuntimeError("Origin could not create the X13 title")
-            if label is not None:
-                label.text = action.text
-                label.set_int("attach", 1)
-                label.set_float("x1", 0.5)
-                label.set_float("y1", 0.012)
-                label.set_int("fsize", 14)
-                label.set_int("background", 0)
-                label.set_int("show", int(bool(action.text)))
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-            if axis_name is None:
-                raise ValueError("X13 axis target does not belong to this plot")
-            expected_scale = "linear" if axis_name == "x" else "categorical"
-            if action.scale is not None and action.scale != expected_scale:
-                raise ValueError("Origin X13 axes are fixed by the official template")
-            # PopulationPyramid.otpu uses ordinary Column plots and exchanges
-            # native X/Y.  The semantic horizontal population axis is native
-            # Y; the semantic vertical category axis is native X.
-            native_axis = "y" if axis_name == "x" else "x"
-            axes = tuple(layer.axis(native_axis) for layer in self.layers)
-            if action.minimum is not None and action.maximum is not None:
-                if axis_name == "x":
-                    bound = max(abs(action.minimum), abs(action.maximum))
-                    begin, end = (bound, 0.0) if action.reverse else (0.0, bound)
-                    for axis in axes:
-                        axis.set_limits(begin, end)
-                else:
-                    for axis in axes:
-                        axis.set_limits(action.minimum, action.maximum)
-            if action.reverse is not None:
-                for axis in axes:
-                    begin, end, step = (float(value) for value in axis.limits)
-                    should_reverse = begin < end if action.reverse else begin > end
-                    if should_reverse:
-                        axis.set_limits(end, begin, abs(step))
-            if action.label is not None:
-                target_layers = self.layers if axis_name == "x" else self.layers[:1]
-                for layer in target_layers:
-                    label = layer.label("yl" if axis_name == "x" else "xb")
-                    if label is None:
-                        label = layer.add_label(action.label)
-                    if label is None:
-                        raise RuntimeError("Origin X13 template has no writable axis label")
-                    label.text = action.label
-                    label.set_int("show", 1)
-            return
-        if isinstance(action, SetSeriesStyle):
-            ordinal = {
-                f"series:{token}.left": 0,
-                f"series:{token}.right": 1,
-            }.get(action.target)
-            if ordinal is None:
-                raise ValueError("X13 series target does not belong to this plot")
-            if any(
-                value is not None
-                for value in (action.line_style, action.symbol, action.symbol_size_pt)
-            ):
-                raise ValueError("Origin X13 exposes bar fill color and edge width only")
-            commands: list[str] = []
-            if action.color is not None:
-                commands.extend(
-                    (
-                        f'set %C -pfb color("{action.color}")',
-                        f'set %C -pbc color("{action.color}")',
-                    )
-                )
-            if action.line_width_pt is not None:
-                commands.append(f"set %C -pbw {action.line_width_pt}")
-            if commands:
-                self.op.lt_exec(
-                    self._graph_layer_prefix(ordinal + 1) + "; ".join(commands) + ";"
-                )
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main" or action.anchor is not None:
-                raise ValueError("X13 legend target or anchor is not supported")
-            legend = self.layers[0].label("legend")
-            if action.visible and legend is None:
-                self.layers[0].activate()
-                if not self.layers[0].obj.LT_execute("legend"):
-                    raise RuntimeError("Origin could not create the X13 legend")
-                legend = self.layers[0].label("legend")
-            if legend is not None and action.visible is not None:
-                legend.text = (
-                    f"\\l(1.1) {_safe_label(pyramid.left_field_name)}\n"
-                    f"\\l(2.1) {_safe_label(pyramid.right_field_name)}"
-                )
-                legend.set_int("link", 1)
-                legend.set_int("show", int(action.visible))
             return
         raise ValueError(f"Origin X13 binder cannot apply {action.operation}")
 
@@ -236,25 +125,6 @@ class X13OriginProject:
         token = document.plot_id.removeprefix("plot:")
         snapshot: dict[str, object] = {"layers": 2, "categories": pyramid.categories}
         self._verify_center_categories(pyramid)
-        legend_action: SetLegend | None = None
-        for action in actions:
-            if isinstance(action, SetTitle):
-                title = self.layers[0].label(_TITLE_NAME)
-                if title is None or title.text != action.text or not title.get_int("show"):
-                    raise RuntimeError("Origin X13 title did not survive readback")
-            elif isinstance(action, SetSeriesStyle):
-                ordinal = 0 if action.target == f"series:{token}.left" else 1
-                self._assert_column_style(ordinal + 1, action)
-            elif isinstance(action, SetLegend) and action.visible is not None:
-                legend_action = action
-                legend = self.layers[0].label("legend")
-                if legend is None or bool(legend.get_int("show")) != action.visible:
-                    raise RuntimeError("Origin X13 legend visibility did not survive readback")
-        self._assert_legend(
-            pyramid,
-            visible=True if legend_action is None else bool(legend_action.visible),
-            labels_written=legend_action is not None,
-        )
         return EngineReadback(
             document=document_ref(document),
             backend="origin",
@@ -314,9 +184,7 @@ class X13OriginProject:
         if self.layers is None:
             raise RuntimeError("X13 project is not initialized")
         for layer_index in (1, 2):
-            if not self.op.lt_exec(
-                self._graph_layer_prefix(layer_index) + "axis -ps X L 0;"
-            ):
+            if not self.op.lt_exec(self._graph_layer_prefix(layer_index) + "axis -ps X L 0;"):
                 raise RuntimeError("Origin could not hide X13 outer category tick labels")
         layer = self.layers[0]
         count = len(pyramid.categories)
@@ -351,10 +219,7 @@ class X13OriginProject:
         return 1.0 - (row - 0.5) / count
 
     def _graph_layer_prefix(self, layer_index: int) -> str:
-        return (
-            f"window -a {self.graph.name}; "
-            f"{self.graph.name}!page.active={layer_index}; "
-        )
+        return f"window -a {self.graph.name}; {self.graph.name}!page.active={layer_index}; "
 
     def _assert_native_structure(self, *, verify_offsets: bool) -> dict[str, object]:
         if self.book is None:
@@ -423,9 +288,7 @@ class X13OriginProject:
                 f"Origin X13 source designation must remain XYY; observed {designations}"
             )
         datasets = tuple(str(plot.obj.DatasetName) for plot in self.plots or ())
-        if len(datasets) != 2 or not datasets[0].endswith("_B") or not datasets[1].endswith(
-            "_C"
-        ):
+        if len(datasets) != 2 or not datasets[0].endswith("_B") or not datasets[1].endswith("_C"):
             raise RuntimeError(
                 f"Origin X13 Origin C datasets are not the native B/C sources: {datasets}"
             )
@@ -468,34 +331,13 @@ class X13OriginProject:
         if bool(legend.get_int("show")) != visible:
             raise RuntimeError("Origin X13 legend visibility changed after reopen")
         text = str(legend.text)
-        if (
-            text.count(r"\l(") != 2
-            or r"\l(1.1)" not in text
-            or r"\l(2.1)" not in text
-        ):
+        if text.count(r"\l(") != 2 or r"\l(1.1)" not in text or r"\l(2.1)" not in text:
             raise RuntimeError("Origin X13 legend lost its two cross-layer native samples")
         if labels_written and any(
             _safe_label(label) not in text
             for label in (pyramid.left_field_name, pyramid.right_field_name)
         ):
             raise RuntimeError("Origin X13 legend labels changed after reopen")
-
-    def _assert_column_style(self, layer_index: int, action: SetSeriesStyle) -> None:
-        if action.color is None and action.line_width_pt is None:
-            return
-        prefix = f"__X13STYLE{layer_index}"
-        self.op.lt_exec(
-            self._graph_layer_prefix(layer_index)
-            + f"get %C -pfb {prefix}C; get %C -pbw {prefix}W;"
-        )
-        if action.color is not None:
-            expected = int(self.op.lt_float(f'color("{action.color}")'))
-            if int(self.op.lt_float(f"{prefix}C")) != expected:
-                raise RuntimeError("Origin X13 column fill color did not survive readback")
-        if action.line_width_pt is not None and not isclose(
-            float(self.op.lt_float(f"{prefix}W")), action.line_width_pt, abs_tol=1e-8
-        ):
-            raise RuntimeError("Origin X13 column border width did not survive readback")
 
     def _write_data(self, pyramid: PopulationPyramidData) -> None:
         columns: tuple[tuple[str, tuple[object, ...], str], ...] = (

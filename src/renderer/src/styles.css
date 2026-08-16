@@ -3033,6 +3033,8 @@ input[type="checkbox"] {
 .parameter-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-height: 98px;
+  overflow-y: auto;
   padding: 0 7px;
   border-bottom: 1px solid var(--border);
 }
@@ -3067,6 +3069,19 @@ input[type="checkbox"] {
 .parameter-section h3 {
   margin: 0 0 9px;
   font-size: 9.5px;
+}
+
+.parameter-subsection {
+  padding: 2px 0 6px;
+  border-top: 1px solid var(--border-subtle, var(--border));
+}
+
+.parameter-subsection summary {
+  padding: 8px 0 4px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 8.5px;
+  font-weight: 650;
 }
 
 .parameter-section label {

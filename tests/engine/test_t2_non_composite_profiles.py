@@ -529,14 +529,31 @@ def test_k24_agent_surface_matches_native_trellis_editability() -> None:
         capability.operation: capability.parameters
         for capability in K24_FACET_PROFILE.capabilities
     }
-    assert capabilities == {
-        "create_plot": (),
-        "bind_fields": (),
-        "set_title": ("text",),
-        "set_axis": ("label", "scale", "bounds", "reverse"),
-        "set_series_style": ("color",),
-        "export_plot": ("png", "svg", "opju"),
+    assert set(capabilities) == {
+        "create_plot",
+        "bind_fields",
+        "set_title",
+        "set_axis",
+        "set_series_style",
+        "export_plot",
     }
+    assert {"text", "font_family", "font_size_pt", "font_weight", "italic", "color"} == set(
+        capabilities["set_title"]
+    )
+    assert {
+        "line_stroke_color",
+        "line_width_pt",
+        "line_style",
+        "line_opacity",
+        "marker_shape",
+        "marker_size_pt",
+        "marker_interior",
+        "marker_fill_color",
+        "marker_stroke_color",
+        "marker_stroke_width_pt",
+        "marker_opacity",
+    } == set(capabilities["set_series_style"])
+    assert "color" not in capabilities["set_series_style"]
 
 
 def test_origin_s34_uses_native_dynamic_plots(monkeypatch) -> None:

@@ -24,6 +24,7 @@ from plotagent.engine.backends.matplotlib import (
     K18AreaRenderer,
     X02DropLineRenderer,
 )
+from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "3" * 64
 
@@ -65,10 +66,10 @@ def _case(
             else f"series:{profile_id.lower()}-demo.primary"
         ),
         expected_plot_version=1,
-        color="#AA3300",
+        line_stroke_color="#AA3300",
         line_width_pt=2.0,
         **(
-            {"symbol": "diamond", "symbol_size_pt": 7.0}
+            {"marker_shape": "diamond", "marker_size_pt": 7.0}
             if profile_id in {"K02", "K06"}
             else {"line_style": "dash"}
         ),
@@ -170,7 +171,7 @@ def test_t1_family_renders_from_engine_data_without_legacy_resolver(
     png = tmp_path / profile_id / "preview.png"
     svg = tmp_path / profile_id / "preview.svg"
 
-    readback = renderer.render(document, actions, view, png, svg)
+    readback = renderer.render(document, split_visual_actions(actions)[0], view, png, svg)
 
     assert png.stat().st_size > 1_000
     assert svg.stat().st_size > 1_000
@@ -198,7 +199,7 @@ def test_k06_rejects_negative_error_magnitudes(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="error magnitudes must be non-negative"):
         K06PointErrorRenderer().render(
             document,
-            actions,
+            split_visual_actions(actions)[0],
             view,
             tmp_path / "preview.png",
             tmp_path / "preview.svg",
@@ -216,7 +217,7 @@ def test_k07_rejects_inverted_band_bounds(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="lower <= center <= upper"):
         K07ErrorBandRenderer().render(
             document,
-            actions,
+            split_visual_actions(actions)[0],
             view,
             tmp_path / "preview.png",
             tmp_path / "preview.svg",
@@ -242,7 +243,7 @@ def test_x02_drop_lines_end_at_the_visible_bottom_axis_not_zero(
 
     X02DropLineRenderer().render(
         document,
-        actions,
+        split_visual_actions(actions)[0],
         view,
         tmp_path / "preview.png",
         tmp_path / "preview.svg",

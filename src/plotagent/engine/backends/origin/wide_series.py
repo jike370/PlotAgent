@@ -12,10 +12,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import (
@@ -154,29 +150,8 @@ def read_wide_series_native_snapshot(
     }
 
 
-def _safe_label(value: str) -> str:
-    output: list[str] = []
-    for character in value:
-        codepoint = ord(character)
-        if character in {"\\", "%", "$"}:
-            output.append(f"\\x({codepoint:04X})")
-        elif character in {"\r", "\n", "\t"} or codepoint < 0x20 or codepoint == 0x7F:
-            output.append(" ")
-        else:
-            output.append(character)
-    return "".join(output).strip()
-
-
 def _effective_actions(actions: tuple[PlotEngineAction, ...]) -> tuple[PlotEngineAction, ...]:
-    last_binding = max(
-        (index for index, action in enumerate(actions) if isinstance(action, BindFields)),
-        default=-1,
-    )
-    return tuple(
-        action
-        for index, action in enumerate(actions)
-        if not (isinstance(action, SetSeriesStyle) and index < last_binding)
-    )
+    return actions
 
 
 class WideSeriesOriginProject:
@@ -319,178 +294,11 @@ class WideSeriesOriginProject:
         )
         self.sheet = books[0][0]
 
-    def apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        data: EngineDataView,
-    ) -> None:
-        token = document.plot_id.removeprefix("plot:")
+    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, (CreatePlot, BindFields)):
             return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError(f"{self.profile_id} title target does not belong to this plot")
-            title = self.layer.label(_TITLE_NAME)
-            if title is None:
-                self.graph.activate()
-                self.layer.activate()
-                if not self.op.lt_exec(
-                    f"label -p 50 0 -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
-                ):
-                    raise RuntimeError(
-                        f"Origin could not create the {self.profile_id} title"
-                    )
-                title = self.layer.label(_TITLE_NAME)
-                if title is None:
-                    raise RuntimeError(f"Origin could not create the {self.profile_id} title")
-            title.text = action.text
-            title.set_int("show", 1)
-            title.set_int("background", 0)
-            title.set_float("fsize", 14.0)
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-            if axis_name is None:
-                raise ValueError(f"{self.profile_id} axis target does not belong to this plot")
-            axis = self.layer.axis(axis_name)
-            if action.scale is not None:
-                categorical_axis = "y" if self.profile_id == "X03" else "x"
-                if axis_name == categorical_axis:
-                    if action.scale != "categorical":
-                        raise ValueError(
-                            f"Origin {self.profile_id} {axis_name.upper()} axis is categorical"
-                        )
-                else:
-                    if action.scale not in {"linear", "log10"}:
-                        raise ValueError(
-                            f"Origin {self.profile_id} {axis_name.upper()} axis supports "
-                            "linear or log10"
-                        )
-                    axis.scale = action.scale
-            if action.minimum is not None and action.maximum is not None:
-                begin, end = action.minimum, action.maximum
-                if action.reverse:
-                    begin, end = end, begin
-                axis.set_limits(begin, end)
-            elif action.reverse is not None:
-                begin, end, step = (float(value) for value in axis.limits)
-                should_reverse = begin < end if action.reverse else begin > end
-                if should_reverse:
-                    axis.set_limits(end, begin, abs(step))
-            if action.label is not None:
-                label = self.layer.label("xb" if axis_name == "x" else "yl")
-                if label is None:
-                    label = self.layer.add_label(action.label)
-                if label is None:
-                    raise RuntimeError(f"Origin {self.profile_id} has no writable axis label")
-                label.text = action.label
-                label.set_int("show", 1)
-            return
-        if isinstance(action, SetSeriesStyle):
-            if self.profile_id != "X03":
-                self._apply_wide_series_style(action, token)
-                return
-            ordinal = self._series_ordinal(action.target, token)
-            plot = self.plots[ordinal - 1]
-            if action.color is not None:
-                plot.color = action.color
-            if action.line_width_pt is not None:
-                plot.set_float("line.width", action.line_width_pt)
-            if action.line_style is not None:
-                if action.line_style == "none" and self.profile_id != "X03":
-                    raise ValueError(f"Origin {self.profile_id} cannot hide its connector")
-                plot.set_int(
-                    "line.style",
-                    -1 if action.line_style == "none" else _LINE_STYLE[action.line_style],
-                )
-            if action.symbol is not None:
-                try:
-                    plot.symbol_kind = _SYMBOL_CODES[action.symbol]
-                except KeyError as error:
-                    raise ValueError(
-                        f"Origin {self.profile_id} does not support symbol {action.symbol}"
-                    ) from error
-            if action.symbol_size_pt is not None:
-                plot.symbol_size = action.symbol_size_pt
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main":
-                raise ValueError(f"{self.profile_id} legend target does not belong to this plot")
-            legend = self.layer.label("legend")
-            if action.visible and legend is None:
-                self.layer.activate()
-                if not self.layer.obj.LT_execute("legend"):
-                    raise RuntimeError(f"Origin could not create the {self.profile_id} legend")
-                legend = self.layer.label("legend")
-            if legend is not None and action.visible is not None:
-                legend.text = "\n".join(
-                    f"\\l({index}) {_safe_label(label)}"
-                    for index, label in enumerate(self._legend_labels(document, data), start=1)
-                )
-                legend.set_int("link", 1)
-                legend.set_int("show", int(action.visible))
-                legend.set_int("background", 0)
-                legend.set_int("attach", 1)
-                legend.set_float("x1", 0.02)
-                legend.set_float("y1", 0.02)
-                legend.set_float("fsize", 9.0)
-            return
         raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
-
-    def _apply_wide_series_style(self, action: SetSeriesStyle, token: str) -> None:
-        self.graph.activate()
-        graph_name = str(self.graph.name)
-        if not graph_name.replace("_", "").isalnum():
-            raise RuntimeError(f"unsafe Origin {self.profile_id} graph name: {graph_name!r}")
-        ordinal = 1
-        if action.target == f"series:{token}.connector":
-            if action.symbol is not None or action.symbol_size_pt is not None:
-                raise ValueError(
-                    f"Origin {self.profile_id} connector supports line style, width and color only"
-                )
-            if action.line_style == "none":
-                raise ValueError(f"Origin {self.profile_id} cannot hide its native connector group")
-        else:
-            ordinal = self._series_ordinal(action.target, token)
-            if (
-                action.line_width_pt is not None
-                or action.line_style is not None
-                or action.symbol_size_pt is not None
-            ):
-                raise ValueError(
-                    f"Origin {self.profile_id} column targets support marker color and symbol only"
-                )
-        range_name = f"__{self.profile_id}STYLE"
-        commands = [
-            "page.active=1",
-            f"range {range_name}=[{graph_name}]1!{ordinal}",
-        ]
-        if action.target == f"series:{token}.connector":
-            if action.color is not None:
-                commands.append(f'set {range_name} -cl color("{action.color}")')
-            if action.line_width_pt is not None:
-                commands.append(f"set {range_name} -w {action.line_width_pt * 500:.12g}")
-            if action.line_style is not None:
-                commands.append(f"set {range_name} -d {_LINE_STYLE[action.line_style]}")
-        else:
-            if action.color is not None:
-                commands.extend(
-                    (
-                        f'set {range_name} -cse color("{action.color}")',
-                        f'set {range_name} -csf color("{action.color}")',
-                    )
-                )
-            if action.symbol is not None:
-                try:
-                    symbol = _SYMBOL_CODES[action.symbol]
-                except KeyError as error:
-                    raise ValueError(
-                        f"Origin {self.profile_id} does not support symbol {action.symbol}"
-                    ) from error
-                commands.append(f"set {range_name} -k {symbol}")
-        if len(commands) > 2 and not self.op.lt_exec("; ".join(commands) + ";"):
-            raise RuntimeError(f"Origin could not apply {self.profile_id} native style")
 
     def save(self, output_path: Path) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -522,31 +330,6 @@ class WideSeriesOriginProject:
             if self.profile_id == "X40":
                 self._verify_x40_identity_labels(series)
                 snapshot["identity_labels"] = series.row_count
-        for action in actions:
-            if isinstance(action, SetTitle):
-                title = self.layer.label(_TITLE_NAME)
-                if title is None or title.text != action.text or not title.get_int("show"):
-                    raise RuntimeError(f"Origin {self.profile_id} title did not survive readback")
-            elif isinstance(action, SetSeriesStyle):
-                if self.profile_id == "X03":
-                    ordinal = self._series_ordinal(action.target, token)
-                    plot = self.plots[ordinal - 1]
-                    if action.color is not None and tuple(plot.color) != self._hex_rgb(
-                        action.color
-                    ):
-                        raise RuntimeError("Origin X03 series color did not survive readback")
-                    if action.symbol_size_pt is not None and (
-                        abs(float(plot.symbol_size) - action.symbol_size_pt) > 0.01
-                    ):
-                        raise RuntimeError("Origin X03 symbol size did not survive readback")
-                else:
-                    self._verify_wide_series_style(action, token)
-            elif isinstance(action, SetLegend) and action.visible is not None:
-                legend = self.layer.label("legend")
-                if legend is None or bool(legend.get_int("show")) != action.visible:
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} legend visibility did not survive readback"
-                    )
         if self.profile_id == "X03":
             native_series_objects = tuple(
                 EngineObjectRef(
@@ -609,14 +392,6 @@ class WideSeriesOriginProject:
             data_hash=canonical_hash(data),
             style_hash=canonical_hash(cast(JsonValue, snapshot)),
         )
-
-    def _series_ordinal(self, target: str, token: str) -> int:
-        prefix = f"series:{token}.column_"
-        suffix = target.removeprefix(prefix) if target.startswith(prefix) else ""
-        count = len(self.plots) if self.profile_id == "X03" else self.native_member_count
-        if not suffix.isdigit() or not 1 <= int(suffix) <= count:
-            raise ValueError(f"{self.profile_id} series target is outside materialized data")
-        return int(suffix)
 
     def _write_lollipop(self, lollipop: LollipopData) -> None:
         self.sheet.from_list(
@@ -873,68 +648,6 @@ class WideSeriesOriginProject:
             "connector_semantics": "manual_live_plot_details_gate",
         }
 
-    def _verify_wide_series_style(self, action: SetSeriesStyle, token: str) -> None:
-        self.graph.activate()
-        graph_name = str(self.graph.name)
-        if not graph_name.replace("_", "").isalnum():
-            raise RuntimeError(f"unsafe Origin {self.profile_id} graph name: {graph_name!r}")
-        ordinal = (
-            1
-            if action.target == f"series:{token}.connector"
-            else self._series_ordinal(action.target, token)
-        )
-        range_name = f"__{self.profile_id}VERIFY"
-        if not self.op.lt_exec(f"page.active=1; range {range_name}=[{graph_name}]1!{ordinal};"):
-            raise RuntimeError(f"Origin could not address {self.profile_id} native style")
-        if action.target == f"series:{token}.connector":
-            if action.color is not None:
-                self._assert_lt_option(
-                    range_name,
-                    "-cl",
-                    self.op.lt_float(f"color({action.color})"),
-                    "connector color",
-                )
-            if action.line_width_pt is not None:
-                self._assert_lt_option(
-                    range_name,
-                    "-w",
-                    action.line_width_pt * 500,
-                    "connector line width",
-                )
-            if action.line_style is not None:
-                self._assert_lt_option(
-                    range_name,
-                    "-d",
-                    float(_LINE_STYLE[action.line_style]),
-                    "connector line type",
-                )
-            return
-        if action.color is not None:
-            self._assert_lt_option(
-                range_name,
-                "-cse",
-                self.op.lt_float(f"color({action.color})"),
-                f"column {ordinal} marker color",
-            )
-        if action.symbol is not None:
-            self._assert_lt_option(
-                range_name,
-                "-k",
-                float(_SYMBOL_CODES[action.symbol]),
-                f"column {ordinal} symbol",
-            )
-
-    def _assert_lt_option(self, range_name: str, option: str, expected: float, name: str) -> None:
-        variable = f"__{self.profile_id}OBSERVED"
-        if not self.op.lt_exec(f"get {range_name} {option} {variable};"):
-            raise RuntimeError(f"Origin could not read {self.profile_id} {name}")
-        observed = float(self.op.lt_float(variable))
-        if abs(observed - expected) > 0.01:
-            raise RuntimeError(
-                f"Origin {self.profile_id} {name} did not survive readback: "
-                f"expected={expected}, observed={observed}"
-            )
-
     def _expected_columns(
         self, document: PlotDocument, data: EngineDataView
     ) -> tuple[tuple[object, ...], ...]:
@@ -949,11 +662,6 @@ class WideSeriesOriginProject:
             metadata += (series.row_groups,)
         return (*series.column_values, *metadata)
 
-    def _legend_labels(self, document: PlotDocument, data: EngineDataView) -> tuple[str, ...]:
-        if self.profile_id == "X03":
-            return x03_lollipop(document, data).columns.labels
-        return wide_series(document, data, profile_id=self.profile_id).column_labels
-
     @staticmethod
     def _assert_values(actual: list[object], expected: tuple[object, ...], name: str) -> None:
         if len(actual) != len(expected):
@@ -965,13 +673,6 @@ class WideSeriesOriginProject:
             elif observed == wanted:
                 continue
             raise RuntimeError(f"Origin {name} values differ after reopen")
-
-    @staticmethod
-    def _hex_rgb(value: str) -> tuple[int, int, int]:
-        return cast(
-            tuple[int, int, int],
-            tuple(int(value[index : index + 2], 16) for index in (1, 3, 5)),
-        )
 
 
 def _execute(

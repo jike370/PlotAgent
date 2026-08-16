@@ -50,6 +50,7 @@ from plotagent.engine.profiles import (
     X36_DUAL_Y_COLUMN_LINE_PROFILE,
     X38_OFFSET_STACK_PROFILE,
 )
+from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "8" * 64
 
@@ -132,11 +133,11 @@ def _x24_case():
             ("field:value", "Count", "numeric", (5.0, 20.0, 10.0, 0.0)),
         ),
         styles=(
-            ("bars", {"color": "#2255AA", "line_width_pt": 1.1}),
+            ("bars", {"line_stroke_color": "#2255AA", "line_width_pt": 1.1}),
             (
                 "cumulative",
                 {
-                    "color": "#CC6600",
+                    "line_stroke_color": "#CC6600",
                     "line_width_pt": 1.8,
                     "line_style": "dash",
                 },
@@ -146,9 +147,12 @@ def _x24_case():
 
 
 def _dual_case(profile_id: str):
-    right_style: dict[str, object] = {"color": "#CC6600", "line_width_pt": 1.5}
+    right_style: dict[str, object] = {
+        "line_stroke_color": "#CC6600",
+        "line_width_pt": 1.5,
+    }
     if profile_id == "X36":
-        right_style.update(line_style="dash", symbol="diamond", symbol_size_pt=6.0)
+        right_style.update(line_style="dash", marker_shape="diamond", marker_size_pt=6.0)
     return _case(
         profile_id,
         ("category", "left", "right"),
@@ -157,7 +161,10 @@ def _dual_case(profile_id: str):
             ("field:left", "Rain", "numeric", (12.0, 18.0, 9.0)),
             ("field:right", "Temperature", "numeric", (3.0, 7.0, 11.0)),
         ),
-        styles=(("left", {"color": "#2255AA", "line_width_pt": 1.0}), ("right", right_style)),
+        styles=(
+            ("left", {"line_stroke_color": "#2255AA", "line_width_pt": 1.0}),
+            ("right", right_style),
+        ),
     )
 
 
@@ -535,7 +542,7 @@ def test_origin_x24_delegates_sort_merge_and_cumulative_to_paretobin(monkeypatch
     origin = _Origin()
     project = X24OriginProject(origin)
     project.create(Path("."), document, view)
-    project.reconcile(document, actions, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
     assert project.source_sheet.columns[0] == ["A", "B", "A", "D"]
     assert project.report_sheet.columns[0] == ["B", "A", "D"]
     assert project.report_sheet.columns[1] == [20.0, 15.0, 0.0]
@@ -556,16 +563,13 @@ def test_origin_dual_y_special_uses_both_official_layers(
     origin = _Origin()
     project = DualYSpecialOriginProject(origin, profile_id=profile_id)  # type: ignore[arg-type]
     project.create(Path("."), document, view)
-    project.reconcile(document, actions, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
     assert tuple(plot.native_type for plot in project._plots()) == types
     assert project.sheet.columns[0] == ["Jan", "Feb", "Mar"]
     assert project.sheet.properties["col1.categorical.type"] == 2
     assert project.sheet.properties["col1.categorical.sort"] == 0
     assert any(command == "doc -u;" for command in origin.commands)
-    assert any(
-        "!page.active=1; set %C -pfb" in command for command in origin.commands
-    )
-    assert any("!page.active=2; set %C" in command for command in origin.commands)
+    assert not any("!page.active=1; set %C -pfb" in command for command in origin.commands)
 
 
 def test_origin_x35_rejects_automatic_axis_that_makes_right_column_float(
@@ -578,9 +582,11 @@ def test_origin_x35_rejects_automatic_axis_that_makes_right_column_float(
     origin = _Origin()
     project = DualYSpecialOriginProject(origin, profile_id="X35")
     project.create(Path("."), document, view)
-    project.reconcile(document, actions, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
     origin.graph.layers[1].axes["y"].limits = (4.0, 12.0, 2.0)
-    state = project._state(document, actions, project._data(document, view))
+    state = project._state(
+        document, split_visual_actions(actions)[0], project._data(document, view)
+    )
     with pytest.raises(RuntimeError, match="ordinary column cannot appear floating"):
         project._assert_default_column_baselines(state)
 
@@ -604,7 +610,7 @@ def test_origin_x38_keeps_raw_y_and_creates_dynamic_template_plots(
     origin = _Origin()
     project = X38OriginProject(origin)
     project.create(Path("."), document, view)
-    project.reconcile(document, actions, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
     offset = x38_offset_stack(document, view)
     assert len(project.plots) == group_count
     for index, series in enumerate(offset.series, start=1):
@@ -643,12 +649,7 @@ def test_origin_x38_save_refuses_stale_probe_artifact(tmp_path: Path) -> None:
         project.save(target)
 
 
-def test_x38_rejects_per_series_width_that_breaks_native_offsets(
-    monkeypatch, tmp_path: Path
-) -> None:
-    monkeypatch.setattr(
-        x38_origin, "resolve_official_template", lambda *_args: Path("OffsetStackY.otp")
-    )
+def test_x38_series_width_is_routed_only_to_the_shared_visual_adapter() -> None:
     document, actions, view = _x38_case()
     width = SetSeriesStyle(
         action_id="action:x38-unsupported-width",
@@ -656,18 +657,10 @@ def test_x38_rejects_per_series_width_that_breaks_native_offsets(
         expected_plot_version=1,
         line_width_pt=2.0,
     )
-    project = X38OriginProject(_Origin())
-    project.create(Path("."), document, view)
-    with pytest.raises(ValueError, match="does not expose per-series style edits"):
-        project.reconcile(document, (actions[0], width), view)
-    with pytest.raises(ValueError, match="does not expose per-series style edits"):
-        X38OffsetStackRenderer().render(
-            document,
-            (actions[0], width),
-            view,
-            tmp_path / "x38.png",
-            tmp_path / "x38.svg",
-        )
+    structural, visual = split_visual_actions((actions[0], width))
+
+    assert structural == (actions[0],)
+    assert visual == (width,)
 
 
 def test_remaining_t1_profiles_pin_official_templates_and_public_actions() -> None:
@@ -698,9 +691,15 @@ def test_remaining_t1_profiles_pin_official_templates_and_public_actions() -> No
         capability.operation for capability in profiles["X24"].capabilities
     }
     assert profiles["X38"].repeatable_objects[0].object_key_prefix == "group"
-    assert "set_series_style" not in {
-        capability.operation for capability in profiles["X38"].capabilities
+    x38_capabilities = {
+        capability.operation: capability.parameters for capability in profiles["X38"].capabilities
     }
+    assert {
+        "line_stroke_color",
+        "line_width_pt",
+        "line_style",
+        "line_opacity",
+    } == set(x38_capabilities["set_series_style"])
 
 
 def test_remaining_t1_implementation_does_not_import_old_plot_compiler() -> None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -20,10 +20,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import k07_error_band
@@ -173,7 +169,7 @@ class K07ErrorBandRenderer:
         x_name: str,
         center_name: str,
     ) -> _K07State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K07State(
             title="",
             x_axis=_AxisState(x_name),
@@ -182,60 +178,5 @@ class K07ErrorBandRenderer:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K07 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(
-                    action.target
-                )
-                if axis_name is None:
-                    raise ValueError("K07 axis target does not belong to this plot")
-                current = getattr(state, axis_name)
-                bounds = (
-                    (current.minimum, current.maximum)
-                    if action.minimum is None
-                    else (action.minimum, action.maximum)
-                )
-                state = replace(
-                    state,
-                    **{
-                        axis_name: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=bounds[0],
-                            maximum=bounds[1],
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                if action.target != f"series:{token}.primary":
-                    raise ValueError("K07 series target does not belong to this plot")
-                state = replace(
-                    state,
-                    color=state.color if action.color is None else action.color,
-                    line_width_pt=(
-                        state.line_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt
-                    ),
-                    line_style=(
-                        state.line_style if action.line_style is None else action.line_style
-                    ),
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError("K07 legend target does not belong to this plot")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                    legend_anchor=state.legend_anchor if action.anchor is None else action.anchor,
-                )
-            else:
-                raise ValueError(f"K07 renderer cannot apply {action.operation}")
+            raise ValueError(f"K07 renderer cannot apply {action.operation}")
         return state

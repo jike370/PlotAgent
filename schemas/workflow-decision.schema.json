@@ -69,6 +69,19 @@
           "title": "Annotation Alias",
           "type": "string"
         },
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
         "coordinate_system": {
           "default": "data",
           "enum": [
@@ -79,11 +92,88 @@
           "title": "Coordinate System",
           "type": "string"
         },
+        "font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size Pt"
+        },
+        "font_weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Weight"
+        },
+        "italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Italic"
+        },
         "operation": {
           "const": "add_annotation",
           "default": "add_annotation",
           "title": "Operation",
           "type": "string"
+        },
+        "rotation_deg": {
+          "anyOf": [
+            {
+              "maximum": 180,
+              "minimum": -180,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rotation Deg"
         },
         "target_alias": {
           "default": "plot",
@@ -145,6 +235,79 @@
     "DraftSetAxis": {
       "additionalProperties": false,
       "properties": {
+        "axis_line_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Line Color"
+        },
+        "axis_line_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Line Width Pt"
+        },
+        "grid_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grid Color"
+        },
+        "grid_line_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dash",
+                "dot",
+                "dash_dot",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grid Line Style"
+        },
+        "grid_line_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grid Line Width Pt"
+        },
         "label": {
           "anyOf": [
             {
@@ -157,6 +320,31 @@
           ],
           "default": null,
           "title": "Label"
+        },
+        "major_grid_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Major Grid Visible"
+        },
+        "major_tick_step": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Major Tick Step"
         },
         "maximum": {
           "anyOf": [
@@ -181,6 +369,32 @@
           ],
           "default": null,
           "title": "Minimum"
+        },
+        "minor_grid_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minor Grid Visible"
+        },
+        "minor_tick_count": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minor Tick Count"
         },
         "operation": {
           "const": "set_axis",
@@ -222,6 +436,164 @@
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Target Alias",
           "type": "string"
+        },
+        "tick_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Color"
+        },
+        "tick_font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Font Family"
+        },
+        "tick_font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Font Size Pt"
+        },
+        "tick_format": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "decimal",
+                "scientific",
+                "percent",
+                "date",
+                "time"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Format"
+        },
+        "tick_rotation_deg": {
+          "anyOf": [
+            {
+              "maximum": 180,
+              "minimum": -180,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Rotation Deg"
+        },
+        "title_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Color"
+        },
+        "title_font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Font Family"
+        },
+        "title_font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Font Size Pt"
+        },
+        "title_font_weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Font Weight"
+        },
+        "title_italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Italic"
         }
       },
       "required": [
@@ -275,6 +647,512 @@
       "title": "DraftSetChartParameter",
       "type": "object"
     },
+    "DraftSetColorMap": {
+      "additionalProperties": false,
+      "properties": {
+        "colorbar_anchor": {
+          "anyOf": [
+            {
+              "enum": [
+                "right",
+                "bottom"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Colorbar Anchor"
+        },
+        "colorbar_tick_format": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "decimal",
+                "scientific",
+                "percent"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Colorbar Tick Format"
+        },
+        "colorbar_title": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Colorbar Title"
+        },
+        "colorbar_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Colorbar Visible"
+        },
+        "levels": {
+          "anyOf": [
+            {
+              "maximum": 256,
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Levels"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "midpoint": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Midpoint"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "missing_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missing Color"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "continuous",
+                "discrete"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mode"
+        },
+        "operation": {
+          "const": "set_colormap",
+          "default": "set_colormap",
+          "title": "Operation",
+          "type": "string"
+        },
+        "palette": {
+          "anyOf": [
+            {
+              "enum": [
+                "viridis",
+                "plasma",
+                "inferno",
+                "magma",
+                "cividis",
+                "turbo",
+                "blue_orange",
+                "red_white_blue",
+                "blue_white_red",
+                "gray_scale",
+                "fire",
+                "rainbow_modified",
+                "cool_warm",
+                "spectral",
+                "terrain",
+                "ocean"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Palette"
+        },
+        "reverse": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reverse"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "DraftSetColorMap",
+      "type": "object"
+    },
+    "DraftSetDataLabels": {
+      "additionalProperties": false,
+      "properties": {
+        "font_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Color"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size Pt"
+        },
+        "font_weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Weight"
+        },
+        "operation": {
+          "const": "set_data_labels",
+          "default": "set_data_labels",
+          "title": "Operation",
+          "type": "string"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "above",
+                "below",
+                "left",
+                "right",
+                "center"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position"
+        },
+        "prefix": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prefix"
+        },
+        "rotation_deg": {
+          "anyOf": [
+            {
+              "maximum": 180,
+              "minimum": -180,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rotation Deg"
+        },
+        "suffix": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suffix"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "value_format": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "decimal",
+                "scientific",
+                "percent"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value Format"
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "DraftSetDataLabels",
+      "type": "object"
+    },
+    "DraftSetErrorStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "band_fill_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Band Fill Color"
+        },
+        "band_fill_opacity": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Band Fill Opacity"
+        },
+        "band_stroke_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Band Stroke Color"
+        },
+        "band_stroke_width_pt": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Band Stroke Width Pt"
+        },
+        "bar_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bar Color"
+        },
+        "bar_opacity": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bar Opacity"
+        },
+        "bar_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bar Width Pt"
+        },
+        "cap_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cap Size Pt"
+        },
+        "operation": {
+          "const": "set_error_style",
+          "default": "set_error_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "DraftSetErrorStyle",
+      "type": "object"
+    },
     "DraftSetLegend": {
       "additionalProperties": false,
       "properties": {
@@ -296,6 +1174,107 @@
           "default": null,
           "title": "Anchor"
         },
+        "columns": {
+          "anyOf": [
+            {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Columns"
+        },
+        "font_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Color"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size Pt"
+        },
+        "frame_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Color"
+        },
+        "frame_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Visible"
+        },
+        "frame_width_pt": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Width Pt"
+        },
         "operation": {
           "const": "set_legend",
           "default": "set_legend",
@@ -307,6 +1286,19 @@
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Target Alias",
           "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
         },
         "visible": {
           "anyOf": [
@@ -327,7 +1319,7 @@
     "DraftSetSeriesStyle": {
       "additionalProperties": false,
       "properties": {
-        "color": {
+        "fill_color": {
           "anyOf": [
             {
               "pattern": "^#[0-9A-Fa-f]{6}$",
@@ -338,7 +1330,94 @@
             }
           ],
           "default": null,
-          "title": "Color"
+          "title": "Fill Color"
+        },
+        "fill_opacity": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fill Opacity"
+        },
+        "fill_stroke_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fill Stroke Color"
+        },
+        "fill_stroke_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dash",
+                "dot",
+                "dash_dot",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fill Stroke Style"
+        },
+        "fill_stroke_width_pt": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fill Stroke Width Pt"
+        },
+        "line_opacity": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Opacity"
+        },
+        "line_stroke_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Stroke Color"
         },
         "line_style": {
           "anyOf": [
@@ -373,16 +1452,10 @@
           "default": null,
           "title": "Line Width Pt"
         },
-        "operation": {
-          "const": "set_series_style",
-          "default": "set_series_style",
-          "title": "Operation",
-          "type": "string"
-        },
-        "symbol": {
+        "marker_fill_color": {
           "anyOf": [
             {
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "pattern": "^#[0-9A-Fa-f]{6}$",
               "type": "string"
             },
             {
@@ -390,9 +1463,67 @@
             }
           ],
           "default": null,
-          "title": "Symbol"
+          "title": "Marker Fill Color"
         },
-        "symbol_size_pt": {
+        "marker_interior": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "open",
+                "hollow"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Interior"
+        },
+        "marker_opacity": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Opacity"
+        },
+        "marker_shape": {
+          "anyOf": [
+            {
+              "enum": [
+                "circle",
+                "square",
+                "triangle_up",
+                "triangle_down",
+                "triangle_left",
+                "triangle_right",
+                "diamond",
+                "plus",
+                "cross",
+                "hexagon",
+                "star",
+                "pentagon",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Shape"
+        },
+        "marker_size_pt": {
           "anyOf": [
             {
               "exclusiveMinimum": 0,
@@ -404,7 +1535,40 @@
             }
           ],
           "default": null,
-          "title": "Symbol Size Pt"
+          "title": "Marker Size Pt"
+        },
+        "marker_stroke_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Stroke Color"
+        },
+        "marker_stroke_width_pt": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Stroke Width Pt"
+        },
+        "operation": {
+          "const": "set_series_style",
+          "default": "set_series_style",
+          "title": "Operation",
+          "type": "string"
         },
         "target_alias": {
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
@@ -421,6 +1585,82 @@
     "DraftSetTitle": {
       "additionalProperties": false,
       "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size Pt"
+        },
+        "font_weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Weight"
+        },
+        "italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Italic"
+        },
         "operation": {
           "const": "set_title",
           "default": "set_title",
@@ -434,14 +1674,19 @@
           "type": "string"
         },
         "text": {
-          "maxLength": 512,
-          "title": "Text",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
         }
       },
-      "required": [
-        "text"
-      ],
       "title": "DraftSetTitle",
       "type": "object"
     },
@@ -997,6 +2242,9 @@
                 "add_annotation": "#/$defs/DraftAddAnnotation",
                 "set_axis": "#/$defs/DraftSetAxis",
                 "set_chart_parameter": "#/$defs/DraftSetChartParameter",
+                "set_colormap": "#/$defs/DraftSetColorMap",
+                "set_data_labels": "#/$defs/DraftSetDataLabels",
+                "set_error_style": "#/$defs/DraftSetErrorStyle",
                 "set_legend": "#/$defs/DraftSetLegend",
                 "set_series_style": "#/$defs/DraftSetSeriesStyle",
                 "set_title": "#/$defs/DraftSetTitle"
@@ -1015,6 +2263,15 @@
               },
               {
                 "$ref": "#/$defs/DraftSetLegend"
+              },
+              {
+                "$ref": "#/$defs/DraftSetColorMap"
+              },
+              {
+                "$ref": "#/$defs/DraftSetErrorStyle"
+              },
+              {
+                "$ref": "#/$defs/DraftSetDataLabels"
               },
               {
                 "$ref": "#/$defs/DraftSetChartParameter"

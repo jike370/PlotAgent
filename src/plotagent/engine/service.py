@@ -21,6 +21,9 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
     SetAxis,
     SetChartParameter,
+    SetColorMap,
+    SetDataLabels,
+    SetErrorStyle,
     SetLegend,
     SetSeriesStyle,
     SetTitle,
@@ -116,10 +119,46 @@ class EngineCatalog:
         if isinstance(action, (CreatePlot, BindFields)):
             return set()
         if isinstance(action, SetTitle):
-            return {"text"}
+            return {
+                name
+                for name in (
+                    "text",
+                    "font_family",
+                    "font_size_pt",
+                    "font_weight",
+                    "italic",
+                    "color",
+                )
+                if getattr(action, name) is not None
+            }
         if isinstance(action, SetAxis):
             used = {
-                name for name in ("label", "scale", "reverse") if getattr(action, name) is not None
+                name
+                for name in (
+                    "label",
+                    "scale",
+                    "reverse",
+                    "title_font_family",
+                    "title_font_size_pt",
+                    "title_font_weight",
+                    "title_italic",
+                    "title_color",
+                    "major_tick_step",
+                    "minor_tick_count",
+                    "tick_format",
+                    "tick_rotation_deg",
+                    "tick_font_family",
+                    "tick_font_size_pt",
+                    "tick_color",
+                    "axis_line_color",
+                    "axis_line_width_pt",
+                    "major_grid_visible",
+                    "minor_grid_visible",
+                    "grid_color",
+                    "grid_line_width_pt",
+                    "grid_line_style",
+                )
+                if getattr(action, name) is not None
             }
             if action.minimum is not None:
                 used.add("bounds")
@@ -128,20 +167,71 @@ class EngineCatalog:
             return {
                 name
                 for name in (
-                    "color",
+                    "line_stroke_color",
                     "line_width_pt",
                     "line_style",
-                    "symbol",
-                    "symbol_size_pt",
+                    "line_opacity",
+                    "marker_shape",
+                    "marker_size_pt",
+                    "marker_interior",
+                    "marker_fill_color",
+                    "marker_stroke_color",
+                    "marker_stroke_width_pt",
+                    "marker_opacity",
+                    "fill_color",
+                    "fill_opacity",
+                    "fill_stroke_color",
+                    "fill_stroke_width_pt",
+                    "fill_stroke_style",
                 )
                 if getattr(action, name) is not None
             }
         if isinstance(action, SetLegend):
-            return {name for name in ("visible", "anchor") if getattr(action, name) is not None}
+            return {
+                name
+                for name in (
+                    "visible",
+                    "anchor",
+                    "columns",
+                    "title",
+                    "font_family",
+                    "font_size_pt",
+                    "font_color",
+                    "frame_visible",
+                    "frame_color",
+                    "frame_width_pt",
+                )
+                if getattr(action, name) is not None
+            }
+        if isinstance(action, (SetColorMap, SetErrorStyle, SetDataLabels)):
+            return {
+                name
+                for name, value in action
+                if name
+                not in {"operation", "action_id", "target", "expected_plot_version"}
+                and value is not None
+            }
         if isinstance(action, SetChartParameter):
             return {action.parameter}
         if isinstance(action, AddAnnotation):
-            return {"text", "x", "y", "coordinate_system"}
+            return {
+                "text",
+                "x",
+                "y",
+                "coordinate_system",
+                *(
+                    name
+                    for name in (
+                        "font_family",
+                        "font_size_pt",
+                        "font_weight",
+                        "italic",
+                        "color",
+                        "rotation_deg",
+                    )
+                    if getattr(action, name) is not None
+                ),
+            }
         if isinstance(action, ExportPlot):
             return {action.format}
         raise AssertionError(f"unhandled engine action {action.operation}")

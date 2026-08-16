@@ -107,8 +107,8 @@ def test_k08_renders_and_replays_only_declared_actions(tmp_path: Path) -> None:
                 action_id="action:style",
                 target="series:column-demo.primary",
                 expected_plot_version=3,
-                color="#CC5500",
-                line_width_pt=1.2,
+                fill_color="#CC5500",
+                fill_stroke_width_pt=1.2,
             )
         )
         result = runtime.execute(

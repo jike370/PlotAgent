@@ -166,7 +166,10 @@ describe('product plot state', () => {
         capabilities: [
           { operation: 'set_title', parameters: ['text'] },
           { operation: 'set_axis', parameters: ['label', 'scale', 'bounds', 'reverse'] },
-          { operation: 'set_series_style', parameters: ['color', 'line_width_pt', 'line_style', 'symbol', 'symbol_size_pt'] },
+          { operation: 'set_series_style', parameters: [
+            'line_stroke_color', 'line_width_pt', 'line_style',
+            'marker_shape', 'marker_size_pt',
+          ] },
           { operation: 'set_legend', parameters: ['visible', 'anchor'] },
           { operation: 'add_annotation', parameters: ['text'] },
         ],
@@ -175,7 +178,7 @@ describe('product plot state', () => {
         { operation: 'set_title', target: 'plot:test', text: 'Persisted title' },
         { operation: 'set_axis', target: 'axis:test.x', label: 'Time' },
         { operation: 'set_axis', target: 'axis:test.y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100 },
-        { operation: 'set_series_style', target: 'series:test.primary', color: '#123456', line_width_pt: 1.5, symbol_size_pt: 7, line_style: 'dash', symbol: 'diamond' },
+        { operation: 'set_series_style', target: 'series:test.primary', line_stroke_color: '#123456', line_width_pt: 1.5, marker_size_pt: 7, line_style: 'dash', marker_shape: 'diamond' },
         { operation: 'set_legend', target: 'legend:test.main', visible: false, anchor: 'right' },
         { operation: 'add_annotation', target: 'plot:test', annotation_id: 'annotation:test', text: 'Peak', x: 2, y: 5 },
       ],
@@ -199,11 +202,11 @@ describe('product plot state', () => {
       style: { legendVisible: false, legendPlacement: 'right' },
     })
     expect(plot?.seriesStyles[0]?.style).toEqual({
-      color: '#123456',
+      lineStrokeColor: '#123456',
       lineWidthPt: 1.5,
       markerSizePt: 7,
       lineStyle: 'dash',
-      symbolShape: 'diamond',
+      markerShape: 'diamond',
     })
     expect(plot?.engineCapabilities?.set_axis).toEqual(['label', 'scale', 'bounds', 'reverse'])
     expect(plot?.preview?.url).toBe('plotagent-resource://preview/plot-test.png')

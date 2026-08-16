@@ -14,10 +14,13 @@ native_distribution_source = (
     / "origin"
     / "native_distribution.c"
 )
+native_visual_source = native_distribution_source.with_name("native_visual_t1.c")
 if not native_distribution_source.is_file():
     raise RuntimeError(
         f"staged wheel is missing the Origin distribution bridge: {native_distribution_source}"
     )
+if not native_visual_source.is_file():
+    raise RuntimeError(f"staged wheel is missing the Origin visual bridge: {native_visual_source}")
 
 analysis = Analysis(
     [str(project_root / "packaging" / "windows" / "desktop_core_entry.py")],
@@ -26,6 +29,10 @@ analysis = Analysis(
     datas=[
         (
             str(native_distribution_source),
+            "plotagent/engine/backends/origin",
+        ),
+        (
+            str(native_visual_source),
             "plotagent/engine/backends/origin",
         ),
     ],

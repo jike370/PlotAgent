@@ -16,9 +16,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
     SetChartParameter,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import K20Grid, k21_correlation_grid
@@ -54,14 +52,11 @@ class _K21State:
 
 def _origin_tick_string(labels: tuple[str, ...]) -> str:
     return " ".join(
-        f'"{label.replace(chr(34), chr(92) + chr(34)).replace(chr(10), " ")}"'
-        for label in labels
+        f'"{label.replace(chr(34), chr(92) + chr(34)).replace(chr(10), " ")}"' for label in labels
     )
 
 
-def _display_labels(
-    labels: tuple[str, ...], begin: float, end: float
-) -> tuple[str, ...]:
+def _display_labels(labels: tuple[str, ...], begin: float, end: float) -> tuple[str, ...]:
     return tuple(reversed(labels)) if begin > end else labels
 
 
@@ -119,27 +114,19 @@ class K21OriginProject:
         with origin_trace_step(
             "official_heatmap_with_labels_create",
             details={
-                "route": (
-                    "matrixbook + Heat_Map_With_Labels.otpu + add_mplot"
-                ),
+                "route": ("matrixbook + Heat_Map_With_Labels.otpu + add_mplot"),
                 "template_filename": template.name,
                 "native_plot_type": 105,
             },
         ):
-            self.graph = self.op.new_graph(
-                f"G{token}", template=str(argument), hidden=True
-            )
+            self.graph = self.op.new_graph(f"G{token}", template=str(argument), hidden=True)
         if self.graph is None:
-            raise RuntimeError(
-                "Origin could not create a graph from Heat_Map_With_Labels.otpu"
-            )
+            raise RuntimeError("Origin could not create a graph from Heat_Map_With_Labels.otpu")
         self.graph.lname = f"K21 Correlation Matrix / {document.plot_id}"
         self.layer = self.graph[0]
         self.plot = self.layer.add_mplot(self.sheet, 0, type=105)
         if self.plot is None:
-            raise RuntimeError(
-                "Origin Heat_Map_With_Labels.otpu rejected the native matrix plot"
-            )
+            raise RuntimeError("Origin Heat_Map_With_Labels.otpu rejected the native matrix plot")
         self.layer.rescale()
         state = _K21State("", grid.column_field_name, grid.row_field_name)
         self._configure_axes(grid, state)
@@ -169,13 +156,8 @@ class K21OriginProject:
         self.plot = plots[0]
         self.sheet = books[0][0]
 
-    def apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        data: EngineDataView,
-    ) -> None:
-        token = document.plot_id.removeprefix("plot:")
+    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, CreatePlot):
             return
         if isinstance(action, BindFields):
@@ -189,25 +171,6 @@ class K21OriginProject:
                 or action.value not in _TRIANGLE_THEME
             ):
                 raise ValueError("K21 exposes triangle=full|lower|upper")
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("K21 title target does not belong to this plot")
-            self._set_title(action.text)
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {
-                f"axis:{token}.x": "x",
-                f"axis:{token}.y": "y",
-            }.get(action.target)
-            if axis_name is None:
-                raise ValueError("K21 axis target does not belong to this plot")
-            if action.scale not in {None, "categorical"}:
-                raise ValueError("Origin K21 axes support only categorical scale")
-            if action.minimum is not None or action.maximum is not None:
-                raise ValueError("Origin K21 public axes do not expose numeric bounds")
-            if action.label is not None:
-                self._set_axis_label(axis_name, action.label)
             return
         raise ValueError(f"Origin K21 binder cannot apply {action.operation}")
 
@@ -300,9 +263,7 @@ class K21OriginProject:
                     semantic_id=f"legend:{token}.colorbar",
                     backend="origin",
                     object_kind="colorbar",
-                    native_ref=(
-                        f"graph:{self.graph.name}.layer:1.graph_object:{color_scale_name}"
-                    ),
+                    native_ref=(f"graph:{self.graph.name}.layer:1.graph_object:{color_scale_name}"),
                 ),
             ),
             data_hash=canonical_hash(data),
@@ -341,9 +302,7 @@ class K21OriginProject:
             raise RuntimeError("Origin could not set the K21 correlation color scale")
         if not self.op.set_lt_str("__K21CSTITLE", grid.value_field_name):
             raise RuntimeError("Origin could not stage the K21 color-scale title")
-        if not self.op.lt_exec(
-            "page.active=1; Spectrum1.title=1; Spectrum1.title$=__K21CSTITLE$;"
-        ):
+        if not self.op.lt_exec("page.active=1; Spectrum1.title=1; Spectrum1.title$=__K21CSTITLE$;"):
             raise RuntimeError("Origin could not set the K21 color-scale title")
 
     def _native_structure(self, state: _K21State) -> dict[str, object]:
@@ -429,12 +388,8 @@ class K21OriginProject:
             x_begin, x_end = x_end, x_begin
         if state.y_reverse:
             y_begin, y_end = y_end, y_begin
-        self.layer.axis("x").set_limits(
-            x_begin, x_end, -1.0 if x_begin > x_end else 1.0
-        )
-        self.layer.axis("y").set_limits(
-            y_begin, y_end, -1.0 if y_begin > y_end else 1.0
-        )
+        self.layer.axis("x").set_limits(x_begin, x_end, -1.0 if x_begin > x_end else 1.0)
+        self.layer.axis("y").set_limits(y_begin, y_end, -1.0 if y_begin > y_end else 1.0)
         self.layer.set_int("x.label.type", 10)
         self.layer.set_int("y.label.type", 10)
         self.layer.set_str(
@@ -494,9 +449,7 @@ class K21OriginProject:
             label = self.layer.label("xb" if axis_name == "x" else "yl")
             if label is None or label.text != axis_label:
                 raise RuntimeError("Origin K21 axis label did not survive readback")
-            begin, end, step = (
-                float(value) for value in self.layer.axis(axis_name).limits
-            )
+            begin, end, step = (float(value) for value in self.layer.axis(axis_name).limits)
             expected_descending = (axis_name == "y") != reverse
             if (begin > end) != expected_descending:
                 raise RuntimeError("Origin K21 axis direction did not survive readback")
@@ -512,43 +465,10 @@ class K21OriginProject:
         actions: tuple[PlotEngineAction, ...],
         grid: K20Grid,
     ) -> _K21State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K21State("", grid.column_field_name, grid.row_field_name)
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K21 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-                continue
-            if isinstance(action, SetAxis):
-                axis_name = {
-                    f"axis:{token}.x": "x",
-                    f"axis:{token}.y": "y",
-                }.get(action.target)
-                if axis_name is None:
-                    raise ValueError("K21 axis target does not belong to this plot")
-                if action.scale not in {None, "categorical"}:
-                    raise ValueError("Origin K21 axes support only categorical scale")
-                if action.minimum is not None or action.maximum is not None:
-                    raise ValueError("Origin K21 public axes do not expose numeric bounds")
-                if axis_name == "x":
-                    state = replace(
-                        state,
-                        x_label=state.x_label if action.label is None else action.label,
-                        x_reverse=(
-                            state.x_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
-                else:
-                    state = replace(
-                        state,
-                        y_label=state.y_label if action.label is None else action.label,
-                        y_reverse=(
-                            state.y_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
                 continue
             if isinstance(action, SetChartParameter):
                 if (
@@ -558,10 +478,7 @@ class K21OriginProject:
                 ):
                     raise ValueError("K21 exposes triangle=full|lower|upper")
                 state = replace(
-                    state,
-                    triangle=cast(
-                        Literal["full", "lower", "upper"], action.value
-                    ),
+                    state, triangle=cast(Literal["full", "lower", "upper"], action.value)
                 )
                 continue
             raise ValueError(f"Origin K21 binder cannot apply {action.operation}")
@@ -581,9 +498,7 @@ def execute_k21_request(
     else:
         project.open(Path(request.previous_opju))
         pending = request.actions[-1:]
-    with origin_trace_step(
-        "agent_actions_apply", details={"action_count": len(pending)}
-    ):
+    with origin_trace_step("agent_actions_apply", details={"action_count": len(pending)}):
         for action in pending:
             with origin_trace_step(
                 "agent_action_apply",

@@ -13,10 +13,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import (
@@ -70,15 +66,7 @@ def _safe_legend_label(value: str) -> str:
 def _effective_actions(
     actions: tuple[PlotEngineAction, ...],
 ) -> tuple[PlotEngineAction, ...]:
-    last_binding = max(
-        (index for index, action in enumerate(actions) if isinstance(action, BindFields)),
-        default=-1,
-    )
-    return tuple(
-        action
-        for index, action in enumerate(actions)
-        if not (isinstance(action, SetSeriesStyle) and index < last_binding)
-    )
+    return actions
 
 
 class ColumnFamilyOriginProject:
@@ -262,86 +250,10 @@ class ColumnFamilyOriginProject:
         self.book = books[0]
         self.sheet = self.book[0]
 
-    def apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        data: EngineDataView,
-    ) -> None:
-        grid = self._grid(document, data)
-        token = document.plot_id.removeprefix("plot:")
+    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
+        self._grid(document, data)
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, (CreatePlot, BindFields)):
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError(f"{self.profile_id} title target does not belong to this plot")
-            label = self.layer.label(_TITLE_NAME)
-            if label is None and action.text:
-                self.layer.activate()
-                if not self.layer.obj.LT_execute(
-                    f"label -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
-                ):
-                    raise RuntimeError(f"Origin could not create the {self.profile_id} title")
-                label = self.layer.label(_TITLE_NAME)
-                if label is None:
-                    raise RuntimeError(f"Origin could not create the {self.profile_id} title")
-            if label is not None:
-                label.text = action.text
-                label.set_int("attach", 1)
-                label.set_float("x1", 0.5)
-                label.set_float("y1", 0.012)
-                label.set_int("fsize", 14)
-                label.set_int("fstyle", 0)
-                label.set_int("background", 0)
-                label.set_int("show", int(bool(action.text)))
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-            if axis_name is None:
-                raise ValueError(f"{self.profile_id} axis target does not belong to this plot")
-            axis = self.layer.axis(axis_name)
-            if action.scale is not None:
-                if axis_name == "x" and action.scale != "categorical":
-                    raise ValueError("Origin column category axes support only categorical scale")
-                if axis_name == "y":
-                    if action.scale not in {"linear", "log10"}:
-                        raise ValueError("Origin column value axes support only linear or log10")
-                    axis.scale = action.scale
-            if action.minimum is not None and action.maximum is not None:
-                begin, end = action.minimum, action.maximum
-                if action.reverse:
-                    begin, end = end, begin
-                axis.set_limits(begin, end)
-            elif action.reverse is not None:
-                begin, end, step = (float(value) for value in axis.limits)
-                should_reverse = begin < end if action.reverse else begin > end
-                if should_reverse:
-                    axis.set_limits(end, begin, abs(step))
-            if action.label is not None:
-                label = self.layer.label("xb" if axis_name == "x" else "yl")
-                if label is None:
-                    label = self.layer.add_label(action.label)
-                if label is None:
-                    raise RuntimeError(f"Origin {self.profile_id} has no writable axis label")
-                label.text = action.label
-                label.set_int("show", 1)
-            return
-        if isinstance(action, SetSeriesStyle):
-            ordinal = self._series_ordinal(action.target, token, len(grid.series_labels))
-            plot = self.plots[0] if self.profile_id == "K09" else self.plots[ordinal - 1]
-            if action.color is not None:
-                self._set_series_rgb(grid, ordinal, action.color)
-            if action.line_width_pt is not None:
-                if self.profile_id == "K09":
-                    raise ValueError(
-                        "Origin K09 exposes subgroup fill color but not per-subgroup edge width"
-                    )
-                plot.set_float("line.width", action.line_width_pt)
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main":
-                raise ValueError(f"{self.profile_id} legend target does not belong to this plot")
-            self._set_legend(grid, bool(action.visible))
             return
         raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
 
@@ -403,43 +315,6 @@ class ColumnFamilyOriginProject:
             snapshot["native_percent_normalization"] = percent
             snapshot["native_plot_ids"] = list(native_plot_ids)
             snapshot["source_bindings"] = native_structure["source_bindings"]
-        for action in actions:
-            if isinstance(action, SetTitle):
-                title = self.layer.label(_TITLE_NAME)
-                if (
-                    title is None
-                    or title.text != action.text
-                    or not title.get_int("show")
-                    or title.get_int("attach") != 1
-                ):
-                    raise RuntimeError(f"Origin {self.profile_id} title did not survive readback")
-                snapshot["title"] = title.text
-            elif isinstance(action, SetAxis) and action.label is not None:
-                axis_name = "x" if action.target == f"axis:{token}.x" else "y"
-                label = self.layer.label("xb" if axis_name == "x" else "yl")
-                if label is None or label.text != action.label:
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} axis label did not survive readback"
-                    )
-            elif isinstance(action, SetSeriesStyle):
-                ordinal = self._series_ordinal(action.target, token, len(grid.series_labels))
-                plot = self.plots[0] if self.profile_id == "K09" else self.plots[ordinal - 1]
-                if action.color is not None:
-                    self._assert_series_rgb(grid, ordinal, action.color)
-                if action.line_width_pt is not None and (
-                    abs(float(plot.get_float("line.width")) - action.line_width_pt) > 0.01
-                ):
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} edge width did not survive readback"
-                    )
-            elif isinstance(action, SetLegend) and action.visible is not None:
-                legend = self.layer.label("legend")
-                if legend is None or bool(legend.get_int("show")) != action.visible:
-                    raise RuntimeError(
-                        f"Origin {self.profile_id} legend visibility did not survive readback"
-                    )
-                if action.visible and legend.text.count("\\l(") != len(grid.series_labels):
-                    raise RuntimeError(f"Origin {self.profile_id} legend lost a native sample")
         objects = (
             EngineObjectRef(
                 semantic_id=document.plot_id,
@@ -503,23 +378,6 @@ class ColumnFamilyOriginProject:
         ):
             raise ValueError("K11 each category must have a positive total")
         return grid
-
-    def _set_native_stack(self, *, percent: bool) -> None:
-        theme = self.layer.obj.GetTheme()
-        stack = next((node for node in theme.Children if node.Name == "Stack"), None)
-        if stack is None:
-            raise RuntimeError(f"Origin {self.profile_id} COLUMN template has no Stack theme")
-        offset = next((node for node in stack.Children if node.Name == "Offset"), None)
-        normalize = next(
-            (node for node in stack.Children if node.Name == "StackOffset"),
-            None,
-        )
-        if offset is None or normalize is None:
-            raise RuntimeError(f"Origin {self.profile_id} Stack theme is incomplete")
-        offset.SetIntValue(1)
-        normalize.SetIntValue(int(percent))
-        self.layer.obj.PutTheme(theme)
-        self.layer.rescale()
 
     def _native_stack_state(self) -> tuple[int, int]:
         theme = self.layer.obj.GetTheme()
@@ -667,99 +525,6 @@ class ColumnFamilyOriginProject:
             "x_function": _K09_OFFICIAL_XFUNCTION,
         }
 
-    def _set_series_rgb(
-        self,
-        grid: CategorySeriesGrid,
-        ordinal: int,
-        color: str,
-    ) -> None:
-        """Persist an arbitrary member color without breaking native grouping."""
-
-        if self.profile_id == "K09":
-            self._color_overrides[ordinal] = color
-            colors = tuple(
-                self._color_overrides.get(index, _PALETTE[(index - 1) % len(_PALETTE)])
-                for index in range(1, len(grid.series_labels) + 1)
-            )
-            values = ",".join(f'color("{item}")' for item in colors)
-            self.graph.activate()
-            self.op.lt_exec(
-                f"dataset __K09COLORS={{{values}}}; "
-                "set %C -pfbi 1; set %C -cue 1; set %C -cuf __K09COLORS;"
-            )
-            return
-        prefix = f"window -a {self.graph.name}; {self.graph.name}!page.active=1; "
-        self.op.lt_exec(
-            prefix
-            + f"range __{self.profile_id}HEAD=[{self.graph.name}]Layer1!1; "
-            + f"range __{self.profile_id}MEMBER=[{self.graph.name}]Layer1!{ordinal}; "
-            + f"set __{self.profile_id}HEAD -gm 1; "
-            + f'set __{self.profile_id}MEMBER -pfb color("{color}");'
-        )
-
-    def _assert_series_rgb(
-        self,
-        grid: CategorySeriesGrid,
-        ordinal: int,
-        color: str,
-    ) -> None:
-        if self.profile_id == "K09":
-            self.graph.activate()
-            self.op.lt_exec("get %C -cue __K09ENABLED; dataset __K09READ; get %C -cuf __K09READ;")
-            enabled = int(self.op.lt_float("__K09ENABLED"))
-            observed = int(self.op.lt_float(f"__K09READ[{ordinal}]"))
-            wanted = int(self.op.lt_float(f'color("{color}")'))
-            if enabled != 1 or observed != wanted:
-                raise RuntimeError("Origin K09 native group color list did not survive readback")
-            return
-        prefix = f"window -a {self.graph.name}; {self.graph.name}!page.active=1; "
-        self.op.lt_exec(
-            prefix
-            + f"range __{self.profile_id}HEAD=[{self.graph.name}]Layer1!1; "
-            + f"range __{self.profile_id}MEMBER=[{self.graph.name}]Layer1!{ordinal}; "
-            + f"get __{self.profile_id}HEAD -gm __{self.profile_id}GROUPMODE; "
-            + f"get __{self.profile_id}MEMBER -pfb __{self.profile_id}FILL;"
-        )
-        mode = int(self.op.lt_float(f"__{self.profile_id}GROUPMODE"))
-        observed = int(self.op.lt_float(f"__{self.profile_id}FILL"))
-        wanted = int(self.op.lt_float(f'color("{color}")'))
-        if mode != 1 or observed != wanted:
-            raise RuntimeError(
-                f"Origin {self.profile_id} native member fill did not survive readback"
-            )
-        record_origin_trace(
-            "reopened_native_member_color_confirmed",
-            "completed",
-            details={
-                "group_edit_mode": mode,
-                "ordinal": ordinal,
-                "resolved_color": observed,
-            },
-        )
-
-    def _set_legend(self, grid: CategorySeriesGrid, visible: bool) -> None:
-        legend = self.layer.label("legend")
-        if self.profile_id == "K09":
-            if legend is None:
-                raise RuntimeError("Origin K09 native grouped-column graph lost its legend")
-            if legend.text.count("\\l(") != len(grid.series_labels):
-                raise RuntimeError("Origin K09 native legend does not match subgroup count")
-            self._materialize_k09_legend(grid.series_labels)
-            legend.set_int("show", int(visible))
-            return
-        if visible and legend is None:
-            self.layer.activate()
-            if not self.layer.obj.LT_execute("legend"):
-                raise RuntimeError(f"Origin could not create the {self.profile_id} legend")
-            legend = self.layer.label("legend")
-        if legend is not None:
-            if legend.text.count("\\l(") != len(grid.series_labels):
-                raise RuntimeError(
-                    f"Origin {self.profile_id} native legend does not match source series"
-                )
-            legend.set_int("link", 1)
-            legend.set_int("show", int(visible))
-
     def _materialize_k09_legend(self, labels: tuple[str, ...]) -> None:
         legend = self.layer.label("legend")
         if legend is None:
@@ -769,13 +534,6 @@ class ColumnFamilyOriginProject:
             for index, label in enumerate(labels, start=1)
         )
         legend.set_int("link", 1)
-
-    def _series_ordinal(self, target: str, token: str, series_count: int) -> int:
-        prefix = f"series:{token}.{self.series_key}_"
-        suffix = target.removeprefix(prefix) if target.startswith(prefix) else ""
-        if not suffix.isdigit() or not 1 <= int(suffix) <= series_count:
-            raise ValueError(f"{self.profile_id} series target is outside the materialized data")
-        return int(suffix)
 
     def _assert_values(
         self,

@@ -15,10 +15,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import AreaSeriesData, k18_area_series
@@ -68,10 +64,7 @@ class K18OriginProject:
         ):
             self._write_data(document, data)
         self.sheet.activate()
-        command = (
-            f"worksheet -s 1 0 {len(expected.series) + 1} 0; "
-            "worksheet -p 204 Area;"
-        )
+        command = f"worksheet -s 1 0 {len(expected.series) + 1} 0; worksheet -p 204 Area;"
         with origin_trace_step(
             "official_plot_command_execute",
             details={
@@ -126,109 +119,9 @@ class K18OriginProject:
         self.sheet = self.book[0]
 
     def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
-        token = document.plot_id.removeprefix("plot:")
-        expected = k18_area_series(document, data)
+        document.plot_id.removeprefix("plot:")
+        k18_area_series(document, data)
         if isinstance(action, (CreatePlot, BindFields)):
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("K18 title target does not belong to this plot")
-            label = self.layer.label(_TITLE_NAME)
-            if label is None and action.text:
-                self.layer.activate()
-                if not self.layer.obj.LT_execute(
-                    f"label -j 1 -n {_TITLE_NAME} PlotAgentTitlePlaceholder;"
-                ):
-                    raise RuntimeError("Origin could not create the K18 title")
-                label = self.layer.label(_TITLE_NAME)
-            if label is not None:
-                label.text = action.text
-                label.set_int("attach", 1)
-                label.set_float("x1", 0.5)
-                label.set_float("y1", 0.012)
-                label.set_int("fsize", 14)
-                label.set_int("fstyle", 0)
-                label.set_int("background", 0)
-                label.set_int("show", int(bool(action.text)))
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(
-                action.target
-            )
-            if axis_name is None:
-                raise ValueError("K18 axis target does not belong to this plot")
-            if action.scale not in {None, "linear", "log10"}:
-                raise ValueError("K18 axes support only linear or log10 scale")
-            if action.scale == "log10":
-                values = (
-                    expected.x_values
-                    if axis_name == "x"
-                    else tuple(value for item in expected.series for value in item.values)
-                )
-                if any(np.isfinite(value) and value <= 0 for value in values):
-                    raise ValueError(
-                        f"K18 {axis_name} values must be positive on a log10 axis"
-                    )
-            axis = self.layer.axis(axis_name)
-            if action.scale is not None:
-                axis.scale = action.scale
-            if action.minimum is not None or action.maximum is not None:
-                if action.minimum is None or action.maximum is None:
-                    raise ValueError("K18 axis bounds require both minimum and maximum")
-                begin, end = action.minimum, action.maximum
-                if action.reverse:
-                    begin, end = end, begin
-                axis.set_limits(begin, end)
-            if action.reverse is not None:
-                begin, end, step = (float(value) for value in axis.limits)
-                should_reverse = begin < end if action.reverse else begin > end
-                if should_reverse:
-                    axis.set_limits(end, begin, abs(step))
-            if action.label is not None:
-                label = self.layer.label("xb" if axis_name == "x" else "yl")
-                if label is None:
-                    label = self.layer.add_label(action.label)
-                if label is None:
-                    raise RuntimeError("Origin AREA.otpu has no writable axis label")
-                label.text = action.label
-                label.set_int("show", 1)
-            return
-        if isinstance(action, SetSeriesStyle):
-            ordinal = self._series_ordinal(action.target, token, len(expected.series))
-            if action.symbol is not None or action.symbol_size_pt is not None:
-                raise ValueError("K18 Area does not expose symbol edits")
-            if action.line_style == "none":
-                raise ValueError("K18 Area cannot hide its boundary line")
-            self.graph.activate()
-            graph_name = str(self.graph.name)
-            if not graph_name.replace("_", "").isalnum():
-                raise RuntimeError("unsafe K18 graph name for native style edit")
-            command = (
-                f"range __K18HEAD=[{graph_name}]1!1; "
-                f"range __K18MEMBER=[{graph_name}]1!{ordinal}; "
-                "set __K18HEAD -gm 1;"
-            )
-            if action.color is not None:
-                command += (
-                    f'set __K18MEMBER -c color("{action.color}"); '
-                    f'set __K18MEMBER -cf color("{action.color}");'
-                )
-            if action.line_style is not None:
-                command += f"set __K18MEMBER -d {_LINE_STYLE_CODES[action.line_style]};"
-            if not self.op.lt_exec(command):
-                raise RuntimeError("Origin could not apply the K18 native Area style")
-            if action.line_width_pt is not None:
-                self.plots[ordinal - 1].set_float("line.width", action.line_width_pt)
-            return
-        if isinstance(action, SetLegend):
-            if action.target != f"legend:{token}.main":
-                raise ValueError("K18 legend target does not belong to this plot")
-            if action.anchor not in {None, "inside"}:
-                raise ValueError("K18 currently exposes only the template legend anchor")
-            self._set_legend(
-                expected,
-                visible=len(expected.series) > 1 if action.visible is None else action.visible,
-            )
             return
         raise ValueError(f"Origin K18 binder cannot apply {action.operation}")
 
@@ -273,75 +166,9 @@ class K18OriginProject:
         if len(self.plots) != len(expected.series):
             raise RuntimeError("Origin K18 series count differs after reopen")
         native_structure = self._native_area_structure(expected)
-        native_plots = cast(list[dict[str, object]], native_structure["plots"])
+        cast(list[dict[str, object]], native_structure["plots"])
         token = document.plot_id.removeprefix("plot:")
         style_snapshot: dict[str, object] = {"native_structure": native_structure}
-        for action in actions:
-            if isinstance(action, SetTitle):
-                title = self.layer.label(_TITLE_NAME)
-                if action.text:
-                    if title is None or title.text != action.text or not title.get_int("show"):
-                        raise RuntimeError("Origin K18 title did not survive readback")
-                elif title is not None and title.get_int("show"):
-                    raise RuntimeError("Origin K18 cleared title became visible again")
-                style_snapshot["title"] = action.text
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(
-                    action.target
-                )
-                if axis_name is None:
-                    raise RuntimeError("Origin K18 axis target changed during readback")
-                axis = self.layer.axis(axis_name)
-                if action.label is not None:
-                    label = self.layer.label("xb" if axis_name == "x" else "yl")
-                    if label is None or label.text != action.label:
-                        raise RuntimeError("Origin K18 axis label did not survive readback")
-                if action.scale is not None and self._axis_scale_code(axis_name) != {
-                    "linear": 0,
-                    "log10": 1,
-                }[action.scale]:
-                    raise RuntimeError("Origin K18 axis scale did not survive readback")
-                begin, end, step = (float(value) for value in axis.limits)
-                if action.minimum is not None:
-                    if action.maximum is None:
-                        raise RuntimeError("Origin K18 axis maximum disappeared")
-                    limits = (action.minimum, action.maximum)
-                    if action.reverse:
-                        limits = (limits[1], limits[0])
-                    if not np.allclose((begin, end), limits, rtol=0, atol=1e-12):
-                        raise RuntimeError("Origin K18 axis bounds did not survive readback")
-                if action.reverse is not None and ((begin > end) != action.reverse):
-                    raise RuntimeError("Origin K18 axis direction did not survive readback")
-                style_snapshot[f"axis_{axis_name}"] = {
-                    "label": action.label,
-                    "scale_code": self._axis_scale_code(axis_name),
-                    "limits": [begin, end, step],
-                }
-            elif isinstance(action, SetSeriesStyle):
-                ordinal = self._series_ordinal(action.target, token, len(expected.series))
-                observed = native_plots[ordinal - 1]
-                if action.color is not None:
-                    expected_color = self._origin_color_code(action.color)
-                    if observed["line_color"] != expected_color:
-                        raise RuntimeError("Origin K18 boundary color did not survive readback")
-                    if observed["fill_color"] != expected_color:
-                        raise RuntimeError("Origin K18 fill color did not survive readback")
-                if action.line_width_pt is not None and abs(
-                    cast(float, observed["line_width_pt"]) - action.line_width_pt
-                ) > 0.01:
-                    raise RuntimeError("Origin K18 boundary width did not survive readback")
-                if action.line_style is not None and observed["line_style"] != (
-                    _LINE_STYLE_CODES[action.line_style]
-                ):
-                    raise RuntimeError("Origin K18 boundary style did not survive readback")
-                style_snapshot[f"series_{ordinal}"] = observed
-            elif isinstance(action, SetLegend) and action.visible is not None:
-                legend = self.layer.label("legend")
-                if legend is None or bool(legend.get_int("show")) != action.visible:
-                    raise RuntimeError("Origin K18 legend visibility did not survive readback")
-                if action.visible and legend.text.count("\\l(") != len(expected.series):
-                    raise RuntimeError("Origin K18 legend lost a linked series entry")
-                style_snapshot["legend"] = action.visible
 
         return EngineReadback(
             document=document_ref(document),
@@ -429,18 +256,14 @@ class K18OriginProject:
             int(self.sheet.get_int(f"col{index + 1}.type"))
             for index in range(len(expected.series) + 1)
         )
-        if plot_count != len(expected.series) or any(
-            item["plot_id"] != 204 for item in plots
-        ):
+        if plot_count != len(expected.series) or any(item["plot_id"] != 204 for item in plots):
             raise RuntimeError("Origin K18 must retain one native PID 204 plot per series")
         if designation != (4,) + (1,) * len(expected.series):
             raise RuntimeError("Origin K18 worksheet must retain X + N Y designations")
         for index, item in enumerate(plots, start=1):
             x_head = str(item["x_range"]).split('"', 1)[0]
             y_head = str(item["y_range"]).split('"', 1)[0]
-            if not x_head.endswith("!A") or not y_head.endswith(
-                "!" + self._column_name(index + 1)
-            ):
+            if not x_head.endswith("!A") or not y_head.endswith("!" + self._column_name(index + 1)):
                 raise RuntimeError("Origin K18 native Area plot lost its X/Y source bindings")
         return {
             "designation_codes": list(designation),
@@ -466,31 +289,6 @@ class K18OriginProject:
         if visible and legend.text.count("\\l(") != len(expected.series):
             raise RuntimeError("Origin K18 legend entry count differs from the series count")
 
-    def _axis_scale_code(self, axis_name: str) -> int:
-        self.graph.activate()
-        token = {"x": "X", "y": "Y"}.get(axis_name)
-        if token is None:
-            raise ValueError("K18 native scale readback requires x or y axis")
-        if not self.op.lt_exec(f"axis -pg {token} S __K18SCALE;"):
-            raise RuntimeError("Origin could not read the K18 native axis scale")
-        return int(self.op.lt_float("__K18SCALE"))
-
-    def _origin_color_code(self, color: str) -> int:
-        return int(self.op.lt_float(f'color("{color}")'))
-
-    @staticmethod
-    def _series_ordinal(target: str, token: str, series_count: int) -> int:
-        prefix = f"series:{token}.area_"
-        if not target.startswith(prefix):
-            raise ValueError("K18 series target does not belong to this plot")
-        try:
-            ordinal = int(target.removeprefix(prefix))
-        except ValueError as error:
-            raise ValueError("K18 series target requires a numeric ordinal") from error
-        if ordinal < 1 or ordinal > series_count:
-            raise ValueError("K18 series target ordinal is outside the bound data")
-        return ordinal
-
     @staticmethod
     def _column_name(ordinal: int) -> str:
         if ordinal < 1:
@@ -511,9 +309,7 @@ def execute_k18_request(
 ) -> EngineReadback:
     project = K18OriginProject(op)
     project.create(install_dir, request.document, request.data)
-    with origin_trace_step(
-        "agent_actions_apply", details={"action_count": len(request.actions)}
-    ):
+    with origin_trace_step("agent_actions_apply", details={"action_count": len(request.actions)}):
         for action in request.actions:
             with origin_trace_step(
                 "agent_action_apply",

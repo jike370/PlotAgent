@@ -44,6 +44,51 @@ ColorHex = Annotated[
     str,
     StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$", strict=True),
 ]
+FontFamily = Literal[
+    "auto",
+    "Arial",
+    "Calibri",
+    "Times New Roman",
+    "Segoe UI",
+    "Microsoft YaHei",
+    "SimSun",
+]
+FontWeight = Literal["normal", "bold"]
+LineStyle = Literal["solid", "dash", "dot", "dash_dot", "none"]
+MarkerShape = Literal[
+    "circle",
+    "square",
+    "triangle_up",
+    "triangle_down",
+    "triangle_left",
+    "triangle_right",
+    "diamond",
+    "plus",
+    "cross",
+    "hexagon",
+    "star",
+    "pentagon",
+    "none",
+]
+MarkerInterior = Literal["solid", "open", "hollow"]
+PaletteName = Literal[
+    "viridis",
+    "plasma",
+    "inferno",
+    "magma",
+    "cividis",
+    "turbo",
+    "blue_orange",
+    "red_white_blue",
+    "blue_white_red",
+    "gray_scale",
+    "fire",
+    "rainbow_modified",
+    "cool_warm",
+    "spectral",
+    "terrain",
+    "ocean",
+]
 
 
 class EngineDataRef(StrictModel):
@@ -184,7 +229,30 @@ class SetTitle(VersionedPlotAction):
     operation: Literal["set_title"] = "set_title"
     action_id: ActionId
     target: SemanticObjectId
-    text: Annotated[str, StringConstraints(max_length=512, strict=True)]
+    text: Annotated[str, StringConstraints(max_length=512, strict=True)] | None = None
+    font_family: FontFamily | None = None
+    font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    font_weight: FontWeight | None = None
+    italic: bool | None = None
+    color: ColorHex | None = None
+
+    @model_validator(mode="after")
+    def valid_title_edit(self) -> SetTitle:
+        if not self.target.startswith("plot:"):
+            raise ValueError("set_title requires a plot target")
+        if all(
+            value is None
+            for value in (
+                self.text,
+                self.font_family,
+                self.font_size_pt,
+                self.font_weight,
+                self.italic,
+                self.color,
+            )
+        ):
+            raise ValueError("set_title requires at least one explicit change")
+        return self
 
 
 class SetAxis(VersionedPlotAction):
@@ -196,6 +264,25 @@ class SetAxis(VersionedPlotAction):
     minimum: FiniteNumber | None = None
     maximum: FiniteNumber | None = None
     reverse: bool | None = None
+    title_font_family: FontFamily | None = None
+    title_font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    title_font_weight: FontWeight | None = None
+    title_italic: bool | None = None
+    title_color: ColorHex | None = None
+    major_tick_step: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    minor_tick_count: Annotated[int, Field(ge=0, le=20)] | None = None
+    tick_format: Literal["auto", "decimal", "scientific", "percent", "date", "time"] | None = None
+    tick_rotation_deg: Annotated[float, Field(ge=-180, le=180, allow_inf_nan=False)] | None = None
+    tick_font_family: FontFamily | None = None
+    tick_font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    tick_color: ColorHex | None = None
+    axis_line_color: ColorHex | None = None
+    axis_line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
+    major_grid_visible: bool | None = None
+    minor_grid_visible: bool | None = None
+    grid_color: ColorHex | None = None
+    grid_line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
+    grid_line_style: LineStyle | None = None
 
     @model_validator(mode="after")
     def valid_axis_edit(self) -> SetAxis:
@@ -207,7 +294,32 @@ class SetAxis(VersionedPlotAction):
             raise ValueError("axis minimum must be lower than maximum")
         if all(
             value is None
-            for value in (self.label, self.scale, self.minimum, self.maximum, self.reverse)
+            for value in (
+                self.label,
+                self.scale,
+                self.minimum,
+                self.maximum,
+                self.reverse,
+                self.title_font_family,
+                self.title_font_size_pt,
+                self.title_font_weight,
+                self.title_italic,
+                self.title_color,
+                self.major_tick_step,
+                self.minor_tick_count,
+                self.tick_format,
+                self.tick_rotation_deg,
+                self.tick_font_family,
+                self.tick_font_size_pt,
+                self.tick_color,
+                self.axis_line_color,
+                self.axis_line_width_pt,
+                self.major_grid_visible,
+                self.minor_grid_visible,
+                self.grid_color,
+                self.grid_line_width_pt,
+                self.grid_line_style,
+            )
         ):
             raise ValueError("set_axis requires at least one explicit change")
         return self
@@ -217,11 +329,26 @@ class SetSeriesStyle(VersionedPlotAction):
     operation: Literal["set_series_style"] = "set_series_style"
     action_id: ActionId
     target: SemanticObjectId
-    color: ColorHex | None = None
+    line_stroke_color: ColorHex | None = None
     line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
-    line_style: Literal["solid", "dash", "dot", "dash_dot", "none"] | None = None
-    symbol: Token | None = None
-    symbol_size_pt: Annotated[float, Field(gt=0, le=72, allow_inf_nan=False)] | None = None
+    line_style: LineStyle | None = None
+    line_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    marker_shape: MarkerShape | None = None
+    marker_size_pt: Annotated[float, Field(gt=0, le=72, allow_inf_nan=False)] | None = None
+    marker_interior: MarkerInterior | None = None
+    marker_fill_color: ColorHex | None = None
+    marker_stroke_color: ColorHex | None = None
+    marker_stroke_width_pt: Annotated[
+        float, Field(ge=0, le=20, allow_inf_nan=False)
+    ] | None = None
+    marker_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    fill_color: ColorHex | None = None
+    fill_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    fill_stroke_color: ColorHex | None = None
+    fill_stroke_width_pt: Annotated[
+        float, Field(ge=0, le=20, allow_inf_nan=False)
+    ] | None = None
+    fill_stroke_style: LineStyle | None = None
 
     @model_validator(mode="after")
     def valid_series_edit(self) -> SetSeriesStyle:
@@ -230,11 +357,22 @@ class SetSeriesStyle(VersionedPlotAction):
         if all(
             value is None
             for value in (
-                self.color,
+                self.line_stroke_color,
                 self.line_width_pt,
                 self.line_style,
-                self.symbol,
-                self.symbol_size_pt,
+                self.line_opacity,
+                self.marker_shape,
+                self.marker_size_pt,
+                self.marker_interior,
+                self.marker_fill_color,
+                self.marker_stroke_color,
+                self.marker_stroke_width_pt,
+                self.marker_opacity,
+                self.fill_color,
+                self.fill_opacity,
+                self.fill_stroke_color,
+                self.fill_stroke_width_pt,
+                self.fill_stroke_style,
             )
         ):
             raise ValueError("set_series_style requires at least one explicit change")
@@ -247,13 +385,121 @@ class SetLegend(VersionedPlotAction):
     target: SemanticObjectId
     visible: bool | None = None
     anchor: Literal["inside", "right", "bottom", "none"] | None = None
+    columns: Annotated[int, Field(ge=1, le=12)] | None = None
+    title: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
+    font_family: FontFamily | None = None
+    font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    font_color: ColorHex | None = None
+    frame_visible: bool | None = None
+    frame_color: ColorHex | None = None
+    frame_width_pt: Annotated[float, Field(ge=0, le=20, allow_inf_nan=False)] | None = None
 
     @model_validator(mode="after")
     def valid_legend_edit(self) -> SetLegend:
         if not self.target.startswith("legend:"):
             raise ValueError("set_legend requires a legend target")
-        if self.visible is None and self.anchor is None:
+        if all(
+            value is None
+            for value in (
+                self.visible,
+                self.anchor,
+                self.columns,
+                self.title,
+                self.font_family,
+                self.font_size_pt,
+                self.font_color,
+                self.frame_visible,
+                self.frame_color,
+                self.frame_width_pt,
+            )
+        ):
             raise ValueError("set_legend requires at least one explicit change")
+        return self
+
+
+class SetColorMap(VersionedPlotAction):
+    operation: Literal["set_colormap"] = "set_colormap"
+    action_id: ActionId
+    target: SemanticObjectId
+    palette: PaletteName | None = None
+    reverse: bool | None = None
+    minimum: FiniteNumber | None = None
+    maximum: FiniteNumber | None = None
+    midpoint: FiniteNumber | None = None
+    mode: Literal["continuous", "discrete"] | None = None
+    levels: Annotated[int, Field(ge=2, le=256)] | None = None
+    missing_color: ColorHex | None = None
+    colorbar_visible: bool | None = None
+    colorbar_anchor: Literal["right", "bottom"] | None = None
+    colorbar_title: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
+    colorbar_tick_format: Literal["auto", "decimal", "scientific", "percent"] | None = None
+
+    @model_validator(mode="after")
+    def valid_colormap_edit(self) -> SetColorMap:
+        if not self.target.startswith("series:"):
+            raise ValueError("set_colormap requires a series target")
+        if (self.minimum is None) != (self.maximum is None):
+            raise ValueError("colormap bounds must both be fixed or both be automatic")
+        if self.midpoint is not None and self.minimum is None:
+            raise ValueError("colormap midpoint requires fixed minimum and maximum")
+        if self.minimum is not None and self.maximum is not None:
+            if self.minimum >= self.maximum:
+                raise ValueError("colormap minimum must be lower than maximum")
+            if self.midpoint is not None and not self.minimum < self.midpoint < self.maximum:
+                raise ValueError("colormap midpoint must lie inside fixed bounds")
+        metadata = {"operation", "action_id", "target", "expected_plot_version"}
+        if all(value is None for name, value in self if name not in metadata):
+            raise ValueError("set_colormap requires at least one explicit change")
+        return self
+
+
+class SetErrorStyle(VersionedPlotAction):
+    operation: Literal["set_error_style"] = "set_error_style"
+    action_id: ActionId
+    target: SemanticObjectId
+    bar_color: ColorHex | None = None
+    bar_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
+    cap_size_pt: Annotated[float, Field(ge=0, le=72, allow_inf_nan=False)] | None = None
+    bar_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    band_fill_color: ColorHex | None = None
+    band_fill_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
+    band_stroke_color: ColorHex | None = None
+    band_stroke_width_pt: Annotated[
+        float, Field(ge=0, le=20, allow_inf_nan=False)
+    ] | None = None
+
+    @model_validator(mode="after")
+    def valid_error_edit(self) -> SetErrorStyle:
+        if not self.target.startswith("series:"):
+            raise ValueError("set_error_style requires a series target")
+        metadata = {"operation", "action_id", "target", "expected_plot_version"}
+        if all(value is None for name, value in self if name not in metadata):
+            raise ValueError("set_error_style requires at least one explicit change")
+        return self
+
+
+class SetDataLabels(VersionedPlotAction):
+    operation: Literal["set_data_labels"] = "set_data_labels"
+    action_id: ActionId
+    target: SemanticObjectId
+    visible: bool | None = None
+    value_format: Literal["auto", "decimal", "scientific", "percent"] | None = None
+    prefix: Annotated[str, StringConstraints(max_length=32, strict=True)] | None = None
+    suffix: Annotated[str, StringConstraints(max_length=32, strict=True)] | None = None
+    position: Literal["auto", "above", "below", "left", "right", "center"] | None = None
+    rotation_deg: Annotated[float, Field(ge=-180, le=180, allow_inf_nan=False)] | None = None
+    font_family: FontFamily | None = None
+    font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    font_weight: FontWeight | None = None
+    font_color: ColorHex | None = None
+
+    @model_validator(mode="after")
+    def valid_label_edit(self) -> SetDataLabels:
+        if not self.target.startswith("series:"):
+            raise ValueError("set_data_labels requires a series target")
+        metadata = {"operation", "action_id", "target", "expected_plot_version"}
+        if all(value is None for name, value in self if name not in metadata):
+            raise ValueError("set_data_labels requires at least one explicit change")
         return self
 
 
@@ -274,6 +520,12 @@ class AddAnnotation(VersionedPlotAction):
     x: FiniteNumber
     y: FiniteNumber
     coordinate_system: Literal["data", "axes", "page"] = "data"
+    font_family: FontFamily | None = None
+    font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    font_weight: FontWeight | None = None
+    italic: bool | None = None
+    color: ColorHex | None = None
+    rotation_deg: Annotated[float, Field(ge=-180, le=180, allow_inf_nan=False)] | None = None
 
     @model_validator(mode="after")
     def annotation_target_kind(self) -> AddAnnotation:
@@ -297,6 +549,9 @@ PlotEngineAction = Annotated[
     | SetAxis
     | SetSeriesStyle
     | SetLegend
+    | SetColorMap
+    | SetErrorStyle
+    | SetDataLabels
     | SetChartParameter
     | AddAnnotation
     | ExportPlot,
@@ -319,6 +574,9 @@ class EngineCapability(StrictModel):
         "set_axis",
         "set_series_style",
         "set_legend",
+        "set_colormap",
+        "set_error_style",
+        "set_data_labels",
         "set_chart_parameter",
         "add_annotation",
         "export_plot",

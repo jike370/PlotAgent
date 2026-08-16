@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -21,10 +21,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import k06_point_error
@@ -71,12 +67,8 @@ class K06PointErrorRenderer:
         container = axis.errorbar(
             np.asarray(series.x_values, dtype=float),
             np.asarray(series.center_values, dtype=float),
-            xerr=np.asarray(
-                (series.x_minus_errors, series.x_plus_errors), dtype=float
-            ),
-            yerr=np.asarray(
-                (series.y_minus_errors, series.y_plus_errors), dtype=float
-            ),
+            xerr=np.asarray((series.x_minus_errors, series.x_plus_errors), dtype=float),
+            yerr=np.asarray((series.y_minus_errors, series.y_plus_errors), dtype=float),
             fmt=self._marker(state.symbol),
             linestyle="none",
             color=state.color,
@@ -180,7 +172,7 @@ class K06PointErrorRenderer:
         x_name: str,
         center_name: str,
     ) -> _K06State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K06State(
             title="",
             x_axis=_AxisState(x_name),
@@ -189,63 +181,5 @@ class K06PointErrorRenderer:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K06 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x_axis", f"axis:{token}.y": "y_axis"}.get(
-                    action.target
-                )
-                if axis_name is None:
-                    raise ValueError("K06 axis target does not belong to this plot")
-                current = getattr(state, axis_name)
-                bounds = (
-                    (current.minimum, current.maximum)
-                    if action.minimum is None
-                    else (action.minimum, action.maximum)
-                )
-                state = replace(
-                    state,
-                    **{
-                        axis_name: replace(
-                            current,
-                            label=current.label if action.label is None else action.label,
-                            scale=current.scale if action.scale is None else action.scale,
-                            minimum=bounds[0],
-                            maximum=bounds[1],
-                            reverse=current.reverse if action.reverse is None else action.reverse,
-                        )
-                    },
-                )
-            elif isinstance(action, SetSeriesStyle):
-                if action.target != f"series:{token}.primary":
-                    raise ValueError("K06 series target does not belong to this plot")
-                state = replace(
-                    state,
-                    color=state.color if action.color is None else action.color,
-                    line_width_pt=(
-                        state.line_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt
-                    ),
-                    symbol=state.symbol if action.symbol is None else action.symbol,
-                    symbol_size_pt=(
-                        state.symbol_size_pt
-                        if action.symbol_size_pt is None
-                        else action.symbol_size_pt
-                    ),
-                )
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError("K06 legend target does not belong to this plot")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                    legend_anchor=state.legend_anchor if action.anchor is None else action.anchor,
-                )
-            else:
-                raise ValueError(f"K06 renderer cannot apply {action.operation}")
+            raise ValueError(f"K06 renderer cannot apply {action.operation}")
         return state

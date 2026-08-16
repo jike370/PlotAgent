@@ -60,6 +60,7 @@ from plotagent.engine.profile_data import (
     distribution_groups,
     k09_grouped_indexed_data,
 )
+from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "9" * 64
 
@@ -97,7 +98,7 @@ def _case(
         action_id=f"action:style-{profile_id.lower()}",
         target=f"series:{profile_id.lower()}-columns.{series_role}_{series_count}",
         expected_plot_version=1,
-        color="#AA3300",
+        line_stroke_color="#AA3300",
         line_width_pt=None if profile_id == "K09" else 1.2,
     )
     legend = SetLegend(
@@ -209,7 +210,7 @@ def test_k09_grouped_columns_do_not_overlap_for_five_groups() -> None:
     document, actions, view = _case("K09", 5)
     renderer = K09GroupedColumnRenderer()
     grid = category_series_grid(document, view, profile_id="K09")
-    state = renderer._state(document, actions, grid)
+    state = renderer._state(document, split_visual_actions(actions)[0], grid)
     figure, axis = plt.subplots()
     containers = renderer._draw(
         axis,
@@ -301,6 +302,7 @@ class _Plot:
 
     def get_int(self, name: str) -> int:
         return self.ints.get(name, 0)
+
 
 class _ThemeNode:
     def __init__(
@@ -533,8 +535,7 @@ class _Origin:
         elif command.startswith("legendbox"):
             self.graph.layer.labels["legend"] = _Label(
                 "\n".join(
-                    f"\\l({index}) %({index}, @L)"
-                    for index in range(1, self.book.sheet.cols + 1)
+                    f"\\l({index}) %({index}, @L)" for index in range(1, self.book.sheet.cols + 1)
                 )
             )
         elif command.startswith("dataset __K") and "COLORS" in command:
@@ -609,9 +610,9 @@ def test_column_family_origin_binders_start_from_pinned_official_template(
     origin = _Origin()
     project = ColumnFamilyOriginProject(origin, profile_id=profile_id)  # type: ignore[arg-type]
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     if profile_id == "K09":
         assert origin.template == ""
@@ -623,8 +624,7 @@ def test_column_family_origin_binders_start_from_pinned_official_template(
         assert origin.graph.layer.group_calls == []
         assert set(origin.book.sheet.columns) == {0, 1, 2, 3}
         assert all(
-            label in origin.graph.layer.labels["legend"].text
-            for label in ("S1", "S2", "S3")
+            label in origin.graph.layer.labels["legend"].text for label in ("S1", "S2", "S3")
         )
     else:
         assert origin.template == ""
@@ -646,13 +646,12 @@ def test_column_family_origin_binders_start_from_pinned_official_template(
     if profile_id == "K09":
         assert origin.graph.layer.plots[0].commands == []
         assert origin.color_col_calls == []
-        assert origin.k09_colors == [0x1676D2, 0xD97800, 0xAA3300]
+        assert origin.k09_colors == []
     else:
         stack = origin.graph.layer.theme.Children[0]
         assert stack.Children[0].nVal == 1
         assert stack.Children[1].nVal == int(profile_id == "K11")
-        assert origin.group_edit_mode == 1
-        assert origin.member_fill == 0xAA3300
+        assert origin.group_edit_mode == 0
         assert origin.color_col_calls == []
     if profile_id == "K11":
         assert origin.book.sheet.columns[1] == [11.0, 21.0]
@@ -681,7 +680,7 @@ def test_k09_origin_route_explicitly_binds_official_xfunction_and_template() -> 
     assert ".add_plot(" not in source
 
 
-def test_official_stack_title_is_page_attached_and_survives_readback(
+def test_official_stack_renderer_never_consumes_shared_visual_actions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -707,15 +706,13 @@ def test_official_stack_title_is_page_attached_and_survives_readback(
     origin = _Origin()
     project = ColumnFamilyOriginProject(origin, profile_id="K10")
     project.create(tmp_path, document, view)
-    for action in (*actions, title):
+    structural, visual = split_visual_actions((*actions, title))
+    for action in structural:
         project.apply(document, action, view)
-    project.verify(document, (*actions, title), view)
+    project.verify(document, structural, view)
 
-    label = origin.graph.layer.labels["_ENGINE_TITLE"]
-    assert label.text == "K10 representative edit"
-    assert label.get_int("attach") == 1
-    assert label.values["x1"] == 0.5
-    assert label.values["y1"] == 0.012
+    assert title in visual
+    assert "_ENGINE_TITLE" not in origin.graph.layer.labels
 
 
 def _distribution_case(
@@ -744,9 +741,9 @@ def _distribution_case(
         data=data,
         bindings=bindings,
     )
-    style_arguments: dict[str, object] = {"color": "#AA3300"}
+    style_arguments: dict[str, object] = {"line_stroke_color": "#AA3300"}
     if profile_id == "K12":
-        style_arguments.update(symbol="diamond", symbol_size_pt=7.0)
+        style_arguments.update(marker_shape="diamond", marker_size_pt=7.0)
     style = SetSeriesStyle(
         action_id=f"action:style-{profile_id.lower()}",
         target=f"series:{profile_id.lower()}-distribution.group_{group_count}",
@@ -830,7 +827,7 @@ def test_k14_matplotlib_omits_extrema_edge_lines() -> None:
     document, actions, view = _distribution_case("K14", 2)
     renderer = K14ViolinRenderer()
     distribution = distribution_groups(document, view, profile_id="K14")
-    state = renderer._state(document, actions, distribution)
+    state = renderer._state(document, split_visual_actions(actions)[0], distribution)
     figure, axis = plt.subplots()
     renderer._draw(axis, distribution, state)
     segments = tuple(
@@ -880,9 +877,7 @@ def test_distribution_origin_uses_only_the_official_native_plot_type(
                 DIST_BANDWIDTH_FACTOR: bandwidth,
                 DIST_EXTEND: 0.0,
             }
-        native_values.update(
-            {(plot_index, theme_id): value for theme_id, value in values.items()}
-        )
+        native_values.update({(plot_index, theme_id): value for theme_id, value in values.items()})
 
     def read(_op, _graph, plot_index, theme_id, *, numeric_type):
         return native_values[(1, theme_id)]
@@ -892,15 +887,13 @@ def test_distribution_origin_uses_only_the_official_native_plot_type(
     origin = _Origin()
     project = DistributionOriginProject(origin, profile_id=profile_id)  # type: ignore[arg-type]
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert origin.template == ""
     menu_name = {"K12": "ColumnScatter", "K13": "Box", "K14": "Violin"}[profile_id]
-    assert origin.commands[0] == (
-        f"worksheet -s 1 0 3 0; worksheet -p 206 {menu_name};"
-    )
+    assert origin.commands[0] == (f"worksheet -s 1 0 3 0; worksheet -p 206 {menu_name};")
     assert origin.graph.layer.add_calls == [
         {"coly": index, "official": menu_name} for index in range(3)
     ]
@@ -919,17 +912,13 @@ def test_distribution_origin_uses_only_the_official_native_plot_type(
         assert native_values[(1, WHISKER_COEFF)] == pytest.approx(1.5)
         assert native_values[(1, HAS_OUTLIERS)] == 1
     else:
-        pooled = tuple(
-            value for start in (11, 21, 31) for value in range(start, start + 6)
-        )
+        pooled = tuple(value for start in (11, 21, 31) for value in range(start, start + 6))
         expected_bandwidth = np.std(pooled, ddof=1) * len(pooled) ** (-1 / 5)
         assert native_values[(1, DIST_CURVE_TYPE)] == 8
         assert native_values[(1, DIST_CURVE_SCALE)] == 100
         assert native_values[(1, DIST_SCALE_TYPE)] == 1
         assert native_values[(1, DIST_BANDWIDTH)] == 255
-        assert native_values[(1, DIST_BANDWIDTH_FACTOR)] == pytest.approx(
-            expected_bandwidth
-        )
+        assert native_values[(1, DIST_BANDWIDTH_FACTOR)] == pytest.approx(expected_bandwidth)
         assert native_values[(1, DIST_EXTEND)] == 0.0
         assert origin.group_edit_mode == 1
 
@@ -938,7 +927,7 @@ def test_k14_matplotlib_writes_the_same_shared_absolute_bandwidth_contract() -> 
     document, actions, view = _distribution_case("K14", 3)
     renderer = K14ViolinRenderer()
     distribution = distribution_groups(document, view, profile_id="K14")
-    state = renderer._state(document, actions, distribution)
+    state = renderer._state(document, split_visual_actions(actions)[0], distribution)
     figure, axis = plt.subplots()
     original = axis.violinplot
     calls: list[dict[str, object]] = []

@@ -16,9 +16,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
     SetChartParameter,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import K20Grid, s61_confusion_grid
@@ -43,8 +41,7 @@ class _S61State:
 
 def _origin_tick_string(labels: tuple[str, ...]) -> str:
     return " ".join(
-        f'"{label.replace(chr(34), chr(92) + chr(34)).replace(chr(10), " ")}"'
-        for label in labels
+        f'"{label.replace(chr(34), chr(92) + chr(34)).replace(chr(10), " ")}"' for label in labels
     )
 
 
@@ -111,20 +108,14 @@ class S61OriginProject:
                 "native_plot_type": 105,
             },
         ):
-            self.graph = self.op.new_graph(
-                f"G{token}", template=str(argument), hidden=True
-            )
+            self.graph = self.op.new_graph(f"G{token}", template=str(argument), hidden=True)
         if self.graph is None:
-            raise RuntimeError(
-                "Origin could not create S61 from Heat_Map_With_Labels.otpu"
-            )
+            raise RuntimeError("Origin could not create S61 from Heat_Map_With_Labels.otpu")
         self.graph.lname = f"S61 Confusion Matrix / {document.plot_id}"
         self.layer = self.graph[0]
         self.plot = self.layer.add_mplot(self.sheet, 0, type=105)
         if self.plot is None:
-            raise RuntimeError(
-                "Origin Heat_Map_With_Labels.otpu rejected the S61 matrix"
-            )
+            raise RuntimeError("Origin Heat_Map_With_Labels.otpu rejected the S61 matrix")
         self.layer.rescale()
         state = _S61State("", grid.column_field_name, grid.row_field_name)
         self._configure_axes(grid, state)
@@ -132,9 +123,7 @@ class S61OriginProject:
         self._configure_color_scale(grid)
         native = self._native_structure(state)
         self.last_native_structure = native
-        record_origin_trace(
-            "native_labeled_heatmap_confirmed", "completed", details=native
-        )
+        record_origin_trace("native_labeled_heatmap_confirmed", "completed", details=native)
 
     def open(self, project_path: Path, *, readonly: bool = False) -> None:
         with origin_trace_step("origin_project_initialize"):
@@ -156,13 +145,8 @@ class S61OriginProject:
         self.plot = plots[0]
         self.sheet = books[0][0]
 
-    def apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        data: EngineDataView,
-    ) -> None:
-        token = document.plot_id.removeprefix("plot:")
+    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, CreatePlot):
             return
         if isinstance(action, BindFields):
@@ -171,30 +155,11 @@ class S61OriginProject:
             self.layer.rescale()
             self._configure_color_scale(grid)
             return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("S61 title target does not belong to this plot")
-            self._set_title(action.text)
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {
-                f"axis:{token}.x": "x",
-                f"axis:{token}.y": "y",
-            }.get(action.target)
-            if axis_name is None:
-                raise ValueError("S61 axis target does not belong to this plot")
-            if action.scale not in {None, "categorical"}:
-                raise ValueError("Origin S61 axes support only categorical scale")
-            if action.minimum is not None or action.maximum is not None:
-                raise ValueError("Origin S61 public axes do not expose numeric bounds")
-            if action.label is not None:
-                self._set_axis_label(axis_name, action.label)
-            return
         if isinstance(action, SetChartParameter):
             if (
                 action.target != document.plot_id
                 or action.parameter != "show_counts"
-                or not isinstance(action.value, bool)
+                or (not isinstance(action.value, bool))
             ):
                 raise ValueError("S61 show_counts must be boolean")
             self._configure_labels(action.value)
@@ -290,9 +255,7 @@ class S61OriginProject:
                     semantic_id=f"legend:{token}.colorbar",
                     backend="origin",
                     object_kind="colorbar",
-                    native_ref=(
-                        f"graph:{self.graph.name}.layer:1.graph_object:{color_scale_name}"
-                    ),
+                    native_ref=(f"graph:{self.graph.name}.layer:1.graph_object:{color_scale_name}"),
                 ),
             ),
             data_hash=canonical_hash(data),
@@ -327,9 +290,7 @@ class S61OriginProject:
             raise RuntimeError("Origin could not set the S61 count color scale")
         if not self.op.set_lt_str("__S61CSTITLE", grid.value_field_name):
             raise RuntimeError("Origin could not stage the S61 color-scale title")
-        if not self.op.lt_exec(
-            "page.active=1; Spectrum1.title=1; Spectrum1.title$=__S61CSTITLE$;"
-        ):
+        if not self.op.lt_exec("page.active=1; Spectrum1.title=1; Spectrum1.title$=__S61CSTITLE$;"):
             raise RuntimeError("Origin could not set the S61 color-scale title")
 
     def _native_structure(self, state: _S61State) -> dict[str, object]:
@@ -365,9 +326,7 @@ class S61OriginProject:
         if cmap_type not in {0, 1}:
             raise RuntimeError("Origin S61 colormap must remain linear")
         color_scales = [
-            item
-            for item in self.layer.obj.GraphObjects
-            if int(item.GetObjectType()) == 13
+            item for item in self.layer.obj.GraphObjects if int(item.GetObjectType()) == 13
         ]
         if len(color_scales) != 1:
             raise RuntimeError("Origin S61 must retain one native color scale object")
@@ -397,12 +356,8 @@ class S61OriginProject:
             x_begin, x_end = x_end, x_begin
         if state.y_reverse:
             y_begin, y_end = y_end, y_begin
-        self.layer.axis("x").set_limits(
-            x_begin, x_end, -1.0 if x_begin > x_end else 1.0
-        )
-        self.layer.axis("y").set_limits(
-            y_begin, y_end, -1.0 if y_begin > y_end else 1.0
-        )
+        self.layer.axis("x").set_limits(x_begin, x_end, -1.0 if x_begin > x_end else 1.0)
+        self.layer.axis("y").set_limits(y_begin, y_end, -1.0 if y_begin > y_end else 1.0)
         self.layer.set_int("x.label.type", 10)
         self.layer.set_int("y.label.type", 10)
         self.layer.set_str(
@@ -476,45 +431,16 @@ class S61OriginProject:
         actions: tuple[PlotEngineAction, ...],
         grid: K20Grid,
     ) -> _S61State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _S61State("", grid.column_field_name, grid.row_field_name)
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("S61 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-                continue
-            if isinstance(action, SetAxis):
-                axis_name = {
-                    f"axis:{token}.x": "x",
-                    f"axis:{token}.y": "y",
-                }.get(action.target)
-                if axis_name is None:
-                    raise ValueError("S61 axis target does not belong to this plot")
-                if action.scale not in {None, "categorical"}:
-                    raise ValueError("Origin S61 axes support only categorical scale")
-                if action.minimum is not None or action.maximum is not None:
-                    raise ValueError("Origin S61 public axes do not expose numeric bounds")
-                if axis_name == "x":
-                    state = replace(
-                        state,
-                        x_label=state.x_label if action.label is None else action.label,
-                        x_reverse=state.x_reverse if action.reverse is None else action.reverse,
-                    )
-                else:
-                    state = replace(
-                        state,
-                        y_label=state.y_label if action.label is None else action.label,
-                        y_reverse=state.y_reverse if action.reverse is None else action.reverse,
-                    )
                 continue
             if isinstance(action, SetChartParameter):
                 if (
                     action.target != document.plot_id
                     or action.parameter != "show_counts"
-                    or not isinstance(action.value, bool)
+                    or (not isinstance(action.value, bool))
                 ):
                     raise ValueError("S61 show_counts must be boolean")
                 state = replace(state, show_counts=action.value)

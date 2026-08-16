@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -16,8 +16,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import K20Grid, k20_grid
@@ -41,14 +39,11 @@ class _K20State:
 
 def _origin_tick_string(labels: tuple[str, ...]) -> str:
     return " ".join(
-        f'"{label.replace(chr(34), chr(92) + chr(34)).replace(chr(10), " ")}"'
-        for label in labels
+        f'"{label.replace(chr(34), chr(92) + chr(34)).replace(chr(10), " ")}"' for label in labels
     )
 
 
-def _display_labels(
-    labels: tuple[str, ...], begin: float, end: float
-) -> tuple[str, ...]:
+def _display_labels(labels: tuple[str, ...], begin: float, end: float) -> tuple[str, ...]:
     return tuple(reversed(labels)) if begin > end else labels
 
 
@@ -103,9 +98,7 @@ class K20OriginProject:
                 "native_plot_type": 105,
             },
         ):
-            self.graph = self.op.new_graph(
-                f"G{token}", template=str(argument), hidden=True
-            )
+            self.graph = self.op.new_graph(f"G{token}", template=str(argument), hidden=True)
         if self.graph is None:
             raise RuntimeError("Origin could not create a graph from Heat_Map.otpu")
         self.graph.lname = f"K20 Heatmap / {document.plot_id}"
@@ -139,13 +132,8 @@ class K20OriginProject:
         self.layer = self.graph[0]
         self.plot = None
 
-    def apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        data: EngineDataView,
-    ) -> None:
-        token = document.plot_id.removeprefix("plot:")
+    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, CreatePlot):
             return
         if isinstance(action, BindFields):
@@ -153,22 +141,6 @@ class K20OriginProject:
             self._write_grid(grid)
             self.layer.rescale()
             self._configure_color_scale(grid)
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("K20 title target does not belong to this plot")
-            self._set_title(action.text)
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(action.target)
-            if axis_name is None:
-                raise ValueError("K20 axis target does not belong to this plot")
-            if action.scale not in {None, "categorical"}:
-                raise ValueError("Origin K20 axes support only categorical scale")
-            if action.minimum is not None or action.maximum is not None:
-                raise ValueError("Origin K20 public axes do not expose numeric bounds")
-            if action.label is not None:
-                self._set_axis_label(axis_name, action.label)
             return
         raise ValueError(f"Origin K20 binder cannot apply {action.operation}")
 
@@ -253,9 +225,7 @@ class K20OriginProject:
                 semantic_id=f"legend:{token}.colorbar",
                 backend="origin",
                 object_kind="colorbar",
-                native_ref=(
-                    f"graph:{self.graph.name}.layer:1.graph_object:{color_scale_name}"
-                ),
+                native_ref=(f"graph:{self.graph.name}.layer:1.graph_object:{color_scale_name}"),
             ),
         )
         style_snapshot = {
@@ -324,12 +294,8 @@ class K20OriginProject:
             x_begin, x_end = x_end, x_begin
         if state.y_reverse:
             y_begin, y_end = y_end, y_begin
-        self.layer.axis("x").set_limits(
-            x_begin, x_end, -1.0 if x_begin > x_end else 1.0
-        )
-        self.layer.axis("y").set_limits(
-            y_begin, y_end, -1.0 if y_begin > y_end else 1.0
-        )
+        self.layer.axis("x").set_limits(x_begin, x_end, -1.0 if x_begin > x_end else 1.0)
+        self.layer.axis("y").set_limits(y_begin, y_end, -1.0 if y_begin > y_end else 1.0)
         self.layer.set_int("x.label.type", 10)
         self.layer.set_int("y.label.type", 10)
         self.layer.set_str(
@@ -377,10 +343,7 @@ class K20OriginProject:
         self.graph.activate()
         if not self.op.set_lt_str("__K20CSTITLE", grid.value_field_name):
             raise RuntimeError("Origin could not stage the K20 color-scale title")
-        if not self.op.lt_exec(
-            "page.active=1; Spectrum1.title=1; "
-            "Spectrum1.title$=__K20CSTITLE$;"
-        ):
+        if not self.op.lt_exec("page.active=1; Spectrum1.title=1; Spectrum1.title$=__K20CSTITLE$;"):
             raise RuntimeError("Origin could not set the native K20 color-scale title")
 
     def _assert_state(self, grid: K20Grid, state: _K20State) -> None:
@@ -415,42 +378,10 @@ class K20OriginProject:
         actions: tuple[PlotEngineAction, ...],
         grid: K20Grid,
     ) -> _K20State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K20State("", grid.column_field_name, grid.row_field_name)
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K20 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-                continue
-            if isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(
-                    action.target
-                )
-                if axis_name is None:
-                    raise ValueError("K20 axis target does not belong to this plot")
-                if action.scale not in {None, "categorical"}:
-                    raise ValueError("Origin K20 axes support only categorical scale")
-                if action.minimum is not None or action.maximum is not None:
-                    raise ValueError("Origin K20 public axes do not expose numeric bounds")
-                if axis_name == "x":
-                    state = replace(
-                        state,
-                        x_label=state.x_label if action.label is None else action.label,
-                        x_reverse=(
-                            state.x_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
-                else:
-                    state = replace(
-                        state,
-                        y_label=state.y_label if action.label is None else action.label,
-                        y_reverse=(
-                            state.y_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
                 continue
             raise ValueError(f"Origin K20 binder cannot apply {action.operation}")
         return state
@@ -469,9 +400,7 @@ def execute_k20_request(
     else:
         project.open(Path(request.previous_opju))
         pending = request.actions[-1:]
-    with origin_trace_step(
-        "agent_actions_apply", details={"action_count": len(pending)}
-    ):
+    with origin_trace_step("agent_actions_apply", details={"action_count": len(pending)}):
         for action in pending:
             with origin_trace_step(
                 "agent_action_apply",

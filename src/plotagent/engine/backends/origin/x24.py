@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from math import isclose, isnan
 from pathlib import Path
 from typing import Any, cast
@@ -14,10 +14,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import (
@@ -151,9 +147,7 @@ class X24OriginProject:
         self, document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: EngineDataView
     ) -> None:
         state = self._state(document, actions, x24_pareto(document, data))
-        with origin_trace_step(
-            "agent_actions_apply", details={"action_count": len(actions)}
-        ):
+        with origin_trace_step("agent_actions_apply", details={"action_count": len(actions)}):
             self._set_title(state.title)
             self._set_axis_labels(state)
             self._apply_styles(state)
@@ -268,84 +262,12 @@ class X24OriginProject:
     def _state(
         document: PlotDocument, actions: tuple[PlotEngineAction, ...], data: ParetoData
     ) -> _State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _State(x_label="", left_label=data.value_field_name)
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("X24 title target does not belong")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                key = {
-                    f"axis:{token}.x": "x_label",
-                    f"axis:{token}.y_left": "left_label",
-                    f"axis:{token}.y_right": "right_label",
-                }.get(action.target)
-                if key is None:
-                    raise ValueError("X24 axis target does not belong")
-                expected_scale = "categorical" if key == "x_label" else "linear"
-                if (
-                    action.scale not in {None, expected_scale}
-                    or action.minimum is not None
-                    or action.maximum is not None
-                    or action.reverse is not None
-                ):
-                    raise ValueError("X24 exposes axis labels while Pareto scales remain native")
-                label = getattr(state, key) if action.label is None else action.label
-                if key == "x_label":
-                    state = replace(state, x_label=label)
-                elif key == "left_label":
-                    state = replace(state, left_label=label)
-                else:
-                    state = replace(state, right_label=label)
-            elif isinstance(action, SetSeriesStyle):
-                if action.symbol is not None or action.symbol_size_pt is not None:
-                    raise ValueError("X24 does not expose symbol construction")
-                if action.target == f"series:{token}.bars":
-                    state = replace(
-                        state,
-                        bar_color=state.bar_color if action.color is None else action.color,
-                        bar_line_width_pt=(
-                            state.bar_line_width_pt
-                            if action.line_width_pt is None
-                            else action.line_width_pt
-                        ),
-                        bar_line_style=(
-                            state.bar_line_style
-                            if action.line_style is None
-                            else action.line_style
-                        ),
-                    )
-                elif action.target == f"series:{token}.cumulative":
-                    if action.line_style == "none":
-                        raise ValueError("X24 cumulative curve cannot be hidden by line style")
-                    state = replace(
-                        state,
-                        line_color=state.line_color if action.color is None else action.color,
-                        line_width_pt=(
-                            state.line_width_pt
-                            if action.line_width_pt is None
-                            else action.line_width_pt
-                        ),
-                        line_style=(
-                            state.line_style if action.line_style is None else action.line_style
-                        ),
-                    )
-                else:
-                    raise ValueError("X24 series target does not belong")
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main" or action.anchor is not None:
-                    raise ValueError("X24 exposes only native legend visibility")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
-            else:
-                raise ValueError(f"Origin X24 binder cannot apply {action.operation}")
+            raise ValueError(f"Origin X24 binder cannot apply {action.operation}")
         return state
 
     def _write_source(self, source: ParetoSourceData) -> None:
@@ -353,9 +275,7 @@ class X24OriginProject:
         self.source_sheet.from_list(
             0, list(source.categories), lname=source.category_field_name, axis="X"
         )
-        self.source_sheet.from_list(
-            1, list(source.values), lname=source.value_field_name, axis="Y"
-        )
+        self.source_sheet.from_list(1, list(source.values), lname=source.value_field_name, axis="Y")
         self.source_sheet.lt_exec("wks.col1.categorical.type=2;")
 
     def _set_title(self, text: str) -> None:
@@ -432,10 +352,7 @@ class X24OriginProject:
                 raise RuntimeError("Origin could not create the X24 native legend")
             legend = layer.label("legend")
         if legend is not None:
-            legend.text = (
-                f"\\l(1) {state.left_label}\n"
-                f"\\l(2.1, style:l) {state.right_label}"
-            )
+            legend.text = f"\\l(1) {state.left_label}\n\\l(2.1, style:l) {state.right_label}"
             legend.set_int("link", 1)
             legend.set_int("attach", 1)
             legend.set_float("x1", 0.18)
@@ -458,8 +375,7 @@ class X24OriginProject:
             )
         limits = tuple(float(value) for value in self._layers()[1].axis("y").limits[:2])
         if len(limits) != 2 or not (
-            isclose(limits[0], 0.0, abs_tol=1e-8)
-            and isclose(limits[1], 110.0, abs_tol=1e-8)
+            isclose(limits[0], 0.0, abs_tol=1e-8) and isclose(limits[1], 110.0, abs_tol=1e-8)
         ):
             raise RuntimeError(
                 "Origin X24 right Y axis must retain the official 0..110 percent range"
@@ -489,9 +405,7 @@ class X24OriginProject:
             for value in (state.bar_color, state.bar_line_width_pt, state.bar_line_style)
         ):
             self._layers()[0].activate()
-            self.op.lt_exec(
-                "get %C -pfb __X24BF; get %C -pbw __X24BW; get %C -pbs __X24BS;"
-            )
+            self.op.lt_exec("get %C -pfb __X24BF; get %C -pbw __X24BW; get %C -pbs __X24BS;")
             if state.bar_color is not None:
                 expected = int(self.op.lt_float(f'color("{state.bar_color}")'))
                 if int(self.op.lt_float("__X24BF")) != expected:
@@ -500,14 +414,14 @@ class X24OriginProject:
                 float(self.op.lt_float("__X24BW")), state.bar_line_width_pt, abs_tol=1e-8
             ):
                 raise RuntimeError("Origin X24 bar border width changed after reopen")
-            if state.bar_line_style is not None and int(
-                self.op.lt_float("__X24BS")
-            ) != _STYLE[state.bar_line_style]:
+            if (
+                state.bar_line_style is not None
+                and int(self.op.lt_float("__X24BS")) != _STYLE[state.bar_line_style]
+            ):
                 raise RuntimeError("Origin X24 bar border style changed after reopen")
 
         if any(
-            value is not None
-            for value in (state.line_color, state.line_width_pt, state.line_style)
+            value is not None for value in (state.line_color, state.line_width_pt, state.line_style)
         ):
             self._layers()[1].activate()
             self.op.lt_exec("get %C -cl __X24LC; get %C -w __X24LW; get %C -d __X24LS;")
@@ -521,9 +435,10 @@ class X24OriginProject:
                 abs_tol=1e-8,
             ):
                 raise RuntimeError("Origin X24 cumulative line width changed after reopen")
-            if state.line_style is not None and int(
-                self.op.lt_float("__X24LS")
-            ) != _STYLE[state.line_style]:
+            if (
+                state.line_style is not None
+                and int(self.op.lt_float("__X24LS")) != _STYLE[state.line_style]
+            ):
                 raise RuntimeError("Origin X24 cumulative line style changed after reopen")
 
     def _assert_legend(self, visible: bool) -> None:

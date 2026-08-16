@@ -16,9 +16,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
     SetChartParameter,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import RegularGridData, k22_regular_grid
@@ -98,9 +96,7 @@ class K22OriginProject:
                 "triangulation_used": False,
             },
         ):
-            self.graph = self.op.new_graph(
-                f"G{token}", template=str(argument), hidden=True
-            )
+            self.graph = self.op.new_graph(f"G{token}", template=str(argument), hidden=True)
         if self.graph is None:
             raise RuntimeError("Origin could not create a graph from CONTOUR.otpu")
         self.graph.lname = f"K22 Filled Contour / {document.plot_id}"
@@ -137,13 +133,8 @@ class K22OriginProject:
         self.plot = plots[0]
         self.sheet = books[0][0]
 
-    def apply(
-        self,
-        document: PlotDocument,
-        action: PlotEngineAction,
-        data: EngineDataView,
-    ) -> None:
-        token = document.plot_id.removeprefix("plot:")
+    def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
+        document.plot_id.removeprefix("plot:")
         if isinstance(action, CreatePlot):
             return
         if isinstance(action, BindFields):
@@ -155,27 +146,10 @@ class K22OriginProject:
                 action.target != document.plot_id
                 or action.parameter != "levels"
                 or isinstance(action.value, bool)
-                or not isinstance(action.value, int)
-                or not 2 <= action.value <= 64
+                or (not isinstance(action.value, int))
+                or (not 2 <= action.value <= 64)
             ):
                 raise ValueError("K22 levels must be an integer from 2 to 64")
-            return
-        if isinstance(action, SetTitle):
-            if action.target != document.plot_id:
-                raise ValueError("K22 title target does not belong to this plot")
-            self._set_title(action.text)
-            return
-        if isinstance(action, SetAxis):
-            axis_name = {
-                f"axis:{token}.x": "x",
-                f"axis:{token}.y": "y",
-            }.get(action.target)
-            if axis_name is None:
-                raise ValueError("K22 axis target does not belong to this plot")
-            if action.scale not in {None, "linear"}:
-                raise ValueError("Origin K22 axes require linear scale")
-            if action.label is not None:
-                self._set_axis_label(axis_name, action.label)
             return
         raise ValueError(f"Origin K22 binder cannot apply {action.operation}")
 
@@ -268,9 +242,7 @@ class K22OriginProject:
                     semantic_id=f"legend:{token}.colorbar",
                     backend="origin",
                     object_kind="colorbar",
-                    native_ref=(
-                        f"graph:{self.graph.name}.layer:1.graph_object:{color_scale_name}"
-                    ),
+                    native_ref=(f"graph:{self.graph.name}.layer:1.graph_object:{color_scale_name}"),
                 ),
             ),
             data_hash=canonical_hash(data),
@@ -297,22 +269,14 @@ class K22OriginProject:
         }
 
     def _configure_color_scale(self, grid: RegularGridData) -> None:
-        label = (
-            grid.z_field_name
-            if grid.z_unit is None
-            else f"{grid.z_field_name} ({grid.z_unit})"
-        )
+        label = grid.z_field_name if grid.z_unit is None else f"{grid.z_field_name} ({grid.z_unit})"
         self.graph.activate()
         if not self.op.set_lt_str("__K22CSTITLE", label):
             raise RuntimeError("Origin could not stage the K22 color-scale title")
-        if not self.op.lt_exec(
-            "page.active=1; Spectrum1.title=1; Spectrum1.title$=__K22CSTITLE$;"
-        ):
+        if not self.op.lt_exec("page.active=1; Spectrum1.title=1; Spectrum1.title$=__K22CSTITLE$;"):
             raise RuntimeError("Origin could not set the K22 color-scale title")
 
-    def _native_structure(
-        self, grid: RegularGridData, state: _K22State
-    ) -> dict[str, object]:
+    def _native_structure(self, grid: RegularGridData, state: _K22State) -> dict[str, object]:
         self.graph.activate()
         graph_name = str(self.graph.name)
         if not graph_name.replace("_", "").isalnum():
@@ -450,9 +414,7 @@ class K22OriginProject:
             expected_end = default_max if fixed_max is None else fixed_max
             if reverse:
                 expected_begin, expected_end = expected_end, expected_begin
-            begin, end = (
-                float(value) for value in self.layer.axis(axis_name).limits[:2]
-            )
+            begin, end = (float(value) for value in self.layer.axis(axis_name).limits[:2])
             if not math.isclose(begin, expected_begin, rel_tol=0, abs_tol=1e-10):
                 raise RuntimeError("Origin K22 axis beginning differs after readback")
             if not math.isclose(end, expected_end, rel_tol=0, abs_tol=1e-10):
@@ -464,53 +426,18 @@ class K22OriginProject:
         actions: tuple[PlotEngineAction, ...],
         grid: RegularGridData,
     ) -> _K22State:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _K22State("", grid.x_field_name, grid.y_field_name)
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K22 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-                continue
-            if isinstance(action, SetAxis):
-                axis_name = {
-                    f"axis:{token}.x": "x",
-                    f"axis:{token}.y": "y",
-                }.get(action.target)
-                if axis_name is None:
-                    raise ValueError("K22 axis target does not belong to this plot")
-                if action.scale not in {None, "linear"}:
-                    raise ValueError("Origin K22 axes require linear scale")
-                if axis_name == "x":
-                    state = replace(
-                        state,
-                        x_label=state.x_label if action.label is None else action.label,
-                        x_minimum=action.minimum,
-                        x_maximum=action.maximum,
-                        x_reverse=(
-                            state.x_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
-                else:
-                    state = replace(
-                        state,
-                        y_label=state.y_label if action.label is None else action.label,
-                        y_minimum=action.minimum,
-                        y_maximum=action.maximum,
-                        y_reverse=(
-                            state.y_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
                 continue
             if isinstance(action, SetChartParameter):
                 if (
                     action.target != document.plot_id
                     or action.parameter != "levels"
                     or isinstance(action.value, bool)
-                    or not isinstance(action.value, int)
-                    or not 2 <= action.value <= 64
+                    or (not isinstance(action.value, int))
+                    or (not 2 <= action.value <= 64)
                 ):
                     raise ValueError("K22 levels must be an integer from 2 to 64")
                 state = replace(state, levels=action.value)
@@ -532,9 +459,7 @@ def execute_k22_request(
     else:
         project.open(Path(request.previous_opju))
         pending = request.actions[-1:]
-    with origin_trace_step(
-        "agent_actions_apply", details={"action_count": len(pending)}
-    ):
+    with origin_trace_step("agent_actions_apply", details={"action_count": len(pending)}):
         for action in pending:
             with origin_trace_step(
                 "agent_action_apply",

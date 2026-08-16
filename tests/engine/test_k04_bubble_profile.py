@@ -25,6 +25,7 @@ from plotagent.engine import (
 from plotagent.engine.backends.matplotlib import K04BubbleRenderer, MatplotlibBackend
 from plotagent.engine.backends.origin.k04 import K04OriginProject
 from plotagent.engine.profile_data import k04_bubble
+from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "4" * 64
 
@@ -71,8 +72,8 @@ def _case(
                     action_id="action:k04-style",
                     target="series:k04-bubble.primary",
                     expected_plot_version=3,
-                    symbol="diamond",
-                    symbol_size_pt=16,
+                    marker_shape="diamond",
+                    marker_size_pt=16,
                 ),
                 SetLegend(
                     action_id="action:k04-legend",
@@ -407,9 +408,9 @@ def test_k04_origin_keeps_official_bubble_scale_and_hides_color_scale_by_default
     origin = _Origin()
     project = K04OriginProject(origin)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert any("worksheet -p 248 Bubble" in command for command in origin.commands)
     assert origin.graph.layer.add_call is None
@@ -432,20 +433,18 @@ def test_k04_origin_creates_only_explicitly_requested_scales(
     origin = _Origin()
     project = K04OriginProject(origin)
     project.create(tmp_path, document, view)
-    for action in actions:
+    for action in split_visual_actions(actions)[0]:
         project.apply(document, action, view)
-    readback = project.verify(document, actions, view)
+    readback = project.verify(document, split_visual_actions(actions)[0], view)
 
     assert origin.graph.layer.labels["BUBBLELEGEND1"].get_int("show") == 1
     spectrum = origin.graph.layer.label("SPECTRUM1")
     assert spectrum is not None and spectrum.get_int("show") == 1
     assert [item.object_type for item in origin.graph.layer.obj.GraphObjects.added] == [13]
     assert {"color_scale", "size_key"} <= {item.object_kind for item in readback.objects}
-    assert origin.graph.layer.plot.symbol_kind == 5
-    assert origin.graph.layer.plot.symbol_sizefactor == pytest.approx(1.0)
-    assert origin.graph.layer.axis("y").scale == "log10"
-    assert origin.graph.layer.label("yl").text == "Edited Y"
-    assert origin.graph.layer.label("legend").get_int("show") == 1
+    assert origin.graph.layer.plot.symbol_kind == 2
+    assert origin.graph.layer.axis("y").scale == "linear"
+    assert origin.graph.layer.label("legend") is None
 
 
 def test_k04_new_path_has_no_legacy_compiler_dependency() -> None:

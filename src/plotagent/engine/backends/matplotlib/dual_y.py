@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -21,10 +21,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import X23SeriesData, x23_series
@@ -185,9 +181,7 @@ class X23DualYRenderer:
             if orientation != "x":
                 raise ValueError("X23 categorical scale is supported only on x")
         elif state.scale in {"linear", "log10"}:
-            getattr(axis, f"set_{orientation}scale")(
-                "log" if state.scale == "log10" else "linear"
-            )
+            getattr(axis, f"set_{orientation}scale")("log" if state.scale == "log10" else "linear")
         else:
             raise ValueError("X23 currently supports categorical, linear or log10 axes")
         if state.minimum is not None and state.maximum is not None:
@@ -201,7 +195,7 @@ class X23DualYRenderer:
         actions: tuple[PlotEngineAction, ...],
         data: X23SeriesData,
     ) -> _DualYState:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _DualYState(
             title="",
             x_axis=_AxisState(data.x_field_name, data.x_scale),
@@ -210,86 +204,8 @@ class X23DualYRenderer:
             left_series=_SeriesState(data.left_field_name, "#1676D2"),
             right_series=_SeriesState(data.right_field_name, "#D97706"),
         )
-        axis_targets = {
-            f"axis:{token}.x": "x_axis",
-            f"axis:{token}.y_left": "left_axis",
-            f"axis:{token}.y_right": "right_axis",
-        }
-        series_targets = {
-            f"series:{token}.left": "left_series",
-            f"series:{token}.right": "right_series",
-        }
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
-                continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("X23 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-                continue
-            if isinstance(action, SetAxis):
-                attribute = axis_targets.get(action.target)
-                if attribute is None:
-                    raise ValueError("X23 axis target does not belong to this plot")
-                current = getattr(state, attribute)
-                scale = current.scale if action.scale is None else action.scale
-                if attribute == "x_axis" and data.x_scale == "categorical":
-                    if scale != "categorical":
-                        raise ValueError("X23 categorical x data cannot use a numeric scale")
-                elif scale not in {"linear", "log10"}:
-                    raise ValueError("X23 numeric axes support only linear or log10")
-                updated_axis = replace(
-                    current,
-                    label=current.label if action.label is None else action.label,
-                    scale=scale,
-                    minimum=current.minimum if action.minimum is None else action.minimum,
-                    maximum=current.maximum if action.maximum is None else action.maximum,
-                    reverse=current.reverse if action.reverse is None else action.reverse,
-                )
-                if attribute == "x_axis":
-                    state = replace(state, x_axis=updated_axis)
-                elif attribute == "left_axis":
-                    state = replace(state, left_axis=updated_axis)
-                else:
-                    state = replace(state, right_axis=updated_axis)
-                continue
-            if isinstance(action, SetSeriesStyle):
-                attribute = series_targets.get(action.target)
-                if attribute is None:
-                    raise ValueError("X23 series target does not belong to this plot")
-                if action.symbol is not None or action.symbol_size_pt is not None:
-                    raise ValueError("X23 does not expose symbol edits")
-                current_series = getattr(state, attribute)
-                updated_series = replace(
-                    current_series,
-                    color=current_series.color if action.color is None else action.color,
-                    line_width_pt=(
-                        current_series.line_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt
-                    ),
-                    line_style=(
-                        current_series.line_style
-                        if action.line_style is None
-                        else action.line_style
-                    ),
-                )
-                if attribute == "left_series":
-                    state = replace(state, left_series=updated_series)
-                else:
-                    state = replace(state, right_series=updated_series)
-                continue
-            if isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError("X23 legend target does not belong to this plot")
-                if action.anchor is not None:
-                    raise ValueError("X23 does not expose legend anchor edits")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
                 continue
             raise ValueError(f"X23 Matplotlib renderer cannot apply {action.operation}")
         return state

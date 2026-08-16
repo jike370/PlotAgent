@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import matplotlib
@@ -19,10 +19,6 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
-    SetAxis,
-    SetLegend,
-    SetSeriesStyle,
-    SetTitle,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import k18_area_series
@@ -193,7 +189,7 @@ class K18AreaRenderer:
         x_name: str,
         value_names: tuple[str, ...],
     ) -> _AreaState:
-        token = document.plot_id.removeprefix("plot:")
+        document.plot_id.removeprefix("plot:")
         state = _AreaState(
             title="",
             x_label=x_name,
@@ -207,104 +203,5 @@ class K18AreaRenderer:
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):
                 continue
-            if isinstance(action, SetTitle):
-                if action.target != document.plot_id:
-                    raise ValueError("K18 title target does not belong to this plot")
-                state = replace(state, title=action.text)
-            elif isinstance(action, SetAxis):
-                axis_name = {f"axis:{token}.x": "x", f"axis:{token}.y": "y"}.get(
-                    action.target
-                )
-                if axis_name is None:
-                    raise ValueError("K18 axis target does not belong to this plot")
-                if action.scale not in {None, "linear", "log10"}:
-                    raise ValueError("K18 axes support only linear or log10 scale")
-                if axis_name == "x":
-                    state = replace(
-                        state,
-                        x_label=state.x_label if action.label is None else action.label,
-                        x_scale=state.x_scale if action.scale is None else action.scale,
-                        x_minimum=(
-                            state.x_minimum
-                            if action.minimum is None
-                            else float(action.minimum)
-                        ),
-                        x_maximum=(
-                            state.x_maximum
-                            if action.maximum is None
-                            else float(action.maximum)
-                        ),
-                        x_reverse=(
-                            state.x_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
-                else:
-                    state = replace(
-                        state,
-                        y_label=state.y_label if action.label is None else action.label,
-                        y_scale=state.y_scale if action.scale is None else action.scale,
-                        y_minimum=(
-                            state.y_minimum
-                            if action.minimum is None
-                            else float(action.minimum)
-                        ),
-                        y_maximum=(
-                            state.y_maximum
-                            if action.maximum is None
-                            else float(action.maximum)
-                        ),
-                        y_reverse=(
-                            state.y_reverse if action.reverse is None else action.reverse
-                        ),
-                    )
-            elif isinstance(action, SetSeriesStyle):
-                ordinal = K18AreaRenderer._series_ordinal(
-                    action.target, token, len(state.areas)
-                )
-                if action.symbol is not None or action.symbol_size_pt is not None:
-                    raise ValueError("K18 Area does not expose symbol edits")
-                if action.line_style == "none":
-                    raise ValueError("K18 Area cannot hide its boundary line")
-                current = state.areas[ordinal - 1]
-                updated = replace(
-                    current,
-                    color=current.color if action.color is None else action.color,
-                    line_width_pt=(
-                        current.line_width_pt
-                        if action.line_width_pt is None
-                        else action.line_width_pt
-                    ),
-                    line_style=(
-                        current.line_style if action.line_style is None else action.line_style
-                    ),
-                )
-                areas = list(state.areas)
-                areas[ordinal - 1] = updated
-                state = replace(state, areas=tuple(areas))
-            elif isinstance(action, SetLegend):
-                if action.target != f"legend:{token}.main":
-                    raise ValueError("K18 legend target does not belong to this plot")
-                if action.anchor not in {None, "inside"}:
-                    raise ValueError("K18 currently exposes only the template legend anchor")
-                state = replace(
-                    state,
-                    legend_visible=(
-                        state.legend_visible if action.visible is None else action.visible
-                    ),
-                )
-            else:
-                raise ValueError(f"K18 Matplotlib renderer cannot apply {action.operation}")
+            raise ValueError(f"K18 Matplotlib renderer cannot apply {action.operation}")
         return state
-
-    @staticmethod
-    def _series_ordinal(target: str, token: str, series_count: int) -> int:
-        prefix = f"series:{token}.area_"
-        if not target.startswith(prefix):
-            raise ValueError("K18 series target does not belong to this plot")
-        try:
-            ordinal = int(target.removeprefix(prefix))
-        except ValueError as error:
-            raise ValueError("K18 series target requires a numeric ordinal") from error
-        if ordinal < 1 or ordinal > series_count:
-            raise ValueError("K18 series target ordinal is outside the bound data")
-        return ordinal

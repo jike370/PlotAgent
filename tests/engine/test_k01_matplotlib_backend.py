@@ -107,7 +107,7 @@ def test_k01_renders_and_replays_public_actions_without_legacy_resolver(tmp_path
                 action_id="action:style",
                 target="series:line-demo.primary",
                 expected_plot_version=3,
-                color="#AA2200",
+                line_stroke_color="#AA2200",
                 line_width_pt=2.0,
             )
         )
