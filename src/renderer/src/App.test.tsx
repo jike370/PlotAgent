@@ -1045,6 +1045,25 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
   })
 
+  it('labels a rendered plot from its actual profile instead of the selected library card', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop({
+      executePlotAction: vi.fn(async () => ok(enginePlotFixture('plot:actual-k03', 1, 'K03', 2))),
+    }))
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '确认并绘图' }))
+
+    expect(await screen.findByRole('img', { name: '散点图 真实渲染预览' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '散点图 · v1' })).toBeInTheDocument()
+  })
+
   it('plans one plot from explicitly selected compatible sources', async () => {
     const user = userEvent.setup()
     const planCombinedSources = vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture())))

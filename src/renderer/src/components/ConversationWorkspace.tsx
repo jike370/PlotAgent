@@ -29,7 +29,7 @@ import {
 } from 'lucide-react'
 
 import type { CoreStatus, FieldMappingInput, TaskEvent } from '../../../shared/desktop-contract'
-import type { ChartType } from '../data/chartCatalog'
+import { chartCatalog, type ChartType } from '../data/chartCatalog'
 import type {
   WorkflowBindingView,
   WorkflowOutcome,
@@ -542,15 +542,18 @@ function PlotObject({
   onCreateBatch,
 }: Pick<ConversationWorkspaceProps, 'plot' | 'selectedChart' | 'busyAction' | 'previewMode' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch'> & { chart?: ChartType }): React.JSX.Element {
   if (!plot) return <div />
+  const plotChart = chart?.id === plot.chartId
+    ? chart
+    : chartCatalog.find((item) => item.id === plot.chartId)
   return (
     <section className="object-block product-plot-object" aria-labelledby="plot-title">
       <header className="object-header">
         <span className="object-icon object-icon--batch"><FileChartColumn size={17} /></span>
-        <div><h3 id="plot-title">{chart?.name ?? plot.chartId} · v{plot.plotVersion}</h3><p>{plot.plotId} · {plot.chartId} · Agent Native</p></div>
+        <div><h3 id="plot-title">{plotChart?.name ?? plot.chartId} · v{plot.plotVersion}</h3><p>{plot.plotId} · {plot.chartId} · Agent Native</p></div>
         <span className="status-label status-label--success"><Check size={13} />{previewMode ? '界面预览' : '已渲染'}</span>
       </header>
       <div className="product-preview">
-        {plot.preview?.url ? <img src={plot.preview.url} alt={`${chart?.name ?? plot.chartId} ${previewMode ? '界面预览' : '真实渲染预览'}`} /> : <div className="preview-pending"><LoaderCircle className="spin" size={20} /><span>等待受控预览资源</span></div>}
+        {plot.preview?.url ? <img src={plot.preview.url} alt={`${plotChart?.name ?? plot.chartId} ${previewMode ? '界面预览' : '真实渲染预览'}`} /> : <div className="preview-pending"><LoaderCircle className="spin" size={20} /><span>等待受控预览资源</span></div>}
       </div>
       <footer className="plot-actions">
         <button type="button" onClick={onOpenLibrary}><Library size={15} />选择其他图形</button>
