@@ -434,6 +434,7 @@ class DesktopWorkflowService:
             "route、workflow_run_id、draft_id、item_id 和 plot_alias 必须按本地脚手架填写。"
             "字段绑定必须使用 field_alias，不得使用显示名代替。"
             "用户明确要求的标题、处理步骤和样式都是硬约束，不得省略。"
+            "set_title 的 target_alias 固定为 plot；plot_alias 是任务输出别名，不能作为动作目标。"
             f"{turn_note} 最后调用 submit_task_draft；不得直接执行或导出。"
             f"\n本地脚手架：{canonical_json(cast(Any, scaffold))}"
         )

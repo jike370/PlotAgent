@@ -142,6 +142,39 @@ def test_multi_source_batch_goal_routes_to_bounded_exploration() -> None:
     assert decision.route == "agent_exploration"
 
 
+def test_isomorphic_concat_uses_the_program_first_route_and_preserves_source_identity() -> None:
+    context = _context(
+        "把 data_1 和 data_2 纵向拼接，在同一张 K02 线点图中绘制；Time 为 x，Response 为 y。",
+        selected_sources=("data_1", "data_2"),
+    )
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(context)
+
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    draft = decision.deterministic.draft
+    item = draft.items[0]
+    assert item.source_aliases == ("data_1", "data_2")
+    assert item.data_operations[0].operation == "concatenate_sources"
+    assert item.bindings[-1].role == "label"
+    assert item.bindings[-1].field_alias == "source_group"
+    assert DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(draft, context).valid
+
+
+def test_isomorphic_batch_with_explicit_titles_uses_the_program_first_route() -> None:
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(
+        _context(
+            "先比较 data_1 与 data_2 的结构；如果同构，就分别创建 K01 折线图，"
+            "标题分别为数据一和数据二。",
+            selected_sources=("data_1", "data_2"),
+        )
+    )
+
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    draft = decision.deterministic.draft
+    assert [item.visual_actions[0].text for item in draft.items] == ["数据一", "数据二"]
+
+
 def test_compiler_resolves_aliases_and_rejects_unknown_targets() -> None:
     context = _context()
     draft = TaskDraft(

@@ -6,7 +6,9 @@ import re
 from dataclasses import dataclass
 
 from plotagent.contracts.workflows import (
+    ConcatenateSources,
     DraftFieldBinding,
+    DraftSetTitle,
     InputQuestion,
     TaskDraft,
     TaskDraftItem,
@@ -19,7 +21,7 @@ from plotagent.contracts.workflows import (
 )
 from plotagent.engine import EngineCatalog
 
-from .natural_language import parse_explicit_goal
+from .natural_language import ExplicitGoal, parse_explicit_goal
 from .profiles import explicit_profile_ids, unspecified_chart_request
 
 _NON_NUMERIC_ROLES = frozenset(
@@ -149,6 +151,8 @@ class DeterministicResolver:
                     ),
                 ),
             )
+        if len(context.selected_source_aliases) > 1 and self._concat_requested(context):
+            return self._resolve_concat(context, profile.profile_id)
         batch = len(context.selected_source_aliases) > 1 and any(
             token in context.instruction.casefold()
             for token in ("批量", "分别", "每个", "each", "batch")
@@ -158,6 +162,7 @@ class DeterministicResolver:
         token = context.workflow_run_id.removeprefix("workflow:")
         items: list[TaskDraftItem] = []
         goal_constraints: set[str] = set()
+        batch_titles = self._batch_titles(context.instruction, len(context.selected_source_aliases))
         for position, source_alias in enumerate(context.selected_source_aliases, start=1):
             fields = tuple(field for field in context.fields if field.source_alias == source_alias)
             bindings = self._bindings(
@@ -169,7 +174,14 @@ class DeterministicResolver:
             )
             if bindings is None:
                 return None
-            goal = parse_explicit_goal(context, source_alias=source_alias)
+            goal = (
+                ExplicitGoal(
+                    visual_actions=(DraftSetTitle(text=batch_titles[position - 1]),),
+                    hard_constraints=("preserve_explicit_visual_parameters",),
+                )
+                if batch_titles is not None
+                else parse_explicit_goal(context, source_alias=source_alias)
+            )
             if goal is None:
                 return None
             goal_constraints.update(goal.hard_constraints)
@@ -196,6 +208,94 @@ class DeterministicResolver:
                 "preserve_source_values",
                 "require_confirmation",
                 *sorted(goal_constraints),
+            ),
+        )
+        return WorkflowDraftReady(draft=draft)
+
+    @staticmethod
+    def _concat_requested(context: WorkflowContext) -> bool:
+        text = context.instruction.casefold()
+        return any(token in text for token in ("纵向拼接", "拼接", "concatenate")) and any(
+            token in text for token in ("同一张", "一张", "same plot")
+        )
+
+    @staticmethod
+    def _batch_titles(instruction: str, count: int) -> tuple[str, ...] | None:
+        if count != 2:
+            return None
+        matched = re.search(
+            r"标题分别(?:设)?为\s*([^，,；;。]+?)\s*(?:和|与)\s*([^，,；;。]+)",
+            instruction,
+        )
+        if matched is None:
+            return None
+        return matched.group(1).strip(), matched.group(2).strip()
+
+    def _resolve_concat(
+        self,
+        context: WorkflowContext,
+        profile_id: str,
+    ) -> WorkflowDecision | None:
+        aliases = context.selected_source_aliases
+        signatures = []
+        for source_alias in aliases:
+            signatures.append(
+                tuple(
+                    (field.name.casefold(), field.logical_type)
+                    for field in context.fields
+                    if field.source_alias == source_alias
+                )
+            )
+        if not signatures or len(set(signatures)) != 1:
+            return None
+        profile = self._catalog.get(profile_id)
+        first = aliases[0]
+        fields = tuple(field for field in context.fields if field.source_alias == first)
+        bindings = self._bindings(
+            profile.required_roles,
+            profile.optional_roles,
+            fields,
+            first,
+            context.instruction,
+        )
+        if bindings is None:
+            return None
+        if "label" in profile.optional_roles:
+            bindings = (
+                *bindings,
+                DraftFieldBinding(
+                    role="label",
+                    source_alias=first,
+                    field_alias="source_group",
+                ),
+            )
+        token = context.workflow_run_id.removeprefix("workflow:")
+        draft = TaskDraft(
+            draft_id=f"draft:{token}",
+            workflow_run_id=context.workflow_run_id,
+            route="deterministic",
+            summary=f"拼接 {len(aliases)} 个同构数据表并创建 {profile.display_name}",
+            items=(
+                TaskDraftItem(
+                    task_kind="create",
+                    item_id=f"item:{token}.1",
+                    plot_alias="plot_1",
+                    profile_id=profile_id,
+                    source_aliases=aliases,
+                    data_operations=(
+                        ConcatenateSources(
+                            source_aliases=aliases,
+                            source_label_field="source_group",
+                        ),
+                    ),
+                    bindings=bindings,
+                ),
+            ),
+            confidence=1,
+            hard_constraints=(
+                "preserve_source_values",
+                "preserve_source_identity",
+                "require_confirmation",
             ),
         )
         return WorkflowDraftReady(draft=draft)
@@ -248,9 +348,9 @@ class DeterministicResolver:
                 for role_label in _EXPLICIT_ROLE_LABELS.get(role, (role,)):
                     role_name = re.escape(role_label)
                     if re.search(
-                        rf"(?:(?<!\w){field_name}(?!\w)\s*(?:映射|→|->|=|作为)\s*"
+                    rf"(?:(?<!\w){field_name}(?!\w)\s*(?:映射|→|->|=|作为|为)\s*"
                         rf"(?<!\w){role_name}(?!\w)"
-                        rf"|(?<!\w){role_name}(?!\w)\s*(?:映射|→|->|=|作为)\s*"
+                        rf"|(?<!\w){role_name}(?!\w)\s*(?:映射|→|->|=|作为|为)\s*"
                         rf"(?<!\w){field_name}(?!\w))",
                         instruction,
                         flags=re.IGNORECASE,
