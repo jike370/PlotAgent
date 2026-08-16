@@ -37,6 +37,7 @@ from plotagent.workflows import (
 from plotagent.workflows.data_ops import prepare_task_data
 from plotagent.workflows.executor import TaskPlanExecutor
 from plotagent.workflows.inspection import DataInspectionService
+from plotagent.workflows.profiles import explicit_profile_ids
 
 from .engine_session import DesktopEngineSession
 
@@ -200,7 +201,7 @@ class DesktopWorkflowService:
             "workflow_run_id": run_id,
             "workflow_context": context.model_dump(mode="json"),
             "task_draft_schema": TaskDraft.model_json_schema(),
-            "system_prompt": self._system_prompt(routed.route),
+            "system_prompt": self._system_prompt(routed.route, context),
         }
 
     def submit_draft(self, workflow_run_id: str, raw_draft: object) -> dict[str, object]:
@@ -211,6 +212,12 @@ class DesktopWorkflowService:
         draft = TaskDraft.model_validate_json(canonical_json(cast(Any, raw_draft)))
         if draft.workflow_run_id != workflow_run_id:
             raise WorkflowServiceError("WORKFLOW_CONTEXT_MISMATCH", "草稿不属于当前任务。")
+        run = self.repository.get_run(workflow_run_id)
+        if run.route not in {"agent_single_turn", "agent_exploration"}:
+            raise WorkflowServiceError("WORKFLOW_ROUTE_INVALID", "当前任务不接受 Agent 草稿。")
+        # Route selection is a local cost/permission decision, never a model
+        # choice.  Normalize the declarative draft before compilation.
+        draft = draft.model_copy(update={"route": run.route})
         plan = DraftCompiler(self.engine.catalog).compile(draft, context)
         self.repository.save_draft(draft)
         snapshot = self.repository.save_plan(plan)
@@ -372,20 +379,63 @@ class DesktopWorkflowService:
             raise WorkflowServiceError("SOURCE_DUPLICATED", "数据表选择不能重复。")
         return tuple(result)
 
-    @staticmethod
-    def _system_prompt(route: str) -> str:
+    def _system_prompt(self, route: str, context: WorkflowContext) -> str:
         turn_note = (
             "可先调用只读检查工具理解数据。"
             if route == "agent_exploration"
             else "优先直接提交任务草稿。"
         )
+        candidate_ids = list(
+            explicit_profile_ids(context.instruction, context.allowed_profile_ids)
+        )
+        candidate_ids.extend(context.selected_profile_ids)
+        candidate_ids.extend(
+            plot.profile_id
+            for plot in context.plots
+            if plot.plot_alias in context.selected_plot_aliases
+        )
+        unique_candidates = tuple(dict.fromkeys(candidate_ids))
+        hints: list[dict[str, object]] = []
+        for profile_id in unique_candidates:
+            profile = self.engine.catalog.get(profile_id)
+            hints.append(
+                {
+                    "profile_id": profile.profile_id,
+                    "required_roles": profile.required_roles,
+                    "optional_roles": profile.optional_roles,
+                    "repeatable_role_prefixes": profile.repeatable_role_prefixes,
+                    "object_aliases": tuple(item.object_alias for item in profile.objects),
+                    "repeatable_object_prefixes": tuple(
+                        item.object_alias_prefix for item in profile.repeatable_objects
+                    ),
+                    "visual_operations": tuple(
+                        capability.operation
+                        for capability in profile.capabilities
+                        if capability.operation.startswith("set_")
+                        or capability.operation == "add_annotation"
+                    ),
+                }
+            )
+        token = context.workflow_run_id.removeprefix("workflow:")
+        scaffold = {
+            "workflow_run_id": context.workflow_run_id,
+            "authoritative_route": route,
+            "draft_id": f"draft:{token}",
+            "item_id_pattern": f"item:{token}.{{ordinal}}",
+            "plot_alias_pattern": "plot_{ordinal}",
+            "profile_contracts": hints,
+        }
         return (
             "你是 PlotAgent 的任务编排 Agent。根据 workflow_context 生成一个 TaskDraft。"
             "只能使用上下文中的别名、允许的图类、封闭数据操作和视觉动作；"
             "不得输出代码、SQL、文件路径或 renderer 参数。"
             "不要猜测数据内容；需要事实时调用只读检查工具。"
             "每个任务项必须明确数据来源、字段角色、图类和用户要求的视觉动作。"
+            "route、workflow_run_id、draft_id、item_id 和 plot_alias 必须按本地脚手架填写。"
+            "字段绑定必须使用 field_alias，不得使用显示名代替。"
+            "用户明确要求的标题、处理步骤和样式都是硬约束，不得省略。"
             f"{turn_note} 最后调用 submit_task_draft；不得直接执行或导出。"
+            f"\n本地脚手架：{canonical_json(cast(Any, scaffold))}"
         )
 
     @staticmethod

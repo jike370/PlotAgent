@@ -370,6 +370,81 @@ def test_workflow_deterministic_create_requires_confirmation_and_executes(
     assert progress[0]["output_plot_version"] == 1
 
 
+def test_workflow_agent_handoff_exposes_profile_contract_and_core_owns_route(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="workflow-agent-route")
+    dataset = cast(list[dict[str, Any]], imported["datasets"])[0]
+    prepared = harness.call(
+        "workflow.prepare",
+        {
+            "project_id": project_id,
+            "expected_project_version": imported["project_version"],
+            "instruction": "用 K01 折线图绘制，标题为测试，字体改成 Comic Sans",
+            "selected_sources": [
+                {
+                    "dataset_id": dataset["source_dataset_id"],
+                    "source_version": dataset["source_version"],
+                }
+            ],
+            "selected_profile_ids": ["K01"],
+        },
+    )
+    assert prepared["outcome"] == "agent_required"
+    assert prepared["route"] == "agent_single_turn"
+    prompt = cast(str, prepared["system_prompt"])
+    assert '"profile_id":"K01"' in prompt
+    assert '"required_roles":["x","y"]' in prompt
+    assert '"authoritative_route":"agent_single_turn"' in prompt
+
+    context = cast(dict[str, Any], prepared["workflow_context"])
+    fields = cast(list[dict[str, Any]], context["fields"])
+    numeric = [field for field in fields if field["logical_type"] == "numeric"][:2]
+    source_alias = cast(str, cast(list[dict[str, Any]], context["sources"])[0]["source_alias"])
+    run_id = cast(str, prepared["workflow_run_id"])
+    submitted = harness.call(
+        "workflow.submit_draft",
+        {
+            "project_id": project_id,
+            "workflow_run_id": run_id,
+            "task_draft": {
+                "draft_id": "draft:agent-route",
+                "workflow_run_id": run_id,
+                # A model-supplied route is never authoritative.
+                "route": "deterministic",
+                "summary": "创建测试折线图",
+                "items": [
+                    {
+                        "task_kind": "create",
+                        "item_id": "item:agent-route.1",
+                        "plot_alias": "plot_1",
+                        "profile_id": "K01",
+                        "source_aliases": [source_alias],
+                        "bindings": [
+                            {
+                                "role": "x",
+                                "source_alias": source_alias,
+                                "field_alias": numeric[0]["field_alias"],
+                            },
+                            {
+                                "role": "y",
+                                "source_alias": source_alias,
+                                "field_alias": numeric[1]["field_alias"],
+                            },
+                        ],
+                        "visual_actions": [
+                            {"operation": "set_title", "text": "测试"}
+                        ],
+                    }
+                ],
+                "confidence": 1,
+            },
+        },
+    )
+    assert cast(dict[str, Any], submitted["draft"])["route"] == "agent_single_turn"
+
+
 def test_workflow_recipe_requires_a_real_export_and_replays_without_agent(
     harness: ApplicationHarness,
     tmp_path: Path,
@@ -453,7 +528,7 @@ def test_workflow_recipe_requires_a_real_export_and_replays_without_agent(
     assert replayed["recipe_id"] == recipe["recipe_id"]
 
 
-def test_workflow_agent_draft_edits_the_selected_plot_without_a_source(
+def test_workflow_program_first_edit_changes_the_selected_plot_without_a_source(
     harness: ApplicationHarness,
 ) -> None:
     project_id, revision = _create_open(harness)
@@ -475,40 +550,9 @@ def test_workflow_agent_draft_edits_the_selected_plot_without_a_source(
             "selected_plot_ids": ["plot:workflow-edit"],
         },
     )
-    assert prepared["outcome"] == "agent_required"
-    run_id = cast(str, prepared["workflow_run_id"])
-    submitted = harness.call(
-        "workflow.submit_draft",
-        {
-            "project_id": project_id,
-            "workflow_run_id": run_id,
-            "task_draft": {
-                "schema_version": "task-draft.v1",
-                "draft_id": "draft:workflow-edit",
-                "workflow_run_id": run_id,
-                "route": "agent_single_turn",
-                "summary": "修改当前图标题",
-                "items": [
-                    {
-                        "task_kind": "edit",
-                        "item_id": "item:workflow-edit.1",
-                        "plot_alias": "plot_1",
-                        "profile_id": "K01",
-                        "target_plot_alias": "plot_1",
-                        "visual_actions": [
-                            {
-                                "operation": "set_title",
-                                "target_alias": "plot",
-                                "text": "响应曲线",
-                            }
-                        ],
-                    }
-                ],
-                "confidence": 1,
-            },
-        },
-    )
-    task_plan = cast(dict[str, Any], submitted["task_plan"])
+    assert prepared["outcome"] == "draft_ready"
+    assert prepared["route"] == "deterministic"
+    task_plan = cast(dict[str, Any], prepared["task_plan"])
     plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
     harness.call(
         "workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id}

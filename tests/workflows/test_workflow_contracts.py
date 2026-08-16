@@ -102,20 +102,34 @@ def test_unspecified_chart_is_a_local_question_not_an_agent_guess() -> None:
     assert decision.deterministic.questions[0].question_key == "chart_type"
 
 
-@pytest.mark.parametrize(
-    "instruction",
-    (
-        "用这个数据画 K01 折线图，线条改成红色虚线",
-        "用这个数据画 K01 折线图，只保留 Response 大于 2 的行",
-    ),
-)
-def test_goal_details_are_never_dropped_by_the_deterministic_create_route(
-    instruction: str,
-) -> None:
-    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(_context(instruction))
+def test_explicit_visual_goal_uses_the_program_first_route_without_dropping_style() -> None:
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(
+        _context("用这个数据画 K01 折线图，线条改成 #D62728 红色虚线，宽度 2 pt")
+    )
 
-    assert decision.route == "agent_single_turn"
-    assert decision.deterministic is None
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    draft = decision.deterministic.draft
+    style = draft.items[0].visual_actions[0]
+    assert style.operation == "set_series_style"
+    assert style.line_stroke_color == "#D62728"
+    assert style.line_style == "dash"
+    assert style.line_width_pt == 2
+
+
+def test_explicit_filter_and_sort_use_field_aliases_on_the_program_first_route() -> None:
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(
+        _context(
+            "用这个数据画 K01 折线图，只保留 Response 大于 2 的行，按 Time 降序排列"
+        )
+    )
+
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    operations = decision.deterministic.draft.items[0].data_operations
+    assert [operation.operation for operation in operations] == ["filter_rows", "sort_rows"]
+    assert operations[0].predicates[0].field_alias == "data_1_response"
+    assert operations[1].keys[0].field_alias == "data_1_time"
 
 
 def test_multi_source_batch_goal_routes_to_bounded_exploration() -> None:

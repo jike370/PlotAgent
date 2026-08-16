@@ -1,0 +1,207 @@
+from __future__ import annotations
+
+from plotagent.contracts.workflows import (
+    WorkflowBudget,
+    WorkflowContext,
+    WorkflowField,
+    WorkflowPlot,
+    WorkflowSource,
+)
+from plotagent.engine import EngineCatalog
+from plotagent.engine.profiles import ENGINE_PROFILES
+from plotagent.workflows import WorkflowRouter
+
+_HASH = "a" * 64
+_CATALOG = EngineCatalog(ENGINE_PROFILES)
+
+
+def _context(
+    profile_id: str,
+    instruction: str,
+    fields: tuple[tuple[str, str], ...],
+    *,
+    edit: bool = False,
+) -> WorkflowContext:
+    source = WorkflowSource(
+        source_alias="data_1",
+        source_dataset_id="source:test",
+        source_version=1,
+        content_hash=_HASH,
+        display_name="fixture.csv",
+        row_count=8,
+    )
+    workflow_fields = tuple(
+        WorkflowField(
+            field_alias=f"field_{position}",
+            source_alias="data_1",
+            field_id=f"field:{position:024x}",
+            name=name,
+            logical_type=logical_type,  # type: ignore[arg-type]
+        )
+        for position, (name, logical_type) in enumerate(fields, start=1)
+    )
+    plots = (
+        WorkflowPlot(
+            plot_alias="current_plot",
+            plot_id="plot:test",
+            plot_version=1,
+            profile_id=profile_id,
+        ),
+    ) if edit else ()
+    return WorkflowContext(
+        workflow_run_id="workflow:natural-language",
+        project_id="project:test",
+        project_revision=2,
+        instruction=instruction,
+        sources=(source,),
+        fields=workflow_fields,
+        plots=plots,
+        selected_source_aliases=("data_1",),
+        selected_plot_aliases=("current_plot",) if edit else (),
+        selected_profile_ids=() if edit else (profile_id,),
+        allowed_profile_ids=tuple(profile.profile_id for profile in ENGINE_PROFILES),
+        budget=WorkflowBudget(),
+    )
+
+
+def _draft(context: WorkflowContext):  # type: ignore[no-untyped-def]
+    decision = WorkflowRouter(_CATALOG).route(context)
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    assert decision.deterministic.outcome == "draft_ready"
+    return decision.deterministic.draft
+
+
+def test_program_first_parses_line_title_and_marker_goals() -> None:
+    line = _draft(
+        _context(
+            "K01",
+            "创建 K01 折线图，X 映射 X，Y 映射 Response；标题设为温度响应，"
+            "线条改为 #D62728 红色虚线，宽度 2 pt。",
+            (("X", "numeric"), ("Response", "numeric")),
+        )
+    )
+    assert [action.model_dump(exclude_none=True) for action in line.items[0].visual_actions] == [
+        {"operation": "set_title", "target_alias": "plot", "text": "温度响应"},
+        {
+            "operation": "set_series_style",
+            "target_alias": "series_1",
+            "line_stroke_color": "#D62728",
+            "line_width_pt": 2.0,
+            "line_style": "dash",
+        },
+    ]
+
+    scatter = _draft(
+        _context(
+            "K03",
+            "创建 K03 散点图，X 映射 X，Y 映射 Response；点使用蓝色实心圆，"
+            "大小 8 pt，边缘宽度 1 pt。",
+            (("X", "numeric"), ("Response", "numeric")),
+        )
+    )
+    style = scatter.items[0].visual_actions[0]
+    assert style.marker_shape == "circle"
+    assert style.marker_size_pt == 8
+    assert style.marker_interior == "solid"
+    assert style.marker_stroke_width_pt == 1
+    assert style.marker_fill_color == "#1F77B4"
+
+
+def test_program_first_parses_column_heatmap_and_error_styles() -> None:
+    column = _draft(
+        _context(
+            "K08",
+            "创建 K08 柱状图，Category 映射 category，Value 映射 value；"
+            "柱填充 #4C78A8，边框 #1F4E79，边框宽 1.5 pt，并显示数据标签。",
+            (("Category", "categorical"), ("Value", "numeric")),
+        )
+    )
+    style, labels = column.items[0].visual_actions
+    assert style.fill_color == "#4C78A8"
+    assert style.fill_stroke_color == "#1F4E79"
+    assert style.fill_stroke_width_pt == 1.5
+    assert labels.operation == "set_data_labels" and labels.visible
+
+    heatmap = _draft(
+        _context(
+            "K20",
+            "创建 K20 热图，Row 映射 row，Column 映射 column，Value 映射 value；"
+            "使用 RdBu 色板并反转，范围 -3 到 9，中点 0，色标标题设为表达量。",
+            (("Row", "categorical"), ("Column", "categorical"), ("Value", "numeric")),
+        )
+    )
+    color = heatmap.items[0].visual_actions[0]
+    assert color.palette == "red_white_blue"
+    assert color.reverse and (color.minimum, color.maximum, color.midpoint) == (-3, 9, 0)
+    assert color.colorbar_title == "表达量"
+
+    error = _draft(
+        _context(
+            "K06",
+            "创建 K06 双向误差棒图：X→x，Mean→center，XLower→x_lower，"
+            "XUpper→x_upper，Lower→lower，Upper→upper。"
+            "误差棒颜色 #B63848、宽 1.5 pt、端帽 6 pt。",
+            (
+                ("X", "numeric"),
+                ("Mean", "numeric"),
+                ("XLower", "numeric"),
+                ("XUpper", "numeric"),
+                ("Lower", "numeric"),
+                ("Upper", "numeric"),
+            ),
+        )
+    )
+    error_style = error.items[0].visual_actions[0]
+    assert (error_style.bar_color, error_style.bar_width_pt, error_style.cap_size_pt) == (
+        "#B63848",
+        1.5,
+        6,
+    )
+
+
+def test_program_first_parses_existing_plot_edits_and_connector_style() -> None:
+    edited = _draft(
+        _context(
+            "K01",
+            "把当前图标题改为实验结果，并把 y 轴标题改为响应值，其他保持不变。",
+            (("X", "numeric"), ("Response", "numeric")),
+            edit=True,
+        )
+    )
+    assert edited.items[0].task_kind == "edit"
+    assert edited.items[0].target_plot_alias == "current_plot"
+    assert [action.operation for action in edited.items[0].visual_actions] == [
+        "set_title",
+        "set_axis",
+    ]
+
+    before_after = _draft(
+        _context(
+            "X40",
+            "创建 X40 前后对比图：Subject→label，Before→series_1，After→series_2，"
+            "Group→group；连接线用 #7A7A7A、宽 1.5 pt，标题为干预前后。",
+            (
+                ("Subject", "categorical"),
+                ("Before", "numeric"),
+                ("After", "numeric"),
+                ("Group", "categorical"),
+            ),
+        )
+    )
+    title, connector = before_after.items[0].visual_actions
+    assert title.text == "干预前后"
+    assert connector.target_alias == "connector"
+    assert connector.line_stroke_color == "#7A7A7A"
+    assert connector.line_width_pt == 1.5
+
+
+def test_unhandled_explicit_goal_escalates_instead_of_dropping_parameters() -> None:
+    context = _context(
+        "K01",
+        "创建 K01 折线图，X 映射 X，Y 映射 Response；字体改成 Comic Sans。",
+        (("X", "numeric"), ("Response", "numeric")),
+    )
+    decision = WorkflowRouter(_CATALOG).route(context)
+    assert decision.route == "agent_single_turn"
+    assert decision.deterministic is None

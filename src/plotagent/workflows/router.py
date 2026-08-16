@@ -19,6 +19,7 @@ from plotagent.contracts.workflows import (
 )
 from plotagent.engine import EngineCatalog
 
+from .natural_language import parse_explicit_goal
 from .profiles import explicit_profile_ids, unspecified_chart_request
 
 _NON_NUMERIC_ROLES = frozenset(
@@ -39,27 +40,12 @@ _NON_NUMERIC_ROLES = frozenset(
     }
 )
 
-_AGENT_GOAL_DETAIL = re.compile(
-    r"(?:"
-    r"标题|颜色|色板|填充|边框|线宽|虚线|点线|点划线|实线|"
-    r"符号|点大小|符号大小|透明|图例|字体|字号|加粗|旋转|"
-    r"网格|刻度|坐标范围|轴范围|对数|log10|反向|数据标签|"
-    r"端帽|注释|参考线|中点|筛选|过滤|排序|宽转长|长转宽|"
-    r"拼接|合并|只保留|排除|剔除|#[0-9a-fA-F]{6}"
-    r")"
-)
-
-
-def _needs_agent_interpretation(instruction: str) -> bool:
-    """Keep the cheap route from silently discarding requested work.
-
-    The deterministic resolver currently owns chart/field binding only.  Any
-    visible style request or closed data operation must therefore be translated
-    into a TaskDraft by Pi instead of being accepted as a bare create request.
-    """
-
-    return _AGENT_GOAL_DETAIL.search(instruction) is not None
-
+_EXPLICIT_ROLE_LABELS: dict[str, tuple[str, ...]] = {
+    "x_err_minus": ("x_err_minus", "x_lower"),
+    "x_err_plus": ("x_err_plus", "x_upper"),
+    "y_err_minus": ("y_err_minus", "lower", "y_lower"),
+    "y_err_plus": ("y_err_plus", "upper", "y_upper"),
+}
 
 @dataclass(frozen=True, slots=True)
 class RouteDecision:
@@ -131,10 +117,8 @@ class DeterministicResolver:
         self._catalog = catalog
 
     def resolve(self, context: WorkflowContext) -> WorkflowDecision | None:
-        # Existing plot edits require interpreting the requested visual change;
-        # they are never mistaken for a new-plot request.
         if context.selected_plot_aliases:
-            return None
+            return self._resolve_edit(context)
         profile_ids = explicit_profile_ids(context.instruction, context.allowed_profile_ids)
         if not profile_ids and len(context.selected_profile_ids) == 1:
             profile_ids = context.selected_profile_ids
@@ -173,11 +157,22 @@ class DeterministicResolver:
             return None
         token = context.workflow_run_id.removeprefix("workflow:")
         items: list[TaskDraftItem] = []
+        goal_constraints: set[str] = set()
         for position, source_alias in enumerate(context.selected_source_aliases, start=1):
             fields = tuple(field for field in context.fields if field.source_alias == source_alias)
-            bindings = self._bindings(profile.required_roles, fields, source_alias)
+            bindings = self._bindings(
+                profile.required_roles,
+                profile.optional_roles,
+                fields,
+                source_alias,
+                context.instruction,
+            )
             if bindings is None:
                 return None
+            goal = parse_explicit_goal(context, source_alias=source_alias)
+            if goal is None:
+                return None
+            goal_constraints.update(goal.hard_constraints)
             items.append(
                 TaskDraftItem(
                     task_kind="create",
@@ -185,7 +180,9 @@ class DeterministicResolver:
                     plot_alias=f"plot_{position}",
                     profile_id=profile.profile_id,
                     source_aliases=(source_alias,),
+                    data_operations=goal.data_operations,
                     bindings=bindings,
+                    visual_actions=goal.visual_actions,
                 )
             )
         draft = TaskDraft(
@@ -195,19 +192,89 @@ class DeterministicResolver:
             summary=f"使用 {profile.display_name} 创建 {len(items)} 张图",
             items=tuple(items),
             confidence=1.0,
-            hard_constraints=("preserve_source_values", "require_confirmation"),
+            hard_constraints=(
+                "preserve_source_values",
+                "require_confirmation",
+                *sorted(goal_constraints),
+            ),
+        )
+        return WorkflowDraftReady(draft=draft)
+
+    @staticmethod
+    def _resolve_edit(context: WorkflowContext) -> WorkflowDecision | None:
+        if len(context.selected_plot_aliases) != 1:
+            return None
+        target_alias = context.selected_plot_aliases[0]
+        target = next((plot for plot in context.plots if plot.plot_alias == target_alias), None)
+        if target is None:
+            return None
+        goal = parse_explicit_goal(context, source_alias=None)
+        if goal is None or not goal.visual_actions or goal.data_operations:
+            return None
+        token = context.workflow_run_id.removeprefix("workflow:")
+        draft = TaskDraft(
+            draft_id=f"draft:{token}",
+            workflow_run_id=context.workflow_run_id,
+            route="deterministic",
+            summary=f"修改 {target.profile_id} 图形",
+            items=(
+                TaskDraftItem(
+                    task_kind="edit",
+                    item_id=f"item:{token}.1",
+                    plot_alias="plot_1",
+                    profile_id=target.profile_id,
+                    target_plot_alias=target_alias,
+                    visual_actions=goal.visual_actions,
+                ),
+            ),
+            confidence=1.0,
+            hard_constraints=("require_confirmation", *goal.hard_constraints),
         )
         return WorkflowDraftReady(draft=draft)
 
     @staticmethod
     def _bindings(
         required_roles: tuple[str, ...],
+        optional_roles: tuple[str, ...],
         fields: tuple[WorkflowField, ...],
         source_alias: str,
+        instruction: str,
     ) -> tuple[DraftFieldBinding, ...] | None:
+        explicit: dict[str, WorkflowField] = {}
+        all_roles = (*required_roles, *optional_roles)
+        for role in all_roles:
+            for field in fields:
+                field_name = re.escape(field.name)
+                for role_label in _EXPLICIT_ROLE_LABELS.get(role, (role,)):
+                    role_name = re.escape(role_label)
+                    if re.search(
+                        rf"(?:(?<!\w){field_name}(?!\w)\s*(?:映射|→|->|=|作为)\s*"
+                        rf"(?<!\w){role_name}(?!\w)"
+                        rf"|(?<!\w){role_name}(?!\w)\s*(?:映射|→|->|=|作为)\s*"
+                        rf"(?<!\w){field_name}(?!\w))",
+                        instruction,
+                        flags=re.IGNORECASE,
+                    ):
+                        explicit[role] = field
+                        break
+                if role in explicit:
+                    break
         used: set[str] = set()
         bindings: list[DraftFieldBinding] = []
         for role in required_roles:
+            if role in explicit:
+                field = explicit[role]
+                if field.field_alias in used:
+                    return None
+                used.add(field.field_alias)
+                bindings.append(
+                    DraftFieldBinding(
+                        role=role,
+                        source_alias=source_alias,
+                        field_alias=field.field_alias,
+                    )
+                )
+                continue
             candidates = sorted(
                 (
                     (score, index, field)
@@ -231,6 +298,20 @@ class DeterministicResolver:
                     field_alias=field.field_alias,
                 )
             )
+        for role in optional_roles:
+            optional_field = explicit.get(role)
+            if optional_field is None:
+                continue
+            if optional_field.field_alias in used:
+                return None
+            used.add(optional_field.field_alias)
+            bindings.append(
+                DraftFieldBinding(
+                    role=role,
+                    source_alias=source_alias,
+                    field_alias=optional_field.field_alias,
+                )
+            )
         return tuple(bindings)
 
 
@@ -241,11 +322,7 @@ class WorkflowRouter:
         self._deterministic = DeterministicResolver(catalog)
 
     def route(self, context: WorkflowContext) -> RouteDecision:
-        deterministic = (
-            None
-            if _needs_agent_interpretation(context.instruction)
-            else self._deterministic.resolve(context)
-        )
+        deterministic = self._deterministic.resolve(context)
         if deterministic is not None:
             route: WorkflowRoute = (
                 "deterministic" if deterministic.outcome == "draft_ready" else "needs_input"
