@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "eval:seq70": "tsc -p tsconfig.seq70.json && node build/seq70-runtime/scripts/run_seq70_workflow_eval.js",
     "test:release": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/packaging/windows-release-tools.test.ps1",
     "release:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release-windows.ps1"
   },

@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": false,
+    "outDir": "build/seq70-runtime",
+    "rootDir": ".",
+    "sourceMap": false
+  },
+  "include": [
+    "scripts/run_seq70_workflow_eval.ts"
+  ]
+}

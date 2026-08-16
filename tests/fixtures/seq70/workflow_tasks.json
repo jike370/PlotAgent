@@ -1,0 +1,256 @@
+{
+  "schema_version": "seq70-workflow-eval-v1",
+  "repeats": 3,
+  "pricing_cny_per_million_tokens": {
+    "input_cache_hit": 0.02,
+    "input_cache_miss": 1.0,
+    "output": 2.0
+  },
+  "thresholds": {
+    "task_exact_rate": 0.9,
+    "local_validator_accept_rate": 1.0,
+    "route_accuracy": 1.0,
+    "binding_accuracy": 0.95,
+    "visual_action_accuracy": 0.9,
+    "data_operation_accuracy": 0.9,
+    "required_inspection_rate": 0.9,
+    "runtime_success_rate": 1.0,
+    "confirmation_no_side_effect_rate": 1.0,
+    "model_error_rate_max": 0.05,
+    "latency_p95_seconds_max": 30.0
+  },
+  "tasks": [
+    {
+      "task_id": "W01",
+      "layer": "workflow",
+      "fixture_keys": ["xy"],
+      "instruction": "用 K01 折线图绘制这张表，X 映射 X，Y 映射 Response。",
+      "selected_profile_ids": ["K01"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "deterministic",
+      "expected_profiles": ["K01"],
+      "expected_bindings": {"x": "X", "y": "Response"}
+    },
+    {
+      "task_id": "W02",
+      "layer": "workflow",
+      "fixture_keys": ["xy", "xy_second"],
+      "instruction": "批量把每个数据表分别画成 K01 折线图。",
+      "selected_profile_ids": ["K01"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "deterministic",
+      "expected_profiles": ["K01", "K01"]
+    },
+    {
+      "task_id": "W03",
+      "layer": "workflow",
+      "fixture_keys": ["xy"],
+      "instruction": "用这张表画一张图。",
+      "selected_profile_ids": [],
+      "expected_outcome": "needs_input",
+      "expected_route": "needs_input"
+    },
+    {
+      "task_id": "W04",
+      "layer": "workflow",
+      "fixture_keys": ["xy"],
+      "instruction": "创建 K01 折线图，X 映射 X，Y 映射 Response；标题设为温度响应，线条改为 #D62728 红色虚线，宽度 2 pt。",
+      "selected_profile_ids": ["K01"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["K01"],
+      "expected_bindings": {"x": "X", "y": "Response"},
+      "expected_visual_actions": [
+        {"operation": "set_title", "text": "温度响应"},
+        {"operation": "set_series_style", "target_alias": "series_1", "line_stroke_color": "#D62728", "line_style": "dash", "line_width_pt": 2}
+      ]
+    },
+    {
+      "task_id": "W05",
+      "layer": "workflow",
+      "fixture_keys": ["xy"],
+      "instruction": "创建 K03 散点图，X 映射 X，Y 映射 Response；点使用蓝色实心圆，大小 8 pt，边缘宽度 1 pt。",
+      "selected_profile_ids": ["K03"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["K03"],
+      "expected_bindings": {"x": "X", "y": "Response"},
+      "expected_visual_actions": [
+        {"operation": "set_series_style", "target_alias": "series_1", "marker_shape": "circle", "marker_size_pt": 8, "marker_interior": "solid", "marker_stroke_width_pt": 1}
+      ]
+    },
+    {
+      "task_id": "W06",
+      "layer": "workflow",
+      "fixture_keys": ["column"],
+      "instruction": "创建 K08 柱状图，Category 映射 category，Value 映射 value；柱填充 #4C78A8，边框 #1F4E79，边框宽 1.5 pt，并显示数据标签。",
+      "selected_profile_ids": ["K08"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["K08"],
+      "expected_bindings": {"category": "Category", "value": "Value"},
+      "expected_visual_actions": [
+        {"operation": "set_series_style", "target_alias": "series_1", "fill_color": "#4C78A8", "fill_stroke_color": "#1F4E79", "fill_stroke_width_pt": 1.5},
+        {"operation": "set_data_labels", "target_alias": "series_1", "visible": true}
+      ]
+    },
+    {
+      "task_id": "W07",
+      "layer": "workflow",
+      "fixture_keys": ["heatmap"],
+      "instruction": "创建 K20 热图，Row 映射 row，Column 映射 column，Value 映射 value；使用 RdBu 色板并反转，范围 -3 到 9，中点 0，色标标题设为表达量。",
+      "selected_profile_ids": ["K20"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["K20"],
+      "expected_bindings": {"row": "Row", "column": "Column", "value": "Value"},
+      "expected_visual_actions": [
+        {"operation": "set_colormap", "target_alias": "series_1", "palette": "RdBu", "reverse": true, "minimum": -3, "maximum": 9, "midpoint": 0, "colorbar_title": "表达量"}
+      ]
+    },
+    {
+      "task_id": "W08",
+      "layer": "workflow",
+      "fixture_keys": ["error"],
+      "instruction": "创建 K06 双向误差棒图：X→x，Mean→center，XLower→x_lower，XUpper→x_upper，Lower→lower，Upper→upper。误差棒颜色 #B63848、宽 1.5 pt、端帽 6 pt。",
+      "selected_profile_ids": ["K06"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["K06"],
+      "expected_bindings": {"x": "X", "center": "Mean", "x_lower": "XLower", "x_upper": "XUpper", "lower": "Lower", "upper": "Upper"},
+      "expected_visual_actions": [
+        {"operation": "set_error_style", "target_alias": "error", "bar_color": "#B63848", "bar_width_pt": 1.5, "cap_size_pt": 6}
+      ]
+    },
+    {
+      "task_id": "W09",
+      "layer": "workflow",
+      "fixture_keys": ["xy"],
+      "instruction": "创建 K01 折线图，X 映射 X，Y 映射 Response；只保留 Response 大于 2 的行，然后按 X 降序排列。",
+      "selected_profile_ids": ["K01"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["K01"],
+      "expected_bindings": {"x": "X", "y": "Response"},
+      "expected_data_operations": ["filter_rows", "sort_rows"]
+    },
+    {
+      "task_id": "W10",
+      "layer": "workflow",
+      "fixture_keys": ["xy", "xy_second"],
+      "instruction": "数据 data_1 画 K01 折线图，数据 data_2 画 K03 散点图；两张图都使用各自的第一列为 x、第二列为 y。",
+      "selected_profile_ids": ["K01", "K03"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_exploration",
+      "expected_profiles": ["K01", "K03"]
+    },
+    {
+      "task_id": "W11",
+      "layer": "workflow",
+      "fixture_keys": ["xy", "xy_second"],
+      "instruction": "把 data_1 和 data_2 两份同构数据纵向拼接，在同一张 K02 线点图中绘制，保留来源身份；X/Time 为 x，Response/Value 为 y。",
+      "selected_profile_ids": ["K02"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_exploration",
+      "expected_profiles": ["K02"],
+      "expected_data_operations": ["concatenate_sources"],
+      "require_inspection": true
+    },
+    {
+      "task_id": "W12",
+      "layer": "workflow",
+      "fixture_keys": ["xy"],
+      "setup_plot_profile": "K01",
+      "instruction": "把当前图标题改为实验结果，并把 y 轴标题改为响应值，其他保持不变。",
+      "selected_profile_ids": [],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["K01"],
+      "expected_visual_actions": [
+        {"operation": "set_title", "text": "实验结果"},
+        {"operation": "set_axis", "target_alias": "y_axis", "label": "响应值"}
+      ]
+    },
+    {
+      "task_id": "W13",
+      "layer": "workflow",
+      "fixture_keys": ["xy"],
+      "setup_plot_profile": "K02",
+      "instruction": "当前图第一条系列改为 #C33C54 红色点划线，菱形空心点 7 pt；显示图例并放到右侧。",
+      "selected_profile_ids": [],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["K02"],
+      "expected_visual_actions": [
+        {"operation": "set_series_style", "target_alias": "series_1", "line_stroke_color": "#C33C54", "line_style": "dash_dot", "marker_shape": "diamond", "marker_size_pt": 7, "marker_interior": "hollow"},
+        {"operation": "set_legend", "target_alias": "legend", "visible": true, "anchor": "right"}
+      ]
+    },
+    {
+      "task_id": "W14",
+      "layer": "workflow",
+      "fixture_keys": ["xy"],
+      "instruction": "请创建已经删除的 K25 组合图；如果不支持就明确询问或拒绝，不得替换成别的图。",
+      "selected_profile_ids": [],
+      "expected_outcome": "needs_input",
+      "expected_route": "needs_input"
+    },
+    {
+      "task_id": "W15",
+      "layer": "workflow",
+      "fixture_keys": ["ambiguous"],
+      "instruction": "创建 K01 折线图，第一列 Alpha 作为 x，第二列 Beta 作为 y，标题为歧义列已确认。",
+      "selected_profile_ids": ["K01"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["K01"],
+      "expected_bindings": {"x": "Alpha", "y": "Beta"},
+      "expected_visual_actions": [{"operation": "set_title", "text": "歧义列已确认"}]
+    },
+    {
+      "task_id": "W16",
+      "layer": "workflow",
+      "fixture_keys": ["xy", "xy_second"],
+      "instruction": "先比较 data_1 与 data_2 的结构；如果同构，就分别创建 K01 折线图，标题分别为数据一和数据二。",
+      "selected_profile_ids": ["K01"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_exploration",
+      "expected_profiles": ["K01", "K01"],
+      "require_inspection": true
+    },
+    {
+      "task_id": "W17",
+      "layer": "workflow",
+      "fixture_keys": ["xy"],
+      "instruction": "先查看 Response 字段并计算其中位数，只保留高于中位数的行，再创建 K01 折线图，标题为高响应。",
+      "selected_profile_ids": ["K01"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["K01"],
+      "expected_data_operations": ["filter_rows"],
+      "expected_visual_actions": [{"operation": "set_title", "text": "高响应"}],
+      "require_inspection": true
+    },
+    {
+      "task_id": "W18",
+      "layer": "workflow",
+      "fixture_keys": ["before_after"],
+      "instruction": "创建 X40 前后对比图：Subject→label，Before→series_1，After→series_2，Group→group；连接线用 #7A7A7A、宽 1.5 pt，标题为干预前后。",
+      "selected_profile_ids": ["X40"],
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent_single_turn",
+      "expected_profiles": ["X40"],
+      "expected_bindings": {"label": "Subject", "series_1": "Before", "series_2": "After", "group": "Group"},
+      "expected_visual_actions": [
+        {"operation": "set_series_style", "target_alias": "connector", "line_stroke_color": "#7A7A7A", "line_width_pt": 1.5},
+        {"operation": "set_title", "text": "干预前后"}
+      ]
+    },
+    {"task_id": "R01", "layer": "runtime", "scenario": "confirmation_no_side_effect"},
+    {"task_id": "R02", "layer": "runtime", "scenario": "confirmed_plan_executes"},
+    {"task_id": "R03", "layer": "runtime", "scenario": "rejected_plan_no_side_effect"},
+    {"task_id": "R04", "layer": "runtime", "scenario": "stale_plan_rejected"},
+    {"task_id": "R05", "layer": "runtime", "scenario": "recipe_replay"},
+    {"task_id": "R06", "layer": "runtime", "scenario": "restart_recovers_plan"}
+  ]
+}
