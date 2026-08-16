@@ -9,7 +9,7 @@ from plotagent.contracts.workflows import (
 )
 from plotagent.engine import EngineCatalog
 from plotagent.engine.profiles import ENGINE_PROFILES
-from plotagent.workflows import WorkflowRouter
+from plotagent.workflows import DraftCompiler, WorkflowRouter
 
 _HASH = "a" * 64
 _CATALOG = EngineCatalog(ENGINE_PROFILES)
@@ -135,6 +135,15 @@ def test_program_first_parses_column_heatmap_and_error_styles() -> None:
     assert color.palette == "red_white_blue"
     assert color.reverse and (color.minimum, color.maximum, color.midpoint) == (-3, 9, 0)
     assert color.colorbar_title == "表达量"
+    assert DraftCompiler(_CATALOG).validate(
+        heatmap,
+        _context(
+            "K20",
+            "创建 K20 热图，Row 映射 row，Column 映射 column，Value 映射 value；"
+            "使用 RdBu 色板并反转，范围 -3 到 9，中点 0，色标标题设为表达量。",
+            (("Row", "categorical"), ("Column", "categorical"), ("Value", "numeric")),
+        ),
+    ).valid
 
     error = _draft(
         _context(
@@ -158,6 +167,7 @@ def test_program_first_parses_column_heatmap_and_error_styles() -> None:
         1.5,
         6,
     )
+    assert error_style.target_alias == "series_1"
 
 
 def test_program_first_parses_existing_plot_edits_and_connector_style() -> None:

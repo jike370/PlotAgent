@@ -191,6 +191,8 @@ def _parse_series_style(text: str) -> DraftSetSeriesStyle | None:
         elif "空心" in text:
             values["marker_interior"] = "hollow"
         size = _number(rf"(?:点大小|符号大小|大小)\s*({_NUMBER})\s*(?:pt|磅)?", text)
+        if size is None:
+            size = _number(rf"(?:点|符号)\s*({_NUMBER})\s*(?:pt|磅)", text)
         if size is not None:
             values["marker_size_pt"] = size
         edge = _number(rf"(?:边缘宽度|符号边缘宽度)\s*({_NUMBER})\s*(?:pt|磅)?", text)
@@ -252,7 +254,7 @@ def _parse_error_style(text: str) -> DraftSetErrorStyle | None:
     color = _color_after(text, "误差棒")
     width = _number(rf"误差棒[^，,；;。]*?(?:宽|宽度|线宽)\s*({_NUMBER})", text)
     cap = _number(rf"端帽\s*({_NUMBER})", text)
-    values: dict[str, object] = {"target_alias": "error"}
+    values: dict[str, object] = {"target_alias": "series_1"}
     if color is not None:
         values["bar_color"] = color
     if width is not None:

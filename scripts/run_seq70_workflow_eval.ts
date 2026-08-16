@@ -745,9 +745,18 @@ function renderReport(
 
 async function main(): Promise<void> {
   const tasks = taskSet()
-  if (tasks.tasks.length !== 24 || tasks.repeats !== 3) {
+  const debugIds = new Set(
+    (process.env.SEQ70_DEBUG_TASKS ?? '').split(',').map((item) => item.trim()).filter(Boolean),
+  )
+  const debug = debugIds.size > 0
+  if (!debug && (tasks.tasks.length !== 24 || tasks.repeats !== 3)) {
     throw new Error('SEQ-70 task set must be frozen at 24 tasks × 3 repeats')
   }
+  const executionTasks = debug
+    ? tasks.tasks.filter((task) => debugIds.has(task.task_id))
+    : tasks.tasks
+  if (executionTasks.length === 0) throw new Error('SEQ-70 debug task filter matched no tasks')
+  const repeats = debug ? 1 : tasks.repeats
   const providerCatalog = join(process.env.LOCALAPPDATA ?? '', 'PlotAgent', 'catalog.sqlite3')
   if (!existsSync(providerCatalog)) throw new Error(`provider catalog is missing: ${providerCatalog}`)
   const gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPOSITORY, encoding: 'utf8' }).trim()
@@ -763,8 +772,8 @@ async function main(): Promise<void> {
   const results: CaseResult[] = []
   try {
     await harness.start()
-    for (let repeat = 1; repeat <= tasks.repeats; repeat += 1) {
-      for (const task of tasks.tasks) {
+    for (let repeat = 1; repeat <= repeats; repeat += 1) {
+      for (const task of executionTasks) {
         const result = task.layer === 'workflow'
           ? await runWorkflowCase(harness, task, repeat, fixturePaths)
           : await runRuntimeScenario(harness, task, repeat, fixturePaths, outputRoot)
@@ -781,9 +790,10 @@ async function main(): Promise<void> {
     schema_version: tasks.schema_version,
     git_commit: gitCommit,
     task_set_sha256: sha256(TASK_SET_PATH),
-    task_count: tasks.tasks.length,
-    repeats: tasks.repeats,
+    task_count: executionTasks.length,
+    repeats,
     execution_count: results.length,
+    debug_task_filter: debug ? [...debugIds] : [],
     generated_at: new Date().toISOString(),
   }
   const report = {

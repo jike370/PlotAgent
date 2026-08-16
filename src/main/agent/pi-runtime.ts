@@ -194,6 +194,7 @@ export class PiAgentRuntime {
       const provider = runtimeProvider(await this.core.request('provider.runtime.get', {}, 10_000))
       this.assertCurrent(generation)
       let submittedPlan: JsonValue | undefined
+      let lastValidationError: string | undefined
       const inspectTool = (
         name: string,
         label: string,
@@ -262,9 +263,10 @@ export class PiAgentRuntime {
                 terminate: true,
               }
             } catch (error) {
+              lastValidationError = String(error)
               return {
-                content: [{ type: 'text', text: `Local validation rejected this draft: ${String(error)}` }],
-                details: { validationError: String(error) },
+                content: [{ type: 'text', text: `Local validation rejected this draft: ${lastValidationError}` }],
+                details: { validationError: lastValidationError },
                 terminate: false,
               }
             }
@@ -297,7 +299,13 @@ export class PiAgentRuntime {
           timeout = setTimeout(() => {
             timedOut = true
             agent?.abort()
-            reject(new PiRuntimeError('PI_MODEL_TIMEOUT', 'The workflow draft exceeded its timeout.'))
+            const detail = lastValidationError === undefined
+              ? ''
+              : ` Last local validation error: ${lastValidationError}`
+            reject(new PiRuntimeError(
+              'PI_MODEL_TIMEOUT',
+              `The workflow draft exceeded its timeout.${detail}`,
+            ))
           }, this.timeoutMs)
         }),
       ])

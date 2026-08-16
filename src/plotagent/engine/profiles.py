@@ -48,7 +48,8 @@ _LEGEND_T1 = (
 _COLORMAP_T1 = (
     "palette",
     "reverse",
-    "bounds",
+    "minimum",
+    "maximum",
     "midpoint",
     "mode",
     "levels",
@@ -117,7 +118,7 @@ def _capabilities(
 def _profile(
     data: dict[str, Any],
     *,
-    axis: tuple[str, ...] = ("label", "scale", "bounds", "reverse"),
+    axis: tuple[str, ...] = ("label", "scale", "minimum", "maximum", "reverse"),
     series: tuple[str, ...] = (),
     legend: bool = False,
     colormap: bool = False,
@@ -616,7 +617,7 @@ K22_CONTOUR_PROFILE = _profile(
             {"object_alias": "series_1", "object_kind": "series", "object_key": "matrix"},
         ),
     },
-    axis=("label", "bounds", "reverse"),
+    axis=("label", "minimum", "maximum", "reverse"),
     colormap=True,
     chart=("levels",),
 )
@@ -673,7 +674,7 @@ S34_NYQUIST_PROFILE = _profile(
             },
         ),
     },
-    axis=("label", "bounds", "reverse"),
+    axis=("label", "minimum", "maximum", "reverse"),
     series=(
         "line_stroke_color",
         "line_width_pt",
@@ -841,7 +842,7 @@ X13_POPULATION_PYRAMID_PROFILE = _profile(
             {"object_alias": "legend", "object_kind": "legend", "object_key": "main"},
         ),
     },
-    axis=("label", "bounds", "reverse"),
+    axis=("label", "minimum", "maximum", "reverse"),
     series=(
         "fill_color",
         "fill_opacity",

@@ -119,7 +119,7 @@
       "expected_profiles": ["K06"],
       "expected_bindings": {"x": "X", "center": "Mean", "x_err_minus": "XLower", "x_err_plus": "XUpper", "y_err_minus": "Lower", "y_err_plus": "Upper"},
       "expected_visual_actions": [
-        {"operation": "set_error_style", "target_alias": "error", "bar_color": "#B63848", "bar_width_pt": 1.5, "cap_size_pt": 6}
+        {"operation": "set_error_style", "target_alias": "series_1", "bar_color": "#B63848", "bar_width_pt": 1.5, "cap_size_pt": 6}
       ]
     },
     {
