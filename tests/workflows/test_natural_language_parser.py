@@ -316,6 +316,21 @@ def test_localized_role_binding_resolves_an_unambiguous_source_field() -> None:
     ]
 
 
+def test_visual_labels_remove_natural_language_quotation_marks() -> None:
+    draft = _draft(
+        _context(
+            "K03",
+            "创建 K03 散点图，X 映射 X，Y 映射 Y，标题改为“验证散点图”，"
+            "横轴标题改为‘时间’。",
+            (("X", "numeric"), ("Y", "numeric")),
+        )
+    )
+
+    title, axis = draft.items[0].visual_actions
+    assert title.text == "验证散点图"
+    assert axis.label == "时间"
+
+
 def test_unhandled_explicit_goal_escalates_instead_of_dropping_parameters() -> None:
     context = _context(
         "K01",

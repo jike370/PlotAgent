@@ -121,13 +121,22 @@ def _field_alias(context: WorkflowContext, source_alias: str, name: str) -> str 
     return matches[0] if len(matches) == 1 else None
 
 
+def _unquote(value: str) -> str:
+    text = value.strip()
+    quote_pairs = (("“", "”"), ('"', '"'), ("‘", "’"), ("'", "'"))
+    for opening, closing in quote_pairs:
+        if len(text) >= 2 and text.startswith(opening) and text.endswith(closing):
+            return text[len(opening) : -len(closing)].strip()
+    return text
+
+
 def _parse_title(text: str) -> DraftSetTitle | None:
     matched = re.search(
         r"(?:^|[，,；;。]|当前图|并把|把)\s*(?:图)?标题\s*(?:设为|改为|为)\s*([^，,；;。]+)",
         text,
         flags=re.IGNORECASE,
     )
-    return None if matched is None else DraftSetTitle(text=matched.group(1).strip())
+    return None if matched is None else DraftSetTitle(text=_unquote(matched.group(1)))
 
 
 def _parse_axis(text: str) -> tuple[DraftSetAxis, ...] | None:
@@ -146,7 +155,7 @@ def _parse_axis(text: str) -> tuple[DraftSetAxis, ...] | None:
     )
     for axis, label in pattern.findall(text):
         target = "x_axis" if axis.casefold() in {"x", "横"} else "y_axis"
-        changes.setdefault(target, {})["label"] = label.strip()
+        changes.setdefault(target, {})["label"] = _unquote(label)
     scale_pattern = re.compile(
         r"([xXyY横纵])\s*轴[^，,；;。]*?(?:改为|设为|使用|为)?\s*(log10|对数)",
         flags=re.IGNORECASE,
