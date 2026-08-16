@@ -8,11 +8,11 @@ import type { BrowserWindow, Dialog, IpcMain } from 'electron'
 import {
   DESKTOP_API_VERSION,
   IPC_CHANNELS,
-  parseAgentDecideInput,
-  parseAgentPlanConfirmInput,
-  parseAgentPlanInput,
-  parseEngineBatchPlanCreateInput,
-  parseEngineCombinedPlotCreateInput,
+  parseWorkflowRunInput,
+  parseWorkflowDraftSubmitInput,
+  parseTaskPlanConfirmInput,
+  parseTaskPlanInput,
+  parseWorkflowRecipeSaveInput,
   parseCloseResponse,
   parseCustomProviderConfigureInput,
   parseDatasetDescribeInput,
@@ -248,23 +248,6 @@ async function requestCoreData(
   }
 }
 
-export const AGENT_DECIDE_REQUEST_TIMEOUT_MS = 35_000
-
-export function requestAgentDecision(
-  supervisor: PythonCoreSupervisor,
-  resources: ResourceRegistry,
-  params: JsonValue,
-): Promise<DesktopDataResult> {
-  return requestCoreData(
-    supervisor,
-    resources,
-    'agent.engine.decide',
-    params,
-    'preview',
-    AGENT_DECIDE_REQUEST_TIMEOUT_MS,
-  )
-}
-
 export function requestPlotList(
   supervisor: PythonCoreSupervisor,
   resources: ResourceRegistry,
@@ -465,7 +448,7 @@ export function registerDesktopIpc({
     IPC_CHANNELS.lifecycleCloseRequested,
     IPC_CHANNELS.openResourceRequested,
     IPC_CHANNELS.taskEvent,
-    IPC_CHANNELS.agentRuntimeEvent,
+    IPC_CHANNELS.workflowRuntimeEvent,
   ])
   const channels = Object.values(IPC_CHANNELS).filter((channel) => !eventChannels.has(channel))
   for (const channel of channels) ipcMain.removeHandler(channel)
@@ -758,80 +741,55 @@ export function registerDesktopIpc({
       ? invalidDataArgument('项目 ID 无效。')
       : requestPlotList(supervisor, resources, input.projectId)
   })
-  ipcMain.handle(IPC_CHANNELS.engineBatchPlanCreate, (_event, value: unknown) => {
-    const input = parseEngineBatchPlanCreateInput(value)
+  ipcMain.handle(IPC_CHANNELS.workflowRun, (_event, value: unknown) => {
+    const input = parseWorkflowRunInput(value)
     return input === null
-      ? invalidDataArgument('批量绘图请求无效。')
-      : requestCoreData(supervisor, resources, 'agent.engine.plans.create_batch', {
+      ? invalidDataArgument('任务目标、数据来源或图形选择无效。')
+      : piAgentRuntime.run({
         project_id: input.projectId,
-        profile_id: input.profileId,
-        source_datasets: input.datasets.map((item) => ({
+        client_run_id: `workflow-client:${randomUUID()}`,
+        selected_sources: input.selectedSources.map((item) => ({
           dataset_id: item.datasetId,
-          version: item.sourceVersion,
-          content_hash: item.contentHash,
-          bindings: item.bindings,
+          source_version: item.sourceVersion,
         })),
         expected_project_version: input.expectedProjectVersion,
-      })
-  })
-  ipcMain.handle(IPC_CHANNELS.engineCombinedPlotCreate, (_event, value: unknown) => {
-    const input = parseEngineCombinedPlotCreateInput(value)
-    return input === null
-      ? invalidDataArgument('多数据同图请求无效。')
-      : requestCoreData(supervisor, resources, 'engine.plots.create_combined', {
-        project_id: input.projectId,
-        profile_id: input.profileId,
-        datasets: input.datasets.map((item) => ({
-          dataset_id: item.datasetId,
-          version: item.sourceVersion,
-          content_hash: item.contentHash,
-          bindings: item.bindings,
-        })),
-        expected_project_version: input.expectedProjectVersion,
-      })
-  })
-  ipcMain.handle(IPC_CHANNELS.agentDecide, (_event, value: unknown) => {
-    const input = parseAgentDecideInput(value)
-    return input === null
-      ? invalidDataArgument('Agent 指令、作用对象或范围无效。')
-      : input.scope !== 'current'
-        || (input.target !== undefined && input.target.kind !== 'plot')
-        ? invalidDataArgument('Agent Native currently accepts a dataset or one plot target.')
-        : piAgentRuntime.decide({
-        project_id: input.projectId,
-        source_dataset_id: input.sourceDatasetId,
-        source_version: input.sourceVersion,
-        ...(input.selectedDatasets === undefined ? {} : {
-          selected_source_datasets: input.selectedDatasets.map((item) => ({
-            source_dataset_id: item.datasetId,
-            source_version: item.sourceVersion,
-          })),
-        }),
-        user_instruction: input.utterance,
-        client_model_run_id: `model-run:${randomUUID()}`,
-        expected_version: input.expectedVersion,
+        instruction: input.instruction,
         locale: 'zh-CN',
-        ...(input.conversationId === undefined
-          ? {} : { conversation_id: input.conversationId }),
-        ...(input.selectedChartId === undefined
-          ? {} : { selected_profile_id: input.selectedChartId }),
-        ...(input.target === undefined ? {} : { target_plot_id: input.target.id }),
-      }).then((result) => ({ ok: true, value: sanitizeCoreResult(result, resources) } satisfies DesktopDataResult))
-        .catch((error: unknown) => ({
-          ok: false,
-          error: publicPiAgentError(error) ?? supervisor.toPublicResult(error),
-        } satisfies DesktopDataResult))
+        ...(input.selectedProfileIds === undefined ? {} : {
+          selected_profile_ids: [...input.selectedProfileIds],
+        }),
+        ...(input.selectedPlotIds === undefined ? {} : {
+          selected_plot_ids: [...input.selectedPlotIds],
+        }),
+      }).then((result) => ({
+        ok: true,
+        value: sanitizeCoreResult(result, resources),
+      } satisfies DesktopDataResult)).catch((error: unknown) => ({
+        ok: false,
+        error: publicPiAgentError(error) ?? supervisor.toPublicResult(error),
+      } satisfies DesktopDataResult))
+  })
+
+  ipcMain.handle(IPC_CHANNELS.workflowDraftSubmit, (_event, value: unknown) => {
+    const input = parseWorkflowDraftSubmitInput(value)
+    return input === null
+      ? invalidDataArgument('任务草稿无效。')
+      : requestCoreData(supervisor, resources, 'workflow.submit_draft', {
+        project_id: input.projectId,
+        workflow_run_id: input.workflowRunId,
+        task_draft: input.taskDraft,
+      })
   })
 
   for (const [channel, method] of [
-    [IPC_CHANNELS.agentPlanGet, 'agent.engine.plans.get'],
-    [IPC_CHANNELS.agentPlanRun, 'agent.engine.plans.run'],
-    [IPC_CHANNELS.agentPlanResume, 'agent.engine.plans.resume'],
+    [IPC_CHANNELS.taskPlanGet, 'workflow.plans.get'],
+    [IPC_CHANNELS.taskPlanRun, 'workflow.plans.run'],
+    [IPC_CHANNELS.taskPlanResume, 'workflow.plans.resume'],
   ] as const) {
     ipcMain.handle(channel, (_event, value: unknown) => {
-      const input = parseAgentPlanInput(value)
+      const input = parseTaskPlanInput(value)
       return input === null
-        ? invalidDataArgument('Agent 计划参数无效。')
+        ? invalidDataArgument('任务计划参数无效。')
         : requestCoreData(supervisor, resources, method, {
           project_id: input.projectId,
           plan_id: input.planId,
@@ -839,30 +797,44 @@ export function registerDesktopIpc({
     })
   }
 
-  for (const [channel, method] of [
-    [IPC_CHANNELS.agentPlanList, 'agent.engine.plans.list'],
-  ] as const) {
-    ipcMain.handle(channel, (_event, value: unknown) => {
-      const input = parseProjectIdInput(value)
-      return input === null
-        ? invalidDataArgument('Agent 上下文参数无效。')
-        : requestCoreData(supervisor, resources, method, {
-          project_id: input.projectId,
-        })
-    })
-  }
-
-  ipcMain.handle(IPC_CHANNELS.agentPlanConfirm, (_event, value: unknown) => {
-    const input = parseAgentPlanConfirmInput(value)
+  ipcMain.handle(IPC_CHANNELS.taskPlanList, (_event, value: unknown) => {
+    const input = parseProjectIdInput(value)
     return input === null
-      ? invalidDataArgument('Agent 计划确认参数无效。')
+      ? invalidDataArgument('任务计划上下文无效。')
+      : requestCoreData(supervisor, resources, 'workflow.plans.list', {
+        project_id: input.projectId,
+      })
+  })
+
+  ipcMain.handle(IPC_CHANNELS.taskPlanConfirm, (_event, value: unknown) => {
+    const input = parseTaskPlanConfirmInput(value)
+    return input === null
+      ? invalidDataArgument('任务计划确认参数无效。')
       : requestCoreData(supervisor, resources, input.accept
-        ? 'agent.engine.plans.confirm'
-        : 'agent.engine.plans.cancel', {
+        ? 'workflow.plans.confirm'
+        : 'workflow.plans.reject', {
         project_id: input.projectId,
         plan_id: input.planId,
       })
   })
+
+  ipcMain.handle(IPC_CHANNELS.workflowRecipeSave, (_event, value: unknown) => {
+    const input = parseWorkflowRecipeSaveInput(value)
+    return input === null
+      ? invalidDataArgument('固化流程参数无效。')
+      : requestCoreData(supervisor, resources, 'workflow.recipes.save', {
+        project_id: input.projectId,
+        plan_id: input.planId,
+        display_name: input.displayName,
+        export_hash: input.exportHash,
+      })
+  })
+
+  /*
+   * All workflow shapes, including one-to-many batches and multi-source
+   * transformations, now use TaskDraft.  There are deliberately no separate
+   * batch or multi-source IPC paths.
+   */
 
   ipcMain.handle(IPC_CHANNELS.exportPngSvg, async (_event, value: unknown) => {
     const input = parsePngSvgExportInput(value)

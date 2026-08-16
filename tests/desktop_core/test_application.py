@@ -9,15 +9,10 @@ from typing import Any, cast
 
 import pytest
 
-from plotagent.agent.context import ConversationState
-from plotagent.agent.project_context import ProjectContextService
-from plotagent.contracts.agent_context import ContextObjectRef
-from plotagent.contracts.project_context import ContextFieldBinding
 from plotagent.desktop_core.application import DesktopApplication
 from plotagent.desktop_core.protocol import JsonValue
-from plotagent.desktop_core.services import RpcContext, ServiceRegistry
+from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
 from plotagent.desktop_core.tasks import BoundedWorkerExecutor, TaskRegistry
-from plotagent.engine import EngineDataRef
 from plotagent.security.credentials import InMemoryCredentialStore
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "import" / "files"
@@ -258,62 +253,6 @@ def test_engine_rpc_uses_imported_data_and_restores_latest_document(
     assert Path(cast(str, latest["preview"]["path"])).is_file()
 
 
-def test_combined_plot_materializes_selected_sheets_as_one_grouped_prepared_view(
-    harness: ApplicationHarness,
-) -> None:
-    project_id, revision = _create_open(harness)
-    imported = _import_dataset(harness, project_id, revision, key="combined-plot")
-    datasets = cast(list[dict[str, Any]], imported["datasets"])
-    assert len(datasets) == 2
-    requests: list[dict[str, Any]] = []
-    for dataset in datasets:
-        numeric = [
-            cast(str, item["field_id"])
-            for item in cast(list[dict[str, object]], dataset["fields"])
-            if item["logical_type"] == "numeric"
-        ]
-        assert len(numeric) >= 2
-        requests.append(
-            {
-                "dataset_id": dataset["source_dataset_id"],
-                "version": dataset["source_version"],
-                "content_hash": dataset["content_hash"],
-                "bindings": {"x": numeric[0], "y": numeric[1]},
-            }
-        )
-
-    combined = harness.call(
-        "engine.plots.create_combined",
-        {
-            "project_id": project_id,
-            "profile_id": "K03",
-            "datasets": requests,
-            "expected_project_version": imported["project_version"],
-        },
-    )
-
-    assert combined["combined_source_count"] == 2
-    document = cast(dict[str, Any], combined["document"])
-    assert cast(dict[str, Any], document["data"])["kind"] == "prepared"
-    bindings = {
-        item["role"]: item["field_id"]
-        for item in cast(list[dict[str, str]], document["bindings"])
-    }
-    assert set(bindings) == {"x", "y", "group"}
-    assert bindings["group"] == combined["source_label_field_id"]
-    session = harness.application._sessions[project_id]  # noqa: SLF001
-    data_ref = EngineDataRef.model_validate(document["data"])
-    view = session.engine.data_views.get(data_ref)
-    columns = {column.field.field_id: column for column in view.columns}
-    expected_labels = [
-        cast(str, dataset["display_name"])
-        for dataset in datasets
-        for _row in range(cast(int, dataset["row_count"]))
-    ]
-    assert list(columns[bindings["group"]].values) == expected_labels
-    assert Path(cast(str, combined["preview"]["path"])).is_file()
-
-
 def test_historical_removed_plot_is_listed_as_a_tombstone(
     harness: ApplicationHarness,
 ) -> None:
@@ -350,323 +289,6 @@ def test_historical_removed_plot_is_listed_as_a_tombstone(
     assert listed["project_version"] == created["project_version"]
 
 
-def test_agent_context_contains_each_explicitly_selected_dataset(
-    harness: ApplicationHarness,
-) -> None:
-    project_id, revision = _create_open(harness)
-    imported = _import_dataset(harness, project_id, revision, key="agent-selected-data")
-    datasets = cast(list[dict[str, Any]], imported["datasets"])
-    assert len(datasets) == 2
-
-    result = harness.call(
-        "agent.engine.decide",
-        {
-            "project_id": project_id,
-            "source_dataset_id": datasets[0]["source_dataset_id"],
-            "source_version": datasets[0]["source_version"],
-            "selected_source_datasets": [
-                {
-                    "source_dataset_id": item["source_dataset_id"],
-                    "source_version": item["source_version"],
-                }
-                for item in datasets
-            ],
-            "selected_profile_id": "K01",
-            "user_instruction": "为选中的两张数据表分别绘制折线图",
-            "client_model_run_id": "model-run:selected-data",
-            "expected_version": imported["project_version"],
-        },
-    )
-    assert result["accepted"] is False
-    assert cast(dict[str, object], result["error"])["code"] == "PROVIDER_NOT_CONFIGURED"
-
-    session = harness.application._sessions[project_id]  # noqa: SLF001
-    snapshot = session.agent_runtime.latest_context_snapshot(
-        harness.application._default_conversation_id(project_id)  # noqa: SLF001
-    )
-    assert snapshot is not None
-    source_ids = {
-        item.object_id
-        for item in snapshot.known_objects
-        if item.object_type == "source_dataset"
-    }
-    assert source_ids == {item["source_dataset_id"] for item in datasets}
-    assert {item.source_dataset_id for item in snapshot.field_bindings} == source_ids
-    assert all(item.field_alias.startswith("data_") for item in snapshot.field_bindings)
-
-
-def test_agent_binds_explicit_heterogeneous_batch_to_each_selected_dataset(
-    harness: ApplicationHarness,
-) -> None:
-    harness.call(
-        "provider.configure",
-        {
-            "mode": "custom_provider",
-            "provider_config_id": "custom.default",
-            "base_url": "https://model.example/v1",
-            "model_id": "test-model",
-            "api_key": "secret-api-key",
-            "retention_acknowledged": True,
-        },
-    )
-    project_id, revision = _create_open(harness)
-    imported = _import_dataset(harness, project_id, revision, key="agent-heterogeneous-batch")
-    datasets = cast(list[dict[str, Any]], imported["datasets"])
-    assert len(datasets) == 2
-    selected = [
-        {
-            "source_dataset_id": item["source_dataset_id"],
-            "source_version": item["source_version"],
-        }
-        for item in datasets
-    ]
-    request: dict[str, JsonValue] = {
-        "project_id": project_id,
-        "source_dataset_id": cast(str, datasets[0]["source_dataset_id"]),
-        "source_version": cast(int, datasets[0]["source_version"]),
-        "selected_source_datasets": selected,
-        "user_instruction": "数据一画 K01 折线图，数据二画 K03 散点图",
-        "client_model_run_id": "model-run:heterogeneous-batch",
-        "expected_version": cast(int, imported["project_version"]),
-    }
-    prepared = harness.call("agent.engine.decide", {**request, "prepare_only": True})
-    assert prepared["prepared"] is True
-
-    session = harness.application._sessions[project_id]  # noqa: SLF001
-    snapshot = session.agent_runtime.latest_context_snapshot(
-        harness.application._default_conversation_id(project_id)  # noqa: SLF001
-    )
-    assert snapshot is not None
-    assert snapshot.conversation_state.current_target.object_alias == "data_1"
-    aliases_by_source: dict[str, list[str]] = {}
-    for binding in snapshot.field_bindings:
-        aliases_by_source.setdefault(binding.source_dataset_id, []).append(binding.field_alias)
-    numeric_aliases: list[list[str]] = []
-    for index, dataset in enumerate(datasets, start=1):
-        source_id = cast(str, dataset["source_dataset_id"])
-        numeric_fields = {
-            cast(str, field["field_id"])
-            for field in cast(list[dict[str, object]], dataset["fields"])
-            if field["logical_type"] == "numeric"
-        }
-        aliases = [
-            binding.field_alias
-            for binding in snapshot.field_bindings
-            if binding.source_dataset_id == source_id and binding.field_id in numeric_fields
-        ]
-        assert len(aliases) >= 2
-        assert all(alias.startswith(f"data_{index}_") for alias in aliases)
-        numeric_aliases.append(aliases)
-
-    accepted = harness.call(
-        "agent.engine.decide",
-        {
-            **request,
-            "external_decision": {
-                "schema_version": "engine-agent.v1",
-                "decision_type": "action_plan",
-                "plan_id": "plan:heterogeneous-batch",
-                "target_alias": "data_1",
-                "actions": [
-                    {
-                        "operation": "create_plot",
-                        "action_id": "action:create-line",
-                        "plot_alias": "line_result",
-                        "profile_id": "K01",
-                        "source_alias": "data_1",
-                        "bindings": [
-                            {"role": "x", "field_alias": numeric_aliases[0][0]},
-                            {"role": "y", "field_alias": numeric_aliases[0][1]},
-                        ],
-                    },
-                    {
-                        "operation": "create_plot",
-                        "action_id": "action:create-scatter",
-                        "plot_alias": "scatter_result",
-                        "profile_id": "K03",
-                        "source_alias": "data_2",
-                        "bindings": [
-                            {"role": "x", "field_alias": numeric_aliases[1][0]},
-                            {"role": "y", "field_alias": numeric_aliases[1][1]},
-                        ],
-                    },
-                ],
-            },
-        },
-    )
-    assert accepted["accepted"] is True
-    task_plan = cast(dict[str, Any], accepted["task_plan"])
-    bound = cast(dict[str, Any], task_plan["bound_plan"])
-    actions = cast(list[dict[str, Any]], bound["actions"])
-    assert [action["profile_id"] for action in actions] == ["K01", "K03"]
-    assert [action["data"]["dataset_id"] for action in actions] == [
-        item["source_dataset_id"] for item in datasets
-    ]
-
-
-def test_agent_combines_two_explicit_sources_into_one_prepared_plot(
-    harness: ApplicationHarness,
-) -> None:
-    harness.call(
-        "provider.configure",
-        {
-            "mode": "custom_provider",
-            "provider_config_id": "custom.default",
-            "base_url": "https://model.example/v1",
-            "model_id": "test-model",
-            "api_key": "secret-api-key",
-            "retention_acknowledged": True,
-        },
-    )
-    project_id, revision = _create_open(harness)
-    imported = _import_dataset(harness, project_id, revision, key="agent-combined")
-    datasets = cast(list[dict[str, Any]], imported["datasets"])
-    request: dict[str, JsonValue] = {
-        "project_id": project_id,
-        "source_dataset_id": cast(str, datasets[0]["source_dataset_id"]),
-        "source_version": cast(int, datasets[0]["source_version"]),
-        "selected_source_datasets": [
-            {
-                "source_dataset_id": item["source_dataset_id"],
-                "source_version": item["source_version"],
-            }
-            for item in datasets
-        ],
-        "selected_profile_id": "K03",
-        "user_instruction": "把两个数据表画在同一张散点图中，按数据来源分组。",
-        "client_model_run_id": "model-run:combined",
-        "expected_version": cast(int, imported["project_version"]),
-    }
-    prepared = harness.call("agent.engine.decide", {**request, "prepare_only": True})
-    assert prepared["prepared"] is True
-    session = harness.application._sessions[project_id]  # noqa: SLF001
-    snapshot = session.agent_runtime.latest_context_snapshot(
-        harness.application._default_conversation_id(project_id)  # noqa: SLF001
-    )
-    assert snapshot is not None
-    source_aliases = {
-        item.object_id: item.object_alias
-        for item in snapshot.known_objects
-        if item.object_type == "source_dataset"
-    }
-    source_bindings: list[dict[str, object]] = []
-    for dataset in datasets:
-        source_id = cast(str, dataset["source_dataset_id"])
-        numeric_ids = {
-            cast(str, field["field_id"])
-            for field in cast(list[dict[str, object]], dataset["fields"])
-            if field["logical_type"] == "numeric"
-        }
-        aliases = [
-            binding.field_alias
-            for binding in snapshot.field_bindings
-            if binding.source_dataset_id == source_id and binding.field_id in numeric_ids
-        ]
-        source_bindings.append(
-            {
-                "source_alias": source_aliases[source_id],
-                "bindings": [
-                    {"role": "x", "field_alias": aliases[0]},
-                    {"role": "y", "field_alias": aliases[1]},
-                ],
-            }
-        )
-
-    accepted = harness.call(
-        "agent.engine.decide",
-        {
-            **request,
-            "external_decision": {
-                "schema_version": "engine-agent.v1",
-                "decision_type": "action_plan",
-                "plan_id": "plan:combined",
-                "target_alias": "data_1",
-                "actions": [
-                    {
-                        "operation": "create_combined_plot",
-                        "action_id": "action:combined",
-                        "plot_alias": "combined_result",
-                        "profile_id": "K03",
-                        "sources": source_bindings,
-                    }
-                ],
-            },
-        },
-    )
-
-    assert accepted["accepted"] is True
-    task_plan = cast(dict[str, Any], accepted["task_plan"])
-    bound = cast(dict[str, Any], task_plan["bound_plan"])
-    action = cast(list[dict[str, Any]], bound["actions"])[0]
-    assert action["operation"] == "create_plot"
-    assert action["data"]["kind"] == "prepared"
-    assert [item["role"] for item in action["bindings"]] == ["x", "y", "group"]
-    harness.call(
-        "agent.engine.plans.confirm",
-        {"project_id": project_id, "plan_id": "plan:combined"},
-    )
-    completed = harness.call(
-        "agent.engine.plans.run",
-        {"project_id": project_id, "plan_id": "plan:combined"},
-    )
-    assert completed["state"] == "succeeded"
-
-
-def test_pi_runtime_handoff_reuses_protected_provider_and_local_authority(
-    harness: ApplicationHarness,
-) -> None:
-    harness.call(
-        "provider.configure",
-        {
-            "mode": "custom_provider",
-            "provider_config_id": "custom.default",
-            "base_url": "https://model.example/v1",
-            "model_id": "test-model",
-            "api_key": "secret-api-key",
-            "retention_acknowledged": True,
-        },
-    )
-    runtime = harness.call("provider.runtime.get", {})
-    assert runtime == {
-        "provider_config_id": "custom.default",
-        "base_url": "https://model.example/v1",
-        "model_id": "test-model",
-        "api_key": "secret-api-key",
-    }
-
-    project_id, revision = _create_open(harness)
-    imported = _import_dataset(harness, project_id, revision, key="pi-handoff")
-    dataset = cast(list[dict[str, Any]], imported["datasets"])[0]
-    request: dict[str, JsonValue] = {
-        "project_id": project_id,
-        "source_dataset_id": cast(str, dataset["source_dataset_id"]),
-        "source_version": cast(int, dataset["source_version"]),
-        "selected_profile_id": "K01",
-        "user_instruction": "Create the selected line chart.",
-        "client_model_run_id": "model-run:pi",
-        "expected_version": cast(int, imported["project_version"]),
-    }
-    prepared = harness.call("agent.engine.decide", {**request, "prepare_only": True})
-    assert prepared["prepared"] is True
-    assert cast(dict[str, Any], prepared["context_envelope"])["context_hash"]
-    assert cast(dict[str, Any], prepared["decision_schema"])["$defs"]
-
-    accepted = harness.call(
-        "agent.engine.decide",
-        {
-            **request,
-            "external_decision": {
-                "schema_version": "engine-agent.v1",
-                "decision_type": "no_change",
-                "target_alias": "active_target",
-                "explanation": "The requested chart already matches the current goal.",
-            },
-        },
-    )
-    assert accepted["accepted"] is True
-    assert cast(dict[str, Any], accepted["decision"])["decision_type"] == "no_change"
-
-
 def test_public_export_action_writes_png_without_mutating_plot(
     harness: ApplicationHarness,
     tmp_path: Path,
@@ -699,102 +321,203 @@ def test_public_export_action_writes_png_without_mutating_plot(
     )
     assert destination.is_file()
     assert exported["plot_version"] == created["plot_version"]
-    assert exported["artifact"]["content_hash"] == hashlib.sha256(
-        destination.read_bytes()
-    ).hexdigest()
-    assert harness.call("engine.plots.get", {"project_id": project_id, "plot_id": "plot:export"})[
-        "project_version"
-    ] == created["project_version"]
+    assert (
+        exported["artifact"]["content_hash"] == hashlib.sha256(destination.read_bytes()).hexdigest()
+    )
+    assert (
+        harness.call("engine.plots.get", {"project_id": project_id, "plot_id": "plot:export"})[
+            "project_version"
+        ]
+        == created["project_version"]
+    )
 
 
-def test_bound_plan_requires_confirmation_and_persists_completion(
+def test_workflow_deterministic_create_requires_confirmation_and_executes(
     harness: ApplicationHarness,
 ) -> None:
     project_id, revision = _create_open(harness)
-    imported = _import_dataset(harness, project_id, revision, key="engine-plan")
-    dataset, numeric = _dataset_and_fields(imported)
-    source = ContextObjectRef(
-        object_alias="active_data",
-        object_id=cast(str, dataset["source_dataset_id"]),
-        object_version=cast(int, dataset["source_version"]),
-        object_type="source_dataset",
-        content_hash=cast(str, dataset["content_hash"]),
-    )
-    state = ConversationState(current_target=source)
-    snapshot = ProjectContextService().build_snapshot(
-        project_id=project_id,
-        project_revision=cast(int, imported["project_version"]),
-        conversation_id="conversation:engine-plan",
-        conversation_state=state.project(),
-        known_objects=(source,),
-        field_bindings=(
-            ContextFieldBinding(
-                field_alias="x",
-                field_id=numeric[0],
-                source_dataset_id=cast(str, dataset["source_dataset_id"]),
-                source_version=cast(int, dataset["source_version"]),
-            ),
-            ContextFieldBinding(
-                field_alias="y",
-                field_id=numeric[1],
-                source_dataset_id=cast(str, dataset["source_dataset_id"]),
-                source_version=cast(int, dataset["source_version"]),
-            ),
-        ),
-    )
-    session = harness.application._sessions[project_id]  # noqa: SLF001
-    session.agent_runtime.save_conversation_state(
-        "conversation:engine-plan", state.project(), expected_state_version=None
-    )
-    session.agent_runtime.save_context_snapshot(snapshot)
-
-    plan = harness.call(
-        "agent.engine.plans.create",
+    imported = _import_dataset(harness, project_id, revision, key="workflow-create")
+    dataset = cast(list[dict[str, Any]], imported["datasets"])[0]
+    prepared = harness.call(
+        "workflow.prepare",
         {
             "project_id": project_id,
-            "context_snapshot_id": snapshot.snapshot_id,
-            "proposal": {
-                "plan_id": "plan:desktop",
-                "target_alias": "active_data",
-                "actions": (
+            "expected_project_version": imported["project_version"],
+            "instruction": "用 K01 折线图绘制这张表",
+            "selected_sources": [
+                {
+                    "dataset_id": dataset["source_dataset_id"],
+                    "source_version": dataset["source_version"],
+                }
+            ],
+            "selected_profile_ids": ["K01"],
+        },
+    )
+    assert prepared["outcome"] == "draft_ready"
+    task_plan = cast(dict[str, Any], prepared["task_plan"])
+    assert task_plan["state"] == "awaiting_confirmation"
+    plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
+
+    confirmed = harness.call(
+        "workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id}
+    )
+    assert confirmed["state"] == "ready"
+    completed = harness.call(
+        "workflow.plans.run", {"project_id": project_id, "plan_id": plan_id}
+    )
+    assert completed["state"] == "succeeded"
+    progress = cast(list[dict[str, Any]], completed["item_progress"])
+    assert progress[0]["output_plot_version"] == 1
+
+
+def test_workflow_recipe_requires_a_real_export_and_replays_without_agent(
+    harness: ApplicationHarness,
+    tmp_path: Path,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="workflow-recipe")
+    dataset = cast(list[dict[str, Any]], imported["datasets"])[0]
+    request = {
+        "project_id": project_id,
+        "expected_project_version": imported["project_version"],
+        "instruction": "用 K01 折线图绘制这张表",
+        "selected_sources": [
+            {
+                "dataset_id": dataset["source_dataset_id"],
+                "source_version": dataset["source_version"],
+            }
+        ],
+        "selected_profile_ids": ["K01"],
+    }
+    prepared = harness.call("workflow.prepare", request)
+    task_plan = cast(dict[str, Any], prepared["task_plan"])
+    plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
+    harness.call("workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id})
+    completed = harness.call(
+        "workflow.plans.run", {"project_id": project_id, "plan_id": plan_id}
+    )
+    progress = cast(list[dict[str, Any]], completed["item_progress"])[0]
+    plot_id = cast(str, progress["output_plot_id"])
+    plot_version = cast(int, progress["output_plot_version"])
+
+    with pytest.raises(RpcServiceError) as captured:
+        harness.call(
+            "workflow.recipes.save",
+            {
+                "project_id": project_id,
+                "plan_id": plan_id,
+                "display_name": "折线图标准流程",
+                "export_hash": "f" * 64,
+            },
+        )
+    assert captured.value.code == "WORKFLOW_RECIPE_EXPORT_UNVERIFIED"
+
+    destination = tmp_path / "workflow-recipe.png"
+    exported = harness.call(
+        "engine.exports.execute",
+        {
+            "project_id": project_id,
+            "action": {
+                "operation": "export_plot",
+                "action_id": "action:workflow-recipe.export",
+                "target": plot_id,
+                "expected_plot_version": plot_version,
+                "format": "png",
+                "output_name": destination.name,
+            },
+            "destination_resource_id": "resource:workflow-recipe",
+            "destination_path": str(destination),
+        },
+    )
+    export_hash = cast(str, cast(dict[str, Any], exported["artifact"])["content_hash"])
+    recipe = harness.call(
+        "workflow.recipes.save",
+        {
+            "project_id": project_id,
+            "plan_id": plan_id,
+            "display_name": "折线图标准流程",
+            "export_hash": export_hash,
+        },
+    )
+    assert recipe["created_from_export_hash"] == export_hash
+
+    replayed = harness.call(
+        "workflow.prepare",
+        {
+            **request,
+            "expected_project_version": completed["current_project_revision"],
+        },
+    )
+    assert replayed["outcome"] == "draft_ready"
+    assert replayed["route"] == "recipe_replay"
+    assert replayed["recipe_id"] == recipe["recipe_id"]
+
+
+def test_workflow_agent_draft_edits_the_selected_plot_without_a_source(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="workflow-edit")
+    created = _create_line(
+        harness,
+        project_id,
+        imported,
+        plot_id="plot:workflow-edit",
+        action_id="action:workflow-edit.create",
+    )
+    prepared = harness.call(
+        "workflow.prepare",
+        {
+            "project_id": project_id,
+            "expected_project_version": created["project_version"],
+            "instruction": "把当前图标题改为响应曲线",
+            "selected_sources": [],
+            "selected_plot_ids": ["plot:workflow-edit"],
+        },
+    )
+    assert prepared["outcome"] == "agent_required"
+    run_id = cast(str, prepared["workflow_run_id"])
+    submitted = harness.call(
+        "workflow.submit_draft",
+        {
+            "project_id": project_id,
+            "workflow_run_id": run_id,
+            "task_draft": {
+                "schema_version": "task-draft.v1",
+                "draft_id": "draft:workflow-edit",
+                "workflow_run_id": run_id,
+                "route": "agent_single_turn",
+                "summary": "修改当前图标题",
+                "items": [
                     {
-                        "operation": "create_plot",
-                        "action_id": "action:create",
-                        "plot_alias": "result",
+                        "task_kind": "edit",
+                        "item_id": "item:workflow-edit.1",
+                        "plot_alias": "plot_1",
                         "profile_id": "K01",
-                        "source_alias": "active_data",
-                        "bindings": (
-                            {"role": "x", "field_alias": "x"},
-                            {"role": "y", "field_alias": "y"},
-                        ),
-                    },
-                    {
-                        "operation": "set_title",
-                        "action_id": "action:title",
-                        "plot_alias": "result",
-                        "text": "Bound locally",
-                    },
-                ),
+                        "target_plot_alias": "plot_1",
+                        "visual_actions": [
+                            {
+                                "operation": "set_title",
+                                "target_alias": "plot",
+                                "text": "响应曲线",
+                            }
+                        ],
+                    }
+                ],
+                "confidence": 1,
             },
         },
     )
-    assert plan["state"] == "needs_confirmation"
+    task_plan = cast(dict[str, Any], submitted["task_plan"])
+    plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
     harness.call(
-        "agent.engine.plans.confirm",
-        {"project_id": project_id, "plan_id": "plan:desktop"},
+        "workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id}
     )
     completed = harness.call(
-        "agent.engine.plans.run",
-        {"project_id": project_id, "plan_id": "plan:desktop"},
+        "workflow.plans.run", {"project_id": project_id, "plan_id": plan_id}
     )
     assert completed["state"] == "succeeded"
-    assert completed["next_action_index"] == 2
-    assert [item["state"] for item in completed["action_progress"]] == [
-        "succeeded",
-        "succeeded",
-    ]
-    restored = harness.call(
-        "agent.engine.plans.get",
-        {"project_id": project_id, "plan_id": "plan:desktop"},
+    plot = harness.call(
+        "engine.plots.get", {"project_id": project_id, "plot_id": "plot:workflow-edit"}
     )
-    assert restored["state"] == "succeeded"
+    assert cast(dict[str, Any], plot["document"])["plot_version"] == 2

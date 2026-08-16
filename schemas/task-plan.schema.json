@@ -1,0 +1,1115 @@
+{
+  "$defs": {
+    "CalculateChartData": {
+      "additionalProperties": false,
+      "properties": {
+        "calculation": {
+          "enum": [
+            "histogram_binning",
+            "tukey_box",
+            "violin_kde",
+            "summary_error",
+            "percent_stack",
+            "matrix_projection",
+            "confusion_count"
+          ],
+          "title": "Calculation",
+          "type": "string"
+        },
+        "operation": {
+          "const": "calculate_chart_data",
+          "default": "calculate_chart_data",
+          "title": "Operation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation"
+      ],
+      "title": "CalculateChartData",
+      "type": "object"
+    },
+    "CompiledTaskItem": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResolvedFieldBinding"
+          },
+          "title": "Bindings",
+          "type": "array"
+        },
+        "data_operations": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "calculate_chart_data": "#/$defs/CalculateChartData",
+                "concatenate_sources": "#/$defs/ConcatenateSources",
+                "filter_rows": "#/$defs/FilterRows",
+                "reshape_long_to_wide": "#/$defs/ReshapeLongToWide",
+                "reshape_wide_to_long": "#/$defs/ReshapeWideToLong",
+                "select_fields": "#/$defs/SelectFields",
+                "sort_rows": "#/$defs/SortRows"
+              },
+              "propertyName": "operation"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SelectFields"
+              },
+              {
+                "$ref": "#/$defs/FilterRows"
+              },
+              {
+                "$ref": "#/$defs/SortRows"
+              },
+              {
+                "$ref": "#/$defs/ReshapeLongToWide"
+              },
+              {
+                "$ref": "#/$defs/ReshapeWideToLong"
+              },
+              {
+                "$ref": "#/$defs/ConcatenateSources"
+              },
+              {
+                "$ref": "#/$defs/CalculateChartData"
+              }
+            ]
+          },
+          "title": "Data Operations",
+          "type": "array"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "idempotency_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "item_id": {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "plot_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Plot Alias",
+          "type": "string"
+        },
+        "plot_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "resolved_fields": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResolvedWorkflowField"
+          },
+          "title": "Resolved Fields",
+          "type": "array"
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WorkflowSource"
+          },
+          "maxItems": 8,
+          "title": "Sources",
+          "type": "array"
+        },
+        "target_plot_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Plot Id"
+        },
+        "target_plot_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Plot Version"
+        },
+        "task_kind": {
+          "enum": [
+            "create",
+            "edit"
+          ],
+          "title": "Task Kind",
+          "type": "string"
+        },
+        "visual_actions": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "add_annotation": "#/$defs/DraftAddAnnotation",
+                "set_axis": "#/$defs/DraftSetAxis",
+                "set_chart_parameter": "#/$defs/DraftSetChartParameter",
+                "set_legend": "#/$defs/DraftSetLegend",
+                "set_series_style": "#/$defs/DraftSetSeriesStyle",
+                "set_title": "#/$defs/DraftSetTitle"
+              },
+              "propertyName": "operation"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DraftSetTitle"
+              },
+              {
+                "$ref": "#/$defs/DraftSetAxis"
+              },
+              {
+                "$ref": "#/$defs/DraftSetSeriesStyle"
+              },
+              {
+                "$ref": "#/$defs/DraftSetLegend"
+              },
+              {
+                "$ref": "#/$defs/DraftSetChartParameter"
+              },
+              {
+                "$ref": "#/$defs/DraftAddAnnotation"
+              }
+            ]
+          },
+          "title": "Visual Actions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_kind",
+        "item_id",
+        "plot_alias",
+        "plot_id",
+        "profile_id",
+        "data_operations",
+        "visual_actions",
+        "idempotency_key"
+      ],
+      "title": "CompiledTaskItem",
+      "type": "object"
+    },
+    "ConcatenateSources": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "concatenate_sources",
+          "default": "concatenate_sources",
+          "title": "Operation",
+          "type": "string"
+        },
+        "source_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Source Aliases",
+          "type": "array"
+        },
+        "source_label_field": {
+          "default": "source_group",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Label Field",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_aliases"
+      ],
+      "title": "ConcatenateSources",
+      "type": "object"
+    },
+    "DraftAddAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Annotation Alias",
+          "type": "string"
+        },
+        "coordinate_system": {
+          "default": "data",
+          "enum": [
+            "data",
+            "axes",
+            "page"
+          ],
+          "title": "Coordinate System",
+          "type": "string"
+        },
+        "operation": {
+          "const": "add_annotation",
+          "default": "add_annotation",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "default": "plot",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "annotation_alias",
+        "text",
+        "x",
+        "y"
+      ],
+      "title": "DraftAddAnnotation",
+      "type": "object"
+    },
+    "DraftSetAxis": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "operation": {
+          "const": "set_axis",
+          "default": "set_axis",
+          "title": "Operation",
+          "type": "string"
+        },
+        "reverse": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reverse"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "log10",
+                "datetime",
+                "categorical"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "DraftSetAxis",
+      "type": "object"
+    },
+    "DraftSetChartParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_chart_parameter",
+          "default": "set_chart_parameter",
+          "title": "Operation",
+          "type": "string"
+        },
+        "parameter": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Parameter",
+          "type": "string"
+        },
+        "target_alias": {
+          "default": "plot",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "parameter",
+        "value"
+      ],
+      "title": "DraftSetChartParameter",
+      "type": "object"
+    },
+    "DraftSetLegend": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "anyOf": [
+            {
+              "enum": [
+                "inside",
+                "right",
+                "bottom",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anchor"
+        },
+        "operation": {
+          "const": "set_legend",
+          "default": "set_legend",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "default": "legend",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible"
+        }
+      },
+      "title": "DraftSetLegend",
+      "type": "object"
+    },
+    "DraftSetSeriesStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "line_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dash",
+                "dot",
+                "dash_dot",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Style"
+        },
+        "line_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Width Pt"
+        },
+        "operation": {
+          "const": "set_series_style",
+          "default": "set_series_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "symbol": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol"
+        },
+        "symbol_size_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 72,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol Size Pt"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "DraftSetSeriesStyle",
+      "type": "object"
+    },
+    "DraftSetTitle": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_title",
+          "default": "set_title",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "default": "plot",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 512,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "DraftSetTitle",
+      "type": "object"
+    },
+    "FilterPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "equal",
+            "not_equal",
+            "less_than",
+            "less_or_equal",
+            "greater_than",
+            "greater_or_equal",
+            "is_missing",
+            "is_not_missing",
+            "in_values"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "format": "date",
+                    "type": "string"
+                  },
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field_alias",
+        "operator"
+      ],
+      "title": "FilterPredicate",
+      "type": "object"
+    },
+    "FilterRows": {
+      "additionalProperties": false,
+      "properties": {
+        "combine": {
+          "default": "all",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "title": "Combine",
+          "type": "string"
+        },
+        "operation": {
+          "const": "filter_rows",
+          "default": "filter_rows",
+          "title": "Operation",
+          "type": "string"
+        },
+        "predicates": {
+          "items": {
+            "$ref": "#/$defs/FilterPredicate"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Predicates",
+          "type": "array"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "predicates"
+      ],
+      "title": "FilterRows",
+      "type": "object"
+    },
+    "ReshapeLongToWide": {
+      "additionalProperties": false,
+      "properties": {
+        "index_field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Index Field Aliases",
+          "type": "array"
+        },
+        "name_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Name Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "reshape_long_to_wide",
+          "default": "reshape_long_to_wide",
+          "title": "Operation",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "value_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Value Field Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "index_field_aliases",
+        "name_field_alias",
+        "value_field_alias"
+      ],
+      "title": "ReshapeLongToWide",
+      "type": "object"
+    },
+    "ReshapeWideToLong": {
+      "additionalProperties": false,
+      "properties": {
+        "id_field_aliases": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Id Field Aliases",
+          "type": "array"
+        },
+        "operation": {
+          "const": "reshape_wide_to_long",
+          "default": "reshape_wide_to_long",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_name": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Name",
+          "type": "string"
+        },
+        "output_value": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Value",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "value_field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 2,
+          "title": "Value Field Aliases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_alias",
+        "value_field_aliases",
+        "output_name",
+        "output_value"
+      ],
+      "title": "ReshapeWideToLong",
+      "type": "object"
+    },
+    "ResolvedFieldBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "source_alias",
+        "field_id"
+      ],
+      "title": "ResolvedFieldBinding",
+      "type": "object"
+    },
+    "ResolvedWorkflowField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "logical_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "unit_label": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Label"
+        }
+      },
+      "required": [
+        "field_alias",
+        "source_alias",
+        "field_id",
+        "name",
+        "logical_type"
+      ],
+      "title": "ResolvedWorkflowField",
+      "type": "object"
+    },
+    "SelectFields": {
+      "additionalProperties": false,
+      "properties": {
+        "field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Field Aliases",
+          "type": "array"
+        },
+        "operation": {
+          "const": "select_fields",
+          "default": "select_fields",
+          "title": "Operation",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_aliases"
+      ],
+      "title": "SelectFields",
+      "type": "object"
+    },
+    "SortKey": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "default": "ascending",
+          "enum": [
+            "ascending",
+            "descending"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "missing": {
+          "default": "last",
+          "enum": [
+            "first",
+            "last"
+          ],
+          "title": "Missing",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_alias"
+      ],
+      "title": "SortKey",
+      "type": "object"
+    },
+    "SortRows": {
+      "additionalProperties": false,
+      "properties": {
+        "keys": {
+          "items": {
+            "$ref": "#/$defs/SortKey"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Keys",
+          "type": "array"
+        },
+        "operation": {
+          "const": "sort_rows",
+          "default": "sort_rows",
+          "title": "Operation",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "keys"
+      ],
+      "title": "SortRows",
+      "type": "object"
+    },
+    "WorkflowSource": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "display_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "source_dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_alias",
+        "source_dataset_id",
+        "source_version",
+        "content_hash",
+        "display_name",
+        "row_count"
+      ],
+      "title": "WorkflowSource",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/task-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "draft_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Draft Hash",
+      "type": "string"
+    },
+    "expected_project_revision": {
+      "minimum": 0,
+      "title": "Expected Project Revision",
+      "type": "integer"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/CompiledTaskItem"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Items",
+      "type": "array"
+    },
+    "plan_id": {
+      "pattern": "^plan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "task-plan.v1",
+      "default": "task-plan.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "workflow_run_id": {
+      "pattern": "^workflow:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Workflow Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_id",
+    "workflow_run_id",
+    "draft_hash",
+    "expected_project_revision",
+    "items"
+  ],
+  "title": "TaskPlan",
+  "type": "object"
+}

@@ -477,37 +477,240 @@
       "retryable": false
     },
     {
-      "code": "FIGURE_LAYOUT_UNSUPPORTED",
+      "code": "ACTION_NOT_ALLOWED",
       "default_severity": "blocked",
-      "description": "Figure layout is outside the fixed v1 set.",
+      "description": "The requested visual action is not allowed by the selected profile.",
       "owner": "W5_WORKFLOW",
       "retryable": false
     },
     {
-      "code": "FIGURE_SOURCE_NOT_NUMERIC",
+      "code": "FIELD_ALIAS_INVALID",
       "default_severity": "blocked",
-      "description": "Figure panels may reference only numeric chart versions in v1.",
+      "description": "A task references a field alias outside its workflow context.",
       "owner": "W5_WORKFLOW",
       "retryable": false
     },
     {
-      "code": "FIGURE_AXIS_INCOMPATIBLE",
+      "code": "FIELD_SOURCE_INVALID",
       "default_severity": "blocked",
-      "description": "Shared Figure axes require compatible scale and unit signatures.",
+      "description": "A field binding does not belong to the declared source.",
       "owner": "W5_WORKFLOW",
       "retryable": false
     },
     {
-      "code": "FIGURE_VERSION_CONFLICT",
+      "code": "PLOT_ALIAS_INVALID",
       "default_severity": "blocked",
-      "description": "The expected Figure version is stale.",
+      "description": "A task references a plot alias outside its workflow context.",
       "owner": "W5_WORKFLOW",
       "retryable": false
     },
     {
-      "code": "FIGURE_IDEMPOTENCY_CONFLICT",
+      "code": "PROFILE_NOT_ALLOWED",
       "default_severity": "blocked",
-      "description": "A Figure idempotency key was reused with different inputs.",
+      "description": "The requested chart profile is outside the workflow allowlist.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "PROFILE_TARGET_MISMATCH",
+      "default_severity": "blocked",
+      "description": "The selected plot does not use the requested profile.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "REQUIRED_ROLE_MISSING",
+      "default_severity": "blocked",
+      "description": "A workflow task is missing a required chart role.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "ROLE_NOT_ALLOWED",
+      "default_severity": "blocked",
+      "description": "A workflow binding uses a role not declared by the chart profile.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "SOURCE_ALIAS_INVALID",
+      "default_severity": "blocked",
+      "description": "A task references a source alias outside its workflow context.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "TARGET_ALIAS_INVALID",
+      "default_severity": "blocked",
+      "description": "A visual action target is not exposed by the selected chart profile.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "TARGET_KIND_INVALID",
+      "default_severity": "blocked",
+      "description": "A visual action target has the wrong semantic object kind.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_CONTEXT_MISMATCH",
+      "default_severity": "blocked",
+      "description": "A task draft does not belong to the active workflow run.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_DRAFT_MISSING",
+      "default_severity": "blocked",
+      "description": "The confirmed workflow no longer has its immutable task draft.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_BINDING_OUTPUT_MISSING",
+      "default_severity": "blocked",
+      "description": "A prepared data result does not contain a bound output field.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_EMPTY_RESULT",
+      "default_severity": "blocked",
+      "description": "A data operation produced no rows for plotting.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_NON_ISOMORPHIC",
+      "default_severity": "blocked",
+      "description": "The selected sources are not structurally compatible for this operation.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_RESHAPE_DUPLICATE",
+      "default_severity": "blocked",
+      "description": "A reshape operation found duplicate semantic coordinates.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_SORT_TYPE_INVALID",
+      "default_severity": "blocked",
+      "description": "A sort operation encountered incomparable values.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_SOURCE_UNUSED",
+      "default_severity": "blocked",
+      "description": "A declared workflow source is not consumed by the compiled task.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_SOURCES_NOT_COMBINED",
+      "default_severity": "blocked",
+      "description": "A multi-source task did not resolve to one prepared view.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_EDIT_TARGET_INVALID",
+      "default_severity": "blocked",
+      "description": "An edit task does not resolve to one persisted plot target.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_PLAN_NOT_RUNNABLE",
+      "default_severity": "blocked",
+      "description": "The task plan has not been confirmed or is already terminal.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "UPSTREAM_TASK_ITEM_FAILED",
+      "default_severity": "blocked",
+      "description": "A task item cannot run because one of its dependencies failed.",
+      "owner": "W5_WORKFLOW",
+      "retryable": true
+    },
+    {
+      "code": "PROJECT_VERSION_CONFLICT",
+      "default_severity": "blocked",
+      "description": "The project revision changed before the task item committed.",
+      "owner": "W5_WORKFLOW",
+      "retryable": true
+    },
+    {
+      "code": "INSPECTION_BUDGET_EXCEEDED",
+      "default_severity": "blocked",
+      "description": "The workflow exhausted its bounded data inspection budget.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "INSPECTION_RANGE_INVALID",
+      "default_severity": "blocked",
+      "description": "The requested inspection row range is outside the permitted window.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "INSPECTION_SOURCES_INVALID",
+      "default_severity": "blocked",
+      "description": "The requested schema comparison source set is invalid.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "SOURCE_DUPLICATED",
+      "default_severity": "blocked",
+      "description": "The same source version was selected more than once.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "SOURCE_INVALID",
+      "default_severity": "blocked",
+      "description": "The selected workflow source payload is invalid.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "SOURCE_LIMIT_EXCEEDED",
+      "default_severity": "blocked",
+      "description": "The workflow source selection exceeds the fixed limit.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "SOURCE_REQUIRED",
+      "default_severity": "blocked",
+      "description": "This workflow requires at least one selected source.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_RECIPE_EXPORT_UNVERIFIED",
+      "default_severity": "blocked",
+      "description": "The recipe is not backed by a verified export of a successful plan output.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_RECIPE_PLAN_INCOMPLETE",
+      "default_severity": "blocked",
+      "description": "Only a completely successful task plan can be saved as a recipe.",
+      "owner": "W5_WORKFLOW",
+      "retryable": false
+    },
+    {
+      "code": "WORKFLOW_TOOL_UNKNOWN",
+      "default_severity": "blocked",
+      "description": "The requested data inspection tool is not available.",
       "owner": "W5_WORKFLOW",
       "retryable": false
     },
@@ -526,9 +729,9 @@
       "retryable": false
     },
     {
-      "code": "AGENT_DECISION_INVALID",
+      "code": "TASK_DRAFT_INVALID",
       "default_severity": "blocked",
-      "description": "Provider output is not a valid AgentDecision.",
+      "description": "The proposed task draft does not satisfy the workflow contract.",
       "owner": "W7_AGENT",
       "retryable": false
     },
@@ -561,16 +764,16 @@
       "retryable": true
     },
     {
-      "code": "REPAIR_EXHAUSTED",
+      "code": "WORKFLOW_AGENT_EXHAUSTED",
       "default_severity": "blocked",
-      "description": "The single allowed P2 schema repair also failed.",
+      "description": "The bounded Agent run ended without one valid task draft.",
       "owner": "W7_AGENT",
       "retryable": false
     },
     {
-      "code": "CONTEXT_TOO_LARGE",
+      "code": "WORKFLOW_CONTEXT_TOO_LARGE",
       "default_severity": "blocked",
-      "description": "The minimized context cannot fit the configured egress budget.",
+      "description": "The bounded workflow context cannot fit the configured egress budget.",
       "owner": "W7_AGENT",
       "retryable": false
     },
@@ -592,34 +795,6 @@
       "code": "PROVIDER_RETENTION_UNACKNOWLEDGED",
       "default_severity": "blocked",
       "description": "The provider retention disclosure has not been acknowledged.",
-      "owner": "W7_AGENT",
-      "retryable": false
-    },
-    {
-      "code": "AGENT_FORBIDDEN_PAYLOAD",
-      "default_severity": "blocked",
-      "description": "The provider returned a tool-like, code, path, URL, SQL, or renderer payload.",
-      "owner": "W7_AGENT",
-      "retryable": false
-    },
-    {
-      "code": "AGENT_CAPABILITY_UNSUPPORTED",
-      "default_severity": "blocked",
-      "description": "At least one action exceeds the versioned local capability allowlist.",
-      "owner": "W7_AGENT",
-      "retryable": false
-    },
-    {
-      "code": "AGENT_ACTION_SCOPE_INVALID",
-      "default_severity": "blocked",
-      "description": "At least one action refers to a target, field, or scope outside the envelope.",
-      "owner": "W7_AGENT",
-      "retryable": false
-    },
-    {
-      "code": "AGENT_TARGET_INVALID",
-      "default_severity": "blocked",
-      "description": "The decision target does not match the persistent active target.",
       "owner": "W7_AGENT",
       "retryable": false
     }

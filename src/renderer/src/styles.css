@@ -5099,7 +5099,7 @@ input[type="checkbox"] {
   font-weight: 650;
 }
 
-.agent-outcome--action_plan { background: var(--success-soft); }
+.agent-outcome--task_plan { background: var(--success-soft); }
 .agent-outcome--needs_input { background: var(--warning-soft); }
 .agent-outcome--no_change { background: var(--surface-2); }
 .agent-outcome--unsupported,

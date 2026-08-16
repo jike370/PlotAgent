@@ -1,11 +1,11 @@
 import type { FieldMappingInput } from '../../../shared/desktop-contract'
 
-const STORAGE_PREFIX = 'plotagent.workspace.v1:'
-const AGENT_DATASET_MODE = 'explicit_extras_v1'
+const STORAGE_PREFIX = 'plotagent.workspace.v2:'
+const WORKFLOW_SOURCE_MODE = 'explicit_extras_v1'
 
 export interface PersistedWorkspaceSelection {
   datasetId?: string
-  agentDatasetIds?: string[]
+  workflowSourceIds?: string[]
   chartId?: string
   mapping?: FieldMappingInput
 }
@@ -34,21 +34,21 @@ export function readWorkspaceSelection(
     if (raw === null || raw.length > 16_384) return undefined
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
-    const record = parsed as { datasetId?: unknown; agentDatasetIds?: unknown; agentDatasetMode?: unknown; chartId?: unknown; mapping?: unknown }
+    const record = parsed as { datasetId?: unknown; workflowSourceIds?: unknown; workflowSourceMode?: unknown; chartId?: unknown; mapping?: unknown }
     const datasetId = isSafeId(record.datasetId) ? record.datasetId : undefined
-    const agentDatasetIds = record.agentDatasetMode === AGENT_DATASET_MODE
-      && Array.isArray(record.agentDatasetIds)
-      && record.agentDatasetIds.length > 0
-      && record.agentDatasetIds.length <= 8
-      && record.agentDatasetIds.every(isSafeId)
-      && new Set(record.agentDatasetIds).size === record.agentDatasetIds.length
-      ? record.agentDatasetIds : undefined
+    const workflowSourceIds = record.workflowSourceMode === WORKFLOW_SOURCE_MODE
+      && Array.isArray(record.workflowSourceIds)
+      && record.workflowSourceIds.length > 0
+      && record.workflowSourceIds.length <= 8
+      && record.workflowSourceIds.every(isSafeId)
+      && new Set(record.workflowSourceIds).size === record.workflowSourceIds.length
+      ? record.workflowSourceIds : undefined
     const chartId = isSafeId(record.chartId) ? record.chartId : undefined
     const mapping = readMapping(record.mapping)
-    if (datasetId === undefined && agentDatasetIds === undefined && chartId === undefined && mapping === undefined) return undefined
+    if (datasetId === undefined && workflowSourceIds === undefined && chartId === undefined && mapping === undefined) return undefined
     return {
       ...(datasetId === undefined ? {} : { datasetId }),
-      ...(agentDatasetIds === undefined ? {} : { agentDatasetIds }),
+      ...(workflowSourceIds === undefined ? {} : { workflowSourceIds }),
       ...(chartId === undefined ? {} : { chartId }),
       ...(mapping === undefined ? {} : { mapping }),
     }
@@ -63,7 +63,7 @@ export function writeWorkspaceSelection(
   selection: PersistedWorkspaceSelection,
 ): void {
   try {
-    storage.setItem(STORAGE_PREFIX + projectId, JSON.stringify({ ...selection, agentDatasetMode: AGENT_DATASET_MODE }))
+    storage.setItem(STORAGE_PREFIX + projectId, JSON.stringify({ ...selection, workflowSourceMode: WORKFLOW_SOURCE_MODE }))
   } catch {
     // Workspace persistence is a convenience; storage failures must not block plotting.
   }

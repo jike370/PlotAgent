@@ -14,107 +14,6 @@ export type AddAnnotation = {
   readonly coordinate_system?: "data" | "axes" | "page";
 }
 
-export type AgentAddAnnotation = {
-  readonly operation?: "add_annotation";
-  readonly action_id: string;
-  readonly plot_alias: string;
-  readonly annotation_alias: string;
-  readonly text: string;
-  readonly x: number;
-  readonly y: number;
-  readonly coordinate_system?: "data" | "axes" | "page";
-}
-
-export type AgentBindFields = {
-  readonly operation?: "bind_fields";
-  readonly action_id: string;
-  readonly plot_alias: string;
-  readonly source_alias: string;
-  readonly bindings: ReadonlyArray<AgentFieldBinding>;
-}
-
-export type AgentCombinedSource = {
-  readonly source_alias: string;
-  readonly bindings: ReadonlyArray<AgentFieldBinding>;
-}
-
-export type AgentCreateCombinedPlot = {
-  readonly operation?: "create_combined_plot";
-  readonly action_id: string;
-  readonly plot_alias: string;
-  readonly profile_id: string;
-  readonly sources: ReadonlyArray<AgentCombinedSource>;
-}
-
-export type AgentCreatePlot = {
-  readonly operation?: "create_plot";
-  readonly action_id: string;
-  readonly plot_alias: string;
-  readonly profile_id: string;
-  readonly source_alias: string;
-  readonly bindings: ReadonlyArray<AgentFieldBinding>;
-}
-
-export type AgentExportPlot = {
-  readonly operation?: "export_plot";
-  readonly action_id: string;
-  readonly plot_alias: string;
-  readonly format: "png" | "svg" | "opju";
-  readonly output_name: string;
-}
-
-export type AgentFieldBinding = {
-  readonly role: string;
-  readonly field_alias: string;
-}
-
-export type AgentSetAxis = {
-  readonly operation?: "set_axis";
-  readonly action_id: string;
-  readonly plot_alias: string;
-  readonly axis_alias: string;
-  readonly label?: string | null;
-  readonly scale?: "linear" | "log10" | "datetime" | "categorical" | null;
-  readonly minimum?: number | null;
-  readonly maximum?: number | null;
-  readonly reverse?: boolean | null;
-}
-
-export type AgentSetChartParameter = {
-  readonly operation?: "set_chart_parameter";
-  readonly action_id: string;
-  readonly plot_alias: string;
-  readonly parameter: string;
-  readonly value: string | number | boolean;
-}
-
-export type AgentSetLegend = {
-  readonly operation?: "set_legend";
-  readonly action_id: string;
-  readonly plot_alias: string;
-  readonly visible?: boolean | null;
-  readonly anchor?: "inside" | "right" | "bottom" | "none" | null;
-}
-
-export type AgentSetSeriesStyle = {
-  readonly operation?: "set_series_style";
-  readonly action_id: string;
-  readonly plot_alias: string;
-  readonly series_alias: string;
-  readonly color?: string | null;
-  readonly line_width_pt?: number | null;
-  readonly line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
-  readonly symbol?: string | null;
-  readonly symbol_size_pt?: number | null;
-}
-
-export type AgentSetTitle = {
-  readonly operation?: "set_title";
-  readonly action_id: string;
-  readonly plot_alias: string;
-  readonly text: string;
-}
-
 export type ApplyPlotOrderSpec = {
   readonly schema_version?: "1.0";
   readonly preparation_spec_id: string;
@@ -136,10 +35,9 @@ export type BindFields = {
   readonly bindings: ReadonlyArray<FieldBinding>;
 }
 
-export type BoundEnginePlan = {
-  readonly plan_id: string;
-  readonly expected_project_revision: number;
-  readonly actions: ReadonlyArray<CreatePlot | BindFields | SetTitle | SetAxis | SetSeriesStyle | SetLegend | SetChartParameter | AddAnnotation | ExportPlot>;
+export type CalculateChartData = {
+  readonly operation?: "calculate_chart_data";
+  readonly calculation: "histogram_binning" | "tukey_box" | "violin_kde" | "summary_error" | "percent_stack" | "matrix_projection" | "confusion_count";
 }
 
 export type CalculationTable = {
@@ -147,12 +45,27 @@ export type CalculationTable = {
   readonly rows: ReadonlyArray<ReadonlyArray<string | boolean | number | null>>;
 }
 
-export type ChartCapabilities = {
-  readonly capability_version: string;
-  readonly allowed_chart_type_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
-  readonly allowed_action_types: ReadonlyArray<"create_plot" | "create_combined_plot" | "bind_fields" | "set_title" | "set_axis" | "set_series_style" | "set_legend" | "set_chart_parameter" | "add_annotation" | "export_plot">;
-  readonly export_formats?: ReadonlyArray<"png" | "svg" | "opju">;
-  readonly limitation_ids?: ReadonlyArray<string>;
+export type CompiledTaskItem = {
+  readonly task_kind: "create" | "edit";
+  readonly item_id: string;
+  readonly plot_alias: string;
+  readonly plot_id: string;
+  readonly profile_id: string;
+  readonly target_plot_id?: string | null;
+  readonly target_plot_version?: number | null;
+  readonly sources?: ReadonlyArray<WorkflowSource>;
+  readonly resolved_fields?: ReadonlyArray<ResolvedWorkflowField>;
+  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | CalculateChartData>;
+  readonly bindings?: ReadonlyArray<ResolvedFieldBinding>;
+  readonly visual_actions: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetChartParameter | DraftAddAnnotation>;
+  readonly depends_on?: ReadonlyArray<string>;
+  readonly idempotency_key: string;
+}
+
+export type ConcatenateSources = {
+  readonly operation?: "concatenate_sources";
+  readonly source_aliases: ReadonlyArray<string>;
+  readonly source_label_field?: string;
 }
 
 export type ConfusionCountResult = {
@@ -207,77 +120,6 @@ export type ContentTableRef = {
   readonly field_ids: ReadonlyArray<string>;
 }
 
-export type ContextEnvelope = {
-  readonly schema_version?: "1.0";
-  readonly prompt_template_version: string;
-  readonly locale: string;
-  readonly user_instruction: string;
-  readonly target_snapshot: ContextObjectRef;
-  readonly conversation_state: ConversationStateProjection;
-  readonly chart_capabilities: ChartCapabilities;
-  readonly selected_context: SelectedContext;
-  readonly data_disclosure: DataDisclosure;
-  readonly context_hash: string;
-}
-
-export type ContextField = {
-  readonly field_alias: string;
-  readonly field_id: string;
-  readonly name: string;
-  readonly logical_type: "numeric" | "categorical" | "datetime" | "boolean" | "text";
-  readonly unit_text?: string;
-  readonly semantic_role?: string | null;
-  readonly summary?: ContextFieldSummary | null;
-}
-
-export type ContextFieldBinding = {
-  readonly field_alias: string;
-  readonly field_id: string;
-  readonly source_dataset_id: string;
-  readonly source_version: number;
-}
-
-export type ContextFieldSummary = {
-  readonly valid_count: number;
-  readonly missing_count: number;
-  readonly nan_count?: number;
-  readonly positive_inf_count?: number;
-  readonly negative_inf_count?: number;
-  readonly distinct_count?: number | null;
-  readonly numeric_minimum?: number | null;
-  readonly numeric_maximum?: number | null;
-}
-
-export type ContextMessage = {
-  readonly role: "user" | "assistant";
-  readonly text: string;
-}
-
-export type ContextObjectRef = {
-  readonly object_alias: string;
-  readonly object_id: string;
-  readonly object_version: number;
-  readonly object_type: "source_dataset" | "prepared_dataset" | "plot" | "export" | "project";
-  readonly content_hash?: string | null;
-  readonly display_name?: string | null;
-}
-
-export type ContextSampleRow = {
-  readonly sample_key: string;
-  readonly values: Readonly<Record<string, never>>;
-}
-
-export type ConversationStateProjection = {
-  readonly state_version: number;
-  readonly current_target: ContextObjectRef;
-  readonly selected_objects?: ReadonlyArray<ContextObjectRef>;
-  readonly confirmed_field_aliases?: ReadonlyArray<string>;
-  readonly project_rule_ids?: ReadonlyArray<string>;
-  readonly saved_setting_refs?: ReadonlyArray<string>;
-  readonly unresolved_question_ids?: ReadonlyArray<string>;
-  readonly recent_result_kinds?: ReadonlyArray<"action_plan" | "needs_input" | "unsupported" | "no_change" | "execution_result">;
-}
-
 export type CreatePlot = {
   readonly operation?: "create_plot";
   readonly action_id: string;
@@ -285,19 +127,6 @@ export type CreatePlot = {
   readonly profile_id: string;
   readonly data: EngineDataRef;
   readonly bindings: ReadonlyArray<FieldBinding>;
-}
-
-export type DataDisclosure = {
-  readonly provider_type: "builtin" | "custom";
-  readonly provider_config_id: string;
-  readonly authorization_scope: "default_consent" | "this_run" | "this_conversation_similar";
-  readonly retention_disclosure_version: string;
-  readonly categories: ReadonlyArray<"user_instruction" | "field_metadata" | "statistics" | "sample" | "message_window" | "chart_capabilities">;
-  readonly field_aliases: ReadonlyArray<string>;
-  readonly field_count: number;
-  readonly row_count: number;
-  readonly scalar_count: number;
-  readonly disclosure_hash: string;
 }
 
 export type DataQualitySummary = {
@@ -309,6 +138,62 @@ export type DataQualitySummary = {
   readonly negative_inf_values: number;
   readonly unparseable_values: number;
   readonly warnings?: ReadonlyArray<WarningRecord>;
+}
+
+export type DraftAddAnnotation = {
+  readonly operation?: "add_annotation";
+  readonly target_alias?: string;
+  readonly annotation_alias: string;
+  readonly text: string;
+  readonly x: number;
+  readonly y: number;
+  readonly coordinate_system?: "data" | "axes" | "page";
+}
+
+export type DraftFieldBinding = {
+  readonly role: string;
+  readonly source_alias: string;
+  readonly field_alias: string;
+}
+
+export type DraftSetAxis = {
+  readonly operation?: "set_axis";
+  readonly target_alias: string;
+  readonly label?: string | null;
+  readonly scale?: "linear" | "log10" | "datetime" | "categorical" | null;
+  readonly minimum?: number | null;
+  readonly maximum?: number | null;
+  readonly reverse?: boolean | null;
+}
+
+export type DraftSetChartParameter = {
+  readonly operation?: "set_chart_parameter";
+  readonly target_alias?: string;
+  readonly parameter: string;
+  readonly value: string | number | boolean;
+}
+
+export type DraftSetLegend = {
+  readonly operation?: "set_legend";
+  readonly target_alias?: string;
+  readonly visible?: boolean | null;
+  readonly anchor?: "inside" | "right" | "bottom" | "none" | null;
+}
+
+export type DraftSetSeriesStyle = {
+  readonly operation?: "set_series_style";
+  readonly target_alias: string;
+  readonly color?: string | null;
+  readonly line_width_pt?: number | null;
+  readonly line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
+  readonly symbol?: string | null;
+  readonly symbol_size_pt?: number | null;
+}
+
+export type DraftSetTitle = {
+  readonly operation?: "set_title";
+  readonly target_alias?: string;
+  readonly text: string;
 }
 
 export type ECDFResult = {
@@ -350,16 +235,6 @@ export type ECDFSpec = {
   readonly algorithm_id?: "right_continuous_empirical_cdf";
   readonly value_field: string;
   readonly mode?: "ecdf" | "ccdf";
-}
-
-export type EngineAgentDecisionContract = EngineAgentPlan | NeedsInput | Unsupported | NoChange
-
-export type EngineAgentPlan = {
-  readonly schema_version?: "engine-agent.v1";
-  readonly decision_type?: "action_plan";
-  readonly plan_id: string;
-  readonly target_alias: string;
-  readonly actions: ReadonlyArray<AgentCreatePlot | AgentCreateCombinedPlot | AgentBindFields | AgentSetTitle | AgentSetAxis | AgentSetSeriesStyle | AgentSetLegend | AgentSetChartParameter | AgentAddAnnotation | AgentExportPlot>;
 }
 
 export type EngineArtifact = {
@@ -509,6 +384,19 @@ export type FieldSnapshot = {
   readonly source_dataset_ref: SourceDatasetRef;
 }
 
+export type FilterPredicate = {
+  readonly field_alias: string;
+  readonly operator: "equal" | "not_equal" | "less_than" | "less_or_equal" | "greater_than" | "greater_or_equal" | "is_missing" | "is_not_missing" | "in_values";
+  readonly value?: boolean | number | string | ReadonlyArray<boolean | number | string | null> | null;
+}
+
+export type FilterRows = {
+  readonly operation?: "filter_rows";
+  readonly source_alias: string;
+  readonly predicates: ReadonlyArray<FilterPredicate>;
+  readonly combine?: "all" | "any";
+}
+
 export type FilterRowsSpec = {
   readonly schema_version?: "1.0";
   readonly preparation_spec_id: string;
@@ -564,16 +452,12 @@ export type HistogramBinningSpec = {
   readonly normalization?: "count" | "density";
 }
 
-export type InputChoice = {
-  readonly value: string;
-  readonly label: string;
-}
-
 export type InputQuestion = {
   readonly question_key: string;
   readonly prompt: string;
-  readonly input_kind: "single_choice" | "multiple_choice" | "number" | "text";
-  readonly choices?: ReadonlyArray<InputChoice>;
+  readonly answer_kind: "text" | "single_choice" | "multi_choice" | "field" | "profile";
+  readonly choices?: ReadonlyArray<string>;
+  readonly required?: boolean;
 }
 
 export type IsomorphicConcatSpec = {
@@ -634,30 +518,11 @@ export type MatrixProjectionSpec = {
   readonly z_field?: string | null;
 }
 
-export type NeedsInput = {
-  readonly schema_version?: "engine-agent.v1";
-  readonly decision_type?: "needs_input";
-  readonly target_alias: string;
-  readonly questions: ReadonlyArray<InputQuestion>;
-}
-
-export type NoChange = {
-  readonly schema_version?: "engine-agent.v1";
-  readonly decision_type?: "no_change";
-  readonly target_alias: string;
-  readonly explanation: string;
-}
-
 export type NonFiniteCounts = {
   readonly missing?: number;
   readonly nan?: number;
   readonly positive_inf?: number;
   readonly negative_inf?: number;
-}
-
-export type NonFiniteSampleValue = {
-  readonly kind?: "nonfinite";
-  readonly value: "nan" | "positive_inf" | "negative_inf";
 }
 
 export type PercentStackResult = {
@@ -769,21 +634,6 @@ export type PreparedDatasetRef = {
   readonly content_hash: string;
 }
 
-export type ProjectContextSnapshot = {
-  readonly schema_version?: "1.0";
-  readonly snapshot_id: string;
-  readonly snapshot_hash: string;
-  readonly project_id: string;
-  readonly project_revision: number;
-  readonly conversation_id: string;
-  readonly conversation_state: ConversationStateProjection;
-  readonly known_objects?: ReadonlyArray<ContextObjectRef>;
-  readonly recent_result_objects?: ReadonlyArray<ContextObjectRef>;
-  readonly field_bindings?: ReadonlyArray<ContextFieldBinding>;
-  readonly project_rule_ids?: ReadonlyArray<string>;
-  readonly saved_setting_refs?: ReadonlyArray<string>;
-}
-
 export type ProjectMetadataLabelSpec = {
   readonly schema_version?: "1.0";
   readonly preparation_spec_id: string;
@@ -809,10 +659,48 @@ export type ProjectStructureSpec = {
   readonly role_fields: ReadonlyArray<string>;
 }
 
+export type ReshapeLongToWide = {
+  readonly operation?: "reshape_long_to_wide";
+  readonly source_alias: string;
+  readonly index_field_aliases: ReadonlyArray<string>;
+  readonly name_field_alias: string;
+  readonly value_field_alias: string;
+}
+
+export type ReshapeWideToLong = {
+  readonly operation?: "reshape_wide_to_long";
+  readonly source_alias: string;
+  readonly id_field_aliases?: ReadonlyArray<string>;
+  readonly value_field_aliases: ReadonlyArray<string>;
+  readonly output_name: string;
+  readonly output_value: string;
+}
+
+export type ResolvedFieldBinding = {
+  readonly role: string;
+  readonly source_alias: string;
+  readonly field_id: string;
+}
+
+export type ResolvedWorkflowField = {
+  readonly field_alias: string;
+  readonly source_alias: string;
+  readonly field_id: string;
+  readonly name: string;
+  readonly logical_type: "numeric" | "categorical" | "datetime" | "boolean" | "text";
+  readonly unit_label?: string | null;
+}
+
 export type RowExclusion = {
   readonly row_id: string;
   readonly field_id?: string | null;
   readonly reason: "missing" | "nan" | "positive_inf" | "negative_inf";
+}
+
+export type SelectFields = {
+  readonly operation?: "select_fields";
+  readonly source_alias: string;
+  readonly field_aliases: ReadonlyArray<string>;
 }
 
 export type SelectFieldsSpec = {
@@ -824,13 +712,6 @@ export type SelectFieldsSpec = {
   readonly compiler_version: string;
   readonly kind?: "select_fields";
   readonly field_ids: ReadonlyArray<string>;
-}
-
-export type SelectedContext = {
-  readonly fields?: ReadonlyArray<ContextField>;
-  readonly sample_rows?: ReadonlyArray<ContextSampleRow>;
-  readonly selected_objects?: ReadonlyArray<ContextObjectRef>;
-  readonly message_window?: ReadonlyArray<ContextMessage>;
 }
 
 export type SetAxis = {
@@ -881,6 +762,18 @@ export type SetTitle = {
   readonly action_id: string;
   readonly target: string;
   readonly text: string;
+}
+
+export type SortKey = {
+  readonly field_alias: string;
+  readonly direction?: "ascending" | "descending";
+  readonly missing?: "first" | "last";
+}
+
+export type SortRows = {
+  readonly operation?: "sort_rows";
+  readonly source_alias: string;
+  readonly keys: ReadonlyArray<SortKey>;
 }
 
 export type SourceDataset = {
@@ -961,6 +854,56 @@ export type SummaryErrorSpec = {
   readonly symmetric_error_field?: string | null;
 }
 
+export type TaskDraft = {
+  readonly schema_version?: "task-draft.v1";
+  readonly draft_id: string;
+  readonly workflow_run_id: string;
+  readonly route: "deterministic" | "recipe_replay" | "agent_single_turn" | "agent_exploration";
+  readonly summary: string;
+  readonly items: ReadonlyArray<TaskDraftItem>;
+  readonly confidence: number;
+  readonly hard_constraints?: ReadonlyArray<string>;
+}
+
+export type TaskDraftItem = {
+  readonly task_kind: "create" | "edit";
+  readonly item_id: string;
+  readonly plot_alias: string;
+  readonly profile_id: string;
+  readonly target_plot_alias?: string | null;
+  readonly source_aliases?: ReadonlyArray<string>;
+  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | CalculateChartData>;
+  readonly bindings?: ReadonlyArray<DraftFieldBinding>;
+  readonly visual_actions?: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetChartParameter | DraftAddAnnotation>;
+}
+
+export type TaskItemProgress = {
+  readonly item_id: string;
+  readonly state: "pending" | "running" | "succeeded" | "failed" | "blocked" | "cancelled";
+  readonly attempt_count?: number;
+  readonly error_code?: string | null;
+  readonly output_plot_id?: string | null;
+  readonly output_plot_version?: number | null;
+}
+
+export type TaskPlan = {
+  readonly schema_version?: "task-plan.v1";
+  readonly plan_id: string;
+  readonly workflow_run_id: string;
+  readonly draft_hash: string;
+  readonly expected_project_revision: number;
+  readonly items: ReadonlyArray<CompiledTaskItem>;
+}
+
+export type TaskPlanSnapshot = {
+  readonly plan: TaskPlan;
+  readonly state: "awaiting_confirmation" | "ready" | "running" | "partially_succeeded" | "succeeded" | "failed" | "rejected" | "cancelled";
+  readonly current_project_revision: number;
+  readonly item_progress: ReadonlyArray<TaskItemProgress>;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
 export type TextSourceCoordinate = {
   readonly kind?: "text";
   readonly byte_start: number;
@@ -1022,14 +965,6 @@ export type UnitSpec = {
   readonly registry_version: string;
 }
 
-export type Unsupported = {
-  readonly schema_version?: "engine-agent.v1";
-  readonly decision_type?: "unsupported";
-  readonly target_alias: string;
-  readonly category: "provider_capability" | "profile_capability" | "data_requirement";
-  readonly explanation: string;
-}
-
 export type ViolinKDEResult = {
   readonly schema_version?: "1.0";
   readonly calculation_id: string;
@@ -1076,5 +1011,108 @@ export type ViolinKDESpec = {
 
 export type WarningRecord = {
   readonly warning_id: string;
+  readonly message: string;
+}
+
+export type WorkflowBudget = {
+  readonly max_agent_turns?: number;
+  readonly max_tool_calls?: number;
+  readonly max_preview_rows?: number;
+  readonly max_profiled_fields?: number;
+  readonly max_disclosed_scalars?: number;
+}
+
+export type WorkflowContext = {
+  readonly schema_version?: "workflow-context.v1";
+  readonly workflow_run_id: string;
+  readonly project_id: string;
+  readonly project_revision: number;
+  readonly instruction: string;
+  readonly locale?: "zh-CN" | "en-US";
+  readonly sources?: ReadonlyArray<WorkflowSource>;
+  readonly fields?: ReadonlyArray<WorkflowField>;
+  readonly plots?: ReadonlyArray<WorkflowPlot>;
+  readonly selected_source_aliases?: ReadonlyArray<string>;
+  readonly selected_plot_aliases?: ReadonlyArray<string>;
+  readonly selected_profile_ids?: ReadonlyArray<string>;
+  readonly allowed_profile_ids: ReadonlyArray<string>;
+  readonly budget: WorkflowBudget;
+}
+
+export type WorkflowDecisionContract = WorkflowNeedsInput | WorkflowUnsupported | WorkflowDraftReady
+
+export type WorkflowDraftReady = {
+  readonly outcome?: "draft_ready";
+  readonly draft: TaskDraft;
+}
+
+export type WorkflowField = {
+  readonly field_alias: string;
+  readonly source_alias: string;
+  readonly field_id: string;
+  readonly name: string;
+  readonly logical_type: "numeric" | "categorical" | "datetime" | "boolean" | "text";
+  readonly unit_label?: string | null;
+}
+
+export type WorkflowNeedsInput = {
+  readonly outcome?: "needs_input";
+  readonly workflow_run_id: string;
+  readonly questions: ReadonlyArray<InputQuestion>;
+}
+
+export type WorkflowPlot = {
+  readonly plot_alias: string;
+  readonly plot_id: string;
+  readonly plot_version: number;
+  readonly profile_id: string;
+}
+
+export type WorkflowRecipe = {
+  readonly schema_version?: "workflow-recipe.v1";
+  readonly recipe_id: string;
+  readonly recipe_version: number;
+  readonly display_name: string;
+  readonly structure_fingerprint: string;
+  readonly goal_signature: string;
+  readonly draft_template: TaskDraft;
+  readonly engine_profile_hash: string;
+  readonly renderer_contract_hash: string;
+  readonly created_from_workflow_run_id: string;
+  readonly created_from_plan_id: string;
+  readonly created_from_export_hash: string;
+  readonly archived?: boolean;
+}
+
+export type WorkflowRunSnapshot = {
+  readonly workflow_run_id: string;
+  readonly project_id: string;
+  readonly state: "routing" | "deterministic_attempt" | "recipe_matching" | "recipe_replay" | "agent_single_turn" | "agent_exploration" | "needs_input" | "draft_ready" | "awaiting_confirmation" | "executing" | "completed" | "partially_succeeded" | "failed" | "cancelled";
+  readonly route?: "deterministic" | "recipe_replay" | "agent_single_turn" | "agent_exploration" | "needs_input" | "unsupported" | null;
+  readonly context_hash?: string | null;
+  readonly draft_id?: string | null;
+  readonly plan_id?: string | null;
+  readonly model_turn_count?: number;
+  readonly tool_call_count?: number;
+  readonly input_token_count?: number;
+  readonly output_token_count?: number;
+  readonly estimated_cost?: number;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export type WorkflowSource = {
+  readonly source_alias: string;
+  readonly source_dataset_id: string;
+  readonly source_version: number;
+  readonly content_hash: string;
+  readonly display_name: string;
+  readonly row_count: number;
+}
+
+export type WorkflowUnsupported = {
+  readonly outcome?: "unsupported";
+  readonly workflow_run_id: string;
+  readonly reason_code: string;
   readonly message: string;
 }

@@ -1,6 +1,6 @@
 """Deterministic JSON Schema and TypeScript contract generation.
 
-Only data, context, Agent Native engine and error contracts are published.
+Only data, workflow, Agent Native engine and error contracts are published.
 Renderer plans, backend-native objects and the removed PlotSpec compiler are
 deliberately absent from this bundle.
 """
@@ -17,8 +17,6 @@ from typing import Any
 from pydantic import BaseModel, RootModel, TypeAdapter
 from pydantic.json_schema import models_json_schema
 
-from plotagent.agent.engine_client import BoundEnginePlan, EngineAgentDecision, EngineAgentPlan
-from plotagent.contracts.agent_context import ContextEnvelope
 from plotagent.contracts.base import SCHEMA_VERSION
 from plotagent.contracts.calculations import PlotCalculationResult, PlotCalculationSpec
 from plotagent.contracts.datasets import (
@@ -28,7 +26,15 @@ from plotagent.contracts.datasets import (
     SourceDataset,
 )
 from plotagent.contracts.errors import STABLE_ERROR_REGISTRY, ErrorRegistry, ErrorResponse
-from plotagent.contracts.project_context import ProjectContextSnapshot
+from plotagent.contracts.workflows import (
+    TaskDraft,
+    TaskPlan,
+    TaskPlanSnapshot,
+    WorkflowContext,
+    WorkflowDecision,
+    WorkflowRecipe,
+    WorkflowRunSnapshot,
+)
 from plotagent.engine.contracts import (
     EngineDataRef,
     EngineDataView,
@@ -61,7 +67,7 @@ class PlotEngineActionContract(RootModel[PlotEngineAction]):
     pass
 
 
-class EngineAgentDecisionContract(RootModel[EngineAgentDecision]):
+class WorkflowDecisionContract(RootModel[WorkflowDecision]):
     pass
 
 
@@ -72,8 +78,13 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("prepared-dataset", PreparedDataset),
     ("plot-calculation-spec", PlotCalculationSpecContract),
     ("plot-calculation-result", PlotCalculationResultContract),
-    ("context-envelope", ContextEnvelope),
-    ("project-context-snapshot", ProjectContextSnapshot),
+    ("workflow-context", WorkflowContext),
+    ("task-draft", TaskDraft),
+    ("task-plan", TaskPlan),
+    ("task-plan-snapshot", TaskPlanSnapshot),
+    ("workflow-run-snapshot", WorkflowRunSnapshot),
+    ("workflow-recipe", WorkflowRecipe),
+    ("workflow-decision", WorkflowDecisionContract),
     ("engine-data-ref", EngineDataRef),
     ("engine-data-view", EngineDataView),
     ("engine-profile", EngineProfile),
@@ -81,9 +92,6 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("plot-engine-action", PlotEngineActionContract),
     ("engine-readback", EngineReadback),
     ("engine-artifact", EngineArtifact),
-    ("engine-agent-plan", EngineAgentPlan),
-    ("bound-engine-plan", BoundEnginePlan),
-    ("engine-agent-decision", EngineAgentDecisionContract),
     ("error-registry", ErrorRegistry),
     ("error-response", ErrorResponse),
 )
@@ -113,9 +121,7 @@ def build_schemas() -> tuple[dict[str, str], JsonObject]:
     outputs: dict[str, str] = {}
     for slug, model in SCHEMA_EXPORTS:
         schema = TypeAdapter(model).json_schema(mode="validation")
-        outputs[f"schemas/{slug}.schema.json"] = _json_text(
-            _with_schema_metadata(schema, slug)
-        )
+        outputs[f"schemas/{slug}.schema.json"] = _json_text(_with_schema_metadata(schema, slug))
 
     model_schemas, definitions = models_json_schema(
         [(model, "validation") for _, model in SCHEMA_EXPORTS],
@@ -234,8 +240,7 @@ def desired_outputs() -> dict[str, str]:
     outputs["src/shared/generated/contracts.ts"] = generate_typescript(bundle)
 
     manifest_entries = [
-        {"path": path, "sha256": _sha256_text(content)}
-        for path, content in sorted(outputs.items())
+        {"path": path, "sha256": _sha256_text(content)} for path, content in sorted(outputs.items())
     ]
     outputs["schemas/manifest.json"] = _json_text(
         {
@@ -250,8 +255,7 @@ def desired_outputs() -> dict[str, str]:
 
 def _managed_outputs(root: Path) -> set[str]:
     schema_files = {
-        path.relative_to(root).as_posix()
-        for path in (root / "schemas").glob("*.schema.json")
+        path.relative_to(root).as_posix() for path in (root / "schemas").glob("*.schema.json")
     }
     optional = {
         "schemas/error-registry.json",

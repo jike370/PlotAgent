@@ -1,0 +1,149 @@
+{
+  "$id": "https://schemas.plotagent.local/v2/workflow-run-snapshot.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "context_hash": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context Hash"
+    },
+    "created_at": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Created At",
+      "type": "string"
+    },
+    "draft_id": {
+      "anyOf": [
+        {
+          "pattern": "^draft:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Draft Id"
+    },
+    "estimated_cost": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Estimated Cost",
+      "type": "number"
+    },
+    "input_token_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Input Token Count",
+      "type": "integer"
+    },
+    "model_turn_count": {
+      "default": 0,
+      "maximum": 6,
+      "minimum": 0,
+      "title": "Model Turn Count",
+      "type": "integer"
+    },
+    "output_token_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Output Token Count",
+      "type": "integer"
+    },
+    "plan_id": {
+      "anyOf": [
+        {
+          "pattern": "^plan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Plan Id"
+    },
+    "project_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "route": {
+      "anyOf": [
+        {
+          "enum": [
+            "deterministic",
+            "recipe_replay",
+            "agent_single_turn",
+            "agent_exploration",
+            "needs_input",
+            "unsupported"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Route"
+    },
+    "state": {
+      "enum": [
+        "routing",
+        "deterministic_attempt",
+        "recipe_matching",
+        "recipe_replay",
+        "agent_single_turn",
+        "agent_exploration",
+        "needs_input",
+        "draft_ready",
+        "awaiting_confirmation",
+        "executing",
+        "completed",
+        "partially_succeeded",
+        "failed",
+        "cancelled"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "tool_call_count": {
+      "default": 0,
+      "maximum": 24,
+      "minimum": 0,
+      "title": "Tool Call Count",
+      "type": "integer"
+    },
+    "updated_at": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Updated At",
+      "type": "string"
+    },
+    "workflow_run_id": {
+      "pattern": "^workflow:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Workflow Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workflow_run_id",
+    "project_id",
+    "state",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "WorkflowRunSnapshot",
+  "type": "object"
+}

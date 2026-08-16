@@ -167,6 +167,7 @@ export interface ProductPlot {
   seriesIds: string[]
   seriesStyles: { seriesId: string; style: ProductSeriesStyle }[]
   axisIds: { x?: string; y?: string; yRight?: string }
+  legendId?: string
   axisStates: { x?: ProductAxisState; y?: ProductAxisState; yRight?: ProductAxisState }
   canvasSizeMm: { width: number; height: number }
   annotations: ProductAnnotation[]
@@ -180,15 +181,15 @@ export interface ProductPlot {
   preview?: DesktopResource
 }
 
-export type AgentOutcomeKind = 'action_plan' | 'needs_input' | 'unsupported' | 'no_change' | 'rejected'
+export type WorkflowOutcomeKind = 'task_plan' | 'needs_input' | 'unsupported' | 'no_change' | 'rejected'
 
-export interface AgentQuestion {
+export interface WorkflowQuestion {
   questionKey: string
   prompt: string
   choices: { value: string; label: string }[]
 }
 
-export interface AgentPlanStep {
+export interface WorkflowPlanStep {
   taskItemId: string
   actionType: string
   title: string
@@ -199,41 +200,31 @@ export interface AgentPlanStep {
   outputPlot?: { plotId: string; plotVersion: number }
 }
 
-export interface AgentBindingView {
+export interface WorkflowBindingView {
   role: string
   fieldId: string
 }
 
-export interface AgentPlanView {
+export interface WorkflowPlanView {
   planId: string
   state: string
   confirmationState: string
   warnings: string[]
-  steps: AgentPlanStep[]
+  steps: WorkflowPlanStep[]
   completedCount: number
   resumable: boolean
-  bindings: AgentBindingView[]
+  bindings: WorkflowBindingView[]
   boundActions: JsonValue[]
 }
 
-export interface AgentOutcome {
-  kind: AgentOutcomeKind
+export interface WorkflowOutcome {
+  kind: WorkflowOutcomeKind
   title: string
   message: string
-  questions?: AgentQuestion[]
-  plan?: AgentPlanView
+  questions?: WorkflowQuestion[]
+  plan?: WorkflowPlanView
   execution?: ProductPlot
   executionCount?: number
-  scopeExecution?: AgentScopeExecution
-}
-
-export interface AgentScopeExecution {
-  kind: 'batch' | 'figure'
-  id: string
-  version: number
-  projectVersion: number
-  updatedPlotCount: number
-  batchItems: { id: string; state: string }[]
 }
 
 type JsonRecord = Record<string, JsonValue>
@@ -576,6 +567,7 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
       style: engineSeriesStyle(actionTarget('set_series_style', seriesId).at(-1) ?? {}),
     })),
     axisIds,
+    ...(legendId === undefined ? {} : { legendId }),
     axisStates: {
       ...(axisState(axisIds.x) ? { x: axisState(axisIds.x) } : {}),
       ...(axisState(axisIds.y) ? { y: axisState(axisIds.y) } : {}),
@@ -629,233 +621,114 @@ function decisionMessage(decision: JsonRecord): string {
   return stringValue(decision, 'message', 'reason', 'explanation') ?? 'Agent 已返回结构化结果。'
 }
 
-function readScopeExecution(value: JsonValue): AgentScopeExecution | undefined {
-  if (!isJsonRecord(value) || !isJsonRecord(value.scope_execution)) return undefined
-  const scope = value.scope_execution
-  if ((scope.target_kind !== 'batch' && scope.target_kind !== 'figure')
-    || typeof scope.target_id !== 'string'
-    || typeof scope.target_version !== 'number') return undefined
-  const batch = isJsonRecord(scope.batch) ? scope.batch : undefined
-  const rawItems = batch !== undefined && Array.isArray(batch.item_states) ? batch.item_states : []
-  return {
-    kind: scope.target_kind,
-    id: scope.target_id,
-    version: scope.target_version,
-    projectVersion: numberValue(scope, 'project_version') ?? 0,
-    updatedPlotCount: numberValue(scope, 'updated_plot_count') ?? 0,
-    batchItems: rawItems.flatMap((item) => isJsonRecord(item) && typeof item.item_id === 'string'
-      ? [{ id: item.item_id, state: typeof item.state === 'string' ? item.state : 'queued' }]
-      : []),
-  }
-}
-
-export function readAgentOutcome(value: JsonValue): AgentOutcome {
-  if (isJsonRecord(value) && value.accepted === false) {
-    const error = isJsonRecord(value.error) ? value.error : undefined
+export function readWorkflowOutcome(value: JsonValue): WorkflowOutcome {
+  const root = isJsonRecord(value) ? value : undefined
+  const outcome = root === undefined ? undefined : stringValue(root, 'outcome')
+  if (outcome === 'draft_ready' || readWorkflowPlan(value) !== undefined) {
+    const plan = readWorkflowPlan(value)
     return {
-      kind: 'rejected',
-      title: '指令未执行',
-      message: error === undefined ? 'Agent 结果未通过本地校验。' : stringValue(error, 'message') ?? 'Agent 结果未通过本地校验。',
-    }
-  }
-  const decision = records(value, (record) => typeof record.decision_type === 'string').at(0)
-  if (decision === undefined) return { kind: 'rejected', title: '无法识别结果', message: 'Core 未返回受支持的四类 Agent 决策。' }
-  const decisionType = decision.decision_type
-  if (decisionType === 'action_plan') {
-    const root = isJsonRecord(value) ? value : undefined
-    const executions = root !== undefined && Array.isArray(root.executions) ? root.executions : []
-    const explicitExecution = root !== undefined && isJsonRecord(root.execution) ? readPlot(root.execution) : undefined
-    const executionCount = executions.length > 0 ? executions.length : explicitExecution === undefined ? 0 : 1
-    const scopeExecution = readScopeExecution(value)
-    const plan = readAgentPlan(value)
-    return {
-      kind: 'action_plan',
-      title: executionCount > 0 ? '任务已执行' : '计划已生成',
-      message: executionCount > 1
-        ? `已完成 ${executionCount} 个可追溯图形版本。`
-        : executionCount === 1
-          ? '已创建可追溯图形版本。'
-          : '检查任务与作用对象后执行。',
+      kind: 'task_plan',
+      title: plan?.state === 'succeeded' ? '任务已完成' : '计划已生成',
+      message: plan?.state === 'succeeded'
+        ? `已完成 ${plan.completedCount} 个可追溯任务项。`
+        : '检查数据、字段绑定、图形与视觉修改后确认执行。',
       ...(plan === undefined ? {} : { plan }),
-      ...(explicitExecution === undefined ? {} : { execution: explicitExecution }),
-      ...(scopeExecution === undefined ? {} : { scopeExecution }),
-      executionCount,
+      executionCount: plan?.completedCount ?? 0,
     }
   }
-  if (decisionType === 'needs_input') {
-    const questions = Array.isArray(decision.questions)
-      ? decision.questions.flatMap((question): AgentQuestion[] => {
+  if (outcome === 'needs_input' && root !== undefined) {
+    const questions = Array.isArray(root.questions)
+      ? root.questions.flatMap((question): WorkflowQuestion[] => {
         if (!isJsonRecord(question) || typeof question.question_key !== 'string' || typeof question.prompt !== 'string') return []
         const choices = Array.isArray(question.choices)
-          ? question.choices.flatMap((choice) => isJsonRecord(choice) && typeof choice.value === 'string' && typeof choice.label === 'string'
-            ? [{ value: choice.value, label: choice.label }]
+          ? question.choices.flatMap((choice) => typeof choice === 'string'
+            ? [{ value: choice, label: choice }]
             : [])
           : []
         return [{ questionKey: question.question_key, prompt: question.prompt, choices }]
       })
       : []
-    return { kind: 'needs_input', title: '需要补充信息', message: decisionMessage(decision), questions }
+    return { kind: 'needs_input', title: '需要补充信息', message: decisionMessage(root), questions }
   }
-  if (decisionType === 'unsupported') return { kind: 'unsupported', title: '当前不支持', message: decisionMessage(decision) }
-  if (decisionType === 'no_change') return { kind: 'no_change', title: '无需修改', message: decisionMessage(decision) }
-  return { kind: 'rejected', title: '结果已拒绝', message: decisionMessage(decision) }
+  if (outcome === 'unsupported' && root !== undefined) return { kind: 'unsupported', title: '当前不支持', message: decisionMessage(root) }
+  return { kind: 'rejected', title: '无法识别结果', message: 'Core 未返回受支持的工作流结果。' }
 }
 
-function engineActionTitle(action: JsonRecord): string {
-  const operation = stringValue(action, 'operation') ?? 'unknown'
-  const labels: Record<string, string> = {
-    create_plot: '创建图形',
-    create_combined_plot: '合并数据并创建图形',
-    bind_fields: '更新字段绑定',
-    set_title: '修改标题',
-    set_axis: '修改坐标轴',
-    set_series_style: '修改系列样式',
-    set_legend: '修改图例',
-    set_chart_parameter: '修改图形参数',
-    add_annotation: '添加标注',
-    export_plot: '导出图形',
-  }
-  return labels[operation] ?? operation
-}
-
-function engineActionDetail(action: JsonRecord): string | undefined {
-  const operation = stringValue(action, 'operation')
-  const target = stringValue(action, 'target')
-  if (operation === 'create_plot') return `图形 ${stringValue(action, 'profile_id') ?? '待定'} · ${stringValue(action, 'plot_id') ?? '新对象'}`
-  if (operation === 'create_combined_plot') {
-    const sourceCount = Array.isArray(action.sources) ? action.sources.length : 0
-    return `图形 ${stringValue(action, 'profile_id') ?? '待定'} · ${sourceCount} 个数据源`
-  }
-  if (operation === 'set_title' && typeof action.text === 'string') return `标题 → “${action.text}”`
-  if (operation === 'set_axis') {
-    const changes = [
-      typeof action.label === 'string' ? `标题“${action.label}”` : undefined,
-      typeof action.scale === 'string' ? `尺度 ${action.scale}` : undefined,
-      typeof action.minimum === 'number' && typeof action.maximum === 'number' ? `范围 ${action.minimum}–${action.maximum}` : undefined,
-      typeof action.reverse === 'boolean' ? action.reverse ? '反向' : '正向' : undefined,
-    ].filter((item): item is string => item !== undefined)
-    return `${target ?? '坐标轴'}${changes.length > 0 ? ` · ${changes.join(' · ')}` : ''}`
-  }
-  if (operation === 'set_series_style') {
-    const changes = Object.entries(action)
-      .filter(([key]) => ['color', 'line_width_pt', 'line_style', 'symbol', 'symbol_size_pt'].includes(key))
-      .map(([key, value]) => `${key}=${String(value)}`)
-    return `${target ?? '系列'}${changes.length > 0 ? ` · ${changes.join(' · ')}` : ''}`
-  }
-  if (operation === 'set_legend') {
-    const changes = [
-      typeof action.visible === 'boolean' ? action.visible ? '显示' : '隐藏' : undefined,
-      typeof action.anchor === 'string' ? `位置 ${action.anchor}` : undefined,
-    ].filter((item): item is string => item !== undefined)
-    return `${target ?? '图例'}${changes.length > 0 ? ` · ${changes.join(' · ')}` : ''}`
-  }
-  if (operation === 'set_chart_parameter' && typeof action.parameter === 'string') return `${action.parameter} → ${String(action.value)}`
-  if (operation === 'add_annotation' && typeof action.text === 'string') return `文本“${action.text}”`
-  if (operation === 'bind_fields') return '按下方角色→字段映射更新绑定'
-  if (operation === 'export_plot') return `导出 ${stringValue(action, 'format') ?? '产物'}`
-  return target
-}
-
-function readEngineAgentPlan(value: JsonValue): AgentPlanView | undefined {
-  const plan = records(value, (record) => (
-    typeof record.plan_id === 'string'
-    && isJsonRecord(record.proposal)
-    && isJsonRecord(record.bound_plan)
+export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined {
+  const snapshot = records(value, (record) => (
+    isJsonRecord(record.plan)
+    && typeof record.state === 'string'
+    && Array.isArray(record.item_progress)
   )).at(0)
-  if (plan === undefined) return undefined
-  const proposal = plan.proposal as JsonRecord
-  const boundPlan = plan.bound_plan as JsonRecord
-  const proposedActions = Array.isArray(proposal.actions)
-    ? proposal.actions.filter(isJsonRecord) : []
-  const boundActions = Array.isArray(boundPlan.actions)
-    ? boundPlan.actions.filter(isJsonRecord) : []
-  const bindings = boundActions.flatMap((action): AgentBindingView[] => {
-    if (!Array.isArray(action.bindings)) return []
-    return action.bindings.flatMap((binding) => {
-      if (!isJsonRecord(binding)) return []
-      const role = stringValue(binding, 'role')
-      const fieldId = stringValue(binding, 'field_id')
-      return role === undefined || fieldId === undefined ? [] : [{ role, fieldId }]
-    })
-  })
-  const state = stringValue(plan, 'state') ?? 'needs_confirmation'
-  const nextActionIndex = numberValue(plan, 'next_action_index') ?? 0
-  const errorCode = stringValue(plan, 'error_code')
-  const actionProgress = Array.isArray(plan.action_progress)
-    ? plan.action_progress.filter(isJsonRecord)
-    : []
-  const steps = proposedActions.map((action, index): AgentPlanStep => {
-    const bound = boundActions[index] ?? {}
-    const progress = actionProgress.find((item) => numberValue(item, 'action_index') === index)
-    const progressState = stringValue(progress ?? {}, 'state')
-    const succeeded = progressState === undefined
-      ? index < nextActionIndex || state === 'succeeded'
-      : progressState === 'succeeded'
-    const failed = progressState === undefined
-      ? state === 'partially_failed' && index === nextActionIndex
-      : progressState === 'failed' || progressState === 'blocked'
-    const running = progressState === undefined
-      ? state === 'running' && index === nextActionIndex
-      : progressState === 'running'
-    const target = stringValue(bound, 'target')
-    const plotId = stringValue(bound, 'plot_id') ?? plotIdFromSemanticTarget(target)
-    const outputVersion = bound.operation === 'create_plot'
-      ? 1
-      : typeof bound.expected_plot_version === 'number'
-        ? bound.expected_plot_version + (bound.operation === 'export_plot' ? 0 : 1)
-        : undefined
-    return {
-      taskItemId: stringValue(action, 'action_id') ?? `action:${index + 1}`,
-      actionType: stringValue(action, 'operation') ?? 'unknown',
-      title: engineActionTitle(action),
-      ...(engineActionDetail(bound) ? { detail: engineActionDetail(bound) } : {}),
-      state: succeeded ? 'succeeded' : failed ? 'failed' : running ? 'running' : 'pending',
-      attemptCount: numberValue(progress ?? {}, 'attempt_count') ?? (succeeded || failed ? 1 : 0),
-      ...(failed ? {
+  if (snapshot === undefined || !isJsonRecord(snapshot.plan)) return undefined
+  const plan = snapshot.plan
+  if (typeof plan.plan_id !== 'string' || !Array.isArray(plan.items)) return undefined
+  const progressValues = snapshot.item_progress as JsonValue[]
+  const progress = new Map(
+    progressValues.flatMap((item): [string, JsonRecord][] => (
+      isJsonRecord(item) && typeof item.item_id === 'string' ? [[item.item_id, item]] : []
+    )),
+  )
+  const bindings: WorkflowBindingView[] = []
+  const boundActions: JsonValue[] = []
+  const steps = plan.items.flatMap((item): WorkflowPlanStep[] => {
+    if (!isJsonRecord(item) || typeof item.item_id !== 'string') return []
+    const itemProgress: JsonRecord = progress.get(item.item_id) ?? {}
+    if (Array.isArray(item.bindings)) {
+      for (const binding of item.bindings) {
+        if (!isJsonRecord(binding)) continue
+        const role = stringValue(binding, 'role')
+        const fieldId = stringValue(binding, 'field_id')
+        if (role !== undefined && fieldId !== undefined) bindings.push({ role, fieldId })
+      }
+    }
+    if (Array.isArray(item.visual_actions)) boundActions.push(...item.visual_actions)
+    const state = stringValue(itemProgress, 'state') ?? 'pending'
+    const outputPlotId = stringValue(itemProgress, 'output_plot_id')
+    const outputPlotVersion = numberValue(itemProgress, 'output_plot_version')
+    const errorCode = stringValue(itemProgress, 'error_code')
+    return [{
+      taskItemId: item.item_id,
+      actionType: 'workflow_item',
+      title: `创建 ${stringValue(item, 'profile_id') ?? '图形'}`,
+      detail: `${Array.isArray(item.sources) ? item.sources.length : 0} 个数据来源 · ${Array.isArray(item.bindings) ? item.bindings.length : 0} 个字段角色`,
+      state,
+      attemptCount: numberValue(itemProgress, 'attempt_count') ?? 0,
+      ...(errorCode === undefined ? {} : {
         failure: {
-          code: stringValue(progress ?? {}, 'error_code') ?? errorCode ?? 'ENGINE_ACTION_FAILED',
-          message: '该动作未完成，可以从这里继续执行。',
+          code: errorCode,
+          message: '该任务项未完成，其他已成功项会保留。',
           retryable: true,
         },
-      } : {}),
-      ...(plotId !== undefined && outputVersion !== undefined
-        ? { outputPlot: { plotId, plotVersion: outputVersion } } : {}),
-    }
+      }),
+      ...(outputPlotId === undefined || outputPlotVersion === undefined ? {} : {
+        outputPlot: { plotId: outputPlotId, plotVersion: outputPlotVersion },
+      }),
+    }]
   })
+  const state = snapshot.state as string
   return {
-    planId: plan.plan_id as string,
+    planId: plan.plan_id,
     state,
-    confirmationState: stringValue(plan, 'confirmation_state') ?? 'pending',
+    confirmationState: state === 'awaiting_confirmation' ? 'pending'
+      : state === 'rejected' ? 'rejected' : 'confirmed',
     warnings: [],
     steps,
     completedCount: steps.filter((step) => step.state === 'succeeded').length,
-    resumable: state === 'partially_failed',
+    resumable: state === 'partially_succeeded' || state === 'failed',
     bindings,
     boundActions,
   }
 }
 
-function plotIdFromSemanticTarget(target: string | undefined): string | undefined {
-  if (target === undefined) return undefined
-  if (target.startsWith('plot:')) return target
-  const separator = target.indexOf(':')
-  const lastDot = target.lastIndexOf('.')
-  if (separator <= 0 || lastDot <= separator + 1) return undefined
-  return `plot:${target.slice(separator + 1, lastDot)}`
-}
-
-export function readAgentPlan(value: JsonValue): AgentPlanView | undefined {
-  return readEngineAgentPlan(value)
-}
-
-export function readAgentPlans(value: JsonValue): AgentPlanView[] {
-  if (isJsonRecord(value) && Array.isArray(value.plans)) {
-    return value.plans.flatMap((plan) => {
-      const parsed = readAgentPlan(plan)
+export function readWorkflowPlans(value: JsonValue): WorkflowPlanView[] {
+  if (isJsonRecord(value) && Array.isArray(value.task_plans)) {
+    return value.task_plans.flatMap((plan) => {
+      const parsed = readWorkflowPlan(plan)
       return parsed === undefined ? [] : [parsed]
     })
   }
-  const plan = readAgentPlan(value)
+  const plan = readWorkflowPlan(value)
   return plan === undefined ? [] : [plan]
 }
 

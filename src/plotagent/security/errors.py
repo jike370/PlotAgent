@@ -18,12 +18,6 @@ _SAFE_DETAIL_VALUES: Final = frozenset(
         "temp_acl",
         "temp_cleanup",
         "schema_version",
-        "migration_pair",
-        "migration_copy",
-        "migration_execute",
-        "migration_validate",
-        "migration_switch",
-        "legacy_component",
     }
 )
 

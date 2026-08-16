@@ -47,7 +47,7 @@ renderer 不读取导入器内部对象，也不写回原始数据。
 
 ## 5. Agent 接入
 
-绘图引擎对 Agent 中立。客户端先读取能力目录和动作 Schema，再提交公共动作。内置 Agent 可用 `ProjectContextSnapshot` 将安全别名绑定为动作；其他 Agent 可以自行完成计划与对象解析，直接提交完全相同的动作。
+绘图引擎对 Agent 中立。客户端先读取能力目录和动作 Schema，再提交公共动作。内置 Agent 通过 `WorkflowContext → TaskDraft → TaskPlan` 将安全别名绑定为动作；其他 Agent 也可以实现同一 TaskDraft 提交合同，由本地编译器完成对象解析与校验。
 
 模型响应永远不是领域真值。只有本地校验并提交后的 PlotDocument、动作日志和任务状态才是权威状态。
 

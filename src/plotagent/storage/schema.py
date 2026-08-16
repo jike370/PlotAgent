@@ -1,13 +1,12 @@
-"""Initial storage schemas; deliberately no generic migration framework."""
+"""Exact storage schemas; unsupported versions are rejected without mutation."""
 
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 
-PROJECT_SCHEMA_VERSION = 3
+PROJECT_SCHEMA_VERSION = 4
 CATALOG_SCHEMA_VERSION = 2
 
 PROJECT_SCHEMA = """
@@ -83,121 +82,118 @@ CREATE TABLE idempotency_records (
 ) STRICT;
 """
 
-AGENT_RUNTIME_SCHEMA = """
-CREATE TABLE conversations (
-    conversation_id TEXT PRIMARY KEY,
+WORKFLOW_RUNTIME_SCHEMA = """
+CREATE TABLE workflow_runs (
+    workflow_run_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN (
+        'routing', 'deterministic_attempt', 'recipe_matching', 'recipe_replay',
+        'agent_single_turn', 'agent_exploration', 'needs_input', 'draft_ready',
+        'awaiting_confirmation', 'executing', 'completed',
+        'partially_succeeded', 'failed', 'cancelled'
+    )),
+    route TEXT CHECK (route IS NULL OR route IN (
+        'deterministic', 'recipe_replay', 'agent_single_turn',
+        'agent_exploration', 'needs_input', 'unsupported'
+    )),
+    context_hash TEXT CHECK (context_hash IS NULL OR length(context_hash) = 64),
+    draft_id TEXT,
+    plan_id TEXT,
+    model_turn_count INTEGER NOT NULL DEFAULT 0 CHECK (model_turn_count BETWEEN 0 AND 6),
+    tool_call_count INTEGER NOT NULL DEFAULT 0 CHECK (tool_call_count BETWEEN 0 AND 24),
+    input_token_count INTEGER NOT NULL DEFAULT 0 CHECK (input_token_count >= 0),
+    output_token_count INTEGER NOT NULL DEFAULT 0 CHECK (output_token_count >= 0),
+    estimated_cost REAL NOT NULL DEFAULT 0 CHECK (estimated_cost >= 0),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 ) STRICT;
 
-CREATE TABLE conversation_states (
-    conversation_id TEXT PRIMARY KEY
-        REFERENCES conversations(conversation_id) ON DELETE CASCADE,
-    state_version INTEGER NOT NULL CHECK (state_version > 0),
-    state_json TEXT NOT NULL,
-    context_hash TEXT,
-    updated_at TEXT NOT NULL
-) STRICT;
-
-CREATE TABLE project_context_snapshots (
-    snapshot_id TEXT PRIMARY KEY,
-    conversation_id TEXT NOT NULL
-        REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+CREATE TABLE workflow_contexts (
+    workflow_run_id TEXT PRIMARY KEY
+        REFERENCES workflow_runs(workflow_run_id) ON DELETE CASCADE,
     project_revision INTEGER NOT NULL CHECK (project_revision >= 0),
-    snapshot_hash TEXT NOT NULL,
-    snapshot_json TEXT NOT NULL,
+    context_hash TEXT NOT NULL CHECK (length(context_hash) = 64),
+    context_json TEXT NOT NULL,
     created_at TEXT NOT NULL
 ) STRICT;
 
-CREATE INDEX project_context_conversation_idx
-    ON project_context_snapshots(conversation_id, created_at DESC);
+CREATE TABLE task_drafts (
+    draft_id TEXT PRIMARY KEY,
+    workflow_run_id TEXT NOT NULL
+        REFERENCES workflow_runs(workflow_run_id) ON DELETE CASCADE,
+    draft_hash TEXT NOT NULL CHECK (length(draft_hash) = 64),
+    draft_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (workflow_run_id, draft_id)
+) STRICT;
 
-CREATE TABLE task_plans (
+CREATE TABLE workflow_task_plans (
     plan_id TEXT PRIMARY KEY,
-    conversation_id TEXT NOT NULL
-        REFERENCES conversations(conversation_id) ON DELETE RESTRICT,
-    context_snapshot_id TEXT NOT NULL
-        REFERENCES project_context_snapshots(snapshot_id) ON DELETE RESTRICT,
-    context_hash TEXT NOT NULL,
-    project_revision INTEGER NOT NULL CHECK (project_revision >= 0),
-    source_plan_hash TEXT NOT NULL,
-    source_plan_json TEXT NOT NULL,
+    workflow_run_id TEXT NOT NULL
+        REFERENCES workflow_runs(workflow_run_id) ON DELETE RESTRICT,
+    expected_project_revision INTEGER NOT NULL CHECK (expected_project_revision >= 0),
+    plan_hash TEXT NOT NULL CHECK (length(plan_hash) = 64),
+    plan_json TEXT NOT NULL,
     state TEXT NOT NULL CHECK (state IN (
-        'draft', 'needs_confirmation', 'ready', 'running', 'partial_success',
-        'succeeded', 'failed', 'interrupted', 'needs_input', 'stale', 'cancelled'
+        'awaiting_confirmation', 'ready', 'running', 'partially_succeeded',
+        'succeeded', 'failed', 'rejected', 'cancelled'
     )),
     confirmation_state TEXT NOT NULL CHECK (confirmation_state IN (
-        'not_required', 'pending', 'confirmed', 'rejected'
+        'pending', 'confirmed', 'rejected'
     )),
+    current_project_revision INTEGER NOT NULL CHECK (current_project_revision >= 0),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 ) STRICT;
 
-CREATE INDEX task_plans_conversation_idx
-    ON task_plans(conversation_id, updated_at DESC);
-
-CREATE TABLE task_items (
-    task_item_id TEXT PRIMARY KEY,
-    plan_id TEXT NOT NULL REFERENCES task_plans(plan_id) ON DELETE CASCADE,
+CREATE TABLE workflow_task_items (
+    plan_id TEXT NOT NULL REFERENCES workflow_task_plans(plan_id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL,
     position INTEGER NOT NULL CHECK (position >= 0),
-    action_id TEXT NOT NULL,
-    action_type TEXT NOT NULL,
-    action_json TEXT NOT NULL,
     state TEXT NOT NULL CHECK (state IN (
-        'pending', 'ready', 'running', 'committing', 'succeeded', 'failed',
-        'interrupted', 'blocked', 'stale', 'skipped', 'cancelled'
+        'pending', 'running', 'succeeded', 'failed', 'blocked', 'cancelled'
     )),
-    depends_on_json TEXT NOT NULL,
-    expected_objects_json TEXT NOT NULL,
-    idempotency_key TEXT NOT NULL,
-    output_slots_json TEXT NOT NULL,
-    outputs_json TEXT NOT NULL,
     attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count BETWEEN 0 AND 32),
-    failure_json TEXT,
+    error_code TEXT,
+    output_plot_id TEXT,
+    output_plot_version INTEGER CHECK (output_plot_version IS NULL OR output_plot_version > 0),
     updated_at TEXT NOT NULL,
-    UNIQUE (plan_id, position),
-    UNIQUE (plan_id, action_id),
-    UNIQUE (plan_id, idempotency_key)
+    PRIMARY KEY (plan_id, item_id),
+    UNIQUE (plan_id, position)
 ) STRICT;
 
-CREATE INDEX task_items_plan_state_idx ON task_items(plan_id, state, position);
+CREATE INDEX workflow_task_items_state_idx
+    ON workflow_task_items(plan_id, state, position);
 
-CREATE TABLE task_attempts (
-    attempt_id TEXT PRIMARY KEY,
-    task_item_id TEXT NOT NULL REFERENCES task_items(task_item_id) ON DELETE CASCADE,
-    attempt_number INTEGER NOT NULL CHECK (attempt_number BETWEEN 1 AND 32),
-    state TEXT NOT NULL CHECK (state IN (
-        'running', 'succeeded', 'failed', 'interrupted', 'cancelled'
-    )),
-    started_at TEXT NOT NULL,
-    ended_at TEXT,
-    failure_json TEXT,
-    UNIQUE (task_item_id, attempt_number)
-) STRICT;
-
-CREATE TABLE task_checkpoints (
-    plan_id TEXT NOT NULL REFERENCES task_plans(plan_id) ON DELETE CASCADE,
-    task_item_id TEXT NOT NULL REFERENCES task_items(task_item_id) ON DELETE CASCADE,
-    checkpoint_key TEXT NOT NULL,
-    payload_json TEXT NOT NULL,
-    payload_hash TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    PRIMARY KEY (plan_id, task_item_id, checkpoint_key)
-) STRICT;
-
-CREATE TABLE task_events (
+CREATE TABLE workflow_events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    plan_id TEXT NOT NULL REFERENCES task_plans(plan_id) ON DELETE CASCADE,
-    task_item_id TEXT REFERENCES task_items(task_item_id) ON DELETE CASCADE,
+    workflow_run_id TEXT NOT NULL
+        REFERENCES workflow_runs(workflow_run_id) ON DELETE CASCADE,
     event_type TEXT NOT NULL,
     payload_json TEXT NOT NULL,
     created_at TEXT NOT NULL
 ) STRICT;
 
-CREATE INDEX task_events_plan_idx ON task_events(plan_id, event_id);
+CREATE INDEX workflow_events_run_idx ON workflow_events(workflow_run_id, event_id);
+
+CREATE TABLE workflow_recipes (
+    recipe_id TEXT NOT NULL,
+    recipe_version INTEGER NOT NULL CHECK (recipe_version > 0),
+    structure_fingerprint TEXT NOT NULL CHECK (length(structure_fingerprint) = 64),
+    goal_signature TEXT NOT NULL CHECK (length(goal_signature) = 64),
+    recipe_hash TEXT NOT NULL CHECK (length(recipe_hash) = 64),
+    recipe_json TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (recipe_id, recipe_version),
+    UNIQUE (recipe_hash)
+) STRICT;
+
+CREATE INDEX workflow_recipe_match_idx
+    ON workflow_recipes(structure_fingerprint, goal_signature, archived);
 """
 
-PROJECT_SCHEMA += AGENT_RUNTIME_SCHEMA
+PROJECT_SCHEMA += WORKFLOW_RUNTIME_SCHEMA
 
 CATALOG_SCHEMA = """
 CREATE TABLE schema_info (
@@ -255,156 +251,25 @@ def initialize_catalog_schema(connection: sqlite3.Connection) -> None:
     connection.execute(f"PRAGMA user_version = {CATALOG_SCHEMA_VERSION}")
 
 
-def migrate_catalog_v1_to_v2(path: Path) -> None:
-    """Apply the one supported pre-release catalog upgrade atomically."""
-
-    with sqlite3.connect(path) as connection:
-        rows = dict(connection.execute("SELECT key, value FROM schema_info").fetchall())
-        version = int(connection.execute("PRAGMA user_version").fetchone()[0])
-        if rows.get("schema_kind") != "plotagent-catalog" or version != 1:
-            raise StorageProblem(
-                StorageErrorCode.SCHEMA_VERSION_UNSUPPORTED,
-                "Only the catalog v1 to v2 upgrade is supported.",
-            )
-        connection.execute("BEGIN IMMEDIATE")
-        connection.execute("ALTER TABLE projects ADD COLUMN source_project_id TEXT")
-        connection.execute("ALTER TABLE projects ADD COLUMN package_sha256 TEXT")
-        connection.execute("CREATE INDEX projects_package_sha_idx ON projects(package_sha256)")
-        connection.execute(
-            "CREATE INDEX projects_source_project_idx ON projects(source_project_id)"
-        )
-        connection.execute(
-            "UPDATE schema_info SET value = ? WHERE key = 'schema_version'",
-            (str(CATALOG_SCHEMA_VERSION),),
-        )
-        connection.execute(f"PRAGMA user_version = {CATALOG_SCHEMA_VERSION}")
-        connection.commit()
-
-
-def _execute_schema_script(connection: sqlite3.Connection, script: str) -> None:
-    statement = ""
-    for line in script.splitlines(keepends=True):
-        statement += line
-        if sqlite3.complete_statement(statement):
-            connection.execute(statement)
-            statement = ""
-    if statement.strip():
-        raise sqlite3.DatabaseError("Incomplete schema statement")
-
-
-def migrate_project_v1_to_v2(connection: sqlite3.Connection) -> None:
-    """Atomically add the persistent conversation and task runtime."""
-
-    rows = dict(connection.execute("SELECT key, value FROM schema_info").fetchall())
-    version = int(connection.execute("PRAGMA user_version").fetchone()[0])
-    if (
-        rows.get("schema_kind") != "plotagent-project"
-        or rows.get("schema_version") != "1"
-        or version != 1
-    ):
-        raise StorageProblem(
-            StorageErrorCode.SCHEMA_VERSION_UNSUPPORTED,
-            "Only the project v1 to v2 upgrade is supported.",
-        )
-    connection.execute("BEGIN IMMEDIATE")
-    try:
-        _execute_schema_script(connection, AGENT_RUNTIME_SCHEMA)
-        connection.execute(
-            "UPDATE schema_info SET value = ? WHERE key = 'schema_version'",
-            ("2",),
-        )
-        connection.execute("PRAGMA user_version = 2")
-        connection.commit()
-    except Exception:
-        if connection.in_transaction:
-            connection.rollback()
-        raise
-
-
-def migrate_project_v2_to_v3(connection: sqlite3.Connection) -> None:
-    """Remove the retired plotting compiler tables without touching project data.
-
-    Imported sources, CAS objects, conversation state and task history remain
-    intact.  Plot documents and action journals are owned by the Agent Native
-    engine and are created by its repositories when first used.
-    """
-
-    rows = dict(connection.execute("SELECT key, value FROM schema_info").fetchall())
-    version = int(connection.execute("PRAGMA user_version").fetchone()[0])
-    if (
-        rows.get("schema_kind") != "plotagent-project"
-        or rows.get("schema_version") != "2"
-        or version != 2
-    ):
-        raise StorageProblem(
-            StorageErrorCode.SCHEMA_VERSION_UNSUPPORTED,
-            "Only the project v2 to v3 upgrade is supported.",
-        )
-    connection.execute("BEGIN IMMEDIATE")
-    try:
-        for table in (
-            "export_records",
-            "figure_spec_versions",
-            "batch_spec_versions",
-            "plot_spec_versions",
-            "plot_inputs",
-        ):
-            connection.execute(f"DROP TABLE IF EXISTS {table}")
-        connection.execute(
-            "UPDATE schema_info SET value = ? WHERE key = 'schema_version'",
-            (str(PROJECT_SCHEMA_VERSION),),
-        )
-        connection.execute(f"PRAGMA user_version = {PROJECT_SCHEMA_VERSION}")
-        connection.commit()
-    except Exception:
-        if connection.in_transaction:
-            connection.rollback()
-        raise
-
-
 def ensure_desktop_project_schema(connection: sqlite3.Connection) -> None:
-    """Verify the shared data and Agent runtime needed by the desktop Core."""
+    """Verify the exact workflow-era schema; never patch an older project in place."""
 
-    columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(project_meta)")}
-    connection.execute("BEGIN IMMEDIATE")
-    try:
-        if "revision" not in columns:
-            connection.execute(
-                "ALTER TABLE project_meta ADD COLUMN revision "
-                "INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0)"
-            )
-        connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS idempotency_records (
-                operation TEXT NOT NULL,
-                idempotency_key TEXT NOT NULL,
-                request_hash TEXT NOT NULL,
-                response_json TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                PRIMARY KEY (operation, idempotency_key)
-            ) STRICT;
-            """
-        )
-        for table in (
-            "conversations",
-            "conversation_states",
-            "project_context_snapshots",
-            "task_plans",
-            "task_items",
-            "task_attempts",
-            "task_checkpoints",
-            "task_events",
-        ):
-            row = connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
-            ).fetchone()
-            if row is None:
-                raise sqlite3.DatabaseError(f"Project v2 table is missing: {table}")
-        connection.commit()
-    except Exception:
-        if connection.in_transaction:
-            connection.rollback()
-        raise
+    required = (
+        "workflow_runs",
+        "workflow_contexts",
+        "task_drafts",
+        "workflow_task_plans",
+        "workflow_task_items",
+        "workflow_events",
+        "workflow_recipes",
+    )
+    available = {
+        str(row[0])
+        for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    missing = tuple(table for table in required if table not in available)
+    if missing:
+        raise sqlite3.DatabaseError(f"Workflow project tables are missing: {missing!r}")
 
 
 def validate_schema(

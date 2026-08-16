@@ -59,6 +59,216 @@ def _error(
     )
 
 
+WORKFLOW_ERROR_DEFINITIONS: tuple[
+    tuple[str, bool, Literal["info", "warning", "blocked"], str], ...
+] = (
+    (
+        "ACTION_NOT_ALLOWED",
+        False,
+        "blocked",
+        "The requested visual action is not allowed by the selected profile.",
+    ),
+    (
+        "FIELD_ALIAS_INVALID",
+        False,
+        "blocked",
+        "A task references a field alias outside its workflow context.",
+    ),
+    (
+        "FIELD_SOURCE_INVALID",
+        False,
+        "blocked",
+        "A field binding does not belong to the declared source.",
+    ),
+    (
+        "PLOT_ALIAS_INVALID",
+        False,
+        "blocked",
+        "A task references a plot alias outside its workflow context.",
+    ),
+    (
+        "PROFILE_NOT_ALLOWED",
+        False,
+        "blocked",
+        "The requested chart profile is outside the workflow allowlist.",
+    ),
+    (
+        "PROFILE_TARGET_MISMATCH",
+        False,
+        "blocked",
+        "The selected plot does not use the requested profile.",
+    ),
+    (
+        "REQUIRED_ROLE_MISSING",
+        False,
+        "blocked",
+        "A workflow task is missing a required chart role.",
+    ),
+    (
+        "ROLE_NOT_ALLOWED",
+        False,
+        "blocked",
+        "A workflow binding uses a role not declared by the chart profile.",
+    ),
+    (
+        "SOURCE_ALIAS_INVALID",
+        False,
+        "blocked",
+        "A task references a source alias outside its workflow context.",
+    ),
+    (
+        "TARGET_ALIAS_INVALID",
+        False,
+        "blocked",
+        "A visual action target is not exposed by the selected chart profile.",
+    ),
+    (
+        "TARGET_KIND_INVALID",
+        False,
+        "blocked",
+        "A visual action target has the wrong semantic object kind.",
+    ),
+    (
+        "WORKFLOW_CONTEXT_MISMATCH",
+        False,
+        "blocked",
+        "A task draft does not belong to the active workflow run.",
+    ),
+    (
+        "WORKFLOW_DRAFT_MISSING",
+        False,
+        "blocked",
+        "The confirmed workflow no longer has its immutable task draft.",
+    ),
+    (
+        "WORKFLOW_BINDING_OUTPUT_MISSING",
+        False,
+        "blocked",
+        "A prepared data result does not contain a bound output field.",
+    ),
+    (
+        "WORKFLOW_EMPTY_RESULT",
+        False,
+        "blocked",
+        "A data operation produced no rows for plotting.",
+    ),
+    (
+        "WORKFLOW_NON_ISOMORPHIC",
+        False,
+        "blocked",
+        "The selected sources are not structurally compatible for this operation.",
+    ),
+    (
+        "WORKFLOW_RESHAPE_DUPLICATE",
+        False,
+        "blocked",
+        "A reshape operation found duplicate semantic coordinates.",
+    ),
+    (
+        "WORKFLOW_SORT_TYPE_INVALID",
+        False,
+        "blocked",
+        "A sort operation encountered incomparable values.",
+    ),
+    (
+        "WORKFLOW_SOURCE_UNUSED",
+        False,
+        "blocked",
+        "A declared workflow source is not consumed by the compiled task.",
+    ),
+    (
+        "WORKFLOW_SOURCES_NOT_COMBINED",
+        False,
+        "blocked",
+        "A multi-source task did not resolve to one prepared view.",
+    ),
+    (
+        "WORKFLOW_EDIT_TARGET_INVALID",
+        False,
+        "blocked",
+        "An edit task does not resolve to one persisted plot target.",
+    ),
+    (
+        "WORKFLOW_PLAN_NOT_RUNNABLE",
+        False,
+        "blocked",
+        "The task plan has not been confirmed or is already terminal.",
+    ),
+    (
+        "UPSTREAM_TASK_ITEM_FAILED",
+        True,
+        "blocked",
+        "A task item cannot run because one of its dependencies failed.",
+    ),
+    (
+        "PROJECT_VERSION_CONFLICT",
+        True,
+        "blocked",
+        "The project revision changed before the task item committed.",
+    ),
+    (
+        "INSPECTION_BUDGET_EXCEEDED",
+        False,
+        "blocked",
+        "The workflow exhausted its bounded data inspection budget.",
+    ),
+    (
+        "INSPECTION_RANGE_INVALID",
+        False,
+        "blocked",
+        "The requested inspection row range is outside the permitted window.",
+    ),
+    (
+        "INSPECTION_SOURCES_INVALID",
+        False,
+        "blocked",
+        "The requested schema comparison source set is invalid.",
+    ),
+    (
+        "SOURCE_DUPLICATED",
+        False,
+        "blocked",
+        "The same source version was selected more than once.",
+    ),
+    ("SOURCE_INVALID", False, "blocked", "The selected workflow source payload is invalid."),
+    (
+        "SOURCE_LIMIT_EXCEEDED",
+        False,
+        "blocked",
+        "The workflow source selection exceeds the fixed limit.",
+    ),
+    (
+        "SOURCE_REQUIRED",
+        False,
+        "blocked",
+        "This workflow requires at least one selected source.",
+    ),
+    (
+        "WORKFLOW_RECIPE_EXPORT_UNVERIFIED",
+        False,
+        "blocked",
+        "The recipe is not backed by a verified export of a successful plan output.",
+    ),
+    (
+        "WORKFLOW_RECIPE_PLAN_INCOMPLETE",
+        False,
+        "blocked",
+        "Only a completely successful task plan can be saved as a recipe.",
+    ),
+    (
+        "WORKFLOW_TOOL_UNKNOWN",
+        False,
+        "blocked",
+        "The requested data inspection tool is not available.",
+    ),
+)
+
+WORKFLOW_ERROR_REGISTRY = tuple(
+    _error(code, "W5_WORKFLOW", retryable, severity, description)
+    for code, retryable, severity, description in WORKFLOW_ERROR_DEFINITIONS
+)
+
+
 STABLE_ERROR_REGISTRY = ErrorRegistry(
     errors=(
         _error(
@@ -529,41 +739,7 @@ STABLE_ERROR_REGISTRY = ErrorRegistry(
             "blocked",
             "No succeeded and confirmed batch items remain in the requested export scope.",
         ),
-        _error(
-            "FIGURE_LAYOUT_UNSUPPORTED",
-            "W5_WORKFLOW",
-            False,
-            "blocked",
-            "Figure layout is outside the fixed v1 set.",
-        ),
-        _error(
-            "FIGURE_SOURCE_NOT_NUMERIC",
-            "W5_WORKFLOW",
-            False,
-            "blocked",
-            "Figure panels may reference only numeric chart versions in v1.",
-        ),
-        _error(
-            "FIGURE_AXIS_INCOMPATIBLE",
-            "W5_WORKFLOW",
-            False,
-            "blocked",
-            "Shared Figure axes require compatible scale and unit signatures.",
-        ),
-        _error(
-            "FIGURE_VERSION_CONFLICT",
-            "W5_WORKFLOW",
-            False,
-            "blocked",
-            "The expected Figure version is stale.",
-        ),
-        _error(
-            "FIGURE_IDEMPOTENCY_CONFLICT",
-            "W5_WORKFLOW",
-            False,
-            "blocked",
-            "A Figure idempotency key was reused with different inputs.",
-        ),
+        *WORKFLOW_ERROR_REGISTRY,
         _error(
             "RENDER_PLAN_HASH_MISMATCH",
             "W4_RENDERING",
@@ -579,11 +755,11 @@ STABLE_ERROR_REGISTRY = ErrorRegistry(
             "The target chart cannot meet O1 on the qualified Origin version.",
         ),
         _error(
-            "AGENT_DECISION_INVALID",
+            "TASK_DRAFT_INVALID",
             "W7_AGENT",
             False,
             "blocked",
-            "Provider output is not a valid AgentDecision.",
+            "The proposed task draft does not satisfy the workflow contract.",
         ),
         _error(
             "PROVIDER_CONNECTION_FAILED",
@@ -614,18 +790,18 @@ STABLE_ERROR_REGISTRY = ErrorRegistry(
             "The model request was cancelled before a complete decision was accepted.",
         ),
         _error(
-            "REPAIR_EXHAUSTED",
+            "WORKFLOW_AGENT_EXHAUSTED",
             "W7_AGENT",
             False,
             "blocked",
-            "The single allowed P2 schema repair also failed.",
+            "The bounded Agent run ended without one valid task draft.",
         ),
         _error(
-            "CONTEXT_TOO_LARGE",
+            "WORKFLOW_CONTEXT_TOO_LARGE",
             "W7_AGENT",
             False,
             "blocked",
-            "The minimized context cannot fit the configured egress budget.",
+            "The bounded workflow context cannot fit the configured egress budget.",
         ),
         _error(
             "EGRESS_PERMISSION_DENIED",
@@ -647,34 +823,6 @@ STABLE_ERROR_REGISTRY = ErrorRegistry(
             False,
             "blocked",
             "The provider retention disclosure has not been acknowledged.",
-        ),
-        _error(
-            "AGENT_FORBIDDEN_PAYLOAD",
-            "W7_AGENT",
-            False,
-            "blocked",
-            "The provider returned a tool-like, code, path, URL, SQL, or renderer payload.",
-        ),
-        _error(
-            "AGENT_CAPABILITY_UNSUPPORTED",
-            "W7_AGENT",
-            False,
-            "blocked",
-            "At least one action exceeds the versioned local capability allowlist.",
-        ),
-        _error(
-            "AGENT_ACTION_SCOPE_INVALID",
-            "W7_AGENT",
-            False,
-            "blocked",
-            "At least one action refers to a target, field, or scope outside the envelope.",
-        ),
-        _error(
-            "AGENT_TARGET_INVALID",
-            "W7_AGENT",
-            False,
-            "blocked",
-            "The decision target does not match the persistent active target.",
         ),
     )
 )

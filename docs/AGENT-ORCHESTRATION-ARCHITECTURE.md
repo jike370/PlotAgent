@@ -1,7 +1,7 @@
-# PlotAgent vNext 成本感知 Agent 编排架构
+# PlotAgent 成本感知 Workflow 编排架构
 
-> 状态：已确认的目标架构与硬切换施工基线。
-> 当前实现：仍以“静态上下文 + 单次计划 + Core 校验”为主；施工完成时必须一次性切换到本文架构并删除旧编排。
+> 状态：正式架构与实现合同。
+> 当前实现：WorkflowRun、WorkflowContext、TaskDraft、TaskPlan 与 WorkflowRecipe 已成为唯一编排路径；旧编排已删除且不兼容读取。
 > 适用范围：数据检查、任务拆解、自然语言参数翻译、分级 Agent 调用、WorkflowRecipe、确认、执行与失败恢复。
 > 不改变：34 张正式单图范围、Matplotlib/Origin 双后端、Origin 原生可编辑产物、用户确认、项目版本和类型化引擎动作。
 
@@ -16,7 +16,7 @@
 
 ## 1. 决策摘要
 
-PlotAgent 不应把每个请求都直接交给大模型，也不应把 Agent 缩减为自动填写字段映射表单。目标架构采用以下顺序：
+PlotAgent 不把每个请求都直接交给大模型，也不把 Agent 缩减为自动填写字段映射表单。正式路由顺序为：
 
 ```text
 确定性程序快速路径
@@ -34,41 +34,7 @@ Agent 在产品中的职责固定为：
 
 Agent 不直接绘制图形，不执行任意 Python、SQL、LabTalk、Origin C 或 Matplotlib 代码，不直接修改项目数据库，也不能绕过用户确认和 Core 校验。
 
-## 2. 当前编排与目标编排
-
-### 2.1 当前编排
-
-```mermaid
-flowchart LR
-    A["上传文件"] --> B["确定性导入与标准化"]
-    B --> C["用户选择数据和图类"]
-    C --> D["构建静态 ContextEnvelope"]
-    D --> E["本地前置校验"]
-    E --> F["Pi 一次性生成完整计划"]
-    F --> G["Core 校验和绑定"]
-    G -->|"有限修正"| F
-    G -->|"通过"| H["用户确认"]
-    H --> I["TaskPlan 执行"]
-    I --> J["Matplotlib / Origin"]
-```
-
-当前优点：
-
-- 确认前无项目副作用。
-- Agent 只能提交强类型候选，Core 是领域权威。
-- renderer、版本、任务事务和导出边界已经稳定。
-- 简单批量、同图多源和明确参数可以工作。
-
-当前问题：
-
-- Agent 只能看到一次性字段、统计和少量样本，不能主动继续查看原始数据。
-- 一次回复同时承担指代解析、任务拆解、字段绑定和绘图参数，容易超时或生成局部错误。
-- 简单明确任务仍可能调用模型，时间和成本不必要。
-- 数据 A/B/C 主要依赖选择顺序和提示词，不是独立的确定性指代解析。
-- 成功任务不沉淀为可验证、可重放的本地工作流。
-- 失败修正仍以整个 Agent decision 为中心，不以具体失败任务为中心。
-
-### 2.2 目标编排
+## 2. 正式编排
 
 ```mermaid
 flowchart TD
@@ -97,7 +63,7 @@ flowchart TD
     N --> O["可选固化 WorkflowRecipe"]
 ```
 
-目标不是给 Agent 任意权限，而是扩大受控读取和规划能力，同时继续收紧修改能力。
+该编排扩大受控读取和规划能力，同时继续收紧修改能力。
 
 ## 3. 设计原则
 
@@ -144,11 +110,11 @@ Agent 不接触 renderer 实现。TaskCompiler 输出当前绘图引擎已有的
 
 ### 3.6 硬切换，不保留兼容架构
 
-新编排不是包在旧 `agent.engine.decide` 外面的路由层。完成迁移时必须满足：
+新编排采用单一工作流入口，不设置并行兼容层。完成切换时必须满足：
 
 - 桌面、Core、Pi 和测试只存在一个 Workflow 入口；
-- 删除旧 `agent.engine.decide` RPC、`EngineAgentDecision`、`EngineAgentPlan`、旧 binder 和一次性 repair loop；
-- Provider 不再接收旧 `ContextEnvelope`，而是通过 WorkflowRun 的 L1 上下文或 L2 只读工具工作；
+- 桌面端只暴露 WorkflowRun、TaskDraft、TaskPlan 与只读检查工具；
+- Provider 只通过 WorkflowRun 的 L1 上下文或 L2 只读工具工作；
 - TaskDraft 是确认前唯一计划真值，TaskCompiler 是进入 TaskPlan 的唯一入口；
 - 不双写旧计划表和新 Workflow 表，不读取旧计划作为 fallback；
 - 不保留旧 Schema 的自动迁移、字段别名、旧状态映射或“若新路径失败则走旧路径”；
@@ -157,7 +123,7 @@ Agent 不接触 renderer 实现。TaskCompiler 输出当前绘图引擎已有的
 
 最终门禁必须用源码搜索和负向测试证明旧模块、RPC、Schema、数据库表和兼容分支已经消失，不能只证明新路径可用。
 
-## 4. 目标模块
+## 4. 正式模块
 
 ```mermaid
 flowchart LR
@@ -307,7 +273,7 @@ L0 允许直接产生 TaskDraft，但仍然需要用户确认；不得因“不�
 - 批量任务的数据—图类关系需要一次语义拆解。
 - 参数描述需要转换为有限枚举。
 
-L1 获得静态 ContextEnvelope、候选集和一个提交工具。它不能读取额外数据；若仍不确定，应请求升级 L2 或返回 NeedsInput，不得猜测。
+L1 获得静态 WorkflowContext、候选集和一个提交工具。它不能读取额外数据；若仍不确定，应请求升级 L2 或返回 NeedsInput，不得猜测。
 
 ### 5.3 L2：多轮探索 Agent
 
@@ -512,7 +478,7 @@ WorkflowRecipe 保存：
 
 ## 12. 状态与审计
 
-建议新增规划状态：
+WorkflowRun 使用以下规划状态：
 
 ```text
 routing
@@ -546,7 +512,7 @@ completed / partially_succeeded / failed / cancelled
 ### 13.1 WorkflowRouter
 
 ```python
-route(goal, project_context, budget) -> RouteDecision
+route(goal, workflow_context, budget) -> RouteDecision
 ```
 
 `RouteDecision` 只允许：
@@ -570,7 +536,7 @@ compare_schemas(source_aliases) -> SchemaComparison
 ### 13.3 TaskCompiler
 
 ```python
-validate_draft(task_draft, project_context) -> DraftValidation
+validate_draft(task_draft, workflow_context) -> DraftValidation
 compile_draft(task_draft, expected_revision) -> TaskPlan
 ```
 
@@ -582,63 +548,18 @@ replay(recipe_version, source_refs) -> TaskDraft
 save_from_success(workflow_run_id, user_confirmation) -> WorkflowRecipeVersion
 ```
 
-## 14. 施工顺序
+## 14. 实现落点
 
-### M0：文档与 Schema 冻结
-
-- 冻结 TaskDraft、DataInspection tool、WorkflowRecipe 和 RouteDecision Schema。
-- 在产品决策中记录新权限模型。
-- 明确旧文档中“无数据处理 Agent”和“Pi 只能单次提交”的替代范围。
-- 冻结硬切换删除清单；施工期间可按内部提交拆分，但正式入口不得长期双轨。
-
-### M1：确定性快速路径
-
-- 实现 WorkflowRouter 与 DeterministicResolver。
-- 把图类、数据指代、明确参数和字段类型校验迁出 prompt 猜测。
-- 简单明确任务实现 0 次模型调用。
-- 删除组合图专属关键词拦截，仅保留通用 capability 校验。
-
-### M2：TaskDraft 与确认界面
-
-- 引入高层 TaskDraft。
-- 批量确认按 TaskItem 展示完整数据—图类—绑定关系。
-- TaskCompiler 编译到现有 engine action 和 TaskPlan。
-- 保持现有 renderer 与执行路径不变。
-
-### M3：只读数据工具与 L2 Agent
-
-- 实现 DataInspectionService。
-- Pi 增加只读工具、多轮预算和 steering/cancel。
-- Agent 可以查看原始数据但不能执行处理或绘图。
-- 增加披露、调用次数、token 和费用门禁。
-
-### M4：封闭数据处理
-
-- 逐项增加强类型 DataOperation。
-- 建立 PreparedDataView、血缘和版本。
-- Agent 只能提出操作，Core 编译和执行。
-- 每类操作补科学边界、规模限制和黑盒。
-
-### M5：WorkflowRecipe
-
-- 成功导出后的固化提示。
-- Recipe 指纹、匹配、重放、失效和版本管理。
-- exact replay 走 0 次模型调用。
-- 增加与 OriginRecipe 的命名、存储和测试隔离。
-
-### M6：局部失败恢复与成本优化
-
-- 只把失败 TaskItem 送回 Agent。
-- 成功项幂等保留，不重复执行。
-- 建立路径命中率、模型轮次、成本、延迟和 Recipe 复用率指标。
-
-### M7：硬切换与旧编排删除
-
-- Electron 只调用新 Workflow RPC，Core 只注册新 Workflow 服务。
-- 删除旧 Agent decision/binder/orchestrator、旧生成 Schema、旧任务表与迁移代码。
-- 删除旧 UI 状态、旧 IPC 方法和所有 compatibility/fallback 分支。
-- 更新正式文档，不再把旧编排描述为可用路径。
-- 全量门禁与正式 UI 验收均只从新入口运行。
+- `contracts/workflows.py` 是 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan 与 WorkflowRecipe 的唯一合同源。
+- `workflows/router.py` 按 L0、Recipe、L1、L2 和追问顺序决定路径。
+- `workflows/inspection.py` 提供有界、只读、可审计的数据检查。
+- `workflows/data_ops.py` 只执行白名单 DataOperation，并保留血缘。
+- `workflows/compiler.py` 是 TaskDraft 进入 TaskPlan 的唯一编译入口。
+- `workflows/executor.py` 负责逐项执行、幂等与部分失败保真。
+- `workflows/recipes.py` 负责成功流程的指纹、固化和严格重放。
+- `desktop_core/workflow_service.py` 是 Core 的唯一工作流服务入口。
+- Electron、preload 与 renderer 仅通过 `workflow.*` RPC 工作；Pi 只生成或修订 TaskDraft。
+- 项目 schema v4 只含 Workflow 表；旧项目 schema 明确拒绝，不迁移、不双写。
 
 ## 15. 验收标准
 
@@ -677,8 +598,8 @@ save_from_success(workflow_run_id, user_confirmation) -> WorkflowRecipeVersion
 
 ### 15.6 迁移完整性
 
-- 产品源码不存在 `agent.engine.decide`、`EngineAgentPlan`、`EngineAgentDecision` 或旧计划兼容表。
-- 正式生成合同不再包含旧 ContextEnvelope/engine-agent.v1 Schema。
+- 产品源码只保留 WorkflowRun、TaskDraft、TaskPlan 与 WorkflowRecipe 一套编排合同。
+- 正式生成合同不包含任何已退役的计划或上下文 Schema。
 - Electron、Core、Pi、持久化和 UI 不存在双入口、双写、fallback 或旧状态映射。
 - 旧编排专属测试已删除；新测试直接覆盖 WorkflowRouter、TaskDraft、TaskCompiler、L0/L1/L2、Recipe 与失败项修复。
 - 从正式 Windows Electron UI 发出的每个任务都能在审计中定位唯一 WorkflowRun 和 RouteDecision。
@@ -693,20 +614,16 @@ save_from_success(workflow_run_id, user_confirmation) -> WorkflowRecipeVersion
 - 不因引入 WorkflowRecipe 建立未经同意的跨项目隐式偏好。
 - 不为新编排重写已经通过验收的 Matplotlib/Origin renderer。
 
-## 17. 施工对照表
+## 17. 实现对照表
 
-| 目标能力 | 当前状态 | 施工模块 | 最早里程碑 |
-|---|---|---|---|
-| 确定性图类/参数解析 | 部分散落在前置校验和 prompt | DeterministicResolver | M1 |
-| 数据 A/B/C 稳定解析 | 主要依赖选择顺序和 Agent | DeterministicResolver | M1 |
-| 简单任务 0 模型调用 | 仅少量 NeedsInput/校验 | WorkflowRouter | M1 |
-| 高层 TaskDraft | 尚无，当前直接生成 engine decision | TaskDraft/TaskCompiler | M2 |
-| 批量逐项确认 | 有 TaskPlan，但绑定摘要会扁平 | Confirmation UI | M2 |
-| Agent 主动读取原始数据 | 尚无 | DataInspectionService/Pi tools | M3 |
-| 多轮探索与预算 | Pi 仅有限决策修正 | Pi runtime/WorkflowRouter | M3 |
-| Agent 数据处理规划 | 尚无 | DataOperation/Data Engine | M4 |
-| 成功工作流固化 | 尚无 | WorkflowRecipeStore | M5 |
-| 失败项 Agent 局部修复 | 任务层部分具备，Agent 编排未闭环 | TaskRuntime/WorkflowRouter | M6 |
-| 旧编排彻底删除 | 尚未开始 | Electron/Core/Pi/Storage/UI | M7 |
+| 能力 | 正式模块 | 资格要求 |
+|---|---|---|
+| 确定性图类、参数与数据指代 | WorkflowRouter / DeterministicResolver | 明确任务 0 次模型调用 |
+| 高层任务候选与确认 | TaskDraft / Confirmation UI | 确认前无项目副作用 |
+| 数据检查与多轮预算 | DataInspectionService / Pi runtime | 只读、限额、全审计 |
+| 封闭数据处理 | DataOperation / Data Engine | 原始数据不可变，结果有血缘 |
+| 成功工作流固化 | WorkflowRecipeStore | 用户显式确认、严格指纹、失效闭锁 |
+| 局部失败恢复 | TaskPlan Runtime | 成功项不重复，失败项可续跑 |
+| 单一架构入口 | Electron / Core / Pi / Storage / UI | 无旧 RPC、Schema、表、别名或 fallback |
 
-本文是施工时判断“新代码属于哪里、能拥有什么权限、何时应调用模型”的首要对照文档。Renderer 结构、正式图类和 Origin 原生证据仍以各自权威文档为准。
+本文是判断“代码属于哪里、能拥有什么权限、何时应调用模型”的首要对照文档。Renderer 结构、正式图类和 Origin 原生证据仍以各自权威文档为准。

@@ -3,7 +3,7 @@
 > 状态：小规模邀请制 Beta 已确认边界
 > 日期：2026-08-05
 > 适用范围：InviteGrant、长期设备凭据、built-in model proxy、原子共享计数、请求幂等、云故障降级与人工安装包
-> 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[Agent 上下文、模型供应商与数据出境](./AGENT-CONTEXT-AND-PROVIDERS.md)、[本地安全、诊断与 Beta 兼容](./LOCAL-SECURITY-MIGRATION-DIAGNOSTICS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约](./DOMAIN-CONTRACTS.md)
+> 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[目标编排架构](./AGENT-ORCHESTRATION-ARCHITECTURE.md)、[Pi 运行时](./PI-AGENT-RUNTIME.md)、[本地安全与诊断](./LOCAL-SECURITY-DIAGNOSTICS.md)、[后端与 Agent 架构](./BACKEND-ARCHITECTURE.md)、[领域契约](./DOMAIN-CONTRACTS.md)
 
 ## 1. Beta 原则
 
@@ -127,13 +127,13 @@ ModelRunRecord
 
 - Proxy 接收已由本地 ContextBuilder 形成的请求；模型没有项目、文件、SQLite、Origin、URL 或本地工具访问权。
 - 平台 provider secret 仅在服务端；客户端 DeviceCredential 不能换取或查看平台 key。
-- Proxy 不保存 provider-hosted conversation 作为真相，不增加工具循环，只转发一个结构化 AgentDecision 请求。
+- Proxy 不保存 provider-hosted conversation 作为真相，只转发有界 WorkflowRun 的模型请求；本地只读检查工具不通过云代理取得额外权限。
 - 取消会中止仍可中止的 HTTP 请求并把当前记录标 `cancelled`；是否消耗一次 quota unit按第5节已显示的简单Beta政策，不触发结算状态机。
 - 每次 run 固定 `model_profile_id`；运行中不得静默切换。第一轮无 remote config，允许 profile 由客户端 build 的 allowlist 与服务端部署共同校验。
 
 ## 7. 日志与隐私
 
-Proxy 日志不得记录 prompt、request body、response body、字段名、样本、原始数据或完整 ContextEnvelope。允许字段：
+Proxy 日志不得记录 prompt、request body、response body、字段名、样本、原始数据或完整 WorkflowContext。允许字段：
 
 - `client_run_id`、invite/device 伪名。
 - app/protocol/model profile version。
@@ -148,7 +148,7 @@ Proxy 日志不得记录 prompt、request body、response body、字段名、样
 - built-in 调用时才校验 DeviceCredential、InviteGrant 和 quota。
 - 瞬时连接或 5xx 最多自动重试 2 次，必须复用同一 `client_run_id`。
 - 用户取消、invite/device/quota 等确定性 4xx 不自动重试。
-- 云失败不写项目事务；只有本地已校验 AgentDecision 与后续 ExecutionTask 才进入项目状态。
+- 云失败不写项目事务；只有本地校验并编译后的 TaskDraft/TaskPlan 才进入项目执行状态。
 - `QUOTA_EXHAUSTED` 只禁用 built-in Agent，并提示 custom provider；本地能力保持可用。
 
 ## 9. strict local_only

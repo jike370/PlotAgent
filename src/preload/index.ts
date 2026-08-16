@@ -7,12 +7,12 @@ import {
   type CloseResponse,
   type CoreStatus,
   type CustomProviderConfigureInput,
-  type AgentDecideInput,
-  type AgentRuntimeEvent,
-  type AgentPlanConfirmInput,
-  type AgentPlanInput,
-  type EngineBatchPlanCreateInput,
-  type EngineCombinedPlotCreateInput,
+  type WorkflowRunInput,
+  type WorkflowRuntimeEvent,
+  type WorkflowDraftSubmitInput,
+  type TaskPlanConfirmInput,
+  type TaskPlanInput,
+  type WorkflowRecipeSaveInput,
   type DatasetDescribeInput,
   type EngineActionInput,
   type OpenResourceRequest,
@@ -53,7 +53,10 @@ function createEventBridge<T>(channel: string, bufferLimit = 128): {
 
 const coreStatusEvents = createEventBridge<CoreStatus>(IPC_CHANNELS.coreStatusChanged, 8)
 const taskEvents = createEventBridge<TaskEvent>(IPC_CHANNELS.taskEvent)
-const agentRuntimeEvents = createEventBridge<AgentRuntimeEvent>(IPC_CHANNELS.agentRuntimeEvent, 32)
+const workflowRuntimeEvents = createEventBridge<WorkflowRuntimeEvent>(
+  IPC_CHANNELS.workflowRuntimeEvent,
+  32,
+)
 const openResourceEvents = createEventBridge<OpenResourceRequest>(IPC_CHANNELS.openResourceRequested, 32)
 const closeRequestEvents = createEventBridge<CloseRequest>(IPC_CHANNELS.lifecycleCloseRequested, 4)
 
@@ -85,29 +88,29 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.engineActionExecute, input),
   getPlot: (input: PlotIdInput) => ipcRenderer.invoke(IPC_CHANNELS.enginePlotGet, input),
   listPlots: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.enginePlotList, input),
-  createPlotBatchPlan: (input: EngineBatchPlanCreateInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.engineBatchPlanCreate, input),
-  createCombinedPlot: (input: EngineCombinedPlotCreateInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.engineCombinedPlotCreate, input),
-  decideAgent: (input: AgentDecideInput) => ipcRenderer.invoke(IPC_CHANNELS.agentDecide, input),
-  getAgentPlan: (input: AgentPlanInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.agentPlanGet, input),
-  listAgentPlans: (input: ProjectIdInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.agentPlanList, input),
-  confirmAgentPlan: (input: AgentPlanConfirmInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.agentPlanConfirm, input),
-  runAgentPlan: (input: AgentPlanInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.agentPlanRun, input),
-  resumeAgentPlan: (input: AgentPlanInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.agentPlanResume, input),
+  runWorkflow: (input: WorkflowRunInput) => ipcRenderer.invoke(IPC_CHANNELS.workflowRun, input),
+  submitWorkflowDraft: (input: WorkflowDraftSubmitInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.workflowDraftSubmit, input),
+  getTaskPlan: (input: TaskPlanInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.taskPlanGet, input),
+  listTaskPlans: (input: ProjectIdInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.taskPlanList, input),
+  confirmTaskPlan: (input: TaskPlanConfirmInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.taskPlanConfirm, input),
+  runTaskPlan: (input: TaskPlanInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.taskPlanRun, input),
+  resumeTaskPlan: (input: TaskPlanInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.taskPlanResume, input),
+  saveWorkflowRecipe: (input: WorkflowRecipeSaveInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.workflowRecipeSave, input),
   exportPngSvg: (input: PngSvgExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportPngSvg, input),
   exportOrigin: (input: OriginExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportOrigin, input),
   respondToCloseRequest: (response: CloseResponse) =>
     ipcRenderer.invoke(IPC_CHANNELS.closeResponse, response),
   onCoreStatus: (listener: (status: CoreStatus) => void) => coreStatusEvents.subscribe(listener),
   onTaskEvent: (listener: (event: TaskEvent) => void) => taskEvents.subscribe(listener),
-  onAgentRuntimeEvent: (listener: (event: AgentRuntimeEvent) => void) =>
-    agentRuntimeEvents.subscribe(listener),
+  onWorkflowRuntimeEvent: (listener: (event: WorkflowRuntimeEvent) => void) =>
+    workflowRuntimeEvents.subscribe(listener),
   onOpenResourceRequested: (listener: (request: OpenResourceRequest) => void) =>
     openResourceEvents.subscribe(listener),
   onCloseRequested: (listener: (request: CloseRequest) => void) =>

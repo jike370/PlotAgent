@@ -12,7 +12,6 @@ from plotagent.contracts import SourceDataset
 from plotagent.importing import Clarification, Rejection
 from plotagent.storage import Catalog, ImportResource, ProjectImportService, ProjectStore
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
-from plotagent.storage.schema import migrate_project_v1_to_v2, migrate_project_v2_to_v3
 
 FILES_ROOT = Path(__file__).parents[1] / "fixtures" / "import" / "files"
 
@@ -75,7 +74,7 @@ def test_project_open_recovers_a_lock_left_by_a_dead_writer(storage_root: Path) 
     assert not lock_path.exists()
 
 
-def test_project_open_does_not_remove_a_live_legacy_writer_lock(
+def test_project_open_does_not_remove_a_live_foreign_writer_lock(
     storage_root: Path,
 ) -> None:
     workspace = storage_root / "project"
@@ -92,7 +91,7 @@ def test_project_open_does_not_remove_a_live_legacy_writer_lock(
         lock_path.unlink()
 
 
-def test_fresh_project_does_not_create_retired_plot_compiler_tables(
+def test_fresh_project_creates_only_the_workflow_schema(
     storage_root: Path,
 ) -> None:
     workspace = storage_root / "project"
@@ -103,89 +102,46 @@ def test_fresh_project_does_not_create_retired_plot_compiler_tables(
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             )
         }
-    assert not tables.intersection(
-        {
-            "plot_inputs",
-            "plot_spec_versions",
-            "batch_spec_versions",
-            "figure_spec_versions",
-            "export_records",
-        }
-    )
-    assert {"source_dataset_versions", "project_context_snapshots", "task_plans"} <= tables
+    assert tables == {
+        "schema_info",
+        "project_meta",
+        "objects",
+        "import_recipes",
+        "import_sessions",
+        "source_dataset_versions",
+        "object_refs",
+        "idempotency_records",
+        "workflow_runs",
+        "workflow_contexts",
+        "task_drafts",
+        "workflow_task_plans",
+        "workflow_task_items",
+        "workflow_events",
+        "workflow_recipes",
+        "sqlite_sequence",
+    }
 
 
-def test_v2_to_v3_removes_only_retired_plot_state() -> None:
-    connection = sqlite3.connect(":memory:")
-    try:
-        connection.executescript(
-            """
-            PRAGMA user_version = 2;
-            CREATE TABLE schema_info (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            INSERT INTO schema_info VALUES ('schema_kind', 'plotagent-project');
-            INSERT INTO schema_info VALUES ('schema_version', '2');
-            CREATE TABLE source_dataset_versions (source_dataset_id TEXT PRIMARY KEY);
-            INSERT INTO source_dataset_versions VALUES ('source:keep');
-            CREATE TABLE plot_inputs (plot_id TEXT PRIMARY KEY);
-            CREATE TABLE plot_spec_versions (plot_id TEXT PRIMARY KEY);
-            CREATE TABLE batch_spec_versions (batch_id TEXT PRIMARY KEY);
-            CREATE TABLE figure_spec_versions (figure_id TEXT PRIMARY KEY);
-            CREATE TABLE export_records (export_id TEXT PRIMARY KEY);
-            """
+@pytest.mark.parametrize("old_version", [1, 2, 3])
+def test_old_project_schema_is_rejected_without_mutation(
+    storage_root: Path, old_version: int
+) -> None:
+    workspace = storage_root / f"project-v{old_version}"
+    with ProjectStore.create(workspace, project_id=f"project:v{old_version}"):
+        pass
+    database = workspace / "project.sqlite3"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE schema_info SET value = ? WHERE key = 'schema_version'",
+            (str(old_version),),
         )
-        migrate_project_v2_to_v3(connection)
-        tables = {
-            str(row[0])
-            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
-        }
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
-        schema_info = dict(connection.execute("SELECT key, value FROM schema_info"))
-        assert schema_info["schema_version"] == "3"
-        assert connection.execute("SELECT * FROM source_dataset_versions").fetchall() == [
-            ("source:keep",)
-        ]
-        assert not tables.intersection(
-            {
-                "plot_inputs",
-                "plot_spec_versions",
-                "batch_spec_versions",
-                "figure_spec_versions",
-                "export_records",
-            }
-        )
-    finally:
-        connection.close()
+        connection.execute(f"PRAGMA user_version = {old_version}")
+        before = database.read_bytes()
 
-
-def test_v1_project_can_upgrade_sequentially_to_v3() -> None:
-    connection = sqlite3.connect(":memory:")
-    try:
-        connection.executescript(
-            """
-            PRAGMA user_version = 1;
-            CREATE TABLE schema_info (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            INSERT INTO schema_info VALUES ('schema_kind', 'plotagent-project');
-            INSERT INTO schema_info VALUES ('schema_version', '1');
-            CREATE TABLE plot_inputs (plot_id TEXT PRIMARY KEY);
-            CREATE TABLE plot_spec_versions (plot_id TEXT PRIMARY KEY);
-            """
-        )
-        migrate_project_v1_to_v2(connection)
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
-        assert connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_plans'"
-        ).fetchone() == (1,)
-
-        migrate_project_v2_to_v3(connection)
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
-        assert connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='plot_spec_versions'"
-        ).fetchone() is None
-        assert connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_plans'"
-        ).fetchone() == (1,)
-    finally:
-        connection.close()
+    with pytest.raises(StorageProblem) as caught:
+        ProjectStore.open(workspace)
+    assert caught.value.code == StorageErrorCode.SCHEMA_VERSION_UNSUPPORTED
+    assert database.read_bytes() == before
 
 
 def test_correct_import_registers_contracts_and_immutable_cas(storage_root: Path) -> None:

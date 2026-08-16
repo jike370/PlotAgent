@@ -1,0 +1,305 @@
+{
+  "$defs": {
+    "WorkflowBudget": {
+      "additionalProperties": false,
+      "description": "Hard ceilings selected by Core before any model call.",
+      "properties": {
+        "max_agent_turns": {
+          "default": 2,
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Max Agent Turns",
+          "type": "integer"
+        },
+        "max_disclosed_scalars": {
+          "default": 2000,
+          "maximum": 20000,
+          "minimum": 0,
+          "title": "Max Disclosed Scalars",
+          "type": "integer"
+        },
+        "max_preview_rows": {
+          "default": 40,
+          "maximum": 200,
+          "minimum": 0,
+          "title": "Max Preview Rows",
+          "type": "integer"
+        },
+        "max_profiled_fields": {
+          "default": 24,
+          "maximum": 128,
+          "minimum": 0,
+          "title": "Max Profiled Fields",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 8,
+          "maximum": 24,
+          "minimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        }
+      },
+      "title": "WorkflowBudget",
+      "type": "object"
+    },
+    "WorkflowField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "logical_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "unit_label": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Label"
+        }
+      },
+      "required": [
+        "field_alias",
+        "source_alias",
+        "field_id",
+        "name",
+        "logical_type"
+      ],
+      "title": "WorkflowField",
+      "type": "object"
+    },
+    "WorkflowPlot": {
+      "additionalProperties": false,
+      "properties": {
+        "plot_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Plot Alias",
+          "type": "string"
+        },
+        "plot_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "plot_version": {
+          "minimum": 1,
+          "title": "Plot Version",
+          "type": "integer"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plot_alias",
+        "plot_id",
+        "plot_version",
+        "profile_id"
+      ],
+      "title": "WorkflowPlot",
+      "type": "object"
+    },
+    "WorkflowSource": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "display_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "source_dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_alias",
+        "source_dataset_id",
+        "source_version",
+        "content_hash",
+        "display_name",
+        "row_count"
+      ],
+      "title": "WorkflowSource",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/workflow-context.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "allowed_profile_ids": {
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Allowed Profile Ids",
+      "type": "array"
+    },
+    "budget": {
+      "$ref": "#/$defs/WorkflowBudget"
+    },
+    "fields": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WorkflowField"
+      },
+      "maxItems": 512,
+      "title": "Fields",
+      "type": "array"
+    },
+    "instruction": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Instruction",
+      "type": "string"
+    },
+    "locale": {
+      "default": "zh-CN",
+      "enum": [
+        "zh-CN",
+        "en-US"
+      ],
+      "title": "Locale",
+      "type": "string"
+    },
+    "plots": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WorkflowPlot"
+      },
+      "maxItems": 64,
+      "title": "Plots",
+      "type": "array"
+    },
+    "project_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "project_revision": {
+      "minimum": 0,
+      "title": "Project Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "workflow-context.v1",
+      "default": "workflow-context.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selected_plot_aliases": {
+      "default": [],
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]{0,63}$",
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Selected Plot Aliases",
+      "type": "array"
+    },
+    "selected_profile_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Selected Profile Ids",
+      "type": "array"
+    },
+    "selected_source_aliases": {
+      "default": [],
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]{0,63}$",
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Selected Source Aliases",
+      "type": "array"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WorkflowSource"
+      },
+      "maxItems": 64,
+      "title": "Sources",
+      "type": "array"
+    },
+    "workflow_run_id": {
+      "pattern": "^workflow:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Workflow Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workflow_run_id",
+    "project_id",
+    "project_revision",
+    "instruction",
+    "allowed_profile_ids",
+    "budget"
+  ],
+  "title": "WorkflowContext",
+  "type": "object"
+}

@@ -4,8 +4,9 @@ import type { JsonValue, Model, TSchema } from '@earendil-works/pi-ai'
 
 export type PiAgentStage =
   | 'preparing_context'
+  | 'inspecting_data'
   | 'planning'
-  | 'validating_decision'
+  | 'validating_draft'
   | 'saving_plan'
   | 'completed'
   | 'cancelled'
@@ -31,10 +32,10 @@ export interface PiAgentRuntimeOptions {
   readonly streamFn?: StreamFn
 }
 
-interface PreparedDecision {
-  readonly prepared: boolean
-  readonly contextEnvelope: JsonValue
-  readonly decisionSchema: Record<string, unknown>
+interface PreparedWorkflow {
+  readonly workflowRunId: string
+  readonly context: JsonValue
+  readonly draftSchema: Record<string, unknown>
   readonly systemPrompt: string
 }
 
@@ -72,7 +73,7 @@ export function publicPiAgentError(error: unknown): {
   }
   return {
     code: 'CORE_REQUEST_FAILED',
-    message: 'Agent 未能生成有效计划，本轮没有修改项目。请重试。',
+    message: 'Agent 未能生成有效任务草稿，本轮没有修改项目。请重试。',
     retryable: true,
   }
 }
@@ -84,22 +85,23 @@ function record(value: JsonValue, label: string): Record<string, JsonValue> {
   return value
 }
 
-function preparedDecision(value: JsonValue): PreparedDecision | undefined {
-  const payload = record(value, 'Prepared Agent response')
-  if (payload.prepared !== true) return undefined
+function preparedWorkflow(value: JsonValue): PreparedWorkflow | undefined {
+  const payload = record(value, 'Prepared workflow response')
+  if (payload.outcome !== 'agent_required') return undefined
   if (
-    typeof payload.system_prompt !== 'string'
-    || payload.context_envelope === undefined
-    || payload.decision_schema === null
-    || Array.isArray(payload.decision_schema)
-    || typeof payload.decision_schema !== 'object'
+    typeof payload.workflow_run_id !== 'string'
+    || typeof payload.system_prompt !== 'string'
+    || payload.workflow_context === undefined
+    || payload.task_draft_schema === null
+    || Array.isArray(payload.task_draft_schema)
+    || typeof payload.task_draft_schema !== 'object'
   ) {
-    throw new PiRuntimeError('PI_RUNTIME_PROTOCOL_INVALID', 'Core returned an invalid Pi handoff.')
+    throw new PiRuntimeError('PI_RUNTIME_PROTOCOL_INVALID', 'Core returned an invalid workflow handoff.')
   }
   return {
-    prepared: true,
-    contextEnvelope: payload.context_envelope,
-    decisionSchema: payload.decision_schema,
+    workflowRunId: payload.workflow_run_id,
+    context: payload.workflow_context,
+    draftSchema: payload.task_draft_schema,
     systemPrompt: payload.system_prompt,
   }
 }
@@ -114,50 +116,6 @@ function runtimeProvider(value: JsonValue): RuntimeProvider {
     throw new PiRuntimeError('PROVIDER_NOT_CONFIGURED', 'The model provider is not configured.')
   }
   return { baseUrl: payload.base_url, modelId: payload.model_id, apiKey: payload.api_key }
-}
-
-function acceptedCoreDecision(value: JsonValue): JsonValue {
-  const payload = record(value, 'Core Agent response')
-  if (payload.accepted === true) return value
-  const error = payload.error
-  const code = error !== null && !Array.isArray(error) && typeof error === 'object'
-    && typeof error.code === 'string'
-    ? error.code
-    : 'PI_CORE_DECISION_REJECTED'
-  throw new PiRuntimeError(code, 'Core rejected the model decision.')
-}
-
-const REPAIRABLE_DECISION_CODES = new Set([
-  'COMBINED_ACTION_REQUIRED',
-  'ENGINE_PLAN_INVALID',
-  'FIELD_TYPE_INCOMPATIBLE',
-  'SCHEMA_INVALID',
-])
-
-function rejectedCoreDecisionCode(value: JsonValue): string | undefined {
-  const payload = record(value, 'Core Agent response')
-  if (payload.accepted === true) return undefined
-  const error = payload.error
-  return error !== null && !Array.isArray(error) && typeof error === 'object'
-    && typeof error.code === 'string'
-    ? error.code
-    : 'PI_CORE_DECISION_REJECTED'
-}
-
-function repairInstruction(code: string): string {
-  if (code === 'FIELD_TYPE_INCOMPATIBLE') {
-    return 'Local validation rejected the previous decision because a field logical type is incompatible with its proposed chart role. Re-read context_envelope field logical_type values, choose compatible roles or a compatible chart profile, and submit exactly one corrected decision.'
-  }
-  return `Local validation rejected the previous decision with ${code}. Re-read the supplied context and decision contract, then submit exactly one corrected decision.`
-}
-
-function decisionToolSchema(decisionSchema: Record<string, unknown>): TSchema {
-  return {
-    type: 'object',
-    properties: { decision: decisionSchema },
-    required: ['decision'],
-    additionalProperties: false,
-  } as unknown as TSchema
 }
 
 function modelFor(provider: RuntimeProvider): Model<'openai-completions'> {
@@ -175,17 +133,18 @@ function modelFor(provider: RuntimeProvider): Model<'openai-completions'> {
   }
 }
 
+function objectSchema(properties: Record<string, unknown>, required: string[]): TSchema {
+  return { type: 'object', properties, required, additionalProperties: false } as TSchema
+}
+
 function lifecycleStage(event: AgentEvent): { stage: PiAgentStage; label: string } | undefined {
   if (event.type === 'agent_start' || event.type === 'turn_start') {
-    return { stage: 'planning', label: '正在理解目标并规划绘图动作…' }
-  }
-  if (event.type === 'tool_execution_start') {
-    return { stage: 'validating_decision', label: '正在校验字段绑定和绘图动作…' }
+    return { stage: 'planning', label: '正在理解目标并编排任务…' }
   }
   return undefined
 }
 
-/** Pi owns deliberation and tool execution; Core retains authority and persistence. */
+/** Pi deliberates and inspects; Core alone validates, persists and executes. */
 export class PiAgentRuntime {
   private readonly core: PiCoreBridge
   private readonly emitEvent: PiAgentRuntimeOptions['emit']
@@ -198,7 +157,7 @@ export class PiAgentRuntime {
   constructor(options: PiAgentRuntimeOptions) {
     this.core = options.core
     this.emitEvent = options.emit
-    this.timeoutMs = options.timeoutMs ?? 35_000
+    this.timeoutMs = options.timeoutMs ?? 60_000
     this.streamFn = options.streamFn ?? (streamSimple as StreamFn)
   }
 
@@ -207,11 +166,13 @@ export class PiAgentRuntime {
     this.active?.agent.abort()
   }
 
-  async decide(params: JsonValue): Promise<JsonValue> {
-    const input = record(params, 'Pi Agent request')
+  async run(params: JsonValue): Promise<JsonValue> {
+    const input = record(params, 'Pi workflow request')
     const projectId = typeof input.project_id === 'string' ? input.project_id : ''
-    const runId = typeof input.client_model_run_id === 'string' ? input.client_model_run_id : ''
-    if (!projectId || !runId) throw new PiRuntimeError('PI_RUNTIME_PROTOCOL_INVALID', 'Missing run identity.')
+    const clientRunId = typeof input.client_run_id === 'string' ? input.client_run_id : ''
+    if (!projectId || !clientRunId) {
+      throw new PiRuntimeError('PI_RUNTIME_PROTOCOL_INVALID', 'Missing run identity.')
+    }
 
     this.active?.agent.abort()
     const generation = ++this.generation
@@ -219,127 +180,141 @@ export class PiAgentRuntime {
     let timeout: ReturnType<typeof setTimeout> | undefined
     let timedOut = false
     try {
-      this.emit(runId, projectId, 'preparing_context', '正在读取数据结构和图形能力…')
-      const preparedValue = await this.core.request(
-        'agent.engine.decide',
-        { ...input, prepare_only: true },
-        10_000,
-      )
+      this.emit(clientRunId, projectId, 'preparing_context', '正在读取数据结构和图形能力…')
+      const preparedValue = await this.core.request('workflow.prepare', input, 10_000)
       this.assertCurrent(generation)
-      const prepared = preparedDecision(preparedValue)
+      const prepared = preparedWorkflow(preparedValue)
       if (prepared === undefined) {
-        acceptedCoreDecision(preparedValue)
-        this.emit(runId, projectId, 'completed', '已生成需要确认的结果。')
+        this.emit(clientRunId, projectId, 'completed', '已生成需要确认的任务。')
         return preparedValue
       }
+
       const provider = runtimeProvider(await this.core.request('provider.runtime.get', {}, 10_000))
       this.assertCurrent(generation)
-      let decision: JsonValue | undefined
-      let decisionCount = 0
-      const tool: AgentTool<TSchema, { accepted: boolean }> = {
-        name: 'submit_plotagent_decision',
-        label: '提交 PlotAgent 决策',
-        description: 'Submit exactly one candidate decision for this turn. PlotAgent Core validates it locally before it can become a plan.',
-        parameters: decisionToolSchema(prepared.decisionSchema),
-        constrainedSampling: { type: 'json_schema', strict: 'prefer' },
+      let submittedPlan: JsonValue | undefined
+      const inspectTool = (
+        name: string,
+        label: string,
+        parameters: TSchema,
+      ): AgentTool<TSchema, JsonValue> => ({
+        name,
+        label,
+        description: `${label}。只读、受预算限制，不会修改项目。`,
+        parameters,
         executionMode: 'sequential',
         execute: async (_toolCallId, args) => {
-          decisionCount += 1
-          if (decisionCount > 1) {
-            throw new PiRuntimeError('PI_MULTIPLE_DECISIONS', 'Only one decision is allowed.')
-          }
-          const payload = record(args as JsonValue, 'Pi decision tool arguments')
-          if (payload.decision === undefined) {
-            throw new PiRuntimeError('PI_RUNTIME_PROTOCOL_INVALID', 'The decision tool payload is missing.')
-          }
-          decision = payload.decision
+          this.emit(clientRunId, projectId, 'inspecting_data', `${label}…`)
+          const response = await this.core.request('workflow.inspect', {
+            project_id: projectId,
+            workflow_run_id: prepared.workflowRunId,
+            tool_name: name,
+            arguments: args as JsonValue,
+          }, 10_000)
           return {
-            content: [{ type: 'text', text: 'Decision candidate received. PlotAgent Core validation follows.' }],
-            details: { accepted: false },
-            terminate: true,
+            content: [{ type: 'text', text: JSON.stringify(response) }],
+            details: response,
+            terminate: false,
           }
         },
-      }
+      })
+      const tools: AgentTool<TSchema, JsonValue>[] = [
+        inspectTool('inspect_source', '正在检查数据表结构', objectSchema({
+          source_alias: { type: 'string' },
+        }, ['source_alias'])),
+        inspectTool('preview_rows', '正在预览必要数据行', objectSchema({
+          source_alias: { type: 'string' },
+          field_aliases: {
+            type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 24,
+          },
+          offset: { type: 'integer', minimum: 0 },
+          limit: { type: 'integer', minimum: 1, maximum: 40 },
+        }, ['source_alias', 'field_aliases'])),
+        inspectTool('profile_field', '正在分析字段', objectSchema({
+          source_alias: { type: 'string' },
+          field_alias: { type: 'string' },
+        }, ['source_alias', 'field_alias'])),
+        inspectTool('compare_schemas', '正在比较数据表结构', objectSchema({
+          source_aliases: {
+            type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 8,
+          },
+        }, ['source_aliases'])),
+        {
+          name: 'submit_task_draft',
+          label: '提交任务草稿',
+          description: '提交完整 TaskDraft，由 Core 绑定真实对象、验证并保存为待确认计划。',
+          parameters: objectSchema({ task_draft: prepared.draftSchema }, ['task_draft']),
+          constrainedSampling: { type: 'json_schema', strict: 'prefer' },
+          executionMode: 'sequential',
+          execute: async (_toolCallId, args) => {
+            this.emit(clientRunId, projectId, 'validating_draft', '正在校验字段绑定和任务动作…')
+            const payload = record(args as JsonValue, 'Task draft arguments')
+            try {
+              submittedPlan = await this.core.request('workflow.submit_draft', {
+                project_id: projectId,
+                workflow_run_id: prepared.workflowRunId,
+                task_draft: payload.task_draft,
+              }, 10_000)
+              return {
+                content: [{ type: 'text', text: 'TaskDraft accepted for user confirmation.' }],
+                details: submittedPlan,
+                terminate: true,
+              }
+            } catch (error) {
+              return {
+                content: [{ type: 'text', text: `Local validation rejected this draft: ${String(error)}` }],
+                details: { validationError: String(error) },
+                terminate: false,
+              }
+            }
+          },
+        },
+      ]
       agent = new Agent({
         initialState: {
-          systemPrompt: `${prepared.systemPrompt}\n\nUse submit_plotagent_decision exactly once per turn. If local validation rejects the first candidate, correct it from the validation feedback and submit one replacement in the next turn. Never submit more than one candidate in a turn or more than two candidates in total. Do not claim that any project mutation has occurred.`,
+          systemPrompt: prepared.systemPrompt,
           model: modelFor(provider),
           thinkingLevel: 'off',
-          tools: [tool],
+          tools,
           messages: [],
         },
         streamFn: this.streamFn,
         getApiKey: () => provider.apiKey,
         toolExecution: 'sequential',
-        shouldStopAfterTurn: () => decision !== undefined,
-        sessionId: runId,
+        shouldStopAfterTurn: () => submittedPlan !== undefined,
+        sessionId: prepared.workflowRunId,
       })
       agent.subscribe((event) => {
         if (generation !== this.generation) return
         const next = lifecycleStage(event)
-        if (next !== undefined) this.emit(runId, projectId, next.stage, next.label)
+        if (next !== undefined) this.emit(clientRunId, projectId, next.stage, next.label)
       })
-      this.active = { runId, generation, agent }
-      let accepted: JsonValue | undefined
-      const decideAndValidate = async (): Promise<void> => {
-        let prompt = JSON.stringify({ context_envelope: prepared.contextEnvelope })
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-          decision = undefined
-          decisionCount = 0
-          await agent?.prompt(prompt)
-          this.assertCurrent(generation)
-          if (decisionCount > 1) {
-            throw new PiRuntimeError('PI_MULTIPLE_DECISIONS', 'Only one decision is allowed per turn.')
-          }
-          if (decision === undefined || decisionCount !== 1) {
-            if (agent?.state.errorMessage) {
-              throw new PiRuntimeError('PI_MODEL_FAILED', agent.state.errorMessage)
-            }
-            throw new PiRuntimeError('PI_DECISION_MISSING', 'The model did not submit a PlotAgent decision.')
-          }
-          const response = await this.core.request(
-            'agent.engine.decide',
-            { ...input, external_decision: decision },
-            10_000,
-          )
-          this.assertCurrent(generation)
-          const rejectionCode = rejectedCoreDecisionCode(response)
-          if (rejectionCode === undefined) {
-            accepted = response
-            return
-          }
-          if (!REPAIRABLE_DECISION_CODES.has(rejectionCode) || attempt === 1) {
-            throw new PiRuntimeError(rejectionCode, 'Core rejected the model decision.')
-          }
-          prompt = repairInstruction(rejectionCode)
-        }
-      }
+      this.active = { runId: clientRunId, generation, agent }
       await Promise.race([
-        decideAndValidate(),
+        agent.prompt(JSON.stringify({ workflow_context: prepared.context })),
         new Promise<never>((_resolve, reject) => {
           timeout = setTimeout(() => {
             timedOut = true
             agent?.abort()
-            reject(new PiRuntimeError('PI_MODEL_TIMEOUT', 'The model decision exceeded its fixed timeout.'))
+            reject(new PiRuntimeError('PI_MODEL_TIMEOUT', 'The workflow draft exceeded its timeout.'))
           }, this.timeoutMs)
         }),
       ])
       this.assertCurrent(generation)
-      if (accepted === undefined) {
-        throw new PiRuntimeError('PI_DECISION_MISSING', 'The model did not submit an accepted PlotAgent decision.')
+      if (submittedPlan === undefined) {
+        throw new PiRuntimeError('PI_DRAFT_MISSING', 'The model did not submit a valid TaskDraft.')
       }
-      this.emit(runId, projectId, 'saving_plan', '正在绑定对象并保存待确认计划…')
-      this.emit(runId, projectId, 'completed', '计划已生成，等待确认。')
-      return accepted
+      this.emit(clientRunId, projectId, 'saving_plan', '正在保存待确认任务计划…')
+      this.emit(clientRunId, projectId, 'completed', '任务计划已生成，等待确认。')
+      return submittedPlan
     } catch (error: unknown) {
       const superseded = generation !== this.generation
       if (!superseded) {
         const aborted = !timedOut && agent?.signal?.aborted === true
         this.emit(
-          runId,
+          clientRunId,
           projectId,
           aborted ? 'cancelled' : 'failed',
-          aborted ? '本轮 Agent 任务已停止。' : 'Agent 未能生成有效计划。',
+          aborted ? '本轮 Agent 任务已停止。' : 'Agent 未能生成有效任务草稿。',
         )
       }
       if (superseded) {

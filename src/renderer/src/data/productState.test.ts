@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { JsonValue } from '../../../shared/desktop-contract'
 import {
   disambiguateDatasetDisplayNames,
-  readAgentPlan,
+  readWorkflowPlan,
   readDatasets,
   readImportSummary,
   readPlot,
@@ -233,25 +233,27 @@ describe('product plot state', () => {
     expect(plots.at(-1)?.chartId).toBe('K02')
   })
 
-  it('derives the output plot for nested Agent targets with dotted plot ids', () => {
-    const plan = readAgentPlan({
-      project_version: 6,
-      plan_id: 'plan:set-y-log',
-      state: 'succeeded',
-      confirmation_state: 'confirmed',
-      next_action_index: 1,
-      proposal: {
-        actions: [{ action_id: 'action:set-y-log', operation: 'set_axis' }],
-      },
-      bound_plan: {
-        actions: [{
-          action_id: 'action:set-y-log',
-          operation: 'set_axis',
-          target: 'axis:agent.line_temp_response.1.y',
-          expected_plot_version: 4,
-          scale: 'log10',
+  it('reads explicit output plots without inferring them from target strings', () => {
+    const plan = readWorkflowPlan({
+      plan: {
+        plan_id: 'plan:set-y-log',
+        items: [{
+          item_id: 'item:set-y-log',
+          task_kind: 'edit',
+          profile_id: 'K01',
+          sources: [],
+          bindings: [],
+          visual_actions: [{ operation: 'set_axis', target_alias: 'y_axis', scale: 'log10' }],
         }],
       },
+      state: 'succeeded',
+      item_progress: [{
+        item_id: 'item:set-y-log',
+        state: 'succeeded',
+        attempt_count: 1,
+        output_plot_id: 'plot:agent.line_temp_response.1',
+        output_plot_version: 5,
+      }],
     })
 
     expect(plan?.steps[0]?.outputPlot).toEqual({
@@ -260,25 +262,26 @@ describe('product plot state', () => {
     })
   })
 
-  it('uses per-action progress for isolated batch failures and retry attempts', () => {
-    const plan = readAgentPlan({
-      plan_id: 'plan:isolated',
-      state: 'partially_failed',
-      confirmation_state: 'confirmed',
-      next_action_index: 1,
-      error_code: 'INVALID_SCALE',
-      proposal: {
-        actions: [
-          { action_id: 'action:a-create', operation: 'create_plot' },
-          { action_id: 'action:a-scale', operation: 'set_axis' },
-          { action_id: 'action:b-create', operation: 'create_plot' },
-        ],
+  it('uses per-item progress for isolated batch failures and retry attempts', () => {
+    const plan = readWorkflowPlan({
+      plan: {
+        plan_id: 'plan:isolated',
+        items: ['a-create', 'a-scale', 'b-create'].map((id) => ({
+          item_id: `item:${id}`,
+          task_kind: id === 'a-scale' ? 'edit' : 'create',
+          profile_id: 'K01',
+          sources: id === 'a-scale' ? [] : [{ source_dataset_id: `source:${id}` }],
+          bindings: id === 'a-scale' ? [] : [{ role: 'x', field_id: 'field:x' }],
+          visual_actions: id === 'a-scale'
+            ? [{ operation: 'set_axis', target_alias: 'y_axis', scale: 'log10' }]
+            : [],
+        })),
       },
-      bound_plan: { actions: [{}, {}, {}] },
-      action_progress: [
-        { action_index: 0, state: 'succeeded', attempt_count: 1 },
-        { action_index: 1, state: 'failed', attempt_count: 2, error_code: 'INVALID_SCALE' },
-        { action_index: 2, state: 'succeeded', attempt_count: 1 },
+      state: 'partially_succeeded',
+      item_progress: [
+        { item_id: 'item:a-create', state: 'succeeded', attempt_count: 1 },
+        { item_id: 'item:a-scale', state: 'failed', attempt_count: 2, error_code: 'INVALID_SCALE' },
+        { item_id: 'item:b-create', state: 'succeeded', attempt_count: 1 },
       ],
     })
 

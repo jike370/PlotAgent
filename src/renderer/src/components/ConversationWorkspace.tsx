@@ -31,8 +31,8 @@ import {
 import type { CoreStatus, FieldMappingInput, TaskEvent } from '../../../shared/desktop-contract'
 import type { ChartType } from '../data/chartCatalog'
 import type {
-  AgentOutcome,
-  AgentPlanView,
+  WorkflowOutcome,
+  WorkflowPlanView,
   ProductDataset,
   ProductPlot,
   ProductProject,
@@ -72,15 +72,15 @@ interface ConversationWorkspaceProps {
   project?: ProductProject
   datasets: ProductDataset[]
   activeDataset?: ProductDataset
-  selectedAgentDatasetIds: string[]
+  selectedWorkflowSourceIds: string[]
   selectedChart?: ChartType
   plot?: ProductPlot
   exportRecord?: ExportRecordView
   notice?: ProductNotice
   busyAction?: string
   agentRuntimeLabel?: string
-  agentOutcome?: AgentOutcome
-  agentPlan?: AgentPlanView
+  workflowOutcome?: WorkflowOutcome
+  workflowPlan?: WorkflowPlanView
   agentConfigured: boolean
   taskEvents: TaskEvent[]
   previewMode?: boolean
@@ -89,16 +89,17 @@ interface ConversationWorkspaceProps {
   onOpenProject: () => void
   onOpenLibrary: () => void
   onSelectDataset: (datasetId: string) => void
-  onToggleAgentDataset: (datasetId: string) => void
+  onToggleWorkflowSource: (datasetId: string) => void
   onConfirmMapping: (mapping: FieldMappingInput) => void
-  onConfirmCombinedMapping: (mapping: FieldMappingInput) => void
+  onConfirmMultiSourceMapping: (mapping: FieldMappingInput) => void
   onAgentInstruction: (instruction: string, scope: ScopeMode) => void
-  onConfirmAgentPlan: (planId: string) => void
-  onRejectAgentPlan: (planId: string) => void
-  onRunAgentPlan: (planId: string) => void
-  onResumeAgentPlan: (planId: string) => void
+  onConfirmWorkflowPlan: (planId: string) => void
+  onRejectWorkflowPlan: (planId: string) => void
+  onRunWorkflowPlan: (planId: string) => void
+  onResumeWorkflowPlan: (planId: string) => void
   onConfigureAgent: () => void
   onExport: (format: 'png' | 'svg' | 'opju') => void
+  onSaveWorkflowRecipe: () => void
   onCreateBatch: () => void
   onOpenFocus: () => void
   onOpenTasks: () => void
@@ -240,9 +241,9 @@ function DatasetObject({
   datasets,
   activeDataset,
   onSelectDataset,
-  selectedAgentDatasetIds,
-  onToggleAgentDataset,
-}: Pick<ConversationWorkspaceProps, 'datasets' | 'activeDataset' | 'onSelectDataset' | 'selectedAgentDatasetIds' | 'onToggleAgentDataset'>): React.JSX.Element {
+  selectedWorkflowSourceIds,
+  onToggleWorkflowSource,
+}: Pick<ConversationWorkspaceProps, 'datasets' | 'activeDataset' | 'onSelectDataset' | 'selectedWorkflowSourceIds' | 'onToggleWorkflowSource'>): React.JSX.Element {
   if (!activeDataset) return <div />
   return (
     <section className="object-block dataset-object" aria-labelledby="dataset-title">
@@ -279,17 +280,17 @@ function DatasetObject({
         ))}
       </div>
       {datasets.length > 1 && <details className="agent-dataset-context">
-        <summary>提供给 Agent 的数据表 <span>{selectedAgentDatasetIds.length}/8</span></summary>
+        <summary>提供给 Agent 的数据表 <span>{selectedWorkflowSourceIds.length}/8</span></summary>
         <div>
           {datasets.map((dataset) => {
             const active = dataset.datasetId === activeDataset.datasetId
-            const selected = selectedAgentDatasetIds.includes(dataset.datasetId)
+            const selected = selectedWorkflowSourceIds.includes(dataset.datasetId)
             return <label key={dataset.datasetId}>
               <input
                 type="checkbox"
                 checked={selected}
-                disabled={active || (!selected && selectedAgentDatasetIds.length >= 8)}
-                onChange={() => onToggleAgentDataset(dataset.datasetId)}
+                disabled={active || (!selected && selectedWorkflowSourceIds.length >= 8)}
+                onChange={() => onToggleWorkflowSource(dataset.datasetId)}
               />
               <span><strong>{dataset.displayName}</strong><small>{active ? '当前数据表，始终提供' : `${dataset.rowCount} 行 · ${dataset.fieldCount} 字段`}</small></span>
             </label>
@@ -305,7 +306,7 @@ function MappingObject({
   dataset,
   busy,
   onConfirm,
-  onConfirmCombined,
+  onConfirmMultiSource,
   onCancel,
   selectedDataCount,
 }: {
@@ -313,12 +314,12 @@ function MappingObject({
   dataset: ProductDataset
   busy: boolean
   onConfirm: (mapping: FieldMappingInput) => void
-  onConfirmCombined: (mapping: FieldMappingInput) => void
+  onConfirmMultiSource: (mapping: FieldMappingInput) => void
   onCancel: () => void
   selectedDataCount: number
 }): React.JSX.Element {
-  const combinedProfiles = new Set(['K03', 'K12', 'K13', 'K14', 'K18', 'K19', 'X05'])
-  const canCombine = selectedDataCount >= 2 && combinedProfiles.has(chart.id)
+  const multiSourceProfiles = new Set(['K03', 'K12', 'K13', 'K14', 'K18', 'K19', 'X05'])
+  const canUseMultipleSources = selectedDataCount >= 2 && multiSourceProfiles.has(chart.id)
   const variadicSeries = chart.repeatableRolePrefixes.includes('series')
   const minimumSeriesRoleCount = Math.max(
     1,
@@ -501,7 +502,7 @@ function MappingObject({
         <div className="mapping-decision__actions">
           <button type="button" disabled={busy} onClick={() => { closePicker(false); onCancel() }}>取消</button>
           <button type="button" disabled={busy} onClick={() => { closePicker(false); setValues(suggestions) }}>恢复 Agent 建议</button>
-          {canCombine && <button type="button" disabled={!complete || busy} onClick={() => onConfirmCombined({ roles: Object.fromEntries(Object.entries(values).filter(([role, field]) => role !== 'group' && field)) })}>
+          {canUseMultipleSources && <button type="button" disabled={!complete || busy} onClick={() => onConfirmMultiSource({ roles: Object.fromEntries(Object.entries(values).filter(([role, field]) => role !== 'group' && field)) })}>
             {busy ? <LoaderCircle className="spin" size={15} /> : <Layers3 size={15} />}{busy ? '正在合并绘图' : `${selectedDataCount} 个数据表同图绘制`}
           </button>}
           <button className="primary-button" type="button" disabled={!complete || busy} onClick={() => onConfirm({ roles: Object.fromEntries(Object.entries(values).filter(([, field]) => field)) })}>
@@ -585,7 +586,7 @@ function ConversationComposer({
   configured: boolean
   busy: boolean
   importing: boolean
-  outcome?: AgentOutcome
+  outcome?: WorkflowOutcome
   notice?: ProductNotice
   onSubmit: (instruction: string, scope: ScopeMode) => void
   onConfigure: () => void
@@ -603,7 +604,7 @@ function ConversationComposer({
   return (
     <div className="composer-wrap">
       {notice?.kind === 'success' && <div className="composer-success" role="status"><Check size={14} />{notice.title}</div>}
-      {outcome && outcome.kind !== 'action_plan' && <div className={`agent-outcome agent-outcome--${outcome.kind}`} role={outcome.kind === 'rejected' ? 'alert' : 'status'}><div><strong>{outcome.title}</strong><p>{outcome.message}</p>{outcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div></div>}
+      {outcome && outcome.kind !== 'task_plan' && <div className={`agent-outcome agent-outcome--${outcome.kind}`} role={outcome.kind === 'rejected' ? 'alert' : 'status'}><div><strong>{outcome.title}</strong><p>{outcome.message}</p>{outcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div></div>}
       <div className="composer" aria-label="自然语言绘图指令">
         <div className="composer-context">
           <span className="target-chip"><Layers3 size={14} />{plot ? `${plot.plotId} · v${plot.plotVersion}` : selectedChart ? `${selectedChart.id} · ${selectedChart.name}` : '未选择图形'}</span>
@@ -629,7 +630,7 @@ function ConversationComposer({
   )
 }
 
-function AgentPlanObject({
+function WorkflowPlanObject({
   plan,
   datasets,
   selectedChart,
@@ -643,7 +644,7 @@ function AgentPlanObject({
   onRun,
   onResume,
 }: {
-  plan: AgentPlanView
+  plan: WorkflowPlanView
   datasets: ProductDataset[]
   selectedChart?: ChartType
   plot?: ProductPlot
@@ -657,18 +658,14 @@ function AgentPlanObject({
   onResume: (planId: string) => void
 }): React.JSX.Element {
   const stateLabels: Record<string, string> = {
-    draft: '草稿',
-    needs_confirmation: '等待确认',
+    awaiting_confirmation: '等待确认',
     ready: '待执行',
     running: '执行中',
-    partial_success: '部分完成',
-    partially_failed: '部分完成',
+    partially_succeeded: '部分完成',
     succeeded: '已完成',
     failed: '未完成',
-    interrupted: '已中断',
-    needs_input: '等待输入',
-    stale: '计划已过期',
     cancelled: '已取消',
+    rejected: '已拒绝',
   }
   const bindingRows = [...new Map(plan.bindings.map((binding) => [`${binding.role}:${binding.fieldId}`, binding])).values()]
   const fieldLabel = (fieldId: string): string => {
@@ -718,9 +715,8 @@ function AgentPlanObject({
         ))}
       </ol>
       {plan.warnings.length > 0 && <div className="agent-plan__warnings">{plan.warnings.map((warning) => <p key={warning}><TriangleAlert size={14} />{warning}</p>)}</div>}
-      {plan.state === 'stale' && <p className="agent-plan__stale">作用对象已变化，请重新描述任务生成新计划。</p>}
       <footer className="agent-plan__actions">
-        {plan.state === 'needs_confirmation' && <><button type="button" onClick={() => onReject(plan.planId)} disabled={busy}>取消</button><button type="button" onClick={() => onEdit(plan.planId)} disabled={busy}>修改绑定</button><button className="primary-button" type="button" onClick={() => onConfirm(plan.planId)} disabled={busy}>确认并执行</button></>}
+        {plan.state === 'awaiting_confirmation' && <><button type="button" onClick={() => onReject(plan.planId)} disabled={busy}>取消</button><button type="button" onClick={() => onEdit(plan.planId)} disabled={busy}>修改绑定</button><button className="primary-button" type="button" onClick={() => onConfirm(plan.planId)} disabled={busy}>确认并执行</button></>}
         {plan.state === 'ready' && <button className="primary-button" type="button" onClick={() => onRun(plan.planId)} disabled={busy}>执行计划</button>}
         {plan.resumable && <button className="primary-button" type="button" onClick={() => onResume(plan.planId)} disabled={busy}>继续未完成步骤</button>}
         {plan.state === 'succeeded' && <><span className="agent-plan__saved"><CircleCheck size={14} />更改已保存</span>{canUndo && <button type="button" onClick={onUndo} disabled={busy}><Undo2 size={14} />撤销本轮</button>}</>}
@@ -783,8 +779,8 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
   const activeTurnRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const outcome = props.agentOutcome
-    if (!project || !outcome || outcome.kind === 'action_plan') return
+    const outcome = props.workflowOutcome
+    if (!project || !outcome || outcome.kind === 'task_plan') return
     queueMicrotask(() => setMessages((current) => {
       const last = current.at(-1)
       if (last?.role === 'agent' && last.title === outcome.title && last.text === outcome.message) return current
@@ -799,23 +795,23 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       writeConversationMessages(window.localStorage, project.projectId, updated)
       return updated
     }))
-  }, [project, props.agentOutcome])
+  }, [project, props.workflowOutcome])
 
   const visibleMessages = useMemo(() => {
-    const outcome = props.agentOutcome
-    if (!outcome || outcome.kind === 'action_plan') return messages
+    const outcome = props.workflowOutcome
+    if (!outcome || outcome.kind === 'task_plan') return messages
     return messages.filter((message, index) => !(
       index === messages.length - 1
       && message.role === 'agent'
       && message.title === outcome.title
       && message.text === outcome.message
     ))
-  }, [messages, props.agentOutcome])
+  }, [messages, props.workflowOutcome])
 
   useEffect(() => {
-    if (messages.length === 0 && busyAction === undefined && props.agentOutcome === undefined && props.agentPlan === undefined && exportRecord === undefined) return
+    if (messages.length === 0 && busyAction === undefined && props.workflowOutcome === undefined && props.workflowPlan === undefined && exportRecord === undefined) return
     queueMicrotask(() => activeTurnRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' }))
-  }, [busyAction, exportRecord, messages.length, props.agentOutcome, props.agentPlan])
+  }, [busyAction, exportRecord, messages.length, props.workflowOutcome, props.workflowPlan])
 
   const submitInstruction = (instruction: string, scope: ScopeMode): void => {
     if (!project) return
@@ -848,18 +844,18 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             {datasets.length === 0 ? (
               <div className="message message--agent conversation-prompt"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>上传数据文件，并告诉我你想画什么图。</p></div></div>
             ) : (
-              <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedAgentDatasetIds={props.selectedAgentDatasetIds} onToggleAgentDataset={props.onToggleAgentDataset} /></div></div>
+              <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></div></div>
             )}
             <ConversationHistory messages={visibleMessages} />
             <div ref={activeTurnRef} className="conversation-turn-anchor" aria-hidden="true" />
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} tasks={props.taskEvents} onCancel={props.onCancelTask} />
-            {props.agentOutcome && props.agentOutcome.kind !== 'action_plan' && <div className={`message message--agent conversation-history-message conversation-history-message--${props.agentOutcome.kind === 'rejected' ? 'error' : props.agentOutcome.kind === 'needs_input' ? 'warning' : 'info'}`} role={props.agentOutcome.kind === 'rejected' ? 'alert' : 'status'}>
-              <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><strong>{props.agentOutcome.title}</strong><p>{props.agentOutcome.message}</p>{props.agentOutcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div>
+            {props.workflowOutcome && props.workflowOutcome.kind !== 'task_plan' && <div className={`message message--agent conversation-history-message conversation-history-message--${props.workflowOutcome.kind === 'rejected' ? 'error' : props.workflowOutcome.kind === 'needs_input' ? 'warning' : 'info'}`} role={props.workflowOutcome.kind === 'rejected' ? 'alert' : 'status'}>
+              <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><strong>{props.workflowOutcome.title}</strong><p>{props.workflowOutcome.message}</p>{props.workflowOutcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div>
             </div>}
-            {props.agentPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><AgentPlanObject plan={props.agentPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmAgentPlan} onReject={props.onRejectAgentPlan} onEdit={(planId) => { props.onRejectAgentPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunAgentPlan} onResume={props.onResumeAgentPlan} /></div></div>}
-            {exportRecord && <section className="object-block product-result-strip product-result-strip--success" aria-label="导出记录" role="status" aria-live="polite"><CircleCheck size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize.toLocaleString('zh-CN')} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
+            {props.workflowPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><WorkflowPlanObject plan={props.workflowPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} /></div></div>}
+            {exportRecord && <section className="object-block product-result-strip product-result-strip--success" aria-label="导出记录" role="status" aria-live="polite"><CircleCheck size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize.toLocaleString('zh-CN')} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}{exportRecord.artifactHash && props.workflowPlan?.state === 'succeeded' && props.workflowPlan.steps.some((step) => step.outputPlot?.plotId === exportRecord.targetId) && <p><button type="button" disabled={busyAction === 'save-recipe'} onClick={props.onSaveWorkflowRecipe}>{busyAction === 'save-recipe' ? '正在固化流程…' : '经常处理同构数据？固化本次流程'}</button></p>}</div></section>}
             {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
-            {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedAgentDatasetIds.length} onConfirm={props.onConfirmMapping} onConfirmCombined={props.onConfirmCombinedMapping} onCancel={() => setManualMappingOpen(false)} /></div></div>}
+            {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></div></div>}
             {plot && <PlotObject {...props} chart={selectedChart} />}
           </div>
         </div>

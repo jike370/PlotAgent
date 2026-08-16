@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlaskConical, LoaderCircle, X } from 'lucide-react'
 
 import type {
-  AgentRuntimeEvent,
+  WorkflowRuntimeEvent,
   CoreStatus,
   CustomProviderConfigureInput,
   DesktopDataResult,
@@ -15,9 +15,9 @@ import {
   disambiguateDatasetDisplayNames,
   isJsonRecord,
   projectVersionFrom,
-  readAgentOutcome,
-  readAgentPlan,
-  readAgentPlans,
+  readWorkflowOutcome,
+  readWorkflowPlan,
+  readWorkflowPlans,
   readDatasets,
   readImportSummary,
   readOriginAvailability,
@@ -27,8 +27,8 @@ import {
   readProjects,
   resultKind,
   resultMessage,
-  type AgentOutcome,
-  type AgentPlanView,
+  type WorkflowOutcome,
+  type WorkflowPlanView,
   type ProductDataset,
   type ProductPlot,
   type ProductProject,
@@ -151,15 +151,15 @@ export function App(): React.JSX.Element {
   const [project, setProject] = useState<ProductProject>()
   const [datasets, setDatasets] = useState<ProductDataset[]>([])
   const [activeDatasetId, setActiveDatasetId] = useState<string>()
-  const [agentDatasetIds, setAgentDatasetIds] = useState<string[]>([])
+  const [workflowSourceIds, setWorkflowSourceIds] = useState<string[]>([])
   const [selectedChart, setSelectedChart] = useState<ChartType>()
   const [confirmedMapping, setConfirmedMapping] = useState<FieldMappingInput>()
   const [plot, setPlot] = useState<ProductPlot>()
   const [previousPlot, setPreviousPlot] = useState<ProductPlot>()
   const [exportRecord, setExportRecord] = useState<ExportRecordView>()
   const [notice, setNotice] = useState<ProductNotice>()
-  const [agentOutcome, setAgentOutcome] = useState<AgentOutcome>()
-  const [agentPlan, setAgentPlan] = useState<AgentPlanView>()
+  const [workflowOutcome, setWorkflowOutcome] = useState<WorkflowOutcome>()
+  const [workflowPlan, setWorkflowPlan] = useState<WorkflowPlanView>()
   const [agentConfigured, setAgentConfigured] = useState(false)
   const [undoStack, setUndoStack] = useState<PlotHistoryEntry[]>([])
   const [redoStack, setRedoStack] = useState<PlotHistoryEntry[]>([])
@@ -170,7 +170,7 @@ export function App(): React.JSX.Element {
   const [tasksOpen, setTasksOpen] = useState(false)
   const [busyAction, setBusyAction] = useState<string>()
   const [taskEvents, setTaskEvents] = useState<Record<string, TaskEvent>>({})
-  const [agentRuntimeEvent, setAgentRuntimeEvent] = useState<AgentRuntimeEvent>()
+  const [agentRuntimeEvent, setAgentRuntimeEvent] = useState<WorkflowRuntimeEvent>()
   const [originStatus, setOriginStatus] = useState<'unknown' | 'checking' | 'available' | 'unavailable' | 'exporting'>('unknown')
   const [originDiagnostic, setOriginDiagnostic] = useState('Origin 环境未通过检测。请重新检测后再导出。')
   const importInFlight = useRef(false)
@@ -219,7 +219,7 @@ export function App(): React.JSX.Element {
 
   const rememberWorkspace = useCallback((selection: {
     datasetId?: string
-    agentDatasetIds?: string[]
+    workflowSourceIds?: string[]
     chartId?: string
     mapping?: FieldMappingInput | null
   }): void => {
@@ -229,11 +229,11 @@ export function App(): React.JSX.Element {
     const mapping = selection.mapping === null ? undefined : selection.mapping ?? confirmedMapping
     writeWorkspaceSelection(window.localStorage, project.projectId, {
       ...(datasetId === undefined ? {} : { datasetId }),
-      ...((selection.agentDatasetIds ?? agentDatasetIds).length === 0 ? {} : { agentDatasetIds: selection.agentDatasetIds ?? agentDatasetIds }),
+      ...((selection.workflowSourceIds ?? workflowSourceIds).length === 0 ? {} : { workflowSourceIds: selection.workflowSourceIds ?? workflowSourceIds }),
       ...(chartId === undefined ? {} : { chartId }),
       ...(mapping === undefined ? {} : { mapping }),
     })
-  }, [activeDatasetId, agentDatasetIds, confirmedMapping, project, selectedChart?.id])
+  }, [activeDatasetId, confirmedMapping, project, selectedChart?.id, workflowSourceIds])
 
   const refreshOriginStatus = useCallback(async (reportResult = false): Promise<boolean> => {
     if (!api) return false
@@ -315,10 +315,10 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     if (!api || !activeProjectId) return
     let active = true
-    void api.listAgentPlans({ projectId: activeProjectId }).then((result) => {
+    void api.listTaskPlans({ projectId: activeProjectId }).then((result) => {
       if (!active || !result.ok) return
-      const plans = readAgentPlans(result.value)
-      setAgentPlan(plans.at(-1))
+      const plans = readWorkflowPlans(result.value)
+      setWorkflowPlan(plans.at(-1))
     })
     return () => { active = false }
   }, [api, activeProjectId])
@@ -360,7 +360,7 @@ export function App(): React.JSX.Element {
     if (nextDatasets.length > 0) {
       setDatasets(nextDatasets)
       setActiveDatasetId(nextDatasets[0].datasetId)
-      setAgentDatasetIds([])
+      setWorkflowSourceIds([])
     }
     return nextProject
   }, [mergeProjects])
@@ -375,14 +375,14 @@ export function App(): React.JSX.Element {
     setProject(undefined)
     setDatasets([])
     setActiveDatasetId(undefined)
-    setAgentDatasetIds([])
+    setWorkflowSourceIds([])
     setSelectedChart(undefined)
     setConfirmedMapping(undefined)
     setPlot(undefined)
     setPreviousPlot(undefined)
     setExportRecord(undefined)
-    setAgentOutcome(undefined)
-    setAgentPlan(undefined)
+    setWorkflowOutcome(undefined)
+    setWorkflowPlan(undefined)
     setUndoStack([])
     setRedoStack([])
     setScreen('workspace')
@@ -457,7 +457,7 @@ export function App(): React.JSX.Element {
     }).catch((error: unknown) => { if (active) setNotice(errorNotice(error)) })
     const unsubCore = api.onCoreStatus((status) => setCore(status))
     const unsubTasks = api.onTaskEvent((event) => setTaskEvents((current) => ({ ...current, [event.taskId]: event })))
-    const unsubAgentRuntime = api.onAgentRuntimeEvent((event) => setAgentRuntimeEvent(event))
+    const unsubAgentRuntime = api.onWorkflowRuntimeEvent((event) => setAgentRuntimeEvent(event))
     const unsubOpen = api.onOpenResourceRequested((request) => {
       setBusyAction('open-project')
       void api.openProjectResource({ resourceId: request.resourceId }).then(async (result) => {
@@ -524,7 +524,7 @@ export function App(): React.JSX.Element {
     ))
     if (datasets.length === 0 && imported[0]) {
       setActiveDatasetId(imported[0].datasetId)
-      setAgentDatasetIds([])
+      setWorkflowSourceIds([])
     }
     const version = projectVersionFrom(value, targetProject.projectVersion)
     const nextProject = projectWithVersion(targetProject, version)
@@ -646,9 +646,9 @@ export function App(): React.JSX.Element {
       const opened = valueOrThrow(await api.activateProject({ projectId }))
       const next = { ...(known ?? { projectId, name: '本机项目', projectVersion: 0, isOpen: true }), projectVersion: projectVersionFrom(opened, 0), isOpen: true }
       setProject(next); mergeProjects([next])
-      setDatasets([]); setActiveDatasetId(undefined); setAgentDatasetIds([])
+      setDatasets([]); setActiveDatasetId(undefined); setWorkflowSourceIds([])
       setPlot(undefined); setPreviousPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined)
-      setAgentPlan(undefined); setAgentOutcome(undefined); setExportRecord(undefined)
+      setWorkflowPlan(undefined); setWorkflowOutcome(undefined); setExportRecord(undefined)
 
       let datasetNotice: ProductNotice | undefined
       try {
@@ -657,7 +657,7 @@ export function App(): React.JSX.Element {
       const persisted = readWorkspaceSelection(window.localStorage, projectId)
       const nextDataset = nextDatasets.find((item) => item.datasetId === persisted?.datasetId) ?? nextDatasets[0]
       const availableDatasetIds = new Set(nextDatasets.map((item) => item.datasetId))
-      const nextAgentDatasetIds = (persisted?.agentDatasetIds ?? [])
+      const nextWorkflowSourceIds = (persisted?.workflowSourceIds ?? [])
         .filter((datasetId) => availableDatasetIds.has(datasetId) && datasetId !== nextDataset?.datasetId)
         .slice(0, 7)
       const persistedChart = chartCatalog.find((item) => item.id === persisted?.chartId)
@@ -666,7 +666,7 @@ export function App(): React.JSX.Element {
         Object.values(persisted.mapping.roles).every((fieldId) => availableFields.has(fieldId))
         ? persisted.mapping
         : undefined
-        setDatasets(nextDatasets); setActiveDatasetId(nextDataset?.datasetId); setAgentDatasetIds(nextAgentDatasetIds)
+        setDatasets(nextDatasets); setActiveDatasetId(nextDataset?.datasetId); setWorkflowSourceIds(nextWorkflowSourceIds)
         setSelectedChart(persistedChart); setConfirmedMapping(persistedMapping)
       } catch (error) {
         datasetNotice = {
@@ -730,117 +730,82 @@ export function App(): React.JSX.Element {
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
-  const confirmCombinedMapping = async (mapping: FieldMappingInput): Promise<void> => {
+  const confirmMultiSourceMapping = async (mapping: FieldMappingInput): Promise<void> => {
     if (!api || !project || !activeDataset || !selectedChart) return
-    const selectedIds = [activeDataset.datasetId, ...agentDatasetIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)
-    const combinedSources = selectedIds.flatMap((id) => {
+    const selectedIds = [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)
+    const multiSourceDatasets = selectedIds.flatMap((id) => {
       const dataset = datasets.find((candidate) => candidate.datasetId === id)
       return dataset ? [dataset] : []
     })
-    if (combinedSources.length < 2) {
+    if (multiSourceDatasets.length < 2) {
       setNotice({ kind: 'warning', title: '还需选择数据表', message: '请在“提供给 Agent 的数据表”中至少勾选两个数据表。' })
       return
     }
     setBusyAction('plot'); setNotice(undefined)
     try {
       const activeFields = new Map(activeDataset.fields.map((field) => [field.fieldId, field.name]))
-      const roles = Object.entries(mapping.roles)
+      const roleDescription = Object.entries(mapping.roles)
         .filter(([role]) => role !== 'group')
         .map(([role, fieldId]) => {
           const name = activeFields.get(fieldId)
           if (name === undefined) throw new Error(`当前映射字段已不存在：${fieldId}`)
-          return { role, name }
+          return `${role}=${name}`
         })
-      const requests = combinedSources.map((dataset) => {
-        if (!dataset.contentHash) throw new Error(`${dataset.displayName} 缺少不可变内容标识。`)
-        const byName = new Map<string, string[]>()
-        for (const field of dataset.fields) {
-          const key = field.name.trim().toLocaleLowerCase('en-US')
-          byName.set(key, [...(byName.get(key) ?? []), field.fieldId])
-        }
-        const bindings = Object.fromEntries(roles.map(({ role, name }) => {
-          const matches = byName.get(name.trim().toLocaleLowerCase('en-US')) ?? []
-          if (matches.length !== 1) {
-            throw new Error(`${dataset.displayName} 无法唯一匹配字段“${name}”，未执行同图绘制。`)
-          }
-          return [role, matches[0]]
-        }))
-        return {
+      const created = valueOrThrow(await api.runWorkflow({
+        projectId: project.projectId,
+        selectedSources: multiSourceDatasets.map((dataset) => ({
           datasetId: dataset.datasetId,
           sourceVersion: dataset.sourceVersion,
-          contentHash: dataset.contentHash,
-          bindings,
-        }
-      })
-      const created = valueOrThrow(await api.createCombinedPlot({
-        projectId: project.projectId,
-        datasets: requests,
-        profileId: selectedChart.id,
+        })),
+        selectedProfileIds: [selectedChart.id],
         expectedProjectVersion: project.projectVersion,
+        instruction: `将这些数据表合并绘制在同一张 ${selectedChart.id} ${selectedChart.name} 中；字段角色为 ${roleDescription.join('、')}；保留数据来源分组。`,
       }))
-      const nextPlot = readPlot(created)
-      if (!nextPlot) throw new Error('Core 未返回多数据同图的 PlotDocument。')
       setConfirmedMapping(mapping)
-      setPlot(nextPlot)
-      setPreviousPlot(undefined)
-      setUndoStack([])
-      setRedoStack([])
-      setProject(projectWithVersion(project, projectVersionFrom(created, project.projectVersion + 1)))
-      setNotice({
-        kind: 'success',
-        title: '多数据同图绘制完成',
-        message: `${combinedSources.length} 个同构数据表已合并，数据来源作为原生分组字段保留。`,
-      })
+      const outcome = readWorkflowOutcome(created)
+      setWorkflowPlan(outcome.plan)
+      setWorkflowOutcome(outcome)
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
-  const runAgent = async (instruction: string, scope: ScopeMode): Promise<void> => {
+  const runAgent = async (instruction: string, _scope: ScopeMode): Promise<void> => {
+    void _scope
     if (!project) return
     if (!activeDataset) {
-      setAgentOutcome({ kind: 'needs_input', title: '请先上传数据', message: '收到你的要求了。上传数据后，我会继续声明字段绑定。' })
-      return
-    }
-    if (!agentConfigured) {
-      setAgentOutcome({ kind: 'needs_input', title: '请配置模型服务', message: '数据已经就绪，配置模型服务后即可生成绘图任务计划。' })
-      setProviderOpen(true)
+      setWorkflowOutcome({ kind: 'needs_input', title: '请先上传数据', message: '收到你的要求了。上传数据后，我会继续声明字段绑定。' })
       return
     }
     if (!api) return
     const requestGeneration = agentRequestGeneration.current + 1
     agentRequestGeneration.current = requestGeneration
-    setBusyAction('agent'); setAgentOutcome(undefined); setNotice(undefined)
+    setBusyAction('agent'); setWorkflowOutcome(undefined); setNotice(undefined)
     try {
-      const target = plot ? { kind: 'plot' as const, id: plot.plotId } : undefined
-      const selectedDatasets = datasets
-        .filter((dataset) => agentDatasetIds.includes(dataset.datasetId) || dataset.datasetId === activeDataset.datasetId)
+      const selectedSources = datasets
+        .filter((dataset) => workflowSourceIds.includes(dataset.datasetId) || dataset.datasetId === activeDataset.datasetId)
         .slice(0, 8)
         .map((dataset) => ({ datasetId: dataset.datasetId, sourceVersion: dataset.sourceVersion }))
-      const value = valueOrThrow(await api.decideAgent({
+      const value = valueOrThrow(await api.runWorkflow({
         projectId: project.projectId,
-        sourceDatasetId: activeDataset.datasetId,
-        sourceVersion: activeDataset.sourceVersion,
-        selectedDatasets,
-        expectedVersion: project.projectVersion,
-        ...(selectedChart === undefined ? {} : { selectedChartId: selectedChart.id }),
-        executionMode: 'plan_only',
-        ...(target === undefined ? {} : { target }),
-        scope,
-        utterance: instruction,
+        selectedSources,
+        expectedProjectVersion: project.projectVersion,
+        ...(selectedChart === undefined ? {} : { selectedProfileIds: [selectedChart.id] }),
+        ...(plot === undefined ? {} : { selectedPlotIds: [plot.plotId] }),
+        instruction,
       }))
       if (agentRequestGeneration.current !== requestGeneration) return
-      const outcome = readAgentOutcome(value)
-      setAgentPlan(outcome.plan)
-      setAgentOutcome(outcome)
+      const outcome = readWorkflowOutcome(value)
+      setWorkflowPlan(outcome.plan)
+      setWorkflowOutcome(outcome)
     } catch (error) {
       if (agentRequestGeneration.current === requestGeneration) {
-        setAgentOutcome({ kind: 'rejected', title: '指令未执行', message: errorNotice(error).message })
+        setWorkflowOutcome({ kind: 'rejected', title: '指令未执行', message: errorNotice(error).message })
       }
     } finally {
       if (agentRequestGeneration.current === requestGeneration) setBusyAction(undefined)
     }
   }
 
-  const syncPlanOutput = async (plan: AgentPlanView): Promise<ProductPlot | undefined> => {
+  const syncPlanOutput = async (plan: WorkflowPlanView): Promise<ProductPlot | undefined> => {
     if (!api || !project) return undefined
     const output = plan.steps.flatMap((step) => step.outputPlot ? [step.outputPlot] : []).at(-1)
     if (!output) return undefined
@@ -853,69 +818,69 @@ export function App(): React.JSX.Element {
     return nextPlot
   }
 
-  const executeAgentPlan = async (planId: string, resume = false): Promise<void> => {
+  const executeWorkflowPlan = async (planId: string, resume = false): Promise<void> => {
     if (!api || !project || busyAction !== undefined) return
-    const historyEntry = plot && agentPlan?.planId === planId
-      ? plotHistoryEntry(plot, agentPlan.boundActions) : undefined
+    const historyEntry = plot && workflowPlan?.planId === planId
+      ? plotHistoryEntry(plot, workflowPlan.boundActions) : undefined
     setBusyAction('agent-plan')
     setNotice(undefined)
-    setAgentPlan((current) => current?.planId === planId ? { ...current, state: 'running' } : current)
+    setWorkflowPlan((current) => current?.planId === planId ? { ...current, state: 'running' } : current)
     try {
       const value = valueOrThrow(resume
-        ? await api.resumeAgentPlan({ projectId: project.projectId, planId })
-        : await api.runAgentPlan({ projectId: project.projectId, planId }))
-      const plan = readAgentPlan(value)
+        ? await api.resumeTaskPlan({ projectId: project.projectId, planId })
+        : await api.runTaskPlan({ projectId: project.projectId, planId }))
+      const plan = readWorkflowPlan(value)
       if (!plan) throw new Error('Core 未返回任务计划状态。')
-      setAgentPlan(plan)
+      setWorkflowPlan(plan)
       await syncPlanOutput(plan)
       if (plan.state === 'succeeded' && historyEntry) {
         setUndoStack((current) => [...current, historyEntry].slice(-50))
         setRedoStack([])
       }
-      setAgentOutcome({
-        kind: 'action_plan',
-        title: plan.state === 'succeeded' ? '任务已完成' : plan.state === 'partial_success' ? '任务部分完成' : '任务未完成',
+      setWorkflowOutcome({
+        kind: 'task_plan',
+        title: plan.state === 'succeeded' ? '任务已完成' : plan.state === 'partially_succeeded' ? '任务部分完成' : '任务未完成',
         message: plan.state === 'succeeded' ? '更改已保存为可追溯版本。' : '已保留完成项，可继续未完成步骤。',
         plan,
       })
       if (plan.state === 'succeeded') setNotice(undefined)
     } catch (error) {
-      const stored = await api.getAgentPlan({ projectId: project.projectId, planId })
-      if (stored.ok) setAgentPlan(readAgentPlan(stored.value))
-      setAgentOutcome({ kind: 'rejected', title: '计划未执行', message: errorNotice(error).message })
+      const stored = await api.getTaskPlan({ projectId: project.projectId, planId })
+      if (stored.ok) setWorkflowPlan(readWorkflowPlan(stored.value))
+      setWorkflowOutcome({ kind: 'rejected', title: '计划未执行', message: errorNotice(error).message })
     } finally {
       setBusyAction(undefined)
     }
   }
 
-  const confirmAgentPlan = async (planId: string): Promise<void> => {
+  const confirmWorkflowPlan = async (planId: string): Promise<void> => {
     if (!api || !project || busyAction !== undefined) return
     setBusyAction('agent-plan')
     try {
-      const confirmed = valueOrThrow(await api.confirmAgentPlan({ projectId: project.projectId, planId, accept: true }))
-      const plan = readAgentPlan(confirmed)
-      if (plan) setAgentPlan(plan)
+      const confirmed = valueOrThrow(await api.confirmTaskPlan({ projectId: project.projectId, planId, accept: true }))
+      const plan = readWorkflowPlan(confirmed)
+      if (plan) setWorkflowPlan(plan)
     } catch (error) {
-      setAgentOutcome({ kind: 'rejected', title: '计划未确认', message: errorNotice(error).message })
+      setWorkflowOutcome({ kind: 'rejected', title: '计划未确认', message: errorNotice(error).message })
       setBusyAction(undefined)
       return
     }
     setBusyAction(undefined)
-    await executeAgentPlan(planId)
+    await executeWorkflowPlan(planId)
   }
 
-  const rejectAgentPlan = async (planId: string): Promise<void> => {
+  const rejectWorkflowPlan = async (planId: string): Promise<void> => {
     if (!api || !project || busyAction !== undefined) return
     setBusyAction('agent-plan')
     try {
-      const value = valueOrThrow(await api.confirmAgentPlan({ projectId: project.projectId, planId, accept: false }))
-      if (!isJsonRecord(value) || value.state !== 'cancelled') {
+      const value = valueOrThrow(await api.confirmTaskPlan({ projectId: project.projectId, planId, accept: false }))
+      if (!isJsonRecord(value) || value.state !== 'rejected') {
         throw new Error('Core did not confirm plan cancellation.')
       }
-      setAgentPlan(undefined)
-      setAgentOutcome({ kind: 'no_change', title: '计划已取消', message: '未修改任何项目对象。' })
+      setWorkflowPlan(undefined)
+      setWorkflowOutcome({ kind: 'no_change', title: '计划已取消', message: '未修改任何项目对象。' })
     } catch (error) {
-      setAgentOutcome({ kind: 'rejected', title: '计划未取消', message: errorNotice(error).message })
+      setWorkflowOutcome({ kind: 'rejected', title: '计划未取消', message: errorNotice(error).message })
     } finally {
       setBusyAction(undefined)
     }
@@ -1061,51 +1026,45 @@ export function App(): React.JSX.Element {
     } finally { setBusyAction(undefined) }
   }
 
+  const saveWorkflowRecipe = async (): Promise<void> => {
+    if (!api || !project || !workflowPlan || !exportRecord?.artifactHash || busyAction !== undefined) return
+    setBusyAction('save-recipe'); setNotice(undefined)
+    try {
+      valueOrThrow(await api.saveWorkflowRecipe({
+        projectId: project.projectId,
+        planId: workflowPlan.planId,
+        displayName: `${selectedChart?.name ?? '绘图'}流程`,
+        exportHash: exportRecord.artifactHash,
+      }))
+      setNotice({ kind: 'success', title: '流程已固化', message: '以后遇到同构数据和相同目标时，将先尝试直接复用该流程。' })
+    } catch (error) {
+      setNotice(errorNotice(error))
+    } finally {
+      setBusyAction(undefined)
+    }
+  }
+
   const createBatch = async (): Promise<void> => {
     if (!api || !project || !selectedChart || datasets.length === 0 || !activeDataset) return
     setBusyAction('batch'); setNotice(undefined)
-    if (!confirmedMapping) { setNotice({ kind: 'warning', title: '批次尚不能创建', message: '请先确认当前图形的字段映射。' }); setBusyAction(undefined); return }
     try {
-      const activeFields = new Map(activeDataset.fields.map((field) => [field.fieldId, field.name]))
-      const roles = Object.entries(confirmedMapping.roles).map(([role, fieldId]) => {
-        const name = activeFields.get(fieldId)
-        if (name === undefined) throw new Error(`当前映射字段已不存在：${fieldId}`)
-        return { role, name }
-      })
-      const batchDatasets = datasets.map((dataset) => {
-        if (!dataset.contentHash) throw new Error(`${dataset.displayName} 缺少不可变内容标识。`)
-        const byName = new Map<string, string[]>()
-        for (const field of dataset.fields) {
-          const key = field.name.trim().toLocaleLowerCase('en-US')
-          byName.set(key, [...(byName.get(key) ?? []), field.fieldId])
-        }
-        const bindings = Object.fromEntries(roles.map(({ role, name }) => {
-          const matches = byName.get(name.trim().toLocaleLowerCase('en-US')) ?? []
-          if (matches.length !== 1) {
-            throw new Error(`${dataset.displayName} 无法唯一匹配字段“${name}”，批量计划尚未创建。`)
-          }
-          return [role, matches[0]]
-        }))
-        return {
+      const created = valueOrThrow(await api.runWorkflow({
+        projectId: project.projectId,
+        selectedSources: datasets.slice(0, 8).map((dataset) => ({
           datasetId: dataset.datasetId,
           sourceVersion: dataset.sourceVersion,
-          contentHash: dataset.contentHash,
-          bindings,
-        }
-      })
-      const created = valueOrThrow(await api.createPlotBatchPlan({
-        projectId: project.projectId,
-        datasets: batchDatasets,
-        profileId: selectedChart.id,
+        })),
+        selectedProfileIds: [selectedChart.id],
         expectedProjectVersion: project.projectVersion,
+        instruction: `分别为每个数据表创建 ${selectedChart.id} ${selectedChart.name}，保持原始数据不变。`,
       }))
-      const plan = readAgentPlan(created)
+      const plan = readWorkflowPlan(created)
       if (!plan) throw new Error('Core 未返回批量任务计划。')
-      setAgentPlan(plan)
-      setAgentOutcome({
-        kind: 'action_plan',
+      setWorkflowPlan(plan)
+      setWorkflowOutcome({
+        kind: 'task_plan',
         title: '批量任务计划',
-        message: `${datasets.length} 个数据集将使用同一字段映射。`,
+        message: `${Math.min(datasets.length, 8)} 个数据表将分别生成一张图。`,
         plan,
       })
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
@@ -1132,23 +1091,23 @@ export function App(): React.JSX.Element {
   const selectDataset = (datasetId: string): void => {
     invalidateAgentRequest()
     setActiveDatasetId(datasetId)
-    const nextAgentDatasetIds = agentDatasetIds.filter((id) => id !== datasetId).slice(0, 7)
-    setAgentDatasetIds(nextAgentDatasetIds)
+    const nextWorkflowSourceIds = workflowSourceIds.filter((id) => id !== datasetId).slice(0, 7)
+    setWorkflowSourceIds(nextWorkflowSourceIds)
     setConfirmedMapping(undefined)
     setPlot(undefined)
     setPreviousPlot(undefined)
-    setAgentPlan(undefined)
+    setWorkflowPlan(undefined)
     setUndoStack([])
     setRedoStack([])
-    rememberWorkspace({ datasetId, agentDatasetIds: nextAgentDatasetIds, mapping: null })
+    rememberWorkspace({ datasetId, workflowSourceIds: nextWorkflowSourceIds, mapping: null })
   }
-  const toggleAgentDataset = (datasetId: string): void => {
+  const toggleWorkflowSource = (datasetId: string): void => {
     if (datasetId === activeDataset?.datasetId) return
-    const next = agentDatasetIds.includes(datasetId)
-      ? agentDatasetIds.filter((id) => id !== datasetId)
-      : [...agentDatasetIds, datasetId].slice(0, 7)
-    setAgentDatasetIds(next)
-    rememberWorkspace({ agentDatasetIds: next })
+    const next = workflowSourceIds.includes(datasetId)
+      ? workflowSourceIds.filter((id) => id !== datasetId)
+      : [...workflowSourceIds, datasetId].slice(0, 7)
+    setWorkflowSourceIds(next)
+    rememberWorkspace({ workflowSourceIds: next })
   }
 
   const openFocusEditor = async (): Promise<void> => {
@@ -1177,14 +1136,14 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedAgentDatasetIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...agentDatasetIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentOutcome={agentOutcome} agentPlan={agentPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleAgentDataset={toggleAgentDataset} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmCombinedMapping={(mapping) => void confirmCombinedMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmAgentPlan={(planId) => void confirmAgentPlan(planId)} onRejectAgentPlan={(planId) => void rejectAgentPlan(planId)} onRunAgentPlan={(planId) => void executeAgentPlan(planId)} onResumeAgentPlan={(planId) => void executeAgentPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onSaveWorkflowRecipe={() => void saveWorkflowRecipe()} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: selectedChart?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onClose={() => setScreen('workspace')} />}
       </div>
       {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
         setLibraryOpen(false)
         invalidateAgentRequest()
-        setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setPreviousPlot(undefined); setAgentOutcome(undefined); rememberWorkspace({ chartId: chart.id, mapping: null })
+        setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setPreviousPlot(undefined); setWorkflowOutcome(undefined); rememberWorkspace({ chartId: chart.id, mapping: null })
         setUndoStack([]); setRedoStack([])
         setNotice(activeDataset ? undefined : { kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '可以继续上传数据。' })
       }} />}

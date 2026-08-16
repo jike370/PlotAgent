@@ -1,0 +1,248 @@
+"""Persistent, item-scoped execution of confirmed workflow task plans."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from plotagent.contracts.workflows import (
+    CompiledTaskItem,
+    DraftAddAnnotation,
+    DraftSetAxis,
+    DraftSetChartParameter,
+    DraftSetLegend,
+    DraftSetSeriesStyle,
+    DraftSetTitle,
+    TaskPlanSnapshot,
+)
+from plotagent.engine import (
+    AddAnnotation,
+    CreatePlot,
+    EngineCatalog,
+    EngineDataRef,
+    FieldBinding,
+    PlotEngineAction,
+    SetAxis,
+    SetChartParameter,
+    SetLegend,
+    SetSeriesStyle,
+    SetTitle,
+)
+
+from .repository import WorkflowRepository
+
+
+class WorkflowExecutionError(RuntimeError):
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+type PrepareTaskData = Callable[[CompiledTaskItem], tuple[EngineDataRef, tuple[FieldBinding, ...]]]
+type ExecuteEngineAction = Callable[[PlotEngineAction, int], int]
+
+
+@dataclass(slots=True)
+class TaskPlanExecutor:
+    repository: WorkflowRepository
+    catalog: EngineCatalog
+    prepare_data: PrepareTaskData
+    execute_action: ExecuteEngineAction
+
+    def run(self, plan_id: str) -> TaskPlanSnapshot:
+        snapshot = self.repository.get_plan(plan_id)
+        if snapshot.state not in {"ready", "running", "partially_succeeded", "failed"}:
+            raise WorkflowExecutionError(
+                "WORKFLOW_PLAN_NOT_RUNNABLE",
+                "任务计划尚未确认或已经结束。",
+            )
+        if snapshot.state == "ready" and (
+            snapshot.current_project_revision != snapshot.plan.expected_project_revision
+        ):
+            raise WorkflowExecutionError(
+                "PROJECT_VERSION_CONFLICT",
+                "项目在确认后发生了变化，请重新生成任务计划。",
+            )
+        snapshot = self.repository.set_plan_state(plan_id, "running")
+        self.repository.transition_run(snapshot.plan.workflow_run_id, state="executing")
+        failed_ids = {
+            progress.item_id
+            for progress in snapshot.item_progress
+            if progress.state in {"failed", "blocked"}
+        }
+        for item, progress in zip(snapshot.plan.items, snapshot.item_progress, strict=True):
+            if progress.state == "succeeded":
+                continue
+            if set(item.depends_on) & failed_ids:
+                snapshot = self.repository.set_item_state(
+                    plan_id,
+                    item.item_id,
+                    "blocked",
+                    error_code="UPSTREAM_TASK_ITEM_FAILED",
+                )
+                failed_ids.add(item.item_id)
+                continue
+            snapshot = self.repository.set_item_state(
+                plan_id,
+                item.item_id,
+                "running",
+                increment_attempt=True,
+            )
+            try:
+                revision, plot_version = self._execute_item(item, snapshot.current_project_revision)
+                snapshot = self.repository.set_item_state(
+                    plan_id,
+                    item.item_id,
+                    "succeeded",
+                    output_plot_id=item.plot_id,
+                    output_plot_version=plot_version,
+                )
+                snapshot = self.repository.set_plan_state(
+                    plan_id, "running", project_revision=revision
+                )
+                failed_ids.discard(item.item_id)
+            except Exception as error:
+                code = getattr(error, "code", type(error).__name__)
+                snapshot = self.repository.set_item_state(
+                    plan_id,
+                    item.item_id,
+                    "failed",
+                    error_code=str(code),
+                )
+                failed_ids.add(item.item_id)
+        snapshot = self.repository.get_plan(plan_id)
+        failures = tuple(
+            progress
+            for progress in snapshot.item_progress
+            if progress.state in {"failed", "blocked"}
+        )
+        successes = tuple(
+            progress for progress in snapshot.item_progress if progress.state == "succeeded"
+        )
+        state = "succeeded" if not failures else "partially_succeeded" if successes else "failed"
+        snapshot = self.repository.set_plan_state(
+            plan_id,
+            state,
+            project_revision=snapshot.current_project_revision,
+        )
+        self.repository.transition_run(
+            snapshot.plan.workflow_run_id,
+            state=(
+                "completed"
+                if state == "succeeded"
+                else "partially_succeeded"
+                if state == "partially_succeeded"
+                else "failed"
+            ),
+        )
+        return snapshot
+
+    def _execute_item(self, item: CompiledTaskItem, revision: int) -> tuple[int, int]:
+        current_revision = revision
+        if item.task_kind == "create":
+            data, bindings = self.prepare_data(item)
+            create = CreatePlot(
+                action_id=f"action:{item.item_id.removeprefix('item:')}.create",
+                plot_id=item.plot_id,
+                profile_id=item.profile_id,
+                data=data,
+                bindings=bindings,
+            )
+            self.catalog.validate_create(create)
+            current_revision = self.execute_action(create, revision)
+            plot_version = 1
+        else:
+            if item.target_plot_id is None or item.target_plot_version is None:
+                raise WorkflowExecutionError(
+                    "WORKFLOW_EDIT_TARGET_INVALID", "待编辑图形目标不完整。"
+                )
+            plot_version = item.target_plot_version
+        for position, draft in enumerate(item.visual_actions, start=1):
+            action_id = f"action:{item.item_id.removeprefix('item:')}.edit{position}"
+            action: PlotEngineAction
+            if isinstance(draft, DraftSetTitle):
+                action = SetTitle(
+                    action_id=action_id,
+                    target=item.plot_id,
+                    expected_plot_version=plot_version,
+                    text=draft.text,
+                )
+            elif isinstance(draft, DraftSetAxis):
+                action = SetAxis(
+                    action_id=action_id,
+                    target=self._target(item, draft.target_alias, "axis"),
+                    expected_plot_version=plot_version,
+                    label=draft.label,
+                    scale=draft.scale,
+                    minimum=draft.minimum,
+                    maximum=draft.maximum,
+                    reverse=draft.reverse,
+                )
+            elif isinstance(draft, DraftSetSeriesStyle):
+                action = SetSeriesStyle(
+                    action_id=action_id,
+                    target=self._target(item, draft.target_alias, "series"),
+                    expected_plot_version=plot_version,
+                    color=draft.color,
+                    line_width_pt=draft.line_width_pt,
+                    line_style=draft.line_style,
+                    symbol=draft.symbol,
+                    symbol_size_pt=draft.symbol_size_pt,
+                )
+            elif isinstance(draft, DraftSetLegend):
+                action = SetLegend(
+                    action_id=action_id,
+                    target=self._target(item, draft.target_alias, "legend"),
+                    expected_plot_version=plot_version,
+                    visible=draft.visible,
+                    anchor=draft.anchor,
+                )
+            elif isinstance(draft, DraftSetChartParameter):
+                action = SetChartParameter(
+                    action_id=action_id,
+                    target=item.plot_id,
+                    expected_plot_version=plot_version,
+                    parameter=draft.parameter,
+                    value=draft.value,
+                )
+            elif isinstance(draft, DraftAddAnnotation):
+                token = item.plot_id.removeprefix("plot:")
+                action = AddAnnotation(
+                    action_id=action_id,
+                    target=item.plot_id,
+                    expected_plot_version=plot_version,
+                    annotation_id=f"annotation:{token}.{draft.annotation_alias}",
+                    text=draft.text,
+                    x=draft.x,
+                    y=draft.y,
+                    coordinate_system=draft.coordinate_system,
+                )
+            else:
+                raise AssertionError("unknown workflow visual action")
+            self.catalog.validate_action(self.catalog.get(item.profile_id), action)
+            current_revision = self.execute_action(action, current_revision)
+            plot_version += 1
+        return current_revision, plot_version
+
+    def _target(self, item: CompiledTaskItem, alias: str, expected_kind: str) -> str:
+        profile = self.catalog.get(item.profile_id)
+        fixed = next(
+            (candidate for candidate in profile.objects if candidate.object_alias == alias),
+            None,
+        )
+        if fixed is not None:
+            if fixed.object_kind != expected_kind:
+                raise WorkflowExecutionError("TARGET_KIND_INVALID", "任务目标类型与操作不匹配。")
+            return fixed.instantiate(item.plot_id)
+        for repeatable in profile.repeatable_objects:
+            prefix = repeatable.object_alias_prefix + "_"
+            ordinal = alias.removeprefix(prefix)
+            if (
+                alias.startswith(prefix)
+                and ordinal.isdigit()
+                and int(ordinal) >= 1
+                and repeatable.object_kind == expected_kind
+            ):
+                return repeatable.instantiate(item.plot_id, int(ordinal))
+        raise WorkflowExecutionError("TARGET_ALIAS_INVALID", "任务目标在图类中不可用。")

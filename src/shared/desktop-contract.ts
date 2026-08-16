@@ -8,15 +8,15 @@ export type JsonPrimitive = boolean | number | string | null
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
 
 export const IPC_CHANNELS = {
-  agentDecide: 'plotagent:agent:decide',
-  agentRuntimeEvent: 'plotagent:agent:runtime-event',
-  agentPlanConfirm: 'plotagent:agent:plan-confirm',
-  agentPlanGet: 'plotagent:agent:plan-get',
-  agentPlanList: 'plotagent:agent:plan-list',
-  agentPlanResume: 'plotagent:agent:plan-resume',
-  agentPlanRun: 'plotagent:agent:plan-run',
-  engineBatchPlanCreate: 'plotagent:engine:plans:create-batch',
-  engineCombinedPlotCreate: 'plotagent:engine:plots:create-combined',
+  workflowRun: 'plotagent:workflow:run',
+  workflowRuntimeEvent: 'plotagent:workflow:runtime-event',
+  workflowDraftSubmit: 'plotagent:workflow:draft-submit',
+  taskPlanConfirm: 'plotagent:workflow:plan-confirm',
+  taskPlanGet: 'plotagent:workflow:plan-get',
+  taskPlanList: 'plotagent:workflow:plan-list',
+  taskPlanResume: 'plotagent:workflow:plan-resume',
+  taskPlanRun: 'plotagent:workflow:plan-run',
+  workflowRecipeSave: 'plotagent:workflow:recipe-save',
   cancelTask: 'plotagent:tasks:cancel',
   closeResponse: 'plotagent:lifecycle:close-response',
   coreStatusChanged: 'plotagent:core:status-changed',
@@ -222,71 +222,52 @@ export interface PlotIdInput extends ProjectIdInput {
   readonly plotVersion: number
 }
 
-export interface EngineBatchPlanCreateInput extends ProjectIdInput {
-  readonly datasets: readonly {
+export interface WorkflowRunInput extends ProjectIdInput {
+  readonly selectedSources: readonly {
     readonly datasetId: string
     readonly sourceVersion: number
-    readonly contentHash: string
-    readonly bindings: Readonly<Record<string, string>>
   }[]
-  readonly profileId: string
   readonly expectedProjectVersion: number
+  readonly selectedProfileIds?: readonly string[]
+  readonly selectedPlotIds?: readonly string[]
+  readonly instruction: string
 }
 
-export interface EngineCombinedPlotCreateInput extends ProjectIdInput {
-  readonly datasets: readonly {
-    readonly datasetId: string
-    readonly sourceVersion: number
-    readonly contentHash: string
-    readonly bindings: Readonly<Record<string, string>>
-  }[]
-  readonly profileId: string
-  readonly expectedProjectVersion: number
+export interface WorkflowDraftSubmitInput extends ProjectIdInput {
+  readonly workflowRunId: string
+  readonly taskDraft: JsonValue
 }
 
-export interface AgentDecideInput extends ProjectIdInput {
-  readonly sourceDatasetId: string
-  readonly sourceVersion: number
-  readonly selectedDatasets?: readonly {
-    readonly datasetId: string
-    readonly sourceVersion: number
-  }[]
-  readonly expectedVersion: number
-  readonly conversationId?: string
-  readonly selectedChartId?: string
-  readonly executionMode: 'plan_only' | 'execute'
-  readonly target?: {
-    readonly kind: 'plot'
-    readonly id: string
-  }
-  readonly scope: 'current' | 'selected'
-  readonly utterance: string
-}
-
-export type AgentRuntimeStage =
+export type WorkflowRuntimeStage =
   | 'preparing_context'
+  | 'inspecting_data'
   | 'planning'
-  | 'validating_decision'
+  | 'validating_draft'
   | 'saving_plan'
   | 'completed'
   | 'cancelled'
   | 'failed'
 
-export interface AgentRuntimeEvent {
+export interface WorkflowRuntimeEvent {
   readonly schemaVersion: DesktopApiVersion
   readonly runId: string
   readonly projectId: string
   readonly sequence: number
-  readonly stage: AgentRuntimeStage
+  readonly stage: WorkflowRuntimeStage
   readonly label: string
 }
 
-export interface AgentPlanInput extends ProjectIdInput {
+export interface TaskPlanInput extends ProjectIdInput {
   readonly planId: string
 }
 
-export interface AgentPlanConfirmInput extends AgentPlanInput {
+export interface TaskPlanConfirmInput extends TaskPlanInput {
   readonly accept: boolean
+}
+
+export interface WorkflowRecipeSaveInput extends TaskPlanInput {
+  readonly displayName: string
+  readonly exportHash: string
 }
 
 export interface PngSvgExportInput extends ProjectIdInput {
@@ -347,20 +328,20 @@ export interface PlotAgentDesktopApi {
   executePlotAction(input: EngineActionInput): Promise<DesktopDataResult>
   getPlot(input: PlotIdInput): Promise<DesktopDataResult>
   listPlots(input: ProjectIdInput): Promise<DesktopDataResult>
-  createPlotBatchPlan(input: EngineBatchPlanCreateInput): Promise<DesktopDataResult>
-  createCombinedPlot(input: EngineCombinedPlotCreateInput): Promise<DesktopDataResult>
-  decideAgent(input: AgentDecideInput): Promise<DesktopDataResult>
-  getAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
-  listAgentPlans(input: ProjectIdInput): Promise<DesktopDataResult>
-  confirmAgentPlan(input: AgentPlanConfirmInput): Promise<DesktopDataResult>
-  runAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
-  resumeAgentPlan(input: AgentPlanInput): Promise<DesktopDataResult>
+  runWorkflow(input: WorkflowRunInput): Promise<DesktopDataResult>
+  submitWorkflowDraft(input: WorkflowDraftSubmitInput): Promise<DesktopDataResult>
+  getTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
+  listTaskPlans(input: ProjectIdInput): Promise<DesktopDataResult>
+  confirmTaskPlan(input: TaskPlanConfirmInput): Promise<DesktopDataResult>
+  runTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
+  resumeTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
+  saveWorkflowRecipe(input: WorkflowRecipeSaveInput): Promise<DesktopDataResult>
   exportPngSvg(input: PngSvgExportInput): Promise<DesktopDataResult>
   exportOrigin(input: OriginExportInput): Promise<DesktopDataResult>
   respondToCloseRequest(response: CloseResponse): Promise<DesktopActionResult>
   onCoreStatus(listener: (status: CoreStatus) => void): Unsubscribe
   onTaskEvent(listener: (event: TaskEvent) => void): Unsubscribe
-  onAgentRuntimeEvent(listener: (event: AgentRuntimeEvent) => void): Unsubscribe
+  onWorkflowRuntimeEvent(listener: (event: WorkflowRuntimeEvent) => void): Unsubscribe
   onOpenResourceRequested(listener: (request: OpenResourceRequest) => void): Unsubscribe
   onCloseRequested(listener: (request: CloseRequest) => void): Unsubscribe
 }
@@ -431,7 +412,6 @@ const CHART_IDS = new Set([
   'S07',
 ])
 const IDENTIFIER_PATTERN = /^[A-Za-z][A-Za-z0-9:._-]{0,127}$/
-const FIELD_ROLE_PATTERN = /^[a-z][a-z0-9_]{0,31}$/
 const METHOD_PATTERN = /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/
 const ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_]{0,127}$/
 const FORBIDDEN_PAYLOAD_KEY = /(?:path|secret|token|credential|api[_-]?key)/i
@@ -501,15 +481,7 @@ function parseVersion(value: unknown, minimum = 0): number | null {
   return Number.isSafeInteger(value) && Number(value) >= minimum ? Number(value) : null
 }
 
-function parseMapping(value: unknown): FieldMappingInput | null {
-  if (!isRecord(value) || !hasExactKeys(value, ['roles']) || !isRecord(value.roles)) return null
-  const entries = Object.entries(value.roles)
-  if (entries.length === 0 || entries.length > 16) return null
-  if (!entries.every(([role, field]) => FIELD_ROLE_PATTERN.test(role) && isIdentifier(field))) return null
-  return { roles: Object.fromEntries(entries) as Record<string, string> }
-}
-
-function parseTarget(value: unknown): NonNullable<AgentDecideInput['target']> | null {
+function parseTarget(value: unknown): { readonly kind: 'plot'; readonly id: string } | null {
   if (!isRecord(value) || !hasExactKeys(value, ['kind', 'id'])) return null
   if (value.kind !== 'plot') return null
   const id = parseId(value.id)
@@ -614,108 +586,88 @@ export function parsePlotIdInput(value: unknown): PlotIdInput | null {
   return parsed === null || plotId === null || plotVersion === null ? null : { projectId: parsed.projectId as string, plotId, plotVersion }
 }
 
-export function parseEngineBatchPlanCreateInput(value: unknown): EngineBatchPlanCreateInput | null {
-  const parsed = parseProjectIdRecord(value, ['datasets', 'profileId', 'expectedProjectVersion'])
-  if (parsed === null || !Array.isArray(parsed.datasets)) return null
-  const datasets = parsed.datasets.map((item) => {
-    if (!isRecord(item) || !hasExactKeys(item, ['datasetId', 'sourceVersion', 'contentHash', 'bindings'])) return null
-    const datasetId = parseId(item.datasetId)
-    const sourceVersion = parseVersion(item.sourceVersion, 1)
-    const contentHash = typeof item.contentHash === 'string' && /^[0-9a-f]{64}$/u.test(item.contentHash)
-      ? item.contentHash : null
-    const bindings = parseMapping({ roles: item.bindings })
-    return datasetId === null || sourceVersion === null || contentHash === null || bindings === null
-      ? null : { datasetId, sourceVersion, contentHash, bindings: bindings.roles }
-  })
-  const expectedProjectVersion = parseVersion(parsed.expectedProjectVersion)
-  if (
-    datasets.length === 0 || datasets.length > 64 || datasets.some((item) => item === null) ||
-    new Set(datasets.map((item) => item?.datasetId)).size !== datasets.length ||
-    typeof parsed.profileId !== 'string' || !CHART_IDS.has(parsed.profileId) || expectedProjectVersion === null
-  ) return null
-  return {
-    projectId: parsed.projectId as string,
-    datasets: datasets as { datasetId: string; sourceVersion: number; contentHash: string; bindings: Readonly<Record<string, string>> }[],
-    profileId: parsed.profileId,
-    expectedProjectVersion,
-  }
-}
-
-export function parseEngineCombinedPlotCreateInput(value: unknown): EngineCombinedPlotCreateInput | null {
-  const parsed = parseEngineBatchPlanCreateInput(value)
-  if (parsed === null || parsed.datasets.length < 2 || parsed.datasets.length > 8) return null
-  return parsed
-}
-
-export function parseAgentDecideInput(value: unknown): AgentDecideInput | null {
+export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
   if (!isRecord(value) || !hasExactKeys(
     value,
-    ['projectId', 'sourceDatasetId', 'sourceVersion', 'expectedVersion', 'scope', 'utterance', 'executionMode'],
-    ['conversationId', 'selectedChartId', 'selectedDatasets', 'target'],
+    ['projectId', 'selectedSources', 'expectedProjectVersion', 'instruction'],
+    ['selectedProfileIds', 'selectedPlotIds'],
   )) return null
-  const parsed = value
-  const projectId = parseId(parsed.projectId)
-  const target = parsed.target === undefined ? undefined : parseTarget(parsed.target)
-  const sourceDatasetId = parseId(parsed.sourceDatasetId)
-  const sourceVersion = parseVersion(parsed.sourceVersion, 1)
-  const expectedVersion = parseVersion(parsed.expectedVersion)
-  const scopes = new Set(['current', 'selected'])
-  if (projectId === null || target === null || sourceDatasetId === null || sourceVersion === null || expectedVersion === null || typeof parsed.scope !== 'string' || !scopes.has(parsed.scope)) return null
-  if (target === undefined && parsed.scope !== 'current' && parsed.scope !== 'selected') return null
-  if (parsed.executionMode !== 'plan_only' && parsed.executionMode !== 'execute') return null
-  const conversationId = parsed.conversationId === undefined ? undefined : parseId(parsed.conversationId)
-  if (parsed.conversationId !== undefined && conversationId === null) return null
-  const selectedChartId = parsed.selectedChartId === undefined ? undefined : parsed.selectedChartId
-  if (selectedChartId !== undefined && (typeof selectedChartId !== 'string' || !CHART_IDS.has(selectedChartId))) return null
-  if (typeof parsed.utterance !== 'string') return null
-  const selectedDatasets = parsed.selectedDatasets === undefined
+  const projectId = parseId(value.projectId)
+  const expectedProjectVersion = parseVersion(value.expectedProjectVersion)
+  if (projectId === null || expectedProjectVersion === null || !Array.isArray(value.selectedSources)) return null
+  const selectedSources = value.selectedSources.map((item) => {
+    if (!isRecord(item) || !hasExactKeys(item, ['datasetId', 'sourceVersion'])) return null
+    const datasetId = parseId(item.datasetId)
+    const sourceVersion = parseVersion(item.sourceVersion, 1)
+    return datasetId === null || sourceVersion === null ? null : { datasetId, sourceVersion }
+  })
+  if (selectedSources.length > 8 || selectedSources.some((item) => item === null)) return null
+  const sourceKeys = selectedSources.map((item) => `${item?.datasetId}:${item?.sourceVersion}`)
+  if (new Set(sourceKeys).size !== sourceKeys.length) return null
+  const instruction = typeof value.instruction === 'string' ? value.instruction.trim() : ''
+  if (!instruction || instruction.length > 4_096 || instruction.includes('\0')) return null
+  const selectedProfileIds = value.selectedProfileIds === undefined
     ? undefined
-    : Array.isArray(parsed.selectedDatasets)
-      ? parsed.selectedDatasets.map((item) => {
-        if (!isRecord(item) || !hasExactKeys(item, ['datasetId', 'sourceVersion'])) return null
-        const datasetId = parseId(item.datasetId)
-        const version = parseVersion(item.sourceVersion, 1)
-        return datasetId === null || version === null ? null : { datasetId, sourceVersion: version }
-      })
-      : null
-  if (selectedDatasets === null || selectedDatasets?.some((item) => item === null) ||
-    (selectedDatasets !== undefined && (selectedDatasets.length === 0 || selectedDatasets.length > 8 ||
-      new Set(selectedDatasets.map((item) => item?.datasetId)).size !== selectedDatasets.length ||
-      !selectedDatasets.some((item) => item?.datasetId === sourceDatasetId && item.sourceVersion === sourceVersion)))) {
-    return null
-  }
-  const utterance = parsed.utterance.trim()
-  if (utterance.length === 0 || utterance.length > 4_000 || utterance.includes('\0')) return null
+    : Array.isArray(value.selectedProfileIds)
+      && value.selectedProfileIds.length <= 8
+      && value.selectedProfileIds.every((item) => typeof item === 'string' && CHART_IDS.has(item))
+      ? value.selectedProfileIds as string[] : null
+  const selectedPlotIds = value.selectedPlotIds === undefined
+    ? undefined
+    : Array.isArray(value.selectedPlotIds)
+      && value.selectedPlotIds.length <= 8
+      && value.selectedPlotIds.every((item) => parseId(item) !== null)
+      ? value.selectedPlotIds as string[] : null
+  if (selectedProfileIds === null || selectedPlotIds === null) return null
+  if (selectedSources.length === 0 && (selectedPlotIds === undefined || selectedPlotIds.length === 0)) return null
+  if (selectedPlotIds !== undefined && new Set(selectedPlotIds).size !== selectedPlotIds.length) return null
   return {
     projectId,
-    sourceDatasetId,
-    sourceVersion,
-    ...(selectedDatasets === undefined
-      ? {}
-      : { selectedDatasets: selectedDatasets as { datasetId: string; sourceVersion: number }[] }),
-    expectedVersion,
-    ...(typeof conversationId === 'string' ? { conversationId } : {}),
-    ...(selectedChartId === undefined ? {} : { selectedChartId }),
-    executionMode: parsed.executionMode,
-    ...(target === undefined ? {} : { target }),
-    scope: parsed.scope as AgentDecideInput['scope'],
-    utterance,
+    selectedSources: selectedSources as { datasetId: string; sourceVersion: number }[],
+    expectedProjectVersion,
+    ...(selectedProfileIds === undefined ? {} : { selectedProfileIds }),
+    ...(selectedPlotIds === undefined ? {} : { selectedPlotIds }),
+    instruction,
   }
 }
 
-export function parseAgentPlanInput(value: unknown): AgentPlanInput | null {
+export function parseWorkflowDraftSubmitInput(value: unknown): WorkflowDraftSubmitInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'workflowRunId', 'taskDraft'])) return null
+  const projectId = parseId(value.projectId)
+  const workflowRunId = parseId(value.workflowRunId)
+  return projectId === null || workflowRunId === null || !isSafeRendererPayload(value.taskDraft)
+    ? null : { projectId, workflowRunId, taskDraft: value.taskDraft }
+}
+
+export function parseTaskPlanInput(value: unknown): TaskPlanInput | null {
   if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'planId'])) return null
   const projectId = parseId(value.projectId)
   const planId = parseId(value.planId)
   return projectId === null || planId === null ? null : { projectId, planId }
 }
 
-export function parseAgentPlanConfirmInput(value: unknown): AgentPlanConfirmInput | null {
+export function parseTaskPlanConfirmInput(value: unknown): TaskPlanConfirmInput | null {
   if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'planId', 'accept'])) return null
-  const parsed = parseAgentPlanInput({ projectId: value.projectId, planId: value.planId })
+  const parsed = parseTaskPlanInput({ projectId: value.projectId, planId: value.planId })
   return parsed === null || typeof value.accept !== 'boolean'
     ? null
     : { ...parsed, accept: value.accept }
+}
+
+export function parseWorkflowRecipeSaveInput(value: unknown): WorkflowRecipeSaveInput | null {
+  if (!isRecord(value) || !hasExactKeys(
+    value,
+    ['projectId', 'planId', 'displayName', 'exportHash'],
+  )) return null
+  const parsed = parseTaskPlanInput({ projectId: value.projectId, planId: value.planId })
+  const displayName = typeof value.displayName === 'string' ? value.displayName.trim() : ''
+  const exportHash = typeof value.exportHash === 'string' ? value.exportHash : ''
+  return parsed === null
+    || !displayName
+    || displayName.length > 128
+    || !/^[0-9a-f]{64}$/i.test(exportHash)
+    ? null
+    : { ...parsed, displayName, exportHash: exportHash.toLocaleLowerCase('en-US') }
 }
 
 export function parsePngSvgExportInput(value: unknown): PngSvgExportInput | null {

@@ -17,17 +17,26 @@ const actionLabels: Record<string, string> = {
 }
 
 function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValue; redo: JsonValue } | undefined {
-  if (!isJsonRecord(value) || typeof value.operation !== 'string' || typeof value.target !== 'string') return undefined
-  const redo = Object.fromEntries(Object.entries(value).filter(([key, fieldValue]) => (
-    !['action_id', 'expected_plot_version'].includes(key) && fieldValue !== null
-  )))
+  if (!isJsonRecord(value) || typeof value.operation !== 'string') return undefined
+  const target = typeof value.target === 'string'
+    ? value.target
+    : typeof value.target_alias === 'string'
+      ? targetFromAlias(plot, value.target_alias)
+      : undefined
+  if (target === undefined) return undefined
+  const redo = {
+    ...Object.fromEntries(Object.entries(value).filter(([key, fieldValue]) => (
+      !['action_id', 'expected_plot_version', 'target_alias'].includes(key) && fieldValue !== null
+    ))),
+    target,
+  }
   if (value.operation === 'set_title' && typeof value.text === 'string') {
-    return { undo: { operation: 'set_title', target: value.target, text: plot.plotTitle }, redo }
+    return { undo: { operation: 'set_title', target, text: plot.plotTitle }, redo }
   }
   if (value.operation === 'set_axis') {
-    const axis = Object.values(plot.axisStates).find((candidate) => candidate?.axisId === value.target)
+    const axis = Object.values(plot.axisStates).find((candidate) => candidate?.axisId === target)
     if (!axis) return undefined
-    const undo: Record<string, JsonValue> = { operation: 'set_axis', target: value.target }
+    const undo: Record<string, JsonValue> = { operation: 'set_axis', target }
     if (typeof value.label === 'string') undo.label = axis.label
     if (typeof value.scale === 'string') undo.scale = axis.scale
     if (typeof value.reverse === 'boolean') undo.reverse = axis.reverse
@@ -39,7 +48,7 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
     return Object.keys(undo).length > 2 ? { undo, redo } : undefined
   }
   if (value.operation === 'set_series_style') {
-    const style = plot.seriesStyles.find((candidate) => candidate.seriesId === value.target)?.style
+    const style = plot.seriesStyles.find((candidate) => candidate.seriesId === target)?.style
     if (!style) return undefined
     const mappings = {
       color: style.color,
@@ -51,7 +60,7 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
       palette_id: style.paletteId,
       palette_reverse: style.paletteReverse,
     } as const
-    const undo: Record<string, JsonValue> = { operation: 'set_series_style', target: value.target }
+    const undo: Record<string, JsonValue> = { operation: 'set_series_style', target }
     for (const [key, previous] of Object.entries(mappings)) {
       if (!Object.hasOwn(value, key) || value[key] === null) continue
       if (previous === undefined) return undefined
@@ -60,7 +69,7 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
     return Object.keys(undo).length > 2 ? { undo, redo } : undefined
   }
   if (value.operation === 'set_legend') {
-    const undo: Record<string, JsonValue> = { operation: 'set_legend', target: value.target }
+    const undo: Record<string, JsonValue> = { operation: 'set_legend', target }
     if (typeof value.visible === 'boolean') {
       if (plot.style.legendVisible === undefined) return undefined
       undo.visible = plot.style.legendVisible
@@ -75,11 +84,23 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
     const previous = plot.chartParameters?.[value.parameter]
     if (previous === undefined) return undefined
     return {
-      undo: { operation: 'set_chart_parameter', target: value.target, parameter: value.parameter, value: previous },
+      undo: { operation: 'set_chart_parameter', target, parameter: value.parameter, value: previous },
       redo,
     }
   }
   return undefined
+}
+
+function targetFromAlias(plot: ProductPlot, alias: string): string | undefined {
+  if (alias === 'plot') return plot.plotId
+  if (alias === 'x_axis') return plot.axisIds.x
+  if (alias === 'y_axis') return plot.axisIds.y
+  if (alias === 'right_y_axis') return plot.axisIds.yRight
+  if (alias === 'legend') return plot.legendId
+  const seriesMatch = /^series_(\d+)$/.exec(alias)
+  if (seriesMatch === null) return undefined
+  const position = Number.parseInt(seriesMatch[1], 10) - 1
+  return position < 0 ? undefined : plot.seriesIds[position]
 }
 
 export function plotHistoryEntry(

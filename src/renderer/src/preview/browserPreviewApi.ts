@@ -21,14 +21,11 @@ interface PreviewProject {
   datasets: JsonRecord[]
 }
 
-interface PreviewAgentPlan {
+interface PreviewWorkflowPlan {
   projectId: string
   planId: string
-  input?: Parameters<PlotAgentDesktopApi['decideAgent']>[0]
-  proposalActions?: JsonRecord[]
-  boundActions?: JsonRecord[]
+  input: Parameters<PlotAgentDesktopApi['runWorkflow']>[0]
   state: string
-  confirmationState: string
   outputPlot?: { plotId: string; plotVersion: number }
 }
 
@@ -112,11 +109,11 @@ function plotPreviewSvg(chartId: string, version: number): string {
 function createBrowserPreviewApi(): PlotAgentDesktopApi {
   const projects = new Map<string, PreviewProject>()
   const plots = new Map<string, JsonRecord>()
-  const agentPlans = new Map<string, PreviewAgentPlan>()
+  const workflowPlans = new Map<string, PreviewWorkflowPlan>()
   let projectSequence = 0
   let importSequence = 0
   let plotSequence = 0
-  let agentPlanSequence = 0
+  let workflowPlanSequence = 0
 
   const projectSummary = (project: PreviewProject): JsonRecord => ({
     project_id: project.projectId,
@@ -142,74 +139,43 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
 
   const plotKey = (projectId: string, plotId: string): string => `${projectId}:${plotId}`
 
-  const agentPlanRecord = (plan: PreviewAgentPlan): JsonRecord => {
-    if (plan.proposalActions !== undefined && plan.boundActions !== undefined) {
-      const projectVersion = projects.get(plan.projectId)?.projectVersion ?? 0
-      const nextActionIndex = plan.state === 'succeeded' ? plan.boundActions.length : 0
-      return {
+  const workflowPlanRecord = (plan: PreviewWorkflowPlan): JsonRecord => {
+    const projectVersion = projects.get(plan.projectId)?.projectVersion ?? 0
+    const profileId = plan.input.selectedProfileIds?.[0] ?? 'K01'
+    const source = plan.input.selectedSources[0]
+    const token = plan.planId.startsWith('plan:') ? plan.planId.slice(5) : plan.planId
+    const itemId = `item:${token}.1`
+    return {
+      state: plan.state,
+      current_project_revision: projectVersion,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      plan: {
+        schema_version: 'task-plan.v1',
         plan_id: plan.planId,
-        project_version: projectVersion,
-        state: plan.state,
-        confirmation_state: plan.confirmationState,
-        next_action_index: nextActionIndex,
-        current_project_revision: projectVersion,
-        error_code: null,
-        proposal: {
-          schema_version: 'engine-agent.v1', decision_type: 'action_plan',
-          plan_id: plan.planId, target_alias: 'batch_plots', actions: plan.proposalActions,
-        },
-        bound_plan: {
-          plan_id: plan.planId,
-          expected_project_revision: projectVersion - nextActionIndex,
-          actions: plan.boundActions,
-        },
-      }
-    }
-    {
-      const mutation = plan.input?.target?.kind === 'plot'
-      const plotId = mutation ? plan.input?.target?.id ?? 'plot:preview' : 'plot:preview-agent'
-      const proposalAction: JsonRecord = mutation
-        ? {
-          operation: 'set_title', action_id: 'action:preview', plot_alias: 'active_target',
-          text: '预览修改',
-        }
-        : {
-          operation: 'create_plot', action_id: 'action:preview', plot_alias: 'active_target',
-          profile_id: plan.input?.selectedChartId ?? 'K01', source_alias: 'active_data',
-          bindings: [
-            { role: 'x', field_alias: 'x_field' },
-            { role: 'y', field_alias: 'y_field' },
-          ],
-        }
-      const boundAction: JsonRecord = mutation
-        ? {
-          operation: 'set_title', action_id: 'action:preview', target: plotId,
-          expected_plot_version: plan.outputPlot?.plotVersion
-            ? plan.outputPlot.plotVersion - 1 : 1,
-          text: '预览修改',
-        }
-        : {
-          operation: 'create_plot', action_id: 'action:preview', plot_id: plotId,
-          profile_id: plan.input?.selectedChartId ?? 'K01',
-        }
-      return {
-        plan_id: plan.planId,
-        project_version: projects.get(plan.projectId)?.projectVersion ?? 0,
-        state: plan.state,
-        confirmation_state: plan.confirmationState,
-        next_action_index: plan.state === 'succeeded' ? 1 : 0,
-        current_project_revision: projects.get(plan.projectId)?.projectVersion ?? 0,
-        error_code: null,
-        proposal: {
-          schema_version: 'engine-agent.v1', decision_type: 'action_plan',
-          plan_id: plan.planId, target_alias: 'active_target', actions: [proposalAction],
-        },
-        bound_plan: {
-          plan_id: plan.planId,
-          expected_project_revision: projects.get(plan.projectId)?.projectVersion ?? 0,
-          actions: [boundAction],
-        },
-      }
+        workflow_run_id: `workflow:${token}`,
+        draft_hash: 'a'.repeat(64),
+        expected_project_revision: plan.input.expectedProjectVersion,
+        items: [{
+          item_id: itemId,
+          plot_alias: 'plot_1',
+          plot_id: plan.outputPlot?.plotId ?? `plot:workflow.${token}.1`,
+          profile_id: profileId,
+          sources: source === undefined ? [] : [{
+            source_alias: 'data_1', source_dataset_id: source.datasetId,
+            source_version: source.sourceVersion, content_hash: 'a'.repeat(64),
+            display_name: source.datasetId, row_count: 5,
+          }],
+          resolved_fields: [], data_operations: [], bindings: [], visual_actions: [],
+          exports: [], depends_on: [], idempotency_key: `preview.${itemId}`,
+        }],
+      },
+      item_progress: [{
+        item_id: itemId, state: plan.state === 'succeeded' ? 'succeeded' : 'pending',
+        attempt_count: plan.state === 'succeeded' ? 1 : 0, error_code: null,
+        output_plot_id: plan.outputPlot?.plotId ?? null,
+        output_plot_version: plan.outputPlot?.plotVersion ?? null,
+      }],
     }
   }
 
@@ -384,187 +350,78 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       project_version: projects.get(projectId)?.projectVersion ?? 0,
       plots: [...plots.values()].filter((plot) => plot.project_id === projectId),
     }),
-    createPlotBatchPlan: async (input) => {
+    runWorkflow: async (input) => {
       const project = projects.get(input.projectId)
       if (!project) return missing('界面预览中没有找到该项目。')
-      agentPlanSequence += 1
-      const token = `preview-${agentPlanSequence}`
-      const proposalActions = input.datasets.map((dataset, index): JsonRecord => ({
-        operation: 'create_plot',
-        action_id: `action:batch.${token}.${index + 1}`,
-        plot_alias: `plot_${index + 1}`,
-        profile_id: input.profileId,
-        source_alias: `source_${index + 1}`,
-        bindings: Object.keys(dataset.bindings).sort().map((role, fieldIndex) => ({
-          role,
-          field_alias: `field_${fieldIndex + 1}`,
-        })),
-      }))
-      const boundActions = input.datasets.map((dataset, index): JsonRecord => ({
-        operation: 'create_plot',
-        action_id: `action:batch.${token}.${index + 1}`,
-        plot_id: `plot:batch.${token}.${index + 1}`,
-        profile_id: input.profileId,
-        data: {
-          kind: 'source', dataset_id: dataset.datasetId,
-          version: dataset.sourceVersion, content_hash: dataset.contentHash,
-        },
-        bindings: Object.entries(dataset.bindings).sort(([left], [right]) => left.localeCompare(right))
-          .map(([role, field_id]) => ({ role, field_id })),
-      }))
-      const plan: PreviewAgentPlan = {
+      workflowPlanSequence += 1
+      const plan: PreviewWorkflowPlan = {
         projectId: input.projectId,
-        planId: `plan:preview-${agentPlanSequence}`,
-        proposalActions,
-        boundActions,
-        state: 'needs_confirmation',
-        confirmationState: 'pending',
+        planId: `plan:preview-${workflowPlanSequence}`,
+        input,
+        state: 'awaiting_confirmation',
       }
-      agentPlans.set(plan.planId, plan)
-      return ok({ project_version: project.projectVersion, task_plan: agentPlanRecord(plan) })
+      workflowPlans.set(plan.planId, plan)
+      return ok({ outcome: 'draft_ready', task_plan: workflowPlanRecord(plan) })
     },
-    createCombinedPlot: async (input) => {
-      const first = input.datasets[0]
-      if (!first) return missing('同图绘制至少需要两个数据表。')
-      const token = crypto.randomUUID()
-      return api.executePlotAction({
-        projectId: input.projectId,
-        expectedProjectVersion: input.expectedProjectVersion,
+    submitWorkflowDraft: async () => missing('界面预览不直接提交外部任务草稿。'),
+    getTaskPlan: async ({ planId }) => {
+      const plan = workflowPlans.get(planId)
+      return plan === undefined ? missing('未找到任务计划。') : ok(workflowPlanRecord(plan))
+    },
+    listTaskPlans: async ({ projectId }) => ok({
+      task_plans: [...workflowPlans.values()]
+        .filter((plan) => plan.projectId === projectId)
+        .map(workflowPlanRecord),
+    }),
+    saveWorkflowRecipe: async ({ displayName }) => ok({
+      recipe_id: 'recipe:preview', recipe_version: 1, display_name: displayName,
+    }),
+    confirmTaskPlan: async ({ planId, accept }) => {
+      const plan = workflowPlans.get(planId)
+      if (plan === undefined) return missing('未找到任务计划。')
+      if (!accept) {
+        plan.state = 'rejected'
+        return ok(workflowPlanRecord(plan))
+      }
+      plan.state = 'ready'
+      return ok(workflowPlanRecord(plan))
+    },
+    runTaskPlan: async ({ projectId, planId }) => {
+      const plan = workflowPlans.get(planId)
+      const project = projects.get(projectId)
+      if (plan === undefined || project === undefined) return missing('未找到任务计划。')
+      const source = plan.input.selectedSources[0]
+      if (source === undefined) return missing('预览计划缺少数据来源。')
+      const created = await api.executePlotAction({
+        projectId,
+        expectedProjectVersion: project.projectVersion,
         action: {
-          operation: 'create_plot',
-          action_id: `action:combined.${token}`,
-          plot_id: `plot:combined.${token}`,
-          profile_id: input.profileId,
-          data: { kind: 'source', dataset_id: first.datasetId, version: first.sourceVersion, content_hash: first.contentHash },
+          operation: 'create_plot', action_id: `action:preview.${crypto.randomUUID()}`,
+          plot_id: `plot:preview-agent-${plotSequence + 1}`,
+          profile_id: plan.input.selectedProfileIds?.[0] ?? 'K01',
+          data: { kind: 'source', dataset_id: source.datasetId, version: source.sourceVersion, content_hash: 'a'.repeat(64) },
           bindings: [
-            ...Object.entries(first.bindings).filter(([role]) => role !== 'group').map(([role, field_id]) => ({ role, field_id })),
-            { role: 'group', field_id: 'field:preview_source_dataset' },
+            { role: 'x', field_id: `${source.datasetId}:time` },
+            { role: 'y', field_id: `${source.datasetId}:signal` },
           ],
         },
       })
-    },
-    decideAgent: async (input) => {
-      const project = projects.get(input.projectId)
-      if (!project) return missing('界面预览中没有找到该项目。')
-      agentPlanSequence += 1
-      const plan: PreviewAgentPlan = {
-        projectId: input.projectId,
-        planId: `plan:preview-${agentPlanSequence}`,
-        input,
-        state: 'needs_confirmation',
-        confirmationState: 'pending',
-      }
-      agentPlans.set(plan.planId, plan)
-      const taskPlan = agentPlanRecord(plan)
-      return ok({ accepted: true, conversation_id: 'conversation:main', decision: taskPlan.proposal, task_plan: taskPlan })
-    },
-    getAgentPlan: async ({ planId }) => {
-      const plan = agentPlans.get(planId)
-      return plan === undefined ? missing('未找到 Agent 计划。') : ok(agentPlanRecord(plan))
-    },
-    listAgentPlans: async ({ projectId }) => ok({
-      plans: [...agentPlans.values()]
-        .filter((plan) => plan.projectId === projectId)
-        .map(agentPlanRecord),
-    }),
-    confirmAgentPlan: async ({ planId, accept }) => {
-      const plan = agentPlans.get(planId)
-      if (plan === undefined) return missing('未找到 Agent 计划。')
-      if (!accept) {
-        agentPlans.delete(planId)
-        return ok({ plan_id: planId, state: 'cancelled' })
-      }
-      plan.state = 'ready'
-      plan.confirmationState = 'confirmed'
-      return ok(agentPlanRecord(plan))
-    },
-    runAgentPlan: async ({ projectId, planId }) => {
-      const plan = agentPlans.get(planId)
-      const project = projects.get(projectId)
-      if (plan === undefined || project === undefined) return missing('未找到 Agent 计划。')
-      if (plan.boundActions !== undefined) {
-        for (const action of plan.boundActions) {
-          const result = await api.executePlotAction({
-            projectId,
-            expectedProjectVersion: project.projectVersion,
-            action,
-          })
-          if (!result.ok) return result
-          if (isJsonRecord(result.value)
-            && typeof result.value.plot_id === 'string'
-            && typeof result.value.plot_version === 'number') {
-            plan.outputPlot = {
-              plotId: result.value.plot_id,
-              plotVersion: result.value.plot_version,
-            }
-          }
-        }
-        plan.state = 'succeeded'
-        return ok({
-          task_plan: agentPlanRecord(plan),
-          completed_item_count: plan.boundActions.length,
-          total_item_count: plan.boundActions.length,
-          resumable: false,
-        })
-      }
-      if (plan.input === undefined) return missing('预览计划缺少输入。')
-      let output: JsonRecord
-      if (plan.input.target?.kind === 'plot') {
-        const current = plots.get(plotKey(projectId, plan.input.target.id))
-        if (current === undefined) return missing('未找到待修改图形。')
-        project.projectVersion += 1
-        output = {
-          ...current,
-          project_version: project.projectVersion,
-          plot_version: (typeof current.plot_version === 'number' ? current.plot_version : 1) + 1,
-        }
-        plots.set(plotKey(projectId, plan.input.target.id), output)
-      } else {
-        const created = await api.executePlotAction({
-          projectId,
-          expectedProjectVersion: project.projectVersion,
-          action: {
-            operation: 'create_plot',
-            action_id: `action:preview.${crypto.randomUUID()}`,
-            plot_id: `plot:preview-agent-${plotSequence + 1}`,
-            profile_id: plan.input.selectedChartId ?? 'K01',
-            data: {
-              kind: 'source', dataset_id: plan.input.sourceDatasetId,
-              version: plan.input.sourceVersion, content_hash: 'a'.repeat(64),
-            },
-            bindings: [
-              { role: 'x', field_id: `${plan.input.sourceDatasetId}:time` },
-              { role: 'y', field_id: `${plan.input.sourceDatasetId}:signal` },
-            ],
-          },
-        })
-        if (!created.ok || typeof created.value !== 'object' || created.value === null || Array.isArray(created.value)) return created
-        output = created.value
-      }
+      if (!created.ok || !isJsonRecord(created.value)) return created
+      const output = created.value
       plan.outputPlot = {
         plotId: typeof output.plot_id === 'string' ? output.plot_id : 'plot:preview',
         plotVersion: typeof output.plot_version === 'number' ? output.plot_version : 1,
       }
       plan.state = 'succeeded'
-      return ok({
-        task_plan: agentPlanRecord(plan),
-        change_set: {
-          plan_id: planId,
-          state: 'succeeded',
-          items: agentPlanRecord(plan).items,
-        },
-        completed_item_count: 1,
-        total_item_count: 1,
-        resumable: false,
-      })
+      return ok(workflowPlanRecord(plan))
     },
-    resumeAgentPlan: async (input) => api.runAgentPlan(input),
+    resumeTaskPlan: async (input) => api.runTaskPlan(input),
     exportPngSvg: async ({ format }) => ok({ export_id: `export:preview-${format}`, preview_only: true }),
     exportOrigin: async () => ok({ export_id: 'export:preview-opju', preview_only: true }),
     respondToCloseRequest: actionOk,
     onCoreStatus: () => () => undefined,
     onTaskEvent: () => () => undefined,
-    onAgentRuntimeEvent: () => () => undefined,
+    onWorkflowRuntimeEvent: () => () => undefined,
     onOpenResourceRequested: () => () => undefined,
     onCloseRequested: () => () => undefined,
   }

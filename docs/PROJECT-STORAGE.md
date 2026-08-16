@@ -19,7 +19,7 @@
 - `engine_plot_document_versions`：线性 PlotDocument 版本；
 - `engine_plot_action_journal`：每个版本对应的公共动作、前后引用与时间。
 
-任务计划另存提案、已绑定动作、确认状态、下一执行位置和失败信息。旧绘图 compiler 表不属于 schema v3；v2 升级移除旧绘图状态，但保留 SourceDataset、CAS、对话、ProjectContext 和任务历史。
+schema v4 以 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan/TaskItem、事件与 WorkflowRecipe 分表保存提案、确认、执行位置和失败信息。旧项目 schema 不在原文件上迁移；当前 build 只打开完整的 v4 项目，避免双写和兼容分支污染权威状态。
 
 ## 4. 导入
 

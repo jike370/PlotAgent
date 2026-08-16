@@ -20,6 +20,6 @@
 
 - 当前正式产品是 34 张单图；不支持组合图，K25 已删除。
 - Pi 是可替换的通用 Agent runtime；PlotAgent Core 是领域权威。
-- `AGENT-ORCHESTRATION-ARCHITECTURE.md` 是下一阶段编排施工基线；当前运行事实仍以 Pi、数据准备和任务运行时文档为准，直到对应里程碑落地并通过验收。
+- `AGENT-ORCHESTRATION-ARCHITECTURE.md`、`PI-AGENT-RUNTIME.md` 和 `TASK-RUNTIME.md` 共同描述当前单一 WorkflowRun/TaskDraft/TaskPlan 编排链。
 - 历史 SEQ 报告、旧视觉页和 35/38/43/45 图资料只作追溯，不能覆盖当前权威文档。
 - `chart-library-research.md` 是长期研究 taxonomy，不是当前目录。

@@ -46,7 +46,7 @@ function sendToRenderer(channel: string, value: unknown): void {
 
 const piAgentRuntime = new PiAgentRuntime({
   core: supervisor,
-  emit: (event) => sendToRenderer(IPC_CHANNELS.agentRuntimeEvent, event),
+  emit: (event) => sendToRenderer(IPC_CHANNELS.workflowRuntimeEvent, event),
 })
 
 const closeController = new AppCloseController({

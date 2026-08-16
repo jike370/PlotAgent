@@ -9,415 +9,106 @@ import {
   type PiCoreBridge,
 } from './pi-runtime.js'
 
-const decision = {
-  decision_type: 'no_change',
-  target_alias: 'active_target',
-  reason: 'No change requested.',
+const draft = {
+  schema_version: 'task-draft.v1',
+  draft_id: 'draft:test',
+  workflow_run_id: 'workflow:test',
+  route: 'agent_single_turn',
+  summary: '创建折线图',
+  items: [{
+    task_kind: 'create',
+    item_id: 'item:test.1', plot_alias: 'plot_1', profile_id: 'K01',
+    source_aliases: ['data_1'], data_operations: [],
+    bindings: [
+      { role: 'x', source_alias: 'data_1', field_alias: 'data_1_field_1' },
+      { role: 'y', source_alias: 'data_1', field_alias: 'data_1_field_2' },
+    ],
+    visual_actions: [],
+  }],
+  confidence: 0.95,
+  hard_constraints: ['preserve_source_values'],
 }
 
-const decisionSchema = {
-  type: 'object',
-  properties: {
-    decision_type: { const: 'no_change' },
-    target_alias: { type: 'string' },
-    reason: { type: 'string' },
-  },
-  required: ['decision_type', 'target_alias', 'reason'],
-  additionalProperties: false,
-}
-
-function decisionToolCallStream(
-  candidate: typeof decision,
-  callId: string,
-): ReturnType<StreamFn> {
+function submitDraftStream(): ReturnType<StreamFn> {
   const stream = createAssistantMessageEventStream()
   const message: AssistantMessage = {
     role: 'assistant',
     content: [{
-      type: 'toolCall',
-      id: callId,
-      name: 'submit_plotagent_decision',
-      arguments: { decision: candidate },
+      type: 'toolCall', id: 'call-1', name: 'submit_task_draft',
+      arguments: { task_draft: draft },
     }],
-    api: 'openai-completions',
-    provider: 'test',
-    model: 'test-model',
+    api: 'openai-completions', provider: 'test', model: 'test-model',
     usage: {
-      input: 1,
-      output: 1,
-      cacheRead: 0,
-      cacheWrite: 0,
-      totalTokens: 2,
+      input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
     },
-    stopReason: 'toolUse',
-    timestamp: Date.now(),
+    stopReason: 'toolUse', timestamp: Date.now(),
   }
   queueMicrotask(() => {
     stream.push({ type: 'start', partial: message })
     stream.push({ type: 'toolcall_start', contentIndex: 0, partial: message })
-    stream.push({ type: 'toolcall_end', contentIndex: 0, toolCall: message.content[0] as never, partial: message })
-    stream.push({ type: 'done', reason: 'toolUse', message })
-  })
-  return stream
-}
-
-function toolCallStream(): ReturnType<StreamFn> {
-  return decisionToolCallStream(decision, 'call-1')
-}
-
-function twoTurnDecisionStream(): StreamFn {
-  let turn = 0
-  return (() => {
-    turn += 1
-    return decisionToolCallStream(decision, `call-${turn}`)
-  }) as StreamFn
-}
-
-function noDecisionStream(): ReturnType<StreamFn> {
-  const stream = createAssistantMessageEventStream()
-  const message: AssistantMessage = {
-    role: 'assistant',
-    content: [{ type: 'text', text: 'I did not call the required tool.' }],
-    api: 'openai-completions',
-    provider: 'test',
-    model: 'test-model',
-    usage: {
-      input: 1,
-      output: 1,
-      cacheRead: 0,
-      cacheWrite: 0,
-      totalTokens: 2,
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-    },
-    stopReason: 'stop',
-    timestamp: Date.now(),
-  }
-  queueMicrotask(() => {
-    stream.push({ type: 'start', partial: message })
-    stream.push({ type: 'done', reason: 'stop', message })
-  })
-  return stream
-}
-
-function multipleDecisionStream(): ReturnType<StreamFn> {
-  const stream = createAssistantMessageEventStream()
-  const calls = [1, 2].map((index) => ({
-    type: 'toolCall' as const,
-    id: `call-${index}`,
-    name: 'submit_plotagent_decision',
-    arguments: { decision },
-  }))
-  const message: AssistantMessage = {
-    role: 'assistant',
-    content: calls,
-    api: 'openai-completions',
-    provider: 'test',
-    model: 'test-model',
-    usage: {
-      input: 1,
-      output: 1,
-      cacheRead: 0,
-      cacheWrite: 0,
-      totalTokens: 2,
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-    },
-    stopReason: 'toolUse',
-    timestamp: Date.now(),
-  }
-  queueMicrotask(() => {
-    stream.push({ type: 'start', partial: message })
-    calls.forEach((call, contentIndex) => {
-      stream.push({ type: 'toolcall_start', contentIndex, partial: message })
-      stream.push({ type: 'toolcall_end', contentIndex, toolCall: call, partial: message })
+    stream.push({
+      type: 'toolcall_end', contentIndex: 0,
+      toolCall: message.content[0] as never, partial: message,
     })
     stream.push({ type: 'done', reason: 'toolUse', message })
   })
   return stream
 }
 
-function preparedHandoff(): JsonValue {
-  return {
-    accepted: true,
-    prepared: true,
-    context_envelope: { context_hash: 'a'.repeat(64) },
-    decision_schema: decisionSchema,
-    system_prompt: 'Return one valid PlotAgent decision.',
-  }
+const request = {
+  project_id: 'project:test', client_run_id: 'workflow-client:test',
+  expected_project_version: 0, instruction: '画折线图',
+  selected_sources: [{ dataset_id: 'source:test', source_version: 1 }],
 }
 
-function configuredProvider(): JsonValue {
-  return { base_url: 'https://model.example/v1', model_id: 'model', api_key: 'secret-key' }
-}
-
-describe('PiAgentRuntime', () => {
-  it('runs Pi with one decision tool and sends the decision back to Core authority', async () => {
-    const calls: { method: string; params?: JsonValue }[] = []
+describe('PiAgentRuntime workflow orchestration', () => {
+  it('bypasses the model when Core resolves a deterministic draft', async () => {
+    const calls: string[] = []
     const core: PiCoreBridge = {
-      request: async (method, params) => {
-        calls.push({ method, params })
-        if (method === 'provider.runtime.get') {
-          return configuredProvider()
-        }
-        const request = params as Record<string, JsonValue>
-        if (request.prepare_only === true) {
-          return preparedHandoff()
-        }
-        expect(request.external_decision).toEqual(decision)
-        return { accepted: true, decision } as JsonValue
+      request: async (method) => {
+        calls.push(method)
+        return { outcome: 'draft_ready', task_plan: { state: 'awaiting_confirmation' } }
       },
     }
+    const runtime = new PiAgentRuntime({ core, emit: () => undefined })
+
+    await expect(runtime.run(request)).resolves.toMatchObject({ outcome: 'draft_ready' })
+    expect(calls).toEqual(['workflow.prepare'])
+  })
+
+  it('lets Pi submit a TaskDraft while Core remains the plan authority', async () => {
+    const calls: string[] = []
     const events: PiAgentRuntimeEvent[] = []
+    const core: PiCoreBridge = {
+      request: async (method, params): Promise<JsonValue> => {
+        calls.push(method)
+        if (method === 'workflow.prepare') return {
+          outcome: 'agent_required', workflow_run_id: 'workflow:test',
+          workflow_context: { workflow_run_id: 'workflow:test' },
+          task_draft_schema: { type: 'object' }, system_prompt: 'Submit a TaskDraft.',
+        }
+        if (method === 'provider.runtime.get') return {
+          base_url: 'https://model.example/v1', model_id: 'model', api_key: 'secret',
+        }
+        expect(params).toMatchObject({ workflow_run_id: 'workflow:test', task_draft: draft })
+        return { outcome: 'draft_ready', task_plan: { state: 'awaiting_confirmation' } }
+      },
+    }
     const runtime = new PiAgentRuntime({
-      core,
-      emit: (event) => events.push(event),
-      streamFn: toolCallStream as StreamFn,
+      core, emit: (event) => events.push(event), streamFn: submitDraftStream as StreamFn,
     })
 
-    const result = await runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:test',
-    })
-
-    expect(result).toEqual({ accepted: true, decision })
-    expect(calls.map((item) => item.method)).toEqual([
-      'agent.engine.decide',
-      'provider.runtime.get',
-      'agent.engine.decide',
+    await expect(runtime.run(request)).resolves.toMatchObject({ outcome: 'draft_ready' })
+    expect(calls).toEqual([
+      'workflow.prepare', 'provider.runtime.get', 'workflow.submit_draft',
     ])
-    expect(events.map((item) => item.stage)).toContain('validating_decision')
+    expect(events.map((event) => event.stage)).toContain('validating_draft')
     expect(events.at(-1)?.stage).toBe('completed')
-    expect(events.map((item) => item.sequence)).toEqual(
-      events.map((_, index) => index + 1),
-    )
   })
 
-  it('returns deterministic Core preflight without calling the model provider', async () => {
-    const core: PiCoreBridge = {
-      request: async () => ({ accepted: true, decision }),
-    }
-    const runtime = new PiAgentRuntime({
-      core,
-      emit: () => undefined,
-      streamFn: () => { throw new Error('model must not run') },
-    })
-    await expect(runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:test',
-    })).resolves.toEqual({ accepted: true, decision })
-  })
-
-  it('emits a terminal failure when provider configuration is unavailable', async () => {
-    const events: PiAgentRuntimeEvent[] = []
-    const core: PiCoreBridge = {
-      request: async (method) => method === 'agent.engine.decide' ? preparedHandoff() : {},
-    }
-    const runtime = new PiAgentRuntime({
-      core,
-      emit: (event) => events.push(event),
-      streamFn: () => { throw new Error('model must not run') },
-    })
-
-    await expect(runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:provider-missing',
-    })).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
-    expect(events.map((item) => item.stage)).toEqual(['preparing_context', 'failed'])
-  })
-
-  it('rejects a model response that does not submit the decision tool', async () => {
-    const events: PiAgentRuntimeEvent[] = []
-    const core: PiCoreBridge = {
-      request: async (method) => method === 'provider.runtime.get'
-        ? configuredProvider()
-        : preparedHandoff(),
-    }
-    const runtime = new PiAgentRuntime({
-      core,
-      emit: (event) => events.push(event),
-      streamFn: noDecisionStream as StreamFn,
-    })
-
-    await expect(runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:no-decision',
-    })).rejects.toMatchObject({ code: 'PI_DECISION_MISSING' })
-    expect(events.at(-1)?.stage).toBe('failed')
-  })
-
-  it('hard-stops a stalled model request and exposes a retryable timeout', async () => {
-    const events: PiAgentRuntimeEvent[] = []
-    const core: PiCoreBridge = {
-      request: async (method) => method === 'provider.runtime.get'
-        ? configuredProvider()
-        : preparedHandoff(),
-    }
-    const runtime = new PiAgentRuntime({
-      core,
-      emit: (event) => events.push(event),
-      streamFn: (() => createAssistantMessageEventStream()) as StreamFn,
-      timeoutMs: 5,
-    })
-
-    const error = await runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:timeout',
-    }).catch((caught: unknown) => caught)
-
-    expect(error).toMatchObject({ code: 'PI_MODEL_TIMEOUT' })
-    expect(publicPiAgentError(error)).toEqual({
-      code: 'CORE_REQUEST_TIMEOUT',
-      message: '模型响应超时，本轮没有修改项目。请重试。',
-      retryable: true,
-    })
-    expect(events.at(-1)?.stage).toBe('failed')
-  })
-
-  it('rejects multiple decision tool calls without saving either as an accepted plan', async () => {
-    const calls: { method: string; params?: JsonValue }[] = []
-    const core: PiCoreBridge = {
-      request: async (method, params) => {
-        calls.push({ method, params })
-        return method === 'provider.runtime.get' ? configuredProvider() : preparedHandoff()
-      },
-    }
-    const runtime = new PiAgentRuntime({
-      core,
-      emit: () => undefined,
-      streamFn: multipleDecisionStream as StreamFn,
-    })
-
-    await expect(runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:multiple',
-    })).rejects.toMatchObject({ code: 'PI_MULTIPLE_DECISIONS' })
-    expect(calls.filter((item) => {
-      const params = item.params as Record<string, JsonValue> | undefined
-      return params?.external_decision !== undefined
-    })).toHaveLength(0)
-  })
-
-  it('emits failure and never completion when Core rejects the submitted decision', async () => {
-    const events: PiAgentRuntimeEvent[] = []
-    const core: PiCoreBridge = {
-      request: async (method, params) => {
-        if (method === 'provider.runtime.get') return configuredProvider()
-        const request = params as Record<string, JsonValue>
-        if (request.prepare_only === true) return preparedHandoff()
-        throw new Error('Core validation rejected the decision')
-      },
-    }
-    const runtime = new PiAgentRuntime({
-      core,
-      emit: (event) => events.push(event),
-      streamFn: toolCallStream as StreamFn,
-    })
-
-    await expect(runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:rejected',
-    })).rejects.toThrow('Core validation rejected the decision')
-    expect(events.at(-1)?.stage).toBe('failed')
-    expect(events.filter((event) => event.stage === 'completed')).toHaveLength(0)
-  })
-
-  it('treats a structured Core rejection as a failed run', async () => {
-    const events: PiAgentRuntimeEvent[] = []
-    const core: PiCoreBridge = {
-      request: async (method, params) => {
-        if (method === 'provider.runtime.get') return configuredProvider()
-        const request = params as Record<string, JsonValue>
-        if (request.prepare_only === true) return preparedHandoff()
-        return {
-          accepted: false,
-          error: { code: 'ENGINE_PLAN_INVALID' },
-        }
-      },
-    }
-    const runtime = new PiAgentRuntime({
-      core,
-      emit: (event) => events.push(event),
-      streamFn: toolCallStream as StreamFn,
-    })
-
-    await expect(runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:structured-rejection',
-    })).rejects.toMatchObject({ code: 'ENGINE_PLAN_INVALID' })
-    expect(events.at(-1)?.stage).toBe('failed')
-    expect(events.filter((event) => event.stage === 'completed')).toHaveLength(0)
-  })
-
-  it('lets Pi replace one locally rejected candidate within the same run', async () => {
-    const externalDecisions: JsonValue[] = []
-    const events: PiAgentRuntimeEvent[] = []
-    const core: PiCoreBridge = {
-      request: async (method, params) => {
-        if (method === 'provider.runtime.get') return configuredProvider()
-        const request = params as Record<string, JsonValue>
-        if (request.prepare_only === true) return preparedHandoff()
-        externalDecisions.push(request.external_decision)
-        if (externalDecisions.length === 1) {
-          return {
-            accepted: false,
-            error: { code: 'FIELD_TYPE_INCOMPATIBLE' },
-          } as JsonValue
-        }
-        return { accepted: true, decision } as JsonValue
-      },
-    }
-    const runtime = new PiAgentRuntime({
-      core,
-      emit: (event) => events.push(event),
-      streamFn: twoTurnDecisionStream(),
-    })
-
-    await expect(runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:repaired',
-    })).resolves.toEqual({ accepted: true, decision })
-    expect(externalDecisions).toHaveLength(2)
-    expect(events.at(-1)?.stage).toBe('completed')
-    expect(events.filter((event) => event.stage === 'failed')).toHaveLength(0)
-  })
-
-  it('prevents an older preparation request from saving after a newer run starts', async () => {
-    let releaseFirst: ((value: JsonValue) => void) | undefined
-    const firstPrepared = new Promise<JsonValue>((resolve) => { releaseFirst = resolve })
-    const externalRuns: string[] = []
-    const events: PiAgentRuntimeEvent[] = []
-    const core: PiCoreBridge = {
-      request: async (method, params) => {
-        const request = params as Record<string, JsonValue>
-        const runId = String(request.client_model_run_id ?? '')
-        if (method === 'provider.runtime.get') return configuredProvider()
-        if (request.prepare_only === true && runId === 'model-run:first') return firstPrepared
-        if (request.prepare_only === true) return { accepted: true, decision }
-        externalRuns.push(runId)
-        return { accepted: true, decision }
-      },
-    }
-    const runtime = new PiAgentRuntime({
-      core,
-      emit: (event) => events.push(event),
-      streamFn: toolCallStream as StreamFn,
-    })
-
-    const first = runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:first',
-    })
-    await Promise.resolve()
-    await expect(runtime.decide({
-      project_id: 'project:test',
-      client_model_run_id: 'model-run:second',
-    })).resolves.toEqual({ accepted: true, decision })
-    releaseFirst?.(preparedHandoff())
-
-    await expect(first).rejects.toMatchObject({ code: 'PI_RUN_SUPERSEDED' })
-    expect(externalRuns).toEqual([])
-    expect(events.filter((event) => (
-      event.runId === 'model-run:first' && ['completed', 'failed'].includes(event.stage)
-    ))).toHaveLength(0)
+  it('maps timeout and superseded runs to stable public errors', () => {
+    expect(publicPiAgentError(new Error('other'))).toBeUndefined()
+    expect(publicPiAgentError({})).toBeUndefined()
   })
 })

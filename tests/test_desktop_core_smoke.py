@@ -13,9 +13,7 @@ def test_packaging_entry_uses_the_real_desktop_core_runtime() -> None:
         "projects",
         "datasets",
         "plots",
-        "batch",
-        "figures",
-        "agent",
+        "workflow",
         "exports",
         "task-control",
     ]

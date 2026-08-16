@@ -104,101 +104,106 @@ function enginePlotFixture(
   }
 }
 
-function agentPlanFixture(
-  state = 'needs_confirmation',
+function workflowPlanFixture(
+  state = 'awaiting_confirmation',
   stepState = state === 'succeeded' ? 'succeeded' : 'pending',
   options: { planId?: string; plotVersion?: number; failure?: JsonValue } = {},
 ): JsonValue {
   const planId = options.planId ?? 'plan:one'
   const plotVersion = options.plotVersion
-  const action = {
-    operation: 'set_title',
-    action_id: 'action:one',
-    target_alias: 'active_target',
-    patches: [{ operation: 'set_plot_title', target_alias: 'active_target', title: '更新后的标题' }],
-  }
+  const planState = state === 'needs_confirmation' ? 'awaiting_confirmation'
+    : state === 'partially_failed' ? 'partially_succeeded' : state
+  const progressState = stepState === 'ready' ? 'pending'
+    : stepState === 'stale' ? 'failed' : stepState
   return {
-    plan_id: planId,
-    state,
-    confirmation_state: state === 'needs_confirmation' ? 'pending' : 'confirmed',
-    next_action_index: state === 'succeeded' ? 1 : 0,
-    current_project_revision: 2,
-    error_code: options.failure === undefined ? null : 'SYNTHETIC_FAILURE',
-    proposal: {
-      schema_version: 'engine-agent.v1',
-      decision_type: 'action_plan',
+    plan: {
+      schema_version: 'task-plan.v1',
       plan_id: planId,
-      target_alias: 'active_target',
-      actions: [action],
-    },
-    bound_plan: {
-      plan_id: planId,
+      workflow_run_id: 'workflow:test',
+      draft_hash: 'd'.repeat(64),
       expected_project_revision: 2,
-      actions: [{
-        operation: 'set_title',
-        action_id: 'action:one',
-        target: 'plot:one',
-        expected_plot_version: plotVersion === undefined ? 1 : plotVersion - 1,
-        text: 'Updated title',
+      items: [{
+        task_kind: 'edit',
+        item_id: 'item:one',
+        plot_alias: 'plot',
+        plot_id: 'plot:one',
+        profile_id: 'K01',
+        target_plot_id: 'plot:one',
+        target_plot_version: plotVersion === undefined ? 1 : Math.max(1, plotVersion - 1),
+        sources: [],
+        resolved_fields: [],
+        data_operations: [],
+        bindings: [],
+        visual_actions: [{ operation: 'set_title', target_alias: 'plot', text: '更新后的标题' }],
+        depends_on: [],
+        idempotency_key: 'workflow:test:item:one',
       }],
     },
-    items: [{
-      task_item_id: 'taskitem:one',
-      action,
-      state: stepState,
-      attempt_count: stepState === 'pending' ? 0 : 1,
-      outputs: plotVersion === undefined ? [] : [{ object_ref: { object_type: 'plot', object_id: 'plot:one', object_version: plotVersion } }],
-      ...(options.failure === undefined ? {} : { failure: options.failure }),
+    state: planState,
+    current_project_revision: 2,
+    item_progress: [{
+      item_id: 'item:one',
+      state: progressState,
+      attempt_count: progressState === 'pending' ? 0 : 1,
+      ...(options.failure === undefined ? {} : { error_code: 'SYNTHETIC_FAILURE' }),
+      ...(plotVersion === undefined ? {} : { output_plot_id: 'plot:one', output_plot_version: plotVersion }),
     }],
+    created_at: '2026-08-16T00:00:00Z',
+    updated_at: '2026-08-16T00:00:00Z',
   }
 }
 
-function agentDecisionWithPlan(plan: JsonValue): JsonValue {
+function workflowResultWithPlan(plan: JsonValue): JsonValue {
   return {
-    accepted: true,
-    decision: { decision_type: 'action_plan', plan_id: 'plan:one', actions: [] },
+    outcome: 'draft_ready',
     task_plan: plan,
   }
 }
 
-function batchPlanFixture(state = 'needs_confirmation'): JsonValue {
-  const proposalAction = {
-    operation: 'create_plot',
-    action_id: 'action:batch',
-    plot_alias: 'plot_1',
-    profile_id: 'K01',
-    source_alias: 'source_1',
-    bindings: [
-      { role: 'x', field_alias: 'field_1' },
-      { role: 'y', field_alias: 'field_2' },
-    ],
-  }
+function batchPlanFixture(state = 'awaiting_confirmation'): JsonValue {
+  const planState = state === 'needs_confirmation' ? 'awaiting_confirmation' : state
   return {
-    plan_id: 'plan:batch',
-    state,
-    confirmation_state: state === 'needs_confirmation' ? 'pending' : 'confirmed',
-    next_action_index: state === 'succeeded' ? 1 : 0,
-    current_project_revision: state === 'succeeded' ? 3 : 2,
-    error_code: null,
-    proposal: {
-      schema_version: 'engine-agent.v1',
-      decision_type: 'action_plan',
+    plan: {
+      schema_version: 'task-plan.v1',
       plan_id: 'plan:batch',
-      target_alias: 'source_1',
-      actions: [proposalAction],
-    },
-    bound_plan: {
-      plan_id: 'plan:batch',
+      workflow_run_id: 'workflow:batch',
+      draft_hash: 'e'.repeat(64),
       expected_project_revision: 2,
-      actions: [{
-        operation: 'create_plot',
-        action_id: 'action:batch',
+      items: [{
+        task_kind: 'create',
+        item_id: 'item:batch',
+        plot_alias: 'plot_1',
         plot_id: 'plot:batch.one',
         profile_id: 'K01',
-        data: { kind: 'source', dataset_id: 'source:temperature', version: 1, content_hash: 'a'.repeat(64) },
-        bindings: [{ role: 'x', field_id: 'field:time' }, { role: 'y', field_id: 'field:signal' }],
+        sources: [{
+          source_alias: 'source_1',
+          source_dataset_id: 'source:temperature',
+          source_version: 1,
+          content_hash: 'a'.repeat(64),
+          display_name: 'temperature',
+          row_count: 12,
+        }],
+        resolved_fields: [],
+        data_operations: [],
+        bindings: [
+          { role: 'x', source_alias: 'source_1', field_id: 'field:time' },
+          { role: 'y', source_alias: 'source_1', field_id: 'field:signal' },
+        ],
+        visual_actions: [],
+        depends_on: [],
+        idempotency_key: 'workflow:batch:item:batch',
       }],
     },
+    state: planState,
+    current_project_revision: state === 'succeeded' ? 3 : 2,
+    item_progress: [{
+      item_id: 'item:batch',
+      state: state === 'succeeded' ? 'succeeded' : 'pending',
+      attempt_count: state === 'succeeded' ? 1 : 0,
+      ...(state === 'succeeded' ? { output_plot_id: 'plot:batch.one', output_plot_version: 1 } : {}),
+    }],
+    created_at: '2026-08-16T00:00:00Z',
+    updated_at: '2026-08-16T00:00:00Z',
   }
 }
 
@@ -249,22 +254,20 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     }),
     getPlot: vi.fn(async (input) => ok(enginePlotFixture(input.plotId, input.plotVersion))),
     listPlots: vi.fn(async () => ok({ project_version: 1, plots: [] })),
-    createPlotBatchPlan: vi.fn(async () => ok({ task_plan: batchPlanFixture() })),
-    createCombinedPlot: vi.fn(async (input) => ok(enginePlotFixture(
-      'plot:combined.one', 1, input.profileId, input.expectedProjectVersion + 1,
-    ))),
-    decideAgent: vi.fn(async () => ok(agentDecisionWithPlan(agentPlanFixture()))),
-    getAgentPlan: vi.fn(async () => ok({})),
-    listAgentPlans: vi.fn(async () => ok({ plans: [] })),
-    confirmAgentPlan: vi.fn(async () => ok(agentPlanFixture('ready', 'ready'))),
-    runAgentPlan: vi.fn(async () => ok({ task_plan: agentPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
-    resumeAgentPlan: vi.fn(async () => ok({ task_plan: agentPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
+    runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(workflowPlanFixture()))),
+    submitWorkflowDraft: vi.fn(async () => ok(workflowResultWithPlan(workflowPlanFixture()))),
+    getTaskPlan: vi.fn(async () => ok({})),
+    listTaskPlans: vi.fn(async () => ok({ task_plans: [] })),
+    confirmTaskPlan: vi.fn(async () => ok(workflowPlanFixture('ready', 'ready'))),
+    runTaskPlan: vi.fn(async () => ok({ task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
+    resumeTaskPlan: vi.fn(async () => ok({ task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
+    saveWorkflowRecipe: vi.fn(async ({ displayName }) => ok({ recipe_id: 'recipe:test', recipe_version: 1, display_name: displayName })),
     exportPngSvg: vi.fn(async () => ok({ export_id: 'export:one', artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: 'plot.png' } } })),
     exportOrigin: vi.fn(async () => ok({ export_id: 'export:origin', result: { status: 'succeeded' } })),
     respondToCloseRequest: vi.fn(actionOk),
     onCoreStatus: vi.fn((listener) => { coreListener = listener; return () => { coreListener = undefined } }),
     onTaskEvent: vi.fn((listener) => { taskListener = listener; return () => { taskListener = undefined } }),
-    onAgentRuntimeEvent: vi.fn(() => () => undefined),
+    onWorkflowRuntimeEvent: vi.fn(() => () => undefined),
     onOpenResourceRequested: vi.fn(() => () => undefined),
     onCloseRequested: vi.fn(() => () => undefined),
     ...overrides,
@@ -418,7 +421,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(await screen.findByText('把标题改成温度响应')).toBeInTheDocument()
     expect(await screen.findByText('请先上传数据')).toBeInTheDocument()
     expect(screen.getByText('收到你的要求了。上传数据后，我会继续声明字段绑定。')).toBeInTheDocument()
-    expect(api.decideAgent).not.toHaveBeenCalled()
+    expect(api.runWorkflow).not.toHaveBeenCalled()
   })
 
   it('lets the user choose a chart before uploading data', async () => {
@@ -924,6 +927,37 @@ describe('PlotAgent real desktop workflow', () => {
     expect(document.body.textContent).not.toMatch(/[A-Za-z]:\\/)
   })
 
+  it('offers explicit workflow recipe saving only for an exported successful plan output', async () => {
+    const user = userEvent.setup()
+    const saveWorkflowRecipe = vi.fn(async () => ok({
+      recipe_id: 'recipe:test', recipe_version: 1, display_name: '折线图流程',
+    }))
+    const api = fakeDesktop({
+      executePlotAction: vi.fn(async () => ok(enginePlotFixture('plot:one', 1))),
+      listTaskPlans: vi.fn(async () => ok({
+        task_plans: [workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 1 })],
+      })),
+      exportPngSvg: vi.fn(async () => ok({
+        export_id: 'export:recipe', plot_id: 'plot:one',
+        artifact: { content_hash: 'e'.repeat(64), size: 4096 },
+      })),
+      saveWorkflowRecipe,
+    })
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+    await user.click(await screen.findByRole('button', { name: '导出 PNG' }))
+    await user.click(await screen.findByRole('button', { name: '经常处理同构数据？固化本次流程' }))
+
+    expect(saveWorkflowRecipe).toHaveBeenCalledWith({
+      projectId: 'project:sample',
+      planId: 'plan:one',
+      displayName: '折线图流程',
+      exportHash: 'e'.repeat(64),
+    })
+    expect(await screen.findByText('流程已固化')).toBeInTheDocument()
+  })
+
   it('keeps OPJU progress explicit and announces a durable completion result', async () => {
     const user = userEvent.setup()
     let finishExport: ((result: DesktopDataResult) => void) | undefined
@@ -978,8 +1012,9 @@ describe('PlotAgent real desktop workflow', () => {
   it('creates a persistent batch plan from dataset-specific immutable bindings', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop({
-      confirmAgentPlan: vi.fn(async () => ok(batchPlanFixture('ready'))),
-      runAgentPlan: vi.fn(async () => ok({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture()))),
+      confirmTaskPlan: vi.fn(async () => ok(batchPlanFixture('ready'))),
+      runTaskPlan: vi.fn(async () => ok({
         task_plan: batchPlanFixture('succeeded'),
         change_set: { plan_id: 'plan:batch', state: 'succeeded', items: [] },
       })),
@@ -989,27 +1024,25 @@ describe('PlotAgent real desktop workflow', () => {
     await openSampleAndCreatePlot(user)
 
     await user.click(screen.getByRole('button', { name: /创建批次/ }))
-    expect(api.createPlotBatchPlan).toHaveBeenCalledWith(expect.objectContaining({
-      profileId: 'K01',
-      datasets: [expect.objectContaining({
-        bindings: { x: 'field:time', y: 'field:signal' },
+    expect(api.runWorkflow).toHaveBeenCalledWith(expect.objectContaining({
+      selectedProfileIds: ['K01'],
+      selectedSources: [expect.objectContaining({
+        datasetId: 'source:temperature', sourceVersion: 1,
       })],
     }))
     expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('字段绑定')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('时间')
-    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('图形 K01')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('创建 K01')
     await user.click(screen.getByRole('button', { name: '确认并执行' }))
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
   })
 
-  it('combines explicitly selected isomorphic datasets into one grouped plot', async () => {
+  it('plans one plot from explicitly selected compatible sources', async () => {
     const user = userEvent.setup()
-    const createCombinedPlot = vi.fn(async (input) => ok(enginePlotFixture(
-      'plot:combined.one', 1, input.profileId, input.expectedProjectVersion + 1,
-    )))
+    const planCombinedSources = vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture())))
     installApi(fakeDesktop({
-      createCombinedPlot,
+      runWorkflow: planCombinedSources,
       openSampleProject: vi.fn(async () => ok({
         project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
         opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
@@ -1027,29 +1060,23 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '手动映射' }))
     await user.click(screen.getByRole('button', { name: '2 个数据表同图绘制' }))
 
-    expect(createCombinedPlot).toHaveBeenCalledWith(expect.objectContaining({
-      profileId: 'K03',
-      datasets: [
-        expect.objectContaining({
-          datasetId: 'source:temperature',
-          bindings: { x: 'field:time', y: 'field:signal' },
-        }),
-        expect.objectContaining({
-          datasetId: 'source:pressure',
-          bindings: { x: 'field:pressure.time', y: 'field:pressure.signal' },
-        }),
+    expect(planCombinedSources).toHaveBeenCalledWith(expect.objectContaining({
+      selectedProfileIds: ['K03'],
+      selectedSources: [
+        { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
     }))
-    expect(await screen.findByText('多数据同图绘制完成')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
   })
 
   it('allows retry on a new target and ignores a late decision from the old target', async () => {
     const user = userEvent.setup()
     let finishOldDecision: ((result: DesktopDataResult) => void) | undefined
-    const decideAgent = vi.fn()
+    const prepareWorkflow = vi.fn()
       .mockImplementationOnce(() => new Promise<DesktopDataResult>((resolve) => { finishOldDecision = resolve }))
-      .mockResolvedValueOnce(ok(agentDecisionWithPlan(agentPlanFixture('needs_confirmation', 'pending', { planId: 'plan:new' }))))
-    installApi(fakeDesktop({ decideAgent }))
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(workflowPlanFixture('needs_confirmation', 'pending', { planId: 'plan:new' }))))
+    installApi(fakeDesktop({ runWorkflow: prepareWorkflow }))
     render(<App />)
     await openSampleAndCreatePlot(user)
 
@@ -1067,16 +1094,18 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
     expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
     expect(screen.getByText('新目标请求')).toBeInTheDocument()
-    expect(decideAgent).toHaveBeenLastCalledWith(expect.objectContaining({
-      selectedChartId: 'K02',
-      selectedDatasets: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
-      utterance: '新目标请求',
+    expect(prepareWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
+      selectedProfileIds: ['K02'],
+      selectedSources: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
+      instruction: '新目标请求',
     }))
 
     await act(async () => {
       finishOldDecision?.(ok({
-        accepted: false,
-        decision: { decision_type: 'rejected', reason: '陈旧结果不应显示' },
+        outcome: 'unsupported',
+        workflow_run_id: 'workflow:old',
+        reason_code: 'STALE_REQUEST',
+        message: '陈旧结果不应显示',
       }))
     })
     expect(screen.queryByText('陈旧结果不应显示')).not.toBeInTheDocument()
@@ -1086,8 +1115,8 @@ describe('PlotAgent real desktop workflow', () => {
   it('keeps live Agent feedback and its confirmation card before the existing plot', async () => {
     const user = userEvent.setup()
     let finishDecision: ((result: DesktopDataResult) => void) | undefined
-    const decideAgent = vi.fn(() => new Promise<DesktopDataResult>((resolve) => { finishDecision = resolve }))
-    installApi(fakeDesktop({ decideAgent }))
+    const prepareWorkflow = vi.fn(() => new Promise<DesktopDataResult>((resolve) => { finishDecision = resolve }))
+    installApi(fakeDesktop({ runWorkflow: prepareWorkflow }))
     render(<App />)
     await openSampleAndCreatePlot(user)
 
@@ -1100,7 +1129,7 @@ describe('PlotAgent real desktop workflow', () => {
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING)
 
     await act(async () => {
-      finishDecision?.(ok(agentDecisionWithPlan(agentPlanFixture())))
+      finishDecision?.(ok(workflowResultWithPlan(workflowPlanFixture())))
     })
     const planMessage = (await screen.findByRole('heading', { name: '任务计划' })).closest('.message')
     expect(planMessage?.compareDocumentPosition(plotCard as Node) ?? 0)
@@ -1109,9 +1138,9 @@ describe('PlotAgent real desktop workflow', () => {
 
   it('does not silently accumulate browsed worksheets in the Agent context', async () => {
     const user = userEvent.setup()
-    const decideAgent = vi.fn(async () => ok(agentDecisionWithPlan(agentPlanFixture())))
+    const prepareWorkflow = vi.fn(async () => ok(workflowResultWithPlan(workflowPlanFixture())))
     installApi(fakeDesktop({
-      decideAgent,
+      runWorkflow: prepareWorkflow,
       openSampleProject: vi.fn(async () => ok({
         project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
         opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
@@ -1134,20 +1163,19 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
 
     await screen.findByRole('heading', { name: '任务计划' })
-    expect(decideAgent).toHaveBeenLastCalledWith(expect.objectContaining({
-      sourceDatasetId: 'source:temperature',
-      selectedDatasets: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
+    expect(prepareWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
+      selectedSources: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
     }))
   })
 
   it('lets an explicit multi-dataset request choose different chart types without a preselected chart', async () => {
     const user = userEvent.setup()
-    const decideAgent = vi.fn(async (input: unknown) => {
+    const prepareWorkflow = vi.fn(async (input: unknown) => {
       void input
-      return ok(agentDecisionWithPlan(batchPlanFixture()))
+      return ok(workflowResultWithPlan(batchPlanFixture()))
     })
     installApi(fakeDesktop({
-      decideAgent,
+      runWorkflow: prepareWorkflow,
       openSampleProject: vi.fn(async () => ok({
         project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
         opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
@@ -1166,15 +1194,14 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
 
     expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
-    expect(decideAgent).toHaveBeenLastCalledWith(expect.objectContaining({
-      sourceDatasetId: 'source:temperature',
-      selectedDatasets: [
+    expect(prepareWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
+      selectedSources: [
         { datasetId: 'source:temperature', sourceVersion: 1 },
         { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
-      utterance: '数据一画 K01 折线图，数据二画 K03 散点图',
+      instruction: '数据一画 K01 折线图，数据二画 K03 散点图',
     }))
-    expect(decideAgent.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedChartId')
+    expect(prepareWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedProfileIds')
   })
 
   it('undoes an Agent edit by creating a new inverse-action version', async () => {
@@ -1218,63 +1245,62 @@ describe('PlotAgent real desktop workflow', () => {
 
   it('restores a partial plan and resumes only its unfinished work', async () => {
     const user = userEvent.setup()
-    const partial = agentPlanFixture('partially_failed', 'failed', {
+    const partial = workflowPlanFixture('partially_failed', 'failed', {
       failure: { code: 'ORIGIN_EXPORT_FAILED', message: 'OPJU 导出未完成。', retryable: true },
     })
-    const resumeAgentPlan = vi.fn(async () => ok({
-      task_plan: agentPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }),
+    const resumeWorkflowPlan = vi.fn(async () => ok({
+      task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }),
     }))
     const api = fakeDesktop({
-      listAgentPlans: vi.fn(async () => ok({ plans: [partial] })),
-      resumeAgentPlan,
+      listTaskPlans: vi.fn(async () => ok({ task_plans: [partial] })),
+      resumeTaskPlan: resumeWorkflowPlan,
     })
     installApi(api)
     render(<App />)
     await user.click(await screen.findByRole('button', { name: '示例' }))
 
     expect(await screen.findByText('部分完成')).toBeInTheDocument()
-    expect(screen.getByText('该动作未完成，可以从这里继续执行。')).toBeInTheDocument()
+    expect(screen.getByText('该任务项未完成，其他已成功项会保留。')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '继续未完成步骤' }))
 
-    expect(resumeAgentPlan).toHaveBeenCalledWith({ projectId: 'project:sample', planId: 'plan:one' })
+    expect(resumeWorkflowPlan).toHaveBeenCalledWith({ projectId: 'project:sample', planId: 'plan:one' })
     expect(await screen.findByText('更改已保存')).toBeInTheDocument()
     expect(screen.getAllByText('plot:one · v2').length).toBeGreaterThan(0)
   })
 
-  it('renders a stale persisted plan as non-executable', async () => {
+  it('renders a rejected persisted plan as non-executable', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop({
-      listAgentPlans: vi.fn(async () => ok({ plans: [agentPlanFixture('stale', 'stale')] })),
+      listTaskPlans: vi.fn(async () => ok({ task_plans: [workflowPlanFixture('rejected', 'failed')] })),
     })
     installApi(api)
     render(<App />)
     await user.click(await screen.findByRole('button', { name: '示例' }))
 
-    expect(await screen.findByText('作用对象已变化，请重新描述任务生成新计划。')).toBeInTheDocument()
+    expect(await screen.findByText('已拒绝')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /执行|继续/ })).not.toBeInTheDocument()
   })
 
   it.each([
-    ['action_plan', agentDecisionWithPlan(agentPlanFixture()), '任务计划'],
-    ['needs_input', { accepted: true, decision: { decision_type: 'needs_input', questions: [{ question_key: 'legend_position', prompt: '“上面”是指图内还是图外？' }] } }, '需要补充信息'],
-    ['unsupported', { accepted: true, decision: { decision_type: 'unsupported', message: '不提供通用非线性拟合。' } }, '当前不支持'],
-    ['rejected', { accepted: false, error: { code: 'AGENT_OUTPUT_REJECTED', message: '结果未通过本地权限校验。' } }, '指令未执行'],
+    ['task_plan', workflowResultWithPlan(workflowPlanFixture()), '任务计划'],
+    ['needs_input', { outcome: 'needs_input', workflow_run_id: 'workflow:test', questions: [{ question_key: 'legend_position', prompt: '“上面”是指图内还是图外？', answer_kind: 'text', choices: [], required: true }] }, '需要补充信息'],
+    ['unsupported', { outcome: 'unsupported', workflow_run_id: 'workflow:test', reason_code: 'CAPABILITY_UNAVAILABLE', message: '不提供通用非线性拟合。' }, '当前不支持'],
   ])('shows the Agent %s outcome', async (_kind, decision, expectedTitle) => {
     const user = userEvent.setup()
-    installApi(fakeDesktop({ decideAgent: vi.fn(async () => ok(decision)) }))
+    installApi(fakeDesktop({ runWorkflow: vi.fn(async () => ok(decision)) }))
     render(<App />)
     await openSampleAndCreatePlot(user)
     await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), 'Y axis 改为 log10')
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
     expect(await screen.findByText(expectedTitle)).toBeInTheDocument()
-    if (_kind !== 'action_plan') {
+    if (_kind !== 'task_plan') {
       await waitFor(() => expect(
         Array.from({ length: window.localStorage.length }, (_, index) => window.localStorage.getItem(window.localStorage.key(index) ?? '')).join('\n'),
       ).toContain(expectedTitle))
     }
   })
 
-  it('opens provider settings when an unconfigured user sends an Agent instruction', async () => {
+  it('keeps deterministic workflows available when no model service is configured', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop({ getProviderStatus: vi.fn(async () => ok({ configured: false, mode: 'local_only' })) })
     installApi(api)
@@ -1285,12 +1311,9 @@ describe('PlotAgent real desktop workflow', () => {
     expect(instruction).toBeEnabled()
     await user.type(instruction, '把图例移到右侧')
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
-    const dialog = screen.getByRole('dialog', { name: '模型服务' })
-    await user.type(within(dialog).getByLabelText('Base URL'), 'https://provider.example/v1')
-    await user.type(within(dialog).getByLabelText('Model ID'), 'research-model')
-    await user.click(within(dialog).getByRole('checkbox'))
-    await user.click(within(dialog).getByRole('button', { name: '保存模型服务' }))
-    expect(api.configureCustomProvider).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: 'https://provider.example/v1', modelId: 'research-model', retentionAcknowledged: true }))
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(api.runWorkflow).toHaveBeenCalled()
+    expect(api.configureCustomProvider).not.toHaveBeenCalled()
   })
 
   it('updates task count from real task events', async () => {

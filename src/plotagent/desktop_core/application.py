@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import math
 import os
 import shutil
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -18,54 +17,10 @@ from typing import Any, cast
 
 from pydantic import ValidationError
 
-from plotagent import __version__
-from plotagent.agent import (
-    AgentCreatePlot,
-    AgentFieldBinding,
-    BoundEnginePlan,
-    BundledEngineAgentBinder,
-    CombinedSourceBinding,
-    EngineAgentOrchestrator,
-    EngineAgentPlan,
-    EngineAgentPlanRepository,
-    EngineTaskExecutionError,
-    EngineTaskPlanSnapshot,
-    PersistentEngineTaskOrchestrator,
-)
-from plotagent.agent.audit import InMemoryAuditSink
-from plotagent.agent.context import (
-    AuthoritativeField,
-    AuthoritativeProjectContext,
-    AuthoritativeSampleRow,
-    ContextBuilder,
-    ContextBuildRequest,
-    ConversationState,
-    ConversationStateReducer,
-    DisclosureGrant,
-)
-from plotagent.agent.project_context import ProjectContextService
-from plotagent.agent.providers import (
-    BuiltinProviderConfig,
-    CustomProviderConfig,
-    ModelProvider,
-    create_provider,
-)
-from plotagent.contracts.agent_context import (
-    ChartCapabilities,
-    ContextFieldSummary,
-    ContextObjectRef,
-    DisclosureCategory,
-)
-from plotagent.contracts.base import FieldMappingRef, SourceDatasetRef
 from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.datasets import (
-    FieldMapping,
-    FieldRoleBinding,
-    FieldSnapshot,
-    IsomorphicConcatSpec,
     SourceDataset,
 )
-from plotagent.contracts.project_context import ContextFieldBinding, ProjectContextSnapshot
 from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue as RpcJsonValue
 from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
@@ -74,23 +29,25 @@ from plotagent.desktop_core.tasks import (
     TaskControlError,
     TaskRegistry,
 )
+from plotagent.desktop_core.workflow_service import (
+    DesktopWorkflowService,
+    WorkflowServiceError,
+)
 from plotagent.engine import (
-    CreatePlot,
-    EngineDataRef,
     EngineVersionConflict,
-    FieldBinding,
     PlotEngineAction,
-    engine_view_from_prepared,
 )
 from plotagent.engine.backends.origin import preflight_origin
-from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.importing.models import Clarification, Rejection
-from plotagent.preparation import prepare
 from plotagent.preparation.artifacts import ResolvedSourceTable
 from plotagent.preparation.errors import PreparationProblem
-from plotagent.security import CredentialStore, NetworkMode, create_credential_store
+from plotagent.security import (
+    CredentialStore,
+    NetworkMode,
+    NetworkPolicyGate,
+    create_credential_store,
+)
 from plotagent.storage import (
-    AgentRuntimeRepository,
     Catalog,
     ImportCommitResult,
     ImportResource,
@@ -102,14 +59,15 @@ from plotagent.storage import (
     read_project_revision,
 )
 from plotagent.storage.errors import StorageProblem
-from plotagent.storage.schema import migrate_catalog_v1_to_v2
+from plotagent.workflows import WorkflowCompileError, WorkflowRepository
+from plotagent.workflows.data_ops import WorkflowDataError
+from plotagent.workflows.executor import WorkflowExecutionError
+from plotagent.workflows.inspection import InspectionError
 
-type ProviderFactory = Callable[[NetworkMode, Mapping[str, RpcJsonValue]], ModelProvider]
 type ProductHandler = Callable[[RpcContext, RpcJsonValue | None], RpcJsonValue]
 
 _PROVIDER_SETTING_KEY = "agent.provider.active"
 _CUSTOM_PROVIDER_CONFIG_ID = "custom.default"
-_COMBINED_SOURCE_PROFILE_IDS = frozenset({"K03", "K12", "K13", "K14", "K18", "K19", "X05"})
 
 
 def _preview_scalar(value: object) -> RpcJsonValue:
@@ -131,9 +89,8 @@ class ProjectSession:
     store: ProjectStore
     domain: ProjectDomainRepository
     imports: ProjectImportService
-    agent_runtime: AgentRuntimeRepository
     engine: DesktopEngineSession
-    engine_agent_plans: EngineAgentPlanRepository
+    workflow: DesktopWorkflowService
 
     @property
     def project_id(self) -> str:
@@ -143,8 +100,6 @@ class ProjectSession:
         self.store.close()
 
 
-
-
 class DesktopApplication:
     """Own the catalog and all active project single-writer sessions."""
 
@@ -152,7 +107,6 @@ class DesktopApplication:
         self,
         root: str | Path | None = None,
         *,
-        provider_factory: ProviderFactory | None = None,
         credential_store: CredentialStore | None = None,
     ) -> None:
         self.root = self._default_root() if root is None else Path(root).resolve()
@@ -160,21 +114,14 @@ class DesktopApplication:
         self.projects_root = self.root / "projects"
         self.projects_root.mkdir(exist_ok=True)
         catalog_path = self.root / "catalog.sqlite3"
-        if catalog_path.is_file():
-            try:
-                self.catalog = Catalog.open(catalog_path)
-            except StorageProblem as error:
-                if str(error.code) != "SCHEMA_VERSION_UNSUPPORTED":
-                    raise
-                migrate_catalog_v1_to_v2(catalog_path)
-                self.catalog = Catalog.open(catalog_path)
-        else:
-            self.catalog = Catalog.create(catalog_path)
+        self.catalog = (
+            Catalog.open(catalog_path)
+            if catalog_path.is_file()
+            else Catalog.create(catalog_path)
+        )
         self._sessions: dict[str, ProjectSession] = {}
         self._packages = ProjectPackageService(self.catalog, self.projects_root)
         self._credential_store = credential_store or create_credential_store()
-        self._provider_factory = provider_factory or self._create_production_provider
-        self._production_provider_cache: dict[tuple[str, ...], ModelProvider] = {}
         self._closed = False
 
     @staticmethod
@@ -183,76 +130,6 @@ class DesktopApplication:
         if local_app_data:
             return Path(local_app_data).resolve() / "PlotAgent"
         return Path.home().resolve() / "AppData" / "Local" / "PlotAgent"
-
-    def _create_production_provider(
-        self, mode: NetworkMode, params: Mapping[str, RpcJsonValue]
-    ) -> ModelProvider:
-        values = dict(params)
-        if mode is NetworkMode.BUILTIN_PROXY:
-            config_values = _object(
-                cast(RpcJsonValue, values),
-                required={
-                    "provider_config_id",
-                    "endpoint_origin",
-                    "model_profile_id",
-                    "model_id",
-                    "deployment_id",
-                },
-                optional={"protocol_version"},
-            )
-            builtin_config = BuiltinProviderConfig(
-                provider_config_id=_text(config_values["provider_config_id"], "provider_config_id"),
-                endpoint_origin=_text(config_values["endpoint_origin"], "endpoint_origin"),
-                model_profile_id=_text(config_values["model_profile_id"], "model_profile_id"),
-                model_id=_text(config_values["model_id"], "model_id"),
-                deployment_id=_text(config_values["deployment_id"], "deployment_id"),
-                protocol_version=_optional_text(
-                    config_values.get("protocol_version"), "protocol_version"
-                )
-                or "1",
-            )
-            return create_provider(
-                mode,
-                credential_store=self._credential_store,
-                app_build=__version__,
-                builtin_config=builtin_config,
-            )
-        if mode is NetworkMode.CUSTOM_PROVIDER:
-            config_values = _object(
-                cast(RpcJsonValue, values),
-                required={"provider_config_id", "base_url", "model_id"},
-                optional={"model_profile", "retention_acknowledged"},
-            )
-            custom_config = CustomProviderConfig(
-                provider_config_id=_text(config_values["provider_config_id"], "provider_config_id"),
-                base_url=_text(config_values["base_url"], "base_url"),
-                model_id=_text(config_values["model_id"], "model_id"),
-                model_profile=_optional_text(config_values.get("model_profile"), "model_profile")
-                or "custom-fixed",
-            )
-            cache_key = (
-                mode.value,
-                custom_config.provider_config_id,
-                custom_config.base_url,
-                custom_config.model_id,
-                custom_config.model_profile,
-            )
-            cached = self._production_provider_cache.get(cache_key)
-            if cached is not None:
-                return cached
-            provider = create_provider(
-                mode,
-                credential_store=self._credential_store,
-                app_build=__version__,
-                custom_config=custom_config,
-            )
-            self._production_provider_cache[cache_key] = provider
-            return provider
-        return create_provider(
-            mode,
-            credential_store=self._credential_store,
-            app_build=__version__,
-        )
 
     def configure_services(
         self,
@@ -275,21 +152,21 @@ class DesktopApplication:
             "engine.exports.execute": self._engine_exports_execute,
             "engine.plots.list": self._engine_plots_list,
             "engine.plots.get": self._engine_plots_get,
-            "engine.plots.create_combined": self._engine_combined_plot_create,
-            "agent.engine.plans.create": self._engine_agent_plan_create,
-            "agent.engine.plans.create_batch": self._engine_agent_batch_plan_create,
-            "agent.engine.plans.get": self._engine_agent_plan_get,
-            "agent.engine.plans.list": self._engine_agent_plan_list,
-            "agent.engine.plans.confirm": self._engine_agent_plan_confirm,
-            "agent.engine.plans.cancel": self._engine_agent_plan_cancel,
-            "agent.engine.plans.run": self._engine_agent_plan_run,
-            "agent.engine.plans.resume": self._engine_agent_plan_run,
+            "workflow.prepare": self._workflow_prepare,
+            "workflow.submit_draft": self._workflow_submit_draft,
+            "workflow.inspect": self._workflow_inspect,
+            "workflow.plans.get": self._workflow_plan_get,
+            "workflow.plans.list": self._workflow_plan_list,
+            "workflow.plans.confirm": self._workflow_plan_confirm,
+            "workflow.plans.reject": self._workflow_plan_reject,
+            "workflow.plans.run": self._workflow_plan_run,
+            "workflow.plans.resume": self._workflow_plan_run,
+            "workflow.recipes.save": self._workflow_recipe_save,
             "provider.status": self._provider_status,
             "provider.runtime.get": self._provider_runtime_get,
             "provider.configure": self._provider_configure,
             "provider.clear": self._provider_clear,
             "origin.status": self._origin_status,
-            "agent.engine.decide": self._agent_engine_decide,
         }
         for method, handler in handlers.items():
             registry.register(method, self._guard(handler))
@@ -305,6 +182,125 @@ class DesktopApplication:
         values = _object(params, required={"project_id"})
         session = self._session(_text(values["project_id"], "project_id"))
         return cast(RpcJsonValue, session.engine.catalog_payload())
+
+    def _workflow_prepare(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "expected_project_version",
+                "instruction",
+                "selected_sources",
+            },
+            optional={
+                "selected_profile_id",
+                "selected_profile_ids",
+                "selected_plot_ids",
+                "locale",
+            },
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(RpcJsonValue, session.workflow.prepare(cast(dict[str, object], values)))
+
+    def _workflow_submit_draft(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "workflow_run_id", "task_draft"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.workflow.submit_draft(
+                _text(values["workflow_run_id"], "workflow_run_id"),
+                values["task_draft"],
+            ),
+        )
+
+    def _workflow_inspect(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "workflow_run_id", "tool_name", "arguments"},
+        )
+        arguments = values["arguments"]
+        if not isinstance(arguments, dict):
+            raise RpcServiceError("INVALID_PARAMS", "Inspection arguments must be an object.")
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.workflow.inspect(
+                _text(values["workflow_run_id"], "workflow_run_id"),
+                _text(values["tool_name"], "tool_name"),
+                cast(dict[str, object], arguments),
+            ),
+        )
+
+    def _workflow_plan_get(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.workflow.repository.get_plan(_text(values["plan_id"], "plan_id")).model_dump(
+                mode="json"
+            ),
+        )
+
+    def _workflow_plan_list(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return {
+            "task_plans": [
+                item.model_dump(mode="json") for item in session.workflow.repository.list_plans()
+            ]
+        }
+
+    def _workflow_plan_confirm(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.workflow.confirm(_text(values["plan_id"], "plan_id"), True),
+        )
+
+    def _workflow_plan_reject(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.workflow.confirm(_text(values["plan_id"], "plan_id"), False),
+        )
+
+    def _workflow_plan_run(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "plan_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.workflow.run(_text(values["plan_id"], "plan_id")),
+        )
+
+    def _workflow_recipe_save(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "plan_id", "display_name", "export_hash"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.workflow.save_recipe(
+                plan_id=_text(values["plan_id"], "plan_id"),
+                display_name=_text(values["display_name"], "display_name"),
+                export_hash=_text(values["export_hash"], "export_hash"),
+            ),
+        )
 
     def _engine_actions_execute(
         self, context: RpcContext, params: RpcJsonValue | None
@@ -343,9 +339,7 @@ class DesktopApplication:
             self._fail_task(context.tasks, task_id, error)
             raise
 
-    def _engine_plots_list(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
+    def _engine_plots_list(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(params, required={"project_id"})
         session = self._session(_text(values["project_id"], "project_id"))
         return cast(
@@ -402,6 +396,15 @@ class DesktopApplication:
                 origin_install_dir=install_dir,
             )
             artifact = cast(dict[str, object], payload.pop("artifact"))
+            session.workflow.record_export(
+                _text(cast(RpcJsonValue, artifact["artifact_hash"]), "artifact_hash"),
+                _text(cast(RpcJsonValue, payload["plot_id"]), "plot_id"),
+                _integer(
+                    cast(RpcJsonValue, payload["plot_version"]),
+                    "plot_version",
+                    minimum=1,
+                ),
+            )
             context.tasks.transition(task_id, "committing")
             context.tasks.transition(task_id, "succeeded")
             return cast(
@@ -427,9 +430,7 @@ class DesktopApplication:
             self._fail_task(context.tasks, task_id, error)
             raise
 
-    def _engine_plots_get(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
+    def _engine_plots_get(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(
             params,
             required={"project_id", "plot_id"},
@@ -443,570 +444,6 @@ class DesktopApplication:
                 "project_id": session.project_id,
                 "project_version": session.domain.revision,
                 **session.engine.get(_text(values["plot_id"], "plot_id"), version),
-            },
-        )
-
-    def _engine_agent_plan_create(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(
-            params,
-            required={"project_id", "context_snapshot_id", "proposal"},
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        snapshot = session.agent_runtime.get_context_snapshot(
-            _text(values["context_snapshot_id"], "context_snapshot_id")
-        )
-        if snapshot.project_id != session.project_id:
-            raise RpcServiceError("INVALID_PARAMS", "The context belongs to another project.")
-        session.domain.require_revision(snapshot.project_revision)
-        proposal = EngineAgentPlan.model_validate(values["proposal"])
-        target_profiles = self._engine_agent_target_profiles(session, snapshot)
-        bound = BundledEngineAgentBinder(
-            session.engine.catalog,
-            lambda profile_id, sources: self._bind_agent_combined_plot(
-                session, profile_id, sources
-            ),
-        ).bind(
-            proposal,
-            snapshot,
-            target_profiles=target_profiles,
-        )
-        stored = session.engine_agent_plans.create(proposal, bound)
-        return self._engine_agent_plan_payload(session, stored)
-
-    def _engine_agent_plan_get(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "plan_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        stored = session.engine_agent_plans.get(_text(values["plan_id"], "plan_id"))
-        return self._engine_agent_plan_payload(session, stored)
-
-    def _engine_agent_batch_plan_create(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        """Persist a batch as ordinary, independently resumable create_plot actions."""
-
-        values = _object(
-            params,
-            required={"project_id", "profile_id", "datasets", "expected_project_version"},
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        expected = _integer(
-            values["expected_project_version"], "expected_project_version", minimum=0
-        )
-        session.domain.require_revision(expected)
-        profile_id = _text(values["profile_id"], "profile_id")
-        session.engine.catalog.get(profile_id)
-        datasets_value = values["datasets"]
-        if not isinstance(datasets_value, list) or not 1 <= len(datasets_value) <= 64:
-            raise RpcServiceError(
-                "INVALID_PARAMS", "A batch plan requires between 1 and 64 datasets."
-            )
-
-        batch_token = uuid.uuid4().hex
-        plan_id = f"plan:batch.{batch_token}"
-        proposals: list[AgentCreatePlot] = []
-        actions: list[PlotEngineAction] = []
-        seen_sources: set[tuple[str, int]] = set()
-        for index, item_value in enumerate(datasets_value, start=1):
-            item = _object(
-                item_value,
-                required={"dataset_id", "version", "content_hash", "bindings"},
-            )
-            dataset_id = _text(item["dataset_id"], "dataset_id")
-            version = _integer(item["version"], "version", minimum=1)
-            source_key = (dataset_id, version)
-            if source_key in seen_sources:
-                raise RpcServiceError("INVALID_PARAMS", "Batch datasets must be unique.")
-            seen_sources.add(source_key)
-            source = session.domain.source_record(dataset_id, version)
-            content_hash = _text(item["content_hash"], "content_hash")
-            if source.content_hash != content_hash:
-                raise RpcServiceError(
-                    "SOURCE_VERSION_CONFLICT",
-                    "A batch dataset changed after the mapping was confirmed.",
-                )
-            binding_values = item["bindings"]
-            if not isinstance(binding_values, dict) or not binding_values:
-                raise RpcServiceError("INVALID_PARAMS", "Each batch dataset needs bindings.")
-            bindings = tuple(
-                FieldBinding(role=_text(role, "role"), field_id=_text(field_id, "field_id"))
-                for role, field_id in sorted(binding_values.items())
-            )
-            action_id = f"action:batch.{batch_token}.{index}"
-            plot_id = f"plot:batch.{batch_token}.{index}"
-            action = CreatePlot(
-                action_id=action_id,
-                plot_id=plot_id,
-                profile_id=profile_id,
-                data=EngineDataRef(
-                    kind="source",
-                    dataset_id=dataset_id,
-                    version=version,
-                    content_hash=content_hash,
-                ),
-                bindings=bindings,
-            )
-            session.engine.catalog.validate_create(action)
-            proposals.append(
-                AgentCreatePlot(
-                    action_id=action_id,
-                    plot_alias=f"plot_{index}",
-                    profile_id=profile_id,
-                    source_alias=f"source_{index}",
-                    bindings=tuple(
-                        AgentFieldBinding(role=binding.role, field_alias=f"field_{position}")
-                        for position, binding in enumerate(bindings, start=1)
-                    ),
-                )
-            )
-            actions.append(action)
-
-        proposal = EngineAgentPlan(
-            plan_id=plan_id,
-            target_alias="batch_plots",
-            actions=tuple(proposals),
-        )
-        stored = session.engine_agent_plans.create(
-            proposal,
-            BoundEnginePlan(
-                plan_id=plan_id,
-                expected_project_revision=expected,
-                actions=tuple(actions),
-            ),
-        )
-        return self._engine_agent_plan_payload(session, stored)
-
-    def _engine_combined_plot_create(
-        self, context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        """Create one grouped plot from explicitly selected isomorphic datasets."""
-
-        values = _object(
-            params,
-            required={"project_id", "profile_id", "datasets", "expected_project_version"},
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        expected = _integer(
-            values["expected_project_version"], "expected_project_version", minimum=0
-        )
-        session.domain.require_revision(expected)
-        profile_id = _text(values["profile_id"], "profile_id")
-        if profile_id not in _COMBINED_SOURCE_PROFILE_IDS:
-            raise RpcServiceError(
-                "COMBINED_PROFILE_UNSUPPORTED",
-                "当前图类不支持按数据来源分组的同图绘制。请选择散点、分布、面积或时间序列图。",
-            )
-        profile = session.engine.catalog.get(profile_id)
-        if "group" not in profile.optional_roles:
-            raise RpcServiceError(
-                "COMBINED_PROFILE_UNSUPPORTED",
-                "当前图类没有可绑定的数据来源分组角色。",
-            )
-        datasets_value = values["datasets"]
-        if not isinstance(datasets_value, list) or not 2 <= len(datasets_value) <= 8:
-            raise RpcServiceError(
-                "INVALID_PARAMS", "同图绘制需要选择 2 至 8 个数据表。"
-            )
-
-        sources: list[SourceDataset] = []
-        source_refs: list[SourceDatasetRef] = []
-        canonical_bindings: dict[str, str] | None = None
-        canonical_role_names: dict[str, str] | None = None
-        seen_sources: set[tuple[str, int]] = set()
-        for item_value in datasets_value:
-            item = _object(
-                item_value,
-                required={"dataset_id", "version", "content_hash", "bindings"},
-            )
-            dataset_id = _text(item["dataset_id"], "dataset_id")
-            version = _integer(item["version"], "version", minimum=1)
-            source_key = (dataset_id, version)
-            if source_key in seen_sources:
-                raise RpcServiceError("INVALID_PARAMS", "同图数据表必须互不重复。")
-            seen_sources.add(source_key)
-            source = session.domain.source_record(dataset_id, version)
-            if source.content_hash != _text(item["content_hash"], "content_hash"):
-                raise RpcServiceError(
-                    "SOURCE_VERSION_CONFLICT", "数据在字段确认后发生了变化，请重新确认。"
-                )
-            binding_values = item["bindings"]
-            if not isinstance(binding_values, dict) or not binding_values:
-                raise RpcServiceError("INVALID_PARAMS", "每个数据表都必须提供字段绑定。")
-            bindings = {
-                _text(role, "role"): _text(field_id, "field_id")
-                for role, field_id in binding_values.items()
-                if role != "group"
-            }
-            if not bindings:
-                raise RpcServiceError("INVALID_PARAMS", "同图绘制缺少有效字段绑定。")
-            fields = {field.field_id: field for field in source.field_schema}
-            if any(field_id not in fields for field_id in bindings.values()):
-                raise RpcServiceError("INVALID_PARAMS", "字段绑定不属于对应数据表。")
-            role_names = {role: fields[field_id].name for role, field_id in bindings.items()}
-            if canonical_bindings is None:
-                canonical_bindings = bindings
-                canonical_role_names = role_names
-            elif set(bindings) != set(canonical_bindings) or role_names != canonical_role_names:
-                raise RpcServiceError(
-                    "PREPARE_NON_ISOMORPHIC",
-                    "同图绘制要求每个数据表具有相同的角色和字段名称。",
-                )
-            sources.append(source)
-            source_refs.append(
-                SourceDatasetRef(
-                    source_dataset_id=source.source_dataset_id,
-                    source_version=source.source_version,
-                    content_hash=source.content_hash,
-                )
-            )
-
-        assert canonical_bindings is not None
-        first = sources[0]
-        first_fields = {field.field_id: field for field in first.field_schema}
-        mapping_payload = cast(
-            JsonValue,
-            {
-                "profile_id": profile_id,
-                "sources": [ref.model_dump(mode="json") for ref in source_refs],
-                "bindings": canonical_bindings,
-            },
-        )
-        mapping_hash = canonical_hash(mapping_payload)
-        mapping = FieldMapping(
-            field_mapping_id=f"mapping:combined.{mapping_hash[:24]}",
-            mapping_version=1,
-            chart_type_id=cast(Any, profile_id),
-            source_dataset_refs=tuple(source_refs),
-            bindings=tuple(
-                FieldRoleBinding(
-                    role=role,
-                    field=FieldSnapshot(
-                        field_id=field_id,
-                        name=first_fields[field_id].name,
-                        logical_type=first_fields[field_id].logical_type,
-                        unit=first_fields[field_id].unit,
-                        source_dataset_ref=source_refs[0],
-                    ),
-                )
-                for role, field_id in sorted(canonical_bindings.items())
-            ),
-            content_hash=mapping_hash,
-        )
-        label_field_id = f"field:source_dataset_{mapping_hash[:16]}"
-        spec = IsomorphicConcatSpec(
-            preparation_spec_id=f"preparation:combined.{mapping_hash[:24]}",
-            preparation_version=1,
-            input_refs=tuple(source_refs),
-            field_mapping_ref=FieldMappingRef(
-                field_mapping_id=mapping.field_mapping_id,
-                mapping_version=mapping.mapping_version,
-                content_hash=mapping.content_hash,
-            ),
-            compiler_version="preparation.compiler.v1",
-            source_label_kind="source_dataset",
-            source_label_field_id=label_field_id,
-        )
-        task_id = self._begin_task(context, "engine-combined-plot", label="合并数据并绘图")
-        try:
-            context.tasks.transition(task_id, "running")
-            artifact = prepare(
-                tuple(sources),
-                mapping,
-                spec,
-                _DomainSourceResolver(session.domain),
-            )
-            data_view = session.engine.data_views.register(engine_view_from_prepared(artifact))
-            token = uuid.uuid4().hex
-            action = CreatePlot(
-                action_id=f"action:combined.{token}",
-                plot_id=f"plot:combined.{token}",
-                profile_id=profile_id,
-                data=data_view.data,
-                bindings=tuple(
-                    FieldBinding(role=role, field_id=field_id)
-                    for role, field_id in sorted(canonical_bindings.items())
-                )
-                + (FieldBinding(role="group", field_id=label_field_id),),
-            )
-            payload = session.engine.execute_action(
-                action,
-                expected_project_revision=expected,
-            )
-            context.tasks.transition(task_id, "committing")
-            context.tasks.transition(task_id, "succeeded")
-            return cast(
-                RpcJsonValue,
-                {
-                    "task_id": task_id,
-                    "project_id": session.project_id,
-                    "project_version": session.domain.revision,
-                    "combined_source_count": len(sources),
-                    "source_label_field_id": label_field_id,
-                    **payload,
-                },
-            )
-        except Exception as error:
-            self._fail_task(context.tasks, task_id, error)
-            raise
-
-    @staticmethod
-    def _bind_agent_combined_plot(
-        session: ProjectSession,
-        profile_id: str,
-        selected: tuple[CombinedSourceBinding, ...],
-    ) -> tuple[EngineDataRef, tuple[FieldBinding, ...]]:
-        """Prepare one persistent isomorphic view for an Agent same-chart action."""
-
-        if profile_id not in _COMBINED_SOURCE_PROFILE_IDS:
-            raise RpcServiceError(
-                "COMBINED_PROFILE_UNSUPPORTED",
-                "The selected chart type does not support a grouped multi-source plot.",
-            )
-        profile = session.engine.catalog.get(profile_id)
-        if "group" not in profile.optional_roles:
-            raise RpcServiceError(
-                "COMBINED_PROFILE_UNSUPPORTED",
-                "The selected chart type has no source grouping role.",
-            )
-        if not 2 <= len(selected) <= 8:
-            raise RpcServiceError(
-                "INVALID_PARAMS", "A combined plot requires two to eight source datasets."
-            )
-
-        sources: list[SourceDataset] = []
-        source_refs: list[SourceDatasetRef] = []
-        canonical_bindings: dict[str, str] | None = None
-        canonical_role_names: dict[str, str] | None = None
-        seen: set[tuple[str, int]] = set()
-        for item in selected:
-            if item.data.kind != "source":
-                raise RpcServiceError(
-                    "INVALID_PARAMS", "Combined plots require immutable source datasets."
-                )
-            source = session.domain.source_record(item.data.dataset_id, item.data.version)
-            if source.content_hash != item.data.content_hash:
-                raise RpcServiceError(
-                    "SOURCE_VERSION_CONFLICT", "A selected source changed before confirmation."
-                )
-            source_key = (source.source_dataset_id, source.source_version)
-            if source_key in seen:
-                raise RpcServiceError("INVALID_PARAMS", "Combined plot sources must be unique.")
-            seen.add(source_key)
-            bindings = {binding.role: binding.field_id for binding in item.bindings}
-            if "group" in bindings or not bindings:
-                raise RpcServiceError(
-                    "INVALID_PARAMS", "Source grouping is generated by the preparation step."
-                )
-            fields = {field.field_id: field for field in source.field_schema}
-            if any(field_id not in fields for field_id in bindings.values()):
-                raise RpcServiceError(
-                    "INVALID_PARAMS", "A combined field is outside its selected source."
-                )
-            role_names = {role: fields[field_id].name for role, field_id in bindings.items()}
-            if canonical_bindings is None:
-                canonical_bindings = bindings
-                canonical_role_names = role_names
-            elif set(bindings) != set(canonical_bindings) or role_names != canonical_role_names:
-                raise RpcServiceError(
-                    "PREPARE_NON_ISOMORPHIC",
-                    "Combined sources must expose the same roles and field names.",
-                )
-            sources.append(source)
-            source_refs.append(
-                SourceDatasetRef(
-                    source_dataset_id=source.source_dataset_id,
-                    source_version=source.source_version,
-                    content_hash=source.content_hash,
-                )
-            )
-
-        assert canonical_bindings is not None
-        first_fields = {field.field_id: field for field in sources[0].field_schema}
-        mapping_hash = canonical_hash(
-            cast(
-                JsonValue,
-                {
-                    "profile_id": profile_id,
-                    "sources": [ref.model_dump(mode="json") for ref in source_refs],
-                    "bindings": canonical_bindings,
-                },
-            )
-        )
-        mapping = FieldMapping(
-            field_mapping_id=f"mapping:combined.{mapping_hash[:24]}",
-            mapping_version=1,
-            chart_type_id=cast(Any, profile_id),
-            source_dataset_refs=tuple(source_refs),
-            bindings=tuple(
-                FieldRoleBinding(
-                    role=role,
-                    field=FieldSnapshot(
-                        field_id=field_id,
-                        name=first_fields[field_id].name,
-                        logical_type=first_fields[field_id].logical_type,
-                        unit=first_fields[field_id].unit,
-                        source_dataset_ref=source_refs[0],
-                    ),
-                )
-                for role, field_id in sorted(canonical_bindings.items())
-            ),
-            content_hash=mapping_hash,
-        )
-        label_field_id = f"field:source_dataset_{mapping_hash[:16]}"
-        artifact = prepare(
-            tuple(sources),
-            mapping,
-            IsomorphicConcatSpec(
-                preparation_spec_id=f"preparation:combined.{mapping_hash[:24]}",
-                preparation_version=1,
-                input_refs=tuple(source_refs),
-                field_mapping_ref=FieldMappingRef(
-                    field_mapping_id=mapping.field_mapping_id,
-                    mapping_version=mapping.mapping_version,
-                    content_hash=mapping.content_hash,
-                ),
-                compiler_version="preparation.compiler.v1",
-                source_label_kind="source_dataset",
-                source_label_field_id=label_field_id,
-            ),
-            _DomainSourceResolver(session.domain),
-        )
-        view = session.engine.data_views.register(engine_view_from_prepared(artifact))
-        return (
-            view.data,
-            tuple(
-                FieldBinding(role=role, field_id=field_id)
-                for role, field_id in sorted(canonical_bindings.items())
-            )
-            + (FieldBinding(role="group", field_id=label_field_id),),
-        )
-
-    def _engine_agent_plan_list(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(
-            RpcJsonValue,
-            {
-                "project_id": session.project_id,
-                "project_version": session.domain.revision,
-                "plans": tuple(
-                    self._engine_agent_plan_payload(session, stored)
-                    for stored in session.engine_agent_plans.list_all()
-                ),
-            },
-        )
-
-    def _engine_agent_plan_confirm(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "plan_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        stored = session.engine_agent_plans.confirm(_text(values["plan_id"], "plan_id"))
-        return self._engine_agent_plan_payload(session, stored)
-
-    def _engine_agent_plan_cancel(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "plan_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        plan_id = _text(values["plan_id"], "plan_id")
-        stored = session.engine_agent_plans.cancel(plan_id)
-        return self._engine_agent_plan_payload(session, stored)
-
-    def _engine_agent_plan_run(
-        self, context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "plan_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        plan_id = _text(values["plan_id"], "plan_id")
-        task_id = self._begin_task(context, "engine-agent-plan", label="执行绘图计划")
-        try:
-            context.tasks.transition(task_id, "running")
-            stored = PersistentEngineTaskOrchestrator(
-                session.engine_agent_plans,
-                _DesktopEngineActionExecutor(session),
-            ).run(plan_id)
-            context.tasks.transition(task_id, "committing")
-            context.tasks.transition(
-                task_id,
-                (
-                    "succeeded"
-                    if stored.state == "succeeded"
-                    else "partially_succeeded"
-                    if stored.completed_action_count > 0
-                    else "failed"
-                ),
-            )
-            payload = cast(
-                dict[str, RpcJsonValue],
-                self._engine_agent_plan_payload(session, stored),
-            )
-            return {
-                "task_id": task_id,
-                **payload,
-            }
-        except EngineTaskExecutionError as error:
-            self._fail_task(context.tasks, task_id, error)
-            raise RpcServiceError(error.code, str(error)) from None
-        except Exception as error:
-            self._fail_task(context.tasks, task_id, error)
-            raise
-
-    @staticmethod
-    def _engine_agent_target_profiles(
-        session: ProjectSession,
-        snapshot: ProjectContextSnapshot,
-    ) -> dict[str, str]:
-        objects = (
-            snapshot.known_objects
-            + snapshot.recent_result_objects
-            + (snapshot.conversation_state.current_target,)
-        )
-        profiles: dict[str, str] = {}
-        for item in objects:
-            if item.object_type != "plot":
-                continue
-            try:
-                stored = session.engine.documents.get(item.object_id, item.object_version)
-            except KeyError:
-                continue
-            profiles[item.object_alias] = stored.document.profile_id
-        return profiles
-
-    @staticmethod
-    def _engine_agent_plan_payload(
-        session: ProjectSession,
-        snapshot: EngineTaskPlanSnapshot,
-    ) -> RpcJsonValue:
-        return cast(
-            RpcJsonValue,
-            {
-                "project_id": session.project_id,
-                "project_version": session.domain.revision,
-                "plan_id": snapshot.proposal.plan_id,
-                "state": snapshot.state,
-                "confirmation_state": snapshot.confirmation_state,
-                "next_action_index": snapshot.next_action_index,
-                "current_project_revision": snapshot.current_project_revision,
-                "error_code": snapshot.error_code,
-                "action_progress": tuple(
-                    {
-                        "action_index": item.action_index,
-                        "state": item.state,
-                        "attempt_count": item.attempt_count,
-                        "error_code": item.error_code,
-                    }
-                    for item in snapshot.action_progress
-                ),
-                "proposal": snapshot.proposal.model_dump(mode="json"),
-                "bound_plan": snapshot.bound.model_dump(mode="json"),
-                "created_at": snapshot.created_at,
-                "updated_at": snapshot.updated_at,
             },
         )
 
@@ -1094,25 +531,19 @@ class DesktopApplication:
             or "custom-fixed",
             "retention_acknowledged": True,
         }
-        # Constructing the adapter performs the same endpoint-origin validation used
-        # at request time, before either the non-secret config or credential is saved.
+        # Validate exactly the endpoint policy used by the Pi runtime before any
+        # non-secret configuration is persisted.
         api_key = _optional_text(values.get("api_key"), "api_key")
         if api_key is not None:
             self._credential_store.set_custom_api_key(config_id, api_key)
-            self._production_provider_cache.clear()
         if self._credential_store.get_custom_api_key(config_id) is None:
             raise RpcServiceError(
                 "PROVIDER_NOT_CONFIGURED", "A custom provider API key is required."
             )
         try:
-            self._create_production_provider(
+            NetworkPolicyGate(
                 NetworkMode.CUSTOM_PROVIDER,
-                {
-                    "provider_config_id": config["provider_config_id"],
-                    "base_url": config["base_url"],
-                    "model_id": config["model_id"],
-                    "model_profile": config["model_profile"],
-                },
+                custom_endpoint=_text(config["base_url"], "base_url"),
             )
         except Exception:
             if api_key is not None:
@@ -1132,7 +563,6 @@ class DesktopApplication:
         if config is not None:
             config_id = _text(config["provider_config_id"], "provider_config_id")
             self._credential_store.delete_custom_api_key(config_id)
-        self._production_provider_cache.clear()
         self.catalog.delete_setting(_PROVIDER_SETTING_KEY)
         return self._provider_status(_context, {})
 
@@ -1169,6 +599,14 @@ class DesktopApplication:
                 raise RpcServiceError("ENGINE_VERSION_CONFLICT", str(error)) from None
             except PreparationProblem as error:
                 raise RpcServiceError(str(error.code), error.message) from None
+            except (
+                WorkflowServiceError,
+                WorkflowCompileError,
+                WorkflowDataError,
+                WorkflowExecutionError,
+                InspectionError,
+            ) as error:
+                raise RpcServiceError(error.code, error.message) from None
             except ValidationError:
                 raise RpcServiceError(
                     "INVALID_PARAMS", "The request parameters were invalid."
@@ -1313,13 +751,20 @@ class DesktopApplication:
             return self._session_summary(existing, replayed=True)
         catalog_project = self.catalog.get_project(project_id)
         store = ProjectStore.open(catalog_project.workspace_path)
+        domain = ProjectDomainRepository(store)
+        engine = DesktopEngineSession.open(store)
+        workflow_repository = WorkflowRepository(store)
         session = ProjectSession(
             store=store,
-            domain=ProjectDomainRepository(store),
+            domain=domain,
             imports=ProjectImportService(store),
-            agent_runtime=AgentRuntimeRepository(store),
-            engine=DesktopEngineSession.open(store),
-            engine_agent_plans=EngineAgentPlanRepository(store),
+            engine=engine,
+            workflow=DesktopWorkflowService(
+                store=store,
+                domain=domain,
+                engine=engine,
+                repository=workflow_repository,
+            ),
         )
         self._sessions[project_id] = session
         self.catalog.touch_project(project_id)
@@ -1454,9 +899,7 @@ class DesktopApplication:
                     task_id,
                     code=outcome.code,
                     message=(
-                        outcome.question
-                        if isinstance(outcome, Clarification)
-                        else outcome.message
+                        outcome.question if isinstance(outcome, Clarification) else outcome.message
                     ),
                 )
                 return cast(
@@ -1521,8 +964,7 @@ class DesktopApplication:
         resolved = session.domain.resolve_source(source)
         summary = self._dataset_summary(record)
         summary["sample_rows"] = [
-            [_preview_scalar(value) for value in row]
-            for row in resolved.rows[:5]
+            [_preview_scalar(value) for value in row] for row in resolved.rows[:5]
         ]
         return {
             "project_id": session.project_id,
@@ -1530,479 +972,11 @@ class DesktopApplication:
             "dataset": summary,
         }
 
-    def _agent_engine_decide(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        """Run the bundled model against the public engine action vocabulary."""
-
-        values = _object(
-            params,
-            required={
-                "project_id",
-                "source_dataset_id",
-                "source_version",
-                "user_instruction",
-                "client_model_run_id",
-                "expected_version",
-            },
-            optional={
-                "conversation_id",
-                "selected_profile_id",
-                "locale",
-                "network_mode",
-                "provider",
-                "retention_acknowledged",
-                "selected_source_datasets",
-                "target_plot_id",
-                "prepare_only",
-                "external_decision",
-            },
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        expected = _integer(values["expected_version"], "expected_version", minimum=0)
-        session.domain.require_revision(expected)
-        source = session.domain.source_record(
-            _text(values["source_dataset_id"], "source_dataset_id"),
-            _integer(values["source_version"], "source_version", minimum=1),
-        )
-        source_table = session.domain.resolve_source(source)
-        selected_sources: list[SourceDataset] = [source]
-        selected_value = values.get("selected_source_datasets")
-        if selected_value is not None:
-            if not isinstance(selected_value, list) or not 1 <= len(selected_value) <= 8:
-                raise RpcServiceError(
-                    "INVALID_PARAMS", "Selected datasets must contain one to eight items."
-                )
-            selected_sources = []
-            selected_keys: set[tuple[str, int]] = set()
-            for item in selected_value:
-                selected_item = _object(
-                    item,
-                    required={"source_dataset_id", "source_version"},
-                )
-                selected_source = session.domain.source_record(
-                    _text(selected_item["source_dataset_id"], "source_dataset_id"),
-                    _integer(
-                        selected_item["source_version"],
-                        "source_version",
-                        minimum=1,
-                    ),
-                )
-                selected_key = (
-                    selected_source.source_dataset_id,
-                    selected_source.source_version,
-                )
-                if selected_key in selected_keys:
-                    raise RpcServiceError(
-                        "INVALID_PARAMS", "Selected datasets must be unique."
-                    )
-                selected_keys.add(selected_key)
-                selected_sources.append(selected_source)
-            primary_key = (source.source_dataset_id, source.source_version)
-            if primary_key not in selected_keys:
-                raise RpcServiceError(
-                    "INVALID_PARAMS", "The active dataset must be selected."
-                )
-            selected_sources.sort(key=lambda item: (item != source, item.source_dataset_id))
-
-        source_records = {
-            (
-                record.source_dataset.source_dataset_id,
-                record.source_dataset.source_version,
-            ): record
-            for record in session.store.list_source_datasets()
-        }
-        selected_display_names = tuple(
-            (
-                source_records[(item.source_dataset_id, item.source_version)].display_name
-                or item.source_dataset_id
-                if (item.source_dataset_id, item.source_version) in source_records
-                and source_records[(item.source_dataset_id, item.source_version)].display_name
-                else item.source_dataset_id
-            )
-            for item in selected_sources
-        )
-        display_name_counts: dict[str, int] = {}
-        for display_name in selected_display_names:
-            key = display_name.strip().casefold()
-            display_name_counts[key] = display_name_counts.get(key, 0) + 1
-        multi_source = len(selected_sources) > 1
-        source_refs = tuple(
-            ContextObjectRef(
-                object_alias=("active_data" if not multi_source else f"data_{index}"),
-                object_id=item.source_dataset_id,
-                object_version=item.source_version,
-                object_type="source_dataset",
-                content_hash=item.content_hash,
-                display_name=(
-                    display_name
-                    if display_name_counts[display_name.strip().casefold()] == 1
-                    else f"{display_name} · {item.source_dataset_id.removeprefix('source:')[-8:]}"
-                ),
-            )
-            for index, (item, display_name) in enumerate(
-                zip(selected_sources, selected_display_names, strict=True),
-                start=1,
-            )
-        )
-        source_ref = source_refs[0]
-        target_plot_id = _optional_text(values.get("target_plot_id"), "target_plot_id")
-        target_profiles: dict[str, str] = {}
-        if target_plot_id is None:
-            # A multi-dataset request exposes the first source as ``data_1`` as well as
-            # prefixing its fields with ``data_1_``.  Keeping those aliases aligned makes
-            # heterogeneous batch plans unambiguous to both Pi and the local binder.
-            target = source_ref.model_copy(
-                update={"object_alias": "data_1" if multi_source else "active_target"}
-            )
-            selected_objects = source_refs[1:]
-        else:
-            stored = session.engine.documents.get(target_plot_id)
-            target = ContextObjectRef(
-                object_alias="active_target",
-                object_id=stored.document.plot_id,
-                object_version=stored.document.plot_version,
-                object_type="plot",
-                content_hash=stored.content_hash,
-            )
-            selected_objects = source_refs
-            target_profiles["active_target"] = stored.document.profile_id
-
-        selected_profile = _optional_text(
-            values.get("selected_profile_id"), "selected_profile_id"
-        )
-        enabled_profiles: tuple[str, ...]
-        if target_plot_id is not None:
-            enabled_profiles = (target_profiles["active_target"],)
-            if selected_profile is not None and selected_profile not in enabled_profiles:
-                raise RpcServiceError(
-                    "INVALID_PARAMS", "The selected profile differs from the target plot."
-                )
-        elif selected_profile is not None:
-            session.engine.catalog.get(selected_profile)
-            enabled_profiles = (selected_profile,)
-        else:
-            enabled_profiles = tuple(
-                profile.profile_id for profile in session.engine.catalog.profiles()
-            )
-
-        conversation_id = _optional_text(values.get("conversation_id"), "conversation_id")
-        if conversation_id is None:
-            conversation_id = self._default_conversation_id(session.project_id)
-        persisted = session.agent_runtime.get_conversation_state(conversation_id)
-        if persisted is None:
-            conversation = ConversationState(
-                current_target=target,
-                selected_objects=selected_objects,
-            )
-            session.agent_runtime.save_conversation_state(
-                conversation_id,
-                conversation.project(),
-                expected_state_version=None,
-            )
-        else:
-            conversation = ConversationState.from_projection(persisted)
-            if (
-                conversation.current_target != target
-                or conversation.selected_objects != selected_objects
-            ):
-                conversation = ConversationStateReducer().select_target(
-                    conversation,
-                    target,
-                    selected_objects=selected_objects,
-                )
-                session.agent_runtime.save_conversation_state(
-                    conversation_id,
-                    conversation.project(),
-                    expected_state_version=persisted.state_version,
-                )
-
-        all_fields: list[AuthoritativeField] = []
-        all_aliases: list[tuple[str, str, SourceDataset]] = []
-        all_rows: list[AuthoritativeSampleRow] = []
-        for source_index, selected_source in enumerate(selected_sources, start=1):
-            table = (
-                source_table
-                if selected_source == source
-                else session.domain.resolve_source(selected_source)
-            )
-            record = source_records.get(
-                (selected_source.source_dataset_id, selected_source.source_version)
-            )
-            display_name = (
-                record.display_name
-                if record is not None and record.display_name
-                else selected_source.source_dataset_id
-            )
-            fields, alias_to_field = self._agent_fields(
-                selected_source,
-                table.rows,
-                alias_prefix=f"data_{source_index}_" if multi_source else "",
-                display_prefix=f"{display_name} / " if multi_source else "",
-            )
-            all_fields.extend(fields)
-            all_aliases.extend(
-                (alias, field_id, selected_source)
-                for alias, field_id in alias_to_field.items()
-            )
-            if not multi_source:
-                all_rows.extend(
-                    AuthoritativeSampleRow(
-                        row_id=f"row:context.{source_index}.{row_index + 1}",
-                        values={
-                            field.field_id: table.rows[row_index][field_index]
-                            for field_index, field in enumerate(fields)
-                        },
-                    )
-                    for row_index in range(len(table.rows))
-                )
-        fields = tuple(all_fields)
-        known_objects = (target, *selected_objects)
-        project_context = ProjectContextService().build_snapshot(
-            project_id=session.project_id,
-            project_revision=expected,
-            conversation_id=conversation_id,
-            conversation_state=conversation.project(),
-            known_objects=known_objects,
-            field_bindings=tuple(
-                ContextFieldBinding(
-                    field_alias=alias,
-                    field_id=field_id,
-                    source_dataset_id=field_source.source_dataset_id,
-                    source_version=field_source.source_version,
-                )
-                for alias, field_id, field_source in all_aliases
-            ),
-        )
-        session.agent_runtime.save_context_snapshot(project_context)
-        sample_rows = tuple(all_rows)
-
-        saved_provider = self._saved_provider_config()
-        mode_value = values.get("network_mode")
-        if mode_value is None:
-            mode = (
-                NetworkMode.CUSTOM_PROVIDER
-                if saved_provider is not None
-                else NetworkMode.LOCAL_ONLY
-            )
-        else:
-            try:
-                mode = NetworkMode(_text(mode_value, "network_mode"))
-            except ValueError:
-                raise RpcServiceError("INVALID_PARAMS", "The network mode was invalid.") from None
-        if values.get("provider") is None:
-            provider_values = saved_provider or {}
-        else:
-            provider_values = _object(values["provider"], required=set(), optional=None)
-        try:
-            provider = self._provider_factory(mode, provider_values)
-            identity = provider.identity
-        except Exception:
-            return _agent_failure_payload("PROVIDER_NOT_CONFIGURED")
-        if identity.provider_type == "local_only":
-            return _agent_failure_payload("PROVIDER_NOT_CONFIGURED")
-
-        categories: frozenset[DisclosureCategory] = frozenset(
-            {
-                "user_instruction",
-                "field_metadata",
-                "statistics",
-                "sample",
-                "chart_capabilities",
-            }
-        )
-        context_request = ContextBuildRequest(
-            user_instruction=_text(values["user_instruction"], "user_instruction"),
-            locale=_optional_text(values.get("locale"), "locale") or "zh-CN",
-            project=AuthoritativeProjectContext(
-                target=target,
-                dataset_content_hash=canonical_hash(
-                    cast(JsonValue, [item.content_hash for item in selected_sources])
-                ),
-                fields=fields,
-                sample_rows=sample_rows,
-                selected_objects=selected_objects,
-                explicit_field_aliases=tuple(alias for alias, _, _ in all_aliases),
-            ),
-            conversation_state=conversation,
-            chart_capabilities=ChartCapabilities(
-                capability_version="agent-native-engine-v1",
-                allowed_chart_type_ids=cast(Any, enabled_profiles),
-                allowed_action_types=(
-                    "create_plot",
-                    "create_combined_plot",
-                    "bind_fields",
-                    "set_title",
-                    "set_axis",
-                    "set_series_style",
-                    "set_legend",
-                    "set_chart_parameter",
-                    "add_annotation",
-                    "export_plot",
-                ),
-                export_formats=("png", "svg", "opju"),
-            ),
-            disclosure_grant=DisclosureGrant(
-                provider_type=identity.provider_type,
-                provider_config_id=identity.provider_config_id,
-                retention_disclosure_version="retention-v1",
-                retention_acknowledged=bool(values.get("retention_acknowledged", True)),
-                allowed_categories=categories,
-            ),
-        )
-        orchestrator = EngineAgentOrchestrator(
-            network_mode=mode,
-            context_builder=ContextBuilder(),
-            provider=provider,
-            binder=BundledEngineAgentBinder(
-                session.engine.catalog,
-                lambda profile_id, sources: self._bind_agent_combined_plot(
-                    session, profile_id, sources
-                ),
-            ),
-            codec=session.engine.codec,
-            audit_sink=InMemoryAuditSink(),
-        )
-        client_model_run_id = _text(
-            values["client_model_run_id"], "client_model_run_id"
-        )
-        if values.get("prepare_only") is True:
-            deterministic = orchestrator.preflight(context_request)
-            if deterministic is None:
-                envelope, decision_schema, system_prompt = orchestrator.prepare_external(
-                    context_request
-                )
-                return cast(
-                    RpcJsonValue,
-                    {
-                        "accepted": True,
-                        "prepared": True,
-                        "conversation_id": conversation_id,
-                        "context_snapshot_id": project_context.snapshot_id,
-                        "context_hash": project_context.snapshot_hash,
-                        "context_envelope": envelope.model_dump(mode="json"),
-                        "decision_schema": decision_schema,
-                        "system_prompt": system_prompt,
-                    },
-                )
-            result = orchestrator.accept_external(
-                deterministic.model_dump(mode="json"),
-                envelope=ContextBuilder().build(context_request),
-                project_context=project_context,
-                target_profiles=target_profiles,
-                client_model_run_id=client_model_run_id,
-            )
-        elif "external_decision" in values:
-            envelope = ContextBuilder().build(context_request)
-            result = orchestrator.accept_external(
-                values["external_decision"],
-                envelope=envelope,
-                project_context=project_context,
-                target_profiles=target_profiles,
-                client_model_run_id=client_model_run_id,
-            )
-        else:
-            result = asyncio.run(
-                orchestrator.run(
-                client_model_run_id=_text(
-                    values["client_model_run_id"], "client_model_run_id"
-                ),
-                context_request=context_request,
-                project_context=project_context,
-                target_profiles=target_profiles,
-                )
-            )
-        if not result.accepted or result.decision is None:
-            return _agent_failure_payload(result.error_code)
-        decision = result.decision
-        question_ids = (
-            tuple(question.question_key for question in decision.questions)
-            if decision.decision_type == "needs_input"
-            else ()
-        )
-        latest = session.agent_runtime.get_conversation_state(conversation_id)
-        if latest is None:
-            raise RpcServiceError("AGENT_CONTEXT_MISSING", "The Agent context is unavailable.")
-        updated = ConversationStateReducer().record_decision(
-            ConversationState.from_projection(latest),
-            decision_kind=decision.decision_type,
-            unresolved_question_ids=question_ids,
-        )
-        session.agent_runtime.save_conversation_state(
-            conversation_id,
-            updated.project(),
-            expected_state_version=latest.state_version,
-            context_hash=project_context.snapshot_hash,
-        )
-        payload: dict[str, RpcJsonValue] = {
-            "accepted": True,
-            "conversation_id": conversation_id,
-            "context_snapshot_id": project_context.snapshot_id,
-            "context_hash": project_context.snapshot_hash,
-            "decision": cast(RpcJsonValue, decision.model_dump(mode="json")),
-        }
-        if isinstance(decision, EngineAgentPlan):
-            if result.bound_plan is None:
-                raise RpcServiceError("ENGINE_PLAN_INVALID", "The engine plan was not bound.")
-            stored_plan = session.engine_agent_plans.create(
-                decision,
-                result.bound_plan,
-                confirmation_required=True,
-            )
-            payload["task_plan"] = self._engine_agent_plan_payload(session, stored_plan)
-        return payload
-
-    def _agent_fields(
-        self,
-        source: SourceDataset,
-        rows: tuple[tuple[Any, ...], ...],
-        *,
-        alias_prefix: str = "",
-        display_prefix: str = "",
-    ) -> tuple[tuple[AuthoritativeField, ...], dict[str, str]]:
-        aliases: dict[str, str] = {}
-        fields: list[AuthoritativeField] = []
-        for index, field in enumerate(source.field_schema):
-            base_alias = (
-                "x_field" if index == 0 else "y_field" if index == 1 else f"field_{index}"
-            )
-            alias = alias_prefix + base_alias
-            aliases[alias] = field.field_id
-            finite = [
-                float(row[index])
-                for row in rows
-                if isinstance(row[index], (int, float))
-                and not isinstance(row[index], bool)
-                and math.isfinite(float(row[index]))
-            ]
-            fields.append(
-                AuthoritativeField(
-                    field_alias=cast(Any, alias),
-                    field_id=field.field_id,
-                    name=display_prefix + field.name,
-                    logical_type=field.logical_type,
-                    unit_text=field.unit.source_text,
-                    semantic_role=_semantic_role_from_field_name(field.name),
-                    summary=ContextFieldSummary(
-                        valid_count=len(finite),
-                        missing_count=sum(row[index] is None for row in rows),
-                        numeric_minimum=min(finite) if finite else None,
-                        numeric_maximum=max(finite) if finite else None,
-                    ),
-                )
-            )
-        return tuple(fields), aliases
-
     def _session(self, project_id: str) -> ProjectSession:
         session = self._sessions.get(project_id)
         if session is None:
             raise RpcServiceError("PROJECT_NOT_OPEN", "The project is not open.")
         return session
-
-    @staticmethod
-    def _default_conversation_id(project_id: str) -> str:
-        suffix = project_id.removeprefix("project:")
-        return f"conversation:{suffix}.main"
 
     def _project_summary(
         self,
@@ -2024,26 +998,14 @@ class DesktopApplication:
     def _session_summary(
         self, session: ProjectSession, *, replayed: bool
     ) -> dict[str, RpcJsonValue]:
-        dataset_count = 0
-        plot_count = 0
-        compatibility_warnings: list[str] = []
-        try:
-            dataset_count = len(session.store.list_source_datasets())
-        except (StorageProblem, ValidationError):
-            compatibility_warnings.append("legacy_dataset_metadata")
-        try:
-            plot_count = len(session.engine.documents.list_latest())
-        except (StorageProblem, ValidationError):
-            compatibility_warnings.append("legacy_plot_metadata")
         return {
             "project_id": session.project_id,
             "resource_id": "resource:project." + session.project_id.removeprefix("project:"),
             "project_version": session.domain.revision,
-            "dataset_count": dataset_count,
-            "plot_count": plot_count,
+            "dataset_count": len(session.store.list_source_datasets()),
+            "plot_count": len(session.engine.documents.list_latest()),
             "status": "open",
             "replayed": replayed,
-            "compatibility_warnings": cast(list[RpcJsonValue], compatibility_warnings),
         }
 
     def _dataset_summary(
@@ -2056,9 +1018,7 @@ class DesktopApplication:
                 "source_file_name": record.source_file_name,
                 "sheet_name": record.sheet_name,
                 "source_block": record.source_block,
-                "instrument_metadata": cast(
-                    dict[str, RpcJsonValue], record.instrument_metadata
-                ),
+                "instrument_metadata": cast(dict[str, RpcJsonValue], record.instrument_metadata),
             }
         else:
             source = record
@@ -2163,52 +1123,6 @@ class _DomainSourceResolver:
 
     def resolve(self, source_dataset: SourceDataset) -> ResolvedSourceTable:
         return self.domain.resolve_source(source_dataset)
-
-
-def _agent_failure_payload(error_code: str | None) -> dict[str, RpcJsonValue]:
-    code = error_code or "PROVIDER_CONNECTION_FAILED"
-    retryable = code in {
-        "PROVIDER_CONNECTION_FAILED",
-        "REQUEST_CANCELLED",
-        "REQUEST_TIMEOUT",
-    }
-    return {
-        "accepted": False,
-        "error": {
-            "code": code,
-            "message": "The Agent decision was not accepted.",
-            "side_effects_committed": False,
-            "retry": {
-                "allowed": retryable,
-                "automatic": False,
-                "requires_new_client_model_run_id": retryable,
-            },
-        },
-    }
-
-
-def _semantic_role_from_field_name(name: str) -> str | None:
-    """Expose an exact scientific role only when the source header declares it."""
-
-    normalized = name.strip().casefold().replace("-", "_").replace(" ", "_").replace(".", "_")
-    normalized = normalized.removeprefix("field:")
-    aliases = {
-        "p_value": "pvalue",
-        "p_val": "pvalue",
-        "q_value": "qvalue",
-        "q_val": "qvalue",
-        "log2fc": "log2fc",
-        "fold_change": "log2fc",
-    }
-    normalized = aliases.get(normalized, normalized)
-    declared_roles = {
-        role
-        for profile in ENGINE_PROFILES
-        for role in (*profile.required_roles, *profile.optional_roles)
-    }
-    if normalized in declared_roles or normalized.startswith("series_"):
-        return normalized
-    return None
 
 
 def _object(

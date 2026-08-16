@@ -30,8 +30,6 @@ from plotagent.storage.models import (
 from plotagent.storage.schema import (
     PROJECT_SCHEMA_VERSION,
     initialize_project_schema,
-    migrate_project_v1_to_v2,
-    migrate_project_v2_to_v3,
     validate_schema,
 )
 from plotagent.storage.workspace import ensure_local_fixed_workspace
@@ -267,26 +265,11 @@ class ProjectStore:
                     raise ValueError("project_id is required when initializing")
                 initialize_project_schema(self._connection, project_id, _utc_now())
             else:
-                try:
-                    validate_schema(
-                        self._connection,
-                        PROJECT_SCHEMA_VERSION,
-                        "plotagent-project",
-                    )
-                except StorageProblem as error:
-                    if str(error.code) != "SCHEMA_VERSION_UNSUPPORTED":
-                        raise
-                    version = int(self._connection.execute("PRAGMA user_version").fetchone()[0])
-                    if version == 1:
-                        migrate_project_v1_to_v2(self._connection)
-                        version = 2
-                    if version == 2:
-                        migrate_project_v2_to_v3(self._connection)
-                    validate_schema(
-                        self._connection,
-                        PROJECT_SCHEMA_VERSION,
-                        "plotagent-project",
-                    )
+                validate_schema(
+                    self._connection,
+                    PROJECT_SCHEMA_VERSION,
+                    "plotagent-project",
+                )
             self.project_id = str(
                 self._connection.execute("SELECT project_id FROM project_meta").fetchone()[0]
             )

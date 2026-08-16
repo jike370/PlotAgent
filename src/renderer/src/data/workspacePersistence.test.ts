@@ -11,13 +11,13 @@ describe('workspace persistence', () => {
     }
     writeWorkspaceSelection(storage, 'project:one', {
       datasetId: 'source:one',
-      agentDatasetIds: ['source:one', 'source:two'],
+      workflowSourceIds: ['source:one', 'source:two'],
       chartId: 'K01',
       mapping: { roles: { x: 'field:x', y: 'field:y' } },
     })
     expect(readWorkspaceSelection(storage, 'project:one')).toEqual({
       datasetId: 'source:one',
-      agentDatasetIds: ['source:one', 'source:two'],
+      workflowSourceIds: ['source:one', 'source:two'],
       chartId: 'K01',
       mapping: { roles: { x: 'field:x', y: 'field:y' } },
     })
@@ -28,11 +28,11 @@ describe('workspace persistence', () => {
       .toBeUndefined()
   })
 
-  it('drops legacy implicit Agent dataset accumulation during migration', () => {
+  it('rejects extra workflow sources without the explicit selection mode', () => {
     expect(readWorkspaceSelection({
       getItem: () => JSON.stringify({
         datasetId: 'source:eight',
-        agentDatasetIds: Array.from({ length: 8 }, (_, index) => `source:${index + 1}`),
+        workflowSourceIds: Array.from({ length: 8 }, (_, index) => `source:${index + 1}`),
       }),
     }, 'project:one')).toEqual({ datasetId: 'source:eight' })
   })

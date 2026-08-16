@@ -1,39 +1,31 @@
 # Pi 通用 Agent 运行时接入契约
 
-> 状态：2026-08-13 起作为 Windows 桌面版自然语言入口的正式运行时。
+> Pi 是可替换的通用 Agent runtime；PlotAgent Core 始终拥有数据、任务、权限、编译、执行和恢复权威。
 
-## 1. 目标
+## 1. 调用链
 
-PlotAgent 使用 Pi 承担通用 Agent 运行时职责：模型流式调用、会话轮次、工具调用、取消、steering/follow-up 基础能力和生命周期事件。PlotAgent 自身继续拥有科研绘图领域约束、字段权威、计划确认、版本控制、事务提交和双后端渲染。
+1. Electron 向 Core 调用 `workflow.prepare`。
+2. Core 先尝试确定性规则和 WorkflowRecipe。
+3. 只有仍需语义判断时，Core 返回 `agent_required`、有界 `WorkflowContext`、TaskDraft Schema、轮次/工具预算和系统约束。
+4. Pi 可以调用 `inspect_source`、`preview_rows`、`profile_field`、`compare_schemas` 四个只读工具。
+5. Pi 必须以 `submit_task_draft` 提交唯一完整 TaskDraft。
+6. Core 严格校验并编译为 TaskPlan；确认后才执行。
 
-这不是把产品变成可执行文件或 Shell 的通用 Agent。Pi 在 PlotAgent 中只获得一个强类型工具：`submit_plotagent_decision`。它没有文件、命令行、数据库、网络抓取、Origin、Matplotlib 或项目写入工具。
+## 2. Pi 的职责与权限
 
-## 2. 正式执行链
+Pi 负责目标拆解、必要的数据理解、受控数据处理规划和自然语言到结构化绘图参数的翻译。Pi 不拥有文件系统、SQL、Shell、Python、Origin、renderer 或导出路径权限，也不能绕开本地确认和 EngineCatalog。
 
-1. 用户在桌面 UI 选择数据和图形，并提交自然语言目标。
-2. 本地 Core 从权威项目状态构造有界 `ContextEnvelope`，同时给出允许的 `AgentDecision` schema。
-3. Electron 主进程启动 Pi；Pi 可进行多轮模型推理，但只能调用一次 `submit_plotagent_decision`。
-4. 本地 Core 重新核对项目版本、目标、字段别名、图形能力和动作参数，并将候选绑定为待确认计划。
-5. 用户确认后，Core 才执行动作并提交新版本；拒绝、超时、取消和陈旧结果均不得产生项目副作用。
+只读工具接受安全别名，不接受路径或内部 renderer 对象。工具调用和披露标量数受 WorkflowBudget 约束；超预算立即终止当前 run，不执行部分草稿。
 
-## 3. 安全和隐私边界
+## 3. 运行时结果
 
-- 模型服务密钥继续由操作系统凭据存储保护；只在受信任的 Electron 主进程与本地 Core 之间按本轮请求读取，不进入 renderer、日志或项目文件。
-- 发送给模型的仍是经过最小化、数量限制和披露记录的 `ContextEnvelope`。
-- Pi 的文本回复不具备执行权。只有强类型工具参数经过本地 Pydantic/Engine validator 和对象绑定后才能形成计划。
-- 同一时刻只允许一个模型运行；新请求或目标切换会取消旧运行，迟到结果不能覆盖当前计划。
+- `draft_ready`：得到完整 TaskDraft 和本地 TaskPlan。
+- `needs_input`：仅提出完成目标所必需的少量问题。
+- `unsupported`：目标超出当前产品权限或图类能力。
+- Provider/超时错误：保持项目 revision 不变，允许用户明确重试。
 
-## 4. 用户可见状态
+Pi 的消息、工具 transcript 和隐藏推理不是项目真相。只有 Core 接受的 TaskDraft、编译后的 TaskPlan 和执行事件进入项目。
 
-桌面端从真实 Pi 生命周期显示“读取数据结构”“规划绘图动作”“校验字段绑定”“保存待确认计划”等阶段。不得用计时器伪造进度、百分比或剩余时间。
+## 4. 可替换性门禁
 
-## 5. 验收标准
-
-- 明确请求能生成唯一、可确认的计划；确认前项目版本不变。
-- 缺少必要图形类型时直接 `NeedsInput`，且不调用模型。
-- 非法字段、错误目标、越权图形或无效动作被本地拒绝。
-- 超时、取消、目标切换和陈旧返回均无副作用。
-- UI 显示的阶段来自实际 Pi/Core 事件；成功后确认卡包含具体字段和动作。
-- 模型服务未配置或不可达时，手动绘图、编辑和导出仍可用。
-
-Pi SDK 文档参考：[Pi SDK](https://pi.dev/docs/latest/sdk)、[Pi extensions and tools](https://pi.dev/docs/latest/extensions)。
+任何其他 Agent runtime 只要能够消费 WorkflowContext、遵守预算、调用同一只读工具并提交 TaskDraft，即可替换 Pi。替换不得改变 TaskDraft Schema、TaskCompiler、TaskPlan、确认、执行、恢复或渲染器合同。

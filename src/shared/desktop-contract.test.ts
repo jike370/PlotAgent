@@ -2,18 +2,18 @@ import { describe, expect, it } from 'vitest'
 
 import {
   CORE_PROTOCOL_VERSION,
-  parseAgentDecideInput,
-  parseAgentPlanConfirmInput,
-  parseAgentPlanInput,
   parseCloseResponse,
   parseCoreProtocolMessage,
   parseCustomProviderConfigureInput,
   parseEngineActionInput,
-  parseEngineCombinedPlotCreateInput,
   parseProjectRenameInput,
   parseProjectResourceInput,
+  parseTaskPlanConfirmInput,
+  parseTaskPlanInput,
   parseTaskEvent,
   parseTaskId,
+  parseWorkflowDraftSubmitInput,
+  parseWorkflowRunInput,
 } from './desktop-contract.js'
 
 describe('desktop contract validation', () => {
@@ -109,93 +109,73 @@ describe('desktop contract validation', () => {
       action: { operation: 'set_title', apiToken: 'secret' },
     })).toBeNull()
 
-    expect(parseAgentDecideInput({
+    expect(parseWorkflowRunInput({
       projectId: 'project:one',
-      sourceDatasetId: 'source:one',
-      sourceVersion: 1,
-      expectedVersion: 2,
-      executionMode: 'plan_only',
-      target: { kind: 'plot', id: 'plot:one' },
-      scope: 'current',
-      utterance: 'Y axis 改成 log10，图例放到左上角',
+      selectedSources: [],
+      selectedPlotIds: ['plot:one'],
+      expectedProjectVersion: 2,
+      instruction: 'Y axis 改成 log10，图例放到左上角',
     })).not.toBeNull()
-    expect(parseAgentDecideInput({
+    expect(parseWorkflowRunInput({
       projectId: 'project:one',
-      sourceDatasetId: 'source:one',
-      sourceVersion: 1,
-      expectedVersion: 2,
-      selectedChartId: 'K02',
-      executionMode: 'plan_only',
-      scope: 'current',
-      utterance: '以时间为 X、信号为 Y 绘制线点图',
-    })).toMatchObject({ selectedChartId: 'K02', executionMode: 'plan_only' })
-    expect(parseAgentDecideInput({
+      selectedSources: [{ datasetId: 'source:one', sourceVersion: 1 }],
+      selectedProfileIds: ['K02'],
+      expectedProjectVersion: 2,
+      instruction: '以时间为 X、信号为 Y 绘制线点图',
+    })).toMatchObject({ selectedProfileIds: ['K02'] })
+    expect(parseWorkflowRunInput({
       projectId: 'project:one',
-      sourceDatasetId: 'source:one',
-      sourceVersion: 1,
-      expectedVersion: 2,
-      executionMode: 'plan_only',
-      scope: 'batch',
-      utterance: '修改上一批',
+      selectedSources: [],
+      expectedProjectVersion: 2,
+      instruction: '修改上一批',
     })).toBeNull()
-    expect(parseAgentPlanInput({ projectId: 'project:one', planId: 'plan:one' }))
+    expect(parseTaskPlanInput({ projectId: 'project:one', planId: 'plan:one' }))
       .toEqual({ projectId: 'project:one', planId: 'plan:one' })
-    expect(parseAgentPlanConfirmInput({ projectId: 'project:one', planId: 'plan:one', accept: true }))
+    expect(parseTaskPlanConfirmInput({ projectId: 'project:one', planId: 'plan:one', accept: true }))
       .toEqual({ projectId: 'project:one', planId: 'plan:one', accept: true })
-    expect(parseAgentPlanConfirmInput({ projectId: 'project:one', planId: 'plan:one', accept: 'yes' }))
+    expect(parseTaskPlanConfirmInput({ projectId: 'project:one', planId: 'plan:one', accept: 'yes' }))
       .toBeNull()
+    expect(parseWorkflowDraftSubmitInput({
+      projectId: 'project:one',
+      workflowRunId: 'workflow:one',
+      taskDraft: { schema_version: 'task-draft.v1' },
+    })).not.toBeNull()
   })
 
-  it('accepts a bounded explicit multi-dataset Agent context', () => {
-    expect(parseAgentDecideInput({
+  it('accepts a bounded explicit multi-source workflow context', () => {
+    expect(parseWorkflowRunInput({
       projectId: 'project:one',
-      sourceDatasetId: 'source:one',
-      sourceVersion: 1,
-      selectedDatasets: [
+      selectedSources: [
         { datasetId: 'source:one', sourceVersion: 1 },
         { datasetId: 'source:two', sourceVersion: 2 },
       ],
-      expectedVersion: 4,
-      selectedChartId: 'K01',
-      executionMode: 'plan_only',
-      scope: 'selected',
-      utterance: '为选中的数据表分别绘图',
+      expectedProjectVersion: 4,
+      selectedProfileIds: ['K01'],
+      instruction: '为选中的数据表分别绘图',
     })).toMatchObject({
-      selectedDatasets: [
+      selectedSources: [
         { datasetId: 'source:one', sourceVersion: 1 },
         { datasetId: 'source:two', sourceVersion: 2 },
       ],
     })
-    expect(parseAgentDecideInput({
+    expect(parseWorkflowRunInput({
       projectId: 'project:one',
-      sourceDatasetId: 'source:one',
-      sourceVersion: 1,
-      selectedDatasets: [{ datasetId: 'source:two', sourceVersion: 1 }],
-      expectedVersion: 4,
-      executionMode: 'plan_only',
-      scope: 'selected',
-      utterance: '绘图',
+      selectedSources: [
+        { datasetId: 'source:one', sourceVersion: 1 },
+        { datasetId: 'source:one', sourceVersion: 1 },
+      ],
+      expectedProjectVersion: 4,
+      instruction: '绘图',
     })).toBeNull()
   })
 
-  it('accepts only two to eight immutable datasets for one combined plot', () => {
-    const dataset = (id: string) => ({
-      datasetId: `source:${id}`,
-      sourceVersion: 1,
-      contentHash: id.repeat(64).slice(0, 64),
-      bindings: { x: 'field:x', y: 'field:y' },
-    })
-    expect(parseEngineCombinedPlotCreateInput({
+  it('rejects filesystem authority embedded in workflow requests', () => {
+    expect(parseWorkflowRunInput({
       projectId: 'project:one',
-      datasets: [dataset('a'), dataset('b')],
-      profileId: 'K03',
       expectedProjectVersion: 2,
-    })).toMatchObject({ profileId: 'K03', datasets: [{ datasetId: 'source:a' }, { datasetId: 'source:b' }] })
-    expect(parseEngineCombinedPlotCreateInput({
-      projectId: 'project:one',
-      datasets: [dataset('a')],
-      profileId: 'K03',
-      expectedProjectVersion: 2,
+      selectedSources: [{ datasetId: 'source:a', sourceVersion: 1 }],
+      instruction: '绘制散点图',
+      outputPath: 'C:\\private.opju',
     })).toBeNull()
   })
 
