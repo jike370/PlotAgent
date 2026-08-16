@@ -102,7 +102,7 @@ interface CaseResult {
   failure?: string
 }
 
-const REPOSITORY = resolve(import.meta.dirname, '..')
+const REPOSITORY = resolve(process.cwd())
 const TASK_SET_PATH = join(REPOSITORY, 'tests', 'fixtures', 'seq70', 'workflow_tasks.json')
 
 function record(value: JsonValue, label: string): JsonRecord {
