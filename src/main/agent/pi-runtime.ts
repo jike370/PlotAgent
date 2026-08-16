@@ -45,6 +45,11 @@ interface RuntimeProvider {
   readonly apiKey: string
 }
 
+interface Preinspection {
+  readonly toolName: 'compare_schemas' | 'preview_rows'
+  readonly response: JsonValue
+}
+
 export class PiRuntimeError extends Error {
   constructor(readonly code: string, message: string) {
     super(message)
@@ -166,6 +171,54 @@ export class PiAgentRuntime {
     this.active?.agent.abort()
   }
 
+  private async preinspect(
+    prepared: PreparedWorkflow,
+    projectId: string,
+    clientRunId: string,
+  ): Promise<Preinspection | undefined> {
+    const context = record(prepared.context, 'Workflow context')
+    const instruction = typeof context.instruction === 'string' ? context.instruction : ''
+    const selectedSources = Array.isArray(context.selected_source_aliases)
+      ? context.selected_source_aliases.filter((item): item is string => typeof item === 'string')
+      : []
+    let toolName: Preinspection['toolName'] | undefined
+    let args: JsonValue | undefined
+    if (
+      selectedSources.length > 1
+      && /比较|结构|同构|拼接|合并|compare|schema|concatenate/i.test(instruction)
+    ) {
+      toolName = 'compare_schemas'
+      args = { source_aliases: selectedSources }
+    } else if (/中位数|median/i.test(instruction) && Array.isArray(context.fields)) {
+      const target = context.fields
+        .map((item) => record(item, 'Workflow field'))
+        .find((field) => (
+          typeof field.name === 'string'
+          && typeof field.field_alias === 'string'
+          && typeof field.source_alias === 'string'
+          && instruction.toLocaleLowerCase().includes(field.name.toLocaleLowerCase())
+        ))
+      if (target !== undefined) {
+        toolName = 'preview_rows'
+        args = {
+          source_alias: target.source_alias,
+          field_aliases: [target.field_alias],
+          offset: 0,
+          limit: 40,
+        }
+      }
+    }
+    if (toolName === undefined || args === undefined) return undefined
+    this.emit(clientRunId, projectId, 'inspecting_data', '正在执行低成本数据预检查…')
+    const response = await this.core.request('workflow.inspect', {
+      project_id: projectId,
+      workflow_run_id: prepared.workflowRunId,
+      tool_name: toolName,
+      arguments: args,
+    }, 10_000)
+    return { toolName, response }
+  }
+
   async run(params: JsonValue): Promise<JsonValue> {
     const input = record(params, 'Pi workflow request')
     const projectId = typeof input.project_id === 'string' ? input.project_id : ''
@@ -192,6 +245,8 @@ export class PiAgentRuntime {
       }
 
       const provider = runtimeProvider(await this.core.request('provider.runtime.get', {}, 10_000))
+      this.assertCurrent(generation)
+      const preinspection = await this.preinspect(prepared, projectId, clientRunId)
       this.assertCurrent(generation)
       let submittedPlan: JsonValue | undefined
       let lastValidationError: string | undefined
@@ -293,8 +348,18 @@ export class PiAgentRuntime {
         if (next !== undefined) this.emit(clientRunId, projectId, next.stage, next.label)
       })
       this.active = { runId: clientRunId, generation, agent }
+      const promptPayload = {
+        workflow_context: prepared.context,
+        preinspection: preinspection === undefined
+          ? undefined
+          : {
+              tool_name: preinspection.toolName,
+              result: preinspection.response,
+              instruction: '优先使用该只读结果直接编排；除非确有缺口，不要重复检查。',
+            },
+      }
       await Promise.race([
-        agent.prompt(JSON.stringify({ workflow_context: prepared.context })),
+        agent.prompt(JSON.stringify(promptPayload)),
         new Promise<never>((_resolve, reject) => {
           timeout = setTimeout(() => {
             timedOut = true

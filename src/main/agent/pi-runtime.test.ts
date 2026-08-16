@@ -115,6 +115,50 @@ describe('PiAgentRuntime workflow orchestration', () => {
     expect(events.at(-1)?.stage).toBe('completed')
   })
 
+  it('preinspects multi-source structure once before Agent planning', async () => {
+    const calls: string[] = []
+    const core: PiCoreBridge = {
+      request: async (method): Promise<JsonValue> => {
+        calls.push(method)
+        if (method === 'workflow.prepare') return {
+          outcome: 'agent_required', workflow_run_id: 'workflow:test',
+          workflow_context: {
+            workflow_run_id: 'workflow:test',
+            instruction: '比较两张表的结构，同构后分别绘图',
+            selected_source_aliases: ['data_1', 'data_2'],
+            fields: [],
+          },
+          task_draft_schema: { type: 'object' }, system_prompt: 'Submit a TaskDraft.',
+        }
+        if (method === 'provider.runtime.get') return {
+          base_url: 'https://model.example/v1', model_id: 'model', api_key: 'secret',
+        }
+        if (method === 'workflow.inspect') return {
+          result: { source_aliases: ['data_1', 'data_2'], isomorphic: true },
+          audit: { tool_name: 'compare_schemas' },
+        }
+        return { outcome: 'draft_ready', task_plan: { state: 'awaiting_confirmation' } }
+      },
+    }
+    const runtime = new PiAgentRuntime({
+      core, emit: () => undefined, streamFn: submitDraftStream as StreamFn,
+    })
+
+    await runtime.run({
+      ...request,
+      selected_sources: [
+        { dataset_id: 'source:one', source_version: 1 },
+        { dataset_id: 'source:two', source_version: 1 },
+      ],
+    })
+    expect(calls).toEqual([
+      'workflow.prepare',
+      'provider.runtime.get',
+      'workflow.inspect',
+      'workflow.submit_draft',
+    ])
+  })
+
   it('maps timeout and superseded runs to stable public errors', () => {
     expect(publicPiAgentError(new Error('other'))).toBeUndefined()
     expect(publicPiAgentError({})).toBeUndefined()

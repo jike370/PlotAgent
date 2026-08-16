@@ -1,5 +1,5 @@
 {
-  "schema_version": "seq70-workflow-eval-v2",
+  "schema_version": "seq70-workflow-eval-v3",
   "repeats": 3,
   "pricing_cny_per_million_tokens": {
     "input_cache_hit": 0.02,
@@ -148,7 +148,7 @@
       "task_id": "W11",
       "layer": "workflow",
       "fixture_keys": ["xy", "xy_second"],
-      "instruction": "把 data_1 和 data_2 两份同构数据纵向拼接，在同一张 K02 线点图中绘制，保留来源身份；X/Time 为 x，Response/Value 为 y。",
+      "instruction": "把 data_1 和 data_2 两份同构数据纵向拼接，在同一张 K02 线点图中绘制，保留来源身份；X 为 x，Response 为 y。",
       "selected_profile_ids": ["K02"],
       "expected_outcome": "draft_ready",
       "expected_route": "agent_exploration",

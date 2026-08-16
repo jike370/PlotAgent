@@ -166,7 +166,7 @@ function writeFixtures(root: string): Record<string, string> {
   mkdirSync(fixtureRoot, { recursive: true })
   const fixtures: Record<string, string> = {
     xy: 'X,Response\n1,1.0\n2,2.5\n3,4.0\n4,3.5\n5,6.0\n',
-    xy_second: 'Time,Value\n1,2.0\n2,3.0\n3,2.0\n4,5.0\n5,7.0\n',
+    xy_second: 'X,Response\n1,2.0\n2,3.0\n3,2.0\n4,5.0\n5,7.0\n',
     column: 'Category,Value\nA,3\nB,5\nC,4\nD,7\n',
     heatmap: 'Row,Column,Value\nA,X,-3\nA,Y,-1\nA,Z,0\nB,X,-2\nB,Y,0\nB,Z,4\nC,X,-0.75\nC,Y,4.5\nC,Z,9\n',
     error: 'X,Mean,XLower,XUpper,Lower,Upper\n1,2,0.9,1.2,1.7,2.4\n2,3.5,1.8,2.25,3.1,4.0\n3,5,2.85,3.2,4.65,5.45\n',
