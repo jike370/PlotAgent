@@ -441,7 +441,8 @@
           "parameters": [
             "palette",
             "reverse",
-            "bounds",
+            "minimum",
+            "maximum",
             "midpoint",
             "mode",
             "levels",
@@ -2071,7 +2072,8 @@
           "parameters": [
             "palette",
             "reverse",
-            "bounds",
+            "minimum",
+            "maximum",
             "midpoint",
             "mode",
             "levels",
@@ -2186,7 +2188,8 @@
           "parameters": [
             "palette",
             "reverse",
-            "bounds",
+            "minimum",
+            "maximum",
             "midpoint",
             "mode",
             "levels",
@@ -2308,7 +2311,8 @@
           "parameters": [
             "palette",
             "reverse",
-            "bounds",
+            "minimum",
+            "maximum",
             "midpoint",
             "mode",
             "levels",
@@ -2652,7 +2656,8 @@
           "parameters": [
             "palette",
             "reverse",
-            "bounds",
+            "minimum",
+            "maximum",
             "midpoint",
             "mode",
             "levels",
