@@ -26,8 +26,8 @@
 
 ## D. 硬切换
 
-- 项目 schema v4 只保存 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan/TaskItem、事件和 WorkflowRecipe。
-- 不双读、不双写、不提供旧计划别名、fallback、迁移器或兼容 RPC；非 v4 项目保持原文件不变并明确拒绝打开。
+- 项目 schema v5 只保存 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan/TaskItem（含失败原因与可重试性）、事件和 WorkflowRecipe。
+- 不双读、不双写、不提供旧计划别名、fallback、迁移器或兼容 RPC；非 v5 项目保持原文件不变并明确拒绝打开。
 - Pi 是可替换运行时。任何替代 Agent 必须消费同一 WorkflowContext、遵守预算并提交同一 TaskDraft；不能改变本地编译、确认、执行和恢复语义。
 
 ## E. Agent Native 绘图引擎

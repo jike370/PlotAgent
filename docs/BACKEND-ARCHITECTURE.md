@@ -51,7 +51,7 @@ PlotDocument + EngineDataView
 
 `EngineDataView` 是 renderer 唯一可见的数据输入。`PlotDocument` 只保存图 ID、线性版本、Profile、不可变数据引用、字段绑定、组件引用与已应用动作 ID。每次非导出动作创建一个新版本，并与原动作原子写入动作日志。
 
-项目 schema v4 只创建 SourceDataset/CAS 与 WorkflowRun/TaskDraft/TaskPlan/WorkflowRecipe 权威表。非 v4 项目原文件保持不变并明确拒绝打开，不存在迁移、双写或 fallback。
+项目 schema v5 只创建 SourceDataset/CAS 与 WorkflowRun/TaskDraft/TaskPlan/WorkflowRecipe 权威表，并持久化完整任务失败语义。非 v5 项目原文件保持不变并明确拒绝打开，不存在迁移、双写或 fallback。
 
 ## 5. 后端
 

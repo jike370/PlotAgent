@@ -133,7 +133,7 @@ LocalDiagnosticBundleManifest
 ## 11. Schema 硬拒绝
 
 - 打开项目先只读读取 manifest/schema/version 并验证完整性。
-- 当前 build 只接受项目 schema v4；其他版本返回 `SCHEMA_VERSION_UNSUPPORTED`，不编辑、不降级、不创建工作副本。
+- 当前 build 只接受项目 schema v5；其他版本返回 `SCHEMA_VERSION_UNSUPPORTED`，不编辑、不降级、不创建工作副本。
 - 产品不存在旧 Schema 读取器、版本迁移器、旧对象别名、双写或兼容模式。
 - 被拒绝项目保持字节不变；用户需使用创建该项目的旧版本自行导出数据，再在当前版本建立新项目。
 
@@ -156,7 +156,7 @@ LocalDiagnosticBundleManifest
 | `ARCHIVE_*` | archive path/link/size/hash 不安全 | 拒绝包 |
 | `FORMULA_UNCACHED` | 公式无缓存值 | missing/NeedsInput |
 | `DIAGNOSTIC_SCHEMA_VIOLATION` | Bundle含未知/禁止字段 | 拒绝生成并显示命中类别 |
-| `SCHEMA_VERSION_UNSUPPORTED` | 项目不是当前 schema v4 | 原项目保持不变；使用旧版本导出数据后建立新项目 |
+| `SCHEMA_VERSION_UNSUPPORTED` | 项目不是当前 schema v5 | 原项目保持不变；使用旧版本导出数据后建立新项目 |
 
 ## 14. Beta 验收矩阵
 

@@ -19,7 +19,7 @@
 - `engine_plot_document_versions`：线性 PlotDocument 版本；
 - `engine_plot_action_journal`：每个版本对应的公共动作、前后引用与时间。
 
-schema v4 以 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan/TaskItem、事件与 WorkflowRecipe 分表保存提案、确认、执行位置和失败信息。旧项目 schema 不在原文件上迁移；当前 build 只打开完整的 v4 项目，避免双写和兼容分支污染权威状态。
+schema v5 以 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan/TaskItem、事件与 WorkflowRecipe 分表保存提案、确认、执行位置、完整失败原因和可重试性。旧项目 schema 不在原文件上迁移；当前 build 只打开完整的 v5 项目，避免双写和兼容分支污染权威状态。
 
 ## 4. 导入
 

@@ -559,7 +559,7 @@ save_from_success(workflow_run_id, user_confirmation) -> WorkflowRecipeVersion
 - `workflows/recipes.py` 负责成功流程的指纹、固化和严格重放。
 - `desktop_core/workflow_service.py` 是 Core 的唯一工作流服务入口。
 - Electron、preload 与 renderer 仅通过 `workflow.*` RPC 工作；Pi 只生成或修订 TaskDraft。
-- 项目 schema v4 只含 Workflow 表；旧项目 schema 明确拒绝，不迁移、不双写。
+- 项目 schema v5 只含 Workflow 权威表并持久化完整任务失败语义；旧项目 schema 明确拒绝，不迁移、不双写。
 
 ## 15. 验收标准
 

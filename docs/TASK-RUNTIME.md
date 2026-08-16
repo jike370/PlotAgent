@@ -36,7 +36,7 @@ WorkflowRun 依次经过 routing、确定性/Recipe/Agent 路径、draft_ready�
 
 ## 4. 持久化与恢复
 
-项目 schema v4 保存 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan、TaskItem、事件和 WorkflowRecipe。项目使用单写入器锁；崩溃后只从已提交状态恢复，不续跑未知的 renderer 内部状态。
+项目 schema v5 保存 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan、TaskItem（含失败原因与可重试性）、事件和 WorkflowRecipe。项目使用单写入器锁；崩溃后只从已提交状态恢复，不续跑未知的 renderer 内部状态。
 
 恢复时重新检查项目 revision、plot version、输入对象与执行条件。合法成功项保留；失败项可由用户明确继续。旧 schema 不原地迁移，不存在双读、双写或兼容回退。
 
