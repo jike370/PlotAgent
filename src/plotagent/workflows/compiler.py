@@ -168,6 +168,8 @@ class DraftCompiler:
                 if operation.operation == "sort_rows":
                     operation_aliases.update(key.field_alias for key in operation.keys)
             for alias in operation_aliases:
+                if alias in synthetic_fields:
+                    continue
                 field = fields.get(alias)
                 if field is None or field.source_alias not in item.source_aliases:
                     raise WorkflowCompileError(

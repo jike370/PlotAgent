@@ -275,7 +275,7 @@ export class PiAgentRuntime {
           }
         },
       })
-      const tools: AgentTool<TSchema, JsonValue>[] = [
+      const inspectionTools: AgentTool<TSchema, JsonValue>[] = preinspection === undefined ? [
         inspectTool('inspect_source', '正在检查数据表结构', objectSchema({
           source_alias: { type: 'string' },
         }, ['source_alias'])),
@@ -296,6 +296,9 @@ export class PiAgentRuntime {
             type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 8,
           },
         }, ['source_aliases'])),
+      ] : []
+      const tools: AgentTool<TSchema, JsonValue>[] = [
+        ...inspectionTools,
         {
           name: 'submit_task_draft',
           label: '提交任务草稿',

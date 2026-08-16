@@ -213,6 +213,53 @@ def test_concat_operation_preserves_explicit_source_order() -> None:
     assert operation.source_aliases == ("data_2", "data_1")
 
 
+def test_compiler_accepts_the_concatenate_source_identity_field() -> None:
+    context = _context(selected_sources=("data_1", "data_2"))
+    draft = TaskDraft(
+        draft_id="draft:concat",
+        workflow_run_id=context.workflow_run_id,
+        route="agent_exploration",
+        summary="拼接同构数据",
+        confidence=1,
+        items=(
+            TaskDraftItem(
+                task_kind="create",
+                item_id="item:concat.1",
+                plot_alias="plot_1",
+                profile_id="K02",
+                source_aliases=("data_1", "data_2"),
+                data_operations=(
+                    ConcatenateSources(
+                        source_aliases=("data_1", "data_2"),
+                        source_label_field="source_group",
+                    ),
+                ),
+                bindings=(
+                    DraftFieldBinding(
+                        role="x",
+                        source_alias="data_1",
+                        field_alias="data_1_time",
+                    ),
+                    DraftFieldBinding(
+                        role="y",
+                        source_alias="data_1",
+                        field_alias="data_1_response",
+                    ),
+                    DraftFieldBinding(
+                        role="label",
+                        source_alias="data_1",
+                        field_alias="source_group",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+    assert plan.items[0].data_operations[0].operation == "concatenate_sources"
+    assert plan.items[0].bindings[-1].field_id.startswith("field:workflow_")
+
+
 @dataclass(frozen=True)
 class _Rows:
     values: dict[str, tuple[tuple[object, ...], ...]]
