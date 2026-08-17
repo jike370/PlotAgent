@@ -236,6 +236,10 @@
   调用后校验输出 Schema、公开副作用等级、披露量和结果合同；
 - 已把 P3 的五个知识查询注册成第一批 P0 工具。工具只返回 renderer-neutral 公共合同，
   未把后端模板、命令、路径或对象编号暴露给 Agent；
+- 已将现有 8 个只读数据检查实现适配进同一 Gateway：保留原始分页、抽样、字段画像、
+  值搜索、结构比较、仪器元数据和 `InspectionAudit` 行为，同时为每次结果补充来源版本/hash
+  provenance；v1 正式入口暂不伪造 v2 task authority，等 P6 垂直切片再单点切换；
+- Gateway 可按 activation allowlist 输出实际 JSON Schema 定义，供下一阶段 Pi adapter 注册工具；
 - untrusted payload 无法增加 allowlist、权限或预算，错误统一返回可修复/需用户/瞬态/
   不支持/致命五类结构结果；
 - 当前仍为 additive 基础设施，尚未替换 v1 inspect 路由、未接 Pi hook、未引入写操作，

@@ -96,6 +96,15 @@ ToolHandler = Callable[[BaseModel], ToolExecutionOutput]
 
 
 @dataclass(frozen=True, slots=True)
+class ToolDefinition:
+    """One runtime tool definition suitable for a model adapter."""
+
+    contract: ToolContract
+    input_schema: dict[str, Any]
+    output_schema: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
 class _RegisteredTool:
     contract: ToolContract
     input_adapter: TypeAdapter[Any]
@@ -121,6 +130,20 @@ class ToolGateway:
     @property
     def contracts(self) -> tuple[ToolContract, ...]:
         return tuple(item.contract for item in self._tools.values())
+
+    def definition(self, tool_name: str) -> ToolDefinition:
+        registered = self._tools.get(tool_name)
+        if registered is None:
+            raise ToolGatewayError(f"tool is not registered: {tool_name}")
+        return ToolDefinition(
+            contract=registered.contract,
+            input_schema=registered.input_adapter.json_schema(mode="validation"),
+            output_schema=registered.output_adapter.json_schema(mode="validation"),
+        )
+
+    def allowed_definitions(self, activation: AgentActivation) -> tuple[ToolDefinition, ...]:
+        self.context_contracts(activation)
+        return tuple(self.definition(tool_name) for tool_name in activation.allowed_tools)
 
     def register(
         self,

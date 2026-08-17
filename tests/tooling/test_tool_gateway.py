@@ -167,6 +167,14 @@ def test_context_contracts_follow_the_core_allowlist_and_preserve_order() -> Non
     contracts = current.context_contracts(allowed)
     assert tuple(contract.tool_name for contract in contracts) == allowed.allowed_tools
     assert all(contract.side_effect == "none" for contract in contracts)
+    definitions = current.allowed_definitions(allowed)
+    assert tuple(item.contract.tool_name for item in definitions) == allowed.allowed_tools
+    assert tuple(canonical_hash(item.input_schema) for item in definitions) == tuple(
+        contract.input_schema_hash for contract in contracts
+    )
+    assert tuple(canonical_hash(item.output_schema) for item in definitions) == tuple(
+        contract.output_schema_hash for contract in contracts
+    )
 
 
 def test_all_domain_tools_return_schema_valid_structured_results() -> None:
