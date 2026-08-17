@@ -67,6 +67,64 @@ const request = {
 }
 
 describe('PiAgentRuntime workflow orchestration', () => {
+  it('uses bounded raw evidence to propose parser options without plotting semantics', async () => {
+    const calls: string[] = []
+    const core: PiCoreBridge = {
+      request: async (method): Promise<JsonValue> => {
+        calls.push(method)
+        if (method === 'data_preparation.sources.inspect') return {
+          source_format: 'txt', generic_parser_code: 'IMPORT_DELIMITER_AMBIGUOUS',
+          text_previews: [{ encoding: 'utf-8-sig', lines: ['time;value', '0;1'] }],
+        }
+        return { base_url: 'https://model.example/v1', model_id: 'model', api_key: 'secret' }
+      },
+    }
+    const runtime = new PiAgentRuntime({
+      core,
+      emit: () => undefined,
+      streamFn: (() => toolCallStream('submit_parser_options', {
+        options: { encoding: 'utf-8-sig', delimiter: ';', header_row: 1 },
+        rationale: '预览稳定显示分号分隔且首行为列名。',
+      })) as StreamFn,
+    })
+
+    await expect(runtime.prepareData({
+      project_id: 'project:test',
+      client_run_id: 'data-client:test',
+      preparation_run_id: 'data-run:test',
+      source_path: 'D:\\authorized.txt',
+      import_outcome: { kind: 'clarification' },
+    })).resolves.toMatchObject({
+      outcome: 'proposal',
+      options: { encoding: 'utf-8-sig', delimiter: ';', header_row: 1 },
+      model_turn_count: 1,
+      tool_call_count: 1,
+      input_token_count: 1,
+      output_token_count: 1,
+    })
+    expect(calls).toEqual(['data_preparation.sources.inspect', 'provider.runtime.get'])
+  })
+
+  it('fails closed when raw evidence does not support parser parameters', async () => {
+    const core: PiCoreBridge = {
+      request: async (method): Promise<JsonValue> => method === 'data_preparation.sources.inspect'
+        ? { source_format: 'xls', raw_preview_unavailable: true }
+        : { base_url: 'https://model.example/v1', model_id: 'model', api_key: 'secret' },
+    }
+    const runtime = new PiAgentRuntime({
+      core,
+      emit: () => undefined,
+      streamFn: (() => toolCallStream('report_preparation_unresolved', {
+        reason: '没有可核验的原始预览，不能安全猜测。',
+      })) as StreamFn,
+    })
+
+    await expect(runtime.prepareData({
+      project_id: 'project:test', client_run_id: 'data-client:test',
+      preparation_run_id: 'data-run:test', source_path: 'D:\\authorized.xls',
+    })).resolves.toMatchObject({ outcome: 'unresolved' })
+  })
+
   it('returns a Core-owned structured result without invoking the model', async () => {
     const calls: string[] = []
     const params: JsonValue[] = []

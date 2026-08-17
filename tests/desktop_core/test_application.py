@@ -743,6 +743,47 @@ def test_data_preparation_recipe_is_saved_after_import_and_never_replays_plottin
     assert harness.call("workflow.prepare", request)["route"] == "agent"
 
 
+def test_agent_assisted_import_is_hidden_again_when_user_rejects_it(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = harness.call(
+        "datasets.import",
+        {
+            "project_id": project_id,
+            "resource_id": "resource:agent-assisted",
+            "source_path": str(FIXTURES / "excel_two_sheets.xlsx"),
+            "idempotency_key": "agent-assisted",
+            "expected_version": revision,
+            "options": {
+                "agent_assisted": True,
+                "model_turn_count": 1,
+                "tool_call_count": 1,
+                "input_token_count": 120,
+                "output_token_count": 24,
+            },
+        },
+    )
+    run_id = cast(str, imported["data_preparation_run_id"])
+    run = harness.call(
+        "data_preparation.runs.get",
+        {"project_id": project_id, "run_id": run_id},
+    )
+    assert run["state"] == "awaiting_confirmation"
+    assert run["model_turn_count"] == 1
+    assert run["input_token_count"] == 120
+    assert run["output_token_count"] == 24
+    assert len(cast(list[dict[str, Any]], imported["datasets"])) == 2
+    assert harness.call("datasets.list", {"project_id": project_id})["datasets"] == []
+
+    rejected = harness.call(
+        "data_preparation.runs.confirm",
+        {"project_id": project_id, "run_id": run_id, "accept": False},
+    )
+    assert rejected["state"] == "cancelled"
+    assert harness.call("datasets.list", {"project_id": project_id})["datasets"] == []
+
+
 def test_workflow_agent_edit_changes_the_selected_plot_without_a_source(
     harness: ApplicationHarness,
 ) -> None:

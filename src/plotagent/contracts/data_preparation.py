@@ -191,6 +191,7 @@ class DataPreparationRun(StrictModel):
         "awaiting_recipe_selection",
         "agent_required",
         "validating",
+        "awaiting_confirmation",
         "committed",
         "failed",
         "cancelled",
@@ -220,8 +221,8 @@ class DataPreparationRun(StrictModel):
             raise ValueError("selected recipe id and version must appear together")
         if self.route == "saved_recipe" and self.selected_recipe_id is None:
             raise ValueError("saved recipe route requires selected recipe")
-        if self.state == "committed" and not self.output_source_ids:
-            raise ValueError("committed preparation runs require outputs")
+        if self.state in {"awaiting_confirmation", "committed"} and not self.output_source_ids:
+            raise ValueError("completed preparation runs require outputs")
         if self.state == "failed" and (self.failure_code is None or self.failure_message is None):
             raise ValueError("failed preparation runs require failure metadata")
         if self.state != "failed" and (

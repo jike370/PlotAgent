@@ -19,6 +19,9 @@ export const IPC_CHANNELS = {
   dataPreparationRecipeSave: 'plotagent:data-preparation:recipe-save',
   dataPreparationRecipeList: 'plotagent:data-preparation:recipe-list',
   dataPreparationRunGet: 'plotagent:data-preparation:run-get',
+  dataPreparationRunConfirm: 'plotagent:data-preparation:run-confirm',
+  dataPreparationRetry: 'plotagent:data-preparation:retry',
+  dataPreparationAssist: 'plotagent:data-preparation:assist',
   cancelTask: 'plotagent:tasks:cancel',
   closeResponse: 'plotagent:lifecycle:close-response',
   coreStatusChanged: 'plotagent:core:status-changed',
@@ -283,6 +286,14 @@ export interface DataPreparationRunInput extends ProjectIdInput {
   readonly runId: string
 }
 
+export interface DataPreparationRunConfirmInput extends DataPreparationRunInput {
+  readonly accept: boolean
+}
+
+export interface DataPreparationRetryInput extends DataPreparationRunInput {
+  readonly optionValue: string
+}
+
 export interface PngSvgExportInput extends ProjectIdInput {
   readonly target: {
     readonly kind: 'plot'
@@ -352,6 +363,9 @@ export interface PlotAgentDesktopApi {
   saveDataPreparationRecipe(input: DataPreparationRecipeSaveInput): Promise<DesktopDataResult>
   listDataPreparationRecipes(input: ProjectIdInput): Promise<DesktopDataResult>
   getDataPreparationRun(input: DataPreparationRunInput): Promise<DesktopDataResult>
+  confirmDataPreparationRun(input: DataPreparationRunConfirmInput): Promise<DesktopDataResult>
+  retryDataPreparation(input: DataPreparationRetryInput): Promise<DesktopDataResult>
+  assistDataPreparation(input: DataPreparationRunInput): Promise<DesktopDataResult>
   exportPngSvg(input: PngSvgExportInput): Promise<DesktopDataResult>
   exportOrigin(input: OriginExportInput): Promise<DesktopDataResult>
   respondToCloseRequest(response: CloseResponse): Promise<DesktopActionResult>
@@ -738,6 +752,24 @@ export function parseDataPreparationRunInput(value: unknown): DataPreparationRun
   const projectId = parseId(value.projectId)
   const runId = parseId(value.runId)
   return projectId === null || runId === null ? null : { projectId, runId }
+}
+
+export function parseDataPreparationRunConfirmInput(
+  value: unknown,
+): DataPreparationRunConfirmInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'runId', 'accept'])) return null
+  const parsed = parseDataPreparationRunInput({ projectId: value.projectId, runId: value.runId })
+  return parsed === null || typeof value.accept !== 'boolean'
+    ? null
+    : { ...parsed, accept: value.accept }
+}
+
+export function parseDataPreparationRetryInput(value: unknown): DataPreparationRetryInput | null {
+  if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'runId', 'optionValue'])) return null
+  const parsed = parseDataPreparationRunInput({ projectId: value.projectId, runId: value.runId })
+  return parsed === null || typeof value.optionValue !== 'string' || value.optionValue.length > 256
+    ? null
+    : { ...parsed, optionValue: value.optionValue }
 }
 
 export function parsePngSvgExportInput(value: unknown): PngSvgExportInput | null {

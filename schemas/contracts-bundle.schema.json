@@ -1342,6 +1342,7 @@
             "awaiting_recipe_selection",
             "agent_required",
             "validating",
+            "awaiting_confirmation",
             "committed",
             "failed",
             "cancelled"

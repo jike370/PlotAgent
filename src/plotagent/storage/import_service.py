@@ -79,6 +79,11 @@ class ProjectImportService:
         before_commit: Callable[[], None] | None = None,
         selected_recipe_id: str | None = None,
         selected_recipe_version: int | None = None,
+        agent_assisted: bool = False,
+        model_turn_count: int = 0,
+        tool_call_count: int = 0,
+        input_token_count: int = 0,
+        output_token_count: int = 0,
     ) -> ProjectImportOutcome:
         """Copy, inspect, serialize, and atomically register one authorized resource."""
 
@@ -97,7 +102,9 @@ class ProjectImportService:
             )
             probe = probe_source(staged_source.path, generic_outcome)
             repository = DataPreparationRepository(self._project)
-            saved_recipes = repository.candidates(probe.source_format)
+            saved_recipes = (
+                () if agent_assisted else repository.candidates(probe.source_format)
+            )
             evaluations, accepted = evaluate_saved_recipes(
                 path=staged_source.path,
                 probe=probe,
@@ -106,7 +113,7 @@ class ProjectImportService:
             selected_recipe = None
             outcome = generic_outcome
             route: Literal["generic_parser", "saved_recipe", "agent_assisted"] = (
-                "generic_parser"
+                "agent_assisted" if agent_assisted else "generic_parser"
             )
             executed_steps: tuple[ParseSourceStep, ...] = (
                 ParseSourceStep(
@@ -212,13 +219,27 @@ class ProjectImportService:
                         resource_id=resource.resource_id,
                         source_object_hash=probe.source_object_hash,
                         probe=probe,
-                        state="agent_required",
-                        route="generic_parser",
+                        state="failed" if agent_assisted else "agent_required",
+                        route=route,
                         executed_steps=executed_steps,
                         candidates=evaluations,
                         local_duration_ms=int((time.perf_counter() - started) * 1_000),
+                        model_turn_count=model_turn_count,
+                        tool_call_count=tool_call_count,
+                        input_token_count=input_token_count,
+                        output_token_count=output_token_count,
                         created_at=now,
                         updated_at=now,
+                        failure_code=outcome.code if agent_assisted else None,
+                        failure_message=(
+                            (
+                                outcome.question
+                                if isinstance(outcome, Clarification)
+                                else outcome.message
+                            )
+                            if agent_assisted
+                            else None
+                        ),
                     )
                 )
                 self._project.cleanup_staged_task(staged_source.task_dir)
@@ -305,6 +326,10 @@ class ProjectImportService:
                 executed_steps=executed_steps,
                 candidates=evaluations,
                 local_duration_ms=int((time.perf_counter() - started) * 1_000),
+                model_turn_count=model_turn_count,
+                tool_call_count=tool_call_count,
+                input_token_count=input_token_count,
+                output_token_count=output_token_count,
                 created_at=now,
                 updated_at=now,
             )
@@ -374,7 +399,7 @@ class ProjectImportService:
             repository.save_run(
                 pending_run.model_copy(
                     update={
-                        "state": "committed",
+                        "state": "awaiting_confirmation" if agent_assisted else "committed",
                         "output_source_ids": tuple(
                             record.source_dataset.source_dataset_id for record in result.datasets
                         ),

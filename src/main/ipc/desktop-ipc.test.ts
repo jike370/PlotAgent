@@ -11,6 +11,7 @@ import {
   preflightOriginExport,
   requestOriginExport,
   requestPlotList,
+  readAgentPreparationProposal,
   readImportClarification,
   sanitizeCoreResult,
   withImportSourceIdentity,
@@ -39,6 +40,33 @@ describe('desktop product IPC boundary', () => {
     expect(importOptionPatch('IMPORT_HEADER_AMBIGUOUS', 'line:3')).toEqual({ header_row: 3 })
     expect(importOptionPatch('IMPORT_HEADER_AMBIGUOUS', 'none')).toEqual({ header_row: 0 })
     expect(importOptionPatch('IMPORT_REGION_AMBIGUOUS', 'A1:B3')).toBeUndefined()
+  })
+
+  it('accepts only bounded parser options from the preparation Agent', () => {
+    expect(readAgentPreparationProposal({
+      outcome: 'proposal',
+      options: { delimiter: ';', header_row: 2, decimal_mark: ',' },
+      model_turn_count: 1,
+      tool_call_count: 1,
+      input_token_count: 17,
+      output_token_count: 5,
+    })).toEqual({
+      options: { delimiter: ';', header_row: 2, decimal_mark: ',' },
+      modelTurnCount: 1,
+      toolCallCount: 1,
+      inputTokenCount: 17,
+      outputTokenCount: 5,
+    })
+    expect(readAgentPreparationProposal({
+      outcome: 'proposal',
+      options: { selected_fields: ['time', 'signal'] },
+      model_turn_count: 1,
+      tool_call_count: 1,
+    })).toBeUndefined()
+    expect(readAgentPreparationProposal({
+      outcome: 'proposal',
+      options: { delimiter: ';', unit_conversion: 'ms->s' },
+    })).toBeUndefined()
   })
 
   it('replaces Core artifact paths with random registered resources', () => {

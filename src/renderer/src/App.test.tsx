@@ -349,6 +349,17 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
       probe: { tables: [] },
       local_duration_ms: 1,
     })),
+    confirmDataPreparationRun: vi.fn(async ({ runId, accept }) => ok({
+      run: { run_id: runId, state: accept ? 'committed' : 'cancelled' },
+      datasets: { datasets: [] },
+    })),
+    retryDataPreparation: vi.fn(async ({ runId }) => ok({
+      kind: 'clarification', preparation_run_id: runId,
+      code: 'IMPORT_HEADER_AMBIGUOUS', question: '请选择表头。', options: [],
+    })),
+    assistDataPreparation: vi.fn(async ({ runId }) => ok({
+      outcome: 'unresolved', preparation_run_id: runId, reason: '无法安全判断。',
+    })),
     exportPngSvg: vi.fn(async () => ok({ export_id: 'export:one', artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: 'plot.png' } } })),
     exportOrigin: vi.fn(async () => ok({ export_id: 'export:origin', result: { status: 'succeeded' } })),
     respondToCloseRequest: vi.fn(actionOk),
@@ -977,19 +988,143 @@ describe('PlotAgent real desktop workflow', () => {
     expect(await screen.findByText('数据已导入')).toBeInTheDocument()
   })
 
-  it.each([
-    ['clarification', { kind: 'clarification', prompt: '第 3 行和第 4 行都可能是表头，请选择后重新导入。' }, '导入需要确认'],
-    ['rejection', { kind: 'rejection', message: '文件中没有可识别的数值数据块。' }, '数据未导入'],
-  ])('renders an actionable import %s instead of fake data', async (_kind, result, expectedTitle) => {
+  it('renders parser candidates in an Agent confirmation card', async () => {
     const user = userEvent.setup()
+    const result = {
+      kind: 'clarification',
+      code: 'IMPORT_HEADER_AMBIGUOUS',
+      preparation_run_id: 'data-run:clarify',
+      source_file_name: '仪器导出.txt',
+      question: '第 3 行和第 4 行都可能是表头，请选择。',
+      options: [
+        { value: '2', label: '第 3 行' },
+        { value: '3', label: '第 4 行' },
+      ],
+    }
     const importDatasets = vi.fn(async () => ok(result))
-    installApi(fakeDesktop({ importDatasets }))
+    const retryDataPreparation = vi.fn(async () => ok({ ...result, preparation_run_id: 'data-run:retry' }))
+    installApi(fakeDesktop({ importDatasets, retryDataPreparation }))
     render(<App />)
     await user.click(await screen.findByRole('button', { name: /^导入/ }))
-    expect(await screen.findByText(expectedTitle)).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '仪器导出.txt 数据整理确认' })).toBeInTheDocument()
+    expect(screen.getByText('第 3 行和第 4 行都可能是表头，请选择。')).toBeInTheDocument()
     expect(screen.queryByText('source:temperature')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '重新选择文件' }))
-    expect(importDatasets).toHaveBeenCalledTimes(2)
+    await user.click(screen.getByRole('button', { name: '第 3 行' }))
+    expect(retryDataPreparation).toHaveBeenCalledWith({
+      projectId: 'project:test',
+      runId: 'data-run:clarify',
+      optionValue: '2',
+    })
+  })
+
+  it('keeps a rejected source available for bounded Agent inspection', async () => {
+    const user = userEvent.setup()
+    const assistDataPreparation = vi.fn(async () => ok({
+      outcome: 'unresolved', preparation_run_id: 'data-run:ragged', reason: '无法安全判断。',
+    }))
+    installApi(fakeDesktop({
+      importDatasets: vi.fn(async () => ok({
+        kind: 'rejection',
+        code: 'IMPORT_RAGGED_ROWS',
+        preparation_run_id: 'data-run:ragged',
+        source_file_name: 'ragged.csv',
+        message: '行宽不一致，通用解析无法安全整理。',
+      })),
+      assistDataPreparation,
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
+    expect(await screen.findByRole('region', { name: 'ragged.csv 数据整理确认' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '交给 Agent 判断' }))
+    expect(assistDataPreparation).toHaveBeenCalledWith({
+      projectId: 'project:test',
+      runId: 'data-run:ragged',
+    })
+    expect(screen.queryByText('source:temperature')).not.toBeInTheDocument()
+  })
+
+  it('requires explicit adoption before offering to save an Agent preparation Recipe', async () => {
+    const user = userEvent.setup()
+    const runId = 'data-run:agent-review'
+    const confirmDataPreparationRun = vi.fn(async ({ accept }) => ok({
+      run: {
+        run_id: runId,
+        state: accept ? 'committed' : 'cancelled',
+        route: 'agent_assisted',
+        probe: { tables: [{ table_key: 'table:one' }] },
+        local_duration_ms: 18,
+      },
+      datasets: { datasets: [dataset] },
+    }))
+    installApi(fakeDesktop({
+      importDatasets: vi.fn(async () => ok({
+        selected_files: ['仪器导出.txt'],
+        imports: [{
+          kind: 'committed',
+          source_file_name: '仪器导出.txt',
+          project_version: 1,
+          datasets: [{ ...dataset, data_preparation_run_id: runId }],
+        }],
+        project_version: 1,
+      })),
+      getDataPreparationRun: vi.fn(async () => ok({
+        run_id: runId,
+        state: 'awaiting_confirmation',
+        route: 'agent_assisted',
+        probe: { tables: [{ table_key: 'table:one' }] },
+        local_duration_ms: 18,
+      })),
+      confirmDataPreparationRun,
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
+    expect(await screen.findByRole('region', { name: '确认 Agent 数据整理结果' })).toBeInTheDocument()
+    expect(screen.getByLabelText('整理后数据样本')).toHaveTextContent('荧光强度')
+    expect(screen.getByLabelText('整理后数据样本')).toHaveTextContent('Treatment')
+    expect(screen.queryByRole('button', { name: /保存数据整理流程/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '采用此整理结果' }))
+    expect(confirmDataPreparationRun).toHaveBeenCalledWith({
+      projectId: 'project:test', runId, accept: true,
+    })
+    expect(await screen.findByRole('button', { name: /保存数据整理流程/ })).toBeInTheDocument()
+  })
+
+  it('removes an Agent preparation candidate from the workspace when rejected', async () => {
+    const user = userEvent.setup()
+    const runId = 'data-run:agent-reject'
+    const confirmDataPreparationRun = vi.fn(async () => ok({
+      run: {
+        run_id: runId,
+        state: 'cancelled',
+        route: 'agent_assisted',
+        probe: { tables: [{ table_key: 'table:one' }] },
+        local_duration_ms: 9,
+      },
+      datasets: { datasets: [] },
+    }))
+    installApi(fakeDesktop({
+      importDatasets: vi.fn(async () => ok({
+        imports: [{ kind: 'committed', project_version: 1, datasets: [{ ...dataset, data_preparation_run_id: runId }] }],
+        project_version: 1,
+      })),
+      getDataPreparationRun: vi.fn(async () => ok({
+        run_id: runId,
+        state: 'awaiting_confirmation',
+        route: 'agent_assisted',
+        probe: { tables: [{ table_key: 'table:one' }] },
+        local_duration_ms: 9,
+      })),
+      confirmDataPreparationRun,
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
+    await user.click(await screen.findByRole('button', { name: '退回并重新处理' }))
+    expect(confirmDataPreparationRun).toHaveBeenCalledWith({
+      projectId: 'project:test', runId, accept: false,
+    })
+    expect(await screen.findByText('已退回整理结果')).toBeInTheDocument()
+    expect(screen.queryByText('已导入 1 个数据表。')).not.toBeInTheDocument()
   })
 
   it('keeps the three entry points visible but disabled while Core is offline', async () => {

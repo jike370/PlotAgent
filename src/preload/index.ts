@@ -14,6 +14,8 @@ import {
   type TaskPlanInput,
   type DataPreparationRecipeSaveInput,
   type DataPreparationRunInput,
+  type DataPreparationRunConfirmInput,
+  type DataPreparationRetryInput,
   type DatasetDescribeInput,
   type EngineCompatibilityInput,
   type EngineActionInput,
@@ -111,6 +113,12 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.dataPreparationRecipeList, input),
   getDataPreparationRun: (input: DataPreparationRunInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.dataPreparationRunGet, input),
+  confirmDataPreparationRun: (input: DataPreparationRunConfirmInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.dataPreparationRunConfirm, input),
+  retryDataPreparation: (input: DataPreparationRetryInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.dataPreparationRetry, input),
+  assistDataPreparation: (input: DataPreparationRunInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.dataPreparationAssist, input),
   exportPngSvg: (input: PngSvgExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportPngSvg, input),
   exportOrigin: (input: OriginExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportOrigin, input),
   respondToCloseRequest: (response: CloseResponse) =>

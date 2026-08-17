@@ -21,6 +21,7 @@ from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.datasets import (
     SourceDataset,
 )
+from plotagent.data_preparation import inspect_raw_source
 from plotagent.data_preparation.recipes import build_data_preparation_recipe
 from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue as RpcJsonValue
@@ -169,6 +170,8 @@ class DesktopApplication:
             "data_preparation.recipes.save": self._data_preparation_recipe_save,
             "data_preparation.recipes.list": self._data_preparation_recipe_list,
             "data_preparation.runs.get": self._data_preparation_run_get,
+            "data_preparation.runs.confirm": self._data_preparation_run_confirm,
+            "data_preparation.sources.inspect": self._data_preparation_source_inspect,
             "provider.status": self._provider_status,
             "provider.runtime.get": self._provider_runtime_get,
             "provider.configure": self._provider_configure,
@@ -182,6 +185,22 @@ class DesktopApplication:
         _object(params, required=set())
         probe_target = self.root / ".origin-environment-probe.opju"
         return cast(RpcJsonValue, preflight_origin(probe_target).to_dict())
+
+    def _data_preparation_source_inspect(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "run_id", "source_path"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        run = DataPreparationRepository(session.store).get_run(
+            _text(values["run_id"], "run_id")
+        )
+        return cast(
+            RpcJsonValue,
+            inspect_raw_source(Path(_text(values["source_path"], "source_path")), run),
+        )
 
     def _engine_catalog_get(
         self, _context: RpcContext, params: RpcJsonValue | None
@@ -373,6 +392,19 @@ class DesktopApplication:
         session = self._session(_text(values["project_id"], "project_id"))
         run = DataPreparationRepository(session.store).get_run(
             _text(values["run_id"], "run_id")
+        )
+        return cast(RpcJsonValue, run.model_dump(mode="json"))
+
+    def _data_preparation_run_confirm(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "run_id", "accept"})
+        if not isinstance(values["accept"], bool):
+            raise RpcServiceError("INVALID_PARAMS", "accept was invalid.")
+        session = self._session(_text(values["project_id"], "project_id"))
+        run = DataPreparationRepository(session.store).confirm_run(
+            _text(values["run_id"], "run_id"),
+            accept=values["accept"],
         )
         return cast(RpcJsonValue, run.model_dump(mode="json"))
 
@@ -974,6 +1006,11 @@ class DesktopApplication:
                 "sheet",
                 "data_preparation_recipe_id",
                 "data_preparation_recipe_version",
+                "agent_assisted",
+                "model_turn_count",
+                "tool_call_count",
+                "input_token_count",
+                "output_token_count",
             },
         )
         request_hash = canonical_hash(
@@ -1030,6 +1067,26 @@ class DesktopApplication:
                     "data_preparation_recipe_version",
                     minimum=1,
                 ),
+                agent_assisted=_optional_boolean(
+                    options.get("agent_assisted"), "agent_assisted"
+                )
+                or False,
+                model_turn_count=_optional_integer(
+                    options.get("model_turn_count"), "model_turn_count", minimum=0
+                )
+                or 0,
+                tool_call_count=_optional_integer(
+                    options.get("tool_call_count"), "tool_call_count", minimum=0
+                )
+                or 0,
+                input_token_count=_optional_integer(
+                    options.get("input_token_count"), "input_token_count", minimum=0
+                )
+                or 0,
+                output_token_count=_optional_integer(
+                    options.get("output_token_count"), "output_token_count", minimum=0
+                )
+                or 0,
                 expected_revision=commit_revision,
                 idempotency_key=key,
                 request_hash=request_hash,
@@ -1303,3 +1360,11 @@ def _integer(value: RpcJsonValue | None, name: str, *, minimum: int) -> int:
 
 def _optional_integer(value: RpcJsonValue | None, name: str, *, minimum: int) -> int | None:
     return None if value is None else _integer(value, name, minimum=minimum)
+
+
+def _optional_boolean(value: RpcJsonValue | None, name: str) -> bool | None:
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise RpcServiceError("INVALID_PARAMS", f"{name} was invalid.")
+    return value

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from plotagent.contracts.canonical import canonical_hash
+from plotagent.data_preparation.raw_inspection import RawInspectionError, inspect_raw_source
 from plotagent.data_preparation.recipes import (
     build_data_preparation_recipe,
     probe_source,
@@ -136,6 +139,13 @@ def test_generic_parser_failure_is_audited_as_agent_required(tmp_path: Path) -> 
         assert run.state == "agent_required"
         assert run.route == "generic_parser"
         assert run.model_turn_count == 0
+        evidence = inspect_raw_source(source, run)
+        assert evidence["source_format"] == "csv"
+        assert len(evidence["text_previews"]) >= 1  # type: ignore[arg-type]
+        with pytest.raises(RawInspectionError):
+            changed = tmp_path / "changed.csv"
+            changed.write_text("not the authorized bytes", encoding="utf-8")
+            inspect_raw_source(changed, run)
 
 
 def test_repeated_structural_failures_remove_recipe_from_auto_matching(tmp_path: Path) -> None:
@@ -169,3 +179,56 @@ def test_probe_and_output_are_deterministic_for_the_same_bytes(tmp_path: Path) -
             **first.model_dump(mode="json", exclude={"probe_hash"}),
         }
     )
+
+
+def test_agent_assisted_output_requires_confirmation_before_recipe_freeze(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "ambiguous.txt"
+    source.write_text("time;signal\n0;1.5\n1;2.5\n", encoding="utf-8")
+    with ProjectStore.create(tmp_path / "project", project_id="project:confirm") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(resource_id="resource:agent", path=source),
+            delimiter=";",
+            agent_assisted=True,
+            model_turn_count=1,
+            tool_call_count=1,
+            input_token_count=120,
+            output_token_count=24,
+        )
+        assert imported.kind == "committed"
+        repository = DataPreparationRepository(project)
+        run = repository.get_run(imported.datasets[0].preparation_run_id)
+        assert run.state == "awaiting_confirmation"
+        assert run.route == "agent_assisted"
+        assert run.model_turn_count == 1
+        assert run.tool_call_count == 1
+        assert run.input_token_count == 120
+        assert run.output_token_count == 24
+        with pytest.raises(ValueError, match="committed preparation run"):
+            _save_recipe(repository, run.run_id)
+
+        confirmed = repository.confirm_run(run.run_id, accept=True)
+        assert confirmed.state == "committed"
+        assert len(project.list_source_datasets()) == 1
+        assert _save_recipe(repository, confirmed.run_id).steps[0].delimiter == ";"
+
+
+def test_rejecting_agent_assisted_output_removes_it_from_active_datasets(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "candidate.csv"
+    source.write_text("time,signal\n0,1\n1,2\n", encoding="utf-8")
+    with ProjectStore.create(tmp_path / "project", project_id="project:undo") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(resource_id="resource:candidate", path=source),
+            agent_assisted=True,
+            model_turn_count=1,
+            tool_call_count=1,
+        )
+        run_id = imported.datasets[0].preparation_run_id
+        assert project.list_source_datasets() == ()
+
+        rejected = DataPreparationRepository(project).confirm_run(run_id, accept=False)
+        assert rejected.state == "cancelled"
+        assert project.list_source_datasets() == ()

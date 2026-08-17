@@ -70,7 +70,7 @@ CREATE TABLE data_preparation_runs (
     probe_hash TEXT NOT NULL CHECK (length(probe_hash) = 64),
     state TEXT NOT NULL CHECK (state IN (
         'probing', 'matching', 'awaiting_recipe_selection', 'agent_required',
-        'validating', 'committed', 'failed', 'cancelled'
+        'validating', 'awaiting_confirmation', 'committed', 'failed', 'cancelled'
     )),
     route TEXT CHECK (route IS NULL OR route IN (
         'generic_parser', 'saved_recipe', 'agent_assisted'

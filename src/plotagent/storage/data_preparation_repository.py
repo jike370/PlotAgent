@@ -155,3 +155,18 @@ class DataPreparationRepository:
         if row is None:
             raise StorageProblem(StorageErrorCode.PROJECT_NOT_FOUND, "数据整理运行不存在。")
         return DataPreparationRun.model_validate_json(str(row[0]))
+
+    def confirm_run(self, run_id: str, *, accept: bool) -> DataPreparationRun:
+        run = self.get_run(run_id)
+        if run.state != "awaiting_confirmation":
+            raise StorageProblem(
+                StorageErrorCode.COMMIT_FAILED,
+                "数据整理运行当前不等待确认。",
+            )
+        updated = run.model_copy(
+            update={
+                "state": "committed" if accept else "cancelled",
+                "updated_at": _utc_now(),
+            }
+        )
+        return self.save_run(updated)

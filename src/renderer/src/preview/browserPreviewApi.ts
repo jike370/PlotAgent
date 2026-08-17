@@ -401,6 +401,17 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       local_duration_ms: 4,
       probe: { tables: [{}] },
     }),
+    confirmDataPreparationRun: async ({ runId, accept }) => ok({
+      run: { run_id: runId, state: accept ? 'committed' : 'cancelled' },
+      datasets: { datasets: [] },
+    }),
+    retryDataPreparation: async ({ runId }) => ok({
+      kind: 'clarification', preparation_run_id: runId,
+      code: 'IMPORT_HEADER_AMBIGUOUS', question: '请选择表头。', options: [],
+    }),
+    assistDataPreparation: async ({ runId }) => ok({
+      outcome: 'unresolved', preparation_run_id: runId, reason: '预览环境没有模型。',
+    }),
     confirmTaskPlan: async ({ planId, accept }) => {
       const plan = workflowPlans.get(planId)
       if (plan === undefined) return missing('未找到任务计划。')

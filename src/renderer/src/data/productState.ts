@@ -307,6 +307,15 @@ export interface DataPreparationRunView {
   localDurationMs: number
 }
 
+export interface DataPreparationAttentionView {
+  runId: string
+  fileName: string
+  kind: 'clarification' | 'rejection'
+  code: string
+  message: string
+  options: ReadonlyArray<{ value: string; label: string }>
+}
+
 export type EngineCompatibilityStatus = 'compatible' | 'incompatible'
 
 export function readEngineCompatibility(
@@ -895,6 +904,38 @@ export function readDataPreparationRun(value: JsonValue): DataPreparationRunView
     tableCount: Array.isArray(value.probe.tables) ? value.probe.tables.length : 0,
     localDurationMs: typeof value.local_duration_ms === 'number' ? value.local_duration_ms : 0,
   }
+}
+
+export function readDataPreparationAttention(value: JsonValue): DataPreparationAttentionView[] {
+  const outcomes = records(value, (record) => (
+    typeof record.preparation_run_id === 'string'
+    && typeof record.kind === 'string'
+    && ['clarification', 'needs_input', 'rejection', 'rejected', 'failed'].includes(record.kind)
+  ))
+  const unique = new Map<string, DataPreparationAttentionView>()
+  for (const outcome of outcomes) {
+    const runId = outcome.preparation_run_id as string
+    const options = Array.isArray(outcome.options)
+      ? outcome.options.flatMap((option): Array<{ value: string; label: string }> => (
+        isJsonRecord(option)
+        && typeof option.value === 'string'
+        && typeof option.label === 'string'
+          ? [{ value: option.value, label: option.label }]
+          : []
+      ))
+      : []
+    unique.set(runId, {
+      runId,
+      fileName: stringValue(outcome, 'source_file_name') ?? '所选文件',
+      kind: outcome.kind === 'clarification' || outcome.kind === 'needs_input'
+        ? 'clarification' : 'rejection',
+      code: stringValue(outcome, 'code') ?? 'DATA_PREPARATION_NEEDS_ATTENTION',
+      message: stringValue(outcome, 'question', 'message', 'reason', 'remediation')
+        ?? '数据结构无法被唯一确定，请选择候选或交给 Agent 判断。',
+      options,
+    })
+  }
+  return [...unique.values()]
 }
 
 export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined {

@@ -176,7 +176,7 @@ export type DataPreparationRun = {
   readonly resource_id: string;
   readonly source_object_hash: string;
   readonly probe: SourceStructureProbe;
-  readonly state: "probing" | "matching" | "awaiting_recipe_selection" | "agent_required" | "validating" | "committed" | "failed" | "cancelled";
+  readonly state: "probing" | "matching" | "awaiting_recipe_selection" | "agent_required" | "validating" | "awaiting_confirmation" | "committed" | "failed" | "cancelled";
   readonly route?: "generic_parser" | "saved_recipe" | "agent_assisted" | null;
   readonly selected_recipe_id?: string | null;
   readonly selected_recipe_version?: number | null;

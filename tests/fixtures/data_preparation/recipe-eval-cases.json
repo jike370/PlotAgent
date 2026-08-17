@@ -1,0 +1,28 @@
+{
+  "schema_version": "data-preparation-eval.v1",
+  "thresholds": {
+    "wrong_auto_match_rate_max": 0.0,
+    "repeat_model_turn_rate_max": 0.0,
+    "local_p95_ms_max": 1000
+  },
+  "seed": {
+    "file_name": "seed.csv",
+    "content": "time,signal\n0,1.0\n1,2.0\n"
+  },
+  "cases": [
+    { "case_id": "same-values", "file_name": "same-values.csv", "content": "time,signal\n5,8.0\n6,9.0\n", "expected_route": "saved_recipe" },
+    { "case_id": "same-more-rows", "file_name": "same-more-rows.csv", "content": "time,signal\n0,1.0\n1,2.0\n2,3.0\n3,4.0\n", "expected_route": "saved_recipe" },
+    { "case_id": "same-negative-floats", "file_name": "same-negative-floats.csv", "content": "time,signal\n-1,-0.25\n0,0.0\n1,0.25\n", "expected_route": "saved_recipe" },
+    { "case_id": "same-semicolon-autodetect", "file_name": "same-semicolon-autodetect.csv", "content": "time;signal\n0;1.0\n1;2.0\n", "expected_route": "saved_recipe" },
+    { "case_id": "rename-column", "file_name": "rename-column.csv", "content": "time,response\n0,1.0\n1,2.0\n", "expected_route": "generic_parser" },
+    { "case_id": "reorder-columns", "file_name": "reorder-columns.csv", "content": "signal,time\n1.0,0\n2.0,1\n", "expected_route": "generic_parser" },
+    { "case_id": "add-column", "file_name": "add-column.csv", "content": "time,signal,group\n0,1.0,A\n1,2.0,B\n", "expected_route": "generic_parser" },
+    { "case_id": "remove-column", "file_name": "remove-column.csv", "content": "time\n0\n1\n", "expected_route": "generic_parser" },
+    { "case_id": "logical-type-drift", "file_name": "logical-type-drift.csv", "content": "time,signal\nzero,low\none,high\n", "expected_route": "generic_parser" },
+    { "case_id": "unit-label-drift", "file_name": "unit-label-drift.csv", "content": "time_s,signal_mV\n0,1.0\n1,2.0\n", "expected_route": "generic_parser" },
+    { "case_id": "different-format-tsv", "file_name": "different-format.tsv", "content": "time\tsignal\n0\t1.0\n1\t2.0\n", "expected_route": "generic_parser" },
+    { "case_id": "headerless", "file_name": "headerless.csv", "content": "0,1.0\n1,2.0\n", "expected_route": "generic_parser" },
+    { "case_id": "ragged-rejection", "file_name": "ragged-rejection.csv", "content": "time,signal\n0,1.0\n1,2.0,extra\n", "expected_route": "generic_parser" },
+    { "case_id": "text-preamble", "file_name": "text-preamble.csv", "content": "Instrument,Demo\ntime,signal\n0,1.0\n1,2.0\n", "expected_route": "generic_parser" }
+  ]
+}

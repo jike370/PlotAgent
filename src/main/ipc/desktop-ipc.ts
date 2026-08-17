@@ -14,6 +14,8 @@ import {
   parseTaskPlanInput,
   parseDataPreparationRecipeSaveInput,
   parseDataPreparationRunInput,
+  parseDataPreparationRunConfirmInput,
+  parseDataPreparationRetryInput,
   parseCloseResponse,
   parseCustomProviderConfigureInput,
   parseDatasetDescribeInput,
@@ -99,6 +101,52 @@ export function importOptionLabel(code: string, value: string, fallback: string)
   }
   if (code === 'IMPORT_DECIMAL_AMBIGUOUS') return value === ',' ? '逗号小数' : '句点小数'
   return fallback
+}
+
+function preparationRunId(value: JsonValue): string | undefined {
+  return value !== null && !Array.isArray(value) && typeof value === 'object'
+    && typeof value.preparation_run_id === 'string'
+    ? value.preparation_run_id
+    : undefined
+}
+
+function preparationOutcomeCode(value: JsonValue): string | undefined {
+  return value !== null && !Array.isArray(value) && typeof value === 'object'
+    && typeof value.code === 'string'
+    ? value.code
+    : undefined
+}
+
+function needsPreparationContext(value: JsonValue): boolean {
+  if (readImportClarification(value) !== undefined) return true
+  return value !== null && !Array.isArray(value) && typeof value === 'object'
+    && value.kind === 'rejection'
+}
+
+export function readAgentPreparationProposal(value: JsonValue): {
+  options: Record<string, JsonValue>
+  modelTurnCount: number
+  toolCallCount: number
+  inputTokenCount: number
+  outputTokenCount: number
+} | undefined {
+  if (value === null || Array.isArray(value) || typeof value !== 'object' || value.outcome !== 'proposal') return undefined
+  const rawOptions = value.options
+  if (rawOptions === null || Array.isArray(rawOptions) || typeof rawOptions !== 'object') return undefined
+  const allowed = new Set(['encoding', 'delimiter', 'decimal_mark', 'header_row', 'sheet'])
+  if (Object.keys(rawOptions).length === 0 || Object.keys(rawOptions).some((key) => !allowed.has(key))) return undefined
+  if (
+    (rawOptions.encoding !== undefined && typeof rawOptions.encoding !== 'string')
+    || (rawOptions.delimiter !== undefined && (typeof rawOptions.delimiter !== 'string' || rawOptions.delimiter.length < 1 || rawOptions.delimiter.length > 4))
+    || (rawOptions.decimal_mark !== undefined && rawOptions.decimal_mark !== '.' && rawOptions.decimal_mark !== ',')
+    || (rawOptions.header_row !== undefined && (!Number.isSafeInteger(rawOptions.header_row) || Number(rawOptions.header_row) < 0))
+    || (rawOptions.sheet !== undefined && typeof rawOptions.sheet !== 'string')
+  ) return undefined
+  const modelTurnCount = Number.isSafeInteger(value.model_turn_count) ? Number(value.model_turn_count) : 0
+  const toolCallCount = Number.isSafeInteger(value.tool_call_count) ? Number(value.tool_call_count) : 0
+  const inputTokenCount = Number.isSafeInteger(value.input_token_count) ? Number(value.input_token_count) : 0
+  const outputTokenCount = Number.isSafeInteger(value.output_token_count) ? Number(value.output_token_count) : 0
+  return { options: { ...rawOptions }, modelTurnCount, toolCallCount, inputTokenCount, outputTokenCount }
 }
 
 export interface RegisterDesktopIpcOptions {
@@ -418,6 +466,18 @@ export function registerDesktopIpc({
   piAgentRuntime,
 }: RegisterDesktopIpcOptions): () => void {
   const datasetIdentities = new Map<string, DatasetIdentity>()
+  const preparationResources = new Map<string, {
+    projectId: string
+    resourceId: string
+    path: string
+    fileName: string
+    result: JsonValue
+  }>()
+  const forgetPreparationResources = (projectId: string): void => {
+    for (const [runId, stored] of preparationResources) {
+      if (stored.projectId === projectId) preparationResources.delete(runId)
+    }
+  }
   const identityKey = (projectId: string, datasetId: string, sourceVersion: number): string => (
     `${projectId}:${datasetId}@${sourceVersion}`
   )
@@ -544,11 +604,14 @@ export function registerDesktopIpc({
         display_name: input.name,
       })
   })
-  ipcMain.handle(IPC_CHANNELS.projectDelete, (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.projectDelete, async (_event, value: unknown) => {
     const input = parseProjectIdInput(value)
-    return input === null
-      ? invalidDataArgument('项目 ID 无效。')
-      : requestCoreData(supervisor, resources, 'projects.delete', { project_id: input.projectId })
+    if (input === null) return invalidDataArgument('项目 ID 无效。')
+    const result = await requestCoreData(
+      supervisor, resources, 'projects.delete', { project_id: input.projectId },
+    )
+    if (result.ok) forgetPreparationResources(input.projectId)
+    return result
   })
   ipcMain.handle(IPC_CHANNELS.projectActivate, (_event, value: unknown) => {
     const input = parseProjectIdInput(value)
@@ -610,11 +673,14 @@ export function registerDesktopIpc({
       return { ok: false, error: supervisor.toPublicResult(error) } satisfies DesktopDataResult
     }
   })
-  ipcMain.handle(IPC_CHANNELS.projectClose, (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.projectClose, async (_event, value: unknown) => {
     const input = parseProjectIdInput(value)
-    return input === null
-      ? invalidDataArgument('项目 ID 无效。')
-      : requestCoreData(supervisor, resources, 'projects.close', { project_id: input.projectId })
+    if (input === null) return invalidDataArgument('项目 ID 无效。')
+    const result = await requestCoreData(
+      supervisor, resources, 'projects.close', { project_id: input.projectId },
+    )
+    if (result.ok) forgetPreparationResources(input.projectId)
+    return result
   })
 
   ipcMain.handle(IPC_CHANNELS.datasetImport, async (_event, value: unknown) => {
@@ -637,10 +703,8 @@ export function registerDesktopIpc({
     for (const path of choice.filePaths) {
       try {
         const resource = resources.registerFile(path, 'import-source')
-        let options: Record<string, JsonValue> = {}
-        let result: JsonValue = null
-        for (let attempt = 0; attempt < 4; attempt += 1) {
-          result = await supervisor.request('datasets.import', {
+        const requestImport = (options: Record<string, JsonValue>): Promise<JsonValue> => (
+          supervisor.request('datasets.import', {
             project_id: input.projectId,
             resource_id: resource.resourceId,
             source_path: path,
@@ -648,25 +712,49 @@ export function registerDesktopIpc({
             expected_version: expectedVersion,
             options,
           })
-          const clarification = readImportClarification(result)
-          if (clarification === undefined) break
-          const patches = clarification.options.map((option) => importOptionPatch(clarification.code, option.value))
-          if (patches.some((patch) => patch === undefined)) break
-          const labels = clarification.options.map((option) => importOptionLabel(clarification.code, option.value, option.label))
-          const cancelId = labels.length
-          const answer = await dialog.showMessageBox(owner, {
-            type: 'question',
-            title: '确认导入规则',
-            message: clarification.question,
-            detail: `文件：${basename(path)}\n选择后继续本次导入，不会创建临时数据表。`,
-            buttons: [...labels, '暂不导入'],
-            defaultId: 0,
-            cancelId,
-            noLink: true,
-          })
-          if (answer.response === cancelId) break
-          options = { ...options, ...patches[answer.response] }
+        )
+        let result = await requestImport({})
+        let agentAssisted = false
+        const initialRunId = preparationRunId(result)
+        const initialCode = preparationOutcomeCode(result)
+        if (
+          initialRunId !== undefined
+          && initialCode !== 'DATA_RECIPE_SELECTION_REQUIRED'
+          && (readImportClarification(result) !== undefined
+            || (result !== null && !Array.isArray(result) && typeof result === 'object' && result.kind === 'rejection'))
+        ) {
+          try {
+            const proposed = readAgentPreparationProposal(await piAgentRuntime.prepareData({
+              project_id: input.projectId,
+              client_run_id: `data-client:${randomUUID()}`,
+              preparation_run_id: initialRunId,
+              source_path: path,
+              import_outcome: result,
+            }))
+            if (proposed !== undefined) {
+              agentAssisted = true
+              result = await requestImport({
+                ...proposed.options,
+                agent_assisted: true,
+                model_turn_count: proposed.modelTurnCount,
+                tool_call_count: proposed.toolCallCount,
+                input_token_count: proposed.inputTokenCount,
+                output_token_count: proposed.outputTokenCount,
+              })
+            }
+          } catch {
+            // Preserve the original actionable outcome when no provider or safe
+            // Agent proposal is available; the renderer can still show choices.
+          }
         }
+        const pendingRunId = preparationRunId(result)
+        if (pendingRunId !== undefined && (agentAssisted || needsPreparationContext(result))) preparationResources.set(pendingRunId, {
+          projectId: input.projectId,
+          resourceId: resource.resourceId,
+          path,
+          fileName: basename(path),
+          result,
+        })
         const identified = withImportSourceIdentity(result, basename(path))
         rememberDatasetIdentities(input.projectId, identified)
         imported.push(identified)
@@ -870,6 +958,107 @@ export function registerDesktopIpc({
         project_id: input.projectId,
         run_id: input.runId,
       })
+  })
+
+  const retryStoredPreparation = async (
+    stored: { projectId: string; resourceId: string; path: string; fileName: string; result: JsonValue },
+    options: Record<string, JsonValue>,
+  ): Promise<DesktopDataResult> => {
+    try {
+      const listed = await supervisor.request('datasets.list', { project_id: stored.projectId })
+      const expectedVersion = listed !== null && !Array.isArray(listed) && typeof listed === 'object'
+        && typeof listed.project_version === 'number'
+        ? listed.project_version : 0
+      const result = await supervisor.request('datasets.import', {
+        project_id: stored.projectId,
+        resource_id: stored.resourceId,
+        source_path: stored.path,
+        idempotency_key: `dataset-reprocess:${randomUUID()}`,
+        expected_version: expectedVersion,
+        options,
+      })
+      const nextRunId = preparationRunId(result)
+      if (
+        nextRunId !== undefined
+        && (options.agent_assisted === true || needsPreparationContext(result))
+      ) preparationResources.set(nextRunId, { ...stored, result })
+      const identified = withImportSourceIdentity(result, stored.fileName)
+      rememberDatasetIdentities(stored.projectId, identified)
+      return { ok: true, value: sanitizeCoreResult(identified, resources) }
+    } catch (error: unknown) {
+      return { ok: false, error: supervisor.toPublicResult(error) }
+    }
+  }
+
+  ipcMain.handle(IPC_CHANNELS.dataPreparationRetry, async (_event, value: unknown) => {
+    const input = parseDataPreparationRetryInput(value)
+    const stored = input === null ? undefined : preparationResources.get(input.runId)
+    if (input === null || stored === undefined || stored.projectId !== input.projectId) {
+      return invalidDataArgument('数据整理重试上下文已失效，请重新选择文件。')
+    }
+    const code = preparationOutcomeCode(stored.result)
+    const options = code === undefined ? undefined : importOptionPatch(code, input.optionValue)
+    if (options === undefined) return invalidDataArgument('所选数据整理候选无效。')
+    const response = await retryStoredPreparation(stored, options)
+    if (response.ok) preparationResources.delete(input.runId)
+    return response
+  })
+
+  ipcMain.handle(IPC_CHANNELS.dataPreparationAssist, async (_event, value: unknown) => {
+    const input = parseDataPreparationRunInput(value)
+    const stored = input === null ? undefined : preparationResources.get(input.runId)
+    if (input === null || stored === undefined || stored.projectId !== input.projectId) {
+      return invalidDataArgument('数据整理 Agent 上下文已失效，请重新选择文件。')
+    }
+    try {
+      const proposalValue = await piAgentRuntime.prepareData({
+        project_id: input.projectId,
+        client_run_id: `data-client:${randomUUID()}`,
+        preparation_run_id: input.runId,
+        source_path: stored.path,
+        import_outcome: stored.result,
+      })
+      const proposal = readAgentPreparationProposal(proposalValue)
+      if (proposal === undefined) {
+        return { ok: true, value: proposalValue }
+      }
+      const response = await retryStoredPreparation(stored, {
+        ...proposal.options,
+        agent_assisted: true,
+        model_turn_count: proposal.modelTurnCount,
+        tool_call_count: proposal.toolCallCount,
+        input_token_count: proposal.inputTokenCount,
+        output_token_count: proposal.outputTokenCount,
+      })
+      if (response.ok) preparationResources.delete(input.runId)
+      return response
+    } catch (error: unknown) {
+      const agentError = publicPiAgentError(error)
+      return {
+        ok: false,
+        error: agentError ?? supervisor.toPublicResult(error),
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.dataPreparationRunConfirm, async (_event, value: unknown) => {
+    const input = parseDataPreparationRunConfirmInput(value)
+    if (input === null) return invalidDataArgument('数据整理确认参数无效。')
+    try {
+      const run = await supervisor.request('data_preparation.runs.confirm', {
+        project_id: input.projectId,
+        run_id: input.runId,
+        accept: input.accept,
+      })
+      const datasets = await supervisor.request('datasets.list', { project_id: input.projectId })
+      preparationResources.delete(input.runId)
+      return {
+        ok: true,
+        value: sanitizeCoreResult({ run, datasets }, resources),
+      }
+    } catch (error: unknown) {
+      return { ok: false, error: supervisor.toPublicResult(error) }
+    }
   })
 
   /*

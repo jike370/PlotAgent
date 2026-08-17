@@ -720,14 +720,18 @@ class ProjectStore:
     ) -> tuple[SourceDatasetRecord, ...]:
         connection = self._assert_writer()
         sql = """
-            SELECT contract_json, logical_source_id, import_recipe_id,
-                   preparation_run_id, created_at, metadata_json
-            FROM source_dataset_versions
+            SELECT source.contract_json, source.logical_source_id, source.import_recipe_id,
+                   source.preparation_run_id, source.created_at, source.metadata_json
+            FROM source_dataset_versions AS source
+            JOIN data_preparation_runs AS preparation
+              ON preparation.run_id = source.preparation_run_id
         """
         parameters: tuple[str, ...] = ()
         if logical_source_id is not None:
-            sql += " WHERE logical_source_id = ?"
+            sql += " WHERE logical_source_id = ? AND preparation.state = 'committed'"
             parameters = (logical_source_id,)
+        else:
+            sql += " WHERE preparation.state = 'committed'"
         sql += " ORDER BY logical_source_id, source_version"
         return tuple(_source_dataset_record(row) for row in connection.execute(sql, parameters))
 

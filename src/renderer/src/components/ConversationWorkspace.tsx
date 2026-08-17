@@ -34,6 +34,7 @@ import type {
   WorkflowBindingView,
   WorkflowOutcome,
   WorkflowPlanView,
+  DataPreparationAttentionView,
   DataPreparationRunView,
   ProductDataset,
   ProductPlot,
@@ -83,6 +84,7 @@ interface ConversationWorkspaceProps {
   agentRuntimeLabel?: string
   workflowOutcome?: WorkflowOutcome
   workflowPlan?: WorkflowPlanView
+  dataPreparationAttention: DataPreparationAttentionView[]
   latestPreparationRun?: DataPreparationRunView
   agentConfigured: boolean
   taskEvents: TaskEvent[]
@@ -102,6 +104,9 @@ interface ConversationWorkspaceProps {
   onResumeWorkflowPlan: (planId: string) => void
   onConfigureAgent: () => void
   onExport: (format: 'png' | 'svg' | 'opju') => void
+  onSelectDataPreparationCandidate: (runId: string, optionValue: string) => void
+  onAssistDataPreparation: (runId: string) => void
+  onConfirmDataPreparation: (accept: boolean) => void
   onSaveDataPreparationRecipe: () => void
   onCreateBatch: () => void
   onOpenFocus: () => void
@@ -301,6 +306,33 @@ function DatasetObject({
         </div>
       </details>}
     </section>
+  )
+}
+
+function DataPreparationPreview({ dataset }: { dataset?: ProductDataset }): React.JSX.Element {
+  if (!dataset) return <p className="data-preparation-preview__empty">等待规则数据表预览。</p>
+  const fields = dataset.fields.slice(0, 8)
+  const rows = dataset.sampleRows?.slice(0, 5)
+  return (
+    <div className="data-preparation-preview" aria-label="整理后数据样本">
+      <div className="data-preparation-preview__meta">
+        <strong>整理后样本</strong>
+        <span>前 {rows?.length ?? 0} 行 · {dataset.rowCount.toLocaleString('zh-CN')} 行 · {dataset.fieldCount} 字段</span>
+      </div>
+      <div className="data-preparation-preview__scroll" tabIndex={0} aria-label="整理后数据样本，可横向滚动">
+        <table>
+          <thead><tr>{fields.map((field) => <th key={field.fieldId}>{displayFieldName(field.name)}</th>)}</tr></thead>
+          <tbody>
+            {rows === undefined
+              ? <tr><td colSpan={Math.max(1, fields.length)}>正在读取样本…</td></tr>
+              : rows.length === 0
+                ? <tr><td colSpan={Math.max(1, fields.length)}>没有可预览的数据行。</td></tr>
+                : rows.map((row, rowIndex) => <tr key={`preparation-row-${rowIndex}`}>{fields.map((field, columnIndex) => <td key={field.fieldId}>{previewValue(row[columnIndex])}</td>)}</tr>)}
+          </tbody>
+        </table>
+      </div>
+      {dataset.fieldCount > fields.length && <span className="data-preparation-preview__more">另有 {dataset.fieldCount - fields.length} 个字段，可在数据表中查看。</span>}
+    </div>
   )
 }
 
@@ -857,7 +889,23 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             ) : (
               <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></div></div>
             )}
-            {props.latestPreparationRun?.route === 'agent_assisted' && <section className="object-block product-result-strip product-result-strip--success" aria-label="数据整理记录" role="status"><CircleCheck size={17} /><div><strong>数据整理已确认</strong><p>已生成 {props.latestPreparationRun.tableCount} 张规则数据表 · {props.latestPreparationRun.localDurationMs.toLocaleString('zh-CN')} ms</p><button type="button" disabled={busyAction === 'save-recipe'} onClick={props.onSaveDataPreparationRecipe}>{busyAction === 'save-recipe' ? '正在保存整理流程…' : '经常处理同构数据？保存数据整理流程'}</button></div></section>}
+            {props.dataPreparationAttention.map((attention) => (
+              <div className="message message--agent" key={attention.runId}>
+                <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div>
+                <div className="agent-response">
+                  <p>我无法唯一确定这份原始数据的表结构，请确认一种整理方式。</p>
+                  <section className="data-preparation-card" aria-label={`${attention.fileName} 数据整理确认`}>
+                    <div className="data-preparation-card__heading"><CircleAlert size={17} /><div><strong>{attention.fileName}</strong><p>{attention.message}</p></div></div>
+                    {attention.options.length > 0 && <div className="data-preparation-card__options" aria-label="整理候选">
+                      {attention.options.map((option) => <button type="button" key={option.value} disabled={busyAction !== undefined} onClick={() => props.onSelectDataPreparationCandidate(attention.runId, option.value)}>{option.label}</button>)}
+                    </div>}
+                    <div className="data-preparation-card__actions"><button type="button" disabled={busyAction !== undefined || !props.agentConfigured} onClick={() => props.onAssistDataPreparation(attention.runId)}>{busyAction === 'prepare-agent' ? <><LoaderCircle className="spin" size={14} />Agent 正在检查原始样本…</> : '交给 Agent 判断'}</button>{!props.agentConfigured && <span>配置模型后可让 Agent 检查受限原始样本</span>}</div>
+                  </section>
+                </div>
+              </div>
+            ))}
+            {props.latestPreparationRun?.route === 'agent_assisted' && props.latestPreparationRun.state === 'awaiting_confirmation' && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已把原始数据整理为规则表，请检查样本后决定是否采用。</p><section className="data-preparation-card data-preparation-card--review" aria-label="确认 Agent 数据整理结果"><div className="data-preparation-card__heading"><TableProperties size={17} /><div><strong>是否采用这次整理结果？</strong><p>{props.latestPreparationRun.tableCount} 张规则数据表 · 本地处理 {props.latestPreparationRun.localDurationMs.toLocaleString('zh-CN')} ms</p></div></div><DataPreparationPreview dataset={activeDataset} /><div className="data-preparation-card__actions"><button type="button" disabled={busyAction !== undefined} onClick={() => props.onConfirmDataPreparation(false)}>退回并重新处理</button><button className="primary" type="button" disabled={busyAction !== undefined} onClick={() => props.onConfirmDataPreparation(true)}>{busyAction === 'prepare-confirm' ? '正在确认…' : '采用此整理结果'}</button></div></section></div></div>}
+            {props.latestPreparationRun?.route === 'agent_assisted' && props.latestPreparationRun.state === 'committed' && <section className="object-block product-result-strip product-result-strip--success" aria-label="数据整理记录" role="status"><CircleCheck size={17} /><div><strong>数据整理已确认</strong><p>已生成 {props.latestPreparationRun.tableCount} 张规则数据表 · {props.latestPreparationRun.localDurationMs.toLocaleString('zh-CN')} ms</p><button type="button" disabled={busyAction === 'save-recipe'} onClick={props.onSaveDataPreparationRecipe}>{busyAction === 'save-recipe' ? '正在保存整理流程…' : '经常处理同构数据？保存数据整理流程'}</button></div></section>}
             <ConversationHistory messages={visibleMessages} />
             <div ref={activeTurnRef} className="conversation-turn-anchor" aria-hidden="true" />
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} tasks={props.taskEvents} onCancel={props.onCancelTask} />
