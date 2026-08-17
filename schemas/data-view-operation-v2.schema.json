@@ -1,0 +1,983 @@
+{
+  "$defs": {
+    "AggregateMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "input_field_id": {
+          "anyOf": [
+            {
+              "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Field Id"
+        },
+        "operator": {
+          "enum": [
+            "count",
+            "count_nonmissing",
+            "sum",
+            "mean",
+            "min",
+            "max",
+            "median"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "output_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Output Field Id",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operator",
+        "output_field_id",
+        "output_name"
+      ],
+      "title": "AggregateMetric",
+      "type": "object"
+    },
+    "AggregateOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "group_field_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Group Field Ids",
+          "type": "array"
+        },
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "aggregate",
+          "default": "aggregate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/AggregateMetric"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Metrics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "metrics"
+      ],
+      "title": "AggregateOperation",
+      "type": "object"
+    },
+    "ConcatenateOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "input_handle_ids": {
+          "items": {
+            "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Input Handle Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "concatenate",
+          "default": "concatenate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "source_label_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Source Label Field Id",
+          "type": "string"
+        },
+        "source_label_name": {
+          "default": "Source",
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Label Name",
+          "type": "string"
+        },
+        "source_labels": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Source Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "input_handle_ids",
+        "source_labels",
+        "source_label_field_id"
+      ],
+      "title": "ConcatenateOperation",
+      "type": "object"
+    },
+    "ConvertTypeOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "case_sensitive": {
+          "default": false,
+          "title": "Case Sensitive",
+          "type": "boolean"
+        },
+        "datetime_format": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Datetime Format"
+        },
+        "decimal_separator": {
+          "anyOf": [
+            {
+              "enum": [
+                ".",
+                ","
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decimal Separator"
+        },
+        "false_values": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "False Values",
+          "type": "array"
+        },
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "convert_type",
+          "default": "convert_type",
+          "title": "Kind",
+          "type": "string"
+        },
+        "output_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Output Field Id",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "target_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Target Type",
+          "type": "string"
+        },
+        "thousands_separator": {
+          "anyOf": [
+            {
+              "enum": [
+                ",",
+                ".",
+                " "
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thousands Separator"
+        },
+        "true_values": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "True Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "field_id",
+        "target_type",
+        "output_field_id",
+        "output_name"
+      ],
+      "title": "ConvertTypeOperation",
+      "type": "object"
+    },
+    "ConvertUnitOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "convert_unit",
+          "default": "convert_unit",
+          "title": "Kind",
+          "type": "string"
+        },
+        "output_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Output Field Id",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "target_unit": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Target Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "field_id",
+        "target_unit",
+        "output_field_id",
+        "output_name"
+      ],
+      "title": "ConvertUnitOperation",
+      "type": "object"
+    },
+    "DataFilterPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "equal",
+            "not_equal",
+            "less_than",
+            "less_or_equal",
+            "greater_than",
+            "greater_or_equal",
+            "is_missing",
+            "is_not_missing",
+            "in_values"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "format": "date",
+                    "type": "string"
+                  },
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field_id",
+        "operator"
+      ],
+      "title": "DataFilterPredicate",
+      "type": "object"
+    },
+    "DataJoinKey": {
+      "additionalProperties": false,
+      "properties": {
+        "left_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Left Field Id",
+          "type": "string"
+        },
+        "right_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Right Field Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "left_field_id",
+        "right_field_id"
+      ],
+      "title": "DataJoinKey",
+      "type": "object"
+    },
+    "DataSortKey": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "default": "ascending",
+          "enum": [
+            "ascending",
+            "descending"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "missing": {
+          "default": "last",
+          "enum": [
+            "first",
+            "last"
+          ],
+          "title": "Missing",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_id"
+      ],
+      "title": "DataSortKey",
+      "type": "object"
+    },
+    "DeduplicateRowsOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "keep": {
+          "default": "first",
+          "enum": [
+            "first",
+            "last"
+          ],
+          "title": "Keep",
+          "type": "string"
+        },
+        "key_field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Key Field Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "deduplicate_rows",
+          "default": "deduplicate_rows",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "key_field_ids"
+      ],
+      "title": "DeduplicateRowsOperation",
+      "type": "object"
+    },
+    "DeriveColumnOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "input_field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Input Field Ids",
+          "type": "array"
+        },
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "derive_column",
+          "default": "derive_column",
+          "title": "Kind",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "absolute",
+            "negate",
+            "log10",
+            "ln",
+            "sqrt"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "output_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Output Field Id",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "scalar": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scalar"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "input_field_ids",
+        "operator",
+        "output_field_id",
+        "output_name"
+      ],
+      "title": "DeriveColumnOperation",
+      "type": "object"
+    },
+    "FilterRowsOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "combine": {
+          "default": "all",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "title": "Combine",
+          "type": "string"
+        },
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "filter_rows",
+          "default": "filter_rows",
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicates": {
+          "items": {
+            "$ref": "#/$defs/DataFilterPredicate"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Predicates",
+          "type": "array"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "predicates"
+      ],
+      "title": "FilterRowsOperation",
+      "type": "object"
+    },
+    "KeyedJoinOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_relationship": {
+          "enum": [
+            "one_to_one",
+            "one_to_many",
+            "many_to_one"
+          ],
+          "title": "Expected Relationship",
+          "type": "string"
+        },
+        "how": {
+          "default": "inner",
+          "enum": [
+            "inner",
+            "left",
+            "right"
+          ],
+          "title": "How",
+          "type": "string"
+        },
+        "keys": {
+          "items": {
+            "$ref": "#/$defs/DataJoinKey"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Keys",
+          "type": "array"
+        },
+        "kind": {
+          "const": "keyed_join",
+          "default": "keyed_join",
+          "title": "Kind",
+          "type": "string"
+        },
+        "left_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Left Handle Id",
+          "type": "string"
+        },
+        "right_field_prefix": {
+          "default": "right",
+          "pattern": "^[a-z][a-z0-9_]{0,23}$",
+          "title": "Right Field Prefix",
+          "type": "string"
+        },
+        "right_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Right Handle Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "left_handle_id",
+        "right_handle_id",
+        "keys",
+        "expected_relationship"
+      ],
+      "title": "KeyedJoinOperation",
+      "type": "object"
+    },
+    "LongToWideOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "field_id",
+        "name"
+      ],
+      "title": "LongToWideOutput",
+      "type": "object"
+    },
+    "RenameFieldOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rename_field",
+          "default": "rename_field",
+          "title": "Kind",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "field_id",
+        "output_name"
+      ],
+      "title": "RenameFieldOperation",
+      "type": "object"
+    },
+    "ReshapeLongToWideOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "index_field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Index Field Ids",
+          "type": "array"
+        },
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "reshape_long_to_wide",
+          "default": "reshape_long_to_wide",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Name Field Id",
+          "type": "string"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/LongToWideOutput"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "value_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Value Field Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "index_field_ids",
+        "name_field_id",
+        "value_field_id",
+        "outputs"
+      ],
+      "title": "ReshapeLongToWideOperation",
+      "type": "object"
+    },
+    "ReshapeWideToLongOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "id_field_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Id Field Ids",
+          "type": "array"
+        },
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "reshape_wide_to_long",
+          "default": "reshape_wide_to_long",
+          "title": "Kind",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "output_name_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Output Name Field Id",
+          "type": "string"
+        },
+        "output_value_field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Output Value Field Id",
+          "type": "string"
+        },
+        "output_value_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Value Name",
+          "type": "string"
+        },
+        "value_field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 2,
+          "title": "Value Field Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "value_field_ids",
+        "output_name_field_id",
+        "output_name",
+        "output_value_field_id",
+        "output_value_name"
+      ],
+      "title": "ReshapeWideToLongOperation",
+      "type": "object"
+    },
+    "SelectFieldsOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "field_ids": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Field Ids",
+          "type": "array"
+        },
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "select_fields",
+          "default": "select_fields",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "field_ids"
+      ],
+      "title": "SelectFieldsOperation",
+      "type": "object"
+    },
+    "SortRowsOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "input_handle_id": {
+          "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Input Handle Id",
+          "type": "string"
+        },
+        "keys": {
+          "items": {
+            "$ref": "#/$defs/DataSortKey"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Keys",
+          "type": "array"
+        },
+        "kind": {
+          "const": "sort_rows",
+          "default": "sort_rows",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "input_handle_id",
+        "keys"
+      ],
+      "title": "SortRowsOperation",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/data-view-operation-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "discriminator": {
+    "mapping": {
+      "aggregate": "#/$defs/AggregateOperation",
+      "concatenate": "#/$defs/ConcatenateOperation",
+      "convert_type": "#/$defs/ConvertTypeOperation",
+      "convert_unit": "#/$defs/ConvertUnitOperation",
+      "deduplicate_rows": "#/$defs/DeduplicateRowsOperation",
+      "derive_column": "#/$defs/DeriveColumnOperation",
+      "filter_rows": "#/$defs/FilterRowsOperation",
+      "keyed_join": "#/$defs/KeyedJoinOperation",
+      "rename_field": "#/$defs/RenameFieldOperation",
+      "reshape_long_to_wide": "#/$defs/ReshapeLongToWideOperation",
+      "reshape_wide_to_long": "#/$defs/ReshapeWideToLongOperation",
+      "select_fields": "#/$defs/SelectFieldsOperation",
+      "sort_rows": "#/$defs/SortRowsOperation"
+    },
+    "propertyName": "kind"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/SelectFieldsOperation"
+    },
+    {
+      "$ref": "#/$defs/RenameFieldOperation"
+    },
+    {
+      "$ref": "#/$defs/ConvertTypeOperation"
+    },
+    {
+      "$ref": "#/$defs/FilterRowsOperation"
+    },
+    {
+      "$ref": "#/$defs/SortRowsOperation"
+    },
+    {
+      "$ref": "#/$defs/DeduplicateRowsOperation"
+    },
+    {
+      "$ref": "#/$defs/DeriveColumnOperation"
+    },
+    {
+      "$ref": "#/$defs/ConvertUnitOperation"
+    },
+    {
+      "$ref": "#/$defs/ReshapeWideToLongOperation"
+    },
+    {
+      "$ref": "#/$defs/ReshapeLongToWideOperation"
+    },
+    {
+      "$ref": "#/$defs/ConcatenateOperation"
+    },
+    {
+      "$ref": "#/$defs/KeyedJoinOperation"
+    },
+    {
+      "$ref": "#/$defs/AggregateOperation"
+    }
+  ],
+  "title": "DataViewOperationContract"
+}

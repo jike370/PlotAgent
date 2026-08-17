@@ -42,7 +42,19 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "a747f9c4fed31407166c87dcd39b3a17356fb417ddb7a59c17b26c7f8fd1b96e"
+      "sha256": "8d1567603cf026b47ac511252c56aed5d5bd6d81491cf58fdd0dcbb831ddf906"
+    },
+    {
+      "path": "schemas/data-view-handle-v2.schema.json",
+      "sha256": "af4b382357cf707534fb390b2a6936f76cadb4e0fc55113fcac16f02b98f0f82"
+    },
+    {
+      "path": "schemas/data-view-operation-v2.schema.json",
+      "sha256": "306a811cb175c036b684573aa1179df4eb2cff8f4c29eff9b2245e8ba732ea45"
+    },
+    {
+      "path": "schemas/data-view-preview-v2.schema.json",
+      "sha256": "4969f3a50a05d0924a58f435b741dd56fd609d8680e9a130a67485a6bbc2f15a"
     },
     {
       "path": "schemas/domain-example-v1.schema.json",
@@ -190,7 +202,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "1db6ff6a2f3440e3b96d1d3c00c3ef33a1eaf04b9c33f7baf32263acf5b8bc48"
+      "sha256": "fd9626f5a405a27cbe851d1472a76035f07dddd0754a8420c8695ac29f9d238a"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

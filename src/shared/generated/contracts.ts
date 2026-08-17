@@ -208,6 +208,20 @@ export type AgentUnsupported = {
 
 export type AgentYieldContract = AgentIntentReady | AgentNeedsInput | AgentTechnicalRepairReady | AgentUnsupported | AgentBlocked | AgentBudgetExhausted | AgentCancelled | AgentRuntimeFailed
 
+export type AggregateMetric = {
+  readonly operator: "count" | "count_nonmissing" | "sum" | "mean" | "min" | "max" | "median";
+  readonly input_field_id?: string | null;
+  readonly output_field_id: string;
+  readonly output_name: string;
+}
+
+export type AggregateOperation = {
+  readonly kind?: "aggregate";
+  readonly input_handle_id: string;
+  readonly group_field_ids?: ReadonlyArray<string>;
+  readonly metrics: ReadonlyArray<AggregateMetric>;
+}
+
 export type ApplyPlotOrderSpec = {
   readonly schema_version?: "1.0";
   readonly preparation_spec_id: string;
@@ -338,6 +352,14 @@ export type CompiledTaskItem = {
   readonly idempotency_key: string;
 }
 
+export type ConcatenateOperation = {
+  readonly kind?: "concatenate";
+  readonly input_handle_ids: ReadonlyArray<string>;
+  readonly source_labels: ReadonlyArray<string>;
+  readonly source_label_field_id: string;
+  readonly source_label_name?: string;
+}
+
 export type ConcatenateSources = {
   readonly operation?: "concatenate_sources";
   readonly source_aliases: ReadonlyArray<string>;
@@ -406,12 +428,36 @@ export type ContextToolContract = {
   readonly side_effect: "none" | "staged" | "confirmed_write" | "expanded_risk";
 }
 
+export type ConvertTypeOperation = {
+  readonly kind?: "convert_type";
+  readonly input_handle_id: string;
+  readonly field_id: string;
+  readonly target_type: "numeric" | "categorical" | "datetime" | "boolean" | "text";
+  readonly output_field_id: string;
+  readonly output_name: string;
+  readonly decimal_separator?: "." | "," | null;
+  readonly thousands_separator?: "," | "." | " " | null;
+  readonly datetime_format?: string | null;
+  readonly true_values?: ReadonlyArray<string>;
+  readonly false_values?: ReadonlyArray<string>;
+  readonly case_sensitive?: boolean;
+}
+
 export type ConvertUnit = {
   readonly operation?: "convert_unit";
   readonly source_alias: string;
   readonly field_alias: string;
   readonly target_unit: string;
   readonly output_field_alias: string;
+  readonly output_name: string;
+}
+
+export type ConvertUnitOperation = {
+  readonly kind?: "convert_unit";
+  readonly input_handle_id: string;
+  readonly field_id: string;
+  readonly target_unit: string;
+  readonly output_field_id: string;
   readonly output_name: string;
 }
 
@@ -422,6 +468,17 @@ export type CreatePlot = {
   readonly profile_id: string;
   readonly data: EngineDataRef;
   readonly bindings: ReadonlyArray<FieldBinding>;
+}
+
+export type DataFilterPredicate = {
+  readonly field_id: string;
+  readonly operator: "equal" | "not_equal" | "less_than" | "less_or_equal" | "greater_than" | "greater_or_equal" | "is_missing" | "is_not_missing" | "in_values";
+  readonly value?: boolean | number | string | ReadonlyArray<boolean | number | string | null> | null;
+}
+
+export type DataJoinKey = {
+  readonly left_field_id: string;
+  readonly right_field_id: string;
 }
 
 export type DataQualitySummary = {
@@ -435,6 +492,59 @@ export type DataQualitySummary = {
   readonly warnings?: ReadonlyArray<WarningRecord>;
 }
 
+export type DataSortKey = {
+  readonly field_id: string;
+  readonly direction?: "ascending" | "descending";
+  readonly missing?: "first" | "last";
+}
+
+export type DataViewHandle = {
+  readonly schema_version?: "data-view-handle.v2";
+  readonly handle_id: string;
+  readonly handle_version?: number;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly item_id?: string | null;
+  readonly parent_handle_ids?: ReadonlyArray<string>;
+  readonly root_sources: ReadonlyArray<EngineDataRef>;
+  readonly data: EngineDataRef;
+  readonly operation_kind: "source" | "select_fields" | "rename_field" | "convert_type" | "filter_rows" | "sort_rows" | "deduplicate_rows" | "derive_column" | "convert_unit" | "reshape_wide_to_long" | "reshape_long_to_wide" | "concatenate" | "keyed_join" | "aggregate";
+  readonly operation_hash: string;
+  readonly data_hash: string;
+  readonly artifact_hash: string;
+  readonly row_count: number;
+  readonly fields: ReadonlyArray<EngineField>;
+  readonly lineage: ReadonlyArray<DataViewLineageStep>;
+  readonly created_at: string;
+  readonly expires_at: string;
+}
+
+export type DataViewLineageStep = {
+  readonly step_id: string;
+  readonly operation_kind: "source" | "select_fields" | "rename_field" | "convert_type" | "filter_rows" | "sort_rows" | "deduplicate_rows" | "derive_column" | "convert_unit" | "reshape_wide_to_long" | "reshape_long_to_wide" | "concatenate" | "keyed_join" | "aggregate";
+  readonly input_handle_ids?: ReadonlyArray<string>;
+  readonly input_data_hashes?: ReadonlyArray<string>;
+  readonly parameters_hash: string;
+  readonly output_data_hash: string;
+}
+
+export type DataViewOperationContract = SelectFieldsOperation | RenameFieldOperation | ConvertTypeOperation | FilterRowsOperation | SortRowsOperation | DeduplicateRowsOperation | DeriveColumnOperation | ConvertUnitOperation | ReshapeWideToLongOperation | ReshapeLongToWideOperation | ConcatenateOperation | KeyedJoinOperation | AggregateOperation
+
+export type DataViewPreview = {
+  readonly handle: DataViewHandle;
+  readonly field_ids: ReadonlyArray<string>;
+  readonly offset: number;
+  readonly rows: ReadonlyArray<ReadonlyArray<boolean | number | string | null>>;
+  readonly has_more: boolean;
+}
+
+export type DeduplicateRowsOperation = {
+  readonly kind?: "deduplicate_rows";
+  readonly input_handle_id: string;
+  readonly key_field_ids: ReadonlyArray<string>;
+  readonly keep?: "first" | "last";
+}
+
 export type DeriveColumn = {
   readonly operation?: "derive_column";
   readonly source_alias: string;
@@ -442,6 +552,16 @@ export type DeriveColumn = {
   readonly operator: "add" | "subtract" | "multiply" | "divide" | "absolute" | "negate" | "log10" | "ln" | "sqrt";
   readonly scalar?: number | null;
   readonly output_field_alias: string;
+  readonly output_name: string;
+}
+
+export type DeriveColumnOperation = {
+  readonly kind?: "derive_column";
+  readonly input_handle_id: string;
+  readonly input_field_ids: ReadonlyArray<string>;
+  readonly operator: "add" | "subtract" | "multiply" | "divide" | "absolute" | "negate" | "log10" | "ln" | "sqrt";
+  readonly scalar?: number | null;
+  readonly output_field_id: string;
   readonly output_name: string;
 }
 
@@ -825,6 +945,13 @@ export type FilterRows = {
   readonly combine?: "all" | "any";
 }
 
+export type FilterRowsOperation = {
+  readonly kind?: "filter_rows";
+  readonly input_handle_id: string;
+  readonly predicates: ReadonlyArray<DataFilterPredicate>;
+  readonly combine?: "all" | "any";
+}
+
 export type FilterRowsSpec = {
   readonly schema_version?: "1.0";
   readonly preparation_spec_id: string;
@@ -907,6 +1034,22 @@ export type IsomorphicConcatSpec = {
 }
 
 export type JsonValue = unknown
+
+export type KeyedJoinOperation = {
+  readonly kind?: "keyed_join";
+  readonly left_handle_id: string;
+  readonly right_handle_id: string;
+  readonly keys: ReadonlyArray<DataJoinKey>;
+  readonly how?: "inner" | "left" | "right";
+  readonly expected_relationship: "one_to_one" | "one_to_many" | "many_to_one";
+  readonly right_field_prefix?: string;
+}
+
+export type LongToWideOutput = {
+  readonly value: string;
+  readonly field_id: string;
+  readonly name: string;
+}
 
 export type MatrixProjectionResult = {
   readonly schema_version?: "1.0";
@@ -1103,6 +1246,13 @@ export type RenameField = {
   readonly output_name: string;
 }
 
+export type RenameFieldOperation = {
+  readonly kind?: "rename_field";
+  readonly input_handle_id: string;
+  readonly field_id: string;
+  readonly output_name: string;
+}
+
 export type RepairProposal = {
   readonly failed_report_ids: ReadonlyArray<string>;
   readonly affected_item_ids: ReadonlyArray<string>;
@@ -1120,6 +1270,15 @@ export type ReshapeLongToWide = {
   readonly output_fields: ReadonlyArray<WorkflowOutputField>;
 }
 
+export type ReshapeLongToWideOperation = {
+  readonly kind?: "reshape_long_to_wide";
+  readonly input_handle_id: string;
+  readonly index_field_ids: ReadonlyArray<string>;
+  readonly name_field_id: string;
+  readonly value_field_id: string;
+  readonly outputs: ReadonlyArray<LongToWideOutput>;
+}
+
 export type ReshapeWideToLong = {
   readonly operation?: "reshape_wide_to_long";
   readonly source_alias: string;
@@ -1127,6 +1286,17 @@ export type ReshapeWideToLong = {
   readonly value_field_aliases: ReadonlyArray<string>;
   readonly output_name: string;
   readonly output_value: string;
+}
+
+export type ReshapeWideToLongOperation = {
+  readonly kind?: "reshape_wide_to_long";
+  readonly input_handle_id: string;
+  readonly id_field_ids?: ReadonlyArray<string>;
+  readonly value_field_ids: ReadonlyArray<string>;
+  readonly output_name_field_id: string;
+  readonly output_name: string;
+  readonly output_value_field_id: string;
+  readonly output_value_name: string;
 }
 
 export type ResolvedFieldBinding = {
@@ -1167,6 +1337,12 @@ export type SelectFields = {
   readonly operation?: "select_fields";
   readonly source_alias: string;
   readonly field_aliases: ReadonlyArray<string>;
+}
+
+export type SelectFieldsOperation = {
+  readonly kind?: "select_fields";
+  readonly input_handle_id: string;
+  readonly field_ids: ReadonlyArray<string>;
 }
 
 export type SelectFieldsSpec = {
@@ -1356,6 +1532,12 @@ export type SortRows = {
   readonly operation?: "sort_rows";
   readonly source_alias: string;
   readonly keys: ReadonlyArray<SortKey>;
+}
+
+export type SortRowsOperation = {
+  readonly kind?: "sort_rows";
+  readonly input_handle_id: string;
+  readonly keys: ReadonlyArray<DataSortKey>;
 }
 
 export type SourceDataset = {

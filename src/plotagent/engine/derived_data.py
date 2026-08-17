@@ -12,7 +12,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     EngineField,
 )
-from plotagent.engine.data import EngineDataError, _engine_field, _engine_values
+from plotagent.engine.data import EngineDataError, _engine_field, engine_values
 from plotagent.preparation.artifacts import PreparedArtifact
 
 
@@ -38,7 +38,7 @@ def engine_view_from_prepared(artifact: PreparedArtifact) -> EngineDataView:
         columns=tuple(
             EngineColumn(
                 field=_engine_field(field),
-                values=_engine_values(tuple(artifact.rows[index][column] for index in included)),
+                values=engine_values(tuple(artifact.rows[index][column] for index in included)),
             )
             for column, field in enumerate(artifact.fields)
         ),
@@ -70,7 +70,7 @@ def engine_view_from_calculation(result: PlotCalculationResult) -> EngineDataVie
                     name=_calculation_field_name(field_id),
                     logical_type=_logical_type(tuple(row[column] for row in rows)),
                 ),
-                values=_engine_values(tuple(row[column] for row in rows)),
+                values=engine_values(tuple(row[column] for row in rows)),
             )
             for column, field_id in enumerate(result.output_table.field_ids)
         ),

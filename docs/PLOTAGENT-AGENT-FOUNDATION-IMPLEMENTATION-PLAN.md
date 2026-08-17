@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P3 已完成；P4 施工中（统一 ToolGateway、P0 领域/检查工具、授权与耐久回执已完成）。
+> 状态：P0–P3 已完成；P4 施工中（P0/P1 数据工具、授权与耐久回执已完成，绘图工具待施工）。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -247,8 +247,22 @@
 - 每次调用可确定性生成 `ToolReceipt`，记录输入/输出 hash、公开副作用、错误、时长、披露量、
   Origin session 与 project revision；Ledger 事务内持久化回执并累计 task-wide budget，重复回执不重复
   计费，超预算时回执、事件和 checkpoint 一并回滚；
-- 当前仍为 additive 基础设施，尚未替换 v1 inspect 路由、未接 Pi hook，也尚未注册正式 P1/P2
-  数据与绘图写工具，因而正式 UI 行为不变。
+- 已新增 task/version/source-scoped 的临时数据工作区。原始来源不修改；每次整理生成不可变
+  `DataViewHandle`，记录父句柄、根来源、操作 hash、数据 hash、Parquet artifact hash 和完整 lineage；
+  临时索引位于项目 `tmp/agent-data-v2`，可在 Core 重启后恢复，按 TTL 清理，不进入正式项目对象、
+  package 或 project revision；
+- 已注册 P1 `stage_source_data` / `apply_data_view_operation` 与 P0
+  `inspect_data_view` / `preview_data_view`。来源必须精确属于当前 task authority，P0 预览限制为
+  24 字段 × 40 行并计入披露预算；P1 只产生 staged receipt，不消耗 ExecutionGrant，也不改变
+  project revision；
+- 数据操作是封闭的 typed union：字段选择/重命名/显式类型转换、筛选、稳定排序、去重、有限算术派生、
+  注册单位换算、wide↔long、同构纵向拼接、带声明 cardinality 的 keyed join 和显式聚合。不存在
+  任意 Python/SQL/正则执行；缺失 join key、隐式聚合、多对多关系、单位不兼容、结果为空和字段覆盖均
+  fail closed；
+- preview 与正式 staged operation 使用同一 `EngineDataView`/Parquet 执行实现；落盘后按 artifact/data
+  双 hash 读回，Provider 不能替换授权 source identity 或字段选择；跨 task/version、过期或损坏句柄均拒绝；
+- 当前仍为 additive 基础设施，尚未替换 v1 inspect 路由、未接 Pi hook，也尚未注册 P2 绘图写工具，
+  因而正式 UI 行为不变。
 
 ### 工作
 

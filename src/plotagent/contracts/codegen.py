@@ -17,6 +17,7 @@ from typing import Any
 from pydantic import BaseModel, RootModel, TypeAdapter
 from pydantic.json_schema import models_json_schema
 
+from plotagent.contracts.agent_data import DataViewHandle, DataViewOperation, DataViewPreview
 from plotagent.contracts.agent_tasks import (
     AgentActivation,
     AgentYield,
@@ -107,6 +108,10 @@ class TaskEventContract(RootModel[TaskEvent]):
     pass
 
 
+class DataViewOperationContract(RootModel[DataViewOperation]):
+    pass
+
+
 SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("source-dataset", SourceDataset),
     ("field-mapping", FieldMapping),
@@ -143,6 +148,9 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("tool-invocation-v2", ToolInvocation),
     ("agent-tool-error-v2", AgentToolError),
     ("agent-tool-result-v2", AgentToolResult),
+    ("data-view-handle-v2", DataViewHandle),
+    ("data-view-operation-v2", DataViewOperationContract),
+    ("data-view-preview-v2", DataViewPreview),
     ("engine-data-ref", EngineDataRef),
     ("engine-data-view", EngineDataView),
     ("engine-profile", EngineProfile),

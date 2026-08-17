@@ -1,0 +1,311 @@
+{
+  "$defs": {
+    "DataViewLineageStep": {
+      "additionalProperties": false,
+      "properties": {
+        "input_data_hashes": {
+          "default": [],
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Input Data Hashes",
+          "type": "array"
+        },
+        "input_handle_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Input Handle Ids",
+          "type": "array"
+        },
+        "operation_kind": {
+          "enum": [
+            "source",
+            "select_fields",
+            "rename_field",
+            "convert_type",
+            "filter_rows",
+            "sort_rows",
+            "deduplicate_rows",
+            "derive_column",
+            "convert_unit",
+            "reshape_wide_to_long",
+            "reshape_long_to_wide",
+            "concatenate",
+            "keyed_join",
+            "aggregate"
+          ],
+          "title": "Operation Kind",
+          "type": "string"
+        },
+        "output_data_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Data Hash",
+          "type": "string"
+        },
+        "parameters_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Parameters Hash",
+          "type": "string"
+        },
+        "step_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Step Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "operation_kind",
+        "parameters_hash",
+        "output_data_hash"
+      ],
+      "title": "DataViewLineageStep",
+      "type": "object"
+    },
+    "EngineDataRef": {
+      "additionalProperties": false,
+      "description": "Immutable data revision consumed by a plot document.",
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "source",
+            "prepared",
+            "calculated"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "dataset_id",
+        "version",
+        "content_hash"
+      ],
+      "title": "EngineDataRef",
+      "type": "object"
+    },
+    "EngineField": {
+      "additionalProperties": false,
+      "description": "Renderer-neutral field metadata exposed by the data layer.",
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "logical_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "unit_label": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Label"
+        }
+      },
+      "required": [
+        "field_id",
+        "name",
+        "logical_type"
+      ],
+      "title": "EngineField",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/data-view-handle-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Artifact Hash",
+      "type": "string"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "data": {
+      "$ref": "#/$defs/EngineDataRef"
+    },
+    "data_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Data Hash",
+      "type": "string"
+    },
+    "expires_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "fields": {
+      "items": {
+        "$ref": "#/$defs/EngineField"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Fields",
+      "type": "array"
+    },
+    "handle_id": {
+      "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Handle Id",
+      "type": "string"
+    },
+    "handle_version": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Handle Version",
+      "type": "integer"
+    },
+    "item_id": {
+      "anyOf": [
+        {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Item Id"
+    },
+    "lineage": {
+      "items": {
+        "$ref": "#/$defs/DataViewLineageStep"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Lineage",
+      "type": "array"
+    },
+    "operation_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Operation Hash",
+      "type": "string"
+    },
+    "operation_kind": {
+      "enum": [
+        "source",
+        "select_fields",
+        "rename_field",
+        "convert_type",
+        "filter_rows",
+        "sort_rows",
+        "deduplicate_rows",
+        "derive_column",
+        "convert_unit",
+        "reshape_wide_to_long",
+        "reshape_long_to_wide",
+        "concatenate",
+        "keyed_join",
+        "aggregate"
+      ],
+      "title": "Operation Kind",
+      "type": "string"
+    },
+    "parent_handle_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Parent Handle Ids",
+      "type": "array"
+    },
+    "root_sources": {
+      "items": {
+        "$ref": "#/$defs/EngineDataRef"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Root Sources",
+      "type": "array"
+    },
+    "row_count": {
+      "minimum": 1,
+      "title": "Row Count",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "data-view-handle.v2",
+      "default": "data-view-handle.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "handle_id",
+    "task_id",
+    "task_version",
+    "root_sources",
+    "data",
+    "operation_kind",
+    "operation_hash",
+    "data_hash",
+    "artifact_hash",
+    "row_count",
+    "fields",
+    "lineage",
+    "created_at",
+    "expires_at"
+  ],
+  "title": "DataViewHandle",
+  "type": "object"
+}

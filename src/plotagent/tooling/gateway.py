@@ -640,7 +640,7 @@ class ToolGateway:
                 "requires_user": False,
             }
         if (
-            invocation.permission_phase != activation.permission_phase
+            invocation.permission_phase != contract.permission_phase
             or activation.task_state not in contract.allowed_task_states
             or _PHASE_ORDER[contract.permission_phase]
             > _PHASE_ORDER[activation.permission_phase]
@@ -712,6 +712,8 @@ class ToolGateway:
             or grant.expected_project_revision != checkpoint.project_revision
             or invocation.expected_project_revision != checkpoint.project_revision
             or grant.permission_phase != activation.permission_phase
+            or _PHASE_ORDER[grant.permission_phase]
+            < _PHASE_ORDER[invocation.permission_phase]
         ):
             return {
                 "code": "TOOL_GRANT_STALE",

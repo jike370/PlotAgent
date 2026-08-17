@@ -19,7 +19,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     EngineField,
 )
-from plotagent.engine.data import EngineDataError, _engine_values
+from plotagent.engine.data import EngineDataError, engine_values
 from plotagent.storage.project import ProjectStore, _utc_now
 
 _FIELDS_ADAPTER: TypeAdapter[tuple[EngineField, ...]] = TypeAdapter(tuple[EngineField, ...])
@@ -62,7 +62,7 @@ class EngineDataViewRepository:
                 raise EngineDataError("derived data version is already bound to different values")
             return persisted
 
-        payload = _parquet_bytes(view)
+        payload = serialize_engine_data_view(view)
         staged = self._project.stage_bytes(
             payload,
             media_type="application/vnd.apache.parquet",
@@ -155,7 +155,7 @@ class EngineDataViewRepository:
             columns=tuple(
                 EngineColumn(
                     field=field,
-                    values=_engine_values(table[field.field_id].to_pylist()),
+                    values=engine_values(table[field.field_id].to_pylist()),
                 )
                 for field in fields
             ),
@@ -199,7 +199,7 @@ class EngineDataViewRepository:
         return cast(tuple[object, ...] | None, row)
 
 
-def _parquet_bytes(view: EngineDataView) -> bytes:
+def serialize_engine_data_view(view: EngineDataView) -> bytes:
     arrays: list[pa.Array] = [pa.array(view.row_ids, type=pa.string())]
     names = [_ROW_ID_COLUMN]
     for column in view.columns:

@@ -67,7 +67,7 @@ class ProjectEngineDataProvider:
         columns = tuple(
             EngineColumn(
                 field=_engine_field(fields_by_id[field_id]),
-                values=_engine_values(table[field_id].to_pylist()),
+                values=engine_values(table[field_id].to_pylist()),
             )
             for field_id in field_ids
         )
@@ -133,7 +133,7 @@ def _engine_field(field: SourceField) -> EngineField:
     )
 
 
-def _engine_values(values: Sequence[object]) -> tuple[EngineScalar, ...]:
+def engine_values(values: Sequence[object]) -> tuple[EngineScalar, ...]:
     allowed = (bool, int, float, str)
     result: list[EngineScalar] = []
     for value in values:
