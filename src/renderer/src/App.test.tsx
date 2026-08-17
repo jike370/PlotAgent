@@ -219,6 +219,54 @@ function batchPlanFixture(state = 'awaiting_confirmation'): JsonValue {
   }
 }
 
+function failedCreatePlanFixture(): JsonValue {
+  return {
+    plan: {
+      schema_version: 'task-plan.v1',
+      plan_id: 'plan:failed-create',
+      workflow_run_id: 'workflow:failed-create',
+      draft_hash: 'f'.repeat(64),
+      expected_project_revision: 2,
+      items: [{
+        task_kind: 'create',
+        item_id: 'item:failed-k19',
+        plot_alias: 'plot_1',
+        plot_id: 'plot:failed-k19',
+        profile_id: 'K19',
+        sources: [{
+          source_alias: 'data_3',
+          source_dataset_id: 'source:pressure',
+          source_version: 1,
+          content_hash: 'c'.repeat(64),
+          display_name: 'pressure.csv',
+          row_count: 12,
+        }],
+        resolved_fields: [],
+        data_operations: [],
+        bindings: [
+          { role: 'time', source_alias: 'data_3', field_id: 'field:pressure.time' },
+          { role: 'series_1', source_alias: 'data_3', field_id: 'field:pressure.signal' },
+        ],
+        visual_actions: [{ operation: 'set_axis', target_alias: 'y_axis', scale: 'log10' }],
+        depends_on: [],
+        idempotency_key: 'workflow:failed-create:item:failed-k19',
+      }],
+    },
+    state: 'failed',
+    current_project_revision: 2,
+    item_progress: [{
+      item_id: 'item:failed-k19',
+      state: 'failed',
+      attempt_count: 1,
+      error_code: 'LOG_SCALE_NON_POSITIVE',
+      error_message: 'Log10 轴包含 0 或负值。',
+      error_retryable: false,
+    }],
+    created_at: '2026-08-16T00:00:00Z',
+    updated_at: '2026-08-16T00:00:00Z',
+  }
+}
+
 let coreListener: ((status: CoreStatus) => void) | undefined
 let taskListener: ((event: TaskEvent) => void) | undefined
 
@@ -1328,6 +1376,51 @@ describe('PlotAgent real desktop workflow', () => {
     expect(resumeWorkflowPlan).toHaveBeenCalledWith({ projectId: 'project:sample', planId: 'plan:one' })
     expect(await screen.findByText('更改已保存')).toBeInTheDocument()
     expect(screen.getAllByText('plot:one · v2').length).toBeGreaterThan(0)
+  })
+
+  it('routes a natural-language failed-item retry only to the failed source', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn(async (
+      input: Parameters<PlotAgentDesktopApi['runWorkflow']>[0],
+    ) => {
+      void input
+      return ok({
+        outcome: 'needs_input',
+        workflow_run_id: 'workflow:retry',
+        questions: [{
+          question_key: 'field_time',
+          prompt: '请选择时间字段。',
+          answer_kind: 'field',
+          choices: [],
+          required: true,
+        }],
+      })
+    })
+    installApi(fakeDesktop({
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 2, datasets: [dataset, secondDataset] },
+      })),
+      listTaskPlans: vi.fn(async () => ok({ task_plans: [failedCreatePlanFixture()] })),
+      runWorkflow,
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    expect(await screen.findByText('Log10 轴包含 0 或负值。')).toBeInTheDocument()
+
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '仅重试上个批次失败的任务：K19 改为 linear，不要重复成功项。',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({
+      selectedSources: [{ datasetId: 'source:pressure', sourceVersion: 1 }],
+      selectedProfileIds: ['K19'],
+      instruction: '仅重试上个批次失败的任务：K19 改为 linear，不要重复成功项。',
+    }))
+    expect(runWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedPlotIds')
   })
 
   it('renders a rejected persisted plan as non-executable', async () => {

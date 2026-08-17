@@ -201,6 +201,75 @@ def test_same_chart_wording_uses_program_first_concat_without_extra_join_keyword
     assert item.bindings[-1].role == "group"
 
 
+def test_field_descriptor_binding_keeps_eight_source_beeswarm_program_first() -> None:
+    base = _context(
+        "将已提供的 8 个数据表画在同一张蜂群图中。"
+        "每个数据表的 Y 字段映射为 value，数据源名称作为分组名称。",
+        selected_sources=("data_1", "data_2"),
+    )
+    sources = tuple(
+        WorkflowSource(
+            source_alias=f"data_{position}",
+            source_dataset_id=f"source:{position}",
+            source_version=1,
+            content_hash=f"{position}" * 64,
+            display_name=f"source_{position:02}.csv",
+            row_count=3,
+        )
+        for position in range(1, 9)
+    )
+    fields = tuple(
+        WorkflowField(
+            field_alias=f"data_{position}_{name.casefold()}",
+            source_alias=f"data_{position}",
+            field_id=f"field:{position:02}.{name.casefold()}",
+            name=name,
+            logical_type="numeric",
+        )
+        for position in range(1, 9)
+        for name in ("X", "Y")
+    )
+    context = base.model_copy(
+        update={
+            "sources": sources,
+            "fields": fields,
+            "selected_source_aliases": tuple(source.source_alias for source in sources),
+            "selected_profile_ids": ("X05",),
+        }
+    )
+
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(context)
+
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    item = decision.deterministic.draft.items[0]
+    assert len(item.source_aliases) == 8
+    assert item.bindings[0].role == "value"
+    assert item.bindings[0].field_alias == "data_1_y"
+    assert item.data_operations[0].operation == "concatenate_sources"
+
+
+@pytest.mark.parametrize(
+    ("instruction", "reason_code"),
+    (
+        (
+            "把当前散点图和热图合并成四宫格组合图，并生成一张显微镜图像。",
+            "T1_SCOPE_COMPOSITION_OR_IMAGE",
+        ),
+        ("对当前数据运行回归分析并生成 Python 脚本。", "T1_SCOPE_ANALYSIS_OR_CODE"),
+    ),
+)
+def test_out_of_t1_goals_are_rejected_before_model_use(
+    instruction: str,
+    reason_code: str,
+) -> None:
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(_context(instruction))
+
+    assert decision.route == "unsupported"
+    assert decision.deterministic is not None
+    assert decision.deterministic.reason_code == reason_code
+
+
 def test_explicit_file_names_limit_same_chart_sources_before_schema_comparison() -> None:
     base = _context(
         "将 series_A.xlsx、series_B.xlsx、series_C.xlsx 三个数据表画在同一张 K19 时间序列图中；"

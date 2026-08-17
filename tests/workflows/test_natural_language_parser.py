@@ -359,3 +359,19 @@ def test_unhandled_explicit_goal_escalates_instead_of_dropping_parameters() -> N
     decision = WorkflowRouter(_CATALOG).route(context)
     assert decision.route == "agent_single_turn"
     assert decision.deterministic is None
+
+
+def test_vague_visual_request_asks_for_the_visual_element_locally() -> None:
+    decision = WorkflowRouter(_CATALOG).route(
+        _context(
+            "K01",
+            "美化一下",
+            (("X", "numeric"), ("Response", "numeric")),
+            edit=True,
+        )
+    )
+
+    assert decision.route == "needs_input"
+    assert decision.deterministic is not None
+    assert decision.deterministic.outcome == "needs_input"
+    assert decision.deterministic.questions[0].question_key == "visual_change"

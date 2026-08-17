@@ -59,6 +59,65 @@ _OPTIONAL_ROLE_LABELS: dict[str, tuple[str, ...]] = {
 }
 
 _BINDING_OPERATOR = r"(?:映射(?:为|到)?|绑定(?:为|到)?|→|->|=|作为|设为|为)"
+_FIELD_DESCRIPTOR = r"(?:\s*(?:字段|列))?"
+
+
+def _binding_expression(field_name: str, role_label: str) -> str:
+    """Return the shared explicit-binding grammar.
+
+    Users commonly say ``Y 字段映射为 value`` rather than ``Y 映射为
+    value``.  Every binding gate must recognize the same optional descriptor;
+    otherwise the ambiguity gate and the actual binder disagree and a closed
+    request is needlessly sent to the model.
+    """
+
+    return (
+        rf"(?:(?<!\w){field_name}{_FIELD_DESCRIPTOR}\s*{_BINDING_OPERATOR}\s*"
+        rf"(?<!\w){role_label}(?!\w)"
+        rf"|(?<!\w){role_label}{_FIELD_DESCRIPTOR}\s*{_BINDING_OPERATOR}\s*"
+        rf"(?<!\w){field_name}(?!\w))"
+    )
+
+
+def _unsupported_t1_boundary(instruction: str) -> tuple[str, str] | None:
+    """Reject capabilities outside the T1 product before any model call."""
+
+    if re.search(
+        r"(?:四宫格|九宫格|多面板|组合图|拼图|合并(?:成|为)?(?:一张)?组合)"
+        r"|(?:显微镜|医学|遥感)?(?:图片|图像)(?:生成|处理|分割|识别)?"
+        r"|生成(?:一张|一个)?(?:图片|图像)",
+        instruction,
+        flags=re.IGNORECASE,
+    ):
+        return (
+            "T1_SCOPE_COMPOSITION_OR_IMAGE",
+            "当前版本只执行单张 T1 数据图，不提供组合图、拼图或图像生成。",
+        )
+    if re.search(
+        r"(?:回归|拟合|聚类|统计检验|显著性检验|预测模型|机器学习)"
+        r"|(?:编写|运行|执行|生成)(?:\s*Python|\s*SQL|\s*R\s|代码|脚本)",
+        instruction,
+        flags=re.IGNORECASE,
+    ):
+        return (
+            "T1_SCOPE_ANALYSIS_OR_CODE",
+            "当前版本只执行 T1 绘图和视觉编辑，不运行分析、拟合或代码。",
+        )
+    return None
+
+
+def _vague_visual_request(instruction: str) -> bool:
+    normalized = re.sub(r"[\s，,。.!！?？]", "", instruction.casefold())
+    return normalized in {
+        "美化",
+        "美化一下",
+        "优化",
+        "优化一下",
+        "好看一点",
+        "改好看一点",
+        "调整样式",
+        "优化样式",
+    }
 
 @dataclass(frozen=True, slots=True)
 class RouteDecision:
@@ -238,6 +297,14 @@ class DeterministicResolver:
         self._catalog = catalog
 
     def resolve(self, context: WorkflowContext) -> WorkflowDecision | None:
+        boundary = _unsupported_t1_boundary(context.instruction)
+        if boundary is not None:
+            reason_code, message = boundary
+            return WorkflowUnsupported(
+                workflow_run_id=context.workflow_run_id,
+                reason_code=reason_code,
+                message=message,
+            )
         mentions = profile_mentions(context.instruction, context.allowed_profile_ids)
         if context.selected_plot_aliases and not (
             mentions and _has_create_intent(context.instruction)
@@ -518,10 +585,7 @@ class DeterministicResolver:
         field_name = re.escape(field.name)
         return any(
             re.search(
-                rf"(?:(?<!\w){field_name}\s*{_BINDING_OPERATOR}\s*"
-                rf"(?<!\w){re.escape(label)}(?!\w)"
-                rf"|(?<!\w){re.escape(label)}\s*{_BINDING_OPERATOR}\s*"
-                rf"(?<!\w){field_name}(?!\w))",
+                _binding_expression(field_name, re.escape(label)),
                 instruction,
                 flags=re.IGNORECASE,
             )
@@ -569,10 +633,7 @@ class DeterministicResolver:
                 field_name = re.escape(field.name)
                 if any(
                     re.search(
-                        rf"(?:(?<!\w){field_name}\s*{_BINDING_OPERATOR}\s*"
-                        rf"(?<!\w){re.escape(label)}(?!\w)"
-                        rf"|(?<!\w){re.escape(label)}\s*{_BINDING_OPERATOR}\s*"
-                        rf"(?<!\w){field_name}(?!\w))",
+                        _binding_expression(field_name, re.escape(label)),
                         instruction,
                         flags=re.IGNORECASE,
                     )
@@ -673,6 +734,20 @@ class DeterministicResolver:
         target = next((plot for plot in context.plots if plot.plot_alias == target_alias), None)
         if target is None:
             return None
+        if _vague_visual_request(context.instruction):
+            return WorkflowNeedsInput(
+                workflow_run_id=context.workflow_run_id,
+                questions=(
+                    InputQuestion(
+                        question_key="visual_change",
+                        prompt=(
+                            "请明确要调整的视觉元素，例如标题、颜色、线型、符号、"
+                            "坐标轴或图例。"
+                        ),
+                        answer_kind="text",
+                    ),
+                ),
+            )
         goal = parse_explicit_goal(context, source_alias=None)
         if goal is None or not goal.visual_actions or goal.data_operations:
             return WorkflowUnsupported(
@@ -720,10 +795,7 @@ class DeterministicResolver:
                 for role_label in role_labels:
                     role_name = re.escape(role_label)
                     if re.search(
-                        rf"(?:(?<!\w){field_name}\s*{_BINDING_OPERATOR}\s*"
-                        rf"(?<!\w){role_name}(?!\w)"
-                        rf"|(?<!\w){role_name}\s*{_BINDING_OPERATOR}\s*"
-                        rf"(?<!\w){field_name}(?!\w))",
+                        _binding_expression(field_name, role_name),
                         instruction,
                         flags=re.IGNORECASE,
                     ):

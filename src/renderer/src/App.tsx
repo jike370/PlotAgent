@@ -131,6 +131,36 @@ function datasetsForInstruction(
     .slice(0, 8)
 }
 
+function failedRetrySelection(
+  instruction: string,
+  plan: WorkflowPlanView | undefined,
+  datasets: ProductDataset[],
+): { datasets: ProductDataset[]; profileIds: string[] } | undefined {
+  if (!/(?:仅|只)?重试[^，,。；;]*(?:失败|未完成)|(?:失败|未完成)[^，,。；;]*重试/.test(instruction)) {
+    return undefined
+  }
+  if (!plan || !['partially_succeeded', 'failed'].includes(plan.state)) return undefined
+  const failed = plan.steps.filter((step) => (
+    step.taskKind === 'create' && ['failed', 'blocked'].includes(step.state)
+  ))
+  if (failed.length === 0) return undefined
+  const datasetIds = [...new Set(failed.flatMap((step) => (
+    step.bindings.flatMap((binding) => binding.sourceDatasetId === undefined
+      ? [] : [binding.sourceDatasetId])
+  )))]
+  const selectedDatasets = datasetIds.flatMap((datasetId) => {
+    const dataset = datasets.find((candidate) => candidate.datasetId === datasetId)
+    return dataset === undefined ? [] : [dataset]
+  })
+  if (selectedDatasets.length !== datasetIds.length || selectedDatasets.length === 0) {
+    return undefined
+  }
+  return {
+    datasets: selectedDatasets,
+    profileIds: [...new Set(failed.map((step) => step.profileId))],
+  }
+}
+
 interface ProviderSettingsProps {
   busy: boolean
   notice?: ProductNotice
@@ -810,19 +840,26 @@ export function App(): React.JSX.Element {
     agentRequestGeneration.current = requestGeneration
     setBusyAction('agent'); setWorkflowOutcome(undefined); setWorkflowPlan(undefined); setNotice(undefined)
     try {
-      const selectedSources = datasetsForInstruction(
-        instruction,
-        datasets,
-        activeDataset,
-        workflowSourceIds,
-      )
+      const retrySelection = failedRetrySelection(instruction, workflowPlan, datasets)
+      const selectedSources = (retrySelection?.datasets ?? datasetsForInstruction(
+          instruction,
+          datasets,
+          activeDataset,
+          workflowSourceIds,
+        ))
         .map((dataset) => ({ datasetId: dataset.datasetId, sourceVersion: dataset.sourceVersion }))
       const value = valueOrThrow(await api.runWorkflow({
         projectId: project.projectId,
         selectedSources,
         expectedProjectVersion: project.projectVersion,
-        ...(selectedChart === undefined ? {} : { selectedProfileIds: [selectedChart.id] }),
-        ...(plot === undefined ? {} : { selectedPlotIds: [plot.plotId] }),
+        ...(retrySelection !== undefined
+          ? retrySelection.profileIds.length === 1
+            ? { selectedProfileIds: retrySelection.profileIds }
+            : {}
+          : selectedChart === undefined ? {} : { selectedProfileIds: [selectedChart.id] }),
+        ...(retrySelection !== undefined || plot === undefined
+          ? {}
+          : { selectedPlotIds: [plot.plotId] }),
         instruction,
       }))
       if (agentRequestGeneration.current !== requestGeneration) return
