@@ -103,11 +103,19 @@ export function importOptionLabel(code: string, value: string, fallback: string)
   return fallback
 }
 
-function preparationRunId(value: JsonValue): string | undefined {
-  return value !== null && !Array.isArray(value) && typeof value === 'object'
-    && typeof value.preparation_run_id === 'string'
-    ? value.preparation_run_id
-    : undefined
+export function readPreparationRunId(value: JsonValue): string | undefined {
+  if (value === null || Array.isArray(value) || typeof value !== 'object') return undefined
+  const runIds = new Set<string>()
+  if (typeof value.preparation_run_id === 'string') runIds.add(value.preparation_run_id)
+  if (typeof value.data_preparation_run_id === 'string') runIds.add(value.data_preparation_run_id)
+  if (Array.isArray(value.datasets)) {
+    for (const dataset of value.datasets) {
+      if (dataset === null || Array.isArray(dataset) || typeof dataset !== 'object') continue
+      if (typeof dataset.preparation_run_id === 'string') runIds.add(dataset.preparation_run_id)
+      if (typeof dataset.data_preparation_run_id === 'string') runIds.add(dataset.data_preparation_run_id)
+    }
+  }
+  return runIds.size === 1 ? [...runIds][0] : undefined
 }
 
 function preparationOutcomeCode(value: JsonValue): string | undefined {
@@ -708,7 +716,7 @@ export function registerDesktopIpc({
           })
         )
         let result = await requestImport({})
-        const initialRunId = preparationRunId(result)
+        const initialRunId = readPreparationRunId(result)
         const initialCode = preparationOutcomeCode(result)
         if (
           initialRunId !== undefined
@@ -739,7 +747,7 @@ export function registerDesktopIpc({
             // Agent proposal is available; the renderer can still show choices.
           }
         }
-        const pendingRunId = preparationRunId(result)
+        const pendingRunId = readPreparationRunId(result)
         if (pendingRunId !== undefined) preparationResources.set(pendingRunId, {
           projectId: input.projectId,
           resourceId: resource.resourceId,
@@ -969,7 +977,7 @@ export function registerDesktopIpc({
         expected_version: expectedVersion,
         options,
       })
-      const nextRunId = preparationRunId(result)
+      const nextRunId = readPreparationRunId(result)
       if (nextRunId !== undefined) preparationResources.set(nextRunId, { ...stored, result })
       const identified = withImportSourceIdentity(result, stored.fileName)
       rememberDatasetIdentities(stored.projectId, identified)

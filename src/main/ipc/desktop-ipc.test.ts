@@ -13,6 +13,7 @@ import {
   requestPlotList,
   readAgentPreparationProposal,
   readImportClarification,
+  readPreparationRunId,
   sanitizeCoreResult,
   withImportSourceIdentity,
 } from './desktop-ipc.js'
@@ -66,6 +67,27 @@ describe('desktop product IPC boundary', () => {
     expect(readAgentPreparationProposal({
       outcome: 'proposal',
       options: { delimiter: ';', unit_conversion: 'ms->s' },
+    })).toBeUndefined()
+  })
+
+  it('retains preparation identity for both pending and committed Core outcomes', () => {
+    expect(readPreparationRunId({
+      kind: 'clarification',
+      preparation_run_id: 'data-run:pending',
+    })).toBe('data-run:pending')
+    expect(readPreparationRunId({
+      kind: 'committed',
+      data_preparation_run_id: 'data-run:committed',
+      datasets: [{ data_preparation_run_id: 'data-run:committed' }],
+    })).toBe('data-run:committed')
+    expect(readPreparationRunId({
+      kind: 'committed',
+      datasets: [{ data_preparation_run_id: 'data-run:dataset-only' }],
+    })).toBe('data-run:dataset-only')
+    expect(readPreparationRunId({
+      kind: 'committed',
+      data_preparation_run_id: 'data-run:one',
+      datasets: [{ data_preparation_run_id: 'data-run:two' }],
     })).toBeUndefined()
   })
 
