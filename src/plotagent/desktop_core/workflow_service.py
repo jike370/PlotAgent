@@ -436,12 +436,12 @@ class DesktopWorkflowService:
                 item, source_provider, self.engine.data_views
             ),
             execute_action=self._execute_action,
-            validate_prepared_data=self._validate_prepared_data,
-            validate_edit_data=self._validate_edit_data,
+            validate_prepared_data=self.validate_prepared_data,
+            validate_edit_data=self.validate_edit_data,
         )
         return executor.run(plan_id).model_dump(mode="json")
 
-    def _validate_prepared_data(
+    def validate_prepared_data(
         self,
         item: CompiledTaskItem,
         data: EngineDataRef,
@@ -449,7 +449,7 @@ class DesktopWorkflowService:
     ) -> None:
         self._validate_log10_axes(item, data, bindings)
 
-    def _validate_edit_data(self, item: CompiledTaskItem) -> None:
+    def validate_edit_data(self, item: CompiledTaskItem) -> None:
         if item.target_plot_id is None or item.target_plot_version is None:
             return
         document = self.engine.documents.get(

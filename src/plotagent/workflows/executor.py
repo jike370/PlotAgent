@@ -58,7 +58,7 @@ type ValidateEditData = Callable[[CompiledTaskItem], None]
 
 @dataclass(slots=True)
 class TaskPlanExecutor:
-    repository: WorkflowRepository
+    repository: WorkflowRepository | None
     catalog: EngineCatalog
     prepare_data: PrepareTaskData
     execute_action: ExecuteEngineAction
@@ -66,7 +66,13 @@ class TaskPlanExecutor:
     validate_edit_data: ValidateEditData
 
     def run(self, plan_id: str) -> TaskPlanSnapshot:
-        snapshot = self.repository.get_plan(plan_id)
+        if self.repository is None:
+            raise WorkflowExecutionError(
+                "WORKFLOW_REPOSITORY_REQUIRED",
+                "Legacy workflow-plan execution requires its repository.",
+            )
+        repository = self.repository
+        snapshot = repository.get_plan(plan_id)
         if snapshot.state not in {"ready", "running", "partially_succeeded", "failed"}:
             raise WorkflowExecutionError(
                 "WORKFLOW_PLAN_NOT_RUNNABLE",
@@ -79,8 +85,8 @@ class TaskPlanExecutor:
                 "PROJECT_VERSION_CONFLICT",
                 "项目在确认后发生了变化，请重新生成任务计划。",
             )
-        snapshot = self.repository.set_plan_state(plan_id, "running")
-        self.repository.transition_run(snapshot.plan.workflow_run_id, state="executing")
+        snapshot = repository.set_plan_state(plan_id, "running")
+        repository.transition_run(snapshot.plan.workflow_run_id, state="executing")
         failed_ids = {
             progress.item_id
             for progress in snapshot.item_progress
@@ -90,7 +96,7 @@ class TaskPlanExecutor:
             if progress.state == "succeeded":
                 continue
             if set(item.depends_on) & failed_ids:
-                snapshot = self.repository.set_item_state(
+                snapshot = repository.set_item_state(
                     plan_id,
                     item.item_id,
                     "blocked",
@@ -100,7 +106,7 @@ class TaskPlanExecutor:
                 )
                 failed_ids.add(item.item_id)
                 continue
-            snapshot = self.repository.set_item_state(
+            snapshot = repository.set_item_state(
                 plan_id,
                 item.item_id,
                 "running",
@@ -108,21 +114,21 @@ class TaskPlanExecutor:
             )
             try:
                 revision, plot_version = self._execute_item(item, snapshot.current_project_revision)
-                snapshot = self.repository.set_item_state(
+                snapshot = repository.set_item_state(
                     plan_id,
                     item.item_id,
                     "succeeded",
                     output_plot_id=item.plot_id,
                     output_plot_version=plot_version,
                 )
-                snapshot = self.repository.set_plan_state(
+                snapshot = repository.set_plan_state(
                     plan_id, "running", project_revision=revision
                 )
                 failed_ids.discard(item.item_id)
             except Exception as error:
                 code = getattr(error, "code", type(error).__name__)
                 code_text = str(code)
-                snapshot = self.repository.set_item_state(
+                snapshot = repository.set_item_state(
                     plan_id,
                     item.item_id,
                     "failed",
@@ -131,7 +137,7 @@ class TaskPlanExecutor:
                     error_retryable=self._failure_retryable(error, code_text),
                 )
                 failed_ids.add(item.item_id)
-        snapshot = self.repository.get_plan(plan_id)
+        snapshot = repository.get_plan(plan_id)
         failures = tuple(
             progress
             for progress in snapshot.item_progress
@@ -141,12 +147,12 @@ class TaskPlanExecutor:
             progress for progress in snapshot.item_progress if progress.state == "succeeded"
         )
         state = "succeeded" if not failures else "partially_succeeded" if successes else "failed"
-        snapshot = self.repository.set_plan_state(
+        snapshot = repository.set_plan_state(
             plan_id,
             state,
             project_revision=snapshot.current_project_revision,
         )
-        self.repository.transition_run(
+        repository.transition_run(
             snapshot.plan.workflow_run_id,
             state=(
                 "completed"
@@ -157,6 +163,13 @@ class TaskPlanExecutor:
             ),
         )
         return snapshot
+
+    def execute_compiled_item(
+        self, item: CompiledTaskItem, revision: int
+    ) -> tuple[int, int]:
+        """Execute one already compiled item without reading legacy plan state."""
+
+        return self._execute_item(item, revision)
 
     @staticmethod
     def _failure_message(error: Exception) -> str:

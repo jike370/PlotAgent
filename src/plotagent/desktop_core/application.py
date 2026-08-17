@@ -27,6 +27,10 @@ from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.datasets import (
     SourceDataset,
 )
+from plotagent.desktop_core.agent_execution import (
+    DurableExecutionError,
+    DurableTaskExecutionService,
+)
 from plotagent.desktop_core.agent_foundation import (
     AgentFoundationError,
     DurableAgentCoreHost,
@@ -106,6 +110,7 @@ class ProjectSession:
     durable_tasks: TaskLedgerRepository
     task_coordinator: DurableTaskCoordinator
     task_host: DurableAgentCoreHost
+    task_execution: DurableTaskExecutionService
 
     @property
     def project_id(self) -> str:
@@ -193,6 +198,10 @@ class DesktopApplication:
             "agent.yields.validate": self._agent_yield_validate,
             "agent.tasks.yield.accept": self._agent_yield_accept,
             "agent.tasks.user_event": self._agent_task_user_event,
+            "agent.tasks.plan.get": self._agent_task_plan_get,
+            "agent.tasks.plan.confirm": self._agent_task_plan_confirm,
+            "agent.tasks.plan.reject": self._agent_task_plan_reject,
+            "agent.tasks.execute": self._agent_task_execute,
             "agent.tasks.cancel": self._agent_task_cancel,
             "provider.status": self._provider_status,
             "provider.runtime.get": self._provider_runtime_get,
@@ -384,7 +393,7 @@ class DesktopApplication:
         values = _object(params, required={"project_id", "yield"})
         session = self._session(_text(values["project_id"], "project_id"))
         yielded = AGENT_YIELD_ADAPTER.validate_json(json.dumps(values["yield"]))
-        checkpoint = session.durable_tasks.accept_yield(yielded)
+        checkpoint = session.task_host.accept_yield(yielded)
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
 
     def _agent_task_user_event(
@@ -412,6 +421,78 @@ class DesktopApplication:
             payload_hash=_text(values["payload_hash"], "payload_hash"),
         )
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_task_plan_get(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "task_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.task_execution.plan_view(_text(values["task_id"], "task_id")),
+        )
+
+    def _agent_task_plan_confirm(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "task_id",
+                "expected_task_version",
+                "user_event_id",
+                "plan_hash",
+            },
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.task_execution.confirm(
+                _text(values["task_id"], "task_id"),
+                expected_task_version=_integer(
+                    values["expected_task_version"], "expected_task_version", minimum=1
+                ),
+                user_event_id=_text(values["user_event_id"], "user_event_id"),
+                plan_hash=_text(values["plan_hash"], "plan_hash"),
+            ),
+        )
+
+    def _agent_task_plan_reject(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "task_id",
+                "expected_task_version",
+                "user_event_id",
+                "plan_hash",
+            },
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.task_execution.reject(
+                _text(values["task_id"], "task_id"),
+                expected_task_version=_integer(
+                    values["expected_task_version"], "expected_task_version", minimum=1
+                ),
+                user_event_id=_text(values["user_event_id"], "user_event_id"),
+                plan_hash=_text(values["plan_hash"], "plan_hash"),
+            ),
+        )
+
+    def _agent_task_execute(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "task_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.task_execution.run(_text(values["task_id"], "task_id")),
+        )
 
     def _agent_task_cancel(
         self, _context: RpcContext, params: RpcJsonValue | None
@@ -940,6 +1021,7 @@ class DesktopApplication:
                 raise RpcServiceError(str(error.code), error.message) from None
             except (
                 AgentFoundationError,
+                DurableExecutionError,
                 WorkflowServiceError,
                 WorkflowCompileError,
                 WorkflowDataError,
@@ -1095,20 +1177,37 @@ class DesktopApplication:
         engine = DesktopEngineSession.open(store)
         workflow_repository = WorkflowRepository(store)
         durable_tasks = TaskLedgerRepository(store)
+        workflow = DesktopWorkflowService(
+            store=store,
+            domain=domain,
+            engine=engine,
+            repository=workflow_repository,
+        )
+        task_host = DurableAgentCoreHost(
+            store,
+            domain,
+            durable_tasks,
+            catalog=engine.catalog,
+        )
         session = ProjectSession(
             store=store,
             domain=domain,
             imports=ProjectImportService(store),
             engine=engine,
-            workflow=DesktopWorkflowService(
+            workflow=workflow,
+            durable_tasks=durable_tasks,
+            task_coordinator=DurableTaskCoordinator(
+                durable_tasks,
+                plan_stager=task_host.ensure_plan,
+            ),
+            task_host=task_host,
+            task_execution=DurableTaskExecutionService(
                 store=store,
                 domain=domain,
                 engine=engine,
-                repository=workflow_repository,
+                workflow=workflow,
+                ledger=durable_tasks,
             ),
-            durable_tasks=durable_tasks,
-            task_coordinator=DurableTaskCoordinator(durable_tasks),
-            task_host=DurableAgentCoreHost(store, domain, durable_tasks),
         )
         self._sessions[project_id] = session
         self.catalog.touch_project(project_id)

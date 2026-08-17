@@ -18,6 +18,7 @@ from plotagent.contracts.agent_tasks import (
     AgentActivation,
     AgentActivationEvent,
     AgentYield,
+    ExecutionGrant,
     IntentRef,
     TaskBudgetSnapshot,
     TaskBudgetUsage,
@@ -26,6 +27,7 @@ from plotagent.contracts.agent_tasks import (
     TaskEnvelope,
     TaskError,
     TaskEvent,
+    TaskIntent,
     TaskItemSnapshot,
     TaskItemState,
     TaskItemTransitionEvent,
@@ -40,6 +42,7 @@ from plotagent.contracts.agent_tasks import (
     is_legal_task_transition,
 )
 from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
+from plotagent.contracts.workflows import TaskPlan
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 from plotagent.storage.project import ProjectStore
 
@@ -204,6 +207,131 @@ class TaskLedgerRepository:
         if row is None:
             raise self._not_found("Agent task was not found.")
         return self._decode_checkpoint(str(row[0]))
+
+    def get_intent(self, task_id: str) -> TaskIntent:
+        checkpoint = self.get_task(task_id)
+        if checkpoint.intent is None:
+            raise self._not_found("Agent task intent was not found.")
+        row = self._connection.execute(
+            """
+            SELECT intent_json, content_hash FROM agent_task_intents_v2
+            WHERE task_id = ? AND intent_id = ? AND intent_version = ?
+            """,
+            (
+                task_id,
+                checkpoint.intent.intent_id,
+                checkpoint.intent.intent_version,
+            ),
+        ).fetchone()
+        if row is None:
+            raise self._not_found("Agent task intent was not found.")
+        intent = TaskIntent.model_validate_json(str(row[0]))
+        if str(row[1]) != intent.content_hash or str(row[1]) != canonical_hash(
+            intent.model_dump(mode="json", exclude={"content_hash"})
+        ):
+            raise sqlite3.DatabaseError("Agent task intent hash does not match its content")
+        return intent
+
+    def stage_plan(self, task_id: str, plan: TaskPlan) -> TaskPlan:
+        """Persist one pure plan projection for the task's current immutable intent."""
+
+        with self._transaction() as connection:
+            current = self._get_task_in_transaction(connection, task_id)
+            if current.state not in {"intent_staged", "awaiting_confirmation"}:
+                raise self._conflict("Only a staged intent can receive a task plan.")
+            if current.intent is None:
+                raise self._conflict("Task plan requires a current intent.")
+            if plan.expected_project_revision != current.project_revision:
+                raise self._conflict("Task plan project revision is stale.")
+            if tuple(item.item_id for item in plan.items) != tuple(
+                item.item_id for item in current.items
+            ):
+                raise self._conflict("Task plan items differ from the staged intent.")
+            payload = canonical_json(plan)
+            digest = canonical_hash(plan)
+            existing = connection.execute(
+                "SELECT plan_hash, plan_json FROM agent_task_plans_v2 WHERE plan_id = ?",
+                (plan.plan_id,),
+            ).fetchone()
+            if existing is not None:
+                if str(existing[0]) != digest or str(existing[1]) != payload:
+                    raise self._idempotency("Task plan id already has different content.")
+                return plan
+            current_for_intent = connection.execute(
+                """
+                SELECT plan_id, plan_hash, plan_json FROM agent_task_plans_v2
+                WHERE task_id = ? AND intent_id = ? AND intent_version = ?
+                """,
+                (
+                    task_id,
+                    current.intent.intent_id,
+                    current.intent.intent_version,
+                ),
+            ).fetchone()
+            if current_for_intent is not None:
+                if (
+                    str(current_for_intent[0]) != plan.plan_id
+                    or str(current_for_intent[1]) != digest
+                    or str(current_for_intent[2]) != payload
+                ):
+                    raise self._idempotency("Task intent already has a different plan.")
+                return plan
+            connection.execute(
+                """
+                INSERT INTO agent_task_plans_v2 (
+                    plan_id, task_id, intent_id, intent_version, intent_hash,
+                    plan_hash, plan_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    plan.plan_id,
+                    task_id,
+                    current.intent.intent_id,
+                    current.intent.intent_version,
+                    current.intent.content_hash,
+                    digest,
+                    payload,
+                    _utc_now(),
+                ),
+            )
+        return plan
+
+    def get_plan(self, task_id: str) -> TaskPlan:
+        current = self.get_task(task_id)
+        if current.intent is None:
+            raise self._not_found("Agent task plan was not found.")
+        row = self._connection.execute(
+            """
+            SELECT plan_json, plan_hash, intent_hash FROM agent_task_plans_v2
+            WHERE task_id = ? AND intent_id = ? AND intent_version = ?
+            """,
+            (task_id, current.intent.intent_id, current.intent.intent_version),
+        ).fetchone()
+        if row is None:
+            raise self._not_found("Agent task plan was not found.")
+        plan = TaskPlan.model_validate_json(str(row[0]))
+        if str(row[1]) != canonical_hash(plan) or str(row[2]) != current.intent.content_hash:
+            raise sqlite3.DatabaseError("Agent task plan authority does not match its content")
+        return plan
+
+    def get_execution_grant(self, task_id: str) -> ExecutionGrant:
+        plan = self.get_plan(task_id)
+        row = self._connection.execute(
+            """
+            SELECT grant_json, grant_hash FROM agent_execution_grants_v2
+            WHERE task_id = ? AND plan_id = ?
+            """,
+            (task_id, plan.plan_id),
+        ).fetchone()
+        if row is None:
+            raise self._not_found("Execution grant was not found.")
+        grant = ExecutionGrant.model_validate_json(str(row[0]))
+        expected_hash = canonical_hash(
+            grant.model_dump(mode="json", exclude={"content_hash"})
+        )
+        if str(row[1]) != grant.content_hash or grant.content_hash != expected_hash:
+            raise sqlite3.DatabaseError("Execution grant hash does not match its content")
+        return grant
 
     def get_activation(self, activation_id: str) -> tuple[AgentActivation, str]:
         """Return one immutable activation and its runtime status."""
@@ -637,6 +765,121 @@ class TaskLedgerRepository:
                 reason_code=f"USER_{action.upper()}",
             )
 
+    def confirm_plan(
+        self,
+        task_id: str,
+        *,
+        expected_task_version: int,
+        user_event_id: str,
+        payload_hash: str,
+        grant: ExecutionGrant,
+    ) -> TaskCheckpoint:
+        """Atomically bind user confirmation, state transition and least-privilege grant."""
+
+        with self._transaction() as connection:
+            current = self._get_task_in_transaction(connection, task_id)
+            self._expect_version(current, expected_task_version)
+            if current.state != "awaiting_confirmation" or current.intent is None:
+                raise self._conflict("Task is not awaiting plan confirmation.")
+            plan_row = connection.execute(
+                """
+                SELECT plan_id, plan_hash FROM agent_task_plans_v2
+                WHERE task_id = ? AND intent_id = ? AND intent_version = ?
+                """,
+                (task_id, current.intent.intent_id, current.intent.intent_version),
+            ).fetchone()
+            if plan_row is None:
+                raise self._conflict("Task confirmation requires a staged plan.")
+            if payload_hash != str(plan_row[1]):
+                raise self._conflict("Confirmation does not match the current task plan.")
+            expected_grant_hash = canonical_hash(
+                grant.model_dump(mode="json", exclude={"content_hash"})
+            )
+            if grant.content_hash != expected_grant_hash:
+                raise self._conflict("Execution grant content hash is invalid.")
+            if (
+                grant.task_id != task_id
+                or grant.task_version != current.task_version + 1
+                or grant.intent != current.intent
+                or grant.expected_project_revision != current.project_revision
+                or grant.grant_id
+                != f"grant:{str(plan_row[0]).removeprefix('plan:')}"
+            ):
+                raise self._conflict("Execution grant does not match the confirmed task plan.")
+            item_ids = tuple(item.item_id for item in current.items)
+            if tuple(scope.item_id for scope in grant.scopes) != item_ids:
+                raise self._conflict("Execution grant scope differs from the task items.")
+
+            existing_events = connection.execute(
+                """
+                SELECT event_json FROM agent_task_events_v2
+                WHERE task_id = ? AND event_type = 'user_task_event'
+                """,
+                (task_id,),
+            ).fetchall()
+            for row in existing_events:
+                event = TASK_EVENT_ADAPTER.validate_json(str(row[0]))
+                if isinstance(event, UserTaskEvent) and event.user_event_id == user_event_id:
+                    if event.action != "confirmed" or event.payload_hash != payload_hash:
+                        raise self._idempotency(
+                            "User event id already has different content."
+                        )
+                    existing = connection.execute(
+                        """
+                        SELECT grant_json FROM agent_execution_grants_v2
+                        WHERE task_id = ? AND plan_id = ?
+                        """,
+                        (task_id, str(plan_row[0])),
+                    ).fetchone()
+                    if existing is None or str(existing[0]) != canonical_json(grant):
+                        raise self._idempotency(
+                            "Confirmed task does not retain the same execution grant."
+                        )
+                    return current
+
+            now = _utc_now()
+            sequence = self._next_sequence(connection, task_id)
+            event = UserTaskEvent(
+                event_id=self._new_id("event"),
+                task_id=task_id,
+                task_version=current.task_version,
+                sequence=sequence,
+                occurred_at=now,
+                action="confirmed",
+                user_event_id=user_event_id,
+                payload_hash=payload_hash,
+            )
+            checkpoint = self._copy_checkpoint(
+                current,
+                event_sequence=sequence,
+                updated_at=now,
+            )
+            self._append_event_and_checkpoint(connection, event, checkpoint, now)
+            updated = self._transition(
+                connection,
+                checkpoint,
+                next_state="executing",
+                reason_code="USER_CONFIRMED",
+            )
+            if updated.task_version != grant.task_version:
+                raise self._conflict("Execution grant task version is stale.")
+            connection.execute(
+                """
+                INSERT INTO agent_execution_grants_v2 (
+                    grant_id, task_id, plan_id, grant_hash, grant_json, issued_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    grant.grant_id,
+                    task_id,
+                    str(plan_row[0]),
+                    grant.content_hash,
+                    canonical_json(grant),
+                    grant.issued_at,
+                ),
+            )
+            return updated
+
     def cancel(
         self,
         task_id: str,
@@ -767,6 +1010,7 @@ class TaskLedgerRepository:
                 items=items,
                 project_revision=receipt.project_revision_after,
                 budget=updated_budget,
+                active_activation_id=current.active_activation_id,
                 updated_at=now,
             )
             self._append_event_and_checkpoint(connection, event, updated, now)
@@ -821,6 +1065,7 @@ class TaskLedgerRepository:
                 current,
                 event_sequence=sequence,
                 items=items,
+                active_activation_id=current.active_activation_id,
                 updated_at=now,
             )
             self._append_event_and_checkpoint(connection, event, updated, now)

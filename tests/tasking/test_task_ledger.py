@@ -553,13 +553,15 @@ def test_task_schema_tables_are_strict(tmp_path) -> None:
             WHERE name LIKE 'agent_%_v2' ORDER BY name
             """
         ).fetchall()
-        assert len(rows) == 8
+        assert len(rows) == 10
         assert all(int(row[1]) == 1 for row in rows)
         assert project._assert_writer().execute("PRAGMA foreign_keys").fetchone() == (1,)  # noqa: SLF001
 
 
 def _drop_task_v2_tables(connection: sqlite3.Connection) -> None:
     for table in (
+        "agent_execution_grants_v2",
+        "agent_task_plans_v2",
         "agent_task_leases_v2",
         "agent_verification_reports_v2",
         "agent_tool_receipts_v2",
@@ -572,23 +574,31 @@ def _drop_task_v2_tables(connection: sqlite3.Connection) -> None:
         connection.execute(f"DROP TABLE {table}")
 
 
-def test_version_five_project_is_migrated_additively(tmp_path) -> None:
+@pytest.mark.parametrize("previous_version", [5, 6])
+def test_previous_project_is_migrated_additively(
+    tmp_path, previous_version: int
+) -> None:
     workspace = tmp_path / "project"
     with ProjectStore.create(workspace, project_id="project:test"):
         pass
     database = workspace / "project.sqlite3"
     with sqlite3.connect(database) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
-        _drop_task_v2_tables(connection)
+        if previous_version == 5:
+            _drop_task_v2_tables(connection)
+        else:
+            connection.execute("DROP TABLE agent_execution_grants_v2")
+            connection.execute("DROP TABLE agent_task_plans_v2")
         connection.execute(
-            "UPDATE schema_info SET value = '5' WHERE key = 'schema_version'"
+            "UPDATE schema_info SET value = ? WHERE key = 'schema_version'",
+            (str(previous_version),),
         )
-        connection.execute("PRAGMA user_version = 5")
+        connection.execute(f"PRAGMA user_version = {previous_version}")
 
     with ProjectStore.open(workspace) as migrated:
         connection = migrated._assert_writer()  # noqa: SLF001
-        assert connection.execute("PRAGMA user_version").fetchone() == (6,)
+        assert connection.execute("PRAGMA user_version").fetchone() == (7,)
         assert connection.execute(
             "SELECT value FROM schema_info WHERE key = 'schema_version'"
-        ).fetchone() == ("6",)
+        ).fetchone() == ("7",)
         assert TaskLedgerRepository(migrated).create_task(envelope()).state == "created"

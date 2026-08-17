@@ -16,12 +16,15 @@ from plotagent.contracts.agent_tasks import (
     AgentYield,
     TaskCheckpoint,
     TaskEnvelope,
+    TaskIntent,
     TaskState,
 )
 from plotagent.contracts.agent_tools import AgentToolResult, ToolInvocation
 from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
 from plotagent.contracts.domain_knowledge import AgentContextSnapshot, UntrustedSourceContext
 from plotagent.contracts.workflows import (
+    TaskDraft,
+    TaskPlan,
     WorkflowBudget,
     WorkflowContext,
     WorkflowField,
@@ -30,9 +33,13 @@ from plotagent.contracts.workflows import (
 )
 from plotagent.domain.context import ContextBuilder
 from plotagent.domain.knowledge import DOMAIN_KNOWLEDGE
+from plotagent.engine import EngineCatalog
+from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.storage import ProjectDomainRepository, ProjectStore, SourceDatasetRecord
+from plotagent.storage.errors import StorageErrorCode, StorageProblem
 from plotagent.tasking import TaskLedgerRepository
 from plotagent.tooling import ToolGateway, register_domain_tools, register_inspection_tools
+from plotagent.workflows import DraftCompiler, WorkflowCompileError
 from plotagent.workflows.inspection import DataInspectionService
 
 _INVESTIGATION_TOOLS = (
@@ -110,6 +117,7 @@ class _InspectionRows:
 class _ActivationRuntime:
     activation: AgentActivation
     context: AgentContextSnapshot
+    workflow_context: WorkflowContext
     gateway: ToolGateway
 
 
@@ -120,6 +128,7 @@ class DurableAgentCoreHost:
     store: ProjectStore
     domain: ProjectDomainRepository
     ledger: TaskLedgerRepository
+    catalog: EngineCatalog = field(default_factory=lambda: EngineCatalog(ENGINE_PROFILES))
     _runtimes: dict[str, _ActivationRuntime] = field(default_factory=dict)
 
     def prepare(self, activation_id: str) -> dict[str, object]:
@@ -161,7 +170,12 @@ class DurableAgentCoreHost:
             source_contexts=source_contexts,
             tools=gateway.context_contracts(activation),
         )
-        runtime = _ActivationRuntime(activation=activation, context=context, gateway=gateway)
+        runtime = _ActivationRuntime(
+            activation=activation,
+            context=context,
+            workflow_context=workflow_context,
+            gateway=gateway,
+        )
         self._runtimes[activation_id] = runtime
         return self._environment(runtime)
 
@@ -230,7 +244,78 @@ class DurableAgentCoreHost:
                 raise AgentFoundationError(
                     "YIELD_CONTENT_HASH_INVALID", "The Agent intent content hash is invalid."
                 )
+            self._compile_intent(intent, runtime.workflow_context)
         return yielded
+
+    def accept_yield(self, yielded: AgentYield) -> TaskCheckpoint:
+        """Accept one validated yield and durably project any intent into a plan."""
+
+        if yielded.outcome == "intent_ready":
+            runtime = self._runtimes.get(yielded.activation_id)
+            if runtime is None:
+                raise AgentFoundationError(
+                    "ACTIVATION_NOT_PREPARED",
+                    "The activation context must be prepared before accepting its intent.",
+                )
+            plan = self._compile_intent(yielded.intent, runtime.workflow_context)
+            checkpoint = self.ledger.accept_yield(yielded)
+            self.ledger.stage_plan(checkpoint.task_id, plan)
+            return checkpoint
+        return self.ledger.accept_yield(yielded)
+
+    def ensure_plan(self, task_id: str) -> TaskPlan:
+        """Recover the pure intent projection after a desktop restart or crash boundary."""
+
+        try:
+            return self.ledger.get_plan(task_id)
+        except StorageProblem as error:
+            if error.code != StorageErrorCode.OBJECT_NOT_FOUND:
+                raise
+        checkpoint = self.ledger.get_task(task_id)
+        if checkpoint.state != "intent_staged":
+            raise AgentFoundationError(
+                "TASK_PLAN_STATE_INVALID", "The task is not ready for plan projection."
+            )
+        envelope = self.ledger.get_envelope(task_id)
+        self.domain.require_revision(checkpoint.project_revision)
+        workflow_context, _source_contexts, _provider = self._source_context(envelope)
+        plan = self._compile_intent(self.ledger.get_intent(task_id), workflow_context)
+        return self.ledger.stage_plan(task_id, plan)
+
+    def _compile_intent(
+        self,
+        intent: TaskIntent,
+        workflow_context: WorkflowContext,
+    ) -> TaskPlan:
+        validated = intent
+        if len(validated.items) != 1 or validated.items[0].task_kind != "create":
+            raise AgentFoundationError(
+                "P6_SLICE_UNSUPPORTED",
+                "The first durable execution slice accepts one create-plot item.",
+            )
+        item = validated.items[0]
+        if (
+            len(item.source_aliases) != 1
+            or item.source_aliases[0] not in workflow_context.selected_source_aliases
+            or item.profile_id not in workflow_context.selected_profile_ids
+        ):
+            raise AgentFoundationError(
+                "INTENT_SELECTION_MISMATCH",
+                "The Agent intent changed the user-selected source or chart profile.",
+            )
+        token = validated.intent_id.removeprefix("intent:")
+        draft = TaskDraft(
+            draft_id=f"draft:{token}.v{validated.intent_version}",
+            workflow_run_id=workflow_context.workflow_run_id,
+            route="agent",
+            summary=validated.summary,
+            items=validated.items,
+            confidence=1,
+        )
+        try:
+            return DraftCompiler(self.catalog).compile(draft, workflow_context)
+        except WorkflowCompileError as error:
+            raise AgentFoundationError(error.code, error.message) from error
 
     def _source_context(
         self, envelope: TaskEnvelope
@@ -409,9 +494,11 @@ class DurableTaskCoordinator:
         self,
         ledger: TaskLedgerRepository,
         *,
+        plan_stager: Callable[[str], TaskPlan] | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._ledger = ledger
+        self._plan_stager = plan_stager
         self._clock = clock or (lambda: datetime.now(UTC))
 
     def next_action(self, task_id: str) -> TaskPumpDirective:
@@ -433,6 +520,8 @@ class DurableTaskCoordinator:
                 "activation": activation.model_dump(mode="json"),
             }
         if checkpoint.state == "intent_staged":
+            if self._plan_stager is not None:
+                self._plan_stager(task_id)
             checkpoint = self._ledger.advance(
                 task_id,
                 expected_task_version=checkpoint.task_version,

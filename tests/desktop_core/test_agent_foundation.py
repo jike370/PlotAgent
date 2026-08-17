@@ -242,9 +242,94 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
             activation_id, cast(JsonValue, candidate.model_dump(mode="json"))
         )
         assert validated.outcome == "intent_ready"
+        staged = host.accept_yield(validated)
+        assert staged.state == "intent_staged"
+        plan = ledger.get_plan(task_envelope.task_id)
+        assert plan.expected_project_revision == task_envelope.project_revision
+        assert plan.items[0].profile_id == "K01"
+        assert tuple(binding.role for binding in plan.items[0].bindings) == ("x", "y")
+        assert domain.revision == task_envelope.project_revision
 
         stale = candidate.model_dump(mode="json")
         cast(dict[str, object], stale["intent"])["context_hash"] = "f" * 64
         with pytest.raises(AgentFoundationError) as caught:
             host.validate_yield(activation_id, cast(JsonValue, stale))
         assert caught.value.code == "YIELD_CONTEXT_STALE"
+
+
+def test_core_host_rejects_invalid_intent_before_confirmation(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(resource_id="resource:basic", path=FILES / "csv_basic.csv")
+        )
+        assert isinstance(imported, ImportCommitResult)
+        source = imported.datasets[0].source_dataset
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        task_envelope = TaskEnvelope(
+            task_id="task:invalid-intent",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction="Create one K01 line chart.",
+            selected_sources=(
+                SourceDatasetRef(
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                    content_hash=source.content_hash,
+                ),
+            ),
+            selected_profile_ids=("K01",),
+            budget=TaskBudgetLimits(),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        )
+        ledger.create_task(task_envelope)
+        coordinator = DurableTaskCoordinator(ledger)
+        directive = coordinator.next_action(task_envelope.task_id)
+        assert directive["kind"] == "run_activation"
+        activation_id = str(directive["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        host = DurableAgentCoreHost(project, domain, ledger)
+        prepared = host.prepare(activation_id)
+        context = cast(dict[str, object], prepared["context"])
+        candidate = AgentIntentReady(
+            activation_id=activation_id,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            intent=intent(
+                activation_id,
+                task_id=task_envelope.task_id,
+                context_hash=cast(str, context["content_hash"]),
+            ),
+        )
+        bad_item = candidate.intent.items[0].model_copy(
+            update={
+                "bindings": (
+                    DraftFieldBinding(
+                        role="x",
+                        source_alias="data_1",
+                        field_alias="data_1_field_999",
+                    ),
+                    candidate.intent.items[0].bindings[1],
+                )
+            }
+        )
+        bad_intent = candidate.intent.model_copy(
+            update={"items": (bad_item,), "content_hash": "0" * 64}
+        )
+        bad_intent = bad_intent.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    bad_intent.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        bad = candidate.model_copy(update={"intent": bad_intent})
+        with pytest.raises(AgentFoundationError) as caught:
+            host.validate_yield(
+                activation_id,
+                cast(JsonValue, bad.model_dump(mode="json")),
+            )
+        assert caught.value.code == "FIELD_ALIAS_INVALID"
+        assert ledger.get_task(task_envelope.task_id).state == "created"
+        assert domain.revision == task_envelope.project_revision

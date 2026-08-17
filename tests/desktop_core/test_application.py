@@ -10,7 +10,9 @@ from typing import Any, cast
 
 import pytest
 
+from plotagent.contracts.agent_tasks import AgentIntentReady, TaskIntent
 from plotagent.contracts.canonical import canonical_hash
+from plotagent.contracts.workflows import DraftFieldBinding, TaskDraftItem
 from plotagent.desktop_core.application import DesktopApplication
 from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue
@@ -259,6 +261,146 @@ def test_agent_activation_host_rpc_prepares_and_invokes_read_tool(
         "agent.tasks.get", {"project_id": project_id, "task_id": task_id}
     )
     assert cast(dict[str, Any], checkpoint["budget"])["usage"]["tool_calls"] == 1
+
+
+def test_agent_v2_confirmed_plan_executes_and_verifies_one_plot(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-v2-execute")
+    dataset = cast(dict[str, Any], cast(list[object], imported["datasets"])[0])
+    task_id = "task:confirmed-execution-api"
+    harness.call(
+        "agent.tasks.create",
+        {
+            "project_id": project_id,
+            "envelope": {
+                "task_id": task_id,
+                "task_version": 1,
+                "project_id": project_id,
+                "project_revision": imported["project_version"],
+                "original_instruction": "Create one K01 line chart.",
+                "selected_sources": [
+                    {
+                        "source_dataset_id": dataset["source_dataset_id"],
+                        "source_version": dataset["source_version"],
+                        "content_hash": dataset["content_hash"],
+                    }
+                ],
+                "selected_profile_ids": ["K01"],
+                "budget": {},
+                "created_at": "2026-08-18T10:00:00Z",
+            },
+        },
+    )
+    directive = harness.call(
+        "agent.tasks.pump.next", {"project_id": project_id, "task_id": task_id}
+    )
+    activation = cast(dict[str, Any], directive["activation"])
+    activation_id = cast(str, activation["activation_id"])
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    prepared = harness.call(
+        "agent.activations.prepare",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    context = cast(dict[str, Any], prepared["context"])
+    source_context = cast(list[dict[str, Any]], context["source_contexts"])[0]
+    numeric_aliases = [
+        cast(str, field["field_alias"])
+        for field in cast(list[dict[str, object]], source_context["fields"])
+        if field["logical_type"] == "numeric"
+    ]
+    assert len(numeric_aliases) >= 2
+    intent = TaskIntent(
+        intent_id="intent:confirmed-execution-api",
+        intent_version=1,
+        task_id=task_id,
+        task_version=1,
+        created_by_activation_id=activation_id,
+        summary="Create one K01 line chart.",
+        items=(
+            TaskDraftItem(
+                task_kind="create",
+                item_id="item:confirmed-execution-api.1",
+                plot_alias="plot_1",
+                profile_id="K01",
+                source_aliases=("data_1",),
+                bindings=(
+                    DraftFieldBinding(
+                        role="x",
+                        source_alias="data_1",
+                        field_alias=numeric_aliases[0],
+                    ),
+                    DraftFieldBinding(
+                        role="y",
+                        source_alias="data_1",
+                        field_alias=numeric_aliases[1],
+                    ),
+                ),
+            ),
+        ),
+        context_hash=cast(str, context["content_hash"]),
+        content_hash="0" * 64,
+    )
+    intent = intent.model_copy(
+        update={
+            "content_hash": canonical_hash(
+                intent.model_dump(mode="json", exclude={"content_hash"})
+            )
+        }
+    )
+    yielded = AgentIntentReady(
+        activation_id=activation_id,
+        task_id=task_id,
+        task_version=1,
+        intent=intent,
+    )
+    validated = harness.call(
+        "agent.yields.validate",
+        {
+            "project_id": project_id,
+            "activation_id": activation_id,
+            "yield": yielded.model_dump(mode="json"),
+        },
+    )
+    staged = harness.call(
+        "agent.tasks.yield.accept",
+        {"project_id": project_id, "yield": validated},
+    )
+    assert staged["state"] == "intent_staged"
+    waiting = harness.call(
+        "agent.tasks.pump.next", {"project_id": project_id, "task_id": task_id}
+    )
+    assert waiting["reason"] == "awaiting_confirmation"
+    view = harness.call(
+        "agent.tasks.plan.get", {"project_id": project_id, "task_id": task_id}
+    )
+    assert view["confirmation_state"] == "pending"
+    assert view["plan"]["items"][0]["profile_id"] == "K01"
+    assert harness.call("engine.plots.list", {"project_id": project_id})[
+        "project_version"
+    ] == imported["project_version"]
+    confirmed = harness.call(
+        "agent.tasks.plan.confirm",
+        {
+            "project_id": project_id,
+            "task_id": task_id,
+            "expected_task_version": view["task"]["task_version"],
+            "user_event_id": "user-event:confirm-execution-api",
+            "plan_hash": view["plan_hash"],
+        },
+    )
+    assert confirmed["task"]["state"] == "executing"
+    result = harness.call(
+        "agent.tasks.execute", {"project_id": project_id, "task_id": task_id}
+    )
+    assert result["task"]["state"] == "completed_verified"
+    assert result["plot"]["plot_version"] == 1
+    plots = harness.call("engine.plots.list", {"project_id": project_id})["plots"]
+    assert [plot["plot_id"] for plot in plots] == [result["plot"]["plot_id"]]
 
 
 def _dataset_and_fields(imported: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:

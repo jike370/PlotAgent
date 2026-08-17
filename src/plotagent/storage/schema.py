@@ -6,8 +6,9 @@ import sqlite3
 
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 
-PROJECT_SCHEMA_VERSION = 6
-PREVIOUS_PROJECT_SCHEMA_VERSION = 5
+PROJECT_SCHEMA_VERSION = 7
+PREVIOUS_PROJECT_SCHEMA_VERSION = 6
+LEGACY_PROJECT_SCHEMA_VERSION = 5
 CATALOG_SCHEMA_VERSION = 2
 
 PROJECT_SCHEMA = """
@@ -309,6 +310,31 @@ CREATE TABLE IF NOT EXISTS agent_task_leases_v2 (
     expires_at TEXT NOT NULL,
     acquired_at TEXT NOT NULL
 ) STRICT;
+
+CREATE TABLE IF NOT EXISTS agent_task_plans_v2 (
+    plan_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES agent_tasks_v2(task_id) ON DELETE RESTRICT,
+    intent_id TEXT NOT NULL,
+    intent_version INTEGER NOT NULL CHECK (intent_version > 0),
+    intent_hash TEXT NOT NULL CHECK (length(intent_hash) = 64),
+    plan_hash TEXT NOT NULL CHECK (length(plan_hash) = 64),
+    plan_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (task_id, intent_id, intent_version)
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS agent_task_plans_v2_task_idx
+ON agent_task_plans_v2(task_id, created_at DESC, plan_id);
+
+CREATE TABLE IF NOT EXISTS agent_execution_grants_v2 (
+    grant_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES agent_tasks_v2(task_id) ON DELETE RESTRICT,
+    plan_id TEXT NOT NULL REFERENCES agent_task_plans_v2(plan_id) ON DELETE RESTRICT,
+    grant_hash TEXT NOT NULL CHECK (length(grant_hash) = 64),
+    grant_json TEXT NOT NULL,
+    issued_at TEXT NOT NULL,
+    UNIQUE (task_id, plan_id)
+) STRICT;
 """
 
 PROJECT_SCHEMA += WORKFLOW_RUNTIME_SCHEMA + TASK_LEDGER_SCHEMA
@@ -382,15 +408,43 @@ def migrate_project_schema(connection: sqlite3.Connection) -> None:
         ) from exc
     if rows.get("schema_kind") != "plotagent-project":
         return
-    if (
-        rows.get("schema_version") != str(PREVIOUS_PROJECT_SCHEMA_VERSION)
-        or user_version != PREVIOUS_PROJECT_SCHEMA_VERSION
-    ):
+    if rows.get("schema_version") != str(user_version) or user_version not in {
+        LEGACY_PROJECT_SCHEMA_VERSION,
+        PREVIOUS_PROJECT_SCHEMA_VERSION,
+    }:
         return
+    additive_schema = (
+        TASK_LEDGER_SCHEMA
+        if user_version == LEGACY_PROJECT_SCHEMA_VERSION
+        else """
+CREATE TABLE IF NOT EXISTS agent_task_plans_v2 (
+    plan_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES agent_tasks_v2(task_id) ON DELETE RESTRICT,
+    intent_id TEXT NOT NULL,
+    intent_version INTEGER NOT NULL CHECK (intent_version > 0),
+    intent_hash TEXT NOT NULL CHECK (length(intent_hash) = 64),
+    plan_hash TEXT NOT NULL CHECK (length(plan_hash) = 64),
+    plan_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (task_id, intent_id, intent_version)
+) STRICT;
+CREATE INDEX IF NOT EXISTS agent_task_plans_v2_task_idx
+ON agent_task_plans_v2(task_id, created_at DESC, plan_id);
+CREATE TABLE IF NOT EXISTS agent_execution_grants_v2 (
+    grant_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES agent_tasks_v2(task_id) ON DELETE RESTRICT,
+    plan_id TEXT NOT NULL REFERENCES agent_task_plans_v2(plan_id) ON DELETE RESTRICT,
+    grant_hash TEXT NOT NULL CHECK (length(grant_hash) = 64),
+    grant_json TEXT NOT NULL,
+    issued_at TEXT NOT NULL,
+    UNIQUE (task_id, plan_id)
+) STRICT;
+"""
+    )
     try:
         connection.executescript(
             "BEGIN IMMEDIATE;\n"
-            + TASK_LEDGER_SCHEMA
+            + additive_schema
             + "\nUPDATE schema_info SET value = '"
             + str(PROJECT_SCHEMA_VERSION)
             + "' WHERE key = 'schema_version';\n"
@@ -423,6 +477,8 @@ def ensure_desktop_project_schema(connection: sqlite3.Connection) -> None:
         "agent_tool_receipts_v2",
         "agent_verification_reports_v2",
         "agent_task_leases_v2",
+        "agent_task_plans_v2",
+        "agent_execution_grants_v2",
     )
     available = {
         str(row[0])
