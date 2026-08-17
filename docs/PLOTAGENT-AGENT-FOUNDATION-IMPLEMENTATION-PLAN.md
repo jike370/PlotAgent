@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P3 已完成；P4 已完成，下一阶段为 P5 PiRuntimeAdapter。
+> 状态：P0–P5 已完成；下一阶段为 P6 单任务端到端垂直切片。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -313,6 +313,29 @@
 - 所有副作用可由 receipt 追踪和恢复。
 
 ## 10. P5：PiRuntimeAdapter
+
+里程碑记录（2026-08-18）：
+
+- 已新增 test-gated `PiRuntimeAdapterV2.run(AgentActivation) -> AgentYieldContract`；每次运行先由
+  Core host 重建并校验 `AgentContextSnapshot`、动态工具定义、终态 Schema 与 Provider 配置，
+  不依赖 Pi 内存中的旧消息恢复任务真相；
+- 工具列表完全来自 Core activation allowlist 与 `ToolContract`，adapter 不维护第二份手写业务工具表。
+  context tool ref、执行合同、任务状态、权限阶段和 P2/P3 Core-bound item/grant 不一致时，在调用模型前拒绝；
+- Pi 继续负责模型—工具内循环、顺序执行、自动继续、turn stop、steering、stream/provider 抽象与 abort；
+  Core 继续独占上下文构建、权限、工具执行、项目 revision、回执和终态验证；
+- 模型参数中不含 execution grant 或幂等键。adapter 根据 Core-bound authority 生成
+  `ToolInvocation`、argument hash、deadline、调用序号和 P1–P3 idempotency key，再交给 ToolGateway host；
+- 只允许保留字工具 `submit_agent_yield` 结束 activation；其参数必须经过 Core `validateYield`。
+  正常结束但未调用终态工具稳定返回 `AGENT_YIELD_MISSING`，Core 工具/终态身份错配则 fail closed；
+- 同时执行 activation 与 task-wide 的 model call/turn、token、tool call、披露 scalar、估算成本和 wall-time
+  预算；超限返回 typed `budget_exhausted`，不伪造 TaskState transition；
+- abort 已覆盖 ContextBuilder/host prepare 与 Pi 运行阶段；新 activation 会取消旧 generation，迟到的
+  tool result/yield 在接受前重新核对 generation，不会覆盖新任务版本；Provider 中断、timeout、supersede
+  均转成稳定的 typed yield；
+- activation trace 只包含 task/version/activation、阶段、工具名和调用 ID，不包含 API key、prompt、
+  原始参数或工具 payload。Provider 凭证只经 Main host 的 `getApiKey` 进入 Pi；
+- P5 保持 additive：正式 Electron 仍只有 v1 runtime 是活动入口，v2 仅由 fake-provider 测试直接调用；
+  P6 建立 Core TaskPump/host 后再接第一条测试 gate 主链，避免出现两套同时消费用户请求的 Agent loop。
 
 ### 工作
 
