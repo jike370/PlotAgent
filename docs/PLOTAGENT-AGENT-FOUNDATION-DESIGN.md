@@ -39,11 +39,11 @@
 
 建议讨论顺序不是表格顺序，而是：任务合同 → 运行循环 → 上下文 → 工具 → 验证器 → 权限与回滚 → 工作记忆 → 可观察性 → 领域说明 → 评测体系。前一项会约束后一项，避免先堆工具再倒推 Agent 行为。
 
-### 2.1 Pi Agent 与 PlotAgent 的设计边界
+### 2.1 Pi Agent 与 PlotAgent 的设计边界（已确认）
 
 项目当前使用 `@earendil-works/pi-agent-core 0.84.1`。Pi 是通用 Agent loop，不理解绘图、数据语义、Origin、项目版本或产品完成标准。
 
-九项基础设施（工具另列）的复用边界提案如下：
+九项基础设施（工具另列）的复用边界如下：
 
 | 设计项 | Pi 可提供 | PlotAgent 必须设计 | 结论 |
 |---|---|---|---|
@@ -62,6 +62,8 @@
 建议保持 Pi 可替换：PlotAgent 的任务合同、图类合同、验证器、项目事务和评测不得写进 Pi 分支或依赖 Pi 私有消息格式。两者之间使用 `PiRuntimeAdapter` 连接。
 
 当前集成已经使用 Pi 的 Agent loop、顺序工具执行、turn stop、abort 和生命周期事件；尚未充分使用 `transformContext`、steering/follow-up、工具前后权限钩子和持久会话。当前每次运行创建新的 Agent 且 `messages=[]`，`sessionId` 主要用于 Provider 会话/缓存关联，不能视为已经具备跨任务工作记忆。
+
+确认结论：Pi 只作为运行循环、模型调用和通用工具调度底座。除运行循环外，任务合同、领域说明、上下文策略、验证、权限与回滚、工作记忆、可观察性和评测都必须由 PlotAgent 根据产品目标自行设计；工具的框架能力复用 Pi，工具语义与实现由 PlotAgent 设计。
 
 ## 3. 共同边界
 
@@ -185,6 +187,13 @@ Agent 选择或用户显式选择图类后，程序按需把该图类合同提�
 - 当前目标是先做好基础单 Agent，不以 Recipe 减少模型调用。
 - 回退提交：`c477b34`。
 - 回退门禁：Python `610 passed`；TypeScript typecheck、ESLint、Vitest `150 passed`、production build 均通过。
+
+### 2026-08-17：确认 Pi Agent 复用边界
+
+- Pi 只作为通用运行循环、模型调用和工具调度底座。
+- 除运行循环外，其余 Agent 产品基础设施均由 PlotAgent 自行设计。
+- 不把 Pi 的 messages、events、hooks 或 session ID 误写成已经完成的任务合同、记忆、产品反馈或权限系统。
+- 保持 `PiRuntimeAdapter` 边界，使绘图领域合同、项目状态和验证器不依赖 Pi 私有实现。
 
 ## 6. 后续更新规则
 
