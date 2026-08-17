@@ -34,7 +34,7 @@
 | 6 | 验证器 | 已确认 | 怎样独立证明数据、科学语义、图形和导出物正确？ |
 | 7 | 权限与回滚 | 已确认 | 哪些动作可自动执行，哪些需要确认，失败如何撤销？ |
 | 8 | 工作记忆 | 已确认 | 一次任务中应记住哪些决定、结果和失败，哪些不得长期保存？ |
-| 9 | 可观察性 | 待讨论 | 用户和开发者怎样看到阶段、进度、原因、成本与结果？ |
+| 9 | 可观察性 | 提案待确认 | 用户和开发者怎样看到阶段、进度、原因、成本与结果？ |
 | 10 | 评测体系 | 待讨论 | 怎样证明 Agent 稳定、正确、可恢复，并控制时长和成本？ |
 
 建议讨论顺序不是表格顺序，而是：任务合同 → 运行循环 → 上下文 → 工具 → 验证器 → 权限与回滚 → 工作记忆 → 可观察性 → 领域说明 → 评测体系。前一项会约束后一项，避免先堆工具再倒推 Agent 行为。
@@ -888,6 +888,207 @@ Agent 只能通过类型化的 `record_working_note` 提议临时摘记，类别
 8. ContextBuilder 从 Core 权威状态恢复；压缩不得改变 Ledger，Provider/Pi 会话丢失不影响继续任务；
 9. 任务结束后保留正式事实和精简审计，清理假设、重复预览、临时对象和无引用 observation；
 10. 第一阶段只按确定性 ID 恢复，不用相似度自动注入历史任务；用户通过简洁时间线和“继续任务”入口感知记忆，而不是查看内部记忆表。
+
+## 10. 设计项 7：可观察性
+
+### 10.0 目标与边界
+
+可观察性回答三个不同问题：
+
+1. 用户：现在真实在做什么，哪些已经完成，是否需要我操作，失败后怎么办？
+2. 开发者：一次任务经过 Pi、模型、Core、工具、renderer、Origin、验证器和存储时，具体在哪一步变慢或出错？
+3. 产品与评测：成功率、恢复率、追问、重试、时长和成本是否达到发布标准？
+
+三者必须来自同一条受关联 ID 约束的真实事件链，但采用不同、安全的投影。用户界面不展示工具日志和内部参数；工程 trace 不默认记录提示词、原始数据和工具载荷；评测指标不从聊天文本猜测结果。
+
+### 10.1 四种信号分工
+
+| 信号 | 用途 | 是否持久/完整 | 典型内容 |
+|---|---|---|---|
+| TaskEvent | 任务进度、恢复、审计和用户时间线的领域事实 | 关键事件不采样，项目内持久 | 状态迁移、确认、工具结果、验证、提交、取消 |
+| Trace/Span | 跨组件定位一次运行的执行路径和耗时 | 本地有界保留；可按策略采样 | model turn、tool、renderer、Origin session、verification |
+| Metric | 观察总体质量、性能、成本和回归 | 聚合值，不包含用户内容 | 成功率、p50/p95、token、重试、恢复率 |
+| Diagnostic Log | 记录离散技术故障和环境信息 | 本地分级、脱敏、有期限 | 稳定错误码、组件版本、进程退出、stack scrub |
+
+TaskEvent 是任务事实；Trace 是技术解释；Metric 是统计；Log 是补充。不能用“日志里好像成功”替代 VerificationReport，也不能为了做产品分析把用户原始内容写进 telemetry。
+
+### 10.2 统一关联模型
+
+每个可观察事件至少携带以下安全标识：
+
+```text
+trace_id / span_id / parent_span_id
+task_id / task_item_id / workflow_run_id
+task_event_seq / attempt
+project_id_alias / project_revision
+intent_version / execution_grant_id
+component / operation / stage / status
+started_at / ended_at / duration_ms
+error_code / retryable / side_effect
+```
+
+根 trace 表示一个用户任务或一次明确恢复；子 span 至少覆盖：
+
+```text
+context_build
+agent_turn
+model_generation
+tool_call
+data_operation
+sandbox_render
+matplotlib_render
+origin_session / origin_render
+verification_gate
+project_commit
+artifact_export
+```
+
+跨 Electron main、Python Core、renderer 进程和 Origin automation 传播同一 trace ID，并为每次调用生成新的 span ID。恢复任务创建新的 run/root span，但用 link 指回原 task trace 和 checkpoint；不能把崩溃后的运行伪装成同一条未中断 span。
+
+### 10.3 用户可见阶段
+
+用户阶段由真实 Core/工具边界事件驱动，不由计时器模拟。基础阶段词汇为：
+
+- 正在整理任务上下文；
+- 正在理解要求；
+- 正在检查数据；
+- 正在准备确认方案；
+- 等待确认；
+- 正在准备绘图数据；
+- 正在调用 Matplotlib；
+- 正在调用 Origin；
+- 正在验证图形与产物；
+- 正在保存项目版本；
+- 正在导出文件；
+- 已完成 / 部分完成 / 需要输入 / 已阻止 / 已取消 / 失败。
+
+阶段不是硬编码工作流。Agent 可以按任务需要重复检查、渲染和修复；UI 更新时间线和当前活动阶段，并显示“第 2 次验证”之类的 attempt，而不是把循环压成一条假直线。
+
+发送指令后应立即回显用户消息和任务已接收状态。长步骤显示克制的呼吸状态和已持续时间；只有组件真实发出 liveness heartbeat 时才表示仍在运行，heartbeat 不得伪装成进度。
+
+### 10.4 进度与预计时间
+
+只有总量可数且完成定义稳定时使用 determinate progress，例如“10 个 TaskItem 已完成 7 个”“4 个验证门禁通过 3 个”。百分比表示已完成工作单位，不表示模型主观完成度，也不按阶段数量平均分配。
+
+模型推理、未知复杂度的数据探索和 Origin 单图创建默认使用 indeterminate 状态并显示当前阶段。第一阶段不显示虚假 ETA；若以后有足够同版本、同图类、同后端的历史分布，只能显示带置信范围的经验估计，并在任务条件变化后撤销估计。
+
+批量任务同时显示总进度和当前 TaskItem。已成功项不会因后续项失败而退回；进度不能倒退。到达 100% 只代表所有必需门禁和提交完成，不能在 renderer 返回图片时提前显示。
+
+### 10.5 结果、失败与恢复信息
+
+成功结果卡至少显示：
+
+- 完成/部分完成的 TaskItem；
+- 正式 plot ID、版本和后端；
+- 交付物格式、路径别名、大小和验证状态；
+- 使用的数据源和确认内变换摘要；
+- 可执行动作：打开、导出、撤销、查看验证记录。
+
+失败或阻止状态必须说明：
+
+```text
+失败阶段
+稳定错误码和用户可理解原因
+影响的 TaskItem/对象
+已经成功并保留的内容
+项目是否发生正式变更
+可自动重试、需要用户输入、需要重新确认或不支持
+下一步动作
+可复制的 diagnostic_id
+```
+
+技术细节默认折叠。不能只显示“Core rejected”“unknown error”“请重试”，也不能在 side-effect 未知时声称“没有任何改变”。恢复后时间线应明确“从验证阶段继续”，不伪装为从头新任务。
+
+### 10.6 成本、时长与预算
+
+一次任务记录：
+
+- 端到端 wall time，以及 Agent、模型、数据工具、Matplotlib、Origin、验证和导出分段耗时；
+- 模型调用次数、输入/输出 token、cache hit/miss（Provider 提供时）；
+- 实际或估算成本、估价规则版本、未知费用标记；
+- 工具调用、技术重试、视觉修复、追问和用户等待次数；
+- 每个 TaskItem 的首次成功、最终成功和失败作用域。
+
+用户默认只在任务详情和完成摘要看到总耗时、模型调用/额度消耗与重试；开发模式可展开阶段耗时。接近 ExecutionGrant 预算时显示真实警告，达到预算后进入可恢复的 `blocked_budget`，不能静默继续消费。
+
+不同 Provider 无法提供可靠价格时只显示 token/调用量和“费用未知”，不得伪造人民币金额。成本指标必须区分计分模型调用、能力探测、缓存命中和本地工具成本。
+
+### 10.7 工程 trace 与诊断
+
+本地 trace viewer 按瀑布图展示 Agent turn、工具、renderer、Origin、验证和提交的父子关系，并允许从 TaskItem 或 diagnostic ID 定位 span。每个 span 只保存低敏元数据、时长、状态、错误码和安全对象别名；模型和工具输入/输出正文默认关闭。
+
+异常路径至少保留：组件版本、协议/schema 版本、退出码、timeout/cancel、重试决定、side-effect、lease/revision 冲突和 scrubbed stack。Origin 记录自动化 session 身份、启动/退出、模板/profile ID、保存/重开阶段，但不记录用户绝对路径或终止无关进程。
+
+出现长时间无结束事件时，监控器可生成 `suspected_stall`，但只能说明“此阶段耗时超过本版本历史阈值”，不能自动判失败。随后若完成，span 正常关闭并记录 stall；若超时，按真实取消/协调结果结束。
+
+### 10.8 指标与发布评测
+
+指标从 TaskEvent、VerificationReport 和 trace 数值字段计算，禁止从自然语言日志分类。最低覆盖：
+
+- task/item verified success、partial、blocked、failed、cancelled；
+- 首次通过率、最终通过率、validator reject、自动修复成功率；
+- 必要追问率、无效追问率、错误自动绑定率；
+- 部分失败保真、失败项恢复、成功项重复执行；
+- stale revision 拒绝、重启恢复、幂等重复抑制；
+- 各阶段 p50/p95/max、模型 token/调用/成本；
+- Matplotlib/Origin/OPJU 的结构与 fresh-reopen 资格结果。
+
+SEQ-70 和黑盒验收应消费相同稳定事件与验证结果，但测试报告仍需独立证据。线上运行指标不能替代正式 UI 黑盒，也不能把未执行项算 PASS。
+
+### 10.9 隐私、留存与上传
+
+默认本地、无后台 telemetry 上传。TaskEvent 和项目审计随项目保存；trace/log 使用独立有界保留策略；Metric 采用低基数聚合。失败 trace 和权限/副作用事件不得被随机采样掉，但其 payload 仍必须脱敏。
+
+默认禁止进入 trace、metric 和 diagnostic log：用户 prompt/聊天、文件名和路径、列名、单元格值、数据预览、模型请求/响应正文、工具正文、API key、credential 和原生项目内容。只记录 ID、hash、大小、计数、类型、阶段和稳定错误码。
+
+生成诊断包时必须本地预览、明确列出文件、再次征得用户同意；上传是新的 P3 数据披露授权。开发者临时启用敏感 payload tracing 时使用独立开发环境、明显警告和自动过期，不能成为发布默认值。
+
+### 10.10 无障碍与交互约束
+
+- 当前阶段使用 `role=status`/礼貌 live region；错误使用 alert，但避免每个 heartbeat 重复播报；
+- 状态变化依靠文本和图标，不只依靠颜色或动画；
+- `prefers-reduced-motion` 下取消呼吸和位移动画；
+- 任务运行时始终提供可发现的取消入口，进入不可中断的短提交区时说明“正在完成安全保存”；
+- 历史阶段默认折叠，当前阶段、用户需要操作和失败原因保持可见；
+- 多任务并行时对话显示当前任务，任务中心汇总全部任务，二者消费同一 TaskEvent projection。
+
+### 10.11 设计依据
+
+- [OpenTelemetry Observability Primer](https://opentelemetry.io/docs/concepts/observability-primer/) 区分 trace、span、metric 和 log，并强调使用 trace/span 关联离散事件；对应 PlotAgent 的四类信号分工。
+- [OpenTelemetry Trace API](https://opentelemetry.io/docs/specs/otel/trace/api/) 将 span 定义为带父子关系、时间、属性、事件和状态的工作单元；对应任务根 trace 与 model/tool/renderer/verification 子 span。
+- [W3C Trace Context](https://www.w3.org/TR/trace-context/) 标准化跨组件传播 trace ID 和 parent ID；对应 Electron、Core、renderer 与 Origin automation 之间的关联标识。
+- [OpenAI Agents SDK Tracing](https://openai.github.io/openai-agents-python/tracing/) 覆盖 agent、turn、generation、tool、guardrail 和 custom span，并明确敏感输入/输出需可关闭；PlotAgent 采用同类层级，但默认仅本地和 payload-off。
+- [Windows Progress Controls](https://learn.microsoft.com/windows/apps/develop/ui/controls/progress-controls) 区分可计算总量的 determinate progress 与未知时长的 indeterminate progress，并要求配合文字说明；对应不伪造百分比和 ETA。
+- [Microsoft Visual Studio progress guidance](https://learn.microsoft.com/visualstudio/extensibility/ux-guidelines/notifications-and-progress-for-visual-studio) 要求 determinate 进度只在任务有稳定边界时使用、完成前不达到 100%，长任务可同时展示总体和当前步骤；对应批量 TaskItem 进度。
+- 现有 [本地安全诊断规范](./LOCAL-SECURITY-DIAGNOSTICS.md) 已明确禁止 prompt、聊天、路径、列名、单元格和 credential 进入默认诊断；本设计沿用这一产品隐私边界。
+
+### 10.12 当前基线与缺口
+
+当前已有 TaskEvent sequence/state/progress、Pi lifecycle stage、部分 Agent/Core/renderer 状态文案、任务中心、Workflow tool audit、模型 token/cost 字段、OPJU 明确进度与完成提示，以及本地诊断脱敏规范。
+
+仍缺少：
+
+- TaskEvent、TraceSpan、Metric 和 DiagnosticLog 的统一关联合同；
+- 跨 Electron、Python Core、renderer 和 Origin 的 trace/span 传播；
+- 用户阶段到真实工具/验证事件的一对一投影和 attempt 表达；
+- 分项进度、部分成功、恢复点和 side-effect 的统一结果卡；
+- 端到端分段耗时、token/cost/budget 的一致统计；
+- 本地 trace viewer 和 diagnostic ID 定位；
+- stall、cancel、timeout、resume 和 revision conflict 的完整 trace；
+- 由相同事件生成的 SEQ-70、发布门禁和黑盒证据索引。
+
+### 10.13 本项待确认原则
+
+1. 用户状态、工程 trace、聚合指标和诊断日志来自同一真实事件链，但使用不同安全投影；
+2. TaskEvent 是任务事实，Trace 解释执行路径，Metric 做统计，Log 只补充故障，彼此不得冒充；
+3. 一个任务对应根 trace，Pi、模型、Core、工具、renderer、Origin、验证、提交和导出使用关联 span；
+4. 用户阶段只由真实事件驱动，允许循环和 attempt，不用计时器伪造 Agent 行为；
+5. 只有总量可数时显示 determinate progress，未知工作使用阶段+持续时间，不伪造百分比或 ETA；
+6. 失败必须说明阶段、原因、影响范围、已保留结果、副作用、恢复动作和 diagnostic ID；
+7. 记录端到端及分段时长、模型调用/token/成本、重试和预算；未知价格不得伪造费用；
+8. 指标由结构化事件和验证报告计算，SEQ-70、发布门禁和黑盒仍保留独立证据要求；
+9. 默认本地、payload-off、无后台 telemetry 上传；诊断上传属于新的 P3 数据披露授权；
+10. UI 使用可访问的真实状态、取消、部分成功和恢复反馈，用户无需阅读内部 trace 才知道发生了什么。
 
 ## 已确认决定日志
 
