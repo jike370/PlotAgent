@@ -39,6 +39,30 @@
 
 建议讨论顺序不是表格顺序，而是：任务合同 → 运行循环 → 上下文 → 工具 → 验证器 → 权限与回滚 → 工作记忆 → 可观察性 → 领域说明 → 评测体系。前一项会约束后一项，避免先堆工具再倒推 Agent 行为。
 
+### 2.1 Pi Agent 与 PlotAgent 的设计边界
+
+项目当前使用 `@earendil-works/pi-agent-core 0.84.1`。Pi 是通用 Agent loop，不理解绘图、数据语义、Origin、项目版本或产品完成标准。
+
+九项基础设施（工具另列）的复用边界提案如下：
+
+| 设计项 | Pi 可提供 | PlotAgent 必须设计 | 结论 |
+|---|---|---|---|
+| 任务合同 | 无领域任务合同 | TaskEnvelope、TaskIntent、TaskState、确认与完成条件 | 产品自研 |
+| 领域说明 | 承载 `systemPrompt` | 绘图知识、科学边界、标准案例、按图类说明 | 产品自研内容 |
+| 上下文机制 | messages、`transformContext`、`convertToLlm`、自定义消息 | 数据按需检索、披露预算、图类合同注入、压缩与恢复策略 | Pi 机制 + 产品策略 |
+| 运行循环 | 模型调用、工具循环、顺序/并行执行、turn stop、continue、steering/follow-up、abort | 阶段机、最大轮次、提交/追问/失败的退出语义 | 主要复用 Pi |
+| 验证器 | 工具参数 Schema 和调用结果通道 | 数据、科学语义、Renderer、Origin、导出物和项目状态验证 | 产品自研 |
+| 权限与回滚 | `beforeToolCall`、`afterToolCall`、abort | 工具风险等级、用户授权、临时对象、事务、版本、撤销与幂等 | Pi 钩子 + 产品策略 |
+| 工作记忆 | 内存 messages/state、continue、上下文变换；持久 session 后端需另配 | 任务事实、对象句柄、已通过部分、错误、项目持久状态和保留期限 | Pi 容器 + 产品模型 |
+| 可观察性 | Agent/turn/message/tool streaming events | 用户阶段文案、任务中心、trace 持久化、对象/版本、成本与审计 | Pi 事件 + 产品呈现 |
+| 评测体系 | 可注入 stream/provider，便于构造测试 | 绘图任务集、结果 grader、轨迹 grader、重复运行和发布门槛 | 产品自研 |
+
+工具体系本身也是混合边界：Pi 提供 `AgentTool`、参数 Schema、执行模式、事件和前后钩子；PlotAgent 定义工具语义、数据权限、实现、返回合同和验证。
+
+建议保持 Pi 可替换：PlotAgent 的任务合同、图类合同、验证器、项目事务和评测不得写进 Pi 分支或依赖 Pi 私有消息格式。两者之间使用 `PiRuntimeAdapter` 连接。
+
+当前集成已经使用 Pi 的 Agent loop、顺序工具执行、turn stop、abort 和生命周期事件；尚未充分使用 `transformContext`、steering/follow-up、工具前后权限钩子和持久会话。当前每次运行创建新的 Agent 且 `messages=[]`，`sessionId` 主要用于 Provider 会话/缓存关联，不能视为已经具备跨任务工作记忆。
+
 ## 3. 共同边界
 
 以下边界作为本轮讨论起点，尚不替代后续逐项设计：
