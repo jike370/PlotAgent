@@ -2,6 +2,13 @@
 
 export const CONTRACT_SCHEMA_VERSION = "1.0" as const
 
+export type ActivationBudget = {
+  readonly max_model_turns?: number;
+  readonly max_tool_calls?: number;
+  readonly max_disclosed_scalars?: number;
+  readonly timeout_ms?: number;
+}
+
 export type AddAnnotation = {
   readonly expected_plot_version: number;
   readonly operation?: "add_annotation";
@@ -19,6 +26,113 @@ export type AddAnnotation = {
   readonly color?: string | null;
   readonly rotation_deg?: number | null;
 }
+
+export type AgentActivation = {
+  readonly schema_version?: "agent-activation.v2";
+  readonly activation_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly reason: "new_task" | "user_answered" | "user_corrected" | "verification_failed" | "external_blocker_cleared" | "resume_after_restart";
+  readonly task_state: "created" | "investigating" | "awaiting_input" | "intent_staged" | "awaiting_confirmation" | "executing" | "verifying" | "repairing" | "awaiting_reconfirmation" | "delivering" | "partial" | "blocked" | "unsupported" | "cancelling" | "cancelled" | "rejected" | "failed" | "completed_verified";
+  readonly original_instruction: string;
+  readonly current_user_message?: string | null;
+  readonly confirmed_intent?: IntentRef | null;
+  readonly item_states?: ReadonlyArray<readonly [string, "pending" | "staged" | "running" | "succeeded" | "repairable_failed" | "failed" | "blocked" | "cancelled"]>;
+  readonly context_refs?: ReadonlyArray<string>;
+  readonly domain_knowledge_refs?: ReadonlyArray<string>;
+  readonly verification_report_ids?: ReadonlyArray<string>;
+  readonly prior_receipt_ids?: ReadonlyArray<string>;
+  readonly allowed_tools: ReadonlyArray<string>;
+  readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
+  readonly activation_budget: ActivationBudget;
+  readonly task_budget: TaskBudgetSnapshot;
+  readonly deadline: string;
+  readonly created_at: string;
+}
+
+export type AgentActivationEvent = {
+  readonly event_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly sequence: number;
+  readonly occurred_at: string;
+  readonly event_type?: "agent_activation";
+  readonly activation_id: string;
+  readonly phase: "requested" | "started" | "yielded" | "aborted" | "runtime_failed";
+  readonly yield_outcome?: "intent_ready" | "needs_input" | "technical_repair_ready" | "unsupported" | "blocked" | "budget_exhausted" | "cancelled" | "runtime_failed" | null;
+}
+
+export type AgentBlocked = {
+  readonly outcome?: "blocked";
+  readonly activation_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly blocker_code: string;
+  readonly message: string;
+  readonly resume_condition: string;
+  readonly retryable: boolean;
+}
+
+export type AgentBudgetExhausted = {
+  readonly outcome?: "budget_exhausted";
+  readonly activation_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly exhausted_budget: "model_calls" | "model_turns" | "input_tokens" | "output_tokens" | "tool_calls" | "disclosed_scalars" | "origin_sessions" | "repair_attempts" | "wall_time" | "estimated_cost";
+  readonly message: string;
+}
+
+export type AgentCancelled = {
+  readonly outcome?: "cancelled";
+  readonly activation_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly message: string;
+}
+
+export type AgentIntentReady = {
+  readonly outcome?: "intent_ready";
+  readonly activation_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly intent: TaskIntent;
+}
+
+export type AgentNeedsInput = {
+  readonly outcome?: "needs_input";
+  readonly activation_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly questions: ReadonlyArray<InputQuestion>;
+}
+
+export type AgentRuntimeFailed = {
+  readonly outcome?: "runtime_failed";
+  readonly activation_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly error: TaskError;
+}
+
+export type AgentTechnicalRepairReady = {
+  readonly outcome?: "technical_repair_ready";
+  readonly activation_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly proposal: RepairProposal;
+}
+
+export type AgentUnsupported = {
+  readonly outcome?: "unsupported";
+  readonly activation_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly reason_code: string;
+  readonly message: string;
+  readonly alternatives?: ReadonlyArray<string>;
+}
+
+export type AgentYieldContract = AgentIntentReady | AgentNeedsInput | AgentTechnicalRepairReady | AgentUnsupported | AgentBlocked | AgentBudgetExhausted | AgentCancelled | AgentRuntimeFailed
 
 export type ApplyPlotOrderSpec = {
   readonly schema_version?: "1.0";
@@ -456,6 +570,27 @@ export type ExcelSourceCoordinate = {
   readonly source_row_id: string;
 }
 
+export type ExecutionGrant = {
+  readonly schema_version?: "execution-grant.v2";
+  readonly grant_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly intent: IntentRef;
+  readonly expected_project_revision: number;
+  readonly permission_phase: "p2_confirmed" | "p3_expanded";
+  readonly scopes: ReadonlyArray<ExecutionScope>;
+  readonly issued_at: string;
+  readonly expires_at?: string | null;
+  readonly content_hash: string;
+}
+
+export type ExecutionScope = {
+  readonly item_id: string;
+  readonly operations: ReadonlyArray<string>;
+  readonly target_object_ids?: ReadonlyArray<string>;
+  readonly output_resources?: ReadonlyArray<ResourceRef>;
+}
+
 export type ExportPlot = {
   readonly expected_plot_version: number;
   readonly operation?: "export_plot";
@@ -573,6 +708,12 @@ export type InputQuestion = {
   readonly answer_kind: "text" | "single_choice" | "multi_choice" | "field" | "profile";
   readonly choices?: ReadonlyArray<string>;
   readonly required?: boolean;
+}
+
+export type IntentRef = {
+  readonly intent_id: string;
+  readonly intent_version: number;
+  readonly content_hash: string;
 }
 
 export type IsomorphicConcatSpec = {
@@ -782,6 +923,14 @@ export type RenameField = {
   readonly output_name: string;
 }
 
+export type RepairProposal = {
+  readonly failed_report_ids: ReadonlyArray<string>;
+  readonly affected_item_ids: ReadonlyArray<string>;
+  readonly repair_operations: ReadonlyArray<string>;
+  readonly preserves_confirmed_semantics?: true;
+  readonly proposal_hash: string;
+}
+
 export type ReshapeLongToWide = {
   readonly operation?: "reshape_long_to_wide";
   readonly source_alias: string;
@@ -815,6 +964,11 @@ export type ResolvedWorkflowField = {
   readonly unit_label?: string | null;
 }
 
+export type ResourceRef = {
+  readonly resource_id: string;
+  readonly resource_kind: "authorized_file" | "authorized_directory" | "temporary_output";
+}
+
 export type RowExclusion = {
   readonly row_id: string;
   readonly field_id?: string | null;
@@ -836,6 +990,19 @@ export type SelectFieldsSpec = {
   readonly compiler_version: string;
   readonly kind?: "select_fields";
   readonly field_ids: ReadonlyArray<string>;
+}
+
+export type SelectedPlotRef = {
+  readonly plot_id: string;
+  readonly plot_version: number;
+  readonly profile_id: string;
+}
+
+export type SemanticDecision = {
+  readonly decision_id: string;
+  readonly kind: "profile" | "field_binding" | "unit" | "ordering" | "filter" | "aggregation" | "calculation" | "visual" | "output";
+  readonly summary: string;
+  readonly evidence_refs?: ReadonlyArray<string>;
 }
 
 export type SetAxis = {
@@ -982,6 +1149,15 @@ export type SetTitle = {
   readonly color?: string | null;
 }
 
+export type SideEffectReceipt = {
+  readonly effect_kind: "none" | "project_revision" | "plot_version" | "staged_file" | "published_file" | "origin_session";
+  readonly object_id?: string | null;
+  readonly object_version?: number | null;
+  readonly resource?: ResourceRef | null;
+  readonly artifact_hash?: string | null;
+  readonly reversible?: boolean;
+}
+
 export type SortKey = {
   readonly field_alias: string;
   readonly direction?: "ascending" | "descending";
@@ -1072,6 +1248,72 @@ export type SummaryErrorSpec = {
   readonly symmetric_error_field?: string | null;
 }
 
+export type TaskBudgetEvent = {
+  readonly event_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly sequence: number;
+  readonly occurred_at: string;
+  readonly event_type?: "task_budget";
+  readonly budget: TaskBudgetSnapshot;
+  readonly change_reason: "usage" | "user_extended" | "policy_reduced" | "reconciled";
+}
+
+export type TaskBudgetLimits = {
+  readonly max_model_calls?: number;
+  readonly max_model_turns?: number;
+  readonly max_input_tokens?: number;
+  readonly max_output_tokens?: number;
+  readonly max_tool_calls?: number;
+  readonly max_disclosed_scalars?: number;
+  readonly max_origin_sessions?: number;
+  readonly max_repair_attempts?: number;
+  readonly max_wall_time_ms?: number;
+  readonly max_estimated_cost?: number;
+}
+
+export type TaskBudgetSnapshot = {
+  readonly limits: TaskBudgetLimits;
+  readonly usage?: TaskBudgetUsage;
+}
+
+export type TaskBudgetUsage = {
+  readonly model_calls?: number;
+  readonly model_turns?: number;
+  readonly input_tokens?: number;
+  readonly output_tokens?: number;
+  readonly tool_calls?: number;
+  readonly disclosed_scalars?: number;
+  readonly origin_sessions?: number;
+  readonly repair_attempts?: number;
+  readonly wall_time_ms?: number;
+  readonly estimated_cost?: number;
+}
+
+export type TaskCheckpoint = {
+  readonly schema_version?: "task-checkpoint.v2";
+  readonly checkpoint_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly state: "created" | "investigating" | "awaiting_input" | "intent_staged" | "awaiting_confirmation" | "executing" | "verifying" | "repairing" | "awaiting_reconfirmation" | "delivering" | "partial" | "blocked" | "unsupported" | "cancelling" | "cancelled" | "rejected" | "failed" | "completed_verified";
+  readonly project_revision: number;
+  readonly last_event_sequence: number;
+  readonly intent?: IntentRef | null;
+  readonly active_activation_id?: string | null;
+  readonly items?: ReadonlyArray<TaskItemSnapshot>;
+  readonly budget: TaskBudgetSnapshot;
+  readonly completion?: TaskCompletion | null;
+  readonly updated_at: string;
+  readonly content_hash: string;
+}
+
+export type TaskCompletion = {
+  readonly completed_at: string;
+  readonly final_project_revision: number;
+  readonly required_report_ids: ReadonlyArray<string>;
+  readonly artifact_receipt_ids?: ReadonlyArray<string>;
+}
+
 export type TaskDraft = {
   readonly schema_version?: "task-draft.v1";
   readonly draft_id: string;
@@ -1095,6 +1337,48 @@ export type TaskDraftItem = {
   readonly visual_actions?: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
 }
 
+export type TaskEnvelope = {
+  readonly schema_version?: "task-envelope.v2";
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly project_id: string;
+  readonly project_revision: number;
+  readonly original_instruction: string;
+  readonly locale?: "zh-CN" | "en-US";
+  readonly selected_source_ids?: ReadonlyArray<string>;
+  readonly selected_plots?: ReadonlyArray<SelectedPlotRef>;
+  readonly selected_profile_ids?: ReadonlyArray<string>;
+  readonly authorized_resources?: ReadonlyArray<ResourceRef>;
+  readonly budget: TaskBudgetLimits;
+  readonly created_at: string;
+}
+
+export type TaskError = {
+  readonly code: string;
+  readonly category: "transient_external" | "deterministic_technical" | "semantic_conflict" | "stale_or_concurrent" | "unsupported" | "safety_or_permission" | "budget" | "runtime";
+  readonly message: string;
+  readonly retryable: boolean;
+  readonly requires_user: boolean;
+  readonly side_effect_state: "known_none" | "known_applied" | "unknown";
+  readonly diagnostic_id?: string | null;
+}
+
+export type TaskEventContract = TaskStateTransitionEvent | TaskItemTransitionEvent | AgentActivationEvent | UserTaskEvent | ToolReceiptEvent | VerificationReportEvent | TaskBudgetEvent
+
+export type TaskIntent = {
+  readonly schema_version?: "task-intent.v2";
+  readonly intent_id: string;
+  readonly intent_version: number;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly created_by_activation_id: string;
+  readonly summary: string;
+  readonly items: ReadonlyArray<TaskDraftItem>;
+  readonly semantic_decisions?: ReadonlyArray<SemanticDecision>;
+  readonly context_hash: string;
+  readonly content_hash: string;
+}
+
 export type TaskItemProgress = {
   readonly item_id: string;
   readonly state: "pending" | "running" | "succeeded" | "failed" | "blocked" | "cancelled";
@@ -1104,6 +1388,30 @@ export type TaskItemProgress = {
   readonly error_retryable?: boolean | null;
   readonly output_plot_id?: string | null;
   readonly output_plot_version?: number | null;
+}
+
+export type TaskItemSnapshot = {
+  readonly item_id: string;
+  readonly state: "pending" | "staged" | "running" | "succeeded" | "repairable_failed" | "failed" | "blocked" | "cancelled";
+  readonly attempt_count?: number;
+  readonly last_error?: TaskError | null;
+  readonly output_plot_id?: string | null;
+  readonly output_plot_version?: number | null;
+  readonly receipt_ids?: ReadonlyArray<string>;
+  readonly verification_report_ids?: ReadonlyArray<string>;
+}
+
+export type TaskItemTransitionEvent = {
+  readonly event_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly sequence: number;
+  readonly occurred_at: string;
+  readonly event_type?: "task_item_transition";
+  readonly item_id: string;
+  readonly previous_state: "pending" | "staged" | "running" | "succeeded" | "repairable_failed" | "failed" | "blocked" | "cancelled";
+  readonly next_state: "pending" | "staged" | "running" | "succeeded" | "repairable_failed" | "failed" | "blocked" | "cancelled";
+  readonly reason_code: string;
 }
 
 export type TaskPlan = {
@@ -1124,6 +1432,18 @@ export type TaskPlanSnapshot = {
   readonly updated_at: string;
 }
 
+export type TaskStateTransitionEvent = {
+  readonly event_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly sequence: number;
+  readonly occurred_at: string;
+  readonly event_type?: "task_state_transition";
+  readonly previous_state: "created" | "investigating" | "awaiting_input" | "intent_staged" | "awaiting_confirmation" | "executing" | "verifying" | "repairing" | "awaiting_reconfirmation" | "delivering" | "partial" | "blocked" | "unsupported" | "cancelling" | "cancelled" | "rejected" | "failed" | "completed_verified";
+  readonly next_state: "created" | "investigating" | "awaiting_input" | "intent_staged" | "awaiting_confirmation" | "executing" | "verifying" | "repairing" | "awaiting_reconfirmation" | "delivering" | "partial" | "blocked" | "unsupported" | "cancelling" | "cancelled" | "rejected" | "failed" | "completed_verified";
+  readonly reason_code: string;
+}
+
 export type TextSourceCoordinate = {
   readonly kind?: "text";
   readonly byte_start: number;
@@ -1134,6 +1454,38 @@ export type TextSourceCoordinate = {
   readonly channel?: string | null;
   readonly sweep?: string | null;
   readonly source_row_id: string;
+}
+
+export type ToolReceipt = {
+  readonly schema_version?: "tool-receipt.v2";
+  readonly receipt_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly activation_id?: string | null;
+  readonly item_id?: string | null;
+  readonly tool_call_id: string;
+  readonly tool_name: string;
+  readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
+  readonly outcome: "succeeded" | "failed" | "cancelled" | "unknown";
+  readonly idempotency_key?: string | null;
+  readonly input_hash: string;
+  readonly output_hash?: string | null;
+  readonly project_revision_before: number;
+  readonly project_revision_after: number;
+  readonly side_effects?: ReadonlyArray<SideEffectReceipt>;
+  readonly error?: TaskError | null;
+  readonly started_at: string;
+  readonly finished_at: string;
+}
+
+export type ToolReceiptEvent = {
+  readonly event_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly sequence: number;
+  readonly occurred_at: string;
+  readonly event_type?: "tool_receipt";
+  readonly receipt: ToolReceipt;
 }
 
 export type TukeyBoxResult = {
@@ -1183,6 +1535,58 @@ export type UnitSpec = {
   readonly dimensionality: string;
   readonly kind: "recognized" | "opaque" | "dimensionless";
   readonly registry_version: string;
+}
+
+export type UserTaskEvent = {
+  readonly event_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly sequence: number;
+  readonly occurred_at: string;
+  readonly event_type?: "user_task_event";
+  readonly action: "answered" | "confirmed" | "rejected" | "corrected" | "cancel_requested" | "budget_extended" | "partial_accepted";
+  readonly user_event_id: string;
+  readonly payload_hash: string;
+}
+
+export type VerificationClaim = {
+  readonly claim_id: string;
+  readonly requirement?: "required" | "advisory";
+  readonly status: "passed" | "failed" | "blocked" | "unknown";
+  readonly expected: string;
+  readonly observed: string;
+  readonly evidence?: ReadonlyArray<VerificationEvidenceRef>;
+  readonly repair_scope?: ReadonlyArray<string>;
+  readonly error?: TaskError | null;
+}
+
+export type VerificationEvidenceRef = {
+  readonly evidence_id: string;
+  readonly evidence_kind: "task_state" | "data_snapshot" | "plot_document" | "backend_readback" | "artifact" | "fresh_reopen" | "visual_review" | "tool_receipt";
+  readonly content_hash: string;
+}
+
+export type VerificationReport = {
+  readonly schema_version?: "verification-report.v2";
+  readonly report_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly intent: IntentRef;
+  readonly item_id?: string | null;
+  readonly status: "passed" | "failed" | "blocked" | "unknown";
+  readonly claims: ReadonlyArray<VerificationClaim>;
+  readonly content_hash: string;
+  readonly verified_at: string;
+}
+
+export type VerificationReportEvent = {
+  readonly event_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly sequence: number;
+  readonly occurred_at: string;
+  readonly event_type?: "verification_report";
+  readonly report: VerificationReport;
 }
 
 export type ViolinKDEResult = {

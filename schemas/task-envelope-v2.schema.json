@@ -1,0 +1,238 @@
+{
+  "$defs": {
+    "ResourceRef": {
+      "additionalProperties": false,
+      "description": "An Electron-authorized resource reference, never a filesystem path.",
+      "properties": {
+        "resource_id": {
+          "pattern": "^resource:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "resource_kind": {
+          "enum": [
+            "authorized_file",
+            "authorized_directory",
+            "temporary_output"
+          ],
+          "title": "Resource Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resource_id",
+        "resource_kind"
+      ],
+      "title": "ResourceRef",
+      "type": "object"
+    },
+    "SelectedPlotRef": {
+      "additionalProperties": false,
+      "properties": {
+        "plot_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "plot_version": {
+          "minimum": 1,
+          "title": "Plot Version",
+          "type": "integer"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plot_id",
+        "plot_version",
+        "profile_id"
+      ],
+      "title": "SelectedPlotRef",
+      "type": "object"
+    },
+    "TaskBudgetLimits": {
+      "additionalProperties": false,
+      "description": "Task-wide ceilings chosen by Core before Agent execution.",
+      "properties": {
+        "max_disclosed_scalars": {
+          "default": 200000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Max Disclosed Scalars",
+          "type": "integer"
+        },
+        "max_estimated_cost": {
+          "default": 0,
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Max Estimated Cost",
+          "type": "number"
+        },
+        "max_input_tokens": {
+          "default": 1000000,
+          "maximum": 100000000,
+          "minimum": 1,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "max_model_calls": {
+          "default": 24,
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Max Model Calls",
+          "type": "integer"
+        },
+        "max_model_turns": {
+          "default": 64,
+          "maximum": 512,
+          "minimum": 1,
+          "title": "Max Model Turns",
+          "type": "integer"
+        },
+        "max_origin_sessions": {
+          "default": 16,
+          "maximum": 512,
+          "minimum": 0,
+          "title": "Max Origin Sessions",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "default": 200000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "max_repair_attempts": {
+          "default": 8,
+          "maximum": 128,
+          "minimum": 0,
+          "title": "Max Repair Attempts",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 256,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_wall_time_ms": {
+          "default": 3600000,
+          "maximum": 604800000,
+          "minimum": 1000,
+          "title": "Max Wall Time Ms",
+          "type": "integer"
+        }
+      },
+      "title": "TaskBudgetLimits",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/task-envelope-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authorized_resources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ResourceRef"
+      },
+      "maxItems": 128,
+      "title": "Authorized Resources",
+      "type": "array"
+    },
+    "budget": {
+      "$ref": "#/$defs/TaskBudgetLimits"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "locale": {
+      "default": "zh-CN",
+      "enum": [
+        "zh-CN",
+        "en-US"
+      ],
+      "title": "Locale",
+      "type": "string"
+    },
+    "original_instruction": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Original Instruction",
+      "type": "string"
+    },
+    "project_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "project_revision": {
+      "minimum": 0,
+      "title": "Project Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "task-envelope.v2",
+      "default": "task-envelope.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selected_plots": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SelectedPlotRef"
+      },
+      "maxItems": 64,
+      "title": "Selected Plots",
+      "type": "array"
+    },
+    "selected_profile_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Selected Profile Ids",
+      "type": "array"
+    },
+    "selected_source_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Selected Source Ids",
+      "type": "array"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "task_id",
+    "task_version",
+    "project_id",
+    "project_revision",
+    "original_instruction",
+    "budget",
+    "created_at"
+  ],
+  "title": "TaskEnvelope",
+  "type": "object"
+}

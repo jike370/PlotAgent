@@ -1,0 +1,299 @@
+{
+  "$defs": {
+    "IntentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "intent_id": {
+          "pattern": "^intent:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Intent Id",
+          "type": "string"
+        },
+        "intent_version": {
+          "minimum": 1,
+          "title": "Intent Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "intent_id",
+        "intent_version",
+        "content_hash"
+      ],
+      "title": "IntentRef",
+      "type": "object"
+    },
+    "TaskError": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "transient_external",
+            "deterministic_technical",
+            "semantic_conflict",
+            "stale_or_concurrent",
+            "unsupported",
+            "safety_or_permission",
+            "budget",
+            "runtime"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "diagnostic_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diagnostic Id"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "requires_user": {
+          "title": "Requires User",
+          "type": "boolean"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "side_effect_state": {
+          "enum": [
+            "known_none",
+            "known_applied",
+            "unknown"
+          ],
+          "title": "Side Effect State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable",
+        "requires_user",
+        "side_effect_state"
+      ],
+      "title": "TaskError",
+      "type": "object"
+    },
+    "VerificationClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TaskError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/VerificationEvidenceRef"
+          },
+          "maxItems": 128,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "expected": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Expected",
+          "type": "string"
+        },
+        "observed": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Observed",
+          "type": "string"
+        },
+        "repair_scope": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Repair Scope",
+          "type": "array"
+        },
+        "requirement": {
+          "default": "required",
+          "enum": [
+            "required",
+            "advisory"
+          ],
+          "title": "Requirement",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "status",
+        "expected",
+        "observed"
+      ],
+      "title": "VerificationClaim",
+      "type": "object"
+    },
+    "VerificationEvidenceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "evidence_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "evidence_kind": {
+          "enum": [
+            "task_state",
+            "data_snapshot",
+            "plot_document",
+            "backend_readback",
+            "artifact",
+            "fresh_reopen",
+            "visual_review",
+            "tool_receipt"
+          ],
+          "title": "Evidence Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "evidence_kind",
+        "content_hash"
+      ],
+      "title": "VerificationEvidenceRef",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/verification-report-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/VerificationClaim"
+      },
+      "maxItems": 512,
+      "minItems": 1,
+      "title": "Claims",
+      "type": "array"
+    },
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "intent": {
+      "$ref": "#/$defs/IntentRef"
+    },
+    "item_id": {
+      "anyOf": [
+        {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Item Id"
+    },
+    "report_id": {
+      "pattern": "^verification:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Report Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "verification-report.v2",
+      "default": "verification-report.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "blocked",
+        "unknown"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    },
+    "verified_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Verified At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "report_id",
+    "task_id",
+    "task_version",
+    "intent",
+    "status",
+    "claims",
+    "content_hash",
+    "verified_at"
+  ],
+  "title": "VerificationReport",
+  "type": "object"
+}

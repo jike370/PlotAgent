@@ -17,6 +17,18 @@ from typing import Any
 from pydantic import BaseModel, RootModel, TypeAdapter
 from pydantic.json_schema import models_json_schema
 
+from plotagent.contracts.agent_tasks import (
+    AgentActivation,
+    AgentYield,
+    ExecutionGrant,
+    TaskCheckpoint,
+    TaskEnvelope,
+    TaskError,
+    TaskEvent,
+    TaskIntent,
+    ToolReceipt,
+    VerificationReport,
+)
 from plotagent.contracts.base import SCHEMA_VERSION
 from plotagent.contracts.calculations import PlotCalculationResult, PlotCalculationSpec
 from plotagent.contracts.datasets import (
@@ -71,6 +83,14 @@ class WorkflowDecisionContract(RootModel[WorkflowDecision]):
     pass
 
 
+class AgentYieldContract(RootModel[AgentYield]):
+    pass
+
+
+class TaskEventContract(RootModel[TaskEvent]):
+    pass
+
+
 SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("source-dataset", SourceDataset),
     ("field-mapping", FieldMapping),
@@ -85,6 +105,16 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("workflow-run-snapshot", WorkflowRunSnapshot),
     ("workflow-recipe", WorkflowRecipe),
     ("workflow-decision", WorkflowDecisionContract),
+    ("task-envelope-v2", TaskEnvelope),
+    ("task-intent-v2", TaskIntent),
+    ("execution-grant-v2", ExecutionGrant),
+    ("tool-receipt-v2", ToolReceipt),
+    ("task-error-v2", TaskError),
+    ("verification-report-v2", VerificationReport),
+    ("agent-activation-v2", AgentActivation),
+    ("agent-yield-v2", AgentYieldContract),
+    ("task-checkpoint-v2", TaskCheckpoint),
+    ("task-event-v2", TaskEventContract),
     ("engine-data-ref", EngineDataRef),
     ("engine-data-view", EngineDataView),
     ("engine-profile", EngineProfile),

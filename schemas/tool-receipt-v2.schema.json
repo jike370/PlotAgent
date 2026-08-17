@@ -1,0 +1,346 @@
+{
+  "$defs": {
+    "ResourceRef": {
+      "additionalProperties": false,
+      "description": "An Electron-authorized resource reference, never a filesystem path.",
+      "properties": {
+        "resource_id": {
+          "pattern": "^resource:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "resource_kind": {
+          "enum": [
+            "authorized_file",
+            "authorized_directory",
+            "temporary_output"
+          ],
+          "title": "Resource Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resource_id",
+        "resource_kind"
+      ],
+      "title": "ResourceRef",
+      "type": "object"
+    },
+    "SideEffectReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Hash"
+        },
+        "effect_kind": {
+          "enum": [
+            "none",
+            "project_revision",
+            "plot_version",
+            "staged_file",
+            "published_file",
+            "origin_session"
+          ],
+          "title": "Effect Kind",
+          "type": "string"
+        },
+        "object_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Id"
+        },
+        "object_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Version"
+        },
+        "resource": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reversible": {
+          "default": true,
+          "title": "Reversible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "effect_kind"
+      ],
+      "title": "SideEffectReceipt",
+      "type": "object"
+    },
+    "TaskError": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "transient_external",
+            "deterministic_technical",
+            "semantic_conflict",
+            "stale_or_concurrent",
+            "unsupported",
+            "safety_or_permission",
+            "budget",
+            "runtime"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "diagnostic_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diagnostic Id"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "requires_user": {
+          "title": "Requires User",
+          "type": "boolean"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "side_effect_state": {
+          "enum": [
+            "known_none",
+            "known_applied",
+            "unknown"
+          ],
+          "title": "Side Effect State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable",
+        "requires_user",
+        "side_effect_state"
+      ],
+      "title": "TaskError",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/tool-receipt-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activation_id": {
+      "anyOf": [
+        {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Activation Id"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TaskError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "finished_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Finished At",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotency Key"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "item_id": {
+      "anyOf": [
+        {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Item Id"
+    },
+    "outcome": {
+      "enum": [
+        "succeeded",
+        "failed",
+        "cancelled",
+        "unknown"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "output_hash": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Hash"
+    },
+    "permission_phase": {
+      "enum": [
+        "p0_read",
+        "p1_staged",
+        "p2_confirmed",
+        "p3_expanded"
+      ],
+      "title": "Permission Phase",
+      "type": "string"
+    },
+    "project_revision_after": {
+      "minimum": 0,
+      "title": "Project Revision After",
+      "type": "integer"
+    },
+    "project_revision_before": {
+      "minimum": 0,
+      "title": "Project Revision Before",
+      "type": "integer"
+    },
+    "receipt_id": {
+      "pattern": "^receipt:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Receipt Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "tool-receipt.v2",
+      "default": "tool-receipt.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "side_effects": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SideEffectReceipt"
+      },
+      "maxItems": 128,
+      "title": "Side Effects",
+      "type": "array"
+    },
+    "started_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Started At",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    },
+    "tool_call_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Tool Call Id",
+      "type": "string"
+    },
+    "tool_name": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Tool Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "receipt_id",
+    "task_id",
+    "task_version",
+    "tool_call_id",
+    "tool_name",
+    "permission_phase",
+    "outcome",
+    "input_hash",
+    "project_revision_before",
+    "project_revision_after",
+    "started_at",
+    "finished_at"
+  ],
+  "title": "ToolReceipt",
+  "type": "object"
+}

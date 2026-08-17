@@ -1,0 +1,1284 @@
+{
+  "$defs": {
+    "AgentActivationEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "event_id": {
+          "pattern": "^event:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "agent_activation",
+          "default": "agent_activation",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "occurred_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "requested",
+            "started",
+            "yielded",
+            "aborted",
+            "runtime_failed"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        },
+        "yield_outcome": {
+          "anyOf": [
+            {
+              "enum": [
+                "intent_ready",
+                "needs_input",
+                "technical_repair_ready",
+                "unsupported",
+                "blocked",
+                "budget_exhausted",
+                "cancelled",
+                "runtime_failed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Yield Outcome"
+        }
+      },
+      "required": [
+        "event_id",
+        "task_id",
+        "task_version",
+        "sequence",
+        "occurred_at",
+        "activation_id",
+        "phase"
+      ],
+      "title": "AgentActivationEvent",
+      "type": "object"
+    },
+    "IntentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "intent_id": {
+          "pattern": "^intent:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Intent Id",
+          "type": "string"
+        },
+        "intent_version": {
+          "minimum": 1,
+          "title": "Intent Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "intent_id",
+        "intent_version",
+        "content_hash"
+      ],
+      "title": "IntentRef",
+      "type": "object"
+    },
+    "ResourceRef": {
+      "additionalProperties": false,
+      "description": "An Electron-authorized resource reference, never a filesystem path.",
+      "properties": {
+        "resource_id": {
+          "pattern": "^resource:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "resource_kind": {
+          "enum": [
+            "authorized_file",
+            "authorized_directory",
+            "temporary_output"
+          ],
+          "title": "Resource Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resource_id",
+        "resource_kind"
+      ],
+      "title": "ResourceRef",
+      "type": "object"
+    },
+    "SideEffectReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Hash"
+        },
+        "effect_kind": {
+          "enum": [
+            "none",
+            "project_revision",
+            "plot_version",
+            "staged_file",
+            "published_file",
+            "origin_session"
+          ],
+          "title": "Effect Kind",
+          "type": "string"
+        },
+        "object_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Id"
+        },
+        "object_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Version"
+        },
+        "resource": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reversible": {
+          "default": true,
+          "title": "Reversible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "effect_kind"
+      ],
+      "title": "SideEffectReceipt",
+      "type": "object"
+    },
+    "TaskBudgetEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "budget": {
+          "$ref": "#/$defs/TaskBudgetSnapshot"
+        },
+        "change_reason": {
+          "enum": [
+            "usage",
+            "user_extended",
+            "policy_reduced",
+            "reconciled"
+          ],
+          "title": "Change Reason",
+          "type": "string"
+        },
+        "event_id": {
+          "pattern": "^event:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "task_budget",
+          "default": "task_budget",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "occurred_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "event_id",
+        "task_id",
+        "task_version",
+        "sequence",
+        "occurred_at",
+        "budget",
+        "change_reason"
+      ],
+      "title": "TaskBudgetEvent",
+      "type": "object"
+    },
+    "TaskBudgetLimits": {
+      "additionalProperties": false,
+      "description": "Task-wide ceilings chosen by Core before Agent execution.",
+      "properties": {
+        "max_disclosed_scalars": {
+          "default": 200000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Max Disclosed Scalars",
+          "type": "integer"
+        },
+        "max_estimated_cost": {
+          "default": 0,
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Max Estimated Cost",
+          "type": "number"
+        },
+        "max_input_tokens": {
+          "default": 1000000,
+          "maximum": 100000000,
+          "minimum": 1,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "max_model_calls": {
+          "default": 24,
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Max Model Calls",
+          "type": "integer"
+        },
+        "max_model_turns": {
+          "default": 64,
+          "maximum": 512,
+          "minimum": 1,
+          "title": "Max Model Turns",
+          "type": "integer"
+        },
+        "max_origin_sessions": {
+          "default": 16,
+          "maximum": 512,
+          "minimum": 0,
+          "title": "Max Origin Sessions",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "default": 200000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "max_repair_attempts": {
+          "default": 8,
+          "maximum": 128,
+          "minimum": 0,
+          "title": "Max Repair Attempts",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 256,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_wall_time_ms": {
+          "default": 3600000,
+          "maximum": 604800000,
+          "minimum": 1000,
+          "title": "Max Wall Time Ms",
+          "type": "integer"
+        }
+      },
+      "title": "TaskBudgetLimits",
+      "type": "object"
+    },
+    "TaskBudgetSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "limits": {
+          "$ref": "#/$defs/TaskBudgetLimits"
+        },
+        "usage": {
+          "$ref": "#/$defs/TaskBudgetUsage",
+          "default": {
+            "disclosed_scalars": 0,
+            "estimated_cost": 0.0,
+            "input_tokens": 0,
+            "model_calls": 0,
+            "model_turns": 0,
+            "origin_sessions": 0,
+            "output_tokens": 0,
+            "repair_attempts": 0,
+            "tool_calls": 0,
+            "wall_time_ms": 0
+          }
+        }
+      },
+      "required": [
+        "limits"
+      ],
+      "title": "TaskBudgetSnapshot",
+      "type": "object"
+    },
+    "TaskBudgetUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "disclosed_scalars": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Disclosed Scalars",
+          "type": "integer"
+        },
+        "estimated_cost": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Cost",
+          "type": "number"
+        },
+        "input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "model_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Calls",
+          "type": "integer"
+        },
+        "model_turns": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Turns",
+          "type": "integer"
+        },
+        "origin_sessions": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Origin Sessions",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "repair_attempts": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Repair Attempts",
+          "type": "integer"
+        },
+        "tool_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tool Calls",
+          "type": "integer"
+        },
+        "wall_time_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Wall Time Ms",
+          "type": "integer"
+        }
+      },
+      "title": "TaskBudgetUsage",
+      "type": "object"
+    },
+    "TaskError": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "transient_external",
+            "deterministic_technical",
+            "semantic_conflict",
+            "stale_or_concurrent",
+            "unsupported",
+            "safety_or_permission",
+            "budget",
+            "runtime"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "diagnostic_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diagnostic Id"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "requires_user": {
+          "title": "Requires User",
+          "type": "boolean"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "side_effect_state": {
+          "enum": [
+            "known_none",
+            "known_applied",
+            "unknown"
+          ],
+          "title": "Side Effect State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable",
+        "requires_user",
+        "side_effect_state"
+      ],
+      "title": "TaskError",
+      "type": "object"
+    },
+    "TaskItemTransitionEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "pattern": "^event:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "task_item_transition",
+          "default": "task_item_transition",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "item_id": {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "next_state": {
+          "enum": [
+            "pending",
+            "staged",
+            "running",
+            "succeeded",
+            "repairable_failed",
+            "failed",
+            "blocked",
+            "cancelled"
+          ],
+          "title": "Next State",
+          "type": "string"
+        },
+        "occurred_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "previous_state": {
+          "enum": [
+            "pending",
+            "staged",
+            "running",
+            "succeeded",
+            "repairable_failed",
+            "failed",
+            "blocked",
+            "cancelled"
+          ],
+          "title": "Previous State",
+          "type": "string"
+        },
+        "reason_code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "event_id",
+        "task_id",
+        "task_version",
+        "sequence",
+        "occurred_at",
+        "item_id",
+        "previous_state",
+        "next_state",
+        "reason_code"
+      ],
+      "title": "TaskItemTransitionEvent",
+      "type": "object"
+    },
+    "TaskStateTransitionEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "pattern": "^event:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "task_state_transition",
+          "default": "task_state_transition",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "next_state": {
+          "enum": [
+            "created",
+            "investigating",
+            "awaiting_input",
+            "intent_staged",
+            "awaiting_confirmation",
+            "executing",
+            "verifying",
+            "repairing",
+            "awaiting_reconfirmation",
+            "delivering",
+            "partial",
+            "blocked",
+            "unsupported",
+            "cancelling",
+            "cancelled",
+            "rejected",
+            "failed",
+            "completed_verified"
+          ],
+          "title": "Next State",
+          "type": "string"
+        },
+        "occurred_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "previous_state": {
+          "enum": [
+            "created",
+            "investigating",
+            "awaiting_input",
+            "intent_staged",
+            "awaiting_confirmation",
+            "executing",
+            "verifying",
+            "repairing",
+            "awaiting_reconfirmation",
+            "delivering",
+            "partial",
+            "blocked",
+            "unsupported",
+            "cancelling",
+            "cancelled",
+            "rejected",
+            "failed",
+            "completed_verified"
+          ],
+          "title": "Previous State",
+          "type": "string"
+        },
+        "reason_code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "event_id",
+        "task_id",
+        "task_version",
+        "sequence",
+        "occurred_at",
+        "previous_state",
+        "next_state",
+        "reason_code"
+      ],
+      "title": "TaskStateTransitionEvent",
+      "type": "object"
+    },
+    "ToolReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "anyOf": [
+            {
+              "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activation Id"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TaskError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "finished_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Finished At",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency Key"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "item_id": {
+          "anyOf": [
+            {
+              "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item Id"
+        },
+        "outcome": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "cancelled",
+            "unknown"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "output_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Hash"
+        },
+        "permission_phase": {
+          "enum": [
+            "p0_read",
+            "p1_staged",
+            "p2_confirmed",
+            "p3_expanded"
+          ],
+          "title": "Permission Phase",
+          "type": "string"
+        },
+        "project_revision_after": {
+          "minimum": 0,
+          "title": "Project Revision After",
+          "type": "integer"
+        },
+        "project_revision_before": {
+          "minimum": 0,
+          "title": "Project Revision Before",
+          "type": "integer"
+        },
+        "receipt_id": {
+          "pattern": "^receipt:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Receipt Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "tool-receipt.v2",
+          "default": "tool-receipt.v2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "side_effects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SideEffectReceipt"
+          },
+          "maxItems": 128,
+          "title": "Side Effects",
+          "type": "array"
+        },
+        "started_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Started At",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        },
+        "tool_call_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "tool_name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Tool Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "receipt_id",
+        "task_id",
+        "task_version",
+        "tool_call_id",
+        "tool_name",
+        "permission_phase",
+        "outcome",
+        "input_hash",
+        "project_revision_before",
+        "project_revision_after",
+        "started_at",
+        "finished_at"
+      ],
+      "title": "ToolReceipt",
+      "type": "object"
+    },
+    "ToolReceiptEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "pattern": "^event:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "tool_receipt",
+          "default": "tool_receipt",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "occurred_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "receipt": {
+          "$ref": "#/$defs/ToolReceipt"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "event_id",
+        "task_id",
+        "task_version",
+        "sequence",
+        "occurred_at",
+        "receipt"
+      ],
+      "title": "ToolReceiptEvent",
+      "type": "object"
+    },
+    "UserTaskEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "answered",
+            "confirmed",
+            "rejected",
+            "corrected",
+            "cancel_requested",
+            "budget_extended",
+            "partial_accepted"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "event_id": {
+          "pattern": "^event:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "user_task_event",
+          "default": "user_task_event",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "occurred_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Payload Hash",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        },
+        "user_event_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "User Event Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "task_id",
+        "task_version",
+        "sequence",
+        "occurred_at",
+        "action",
+        "user_event_id",
+        "payload_hash"
+      ],
+      "title": "UserTaskEvent",
+      "type": "object"
+    },
+    "VerificationClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TaskError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/VerificationEvidenceRef"
+          },
+          "maxItems": 128,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "expected": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Expected",
+          "type": "string"
+        },
+        "observed": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Observed",
+          "type": "string"
+        },
+        "repair_scope": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Repair Scope",
+          "type": "array"
+        },
+        "requirement": {
+          "default": "required",
+          "enum": [
+            "required",
+            "advisory"
+          ],
+          "title": "Requirement",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "status",
+        "expected",
+        "observed"
+      ],
+      "title": "VerificationClaim",
+      "type": "object"
+    },
+    "VerificationEvidenceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "evidence_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "evidence_kind": {
+          "enum": [
+            "task_state",
+            "data_snapshot",
+            "plot_document",
+            "backend_readback",
+            "artifact",
+            "fresh_reopen",
+            "visual_review",
+            "tool_receipt"
+          ],
+          "title": "Evidence Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "evidence_kind",
+        "content_hash"
+      ],
+      "title": "VerificationEvidenceRef",
+      "type": "object"
+    },
+    "VerificationReport": {
+      "additionalProperties": false,
+      "properties": {
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/VerificationClaim"
+          },
+          "maxItems": 512,
+          "minItems": 1,
+          "title": "Claims",
+          "type": "array"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/$defs/IntentRef"
+        },
+        "item_id": {
+          "anyOf": [
+            {
+              "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item Id"
+        },
+        "report_id": {
+          "pattern": "^verification:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Report Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "verification-report.v2",
+          "default": "verification-report.v2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        },
+        "verified_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Verified At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "report_id",
+        "task_id",
+        "task_version",
+        "intent",
+        "status",
+        "claims",
+        "content_hash",
+        "verified_at"
+      ],
+      "title": "VerificationReport",
+      "type": "object"
+    },
+    "VerificationReportEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "pattern": "^event:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_type": {
+          "const": "verification_report",
+          "default": "verification_report",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "occurred_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "report": {
+          "$ref": "#/$defs/VerificationReport"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "event_id",
+        "task_id",
+        "task_version",
+        "sequence",
+        "occurred_at",
+        "report"
+      ],
+      "title": "VerificationReportEvent",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/task-event-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "discriminator": {
+    "mapping": {
+      "agent_activation": "#/$defs/AgentActivationEvent",
+      "task_budget": "#/$defs/TaskBudgetEvent",
+      "task_item_transition": "#/$defs/TaskItemTransitionEvent",
+      "task_state_transition": "#/$defs/TaskStateTransitionEvent",
+      "tool_receipt": "#/$defs/ToolReceiptEvent",
+      "user_task_event": "#/$defs/UserTaskEvent",
+      "verification_report": "#/$defs/VerificationReportEvent"
+    },
+    "propertyName": "event_type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/TaskStateTransitionEvent"
+    },
+    {
+      "$ref": "#/$defs/TaskItemTransitionEvent"
+    },
+    {
+      "$ref": "#/$defs/AgentActivationEvent"
+    },
+    {
+      "$ref": "#/$defs/UserTaskEvent"
+    },
+    {
+      "$ref": "#/$defs/ToolReceiptEvent"
+    },
+    {
+      "$ref": "#/$defs/VerificationReportEvent"
+    },
+    {
+      "$ref": "#/$defs/TaskBudgetEvent"
+    }
+  ],
+  "title": "TaskEventContract"
+}

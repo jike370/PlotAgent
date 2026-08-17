@@ -1,0 +1,540 @@
+{
+  "$defs": {
+    "IntentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "intent_id": {
+          "pattern": "^intent:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Intent Id",
+          "type": "string"
+        },
+        "intent_version": {
+          "minimum": 1,
+          "title": "Intent Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "intent_id",
+        "intent_version",
+        "content_hash"
+      ],
+      "title": "IntentRef",
+      "type": "object"
+    },
+    "TaskBudgetLimits": {
+      "additionalProperties": false,
+      "description": "Task-wide ceilings chosen by Core before Agent execution.",
+      "properties": {
+        "max_disclosed_scalars": {
+          "default": 200000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Max Disclosed Scalars",
+          "type": "integer"
+        },
+        "max_estimated_cost": {
+          "default": 0,
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Max Estimated Cost",
+          "type": "number"
+        },
+        "max_input_tokens": {
+          "default": 1000000,
+          "maximum": 100000000,
+          "minimum": 1,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "max_model_calls": {
+          "default": 24,
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Max Model Calls",
+          "type": "integer"
+        },
+        "max_model_turns": {
+          "default": 64,
+          "maximum": 512,
+          "minimum": 1,
+          "title": "Max Model Turns",
+          "type": "integer"
+        },
+        "max_origin_sessions": {
+          "default": 16,
+          "maximum": 512,
+          "minimum": 0,
+          "title": "Max Origin Sessions",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "default": 200000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "max_repair_attempts": {
+          "default": 8,
+          "maximum": 128,
+          "minimum": 0,
+          "title": "Max Repair Attempts",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 256,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_wall_time_ms": {
+          "default": 3600000,
+          "maximum": 604800000,
+          "minimum": 1000,
+          "title": "Max Wall Time Ms",
+          "type": "integer"
+        }
+      },
+      "title": "TaskBudgetLimits",
+      "type": "object"
+    },
+    "TaskBudgetSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "limits": {
+          "$ref": "#/$defs/TaskBudgetLimits"
+        },
+        "usage": {
+          "$ref": "#/$defs/TaskBudgetUsage",
+          "default": {
+            "disclosed_scalars": 0,
+            "estimated_cost": 0.0,
+            "input_tokens": 0,
+            "model_calls": 0,
+            "model_turns": 0,
+            "origin_sessions": 0,
+            "output_tokens": 0,
+            "repair_attempts": 0,
+            "tool_calls": 0,
+            "wall_time_ms": 0
+          }
+        }
+      },
+      "required": [
+        "limits"
+      ],
+      "title": "TaskBudgetSnapshot",
+      "type": "object"
+    },
+    "TaskBudgetUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "disclosed_scalars": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Disclosed Scalars",
+          "type": "integer"
+        },
+        "estimated_cost": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Cost",
+          "type": "number"
+        },
+        "input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "model_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Calls",
+          "type": "integer"
+        },
+        "model_turns": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Turns",
+          "type": "integer"
+        },
+        "origin_sessions": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Origin Sessions",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "repair_attempts": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Repair Attempts",
+          "type": "integer"
+        },
+        "tool_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tool Calls",
+          "type": "integer"
+        },
+        "wall_time_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Wall Time Ms",
+          "type": "integer"
+        }
+      },
+      "title": "TaskBudgetUsage",
+      "type": "object"
+    },
+    "TaskCompletion": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_receipt_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^receipt:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 512,
+          "title": "Artifact Receipt Ids",
+          "type": "array"
+        },
+        "completed_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "final_project_revision": {
+          "minimum": 0,
+          "title": "Final Project Revision",
+          "type": "integer"
+        },
+        "required_report_ids": {
+          "items": {
+            "pattern": "^verification:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 512,
+          "minItems": 1,
+          "title": "Required Report Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "completed_at",
+        "final_project_revision",
+        "required_report_ids"
+      ],
+      "title": "TaskCompletion",
+      "type": "object"
+    },
+    "TaskError": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "transient_external",
+            "deterministic_technical",
+            "semantic_conflict",
+            "stale_or_concurrent",
+            "unsupported",
+            "safety_or_permission",
+            "budget",
+            "runtime"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "diagnostic_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diagnostic Id"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "requires_user": {
+          "title": "Requires User",
+          "type": "boolean"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "side_effect_state": {
+          "enum": [
+            "known_none",
+            "known_applied",
+            "unknown"
+          ],
+          "title": "Side Effect State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable",
+        "requires_user",
+        "side_effect_state"
+      ],
+      "title": "TaskError",
+      "type": "object"
+    },
+    "TaskItemSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_count": {
+          "default": 0,
+          "maximum": 128,
+          "minimum": 0,
+          "title": "Attempt Count",
+          "type": "integer"
+        },
+        "item_id": {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TaskError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_plot_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Plot Id"
+        },
+        "output_plot_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Plot Version"
+        },
+        "receipt_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^receipt:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 512,
+          "title": "Receipt Ids",
+          "type": "array"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "staged",
+            "running",
+            "succeeded",
+            "repairable_failed",
+            "failed",
+            "blocked",
+            "cancelled"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "verification_report_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^verification:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Verification Report Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "item_id",
+        "state"
+      ],
+      "title": "TaskItemSnapshot",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/task-checkpoint-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "active_activation_id": {
+      "anyOf": [
+        {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Active Activation Id"
+    },
+    "budget": {
+      "$ref": "#/$defs/TaskBudgetSnapshot"
+    },
+    "checkpoint_id": {
+      "pattern": "^checkpoint:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Checkpoint Id",
+      "type": "string"
+    },
+    "completion": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TaskCompletion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "intent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IntentRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "items": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TaskItemSnapshot"
+      },
+      "maxItems": 64,
+      "title": "Items",
+      "type": "array"
+    },
+    "last_event_sequence": {
+      "minimum": 0,
+      "title": "Last Event Sequence",
+      "type": "integer"
+    },
+    "project_revision": {
+      "minimum": 0,
+      "title": "Project Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "task-checkpoint.v2",
+      "default": "task-checkpoint.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "created",
+        "investigating",
+        "awaiting_input",
+        "intent_staged",
+        "awaiting_confirmation",
+        "executing",
+        "verifying",
+        "repairing",
+        "awaiting_reconfirmation",
+        "delivering",
+        "partial",
+        "blocked",
+        "unsupported",
+        "cancelling",
+        "cancelled",
+        "rejected",
+        "failed",
+        "completed_verified"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    },
+    "updated_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "checkpoint_id",
+    "task_id",
+    "task_version",
+    "state",
+    "project_revision",
+    "last_event_sequence",
+    "budget",
+    "updated_at",
+    "content_hash"
+  ],
+  "title": "TaskCheckpoint",
+  "type": "object"
+}

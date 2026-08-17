@@ -1,0 +1,454 @@
+{
+  "$defs": {
+    "ActivationBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_disclosed_scalars": {
+          "default": 20000,
+          "maximum": 200000,
+          "minimum": 0,
+          "title": "Max Disclosed Scalars",
+          "type": "integer"
+        },
+        "max_model_turns": {
+          "default": 6,
+          "maximum": 32,
+          "minimum": 1,
+          "title": "Max Model Turns",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 24,
+          "maximum": 128,
+          "minimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "timeout_ms": {
+          "default": 120000,
+          "maximum": 3600000,
+          "minimum": 1000,
+          "title": "Timeout Ms",
+          "type": "integer"
+        }
+      },
+      "title": "ActivationBudget",
+      "type": "object"
+    },
+    "IntentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "intent_id": {
+          "pattern": "^intent:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Intent Id",
+          "type": "string"
+        },
+        "intent_version": {
+          "minimum": 1,
+          "title": "Intent Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "intent_id",
+        "intent_version",
+        "content_hash"
+      ],
+      "title": "IntentRef",
+      "type": "object"
+    },
+    "TaskBudgetLimits": {
+      "additionalProperties": false,
+      "description": "Task-wide ceilings chosen by Core before Agent execution.",
+      "properties": {
+        "max_disclosed_scalars": {
+          "default": 200000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Max Disclosed Scalars",
+          "type": "integer"
+        },
+        "max_estimated_cost": {
+          "default": 0,
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Max Estimated Cost",
+          "type": "number"
+        },
+        "max_input_tokens": {
+          "default": 1000000,
+          "maximum": 100000000,
+          "minimum": 1,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "max_model_calls": {
+          "default": 24,
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Max Model Calls",
+          "type": "integer"
+        },
+        "max_model_turns": {
+          "default": 64,
+          "maximum": 512,
+          "minimum": 1,
+          "title": "Max Model Turns",
+          "type": "integer"
+        },
+        "max_origin_sessions": {
+          "default": 16,
+          "maximum": 512,
+          "minimum": 0,
+          "title": "Max Origin Sessions",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "default": 200000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "max_repair_attempts": {
+          "default": 8,
+          "maximum": 128,
+          "minimum": 0,
+          "title": "Max Repair Attempts",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 256,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_wall_time_ms": {
+          "default": 3600000,
+          "maximum": 604800000,
+          "minimum": 1000,
+          "title": "Max Wall Time Ms",
+          "type": "integer"
+        }
+      },
+      "title": "TaskBudgetLimits",
+      "type": "object"
+    },
+    "TaskBudgetSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "limits": {
+          "$ref": "#/$defs/TaskBudgetLimits"
+        },
+        "usage": {
+          "$ref": "#/$defs/TaskBudgetUsage",
+          "default": {
+            "disclosed_scalars": 0,
+            "estimated_cost": 0.0,
+            "input_tokens": 0,
+            "model_calls": 0,
+            "model_turns": 0,
+            "origin_sessions": 0,
+            "output_tokens": 0,
+            "repair_attempts": 0,
+            "tool_calls": 0,
+            "wall_time_ms": 0
+          }
+        }
+      },
+      "required": [
+        "limits"
+      ],
+      "title": "TaskBudgetSnapshot",
+      "type": "object"
+    },
+    "TaskBudgetUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "disclosed_scalars": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Disclosed Scalars",
+          "type": "integer"
+        },
+        "estimated_cost": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Cost",
+          "type": "number"
+        },
+        "input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "model_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Calls",
+          "type": "integer"
+        },
+        "model_turns": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Turns",
+          "type": "integer"
+        },
+        "origin_sessions": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Origin Sessions",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "repair_attempts": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Repair Attempts",
+          "type": "integer"
+        },
+        "tool_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tool Calls",
+          "type": "integer"
+        },
+        "wall_time_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Wall Time Ms",
+          "type": "integer"
+        }
+      },
+      "title": "TaskBudgetUsage",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/agent-activation-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activation_budget": {
+      "$ref": "#/$defs/ActivationBudget"
+    },
+    "activation_id": {
+      "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Activation Id",
+      "type": "string"
+    },
+    "allowed_tools": {
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Allowed Tools",
+      "type": "array"
+    },
+    "confirmed_intent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IntentRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "context_refs": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "title": "Context Refs",
+      "type": "array"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "current_user_message": {
+      "anyOf": [
+        {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Current User Message"
+    },
+    "deadline": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Deadline",
+      "type": "string"
+    },
+    "domain_knowledge_refs": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 128,
+      "title": "Domain Knowledge Refs",
+      "type": "array"
+    },
+    "item_states": {
+      "default": [],
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "pending",
+              "staged",
+              "running",
+              "succeeded",
+              "repairable_failed",
+              "failed",
+              "blocked",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "maxItems": 64,
+      "title": "Item States",
+      "type": "array"
+    },
+    "original_instruction": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Original Instruction",
+      "type": "string"
+    },
+    "permission_phase": {
+      "enum": [
+        "p0_read",
+        "p1_staged",
+        "p2_confirmed",
+        "p3_expanded"
+      ],
+      "title": "Permission Phase",
+      "type": "string"
+    },
+    "prior_receipt_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^receipt:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 512,
+      "title": "Prior Receipt Ids",
+      "type": "array"
+    },
+    "reason": {
+      "enum": [
+        "new_task",
+        "user_answered",
+        "user_corrected",
+        "verification_failed",
+        "external_blocker_cleared",
+        "resume_after_restart"
+      ],
+      "title": "Reason",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "agent-activation.v2",
+      "default": "agent-activation.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "task_budget": {
+      "$ref": "#/$defs/TaskBudgetSnapshot"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_state": {
+      "enum": [
+        "created",
+        "investigating",
+        "awaiting_input",
+        "intent_staged",
+        "awaiting_confirmation",
+        "executing",
+        "verifying",
+        "repairing",
+        "awaiting_reconfirmation",
+        "delivering",
+        "partial",
+        "blocked",
+        "unsupported",
+        "cancelling",
+        "cancelled",
+        "rejected",
+        "failed",
+        "completed_verified"
+      ],
+      "title": "Task State",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    },
+    "verification_report_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^verification:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 128,
+      "title": "Verification Report Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "activation_id",
+    "task_id",
+    "task_version",
+    "reason",
+    "task_state",
+    "original_instruction",
+    "allowed_tools",
+    "permission_phase",
+    "activation_budget",
+    "task_budget",
+    "deadline",
+    "created_at"
+  ],
+  "title": "AgentActivation",
+  "type": "object"
+}

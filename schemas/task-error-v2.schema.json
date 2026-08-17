@@ -1,0 +1,72 @@
+{
+  "$id": "https://schemas.plotagent.local/v2/task-error-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "category": {
+      "enum": [
+        "transient_external",
+        "deterministic_technical",
+        "semantic_conflict",
+        "stale_or_concurrent",
+        "unsupported",
+        "safety_or_permission",
+        "budget",
+        "runtime"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "code": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Code",
+      "type": "string"
+    },
+    "diagnostic_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Diagnostic Id"
+    },
+    "message": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "requires_user": {
+      "title": "Requires User",
+      "type": "boolean"
+    },
+    "retryable": {
+      "title": "Retryable",
+      "type": "boolean"
+    },
+    "side_effect_state": {
+      "enum": [
+        "known_none",
+        "known_applied",
+        "unknown"
+      ],
+      "title": "Side Effect State",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "category",
+    "message",
+    "retryable",
+    "requires_user",
+    "side_effect_state"
+  ],
+  "title": "TaskError",
+  "type": "object"
+}

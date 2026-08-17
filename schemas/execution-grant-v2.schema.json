@@ -1,0 +1,189 @@
+{
+  "$defs": {
+    "ExecutionScope": {
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Operations",
+          "type": "array"
+        },
+        "output_resources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "maxItems": 64,
+          "title": "Output Resources",
+          "type": "array"
+        },
+        "target_object_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Target Object Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "item_id",
+        "operations"
+      ],
+      "title": "ExecutionScope",
+      "type": "object"
+    },
+    "IntentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "intent_id": {
+          "pattern": "^intent:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Intent Id",
+          "type": "string"
+        },
+        "intent_version": {
+          "minimum": 1,
+          "title": "Intent Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "intent_id",
+        "intent_version",
+        "content_hash"
+      ],
+      "title": "IntentRef",
+      "type": "object"
+    },
+    "ResourceRef": {
+      "additionalProperties": false,
+      "description": "An Electron-authorized resource reference, never a filesystem path.",
+      "properties": {
+        "resource_id": {
+          "pattern": "^resource:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "resource_kind": {
+          "enum": [
+            "authorized_file",
+            "authorized_directory",
+            "temporary_output"
+          ],
+          "title": "Resource Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resource_id",
+        "resource_kind"
+      ],
+      "title": "ResourceRef",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/execution-grant-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "expected_project_revision": {
+      "minimum": 0,
+      "title": "Expected Project Revision",
+      "type": "integer"
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expires At"
+    },
+    "grant_id": {
+      "pattern": "^grant:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Grant Id",
+      "type": "string"
+    },
+    "intent": {
+      "$ref": "#/$defs/IntentRef"
+    },
+    "issued_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Issued At",
+      "type": "string"
+    },
+    "permission_phase": {
+      "enum": [
+        "p2_confirmed",
+        "p3_expanded"
+      ],
+      "title": "Permission Phase",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "execution-grant.v2",
+      "default": "execution-grant.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scopes": {
+      "items": {
+        "$ref": "#/$defs/ExecutionScope"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Scopes",
+      "type": "array"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "grant_id",
+    "task_id",
+    "task_version",
+    "intent",
+    "expected_project_revision",
+    "permission_phase",
+    "scopes",
+    "issued_at",
+    "content_hash"
+  ],
+  "title": "ExecutionGrant",
+  "type": "object"
+}

@@ -1,0 +1,3078 @@
+{
+  "$defs": {
+    "AgentBlocked": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "blocker_code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Blocker Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "blocked",
+          "default": "blocked",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "resume_condition": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Resume Condition",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "activation_id",
+        "task_id",
+        "task_version",
+        "blocker_code",
+        "message",
+        "resume_condition",
+        "retryable"
+      ],
+      "title": "AgentBlocked",
+      "type": "object"
+    },
+    "AgentBudgetExhausted": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "exhausted_budget": {
+          "enum": [
+            "model_calls",
+            "model_turns",
+            "input_tokens",
+            "output_tokens",
+            "tool_calls",
+            "disclosed_scalars",
+            "origin_sessions",
+            "repair_attempts",
+            "wall_time",
+            "estimated_cost"
+          ],
+          "title": "Exhausted Budget",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "budget_exhausted",
+          "default": "budget_exhausted",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "activation_id",
+        "task_id",
+        "task_version",
+        "exhausted_budget",
+        "message"
+      ],
+      "title": "AgentBudgetExhausted",
+      "type": "object"
+    },
+    "AgentCancelled": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "cancelled",
+          "default": "cancelled",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "activation_id",
+        "task_id",
+        "task_version",
+        "message"
+      ],
+      "title": "AgentCancelled",
+      "type": "object"
+    },
+    "AgentIntentReady": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/$defs/TaskIntent"
+        },
+        "outcome": {
+          "const": "intent_ready",
+          "default": "intent_ready",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "activation_id",
+        "task_id",
+        "task_version",
+        "intent"
+      ],
+      "title": "AgentIntentReady",
+      "type": "object"
+    },
+    "AgentNeedsInput": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "needs_input",
+          "default": "needs_input",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "questions": {
+          "items": {
+            "$ref": "#/$defs/InputQuestion"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Questions",
+          "type": "array"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "activation_id",
+        "task_id",
+        "task_version",
+        "questions"
+      ],
+      "title": "AgentNeedsInput",
+      "type": "object"
+    },
+    "AgentRuntimeFailed": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "error": {
+          "$ref": "#/$defs/TaskError"
+        },
+        "outcome": {
+          "const": "runtime_failed",
+          "default": "runtime_failed",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "activation_id",
+        "task_id",
+        "task_version",
+        "error"
+      ],
+      "title": "AgentRuntimeFailed",
+      "type": "object"
+    },
+    "AgentTechnicalRepairReady": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "technical_repair_ready",
+          "default": "technical_repair_ready",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "proposal": {
+          "$ref": "#/$defs/RepairProposal"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "activation_id",
+        "task_id",
+        "task_version",
+        "proposal"
+      ],
+      "title": "AgentTechnicalRepairReady",
+      "type": "object"
+    },
+    "AgentUnsupported": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "alternatives": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Alternatives",
+          "type": "array"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "unsupported",
+          "default": "unsupported",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "reason_code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "activation_id",
+        "task_id",
+        "task_version",
+        "reason_code",
+        "message"
+      ],
+      "title": "AgentUnsupported",
+      "type": "object"
+    },
+    "ConcatenateSources": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "concatenate_sources",
+          "default": "concatenate_sources",
+          "title": "Operation",
+          "type": "string"
+        },
+        "source_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Source Aliases",
+          "type": "array"
+        },
+        "source_label_field": {
+          "default": "source_group",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Label Field",
+          "type": "string"
+        },
+        "source_labels": {
+          "default": [],
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Source Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_aliases"
+      ],
+      "title": "ConcatenateSources",
+      "type": "object"
+    },
+    "ConvertUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "convert_unit",
+          "default": "convert_unit",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "target_unit": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Target Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_alias",
+        "target_unit",
+        "output_field_alias",
+        "output_name"
+      ],
+      "title": "ConvertUnit",
+      "type": "object"
+    },
+    "DeriveColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "input_field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Input Field Aliases",
+          "type": "array"
+        },
+        "operation": {
+          "const": "derive_column",
+          "default": "derive_column",
+          "title": "Operation",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "absolute",
+            "negate",
+            "log10",
+            "ln",
+            "sqrt"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "scalar": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scalar"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "input_field_aliases",
+        "operator",
+        "output_field_alias",
+        "output_name"
+      ],
+      "title": "DeriveColumn",
+      "type": "object"
+    },
+    "DraftAddAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Annotation Alias",
+          "type": "string"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "coordinate_system": {
+          "default": "data",
+          "enum": [
+            "data",
+            "axes",
+            "page"
+          ],
+          "title": "Coordinate System",
+          "type": "string"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size Pt"
+        },
+        "font_weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Weight"
+        },
+        "italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Italic"
+        },
+        "operation": {
+          "const": "add_annotation",
+          "default": "add_annotation",
+          "title": "Operation",
+          "type": "string"
+        },
+        "rotation_deg": {
+          "anyOf": [
+            {
+              "maximum": 180,
+              "minimum": -180,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rotation Deg"
+        },
+        "target_alias": {
+          "default": "plot",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "annotation_alias",
+        "text",
+        "x",
+        "y"
+      ],
+      "title": "DraftAddAnnotation",
+      "type": "object"
+    },
+    "DraftFieldBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "source_alias",
+        "field_alias"
+      ],
+      "title": "DraftFieldBinding",
+      "type": "object"
+    },
+    "DraftSetAxis": {
+      "additionalProperties": false,
+      "properties": {
+        "axis_line_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Line Color"
+        },
+        "axis_line_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Line Width Pt"
+        },
+        "grid_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grid Color"
+        },
+        "grid_line_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dash",
+                "dot",
+                "dash_dot",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grid Line Style"
+        },
+        "grid_line_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grid Line Width Pt"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "major_grid_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Major Grid Visible"
+        },
+        "major_tick_step": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Major Tick Step"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "minor_grid_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minor Grid Visible"
+        },
+        "minor_tick_count": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minor Tick Count"
+        },
+        "operation": {
+          "const": "set_axis",
+          "default": "set_axis",
+          "title": "Operation",
+          "type": "string"
+        },
+        "reverse": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reverse"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "log10",
+                "datetime",
+                "categorical"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "tick_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Color"
+        },
+        "tick_font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Font Family"
+        },
+        "tick_font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Font Size Pt"
+        },
+        "tick_format": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "decimal",
+                "scientific",
+                "percent",
+                "date",
+                "time"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Format"
+        },
+        "tick_rotation_deg": {
+          "anyOf": [
+            {
+              "maximum": 180,
+              "minimum": -180,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Rotation Deg"
+        },
+        "title_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Color"
+        },
+        "title_font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Font Family"
+        },
+        "title_font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Font Size Pt"
+        },
+        "title_font_weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Font Weight"
+        },
+        "title_italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Italic"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "DraftSetAxis",
+      "type": "object"
+    },
+    "DraftSetChartParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "set_chart_parameter",
+          "default": "set_chart_parameter",
+          "title": "Operation",
+          "type": "string"
+        },
+        "parameter": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Parameter",
+          "type": "string"
+        },
+        "target_alias": {
+          "default": "plot",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "parameter",
+        "value"
+      ],
+      "title": "DraftSetChartParameter",
+      "type": "object"
+    },
+    "DraftSetColorMap": {
+      "additionalProperties": false,
+      "properties": {
+        "colorbar_anchor": {
+          "anyOf": [
+            {
+              "enum": [
+                "right",
+                "bottom"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Colorbar Anchor"
+        },
+        "colorbar_tick_format": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "decimal",
+                "scientific",
+                "percent"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Colorbar Tick Format"
+        },
+        "colorbar_title": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Colorbar Title"
+        },
+        "colorbar_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Colorbar Visible"
+        },
+        "levels": {
+          "anyOf": [
+            {
+              "maximum": 256,
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Levels"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "midpoint": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Midpoint"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "missing_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missing Color"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "continuous",
+                "discrete"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mode"
+        },
+        "operation": {
+          "const": "set_colormap",
+          "default": "set_colormap",
+          "title": "Operation",
+          "type": "string"
+        },
+        "palette": {
+          "anyOf": [
+            {
+              "enum": [
+                "viridis",
+                "plasma",
+                "inferno",
+                "magma",
+                "cividis",
+                "turbo",
+                "blue_orange",
+                "red_white_blue",
+                "blue_white_red",
+                "gray_scale",
+                "fire",
+                "rainbow_modified",
+                "cool_warm",
+                "spectral",
+                "terrain",
+                "ocean"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Palette"
+        },
+        "reverse": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reverse"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "DraftSetColorMap",
+      "type": "object"
+    },
+    "DraftSetDataLabels": {
+      "additionalProperties": false,
+      "properties": {
+        "font_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Color"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size Pt"
+        },
+        "font_weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Weight"
+        },
+        "operation": {
+          "const": "set_data_labels",
+          "default": "set_data_labels",
+          "title": "Operation",
+          "type": "string"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "above",
+                "below",
+                "left",
+                "right",
+                "center"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position"
+        },
+        "prefix": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prefix"
+        },
+        "rotation_deg": {
+          "anyOf": [
+            {
+              "maximum": 180,
+              "minimum": -180,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rotation Deg"
+        },
+        "suffix": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suffix"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "value_format": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "decimal",
+                "scientific",
+                "percent"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value Format"
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "DraftSetDataLabels",
+      "type": "object"
+    },
+    "DraftSetErrorStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "band_fill_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Band Fill Color"
+        },
+        "band_fill_opacity": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Band Fill Opacity"
+        },
+        "band_stroke_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Band Stroke Color"
+        },
+        "band_stroke_width_pt": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Band Stroke Width Pt"
+        },
+        "bar_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bar Color"
+        },
+        "bar_opacity": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bar Opacity"
+        },
+        "bar_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bar Width Pt"
+        },
+        "cap_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cap Size Pt"
+        },
+        "operation": {
+          "const": "set_error_style",
+          "default": "set_error_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "DraftSetErrorStyle",
+      "type": "object"
+    },
+    "DraftSetLegend": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "anyOf": [
+            {
+              "enum": [
+                "inside",
+                "inside_top_left",
+                "inside_top_right",
+                "inside_bottom_left",
+                "inside_bottom_right",
+                "right",
+                "bottom",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anchor"
+        },
+        "columns": {
+          "anyOf": [
+            {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Columns"
+        },
+        "font_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Color"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size Pt"
+        },
+        "frame_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Color"
+        },
+        "frame_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Visible"
+        },
+        "frame_width_pt": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Width Pt"
+        },
+        "operation": {
+          "const": "set_legend",
+          "default": "set_legend",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "default": "legend",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible"
+        }
+      },
+      "title": "DraftSetLegend",
+      "type": "object"
+    },
+    "DraftSetSeriesStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "fill_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fill Color"
+        },
+        "fill_opacity": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fill Opacity"
+        },
+        "fill_stroke_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fill Stroke Color"
+        },
+        "fill_stroke_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dash",
+                "dot",
+                "dash_dot",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fill Stroke Style"
+        },
+        "fill_stroke_width_pt": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fill Stroke Width Pt"
+        },
+        "line_opacity": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Opacity"
+        },
+        "line_stroke_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Stroke Color"
+        },
+        "line_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dash",
+                "dot",
+                "dash_dot",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Style"
+        },
+        "line_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Width Pt"
+        },
+        "marker_fill_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Fill Color"
+        },
+        "marker_interior": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "open",
+                "hollow"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Interior"
+        },
+        "marker_opacity": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Opacity"
+        },
+        "marker_shape": {
+          "anyOf": [
+            {
+              "enum": [
+                "circle",
+                "square",
+                "triangle_up",
+                "triangle_down",
+                "triangle_left",
+                "triangle_right",
+                "diamond",
+                "plus",
+                "cross",
+                "hexagon",
+                "star",
+                "pentagon",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Shape"
+        },
+        "marker_size_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 72,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Size Pt"
+        },
+        "marker_stroke_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Stroke Color"
+        },
+        "marker_stroke_width_pt": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Stroke Width Pt"
+        },
+        "operation": {
+          "const": "set_series_style",
+          "default": "set_series_style",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias"
+      ],
+      "title": "DraftSetSeriesStyle",
+      "type": "object"
+    },
+    "DraftSetTitle": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size Pt"
+        },
+        "font_weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Weight"
+        },
+        "italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Italic"
+        },
+        "operation": {
+          "const": "set_title",
+          "default": "set_title",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "default": "plot",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        }
+      },
+      "title": "DraftSetTitle",
+      "type": "object"
+    },
+    "FilterPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "equal",
+            "not_equal",
+            "less_than",
+            "less_or_equal",
+            "greater_than",
+            "greater_or_equal",
+            "is_missing",
+            "is_not_missing",
+            "in_values"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "format": "date",
+                    "type": "string"
+                  },
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field_alias",
+        "operator"
+      ],
+      "title": "FilterPredicate",
+      "type": "object"
+    },
+    "FilterRows": {
+      "additionalProperties": false,
+      "properties": {
+        "combine": {
+          "default": "all",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "title": "Combine",
+          "type": "string"
+        },
+        "operation": {
+          "const": "filter_rows",
+          "default": "filter_rows",
+          "title": "Operation",
+          "type": "string"
+        },
+        "predicates": {
+          "items": {
+            "$ref": "#/$defs/FilterPredicate"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Predicates",
+          "type": "array"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "predicates"
+      ],
+      "title": "FilterRows",
+      "type": "object"
+    },
+    "InputQuestion": {
+      "additionalProperties": false,
+      "properties": {
+        "answer_kind": {
+          "enum": [
+            "text",
+            "single_choice",
+            "multi_choice",
+            "field",
+            "profile"
+          ],
+          "title": "Answer Kind",
+          "type": "string"
+        },
+        "choices": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 24,
+          "title": "Choices",
+          "type": "array"
+        },
+        "prompt": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "question_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Question Key",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "question_key",
+        "prompt",
+        "answer_kind"
+      ],
+      "title": "InputQuestion",
+      "type": "object"
+    },
+    "RenameField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "rename_field",
+          "default": "rename_field",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_alias",
+        "output_field_alias",
+        "output_name"
+      ],
+      "title": "RenameField",
+      "type": "object"
+    },
+    "RepairProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "affected_item_ids": {
+          "items": {
+            "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Affected Item Ids",
+          "type": "array"
+        },
+        "failed_report_ids": {
+          "items": {
+            "pattern": "^verification:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Failed Report Ids",
+          "type": "array"
+        },
+        "preserves_confirmed_semantics": {
+          "const": true,
+          "default": true,
+          "title": "Preserves Confirmed Semantics",
+          "type": "boolean"
+        },
+        "proposal_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Proposal Hash",
+          "type": "string"
+        },
+        "repair_operations": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Repair Operations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "failed_report_ids",
+        "affected_item_ids",
+        "repair_operations",
+        "proposal_hash"
+      ],
+      "title": "RepairProposal",
+      "type": "object"
+    },
+    "ReshapeLongToWide": {
+      "additionalProperties": false,
+      "properties": {
+        "index_field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Index Field Aliases",
+          "type": "array"
+        },
+        "name_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Name Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "reshape_long_to_wide",
+          "default": "reshape_long_to_wide",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_fields": {
+          "items": {
+            "$ref": "#/$defs/WorkflowOutputField"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Output Fields",
+          "type": "array"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "value_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Value Field Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "index_field_aliases",
+        "name_field_alias",
+        "value_field_alias",
+        "output_fields"
+      ],
+      "title": "ReshapeLongToWide",
+      "type": "object"
+    },
+    "ReshapeWideToLong": {
+      "additionalProperties": false,
+      "properties": {
+        "id_field_aliases": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Id Field Aliases",
+          "type": "array"
+        },
+        "operation": {
+          "const": "reshape_wide_to_long",
+          "default": "reshape_wide_to_long",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_name": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Name",
+          "type": "string"
+        },
+        "output_value": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Value",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "value_field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 2,
+          "title": "Value Field Aliases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_alias",
+        "value_field_aliases",
+        "output_name",
+        "output_value"
+      ],
+      "title": "ReshapeWideToLong",
+      "type": "object"
+    },
+    "SelectFields": {
+      "additionalProperties": false,
+      "properties": {
+        "field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Field Aliases",
+          "type": "array"
+        },
+        "operation": {
+          "const": "select_fields",
+          "default": "select_fields",
+          "title": "Operation",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_aliases"
+      ],
+      "title": "SelectFields",
+      "type": "object"
+    },
+    "SemanticDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "profile",
+            "field_binding",
+            "unit",
+            "ordering",
+            "filter",
+            "aggregation",
+            "calculation",
+            "visual",
+            "output"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision_id",
+        "kind",
+        "summary"
+      ],
+      "title": "SemanticDecision",
+      "type": "object"
+    },
+    "SortKey": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "default": "ascending",
+          "enum": [
+            "ascending",
+            "descending"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "missing": {
+          "default": "last",
+          "enum": [
+            "first",
+            "last"
+          ],
+          "title": "Missing",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_alias"
+      ],
+      "title": "SortKey",
+      "type": "object"
+    },
+    "SortRows": {
+      "additionalProperties": false,
+      "properties": {
+        "keys": {
+          "items": {
+            "$ref": "#/$defs/SortKey"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Keys",
+          "type": "array"
+        },
+        "operation": {
+          "const": "sort_rows",
+          "default": "sort_rows",
+          "title": "Operation",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "keys"
+      ],
+      "title": "SortRows",
+      "type": "object"
+    },
+    "TaskDraftItem": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DraftFieldBinding"
+          },
+          "maxItems": 128,
+          "title": "Bindings",
+          "type": "array"
+        },
+        "data_operations": {
+          "default": [],
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "concatenate_sources": "#/$defs/ConcatenateSources",
+                "convert_unit": "#/$defs/ConvertUnit",
+                "derive_column": "#/$defs/DeriveColumn",
+                "filter_rows": "#/$defs/FilterRows",
+                "rename_field": "#/$defs/RenameField",
+                "reshape_long_to_wide": "#/$defs/ReshapeLongToWide",
+                "reshape_wide_to_long": "#/$defs/ReshapeWideToLong",
+                "select_fields": "#/$defs/SelectFields",
+                "sort_rows": "#/$defs/SortRows"
+              },
+              "propertyName": "operation"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SelectFields"
+              },
+              {
+                "$ref": "#/$defs/FilterRows"
+              },
+              {
+                "$ref": "#/$defs/SortRows"
+              },
+              {
+                "$ref": "#/$defs/ReshapeLongToWide"
+              },
+              {
+                "$ref": "#/$defs/ReshapeWideToLong"
+              },
+              {
+                "$ref": "#/$defs/ConcatenateSources"
+              },
+              {
+                "$ref": "#/$defs/RenameField"
+              },
+              {
+                "$ref": "#/$defs/DeriveColumn"
+              },
+              {
+                "$ref": "#/$defs/ConvertUnit"
+              }
+            ]
+          },
+          "maxItems": 16,
+          "title": "Data Operations",
+          "type": "array"
+        },
+        "item_id": {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "plot_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Plot Alias",
+          "type": "string"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "source_aliases": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Source Aliases",
+          "type": "array"
+        },
+        "target_plot_alias": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Plot Alias"
+        },
+        "task_kind": {
+          "enum": [
+            "create",
+            "edit",
+            "update_data"
+          ],
+          "title": "Task Kind",
+          "type": "string"
+        },
+        "visual_actions": {
+          "default": [],
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "add_annotation": "#/$defs/DraftAddAnnotation",
+                "set_axis": "#/$defs/DraftSetAxis",
+                "set_chart_parameter": "#/$defs/DraftSetChartParameter",
+                "set_colormap": "#/$defs/DraftSetColorMap",
+                "set_data_labels": "#/$defs/DraftSetDataLabels",
+                "set_error_style": "#/$defs/DraftSetErrorStyle",
+                "set_legend": "#/$defs/DraftSetLegend",
+                "set_series_style": "#/$defs/DraftSetSeriesStyle",
+                "set_title": "#/$defs/DraftSetTitle"
+              },
+              "propertyName": "operation"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DraftSetTitle"
+              },
+              {
+                "$ref": "#/$defs/DraftSetAxis"
+              },
+              {
+                "$ref": "#/$defs/DraftSetSeriesStyle"
+              },
+              {
+                "$ref": "#/$defs/DraftSetLegend"
+              },
+              {
+                "$ref": "#/$defs/DraftSetColorMap"
+              },
+              {
+                "$ref": "#/$defs/DraftSetErrorStyle"
+              },
+              {
+                "$ref": "#/$defs/DraftSetDataLabels"
+              },
+              {
+                "$ref": "#/$defs/DraftSetChartParameter"
+              },
+              {
+                "$ref": "#/$defs/DraftAddAnnotation"
+              }
+            ]
+          },
+          "maxItems": 64,
+          "title": "Visual Actions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_kind",
+        "item_id",
+        "plot_alias",
+        "profile_id"
+      ],
+      "title": "TaskDraftItem",
+      "type": "object"
+    },
+    "TaskError": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "transient_external",
+            "deterministic_technical",
+            "semantic_conflict",
+            "stale_or_concurrent",
+            "unsupported",
+            "safety_or_permission",
+            "budget",
+            "runtime"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "diagnostic_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diagnostic Id"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "requires_user": {
+          "title": "Requires User",
+          "type": "boolean"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "side_effect_state": {
+          "enum": [
+            "known_none",
+            "known_applied",
+            "unknown"
+          ],
+          "title": "Side Effect State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable",
+        "requires_user",
+        "side_effect_state"
+      ],
+      "title": "TaskError",
+      "type": "object"
+    },
+    "TaskIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "context_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Context Hash",
+          "type": "string"
+        },
+        "created_by_activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Created By Activation Id",
+          "type": "string"
+        },
+        "intent_id": {
+          "pattern": "^intent:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Intent Id",
+          "type": "string"
+        },
+        "intent_version": {
+          "minimum": 1,
+          "title": "Intent Version",
+          "type": "integer"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/TaskDraftItem"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Items",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "task-intent.v2",
+          "default": "task-intent.v2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "semantic_decisions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SemanticDecision"
+          },
+          "maxItems": 256,
+          "title": "Semantic Decisions",
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "intent_id",
+        "intent_version",
+        "task_id",
+        "task_version",
+        "created_by_activation_id",
+        "summary",
+        "items",
+        "context_hash",
+        "content_hash"
+      ],
+      "title": "TaskIntent",
+      "type": "object"
+    },
+    "WorkflowOutputField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_alias",
+        "name"
+      ],
+      "title": "WorkflowOutputField",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/agent-yield-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "discriminator": {
+    "mapping": {
+      "blocked": "#/$defs/AgentBlocked",
+      "budget_exhausted": "#/$defs/AgentBudgetExhausted",
+      "cancelled": "#/$defs/AgentCancelled",
+      "intent_ready": "#/$defs/AgentIntentReady",
+      "needs_input": "#/$defs/AgentNeedsInput",
+      "runtime_failed": "#/$defs/AgentRuntimeFailed",
+      "technical_repair_ready": "#/$defs/AgentTechnicalRepairReady",
+      "unsupported": "#/$defs/AgentUnsupported"
+    },
+    "propertyName": "outcome"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/AgentIntentReady"
+    },
+    {
+      "$ref": "#/$defs/AgentNeedsInput"
+    },
+    {
+      "$ref": "#/$defs/AgentTechnicalRepairReady"
+    },
+    {
+      "$ref": "#/$defs/AgentUnsupported"
+    },
+    {
+      "$ref": "#/$defs/AgentBlocked"
+    },
+    {
+      "$ref": "#/$defs/AgentBudgetExhausted"
+    },
+    {
+      "$ref": "#/$defs/AgentCancelled"
+    },
+    {
+      "$ref": "#/$defs/AgentRuntimeFailed"
+    }
+  ],
+  "title": "AgentYieldContract"
+}
