@@ -262,6 +262,40 @@ function terminalArguments(candidate: AgentYieldContract): Record<string, JsonVa
 }
 
 describe('PiRuntimeAdapterV2', () => {
+  it('uses bounded non-thinking Function Calling for Alibaba Model Studio', async () => {
+    const input = activation({ allowed_tools: [] })
+    const candidate = needsInput(input)
+    const base = environment(input)
+    const models: Array<{ maxTokens: number; samplingParams?: Record<string, unknown> }> = []
+    const runtime = new PiRuntimeAdapterV2({
+      host: hostFor(input, {
+        prepare: async () => ({
+          ...base,
+          provider: {
+            ...base.provider,
+            baseUrl: 'https://workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+          },
+        }),
+      }),
+      emit: () => undefined,
+      streamFn: ((model) => {
+        models.push(model)
+        return toolCallStream(
+          'provider-call-yield',
+          'submit_agent_yield',
+          terminalArguments(candidate),
+        )
+      }) as StreamFn,
+    })
+
+    await expect(runtime.run(input)).resolves.toEqual(candidate)
+    expect(models).toHaveLength(1)
+    expect(models[0]).toMatchObject({
+      maxTokens: 2_048,
+      samplingParams: { enable_thinking: false },
+    })
+  })
+
   it('accepts only a Core-validated typed terminal yield', async () => {
     const input = activation({ allowed_tools: [] })
     const candidate = needsInput(input)

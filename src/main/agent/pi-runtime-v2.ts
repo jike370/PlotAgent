@@ -118,6 +118,19 @@ interface RuntimeCounters {
 }
 
 function modelFor(provider: PiRuntimeProviderV2): Model<'openai-completions'> {
+  let samplingParams: Record<string, unknown> | undefined
+  try {
+    const host = new URL(provider.baseUrl).hostname.toLocaleLowerCase('en-US')
+    if (host === 'dashscope.aliyuncs.com' || host.endsWith('.maas.aliyuncs.com')) {
+      // Alibaba Model Studio hybrid models enable thinking by default. Planning is a
+      // constrained tool-selection task; disabling thinking avoids long hidden-reasoning
+      // stalls and is the documented mode for low-latency Function Calling.
+      samplingParams = { enable_thinking: false }
+    }
+  } catch {
+    // The Core validates provider URLs before this trusted runtime sees them. Keep this
+    // helper fail-neutral so a custom test adapter still receives the original endpoint.
+  }
   return {
     id: provider.modelId,
     name: provider.modelId,
@@ -128,7 +141,8 @@ function modelFor(provider: PiRuntimeProviderV2): Model<'openai-completions'> {
     input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 128_000,
-    maxTokens: 8_192,
+    maxTokens: 2_048,
+    ...(samplingParams === undefined ? {} : { samplingParams }),
   }
 }
 
