@@ -29,7 +29,7 @@ PlotDocument + EngineDataView
 
 - 安全导入、不可变 SourceDataset、字段与来源坐标；
 - 项目工作区、CAS、SQLite 单写者、项目包与重启恢复；
-- DataPreparationRecipe、WorkflowRun、WorkflowContext、TaskDraft 与 TaskPlan；
+- WorkflowRun、WorkflowContext、TaskDraft、TaskPlan 与 WorkflowRecipe；
 - Pi Provider、只读数据检查预算、部分失败、恢复执行、幂等与任务事件；
 - Electron Main/Preload/Renderer 安全边界和资源授权；
 - 受控数据准备与确定性固定计算。
@@ -51,7 +51,7 @@ PlotDocument + EngineDataView
 
 `EngineDataView` 是 renderer 唯一可见的数据输入。`PlotDocument` 只保存图 ID、线性版本、Profile、不可变数据引用、字段绑定、组件引用与已应用动作 ID。每次非导出动作创建一个新版本，并与原动作原子写入动作日志。
 
-项目 schema 保存 SourceDataset/CAS、DataPreparationRecipe/整理运行与 WorkflowRun/TaskDraft/TaskPlan 权威表，并持久化完整来源和任务失败语义。DataPreparationRecipe 与绘图 Workflow 分开：前者只产生规则数据表，后者从规则数据表开始规划绘图。旧 schema 原文件保持不变并明确拒绝打开，不存在迁移、双写或 fallback。
+项目 schema v5 只创建 SourceDataset/CAS 与 WorkflowRun/TaskDraft/TaskPlan/WorkflowRecipe 权威表，并持久化完整任务失败语义。非 v5 项目原文件保持不变并明确拒绝打开，不存在迁移、双写或 fallback。
 
 ## 5. 后端
 

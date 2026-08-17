@@ -16,18 +16,12 @@ export const IPC_CHANNELS = {
   taskPlanList: 'plotagent:workflow:plan-list',
   taskPlanResume: 'plotagent:workflow:plan-resume',
   taskPlanRun: 'plotagent:workflow:plan-run',
-  dataPreparationRecipeSave: 'plotagent:data-preparation:recipe-save',
-  dataPreparationRecipeList: 'plotagent:data-preparation:recipe-list',
-  dataPreparationRunGet: 'plotagent:data-preparation:run-get',
-  dataPreparationRunConfirm: 'plotagent:data-preparation:run-confirm',
-  dataPreparationRetry: 'plotagent:data-preparation:retry',
-  dataPreparationReprocess: 'plotagent:data-preparation:reprocess',
-  dataPreparationAssist: 'plotagent:data-preparation:assist',
+  workflowRecipeSave: 'plotagent:workflow:recipe-save',
+  workflowRecipeList: 'plotagent:workflow:recipe-list',
   cancelTask: 'plotagent:tasks:cancel',
   closeResponse: 'plotagent:lifecycle:close-response',
   coreStatusChanged: 'plotagent:core:status-changed',
   datasetDescribe: 'plotagent:datasets:describe',
-  engineCompatibilityCheck: 'plotagent:engine:compatibility-check',
   datasetImport: 'plotagent:datasets:import',
   datasetList: 'plotagent:datasets:list',
   exportOrigin: 'plotagent:exports:origin',
@@ -215,10 +209,6 @@ export interface DatasetDescribeInput extends ProjectIdInput {
   readonly sourceVersion: number
 }
 
-export interface EngineCompatibilityInput extends DatasetDescribeInput {
-  readonly profileIds?: readonly string[]
-}
-
 export interface FieldMappingInput {
   readonly roles: Readonly<Record<string, string>>
 }
@@ -241,6 +231,7 @@ export interface WorkflowRunInput extends ProjectIdInput {
   readonly expectedProjectVersion: number
   readonly selectedProfileIds?: readonly string[]
   readonly selectedPlotIds?: readonly string[]
+  readonly selectedRecipeId?: string
   readonly continuationWorkflowRunId?: string
   readonly instruction: string
 }
@@ -277,22 +268,9 @@ export interface TaskPlanConfirmInput extends TaskPlanInput {
   readonly accept: boolean
 }
 
-export interface DataPreparationRecipeSaveInput extends ProjectIdInput {
-  readonly runId: string
+export interface WorkflowRecipeSaveInput extends TaskPlanInput {
   readonly displayName: string
-  readonly scope?: 'personal' | 'project'
-}
-
-export interface DataPreparationRunInput extends ProjectIdInput {
-  readonly runId: string
-}
-
-export interface DataPreparationRunConfirmInput extends DataPreparationRunInput {
-  readonly accept: boolean
-}
-
-export interface DataPreparationRetryInput extends DataPreparationRunInput {
-  readonly optionValue: string
+  readonly exportHash: string
 }
 
 export interface PngSvgExportInput extends ProjectIdInput {
@@ -350,7 +328,6 @@ export interface PlotAgentDesktopApi {
   importDatasets(input: ProjectIdInput): Promise<DesktopDataResult>
   listDatasets(input: ProjectIdInput): Promise<DesktopDataResult>
   describeDataset(input: DatasetDescribeInput): Promise<DesktopDataResult>
-  checkEngineCompatibility(input: EngineCompatibilityInput): Promise<DesktopDataResult>
   executePlotAction(input: EngineActionInput): Promise<DesktopDataResult>
   getPlot(input: PlotIdInput): Promise<DesktopDataResult>
   listPlots(input: ProjectIdInput): Promise<DesktopDataResult>
@@ -361,13 +338,8 @@ export interface PlotAgentDesktopApi {
   confirmTaskPlan(input: TaskPlanConfirmInput): Promise<DesktopDataResult>
   runTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
   resumeTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
-  saveDataPreparationRecipe(input: DataPreparationRecipeSaveInput): Promise<DesktopDataResult>
-  listDataPreparationRecipes(input: ProjectIdInput): Promise<DesktopDataResult>
-  getDataPreparationRun(input: DataPreparationRunInput): Promise<DesktopDataResult>
-  confirmDataPreparationRun(input: DataPreparationRunConfirmInput): Promise<DesktopDataResult>
-  retryDataPreparation(input: DataPreparationRetryInput): Promise<DesktopDataResult>
-  reprocessDataPreparation(input: DataPreparationRunInput): Promise<DesktopDataResult>
-  assistDataPreparation(input: DataPreparationRunInput): Promise<DesktopDataResult>
+  saveWorkflowRecipe(input: WorkflowRecipeSaveInput): Promise<DesktopDataResult>
+  listWorkflowRecipes(input: ProjectIdInput): Promise<DesktopDataResult>
   exportPngSvg(input: PngSvgExportInput): Promise<DesktopDataResult>
   exportOrigin(input: OriginExportInput): Promise<DesktopDataResult>
   respondToCloseRequest(response: CloseResponse): Promise<DesktopActionResult>
@@ -589,32 +561,6 @@ export function parseDatasetDescribeInput(value: unknown): DatasetDescribeInput 
     : { projectId: parsed.projectId as string, datasetId, sourceVersion }
 }
 
-export function parseEngineCompatibilityInput(value: unknown): EngineCompatibilityInput | null {
-  if (!isRecord(value) || !hasExactKeys(
-    value,
-    ['projectId', 'datasetId', 'sourceVersion'],
-    ['profileIds'],
-  )) return null
-  const described = parseDatasetDescribeInput({
-    projectId: value.projectId,
-    datasetId: value.datasetId,
-    sourceVersion: value.sourceVersion,
-  })
-  const profileIds = value.profileIds
-  if (
-    described === null
-    || (profileIds !== undefined && (
-      !Array.isArray(profileIds)
-      || profileIds.length > 64
-      || !profileIds.every(isIdentifier)
-    ))
-  ) return null
-  return {
-    ...described,
-    ...(profileIds === undefined ? {} : { profileIds: [...profileIds] as string[] }),
-  }
-}
-
 const ENGINE_OPERATIONS = new Set([
   'create_plot', 'bind_fields', 'set_title', 'set_axis', 'set_series_style',
   'set_legend', 'set_colormap', 'set_error_style', 'set_data_labels',
@@ -652,6 +598,7 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
     [
       'selectedProfileIds',
       'selectedPlotIds',
+      'selectedRecipeId',
       'continuationWorkflowRunId',
     ],
   )) return null
@@ -681,11 +628,14 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
       && value.selectedPlotIds.length <= 8
       && value.selectedPlotIds.every((item) => parseId(item) !== null)
       ? value.selectedPlotIds as string[] : null
+  const selectedRecipeId = value.selectedRecipeId === undefined
+    ? undefined : parseId(value.selectedRecipeId)
   const continuationWorkflowRunId = value.continuationWorkflowRunId === undefined
     ? undefined : parseId(value.continuationWorkflowRunId)
   if (
     selectedProfileIds === null
     || selectedPlotIds === null
+    || selectedRecipeId === null
     || continuationWorkflowRunId === null
   ) return null
   if (
@@ -700,6 +650,7 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
     expectedProjectVersion,
     ...(selectedProfileIds === undefined ? {} : { selectedProfileIds }),
     ...(selectedPlotIds === undefined ? {} : { selectedPlotIds }),
+    ...(selectedRecipeId === undefined ? {} : { selectedRecipeId }),
     ...(continuationWorkflowRunId === undefined ? {} : { continuationWorkflowRunId }),
     instruction,
   }
@@ -728,50 +679,20 @@ export function parseTaskPlanConfirmInput(value: unknown): TaskPlanConfirmInput 
     : { ...parsed, accept: value.accept }
 }
 
-export function parseDataPreparationRecipeSaveInput(
-  value: unknown,
-): DataPreparationRecipeSaveInput | null {
+export function parseWorkflowRecipeSaveInput(value: unknown): WorkflowRecipeSaveInput | null {
   if (!isRecord(value) || !hasExactKeys(
     value,
-    ['projectId', 'runId', 'displayName'],
-    ['scope'],
+    ['projectId', 'planId', 'displayName', 'exportHash'],
   )) return null
-  const projectId = parseId(value.projectId)
-  const runId = parseId(value.runId)
+  const parsed = parseTaskPlanInput({ projectId: value.projectId, planId: value.planId })
   const displayName = typeof value.displayName === 'string' ? value.displayName.trim() : ''
-  const scope = value.scope === undefined ? undefined : value.scope
-  return projectId === null
-    || runId === null
+  const exportHash = typeof value.exportHash === 'string' ? value.exportHash : ''
+  return parsed === null
     || !displayName
     || displayName.length > 128
-    || (scope !== undefined && scope !== 'personal' && scope !== 'project')
+    || !/^[0-9a-f]{64}$/i.test(exportHash)
     ? null
-    : { projectId, runId, displayName, ...(scope === undefined ? {} : { scope }) }
-}
-
-export function parseDataPreparationRunInput(value: unknown): DataPreparationRunInput | null {
-  if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'runId'])) return null
-  const projectId = parseId(value.projectId)
-  const runId = parseId(value.runId)
-  return projectId === null || runId === null ? null : { projectId, runId }
-}
-
-export function parseDataPreparationRunConfirmInput(
-  value: unknown,
-): DataPreparationRunConfirmInput | null {
-  if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'runId', 'accept'])) return null
-  const parsed = parseDataPreparationRunInput({ projectId: value.projectId, runId: value.runId })
-  return parsed === null || typeof value.accept !== 'boolean'
-    ? null
-    : { ...parsed, accept: value.accept }
-}
-
-export function parseDataPreparationRetryInput(value: unknown): DataPreparationRetryInput | null {
-  if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'runId', 'optionValue'])) return null
-  const parsed = parseDataPreparationRunInput({ projectId: value.projectId, runId: value.runId })
-  return parsed === null || typeof value.optionValue !== 'string' || value.optionValue.length > 256
-    ? null
-    : { ...parsed, optionValue: value.optionValue }
+    : { ...parsed, displayName, exportHash: exportHash.toLocaleLowerCase('en-US') }
 }
 
 export function parsePngSvgExportInput(value: unknown): PngSvgExportInput | null {

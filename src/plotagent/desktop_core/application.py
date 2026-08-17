@@ -21,8 +21,6 @@ from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.datasets import (
     SourceDataset,
 )
-from plotagent.data_preparation import inspect_raw_source
-from plotagent.data_preparation.recipes import build_data_preparation_recipe
 from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue as RpcJsonValue
 from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
@@ -40,7 +38,6 @@ from plotagent.engine import (
     PlotEngineAction,
 )
 from plotagent.engine.backends.origin import preflight_origin
-from plotagent.engine.compatibility import profile_compatibility
 from plotagent.importing.models import Clarification, Rejection
 from plotagent.preparation.artifacts import ResolvedSourceTable
 from plotagent.preparation.errors import PreparationProblem
@@ -61,7 +58,6 @@ from plotagent.storage import (
     SourceDatasetRecord,
     read_project_revision,
 )
-from plotagent.storage.data_preparation_repository import DataPreparationRepository
 from plotagent.storage.errors import StorageProblem
 from plotagent.workflows import WorkflowCompileError, WorkflowRepository
 from plotagent.workflows.data_ops import WorkflowDataError
@@ -150,7 +146,6 @@ class DesktopApplication:
             "datasets.list": self._datasets_list,
             "datasets.describe": self._datasets_describe,
             "engine.catalog.get": self._engine_catalog_get,
-            "engine.compatibility.check": self._engine_compatibility_check,
             "engine.actions.execute": self._engine_actions_execute,
             "engine.exports.execute": self._engine_exports_execute,
             "engine.plots.list": self._engine_plots_list,
@@ -167,11 +162,8 @@ class DesktopApplication:
             "workflow.plans.reject": self._workflow_plan_reject,
             "workflow.plans.run": self._workflow_plan_run,
             "workflow.plans.resume": self._workflow_plan_run,
-            "data_preparation.recipes.save": self._data_preparation_recipe_save,
-            "data_preparation.recipes.list": self._data_preparation_recipe_list,
-            "data_preparation.runs.get": self._data_preparation_run_get,
-            "data_preparation.runs.confirm": self._data_preparation_run_confirm,
-            "data_preparation.sources.inspect": self._data_preparation_source_inspect,
+            "workflow.recipes.save": self._workflow_recipe_save,
+            "workflow.recipes.list": self._workflow_recipe_list,
             "provider.status": self._provider_status,
             "provider.runtime.get": self._provider_runtime_get,
             "provider.configure": self._provider_configure,
@@ -186,65 +178,12 @@ class DesktopApplication:
         probe_target = self.root / ".origin-environment-probe.opju"
         return cast(RpcJsonValue, preflight_origin(probe_target).to_dict())
 
-    def _data_preparation_source_inspect(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(
-            params,
-            required={"project_id", "run_id", "source_path"},
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        run = DataPreparationRepository(session.store).get_run(
-            _text(values["run_id"], "run_id")
-        )
-        return cast(
-            RpcJsonValue,
-            inspect_raw_source(Path(_text(values["source_path"], "source_path")), run),
-        )
-
     def _engine_catalog_get(
         self, _context: RpcContext, params: RpcJsonValue | None
     ) -> RpcJsonValue:
         values = _object(params, required={"project_id"})
         session = self._session(_text(values["project_id"], "project_id"))
         return cast(RpcJsonValue, session.engine.catalog_payload())
-
-    def _engine_compatibility_check(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(
-            params,
-            required={"project_id", "source_dataset_id", "source_version"},
-            optional={"profile_ids"},
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        source = session.domain.source_record(
-            _text(values["source_dataset_id"], "source_dataset_id"),
-            _integer(values["source_version"], "source_version", minimum=1),
-        )
-        requested = values.get("profile_ids")
-        if requested is None:
-            profiles = session.engine.catalog.profiles()
-        else:
-            if not isinstance(requested, list) or not all(
-                isinstance(item, str) for item in requested
-            ):
-                raise RpcServiceError("INVALID_PARAMS", "profile_ids was invalid.")
-            profile_ids = cast(list[str], requested)
-            profiles = tuple(session.engine.catalog.get(item) for item in profile_ids)
-        return cast(
-            RpcJsonValue,
-            {
-                "project_id": session.project_id,
-                "project_version": session.domain.revision,
-                "source_dataset_id": source.source_dataset_id,
-                "source_version": source.source_version,
-                "compatibility": [
-                    profile_compatibility(profile, source).model_dump(mode="json")
-                    for profile in profiles
-                ],
-            },
-        )
 
     def _workflow_prepare(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(
@@ -259,6 +198,7 @@ class DesktopApplication:
                 "selected_profile_id",
                 "selected_profile_ids",
                 "selected_plot_ids",
+                "selected_recipe_id",
                 "continuation_workflow_run_id",
                 "locale",
             },
@@ -349,70 +289,33 @@ class DesktopApplication:
             session.workflow.run(_text(values["plan_id"], "plan_id")),
         )
 
-    def _data_preparation_recipe_save(
+    def _workflow_recipe_save(
         self, _context: RpcContext, params: RpcJsonValue | None
     ) -> RpcJsonValue:
         values = _object(
             params,
-            required={"project_id", "run_id", "display_name"},
-            optional={"scope"},
+            required={"project_id", "plan_id", "display_name", "export_hash"},
         )
         session = self._session(_text(values["project_id"], "project_id"))
-        repository = DataPreparationRepository(session.store)
-        run = repository.get_run(_text(values["run_id"], "run_id"))
-        if not run.executed_steps:
-            raise RpcServiceError(
-                "DATA_PREPARATION_TRACE_MISSING",
-                "本次整理没有可固化的机械步骤。",
-            )
-        recipe = build_data_preparation_recipe(
-            run=run,
-            display_name=_text(values["display_name"], "display_name"),
-            parse_step=run.executed_steps[0],
-            scope=_optional_text(values.get("scope"), "scope") or "personal",
+        return cast(
+            RpcJsonValue,
+            session.workflow.save_recipe(
+                plan_id=_text(values["plan_id"], "plan_id"),
+                display_name=_text(values["display_name"], "display_name"),
+                export_hash=_text(values["export_hash"], "export_hash"),
+            ),
         )
-        return cast(RpcJsonValue, repository.save_recipe(recipe).model_dump(mode="json"))
 
-    def _data_preparation_recipe_list(
+    def _workflow_recipe_list(
         self, _context: RpcContext, params: RpcJsonValue | None
     ) -> RpcJsonValue:
         values = _object(params, required={"project_id"})
         session = self._session(_text(values["project_id"], "project_id"))
         return {
-            "data_preparation_recipes": [
-                item.model_dump(mode="json")
-                for item in DataPreparationRepository(session.store).list_recipes()
+            "workflow_recipes": [
+                item.model_dump(mode="json") for item in session.workflow.repository.list_recipes()
             ]
         }
-
-    def _data_preparation_run_get(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "run_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        run = DataPreparationRepository(session.store).get_run(
-            _text(values["run_id"], "run_id")
-        )
-        return cast(RpcJsonValue, run.model_dump(mode="json"))
-
-    def _data_preparation_run_confirm(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "run_id", "accept"})
-        if not isinstance(values["accept"], bool):
-            raise RpcServiceError("INVALID_PARAMS", "accept was invalid.")
-        session = self._session(_text(values["project_id"], "project_id"))
-        run = DataPreparationRepository(session.store).confirm_run(
-            _text(values["run_id"], "run_id"),
-            accept=values["accept"],
-        )
-        return cast(
-            RpcJsonValue,
-            {
-                **run.model_dump(mode="json"),
-                "project_version": session.domain.revision,
-            },
-        )
 
     def _workflow_ask_user(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(
@@ -568,6 +471,15 @@ class DesktopApplication:
                     "Origin 原生项目生成失败，未写出文件。请重新检测 Origin 后再试一次。",
                 ) from error
             artifact = cast(dict[str, object], payload.pop("artifact"))
+            session.workflow.record_export(
+                _text(cast(RpcJsonValue, artifact["artifact_hash"]), "artifact_hash"),
+                _text(cast(RpcJsonValue, payload["plot_id"]), "plot_id"),
+                _integer(
+                    cast(RpcJsonValue, payload["plot_version"]),
+                    "plot_version",
+                    minimum=1,
+                ),
+            )
             context.tasks.transition(task_id, "committing")
             context.tasks.transition(task_id, "succeeded")
             return cast(
@@ -1004,20 +916,7 @@ class DesktopApplication:
         options = _object(
             values.get("options"),
             required=set(),
-            optional={
-                "encoding",
-                "delimiter",
-                "decimal_mark",
-                "header_row",
-                "sheet",
-                "data_preparation_recipe_id",
-                "data_preparation_recipe_version",
-                "agent_assisted",
-                "model_turn_count",
-                "tool_call_count",
-                "input_token_count",
-                "output_token_count",
-            },
+            optional={"encoding", "delimiter", "decimal_mark", "header_row", "sheet"},
         )
         request_hash = canonical_hash(
             cast(
@@ -1064,35 +963,6 @@ class DesktopApplication:
                 decimal_mark=_optional_text(options.get("decimal_mark"), "decimal_mark"),
                 header_row=_optional_integer(options.get("header_row"), "header_row", minimum=0),
                 sheet=_optional_text(options.get("sheet"), "sheet"),
-                selected_recipe_id=_optional_text(
-                    options.get("data_preparation_recipe_id"),
-                    "data_preparation_recipe_id",
-                ),
-                selected_recipe_version=_optional_integer(
-                    options.get("data_preparation_recipe_version"),
-                    "data_preparation_recipe_version",
-                    minimum=1,
-                ),
-                agent_assisted=_optional_boolean(
-                    options.get("agent_assisted"), "agent_assisted"
-                )
-                or False,
-                model_turn_count=_optional_integer(
-                    options.get("model_turn_count"), "model_turn_count", minimum=0
-                )
-                or 0,
-                tool_call_count=_optional_integer(
-                    options.get("tool_call_count"), "tool_call_count", minimum=0
-                )
-                or 0,
-                input_token_count=_optional_integer(
-                    options.get("input_token_count"), "input_token_count", minimum=0
-                )
-                or 0,
-                output_token_count=_optional_integer(
-                    options.get("output_token_count"), "output_token_count", minimum=0
-                )
-                or 0,
                 expected_revision=commit_revision,
                 idempotency_key=key,
                 request_hash=request_hash,
@@ -1124,7 +994,7 @@ class DesktopApplication:
                 RpcJsonValue,
                 self._import_response(
                     outcome,
-                    session.domain.revision,
+                    commit_revision + 1,
                     task_id,
                     requested_revision=expected,
                 ),
@@ -1143,8 +1013,7 @@ class DesktopApplication:
             "project_id": session.project_id,
             "project_version": session.domain.revision,
             "datasets": [
-                self._dataset_summary(record)
-                for record in session.store.list_current_source_datasets()
+                self._dataset_summary(record) for record in session.store.list_source_datasets()
             ],
         }
 
@@ -1208,7 +1077,7 @@ class DesktopApplication:
             "project_id": session.project_id,
             "resource_id": "resource:project." + session.project_id.removeprefix("project:"),
             "project_version": session.domain.revision,
-            "dataset_count": len(session.store.list_current_source_datasets()),
+            "dataset_count": len(session.store.list_source_datasets()),
             "plot_count": len(session.engine.documents.list_latest()),
             "status": "open",
             "replayed": replayed,
@@ -1225,7 +1094,6 @@ class DesktopApplication:
                 "sheet_name": record.sheet_name,
                 "source_block": record.source_block,
                 "instrument_metadata": cast(dict[str, RpcJsonValue], record.instrument_metadata),
-                "data_preparation_run_id": record.preparation_run_id,
             }
         else:
             source = record
@@ -1265,7 +1133,6 @@ class DesktopApplication:
             "kind": "committed",
             "task_id": task_id,
             "session_id": result.session_id,
-            "data_preparation_run_id": result.datasets[0].preparation_run_id,
             "project_version": revision,
             "rebased": requested_revision is not None and requested_revision != revision - 1,
             "datasets": [self._dataset_summary(record) for record in result.datasets],
@@ -1367,11 +1234,3 @@ def _integer(value: RpcJsonValue | None, name: str, *, minimum: int) -> int:
 
 def _optional_integer(value: RpcJsonValue | None, name: str, *, minimum: int) -> int | None:
     return None if value is None else _integer(value, name, minimum=minimum)
-
-
-def _optional_boolean(value: RpcJsonValue | None, name: str) -> bool | None:
-    if value is None:
-        return None
-    if not isinstance(value, bool):
-        raise RpcServiceError("INVALID_PARAMS", f"{name} was invalid.")
-    return value

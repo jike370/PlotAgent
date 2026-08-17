@@ -2400,6 +2400,7 @@
     "route": {
       "enum": [
         "agent",
+        "recipe_replay",
         "direct"
       ],
       "title": "Route",

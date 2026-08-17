@@ -2,15 +2,7 @@
   "files": [
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "20ff1160d42a463687fe437afe482c314cd36cf9dce9cd8f45d4adc4e6a6d002"
-    },
-    {
-      "path": "schemas/data-preparation-recipe.schema.json",
-      "sha256": "2b0e1be37e54ac04f3d4fb13740dddc7810211cd959100f59b05cd4498b84599"
-    },
-    {
-      "path": "schemas/data-preparation-run.schema.json",
-      "sha256": "4fdf94e636ef4e3c351d532fa6073f784d9577f01bbb2519de8a39f132cc7bd0"
+      "sha256": "703638bd76303a09cba83b86b27ec125ebd9c390d55e0434dade4431a3a6058e"
     },
     {
       "path": "schemas/engine-artifact.schema.json",
@@ -27,10 +19,6 @@
     {
       "path": "schemas/engine-profile-catalog.json",
       "sha256": "73909206d59454ab18bee1998502157d1985ba30d1033b82afb2f8847452ba5c"
-    },
-    {
-      "path": "schemas/engine-profile-compatibility.schema.json",
-      "sha256": "0fa09214bd6dba983b3c33d3dfda6af9e4f40a6d7becaf7eff0fc2679f7599af"
     },
     {
       "path": "schemas/engine-profile.schema.json",
@@ -85,12 +73,8 @@
       "sha256": "ebbd07ad7c52f239e4ad81dafa59703f636a89df902efcd41792fa27201c0a14"
     },
     {
-      "path": "schemas/source-structure-probe.schema.json",
-      "sha256": "da20dec99e0ba372c8125bfd61adc572cb16ad02d30795b8eb61766c9710119e"
-    },
-    {
       "path": "schemas/task-draft.schema.json",
-      "sha256": "e4bea7be7c0bb7476e6f3e0a49b717a7ee3e681cc662cc0c6604a759f3901f4d"
+      "sha256": "df39d7af78d64ee2e56b167945c5f8305c7a1465fe682589d49746f15f85bd85"
     },
     {
       "path": "schemas/task-plan-snapshot.schema.json",
@@ -106,15 +90,19 @@
     },
     {
       "path": "schemas/workflow-decision.schema.json",
-      "sha256": "35b1a9cf5e45eaaf04e33410078da0e4a0896a9e748381543ffbb1d9829893fd"
+      "sha256": "ab15424ec9e5aaf112700c6f117e72c05ca777e4aa53b0d60cf0894bcda4b60c"
+    },
+    {
+      "path": "schemas/workflow-recipe.schema.json",
+      "sha256": "a5143107edd40fd3914dcac19fb542fe69728330dfd7f48b1031a26e6582c2f1"
     },
     {
       "path": "schemas/workflow-run-snapshot.schema.json",
-      "sha256": "c233741f6df464d1a78922c4db6cf122f09a1168a31b2a9d8e204456e8fac5a1"
+      "sha256": "e77611fe9ef25a18c6181d6b97f72ad534a15b4c22751e27b3ee7310377a7a14"
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "35104bce3dd62d5a957740f61ffeaf1eba65a8d6dc68e6129fe40bbfd3b55c23"
+      "sha256": "8593a197c445bb4444f4d4387a89fa40a41e911291e9e69442cffdc359ea6c2f"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

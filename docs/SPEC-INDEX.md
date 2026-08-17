@@ -5,7 +5,7 @@
 1. [PRD](./PRD.md)：产品目标、用户流程和范围。
 2. [产品决策](./PRODUCT-DECISIONS.md)：不可回退的产品与工程决定。
 3. [Agent Native 绘图引擎](./AGENT-NATIVE-PLOTTING-ENGINE.md)：Pi、Core 与 renderer 边界。
-4. [程序—Agent 编排架构](./AGENT-ORCHESTRATION-ARCHITECTURE.md)：自然语言、DataPreparationRecipe、数据工具、TaskDraft 与确定性执行边界。
+4. [程序—Agent 编排架构](./AGENT-ORCHESTRATION-ARCHITECTURE.md)：自然语言、数据工具、TaskDraft、WorkflowRecipe 与确定性执行边界。
 5. [Origin 视觉能力全集与覆盖矩阵](./ORIGIN-VISUAL-CAPABILITY-MATRIX.md)：Origin 能力、Matplotlib 等价性、当前缺口与 T1/T2/T3 边界。
 6. [Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)：34 图逐图官方路线。
 7. [Origin Recipes](./ORIGIN-RECIPES.md)：运行时 recipe 合同。

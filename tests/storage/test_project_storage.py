@@ -91,7 +91,7 @@ def test_project_open_does_not_remove_a_live_foreign_writer_lock(
         lock_path.unlink()
 
 
-def test_fresh_project_creates_only_the_preparation_and_workflow_schema(
+def test_fresh_project_creates_only_the_workflow_schema(
     storage_root: Path,
 ) -> None:
     workspace = storage_root / "project"
@@ -117,8 +117,7 @@ def test_fresh_project_creates_only_the_preparation_and_workflow_schema(
         "workflow_task_plans",
         "workflow_task_items",
         "workflow_events",
-        "data_preparation_recipes",
-        "data_preparation_runs",
+        "workflow_recipes",
         "sqlite_sequence",
     }
 
@@ -207,10 +206,6 @@ def test_reimport_changed_content_creates_new_version_without_overwrite(
         assert first_source.content_hash != second_source.content_hash
         records = project.list_source_datasets(first.datasets[0].logical_source_id)
         assert [record.source_dataset.source_version for record in records] == [1, 2]
-        assert [
-            record.source_dataset.source_version
-            for record in project.list_current_source_datasets()
-        ] == [2]
         assert project.state_counts()["source_dataset_versions"] == 2
         assert project.verify_registered_objects()
 

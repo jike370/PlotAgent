@@ -6,7 +6,7 @@ import sqlite3
 
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 
-PROJECT_SCHEMA_VERSION = 6
+PROJECT_SCHEMA_VERSION = 5
 CATALOG_SCHEMA_VERSION = 2
 
 PROJECT_SCHEMA = """
@@ -43,52 +43,6 @@ CREATE TABLE import_sessions (
     created_at TEXT NOT NULL
 ) STRICT;
 
-CREATE TABLE data_preparation_recipes (
-    recipe_id TEXT NOT NULL,
-    recipe_version INTEGER NOT NULL CHECK (recipe_version > 0),
-    source_format TEXT NOT NULL,
-    specificity INTEGER NOT NULL CHECK (specificity BETWEEN 1 AND 1000),
-    parser_contract_version TEXT NOT NULL,
-    recipe_hash TEXT NOT NULL CHECK (length(recipe_hash) = 64),
-    recipe_json TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('active', 'needs_review', 'archived')),
-    consecutive_structural_failures INTEGER NOT NULL DEFAULT 0
-        CHECK (consecutive_structural_failures >= 0),
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    PRIMARY KEY (recipe_id, recipe_version),
-    UNIQUE (recipe_hash)
-) STRICT;
-
-CREATE INDEX data_preparation_recipe_match_idx
-    ON data_preparation_recipes(source_format, status, specificity DESC);
-
-CREATE TABLE data_preparation_runs (
-    run_id TEXT PRIMARY KEY,
-    resource_id TEXT NOT NULL,
-    source_object_hash TEXT NOT NULL CHECK (length(source_object_hash) = 64),
-    probe_hash TEXT NOT NULL CHECK (length(probe_hash) = 64),
-    state TEXT NOT NULL CHECK (state IN (
-        'probing', 'matching', 'awaiting_recipe_selection', 'agent_required',
-        'validating', 'awaiting_confirmation', 'committed', 'failed', 'cancelled'
-    )),
-    route TEXT CHECK (route IS NULL OR route IN (
-        'generic_parser', 'saved_recipe', 'agent_assisted'
-    )),
-    selected_recipe_id TEXT,
-    selected_recipe_version INTEGER,
-    run_json TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    CHECK (
-        (selected_recipe_id IS NULL AND selected_recipe_version IS NULL) OR
-        (selected_recipe_id IS NOT NULL AND selected_recipe_version > 0)
-    )
-) STRICT;
-
-CREATE INDEX data_preparation_run_resource_idx
-    ON data_preparation_runs(resource_id, created_at DESC);
-
 CREATE TABLE source_dataset_versions (
     source_dataset_id TEXT NOT NULL,
     source_version INTEGER NOT NULL CHECK (source_version > 0),
@@ -96,8 +50,6 @@ CREATE TABLE source_dataset_versions (
     source_object_hash TEXT NOT NULL REFERENCES objects(content_hash) ON DELETE RESTRICT,
     table_object_hash TEXT NOT NULL REFERENCES objects(content_hash) ON DELETE RESTRICT,
     import_recipe_id TEXT NOT NULL REFERENCES import_recipes(import_recipe_id) ON DELETE RESTRICT,
-    preparation_run_id TEXT NOT NULL
-        REFERENCES data_preparation_runs(run_id) ON DELETE RESTRICT,
     contract_json TEXT NOT NULL,
     metadata_json TEXT NOT NULL,
     provenance_json TEXT NOT NULL,
@@ -135,13 +87,13 @@ CREATE TABLE workflow_runs (
     workflow_run_id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,
     state TEXT NOT NULL CHECK (state IN (
-        'routing', 'deterministic_attempt',
+        'routing', 'deterministic_attempt', 'recipe_matching', 'recipe_replay',
         'agent_single_turn', 'agent_exploration', 'needs_input', 'draft_ready',
         'awaiting_confirmation', 'executing', 'completed',
         'partially_succeeded', 'failed', 'cancelled'
     )),
     route TEXT CHECK (route IS NULL OR route IN (
-        'deterministic', 'agent_single_turn',
+        'deterministic', 'recipe_replay', 'agent_single_turn',
         'agent_exploration', 'needs_input', 'unsupported'
     )),
     context_hash TEXT CHECK (context_hash IS NULL OR length(context_hash) = 64),
@@ -226,6 +178,21 @@ CREATE TABLE workflow_events (
 
 CREATE INDEX workflow_events_run_idx ON workflow_events(workflow_run_id, event_id);
 
+CREATE TABLE workflow_recipes (
+    recipe_id TEXT NOT NULL,
+    recipe_version INTEGER NOT NULL CHECK (recipe_version > 0),
+    structure_fingerprint TEXT NOT NULL CHECK (length(structure_fingerprint) = 64),
+    goal_signature TEXT NOT NULL CHECK (length(goal_signature) = 64),
+    recipe_hash TEXT NOT NULL CHECK (length(recipe_hash) = 64),
+    recipe_json TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (recipe_id, recipe_version),
+    UNIQUE (recipe_hash)
+) STRICT;
+
+CREATE INDEX workflow_recipe_match_idx
+    ON workflow_recipes(structure_fingerprint, goal_signature, archived);
 """
 
 PROJECT_SCHEMA += WORKFLOW_RUNTIME_SCHEMA
@@ -287,7 +254,7 @@ def initialize_catalog_schema(connection: sqlite3.Connection) -> None:
 
 
 def ensure_desktop_project_schema(connection: sqlite3.Connection) -> None:
-    """Verify the exact preparation/workflow schema; never patch older projects in place."""
+    """Verify the exact workflow-era schema; never patch an older project in place."""
 
     required = (
         "workflow_runs",
@@ -296,8 +263,7 @@ def ensure_desktop_project_schema(connection: sqlite3.Connection) -> None:
         "workflow_task_plans",
         "workflow_task_items",
         "workflow_events",
-        "data_preparation_recipes",
-        "data_preparation_runs",
+        "workflow_recipes",
     )
     available = {
         str(row[0])

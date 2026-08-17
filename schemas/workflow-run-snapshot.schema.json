@@ -83,6 +83,7 @@
         {
           "enum": [
             "agent",
+            "recipe_replay",
             "direct"
           ],
           "type": "string"
@@ -98,6 +99,7 @@
       "enum": [
         "routing",
         "agent",
+        "recipe_replay",
         "direct",
         "needs_input",
         "draft_ready",

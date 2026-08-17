@@ -2,6 +2,12 @@
 
 from .compiler import DraftCompiler, DraftValidation, WorkflowCompileError
 from .inspection import DataInspectionService, InspectionError
+from .recipes import (
+    build_recipe,
+    profile_contract_hash,
+    replay_recipe,
+    structure_fingerprint,
+)
 from .repository import WorkflowRepository
 
 __all__ = [
@@ -11,4 +17,8 @@ __all__ = [
     "InspectionError",
     "WorkflowCompileError",
     "WorkflowRepository",
+    "build_recipe",
+    "profile_contract_hash",
+    "replay_recipe",
+    "structure_fingerprint",
 ]

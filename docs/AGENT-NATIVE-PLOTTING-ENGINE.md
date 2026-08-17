@@ -2,7 +2,7 @@
 
 > 当前基线：Pi 承担通用 Agent 运行循环；PlotAgent Core 负责领域约束、确认、版本与执行；34 张正式图各自拥有 Matplotlib renderer 与 Origin 官方模板绑定器。产品不支持组合图。
 
-> DataPreparationRecipe、原始数据只读探索、TaskDraft 和任务编排施工基线见[程序—Agent 编排架构](./AGENT-ORCHESTRATION-ARCHITECTURE.md)。本文继续约束当前绘图引擎与 renderer 边界。
+> 下一阶段的成本感知路由、原始数据只读探索、TaskDraft 和 WorkflowRecipe 施工基线见[成本感知 Agent 编排架构](./AGENT-ORCHESTRATION-ARCHITECTURE.md)。本文继续约束当前绘图引擎与 renderer 边界。
 
 > Origin 可见能力、Matplotlib 等价性、当前 Agent 缺口及 T1/T2/T3 覆盖边界见[Origin 视觉能力全集与 PlotAgent 覆盖矩阵](./ORIGIN-VISUAL-CAPABILITY-MATRIX.md)。
 

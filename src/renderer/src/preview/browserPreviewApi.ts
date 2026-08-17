@@ -260,16 +260,6 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       const dataset = projects.get(projectId)?.datasets.find((item) => item.source_dataset_id === datasetId)
       return dataset ? ok({ dataset }) : missing('界面预览中没有找到该数据集。')
     },
-    checkEngineCompatibility: async ({ profileIds }) => ok({
-      compatibility: (profileIds ?? []).map((profileId) => ({
-        profile_id: profileId,
-        status: 'compatible',
-        row_count: 8,
-        field_count: 8,
-        requirements: [],
-        reason_codes: [],
-      })),
-    }),
     executePlotAction: async (input) => {
       const project = projects.get(input.projectId)
       if (!project) return missing('界面预览中没有找到该项目。')
@@ -389,33 +379,10 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
         .filter((plan) => plan.projectId === projectId)
         .map(workflowPlanRecord),
     }),
-    saveDataPreparationRecipe: async ({ displayName, runId }) => ok({
-      recipe_id: 'data-recipe:preview', recipe_version: 1, display_name: displayName,
-      created_from_run_id: runId,
+    saveWorkflowRecipe: async ({ displayName }) => ok({
+      recipe_id: 'recipe:preview', recipe_version: 1, display_name: displayName,
     }),
-    listDataPreparationRecipes: async () => ok({ data_preparation_recipes: [] }),
-    getDataPreparationRun: async ({ runId }) => ok({
-      run_id: runId,
-      state: 'committed',
-      route: 'generic_parser',
-      local_duration_ms: 4,
-      probe: { tables: [{}] },
-    }),
-    confirmDataPreparationRun: async ({ runId, accept }) => ok({
-      run: { run_id: runId, state: accept ? 'committed' : 'cancelled' },
-      datasets: { datasets: [] },
-    }),
-    retryDataPreparation: async ({ runId }) => ok({
-      kind: 'clarification', preparation_run_id: runId,
-      code: 'IMPORT_HEADER_AMBIGUOUS', question: '请选择表头。', options: [],
-    }),
-    reprocessDataPreparation: async ({ runId }) => ok({
-      kind: 'rejection', preparation_run_id: runId,
-      code: 'PREVIEW_REPROCESS_UNAVAILABLE', message: '界面预览不重新读取本机文件。',
-    }),
-    assistDataPreparation: async ({ runId }) => ok({
-      outcome: 'unresolved', preparation_run_id: runId, reason: '预览环境没有模型。',
-    }),
+    listWorkflowRecipes: async () => ok({ workflow_recipes: [] }),
     confirmTaskPlan: async ({ planId, accept }) => {
       const plan = workflowPlans.get(planId)
       if (plan === undefined) return missing('未找到任务计划。')

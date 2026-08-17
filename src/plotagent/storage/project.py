@@ -180,7 +180,7 @@ def read_project_revision(workspace: str | Path) -> int:
 
 
 def _source_dataset_record(row: tuple[object, ...]) -> SourceDatasetRecord:
-    contract_json, logical_id, recipe_id, preparation_run_id, created_at, metadata_json = row
+    contract_json, logical_id, recipe_id, created_at, metadata_json = row
     try:
         metadata = json.loads(str(metadata_json))
     except (TypeError, ValueError):
@@ -196,7 +196,6 @@ def _source_dataset_record(row: tuple[object, ...]) -> SourceDatasetRecord:
         source_dataset=SourceDataset.model_validate_json(str(contract_json)),
         logical_source_id=str(logical_id),
         import_recipe_id=str(recipe_id),
-        preparation_run_id=str(preparation_run_id),
         created_at=str(created_at),
         display_name=identity("__plotagent_display_name"),
         source_file_name=identity("__plotagent_source_file_name"),
@@ -493,7 +492,6 @@ class ProjectStore:
         self,
         *,
         resource_id: str,
-        preparation_run_id: str,
         source_object: StagedObject,
         registrations: Iterable[DatasetRegistration],
         fault_injector: FaultInjector | None = None,
@@ -501,16 +499,8 @@ class ProjectStore:
         idempotency_key: str | None = None,
         request_hash: str | None = None,
         response_factory: ImportResponseFactory | None = None,
-        advance_project_revision: bool = True,
     ) -> ImportCommitResult:
-        """Promote immutable objects and register every dataset in one SQLite transaction.
-
-        Agent-assisted outputs are registered as hidden staging revisions.  They
-        become visible through ``list_source_datasets`` only after their
-        preparation run is confirmed, so staging must not advance the public
-        project revision.  Deterministic imports keep the historical behaviour
-        and publish immediately.
-        """
+        """Promote immutable objects and register every dataset in one SQLite transaction."""
 
         connection = self._assert_writer()
         items = tuple(registrations)
@@ -611,9 +601,8 @@ class ProjectStore:
                     INSERT INTO source_dataset_versions(
                         source_dataset_id, source_version, logical_source_id,
                         source_object_hash, table_object_hash, import_recipe_id,
-                        preparation_run_id,
                         contract_json, metadata_json, provenance_json, session_id, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         dataset.source_dataset_id,
@@ -622,7 +611,6 @@ class ProjectStore:
                         source_object.content_hash,
                         item.table_object.content_hash,
                         recipe_id,
-                        preparation_run_id,
                         _json(dataset),
                         _json({**item.artifact.instrument_metadata, **dataset_identity}),
                         _json(
@@ -653,7 +641,6 @@ class ProjectStore:
                         source_dataset=dataset,
                         logical_source_id=item.logical_source_id,
                         import_recipe_id=recipe_id,
-                        preparation_run_id=preparation_run_id,
                         created_at=now,
                         display_name=item.artifact.display_name,
                         source_file_name=source_object.path.name,
@@ -682,19 +669,16 @@ class ProjectStore:
                     or response_factory is None
                 ):
                     raise ValueError("incomplete import idempotency arguments")
-                published_revision = expected_revision
-                if advance_project_revision:
-                    cursor = connection.execute(
-                        "UPDATE project_meta SET revision = revision + 1 WHERE revision = ?",
-                        (expected_revision,),
+                cursor = connection.execute(
+                    "UPDATE project_meta SET revision = revision + 1 WHERE revision = ?",
+                    (expected_revision,),
+                )
+                if cursor.rowcount != 1:
+                    raise StorageProblem(
+                        StorageErrorCode.VERSION_CONFLICT,
+                        "The project changed during import commit.",
                     )
-                    if cursor.rowcount != 1:
-                        raise StorageProblem(
-                            StorageErrorCode.VERSION_CONFLICT,
-                            "The project changed during import commit.",
-                        )
-                    published_revision += 1
-                response = response_factory(result, published_revision)
+                response = response_factory(result, expected_revision + 1)
                 connection.execute(
                     """
                     INSERT INTO idempotency_records(
@@ -731,40 +715,15 @@ class ProjectStore:
     ) -> tuple[SourceDatasetRecord, ...]:
         connection = self._assert_writer()
         sql = """
-            SELECT source.contract_json, source.logical_source_id, source.import_recipe_id,
-                   source.preparation_run_id, source.created_at, source.metadata_json
-            FROM source_dataset_versions AS source
-            JOIN data_preparation_runs AS preparation
-              ON preparation.run_id = source.preparation_run_id
+            SELECT contract_json, logical_source_id, import_recipe_id, created_at, metadata_json
+            FROM source_dataset_versions
         """
         parameters: tuple[str, ...] = ()
         if logical_source_id is not None:
-            sql += " WHERE logical_source_id = ? AND preparation.state = 'committed'"
+            sql += " WHERE logical_source_id = ?"
             parameters = (logical_source_id,)
-        else:
-            sql += " WHERE preparation.state = 'committed'"
         sql += " ORDER BY logical_source_id, source_version"
         return tuple(_source_dataset_record(row) for row in connection.execute(sql, parameters))
-
-    def list_current_source_datasets(self) -> tuple[SourceDatasetRecord, ...]:
-        """Return only the newest confirmed revision of every logical source.
-
-        Historical revisions remain addressable through ``list_source_datasets`` so
-        existing PlotDocuments never drift when a user explicitly reprocesses a
-        source.  Desktop selectors, however, should present one current table per
-        logical source rather than accumulating every immutable revision.
-        """
-
-        current: dict[str, SourceDatasetRecord] = {}
-        for record in self.list_source_datasets():
-            previous = current.get(record.logical_source_id)
-            if (
-                previous is None
-                or record.source_dataset.source_version
-                > previous.source_dataset.source_version
-            ):
-                current[record.logical_source_id] = record
-        return tuple(current[key] for key in sorted(current))
 
     def state_counts(self) -> dict[str, int]:
         connection = self._assert_writer()

@@ -18,7 +18,6 @@ from plotagent.engine.backends.matplotlib import K01LineRenderer, MatplotlibBack
 from plotagent.engine.profiles import K01_LINE_PROFILE
 from plotagent.engine.service import EngineCatalog
 from plotagent.storage import ImportResource, ProjectImportService, ProjectStore
-from plotagent.storage.data_preparation_repository import DataPreparationRepository
 
 FILES_ROOT = Path(__file__).parents[1] / "fixtures" / "import" / "files"
 
@@ -77,35 +76,6 @@ def test_project_source_rejects_drift_unknown_fields_and_duplicates(tmp_path: Pa
             provider.materialize(_data_ref(source), ("field:missing",))
         with pytest.raises(EngineDataError, match="must be unique"):
             provider.materialize(_data_ref(source), (field_id, field_id))
-
-
-def test_agent_preparation_candidate_is_not_materializable_until_confirmed(
-    tmp_path: Path,
-) -> None:
-    with ProjectStore.create(tmp_path / "project") as project:
-        imported = ProjectImportService(project).import_resource(
-            ImportResource(
-                resource_id="resource:engine-agent-candidate",
-                path=FILES_ROOT / "csv_basic.csv",
-            ),
-            agent_assisted=True,
-            model_turn_count=1,
-            tool_call_count=1,
-        )
-        assert imported.kind == "committed"
-        source = imported.datasets[0].source_dataset
-        field_id = source.field_schema[0].field_id
-        provider = ProjectEngineDataProvider(project)
-
-        with pytest.raises(EngineDataError, match="was not found"):
-            provider.materialize(_data_ref(source), (field_id,))
-
-        DataPreparationRepository(project).confirm_run(
-            imported.datasets[0].preparation_run_id,
-            accept=True,
-        )
-        view = provider.materialize(_data_ref(source), (field_id,))
-        assert view.columns[0].field.field_id == field_id
 
 
 def test_non_source_data_requires_a_dedicated_adapter(tmp_path: Path) -> None:

@@ -668,28 +668,3 @@ class EngineProfile(StrictModel):
         if len(operations) != len(set(operations)):
             raise ValueError("engine profile capabilities must be unique")
         return self
-
-
-class EngineRoleCompatibility(StrictModel):
-    """Mechanical feasibility for one required role without choosing a field."""
-
-    role: Token
-    accepted_logical_types: Annotated[
-        tuple[Literal["numeric", "categorical", "datetime", "boolean", "text"], ...],
-        Field(min_length=1),
-    ]
-    candidate_count: Annotated[int, Field(ge=0)]
-
-
-class EngineProfileCompatibility(StrictModel):
-    """Type/count/shape compatibility; never a semantic field binding."""
-
-    schema_version: Literal["engine-profile-compatibility.v1"] = (
-        "engine-profile-compatibility.v1"
-    )
-    profile_id: Token
-    status: Literal["compatible", "incompatible"]
-    row_count: Annotated[int, Field(ge=0)]
-    field_count: Annotated[int, Field(ge=0)]
-    requirements: tuple[EngineRoleCompatibility, ...]
-    reason_codes: tuple[Token, ...] = ()

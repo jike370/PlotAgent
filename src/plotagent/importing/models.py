@@ -84,7 +84,6 @@ class Clarification(StrictModel):
     question: str
     options: tuple[ClarificationOption, ...]
     trace: tuple[TraceEvent, ...]
-    preparation_run_id: str | None = None
 
 
 class Rejection(StrictModel):
@@ -93,7 +92,6 @@ class Rejection(StrictModel):
     message: str
     remediation: str
     trace: tuple[TraceEvent, ...]
-    preparation_run_id: str | None = None
 
 
 type ImportResponse = Annotated[

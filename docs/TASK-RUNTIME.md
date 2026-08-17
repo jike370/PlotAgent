@@ -22,7 +22,7 @@ WorkflowRun
 
 ## 2. 状态
 
-规则数据表及 SourceDataset 在 WorkflowRun 之前由 DataPreparationRecipe 或 Agent 辅助整理产生。WorkflowRun 依次经过 context preparation、Agent/结构化 UI、inspection/preview、needs_input、draft_ready、awaiting_confirmation、executing 和终态。TaskPlan 依次经过 awaiting_confirmation、ready、running 与 succeeded/partially_succeeded/failed/rejected/cancelled。
+WorkflowRun 依次经过 context preparation、Agent/显式 Recipe/结构化 UI、inspection/preview、needs_input、draft_ready、awaiting_confirmation、executing 和终态。TaskPlan 依次经过 awaiting_confirmation、ready、running 与 succeeded/partially_succeeded/failed/rejected/cancelled。
 
 用户确认前不得执行。项目 revision 或目标 plot version 变化时，旧计划必须稳定拒绝，不能在新对象上猜测重放。
 
@@ -32,14 +32,13 @@ WorkflowRun
 - 已 succeeded 的 TaskItem 在 resume 时直接复用，不重复创建或编辑。
 - 每个 create/edit 动作继续经过 EngineCatalog 本地能力校验。
 - 数据处理只允许 TaskDraft Schema 中的封闭操作；预演与正式执行使用同一实现，原始 SourceDataset 不可变。
-- Agent 辅助数据整理可作为字段绑定/绘图 TaskItem 的显式前置依赖并在同一确认卡确认；执行时仍先独立发布规则 SourceDataset。下游图失败不回滚已确认成功的数据整理项。
 - 当前图的数据重绑定生成 PreparedDataView 和新的 PlotDocument 版本，不能作为纯视觉 edit 执行。
 - 结构化追问暂停 WorkflowRun；回答只补充上下文，不执行未经确认的部分 Draft。
 - 导出目的地由桌面保存对话框选择，不属于 Agent 或 TaskDraft 权限。
 
 ## 4. 持久化与恢复
 
-项目 schema 保存 DataPreparationRecipe 引用/版本和整理运行，并分别保存 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan、TaskItem（含失败原因与可重试性）和事件。不存在可重放字段绑定、图类和视觉动作的 WorkflowRecipe。项目使用单写入器锁；崩溃后只从已提交状态恢复，不续跑未知的 renderer 内部状态。
+项目 schema v5 保存 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan、TaskItem（含失败原因与可重试性）、事件和 WorkflowRecipe。项目使用单写入器锁；崩溃后只从已提交状态恢复，不续跑未知的 renderer 内部状态。
 
 恢复时重新检查项目 revision、plot version、输入对象与执行条件。合法成功项保留；失败项可由用户明确继续。旧 schema 不原地迁移，不存在双读、双写或兼容回退。
 
@@ -47,7 +46,6 @@ WorkflowRun
 
 - 未确认计划产生零项目副作用。
 - 批量部分失败不回滚成功项，也不在重试时重复成功项。
-- 数据整理批次以文件为失败隔离单位；仅重试失败文件，不重新解析已成功文件。
 - 一次 TaskItem 成功只发布一个新 plot version。
 - 运行时事件包含真实阶段、item ID、attempt 和稳定错误码。
 - 所有正式桌面入口只调用 workflow.* RPC。

@@ -34,8 +34,7 @@ import type {
   WorkflowBindingView,
   WorkflowOutcome,
   WorkflowPlanView,
-  DataPreparationAttentionView,
-  DataPreparationRunView,
+  WorkflowRecipeView,
   ProductDataset,
   ProductPlot,
   ProductProject,
@@ -84,8 +83,7 @@ interface ConversationWorkspaceProps {
   agentRuntimeLabel?: string
   workflowOutcome?: WorkflowOutcome
   workflowPlan?: WorkflowPlanView
-  dataPreparationAttention: DataPreparationAttentionView[]
-  latestPreparationRun?: DataPreparationRunView
+  workflowRecipes: WorkflowRecipeView[]
   agentConfigured: boolean
   taskEvents: TaskEvent[]
   previewMode?: boolean
@@ -98,17 +96,14 @@ interface ConversationWorkspaceProps {
   onConfirmMapping: (mapping: FieldMappingInput) => void
   onConfirmMultiSourceMapping: (mapping: FieldMappingInput) => void
   onAgentInstruction: (instruction: string, scope: ScopeMode) => void
+  onRunWorkflowRecipe: (recipeId: string) => void
   onConfirmWorkflowPlan: (planId: string) => void
   onRejectWorkflowPlan: (planId: string) => void
   onRunWorkflowPlan: (planId: string) => void
   onResumeWorkflowPlan: (planId: string) => void
   onConfigureAgent: () => void
   onExport: (format: 'png' | 'svg' | 'opju') => void
-  onSelectDataPreparationCandidate: (runId: string, optionValue: string) => void
-  onAssistDataPreparation: (runId: string) => void
-  onConfirmDataPreparation: (accept: boolean) => void
-  onReprocessDataPreparation: () => void
-  onSaveDataPreparationRecipe: () => void
+  onSaveWorkflowRecipe: () => void
   onCreateBatch: () => void
   onOpenFocus: () => void
   onOpenTasks: () => void
@@ -307,36 +302,6 @@ function DatasetObject({
         </div>
       </details>}
     </section>
-  )
-}
-
-function dataPreparationStepLabels(run: DataPreparationRunView): string[] {
-  return run.steps.flatMap((step) => {
-    const labels = [`按 ${step.sourceFormat.toLocaleUpperCase('en-US')} 结构读取`]
-    if (step.encoding) labels.push(`使用 ${step.encoding} 解码`)
-    if (step.delimiter) labels.push(`以${step.delimiter === '\t' ? 'Tab' : `“${step.delimiter}”`}分列`)
-    if (step.headerRow === 0) labels.push('不把任何行作为表头')
-    else if (step.headerRow !== undefined) labels.push(`第 ${step.headerRow} 行作为表头`)
-    if (step.decimalMark) labels.push(`以“${step.decimalMark}”识别小数`)
-    if (step.sheet) labels.push(`读取工作表“${step.sheet}”`)
-    return labels
-  })
-}
-
-function DataPreparationPlan({ run }: { run: DataPreparationRunView }): React.JSX.Element {
-  const stepLabels = dataPreparationStepLabels(run)
-  return (
-    <div className="data-preparation-plan" aria-label="数据整理方案摘要">
-      <div className="data-preparation-plan__section">
-        <div className="data-preparation-plan__label"><ListChecks size={15} />将如何整理</div>
-        <ul>{(stepLabels.length > 0 ? stepLabels : ['按已确认的来源结构解析']).map((label) => <li key={label}>{label}</li>)}</ul>
-      </div>
-      <div className="data-preparation-plan__section">
-        <div className="data-preparation-plan__label"><TableProperties size={15} />预计输出</div>
-        <ul>{run.outputTables.map((table) => <li key={table.tableKey}><strong>{table.displayName}</strong><span>{table.rowCount.toLocaleString('zh-CN')} 行 × {table.columnCount} 列{table.columnNames.length === 0 ? '' : ` · ${table.columnNames.slice(0, 6).map(displayFieldName).join('、')}${table.columnNames.length > 6 ? '…' : ''}`}</span></li>)}</ul>
-      </div>
-      <p className="data-preparation-plan__warning"><TriangleAlert size={14} />请重点核对分隔方式、表头位置和表数量。确认后才会创建项目数据版本。</p>
-    </div>
   )
 }
 
@@ -621,6 +586,8 @@ function ConversationComposer({
   onConfigure,
   onOpenLibrary,
   onImportData,
+  workflowRecipes,
+  onRunWorkflowRecipe,
 }: {
   plot?: ProductPlot
   selectedChart?: ChartType
@@ -634,6 +601,8 @@ function ConversationComposer({
   onConfigure: () => void
   onOpenLibrary: () => void
   onImportData: () => void
+  workflowRecipes: WorkflowRecipeView[]
+  onRunWorkflowRecipe: (recipeId: string) => void
 }): React.JSX.Element {
   const [scope, setScope] = useState<ScopeMode>('current')
   const [value, setValue] = useState('')
@@ -664,6 +633,28 @@ function ConversationComposer({
             {importing ? <LoaderCircle className="spin" size={15} /> : <FileUp size={15} />}
             {importing ? '正在导入' : `上传数据${datasetCount > 0 ? ` (${datasetCount})` : ''}`}
           </button>
+          {workflowRecipes.length > 0 && (
+            <label className="composer-recipe-picker">
+              <span className="sr-only">选择已固化流程</span>
+              <select
+                aria-label="已固化流程"
+                className="composer-tool"
+                defaultValue=""
+                disabled={busy || datasetCount === 0}
+                onChange={(event) => {
+                  if (event.target.value) onRunWorkflowRecipe(event.target.value)
+                  event.target.value = ''
+                }}
+              >
+                <option value="">已固化流程</option>
+                {workflowRecipes.map((recipe) => (
+                  <option key={recipe.recipeId} value={recipe.recipeId}>
+                    {recipe.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {!configured && <button type="button" className="composer-tool" onClick={onConfigure}>配置模型</button>}
           <button className="send-button" type="button" onClick={submit} disabled={!value.trim() || busy} aria-label="生成任务计划">{busy ? <LoaderCircle className="spin" size={17} /> : <SendHorizontal size={17} />}</button>
         </div>
@@ -893,23 +884,6 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             ) : (
               <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></div></div>
             )}
-            {props.dataPreparationAttention.map((attention) => (
-              <div className="message message--agent" key={attention.runId}>
-                <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div>
-                <div className="agent-response">
-                  <p>我无法唯一确定这份原始数据的表结构，请确认一种整理方式。</p>
-                  <section className="data-preparation-card" aria-label={`${attention.fileName} 数据整理确认`}>
-                    <div className="data-preparation-card__heading"><CircleAlert size={17} /><div><strong>{attention.fileName}</strong><p>{attention.message}</p></div></div>
-                    {attention.options.length > 0 && <div className="data-preparation-card__options" aria-label="整理候选">
-                      {attention.options.map((option) => <button type="button" key={option.value} disabled={busyAction !== undefined} onClick={() => props.onSelectDataPreparationCandidate(attention.runId, option.value)}>{option.label}</button>)}
-                    </div>}
-                    <div className="data-preparation-card__actions"><button type="button" disabled={busyAction !== undefined || !props.agentConfigured} onClick={() => props.onAssistDataPreparation(attention.runId)}>{busyAction === 'prepare-agent' ? <><LoaderCircle className="spin" size={14} />Agent 正在检查原始样本…</> : '交给 Agent 判断'}</button>{!props.agentConfigured && <span>配置模型后可让 Agent 检查受限原始样本</span>}</div>
-                  </section>
-                </div>
-              </div>
-            ))}
-            {props.latestPreparationRun?.route === 'agent_assisted' && props.latestPreparationRun.state === 'awaiting_confirmation' && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我根据原始文件提出了一份数据整理方案。它尚未加入项目。</p><section className="data-preparation-card data-preparation-card--review" aria-label="确认 Agent 数据整理结果"><div className="data-preparation-card__heading"><TableProperties size={17} /><div><strong>是否发布这份整理结果？</strong><p>Agent 提议 · {props.latestPreparationRun.tableCount} 张数据表 · 本地校验 {props.latestPreparationRun.localDurationMs.toLocaleString('zh-CN')} ms</p></div></div><DataPreparationPlan run={props.latestPreparationRun} /><div className="data-preparation-card__actions"><button type="button" disabled={busyAction !== undefined} onClick={() => props.onConfirmDataPreparation(false)}>不用，重新整理</button><button className="primary" type="button" disabled={busyAction !== undefined} onClick={() => props.onConfirmDataPreparation(true)}>{busyAction === 'prepare-confirm' ? '正在发布…' : '确认并发布数据表'}</button></div></section></div></div>}
-            {props.latestPreparationRun?.state === 'committed' && <section className="object-block product-result-strip product-result-strip--success" aria-label="数据整理记录" role="status"><CircleCheck size={17} /><div><strong>{props.latestPreparationRun.route === 'saved_recipe' ? 'Recipe 已自动复用' : props.latestPreparationRun.route === 'agent_assisted' ? '数据整理已确认' : '通用解析已完成'}</strong><p>已生成 {props.latestPreparationRun.tableCount} 张数据表 · {props.latestPreparationRun.localDurationMs.toLocaleString('zh-CN')} ms</p><div className="product-result-strip__actions"><button type="button" disabled={busyAction !== undefined} onClick={props.onReprocessDataPreparation}>{busyAction === 'prepare-reprocess' ? '正在重新整理…' : '重新整理'}</button>{props.latestPreparationRun.route !== 'saved_recipe' && <button type="button" disabled={busyAction !== undefined} onClick={props.onSaveDataPreparationRecipe}>{busyAction === 'save-recipe' ? '正在保存整理流程…' : '经常处理同构数据？保存数据整理流程'}</button>}</div></div></section>}
             <ConversationHistory messages={visibleMessages} />
             <div ref={activeTurnRef} className="conversation-turn-anchor" aria-hidden="true" />
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} tasks={props.taskEvents} onCancel={props.onCancelTask} />
@@ -917,7 +891,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
               <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><strong>{props.workflowOutcome.title}</strong><p>{props.workflowOutcome.message}</p>{props.workflowOutcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div>
             </div>}
             {props.workflowPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><WorkflowPlanObject plan={props.workflowPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} /></div></div>}
-            {exportRecord && <section className="object-block product-result-strip product-result-strip--success" aria-label="导出记录" role="status" aria-live="polite"><CircleCheck size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize.toLocaleString('zh-CN')} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
+            {exportRecord && <section className="object-block product-result-strip product-result-strip--success" aria-label="导出记录" role="status" aria-live="polite"><CircleCheck size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize.toLocaleString('zh-CN')} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}{exportRecord.artifactHash && props.workflowPlan?.state === 'succeeded' && props.workflowPlan.steps.some((step) => step.outputPlot?.plotId === exportRecord.targetId) && <p><button type="button" disabled={busyAction === 'save-recipe'} onClick={props.onSaveWorkflowRecipe}>{busyAction === 'save-recipe' ? '正在固化流程…' : '经常处理同构数据？固化本次流程'}</button></p>}</div></section>}
             {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
             {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></div></div>}
             {plot && <PlotObject {...props} chart={selectedChart} />}
@@ -925,7 +899,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         </div>
       )}
 
-      {project && <ConversationComposer plot={plot} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
+      {project && <ConversationComposer plot={plot} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} workflowRecipes={props.workflowRecipes} onRunWorkflowRecipe={props.onRunWorkflowRecipe} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}
     </main>
   )

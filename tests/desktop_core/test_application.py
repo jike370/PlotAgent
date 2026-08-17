@@ -167,62 +167,6 @@ def test_dataset_description_returns_a_bounded_read_only_sample(
     assert "sample_rows" not in dataset
 
 
-def test_reprocessed_source_lists_only_the_latest_version_but_keeps_history(
-    harness: ApplicationHarness,
-    tmp_path: Path,
-) -> None:
-    project_id, revision = _create_open(harness)
-    source = tmp_path / "reprocessed.csv"
-    source.write_text("x,y\n1,10\n2,20\n", encoding="utf-8")
-    first = harness.call(
-        "datasets.import",
-        {
-            "project_id": project_id,
-            "resource_id": "resource:reprocessed",
-            "source_path": str(source),
-            "idempotency_key": "reprocessed-v1",
-            "expected_version": revision,
-            "options": {},
-        },
-    )
-    first_dataset = cast(dict[str, Any], cast(list[object], first["datasets"])[0])
-
-    source.write_text("x,y\n1,100\n2,200\n3,300\n", encoding="utf-8")
-    second = harness.call(
-        "datasets.import",
-        {
-            "project_id": project_id,
-            "resource_id": "resource:reprocessed",
-            "source_path": str(source),
-            "idempotency_key": "reprocessed-v2",
-            "expected_version": first["project_version"],
-            "options": {},
-        },
-    )
-    second_dataset = cast(dict[str, Any], cast(list[object], second["datasets"])[0])
-
-    listed = cast(list[dict[str, Any]], harness.call(
-        "datasets.list", {"project_id": project_id}
-    )["datasets"])
-    assert [(item["source_dataset_id"], item["source_version"]) for item in listed] == [
-        (second_dataset["source_dataset_id"], 2)
-    ]
-    assert first_dataset["source_dataset_id"] == second_dataset["source_dataset_id"]
-
-    historical = harness.call(
-        "datasets.describe",
-        {
-            "project_id": project_id,
-            "source_dataset_id": first_dataset["source_dataset_id"],
-            "source_version": 1,
-        },
-    )
-    assert cast(dict[str, Any], historical["dataset"])["sample_rows"] == [
-        [1.0, 10.0],
-        [2.0, 20.0],
-    ]
-
-
 def test_text_import_exposes_instrument_metadata_and_distinct_table_blocks(
     harness: ApplicationHarness,
 ) -> None:
@@ -259,28 +203,6 @@ def test_text_import_exposes_instrument_metadata_and_distinct_table_blocks(
     assert len(block_datasets) == 2
     assert len({item["display_name"] for item in block_datasets}) == 2
     assert {item["source_block"] for item in block_datasets} == {"block_1", "block_2"}
-
-
-def test_engine_compatibility_reports_types_without_binding_fields(
-    harness: ApplicationHarness,
-) -> None:
-    project_id, revision = _create_open(harness)
-    imported = _import_dataset(harness, project_id, revision, key="compatibility")
-    dataset, _numeric = _dataset_and_fields(imported)
-
-    result = harness.call(
-        "engine.compatibility.check",
-        {
-            "project_id": project_id,
-            "source_dataset_id": dataset["source_dataset_id"],
-            "source_version": dataset["source_version"],
-            "profile_ids": ["K01", "K06"],
-        },
-    )
-
-    compatibility = cast(list[dict[str, Any]], result["compatibility"])
-    assert [item["profile_id"] for item in compatibility] == ["K01", "K06"]
-    assert all("field:" not in json.dumps(item) for item in compatibility)
 
 
 def test_engine_rpc_uses_imported_data_and_restores_latest_document(
@@ -743,46 +665,12 @@ def test_workflow_agent_can_report_a_real_capability_boundary(
     )
 
 
-def test_data_preparation_recipe_is_saved_after_import_and_never_replays_plotting(
+def test_workflow_recipe_requires_a_real_export_and_replays_without_agent(
     harness: ApplicationHarness,
+    tmp_path: Path,
 ) -> None:
     project_id, revision = _create_open(harness)
-    imported = _import_dataset(harness, project_id, revision, key="data-preparation-recipe")
-    run_id = cast(str, imported["data_preparation_run_id"])
-    recipe = harness.call(
-        "data_preparation.recipes.save",
-        {
-            "project_id": project_id,
-            "run_id": run_id,
-            "display_name": "双列 CSV 整理",
-        },
-    )
-    assert recipe["created_from_run_id"] == run_id
-    assert "draft_template" not in recipe
-    assert "profile_id" not in str(recipe)
-    assert "export" not in str(recipe)
-    assert harness.call("data_preparation.recipes.list", {"project_id": project_id})[
-        "data_preparation_recipes"
-    ] == [recipe]
-    run = harness.call(
-        "data_preparation.runs.get",
-        {"project_id": project_id, "run_id": run_id},
-    )
-    assert run["state"] == "committed"
-    assert run["route"] == "generic_parser"
-
-    with pytest.raises(RpcServiceError) as captured:
-        harness.call(
-            "workflow.recipes.save",
-            {
-                "project_id": project_id,
-                "plan_id": "plan:removed",
-                "display_name": "旧整流程",
-                "export_hash": "f" * 64,
-            },
-        )
-    assert captured.value.code == "METHOD_NOT_FOUND"
-
+    imported = _import_dataset(harness, project_id, revision, key="workflow-recipe")
     dataset = cast(list[dict[str, Any]], imported["datasets"])[0]
     request = {
         "project_id": project_id,
@@ -796,84 +684,70 @@ def test_data_preparation_recipe_is_saved_after_import_and_never_replays_plottin
         ],
         "selected_profile_ids": ["K01"],
     }
-    assert harness.call("workflow.prepare", request)["route"] == "agent"
+    prepared = harness.call("workflow.prepare", request)
+    submitted = _submit_k01_create(harness, project_id, prepared)
+    task_plan = cast(dict[str, Any], submitted["task_plan"])
+    plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
+    harness.call("workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id})
+    completed = harness.call("workflow.plans.run", {"project_id": project_id, "plan_id": plan_id})
+    progress = cast(list[dict[str, Any]], completed["item_progress"])[0]
+    plot_id = cast(str, progress["output_plot_id"])
+    plot_version = cast(int, progress["output_plot_version"])
 
-
-def test_agent_assisted_import_is_hidden_again_when_user_rejects_it(
-    harness: ApplicationHarness,
-) -> None:
-    project_id, revision = _create_open(harness)
-    imported = harness.call(
-        "datasets.import",
-        {
-            "project_id": project_id,
-            "resource_id": "resource:agent-assisted",
-            "source_path": str(FIXTURES / "excel_two_sheets.xlsx"),
-            "idempotency_key": "agent-assisted",
-            "expected_version": revision,
-            "options": {
-                "agent_assisted": True,
-                "model_turn_count": 1,
-                "tool_call_count": 1,
-                "input_token_count": 120,
-                "output_token_count": 24,
+    with pytest.raises(RpcServiceError) as captured:
+        harness.call(
+            "workflow.recipes.save",
+            {
+                "project_id": project_id,
+                "plan_id": plan_id,
+                "display_name": "折线图标准流程",
+                "export_hash": "f" * 64,
             },
-        },
-    )
-    run_id = cast(str, imported["data_preparation_run_id"])
-    run = harness.call(
-        "data_preparation.runs.get",
-        {"project_id": project_id, "run_id": run_id},
-    )
-    assert run["state"] == "awaiting_confirmation"
-    assert run["model_turn_count"] == 1
-    assert run["input_token_count"] == 120
-    assert run["output_token_count"] == 24
-    assert imported["project_version"] == revision
-    assert len(cast(list[dict[str, Any]], imported["datasets"])) == 2
-    assert harness.call("datasets.list", {"project_id": project_id})["datasets"] == []
+        )
+    assert captured.value.code == "WORKFLOW_RECIPE_EXPORT_UNVERIFIED"
 
-    rejected = harness.call(
-        "data_preparation.runs.confirm",
-        {"project_id": project_id, "run_id": run_id, "accept": False},
-    )
-    assert rejected["state"] == "cancelled"
-    assert rejected["project_version"] == revision
-    assert harness.call("datasets.list", {"project_id": project_id})["datasets"] == []
-
-
-def test_confirming_agent_assisted_import_publishes_once_and_advances_revision(
-    harness: ApplicationHarness,
-) -> None:
-    project_id, revision = _create_open(harness)
-    imported = harness.call(
-        "datasets.import",
+    destination = tmp_path / "workflow-recipe.png"
+    exported = harness.call(
+        "engine.exports.execute",
         {
             "project_id": project_id,
-            "resource_id": "resource:agent-confirm",
-            "source_path": str(FIXTURES / "excel_two_sheets.xlsx"),
-            "idempotency_key": "agent-confirm",
-            "expected_version": revision,
-            "options": {"agent_assisted": True, "model_turn_count": 1},
+            "action": {
+                "operation": "export_plot",
+                "action_id": "action:workflow-recipe.export",
+                "target": plot_id,
+                "expected_plot_version": plot_version,
+                "format": "png",
+                "output_name": destination.name,
+            },
+            "destination_resource_id": "resource:workflow-recipe",
+            "destination_path": str(destination),
         },
     )
-    run_id = cast(str, imported["data_preparation_run_id"])
-    assert imported["project_version"] == revision
-    assert harness.call("datasets.list", {"project_id": project_id}) == {
-        "project_id": project_id,
-        "project_version": revision,
-        "datasets": [],
-    }
-
-    confirmed = harness.call(
-        "data_preparation.runs.confirm",
-        {"project_id": project_id, "run_id": run_id, "accept": True},
+    export_hash = cast(str, cast(dict[str, Any], exported["artifact"])["content_hash"])
+    recipe = harness.call(
+        "workflow.recipes.save",
+        {
+            "project_id": project_id,
+            "plan_id": plan_id,
+            "display_name": "折线图标准流程",
+            "export_hash": export_hash,
+        },
     )
-    assert confirmed["state"] == "committed"
-    assert confirmed["project_version"] == revision + 1
-    listed = harness.call("datasets.list", {"project_id": project_id})
-    assert listed["project_version"] == revision + 1
-    assert len(cast(list[dict[str, Any]], listed["datasets"])) == 2
+    assert recipe["created_from_export_hash"] == export_hash
+    assert harness.call("workflow.recipes.list", {"project_id": project_id})[
+        "workflow_recipes"
+    ] == [recipe]
+
+    replayed = harness.call(
+        "workflow.prepare",
+        {
+            **request,
+            "expected_project_version": completed["current_project_revision"],
+            "selected_recipe_id": recipe["recipe_id"],
+        },
+    )
+    assert replayed["outcome"] == "draft_ready"
+    assert replayed["route"] == "recipe_replay"
 
 
 def test_workflow_agent_edit_changes_the_selected_plot_without_a_source(

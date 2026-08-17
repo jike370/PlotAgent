@@ -1926,54 +1926,6 @@
       "title": "FilterRows",
       "type": "object"
     },
-    "InputQuestion": {
-      "additionalProperties": false,
-      "properties": {
-        "answer_kind": {
-          "enum": [
-            "text",
-            "single_choice",
-            "multi_choice",
-            "field",
-            "profile"
-          ],
-          "title": "Answer Kind",
-          "type": "string"
-        },
-        "choices": {
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 24,
-          "title": "Choices",
-          "type": "array"
-        },
-        "prompt": {
-          "maxLength": 512,
-          "minLength": 1,
-          "title": "Prompt",
-          "type": "string"
-        },
-        "question_key": {
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-          "title": "Question Key",
-          "type": "string"
-        },
-        "required": {
-          "default": true,
-          "title": "Required",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "question_key",
-        "prompt",
-        "answer_kind"
-      ],
-      "title": "InputQuestion",
-      "type": "object"
-    },
     "RenameField": {
       "additionalProperties": false,
       "properties": {
@@ -2459,56 +2411,6 @@
       "title": "TaskDraftItem",
       "type": "object"
     },
-    "WorkflowDraftReady": {
-      "additionalProperties": false,
-      "properties": {
-        "draft": {
-          "$ref": "#/$defs/TaskDraft"
-        },
-        "outcome": {
-          "const": "draft_ready",
-          "default": "draft_ready",
-          "title": "Outcome",
-          "type": "string"
-        }
-      },
-      "required": [
-        "draft"
-      ],
-      "title": "WorkflowDraftReady",
-      "type": "object"
-    },
-    "WorkflowNeedsInput": {
-      "additionalProperties": false,
-      "properties": {
-        "outcome": {
-          "const": "needs_input",
-          "default": "needs_input",
-          "title": "Outcome",
-          "type": "string"
-        },
-        "questions": {
-          "items": {
-            "$ref": "#/$defs/InputQuestion"
-          },
-          "maxItems": 4,
-          "minItems": 1,
-          "title": "Questions",
-          "type": "array"
-        },
-        "workflow_run_id": {
-          "pattern": "^workflow:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Workflow Run Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "workflow_run_id",
-        "questions"
-      ],
-      "title": "WorkflowNeedsInput",
-      "type": "object"
-    },
     "WorkflowOutputField": {
       "additionalProperties": false,
       "properties": {
@@ -2530,62 +2432,85 @@
       ],
       "title": "WorkflowOutputField",
       "type": "object"
-    },
-    "WorkflowUnsupported": {
-      "additionalProperties": false,
-      "properties": {
-        "message": {
-          "maxLength": 512,
-          "minLength": 1,
-          "title": "Message",
-          "type": "string"
-        },
-        "outcome": {
-          "const": "unsupported",
-          "default": "unsupported",
-          "title": "Outcome",
-          "type": "string"
-        },
-        "reason_code": {
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-          "title": "Reason Code",
-          "type": "string"
-        },
-        "workflow_run_id": {
-          "pattern": "^workflow:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Workflow Run Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "workflow_run_id",
-        "reason_code",
-        "message"
-      ],
-      "title": "WorkflowUnsupported",
-      "type": "object"
     }
   },
-  "$id": "https://schemas.plotagent.local/v2/workflow-decision.schema.json",
+  "$id": "https://schemas.plotagent.local/v2/workflow-recipe.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "discriminator": {
-    "mapping": {
-      "draft_ready": "#/$defs/WorkflowDraftReady",
-      "needs_input": "#/$defs/WorkflowNeedsInput",
-      "unsupported": "#/$defs/WorkflowUnsupported"
+  "additionalProperties": false,
+  "properties": {
+    "archived": {
+      "default": false,
+      "title": "Archived",
+      "type": "boolean"
     },
-    "propertyName": "outcome"
-  },
-  "oneOf": [
-    {
-      "$ref": "#/$defs/WorkflowNeedsInput"
+    "created_from_export_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Created From Export Hash",
+      "type": "string"
     },
-    {
-      "$ref": "#/$defs/WorkflowUnsupported"
+    "created_from_plan_id": {
+      "pattern": "^plan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Created From Plan Id",
+      "type": "string"
     },
-    {
-      "$ref": "#/$defs/WorkflowDraftReady"
+    "created_from_workflow_run_id": {
+      "pattern": "^workflow:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Created From Workflow Run Id",
+      "type": "string"
+    },
+    "display_name": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Display Name",
+      "type": "string"
+    },
+    "draft_template": {
+      "$ref": "#/$defs/TaskDraft"
+    },
+    "engine_profile_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Engine Profile Hash",
+      "type": "string"
+    },
+    "recipe_id": {
+      "pattern": "^recipe:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Recipe Id",
+      "type": "string"
+    },
+    "recipe_version": {
+      "minimum": 1,
+      "title": "Recipe Version",
+      "type": "integer"
+    },
+    "renderer_contract_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Renderer Contract Hash",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "workflow-recipe.v1",
+      "default": "workflow-recipe.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "structure_fingerprint": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Structure Fingerprint",
+      "type": "string"
     }
+  },
+  "required": [
+    "recipe_id",
+    "recipe_version",
+    "display_name",
+    "structure_fingerprint",
+    "draft_template",
+    "engine_profile_hash",
+    "renderer_contract_hash",
+    "created_from_workflow_run_id",
+    "created_from_plan_id",
+    "created_from_export_hash"
   ],
-  "title": "WorkflowDecisionContract"
+  "title": "WorkflowRecipe",
+  "type": "object"
 }

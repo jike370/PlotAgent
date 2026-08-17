@@ -18,10 +18,7 @@ import {
   readWorkflowOutcome,
   readWorkflowPlan,
   readWorkflowPlans,
-  readDataPreparationRecipes,
-  readDataPreparationAttention,
-  readDataPreparationRun,
-  readEngineCompatibility,
+  readWorkflowRecipes,
   readDatasets,
   readImportSummary,
   readOriginAvailability,
@@ -33,9 +30,7 @@ import {
   resultMessage,
   type WorkflowOutcome,
   type WorkflowPlanView,
-  type DataPreparationRecipeView,
-  type DataPreparationAttentionView,
-  type DataPreparationRunView,
+  type WorkflowRecipeView,
   type ProductDataset,
   type ProductPlot,
   type ProductProject,
@@ -167,13 +162,7 @@ export function App(): React.JSX.Element {
   const [notice, setNotice] = useState<ProductNotice>()
   const [workflowOutcome, setWorkflowOutcome] = useState<WorkflowOutcome>()
   const [workflowPlan, setWorkflowPlan] = useState<WorkflowPlanView>()
-  const [, setDataPreparationRecipes] = useState<DataPreparationRecipeView[]>([])
-  const [dataPreparationAttention, setDataPreparationAttention] = useState<DataPreparationAttentionView[]>([])
-  const [latestPreparationRun, setLatestPreparationRun] = useState<DataPreparationRunView>()
-  const [engineCompatibilityResult, setEngineCompatibilityResult] = useState<{
-    datasetKey: string
-    statuses: Readonly<Record<string, 'compatible' | 'incompatible'>>
-  }>()
+  const [workflowRecipes, setWorkflowRecipes] = useState<WorkflowRecipeView[]>([])
   const [agentConfigured, setAgentConfigured] = useState(false)
   const [undoStack, setUndoStack] = useState<PlotHistoryEntry[]>([])
   const [redoStack, setRedoStack] = useState<PlotHistoryEntry[]>([])
@@ -338,29 +327,11 @@ export function App(): React.JSX.Element {
       const latest = plans.at(-1)
       setWorkflowPlan(latest)
     })
-    void api.listDataPreparationRecipes({ projectId: activeProjectId }).then((result) => {
-      if (active && result.ok) setDataPreparationRecipes(readDataPreparationRecipes(result.value))
+    void api.listWorkflowRecipes({ projectId: activeProjectId }).then((result) => {
+      if (active && result.ok) setWorkflowRecipes(readWorkflowRecipes(result.value))
     })
     return () => { active = false }
   }, [api, activeProjectId])
-
-  useEffect(() => {
-    if (!api || !activeProjectId || !activeDataset) return
-    let active = true
-    const datasetKey = `${activeDataset.datasetId}:${activeDataset.sourceVersion}`
-    void api.checkEngineCompatibility({
-      projectId: activeProjectId,
-      datasetId: activeDataset.datasetId,
-      sourceVersion: activeDataset.sourceVersion,
-      profileIds: chartCatalog.map((chart) => chart.id),
-    }).then((result) => {
-      if (active && result.ok) setEngineCompatibilityResult({
-        datasetKey,
-        statuses: readEngineCompatibility(result.value),
-      })
-    })
-    return () => { active = false }
-  }, [api, activeProjectId, activeDataset])
 
   const mergeProjects = useCallback((nextProjects: ProductProject[]) => {
     setProjects((current) => {
@@ -422,8 +393,6 @@ export function App(): React.JSX.Element {
     setExportRecord(undefined)
     setWorkflowOutcome(undefined)
     setWorkflowPlan(undefined)
-    setDataPreparationAttention([])
-    setLatestPreparationRun(undefined)
     setUndoStack([])
     setRedoStack([])
     setScreen('workspace')
@@ -540,45 +509,17 @@ export function App(): React.JSX.Element {
     const summary = readImportSummary(value)
     const importKind = resultKind(value)
     const imported = readDatasets(value)
-    const preparationRunIds = [...new Set(imported.flatMap((item) => (
-      item.dataPreparationRunId === undefined ? [] : [item.dataPreparationRunId]
-    )))]
-    const preparationRuns = (await Promise.all(preparationRunIds.map(async (runId) => {
-      const result = await api.getDataPreparationRun({ projectId: targetProject.projectId, runId })
-      return result.ok ? readDataPreparationRun(result.value) : undefined
-    }))).filter((run): run is DataPreparationRunView => run !== undefined)
-    const pendingRunIds = new Set(
-      preparationRuns.filter((run) => run.state === 'awaiting_confirmation').map((run) => run.runId),
-    )
-    const visibleImported = imported.filter((item) => (
-      item.dataPreparationRunId === undefined || !pendingRunIds.has(item.dataPreparationRunId)
-    ))
-    const latestPendingRun = preparationRuns.find((run) => run.state === 'awaiting_confirmation')
-    if (latestPendingRun) setLatestPreparationRun(latestPendingRun)
-    const attention = readDataPreparationAttention(value)
-    if (attention.length > 0) {
-      setDataPreparationAttention((current) => [
-        ...current.filter((item) => !attention.some((next) => next.runId === item.runId)),
-        ...attention,
-      ])
-    }
-    if (visibleImported.length === 0 && latestPendingRun) {
-      setNotice({
-        kind: 'info',
-        title: '整理方案待确认',
-        message: '候选结果尚未加入项目。请核对整理动作和输出结构后再决定是否发布。',
-      })
-      return
-    }
-    if (visibleImported.length === 0 && attention.length > 0) {
+    if (imported.length === 0 && (summary.attentionCount > 0 || importKind === 'clarification' || importKind === 'needs_input')) {
       setNotice({
         kind: 'warning',
-        title: '数据整理需要确认',
-        message: '请在对话中的整理卡片选择候选，或交给 Agent 判断。',
+        title: '导入需要确认',
+        message: summary.attentionDetails.join('\n') || resultMessage(value) || '无法唯一确定表头、分隔符或小数格式。',
+        actionLabel: '重新选择文件',
+        onAction: () => { retryImportIntoProject(targetProject) },
       })
       return
     }
-    if (visibleImported.length === 0 && (summary.failedCount > 0 || importKind === 'rejection' || importKind === 'rejected' || importKind === 'failed')) {
+    if (imported.length === 0 && (summary.failedCount > 0 || importKind === 'rejection' || importKind === 'rejected' || importKind === 'failed')) {
       setNotice({
         kind: 'error',
         title: '数据未导入',
@@ -589,12 +530,10 @@ export function App(): React.JSX.Element {
       return
     }
     setDatasets((current) => disambiguateDatasetDisplayNames(
-      [...new Map([...current, ...visibleImported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()],
+      [...new Map([...current, ...imported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()],
     ))
-    const latestCommittedRun = preparationRuns.find((run) => run.state === 'committed')
-    if (latestCommittedRun) setLatestPreparationRun(latestCommittedRun)
-    if (datasets.length === 0 && visibleImported[0]) {
-      setActiveDatasetId(visibleImported[0].datasetId)
+    if (datasets.length === 0 && imported[0]) {
+      setActiveDatasetId(imported[0].datasetId)
       setWorkflowSourceIds([])
     }
     const version = projectVersionFrom(value, targetProject.projectVersion)
@@ -603,7 +542,7 @@ export function App(): React.JSX.Element {
     if (datasets.length === 0) { setConfirmedMapping(undefined); setPlot(undefined) }
     const partial = summary.failedCount > 0 || summary.attentionCount > 0
     const outcomeLines = [
-      `已导入 ${summary.committedCount} 个文件，共 ${visibleImported.length} 个工作表或数据块。`,
+      `已导入 ${summary.committedCount} 个文件，共 ${imported.length} 个工作表或数据块。`,
       ...summary.committedFiles.map((name) => `已导入：${name}`),
       ...summary.attentionDetails.map((detail) => `待确认：${detail}`),
       ...summary.failedDetails.map((detail) => `未导入：${detail}`),
@@ -612,15 +551,13 @@ export function App(): React.JSX.Element {
       kind: 'warning',
       title: '部分文件未导入',
       message: outcomeLines.join('\n'),
-      ...(attention.length > 0 ? {} : {
-        actionLabel: '重新选择文件',
-        onAction: () => { retryImportIntoProject(targetProject) },
-      }),
+      actionLabel: summary.attentionCount > 0 ? '继续处理' : '重新选择文件',
+      onAction: () => { retryImportIntoProject(targetProject) },
     } : {
       kind: 'success',
       title: '数据已导入',
       message: previewMode
-        ? `已载入 ${visibleImported.length} 个内存示例数据集，可继续检查字段与界面流程。`
+        ? `已载入 ${imported.length} 个内存示例数据集，可继续检查字段与界面流程。`
         : outcomeLines.join('\n'),
     })
   }
@@ -640,116 +577,6 @@ export function App(): React.JSX.Element {
         importInFlight.current = false
         setBusyAction(undefined)
       })
-  }
-
-  async function applyDataPreparationResult(
-    targetProject: ProductProject,
-    value: JsonValue,
-    previousRunId: string,
-  ): Promise<void> {
-    const nextAttention = readDataPreparationAttention(value)
-    setDataPreparationAttention((current) => [
-      ...current.filter((item) => item.runId !== previousRunId && !nextAttention.some((next) => next.runId === item.runId)),
-      ...nextAttention,
-    ])
-    const imported = readDatasets(value)
-    const runId = imported[0]?.dataPreparationRunId
-    let nextRun: DataPreparationRunView | undefined
-    if (runId !== undefined) {
-      const runResult = await api?.getDataPreparationRun({ projectId: targetProject.projectId, runId })
-      if (!runResult?.ok) {
-        setNotice({
-          kind: 'error',
-          title: '无法核对整理状态',
-          message: '整理结果尚未发布。请重新整理，或稍后再次尝试。',
-        })
-        return
-      }
-      nextRun = readDataPreparationRun(runResult.value)
-      setLatestPreparationRun(nextRun)
-    }
-    if (nextRun?.state === 'awaiting_confirmation') {
-      setNotice({
-        kind: 'info',
-        title: '整理方案待确认',
-        message: '候选结果尚未加入项目。请核对整理动作和输出结构后再决定是否发布。',
-      })
-      return
-    }
-    if (imported.length > 0) {
-      setDatasets((current) => disambiguateDatasetDisplayNames(
-        [...current.filter((item) => !imported.some((next) => next.datasetId === item.datasetId)), ...imported],
-      ))
-      if (datasets.length === 0 && imported[0]) {
-        setActiveDatasetId(imported[0].datasetId)
-        setWorkflowSourceIds([])
-      }
-      const version = projectVersionFrom(value, targetProject.projectVersion)
-      const nextProject = projectWithVersion(targetProject, version)
-      setProject(nextProject)
-      mergeProjects([nextProject])
-      setNotice({
-        kind: 'success',
-        title: '重新整理完成',
-        message: `已生成 ${imported.length} 张新的数据表版本；已有图仍绑定原来的数据版本。`,
-      })
-      return
-    }
-    if (nextAttention.length > 0) {
-      setNotice({ kind: 'warning', title: '仍需确认', message: nextAttention.map((item) => item.message).join('\n') })
-      return
-    }
-    setNotice({
-      kind: 'warning',
-      title: 'Agent 未能确定整理方式',
-      message: resultMessage(value) ?? '现有证据不足，原始数据没有被修改；可以重新选择文件或补充更明确的数据。',
-    })
-  }
-
-  const retryDataPreparation = async (runId: string, optionValue: string): Promise<void> => {
-    if (!api || !project || busyAction !== undefined) return
-    setBusyAction('prepare-retry'); setNotice(undefined)
-    try {
-      const value = valueOrThrow(await api.retryDataPreparation({
-        projectId: project.projectId,
-        runId,
-        optionValue,
-      }))
-      await applyDataPreparationResult(project, value, runId)
-    } catch (error) {
-      setNotice(errorNotice(error))
-    } finally {
-      setBusyAction(undefined)
-    }
-  }
-
-  const assistDataPreparation = async (runId: string): Promise<void> => {
-    if (!api || !project || busyAction !== undefined) return
-    setBusyAction('prepare-agent'); setNotice(undefined)
-    try {
-      const value = valueOrThrow(await api.assistDataPreparation({ projectId: project.projectId, runId }))
-      await applyDataPreparationResult(project, value, runId)
-    } catch (error) {
-      setNotice(errorNotice(error))
-    } finally {
-      setBusyAction(undefined)
-    }
-  }
-
-  const reprocessDataPreparation = async (): Promise<void> => {
-    if (!api || !project || !latestPreparationRun || busyAction !== undefined) return
-    setBusyAction('prepare-reprocess'); setNotice(undefined)
-    try {
-      const value = valueOrThrow(await api.reprocessDataPreparation({
-        projectId: project.projectId,
-        runId: latestPreparationRun.runId,
-      }))
-      await applyDataPreparationResult(project, value, latestPreparationRun.runId)
-    } catch (error) {
-      setNotice(errorNotice(error))
-    } finally {
-      setBusyAction(undefined)
-    }
   }
 
   const openSample = async (): Promise<void> => {
@@ -832,7 +659,6 @@ export function App(): React.JSX.Element {
       setDatasets([]); setActiveDatasetId(undefined); setWorkflowSourceIds([])
       setPlot(undefined); setPreviousPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined)
       setWorkflowPlan(undefined); setWorkflowOutcome(undefined); setExportRecord(undefined)
-      setDataPreparationAttention([]); setLatestPreparationRun(undefined)
 
       let datasetNotice: ProductNotice | undefined
       try {
@@ -1234,26 +1060,25 @@ export function App(): React.JSX.Element {
     } finally { setBusyAction(undefined) }
   }
 
-  const saveDataPreparationRecipe = async (): Promise<void> => {
-    if (!api || !project || !latestPreparationRun || busyAction !== undefined) return
+  const saveWorkflowRecipe = async (): Promise<void> => {
+    if (!api || !project || !workflowPlan || !exportRecord?.artifactHash || busyAction !== undefined) return
     setBusyAction('save-recipe'); setNotice(undefined)
     try {
-      const saved = valueOrThrow(await api.saveDataPreparationRecipe({
+      const saved = valueOrThrow(await api.saveWorkflowRecipe({
         projectId: project.projectId,
-        runId: latestPreparationRun.runId,
-        displayName: activeDataset === undefined
-          ? '数据整理流程'
-          : `${activeDataset.sourceFileName ?? activeDataset.displayName} 整理`,
+        planId: workflowPlan.planId,
+        displayName: `${selectedChart?.name ?? '绘图'}流程`,
+        exportHash: exportRecord.artifactHash,
       }))
-      const listed = await api.listDataPreparationRecipes({ projectId: project.projectId })
-      if (listed.ok) setDataPreparationRecipes(readDataPreparationRecipes(listed.value))
-      setNotice({
-        kind: 'success',
-        title: '数据整理流程已保存',
-        message: isJsonRecord(saved) && typeof saved.display_name === 'string'
-          ? `${saved.display_name} 将在同构来源上自动进行结构匹配和校验；不会重放图类、字段绑定或视觉设置。`
-          : '同构来源将优先尝试这条机械整理流程。',
-      })
+      if (isJsonRecord(saved) && typeof saved.recipe_id === 'string' && typeof saved.display_name === 'string') {
+        const recipeId = saved.recipe_id
+        const displayName = saved.display_name
+        setWorkflowRecipes((current) => [
+          { recipeId, displayName, profileIds: workflowPlan.steps.map((step) => step.profileId) },
+          ...current.filter((item) => item.recipeId !== recipeId),
+        ])
+      }
+      setNotice({ kind: 'success', title: '流程已固化', message: '下次可从“已固化流程”明确选择；系统不会根据自然语言自动重放。' })
     } catch (error) {
       setNotice(errorNotice(error))
     } finally {
@@ -1261,46 +1086,32 @@ export function App(): React.JSX.Element {
     }
   }
 
-  const confirmDataPreparationRun = async (accept: boolean): Promise<void> => {
-    if (!api || !project || !latestPreparationRun || busyAction !== undefined) return
-    setBusyAction('prepare-confirm'); setNotice(undefined)
+  const runWorkflowRecipe = async (recipeId: string): Promise<void> => {
+    if (!api || !project || !activeDataset || busyAction !== undefined) return
+    const recipe = workflowRecipes.find((item) => item.recipeId === recipeId)
+    if (!recipe) return
+    setBusyAction('agent'); setNotice(undefined); setWorkflowOutcome(undefined); setWorkflowPlan(undefined)
     try {
-      const value = valueOrThrow(await api.confirmDataPreparationRun({
+      const selectedIds = [
+        activeDataset.datasetId,
+        ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId),
+      ].slice(0, 8)
+      const selectedSources = selectedIds.flatMap((datasetId) => {
+        const dataset = datasets.find((candidate) => candidate.datasetId === datasetId)
+        return dataset ? [{ datasetId: dataset.datasetId, sourceVersion: dataset.sourceVersion }] : []
+      })
+      const created = valueOrThrow(await api.runWorkflow({
         projectId: project.projectId,
-        runId: latestPreparationRun.runId,
-        accept,
+        selectedSources,
+        expectedProjectVersion: project.projectVersion,
+        selectedRecipeId: recipe.recipeId,
+        instruction: `使用已固化流程：${recipe.displayName}`,
       }))
-      const runValue = isJsonRecord(value) && isJsonRecord(value.run) ? value.run : value
-      const confirmedRun = readDataPreparationRun(runValue)
-      const activeDatasets = readDatasets(value)
-      setDataPreparationAttention((current) => current.filter((item) => item.runId !== latestPreparationRun.runId))
-      setDatasets(disambiguateDatasetDisplayNames(activeDatasets))
-      const nextActive = activeDatasets.some((item) => item.datasetId === activeDatasetId)
-        ? activeDatasetId : activeDatasets[0]?.datasetId
-      setActiveDatasetId(nextActive)
-      setWorkflowSourceIds([])
-      const nextProject = projectWithVersion(project, projectVersionFrom(value, project.projectVersion))
-      setProject(nextProject)
-      mergeProjects([nextProject])
-      if (accept) {
-        setLatestPreparationRun(confirmedRun)
-        setNotice({
-          kind: 'success',
-          title: '已采用整理结果',
-          message: '数据表已发布到项目。若经常处理同构数据，可以把这段非语义整理流程保存为 Recipe。',
-        })
-      } else {
-        setLatestPreparationRun(undefined)
-        setConfirmedMapping(undefined)
-        setPlot(undefined)
-        setNotice({
-          kind: 'warning',
-          title: '已放弃整理方案',
-          message: '候选结果没有发布，原始文件也没有被修改；可以重新导入或重新处理。',
-        })
-      }
+      const outcome = readWorkflowOutcome(created)
+      setWorkflowPlan(outcome.plan)
+      setWorkflowOutcome(outcome)
     } catch (error) {
-      setNotice(errorNotice(error))
+      setWorkflowOutcome({ kind: 'rejected', title: '流程未复用', message: errorNotice(error).message })
     } finally {
       setBusyAction(undefined)
     }
@@ -1343,12 +1154,10 @@ export function App(): React.JSX.Element {
   }
 
   const chartCompatibility = useMemo(() => ({
+    numericFieldCount: activeDataset?.fields.filter((field) => ['number', 'numeric', 'float', 'integer', 'decimal'].includes(field.logicalType.toLocaleLowerCase('en-US'))).length ?? 0,
+    categoricalFieldCount: activeDataset?.fields.filter((field) => ['string', 'categorical', 'category', 'boolean'].includes(field.logicalType.toLocaleLowerCase('en-US'))).length ?? 0,
     totalFieldCount: activeDataset?.fields.length ?? 0,
-    ...(activeDataset === undefined
-      || engineCompatibilityResult?.datasetKey !== `${activeDataset.datasetId}:${activeDataset.sourceVersion}`
-      ? {}
-      : { statusByProfile: engineCompatibilityResult.statuses }),
-  }), [activeDataset, engineCompatibilityResult])
+  }), [activeDataset])
   const canUndo = undoStack.at(-1)?.plotId === plot?.plotId
   const canRedo = redoStack.at(-1)?.plotId === plot?.plotId
   const modalOpen = libraryOpen || tasksOpen || providerOpen
@@ -1400,7 +1209,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} dataPreparationAttention={dataPreparationAttention} latestPreparationRun={latestPreparationRun} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onSelectDataPreparationCandidate={(runId, optionValue) => void retryDataPreparation(runId, optionValue)} onAssistDataPreparation={(runId) => void assistDataPreparation(runId)} onConfirmDataPreparation={(accept) => void confirmDataPreparationRun(accept)} onReprocessDataPreparation={() => void reprocessDataPreparation()} onSaveDataPreparationRecipe={() => void saveDataPreparationRecipe()} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} workflowRecipes={workflowRecipes} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onRunWorkflowRecipe={(recipeId) => void runWorkflowRecipe(recipeId)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onSaveWorkflowRecipe={() => void saveWorkflowRecipe()} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onClose={() => setScreen('workspace')} />}
       </div>

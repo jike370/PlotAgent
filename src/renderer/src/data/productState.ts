@@ -25,7 +25,6 @@ export interface ProductDataset {
   sourceFileName?: string
   sourceSheetName?: string
   sourceBlock?: string
-  dataPreparationRunId?: string
   instrumentMetadata: Readonly<Record<string, string>>
   sourceVersion: number
   rowCount: number
@@ -288,62 +287,10 @@ export interface WorkflowOutcome {
   executionCount?: number
 }
 
-export interface DataPreparationRecipeView {
+export interface WorkflowRecipeView {
   recipeId: string
-  recipeVersion: number
   displayName: string
-  scope: 'personal' | 'project'
-  sourceFormats: string[]
-  tableCount: number
-}
-
-export interface DataPreparationRunView {
-  runId: string
-  state: string
-  route?: 'generic_parser' | 'saved_recipe' | 'agent_assisted'
-  selectedRecipeId?: string
-  selectedRecipeVersion?: number
-  tableCount: number
-  localDurationMs: number
-  steps: ReadonlyArray<{
-    sourceFormat: string
-    encoding?: string
-    delimiter?: string
-    decimalMark?: string
-    headerRow?: number
-    sheet?: string
-  }>
-  outputTables: ReadonlyArray<{
-    tableKey: string
-    displayName: string
-    rowCount: number
-    columnCount: number
-    columnNames: string[]
-  }>
-}
-
-export interface DataPreparationAttentionView {
-  runId: string
-  fileName: string
-  kind: 'clarification' | 'rejection'
-  code: string
-  message: string
-  options: ReadonlyArray<{ value: string; label: string }>
-}
-
-export type EngineCompatibilityStatus = 'compatible' | 'incompatible'
-
-export function readEngineCompatibility(
-  value: JsonValue,
-): Record<string, EngineCompatibilityStatus> {
-  if (!isJsonRecord(value) || !Array.isArray(value.compatibility)) return {}
-  return Object.fromEntries(value.compatibility.flatMap((item): [string, EngineCompatibilityStatus][] => (
-    isJsonRecord(item)
-    && typeof item.profile_id === 'string'
-    && (item.status === 'compatible' || item.status === 'incompatible')
-      ? [[item.profile_id, item.status]]
-      : []
-  )))
+  profileIds: string[]
 }
 
 type JsonRecord = Record<string, JsonValue>
@@ -438,7 +385,6 @@ export function readDatasets(value: JsonValue): ProductDataset[] {
     const sourceFileName = stringValue(record, 'source_file_name', 'file_name', 'workbook_name')
     const sourceSheetName = stringValue(record, 'source_sheet_name', 'sheet_name')
     const sourceBlock = stringValue(record, 'source_block')
-    const dataPreparationRunId = stringValue(record, 'data_preparation_run_id')
     const instrumentMetadata = isJsonRecord(record.instrument_metadata)
       ? Object.fromEntries(Object.entries(record.instrument_metadata).flatMap(([key, value]) => (
         typeof value === 'string' ? [[key, value]] : []
@@ -463,7 +409,6 @@ export function readDatasets(value: JsonValue): ProductDataset[] {
       ...(sourceFileName === undefined ? {} : { sourceFileName }),
       ...(sourceSheetName === undefined ? {} : { sourceSheetName }),
       ...(sourceBlock === undefined ? {} : { sourceBlock }),
-      ...(dataPreparationRunId === undefined ? {} : { dataPreparationRunId }),
       instrumentMetadata,
       sourceVersion: numberValue(record, 'source_version') ?? 1,
       rowCount: numberValue(record, 'row_count') ?? 0,
@@ -872,120 +817,27 @@ export function readWorkflowOutcome(value: JsonValue): WorkflowOutcome {
   return { kind: 'rejected', title: '无法识别结果', message: 'Core 未返回受支持的工作流结果。' }
 }
 
-export function readDataPreparationRecipes(value: JsonValue): DataPreparationRecipeView[] {
-  if (!isJsonRecord(value) || !Array.isArray(value.data_preparation_recipes)) return []
-  return value.data_preparation_recipes.flatMap((item): DataPreparationRecipeView[] => {
+export function readWorkflowRecipes(value: JsonValue): WorkflowRecipeView[] {
+  if (!isJsonRecord(value) || !Array.isArray(value.workflow_recipes)) return []
+  return value.workflow_recipes.flatMap((item): WorkflowRecipeView[] => {
     if (
       !isJsonRecord(item)
       || typeof item.recipe_id !== 'string'
       || typeof item.display_name !== 'string'
-      || typeof item.recipe_version !== 'number'
-      || (item.scope !== 'personal' && item.scope !== 'project')
     ) return []
-    const match = isJsonRecord(item.match_contract) ? item.match_contract : undefined
-    const sourceFormats = match && Array.isArray(match.source_formats)
-      ? match.source_formats.filter((entry): entry is string => typeof entry === 'string')
-      : []
+    const template = isJsonRecord(item.draft_template) ? item.draft_template : undefined
+    const items = template && Array.isArray(template.items) ? template.items : []
+    const profileIds = [...new Set(items.flatMap((draftItem) => (
+      isJsonRecord(draftItem) && typeof draftItem.profile_id === 'string'
+        ? [draftItem.profile_id]
+        : []
+    )))]
     return [{
       recipeId: item.recipe_id,
-      recipeVersion: item.recipe_version,
       displayName: item.display_name,
-      scope: item.scope,
-      sourceFormats,
-      tableCount: match && typeof match.table_count === 'number' ? match.table_count : 0,
+      profileIds,
     }]
   })
-}
-
-export function readDataPreparationRun(value: JsonValue): DataPreparationRunView | undefined {
-  if (
-    !isJsonRecord(value)
-    || typeof value.run_id !== 'string'
-    || typeof value.state !== 'string'
-    || !isJsonRecord(value.probe)
-  ) return undefined
-  const route = value.route === 'generic_parser'
-    || value.route === 'saved_recipe'
-    || value.route === 'agent_assisted'
-    ? value.route : undefined
-  const outputTables = Array.isArray(value.probe.tables)
-    ? value.probe.tables.flatMap((table) => {
-      if (
-        !isJsonRecord(table)
-        || typeof table.table_key !== 'string'
-        || typeof table.display_name !== 'string'
-        || typeof table.row_count !== 'number'
-        || typeof table.column_count !== 'number'
-      ) return []
-      return [{
-        tableKey: table.table_key,
-        displayName: table.display_name,
-        rowCount: table.row_count,
-        columnCount: table.column_count,
-        columnNames: Array.isArray(table.column_names)
-          ? table.column_names.filter((name): name is string => typeof name === 'string')
-          : [],
-      }]
-    })
-    : []
-  const steps = Array.isArray(value.executed_steps)
-    ? value.executed_steps.flatMap((step) => {
-      if (!isJsonRecord(step) || step.operation !== 'parse_source' || typeof step.source_format !== 'string') return []
-      return [{
-        sourceFormat: step.source_format,
-        ...(typeof step.encoding === 'string' ? { encoding: step.encoding } : {}),
-        ...(typeof step.delimiter === 'string' ? { delimiter: step.delimiter } : {}),
-        ...(typeof step.decimal_mark === 'string' ? { decimalMark: step.decimal_mark } : {}),
-        ...(typeof step.header_row === 'number' ? { headerRow: step.header_row } : {}),
-        ...(typeof step.sheet === 'string' ? { sheet: step.sheet } : {}),
-      }]
-    })
-    : []
-  return {
-    runId: value.run_id,
-    state: value.state,
-    ...(route === undefined ? {} : { route }),
-    ...(typeof value.selected_recipe_id !== 'string'
-      ? {} : { selectedRecipeId: value.selected_recipe_id }),
-    ...(typeof value.selected_recipe_version !== 'number'
-      ? {} : { selectedRecipeVersion: value.selected_recipe_version }),
-    tableCount: outputTables.length,
-    localDurationMs: typeof value.local_duration_ms === 'number' ? value.local_duration_ms : 0,
-    steps,
-    outputTables,
-  }
-}
-
-export function readDataPreparationAttention(value: JsonValue): DataPreparationAttentionView[] {
-  const outcomes = records(value, (record) => (
-    typeof record.preparation_run_id === 'string'
-    && typeof record.kind === 'string'
-    && ['clarification', 'needs_input', 'rejection', 'rejected', 'failed'].includes(record.kind)
-  ))
-  const unique = new Map<string, DataPreparationAttentionView>()
-  for (const outcome of outcomes) {
-    const runId = outcome.preparation_run_id as string
-    const options = Array.isArray(outcome.options)
-      ? outcome.options.flatMap((option): Array<{ value: string; label: string }> => (
-        isJsonRecord(option)
-        && typeof option.value === 'string'
-        && typeof option.label === 'string'
-          ? [{ value: option.value, label: option.label }]
-          : []
-      ))
-      : []
-    unique.set(runId, {
-      runId,
-      fileName: stringValue(outcome, 'source_file_name') ?? '所选文件',
-      kind: outcome.kind === 'clarification' || outcome.kind === 'needs_input'
-        ? 'clarification' : 'rejection',
-      code: stringValue(outcome, 'code') ?? 'DATA_PREPARATION_NEEDS_ATTENTION',
-      message: stringValue(outcome, 'question', 'message', 'reason', 'remediation')
-        ?? '数据结构无法被唯一确定，请选择候选或交给 Agent 判断。',
-      options,
-    })
-  }
-  return [...unique.values()]
 }
 
 export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined {
