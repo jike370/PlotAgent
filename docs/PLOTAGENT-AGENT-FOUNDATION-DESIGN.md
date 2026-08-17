@@ -30,7 +30,7 @@
 | 2 | 领域说明 | 待讨论 | 哪些绘图知识、科学边界和标准案例应提供给 Agent？ |
 | 3 | 上下文机制 | 已确认 | Agent 每轮能看到什么，怎样按需读取数据而不淹没上下文？ |
 | 4 | 运行循环 | 待讨论 | Agent 怎样观察、行动、检查、修复、停止或追问？ |
-| 5 | 工具体系 | 提案待确认 | Agent 需要哪些检查、整理、绘图、读回和交付工具？ |
+| 5 | 工具体系 | 已确认 | Agent 需要哪些检查、整理、绘图、读回和交付工具？ |
 | 6 | 验证器 | 待讨论 | 怎样独立证明数据、科学语义、图形和导出物正确？ |
 | 7 | 权限与回滚 | 待讨论 | 哪些动作可自动执行，哪些需要确认，失败如何撤销？ |
 | 8 | 工作记忆 | 待讨论 | 一次任务中应记住哪些决定、结果和失败，哪些不得长期保存？ |
@@ -414,7 +414,7 @@ error: code, category, retryable, repair_hint
 - Agent 提交 TaskDraft 后退出，不能持续完成执行、验证、技术修复和交付；
 - 多数错误仍不足以告诉 Agent 怎样安全修复。
 
-### 6.5 本项待确认原则
+### 6.5 已确认原则
 
 1. 不开放任意代码，只提供足以组合完成任务的类型化工具；
 2. 数据操作统一使用不可变、可链式 DataViewHandle，原始数据只读；
@@ -426,6 +426,26 @@ error: code, category, retryable, repair_hint
 8. 工具按 TaskState 和权限阶段暴露，不通过自然语言路由；
 9. 正式执行和导出只能作用于用户已确认的语义范围；
 10. Agent 在同一任务中持续到验证和交付完成，而不是提交 TaskDraft 后立即退出。
+
+### 6.6 设计依据与 PlotAgent 取舍
+
+本项不是照抄单一框架，而是综合以下公开工程实践、协议和论文：
+
+- [OpenAI《A practical guide to building agents》](https://openai.com/business/guides-and-resources/a-practical-guide-to-building-ai-agents/)：工具应标准化、文档化、可复用和充分测试；工具过载的关键是重叠和歧义；按只读/写入、可逆性和影响进行风险分级，并为高风险动作设置人工介入。
+- [Anthropic《Writing effective tools for agents》](https://www.anthropic.com/engineering/writing-tools-for-agents)：工具要有清晰边界和 namespace，返回对 Agent 有意义且 token 高效的上下文，并用真实 Agent 任务评测工具是否可理解、可组合。
+- [Model Context Protocol 2025-11-25 Tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)：工具使用输入/输出 Schema 和结构化结果；可修复的执行错误应作为模型可见的 tool result 返回，使模型能够自我修正；客户端应验证结果、设置超时、记录调用并对敏感操作确认。
+- [ReAct](https://arxiv.org/abs/2210.03629)：推理和行动交替，Agent 根据环境观察更新计划并处理异常，而不是一次生成完整计划后停止。
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/cli-usage)：成熟产品公开区分 allowed/disallowed tools、permission mode、最大轮次、continue/resume 和 verbose trace，证明权限、预算、恢复和可观察性应围绕工具运行时设计。
+
+本地产品证据来自 `D:\fig-claw-teacher-lab` 的真实绘图任务记录，尤其是 `teacher_evaluation_027_034.md` 和 `_project_output_protocol_v1.md`。记录显示任务反复涉及字段绑定、图形意图、层结构、记录身份、视觉编码、坐标尺度、行关系、数据变换和统计定义；运行失败中存在可由结构化错误修复的 Schema/合同问题，近期任务普遍需要一次局部视觉修正。因此 PlotAgent 需要“真实数据观察—类型化变换—沙箱渲染—读回—局部修正”的闭环，不能只提交计划。
+
+以下部分是 PlotAgent 特有设计，不是上述来源的直接结论：
+
+- 不可变 DataViewHandle 和原始数据只读；
+- Matplotlib/Origin 共同动作与真实 Origin 原生读回；
+- 技术修复不占视觉修改次数；
+- 用户确认后用冻结 TaskIntent 限定正式执行语义；
+- 每个工具自动附带 PlotAgent 数据、图形和交付验证报告。
 
 ## 已确认决定日志
 
@@ -460,6 +480,17 @@ error: code, category, retryable, repair_hint
 - 每轮上下文从 PlotAgent 权威状态重建，Pi 聊天历史不是任务状态的唯一真值。
 - 程序只按权限、对象和预算机械组装上下文，不做语义路由。
 - 上下文压缩不得丢失原始目标、已确认语义、来源、单位、分组、配对和完成证据。
+
+### 2026-08-18：确认工具体系
+
+- 不开放任意代码，提供可组合的类型化工具。
+- 原始数据只读，数据操作产生不可变、可链式 DataViewHandle。
+- 补齐原始来源检查、关系分析、类型转换、join、去重和显式聚合。
+- 预演与正式执行使用同一实现；确认前 staged，确认后按冻结 TaskIntent 提交。
+- 增加沙箱渲染、原生读回和局部修正，使 Agent 完成渲染—检查—修正闭环。
+- 工具自动返回来源、验证、副作用和结构化错误；技术错误允许自动修复且不占视觉修改次数。
+- 工具按 TaskState 与授权阶段暴露，不通过自然语言路由。
+- Agent 持续运行到验证和交付完成，不在提交 TaskDraft 后退出。
 
 ## 文档更新规则
 
