@@ -357,6 +357,10 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
       kind: 'clarification', preparation_run_id: runId,
       code: 'IMPORT_HEADER_AMBIGUOUS', question: '请选择表头。', options: [],
     })),
+    reprocessDataPreparation: vi.fn(async ({ runId }) => ok({
+      kind: 'rejection', preparation_run_id: runId,
+      code: 'DATA_REPROCESS_UNAVAILABLE', message: '无法重新整理。',
+    })),
     assistDataPreparation: vi.fn(async ({ runId }) => ok({
       outcome: 'unresolved', preparation_run_id: runId, reason: '无法安全判断。',
     })),
@@ -1090,6 +1094,52 @@ describe('PlotAgent real desktop workflow', () => {
     expect(await screen.findByRole('button', { name: /保存数据整理流程/ })).toBeInTheDocument()
   })
 
+  it('offers deterministic results for reprocessing and replaces the current source version', async () => {
+    const user = userEvent.setup()
+    const firstRunId = 'data-run:generic-v1'
+    const secondRunId = 'data-run:generic-v2'
+    const reprocessDataPreparation = vi.fn(async () => ok({
+      kind: 'committed',
+      project_version: 2,
+      datasets: [{
+        ...dataset,
+        source_version: 2,
+        content_hash: 'b'.repeat(64),
+        data_preparation_run_id: secondRunId,
+      }],
+    }))
+    installApi(fakeDesktop({
+      importDatasets: vi.fn(async () => ok({
+        selected_files: ['规则数据.csv'],
+        imports: [{
+          kind: 'committed',
+          source_file_name: '规则数据.csv',
+          project_version: 1,
+          datasets: [{ ...dataset, data_preparation_run_id: firstRunId }],
+        }],
+        project_version: 1,
+      })),
+      getDataPreparationRun: vi.fn(async ({ runId }) => ok({
+        run_id: runId,
+        state: 'committed',
+        route: 'generic_parser',
+        probe: { tables: [{ table_key: 'table:one' }] },
+        local_duration_ms: 7,
+      })),
+      reprocessDataPreparation,
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: /^导入/ }))
+    expect(await screen.findByText('通用解析已完成')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '重新整理' }))
+    expect(reprocessDataPreparation).toHaveBeenCalledWith({
+      projectId: 'project:test', runId: firstRunId,
+    })
+    expect(await screen.findByText('重新整理完成')).toBeInTheDocument()
+    expect(screen.getByText('项目 v2')).toBeInTheDocument()
+  })
+
   it('removes an Agent preparation candidate from the workspace when rejected', async () => {
     const user = userEvent.setup()
     const runId = 'data-run:agent-reject'
@@ -1119,7 +1169,7 @@ describe('PlotAgent real desktop workflow', () => {
     }))
     render(<App />)
     await user.click(await screen.findByRole('button', { name: /^导入/ }))
-    await user.click(await screen.findByRole('button', { name: '退回并重新处理' }))
+    await user.click(await screen.findByRole('button', { name: '撤销候选并重新整理' }))
     expect(confirmDataPreparationRun).toHaveBeenCalledWith({
       projectId: 'project:test', runId, accept: false,
     })

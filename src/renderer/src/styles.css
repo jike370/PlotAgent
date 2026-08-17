@@ -5133,6 +5133,7 @@ input[type="checkbox"] {
 .product-result-strip strong { font-size: 13px; }
 .product-result-strip p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
 .product-result-strip code { font-size: 12px; }
+.product-result-strip__actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
 
 .data-preparation-card {
   margin-top: 9px;

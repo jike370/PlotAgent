@@ -167,6 +167,62 @@ def test_dataset_description_returns_a_bounded_read_only_sample(
     assert "sample_rows" not in dataset
 
 
+def test_reprocessed_source_lists_only_the_latest_version_but_keeps_history(
+    harness: ApplicationHarness,
+    tmp_path: Path,
+) -> None:
+    project_id, revision = _create_open(harness)
+    source = tmp_path / "reprocessed.csv"
+    source.write_text("x,y\n1,10\n2,20\n", encoding="utf-8")
+    first = harness.call(
+        "datasets.import",
+        {
+            "project_id": project_id,
+            "resource_id": "resource:reprocessed",
+            "source_path": str(source),
+            "idempotency_key": "reprocessed-v1",
+            "expected_version": revision,
+            "options": {},
+        },
+    )
+    first_dataset = cast(dict[str, Any], cast(list[object], first["datasets"])[0])
+
+    source.write_text("x,y\n1,100\n2,200\n3,300\n", encoding="utf-8")
+    second = harness.call(
+        "datasets.import",
+        {
+            "project_id": project_id,
+            "resource_id": "resource:reprocessed",
+            "source_path": str(source),
+            "idempotency_key": "reprocessed-v2",
+            "expected_version": first["project_version"],
+            "options": {},
+        },
+    )
+    second_dataset = cast(dict[str, Any], cast(list[object], second["datasets"])[0])
+
+    listed = cast(list[dict[str, Any]], harness.call(
+        "datasets.list", {"project_id": project_id}
+    )["datasets"])
+    assert [(item["source_dataset_id"], item["source_version"]) for item in listed] == [
+        (second_dataset["source_dataset_id"], 2)
+    ]
+    assert first_dataset["source_dataset_id"] == second_dataset["source_dataset_id"]
+
+    historical = harness.call(
+        "datasets.describe",
+        {
+            "project_id": project_id,
+            "source_dataset_id": first_dataset["source_dataset_id"],
+            "source_version": 1,
+        },
+    )
+    assert cast(dict[str, Any], historical["dataset"])["sample_rows"] == [
+        [1.0, 10.0],
+        [2.0, 20.0],
+    ]
+
+
 def test_text_import_exposes_instrument_metadata_and_distinct_table_blocks(
     harness: ApplicationHarness,
 ) -> None:

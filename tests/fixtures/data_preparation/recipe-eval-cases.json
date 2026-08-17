@@ -3,7 +3,10 @@
   "thresholds": {
     "wrong_auto_match_rate_max": 0.0,
     "repeat_model_turn_rate_max": 0.0,
-    "local_p95_ms_max": 1000
+    "local_p95_ms_max": 1000,
+    "agent_model_turn_count_max": 2,
+    "agent_tool_call_count_max": 2,
+    "agent_estimated_cost_cny_max": 0.01
   },
   "seed": {
     "file_name": "seed.csv",
@@ -24,5 +27,19 @@
     { "case_id": "headerless", "file_name": "headerless.csv", "content": "0,1.0\n1,2.0\n", "expected_route": "generic_parser" },
     { "case_id": "ragged-rejection", "file_name": "ragged-rejection.csv", "content": "time,signal\n0,1.0\n1,2.0,extra\n", "expected_route": "generic_parser" },
     { "case_id": "text-preamble", "file_name": "text-preamble.csv", "content": "Instrument,Demo\ntime,signal\n0,1.0\n1,2.0\n", "expected_route": "generic_parser" }
-  ]
+  ],
+  "agent_assisted_case": {
+    "case_id": "agent-assisted-explicit-parser-options",
+    "file_name": "agent-assisted.txt",
+    "content": "Instrument export\ntime;signal\n0;1.0\n1;2.0\n",
+    "parser_options": { "delimiter": ";", "header_row": 2 },
+    "usage": {
+      "model_turn_count": 1,
+      "tool_call_count": 1,
+      "input_token_count": 120,
+      "output_token_count": 24,
+      "input_cny_per_million_tokens": 2.0,
+      "output_cny_per_million_tokens": 8.0
+    }
+  }
 }

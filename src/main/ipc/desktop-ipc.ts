@@ -117,12 +117,6 @@ function preparationOutcomeCode(value: JsonValue): string | undefined {
     : undefined
 }
 
-function needsPreparationContext(value: JsonValue): boolean {
-  if (readImportClarification(value) !== undefined) return true
-  return value !== null && !Array.isArray(value) && typeof value === 'object'
-    && value.kind === 'rejection'
-}
-
 export function readAgentPreparationProposal(value: JsonValue): {
   options: Record<string, JsonValue>
   modelTurnCount: number
@@ -714,7 +708,6 @@ export function registerDesktopIpc({
           })
         )
         let result = await requestImport({})
-        let agentAssisted = false
         const initialRunId = preparationRunId(result)
         const initialCode = preparationOutcomeCode(result)
         if (
@@ -732,7 +725,6 @@ export function registerDesktopIpc({
               import_outcome: result,
             }))
             if (proposed !== undefined) {
-              agentAssisted = true
               result = await requestImport({
                 ...proposed.options,
                 agent_assisted: true,
@@ -748,7 +740,7 @@ export function registerDesktopIpc({
           }
         }
         const pendingRunId = preparationRunId(result)
-        if (pendingRunId !== undefined && (agentAssisted || needsPreparationContext(result))) preparationResources.set(pendingRunId, {
+        if (pendingRunId !== undefined) preparationResources.set(pendingRunId, {
           projectId: input.projectId,
           resourceId: resource.resourceId,
           path,
@@ -978,10 +970,7 @@ export function registerDesktopIpc({
         options,
       })
       const nextRunId = preparationRunId(result)
-      if (
-        nextRunId !== undefined
-        && (options.agent_assisted === true || needsPreparationContext(result))
-      ) preparationResources.set(nextRunId, { ...stored, result })
+      if (nextRunId !== undefined) preparationResources.set(nextRunId, { ...stored, result })
       const identified = withImportSourceIdentity(result, stored.fileName)
       rememberDatasetIdentities(stored.projectId, identified)
       return { ok: true, value: sanitizeCoreResult(identified, resources) }
@@ -1041,6 +1030,17 @@ export function registerDesktopIpc({
     }
   })
 
+  ipcMain.handle(IPC_CHANNELS.dataPreparationReprocess, async (_event, value: unknown) => {
+    const input = parseDataPreparationRunInput(value)
+    const stored = input === null ? undefined : preparationResources.get(input.runId)
+    if (input === null || stored === undefined || stored.projectId !== input.projectId) {
+      return invalidDataArgument('数据整理来源上下文已失效，请重新选择原始文件。')
+    }
+    const response = await retryStoredPreparation(stored, {})
+    if (response.ok) preparationResources.delete(input.runId)
+    return response
+  })
+
   ipcMain.handle(IPC_CHANNELS.dataPreparationRunConfirm, async (_event, value: unknown) => {
     const input = parseDataPreparationRunConfirmInput(value)
     if (input === null) return invalidDataArgument('数据整理确认参数无效。')
@@ -1051,7 +1051,7 @@ export function registerDesktopIpc({
         accept: input.accept,
       })
       const datasets = await supervisor.request('datasets.list', { project_id: input.projectId })
-      preparationResources.delete(input.runId)
+      if (!input.accept) preparationResources.delete(input.runId)
       return {
         ok: true,
         value: sanitizeCoreResult({ run, datasets }, resources),

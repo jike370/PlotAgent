@@ -638,25 +638,33 @@ export function App(): React.JSX.Element {
     const imported = readDatasets(value)
     if (imported.length > 0) {
       setDatasets((current) => disambiguateDatasetDisplayNames(
-        [...new Map([...current, ...imported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()],
+        [...current.filter((item) => !imported.some((next) => next.datasetId === item.datasetId)), ...imported],
       ))
       if (datasets.length === 0 && imported[0]) {
         setActiveDatasetId(imported[0].datasetId)
         setWorkflowSourceIds([])
       }
       const runId = imported[0]?.dataPreparationRunId
+      let nextRun: DataPreparationRunView | undefined
       if (runId !== undefined) {
         const runResult = await api?.getDataPreparationRun({ projectId: targetProject.projectId, runId })
-        if (runResult?.ok) setLatestPreparationRun(readDataPreparationRun(runResult.value))
+        if (runResult?.ok) {
+          nextRun = readDataPreparationRun(runResult.value)
+          setLatestPreparationRun(nextRun)
+        }
       }
       const version = projectVersionFrom(value, targetProject.projectVersion)
       const nextProject = projectWithVersion(targetProject, version)
       setProject(nextProject)
       mergeProjects([nextProject])
-      setNotice({
+      setNotice(nextRun?.state === 'awaiting_confirmation' ? {
         kind: 'success',
         title: '数据整理完成，等待确认',
         message: `已生成 ${imported.length} 张规则数据表，请检查样本后确认采用或退回。`,
+      } : {
+        kind: 'success',
+        title: '重新整理完成',
+        message: `已生成 ${imported.length} 张新的规则数据表版本；已有图仍绑定原来的数据版本。`,
       })
       return
     }
@@ -694,6 +702,22 @@ export function App(): React.JSX.Element {
     try {
       const value = valueOrThrow(await api.assistDataPreparation({ projectId: project.projectId, runId }))
       await applyDataPreparationResult(project, value, runId)
+    } catch (error) {
+      setNotice(errorNotice(error))
+    } finally {
+      setBusyAction(undefined)
+    }
+  }
+
+  const reprocessDataPreparation = async (): Promise<void> => {
+    if (!api || !project || !latestPreparationRun || busyAction !== undefined) return
+    setBusyAction('prepare-reprocess'); setNotice(undefined)
+    try {
+      const value = valueOrThrow(await api.reprocessDataPreparation({
+        projectId: project.projectId,
+        runId: latestPreparationRun.runId,
+      }))
+      await applyDataPreparationResult(project, value, latestPreparationRun.runId)
     } catch (error) {
       setNotice(errorNotice(error))
     } finally {
@@ -1346,7 +1370,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} dataPreparationAttention={dataPreparationAttention} latestPreparationRun={latestPreparationRun} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onSelectDataPreparationCandidate={(runId, optionValue) => void retryDataPreparation(runId, optionValue)} onAssistDataPreparation={(runId) => void assistDataPreparation(runId)} onConfirmDataPreparation={(accept) => void confirmDataPreparationRun(accept)} onSaveDataPreparationRecipe={() => void saveDataPreparationRecipe()} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} dataPreparationAttention={dataPreparationAttention} latestPreparationRun={latestPreparationRun} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onSelectDataPreparationCandidate={(runId, optionValue) => void retryDataPreparation(runId, optionValue)} onAssistDataPreparation={(runId) => void assistDataPreparation(runId)} onConfirmDataPreparation={(accept) => void confirmDataPreparationRun(accept)} onReprocessDataPreparation={() => void reprocessDataPreparation()} onSaveDataPreparationRecipe={() => void saveDataPreparationRecipe()} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onClose={() => setScreen('workspace')} />}
       </div>

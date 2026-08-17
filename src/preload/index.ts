@@ -117,6 +117,8 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.dataPreparationRunConfirm, input),
   retryDataPreparation: (input: DataPreparationRetryInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.dataPreparationRetry, input),
+  reprocessDataPreparation: (input: DataPreparationRunInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.dataPreparationReprocess, input),
   assistDataPreparation: (input: DataPreparationRunInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.dataPreparationAssist, input),
   exportPngSvg: (input: PngSvgExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportPngSvg, input),

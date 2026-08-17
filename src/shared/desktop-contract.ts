@@ -21,6 +21,7 @@ export const IPC_CHANNELS = {
   dataPreparationRunGet: 'plotagent:data-preparation:run-get',
   dataPreparationRunConfirm: 'plotagent:data-preparation:run-confirm',
   dataPreparationRetry: 'plotagent:data-preparation:retry',
+  dataPreparationReprocess: 'plotagent:data-preparation:reprocess',
   dataPreparationAssist: 'plotagent:data-preparation:assist',
   cancelTask: 'plotagent:tasks:cancel',
   closeResponse: 'plotagent:lifecycle:close-response',
@@ -365,6 +366,7 @@ export interface PlotAgentDesktopApi {
   getDataPreparationRun(input: DataPreparationRunInput): Promise<DesktopDataResult>
   confirmDataPreparationRun(input: DataPreparationRunConfirmInput): Promise<DesktopDataResult>
   retryDataPreparation(input: DataPreparationRetryInput): Promise<DesktopDataResult>
+  reprocessDataPreparation(input: DataPreparationRunInput): Promise<DesktopDataResult>
   assistDataPreparation(input: DataPreparationRunInput): Promise<DesktopDataResult>
   exportPngSvg(input: PngSvgExportInput): Promise<DesktopDataResult>
   exportOrigin(input: OriginExportInput): Promise<DesktopDataResult>

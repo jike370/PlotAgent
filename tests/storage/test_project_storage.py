@@ -207,6 +207,10 @@ def test_reimport_changed_content_creates_new_version_without_overwrite(
         assert first_source.content_hash != second_source.content_hash
         records = project.list_source_datasets(first.datasets[0].logical_source_id)
         assert [record.source_dataset.source_version for record in records] == [1, 2]
+        assert [
+            record.source_dataset.source_version
+            for record in project.list_current_source_datasets()
+        ] == [2]
         assert project.state_counts()["source_dataset_versions"] == 2
         assert project.verify_registered_objects()
 

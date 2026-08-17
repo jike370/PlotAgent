@@ -409,6 +409,10 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       kind: 'clarification', preparation_run_id: runId,
       code: 'IMPORT_HEADER_AMBIGUOUS', question: '请选择表头。', options: [],
     }),
+    reprocessDataPreparation: async ({ runId }) => ok({
+      kind: 'rejection', preparation_run_id: runId,
+      code: 'PREVIEW_REPROCESS_UNAVAILABLE', message: '界面预览不重新读取本机文件。',
+    }),
     assistDataPreparation: async ({ runId }) => ok({
       outcome: 'unresolved', preparation_run_id: runId, reason: '预览环境没有模型。',
     }),

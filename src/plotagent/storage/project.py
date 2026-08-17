@@ -735,6 +735,26 @@ class ProjectStore:
         sql += " ORDER BY logical_source_id, source_version"
         return tuple(_source_dataset_record(row) for row in connection.execute(sql, parameters))
 
+    def list_current_source_datasets(self) -> tuple[SourceDatasetRecord, ...]:
+        """Return only the newest confirmed revision of every logical source.
+
+        Historical revisions remain addressable through ``list_source_datasets`` so
+        existing PlotDocuments never drift when a user explicitly reprocesses a
+        source.  Desktop selectors, however, should present one current table per
+        logical source rather than accumulating every immutable revision.
+        """
+
+        current: dict[str, SourceDatasetRecord] = {}
+        for record in self.list_source_datasets():
+            previous = current.get(record.logical_source_id)
+            if (
+                previous is None
+                or record.source_dataset.source_version
+                > previous.source_dataset.source_version
+            ):
+                current[record.logical_source_id] = record
+        return tuple(current[key] for key in sorted(current))
+
     def state_counts(self) -> dict[str, int]:
         connection = self._assert_writer()
         tables = (

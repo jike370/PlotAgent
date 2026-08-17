@@ -1137,7 +1137,8 @@ class DesktopApplication:
             "project_id": session.project_id,
             "project_version": session.domain.revision,
             "datasets": [
-                self._dataset_summary(record) for record in session.store.list_source_datasets()
+                self._dataset_summary(record)
+                for record in session.store.list_current_source_datasets()
             ],
         }
 
@@ -1201,7 +1202,7 @@ class DesktopApplication:
             "project_id": session.project_id,
             "resource_id": "resource:project." + session.project_id.removeprefix("project:"),
             "project_version": session.domain.revision,
-            "dataset_count": len(session.store.list_source_datasets()),
+            "dataset_count": len(session.store.list_current_source_datasets()),
             "plot_count": len(session.engine.documents.list_latest()),
             "status": "open",
             "replayed": replayed,
