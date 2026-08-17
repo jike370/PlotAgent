@@ -29,7 +29,7 @@
 | 1 | 任务合同 | 已确认 | Agent 怎样知道目标、输入、约束、成功标准和交付物？ |
 | 2 | 领域说明 | 已确认 | 哪些绘图知识、科学边界和标准案例应提供给 Agent？ |
 | 3 | 上下文机制 | 已确认 | Agent 每轮能看到什么，怎样按需读取数据而不淹没上下文？ |
-| 4 | 运行循环 | 待讨论 | Agent 怎样观察、行动、检查、修复、停止或追问？ |
+| 4 | 运行循环 | 提案待确认 | Agent 怎样观察、行动、检查、修复、停止或追问？ |
 | 5 | 工具体系 | 已确认 | Agent 需要哪些检查、整理、绘图、读回和交付工具？ |
 | 6 | 验证器 | 已确认 | 怎样独立证明数据、科学语义、图形和导出物正确？ |
 | 7 | 权限与回滚 | 已确认 | 哪些动作可自动执行，哪些需要确认，失败如何撤销？ |
@@ -1580,6 +1580,333 @@ Agent 不得为了少问一次而把示例中的常见做法套到当前数据�
 10. 用户明确知识进入当前 TaskIntent；冲突时追问或拒绝，不自动写成跨任务偏好；
 11. 知识缺失、过期或冲突时 fail closed，不以模型训练记忆伪装支持；
 12. 用户可见的是准确图类说明、判断依据、字段角色和具体追问，不暴露后端内部实现。
+
+## 13. 设计项 4：运行循环
+
+> 状态：提案待确认。本节用于讨论，尚不构成施工依据。
+
+### 13.0 总体判断：复用 Pi 内循环，自研耐久产品外循环
+
+PlotAgent 不重新实现模型—工具循环。Pi 继续负责：模型调用、消息追加、工具选择、顺序/并行工具执行、turn 生命周期、continue、steering/follow-up、abort、上下文变换和事件流。
+
+PlotAgent 自行负责：任务阶段、权威状态、工具暴露、确认点、ExecutionGrant、项目事务、验证、修复范围、预算、部分成功、恢复、取消和最终完成条件。
+
+二者关系：
+
+```text
+PlotAgent Task Orchestrator（耐久、权威、可恢复）
+  └─ AgentActivation
+       └─ Pi Agent（本次激活的自主内循环）
+            ├─ 观察上下文
+            ├─ 选择并调用允许工具
+            ├─ 根据真实结果调整
+            └─ AgentYield
+  └─ 保存状态 / 等待用户 / 执行计划 / 验证 / 再次激活 Pi
+```
+
+Pi 的一次 `prompt()` 结束只代表本次 Agent activation 结束，不代表产品任务完成。产品只有在验证器证明全部必需交付物通过后才能进入 `completed_verified`。
+
+### 13.1 为什么采用“多次激活”而不是常驻会话
+
+任务可能等待用户确认数分钟、Origin 导出数分钟、桌面重启数小时，不能依赖内存中的 Pi Agent、Provider session 或 messages 一直存活。采用多次激活：
+
+- 每次 activation 从 Core 的 Task Ledger、Checkpoint、TaskIntent、工具 receipt 和 VerificationReport 重建上下文；
+- Pi messages 可以用于本次激活的推理连续性，但不是任务权威状态；
+- 等待用户、等待外部资源或进程退出时不占用模型和常驻循环；
+- Electron、Provider 或 Pi 崩溃后可从最后 checkpoint 重新激活；
+- 切换模型或压缩上下文不会丢失已确认语义和已完成项目。
+
+这类似耐久工作流中的“等待外部事件后恢复”，但 PlotAgent 不引入新的云工作流框架；只采用持久状态、唯一事件 ID、超时和幂等恢复原则。
+
+### 13.2 三个不同的状态对象
+
+不得把 Pi turn、UI loading 和产品任务状态混成一个枚举：
+
+| 对象 | 生命周期 | 示例状态 | 权威方 |
+|---|---|---|---|
+| TaskState | 整个用户任务 | investigating、awaiting_confirmation、executing、verifying、partial、completed_verified | Core |
+| AgentActivationState | 一次 Pi 激活 | starting、running、yielded、aborted、runtime_failed | Main/Pi adapter，结果回写 Core |
+| TaskItemState | 批量任务单项 | pending、staged、running、succeeded、repairable_failed、failed、cancelled | Core |
+
+UI 阶段由这三类真实状态和 TaskEvent 投影，不能让 `turn_start` 直接把整个产品任务标为“处理中”，也不能让 Pi 的 `agent_end` 把任务标为成功。
+
+### 13.3 TaskState 主状态机
+
+建议正式状态：
+
+```text
+created
+  → investigating
+  → awaiting_input ──用户回答──→ investigating
+  → intent_staged
+  → awaiting_confirmation
+       ├─拒绝→ rejected
+       └─确认→ executing
+  → verifying
+       ├─全部通过→ delivering → completed_verified
+       ├─技术可修→ repairing → executing/verifying
+       ├─语义需变→ awaiting_reconfirmation
+       ├─部分不可修→ partial
+       └─全部不可修→ failed
+
+任意可取消阶段 → cancelling → cancelled 或 partial
+外部环境暂不可用 → blocked，可显式恢复
+能力边界不支持 → unsupported
+```
+
+`awaiting_input`、`awaiting_confirmation`、`blocked` 和 `partial` 是耐久状态，不占用 Pi 循环。`partial` 必须记录成功项和失败项，可由用户选择重试失败项、接受部分结果或取消剩余项。
+
+### 13.4 AgentActivation 合同
+
+每次需要模型判断时，Core 生成只读、版本化 `AgentActivation`：
+
+```text
+activation_id / task_id / task_version / reason
+task_snapshot / original_instruction / current_user_message
+confirmed_intent / item_statuses / working_notes
+available_context_refs / domain_knowledge_refs
+verification_reports / prior_tool_receipts
+allowed_tools / permission_phase
+remaining_budgets / deadline / locale
+```
+
+`reason` 只能是有限集合：
+
+- `new_task`；
+- `user_answered`；
+- `user_corrected`；
+- `verification_failed`；
+- `external_blocker_cleared`；
+- `resume_after_restart`。
+
+activation 绑定 task version。旧 activation 的迟到工具调用和 yield 必须稳定拒绝，不能覆盖较新的用户修正。
+
+### 13.5 AgentYield：Pi 退出的结构化原因
+
+Pi 不以自由文本决定外层状态，只能产生以下 typed yield：
+
+| yield | 含义 | Core 下一步 |
+|---|---|---|
+| `intent_ready` | 已形成完整 TaskIntent 和 staged 预览 | 本地编译验证，生成确认卡 |
+| `needs_input` | 只有用户能解决的语义缺口 | 持久化问题，进入 awaiting_input |
+| `technical_repair_ready` | 针对 VerificationReport 提出合同内修复 | 校验 repair scope，执行后复验 |
+| `unsupported` | 已检查能力仍无法满足 | 记录具体边界与替代建议 |
+| `blocked` | 环境依赖暂不可用 | 保存 blocker 和恢复条件 |
+| `budget_exhausted` | 模型/工具/时间/修复预算耗尽 | 保留 staged/成功结果并让用户决定 |
+| `cancelled` | 已响应取消 | 进入安全取消收口 |
+| `runtime_failed` | Provider/Pi/协议故障 | 无项目副作用，按错误策略恢复 |
+
+Pi 正常结束但没有合法 yield 是 `AGENT_YIELD_MISSING`，不是任务完成。Core 对每个 yield 做 Schema、任务版本、权限和状态转移校验。
+
+### 13.6 一次完整任务的执行路径
+
+1. Core 建立 TaskEnvelope、Task Ledger 和 `new_task` activation；
+2. ContextBuilder 按权限组装当前任务、轻量数据预览、领域说明和工具；
+3. Pi 自主检查原始数据、读取图类知识、预览数据操作并形成 TaskIntent；
+4. Core 编译、验证并 materialize staged 数据/沙箱图，生成同源确认卡；
+5. 用户集中确认，Core 签发绑定 task version、对象、动作和预算的 ExecutionGrant；
+6. Core 以确定性 TaskPlanExecutor 执行数据操作和公共绘图动作；Pi 不需要逐条重新决定已经确认的动作；
+7. 每个 TaskItem 原子提交，记录 tool/action receipt 和项目 revision；
+8. 验证器检查数据、科学语义、Plot 合同、后端读回、产物和必要视觉；
+9. 全部通过则执行已请求的交付并进入 `completed_verified`；
+10. 技术失败则以 `verification_failed` 再激活 Pi，只开放失败范围内的诊断/修复工具；
+11. 修复仍在冻结 TaskIntent 内可自动执行；改变字段、图类、统计定义或用户可见语义则生成新 task version 并重新确认；
+12. 批量任务始终保留已经通过的 TaskItem，只重试失败项。
+
+### 13.7 Main、Core 与 Pi 的进程职责
+
+建议由 Main 实现轻量 `TaskPump`，但状态权威仍在 Core：
+
+```text
+Renderer UI
+  → Main TaskPump
+       → Core task.advance(event?)
+            ← next_action: agent_activation | execute | verify | wait | terminal
+       → 若 agent_activation：PiRuntimeAdapter.run(activation)
+            ↔ Core 受控工具 RPC
+            → Core task.accept_yield(yield)
+       → 再次 task.advance，直到 wait 或 terminal
+```
+
+- Core 决定状态转移、工具权限、事务、验证和 next action；
+- Main 持有模型凭证、启动 Pi、转发流式事件和管理进程级 abort；
+- Pi 只接触 activation 投影和受控工具；
+- Renderer 只提交用户事件、显示状态和确认，不直接拼计划或推动隐藏步骤。
+
+`TaskPump` 不是另一套 Agent 框架，只是持续向 Core 询问“下一步是否可机械推进或需要激活 Pi”，在遇到 wait/terminal 时立即退出。不得 busy polling。
+
+### 13.8 验证—修复循环
+
+VerificationReport 必须先由程序分类：
+
+| 分类 | 示例 | 处理 |
+|---|---|---|
+| transient_external | Provider/Origin 临时不可用、文件暂时锁定 | 有界基础设施重试或 blocked |
+| deterministic_technical | renderer 参数拒绝、源绑定读回不符、导出缺失 | 进入 scoped Agent repair 或确定性修复 |
+| semantic_conflict | 字段含义不明、单位假设变化、统计定义需变 | 重新询问/确认 |
+| stale_or_concurrent | revision、lease、对象版本冲突 | 停止写入并重建上下文 |
+| unsupported | 产品合同无法表达目标 | unsupported |
+| safety_or_permission | 授权不足、输出越界、数据披露扩大 | 请求 P3 授权或拒绝 |
+
+每次 repair assignment 固定：失败 claim、expected/observed、证据、允许修改对象、不可改变语义、剩余预算和已尝试签名。相同“错误码 + 对象版本 + 修复参数”不得重复执行；修复后必须运行原失败 claim 和受影响回归 claim。
+
+修复循环的停止条件：通过、需要用户语义、无进展、相同失败重复、预算耗尽、取消或不可恢复。不得只按固定两次重试，也不得无限重试。
+
+### 13.9 用户输入、steering 与 follow-up
+
+用户消息根据任务阶段进入不同语义：
+
+- `awaiting_input`：作为当前 task version 的结构化回答，触发 `user_answered` activation；
+- `awaiting_confirmation`：修改映射或参数会创建新 intent version，旧确认失效；
+- `investigating/repairing`：普通补充可通过 Pi steering 在安全工具边界进入当前 activation；改变目标、对象或权限则先取消当前 activation，再创建 `user_corrected` 新版本；
+- `executing/verifying`：不在原子写入中途注入新语义；记录 correction，安全点停止剩余项并创建新版本；
+- `completed_verified`：继续编辑同一图可创建关联 follow-up task，但不是悄悄改写已完成任务历史。
+
+Pi 的 steering/follow-up 用于消息送达和本轮协作，不决定任务版本。Core 根据状态与内容来源决定它是回答、修正还是新任务；程序不解释自然语言语义，只按用户选择的 UI 操作和当前状态建立相应事件，模型在 activation 中理解内容。
+
+### 13.10 预算模型
+
+预算必须同时有 task-wide 和 per-activation 两层：
+
+- 模型 turn、输入/输出 token、调用次数和估算成本；
+- 只读数据披露行数、单元格数和字节数；
+- 工具调用、沙箱渲染、Origin 会话和 fresh reopen 次数；
+- 技术修复次数、视觉修改次数；
+- 端到端 wall time 与单外部调用 timeout；
+- staged 文件空间和输出文件数量。
+
+per-activation 防止一次模型循环失控；task-wide 防止反复恢复绕过总预算。预算接近上限时向 Agent提供真实剩余额度；耗尽后保留成功项和 staged 证据，用户可以增加预算、接受部分结果或停止。程序不能为了省 token 改回关键词语义路由。
+
+### 13.11 错误、重试与幂等
+
+重试分三层：
+
+1. **传输重试**：只对明确 retryable、无副作用或带幂等键的 RPC/Provider 请求，使用短次数和退避；
+2. **工具重试**：依据 ToolReceipt 协调实际状态，确认未成功后再重试；
+3. **Agent 修复**：任务已经得到有效失败证据，需要改变技术方案时才重新激活模型。
+
+禁止将本地 validation reject、科学合同失败、权限拒绝或 stale revision 当作瞬时错误盲重试。所有写操作使用稳定 idempotency key；外部事件带 event ID 并去重；迟到结果必须检查 activation/task version。
+
+模型 timeout、Provider 断连或 Pi runtime crash 默认不修改项目。若故障发生在工具调用之后，必须先读取 receipt/项目 revision/输出 staging，不能直接宣称“无副作用”或重复执行。
+
+### 13.12 取消、暂停与恢复
+
+取消链：UI → Main TaskPump/Pi abort → Core cancel token → 工具/renderer/Origin。行为遵循已确认权限与回滚设计：
+
+- 只读和可中断 staged 操作尽快停止；
+- 数据库事务、文件原子发布等临界区完成到一致边界后停止；
+- 已成功 TaskItem 和已发布合法产物保留并报告；
+- 自动化只终止身份可验证的本任务 Origin 实例；
+- 取消结果为 `cancelled` 或 `partial`，不是 generic failed。
+
+暂停只发生在耐久 wait 状态。桌面重启后，Core 从 checkpoint 判定：等待用户则恢复确认/问题卡；可机械推进则 TaskPump 继续；需要模型则生成 `resume_after_restart` activation；外部副作用不明则先 reconcile，绝不从头重复整条任务。
+
+### 13.13 并发与批量调度
+
+第一阶段保持单 Agent、每项目一个写入任务和 Pi 工具顺序执行：
+
+- 不引入多 Agent；
+- 同一项目只有一个 TaskPump 获得 writer lease；
+- 独立 TaskItem 可在计划层表示依赖，但项目写入先按确定顺序提交，降低 revision 冲突；
+- 数据只读检查未来可以在工具实现内部安全并行，不由模型同时写多个对象；
+- Origin 自动化使用全局可恢复 lease；
+- 批量任务按 TaskItem 分别记录状态、预算和验证，某项失败不回滚其他成功项。
+
+只有性能证据证明串行成为瓶颈且并行不会破坏可恢复性时，才开放受控并发。
+
+### 13.14 完成与停止条件
+
+Pi 内循环停止条件与产品任务停止条件必须分开。
+
+Pi activation 可以因合法 yield、turn/token/time/tool 预算、abort、Provider 错误或 runtime 错误结束。只有合法 yield 能推动产品状态。
+
+产品进入 `completed_verified` 必须同时满足：
+
+- 所有必需 TaskItem 为 succeeded；
+- TaskIntent 与 ExecutionGrant 版本一致；
+- 所有项目写入和输出均有 receipt；
+- 必需 VerificationReport claim 全部通过；
+- 用户要求的 PNG/SVG/OPJU 等交付物已生成、验证并发布；
+- 没有未解决 blocker、待回答问题、待确认语义或不明副作用；
+- 最终项目 revision、plot ID/version 和 artifact hash 已写入 Task Ledger。
+
+Agent 文本中的“完成”“应该可以”或 Pi `agent_end` 不参与完成判定。
+
+### 13.15 当前实现差距
+
+当前 `PiAgentRuntime` 已正确复用 Pi 的 Agent、工具循环、顺序执行、turn stop、abort 和生命周期事件，但产品链路仍停在“生成 TaskDraft”：
+
+- 每次 run 新建 Agent、`messages=[]`，只在本轮依赖内存状态；
+- Pi 提交 draft 或 ask_user 后立即 terminate；
+- Core 编译并保存待确认计划，确认后的 `TaskPlanExecutor.run()` 与 Pi 分离；
+- 执行失败和 VerificationReport 不会重新进入 Agent；
+- 最多 2–6 turn 与 60 秒 timeout 只约束草稿生成，不是完整任务预算；
+- `agent_end` 周围只有粗粒度阶段，缺少 durable activation/yield/checkpoint；
+- Main 的 abort 主要停止当前 Pi，不等同于端到端任务取消；
+- Provider sessionId 和 Pi messages 不能恢复 TaskState；
+- 当前 lifecycle 的 `completed` 实际可能只表示“计划已生成等待确认”，容易与任务完成混淆。
+
+目标施工不是删掉现有 Pi runtime，而是把它收敛成 `PiRuntimeAdapter.run(AgentActivation) -> AgentYield`，在外层增加 Core Task Orchestrator、Main TaskPump、验证回灌和 durable state。
+
+### 13.16 最小施工顺序
+
+1. 定义 TaskState、AgentActivation、AgentYield、next action 和错误分类 Schema；
+2. 将现有 workflow run/plan/item 状态迁移到统一 Task Ledger，不改变 renderer；
+3. 把 `PiAgentRuntime.run()` 改成 activation adapter，并保留现有只读/preview/draft 工具；
+4. 实现 Core `task.advance` / `task.accept_yield` 与 Main TaskPump；
+5. 接入确认、ExecutionGrant 和现有确定性 TaskPlanExecutor；
+6. 接入 VerificationReport，先完成单次 scoped technical repair；
+7. 扩展为多次修复、partial、cancel、blocked 和 restart resume；
+8. 接入完整 TaskEvent/trace/budget；
+9. 最后启用 Pi steering/follow-up 与上下文压缩，不把它们作为前置依赖；
+10. 以新 EvalCase/SEQ-70/Windows 黑盒验证后替换旧 workflow 入口。
+
+每一步都保留可运行的正式 UI 主链；不在同一提交同时重写 TaskState、Pi adapter、数据工具、renderer 和前端。
+
+### 13.17 验收用例
+
+- 简单明确任务由一次 activation 形成 intent，确认后机械执行、验证并完成；
+- 数据需检查时 Pi 可多次调用只读/preview 工具，不被固定步骤限制；
+- 真正缺语义时进入 awaiting_input，回答后即使桌面重启也能恢复原 task version；
+- 信息明确时不得产生无效追问；
+- 用户拒绝确认时无项目副作用；修改确认卡后旧 intent/grant 失效；
+- 执行期 deterministic technical failure 会生成 VerificationReport 并触发 scoped repair；
+- repair 不改变语义时自动完成，改变字段/图类/统计定义时必须重新确认；
+- 相同失败方案不会循环，预算耗尽保留 staged/成功结果；
+- 批量 3 项中 2 成功 1 失败时只修/重试失败项；
+- Provider timeout、Pi crash、Core restart、Electron restart 和 Origin blocker 均可从 checkpoint 恢复；
+- 写工具返回前断连时先 reconcile receipt，不产生重复版本或重复文件；
+- 用户在 investigating、awaiting_confirmation、executing 和 completed 后发修正时分别遵循 steering/version/follow-up 语义；
+- 取消能贯穿 Pi、Core、renderer 和本任务 Origin，且不终止用户 Origin；
+- stale activation、迟到 yield 和重复外部事件被拒绝或去重；
+- `completed_verified` 只有在全部 required claim 和 artifact receipt 通过后出现；
+- UI 的阶段、耗时、部分成功和错误均来自真实 TaskEvent，不把 Pi `agent_end` 显示为任务完成。
+
+### 13.18 设计参考
+
+- Anthropic 将 Agent 描述为在工具和环境反馈中自主计划、行动、观察、调整，直到完成或需要人类输入，并强调清晰成功标准、反馈循环、停止条件和人类检查点：[Building Effective AI Agents](https://www.anthropic.com/engineering/building-effective-agents)；
+- Anthropic 进一步区分模型、harness、工具和环境，指出 Agent 的有用性与安全性依赖人类控制、权限和在歧义处正确 check in，而不是只依赖模型：[Trustworthy agents in practice](https://www.anthropic.com/research/trustworthy-agents)；
+- Azure Durable Functions 的外部事件模式说明等待人工确认应持久休眠，并使用事件 ID 去重和 timeout，支持 PlotAgent 的 awaiting_input/confirmation 与多次 activation 设计：[Handle external events in durable orchestrations](https://learn.microsoft.com/en-us/Azure/Azure-functions/durable/durable-functions-external-events)；
+- Agent eval 实践强调 Agent 跨多轮调用工具、改变环境并根据中间结果适应，说明运行循环的成功应由环境结果而非单轮文本判定：[Demystifying evals for AI agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)。
+
+这些参考提供自主循环、耐久等待和监督原则。PlotAgent 不引入云 Durable Functions，也不照搬其他 Agent 框架；Pi 是内循环，Core 的本地持久 TaskState 是产品外循环。
+
+### 13.19 本项待确认原则
+
+1. 最大化复用 Pi 的模型—工具内循环，不自行重写通用 Agent loop；
+2. PlotAgent 自研耐久外循环，Core 的 TaskState 与真实环境结果是权威；
+3. 使用多次 AgentActivation，而非依赖一个常驻 Pi 会话跨确认、Origin 和桌面重启；
+4. Pi 每次以 typed AgentYield 退出，无合法 yield 的 `agent_end` 不是任务完成；
+5. 确认后由 Core 确定性执行冻结 TaskPlan，Pi 不逐条重决策已确认动作；
+6. 验证失败通过 scoped VerificationReport 再激活 Pi，技术修复自动，语义变化重新确认；
+7. Main TaskPump 只协调 Core next action 与 Pi activation，不保存权威任务状态，也不 busy polling；
+8. steering/follow-up 负责消息送达，Core task version 决定回答、修正和后续任务边界；
+9. task-wide 与 per-activation 双层预算限制模型、数据披露、工具、Origin、修复、时间和成本；
+10. retry 区分传输、工具 reconcile 和 Agent 修复，写操作幂等，迟到 activation/yield 稳定拒绝；
+11. 取消贯穿 UI、Pi、Core、工具、renderer 和本任务 Origin，原子边界与已成功项保留；
+12. 第一阶段单 Agent、单项目 writer、顺序工具与确定性 TaskItem 提交，不提前引入并行/多 Agent；
+13. completed_verified 只由必需验证 claim、receipt、交付物和最终 revision 共同决定；
+14. 现有 PiRuntime 收敛为 adapter，按 Schema→状态→执行→验证→恢复逐步迁移，不一次重写全部系统。
 
 ## 已确认决定日志
 
