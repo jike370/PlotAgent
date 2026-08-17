@@ -35,7 +35,7 @@
 | 7 | 权限与回滚 | 已确认 | 哪些动作可自动执行，哪些需要确认，失败如何撤销？ |
 | 8 | 工作记忆 | 已确认 | 一次任务中应记住哪些决定、结果和失败，哪些不得长期保存？ |
 | 9 | 可观察性 | 已确认 | 用户和开发者怎样看到阶段、进度、原因、成本与结果？ |
-| 10 | 评测体系 | 待讨论 | 怎样证明 Agent 稳定、正确、可恢复，并控制时长和成本？ |
+| 10 | 评测体系 | 提案待确认 | 怎样证明 Agent 稳定、正确、可恢复，并控制时长和成本？ |
 
 建议讨论顺序不是表格顺序，而是：任务合同 → 运行循环 → 上下文 → 工具 → 验证器 → 权限与回滚 → 工作记忆 → 可观察性 → 领域说明 → 评测体系。前一项会约束后一项，避免先堆工具再倒推 Agent 行为。
 
@@ -1089,6 +1089,244 @@ SEQ-70 和黑盒验收应消费相同稳定事件与验证结果，但测试报�
 8. 指标由结构化事件和验证报告计算，SEQ-70、发布门禁和黑盒仍保留独立证据要求；
 9. 默认本地、payload-off、无后台 telemetry 上传；诊断上传属于新的 P3 数据披露授权；
 10. UI 使用可访问的真实状态、取消、部分成功和恢复反馈，用户无需阅读内部 trace 才知道发生了什么。
+
+## 11. 设计项 8：评测体系
+
+> 状态：提案待确认。本节用于讨论，尚不构成施工依据。
+
+### 11.0 评测对象与基本原则
+
+PlotAgent 的评测对象不是孤立的语言模型，也不是一段聊天答案，而是实际运行的完整系统：模型、Pi 运行循环、PlotAgent 上下文与工具、任务合同、权限、Core、数据处理、renderer、验证器、Windows 桌面环境、Origin 和文件系统共同产生的真实结果。
+
+运行时验证器回答“这一次任务是否正确完成”；评测体系回答“这一版本在一组代表性任务上是否稳定、是否可发布”。二者不得互相替代。
+
+评测以真实环境中的状态和产物为准，不以 Agent 自述、提示词匹配或某条固定工具轨迹为准。只有安全协议要求固定行为时，才把轨迹纳入门禁，例如确认前不得正式写入、越权工具不得被调用、已成功项目不得重复执行。
+
+### 11.1 七层评测结构
+
+评测按成本从低到高分成七层；低成本层先运行，但高成本层不能被低成本层替代：
+
+| 层级 | 评测内容 | 主要证明 |
+|---|---|---|
+| E0 合同与静态检查 | Schema、codegen、类型、lint、能力注册、权限表和打包清单 | 接口与声明没有漂移 |
+| E1 确定性单元与性质测试 | 导入、数据工具、编译器、验证器、幂等、版本和错误分类 | 程序部件在给定输入下正确 |
+| E2 集成与运行时测试 | Pi adapter、Core、工具、TaskState、取消、恢复、fake provider | Agent 基础设施闭环可运行 |
+| E3 真实模型 Agent 行为 | 真实指令、多轮追问、工具选择、修复、成本与延迟 | 模型在产品约束下能稳定完成任务 |
+| E4 引擎与产物资格 | 34 图、Matplotlib、Origin、PNG/SVG/OPJU、fresh reopen | 图形语义、原生结构与可编辑交付达标 |
+| E5 正式 Windows Electron 黑盒 | 用户可见导入、对话、确认、任务、撤销、重启和导出 | 产品从真实 UI 入口可用 |
+| E6 发布与非功能 | 打包、启动、性能、资源、隐私、安全、恢复和兼容环境 | 构建具备交付条件 |
+
+### 11.2 EvalCase：一条评测用例的合同
+
+每条正式用例都必须是版本化的 `EvalCase`，至少冻结：
+
+- `eval_case_id`、suite 版本和要证明的单一 claim；
+- suite 类型：regression、capability、safety、recovery 或 exploratory；
+- 用户指令和 locale；
+- 输入 fixture manifest、原始文件 hash、初始项目状态和环境；
+- 用户显式选择的数据、图类、对象与权限；
+- 模型、provider、Pi、系统提示、工具 Schema、EngineProfile 和 renderer 版本；
+- token、时间、轮次、工具调用、修复和副作用预算；
+- 必须出现的结果与不变量；
+- 明确禁止出现的结果；
+- grader、证据要求、trial 策略和是否阻断发布；
+- 必要时保存参考解或参考产物，但不得把答案泄露给 Agent。
+
+claim 必须窄而明确，例如“清晰 CSV 在正式 UI 中能创建一张原生可编辑的 K08 OPJU”，不能只写“绘图成功”。Agent 不得看到 grader 答案、参考解、其他 trial 结果或 holdout 标签。
+
+### 11.3 五类 suite 分开管理
+
+1. **Regression suite**：冻结已经承诺的能力和真实缺陷复现。目标接近全绿，每个已确认产品缺陷都必须新增回归用例；不能为了恢复通过率删除失败项。
+2. **Capability suite**：测尚在爬坡的新能力，可以保留失败，用于比较方案和扩大边界；只有达到冻结标准后才晋升为发布回归。
+3. **Safety/permission suite**：同时测试允许与拒绝。既要证明合法操作能做，也要证明越权、覆盖、错误对象和未确认正式写入不会发生。
+4. **Recovery/chaos suite**：注入模型、工具、Core、Electron、Origin、磁盘、revision、lease、预算、超时和取消故障，证明部分成功保留且任务可恢复。
+5. **Exploratory/human suite**：测试者只获得产品功能说明，自行设计路径；发现的可复现问题进入冻结回归。探索结果不能直接改写原 regression 的既定判据。
+
+### 11.4 Grader 层级与边界
+
+grader 优先级固定为：**确定性结果检查 > 结构化 trace 检查 > 模型 grader > 人工审查**。
+
+- 数据值、来源、项目版本、对象 ID、PlotSpec、文件 hash、Origin 原生结构和 fresh reopen 使用确定性 grader；
+- 只有确认前无副作用、禁止越权、成功项不重复执行等协议要求使用 trace grader；
+- 模型 grader 只承担难以机械量化的指令遵循和视觉初筛，rubric 必须单一、允许 `UNKNOWN`，并用人工样本校准；
+- 人工审查用于最终视觉、交互体验和专业领域判断。
+
+评测主要检查结果，不要求模型复制某一条参考工具序列。不同的合法路线可以通过；但模型 grader 绝不能成为科学语义、数据值或 Origin 原生结构的唯一发布门禁。
+
+### 11.5 非确定性与重复运行
+
+- 确定性测试必须可精确重复；真实模型评测在运行前冻结 trial 数，不得失败后选择性重跑来“洗掉”失败；
+- 报告保留原始 `通过次数/总次数`，不只给平均分；
+- regression 和 safety 关注 `pass^k` 一致性，即关键任务每次都成功；
+- capability 同时报告 pass@1、任务成功分布、置信区间、延迟和成本；
+- 当前 SEQ-70 的 24×3 可作为旧架构的阶段基线，但新 TaskContract、工具和完成语义落地后必须升 suite 版本，旧 72 次结果不能自动继承；
+- 3 次重复只能证明发布一致性门槛，不能被表述为“99.9% 可靠”；
+- 模型、provider、API 版本、系统提示、工具 Schema、Pi 版本、采样参数、预算和缓存策略任一关键项变化，都触发相应重评。
+
+### 11.6 隔离、fixture 与数据集划分
+
+每个 trial 使用新项目、新输出目录和干净的进程状态；聊天、working notes、staging、Origin 会话、输出文件和缓存默认不跨 trial 共享，除非该用例明确就是测试恢复或缓存。输入 fixture 测试前后必须 hash 一致。
+
+评测数据分成：
+
+- 可反复调试的 development set；
+- 发布使用的 frozen regression set；
+- 不参与日常调参的 holdout set；
+- 由真实线上/黑盒缺陷沉淀的 bug set。
+
+用例必须同时包含正向与反向行为：信息明确时不得追问；真正缺少语义时必须追问；授权允许时必须完成；授权不足时必须拒绝或请求扩权。
+
+### 11.7 PlotAgent 专属覆盖矩阵
+
+Agent 行为至少覆盖：
+
+- 单图、批量分别绘图、多数据同图和混合任务；
+- 用户先选图、自然语言明确图类、自然语言含糊图类；
+- CSV、多 sheet Excel、含仪器信息的 TXT，以及不同表头、列序、单位和缺失值；
+- 原始数据检查、筛选、排序、类型转换、单位换算、join、去重和显式聚合；
+- 必填绑定、repeatable series、分组、配对、误差、阈值和视觉参数；
+- 必要追问、用户修正、重新确认和拒绝越权；
+- 确认前无正式副作用、部分成功、只重试失败项、幂等、取消、恢复、stale revision 和预算耗尽；
+- PNG、SVG、OPJU、可编辑性、项目 undo 和导出完成反馈。
+
+每个正式图类至少有 minimal、representative、edge/error 三类数据，覆盖 default、edited、dynamic 三态；适用时同时覆盖 Matplotlib 和 Origin。已删除图类也要有 tombstone 用例，证明 UI、合同、Agent 和文档不会重新暴露它们。
+
+### 11.8 性质测试与蜕变测试
+
+除了固定答案，还要验证在合法变换下应保持的关系：
+
+- 增加未使用列，不改变已有图的语义与几何；
+- 在稳定字段 ID 和绑定不变时调整物理列序，结果等价；
+- 增加数据行或系列时，对象数、源绑定和图例按图类合同变化，不能残留旧对象；
+- 单位换算后物理量几何等价，列值与轴单位同步更新；
+- 批量 TaskItem 调整执行顺序，不改变数据—图形对应关系；
+- 相同 idempotency key 不产生重复项目版本或重复导出；
+- Matplotlib 与 Origin 比较共同语义和数据来源，不做逐像素相等；
+- 配对图、线序列等顺序敏感数据不得被静默排序。
+
+这些关系必须来自 EngineProfile、图类合同或工具合同，不能由一个“通用绘图规则”猜测所有图形。
+
+### 11.9 图形、视觉与 Origin 资格
+
+图形资格分成三个相互独立的门：
+
+1. 机械合同：数据、绑定、对象数、参数和导出文件正确；
+2. 后端持久化：Origin 原生对象读回、保存、全新会话重开和可编辑；
+3. 人工视觉：默认态、编辑态和动态态在代表数据上视觉可接受。
+
+视觉 golden 不能替代 Origin 原生结构读回；原生结构通过也不能替代人工视觉签名。所有证据必须绑定 source digest、EngineProfile、renderer、Origin 模板、fixture、Origin 版本和 git commit。
+
+变化影响规则：
+
+- 单图专属 renderer 改动：重测该图全部状态、双后端和同家族代表图；
+- shared resolver、数据、视觉、导出或 Origin 基础设施改动：重测所有受影响图；无法可靠判定影响时跑完整 34 图；
+- Origin 版本或模板变化：完整 Origin live + fresh reopen；
+- 发布里程碑：重新生成当前 34 图库存与证据 manifest。
+
+### 11.10 正式 Windows UI 黑盒
+
+冻结回归与探索性黑盒必须分开：
+
+- 冻结回归按版本化用例执行，证明既有承诺没有回退；
+- 探索性测试者只获得用户可见功能说明，不读取源码、内部接口、历史缺陷答案或冻结脚本，自行设计使用路径。
+
+正式黑盒必须使用 Electron 正式入口、冻结 commit、全新项目和独立输出目录。只有实际 UI 观察和真实产物可以记为 PASS；单测、源码分析、静态审计页或口头说明不能补黑盒证据。截图必须能识别项目、数据表、图类和结果上下文。证据不足就记 `UNVERIFIED`，不得推定通过。
+
+覆盖导入、聊天、确认卡、真实阶段反馈、追问、批量、部分成功、取消、撤销、重启恢复、导出、Origin 不可用、错误恢复和键盘/可访问性。
+
+### 11.11 状态与重跑纪律
+
+正式状态只有：
+
+- `PASS`：claim 和全部证据门满足；
+- `FAIL`：观察到产品行为违反 claim；
+- `BLOCKED`：外部环境或权限阻止执行，未观察到产品结果；
+- `UNVERIFIED`：执行或证据不足，不能证明通过或失败；
+- `EVAL_INVALID`：评测器、fixture、grader 或聚合本身无效。
+
+BLOCKED 和 UNVERIFIED 不是产品 FAIL，但对强制发布用例同样不能贡献 GO。已知且在声明范围内的问题必须记 FAIL，不能用 xfail 掩盖。
+
+产品修复后使用新 run ID 重跑；不得删除旧失败 trial。环境恢复重试保留原 trial。若聚合器崩溃，只能从不可变原始 trial 做有记录的重新聚合，不得修改 trial 内容。
+
+### 11.12 发布门槛
+
+一次 GO 必须同时满足：
+
+- 所有测试针对同一冻结、干净 commit，依赖、模型、Origin、fixture 和 manifest 已记录；
+- E0–E2 确定性门禁 100% 通过；
+- 权限、安全、数据不可变和副作用用例全部 trial 通过；
+- Agent 冻结 regression 达到版本化门槛，关键任务 3/3；错误自动绑定、无效追问、成功项重复执行为 0；
+- 34 图机械资格完成，受影响视觉完成签名，代表 OPJU 通过 live 与 fresh reopen；
+- 正式 UI 必测项没有 FAIL、BLOCKED 或 UNVERIFIED；
+- 延迟、取消、内存、token 和成本在冻结预算内；
+- 打包、启动、重启、清理、隐私、安全和诊断链通过。
+
+阈值写在版本化 `EvalPolicy` 和 run manifest 中，不能在看到结果后调整。GO 报告必须陈述被证明的精确 claim、环境和仍未覆盖范围，不能笼统写“产品完全可用”。已知问题只有明确位于发布声明范围之外才能保留；不能因测试失败临时缩小范围。
+
+### 11.13 变更影响与运行频率
+
+| 变更 | 最低重测范围 |
+|---|---|
+| 模型、provider、Pi、系统指令 | Agent regression、安全、成本与延迟 |
+| 工具、TaskContract、权限、记忆 | 相关 Agent 用例、E0–E3、恢复与安全 |
+| 图类 profile 或专属 renderer | 该图全部状态/后端/导出 + 家族代表 |
+| shared renderer、数据或视觉层 | 全部受影响图；影响不明时完整 34 图 |
+| Origin 版本、模板或自动化 | 完整 Origin live + fresh reopen |
+| UI | 受影响黑盒 + 主链 smoke + 可访问性 |
+| 存储、revision、lease、打包 | 恢复、并发、安装、重启和完整 UI 主链 |
+
+每次提交运行 E0–E2 与影响集；每日或候选节点运行真实模型子集；发布候选运行完整多 trial Agent、图形资格、正式 UI 和 E6。
+
+### 11.14 性能与成本报告
+
+性能必须区分 cold/warm、数据规模、图类、后端、Origin fresh reopen 和缓存命中。每组报告 median、p95、max、失败数和超时数；样本量很小时同时列出全部原始值，不能只报 p95。
+
+只有环境、模型、数据、预算和缓存策略相同的运行才可直接比较。决策优先级固定为：正确性与安全 > 恢复能力 > 时长 > 成本；不能为了降低 token 或耗时把语义判断重新塞回关键词路由。
+
+### 11.15 评测产物
+
+一次正式运行至少产出：
+
+- `run-metadata.json`；
+- `fixture-manifest.json`；
+- `eval-policy.json`；
+- `case-results.csv` 和 `report.json`；
+- `REPORT.md` 与可选 `index.html`；
+- 每个 case/trial 的 trace、evidence、exports 和 failure 记录。
+
+报告必须保留 case/trial 粒度，记录环境、commit、模型、预算、grader、恢复动作、最终状态和失败原因，不能只保留一个总分。构建目录可被 gitignore，但发布证据需按 hash 归档为不可变产物。
+
+### 11.16 设计参考
+
+本提案参考：
+
+- Anthropic 对 Agent eval 的 task、trial、grader、harness、outcome/trajectory、pass@k/pass^k 和多次运行划分：[Demystifying evals for AI agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)；
+- OpenAI 对可信第三方评测中 claim、环境、证据与可复核性的要求：[Trustworthy third-party evaluations](https://openai.com/index/trustworthy-third-party-evaluations-foundations/)；
+- AgentBench 对多轮 Agent 在交互环境中的评估方式：[AgentBench](https://arxiv.org/abs/2308.03688)；
+- METR 对开发集/测试集、重复运行、置信度和评测故障来源的协议化记录：[Example evaluation protocol](https://evaluations.metr.org/example-protocol/)；
+- 蜕变测试通过输入变换与输出关系发现无单一 oracle 问题：[Metamorphic Testing](https://arxiv.org/abs/1804.11121)；
+- Origin 项目文件作为图、数据和分析对象的原生容器：[Origin Project File](https://docs.originlab.com/origin-help/origin-project-file/)。
+
+这些参考提供评测方法，不替 PlotAgent 决定图形语义、发布范围或用户体验。
+
+### 11.17 当前基础与缺口
+
+项目已有可复用基础：较完整的 Python/TypeScript 测试、EngineProfile 和 renderer qualification、34 图发布矩阵、Origin fresh reopen、Windows UI 黑盒、性能记录，以及旧 SEQ-70 24×3 真实模型评测。
+
+仍缺少统一的新架构 `EvalCase` Schema、suite 分类、fixture/holdout 划分、grader 边界与校准、TaskEvent/trace/证据统一关联、合同驱动的蜕变测试、变更影响选择器、`EVAL_INVALID` 与评测器恢复规范，以及以明确 claim 为中心的发布决策。旧评测产物可作历史基线，但不能替代这些新合同。
+
+### 11.18 本项待确认原则
+
+1. 评测完整产品和真实结果，不把模型答案或 Agent 自述当作成功；
+2. 使用 E0–E6 七层门禁，低层不能替代真实模型、Origin 或正式 UI；
+3. 每个 EvalCase 冻结 claim、环境、输入、预期、禁止结果、grader、trial 和参考；
+4. regression、capability、safety、recovery、exploratory 分开管理；
+5. grader 优先确定性结果，trace 只检查必要协议，模型 grader 经校准且不独占科学/结构判定；
+6. 多 trial 策略运行前冻结，关键 regression 要求全部通过，保留所有失败；
+7. trial 相互隔离，使用 development、frozen regression、holdout 和真实 bug 集；
+8. 性质测试由图类/工具合同定义，双后端比较语义与原生结构，不做逐像素相等；
+9. 状态严格使用 PASS、FAIL、BLOCKED、UNVERIFIED、EVAL_INVALID，强制用例的任何非 PASS 都不能支持 GO；
+10. 发布必须在同一冻结 commit 上同时关闭 Agent 多 trial、34 图资格、正式 UI、性能、安全与可追溯性。
 
 ## 已确认决定日志
 
