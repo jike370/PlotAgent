@@ -104,6 +104,7 @@ def test_next_action_creates_one_idempotent_activation(tmp_path: Path) -> None:
         assert activation["task_version"] == 1
         assert activation["task_state"] == "created"
         assert activation["permission_phase"] == "p0_read"
+        assert activation["activation_budget"]["timeout_ms"] == 35_000
         assert "inspect_source" in cast(list[str], activation["allowed_tools"])
         assert ledger.get_task("task:test").active_activation_id == activation["activation_id"]
 
@@ -177,6 +178,9 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
 
         host = DurableAgentCoreHost(project, domain, ledger)
         environment = host.prepare(activation_id)
+        system_prompt = cast(str, environment["system_prompt"])
+        assert "bind them directly without calling inspection tools" in system_prompt
+        assert "Inspect rows only when unresolved data shape" in system_prompt
         context = cast(dict[str, object], environment["context"])
         selected_sources = cast(list[dict[str, object]], context["selected_sources"])
         assert selected_sources == [
