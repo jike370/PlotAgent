@@ -15,7 +15,10 @@ from plotagent.engine.backends.matplotlib.visual_t1 import (
     apply_visual_actions,
     apply_visuals_before_save,
 )
-from plotagent.engine.backends.origin.visual_t1 import _centered_levels
+from plotagent.engine.backends.origin.visual_t1 import (
+    _centered_levels,
+    _effective_state_actions,
+)
 from plotagent.engine.contracts import (
     AddAnnotation,
     BindFields,
@@ -128,6 +131,46 @@ def test_rebinding_discards_only_data_derived_visual_edits() -> None:
 
     assert structural == (_create(), rebind)
     assert visual == (title,)
+
+
+def test_origin_final_state_verification_coalesces_repeated_visual_edits() -> None:
+    first = SetTitle(
+        action_id="action:title-1",
+        target="plot:t1",
+        expected_plot_version=1,
+        text="Initial title",
+        font_size_pt=14,
+    )
+    second = SetTitle(
+        action_id="action:title-2",
+        target="plot:t1",
+        expected_plot_version=2,
+        text="Final title",
+    )
+    x_axis = SetAxis(
+        action_id="action:x-1",
+        target="axis:t1.x",
+        expected_plot_version=3,
+        label="Time",
+    )
+    x_axis_update = SetAxis(
+        action_id="action:x-2",
+        target="axis:t1.x",
+        expected_plot_version=4,
+        scale="log10",
+    )
+
+    effective = _effective_state_actions((first, second, x_axis, x_axis_update))
+
+    assert len(effective) == 2
+    title, axis = effective
+    assert isinstance(title, SetTitle)
+    assert title.action_id == "action:title-2"
+    assert title.text == "Final title"
+    assert title.font_size_pt == 14
+    assert isinstance(axis, SetAxis)
+    assert axis.label == "Time"
+    assert axis.scale == "log10"
 
 
 def test_profile_renderers_cannot_reclaim_shared_visual_actions() -> None:

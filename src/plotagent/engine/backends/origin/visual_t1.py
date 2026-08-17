@@ -100,10 +100,50 @@ def apply_origin_visual_actions(
     if not op.open(str(output), readonly=True, asksave=False):
         raise RuntimeError("Origin could not fresh-reopen the T1 visual project")
     reopened = _graph(op)
-    snapshot = _verify_actions(op, reopened, document, actions)
+    effective_actions = _effective_state_actions(actions)
+    snapshot = _verify_actions(op, reopened, document, effective_actions)
     snapshot["actions"] = len(actions)
+    snapshot["effective_actions"] = len(effective_actions)
     snapshot["fresh_reopen"] = True
     return snapshot
+
+
+def _effective_state_actions(
+    actions: tuple[PlotEngineAction, ...],
+) -> tuple[PlotEngineAction, ...]:
+    """Collapse cumulative state edits before final-state verification.
+
+    Plot documents retain their full action history.  Applying that history is
+    correct, but verifying every historical value against the final object is
+    not: a second title edit intentionally replaces the first title.  Merge
+    stateful edits property-by-property while keeping annotations independent.
+    """
+
+    stateful = (
+        SetTitle,
+        SetAxis,
+        SetSeriesStyle,
+        SetLegend,
+        SetColorMap,
+        SetErrorStyle,
+        SetDataLabels,
+    )
+    result: list[PlotEngineAction] = []
+    positions: dict[tuple[type[PlotEngineAction], str], int] = {}
+    for action in actions:
+        if not isinstance(action, stateful):
+            result.append(action)
+            continue
+        key = (type(action), action.target)
+        existing_position = positions.get(key)
+        if existing_position is None:
+            positions[key] = len(result)
+            result.append(action)
+            continue
+        previous = result[existing_position]
+        updates = action.model_dump(exclude_none=True)
+        result[existing_position] = previous.model_copy(update=updates)
+    return tuple(result)
 
 
 def _graph(op: Any) -> Any:
