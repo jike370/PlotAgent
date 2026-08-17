@@ -32,6 +32,10 @@ import {
   type JsonValue,
 } from '../../shared/desktop-contract.js'
 import type { PythonCoreSupervisor } from '../core/python-supervisor.js'
+import {
+  publicAgentFoundationError,
+  type AgentFoundationRuntime,
+} from '../agent/agent-foundation-runtime.js'
 import { publicPiAgentError, type PiAgentRuntime } from '../agent/pi-runtime.js'
 import type { AppCloseController } from '../lifecycle/app-close-controller.js'
 import type { ResourceRegistry } from '../single-instance-routing.js'
@@ -102,6 +106,7 @@ export interface RegisterDesktopIpcOptions {
   readonly resources: ResourceRegistry
   readonly ensureSampleSource: () => Promise<string>
   readonly piAgentRuntime: PiAgentRuntime
+  readonly agentFoundationRuntime?: AgentFoundationRuntime
 }
 
 function invalidArgument(message: string): DesktopActionResult {
@@ -407,6 +412,7 @@ export function registerDesktopIpc({
   resources,
   ensureSampleSource,
   piAgentRuntime,
+  agentFoundationRuntime,
 }: RegisterDesktopIpcOptions): () => void {
   const datasetIdentities = new Map<string, DatasetIdentity>()
   const identityKey = (projectId: string, datasetId: string, sourceVersion: number): string => (
@@ -743,9 +749,17 @@ export function registerDesktopIpc({
   })
   ipcMain.handle(IPC_CHANNELS.workflowRun, (_event, value: unknown) => {
     const input = parseWorkflowRunInput(value)
-    return input === null
-      ? invalidDataArgument('任务目标、数据来源或图形选择无效。')
-      : piAgentRuntime.run({
+    if (input === null) return invalidDataArgument('任务目标、数据来源或图形选择无效。')
+    if (agentFoundationRuntime?.canRun(input) === true) {
+      return agentFoundationRuntime.run(input).then((result) => ({
+        ok: true,
+        value: sanitizeCoreResult(result, resources),
+      } satisfies DesktopDataResult)).catch((error: unknown) => ({
+        ok: false,
+        error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
+      } satisfies DesktopDataResult))
+    }
+    return piAgentRuntime.run({
         project_id: input.projectId,
         client_run_id: `workflow-client:${randomUUID()}`,
         selected_sources: input.selectedSources.map((item) => ({
@@ -794,6 +808,22 @@ export function registerDesktopIpc({
   ] as const) {
     ipcMain.handle(channel, (_event, value: unknown) => {
       const input = parseTaskPlanInput(value)
+      if (
+        input !== null
+        && agentFoundationRuntime !== undefined
+        && agentFoundationRuntime.ownsPlan(input.planId)
+      ) {
+        const operation = channel === IPC_CHANNELS.taskPlanGet
+          ? agentFoundationRuntime.get(input)
+          : agentFoundationRuntime.execute(input)
+        return operation.then((result) => ({
+          ok: true,
+          value: sanitizeCoreResult(result, resources),
+        } satisfies DesktopDataResult)).catch((error: unknown) => ({
+          ok: false,
+          error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
+        } satisfies DesktopDataResult))
+      }
       return input === null
         ? invalidDataArgument('任务计划参数无效。')
         : requestCoreData(supervisor, resources, method, {
@@ -814,6 +844,22 @@ export function registerDesktopIpc({
 
   ipcMain.handle(IPC_CHANNELS.taskPlanConfirm, (_event, value: unknown) => {
     const input = parseTaskPlanConfirmInput(value)
+    if (
+      input !== null
+      && agentFoundationRuntime !== undefined
+      && agentFoundationRuntime.ownsPlan(input.planId)
+    ) {
+      const operation = input.accept
+        ? agentFoundationRuntime.confirm(input)
+        : agentFoundationRuntime.reject(input)
+      return operation.then((result) => ({
+        ok: true,
+        value: sanitizeCoreResult(result, resources),
+      } satisfies DesktopDataResult)).catch((error: unknown) => ({
+        ok: false,
+        error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
+      } satisfies DesktopDataResult))
+    }
     return input === null
       ? invalidDataArgument('任务计划确认参数无效。')
       : requestCoreData(supervisor, resources, input.accept

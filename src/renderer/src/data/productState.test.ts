@@ -395,4 +395,49 @@ describe('product plot state', () => {
       { role: 'y', fieldId: 'field:shared-y', sourceDatasetId: 'source:k03' },
     ])
   })
+
+  it('reads the durable Agent v2 plan and checkpoint as the same confirmation card', () => {
+    const plan = readWorkflowPlan({
+      task: {
+        task_id: 'task:durable',
+        task_version: 3,
+        state: 'completed_verified',
+        items: [{
+          item_id: 'item:durable.1',
+          state: 'succeeded',
+          attempt_count: 1,
+          output_plot_id: 'plot:durable.1',
+          output_plot_version: 1,
+        }],
+      },
+      plan: {
+        plan_id: 'plan:durable',
+        items: [{
+          item_id: 'item:durable.1',
+          task_kind: 'create',
+          profile_id: 'K01',
+          sources: [{ source_alias: 'data_1', source_dataset_id: 'source:durable' }],
+          bindings: [
+            { role: 'x', source_alias: 'data_1', field_id: 'field:time' },
+            { role: 'y', source_alias: 'data_1', field_id: 'field:value' },
+          ],
+          visual_actions: [],
+        }],
+      },
+      plan_hash: 'a'.repeat(64),
+      confirmation_state: 'confirmed',
+    })
+
+    expect(plan).toMatchObject({
+      planId: 'plan:durable',
+      state: 'succeeded',
+      confirmationState: 'confirmed',
+      completedCount: 1,
+    })
+    expect(plan?.steps[0]).toMatchObject({
+      state: 'succeeded',
+      outputPlot: { plotId: 'plot:durable.1', plotVersion: 1 },
+      sourceDatasetIds: ['source:durable'],
+    })
+  })
 })

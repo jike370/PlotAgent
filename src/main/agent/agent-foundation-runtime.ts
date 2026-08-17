@@ -1,0 +1,355 @@
+import { randomUUID } from 'node:crypto'
+
+import type { JsonValue } from '../../shared/desktop-contract.js'
+import { CorePiRuntimeHostV2, type PiRuntimeCoreBridgeV2 } from './pi-runtime-host-v2.js'
+import {
+  PiRuntimeAdapterV2,
+  type PiRuntimeV2Event,
+} from './pi-runtime-v2.js'
+import {
+  AgentTaskPump,
+  type ActivationRuntime,
+  type TaskPumpEvent,
+} from './task-pump.js'
+
+export interface AgentFoundationRunInput {
+  readonly projectId: string
+  readonly selectedSources: readonly {
+    readonly datasetId: string
+    readonly sourceVersion: number
+  }[]
+  readonly selectedProfileIds?: readonly string[]
+  readonly selectedPlotIds?: readonly string[]
+  readonly expectedProjectVersion: number
+  readonly instruction: string
+}
+
+export interface AgentFoundationPlanInput {
+  readonly projectId: string
+  readonly planId: string
+}
+
+export interface AgentFoundationRuntimeEvent {
+  readonly schemaVersion: '1.0'
+  readonly runId: string
+  readonly projectId: string
+  readonly sequence: number
+  readonly stage:
+    | 'preparing_context'
+    | 'inspecting_data'
+    | 'planning'
+    | 'validating_draft'
+    | 'saving_plan'
+    | 'completed'
+    | 'cancelled'
+    | 'failed'
+  readonly label: string
+}
+
+export interface AgentFoundationRuntimeOptions {
+  readonly core: PiRuntimeCoreBridgeV2
+  readonly emit: (event: AgentFoundationRuntimeEvent) => void
+  readonly createRuntime?: (
+    host: CorePiRuntimeHostV2,
+    emit: (event: PiRuntimeV2Event) => void,
+  ) => ActivationRuntime
+  readonly clock?: () => Date
+  readonly id?: () => string
+}
+
+export class AgentFoundationRuntimeError extends Error {
+  constructor(readonly code: string, message: string) {
+    super(message)
+  }
+}
+
+interface PlanAuthority {
+  readonly projectId: string
+  readonly taskId: string
+}
+
+function record(value: unknown, label: string): Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new AgentFoundationRuntimeError('AGENT_V2_PROTOCOL_INVALID', `${label} was invalid.`)
+  }
+  return value as Record<string, unknown>
+}
+
+function string(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new AgentFoundationRuntimeError('AGENT_V2_PROTOCOL_INVALID', `${label} was invalid.`)
+  }
+  return value
+}
+
+function integer(value: unknown, label: string): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new AgentFoundationRuntimeError('AGENT_V2_PROTOCOL_INVALID', `${label} was invalid.`)
+  }
+  return value
+}
+
+function json(value: unknown): JsonValue {
+  return JSON.parse(JSON.stringify(value)) as JsonValue
+}
+
+function sourceContentHash(
+  value: unknown,
+  datasetId: string,
+  sourceVersion: number,
+): string | undefined {
+  const queue: unknown[] = [value]
+  while (queue.length > 0) {
+    const current = queue.shift()
+    if (Array.isArray(current)) {
+      queue.push(...current)
+      continue
+    }
+    if (current === null || typeof current !== 'object') continue
+    const candidate = current as Record<string, unknown>
+    if (
+      candidate.source_dataset_id === datasetId
+      && candidate.source_version === sourceVersion
+      && typeof candidate.content_hash === 'string'
+      && /^[a-f0-9]{64}$/i.test(candidate.content_hash)
+    ) return candidate.content_hash.toLowerCase()
+    queue.push(...Object.values(candidate))
+  }
+  return undefined
+}
+
+function planIdentity(value: unknown): { planId: string; taskId: string } {
+  const view = record(value, 'task plan view')
+  const plan = record(view.plan, 'task plan')
+  const task = record(view.task, 'task checkpoint')
+  return {
+    planId: string(plan.plan_id, 'plan ID'),
+    taskId: string(task.task_id, 'task ID'),
+  }
+}
+
+/**
+ * Test-gated Main coordinator for the durable Agent foundation.
+ *
+ * It intentionally accepts only the first P6 slice: one immutable source,
+ * one user-selected chart profile, and no pre-existing plot target.
+ */
+export class AgentFoundationRuntime {
+  private readonly core: PiRuntimeCoreBridgeV2
+  private readonly emitEvent: AgentFoundationRuntimeOptions['emit']
+  private readonly createRuntime: NonNullable<AgentFoundationRuntimeOptions['createRuntime']>
+  private readonly clock: () => Date
+  private readonly id: () => string
+  private readonly authorityByPlan = new Map<string, PlanAuthority>()
+  private sequence = 0
+
+  constructor(options: AgentFoundationRuntimeOptions) {
+    this.core = options.core
+    this.emitEvent = options.emit
+    this.createRuntime = options.createRuntime ?? ((host, emit) => (
+      new PiRuntimeAdapterV2({ host, emit })
+    ))
+    this.clock = options.clock ?? (() => new Date())
+    this.id = options.id ?? randomUUID
+  }
+
+  canRun(input: AgentFoundationRunInput): boolean {
+    return input.selectedSources.length === 1
+      && input.selectedProfileIds?.length === 1
+      && (input.selectedPlotIds === undefined || input.selectedPlotIds.length === 0)
+  }
+
+  ownsPlan(planId: string): boolean {
+    return this.authorityByPlan.has(planId)
+  }
+
+  async run(input: AgentFoundationRunInput): Promise<JsonValue> {
+    if (!this.canRun(input)) {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_SLICE_UNSUPPORTED',
+        '当前新 Agent 入口仅支持一个数据表和一个已选择图类的新建任务。',
+      )
+    }
+    const source = input.selectedSources[0]
+    const profileId = input.selectedProfileIds?.[0]
+    if (source === undefined || profileId === undefined) {
+      throw new AgentFoundationRuntimeError('AGENT_V2_SLICE_UNSUPPORTED', '任务范围不完整。')
+    }
+    const runToken = this.id()
+    const taskId = `task:${runToken}`
+    const runId = `workflow:${runToken}`
+    this.emit(runId, input.projectId, 'preparing_context', '正在读取所选数据…')
+    const described = await this.core.request('datasets.describe', {
+      project_id: input.projectId,
+      source_dataset_id: source.datasetId,
+      source_version: source.sourceVersion,
+    })
+    const contentHash = sourceContentHash(described, source.datasetId, source.sourceVersion)
+    if (contentHash === undefined) {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_SOURCE_IDENTITY_MISSING',
+        '所选数据缺少不可变内容标识，请重新选择数据表。',
+      )
+    }
+    await this.core.request('agent.tasks.create', {
+      project_id: input.projectId,
+      envelope: {
+        schema_version: 'task-envelope.v2',
+        task_id: taskId,
+        task_version: 1,
+        project_id: input.projectId,
+        project_revision: input.expectedProjectVersion,
+        original_instruction: input.instruction,
+        locale: 'zh-CN',
+        selected_sources: [{
+          source_dataset_id: source.datasetId,
+          source_version: source.sourceVersion,
+          content_hash: contentHash,
+        }],
+        selected_plots: [],
+        selected_profile_ids: [profileId],
+        authorized_resources: [],
+        budget: {},
+        created_at: this.clock().toISOString(),
+      },
+    })
+
+    const host = new CorePiRuntimeHostV2(this.core, input.projectId)
+    const runtime = this.createRuntime(host, (event) => this.forwardRuntime(runId, input.projectId, event))
+    const pump = new AgentTaskPump({
+      core: this.core,
+      runtime,
+      emit: (event) => this.forwardPump(runId, input.projectId, event),
+    })
+    const drained = await pump.drain(input.projectId, taskId)
+    if (drained.reason !== 'awaiting_confirmation') {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_PLAN_NOT_READY',
+        `Agent 未生成可确认计划（${drained.reason}）。`,
+      )
+    }
+    const view = await this.core.request(
+      'agent.tasks.plan.get',
+      { project_id: input.projectId, task_id: taskId },
+      15_000,
+    )
+    const identity = planIdentity(view)
+    if (identity.taskId !== taskId) {
+      throw new AgentFoundationRuntimeError('AGENT_V2_TASK_MISMATCH', '计划不属于当前任务。')
+    }
+    this.authorityByPlan.set(identity.planId, { projectId: input.projectId, taskId })
+    this.emit(runId, input.projectId, 'completed', '计划已生成，等待确认')
+    return json(view)
+  }
+
+  async get(input: AgentFoundationPlanInput): Promise<JsonValue> {
+    const authority = this.authority(input)
+    return json(await this.core.request('agent.tasks.plan.get', {
+      project_id: authority.projectId,
+      task_id: authority.taskId,
+    }))
+  }
+
+  async confirm(input: AgentFoundationPlanInput): Promise<JsonValue> {
+    const authority = this.authority(input)
+    const view = record(await this.get(input), 'task plan view')
+    const task = record(view.task, 'task checkpoint')
+    await this.core.request('agent.tasks.plan.confirm', {
+      project_id: authority.projectId,
+      task_id: authority.taskId,
+      expected_task_version: integer(task.task_version, 'task version'),
+      user_event_id: `user-event:${this.id()}`,
+      plan_hash: string(view.plan_hash, 'plan hash'),
+    })
+    return await this.get(input)
+  }
+
+  async reject(input: AgentFoundationPlanInput): Promise<JsonValue> {
+    const authority = this.authority(input)
+    const view = record(await this.get(input), 'task plan view')
+    const task = record(view.task, 'task checkpoint')
+    await this.core.request('agent.tasks.plan.reject', {
+      project_id: authority.projectId,
+      task_id: authority.taskId,
+      expected_task_version: integer(task.task_version, 'task version'),
+      user_event_id: `user-event:${this.id()}`,
+      plan_hash: string(view.plan_hash, 'plan hash'),
+    })
+    return await this.get(input)
+  }
+
+  async execute(input: AgentFoundationPlanInput): Promise<JsonValue> {
+    const authority = this.authority(input)
+    await this.core.request(
+      'agent.tasks.execute',
+      { project_id: authority.projectId, task_id: authority.taskId },
+      60_000,
+    )
+    return await this.get(input)
+  }
+
+  private authority(input: AgentFoundationPlanInput): PlanAuthority {
+    const authority = this.authorityByPlan.get(input.planId)
+    if (authority === undefined || authority.projectId !== input.projectId) {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_PLAN_UNKNOWN',
+        '当前桌面会话中找不到该 Agent 计划。',
+      )
+    }
+    return authority
+  }
+
+  private forwardRuntime(runId: string, projectId: string, event: PiRuntimeV2Event): void {
+    const details: Record<PiRuntimeV2Event['stage'], [AgentFoundationRuntimeEvent['stage'], string]> = {
+      preparing_context: ['preparing_context', '正在准备 Agent 上下文…'],
+      model_turn: ['planning', 'Agent 正在检查数据并规划…'],
+      tool_started: ['inspecting_data', 'Agent 正在读取数据证据…'],
+      tool_finished: ['planning', '数据证据已返回，继续规划…'],
+      yielded: ['validating_draft', '正在校验字段绑定与图形合同…'],
+      cancelled: ['cancelled', 'Agent 任务已取消'],
+      failed: ['failed', 'Agent 运行失败'],
+    }
+    const [stage, label] = details[event.stage]
+    this.emit(runId, projectId, stage, label)
+  }
+
+  private forwardPump(runId: string, projectId: string, event: TaskPumpEvent): void {
+    if (event.stage === 'activation_started') {
+      this.emit(runId, projectId, 'planning', 'Agent 正在生成结构化任务意图…')
+    } else if (event.stage === 'activation_yielded') {
+      this.emit(runId, projectId, 'saving_plan', '正在生成可确认计划…')
+    } else if (event.stage === 'failed') {
+      this.emit(runId, projectId, 'failed', '任务编排失败')
+    }
+  }
+
+  private emit(
+    runId: string,
+    projectId: string,
+    stage: AgentFoundationRuntimeEvent['stage'],
+    label: string,
+  ): void {
+    this.sequence += 1
+    this.emitEvent({
+      schemaVersion: '1.0',
+      runId,
+      projectId,
+      sequence: this.sequence,
+      stage,
+      label,
+    })
+  }
+}
+
+export function publicAgentFoundationError(error: unknown): {
+  code: 'IPC_INVALID_ARGUMENT'
+  message: string
+  retryable: boolean
+} | undefined {
+  if (!(error instanceof AgentFoundationRuntimeError)) return undefined
+  return {
+    code: 'IPC_INVALID_ARGUMENT',
+    message: error.message,
+    retryable: false,
+  }
+}

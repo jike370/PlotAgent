@@ -908,7 +908,8 @@ export function App(): React.JSX.Element {
     setBusyAction('agent-plan')
     try {
       const value = valueOrThrow(await api.confirmTaskPlan({ projectId: project.projectId, planId, accept: false }))
-      if (!isJsonRecord(value) || value.state !== 'rejected') {
+      const rejectedPlan = readWorkflowPlan(value)
+      if ((rejectedPlan?.state ?? (isJsonRecord(value) ? value.state : undefined)) !== 'rejected') {
         throw new Error('Core did not confirm plan cancellation.')
       }
       setWorkflowPlan(undefined)

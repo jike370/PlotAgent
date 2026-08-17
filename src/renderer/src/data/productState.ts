@@ -841,7 +841,19 @@ export function readWorkflowRecipes(value: JsonValue): WorkflowRecipeView[] {
 }
 
 export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined {
-  const snapshot = records(value, (record) => (
+  const root = isJsonRecord(value) ? value : undefined
+  const durableTask = root !== undefined && isJsonRecord(root.task) ? root.task : undefined
+  const durablePlan = root !== undefined && isJsonRecord(root.plan) ? root.plan : undefined
+  const durableSnapshot = durableTask !== undefined && durablePlan !== undefined
+    && typeof durableTask.state === 'string' && Array.isArray(durableTask.items)
+    ? {
+      ...durableTask,
+      state: durableTask.state,
+      plan: durablePlan,
+      item_progress: durableTask.items,
+    }
+    : undefined
+  const snapshot = durableSnapshot ?? records(value, (record) => (
     isJsonRecord(record.plan)
     && typeof record.state === 'string'
     && Array.isArray(record.item_progress)
@@ -889,7 +901,10 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     const visualActions = Array.isArray(item.visual_actions) ? item.visual_actions : []
     boundActions.push(...visualActions)
     const changes = visualActions.flatMap(workflowActionSummary)
-    const state = stringValue(itemProgress, 'state') ?? 'pending'
+    const rawItemState = stringValue(itemProgress, 'state') ?? 'pending'
+    const state = rawItemState === 'staged' ? 'pending'
+      : rawItemState === 'repairable_failed' ? 'failed'
+        : rawItemState
     const rawTaskKind = stringValue(item, 'task_kind')
     const taskKind = rawTaskKind === 'edit'
       ? 'edit'
@@ -899,10 +914,15 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     const profileId = stringValue(item, 'profile_id') ?? '图形'
     const outputPlotId = stringValue(itemProgress, 'output_plot_id')
     const outputPlotVersion = numberValue(itemProgress, 'output_plot_version')
+    const durableError = isJsonRecord(itemProgress.last_error) ? itemProgress.last_error : undefined
     const errorCode = stringValue(itemProgress, 'error_code')
+      ?? (durableError === undefined ? undefined : stringValue(durableError, 'code'))
     const errorMessage = stringValue(itemProgress, 'error_message')
+      ?? (durableError === undefined ? undefined : stringValue(durableError, 'message'))
     const errorRetryable = typeof itemProgress.error_retryable === 'boolean'
       ? itemProgress.error_retryable
+      : typeof durableError?.retryable === 'boolean'
+        ? durableError.retryable
       : undefined
     return [{
       taskItemId: item.item_id,
@@ -930,12 +950,21 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       }),
     }]
   })
-  const state = snapshot.state as string
+  const rawState = snapshot.state as string
+  const state = rawState === 'completed_verified' ? 'succeeded'
+    : rawState === 'executing' ? 'ready'
+      : rawState === 'partial' ? 'partially_succeeded'
+        : rawState
+  const durableConfirmation = root === undefined
+    ? undefined
+    : stringValue(root, 'confirmation_state')
   return {
     planId: plan.plan_id,
     state,
-    confirmationState: state === 'awaiting_confirmation' ? 'pending'
-      : state === 'rejected' ? 'rejected' : 'confirmed',
+    confirmationState: durableConfirmation ?? (
+      state === 'awaiting_confirmation' ? 'pending'
+        : state === 'rejected' ? 'rejected' : 'confirmed'
+    ),
     warnings: [],
     steps,
     completedCount: steps.filter((step) => step.state === 'succeeded').length,

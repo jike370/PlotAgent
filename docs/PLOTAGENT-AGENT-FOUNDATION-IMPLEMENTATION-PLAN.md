@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P5 已完成；下一阶段为 P6 单任务端到端垂直切片。
+> 状态：P0–P5 已完成；P6 单任务端到端垂直切片已进入正式 Electron 测试 gate 验收。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -398,8 +398,13 @@
 - Main host 已将 Core authority、模型服务配置与 Pi runtime 组合，API key 只停留在 Main 内存，不进入
   Core context、task event 或 renderer；
 - Core 已校验 terminal yield 的 activation/task identity、context hash 与 TaskIntent content hash；
-- 上述链路仍为 additive/test-gated，正式 UI 继续使用 v1；下一节点是把合法 `TaskIntent` 编译成单项确认卡，
-  再签发最小 ExecutionGrant 执行与验证。
+- Core 已将合法 `TaskIntent` 对照冻结的数据版本、字段别名和图形合同编译为持久 `TaskPlan`；非法绑定在
+  确认卡出现前拒绝，且不改变项目 revision；
+- 用户确认事件、计划 hash 与最小 P2 `ExecutionGrant` 原子持久化；确认后复用确定性 executor 完成单项
+  create、ToolReceipt、PlotDocument 读回、VerificationReport 和 `completed_verified`；
+- Main 在 `PLOTAGENT_AGENT_FOUNDATION_V2=1` 下只接管“一份数据 + 一个已选图类 + 新建一图”，其他请求
+  保持 v1；正式对话可看到真实读取/检查/规划/校验阶段，并复用字段确认卡完成确认与执行；
+- gate 默认关闭，下一节点是完成正式 Windows Electron 黑盒与中断恢复证据，再决定是否扩大切片。
 
 ### 测试
 
