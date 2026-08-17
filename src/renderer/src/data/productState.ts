@@ -249,6 +249,7 @@ export interface WorkflowPlanStep {
   profileId: string
   title: string
   detail?: string
+  sourceDatasetIds: string[]
   bindings: WorkflowBindingView[]
   changes: string[]
   state: string
@@ -869,6 +870,7 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       detail: taskKind === 'edit'
         ? `${changes.length} 项视觉修改`
         : `${Array.isArray(item.sources) ? item.sources.length : 0} 个数据来源 · ${stepBindings.length} 个字段角色`,
+      sourceDatasetIds: [...sourceIds.values()],
       bindings: stepBindings,
       changes,
       state,

@@ -234,6 +234,13 @@ function failedCreatePlanFixture(): JsonValue {
         plot_id: 'plot:failed-k19',
         profile_id: 'K19',
         sources: [{
+          source_alias: 'data_2',
+          source_dataset_id: 'source:temperature',
+          source_version: 1,
+          content_hash: 'a'.repeat(64),
+          display_name: 'temperature.csv',
+          row_count: 12,
+        }, {
           source_alias: 'data_3',
           source_dataset_id: 'source:pressure',
           source_version: 1,
@@ -1278,6 +1285,36 @@ describe('PlotAgent real desktop workflow', () => {
     }))
   })
 
+  it('provides every imported table when the instruction explicitly names their total count', async () => {
+    const user = userEvent.setup()
+    const prepareWorkflow = vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture())))
+    installApi(fakeDesktop({
+      runWorkflow: prepareWorkflow,
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '将已提供的 2 个数据表画在同一张 K03 散点图中。',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    await screen.findByRole('heading', { name: '任务计划' })
+    expect(prepareWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
+      selectedSources: [
+        { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
+      ],
+      instruction: '将已提供的 2 个数据表画在同一张 K03 散点图中。',
+    }))
+  })
+
   it('lets an explicit multi-dataset request choose different chart types without a preselected chart', async () => {
     const user = userEvent.setup()
     const prepareWorkflow = vi.fn(async (input: unknown) => {
@@ -1378,7 +1415,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getAllByText('plot:one · v2').length).toBeGreaterThan(0)
   })
 
-  it('routes a natural-language failed-item retry only to the failed source', async () => {
+  it('routes a natural-language retry to every source in the failed create step', async () => {
     const user = userEvent.setup()
     const runWorkflow = vi.fn(async (
       input: Parameters<PlotAgentDesktopApi['runWorkflow']>[0],
@@ -1416,11 +1453,29 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
 
     expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({
-      selectedSources: [{ datasetId: 'source:pressure', sourceVersion: 1 }],
+      selectedSources: [
+        { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
+      ],
       selectedProfileIds: ['K19'],
-      instruction: '仅重试上个批次失败的任务：K19 改为 linear，不要重复成功项。',
+      instruction: '仅重试上个批次失败的任务：K19 改为 linear，不要重复成功项。；将这些数据表画在同一张 K19 图中。字段角色为 time_min 绑定 time、fluorescence_au 绑定 series_1。',
     }))
     expect(runWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedPlotIds')
+
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '仅重试上个批次失败的任务：K19 改为 linear，不要重复成功项。',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(runWorkflow).toHaveBeenCalledTimes(2)
+    expect(runWorkflow.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      selectedSources: [
+        { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
+      ],
+      selectedProfileIds: ['K19'],
+    }))
   })
 
   it('renders a rejected persisted plan as non-executable', async () => {

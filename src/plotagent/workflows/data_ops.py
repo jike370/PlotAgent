@@ -362,23 +362,40 @@ def _concatenate(
     source_label_id: str,
 ) -> EngineDataView:
     baseline = views[0]
-    signatures = tuple(
-        tuple((column.field.name, column.field.logical_type) for column in view.columns)
-        for view in views
+    baseline_signature = tuple(
+        (column.field.name, column.field.logical_type) for column in baseline.columns
     )
-    if len(set(signatures)) != 1:
+    if len(baseline_signature) != len(set(baseline_signature)):
         raise WorkflowDataError(
             "WORKFLOW_NON_ISOMORPHIC",
             "合并到同一张图的数据表必须具有相同字段名称和类型。",
         )
+    aligned_columns: list[tuple[EngineColumn, ...]] = []
+    for view in views:
+        columns_by_signature = {
+            (column.field.name, column.field.logical_type): column for column in view.columns
+        }
+        if (
+            len(columns_by_signature) != len(view.columns)
+            or set(columns_by_signature) != set(baseline_signature)
+        ):
+            raise WorkflowDataError(
+                "WORKFLOW_NON_ISOMORPHIC",
+                "合并到同一张图的数据表必须具有相同字段名称和类型。",
+            )
+        aligned_columns.append(
+            tuple(columns_by_signature[signature] for signature in baseline_signature)
+        )
     row_ids: list[str] = []
     output_values: list[list[WorkflowScalar]] = [[] for _ in baseline.columns]
     source_values: list[WorkflowScalar] = []
-    for source_index, (label, view) in enumerate(zip(source_labels, views, strict=True), start=1):
+    for source_index, (label, view, columns) in enumerate(
+        zip(source_labels, views, aligned_columns, strict=True), start=1
+    ):
         for row_index, _row_id in enumerate(view.row_ids):
             row_ids.append(f"row:concat.{source_index}.{row_index + 1}")
             source_values.append(label)
-        for position, column in enumerate(view.columns):
+        for position, column in enumerate(columns):
             output_values[position].extend(column.values)
     return EngineDataView(
         data=baseline.data,

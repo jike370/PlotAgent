@@ -19,7 +19,8 @@ class _Provider:
 
     def materialize(self, data: EngineDataRef, field_ids: tuple[str, ...]) -> EngineDataView:
         view = self.views[data.dataset_id]
-        selected = tuple(column for column in view.columns if column.field.field_id in field_ids)
+        columns = {column.field.field_id: column for column in view.columns}
+        selected = tuple(columns[field_id] for field_id in field_ids)
         return view.model_copy(update={"columns": selected})
 
 
@@ -82,18 +83,23 @@ def test_concatenate_sources_materializes_confirmed_user_facing_labels() -> None
         ),
     )
     resolved = (
-        ResolvedWorkflowField(
-            field_alias="data_1_time",
-            source_alias="data_1",
-            field_id="field:one_time",
-            name="Time",
-            logical_type="numeric",
-        ),
+        # The bound value is intentionally resolved before the unbound time
+        # field for data_1.  Real providers preserve the requested field order,
+        # while the other source remains in its worksheet order.  Concatenation
+        # must align isomorphic fields by identity rather than reject that
+        # harmless ordering difference.
         ResolvedWorkflowField(
             field_alias="data_1_signal",
             source_alias="data_1",
             field_id="field:one_signal",
             name="Signal",
+            logical_type="numeric",
+        ),
+        ResolvedWorkflowField(
+            field_alias="data_1_time",
+            source_alias="data_1",
+            field_id="field:one_time",
+            name="Time",
             logical_type="numeric",
         ),
         ResolvedWorkflowField(

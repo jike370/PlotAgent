@@ -228,7 +228,7 @@ def _requested_source_labels(
 
 def _has_create_intent(text: str) -> bool:
     return re.search(
-        r"画|绘制|绘图|作图|创建|生成|映射|作为|→|->|横轴|纵轴|x\s*=|y\s*=",
+        r"画|绘制|绘图|作图|创建|生成|重试|retry|映射|作为|→|->|横轴|纵轴|x\s*=|y\s*=",
         text,
         flags=re.IGNORECASE,
     ) is not None

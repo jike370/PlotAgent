@@ -118,6 +118,21 @@ function datasetsForInstruction(
       .filter((label) => label.length >= 3)
     return labels.some((label) => requested.includes(label))
   })
+  const chineseCounts = ['', '一', '二', '三', '四', '五', '六', '七', '八']
+  const requestedCount = datasets.length <= 8
+    ? `(?:${datasets.length}|${chineseCounts[datasets.length]})`
+    : String(datasets.length)
+  const explicitlyRequestsEveryImportedDataset = explicitlyNamed.length === 0 && (
+    /(?:所有|全部)(?:已提供|已上传|已导入|当前)?(?:的)?\s*(?:数据表|数据源|表格)/.test(requested)
+    || /(?:已提供|已上传|已导入)(?:的)?\s*(?:所有|全部)?\s*(?:数据表|数据源|表格)/.test(requested)
+    || new RegExp(
+      `(?:已提供|已上传|已导入)(?:的)?\\s*${requestedCount}\\s*(?:个|份|张)?\\s*(?:数据表|数据源|表格|表)`,
+      'i',
+    ).test(requested)
+    || /\b(?:all|every)\s+(?:(?:provided|uploaded|imported)\s+)?(?:datasets?|data\s+tables?|sources?)\b/i.test(requested)
+    || (selectedIds.length === 0 && /(?:每个|每份)数据表/.test(requested))
+  )
+  if (explicitlyRequestsEveryImportedDataset) return datasets.slice(0, 8)
   const orderedIds = [
     activeDataset.datasetId,
     ...selectedIds,
@@ -135,7 +150,7 @@ function failedRetrySelection(
   instruction: string,
   plan: WorkflowPlanView | undefined,
   datasets: ProductDataset[],
-): { datasets: ProductDataset[]; profileIds: string[] } | undefined {
+): { datasets: ProductDataset[]; profileIds: string[]; routingInstruction: string } | undefined {
   if (!/(?:仅|只)?重试[^，,。；;]*(?:失败|未完成)|(?:失败|未完成)[^，,。；;]*重试/.test(instruction)) {
     return undefined
   }
@@ -144,10 +159,7 @@ function failedRetrySelection(
     step.taskKind === 'create' && ['failed', 'blocked'].includes(step.state)
   ))
   if (failed.length === 0) return undefined
-  const datasetIds = [...new Set(failed.flatMap((step) => (
-    step.bindings.flatMap((binding) => binding.sourceDatasetId === undefined
-      ? [] : [binding.sourceDatasetId])
-  )))]
+  const datasetIds = [...new Set(failed.flatMap((step) => step.sourceDatasetIds))]
   const selectedDatasets = datasetIds.flatMap((datasetId) => {
     const dataset = datasets.find((candidate) => candidate.datasetId === datasetId)
     return dataset === undefined ? [] : [dataset]
@@ -155,9 +167,29 @@ function failedRetrySelection(
   if (selectedDatasets.length !== datasetIds.length || selectedDatasets.length === 0) {
     return undefined
   }
+  const profileIds = [...new Set(failed.map((step) => step.profileId))]
+  const fieldsById = new Map(datasets.flatMap((dataset) => (
+    dataset.fields.map((field) => [field.fieldId, field] as const)
+  )))
+  const restoredBindings = [...new Set(failed.flatMap((step) => (
+    step.bindings.flatMap((binding) => {
+      const field = fieldsById.get(binding.fieldId)
+      return field === undefined ? [] : [`${field.name} 绑定 ${binding.role}`]
+    })
+  )))]
+  const retryShape = failed.length === 1 && failed[0].sourceDatasetIds.length > 1
+    ? `将这些数据表画在同一张 ${failed[0].profileId} 图中。`
+    : failed.length === 1
+      ? `用这个数据创建 ${failed[0].profileId} 图。`
+      : profileIds.length === 1
+        ? `分别为每个数据表创建 ${profileIds[0]} 图。`
+        : `分别执行失败的绘图任务，图形类型为 ${profileIds.join('、')}。`
   return {
     datasets: selectedDatasets,
-    profileIds: [...new Set(failed.map((step) => step.profileId))],
+    profileIds,
+    routingInstruction: `${instruction}；${retryShape}${restoredBindings.length === 0
+      ? ''
+      : `字段角色为 ${restoredBindings.join('、')}。`}`,
   }
 }
 
@@ -234,6 +266,7 @@ export function App(): React.JSX.Element {
   const [originDiagnostic, setOriginDiagnostic] = useState('Origin 环境未通过检测。请重新检测后再导出。')
   const importInFlight = useRef(false)
   const agentRequestGeneration = useRef(0)
+  const retryPlan = useRef<WorkflowPlanView | undefined>(undefined)
 
   useEffect(() => {
     if (notice?.kind !== 'success') return
@@ -377,7 +410,11 @@ export function App(): React.JSX.Element {
     void api.listTaskPlans({ projectId: activeProjectId }).then((result) => {
       if (!active || !result.ok) return
       const plans = readWorkflowPlans(result.value)
-      setWorkflowPlan(plans.at(-1))
+      const latest = plans.at(-1)
+      setWorkflowPlan(latest)
+      retryPlan.current = latest && ['partially_succeeded', 'failed'].includes(latest.state)
+        ? latest
+        : undefined
     })
     return () => { active = false }
   }, [api, activeProjectId])
@@ -840,7 +877,7 @@ export function App(): React.JSX.Element {
     agentRequestGeneration.current = requestGeneration
     setBusyAction('agent'); setWorkflowOutcome(undefined); setWorkflowPlan(undefined); setNotice(undefined)
     try {
-      const retrySelection = failedRetrySelection(instruction, workflowPlan, datasets)
+      const retrySelection = failedRetrySelection(instruction, workflowPlan ?? retryPlan.current, datasets)
       const selectedSources = (retrySelection?.datasets ?? datasetsForInstruction(
           instruction,
           datasets,
@@ -860,11 +897,16 @@ export function App(): React.JSX.Element {
         ...(retrySelection !== undefined || plot === undefined
           ? {}
           : { selectedPlotIds: [plot.plotId] }),
-        instruction,
+        instruction: retrySelection?.routingInstruction ?? instruction,
       }))
       if (agentRequestGeneration.current !== requestGeneration) return
       const outcome = readWorkflowOutcome(value)
       setWorkflowPlan(outcome.plan)
+      if (outcome.plan !== undefined) {
+        retryPlan.current = ['partially_succeeded', 'failed'].includes(outcome.plan.state)
+          ? outcome.plan
+          : undefined
+      }
       setWorkflowOutcome(outcome)
     } catch (error) {
       if (agentRequestGeneration.current === requestGeneration) {
@@ -915,6 +957,7 @@ export function App(): React.JSX.Element {
       const plan = readWorkflowPlan(value)
       if (!plan) throw new Error('Core 未返回任务计划状态。')
       setWorkflowPlan(plan)
+      retryPlan.current = ['partially_succeeded', 'failed'].includes(plan.state) ? plan : undefined
       await syncPlanOutput(plan)
       if (plan.state === 'succeeded' && historyEntry) {
         setUndoStack((current) => [...current, historyEntry].slice(-50))

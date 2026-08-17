@@ -103,6 +103,18 @@ def test_unspecified_chart_is_a_local_question_not_an_agent_guess() -> None:
     assert decision.deterministic.questions[0].question_key == "chart_type"
 
 
+def test_failed_create_retry_is_a_program_first_create_intent() -> None:
+    base = _context("仅重试上个任务失败的项，不要重复已成功项。")
+    context = base.model_copy(update={"selected_profile_ids": ("K01",)})
+
+    decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(context)
+
+    assert decision.route == "deterministic"
+    assert decision.deterministic is not None
+    assert decision.deterministic.outcome == "draft_ready"
+    assert decision.deterministic.draft.items[0].profile_id == "K01"
+
+
 def test_explicit_visual_goal_uses_the_program_first_route_without_dropping_style() -> None:
     decision = WorkflowRouter(EngineCatalog(ENGINE_PROFILES)).route(
         _context("用这个数据画 K01 折线图，线条改成 #D62728 红色虚线，宽度 2 pt")
