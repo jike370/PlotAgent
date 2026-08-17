@@ -27,7 +27,7 @@
 | 序号 | 设计项 | 当前状态 | 需要回答的核心问题 |
 |---|---|---|---|
 | 1 | 任务合同 | 已确认 | Agent 怎样知道目标、输入、约束、成功标准和交付物？ |
-| 2 | 领域说明 | 待讨论 | 哪些绘图知识、科学边界和标准案例应提供给 Agent？ |
+| 2 | 领域说明 | 提案待确认 | 哪些绘图知识、科学边界和标准案例应提供给 Agent？ |
 | 3 | 上下文机制 | 已确认 | Agent 每轮能看到什么，怎样按需读取数据而不淹没上下文？ |
 | 4 | 运行循环 | 待讨论 | Agent 怎样观察、行动、检查、修复、停止或追问？ |
 | 5 | 工具体系 | 已确认 | Agent 需要哪些检查、整理、绘图、读回和交付工具？ |
@@ -1327,6 +1327,259 @@ BLOCKED 和 UNVERIFIED 不是产品 FAIL，但对强制发布用例同样不能�
 8. 性质测试由图类/工具合同定义，双后端比较语义与原生结构，不做逐像素相等；
 9. 状态严格使用 PASS、FAIL、BLOCKED、UNVERIFIED、EVAL_INVALID，强制用例的任何非 PASS 都不能支持 GO；
 10. 发布必须在同一冻结 commit 上同时关闭 Agent 多 trial、34 图资格、正式 UI、性能、安全与可追溯性。
+
+## 12. 设计项 2：领域说明
+
+> 状态：提案待确认。本节用于讨论，尚不构成施工依据。
+
+### 12.0 领域说明解决什么问题
+
+领域说明是 PlotAgent 提供给模型的、版本化且可追溯的绘图知识。它让模型知道产品承诺的图类、数据合同、科学语义、公共动作和边界，而不是让模型依赖训练记忆猜 Origin、猜列角色或猜 renderer 行为。
+
+领域说明不是：
+
+- 一份把 34 张图全部塞进 system prompt 的百科；
+- 由程序通过关键词或正则替模型选择图类的路由表；
+- renderer 的 LabTalk、Origin C、Matplotlib artist 或对象编号说明；
+- 固定执行步骤的 Recipe；
+- 用户偏好记忆；
+- 可以覆盖真实数据、TaskContract、工具返回或验证结果的“提示词真相”。
+
+它的职责是提供可用知识与明确边界。模型仍负责理解用户意图、选择图类、判断字段语义和决定是否追问；程序负责按权限取回知识、保证版本一致，并用同一领域合同做确定性校验。
+
+### 12.1 知识权威顺序
+
+发生冲突时按以下顺序处理：
+
+1. **程序领域合同**：EngineProfile、数据/计算合同、公共动作 Schema、验证规则，是产品可执行能力的唯一真值；
+2. **经审查的领域知识卡**：解释用途、语义、正反例和边界，必须绑定上述合同版本；
+3. **本机目标版本与官方资料**：Origin 官方帮助、本机菜单 dispatcher、模板资产和版本化 readback，用于证明后端事实；
+4. **当前任务事实**：用户原始指令、显式选择、真实数据和工具观察；
+5. **模型先验知识**：只能形成待验证假设，不能覆盖前四项或直接作为完成证据。
+
+用户可以选择图类、字段、单位、计算定义和视觉偏好；但如果要求违反图类硬合同、产品安全边界或数学不变量，Agent 必须解释冲突并追问或报告不支持，不能静默修改合同。
+
+### 12.2 六层领域知识
+
+领域说明拆成六层，按任务需要组合：
+
+| 层 | 内容 | 注入策略 |
+|---|---|---|
+| D0 Agent constitution | 职责、数据不可信、必须用工具、不得猜完成、何时追问 | 每轮常驻，保持短小 |
+| D1 通用绘图语义 | 来源、单位、wide/long/matrix、缺失、分组、配对、误差、顺序和聚合边界 | 任务开始提供摘要，相关时展开 |
+| D2 ChartKnowledgeCard | 单个图类的用途、数据合同、对象、固定语义、允许/禁止处理、正反例 | 用户选择或模型候选确定后按需注入 |
+| D3 CalculationContract | 统计量、公式、参数、缺失值、边界条件和版本 | 只有图类或用户请求涉及计算时注入 |
+| D4 Tool/Action contract | 工具参数、返回、错误、副作用、公共视觉动作 | 由当前阶段真实 Schema 暴露 |
+| D5 Evidence/example | 最小例、代表例、反例、近似但不同的图类对照和官方依据 | Agent 请求或歧义需要时提供 |
+
+D0 不能承载具体图类清单；D2/D3 不得常驻全部上下文；D4 不能靠自由文本复制，必须来自实际工具 Schema。
+
+### 12.3 通用绘图语义 D1
+
+D1 只记录跨图类稳定的原则：
+
+- 原始来源只读，任何整理结果保留 lineage；
+- 列名、单位、类型、值分布和仪器元数据都是证据，不等于用户意图；
+- 选择列、单位换算、排序、筛选、聚合和 join 都是显式语义动作，不得静默发生；
+- wide、long、matrix、paired、grouped 和 repeated-measure 具有不同结构含义；
+- 缺失值、重复键、顺序、类别顺序和时区必须显式处理；
+- error、lower/upper、confidence interval、SD、SE 等不能只凭数值形状互换；
+- 配对图、线序列、时间序列等顺序敏感数据不得由通用清洗自动排序；
+- renderer 需要的物理表结构不等于用户数据的科学语义，数据整理与字段绑定必须分开记录。
+
+D1 不给出“列名含 time 就绑定 X”之类规则，也不规定某个自然语言短语对应哪个图类。
+
+### 12.4 ChartKnowledgeCard 合同
+
+每个正式图类对应一个版本化 `ChartKnowledgeCard`，建议至少包含：
+
+```text
+profile_id / knowledge_version / engine_profile_version
+display_name_zh / official_name / user_facing_description
+intended_questions / unsuitable_questions
+source_shapes / required_roles / optional_roles / repeatable_roles
+field_type_constraints / row_relations / ordering_semantics
+fixed_scientific_semantics / user_selectable_semantics
+allowed_preparations / forbidden_preparations
+semantic_objects / public_actions / unsupported_actions
+minimal_example / representative_example / counterexamples
+validation_claims / evidence_refs / reviewed_origin_version
+```
+
+其中：
+
+- `intended_questions` 描述该图回答什么问题，不是关键词列表；
+- `required_roles` 等结构字段从 EngineProfile/Renderer Data Contract 生成或交叉校验，不能维护第二份漂移真值；
+- `fixed_scientific_semantics` 记录不可被样式编辑改变的含义；
+- `allowed_preparations` 只说明哪些数据变换在该图语义下可能合法，真正执行仍需 Agent 依据任务决定；
+- `forbidden_preparations` 明确禁止排序、预聚合、转置、归一化或复制边界等会改变含义的行为；
+- `semantic_objects` 使用 `plot`、`x_axis`、`series_1` 等公共对象，不暴露 Origin plot index；
+- `validation_claims` 与验证器使用同一 claim ID，使模型说明、执行合同和机械门禁能互相追溯。
+
+### 12.5 CalculationContract：科学计算不能藏在散文中
+
+涉及直方分箱、核密度、箱线须、置信区间、累计百分比、混淆矩阵计数等计算时，必须有独立、版本化的 `CalculationContract`：
+
+- 输入角色与允许类型；
+- 公式或算法名称与精确定义；
+- 参数、默认值和可编辑范围；
+- 缺失值、零、负值、重复和小样本行为；
+- 输出列、单位和 lineage；
+- Matplotlib 与 Origin 需要保持的共同语义；
+- 验证 oracle 和边界用例。
+
+Agent 可以根据用户明确要求选择合同或请求参数，但不能自行发明统计定义。renderer 也不能把后端默认值冒充产品科学定义。
+
+### 12.6 按需检索，不做隐藏语义路由
+
+领域知识通过显式工具访问，例如：
+
+- `list_chart_catalog`：返回产品支持图类的用户可见名称和一句话用途；
+- `get_chart_knowledge(profile_id)`：返回指定 ChartKnowledgeCard；
+- `compare_chart_profiles(profile_ids)`：返回数据要求、语义和边界的结构化差异；
+- `get_calculation_contract(contract_id)`：返回相关计算合同；
+- `get_domain_example(profile_id, example_id)`：返回审查过的正例或反例。
+
+用户已选择图类时，ContextBuilder 直接注入该卡；用户只用自然语言描述图类时，模型先读取目录，必要时比较候选，再作选择或追问。程序只执行 ID、权限和版本过滤，不根据关键词、列名或正则替模型决定候选与最终图类。
+
+如果模型请求不存在或未审查的图类知识，系统稳定返回 `DOMAIN_KNOWLEDGE_UNAVAILABLE`；Agent 不得退回训练记忆伪装成产品支持。
+
+### 12.7 示例怎样设计
+
+示例的作用是展示合同，不是教模型背固定列名。每个图类优先保留四类：
+
+1. **minimal positive**：最小合法结构；
+2. **representative positive**：真实数量级、单位、分组和可选角色；
+3. **near-miss counterexample**：外观相近但应选择另一图类或需要追问；
+4. **invalid example**：明确违反类型、行关系或科学不变量。
+
+示例字段使用语义名称并说明为什么合法/不合法；不得把 `column_1`、固定位置或某个 fixture 文件名写成通用规则。示例中来自文件的文本仍按不可信数据处理，不能携带可执行指令。
+
+### 12.8 后端知识与 Agent 公共语义隔离
+
+Agent 默认只学习 Matplotlib 与 Origin 共同的公共语义：标题、轴、系列、颜色、线、符号、图例、注释和图类参数。以下内容属于 renderer/验证器知识，不应进入普通 Agent 上下文：
+
+- Origin 模板绝对路径、LabTalk/Origin C 命令、PID、layer index、Theme 节点；
+- Matplotlib artist、Axes、Line2D、Collection 等对象结构；
+- 模板修复、fresh reopen 自动化和后端私有重建策略。
+
+只有诊断工具内部可以使用后端知识，并把结果投影为公共对象和结构化验证报告。这样既能保持 Agent 工具稳定，也能更换 renderer 实现而不重写模型知识。
+
+### 12.9 领域知识的来源、版本与审核
+
+每张知识卡必须记录：
+
+- 负责的产品合同版本；
+- 官方帮助 URL、页面标题和审查日期；
+- 本机目标 Origin 版本、菜单入口、模板 identity 或实证引用；
+- 领域 reviewer、review 状态和最后一次变更原因；
+- 与 EngineProfile、CalculationContract 和验证 claim 的一致性检查结果。
+
+普通任务运行时不实时浏览互联网，也不把未审查网页直接注入模型。官方资料先进入离线研究与人工审核，再发布为版本化知识卡。Origin 官方说明数据选择与列 designation 会决定绘图语义，模板再控制图类和外观，因此领域卡必须同时保存数据要求与图类事实，不能只保存一张参考图。
+
+知识卡变化视为产品行为变化：需要 code review、合同一致性测试、受影响 Agent regression 和图形资格。单纯修改解释文字也要确认没有扩大已支持范围。
+
+### 12.10 用户知识、冲突与追问
+
+用户在当前任务中的明确说明，例如“第三列是标准误”“每行是同一个受试者”“不要排序”，高于模型先验和示例，但不会自动修改全局领域合同。
+
+冲突处理：
+
+- 用户说明与数据证据一致且合同允许：记录进 TaskIntent；
+- 数据不足以验证但合同允许：向用户展示假设并确认；
+- 用户说明与数据观测冲突：指出具体列和值的冲突并追问；
+- 用户要求违反图类硬合同：解释原因，建议合法替代或报告不支持；
+- 用户提供新的专业定义：只在当前任务中作为显式参数使用，除非经过产品审核成为新 CalculationContract。
+
+Agent 不得为了少问一次而把示例中的常见做法套到当前数据，也不得把用户一次选择保存成跨任务默认偏好。
+
+### 12.11 程序与模型的职责
+
+模型负责：
+
+- 读取相关知识卡和真实数据；
+- 理解用户想回答的问题；
+- 比较候选图类；
+- 判断字段语义和必要的数据操作；
+- 识别合同内的歧义并追问；
+- 把自然语言转为 TaskIntent 和公共动作。
+
+程序负责：
+
+- 保存、版本化和按权限提供知识；
+- 从当前真实 EngineProfile/工具 Schema 构造结构字段；
+- 校验知识卡引用、版本和完整性；
+- 限制上下文预算并防止未授权数据披露；
+- 以同一合同验证 TaskIntent、数据视图和 renderer 结果；
+- 在知识缺失、过期或冲突时 fail closed。
+
+程序不得读取用户自然语言后自行选择知识卡、图类、字段或数据操作。模型也不得修改卡片、合同、验证规则或支持范围。
+
+### 12.12 用户可见表现
+
+领域说明大部分是内部基础设施，但用户应能看到它带来的结果：
+
+- 图形库显示准确的中文图类名、官方名称、用途和数据要求；
+- Agent 说明建议图类的理由，而不是只输出代号；
+- 映射确认卡显示字段角色、样本值、单位和关键图类约束；
+- 追问指出缺少的具体语义，例如“上下界还是对称误差”，而不是泛化地要求补充信息；
+- 不支持时说明是数据不满足、图类不支持该参数，还是产品没有该能力；
+- 必要时允许用户展开“为什么这样判断”，显示所依据的数据事实和产品合同摘要，而不是隐藏推理。
+
+不向普通用户展示 Origin PID、模板 hash、内部 claim ID 或 renderer 命令。
+
+### 12.13 当前实现差距
+
+当前 `_system_prompt()` 只为候选 profile 注入 required/optional/repeatable roles、对象别名和视觉 operation；`EngineProfile` 本身也主要声明角色、对象和 capability。项目虽然已有 Origin Recipe、官方 URL、图类研究、renderer 特殊语义和大量测试，但这些信息分散且没有形成可按需检索、与合同版本绑定的领域知识层。
+
+因此后续施工需要：
+
+1. 定义 `ChartKnowledgeCard` 与 `CalculationContract` Schema；
+2. 以现有 34 个 EngineProfile 为库存建立完整卡片，不从旧 renderer 猜语义；
+3. 将官方研究、本机模板实证和用户已签名视觉结果绑定为 evidence refs；
+4. 增加 catalog/get/compare/example 只读工具；
+5. 让 ContextBuilder 按选择和模型请求注入，而不是扩大 system prompt；
+6. 增加知识—EngineProfile—验证 claim 一致性门禁；
+7. 删除 system prompt 中会重复或漂移的图类散文，只保留 D0 constitution。
+
+### 12.14 验收用例
+
+- 34 个正式图类均有通过 Schema 和引用完整性检查的知识卡；
+- required/optional/repeatable roles、对象和 actions 与 EngineProfile 无漂移；
+- 图类硬科学语义与验证 claim 一一对应；
+- 用户已选图时只注入对应卡，不加载 34 图全文；
+- 自然语言未选图时，模型可读取目录、比较候选并追问，程序不做关键词路由；
+- 图类近似对照用例能区分浮动柱/浮动条、线序列/普通折线、箱线/列散点等已知高风险组合；
+- 用户指定字段语义时能覆盖示例惯例但不能突破硬合同；
+- 官方资料与本机版本冲突时显示版本化事实，不静默采用网页最新行为；
+- 数据单元格、仪器元数据和外部文档中的指令不会被当作系统说明；
+- 知识缺失、版本不匹配或合同冲突稳定失败，不以模型记忆继续；
+- context trace 能证明实际注入了哪些知识版本，且不泄露未授权数据；
+- 图形库、Agent 解释、TaskIntent、renderer 验证使用同一 profile identity。
+
+### 12.15 设计参考
+
+- Origin 官方说明先由列 Plot Designation 和数据选择确定角色，再由模板/Theme 控制图类和外观：[Basic Graphing](https://docs.originlab.com/origin-help/basic-graphing)；
+- Origin 为不同图类明确列出列数、X/Y/error/size/color 等数据选择要求，说明图类知识不能被简化为通用 X/Y：[Data Selection Requirements for Origin Graph Types](https://docs.originlab.com/origin-help/graph-type-data-req/)；
+- RAG 研究说明参数内记忆在知识密集任务上的精确访问、更新和来源追溯存在局限，支持使用显式、可更新知识而非依赖模型记忆：[Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401)；
+- NIST AI RMF 要求记录系统知识边界、目标使用范围、科学完整性和人类监督，为领域卡的范围、来源、限制和审核提供治理依据：[AI RMF Core](https://airc.nist.gov/airmf-resources/airmf/5-sec-core/)。
+
+这些参考支持“显式、可追溯、按需提供、记录边界”的方法；具体 34 图语义仍必须由 PlotAgent 的官方研究、本机实证和用户视觉签名决定。
+
+### 12.16 本项待确认原则
+
+1. 领域说明提供版本化知识，不替模型通过关键词或正则决定图类、字段和数据操作；
+2. 程序合同、审查知识卡、官方/本机证据、任务事实和模型先验有明确权威顺序；
+3. 知识分 D0–D5 六层，常驻内容短小，图类、计算和示例按需注入；
+4. 每个正式图类有 ChartKnowledgeCard，并与 EngineProfile/验证 claim 交叉校验而非复制第二份真值；
+5. 科学计算使用独立 CalculationContract，不把公式和默认值藏在 prompt 或 renderer 中；
+6. 用户未选图时由模型显式读取目录和比较候选，程序只做权限/ID/版本过滤；
+7. 示例包含最小、代表、近似反例和非法例，不把固定列名或位置固化为规则；
+8. Agent 只接触跨后端公共语义，Origin/Matplotlib 私有实现留在 renderer 与验证器；
+9. 官方资料先审核并版本化，普通任务不实时把网页注入模型；知识变化触发相关回归；
+10. 用户明确知识进入当前 TaskIntent；冲突时追问或拒绝，不自动写成跨任务偏好；
+11. 知识缺失、过期或冲突时 fail closed，不以模型训练记忆伪装支持；
+12. 用户可见的是准确图类说明、判断依据、字段角色和具体追问，不暴露后端内部实现。
 
 ## 已确认决定日志
 
