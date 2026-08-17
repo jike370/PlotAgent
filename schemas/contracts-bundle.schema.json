@@ -902,13 +902,12 @@
           "title": "Selected Profile Ids",
           "type": "array"
         },
-        "selected_source_ids": {
+        "selected_sources": {
           "default": [],
           "items": {
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-            "type": "string"
+            "$ref": "#/$defs/SourceDatasetRef"
           },
-          "title": "Selected Source Ids",
+          "title": "Selected Sources",
           "type": "array"
         },
         "source_contexts": {
@@ -13468,14 +13467,13 @@
           "title": "Selected Profile Ids",
           "type": "array"
         },
-        "selected_source_ids": {
+        "selected_sources": {
           "default": [],
           "items": {
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-            "type": "string"
+            "$ref": "#/$defs/SourceDatasetRef"
           },
           "maxItems": 64,
-          "title": "Selected Source Ids",
+          "title": "Selected Sources",
           "type": "array"
         },
         "task_id": {

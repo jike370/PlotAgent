@@ -27,6 +27,7 @@ from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.datasets import (
     SourceDataset,
 )
+from plotagent.desktop_core.agent_foundation import DurableTaskCoordinator
 from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue as RpcJsonValue
 from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
@@ -99,6 +100,7 @@ class ProjectSession:
     engine: DesktopEngineSession
     workflow: DesktopWorkflowService
     durable_tasks: TaskLedgerRepository
+    task_coordinator: DurableTaskCoordinator
 
     @property
     def project_id(self) -> str:
@@ -177,6 +179,7 @@ class DesktopApplication:
             "agent.tasks.list": self._agent_task_list,
             "agent.tasks.events": self._agent_task_events,
             "agent.tasks.advance": self._agent_task_advance,
+            "agent.tasks.pump.next": self._agent_task_pump_next,
             "agent.tasks.complete": self._agent_task_complete,
             "agent.tasks.activation.start": self._agent_activation_start,
             "agent.tasks.activation.running": self._agent_activation_running,
@@ -271,6 +274,16 @@ class DesktopApplication:
             project_revision=revision,
         )
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_task_pump_next(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "task_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.task_coordinator.next_action(_text(values["task_id"], "task_id")),
+        )
 
     def _agent_activation_start(
         self, _context: RpcContext, params: RpcJsonValue | None
@@ -1030,6 +1043,7 @@ class DesktopApplication:
         domain = ProjectDomainRepository(store)
         engine = DesktopEngineSession.open(store)
         workflow_repository = WorkflowRepository(store)
+        durable_tasks = TaskLedgerRepository(store)
         session = ProjectSession(
             store=store,
             domain=domain,
@@ -1041,7 +1055,8 @@ class DesktopApplication:
                 engine=engine,
                 repository=workflow_repository,
             ),
-            durable_tasks=TaskLedgerRepository(store),
+            durable_tasks=durable_tasks,
+            task_coordinator=DurableTaskCoordinator(durable_tasks),
         )
         self._sessions[project_id] = session
         self.catalog.touch_project(project_id)

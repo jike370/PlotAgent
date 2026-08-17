@@ -121,7 +121,13 @@ def test_task_envelope_requires_real_selection_and_unique_identity() -> None:
         project_id="project:test",
         project_revision=0,
         original_instruction="Create a line chart.",
-        selected_source_ids=("source:test",),
+        selected_sources=(
+            {
+                "source_dataset_id": "source:test",
+                "source_version": 1,
+                "content_hash": HASH_A,
+            },
+        ),
         selected_plots=(SelectedPlotRef(plot_id="plot:test", plot_version=1, profile_id="K01"),),
         authorized_resources=(
             ResourceRef(resource_id="resource:output", resource_kind="authorized_directory"),
@@ -135,13 +141,27 @@ def test_task_envelope_requires_real_selection_and_unique_identity() -> None:
         TaskEnvelope.model_validate(
             {
                 **envelope.model_dump(),
-                "selected_source_ids": (),
+                "selected_sources": (),
                 "selected_plots": (),
             }
         )
     with pytest.raises(ValidationError, match="selections must be unique"):
         TaskEnvelope.model_validate(
-            {**envelope.model_dump(), "selected_source_ids": ("source:test", "source:test")}
+            {
+                **envelope.model_dump(),
+                "selected_sources": (
+                    {
+                        "source_dataset_id": "source:test",
+                        "source_version": 1,
+                        "content_hash": HASH_A,
+                    },
+                    {
+                        "source_dataset_id": "source:test",
+                        "source_version": 2,
+                        "content_hash": HASH_B,
+                    },
+                ),
+            }
         )
 
 

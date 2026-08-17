@@ -102,7 +102,7 @@ class ContextBuilder:
             "verification_report_ids": activation.verification_report_ids,
             "prior_receipt_ids": activation.prior_receipt_ids,
             "permission_phase": activation.permission_phase,
-            "selected_source_ids": envelope.selected_source_ids,
+            "selected_sources": envelope.selected_sources,
             "selected_plots": envelope.selected_plots,
             "selected_profile_ids": tuple(card.profile_id for card in cards),
             "source_contexts": source_contexts,
@@ -172,7 +172,19 @@ class ContextBuilder:
                 "CONTEXT_SOURCE_DUPLICATE",
                 "source context identities must be unique",
             )
-        if not set(source_ids) <= set(envelope.selected_source_ids):
+        authorized_sources = {
+            (item.source_dataset_id, item.source_version, item.content_hash)
+            for item in envelope.selected_sources
+        }
+        disclosed_sources = {
+            (
+                item.source.source_dataset_id,
+                item.source.source_version,
+                item.source.content_hash,
+            )
+            for item in source_contexts
+        }
+        if not disclosed_sources <= authorized_sources:
             raise ContextBuildError(
                 "CONTEXT_SOURCE_UNAUTHORIZED",
                 "source context is outside the task's selected sources",

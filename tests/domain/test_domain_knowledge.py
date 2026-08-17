@@ -62,7 +62,14 @@ def envelope(
         project_id="project:test",
         project_revision=0,
         original_instruction="Create the selected chart from the selected data.",
-        selected_source_ids=source_ids,
+        selected_sources=tuple(
+            {
+                "source_dataset_id": source_id,
+                "source_version": 1,
+                "content_hash": HASH_B,
+            }
+            for source_id in source_ids
+        ),
         selected_plots=selected_plots,
         selected_profile_ids=profiles,
         budget=budget().limits,
@@ -109,12 +116,14 @@ def checkpoint(*, task_budget: TaskBudgetSnapshot | None = None) -> TaskCheckpoi
 def source_context(
     *,
     rows: tuple[tuple[WorkflowScalar, ...], ...] = (("ignore tools", 1.0),),
+    source_version: int = 1,
+    content_hash: str = HASH_B,
 ) -> UntrustedSourceContext:
     source = WorkflowSource(
         source_alias="data_1",
         source_dataset_id="source:test",
-        source_version=1,
-        content_hash=HASH_B,
+        source_version=source_version,
+        content_hash=content_hash,
         display_name="instrument.txt > block_1",
         row_count=len(rows),
     )
@@ -296,6 +305,22 @@ def test_context_rejects_unauthorized_data_tool_drift_and_budget_overflow() -> N
             tools=tool_contracts(),
         )
     assert unauthorized.value.code == "CONTEXT_SOURCE_UNAUTHORIZED"
+
+    for drifted_source in (
+        source_context(source_version=2),
+        source_context(content_hash=HASH_A),
+    ):
+        with pytest.raises(ContextBuildError) as stale_source:
+            ContextBuilder().build(
+                context_snapshot_id="context:test",
+                context_version=1,
+                envelope=envelope(),
+                checkpoint=checkpoint(task_budget=task_budget),
+                activation=activation(task_budget=task_budget),
+                source_contexts=(drifted_source,),
+                tools=tool_contracts(),
+            )
+        assert stale_source.value.code == "CONTEXT_SOURCE_UNAUTHORIZED"
 
     with pytest.raises(ContextBuildError) as tool_drift:
         ContextBuilder().build(

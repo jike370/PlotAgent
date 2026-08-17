@@ -16,6 +16,7 @@ from plotagent.contracts.base import (
     NonNegativeInt,
     ResourceRef,
     Sha256,
+    SourceDatasetRef,
     StrictModel,
     Token,
     VersionId,
@@ -179,7 +180,7 @@ class TaskEnvelope(StrictModel):
     project_revision: NonNegativeInt
     original_instruction: NonEmptyText
     locale: Literal["zh-CN", "en-US"] = "zh-CN"
-    selected_source_ids: Annotated[tuple[Token, ...], Field(max_length=64)] = ()
+    selected_sources: Annotated[tuple[SourceDatasetRef, ...], Field(max_length=64)] = ()
     selected_plots: Annotated[tuple[SelectedPlotRef, ...], Field(max_length=64)] = ()
     selected_profile_ids: Annotated[tuple[Token, ...], Field(max_length=64)] = ()
     authorized_resources: Annotated[tuple[ResourceRef, ...], Field(max_length=128)] = ()
@@ -189,14 +190,14 @@ class TaskEnvelope(StrictModel):
     @model_validator(mode="after")
     def selections_are_unique(self) -> TaskEnvelope:
         groups = (
-            self.selected_source_ids,
+            tuple(item.source_dataset_id for item in self.selected_sources),
             tuple(item.plot_id for item in self.selected_plots),
             self.selected_profile_ids,
             tuple(item.resource_id for item in self.authorized_resources),
         )
         if any(len(group) != len(set(group)) for group in groups):
             raise ValueError("task envelope selections must be unique")
-        if not self.selected_source_ids and not self.selected_plots:
+        if not self.selected_sources and not self.selected_plots:
             raise ValueError("task envelope needs at least one selected source or plot")
         return self
 

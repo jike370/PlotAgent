@@ -1163,6 +1163,33 @@
       "title": "SelectedPlotRef",
       "type": "object"
     },
+    "SourceDatasetRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "source_dataset_id": {
+          "pattern": "^source:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_dataset_id",
+        "source_version",
+        "content_hash"
+      ],
+      "title": "SourceDatasetRef",
+      "type": "object"
+    },
     "TaskBudgetLimits": {
       "additionalProperties": false,
       "description": "Task-wide ceilings chosen by Core before Agent execution.",
@@ -1749,13 +1776,12 @@
       "title": "Selected Profile Ids",
       "type": "array"
     },
-    "selected_source_ids": {
+    "selected_sources": {
       "default": [],
       "items": {
-        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-        "type": "string"
+        "$ref": "#/$defs/SourceDatasetRef"
       },
-      "title": "Selected Source Ids",
+      "title": "Selected Sources",
       "type": "array"
     },
     "source_contexts": {

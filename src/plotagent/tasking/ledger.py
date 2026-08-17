@@ -205,6 +205,20 @@ class TaskLedgerRepository:
             raise self._not_found("Agent task was not found.")
         return self._decode_checkpoint(str(row[0]))
 
+    def get_activation(self, activation_id: str) -> tuple[AgentActivation, str]:
+        """Return one immutable activation and its runtime status."""
+
+        row = self._connection.execute(
+            """
+            SELECT activation_json, status
+            FROM agent_activations_v2 WHERE activation_id = ?
+            """,
+            (activation_id,),
+        ).fetchone()
+        if row is None:
+            raise self._not_found("Agent activation was not found.")
+        return AgentActivation.model_validate_json(str(row[0])), str(row[1])
+
     def list_tasks(
         self,
         *,
@@ -390,14 +404,6 @@ class TaskLedgerRepository:
                 updated_at=now,
             )
             self._append_event_and_checkpoint(connection, event, updated, now)
-            if activation.reason == "new_task" and updated.state == "created":
-                return self._transition(
-                    connection,
-                    updated,
-                    next_state="investigating",
-                    reason_code="AGENT_INVESTIGATION_STARTED",
-                    preserve_activation=True,
-                )
             return updated
 
     def accept_yield(self, yielded: AgentYield) -> TaskCheckpoint:
@@ -462,6 +468,20 @@ class TaskLedgerRepository:
                 updated_at=now,
             )
             self._append_event_and_checkpoint(connection, activation_event, checkpoint, now)
+
+            # The activation, ContextSnapshot and every ToolInvocation remain bound
+            # to the task version on which the activation was requested. Advancing
+            # created -> investigating in mark_activation_running made that authority
+            # stale before Pi could use a single tool. Record the investigation state
+            # only after the activation has terminated, immediately before projecting
+            # its typed outcome.
+            if activation.reason == "new_task" and checkpoint.state == "created":
+                checkpoint = self._transition(
+                    connection,
+                    checkpoint,
+                    next_state="investigating",
+                    reason_code="AGENT_INVESTIGATION_COMPLETED",
+                )
 
             next_state = self._yield_state(yielded)
             intent_ref: IntentRef | None = checkpoint.intent

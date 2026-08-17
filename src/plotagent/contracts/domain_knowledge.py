@@ -34,6 +34,7 @@ from plotagent.contracts.base import (
     NonEmptyText,
     NonNegativeInt,
     Sha256,
+    SourceDatasetRef,
     StrictModel,
     Token,
     VersionId,
@@ -317,7 +318,7 @@ class AgentContextSnapshot(StrictModel):
     verification_report_ids: tuple[VerificationReportId, ...] = ()
     prior_receipt_ids: tuple[ToolReceiptId, ...] = ()
     permission_phase: PermissionPhase
-    selected_source_ids: tuple[Token, ...] = ()
+    selected_sources: tuple[SourceDatasetRef, ...] = ()
     selected_plots: tuple[SelectedPlotRef, ...] = ()
     selected_profile_ids: tuple[ChartTypeId, ...] = ()
     source_contexts: Annotated[tuple[UntrustedSourceContext, ...], Field(max_length=64)] = ()
@@ -338,7 +339,7 @@ class AgentContextSnapshot(StrictModel):
     @model_validator(mode="after")
     def consistent_context(self) -> AgentContextSnapshot:
         groups = (
-            self.selected_source_ids,
+            tuple(item.source_dataset_id for item in self.selected_sources),
             tuple(item.plot_id for item in self.selected_plots),
             self.selected_profile_ids,
             tuple(item_id for item_id, _state in self.item_states),
@@ -354,9 +355,18 @@ class AgentContextSnapshot(StrictModel):
             raise ValueError("context identities must be unique")
         if tuple(item.profile_id for item in self.chart_knowledge) != self.selected_profile_ids:
             raise ValueError("context may inject full cards only for selected profiles")
-        if not set(item.source.source_dataset_id for item in self.source_contexts) <= set(
-            self.selected_source_ids
-        ):
+        authorized_sources = {
+            (item.source_dataset_id, item.source_version, item.content_hash)
+            for item in self.selected_sources
+        }
+        if not {
+            (
+                item.source.source_dataset_id,
+                item.source.source_version,
+                item.source.content_hash,
+            )
+            for item in self.source_contexts
+        } <= authorized_sources:
             raise ValueError("context sources must be selected task sources")
         if self.disclosed_scalars > self.activation_budget.max_disclosed_scalars:
             raise ValueError("context exceeds its activation disclosure budget")

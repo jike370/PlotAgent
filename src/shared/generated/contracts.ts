@@ -111,7 +111,7 @@ export type AgentContextSnapshot = {
   readonly verification_report_ids?: ReadonlyArray<string>;
   readonly prior_receipt_ids?: ReadonlyArray<string>;
   readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
-  readonly selected_source_ids?: ReadonlyArray<string>;
+  readonly selected_sources?: ReadonlyArray<SourceDatasetRef>;
   readonly selected_plots?: ReadonlyArray<SelectedPlotRef>;
   readonly selected_profile_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
   readonly source_contexts?: ReadonlyArray<UntrustedSourceContext>;
@@ -1768,7 +1768,7 @@ export type TaskEnvelope = {
   readonly project_revision: number;
   readonly original_instruction: string;
   readonly locale?: "zh-CN" | "en-US";
-  readonly selected_source_ids?: ReadonlyArray<string>;
+  readonly selected_sources?: ReadonlyArray<SourceDatasetRef>;
   readonly selected_plots?: ReadonlyArray<SelectedPlotRef>;
   readonly selected_profile_ids?: ReadonlyArray<string>;
   readonly authorized_resources?: ReadonlyArray<ResourceRef>;

@@ -35,7 +35,13 @@ def envelope(*, task_id: str = "task:test") -> TaskEnvelope:
         project_id="project:test",
         project_revision=0,
         original_instruction="Create a line chart from the selected data.",
-        selected_source_ids=("source:test",),
+        selected_sources=(
+            {
+                "source_dataset_id": "source:test",
+                "source_version": 1,
+                "content_hash": HASH_A,
+            },
+        ),
         budget=TaskBudgetLimits(max_estimated_cost=10),
         created_at=NOW,
     )
@@ -154,7 +160,8 @@ def test_activation_needs_input_and_user_answer_are_ordered(tmp_path) -> None:
         assert requested.active_activation_id == "activation:test"
         assert ledger.start_activation(activation()) == requested
         running = ledger.mark_activation_running("activation:test")
-        assert running.state == "investigating"
+        assert running.state == "created"
+        assert running.task_version == 1
         assert running.active_activation_id == "activation:test"
 
         waiting = ledger.accept_yield(
@@ -514,7 +521,7 @@ def test_late_yield_is_rejected_after_activation_is_superseded(tmp_path) -> None
         superseded = ledger.advance(
             "task:test",
             expected_task_version=running.task_version,
-            next_state="blocked",
+            next_state="failed",
             reason_code="EXTERNAL_BLOCKER",
         )
         with pytest.raises(StorageProblem) as caught:

@@ -74,7 +74,13 @@ def test_agent_task_v2_api_persists_checkpoint_and_events(
         "project_revision": 0,
         "original_instruction": "Create a line chart.",
         "locale": "zh-CN",
-        "selected_source_ids": ["source:test"],
+        "selected_sources": [
+            {
+                "source_dataset_id": "source:test",
+                "source_version": 1,
+                "content_hash": "a" * 64,
+            }
+        ],
         "selected_plots": [],
         "selected_profile_ids": ["K01"],
         "authorized_resources": [],
@@ -111,6 +117,45 @@ def test_agent_task_v2_api_persists_checkpoint_and_events(
         "agent.tasks.get", {"project_id": project_id, "task_id": "task:desktop-api"}
     )
     assert restored == advanced
+
+
+def test_agent_task_pump_next_creates_one_durable_activation(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, _revision = _create_open(harness)
+    envelope = {
+        "task_id": "task:pump-api",
+        "task_version": 1,
+        "project_id": project_id,
+        "project_revision": 0,
+        "original_instruction": "Create one K01 line chart.",
+        "selected_sources": [
+            {
+                "source_dataset_id": "source:test",
+                "source_version": 1,
+                "content_hash": "a" * 64,
+            }
+        ],
+        "selected_profile_ids": ["K01"],
+        "budget": {},
+        "created_at": "2026-08-18T10:00:00Z",
+    }
+    harness.call("agent.tasks.create", {"project_id": project_id, "envelope": envelope})
+
+    first = harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:pump-api"},
+    )
+    second = harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:pump-api"},
+    )
+    assert first == second
+    assert first["kind"] == "run_activation"
+    activation = cast(dict[str, object], first["activation"])
+    assert activation["task_id"] == "task:pump-api"
+    assert activation["task_state"] == "created"
+    assert "inspect_source" in cast(list[str], activation["allowed_tools"])
 
 
 def _import_dataset(
