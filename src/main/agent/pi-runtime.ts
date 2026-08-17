@@ -35,6 +35,7 @@ export interface PiAgentRuntimeOptions {
 interface PreparedWorkflow {
   readonly workflowRunId: string
   readonly context: JsonValue
+  readonly clarificationHistory?: JsonValue
   readonly draftSchema: Record<string, unknown>
   readonly systemPrompt: string
 }
@@ -43,11 +44,6 @@ interface RuntimeProvider {
   readonly baseUrl: string
   readonly modelId: string
   readonly apiKey: string
-}
-
-interface Preinspection {
-  readonly toolName: 'compare_schemas' | 'preview_rows'
-  readonly response: JsonValue
 }
 
 export class PiRuntimeError extends Error {
@@ -106,6 +102,9 @@ function preparedWorkflow(value: JsonValue): PreparedWorkflow | undefined {
   return {
     workflowRunId: payload.workflow_run_id,
     context: payload.workflow_context,
+    ...(payload.clarification_history === undefined
+      ? {}
+      : { clarificationHistory: payload.clarification_history }),
     draftSchema: payload.task_draft_schema,
     systemPrompt: payload.system_prompt,
   }
@@ -121,6 +120,15 @@ function runtimeProvider(value: JsonValue): RuntimeProvider {
     throw new PiRuntimeError('PROVIDER_NOT_CONFIGURED', 'The model provider is not configured.')
   }
   return { baseUrl: payload.base_url, modelId: payload.model_id, apiKey: payload.api_key }
+}
+
+function agentTurnBudget(context: JsonValue): number {
+  const payload = record(context, 'Workflow context')
+  const budget = payload.budget === undefined ? undefined : record(payload.budget, 'Workflow budget')
+  const value = budget?.max_agent_turns
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 6
+    ? value
+    : 2
 }
 
 function modelFor(provider: RuntimeProvider): Model<'openai-completions'> {
@@ -171,54 +179,6 @@ export class PiAgentRuntime {
     this.active?.agent.abort()
   }
 
-  private async preinspect(
-    prepared: PreparedWorkflow,
-    projectId: string,
-    clientRunId: string,
-  ): Promise<Preinspection | undefined> {
-    const context = record(prepared.context, 'Workflow context')
-    const instruction = typeof context.instruction === 'string' ? context.instruction : ''
-    const selectedSources = Array.isArray(context.selected_source_aliases)
-      ? context.selected_source_aliases.filter((item): item is string => typeof item === 'string')
-      : []
-    let toolName: Preinspection['toolName'] | undefined
-    let args: JsonValue | undefined
-    if (
-      selectedSources.length > 1
-      && /比较|结构|同构|拼接|合并|compare|schema|concatenate/i.test(instruction)
-    ) {
-      toolName = 'compare_schemas'
-      args = { source_aliases: selectedSources }
-    } else if (/中位数|median/i.test(instruction) && Array.isArray(context.fields)) {
-      const target = context.fields
-        .map((item) => record(item, 'Workflow field'))
-        .find((field) => (
-          typeof field.name === 'string'
-          && typeof field.field_alias === 'string'
-          && typeof field.source_alias === 'string'
-          && instruction.toLocaleLowerCase().includes(field.name.toLocaleLowerCase())
-        ))
-      if (target !== undefined) {
-        toolName = 'preview_rows'
-        args = {
-          source_alias: target.source_alias,
-          field_aliases: [target.field_alias],
-          offset: 0,
-          limit: 40,
-        }
-      }
-    }
-    if (toolName === undefined || args === undefined) return undefined
-    this.emit(clientRunId, projectId, 'inspecting_data', '正在执行低成本数据预检查…')
-    const response = await this.core.request('workflow.inspect', {
-      project_id: projectId,
-      workflow_run_id: prepared.workflowRunId,
-      tool_name: toolName,
-      arguments: args,
-    }, 10_000)
-    return { toolName, response }
-  }
-
   async run(params: JsonValue): Promise<JsonValue> {
     const input = record(params, 'Pi workflow request')
     const projectId = typeof input.project_id === 'string' ? input.project_id : ''
@@ -246,10 +206,10 @@ export class PiAgentRuntime {
 
       const provider = runtimeProvider(await this.core.request('provider.runtime.get', {}, 10_000))
       this.assertCurrent(generation)
-      const preinspection = await this.preinspect(prepared, projectId, clientRunId)
-      this.assertCurrent(generation)
-      let submittedPlan: JsonValue | undefined
+      let finalOutcome: JsonValue | undefined
       let lastValidationError: string | undefined
+      let completedAgentTurns = 0
+      const maxAgentTurns = agentTurnBudget(prepared.context)
       const inspectTool = (
         name: string,
         label: string,
@@ -275,7 +235,8 @@ export class PiAgentRuntime {
           }
         },
       })
-      const inspectionTools: AgentTool<TSchema, JsonValue>[] = preinspection === undefined ? [
+      const inspectionTools: AgentTool<TSchema, JsonValue>[] = [
+        inspectTool('list_sources', '正在列出可用数据表', objectSchema({}, [])),
         inspectTool('inspect_source', '正在检查数据表结构', objectSchema({
           source_alias: { type: 'string' },
         }, ['source_alias'])),
@@ -291,14 +252,222 @@ export class PiAgentRuntime {
           source_alias: { type: 'string' },
           field_alias: { type: 'string' },
         }, ['source_alias', 'field_alias'])),
+        inspectTool('sample_rows', '正在抽取代表性数据行', objectSchema({
+          source_alias: { type: 'string' },
+          field_aliases: {
+            type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 24,
+          },
+          limit: { type: 'integer', minimum: 1, maximum: 40 },
+        }, ['source_alias', 'field_aliases'])),
+        inspectTool('search_values', '正在查找字段值', objectSchema({
+          source_alias: { type: 'string' },
+          field_alias: { type: 'string' },
+          mode: { type: 'string', enum: ['equal', 'contains', 'prefix'] },
+          query: { type: ['string', 'number', 'boolean', 'null'] },
+          limit: { type: 'integer', minimum: 1, maximum: 40 },
+        }, ['source_alias', 'field_alias', 'mode', 'query'])),
         inspectTool('compare_schemas', '正在比较数据表结构', objectSchema({
           source_aliases: {
             type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 8,
           },
         }, ['source_aliases'])),
-      ] : []
+        inspectTool('inspect_instrument_metadata', '正在检查仪器元数据', objectSchema({
+          source_alias: { type: 'string' },
+        }, ['source_alias'])),
+      ]
+      const previewTool = (
+        operation: string,
+        label: string,
+        properties: Record<string, unknown>,
+        required: string[],
+      ): AgentTool<TSchema, JsonValue> => ({
+        name: `preview_${operation}`,
+        label,
+        description: `${label}。只生成有界预览，不修改项目；确认后由 Core 再执行同一操作。`,
+        parameters: objectSchema({
+          ...properties,
+          limit: { type: 'integer', minimum: 1, maximum: 40 },
+        }, required),
+        executionMode: 'sequential',
+        execute: async (_toolCallId, args) => {
+          this.emit(clientRunId, projectId, 'inspecting_data', `${label}…`)
+          const payload = record(args as JsonValue, 'Data operation preview arguments')
+          const { limit, ...operationArguments } = payload
+          const response = await this.core.request('workflow.preview_operation', {
+            project_id: projectId,
+            workflow_run_id: prepared.workflowRunId,
+            operation: { operation, ...operationArguments },
+            limit: typeof limit === 'number' ? limit : 5,
+          }, 10_000)
+          return {
+            content: [{ type: 'text', text: JSON.stringify(response) }],
+            details: response,
+            terminate: false,
+          }
+        },
+      })
+      const dataTools: AgentTool<TSchema, JsonValue>[] = [
+        previewTool('select_fields', '正在预览字段选择', {
+          source_alias: { type: 'string' },
+          field_aliases: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 128 },
+        }, ['source_alias', 'field_aliases']),
+        previewTool('filter_rows', '正在预览数据筛选', {
+          source_alias: { type: 'string' },
+          predicates: {
+            type: 'array', minItems: 1, maxItems: 16,
+            items: {
+              type: 'object', additionalProperties: false,
+              properties: {
+                field_alias: { type: 'string' },
+                operator: { type: 'string', enum: [
+                  'equal', 'not_equal', 'less_than', 'less_or_equal',
+                  'greater_than', 'greater_or_equal', 'is_missing', 'is_not_missing', 'in_values',
+                ] },
+                value: {},
+              },
+              required: ['field_alias', 'operator'],
+            },
+          },
+          combine: { type: 'string', enum: ['all', 'any'] },
+        }, ['source_alias', 'predicates']),
+        previewTool('sort_rows', '正在预览数据排序', {
+          source_alias: { type: 'string' },
+          keys: {
+            type: 'array', minItems: 1, maxItems: 8,
+            items: {
+              type: 'object', additionalProperties: false,
+              properties: {
+                field_alias: { type: 'string' },
+                direction: { type: 'string', enum: ['ascending', 'descending'] },
+                missing: { type: 'string', enum: ['first', 'last'] },
+              },
+              required: ['field_alias'],
+            },
+          },
+        }, ['source_alias', 'keys']),
+        previewTool('reshape_long_to_wide', '正在预览长表转宽表', {
+          source_alias: { type: 'string' },
+          index_field_aliases: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 8 },
+          name_field_alias: { type: 'string' }, value_field_alias: { type: 'string' },
+          output_fields: {
+            type: 'array', minItems: 1, maxItems: 64,
+            items: {
+              type: 'object', additionalProperties: false,
+              properties: { field_alias: { type: 'string' }, name: { type: 'string' } },
+              required: ['field_alias', 'name'],
+            },
+          },
+        }, ['source_alias', 'index_field_aliases', 'name_field_alias', 'value_field_alias', 'output_fields']),
+        previewTool('reshape_wide_to_long', '正在预览宽表转长表', {
+          source_alias: { type: 'string' },
+          id_field_aliases: { type: 'array', items: { type: 'string' }, maxItems: 8 },
+          value_field_aliases: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 64 },
+          output_name: { type: 'string' }, output_value: { type: 'string' },
+        }, ['source_alias', 'value_field_aliases', 'output_name', 'output_value']),
+        previewTool('concatenate_sources', '正在预览数据表拼接', {
+          source_aliases: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 8 },
+          source_label_field: { type: 'string' },
+          source_labels: { type: 'array', items: { type: 'string' }, maxItems: 8 },
+        }, ['source_aliases']),
+        previewTool('rename_field', '正在预览字段重命名', {
+          source_alias: { type: 'string' }, field_alias: { type: 'string' },
+          output_field_alias: { type: 'string' }, output_name: { type: 'string' },
+        }, ['source_alias', 'field_alias', 'output_field_alias', 'output_name']),
+        previewTool('derive_column', '正在预览派生字段', {
+          source_alias: { type: 'string' },
+          input_field_aliases: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 2 },
+          operator: { type: 'string', enum: ['add', 'subtract', 'multiply', 'divide', 'absolute', 'negate', 'log10', 'ln', 'sqrt'] },
+          scalar: { type: 'number' }, output_field_alias: { type: 'string' }, output_name: { type: 'string' },
+        }, ['source_alias', 'input_field_aliases', 'operator', 'output_field_alias', 'output_name']),
+        previewTool('convert_unit', '正在预览单位换算', {
+          source_alias: { type: 'string' }, field_alias: { type: 'string' },
+          target_unit: { type: 'string' }, output_field_alias: { type: 'string' },
+          output_name: { type: 'string' },
+        }, ['source_alias', 'field_alias', 'target_unit', 'output_field_alias', 'output_name']),
+      ]
       const tools: AgentTool<TSchema, JsonValue>[] = [
+        {
+          name: 'list_plot_profiles',
+          label: '查看图形目录',
+          description: '列出当前绘图引擎允许的图类、字段角色、对象和可编辑能力；用于根据用户原文选择图类，禁止凭 ID 猜测。',
+          parameters: objectSchema({}, []),
+          executionMode: 'sequential',
+          execute: async () => {
+            this.emit(clientRunId, projectId, 'inspecting_data', '正在查看可用图类…')
+            const response = await this.core.request('engine.catalog.get', {
+              project_id: projectId,
+            }, 10_000)
+            return {
+              content: [{ type: 'text', text: JSON.stringify(response) }],
+              details: response,
+              terminate: false,
+            }
+          },
+        },
         ...inspectionTools,
+        ...dataTools,
+        {
+          name: 'ask_user',
+          label: '向用户澄清',
+          description: '仅在完成任务确实缺少关键信息时，提出 1 至 4 个结构化问题并暂停本轮。',
+          parameters: objectSchema({
+            questions: {
+              type: 'array', minItems: 1, maxItems: 4,
+              items: {
+                type: 'object', additionalProperties: false,
+                properties: {
+                  question_key: { type: 'string' },
+                  prompt: { type: 'string' },
+                  answer_kind: {
+                    type: 'string',
+                    enum: ['text', 'single_choice', 'multi_choice', 'field', 'profile'],
+                  },
+                  choices: { type: 'array', items: { type: 'string' }, maxItems: 24 },
+                  required: { type: 'boolean' },
+                },
+                required: ['question_key', 'prompt', 'answer_kind'],
+              },
+            },
+          }, ['questions']),
+          executionMode: 'sequential',
+          execute: async (_toolCallId, args) => {
+            const payload = record(args as JsonValue, 'Clarification arguments')
+            finalOutcome = await this.core.request('workflow.ask_user', {
+              project_id: projectId,
+              workflow_run_id: prepared.workflowRunId,
+              questions: payload.questions,
+            }, 10_000)
+            return {
+              content: [{ type: 'text', text: 'Clarification requested from the user.' }],
+              details: finalOutcome,
+              terminate: true,
+            }
+          },
+        },
+        {
+          name: 'report_unsupported',
+          label: '说明当前不支持',
+          description: '只有在检查图形目录和允许工具后，仍无法在能力边界内满足目标时使用；给出具体原因，不得用它代替必要追问。',
+          parameters: objectSchema({
+            reason_code: { type: 'string' },
+            message: { type: 'string' },
+          }, ['reason_code', 'message']),
+          executionMode: 'sequential',
+          execute: async (_toolCallId, args) => {
+            const payload = record(args as JsonValue, 'Unsupported workflow arguments')
+            finalOutcome = await this.core.request('workflow.report_unsupported', {
+              project_id: projectId,
+              workflow_run_id: prepared.workflowRunId,
+              reason_code: payload.reason_code,
+              message: payload.message,
+            }, 10_000)
+            return {
+              content: [{ type: 'text', text: 'Unsupported outcome recorded.' }],
+              details: finalOutcome,
+              terminate: true,
+            }
+          },
+        },
         {
           name: 'submit_task_draft',
           label: '提交任务草稿',
@@ -310,14 +479,14 @@ export class PiAgentRuntime {
             this.emit(clientRunId, projectId, 'validating_draft', '正在校验字段绑定和任务动作…')
             const payload = record(args as JsonValue, 'Task draft arguments')
             try {
-              submittedPlan = await this.core.request('workflow.submit_draft', {
+              finalOutcome = await this.core.request('workflow.submit_draft', {
                 project_id: projectId,
                 workflow_run_id: prepared.workflowRunId,
                 task_draft: payload.task_draft,
               }, 10_000)
               return {
                 content: [{ type: 'text', text: 'TaskDraft accepted for user confirmation.' }],
-                details: submittedPlan,
+                details: finalOutcome,
                 terminate: true,
               }
             } catch (error) {
@@ -342,7 +511,10 @@ export class PiAgentRuntime {
         streamFn: this.streamFn,
         getApiKey: () => provider.apiKey,
         toolExecution: 'sequential',
-        shouldStopAfterTurn: () => submittedPlan !== undefined,
+        shouldStopAfterTurn: () => {
+          completedAgentTurns += 1
+          return finalOutcome !== undefined || completedAgentTurns >= maxAgentTurns
+        },
         sessionId: prepared.workflowRunId,
       })
       agent.subscribe((event) => {
@@ -353,13 +525,9 @@ export class PiAgentRuntime {
       this.active = { runId: clientRunId, generation, agent }
       const promptPayload = {
         workflow_context: prepared.context,
-        preinspection: preinspection === undefined
-          ? undefined
-          : {
-              tool_name: preinspection.toolName,
-              result: preinspection.response,
-              instruction: '优先使用该只读结果直接编排；除非确有缺口，不要重复检查。',
-            },
+        ...(prepared.clarificationHistory === undefined
+          ? {}
+          : { clarification_history: prepared.clarificationHistory }),
       }
       await Promise.race([
         agent.prompt(JSON.stringify(promptPayload)),
@@ -378,12 +546,22 @@ export class PiAgentRuntime {
         }),
       ])
       this.assertCurrent(generation)
-      if (submittedPlan === undefined) {
-        throw new PiRuntimeError('PI_DRAFT_MISSING', 'The model did not submit a valid TaskDraft.')
+      if (finalOutcome === undefined) {
+        throw new PiRuntimeError(
+          completedAgentTurns >= maxAgentTurns ? 'PI_TURN_BUDGET_EXCEEDED' : 'PI_DRAFT_MISSING',
+          completedAgentTurns >= maxAgentTurns
+            ? 'The workflow exceeded its bounded model-turn budget.'
+            : 'The model did not submit a valid TaskDraft.',
+        )
       }
-      this.emit(clientRunId, projectId, 'saving_plan', '正在保存待确认任务计划…')
-      this.emit(clientRunId, projectId, 'completed', '任务计划已生成，等待确认。')
-      return submittedPlan
+      const outcome = record(finalOutcome, 'Final workflow outcome')
+      if (outcome.outcome === 'draft_ready') {
+        this.emit(clientRunId, projectId, 'saving_plan', '正在保存待确认任务计划…')
+        this.emit(clientRunId, projectId, 'completed', '任务计划已生成，等待确认。')
+      } else {
+        this.emit(clientRunId, projectId, 'completed', '需要你补充信息后继续。')
+      }
+      return finalOutcome
     } catch (error: unknown) {
       const superseded = generation !== this.generation
       if (!superseded) {

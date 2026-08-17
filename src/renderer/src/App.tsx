@@ -18,6 +18,7 @@ import {
   readWorkflowOutcome,
   readWorkflowPlan,
   readWorkflowPlans,
+  readWorkflowRecipes,
   readDatasets,
   readImportSummary,
   readOriginAvailability,
@@ -29,6 +30,7 @@ import {
   resultMessage,
   type WorkflowOutcome,
   type WorkflowPlanView,
+  type WorkflowRecipeView,
   type ProductDataset,
   type ProductPlot,
   type ProductProject,
@@ -105,94 +107,6 @@ function readExportRecord(
   }
 }
 
-function datasetsForInstruction(
-  instruction: string,
-  datasets: ProductDataset[],
-  activeDataset: ProductDataset,
-  selectedIds: string[],
-): ProductDataset[] {
-  const requested = instruction.toLocaleLowerCase('en-US')
-  const explicitlyNamed = datasets.filter((dataset) => {
-    const labels = [dataset.displayName, ...dataset.displayName.split(/\s*>\s*|[\\/]/)]
-      .map((label) => label.trim().toLocaleLowerCase('en-US'))
-      .filter((label) => label.length >= 3)
-    return labels.some((label) => requested.includes(label))
-  })
-  const chineseCounts = ['', '一', '二', '三', '四', '五', '六', '七', '八']
-  const requestedCount = datasets.length <= 8
-    ? `(?:${datasets.length}|${chineseCounts[datasets.length]})`
-    : String(datasets.length)
-  const explicitlyRequestsEveryImportedDataset = explicitlyNamed.length === 0 && (
-    /(?:所有|全部)(?:已提供|已上传|已导入|当前)?(?:的)?\s*(?:数据表|数据源|表格)/.test(requested)
-    || /(?:已提供|已上传|已导入)(?:的)?\s*(?:所有|全部)?\s*(?:数据表|数据源|表格)/.test(requested)
-    || new RegExp(
-      `(?:已提供|已上传|已导入)(?:的)?\\s*${requestedCount}\\s*(?:个|份|张)?\\s*(?:数据表|数据源|表格|表)`,
-      'i',
-    ).test(requested)
-    || /\b(?:all|every)\s+(?:(?:provided|uploaded|imported)\s+)?(?:datasets?|data\s+tables?|sources?)\b/i.test(requested)
-    || (selectedIds.length === 0 && /(?:每个|每份)数据表/.test(requested))
-  )
-  if (explicitlyRequestsEveryImportedDataset) return datasets.slice(0, 8)
-  const orderedIds = [
-    activeDataset.datasetId,
-    ...selectedIds,
-    ...explicitlyNamed.map((dataset) => dataset.datasetId),
-  ]
-  return [...new Set(orderedIds)]
-    .flatMap((datasetId) => {
-      const dataset = datasets.find((candidate) => candidate.datasetId === datasetId)
-      return dataset === undefined ? [] : [dataset]
-    })
-    .slice(0, 8)
-}
-
-function failedRetrySelection(
-  instruction: string,
-  plan: WorkflowPlanView | undefined,
-  datasets: ProductDataset[],
-): { datasets: ProductDataset[]; profileIds: string[]; routingInstruction: string } | undefined {
-  if (!/(?:仅|只)?重试[^，,。；;]*(?:失败|未完成)|(?:失败|未完成)[^，,。；;]*重试/.test(instruction)) {
-    return undefined
-  }
-  if (!plan || !['partially_succeeded', 'failed'].includes(plan.state)) return undefined
-  const failed = plan.steps.filter((step) => (
-    step.taskKind === 'create' && ['failed', 'blocked'].includes(step.state)
-  ))
-  if (failed.length === 0) return undefined
-  const datasetIds = [...new Set(failed.flatMap((step) => step.sourceDatasetIds))]
-  const selectedDatasets = datasetIds.flatMap((datasetId) => {
-    const dataset = datasets.find((candidate) => candidate.datasetId === datasetId)
-    return dataset === undefined ? [] : [dataset]
-  })
-  if (selectedDatasets.length !== datasetIds.length || selectedDatasets.length === 0) {
-    return undefined
-  }
-  const profileIds = [...new Set(failed.map((step) => step.profileId))]
-  const fieldsById = new Map(datasets.flatMap((dataset) => (
-    dataset.fields.map((field) => [field.fieldId, field] as const)
-  )))
-  const restoredBindings = [...new Set(failed.flatMap((step) => (
-    step.bindings.flatMap((binding) => {
-      const field = fieldsById.get(binding.fieldId)
-      return field === undefined ? [] : [`${field.name} 绑定 ${binding.role}`]
-    })
-  )))]
-  const retryShape = failed.length === 1 && failed[0].sourceDatasetIds.length > 1
-    ? `将这些数据表画在同一张 ${failed[0].profileId} 图中。`
-    : failed.length === 1
-      ? `用这个数据创建 ${failed[0].profileId} 图。`
-      : profileIds.length === 1
-        ? `分别为每个数据表创建 ${profileIds[0]} 图。`
-        : `分别执行失败的绘图任务，图形类型为 ${profileIds.join('、')}。`
-  return {
-    datasets: selectedDatasets,
-    profileIds,
-    routingInstruction: `${instruction}；${retryShape}${restoredBindings.length === 0
-      ? ''
-      : `字段角色为 ${restoredBindings.join('、')}。`}`,
-  }
-}
-
 interface ProviderSettingsProps {
   busy: boolean
   notice?: ProductNotice
@@ -248,6 +162,7 @@ export function App(): React.JSX.Element {
   const [notice, setNotice] = useState<ProductNotice>()
   const [workflowOutcome, setWorkflowOutcome] = useState<WorkflowOutcome>()
   const [workflowPlan, setWorkflowPlan] = useState<WorkflowPlanView>()
+  const [workflowRecipes, setWorkflowRecipes] = useState<WorkflowRecipeView[]>([])
   const [agentConfigured, setAgentConfigured] = useState(false)
   const [undoStack, setUndoStack] = useState<PlotHistoryEntry[]>([])
   const [redoStack, setRedoStack] = useState<PlotHistoryEntry[]>([])
@@ -266,7 +181,6 @@ export function App(): React.JSX.Element {
   const [originDiagnostic, setOriginDiagnostic] = useState('Origin 环境未通过检测。请重新检测后再导出。')
   const importInFlight = useRef(false)
   const agentRequestGeneration = useRef(0)
-  const retryPlan = useRef<WorkflowPlanView | undefined>(undefined)
 
   useEffect(() => {
     if (notice?.kind !== 'success') return
@@ -412,9 +326,9 @@ export function App(): React.JSX.Element {
       const plans = readWorkflowPlans(result.value)
       const latest = plans.at(-1)
       setWorkflowPlan(latest)
-      retryPlan.current = latest && ['partially_succeeded', 'failed'].includes(latest.state)
-        ? latest
-        : undefined
+    })
+    void api.listWorkflowRecipes({ projectId: activeProjectId }).then((result) => {
+      if (active && result.ok) setWorkflowRecipes(readWorkflowRecipes(result.value))
     })
     return () => { active = false }
   }, [api, activeProjectId])
@@ -864,49 +778,44 @@ export function App(): React.JSX.Element {
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
-  const runAgent = async (instruction: string, _scope: ScopeMode): Promise<void> => {
+  const runAgent = async (instruction: string, scope: ScopeMode): Promise<void> => {
     if (!project) return
     if (!activeDataset) {
-      pendingAgentRequest.current = { instruction, scope: _scope }
+      pendingAgentRequest.current = { instruction, scope }
       setWorkflowOutcome({ kind: 'needs_input', title: '请先上传数据', message: '收到你的要求了。上传数据后，我会继续声明字段绑定。' })
       return
     }
     if (!api) return
+    const continuationWorkflowRunId = workflowOutcome?.kind === 'needs_input'
+      ? workflowOutcome.workflowRunId
+      : undefined
     pendingAgentRequest.current = undefined
     const requestGeneration = agentRequestGeneration.current + 1
     agentRequestGeneration.current = requestGeneration
     setBusyAction('agent'); setWorkflowOutcome(undefined); setWorkflowPlan(undefined); setNotice(undefined)
     try {
-      const retrySelection = failedRetrySelection(instruction, workflowPlan ?? retryPlan.current, datasets)
-      const selectedSources = (retrySelection?.datasets ?? datasetsForInstruction(
-          instruction,
-          datasets,
-          activeDataset,
-          workflowSourceIds,
-        ))
+      const selectedIds = [
+        activeDataset.datasetId,
+        ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId),
+      ].slice(0, 8)
+      const selectedSources = selectedIds
+        .flatMap((datasetId) => {
+          const dataset = datasets.find((candidate) => candidate.datasetId === datasetId)
+          return dataset === undefined ? [] : [dataset]
+        })
         .map((dataset) => ({ datasetId: dataset.datasetId, sourceVersion: dataset.sourceVersion }))
       const value = valueOrThrow(await api.runWorkflow({
         projectId: project.projectId,
         selectedSources,
         expectedProjectVersion: project.projectVersion,
-        ...(retrySelection !== undefined
-          ? retrySelection.profileIds.length === 1
-            ? { selectedProfileIds: retrySelection.profileIds }
-            : {}
-          : selectedChart === undefined ? {} : { selectedProfileIds: [selectedChart.id] }),
-        ...(retrySelection !== undefined || plot === undefined
-          ? {}
-          : { selectedPlotIds: [plot.plotId] }),
-        instruction: retrySelection?.routingInstruction ?? instruction,
+        ...(selectedChart === undefined ? {} : { selectedProfileIds: [selectedChart.id] }),
+        ...(plot === undefined || scope !== 'current' ? {} : { selectedPlotIds: [plot.plotId] }),
+        ...(continuationWorkflowRunId === undefined ? {} : { continuationWorkflowRunId }),
+        instruction,
       }))
       if (agentRequestGeneration.current !== requestGeneration) return
       const outcome = readWorkflowOutcome(value)
       setWorkflowPlan(outcome.plan)
-      if (outcome.plan !== undefined) {
-        retryPlan.current = ['partially_succeeded', 'failed'].includes(outcome.plan.state)
-          ? outcome.plan
-          : undefined
-      }
       setWorkflowOutcome(outcome)
     } catch (error) {
       if (agentRequestGeneration.current === requestGeneration) {
@@ -957,7 +866,6 @@ export function App(): React.JSX.Element {
       const plan = readWorkflowPlan(value)
       if (!plan) throw new Error('Core 未返回任务计划状态。')
       setWorkflowPlan(plan)
-      retryPlan.current = ['partially_succeeded', 'failed'].includes(plan.state) ? plan : undefined
       await syncPlanOutput(plan)
       if (plan.state === 'succeeded' && historyEntry) {
         setUndoStack((current) => [...current, historyEntry].slice(-50))
@@ -1156,15 +1064,54 @@ export function App(): React.JSX.Element {
     if (!api || !project || !workflowPlan || !exportRecord?.artifactHash || busyAction !== undefined) return
     setBusyAction('save-recipe'); setNotice(undefined)
     try {
-      valueOrThrow(await api.saveWorkflowRecipe({
+      const saved = valueOrThrow(await api.saveWorkflowRecipe({
         projectId: project.projectId,
         planId: workflowPlan.planId,
         displayName: `${selectedChart?.name ?? '绘图'}流程`,
         exportHash: exportRecord.artifactHash,
       }))
-      setNotice({ kind: 'success', title: '流程已固化', message: '以后遇到同构数据和相同目标时，将先尝试直接复用该流程。' })
+      if (isJsonRecord(saved) && typeof saved.recipe_id === 'string' && typeof saved.display_name === 'string') {
+        const recipeId = saved.recipe_id
+        const displayName = saved.display_name
+        setWorkflowRecipes((current) => [
+          { recipeId, displayName, profileIds: workflowPlan.steps.map((step) => step.profileId) },
+          ...current.filter((item) => item.recipeId !== recipeId),
+        ])
+      }
+      setNotice({ kind: 'success', title: '流程已固化', message: '下次可从“已固化流程”明确选择；系统不会根据自然语言自动重放。' })
     } catch (error) {
       setNotice(errorNotice(error))
+    } finally {
+      setBusyAction(undefined)
+    }
+  }
+
+  const runWorkflowRecipe = async (recipeId: string): Promise<void> => {
+    if (!api || !project || !activeDataset || busyAction !== undefined) return
+    const recipe = workflowRecipes.find((item) => item.recipeId === recipeId)
+    if (!recipe) return
+    setBusyAction('agent'); setNotice(undefined); setWorkflowOutcome(undefined); setWorkflowPlan(undefined)
+    try {
+      const selectedIds = [
+        activeDataset.datasetId,
+        ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId),
+      ].slice(0, 8)
+      const selectedSources = selectedIds.flatMap((datasetId) => {
+        const dataset = datasets.find((candidate) => candidate.datasetId === datasetId)
+        return dataset ? [{ datasetId: dataset.datasetId, sourceVersion: dataset.sourceVersion }] : []
+      })
+      const created = valueOrThrow(await api.runWorkflow({
+        projectId: project.projectId,
+        selectedSources,
+        expectedProjectVersion: project.projectVersion,
+        selectedRecipeId: recipe.recipeId,
+        instruction: `使用已固化流程：${recipe.displayName}`,
+      }))
+      const outcome = readWorkflowOutcome(created)
+      setWorkflowPlan(outcome.plan)
+      setWorkflowOutcome(outcome)
+    } catch (error) {
+      setWorkflowOutcome({ kind: 'rejected', title: '流程未复用', message: errorNotice(error).message })
     } finally {
       setBusyAction(undefined)
     }
@@ -1262,7 +1209,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onSaveWorkflowRecipe={() => void saveWorkflowRecipe()} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} workflowRecipes={workflowRecipes} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onRunWorkflowRecipe={(recipeId) => void runWorkflowRecipe(recipeId)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onSaveWorkflowRecipe={() => void saveWorkflowRecipe()} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { if (api) void api.cancelTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onClose={() => setScreen('workspace')} />}
       </div>

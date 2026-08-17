@@ -5,8 +5,10 @@ from dataclasses import dataclass
 from plotagent.contracts.workflows import (
     CompiledTaskItem,
     ConcatenateSources,
+    ConvertUnit,
     ResolvedFieldBinding,
     ResolvedWorkflowField,
+    SelectFields,
     WorkflowSource,
 )
 from plotagent.engine import EngineColumn, EngineDataRef, EngineDataView, EngineField
@@ -33,7 +35,13 @@ class _Registrar:
         return view
 
 
-def _view(dataset_id: str, prefix: str, values: tuple[tuple[float, float], ...]) -> EngineDataView:
+def _view(
+    dataset_id: str,
+    prefix: str,
+    values: tuple[tuple[float, float], ...],
+    *,
+    signal_unit: str | None = None,
+) -> EngineDataView:
     return EngineDataView(
         data=EngineDataRef(
             kind="source",
@@ -56,6 +64,7 @@ def _view(dataset_id: str, prefix: str, values: tuple[tuple[float, float], ...])
                     field_id=f"field:{prefix}_signal",
                     name="Signal",
                     logical_type="numeric",
+                    unit_label=signal_unit,
                 ),
                 values=tuple(row[1] for row in values),
             ),
@@ -139,9 +148,7 @@ def test_concatenate_sources_materializes_confirmed_user_facing_labels() -> None
             ),
         ),
         bindings=(
-            ResolvedFieldBinding(
-                role="time", source_alias="data_1", field_id="field:one_time"
-            ),
+            ResolvedFieldBinding(role="time", source_alias="data_1", field_id="field:one_time"),
             ResolvedFieldBinding(
                 role="series_1", source_alias="data_1", field_id="field:one_signal"
             ),
@@ -171,3 +178,120 @@ def test_concatenate_sources_materializes_confirmed_user_facing_labels() -> None
     source_column = registrar.registered.columns[-1]
     assert source_column.field.name == "Source"
     assert source_column.values == ("A", "A", "B", "B")
+
+
+def test_agent_can_request_a_registered_unit_conversion_before_concatenation() -> None:
+    sources = (
+        WorkflowSource(
+            source_alias="data_1",
+            source_dataset_id="source:one",
+            source_version=1,
+            content_hash="a" * 64,
+            display_name="one.csv",
+            row_count=2,
+        ),
+        WorkflowSource(
+            source_alias="data_2",
+            source_dataset_id="source:two",
+            source_version=1,
+            content_hash="b" * 64,
+            display_name="two.csv",
+            row_count=2,
+        ),
+    )
+    resolved = (
+        ResolvedWorkflowField(
+            field_alias="data_1_time",
+            source_alias="data_1",
+            field_id="field:one_time",
+            name="Time",
+            logical_type="numeric",
+        ),
+        ResolvedWorkflowField(
+            field_alias="data_1_signal",
+            source_alias="data_1",
+            field_id="field:one_signal",
+            name="Signal",
+            logical_type="numeric",
+            unit_label="mV",
+        ),
+        ResolvedWorkflowField(
+            field_alias="data_2_time",
+            source_alias="data_2",
+            field_id="field:two_time",
+            name="Time",
+            logical_type="numeric",
+        ),
+        ResolvedWorkflowField(
+            field_alias="data_2_signal",
+            source_alias="data_2",
+            field_id="field:two_signal",
+            name="Signal",
+            logical_type="numeric",
+            unit_label="V",
+        ),
+        ResolvedWorkflowField(
+            field_alias="data_2_signal_mv",
+            source_alias="data_2",
+            field_id="field:workflow_unit_signal_mv",
+            name="Signal",
+            logical_type="numeric",
+            unit_label="mV",
+        ),
+        ResolvedWorkflowField(
+            field_alias="source_group",
+            source_alias="data_1",
+            field_id="field:workflow_unit_source_group",
+            name="Source",
+            logical_type="categorical",
+        ),
+    )
+    item = CompiledTaskItem(
+        task_kind="create",
+        item_id="item:unit.1",
+        plot_alias="plot_1",
+        plot_id="plot:unit",
+        profile_id="K01",
+        sources=sources,
+        resolved_fields=resolved,
+        data_operations=(
+            ConvertUnit(
+                source_alias="data_2",
+                field_alias="data_2_signal",
+                target_unit="mV",
+                output_field_alias="data_2_signal_mv",
+                output_name="Signal",
+            ),
+            SelectFields(
+                source_alias="data_2",
+                field_aliases=("data_2_time", "data_2_signal_mv"),
+            ),
+            ConcatenateSources(source_aliases=("data_1", "data_2")),
+        ),
+        bindings=(
+            ResolvedFieldBinding(role="x", source_alias="data_1", field_id="field:one_time"),
+            ResolvedFieldBinding(role="y", source_alias="data_1", field_id="field:one_signal"),
+            ResolvedFieldBinding(
+                role="group",
+                source_alias="data_1",
+                field_id="field:workflow_unit_source_group",
+            ),
+        ),
+        visual_actions=(),
+        idempotency_key="workflow.unit.1",
+    )
+
+    registrar = _Registrar()
+    prepare_task_data(
+        item,
+        _Provider(
+            {
+                "source:one": _view("source:one", "one", ((1, 2), (2, 3)), signal_unit="mV"),
+                "source:two": _view("source:two", "two", ((1, 0.005), (2, 0.008)), signal_unit="V"),
+            }
+        ),
+        registrar,
+    )
+    assert registrar.registered is not None
+    assert registrar.registered.columns[1].field.unit_label == "mV"
+    assert registrar.registered.columns[1].values == (2.0, 3.0, 5.0, 8.0)

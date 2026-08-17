@@ -9,9 +9,13 @@ from typing import Protocol
 from plotagent.contracts.workflows import (
     FieldProfile,
     InspectionAudit,
+    InstrumentMetadata,
     RowPage,
     SchemaComparison,
     SourceInspection,
+    SourceList,
+    ValueSearchMatch,
+    ValueSearchResult,
     WorkflowContext,
     WorkflowScalar,
 )
@@ -26,6 +30,8 @@ class InspectionError(ValueError):
 
 class InspectionDataProvider(Protocol):
     def rows(self, source_alias: str) -> tuple[tuple[WorkflowScalar, ...], ...]: ...
+
+    def metadata(self, source_alias: str) -> dict[str, str]: ...
 
 
 @dataclass(slots=True)
@@ -48,6 +54,13 @@ class DataInspectionService:
     @property
     def audits(self) -> tuple[InspectionAudit, ...]:
         return tuple(self._audits)
+
+    def list_sources(self) -> SourceList:
+        aliases = tuple(source.source_alias for source in self.context.sources)
+        if not aliases:
+            raise InspectionError("INSPECTION_SOURCE_REQUIRED", "当前任务没有可检查的数据表。")
+        self._record("list_sources", aliases, 0, 0, 0)
+        return SourceList(sources=self.context.sources)
 
     def inspect_source(self, source_alias: str) -> SourceInspection:
         source = self._source(source_alias)
@@ -80,7 +93,7 @@ class DataInspectionService:
         )
         positions = {item.field_alias: index for index, item in enumerate(source_fields)}
         selected = tuple(
-            tuple(row[positions[field.field_alias]] for field in fields)
+            tuple(_disclose(row[positions[field.field_alias]]) for field in fields)
             for row in rows[offset : offset + limit]
         )
         scalar_count = sum(len(row) for row in selected)
@@ -91,6 +104,46 @@ class DataInspectionService:
             offset=offset,
             rows=selected,
             has_more=offset + len(selected) < len(rows),
+        )
+
+    def sample_rows(
+        self,
+        source_alias: str,
+        field_aliases: tuple[str, ...],
+        *,
+        limit: int = 5,
+    ) -> RowPage:
+        if limit < 1 or limit > 40:
+            raise InspectionError("INSPECTION_RANGE_INVALID", "抽样行数无效。")
+        fields = self._fields(source_alias, field_aliases)
+        rows = self.provider.rows(source_alias)
+        count = min(limit, len(rows))
+        if self._usage.preview_rows + count > self.context.budget.max_preview_rows:
+            raise InspectionError("INSPECTION_BUDGET_EXCEEDED", "本轮数据预览预算已用完。")
+        if count == 0:
+            indices: tuple[int, ...] = ()
+        elif count == 1:
+            indices = (0,)
+        else:
+            indices = tuple(
+                round(position * (len(rows) - 1) / (count - 1)) for position in range(count)
+            )
+        source_fields = tuple(
+            item for item in self.context.fields if item.source_alias == source_alias
+        )
+        positions = {item.field_alias: index for index, item in enumerate(source_fields)}
+        selected = tuple(
+            tuple(_disclose(rows[index][positions[field.field_alias]]) for field in fields)
+            for index in indices
+        )
+        scalar_count = sum(len(row) for row in selected)
+        self._record("sample_rows", (source_alias,), len(fields), len(selected), scalar_count)
+        return RowPage(
+            source_alias=source_alias,
+            field_aliases=tuple(field.field_alias for field in fields),
+            offset=0,
+            rows=selected,
+            has_more=len(rows) > len(selected),
         )
 
     def profile_field(self, source_alias: str, field_alias: str) -> FieldProfile:
@@ -113,7 +166,7 @@ class DataInspectionService:
             and not isinstance(value, bool)
             and math.isfinite(float(value))
         )
-        examples = tuple(dict.fromkeys(valid))[:8]
+        examples = tuple(_disclose(value) for value in tuple(dict.fromkeys(valid))[:8])
         self._usage.profiled_fields.add(field_alias)
         self._record("profile_field", (source_alias,), 1, 0, len(examples))
         return FieldProfile(
@@ -126,6 +179,82 @@ class DataInspectionService:
             numeric_maximum=max(numeric) if numeric else None,
             examples=examples,
         )
+
+    def search_values(
+        self,
+        source_alias: str,
+        field_alias: str,
+        *,
+        mode: str,
+        query: WorkflowScalar,
+        limit: int = 20,
+    ) -> ValueSearchResult:
+        if mode not in {"equal", "contains", "prefix"} or not 1 <= limit <= 40:
+            raise InspectionError("INSPECTION_SEARCH_INVALID", "值搜索参数无效。")
+        field = self._fields(source_alias, (field_alias,))[0]
+        source_fields = tuple(
+            item for item in self.context.fields if item.source_alias == source_alias
+        )
+        position = next(index for index, item in enumerate(source_fields) if item == field)
+        values = tuple(row[position] for row in self.provider.rows(source_alias))
+        query_text = str(query)
+
+        def matches(value: WorkflowScalar) -> bool:
+            if mode == "equal":
+                return value == query
+            text = str(value)
+            return query_text in text if mode == "contains" else text.startswith(query_text)
+
+        found = tuple(
+            ValueSearchMatch(row_offset=index, value=_disclose(value))
+            for index, value in enumerate(values)
+            if matches(value)
+        )
+        shown = found[:limit]
+        self._record("search_values", (source_alias,), 1, 0, len(shown))
+        return ValueSearchResult(
+            source_alias=source_alias,
+            field_alias=field_alias,
+            mode=mode,  # type: ignore[arg-type]
+            query=query,
+            matches=shown,
+            truncated=len(found) > len(shown),
+        )
+
+    def inspect_instrument_metadata(self, source_alias: str) -> InstrumentMetadata:
+        self._source(source_alias)
+        metadata = {
+            key: _disclose_text(value)
+            for key, value in self.provider.metadata(source_alias).items()
+        }
+        scalar_count = len(metadata)
+        self._record(
+            "inspect_instrument_metadata",
+            (source_alias,),
+            0,
+            0,
+            scalar_count,
+        )
+        return InstrumentMetadata(source_alias=source_alias, values=metadata)
+
+    def record_operation_preview(
+        self,
+        source_aliases: tuple[str, ...],
+        *,
+        field_count: int,
+        row_count: int,
+        scalar_count: int,
+    ) -> InspectionAudit:
+        for alias in source_aliases:
+            self._source(alias)
+        self._record(
+            "preview_data_operation",
+            source_aliases,
+            field_count,
+            row_count,
+            scalar_count,
+        )
+        return self._audits[-1]
 
     def compare_schemas(self, source_aliases: tuple[str, ...]) -> SchemaComparison:
         if not 2 <= len(source_aliases) <= 8 or len(source_aliases) != len(set(source_aliases)):
@@ -211,3 +340,13 @@ class DataInspectionService:
                 disclosed_scalar_count=scalar_count,
             )
         )
+
+
+def _disclose(value: WorkflowScalar) -> WorkflowScalar:
+    return _disclose_text(value) if isinstance(value, str) else value
+
+
+def _disclose_text(value: str) -> str:
+    if len(value) <= 512:
+        return value
+    return value[:511] + "…"

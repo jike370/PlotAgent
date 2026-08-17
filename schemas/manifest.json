@@ -2,7 +2,7 @@
   "files": [
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "65a6ea034a2365174216512872f872f08e5ffe83bd90d3b788bf370a15a710d7"
+      "sha256": "703638bd76303a09cba83b86b27ec125ebd9c390d55e0434dade4431a3a6058e"
     },
     {
       "path": "schemas/engine-artifact.schema.json",
@@ -74,35 +74,35 @@
     },
     {
       "path": "schemas/task-draft.schema.json",
-      "sha256": "e0ad28f9b1049c7296dc20473484e5ed4ccb7758e25013f48de083e5f89cda14"
+      "sha256": "df39d7af78d64ee2e56b167945c5f8305c7a1465fe682589d49746f15f85bd85"
     },
     {
       "path": "schemas/task-plan-snapshot.schema.json",
-      "sha256": "6404777eac2087296994effafd6865dd11c2096066dd4a26774334dca31398b7"
+      "sha256": "d4025a988db2ea61cda0430715758ce82a7c739b04a6244d08f4bf65100a2f23"
     },
     {
       "path": "schemas/task-plan.schema.json",
-      "sha256": "db56e046e8c3f0c4346f79225dd33153c4b6a628420593930af8143822af6fe6"
+      "sha256": "aeeeebc40dd6c3a12ad4686cbef825403fa776ed6fcfc62e0400ce55791c9966"
     },
     {
       "path": "schemas/workflow-context.schema.json",
-      "sha256": "d18defd77f96837020d7fcd4f367f7752a56c7e6685c2bee05d6fad4cc925826"
+      "sha256": "0209924deca9b7bf0de0344b0e74a160b4b252c9c7bd2fe72674ab6594cb262a"
     },
     {
       "path": "schemas/workflow-decision.schema.json",
-      "sha256": "2fb1714a1974002fa797b0f08acf22cfd9154ba6558e94622a2f7e9ca23a7d77"
+      "sha256": "ab15424ec9e5aaf112700c6f117e72c05ca777e4aa53b0d60cf0894bcda4b60c"
     },
     {
       "path": "schemas/workflow-recipe.schema.json",
-      "sha256": "74855363f5ca908aa9ac21619d7954f50a7721672626d2bfd840775399feea91"
+      "sha256": "a5143107edd40fd3914dcac19fb542fe69728330dfd7f48b1031a26e6582c2f1"
     },
     {
       "path": "schemas/workflow-run-snapshot.schema.json",
-      "sha256": "813d353dccbaa2f66b8c4c30fbab190135c836cc62b8680b83608a215fbc7ca7"
+      "sha256": "e77611fe9ef25a18c6181d6b97f72ad534a15b4c22751e27b3ee7310377a7a14"
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "45a0719b9136125daf254ba37f1579b2441c71fef0aa48303a44b89a95f859aa"
+      "sha256": "8593a197c445bb4444f4d4387a89fa40a41e911291e9e69442cffdc359ea6c2f"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

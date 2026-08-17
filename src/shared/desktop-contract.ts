@@ -17,6 +17,7 @@ export const IPC_CHANNELS = {
   taskPlanResume: 'plotagent:workflow:plan-resume',
   taskPlanRun: 'plotagent:workflow:plan-run',
   workflowRecipeSave: 'plotagent:workflow:recipe-save',
+  workflowRecipeList: 'plotagent:workflow:recipe-list',
   cancelTask: 'plotagent:tasks:cancel',
   closeResponse: 'plotagent:lifecycle:close-response',
   coreStatusChanged: 'plotagent:core:status-changed',
@@ -230,6 +231,8 @@ export interface WorkflowRunInput extends ProjectIdInput {
   readonly expectedProjectVersion: number
   readonly selectedProfileIds?: readonly string[]
   readonly selectedPlotIds?: readonly string[]
+  readonly selectedRecipeId?: string
+  readonly continuationWorkflowRunId?: string
   readonly instruction: string
 }
 
@@ -336,6 +339,7 @@ export interface PlotAgentDesktopApi {
   runTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
   resumeTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
   saveWorkflowRecipe(input: WorkflowRecipeSaveInput): Promise<DesktopDataResult>
+  listWorkflowRecipes(input: ProjectIdInput): Promise<DesktopDataResult>
   exportPngSvg(input: PngSvgExportInput): Promise<DesktopDataResult>
   exportOrigin(input: OriginExportInput): Promise<DesktopDataResult>
   respondToCloseRequest(response: CloseResponse): Promise<DesktopActionResult>
@@ -591,7 +595,12 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
   if (!isRecord(value) || !hasExactKeys(
     value,
     ['projectId', 'selectedSources', 'expectedProjectVersion', 'instruction'],
-    ['selectedProfileIds', 'selectedPlotIds'],
+    [
+      'selectedProfileIds',
+      'selectedPlotIds',
+      'selectedRecipeId',
+      'continuationWorkflowRunId',
+    ],
   )) return null
   const projectId = parseId(value.projectId)
   const expectedProjectVersion = parseVersion(value.expectedProjectVersion)
@@ -619,8 +628,21 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
       && value.selectedPlotIds.length <= 8
       && value.selectedPlotIds.every((item) => parseId(item) !== null)
       ? value.selectedPlotIds as string[] : null
-  if (selectedProfileIds === null || selectedPlotIds === null) return null
-  if (selectedSources.length === 0 && (selectedPlotIds === undefined || selectedPlotIds.length === 0)) return null
+  const selectedRecipeId = value.selectedRecipeId === undefined
+    ? undefined : parseId(value.selectedRecipeId)
+  const continuationWorkflowRunId = value.continuationWorkflowRunId === undefined
+    ? undefined : parseId(value.continuationWorkflowRunId)
+  if (
+    selectedProfileIds === null
+    || selectedPlotIds === null
+    || selectedRecipeId === null
+    || continuationWorkflowRunId === null
+  ) return null
+  if (
+    selectedSources.length === 0
+    && (selectedPlotIds === undefined || selectedPlotIds.length === 0)
+    && continuationWorkflowRunId === undefined
+  ) return null
   if (selectedPlotIds !== undefined && new Set(selectedPlotIds).size !== selectedPlotIds.length) return null
   return {
     projectId,
@@ -628,6 +650,8 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
     expectedProjectVersion,
     ...(selectedProfileIds === undefined ? {} : { selectedProfileIds }),
     ...(selectedPlotIds === undefined ? {} : { selectedPlotIds }),
+    ...(selectedRecipeId === undefined ? {} : { selectedRecipeId }),
+    ...(continuationWorkflowRunId === undefined ? {} : { continuationWorkflowRunId }),
     instruction,
   }
 }

@@ -78,6 +78,16 @@
           "title": "Source Alias",
           "type": "string"
         },
+        "unit_evidence": {
+          "default": "none",
+          "enum": [
+            "none",
+            "declared",
+            "suffix_candidate"
+          ],
+          "title": "Unit Evidence",
+          "type": "string"
+        },
         "unit_label": {
           "anyOf": [
             {

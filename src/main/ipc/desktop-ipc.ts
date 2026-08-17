@@ -761,6 +761,12 @@ export function registerDesktopIpc({
         ...(input.selectedPlotIds === undefined ? {} : {
           selected_plot_ids: [...input.selectedPlotIds],
         }),
+        ...(input.selectedRecipeId === undefined ? {} : {
+          selected_recipe_id: input.selectedRecipeId,
+        }),
+        ...(input.continuationWorkflowRunId === undefined ? {} : {
+          continuation_workflow_run_id: input.continuationWorkflowRunId,
+        }),
       }).then((result) => ({
         ok: true,
         value: sanitizeCoreResult(result, resources),
@@ -827,6 +833,15 @@ export function registerDesktopIpc({
         plan_id: input.planId,
         display_name: input.displayName,
         export_hash: input.exportHash,
+      })
+  })
+
+  ipcMain.handle(IPC_CHANNELS.workflowRecipeList, (_event, value: unknown) => {
+    const input = parseProjectIdInput(value)
+    return input === null
+      ? invalidDataArgument('流程列表上下文无效。')
+      : requestCoreData(supervisor, resources, 'workflow.recipes.list', {
+        project_id: input.projectId,
       })
   })
 

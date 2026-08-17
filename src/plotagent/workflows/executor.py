@@ -21,6 +21,7 @@ from plotagent.contracts.workflows import (
 )
 from plotagent.engine import (
     AddAnnotation,
+    BindFields,
     CreatePlot,
     EngineCatalog,
     EngineDataRef,
@@ -195,13 +196,30 @@ class TaskPlanExecutor:
             self.catalog.validate_create(create)
             current_revision = self.execute_action(create, revision)
             plot_version = 1
-        else:
+        elif item.task_kind == "edit":
             if item.target_plot_id is None or item.target_plot_version is None:
                 raise WorkflowExecutionError(
                     "WORKFLOW_EDIT_TARGET_INVALID", "待编辑图形目标不完整。"
                 )
             plot_version = item.target_plot_version
             self.validate_edit_data(item)
+        else:
+            if item.target_plot_id is None or item.target_plot_version is None:
+                raise WorkflowExecutionError(
+                    "WORKFLOW_EDIT_TARGET_INVALID", "待更新图形目标不完整。"
+                )
+            data, bindings = self.prepare_data(item)
+            self.validate_prepared_data(item, data, bindings)
+            rebind = BindFields(
+                action_id=f"action:{item.item_id.removeprefix('item:')}.bind",
+                target=item.target_plot_id,
+                expected_plot_version=item.target_plot_version,
+                data=data,
+                bindings=bindings,
+            )
+            self.catalog.validate_action(self.catalog.get(item.profile_id), rebind)
+            current_revision = self.execute_action(rebind, revision)
+            plot_version = item.target_plot_version + 1
         for position, draft in enumerate(item.visual_actions, start=1):
             action_id = f"action:{item.item_id.removeprefix('item:')}.edit{position}"
             action: PlotEngineAction

@@ -1706,6 +1706,39 @@ input[type="checkbox"] {
   font-size: 11px;
 }
 
+.composer-recipe-picker {
+  display: inline-flex;
+  align-items: center;
+}
+
+.composer-recipe-picker select.composer-tool {
+  min-height: 28px;
+  max-width: 156px;
+  padding: 0 24px 0 7px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  text-overflow: ellipsis;
+}
+
+.composer-recipe-picker select.composer-tool:hover,
+.composer-recipe-picker select.composer-tool:focus-visible {
+  background: var(--surface);
+}
+
+.composer-recipe-picker select.composer-tool:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.composer-recipe-picker select.composer-tool:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+}
+
 .composer-toolbar .composer-tool.is-selected {
   color: var(--primary-hover);
   background: var(--primary-soft);

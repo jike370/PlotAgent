@@ -41,18 +41,13 @@ export type BindFields = {
   readonly bindings: ReadonlyArray<FieldBinding>;
 }
 
-export type CalculateChartData = {
-  readonly operation?: "calculate_chart_data";
-  readonly calculation: "histogram_binning" | "tukey_box" | "violin_kde" | "summary_error" | "percent_stack" | "matrix_projection" | "confusion_count";
-}
-
 export type CalculationTable = {
   readonly field_ids: ReadonlyArray<string>;
   readonly rows: ReadonlyArray<ReadonlyArray<string | boolean | number | null>>;
 }
 
 export type CompiledTaskItem = {
-  readonly task_kind: "create" | "edit";
+  readonly task_kind: "create" | "edit" | "update_data";
   readonly item_id: string;
   readonly plot_alias: string;
   readonly plot_id: string;
@@ -61,7 +56,7 @@ export type CompiledTaskItem = {
   readonly target_plot_version?: number | null;
   readonly sources?: ReadonlyArray<WorkflowSource>;
   readonly resolved_fields?: ReadonlyArray<ResolvedWorkflowField>;
-  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | CalculateChartData>;
+  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | RenameField | DeriveColumn | ConvertUnit>;
   readonly bindings?: ReadonlyArray<ResolvedFieldBinding>;
   readonly visual_actions: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
   readonly depends_on?: ReadonlyArray<string>;
@@ -127,6 +122,15 @@ export type ContentTableRef = {
   readonly field_ids: ReadonlyArray<string>;
 }
 
+export type ConvertUnit = {
+  readonly operation?: "convert_unit";
+  readonly source_alias: string;
+  readonly field_alias: string;
+  readonly target_unit: string;
+  readonly output_field_alias: string;
+  readonly output_name: string;
+}
+
 export type CreatePlot = {
   readonly operation?: "create_plot";
   readonly action_id: string;
@@ -145,6 +149,16 @@ export type DataQualitySummary = {
   readonly negative_inf_values: number;
   readonly unparseable_values: number;
   readonly warnings?: ReadonlyArray<WarningRecord>;
+}
+
+export type DeriveColumn = {
+  readonly operation?: "derive_column";
+  readonly source_alias: string;
+  readonly input_field_aliases: ReadonlyArray<string>;
+  readonly operator: "add" | "subtract" | "multiply" | "divide" | "absolute" | "negate" | "log10" | "ln" | "sqrt";
+  readonly scalar?: number | null;
+  readonly output_field_alias: string;
+  readonly output_name: string;
 }
 
 export type DraftAddAnnotation = {
@@ -760,12 +774,21 @@ export type ProjectStructureSpec = {
   readonly role_fields: ReadonlyArray<string>;
 }
 
+export type RenameField = {
+  readonly operation?: "rename_field";
+  readonly source_alias: string;
+  readonly field_alias: string;
+  readonly output_field_alias: string;
+  readonly output_name: string;
+}
+
 export type ReshapeLongToWide = {
   readonly operation?: "reshape_long_to_wide";
   readonly source_alias: string;
   readonly index_field_aliases: ReadonlyArray<string>;
   readonly name_field_alias: string;
   readonly value_field_alias: string;
+  readonly output_fields: ReadonlyArray<WorkflowOutputField>;
 }
 
 export type ReshapeWideToLong = {
@@ -1053,7 +1076,7 @@ export type TaskDraft = {
   readonly schema_version?: "task-draft.v1";
   readonly draft_id: string;
   readonly workflow_run_id: string;
-  readonly route: "deterministic" | "recipe_replay" | "agent_single_turn" | "agent_exploration";
+  readonly route: "agent" | "recipe_replay" | "direct";
   readonly summary: string;
   readonly items: ReadonlyArray<TaskDraftItem>;
   readonly confidence: number;
@@ -1061,13 +1084,13 @@ export type TaskDraft = {
 }
 
 export type TaskDraftItem = {
-  readonly task_kind: "create" | "edit";
+  readonly task_kind: "create" | "edit" | "update_data";
   readonly item_id: string;
   readonly plot_alias: string;
   readonly profile_id: string;
   readonly target_plot_alias?: string | null;
   readonly source_aliases?: ReadonlyArray<string>;
-  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | CalculateChartData>;
+  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | RenameField | DeriveColumn | ConvertUnit>;
   readonly bindings?: ReadonlyArray<DraftFieldBinding>;
   readonly visual_actions?: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
 }
@@ -1250,12 +1273,18 @@ export type WorkflowField = {
   readonly name: string;
   readonly logical_type: "numeric" | "categorical" | "datetime" | "boolean" | "text";
   readonly unit_label?: string | null;
+  readonly unit_evidence?: "none" | "declared" | "suffix_candidate";
 }
 
 export type WorkflowNeedsInput = {
   readonly outcome?: "needs_input";
   readonly workflow_run_id: string;
   readonly questions: ReadonlyArray<InputQuestion>;
+}
+
+export type WorkflowOutputField = {
+  readonly field_alias: string;
+  readonly name: string;
 }
 
 export type WorkflowPlot = {
@@ -1271,7 +1300,6 @@ export type WorkflowRecipe = {
   readonly recipe_version: number;
   readonly display_name: string;
   readonly structure_fingerprint: string;
-  readonly goal_signature: string;
   readonly draft_template: TaskDraft;
   readonly engine_profile_hash: string;
   readonly renderer_contract_hash: string;
@@ -1284,8 +1312,8 @@ export type WorkflowRecipe = {
 export type WorkflowRunSnapshot = {
   readonly workflow_run_id: string;
   readonly project_id: string;
-  readonly state: "routing" | "deterministic_attempt" | "recipe_matching" | "recipe_replay" | "agent_single_turn" | "agent_exploration" | "needs_input" | "draft_ready" | "awaiting_confirmation" | "executing" | "completed" | "partially_succeeded" | "failed" | "cancelled";
-  readonly route?: "deterministic" | "recipe_replay" | "agent_single_turn" | "agent_exploration" | "needs_input" | "unsupported" | null;
+  readonly state: "routing" | "agent" | "recipe_replay" | "direct" | "needs_input" | "draft_ready" | "awaiting_confirmation" | "executing" | "completed" | "partially_succeeded" | "failed" | "cancelled";
+  readonly route?: "agent" | "recipe_replay" | "direct" | null;
   readonly context_hash?: string | null;
   readonly draft_id?: string | null;
   readonly plan_id?: string | null;

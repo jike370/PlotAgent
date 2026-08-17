@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.workflows import (
     CompiledTaskItem,
+    DataOperation,
     DraftVisualAction,
     ResolvedFieldBinding,
     ResolvedWorkflowField,
     TaskDraft,
     TaskPlan,
     WorkflowContext,
+    WorkflowField,
 )
 from plotagent.engine import EngineCatalog, EngineProfile
 
@@ -57,7 +59,8 @@ class DraftCompiler:
             if item.profile_id not in context.allowed_profile_ids:
                 raise WorkflowCompileError("PROFILE_NOT_ALLOWED", "草稿使用了不可用的图形类型。")
             profile = self._catalog.get(item.profile_id)
-            if item.task_kind == "edit":
+            target = None
+            if item.task_kind in {"edit", "update_data"}:
                 target = plots.get(item.target_plot_alias or "")
                 if target is None:
                     raise WorkflowCompileError("PLOT_ALIAS_INVALID", "草稿引用了不可用的图形。")
@@ -65,6 +68,8 @@ class DraftCompiler:
                     raise WorkflowCompileError(
                         "PROFILE_TARGET_MISMATCH", "草稿图类与待编辑图形不一致。"
                     )
+            if item.task_kind == "edit":
+                assert target is not None
                 self._validate_visual_actions(profile, item.visual_actions)
                 compiled.append(
                     CompiledTaskItem(
@@ -89,8 +94,22 @@ class DraftCompiler:
                 item_sources.append(source)
             synthetic_fields: dict[str, ResolvedWorkflowField] = {}
             for operation in item.data_operations:
+                operation_sources = (
+                    operation.source_aliases
+                    if operation.operation == "concatenate_sources"
+                    else (operation.source_alias,)
+                )
+                if not set(operation_sources) <= set(item.source_aliases):
+                    raise WorkflowCompileError(
+                        "SOURCE_ALIAS_INVALID",
+                        "数据操作只能使用当前任务项声明的数据来源。",
+                    )
                 if operation.operation == "concatenate_sources":
                     alias = operation.source_label_field
+                    if alias in fields or alias in synthetic_fields:
+                        raise WorkflowCompileError(
+                            "FIELD_ALIAS_DUPLICATED", "派生字段别名必须互不重复。"
+                        )
                     synthetic_fields[alias] = ResolvedWorkflowField(
                         field_alias=alias,
                         source_alias=item.source_aliases[0],
@@ -99,6 +118,16 @@ class DraftCompiler:
                         logical_type="categorical",
                     )
                 elif operation.operation == "reshape_wide_to_long":
+                    if (
+                        operation.output_name in fields
+                        or operation.output_name in synthetic_fields
+                        or operation.output_value in fields
+                        or operation.output_value in synthetic_fields
+                        or operation.output_name == operation.output_value
+                    ):
+                        raise WorkflowCompileError(
+                            "FIELD_ALIAS_DUPLICATED", "派生字段别名必须互不重复。"
+                        )
                     synthetic_fields[operation.output_name] = ResolvedWorkflowField(
                         field_alias=operation.output_name,
                         source_alias=operation.source_alias,
@@ -113,6 +142,55 @@ class DraftCompiler:
                         name=operation.output_value,
                         logical_type="numeric",
                     )
+                elif operation.operation == "reshape_long_to_wide":
+                    value_field = fields.get(operation.value_field_alias)
+                    if value_field is None:
+                        raise WorkflowCompileError("FIELD_ALIAS_INVALID", "长转宽数值字段不可用。")
+                    for output in operation.output_fields:
+                        if output.field_alias in fields or output.field_alias in synthetic_fields:
+                            raise WorkflowCompileError(
+                                "FIELD_ALIAS_DUPLICATED", "派生字段别名必须互不重复。"
+                            )
+                        synthetic_fields[output.field_alias] = ResolvedWorkflowField(
+                            field_alias=output.field_alias,
+                            source_alias=operation.source_alias,
+                            field_id=(f"field:workflow_{token}_{position}_{output.field_alias}"),
+                            name=output.name,
+                            logical_type=value_field.logical_type,
+                            unit_label=value_field.unit_label,
+                        )
+                elif operation.operation in {"rename_field", "derive_column", "convert_unit"}:
+                    derived_operation = cast(Any, operation)
+                    alias = derived_operation.output_field_alias
+                    if alias in fields or alias in synthetic_fields:
+                        raise WorkflowCompileError(
+                            "FIELD_ALIAS_DUPLICATED", "派生字段别名必须互不重复。"
+                        )
+                    logical_type = "numeric"
+                    unit_label = getattr(derived_operation, "target_unit", None)
+                    if operation.operation == "rename_field":
+                        original = fields.get(derived_operation.field_alias)
+                        if (
+                            original is None
+                            or original.source_alias != derived_operation.source_alias
+                        ):
+                            raise WorkflowCompileError(
+                                "FIELD_ALIAS_INVALID", "重命名字段不属于所选数据表。"
+                            )
+                        logical_type = original.logical_type
+                        unit_label = original.unit_label
+                    elif operation.operation == "derive_column":
+                        original = fields.get(derived_operation.input_field_aliases[0])
+                        unit_label = original.unit_label if original is not None else None
+                    synthetic_fields[alias] = ResolvedWorkflowField(
+                        field_alias=alias,
+                        source_alias=derived_operation.source_alias,
+                        field_id=f"field:workflow_{token}_{position}_{alias}",
+                        name=derived_operation.output_name,
+                        logical_type=cast(Any, logical_type),
+                        unit_label=unit_label,
+                    )
+            self._validate_operation_flow(item.source_aliases, item.data_operations, fields)
             bound: list[ResolvedFieldBinding] = []
             resolved_fields: dict[str, ResolvedWorkflowField] = {}
             for binding in item.bindings:
@@ -151,6 +229,8 @@ class DraftCompiler:
                     logical_type=field.logical_type,
                     unit_label=field.unit_label,
                 )
+            for alias, synthetic in synthetic_fields.items():
+                resolved_fields.setdefault(alias, synthetic)
             operation_aliases: set[str] = set()
             for operation in item.data_operations:
                 dumped = operation.model_dump(mode="python")
@@ -217,14 +297,20 @@ class DraftCompiler:
                 ):
                     raise WorkflowCompileError("ROLE_NOT_ALLOWED", "草稿包含图形不支持的字段角色。")
             self._validate_visual_actions(profile, item.visual_actions)
-            plot_id = f"plot:workflow.{token}.{position}"
+            plot_id = (
+                target.plot_id
+                if item.task_kind == "update_data" and target is not None
+                else f"plot:workflow.{token}.{position}"
+            )
             compiled.append(
                 CompiledTaskItem(
-                    task_kind="create",
+                    task_kind=item.task_kind,
                     item_id=item.item_id,
                     plot_alias=item.plot_alias,
                     plot_id=plot_id,
                     profile_id=item.profile_id,
+                    target_plot_id=(target.plot_id if target is not None else None),
+                    target_plot_version=(target.plot_version if target is not None else None),
                     sources=tuple(item_sources),
                     resolved_fields=tuple(resolved_fields.values()),
                     data_operations=item.data_operations,
@@ -240,6 +326,76 @@ class DraftCompiler:
             expected_project_revision=context.project_revision,
             items=tuple(compiled),
         )
+
+    @staticmethod
+    def _validate_operation_flow(
+        item_source_aliases: tuple[str, ...],
+        operations: tuple[DataOperation, ...],
+        fields: dict[str, WorkflowField],
+    ) -> None:
+        available: dict[str, set[str]] = {
+            source_alias: {
+                field.field_alias for field in fields.values() if field.source_alias == source_alias
+            }
+            for source_alias in item_source_aliases
+        }
+        for operation in operations:
+            if operation.operation == "concatenate_sources":
+                if any(alias not in available for alias in operation.source_aliases):
+                    raise WorkflowCompileError(
+                        "SOURCE_ALIAS_INVALID", "数据拼接引用了已不可用的数据表。"
+                    )
+                head = operation.source_aliases[0]
+                available = {
+                    head: available[head] | {operation.source_label_field},
+                }
+                continue
+            source_alias = operation.source_alias
+            current = available.get(source_alias)
+            if current is None:
+                raise WorkflowCompileError(
+                    "SOURCE_ALIAS_INVALID", "数据操作引用了已不可用的数据表。"
+                )
+            inputs, outputs = DraftCompiler._operation_fields(operation)
+            if not set(inputs) <= current:
+                raise WorkflowCompileError(
+                    "FIELD_ALIAS_INVALID", "数据操作引用了尚未生成或已移除的字段。"
+                )
+            if operation.operation == "select_fields":
+                available[source_alias] = set(operation.field_aliases)
+            elif operation.operation == "reshape_wide_to_long":
+                available[source_alias] = set(operation.id_field_aliases) | set(outputs)
+            elif operation.operation == "reshape_long_to_wide":
+                available[source_alias] = set(operation.index_field_aliases) | set(outputs)
+            else:
+                available[source_alias].update(outputs)
+
+    @staticmethod
+    def _operation_fields(operation: DataOperation) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        if operation.operation == "select_fields":
+            return operation.field_aliases, ()
+        if operation.operation == "filter_rows":
+            return tuple(item.field_alias for item in operation.predicates), ()
+        if operation.operation == "sort_rows":
+            return tuple(item.field_alias for item in operation.keys), ()
+        if operation.operation == "reshape_wide_to_long":
+            return (
+                operation.id_field_aliases + operation.value_field_aliases,
+                (operation.output_name, operation.output_value),
+            )
+        if operation.operation == "reshape_long_to_wide":
+            return (
+                operation.index_field_aliases
+                + (operation.name_field_alias, operation.value_field_alias),
+                tuple(item.field_alias for item in operation.output_fields),
+            )
+        if operation.operation == "rename_field":
+            return (operation.field_alias,), (operation.output_field_alias,)
+        if operation.operation == "derive_column":
+            return operation.input_field_aliases, (operation.output_field_alias,)
+        if operation.operation == "convert_unit":
+            return (operation.field_alias,), (operation.output_field_alias,)
+        return (), (operation.source_label_field,)
 
     @staticmethod
     def _validate_visual_actions(

@@ -82,12 +82,9 @@
       "anyOf": [
         {
           "enum": [
-            "deterministic",
+            "agent",
             "recipe_replay",
-            "agent_single_turn",
-            "agent_exploration",
-            "needs_input",
-            "unsupported"
+            "direct"
           ],
           "type": "string"
         },
@@ -101,11 +98,9 @@
     "state": {
       "enum": [
         "routing",
-        "deterministic_attempt",
-        "recipe_matching",
+        "agent",
         "recipe_replay",
-        "agent_single_turn",
-        "agent_exploration",
+        "direct",
         "needs_input",
         "draft_ready",
         "awaiting_confirmation",

@@ -1,34 +1,5 @@
 {
   "$defs": {
-    "CalculateChartData": {
-      "additionalProperties": false,
-      "properties": {
-        "calculation": {
-          "enum": [
-            "histogram_binning",
-            "tukey_box",
-            "violin_kde",
-            "summary_error",
-            "percent_stack",
-            "matrix_projection",
-            "confusion_count"
-          ],
-          "title": "Calculation",
-          "type": "string"
-        },
-        "operation": {
-          "const": "calculate_chart_data",
-          "default": "calculate_chart_data",
-          "title": "Operation",
-          "type": "string"
-        }
-      },
-      "required": [
-        "calculation"
-      ],
-      "title": "CalculateChartData",
-      "type": "object"
-    },
     "ConcatenateSources": {
       "additionalProperties": false,
       "properties": {
@@ -70,6 +41,126 @@
         "source_aliases"
       ],
       "title": "ConcatenateSources",
+      "type": "object"
+    },
+    "ConvertUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "convert_unit",
+          "default": "convert_unit",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "target_unit": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Target Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_alias",
+        "target_unit",
+        "output_field_alias",
+        "output_name"
+      ],
+      "title": "ConvertUnit",
+      "type": "object"
+    },
+    "DeriveColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "input_field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Input Field Aliases",
+          "type": "array"
+        },
+        "operation": {
+          "const": "derive_column",
+          "default": "derive_column",
+          "title": "Operation",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "absolute",
+            "negate",
+            "log10",
+            "ln",
+            "sqrt"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "scalar": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scalar"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "input_field_aliases",
+        "operator",
+        "output_field_alias",
+        "output_name"
+      ],
+      "title": "DeriveColumn",
       "type": "object"
     },
     "DraftAddAnnotation": {
@@ -1883,6 +1974,46 @@
       "title": "InputQuestion",
       "type": "object"
     },
+    "RenameField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "rename_field",
+          "default": "rename_field",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_alias",
+        "output_field_alias",
+        "output_name"
+      ],
+      "title": "RenameField",
+      "type": "object"
+    },
     "ReshapeLongToWide": {
       "additionalProperties": false,
       "properties": {
@@ -1907,6 +2038,15 @@
           "title": "Operation",
           "type": "string"
         },
+        "output_fields": {
+          "items": {
+            "$ref": "#/$defs/WorkflowOutputField"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Output Fields",
+          "type": "array"
+        },
         "source_alias": {
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Source Alias",
@@ -1922,7 +2062,8 @@
         "source_alias",
         "index_field_aliases",
         "name_field_alias",
-        "value_field_alias"
+        "value_field_alias",
+        "output_fields"
       ],
       "title": "ReshapeLongToWide",
       "type": "object"
@@ -2111,10 +2252,9 @@
         },
         "route": {
           "enum": [
-            "deterministic",
+            "agent",
             "recipe_replay",
-            "agent_single_turn",
-            "agent_exploration"
+            "direct"
           ],
           "title": "Route",
           "type": "string"
@@ -2165,9 +2305,11 @@
           "items": {
             "discriminator": {
               "mapping": {
-                "calculate_chart_data": "#/$defs/CalculateChartData",
                 "concatenate_sources": "#/$defs/ConcatenateSources",
+                "convert_unit": "#/$defs/ConvertUnit",
+                "derive_column": "#/$defs/DeriveColumn",
                 "filter_rows": "#/$defs/FilterRows",
+                "rename_field": "#/$defs/RenameField",
                 "reshape_long_to_wide": "#/$defs/ReshapeLongToWide",
                 "reshape_wide_to_long": "#/$defs/ReshapeWideToLong",
                 "select_fields": "#/$defs/SelectFields",
@@ -2195,7 +2337,13 @@
                 "$ref": "#/$defs/ConcatenateSources"
               },
               {
-                "$ref": "#/$defs/CalculateChartData"
+                "$ref": "#/$defs/RenameField"
+              },
+              {
+                "$ref": "#/$defs/DeriveColumn"
+              },
+              {
+                "$ref": "#/$defs/ConvertUnit"
               }
             ]
           },
@@ -2244,7 +2392,8 @@
         "task_kind": {
           "enum": [
             "create",
-            "edit"
+            "edit",
+            "update_data"
           ],
           "title": "Task Kind",
           "type": "string"
@@ -2358,6 +2507,28 @@
         "questions"
       ],
       "title": "WorkflowNeedsInput",
+      "type": "object"
+    },
+    "WorkflowOutputField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_alias",
+        "name"
+      ],
+      "title": "WorkflowOutputField",
       "type": "object"
     },
     "WorkflowUnsupported": {

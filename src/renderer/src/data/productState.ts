@@ -245,7 +245,7 @@ export interface WorkflowQuestion {
 export interface WorkflowPlanStep {
   taskItemId: string
   actionType: string
-  taskKind: 'create' | 'edit'
+  taskKind: 'create' | 'edit' | 'update_data'
   profileId: string
   title: string
   detail?: string
@@ -281,9 +281,16 @@ export interface WorkflowOutcome {
   title: string
   message: string
   questions?: WorkflowQuestion[]
+  workflowRunId?: string
   plan?: WorkflowPlanView
   execution?: ProductPlot
   executionCount?: number
+}
+
+export interface WorkflowRecipeView {
+  recipeId: string
+  displayName: string
+  profileIds: string[]
 }
 
 type JsonRecord = Record<string, JsonValue>
@@ -312,7 +319,8 @@ function records(value: JsonValue, predicate: (record: JsonRecord) => boolean): 
 function unitLabel(value: JsonValue | undefined): string {
   if (typeof value === 'string') return value
   if (!isJsonRecord(value)) return '未声明'
-  return stringValue(value, 'symbol', 'canonical', 'display_name', 'value') ?? '未声明'
+  const label = stringValue(value, 'canonical_unit', 'source_text')?.trim()
+  return label || '未声明'
 }
 
 export function readProjects(value: JsonValue): ProductProject[] {
@@ -796,10 +804,40 @@ export function readWorkflowOutcome(value: JsonValue): WorkflowOutcome {
         return [{ questionKey: question.question_key, prompt: question.prompt, choices }]
       })
       : []
-    return { kind: 'needs_input', title: '需要补充信息', message: decisionMessage(root), questions }
+    const workflowRunId = stringValue(root, 'workflow_run_id')
+    return {
+      kind: 'needs_input',
+      title: '需要补充信息',
+      message: decisionMessage(root),
+      questions,
+      ...(workflowRunId === undefined ? {} : { workflowRunId }),
+    }
   }
   if (outcome === 'unsupported' && root !== undefined) return { kind: 'unsupported', title: '当前不支持', message: decisionMessage(root) }
   return { kind: 'rejected', title: '无法识别结果', message: 'Core 未返回受支持的工作流结果。' }
+}
+
+export function readWorkflowRecipes(value: JsonValue): WorkflowRecipeView[] {
+  if (!isJsonRecord(value) || !Array.isArray(value.workflow_recipes)) return []
+  return value.workflow_recipes.flatMap((item): WorkflowRecipeView[] => {
+    if (
+      !isJsonRecord(item)
+      || typeof item.recipe_id !== 'string'
+      || typeof item.display_name !== 'string'
+    ) return []
+    const template = isJsonRecord(item.draft_template) ? item.draft_template : undefined
+    const items = template && Array.isArray(template.items) ? template.items : []
+    const profileIds = [...new Set(items.flatMap((draftItem) => (
+      isJsonRecord(draftItem) && typeof draftItem.profile_id === 'string'
+        ? [draftItem.profile_id]
+        : []
+    )))]
+    return [{
+      recipeId: item.recipe_id,
+      displayName: item.display_name,
+      profileIds,
+    }]
+  })
 }
 
 export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined {
@@ -852,7 +890,12 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     boundActions.push(...visualActions)
     const changes = visualActions.flatMap(workflowActionSummary)
     const state = stringValue(itemProgress, 'state') ?? 'pending'
-    const taskKind = stringValue(item, 'task_kind') === 'edit' ? 'edit' : 'create'
+    const rawTaskKind = stringValue(item, 'task_kind')
+    const taskKind = rawTaskKind === 'edit'
+      ? 'edit'
+      : rawTaskKind === 'update_data'
+        ? 'update_data'
+        : 'create'
     const profileId = stringValue(item, 'profile_id') ?? '图形'
     const outputPlotId = stringValue(itemProgress, 'output_plot_id')
     const outputPlotVersion = numberValue(itemProgress, 'output_plot_version')
@@ -866,10 +909,10 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       actionType: 'workflow_item',
       taskKind,
       profileId,
-      title: `${taskKind === 'edit' ? '修改' : '创建'} ${profileId}`,
+      title: `${taskKind === 'edit' ? '修改' : taskKind === 'update_data' ? '更新数据' : '创建'} ${profileId}`,
       detail: taskKind === 'edit'
         ? `${changes.length} 项视觉修改`
-        : `${Array.isArray(item.sources) ? item.sources.length : 0} 个数据来源 · ${stepBindings.length} 个字段角色`,
+        : `${Array.isArray(item.sources) ? item.sources.length : 0} 个数据来源 · ${stepBindings.length} 个字段角色${taskKind === 'update_data' ? ` · ${changes.length} 项视觉修改` : ''}`,
       sourceDatasetIds: [...sourceIds.values()],
       bindings: stepBindings,
       changes,

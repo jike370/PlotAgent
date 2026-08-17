@@ -13,7 +13,7 @@ const draft = {
   schema_version: 'task-draft.v1',
   draft_id: 'draft:test',
   workflow_run_id: 'workflow:test',
-  route: 'agent_single_turn',
+  route: 'agent',
   summary: '创建折线图',
   items: [{
     task_kind: 'create',
@@ -29,13 +29,13 @@ const draft = {
   hard_constraints: ['preserve_source_values'],
 }
 
-function submitDraftStream(): ReturnType<StreamFn> {
+function toolCallStream(name: string, args: Record<string, JsonValue>): ReturnType<StreamFn> {
   const stream = createAssistantMessageEventStream()
   const message: AssistantMessage = {
     role: 'assistant',
     content: [{
-      type: 'toolCall', id: 'call-1', name: 'submit_task_draft',
-      arguments: { task_draft: draft },
+      type: 'toolCall', id: 'call-1', name,
+      arguments: args,
     }],
     api: 'openai-completions', provider: 'test', model: 'test-model',
     usage: {
@@ -56,6 +56,10 @@ function submitDraftStream(): ReturnType<StreamFn> {
   return stream
 }
 
+function submitDraftStream(): ReturnType<StreamFn> {
+  return toolCallStream('submit_task_draft', { task_draft: draft })
+}
+
 const request = {
   project_id: 'project:test', client_run_id: 'workflow-client:test',
   expected_project_version: 0, instruction: '画折线图',
@@ -63,7 +67,7 @@ const request = {
 }
 
 describe('PiAgentRuntime workflow orchestration', () => {
-  it('bypasses the model when Core resolves a deterministic draft', async () => {
+  it('returns a Core-owned structured result without invoking the model', async () => {
     const calls: string[] = []
     const params: JsonValue[] = []
     const core: PiCoreBridge = {
@@ -115,7 +119,7 @@ describe('PiAgentRuntime workflow orchestration', () => {
     expect(events.at(-1)?.stage).toBe('completed')
   })
 
-  it('preinspects multi-source structure once before Agent planning', async () => {
+  it('does not preinspect or rewrite a multi-source instruction before Agent planning', async () => {
     const calls: string[] = []
     const core: PiCoreBridge = {
       request: async (method): Promise<JsonValue> => {
@@ -152,11 +156,89 @@ describe('PiAgentRuntime workflow orchestration', () => {
       ],
     })
     expect(calls).toEqual([
-      'workflow.prepare',
-      'provider.runtime.get',
-      'workflow.inspect',
-      'workflow.submit_draft',
+      'workflow.prepare', 'provider.runtime.get', 'workflow.submit_draft',
     ])
+  })
+
+  it('lets Pi pause the same workflow with structured clarification questions', async () => {
+    const calls: string[] = []
+    const core: PiCoreBridge = {
+      request: async (method, params): Promise<JsonValue> => {
+        calls.push(method)
+        if (method === 'workflow.prepare') return {
+          outcome: 'agent_required', workflow_run_id: 'workflow:test',
+          workflow_context: { workflow_run_id: 'workflow:test' },
+          task_draft_schema: { type: 'object' }, system_prompt: 'Ask only if required.',
+        }
+        if (method === 'provider.runtime.get') return {
+          base_url: 'https://model.example/v1', model_id: 'model', api_key: 'secret',
+        }
+        expect(params).toEqual({
+          project_id: 'project:test',
+          workflow_run_id: 'workflow:test',
+          questions: [{
+            question_key: 'chart_type',
+            prompt: '请选择图类。',
+            answer_kind: 'profile',
+            choices: ['K01', 'K03'],
+            required: true,
+          }],
+        })
+        return {
+          outcome: 'needs_input',
+          workflow_run_id: 'workflow:test',
+          questions: [],
+        }
+      },
+    }
+    const streamFn = (() => toolCallStream('ask_user', {
+      questions: [{
+        question_key: 'chart_type',
+        prompt: '请选择图类。',
+        answer_kind: 'profile',
+        choices: ['K01', 'K03'],
+        required: true,
+      }],
+    })) as StreamFn
+    const runtime = new PiAgentRuntime({ core, emit: () => undefined, streamFn })
+
+    await expect(runtime.run(request)).resolves.toMatchObject({
+      outcome: 'needs_input', workflow_run_id: 'workflow:test',
+    })
+    expect(calls).toEqual(['workflow.prepare', 'provider.runtime.get', 'workflow.ask_user'])
+  })
+
+  it('stops after the Core-owned model-turn budget', async () => {
+    let modelCalls = 0
+    const core: PiCoreBridge = {
+      request: async (method): Promise<JsonValue> => {
+        if (method === 'workflow.prepare') return {
+          outcome: 'agent_required', workflow_run_id: 'workflow:test',
+          workflow_context: {
+            workflow_run_id: 'workflow:test',
+            budget: { max_agent_turns: 1 },
+          },
+          task_draft_schema: { type: 'object' }, system_prompt: 'Use bounded tools.',
+        }
+        if (method === 'provider.runtime.get') return {
+          base_url: 'https://model.example/v1', model_id: 'model', api_key: 'secret',
+        }
+        return { result: { sources: [] }, audit: { tool_name: 'list_sources' } }
+      },
+    }
+    const runtime = new PiAgentRuntime({
+      core,
+      emit: () => undefined,
+      streamFn: (() => {
+        modelCalls += 1
+        return toolCallStream('list_sources', {})
+      }) as StreamFn,
+    })
+
+    await expect(runtime.run(request)).rejects.toMatchObject({
+      code: 'PI_TURN_BUDGET_EXCEEDED',
+    })
+    expect(modelCalls).toBe(1)
   })
 
   it('maps timeout and superseded runs to stable public errors', () => {

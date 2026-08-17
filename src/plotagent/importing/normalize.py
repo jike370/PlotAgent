@@ -28,11 +28,17 @@ from plotagent.importing.models import (
     SourceDatasetArtifact,
     TraceEvent,
 )
+from plotagent.units import SAFE_HEADER_SUFFIX_UNITS, unit_spec
 
 _MISSING = frozenset({"", "na", "n/a", "null", "none", "missing", "-", "—"})
 _TRUE = frozenset({"true"})
 _FALSE = frozenset({"false"})
 _UNIT_PATTERN = re.compile(r"(?:\(([^()]+)\)|\[([^\[\]]+)\])\s*$")
+_HEADER_UNIT_SUFFIX_PATTERN = re.compile(r"^(?P<name>.+)_(?P<unit>[^_]+)$")
+# Header suffixes are only suggestions, so keep this intentionally small and
+# unambiguous.  Arbitrary suffixes such as ``sample_id`` must never silently
+# become units.  Parenthesized/bracketed unit text remains explicitly accepted
+# above, including opaque instrument-specific units.
 _HEADER_NAMES = frozenset(
     {
         "x",
@@ -68,7 +74,9 @@ _HEADER_NAMES = frozenset(
 def looks_like_declared_header(cells: tuple[str, ...]) -> bool:
     """Recognize common explicit scientific headers without guessing arbitrary text rows."""
 
-    normalized = tuple(re.sub(r"[^a-z0-9_]+", "", value.strip().casefold()) for value in cells)
+    normalized = tuple(
+        re.sub(r"[^a-z0-9_]+", "", _header_without_unit(value).casefold()) for value in cells
+    )
     if (
         not normalized
         or any(not value for value in normalized)
@@ -96,6 +104,24 @@ def stable_hash(parts: Iterable[str]) -> str:
 
 def normalize_header(value: object) -> str:
     return unicodedata.normalize("NFC", str(value).strip())
+
+
+def _header_suffix_unit(header: str) -> str | None:
+    matched = _HEADER_UNIT_SUFFIX_PATTERN.fullmatch(header.strip())
+    if matched is None:
+        return None
+    unit = matched.group("unit").strip()
+    return unit if unit in SAFE_HEADER_SUFFIX_UNITS else None
+
+
+def _header_without_unit(header: str) -> str:
+    matched = _UNIT_PATTERN.search(header)
+    if matched is not None:
+        return header[: matched.start()].rstrip()
+    unit = _header_suffix_unit(header)
+    if unit is not None:
+        return header[: -(len(unit) + 1)].rstrip()
+    return header
 
 
 def parse_text_scalar(token: str, decimal_mark: str) -> Scalar:
@@ -171,6 +197,14 @@ def _logical_type(
 def _unit(header: str) -> UnitSpec:
     match = _UNIT_PATTERN.search(header)
     if match is None:
+        suffix = _header_suffix_unit(header)
+        if suffix is not None:
+            return UnitSpec(
+                source_text=suffix,
+                dimensionality="opaque",
+                kind="opaque",
+                registry_version="units.v1",
+            )
         return UnitSpec(
             source_text="",
             dimensionality="dimensionless",
@@ -185,12 +219,7 @@ def _unit(header: str) -> UnitSpec:
             kind="dimensionless",
             registry_version="units.v1",
         )
-    return UnitSpec(
-        source_text=unit,
-        dimensionality="opaque",
-        kind="opaque",
-        registry_version="units.v1",
-    )
+    return unit_spec(unit)
 
 
 def _canonical_recipe(recipe: ImportRecipe) -> str:

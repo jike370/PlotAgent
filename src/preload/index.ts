@@ -103,6 +103,8 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.taskPlanResume, input),
   saveWorkflowRecipe: (input: WorkflowRecipeSaveInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.workflowRecipeSave, input),
+  listWorkflowRecipes: (input: ProjectIdInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.workflowRecipeList, input),
   exportPngSvg: (input: PngSvgExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportPngSvg, input),
   exportOrigin: (input: OriginExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportOrigin, input),
   respondToCloseRequest: (response: CloseResponse) =>

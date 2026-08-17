@@ -105,12 +105,9 @@ WorkflowPalette = Literal[
 ]
 
 WorkflowRoute = Literal[
-    "deterministic",
+    "agent",
     "recipe_replay",
-    "agent_single_turn",
-    "agent_exploration",
-    "needs_input",
-    "unsupported",
+    "direct",
 ]
 
 
@@ -140,6 +137,7 @@ class WorkflowField(StrictModel):
     name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
     logical_type: Literal["numeric", "categorical", "datetime", "boolean", "text"]
     unit_label: Annotated[str, StringConstraints(max_length=128, strict=True)] | None = None
+    unit_evidence: Literal["none", "declared", "suffix_candidate"] = "none"
 
 
 class WorkflowPlot(StrictModel):
@@ -197,6 +195,10 @@ class SourceInspection(StrictModel):
     metadata_keys: tuple[Token, ...] = ()
 
 
+class SourceList(StrictModel):
+    sources: Annotated[tuple[WorkflowSource, ...], Field(max_length=64)]
+
+
 WorkflowScalar = bool | int | float | str | date | datetime | None
 
 
@@ -226,6 +228,25 @@ class FieldProfile(StrictModel):
     examples: Annotated[tuple[WorkflowScalar, ...], Field(max_length=8)] = ()
 
 
+class ValueSearchMatch(StrictModel):
+    row_offset: Annotated[int, Field(ge=0)]
+    value: WorkflowScalar
+
+
+class ValueSearchResult(StrictModel):
+    source_alias: WorkflowAlias
+    field_alias: WorkflowAlias
+    mode: Literal["equal", "contains", "prefix"]
+    query: WorkflowScalar
+    matches: Annotated[tuple[ValueSearchMatch, ...], Field(max_length=40)]
+    truncated: bool = False
+
+
+class InstrumentMetadata(StrictModel):
+    source_alias: WorkflowAlias
+    values: dict[Token, Annotated[str, StringConstraints(max_length=512, strict=True)]]
+
+
 class SchemaComparison(StrictModel):
     source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
     common_field_names: tuple[str, ...]
@@ -235,7 +256,17 @@ class SchemaComparison(StrictModel):
 
 class InspectionAudit(StrictModel):
     workflow_run_id: WorkflowRunId
-    tool_name: Literal["inspect_source", "preview_rows", "profile_field", "compare_schemas"]
+    tool_name: Literal[
+        "list_sources",
+        "inspect_source",
+        "preview_rows",
+        "sample_rows",
+        "profile_field",
+        "search_values",
+        "compare_schemas",
+        "inspect_instrument_metadata",
+        "preview_data_operation",
+    ]
     source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=1, max_length=8)]
     disclosed_field_count: Annotated[int, Field(ge=0)]
     disclosed_row_count: Annotated[int, Field(ge=0)]
@@ -295,12 +326,26 @@ class SortRows(StrictModel):
     keys: Annotated[tuple[SortKey, ...], Field(min_length=1, max_length=8)]
 
 
+class WorkflowOutputField(StrictModel):
+    field_alias: WorkflowAlias
+    name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+
+
 class ReshapeLongToWide(StrictModel):
     operation: Literal["reshape_long_to_wide"] = "reshape_long_to_wide"
     source_alias: WorkflowAlias
     index_field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=1, max_length=8)]
     name_field_alias: WorkflowAlias
     value_field_alias: WorkflowAlias
+    output_fields: Annotated[tuple[WorkflowOutputField, ...], Field(min_length=1, max_length=64)]
+
+    @model_validator(mode="after")
+    def unique_outputs(self) -> ReshapeLongToWide:
+        aliases = tuple(item.field_alias for item in self.output_fields)
+        names = tuple(item.name for item in self.output_fields)
+        if len(aliases) != len(set(aliases)) or len(names) != len(set(names)):
+            raise ValueError("long-to-wide output aliases and names must be unique")
+        return self
 
 
 class ReshapeWideToLong(StrictModel):
@@ -330,17 +375,47 @@ class ConcatenateSources(StrictModel):
         return self
 
 
-class CalculateChartData(StrictModel):
-    operation: Literal["calculate_chart_data"] = "calculate_chart_data"
-    calculation: Literal[
-        "histogram_binning",
-        "tukey_box",
-        "violin_kde",
-        "summary_error",
-        "percent_stack",
-        "matrix_projection",
-        "confusion_count",
+class RenameField(StrictModel):
+    operation: Literal["rename_field"] = "rename_field"
+    source_alias: WorkflowAlias
+    field_alias: WorkflowAlias
+    output_field_alias: WorkflowAlias
+    output_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+
+
+class DeriveColumn(StrictModel):
+    operation: Literal["derive_column"] = "derive_column"
+    source_alias: WorkflowAlias
+    input_field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=1, max_length=2)]
+    operator: Literal[
+        "add", "subtract", "multiply", "divide", "absolute", "negate", "log10", "ln", "sqrt"
     ]
+    scalar: FiniteNumber | None = None
+    output_field_alias: WorkflowAlias
+    output_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+
+    @model_validator(mode="after")
+    def operands_match_operator(self) -> DeriveColumn:
+        unary = self.operator in {"absolute", "negate", "log10", "ln", "sqrt"}
+        if unary and (len(self.input_field_aliases) != 1 or self.scalar is not None):
+            raise ValueError("unary derived columns require exactly one field")
+        if not unary:
+            has_two_fields = len(self.input_field_aliases) == 2 and self.scalar is None
+            has_field_scalar = len(self.input_field_aliases) == 1 and self.scalar is not None
+            if not (has_two_fields or has_field_scalar):
+                raise ValueError(
+                    "binary derived columns require two fields or one field and scalar"
+                )
+        return self
+
+
+class ConvertUnit(StrictModel):
+    operation: Literal["convert_unit"] = "convert_unit"
+    source_alias: WorkflowAlias
+    field_alias: WorkflowAlias
+    target_unit: Annotated[str, StringConstraints(min_length=1, max_length=128, strict=True)]
+    output_field_alias: WorkflowAlias
+    output_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
 
 
 DataOperation = Annotated[
@@ -350,7 +425,9 @@ DataOperation = Annotated[
     | ReshapeLongToWide
     | ReshapeWideToLong
     | ConcatenateSources
-    | CalculateChartData,
+    | RenameField
+    | DeriveColumn
+    | ConvertUnit,
     Field(discriminator="operation"),
 ]
 
@@ -373,11 +450,7 @@ class DraftSetTitle(StrictModel):
 
     @model_validator(mode="after")
     def has_change(self) -> DraftSetTitle:
-        if all(
-            value is None
-            for name, value in self
-            if name not in {"operation", "target_alias"}
-        ):
+        if all(value is None for name, value in self if name not in {"operation", "target_alias"}):
             raise ValueError("title edit needs at least one change")
         return self
 
@@ -416,11 +489,7 @@ class DraftSetAxis(StrictModel):
             raise ValueError("axis bounds must be both fixed or both automatic")
         if self.minimum is not None and self.maximum is not None and self.minimum >= self.maximum:
             raise ValueError("axis minimum must be lower than maximum")
-        if all(
-            value is None
-            for name, value in self
-            if name not in {"operation", "target_alias"}
-        ):
+        if all(value is None for name, value in self if name not in {"operation", "target_alias"}):
             raise ValueError("axis edit needs at least one change")
         return self
 
@@ -447,11 +516,7 @@ class DraftSetSeriesStyle(StrictModel):
 
     @model_validator(mode="after")
     def has_change(self) -> DraftSetSeriesStyle:
-        if all(
-            value is None
-            for name, value in self
-            if name not in {"operation", "target_alias"}
-        ):
+        if all(value is None for name, value in self if name not in {"operation", "target_alias"}):
             raise ValueError("series style needs at least one change")
         return self
 
@@ -460,16 +525,19 @@ class DraftSetLegend(StrictModel):
     operation: Literal["set_legend"] = "set_legend"
     target_alias: WorkflowAlias = "legend"
     visible: bool | None = None
-    anchor: Literal[
-        "inside",
-        "inside_top_left",
-        "inside_top_right",
-        "inside_bottom_left",
-        "inside_bottom_right",
-        "right",
-        "bottom",
-        "none",
-    ] | None = None
+    anchor: (
+        Literal[
+            "inside",
+            "inside_top_left",
+            "inside_top_right",
+            "inside_bottom_left",
+            "inside_bottom_right",
+            "right",
+            "bottom",
+            "none",
+        ]
+        | None
+    ) = None
     columns: Annotated[int, Field(ge=1, le=12)] | None = None
     title: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
     font_family: WorkflowFontFamily | None = None
@@ -481,11 +549,7 @@ class DraftSetLegend(StrictModel):
 
     @model_validator(mode="after")
     def has_change(self) -> DraftSetLegend:
-        if all(
-            value is None
-            for name, value in self
-            if name not in {"operation", "target_alias"}
-        ):
+        if all(value is None for name, value in self if name not in {"operation", "target_alias"}):
             raise ValueError("legend edit needs at least one change")
         return self
 
@@ -600,7 +664,7 @@ DraftVisualAction = Annotated[
 
 
 class TaskDraftItem(StrictModel):
-    task_kind: Literal["create", "edit"]
+    task_kind: Literal["create", "edit", "update_data"]
     item_id: TaskItemId
     plot_alias: WorkflowAlias
     profile_id: Token
@@ -615,7 +679,7 @@ class TaskDraftItem(StrictModel):
         if self.task_kind == "create":
             if self.target_plot_alias is not None or not self.source_aliases or not self.bindings:
                 raise ValueError("create tasks need sources and bindings, not an existing plot")
-        elif (
+        elif self.task_kind == "edit" and (
             self.target_plot_alias is None
             or self.source_aliases
             or self.data_operations
@@ -623,6 +687,10 @@ class TaskDraftItem(StrictModel):
             or not self.visual_actions
         ):
             raise ValueError("edit tasks accept only a target plot and visual actions")
+        elif self.task_kind == "update_data" and (
+            self.target_plot_alias is None or not self.source_aliases or not self.bindings
+        ):
+            raise ValueError("update_data tasks need a target plot, sources and bindings")
         if len(self.source_aliases) != len(set(self.source_aliases)):
             raise ValueError("task item source aliases must be unique")
         roles = tuple(binding.role for binding in self.bindings)
@@ -637,7 +705,7 @@ class TaskDraft(StrictModel):
     schema_version: Literal["task-draft.v1"] = "task-draft.v1"
     draft_id: TaskDraftId
     workflow_run_id: WorkflowRunId
-    route: Literal["deterministic", "recipe_replay", "agent_single_turn", "agent_exploration"]
+    route: Literal["agent", "recipe_replay", "direct"]
     summary: Annotated[str, StringConstraints(min_length=1, max_length=512, strict=True)]
     items: Annotated[tuple[TaskDraftItem, ...], Field(min_length=1, max_length=64)]
     confidence: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
@@ -700,7 +768,7 @@ class ResolvedWorkflowField(StrictModel):
 
 
 class CompiledTaskItem(StrictModel):
-    task_kind: Literal["create", "edit"]
+    task_kind: Literal["create", "edit", "update_data"]
     item_id: TaskItemId
     plot_alias: WorkflowAlias
     plot_id: Token
@@ -720,7 +788,7 @@ class CompiledTaskItem(StrictModel):
         if self.task_kind == "create":
             if self.target_plot_id is not None or not self.sources or not self.bindings:
                 raise ValueError("compiled create task is incomplete")
-        elif (
+        elif self.task_kind == "edit" and (
             self.target_plot_id is None
             or self.target_plot_version is None
             or self.sources
@@ -730,6 +798,13 @@ class CompiledTaskItem(StrictModel):
             or not self.visual_actions
         ):
             raise ValueError("compiled edit task is incomplete")
+        elif self.task_kind == "update_data" and (
+            self.target_plot_id is None
+            or self.target_plot_version is None
+            or not self.sources
+            or not self.bindings
+        ):
+            raise ValueError("compiled update_data task is incomplete")
         return self
 
 
@@ -766,10 +841,13 @@ class TaskItemProgress(StrictModel):
     ]
     attempt_count: Annotated[int, Field(ge=0, le=32)] = 0
     error_code: Token | None = None
-    error_message: Annotated[
-        str,
-        StringConstraints(min_length=1, max_length=512, strip_whitespace=True, strict=True),
-    ] | None = None
+    error_message: (
+        Annotated[
+            str,
+            StringConstraints(min_length=1, max_length=512, strip_whitespace=True, strict=True),
+        ]
+        | None
+    ) = None
     error_retryable: bool | None = None
     output_plot_id: Token | None = None
     output_plot_version: VersionId | None = None
@@ -816,11 +894,9 @@ class WorkflowRunSnapshot(StrictModel):
     project_id: Token
     state: Literal[
         "routing",
-        "deterministic_attempt",
-        "recipe_matching",
+        "agent",
         "recipe_replay",
-        "agent_single_turn",
-        "agent_exploration",
+        "direct",
         "needs_input",
         "draft_ready",
         "awaiting_confirmation",
@@ -849,7 +925,6 @@ class WorkflowRecipe(StrictModel):
     recipe_version: VersionId
     display_name: Annotated[str, StringConstraints(min_length=1, max_length=128, strict=True)]
     structure_fingerprint: Sha256
-    goal_signature: Sha256
     draft_template: TaskDraft
     engine_profile_hash: Sha256
     renderer_contract_hash: Sha256

@@ -413,8 +413,9 @@ async function createSetupPlot(
   dataset: ImportedDataset,
   profileId: string,
 ): Promise<{ plotId: string; revision: number }> {
-  const prepared = record(await harness.core.request('workflow.prepare', {
+  const prepared = record(await harness.pi.run({
     project_id: projectId,
+    client_run_id: `workflow-client:${randomUUID()}`,
     expected_project_version: revision,
     instruction: `用 ${profileId} 绘制这张表`,
     selected_sources: selectedSources([dataset]),
@@ -505,7 +506,7 @@ async function runWorkflowCase(
   }
 }
 
-async function deterministicPlan(
+async function agentPlan(
   harness: EvalHarness,
   key: string,
   fixturePaths: Record<string, string>,
@@ -517,8 +518,9 @@ async function deterministicPlan(
 }> {
   const project = await createProject(harness, key)
   const imported = await importFixtures(harness, project.projectId, 0, ['xy'], fixturePaths)
-  const prepared = record(await harness.core.request('workflow.prepare', {
+  const prepared = record(await harness.pi.run({
     project_id: project.projectId,
+    client_run_id: `workflow-client:${randomUUID()}`,
     expected_project_version: imported.revision,
     instruction: '用 K01 折线图绘制这张表',
     selected_sources: selectedSources([imported.datasets[0]]),
@@ -552,7 +554,7 @@ async function runRuntimeScenario(
   harness.activeRunKey = runKey
   const started = performance.now()
   try {
-    const setup = await deterministicPlan(harness, runKey, fixturePaths)
+    const setup = await agentPlan(harness, runKey, fixturePaths)
     let passed = false
     if (task.scenario === 'confirmation_no_side_effect') {
       passed = await plotCount(harness, setup.projectId) === 0
@@ -605,18 +607,19 @@ async function runRuntimeScenario(
         destination_path: destination,
       }, 20_000), 'recipe export')
       const artifact = record(exported.artifact, 'recipe artifact')
-      await harness.core.request('workflow.recipes.save', {
+      const recipe = record(await harness.core.request('workflow.recipes.save', {
         project_id: setup.projectId,
         plan_id: setup.planId,
         display_name: `SEQ-70 ${runKey}`,
         export_hash: text(artifact.content_hash, 'export hash'),
-      })
+      }), 'saved recipe')
       const replay = record(await harness.core.request('workflow.prepare', {
         project_id: setup.projectId,
         expected_project_version: integer(completed.current_project_revision, 'recipe revision'),
         instruction: '用 K01 折线图绘制这张表',
         selected_sources: selectedSources([setup.dataset]),
         selected_profile_ids: ['K01'],
+        selected_recipe_id: text(recipe.recipe_id, 'recipe id'),
       }), 'recipe replay')
       passed = replay.route === 'recipe_replay' && replay.outcome === 'draft_ready'
     } else if (task.scenario === 'restart_recovers_plan') {

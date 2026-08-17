@@ -8,9 +8,30 @@ import {
   readImportSummary,
   readPlot,
   readPlots,
+  readWorkflowRecipes,
 } from './productState'
 
 describe('product plot state', () => {
+  it('reads explicit saved workflow choices without inferring a natural-language trigger', () => {
+    expect(readWorkflowRecipes({
+      workflow_recipes: [{
+        recipe_id: 'recipe:line',
+        display_name: '折线图流程',
+        draft_template: {
+          items: [
+            { profile_id: 'K01' },
+            { profile_id: 'K01' },
+            { profile_id: 'K03' },
+          ],
+        },
+      }],
+    })).toEqual([{
+      recipeId: 'recipe:line',
+      displayName: '折线图流程',
+      profileIds: ['K01', 'K03'],
+    }])
+  })
+
   it('prefers file and worksheet identity and summarizes per-file import outcomes', () => {
     const value: JsonValue = {
       selected_files: ['仪器记录.xlsx', '损坏.csv'],
@@ -25,7 +46,13 @@ describe('product plot state', () => {
             source_version: 1,
             row_count: 2,
             field_count: 1,
-            fields: [{ field_id: 'field:x', name: 'Time_s', logical_type: 'numeric', physical_type: 'float64', unit: { symbol: 's' } }],
+            fields: [{
+              field_id: 'field:x',
+              name: 'Time_s',
+              logical_type: 'numeric',
+              physical_type: 'float64',
+              unit: { source_text: 's', canonical_unit: null, dimensionality: 'opaque', kind: 'opaque', registry_version: 'units.v1' },
+            }],
             sample_rows: [[1], [2]],
             quality: {},
             source_coordinate_kinds: ['excel'],
@@ -41,6 +68,7 @@ describe('product plot state', () => {
       sourceFileName: '仪器记录.xlsx',
       sourceSheetName: '动力学',
       sampleRows: [[1], [2]],
+      fields: [expect.objectContaining({ unit: 's' })],
     })
     expect(readImportSummary(value)).toEqual({
       fileCount: 2,

@@ -382,6 +382,7 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
     saveWorkflowRecipe: async ({ displayName }) => ok({
       recipe_id: 'recipe:preview', recipe_version: 1, display_name: displayName,
     }),
+    listWorkflowRecipes: async () => ok({ workflow_recipes: [] }),
     confirmTaskPlan: async ({ planId, accept }) => {
       const plan = workflowPlans.get(planId)
       if (plan === undefined) return missing('未找到任务计划。')

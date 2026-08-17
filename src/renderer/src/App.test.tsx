@@ -31,8 +31,8 @@ const dataset = {
   row_count: 12,
   field_count: 3,
   fields: [
-    { field_id: 'field:time', name: 'time_min', logical_type: 'numeric', physical_type: 'float64', unit: { symbol: 'min' } },
-    { field_id: 'field:signal', name: 'fluorescence_au', logical_type: 'numeric', physical_type: 'float64', unit: { symbol: 'a.u.' } },
+    { field_id: 'field:time', name: 'time_min', logical_type: 'numeric', physical_type: 'float64', unit: { source_text: 'min', canonical_unit: null, dimensionality: 'opaque', kind: 'opaque', registry_version: 'units.v1' } },
+    { field_id: 'field:signal', name: 'fluorescence_au', logical_type: 'numeric', physical_type: 'float64', unit: { source_text: 'a.u.', canonical_unit: null, dimensionality: 'opaque', kind: 'opaque', registry_version: 'units.v1' } },
     { field_id: 'field:condition', name: 'condition', logical_type: 'categorical', physical_type: 'string', unit: null },
   ],
   sample_rows: [
@@ -329,6 +329,7 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     runTaskPlan: vi.fn(async () => ok({ task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
     resumeTaskPlan: vi.fn(async () => ok({ task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
     saveWorkflowRecipe: vi.fn(async ({ displayName }) => ok({ recipe_id: 'recipe:test', recipe_version: 1, display_name: displayName })),
+    listWorkflowRecipes: vi.fn(async () => ok({ workflow_recipes: [] })),
     exportPngSvg: vi.fn(async () => ok({ export_id: 'export:one', artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: 'plot.png' } } })),
     exportOrigin: vi.fn(async () => ok({ export_id: 'export:origin', result: { status: 'succeeded' } })),
     respondToCloseRequest: vi.fn(actionOk),
@@ -1028,6 +1029,36 @@ describe('PlotAgent real desktop workflow', () => {
     expect(await screen.findByText('流程已固化')).toBeInTheDocument()
   })
 
+  it('runs a saved workflow only after the user explicitly selects it', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture())))
+    const api = fakeDesktop({
+      listWorkflowRecipes: vi.fn(async () => ok({
+        workflow_recipes: [{
+          recipe_id: 'recipe:line',
+          display_name: '折线图流程',
+          draft_template: {
+            items: [{ profile_id: 'K01' }],
+          },
+        }],
+      })),
+      runWorkflow,
+    })
+    installApi(api)
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.selectOptions(await screen.findByRole('combobox', { name: '已固化流程' }), 'recipe:line')
+
+    expect(runWorkflow).toHaveBeenCalledWith({
+      projectId: 'project:sample',
+      selectedSources: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
+      expectedProjectVersion: 1,
+      selectedRecipeId: 'recipe:line',
+      instruction: '使用已固化流程：折线图流程',
+    })
+  })
+
   it('keeps OPJU progress explicit and announces a durable completion result', async () => {
     const user = userEvent.setup()
     let finishExport: ((result: DesktopDataResult) => void) | undefined
@@ -1257,7 +1288,7 @@ describe('PlotAgent real desktop workflow', () => {
     }))
   })
 
-  it('adds a data table explicitly named in the instruction without changing the active table', async () => {
+  it('does not infer a data selection from a file name in natural language', async () => {
     const user = userEvent.setup()
     const prepareWorkflow = vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture())))
     installApi(fakeDesktop({
@@ -1280,12 +1311,12 @@ describe('PlotAgent real desktop workflow', () => {
     expect(prepareWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
       selectedSources: [
         { datasetId: 'source:temperature', sourceVersion: 1 },
-        { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
+      instruction: '把 pressure.csv 和当前数据画在同一张 K03 散点图中',
     }))
   })
 
-  it('provides every imported table when the instruction explicitly names their total count', async () => {
+  it('does not infer a data selection from a count in natural language', async () => {
     const user = userEvent.setup()
     const prepareWorkflow = vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture())))
     installApi(fakeDesktop({
@@ -1309,7 +1340,6 @@ describe('PlotAgent real desktop workflow', () => {
     expect(prepareWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
       selectedSources: [
         { datasetId: 'source:temperature', sourceVersion: 1 },
-        { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
       instruction: '将已提供的 2 个数据表画在同一张 K03 散点图中。',
     }))
@@ -1415,7 +1445,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getAllByText('plot:one · v2').length).toBeGreaterThan(0)
   })
 
-  it('routes a natural-language retry to every source in the failed create step', async () => {
+  it('passes a retry request verbatim without rebuilding hidden task context', async () => {
     const user = userEvent.setup()
     const runWorkflow = vi.fn(async (
       input: Parameters<PlotAgentDesktopApi['runWorkflow']>[0],
@@ -1455,11 +1485,10 @@ describe('PlotAgent real desktop workflow', () => {
     expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({
       selectedSources: [
         { datasetId: 'source:temperature', sourceVersion: 1 },
-        { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
-      selectedProfileIds: ['K19'],
-      instruction: '仅重试上个批次失败的任务：K19 改为 linear，不要重复成功项。；将这些数据表画在同一张 K19 图中。字段角色为 time_min 绑定 time、fluorescence_au 绑定 series_1。',
+      instruction: '仅重试上个批次失败的任务：K19 改为 linear，不要重复成功项。',
     }))
+    expect(runWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedProfileIds')
     expect(runWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedPlotIds')
 
     await user.type(
@@ -1472,9 +1501,9 @@ describe('PlotAgent real desktop workflow', () => {
     expect(runWorkflow.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
       selectedSources: [
         { datasetId: 'source:temperature', sourceVersion: 1 },
-        { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
-      selectedProfileIds: ['K19'],
+      continuationWorkflowRunId: 'workflow:retry',
+      instruction: '仅重试上个批次失败的任务：K19 改为 linear，不要重复成功项。',
     }))
   })
 

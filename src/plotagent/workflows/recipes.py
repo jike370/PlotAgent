@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import re
+import unicodedata
 import uuid
 
 from plotagent.contracts.canonical import JsonValue, canonical_hash
@@ -18,45 +18,24 @@ def structure_fingerprint(context: WorkflowContext) -> str:
             {
                 "name": field.name.casefold().strip(),
                 "logical_type": field.logical_type,
-                "unit_label": (field.unit_label or "").casefold().strip(),
+                # SI prefixes are case-sensitive: MΩ and mΩ differ by 10^9.
+                # Normalize Unicode spelling, but never case-fold scientific units.
+                "unit_label": unicodedata.normalize("NFC", (field.unit_label or "").strip()),
+                "unit_evidence": field.unit_evidence,
             }
             for field in context.fields
             if field.source_alias == source.source_alias
         ]
         for source in context.sources
     }
-    sources: list[JsonValue] = [
-        fields_by_source[source.source_alias] for source in context.sources
-    ]
+    sources: list[JsonValue] = [fields_by_source[source.source_alias] for source in context.sources]
     return canonical_hash({"sources": sources})
-
-
-def goal_signature(context: WorkflowContext) -> str:
-    """Conservatively match a normalized goal and explicit profile selection."""
-
-    normalized = " ".join(
-        token
-        for token in re.split(r"[^\w\u4e00-\u9fff]+", context.instruction.casefold())
-        if token
-    )
-    return canonical_hash(
-        {
-            "instruction": normalized,
-            "profiles": list(context.selected_profile_ids),
-            "source_count": len(context.selected_source_aliases),
-            "plot_count": len(context.selected_plot_aliases),
-        }
-    )
 
 
 def profile_contract_hash(catalog: EngineCatalog, profile_ids: tuple[str, ...]) -> str:
     unique = tuple(dict.fromkeys(profile_ids))
     return canonical_hash(
-        {
-            "profiles": [
-                catalog.get(profile_id).model_dump(mode="json") for profile_id in unique
-            ]
-        }
+        {"profiles": [catalog.get(profile_id).model_dump(mode="json") for profile_id in unique]}
     )
 
 
@@ -100,7 +79,6 @@ def build_recipe(
         recipe_version=1,
         display_name=display_name,
         structure_fingerprint=structure_fingerprint(context),
-        goal_signature=goal_signature(context),
         draft_template=draft,
         engine_profile_hash=contract_hash,
         renderer_contract_hash=contract_hash,

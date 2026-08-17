@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import UTC, datetime
 from typing import Any, cast
 
 from plotagent.contracts.canonical import canonical_hash, canonical_json
 from plotagent.contracts.workflows import (
+    InputQuestion,
+    InspectionAudit,
     TaskDraft,
     TaskItemProgress,
     TaskPlan,
@@ -22,6 +25,23 @@ from plotagent.storage.project import ProjectStore
 
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds")
+
+
+_STATE_TO_STORAGE = {"agent": "agent_exploration", "direct": "deterministic_attempt"}
+_STATE_FROM_STORAGE = {
+    "agent_single_turn": "agent",
+    "agent_exploration": "agent",
+    "recipe_matching": "agent",
+    "deterministic_attempt": "direct",
+}
+_ROUTE_TO_STORAGE = {"agent": "agent_exploration", "direct": "deterministic"}
+_ROUTE_FROM_STORAGE = {
+    "agent_single_turn": "agent",
+    "agent_exploration": "agent",
+    "needs_input": "agent",
+    "unsupported": "agent",
+    "deterministic": "direct",
+}
 
 
 class WorkflowRepository:
@@ -105,8 +125,11 @@ class WorkflowRepository:
         return WorkflowRunSnapshot(
             workflow_run_id=str(row[0]),
             project_id=str(row[1]),
-            state=cast(str, row[2]),  # type: ignore[arg-type]
-            route=cast(str | None, row[3]),  # type: ignore[arg-type]
+            state=cast(Any, _STATE_FROM_STORAGE.get(str(row[2]), str(row[2]))),
+            route=cast(
+                Any,
+                None if row[3] is None else _ROUTE_FROM_STORAGE.get(str(row[3]), str(row[3])),
+            ),
             context_hash=cast(str | None, row[4]),
             draft_id=cast(str | None, row[5]),
             plan_id=cast(str | None, row[6]),
@@ -133,6 +156,8 @@ class WorkflowRepository:
     ) -> WorkflowRunSnapshot:
         current = self.get_run(workflow_run_id)
         now = _utc_now()
+        storage_state = _STATE_TO_STORAGE.get(state, state)
+        storage_route = None if route is None else _ROUTE_TO_STORAGE.get(route, route)
         self._connection.execute(
             """
             UPDATE workflow_runs SET
@@ -145,8 +170,8 @@ class WorkflowRepository:
             WHERE workflow_run_id = ?
             """,
             (
-                state,
-                route,
+                storage_state,
+                storage_route,
                 model_turn_count,
                 tool_call_count,
                 input_token_count,
@@ -197,7 +222,12 @@ class WorkflowRepository:
                 SET state = 'draft_ready', route = ?, draft_id = ?, updated_at = ?
                 WHERE workflow_run_id = ?
                 """,
-                (draft.route, draft.draft_id, now, draft.workflow_run_id),
+                (
+                    _ROUTE_TO_STORAGE.get(draft.route, draft.route),
+                    draft.draft_id,
+                    now,
+                    draft.workflow_run_id,
+                ),
             )
             self._event(
                 connection,
@@ -437,15 +467,15 @@ class WorkflowRepository:
         self._connection.execute(
             """
             INSERT INTO workflow_recipes (
-                recipe_id, recipe_version, structure_fingerprint, goal_signature,
-                recipe_hash, recipe_json, archived, created_at
+                recipe_id, recipe_version, structure_fingerprint,
+                goal_signature, recipe_hash, recipe_json, archived, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 recipe.recipe_id,
                 recipe.recipe_version,
                 recipe.structure_fingerprint,
-                recipe.goal_signature,
+                recipe.structure_fingerprint,
                 canonical_hash(recipe.model_dump(mode="json")),
                 canonical_json(recipe.model_dump(mode="json")),
                 int(recipe.archived),
@@ -454,18 +484,129 @@ class WorkflowRepository:
         )
         return recipe
 
-    def find_recipes(
-        self, structure_fingerprint: str, goal_signature: str
-    ) -> tuple[WorkflowRecipe, ...]:
+    def find_recipes(self, structure_fingerprint: str) -> tuple[WorkflowRecipe, ...]:
         rows = self._connection.execute(
             """
             SELECT recipe_json FROM workflow_recipes
-            WHERE structure_fingerprint = ? AND goal_signature = ? AND archived = 0
+            WHERE structure_fingerprint = ? AND archived = 0
             ORDER BY recipe_id, recipe_version DESC
             """,
-            (structure_fingerprint, goal_signature),
+            (structure_fingerprint,),
         ).fetchall()
         return tuple(WorkflowRecipe.model_validate_json(str(row[0])) for row in rows)
+
+    def get_recipe(self, recipe_id: str) -> WorkflowRecipe:
+        row = self._connection.execute(
+            """
+            SELECT recipe_json FROM workflow_recipes
+            WHERE recipe_id = ? AND archived = 0
+            ORDER BY recipe_version DESC LIMIT 1
+            """,
+            (recipe_id,),
+        ).fetchone()
+        if row is None:
+            raise self._not_found("Workflow recipe was not found.")
+        return WorkflowRecipe.model_validate_json(str(row[0]))
+
+    def list_recipes(self) -> tuple[WorkflowRecipe, ...]:
+        rows = self._connection.execute(
+            """
+            SELECT recipe_json FROM workflow_recipes
+            WHERE archived = 0
+            ORDER BY created_at DESC, recipe_id, recipe_version DESC
+            """
+        ).fetchall()
+        return tuple(WorkflowRecipe.model_validate_json(str(row[0])) for row in rows)
+
+    def record_questions(
+        self,
+        workflow_run_id: str,
+        questions: tuple[InputQuestion, ...],
+    ) -> None:
+        """Persist an Agent clarification request without interpreting it."""
+
+        self._event(
+            self._connection,
+            workflow_run_id,
+            "workflow.questions",
+            {"questions": [item.model_dump(mode="json") for item in questions]},
+        )
+
+    def record_inspection_audit(self, audit: InspectionAudit) -> None:
+        """Persist disclosure counts without copying inspected values into the event log."""
+
+        now = _utc_now()
+        self._connection.execute(
+            """
+            UPDATE workflow_runs
+            SET tool_call_count = tool_call_count + 1, updated_at = ?
+            WHERE workflow_run_id = ?
+            """,
+            (now, audit.workflow_run_id),
+        )
+        self._event(
+            self._connection,
+            audit.workflow_run_id,
+            "workflow.tool_audit",
+            audit.model_dump(mode="json"),
+        )
+
+    def record_clarification_answer(self, workflow_run_id: str, answer: str) -> None:
+        """Append the user's verbatim answer to the latest unanswered question set."""
+
+        run = self.get_run(workflow_run_id)
+        if run.state != "needs_input":
+            raise StorageProblem(
+                StorageErrorCode.VERSION_CONFLICT,
+                "Workflow is not waiting for a clarification answer.",
+            )
+        latest_question = self._connection.execute(
+            """
+            SELECT rowid FROM workflow_events
+            WHERE workflow_run_id = ? AND event_type = 'workflow.questions'
+            ORDER BY rowid DESC LIMIT 1
+            """,
+            (workflow_run_id,),
+        ).fetchone()
+        latest_answer = self._connection.execute(
+            """
+            SELECT rowid FROM workflow_events
+            WHERE workflow_run_id = ? AND event_type = 'workflow.answer'
+            ORDER BY rowid DESC LIMIT 1
+            """,
+            (workflow_run_id,),
+        ).fetchone()
+        if latest_question is None or (
+            latest_answer is not None and int(latest_answer[0]) > int(latest_question[0])
+        ):
+            raise StorageProblem(
+                StorageErrorCode.VERSION_CONFLICT,
+                "Workflow does not have an unanswered clarification request.",
+            )
+        self._event(
+            self._connection,
+            workflow_run_id,
+            "workflow.answer",
+            {"answer_text": answer},
+        )
+
+    def clarification_history(self, workflow_run_id: str) -> tuple[dict[str, object], ...]:
+        rows = self._connection.execute(
+            """
+            SELECT event_type, payload_json FROM workflow_events
+            WHERE workflow_run_id = ?
+              AND event_type IN ('workflow.questions', 'workflow.answer')
+            ORDER BY rowid
+            """,
+            (workflow_run_id,),
+        ).fetchall()
+        return tuple(
+            {
+                "kind": "questions" if str(row[0]) == "workflow.questions" else "answer",
+                **cast(dict[str, object], json.loads(str(row[1]))),
+            }
+            for row in rows
+        )
 
     @staticmethod
     def _event(

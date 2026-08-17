@@ -34,6 +34,7 @@ import type {
   WorkflowBindingView,
   WorkflowOutcome,
   WorkflowPlanView,
+  WorkflowRecipeView,
   ProductDataset,
   ProductPlot,
   ProductProject,
@@ -82,6 +83,7 @@ interface ConversationWorkspaceProps {
   agentRuntimeLabel?: string
   workflowOutcome?: WorkflowOutcome
   workflowPlan?: WorkflowPlanView
+  workflowRecipes: WorkflowRecipeView[]
   agentConfigured: boolean
   taskEvents: TaskEvent[]
   previewMode?: boolean
@@ -94,6 +96,7 @@ interface ConversationWorkspaceProps {
   onConfirmMapping: (mapping: FieldMappingInput) => void
   onConfirmMultiSourceMapping: (mapping: FieldMappingInput) => void
   onAgentInstruction: (instruction: string, scope: ScopeMode) => void
+  onRunWorkflowRecipe: (recipeId: string) => void
   onConfirmWorkflowPlan: (planId: string) => void
   onRejectWorkflowPlan: (planId: string) => void
   onRunWorkflowPlan: (planId: string) => void
@@ -583,6 +586,8 @@ function ConversationComposer({
   onConfigure,
   onOpenLibrary,
   onImportData,
+  workflowRecipes,
+  onRunWorkflowRecipe,
 }: {
   plot?: ProductPlot
   selectedChart?: ChartType
@@ -596,6 +601,8 @@ function ConversationComposer({
   onConfigure: () => void
   onOpenLibrary: () => void
   onImportData: () => void
+  workflowRecipes: WorkflowRecipeView[]
+  onRunWorkflowRecipe: (recipeId: string) => void
 }): React.JSX.Element {
   const [scope, setScope] = useState<ScopeMode>('current')
   const [value, setValue] = useState('')
@@ -626,6 +633,28 @@ function ConversationComposer({
             {importing ? <LoaderCircle className="spin" size={15} /> : <FileUp size={15} />}
             {importing ? '正在导入' : `上传数据${datasetCount > 0 ? ` (${datasetCount})` : ''}`}
           </button>
+          {workflowRecipes.length > 0 && (
+            <label className="composer-recipe-picker">
+              <span className="sr-only">选择已固化流程</span>
+              <select
+                aria-label="已固化流程"
+                className="composer-tool"
+                defaultValue=""
+                disabled={busy || datasetCount === 0}
+                onChange={(event) => {
+                  if (event.target.value) onRunWorkflowRecipe(event.target.value)
+                  event.target.value = ''
+                }}
+              >
+                <option value="">已固化流程</option>
+                {workflowRecipes.map((recipe) => (
+                  <option key={recipe.recipeId} value={recipe.recipeId}>
+                    {recipe.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {!configured && <button type="button" className="composer-tool" onClick={onConfigure}>配置模型</button>}
           <button className="send-button" type="button" onClick={submit} disabled={!value.trim() || busy} aria-label="生成任务计划">{busy ? <LoaderCircle className="spin" size={17} /> : <SendHorizontal size={17} />}</button>
         </div>
@@ -870,7 +899,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         </div>
       )}
 
-      {project && <ConversationComposer plot={plot} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
+      {project && <ConversationComposer plot={plot} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} workflowRecipes={props.workflowRecipes} onRunWorkflowRecipe={props.onRunWorkflowRecipe} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}
     </main>
   )

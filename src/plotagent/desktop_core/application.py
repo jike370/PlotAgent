@@ -115,9 +115,7 @@ class DesktopApplication:
         self.projects_root.mkdir(exist_ok=True)
         catalog_path = self.root / "catalog.sqlite3"
         self.catalog = (
-            Catalog.open(catalog_path)
-            if catalog_path.is_file()
-            else Catalog.create(catalog_path)
+            Catalog.open(catalog_path) if catalog_path.is_file() else Catalog.create(catalog_path)
         )
         self._sessions: dict[str, ProjectSession] = {}
         self._packages = ProjectPackageService(self.catalog, self.projects_root)
@@ -155,6 +153,9 @@ class DesktopApplication:
             "workflow.prepare": self._workflow_prepare,
             "workflow.submit_draft": self._workflow_submit_draft,
             "workflow.inspect": self._workflow_inspect,
+            "workflow.preview_operation": self._workflow_preview_operation,
+            "workflow.ask_user": self._workflow_ask_user,
+            "workflow.report_unsupported": self._workflow_report_unsupported,
             "workflow.plans.get": self._workflow_plan_get,
             "workflow.plans.list": self._workflow_plan_list,
             "workflow.plans.confirm": self._workflow_plan_confirm,
@@ -162,6 +163,7 @@ class DesktopApplication:
             "workflow.plans.run": self._workflow_plan_run,
             "workflow.plans.resume": self._workflow_plan_run,
             "workflow.recipes.save": self._workflow_recipe_save,
+            "workflow.recipes.list": self._workflow_recipe_list,
             "provider.status": self._provider_status,
             "provider.runtime.get": self._provider_runtime_get,
             "provider.configure": self._provider_configure,
@@ -196,6 +198,8 @@ class DesktopApplication:
                 "selected_profile_id",
                 "selected_profile_ids",
                 "selected_plot_ids",
+                "selected_recipe_id",
+                "continuation_workflow_run_id",
                 "locale",
             },
         )
@@ -299,6 +303,69 @@ class DesktopApplication:
                 plan_id=_text(values["plan_id"], "plan_id"),
                 display_name=_text(values["display_name"], "display_name"),
                 export_hash=_text(values["export_hash"], "export_hash"),
+            ),
+        )
+
+    def _workflow_recipe_list(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return {
+            "workflow_recipes": [
+                item.model_dump(mode="json") for item in session.workflow.repository.list_recipes()
+            ]
+        }
+
+    def _workflow_ask_user(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "workflow_run_id", "questions"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.workflow.ask_user(
+                _text(values["workflow_run_id"], "workflow_run_id"),
+                values["questions"],
+            ),
+        )
+
+    def _workflow_report_unsupported(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "workflow_run_id", "reason_code", "message"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.workflow.report_unsupported(
+                _text(values["workflow_run_id"], "workflow_run_id"),
+                _text(values["reason_code"], "reason_code"),
+                _text(values["message"], "message"),
+            ),
+        )
+
+    def _workflow_preview_operation(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "workflow_run_id", "operation"},
+            optional={"limit"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        limit = values.get("limit", 5)
+        if not isinstance(limit, int) or isinstance(limit, bool):
+            raise RpcServiceError("INVALID_PARAMS", "limit must be an integer.")
+        return cast(
+            RpcJsonValue,
+            session.workflow.preview_operation(
+                _text(values["workflow_run_id"], "workflow_run_id"),
+                values["operation"],
+                limit=limit,
             ),
         )
 

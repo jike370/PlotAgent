@@ -333,7 +333,60 @@ def test_public_export_action_writes_png_without_mutating_plot(
     )
 
 
-def test_workflow_deterministic_create_requires_confirmation_and_executes(
+def _submit_k01_create(
+    harness: ApplicationHarness,
+    project_id: str,
+    prepared: dict[str, Any],
+    *,
+    visual_actions: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    context = cast(dict[str, Any], prepared["workflow_context"])
+    source = cast(list[dict[str, Any]], context["sources"])[0]
+    numeric = [
+        item
+        for item in cast(list[dict[str, Any]], context["fields"])
+        if item["source_alias"] == source["source_alias"] and item["logical_type"] == "numeric"
+    ][:2]
+    run_id = cast(str, prepared["workflow_run_id"])
+    return harness.call(
+        "workflow.submit_draft",
+        {
+            "project_id": project_id,
+            "workflow_run_id": run_id,
+            "task_draft": {
+                "draft_id": f"draft:{run_id.removeprefix('workflow:')}",
+                "workflow_run_id": run_id,
+                "route": "agent",
+                "summary": "创建 K01 折线图",
+                "items": [
+                    {
+                        "task_kind": "create",
+                        "item_id": f"item:{run_id.removeprefix('workflow:')}.1",
+                        "plot_alias": "plot_1",
+                        "profile_id": "K01",
+                        "source_aliases": [source["source_alias"]],
+                        "bindings": [
+                            {
+                                "role": "x",
+                                "source_alias": source["source_alias"],
+                                "field_alias": numeric[0]["field_alias"],
+                            },
+                            {
+                                "role": "y",
+                                "source_alias": source["source_alias"],
+                                "field_alias": numeric[1]["field_alias"],
+                            },
+                        ],
+                        "visual_actions": visual_actions or [],
+                    }
+                ],
+                "confidence": 1,
+            },
+        },
+    )
+
+
+def test_workflow_agent_create_requires_confirmation_and_executes(
     harness: ApplicationHarness,
 ) -> None:
     project_id, revision = _create_open(harness)
@@ -354,8 +407,9 @@ def test_workflow_deterministic_create_requires_confirmation_and_executes(
             "selected_profile_ids": ["K01"],
         },
     )
-    assert prepared["outcome"] == "draft_ready"
-    task_plan = cast(dict[str, Any], prepared["task_plan"])
+    assert prepared["outcome"] == "agent_required"
+    submitted = _submit_k01_create(harness, project_id, prepared)
+    task_plan = cast(dict[str, Any], submitted["task_plan"])
     assert task_plan["state"] == "awaiting_confirmation"
     plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
 
@@ -363,9 +417,7 @@ def test_workflow_deterministic_create_requires_confirmation_and_executes(
         "workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id}
     )
     assert confirmed["state"] == "ready"
-    completed = harness.call(
-        "workflow.plans.run", {"project_id": project_id, "plan_id": plan_id}
-    )
+    completed = harness.call("workflow.plans.run", {"project_id": project_id, "plan_id": plan_id})
     assert completed["state"] == "succeeded"
     progress = cast(list[dict[str, Any]], completed["item_progress"])
     assert progress[0]["output_plot_version"] == 1
@@ -393,11 +445,11 @@ def test_workflow_agent_handoff_exposes_profile_contract_and_core_owns_route(
         },
     )
     assert prepared["outcome"] == "agent_required"
-    assert prepared["route"] == "agent_single_turn"
+    assert prepared["route"] == "agent"
     prompt = cast(str, prepared["system_prompt"])
     assert '"profile_id":"K01"' in prompt
     assert '"required_roles":["x","y"]' in prompt
-    assert '"authoritative_route":"agent_single_turn"' in prompt
+    assert '"authoritative_route":"agent"' in prompt
 
     context = cast(dict[str, Any], prepared["workflow_context"])
     assert cast(list[dict[str, Any]], context["sources"])[0]["display_name"] == (
@@ -416,7 +468,7 @@ def test_workflow_agent_handoff_exposes_profile_contract_and_core_owns_route(
                 "draft_id": "draft:agent-route",
                 "workflow_run_id": run_id,
                 # A model-supplied route is never authoritative.
-                "route": "deterministic",
+                "route": "direct",
                 "summary": "创建测试折线图",
                 "items": [
                     {
@@ -437,16 +489,180 @@ def test_workflow_agent_handoff_exposes_profile_contract_and_core_owns_route(
                                 "field_alias": numeric[1]["field_alias"],
                             },
                         ],
-                        "visual_actions": [
-                            {"operation": "set_title", "text": "测试"}
-                        ],
+                        "visual_actions": [{"operation": "set_title", "text": "测试"}],
                     }
                 ],
                 "confidence": 1,
             },
         },
     )
-    assert cast(dict[str, Any], submitted["draft"])["route"] == "agent_single_turn"
+    assert cast(dict[str, Any], submitted["draft"])["route"] == "agent"
+
+
+def test_workflow_agent_can_inspect_and_preview_data_operations(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="workflow-inspect")
+    dataset = cast(list[dict[str, Any]], imported["datasets"])[0]
+    prepared = harness.call(
+        "workflow.prepare",
+        {
+            "project_id": project_id,
+            "expected_project_version": imported["project_version"],
+            "instruction": "检查数据后决定字段绑定。",
+            "selected_sources": [
+                {
+                    "dataset_id": dataset["source_dataset_id"],
+                    "source_version": dataset["source_version"],
+                }
+            ],
+        },
+    )
+    run_id = cast(str, prepared["workflow_run_id"])
+    context = cast(dict[str, Any], prepared["workflow_context"])
+    source_alias = cast(str, cast(list[dict[str, Any]], context["sources"])[0]["source_alias"])
+    field_aliases = [
+        cast(str, item["field_alias"])
+        for item in cast(list[dict[str, Any]], context["fields"])
+        if item["source_alias"] == source_alias
+    ][:2]
+
+    listed = harness.call(
+        "workflow.inspect",
+        {
+            "project_id": project_id,
+            "workflow_run_id": run_id,
+            "tool_name": "list_sources",
+            "arguments": {},
+        },
+    )
+    assert cast(dict[str, Any], listed["audit"])["tool_name"] == "list_sources"
+    previewed = harness.call(
+        "workflow.preview_operation",
+        {
+            "project_id": project_id,
+            "workflow_run_id": run_id,
+            "operation": {
+                "operation": "select_fields",
+                "source_alias": source_alias,
+                "field_aliases": field_aliases,
+            },
+            "limit": 3,
+        },
+    )
+    preview = cast(dict[str, Any], previewed["preview"])
+    assert preview["field_aliases"] == field_aliases
+    assert len(cast(list[object], preview["rows"])) == 2
+    assert cast(dict[str, Any], previewed["audit"])["tool_name"] == ("preview_data_operation")
+
+
+def test_workflow_clarification_resumes_the_same_run_with_verbatim_answer(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="workflow-clarify")
+    dataset = cast(list[dict[str, Any]], imported["datasets"])[0]
+    request = {
+        "project_id": project_id,
+        "expected_project_version": imported["project_version"],
+        "instruction": "画一张图，但我还没说明图类。",
+        "selected_sources": [
+            {
+                "dataset_id": dataset["source_dataset_id"],
+                "source_version": dataset["source_version"],
+            }
+        ],
+    }
+    prepared = harness.call("workflow.prepare", request)
+    run_id = cast(str, prepared["workflow_run_id"])
+
+    needs_input = harness.call(
+        "workflow.ask_user",
+        {
+            "project_id": project_id,
+            "workflow_run_id": run_id,
+            "questions": [
+                {
+                    "question_key": "chart_type",
+                    "prompt": "请选择图类。",
+                    "answer_kind": "profile",
+                    "choices": ["K01", "K03"],
+                    "required": True,
+                }
+            ],
+        },
+    )
+    assert needs_input["outcome"] == "needs_input"
+    assert needs_input["workflow_run_id"] == run_id
+
+    resumed = harness.call(
+        "workflow.prepare",
+        {
+            **request,
+            "instruction": "用 K01；标题保持默认。",
+            "continuation_workflow_run_id": run_id,
+        },
+    )
+    assert resumed["outcome"] == "agent_required"
+    assert resumed["workflow_run_id"] == run_id
+    assert resumed["workflow_context"] == prepared["workflow_context"]
+    assert resumed["clarification_history"] == [
+        {
+            "kind": "questions",
+            "questions": [
+                {
+                    "question_key": "chart_type",
+                    "prompt": "请选择图类。",
+                    "answer_kind": "profile",
+                    "choices": ["K01", "K03"],
+                    "required": True,
+                }
+            ],
+        },
+        {"kind": "answer", "answer_text": "用 K01；标题保持默认。"},
+    ]
+
+
+def test_workflow_agent_can_report_a_real_capability_boundary(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="workflow-unsupported")
+    dataset = cast(list[dict[str, Any]], imported["datasets"])[0]
+    prepared = harness.call(
+        "workflow.prepare",
+        {
+            "project_id": project_id,
+            "expected_project_version": imported["project_version"],
+            "instruction": "对数据执行产品未开放的任意 Python。",
+            "selected_sources": [
+                {
+                    "dataset_id": dataset["source_dataset_id"],
+                    "source_version": dataset["source_version"],
+                }
+            ],
+        },
+    )
+    result = harness.call(
+        "workflow.report_unsupported",
+        {
+            "project_id": project_id,
+            "workflow_run_id": prepared["workflow_run_id"],
+            "reason_code": "ARBITRARY_CODE_NOT_ALLOWED",
+            "message": "当前只允许封闭、可审计的数据操作。",
+        },
+    )
+    assert result == {
+        "outcome": "unsupported",
+        "workflow_run_id": prepared["workflow_run_id"],
+        "reason_code": "ARBITRARY_CODE_NOT_ALLOWED",
+        "message": "当前只允许封闭、可审计的数据操作。",
+    }
+    assert (
+        harness.call("datasets.list", {"project_id": project_id})["project_version"]
+        == imported["project_version"]
+    )
 
 
 def test_workflow_recipe_requires_a_real_export_and_replays_without_agent(
@@ -469,12 +685,11 @@ def test_workflow_recipe_requires_a_real_export_and_replays_without_agent(
         "selected_profile_ids": ["K01"],
     }
     prepared = harness.call("workflow.prepare", request)
-    task_plan = cast(dict[str, Any], prepared["task_plan"])
+    submitted = _submit_k01_create(harness, project_id, prepared)
+    task_plan = cast(dict[str, Any], submitted["task_plan"])
     plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
     harness.call("workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id})
-    completed = harness.call(
-        "workflow.plans.run", {"project_id": project_id, "plan_id": plan_id}
-    )
+    completed = harness.call("workflow.plans.run", {"project_id": project_id, "plan_id": plan_id})
     progress = cast(list[dict[str, Any]], completed["item_progress"])[0]
     plot_id = cast(str, progress["output_plot_id"])
     plot_version = cast(int, progress["output_plot_version"])
@@ -519,20 +734,23 @@ def test_workflow_recipe_requires_a_real_export_and_replays_without_agent(
         },
     )
     assert recipe["created_from_export_hash"] == export_hash
+    assert harness.call("workflow.recipes.list", {"project_id": project_id})[
+        "workflow_recipes"
+    ] == [recipe]
 
     replayed = harness.call(
         "workflow.prepare",
         {
             **request,
             "expected_project_version": completed["current_project_revision"],
+            "selected_recipe_id": recipe["recipe_id"],
         },
     )
     assert replayed["outcome"] == "draft_ready"
     assert replayed["route"] == "recipe_replay"
-    assert replayed["recipe_id"] == recipe["recipe_id"]
 
 
-def test_workflow_program_first_edit_changes_the_selected_plot_without_a_source(
+def test_workflow_agent_edit_changes_the_selected_plot_without_a_source(
     harness: ApplicationHarness,
 ) -> None:
     project_id, revision = _create_open(harness)
@@ -554,21 +772,129 @@ def test_workflow_program_first_edit_changes_the_selected_plot_without_a_source(
             "selected_plot_ids": ["plot:workflow-edit"],
         },
     )
-    assert prepared["outcome"] == "draft_ready"
-    assert prepared["route"] == "deterministic"
-    task_plan = cast(dict[str, Any], prepared["task_plan"])
+    assert prepared["outcome"] == "agent_required"
+    context = cast(dict[str, Any], prepared["workflow_context"])
+    plot_alias = cast(str, cast(list[dict[str, Any]], context["plots"])[0]["plot_alias"])
+    run_id = cast(str, prepared["workflow_run_id"])
+    submitted = harness.call(
+        "workflow.submit_draft",
+        {
+            "project_id": project_id,
+            "workflow_run_id": run_id,
+            "task_draft": {
+                "draft_id": "draft:workflow-edit",
+                "workflow_run_id": run_id,
+                "route": "agent",
+                "summary": "修改当前图标题",
+                "items": [
+                    {
+                        "task_kind": "edit",
+                        "item_id": "item:workflow-edit.1",
+                        "plot_alias": "plot_1",
+                        "profile_id": "K01",
+                        "target_plot_alias": plot_alias,
+                        "visual_actions": [{"operation": "set_title", "text": "响应曲线"}],
+                    }
+                ],
+                "confidence": 1,
+            },
+        },
+    )
+    task_plan = cast(dict[str, Any], submitted["task_plan"])
     plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
-    harness.call(
-        "workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id}
-    )
-    completed = harness.call(
-        "workflow.plans.run", {"project_id": project_id, "plan_id": plan_id}
-    )
+    harness.call("workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id})
+    completed = harness.call("workflow.plans.run", {"project_id": project_id, "plan_id": plan_id})
     assert completed["state"] == "succeeded"
     plot = harness.call(
         "engine.plots.get", {"project_id": project_id, "plot_id": "plot:workflow-edit"}
     )
     assert cast(dict[str, Any], plot["document"])["plot_version"] == 2
+
+
+def test_workflow_agent_can_update_an_existing_plot_with_new_data(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="workflow-update-data")
+    created = _create_line(
+        harness,
+        project_id,
+        imported,
+        plot_id="plot:workflow-update-data",
+        action_id="action:workflow-update-data.create",
+    )
+    datasets = cast(list[dict[str, Any]], imported["datasets"])
+    replacement = datasets[1]
+    prepared = harness.call(
+        "workflow.prepare",
+        {
+            "project_id": project_id,
+            "expected_project_version": created["project_version"],
+            "instruction": "把当前图的数据替换为 Run B，标题改为第二次运行。",
+            "selected_sources": [
+                {
+                    "dataset_id": replacement["source_dataset_id"],
+                    "source_version": replacement["source_version"],
+                }
+            ],
+            "selected_plot_ids": ["plot:workflow-update-data"],
+        },
+    )
+    context = cast(dict[str, Any], prepared["workflow_context"])
+    fields = cast(list[dict[str, Any]], context["fields"])
+    numeric = [item for item in fields if item["logical_type"] == "numeric"][:2]
+    source_alias = cast(str, cast(list[dict[str, Any]], context["sources"])[0]["source_alias"])
+    plot_alias = cast(str, cast(list[dict[str, Any]], context["plots"])[0]["plot_alias"])
+    run_id = cast(str, prepared["workflow_run_id"])
+    submitted = harness.call(
+        "workflow.submit_draft",
+        {
+            "project_id": project_id,
+            "workflow_run_id": run_id,
+            "task_draft": {
+                "draft_id": "draft:workflow-update-data",
+                "workflow_run_id": run_id,
+                "route": "agent",
+                "summary": "更新现有折线图数据",
+                "items": [
+                    {
+                        "task_kind": "update_data",
+                        "item_id": "item:workflow-update-data.1",
+                        "plot_alias": "plot_1",
+                        "profile_id": "K01",
+                        "target_plot_alias": plot_alias,
+                        "source_aliases": [source_alias],
+                        "bindings": [
+                            {
+                                "role": "x",
+                                "source_alias": source_alias,
+                                "field_alias": numeric[0]["field_alias"],
+                            },
+                            {
+                                "role": "y",
+                                "source_alias": source_alias,
+                                "field_alias": numeric[1]["field_alias"],
+                            },
+                        ],
+                        "visual_actions": [{"operation": "set_title", "text": "第二次运行"}],
+                    }
+                ],
+                "confidence": 1,
+            },
+        },
+    )
+    task_plan = cast(dict[str, Any], submitted["task_plan"])
+    plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
+    harness.call("workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id})
+    completed = harness.call("workflow.plans.run", {"project_id": project_id, "plan_id": plan_id})
+    assert completed["state"] == "succeeded"
+    plot = harness.call(
+        "engine.plots.get",
+        {"project_id": project_id, "plot_id": "plot:workflow-update-data"},
+    )
+    document = cast(dict[str, Any], plot["document"])
+    assert document["plot_version"] == 3
+    assert cast(dict[str, Any], document["data"])["dataset_id"] == replacement["source_dataset_id"]
 
 
 def test_workflow_log10_rejects_non_positive_data_before_creating_a_plot(
@@ -602,19 +928,21 @@ def test_workflow_log10_rejects_non_positive_data_before_creating_a_plot(
             "selected_profile_ids": ["K01"],
         },
     )
-    task_plan = cast(dict[str, Any], prepared["task_plan"])
+    submitted = _submit_k01_create(
+        harness,
+        project_id,
+        prepared,
+        visual_actions=[{"operation": "set_axis", "target_alias": "y_axis", "scale": "log10"}],
+    )
+    task_plan = cast(dict[str, Any], submitted["task_plan"])
     plan_id = cast(str, cast(dict[str, Any], task_plan["plan"])["plan_id"])
     harness.call("workflow.plans.confirm", {"project_id": project_id, "plan_id": plan_id})
-    completed = harness.call(
-        "workflow.plans.run", {"project_id": project_id, "plan_id": plan_id}
-    )
+    completed = harness.call("workflow.plans.run", {"project_id": project_id, "plan_id": plan_id})
 
     assert completed["state"] == "failed"
     progress = cast(list[dict[str, Any]], completed["item_progress"])
     assert progress[0]["error_code"] == "LOG_SCALE_NON_POSITIVE"
-    assert progress[0]["error_message"] == (
-        "Log10 轴包含 0 或负值；任务未执行，项目没有发生变化。"
-    )
+    assert progress[0]["error_message"] == ("Log10 轴包含 0 或负值；任务未执行，项目没有发生变化。")
     assert progress[0]["error_retryable"] is False
     assert completed["current_project_revision"] == imported["project_version"]
     assert not harness.call("engine.plots.list", {"project_id": project_id})["plots"]
