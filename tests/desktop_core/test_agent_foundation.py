@@ -249,7 +249,15 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
             }
         )
         model_candidate = candidate.model_dump(mode="json")
-        cast(dict[str, object], model_candidate["intent"]).pop("content_hash")
+        model_intent = cast(dict[str, object], model_candidate["intent"])
+        model_intent.pop("content_hash")
+        # Real providers commonly omit fields whose value is the schema default.  Core
+        # must hash the normalized intent, not the pre-validation JSON shape.
+        model_intent.pop("semantic_decisions")
+        model_item = cast(list[dict[str, object]], model_intent["items"])[0]
+        model_item.pop("target_plot_alias")
+        model_item.pop("data_operations")
+        model_item.pop("visual_actions")
         validated = host.validate_yield(activation_id, cast(JsonValue, model_candidate))
         assert validated.outcome == "intent_ready"
         assert validated.intent.content_hash == canonical_hash(

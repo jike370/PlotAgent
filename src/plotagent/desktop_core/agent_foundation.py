@@ -225,6 +225,21 @@ class DurableAgentCoreHost:
         yielded = AGENT_YIELD_ADAPTER.validate_json(
             canonical_json(self._with_core_owned_intent_hash(candidate))
         )
+        if yielded.outcome == "intent_ready":
+            # The model-facing schema intentionally omits ``content_hash``.  Derive the
+            # durable integrity value from the *validated* model so Pydantic defaults
+            # (for example omitted empty visual actions) are part of the same canonical
+            # payload later checked and persisted by Core.
+            normalized_hash = canonical_hash(
+                yielded.intent.model_dump(mode="json", exclude={"content_hash"})
+            )
+            yielded = yielded.model_copy(
+                update={
+                    "intent": yielded.intent.model_copy(
+                        update={"content_hash": normalized_hash}
+                    )
+                }
+            )
         activation = runtime.activation
         if (
             yielded.activation_id != activation.activation_id
