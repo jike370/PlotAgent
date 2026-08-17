@@ -221,7 +221,10 @@ export class PiAgentRuntime {
                 encoding: { type: 'string' },
                 delimiter: { type: 'string', minLength: 1, maxLength: 4 },
                 decimal_mark: { type: 'string', enum: ['.', ','] },
-                header_row: { type: 'integer', minimum: 0 },
+                header_row: {
+                  type: 'integer', minimum: 0,
+                  description: '原始文件中的绝对行号，按 1 开始；0 仅表示文件没有表头。必须使用 numbered_lines.line_number，不得使用数组下标或候选区内相对位置。',
+                },
                 sheet: { type: 'string' },
               },
             },
@@ -286,6 +289,7 @@ export class PiAgentRuntime {
           systemPrompt: [
             '你负责把原始文件解析为规则数据表，只选择机械解析参数。',
             '先检查受限原始证据与导入结果；仅在证据充分时调用 submit_parser_options。',
+            'text_previews.numbered_lines 的 line_number 是原始文件中从 1 开始的绝对行号；header_row 必须使用该绝对行号，0 只表示没有表头。',
             '不得选择绘图字段、推断图类、执行单位换算、过滤、排序、聚合或视觉编辑。',
             '不得编写代码或脚本；无法可靠决定时调用 report_preparation_unresolved。',
           ].join('\n'),

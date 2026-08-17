@@ -41,10 +41,15 @@ def _text_evidence(path: Path) -> list[dict[str, Any]]:
         if "\x00" in normalized or normalized in seen:
             continue
         seen.add(normalized)
+        preview_lines = normalized.split("\n")[:MAX_PREVIEW_LINES]
         previews.append(
             {
                 "encoding": encoding,
-                "lines": normalized.split("\n")[:MAX_PREVIEW_LINES],
+                "lines": preview_lines,
+                "numbered_lines": [
+                    {"line_number": number, "text": line}
+                    for number, line in enumerate(preview_lines, start=1)
+                ],
                 "truncated": (
                     len(raw) == MAX_RAW_BYTES
                     or normalized.count("\n") >= MAX_PREVIEW_LINES

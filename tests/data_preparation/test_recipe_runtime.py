@@ -142,6 +142,11 @@ def test_generic_parser_failure_is_audited_as_agent_required(tmp_path: Path) -> 
         evidence = inspect_raw_source(source, run)
         assert evidence["source_format"] == "csv"
         assert len(evidence["text_previews"]) >= 1  # type: ignore[arg-type]
+        preview = evidence["text_previews"][0]  # type: ignore[index]
+        assert preview["numbered_lines"][:2] == [
+            {"line_number": 1, "text": "a,b,c"},
+            {"line_number": 2, "text": "1,2,3"},
+        ]
         with pytest.raises(RawInspectionError):
             changed = tmp_path / "changed.csv"
             changed.write_text("not the authorized bytes", encoding="utf-8")

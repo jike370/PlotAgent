@@ -74,7 +74,14 @@ describe('PiAgentRuntime workflow orchestration', () => {
         calls.push(method)
         if (method === 'data_preparation.sources.inspect') return {
           source_format: 'txt', generic_parser_code: 'IMPORT_DELIMITER_AMBIGUOUS',
-          text_previews: [{ encoding: 'utf-8-sig', lines: ['time;value', '0;1'] }],
+          text_previews: [{
+            encoding: 'utf-8-sig', lines: ['note', 'time;value', '0;1'],
+            numbered_lines: [
+              { line_number: 1, text: 'note' },
+              { line_number: 2, text: 'time;value' },
+              { line_number: 3, text: '0;1' },
+            ],
+          }],
         }
         return { base_url: 'https://model.example/v1', model_id: 'model', api_key: 'secret' }
       },
@@ -83,8 +90,8 @@ describe('PiAgentRuntime workflow orchestration', () => {
       core,
       emit: () => undefined,
       streamFn: (() => toolCallStream('submit_parser_options', {
-        options: { encoding: 'utf-8-sig', delimiter: ';', header_row: 1 },
-        rationale: '预览稳定显示分号分隔且首行为列名。',
+        options: { encoding: 'utf-8-sig', delimiter: ';', header_row: 2 },
+        rationale: 'numbered_lines 显示原文件第 2 行为分号分隔列名。',
       })) as StreamFn,
     })
 
@@ -96,7 +103,7 @@ describe('PiAgentRuntime workflow orchestration', () => {
       import_outcome: { kind: 'clarification' },
     })).resolves.toMatchObject({
       outcome: 'proposal',
-      options: { encoding: 'utf-8-sig', delimiter: ';', header_row: 1 },
+      options: { encoding: 'utf-8-sig', delimiter: ';', header_row: 2 },
       model_turn_count: 1,
       tool_call_count: 1,
       input_token_count: 1,
