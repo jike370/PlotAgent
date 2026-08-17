@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P2 已完成；P3 待施工。
+> 状态：P0–P3 已完成；P4 待施工。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -174,6 +174,25 @@
 `feat(tasks): add durable task ledger`
 
 ## 8. P3：领域知识与 ContextBuilder
+
+实现记录（2026-08-18）：
+
+- 已定义并 codegen 发布 `ChartKnowledgeCard`、`CalculationContract`、
+  `AgentContextSnapshot`、目录、比较、示例、untrusted source 和 tool contract；
+- 已为 34 个正式图类建立一一对应的知识卡；角色、对象、repeatable object 与
+  capability 直接嵌入 `EngineProfile` 并以 canonical hash 绑定，没有维护第二份手抄真值；
+- 已将 8 个现有冻结计算规格发布为版本化计算合同，算法版本和 Spec Schema hash
+  直接绑定现有 calculation union；
+- 官方资料与本机审核事实只以官方 URL、审核版本、claim 和证据摘要进入 Agent
+  上下文，不暴露模板文件、PID、LabTalk、Origin C、路径或 renderer 私有对象；
+- `DomainKnowledgeRegistry` 已提供目录、单卡、比较、计算合同和示例的 fail-closed
+  查询；缺失与版本不匹配使用稳定错误码；
+- `ContextBuilder` 已严格核对 TaskEnvelope、TaskCheckpoint、AgentActivation、选中来源、
+  工具 allowlist、权限阶段和双层 disclosure budget；未选图时只提供 34 图目录，选图后
+  只注入对应卡及其关联计算合同；
+- 数据名、列名和预览值在合同中永久标为 untrusted，不能更改工具或权限；上下文使用
+  canonical hash 防篡改，可从 Ledger 权威状态重建；
+- 当前正式 UI/Pi 尚未消费这些新增合同，因此本阶段不改变用户行为。
 
 ### 工作
 

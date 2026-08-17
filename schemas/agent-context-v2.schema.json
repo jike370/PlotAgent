@@ -1,0 +1,1851 @@
+{
+  "$defs": {
+    "ActivationBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_disclosed_scalars": {
+          "default": 20000,
+          "maximum": 200000,
+          "minimum": 0,
+          "title": "Max Disclosed Scalars",
+          "type": "integer"
+        },
+        "max_model_turns": {
+          "default": 6,
+          "maximum": 32,
+          "minimum": 1,
+          "title": "Max Model Turns",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 24,
+          "maximum": 128,
+          "minimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "timeout_ms": {
+          "default": 120000,
+          "maximum": 3600000,
+          "minimum": 1000,
+          "title": "Timeout Ms",
+          "type": "integer"
+        }
+      },
+      "title": "ActivationBudget",
+      "type": "object"
+    },
+    "CalculationContract": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Id",
+          "type": "string"
+        },
+        "algorithm_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Algorithm Version",
+          "type": "string"
+        },
+        "boundary_behavior": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Boundary Behavior",
+          "type": "array"
+        },
+        "calculation_kind": {
+          "enum": [
+            "histogram_binning",
+            "tukey_box",
+            "violin_kde",
+            "ecdf",
+            "summary_error",
+            "percent_stack",
+            "matrix_projection",
+            "confusion_count"
+          ],
+          "title": "Calculation Kind",
+          "type": "string"
+        },
+        "contract_id": {
+          "pattern": "^calculation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Contract Id",
+          "type": "string"
+        },
+        "contract_version": {
+          "minimum": 1,
+          "title": "Contract Version",
+          "type": "integer"
+        },
+        "definition": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Definition",
+          "type": "array"
+        },
+        "input_roles": {
+          "items": {
+            "$ref": "#/$defs/CalculationInputRole"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Input Roles",
+          "type": "array"
+        },
+        "linked_profile_ids": {
+          "default": [],
+          "items": {
+            "enum": [
+              "K01",
+              "K02",
+              "K03",
+              "K04",
+              "K06",
+              "K07",
+              "K08",
+              "K09",
+              "K10",
+              "K11",
+              "K12",
+              "K13",
+              "K14",
+              "K15",
+              "K18",
+              "K19",
+              "K20",
+              "K21",
+              "K22",
+              "K24",
+              "S34",
+              "S61",
+              "X02",
+              "X03",
+              "X05",
+              "X09",
+              "X13",
+              "X23",
+              "X24",
+              "X35",
+              "X36",
+              "X38",
+              "X39",
+              "X40"
+            ],
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Linked Profile Ids",
+          "type": "array"
+        },
+        "missing_value_behavior": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Missing Value Behavior",
+          "type": "string"
+        },
+        "oracle_ids": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Oracle Ids",
+          "type": "array"
+        },
+        "output_fields": {
+          "items": {
+            "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Output Fields",
+          "type": "array"
+        },
+        "parameters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CalculationParameter"
+          },
+          "maxItems": 24,
+          "title": "Parameters",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "calculation-contract.v1",
+          "default": "calculation-contract.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "spec_schema_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Spec Schema Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contract_id",
+        "contract_version",
+        "calculation_kind",
+        "algorithm_id",
+        "algorithm_version",
+        "spec_schema_hash",
+        "input_roles",
+        "definition",
+        "missing_value_behavior",
+        "boundary_behavior",
+        "output_fields",
+        "oracle_ids"
+      ],
+      "title": "CalculationContract",
+      "type": "object"
+    },
+    "CalculationInputRole": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted_types": {
+          "items": {
+            "enum": [
+              "numeric",
+              "categorical",
+              "datetime",
+              "boolean",
+              "text"
+            ],
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Accepted Types",
+          "type": "array"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "accepted_types"
+      ],
+      "title": "CalculationInputRole",
+      "type": "object"
+    },
+    "CalculationParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "constraint": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Constraint",
+          "type": "string"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "value_type": {
+          "enum": [
+            "enum",
+            "integer",
+            "number",
+            "boolean",
+            "field",
+            "field_list"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value_type",
+        "constraint"
+      ],
+      "title": "CalculationParameter",
+      "type": "object"
+    },
+    "ChartCatalogEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "display_name_zh": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Display Name Zh",
+          "type": "string"
+        },
+        "knowledge_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Knowledge Hash",
+          "type": "string"
+        },
+        "knowledge_id": {
+          "pattern": "^knowledge:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Knowledge Id",
+          "type": "string"
+        },
+        "knowledge_version": {
+          "minimum": 1,
+          "title": "Knowledge Version",
+          "type": "integer"
+        },
+        "official_name": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Official Name",
+          "type": "string"
+        },
+        "optional_roles": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Optional Roles",
+          "type": "array"
+        },
+        "profile_id": {
+          "enum": [
+            "K01",
+            "K02",
+            "K03",
+            "K04",
+            "K06",
+            "K07",
+            "K08",
+            "K09",
+            "K10",
+            "K11",
+            "K12",
+            "K13",
+            "K14",
+            "K15",
+            "K18",
+            "K19",
+            "K20",
+            "K21",
+            "K22",
+            "K24",
+            "S34",
+            "S61",
+            "X02",
+            "X03",
+            "X05",
+            "X09",
+            "X13",
+            "X23",
+            "X24",
+            "X35",
+            "X36",
+            "X38",
+            "X39",
+            "X40"
+          ],
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "repeatable_role_prefixes": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Repeatable Role Prefixes",
+          "type": "array"
+        },
+        "required_roles": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Required Roles",
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile_id",
+        "knowledge_id",
+        "knowledge_version",
+        "knowledge_hash",
+        "display_name_zh",
+        "official_name",
+        "summary",
+        "required_roles"
+      ],
+      "title": "ChartCatalogEntry",
+      "type": "object"
+    },
+    "ChartEvidenceRef": {
+      "additionalProperties": false,
+      "description": "Reviewed evidence projection safe for ordinary Agent context.",
+      "properties": {
+        "claim_ids": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "evidence_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Evidence Digest",
+          "type": "string"
+        },
+        "evidence_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "official_url": {
+          "maxLength": 512,
+          "pattern": "^https://(?:docs|cloud)\\.originlab\\.com/",
+          "title": "Official Url",
+          "type": "string"
+        },
+        "reviewed_product_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Reviewed Product Version",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "title",
+        "official_url",
+        "reviewed_product_version",
+        "evidence_digest",
+        "claim_ids"
+      ],
+      "title": "ChartEvidenceRef",
+      "type": "object"
+    },
+    "ChartKnowledgeCard": {
+      "additionalProperties": false,
+      "description": "One reviewed chart card bound to the executable EngineProfile truth.",
+      "properties": {
+        "allowed_preparations": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Allowed Preparations",
+          "type": "array"
+        },
+        "calculation_contract_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^calculation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Calculation Contract Ids",
+          "type": "array"
+        },
+        "data_requirements": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Data Requirements",
+          "type": "array"
+        },
+        "display_name_zh": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Display Name Zh",
+          "type": "string"
+        },
+        "engine_profile": {
+          "$ref": "#/$defs/EngineProfile"
+        },
+        "engine_profile_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Engine Profile Hash",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/ChartEvidenceRef"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "examples": {
+          "items": {
+            "$ref": "#/$defs/DomainExample"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Examples",
+          "type": "array"
+        },
+        "fixed_scientific_semantics": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Fixed Scientific Semantics",
+          "type": "array"
+        },
+        "forbidden_preparations": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Forbidden Preparations",
+          "type": "array"
+        },
+        "intended_questions": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Intended Questions",
+          "type": "array"
+        },
+        "knowledge_id": {
+          "pattern": "^knowledge:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Knowledge Id",
+          "type": "string"
+        },
+        "knowledge_version": {
+          "minimum": 1,
+          "title": "Knowledge Version",
+          "type": "integer"
+        },
+        "official_name": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Official Name",
+          "type": "string"
+        },
+        "ordering_semantics": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Ordering Semantics",
+          "type": "array"
+        },
+        "profile_id": {
+          "enum": [
+            "K01",
+            "K02",
+            "K03",
+            "K04",
+            "K06",
+            "K07",
+            "K08",
+            "K09",
+            "K10",
+            "K11",
+            "K12",
+            "K13",
+            "K14",
+            "K15",
+            "K18",
+            "K19",
+            "K20",
+            "K21",
+            "K22",
+            "K24",
+            "S34",
+            "S61",
+            "X02",
+            "X03",
+            "X05",
+            "X09",
+            "X13",
+            "X23",
+            "X24",
+            "X35",
+            "X36",
+            "X38",
+            "X39",
+            "X40"
+          ],
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "row_relations": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Row Relations",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "chart-knowledge.v1",
+          "default": "chart-knowledge.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_shapes": {
+          "items": {
+            "enum": [
+              "worksheet_xy",
+              "worksheet_wide",
+              "worksheet_long_indexed",
+              "matrix",
+              "analysis_table"
+            ],
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Source Shapes",
+          "type": "array"
+        },
+        "unsuitable_questions": {
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Unsuitable Questions",
+          "type": "array"
+        },
+        "unsupported_actions": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Unsupported Actions",
+          "type": "array"
+        },
+        "user_facing_description": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "User Facing Description",
+          "type": "string"
+        },
+        "validation_claims": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Validation Claims",
+          "type": "array"
+        }
+      },
+      "required": [
+        "knowledge_id",
+        "knowledge_version",
+        "profile_id",
+        "engine_profile",
+        "engine_profile_hash",
+        "display_name_zh",
+        "official_name",
+        "user_facing_description",
+        "intended_questions",
+        "unsuitable_questions",
+        "source_shapes",
+        "data_requirements",
+        "row_relations",
+        "ordering_semantics",
+        "fixed_scientific_semantics",
+        "forbidden_preparations",
+        "examples",
+        "validation_claims",
+        "evidence_refs"
+      ],
+      "title": "ChartKnowledgeCard",
+      "type": "object"
+    },
+    "ContextToolContract": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "input_schema_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Schema Hash",
+          "type": "string"
+        },
+        "output_schema_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Schema Hash",
+          "type": "string"
+        },
+        "permission_phase": {
+          "enum": [
+            "p0_read",
+            "p1_staged",
+            "p2_confirmed",
+            "p3_expanded"
+          ],
+          "title": "Permission Phase",
+          "type": "string"
+        },
+        "side_effect": {
+          "enum": [
+            "none",
+            "staged",
+            "confirmed_write",
+            "expanded_risk"
+          ],
+          "title": "Side Effect",
+          "type": "string"
+        },
+        "tool_name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Tool Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool_name",
+        "permission_phase",
+        "input_schema_hash",
+        "output_schema_hash",
+        "description",
+        "side_effect"
+      ],
+      "title": "ContextToolContract",
+      "type": "object"
+    },
+    "DomainExample": {
+      "additionalProperties": false,
+      "properties": {
+        "example_id": {
+          "pattern": "^example:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Example Id",
+          "type": "string"
+        },
+        "expected_outcome": {
+          "enum": [
+            "supported",
+            "needs_input",
+            "rejected"
+          ],
+          "title": "Expected Outcome",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "minimal",
+            "representative",
+            "near_miss",
+            "invalid"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "role_assignments": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 32,
+          "title": "Role Assignments",
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "example_id",
+        "kind",
+        "summary",
+        "role_assignments",
+        "expected_outcome"
+      ],
+      "title": "DomainExample",
+      "type": "object"
+    },
+    "EngineCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "enum": [
+            "create_plot",
+            "bind_fields",
+            "set_title",
+            "set_axis",
+            "set_series_style",
+            "set_legend",
+            "set_colormap",
+            "set_error_style",
+            "set_data_labels",
+            "set_chart_parameter",
+            "add_annotation",
+            "export_plot"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "parameters": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Parameters",
+          "type": "array"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "title": "EngineCapability",
+      "type": "object"
+    },
+    "EngineObjectTemplate": {
+      "additionalProperties": false,
+      "description": "Stable model-facing alias for one profile-owned semantic object.",
+      "properties": {
+        "object_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Object Alias",
+          "type": "string"
+        },
+        "object_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Object Key",
+          "type": "string"
+        },
+        "object_kind": {
+          "enum": [
+            "axis",
+            "series",
+            "legend",
+            "panel"
+          ],
+          "title": "Object Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object_alias",
+        "object_kind",
+        "object_key"
+      ],
+      "title": "EngineObjectTemplate",
+      "type": "object"
+    },
+    "EngineProfile": {
+      "additionalProperties": false,
+      "description": "One chart profile exposed to agents by the engine catalog.",
+      "properties": {
+        "capabilities": {
+          "items": {
+            "$ref": "#/$defs/EngineCapability"
+          },
+          "minItems": 1,
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "display_name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "objects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EngineObjectTemplate"
+          },
+          "title": "Objects",
+          "type": "array"
+        },
+        "optional_roles": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Optional Roles",
+          "type": "array"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "repeatable_objects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EngineRepeatableObjectTemplate"
+          },
+          "title": "Repeatable Objects",
+          "type": "array"
+        },
+        "repeatable_role_prefixes": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Repeatable Role Prefixes",
+          "type": "array"
+        },
+        "required_roles": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Required Roles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "profile_id",
+        "display_name",
+        "required_roles",
+        "capabilities"
+      ],
+      "title": "EngineProfile",
+      "type": "object"
+    },
+    "EngineRepeatableObjectTemplate": {
+      "additionalProperties": false,
+      "description": "Bounded alias pattern for data-dependent semantic objects.\n\nThe model sees aliases such as ``series_1`` rather than native plot ids.\nThe local client converts the positive ordinal to a stable semantic id;\nthe profile backend remains responsible for rejecting an ordinal that is\noutside the materialized data.",
+      "properties": {
+        "object_alias_prefix": {
+          "pattern": "^[a-z][a-z0-9]{0,31}$",
+          "title": "Object Alias Prefix",
+          "type": "string"
+        },
+        "object_key_prefix": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Object Key Prefix",
+          "type": "string"
+        },
+        "object_kind": {
+          "enum": [
+            "series",
+            "panel"
+          ],
+          "title": "Object Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object_alias_prefix",
+        "object_kind",
+        "object_key_prefix"
+      ],
+      "title": "EngineRepeatableObjectTemplate",
+      "type": "object"
+    },
+    "IntentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "intent_id": {
+          "pattern": "^intent:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Intent Id",
+          "type": "string"
+        },
+        "intent_version": {
+          "minimum": 1,
+          "title": "Intent Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "intent_id",
+        "intent_version",
+        "content_hash"
+      ],
+      "title": "IntentRef",
+      "type": "object"
+    },
+    "RowPage": {
+      "additionalProperties": false,
+      "properties": {
+        "field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Field Aliases",
+          "type": "array"
+        },
+        "has_more": {
+          "title": "Has More",
+          "type": "boolean"
+        },
+        "offset": {
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "maxItems": 40,
+          "title": "Rows",
+          "type": "array"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_aliases",
+        "offset",
+        "rows",
+        "has_more"
+      ],
+      "title": "RowPage",
+      "type": "object"
+    },
+    "SelectedPlotRef": {
+      "additionalProperties": false,
+      "properties": {
+        "plot_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "plot_version": {
+          "minimum": 1,
+          "title": "Plot Version",
+          "type": "integer"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plot_id",
+        "plot_version",
+        "profile_id"
+      ],
+      "title": "SelectedPlotRef",
+      "type": "object"
+    },
+    "TaskBudgetLimits": {
+      "additionalProperties": false,
+      "description": "Task-wide ceilings chosen by Core before Agent execution.",
+      "properties": {
+        "max_disclosed_scalars": {
+          "default": 200000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Max Disclosed Scalars",
+          "type": "integer"
+        },
+        "max_estimated_cost": {
+          "default": 0,
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Max Estimated Cost",
+          "type": "number"
+        },
+        "max_input_tokens": {
+          "default": 1000000,
+          "maximum": 100000000,
+          "minimum": 1,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "max_model_calls": {
+          "default": 24,
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Max Model Calls",
+          "type": "integer"
+        },
+        "max_model_turns": {
+          "default": 64,
+          "maximum": 512,
+          "minimum": 1,
+          "title": "Max Model Turns",
+          "type": "integer"
+        },
+        "max_origin_sessions": {
+          "default": 16,
+          "maximum": 512,
+          "minimum": 0,
+          "title": "Max Origin Sessions",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "default": 200000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "max_repair_attempts": {
+          "default": 8,
+          "maximum": 128,
+          "minimum": 0,
+          "title": "Max Repair Attempts",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 256,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_wall_time_ms": {
+          "default": 3600000,
+          "maximum": 604800000,
+          "minimum": 1000,
+          "title": "Max Wall Time Ms",
+          "type": "integer"
+        }
+      },
+      "title": "TaskBudgetLimits",
+      "type": "object"
+    },
+    "TaskBudgetSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "limits": {
+          "$ref": "#/$defs/TaskBudgetLimits"
+        },
+        "usage": {
+          "$ref": "#/$defs/TaskBudgetUsage",
+          "default": {
+            "disclosed_scalars": 0,
+            "estimated_cost": 0.0,
+            "input_tokens": 0,
+            "model_calls": 0,
+            "model_turns": 0,
+            "origin_sessions": 0,
+            "output_tokens": 0,
+            "repair_attempts": 0,
+            "tool_calls": 0,
+            "wall_time_ms": 0
+          }
+        }
+      },
+      "required": [
+        "limits"
+      ],
+      "title": "TaskBudgetSnapshot",
+      "type": "object"
+    },
+    "TaskBudgetUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "disclosed_scalars": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Disclosed Scalars",
+          "type": "integer"
+        },
+        "estimated_cost": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Cost",
+          "type": "number"
+        },
+        "input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "model_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Calls",
+          "type": "integer"
+        },
+        "model_turns": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Turns",
+          "type": "integer"
+        },
+        "origin_sessions": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Origin Sessions",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "repair_attempts": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Repair Attempts",
+          "type": "integer"
+        },
+        "tool_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tool Calls",
+          "type": "integer"
+        },
+        "wall_time_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Wall Time Ms",
+          "type": "integer"
+        }
+      },
+      "title": "TaskBudgetUsage",
+      "type": "object"
+    },
+    "UntrustedSourceContext": {
+      "additionalProperties": false,
+      "description": "Authorized, bounded data projection whose content can never grant authority.",
+      "properties": {
+        "content_is_untrusted": {
+          "const": true,
+          "default": true,
+          "title": "Content Is Untrusted",
+          "type": "boolean"
+        },
+        "fields": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WorkflowField"
+          },
+          "maxItems": 128,
+          "title": "Fields",
+          "type": "array"
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RowPage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source": {
+          "$ref": "#/$defs/WorkflowSource"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "UntrustedSourceContext",
+      "type": "object"
+    },
+    "WorkflowField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "logical_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "unit_evidence": {
+          "default": "none",
+          "enum": [
+            "none",
+            "declared",
+            "suffix_candidate"
+          ],
+          "title": "Unit Evidence",
+          "type": "string"
+        },
+        "unit_label": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Label"
+        }
+      },
+      "required": [
+        "field_alias",
+        "source_alias",
+        "field_id",
+        "name",
+        "logical_type"
+      ],
+      "title": "WorkflowField",
+      "type": "object"
+    },
+    "WorkflowSource": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "display_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "source_dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_alias",
+        "source_dataset_id",
+        "source_version",
+        "content_hash",
+        "display_name",
+        "row_count"
+      ],
+      "title": "WorkflowSource",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/agent-context-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Rebuildable, hash-addressed input to one Agent activation.",
+  "properties": {
+    "activation_budget": {
+      "$ref": "#/$defs/ActivationBudget"
+    },
+    "activation_id": {
+      "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Activation Id",
+      "type": "string"
+    },
+    "activation_reason": {
+      "enum": [
+        "new_task",
+        "user_answered",
+        "user_corrected",
+        "verification_failed",
+        "external_blocker_cleared",
+        "resume_after_restart"
+      ],
+      "title": "Activation Reason",
+      "type": "string"
+    },
+    "calculation_contracts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CalculationContract"
+      },
+      "maxItems": 16,
+      "title": "Calculation Contracts",
+      "type": "array"
+    },
+    "chart_catalog": {
+      "items": {
+        "$ref": "#/$defs/ChartCatalogEntry"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Chart Catalog",
+      "type": "array"
+    },
+    "chart_knowledge": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ChartKnowledgeCard"
+      },
+      "maxItems": 8,
+      "title": "Chart Knowledge",
+      "type": "array"
+    },
+    "checkpoint_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Checkpoint Hash",
+      "type": "string"
+    },
+    "checkpoint_id": {
+      "pattern": "^checkpoint:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Checkpoint Id",
+      "type": "string"
+    },
+    "confirmed_intent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IntentRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "constitution": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Constitution",
+      "type": "array"
+    },
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "context_snapshot_id": {
+      "pattern": "^context:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Context Snapshot Id",
+      "type": "string"
+    },
+    "context_version": {
+      "minimum": 1,
+      "title": "Context Version",
+      "type": "integer"
+    },
+    "current_user_message": {
+      "anyOf": [
+        {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Current User Message"
+    },
+    "data_cannot_change_permissions": {
+      "const": true,
+      "default": true,
+      "title": "Data Cannot Change Permissions",
+      "type": "boolean"
+    },
+    "data_is_untrusted": {
+      "const": true,
+      "default": true,
+      "title": "Data Is Untrusted",
+      "type": "boolean"
+    },
+    "disclosed_scalars": {
+      "minimum": 0,
+      "title": "Disclosed Scalars",
+      "type": "integer"
+    },
+    "item_states": {
+      "default": [],
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          {
+            "enum": [
+              "pending",
+              "staged",
+              "running",
+              "succeeded",
+              "repairable_failed",
+              "failed",
+              "blocked",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "title": "Item States",
+      "type": "array"
+    },
+    "last_event_sequence": {
+      "minimum": 0,
+      "title": "Last Event Sequence",
+      "type": "integer"
+    },
+    "original_instruction": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Original Instruction",
+      "type": "string"
+    },
+    "permission_phase": {
+      "enum": [
+        "p0_read",
+        "p1_staged",
+        "p2_confirmed",
+        "p3_expanded"
+      ],
+      "title": "Permission Phase",
+      "type": "string"
+    },
+    "prior_receipt_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^receipt:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Prior Receipt Ids",
+      "type": "array"
+    },
+    "project_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "project_revision": {
+      "minimum": 0,
+      "title": "Project Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "agent-context.v2",
+      "default": "agent-context.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selected_plots": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SelectedPlotRef"
+      },
+      "title": "Selected Plots",
+      "type": "array"
+    },
+    "selected_profile_ids": {
+      "default": [],
+      "items": {
+        "enum": [
+          "K01",
+          "K02",
+          "K03",
+          "K04",
+          "K06",
+          "K07",
+          "K08",
+          "K09",
+          "K10",
+          "K11",
+          "K12",
+          "K13",
+          "K14",
+          "K15",
+          "K18",
+          "K19",
+          "K20",
+          "K21",
+          "K22",
+          "K24",
+          "S34",
+          "S61",
+          "X02",
+          "X03",
+          "X05",
+          "X09",
+          "X13",
+          "X23",
+          "X24",
+          "X35",
+          "X36",
+          "X38",
+          "X39",
+          "X40"
+        ],
+        "type": "string"
+      },
+      "title": "Selected Profile Ids",
+      "type": "array"
+    },
+    "selected_source_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Selected Source Ids",
+      "type": "array"
+    },
+    "source_contexts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/UntrustedSourceContext"
+      },
+      "maxItems": 64,
+      "title": "Source Contexts",
+      "type": "array"
+    },
+    "task_budget": {
+      "$ref": "#/$defs/TaskBudgetSnapshot"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_state": {
+      "enum": [
+        "created",
+        "investigating",
+        "awaiting_input",
+        "intent_staged",
+        "awaiting_confirmation",
+        "executing",
+        "verifying",
+        "repairing",
+        "awaiting_reconfirmation",
+        "delivering",
+        "partial",
+        "blocked",
+        "unsupported",
+        "cancelling",
+        "cancelled",
+        "rejected",
+        "failed",
+        "completed_verified"
+      ],
+      "title": "Task State",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    },
+    "tools": {
+      "items": {
+        "$ref": "#/$defs/ContextToolContract"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Tools",
+      "type": "array"
+    },
+    "verification_report_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^verification:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Verification Report Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "context_snapshot_id",
+    "context_version",
+    "task_id",
+    "task_version",
+    "activation_id",
+    "activation_reason",
+    "task_state",
+    "checkpoint_id",
+    "checkpoint_hash",
+    "last_event_sequence",
+    "project_id",
+    "project_revision",
+    "original_instruction",
+    "permission_phase",
+    "chart_catalog",
+    "tools",
+    "activation_budget",
+    "task_budget",
+    "disclosed_scalars",
+    "constitution",
+    "content_hash"
+  ],
+  "title": "AgentContextSnapshot",
+  "type": "object"
+}

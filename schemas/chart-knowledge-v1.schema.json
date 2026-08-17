@@ -1,0 +1,563 @@
+{
+  "$defs": {
+    "ChartEvidenceRef": {
+      "additionalProperties": false,
+      "description": "Reviewed evidence projection safe for ordinary Agent context.",
+      "properties": {
+        "claim_ids": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "evidence_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Evidence Digest",
+          "type": "string"
+        },
+        "evidence_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "official_url": {
+          "maxLength": 512,
+          "pattern": "^https://(?:docs|cloud)\\.originlab\\.com/",
+          "title": "Official Url",
+          "type": "string"
+        },
+        "reviewed_product_version": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Reviewed Product Version",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "title",
+        "official_url",
+        "reviewed_product_version",
+        "evidence_digest",
+        "claim_ids"
+      ],
+      "title": "ChartEvidenceRef",
+      "type": "object"
+    },
+    "DomainExample": {
+      "additionalProperties": false,
+      "properties": {
+        "example_id": {
+          "pattern": "^example:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Example Id",
+          "type": "string"
+        },
+        "expected_outcome": {
+          "enum": [
+            "supported",
+            "needs_input",
+            "rejected"
+          ],
+          "title": "Expected Outcome",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "minimal",
+            "representative",
+            "near_miss",
+            "invalid"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "role_assignments": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 32,
+          "title": "Role Assignments",
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "example_id",
+        "kind",
+        "summary",
+        "role_assignments",
+        "expected_outcome"
+      ],
+      "title": "DomainExample",
+      "type": "object"
+    },
+    "EngineCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "enum": [
+            "create_plot",
+            "bind_fields",
+            "set_title",
+            "set_axis",
+            "set_series_style",
+            "set_legend",
+            "set_colormap",
+            "set_error_style",
+            "set_data_labels",
+            "set_chart_parameter",
+            "add_annotation",
+            "export_plot"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "parameters": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Parameters",
+          "type": "array"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "title": "EngineCapability",
+      "type": "object"
+    },
+    "EngineObjectTemplate": {
+      "additionalProperties": false,
+      "description": "Stable model-facing alias for one profile-owned semantic object.",
+      "properties": {
+        "object_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Object Alias",
+          "type": "string"
+        },
+        "object_key": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Object Key",
+          "type": "string"
+        },
+        "object_kind": {
+          "enum": [
+            "axis",
+            "series",
+            "legend",
+            "panel"
+          ],
+          "title": "Object Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object_alias",
+        "object_kind",
+        "object_key"
+      ],
+      "title": "EngineObjectTemplate",
+      "type": "object"
+    },
+    "EngineProfile": {
+      "additionalProperties": false,
+      "description": "One chart profile exposed to agents by the engine catalog.",
+      "properties": {
+        "capabilities": {
+          "items": {
+            "$ref": "#/$defs/EngineCapability"
+          },
+          "minItems": 1,
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "display_name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "objects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EngineObjectTemplate"
+          },
+          "title": "Objects",
+          "type": "array"
+        },
+        "optional_roles": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Optional Roles",
+          "type": "array"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "repeatable_objects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EngineRepeatableObjectTemplate"
+          },
+          "title": "Repeatable Objects",
+          "type": "array"
+        },
+        "repeatable_role_prefixes": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Repeatable Role Prefixes",
+          "type": "array"
+        },
+        "required_roles": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Required Roles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "profile_id",
+        "display_name",
+        "required_roles",
+        "capabilities"
+      ],
+      "title": "EngineProfile",
+      "type": "object"
+    },
+    "EngineRepeatableObjectTemplate": {
+      "additionalProperties": false,
+      "description": "Bounded alias pattern for data-dependent semantic objects.\n\nThe model sees aliases such as ``series_1`` rather than native plot ids.\nThe local client converts the positive ordinal to a stable semantic id;\nthe profile backend remains responsible for rejecting an ordinal that is\noutside the materialized data.",
+      "properties": {
+        "object_alias_prefix": {
+          "pattern": "^[a-z][a-z0-9]{0,31}$",
+          "title": "Object Alias Prefix",
+          "type": "string"
+        },
+        "object_key_prefix": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Object Key Prefix",
+          "type": "string"
+        },
+        "object_kind": {
+          "enum": [
+            "series",
+            "panel"
+          ],
+          "title": "Object Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object_alias_prefix",
+        "object_kind",
+        "object_key_prefix"
+      ],
+      "title": "EngineRepeatableObjectTemplate",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/chart-knowledge-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One reviewed chart card bound to the executable EngineProfile truth.",
+  "properties": {
+    "allowed_preparations": {
+      "default": [],
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Allowed Preparations",
+      "type": "array"
+    },
+    "calculation_contract_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^calculation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Calculation Contract Ids",
+      "type": "array"
+    },
+    "data_requirements": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Data Requirements",
+      "type": "array"
+    },
+    "display_name_zh": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Display Name Zh",
+      "type": "string"
+    },
+    "engine_profile": {
+      "$ref": "#/$defs/EngineProfile"
+    },
+    "engine_profile_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Engine Profile Hash",
+      "type": "string"
+    },
+    "evidence_refs": {
+      "items": {
+        "$ref": "#/$defs/ChartEvidenceRef"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "examples": {
+      "items": {
+        "$ref": "#/$defs/DomainExample"
+      },
+      "maxItems": 8,
+      "minItems": 2,
+      "title": "Examples",
+      "type": "array"
+    },
+    "fixed_scientific_semantics": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Fixed Scientific Semantics",
+      "type": "array"
+    },
+    "forbidden_preparations": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Forbidden Preparations",
+      "type": "array"
+    },
+    "intended_questions": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Intended Questions",
+      "type": "array"
+    },
+    "knowledge_id": {
+      "pattern": "^knowledge:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Knowledge Id",
+      "type": "string"
+    },
+    "knowledge_version": {
+      "minimum": 1,
+      "title": "Knowledge Version",
+      "type": "integer"
+    },
+    "official_name": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Official Name",
+      "type": "string"
+    },
+    "ordering_semantics": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Ordering Semantics",
+      "type": "array"
+    },
+    "profile_id": {
+      "enum": [
+        "K01",
+        "K02",
+        "K03",
+        "K04",
+        "K06",
+        "K07",
+        "K08",
+        "K09",
+        "K10",
+        "K11",
+        "K12",
+        "K13",
+        "K14",
+        "K15",
+        "K18",
+        "K19",
+        "K20",
+        "K21",
+        "K22",
+        "K24",
+        "S34",
+        "S61",
+        "X02",
+        "X03",
+        "X05",
+        "X09",
+        "X13",
+        "X23",
+        "X24",
+        "X35",
+        "X36",
+        "X38",
+        "X39",
+        "X40"
+      ],
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "row_relations": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Row Relations",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "chart-knowledge.v1",
+      "default": "chart-knowledge.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_shapes": {
+      "items": {
+        "enum": [
+          "worksheet_xy",
+          "worksheet_wide",
+          "worksheet_long_indexed",
+          "matrix",
+          "analysis_table"
+        ],
+        "type": "string"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "title": "Source Shapes",
+      "type": "array"
+    },
+    "unsuitable_questions": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Unsuitable Questions",
+      "type": "array"
+    },
+    "unsupported_actions": {
+      "default": [],
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Unsupported Actions",
+      "type": "array"
+    },
+    "user_facing_description": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "User Facing Description",
+      "type": "string"
+    },
+    "validation_claims": {
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Validation Claims",
+      "type": "array"
+    }
+  },
+  "required": [
+    "knowledge_id",
+    "knowledge_version",
+    "profile_id",
+    "engine_profile",
+    "engine_profile_hash",
+    "display_name_zh",
+    "official_name",
+    "user_facing_description",
+    "intended_questions",
+    "unsuitable_questions",
+    "source_shapes",
+    "data_requirements",
+    "row_relations",
+    "ordering_semantics",
+    "fixed_scientific_semantics",
+    "forbidden_preparations",
+    "examples",
+    "validation_claims",
+    "evidence_refs"
+  ],
+  "title": "ChartKnowledgeCard",
+  "type": "object"
+}

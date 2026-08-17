@@ -1,0 +1,58 @@
+{
+  "$id": "https://schemas.plotagent.local/v2/context-tool-contract-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "input_schema_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Schema Hash",
+      "type": "string"
+    },
+    "output_schema_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Output Schema Hash",
+      "type": "string"
+    },
+    "permission_phase": {
+      "enum": [
+        "p0_read",
+        "p1_staged",
+        "p2_confirmed",
+        "p3_expanded"
+      ],
+      "title": "Permission Phase",
+      "type": "string"
+    },
+    "side_effect": {
+      "enum": [
+        "none",
+        "staged",
+        "confirmed_write",
+        "expanded_risk"
+      ],
+      "title": "Side Effect",
+      "type": "string"
+    },
+    "tool_name": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Tool Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tool_name",
+    "permission_phase",
+    "input_schema_hash",
+    "output_schema_hash",
+    "description",
+    "side_effect"
+  ],
+  "title": "ContextToolContract",
+  "type": "object"
+}

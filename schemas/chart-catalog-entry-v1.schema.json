@@ -1,0 +1,118 @@
+{
+  "$id": "https://schemas.plotagent.local/v2/chart-catalog-entry-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "display_name_zh": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Display Name Zh",
+      "type": "string"
+    },
+    "knowledge_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Knowledge Hash",
+      "type": "string"
+    },
+    "knowledge_id": {
+      "pattern": "^knowledge:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Knowledge Id",
+      "type": "string"
+    },
+    "knowledge_version": {
+      "minimum": 1,
+      "title": "Knowledge Version",
+      "type": "integer"
+    },
+    "official_name": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Official Name",
+      "type": "string"
+    },
+    "optional_roles": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Optional Roles",
+      "type": "array"
+    },
+    "profile_id": {
+      "enum": [
+        "K01",
+        "K02",
+        "K03",
+        "K04",
+        "K06",
+        "K07",
+        "K08",
+        "K09",
+        "K10",
+        "K11",
+        "K12",
+        "K13",
+        "K14",
+        "K15",
+        "K18",
+        "K19",
+        "K20",
+        "K21",
+        "K22",
+        "K24",
+        "S34",
+        "S61",
+        "X02",
+        "X03",
+        "X05",
+        "X09",
+        "X13",
+        "X23",
+        "X24",
+        "X35",
+        "X36",
+        "X38",
+        "X39",
+        "X40"
+      ],
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "repeatable_role_prefixes": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Repeatable Role Prefixes",
+      "type": "array"
+    },
+    "required_roles": {
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Required Roles",
+      "type": "array"
+    },
+    "summary": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profile_id",
+    "knowledge_id",
+    "knowledge_version",
+    "knowledge_hash",
+    "display_name_zh",
+    "official_name",
+    "summary",
+    "required_roles"
+  ],
+  "title": "ChartCatalogEntry",
+  "type": "object"
+}

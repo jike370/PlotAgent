@@ -1,0 +1,67 @@
+{
+  "$id": "https://schemas.plotagent.local/v2/domain-example-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "example_id": {
+      "pattern": "^example:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Example Id",
+      "type": "string"
+    },
+    "expected_outcome": {
+      "enum": [
+        "supported",
+        "needs_input",
+        "rejected"
+      ],
+      "title": "Expected Outcome",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "minimal",
+        "representative",
+        "near_miss",
+        "invalid"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "role_assignments": {
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "maxItems": 32,
+      "title": "Role Assignments",
+      "type": "array"
+    },
+    "summary": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "example_id",
+    "kind",
+    "summary",
+    "role_assignments",
+    "expected_outcome"
+  ],
+  "title": "DomainExample",
+  "type": "object"
+}

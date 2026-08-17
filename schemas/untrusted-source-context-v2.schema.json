@@ -1,0 +1,232 @@
+{
+  "$defs": {
+    "RowPage": {
+      "additionalProperties": false,
+      "properties": {
+        "field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Field Aliases",
+          "type": "array"
+        },
+        "has_more": {
+          "title": "Has More",
+          "type": "boolean"
+        },
+        "offset": {
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "maxItems": 40,
+          "title": "Rows",
+          "type": "array"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_aliases",
+        "offset",
+        "rows",
+        "has_more"
+      ],
+      "title": "RowPage",
+      "type": "object"
+    },
+    "WorkflowField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "logical_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "unit_evidence": {
+          "default": "none",
+          "enum": [
+            "none",
+            "declared",
+            "suffix_candidate"
+          ],
+          "title": "Unit Evidence",
+          "type": "string"
+        },
+        "unit_label": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Label"
+        }
+      },
+      "required": [
+        "field_alias",
+        "source_alias",
+        "field_id",
+        "name",
+        "logical_type"
+      ],
+      "title": "WorkflowField",
+      "type": "object"
+    },
+    "WorkflowSource": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "display_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "source_dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_alias",
+        "source_dataset_id",
+        "source_version",
+        "content_hash",
+        "display_name",
+        "row_count"
+      ],
+      "title": "WorkflowSource",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/untrusted-source-context-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Authorized, bounded data projection whose content can never grant authority.",
+  "properties": {
+    "content_is_untrusted": {
+      "const": true,
+      "default": true,
+      "title": "Content Is Untrusted",
+      "type": "boolean"
+    },
+    "fields": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WorkflowField"
+      },
+      "maxItems": 128,
+      "title": "Fields",
+      "type": "array"
+    },
+    "preview": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RowPage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source": {
+      "$ref": "#/$defs/WorkflowSource"
+    }
+  },
+  "required": [
+    "source"
+  ],
+  "title": "UntrustedSourceContext",
+  "type": "object"
+}

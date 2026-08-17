@@ -90,6 +90,44 @@ export type AgentCancelled = {
   readonly message: string;
 }
 
+export type AgentContextSnapshot = {
+  readonly schema_version?: "agent-context.v2";
+  readonly context_snapshot_id: string;
+  readonly context_version: number;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly activation_id: string;
+  readonly activation_reason: "new_task" | "user_answered" | "user_corrected" | "verification_failed" | "external_blocker_cleared" | "resume_after_restart";
+  readonly task_state: "created" | "investigating" | "awaiting_input" | "intent_staged" | "awaiting_confirmation" | "executing" | "verifying" | "repairing" | "awaiting_reconfirmation" | "delivering" | "partial" | "blocked" | "unsupported" | "cancelling" | "cancelled" | "rejected" | "failed" | "completed_verified";
+  readonly checkpoint_id: string;
+  readonly checkpoint_hash: string;
+  readonly last_event_sequence: number;
+  readonly project_id: string;
+  readonly project_revision: number;
+  readonly original_instruction: string;
+  readonly current_user_message?: string | null;
+  readonly confirmed_intent?: IntentRef | null;
+  readonly item_states?: ReadonlyArray<readonly [string, "pending" | "staged" | "running" | "succeeded" | "repairable_failed" | "failed" | "blocked" | "cancelled"]>;
+  readonly verification_report_ids?: ReadonlyArray<string>;
+  readonly prior_receipt_ids?: ReadonlyArray<string>;
+  readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
+  readonly selected_source_ids?: ReadonlyArray<string>;
+  readonly selected_plots?: ReadonlyArray<SelectedPlotRef>;
+  readonly selected_profile_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
+  readonly source_contexts?: ReadonlyArray<UntrustedSourceContext>;
+  readonly chart_catalog: ReadonlyArray<ChartCatalogEntry>;
+  readonly chart_knowledge?: ReadonlyArray<ChartKnowledgeCard>;
+  readonly calculation_contracts?: ReadonlyArray<CalculationContract>;
+  readonly tools: ReadonlyArray<ContextToolContract>;
+  readonly activation_budget: ActivationBudget;
+  readonly task_budget: TaskBudgetSnapshot;
+  readonly disclosed_scalars: number;
+  readonly data_is_untrusted?: true;
+  readonly data_cannot_change_permissions?: true;
+  readonly constitution: ReadonlyArray<string>;
+  readonly content_hash: string;
+}
+
 export type AgentIntentReady = {
   readonly outcome?: "intent_ready";
   readonly activation_id: string;
@@ -155,9 +193,96 @@ export type BindFields = {
   readonly bindings: ReadonlyArray<FieldBinding>;
 }
 
+export type CalculationContract = {
+  readonly schema_version?: "calculation-contract.v1";
+  readonly contract_id: string;
+  readonly contract_version: number;
+  readonly calculation_kind: "histogram_binning" | "tukey_box" | "violin_kde" | "ecdf" | "summary_error" | "percent_stack" | "matrix_projection" | "confusion_count";
+  readonly algorithm_id: string;
+  readonly algorithm_version: string;
+  readonly spec_schema_hash: string;
+  readonly input_roles: ReadonlyArray<CalculationInputRole>;
+  readonly definition: ReadonlyArray<string>;
+  readonly parameters?: ReadonlyArray<CalculationParameter>;
+  readonly missing_value_behavior: string;
+  readonly boundary_behavior: ReadonlyArray<string>;
+  readonly output_fields: ReadonlyArray<string>;
+  readonly linked_profile_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
+  readonly oracle_ids: ReadonlyArray<string>;
+}
+
+export type CalculationInputRole = {
+  readonly role: string;
+  readonly accepted_types: ReadonlyArray<"numeric" | "categorical" | "datetime" | "boolean" | "text">;
+  readonly required?: boolean;
+}
+
+export type CalculationParameter = {
+  readonly name: string;
+  readonly value_type: "enum" | "integer" | "number" | "boolean" | "field" | "field_list";
+  readonly default?: string | number | boolean | null;
+  readonly constraint: string;
+}
+
 export type CalculationTable = {
   readonly field_ids: ReadonlyArray<string>;
   readonly rows: ReadonlyArray<ReadonlyArray<string | boolean | number | null>>;
+}
+
+export type ChartCatalogEntry = {
+  readonly profile_id: "K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40";
+  readonly knowledge_id: string;
+  readonly knowledge_version: number;
+  readonly knowledge_hash: string;
+  readonly display_name_zh: string;
+  readonly official_name: string;
+  readonly summary: string;
+  readonly required_roles: ReadonlyArray<string>;
+  readonly optional_roles?: ReadonlyArray<string>;
+  readonly repeatable_role_prefixes?: ReadonlyArray<string>;
+}
+
+export type ChartEvidenceRef = {
+  readonly evidence_id: string;
+  readonly title: string;
+  readonly official_url: string;
+  readonly reviewed_product_version: string;
+  readonly evidence_digest: string;
+  readonly claim_ids: ReadonlyArray<string>;
+}
+
+export type ChartKnowledgeCard = {
+  readonly schema_version?: "chart-knowledge.v1";
+  readonly knowledge_id: string;
+  readonly knowledge_version: number;
+  readonly profile_id: "K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40";
+  readonly engine_profile: EngineProfile;
+  readonly engine_profile_hash: string;
+  readonly display_name_zh: string;
+  readonly official_name: string;
+  readonly user_facing_description: string;
+  readonly intended_questions: ReadonlyArray<string>;
+  readonly unsuitable_questions: ReadonlyArray<string>;
+  readonly source_shapes: ReadonlyArray<"worksheet_xy" | "worksheet_wide" | "worksheet_long_indexed" | "matrix" | "analysis_table">;
+  readonly data_requirements: ReadonlyArray<string>;
+  readonly row_relations: ReadonlyArray<string>;
+  readonly ordering_semantics: ReadonlyArray<string>;
+  readonly fixed_scientific_semantics: ReadonlyArray<string>;
+  readonly allowed_preparations?: ReadonlyArray<string>;
+  readonly forbidden_preparations: ReadonlyArray<string>;
+  readonly unsupported_actions?: ReadonlyArray<string>;
+  readonly calculation_contract_ids?: ReadonlyArray<string>;
+  readonly examples: ReadonlyArray<DomainExample>;
+  readonly validation_claims: ReadonlyArray<string>;
+  readonly evidence_refs: ReadonlyArray<ChartEvidenceRef>;
+}
+
+export type ChartProfileComparison = {
+  readonly profile_ids: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
+  readonly entries: ReadonlyArray<ChartCatalogEntry>;
+  readonly source_shapes: Readonly<Record<string, ReadonlyArray<"worksheet_xy" | "worksheet_wide" | "worksheet_long_indexed" | "matrix" | "analysis_table">>>;
+  readonly fixed_semantics: Readonly<Record<string, ReadonlyArray<string>>>;
+  readonly forbidden_preparations: Readonly<Record<string, ReadonlyArray<string>>>;
 }
 
 export type CompiledTaskItem = {
@@ -236,6 +361,15 @@ export type ContentTableRef = {
   readonly field_ids: ReadonlyArray<string>;
 }
 
+export type ContextToolContract = {
+  readonly tool_name: string;
+  readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
+  readonly input_schema_hash: string;
+  readonly output_schema_hash: string;
+  readonly description: string;
+  readonly side_effect: "none" | "staged" | "confirmed_write" | "expanded_risk";
+}
+
 export type ConvertUnit = {
   readonly operation?: "convert_unit";
   readonly source_alias: string;
@@ -273,6 +407,14 @@ export type DeriveColumn = {
   readonly scalar?: number | null;
   readonly output_field_alias: string;
   readonly output_name: string;
+}
+
+export type DomainExample = {
+  readonly example_id: string;
+  readonly kind: "minimal" | "representative" | "near_miss" | "invalid";
+  readonly summary: string;
+  readonly role_assignments: ReadonlyArray<readonly [string, string]>;
+  readonly expected_outcome: "supported" | "needs_input" | "rejected";
 }
 
 export type DraftAddAnnotation = {
@@ -975,6 +1117,14 @@ export type RowExclusion = {
   readonly reason: "missing" | "nan" | "positive_inf" | "negative_inf";
 }
 
+export type RowPage = {
+  readonly source_alias: string;
+  readonly field_aliases: ReadonlyArray<string>;
+  readonly offset: number;
+  readonly rows: ReadonlyArray<ReadonlyArray<boolean | number | string | null>>;
+  readonly has_more: boolean;
+}
+
 export type SelectFields = {
   readonly operation?: "select_fields";
   readonly source_alias: string;
@@ -1535,6 +1685,13 @@ export type UnitSpec = {
   readonly dimensionality: string;
   readonly kind: "recognized" | "opaque" | "dimensionless";
   readonly registry_version: string;
+}
+
+export type UntrustedSourceContext = {
+  readonly content_is_untrusted?: true;
+  readonly source: WorkflowSource;
+  readonly fields?: ReadonlyArray<WorkflowField>;
+  readonly preview?: RowPage | null;
 }
 
 export type UserTaskEvent = {

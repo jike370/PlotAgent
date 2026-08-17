@@ -1,0 +1,274 @@
+{
+  "$defs": {
+    "CalculationInputRole": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted_types": {
+          "items": {
+            "enum": [
+              "numeric",
+              "categorical",
+              "datetime",
+              "boolean",
+              "text"
+            ],
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Accepted Types",
+          "type": "array"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "accepted_types"
+      ],
+      "title": "CalculationInputRole",
+      "type": "object"
+    },
+    "CalculationParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "constraint": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Constraint",
+          "type": "string"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "value_type": {
+          "enum": [
+            "enum",
+            "integer",
+            "number",
+            "boolean",
+            "field",
+            "field_list"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value_type",
+        "constraint"
+      ],
+      "title": "CalculationParameter",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/calculation-contract-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "algorithm_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Algorithm Id",
+      "type": "string"
+    },
+    "algorithm_version": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Algorithm Version",
+      "type": "string"
+    },
+    "boundary_behavior": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Boundary Behavior",
+      "type": "array"
+    },
+    "calculation_kind": {
+      "enum": [
+        "histogram_binning",
+        "tukey_box",
+        "violin_kde",
+        "ecdf",
+        "summary_error",
+        "percent_stack",
+        "matrix_projection",
+        "confusion_count"
+      ],
+      "title": "Calculation Kind",
+      "type": "string"
+    },
+    "contract_id": {
+      "pattern": "^calculation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Contract Id",
+      "type": "string"
+    },
+    "contract_version": {
+      "minimum": 1,
+      "title": "Contract Version",
+      "type": "integer"
+    },
+    "definition": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Definition",
+      "type": "array"
+    },
+    "input_roles": {
+      "items": {
+        "$ref": "#/$defs/CalculationInputRole"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Input Roles",
+      "type": "array"
+    },
+    "linked_profile_ids": {
+      "default": [],
+      "items": {
+        "enum": [
+          "K01",
+          "K02",
+          "K03",
+          "K04",
+          "K06",
+          "K07",
+          "K08",
+          "K09",
+          "K10",
+          "K11",
+          "K12",
+          "K13",
+          "K14",
+          "K15",
+          "K18",
+          "K19",
+          "K20",
+          "K21",
+          "K22",
+          "K24",
+          "S34",
+          "S61",
+          "X02",
+          "X03",
+          "X05",
+          "X09",
+          "X13",
+          "X23",
+          "X24",
+          "X35",
+          "X36",
+          "X38",
+          "X39",
+          "X40"
+        ],
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Linked Profile Ids",
+      "type": "array"
+    },
+    "missing_value_behavior": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Missing Value Behavior",
+      "type": "string"
+    },
+    "oracle_ids": {
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Oracle Ids",
+      "type": "array"
+    },
+    "output_fields": {
+      "items": {
+        "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Output Fields",
+      "type": "array"
+    },
+    "parameters": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CalculationParameter"
+      },
+      "maxItems": 24,
+      "title": "Parameters",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "calculation-contract.v1",
+      "default": "calculation-contract.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "spec_schema_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Spec Schema Hash",
+      "type": "string"
+    }
+  },
+  "required": [
+    "contract_id",
+    "contract_version",
+    "calculation_kind",
+    "algorithm_id",
+    "algorithm_version",
+    "spec_schema_hash",
+    "input_roles",
+    "definition",
+    "missing_value_behavior",
+    "boundary_behavior",
+    "output_fields",
+    "oracle_ids"
+  ],
+  "title": "CalculationContract",
+  "type": "object"
+}

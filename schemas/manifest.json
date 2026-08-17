@@ -5,12 +5,40 @@
       "sha256": "7b32726778515babd693907c9f4f56ee81c1f0fb73fb5618bf19bd881092df45"
     },
     {
+      "path": "schemas/agent-context-v2.schema.json",
+      "sha256": "488c3a87537742ee25d3fd4f1514438bb63c70485df263b5bcd434e95c0b318b"
+    },
+    {
       "path": "schemas/agent-yield-v2.schema.json",
       "sha256": "9651240402c41d12ab7fe335a00982eca16d0a95cce3ed4cc4ab62dd283126d6"
     },
     {
+      "path": "schemas/calculation-contract-v1.schema.json",
+      "sha256": "88fd10a9a0953c74624d98e738d432694ae2bd59cddb5f0722acbd10685f18da"
+    },
+    {
+      "path": "schemas/chart-catalog-entry-v1.schema.json",
+      "sha256": "39fe3432107f2536a0a8bb00c3a860d3d824b9860a438f2761976062de5e791d"
+    },
+    {
+      "path": "schemas/chart-knowledge-v1.schema.json",
+      "sha256": "e9491ba526f0ad321149ce0b680a7c1561c3120b18a586aa734ffff3a17dd22c"
+    },
+    {
+      "path": "schemas/chart-profile-comparison-v1.schema.json",
+      "sha256": "ad6c4943e10d1686300416eee71c3a6964aca94374499e44752d4f8213d92bf7"
+    },
+    {
+      "path": "schemas/context-tool-contract-v2.schema.json",
+      "sha256": "20894396fb16e0d4783458aca9adb8a61b7d83b24bef309c18e6154c5b0e9348"
+    },
+    {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "5a68b96d1d94245329024e8be7893f5a1b052c41d480d76aafb0d3ad97b0b319"
+      "sha256": "c3b0e41bbf3538b8d2129b6926300ab9fc85eb4fafa844b9af86f7072a2da833"
+    },
+    {
+      "path": "schemas/domain-example-v1.schema.json",
+      "sha256": "57dd0703819797504e91ff5f2baafa1d04b95923c32a89e79d80febebc29c0ee"
     },
     {
       "path": "schemas/engine-artifact.schema.json",
@@ -121,6 +149,10 @@
       "sha256": "538de15ce82c8c45eed394f39bcfe97dcc718e239ac43e504549539f5627431f"
     },
     {
+      "path": "schemas/untrusted-source-context-v2.schema.json",
+      "sha256": "23d7f81595acfe0cb9370790523f5f0894e95585a244d8bd6d42dd0d054ab2e4"
+    },
+    {
       "path": "schemas/verification-report-v2.schema.json",
       "sha256": "b5f9e611e0b6d06ec871e41785511e7390f47c84f3464f5ba7b255b64db11302"
     },
@@ -142,7 +174,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "bad4b38a36428332bd083c5a5818740a10d2a75ba1b77a437dcb83dd6b646b5c"
+      "sha256": "b9a86d61eae1c508b0498c4813045d44d445cc9920f60b29522aee4ed08436d2"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

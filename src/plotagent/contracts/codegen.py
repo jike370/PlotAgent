@@ -37,6 +37,16 @@ from plotagent.contracts.datasets import (
     PreparedDataset,
     SourceDataset,
 )
+from plotagent.contracts.domain_knowledge import (
+    AgentContextSnapshot,
+    CalculationContract,
+    ChartCatalogEntry,
+    ChartKnowledgeCard,
+    ChartProfileComparison,
+    ContextToolContract,
+    DomainExample,
+    UntrustedSourceContext,
+)
 from plotagent.contracts.errors import STABLE_ERROR_REGISTRY, ErrorRegistry, ErrorResponse
 from plotagent.contracts.workflows import (
     TaskDraft,
@@ -115,6 +125,14 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("agent-yield-v2", AgentYieldContract),
     ("task-checkpoint-v2", TaskCheckpoint),
     ("task-event-v2", TaskEventContract),
+    ("chart-knowledge-v1", ChartKnowledgeCard),
+    ("chart-catalog-entry-v1", ChartCatalogEntry),
+    ("chart-profile-comparison-v1", ChartProfileComparison),
+    ("calculation-contract-v1", CalculationContract),
+    ("domain-example-v1", DomainExample),
+    ("untrusted-source-context-v2", UntrustedSourceContext),
+    ("context-tool-contract-v2", ContextToolContract),
+    ("agent-context-v2", AgentContextSnapshot),
     ("engine-data-ref", EngineDataRef),
     ("engine-data-view", EngineDataView),
     ("engine-profile", EngineProfile),
