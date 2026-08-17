@@ -209,7 +209,10 @@ export class AgentFoundationRuntime {
         selected_plots: [],
         selected_profile_ids: [profileId],
         authorized_resources: [],
-        budget: {},
+        // Core owns the durable task ceiling. A zero cost budget is a hard stop,
+        // so the desktop entry must provide an explicit finite allowance instead
+        // of relying on TaskBudgetLimits' fail-closed default.
+        budget: { max_estimated_cost: 10 },
         created_at: this.clock().toISOString(),
       },
     })

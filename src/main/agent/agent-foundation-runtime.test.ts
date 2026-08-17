@@ -124,6 +124,13 @@ describe('AgentFoundationRuntime', () => {
       task: { state: 'awaiting_confirmation' },
       plan: { plan_id: 'plan:fixed' },
     })
+    expect(core.calls.find((call) => call.method === 'agent.tasks.create')).toMatchObject({
+      params: {
+        envelope: {
+          budget: { max_estimated_cost: 10 },
+        },
+      },
+    })
     expect(core.calls.some((call) => call.method === 'agent.tasks.execute')).toBe(false)
 
     const confirmed = await runtime.confirm({ projectId: 'project:test', planId: 'plan:fixed' })
