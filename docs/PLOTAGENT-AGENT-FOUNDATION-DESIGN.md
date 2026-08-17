@@ -31,7 +31,7 @@
 | 3 | 上下文机制 | 已确认 | Agent 每轮能看到什么，怎样按需读取数据而不淹没上下文？ |
 | 4 | 运行循环 | 待讨论 | Agent 怎样观察、行动、检查、修复、停止或追问？ |
 | 5 | 工具体系 | 已确认 | Agent 需要哪些检查、整理、绘图、读回和交付工具？ |
-| 6 | 验证器 | 待讨论 | 怎样独立证明数据、科学语义、图形和导出物正确？ |
+| 6 | 验证器 | 提案待确认 | 怎样独立证明数据、科学语义、图形和导出物正确？ |
 | 7 | 权限与回滚 | 待讨论 | 哪些动作可自动执行，哪些需要确认，失败如何撤销？ |
 | 8 | 工作记忆 | 待讨论 | 一次任务中应记住哪些决定、结果和失败，哪些不得长期保存？ |
 | 9 | 可观察性 | 待讨论 | 用户和开发者怎样看到阶段、进度、原因、成本与结果？ |
@@ -446,6 +446,156 @@ error: code, category, retryable, repair_hint
 - 技术修复不占视觉修改次数；
 - 用户确认后用冻结 TaskIntent 限定正式执行语义；
 - 每个工具自动附带 PlotAgent 数据、图形和交付验证报告。
+
+## 7. 设计项 4：验证器
+
+### 7.0 作用和边界
+
+验证器回答的是“实际结果是否忠实实现已确认任务和图类合同”，不是替用户决定应该画什么、应该使用哪种统计定义或哪种视觉偏好。
+
+模型负责提出语义解释；程序只能验证该解释是否被精确执行，以及是否违反已知图类、数据、单位和项目合同。存在无法从事实和合同判定的科学歧义时交还 Agent 追问用户，不能由验证器补语义。
+
+### 7.1 七层验证
+
+#### A. 任务与授权验证
+
+- task、TaskItem、TaskIntent version 和 project revision 一致；
+- 执行动作没有超出用户确认的 source、profile、bindings、数据操作、视觉动作和输出范围；
+- idempotency key、对象版本和授权仍有效；
+- 技术修复没有暗中改变任务语义。
+
+#### B. 数据与来源验证
+
+- 原始 source hash、DataViewHandle、操作链和结果 hash 可追溯；
+- 行列数、类型、缺失、有限性、单位和来源坐标符合预期；
+- key、行身份、配对、分组、排序与 TaskIntent 一致；
+- 未确认的有效行删除、聚合、去重、填补和单位变化均被拒绝；
+- 结果满足目标图类的 renderer data contract。
+
+#### C. 科学语义执行验证
+
+程序验证已选择的语义是否被正确执行，例如 V→mV 的量纲和数值、mean/median/SD/SEM/CI 算子的定义、log 变换、阈值、误差方向和配对 key。
+
+程序不判断用户是否“应该”使用 SEM 而不是 SD。若 TaskIntent 没有明确该语义，必须由 Agent 根据证据判断或追问用户。
+
+#### D. Plot/Engine 合同验证
+
+- profile ID、合同版本/hash 和 renderer 版本一致；
+- required/optional/repeatable roles 和实际字段绑定一致；
+- PlotDocument、公开语义对象、视觉动作和轴/系列目标正确；
+- 动态数据导致的对象增删符合图类规则，无残留、重复或错绑；
+- Matplotlib 与 Origin 只执行各自受支持且已公开的动作。
+
+#### E. 后端最终状态读回
+
+验证必须读取已生成对象的最终状态，不能只相信 renderer 返回“成功”。
+
+- Matplotlib：读取最终 Figure/Artist 状态、绑定、轴、系列、图例、注释和导出结果；
+- Origin：读取原生 Worksheet/Matrix/Graph/Layer/DataPlot、源 range、PID、分组、对象属性和数据值；
+- OPJU 交付：在新的 Origin 会话中保存、关闭、重开，再次验证源数据、原生结构和 Agent 编辑；
+- 读回结果与 TaskIntent、DataView 和 PlotDocument hash 绑定。
+
+#### F. 产物验证
+
+- 文件存在、非空、hash 和格式正确；
+- PNG/SVG 可解码，尺寸和页面对象有效；
+- OPJU 可由目标 Origin 版本打开，图和数据对象存在且可继续编辑；
+- 导出路径、文件名、数量和 TaskIntent 一致；
+- 产物验证完成前不显示“已完成”或“导出成功”。
+
+#### G. 视觉验证
+
+视觉验证与机械验证分开：
+
+1. 机械视觉检查：画布、对象边界、颜色/线型/符号/字号等已请求参数和显著渲染异常；
+2. Agent 视觉检查：有视觉模型时查看真实预览，根据用户要求、图类基线和有限 rubric 提出局部修正；
+3. 用户视觉判断：审美偏好、科研表达取舍和新 renderer 默认态由用户最终决定。
+
+普通用户任务在确认卡前完成沙箱视觉检查，用户确认后正式结果必须与已确认预览和参数一致；不要求用户在每个技术步骤重复验收。新增/重构 renderer、修改默认模板或发布版本时，必须单独进行人工视觉审查，不能用 Agent 自评代替。
+
+### 7.2 统一 VerificationReport
+
+每个验证问题至少包含：
+
+```text
+validator
+status
+severity
+code
+task_item_id
+object_or_field
+expected
+observed
+evidence_handle
+repair_scope
+changes_semantics
+retryable
+```
+
+TaskItem 的聚合状态为：
+
+- `PASS`：所有本项必需门禁通过；
+- `REPAIRABLE`：可在冻结 TaskIntent 内自动修复；
+- `RECONFIRM_REQUIRED`：修复会改变字段、单位、统计、分组、图类或其他语义；
+- `USER_REVIEW_REQUIRED`：机械正确但存在只能由用户判断的视觉/科研表达问题；
+- `BLOCKED`：环境、权限或外部依赖阻断；
+- `FAIL`：观察到产品错误且自动修复预算耗尽。
+
+不同交付物启用不同必需门禁。只导出 PNG 不要求 Origin；请求 OPJU 时 fresh reopen 和原生可编辑性是强制门禁。
+
+### 7.3 修复与完成循环
+
+```text
+执行工具
+→ 自动验证
+→ PASS：推进 TaskItem
+→ REPAIRABLE：把结构化报告交给 Agent，只修失败部分
+→ RECONFIRM_REQUIRED：形成 TaskIntent 新版本和差异确认
+→ USER_REVIEW_REQUIRED：展示证据并请求用户判断
+→ BLOCKED / FAIL：保留已成功项并明确停止原因
+```
+
+验证器必须给出修复范围，Agent 不得借修复重做已经通过的对象。Schema、参数、临时进程和 renderer 技术错误使用独立技术预算；成功生成可审查预览后才计入视觉修改预算。
+
+任务只有在所有必需 TaskItem 和交付门禁均为 PASS 时标记 `completed_verified`。部分通过时标记 `partial`，不能把任务整体包装成成功或丢弃通过项。
+
+### 7.4 证据和可复现性
+
+VerificationReport 保存：
+
+- 用户确认的 TaskIntent hash；
+- source/DataView/Profile/Renderer/PlotDocument hash 与版本；
+- 工具调用和后端 session 身份；
+- 读回快照、文件 hash、预览/截图和 Origin reopen 结果；
+- 验证器版本和发生时间。
+
+报告引用真实项目对象和产物，不把聊天文字、renderer 自述或测试夹具当作本次任务证据。
+
+### 7.5 当前基线和缺口
+
+当前已有 Profile/TaskDraft 编译校验、EngineReadback、source hash 校验、多数 Origin profile 的原生结构读回和 fresh reopen，以及大量逐图测试。
+
+当前缺少：
+
+- 跨 TaskContract、DataView、renderer 和 artifact 的统一 VerificationReport；
+- 数据关系、单位和科学操作的统一任务级验证；
+- 可直接交给 Agent 修复的结构化问题与 repair scope；
+- 机械视觉、Agent 视觉和人工视觉的明确分层；
+- 按交付物聚合的任务完成门禁；
+- 验证失败后只修失败项并继续同一任务的正式闭环。
+
+### 7.6 本项待确认原则
+
+1. 验证器证明“已确认语义是否被正确执行”，不替用户选择科学语义；
+2. 验证分为任务授权、数据来源、科学执行、Plot 合同、后端读回、产物和视觉七层；
+3. 所有改变环境的工具完成后自动验证，Agent 不能跳过；
+4. 最终状态和真实产物读回优先于 renderer 自述；
+5. 请求 OPJU 时必须在新 Origin 会话中重开并验证原生可编辑性；
+6. 视觉验证分为机械、Agent 和用户三层，普通任务不要求用户重复验收每个技术步骤；
+7. VerificationReport 必须结构化并包含 expected、observed、证据和 repair scope；
+8. 冻结 TaskIntent 内的技术错误由 Agent 自动修，语义变化必须重新确认；
+9. 只修失败项并保留已通过项，技术预算和视觉修改预算分开；
+10. 所有必需门禁 PASS 后才能标记 `completed_verified`，部分通过只能标记 `partial`。
 
 ## 已确认决定日志
 
