@@ -126,6 +126,8 @@ def test_fresh_project_creates_only_the_workflow_schema(
         "agent_tool_receipts_v2",
         "agent_verification_reports_v2",
         "agent_task_leases_v2",
+        "agent_task_plans_v2",
+        "agent_execution_grants_v2",
         "sqlite_sequence",
     }
 
