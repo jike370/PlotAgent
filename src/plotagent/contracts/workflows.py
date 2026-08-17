@@ -38,10 +38,6 @@ TaskItemId = Annotated[
     str,
     StringConstraints(pattern=r"^item:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
 ]
-WorkflowRecipeId = Annotated[
-    str,
-    StringConstraints(pattern=r"^recipe:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", strict=True),
-]
 WorkflowAlias = Annotated[
     str,
     StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,63}$", strict=True),
@@ -106,7 +102,6 @@ WorkflowPalette = Literal[
 
 WorkflowRoute = Literal[
     "agent",
-    "recipe_replay",
     "direct",
 ]
 
@@ -705,7 +700,7 @@ class TaskDraft(StrictModel):
     schema_version: Literal["task-draft.v1"] = "task-draft.v1"
     draft_id: TaskDraftId
     workflow_run_id: WorkflowRunId
-    route: Literal["agent", "recipe_replay", "direct"]
+    route: Literal["agent", "direct"]
     summary: Annotated[str, StringConstraints(min_length=1, max_length=512, strict=True)]
     items: Annotated[tuple[TaskDraftItem, ...], Field(min_length=1, max_length=64)]
     confidence: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
@@ -879,7 +874,6 @@ class TaskPlanSnapshot(StrictModel):
     item_progress: Annotated[tuple[TaskItemProgress, ...], Field(min_length=1)]
     created_at: Annotated[str, StringConstraints(min_length=1, max_length=64, strict=True)]
     updated_at: Annotated[str, StringConstraints(min_length=1, max_length=64, strict=True)]
-
     @model_validator(mode="after")
     def progress_matches_plan(self) -> TaskPlanSnapshot:
         if tuple(item.item_id for item in self.plan.items) != tuple(
@@ -895,7 +889,6 @@ class WorkflowRunSnapshot(StrictModel):
     state: Literal[
         "routing",
         "agent",
-        "recipe_replay",
         "direct",
         "needs_input",
         "draft_ready",
@@ -917,18 +910,3 @@ class WorkflowRunSnapshot(StrictModel):
     estimated_cost: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 0
     created_at: Annotated[str, StringConstraints(min_length=1, max_length=64, strict=True)]
     updated_at: Annotated[str, StringConstraints(min_length=1, max_length=64, strict=True)]
-
-
-class WorkflowRecipe(StrictModel):
-    schema_version: Literal["workflow-recipe.v1"] = "workflow-recipe.v1"
-    recipe_id: WorkflowRecipeId
-    recipe_version: VersionId
-    display_name: Annotated[str, StringConstraints(min_length=1, max_length=128, strict=True)]
-    structure_fingerprint: Sha256
-    draft_template: TaskDraft
-    engine_profile_hash: Sha256
-    renderer_contract_hash: Sha256
-    created_from_workflow_run_id: WorkflowRunId
-    created_from_plan_id: TaskPlanId
-    created_from_export_hash: Sha256
-    archived: bool = False

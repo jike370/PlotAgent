@@ -992,6 +992,458 @@
       "title": "CreatePlot",
       "type": "object"
     },
+    "DataPreparationMatchContract": {
+      "additionalProperties": false,
+      "description": "Strict structural preconditions; never natural-language intent.",
+      "properties": {
+        "parser_contract_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Parser Contract Version",
+          "type": "string"
+        },
+        "required_marker_hashes": {
+          "default": [],
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "title": "Required Marker Hashes",
+          "type": "array"
+        },
+        "source_formats": {
+          "items": {
+            "enum": [
+              "csv",
+              "tsv",
+              "txt",
+              "dat",
+              "xlsx",
+              "xlsm",
+              "xls"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Formats",
+          "type": "array"
+        },
+        "specificity": {
+          "default": 500,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Specificity",
+          "type": "integer"
+        },
+        "table_count": {
+          "minimum": 1,
+          "title": "Table Count",
+          "type": "integer"
+        },
+        "table_structure_hashes": {
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Table Structure Hashes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_formats",
+        "table_count",
+        "table_structure_hashes",
+        "parser_contract_version"
+      ],
+      "title": "DataPreparationMatchContract",
+      "type": "object"
+    },
+    "DataPreparationOutputContract": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_additional_tables": {
+          "const": false,
+          "default": false,
+          "title": "Allow Additional Tables",
+          "type": "boolean"
+        },
+        "preserve_source_coordinates": {
+          "const": true,
+          "default": true,
+          "title": "Preserve Source Coordinates",
+          "type": "boolean"
+        },
+        "preserve_source_order": {
+          "const": true,
+          "default": true,
+          "title": "Preserve Source Order",
+          "type": "boolean"
+        },
+        "tables": {
+          "items": {
+            "$ref": "#/$defs/DataPreparationTableContract"
+          },
+          "minItems": 1,
+          "title": "Tables",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tables"
+      ],
+      "title": "DataPreparationOutputContract",
+      "type": "object"
+    },
+    "DataPreparationRecipe": {
+      "additionalProperties": false,
+      "properties": {
+        "created_from_run_id": {
+          "pattern": "^data-run:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Created From Run Id",
+          "type": "string"
+        },
+        "created_from_source_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Created From Source Hash",
+          "type": "string"
+        },
+        "display_name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "match_contract": {
+          "$ref": "#/$defs/DataPreparationMatchContract"
+        },
+        "output_contract": {
+          "$ref": "#/$defs/DataPreparationOutputContract"
+        },
+        "recipe_id": {
+          "pattern": "^data-recipe:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Recipe Id",
+          "type": "string"
+        },
+        "recipe_version": {
+          "minimum": 1,
+          "title": "Recipe Version",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "data-preparation-recipe.v1",
+          "default": "data-preparation-recipe.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "default": "personal",
+          "enum": [
+            "personal",
+            "project"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/ParseSourceStep"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "recipe_id",
+        "recipe_version",
+        "display_name",
+        "match_contract",
+        "steps",
+        "output_contract",
+        "created_from_run_id",
+        "created_from_source_hash"
+      ],
+      "title": "DataPreparationRecipe",
+      "type": "object"
+    },
+    "DataPreparationRun": {
+      "additionalProperties": false,
+      "properties": {
+        "candidates": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RecipeCandidateEvaluation"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "created_at": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Created At",
+          "type": "string"
+        },
+        "executed_steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ParseSourceStep"
+          },
+          "title": "Executed Steps",
+          "type": "array"
+        },
+        "failure_code": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Code"
+        },
+        "failure_message": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Message"
+        },
+        "input_token_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Input Token Count",
+          "type": "integer"
+        },
+        "local_duration_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Local Duration Ms",
+          "type": "integer"
+        },
+        "model_turn_count": {
+          "default": 0,
+          "maximum": 8,
+          "minimum": 0,
+          "title": "Model Turn Count",
+          "type": "integer"
+        },
+        "output_content_hashes": {
+          "default": [],
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "title": "Output Content Hashes",
+          "type": "array"
+        },
+        "output_source_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Output Source Ids",
+          "type": "array"
+        },
+        "output_token_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Output Token Count",
+          "type": "integer"
+        },
+        "probe": {
+          "$ref": "#/$defs/SourceStructureProbe"
+        },
+        "project_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "resource_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "route": {
+          "anyOf": [
+            {
+              "enum": [
+                "generic_parser",
+                "saved_recipe",
+                "agent_assisted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Route"
+        },
+        "run_id": {
+          "pattern": "^data-run:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "data-preparation-run.v1",
+          "default": "data-preparation-run.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "selected_recipe_id": {
+          "anyOf": [
+            {
+              "pattern": "^data-recipe:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Recipe Id"
+        },
+        "selected_recipe_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Recipe Version"
+        },
+        "source_object_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Object Hash",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "probing",
+            "matching",
+            "awaiting_recipe_selection",
+            "agent_required",
+            "validating",
+            "committed",
+            "failed",
+            "cancelled"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "tool_call_count": {
+          "default": 0,
+          "maximum": 32,
+          "minimum": 0,
+          "title": "Tool Call Count",
+          "type": "integer"
+        },
+        "updated_at": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "project_id",
+        "resource_id",
+        "source_object_hash",
+        "probe",
+        "state",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "DataPreparationRun",
+      "type": "object"
+    },
+    "DataPreparationTableContract": {
+      "additionalProperties": false,
+      "properties": {
+        "column_names": {
+          "items": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "title": "Column Names",
+          "type": "array"
+        },
+        "logical_types": {
+          "items": {
+            "enum": [
+              "numeric",
+              "categorical",
+              "datetime",
+              "boolean",
+              "text"
+            ],
+            "type": "string"
+          },
+          "title": "Logical Types",
+          "type": "array"
+        },
+        "minimum_rows": {
+          "minimum": 0,
+          "title": "Minimum Rows",
+          "type": "integer"
+        },
+        "structure_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Structure Hash",
+          "type": "string"
+        },
+        "table_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Table Key",
+          "type": "string"
+        },
+        "unit_labels": {
+          "items": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Unit Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "table_key",
+        "column_names",
+        "logical_types",
+        "unit_labels",
+        "minimum_rows",
+        "structure_hash"
+      ],
+      "title": "DataPreparationTableContract",
+      "type": "object"
+    },
     "DataQualitySummary": {
       "additionalProperties": false,
       "properties": {
@@ -3401,6 +3853,66 @@
       "title": "EngineProfile",
       "type": "object"
     },
+    "EngineProfileCompatibility": {
+      "additionalProperties": false,
+      "description": "Type/count/shape compatibility; never a semantic field binding.",
+      "properties": {
+        "field_count": {
+          "minimum": 0,
+          "title": "Field Count",
+          "type": "integer"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "reason_codes": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Reason Codes",
+          "type": "array"
+        },
+        "requirements": {
+          "items": {
+            "$ref": "#/$defs/EngineRoleCompatibility"
+          },
+          "title": "Requirements",
+          "type": "array"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "engine-profile-compatibility.v1",
+          "default": "engine-profile-compatibility.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "compatible",
+            "incompatible"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile_id",
+        "status",
+        "row_count",
+        "field_count",
+        "requirements"
+      ],
+      "title": "EngineProfileCompatibility",
+      "type": "object"
+    },
     "EngineReadback": {
       "additionalProperties": false,
       "properties": {
@@ -3472,6 +3984,44 @@
         "object_key_prefix"
       ],
       "title": "EngineRepeatableObjectTemplate",
+      "type": "object"
+    },
+    "EngineRoleCompatibility": {
+      "additionalProperties": false,
+      "description": "Mechanical feasibility for one required role without choosing a field.",
+      "properties": {
+        "accepted_logical_types": {
+          "items": {
+            "enum": [
+              "numeric",
+              "categorical",
+              "datetime",
+              "boolean",
+              "text"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Accepted Logical Types",
+          "type": "array"
+        },
+        "candidate_count": {
+          "minimum": 0,
+          "title": "Candidate Count",
+          "type": "integer"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "accepted_logical_types",
+        "candidate_count"
+      ],
+      "title": "EngineRoleCompatibility",
       "type": "object"
     },
     "ErrorDefinition": {
@@ -4811,6 +5361,107 @@
       "title": "NonFiniteCounts",
       "type": "object"
     },
+    "ParseSourceStep": {
+      "additionalProperties": false,
+      "description": "The bounded parser choice proven by a successful preparation run.",
+      "properties": {
+        "decimal_mark": {
+          "anyOf": [
+            {
+              "enum": [
+                ".",
+                ","
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decimal Mark"
+        },
+        "delimiter": {
+          "anyOf": [
+            {
+              "maxLength": 4,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delimiter"
+        },
+        "encoding": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Encoding"
+        },
+        "header_row": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Header Row"
+        },
+        "operation": {
+          "const": "parse_source",
+          "default": "parse_source",
+          "title": "Operation",
+          "type": "string"
+        },
+        "sheet": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sheet"
+        },
+        "source_format": {
+          "enum": [
+            "csv",
+            "tsv",
+            "txt",
+            "dat",
+            "xlsx",
+            "xlsm",
+            "xls"
+          ],
+          "title": "Source Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_format"
+      ],
+      "title": "ParseSourceStep",
+      "type": "object"
+    },
     "PercentStackResult": {
       "additionalProperties": false,
       "properties": {
@@ -5560,6 +6211,88 @@
       "title": "PreparedDatasetRef",
       "type": "object"
     },
+    "ProbedTable": {
+      "additionalProperties": false,
+      "description": "Non-semantic structure facts observed for one candidate table.",
+      "properties": {
+        "column_count": {
+          "minimum": 1,
+          "title": "Column Count",
+          "type": "integer"
+        },
+        "column_names": {
+          "items": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "title": "Column Names",
+          "type": "array"
+        },
+        "display_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "logical_types": {
+          "items": {
+            "enum": [
+              "numeric",
+              "categorical",
+              "datetime",
+              "boolean",
+              "text"
+            ],
+            "type": "string"
+          },
+          "title": "Logical Types",
+          "type": "array"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "structure_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Structure Hash",
+          "type": "string"
+        },
+        "table_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Table Key",
+          "type": "string"
+        },
+        "unit_labels": {
+          "items": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Unit Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "table_key",
+        "display_name",
+        "row_count",
+        "column_count",
+        "column_names",
+        "logical_types",
+        "unit_labels",
+        "structure_hash"
+      ],
+      "title": "ProbedTable",
+      "type": "object"
+    },
     "ProjectMetadataLabelSpec": {
       "additionalProperties": false,
       "properties": {
@@ -5704,6 +6437,103 @@
         "role_fields"
       ],
       "title": "ProjectStructureSpec",
+      "type": "object"
+    },
+    "RecipeCandidateEvaluation": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_kind": {
+          "enum": [
+            "saved_recipe",
+            "generic_parser"
+          ],
+          "title": "Candidate Kind",
+          "type": "string"
+        },
+        "display_name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "output_hashes": {
+          "default": [],
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "title": "Output Hashes",
+          "type": "array"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason Code"
+        },
+        "recipe_id": {
+          "anyOf": [
+            {
+              "pattern": "^data-recipe:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recipe Id"
+        },
+        "recipe_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recipe Version"
+        },
+        "specificity": {
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Specificity",
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "filtered",
+            "sandbox_passed",
+            "sandbox_failed",
+            "selected"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate_kind",
+        "display_name",
+        "specificity",
+        "state",
+        "duration_ms"
+      ],
+      "title": "RecipeCandidateEvaluation",
       "type": "object"
     },
     "RenameField": {
@@ -7885,6 +8715,93 @@
       "title": "SourceField",
       "type": "object"
     },
+    "SourceStructureProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_size": {
+          "minimum": 0,
+          "title": "Byte Size",
+          "type": "integer"
+        },
+        "generic_parser_code": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generic Parser Code"
+        },
+        "generic_parser_outcome": {
+          "enum": [
+            "imported",
+            "clarification",
+            "rejection"
+          ],
+          "title": "Generic Parser Outcome",
+          "type": "string"
+        },
+        "marker_hashes": {
+          "default": [],
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "title": "Marker Hashes",
+          "type": "array"
+        },
+        "probe_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Probe Hash",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "source-structure-probe.v1",
+          "default": "source-structure-probe.v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_format": {
+          "enum": [
+            "csv",
+            "tsv",
+            "txt",
+            "dat",
+            "xlsx",
+            "xlsm",
+            "xls"
+          ],
+          "title": "Source Format",
+          "type": "string"
+        },
+        "source_object_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Object Hash",
+          "type": "string"
+        },
+        "tables": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProbedTable"
+          },
+          "title": "Tables",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_object_hash",
+        "source_format",
+        "byte_size",
+        "generic_parser_outcome",
+        "probe_hash"
+      ],
+      "title": "SourceStructureProbe",
+      "type": "object"
+    },
     "SummaryErrorResult": {
       "additionalProperties": false,
       "properties": {
@@ -8261,7 +9178,6 @@
         "route": {
           "enum": [
             "agent",
-            "recipe_replay",
             "direct"
           ],
           "title": "Route",
@@ -9724,85 +10640,6 @@
       "title": "WorkflowPlot",
       "type": "object"
     },
-    "WorkflowRecipe": {
-      "additionalProperties": false,
-      "properties": {
-        "archived": {
-          "default": false,
-          "title": "Archived",
-          "type": "boolean"
-        },
-        "created_from_export_hash": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Created From Export Hash",
-          "type": "string"
-        },
-        "created_from_plan_id": {
-          "pattern": "^plan:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Created From Plan Id",
-          "type": "string"
-        },
-        "created_from_workflow_run_id": {
-          "pattern": "^workflow:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Created From Workflow Run Id",
-          "type": "string"
-        },
-        "display_name": {
-          "maxLength": 128,
-          "minLength": 1,
-          "title": "Display Name",
-          "type": "string"
-        },
-        "draft_template": {
-          "$ref": "#/$defs/TaskDraft"
-        },
-        "engine_profile_hash": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Engine Profile Hash",
-          "type": "string"
-        },
-        "recipe_id": {
-          "pattern": "^recipe:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-          "title": "Recipe Id",
-          "type": "string"
-        },
-        "recipe_version": {
-          "minimum": 1,
-          "title": "Recipe Version",
-          "type": "integer"
-        },
-        "renderer_contract_hash": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Renderer Contract Hash",
-          "type": "string"
-        },
-        "schema_version": {
-          "const": "workflow-recipe.v1",
-          "default": "workflow-recipe.v1",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "structure_fingerprint": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Structure Fingerprint",
-          "type": "string"
-        }
-      },
-      "required": [
-        "recipe_id",
-        "recipe_version",
-        "display_name",
-        "structure_fingerprint",
-        "draft_template",
-        "engine_profile_hash",
-        "renderer_contract_hash",
-        "created_from_workflow_run_id",
-        "created_from_plan_id",
-        "created_from_export_hash"
-      ],
-      "title": "WorkflowRecipe",
-      "type": "object"
-    },
     "WorkflowRunSnapshot": {
       "additionalProperties": false,
       "properties": {
@@ -9886,7 +10723,6 @@
             {
               "enum": [
                 "agent",
-                "recipe_replay",
                 "direct"
               ],
               "type": "string"
@@ -9902,7 +10738,6 @@
           "enum": [
             "routing",
             "agent",
-            "recipe_replay",
             "direct",
             "needs_input",
             "draft_ready",
@@ -10029,6 +10864,12 @@
   "$id": "https://schemas.plotagent.local/v2/contracts-bundle.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "roots": {
+    "data-preparation-recipe": {
+      "$ref": "#/$defs/DataPreparationRecipe"
+    },
+    "data-preparation-run": {
+      "$ref": "#/$defs/DataPreparationRun"
+    },
     "engine-artifact": {
       "$ref": "#/$defs/EngineArtifact"
     },
@@ -10040,6 +10881,9 @@
     },
     "engine-profile": {
       "$ref": "#/$defs/EngineProfile"
+    },
+    "engine-profile-compatibility": {
+      "$ref": "#/$defs/EngineProfileCompatibility"
     },
     "engine-readback": {
       "$ref": "#/$defs/EngineReadback"
@@ -10074,6 +10918,9 @@
     "source-dataset": {
       "$ref": "#/$defs/SourceDataset"
     },
+    "source-structure-probe": {
+      "$ref": "#/$defs/SourceStructureProbe"
+    },
     "task-draft": {
       "$ref": "#/$defs/TaskDraft"
     },
@@ -10088,9 +10935,6 @@
     },
     "workflow-decision": {
       "$ref": "#/$defs/WorkflowDecisionContract"
-    },
-    "workflow-recipe": {
-      "$ref": "#/$defs/WorkflowRecipe"
     },
     "workflow-run-snapshot": {
       "$ref": "#/$defs/WorkflowRunSnapshot"

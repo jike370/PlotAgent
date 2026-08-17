@@ -16,7 +16,6 @@ from plotagent.engine import EngineCatalog
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.storage import ProjectStore
 from plotagent.workflows.compiler import DraftCompiler
-from plotagent.workflows.recipes import build_recipe, replay_recipe, structure_fingerprint
 from plotagent.workflows.repository import WorkflowRepository
 
 
@@ -148,66 +147,3 @@ def test_rejected_plan_cannot_be_confirmed(tmp_path: Path) -> None:
         rejected = repository.reject(plan.plan_id)
         assert rejected.state == "rejected"
         assert repository.get_run(context.workflow_run_id).state == "cancelled"
-
-
-def test_successful_export_can_be_saved_and_replayed_as_an_explicit_recipe(
-    tmp_path: Path,
-) -> None:
-    catalog = EngineCatalog(ENGINE_PROFILES)
-    with ProjectStore.create(tmp_path / "workflow", project_id="project:stored") as project:
-        repository = WorkflowRepository(project)
-        context = _context()
-        repository.create_run(context)
-        draft = repository.save_draft(_draft())
-        plan = DraftCompiler(catalog).compile(draft, context)
-        repository.save_plan(plan)
-        recipe = build_recipe(
-            context=context,
-            draft=draft,
-            catalog=catalog,
-            plan_id=plan.plan_id,
-            display_name="折线图流程",
-            export_hash="b" * 64,
-        )
-        repository.save_recipe(recipe)
-
-        matches = repository.find_recipes(recipe.structure_fingerprint)
-        assert matches == (recipe,)
-
-        new_context = context.model_copy(update={"workflow_run_id": "workflow:replay"})
-        replayed = replay_recipe(matches[0], new_context)
-        assert replayed.route == "recipe_replay"
-        assert replayed.workflow_run_id == "workflow:replay"
-        assert replayed.items[0].item_id == "item:replay.1"
-        assert replayed.items[0].bindings == draft.items[0].bindings
-
-
-def test_recipe_structure_fingerprint_preserves_unit_case_and_evidence() -> None:
-    base = _context()
-    mega = base.model_copy(
-        update={
-            "fields": (
-                base.fields[0],
-                base.fields[1].model_copy(update={"unit_label": "MΩ", "unit_evidence": "declared"}),
-            )
-        }
-    )
-    milli = mega.model_copy(
-        update={
-            "fields": (
-                mega.fields[0],
-                mega.fields[1].model_copy(update={"unit_label": "mΩ"}),
-            )
-        }
-    )
-    suggested = mega.model_copy(
-        update={
-            "fields": (
-                mega.fields[0],
-                mega.fields[1].model_copy(update={"unit_evidence": "suffix_candidate"}),
-            )
-        }
-    )
-
-    assert structure_fingerprint(mega) != structure_fingerprint(milli)
-    assert structure_fingerprint(mega) != structure_fingerprint(suggested)

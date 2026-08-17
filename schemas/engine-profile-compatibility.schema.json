@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "EngineRoleCompatibility": {
+      "additionalProperties": false,
+      "description": "Mechanical feasibility for one required role without choosing a field.",
+      "properties": {
+        "accepted_logical_types": {
+          "items": {
+            "enum": [
+              "numeric",
+              "categorical",
+              "datetime",
+              "boolean",
+              "text"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Accepted Logical Types",
+          "type": "array"
+        },
+        "candidate_count": {
+          "minimum": 0,
+          "title": "Candidate Count",
+          "type": "integer"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "accepted_logical_types",
+        "candidate_count"
+      ],
+      "title": "EngineRoleCompatibility",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/engine-profile-compatibility.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Type/count/shape compatibility; never a semantic field binding.",
+  "properties": {
+    "field_count": {
+      "minimum": 0,
+      "title": "Field Count",
+      "type": "integer"
+    },
+    "profile_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "reason_codes": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Reason Codes",
+      "type": "array"
+    },
+    "requirements": {
+      "items": {
+        "$ref": "#/$defs/EngineRoleCompatibility"
+      },
+      "title": "Requirements",
+      "type": "array"
+    },
+    "row_count": {
+      "minimum": 0,
+      "title": "Row Count",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "engine-profile-compatibility.v1",
+      "default": "engine-profile-compatibility.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "compatible",
+        "incompatible"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profile_id",
+    "status",
+    "row_count",
+    "field_count",
+    "requirements"
+  ],
+  "title": "EngineProfileCompatibility",
+  "type": "object"
+}

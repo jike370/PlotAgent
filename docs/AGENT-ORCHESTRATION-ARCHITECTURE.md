@@ -456,7 +456,7 @@ TaskItem 是局部失败与幂等重试的最小单位。程序保留成功项�
 - `workflows/data_ops.py`：数据操作预演和正式执行的唯一实现。
 - `workflows/compiler.py`：TaskDraft 进入 TaskPlan 的唯一入口。
 - `workflows/executor.py`：确认后逐项执行、幂等和恢复。
-- `workflows/data_preparation_recipes.py`：结构探测索引、候选筛选、沙箱试运行、输出校验与版本管理，不解释自然语言。
+- `data_preparation/recipes.py`：结构探测索引、候选筛选、沙箱试运行、输出校验与版本管理，不解释自然语言。
 - `desktop_core/workflow_service.py`：Core 唯一工作流服务，不含自然语言解析器。
 - `main/agent/pi-runtime.ts`：Agent 循环、工具和追问，不预解析 instruction。
 - renderer：只消费类型化 Engine Action，不理解自然语言、不处理业务数据。

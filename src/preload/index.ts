@@ -12,8 +12,10 @@ import {
   type WorkflowDraftSubmitInput,
   type TaskPlanConfirmInput,
   type TaskPlanInput,
-  type WorkflowRecipeSaveInput,
+  type DataPreparationRecipeSaveInput,
+  type DataPreparationRunInput,
   type DatasetDescribeInput,
+  type EngineCompatibilityInput,
   type EngineActionInput,
   type OpenResourceRequest,
   type OriginExportInput,
@@ -84,6 +86,8 @@ const desktop = {
   importDatasets: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.datasetImport, input),
   listDatasets: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.datasetList, input),
   describeDataset: (input: DatasetDescribeInput) => ipcRenderer.invoke(IPC_CHANNELS.datasetDescribe, input),
+  checkEngineCompatibility: (input: EngineCompatibilityInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.engineCompatibilityCheck, input),
   executePlotAction: (input: EngineActionInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.engineActionExecute, input),
   getPlot: (input: PlotIdInput) => ipcRenderer.invoke(IPC_CHANNELS.enginePlotGet, input),
@@ -101,10 +105,12 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.taskPlanRun, input),
   resumeTaskPlan: (input: TaskPlanInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.taskPlanResume, input),
-  saveWorkflowRecipe: (input: WorkflowRecipeSaveInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.workflowRecipeSave, input),
-  listWorkflowRecipes: (input: ProjectIdInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.workflowRecipeList, input),
+  saveDataPreparationRecipe: (input: DataPreparationRecipeSaveInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.dataPreparationRecipeSave, input),
+  listDataPreparationRecipes: (input: ProjectIdInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.dataPreparationRecipeList, input),
+  getDataPreparationRun: (input: DataPreparationRunInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.dataPreparationRunGet, input),
   exportPngSvg: (input: PngSvgExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportPngSvg, input),
   exportOrigin: (input: OriginExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportOrigin, input),
   respondToCloseRequest: (response: CloseResponse) =>

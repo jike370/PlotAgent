@@ -309,6 +309,16 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     importDatasets: vi.fn(async () => ok({ imports: [{ kind: 'committed', project_version: 1, datasets: [dataset] }], project_version: 1 })),
     listDatasets: vi.fn(async () => ok({ project_id: 'project:test', project_version: 1, datasets: [dataset] })),
     describeDataset: vi.fn(async () => ok({ dataset })),
+    checkEngineCompatibility: vi.fn(async ({ profileIds }) => ok({
+      compatibility: (profileIds ?? []).map((profileId: string) => ({
+        profile_id: profileId,
+        status: 'compatible',
+        row_count: 3,
+        field_count: dataset.fields.length,
+        requirements: [],
+        reason_codes: [],
+      })),
+    })),
     executePlotAction: vi.fn(async (input) => {
       const action = input.action as Record<string, JsonValue>
       return ok(enginePlotFixture(
@@ -328,8 +338,17 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     confirmTaskPlan: vi.fn(async () => ok(workflowPlanFixture('ready', 'ready'))),
     runTaskPlan: vi.fn(async () => ok({ task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
     resumeTaskPlan: vi.fn(async () => ok({ task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
-    saveWorkflowRecipe: vi.fn(async ({ displayName }) => ok({ recipe_id: 'recipe:test', recipe_version: 1, display_name: displayName })),
-    listWorkflowRecipes: vi.fn(async () => ok({ workflow_recipes: [] })),
+    saveDataPreparationRecipe: vi.fn(async ({ displayName }) => ok({
+      recipe_id: 'data-recipe:test', recipe_version: 1, display_name: displayName,
+    })),
+    listDataPreparationRecipes: vi.fn(async () => ok({ data_preparation_recipes: [] })),
+    getDataPreparationRun: vi.fn(async ({ runId }) => ok({
+      run_id: runId,
+      state: 'committed',
+      route: 'generic_parser',
+      probe: { tables: [] },
+      local_duration_ms: 1,
+    })),
     exportPngSvg: vi.fn(async () => ok({ export_id: 'export:one', artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: 'plot.png' } } })),
     exportOrigin: vi.fn(async () => ok({ export_id: 'export:origin', result: { status: 'succeeded' } })),
     respondToCloseRequest: vi.fn(actionOk),
@@ -998,11 +1017,8 @@ describe('PlotAgent real desktop workflow', () => {
     expect(document.body.textContent).not.toMatch(/[A-Za-z]:\\/)
   })
 
-  it('offers explicit workflow recipe saving only for an exported successful plan output', async () => {
+  it('does not offer whole plotting workflow replay after export', async () => {
     const user = userEvent.setup()
-    const saveWorkflowRecipe = vi.fn(async () => ok({
-      recipe_id: 'recipe:test', recipe_version: 1, display_name: '折线图流程',
-    }))
     const api = fakeDesktop({
       executePlotAction: vi.fn(async () => ok(enginePlotFixture('plot:one', 1))),
       listTaskPlans: vi.fn(async () => ok({
@@ -1012,51 +1028,22 @@ describe('PlotAgent real desktop workflow', () => {
         export_id: 'export:recipe', plot_id: 'plot:one',
         artifact: { content_hash: 'e'.repeat(64), size: 4096 },
       })),
-      saveWorkflowRecipe,
     })
     installApi(api)
     render(<App />)
     await openSampleAndCreatePlot(user)
     await user.click(await screen.findByRole('button', { name: '导出 PNG' }))
-    await user.click(await screen.findByRole('button', { name: '经常处理同构数据？固化本次流程' }))
-
-    expect(saveWorkflowRecipe).toHaveBeenCalledWith({
-      projectId: 'project:sample',
-      planId: 'plan:one',
-      displayName: '折线图流程',
-      exportHash: 'e'.repeat(64),
-    })
-    expect(await screen.findByText('流程已固化')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /固化本次流程|运行已固化流程/ })).not.toBeInTheDocument()
   })
 
-  it('runs a saved workflow only after the user explicitly selects it', async () => {
-    const user = userEvent.setup()
-    const runWorkflow = vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture())))
-    const api = fakeDesktop({
-      listWorkflowRecipes: vi.fn(async () => ok({
-        workflow_recipes: [{
-          recipe_id: 'recipe:line',
-          display_name: '折线图流程',
-          draft_template: {
-            items: [{ profile_id: 'K01' }],
-          },
-        }],
-      })),
-      runWorkflow,
-    })
+  it('lists data preparation recipes without exposing them as plotting workflow choices', async () => {
+    const listDataPreparationRecipes = vi.fn(async () => ok({ data_preparation_recipes: [] }))
+    const api = fakeDesktop({ listDataPreparationRecipes })
     installApi(api)
     render(<App />)
-
-    await user.click(await screen.findByRole('button', { name: '示例' }))
-    await user.selectOptions(await screen.findByRole('combobox', { name: '已固化流程' }), 'recipe:line')
-
-    expect(runWorkflow).toHaveBeenCalledWith({
-      projectId: 'project:sample',
-      selectedSources: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
-      expectedProjectVersion: 1,
-      selectedRecipeId: 'recipe:line',
-      instruction: '使用已固化流程：折线图流程',
-    })
+    await userEvent.setup().click(await screen.findByRole('button', { name: '示例' }))
+    expect(listDataPreparationRecipes).toHaveBeenCalledWith({ projectId: 'project:sample' })
+    expect(screen.queryByRole('combobox', { name: '已固化流程' })).not.toBeInTheDocument()
   })
 
   it('keeps OPJU progress explicit and announces a durable completion result', async () => {

@@ -45,6 +45,7 @@ class SourceDatasetRecord(StrictModel):
     source_dataset: SourceDataset
     logical_source_id: str
     import_recipe_id: str
+    preparation_run_id: str
     created_at: str
     display_name: str | None = None
     source_file_name: str | None = None

@@ -12,10 +12,12 @@ import {
   parseWorkflowDraftSubmitInput,
   parseTaskPlanConfirmInput,
   parseTaskPlanInput,
-  parseWorkflowRecipeSaveInput,
+  parseDataPreparationRecipeSaveInput,
+  parseDataPreparationRunInput,
   parseCloseResponse,
   parseCustomProviderConfigureInput,
   parseDatasetDescribeInput,
+  parseEngineCompatibilityInput,
   parseEngineActionInput,
   parseOriginExportInput,
   parsePlotIdInput,
@@ -66,6 +68,13 @@ export function readImportClarification(value: JsonValue): ImportClarificationCh
 }
 
 export function importOptionPatch(code: string, value: string): Record<string, JsonValue> | undefined {
+  if (code === 'DATA_RECIPE_SELECTION_REQUIRED') {
+    const match = /^(data-recipe:[A-Za-z0-9][A-Za-z0-9._-]{0,127})@(\d+)$/.exec(value)
+    return match === null ? undefined : {
+      data_preparation_recipe_id: match[1],
+      data_preparation_recipe_version: Number(match[2]),
+    }
+  }
   if (code === 'IMPORT_DELIMITER_AMBIGUOUS') return { delimiter: value === 'TAB' || value === '\t' ? '\t' : value }
   if (code === 'IMPORT_DECIMAL_AMBIGUOUS') return { decimal_mark: value }
   if (code === 'IMPORT_HEADER_AMBIGUOUS') {
@@ -714,6 +723,17 @@ export function registerDesktopIpc({
       return { ok: false, error: supervisor.toPublicResult(error) } satisfies DesktopDataResult
     }
   })
+  ipcMain.handle(IPC_CHANNELS.engineCompatibilityCheck, (_event, value: unknown) => {
+    const input = parseEngineCompatibilityInput(value)
+    return input === null
+      ? invalidDataArgument('数据集或图形兼容性参数无效。')
+      : requestCoreData(supervisor, resources, 'engine.compatibility.check', {
+        project_id: input.projectId,
+        source_dataset_id: input.datasetId,
+        source_version: input.sourceVersion,
+        ...(input.profileIds === undefined ? {} : { profile_ids: [...input.profileIds] }),
+      })
+  })
 
   ipcMain.handle(IPC_CHANNELS.engineActionExecute, (_event, value: unknown) => {
     const input = parseEngineActionInput(value)
@@ -760,9 +780,6 @@ export function registerDesktopIpc({
         }),
         ...(input.selectedPlotIds === undefined ? {} : {
           selected_plot_ids: [...input.selectedPlotIds],
-        }),
-        ...(input.selectedRecipeId === undefined ? {} : {
-          selected_recipe_id: input.selectedRecipeId,
         }),
         ...(input.continuationWorkflowRunId === undefined ? {} : {
           continuation_workflow_run_id: input.continuationWorkflowRunId,
@@ -824,24 +841,34 @@ export function registerDesktopIpc({
       })
   })
 
-  ipcMain.handle(IPC_CHANNELS.workflowRecipeSave, (_event, value: unknown) => {
-    const input = parseWorkflowRecipeSaveInput(value)
+  ipcMain.handle(IPC_CHANNELS.dataPreparationRecipeSave, (_event, value: unknown) => {
+    const input = parseDataPreparationRecipeSaveInput(value)
     return input === null
-      ? invalidDataArgument('固化流程参数无效。')
-      : requestCoreData(supervisor, resources, 'workflow.recipes.save', {
+      ? invalidDataArgument('数据整理 Recipe 参数无效。')
+      : requestCoreData(supervisor, resources, 'data_preparation.recipes.save', {
         project_id: input.projectId,
-        plan_id: input.planId,
+        run_id: input.runId,
         display_name: input.displayName,
-        export_hash: input.exportHash,
+        ...(input.scope === undefined ? {} : { scope: input.scope }),
       })
   })
 
-  ipcMain.handle(IPC_CHANNELS.workflowRecipeList, (_event, value: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.dataPreparationRecipeList, (_event, value: unknown) => {
     const input = parseProjectIdInput(value)
     return input === null
-      ? invalidDataArgument('流程列表上下文无效。')
-      : requestCoreData(supervisor, resources, 'workflow.recipes.list', {
+      ? invalidDataArgument('数据整理 Recipe 列表上下文无效。')
+      : requestCoreData(supervisor, resources, 'data_preparation.recipes.list', {
         project_id: input.projectId,
+      })
+  })
+
+  ipcMain.handle(IPC_CHANNELS.dataPreparationRunGet, (_event, value: unknown) => {
+    const input = parseDataPreparationRunInput(value)
+    return input === null
+      ? invalidDataArgument('数据整理运行参数无效。')
+      : requestCoreData(supervisor, resources, 'data_preparation.runs.get', {
+        project_id: input.projectId,
+        run_id: input.runId,
       })
   })
 

@@ -31,9 +31,8 @@ import { useDialogFocus } from './useDialogFocus'
 interface ChartLibraryProps {
   currentChartId?: string
   datasetCompatibility?: {
-    numericFieldCount: number
-    categoricalFieldCount: number
     totalFieldCount: number
+    statusByProfile?: Readonly<Record<string, 'compatible' | 'incompatible'>>
   }
   onClose: () => void
   onSelect: (chart: ChartType) => void
@@ -199,7 +198,7 @@ export function ChartLibrary({ currentChartId, datasetCompatibility, onClose, on
 
             <div className={`compatibility-check${compatibility.compatible ? '' : ' is-incompatible'}`}>
               {compatibility.compatible ? <Check size={16} /> : <CircleAlert size={16} />}
-              <strong>{compatibility.awaitingData ? '可先选择图形' : compatibility.compatible ? '当前数据可进入映射' : '当前数据尚不兼容'}</strong>
+              <strong>{compatibility.awaitingData ? '可先选择图形' : compatibility.checking ? '正在检查数据结构' : compatibility.compatible ? '当前数据可进入映射' : '当前数据尚不兼容'}</strong>
             </div>
 
             <button className="select-chart-button" type="button" disabled={!compatibility.compatible} onClick={() => onSelect(selectedChart)}>选择此图形</button>

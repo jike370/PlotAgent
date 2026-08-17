@@ -4,32 +4,63 @@ import type { JsonValue } from '../../../shared/desktop-contract'
 import {
   disambiguateDatasetDisplayNames,
   readWorkflowPlan,
+  readDataPreparationRecipes,
+  readDataPreparationRun,
+  readEngineCompatibility,
   readDatasets,
   readImportSummary,
   readPlot,
   readPlots,
-  readWorkflowRecipes,
 } from './productState'
 
 describe('product plot state', () => {
-  it('reads explicit saved workflow choices without inferring a natural-language trigger', () => {
-    expect(readWorkflowRecipes({
-      workflow_recipes: [{
-        recipe_id: 'recipe:line',
-        display_name: '折线图流程',
-        draft_template: {
-          items: [
-            { profile_id: 'K01' },
-            { profile_id: 'K01' },
-            { profile_id: 'K03' },
-          ],
-        },
+  it('reads saved data preparation recipes without plotting semantics', () => {
+    expect(readDataPreparationRecipes({
+      data_preparation_recipes: [{
+        recipe_id: 'data-recipe:line',
+        recipe_version: 2,
+        display_name: '仪器表整理',
+        scope: 'personal',
+        match_contract: { source_formats: ['xlsx'], table_count: 3 },
       }],
     })).toEqual([{
-      recipeId: 'recipe:line',
-      displayName: '折线图流程',
-      profileIds: ['K01', 'K03'],
+      recipeId: 'data-recipe:line',
+      recipeVersion: 2,
+      displayName: '仪器表整理',
+      scope: 'personal',
+      sourceFormats: ['xlsx'],
+      tableCount: 3,
     }])
+  })
+
+  it('reads a data preparation run and its local-cost metadata', () => {
+    expect(readDataPreparationRun({
+      run_id: 'data-run:one',
+      state: 'committed',
+      route: 'saved_recipe',
+      selected_recipe_id: 'data-recipe:line',
+      selected_recipe_version: 2,
+      probe: { tables: [{ table_key: 'Sheet1' }] },
+      local_duration_ms: 17,
+    })).toEqual({
+      runId: 'data-run:one',
+      state: 'committed',
+      route: 'saved_recipe',
+      selectedRecipeId: 'data-recipe:line',
+      selectedRecipeVersion: 2,
+      tableCount: 1,
+      localDurationMs: 17,
+    })
+  })
+
+  it('reads only explicit profile compatibility statuses', () => {
+    expect(readEngineCompatibility({
+      compatibility: [
+        { profile_id: 'K01', status: 'compatible' },
+        { profile_id: 'K06', status: 'incompatible' },
+        { profile_id: 'K07', status: 'unknown' },
+      ],
+    })).toEqual({ K01: 'compatible', K06: 'incompatible' })
   })
 
   it('prefers file and worksheet identity and summarizes per-file import outcomes', () => {

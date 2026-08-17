@@ -260,6 +260,16 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       const dataset = projects.get(projectId)?.datasets.find((item) => item.source_dataset_id === datasetId)
       return dataset ? ok({ dataset }) : missing('界面预览中没有找到该数据集。')
     },
+    checkEngineCompatibility: async ({ profileIds }) => ok({
+      compatibility: (profileIds ?? []).map((profileId) => ({
+        profile_id: profileId,
+        status: 'compatible',
+        row_count: 8,
+        field_count: 8,
+        requirements: [],
+        reason_codes: [],
+      })),
+    }),
     executePlotAction: async (input) => {
       const project = projects.get(input.projectId)
       if (!project) return missing('界面预览中没有找到该项目。')
@@ -379,10 +389,18 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
         .filter((plan) => plan.projectId === projectId)
         .map(workflowPlanRecord),
     }),
-    saveWorkflowRecipe: async ({ displayName }) => ok({
-      recipe_id: 'recipe:preview', recipe_version: 1, display_name: displayName,
+    saveDataPreparationRecipe: async ({ displayName, runId }) => ok({
+      recipe_id: 'data-recipe:preview', recipe_version: 1, display_name: displayName,
+      created_from_run_id: runId,
     }),
-    listWorkflowRecipes: async () => ok({ workflow_recipes: [] }),
+    listDataPreparationRecipes: async () => ok({ data_preparation_recipes: [] }),
+    getDataPreparationRun: async ({ runId }) => ok({
+      run_id: runId,
+      state: 'committed',
+      route: 'generic_parser',
+      local_duration_ms: 4,
+      probe: { tables: [{}] },
+    }),
     confirmTaskPlan: async ({ planId, accept }) => {
       const plan = workflowPlans.get(planId)
       if (plan === undefined) return missing('未找到任务计划。')

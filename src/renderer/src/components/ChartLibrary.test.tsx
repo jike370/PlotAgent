@@ -6,11 +6,10 @@ import { chartCompatibility } from '../data/chartCompatibility'
 import { ChartLibrary } from './ChartLibrary'
 
 describe('chart library dataset compatibility', () => {
-  it('admits grouped and stacked bars with one numeric and two category fields', () => {
+  it('uses Core mechanical compatibility instead of re-inferring field semantics', () => {
     const summary = {
-      numericFieldCount: 1,
-      categoricalFieldCount: 2,
       totalFieldCount: 3,
+      statusByProfile: { K09: 'compatible', K10: 'compatible', K11: 'compatible' } as const,
     }
 
     for (const chartId of ['K09', 'K10', 'K11']) {
@@ -20,14 +19,21 @@ describe('chart library dataset compatibility', () => {
     }
   })
 
-  it('does not lower the numeric requirement for a two-axis scatter chart', () => {
+  it('keeps a profile unavailable when Core rejects its mechanical contract', () => {
     const chart = chartCatalog.find((item) => item.id === 'K03')
     expect(chart).toBeDefined()
     expect(chartCompatibility(chart!, {
-      numericFieldCount: 1,
-      categoricalFieldCount: 2,
       totalFieldCount: 3,
+      statusByProfile: { K03: 'incompatible' },
     })).toEqual({ compatible: false })
+  })
+
+  it('does not guess while Core compatibility is still loading', () => {
+    const chart = chartCatalog.find((item) => item.id === 'K03')!
+    expect(chartCompatibility(chart, { totalFieldCount: 3 })).toEqual({
+      compatible: false,
+      checking: true,
+    })
   })
 })
 

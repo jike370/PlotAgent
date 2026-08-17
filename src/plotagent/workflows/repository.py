@@ -16,7 +16,6 @@ from plotagent.contracts.workflows import (
     TaskPlan,
     TaskPlanSnapshot,
     WorkflowContext,
-    WorkflowRecipe,
     WorkflowRunSnapshot,
 )
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
@@ -31,7 +30,6 @@ _STATE_TO_STORAGE = {"agent": "agent_exploration", "direct": "deterministic_atte
 _STATE_FROM_STORAGE = {
     "agent_single_turn": "agent",
     "agent_exploration": "agent",
-    "recipe_matching": "agent",
     "deterministic_attempt": "direct",
 }
 _ROUTE_TO_STORAGE = {"agent": "agent_exploration", "direct": "deterministic"}
@@ -462,61 +460,6 @@ class WorkflowRepository:
             "SELECT plan_id FROM workflow_task_plans ORDER BY created_at, plan_id"
         ).fetchall()
         return tuple(self.get_plan(str(row[0])) for row in rows)
-
-    def save_recipe(self, recipe: WorkflowRecipe) -> WorkflowRecipe:
-        self._connection.execute(
-            """
-            INSERT INTO workflow_recipes (
-                recipe_id, recipe_version, structure_fingerprint,
-                goal_signature, recipe_hash, recipe_json, archived, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                recipe.recipe_id,
-                recipe.recipe_version,
-                recipe.structure_fingerprint,
-                recipe.structure_fingerprint,
-                canonical_hash(recipe.model_dump(mode="json")),
-                canonical_json(recipe.model_dump(mode="json")),
-                int(recipe.archived),
-                _utc_now(),
-            ),
-        )
-        return recipe
-
-    def find_recipes(self, structure_fingerprint: str) -> tuple[WorkflowRecipe, ...]:
-        rows = self._connection.execute(
-            """
-            SELECT recipe_json FROM workflow_recipes
-            WHERE structure_fingerprint = ? AND archived = 0
-            ORDER BY recipe_id, recipe_version DESC
-            """,
-            (structure_fingerprint,),
-        ).fetchall()
-        return tuple(WorkflowRecipe.model_validate_json(str(row[0])) for row in rows)
-
-    def get_recipe(self, recipe_id: str) -> WorkflowRecipe:
-        row = self._connection.execute(
-            """
-            SELECT recipe_json FROM workflow_recipes
-            WHERE recipe_id = ? AND archived = 0
-            ORDER BY recipe_version DESC LIMIT 1
-            """,
-            (recipe_id,),
-        ).fetchone()
-        if row is None:
-            raise self._not_found("Workflow recipe was not found.")
-        return WorkflowRecipe.model_validate_json(str(row[0]))
-
-    def list_recipes(self) -> tuple[WorkflowRecipe, ...]:
-        rows = self._connection.execute(
-            """
-            SELECT recipe_json FROM workflow_recipes
-            WHERE archived = 0
-            ORDER BY created_at DESC, recipe_id, recipe_version DESC
-            """
-        ).fetchall()
-        return tuple(WorkflowRecipe.model_validate_json(str(row[0])) for row in rows)
 
     def record_questions(
         self,

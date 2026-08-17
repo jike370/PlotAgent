@@ -91,7 +91,7 @@ def test_project_open_does_not_remove_a_live_foreign_writer_lock(
         lock_path.unlink()
 
 
-def test_fresh_project_creates_only_the_workflow_schema(
+def test_fresh_project_creates_only_the_preparation_and_workflow_schema(
     storage_root: Path,
 ) -> None:
     workspace = storage_root / "project"
@@ -117,7 +117,8 @@ def test_fresh_project_creates_only_the_workflow_schema(
         "workflow_task_plans",
         "workflow_task_items",
         "workflow_events",
-        "workflow_recipes",
+        "data_preparation_recipes",
+        "data_preparation_runs",
         "sqlite_sequence",
     }
 

@@ -38,10 +38,6 @@ from plotagent.storage import ProjectDomainRepository, ProjectStore
 from plotagent.workflows import (
     DraftCompiler,
     WorkflowRepository,
-    build_recipe,
-    profile_contract_hash,
-    replay_recipe,
-    structure_fingerprint,
 )
 from plotagent.workflows.data_ops import (
     WorkflowDataError,
@@ -85,7 +81,6 @@ class DesktopWorkflowService:
     engine: DesktopEngineSession
     repository: WorkflowRepository
     _inspections: dict[str, DataInspectionService] = field(default_factory=dict)
-    _export_receipts: dict[str, tuple[str, int]] = field(default_factory=dict)
 
     def prepare(self, values: dict[str, object]) -> dict[str, object]:
         expected = self._integer(values.get("expected_project_version"), "expected_project_version")
@@ -206,35 +201,6 @@ class DesktopWorkflowService:
         )
         self.repository.create_run(context)
         self._inspections[run_id] = DataInspectionService(context, _InspectionRows(rows, metadata))
-        selected_recipe = values.get("selected_recipe_id")
-        if selected_recipe is not None:
-            recipe = self.repository.get_recipe(self._text(selected_recipe, "selected_recipe_id"))
-            if recipe.structure_fingerprint != structure_fingerprint(context):
-                raise WorkflowServiceError(
-                    "WORKFLOW_RECIPE_STRUCTURE_MISMATCH",
-                    "所选流程与当前数据结构不兼容。",
-                )
-            recipe_profiles = tuple(item.profile_id for item in recipe.draft_template.items)
-            current_contract_hash = profile_contract_hash(self.engine.catalog, recipe_profiles)
-            if (
-                recipe.engine_profile_hash != current_contract_hash
-                or recipe.renderer_contract_hash != current_contract_hash
-            ):
-                raise WorkflowServiceError(
-                    "WORKFLOW_RECIPE_CONTRACT_MISMATCH",
-                    "所选流程对应的图形能力已经变化，请重新确认并固化流程。",
-                )
-            draft = replay_recipe(recipe, context)
-            plan = DraftCompiler(self.engine.catalog).compile(draft, context)
-            self.repository.transition_run(run_id, state="recipe_replay", route="recipe_replay")
-            self.repository.save_draft(draft)
-            snapshot = self.repository.save_plan(plan)
-            return {
-                "outcome": "draft_ready",
-                "route": "recipe_replay",
-                "draft": draft.model_dump(mode="json"),
-                "task_plan": snapshot.model_dump(mode="json"),
-            }
         self.repository.transition_run(run_id, state="agent", route="agent")
         return {
             "outcome": "agent_required",
@@ -521,50 +487,6 @@ class DesktopWorkflowService:
         }:
             return None
         return "y_axis"
-
-    def save_recipe(
-        self,
-        *,
-        plan_id: str,
-        display_name: str,
-        export_hash: str,
-    ) -> dict[str, object]:
-        snapshot = self.repository.get_plan(plan_id)
-        if snapshot.state != "succeeded":
-            raise WorkflowServiceError(
-                "WORKFLOW_RECIPE_PLAN_INCOMPLETE",
-                "只有完整成功并已导出的任务可以固化为流程。",
-            )
-        exported_plot = self._export_receipts.get(export_hash)
-        completed_plots = {
-            (item.output_plot_id, item.output_plot_version)
-            for item in snapshot.item_progress
-            if item.state == "succeeded"
-        }
-        if exported_plot is None or exported_plot not in completed_plots:
-            raise WorkflowServiceError(
-                "WORKFLOW_RECIPE_EXPORT_UNVERIFIED",
-                "没有找到该任务的成功导出凭据，不能固化流程。",
-            )
-        run = self.repository.get_run(snapshot.plan.workflow_run_id)
-        if run.draft_id is None:
-            raise WorkflowServiceError("WORKFLOW_DRAFT_MISSING", "任务草稿不可用。")
-        context = self.repository.get_context(snapshot.plan.workflow_run_id)
-        draft = self.repository.get_draft(run.draft_id)
-        recipe = build_recipe(
-            context=context,
-            draft=draft,
-            catalog=self.engine.catalog,
-            plan_id=plan_id,
-            display_name=display_name,
-            export_hash=export_hash,
-        )
-        return self.repository.save_recipe(recipe).model_dump(mode="json")
-
-    def record_export(self, artifact_hash: str, plot_id: str, plot_version: int) -> None:
-        """Record a successful export receipt for explicit recipe provenance."""
-
-        self._export_receipts[artifact_hash] = (plot_id, plot_version)
 
     @staticmethod
     def _validate_agent_draft(draft: TaskDraft, context: WorkflowContext) -> None:

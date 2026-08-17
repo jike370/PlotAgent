@@ -19,6 +19,11 @@ from pydantic.json_schema import models_json_schema
 
 from plotagent.contracts.base import SCHEMA_VERSION
 from plotagent.contracts.calculations import PlotCalculationResult, PlotCalculationSpec
+from plotagent.contracts.data_preparation import (
+    DataPreparationRecipe,
+    DataPreparationRun,
+    SourceStructureProbe,
+)
 from plotagent.contracts.datasets import (
     FieldMapping,
     PreparationSpec,
@@ -32,13 +37,13 @@ from plotagent.contracts.workflows import (
     TaskPlanSnapshot,
     WorkflowContext,
     WorkflowDecision,
-    WorkflowRecipe,
     WorkflowRunSnapshot,
 )
 from plotagent.engine.contracts import (
     EngineDataRef,
     EngineDataView,
     EngineProfile,
+    EngineProfileCompatibility,
     PlotDocument,
     PlotEngineAction,
 )
@@ -73,6 +78,9 @@ class WorkflowDecisionContract(RootModel[WorkflowDecision]):
 
 SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("source-dataset", SourceDataset),
+    ("source-structure-probe", SourceStructureProbe),
+    ("data-preparation-recipe", DataPreparationRecipe),
+    ("data-preparation-run", DataPreparationRun),
     ("field-mapping", FieldMapping),
     ("preparation-spec", PreparationSpecContract),
     ("prepared-dataset", PreparedDataset),
@@ -83,11 +91,11 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("task-plan", TaskPlan),
     ("task-plan-snapshot", TaskPlanSnapshot),
     ("workflow-run-snapshot", WorkflowRunSnapshot),
-    ("workflow-recipe", WorkflowRecipe),
     ("workflow-decision", WorkflowDecisionContract),
     ("engine-data-ref", EngineDataRef),
     ("engine-data-view", EngineDataView),
     ("engine-profile", EngineProfile),
+    ("engine-profile-compatibility", EngineProfileCompatibility),
     ("plot-document", PlotDocument),
     ("plot-engine-action", PlotEngineActionContract),
     ("engine-readback", EngineReadback),

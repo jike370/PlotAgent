@@ -140,6 +140,70 @@ export type CreatePlot = {
   readonly bindings: ReadonlyArray<FieldBinding>;
 }
 
+export type DataPreparationMatchContract = {
+  readonly source_formats: ReadonlyArray<"csv" | "tsv" | "txt" | "dat" | "xlsx" | "xlsm" | "xls">;
+  readonly table_count: number;
+  readonly table_structure_hashes: ReadonlyArray<string>;
+  readonly required_marker_hashes?: ReadonlyArray<string>;
+  readonly parser_contract_version: string;
+  readonly specificity?: number;
+}
+
+export type DataPreparationOutputContract = {
+  readonly tables: ReadonlyArray<DataPreparationTableContract>;
+  readonly preserve_source_order?: true;
+  readonly preserve_source_coordinates?: true;
+  readonly allow_additional_tables?: false;
+}
+
+export type DataPreparationRecipe = {
+  readonly schema_version?: "data-preparation-recipe.v1";
+  readonly recipe_id: string;
+  readonly recipe_version: number;
+  readonly display_name: string;
+  readonly scope?: "personal" | "project";
+  readonly match_contract: DataPreparationMatchContract;
+  readonly steps: ReadonlyArray<ParseSourceStep>;
+  readonly output_contract: DataPreparationOutputContract;
+  readonly created_from_run_id: string;
+  readonly created_from_source_hash: string;
+}
+
+export type DataPreparationRun = {
+  readonly schema_version?: "data-preparation-run.v1";
+  readonly run_id: string;
+  readonly project_id: string;
+  readonly resource_id: string;
+  readonly source_object_hash: string;
+  readonly probe: SourceStructureProbe;
+  readonly state: "probing" | "matching" | "awaiting_recipe_selection" | "agent_required" | "validating" | "committed" | "failed" | "cancelled";
+  readonly route?: "generic_parser" | "saved_recipe" | "agent_assisted" | null;
+  readonly selected_recipe_id?: string | null;
+  readonly selected_recipe_version?: number | null;
+  readonly executed_steps?: ReadonlyArray<ParseSourceStep>;
+  readonly candidates?: ReadonlyArray<RecipeCandidateEvaluation>;
+  readonly output_source_ids?: ReadonlyArray<string>;
+  readonly output_content_hashes?: ReadonlyArray<string>;
+  readonly model_turn_count?: number;
+  readonly tool_call_count?: number;
+  readonly input_token_count?: number;
+  readonly output_token_count?: number;
+  readonly local_duration_ms?: number;
+  readonly created_at: string;
+  readonly updated_at: string;
+  readonly failure_code?: string | null;
+  readonly failure_message?: string | null;
+}
+
+export type DataPreparationTableContract = {
+  readonly table_key: string;
+  readonly column_names: ReadonlyArray<string>;
+  readonly logical_types: ReadonlyArray<"numeric" | "categorical" | "datetime" | "boolean" | "text">;
+  readonly unit_labels: ReadonlyArray<string | null>;
+  readonly minimum_rows: number;
+  readonly structure_hash: string;
+}
+
 export type DataQualitySummary = {
   readonly total_rows: number;
   readonly valid_rows: number;
@@ -413,6 +477,16 @@ export type EngineProfile = {
   readonly capabilities: ReadonlyArray<EngineCapability>;
 }
 
+export type EngineProfileCompatibility = {
+  readonly schema_version?: "engine-profile-compatibility.v1";
+  readonly profile_id: string;
+  readonly status: "compatible" | "incompatible";
+  readonly row_count: number;
+  readonly field_count: number;
+  readonly requirements: ReadonlyArray<EngineRoleCompatibility>;
+  readonly reason_codes?: ReadonlyArray<string>;
+}
+
 export type EngineReadback = {
   readonly document: PlotDocumentRef;
   readonly backend: "matplotlib" | "origin";
@@ -425,6 +499,12 @@ export type EngineRepeatableObjectTemplate = {
   readonly object_alias_prefix: string;
   readonly object_kind: "series" | "panel";
   readonly object_key_prefix: string;
+}
+
+export type EngineRoleCompatibility = {
+  readonly role: string;
+  readonly accepted_logical_types: ReadonlyArray<"numeric" | "categorical" | "datetime" | "boolean" | "text">;
+  readonly candidate_count: number;
 }
 
 export type ErrorDefinition = {
@@ -640,6 +720,16 @@ export type NonFiniteCounts = {
   readonly negative_inf?: number;
 }
 
+export type ParseSourceStep = {
+  readonly operation?: "parse_source";
+  readonly source_format: "csv" | "tsv" | "txt" | "dat" | "xlsx" | "xlsm" | "xls";
+  readonly encoding?: string | null;
+  readonly delimiter?: string | null;
+  readonly decimal_mark?: "." | "," | null;
+  readonly header_row?: number | null;
+  readonly sheet?: string | null;
+}
+
 export type PercentStackResult = {
   readonly schema_version?: "1.0";
   readonly calculation_id: string;
@@ -749,6 +839,17 @@ export type PreparedDatasetRef = {
   readonly content_hash: string;
 }
 
+export type ProbedTable = {
+  readonly table_key: string;
+  readonly display_name: string;
+  readonly row_count: number;
+  readonly column_count: number;
+  readonly column_names: ReadonlyArray<string>;
+  readonly logical_types: ReadonlyArray<"numeric" | "categorical" | "datetime" | "boolean" | "text">;
+  readonly unit_labels: ReadonlyArray<string | null>;
+  readonly structure_hash: string;
+}
+
 export type ProjectMetadataLabelSpec = {
   readonly schema_version?: "1.0";
   readonly preparation_spec_id: string;
@@ -772,6 +873,18 @@ export type ProjectStructureSpec = {
   readonly input_layout: "wide" | "long" | "matrix";
   readonly output_layout: "wide" | "long" | "matrix";
   readonly role_fields: ReadonlyArray<string>;
+}
+
+export type RecipeCandidateEvaluation = {
+  readonly recipe_id?: string | null;
+  readonly recipe_version?: number | null;
+  readonly candidate_kind: "saved_recipe" | "generic_parser";
+  readonly display_name: string;
+  readonly specificity: number;
+  readonly state: "filtered" | "sandbox_passed" | "sandbox_failed" | "selected";
+  readonly duration_ms: number;
+  readonly reason_code?: string | null;
+  readonly output_hashes?: ReadonlyArray<string>;
 }
 
 export type RenameField = {
@@ -1025,6 +1138,18 @@ export type SourceField = {
   readonly precision_digits?: number | null;
 }
 
+export type SourceStructureProbe = {
+  readonly schema_version?: "source-structure-probe.v1";
+  readonly source_object_hash: string;
+  readonly source_format: "csv" | "tsv" | "txt" | "dat" | "xlsx" | "xlsm" | "xls";
+  readonly byte_size: number;
+  readonly generic_parser_outcome: "imported" | "clarification" | "rejection";
+  readonly generic_parser_code?: string | null;
+  readonly tables?: ReadonlyArray<ProbedTable>;
+  readonly marker_hashes?: ReadonlyArray<string>;
+  readonly probe_hash: string;
+}
+
 export type SummaryErrorResult = {
   readonly schema_version?: "1.0";
   readonly calculation_id: string;
@@ -1076,7 +1201,7 @@ export type TaskDraft = {
   readonly schema_version?: "task-draft.v1";
   readonly draft_id: string;
   readonly workflow_run_id: string;
-  readonly route: "agent" | "recipe_replay" | "direct";
+  readonly route: "agent" | "direct";
   readonly summary: string;
   readonly items: ReadonlyArray<TaskDraftItem>;
   readonly confidence: number;
@@ -1294,26 +1419,11 @@ export type WorkflowPlot = {
   readonly profile_id: string;
 }
 
-export type WorkflowRecipe = {
-  readonly schema_version?: "workflow-recipe.v1";
-  readonly recipe_id: string;
-  readonly recipe_version: number;
-  readonly display_name: string;
-  readonly structure_fingerprint: string;
-  readonly draft_template: TaskDraft;
-  readonly engine_profile_hash: string;
-  readonly renderer_contract_hash: string;
-  readonly created_from_workflow_run_id: string;
-  readonly created_from_plan_id: string;
-  readonly created_from_export_hash: string;
-  readonly archived?: boolean;
-}
-
 export type WorkflowRunSnapshot = {
   readonly workflow_run_id: string;
   readonly project_id: string;
-  readonly state: "routing" | "agent" | "recipe_replay" | "direct" | "needs_input" | "draft_ready" | "awaiting_confirmation" | "executing" | "completed" | "partially_succeeded" | "failed" | "cancelled";
-  readonly route?: "agent" | "recipe_replay" | "direct" | null;
+  readonly state: "routing" | "agent" | "direct" | "needs_input" | "draft_ready" | "awaiting_confirmation" | "executing" | "completed" | "partially_succeeded" | "failed" | "cancelled";
+  readonly route?: "agent" | "direct" | null;
   readonly context_hash?: string | null;
   readonly draft_id?: string | null;
   readonly plan_id?: string | null;

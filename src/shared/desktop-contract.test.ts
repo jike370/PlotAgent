@@ -5,6 +5,7 @@ import {
   parseCloseResponse,
   parseCoreProtocolMessage,
   parseCustomProviderConfigureInput,
+  parseEngineCompatibilityInput,
   parseEngineActionInput,
   parseProjectRenameInput,
   parseProjectResourceInput,
@@ -55,6 +56,23 @@ describe('desktop contract validation', () => {
     })).toBeNull()
     expect(parseTaskId({ taskId: 'task:one', rawPath: 'C:\\secret' })).toBeNull()
     expect(parseCloseResponse({ requestId: 'close:one', choice: 'force-quit' })).toBeNull()
+  })
+
+  it('accepts only bounded engine compatibility requests', () => {
+    expect(parseEngineCompatibilityInput({
+      projectId: 'project:one',
+      datasetId: 'source:one',
+      sourceVersion: 1,
+      profileIds: ['K01', 'K06'],
+    })).toEqual({
+      projectId: 'project:one',
+      datasetId: 'source:one',
+      sourceVersion: 1,
+      profileIds: ['K01', 'K06'],
+    })
+    expect(parseEngineCompatibilityInput({
+      projectId: 'project:one', datasetId: 'source:one', sourceVersion: 1, profileIds: ['bad id'],
+    })).toBeNull()
   })
 
   it('preserves bounded task labels and failure details', () => {
