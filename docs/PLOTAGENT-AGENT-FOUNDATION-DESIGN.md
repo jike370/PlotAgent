@@ -30,7 +30,7 @@
 | 2 | 领域说明 | 待讨论 | 哪些绘图知识、科学边界和标准案例应提供给 Agent？ |
 | 3 | 上下文机制 | 已确认 | Agent 每轮能看到什么，怎样按需读取数据而不淹没上下文？ |
 | 4 | 运行循环 | 待讨论 | Agent 怎样观察、行动、检查、修复、停止或追问？ |
-| 5 | 工具体系 | 部分已有，待补齐 | Agent 需要哪些检查、整理、绘图、读回和交付工具？ |
+| 5 | 工具体系 | 提案待确认 | Agent 需要哪些检查、整理、绘图、读回和交付工具？ |
 | 6 | 验证器 | 待讨论 | 怎样独立证明数据、科学语义、图形和导出物正确？ |
 | 7 | 权限与回滚 | 待讨论 | 哪些动作可自动执行，哪些需要确认，失败如何撤销？ |
 | 8 | 工作记忆 | 待讨论 | 一次任务中应记住哪些决定、结果和失败，哪些不得长期保存？ |
@@ -298,6 +298,134 @@ Agent 通过只读工具主动取得：
 5. 每轮上下文从 PlotAgent 权威状态重建，Pi 聊天历史不作为唯一真值；
 6. 程序只能按权限、对象和预算机械组装上下文，不做语义路由；
 7. 压缩不得丢失原始目标、已确认语义、来源、单位、分组、配对和完成证据。
+
+## 6. 设计项 3：工具体系
+
+### 6.0 目标和边界
+
+工具是 Agent 观察环境和改变环境的唯一通道。工具应足够通用，使 Agent 能组合完成未预先写死的绘图任务；同时必须类型化、可审计、可取消、可验证，不开放任意 Python、Shell、SQL、JavaScript、LabTalk、Origin C 或 renderer 私有参数。
+
+工具描述能力，不描述固定流程。Agent 决定何时调用和怎样组合；程序只按 TaskState、权限和预算决定哪些工具当前可用。
+
+### 6.1 五类工具
+
+#### A. 数据与来源检查
+
+保留并整合当前 `list_sources`、`inspect_source`、`preview_rows`、`sample_rows`、`profile_field`、`search_values`、`compare_schemas` 和 `inspect_instrument_metadata`，并补充：
+
+- `inspect_raw_source`：查看编码、分隔符、原始行、preamble/postamble、表头和数据区域候选；
+- `analyze_relationships`：检查唯一性、重复、行身份、配对、分组、排序和跨字段关系；
+- `compare_sources`：比较多个 Sheet/block 的字段、单位、key 和可拼接关系。
+
+检查工具必须返回实际证据、来源坐标、截断/采样方式和审计信息，不能只返回“兼容/不兼容”的结论。
+
+#### B. 临时数据工作区
+
+目标操作集合：
+
+- 重新解析原始来源和选择数据区域；
+- 选择、重命名、转换类型；
+- 筛选、排序、去重；
+- 安全派生字段和单位换算；
+- long/wide reshape；
+- concatenate 和 keyed join；
+- 显式分组聚合；
+- 保留或建立稳定行身份、配对和来源列。
+
+每个操作接受 `input_handle`，返回新的不可变 `DataViewHandle`。后续工具可以继续使用该 handle，形成链式整理；不要求每一步都回到原始 `source_alias`。
+
+不使用任意代码。派生、转换和聚合使用登记过的类型化算子；Agent 选择算子、字段和参数，程序确定性执行。会改变科学语义的聚合、单位、配对、有效数据删除等操作写入 TaskIntent 并在正式提交前展示。
+
+#### C. 图类、沙箱渲染与编辑
+
+- `list_plot_profiles`：精简图类目录；
+- `get_plot_profile`：单个图类完整数据和动作合同；
+- `preview_plot`：用 DataViewHandle、绑定和公开绘图参数在沙箱生成目标后端预览；
+- `inspect_plot`：读取字段绑定、图形对象、轴、系列、图例、注释和后端原生结构；
+- `apply_plot_edits`：只接受 Matplotlib 和 Origin 都支持的公开视觉动作，在沙箱产生新 PlotHandle。
+
+`preview_plot` 返回图像句柄和结构化读回。模型支持图像时可查看预览；不支持时至少依据机械读回继续。Origin 目标应在需要证明原生结构时使用真实 Origin 沙箱，不能用 Matplotlib 预览替代 Origin 可编辑性证据。
+
+#### D. 任务控制与正式执行
+
+- `ask_user`：只询问会实质影响正确性的歧义；
+- `submit_task_intent`：提交完整任务理解并生成确认卡；
+- `execute_task_item`：只在用户确认后的授权范围执行一个 TaskItem；
+- `export_artifact`：只导出已验证结果和已授权格式/位置；
+- `report_unsupported`：完成必要检查后明确说明能力边界。
+
+确认前 Agent 只能产生 staged 对象。用户确认后，Core 为冻结的 TaskIntent 生成执行授权；Agent 不能借执行工具改变已确认的图类、字段、单位或统计语义。
+
+#### E. 验证与交付证据
+
+数据操作、渲染、编辑、执行和导出工具完成后，程序自动运行对应验证器并把报告附在工具结果中。Agent 不需要靠记忆额外调用“验证一下”，也不能跳过验证。
+
+必要时提供 `inspect_validation_report` 读取详细报告，但完成状态只由权威验证结果推进。
+
+### 6.2 统一工具结果合同
+
+所有工具返回同一外壳：
+
+```text
+status
+output_handle / artifact_handle
+summary
+schema_or_structure
+bounded_preview
+provenance
+validation_report
+warnings
+side_effect: none | staged | committed
+error: code, category, retryable, repair_hint
+```
+
+禁止只向 Agent 返回不透明的 “invalid parameters” 或异常字符串。错误至少分为：
+
+- `AGENT_REPAIRABLE`：参数、字段、合同不匹配，Agent 可根据结构化信息修复；
+- `USER_INPUT_REQUIRED`：科学语义或授权缺失，需要用户回答；
+- `TRANSIENT`：超时、进程或后端暂时失败，可安全重试；
+- `UNSUPPORTED`：当前产品能力不支持；
+- `FATAL`：项目或环境损坏，需要停止。
+
+错误结果必须说明是否产生副作用。验证失败不得登记正式项目版本。重复请求通过 task/item/tool idempotency key 防止重复提交。
+
+### 6.3 工具暴露与预算
+
+不把全部工具永久暴露给每一轮模型。工具集合只依据 TaskState 和授权阶段机械变化：
+
+- 调查阶段：检查、临时数据、图类合同、沙箱渲染、追问、提交 Intent；
+- 已确认执行阶段：冻结任务范围内的执行、检查、技术修复和验证；
+- 已验证交付阶段：导出和交付检查。
+
+这种裁剪不解释自然语言，只减少工具歧义和越权面。每个工具声明成本等级、超时、最大返回量和是否占用 Origin。廉价检查优先；真实 Origin、视觉评估和导出属于高成本操作，由预算限制但不能用廉价替代品伪造通过。
+
+工具 Schema 错误、合同错误和瞬时执行错误属于技术修复，不占用视觉修改次数。视觉修改次数只在成功生成可审查预览后计算。
+
+### 6.4 当前基线与明确缺口
+
+当前已有：8 个只读检查工具、9 个数据预演工具、图类目录、追问、报告不支持和 TaskDraft 提交。
+
+当前主要缺口：
+
+- 不能检查和重新解析原始文件布局；
+- 临时数据操作以 `source_alias` 为主，缺少统一可链式 DataViewHandle；
+- 缺少类型转换、keyed join、去重、显式聚合和关系分析；
+- 缺少 Agent 可用的沙箱 render、原生结构读回和局部修正；
+- Agent 提交 TaskDraft 后退出，不能持续完成执行、验证、技术修复和交付；
+- 多数错误仍不足以告诉 Agent 怎样安全修复。
+
+### 6.5 本项待确认原则
+
+1. 不开放任意代码，只提供足以组合完成任务的类型化工具；
+2. 数据操作统一使用不可变、可链式 DataViewHandle，原始数据只读；
+3. 补齐原始来源检查、关系分析、类型转换、join、去重和显式聚合；
+4. preview 与正式执行使用同一实现，确认前 staged，确认后按冻结 TaskIntent 提交；
+5. 增加沙箱渲染、结构读回和局部编辑，使 Agent 能完成“渲染—检查—修正”闭环；
+6. 每个工具自动附带来源、验证、警告、副作用和结构化错误；
+7. 技术错误允许 Agent 修复，不占用视觉修改次数；
+8. 工具按 TaskState 和权限阶段暴露，不通过自然语言路由；
+9. 正式执行和导出只能作用于用户已确认的语义范围；
+10. Agent 在同一任务中持续到验证和交付完成，而不是提交 TaskDraft 后立即退出。
 
 ## 已确认决定日志
 
