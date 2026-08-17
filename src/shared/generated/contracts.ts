@@ -1333,6 +1333,59 @@ export type RowPage = {
   readonly has_more: boolean;
 }
 
+export type SandboxPlotArtifact = {
+  readonly artifact_id: string;
+  readonly backend: "matplotlib" | "origin";
+  readonly format: "png" | "svg" | "opju";
+  readonly content_hash: string;
+  readonly size: number;
+}
+
+export type SandboxPlotEditContract = SetTitle | SetAxis | SetSeriesStyle | SetLegend | SetColorMap | SetChartParameter | SetErrorStyle | SetDataLabels | AddAnnotation
+
+export type SandboxPlotHandle = {
+  readonly schema_version?: "sandbox-plot-handle.v2";
+  readonly handle_id: string;
+  readonly handle_version?: number;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly item_id?: string | null;
+  readonly parent_handle_id?: string | null;
+  readonly data_view_handle_id: string;
+  readonly root_sources: ReadonlyArray<EngineDataRef>;
+  readonly staged_data_hash: string;
+  readonly document: PlotDocument;
+  readonly backends: ReadonlyArray<"matplotlib" | "origin">;
+  readonly readbacks: ReadonlyArray<SandboxPlotReadback>;
+  readonly artifacts: ReadonlyArray<SandboxPlotArtifact>;
+  readonly lineage: ReadonlyArray<SandboxPlotLineageStep>;
+  readonly created_at: string;
+  readonly expires_at: string;
+}
+
+export type SandboxPlotLineageStep = {
+  readonly step_id: string;
+  readonly operation: "preview_plot" | "apply_plot_edits";
+  readonly input_handle_id?: string | null;
+  readonly action_ids: ReadonlyArray<string>;
+  readonly action_hash: string;
+  readonly output_document: PlotDocumentRef;
+  readonly artifact_hashes: ReadonlyArray<string>;
+}
+
+export type SandboxPlotObject = {
+  readonly semantic_id: string;
+  readonly object_kind: string;
+}
+
+export type SandboxPlotReadback = {
+  readonly backend: "matplotlib" | "origin";
+  readonly document: PlotDocumentRef;
+  readonly objects: ReadonlyArray<SandboxPlotObject>;
+  readonly data_hash: string;
+  readonly style_hash: string;
+}
+
 export type SelectFields = {
   readonly operation?: "select_fields";
   readonly source_alias: string;

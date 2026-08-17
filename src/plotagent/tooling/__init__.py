@@ -11,6 +11,8 @@ from plotagent.tooling.gateway import (
     ToolGatewayError,
 )
 from plotagent.tooling.inspection_tools import register_inspection_tools
+from plotagent.tooling.plot_tools import SandboxPlotToolService, register_sandbox_plot_tools
+from plotagent.tooling.plot_workspace import SandboxPlotWorkspace
 
 __all__ = [
     "ToolExecutionOutput",
@@ -23,4 +25,7 @@ __all__ = [
     "register_inspection_tools",
     "DataWorkspaceToolService",
     "StagedDataWorkspace",
+    "SandboxPlotToolService",
+    "SandboxPlotWorkspace",
+    "register_sandbox_plot_tools",
 ]

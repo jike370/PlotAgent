@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "8d1567603cf026b47ac511252c56aed5d5bd6d81491cf58fdd0dcbb831ddf906"
+      "sha256": "8fcef9870f4ab1724cd7ce97b9c3e25e4ce3e4af847f89488e880790934674d9"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -129,6 +129,14 @@
       "sha256": "80ae48e00c5dac021c09290024dee8c9c39969ab8b85cbb54b4bf70ce77972bc"
     },
     {
+      "path": "schemas/sandbox-plot-edit-v2.schema.json",
+      "sha256": "e7c2a40c96c139cf2c676c1a0af76a9af767828e30214c8411b09243bcf58971"
+    },
+    {
+      "path": "schemas/sandbox-plot-handle-v2.schema.json",
+      "sha256": "8ef28c12d3989c4083097ad7a4cd8f8d1268f56a00b3fc5214df70439b1cf3df"
+    },
+    {
       "path": "schemas/source-dataset.schema.json",
       "sha256": "ebbd07ad7c52f239e4ad81dafa59703f636a89df902efcd41792fa27201c0a14"
     },
@@ -202,7 +210,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "fd9626f5a405a27cbe851d1472a76035f07dddd0754a8420c8695ac29f9d238a"
+      "sha256": "84f53741d35060da18b45d9c85be91b76be5a7b704f99cbe2513fd8d52cd3f70"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

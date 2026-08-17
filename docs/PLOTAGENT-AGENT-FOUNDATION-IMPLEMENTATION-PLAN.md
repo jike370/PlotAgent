@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P3 已完成；P4 施工中（P0/P1 数据工具、授权与耐久回执已完成，绘图工具待施工）。
+> 状态：P0–P3 已完成；P4 已完成，下一阶段为 P5 PiRuntimeAdapter。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -261,8 +261,21 @@
   fail closed；
 - preview 与正式 staged operation 使用同一 `EngineDataView`/Parquet 执行实现；落盘后按 artifact/data
   双 hash 读回，Provider 不能替换授权 source identity 或字段选择；跨 task/version、过期或损坏句柄均拒绝；
-- 当前仍为 additive 基础设施，尚未替换 v1 inspect 路由、未接 Pi hook，也尚未注册 P2 绘图写工具，
-  因而正式 UI 行为不变。
+- 已新增 task/version/item-scoped 的绘图沙箱与 `SandboxPlotHandle`。P1
+  `preview_plot` / `preview_origin_plot` / `apply_plot_edits` /
+  `apply_origin_plot_edits` 只写临时子项目，P0 `inspect_plot` 只读取公共结果；它们不增加正式
+  project revision，也不写入正式 PlotDocument、项目对象或 package；
+- Matplotlib 预演实际复用 34 图正式 renderer 库并产生 PNG/SVG；Origin 预演实际复用受资格约束的
+  官方模板绑定器并产生可编辑 OPJU。每次预演/编辑都保存不可变数据根来源、公开 PlotDocument、
+  artifact hash、机械 readback 和 action lineage，支持 Core 重启后继续检查；
+- Agent 只看到 semantic object ID、对象类型、数据/style hash 与产物句柄；Origin native ref、模板路径、
+  LabTalk/Origin C、renderer 私有对象和任意脚本不会进入公开合同。每次工具调用只接受一个 typed
+  公共编辑，错误时不会留下半条已提交编辑链；
+- staged plot 工具产生 `staged_plot` receipt，Origin 另产生 `origin_session` receipt；Origin 不提供内联
+  PNG 时明确返回 warning，不用 Matplotlib 图片冒充 Origin 图；跨 task/version/item、后端不匹配、
+  stale plot version、非法对象、过期/损坏 artifact 均 fail closed；
+- P4 仍为 additive 基础设施：正式 UI/Pi 尚未消费新工具，P2 正式项目写入将在 P6 垂直切片中接入，
+  因而本阶段不改变用户行为，也不修改 34 图 renderer 语义或视觉默认态。
 
 ### 工作
 

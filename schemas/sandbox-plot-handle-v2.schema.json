@@ -1,0 +1,487 @@
+{
+  "$defs": {
+    "EngineDataRef": {
+      "additionalProperties": false,
+      "description": "Immutable data revision consumed by a plot document.",
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "source",
+            "prepared",
+            "calculated"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "dataset_id",
+        "version",
+        "content_hash"
+      ],
+      "title": "EngineDataRef",
+      "type": "object"
+    },
+    "FieldBinding": {
+      "additionalProperties": false,
+      "description": "Semantic chart role bound to one immutable field.",
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "field_id"
+      ],
+      "title": "FieldBinding",
+      "type": "object"
+    },
+    "PlotDocument": {
+      "additionalProperties": false,
+      "description": "Minimal, renderer-neutral state for one plotted data revision.\n\nVisual defaults belong to the selected engine profile (for Origin, the\nofficial template).  Only explicit user/agent actions are journaled here.",
+      "properties": {
+        "applied_action_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Applied Action Ids",
+          "type": "array"
+        },
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/FieldBinding"
+          },
+          "minItems": 1,
+          "title": "Bindings",
+          "type": "array"
+        },
+        "data": {
+          "$ref": "#/$defs/EngineDataRef"
+        },
+        "parent_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Version"
+        },
+        "plot_id": {
+          "pattern": "^plot:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "plot_version": {
+          "minimum": 1,
+          "title": "Plot Version",
+          "type": "integer"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "2.0",
+          "default": "2.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plot_id",
+        "plot_version",
+        "profile_id",
+        "data",
+        "bindings"
+      ],
+      "title": "PlotDocument",
+      "type": "object"
+    },
+    "PlotDocumentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "plot_id": {
+          "pattern": "^plot:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "plot_version": {
+          "minimum": 1,
+          "title": "Plot Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "plot_id",
+        "plot_version",
+        "content_hash"
+      ],
+      "title": "PlotDocumentRef",
+      "type": "object"
+    },
+    "SandboxPlotArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^artifact:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "backend": {
+          "enum": [
+            "matplotlib",
+            "origin"
+          ],
+          "title": "Backend",
+          "type": "string"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "png",
+            "svg",
+            "opju"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 1,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "backend",
+        "format",
+        "content_hash",
+        "size"
+      ],
+      "title": "SandboxPlotArtifact",
+      "type": "object"
+    },
+    "SandboxPlotLineageStep": {
+      "additionalProperties": false,
+      "properties": {
+        "action_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Action Hash",
+          "type": "string"
+        },
+        "action_ids": {
+          "items": {
+            "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Action Ids",
+          "type": "array"
+        },
+        "artifact_hashes": {
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Artifact Hashes",
+          "type": "array"
+        },
+        "input_handle_id": {
+          "anyOf": [
+            {
+              "pattern": "^plotview:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Handle Id"
+        },
+        "operation": {
+          "enum": [
+            "preview_plot",
+            "apply_plot_edits"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_document": {
+          "$ref": "#/$defs/PlotDocumentRef"
+        },
+        "step_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Step Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "operation",
+        "action_ids",
+        "action_hash",
+        "output_document",
+        "artifact_hashes"
+      ],
+      "title": "SandboxPlotLineageStep",
+      "type": "object"
+    },
+    "SandboxPlotObject": {
+      "additionalProperties": false,
+      "description": "Backend-neutral object projection; native references stay inside Core.",
+      "properties": {
+        "object_kind": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Object Kind",
+          "type": "string"
+        },
+        "semantic_id": {
+          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Semantic Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "semantic_id",
+        "object_kind"
+      ],
+      "title": "SandboxPlotObject",
+      "type": "object"
+    },
+    "SandboxPlotReadback": {
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "enum": [
+            "matplotlib",
+            "origin"
+          ],
+          "title": "Backend",
+          "type": "string"
+        },
+        "data_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Data Hash",
+          "type": "string"
+        },
+        "document": {
+          "$ref": "#/$defs/PlotDocumentRef"
+        },
+        "objects": {
+          "items": {
+            "$ref": "#/$defs/SandboxPlotObject"
+          },
+          "maxItems": 512,
+          "title": "Objects",
+          "type": "array"
+        },
+        "style_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Style Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "backend",
+        "document",
+        "objects",
+        "data_hash",
+        "style_hash"
+      ],
+      "title": "SandboxPlotReadback",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/sandbox-plot-handle-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/SandboxPlotArtifact"
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "backends": {
+      "items": {
+        "enum": [
+          "matplotlib",
+          "origin"
+        ],
+        "type": "string"
+      },
+      "maxItems": 2,
+      "minItems": 1,
+      "title": "Backends",
+      "type": "array"
+    },
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "data_view_handle_id": {
+      "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Data View Handle Id",
+      "type": "string"
+    },
+    "document": {
+      "$ref": "#/$defs/PlotDocument"
+    },
+    "expires_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "handle_id": {
+      "pattern": "^plotview:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Handle Id",
+      "type": "string"
+    },
+    "handle_version": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Handle Version",
+      "type": "integer"
+    },
+    "item_id": {
+      "anyOf": [
+        {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Item Id"
+    },
+    "lineage": {
+      "items": {
+        "$ref": "#/$defs/SandboxPlotLineageStep"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Lineage",
+      "type": "array"
+    },
+    "parent_handle_id": {
+      "anyOf": [
+        {
+          "pattern": "^plotview:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Handle Id"
+    },
+    "readbacks": {
+      "items": {
+        "$ref": "#/$defs/SandboxPlotReadback"
+      },
+      "maxItems": 2,
+      "minItems": 1,
+      "title": "Readbacks",
+      "type": "array"
+    },
+    "root_sources": {
+      "items": {
+        "$ref": "#/$defs/EngineDataRef"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Root Sources",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "sandbox-plot-handle.v2",
+      "default": "sandbox-plot-handle.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "staged_data_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Staged Data Hash",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "handle_id",
+    "task_id",
+    "task_version",
+    "data_view_handle_id",
+    "root_sources",
+    "staged_data_hash",
+    "document",
+    "backends",
+    "readbacks",
+    "artifacts",
+    "lineage",
+    "created_at",
+    "expires_at"
+  ],
+  "title": "SandboxPlotHandle",
+  "type": "object"
+}

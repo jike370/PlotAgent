@@ -18,6 +18,7 @@ from .drop_line import X02DropLineRenderer
 from .dual_y import X23DualYRenderer
 from .error_band import K07ErrorBandRenderer
 from .facet import K24FacetRenderer
+from .factory import default_matplotlib_backend
 from .floating_interval import X09FloatingIntervalRenderer
 from .heatmap import K20HeatmapRenderer
 from .line import K01LineRenderer
@@ -71,4 +72,5 @@ __all__ = [
     "X38OffsetStackRenderer",
     "X39LineSeriesRenderer",
     "X40BeforeAfterRenderer",
+    "default_matplotlib_backend",
 ]

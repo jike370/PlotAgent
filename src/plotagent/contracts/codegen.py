@@ -18,6 +18,7 @@ from pydantic import BaseModel, RootModel, TypeAdapter
 from pydantic.json_schema import models_json_schema
 
 from plotagent.contracts.agent_data import DataViewHandle, DataViewOperation, DataViewPreview
+from plotagent.contracts.agent_plots import SandboxPlotEdit, SandboxPlotHandle
 from plotagent.contracts.agent_tasks import (
     AgentActivation,
     AgentYield,
@@ -112,6 +113,10 @@ class DataViewOperationContract(RootModel[DataViewOperation]):
     pass
 
 
+class SandboxPlotEditContract(RootModel[SandboxPlotEdit]):
+    pass
+
+
 SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("source-dataset", SourceDataset),
     ("field-mapping", FieldMapping),
@@ -151,6 +156,8 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("data-view-handle-v2", DataViewHandle),
     ("data-view-operation-v2", DataViewOperationContract),
     ("data-view-preview-v2", DataViewPreview),
+    ("sandbox-plot-handle-v2", SandboxPlotHandle),
+    ("sandbox-plot-edit-v2", SandboxPlotEditContract),
     ("engine-data-ref", EngineDataRef),
     ("engine-data-view", EngineDataView),
     ("engine-profile", EngineProfile),
