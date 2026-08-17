@@ -33,7 +33,7 @@
 | 5 | 工具体系 | 已确认 | Agent 需要哪些检查、整理、绘图、读回和交付工具？ |
 | 6 | 验证器 | 已确认 | 怎样独立证明数据、科学语义、图形和导出物正确？ |
 | 7 | 权限与回滚 | 已确认 | 哪些动作可自动执行，哪些需要确认，失败如何撤销？ |
-| 8 | 工作记忆 | 待讨论 | 一次任务中应记住哪些决定、结果和失败，哪些不得长期保存？ |
+| 8 | 工作记忆 | 提案待确认 | 一次任务中应记住哪些决定、结果和失败，哪些不得长期保存？ |
 | 9 | 可观察性 | 待讨论 | 用户和开发者怎样看到阶段、进度、原因、成本与结果？ |
 | 10 | 评测体系 | 待讨论 | 怎样证明 Agent 稳定、正确、可恢复，并控制时长和成本？ |
 
@@ -735,6 +735,159 @@ PlotAgent 的 TaskIntent 单次集中确认、DataView/Plot 不可变版本、�
 8. 导出先 staged、验证再原子发布，默认不覆盖，外部文件不伪装成可由项目 undo 自动收回；
 9. 项目单写者和 Origin 自动化使用可恢复 lease，revision 冲突不静默覆盖；
 10. 确认卡只展示语义和正式副作用，内部工具不重复弹窗；所有副作用完整审计。
+
+## 9. 设计项 6：工作记忆
+
+### 9.0 定义与边界
+
+工作记忆不是“把聊天记录长期塞给模型”，而是让同一任务在多轮工具调用、上下文压缩、应用重启和技术重试后仍保持目标、语义、证据和进度一致。
+
+本项只解决任务内连续性和项目内可恢复性。它不负责自动学习用户偏好，不自动把成功流程固化为 Recipe，不把相似历史任务的结论直接套到新任务，也不允许模型把未经确认的猜测写成项目事实。跨任务复用若以后恢复，应作为用户明确创建、可检查、可版本化的项目资产另行设计。
+
+### 9.1 四类记录必须分离
+
+| 层 | 内容 | 权威性 | 生命周期 |
+|---|---|---|---|
+| Task Ledger | 原始指令、TaskIntent 版本、确认、TaskItem 状态、授权、项目 revision、交付物和验证结论 | 唯一任务真相 | 项目内持久保存，直到项目删除 |
+| Task Checkpoint | 当前阶段、已完成/失败项、活跃 handle、预算、下一安全动作和最后事件序号 | 可由 Ledger 重建的运行快照 | 任务运行、暂停和恢复期间保存 |
+| Working Notes | Agent 的事实摘记、待验证假设、失败尝试和下一步 | 非权威；必须带类别和证据引用 | 任务结束后清理或压缩成审计摘要 |
+| Conversation View | 用户和 Agent 的可见消息、确认卡、进度与结果说明 | 交互记录，不是执行真相 | 本地项目 UX 记录；清空聊天不改变任务/项目状态 |
+
+工具产生的大型表格、图片、完整原生读回和日志不复制进上述文本记录。它们进入有 TTL 的 observation/staging store，工作记忆只保存安全 handle、内容 hash、有界摘要和验证状态；需要时再通过工具按需读取。
+
+### 9.2 必须记住什么
+
+每个活动任务至少保留：
+
+- 用户原始指令原文和后续明确纠正；
+- 显式选择的数据源、图、图类、输出位置及其稳定 ID、版本和 hash；
+- 已确认的字段绑定、单位、换算、筛选、分组、配对、统计语义、视觉参数和交付范围；
+- TaskIntent 每个版本、确认者、确认时间，以及旧版本为何失效；
+- 每个 TaskItem 的当前状态、已通过门禁、失败门禁和未完成原因；
+- 已调用工具的 StepReceipt、输入/输出 handle、side-effect 状态和验证结果；
+- 已尝试但失败的技术方案、结构化错误码、失败作用域和是否允许重试；
+- ExecutionGrant、预算、取消状态、project revision 和 lease 信息；
+- 最终 DataView、Plot、PNG/SVG/OPJU 等交付物引用及 VerificationReport。
+
+不得长期保存：模型隐藏推理、API key/credential、无界原始工具输出、重复预览副本、临时绝对路径、未经验证的自由文本猜测，以及用户没有明确要求固化的偏好或 Recipe。
+
+### 9.3 记录合同
+
+不对整个产品采用重型 Event Sourcing，只对 Agent 任务使用“小型追加式 TaskEvent 日志 + 当前 TaskCheckpoint 快照”。这样保留恢复和审计能力，同时避免让项目数据、图和 UI 全部被事件流绑架。
+
+`TaskEvent` 至少包含：
+
+```text
+task_id / task_item_id
+event_seq / event_type / occurred_at
+intent_version / intent_hash
+project_revision_before / after
+tool_call_id / idempotency_key / attempt
+input_handles / output_handles / evidence_handles
+status / error_code / side_effect
+execution_grant_id / actor
+```
+
+`TaskCheckpoint` 至少包含：
+
+```text
+task_id / checkpoint_version / last_event_seq
+original_instruction_hash
+active_intent_version / hash
+expected_project_revision / execution_grant_id
+per_item_state / passed_gates / failed_gates
+active_handles / pending_questions
+technical_budget / visual_budget / cost_and_time_usage
+last_safe_stage / next_safe_action
+```
+
+Agent 只能通过类型化的 `record_working_note` 提议临时摘记，类别限定为 `fact`、`hypothesis`、`failed_attempt`、`decision_rationale`、`next_action`。其中 `fact` 必须引用数据或工具证据；`hypothesis` 不能进入 TaskIntent 或验证结论；`decision_rationale` 只保存用户可解释的简短依据，不保存隐藏思维链。Core 校验并写入，模型不能修改历史事件或把 note 提升为授权。
+
+### 9.4 何时写入与检查点
+
+以下边界必须由 Core 原子写事件并刷新 checkpoint：
+
+1. 接收原始指令或用户回答；
+2. TaskIntent 创建、确认、作废或生成新版本；
+3. 每个工具调用完成、失败、超时或 side-effect 状态未知；
+4. 每个验证门禁完成；
+5. TaskItem staged、正式提交、部分成功或回滚；
+6. 用户取消、应用关闭、进程异常或任务暂停；
+7. 交付物发布和任务终止。
+
+不按模型 token、流式片段或每条内部自述写 checkpoint。checkpoint 必须位于可恢复的工具/事务边界，避免“文字说已完成，但对象尚未落盘”的假进度。
+
+### 9.5 上下文恢复与压缩
+
+每轮模型调用由 ContextBuilder 从权威状态重建最小上下文：原始目标、活动 TaskIntent、当前 TaskItem、最近用户纠正、已通过/失败门禁、相关 working notes 和可用 handle。完整历史和大型观察结果不常驻上下文。
+
+模型上下文压缩只影响下一轮输入，不得修改 Task Ledger、TaskEvent 或项目对象。压缩结果必须通过必填字段校验，至少保留原始目标、确认语义、来源、单位、分组、配对、失败尝试、已完成项、未完成项和验证证据引用。缺一项就拒绝该摘要并从 checkpoint 重新组装。
+
+应用或模型 Provider 会话丢失后，从 Core checkpoint 和当前项目 revision 恢复；不得依赖 Pi 的 `messages` 或 Provider `sessionId` 才能继续。同一技术失败已有明确 receipt 时，恢复后的 Agent不能无理由重复相同调用。
+
+### 9.6 生命周期、清理与隐私
+
+- 运行中：原始数据仍由 SourceDataset 管理，memory 只记稳定引用；临时 DataView/Plot/观察结果留在 task staging。
+- 暂停或异常：保留 checkpoint、必要 staging 和协调状态，直到用户继续、放弃或达到明确的清理期限。
+- 成功结束：保留 Task Ledger、确认语义、正式对象、交付物、VerificationReport 和精简失败审计；删除 working hypotheses、重复预览、临时 OPJU 和无引用 observation。
+- 用户放弃：保留最小取消/审计事实，清理 task-owned staging；不得留下会被下一任务误取的临时 handle。
+- 删除项目：删除该项目的任务记忆、对话视图和项目内证据引用；外部已交付文件仍按外部文件规则处理。
+
+诊断包不得默认包含聊天、原始指令、列名、单元格值、文件路径、Working Notes 或模型请求/响应。远程模型只获得当前任务授权允许的有界上下文；不会因为“记忆”而扩大数据披露范围。
+
+### 9.7 跨任务和相似任务检索
+
+第一阶段不使用向量相似度自动注入历史任务，也不自动生成“用户偏好记忆”。任务恢复只按 task/project/item/object/version 等确定性键检索。
+
+若用户明确选择“沿用上一张图设置”或选择某个已保存项目资产，Agent 可通过工具读取该对象的正式 spec 和验证记录；这是显式对象引用，不是模糊记忆。未经用户选择的历史假设、失败参数和旧字段映射不能进入新 TaskIntent。
+
+### 9.8 用户可见表现
+
+用户不需要看到“记忆表”。界面只提供：
+
+- 继续任务时显示上次安全阶段、已完成项、失败项和待确认项；
+- 任务时间线显示关键确认、执行、验证、部分成功、取消和交付事件；
+- 结果页可查看“用了哪些数据、做了哪些确认内变换、生成了什么、哪些门禁通过”；
+- 技术失败后说明将从哪个安全点继续，避免表现为从头重做；
+- 用户可清空对话、放弃任务或删除项目，并清楚知道各动作影响聊天、任务还是正式产物。
+
+模型的内部工作摘记和隐藏推理不展示；对用户有决策价值的依据应由 Agent 生成单独、简洁、可追溯的说明。
+
+### 9.9 设计依据
+
+- [Anthropic《Effective context engineering for AI agents》](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) 把上下文视为有限资源，推荐 just-in-time retrieval、compaction 和 structured note-taking；对应 PlotAgent 的 handle 按需读取、结构化 checkpoint 与高保真压缩。
+- [Anthropic《Effective harnesses for long-running agents》](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) 指出单靠 compaction 不足以支撑长任务，需要跨会话留下明确的进度和可继续工件；对应 PlotAgent 的 Core checkpoint 和正式对象，而不是依赖模型聊天历史。
+- [MemGPT](https://arxiv.org/abs/2310.08560) 通过分层记忆管理有限上下文；PlotAgent 同样区分热的任务摘要与冷的 observation/object store，但关键语义采用确定性引用，不让模型自由改写长期事实。
+- [Generative Agents](https://arxiv.org/abs/2304.03442) 展示 observation、reflection 和动态检索对长期行为的价值；PlotAgent 借鉴观察与摘记分离，但科研绘图的授权和已确认语义不采用基于相关度的模糊召回。
+- [Microsoft Event Sourcing pattern](https://learn.microsoft.com/azure/architecture/patterns/event-sourcing) 说明追加事件可用于审计和状态重建，同时明确该模式复杂且应选择性使用；因此这里只对任务运行采用 TaskEvent + snapshot，不把整个项目改造成 Event Store。
+- [OpenAI《A practical guide to building agents》](https://openai.com/business/guides-and-resources/a-practical-guide-to-building-ai-agents/) 将 Agent 定义为模型在工具和 guardrail 下持续执行、判断完成并从失败中恢复；工作记忆为这种恢复提供可验证状态，不把模型自述当完成事实。
+
+### 9.10 当前基线与缺口
+
+当前已有 WorkflowRun、clarification history、TaskPlan/TaskItem 状态、部分 resume、项目 revision，以及前端按项目写入 localStorage 的最多 100 条对话。Pi runtime 每次仍以 `messages=[]` 创建 Agent，`sessionId` 只绑定 workflow run；这恰好说明当前聊天恢复、Provider 会话和任务恢复并不是同一件事。
+
+仍缺少：
+
+- 统一的追加式 TaskEvent 和可校验 TaskCheckpoint；
+- Agent 可写但非权威的结构化 Working Notes；
+- tool observation 的 handle/TTL/清理策略；
+- compaction 前后的必填语义保真校验；
+- Provider 会话丢失后的完整任务恢复；
+- terminal task 的 scratch 清理和最小审计保留；
+- 聊天、任务状态、正式项目对象三者在 UI 和删除行为上的清晰边界。
+
+### 9.11 本项待确认原则
+
+1. 工作记忆只服务当前任务连续性和项目恢复，不自动学习偏好或生成跨任务 Recipe；
+2. Task Ledger、Task Checkpoint、Working Notes 和 Conversation View 分层保存，聊天不是真相；
+3. 原始目标、确认语义、对象版本、每项状态、工具 receipt、失败尝试、验证和交付引用必须记住；
+4. 隐藏推理、凭证、无界工具输出、临时路径、未确认偏好和自由文本猜测不得长期保存；
+5. 只对任务运行使用追加式 TaskEvent + 当前 snapshot，不对整个产品采用重型 Event Sourcing；
+6. Agent 只能写分类明确、带证据的临时 note，不能改事件历史、授权或确认语义；
+7. 在用户回答、工具结束、验证、提交、取消和交付等安全边界写 checkpoint，不按 token 写假进度；
+8. ContextBuilder 从 Core 权威状态恢复；压缩不得改变 Ledger，Provider/Pi 会话丢失不影响继续任务；
+9. 任务结束后保留正式事实和精简审计，清理假设、重复预览、临时对象和无引用 observation；
+10. 第一阶段只按确定性 ID 恢复，不用相似度自动注入历史任务；用户通过简洁时间线和“继续任务”入口感知记忆，而不是查看内部记忆表。
 
 ## 已确认决定日志
 
