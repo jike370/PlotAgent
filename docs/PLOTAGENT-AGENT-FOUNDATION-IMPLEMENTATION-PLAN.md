@@ -386,6 +386,21 @@
 - 通过后进入 completed_verified，UI 展示 plot ID/version 和产物；
 - 仅在 `agent_foundation_v2` 测试 gate 下启用。
 
+### 当前实现进度（2026-08-18）
+
+- Main 已有 pull-based `TaskPump`，只执行 Core 返回的 activation，并在 durable wait 立即退出；
+- Core 已有 `DurableTaskCoordinator`，可幂等创建 `new_task` activation，且 activation 运行期间不提前
+  改写 task version；
+- `TaskEnvelope` 与 `AgentContextSnapshot` 已从模糊 source ID 收紧为精确
+  `source_dataset_id + source_version + content_hash`，防止任务途中读到另一数据版本；
+- Core activation host 已能从真实项目构造无初始单元格泄露的上下文，注册审核过的领域/数据检查工具，
+  执行 P0 调用并持久化 ToolReceipt；
+- Main host 已将 Core authority、模型服务配置与 Pi runtime 组合，API key 只停留在 Main 内存，不进入
+  Core context、task event 或 renderer；
+- Core 已校验 terminal yield 的 activation/task identity、context hash 与 TaskIntent content hash；
+- 上述链路仍为 additive/test-gated，正式 UI 继续使用 v1；下一节点是把合法 `TaskIntent` 编译成单项确认卡，
+  再签发最小 ExecutionGrant 执行与验证。
+
 ### 测试
 
 - 明确任务无需无效追问；

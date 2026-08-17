@@ -27,7 +27,11 @@ from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.datasets import (
     SourceDataset,
 )
-from plotagent.desktop_core.agent_foundation import DurableTaskCoordinator
+from plotagent.desktop_core.agent_foundation import (
+    AgentFoundationError,
+    DurableAgentCoreHost,
+    DurableTaskCoordinator,
+)
 from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue as RpcJsonValue
 from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
@@ -101,6 +105,7 @@ class ProjectSession:
     workflow: DesktopWorkflowService
     durable_tasks: TaskLedgerRepository
     task_coordinator: DurableTaskCoordinator
+    task_host: DurableAgentCoreHost
 
     @property
     def project_id(self) -> str:
@@ -183,6 +188,9 @@ class DesktopApplication:
             "agent.tasks.complete": self._agent_task_complete,
             "agent.tasks.activation.start": self._agent_activation_start,
             "agent.tasks.activation.running": self._agent_activation_running,
+            "agent.activations.prepare": self._agent_activation_prepare,
+            "agent.tools.invoke": self._agent_tool_invoke,
+            "agent.yields.validate": self._agent_yield_validate,
             "agent.tasks.yield.accept": self._agent_yield_accept,
             "agent.tasks.user_event": self._agent_task_user_event,
             "agent.tasks.cancel": self._agent_task_cancel,
@@ -327,6 +335,48 @@ class DesktopApplication:
             _text(values["activation_id"], "activation_id")
         )
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_activation_prepare(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "activation_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        return cast(
+            RpcJsonValue,
+            session.task_host.prepare(_text(values["activation_id"], "activation_id")),
+        )
+
+    def _agent_tool_invoke(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "invocation", "arguments"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        invocation = values["invocation"]
+        arguments = values["arguments"]
+        if not isinstance(invocation, dict) or not isinstance(arguments, dict):
+            raise RpcServiceError("INVALID_PARAMS", "Tool invocation was invalid.")
+        result = session.task_host.invoke(
+            invocation_value=cast(dict[str, object], invocation),
+            arguments=cast(JsonValue, arguments),
+        )
+        return cast(RpcJsonValue, result.model_dump(mode="json"))
+
+    def _agent_yield_validate(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "activation_id", "yield"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        candidate = values["yield"]
+        if not isinstance(candidate, dict):
+            raise RpcServiceError("INVALID_PARAMS", "Agent yield was invalid.")
+        yielded = session.task_host.validate_yield(
+            _text(values["activation_id"], "activation_id"),
+            cast(JsonValue, candidate),
+        )
+        return cast(RpcJsonValue, yielded.model_dump(mode="json"))
 
     def _agent_yield_accept(
         self, _context: RpcContext, params: RpcJsonValue | None
@@ -889,6 +939,7 @@ class DesktopApplication:
             except PreparationProblem as error:
                 raise RpcServiceError(str(error.code), error.message) from None
             except (
+                AgentFoundationError,
                 WorkflowServiceError,
                 WorkflowCompileError,
                 WorkflowDataError,
@@ -1057,6 +1108,7 @@ class DesktopApplication:
             ),
             durable_tasks=durable_tasks,
             task_coordinator=DurableTaskCoordinator(durable_tasks),
+            task_host=DurableAgentCoreHost(store, domain, durable_tasks),
         )
         self._sessions[project_id] = session
         self.catalog.touch_project(project_id)

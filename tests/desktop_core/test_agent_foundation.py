@@ -1,16 +1,37 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 
-from plotagent.contracts.agent_tasks import AgentIntentReady, TaskEnvelope, TaskIntent
-from plotagent.contracts.canonical import canonical_hash
+import pytest
+
+from plotagent.contracts.agent_tasks import (
+    AgentIntentReady,
+    TaskBudgetLimits,
+    TaskEnvelope,
+    TaskIntent,
+)
+from plotagent.contracts.agent_tools import ToolInvocation
+from plotagent.contracts.base import SourceDatasetRef
+from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.workflows import DraftFieldBinding, TaskDraftItem
-from plotagent.desktop_core.agent_foundation import DurableTaskCoordinator
-from plotagent.storage import ProjectStore
+from plotagent.desktop_core.agent_foundation import (
+    AgentFoundationError,
+    DurableAgentCoreHost,
+    DurableTaskCoordinator,
+)
+from plotagent.storage import (
+    ImportCommitResult,
+    ImportResource,
+    ProjectDomainRepository,
+    ProjectImportService,
+    ProjectStore,
+)
 from plotagent.tasking import TaskLedgerRepository
 
 NOW = datetime(2026, 8, 18, 10, 0, tzinfo=UTC)
+FILES = Path(__file__).parents[1] / "fixtures" / "import" / "files"
 
 
 def envelope() -> TaskEnvelope:
@@ -21,19 +42,24 @@ def envelope() -> TaskEnvelope:
         project_revision=0,
         original_instruction="Create one K01 line chart.",
         selected_sources=(
-            {
-                "source_dataset_id": "source:test",
-                "source_version": 1,
-                "content_hash": "a" * 64,
-            },
+            SourceDatasetRef(
+                source_dataset_id="source:test",
+                source_version=1,
+                content_hash="a" * 64,
+            ),
         ),
         selected_profile_ids=("K01",),
-        budget={},
+        budget=TaskBudgetLimits(),
         created_at="2026-08-18T10:00:00Z",
     )
 
 
-def intent(activation_id: str) -> TaskIntent:
+def intent(
+    activation_id: str,
+    *,
+    task_id: str = "task:test",
+    context_hash: str = "a" * 64,
+) -> TaskIntent:
     item = TaskDraftItem(
         task_kind="create",
         item_id="item:test.1",
@@ -49,17 +75,19 @@ def intent(activation_id: str) -> TaskIntent:
             ),
         ),
     )
-    raw = {
-        "intent_id": "intent:test",
-        "intent_version": 1,
-        "task_id": "task:test",
-        "task_version": 1,
-        "created_by_activation_id": activation_id,
-        "summary": "Create one K01 line chart.",
-        "items": (item,),
-        "context_hash": "a" * 64,
-    }
-    return TaskIntent(**raw, content_hash=canonical_hash(raw))
+    draft = TaskIntent(
+        intent_id="intent:test",
+        intent_version=1,
+        task_id=task_id,
+        task_version=1,
+        created_by_activation_id=activation_id,
+        summary="Create one K01 line chart.",
+        items=(item,),
+        context_hash=context_hash,
+        content_hash="0" * 64,
+    )
+    payload = draft.model_dump(mode="json", exclude={"content_hash"})
+    return draft.model_copy(update={"content_hash": canonical_hash(payload)})
 
 
 def test_next_action_creates_one_idempotent_activation(tmp_path: Path) -> None:
@@ -76,7 +104,7 @@ def test_next_action_creates_one_idempotent_activation(tmp_path: Path) -> None:
         assert activation["task_version"] == 1
         assert activation["task_state"] == "created"
         assert activation["permission_phase"] == "p0_read"
-        assert "inspect_source" in activation["allowed_tools"]
+        assert "inspect_source" in cast(list[str], activation["allowed_tools"])
         assert ledger.get_task("task:test").active_activation_id == activation["activation_id"]
 
 
@@ -112,3 +140,111 @@ def test_context_authority_stays_current_until_yield_then_waits_for_confirmation
             "task_state": "awaiting_confirmation",
         }
         assert ledger.get_task("task:test").task_version == 4
+
+
+def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(resource_id="resource:basic", path=FILES / "csv_basic.csv")
+        )
+        assert isinstance(imported, ImportCommitResult)
+        source = imported.datasets[0].source_dataset
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        task_envelope = TaskEnvelope(
+            task_id="task:host-test",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction="Create one K01 line chart.",
+            selected_sources=(
+                SourceDatasetRef(
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                    content_hash=source.content_hash,
+                ),
+            ),
+            selected_profile_ids=("K01",),
+            budget=TaskBudgetLimits(),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        )
+        ledger.create_task(task_envelope)
+        coordinator = DurableTaskCoordinator(ledger)
+        directive = coordinator.next_action(task_envelope.task_id)
+        assert directive["kind"] == "run_activation"
+        activation_id = str(directive["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+
+        host = DurableAgentCoreHost(project, domain, ledger)
+        environment = host.prepare(activation_id)
+        context = cast(dict[str, object], environment["context"])
+        selected_sources = cast(list[dict[str, object]], context["selected_sources"])
+        assert selected_sources == [
+            {
+                "source_dataset_id": source.source_dataset_id,
+                "source_version": source.source_version,
+                "content_hash": source.content_hash,
+            }
+        ]
+        source_contexts = cast(list[dict[str, object]], context["source_contexts"])
+        assert source_contexts[0]["preview"] is None
+        tool_names: set[object] = set()
+        for item in cast(list[object], environment["tools"]):
+            definition = cast(dict[str, object], item)
+            contract = cast(dict[str, object], definition["contract"])
+            tool_names.add(contract["tool_name"])
+        activation = directive["activation"]
+        assert tool_names == set(cast(list[str], activation["allowed_tools"]))
+
+        arguments: JsonValue = {"source_alias": "data_1"}
+        now = datetime.now(UTC)
+        invocation = ToolInvocation(
+            tool_call_id="toolcall:inspect-source",
+            task_id=task_envelope.task_id,
+            task_version=1,
+            activation_id=activation_id,
+            tool_name="inspect_source",
+            permission_phase="p0_read",
+            arguments_hash=canonical_hash(arguments),
+            activation_tool_calls_before=0,
+            activation_disclosed_scalars_before=0,
+            expected_project_revision=domain.revision,
+            deadline=(now + timedelta(seconds=3)).isoformat().replace("+00:00", "Z"),
+        )
+        result = host.invoke(
+            invocation_value=invocation.model_dump(mode="json"),
+            arguments=arguments,
+        )
+        assert result.status == "succeeded"
+        assert result.provenance[0].content_hash == source.content_hash
+        assert ledger.get_task(task_envelope.task_id).budget.usage.tool_calls == 1
+
+        context_hash = cast(str, context["content_hash"])
+        candidate = AgentIntentReady(
+            activation_id=activation_id,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            intent=intent(
+                activation_id,
+                task_id=task_envelope.task_id,
+                context_hash=context_hash,
+            ),
+        )
+        intent_payload = candidate.intent.model_dump(mode="json", exclude={"content_hash"})
+        candidate = candidate.model_copy(
+            update={
+                "intent": candidate.intent.model_copy(
+                    update={"content_hash": canonical_hash(intent_payload)}
+                )
+            }
+        )
+        validated = host.validate_yield(
+            activation_id, cast(JsonValue, candidate.model_dump(mode="json"))
+        )
+        assert validated.outcome == "intent_ready"
+
+        stale = candidate.model_dump(mode="json")
+        cast(dict[str, object], stale["intent"])["context_hash"] = "f" * 64
+        with pytest.raises(AgentFoundationError) as caught:
+            host.validate_yield(activation_id, cast(JsonValue, stale))
+        assert caught.value.code == "YIELD_CONTEXT_STALE"

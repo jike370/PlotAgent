@@ -4,11 +4,13 @@ import hashlib
 import json
 import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
+from plotagent.contracts.canonical import canonical_hash
 from plotagent.desktop_core.application import DesktopApplication
 from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue
@@ -177,6 +179,86 @@ def _import_dataset(
         },
     )
     return cast(dict[str, Any], imported)
+
+
+def test_agent_activation_host_rpc_prepares_and_invokes_read_tool(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-v2-host")
+    dataset = cast(dict[str, Any], cast(list[object], imported["datasets"])[0])
+    task_id = "task:activation-host-api"
+    harness.call(
+        "agent.tasks.create",
+        {
+            "project_id": project_id,
+            "envelope": {
+                "task_id": task_id,
+                "task_version": 1,
+                "project_id": project_id,
+                "project_revision": imported["project_version"],
+                "original_instruction": "Create one K01 line chart.",
+                "selected_sources": [
+                    {
+                        "source_dataset_id": dataset["source_dataset_id"],
+                        "source_version": dataset["source_version"],
+                        "content_hash": dataset["content_hash"],
+                    }
+                ],
+                "selected_profile_ids": ["K01"],
+                "budget": {},
+                "created_at": "2026-08-18T10:00:00Z",
+            },
+        },
+    )
+    directive = harness.call(
+        "agent.tasks.pump.next", {"project_id": project_id, "task_id": task_id}
+    )
+    activation = cast(dict[str, Any], directive["activation"])
+    activation_id = cast(str, activation["activation_id"])
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    prepared = harness.call(
+        "agent.activations.prepare",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    context = cast(dict[str, Any], prepared["context"])
+    assert cast(list[dict[str, Any]], context["selected_sources"])[0] == {
+        "source_dataset_id": dataset["source_dataset_id"],
+        "source_version": dataset["source_version"],
+        "content_hash": dataset["content_hash"],
+    }
+    assert len(cast(list[object], prepared["tools"])) == len(activation["allowed_tools"])
+
+    arguments = {"source_alias": "data_1"}
+    deadline = (datetime.now(UTC) + timedelta(seconds=3)).isoformat().replace("+00:00", "Z")
+    result = harness.call(
+        "agent.tools.invoke",
+        {
+            "project_id": project_id,
+            "invocation": {
+                "tool_call_id": "toolcall:activation-host-api",
+                "task_id": task_id,
+                "task_version": 1,
+                "activation_id": activation_id,
+                "tool_name": "inspect_source",
+                "permission_phase": "p0_read",
+                "arguments_hash": canonical_hash(arguments),
+                "activation_tool_calls_before": 0,
+                "activation_disclosed_scalars_before": 0,
+                "expected_project_revision": imported["project_version"],
+                "deadline": deadline,
+            },
+            "arguments": arguments,
+        },
+    )
+    assert result["status"] == "succeeded"
+    checkpoint = harness.call(
+        "agent.tasks.get", {"project_id": project_id, "task_id": task_id}
+    )
+    assert cast(dict[str, Any], checkpoint["budget"])["usage"]["tool_calls"] == 1
 
 
 def _dataset_and_fields(imported: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
