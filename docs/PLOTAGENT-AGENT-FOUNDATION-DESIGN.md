@@ -6,6 +6,7 @@
 
 相关文档：
 
+- [Agent 基础设施施工计划](./PLOTAGENT-AGENT-FOUNDATION-IMPLEMENTATION-PLAN.md)
 - [程序—Agent 编排架构](./AGENT-ORCHESTRATION-ARCHITECTURE.md)
 - [Pi Agent 运行时](./PI-AGENT-RUNTIME.md)
 - [任务运行时](./TASK-RUNTIME.md)
