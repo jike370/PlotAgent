@@ -257,6 +257,10 @@ function hostFor(
   }
 }
 
+function terminalArguments(candidate: AgentYieldContract): Record<string, JsonValue> {
+  return { agent_yield: candidate as JsonValue }
+}
+
 describe('PiRuntimeAdapterV2', () => {
   it('accepts only a Core-validated typed terminal yield', async () => {
     const input = activation({ allowed_tools: [] })
@@ -269,7 +273,7 @@ describe('PiRuntimeAdapterV2', () => {
       streamFn: (() => toolCallStream(
         'provider-call-yield',
         'submit_agent_yield',
-        candidate as Record<string, JsonValue>,
+        terminalArguments(candidate),
       )) as StreamFn,
     })
 
@@ -302,7 +306,7 @@ describe('PiRuntimeAdapterV2', () => {
           : toolCallStream(
               'provider-call-yield',
               'submit_agent_yield',
-              candidate as Record<string, JsonValue>,
+              terminalArguments(candidate),
             )
       }) as StreamFn,
       clock: () => new Date(CREATED_AT),
@@ -376,7 +380,7 @@ describe('PiRuntimeAdapterV2', () => {
           : toolCallStream(
               'provider-call-yield',
               'submit_agent_yield',
-              candidate as Record<string, JsonValue>,
+              terminalArguments(candidate),
             )
       }) as StreamFn,
     })
@@ -490,7 +494,7 @@ describe('PiRuntimeAdapterV2', () => {
         return toolCallStream(
           `provider-call-yield-${modelCalls}`,
           'submit_agent_yield',
-          candidate as Record<string, JsonValue>,
+          terminalArguments(candidate),
         )
       }) as StreamFn,
     })
@@ -509,7 +513,11 @@ describe('PiRuntimeAdapterV2', () => {
     })
     await expect(disconnectedRuntime.run(disconnected)).resolves.toMatchObject({
       outcome: 'runtime_failed',
-      error: { code: 'PI_V2_PROVIDER_FAILED', side_effect_state: 'known_none' },
+      error: {
+        code: 'PI_V2_PROVIDER_FAILED',
+        message: 'provider disconnected',
+        side_effect_state: 'known_none',
+      },
     })
 
     const timed = activation({
@@ -576,7 +584,7 @@ describe('PiRuntimeAdapterV2', () => {
         return toolCallStream(
           'provider-call-yield',
           'submit_agent_yield',
-          candidate as Record<string, JsonValue>,
+          terminalArguments(candidate),
         )
       }) as StreamFn,
     })
@@ -621,7 +629,7 @@ describe('PiRuntimeAdapterV2', () => {
       streamFn: (() => toolCallStream(
         'provider-call-yield',
         'submit_agent_yield',
-        secondYield as Record<string, JsonValue>,
+        terminalArguments(secondYield),
       )) as StreamFn,
     })
 
@@ -660,7 +668,7 @@ describe('PiRuntimeAdapterV2', () => {
           : toolCallStream(
               'provider-call-yield',
               'submit_agent_yield',
-              secondYield as Record<string, JsonValue>,
+              terminalArguments(secondYield),
             )
       }) as StreamFn,
     })

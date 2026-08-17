@@ -191,6 +191,15 @@ function runtimeFailure(
   }
 }
 
+function safeProviderDiagnostic(message: string): string {
+  return message
+    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, '[redacted]')
+    .replace(/\b(api[_-]?key|authorization)\s*[:=]\s*\S+/gi, '$1=[redacted]')
+    .trim()
+    .slice(0, 800)
+}
+
 function cancelledYield(activation: AgentActivation): AgentYieldContract {
   return {
     outcome: 'cancelled',
@@ -482,13 +491,28 @@ export class PiRuntimeAdapterV2 {
         name: TERMINAL_TOOL_NAME,
         label: 'Submit the terminal Agent result',
         description: 'Return exactly one typed AgentYield after all required inspection is complete.',
-        parameters: environment.yieldSchema,
+        // OpenAI-compatible function tools require an object at the schema root.
+        // AgentYield itself is a discriminated union, so expose it as one
+        // explicitly named argument and let Core validate the nested value.
+        parameters: {
+          type: 'object',
+          properties: { agent_yield: environment.yieldSchema },
+          required: ['agent_yield'],
+          additionalProperties: false,
+        } as TSchema,
         constrainedSampling: { type: 'json_schema', strict: 'prefer' },
         executionMode: 'sequential',
         execute: async (_toolCallId, args, signal) => {
+          const payload = asJson(args, 'Terminal tool arguments')
+          if (payload === null || Array.isArray(payload) || typeof payload !== 'object') {
+            throw new PiRuntimeV2ProtocolError(
+              'PI_V2_PROTOCOL_INVALID',
+              'Terminal tool arguments were invalid.',
+            )
+          }
           const validated = await this.host.validateYield(
             activation,
-            asJson(args, 'Agent yield'),
+            asJson(payload.agent_yield, 'Agent yield'),
             signal ?? controller.signal,
           )
           this.assertCurrent(generation)
@@ -596,7 +620,8 @@ export class PiRuntimeAdapterV2 {
       if (finalYield === undefined && agent.state.errorMessage !== undefined) {
         throw new PiRuntimeV2ProtocolError(
           'PI_V2_PROVIDER_FAILED',
-          'The model provider ended the activation before a typed Agent yield was accepted.',
+          safeProviderDiagnostic(agent.state.errorMessage)
+            || 'The model provider ended the activation before a typed Agent yield was accepted.',
         )
       }
       if (finalYield === undefined) {
@@ -626,7 +651,9 @@ export class PiRuntimeAdapterV2 {
       return runtimeFailure(
         activation,
         error instanceof PiRuntimeV2ProtocolError ? error.code : 'PI_V2_RUNTIME_FAILED',
-        'The Pi runtime failed before a typed terminal result was accepted.',
+        error instanceof PiRuntimeV2ProtocolError
+          ? error.message
+          : 'The Pi runtime failed before a typed terminal result was accepted.',
       )
     } finally {
       controller.abort()
