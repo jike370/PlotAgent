@@ -785,10 +785,23 @@ export function App(): React.JSX.Element {
       setWorkflowOutcome({ kind: 'needs_input', title: '请先上传数据', message: '收到你的要求了。上传数据后，我会继续声明字段绑定。' })
       return
     }
-    if (!api) return
     const continuationWorkflowRunId = workflowOutcome?.kind === 'needs_input'
       ? workflowOutcome.workflowRunId
       : undefined
+    const explicitlySelectedSourceCount = new Set([
+      activeDataset.datasetId,
+      ...workflowSourceIds,
+    ]).size
+    if (
+      !selectedChart
+      && workflowPlan === undefined
+      && continuationWorkflowRunId === undefined
+      && explicitlySelectedSourceCount < 2
+    ) {
+      setWorkflowOutcome({ kind: 'needs_input', title: '请先选择图形', message: '数据已就绪。请先在图形库选择要创建的图形，再继续声明字段绑定。' })
+      return
+    }
+    if (!api) return
     pendingAgentRequest.current = undefined
     const requestGeneration = agentRequestGeneration.current + 1
     agentRequestGeneration.current = requestGeneration

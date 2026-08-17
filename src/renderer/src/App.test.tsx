@@ -492,6 +492,21 @@ describe('PlotAgent real desktop workflow', () => {
     expect(api.runWorkflow).not.toHaveBeenCalled()
   })
 
+  it('asks for an explicit chart selection before invoking the Agent', async () => {
+    const user = userEvent.setup()
+    const api = fakeDesktop()
+    installApi(api)
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '用这些数据画一张图。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(await screen.findByText('请先选择图形')).toBeInTheDocument()
+    expect(screen.getByText('数据已就绪。请先在图形库选择要创建的图形，再继续声明字段绑定。')).toBeInTheDocument()
+    expect(api.runWorkflow).not.toHaveBeenCalled()
+  })
+
   it('lets the user choose a chart before uploading data', async () => {
     const user = userEvent.setup()
     const api = fakeDesktop()
@@ -1135,6 +1150,8 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('字段绑定')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('时间')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('创建 K01')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('K01 · 新图')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).not.toHaveTextContent('plot:one · v1')
     await user.click(screen.getByRole('button', { name: '确认并执行' }))
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
   })
@@ -1301,6 +1318,10 @@ describe('PlotAgent real desktop workflow', () => {
     }))
     render(<App />)
     await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K03')
+    await user.click(screen.getByRole('button', { name: /K03.*散点图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
     await user.type(
       screen.getByRole('textbox', { name: '描述绘图要求' }),
       '把 pressure.csv 和当前数据画在同一张 K03 散点图中',
@@ -1329,6 +1350,10 @@ describe('PlotAgent real desktop workflow', () => {
     }))
     render(<App />)
     await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K03')
+    await user.click(screen.getByRole('button', { name: /K03.*散点图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
 
     await user.type(
       screen.getByRole('textbox', { name: '描述绘图要求' }),

@@ -163,6 +163,44 @@ export class AgentFoundationRuntime {
     return this.authorityByPlan.has(planId)
   }
 
+  async list(projectId: string): Promise<JsonValue> {
+    const result = record(await this.core.request(
+      'agent.tasks.list',
+      { project_id: projectId, limit: 100 },
+      15_000,
+    ), 'durable task list')
+    if (!Array.isArray(result.tasks)) {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_PROTOCOL_INVALID',
+        'Core returned an invalid durable task list.',
+      )
+    }
+    const tasks = result.tasks.flatMap((value) => {
+      const task = record(value, 'durable task checkpoint')
+      return task.intent === null || task.intent === undefined
+        ? []
+        : [{ taskId: string(task.task_id, 'task ID') }]
+    })
+    const newestFirst = await Promise.all(tasks.map(async ({ taskId }) => {
+      const view = await this.core.request(
+        'agent.tasks.plan.get',
+        { project_id: projectId, task_id: taskId },
+        15_000,
+      )
+      const identity = planIdentity(view)
+      if (identity.taskId !== taskId) {
+        throw new AgentFoundationRuntimeError(
+          'AGENT_V2_TASK_MISMATCH',
+          'Recovered plan does not belong to its durable task.',
+        )
+      }
+      this.authorityByPlan.set(identity.planId, { projectId, taskId })
+      return json(view)
+    }))
+    // Core lists durable tasks newest-first while the renderer selects the last plan.
+    return { task_plans: newestFirst.reverse() }
+  }
+
   async run(input: AgentFoundationRunInput): Promise<JsonValue> {
     if (!this.canRun(input)) {
       throw new AgentFoundationRuntimeError(

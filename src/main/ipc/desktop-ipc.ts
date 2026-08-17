@@ -130,6 +130,18 @@ function cancelled(): DesktopDataResult {
   }
 }
 
+export function mergeTaskPlanLists(...values: JsonValue[]): JsonValue {
+  const taskPlans = values.flatMap((value) => (
+    value !== null
+    && !Array.isArray(value)
+    && typeof value === 'object'
+    && Array.isArray(value.task_plans)
+      ? value.task_plans
+      : []
+  ))
+  return { task_plans: taskPlans }
+}
+
 async function existingFileSha256(path: string): Promise<string | undefined> {
   try {
     const metadata = await stat(path)
@@ -835,11 +847,22 @@ export function registerDesktopIpc({
 
   ipcMain.handle(IPC_CHANNELS.taskPlanList, (_event, value: unknown) => {
     const input = parseProjectIdInput(value)
-    return input === null
-      ? invalidDataArgument('任务计划上下文无效。')
-      : requestCoreData(supervisor, resources, 'workflow.plans.list', {
+    if (input === null) return invalidDataArgument('任务计划上下文无效。')
+    if (agentFoundationRuntime === undefined) {
+      return requestCoreData(supervisor, resources, 'workflow.plans.list', {
         project_id: input.projectId,
       })
+    }
+    return Promise.all([
+      supervisor.request('workflow.plans.list', { project_id: input.projectId }),
+      agentFoundationRuntime.list(input.projectId),
+    ]).then(([legacy, durable]) => ({
+      ok: true,
+      value: sanitizeCoreResult(mergeTaskPlanLists(legacy, durable), resources),
+    } satisfies DesktopDataResult)).catch((error: unknown) => ({
+      ok: false,
+      error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
+    } satisfies DesktopDataResult))
   })
 
   ipcMain.handle(IPC_CHANNELS.taskPlanConfirm, (_event, value: unknown) => {

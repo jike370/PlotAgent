@@ -22,6 +22,11 @@ class FakeCore {
       }
     }
     if (method === 'agent.tasks.create') return { state: 'created' }
+    if (method === 'agent.tasks.list') {
+      return {
+        tasks: [{ task_id: 'task:fixed', intent: { intent_id: 'intent:fixed' } }],
+      }
+    }
     if (method === 'agent.tasks.pump.next') {
       this.pumpCalls += 1
       if (this.pumpCalls === 1) {
@@ -141,5 +146,23 @@ describe('AgentFoundationRuntime', () => {
       plan: { plan_id: 'plan:fixed' },
     })
     expect(events.at(-1)).toMatchObject({ stage: 'completed', label: '计划已生成，等待确认' })
+  })
+
+  it('recovers durable plan authority after a desktop restart', async () => {
+    const core = new FakeCore()
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+    })
+
+    await expect(runtime.list('project:test')).resolves.toMatchObject({
+      task_plans: [{
+        task: { task_id: 'task:fixed', state: 'awaiting_confirmation' },
+        plan: { plan_id: 'plan:fixed' },
+      }],
+    })
+    expect(runtime.ownsPlan('plan:fixed')).toBe(true)
+    await expect(runtime.confirm({ projectId: 'project:test', planId: 'plan:fixed' }))
+      .resolves.toMatchObject({ task: { state: 'executing' } })
   })
 })

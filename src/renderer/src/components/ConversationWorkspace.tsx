@@ -712,6 +712,13 @@ function WorkflowPlanObject({
     }
     return binding.fieldId
   }
+  const objectLabel = plan.steps.length > 1
+    ? `${plan.steps.length} 个任务`
+    : plan.steps[0]?.taskKind === 'create'
+      ? `${plan.steps[0].profileId || selectedChart?.id || '待定'} · 新图`
+      : plot
+        ? `${plot.plotId} · v${plot.plotVersion}`
+        : `${selectedChart?.id ?? '待定'} · 新图`
   return (
     <section className={`agent-plan agent-plan--${plan.state}`} aria-labelledby={`plan-${plan.planId}`}>
       <header className="agent-plan__header">
@@ -720,7 +727,7 @@ function WorkflowPlanObject({
         <span className="agent-plan__state">{plan.state === 'running' && <LoaderCircle className="spin" size={13} />}{stateLabels[plan.state] ?? plan.state}</span>
       </header>
       <div className="agent-plan__context">
-        <span><strong>对象</strong>{plot ? `${plot.plotId} · v${plot.plotVersion}` : `${selectedChart?.id ?? '待定'} · 新图`}</span>
+        <span><strong>对象</strong>{objectLabel}</span>
         <span><strong>输出</strong>Matplotlib 预览 · 可导出 Origin 原生项目</span>
       </div>
       <ol className="agent-plan__steps">
@@ -848,7 +855,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
 
   useEffect(() => {
     if (messages.length === 0 && busyAction === undefined && props.workflowOutcome === undefined && props.workflowPlan === undefined && exportRecord === undefined) return
-    queueMicrotask(() => activeTurnRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' }))
+    queueMicrotask(() => activeTurnRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }))
   }, [busyAction, exportRecord, messages.length, props.workflowOutcome, props.workflowPlan])
 
   const submitInstruction = (instruction: string, scope: ScopeMode): void => {
