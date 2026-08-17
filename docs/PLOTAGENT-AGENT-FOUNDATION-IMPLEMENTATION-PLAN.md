@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P3 已完成；P4 待施工。
+> 状态：P0–P3 已完成；P4 施工中（统一 ToolGateway 与 P0 领域工具已完成）。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -226,6 +226,20 @@
 `feat(domain): add versioned chart knowledge registry`
 
 ## 9. P4：ToolGateway、权限与 receipt
+
+首个里程碑记录（2026-08-18）：
+
+- 已新增公开 `ToolContract`、`ToolInvocation`、`AgentToolResult` 与五类 typed error，
+  并通过现有 codegen 发布 JSON Schema/TypeScript；
+- 已建立 Core 所有权的统一 `ToolGateway`：调用前校验 task/activation/checkpoint、
+  TaskState、allowlist、权限阶段、参数 hash、输入 Schema、调用/披露/Origin 预算与截止时间；
+  调用后校验输出 Schema、公开副作用等级、披露量和结果合同；
+- 已把 P3 的五个知识查询注册成第一批 P0 工具。工具只返回 renderer-neutral 公共合同，
+  未把后端模板、命令、路径或对象编号暴露给 Agent；
+- untrusted payload 无法增加 allowlist、权限或预算，错误统一返回可修复/需用户/瞬态/
+  不支持/致命五类结构结果；
+- 当前仍为 additive 基础设施，尚未替换 v1 inspect 路由、未接 Pi hook、未引入写操作，
+  因而正式 UI 行为不变。
 
 ### 工作
 

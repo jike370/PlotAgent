@@ -1,0 +1,341 @@
+{
+  "$defs": {
+    "AgentToolError": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "AGENT_REPAIRABLE",
+            "USER_INPUT_REQUIRED",
+            "TRANSIENT",
+            "UNSUPPORTED",
+            "FATAL"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "diagnostic_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diagnostic Id"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "repair_hint": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Hint"
+        },
+        "requires_user": {
+          "title": "Requires User",
+          "type": "boolean"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "side_effect_state": {
+          "enum": [
+            "none",
+            "staged",
+            "committed",
+            "unknown"
+          ],
+          "title": "Side Effect State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable",
+        "requires_user",
+        "side_effect_state"
+      ],
+      "title": "AgentToolError",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "ToolProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "coordinate": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coordinate"
+        },
+        "source_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Version"
+        }
+      },
+      "required": [
+        "source_id"
+      ],
+      "title": "ToolProvenance",
+      "type": "object"
+    },
+    "ToolWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ToolWarning",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/agent-tool-result-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activation_id": {
+      "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Activation Id",
+      "type": "string"
+    },
+    "completed_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "disclosed_field_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Disclosed Field Count",
+      "type": "integer"
+    },
+    "disclosed_row_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Disclosed Row Count",
+      "type": "integer"
+    },
+    "disclosed_scalar_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Disclosed Scalar Count",
+      "type": "integer"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AgentToolError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "output_handle": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Handle"
+    },
+    "output_hash": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Hash"
+    },
+    "payload": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/JsonValue"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "provenance": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ToolProvenance"
+      },
+      "maxItems": 128,
+      "title": "Provenance",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "agent-tool-result.v2",
+      "default": "agent-tool-result.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "side_effect": {
+      "enum": [
+        "none",
+        "staged",
+        "committed",
+        "unknown"
+      ],
+      "title": "Side Effect",
+      "type": "string"
+    },
+    "started_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Started At",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "succeeded",
+        "failed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    },
+    "tool_call_id": {
+      "pattern": "^toolcall:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Tool Call Id",
+      "type": "string"
+    },
+    "tool_name": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Tool Name",
+      "type": "string"
+    },
+    "verification_report_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^verification:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Verification Report Ids",
+      "type": "array"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ToolWarning"
+      },
+      "maxItems": 64,
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "tool_call_id",
+    "task_id",
+    "task_version",
+    "activation_id",
+    "tool_name",
+    "status",
+    "summary",
+    "side_effect",
+    "started_at",
+    "completed_at"
+  ],
+  "title": "AgentToolResult",
+  "type": "object"
+}

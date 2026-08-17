@@ -1,0 +1,84 @@
+{
+  "$id": "https://schemas.plotagent.local/v2/agent-tool-error-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "category": {
+      "enum": [
+        "AGENT_REPAIRABLE",
+        "USER_INPUT_REQUIRED",
+        "TRANSIENT",
+        "UNSUPPORTED",
+        "FATAL"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "code": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Code",
+      "type": "string"
+    },
+    "diagnostic_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Diagnostic Id"
+    },
+    "message": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "repair_hint": {
+      "anyOf": [
+        {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Repair Hint"
+    },
+    "requires_user": {
+      "title": "Requires User",
+      "type": "boolean"
+    },
+    "retryable": {
+      "title": "Retryable",
+      "type": "boolean"
+    },
+    "side_effect_state": {
+      "enum": [
+        "none",
+        "staged",
+        "committed",
+        "unknown"
+      ],
+      "title": "Side Effect State",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "category",
+    "message",
+    "retryable",
+    "requires_user",
+    "side_effect_state"
+  ],
+  "title": "AgentToolError",
+  "type": "object"
+}

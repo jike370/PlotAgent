@@ -1,0 +1,134 @@
+{
+  "$id": "https://schemas.plotagent.local/v2/tool-contract-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "allowed_task_states": {
+      "items": {
+        "enum": [
+          "created",
+          "investigating",
+          "awaiting_input",
+          "intent_staged",
+          "awaiting_confirmation",
+          "executing",
+          "verifying",
+          "repairing",
+          "awaiting_reconfirmation",
+          "delivering",
+          "partial",
+          "blocked",
+          "unsupported",
+          "cancelling",
+          "cancelled",
+          "rejected",
+          "failed",
+          "completed_verified"
+        ],
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Allowed Task States",
+      "type": "array"
+    },
+    "contract_id": {
+      "pattern": "^tool:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Contract Id",
+      "type": "string"
+    },
+    "contract_version": {
+      "minimum": 1,
+      "title": "Contract Version",
+      "type": "integer"
+    },
+    "cost_class": {
+      "enum": [
+        "cheap",
+        "moderate",
+        "expensive"
+      ],
+      "title": "Cost Class",
+      "type": "string"
+    },
+    "description": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "input_schema_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Schema Hash",
+      "type": "string"
+    },
+    "max_disclosed_scalars": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Max Disclosed Scalars",
+      "type": "integer"
+    },
+    "output_schema_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Output Schema Hash",
+      "type": "string"
+    },
+    "permission_phase": {
+      "enum": [
+        "p0_read",
+        "p1_staged",
+        "p2_confirmed",
+        "p3_expanded"
+      ],
+      "title": "Permission Phase",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "tool-contract.v2",
+      "default": "tool-contract.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "side_effect": {
+      "enum": [
+        "none",
+        "staged",
+        "committed",
+        "expanded_risk"
+      ],
+      "title": "Side Effect",
+      "type": "string"
+    },
+    "timeout_ms": {
+      "maximum": 3600000,
+      "minimum": 100,
+      "title": "Timeout Ms",
+      "type": "integer"
+    },
+    "tool_name": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Tool Name",
+      "type": "string"
+    },
+    "uses_origin": {
+      "default": false,
+      "title": "Uses Origin",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "contract_id",
+    "contract_version",
+    "tool_name",
+    "description",
+    "permission_phase",
+    "side_effect",
+    "allowed_task_states",
+    "input_schema_hash",
+    "output_schema_hash",
+    "cost_class",
+    "timeout_ms"
+  ],
+  "title": "ToolContract",
+  "type": "object"
+}

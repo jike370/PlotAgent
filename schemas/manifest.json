@@ -9,6 +9,14 @@
       "sha256": "488c3a87537742ee25d3fd4f1514438bb63c70485df263b5bcd434e95c0b318b"
     },
     {
+      "path": "schemas/agent-tool-error-v2.schema.json",
+      "sha256": "00e538c1ba57b7199176ccecde9fe4bff8420638705c82e2a841ebbf08efa1e9"
+    },
+    {
+      "path": "schemas/agent-tool-result-v2.schema.json",
+      "sha256": "6f67d4201ce039fbeee3f262af3d5b57e602a2f26a099580160b3f94b1032f3b"
+    },
+    {
       "path": "schemas/agent-yield-v2.schema.json",
       "sha256": "9651240402c41d12ab7fe335a00982eca16d0a95cce3ed4cc4ab62dd283126d6"
     },
@@ -34,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "c3b0e41bbf3538b8d2129b6926300ab9fc85eb4fafa844b9af86f7072a2da833"
+      "sha256": "3c6bb14d02464d6b74b8b0437e1a0382b95f4b234aa509ebea30bf25ce624e0f"
     },
     {
       "path": "schemas/domain-example-v1.schema.json",
@@ -145,6 +153,14 @@
       "sha256": "aeeeebc40dd6c3a12ad4686cbef825403fa776ed6fcfc62e0400ce55791c9966"
     },
     {
+      "path": "schemas/tool-contract-v2.schema.json",
+      "sha256": "7b960274b93fd76b606a1fbe1f0b004091c995fa6f0a257919eb97297f037ee5"
+    },
+    {
+      "path": "schemas/tool-invocation-v2.schema.json",
+      "sha256": "c2e29c530ffd11348fdd1340068bedc8839cb1509b8a66d746c8e8a3bb4802f8"
+    },
+    {
       "path": "schemas/tool-receipt-v2.schema.json",
       "sha256": "538de15ce82c8c45eed394f39bcfe97dcc718e239ac43e504549539f5627431f"
     },
@@ -174,7 +190,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "b9a86d61eae1c508b0498c4813045d44d445cc9920f60b29522aee4ed08436d2"
+      "sha256": "c1a3f172e5d3143fb29ba21135f332496881a54b1361ec10ecfd2de4c6fc2cf5"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

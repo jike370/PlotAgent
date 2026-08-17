@@ -1156,6 +1156,266 @@
       "title": "AgentTechnicalRepairReady",
       "type": "object"
     },
+    "AgentToolError": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "AGENT_REPAIRABLE",
+            "USER_INPUT_REQUIRED",
+            "TRANSIENT",
+            "UNSUPPORTED",
+            "FATAL"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "diagnostic_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diagnostic Id"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "repair_hint": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Hint"
+        },
+        "requires_user": {
+          "title": "Requires User",
+          "type": "boolean"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "side_effect_state": {
+          "enum": [
+            "none",
+            "staged",
+            "committed",
+            "unknown"
+          ],
+          "title": "Side Effect State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable",
+        "requires_user",
+        "side_effect_state"
+      ],
+      "title": "AgentToolError",
+      "type": "object"
+    },
+    "AgentToolResult": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "completed_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "disclosed_field_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Disclosed Field Count",
+          "type": "integer"
+        },
+        "disclosed_row_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Disclosed Row Count",
+          "type": "integer"
+        },
+        "disclosed_scalar_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Disclosed Scalar Count",
+          "type": "integer"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AgentToolError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_handle": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Handle"
+        },
+        "output_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Hash"
+        },
+        "payload": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JsonValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "provenance": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ToolProvenance"
+          },
+          "maxItems": 128,
+          "title": "Provenance",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "agent-tool-result.v2",
+          "default": "agent-tool-result.v2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "side_effect": {
+          "enum": [
+            "none",
+            "staged",
+            "committed",
+            "unknown"
+          ],
+          "title": "Side Effect",
+          "type": "string"
+        },
+        "started_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        },
+        "tool_call_id": {
+          "pattern": "^toolcall:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "tool_name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Tool Name",
+          "type": "string"
+        },
+        "verification_report_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^verification:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Verification Report Ids",
+          "type": "array"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ToolWarning"
+          },
+          "maxItems": 64,
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tool_call_id",
+        "task_id",
+        "task_version",
+        "activation_id",
+        "tool_name",
+        "status",
+        "summary",
+        "side_effect",
+        "started_at",
+        "completed_at"
+      ],
+      "title": "AgentToolResult",
+      "type": "object"
+    },
     "AgentUnsupported": {
       "additionalProperties": false,
       "properties": {
@@ -6778,6 +7038,7 @@
       "title": "IsomorphicConcatSpec",
       "type": "object"
     },
+    "JsonValue": {},
     "MatrixProjectionResult": {
       "additionalProperties": false,
       "properties": {
@@ -12348,6 +12609,285 @@
       "title": "TextSourceCoordinate",
       "type": "object"
     },
+    "ToolContract": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_task_states": {
+          "items": {
+            "enum": [
+              "created",
+              "investigating",
+              "awaiting_input",
+              "intent_staged",
+              "awaiting_confirmation",
+              "executing",
+              "verifying",
+              "repairing",
+              "awaiting_reconfirmation",
+              "delivering",
+              "partial",
+              "blocked",
+              "unsupported",
+              "cancelling",
+              "cancelled",
+              "rejected",
+              "failed",
+              "completed_verified"
+            ],
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Allowed Task States",
+          "type": "array"
+        },
+        "contract_id": {
+          "pattern": "^tool:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Contract Id",
+          "type": "string"
+        },
+        "contract_version": {
+          "minimum": 1,
+          "title": "Contract Version",
+          "type": "integer"
+        },
+        "cost_class": {
+          "enum": [
+            "cheap",
+            "moderate",
+            "expensive"
+          ],
+          "title": "Cost Class",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "input_schema_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Schema Hash",
+          "type": "string"
+        },
+        "max_disclosed_scalars": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Max Disclosed Scalars",
+          "type": "integer"
+        },
+        "output_schema_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Schema Hash",
+          "type": "string"
+        },
+        "permission_phase": {
+          "enum": [
+            "p0_read",
+            "p1_staged",
+            "p2_confirmed",
+            "p3_expanded"
+          ],
+          "title": "Permission Phase",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "tool-contract.v2",
+          "default": "tool-contract.v2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "side_effect": {
+          "enum": [
+            "none",
+            "staged",
+            "committed",
+            "expanded_risk"
+          ],
+          "title": "Side Effect",
+          "type": "string"
+        },
+        "timeout_ms": {
+          "maximum": 3600000,
+          "minimum": 100,
+          "title": "Timeout Ms",
+          "type": "integer"
+        },
+        "tool_name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Tool Name",
+          "type": "string"
+        },
+        "uses_origin": {
+          "default": false,
+          "title": "Uses Origin",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "contract_id",
+        "contract_version",
+        "tool_name",
+        "description",
+        "permission_phase",
+        "side_effect",
+        "allowed_task_states",
+        "input_schema_hash",
+        "output_schema_hash",
+        "cost_class",
+        "timeout_ms"
+      ],
+      "title": "ToolContract",
+      "type": "object"
+    },
+    "ToolInvocation": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_disclosed_scalars_before": {
+          "minimum": 0,
+          "title": "Activation Disclosed Scalars Before",
+          "type": "integer"
+        },
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "activation_tool_calls_before": {
+          "minimum": 0,
+          "title": "Activation Tool Calls Before",
+          "type": "integer"
+        },
+        "arguments_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Arguments Hash",
+          "type": "string"
+        },
+        "deadline": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Deadline",
+          "type": "string"
+        },
+        "item_id": {
+          "anyOf": [
+            {
+              "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item Id"
+        },
+        "permission_phase": {
+          "enum": [
+            "p0_read",
+            "p1_staged",
+            "p2_confirmed",
+            "p3_expanded"
+          ],
+          "title": "Permission Phase",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "tool-invocation.v2",
+          "default": "tool-invocation.v2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        },
+        "tool_call_id": {
+          "pattern": "^toolcall:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "tool_name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Tool Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool_call_id",
+        "task_id",
+        "task_version",
+        "activation_id",
+        "tool_name",
+        "permission_phase",
+        "arguments_hash",
+        "activation_tool_calls_before",
+        "activation_disclosed_scalars_before",
+        "deadline"
+      ],
+      "title": "ToolInvocation",
+      "type": "object"
+    },
+    "ToolProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "coordinate": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coordinate"
+        },
+        "source_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Version"
+        }
+      },
+      "required": [
+        "source_id"
+      ],
+      "title": "ToolProvenance",
+      "type": "object"
+    },
     "ToolReceipt": {
       "additionalProperties": false,
       "properties": {
@@ -12564,6 +13104,28 @@
         "receipt"
       ],
       "title": "ToolReceiptEvent",
+      "type": "object"
+    },
+    "ToolWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ToolWarning",
       "type": "object"
     },
     "TukeyBoxResult": {
@@ -14202,6 +14764,12 @@
     "agent-context-v2": {
       "$ref": "#/$defs/AgentContextSnapshot"
     },
+    "agent-tool-error-v2": {
+      "$ref": "#/$defs/AgentToolError"
+    },
+    "agent-tool-result-v2": {
+      "$ref": "#/$defs/AgentToolResult"
+    },
     "agent-yield-v2": {
       "$ref": "#/$defs/AgentYieldContract"
     },
@@ -14294,6 +14862,12 @@
     },
     "task-plan-snapshot": {
       "$ref": "#/$defs/TaskPlanSnapshot"
+    },
+    "tool-contract-v2": {
+      "$ref": "#/$defs/ToolContract"
+    },
+    "tool-invocation-v2": {
+      "$ref": "#/$defs/ToolInvocation"
     },
     "tool-receipt-v2": {
       "$ref": "#/$defs/ToolReceipt"

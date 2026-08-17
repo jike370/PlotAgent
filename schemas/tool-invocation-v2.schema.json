@@ -1,0 +1,95 @@
+{
+  "$id": "https://schemas.plotagent.local/v2/tool-invocation-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activation_disclosed_scalars_before": {
+      "minimum": 0,
+      "title": "Activation Disclosed Scalars Before",
+      "type": "integer"
+    },
+    "activation_id": {
+      "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Activation Id",
+      "type": "string"
+    },
+    "activation_tool_calls_before": {
+      "minimum": 0,
+      "title": "Activation Tool Calls Before",
+      "type": "integer"
+    },
+    "arguments_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Arguments Hash",
+      "type": "string"
+    },
+    "deadline": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Deadline",
+      "type": "string"
+    },
+    "item_id": {
+      "anyOf": [
+        {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Item Id"
+    },
+    "permission_phase": {
+      "enum": [
+        "p0_read",
+        "p1_staged",
+        "p2_confirmed",
+        "p3_expanded"
+      ],
+      "title": "Permission Phase",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "tool-invocation.v2",
+      "default": "tool-invocation.v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_version": {
+      "minimum": 1,
+      "title": "Task Version",
+      "type": "integer"
+    },
+    "tool_call_id": {
+      "pattern": "^toolcall:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Tool Call Id",
+      "type": "string"
+    },
+    "tool_name": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+      "title": "Tool Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tool_call_id",
+    "task_id",
+    "task_version",
+    "activation_id",
+    "tool_name",
+    "permission_phase",
+    "arguments_hash",
+    "activation_tool_calls_before",
+    "activation_disclosed_scalars_before",
+    "deadline"
+  ],
+  "title": "ToolInvocation",
+  "type": "object"
+}

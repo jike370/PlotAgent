@@ -160,6 +160,41 @@ export type AgentTechnicalRepairReady = {
   readonly proposal: RepairProposal;
 }
 
+export type AgentToolError = {
+  readonly code: string;
+  readonly category: "AGENT_REPAIRABLE" | "USER_INPUT_REQUIRED" | "TRANSIENT" | "UNSUPPORTED" | "FATAL";
+  readonly message: string;
+  readonly retryable: boolean;
+  readonly requires_user: boolean;
+  readonly repair_hint?: string | null;
+  readonly side_effect_state: "none" | "staged" | "committed" | "unknown";
+  readonly diagnostic_id?: string | null;
+}
+
+export type AgentToolResult = {
+  readonly schema_version?: "agent-tool-result.v2";
+  readonly tool_call_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly activation_id: string;
+  readonly tool_name: string;
+  readonly status: "succeeded" | "failed";
+  readonly summary: string;
+  readonly payload?: JsonValue | null;
+  readonly output_hash?: string | null;
+  readonly output_handle?: string | null;
+  readonly provenance?: ReadonlyArray<ToolProvenance>;
+  readonly verification_report_ids?: ReadonlyArray<string>;
+  readonly warnings?: ReadonlyArray<ToolWarning>;
+  readonly side_effect: "none" | "staged" | "committed" | "unknown";
+  readonly disclosed_field_count?: number;
+  readonly disclosed_row_count?: number;
+  readonly disclosed_scalar_count?: number;
+  readonly error?: AgentToolError | null;
+  readonly started_at: string;
+  readonly completed_at: string;
+}
+
 export type AgentUnsupported = {
   readonly outcome?: "unsupported";
   readonly activation_id: string;
@@ -869,6 +904,8 @@ export type IsomorphicConcatSpec = {
   readonly source_label_kind: "source_sheet" | "source_block" | "source_dataset";
   readonly source_label_field_id: string;
 }
+
+export type JsonValue = unknown
 
 export type MatrixProjectionResult = {
   readonly schema_version?: "1.0";
@@ -1606,6 +1643,45 @@ export type TextSourceCoordinate = {
   readonly source_row_id: string;
 }
 
+export type ToolContract = {
+  readonly schema_version?: "tool-contract.v2";
+  readonly contract_id: string;
+  readonly contract_version: number;
+  readonly tool_name: string;
+  readonly description: string;
+  readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
+  readonly side_effect: "none" | "staged" | "committed" | "expanded_risk";
+  readonly allowed_task_states: ReadonlyArray<"created" | "investigating" | "awaiting_input" | "intent_staged" | "awaiting_confirmation" | "executing" | "verifying" | "repairing" | "awaiting_reconfirmation" | "delivering" | "partial" | "blocked" | "unsupported" | "cancelling" | "cancelled" | "rejected" | "failed" | "completed_verified">;
+  readonly input_schema_hash: string;
+  readonly output_schema_hash: string;
+  readonly cost_class: "cheap" | "moderate" | "expensive";
+  readonly timeout_ms: number;
+  readonly max_disclosed_scalars?: number;
+  readonly uses_origin?: boolean;
+}
+
+export type ToolInvocation = {
+  readonly schema_version?: "tool-invocation.v2";
+  readonly tool_call_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly activation_id: string;
+  readonly item_id?: string | null;
+  readonly tool_name: string;
+  readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
+  readonly arguments_hash: string;
+  readonly activation_tool_calls_before: number;
+  readonly activation_disclosed_scalars_before: number;
+  readonly deadline: string;
+}
+
+export type ToolProvenance = {
+  readonly source_id: string;
+  readonly source_version?: number | null;
+  readonly content_hash?: string | null;
+  readonly coordinate?: string | null;
+}
+
 export type ToolReceipt = {
   readonly schema_version?: "tool-receipt.v2";
   readonly receipt_id: string;
@@ -1636,6 +1712,11 @@ export type ToolReceiptEvent = {
   readonly occurred_at: string;
   readonly event_type?: "tool_receipt";
   readonly receipt: ToolReceipt;
+}
+
+export type ToolWarning = {
+  readonly code: string;
+  readonly message: string;
 }
 
 export type TukeyBoxResult = {

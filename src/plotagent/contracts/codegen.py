@@ -29,6 +29,12 @@ from plotagent.contracts.agent_tasks import (
     ToolReceipt,
     VerificationReport,
 )
+from plotagent.contracts.agent_tools import (
+    AgentToolError,
+    AgentToolResult,
+    ToolContract,
+    ToolInvocation,
+)
 from plotagent.contracts.base import SCHEMA_VERSION
 from plotagent.contracts.calculations import PlotCalculationResult, PlotCalculationSpec
 from plotagent.contracts.datasets import (
@@ -133,6 +139,10 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("untrusted-source-context-v2", UntrustedSourceContext),
     ("context-tool-contract-v2", ContextToolContract),
     ("agent-context-v2", AgentContextSnapshot),
+    ("tool-contract-v2", ToolContract),
+    ("tool-invocation-v2", ToolInvocation),
+    ("agent-tool-error-v2", AgentToolError),
+    ("agent-tool-result-v2", AgentToolResult),
     ("engine-data-ref", EngineDataRef),
     ("engine-data-view", EngineDataView),
     ("engine-profile", EngineProfile),

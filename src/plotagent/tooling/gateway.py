@@ -1,0 +1,562 @@
+"""Schema-validating, permissioned gateway for PlotAgent Agent tools."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from typing import Any, Literal, TypedDict, cast
+
+from pydantic import BaseModel, TypeAdapter, ValidationError
+
+from plotagent.contracts.agent_tasks import (
+    AgentActivation,
+    PermissionPhase,
+    TaskCheckpoint,
+    TaskState,
+    VerificationReportId,
+)
+from plotagent.contracts.agent_tools import (
+    AgentToolError,
+    AgentToolResult,
+    ToolContract,
+    ToolContractSideEffect,
+    ToolCostClass,
+    ToolErrorCategory,
+    ToolInvocation,
+    ToolProvenance,
+    ToolSideEffect,
+    ToolWarning,
+)
+from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
+from plotagent.contracts.domain_knowledge import ContextToolContract
+
+_PHASE_ORDER = {
+    "p0_read": 0,
+    "p1_staged": 1,
+    "p2_confirmed": 2,
+    "p3_expanded": 3,
+}
+type _ContextSideEffect = Literal["none", "staged", "confirmed_write", "expanded_risk"]
+
+
+class ToolGatewayError(ValueError):
+    pass
+
+
+class _FailureSpec(TypedDict):
+    code: str
+    category: ToolErrorCategory
+    message: str
+    retryable: bool
+    requires_user: bool
+
+
+class ToolExecutionProblem(ValueError):
+    def __init__(
+        self,
+        *,
+        code: str,
+        category: ToolErrorCategory,
+        message: str,
+        retryable: bool,
+        requires_user: bool,
+        repair_hint: str | None = None,
+        side_effect_state: ToolSideEffect = "none",
+        diagnostic_id: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.error = AgentToolError(
+            code=code,
+            category=category,
+            message=message,
+            retryable=retryable,
+            requires_user=requires_user,
+            repair_hint=repair_hint,
+            side_effect_state=side_effect_state,
+            diagnostic_id=diagnostic_id,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ToolExecutionOutput:
+    payload: BaseModel
+    summary: str
+    output_handle: str | None = None
+    provenance: tuple[ToolProvenance, ...] = ()
+    verification_report_ids: tuple[VerificationReportId, ...] = ()
+    warnings: tuple[ToolWarning, ...] = ()
+    side_effect: ToolSideEffect = "none"
+    disclosed_field_count: int = 0
+    disclosed_row_count: int = 0
+    disclosed_scalar_count: int = 0
+
+
+ToolHandler = Callable[[BaseModel], ToolExecutionOutput]
+
+
+@dataclass(frozen=True, slots=True)
+class _RegisteredTool:
+    contract: ToolContract
+    input_adapter: TypeAdapter[Any]
+    output_adapter: TypeAdapter[Any]
+    handler: ToolHandler
+
+
+def _iso(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _datetime(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+
+
+class ToolGateway:
+    """Validate tool schema, task authority, budget and structured results."""
+
+    def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._tools: dict[str, _RegisteredTool] = {}
+
+    @property
+    def contracts(self) -> tuple[ToolContract, ...]:
+        return tuple(item.contract for item in self._tools.values())
+
+    def register(
+        self,
+        *,
+        contract_id: str,
+        contract_version: int,
+        tool_name: str,
+        description: str,
+        permission_phase: PermissionPhase,
+        side_effect: ToolContractSideEffect,
+        allowed_task_states: tuple[TaskState, ...],
+        input_model: type[BaseModel],
+        output_model: type[BaseModel],
+        cost_class: ToolCostClass,
+        timeout_ms: int,
+        max_disclosed_scalars: int,
+        uses_origin: bool,
+        handler: ToolHandler,
+    ) -> ToolContract:
+        if tool_name in self._tools:
+            raise ToolGatewayError(f"duplicate tool registration: {tool_name}")
+        input_adapter = TypeAdapter(input_model)
+        output_adapter = TypeAdapter(output_model)
+        contract = ToolContract(
+            contract_id=contract_id,
+            contract_version=contract_version,
+            tool_name=tool_name,
+            description=description,
+            permission_phase=permission_phase,
+            side_effect=side_effect,
+            allowed_task_states=allowed_task_states,
+            input_schema_hash=canonical_hash(input_adapter.json_schema(mode="validation")),
+            output_schema_hash=canonical_hash(output_adapter.json_schema(mode="validation")),
+            cost_class=cost_class,
+            timeout_ms=timeout_ms,
+            max_disclosed_scalars=max_disclosed_scalars,
+            uses_origin=uses_origin,
+        )
+        self._tools[tool_name] = _RegisteredTool(
+            contract=contract,
+            input_adapter=input_adapter,
+            output_adapter=output_adapter,
+            handler=handler,
+        )
+        return contract
+
+    def context_contracts(self, activation: AgentActivation) -> tuple[ContextToolContract, ...]:
+        result = []
+        for name in activation.allowed_tools:
+            registered = self._tools.get(name)
+            if registered is None:
+                raise ToolGatewayError(f"activation references unregistered tool: {name}")
+            contract = registered.contract
+            if activation.task_state not in contract.allowed_task_states:
+                raise ToolGatewayError(f"tool {name} is unavailable in {activation.task_state}")
+            if _PHASE_ORDER[contract.permission_phase] > _PHASE_ORDER[activation.permission_phase]:
+                raise ToolGatewayError(f"tool {name} exceeds activation permission")
+            side_effect = cast(
+                _ContextSideEffect,
+                {
+                    "none": "none",
+                    "staged": "staged",
+                    "committed": "confirmed_write",
+                    "expanded_risk": "expanded_risk",
+                }[contract.side_effect],
+            )
+            result.append(
+                ContextToolContract(
+                    tool_name=name,
+                    permission_phase=contract.permission_phase,
+                    input_schema_hash=contract.input_schema_hash,
+                    output_schema_hash=contract.output_schema_hash,
+                    description=contract.description,
+                    side_effect=side_effect,
+                )
+            )
+        return tuple(result)
+
+    def invoke(
+        self,
+        *,
+        invocation: ToolInvocation,
+        arguments: JsonValue,
+        activation: AgentActivation,
+        checkpoint: TaskCheckpoint,
+    ) -> AgentToolResult:
+        started = self._clock()
+        registered = self._tools.get(invocation.tool_name)
+        if registered is None:
+            return self._failure(
+                invocation,
+                started,
+                code="TOOL_UNAVAILABLE",
+                category="UNSUPPORTED",
+                message="The requested tool is not registered.",
+                retryable=False,
+                requires_user=False,
+            )
+        protocol_error = self._protocol_error(
+            invocation,
+            activation,
+            checkpoint,
+            registered,
+            now=started,
+        )
+        if protocol_error is not None:
+            return self._failure(invocation, started, **protocol_error)
+        if invocation.arguments_hash != canonical_hash(arguments):
+            return self._failure(
+                invocation,
+                started,
+                code="TOOL_ARGUMENT_HASH_MISMATCH",
+                category="FATAL",
+                message="Tool arguments differ from the authorized invocation.",
+                retryable=False,
+                requires_user=False,
+            )
+        try:
+            typed_input = registered.input_adapter.validate_json(canonical_json(arguments))
+        except ValidationError:
+            return self._failure(
+                invocation,
+                started,
+                code="TOOL_ARGUMENT_INVALID",
+                category="AGENT_REPAIRABLE",
+                message="Tool arguments do not match the published schema.",
+                retryable=True,
+                requires_user=False,
+                repair_hint="Read the current tool schema and correct only the invalid arguments.",
+            )
+        try:
+            output = registered.handler(cast(BaseModel, typed_input))
+            typed_output = registered.output_adapter.validate_python(output.payload)
+        except ToolExecutionProblem as problem:
+            return self._failure(
+                invocation,
+                started,
+                code=problem.error.code,
+                category=problem.error.category,
+                message=problem.error.message,
+                retryable=problem.error.retryable,
+                requires_user=problem.error.requires_user,
+                repair_hint=problem.error.repair_hint,
+                side_effect=problem.error.side_effect_state,
+                diagnostic_id=problem.error.diagnostic_id,
+            )
+        except Exception:
+            return self._failure(
+                invocation,
+                started,
+                code="TOOL_RESULT_INVALID",
+                category="FATAL",
+                message="The tool returned a result outside its published contract.",
+                retryable=False,
+                requires_user=False,
+            )
+        if any(
+            value < 0
+            for value in (
+                output.disclosed_field_count,
+                output.disclosed_row_count,
+                output.disclosed_scalar_count,
+            )
+        ):
+            return self._failure(
+                invocation,
+                started,
+                code="TOOL_RESULT_INVALID",
+                category="FATAL",
+                message="The tool returned invalid disclosure metadata.",
+                retryable=False,
+                requires_user=False,
+            )
+        if not self._side_effect_matches(registered.contract.side_effect, output.side_effect):
+            return self._failure(
+                invocation,
+                started,
+                code="TOOL_SIDE_EFFECT_MISMATCH",
+                category="FATAL",
+                message="The tool result side effect differs from its registered contract.",
+                retryable=False,
+                requires_user=False,
+                side_effect="unknown",
+            )
+        completed = self._clock()
+        if completed > _datetime(invocation.deadline):
+            return self._failure(
+                invocation,
+                started,
+                code="TOOL_DEADLINE_EXCEEDED",
+                category="TRANSIENT",
+                message="The tool did not complete before its authorized deadline.",
+                retryable=output.side_effect == "none",
+                requires_user=False,
+                side_effect=output.side_effect if output.side_effect != "none" else "none",
+            )
+        disclosure_error = self._disclosure_error(
+            invocation,
+            activation,
+            checkpoint,
+            registered.contract,
+            output.disclosed_scalar_count,
+        )
+        if disclosure_error is not None:
+            return self._failure(invocation, started, **disclosure_error)
+        payload = cast(BaseModel, typed_output).model_dump(mode="json")
+        try:
+            return AgentToolResult(
+                tool_call_id=invocation.tool_call_id,
+                task_id=invocation.task_id,
+                task_version=invocation.task_version,
+                activation_id=invocation.activation_id,
+                tool_name=invocation.tool_name,
+                status="succeeded",
+                summary=output.summary,
+                payload=cast(JsonValue, payload),
+                output_hash=canonical_hash(cast(JsonValue, payload)),
+                output_handle=output.output_handle,
+                provenance=output.provenance,
+                verification_report_ids=output.verification_report_ids,
+                warnings=output.warnings,
+                side_effect=output.side_effect,
+                disclosed_field_count=output.disclosed_field_count,
+                disclosed_row_count=output.disclosed_row_count,
+                disclosed_scalar_count=output.disclosed_scalar_count,
+                started_at=_iso(started),
+                completed_at=_iso(completed),
+            )
+        except ValidationError:
+            return self._failure(
+                invocation,
+                started,
+                code="TOOL_RESULT_INVALID",
+                category="FATAL",
+                message="The tool returned a result outside its published contract.",
+                retryable=False,
+                requires_user=False,
+            )
+
+    @staticmethod
+    def _side_effect_matches(
+        contract_side_effect: ToolContractSideEffect, result_side_effect: ToolSideEffect
+    ) -> bool:
+        expected = cast(
+            ToolSideEffect,
+            {
+                "none": "none",
+                "staged": "staged",
+                "committed": "committed",
+                "expanded_risk": "committed",
+            }[contract_side_effect],
+        )
+        return result_side_effect == expected
+
+    @staticmethod
+    def _protocol_error(
+        invocation: ToolInvocation,
+        activation: AgentActivation,
+        checkpoint: TaskCheckpoint,
+        registered: _RegisteredTool,
+        *,
+        now: datetime,
+    ) -> _FailureSpec | None:
+        if (
+            invocation.task_id != activation.task_id
+            or invocation.task_id != checkpoint.task_id
+            or invocation.task_version != activation.task_version
+            or invocation.task_version != checkpoint.task_version
+            or invocation.activation_id != activation.activation_id
+            or checkpoint.active_activation_id != activation.activation_id
+        ):
+            return {
+                "code": "TOOL_ACTIVATION_STALE",
+                "category": "FATAL",
+                "message": "Tool invocation is stale or belongs to another task activation.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        contract = registered.contract
+        if invocation.tool_name != contract.tool_name:
+            return {
+                "code": "TOOL_CONTRACT_MISMATCH",
+                "category": "FATAL",
+                "message": "Tool invocation does not match the registered contract.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        invocation_deadline = _datetime(invocation.deadline)
+        activation_deadline = _datetime(activation.deadline)
+        if invocation_deadline > activation_deadline:
+            return {
+                "code": "TOOL_DEADLINE_INVALID",
+                "category": "FATAL",
+                "message": "Tool deadline exceeds the activation deadline.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        if now >= invocation_deadline:
+            return {
+                "code": "TOOL_DEADLINE_EXCEEDED",
+                "category": "TRANSIENT",
+                "message": "Tool invocation deadline has expired.",
+                "retryable": True,
+                "requires_user": False,
+            }
+        if invocation_deadline - now > timedelta(milliseconds=contract.timeout_ms):
+            return {
+                "code": "TOOL_DEADLINE_INVALID",
+                "category": "FATAL",
+                "message": "Tool deadline exceeds its registered timeout.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        if activation.task_state != checkpoint.state:
+            return {
+                "code": "TOOL_TASK_STATE_STALE",
+                "category": "FATAL",
+                "message": "Tool activation state differs from the durable checkpoint.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        if activation.task_budget != checkpoint.budget:
+            return {
+                "code": "TOOL_BUDGET_SNAPSHOT_STALE",
+                "category": "FATAL",
+                "message": "Tool activation budget differs from the durable checkpoint.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        if invocation.tool_name not in activation.allowed_tools:
+            return {
+                "code": "TOOL_PERMISSION_DENIED",
+                "category": "FATAL",
+                "message": "Tool is outside the activation allowlist.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        if (
+            invocation.permission_phase != activation.permission_phase
+            or activation.task_state not in contract.allowed_task_states
+            or _PHASE_ORDER[contract.permission_phase]
+            > _PHASE_ORDER[activation.permission_phase]
+        ):
+            return {
+                "code": "TOOL_PERMISSION_DENIED",
+                "category": "FATAL",
+                "message": "Tool is not allowed in the current task state or permission phase.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        if (
+            invocation.activation_tool_calls_before >= activation.activation_budget.max_tool_calls
+            or checkpoint.budget.usage.tool_calls
+            >= checkpoint.budget.limits.max_tool_calls
+        ):
+            return {
+                "code": "TOOL_BUDGET_EXHAUSTED",
+                "category": "FATAL",
+                "message": "The activation or task tool-call budget is exhausted.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        if (
+            contract.uses_origin
+            and checkpoint.budget.usage.origin_sessions
+            >= checkpoint.budget.limits.max_origin_sessions
+        ):
+            return {
+                "code": "TOOL_ORIGIN_BUDGET_EXHAUSTED",
+                "category": "FATAL",
+                "message": "The task Origin-session budget is exhausted.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        return None
+
+    @staticmethod
+    def _disclosure_error(
+        invocation: ToolInvocation,
+        activation: AgentActivation,
+        checkpoint: TaskCheckpoint,
+        contract: ToolContract,
+        disclosed: int,
+    ) -> _FailureSpec | None:
+        activation_remaining = (
+            activation.activation_budget.max_disclosed_scalars
+            - invocation.activation_disclosed_scalars_before
+        )
+        task_remaining = (
+            checkpoint.budget.limits.max_disclosed_scalars
+            - checkpoint.budget.usage.disclosed_scalars
+        )
+        if disclosed > min(contract.max_disclosed_scalars, activation_remaining, task_remaining):
+            return {
+                "code": "TOOL_DISCLOSURE_BUDGET_EXCEEDED",
+                "category": "FATAL",
+                "message": "The tool result exceeds the authorized data disclosure budget.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        return None
+
+    def _failure(
+        self,
+        invocation: ToolInvocation,
+        started: datetime,
+        *,
+        code: str,
+        category: ToolErrorCategory,
+        message: str,
+        retryable: bool,
+        requires_user: bool,
+        repair_hint: str | None = None,
+        side_effect: ToolSideEffect = "none",
+        diagnostic_id: str | None = None,
+    ) -> AgentToolResult:
+        error = AgentToolError(
+            code=code,
+            category=category,
+            message=message,
+            retryable=retryable,
+            requires_user=requires_user,
+            repair_hint=repair_hint,
+            side_effect_state=side_effect,
+            diagnostic_id=diagnostic_id,
+        )
+        return AgentToolResult(
+            tool_call_id=invocation.tool_call_id,
+            task_id=invocation.task_id,
+            task_version=invocation.task_version,
+            activation_id=invocation.activation_id,
+            tool_name=invocation.tool_name,
+            status="failed",
+            summary=message,
+            side_effect=side_effect,
+            error=error,
+            started_at=_iso(started),
+            completed_at=_iso(self._clock()),
+        )
