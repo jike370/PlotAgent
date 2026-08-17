@@ -501,8 +501,16 @@ class ProjectStore:
         idempotency_key: str | None = None,
         request_hash: str | None = None,
         response_factory: ImportResponseFactory | None = None,
+        advance_project_revision: bool = True,
     ) -> ImportCommitResult:
-        """Promote immutable objects and register every dataset in one SQLite transaction."""
+        """Promote immutable objects and register every dataset in one SQLite transaction.
+
+        Agent-assisted outputs are registered as hidden staging revisions.  They
+        become visible through ``list_source_datasets`` only after their
+        preparation run is confirmed, so staging must not advance the public
+        project revision.  Deterministic imports keep the historical behaviour
+        and publish immediately.
+        """
 
         connection = self._assert_writer()
         items = tuple(registrations)
@@ -674,16 +682,19 @@ class ProjectStore:
                     or response_factory is None
                 ):
                     raise ValueError("incomplete import idempotency arguments")
-                cursor = connection.execute(
-                    "UPDATE project_meta SET revision = revision + 1 WHERE revision = ?",
-                    (expected_revision,),
-                )
-                if cursor.rowcount != 1:
-                    raise StorageProblem(
-                        StorageErrorCode.VERSION_CONFLICT,
-                        "The project changed during import commit.",
+                published_revision = expected_revision
+                if advance_project_revision:
+                    cursor = connection.execute(
+                        "UPDATE project_meta SET revision = revision + 1 WHERE revision = ?",
+                        (expected_revision,),
                     )
-                response = response_factory(result, expected_revision + 1)
+                    if cursor.rowcount != 1:
+                        raise StorageProblem(
+                            StorageErrorCode.VERSION_CONFLICT,
+                            "The project changed during import commit.",
+                        )
+                    published_revision += 1
+                response = response_factory(result, published_revision)
                 connection.execute(
                     """
                     INSERT INTO idempotency_records(

@@ -829,6 +829,7 @@ def test_agent_assisted_import_is_hidden_again_when_user_rejects_it(
     assert run["model_turn_count"] == 1
     assert run["input_token_count"] == 120
     assert run["output_token_count"] == 24
+    assert imported["project_version"] == revision
     assert len(cast(list[dict[str, Any]], imported["datasets"])) == 2
     assert harness.call("datasets.list", {"project_id": project_id})["datasets"] == []
 
@@ -837,7 +838,42 @@ def test_agent_assisted_import_is_hidden_again_when_user_rejects_it(
         {"project_id": project_id, "run_id": run_id, "accept": False},
     )
     assert rejected["state"] == "cancelled"
+    assert rejected["project_version"] == revision
     assert harness.call("datasets.list", {"project_id": project_id})["datasets"] == []
+
+
+def test_confirming_agent_assisted_import_publishes_once_and_advances_revision(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = harness.call(
+        "datasets.import",
+        {
+            "project_id": project_id,
+            "resource_id": "resource:agent-confirm",
+            "source_path": str(FIXTURES / "excel_two_sheets.xlsx"),
+            "idempotency_key": "agent-confirm",
+            "expected_version": revision,
+            "options": {"agent_assisted": True, "model_turn_count": 1},
+        },
+    )
+    run_id = cast(str, imported["data_preparation_run_id"])
+    assert imported["project_version"] == revision
+    assert harness.call("datasets.list", {"project_id": project_id}) == {
+        "project_id": project_id,
+        "project_version": revision,
+        "datasets": [],
+    }
+
+    confirmed = harness.call(
+        "data_preparation.runs.confirm",
+        {"project_id": project_id, "run_id": run_id, "accept": True},
+    )
+    assert confirmed["state"] == "committed"
+    assert confirmed["project_version"] == revision + 1
+    listed = harness.call("datasets.list", {"project_id": project_id})
+    assert listed["project_version"] == revision + 1
+    assert len(cast(list[dict[str, Any]], listed["datasets"])) == 2
 
 
 def test_workflow_agent_edit_changes_the_selected_plot_without_a_source(

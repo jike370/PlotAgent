@@ -395,6 +395,7 @@ class ProjectImportService:
                 idempotency_key=idempotency_key,
                 request_hash=request_hash,
                 response_factory=response_factory,
+                advance_project_revision=not agent_assisted,
             )
             repository.save_run(
                 pending_run.model_copy(

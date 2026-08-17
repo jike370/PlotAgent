@@ -157,16 +157,36 @@ class DataPreparationRepository:
         return DataPreparationRun.model_validate_json(str(row[0]))
 
     def confirm_run(self, run_id: str, *, accept: bool) -> DataPreparationRun:
-        run = self.get_run(run_id)
-        if run.state != "awaiting_confirmation":
-            raise StorageProblem(
-                StorageErrorCode.COMMIT_FAILED,
-                "数据整理运行当前不等待确认。",
+        connection = self._connection
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT run_json FROM data_preparation_runs WHERE run_id = ?",
+                (run_id,),
+            ).fetchone()
+            if row is None:
+                raise StorageProblem(
+                    StorageErrorCode.PROJECT_NOT_FOUND,
+                    "数据整理运行不存在。",
+                )
+            run = DataPreparationRun.model_validate_json(str(row[0]))
+            if run.state != "awaiting_confirmation":
+                raise StorageProblem(
+                    StorageErrorCode.COMMIT_FAILED,
+                    "数据整理运行当前不等待确认。",
+                )
+            updated = run.model_copy(
+                update={
+                    "state": "committed" if accept else "cancelled",
+                    "updated_at": _utc_now(),
+                }
             )
-        updated = run.model_copy(
-            update={
-                "state": "committed" if accept else "cancelled",
-                "updated_at": _utc_now(),
-            }
-        )
-        return self.save_run(updated)
+            self.save_run(updated)
+            if accept:
+                connection.execute("UPDATE project_meta SET revision = revision + 1")
+            connection.commit()
+            return updated
+        except Exception:
+            if connection.in_transaction:
+                connection.rollback()
+            raise

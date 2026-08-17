@@ -305,6 +305,21 @@ export interface DataPreparationRunView {
   selectedRecipeVersion?: number
   tableCount: number
   localDurationMs: number
+  steps: ReadonlyArray<{
+    sourceFormat: string
+    encoding?: string
+    delimiter?: string
+    decimalMark?: string
+    headerRow?: number
+    sheet?: string
+  }>
+  outputTables: ReadonlyArray<{
+    tableKey: string
+    displayName: string
+    rowCount: number
+    columnCount: number
+    columnNames: string[]
+  }>
 }
 
 export interface DataPreparationAttentionView {
@@ -893,6 +908,39 @@ export function readDataPreparationRun(value: JsonValue): DataPreparationRunView
     || value.route === 'saved_recipe'
     || value.route === 'agent_assisted'
     ? value.route : undefined
+  const outputTables = Array.isArray(value.probe.tables)
+    ? value.probe.tables.flatMap((table) => {
+      if (
+        !isJsonRecord(table)
+        || typeof table.table_key !== 'string'
+        || typeof table.display_name !== 'string'
+        || typeof table.row_count !== 'number'
+        || typeof table.column_count !== 'number'
+      ) return []
+      return [{
+        tableKey: table.table_key,
+        displayName: table.display_name,
+        rowCount: table.row_count,
+        columnCount: table.column_count,
+        columnNames: Array.isArray(table.column_names)
+          ? table.column_names.filter((name): name is string => typeof name === 'string')
+          : [],
+      }]
+    })
+    : []
+  const steps = Array.isArray(value.executed_steps)
+    ? value.executed_steps.flatMap((step) => {
+      if (!isJsonRecord(step) || step.operation !== 'parse_source' || typeof step.source_format !== 'string') return []
+      return [{
+        sourceFormat: step.source_format,
+        ...(typeof step.encoding === 'string' ? { encoding: step.encoding } : {}),
+        ...(typeof step.delimiter === 'string' ? { delimiter: step.delimiter } : {}),
+        ...(typeof step.decimal_mark === 'string' ? { decimalMark: step.decimal_mark } : {}),
+        ...(typeof step.header_row === 'number' ? { headerRow: step.header_row } : {}),
+        ...(typeof step.sheet === 'string' ? { sheet: step.sheet } : {}),
+      }]
+    })
+    : []
   return {
     runId: value.run_id,
     state: value.state,
@@ -901,8 +949,10 @@ export function readDataPreparationRun(value: JsonValue): DataPreparationRunView
       ? {} : { selectedRecipeId: value.selected_recipe_id }),
     ...(typeof value.selected_recipe_version !== 'number'
       ? {} : { selectedRecipeVersion: value.selected_recipe_version }),
-    tableCount: Array.isArray(value.probe.tables) ? value.probe.tables.length : 0,
+    tableCount: outputTables.length,
     localDurationMs: typeof value.local_duration_ms === 'number' ? value.local_duration_ms : 0,
+    steps,
+    outputTables,
   }
 }
 

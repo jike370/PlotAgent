@@ -406,7 +406,13 @@ class DesktopApplication:
             _text(values["run_id"], "run_id"),
             accept=values["accept"],
         )
-        return cast(RpcJsonValue, run.model_dump(mode="json"))
+        return cast(
+            RpcJsonValue,
+            {
+                **run.model_dump(mode="json"),
+                "project_version": session.domain.revision,
+            },
+        )
 
     def _workflow_ask_user(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         values = _object(
@@ -1118,7 +1124,7 @@ class DesktopApplication:
                 RpcJsonValue,
                 self._import_response(
                     outcome,
-                    commit_revision + 1,
+                    session.domain.revision,
                     task_id,
                     requested_revision=expected,
                 ),

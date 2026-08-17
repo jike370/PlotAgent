@@ -42,7 +42,7 @@ DataPreparationRecipe 的操作白名单比 DataOperation 更窄：只允许定�
 
 原始文件与 SourceDataset 永远只读。重新导入、解析设置变化或源内容变化均创建新版本；已有图继续绑定旧版本。`0` 和 `False` 始终是有效值，不能用 truthiness 当缺失判断。
 
-通用解析或唯一 Recipe 通过严格校验时可以直接发布规则 SourceDataset，并提供查看/重新整理；多个同级 Recipe 必须先选择。Agent 辅助整理产生临时规则表：已有绘图目标时可与绑定/图类集中确认，没有绘图目标时单独确认。确认后整理结果作为独立版本发布；下游绘图失败不回滚已经成功的 SourceDataset/PreparedDataView。
+通用解析或唯一 Recipe 通过严格校验时可以直接发布规则 SourceDataset，并提供查看/重新整理；多个同级 Recipe 必须先选择。Agent 辅助整理产生 staging-only 候选：已有绘图目标时可与绑定/图类集中确认，没有绘图目标时单独确认。确认卡默认展示机械步骤、输出行列结构和风险，样本数据按需展开；确认前不进入正式数据列表、不推进项目版本，确认后整理结果才作为独立版本发布。下游绘图失败不回滚已经成功的 SourceDataset/PreparedDataView。
 
 撤销只停用派生规则表；存在 PlotDocument/TaskPlan 引用的历史对象不能物理删除。重新整理生成新 SourceDataset 版本，已有图不会静默重绑定。
 
@@ -62,7 +62,7 @@ DataPreparationRecipe 的匹配只使用文件格式、仪器/导出标记、表
 
 选定 Profile 后，程序可以执行不含语义的机械兼容性检查，比较字段类型/数量/量纲、表形态和 Profile role Schema，但不得选择角色或生成 DataOperation。Agent 使用该检查结果决定 FieldMapping 和必要转换，Core 将结果编译为 EngineDataView。
 
-DataPreparationRecipe 只能从实际成功且通过结构校验的数据整理 trace 中抽取。用户确认规则表预览正确后即可保存，不以绘图或导出成功为前提。初始版本使用严格结构合同并默认进入个人库；项目保存不可变 Recipe 版本引用。修改步骤或扩大 match 范围生成新版本，不能原地覆盖或基于一次样本自动泛化。执行失败记录原因并回退 Agent，连续结构性失败后停止自动应用并标记需检查。
+DataPreparationRecipe 只能从实际成功且通过结构校验的数据整理 trace 中抽取。用户确认整理方案并发布结果后即可保存，不以绘图或导出成功为前提。初始版本使用严格结构合同并默认进入个人库；项目保存不可变 Recipe 版本引用。修改步骤或扩大 match 范围生成新版本，不能原地覆盖或基于一次样本自动泛化。执行失败记录原因并回退 Agent，连续结构性失败后停止自动应用并标记需检查。
 
 ### 3.2 阶段二：Agent 理解与用户确认
 

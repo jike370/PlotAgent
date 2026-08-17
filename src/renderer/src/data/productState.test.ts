@@ -40,7 +40,13 @@ describe('product plot state', () => {
       route: 'saved_recipe',
       selected_recipe_id: 'data-recipe:line',
       selected_recipe_version: 2,
-      probe: { tables: [{ table_key: 'Sheet1' }] },
+      probe: { tables: [{
+        table_key: 'Sheet1', display_name: '动力学', row_count: 24,
+        column_count: 2, column_names: ['Time_s', 'Signal_mV'],
+      }] },
+      executed_steps: [{
+        operation: 'parse_source', source_format: 'xlsx', sheet: 'Sheet1', header_row: 2,
+      }],
       local_duration_ms: 17,
     })).toEqual({
       runId: 'data-run:one',
@@ -50,6 +56,11 @@ describe('product plot state', () => {
       selectedRecipeVersion: 2,
       tableCount: 1,
       localDurationMs: 17,
+      steps: [{ sourceFormat: 'xlsx', sheet: 'Sheet1', headerRow: 2 }],
+      outputTables: [{
+        tableKey: 'Sheet1', displayName: '动力学', rowCount: 24,
+        columnCount: 2, columnNames: ['Time_s', 'Signal_mV'],
+      }],
     })
   })
 

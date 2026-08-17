@@ -1047,7 +1047,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.queryByText('source:temperature')).not.toBeInTheDocument()
   })
 
-  it('requires explicit adoption before offering to save an Agent preparation Recipe', async () => {
+  it('keeps an Agent preparation staged until the user explicitly publishes it', async () => {
     const user = userEvent.setup()
     const runId = 'data-run:agent-review'
     const confirmDataPreparationRun = vi.fn(async ({ accept }) => ok({
@@ -1055,10 +1055,17 @@ describe('PlotAgent real desktop workflow', () => {
         run_id: runId,
         state: accept ? 'committed' : 'cancelled',
         route: 'agent_assisted',
-        probe: { tables: [{ table_key: 'table:one' }] },
+        probe: { tables: [{
+          table_key: 'table:one', display_name: '荧光结果', row_count: 2,
+          column_count: 2, column_names: ['Treatment', 'Fluorescence'],
+        }] },
+        executed_steps: [{
+          operation: 'parse_source', source_format: 'txt', delimiter: ';', header_row: 2,
+        }],
         local_duration_ms: 18,
       },
       datasets: { datasets: [dataset] },
+      project_version: accept ? 1 : 0,
     }))
     installApi(fakeDesktop({
       importDatasets: vi.fn(async () => ok({
@@ -1066,16 +1073,22 @@ describe('PlotAgent real desktop workflow', () => {
         imports: [{
           kind: 'committed',
           source_file_name: '仪器导出.txt',
-          project_version: 1,
+          project_version: 0,
           datasets: [{ ...dataset, data_preparation_run_id: runId }],
         }],
-        project_version: 1,
+        project_version: 0,
       })),
       getDataPreparationRun: vi.fn(async () => ok({
         run_id: runId,
         state: 'awaiting_confirmation',
         route: 'agent_assisted',
-        probe: { tables: [{ table_key: 'table:one' }] },
+        probe: { tables: [{
+          table_key: 'table:one', display_name: '荧光结果', row_count: 2,
+          column_count: 2, column_names: ['Treatment', 'Fluorescence'],
+        }] },
+        executed_steps: [{
+          operation: 'parse_source', source_format: 'txt', delimiter: ';', header_row: 2,
+        }],
         local_duration_ms: 18,
       })),
       confirmDataPreparationRun,
@@ -1083,14 +1096,20 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
     await user.click(await screen.findByRole('button', { name: /^导入/ }))
     expect(await screen.findByRole('region', { name: '确认 Agent 数据整理结果' })).toBeInTheDocument()
-    expect(screen.getByLabelText('整理后数据样本')).toHaveTextContent('荧光强度')
-    expect(screen.getByLabelText('整理后数据样本')).toHaveTextContent('Treatment')
+    expect(screen.getByLabelText('数据整理方案摘要')).toHaveTextContent('以“;”分列')
+    expect(screen.getByLabelText('数据整理方案摘要')).toHaveTextContent('第 2 行作为表头')
+    expect(screen.getByLabelText('数据整理方案摘要')).toHaveTextContent('荧光结果')
+    expect(screen.getByLabelText('数据整理方案摘要')).toHaveTextContent('2 行 × 2 列')
+    expect(screen.getByText('项目 v0')).toBeInTheDocument()
+    expect(screen.queryByText('已导入 1 个数据表。')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /保存数据整理流程/ })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '采用此整理结果' }))
+    await user.click(screen.getByRole('button', { name: '确认并发布数据表' }))
     expect(confirmDataPreparationRun).toHaveBeenCalledWith({
       projectId: 'project:test', runId, accept: true,
     })
+    expect(await screen.findByText('已导入 1 个数据表。')).toBeInTheDocument()
+    expect(screen.getByText('项目 v1')).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /保存数据整理流程/ })).toBeInTheDocument()
   })
 
@@ -1148,32 +1167,42 @@ describe('PlotAgent real desktop workflow', () => {
         run_id: runId,
         state: 'cancelled',
         route: 'agent_assisted',
-        probe: { tables: [{ table_key: 'table:one' }] },
+        probe: { tables: [{
+          table_key: 'table:one', display_name: '待处理数据', row_count: 2,
+          column_count: 2, column_names: ['time', 'signal'],
+        }] },
+        executed_steps: [{ operation: 'parse_source', source_format: 'csv' }],
         local_duration_ms: 9,
       },
       datasets: { datasets: [] },
+      project_version: 0,
     }))
     installApi(fakeDesktop({
       importDatasets: vi.fn(async () => ok({
-        imports: [{ kind: 'committed', project_version: 1, datasets: [{ ...dataset, data_preparation_run_id: runId }] }],
-        project_version: 1,
+        imports: [{ kind: 'committed', project_version: 0, datasets: [{ ...dataset, data_preparation_run_id: runId }] }],
+        project_version: 0,
       })),
       getDataPreparationRun: vi.fn(async () => ok({
         run_id: runId,
         state: 'awaiting_confirmation',
         route: 'agent_assisted',
-        probe: { tables: [{ table_key: 'table:one' }] },
+        probe: { tables: [{
+          table_key: 'table:one', display_name: '待处理数据', row_count: 2,
+          column_count: 2, column_names: ['time', 'signal'],
+        }] },
+        executed_steps: [{ operation: 'parse_source', source_format: 'csv' }],
         local_duration_ms: 9,
       })),
       confirmDataPreparationRun,
     }))
     render(<App />)
     await user.click(await screen.findByRole('button', { name: /^导入/ }))
-    await user.click(await screen.findByRole('button', { name: '撤销候选并重新整理' }))
+    await user.click(await screen.findByRole('button', { name: '不用，重新整理' }))
     expect(confirmDataPreparationRun).toHaveBeenCalledWith({
       projectId: 'project:test', runId, accept: false,
     })
-    expect(await screen.findByText('已退回整理结果')).toBeInTheDocument()
+    expect(await screen.findByText('已放弃整理方案')).toBeInTheDocument()
+    expect(screen.getByText('项目 v0')).toBeInTheDocument()
     expect(screen.queryByText('已导入 1 个数据表。')).not.toBeInTheDocument()
   })
 

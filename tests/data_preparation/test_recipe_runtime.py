@@ -13,6 +13,7 @@ from plotagent.data_preparation.recipes import (
 from plotagent.importing import Clarification, Rejection
 from plotagent.storage import ImportResource, ProjectImportService, ProjectStore
 from plotagent.storage.data_preparation_repository import DataPreparationRepository
+from plotagent.storage.domain import ProjectDomainRepository
 
 FILES_ROOT = Path(__file__).parents[1] / "fixtures" / "import" / "files"
 
@@ -210,11 +211,14 @@ def test_agent_assisted_output_requires_confirmation_before_recipe_freeze(
         assert run.tool_call_count == 1
         assert run.input_token_count == 120
         assert run.output_token_count == 24
+        assert ProjectDomainRepository(project).revision == 0
+        assert project.list_source_datasets() == ()
         with pytest.raises(ValueError, match="committed preparation run"):
             _save_recipe(repository, run.run_id)
 
         confirmed = repository.confirm_run(run.run_id, accept=True)
         assert confirmed.state == "committed"
+        assert ProjectDomainRepository(project).revision == 1
         assert len(project.list_source_datasets()) == 1
         assert _save_recipe(repository, confirmed.run_id).steps[0].delimiter == ";"
 
@@ -233,7 +237,9 @@ def test_rejecting_agent_assisted_output_removes_it_from_active_datasets(
         )
         run_id = imported.datasets[0].preparation_run_id
         assert project.list_source_datasets() == ()
+        assert ProjectDomainRepository(project).revision == 0
 
         rejected = DataPreparationRepository(project).confirm_run(run_id, accept=False)
         assert rejected.state == "cancelled"
         assert project.list_source_datasets() == ()
+        assert ProjectDomainRepository(project).revision == 0

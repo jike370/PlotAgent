@@ -1060,9 +1060,16 @@ export function registerDesktopIpc({
       })
       const datasets = await supervisor.request('datasets.list', { project_id: input.projectId })
       if (!input.accept) preparationResources.delete(input.runId)
+      const projectVersion = run !== null && !Array.isArray(run) && typeof run === 'object'
+        && typeof run.project_version === 'number'
+        ? run.project_version
+        : datasets !== null && !Array.isArray(datasets) && typeof datasets === 'object'
+          && typeof datasets.project_version === 'number'
+          ? datasets.project_version
+          : 0
       return {
         ok: true,
-        value: sanitizeCoreResult({ run, datasets }, resources),
+        value: sanitizeCoreResult({ run, datasets, project_version: projectVersion }, resources),
       }
     } catch (error: unknown) {
       return { ok: false, error: supervisor.toPublicResult(error) }

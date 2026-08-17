@@ -540,6 +540,21 @@ export function App(): React.JSX.Element {
     const summary = readImportSummary(value)
     const importKind = resultKind(value)
     const imported = readDatasets(value)
+    const preparationRunIds = [...new Set(imported.flatMap((item) => (
+      item.dataPreparationRunId === undefined ? [] : [item.dataPreparationRunId]
+    )))]
+    const preparationRuns = (await Promise.all(preparationRunIds.map(async (runId) => {
+      const result = await api.getDataPreparationRun({ projectId: targetProject.projectId, runId })
+      return result.ok ? readDataPreparationRun(result.value) : undefined
+    }))).filter((run): run is DataPreparationRunView => run !== undefined)
+    const pendingRunIds = new Set(
+      preparationRuns.filter((run) => run.state === 'awaiting_confirmation').map((run) => run.runId),
+    )
+    const visibleImported = imported.filter((item) => (
+      item.dataPreparationRunId === undefined || !pendingRunIds.has(item.dataPreparationRunId)
+    ))
+    const latestPendingRun = preparationRuns.find((run) => run.state === 'awaiting_confirmation')
+    if (latestPendingRun) setLatestPreparationRun(latestPendingRun)
     const attention = readDataPreparationAttention(value)
     if (attention.length > 0) {
       setDataPreparationAttention((current) => [
@@ -547,7 +562,15 @@ export function App(): React.JSX.Element {
         ...attention,
       ])
     }
-    if (imported.length === 0 && attention.length > 0) {
+    if (visibleImported.length === 0 && latestPendingRun) {
+      setNotice({
+        kind: 'info',
+        title: '整理方案待确认',
+        message: '候选结果尚未加入项目。请核对整理动作和输出结构后再决定是否发布。',
+      })
+      return
+    }
+    if (visibleImported.length === 0 && attention.length > 0) {
       setNotice({
         kind: 'warning',
         title: '数据整理需要确认',
@@ -555,7 +578,7 @@ export function App(): React.JSX.Element {
       })
       return
     }
-    if (imported.length === 0 && (summary.failedCount > 0 || importKind === 'rejection' || importKind === 'rejected' || importKind === 'failed')) {
+    if (visibleImported.length === 0 && (summary.failedCount > 0 || importKind === 'rejection' || importKind === 'rejected' || importKind === 'failed')) {
       setNotice({
         kind: 'error',
         title: '数据未导入',
@@ -566,18 +589,12 @@ export function App(): React.JSX.Element {
       return
     }
     setDatasets((current) => disambiguateDatasetDisplayNames(
-      [...new Map([...current, ...imported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()],
+      [...new Map([...current, ...visibleImported].map((item) => [`${item.datasetId}:${item.sourceVersion}`, item])).values()],
     ))
-    const preparationRunId = imported[0]?.dataPreparationRunId
-    if (preparationRunId !== undefined) {
-      const runResult = await api.getDataPreparationRun({
-        projectId: targetProject.projectId,
-        runId: preparationRunId,
-      })
-      if (runResult.ok) setLatestPreparationRun(readDataPreparationRun(runResult.value))
-    }
-    if (datasets.length === 0 && imported[0]) {
-      setActiveDatasetId(imported[0].datasetId)
+    const latestCommittedRun = preparationRuns.find((run) => run.state === 'committed')
+    if (latestCommittedRun) setLatestPreparationRun(latestCommittedRun)
+    if (datasets.length === 0 && visibleImported[0]) {
+      setActiveDatasetId(visibleImported[0].datasetId)
       setWorkflowSourceIds([])
     }
     const version = projectVersionFrom(value, targetProject.projectVersion)
@@ -586,7 +603,7 @@ export function App(): React.JSX.Element {
     if (datasets.length === 0) { setConfirmedMapping(undefined); setPlot(undefined) }
     const partial = summary.failedCount > 0 || summary.attentionCount > 0
     const outcomeLines = [
-      `已导入 ${summary.committedCount} 个文件，共 ${imported.length} 个工作表或数据块。`,
+      `已导入 ${summary.committedCount} 个文件，共 ${visibleImported.length} 个工作表或数据块。`,
       ...summary.committedFiles.map((name) => `已导入：${name}`),
       ...summary.attentionDetails.map((detail) => `待确认：${detail}`),
       ...summary.failedDetails.map((detail) => `未导入：${detail}`),
@@ -603,7 +620,7 @@ export function App(): React.JSX.Element {
       kind: 'success',
       title: '数据已导入',
       message: previewMode
-        ? `已载入 ${imported.length} 个内存示例数据集，可继续检查字段与界面流程。`
+        ? `已载入 ${visibleImported.length} 个内存示例数据集，可继续检查字段与界面流程。`
         : outcomeLines.join('\n'),
     })
   }
@@ -636,6 +653,29 @@ export function App(): React.JSX.Element {
       ...nextAttention,
     ])
     const imported = readDatasets(value)
+    const runId = imported[0]?.dataPreparationRunId
+    let nextRun: DataPreparationRunView | undefined
+    if (runId !== undefined) {
+      const runResult = await api?.getDataPreparationRun({ projectId: targetProject.projectId, runId })
+      if (!runResult?.ok) {
+        setNotice({
+          kind: 'error',
+          title: '无法核对整理状态',
+          message: '整理结果尚未发布。请重新整理，或稍后再次尝试。',
+        })
+        return
+      }
+      nextRun = readDataPreparationRun(runResult.value)
+      setLatestPreparationRun(nextRun)
+    }
+    if (nextRun?.state === 'awaiting_confirmation') {
+      setNotice({
+        kind: 'info',
+        title: '整理方案待确认',
+        message: '候选结果尚未加入项目。请核对整理动作和输出结构后再决定是否发布。',
+      })
+      return
+    }
     if (imported.length > 0) {
       setDatasets((current) => disambiguateDatasetDisplayNames(
         [...current.filter((item) => !imported.some((next) => next.datasetId === item.datasetId)), ...imported],
@@ -644,27 +684,14 @@ export function App(): React.JSX.Element {
         setActiveDatasetId(imported[0].datasetId)
         setWorkflowSourceIds([])
       }
-      const runId = imported[0]?.dataPreparationRunId
-      let nextRun: DataPreparationRunView | undefined
-      if (runId !== undefined) {
-        const runResult = await api?.getDataPreparationRun({ projectId: targetProject.projectId, runId })
-        if (runResult?.ok) {
-          nextRun = readDataPreparationRun(runResult.value)
-          setLatestPreparationRun(nextRun)
-        }
-      }
       const version = projectVersionFrom(value, targetProject.projectVersion)
       const nextProject = projectWithVersion(targetProject, version)
       setProject(nextProject)
       mergeProjects([nextProject])
-      setNotice(nextRun?.state === 'awaiting_confirmation' ? {
-        kind: 'success',
-        title: '数据整理完成，等待确认',
-        message: `已生成 ${imported.length} 张规则数据表，请检查样本后确认采用或退回。`,
-      } : {
+      setNotice({
         kind: 'success',
         title: '重新整理完成',
-        message: `已生成 ${imported.length} 张新的规则数据表版本；已有图仍绑定原来的数据版本。`,
+        message: `已生成 ${imported.length} 张新的数据表版本；已有图仍绑定原来的数据版本。`,
       })
       return
     }
@@ -1247,26 +1274,29 @@ export function App(): React.JSX.Element {
       const confirmedRun = readDataPreparationRun(runValue)
       const activeDatasets = readDatasets(value)
       setDataPreparationAttention((current) => current.filter((item) => item.runId !== latestPreparationRun.runId))
+      setDatasets(disambiguateDatasetDisplayNames(activeDatasets))
+      const nextActive = activeDatasets.some((item) => item.datasetId === activeDatasetId)
+        ? activeDatasetId : activeDatasets[0]?.datasetId
+      setActiveDatasetId(nextActive)
+      setWorkflowSourceIds([])
+      const nextProject = projectWithVersion(project, projectVersionFrom(value, project.projectVersion))
+      setProject(nextProject)
+      mergeProjects([nextProject])
       if (accept) {
         setLatestPreparationRun(confirmedRun)
         setNotice({
           kind: 'success',
           title: '已采用整理结果',
-          message: '数据表已确认。若经常处理同构数据，可以把这段非语义整理流程保存为 Recipe。',
+          message: '数据表已发布到项目。若经常处理同构数据，可以把这段非语义整理流程保存为 Recipe。',
         })
       } else {
         setLatestPreparationRun(undefined)
-        setDatasets(disambiguateDatasetDisplayNames(activeDatasets))
-        const nextActive = activeDatasets.some((item) => item.datasetId === activeDatasetId)
-          ? activeDatasetId : activeDatasets[0]?.datasetId
-        setActiveDatasetId(nextActive)
-        setWorkflowSourceIds([])
         setConfirmedMapping(undefined)
         setPlot(undefined)
         setNotice({
           kind: 'warning',
-          title: '已退回整理结果',
-          message: '本次候选数据表已从当前工作区撤销，原始文件没有被修改；可以重新导入或重新处理。',
+          title: '已放弃整理方案',
+          message: '候选结果没有发布，原始文件也没有被修改；可以重新导入或重新处理。',
         })
       }
     } catch (error) {
