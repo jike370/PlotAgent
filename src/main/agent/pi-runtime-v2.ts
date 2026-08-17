@@ -121,10 +121,14 @@ function modelFor(provider: PiRuntimeProviderV2): Model<'openai-completions'> {
   let samplingParams: Record<string, unknown> | undefined
   try {
     const host = new URL(provider.baseUrl).hostname.toLocaleLowerCase('en-US')
-    if (host === 'dashscope.aliyuncs.com' || host.endsWith('.maas.aliyuncs.com')) {
-      // Alibaba Model Studio hybrid models enable thinking by default. Planning is a
+    if (
+      host === 'api.deepseek.com'
+      || host === 'dashscope.aliyuncs.com'
+      || host.endsWith('.maas.aliyuncs.com')
+    ) {
+      // These hybrid providers enable thinking by default for some models. Planning is a
       // constrained tool-selection task; disabling thinking avoids long hidden-reasoning
-      // stalls and is the documented mode for low-latency Function Calling.
+      // stalls and keeps Function Calling within the interactive activation budget.
       samplingParams = { enable_thinking: false }
     }
   } catch {

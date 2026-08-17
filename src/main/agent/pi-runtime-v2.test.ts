@@ -262,7 +262,10 @@ function terminalArguments(candidate: AgentYieldContract): Record<string, JsonVa
 }
 
 describe('PiRuntimeAdapterV2', () => {
-  it('uses bounded non-thinking Function Calling for Alibaba Model Studio', async () => {
+  it.each([
+    'https://api.deepseek.com',
+    'https://workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+  ])('uses bounded non-thinking Function Calling for %s', async (baseUrl) => {
     const input = activation({ allowed_tools: [] })
     const candidate = needsInput(input)
     const base = environment(input)
@@ -271,10 +274,7 @@ describe('PiRuntimeAdapterV2', () => {
       host: hostFor(input, {
         prepare: async () => ({
           ...base,
-          provider: {
-            ...base.provider,
-            baseUrl: 'https://workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
-          },
+          provider: { ...base.provider, baseUrl },
         }),
       }),
       emit: () => undefined,
