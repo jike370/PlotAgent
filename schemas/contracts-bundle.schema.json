@@ -1342,6 +1342,15 @@
           "title": "Side Effect",
           "type": "string"
         },
+        "side_effects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SideEffectReceipt"
+          },
+          "maxItems": 128,
+          "title": "Side Effects",
+          "type": "array"
+        },
         "started_at": {
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
           "title": "Started At",
@@ -10450,6 +10459,8 @@
             "none",
             "project_revision",
             "plot_version",
+            "staged_data_view",
+            "staged_plot",
             "staged_file",
             "published_file",
             "origin_session"
@@ -12769,6 +12780,38 @@
           "title": "Deadline",
           "type": "string"
         },
+        "execution_grant_id": {
+          "anyOf": [
+            {
+              "pattern": "^grant:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Grant Id"
+        },
+        "expected_project_revision": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Expected Project Revision",
+          "type": "integer"
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency Key"
+        },
         "item_id": {
           "anyOf": [
             {
@@ -12903,6 +12946,21 @@
           ],
           "default": null,
           "title": "Activation Id"
+        },
+        "budget_delta": {
+          "$ref": "#/$defs/TaskBudgetUsage",
+          "default": {
+            "disclosed_scalars": 0,
+            "estimated_cost": 0.0,
+            "input_tokens": 0,
+            "model_calls": 0,
+            "model_turns": 0,
+            "origin_sessions": 0,
+            "output_tokens": 0,
+            "repair_attempts": 0,
+            "tool_calls": 1,
+            "wall_time_ms": 0
+          }
         },
         "error": {
           "anyOf": [

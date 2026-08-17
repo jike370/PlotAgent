@@ -7,6 +7,10 @@ from pydantic import BaseModel, TypeAdapter
 from plotagent.contracts.agent_tasks import (
     ActivationBudget,
     AgentActivation,
+    ExecutionGrant,
+    ExecutionScope,
+    IntentRef,
+    SideEffectReceipt,
     TaskBudgetLimits,
     TaskBudgetSnapshot,
     TaskBudgetUsage,
@@ -359,3 +363,176 @@ def test_budget_disclosure_origin_and_side_effect_fail_closed() -> None:
     assert side_effect.error is not None
     assert side_effect.error.code == "TOOL_SIDE_EFFECT_MISMATCH"
     assert side_effect.side_effect == "unknown"
+
+
+def test_result_builds_a_deterministic_budgeted_receipt() -> None:
+    arguments: JsonValue = {"profile_id": "K01"}
+    current_gateway = gateway()
+    current_budget = budget()
+    current_checkpoint = checkpoint(task_budget=current_budget)
+    call = invocation("get_chart_knowledge", arguments)
+    result = current_gateway.invoke(
+        invocation=call,
+        arguments=arguments,
+        activation=activation("get_chart_knowledge", task_budget=current_budget),
+        checkpoint=current_checkpoint,
+    )
+    receipt = current_gateway.build_receipt(
+        invocation=call,
+        result=result,
+        checkpoint=current_checkpoint,
+    )
+    duplicate = current_gateway.build_receipt(
+        invocation=call,
+        result=result,
+        checkpoint=current_checkpoint,
+    )
+    assert receipt == duplicate
+    assert receipt.receipt_id.startswith("receipt:")
+    assert receipt.outcome == "succeeded"
+    assert receipt.input_hash == call.arguments_hash
+    assert receipt.output_hash == result.output_hash
+    assert receipt.budget_delta.tool_calls == 1
+    assert receipt.budget_delta.disclosed_scalars == 0
+    assert receipt.project_revision_before == receipt.project_revision_after == 0
+
+
+def test_committed_tool_requires_item_scoped_execution_grant() -> None:
+    current_gateway = ToolGateway(clock=lambda: NOW)
+
+    def handler(_input: BaseModel) -> ToolExecutionOutput:
+        return ToolExecutionOutput(
+            payload=_ValueOutput(value=1),
+            summary="Committed one authorized test revision.",
+            side_effect="committed",
+            side_effects=(
+                SideEffectReceipt(effect_kind="project_revision", object_id="project:test"),
+            ),
+        )
+
+    current_gateway.register(
+        contract_id="tool:commit_test",
+        contract_version=1,
+        tool_name="commit_test",
+        description="Commit one test revision.",
+        permission_phase="p2_confirmed",
+        side_effect="committed",
+        allowed_task_states=("repairing",),
+        input_model=_EmptyInput,
+        output_model=_ValueOutput,
+        cost_class="moderate",
+        timeout_ms=5_000,
+        max_disclosed_scalars=0,
+        uses_origin=False,
+        handler=handler,
+    )
+    current_budget = budget()
+    current_activation = AgentActivation(
+        activation_id="activation:test",
+        task_id="task:test",
+        task_version=1,
+        reason="external_blocker_cleared",
+        task_state="repairing",
+        original_instruction="Repair the confirmed task without changing its intent.",
+        allowed_tools=("commit_test",),
+        permission_phase="p2_confirmed",
+        activation_budget=ActivationBudget(max_disclosed_scalars=10),
+        task_budget=current_budget,
+        deadline=ACTIVATION_DEADLINE,
+        created_at=NOW_TEXT,
+    )
+    current_checkpoint = checkpoint(task_budget=current_budget).model_copy(
+        update={"state": "repairing"}
+    )
+    arguments: JsonValue = {}
+    call = ToolInvocation(
+        tool_call_id="toolcall:commit_test",
+        task_id="task:test",
+        task_version=1,
+        activation_id="activation:test",
+        item_id="item:test.1",
+        execution_grant_id="grant:test",
+        idempotency_key="idem:commit_test",
+        tool_name="commit_test",
+        permission_phase="p2_confirmed",
+        arguments_hash=canonical_hash(arguments),
+        activation_tool_calls_before=0,
+        activation_disclosed_scalars_before=0,
+        expected_project_revision=0,
+        deadline=CALL_DEADLINE,
+    )
+    denied = current_gateway.invoke(
+        invocation=call,
+        arguments=arguments,
+        activation=current_activation,
+        checkpoint=current_checkpoint,
+    )
+    assert denied.error is not None
+    assert denied.error.code == "TOOL_GRANT_REQUIRED"
+
+    grant = ExecutionGrant(
+        grant_id="grant:test",
+        task_id="task:test",
+        task_version=1,
+        intent=IntentRef(intent_id="intent:test", intent_version=1, content_hash=HASH_A),
+        expected_project_revision=0,
+        permission_phase="p2_confirmed",
+        scopes=(ExecutionScope(item_id="item:test.1", operations=("commit_test",)),),
+        issued_at=NOW_TEXT,
+        expires_at=ACTIVATION_DEADLINE,
+        content_hash=HASH_A,
+    )
+    expired = grant.model_copy(
+        update={
+            "issued_at": "2026-08-18T09:59:00Z",
+            "expires_at": NOW_TEXT,
+        }
+    )
+    expired_result = current_gateway.invoke(
+        invocation=call,
+        arguments=arguments,
+        activation=current_activation,
+        checkpoint=current_checkpoint,
+        execution_grant=expired,
+    )
+    assert expired_result.error is not None
+    assert expired_result.error.code == "TOOL_GRANT_EXPIRED"
+
+    out_of_scope = grant.model_copy(
+        update={
+            "scopes": (
+                ExecutionScope(
+                    item_id="item:test.1",
+                    operations=("another_operation",),
+                ),
+            )
+        }
+    )
+    scope_result = current_gateway.invoke(
+        invocation=call,
+        arguments=arguments,
+        activation=current_activation,
+        checkpoint=current_checkpoint,
+        execution_grant=out_of_scope,
+    )
+    assert scope_result.error is not None
+    assert scope_result.error.code == "TOOL_GRANT_SCOPE_DENIED"
+
+    result = current_gateway.invoke(
+        invocation=call,
+        arguments=arguments,
+        activation=current_activation,
+        checkpoint=current_checkpoint,
+        execution_grant=grant,
+    )
+    assert result.status == "succeeded"
+    receipt = current_gateway.build_receipt(
+        invocation=call,
+        result=result,
+        checkpoint=current_checkpoint,
+        project_revision_after=1,
+    )
+    assert receipt.permission_phase == "p2_confirmed"
+    assert receipt.idempotency_key == "idem:commit_test"
+    assert receipt.project_revision_after == 1
+    assert receipt.side_effects[0].effect_kind == "project_revision"

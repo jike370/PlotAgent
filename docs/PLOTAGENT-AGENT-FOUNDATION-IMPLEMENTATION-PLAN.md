@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P3 已完成；P4 施工中（统一 ToolGateway 与 P0 领域工具已完成）。
+> 状态：P0–P3 已完成；P4 施工中（统一 ToolGateway、P0 领域/检查工具、授权与耐久回执已完成）。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -227,7 +227,7 @@
 
 ## 9. P4：ToolGateway、权限与 receipt
 
-首个里程碑记录（2026-08-18）：
+里程碑记录（2026-08-18）：
 
 - 已新增公开 `ToolContract`、`ToolInvocation`、`AgentToolResult` 与五类 typed error，
   并通过现有 codegen 发布 JSON Schema/TypeScript；
@@ -242,8 +242,13 @@
 - Gateway 可按 activation allowlist 输出实际 JSON Schema 定义，供下一阶段 Pi adapter 注册工具；
 - untrusted payload 无法增加 allowlist、权限或预算，错误统一返回可修复/需用户/瞬态/
   不支持/致命五类结构结果；
-- 当前仍为 additive 基础设施，尚未替换 v1 inspect 路由、未接 Pi hook、未引入写操作，
-  因而正式 UI 行为不变。
+- `ToolInvocation` 已固定 P1 幂等键以及 P2/P3 item-scoped `ExecutionGrant` 要求；Gateway
+  会核对 grant 的 task/version/revision/phase/expiry/item/operation，拒绝过期、越权和 stale 授权；
+- 每次调用可确定性生成 `ToolReceipt`，记录输入/输出 hash、公开副作用、错误、时长、披露量、
+  Origin session 与 project revision；Ledger 事务内持久化回执并累计 task-wide budget，重复回执不重复
+  计费，超预算时回执、事件和 checkpoint 一并回滚；
+- 当前仍为 additive 基础设施，尚未替换 v1 inspect 路由、未接 Pi hook，也尚未注册正式 P1/P2
+  数据与绘图写工具，因而正式 UI 行为不变。
 
 ### 工作
 

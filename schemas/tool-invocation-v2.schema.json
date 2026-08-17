@@ -28,6 +28,38 @@
       "title": "Deadline",
       "type": "string"
     },
+    "execution_grant_id": {
+      "anyOf": [
+        {
+          "pattern": "^grant:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Execution Grant Id"
+    },
+    "expected_project_revision": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Expected Project Revision",
+      "type": "integer"
+    },
+    "idempotency_key": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotency Key"
+    },
     "item_id": {
       "anyOf": [
         {

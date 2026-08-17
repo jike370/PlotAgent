@@ -83,6 +83,111 @@
       "type": "object"
     },
     "JsonValue": {},
+    "ResourceRef": {
+      "additionalProperties": false,
+      "description": "An Electron-authorized resource reference, never a filesystem path.",
+      "properties": {
+        "resource_id": {
+          "pattern": "^resource:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "resource_kind": {
+          "enum": [
+            "authorized_file",
+            "authorized_directory",
+            "temporary_output"
+          ],
+          "title": "Resource Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resource_id",
+        "resource_kind"
+      ],
+      "title": "ResourceRef",
+      "type": "object"
+    },
+    "SideEffectReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Hash"
+        },
+        "effect_kind": {
+          "enum": [
+            "none",
+            "project_revision",
+            "plot_version",
+            "staged_data_view",
+            "staged_plot",
+            "staged_file",
+            "published_file",
+            "origin_session"
+          ],
+          "title": "Effect Kind",
+          "type": "string"
+        },
+        "object_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Id"
+        },
+        "object_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Version"
+        },
+        "resource": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reversible": {
+          "default": true,
+          "title": "Reversible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "effect_kind"
+      ],
+      "title": "SideEffectReceipt",
+      "type": "object"
+    },
     "ToolProvenance": {
       "additionalProperties": false,
       "properties": {
@@ -264,6 +369,15 @@
       ],
       "title": "Side Effect",
       "type": "string"
+    },
+    "side_effects": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SideEffectReceipt"
+      },
+      "maxItems": 128,
+      "title": "Side Effects",
+      "type": "array"
     },
     "started_at": {
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",

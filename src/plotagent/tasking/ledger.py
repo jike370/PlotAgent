@@ -9,6 +9,8 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Literal, cast
 
+from pydantic import ValidationError
+
 from plotagent.contracts.agent_tasks import (
     AGENT_YIELD_ADAPTER,
     ALLOWED_TASK_TRANSITIONS,
@@ -18,6 +20,7 @@ from plotagent.contracts.agent_tasks import (
     AgentYield,
     IntentRef,
     TaskBudgetSnapshot,
+    TaskBudgetUsage,
     TaskCheckpoint,
     TaskCompletion,
     TaskEnvelope,
@@ -53,6 +56,34 @@ def _checkpoint_hash(checkpoint: TaskCheckpoint) -> str:
 
 def _event_json(event: TaskEvent) -> str:
     return canonical_json(cast(JsonValue, event.model_dump(mode="json")))
+
+
+def _apply_tool_budget(
+    current: TaskBudgetSnapshot,
+    delta: TaskBudgetUsage,
+) -> TaskBudgetSnapshot:
+    usage = current.usage
+    try:
+        return TaskBudgetSnapshot(
+            limits=current.limits,
+            usage=TaskBudgetUsage(
+                model_calls=usage.model_calls + delta.model_calls,
+                model_turns=usage.model_turns + delta.model_turns,
+                input_tokens=usage.input_tokens + delta.input_tokens,
+                output_tokens=usage.output_tokens + delta.output_tokens,
+                tool_calls=usage.tool_calls + delta.tool_calls,
+                disclosed_scalars=usage.disclosed_scalars + delta.disclosed_scalars,
+                origin_sessions=usage.origin_sessions + delta.origin_sessions,
+                repair_attempts=usage.repair_attempts + delta.repair_attempts,
+                wall_time_ms=usage.wall_time_ms + delta.wall_time_ms,
+                estimated_cost=usage.estimated_cost + delta.estimated_cost,
+            ),
+        )
+    except ValidationError as error:
+        raise StorageProblem(
+            StorageErrorCode.TASK_BUDGET_EXCEEDED,
+            "Tool receipt would exceed the durable task budget.",
+        ) from error
 
 
 type UserTaskAction = Literal[
@@ -679,6 +710,9 @@ class TaskLedgerRepository:
                     raise self._idempotency("Receipt id already has different content.")
                 return current
             self._expect_version(current, receipt.task_version)
+            if receipt.project_revision_before != current.project_revision:
+                raise self._conflict("Tool receipt project revision is stale.")
+            updated_budget = _apply_tool_budget(current.budget, receipt.budget_delta)
             now = _utc_now()
             connection.execute(
                 """
@@ -712,6 +746,7 @@ class TaskLedgerRepository:
                 event_sequence=sequence,
                 items=items,
                 project_revision=receipt.project_revision_after,
+                budget=updated_budget,
                 updated_at=now,
             )
             self._append_event_and_checkpoint(connection, event, updated, now)
@@ -1101,6 +1136,7 @@ class TaskLedgerRepository:
         task_version: int | None = None,
         state: TaskState | None = None,
         project_revision: int | None = None,
+        budget: TaskBudgetSnapshot | None = None,
         event_sequence: int,
         intent: IntentRef | None = None,
         active_activation_id: str | None = None,
@@ -1116,7 +1152,7 @@ class TaskLedgerRepository:
                 current.project_revision if project_revision is None else project_revision
             ),
             event_sequence=event_sequence,
-            budget=current.budget,
+            budget=current.budget if budget is None else budget,
             updated_at=updated_at,
             intent=current.intent if intent is None else intent,
             active_activation_id=active_activation_id,

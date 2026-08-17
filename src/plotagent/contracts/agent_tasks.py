@@ -295,6 +295,8 @@ class SideEffectReceipt(StrictModel):
         "none",
         "project_revision",
         "plot_version",
+        "staged_data_view",
+        "staged_plot",
         "staged_file",
         "published_file",
         "origin_session",
@@ -319,13 +321,20 @@ class SideEffectReceipt(StrictModel):
             ):
                 raise ValueError("a no-effect receipt cannot retain object or artifact identity")
             return self
-        if (
-            self.effect_kind in {"project_revision", "plot_version", "origin_session"}
-            and self.object_id is None
-        ):
+        if self.effect_kind in {
+            "project_revision",
+            "plot_version",
+            "staged_data_view",
+            "staged_plot",
+            "origin_session",
+        } and self.object_id is None:
             raise ValueError("object side effects require object_id")
         if self.effect_kind == "plot_version" and self.object_version is None:
             raise ValueError("plot side effects require object_version")
+        if self.effect_kind in {"staged_data_view", "staged_plot"} and (
+            self.object_version is None or self.artifact_hash is None
+        ):
+            raise ValueError("staged object side effects require version and artifact hash")
         if self.effect_kind in {"staged_file", "published_file"} and (
             self.resource is None or self.artifact_hash is None
         ):
@@ -380,6 +389,7 @@ class ToolReceipt(StrictModel):
     project_revision_before: NonNegativeInt
     project_revision_after: NonNegativeInt
     side_effects: Annotated[tuple[SideEffectReceipt, ...], Field(max_length=128)] = ()
+    budget_delta: TaskBudgetUsage = TaskBudgetUsage(tool_calls=1)
     error: TaskError | None = None
     started_at: IsoTimestamp
     finished_at: IsoTimestamp
@@ -402,11 +412,36 @@ class ToolReceipt(StrictModel):
             self.project_revision_after != self.project_revision_before
         ):
             raise ValueError("read and staged tools cannot change the project revision")
+        non_empty_effects = tuple(
+            effect for effect in self.side_effects if effect.effect_kind != "none"
+        )
+        if self.outcome == "succeeded" and self.permission_phase != "p0_read" and not (
+            non_empty_effects
+        ):
+            raise ValueError("successful side-effecting receipts require concrete effects")
+        if self.outcome == "succeeded" and self.permission_phase in {
+            "p2_confirmed",
+            "p3_expanded",
+        } and self.project_revision_after <= self.project_revision_before:
+            raise ValueError("successful committed receipts must advance project revision")
         if (
-            any(effect.effect_kind != "none" for effect in self.side_effects)
-            and self.idempotency_key is None
+            non_empty_effects and self.idempotency_key is None
         ):
             raise ValueError("side-effecting tool receipts require an idempotency key")
+        if self.budget_delta.tool_calls != 1:
+            raise ValueError("one tool receipt must account for exactly one tool call")
+        if any(
+            (
+                self.budget_delta.model_calls,
+                self.budget_delta.model_turns,
+                self.budget_delta.input_tokens,
+                self.budget_delta.output_tokens,
+                self.budget_delta.repair_attempts,
+            )
+        ) or self.budget_delta.estimated_cost != 0:
+            raise ValueError("tool receipts may account only for tool resource usage")
+        if self.budget_delta.origin_sessions > 1:
+            raise ValueError("one tool call may open at most one Origin session")
         return self
 
 

@@ -8,8 +8,10 @@ from pydantic import Field, JsonValue, StringConstraints, model_validator
 
 from plotagent.contracts.agent_tasks import (
     AgentActivationId,
+    ExecutionGrantId,
     IsoTimestamp,
     PermissionPhase,
+    SideEffectReceipt,
     TaskId,
     TaskItemIdV2,
     TaskState,
@@ -85,12 +87,30 @@ class ToolInvocation(StrictModel):
     task_version: VersionId
     activation_id: AgentActivationId
     item_id: TaskItemIdV2 | None = None
+    execution_grant_id: ExecutionGrantId | None = None
+    idempotency_key: Token | None = None
     tool_name: Token
     permission_phase: PermissionPhase
     arguments_hash: Sha256
     activation_tool_calls_before: NonNegativeInt
     activation_disclosed_scalars_before: NonNegativeInt
+    expected_project_revision: NonNegativeInt = 0
     deadline: IsoTimestamp
+
+    @model_validator(mode="after")
+    def authority_fields_match_phase(self) -> ToolInvocation:
+        if self.permission_phase == "p0_read":
+            if self.execution_grant_id is not None:
+                raise ValueError("read-only tools cannot carry an execution grant")
+        elif self.idempotency_key is None:
+            raise ValueError("staged and committed tools require an idempotency key")
+        if self.permission_phase in {"p2_confirmed", "p3_expanded"} and (
+            self.execution_grant_id is None or self.item_id is None
+        ):
+            raise ValueError("committed tools require an item-scoped execution grant")
+        if self.permission_phase == "p1_staged" and self.execution_grant_id is not None:
+            raise ValueError("staged tools cannot carry a formal execution grant")
+        return self
 
 
 class ToolProvenance(StrictModel):
@@ -144,6 +164,7 @@ class AgentToolResult(StrictModel):
     ] = ()
     warnings: Annotated[tuple[ToolWarning, ...], Field(max_length=64)] = ()
     side_effect: ToolSideEffect
+    side_effects: Annotated[tuple[SideEffectReceipt, ...], Field(max_length=128)] = ()
     disclosed_field_count: NonNegativeInt = 0
     disclosed_row_count: NonNegativeInt = 0
     disclosed_scalar_count: NonNegativeInt = 0
@@ -179,4 +200,11 @@ class AgentToolResult(StrictModel):
             raise ValueError("failed tool results cannot claim disclosed data")
         if self.error is not None and self.error.side_effect_state != self.side_effect:
             raise ValueError("tool error and result side-effect states must match")
+        non_empty_effects = tuple(
+            effect for effect in self.side_effects if effect.effect_kind != "none"
+        )
+        if self.side_effect == "none" and non_empty_effects:
+            raise ValueError("read-only tool results cannot retain side-effect receipts")
+        if self.status == "succeeded" and self.side_effect != "none" and not non_empty_effects:
+            raise ValueError("successful side-effecting tools require concrete receipts")
         return self

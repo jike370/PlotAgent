@@ -256,6 +256,12 @@ def test_tool_receipt_enforces_permissions_idempotency_and_outcome() -> None:
         ToolReceipt.model_validate({**receipt.model_dump(), "permission_phase": "p0_read"})
     with pytest.raises(ValidationError, match="require output_hash"):
         ToolReceipt.model_validate({**receipt.model_dump(), "output_hash": None})
+    with pytest.raises(ValidationError, match="must advance project revision"):
+        ToolReceipt.model_validate(
+            {**receipt.model_dump(), "project_revision_after": 2}
+        )
+    with pytest.raises(ValidationError, match="require concrete effects"):
+        ToolReceipt.model_validate({**receipt.model_dump(), "side_effects": ()})
 
 
 def test_verification_report_status_is_derived_from_required_claims() -> None:

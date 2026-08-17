@@ -14,7 +14,7 @@
     },
     {
       "path": "schemas/agent-tool-result-v2.schema.json",
-      "sha256": "6f67d4201ce039fbeee3f262af3d5b57e602a2f26a099580160b3f94b1032f3b"
+      "sha256": "30d5fa66416359bb2f2ad6d98ca2e01fb57d9c9332ef088c25efe88678b90dd7"
     },
     {
       "path": "schemas/agent-yield-v2.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "3c6bb14d02464d6b74b8b0437e1a0382b95f4b234aa509ebea30bf25ce624e0f"
+      "sha256": "a747f9c4fed31407166c87dcd39b3a17356fb417ddb7a59c17b26c7f8fd1b96e"
     },
     {
       "path": "schemas/domain-example-v1.schema.json",
@@ -74,7 +74,7 @@
     },
     {
       "path": "schemas/error-registry.json",
-      "sha256": "dda7f51d403f03343a82e9f1bcb271efc4bbd8a5168b5525c2c3bf349582f02d"
+      "sha256": "751934ca5341ec23cdb9528e475b43af89abca3d12a4c5b512f20989da47c53e"
     },
     {
       "path": "schemas/error-registry.schema.json",
@@ -138,7 +138,7 @@
     },
     {
       "path": "schemas/task-event-v2.schema.json",
-      "sha256": "219dee124b3187a966aafa2479a70807fa4262ac14bf317a07a5cad97a5e3d99"
+      "sha256": "7a5729f6fe2ab52d217d731416d39b5c1ce82edf914dbe58388a3f91094f6dc1"
     },
     {
       "path": "schemas/task-intent-v2.schema.json",
@@ -158,11 +158,11 @@
     },
     {
       "path": "schemas/tool-invocation-v2.schema.json",
-      "sha256": "c2e29c530ffd11348fdd1340068bedc8839cb1509b8a66d746c8e8a3bb4802f8"
+      "sha256": "71ed686f8fa2107dbc89a24afde22855be6a6faa574a4b180a4b1d6b11eab09a"
     },
     {
       "path": "schemas/tool-receipt-v2.schema.json",
-      "sha256": "538de15ce82c8c45eed394f39bcfe97dcc718e239ac43e504549539f5627431f"
+      "sha256": "e987e8e4ed2ea40e59db0223577cf679fb134544d56a2a23a7f2ac77fa079e61"
     },
     {
       "path": "schemas/untrusted-source-context-v2.schema.json",
@@ -190,7 +190,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "c1a3f172e5d3143fb29ba21135f332496881a54b1361ec10ecfd2de4c6fc2cf5"
+      "sha256": "1db6ff6a2f3440e3b96d1d3c00c3ef33a1eaf04b9c33f7baf32263acf5b8bc48"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

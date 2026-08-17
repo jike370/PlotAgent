@@ -187,6 +187,7 @@ export type AgentToolResult = {
   readonly verification_report_ids?: ReadonlyArray<string>;
   readonly warnings?: ReadonlyArray<ToolWarning>;
   readonly side_effect: "none" | "staged" | "committed" | "unknown";
+  readonly side_effects?: ReadonlyArray<SideEffectReceipt>;
   readonly disclosed_field_count?: number;
   readonly disclosed_row_count?: number;
   readonly disclosed_scalar_count?: number;
@@ -1337,7 +1338,7 @@ export type SetTitle = {
 }
 
 export type SideEffectReceipt = {
-  readonly effect_kind: "none" | "project_revision" | "plot_version" | "staged_file" | "published_file" | "origin_session";
+  readonly effect_kind: "none" | "project_revision" | "plot_version" | "staged_data_view" | "staged_plot" | "staged_file" | "published_file" | "origin_session";
   readonly object_id?: string | null;
   readonly object_version?: number | null;
   readonly resource?: ResourceRef | null;
@@ -1667,11 +1668,14 @@ export type ToolInvocation = {
   readonly task_version: number;
   readonly activation_id: string;
   readonly item_id?: string | null;
+  readonly execution_grant_id?: string | null;
+  readonly idempotency_key?: string | null;
   readonly tool_name: string;
   readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
   readonly arguments_hash: string;
   readonly activation_tool_calls_before: number;
   readonly activation_disclosed_scalars_before: number;
+  readonly expected_project_revision?: number;
   readonly deadline: string;
 }
 
@@ -1699,6 +1703,7 @@ export type ToolReceipt = {
   readonly project_revision_before: number;
   readonly project_revision_after: number;
   readonly side_effects?: ReadonlyArray<SideEffectReceipt>;
+  readonly budget_delta?: TaskBudgetUsage;
   readonly error?: TaskError | null;
   readonly started_at: string;
   readonly finished_at: string;

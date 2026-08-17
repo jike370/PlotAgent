@@ -335,6 +335,7 @@ def test_receipt_and_verification_are_durable_and_idempotent(tmp_path) -> None:
         )
         with_receipt = ledger.record_tool_receipt(receipt)
         assert with_receipt.items[0].receipt_ids == ("receipt:test",)
+        assert with_receipt.budget.usage.tool_calls == 1
         assert ledger.record_tool_receipt(receipt) == with_receipt
 
         report = VerificationReport(
@@ -412,6 +413,51 @@ def test_task_lease_excludes_other_holder_and_can_be_released(tmp_path) -> None:
             ledger.release_lease("task:test", lease_token="lease:wrong")
         ledger.release_lease("task:test", lease_token=token)
         assert ledger.acquire_lease("task:test", holder_id="pump:two")
+
+
+def test_tool_receipt_budget_is_idempotent_and_rolls_back_when_exhausted(tmp_path) -> None:
+    limited = envelope().model_copy(
+        update={
+            "budget": TaskBudgetLimits(max_tool_calls=1, max_estimated_cost=10),
+        }
+    )
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(limited)
+        first = ToolReceipt(
+            receipt_id="receipt:read.1",
+            task_id="task:test",
+            task_version=1,
+            activation_id="activation:test",
+            tool_call_id="call:read.1",
+            tool_name="inspect_source",
+            permission_phase="p0_read",
+            outcome="succeeded",
+            input_hash=HASH_A,
+            output_hash=HASH_B,
+            project_revision_before=0,
+            project_revision_after=0,
+            started_at=NOW,
+            finished_at=LATER,
+        )
+        persisted = ledger.record_tool_receipt(first)
+        assert persisted.budget.usage.tool_calls == 1
+        assert ledger.record_tool_receipt(first) == persisted
+
+        second = first.model_copy(
+            update={
+                "receipt_id": "receipt:read.2",
+                "tool_call_id": "call:read.2",
+            }
+        )
+        with pytest.raises(StorageProblem) as caught:
+            ledger.record_tool_receipt(second)
+        assert caught.value.code == StorageErrorCode.TASK_BUDGET_EXCEEDED
+        assert ledger.get_task("task:test") == persisted
+        stored = project._assert_writer().execute(  # noqa: SLF001
+            "SELECT COUNT(*) FROM agent_tool_receipts_v2"
+        ).fetchone()
+        assert stored is not None and int(stored[0]) == 1
 
 
 def test_duplicate_task_id_with_different_envelope_is_rejected(tmp_path) -> None:

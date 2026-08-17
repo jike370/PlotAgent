@@ -11,9 +11,14 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from plotagent.contracts.agent_tasks import (
     AgentActivation,
+    ExecutionGrant,
     PermissionPhase,
+    SideEffectReceipt,
+    TaskBudgetUsage,
     TaskCheckpoint,
+    TaskError,
     TaskState,
+    ToolReceipt,
     VerificationReportId,
 )
 from plotagent.contracts.agent_tools import (
@@ -87,6 +92,7 @@ class ToolExecutionOutput:
     verification_report_ids: tuple[VerificationReportId, ...] = ()
     warnings: tuple[ToolWarning, ...] = ()
     side_effect: ToolSideEffect = "none"
+    side_effects: tuple[SideEffectReceipt, ...] = ()
     disclosed_field_count: int = 0
     disclosed_row_count: int = 0
     disclosed_scalar_count: int = 0
@@ -118,6 +124,21 @@ def _iso(value: datetime) -> str:
 
 def _datetime(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+
+
+def _budget_usage_values(usage: TaskBudgetUsage) -> tuple[int | float, ...]:
+    return (
+        usage.model_calls,
+        usage.model_turns,
+        usage.input_tokens,
+        usage.output_tokens,
+        usage.tool_calls,
+        usage.disclosed_scalars,
+        usage.origin_sessions,
+        usage.repair_attempts,
+        usage.wall_time_ms,
+        usage.estimated_cost,
+    )
 
 
 class ToolGateway:
@@ -229,6 +250,7 @@ class ToolGateway:
         arguments: JsonValue,
         activation: AgentActivation,
         checkpoint: TaskCheckpoint,
+        execution_grant: ExecutionGrant | None = None,
     ) -> AgentToolResult:
         started = self._clock()
         registered = self._tools.get(invocation.tool_name)
@@ -248,6 +270,7 @@ class ToolGateway:
             checkpoint,
             registered,
             now=started,
+            execution_grant=execution_grant,
         )
         if protocol_error is not None:
             return self._failure(invocation, started, **protocol_error)
@@ -366,6 +389,7 @@ class ToolGateway:
                 verification_report_ids=output.verification_report_ids,
                 warnings=output.warnings,
                 side_effect=output.side_effect,
+                side_effects=output.side_effects,
                 disclosed_field_count=output.disclosed_field_count,
                 disclosed_row_count=output.disclosed_row_count,
                 disclosed_scalar_count=output.disclosed_scalar_count,
@@ -382,6 +406,115 @@ class ToolGateway:
                 retryable=False,
                 requires_user=False,
             )
+
+    def build_receipt(
+        self,
+        *,
+        invocation: ToolInvocation,
+        result: AgentToolResult,
+        checkpoint: TaskCheckpoint,
+        project_revision_after: int | None = None,
+    ) -> ToolReceipt:
+        """Project one validated result into the durable task receipt contract."""
+
+        if (
+            result.tool_call_id != invocation.tool_call_id
+            or result.task_id != invocation.task_id
+            or result.task_version != invocation.task_version
+            or result.activation_id != invocation.activation_id
+            or result.tool_name != invocation.tool_name
+        ):
+            raise ToolGatewayError("tool result does not match its invocation")
+        if (
+            checkpoint.task_id != invocation.task_id
+            or checkpoint.task_version != invocation.task_version
+        ):
+            raise ToolGatewayError("tool receipt checkpoint is stale")
+        revision_after = (
+            checkpoint.project_revision
+            if project_revision_after is None
+            else project_revision_after
+        )
+        if result.side_effect in {"none", "staged"} and (
+            revision_after != checkpoint.project_revision
+        ):
+            raise ToolGatewayError("read and staged tools cannot change the project revision")
+        if result.side_effect == "committed" and revision_after <= checkpoint.project_revision:
+            raise ToolGatewayError("committed tools must advance the project revision")
+        error = self._task_error(result.error) if result.error is not None else None
+        registered = self._tools.get(invocation.tool_name)
+        elapsed_ms = max(
+            0,
+            int(
+                (
+                    _datetime(result.completed_at) - _datetime(result.started_at)
+                ).total_seconds()
+                * 1_000
+            ),
+        )
+        return ToolReceipt(
+            receipt_id=f"receipt:{canonical_hash(invocation.tool_call_id)[:32]}",
+            task_id=invocation.task_id,
+            task_version=invocation.task_version,
+            activation_id=invocation.activation_id,
+            item_id=invocation.item_id,
+            tool_call_id=invocation.tool_call_id,
+            tool_name=invocation.tool_name,
+            permission_phase=invocation.permission_phase,
+            outcome="succeeded" if result.status == "succeeded" else "failed",
+            idempotency_key=invocation.idempotency_key,
+            input_hash=invocation.arguments_hash,
+            output_hash=result.output_hash,
+            project_revision_before=checkpoint.project_revision,
+            project_revision_after=revision_after,
+            side_effects=result.side_effects,
+            budget_delta=TaskBudgetUsage(
+                tool_calls=1,
+                disclosed_scalars=result.disclosed_scalar_count,
+                origin_sessions=(
+                    1 if registered is not None and registered.contract.uses_origin else 0
+                ),
+                wall_time_ms=elapsed_ms,
+            ),
+            error=error,
+            started_at=result.started_at,
+            finished_at=result.completed_at,
+        )
+
+    @staticmethod
+    def _task_error(error: AgentToolError) -> TaskError:
+        if error.category == "TRANSIENT":
+            category = "transient_external"
+        elif error.category == "USER_INPUT_REQUIRED":
+            category = "semantic_conflict"
+        elif error.category == "UNSUPPORTED":
+            category = "unsupported"
+        elif "BUDGET" in error.code:
+            category = "budget"
+        elif "STALE" in error.code or "VERSION" in error.code:
+            category = "stale_or_concurrent"
+        elif "PERMISSION" in error.code or "GRANT" in error.code:
+            category = "safety_or_permission"
+        elif error.category == "AGENT_REPAIRABLE":
+            category = "deterministic_technical"
+        else:
+            category = "runtime"
+        requires_user = error.requires_user or category == "safety_or_permission"
+        side_effect_state = {
+            "none": "known_none",
+            "staged": "known_applied",
+            "committed": "known_applied",
+            "unknown": "unknown",
+        }[error.side_effect_state]
+        return TaskError(
+            code=error.code,
+            category=category,  # type: ignore[arg-type]
+            message=error.message,
+            retryable=error.retryable,
+            requires_user=requires_user,
+            side_effect_state=side_effect_state,  # type: ignore[arg-type]
+            diagnostic_id=error.diagnostic_id,
+        )
 
     @staticmethod
     def _side_effect_matches(
@@ -406,6 +539,7 @@ class ToolGateway:
         registered: _RegisteredTool,
         *,
         now: datetime,
+        execution_grant: ExecutionGrant | None,
     ) -> _FailureSpec | None:
         if (
             invocation.task_id != activation.task_id
@@ -465,7 +599,22 @@ class ToolGateway:
                 "retryable": False,
                 "requires_user": False,
             }
-        if activation.task_budget != checkpoint.budget:
+        if invocation.expected_project_revision != checkpoint.project_revision:
+            return {
+                "code": "TOOL_PROJECT_REVISION_STALE",
+                "category": "FATAL",
+                "message": "Tool invocation targets a stale project revision.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        if activation.task_budget.limits != checkpoint.budget.limits or any(
+            initial > current
+            for initial, current in zip(
+                _budget_usage_values(activation.task_budget.usage),
+                _budget_usage_values(checkpoint.budget.usage),
+                strict=True,
+            )
+        ):
             return {
                 "code": "TOOL_BUDGET_SNAPSHOT_STALE",
                 "category": "FATAL",
@@ -473,6 +622,15 @@ class ToolGateway:
                 "retryable": False,
                 "requires_user": False,
             }
+        grant_error = ToolGateway._grant_error(
+            invocation,
+            activation,
+            checkpoint,
+            execution_grant,
+            now=now,
+        )
+        if grant_error is not None:
+            return grant_error
         if invocation.tool_name not in activation.allowed_tools:
             return {
                 "code": "TOOL_PERMISSION_DENIED",
@@ -515,6 +673,70 @@ class ToolGateway:
                 "code": "TOOL_ORIGIN_BUDGET_EXHAUSTED",
                 "category": "FATAL",
                 "message": "The task Origin-session budget is exhausted.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        return None
+
+    @staticmethod
+    def _grant_error(
+        invocation: ToolInvocation,
+        activation: AgentActivation,
+        checkpoint: TaskCheckpoint,
+        grant: ExecutionGrant | None,
+        *,
+        now: datetime,
+    ) -> _FailureSpec | None:
+        committed = invocation.permission_phase in {"p2_confirmed", "p3_expanded"}
+        if not committed:
+            if grant is not None:
+                return {
+                    "code": "TOOL_GRANT_UNEXPECTED",
+                    "category": "FATAL",
+                    "message": "Read and staged tools cannot consume an execution grant.",
+                    "retryable": False,
+                    "requires_user": False,
+                }
+            return None
+        if grant is None or invocation.execution_grant_id != grant.grant_id:
+            return {
+                "code": "TOOL_GRANT_REQUIRED",
+                "category": "FATAL",
+                "message": "Committed tool invocation lacks its Core-issued execution grant.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        if (
+            grant.task_id != invocation.task_id
+            or grant.task_version != invocation.task_version
+            or grant.expected_project_revision != checkpoint.project_revision
+            or invocation.expected_project_revision != checkpoint.project_revision
+            or grant.permission_phase != activation.permission_phase
+        ):
+            return {
+                "code": "TOOL_GRANT_STALE",
+                "category": "FATAL",
+                "message": "Execution grant is stale or belongs to another task revision.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        if grant.expires_at is not None and now >= _datetime(grant.expires_at):
+            return {
+                "code": "TOOL_GRANT_EXPIRED",
+                "category": "FATAL",
+                "message": "Execution grant has expired.",
+                "retryable": False,
+                "requires_user": False,
+            }
+        scope = next(
+            (scope for scope in grant.scopes if scope.item_id == invocation.item_id),
+            None,
+        )
+        if scope is None or invocation.tool_name not in scope.operations:
+            return {
+                "code": "TOOL_GRANT_SCOPE_DENIED",
+                "category": "FATAL",
+                "message": "Tool or task item is outside the execution grant scope.",
                 "retryable": False,
                 "requires_user": False,
             }

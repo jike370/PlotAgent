@@ -537,6 +537,13 @@ STABLE_ERROR_REGISTRY = ErrorRegistry(
             "An idempotency key was reused for a different request.",
         ),
         _error(
+            "TASK_BUDGET_EXCEEDED",
+            "W2_DATA",
+            False,
+            "blocked",
+            "A durable task budget would be exceeded by the requested operation.",
+        ),
+        _error(
             "ARCHIVE_UNSAFE_PATH",
             "W2_DATA",
             False,

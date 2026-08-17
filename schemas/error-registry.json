@@ -274,6 +274,13 @@
       "retryable": false
     },
     {
+      "code": "TASK_BUDGET_EXCEEDED",
+      "default_severity": "blocked",
+      "description": "A durable task budget would be exceeded by the requested operation.",
+      "owner": "W2_DATA",
+      "retryable": false
+    },
+    {
       "code": "ARCHIVE_UNSAFE_PATH",
       "default_severity": "blocked",
       "description": "A package entry has an absolute, traversing, reserved, or unknown path.",
