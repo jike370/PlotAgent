@@ -13,16 +13,19 @@
 - 用户显式选择图类；Agent 不在未选图时自行猜图。
 - 支持 CSV/TSV/TXT/DAT 以及多工作表 Excel 的只读导入；仪器前导信息、数据块与尾部元数据分离保存。
 - 支持“一批来源分别画图”和已声明 Profile 的“多份同构数据绘在同一张图”。后者是单图的数据合并，不是组合图。
-- 原始 SourceDataset 永不修改。筛选、排序、宽长转换、同构拼接和登记的固定计算只产生新的只读 EngineDataView。
+- 原始 SourceDataset 永不修改。Agent 可以规划筛选、排序、字段选择、受控派生、宽长转换、同构拼接和单位换算；程序以强类型工具预演并在确认后产生新的只读 PreparedDataView。
+- 导入器只机械识别结构、类型、单位候选和来源坐标，不根据自然语言或列名猜测业务语义。
 
 ## C. 唯一编排链
 
 - 正式链路为 `WorkflowRun → WorkflowContext → TaskDraft → TaskPlan → confirmation → execution`。
-- WorkflowRouter 依次尝试确定性规则、用户明确保存的 WorkflowRecipe、Pi 单轮规划和 Pi 有界探索；简单任务不得无条件调用模型。
-- Pi 可调用 `inspect_source`、`preview_rows`、`profile_field`、`compare_schemas` 四个只读工具；不能访问路径、文件系统、数据库、Shell、Python、Origin 或 renderer 对象。
+- 任意自然语言原样进入 Pi；前端、WorkflowRouter、Core 和预检查层不得通过正则、关键词、别名表或字段打分解释、补写或改写用户目标。
+- Pi 从一轮直接提交开始，只有需要事实时才调用有界只读/预演工具；成本由实际工具与轮次自然分级，而不是程序先理解文本来分级。
+- Pi 可调用有界的数据检查、仪器元数据检查和数据处理预演工具；不能访问路径、文件系统、数据库、Shell、Python、Origin 或 renderer 对象。
 - Pi 只能提交 TaskDraft。真实字段 ID、plot version、动作 ID 和幂等键由本地 TaskCompiler 绑定。
+- Pi 信息不足时通过结构化 `ask_user` 暂停并续跑同一 WorkflowRun；Core 校验失败时可在预算内修订 Draft。
 - 用户确认前零副作用；批量部分失败保留成功项，继续执行不重复成功项。
-- 用户完成并导出一次任务后，可以明确选择固化 WorkflowRecipe；未经确认不得静默学习或跨项目保存偏好。
+- 用户完成并导出一次任务后，可以明确选择固化 WorkflowRecipe；未经确认不得静默学习、自动重放或跨项目保存偏好。
 
 ## D. 硬切换
 
@@ -51,6 +54,7 @@
 - 确认卡显示前几行只读数据、列名上方字段角色、逐任务图类和视觉改动。
 - 执行时显示真实阶段，例如读取数据、字段绑定、生成 TaskDraft、本地校验、渲染、保存版本和导出。
 - 所有已提交改图都支持撤销/重做；错误必须说明失败阶段、影响范围和可执行恢复动作。
+- 数据处理确认必须显示输入/输出 schema、行列变化、单位变化和预览；当前图的数据重绑定产生可撤销的新版本，不能伪装成纯视觉编辑。
 
 ## H. 输出与安全
 

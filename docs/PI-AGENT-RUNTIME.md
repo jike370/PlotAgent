@@ -5,22 +5,26 @@
 ## 1. 调用链
 
 1. Electron 向 Core 调用 `workflow.prepare`。
-2. Core 先尝试确定性规则和 WorkflowRecipe。
-3. 只有仍需语义判断时，Core 返回 `agent_required`、有界 `WorkflowContext`、TaskDraft Schema、轮次/工具预算和系统约束。
-4. Pi 可以调用 `inspect_source`、`preview_rows`、`profile_field`、`compare_schemas` 四个只读工具。
-5. Pi 必须以 `submit_task_draft` 提交唯一完整 TaskDraft。
-6. Core 严格校验并编译为 TaskPlan；确认后才执行。
+2. Core 对任意自然语言请求返回 `agent_required`、原始 instruction、有界 `WorkflowContext`、TaskDraft Schema、工具和预算；不预解析 instruction。
+3. Pi 先尝试一轮直接规划，需要事实时再调用只读检查或数据处理预演工具。
+4. Pi 信息不足时调用 `ask_user` 暂停同一 WorkflowRun；用户回答后续跑。
+5. Pi 以 `validate_task_draft` 预检并用 `submit_task_draft` 提交唯一完整 TaskDraft。
+6. Core 严格校验并编译为 TaskPlan；确认后才正式执行数据操作和绘图。
+
+用户直接操作结构化 UI 或明确选择 WorkflowRecipe 时可以不调用 Pi，但仍进入同一 TaskDraft/TaskPlan 链。
 
 ## 2. Pi 的职责与权限
 
-Pi 负责目标拆解、必要的数据理解、受控数据处理规划和自然语言到结构化绘图参数的翻译。Pi 不拥有文件系统、SQL、Shell、Python、Origin、renderer 或导出路径权限，也不能绕开本地确认和 EngineCatalog。
+Pi 负责目标拆解、数据/图形指代理解、必要的数据读取、受控数据处理规划、单位目标选择、失败修复策略和自然语言到结构化绘图参数的翻译。Pi 不拥有文件系统、SQL、Shell、Python、Origin、renderer 或导出路径权限，也不能绕开本地确认和 EngineCatalog。
 
-只读工具接受安全别名，不接受路径或内部 renderer 对象。工具调用和披露标量数受 WorkflowBudget 约束；超预算立即终止当前 run，不执行部分草稿。
+只读和预演工具接受安全别名，不接受路径或内部 renderer 对象。工具调用和披露标量数受 WorkflowBudget 约束；超预算时提出最小问题或停止，不执行部分草稿。预演不修改项目，正式数据处理只在用户确认后由 Core 执行。
+
+Pi 运行时不得通过关键词或正则先决定工具、数据源、图类、单轮/多轮路线或重试目标；也不得因为某次程序预检查而移除 Agent 后续可用工具。
 
 ## 3. 运行时结果
 
 - `draft_ready`：得到完整 TaskDraft 和本地 TaskPlan。
-- `needs_input`：仅提出完成目标所必需的少量问题。
+- `needs_input`：通过结构化问题提出完成目标所必需的少量信息，并可在回答后续跑同一 WorkflowRun。
 - `unsupported`：目标超出当前产品权限或图类能力。
 - Provider/超时错误：保持项目 revision 不变，允许用户明确重试。
 
@@ -28,4 +32,4 @@ Pi 的消息、工具 transcript 和隐藏推理不是项目真相。只有 Core
 
 ## 4. 可替换性门禁
 
-任何其他 Agent runtime 只要能够消费 WorkflowContext、遵守预算、调用同一只读工具并提交 TaskDraft，即可替换 Pi。替换不得改变 TaskDraft Schema、TaskCompiler、TaskPlan、确认、执行、恢复或渲染器合同。
+任何其他 Agent runtime 只要能够消费 WorkflowContext、遵守预算、调用同一检查/预演/追问工具并提交 TaskDraft，即可替换 Pi。替换不得改变 TaskDraft Schema、TaskCompiler、TaskPlan、确认、执行、恢复或渲染器合同。
