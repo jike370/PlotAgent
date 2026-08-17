@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Literal, TypedDict, cast
@@ -221,7 +222,9 @@ class DurableAgentCoreHost:
                 "ACTIVATION_NOT_PREPARED",
                 "The activation context must be prepared before validating a yield.",
             )
-        yielded = AGENT_YIELD_ADAPTER.validate_json(canonical_json(candidate))
+        yielded = AGENT_YIELD_ADAPTER.validate_json(
+            canonical_json(self._with_core_owned_intent_hash(candidate))
+        )
         activation = runtime.activation
         if (
             yielded.activation_id != activation.activation_id
@@ -246,6 +249,20 @@ class DurableAgentCoreHost:
                 )
             self._compile_intent(intent, runtime.workflow_context)
         return yielded
+
+    @staticmethod
+    def _with_core_owned_intent_hash(candidate: JsonValue) -> JsonValue:
+        """Derive the integrity hash after the model has supplied semantic intent fields."""
+
+        normalized = deepcopy(candidate)
+        if not isinstance(normalized, dict) or normalized.get("outcome") != "intent_ready":
+            return normalized
+        raw_intent = normalized.get("intent")
+        if not isinstance(raw_intent, dict):
+            return normalized
+        payload = {key: value for key, value in raw_intent.items() if key != "content_hash"}
+        raw_intent["content_hash"] = canonical_hash(cast(JsonValue, payload))
+        return normalized
 
     def accept_yield(self, yielded: AgentYield) -> TaskCheckpoint:
         """Accept one validated yield and durably project any intent into a plan."""
@@ -464,7 +481,9 @@ class DurableAgentCoreHost:
             "chart profile is authoritative. "
             "Return exactly one terminal AgentYield through submit_agent_yield. For intent_ready, "
             "produce a TaskIntent with explicit source aliases, field aliases, chart profile, "
-            "and requested visual actions. Ask only the minimum blocking question. Never execute, "
+            "and requested visual actions. Omit TaskIntent.content_hash; Core derives that "
+            "integrity field after validating the semantic payload. Ask only the minimum "
+            "blocking question. Never execute, "
             "export, invent paths, or emit backend commands. Use this Core-owned scaffold: "
             f"{canonical_json(cast(JsonValue, scaffold))}"
         )
@@ -474,7 +493,7 @@ class DurableAgentCoreHost:
         return {
             "context": runtime.context.model_dump(mode="json"),
             "system_prompt": self._system_prompt(runtime.context),
-            "yield_schema": AGENT_YIELD_ADAPTER.json_schema(mode="validation"),
+            "yield_schema": self._model_yield_schema(),
             "tools": [
                 {
                     "contract": definition.contract.model_dump(mode="json"),
@@ -484,6 +503,25 @@ class DurableAgentCoreHost:
                 for definition in definitions
             ],
         }
+
+    @staticmethod
+    def _model_yield_schema() -> dict[str, object]:
+        """Remove the Core-owned intent digest from the model-facing terminal schema."""
+
+        schema = deepcopy(AGENT_YIELD_ADAPTER.json_schema(mode="validation"))
+        definitions = schema.get("$defs")
+        if not isinstance(definitions, dict):
+            raise AgentFoundationError("YIELD_SCHEMA_INVALID", "Agent yield schema is invalid.")
+        task_intent = definitions.get("TaskIntent")
+        if not isinstance(task_intent, dict):
+            raise AgentFoundationError("YIELD_SCHEMA_INVALID", "TaskIntent schema is missing.")
+        properties = task_intent.get("properties")
+        required = task_intent.get("required")
+        if not isinstance(properties, dict) or not isinstance(required, list):
+            raise AgentFoundationError("YIELD_SCHEMA_INVALID", "TaskIntent schema is invalid.")
+        properties.pop("content_hash", None)
+        task_intent["required"] = [name for name in required if name != "content_hash"]
+        return cast(dict[str, object], schema)
 
 
 def _iso(value: datetime) -> str:

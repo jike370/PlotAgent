@@ -181,6 +181,12 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         system_prompt = cast(str, environment["system_prompt"])
         assert "bind them directly without calling inspection tools" in system_prompt
         assert "Inspect rows only when unresolved data shape" in system_prompt
+        assert "Core derives that integrity field" in system_prompt
+        yield_schema = cast(dict[str, object], environment["yield_schema"])
+        definitions = cast(dict[str, object], yield_schema["$defs"])
+        intent_schema = cast(dict[str, object], definitions["TaskIntent"])
+        assert "content_hash" not in cast(dict[str, object], intent_schema["properties"])
+        assert "content_hash" not in cast(list[str], intent_schema["required"])
         context = cast(dict[str, object], environment["context"])
         selected_sources = cast(list[dict[str, object]], context["selected_sources"])
         assert selected_sources == [
@@ -242,10 +248,13 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
                 )
             }
         )
-        validated = host.validate_yield(
-            activation_id, cast(JsonValue, candidate.model_dump(mode="json"))
-        )
+        model_candidate = candidate.model_dump(mode="json")
+        cast(dict[str, object], model_candidate["intent"]).pop("content_hash")
+        validated = host.validate_yield(activation_id, cast(JsonValue, model_candidate))
         assert validated.outcome == "intent_ready"
+        assert validated.intent.content_hash == canonical_hash(
+            validated.intent.model_dump(mode="json", exclude={"content_hash"})
+        )
         staged = host.accept_yield(validated)
         assert staged.state == "intent_staged"
         plan = ledger.get_plan(task_envelope.task_id)
