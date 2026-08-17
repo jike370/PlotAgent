@@ -29,7 +29,7 @@
 | 1 | 任务合同 | 已确认 | Agent 怎样知道目标、输入、约束、成功标准和交付物？ |
 | 2 | 领域说明 | 已确认 | 哪些绘图知识、科学边界和标准案例应提供给 Agent？ |
 | 3 | 上下文机制 | 已确认 | Agent 每轮能看到什么，怎样按需读取数据而不淹没上下文？ |
-| 4 | 运行循环 | 提案待确认 | Agent 怎样观察、行动、检查、修复、停止或追问？ |
+| 4 | 运行循环 | 已确认 | Agent 怎样观察、行动、检查、修复、停止或追问？ |
 | 5 | 工具体系 | 已确认 | Agent 需要哪些检查、整理、绘图、读回和交付工具？ |
 | 6 | 验证器 | 已确认 | 怎样独立证明数据、科学语义、图形和导出物正确？ |
 | 7 | 权限与回滚 | 已确认 | 哪些动作可自动执行，哪些需要确认，失败如何撤销？ |
@@ -1583,7 +1583,7 @@ Agent 不得为了少问一次而把示例中的常见做法套到当前数据�
 
 ## 13. 设计项 4：运行循环
 
-> 状态：提案待确认。本节用于讨论，尚不构成施工依据。
+> 状态：已确认。本节构成后续施工与验收依据。
 
 ### 13.0 总体判断：复用 Pi 内循环，自研耐久产品外循环
 
@@ -1891,7 +1891,7 @@ Agent 文本中的“完成”“应该可以”或 Pi `agent_end` 不参与完�
 
 这些参考提供自主循环、耐久等待和监督原则。PlotAgent 不引入云 Durable Functions，也不照搬其他 Agent 框架；Pi 是内循环，Core 的本地持久 TaskState 是产品外循环。
 
-### 13.19 本项待确认原则
+### 13.19 已确认原则
 
 1. 最大化复用 Pi 的模型—工具内循环，不自行重写通用 Agent loop；
 2. PlotAgent 自研耐久外循环，Core 的 TaskState 与真实环境结果是权威；
@@ -2027,6 +2027,23 @@ Agent 文本中的“完成”“应该可以”或 Pi `agent_end` 不参与完�
 - 用户提供的专业知识只进入当前 TaskIntent；冲突时展示证据并追问或报告不支持，不自动形成跨任务偏好。
 - 知识缺失、过期或合同冲突时 fail closed，不以模型训练记忆冒充产品能力。
 - 用户可见图类用途、数据要求、判断依据和具体追问，不暴露底层实现细节。
+
+### 2026-08-18：确认运行循环
+
+- Pi 完整承担模型调用、消息、工具选择与执行、turn、continue、steering/follow-up、abort 和上下文变换等通用 Agent 内循环。
+- PlotAgent 自研以 Core TaskState 为权威的耐久外循环，负责阶段、确认、授权、事务、验证、修复、预算、取消、恢复和完成条件。
+- 一次任务由多个版本化 AgentActivation 组成，不依赖常驻 Pi 会话跨越用户等待、Origin、桌面退出和 Provider 变化。
+- Pi 必须产生 typed AgentYield；无合法 yield 的 agent_end 不能改变产品任务状态或被视为完成。
+- 用户确认后由 Core 按冻结 TaskPlan 确定性执行，Pi 不逐条重新决定已确认动作。
+- VerificationReport 失败时按 scoped repair 再激活 Pi；冻结语义内技术修复可自动执行，字段、图类、统计定义或其他语义变化必须重新确认。
+- Main TaskPump 只协调 Core next action、Pi activation 和流式事件，不保存权威状态、不解释自然语言、不 busy polling。
+- steering/follow-up 负责消息送达，Core task version 与用户显式 UI 事件决定回答、修正和后续任务的边界。
+- 使用 per-activation 与 task-wide 双层预算，覆盖模型、数据披露、工具、Origin、修复、时长和成本。
+- retry 区分传输重试、工具 receipt reconcile 与 Agent 技术修复；写操作幂等，旧 activation、迟到 yield 和重复事件稳定拒绝。
+- 取消贯穿 UI、Pi、Core、工具、renderer 和本任务 Origin，在一致性边界停止并保留已成功 TaskItem。
+- 第一阶段保持单 Agent、每项目一个 writer、顺序工具和确定性 TaskItem 提交，不提前引入多 Agent 或写入并行。
+- completed_verified 只由必需验证 claim、receipt、交付物、最终 revision 和无未决状态共同决定。
+- 现有 PiAgentRuntime 渐进收敛为 PiRuntimeAdapter，不在一个提交中同时重写任务状态、工具、renderer 和前端。
 
 ## 文档更新规则
 
