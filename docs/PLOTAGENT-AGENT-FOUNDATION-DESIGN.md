@@ -32,7 +32,7 @@
 | 4 | 运行循环 | 待讨论 | Agent 怎样观察、行动、检查、修复、停止或追问？ |
 | 5 | 工具体系 | 已确认 | Agent 需要哪些检查、整理、绘图、读回和交付工具？ |
 | 6 | 验证器 | 已确认 | 怎样独立证明数据、科学语义、图形和导出物正确？ |
-| 7 | 权限与回滚 | 待讨论 | 哪些动作可自动执行，哪些需要确认，失败如何撤销？ |
+| 7 | 权限与回滚 | 提案待确认 | 哪些动作可自动执行，哪些需要确认，失败如何撤销？ |
 | 8 | 工作记忆 | 待讨论 | 一次任务中应记住哪些决定、结果和失败，哪些不得长期保存？ |
 | 9 | 可观察性 | 待讨论 | 用户和开发者怎样看到阶段、进度、原因、成本与结果？ |
 | 10 | 评测体系 | 待讨论 | 怎样证明 Agent 稳定、正确、可恢复，并控制时长和成本？ |
@@ -596,6 +596,145 @@ VerificationReport 保存：
 8. 冻结 TaskIntent 内的技术错误由 Agent 自动修，语义变化必须重新确认；
 9. 只修失败项并保留已通过项，技术预算和视觉修改预算分开；
 10. 所有必需门禁 PASS 后才能标记 `completed_verified`，部分通过只能标记 `partial`。
+
+## 8. 设计项 5：权限与回滚
+
+### 8.0 目标
+
+权限设计同时满足两点：Agent 能连续自主完成任务；一次确认不能变成对整个项目和文件系统的无限授权。
+
+采用“最小权限 + 分阶段能力授权”：用户确认 TaskIntent 时只确认任务语义和交付范围，Core 随后签发仅能完成该冻结版本的 ExecutionGrant。内部只读、临时整理和沙箱尝试不逐次弹窗。
+
+### 8.1 四级动作风险
+
+| 等级 | 动作 | 默认行为 |
+|---|---|---|
+| P0 | 读取项目目录、数据结构、原始行、图类合同和验证报告 | 在既有数据披露授权内自动执行 |
+| P1 | 创建临时 DataView/PlotHandle、沙箱渲染、机械验证 | 自动执行；只写 task staging，可取消和清理 |
+| P2 | 创建正式 DataView/Plot 版本、应用确认内编辑、生成确认内交付物 | 用户确认 TaskIntent 后由 ExecutionGrant 授权，不逐工具重复确认 |
+| P3 | 扩大数据源/对象范围、改变语义、发送新数据到远程、覆盖外部文件或写入未确认位置 | step-up 确认或生成 TaskIntent 新版本 |
+
+Agent 不获得物理删除项目历史、任意文件删除、任意路径写入、终止用户进程或任意代码执行权限。产品删除优先使用 archive/tombstone 和新项目 revision。
+
+### 8.2 ExecutionGrant
+
+ExecutionGrant 由 Core 持有，模型只能使用受它约束的工具，不能编辑授权本身。最低包含：
+
+```text
+grant_id
+task_id
+task_intent_version / hash
+project_id / expected_revision
+allowed_task_items
+allowed_sources / plots / profiles
+allowed_data_operations / bindings / visual_actions
+allowed_output_formats / destinations / overwrite_policy
+expires_at
+retry_and_cost_budget
+```
+
+以下情况立即使授权失效：用户取消、TaskIntent 语义变化、项目 revision 冲突、对象版本被外部修改、授权过期或预算耗尽。技术重试沿用同一语义授权；不能通过修改工具参数扩大 scope。
+
+### 8.3 Staging、原子提交与批量部分成功
+
+每个任务有隔离 staging workspace。确认前产生的 DataViewHandle、PlotHandle、预览和临时 OPJU 都在 staging 中，带 task/item 身份和 TTL，不进入正式项目目录。
+
+正式提交以 TaskItem 为最小事务：
+
+```text
+准备 staged 结果
+→ 验证
+→ 检查 expected project revision
+→ 原子登记 DataView + Plot/Artifact + VerificationReport
+→ 生成新 project revision
+```
+
+同一个 TaskItem 的数据与图必须一起成功或一起不发布。批量任务不使用全批 all-or-nothing：每个 TaskItem 独立原子提交，因此已通过项保留，失败项可以单独重试。
+
+### 8.4 幂等、重试与未知结果协调
+
+每个有副作用的逻辑步骤使用稳定 idempotency key：
+
+```text
+task_id + task_intent_version + task_item_id + logical_step
+```
+
+相同 key 和相同参数重复调用时返回第一次已记录结果，不重复创建对象或文件；相同 key 但参数不同必须拒绝。
+
+连接中断、超时或进程异常后，Core 先查询 StepReceipt 和最终对象状态，再决定返回既有结果、继续清理或安全重试。结果未知时禁止盲目重放写操作。技术 attempt 编号用于审计，但不能改变同一逻辑步骤的 idempotency key。
+
+### 8.5 取消和超时
+
+取消信号沿 `Pi → Core → tool → renderer/Origin automation` 传播。状态至少区分：
+
+- `cancel_requested`；
+- `cancelling`；
+- `cancelled_clean`；
+- `completed_before_cancel`；
+- `cleanup_required`。
+
+取消后停止启动新工具。正在执行的只读或 staged 操作在安全点中止并清理；数据库 commit、文件原子发布等短临界区不在中间强杀，完成后按实际结果报告。
+
+模型超时本身不能产生正式项目副作用。工具超时必须返回已知 side-effect 状态；若无法确认，进入协调/清理而不是自动重试。
+
+Origin 只终止本任务创建且身份可验证的自动化实例，绝不结束用户手工 Origin。取消或异常后释放自动化 lease、临时项目和文件句柄。
+
+### 8.6 撤销与外部文件
+
+项目内撤销通过不可变版本实现：撤销创建新的 project revision，恢复上一份 DataView/Plot 引用并保留审计历史，不原地反向修改或物理删除旧版本。
+
+导出文件先写到同卷临时路径，关闭句柄、验证完成后再原子发布到目标名。默认不覆盖；覆盖必须在确认卡中明确。外部文件一旦交付不能假装可由项目 undo 自动收回，UI 应显示路径并把删除/覆盖作为新的显式用户动作。
+
+### 8.7 并发与租约
+
+- 项目允许并发读取，但正式写入使用单写者 lease 和 expected revision；
+- 进程退出后通过 owner identity、heartbeat 和项目状态安全回收 stale lease；
+- revision 冲突时重新读取任务状态，不能静默覆盖或在语义对象变化后自动 rebase；
+- Origin 自动化使用独立全局 lease/队列并串行执行，不与用户 Origin 混用；
+- 多个不占 Origin 的只读/临时步骤可在预算允许时并行。
+
+### 8.8 用户体验和审计
+
+确认卡展示语义变化、正式对象和交付位置，不展示每个内部只读调用。任务运行中提供取消；完成结果提供撤销。只有扩大 scope、改变语义、覆盖文件或新增数据披露时再次确认。
+
+每次有副作用的调用记录 task/item、ExecutionGrant、idempotency key、输入/输出 hash、before/after revision、工具 session、side effect、验证结果、取消/超时和操作者。
+
+### 8.9 设计依据
+
+- [NIST：least privilege](https://csrc.nist.gov/glossary/term/least_privilege) 要求只授予完成任务所需的最小资源和权限，对应按任务范围签发 ExecutionGrant。
+- [OpenAI《A practical guide to building agents》](https://openai.com/business/guides-and-resources/a-practical-guide-to-building-ai-agents/) 建议按只读/写入、可逆性和影响为工具分级，并对高风险动作设置人工介入。
+- [MCP 2025-11-25 Security](https://modelcontextprotocol.io/specification/2025-11-25) 强调用户同意、数据控制、访问控制和工具安全；[MCP Authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization) 采用最小 scope、资源绑定和 step-up authorization。
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/cli-usage) 公开区分 allowed/disallowed tools、permission mode、最大轮次、continue/resume 和详细 trace，说明成熟 Agent 产品把权限、预算、恢复和可观察性作为运行时能力。
+- [Stripe Idempotent Requests](https://docs.stripe.com/api/idempotent_requests) 使用 idempotency key 保存首次执行结果并拒绝同 key 不同参数，支持网络失败后的安全重试。
+- Garcia-Molina 与 Salem 的 [Sagas](https://www.cs.princeton.edu/research/techreps/598) 将长任务拆成可独立提交的步骤，并在部分执行后用补偿恢复；PlotAgent 采用每 TaskItem 原子提交和不可变版本恢复，而不是持有一个覆盖整轮模型运行的长事务。
+
+PlotAgent 的 TaskIntent 单次集中确认、DataView/Plot 不可变版本、外部导出不可假装自动撤销、Origin 自动化与用户实例隔离，是针对本产品的具体取舍。
+
+### 8.10 当前基线与缺口
+
+当前已有项目 revision、部分 undo/redo、单写者控制、engine staging/readback、Pi abort/generation 和部分 Origin 自动化清理。
+
+仍需统一：
+
+- 与冻结 TaskIntent 绑定的 ExecutionGrant；
+- 所有写工具共享的 idempotency key 与 StepReceipt；
+- Agent、Core、renderer 和 Origin 的端到端取消状态；
+- DataView + Plot + VerificationReport 的 TaskItem 原子提交；
+- stale writer/Origin lease 的确定恢复规则；
+- 项目 undo 与外部导出边界的统一 UI 和审计。
+
+### 8.11 本项待确认原则
+
+1. P0 只读和 P1 staged 操作自动执行；P2 在 TaskIntent 集中确认后执行；P3 扩权或改变语义再次确认；
+2. 用户确认后由 Core 签发绑定任务版本、对象、动作、输出和预算的最小 ExecutionGrant；
+3. 每个 TaskItem 独立原子提交，批量任务保留部分成功；
+4. 所有写操作使用稳定 idempotency key，并在重试前协调实际结果；
+5. 取消和超时端到端传播，但不在数据库/文件原子发布临界区强杀；
+6. Origin 只控制可验证属于本任务的自动化实例，绝不终止用户 Origin；
+7. 项目撤销通过不可变 revision 恢复，不物理删除历史；
+8. 导出先 staged、验证再原子发布，默认不覆盖，外部文件不伪装成可由项目 undo 自动收回；
+9. 项目单写者和 Origin 自动化使用可恢复 lease，revision 冲突不静默覆盖；
+10. 确认卡只展示语义和正式副作用，内部工具不重复弹窗；所有副作用完整审计。
 
 ## 已确认决定日志
 
