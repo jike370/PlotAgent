@@ -121,14 +121,10 @@ function modelFor(provider: PiRuntimeProviderV2): Model<'openai-completions'> {
   let samplingParams: Record<string, unknown> | undefined
   try {
     const host = new URL(provider.baseUrl).hostname.toLocaleLowerCase('en-US')
-    if (
-      host === 'api.deepseek.com'
-      || host === 'dashscope.aliyuncs.com'
-      || host.endsWith('.maas.aliyuncs.com')
-    ) {
-      // These hybrid providers enable thinking by default for some models. Planning is a
-      // constrained tool-selection task; disabling thinking avoids long hidden-reasoning
-      // stalls and keeps Function Calling within the interactive activation budget.
+    if (host === 'api.deepseek.com') {
+      samplingParams = { thinking: { type: 'disabled' } }
+    } else if (host === 'dashscope.aliyuncs.com' || host.endsWith('.maas.aliyuncs.com')) {
+      // Alibaba's OpenAI-compatible API uses a different thinking toggle.
       samplingParams = { enable_thinking: false }
     }
   } catch {

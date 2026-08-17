@@ -263,9 +263,12 @@ function terminalArguments(candidate: AgentYieldContract): Record<string, JsonVa
 
 describe('PiRuntimeAdapterV2', () => {
   it.each([
-    'https://api.deepseek.com',
-    'https://workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
-  ])('uses bounded non-thinking Function Calling for %s', async (baseUrl) => {
+    ['https://api.deepseek.com', { thinking: { type: 'disabled' } }],
+    [
+      'https://workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+      { enable_thinking: false },
+    ],
+  ])('uses bounded non-thinking Function Calling for %s', async (baseUrl, samplingParams) => {
     const input = activation({ allowed_tools: [] })
     const candidate = needsInput(input)
     const base = environment(input)
@@ -292,7 +295,7 @@ describe('PiRuntimeAdapterV2', () => {
     expect(models).toHaveLength(1)
     expect(models[0]).toMatchObject({
       maxTokens: 2_048,
-      samplingParams: { enable_thinking: false },
+      samplingParams,
     })
   })
 
