@@ -30,6 +30,7 @@ from plotagent.storage.models import (
 from plotagent.storage.schema import (
     PROJECT_SCHEMA_VERSION,
     initialize_project_schema,
+    migrate_project_schema,
     validate_schema,
 )
 from plotagent.storage.workspace import ensure_local_fixed_workspace
@@ -265,6 +266,7 @@ class ProjectStore:
                     raise ValueError("project_id is required when initializing")
                 initialize_project_schema(self._connection, project_id, _utc_now())
             else:
+                migrate_project_schema(self._connection)
                 validate_schema(
                     self._connection,
                     PROJECT_SCHEMA_VERSION,

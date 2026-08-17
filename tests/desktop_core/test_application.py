@@ -62,6 +62,57 @@ def _create_open(harness: ApplicationHarness) -> tuple[str, int]:
     return project_id, cast(int, opened["project_version"])
 
 
+def test_agent_task_v2_api_persists_checkpoint_and_events(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, _revision = _create_open(harness)
+    envelope = {
+        "schema_version": "task-envelope.v2",
+        "task_id": "task:desktop-api",
+        "task_version": 1,
+        "project_id": project_id,
+        "project_revision": 0,
+        "original_instruction": "Create a line chart.",
+        "locale": "zh-CN",
+        "selected_source_ids": ["source:test"],
+        "selected_plots": [],
+        "selected_profile_ids": ["K01"],
+        "authorized_resources": [],
+        "budget": {"max_estimated_cost": 10},
+        "created_at": "2026-08-18T10:00:00Z",
+    }
+    created = harness.call(
+        "agent.tasks.create",
+        {"project_id": project_id, "envelope": envelope},
+    )
+    assert created["state"] == "created"
+    advanced = harness.call(
+        "agent.tasks.advance",
+        {
+            "project_id": project_id,
+            "task_id": "task:desktop-api",
+            "expected_task_version": 1,
+            "next_state": "investigating",
+            "reason_code": "API_TEST",
+        },
+    )
+    assert advanced["task_version"] == 2
+    assert harness.call(
+        "agent.tasks.list", {"project_id": project_id, "state": "investigating"}
+    )["tasks"] == [advanced]
+    events = harness.call(
+        "agent.tasks.events", {"project_id": project_id, "task_id": "task:desktop-api"}
+    )["events"]
+    assert [event["sequence"] for event in events] == [1, 2]
+
+    harness.call("projects.close", {"project_id": project_id})
+    harness.call("projects.open", {"project_id": project_id})
+    restored = harness.call(
+        "agent.tasks.get", {"project_id": project_id, "task_id": "task:desktop-api"}
+    )
+    assert restored == advanced
+
+
 def _import_dataset(
     harness: ApplicationHarness,
     project_id: str,

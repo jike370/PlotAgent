@@ -6,7 +6,8 @@ import sqlite3
 
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 
-PROJECT_SCHEMA_VERSION = 5
+PROJECT_SCHEMA_VERSION = 6
+PREVIOUS_PROJECT_SCHEMA_VERSION = 5
 CATALOG_SCHEMA_VERSION = 2
 
 PROJECT_SCHEMA = """
@@ -195,7 +196,122 @@ CREATE INDEX workflow_recipe_match_idx
     ON workflow_recipes(structure_fingerprint, goal_signature, archived);
 """
 
-PROJECT_SCHEMA += WORKFLOW_RUNTIME_SCHEMA
+TASK_LEDGER_SCHEMA = """
+CREATE TABLE IF NOT EXISTS agent_tasks_v2 (
+    task_id TEXT PRIMARY KEY,
+    task_version INTEGER NOT NULL CHECK (task_version > 0),
+    project_id TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN (
+        'created', 'investigating', 'awaiting_input', 'intent_staged',
+        'awaiting_confirmation', 'executing', 'verifying', 'repairing',
+        'awaiting_reconfirmation', 'delivering', 'partial', 'blocked',
+        'unsupported', 'cancelling', 'cancelled', 'rejected', 'failed',
+        'completed_verified'
+    )),
+    project_revision INTEGER NOT NULL CHECK (project_revision >= 0),
+    envelope_hash TEXT NOT NULL CHECK (length(envelope_hash) = 64),
+    envelope_json TEXT NOT NULL,
+    checkpoint_hash TEXT NOT NULL CHECK (length(checkpoint_hash) = 64),
+    checkpoint_json TEXT NOT NULL,
+    next_event_sequence INTEGER NOT NULL CHECK (next_event_sequence > 0),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS agent_tasks_v2_state_idx
+ON agent_tasks_v2(state, updated_at DESC, task_id);
+
+CREATE TABLE IF NOT EXISTS agent_task_intents_v2 (
+    intent_id TEXT NOT NULL,
+    intent_version INTEGER NOT NULL CHECK (intent_version > 0),
+    task_id TEXT NOT NULL REFERENCES agent_tasks_v2(task_id) ON DELETE RESTRICT,
+    task_version INTEGER NOT NULL CHECK (task_version > 0),
+    content_hash TEXT NOT NULL CHECK (length(content_hash) = 64),
+    intent_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (intent_id, intent_version),
+    UNIQUE (task_id, task_version, content_hash)
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS agent_task_intents_v2_task_idx
+ON agent_task_intents_v2(task_id, intent_version DESC);
+
+CREATE TABLE IF NOT EXISTS agent_activations_v2 (
+    activation_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES agent_tasks_v2(task_id) ON DELETE RESTRICT,
+    task_version INTEGER NOT NULL CHECK (task_version > 0),
+    status TEXT NOT NULL CHECK (status IN (
+        'requested', 'running', 'yielded', 'aborted', 'runtime_failed'
+    )),
+    activation_json TEXT NOT NULL,
+    yield_json TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS agent_activations_v2_task_idx
+ON agent_activations_v2(task_id, created_at, activation_id);
+
+CREATE TABLE IF NOT EXISTS agent_task_events_v2 (
+    event_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES agent_tasks_v2(task_id) ON DELETE RESTRICT,
+    task_version INTEGER NOT NULL CHECK (task_version > 0),
+    sequence INTEGER NOT NULL CHECK (sequence > 0),
+    event_type TEXT NOT NULL,
+    event_json TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    UNIQUE (task_id, sequence)
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS agent_task_events_v2_task_idx
+ON agent_task_events_v2(task_id, sequence);
+
+CREATE TABLE IF NOT EXISTS agent_task_checkpoints_v2 (
+    checkpoint_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES agent_tasks_v2(task_id) ON DELETE RESTRICT,
+    task_version INTEGER NOT NULL CHECK (task_version > 0),
+    event_sequence INTEGER NOT NULL CHECK (event_sequence >= 0),
+    content_hash TEXT NOT NULL CHECK (length(content_hash) = 64),
+    checkpoint_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (task_id, event_sequence)
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS agent_tool_receipts_v2 (
+    receipt_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES agent_tasks_v2(task_id) ON DELETE RESTRICT,
+    task_version INTEGER NOT NULL CHECK (task_version > 0),
+    tool_call_id TEXT NOT NULL,
+    input_hash TEXT NOT NULL CHECK (length(input_hash) = 64),
+    receipt_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (task_id, tool_call_id)
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS agent_verification_reports_v2 (
+    report_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES agent_tasks_v2(task_id) ON DELETE RESTRICT,
+    task_version INTEGER NOT NULL CHECK (task_version > 0),
+    item_id TEXT,
+    status TEXT NOT NULL CHECK (status IN ('passed', 'failed', 'blocked', 'unknown')),
+    content_hash TEXT NOT NULL CHECK (length(content_hash) = 64),
+    report_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS agent_verification_reports_v2_task_idx
+ON agent_verification_reports_v2(task_id, item_id, created_at);
+
+CREATE TABLE IF NOT EXISTS agent_task_leases_v2 (
+    task_id TEXT PRIMARY KEY REFERENCES agent_tasks_v2(task_id) ON DELETE CASCADE,
+    lease_token TEXT NOT NULL UNIQUE,
+    holder_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    acquired_at TEXT NOT NULL
+) STRICT;
+"""
+
+PROJECT_SCHEMA += WORKFLOW_RUNTIME_SCHEMA + TASK_LEDGER_SCHEMA
 
 CATALOG_SCHEMA = """
 CREATE TABLE schema_info (
@@ -253,8 +369,43 @@ def initialize_catalog_schema(connection: sqlite3.Connection) -> None:
     connection.execute(f"PRAGMA user_version = {CATALOG_SCHEMA_VERSION}")
 
 
+def migrate_project_schema(connection: sqlite3.Connection) -> None:
+    """Apply the single supported additive project migration in one transaction."""
+
+    try:
+        rows = dict(connection.execute("SELECT key, value FROM schema_info").fetchall())
+        user_version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+    except (sqlite3.DatabaseError, TypeError, ValueError) as exc:
+        raise StorageProblem(
+            StorageErrorCode.SCHEMA_VERSION_UNSUPPORTED,
+            "数据库没有受支持的 PlotAgent schema 标识。",
+        ) from exc
+    if rows.get("schema_kind") != "plotagent-project":
+        return
+    if (
+        rows.get("schema_version") != str(PREVIOUS_PROJECT_SCHEMA_VERSION)
+        or user_version != PREVIOUS_PROJECT_SCHEMA_VERSION
+    ):
+        return
+    try:
+        connection.executescript(
+            "BEGIN IMMEDIATE;\n"
+            + TASK_LEDGER_SCHEMA
+            + "\nUPDATE schema_info SET value = '"
+            + str(PROJECT_SCHEMA_VERSION)
+            + "' WHERE key = 'schema_version';\n"
+            + "PRAGMA user_version = "
+            + str(PROJECT_SCHEMA_VERSION)
+            + ";\nCOMMIT;"
+        )
+    except Exception:
+        if connection.in_transaction:
+            connection.rollback()
+        raise
+
+
 def ensure_desktop_project_schema(connection: sqlite3.Connection) -> None:
-    """Verify the exact workflow-era schema; never patch an older project in place."""
+    """Verify the workflow and durable Agent tables required by desktop Core."""
 
     required = (
         "workflow_runs",
@@ -264,6 +415,14 @@ def ensure_desktop_project_schema(connection: sqlite3.Connection) -> None:
         "workflow_task_items",
         "workflow_events",
         "workflow_recipes",
+        "agent_tasks_v2",
+        "agent_task_intents_v2",
+        "agent_activations_v2",
+        "agent_task_events_v2",
+        "agent_task_checkpoints_v2",
+        "agent_tool_receipts_v2",
+        "agent_verification_reports_v2",
+        "agent_task_leases_v2",
     )
     available = {
         str(row[0])

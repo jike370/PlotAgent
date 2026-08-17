@@ -118,6 +118,14 @@ def test_fresh_project_creates_only_the_workflow_schema(
         "workflow_task_items",
         "workflow_events",
         "workflow_recipes",
+        "agent_tasks_v2",
+        "agent_task_intents_v2",
+        "agent_activations_v2",
+        "agent_task_events_v2",
+        "agent_task_checkpoints_v2",
+        "agent_tool_receipts_v2",
+        "agent_verification_reports_v2",
+        "agent_task_leases_v2",
         "sqlite_sequence",
     }
 

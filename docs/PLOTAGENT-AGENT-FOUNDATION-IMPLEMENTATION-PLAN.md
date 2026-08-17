@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：基于已确认设计的施工路线。
+> 状态：P0–P2 已完成；P3 待施工。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -131,6 +131,17 @@
 `feat(agent-contracts): define durable task protocol`
 
 ## 7. P2：耐久 Task Ledger 与状态机
+
+实现记录（2026-08-18）：
+
+- 项目 schema 已从 v5 增量迁移至 v6；旧 workflow 表原样保留；
+- 已建立 task、intent、activation、event、checkpoint、receipt、verification、lease
+  八类严格表；
+- `TaskLedgerRepository` 已实现 Core 白名单状态迁移、逐项状态、幂等、迟到 yield
+  拒绝、事务检查点、重启恢复和 writer lease；
+- 内部 `agent.tasks.*` RPC 已接入，但正式 UI 尚未切换，因此用户行为不变；
+- 已通过事务故障、v5 迁移、重启、并发租约、批量子项隔离及完整 Python/Node
+  回归门禁。
 
 ### 工作
 

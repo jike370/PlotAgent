@@ -17,6 +17,12 @@ from typing import Any, cast
 
 from pydantic import ValidationError
 
+from plotagent.contracts.agent_tasks import (
+    AGENT_YIELD_ADAPTER,
+    AgentActivation,
+    TaskCompletion,
+    TaskEnvelope,
+)
 from plotagent.contracts.canonical import JsonValue, canonical_hash
 from plotagent.contracts.datasets import (
     SourceDataset,
@@ -59,6 +65,7 @@ from plotagent.storage import (
     read_project_revision,
 )
 from plotagent.storage.errors import StorageProblem
+from plotagent.tasking import TaskLedgerRepository
 from plotagent.workflows import WorkflowCompileError, WorkflowRepository
 from plotagent.workflows.data_ops import WorkflowDataError
 from plotagent.workflows.executor import WorkflowExecutionError
@@ -91,6 +98,7 @@ class ProjectSession:
     imports: ProjectImportService
     engine: DesktopEngineSession
     workflow: DesktopWorkflowService
+    durable_tasks: TaskLedgerRepository
 
     @property
     def project_id(self) -> str:
@@ -164,6 +172,17 @@ class DesktopApplication:
             "workflow.plans.resume": self._workflow_plan_run,
             "workflow.recipes.save": self._workflow_recipe_save,
             "workflow.recipes.list": self._workflow_recipe_list,
+            "agent.tasks.create": self._agent_task_create,
+            "agent.tasks.get": self._agent_task_get,
+            "agent.tasks.list": self._agent_task_list,
+            "agent.tasks.events": self._agent_task_events,
+            "agent.tasks.advance": self._agent_task_advance,
+            "agent.tasks.complete": self._agent_task_complete,
+            "agent.tasks.activation.start": self._agent_activation_start,
+            "agent.tasks.activation.running": self._agent_activation_running,
+            "agent.tasks.yield.accept": self._agent_yield_accept,
+            "agent.tasks.user_event": self._agent_task_user_event,
+            "agent.tasks.cancel": self._agent_task_cancel,
             "provider.status": self._provider_status,
             "provider.runtime.get": self._provider_runtime_get,
             "provider.configure": self._provider_configure,
@@ -172,6 +191,188 @@ class DesktopApplication:
         }
         for method, handler in handlers.items():
             registry.register(method, self._guard(handler))
+
+    def _agent_task_create(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "envelope"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        checkpoint = session.durable_tasks.create_task(
+            TaskEnvelope.model_validate_json(json.dumps(values["envelope"]))
+        )
+        return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_task_get(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "task_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        checkpoint = session.durable_tasks.get_task(_text(values["task_id"], "task_id"))
+        return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_task_list(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id"}, optional={"state", "limit"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        state = _optional_text(values.get("state"), "state")
+        raw_limit = values.get("limit", 100)
+        if isinstance(raw_limit, bool) or not isinstance(raw_limit, int):
+            raise RpcServiceError("INVALID_PARAMS", "Task list limit was invalid.")
+        tasks = session.durable_tasks.list_tasks(
+            state=cast(Any, state),
+            limit=raw_limit,
+        )
+        return {"tasks": [cast(RpcJsonValue, item.model_dump(mode="json")) for item in tasks]}
+
+    def _agent_task_events(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={"project_id", "task_id"},
+            optional={"after_sequence"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        after = values.get("after_sequence", 0)
+        if isinstance(after, bool) or not isinstance(after, int) or after < 0:
+            raise RpcServiceError("INVALID_PARAMS", "Task event cursor was invalid.")
+        events = session.durable_tasks.list_events(
+            _text(values["task_id"], "task_id"), after_sequence=after
+        )
+        return {"events": [cast(RpcJsonValue, item.model_dump(mode="json")) for item in events]}
+
+    def _agent_task_advance(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "task_id",
+                "expected_task_version",
+                "next_state",
+                "reason_code",
+            },
+            optional={"project_revision"},
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        expected = _integer(values["expected_task_version"], "expected_task_version", minimum=1)
+        revision = values.get("project_revision")
+        if revision is not None and (
+            isinstance(revision, bool) or not isinstance(revision, int) or revision < 0
+        ):
+            raise RpcServiceError("INVALID_PARAMS", "Project revision was invalid.")
+        checkpoint = session.durable_tasks.advance(
+            _text(values["task_id"], "task_id"),
+            expected_task_version=expected,
+            next_state=cast(Any, _text(values["next_state"], "next_state")),
+            reason_code=_text(values["reason_code"], "reason_code"),
+            project_revision=revision,
+        )
+        return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_activation_start(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "activation"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        checkpoint = session.durable_tasks.start_activation(
+            AgentActivation.model_validate_json(json.dumps(values["activation"]))
+        )
+        return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_task_complete(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "task_id",
+                "expected_task_version",
+                "completion",
+            },
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        completion = TaskCompletion.model_validate_json(json.dumps(values["completion"]))
+        checkpoint = session.durable_tasks.complete_task(
+            _text(values["task_id"], "task_id"),
+            expected_task_version=_integer(
+                values["expected_task_version"], "expected_task_version", minimum=1
+            ),
+            completion=completion,
+        )
+        return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_activation_running(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "activation_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        checkpoint = session.durable_tasks.mark_activation_running(
+            _text(values["activation_id"], "activation_id")
+        )
+        return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_yield_accept(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "yield"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        yielded = AGENT_YIELD_ADAPTER.validate_json(json.dumps(values["yield"]))
+        checkpoint = session.durable_tasks.accept_yield(yielded)
+        return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_task_user_event(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "task_id",
+                "expected_task_version",
+                "action",
+                "user_event_id",
+                "payload_hash",
+            },
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        checkpoint = session.durable_tasks.record_user_event(
+            _text(values["task_id"], "task_id"),
+            expected_task_version=_integer(
+                values["expected_task_version"], "expected_task_version", minimum=1
+            ),
+            action=cast(Any, _text(values["action"], "action")),
+            user_event_id=_text(values["user_event_id"], "user_event_id"),
+            payload_hash=_text(values["payload_hash"], "payload_hash"),
+        )
+        return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_task_cancel(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "task_id",
+                "expected_task_version",
+                "user_event_id",
+                "payload_hash",
+            },
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        checkpoint = session.durable_tasks.cancel(
+            _text(values["task_id"], "task_id"),
+            expected_task_version=_integer(
+                values["expected_task_version"], "expected_task_version", minimum=1
+            ),
+            user_event_id=_text(values["user_event_id"], "user_event_id"),
+            payload_hash=_text(values["payload_hash"], "payload_hash"),
+        )
+        return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
 
     def _origin_status(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         _object(params, required=set())
@@ -840,6 +1041,7 @@ class DesktopApplication:
                 engine=engine,
                 repository=workflow_repository,
             ),
+            durable_tasks=TaskLedgerRepository(store),
         )
         self._sessions[project_id] = session
         self.catalog.touch_project(project_id)
