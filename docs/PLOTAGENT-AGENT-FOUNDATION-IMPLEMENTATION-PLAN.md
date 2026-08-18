@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P8 已完成；权限、取消、lease、重启恢复与外部发布边界已闭环，下一施工阶段为 P9。
+> 状态：P0–P9 已完成；正式 UI 已切换为 durable task 真相，下一施工阶段为 P10。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -574,6 +574,14 @@
 1. `feat(desktop): present durable agent tasks`
 2. `feat(desktop): add real-time task progress and recovery`
 3. `feat(desktop): switch to agent foundation v2`
+
+### 完成记录
+
+- Agent 追问不再被降级为普通错误；回复通过 `workflow_run_id=task:<id>` 续接同一 durable task、同一 checkpoint 与同一任务历史；
+- 正式对话中的计划确认卡直接展示来自 Core 计划绑定的原始字段、字段角色和同一数据表样本，不维护第二份映射真相；
+- 执行中的提示来自 Agent runtime 与 Core TaskEvent，覆盖上下文、数据检查、合同校验、renderer/验证和结果读取，不使用 timeout 伪造百分比或 ETA；
+- TaskDrawer 读取 durable task checkpoint，展示逐项状态、partial 已保留 plot/version、可重试失败、安全诊断 ID、取消和仅重试失败项；legacy 任务仅在 P10 删除前作为迁移期只读投影；
+- undo/redo、导出成功/失败、Origin 可用性、聊天气泡、键盘焦点与 aria-live 延续正式 UI 现有能力；新增状态解析与任务中心回归覆盖续接、partial、诊断和恢复入口。
 
 ## 15. P10：评测、发布与旧链清理
 

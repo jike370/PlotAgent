@@ -24,6 +24,7 @@ export interface AgentFoundationRunInput {
   readonly expectedProjectVersion: number
   readonly instruction: string
   readonly parentTaskId?: string
+  readonly continuationWorkflowRunId?: string
 }
 
 export interface AgentFoundationPlanInput {
@@ -203,9 +204,10 @@ export class AgentFoundationRuntime {
   }
 
   canRun(input: AgentFoundationRunInput): boolean {
-    return input.selectedSources.length >= 1
+    const durableContinuation = input.continuationWorkflowRunId?.startsWith('task:') === true
+    return (durableContinuation || input.selectedSources.length >= 1)
       && input.selectedSources.length <= 8
-      && (input.selectedProfileIds?.length ?? 0) >= 1
+      && (durableContinuation || (input.selectedProfileIds?.length ?? 0) >= 1)
       && (input.selectedProfileIds?.length ?? 0) <= 34
       && (input.selectedPlotIds === undefined || input.selectedPlotIds.length === 0)
   }
@@ -255,7 +257,7 @@ export class AgentFoundationRuntime {
       return json(view)
     }))
     // Core lists durable tasks newest-first while the renderer selects the last plan.
-    return { task_plans: newestFirst.reverse() }
+    return { task_plans: newestFirst.reverse(), durable_tasks: result.tasks }
   }
 
   async run(input: AgentFoundationRunInput): Promise<JsonValue> {
@@ -264,6 +266,9 @@ export class AgentFoundationRuntime {
         'AGENT_V2_SLICE_UNSUPPORTED',
         '当前新 Agent 入口支持 1–8 个数据表和已选择图类的新建批量任务。',
       )
+    }
+    if (input.continuationWorkflowRunId?.startsWith('task:') === true) {
+      return await this.continueTask(input, input.continuationWorkflowRunId)
     }
     const profileIds = input.selectedProfileIds
     if (profileIds === undefined || profileIds.length === 0) {
@@ -332,20 +337,85 @@ export class AgentFoundationRuntime {
     } finally {
       if (this.activePumps.get(taskId) === pump) this.activePumps.delete(taskId)
     }
+    return await this.finishPlanningPump(input.projectId, taskId, runId, drained)
+  }
+
+  private async continueTask(
+    input: AgentFoundationRunInput,
+    taskId: string,
+  ): Promise<JsonValue> {
+    const task = record(await this.core.request(
+      'agent.tasks.get',
+      { project_id: input.projectId, task_id: taskId },
+      15_000,
+    ), 'durable task checkpoint')
+    if (task.state !== 'awaiting_input') {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_CONTINUATION_STALE',
+        '这项 Agent 任务当前不在等待回复，请从任务中心查看最新状态。',
+      )
+    }
+    this.authorityByTask.set(taskId, input.projectId)
+    const taskVersion = integer(task.task_version, 'task version')
+    await this.core.request('agent.tasks.user_event', {
+      project_id: input.projectId,
+      task_id: taskId,
+      expected_task_version: taskVersion,
+      action: 'answered',
+      user_event_id: `user-event:${this.id()}`,
+      payload_hash: createHash('sha256').update(input.instruction, 'utf8').digest('hex'),
+      message: input.instruction,
+    }, 15_000)
+    const runId = `workflow:continue:${taskId.replace(/^task:/, '')}`
+    this.emit(runId, input.projectId, 'preparing_context', '正在继续这项任务…')
+    const host = new CorePiRuntimeHostV2(this.core, input.projectId)
+    const runtime = this.createRuntime(
+      host,
+      (event) => this.forwardRuntime(runId, input.projectId, event),
+    )
+    const pump = new AgentTaskPump({
+      core: this.core,
+      runtime,
+      emit: (event) => this.forwardPump(runId, input.projectId, event),
+    })
+    this.activePumps.set(taskId, pump)
+    let drained: TaskPumpResult
+    try {
+      drained = await pump.drain(input.projectId, taskId)
+    } finally {
+      if (this.activePumps.get(taskId) === pump) this.activePumps.delete(taskId)
+    }
+    return await this.finishPlanningPump(input.projectId, taskId, runId, drained)
+  }
+
+  private async finishPlanningPump(
+    projectId: string,
+    taskId: string,
+    runId: string,
+    drained: TaskPumpResult,
+  ): Promise<JsonValue> {
+    if (drained.reason === 'awaiting_input' && drained.terminalYield?.outcome === 'needs_input') {
+      this.emit(runId, projectId, 'completed', '等待你的回复')
+      return json({
+        outcome: 'needs_input',
+        workflow_run_id: taskId,
+        questions: drained.terminalYield.questions,
+      })
+    }
     if (drained.reason !== 'awaiting_confirmation') {
       throw stoppedBeforeConfirmation(drained)
     }
     const view = await this.core.request(
       'agent.tasks.plan.get',
-      { project_id: input.projectId, task_id: taskId },
+      { project_id: projectId, task_id: taskId },
       15_000,
     )
     const identity = planIdentity(view)
     if (identity.taskId !== taskId) {
       throw new AgentFoundationRuntimeError('AGENT_V2_TASK_MISMATCH', '计划不属于当前任务。')
     }
-    this.authorityByPlan.set(identity.planId, { projectId: input.projectId, taskId })
-    this.emit(runId, input.projectId, 'completed', '计划已生成，等待确认')
+    this.authorityByPlan.set(identity.planId, { projectId, taskId })
+    this.emit(runId, projectId, 'completed', '计划已生成，等待确认')
     return json(view)
   }
 
@@ -387,18 +457,20 @@ export class AgentFoundationRuntime {
 
   async execute(input: AgentFoundationPlanInput): Promise<JsonValue> {
     const authority = this.authority(input)
-    let view = record(await this.get(input), 'durable task plan view')
-    let task = record(view.task, 'durable execution task')
-    if (task.state !== 'partial') {
-      const executed = record(await this.core.request(
-        'agent.tasks.execute',
-        { project_id: authority.projectId, task_id: authority.taskId },
-        900_000,
-      ), 'durable execution result')
-      task = record(executed.task, 'durable execution task')
-    }
-    if (task.state === 'partial') {
-      const runId = `workflow:repair:${authority.taskId.replace(/^task:/, '')}`
+    const runId = `workflow:execute:${authority.taskId.replace(/^task:/, '')}`
+    this.emit(runId, authority.projectId, 'planning', '正在调用绘图引擎并验证结果…')
+    try {
+      let view = record(await this.get(input), 'durable task plan view')
+      let task = record(view.task, 'durable execution task')
+      if (task.state !== 'partial') {
+        const executed = record(await this.core.request(
+          'agent.tasks.execute',
+          { project_id: authority.projectId, task_id: authority.taskId },
+          900_000,
+        ), 'durable execution result')
+        task = record(executed.task, 'durable execution task')
+      }
+      if (task.state === 'partial') {
       this.emit(runId, authority.projectId, 'planning', '正在分析失败项并保留已成功结果…')
       const host = new CorePiRuntimeHostV2(this.core, authority.projectId)
       const runtime = this.createRuntime(
@@ -419,17 +491,23 @@ export class AgentFoundationRuntime {
           this.activePumps.delete(authority.taskId)
         }
       }
-      if (drained.reason === 'execution_pending') {
-        this.emit(runId, authority.projectId, 'planning', '正在仅重试失败项…')
-        await this.core.request(
-          'agent.tasks.execute',
-          { project_id: authority.projectId, task_id: authority.taskId },
-          900_000,
-        )
+        if (drained.reason === 'execution_pending') {
+          this.emit(runId, authority.projectId, 'planning', '正在仅重试失败项…')
+          await this.core.request(
+            'agent.tasks.execute',
+            { project_id: authority.projectId, task_id: authority.taskId },
+            900_000,
+          )
+        }
       }
+      this.emit(runId, authority.projectId, 'validating_draft', '正在读取验证报告与已保存结果…')
+      view = record(await this.get(input), 'durable task plan view')
+      this.emit(runId, authority.projectId, 'completed', '任务结果已验证')
+      return json(view)
+    } catch (error) {
+      this.emit(runId, authority.projectId, 'failed', '任务执行或验证失败')
+      throw error
     }
-    view = record(await this.get(input), 'durable task plan view')
-    return json(view)
   }
 
   async cancel(taskId: string): Promise<void> {

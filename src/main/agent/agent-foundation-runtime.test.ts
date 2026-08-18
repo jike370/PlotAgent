@@ -108,6 +108,109 @@ class FakeCore {
 }
 
 describe('AgentFoundationRuntime', () => {
+  it('returns a typed question and continues the same durable task after the reply', async () => {
+    let phase: 'initial' | 'waiting' | 'continued' = 'initial'
+    let nextCalls = 0
+    const calls: { method: string; params: unknown }[] = []
+    const core = {
+      request: async (method: string, params?: unknown): Promise<unknown> => {
+        calls.push({ method, params })
+        if (method === 'datasets.describe') return {
+          source_dataset_id: 'source:test', source_version: 1, content_hash: 'a'.repeat(64),
+        }
+        if (method === 'agent.tasks.create') return { state: 'created' }
+        if (method === 'agent.tasks.get') return {
+          task_id: 'task:fixed', task_version: 2, state: 'awaiting_input', items: [],
+        }
+        if (method === 'agent.tasks.user_event') {
+          phase = 'continued'
+          nextCalls = 0
+          return { state: 'investigating' }
+        }
+        if (method === 'agent.tasks.pump.next') {
+          nextCalls += 1
+          if (nextCalls === 1) return {
+            kind: 'run_activation',
+            activation: {
+              activation_id: phase === 'continued' ? 'activation:answer' : 'activation:question',
+              task_id: 'task:fixed',
+              task_version: phase === 'continued' ? 3 : 1,
+              task_state: phase === 'continued' ? 'investigating' : 'created',
+              permission_phase: 'p0_read',
+              allowed_tools: ['inspect_source'],
+            },
+          }
+          if (phase === 'continued') return {
+            kind: 'wait', reason: 'awaiting_confirmation', task_state: 'awaiting_confirmation',
+          }
+          phase = 'waiting'
+          return { kind: 'wait', reason: 'awaiting_input', task_state: 'awaiting_input' }
+        }
+        if (method === 'agent.tasks.activation.running') return {}
+        if (method === 'agent.tasks.yield.accept') return {}
+        if (method === 'agent.tasks.plan.get') return {
+          task: { task_id: 'task:fixed', task_version: 5, state: 'awaiting_confirmation', items: [] },
+          plan: { plan_id: 'plan:fixed', items: [] },
+          plan_hash: 'b'.repeat(64),
+          confirmation_state: 'pending',
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+      id: () => 'fixed',
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => (
+          activation.activation_id === 'activation:question'
+            ? {
+                outcome: 'needs_input',
+                activation_id: activation.activation_id,
+                task_id: activation.task_id,
+                task_version: activation.task_version,
+                questions: [{
+                  question_key: 'x_field',
+                  prompt: '哪一列作为 X？',
+                  answer_kind: 'field',
+                  required: true,
+                }],
+              }
+            : {
+                outcome: 'cancelled',
+                activation_id: activation.activation_id,
+                task_id: activation.task_id,
+                task_version: activation.task_version,
+                message: 'Synthetic terminal yield.',
+              }
+        ),
+      }),
+    })
+
+    const question = await runtime.run({
+      projectId: 'project:test',
+      selectedSources: [{ datasetId: 'source:test', sourceVersion: 1 }],
+      selectedProfileIds: ['K01'],
+      expectedProjectVersion: 0,
+      instruction: '画折线图。',
+    })
+    expect(question).toMatchObject({
+      outcome: 'needs_input', workflow_run_id: 'task:fixed',
+    })
+    const continued = await runtime.run({
+      projectId: 'project:test',
+      selectedSources: [],
+      expectedProjectVersion: 0,
+      continuationWorkflowRunId: 'task:fixed',
+      instruction: '第一列。',
+    })
+    expect(continued).toMatchObject({ plan: { plan_id: 'plan:fixed' } })
+    expect(calls.find((call) => call.method === 'agent.tasks.user_event')).toMatchObject({
+      params: { task_id: 'task:fixed', action: 'answered', message: '第一列。' },
+    })
+  })
+
   it('runs one selected source to confirmation and executes only after approval', async () => {
     const core = new FakeCore()
     const events: AgentFoundationRuntimeEvent[] = []
@@ -155,7 +258,8 @@ describe('AgentFoundationRuntime', () => {
       task: { state: 'completed_verified' },
       plan: { plan_id: 'plan:fixed' },
     })
-    expect(events.at(-1)).toMatchObject({ stage: 'completed', label: '计划已生成，等待确认' })
+    expect(events).toContainEqual(expect.objectContaining({ stage: 'completed', label: '计划已生成，等待确认' }))
+    expect(events.at(-1)).toMatchObject({ stage: 'completed', label: '任务结果已验证' })
   })
 
   it('recovers durable plan authority after a desktop restart', async () => {

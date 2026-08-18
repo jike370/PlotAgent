@@ -266,6 +266,9 @@ export interface WorkflowBindingView {
 
 export interface WorkflowPlanView {
   planId: string
+  taskId?: string
+  taskVersion?: number
+  updatedAt?: string
   state: string
   confirmationState: string
   warnings: string[]
@@ -274,6 +277,23 @@ export interface WorkflowPlanView {
   resumable: boolean
   bindings: WorkflowBindingView[]
   boundActions: JsonValue[]
+}
+
+export interface DurableTaskItemView {
+  itemId: string
+  state: string
+  attemptCount: number
+  outputPlot?: { plotId: string; plotVersion: number }
+  failure?: { code: string; message: string; retryable: boolean; diagnosticId?: string }
+}
+
+export interface DurableTaskView {
+  taskId: string
+  taskVersion: number
+  state: string
+  projectRevision: number
+  updatedAt?: string
+  items: DurableTaskItemView[]
 }
 
 export interface WorkflowOutcome {
@@ -844,7 +864,7 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
   const root = isJsonRecord(value) ? value : undefined
   const durableTask = root !== undefined && isJsonRecord(root.task) ? root.task : undefined
   const durablePlan = root !== undefined && isJsonRecord(root.plan) ? root.plan : undefined
-  const durableSnapshot = durableTask !== undefined && durablePlan !== undefined
+  const durableSnapshot: JsonRecord | undefined = durableTask !== undefined && durablePlan !== undefined
     && typeof durableTask.state === 'string' && Array.isArray(durableTask.items)
     ? {
       ...durableTask,
@@ -960,6 +980,9 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     : stringValue(root, 'confirmation_state')
   return {
     planId: plan.plan_id,
+    ...(typeof snapshot.task_id === 'string' ? { taskId: snapshot.task_id } : {}),
+    ...(typeof snapshot.task_version === 'number' ? { taskVersion: snapshot.task_version } : {}),
+    ...(typeof snapshot.updated_at === 'string' ? { updatedAt: snapshot.updated_at } : {}),
     state,
     confirmationState: durableConfirmation ?? (
       state === 'awaiting_confirmation' ? 'pending'
@@ -973,6 +996,63 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     bindings,
     boundActions,
   }
+}
+
+export function readDurableTasks(value: JsonValue): DurableTaskView[] {
+  if (!isJsonRecord(value)) return []
+  const candidates = Array.isArray(value.durable_tasks)
+    ? value.durable_tasks
+    : isJsonRecord(value.task)
+      ? [value.task]
+      : typeof value.task_id === 'string'
+        ? [value]
+        : []
+  return candidates.flatMap((entry): DurableTaskView[] => {
+    if (
+      !isJsonRecord(entry)
+      || typeof entry.task_id !== 'string'
+      || typeof entry.task_version !== 'number'
+      || typeof entry.state !== 'string'
+      || typeof entry.project_revision !== 'number'
+      || !Array.isArray(entry.items)
+    ) return []
+    const items = entry.items.flatMap((item): DurableTaskItemView[] => {
+      if (!isJsonRecord(item) || typeof item.item_id !== 'string' || typeof item.state !== 'string') return []
+      const error = isJsonRecord(item.last_error) ? item.last_error : undefined
+      const outputPlotId = stringValue(item, 'output_plot_id')
+      const outputPlotVersion = numberValue(item, 'output_plot_version')
+      const code = error === undefined ? undefined : stringValue(error, 'code')
+      const message = error === undefined ? undefined : stringValue(error, 'message')
+      return [{
+        itemId: item.item_id,
+        state: item.state,
+        attemptCount: numberValue(item, 'attempt_count') ?? 0,
+        ...(outputPlotId === undefined || outputPlotVersion === undefined
+          ? {}
+          : { outputPlot: { plotId: outputPlotId, plotVersion: outputPlotVersion } }),
+        ...(code === undefined || message === undefined
+          ? {}
+          : {
+              failure: {
+                code,
+                message,
+                retryable: error?.retryable === true,
+                ...(typeof error?.diagnostic_id === 'string'
+                  ? { diagnosticId: error.diagnostic_id }
+                  : {}),
+              },
+            }),
+      }]
+    })
+    return [{
+      taskId: entry.task_id,
+      taskVersion: entry.task_version,
+      state: entry.state,
+      projectRevision: entry.project_revision,
+      ...(typeof entry.updated_at === 'string' ? { updatedAt: entry.updated_at } : {}),
+      items,
+    }]
+  })
 }
 
 function workflowActionSummary(value: JsonValue): string[] {

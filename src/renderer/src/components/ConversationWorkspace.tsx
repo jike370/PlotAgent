@@ -719,6 +719,13 @@ function WorkflowPlanObject({
       : plot
         ? `${plot.plotId} · v${plot.plotVersion}`
         : `${selectedChart?.id ?? '待定'} · 新图`
+  const previewStep = plan.steps[0]
+  const previewDataset = datasets.find((dataset) => (
+    previewStep?.sourceDatasetIds.includes(dataset.datasetId)
+  ))
+  const previewRoles = new Map(
+    (previewStep?.bindings ?? []).map((binding) => [binding.fieldId, binding.role]),
+  )
   return (
     <section className={`agent-plan agent-plan--${plan.state}`} aria-labelledby={`plan-${plan.planId}`}>
       <header className="agent-plan__header">
@@ -730,6 +737,24 @@ function WorkflowPlanObject({
         <span><strong>对象</strong>{objectLabel}</span>
         <span><strong>输出</strong>Matplotlib 预览 · 可导出 Origin 原生项目</span>
       </div>
+      {previewDataset && <section className="agent-plan__data-preview" aria-label="计划字段绑定与数据样本">
+        <header><strong>{previewDataset.displayName}</strong><span>原始数据只读 · {plan.steps.length > 1 ? '首项示例' : '前 3 行'}</span></header>
+        <div className="mapping-preview-scroll" tabIndex={0} aria-label="计划字段绑定和数据预览，可横向滚动">
+          <table className="mapping-preview-table mapping-preview-table--readonly" style={{ minWidth: `${Math.max(620, previewDataset.fields.length * 138)}px` }}>
+            <thead><tr>{previewDataset.fields.map((field) => <th key={field.fieldId} scope="col">
+              <div className="mapping-column-head">
+                <span className="mapping-role-badge" data-empty={!previewRoles.has(field.fieldId)}>{previewRoles.get(field.fieldId) ?? '未使用'}</span>
+                <strong title={field.name}>{displayFieldName(field.name)}</strong>
+                <small>{displayLogicalType(field.logicalType)} · {field.unit}</small>
+              </div>
+            </th>)}</tr></thead>
+            <tbody>{previewDataset.sampleRows?.slice(0, 3).map((row, rowIndex) => <tr key={`plan-preview-${rowIndex}`}>{previewDataset.fields.map((field, columnIndex) => {
+              const value = previewValue(row[columnIndex])
+              return <td key={field.fieldId} title={value}>{value}</td>
+            })}</tr>) ?? <tr><td className="mapping-preview-empty" colSpan={previewDataset.fields.length}>样本预览暂不可用，字段绑定仍来自同一份 Core 计划。</td></tr>}</tbody>
+          </table>
+        </div>
+      </section>}
       <ol className="agent-plan__steps">
         {plan.steps.map((step) => (
           <li className={`agent-plan-step agent-plan-step--${step.state}`} key={step.taskItemId}>
@@ -791,7 +816,8 @@ function ActivityMessage({
   if (busyAction === 'agent') label = agentRuntimeLabel ?? '正在理解你的要求…'
   else if (busyAction === 'import') label = '正在读取并校验数据…'
   else if (busyAction === 'plot') label = task?.state === 'committing' ? '正在保存图形版本…' : '正在调用 Matplotlib 渲染器…'
-  else if (busyAction === 'agent-plan') label = task?.state === 'committing' ? '正在保存图形版本…' : '正在执行已确认的绘图动作…'
+  else if (busyAction === 'agent-plan') label = agentRuntimeLabel
+    ?? (task?.state === 'committing' ? '正在保存图形版本…' : '正在执行已确认的绘图动作…')
   else if (busyAction === 'plot-patch') label = task?.state === 'committing' ? '正在保存新版本…' : '正在验证图形修改…'
   else if (busyAction === 'undo') label = '正在创建撤销版本…'
   else if (busyAction === 'redo') label = '正在创建重做版本…'

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { JsonValue } from '../../../shared/desktop-contract'
 import {
   disambiguateDatasetDisplayNames,
+  readDurableTasks,
   readWorkflowPlan,
   readDatasets,
   readImportSummary,
@@ -430,6 +431,8 @@ describe('product plot state', () => {
 
     expect(plan).toMatchObject({
       planId: 'plan:durable',
+      taskId: 'task:durable',
+      taskVersion: 3,
       state: 'succeeded',
       confirmationState: 'confirmed',
       completedCount: 1,
@@ -439,5 +442,64 @@ describe('product plot state', () => {
       outputPlot: { plotId: 'plot:durable.1', plotVersion: 1 },
       sourceDatasetIds: ['source:durable'],
     })
+  })
+
+  it('reads durable task progress, retained outputs, and safe diagnostics without inferring them from chat', () => {
+    const tasks = readDurableTasks({
+      durable_tasks: [{
+        task_id: 'task:partial',
+        task_version: 8,
+        state: 'partial',
+        project_revision: 12,
+        updated_at: '2026-08-18T07:00:00Z',
+        items: [
+          {
+            item_id: 'item:kept',
+            state: 'succeeded',
+            attempt_count: 1,
+            output_plot_id: 'plot:kept',
+            output_plot_version: 2,
+          },
+          {
+            item_id: 'item:failed',
+            state: 'repairable_failed',
+            attempt_count: 2,
+            last_error: {
+              code: 'ORIGIN_BUSY',
+              message: 'Origin is busy.',
+              retryable: true,
+              diagnostic_id: 'diag:safe-1',
+            },
+          },
+        ],
+      }],
+    })
+
+    expect(tasks).toEqual([{
+      taskId: 'task:partial',
+      taskVersion: 8,
+      state: 'partial',
+      projectRevision: 12,
+      updatedAt: '2026-08-18T07:00:00Z',
+      items: [
+        {
+          itemId: 'item:kept',
+          state: 'succeeded',
+          attemptCount: 1,
+          outputPlot: { plotId: 'plot:kept', plotVersion: 2 },
+        },
+        {
+          itemId: 'item:failed',
+          state: 'repairable_failed',
+          attemptCount: 2,
+          failure: {
+            code: 'ORIGIN_BUSY',
+            message: 'Origin is busy.',
+            retryable: true,
+            diagnosticId: 'diag:safe-1',
+          },
+        },
+      ],
+    }])
   })
 })

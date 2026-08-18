@@ -139,7 +139,15 @@ export function mergeTaskPlanLists(...values: JsonValue[]): JsonValue {
       ? value.task_plans
       : []
   ))
-  return { task_plans: taskPlans }
+  const durableTasks = values.flatMap((value) => (
+    value !== null
+    && !Array.isArray(value)
+    && typeof value === 'object'
+    && Array.isArray(value.durable_tasks)
+      ? value.durable_tasks
+      : []
+  ))
+  return { task_plans: taskPlans, durable_tasks: durableTasks }
 }
 
 async function existingFileSha256(path: string): Promise<string | undefined> {
