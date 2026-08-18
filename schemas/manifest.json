@@ -18,7 +18,7 @@
     },
     {
       "path": "schemas/agent-yield-v2.schema.json",
-      "sha256": "9651240402c41d12ab7fe335a00982eca16d0a95cce3ed4cc4ab62dd283126d6"
+      "sha256": "1957b1f71e12fcfcf10c58c6a248df17cae07c2a97bfd18f9fc235ccc724fdfb"
     },
     {
       "path": "schemas/calculation-contract-v1.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "020310b0bcd87f1ce77a659b855af9899a2f3fbeded41c8280a27508002c4413"
+      "sha256": "2eb6704ac3822fe35de4d1ba8617a41fc94e16e99384669024ef3c7d3b1586aa"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -146,7 +146,7 @@
     },
     {
       "path": "schemas/task-draft.schema.json",
-      "sha256": "df39d7af78d64ee2e56b167945c5f8305c7a1465fe682589d49746f15f85bd85"
+      "sha256": "4991d6e4d7b7c1dd05f4baa5e371e4ebc5b7233d380a4c3205353e6e1b8436ac"
     },
     {
       "path": "schemas/task-envelope-v2.schema.json",
@@ -162,15 +162,15 @@
     },
     {
       "path": "schemas/task-intent-v2.schema.json",
-      "sha256": "5edc4b263e9d105ee8becb889fda5ee675a5098a169b6e6bd978b4f8ddd14ec9"
+      "sha256": "f9c0964f950c2ab4c79f8cfacf368dcae72f1cfb879d39fc1b251051b2b04691"
     },
     {
       "path": "schemas/task-plan-snapshot.schema.json",
-      "sha256": "d4025a988db2ea61cda0430715758ce82a7c739b04a6244d08f4bf65100a2f23"
+      "sha256": "2178edba46c9410f701fc0993395cfc78c47e1d04f83d34fc63a97b80a5f6fcb"
     },
     {
       "path": "schemas/task-plan.schema.json",
-      "sha256": "aeeeebc40dd6c3a12ad4686cbef825403fa776ed6fcfc62e0400ce55791c9966"
+      "sha256": "4d6d3a86ac92f762e8ddc19f9770487f2dd9518114d01b5e8d90734eb2df6665"
     },
     {
       "path": "schemas/tool-contract-v2.schema.json",
@@ -198,11 +198,11 @@
     },
     {
       "path": "schemas/workflow-decision.schema.json",
-      "sha256": "ab15424ec9e5aaf112700c6f117e72c05ca777e4aa53b0d60cf0894bcda4b60c"
+      "sha256": "c90d2023954048687495d79c0f7e8d87a51c792120cf419670f8fe0bf88eef3a"
     },
     {
       "path": "schemas/workflow-recipe.schema.json",
-      "sha256": "a5143107edd40fd3914dcac19fb542fe69728330dfd7f48b1031a26e6582c2f1"
+      "sha256": "9cd99bfa44455f507b741870171c4ebdd6e04f6bced707614704af76c78b49bf"
     },
     {
       "path": "schemas/workflow-run-snapshot.schema.json",

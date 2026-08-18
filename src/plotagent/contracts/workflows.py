@@ -359,8 +359,23 @@ class ReshapeWideToLong(StrictModel):
 
 class ConcatenateSources(StrictModel):
     operation: Literal["concatenate_sources"] = "concatenate_sources"
-    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
-    source_label_field: WorkflowAlias = "source_group"
+    source_aliases: Annotated[
+        tuple[WorkflowAlias, ...],
+        Field(
+            min_length=2,
+            max_length=8,
+            description="Exact opaque Core source aliases copied from the current context.",
+        ),
+    ]
+    source_label_field: Annotated[
+        WorkflowAlias,
+        Field(
+            description=(
+                "New output field alias declared by this operation; downstream bindings must "
+                "copy this exact alias."
+            )
+        ),
+    ] = "source_group"
     source_labels: Annotated[tuple[WorkflowDisplayLabel, ...], Field(max_length=8)] = ()
 
     @model_validator(mode="after")
@@ -434,8 +449,24 @@ DataOperation = Annotated[
 
 class DraftFieldBinding(StrictModel):
     role: Token
-    source_alias: WorkflowAlias
-    field_alias: WorkflowAlias
+    source_alias: Annotated[
+        WorkflowAlias,
+        Field(
+            description=(
+                "Exact opaque Core source alias copied from the current context; never a "
+                "display name."
+            )
+        ),
+    ]
+    field_alias: Annotated[
+        WorkflowAlias,
+        Field(
+            description=(
+                "Exact opaque Core field alias from the current context, or the exact output "
+                "alias declared by a preceding data operation; never a display name."
+            )
+        ),
+    ]
 
 
 class DraftSetTitle(StrictModel):

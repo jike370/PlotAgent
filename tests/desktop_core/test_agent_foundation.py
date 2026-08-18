@@ -350,6 +350,10 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "bind them directly without calling inspection tools" in system_prompt
         assert "Inspect rows only when unresolved data shape" in system_prompt
         assert "Preserve every explicit Field-to-role mapping exactly" in system_prompt
+        assert "Every source_alias and field_alias is an opaque Core identifier" in system_prompt
+        assert "never use a display name such as X or Response" in system_prompt
+        assert "emit concatenate_sources directly" in system_prompt
+        assert "call compare_schemas only when those sequences differ" in system_prompt
         assert "represent palette identity and reverse as independent fields" in system_prompt
         assert "Core derives that integrity field" in system_prompt
         yield_schema = cast(dict[str, object], environment["yield_schema"])
@@ -357,6 +361,14 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         intent_schema = cast(dict[str, object], definitions["TaskIntent"])
         assert "content_hash" not in cast(dict[str, object], intent_schema["properties"])
         assert "content_hash" not in cast(list[str], intent_schema["required"])
+        binding_schema = cast(dict[str, object], definitions["DraftFieldBinding"])
+        binding_properties = cast(dict[str, object], binding_schema["properties"])
+        field_alias_schema = cast(dict[str, object], binding_properties["field_alias"])
+        assert "never a display name" in cast(str, field_alias_schema["description"])
+        concatenate_schema = cast(dict[str, object], definitions["ConcatenateSources"])
+        concatenate_properties = cast(dict[str, object], concatenate_schema["properties"])
+        source_label_schema = cast(dict[str, object], concatenate_properties["source_label_field"])
+        assert "downstream bindings" in cast(str, source_label_schema["description"])
         context = cast(dict[str, object], environment["context"])
         selected_sources = cast(list[dict[str, object]], context["selected_sources"])
         assert selected_sources == [

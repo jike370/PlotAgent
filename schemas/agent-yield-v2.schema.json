@@ -376,6 +376,7 @@
           "type": "string"
         },
         "source_aliases": {
+          "description": "Exact opaque Core source aliases copied from the current context.",
           "items": {
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "type": "string"
@@ -387,6 +388,7 @@
         },
         "source_label_field": {
           "default": "source_group",
+          "description": "New output field alias declared by this operation; downstream bindings must copy this exact alias.",
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Source Label Field",
           "type": "string"
@@ -677,6 +679,7 @@
       "additionalProperties": false,
       "properties": {
         "field_alias": {
+          "description": "Exact opaque Core field alias from the current context, or the exact output alias declared by a preceding data operation; never a display name.",
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Field Alias",
           "type": "string"
@@ -687,6 +690,7 @@
           "type": "string"
         },
         "source_alias": {
+          "description": "Exact opaque Core source alias copied from the current context; never a display name.",
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Source Alias",
           "type": "string"
