@@ -83,13 +83,23 @@ _ORDERING: dict[ChartTypeId, tuple[str, ...]] = {
 
 _FIXED: dict[ChartTypeId, tuple[str, ...]] = {
     "K04": ("X/Y 决定位置，size 决定气泡面积，color 决定连续颜色映射。",),
-    "K06": ("X 与 Y 误差是不同方向的不确定性，不能互换。",),
+    "K06": (
+        "X 与 Y 误差是不同方向的不确定性，不能互换。",
+        "x_err_minus/x_err_plus/y_err_minus/y_err_plus 接受非负误差幅度；"
+        "若来源提供绝对下界/上界，必须先显式派生中心到边界的差值，不能把边界值直接绑定为误差幅度。",
+    ),
     "K07": ("lower/upper 表示围绕中心的上下界，填充区域只位于两界之间。",),
     "K11": ("每个类别按原始非负分量归一为 100%，来源值保持未归一化。",),
     "K13": ("箱体为 25%–75%，须采用 Tukey 1.5×IQR，离群点单独保留。",),
     "K14": ("密度使用冻结的高斯 KDE 合同；原始观测不被预聚合。",),
     "K15": ("直方分箱由冻结的 Freedman–Diaconis/Sturges 合同决定，默认高度为计数。",),
     "K19": ("X 是数值日期时间轴而不是等距文本类别。",),
+    "K20": (
+        "row 字段决定矩阵行和 Y 轴，column 字段决定矩阵列和 X 轴，"
+        "value 决定单元格颜色；三者不能互换。",
+        "公开色板名 RdBu 对应 palette=red_white_blue；反转必须单独写 reverse=true，"
+        "不能再交换成 blue_white_red。set_colormap 的目标是 series_1。",
+    ),
     "S34": ("横轴为阻抗实部，纵轴为负虚部；frequency 仅作元数据。",),
     "S61": ("行是 Actual、列是 Predicted；可从逐条记录计数或使用非负整数 Count。",),
     "X13": ("左右两个数值系列共享中央类别轴，不能退化为普通并列条形图。",),

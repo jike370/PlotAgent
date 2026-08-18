@@ -4,8 +4,8 @@
   "suite_version": 1,
   "legacy_source": {
     "path": "tests/fixtures/seq70/workflow_tasks.json",
-    "sha256": "75839311d3a320db3f64ff0b91e73539244940265253fd4cf2ead15140e5f08b",
-    "byte_length": 11248
+    "sha256": "5fabeaf7c6bd2aa24c30a0bc9b4da2425e1295548ffa52044581aba7cc8b9cc0",
+    "byte_length": 11290
   },
   "defaults": {
     "suite_kind": "regression",

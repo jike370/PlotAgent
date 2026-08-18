@@ -21,6 +21,7 @@ from plotagent.contracts.agent_tasks import (
     TaskState,
 )
 from plotagent.contracts.agent_tools import AgentToolResult, ToolInvocation
+from plotagent.contracts.base import ChartTypeId
 from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
 from plotagent.contracts.domain_knowledge import AgentContextSnapshot, UntrustedSourceContext
 from plotagent.contracts.workflows import (
@@ -380,6 +381,7 @@ class DurableAgentCoreHost:
         workflow_context: WorkflowContext,
     ) -> TaskPlan:
         validated = intent
+        envelope = self.ledger.get_envelope(intent.task_id)
         selected_sources = set(workflow_context.selected_source_aliases)
         selected_profiles = set(workflow_context.selected_profile_ids)
         selected_plots = {
@@ -388,6 +390,18 @@ class DurableAgentCoreHost:
             if plot.plot_alias in workflow_context.selected_plot_aliases
         }
         for item in validated.items:
+            if (
+                item.task_kind == "create"
+                and not envelope.selected_profile_ids
+                and not self._instruction_explicitly_names_profile(
+                    envelope.original_instruction, cast(ChartTypeId, item.profile_id)
+                )
+            ):
+                raise AgentFoundationError(
+                    "CHART_PROFILE_UNGROUNDED",
+                    "No chart was selected and the instruction did not explicitly name this "
+                    "chart profile. Ask the user which chart to create.",
+                )
             if item.task_kind == "create" and (
                 not item.source_aliases
                 or not set(item.source_aliases) <= selected_sources
@@ -435,6 +449,21 @@ class DurableAgentCoreHost:
             return DraftCompiler(self.catalog).compile(draft, workflow_context)
         except WorkflowCompileError as error:
             raise AgentFoundationError(error.code, error.message) from error
+
+    @staticmethod
+    def _instruction_explicitly_names_profile(
+        instruction: str, profile_id: ChartTypeId
+    ) -> bool:
+        """Ground an unselected create in the closed, reviewed chart vocabulary.
+
+        This is a validation boundary, not a semantic router: the Agent still chooses and
+        explains the chart, while Core only rejects a choice that has no literal user anchor.
+        """
+
+        card = DOMAIN_KNOWLEDGE.get_chart_knowledge(profile_id)
+        normalized = instruction.casefold()
+        aliases = (profile_id, card.display_name_zh, card.official_name)
+        return any(alias.casefold() in normalized for alias in aliases)
 
     def _source_context(
         self, envelope: TaskEnvelope
@@ -627,7 +656,12 @@ class DurableAgentCoreHost:
             "the injected EngineProfile: use plot for set_title, x_axis/y_axis for set_axis, "
             "series_1 etc. for series actions, and legend for set_legend. Emit only the "
             "requested edit actions and preserve every unspecified property. Do not inspect "
-            "sources or search the chart catalog for such a task. If no chart profile is selected, "
+            "sources or search the chart catalog for such a task. "
+            "Preserve every explicit Field-to-role mapping exactly and case-insensitively; do "
+            "not swap roles to match a preferred visual orientation. For set_colormap, target "
+            "the colormap-capable series alias from the injected EngineProfile, never plot, and "
+            "represent palette identity and reverse as independent fields without encoding the "
+            "same reversal twice. If no chart profile is selected, "
             "choose from the supplied catalog only when the instruction names one unambiguously; "
             "otherwise ask one blocking profile question. "
             "Return exactly one terminal AgentYield through submit_agent_yield. For intent_ready, "

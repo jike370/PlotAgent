@@ -346,6 +346,8 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         system_prompt = cast(str, environment["system_prompt"])
         assert "bind them directly without calling inspection tools" in system_prompt
         assert "Inspect rows only when unresolved data shape" in system_prompt
+        assert "Preserve every explicit Field-to-role mapping exactly" in system_prompt
+        assert "represent palette identity and reverse as independent fields" in system_prompt
         assert "Core derives that integrity field" in system_prompt
         yield_schema = cast(dict[str, object], environment["yield_schema"])
         definitions = cast(dict[str, object], yield_schema["$defs"])
@@ -519,6 +521,21 @@ def test_core_host_rejects_invalid_intent_before_confirmation(tmp_path: Path) ->
         assert caught.value.code == "FIELD_ALIAS_INVALID"
         assert ledger.get_task(task_envelope.task_id).state == "created"
         assert domain.revision == task_envelope.project_revision
+
+
+def test_unselected_chart_choice_requires_a_literal_user_anchor() -> None:
+    assert DurableAgentCoreHost._instruction_explicitly_names_profile(
+        "请创建一个折线图。", "K01"
+    )
+    assert DurableAgentCoreHost._instruction_explicitly_names_profile(
+        "Create a Line Graph from this table.", "K01"
+    )
+    assert DurableAgentCoreHost._instruction_explicitly_names_profile(
+        "请创建 K01。", "K01"
+    )
+    assert not DurableAgentCoreHost._instruction_explicitly_names_profile(
+        "用这张表画一张图。", "K01"
+    )
 
 
 def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: Path) -> None:

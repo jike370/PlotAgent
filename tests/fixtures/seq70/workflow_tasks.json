@@ -112,12 +112,12 @@
       "task_id": "W08",
       "layer": "workflow",
       "fixture_keys": ["error"],
-      "instruction": "创建 K06 双向误差棒图：X→x，Mean→center，XLower→x_lower，XUpper→x_upper，Lower→lower，Upper→upper。误差棒颜色 #B63848、宽 1.5 pt、端帽 6 pt。",
+      "instruction": "创建 K06 双向误差棒图：X→x，Mean→center，XErrMinus→x_err_minus，XErrPlus→x_err_plus，YErrMinus→y_err_minus，YErrPlus→y_err_plus。误差棒颜色 #B63848、宽 1.5 pt、端帽 6 pt。",
       "selected_profile_ids": ["K06"],
       "expected_outcome": "draft_ready",
       "expected_route": "agent",
       "expected_profiles": ["K06"],
-      "expected_bindings": {"x": "X", "center": "Mean", "x_err_minus": "XLower", "x_err_plus": "XUpper", "y_err_minus": "Lower", "y_err_plus": "Upper"},
+      "expected_bindings": {"x": "X", "center": "Mean", "x_err_minus": "XErrMinus", "x_err_plus": "XErrPlus", "y_err_minus": "YErrMinus", "y_err_plus": "YErrPlus"},
       "expected_visual_actions": [
         {"operation": "set_error_style", "target_alias": "series_1", "bar_color": "#B63848", "bar_width_pt": 1.5, "cap_size_pt": 6}
       ]

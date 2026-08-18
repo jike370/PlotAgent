@@ -171,7 +171,7 @@ function writeFixtures(root: string): Record<string, string> {
     xy_second: 'X,Response\n1,2.0\n2,3.0\n3,2.0\n4,5.0\n5,7.0\n',
     column: 'Category,Value\nA,3\nB,5\nC,4\nD,7\n',
     heatmap: 'Row,Column,Value\nA,X,-3\nA,Y,-1\nA,Z,0\nB,X,-2\nB,Y,0\nB,Z,4\nC,X,-0.75\nC,Y,4.5\nC,Z,9\n',
-    error: 'X,Mean,XLower,XUpper,Lower,Upper\n1,2,0.9,1.2,1.7,2.4\n2,3.5,1.8,2.25,3.1,4.0\n3,5,2.85,3.2,4.65,5.45\n',
+    error: 'X,Mean,XErrMinus,XErrPlus,YErrMinus,YErrPlus\n1,2,0.1,0.2,0.3,0.4\n2,3.5,0.2,0.25,0.4,0.5\n3,5,0.15,0.2,0.35,0.45\n',
     ambiguous: 'Alpha,Beta\n1,5\n2,4\n3,7\n4,6\n',
     before_after: 'Subject,Before,After,Group\nS1,10,12,Control\nS2,11,13,Control\nS3,9,14,Treated\nS4,12,15,Treated\n',
   }

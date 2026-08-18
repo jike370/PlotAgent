@@ -204,6 +204,19 @@ def test_registry_covers_exactly_the_34_executable_profiles() -> None:
         assert card.validation_claims
 
 
+def test_heatmap_and_bidirectional_error_cards_make_ambiguous_semantics_explicit() -> None:
+    heatmap = DOMAIN_KNOWLEDGE.get_chart_knowledge("K20")
+    heatmap_semantics = " ".join(heatmap.fixed_scientific_semantics)
+    assert "row 字段决定矩阵行和 Y 轴" in heatmap_semantics
+    assert "RdBu 对应 palette=red_white_blue" in heatmap_semantics
+    assert "set_colormap 的目标是 series_1" in heatmap_semantics
+
+    error_bar = DOMAIN_KNOWLEDGE.get_chart_knowledge("K06")
+    error_semantics = " ".join(error_bar.fixed_scientific_semantics)
+    assert "接受非负误差幅度" in error_semantics
+    assert "绝对下界/上界" in error_semantics
+
+
 def test_agent_visible_cards_bind_reviewed_evidence_without_backend_private_details() -> None:
     encoded = json.dumps(
         [card.model_dump(mode="json") for card in DOMAIN_KNOWLEDGE.cards.values()],
