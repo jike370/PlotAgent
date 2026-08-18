@@ -19,6 +19,7 @@ from pydantic import ValidationError
 
 from plotagent.contracts.agent_tasks import (
     AGENT_YIELD_ADAPTER,
+    TERMINAL_TASK_STATES,
     AgentActivation,
     TaskCompletion,
     TaskEnvelope,
@@ -217,9 +218,15 @@ class DesktopApplication:
     ) -> RpcJsonValue:
         values = _object(params, required={"project_id", "envelope"})
         session = self._session(_text(values["project_id"], "project_id"))
-        checkpoint = session.durable_tasks.create_task(
-            TaskEnvelope.model_validate_json(json.dumps(values["envelope"]))
-        )
+        envelope = TaskEnvelope.model_validate_json(json.dumps(values["envelope"]))
+        if envelope.parent_task_id is not None:
+            parent = session.durable_tasks.get_task(envelope.parent_task_id)
+            if parent.state not in TERMINAL_TASK_STATES and parent.state != "partial":
+                raise RpcServiceError(
+                    "FOLLOW_UP_PARENT_ACTIVE",
+                    "A follow-up task can only link to a finished or partial task.",
+                )
+        checkpoint = session.durable_tasks.create_task(envelope)
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
 
     def _agent_task_get(
@@ -510,13 +517,19 @@ class DesktopApplication:
             },
         )
         session = self._session(_text(values["project_id"], "project_id"))
+        task_id = _text(values["task_id"], "task_id")
+        session.durable_tasks.abort_active_activation(task_id)
         checkpoint = session.durable_tasks.cancel(
-            _text(values["task_id"], "task_id"),
+            task_id,
             expected_task_version=_integer(
                 values["expected_task_version"], "expected_task_version", minimum=1
             ),
             user_event_id=_text(values["user_event_id"], "user_event_id"),
             payload_hash=_text(values["payload_hash"], "payload_hash"),
+        )
+        checkpoint = session.durable_tasks.finalize_cancel(
+            task_id,
+            expected_task_version=checkpoint.task_version,
         )
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
 
@@ -1034,6 +1047,15 @@ class DesktopApplication:
             except ValidationError:
                 raise RpcServiceError(
                     "INVALID_PARAMS", "The request parameters were invalid."
+                ) from None
+            except FileExistsError as error:
+                raise RpcServiceError("EXPORT_DESTINATION_EXISTS", str(error)) from None
+            except FileNotFoundError as error:
+                raise RpcServiceError("EXPORT_DESTINATION_INVALID", str(error)) from None
+            except OSError:
+                raise RpcServiceError(
+                    "EXPORT_IO_FAILED",
+                    "The export could not be published to the selected destination.",
                 ) from None
             except (KeyError, TypeError, ValueError):
                 raise RpcServiceError(

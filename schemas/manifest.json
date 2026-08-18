@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "50d19e49e63d7c2881d0a3352588c4bdb3db1f313e6e96c2c580ac7c2addb74b"
+      "sha256": "e2c7e3c462642449cde31b0d18647d40adfc113ceb035c441451718b1a100c1c"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -150,7 +150,7 @@
     },
     {
       "path": "schemas/task-envelope-v2.schema.json",
-      "sha256": "820354545ca88d52c8b7cb8ad466b68bb814300257fece2eeaabc040d3d0be46"
+      "sha256": "11fa9f48225d53cf21833e724c64106308251dc403c3e6943b00057ed72cf2e2"
     },
     {
       "path": "schemas/task-error-v2.schema.json",
@@ -158,7 +158,7 @@
     },
     {
       "path": "schemas/task-event-v2.schema.json",
-      "sha256": "d30979d198918cb56621fe96d512f1427c9c6578636ef498e705dce20094658f"
+      "sha256": "ece297e28ac9e9f6f5e9cba374291988f2feebf774f14fbb562c0d1ce7e3b666"
     },
     {
       "path": "schemas/task-intent-v2.schema.json",
@@ -210,7 +210,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "2195de52a2ac1dc50a8955d307d210aded62dce75ce721759de05feba635066b"
+      "sha256": "a728a70d595147cecac9e0883ba4d7560c23de461afd89279a0a84eefc66e675"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

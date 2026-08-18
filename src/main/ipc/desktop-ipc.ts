@@ -485,6 +485,17 @@ export function registerDesktopIpc({
   ipcMain.handle(IPC_CHANNELS.cancelTask, async (_event, value: unknown) => {
     const taskId = parseTaskId(value)
     if (taskId === null) return invalidArgument('A valid task ID is required.')
+    if (agentFoundationRuntime?.ownsTask(taskId) === true) {
+      try {
+        await agentFoundationRuntime.cancel(taskId)
+        return { ok: true } satisfies DesktopActionResult
+      } catch (error: unknown) {
+        return {
+          ok: false,
+          error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
+        } satisfies DesktopActionResult
+      }
+    }
     const task = tasks.get(taskId)
     if (task === undefined || !isTaskCancellable(task.state)) {
       return {

@@ -952,7 +952,8 @@
             "corrected",
             "cancel_requested",
             "budget_extended",
-            "partial_accepted"
+            "partial_accepted",
+            "resumed"
           ],
           "title": "Action",
           "type": "string"

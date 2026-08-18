@@ -13441,6 +13441,19 @@
           "title": "Original Instruction",
           "type": "string"
         },
+        "parent_task_id": {
+          "anyOf": [
+            {
+              "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Task Id"
+        },
         "project_id": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
           "title": "Project Id",
@@ -13450,6 +13463,19 @@
           "minimum": 0,
           "title": "Project Revision",
           "type": "integer"
+        },
+        "relationship": {
+          "anyOf": [
+            {
+              "const": "follow_up",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relationship"
         },
         "schema_version": {
           "const": "task-envelope.v2",
@@ -15196,7 +15222,8 @@
             "corrected",
             "cancel_requested",
             "budget_extended",
-            "partial_accepted"
+            "partial_accepted",
+            "resumed"
           ],
           "title": "Action",
           "type": "string"

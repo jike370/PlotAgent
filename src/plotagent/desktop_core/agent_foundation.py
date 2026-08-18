@@ -648,6 +648,19 @@ class DurableTaskCoordinator:
         if checkpoint.active_activation_id is not None:
             activation, status = self._ledger.get_activation(checkpoint.active_activation_id)
             if status in {"requested", "running"}:
+                deadline = datetime.fromisoformat(activation.deadline.replace("Z", "+00:00"))
+                if deadline <= self._clock().astimezone(UTC):
+                    checkpoint = self._ledger.abort_active_activation(task_id)
+                    resumed = (
+                        self._repair_activation(checkpoint)
+                        if checkpoint.state == "repairing"
+                        else self._resume_activation(checkpoint)
+                    )
+                    self._ledger.start_activation(resumed)
+                    return {
+                        "kind": "run_activation",
+                        "activation": resumed.model_dump(mode="json"),
+                    }
                 return {
                     "kind": "run_activation",
                     "activation": activation.model_dump(mode="json"),
@@ -696,6 +709,21 @@ class DurableTaskCoordinator:
                     "kind": "run_activation",
                     "activation": activation.model_dump(mode="json"),
                 }
+            if latest is not None and latest.action == "resumed":
+                activation = self._resume_activation(
+                    checkpoint, reason="external_blocker_cleared"
+                )
+                self._ledger.start_activation(activation)
+                return {
+                    "kind": "run_activation",
+                    "activation": activation.model_dump(mode="json"),
+                }
+            activation = self._resume_activation(checkpoint)
+            self._ledger.start_activation(activation)
+            return {
+                "kind": "run_activation",
+                "activation": activation.model_dump(mode="json"),
+            }
         if checkpoint.state == "partial":
             for item in tuple(checkpoint.items):
                 if item.state != "repairable_failed" or item.attempt_count < 2:
@@ -718,6 +746,15 @@ class DurableTaskCoordinator:
                 next_state="repairing",
                 reason_code="SCOPED_REPAIR_REQUESTED",
             )
+            activation = self._repair_activation(checkpoint)
+            self._ledger.start_activation(activation)
+            return {
+                "kind": "run_activation",
+                "activation": activation.model_dump(mode="json"),
+            }
+        if checkpoint.state == "repairing" and any(
+            item.state == "repairable_failed" for item in checkpoint.items
+        ):
             activation = self._repair_activation(checkpoint)
             self._ledger.start_activation(activation)
             return {
@@ -805,6 +842,34 @@ class DurableTaskCoordinator:
             task_state=checkpoint.state,
             original_instruction=envelope.original_instruction,
             current_user_message=message,
+            confirmed_intent=checkpoint.intent,
+            item_states=tuple((item.item_id, item.state) for item in checkpoint.items),
+            allowed_tools=_INVESTIGATION_TOOLS,
+            permission_phase="p0_read",
+            activation_budget=budget,
+            task_budget=checkpoint.budget,
+            deadline=_iso(now + timedelta(milliseconds=budget.timeout_ms)),
+            created_at=_iso(now),
+        )
+
+    def _resume_activation(
+        self,
+        checkpoint: TaskCheckpoint,
+        *,
+        reason: Literal["resume_after_restart", "external_blocker_cleared"] = (
+            "resume_after_restart"
+        ),
+    ) -> AgentActivation:
+        envelope = self._ledger.get_envelope(checkpoint.task_id)
+        now = self._clock().astimezone(UTC)
+        budget = ActivationBudget(timeout_ms=35_000)
+        return AgentActivation(
+            activation_id=f"activation:{uuid.uuid4().hex}",
+            task_id=checkpoint.task_id,
+            task_version=checkpoint.task_version,
+            reason=reason,
+            task_state=checkpoint.state,
+            original_instruction=envelope.original_instruction,
             confirmed_intent=checkpoint.intent,
             item_states=tuple((item.item_id, item.state) for item in checkpoint.items),
             allowed_tools=_INVESTIGATION_TOOLS,

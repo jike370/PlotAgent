@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P7 已完成；批量、partial、失败项定向修复与语义变更重确认已闭环，下一施工阶段为 P8。
+> 状态：P0–P8 已完成；权限、取消、lease、重启恢复与外部发布边界已闭环，下一施工阶段为 P9。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -528,6 +528,15 @@
 1. `feat(tasks): enforce execution grants`
 2. `feat(tasks): add end-to-end cancellation`
 3. `feat(tasks): resume tasks after restart`
+
+### 完成记录
+
+- P0/P1/P2/P3 继续由 Core 上下文、ToolGateway 和最小 ExecutionGrant 共同执行；公开入口不提供绕过确认的 P3 扩权动作；
+- 桌面取消优先定位 durable task，只中止该任务的 Pi activation，并在原子 item 边界保留已成功结果、取消其余 item；不通过终止全部 Origin 实例实现取消；
+- execution writer lease、过期 activation、写工具返回前断连后的 receipt/plot reconcile，以及 blocked 后显式恢复均已有持久化路径；
+- PNG、SVG、OPJU 先写同卷私有 staging，校验大小和 SHA-256 后无覆盖原子发布；已有目标、无效目录和发布 I/O 失败返回稳定公开错误；
+- awaiting input/confirmation 直接从 checkpoint 恢复；过期 activation 使用 `resume_after_restart`，外部阻断解除使用 `external_blocker_cleared`，repairing 使用定向 repair activation；
+- follow-up 使用新 TaskEnvelope 的 `parent_task_id + relationship=follow_up` 关联已结束或 partial 的父任务，不改写父任务事件历史。
 
 ## 14. P9：正式对话 UI、任务中心与可观察性
 

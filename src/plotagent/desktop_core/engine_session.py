@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -154,33 +157,50 @@ class DesktopEngineSession:
             raise ValueError("the export endpoint accepts only export_plot")
         if destination.name != action.output_name:
             raise ValueError("the authorized destination name differs from output_name")
+        if destination.exists():
+            raise FileExistsError("PlotAgent does not overwrite an existing export.")
+        if not destination.parent.is_dir():
+            raise FileNotFoundError("the authorized export directory does not exist")
         stored = self.documents.get(action.target, action.expected_plot_version)
         document = stored.document
         self.catalog.validate_action(self.catalog.get(document.profile_id), action)
-        if action.format in {"png", "svg"}:
-            artifact = self.matplotlib.export(document, destination, action.format)
-        else:
-            if origin_install_dir is None:
-                raise ValueError("Origin installation is required for OPJU export")
-            origin = OriginBackend(
-                self.artifact_root.parent / "origin",
-                origin_install_dir,
-                SubprocessOriginWorker(),
-            )
-            readback = self.runtime.materialize_backend(origin, document)
-            artifact = origin.export(document, destination, action.format)
+        staging_dir = destination.parent / f".plotagent-export-{uuid.uuid4().hex}"
+        staging_dir.mkdir(mode=0o700)
+        staged = staging_dir / destination.name
+        try:
+            if action.format in {"png", "svg"}:
+                artifact = self.matplotlib.export(document, staged, action.format)
+                readback = self.matplotlib.readback(document)
+            else:
+                if origin_install_dir is None:
+                    raise ValueError("Origin installation is required for OPJU export")
+                origin = OriginBackend(
+                    self.artifact_root.parent / "origin",
+                    origin_install_dir,
+                    SubprocessOriginWorker(),
+                )
+                readback = self.runtime.materialize_backend(origin, document)
+                artifact = origin.export(document, staged, action.format)
+            payload = staged.read_bytes()
+            if (
+                len(payload) != artifact.artifact_size
+                or hashlib.sha256(payload).hexdigest() != artifact.artifact_hash
+            ):
+                raise RuntimeError("staged export verification failed")
+            with staged.open("r+b") as stream:
+                os.fsync(stream.fileno())
+            # A hard link is an atomic no-overwrite publish on the same volume.
+            # The private staged name is removed only after the public name exists.
+            os.link(staged, destination)
+            staged.unlink()
             return {
                 "plot_id": document.plot_id,
                 "plot_version": document.plot_version,
                 "artifact": artifact.model_dump(mode="json"),
                 "readback": readback.model_dump(mode="json"),
             }
-        return {
-            "plot_id": document.plot_id,
-            "plot_version": document.plot_version,
-            "artifact": artifact.model_dump(mode="json"),
-            "readback": self.matplotlib.readback(document).model_dump(mode="json"),
-        }
+        finally:
+            shutil.rmtree(staging_dir, ignore_errors=True)
 
     def catalog_payload(self) -> dict[str, object]:
         return {

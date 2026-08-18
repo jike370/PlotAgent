@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 
 import type { JsonValue } from '../../shared/desktop-contract.js'
 import { CorePiRuntimeHostV2, type PiRuntimeCoreBridgeV2 } from './pi-runtime-host-v2.js'
@@ -23,6 +23,7 @@ export interface AgentFoundationRunInput {
   readonly selectedPlotIds?: readonly string[]
   readonly expectedProjectVersion: number
   readonly instruction: string
+  readonly parentTaskId?: string
 }
 
 export interface AgentFoundationPlanInput {
@@ -187,6 +188,8 @@ export class AgentFoundationRuntime {
   private readonly clock: () => Date
   private readonly id: () => string
   private readonly authorityByPlan = new Map<string, PlanAuthority>()
+  private readonly authorityByTask = new Map<string, string>()
+  private readonly activePumps = new Map<string, AgentTaskPump>()
   private sequence = 0
 
   constructor(options: AgentFoundationRuntimeOptions) {
@@ -211,6 +214,10 @@ export class AgentFoundationRuntime {
     return this.authorityByPlan.has(planId)
   }
 
+  ownsTask(taskId: string): boolean {
+    return this.authorityByTask.has(taskId)
+  }
+
   async list(projectId: string): Promise<JsonValue> {
     const result = record(await this.core.request(
       'agent.tasks.list',
@@ -225,9 +232,11 @@ export class AgentFoundationRuntime {
     }
     const tasks = result.tasks.flatMap((value) => {
       const task = record(value, 'durable task checkpoint')
+      const taskId = string(task.task_id, 'task ID')
+      this.authorityByTask.set(taskId, projectId)
       return task.intent === null || task.intent === undefined
         ? []
-        : [{ taskId: string(task.task_id, 'task ID') }]
+        : [{ taskId }]
     })
     const newestFirst = await Promise.all(tasks.map(async ({ taskId }) => {
       const view = await this.core.request(
@@ -292,6 +301,9 @@ export class AgentFoundationRuntime {
         project_id: input.projectId,
         project_revision: input.expectedProjectVersion,
         original_instruction: input.instruction,
+        ...(input.parentTaskId === undefined
+          ? {}
+          : { parent_task_id: input.parentTaskId, relationship: 'follow_up' }),
         locale: 'zh-CN',
         selected_sources: selectedSources,
         selected_plots: [],
@@ -304,6 +316,7 @@ export class AgentFoundationRuntime {
         created_at: this.clock().toISOString(),
       },
     })
+    this.authorityByTask.set(taskId, input.projectId)
 
     const host = new CorePiRuntimeHostV2(this.core, input.projectId)
     const runtime = this.createRuntime(host, (event) => this.forwardRuntime(runId, input.projectId, event))
@@ -312,7 +325,13 @@ export class AgentFoundationRuntime {
       runtime,
       emit: (event) => this.forwardPump(runId, input.projectId, event),
     })
-    const drained = await pump.drain(input.projectId, taskId)
+    this.activePumps.set(taskId, pump)
+    let drained: TaskPumpResult
+    try {
+      drained = await pump.drain(input.projectId, taskId)
+    } finally {
+      if (this.activePumps.get(taskId) === pump) this.activePumps.delete(taskId)
+    }
     if (drained.reason !== 'awaiting_confirmation') {
       throw stoppedBeforeConfirmation(drained)
     }
@@ -391,7 +410,15 @@ export class AgentFoundationRuntime {
         runtime,
         emit: (event) => this.forwardPump(runId, authority.projectId, event),
       })
-      const drained = await pump.drain(authority.projectId, authority.taskId)
+      this.activePumps.set(authority.taskId, pump)
+      let drained: TaskPumpResult
+      try {
+        drained = await pump.drain(authority.projectId, authority.taskId)
+      } finally {
+        if (this.activePumps.get(authority.taskId) === pump) {
+          this.activePumps.delete(authority.taskId)
+        }
+      }
       if (drained.reason === 'execution_pending') {
         this.emit(runId, authority.projectId, 'planning', '正在仅重试失败项…')
         await this.core.request(
@@ -403,6 +430,33 @@ export class AgentFoundationRuntime {
     }
     view = record(await this.get(input), 'durable task plan view')
     return json(view)
+  }
+
+  async cancel(taskId: string): Promise<void> {
+    const projectId = this.authorityByTask.get(taskId)
+    if (projectId === undefined) {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_TASK_UNKNOWN',
+        '当前桌面会话中找不到该 Agent 任务。',
+      )
+    }
+    const task = record(await this.core.request(
+      'agent.tasks.get',
+      { project_id: projectId, task_id: taskId },
+      15_000,
+    ), 'durable task checkpoint')
+    const version = integer(task.task_version, 'task version')
+    this.activePumps.get(taskId)?.cancel(projectId, taskId)
+    const payloadHash = createHash('sha256')
+      .update(`cancel:${taskId}:${version}`, 'utf8')
+      .digest('hex')
+    await this.core.request('agent.tasks.cancel', {
+      project_id: projectId,
+      task_id: taskId,
+      expected_task_version: version,
+      user_event_id: `user-event:${this.id()}`,
+      payload_hash: payloadHash,
+    }, 15_000)
   }
 
   private authority(input: AgentFoundationPlanInput): PlanAuthority {

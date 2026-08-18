@@ -124,6 +124,137 @@ def test_agent_task_v2_api_persists_checkpoint_and_events(
     assert restored == advanced
 
 
+def test_agent_task_v2_cancel_is_durable_and_terminal(harness: ApplicationHarness) -> None:
+    project_id, _revision = _create_open(harness)
+    task_id = "task:desktop-cancel"
+    created = harness.call(
+        "agent.tasks.create",
+        {
+            "project_id": project_id,
+            "envelope": {
+                "task_id": task_id,
+                "task_version": 1,
+                "project_id": project_id,
+                "project_revision": 0,
+                "original_instruction": "Create a line chart.",
+                "selected_sources": [
+                    {
+                        "source_dataset_id": "source:test",
+                        "source_version": 1,
+                        "content_hash": "a" * 64,
+                    }
+                ],
+                "selected_profile_ids": ["K01"],
+                "budget": {"max_estimated_cost": 10},
+                "created_at": "2026-08-18T10:00:00Z",
+            },
+        },
+    )
+    directive = harness.call(
+        "agent.tasks.pump.next", {"project_id": project_id, "task_id": task_id}
+    )
+    activation_id = directive["activation"]["activation_id"]
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    cancelled = harness.call(
+        "agent.tasks.cancel",
+        {
+            "project_id": project_id,
+            "task_id": task_id,
+            "expected_task_version": created["task_version"],
+            "user_event_id": "user-event:desktop-cancel",
+            "payload_hash": "c" * 64,
+        },
+    )
+    assert cancelled["state"] == "cancelled"
+    events = harness.call(
+        "agent.tasks.events", {"project_id": project_id, "task_id": task_id}
+    )["events"]
+    activation_events = [
+        event for event in events if event["event_type"] == "agent_activation"
+    ]
+    assert [event["phase"] for event in activation_events] == [
+        "requested",
+        "started",
+        "aborted",
+    ]
+
+
+def test_agent_follow_up_links_new_task_without_reopening_parent(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, _revision = _create_open(harness)
+
+    def envelope(task_id: str, *, parent_task_id: str | None = None) -> dict[str, Any]:
+        return {
+            "task_id": task_id,
+            "task_version": 1,
+            "project_id": project_id,
+            "project_revision": 0,
+            "original_instruction": "Continue with a related chart.",
+            "selected_sources": [
+                {
+                    "source_dataset_id": "source:test",
+                    "source_version": 1,
+                    "content_hash": "a" * 64,
+                }
+            ],
+            "selected_profile_ids": ["K01"],
+            "budget": {"max_estimated_cost": 10},
+            "created_at": "2026-08-18T10:00:00Z",
+            **(
+                {}
+                if parent_task_id is None
+                else {"parent_task_id": parent_task_id, "relationship": "follow_up"}
+            ),
+        }
+
+    parent = harness.call(
+        "agent.tasks.create",
+        {"project_id": project_id, "envelope": envelope("task:parent")},
+    )
+    cancelled = harness.call(
+        "agent.tasks.cancel",
+        {
+            "project_id": project_id,
+            "task_id": "task:parent",
+            "expected_task_version": parent["task_version"],
+            "user_event_id": "user-event:parent-cancel",
+            "payload_hash": "c" * 64,
+        },
+    )
+    child = harness.call(
+        "agent.tasks.create",
+        {
+            "project_id": project_id,
+            "envelope": envelope("task:child", parent_task_id="task:parent"),
+        },
+    )
+    assert cancelled["state"] == "cancelled"
+    assert child["state"] == "created"
+    assert harness.call(
+        "agent.tasks.get", {"project_id": project_id, "task_id": "task:parent"}
+    ) == cancelled
+
+    harness.call(
+        "agent.tasks.create",
+        {"project_id": project_id, "envelope": envelope("task:active-parent")},
+    )
+    with pytest.raises(RpcServiceError) as caught:
+        harness.call(
+            "agent.tasks.create",
+            {
+                "project_id": project_id,
+                "envelope": envelope(
+                    "task:premature-child", parent_task_id="task:active-parent"
+                ),
+            },
+        )
+    assert caught.value.code == "FOLLOW_UP_PARENT_ACTIVE"
+
+
 def test_agent_task_pump_next_creates_one_durable_activation(
     harness: ApplicationHarness,
 ) -> None:
@@ -996,6 +1127,25 @@ def test_public_export_action_writes_png_without_mutating_plot(
     assert (
         exported["artifact"]["content_hash"] == hashlib.sha256(destination.read_bytes()).hexdigest()
     )
+    original = destination.read_bytes()
+    with pytest.raises(RpcServiceError):
+        harness.call(
+            "engine.exports.execute",
+            {
+                "project_id": project_id,
+                "action": {
+                    "operation": "export_plot",
+                    "action_id": "action:export-again",
+                    "target": "plot:export",
+                    "expected_plot_version": 1,
+                    "format": "png",
+                    "output_name": destination.name,
+                },
+                "destination_resource_id": "resource:export-again",
+                "destination_path": str(destination),
+            },
+        )
+    assert destination.read_bytes() == original
     assert (
         harness.call("engine.plots.get", {"project_id": project_id, "plot_id": "plot:export"})[
             "project_version"

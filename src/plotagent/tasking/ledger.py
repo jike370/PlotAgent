@@ -97,6 +97,7 @@ type UserTaskAction = Literal[
     "cancel_requested",
     "budget_extended",
     "partial_accepted",
+    "resumed",
 ]
 
 
@@ -534,6 +535,49 @@ class TaskLedgerRepository:
             self._append_event_and_checkpoint(connection, event, updated, now)
             return updated
 
+    def abort_active_activation(self, task_id: str) -> TaskCheckpoint:
+        """Durably terminate only the activation currently owned by this task."""
+
+        with self._transaction() as connection:
+            current = self._get_task_in_transaction(connection, task_id)
+            activation_id = current.active_activation_id
+            if activation_id is None:
+                return current
+            row = connection.execute(
+                "SELECT status FROM agent_activations_v2 WHERE activation_id = ?",
+                (activation_id,),
+            ).fetchone()
+            if row is None:
+                raise self._not_found("Agent activation was not found.")
+            status = str(row[0])
+            if status not in {"requested", "running", "aborted"}:
+                raise self._conflict("A completed activation cannot be aborted.")
+            now = _utc_now()
+            if status != "aborted":
+                connection.execute(
+                    "UPDATE agent_activations_v2 SET status = 'aborted', updated_at = ? "
+                    "WHERE activation_id = ?",
+                    (now, activation_id),
+                )
+                sequence = self._next_sequence(connection, task_id)
+                event = AgentActivationEvent(
+                    event_id=self._new_id("event"),
+                    task_id=task_id,
+                    task_version=current.task_version,
+                    sequence=sequence,
+                    occurred_at=now,
+                    activation_id=activation_id,
+                    phase="aborted",
+                )
+                current = self._copy_checkpoint(
+                    current,
+                    event_sequence=sequence,
+                    active_activation_id=None,
+                    updated_at=now,
+                )
+                self._append_event_and_checkpoint(connection, event, current, now)
+            return current
+
     def accept_yield(self, yielded: AgentYield) -> TaskCheckpoint:
         with self._transaction() as connection:
             activation, current, status = self._activation_context(
@@ -603,7 +647,9 @@ class TaskLedgerRepository:
             # stale before Pi could use a single tool. Record the investigation state
             # only after the activation has terminated, immediately before projecting
             # its typed outcome.
-            if activation.reason == "new_task" and checkpoint.state == "created":
+            if activation.reason in {"new_task", "resume_after_restart"} and (
+                checkpoint.state == "created"
+            ):
                 checkpoint = self._transition(
                     connection,
                     checkpoint,
@@ -710,6 +756,7 @@ class TaskLedgerRepository:
             # subset. Recording acceptance must not pretend every required claim
             # passed or route the task through verified completion.
             "partial_accepted": (frozenset({"partial"}), None),
+            "resumed": (frozenset({"blocked"}), "investigating"),
         }
         if action not in transitions:
             raise ValueError("unsupported user task action")
@@ -919,6 +966,38 @@ class TaskLedgerRepository:
             payload_hash=payload_hash,
         )
 
+    def finalize_cancel(self, task_id: str, *, expected_task_version: int) -> TaskCheckpoint:
+        """Stop at an item boundary and preserve already committed batch outputs."""
+
+        current = self.get_task(task_id)
+        self._expect_version(current, expected_task_version)
+        if current.state != "cancelling":
+            raise self._conflict("Only a cancelling task can be finalized.")
+        for item in current.items:
+            if item.state in {"succeeded", "failed", "cancelled"}:
+                continue
+            current = self.transition_item(
+                task_id,
+                expected_task_version=current.task_version,
+                item_id=item.item_id,
+                expected_item_state=item.state,
+                next_state="cancelled",
+                reason_code="USER_CANCELLED_REMAINING_ITEM",
+            )
+        target: TaskState = (
+            "partial" if any(item.state == "succeeded" for item in current.items) else "cancelled"
+        )
+        return self.advance(
+            task_id,
+            expected_task_version=current.task_version,
+            next_state=target,
+            reason_code=(
+                "CANCELLED_AFTER_PARTIAL_COMMIT"
+                if target == "partial"
+                else "USER_CANCELLED_FINALIZED"
+            ),
+        )
+
     def transition_item(
         self,
         task_id: str,
@@ -1038,6 +1117,15 @@ class TaskLedgerRepository:
             )
             self._append_event_and_checkpoint(connection, event, updated, now)
             return updated
+
+    def get_tool_receipt(self, receipt_id: str) -> ToolReceipt:
+        row = self._connection.execute(
+            "SELECT receipt_json FROM agent_tool_receipts_v2 WHERE receipt_id = ?",
+            (receipt_id,),
+        ).fetchone()
+        if row is None:
+            raise self._not_found("Agent tool receipt was not found.")
+        return ToolReceipt.model_validate_json(str(row[0]))
 
     def record_verification_report(self, report: VerificationReport) -> TaskCheckpoint:
         with self._transaction() as connection:

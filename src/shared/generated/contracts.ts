@@ -1768,6 +1768,8 @@ export type TaskEnvelope = {
   readonly project_id: string;
   readonly project_revision: number;
   readonly original_instruction: string;
+  readonly parent_task_id?: string | null;
+  readonly relationship?: "follow_up" | null;
   readonly locale?: "zh-CN" | "en-US";
   readonly selected_sources?: ReadonlyArray<SourceDatasetRef>;
   readonly selected_plots?: ReadonlyArray<SelectedPlotRef>;
@@ -2023,7 +2025,7 @@ export type UserTaskEvent = {
   readonly sequence: number;
   readonly occurred_at: string;
   readonly event_type?: "user_task_event";
-  readonly action: "answered" | "confirmed" | "rejected" | "corrected" | "cancel_requested" | "budget_extended" | "partial_accepted";
+  readonly action: "answered" | "confirmed" | "rejected" | "corrected" | "cancel_requested" | "budget_extended" | "partial_accepted" | "resumed";
   readonly user_event_id: string;
   readonly payload_hash: string;
   readonly message?: string | null;

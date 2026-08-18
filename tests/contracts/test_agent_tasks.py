@@ -137,6 +137,29 @@ def test_task_envelope_requires_real_selection_and_unique_identity() -> None:
     )
     assert envelope.schema_version == "task-envelope.v2"
 
+    follow_up = TaskEnvelope.model_validate(
+        {
+            **envelope.model_dump(),
+            "task_id": "task:follow-up",
+            "parent_task_id": envelope.task_id,
+            "relationship": "follow_up",
+        }
+    )
+    assert follow_up.parent_task_id == envelope.task_id
+
+    with pytest.raises(ValidationError, match="both parent and relationship"):
+        TaskEnvelope.model_validate(
+            {**envelope.model_dump(), "parent_task_id": envelope.task_id}
+        )
+    with pytest.raises(ValidationError, match="cannot follow up itself"):
+        TaskEnvelope.model_validate(
+            {
+                **envelope.model_dump(),
+                "parent_task_id": envelope.task_id,
+                "relationship": "follow_up",
+            }
+        )
+
     with pytest.raises(ValidationError, match="at least one selected source or plot"):
         TaskEnvelope.model_validate(
             {

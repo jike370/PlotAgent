@@ -6,6 +6,7 @@ import pytest
 
 from plotagent.contracts.agent_tasks import (
     AgentActivation,
+    AgentActivationEvent,
     AgentIntentReady,
     AgentNeedsInput,
     SideEffectReceipt,
@@ -240,6 +241,35 @@ def test_intent_yield_stages_items_and_survives_restart(tmp_path) -> None:
     with ProjectStore.open(workspace) as reopened:
         restored = TaskLedgerRepository(reopened).get_task("task:test")
         assert restored == staged
+
+
+def test_cancel_aborts_owned_activation_and_finalizes_without_side_effects(tmp_path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        created = ledger.create_task(envelope())
+        ledger.start_activation(activation())
+        ledger.mark_activation_running("activation:test")
+
+        aborted = ledger.abort_active_activation("task:test")
+        assert aborted.active_activation_id is None
+        _, status = ledger.get_activation("activation:test")
+        assert status == "aborted"
+        cancelling = ledger.cancel(
+            "task:test",
+            expected_task_version=created.task_version,
+            user_event_id="user-event:cancel.1",
+            payload_hash=HASH_A,
+        )
+        cancelled = ledger.finalize_cancel(
+            "task:test", expected_task_version=cancelling.task_version
+        )
+        assert cancelled.state == "cancelled"
+        phases = [
+            event.phase
+            for event in ledger.list_events("task:test")
+            if isinstance(event, AgentActivationEvent)
+        ]
+        assert phases == ["requested", "started", "aborted"]
 
 
 def test_item_progress_is_isolated_between_batch_items(tmp_path) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, cast
@@ -12,6 +13,7 @@ from plotagent.contracts.agent_tasks import (
     ExecutionGrant,
     ExecutionScope,
     SideEffectReceipt,
+    TaskCheckpoint,
     TaskCompletion,
     TaskError,
     TaskItemState,
@@ -155,27 +157,63 @@ class DurableTaskExecutionService:
         return {"task": updated.model_dump(mode="json")}
 
     def run(self, task_id: str) -> dict[str, object]:
+        lease = self.ledger.acquire_lease(
+            task_id,
+            holder_id=f"execution:{uuid.uuid4().hex}",
+            ttl_seconds=1800,
+        )
+        try:
+            return self._run_with_lease(task_id)
+        finally:
+            self.ledger.release_lease(task_id, lease_token=lease)
+
+    def _run_with_lease(self, task_id: str) -> dict[str, object]:
         checkpoint = self.ledger.get_task(task_id)
         if checkpoint.state != "executing":
             raise DurableExecutionError(
                 "TASK_NOT_EXECUTABLE", "Only a confirmed task can execute."
             )
         plan = self.ledger.get_plan(task_id)
+        checkpoint = self._reconcile_interrupted_items(task_id, checkpoint, plan.items)
+        if checkpoint.state == "partial":
+            return {
+                "task": checkpoint.model_dump(mode="json"),
+                "plots": self._completed_plots(checkpoint),
+                "verifications": [],
+                "failures": [
+                    {
+                        "item_id": item.item_id,
+                        "error": item.last_error.model_dump(mode="json"),
+                    }
+                    for item in checkpoint.items
+                    if item.state == "repairable_failed" and item.last_error is not None
+                ],
+            }
         grant = self.ledger.get_execution_grant(task_id)
+        reconciled_all = bool(checkpoint.items) and all(
+            item.state == "succeeded" for item in checkpoint.items
+        )
         repairing = any(item.state == "repairable_failed" for item in checkpoint.items)
-        if grant.intent != checkpoint.intent or (
-            not repairing and grant.task_version != checkpoint.task_version
+        if not reconciled_all and (
+            grant.intent != checkpoint.intent
+            or (not repairing and grant.task_version != checkpoint.task_version)
         ):
             raise DurableExecutionError(
                 "EXECUTION_GRANT_STALE", "Execution authority no longer matches the task."
             )
-        if not repairing and grant.expected_project_revision != checkpoint.project_revision:
+        if (
+            not reconciled_all
+            and not repairing
+            and grant.expected_project_revision != checkpoint.project_revision
+        ):
             raise DurableExecutionError(
                 "EXECUTION_GRANT_STALE", "Execution authority no longer matches the project."
             )
         self.domain.require_revision(checkpoint.project_revision)
         scopes = {scope.item_id: scope for scope in grant.scopes}
-        if tuple(scopes) != tuple(item.item_id for item in plan.items):
+        if not reconciled_all and tuple(scopes) != tuple(
+            item.item_id for item in plan.items
+        ):
             raise DurableExecutionError(
                 "EXECUTION_SCOPE_INVALID", "Execution grant does not match the batch plan."
             )
@@ -186,15 +224,15 @@ class DurableTaskExecutionService:
         receipts: list[ToolReceipt] = []
         failures: list[dict[str, object]] = []
         for item in plan.items:
+            current = self.ledger.get_task(task_id)
+            snapshot = next(entry for entry in current.items if entry.item_id == item.item_id)
+            if snapshot.state in {"succeeded", "failed", "blocked", "cancelled"}:
+                continue
             scope = scopes[item.item_id]
             if "create_plot" not in scope.operations:
                 raise DurableExecutionError(
                     "EXECUTION_SCOPE_INVALID", "Execution grant does not authorize this item."
                 )
-            current = self.ledger.get_task(task_id)
-            snapshot = next(entry for entry in current.items if entry.item_id == item.item_id)
-            if snapshot.state in {"succeeded", "failed", "blocked", "cancelled"}:
-                continue
             if snapshot.state not in {"staged", "repairable_failed"}:
                 raise DurableExecutionError(
                     "TASK_ITEM_STATE_INVALID", "A batch item was not ready to execute."
@@ -288,7 +326,12 @@ class DurableTaskExecutionService:
         current = self.ledger.get_task(task_id)
         plots = self._completed_plots(current)
         if failures:
-            target_state: TaskState = "partial" if plots else "failed"
+            retryable_failure = any(
+                item.state == "repairable_failed" for item in current.items
+            )
+            target_state: TaskState = (
+                "partial" if plots or retryable_failure else "failed"
+            )
             stopped = self.ledger.advance(
                 task_id,
                 expected_task_version=current.task_version,
@@ -356,6 +399,106 @@ class DurableTaskExecutionService:
             result["plot"] = plots[0]
             result["verification"] = reports[0].model_dump(mode="json")
         return result
+
+    def _reconcile_interrupted_items(
+        self,
+        task_id: str,
+        checkpoint: object,
+        plan_items: tuple[CompiledTaskItem, ...],
+    ) -> TaskCheckpoint:
+        """Recover an item interrupted between atomic engine commit and ledger projection."""
+
+        current = TaskCheckpoint.model_validate(checkpoint)
+        by_id = {item.item_id: item for item in plan_items}
+        interrupted = False
+        for snapshot in tuple(current.items):
+            if snapshot.state != "running":
+                continue
+            interrupted = True
+            item = by_id[snapshot.item_id]
+            stored_version = self.engine.documents.latest_version(item.plot_id)
+            if stored_version is None:
+                _failure, report, _receipt = self._record_item_failure(
+                    task_id,
+                    item,
+                    current.task_version,
+                    snapshot.attempt_count,
+                    current.project_revision,
+                    _now(),
+                    DurableExecutionError(
+                        "EXECUTION_INTERRUPTED",
+                        "Execution stopped before an atomic plot result was committed.",
+                    ),
+                )
+                current = self.ledger.get_task(task_id)
+                continue
+
+            stored = self.engine.documents.get(item.plot_id, stored_version)
+            if snapshot.receipt_ids:
+                receipt = self.ledger.get_tool_receipt(snapshot.receipt_ids[-1])
+                if receipt.outcome != "succeeded":
+                    raise DurableExecutionError(
+                        "RECEIPT_RECONCILE_CONFLICT",
+                        "An interrupted item has a non-success receipt and a committed plot.",
+                    )
+            else:
+                receipt = ToolReceipt(
+                    receipt_id=self._execution_receipt_id(item, snapshot.attempt_count),
+                    task_id=task_id,
+                    task_version=current.task_version,
+                    item_id=item.item_id,
+                    tool_call_id=(
+                        f"execute:{item.idempotency_key}:{snapshot.attempt_count}"
+                    ),
+                    tool_name="execute_confirmed_plan_item",
+                    permission_phase="p2_confirmed",
+                    outcome="succeeded",
+                    idempotency_key=item.idempotency_key,
+                    input_hash=canonical_hash(item),
+                    output_hash=stored.content_hash,
+                    project_revision_before=current.project_revision,
+                    project_revision_after=self.domain.revision,
+                    side_effects=(
+                        SideEffectReceipt(
+                            effect_kind="plot_version",
+                            object_id=item.plot_id,
+                            object_version=stored_version,
+                            artifact_hash=stored.content_hash,
+                            reversible=True,
+                        ),
+                    ),
+                    started_at=_now(),
+                    finished_at=_now(),
+                )
+                current = self.ledger.record_tool_receipt(receipt)
+            succeeded = self.ledger.transition_item(
+                task_id,
+                expected_task_version=current.task_version,
+                item_id=item.item_id,
+                expected_item_state="running",
+                next_state="succeeded",
+                reason_code="INTERRUPTED_COMMIT_RECONCILED",
+                output_plot_id=item.plot_id,
+                output_plot_version=stored_version,
+            )
+            report = self._verification_report(
+                succeeded,
+                item,
+                stored.content_hash,
+                attempt_count=snapshot.attempt_count,
+            )
+            current = self.ledger.record_verification_report(report)
+        if interrupted and any(
+            item.state == "repairable_failed" for item in current.items
+        ):
+            current = self.ledger.advance(
+                task_id,
+                expected_task_version=current.task_version,
+                next_state="partial",
+                reason_code="INTERRUPTED_EXECUTION_REQUIRES_REPAIR",
+                project_revision=current.project_revision,
+            )
+        return current
 
     def _completed_plots(self, checkpoint: object) -> list[dict[str, object]]:
         from plotagent.contracts.agent_tasks import TaskCheckpoint

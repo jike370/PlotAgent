@@ -179,6 +179,8 @@ class TaskEnvelope(StrictModel):
     project_id: Token
     project_revision: NonNegativeInt
     original_instruction: NonEmptyText
+    parent_task_id: TaskId | None = None
+    relationship: Literal["follow_up"] | None = None
     locale: Literal["zh-CN", "en-US"] = "zh-CN"
     selected_sources: Annotated[tuple[SourceDatasetRef, ...], Field(max_length=64)] = ()
     selected_plots: Annotated[tuple[SelectedPlotRef, ...], Field(max_length=64)] = ()
@@ -189,6 +191,10 @@ class TaskEnvelope(StrictModel):
 
     @model_validator(mode="after")
     def selections_are_unique(self) -> TaskEnvelope:
+        if (self.parent_task_id is None) != (self.relationship is None):
+            raise ValueError("follow-up task linkage must include both parent and relationship")
+        if self.parent_task_id == self.task_id:
+            raise ValueError("a task cannot follow up itself")
         groups = (
             tuple(item.source_dataset_id for item in self.selected_sources),
             tuple(item.plot_id for item in self.selected_plots),
@@ -940,6 +946,7 @@ class UserTaskEvent(TaskEventBase):
         "cancel_requested",
         "budget_extended",
         "partial_accepted",
+        "resumed",
     ]
     user_event_id: Token
     payload_hash: Sha256

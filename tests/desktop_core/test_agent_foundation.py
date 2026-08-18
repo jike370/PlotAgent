@@ -7,6 +7,7 @@ from typing import cast
 import pytest
 
 from plotagent.contracts.agent_tasks import (
+    AgentBlocked,
     AgentIntentReady,
     TaskBudgetLimits,
     TaskEnvelope,
@@ -109,6 +110,61 @@ def test_next_action_creates_one_idempotent_activation(tmp_path: Path) -> None:
         assert activation["activation_budget"]["timeout_ms"] == 35_000
         assert "inspect_source" in cast(list[str], activation["allowed_tools"])
         assert ledger.get_task("task:test").active_activation_id == activation["activation_id"]
+
+
+def test_expired_activation_is_aborted_and_resumed_after_restart(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        first_coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        first = first_coordinator.next_action("task:test")
+        assert first["kind"] == "run_activation"
+        first_id = str(first["activation"]["activation_id"])
+        ledger.mark_activation_running(first_id)
+
+        restarted = DurableTaskCoordinator(
+            ledger, clock=lambda: NOW + timedelta(minutes=1)
+        ).next_action("task:test")
+        assert restarted["kind"] == "run_activation"
+        assert restarted["activation"]["reason"] == "resume_after_restart"
+        assert restarted["activation"]["activation_id"] != first_id
+        _, old_status = ledger.get_activation(first_id)
+        assert old_status == "aborted"
+
+
+def test_blocked_task_resumes_only_after_explicit_external_clear(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        first = coordinator.next_action("task:test")
+        activation_id = str(first["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        blocked = ledger.accept_yield(
+            AgentBlocked(
+                activation_id=activation_id,
+                task_id="task:test",
+                task_version=1,
+                blocker_code="ORIGIN_UNAVAILABLE",
+                message="Origin is unavailable.",
+                resume_condition="Origin becomes available.",
+                retryable=True,
+            )
+        )
+        assert blocked.state == "blocked"
+        assert coordinator.next_action("task:test")["reason"] == "blocked"
+
+        resumed = ledger.record_user_event(
+            "task:test",
+            expected_task_version=blocked.task_version,
+            action="resumed",
+            user_event_id="user-event:resume.1",
+            payload_hash="d" * 64,
+        )
+        assert resumed.state == "investigating"
+        continuation = coordinator.next_action("task:test")
+        assert continuation["kind"] == "run_activation"
+        assert continuation["activation"]["reason"] == "external_blocker_cleared"
 
 
 def test_context_authority_stays_current_until_yield_then_waits_for_confirmation(

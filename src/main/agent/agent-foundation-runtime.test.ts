@@ -47,6 +47,12 @@ class FakeCore {
     if (method === 'agent.tasks.activation.running') return { state: 'created' }
     if (method === 'agent.tasks.yield.accept') return { state: 'intent_staged' }
     if (method === 'agent.tasks.plan.get') return this.view()
+    if (method === 'agent.tasks.get') return this.viewTask()
+    if (method === 'agent.tasks.cancel') {
+      this.state = 'cancelled'
+      this.taskVersion += 2
+      return { state: this.state }
+    }
     if (method === 'agent.tasks.plan.confirm') {
       this.state = 'executing'
       this.taskVersion += 1
@@ -67,19 +73,7 @@ class FakeCore {
 
   private view(): unknown {
     return {
-      task: {
-        task_id: 'task:fixed',
-        task_version: this.taskVersion,
-        state: this.state,
-        items: [{
-          item_id: 'item:fixed.1',
-          state: this.state === 'completed_verified' ? 'succeeded' : 'staged',
-          attempt_count: this.state === 'completed_verified' ? 1 : 0,
-          ...(this.state === 'completed_verified'
-            ? { output_plot_id: 'plot:fixed.1', output_plot_version: 1 }
-            : {}),
-        }],
-      },
+      task: this.viewTask(),
       plan: {
         plan_id: 'plan:fixed',
         items: [{
@@ -93,6 +87,22 @@ class FakeCore {
       },
       plan_hash: 'b'.repeat(64),
       confirmation_state: this.state === 'awaiting_confirmation' ? 'pending' : 'confirmed',
+    }
+  }
+
+  private viewTask(): unknown {
+    return {
+      task_id: 'task:fixed',
+      task_version: this.taskVersion,
+      state: this.state,
+      items: [{
+        item_id: 'item:fixed.1',
+        state: this.state === 'completed_verified' ? 'succeeded' : 'staged',
+        attempt_count: this.state === 'completed_verified' ? 1 : 0,
+        ...(this.state === 'completed_verified'
+          ? { output_plot_id: 'plot:fixed.1', output_plot_version: 1 }
+          : {}),
+      }],
     }
   }
 }
@@ -162,8 +172,25 @@ describe('AgentFoundationRuntime', () => {
       }],
     })
     expect(runtime.ownsPlan('plan:fixed')).toBe(true)
+    expect(runtime.ownsTask('task:fixed')).toBe(true)
     await expect(runtime.confirm({ projectId: 'project:test', planId: 'plan:fixed' }))
       .resolves.toMatchObject({ task: { state: 'executing' } })
+  })
+
+  it('cancels a recovered durable task through its Core-owned checkpoint', async () => {
+    const core = new FakeCore()
+    const runtime = new AgentFoundationRuntime({ core, emit: () => undefined, id: () => 'cancel' })
+    await runtime.list('project:test')
+
+    await expect(runtime.cancel('task:fixed')).resolves.toBeUndefined()
+    expect(core.calls.find((call) => call.method === 'agent.tasks.cancel')).toMatchObject({
+      params: {
+        project_id: 'project:test',
+        task_id: 'task:fixed',
+        expected_task_version: 2,
+        user_event_id: 'user-event:cancel',
+      },
+    })
   })
 
   it('creates a bounded multi-source and multi-profile durable batch envelope', async () => {
@@ -208,6 +235,7 @@ describe('AgentFoundationRuntime', () => {
       selectedProfileIds: ['K01', 'K02'],
       expectedProjectVersion: 4,
       instruction: '数据一画折线图，数据二画线点图。',
+      parentTaskId: 'task:previous',
     })).toBe(true)
     await runtime.run({
       projectId: 'project:test',
@@ -218,6 +246,7 @@ describe('AgentFoundationRuntime', () => {
       selectedProfileIds: ['K01', 'K02'],
       expectedProjectVersion: 4,
       instruction: '数据一画折线图，数据二画线点图。',
+      parentTaskId: 'task:previous',
     })
 
     expect(core.calls.find((call) => call.method === 'agent.tasks.create')).toMatchObject({
@@ -236,6 +265,8 @@ describe('AgentFoundationRuntime', () => {
             },
           ],
           selected_profile_ids: ['K01', 'K02'],
+          parent_task_id: 'task:previous',
+          relationship: 'follow_up',
         },
       },
     })
