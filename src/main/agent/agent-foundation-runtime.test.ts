@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import type { AgentActivation, AgentYieldContract } from '../../shared/generated/contracts.js'
 import {
   AgentFoundationRuntime,
+  AgentFoundationRuntimeError,
+  publicAgentFoundationError,
   type AgentFoundationRuntimeEvent,
 } from './agent-foundation-runtime.js'
 
@@ -117,6 +119,17 @@ class FakeCore {
 }
 
 describe('AgentFoundationRuntime', () => {
+  it('marks recoverable provider failures as retryable without exposing an internal error type', () => {
+    expect(publicAgentFoundationError(new AgentFoundationRuntimeError(
+      'AGENT_V2_PROVIDER_BALANCE',
+      '模型服务余额不足。',
+    ))).toEqual({
+      code: 'IPC_INVALID_ARGUMENT',
+      message: '模型服务余额不足。',
+      retryable: true,
+    })
+  })
+
   it('returns a typed question and continues the same durable task after the reply', async () => {
     let phase: 'initial' | 'waiting' | 'continued' = 'initial'
     let nextCalls = 0

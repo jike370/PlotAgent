@@ -650,9 +650,18 @@ export function publicAgentFoundationError(error: unknown): {
   retryable: boolean
 } | undefined {
   if (!(error instanceof AgentFoundationRuntimeError)) return undefined
+  const retryable = [
+    'AGENT_V2_PROVIDER_BALANCE',
+    'AGENT_V2_PROVIDER_AUTH',
+    'AGENT_V2_PROVIDER_RATE_LIMIT',
+    'AGENT_V2_PROVIDER_UNAVAILABLE',
+    'AGENT_V2_RUNTIME_FAILED',
+    'AGENT_V2_DECISION_TIMEOUT',
+    'AGENT_V2_PLAN_NOT_READY',
+  ].includes(error.code)
   return {
     code: 'IPC_INVALID_ARGUMENT',
     message: error.message,
-    retryable: false,
+    retryable,
   }
 }
