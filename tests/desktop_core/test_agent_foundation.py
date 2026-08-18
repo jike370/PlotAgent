@@ -58,6 +58,8 @@ def intent(
     activation_id: str,
     *,
     task_id: str = "task:test",
+    intent_version: int = 1,
+    task_version: int = 1,
     context_hash: str = "a" * 64,
 ) -> TaskIntent:
     item = TaskDraftItem(
@@ -77,9 +79,9 @@ def intent(
     )
     draft = TaskIntent(
         intent_id="intent:test",
-        intent_version=1,
+        intent_version=intent_version,
         task_id=task_id,
-        task_version=1,
+        task_version=task_version,
         created_by_activation_id=activation_id,
         summary="Create one K01 line chart.",
         items=(item,),
@@ -141,6 +143,67 @@ def test_context_authority_stays_current_until_yield_then_waits_for_confirmation
             "task_state": "awaiting_confirmation",
         }
         assert ledger.get_task("task:test").task_version == 4
+
+
+def test_user_correction_creates_next_intent_version_and_requires_reconfirmation(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        first = coordinator.next_action("task:test")
+        assert first["kind"] == "run_activation"
+        first_id = str(first["activation"]["activation_id"])
+        ledger.mark_activation_running(first_id)
+        ledger.accept_yield(
+            AgentIntentReady(
+                activation_id=first_id,
+                task_id="task:test",
+                task_version=1,
+                intent=intent(first_id),
+            )
+        )
+        waiting = coordinator.next_action("task:test")
+        assert waiting["reason"] == "awaiting_confirmation"
+        checkpoint = ledger.get_task("task:test")
+        corrected = ledger.record_user_event(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            action="corrected",
+            user_event_id="user-event:correct.1",
+            payload_hash="b" * 64,
+            message="Use the third numeric field for Y.",
+        )
+        assert corrected.state == "investigating"
+
+        continuation = coordinator.next_action("task:test")
+        assert continuation["kind"] == "run_activation"
+        activation = continuation["activation"]
+        assert activation["reason"] == "user_corrected"
+        assert activation["current_user_message"] == "Use the third numeric field for Y."
+        assert activation["confirmed_intent"]["intent_version"] == 1
+        continuation_id = str(activation["activation_id"])
+        ledger.mark_activation_running(continuation_id)
+        ledger.accept_yield(
+            AgentIntentReady(
+                activation_id=continuation_id,
+                task_id="task:test",
+                task_version=int(activation["task_version"]),
+                intent=intent(
+                    continuation_id,
+                    intent_version=2,
+                    task_version=int(activation["task_version"]),
+                ),
+            )
+        )
+        reconfirm = coordinator.next_action("task:test")
+        assert reconfirm == {
+            "kind": "wait",
+            "reason": "awaiting_reconfirmation",
+            "task_state": "awaiting_reconfirmation",
+        }
+        assert ledger.get_intent("task:test").intent_version == 2
 
 
 def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Path) -> None:

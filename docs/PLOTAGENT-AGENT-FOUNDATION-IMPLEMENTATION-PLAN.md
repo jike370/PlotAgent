@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P6 已完成；P6 单任务端到端垂直切片已通过正式 Electron 阶段门禁，下一施工阶段为 P7。
+> 状态：P0–P7 已完成；批量、partial、失败项定向修复与语义变更重确认已闭环，下一施工阶段为 P8。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -466,6 +466,9 @@
 - 修复只重试失败项；一次同构重试仍失败即以 `REPAIR_NO_PROGRESS` 收口，不形成 Agent 循环。最终成功时
   completion 仅引用每项最新 passed report 与 receipt；
 - Main 已能从 partial 重新进入耐久 repair pump；用户稍后也可从任务卡显式触发“仅重试失败项”。
+- 用户补充答案或纠正计划时，原文作为耐久 UserTaskEvent 保存；Core 生成
+  `user_answered` / `user_corrected` activation。新语义必须沿用同一 intent_id、递增
+  intent_version，并进入 `awaiting_reconfirmation`；旧 ExecutionGrant 不会被复用。
 
 ### 测试
 

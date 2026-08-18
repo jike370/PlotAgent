@@ -409,6 +409,7 @@ class DesktopApplication:
                 "user_event_id",
                 "payload_hash",
             },
+            optional={"message"},
         )
         session = self._session(_text(values["project_id"], "project_id"))
         checkpoint = session.durable_tasks.record_user_event(
@@ -419,6 +420,7 @@ class DesktopApplication:
             action=cast(Any, _text(values["action"], "action")),
             user_event_id=_text(values["user_event_id"], "user_event_id"),
             payload_hash=_text(values["payload_hash"], "payload_hash"),
+            message=_optional_text(values.get("message"), "message"),
         )
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
 

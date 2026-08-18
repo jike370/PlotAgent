@@ -559,8 +559,10 @@ class AgentActivation(StrictModel):
             raise ValueError("agent activation deadline must follow creation")
         if self.reason == "verification_failed" and not self.verification_report_ids:
             raise ValueError("verification repair activations need a verification report")
-        if self.reason == "user_answered" and self.current_user_message is None:
-            raise ValueError("answered activations need the user's answer")
+        if self.reason in {"user_answered", "user_corrected"} and (
+            self.current_user_message is None
+        ):
+            raise ValueError("answer and correction activations need the user's message")
         if self.reason == "new_task" and self.task_state != "created":
             raise ValueError("new task activations must start from created")
         return self
@@ -783,7 +785,9 @@ ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
         {"awaiting_input", "intent_staged", "blocked", "unsupported", "cancelling", "failed"}
     ),
     "awaiting_input": frozenset({"investigating", "cancelling", "cancelled", "failed"}),
-    "intent_staged": frozenset({"awaiting_confirmation", "investigating", "failed"}),
+    "intent_staged": frozenset(
+        {"awaiting_confirmation", "awaiting_reconfirmation", "investigating", "failed"}
+    ),
     "awaiting_confirmation": frozenset(
         {"executing", "rejected", "investigating", "cancelling", "failed"}
     ),
@@ -939,6 +943,14 @@ class UserTaskEvent(TaskEventBase):
     ]
     user_event_id: Token
     payload_hash: Sha256
+    message: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def message_matches_action(self) -> UserTaskEvent:
+        needs_message = self.action in {"answered", "corrected"}
+        if needs_message != (self.message is not None):
+            raise ValueError("answers and corrections alone carry user message text")
+        return self
 
 
 class ToolReceiptEvent(TaskEventBase):

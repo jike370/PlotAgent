@@ -2026,6 +2026,7 @@ export type UserTaskEvent = {
   readonly action: "answered" | "confirmed" | "rejected" | "corrected" | "cancel_requested" | "budget_extended" | "partial_accepted";
   readonly user_event_id: string;
   readonly payload_hash: string;
+  readonly message?: string | null;
 }
 
 export type VerificationClaim = {

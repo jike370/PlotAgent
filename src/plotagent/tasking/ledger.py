@@ -668,6 +668,7 @@ class TaskLedgerRepository:
         action: UserTaskAction,
         user_event_id: str,
         payload_hash: str,
+        message: str | None = None,
     ) -> TaskCheckpoint:
         transitions: dict[str, tuple[frozenset[TaskState], TaskState | None]] = {
             "answered": (frozenset({"awaiting_input"}), "investigating"),
@@ -733,7 +734,11 @@ class TaskLedgerRepository:
                 None,
             )
             if duplicate is not None:
-                if duplicate.action != action or duplicate.payload_hash != payload_hash:
+                if (
+                    duplicate.action != action
+                    or duplicate.payload_hash != payload_hash
+                    or duplicate.message != message
+                ):
                     raise self._idempotency(
                         "User event id already has different content."
                     )
@@ -752,6 +757,7 @@ class TaskLedgerRepository:
                 action=action,
                 user_event_id=user_event_id,
                 payload_hash=payload_hash,
+                message=message,
             )
             updated = self._copy_checkpoint(
                 current,
@@ -767,6 +773,20 @@ class TaskLedgerRepository:
                 next_state=next_state,
                 reason_code=f"USER_{action.upper()}",
             )
+
+    def latest_user_event(self, task_id: str) -> UserTaskEvent | None:
+        rows = self._connection.execute(
+            """
+            SELECT event_json FROM agent_task_events_v2
+            WHERE task_id = ? AND event_type = 'user_task_event'
+            ORDER BY sequence DESC LIMIT 1
+            """,
+            (task_id,),
+        ).fetchone()
+        if rows is None:
+            return None
+        event = TASK_EVENT_ADAPTER.validate_json(str(rows[0]))
+        return event if isinstance(event, UserTaskEvent) else None
 
     def confirm_plan(
         self,

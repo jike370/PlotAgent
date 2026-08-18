@@ -188,6 +188,7 @@ def test_activation_needs_input_and_user_answer_are_ordered(tmp_path) -> None:
             action="answered",
             user_event_id="user-event:answer.1",
             payload_hash=HASH_A,
+            message="Use the second numeric column.",
         )
         assert resumed.state == "investigating"
         assert (
@@ -197,6 +198,7 @@ def test_activation_needs_input_and_user_answer_are_ordered(tmp_path) -> None:
                 action="answered",
                 user_event_id="user-event:answer.1",
                 payload_hash=HASH_A,
+                message="Use the second numeric column.",
             )
             == resumed
         )
@@ -207,6 +209,7 @@ def test_activation_needs_input_and_user_answer_are_ordered(tmp_path) -> None:
                 action="answered",
                 user_event_id="user-event:answer.1",
                 payload_hash=HASH_B,
+                message="Use the second numeric column.",
             )
         assert conflict.value.code == StorageErrorCode.IDEMPOTENCY_CONFLICT
         sequences = [event.sequence for event in ledger.list_events("task:test")]

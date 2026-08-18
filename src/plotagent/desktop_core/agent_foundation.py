@@ -255,6 +255,17 @@ class DurableAgentCoreHost:
             )
         if yielded.outcome == "intent_ready":
             intent = yielded.intent
+            if activation.reason in {"user_answered", "user_corrected"}:
+                prior = activation.confirmed_intent
+                if (
+                    prior is None
+                    or intent.intent_id != prior.intent_id
+                    or intent.intent_version != prior.intent_version + 1
+                ):
+                    raise AgentFoundationError(
+                        "INTENT_REVISION_INVALID",
+                        "A user continuation must create the next version of the existing intent.",
+                    )
             if intent.context_hash != runtime.context.content_hash:
                 raise AgentFoundationError(
                     "YIELD_CONTEXT_STALE", "The Agent intent was built from another context."
@@ -526,11 +537,17 @@ class DurableAgentCoreHost:
 
     @staticmethod
     def _system_prompt(context: AgentContextSnapshot) -> str:
+        next_intent_version = (
+            1
+            if context.confirmed_intent is None
+            else context.confirmed_intent.intent_version + 1
+        )
         scaffold = {
             "task_id": context.task_id,
             "task_version": context.task_version,
             "activation_id": context.activation_id,
             "intent_id": f"intent:{context.task_id.removeprefix('task:')}",
+            "intent_version": next_intent_version,
             "item_id_pattern": f"item:{context.task_id.removeprefix('task:')}.{{ordinal}}",
             "plot_alias_pattern": "plot_{ordinal}",
             "context_hash": context.content_hash,
@@ -566,6 +583,13 @@ class DurableAgentCoreHost:
                 "semantics, or output scope, return technical_repair_ready with exactly the "
                 "repair operation retry_execution. Otherwise return needs_input, blocked, or "
                 "unsupported; never emit a new TaskIntent from this activation."
+            )
+        elif runtime.activation.reason in {"user_answered", "user_corrected"}:
+            system_prompt += (
+                " The user has supplied a durable continuation message. Re-evaluate the prior "
+                "intent against that message, emit the next TaskIntent version, and preserve "
+                "unchanged decisions. Any semantic change will be shown for reconfirmation. "
+                f"Current message: {runtime.activation.current_user_message}"
             )
         return {
             "context": runtime.context.model_dump(mode="json"),
@@ -640,12 +664,38 @@ class DurableTaskCoordinator:
         if checkpoint.state == "intent_staged":
             if self._plan_stager is not None:
                 self._plan_stager(task_id)
+            intent_version = (
+                1 if checkpoint.intent is None else checkpoint.intent.intent_version
+            )
             checkpoint = self._ledger.advance(
                 task_id,
                 expected_task_version=checkpoint.task_version,
-                next_state="awaiting_confirmation",
-                reason_code="INTENT_PRESENTED",
+                next_state=(
+                    "awaiting_confirmation"
+                    if intent_version == 1
+                    else "awaiting_reconfirmation"
+                ),
+                reason_code=(
+                    "INTENT_PRESENTED"
+                    if intent_version == 1
+                    else "REVISED_INTENT_PRESENTED"
+                ),
             )
+        if checkpoint.state == "investigating":
+            latest = self._ledger.latest_user_event(task_id)
+            if latest is not None and latest.action in {"answered", "corrected"}:
+                activation = self._continuation_activation(
+                    checkpoint,
+                    reason=(
+                        "user_answered" if latest.action == "answered" else "user_corrected"
+                    ),
+                    message=latest.message or "",
+                )
+                self._ledger.start_activation(activation)
+                return {
+                    "kind": "run_activation",
+                    "activation": activation.model_dump(mode="json"),
+                }
         if checkpoint.state == "partial":
             for item in tuple(checkpoint.items):
                 if item.state != "repairable_failed" or item.attempt_count < 2:
@@ -729,6 +779,34 @@ class DurableTaskCoordinator:
                 for item in checkpoint.items
                 for receipt_id in item.receipt_ids
             ),
+            allowed_tools=_INVESTIGATION_TOOLS,
+            permission_phase="p0_read",
+            activation_budget=budget,
+            task_budget=checkpoint.budget,
+            deadline=_iso(now + timedelta(milliseconds=budget.timeout_ms)),
+            created_at=_iso(now),
+        )
+
+    def _continuation_activation(
+        self,
+        checkpoint: TaskCheckpoint,
+        *,
+        reason: Literal["user_answered", "user_corrected"],
+        message: str,
+    ) -> AgentActivation:
+        envelope = self._ledger.get_envelope(checkpoint.task_id)
+        now = self._clock().astimezone(UTC)
+        budget = ActivationBudget(timeout_ms=35_000)
+        return AgentActivation(
+            activation_id=f"activation:{uuid.uuid4().hex}",
+            task_id=checkpoint.task_id,
+            task_version=checkpoint.task_version,
+            reason=reason,
+            task_state=checkpoint.state,
+            original_instruction=envelope.original_instruction,
+            current_user_message=message,
+            confirmed_intent=checkpoint.intent,
+            item_states=tuple((item.item_id, item.state) for item in checkpoint.items),
             allowed_tools=_INVESTIGATION_TOOLS,
             permission_phase="p0_read",
             activation_budget=budget,
