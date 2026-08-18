@@ -732,7 +732,11 @@ async function main(): Promise<void> {
   const providerCatalog = join(process.env.LOCALAPPDATA ?? '', 'PlotAgent', 'catalog.sqlite3')
   if (!existsSync(providerCatalog)) throw new Error(`provider catalog is missing: ${providerCatalog}`)
   const gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPOSITORY, encoding: 'utf8' }).trim()
-  const status = execFileSync('git', ['status', '--porcelain'], { cwd: REPOSITORY, encoding: 'utf8' }).trim()
+  const status = execFileSync(
+    'git',
+    ['status', '--porcelain', '--untracked-files=no'],
+    { cwd: REPOSITORY, encoding: 'utf8' },
+  ).trim()
   if (status.length !== 0) throw new Error('SEQ-70 requires a clean frozen worktree')
   const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)
   const outputRoot = join(REPOSITORY, 'build', 'seq70-workflow-eval', `${stamp}-${gitCommit.slice(0, 7)}`)
@@ -780,6 +784,11 @@ async function main(): Promise<void> {
   writeFileSync(rawPath, JSON.stringify(report, null, 2), 'utf8')
   const markdown = renderRawReport(metadata, metrics, gate, results)
   writeFileSync(join(outputRoot, 'RAW-REPORT.md'), markdown, 'utf8')
+  if (debug) {
+    process.stdout.write(`AGENT_FOUNDATION_DEBUG_${gate.decision} ${outputRoot}\n`)
+    if (gate.decision !== 'GO') process.exitCode = 1
+    return
+  }
   if (gate.decision !== 'GO') {
     process.stdout.write(`AGENT_FOUNDATION_RAW_NO_GO ${outputRoot}\n`)
     process.exitCode = 1
