@@ -573,6 +573,10 @@ def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: P
         assert "Do not inspect sources or search the chart catalog" in cast(
             str, prepared["system_prompt"]
         )
+        assert "use plot for set_title" in cast(str, prepared["system_prompt"])
+        assert "use that alias only for TaskDraftItem.target_plot_alias" in cast(
+            str, prepared["system_prompt"]
+        )
 
         item = TaskDraftItem(
             task_kind="edit",
