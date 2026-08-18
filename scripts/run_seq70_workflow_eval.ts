@@ -74,7 +74,7 @@ interface ImportedDataset {
   source_version: number
   content_hash: string
   display_name: string
-  field_schema: { field_id: string; name: string }[]
+  fields: { field_id: string; name: string }[]
 }
 
 interface UsageRecord {
@@ -411,7 +411,7 @@ async function createSetupPlot(
   dataset: ImportedDataset,
   profileId: string,
 ): Promise<{ plotId: string; revision: number }> {
-  if (dataset.field_schema.length < 2) throw new Error('setup dataset requires two fields')
+  if (dataset.fields.length < 2) throw new Error('setup dataset requires two fields')
   const plotId = `plot:seq70-setup-${randomUUID()}`
   const completed = record(await harness.core.request('engine.actions.execute', {
     project_id: projectId,
@@ -428,8 +428,8 @@ async function createSetupPlot(
         content_hash: dataset.content_hash,
       },
       bindings: [
-        { role: 'x', field_id: dataset.field_schema[0].field_id },
-        { role: 'y', field_id: dataset.field_schema[1].field_id },
+        { role: 'x', field_id: dataset.fields[0].field_id },
+        { role: 'y', field_id: dataset.fields[1].field_id },
       ],
     },
   }, 30_000), 'setup plot create')
