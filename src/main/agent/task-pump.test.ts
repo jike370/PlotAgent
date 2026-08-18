@@ -109,6 +109,45 @@ describe('AgentTaskPump', () => {
     expect(methods).not.toContain('agent.tasks.yield.accept')
   })
 
+  it('returns the typed terminal yield that caused a non-confirmation wait', async () => {
+    let nextCalls = 0
+    const failure: AgentYieldContract = {
+      outcome: 'runtime_failed',
+      activation_id: activation.activation_id,
+      task_id: activation.task_id,
+      task_version: activation.task_version,
+      error: {
+        code: 'PI_V2_PROVIDER_FAILED',
+        category: 'runtime',
+        message: 'fetch failed',
+        retryable: true,
+        requires_user: false,
+        side_effect_state: 'known_none',
+      },
+    }
+    const pump = new AgentTaskPump({
+      core: {
+        request: async (method) => {
+          if (method === 'agent.tasks.pump.next') {
+            nextCalls += 1
+            return nextCalls === 1
+              ? { kind: 'run_activation', activation }
+              : { kind: 'wait', reason: 'terminal', task_state: 'failed' }
+          }
+          return { state: 'failed' }
+        },
+      },
+      runtime: { run: async () => failure, abort: () => true },
+      emit: () => undefined,
+    })
+
+    await expect(pump.drain('project:test', 'task:test')).resolves.toMatchObject({
+      reason: 'terminal',
+      taskState: 'failed',
+      terminalYield: failure,
+    })
+  })
+
   it('cancels the active activation without asking Main to transition task state', async () => {
     let release: (() => void) | undefined
     let started: (() => void) | undefined

@@ -10,6 +10,7 @@ import {
   AgentTaskPump,
   type ActivationRuntime,
   type TaskPumpEvent,
+  type TaskPumpResult,
 } from './task-pump.js'
 
 export interface AgentFoundationRunInput {
@@ -126,6 +127,51 @@ function planIdentity(value: unknown): { planId: string; taskId: string } {
     planId: string(plan.plan_id, 'plan ID'),
     taskId: string(task.task_id, 'task ID'),
   }
+}
+
+function stoppedBeforeConfirmation(result: TaskPumpResult): AgentFoundationRuntimeError {
+  const yielded = result.terminalYield
+  if (yielded?.outcome === 'runtime_failed') {
+    if (yielded.error.code === 'PI_V2_PROVIDER_FAILED') {
+      return new AgentFoundationRuntimeError(
+        'AGENT_V2_PROVIDER_UNAVAILABLE',
+        '模型服务不可用，未生成计划，也未修改项目。请检查 Base URL、网络或服务状态后重试。',
+      )
+    }
+    return new AgentFoundationRuntimeError(
+      'AGENT_V2_RUNTIME_FAILED',
+      'Agent 运行失败，未生成计划，也未修改项目。请重试；若持续发生，请检查模型服务。',
+    )
+  }
+  if (yielded?.outcome === 'budget_exhausted' && yielded.exhausted_budget === 'wall_time') {
+    return new AgentFoundationRuntimeError(
+      'AGENT_V2_DECISION_TIMEOUT',
+      '模型服务响应超时，未生成计划，也未修改项目。可以直接重试。',
+    )
+  }
+  if (yielded?.outcome === 'blocked') {
+    return new AgentFoundationRuntimeError(
+      'AGENT_V2_BLOCKED',
+      `${yielded.message} 未生成计划，也未修改项目。`,
+    )
+  }
+  if (yielded?.outcome === 'unsupported') {
+    return new AgentFoundationRuntimeError('AGENT_V2_UNSUPPORTED', yielded.message)
+  }
+  if (yielded?.outcome === 'needs_input') {
+    const prompts = yielded.questions.map((question) => question.prompt).join('；')
+    return new AgentFoundationRuntimeError(
+      'AGENT_V2_NEEDS_INPUT',
+      `Agent 需要补充信息：${prompts}`,
+    )
+  }
+  if (yielded?.outcome === 'cancelled') {
+    return new AgentFoundationRuntimeError('AGENT_V2_CANCELLED', '本轮 Agent 任务已取消，项目未修改。')
+  }
+  return new AgentFoundationRuntimeError(
+    'AGENT_V2_PLAN_NOT_READY',
+    'Agent 未生成可确认计划，项目未修改。请重试。',
+  )
 }
 
 /**
@@ -264,10 +310,7 @@ export class AgentFoundationRuntime {
     })
     const drained = await pump.drain(input.projectId, taskId)
     if (drained.reason !== 'awaiting_confirmation') {
-      throw new AgentFoundationRuntimeError(
-        'AGENT_V2_PLAN_NOT_READY',
-        `Agent 未生成可确认计划（${drained.reason}）。`,
-      )
+      throw stoppedBeforeConfirmation(drained)
     }
     const view = await this.core.request(
       'agent.tasks.plan.get',

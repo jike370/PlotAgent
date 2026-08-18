@@ -30,6 +30,8 @@ export interface TaskPumpResult {
   readonly reason: TaskPumpWaitReason
   readonly taskState?: string
   readonly activationsRun: number
+  /** The typed terminal yield that caused a non-confirmation wait point. */
+  readonly terminalYield?: AgentYieldContract
 }
 
 export type TaskPumpStage =
@@ -200,6 +202,7 @@ export class AgentTaskPump {
     }
     this.active = current
     let activationsRun = 0
+    let lastYield: AgentYieldContract | undefined
     try {
       while (activationsRun < this.maxImmediateActivations) {
         this.assertCurrent(generation)
@@ -219,6 +222,9 @@ export class AgentTaskPump {
             reason: directive.reason,
             ...(directive.taskState === undefined ? {} : { taskState: directive.taskState }),
             activationsRun,
+            ...(directive.reason === 'awaiting_confirmation' || lastYield === undefined
+              ? {}
+              : { terminalYield: lastYield }),
           }
         }
 
@@ -243,6 +249,7 @@ export class AgentTaskPump {
           activation.activation_id,
         )
         const yielded = await this.runtime.run(activation)
+        lastYield = yielded
         this.assertCurrent(generation)
         assertYieldIdentity(activation, yielded)
         await this.core.request(

@@ -165,4 +165,68 @@ describe('AgentFoundationRuntime', () => {
     await expect(runtime.confirm({ projectId: 'project:test', planId: 'plan:fixed' }))
       .resolves.toMatchObject({ task: { state: 'executing' } })
   })
+
+  it.each([
+    {
+      yielded: {
+        outcome: 'runtime_failed',
+        error: {
+          code: 'PI_V2_PROVIDER_FAILED',
+          category: 'runtime',
+          message: 'fetch failed',
+          retryable: true,
+          requires_user: false,
+          side_effect_state: 'known_none',
+        },
+      },
+      wait: { reason: 'terminal', task_state: 'failed' },
+      code: 'AGENT_V2_PROVIDER_UNAVAILABLE',
+      message: /模型服务不可用.*未修改项目/,
+    },
+    {
+      yielded: {
+        outcome: 'budget_exhausted',
+        exhausted_budget: 'wall_time',
+        message: 'wall-time budget exhausted',
+      },
+      wait: { reason: 'blocked', task_state: 'blocked' },
+      code: 'AGENT_V2_DECISION_TIMEOUT',
+      message: /响应超时.*未修改项目/,
+    },
+  ])('reports an actionable failure when planning stops before confirmation', async (example) => {
+    class FailureCore extends FakeCore {
+      private failurePumpCalls = 0
+
+      override async request(method: string, params?: unknown): Promise<unknown> {
+        if (method === 'agent.tasks.pump.next') {
+          this.failurePumpCalls += 1
+          if (this.failurePumpCalls > 1) return { kind: 'wait', ...example.wait }
+        }
+        return super.request(method, params)
+      }
+    }
+    const core = new FailureCore()
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+      id: () => 'fixed',
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (active: AgentActivation): Promise<AgentYieldContract> => ({
+          ...example.yielded,
+          activation_id: active.activation_id,
+          task_id: active.task_id,
+          task_version: active.task_version,
+        } as AgentYieldContract),
+      }),
+    })
+
+    await expect(runtime.run({
+      projectId: 'project:test',
+      selectedSources: [{ datasetId: 'source:test', sourceVersion: 1 }],
+      selectedProfileIds: ['K01'],
+      expectedProjectVersion: 1,
+      instruction: '绘制折线图。',
+    })).rejects.toMatchObject({ code: example.code, message: example.message })
+  })
 })
