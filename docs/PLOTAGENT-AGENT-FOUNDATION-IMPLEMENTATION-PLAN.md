@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P10 主体施工、旧公开链清理和首轮资格已完成；2026-08-19 又根据正式黑盒补齐续接、字段类型、取消、错误呈现与导出证据链。当前正在冻结 Agent Foundation regression suite v2；完成同一 clean commit 的最终门禁后，再索取独立探索性黑盒计划。
+> 状态：P0–P10、旧公开链清理与 2026-08-19 黑盒后加固均已完成。运行时代码冻结于 `29bfefdb1fcb7611528c7e354fdfa0131e27c826`；Agent Foundation regression suite v2 为 GO，完整机械门禁通过。下一步只索取独立探索性黑盒计划，收到后等待用户授权。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -648,6 +648,10 @@
 - 用户已确认当前阶段不设置端到端时长发布预算。因此 v2 删除旧的 `latency_p95_seconds_max=30` 发布判据；延迟、分段耗时、token、模型调用与成本仍完整采集并进入报告及版本比较，不成为任务终止条件或 GO/NO-GO 的单独依据；
 - `32025a8` 的两次完整运行原样保留：一次因远端 W11 失败、一次因 W18 漏掉一项显式视觉动作而 NO-GO；`28e1f38` 已达到 60/60 功能通过和全部正确性指标 1.0，但在旧 v1 时间阈值下仍记录为 NO-GO。它们都是有效失败证据，不覆盖、不改写；
 - 正式 suite v2 GO 只能由升级后的 clean commit 从零运行产生；在该结果和完整机械门禁落盘前，不向探索性测试会话发出执行授权。
+- clean commit `29bfefdb1fcb7611528c7e354fdfa0131e27c826` 已从零完成正式 suite v2：E3 18 项 × 3 次与 E2 6 项 × 1 次，24/24 case、60/60 trial PASS，发布决策 GO；task exact、validator、route、binding、visual action、data operation、inspection、runtime 与确认前无副作用均为 1.0，模型错误率为 0；
+- 本轮延迟 median 6.500 秒、p95 16.633 秒、max 92.225 秒；81 次模型调用，输入 1,148,069 token、输出 76,238 token，估算成本 ¥0.645748。max 长尾保留在证据中，但不再触发未冻结的时长发布门；
+- 正式证据位于 `build/seq70-workflow-eval/20260818211236-29bfefd/`。随后完整门禁通过：Python 714 项、Node 188 项、Ruff、mypy 184 模块、contracts codegen、两套 TypeScript typecheck、ESLint 与 Electron production build；
+- 此后的交接文档提交不修改运行时代码。探索性测试必须以 `29bfefd` 为非文档差异基线，并且只在用户另行授权后由主窗口执行。
 
 ## 16. 每阶段统一质量门
 

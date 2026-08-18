@@ -1,6 +1,6 @@
 # PlotAgent Agent Foundation 探索性黑盒交接
 
-> 冻结代码：`61c0cdd92159fd26bfaffe9823fa6d1f4fd8387a`。允许之后仅有 `docs/**` 变化。
+> 冻结运行时代码：`29bfefdb1fcb7611528c7e354fdfa0131e27c826`。允许之后仅有 `docs/**` 变化。
 >
 > 测试角色：探索性会话只根据功能简报设计测试；本主任务窗口负责正式 Windows Electron 执行、证据保存和判定。
 
@@ -29,7 +29,7 @@
 - 仓库：`D:\plotv3`
 - 唯一正式入口：`pnpm dev`
 - 禁止：`pnpm dev:web`、静态审计页、浏览器 mock、Core 内部接口、单测替代 UI。
-- 开始前保存 `git rev-parse HEAD`、`git status --short` 和 `git diff --exit-code 61c0cdd92159fd26bfaffe9823fa6d1f4fd8387a -- . ':(exclude)docs/**'`。
+- 开始前保存 `git rev-parse HEAD`、`git status --short` 和 `git diff --exit-code 29bfefdb1fcb7611528c7e354fdfa0131e27c826 -- . ':(exclude)docs/**'`。
 - 工作树必须干净；非文档差异必须为 0。
 - 使用全新项目与全新输出目录，不复用旧图、截图或导出。
 - 不读取、截图或记录模型 API key。
@@ -57,9 +57,9 @@
 
 ## 5. 研发前置证据（不可替代黑盒）
 
-- Python 709 passed；Node 184 passed；Ruff、mypy、codegen、typecheck、ESLint、production build 均通过。
-- SEQ-70：真实模型 18 × 3、运行时 6 × 1，共 60/60 PASS，决策 GO。
-- 正确性、安全和无副作用指标均为 1.0；模型错误率 0；median 7.332 秒，p95 29.802 秒，max 69.032 秒。
+- Python 714 passed；Node 188 passed；Ruff、mypy 184 模块、contracts codegen、两套 typecheck、ESLint、production build 均通过。
+- Agent Foundation regression suite v2：真实模型 18 × 3、运行时 6 × 1，共 60/60 PASS，决策 GO。
+- task exact、validator、route、binding、visual action、data operation、inspection、runtime、确认前无副作用均为 1.0；模型错误率 0；median 6.500 秒，p95 16.633 秒，max 92.225 秒。
 - Agent 总任务不设产品时长硬截止；Provider/工具仍有传输 timeout，用户取消仍可用。
 
 这些结果只说明候选版本可以进入正式桌面探索性黑盒。
