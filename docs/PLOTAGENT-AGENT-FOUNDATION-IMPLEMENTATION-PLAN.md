@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P10、旧公开链清理与 2026-08-19 黑盒后加固均已完成。运行时代码冻结于 `29bfefdb1fcb7611528c7e354fdfa0131e27c826`；Agent Foundation regression suite v2 为 GO，完整机械门禁通过。下一步只索取独立探索性黑盒计划，收到后等待用户授权。
+> 状态：P0–P10、旧公开链清理与 2026-08-19 黑盒后加固均已完成。当前运行时代码为 `a03a04a6bdbba7146ad870da8ed483947076d9a7`，完整机械门禁和本地缺陷定向黑盒通过；历史 suite v2 GO 属于旧运行时证据，当前真实模型服务因 HTTP 402 使新 SEQ-70 为 NO_GO，必须在可用模型服务上重跑后才能取得发布资格。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 

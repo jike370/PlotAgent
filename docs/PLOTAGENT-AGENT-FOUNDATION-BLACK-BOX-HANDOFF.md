@@ -1,6 +1,6 @@
 # PlotAgent Agent Foundation 探索性黑盒交接
 
-> 冻结运行时代码：`29bfefdb1fcb7611528c7e354fdfa0131e27c826`。允许之后仅有 `docs/**` 变化。
+> 原始探索性运行时代码：`29bfefdb1fcb7611528c7e354fdfa0131e27c826`。黑盒后修复运行时代码：`a03a04a6bdbba7146ad870da8ed483947076d9a7`；两者的证据不得混用，后续定向/最终执行以当前 clean HEAD 的非文档内容等同于 `a03a04a` 为准。
 >
 > 测试角色：探索性会话只根据功能简报设计测试；本主任务窗口负责正式 Windows Electron 执行、证据保存和判定。
 
