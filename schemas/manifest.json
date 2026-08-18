@@ -2,11 +2,11 @@
   "files": [
     {
       "path": "schemas/agent-activation-v2.schema.json",
-      "sha256": "7b32726778515babd693907c9f4f56ee81c1f0fb73fb5618bf19bd881092df45"
+      "sha256": "3d86c7b255b5b03e0b6baab5d0891ad15a1d4b7c6e401d2515c3a06f0ff78339"
     },
     {
       "path": "schemas/agent-context-v2.schema.json",
-      "sha256": "543d25eec80f8cba371d573b3ecd654bf28b0e09fade5782a004cb930fa9915c"
+      "sha256": "77543be740e4a2229314a697f899d020d33ac618895edb77432607db519a1090"
     },
     {
       "path": "schemas/agent-tool-error-v2.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "1828d3cf4e5291ae22d3fbd0c46afac35825cbdb484a890f93982d8c26b493c3"
+      "sha256": "a7f576036f4fea38e00c377b763eea0159b01c7b778ea308fdb0388ce162fd67"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",

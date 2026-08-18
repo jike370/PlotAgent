@@ -208,7 +208,6 @@
             "type": "string"
           },
           "maxItems": 256,
-          "minItems": 1,
           "title": "Allowed Tools",
           "type": "array"
         },
@@ -961,7 +960,6 @@
             "$ref": "#/$defs/ContextToolContract"
           },
           "maxItems": 256,
-          "minItems": 1,
           "title": "Tools",
           "type": "array"
         },

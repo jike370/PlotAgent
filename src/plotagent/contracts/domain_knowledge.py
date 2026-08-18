@@ -331,7 +331,7 @@ class AgentContextSnapshot(StrictModel):
     calculation_contracts: Annotated[
         tuple[CalculationContract, ...], Field(max_length=16)
     ] = ()
-    tools: Annotated[tuple[ContextToolContract, ...], Field(min_length=1, max_length=256)]
+    tools: Annotated[tuple[ContextToolContract, ...], Field(max_length=256)]
     activation_budget: ActivationBudget
     task_budget: TaskBudgetSnapshot
     disclosed_scalars: NonNegativeInt

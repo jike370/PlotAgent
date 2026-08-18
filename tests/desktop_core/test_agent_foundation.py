@@ -556,6 +556,8 @@ def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: P
         )
         prepared = host.prepare(activation_id)
         context = cast(dict[str, object], prepared["context"])
+        assert directive["activation"]["allowed_tools"] == []
+        assert prepared["tools"] == []
         assert context["selected_sources"] == []
         assert context["selected_plots"] == [
             {
@@ -566,6 +568,11 @@ def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: P
         ]
         source_contexts = cast(list[dict[str, object]], context["source_contexts"])
         assert source_contexts == []
+        chart_catalog = cast(list[dict[str, object]], context["chart_catalog"])
+        assert [item["profile_id"] for item in chart_catalog] == ["K01"]
+        assert "Do not inspect sources or search the chart catalog" in cast(
+            str, prepared["system_prompt"]
+        )
 
         item = TaskDraftItem(
             task_kind="edit",

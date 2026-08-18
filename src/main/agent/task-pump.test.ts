@@ -31,6 +31,31 @@ const yielded: AgentYieldContract = {
 }
 
 describe('AgentTaskPump', () => {
+  it('accepts a fully specified activation with no ordinary tools', async () => {
+    const toolFreeActivation = { ...activation, allowed_tools: [] }
+    let nextCalls = 0
+    const pump = new AgentTaskPump({
+      core: {
+        request: async (method) => {
+          if (method === 'agent.tasks.pump.next') {
+            nextCalls += 1
+            return nextCalls === 1
+              ? { kind: 'run_activation', activation: toolFreeActivation }
+              : { kind: 'wait', reason: 'awaiting_input', task_state: 'awaiting_input' }
+          }
+          return { state: 'investigating' }
+        },
+      },
+      runtime: { run: async () => yielded, abort: () => true },
+      emit: () => undefined,
+    })
+
+    await expect(pump.drain('project:test', 'task:test')).resolves.toMatchObject({
+      reason: 'awaiting_input',
+      activationsRun: 1,
+    })
+  })
+
   it('runs only the Core-requested activation and stops at confirmation', async () => {
     const methods: string[] = []
     let nextCalls = 0

@@ -541,7 +541,9 @@ class AgentActivation(StrictModel):
         tuple[VerificationReportId, ...], Field(max_length=128)
     ] = ()
     prior_receipt_ids: Annotated[tuple[ToolReceiptId, ...], Field(max_length=512)] = ()
-    allowed_tools: Annotated[tuple[Token, ...], Field(min_length=1, max_length=256)]
+    # A fully specified activation may need no ordinary tools. The Pi runtime
+    # exposes the Core-validated terminal yield tool separately.
+    allowed_tools: Annotated[tuple[Token, ...], Field(max_length=256)]
     permission_phase: PermissionPhase
     activation_budget: ActivationBudget
     task_budget: TaskBudgetSnapshot

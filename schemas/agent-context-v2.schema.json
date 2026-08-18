@@ -2103,7 +2103,6 @@
         "$ref": "#/$defs/ContextToolContract"
       },
       "maxItems": 256,
-      "minItems": 1,
       "title": "Tools",
       "type": "array"
     },

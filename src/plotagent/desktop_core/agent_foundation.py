@@ -159,10 +159,10 @@ class DurableAgentCoreHost:
             *register_domain_tools(gateway),
             *register_inspection_tools(gateway, inspection),
         )
-        if tuple(registered) != activation.allowed_tools:
+        if not set(activation.allowed_tools) <= set(registered):
             raise AgentFoundationError(
                 "ACTIVATION_TOOLSET_INVALID",
-                "The activation allowlist differs from the registered Core tools.",
+                "The activation allowlist references an unavailable Core tool.",
             )
         context = ContextBuilder().build(
             context_snapshot_id=f"context:{activation.activation_id.removeprefix('activation:')}",
@@ -621,7 +621,11 @@ class DurableAgentCoreHost:
             "and their types are already present in the context snapshot, bind them directly "
             "without calling inspection tools. Inspect rows only when unresolved data shape or "
             "field semantics blocks a safe plan; do not infer unseen values. A user-selected "
-            "chart profile or plot target is authoritative. If no chart profile is selected, "
+            "chart profile or plot target is authoritative. For a selected-plot-only task, "
+            "map selected_plots by ordinal to plot_1, plot_2, and so on; use the injected "
+            "selected chart card and its EngineProfile object aliases, emit only the requested "
+            "edit actions, and preserve every unspecified property. Do not inspect sources or "
+            "search the chart catalog for such a task. If no chart profile is selected, "
             "choose from the supplied catalog only when the instruction names one unambiguously; "
             "otherwise ask one blocking profile question. "
             "Return exactly one terminal AgentYield through submit_agent_yield. For intent_ready, "
@@ -840,7 +844,7 @@ class DurableTaskCoordinator:
             reason="new_task",
             task_state=checkpoint.state,
             original_instruction=envelope.original_instruction,
-            allowed_tools=_INVESTIGATION_TOOLS,
+            allowed_tools=self._allowed_tools(envelope),
             permission_phase="p0_read",
             activation_budget=budget,
             task_budget=checkpoint.budget,
@@ -880,7 +884,7 @@ class DurableTaskCoordinator:
                 for item in checkpoint.items
                 for receipt_id in item.receipt_ids
             ),
-            allowed_tools=_INVESTIGATION_TOOLS,
+            allowed_tools=self._allowed_tools(envelope),
             permission_phase="p0_read",
             activation_budget=budget,
             task_budget=checkpoint.budget,
@@ -908,7 +912,7 @@ class DurableTaskCoordinator:
             current_user_message=message,
             confirmed_intent=checkpoint.intent,
             item_states=tuple((item.item_id, item.state) for item in checkpoint.items),
-            allowed_tools=_INVESTIGATION_TOOLS,
+            allowed_tools=self._allowed_tools(envelope),
             permission_phase="p0_read",
             activation_budget=budget,
             task_budget=checkpoint.budget,
@@ -936,13 +940,20 @@ class DurableTaskCoordinator:
             original_instruction=envelope.original_instruction,
             confirmed_intent=checkpoint.intent,
             item_states=tuple((item.item_id, item.state) for item in checkpoint.items),
-            allowed_tools=_INVESTIGATION_TOOLS,
+            allowed_tools=self._allowed_tools(envelope),
             permission_phase="p0_read",
             activation_budget=budget,
             task_budget=checkpoint.budget,
             deadline=_iso(now + timedelta(milliseconds=budget.timeout_ms)),
             created_at=_iso(now),
         )
+
+    @staticmethod
+    def _allowed_tools(envelope: TaskEnvelope) -> tuple[str, ...]:
+        # Existing-plot visual edits are fully described by the selected plot,
+        # injected chart card and terminal yield schema. Source tools would fail
+        # without a source and add a needless provider round-trip.
+        return _INVESTIGATION_TOOLS if envelope.selected_sources else ()
 
     @staticmethod
     def _wait(checkpoint: TaskCheckpoint) -> WaitDirective:

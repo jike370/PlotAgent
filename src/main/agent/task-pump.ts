@@ -97,7 +97,7 @@ function parseActivation(value: unknown): AgentActivation {
   requiredString(activation.activation_id, 'activation_id')
   requiredString(activation.task_id, 'task_id')
   requiredInteger(activation.task_version, 'task_version')
-  if (!Array.isArray(activation.allowed_tools) || activation.allowed_tools.length === 0) {
+  if (!Array.isArray(activation.allowed_tools)) {
     throw new TaskPumpProtocolError('TASK_PUMP_PROTOCOL_INVALID', 'Activation tools were invalid.')
   }
   return activation

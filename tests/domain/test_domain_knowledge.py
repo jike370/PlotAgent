@@ -270,6 +270,7 @@ def test_unselected_context_exposes_catalog_but_never_auto_selects_a_chart() -> 
 def test_selected_profile_injects_only_its_card_and_linked_calculation() -> None:
     context = build_context(profiles=("K15",))
     assert context.selected_profile_ids == ("K15",)
+    assert tuple(item.profile_id for item in context.chart_catalog) == ("K15",)
     assert tuple(card.profile_id for card in context.chart_knowledge) == ("K15",)
     assert tuple(item.contract_id for item in context.calculation_contracts) == (
         "calculation:histogram_binning.v1",
@@ -290,6 +291,23 @@ def test_selected_profile_injects_only_its_card_and_linked_calculation() -> None
         tools=tool_contracts(),
     )
     assert selected_plot_context.selected_profile_ids == ("K01",)
+
+    plot_only_context = ContextBuilder().build(
+        context_snapshot_id="context:plot-only",
+        context_version=1,
+        envelope=envelope(
+            source_ids=(),
+            selected_plots=(
+                SelectedPlotRef(plot_id="plot:test", plot_version=1, profile_id="K01"),
+            ),
+        ),
+        checkpoint=checkpoint(task_budget=task_budget),
+        activation=activation(task_budget=task_budget, tools=()),
+        source_contexts=(),
+        tools=(),
+    )
+    assert tuple(item.profile_id for item in plot_only_context.chart_catalog) == ("K01",)
+    assert plot_only_context.tools == ()
 
 
 def test_context_rejects_unauthorized_data_tool_drift_and_budget_overflow() -> None:
