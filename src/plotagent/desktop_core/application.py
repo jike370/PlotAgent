@@ -1004,6 +1004,7 @@ class DesktopApplication:
         engine = DesktopEngineSession.open(store)
         workflow_repository = WorkflowRepository(store)
         durable_tasks = TaskLedgerRepository(store)
+        recovered_task_ids = durable_tasks.recover_inflight_activations()
         workflow = DesktopWorkflowService(
             store=store,
             domain=domain,
@@ -1032,6 +1033,7 @@ class DesktopApplication:
             task_coordinator=DurableTaskCoordinator(
                 durable_tasks,
                 plan_stager=task_host.ensure_plan,
+                recovered_task_ids=recovered_task_ids,
             ),
             task_host=task_host,
             task_execution=DurableTaskExecutionService(

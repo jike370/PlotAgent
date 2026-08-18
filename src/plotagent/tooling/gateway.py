@@ -566,8 +566,10 @@ class ToolGateway:
                 "requires_user": False,
             }
         invocation_deadline = _datetime(invocation.deadline)
-        activation_deadline = _datetime(activation.deadline)
-        if invocation_deadline > activation_deadline:
+        activation_deadline = (
+            None if activation.deadline is None else _datetime(activation.deadline)
+        )
+        if activation_deadline is not None and invocation_deadline > activation_deadline:
             return {
                 "code": "TOOL_DEADLINE_INVALID",
                 "category": "FATAL",

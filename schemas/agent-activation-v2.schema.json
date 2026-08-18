@@ -25,11 +25,18 @@
           "type": "integer"
         },
         "timeout_ms": {
-          "default": 120000,
-          "maximum": 3600000,
-          "minimum": 1000,
-          "title": "Timeout Ms",
-          "type": "integer"
+          "anyOf": [
+            {
+              "maximum": 3600000,
+              "minimum": 1000,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeout Ms"
         }
       },
       "title": "ActivationBudget",
@@ -130,11 +137,18 @@
           "type": "integer"
         },
         "max_wall_time_ms": {
-          "default": 3600000,
-          "maximum": 604800000,
-          "minimum": 1000,
-          "title": "Max Wall Time Ms",
-          "type": "integer"
+          "anyOf": [
+            {
+              "maximum": 604800000,
+              "minimum": 1000,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Wall Time Ms"
         }
       },
       "title": "TaskBudgetLimits",
@@ -298,9 +312,17 @@
       "title": "Current User Message"
     },
     "deadline": {
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
-      "title": "Deadline",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deadline"
     },
     "domain_knowledge_refs": {
       "default": [],
@@ -445,7 +467,6 @@
     "permission_phase",
     "activation_budget",
     "task_budget",
-    "deadline",
     "created_at"
   ],
   "title": "AgentActivation",

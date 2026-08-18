@@ -1010,7 +1010,9 @@ artifact_export
 - 工具调用、技术重试、视觉修复、追问和用户等待次数；
 - 每个 TaskItem 的首次成功、最终成功和失败作用域。
 
-用户默认只在任务详情和完成摘要看到总耗时、模型调用/额度消耗与重试；开发模式可展开阶段耗时。接近 ExecutionGrant 预算时显示真实警告，达到预算后进入可恢复的 `blocked_budget`，不能静默继续消费。
+用户默认只在任务详情和完成摘要看到总耗时、模型调用/额度消耗与重试；开发模式可展开阶段耗时。
+端到端时长当前是观测与发布指标，不设置产品层硬截止；接近模型、Token、工具、Origin 或成本预算时
+显示真实警告，达到这些预算后进入可恢复的 `blocked_budget`，不能静默继续消费。
 
 不同 Provider 无法提供可靠价格时只显示 token/调用量和“费用未知”，不得伪造人民币金额。成本指标必须区分计分模型调用、能力探测、缓存命中和本地工具成本。
 
@@ -1697,7 +1699,9 @@ Pi 不以自由文本决定外层状态，只能产生以下 typed yield：
 | `cancelled` | 已响应取消 | 进入安全取消收口 |
 | `runtime_failed` | Provider/Pi/协议故障 | 无项目副作用，按错误策略恢复 |
 
-Pi 正常结束但没有合法 yield 是 `AGENT_YIELD_MISSING`，不是任务完成。Core 对每个 yield 做 Schema、任务版本、权限和状态转移校验。
+Pi 正常结束但没有合法 yield 时，只允许一次不重复业务工具调用的协议纠正；纠正后仍没有合法
+yield 才是 `AGENT_YIELD_MISSING`，绝不视为任务完成。Core 对每个 yield 做 Schema、任务版本、权限和
+状态转移校验。
 
 ### 13.6 一次完整任务的执行路径
 
@@ -1773,7 +1777,7 @@ Pi 的 steering/follow-up 用于消息送达和本轮协作，不决定任务版
 - 只读数据披露行数、单元格数和字节数；
 - 工具调用、沙箱渲染、Origin 会话和 fresh reopen 次数；
 - 技术修复次数、视觉修改次数；
-- 端到端 wall time 与单外部调用 timeout；
+- 端到端 wall time 只测量、不设产品硬上限；单个 Provider/工具调用保留传输 timeout；
 - staged 文件空间和输出文件数量。
 
 per-activation 防止一次模型循环失控；task-wide 防止反复恢复绕过总预算。预算接近上限时向 Agent提供真实剩余额度；耗尽后保留成功项和 staged 证据，用户可以增加预算、接受部分结果或停止。程序不能为了省 token 改回关键词语义路由。
@@ -1971,7 +1975,8 @@ Agent 文本中的“完成”“应该可以”或 Pi `agent_end` 不参与完�
 - P0 只读和 P1 staged 操作自动执行；P2 在 TaskIntent 集中确认后执行；P3 扩权或改变语义时再次确认。
 - Core 签发绑定任务版本、对象、动作、输出位置和预算的最小 ExecutionGrant，模型不能修改授权本身。
 - 每个 TaskItem 独立原子提交，批量任务保留部分成功；写操作使用稳定 idempotency key，并在重试前协调实际结果。
-- 取消和超时贯穿 Pi、Core、工具、renderer 与 Origin，但不在数据库或文件原子发布临界区强杀。
+- 用户取消贯穿 Pi、Core、工具、renderer 与 Origin；Provider/工具传输超时仍保留，但不设置 Agent
+  端到端时长预算，且任何取消或超时都不在数据库/文件原子发布临界区强杀。
 - Origin 只控制身份可验证、属于本任务的自动化实例，绝不终止用户 Origin。
 - 项目撤销通过不可变 revision 恢复；导出先 staged、验证后原子发布，默认不覆盖，外部文件不伪装成可由项目 undo 收回。
 - 项目写入和 Origin 自动化使用可恢复 lease，revision 冲突不得静默覆盖。
@@ -2039,7 +2044,8 @@ Agent 文本中的“完成”“应该可以”或 Pi `agent_end` 不参与完�
 - VerificationReport 失败时按 scoped repair 再激活 Pi；冻结语义内技术修复可自动执行，字段、图类、统计定义或其他语义变化必须重新确认。
 - Main TaskPump 只协调 Core next action、Pi activation 和流式事件，不保存权威状态、不解释自然语言、不 busy polling。
 - steering/follow-up 负责消息送达，Core task version 与用户显式 UI 事件决定回答、修正和后续任务的边界。
-- 使用 per-activation 与 task-wide 双层预算，覆盖模型、数据披露、工具、Origin、修复、时长和成本。
+- 使用 per-activation 与 task-wide 双层预算，覆盖模型、数据披露、工具、Origin、修复和成本；端到端
+  时长只记录并进入发布评测，当前不作为终止条件。
 - retry 区分传输重试、工具 receipt reconcile 与 Agent 技术修复；写操作幂等，旧 activation、迟到 yield 和重复事件稳定拒绝。
 - 取消贯穿 UI、Pi、Core、工具、renderer 和本任务 Origin，在一致性边界停止并保留已成功 TaskItem。
 - 第一阶段保持单 Agent、每项目一个 writer、顺序工具和确定性 TaskItem 提交，不提前引入多 Agent 或写入并行。

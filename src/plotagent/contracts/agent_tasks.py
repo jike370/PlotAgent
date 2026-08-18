@@ -119,7 +119,7 @@ class TaskBudgetLimits(StrictModel):
     max_disclosed_scalars: Annotated[int, Field(ge=1, le=10_000_000)] = 200_000
     max_origin_sessions: Annotated[int, Field(ge=0, le=512)] = 16
     max_repair_attempts: Annotated[int, Field(ge=0, le=128)] = 8
-    max_wall_time_ms: Annotated[int, Field(ge=1_000, le=604_800_000)] = 3_600_000
+    max_wall_time_ms: Annotated[int, Field(ge=1_000, le=604_800_000)] | None = None
     max_estimated_cost: Annotated[float, Field(ge=0, le=1_000_000, allow_inf_nan=False)] = 0
 
 
@@ -151,10 +151,12 @@ class TaskBudgetSnapshot(StrictModel):
             (self.usage.disclosed_scalars, self.limits.max_disclosed_scalars),
             (self.usage.origin_sessions, self.limits.max_origin_sessions),
             (self.usage.repair_attempts, self.limits.max_repair_attempts),
-            (self.usage.wall_time_ms, self.limits.max_wall_time_ms),
             (self.usage.estimated_cost, self.limits.max_estimated_cost),
         )
-        if any(used > limit for used, limit in pairs):
+        if any(used > limit for used, limit in pairs) or (
+            self.limits.max_wall_time_ms is not None
+            and self.usage.wall_time_ms > self.limits.max_wall_time_ms
+        ):
             raise ValueError("task budget usage cannot exceed its limits")
         return self
 
@@ -163,7 +165,7 @@ class ActivationBudget(StrictModel):
     max_model_turns: Annotated[int, Field(ge=1, le=32)] = 6
     max_tool_calls: Annotated[int, Field(ge=0, le=128)] = 24
     max_disclosed_scalars: Annotated[int, Field(ge=0, le=200_000)] = 20_000
-    timeout_ms: Annotated[int, Field(ge=1_000, le=3_600_000)] = 120_000
+    timeout_ms: Annotated[int, Field(ge=1_000, le=3_600_000)] | None = None
 
 
 class SelectedPlotRef(StrictModel):
@@ -547,7 +549,7 @@ class AgentActivation(StrictModel):
     permission_phase: PermissionPhase
     activation_budget: ActivationBudget
     task_budget: TaskBudgetSnapshot
-    deadline: IsoTimestamp
+    deadline: IsoTimestamp | None = None
     created_at: IsoTimestamp
 
     @model_validator(mode="after")
@@ -563,7 +565,7 @@ class AgentActivation(StrictModel):
         )
         if any(len(group) != len(set(group)) for group in groups):
             raise ValueError("agent activation references and tools must be unique")
-        if self.deadline <= self.created_at:
+        if self.deadline is not None and self.deadline <= self.created_at:
             raise ValueError("agent activation deadline must follow creation")
         if self.reason == "verification_failed" and not self.verification_report_ids:
             raise ValueError("verification repair activations need a verification report")

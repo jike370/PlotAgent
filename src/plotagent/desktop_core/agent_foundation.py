@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from copy import deepcopy
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Literal, TypedDict, cast
 
 from plotagent.contracts.agent_tasks import (
@@ -742,18 +742,24 @@ class DurableTaskCoordinator:
         *,
         plan_stager: Callable[[str], TaskPlan] | None = None,
         clock: Callable[[], datetime] | None = None,
+        recovered_task_ids: Iterable[str] = (),
     ) -> None:
         self._ledger = ledger
         self._plan_stager = plan_stager
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._recovered_task_ids = set(recovered_task_ids)
 
     def next_action(self, task_id: str) -> TaskPumpDirective:
         checkpoint = self._ledger.get_task(task_id)
         if checkpoint.active_activation_id is not None:
             activation, status = self._ledger.get_activation(checkpoint.active_activation_id)
             if status in {"requested", "running"}:
-                deadline = datetime.fromisoformat(activation.deadline.replace("Z", "+00:00"))
-                if deadline <= self._clock().astimezone(UTC):
+                deadline = (
+                    None
+                    if activation.deadline is None
+                    else datetime.fromisoformat(activation.deadline.replace("Z", "+00:00"))
+                )
+                if deadline is not None and deadline <= self._clock().astimezone(UTC):
                     checkpoint = self._ledger.abort_active_activation(task_id)
                     resumed = (
                         self._repair_activation(checkpoint)
@@ -772,7 +778,12 @@ class DurableTaskCoordinator:
             raise RuntimeError("active activation has a terminal runtime status")
 
         if checkpoint.state == "created":
-            activation = self._new_activation(checkpoint)
+            activation = (
+                self._resume_activation(checkpoint)
+                if task_id in self._recovered_task_ids
+                else self._new_activation(checkpoint)
+            )
+            self._recovered_task_ids.discard(task_id)
             self._ledger.start_activation(activation)
             return {
                 "kind": "run_activation",
@@ -870,9 +881,7 @@ class DurableTaskCoordinator:
     def _new_activation(self, checkpoint: TaskCheckpoint) -> AgentActivation:
         envelope = self._ledger.get_envelope(checkpoint.task_id)
         now = self._clock().astimezone(UTC)
-        # Keep an interactive planning turn inside the desktop response budget. Complex work is
-        # resumed as another durable activation instead of leaving the UI waiting for two minutes.
-        budget = ActivationBudget(timeout_ms=35_000)
+        budget = ActivationBudget()
         return AgentActivation(
             activation_id=f"activation:{uuid.uuid4().hex}",
             task_id=checkpoint.task_id,
@@ -884,14 +893,14 @@ class DurableTaskCoordinator:
             permission_phase="p0_read",
             activation_budget=budget,
             task_budget=checkpoint.budget,
-            deadline=_iso(now + timedelta(milliseconds=budget.timeout_ms)),
+            deadline=None,
             created_at=_iso(now),
         )
 
     def _repair_activation(self, checkpoint: TaskCheckpoint) -> AgentActivation:
         envelope = self._ledger.get_envelope(checkpoint.task_id)
         now = self._clock().astimezone(UTC)
-        budget = ActivationBudget(timeout_ms=35_000)
+        budget = ActivationBudget()
         repairable = tuple(
             item for item in checkpoint.items if item.state == "repairable_failed"
         )
@@ -924,7 +933,7 @@ class DurableTaskCoordinator:
             permission_phase="p0_read",
             activation_budget=budget,
             task_budget=checkpoint.budget,
-            deadline=_iso(now + timedelta(milliseconds=budget.timeout_ms)),
+            deadline=None,
             created_at=_iso(now),
         )
 
@@ -937,7 +946,7 @@ class DurableTaskCoordinator:
     ) -> AgentActivation:
         envelope = self._ledger.get_envelope(checkpoint.task_id)
         now = self._clock().astimezone(UTC)
-        budget = ActivationBudget(timeout_ms=35_000)
+        budget = ActivationBudget()
         return AgentActivation(
             activation_id=f"activation:{uuid.uuid4().hex}",
             task_id=checkpoint.task_id,
@@ -952,7 +961,7 @@ class DurableTaskCoordinator:
             permission_phase="p0_read",
             activation_budget=budget,
             task_budget=checkpoint.budget,
-            deadline=_iso(now + timedelta(milliseconds=budget.timeout_ms)),
+            deadline=None,
             created_at=_iso(now),
         )
 
@@ -966,7 +975,7 @@ class DurableTaskCoordinator:
     ) -> AgentActivation:
         envelope = self._ledger.get_envelope(checkpoint.task_id)
         now = self._clock().astimezone(UTC)
-        budget = ActivationBudget(timeout_ms=35_000)
+        budget = ActivationBudget()
         return AgentActivation(
             activation_id=f"activation:{uuid.uuid4().hex}",
             task_id=checkpoint.task_id,
@@ -980,7 +989,7 @@ class DurableTaskCoordinator:
             permission_phase="p0_read",
             activation_budget=budget,
             task_budget=checkpoint.budget,
-            deadline=_iso(now + timedelta(milliseconds=budget.timeout_ms)),
+            deadline=None,
             created_at=_iso(now),
         )
 

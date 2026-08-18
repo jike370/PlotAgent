@@ -376,6 +376,36 @@ class TaskLedgerRepository:
             ).fetchall()
         return tuple(self._decode_checkpoint(str(row[0])) for row in rows)
 
+    def recover_inflight_activations(self) -> tuple[str, ...]:
+        """Abort activations owned by a previous desktop process.
+
+        A project writer is exclusive, so opening a new writer proves that no
+        prior Main process can still own these persisted activations. Recovery
+        is process-bound and does not depend on an arbitrary wall-clock lease.
+        """
+
+        rows = self._connection.execute(
+            "SELECT checkpoint_json FROM agent_tasks_v2 ORDER BY task_id"
+        ).fetchall()
+        task_ids = tuple(
+            checkpoint.task_id
+            for row in rows
+            if (checkpoint := self._decode_checkpoint(str(row[0]))).active_activation_id
+            is not None
+        )
+        recovered: list[str] = []
+        for task_id in task_ids:
+            checkpoint = self.get_task(task_id)
+            activation_id = checkpoint.active_activation_id
+            if activation_id is None:
+                continue
+            _activation, status = self.get_activation(activation_id)
+            if status not in {"requested", "running"}:
+                continue
+            self.abort_active_activation(task_id)
+            recovered.append(task_id)
+        return tuple(recovered)
+
     def list_events(self, task_id: str, *, after_sequence: int = 0) -> tuple[TaskEvent, ...]:
         self.get_task(task_id)
         rows = self._connection.execute(

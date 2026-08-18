@@ -334,9 +334,11 @@
 - 模型参数中不含 execution grant 或幂等键。adapter 根据 Core-bound authority 生成
   `ToolInvocation`、argument hash、deadline、调用序号和 P1–P3 idempotency key，再交给 ToolGateway host；
 - 只允许保留字工具 `submit_agent_yield` 结束 activation；其参数必须经过 Core `validateYield`。
-  正常结束但未调用终态工具稳定返回 `AGENT_YIELD_MISSING`，Core 工具/终态身份错配则 fail closed；
-- 同时执行 activation 与 task-wide 的 model call/turn、token、tool call、披露 scalar、估算成本和 wall-time
-  预算；超限返回 typed `budget_exhausted`，不伪造 TaskState transition；
+  正常结束但未调用终态工具时，Pi 只获得一次不重复业务工具调用的协议纠正机会；纠正后仍未提交
+  终态才稳定返回 `AGENT_YIELD_MISSING`。Core 工具/终态身份错配始终 fail closed；
+- 同时执行 activation 与 task-wide 的 model call/turn、token、tool call、披露 scalar 和估算成本预算；
+  端到端 wall time 只记录、评测和展示，当前不作为产品层终止预算。Provider/工具仍保留独立传输
+  timeout，用户取消仍端到端传播；预算超限返回 typed `budget_exhausted`，不伪造 TaskState transition；
 - abort 已覆盖 ContextBuilder/host prepare 与 Pi 运行阶段；新 activation 会取消旧 generation，迟到的
   tool result/yield 在接受前重新核对 generation，不会覆盖新任务版本；Provider 中断、timeout、supersede
   均转成稳定的 typed yield；
@@ -351,7 +353,8 @@
 - 每次 activation 从 ContextBuilder 输入开始，`messages=[]` 不再意味着丢失任务状态；
 - Pi 内循环保留 prompt、工具循环、sequential execution、turn stop、continue、abort 和 streaming；
 - 接入 transformContext、before/after tool hook 和 task/activation trace；
-- 只接受 typed yield 工具；正常 agent_end 无 yield 返回 `AGENT_YIELD_MISSING`；
+- 只接受 typed yield 工具；正常 agent_end 无 yield 时只做一次有界协议纠正，仍无 yield 才返回
+  `AGENT_YIELD_MISSING`；
 - 同时执行 per-activation 与 task-wide budget；
 - 支持 steering 的消息通道，但 task version 由 Core 控制；
 - Provider 凭证继续只存在 Main 信任边界。

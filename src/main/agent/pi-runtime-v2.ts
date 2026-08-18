@@ -20,6 +20,11 @@ import type {
 } from '../../shared/generated/contracts.js'
 
 const TERMINAL_TOOL_NAME = 'submit_agent_yield'
+const TERMINAL_YIELD_RECOVERY_PROMPT = [
+  'Protocol recovery: your previous turn ended without calling submit_agent_yield.',
+  'Do not explain in prose and do not repeat completed tool calls.',
+  'Call submit_agent_yield exactly once with the typed terminal result for this activation.',
+].join(' ')
 
 export interface PiRuntimeProviderV2 {
   readonly baseUrl: string
@@ -403,27 +408,36 @@ export class PiRuntimeAdapterV2 {
 
     try {
       this.emit(activation, 'preparing_context')
-      if (new Date(activation.deadline).getTime() <= this.clock().getTime()) {
+      const activationDeadline = activation.deadline === null || activation.deadline === undefined
+        ? undefined
+        : new Date(activation.deadline).getTime()
+      if (activationDeadline !== undefined && activationDeadline <= this.clock().getTime()) {
         return budgetYield(activation, 'wall_time')
       }
-      const deadlineRemainingMs = new Date(activation.deadline).getTime() - this.clock().getTime()
-      const timeoutMs = Math.max(0, Math.min(
-        activation.activation_budget.timeout_ms ?? deadlineRemainingMs,
-        deadlineRemainingMs,
-        2_147_483_647,
-      ))
-      timeoutPromise = new Promise<never>((_resolve, reject) => {
-        timeout = setTimeout(() => {
-          timedOut = true
-          controller.abort()
-          agent?.abort()
-          reject(new PiRuntimeV2ProtocolError('PI_V2_TIMEOUT', 'Activation timed out.'))
-        }, timeoutMs)
-      })
-      const environment = await Promise.race([
+      const configuredTimeout = activation.activation_budget.timeout_ms
+      if (configuredTimeout !== null && configuredTimeout !== undefined) {
+        const timeoutMs = Math.max(0, Math.min(
+          configuredTimeout,
+          activationDeadline === undefined
+            ? 2_147_483_647
+            : activationDeadline - this.clock().getTime(),
+          2_147_483_647,
+        ))
+        timeoutPromise = new Promise<never>((_resolve, reject) => {
+          timeout = setTimeout(() => {
+            timedOut = true
+            controller.abort()
+            agent?.abort()
+            reject(new PiRuntimeV2ProtocolError('PI_V2_TIMEOUT', 'Activation timed out.'))
+          }, timeoutMs)
+        })
+      }
+      const withActivationTimeout = <T>(pending: Promise<T>): Promise<T> => (
+        timeoutPromise === undefined ? pending : Promise.race([pending, timeoutPromise])
+      )
+      const environment = await withActivationTimeout(
         this.host.prepare(activation, controller.signal),
-        timeoutPromise,
-      ])
+      )
       this.assertCurrent(generation)
       validateEnvironment(activation, environment)
       const initiallyExhausted = this.exhaustedBudget(activation, counters)
@@ -448,10 +462,10 @@ export class PiRuntimeAdapterV2 {
           })
           const toolCallId = `toolcall:${callDigest.slice(0, 32)}`
           const argumentsValue = asJson(args, 'Tool arguments')
-          const absoluteDeadline = Math.min(
-            new Date(activation.deadline).getTime(),
-            now.getTime() + definition.contract.timeout_ms,
-          )
+          const toolDeadline = now.getTime() + definition.contract.timeout_ms
+          const absoluteDeadline = activationDeadline === undefined
+            ? toolDeadline
+            : Math.min(activationDeadline, toolDeadline)
           const invocation: ToolInvocation = {
             tool_call_id: toolCallId,
             task_id: activation.task_id,
@@ -625,10 +639,7 @@ export class PiRuntimeAdapterV2 {
       this.active.agent = agent
 
       const prompt = JSON.stringify({ context_snapshot: environment.context })
-      await Promise.race([
-        agent.prompt(prompt),
-        timeoutPromise,
-      ])
+      await withActivationTimeout(agent.prompt(prompt))
       if (fatalProtocolError !== undefined) throw fatalProtocolError
       this.assertCurrent(generation)
       if (finalYield === undefined && agent.state.errorMessage !== undefined) {
@@ -637,6 +648,18 @@ export class PiRuntimeAdapterV2 {
           safeProviderDiagnostic(agent.state.errorMessage)
             || 'The model provider ended the activation before a typed Agent yield was accepted.',
         )
+      }
+      if (finalYield === undefined) {
+        await withActivationTimeout(agent.prompt(TERMINAL_YIELD_RECOVERY_PROMPT))
+        if (fatalProtocolError !== undefined) throw fatalProtocolError
+        this.assertCurrent(generation)
+        if (finalYield === undefined && agent.state.errorMessage !== undefined) {
+          throw new PiRuntimeV2ProtocolError(
+            'PI_V2_PROVIDER_FAILED',
+            safeProviderDiagnostic(agent.state.errorMessage)
+              || 'The model provider ended protocol recovery before a typed Agent yield was accepted.',
+          )
+        }
       }
       if (finalYield === undefined) {
         finalYield = runtimeFailure(

@@ -6,7 +6,7 @@ export type ActivationBudget = {
   readonly max_model_turns?: number;
   readonly max_tool_calls?: number;
   readonly max_disclosed_scalars?: number;
-  readonly timeout_ms?: number;
+  readonly timeout_ms?: number | null;
 }
 
 export type AddAnnotation = {
@@ -46,7 +46,7 @@ export type AgentActivation = {
   readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
   readonly activation_budget: ActivationBudget;
   readonly task_budget: TaskBudgetSnapshot;
-  readonly deadline: string;
+  readonly deadline?: string | null;
   readonly created_at: string;
 }
 
@@ -1692,7 +1692,7 @@ export type TaskBudgetLimits = {
   readonly max_disclosed_scalars?: number;
   readonly max_origin_sessions?: number;
   readonly max_repair_attempts?: number;
-  readonly max_wall_time_ms?: number;
+  readonly max_wall_time_ms?: number | null;
   readonly max_estimated_cost?: number;
 }
 

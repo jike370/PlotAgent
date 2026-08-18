@@ -453,18 +453,46 @@ describe('PiRuntimeAdapterV2', () => {
     expect(streamFn).not.toHaveBeenCalled()
   })
 
-  it('returns AGENT_YIELD_MISSING when Pi ends without the terminal tool', async () => {
+  it('recovers once when Pi first ends without the terminal tool', async () => {
     const input = activation({ allowed_tools: [] })
+    const candidate = needsInput(input)
+    let modelCalls = 0
     const runtime = new PiRuntimeAdapterV2({
       host: hostFor(input),
       emit: () => undefined,
-      streamFn: (() => textStream('Done.')) as StreamFn,
+      streamFn: (() => {
+        modelCalls += 1
+        return modelCalls === 1
+          ? textStream('Done.')
+          : toolCallStream(
+            'provider-call-recovered-yield',
+            'submit_agent_yield',
+            terminalArguments(candidate),
+          )
+      }) as StreamFn,
+    })
+
+    await expect(runtime.run(input)).resolves.toEqual(candidate)
+    expect(modelCalls).toBe(2)
+  })
+
+  it('returns AGENT_YIELD_MISSING after one bounded protocol recovery', async () => {
+    const input = activation({ allowed_tools: [] })
+    let modelCalls = 0
+    const runtime = new PiRuntimeAdapterV2({
+      host: hostFor(input),
+      emit: () => undefined,
+      streamFn: (() => {
+        modelCalls += 1
+        return textStream('Done.')
+      }) as StreamFn,
     })
 
     await expect(runtime.run(input)).resolves.toMatchObject({
       outcome: 'runtime_failed',
       error: { code: 'AGENT_YIELD_MISSING', side_effect_state: 'known_none' },
     })
+    expect(modelCalls).toBe(2)
   })
 
   it('stops before a second model call when the model-call budget is exhausted', async () => {
@@ -573,6 +601,31 @@ describe('PiRuntimeAdapterV2', () => {
       outcome: 'budget_exhausted',
       exhausted_budget: 'wall_time',
     })
+  })
+
+  it('does not impose a wall-clock cutoff when the activation has no time budget', async () => {
+    const input = activation({
+      allowed_tools: [],
+      activation_budget: { max_model_turns: 4, max_tool_calls: 4 },
+      deadline: null,
+    })
+    const candidate = needsInput(input)
+    const runtime = new PiRuntimeAdapterV2({
+      host: hostFor(input, {
+        prepare: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 10))
+          return environment(input)
+        },
+      }),
+      emit: () => undefined,
+      streamFn: (() => toolCallStream(
+        'provider-call-no-wall-time-yield',
+        'submit_agent_yield',
+        terminalArguments(candidate),
+      )) as StreamFn,
+    })
+
+    await expect(runtime.run(input)).resolves.toEqual(candidate)
   })
 
   it('can cancel while Core is still preparing the activation context', async () => {

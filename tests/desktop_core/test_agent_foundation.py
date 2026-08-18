@@ -109,12 +109,13 @@ def test_next_action_creates_one_idempotent_activation(tmp_path: Path) -> None:
         assert activation["task_version"] == 1
         assert activation["task_state"] == "created"
         assert activation["permission_phase"] == "p0_read"
-        assert activation["activation_budget"]["timeout_ms"] == 35_000
+        assert activation["activation_budget"]["timeout_ms"] is None
+        assert activation["deadline"] is None
         assert "inspect_source" in cast(list[str], activation["allowed_tools"])
         assert ledger.get_task("task:test").active_activation_id == activation["activation_id"]
 
 
-def test_expired_activation_is_aborted_and_resumed_after_restart(tmp_path: Path) -> None:
+def test_inflight_activation_is_aborted_and_resumed_after_restart(tmp_path: Path) -> None:
     with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
         ledger = TaskLedgerRepository(project)
         ledger.create_task(envelope())
@@ -124,8 +125,10 @@ def test_expired_activation_is_aborted_and_resumed_after_restart(tmp_path: Path)
         first_id = str(first["activation"]["activation_id"])
         ledger.mark_activation_running(first_id)
 
+        recovered = ledger.recover_inflight_activations()
+        assert recovered == ("task:test",)
         restarted = DurableTaskCoordinator(
-            ledger, clock=lambda: NOW + timedelta(minutes=1)
+            ledger, recovered_task_ids=recovered
         ).next_action("task:test")
         assert restarted["kind"] == "run_activation"
         assert restarted["activation"]["reason"] == "resume_after_restart"

@@ -448,8 +448,11 @@ async function runWorkflowCase(
   const runKey = `${task.task_id}.r${repeat}`
   harness.activeRunKey = runKey
   const started = performance.now()
+  let projectId: string | undefined
+  let beforeRevision: number | undefined
   try {
     const project = await createProject(harness, runKey)
+    projectId = project.projectId
     const imported = await importFixtures(
       harness, project.projectId, project.revision, task.fixture_keys, fixturePaths,
     )
@@ -465,7 +468,7 @@ async function runWorkflowCase(
     const before = record(await harness.core.request('projects.open', {
       project_id: project.projectId,
     }), 'project before workflow')
-    const beforeRevision = integer(before.project_version, 'before revision')
+    beforeRevision = integer(before.project_version, 'before revision')
     const response = record(await harness.agent.run({
       projectId: project.projectId,
       selectedSources: plotIds.length === 0 ? selectedSources(imported.datasets) : [],
@@ -494,6 +497,19 @@ async function runWorkflowCase(
       passed: scored.passed && noSideEffect,
     }
   } catch (error) {
+    let confirmationNoSideEffect = false
+    if (projectId !== undefined && beforeRevision !== undefined) {
+      try {
+        const afterFailure = record(await harness.core.request('projects.open', {
+          project_id: projectId,
+        }), 'project after failed workflow')
+        confirmationNoSideEffect = (
+          integer(afterFailure.project_version, 'after failed revision') === beforeRevision
+        )
+      } catch {
+        // Fail closed when the project state cannot be re-read.
+      }
+    }
     return {
       task_id: task.task_id,
       repeat,
@@ -501,7 +517,7 @@ async function runWorkflowCase(
       passed: false,
       latency_seconds: (performance.now() - started) / 1000,
       model_calls: harness.modelCalls(runKey),
-      confirmation_no_side_effect: false,
+      confirmation_no_side_effect: confirmationNoSideEffect,
       failure: error instanceof Error ? error.message : String(error),
     }
   }
