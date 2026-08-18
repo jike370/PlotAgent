@@ -578,10 +578,41 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.queryByText('只在首次使用 Agent 时配置，不影响本地绘图与导出。')).not.toBeInTheDocument()
     expect(screen.queryByText('表单仅用于检查交互，不发送或保存其中内容。')).not.toBeInTheDocument()
     expect(screen.queryByText('提交后只写入系统凭据库，不回显到界面或项目。')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Base URL')).toHaveFocus()
+    expect(screen.getByLabelText('模型厂商')).toHaveFocus()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog', { name: '模型服务' })).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
+  })
+
+  it('configures a provider preset without asking for a Base URL or model ID', async () => {
+    const user = userEvent.setup()
+    const configureCustomProvider = vi.fn(async () => ok({
+      configured: true,
+      mode: 'custom_provider',
+      endpoint_origin: 'https://open.bigmodel.cn/api/paas/v4',
+      model_id: 'glm-4.7-flash',
+    }))
+    installApi(fakeDesktop({
+      getProviderStatus: vi.fn(async () => ok({ configured: false, mode: 'local_only' })),
+      configureCustomProvider,
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '模型服务 未配置' }))
+
+    expect(screen.getByLabelText('模型厂商')).toHaveValue('zhipu')
+    expect(screen.getByLabelText('模型')).toHaveValue('glm-4.7-flash')
+    expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Model ID')).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('API Key'), 'test-key')
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: '保存模型服务' }))
+
+    expect(configureCustomProvider).toHaveBeenCalledWith({
+      baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+      modelId: 'glm-4.7-flash',
+      apiKey: 'test-key',
+      retentionAcknowledged: true,
+    })
   })
 
   it('filters local projects with a working clear action', async () => {

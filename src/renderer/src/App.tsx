@@ -37,6 +37,12 @@ import {
 } from './data/productState'
 import { readWorkspaceSelection, writeWorkspaceSelection } from './data/workspacePersistence'
 import { plotHistoryEntry, type PlotHistoryEntry } from './data/plotHistory'
+import {
+  matchProviderPreset,
+  providerPreset,
+  providerPresets,
+  type ProviderPresetId,
+} from './data/providerPresets'
 import { ChartLibrary } from './components/ChartLibrary'
 import {
   ConversationWorkspace,
@@ -88,6 +94,23 @@ function readProviderConfigured(value: JsonValue): boolean {
   return Object.values(value).some((item) => isJsonRecord(item) && item.configured === true)
 }
 
+interface ProviderConfigurationView {
+  readonly baseUrl: string
+  readonly modelId: string
+}
+
+function readProviderConfiguration(value: JsonValue): ProviderConfigurationView | undefined {
+  if (!isJsonRecord(value)) return undefined
+  if (typeof value.endpoint_origin === 'string' && typeof value.model_id === 'string') {
+    return { baseUrl: value.endpoint_origin, modelId: value.model_id }
+  }
+  for (const item of Object.values(value)) {
+    const nested = readProviderConfiguration(item)
+    if (nested) return nested
+  }
+  return undefined
+}
+
 function readExportRecord(
   value: JsonValue,
   format: 'png' | 'svg' | 'opju',
@@ -109,17 +132,41 @@ function readExportRecord(
 
 interface ProviderSettingsProps {
   busy: boolean
+  configured?: ProviderConfigurationView
   notice?: ProductNotice
   onClose: () => void
   onConfigure: (input: CustomProviderConfigureInput) => void
 }
 
-function ProviderSettings({ busy, notice, onClose, onConfigure }: ProviderSettingsProps): React.JSX.Element {
-  const [baseUrl, setBaseUrl] = useState('')
-  const [modelId, setModelId] = useState('')
+function ProviderSettings({ busy, configured, notice, onClose, onConfigure }: ProviderSettingsProps): React.JSX.Element {
+  const initialProvider = matchProviderPreset(configured?.baseUrl)
+  const initialPreset = providerPreset(initialProvider)
+  const configuredPresetModel = initialPreset?.models.find((model) => model.id === configured?.modelId)
+  const [providerId, setProviderId] = useState<ProviderPresetId>(initialProvider)
+  const [baseUrl, setBaseUrl] = useState(initialProvider === 'custom' ? configured?.baseUrl ?? '' : initialPreset?.baseUrl ?? '')
+  const [modelId, setModelId] = useState(
+    initialProvider === 'custom'
+      ? configured?.modelId ?? ''
+      : configuredPresetModel?.id ?? initialPreset?.models[0]?.id ?? '',
+  )
   const [apiKey, setApiKey] = useState('')
   const [acknowledged, setAcknowledged] = useState(false)
   const dialogRef = useDialogFocus<HTMLElement>()
+  const preset = providerPreset(providerId)
+  const effectiveBaseUrl = preset?.baseUrl ?? baseUrl
+  const keyRequired = configured?.baseUrl.replace(/\/$/, '') !== effectiveBaseUrl.replace(/\/$/, '')
+
+  const chooseProvider = (nextId: ProviderPresetId): void => {
+    setProviderId(nextId)
+    const nextPreset = providerPreset(nextId)
+    if (nextPreset) {
+      setBaseUrl(nextPreset.baseUrl)
+      setModelId(nextPreset.models[0]?.id ?? '')
+    } else {
+      setBaseUrl(initialProvider === 'custom' ? configured?.baseUrl ?? '' : '')
+      setModelId(initialProvider === 'custom' ? configured?.modelId ?? '' : '')
+    }
+  }
 
   return (
     <div className="provider-settings-layer" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
@@ -127,15 +174,21 @@ function ProviderSettings({ busy, notice, onClose, onConfigure }: ProviderSettin
         <header><div><h2 id="provider-settings-title">模型服务</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭模型服务设置"><X size={18} /></button></header>
         <form onSubmit={(event) => {
           event.preventDefault()
-          onConfigure({ baseUrl, modelId, ...(apiKey ? { apiKey } : {}), retentionAcknowledged: true })
+          onConfigure({ baseUrl: effectiveBaseUrl, modelId, ...(apiKey ? { apiKey } : {}), retentionAcknowledged: true })
           setApiKey('')
         }}>
-          <label>Base URL<input data-autofocus type="url" required placeholder="https://provider.example/v1 或 http://127.0.0.1:8000/v1" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} /></label>
-          <label>Model ID<input required placeholder="model-id" value={modelId} onChange={(event) => setModelId(event.target.value)} /></label>
-          <label>API key（可选）<input type="password" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} /></label>
+          <label>模型厂商<select data-autofocus aria-label="模型厂商" value={providerId} onChange={(event) => chooseProvider(event.target.value as ProviderPresetId)}>{providerPresets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="custom">自定义兼容服务</option></select></label>
+          {preset ? <>
+            <label>模型<select aria-label="模型" required value={modelId} onChange={(event) => setModelId(event.target.value)}>{preset.models.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.availability}</option>)}</select></label>
+            <p className="provider-preset-note">{preset.description} 连接地址已由 PlotAgent 配置。</p>
+          </> : <>
+            <label>Base URL<input type="url" required placeholder="https://provider.example/v1 或 http://127.0.0.1:8000/v1" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} /></label>
+            <label>Model ID<input type="text" required placeholder="model-id" value={modelId} onChange={(event) => setModelId(event.target.value)} /></label>
+          </>}
+          <label>API Key{keyRequired ? '' : '（留空沿用已保存密钥）'}<input type="password" required={keyRequired} autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} /></label>
           <label className="provider-retention"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} /><span>我已了解：Agent 会向所选模型服务发送指令、字段元数据和受控样本，保留政策由该服务决定。</span></label>
           {notice && <div className={`provider-inline-status provider-inline-status--${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}><strong>{notice.title}</strong><span>{notice.message}</span></div>}
-          <footer><button type="button" onClick={onClose}>稍后配置</button><button className="primary-button" type="submit" disabled={!acknowledged || !baseUrl || !modelId || busy}>{busy && <LoaderCircle className="spin" size={15} />}保存模型服务</button></footer>
+          <footer><button type="button" onClick={onClose}>稍后配置</button><button className="primary-button" type="submit" disabled={!acknowledged || !effectiveBaseUrl || !modelId || (keyRequired && !apiKey) || busy}>{busy && <LoaderCircle className="spin" size={15} />}保存模型服务</button></footer>
         </form>
       </section>
     </div>
@@ -165,6 +218,7 @@ export function App(): React.JSX.Element {
   const [workflowPlans, setWorkflowPlans] = useState<WorkflowPlanView[]>([])
   const [durableTasks, setDurableTasks] = useState<DurableTaskView[]>([])
   const [agentConfigured, setAgentConfigured] = useState(false)
+  const [providerConfiguration, setProviderConfiguration] = useState<ProviderConfigurationView>()
   const [undoStack, setUndoStack] = useState<PlotHistoryEntry[]>([])
   const [redoStack, setRedoStack] = useState<PlotHistoryEntry[]>([])
   const [providerOpen, setProviderOpen] = useState(false)
@@ -376,7 +430,10 @@ export function App(): React.JSX.Element {
       if (active && result.ok) setProjects(readProjects(result.value))
     })
     void api.getProviderStatus().then((result) => {
-      if (active && result.ok) setAgentConfigured(readProviderConfigured(result.value))
+      if (active && result.ok) {
+        setAgentConfigured(readProviderConfigured(result.value))
+        setProviderConfiguration(readProviderConfiguration(result.value))
+      }
     })
     return () => { active = false }
   }, [api, core.phase])
@@ -1137,6 +1194,7 @@ export function App(): React.JSX.Element {
     try {
       const value = valueOrThrow(await api.configureCustomProvider(input))
       setAgentConfigured(readProviderConfigured(value))
+      setProviderConfiguration({ baseUrl: input.baseUrl, modelId: input.modelId })
       setProviderNotice({ kind: 'success', title: '模型服务已保存', message: 'API key 已从界面清除，后续只由本地 Core 从系统凭据库读取。' })
     } catch (error) { setProviderNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
@@ -1209,7 +1267,7 @@ export function App(): React.JSX.Element {
         setNotice(activeDataset ? undefined : { kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '可以继续上传数据。' })
       }} />}
       {tasksOpen && <TaskDrawer tasks={Object.values(taskEvents)} durableTasks={durableTasks} plans={workflowPlans} onCancel={(taskId) => { void cancelTask(taskId) }} onRetryPlan={(planId) => { void executeWorkflowPlan(planId, true) }} onClose={() => setTasksOpen(false)} />}
-      {providerOpen && <ProviderSettings busy={busyAction === 'provider'} notice={providerNotice} onClose={() => setProviderOpen(false)} onConfigure={(input) => void configureProvider(input)} />}
+      {providerOpen && <ProviderSettings busy={busyAction === 'provider'} configured={providerConfiguration} notice={providerNotice} onClose={() => setProviderOpen(false)} onConfigure={(input) => void configureProvider(input)} />}
     </div>
   )
 }
