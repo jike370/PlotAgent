@@ -1,7 +1,7 @@
 # PlotAgent Agent 基础设施设计记录
 
-> 状态：讨论中的权威决策记录。
-> 基线：`c477b34`，已回退 DataPreparationRecipe、自动候选、发布与复用流程，恢复基础 Pi Agent。
+> 状态：权威决策记录；P0–P10 已按本文件施工完成，冻结代码提交为 `61c0cdd92159fd26bfaffe9823fa6d1f4fd8387a`。
+> 历史起点：`c477b34`，当时回退 DataPreparationRecipe、自动候选、发布与复用流程，恢复基础 Pi Agent。
 > 规则：本文件区分“提案”和“已确认”。只有用户明确确认的内容才构成施工依据；每轮讨论结束后必须同步更新本文件。
 
 相关文档：
@@ -1837,9 +1837,9 @@ Pi activation 可以因合法 yield、turn/token/time/tool 预算、abort、Prov
 
 Agent 文本中的“完成”“应该可以”或 Pi `agent_end` 不参与完成判定。
 
-### 13.15 当前实现差距
+### 13.15 施工前实现差距（历史，现已关闭）
 
-当前 `PiAgentRuntime` 已正确复用 Pi 的 Agent、工具循环、顺序执行、turn stop、abort 和生命周期事件，但产品链路仍停在“生成 TaskDraft”：
+以下条目记录 P0–P10 施工前的基线，不再描述当前产品：
 
 - 每次 run 新建 Agent、`messages=[]`，只在本轮依赖内存状态；
 - Pi 提交 draft 或 ask_user 后立即 terminate；
@@ -1851,7 +1851,7 @@ Agent 文本中的“完成”“应该可以”或 Pi `agent_end` 不参与完�
 - Provider sessionId 和 Pi messages 不能恢复 TaskState；
 - 当前 lifecycle 的 `completed` 实际可能只表示“计划已生成等待确认”，容易与任务完成混淆。
 
-目标施工不是删掉现有 Pi runtime，而是把它收敛成 `PiRuntimeAdapter.run(AgentActivation) -> AgentYield`，在外层增加 Core Task Orchestrator、Main TaskPump、验证回灌和 durable state。
+上述差距已关闭：正式链已收敛为 `PiRuntimeAdapterV2`、Core Task Orchestrator、Main TaskPump、验证回灌和 durable state；端到端 wall time 当前只记录和评测，不设置产品硬截止。
 
 ### 13.16 最小施工顺序
 
@@ -2050,7 +2050,7 @@ Agent 文本中的“完成”“应该可以”或 Pi `agent_end` 不参与完�
 - 取消贯穿 UI、Pi、Core、工具、renderer 和本任务 Origin，在一致性边界停止并保留已成功 TaskItem。
 - 第一阶段保持单 Agent、每项目一个 writer、顺序工具和确定性 TaskItem 提交，不提前引入多 Agent 或写入并行。
 - completed_verified 只由必需验证 claim、receipt、交付物、最终 revision 和无未决状态共同决定。
-- 现有 PiAgentRuntime 渐进收敛为 PiRuntimeAdapter，不在一个提交中同时重写任务状态、工具、renderer 和前端。
+- 旧 PiAgentRuntime 已按阶段收敛为 PiRuntimeAdapterV2；施工过程没有在一个提交中同时重写任务状态、工具、renderer 和前端。
 
 ## 文档更新规则
 

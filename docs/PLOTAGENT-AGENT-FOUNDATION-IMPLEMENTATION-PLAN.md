@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P9 已完成；P10 代码切换、旧公开链清理、E0–E2 与 E4 已完成。尚待有效模型凭据下的 E3 真实模型评测和正式 Electron smoke；两者通过后才启动探索性黑盒。
+> 状态：P0–P10 工程施工、旧公开链清理、完整机械门禁与 E3 真实模型评测均已完成；冻结代码提交 `61c0cdd92159fd26bfaffe9823fa6d1f4fd8387a` 的 SEQ-70 为 GO。下一步是正式 Electron smoke 与独立探索性黑盒。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -624,9 +624,12 @@
 - 正式 Electron/Main 只实例化 `AgentFoundationRuntime`；旧 `PiAgentRuntime`、feature gate、v1 workflow/recipe IPC、preload、renderer UI 和 Core RPC 已删除；数据库旧表仅作为不破坏历史项目的内部迁移资产保留；
 - v2 支持“选定数据但未选图类”的自然语言规划，以及“只选当前 plot”的编辑任务；图类不明确时由 Agent 追问，不再由 UI 先行拒绝；
 - 旧 24 项 SEQ-70 已迁移为版本化 EvalCase：E3 18 项各 3 次，E2 6 项各 1 次，并生成 grader、evidence manifest 和统一发布报告；
-- Python 全量 702 项、Node 177 项、production build、Ruff、mypy 184 模块、ESLint、codegen 均通过；Engine/Matplotlib/Origin 机械门禁 325 项通过；
+- Python 全量 709 项、Node 184 项、production build、Ruff、mypy 184 模块、ESLint、codegen 均通过；
 - 本轮未修改 `src/plotagent/engine` renderer source scope，34 图既有视觉签名与 fresh-reopen OPJU 证据可完整索引，因此不重做视觉审查；
-- E3 调试已到达真实 Provider，但本机当前保存的 DeepSeek 凭据返回 HTTP 401。该项属于发布阻断，必须用有效凭据从干净 commit 重跑，不得以 mock、旧结果或删用例代替。
+- 冻结提交 `61c0cdd92159fd26bfaffe9823fa6d1f4fd8387a` 已从零运行 SEQ-70：E3 18 项 × 3 次与 E2 6 项 × 1 次共 60/60 PASS，正式决策 GO；task/validator/route/binding/visual/data/inspection/runtime/no-side-effect 指标均为 1.0，模型错误率为 0；
+- 延迟中位数 7.332 秒、p95 29.802 秒、max 69.032 秒；端到端 wall time 只作为发布指标，不作为产品终止预算。模型调用 79 次，估算成本 ¥0.717615；
+- 正式评测产物位于 `build/seq70-workflow-eval/20260818132029-61c0cdd/`。该目录为本地发布证据，不进入源码提交；
+- 正式 Electron smoke 与探索性黑盒仍必须基于同一冻结代码提交实际执行，不能由 SEQ-70、单测或旧 UI 证据推定通过。
 
 ## 16. 每阶段统一质量门
 
