@@ -498,11 +498,12 @@
 ### 工作
 
 - 完整实现 P0/P1/P2/P3 permission gate 与最小 ExecutionGrant；
-- UI → Main/Pi → Core → ToolGateway → renderer/Origin 贯通 cancel token；
+- UI → Main/Pi → Core 贯通取消请求；尚未进入原子执行的调用立即停止，已经进入
+  renderer/Origin 的单个 item 完成一致提交后停止，不把强杀外部应用伪装成安全取消；
 - 原子提交临界区完成到一致边界后停止；
 - writer lease、Origin lease、revision conflict 和 stale activation 恢复；
 - 外部文件 staged → verify → atomic publish，默认不覆盖；
-- 只终止身份可验证的本任务 Origin 实例；
+- 不终止用户 Origin；当前版本也不在原子 item 中途强杀本任务 Origin 实例；
 - restart 时根据 checkpoint 恢复 awaiting_input、confirmation、blocked、executing reconcile 或 repair；
 - 实现 user_answered、user_corrected、resume_after_restart 和 external_blocker_cleared activation；
 - follow-up 创建关联新任务，不改写已完成历史。
@@ -511,7 +512,7 @@
 
 - 每个权限级别的 allow/deny；
 - 扩大数据披露、覆盖文件、改变语义的 P3 确认；
-- Pi、Core、renderer、Origin 各阶段取消；
+- Pi、Core 阶段立即取消，以及 renderer/Origin 原子 item 边界取消；
 - 写工具返回前断连后的 receipt reconcile；
 - Electron/Core 重启恢复；
 - 两个 writer、lease 过期、stale revision；
