@@ -136,6 +136,25 @@ function stoppedBeforeConfirmation(result: TaskPumpResult): AgentFoundationRunti
   const yielded = result.terminalYield
   if (yielded?.outcome === 'runtime_failed') {
     if (yielded.error.code === 'PI_V2_PROVIDER_FAILED') {
+      const diagnostic = yielded.error.message.trim()
+      if (/\b402\b|insufficient[\s_-]*balance|余额不足/i.test(diagnostic)) {
+        return new AgentFoundationRuntimeError(
+          'AGENT_V2_PROVIDER_BALANCE',
+          '模型服务余额不足，未生成计划，也未修改项目。请充值或更换可用模型服务后重试。',
+        )
+      }
+      if (/\b401\b|unauthori[sz]ed|invalid[\s_-]*(api[\s_-]*)?key|authentication/i.test(diagnostic)) {
+        return new AgentFoundationRuntimeError(
+          'AGENT_V2_PROVIDER_AUTH',
+          '模型服务鉴权失败，未生成计划，也未修改项目。请重新检查 API key 后重试。',
+        )
+      }
+      if (/\b429\b|rate[\s_-]*limit|too many requests/i.test(diagnostic)) {
+        return new AgentFoundationRuntimeError(
+          'AGENT_V2_PROVIDER_RATE_LIMIT',
+          '模型服务当前限流，未生成计划，也未修改项目。请稍后重试或更换模型服务。',
+        )
+      }
       return new AgentFoundationRuntimeError(
         'AGENT_V2_PROVIDER_UNAVAILABLE',
         '模型服务不可用，未生成计划，也未修改项目。请检查 Base URL、网络或服务状态后重试。',
@@ -549,6 +568,12 @@ export class AgentFoundationRuntime {
       { project_id: projectId, task_id: taskId },
       15_000,
     ), 'durable task checkpoint')
+    if (['completed_verified', 'cancelled', 'rejected', 'failed', 'unsupported'].includes(
+      string(task.state, 'task state'),
+    )) {
+      this.activePumps.get(taskId)?.cancel(projectId, taskId)
+      return
+    }
     const version = integer(task.task_version, 'task version')
     this.activePumps.get(taskId)?.cancel(projectId, taskId)
     const payloadHash = createHash('sha256')

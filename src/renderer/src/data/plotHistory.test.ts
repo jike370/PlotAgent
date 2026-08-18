@@ -40,11 +40,21 @@ describe('plot history', () => {
     })
   })
 
-  it('does not claim undo when the previous native default is unknown', () => {
+  it('uses the documented editor default when the first style edit has no prior action', () => {
     expect(plotHistoryEntry(plot, [{
       operation: 'set_series_style', target: 'series:one', marker_shape: 'circle',
-    }]))
-      .toBeUndefined()
+    }])).toMatchObject({
+      undoActions: [{
+        operation: 'set_series_style', target: 'series:one', marker_shape: 'circle',
+      }],
+    })
+    expect(plotHistoryEntry(plot, [{
+      operation: 'set_series_style', target: 'series:one', marker_size_pt: 8,
+    }])).toMatchObject({
+      undoActions: [{
+        operation: 'set_series_style', target: 'series:one', marker_size_pt: 4.5,
+      }],
+    })
     expect(plotHistoryEntry(plot, [{ operation: 'add_annotation', target: 'plot:one', text: 'x' }]))
       .toBeUndefined()
   })

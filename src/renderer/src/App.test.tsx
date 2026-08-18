@@ -276,6 +276,7 @@ function failedCreatePlanFixture(): JsonValue {
 
 let coreListener: ((status: CoreStatus) => void) | undefined
 let taskListener: ((event: TaskEvent) => void) | undefined
+let workflowRuntimeListener: Parameters<PlotAgentDesktopApi['onWorkflowRuntimeEvent']>[0] | undefined
 
 function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDesktopApi {
   const api: PlotAgentDesktopApi = {
@@ -332,7 +333,10 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     respondToCloseRequest: vi.fn(actionOk),
     onCoreStatus: vi.fn((listener) => { coreListener = listener; return () => { coreListener = undefined } }),
     onTaskEvent: vi.fn((listener) => { taskListener = listener; return () => { taskListener = undefined } }),
-    onWorkflowRuntimeEvent: vi.fn(() => () => undefined),
+    onWorkflowRuntimeEvent: vi.fn((listener) => {
+      workflowRuntimeListener = listener
+      return () => { workflowRuntimeListener = undefined }
+    }),
     onOpenResourceRequested: vi.fn(() => () => undefined),
     onCloseRequested: vi.fn(() => () => undefined),
     ...overrides,
@@ -359,6 +363,7 @@ async function openSampleAndCreatePlot(user: ReturnType<typeof userEvent.setup>)
 
 beforeEach(() => {
   coreListener = undefined
+  workflowRuntimeListener = undefined
   taskListener = undefined
   window.localStorage.clear()
   installApi(fakeDesktop())
@@ -1570,5 +1575,51 @@ describe('PlotAgent real desktop workflow', () => {
     await screen.findByRole('region', { name: '开始使用 PlotAgent' })
     act(() => taskListener?.({ schemaVersion: DESKTOP_API_VERSION, eventType: 'task.state', taskId: 'task:one', sequence: 1, state: 'running', progress: { completed: 1, total: 3, unit: 'plots' } }))
     expect(screen.getByRole('button', { name: /任务中心.*1/ })).toBeInTheDocument()
+  })
+
+  it('refreshes the durable checkpoint when an Agent runtime reaches a failed terminal state', async () => {
+    const user = userEvent.setup()
+    const failedTask = {
+      task_id: 'task:provider-failed',
+      task_version: 3,
+      state: 'failed',
+      project_revision: 1,
+      updated_at: '2026-08-19T06:00:00Z',
+      items: [{
+        item_id: 'item:provider-failed.1',
+        state: 'failed',
+        attempt_count: 0,
+        last_error: {
+          code: 'PI_V2_PROVIDER_FAILED',
+          message: '模型服务余额不足',
+          retryable: true,
+        },
+      }],
+    }
+    const listTaskPlans = vi.fn()
+      .mockResolvedValueOnce(ok({ task_plans: [], durable_tasks: [] }))
+      .mockResolvedValue(ok({ task_plans: [], durable_tasks: [failedTask] }))
+    const api = fakeDesktop({ listTaskPlans })
+    installApi(api)
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await waitFor(() => expect(workflowRuntimeListener).toBeDefined())
+
+    act(() => workflowRuntimeListener?.({
+      schemaVersion: '1.0',
+      runId: 'workflow:provider-failed',
+      projectId: 'project:sample',
+      taskId: 'task:provider-failed',
+      sequence: 4,
+      stage: 'failed',
+      label: 'Agent 运行失败',
+    }))
+
+    await waitFor(() => expect(listTaskPlans).toHaveBeenCalledTimes(2))
+    await user.click(screen.getByRole('button', { name: /任务中心/ }))
+    const drawer = screen.getByRole('dialog', { name: '任务中心' })
+    await user.click(within(drawer).getByRole('button', { name: /全部/ }))
+    expect(within(drawer).getByText('模型服务余额不足')).toBeInTheDocument()
+    expect(within(drawer).queryByRole('button', { name: '停止任务' })).not.toBeInTheDocument()
   })
 })

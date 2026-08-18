@@ -305,6 +305,8 @@ describe('AgentFoundationRuntime', () => {
         user_event_id: 'user-event:cancel',
       },
     })
+    await expect(runtime.cancel('task:fixed')).resolves.toBeUndefined()
+    expect(core.calls.filter((call) => call.method === 'agent.tasks.cancel')).toHaveLength(1)
   })
 
   it('creates a bounded multi-source and multi-profile durable batch envelope', async () => {
@@ -524,6 +526,22 @@ describe('AgentFoundationRuntime', () => {
   })
 
   it.each([
+    {
+      yielded: {
+        outcome: 'runtime_failed',
+        error: {
+          code: 'PI_V2_PROVIDER_FAILED',
+          category: 'runtime',
+          message: '402 Insufficient Balance',
+          retryable: true,
+          requires_user: false,
+          side_effect_state: 'known_none',
+        },
+      },
+      wait: { reason: 'terminal', task_state: 'failed' },
+      code: 'AGENT_V2_PROVIDER_BALANCE',
+      message: /余额不足.*未修改项目/,
+    },
     {
       yielded: {
         outcome: 'runtime_failed',

@@ -416,6 +416,18 @@ export function App(): React.JSX.Element {
     return () => { active = false }
   }, [api, activeProjectId])
 
+  useEffect(() => {
+    if (!api || !activeProjectId || !agentRuntimeEvent) return
+    if (!['completed', 'cancelled', 'failed'].includes(agentRuntimeEvent.stage)) return
+    let active = true
+    void api.listTaskPlans({ projectId: activeProjectId }).then((result) => {
+      if (!active || !result.ok) return
+      setWorkflowPlans(readWorkflowPlans(result.value))
+      setDurableTasks(readDurableTasks(result.value))
+    })
+    return () => { active = false }
+  }, [api, activeProjectId, agentRuntimeEvent])
+
   const mergeProjects = useCallback((nextProjects: ProductProject[]) => {
     setProjects((current) => {
       const byId = new Map(current.map((item) => [item.projectId, item]))
@@ -910,6 +922,11 @@ export function App(): React.JSX.Element {
     } catch (error) {
       if (agentRequestGeneration.current === requestGeneration) {
         setWorkflowOutcome({ kind: 'rejected', title: '指令未执行', message: errorNotice(error).message })
+        const listed = await api.listTaskPlans({ projectId: project.projectId })
+        if (listed.ok) {
+          setWorkflowPlans(readWorkflowPlans(listed.value))
+          setDurableTasks(readDurableTasks(listed.value))
+        }
       }
     } finally {
       if (agentRequestGeneration.current === requestGeneration) setBusyAction(undefined)

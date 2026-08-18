@@ -87,6 +87,7 @@ class K03OriginProject:
         self.plots = list(self.layer.plot_list())
         if len(self.plots) != len(scatter.groups):
             raise RuntimeError("Origin Scatter menu did not create one plot per data group")
+        self._set_axis_labels(scatter)
         with origin_trace_step("template_residue_remove"):
             for residue in tuple(self.op.pages("w")):
                 if residue.name != book.name:
@@ -133,6 +134,7 @@ class K03OriginProject:
         record_origin_trace("reopened_scatter_groups_confirmed", "completed", details=native)
         visible = len(scatter.groups) > 1
         self._assert_linked_legend(scatter, visible=visible)
+        self._assert_axis_labels(scatter)
         if len(self.plots) != len(scatter.groups):
             raise RuntimeError("Origin K03 native plot count differs after reopen")
         for index, group in enumerate(scatter.groups):
@@ -219,6 +221,22 @@ class K03OriginProject:
         )
         legend.set_int("link", 1)
         legend.set_int("show", int(visible))
+
+    def _set_axis_labels(self, scatter: K03ScatterData) -> None:
+        x_label = self.layer.label("xb")
+        y_label = self.layer.label("yl")
+        if x_label is None or y_label is None:
+            raise RuntimeError("Origin K03 official template is missing an axis title object")
+        x_label.text = scatter.x_field_name
+        y_label.text = scatter.y_field_name
+
+    def _assert_axis_labels(self, scatter: K03ScatterData) -> None:
+        x_label = self.layer.label("xb")
+        y_label = self.layer.label("yl")
+        if x_label is None or y_label is None:
+            raise RuntimeError("Origin K03 lost an axis title after reopen")
+        if str(x_label.text) != scatter.x_field_name or str(y_label.text) != scatter.y_field_name:
+            raise RuntimeError("Origin K03 axis titles no longer match the bound X/Y fields")
 
     def _assert_linked_legend(self, scatter: K03ScatterData, *, visible: bool) -> None:
         legend = self.layer.label("legend")

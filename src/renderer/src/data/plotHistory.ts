@@ -19,6 +19,28 @@ const actionLabels: Record<string, string> = {
   set_chart_parameter: '图形参数修改',
 }
 
+// These are the renderer-neutral defaults shown by FocusEditor before an explicit
+// style action exists. Keeping the inverse snapshot on the same product defaults
+// makes the first edit just as reversible as later edits.
+const defaultSeriesStyle = {
+  line_stroke_color: '#2A6FDB',
+  line_width_pt: 0.8,
+  line_style: 'solid',
+  line_opacity: 1,
+  marker_shape: 'circle',
+  marker_size_pt: 4.5,
+  marker_interior: 'solid',
+  marker_fill_color: '#2A6FDB',
+  marker_stroke_color: '#2A6FDB',
+  marker_stroke_width_pt: 0.8,
+  marker_opacity: 1,
+  fill_color: '#2A6FDB',
+  fill_opacity: 0.8,
+  fill_stroke_color: '#1F4F99',
+  fill_stroke_width_pt: 0.8,
+  fill_stroke_style: 'solid',
+} as const
+
 function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValue; redo: JsonValue } | undefined {
   if (!isJsonRecord(value) || typeof value.operation !== 'string') return undefined
   const target = typeof value.target === 'string'
@@ -54,22 +76,22 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
     const style = plot.seriesStyles.find((candidate) => candidate.seriesId === target)?.style
     if (!style) return undefined
     const mappings = {
-      line_stroke_color: style.lineStrokeColor,
-      line_width_pt: style.lineWidthPt,
-      line_style: style.lineStyle,
-      line_opacity: style.lineOpacity,
-      marker_shape: style.markerShape,
-      marker_size_pt: style.markerSizePt,
-      marker_interior: style.markerInterior,
-      marker_fill_color: style.markerFillColor,
-      marker_stroke_color: style.markerStrokeColor,
-      marker_stroke_width_pt: style.markerStrokeWidthPt,
-      marker_opacity: style.markerOpacity,
-      fill_color: style.fillColor,
-      fill_opacity: style.fillOpacity,
-      fill_stroke_color: style.fillStrokeColor,
-      fill_stroke_width_pt: style.fillStrokeWidthPt,
-      fill_stroke_style: style.fillStrokeStyle,
+      line_stroke_color: style.lineStrokeColor ?? defaultSeriesStyle.line_stroke_color,
+      line_width_pt: style.lineWidthPt ?? defaultSeriesStyle.line_width_pt,
+      line_style: style.lineStyle ?? defaultSeriesStyle.line_style,
+      line_opacity: style.lineOpacity ?? defaultSeriesStyle.line_opacity,
+      marker_shape: style.markerShape ?? defaultSeriesStyle.marker_shape,
+      marker_size_pt: style.markerSizePt ?? defaultSeriesStyle.marker_size_pt,
+      marker_interior: style.markerInterior ?? defaultSeriesStyle.marker_interior,
+      marker_fill_color: style.markerFillColor ?? defaultSeriesStyle.marker_fill_color,
+      marker_stroke_color: style.markerStrokeColor ?? defaultSeriesStyle.marker_stroke_color,
+      marker_stroke_width_pt: style.markerStrokeWidthPt ?? defaultSeriesStyle.marker_stroke_width_pt,
+      marker_opacity: style.markerOpacity ?? defaultSeriesStyle.marker_opacity,
+      fill_color: style.fillColor ?? defaultSeriesStyle.fill_color,
+      fill_opacity: style.fillOpacity ?? defaultSeriesStyle.fill_opacity,
+      fill_stroke_color: style.fillStrokeColor ?? defaultSeriesStyle.fill_stroke_color,
+      fill_stroke_width_pt: style.fillStrokeWidthPt ?? defaultSeriesStyle.fill_stroke_width_pt,
+      fill_stroke_style: style.fillStrokeStyle ?? defaultSeriesStyle.fill_stroke_style,
     } as const
     const undo: Record<string, JsonValue> = { operation: 'set_series_style', target }
     for (const [key, previous] of Object.entries(mappings)) {

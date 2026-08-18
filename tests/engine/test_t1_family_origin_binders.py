@@ -652,6 +652,8 @@ def test_k03_binds_one_native_scatter_plot_per_data_group(
     assert origin.graph.layer.add_calls == []
     assert origin.graph.layer.group_calls == []
     assert origin.graph.layer.labels["legend"].text == ("\\l(1) %(1)\n\\l(2) %(2)")
+    assert origin.graph.layer.labels["xb"].text == "Dose"
+    assert origin.graph.layer.labels["yl"].text == "Response"
     assert origin.graph.layer.plots[1].symbol_kind == 2
     assert {
         item.semantic_id for item in readback.objects if item.object_kind == "scatter_series"
