@@ -72,6 +72,7 @@ interface TaskSet {
 interface ImportedDataset {
   source_dataset_id: string
   source_version: number
+  content_hash: string
   display_name: string
   field_schema: { field_id: string; name: string }[]
 }
@@ -410,22 +411,31 @@ async function createSetupPlot(
   dataset: ImportedDataset,
   profileId: string,
 ): Promise<{ plotId: string; revision: number }> {
-  const prepared = record(await harness.agent.run({
-    projectId,
-    expectedProjectVersion: revision,
-    instruction: `用 ${profileId} 绘制这张表`,
-    selectedSources: selectedSources([dataset]),
-    selectedProfileIds: [profileId],
-  }), 'setup workflow')
-  const plan = record(prepared.plan, 'setup plan')
-  const planId = text(plan.plan_id, 'setup plan id')
-  await harness.agent.confirm({ projectId, planId })
-  const completed = record(await harness.agent.execute({ projectId, planId }), 'setup plan run')
-  const task = record(completed.task, 'setup task')
-  const progress = record(array(task.items, 'setup progress')[0], 'setup item progress')
+  if (dataset.field_schema.length < 2) throw new Error('setup dataset requires two fields')
+  const plotId = `plot:seq70-setup-${randomUUID()}`
+  const completed = record(await harness.core.request('engine.actions.execute', {
+    project_id: projectId,
+    expected_project_version: revision,
+    action: {
+      operation: 'create_plot',
+      action_id: `action:seq70-setup-${randomUUID()}`,
+      plot_id: plotId,
+      profile_id: profileId,
+      data: {
+        kind: 'source',
+        dataset_id: dataset.source_dataset_id,
+        version: dataset.source_version,
+        content_hash: dataset.content_hash,
+      },
+      bindings: [
+        { role: 'x', field_id: dataset.field_schema[0].field_id },
+        { role: 'y', field_id: dataset.field_schema[1].field_id },
+      ],
+    },
+  }, 30_000), 'setup plot create')
   return {
-    plotId: text(progress.output_plot_id, 'setup plot id'),
-    revision: integer(task.project_revision, 'setup revision'),
+    plotId: text(completed.plot_id, 'setup plot id'),
+    revision: integer(completed.project_version, 'setup revision'),
   }
 }
 
