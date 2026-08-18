@@ -254,7 +254,7 @@ TaskItem 是局部失败与幂等重试的最小单位。程序保留成功项�
 - `workflows/executor.py`：确认后逐项执行、幂等和恢复。
 - `workflows/recipes.py`：结构候选与显式复用，不解释自然语言。
 - `desktop_core/workflow_service.py`：Core 唯一工作流服务，不含自然语言解析器。
-- `main/agent/pi-runtime.ts`：Agent 循环、工具和追问，不预解析 instruction。
+- `main/agent/pi-runtime-v2.ts`：消费有界 activation 的 Agent 循环、工具和 typed yield，不预解析 instruction。
 - renderer：只消费类型化 Engine Action，不理解自然语言、不处理业务数据。
 
 `workflows/natural_language.py`、DeterministicResolver、前端 instruction parser、基于 instruction 的 Core intent validator 和自然语言 goal signature 不属于正式架构，必须删除而不是保留兼容 fallback。

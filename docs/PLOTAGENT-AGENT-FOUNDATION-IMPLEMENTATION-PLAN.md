@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P9 已完成；正式 UI 已切换为 durable task 真相，下一施工阶段为 P10。
+> 状态：P0–P9 已完成；P10 代码切换、旧公开链清理、E0–E2 与 E4 已完成。尚待有效模型凭据下的 E3 真实模型评测和正式 Electron smoke；两者通过后才启动探索性黑盒。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -580,7 +580,7 @@
 - Agent 追问不再被降级为普通错误；回复通过 `workflow_run_id=task:<id>` 续接同一 durable task、同一 checkpoint 与同一任务历史；
 - 正式对话中的计划确认卡直接展示来自 Core 计划绑定的原始字段、字段角色和同一数据表样本，不维护第二份映射真相；
 - 执行中的提示来自 Agent runtime 与 Core TaskEvent，覆盖上下文、数据检查、合同校验、renderer/验证和结果读取，不使用 timeout 伪造百分比或 ETA；
-- TaskDrawer 读取 durable task checkpoint，展示逐项状态、partial 已保留 plot/version、可重试失败、安全诊断 ID、取消和仅重试失败项；legacy 任务仅在 P10 删除前作为迁移期只读投影；
+- TaskDrawer 读取 durable task checkpoint，展示逐项状态、partial 已保留 plot/version、可重试失败、安全诊断 ID、取消和仅重试失败项；P10 已删除 legacy 任务公开投影；
 - undo/redo、导出成功/失败、Origin 可用性、聊天气泡、键盘焦点与 aria-live 延续正式 UI 现有能力；新增状态解析与任务中心回归覆盖续接、partial、诊断和恢复入口。
 
 ## 15. P10：评测、发布与旧链清理
@@ -612,6 +612,15 @@
 1. `test(agent): add foundation v2 evaluation suites`
 2. `refactor(workflows): remove legacy agent workflow`
 3. `test(release): qualify durable agent foundation`
+
+### 当前完成记录
+
+- 正式 Electron/Main 只实例化 `AgentFoundationRuntime`；旧 `PiAgentRuntime`、feature gate、v1 workflow/recipe IPC、preload、renderer UI 和 Core RPC 已删除；数据库旧表仅作为不破坏历史项目的内部迁移资产保留；
+- v2 支持“选定数据但未选图类”的自然语言规划，以及“只选当前 plot”的编辑任务；图类不明确时由 Agent 追问，不再由 UI 先行拒绝；
+- 旧 24 项 SEQ-70 已迁移为版本化 EvalCase：E3 18 项各 3 次，E2 6 项各 1 次，并生成 grader、evidence manifest 和统一发布报告；
+- Python 全量 702 项、Node 177 项、production build、Ruff、mypy 184 模块、ESLint、codegen 均通过；Engine/Matplotlib/Origin 机械门禁 325 项通过；
+- 本轮未修改 `src/plotagent/engine` renderer source scope，34 图既有视觉签名与 fresh-reopen OPJU 证据可完整索引，因此不重做视觉审查；
+- E3 调试已到达真实 Provider，但本机当前保存的 DeepSeek 凭据返回 HTTP 401。该项属于发布阻断，必须用有效凭据从干净 commit 重跑，不得以 mock、旧结果或删用例代替。
 
 ## 16. 每阶段统一质量门
 
@@ -652,7 +661,7 @@
 - P9 不用计时器伪造 Agent 阶段；
 - P10 不因失败删除用例或临时缩小发布范围。
 
-## 19. 第一施工节点
+## 19. 历史第一施工节点（已完成）
 
 下一次代码改动只执行 P0/P1：
 

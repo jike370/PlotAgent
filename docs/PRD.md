@@ -113,7 +113,7 @@ TaskDraft 仅允许封闭数据操作：选择/重命名字段、行筛选、多
 
 - Windows Electron，单主窗口；renderer sandbox、context isolation、无 Node integration。
 - Python Core 是项目 SQLite 唯一写入器；大型数据只传对象引用。
-- 结构化 UI 和用户明确复用 Recipe 的任务可以零模型调用；自然语言任务记录轮次、工具调用、延迟与成本。
+- 结构化 UI 可以零模型调用；自然语言任务记录轮次、工具调用、延迟与成本。
 - 远程模型失败不影响手动绘图和本地导出。
 
 ## 12. 发布验收
@@ -121,5 +121,5 @@ TaskDraft 仅允许封闭数据操作：选择/重命名字段、行筛选、多
 - 新架构源码、Schema、RPC、持久化和测试中不存在第二套计划或上下文合同。
 - 34 图现有 default/edited/dynamic/fresh 资格不因 T1 扩展回退。
 - 每项 T1 参数至少由一个前端控件用例、一个自然语言 TaskDraft 用例和双 backend readback 用例证明。
-- instruction 原样传递、Agent 数据工具、结构化追问、TaskCompiler、部分失败恢复、显式 Recipe 复用和 SEQ-70 全部通过。
+- instruction 原样传递、Agent 数据工具、结构化追问、TaskCompiler、部分失败恢复和 Agent Foundation 统一评测全部通过。
 - 最终探索性黑盒仅接收用户可见功能说明，由独立会话设计测试，本窗口在正式 Windows Electron UI 执行并保留证据。
