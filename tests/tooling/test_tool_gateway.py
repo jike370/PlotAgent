@@ -536,3 +536,108 @@ def test_committed_tool_requires_item_scoped_execution_grant() -> None:
     assert receipt.idempotency_key == "idem:commit_test"
     assert receipt.project_revision_after == 1
     assert receipt.side_effects[0].effect_kind == "project_revision"
+
+
+def test_expanded_risk_tool_requires_an_explicit_p3_grant() -> None:
+    current_gateway = ToolGateway(clock=lambda: NOW)
+
+    def handler(_input: BaseModel) -> ToolExecutionOutput:
+        return ToolExecutionOutput(
+            payload=_ValueOutput(value=1),
+            summary="Applied one explicitly expanded-risk operation.",
+            side_effect="committed",
+            side_effects=(
+                SideEffectReceipt(effect_kind="project_revision", object_id="project:test"),
+            ),
+        )
+
+    current_gateway.register(
+        contract_id="tool:expanded_test",
+        contract_version=1,
+        tool_name="expanded_test",
+        description="Exercise the P3 permission boundary.",
+        permission_phase="p3_expanded",
+        side_effect="expanded_risk",
+        allowed_task_states=("repairing",),
+        input_model=_EmptyInput,
+        output_model=_ValueOutput,
+        cost_class="expensive",
+        timeout_ms=5_000,
+        max_disclosed_scalars=0,
+        uses_origin=False,
+        handler=handler,
+    )
+    current_budget = budget()
+    current_checkpoint = checkpoint(task_budget=current_budget).model_copy(
+        update={"state": "repairing"}
+    )
+    arguments: JsonValue = {}
+    call = ToolInvocation(
+        tool_call_id="toolcall:expanded_test",
+        task_id="task:test",
+        task_version=1,
+        activation_id="activation:test",
+        item_id="item:test.1",
+        execution_grant_id="grant:expanded",
+        idempotency_key="idem:expanded_test",
+        tool_name="expanded_test",
+        permission_phase="p3_expanded",
+        arguments_hash=canonical_hash(arguments),
+        activation_tool_calls_before=0,
+        activation_disclosed_scalars_before=0,
+        expected_project_revision=0,
+        deadline=CALL_DEADLINE,
+    )
+    p2_activation = AgentActivation(
+        activation_id="activation:test",
+        task_id="task:test",
+        task_version=1,
+        reason="external_blocker_cleared",
+        task_state="repairing",
+        original_instruction="Apply only the separately confirmed expanded-risk operation.",
+        allowed_tools=("expanded_test",),
+        permission_phase="p2_confirmed",
+        activation_budget=ActivationBudget(max_disclosed_scalars=10),
+        task_budget=current_budget,
+        deadline=ACTIVATION_DEADLINE,
+        created_at=NOW_TEXT,
+    )
+    p2_grant = ExecutionGrant(
+        grant_id="grant:expanded",
+        task_id="task:test",
+        task_version=1,
+        intent=IntentRef(intent_id="intent:test", intent_version=1, content_hash=HASH_A),
+        expected_project_revision=0,
+        permission_phase="p2_confirmed",
+        scopes=(ExecutionScope(item_id="item:test.1", operations=("expanded_test",)),),
+        issued_at=NOW_TEXT,
+        expires_at=ACTIVATION_DEADLINE,
+        content_hash=HASH_A,
+    )
+    denied = current_gateway.invoke(
+        invocation=call,
+        arguments=arguments,
+        activation=p2_activation,
+        checkpoint=current_checkpoint,
+        execution_grant=p2_grant,
+    )
+    assert denied.error is not None
+    assert denied.error.code == "TOOL_GRANT_STALE"
+
+    p3_activation = p2_activation.model_copy(update={"permission_phase": "p3_expanded"})
+    p3_grant = p2_grant.model_copy(update={"permission_phase": "p3_expanded"})
+    allowed = current_gateway.invoke(
+        invocation=call,
+        arguments=arguments,
+        activation=p3_activation,
+        checkpoint=current_checkpoint,
+        execution_grant=p3_grant,
+    )
+    assert allowed.status == "succeeded", allowed.error
+    receipt = current_gateway.build_receipt(
+        invocation=call,
+        result=allowed,
+        checkpoint=current_checkpoint,
+        project_revision_after=1,
+    )
+    assert receipt.permission_phase == "p3_expanded"

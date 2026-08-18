@@ -272,6 +272,71 @@ def test_cancel_aborts_owned_activation_and_finalizes_without_side_effects(tmp_p
         assert phases == ["requested", "started", "aborted"]
 
 
+def test_cancel_waits_for_a_running_item_to_reach_its_atomic_boundary(tmp_path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        current = TaskLedgerRepository(project)
+        current.create_task(envelope())
+        activation_value = activation()
+        current.start_activation(activation_value)
+        current.mark_activation_running(activation_value.activation_id)
+        staged = current.accept_yield(
+            AgentIntentReady(
+                activation_id=activation_value.activation_id,
+                task_id="task:test",
+                task_version=1,
+                intent=intent(),
+            )
+        )
+        awaiting = current.advance(
+            staged.task_id,
+            expected_task_version=staged.task_version,
+            next_state="awaiting_confirmation",
+            reason_code="TEST_AWAITING_CONFIRMATION",
+        )
+        executing = current.advance(
+            awaiting.task_id,
+            expected_task_version=awaiting.task_version,
+            next_state="executing",
+            reason_code="TEST_CONFIRMED",
+        )
+        running = current.transition_item(
+            executing.task_id,
+            expected_task_version=executing.task_version,
+            item_id=executing.items[0].item_id,
+            expected_item_state="staged",
+            next_state="running",
+            reason_code="TEST_RUNNING",
+        )
+        cancelling = current.cancel(
+            running.task_id,
+            expected_task_version=running.task_version,
+            user_event_id="user-event:cancel-running",
+            payload_hash=HASH_B,
+        )
+        with pytest.raises(StorageProblem, match="atomic boundary"):
+            current.finalize_cancel(
+                cancelling.task_id,
+                expected_task_version=cancelling.task_version,
+            )
+
+        bounded = current.transition_item(
+            cancelling.task_id,
+            expected_task_version=cancelling.task_version,
+            item_id=cancelling.items[0].item_id,
+            expected_item_state="running",
+            next_state="succeeded",
+            reason_code="TEST_ATOMIC_COMMIT_RECORDED",
+            output_plot_id="plot:test",
+            output_plot_version=1,
+        )
+        finalized = current.finalize_cancel(
+            bounded.task_id,
+            expected_task_version=bounded.task_version,
+        )
+        assert finalized.state == "partial"
+        assert finalized.items[0].state == "succeeded"
+
+
 def test_item_progress_is_isolated_between_batch_items(tmp_path) -> None:
     with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
         ledger = TaskLedgerRepository(project)

@@ -532,7 +532,9 @@
 ### 完成记录
 
 - P0/P1/P2/P3 继续由 Core 上下文、ToolGateway 和最小 ExecutionGrant 共同执行；公开入口不提供绕过确认的 P3 扩权动作；
+- ToolGateway 现有独立 P3 边界回归：`expanded_risk` 工具在 P2 activation/grant 下稳定拒绝，只接受同任务、同 item、同 revision 的显式 P3 grant；
 - 桌面取消优先定位 durable task，只中止该任务的 Pi activation，并在原子 item 边界保留已成功结果、取消其余 item；不通过终止全部 Origin 实例实现取消；
+- renderer/Origin 已进入的原子 item 不会被提前标成 cancelled；取消请求保持 `cancelling`，待该 item 的 plot、receipt 和 verification 一致落盘后，保留它并取消剩余 item，避免“图已写入但 Ledger 不知情”的竞态；
 - execution writer lease、过期 activation、写工具返回前断连后的 receipt/plot reconcile，以及 blocked 后显式恢复均已有持久化路径；
 - PNG、SVG、OPJU 先写同卷私有 staging，校验大小和 SHA-256 后无覆盖原子发布；已有目标、无效目录和发布 I/O 失败返回稳定公开错误；
 - awaiting input/confirmation 直接从 checkpoint 恢复；过期 activation 使用 `resume_after_restart`，外部阻断解除使用 `external_blocker_cleared`，repairing 使用定向 repair activation；

@@ -973,6 +973,11 @@ class TaskLedgerRepository:
         self._expect_version(current, expected_task_version)
         if current.state != "cancelling":
             raise self._conflict("Only a cancelling task can be finalized.")
+        if any(item.state == "running" for item in current.items):
+            raise self._conflict(
+                "A cancelling task cannot finalize before its running item "
+                "reaches an atomic boundary."
+            )
         for item in current.items:
             if item.state in {"succeeded", "failed", "cancelled"}:
                 continue

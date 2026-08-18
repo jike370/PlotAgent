@@ -760,6 +760,71 @@ def test_agent_v2_executes_confirmed_batch_and_verifies_every_item(
     assert len(harness.call("engine.plots.list", {"project_id": project_id})["plots"]) == 2
 
 
+def test_agent_v2_cancel_waits_for_the_running_item_and_preserves_its_receipt(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-v2-cancel-boundary")
+    execute = TaskPlanExecutor.execute_compiled_item
+    task_id = "task:cancel-boundary"
+    requested = False
+
+    def cancel_during_first_atomic_item(
+        self: TaskPlanExecutor,
+        item: Any,
+        current_revision: int,
+    ) -> tuple[int, int]:
+        nonlocal requested
+        if not requested:
+            requested = True
+            task = harness.call(
+                "agent.tasks.get", {"project_id": project_id, "task_id": task_id}
+            )
+            cancelling = harness.call(
+                "agent.tasks.cancel",
+                {
+                    "project_id": project_id,
+                    "task_id": task_id,
+                    "expected_task_version": task["task_version"],
+                    "user_event_id": "user-event:cancel-at-boundary",
+                    "payload_hash": "f" * 64,
+                },
+            )
+            assert cancelling["state"] == "cancelling"
+            assert cancelling["items"][0]["state"] == "running"
+        return execute(self, item, current_revision)
+
+    monkeypatch.setattr(
+        TaskPlanExecutor,
+        "execute_compiled_item",
+        cancel_during_first_atomic_item,
+    )
+    result = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="cancel-boundary",
+        profiles=("K01", "K02"),
+    )
+
+    assert requested is True
+    assert result["task"]["state"] == "partial"
+    assert [item["state"] for item in result["task"]["items"]] == [
+        "succeeded",
+        "cancelled",
+    ]
+    assert len(result["plots"]) == 1
+    assert len(result["verifications"]) == 1
+    assert result["verifications"][0]["status"] == "passed"
+    events = harness.call(
+        "agent.tasks.events", {"project_id": project_id, "task_id": task_id}
+    )["events"]
+    assert any(event["event_type"] == "tool_receipt" for event in events)
+    assert any(event["event_type"] == "verification_report" for event in events)
+    assert len(harness.call("engine.plots.list", {"project_id": project_id})["plots"]) == 1
+
+
 def test_agent_v2_preserves_successful_items_when_one_batch_item_fails(
     harness: ApplicationHarness,
     monkeypatch: pytest.MonkeyPatch,

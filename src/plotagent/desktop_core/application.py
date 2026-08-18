@@ -513,10 +513,11 @@ class DesktopApplication:
             user_event_id=_text(values["user_event_id"], "user_event_id"),
             payload_hash=_text(values["payload_hash"], "payload_hash"),
         )
-        checkpoint = session.durable_tasks.finalize_cancel(
-            task_id,
-            expected_task_version=checkpoint.task_version,
-        )
+        if not any(item.state == "running" for item in checkpoint.items):
+            checkpoint = session.durable_tasks.finalize_cancel(
+                task_id,
+                expected_task_version=checkpoint.task_version,
+            )
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
 
     def _origin_status(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:

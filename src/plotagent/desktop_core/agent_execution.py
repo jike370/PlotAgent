@@ -225,6 +225,8 @@ class DurableTaskExecutionService:
         failures: list[dict[str, object]] = []
         for item in plan.items:
             current = self.ledger.get_task(task_id)
+            if current.state == "cancelling":
+                return self._finalize_cancel(task_id, current, reports=reports)
             snapshot = next(entry for entry in current.items if entry.item_id == item.item_id)
             if snapshot.state in {"succeeded", "failed", "blocked", "cancelled"}:
                 continue
@@ -254,10 +256,11 @@ class DurableTaskExecutionService:
                 after, plot_version = executor.execute_compiled_item(item, before)
                 stored = self.engine.documents.get(item.plot_id, plot_version)
             except Exception as error:
+                latest = self.ledger.get_task(task_id)
                 failure, report, receipt = self._record_item_failure(
                     task_id,
                     item,
-                    running.task_version,
+                    latest.task_version,
                     running_item.attempt_count,
                     before,
                     started_at,
@@ -266,12 +269,16 @@ class DurableTaskExecutionService:
                 failures.append(failure)
                 reports.append(report)
                 receipts.append(receipt)
+                latest = self.ledger.get_task(task_id)
+                if latest.state == "cancelling":
+                    return self._finalize_cancel(task_id, latest, reports=reports)
                 continue
 
+            latest = self.ledger.get_task(task_id)
             receipt = ToolReceipt(
                 receipt_id=self._execution_receipt_id(item, running_item.attempt_count),
                 task_id=task_id,
-                task_version=running.task_version,
+                task_version=latest.task_version,
                 item_id=item.item_id,
                 tool_call_id=f"execute:{item.idempotency_key}:{running_item.attempt_count}",
                 tool_name="execute_confirmed_plan_item",
@@ -294,10 +301,10 @@ class DurableTaskExecutionService:
                 started_at=started_at,
                 finished_at=_now(),
             )
-            self.ledger.record_tool_receipt(receipt)
+            receipted = self.ledger.record_tool_receipt(receipt)
             succeeded = self.ledger.transition_item(
                 task_id,
-                expected_task_version=running.task_version,
+                expected_task_version=receipted.task_version,
                 item_id=item.item_id,
                 expected_item_state="running",
                 next_state="succeeded",
@@ -322,6 +329,9 @@ class DurableTaskExecutionService:
                     "content_hash": stored.content_hash,
                 }
             )
+            latest = self.ledger.get_task(task_id)
+            if latest.state == "cancelling":
+                return self._finalize_cancel(task_id, latest, reports=reports)
 
         current = self.ledger.get_task(task_id)
         plots = self._completed_plots(current)
@@ -399,6 +409,26 @@ class DurableTaskExecutionService:
             result["plot"] = plots[0]
             result["verification"] = reports[0].model_dump(mode="json")
         return result
+
+    def _finalize_cancel(
+        self,
+        task_id: str,
+        checkpoint: TaskCheckpoint,
+        *,
+        reports: list[VerificationReport],
+    ) -> dict[str, object]:
+        """Finish cancellation only after the current atomic item is durably projected."""
+
+        cancelled = self.ledger.finalize_cancel(
+            task_id,
+            expected_task_version=checkpoint.task_version,
+        )
+        return {
+            "task": cancelled.model_dump(mode="json"),
+            "plots": self._completed_plots(cancelled),
+            "verifications": [report.model_dump(mode="json") for report in reports],
+            "failures": [],
+        }
 
     def _reconcile_interrupted_items(
         self,
