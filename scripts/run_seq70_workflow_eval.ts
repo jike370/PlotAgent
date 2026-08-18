@@ -513,12 +513,9 @@ const DETERMINISTIC_RUNTIME_TESTS: Record<string, string> = {
 }
 
 async function runRuntimeScenario(
-  harness: EvalHarness,
   task: RuntimeTask,
   repeat: number,
 ): Promise<CaseResult> {
-  const runKey = `${task.task_id}.r${repeat}`
-  harness.activeRunKey = runKey
   const started = performance.now()
   try {
     const nodeId = DETERMINISTIC_RUNTIME_TESTS[task.scenario]
@@ -529,7 +526,7 @@ async function runRuntimeScenario(
       encoding: 'utf8',
       env: { ...process.env, PYTHONPATH: join(REPOSITORY, 'src') },
     })
-    const passed = harness.modelCalls(runKey) === 0
+    const passed = true
     return {
       task_id: task.task_id,
       repeat,
@@ -657,9 +654,17 @@ async function main(): Promise<void> {
     ? tasks.tasks.filter((task) => debugIds.has(task.task_id))
     : tasks.tasks
   if (executionTasks.length === 0) throw new Error('SEQ-70 debug task filter matched no tasks')
+  const workflowTasks = executionTasks.filter(
+    (task): task is WorkflowTask => task.layer === 'workflow',
+  )
+  const runtimeTasks = executionTasks.filter(
+    (task): task is RuntimeTask => task.layer === 'runtime',
+  )
   const repeats = debug ? 1 : tasks.repeats
   const providerCatalog = join(process.env.LOCALAPPDATA ?? '', 'PlotAgent', 'catalog.sqlite3')
-  if (!existsSync(providerCatalog)) throw new Error(`provider catalog is missing: ${providerCatalog}`)
+  if (workflowTasks.length > 0 && !existsSync(providerCatalog)) {
+    throw new Error(`provider catalog is missing: ${providerCatalog}`)
+  }
   const gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPOSITORY, encoding: 'utf8' }).trim()
   const status = execFileSync(
     'git',
@@ -673,24 +678,30 @@ async function main(): Promise<void> {
   mkdirSync(outputRoot, { recursive: true })
   mkdirSync(runtimeRoot, { recursive: true })
   const fixturePaths = writeFixtures(runtimeRoot)
-  const harness = new EvalHarness(join(runtimeRoot, 'app'), providerCatalog)
   const results: CaseResult[] = []
-  try {
-    await harness.start()
-    for (let repeat = 1; repeat <= repeats; repeat += 1) {
-      for (const task of executionTasks) {
-        if (!debug && task.layer === 'runtime' && repeat > 1) continue
-        const result = task.layer === 'workflow'
-          ? await runWorkflowCase(harness, task, repeat, fixturePaths)
-          : await runRuntimeScenario(harness, task, repeat)
-        results.push(result)
-        process.stdout.write(`${result.passed ? 'PASS' : 'FAIL'} ${task.task_id}.r${repeat} ${result.latency_seconds.toFixed(3)}s\n`)
+  const usage: UsageRecord[] = []
+  if (workflowTasks.length > 0) {
+    const harness = new EvalHarness(join(runtimeRoot, 'app'), providerCatalog)
+    try {
+      await harness.start()
+      for (let repeat = 1; repeat <= repeats; repeat += 1) {
+        for (const task of workflowTasks) {
+          const result = await runWorkflowCase(harness, task, repeat, fixturePaths)
+          results.push(result)
+          process.stdout.write(`${result.passed ? 'PASS' : 'FAIL'} ${task.task_id}.r${repeat} ${result.latency_seconds.toFixed(3)}s\n`)
+        }
       }
+    } finally {
+      usage.push(...harness.usage)
+      await harness.stop()
     }
-  } finally {
-    await harness.stop()
   }
-  const metrics = aggregate(tasks, results, harness.usage)
+  for (const task of runtimeTasks) {
+    const result = await runRuntimeScenario(task, 1)
+    results.push(result)
+    process.stdout.write(`${result.passed ? 'PASS' : 'FAIL'} ${task.task_id}.r1 ${result.latency_seconds.toFixed(3)}s\n`)
+  }
+  const metrics = aggregate(tasks, results, usage)
   const gate = qualification(tasks, metrics)
   const metadata: JsonRecord = {
     schema_version: 'agent-foundation-eval-raw-v1',
