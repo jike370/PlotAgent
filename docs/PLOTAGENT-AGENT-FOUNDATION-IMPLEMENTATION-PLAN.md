@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P10 工程施工、旧公开链清理、完整机械门禁与 E3 真实模型评测均已完成；冻结代码提交 `61c0cdd92159fd26bfaffe9823fa6d1f4fd8387a` 的 SEQ-70 为 GO。下一步是正式 Electron smoke 与独立探索性黑盒。
+> 状态：P0–P10 主体施工、旧公开链清理和首轮资格已完成；2026-08-19 又根据正式黑盒补齐续接、字段类型、取消、错误呈现与导出证据链。当前正在冻结 Agent Foundation regression suite v2；完成同一 clean commit 的最终门禁后，再索取独立探索性黑盒计划。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -473,6 +473,13 @@
   `user_answered` / `user_corrected` activation。新语义必须沿用同一 intent_id、递增
   intent_version，并进入 `awaiting_reconfirmation`；旧 ExecutionGrant 不会被复用。
 
+### 黑盒后加固（2026-08-19）
+
+- 续接上下文不再复用初始 envelope 的 task version，而是读取 durable checkpoint 的当前版本；用户补充答案后可以继续同一任务，不会因版本陈旧被拒绝；
+- 34 个 EngineProfile 已有显式 role field-type contract；Core 在确认前稳定拒绝文本数值轴、数值时间轴等不兼容绑定，不把可确定的字段错误交给 renderer；
+- 增加确定性 `bucketize_numeric` 数据动作，必须由 Agent 显式给出边界和标签，preview 与正式执行同源；
+- Agent 提示词增加原始需求 completeness checklist，字段绑定、数据动作、标题、轴、系列/连接器样式、图例、注释与图形参数不得因另一项已表达而静默遗漏。
+
 ### 测试
 
 - renderer 技术错误自动修复且无需重新确认；
@@ -543,6 +550,8 @@
 - PNG、SVG、OPJU 先写同卷私有 staging，校验大小和 SHA-256 后无覆盖原子发布；已有目标、无效目录和发布 I/O 失败返回稳定公开错误；
 - awaiting input/confirmation 直接从 checkpoint 恢复；过期 activation 使用 `resume_after_restart`，外部阻断解除使用 `external_blocker_cleared`，repairing 使用定向 repair activation；
 - follow-up 使用新 TaskEnvelope 的 `parent_task_id + relationship=follow_up` 关联已结束或 partial 的父任务，不改写父任务事件历史。
+- task 创建事件现在立即携带 task ID；任务中心与活动气泡无需等待第一次 checkpoint 轮询即可显示正在运行的任务及“停止”入口；
+- 取消完成作为真实 terminal result 处理：旧请求代次立即失效、busy 状态解除、已提交 item 保留、未进入原子边界的 item 取消，并明确显示“未产生新的项目变更”。
 
 ## 14. P9：正式对话 UI、任务中心与可观察性
 
@@ -588,6 +597,8 @@
 - 执行中的提示来自 Agent runtime 与 Core TaskEvent，覆盖上下文、数据检查、合同校验、renderer/验证和结果读取，不使用 timeout 伪造百分比或 ETA；
 - TaskDrawer 读取 durable task checkpoint，展示逐项状态、partial 已保留 plot/version、可重试失败、安全诊断 ID、取消和仅重试失败项；P10 已删除 legacy 任务公开投影；
 - undo/redo、导出成功/失败、Origin 可用性、聊天气泡、键盘焦点与 aria-live 延续正式 UI 现有能力；新增状态解析与任务中心回归覆盖续接、partial、诊断和恢复入口。
+- 非成功结果统一进入 Agent 对话时间线，不再以脱离上下文的裸横幅替代回答；错误消息保留稳定原因、任务上下文和下一步；
+- Main 在回报 PNG/SVG/OPJU 成功前复核目标文件存在、非零、大小一致和 SHA-256 一致；renderer 若缺少这些产物证明会拒绝显示“导出成功”。
 
 ## 15. P10：评测、发布与旧链清理
 
@@ -630,6 +641,13 @@
 - 延迟中位数 7.332 秒、p95 29.802 秒、max 69.032 秒；端到端 wall time 只作为发布指标，不作为产品终止预算。模型调用 79 次，估算成本 ¥0.717615；
 - 正式评测产物位于 `build/seq70-workflow-eval/20260818132029-61c0cdd/`。该目录为本地发布证据，不进入源码提交；
 - 正式 Electron smoke 与探索性黑盒仍必须基于同一冻结代码提交实际执行，不能由 SEQ-70、单测或旧 UI 证据推定通过。
+
+### Regression suite v2 收口（2026-08-19）
+
+- suite v2 保留 24 个任务、E3 18 项各 3 次与 E2 6 项各 1 次，不删除失败用例、不缩减 trial；新增黑盒后续接、字段类型、显式需求完整性、取消和导出证据的确定性回归；
+- 用户已确认当前阶段不设置端到端时长发布预算。因此 v2 删除旧的 `latency_p95_seconds_max=30` 发布判据；延迟、分段耗时、token、模型调用与成本仍完整采集并进入报告及版本比较，不成为任务终止条件或 GO/NO-GO 的单独依据；
+- `32025a8` 的两次完整运行原样保留：一次因远端 W11 失败、一次因 W18 漏掉一项显式视觉动作而 NO-GO；`28e1f38` 已达到 60/60 功能通过和全部正确性指标 1.0，但在旧 v1 时间阈值下仍记录为 NO-GO。它们都是有效失败证据，不覆盖、不改写；
+- 正式 suite v2 GO 只能由升级后的 clean commit 从零运行产生；在该结果和完整机械门禁落盘前，不向探索性测试会话发出执行授权。
 
 ## 16. 每阶段统一质量门
 

@@ -65,10 +65,11 @@ def finalize(raw_path: Path, output_dir: Path, repository: Path) -> None:
         for key, value in cast(dict[str, object], raw["metrics"]).items()
         if isinstance(value, int | float) and not isinstance(value, bool)
     }
+    suite_version = cases[0].suite_version
     policy = EvalPolicy(
-        policy_id="agent-foundation-release-v1",
+        policy_id=f"agent-foundation-release-v{suite_version}",
         suite_id="agent-foundation-regression",
-        suite_version=1,
+        suite_version=suite_version,
         frozen_at=datetime(2026, 8, 18, tzinfo=UTC),
         required_layers=("E2", "E3"),
         trials_by_layer={"E2": 1, "E3": 3},

@@ -65,6 +65,7 @@ def test_finalizer_writes_complete_go_report_for_frozen_trial_counts(tmp_path: P
         (output / "evidence-manifests.json").read_text(encoding="utf-8")
     )
     assert report["decision"] == "GO"
+    assert report["policy_id"] == "agent-foundation-release-v2"
     assert metadata["case_count"] == 24
     assert metadata["trial_count"] == 60
     assert metadata["evidence_manifest_count"] == 60

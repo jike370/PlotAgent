@@ -1,5 +1,5 @@
 {
-  "schema_version": "seq70-workflow-eval-v4",
+  "schema_version": "seq70-workflow-eval-v5",
   "repeats": 3,
   "pricing_cny_per_million_tokens": {
     "input_cache_hit": 0.02,
@@ -16,8 +16,7 @@
     "required_inspection_rate": 0.9,
     "runtime_success_rate": 1.0,
     "confirmation_no_side_effect_rate": 1.0,
-    "model_error_rate_max": 0.05,
-    "latency_p95_seconds_max": 30.0
+    "model_error_rate_max": 0.05
   },
   "tasks": [
     {

@@ -1,11 +1,11 @@
 {
   "schema_version": "eval-suite.v1",
   "suite_id": "agent-foundation-regression",
-  "suite_version": 1,
+  "suite_version": 2,
   "legacy_source": {
     "path": "tests/fixtures/seq70/workflow_tasks.json",
-    "sha256": "5fabeaf7c6bd2aa24c30a0bc9b4da2425e1295548ffa52044581aba7cc8b9cc0",
-    "byte_length": 11290
+    "sha256": "12139fbf4f6722158cf906c45620c2c764e8752ff058aa907a3c0d767871ba7f",
+    "byte_length": 11253
   },
   "defaults": {
     "suite_kind": "regression",

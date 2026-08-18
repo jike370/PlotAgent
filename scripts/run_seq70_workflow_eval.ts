@@ -58,7 +58,7 @@ interface RuntimeTask {
 type EvalTask = WorkflowTask | RuntimeTask
 
 interface TaskSet {
-  schema_version: 'seq70-workflow-eval-v1'
+  schema_version: 'seq70-workflow-eval-v5'
   repeats: number
   pricing_cny_per_million_tokens: {
     input_cache_hit: number
