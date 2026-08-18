@@ -60,7 +60,7 @@ class FakeCore {
     if (method === 'agent.tasks.execute') {
       this.state = 'completed_verified'
       this.taskVersion += 5
-      return { state: this.state }
+      return { task: { state: this.state } }
     }
     throw new Error(`Unexpected method ${method}`)
   }
@@ -164,6 +164,172 @@ describe('AgentFoundationRuntime', () => {
     expect(runtime.ownsPlan('plan:fixed')).toBe(true)
     await expect(runtime.confirm({ projectId: 'project:test', planId: 'plan:fixed' }))
       .resolves.toMatchObject({ task: { state: 'executing' } })
+  })
+
+  it('creates a bounded multi-source and multi-profile durable batch envelope', async () => {
+    class MultiSourceCore extends FakeCore {
+      override async request(method: string, params?: unknown): Promise<unknown> {
+        if (method === 'datasets.describe') {
+          const source = params as { source_dataset_id: string; source_version: number }
+          return {
+            source_dataset_id: source.source_dataset_id,
+            source_version: source.source_version,
+            content_hash: source.source_dataset_id === 'source:first'
+              ? 'a'.repeat(64)
+              : 'b'.repeat(64),
+          }
+        }
+        return super.request(method, params)
+      }
+    }
+    const core = new MultiSourceCore()
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+      id: () => 'fixed',
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
+          outcome: 'cancelled',
+          activation_id: activation.activation_id,
+          task_id: activation.task_id,
+          task_version: activation.task_version,
+          message: 'Fake typed yield.',
+        }),
+      }),
+    })
+
+    expect(runtime.canRun({
+      projectId: 'project:test',
+      selectedSources: [
+        { datasetId: 'source:first', sourceVersion: 1 },
+        { datasetId: 'source:second', sourceVersion: 2 },
+      ],
+      selectedProfileIds: ['K01', 'K02'],
+      expectedProjectVersion: 4,
+      instruction: '数据一画折线图，数据二画线点图。',
+    })).toBe(true)
+    await runtime.run({
+      projectId: 'project:test',
+      selectedSources: [
+        { datasetId: 'source:first', sourceVersion: 1 },
+        { datasetId: 'source:second', sourceVersion: 2 },
+      ],
+      selectedProfileIds: ['K01', 'K02'],
+      expectedProjectVersion: 4,
+      instruction: '数据一画折线图，数据二画线点图。',
+    })
+
+    expect(core.calls.find((call) => call.method === 'agent.tasks.create')).toMatchObject({
+      params: {
+        envelope: {
+          selected_sources: [
+            {
+              source_dataset_id: 'source:first',
+              source_version: 1,
+              content_hash: 'a'.repeat(64),
+            },
+            {
+              source_dataset_id: 'source:second',
+              source_version: 2,
+              content_hash: 'b'.repeat(64),
+            },
+          ],
+          selected_profile_ids: ['K01', 'K02'],
+        },
+      },
+    })
+  })
+
+  it('re-enters the durable repair pump and retries only after a typed repair yield', async () => {
+    class PartialCore {
+      readonly calls: string[] = []
+      private state = 'partial'
+      private pumpCalls = 0
+
+      async request(method: string): Promise<unknown> {
+        this.calls.push(method)
+        if (method === 'agent.tasks.list') {
+          return { tasks: [{ task_id: 'task:partial', intent: { intent_id: 'intent:partial' } }] }
+        }
+        if (method === 'agent.tasks.plan.get') {
+          return {
+            task: {
+              task_id: 'task:partial',
+              task_version: this.state === 'partial' ? 8 : 10,
+              state: this.state,
+              items: [
+                { item_id: 'item:partial.1', state: 'succeeded', attempt_count: 1 },
+                {
+                  item_id: 'item:partial.2',
+                  state: this.state === 'completed_verified' ? 'succeeded' : 'repairable_failed',
+                  attempt_count: this.state === 'completed_verified' ? 2 : 1,
+                },
+              ],
+            },
+            plan: { plan_id: 'plan:partial', items: [] },
+            plan_hash: 'b'.repeat(64),
+            confirmation_state: 'confirmed',
+          }
+        }
+        if (method === 'agent.tasks.pump.next') {
+          this.pumpCalls += 1
+          if (this.pumpCalls === 1) {
+            return {
+              kind: 'run_activation',
+              activation: {
+                activation_id: 'activation:repair',
+                task_id: 'task:partial',
+                task_version: 9,
+                reason: 'verification_failed',
+                task_state: 'repairing',
+                permission_phase: 'p0_read',
+                allowed_tools: ['inspect_source'],
+                verification_report_ids: ['verification:partial.2.attempt-1'],
+              },
+            }
+          }
+          return { kind: 'wait', reason: 'execution_pending', task_state: 'executing' }
+        }
+        if (method === 'agent.tasks.activation.running') return { state: 'repairing' }
+        if (method === 'agent.tasks.yield.accept') {
+          this.state = 'executing'
+          return { state: 'executing' }
+        }
+        if (method === 'agent.tasks.execute') {
+          this.state = 'completed_verified'
+          return { task: { state: this.state } }
+        }
+        throw new Error(`Unexpected method ${method}`)
+      }
+    }
+    const core = new PartialCore()
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
+          outcome: 'technical_repair_ready',
+          activation_id: activation.activation_id,
+          task_id: activation.task_id,
+          task_version: activation.task_version,
+          proposal: {
+            failed_report_ids: ['verification:partial.2.attempt-1'],
+            affected_item_ids: ['item:partial.2'],
+            repair_operations: ['retry_execution'],
+            preserves_confirmed_semantics: true,
+            proposal_hash: 'c'.repeat(64),
+          },
+        }),
+      }),
+    })
+
+    await runtime.list('project:test')
+    await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:partial' }))
+      .resolves.toMatchObject({ task: { state: 'completed_verified' } })
+    expect(core.calls.filter((method) => method === 'agent.tasks.execute')).toHaveLength(1)
+    expect(core.calls).toContain('agent.tasks.yield.accept')
   })
 
   it.each([

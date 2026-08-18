@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import cast
+from typing import Literal, cast
 
 from pydantic import BaseModel
 
@@ -14,6 +14,8 @@ from plotagent.contracts.agent_tasks import (
     SideEffectReceipt,
     TaskCompletion,
     TaskError,
+    TaskItemState,
+    TaskState,
     ToolReceipt,
     VerificationClaim,
     VerificationEvidenceRef,
@@ -29,6 +31,17 @@ from plotagent.workflows.executor import TaskPlanExecutor
 
 from .engine_session import DesktopEngineSession
 from .workflow_service import DesktopWorkflowService
+
+_TaskErrorCategory = Literal[
+    "transient_external",
+    "deterministic_technical",
+    "semantic_conflict",
+    "stale_or_concurrent",
+    "unsupported",
+    "safety_or_permission",
+    "budget",
+    "runtime",
+]
 
 
 class DurableExecutionError(RuntimeError):
@@ -149,95 +162,171 @@ class DurableTaskExecutionService:
             )
         plan = self.ledger.get_plan(task_id)
         grant = self.ledger.get_execution_grant(task_id)
-        if (
-            grant.task_version != checkpoint.task_version
-            or grant.expected_project_revision != checkpoint.project_revision
-            or grant.intent != checkpoint.intent
+        repairing = any(item.state == "repairable_failed" for item in checkpoint.items)
+        if grant.intent != checkpoint.intent or (
+            not repairing and grant.task_version != checkpoint.task_version
         ):
             raise DurableExecutionError(
                 "EXECUTION_GRANT_STALE", "Execution authority no longer matches the task."
             )
-        self.domain.require_revision(grant.expected_project_revision)
-        if len(plan.items) != 1:
+        if not repairing and grant.expected_project_revision != checkpoint.project_revision:
             raise DurableExecutionError(
-                "P6_SLICE_UNSUPPORTED", "The first execution slice accepts one task item."
+                "EXECUTION_GRANT_STALE", "Execution authority no longer matches the project."
             )
-        item = plan.items[0]
-        scope = grant.scopes[0]
-        if scope.item_id != item.item_id or "create_plot" not in scope.operations:
+        self.domain.require_revision(checkpoint.project_revision)
+        scopes = {scope.item_id: scope for scope in grant.scopes}
+        if tuple(scopes) != tuple(item.item_id for item in plan.items):
             raise DurableExecutionError(
-                "EXECUTION_SCOPE_INVALID", "Execution grant does not authorize this item."
-            )
-        running = self.ledger.transition_item(
-            task_id,
-            expected_task_version=checkpoint.task_version,
-            item_id=item.item_id,
-            expected_item_state="staged",
-            next_state="running",
-            reason_code="CONFIRMED_EXECUTION_STARTED",
-        )
-        before = running.project_revision
-        started_at = _now()
-        try:
-            executor = self._item_executor()
-            after, plot_version = executor.execute_compiled_item(item, before)
-            stored = self.engine.documents.get(item.plot_id, plot_version)
-        except Exception as error:
-            return self._fail_item(
-                task_id,
-                item,
-                running.task_version,
-                before,
-                started_at,
-                error,
+                "EXECUTION_SCOPE_INVALID", "Execution grant does not match the batch plan."
             )
 
-        receipt = ToolReceipt(
-            receipt_id=f"receipt:{item.item_id.removeprefix('item:')}.execute",
-            task_id=task_id,
-            task_version=running.task_version,
-            item_id=item.item_id,
-            tool_call_id=f"execute:{item.idempotency_key}",
-            tool_name="execute_confirmed_plan_item",
-            permission_phase="p2_confirmed",
-            outcome="succeeded",
-            idempotency_key=item.idempotency_key,
-            input_hash=canonical_hash(item),
-            output_hash=stored.content_hash,
-            project_revision_before=before,
-            project_revision_after=after,
-            side_effects=(
-                SideEffectReceipt(
-                    effect_kind="plot_version",
-                    object_id=item.plot_id,
-                    object_version=plot_version,
-                    artifact_hash=stored.content_hash,
-                    reversible=True,
+        executor = self._item_executor()
+        plots: list[dict[str, object]] = []
+        reports: list[VerificationReport] = []
+        receipts: list[ToolReceipt] = []
+        failures: list[dict[str, object]] = []
+        for item in plan.items:
+            scope = scopes[item.item_id]
+            if "create_plot" not in scope.operations:
+                raise DurableExecutionError(
+                    "EXECUTION_SCOPE_INVALID", "Execution grant does not authorize this item."
+                )
+            current = self.ledger.get_task(task_id)
+            snapshot = next(entry for entry in current.items if entry.item_id == item.item_id)
+            if snapshot.state in {"succeeded", "failed", "blocked", "cancelled"}:
+                continue
+            if snapshot.state not in {"staged", "repairable_failed"}:
+                raise DurableExecutionError(
+                    "TASK_ITEM_STATE_INVALID", "A batch item was not ready to execute."
+                )
+            running = self.ledger.transition_item(
+                task_id,
+                expected_task_version=current.task_version,
+                item_id=item.item_id,
+                expected_item_state=snapshot.state,
+                next_state="running",
+                reason_code="CONFIRMED_EXECUTION_STARTED",
+            )
+            running_item = next(
+                entry for entry in running.items if entry.item_id == item.item_id
+            )
+            before = running.project_revision
+            started_at = _now()
+            try:
+                after, plot_version = executor.execute_compiled_item(item, before)
+                stored = self.engine.documents.get(item.plot_id, plot_version)
+            except Exception as error:
+                failure, report, receipt = self._record_item_failure(
+                    task_id,
+                    item,
+                    running.task_version,
+                    running_item.attempt_count,
+                    before,
+                    started_at,
+                    error,
+                )
+                failures.append(failure)
+                reports.append(report)
+                receipts.append(receipt)
+                continue
+
+            receipt = ToolReceipt(
+                receipt_id=self._execution_receipt_id(item, running_item.attempt_count),
+                task_id=task_id,
+                task_version=running.task_version,
+                item_id=item.item_id,
+                tool_call_id=f"execute:{item.idempotency_key}:{running_item.attempt_count}",
+                tool_name="execute_confirmed_plan_item",
+                permission_phase="p2_confirmed",
+                outcome="succeeded",
+                idempotency_key=item.idempotency_key,
+                input_hash=canonical_hash(item),
+                output_hash=stored.content_hash,
+                project_revision_before=before,
+                project_revision_after=after,
+                side_effects=(
+                    SideEffectReceipt(
+                        effect_kind="plot_version",
+                        object_id=item.plot_id,
+                        object_version=plot_version,
+                        artifact_hash=stored.content_hash,
+                        reversible=True,
+                    ),
                 ),
-            ),
-            started_at=started_at,
-            finished_at=_now(),
-        )
-        self.ledger.record_tool_receipt(receipt)
-        succeeded = self.ledger.transition_item(
-            task_id,
-            expected_task_version=running.task_version,
-            item_id=item.item_id,
-            expected_item_state="running",
-            next_state="succeeded",
-            reason_code="CONFIRMED_EXECUTION_SUCCEEDED",
-            output_plot_id=item.plot_id,
-            output_plot_version=plot_version,
-        )
+                started_at=started_at,
+                finished_at=_now(),
+            )
+            self.ledger.record_tool_receipt(receipt)
+            succeeded = self.ledger.transition_item(
+                task_id,
+                expected_task_version=running.task_version,
+                item_id=item.item_id,
+                expected_item_state="running",
+                next_state="succeeded",
+                reason_code="CONFIRMED_EXECUTION_SUCCEEDED",
+                output_plot_id=item.plot_id,
+                output_plot_version=plot_version,
+            )
+            report = self._verification_report(
+                succeeded,
+                item,
+                stored.content_hash,
+                attempt_count=running_item.attempt_count,
+            )
+            self.ledger.record_verification_report(report)
+            receipts.append(receipt)
+            reports.append(report)
+            plots.append(
+                {
+                    "item_id": item.item_id,
+                    "plot_id": item.plot_id,
+                    "plot_version": plot_version,
+                    "content_hash": stored.content_hash,
+                }
+            )
+
+        current = self.ledger.get_task(task_id)
+        plots = self._completed_plots(current)
+        if failures:
+            target_state: TaskState = "partial" if plots else "failed"
+            stopped = self.ledger.advance(
+                task_id,
+                expected_task_version=current.task_version,
+                next_state=target_state,
+                reason_code=(
+                    "BATCH_PARTIALLY_SUCCEEDED" if plots else "BATCH_EXECUTION_FAILED"
+                ),
+                project_revision=current.project_revision,
+            )
+            return {
+                "task": stopped.model_dump(mode="json"),
+                "plots": plots,
+                "verifications": [report.model_dump(mode="json") for report in reports],
+                "failures": failures,
+            }
+
+        if any(item.state != "succeeded" for item in current.items):
+            stopped = self.ledger.advance(
+                task_id,
+                expected_task_version=current.task_version,
+                next_state="partial",
+                reason_code="BATCH_REPAIR_INCOMPLETE",
+                project_revision=current.project_revision,
+            )
+            return {
+                "task": stopped.model_dump(mode="json"),
+                "plots": plots,
+                "verifications": [report.model_dump(mode="json") for report in reports],
+                "failures": failures,
+            }
+
         verifying = self.ledger.advance(
             task_id,
-            expected_task_version=succeeded.task_version,
+            expected_task_version=current.task_version,
             next_state="verifying",
             reason_code="EXECUTION_FINISHED",
-            project_revision=after,
+            project_revision=current.project_revision,
         )
-        report = self._verification_report(verifying, item, stored.content_hash)
-        self.ledger.record_verification_report(report)
         delivering = self.ledger.advance(
             task_id,
             expected_task_version=verifying.task_version,
@@ -250,19 +339,46 @@ class DurableTaskExecutionService:
             completion=TaskCompletion(
                 completed_at=_now(),
                 final_project_revision=delivering.project_revision,
-                required_report_ids=(report.report_id,),
-                artifact_receipt_ids=(receipt.receipt_id,),
+                required_report_ids=tuple(
+                    item.verification_report_ids[-1] for item in current.items
+                ),
+                artifact_receipt_ids=tuple(
+                    item.receipt_ids[-1] for item in current.items if item.receipt_ids
+                ),
             ),
         )
-        return {
+        result: dict[str, object] = {
             "task": completed.model_dump(mode="json"),
-            "plot": {
-                "plot_id": item.plot_id,
-                "plot_version": plot_version,
-                "content_hash": stored.content_hash,
-            },
-            "verification": report.model_dump(mode="json"),
+            "plots": plots,
+            "verifications": [report.model_dump(mode="json") for report in reports],
         }
+        if len(plots) == 1:
+            result["plot"] = plots[0]
+            result["verification"] = reports[0].model_dump(mode="json")
+        return result
+
+    def _completed_plots(self, checkpoint: object) -> list[dict[str, object]]:
+        from plotagent.contracts.agent_tasks import TaskCheckpoint
+
+        current = TaskCheckpoint.model_validate(checkpoint)
+        completed: list[dict[str, object]] = []
+        for item in current.items:
+            if (
+                item.state != "succeeded"
+                or item.output_plot_id is None
+                or item.output_plot_version is None
+            ):
+                continue
+            stored = self.engine.documents.get(item.output_plot_id, item.output_plot_version)
+            completed.append(
+                {
+                    "item_id": item.item_id,
+                    "plot_id": item.output_plot_id,
+                    "plot_version": item.output_plot_version,
+                    "content_hash": stored.content_hash,
+                }
+            )
+        return completed
 
     def _item_executor(self) -> TaskPlanExecutor:
         provider = ProjectEngineDataProvider(self.store)
@@ -286,24 +402,26 @@ class DurableTaskExecutionService:
         )
         return self.domain.revision
 
-    def _fail_item(
+    def _record_item_failure(
         self,
         task_id: str,
         item: CompiledTaskItem,
         task_version: int,
+        attempt_count: int,
         before: int,
         started_at: str,
         error: Exception,
-    ) -> dict[str, object]:
+    ) -> tuple[dict[str, object], VerificationReport, ToolReceipt]:
         after = self.domain.revision
         code = str(getattr(error, "code", type(error).__name__))[:64]
         message = str(getattr(error, "message", str(error) or "Execution failed."))[:512]
+        category, retryable, requires_user = self._classify_failure(code)
         task_error = TaskError(
             code=code,
-            category="deterministic_technical",
+            category=category,
             message=message,
-            retryable=False,
-            requires_user=False,
+            retryable=retryable,
+            requires_user=requires_user,
             side_effect_state="known_applied" if after > before else "known_none",
         )
         side_effects = (
@@ -319,11 +437,11 @@ class DurableTaskExecutionService:
             else ()
         )
         receipt = ToolReceipt(
-            receipt_id=f"receipt:{item.item_id.removeprefix('item:')}.execute",
+            receipt_id=self._execution_receipt_id(item, attempt_count),
             task_id=task_id,
             task_version=task_version,
             item_id=item.item_id,
-            tool_call_id=f"execute:{item.idempotency_key}",
+            tool_call_id=f"execute:{item.idempotency_key}:{attempt_count}",
             tool_name="execute_confirmed_plan_item",
             permission_phase="p2_confirmed",
             outcome="failed",
@@ -337,26 +455,51 @@ class DurableTaskExecutionService:
             finished_at=_now(),
         )
         self.ledger.record_tool_receipt(receipt)
+        item_state: TaskItemState = "repairable_failed" if retryable else "failed"
         failed_item = self.ledger.transition_item(
             task_id,
             expected_task_version=task_version,
             item_id=item.item_id,
             expected_item_state="running",
-            next_state="failed",
+            next_state=item_state,
             reason_code="CONFIRMED_EXECUTION_FAILED",
             error=task_error,
         )
-        failed = self.ledger.advance(
-            task_id,
-            expected_task_version=failed_item.task_version,
-            next_state="failed",
-            reason_code="EXECUTION_FAILED",
-            project_revision=after,
+        report = self._failure_verification_report(
+            failed_item,
+            item,
+            receipt,
+            task_error,
+            attempt_count=attempt_count,
         )
-        return {
-            "task": failed.model_dump(mode="json"),
-            "error": task_error.model_dump(mode="json"),
-        }
+        self.ledger.record_verification_report(report)
+        return (
+            {
+                "item_id": item.item_id,
+                "error": task_error.model_dump(mode="json"),
+                "verification_report_id": report.report_id,
+            },
+            report,
+            receipt,
+        )
+
+    @staticmethod
+    def _classify_failure(code: str) -> tuple[_TaskErrorCategory, bool, bool]:
+        normalized = code.upper()
+        if any(token in normalized for token in ("TIMEOUT", "UNAVAILABLE", "DISCONNECT")):
+            return "transient_external", True, False
+        if any(token in normalized for token in ("STALE", "REVISION", "CONFLICT")):
+            return "stale_or_concurrent", False, False
+        if "UNSUPPORTED" in normalized:
+            return "unsupported", False, False
+        if any(token in normalized for token in ("PERMISSION", "AUTHORITY", "SCOPE")):
+            return "safety_or_permission", False, True
+        return "deterministic_technical", True, False
+
+    @staticmethod
+    def _execution_receipt_id(item: CompiledTaskItem, attempt_count: int) -> str:
+        suffix = "execute" if attempt_count == 1 else f"execute.{attempt_count}"
+        return f"receipt:{item.item_id.removeprefix('item:')}.{suffix}"
 
     @staticmethod
     def _scope(item: CompiledTaskItem) -> ExecutionScope:
@@ -375,6 +518,8 @@ class DurableTaskExecutionService:
         checkpoint: object,
         item: CompiledTaskItem,
         document_hash: str,
+        *,
+        attempt_count: int,
     ) -> VerificationReport:
         from plotagent.contracts.agent_tasks import TaskCheckpoint
 
@@ -382,7 +527,9 @@ class DurableTaskExecutionService:
         if current.intent is None:
             raise DurableExecutionError("TASK_INTENT_MISSING", "Task intent is unavailable.")
         report = VerificationReport(
-            report_id=f"verification:{item.item_id.removeprefix('item:')}.final",
+            report_id=(
+                f"verification:{item.item_id.removeprefix('item:')}.attempt-{attempt_count}"
+            ),
             task_id=current.task_id,
             task_version=current.task_version,
             intent=current.intent,
@@ -406,6 +553,55 @@ class DurableTaskExecutionService:
                             content_hash=document_hash,
                         ),
                     ),
+                ),
+            ),
+            content_hash="0" * 64,
+            verified_at=_now(),
+        )
+        return report.model_copy(update={"content_hash": _hashed_model(report)})
+
+    @staticmethod
+    def _failure_verification_report(
+        checkpoint: object,
+        item: CompiledTaskItem,
+        receipt: ToolReceipt,
+        error: TaskError,
+        *,
+        attempt_count: int,
+    ) -> VerificationReport:
+        from plotagent.contracts.agent_tasks import TaskCheckpoint
+
+        current = TaskCheckpoint.model_validate(checkpoint)
+        if current.intent is None:
+            raise DurableExecutionError("TASK_INTENT_MISSING", "Task intent is unavailable.")
+        report = VerificationReport(
+            report_id=(
+                f"verification:{item.item_id.removeprefix('item:')}.attempt-{attempt_count}"
+            ),
+            task_id=current.task_id,
+            task_version=current.task_version,
+            intent=current.intent,
+            item_id=item.item_id,
+            status="failed",
+            claims=(
+                VerificationClaim(
+                    claim_id="confirmed_item_execution",
+                    status="failed",
+                    expected=f"{item.profile_id} executes within the confirmed item scope",
+                    observed=error.message,
+                    evidence=(
+                        VerificationEvidenceRef(
+                            evidence_id=receipt.receipt_id,
+                            evidence_kind="tool_receipt",
+                            content_hash=canonical_hash(receipt),
+                        ),
+                    ),
+                    repair_scope=(
+                        (item.item_id, "execute_confirmed_plan_item")
+                        if error.retryable
+                        else ()
+                    ),
+                    error=error,
                 ),
             ),
             content_hash="0" * 64,

@@ -170,6 +170,10 @@ class DurableAgentCoreHost:
             activation=activation,
             source_contexts=source_contexts,
             tools=gateway.context_contracts(activation),
+            verification_reports=tuple(
+                self.ledger.get_verification_report(report_id)
+                for report_id in activation.verification_report_ids
+            ),
         )
         runtime = _ActivationRuntime(
             activation=activation,
@@ -263,6 +267,35 @@ class DurableAgentCoreHost:
                     "YIELD_CONTENT_HASH_INVALID", "The Agent intent content hash is invalid."
                 )
             self._compile_intent(intent, runtime.workflow_context)
+        elif yielded.outcome == "technical_repair_ready":
+            if activation.reason != "verification_failed":
+                raise AgentFoundationError(
+                    "REPAIR_ACTIVATION_INVALID",
+                    "A technical repair may only answer failed verification evidence.",
+                )
+            proposal = yielded.proposal
+            expected_hash = canonical_hash(
+                proposal.model_dump(mode="json", exclude={"proposal_hash"})
+            )
+            if proposal.proposal_hash != expected_hash:
+                raise AgentFoundationError(
+                    "REPAIR_HASH_INVALID", "The repair proposal content hash is invalid."
+                )
+            repairable_ids = {
+                item_id
+                for item_id, state in activation.item_states
+                if state == "repairable_failed"
+            }
+            if (
+                not set(proposal.failed_report_ids)
+                <= set(activation.verification_report_ids)
+                or not set(proposal.affected_item_ids) <= repairable_ids
+                or tuple(proposal.repair_operations) != ("retry_execution",)
+            ):
+                raise AgentFoundationError(
+                    "REPAIR_SCOPE_INVALID",
+                    "The repair proposal exceeds the failed item and evidence scope.",
+                )
         return yielded
 
     @staticmethod
@@ -270,7 +303,21 @@ class DurableAgentCoreHost:
         """Derive the integrity hash after the model has supplied semantic intent fields."""
 
         normalized = deepcopy(candidate)
-        if not isinstance(normalized, dict) or normalized.get("outcome") != "intent_ready":
+        if not isinstance(normalized, dict):
+            return normalized
+        if normalized.get("outcome") == "technical_repair_ready":
+            raw_proposal = normalized.get("proposal")
+            if isinstance(raw_proposal, dict):
+                payload = {
+                    key: value
+                    for key, value in raw_proposal.items()
+                    if key != "proposal_hash"
+                }
+                raw_proposal["proposal_hash"] = canonical_hash(
+                    cast(JsonValue, payload)
+                )
+            return normalized
+        if normalized.get("outcome") != "intent_ready":
             return normalized
         raw_intent = normalized.get("intent")
         if not isinstance(raw_intent, dict):
@@ -320,21 +367,23 @@ class DurableAgentCoreHost:
         workflow_context: WorkflowContext,
     ) -> TaskPlan:
         validated = intent
-        if len(validated.items) != 1 or validated.items[0].task_kind != "create":
-            raise AgentFoundationError(
-                "P6_SLICE_UNSUPPORTED",
-                "The first durable execution slice accepts one create-plot item.",
-            )
-        item = validated.items[0]
-        if (
-            len(item.source_aliases) != 1
-            or item.source_aliases[0] not in workflow_context.selected_source_aliases
-            or item.profile_id not in workflow_context.selected_profile_ids
-        ):
-            raise AgentFoundationError(
-                "INTENT_SELECTION_MISMATCH",
-                "The Agent intent changed the user-selected source or chart profile.",
-            )
+        selected_sources = set(workflow_context.selected_source_aliases)
+        selected_profiles = set(workflow_context.selected_profile_ids)
+        for item in validated.items:
+            if item.task_kind != "create":
+                raise AgentFoundationError(
+                    "P7_TASK_KIND_UNSUPPORTED",
+                    "The durable batch slice currently accepts create-plot items.",
+                )
+            if (
+                not item.source_aliases
+                or not set(item.source_aliases) <= selected_sources
+                or item.profile_id not in selected_profiles
+            ):
+                raise AgentFoundationError(
+                    "INTENT_SELECTION_MISMATCH",
+                    "The Agent intent changed the user-selected source or chart profile.",
+                )
         token = validated.intent_id.removeprefix("intent:")
         draft = TaskDraft(
             draft_id=f"draft:{token}.v{validated.intent_version}",
@@ -495,8 +544,11 @@ class DurableAgentCoreHost:
             "field semantics blocks a safe plan; do not infer unseen values. The user's selected "
             "chart profile is authoritative. "
             "Return exactly one terminal AgentYield through submit_agent_yield. For intent_ready, "
-            "produce a TaskIntent with explicit source aliases, field aliases, chart profile, "
-            "and requested visual actions. Omit TaskIntent.content_hash; Core derives that "
+            "produce one TaskIntent containing 1–64 independently identified items. Preserve the "
+            "user's explicit source-to-chart mapping; do not merge sources, aggregate values, or "
+            "reuse a field across another source unless the request explicitly requires it. Each "
+            "item must carry explicit source aliases, field aliases, chart profile, and requested "
+            "visual actions. Omit TaskIntent.content_hash; Core derives that "
             "integrity field after validating the semantic payload. Ask only the minimum "
             "blocking question. Never execute, "
             "export, invent paths, or emit backend commands. Use this Core-owned scaffold: "
@@ -505,9 +557,19 @@ class DurableAgentCoreHost:
 
     def _environment(self, runtime: _ActivationRuntime) -> dict[str, object]:
         definitions = runtime.gateway.allowed_definitions(runtime.activation)
+        system_prompt = self._system_prompt(runtime.context)
+        if runtime.activation.reason == "verification_failed":
+            system_prompt += (
+                " This activation is a scoped technical recovery. Inspect only the failed "
+                "verification evidence and affected items named in the context. If the same "
+                "confirmed operation can be safely retried without changing fields, chart "
+                "semantics, or output scope, return technical_repair_ready with exactly the "
+                "repair operation retry_execution. Otherwise return needs_input, blocked, or "
+                "unsupported; never emit a new TaskIntent from this activation."
+            )
         return {
             "context": runtime.context.model_dump(mode="json"),
-            "system_prompt": self._system_prompt(runtime.context),
+            "system_prompt": system_prompt,
             "yield_schema": self._model_yield_schema(),
             "tools": [
                 {
@@ -584,6 +646,34 @@ class DurableTaskCoordinator:
                 next_state="awaiting_confirmation",
                 reason_code="INTENT_PRESENTED",
             )
+        if checkpoint.state == "partial":
+            for item in tuple(checkpoint.items):
+                if item.state != "repairable_failed" or item.attempt_count < 2:
+                    continue
+                checkpoint = self._ledger.transition_item(
+                    task_id,
+                    expected_task_version=checkpoint.task_version,
+                    item_id=item.item_id,
+                    expected_item_state="repairable_failed",
+                    next_state="failed",
+                    reason_code="REPAIR_NO_PROGRESS",
+                    error=item.last_error,
+                )
+        if checkpoint.state == "partial" and any(
+            item.state == "repairable_failed" for item in checkpoint.items
+        ):
+            checkpoint = self._ledger.advance(
+                task_id,
+                expected_task_version=checkpoint.task_version,
+                next_state="repairing",
+                reason_code="SCOPED_REPAIR_REQUESTED",
+            )
+            activation = self._repair_activation(checkpoint)
+            self._ledger.start_activation(activation)
+            return {
+                "kind": "run_activation",
+                "activation": activation.model_dump(mode="json"),
+            }
         return self._wait(checkpoint)
 
     def _new_activation(self, checkpoint: TaskCheckpoint) -> AgentActivation:
@@ -599,6 +689,46 @@ class DurableTaskCoordinator:
             reason="new_task",
             task_state=checkpoint.state,
             original_instruction=envelope.original_instruction,
+            allowed_tools=_INVESTIGATION_TOOLS,
+            permission_phase="p0_read",
+            activation_budget=budget,
+            task_budget=checkpoint.budget,
+            deadline=_iso(now + timedelta(milliseconds=budget.timeout_ms)),
+            created_at=_iso(now),
+        )
+
+    def _repair_activation(self, checkpoint: TaskCheckpoint) -> AgentActivation:
+        envelope = self._ledger.get_envelope(checkpoint.task_id)
+        now = self._clock().astimezone(UTC)
+        budget = ActivationBudget(timeout_ms=35_000)
+        repairable = tuple(
+            item for item in checkpoint.items if item.state == "repairable_failed"
+        )
+        report_ids = tuple(
+            report_id
+            for item in repairable
+            for report_id in item.verification_report_ids[-1:]
+        )
+        if not report_ids:
+            raise AgentFoundationError(
+                "REPAIR_EVIDENCE_MISSING",
+                "A repairable item does not retain its failed verification report.",
+            )
+        return AgentActivation(
+            activation_id=f"activation:{uuid.uuid4().hex}",
+            task_id=checkpoint.task_id,
+            task_version=checkpoint.task_version,
+            reason="verification_failed",
+            task_state=checkpoint.state,
+            original_instruction=envelope.original_instruction,
+            confirmed_intent=checkpoint.intent,
+            item_states=tuple((item.item_id, item.state) for item in checkpoint.items),
+            verification_report_ids=report_ids,
+            prior_receipt_ids=tuple(
+                receipt_id
+                for item in checkpoint.items
+                for receipt_id in item.receipt_ids
+            ),
             allowed_tools=_INVESTIGATION_TOOLS,
             permission_phase="p0_read",
             activation_budget=budget,

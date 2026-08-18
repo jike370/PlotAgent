@@ -19,6 +19,7 @@ from plotagent.desktop_core.protocol import JsonValue
 from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
 from plotagent.desktop_core.tasks import BoundedWorkerExecutor, TaskRegistry
 from plotagent.security.credentials import InMemoryCredentialStore
+from plotagent.workflows.executor import TaskPlanExecutor
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "import" / "files"
 
@@ -401,6 +402,356 @@ def test_agent_v2_confirmed_plan_executes_and_verifies_one_plot(
     assert result["plot"]["plot_version"] == 1
     plots = harness.call("engine.plots.list", {"project_id": project_id})["plots"]
     assert [plot["plot_id"] for plot in plots] == [result["plot"]["plot_id"]]
+
+
+def _execute_agent_create_batch(
+    harness: ApplicationHarness,
+    project_id: str,
+    imported: dict[str, Any],
+    *,
+    token: str,
+    profiles: tuple[str, ...],
+) -> dict[str, Any]:
+    dataset = cast(dict[str, Any], cast(list[object], imported["datasets"])[0])
+    task_id = f"task:{token}"
+    harness.call(
+        "agent.tasks.create",
+        {
+            "project_id": project_id,
+            "envelope": {
+                "task_id": task_id,
+                "task_version": 1,
+                "project_id": project_id,
+                "project_revision": imported["project_version"],
+                "original_instruction": "Create the requested chart batch.",
+                "selected_sources": [
+                    {
+                        "source_dataset_id": dataset["source_dataset_id"],
+                        "source_version": dataset["source_version"],
+                        "content_hash": dataset["content_hash"],
+                    }
+                ],
+                "selected_profile_ids": list(profiles),
+                "budget": {},
+                "created_at": "2026-08-18T10:00:00Z",
+            },
+        },
+    )
+    directive = harness.call(
+        "agent.tasks.pump.next", {"project_id": project_id, "task_id": task_id}
+    )
+    activation = cast(dict[str, Any], directive["activation"])
+    activation_id = cast(str, activation["activation_id"])
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    prepared = harness.call(
+        "agent.activations.prepare",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    context = cast(dict[str, Any], prepared["context"])
+    source_context = cast(list[dict[str, Any]], context["source_contexts"])[0]
+    numeric_aliases = [
+        cast(str, field["field_alias"])
+        for field in cast(list[dict[str, object]], source_context["fields"])
+        if field["logical_type"] == "numeric"
+    ]
+    assert len(numeric_aliases) >= 2
+    intent = TaskIntent(
+        intent_id=f"intent:{token}",
+        intent_version=1,
+        task_id=task_id,
+        task_version=1,
+        created_by_activation_id=activation_id,
+        summary="Create the requested chart batch.",
+        items=tuple(
+            TaskDraftItem(
+                task_kind="create",
+                item_id=f"item:{token}.{position}",
+                plot_alias=f"plot_{position}",
+                profile_id=profile,
+                source_aliases=("data_1",),
+                bindings=(
+                    DraftFieldBinding(
+                        role="x",
+                        source_alias="data_1",
+                        field_alias=numeric_aliases[0],
+                    ),
+                    DraftFieldBinding(
+                        role="y",
+                        source_alias="data_1",
+                        field_alias=numeric_aliases[1],
+                    ),
+                ),
+            )
+            for position, profile in enumerate(profiles, start=1)
+        ),
+        context_hash=cast(str, context["content_hash"]),
+        content_hash="0" * 64,
+    )
+    intent = intent.model_copy(
+        update={
+            "content_hash": canonical_hash(
+                intent.model_dump(mode="json", exclude={"content_hash"})
+            )
+        }
+    )
+    yielded = AgentIntentReady(
+        activation_id=activation_id,
+        task_id=task_id,
+        task_version=1,
+        intent=intent,
+    )
+    validated = harness.call(
+        "agent.yields.validate",
+        {
+            "project_id": project_id,
+            "activation_id": activation_id,
+            "yield": yielded.model_dump(mode="json"),
+        },
+    )
+    harness.call(
+        "agent.tasks.yield.accept", {"project_id": project_id, "yield": validated}
+    )
+    waiting = harness.call(
+        "agent.tasks.pump.next", {"project_id": project_id, "task_id": task_id}
+    )
+    assert waiting["reason"] == "awaiting_confirmation"
+    view = harness.call(
+        "agent.tasks.plan.get", {"project_id": project_id, "task_id": task_id}
+    )
+    harness.call(
+        "agent.tasks.plan.confirm",
+        {
+            "project_id": project_id,
+            "task_id": task_id,
+            "expected_task_version": view["task"]["task_version"],
+            "user_event_id": f"user-event:{token}",
+            "plan_hash": view["plan_hash"],
+        },
+    )
+    return harness.call(
+        "agent.tasks.execute", {"project_id": project_id, "task_id": task_id}
+    )
+
+
+def _accept_scoped_retry(
+    harness: ApplicationHarness,
+    project_id: str,
+    task_id: str,
+    item_id: str,
+) -> None:
+    directive = harness.call(
+        "agent.tasks.pump.next", {"project_id": project_id, "task_id": task_id}
+    )
+    activation = cast(dict[str, Any], directive["activation"])
+    activation_id = cast(str, activation["activation_id"])
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    harness.call(
+        "agent.activations.prepare",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    validated = harness.call(
+        "agent.yields.validate",
+        {
+            "project_id": project_id,
+            "activation_id": activation_id,
+            "yield": {
+                "outcome": "technical_repair_ready",
+                "activation_id": activation_id,
+                "task_id": task_id,
+                "task_version": activation["task_version"],
+                "proposal": {
+                    "failed_report_ids": activation["verification_report_ids"],
+                    "affected_item_ids": [item_id],
+                    "repair_operations": ["retry_execution"],
+                    "preserves_confirmed_semantics": True,
+                },
+            },
+        },
+    )
+    accepted = harness.call(
+        "agent.tasks.yield.accept", {"project_id": project_id, "yield": validated}
+    )
+    assert accepted["state"] == "executing"
+
+
+def test_agent_v2_executes_confirmed_batch_and_verifies_every_item(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-v2-batch")
+
+    result = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="confirmed-batch",
+        profiles=("K01", "K02"),
+    )
+
+    assert result["task"]["state"] == "completed_verified"
+    assert len(result["plots"]) == 2
+    assert len(result["verifications"]) == 2
+    assert {item["state"] for item in result["task"]["items"]} == {"succeeded"}
+    assert len(harness.call("engine.plots.list", {"project_id": project_id})["plots"]) == 2
+
+
+def test_agent_v2_preserves_successful_items_when_one_batch_item_fails(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-v2-partial")
+    execute = TaskPlanExecutor.execute_compiled_item
+    injected = False
+
+    def fail_second(
+        self: TaskPlanExecutor,
+        item: Any,
+        revision: int,
+    ) -> tuple[int, int]:
+        nonlocal injected
+        if item.profile_id == "K02" and not injected:
+            injected = True
+            raise RuntimeError("Injected deterministic renderer failure.")
+        return execute(self, item, revision)
+
+    monkeypatch.setattr(TaskPlanExecutor, "execute_compiled_item", fail_second)
+    result = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="partial-batch",
+        profiles=("K01", "K02"),
+    )
+
+    assert result["task"]["state"] == "partial"
+    assert len(result["plots"]) == 1
+    assert len(result["failures"]) == 1
+    states = {item["item_id"]: item["state"] for item in result["task"]["items"]}
+    assert states == {
+        "item:partial-batch.1": "succeeded",
+        "item:partial-batch.2": "repairable_failed",
+    }
+    assert [report["status"] for report in result["verifications"]] == [
+        "passed",
+        "failed",
+    ]
+    assert len(harness.call("engine.plots.list", {"project_id": project_id})["plots"]) == 1
+
+    task_id = "task:partial-batch"
+    directive = harness.call(
+        "agent.tasks.pump.next", {"project_id": project_id, "task_id": task_id}
+    )
+    activation = cast(dict[str, Any], directive["activation"])
+    assert activation["reason"] == "verification_failed"
+    assert activation["verification_report_ids"] == [
+        "verification:partial-batch.2.attempt-1"
+    ]
+    activation_id = cast(str, activation["activation_id"])
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    prepared = harness.call(
+        "agent.activations.prepare",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    context = cast(dict[str, Any], prepared["context"])
+    assert context["verification_reports"][0]["claims"][0]["status"] == "failed"
+    validated = harness.call(
+        "agent.yields.validate",
+        {
+            "project_id": project_id,
+            "activation_id": activation_id,
+            "yield": {
+                "outcome": "technical_repair_ready",
+                "activation_id": activation_id,
+                "task_id": task_id,
+                "task_version": activation["task_version"],
+                "proposal": {
+                    "failed_report_ids": activation["verification_report_ids"],
+                    "affected_item_ids": ["item:partial-batch.2"],
+                    "repair_operations": ["retry_execution"],
+                    "preserves_confirmed_semantics": True,
+                },
+            },
+        },
+    )
+    accepted = harness.call(
+        "agent.tasks.yield.accept", {"project_id": project_id, "yield": validated}
+    )
+    assert accepted["state"] == "executing"
+    repaired = harness.call(
+        "agent.tasks.execute", {"project_id": project_id, "task_id": task_id}
+    )
+    assert repaired["task"]["state"] == "completed_verified"
+    assert len(repaired["plots"]) == 2
+    attempts = {
+        item["item_id"]: item["attempt_count"] for item in repaired["task"]["items"]
+    }
+    assert attempts == {"item:partial-batch.1": 1, "item:partial-batch.2": 2}
+
+
+def test_agent_v2_stops_after_a_scoped_retry_makes_no_progress(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-v2-no-progress")
+    execute = TaskPlanExecutor.execute_compiled_item
+
+    def always_fail_second(
+        self: TaskPlanExecutor,
+        item: Any,
+        revision: int,
+    ) -> tuple[int, int]:
+        if item.profile_id == "K02":
+            raise RuntimeError("Stable injected renderer failure.")
+        return execute(self, item, revision)
+
+    monkeypatch.setattr(TaskPlanExecutor, "execute_compiled_item", always_fail_second)
+    first = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="no-progress-batch",
+        profiles=("K01", "K02"),
+    )
+    assert first["task"]["state"] == "partial"
+    _accept_scoped_retry(
+        harness,
+        project_id,
+        "task:no-progress-batch",
+        "item:no-progress-batch.2",
+    )
+    second = harness.call(
+        "agent.tasks.execute",
+        {"project_id": project_id, "task_id": "task:no-progress-batch"},
+    )
+    assert second["task"]["state"] == "partial"
+    assert second["task"]["items"][1]["attempt_count"] == 2
+
+    stopped = harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:no-progress-batch"},
+    )
+    assert stopped == {
+        "kind": "wait",
+        "reason": "delivery_pending",
+        "task_state": "partial",
+    }
+    checkpoint = harness.call(
+        "agent.tasks.get",
+        {"project_id": project_id, "task_id": "task:no-progress-batch"},
+    )
+    assert checkpoint["items"][1]["state"] == "failed"
+    assert checkpoint["items"][0]["state"] == "succeeded"
 
 
 def _dataset_and_fields(imported: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:

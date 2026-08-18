@@ -25,6 +25,7 @@ from plotagent.contracts.agent_tasks import (
     TaskItemState,
     TaskState,
     ToolReceiptId,
+    VerificationReport,
     VerificationReportId,
 )
 from plotagent.contracts.base import (
@@ -316,6 +317,9 @@ class AgentContextSnapshot(StrictModel):
     confirmed_intent: IntentRef | None = None
     item_states: tuple[tuple[TaskItemIdV2, TaskItemState], ...] = ()
     verification_report_ids: tuple[VerificationReportId, ...] = ()
+    verification_reports: Annotated[
+        tuple[VerificationReport, ...], Field(max_length=64)
+    ] = ()
     prior_receipt_ids: tuple[ToolReceiptId, ...] = ()
     permission_phase: PermissionPhase
     selected_sources: tuple[SourceDatasetRef, ...] = ()
@@ -344,6 +348,7 @@ class AgentContextSnapshot(StrictModel):
             self.selected_profile_ids,
             tuple(item_id for item_id, _state in self.item_states),
             self.verification_report_ids,
+            tuple(item.report_id for item in self.verification_reports),
             self.prior_receipt_ids,
             tuple(item.source.source_dataset_id for item in self.source_contexts),
             tuple(item.profile_id for item in self.chart_catalog),
@@ -353,6 +358,10 @@ class AgentContextSnapshot(StrictModel):
         )
         if any(len(group) != len(set(group)) for group in groups):
             raise ValueError("context identities must be unique")
+        if tuple(item.report_id for item in self.verification_reports) != (
+            self.verification_report_ids
+        ):
+            raise ValueError("context verification reports must match activation references")
         if tuple(item.profile_id for item in self.chart_knowledge) != self.selected_profile_ids:
             raise ValueError("context may inject full cards only for selected profiles")
         authorized_sources = {

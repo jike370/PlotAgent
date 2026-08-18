@@ -109,6 +109,7 @@ export type AgentContextSnapshot = {
   readonly confirmed_intent?: IntentRef | null;
   readonly item_states?: ReadonlyArray<readonly [string, "pending" | "staged" | "running" | "succeeded" | "repairable_failed" | "failed" | "blocked" | "cancelled"]>;
   readonly verification_report_ids?: ReadonlyArray<string>;
+  readonly verification_reports?: ReadonlyArray<VerificationReport>;
   readonly prior_receipt_ids?: ReadonlyArray<string>;
   readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
   readonly selected_sources?: ReadonlyArray<SourceDatasetRef>;

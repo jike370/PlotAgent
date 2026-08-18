@@ -973,6 +973,15 @@
           },
           "title": "Verification Report Ids",
           "type": "array"
+        },
+        "verification_reports": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/VerificationReport"
+          },
+          "maxItems": 64,
+          "title": "Verification Reports",
+          "type": "array"
         }
       },
       "required": [

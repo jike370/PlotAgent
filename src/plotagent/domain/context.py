@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from plotagent.contracts.agent_tasks import AgentActivation, TaskCheckpoint, TaskEnvelope
+from plotagent.contracts.agent_tasks import (
+    AgentActivation,
+    TaskCheckpoint,
+    TaskEnvelope,
+    VerificationReport,
+)
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.domain_knowledge import (
     AgentContextSnapshot,
@@ -49,6 +54,7 @@ class ContextBuilder:
         activation: AgentActivation,
         source_contexts: tuple[UntrustedSourceContext, ...],
         tools: tuple[ContextToolContract, ...],
+        verification_reports: tuple[VerificationReport, ...] = (),
     ) -> AgentContextSnapshot:
         self._validate_task(envelope, checkpoint, activation)
         self._validate_sources(envelope, source_contexts)
@@ -100,6 +106,7 @@ class ContextBuilder:
             "confirmed_intent": activation.confirmed_intent,
             "item_states": activation.item_states,
             "verification_report_ids": activation.verification_report_ids,
+            "verification_reports": verification_reports,
             "prior_receipt_ids": activation.prior_receipt_ids,
             "permission_phase": activation.permission_phase,
             "selected_sources": envelope.selected_sources,
@@ -130,15 +137,17 @@ class ContextBuilder:
         checkpoint: TaskCheckpoint,
         activation: AgentActivation,
     ) -> None:
-        identities = {
-            (envelope.task_id, envelope.task_version),
-            (checkpoint.task_id, checkpoint.task_version),
-            (activation.task_id, activation.task_version),
-        }
-        if len(identities) != 1:
+        if len({envelope.task_id, checkpoint.task_id, activation.task_id}) != 1 or (
+            checkpoint.task_version != activation.task_version
+        ):
             raise ContextBuildError(
                 "CONTEXT_TASK_VERSION_MISMATCH",
                 "task envelope, checkpoint and activation identities differ",
+            )
+        if envelope.task_version > checkpoint.task_version:
+            raise ContextBuildError(
+                "CONTEXT_TASK_VERSION_MISMATCH",
+                "task checkpoint cannot predate its immutable envelope",
             )
         if activation.original_instruction != envelope.original_instruction:
             raise ContextBuildError(

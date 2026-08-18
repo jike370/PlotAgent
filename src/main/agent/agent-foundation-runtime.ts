@@ -177,8 +177,8 @@ function stoppedBeforeConfirmation(result: TaskPumpResult): AgentFoundationRunti
 /**
  * Test-gated Main coordinator for the durable Agent foundation.
  *
- * It intentionally accepts only the first P6 slice: one immutable source,
- * one user-selected chart profile, and no pre-existing plot target.
+ * P7 accepts a bounded batch of immutable sources and user-selected chart
+ * profiles while pre-existing plot targets remain outside this creation slice.
  */
 export class AgentFoundationRuntime {
   private readonly core: PiRuntimeCoreBridgeV2
@@ -200,8 +200,10 @@ export class AgentFoundationRuntime {
   }
 
   canRun(input: AgentFoundationRunInput): boolean {
-    return input.selectedSources.length === 1
-      && input.selectedProfileIds?.length === 1
+    return input.selectedSources.length >= 1
+      && input.selectedSources.length <= 8
+      && (input.selectedProfileIds?.length ?? 0) >= 1
+      && (input.selectedProfileIds?.length ?? 0) <= 34
       && (input.selectedPlotIds === undefined || input.selectedPlotIds.length === 0)
   }
 
@@ -251,30 +253,36 @@ export class AgentFoundationRuntime {
     if (!this.canRun(input)) {
       throw new AgentFoundationRuntimeError(
         'AGENT_V2_SLICE_UNSUPPORTED',
-        '当前新 Agent 入口仅支持一个数据表和一个已选择图类的新建任务。',
+        '当前新 Agent 入口支持 1–8 个数据表和已选择图类的新建批量任务。',
       )
     }
-    const source = input.selectedSources[0]
-    const profileId = input.selectedProfileIds?.[0]
-    if (source === undefined || profileId === undefined) {
+    const profileIds = input.selectedProfileIds
+    if (profileIds === undefined || profileIds.length === 0) {
       throw new AgentFoundationRuntimeError('AGENT_V2_SLICE_UNSUPPORTED', '任务范围不完整。')
     }
     const runToken = this.id()
     const taskId = `task:${runToken}`
     const runId = `workflow:${runToken}`
     this.emit(runId, input.projectId, 'preparing_context', '正在读取所选数据…')
-    const described = await this.core.request('datasets.describe', {
-      project_id: input.projectId,
-      source_dataset_id: source.datasetId,
-      source_version: source.sourceVersion,
-    })
-    const contentHash = sourceContentHash(described, source.datasetId, source.sourceVersion)
-    if (contentHash === undefined) {
-      throw new AgentFoundationRuntimeError(
-        'AGENT_V2_SOURCE_IDENTITY_MISSING',
-        '所选数据缺少不可变内容标识，请重新选择数据表。',
-      )
-    }
+    const selectedSources = await Promise.all(input.selectedSources.map(async (source) => {
+      const described = await this.core.request('datasets.describe', {
+        project_id: input.projectId,
+        source_dataset_id: source.datasetId,
+        source_version: source.sourceVersion,
+      })
+      const contentHash = sourceContentHash(described, source.datasetId, source.sourceVersion)
+      if (contentHash === undefined) {
+        throw new AgentFoundationRuntimeError(
+          'AGENT_V2_SOURCE_IDENTITY_MISSING',
+          '所选数据缺少不可变内容标识，请重新选择数据表。',
+        )
+      }
+      return {
+        source_dataset_id: source.datasetId,
+        source_version: source.sourceVersion,
+        content_hash: contentHash,
+      }
+    }))
     await this.core.request('agent.tasks.create', {
       project_id: input.projectId,
       envelope: {
@@ -285,13 +293,9 @@ export class AgentFoundationRuntime {
         project_revision: input.expectedProjectVersion,
         original_instruction: input.instruction,
         locale: 'zh-CN',
-        selected_sources: [{
-          source_dataset_id: source.datasetId,
-          source_version: source.sourceVersion,
-          content_hash: contentHash,
-        }],
+        selected_sources: selectedSources,
         selected_plots: [],
-        selected_profile_ids: [profileId],
+        selected_profile_ids: [...profileIds],
         authorized_resources: [],
         // Core owns the durable task ceiling. A zero cost budget is a hard stop,
         // so the desktop entry must provide an explicit finite allowance instead
@@ -364,12 +368,41 @@ export class AgentFoundationRuntime {
 
   async execute(input: AgentFoundationPlanInput): Promise<JsonValue> {
     const authority = this.authority(input)
-    await this.core.request(
-      'agent.tasks.execute',
-      { project_id: authority.projectId, task_id: authority.taskId },
-      60_000,
-    )
-    return await this.get(input)
+    let view = record(await this.get(input), 'durable task plan view')
+    let task = record(view.task, 'durable execution task')
+    if (task.state !== 'partial') {
+      const executed = record(await this.core.request(
+        'agent.tasks.execute',
+        { project_id: authority.projectId, task_id: authority.taskId },
+        900_000,
+      ), 'durable execution result')
+      task = record(executed.task, 'durable execution task')
+    }
+    if (task.state === 'partial') {
+      const runId = `workflow:repair:${authority.taskId.replace(/^task:/, '')}`
+      this.emit(runId, authority.projectId, 'planning', '正在分析失败项并保留已成功结果…')
+      const host = new CorePiRuntimeHostV2(this.core, authority.projectId)
+      const runtime = this.createRuntime(
+        host,
+        (event) => this.forwardRuntime(runId, authority.projectId, event),
+      )
+      const pump = new AgentTaskPump({
+        core: this.core,
+        runtime,
+        emit: (event) => this.forwardPump(runId, authority.projectId, event),
+      })
+      const drained = await pump.drain(authority.projectId, authority.taskId)
+      if (drained.reason === 'execution_pending') {
+        this.emit(runId, authority.projectId, 'planning', '正在仅重试失败项…')
+        await this.core.request(
+          'agent.tasks.execute',
+          { project_id: authority.projectId, task_id: authority.taskId },
+          900_000,
+        )
+      }
+    }
+    view = record(await this.get(input), 'durable task plan view')
+    return json(view)
   }
 
   private authority(input: AgentFoundationPlanInput): PlanAuthority {

@@ -705,7 +705,10 @@ class TaskLedgerRepository:
                 "cancelling",
             ),
             "budget_extended": (frozenset(ALLOWED_TASK_TRANSITIONS), None),
-            "partial_accepted": (frozenset({"partial"}), "delivering"),
+            # ``partial`` is the durable terminal projection for a user-accepted
+            # subset. Recording acceptance must not pretend every required claim
+            # passed or route the task through verified completion.
+            "partial_accepted": (frozenset({"partial"}), None),
         }
         if action not in transitions:
             raise ValueError("unsupported user task action")
@@ -1070,6 +1073,23 @@ class TaskLedgerRepository:
             )
             self._append_event_and_checkpoint(connection, event, updated, now)
             return updated
+
+    def get_verification_report(self, report_id: str) -> VerificationReport:
+        row = self._connection.execute(
+            "SELECT report_json FROM agent_verification_reports_v2 WHERE report_id = ?",
+            (report_id,),
+        ).fetchone()
+        if row is None:
+            raise self._not_found("Agent verification report was not found.")
+        report = VerificationReport.model_validate_json(str(row[0]))
+        expected_hash = canonical_hash(
+            report.model_dump(mode="json", exclude={"content_hash"})
+        )
+        if report.content_hash != expected_hash:
+            raise sqlite3.DatabaseError(
+                "Agent verification report hash does not match its content"
+            )
+        return report
 
     def acquire_lease(
         self,

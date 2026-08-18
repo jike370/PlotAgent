@@ -817,7 +817,15 @@ ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
         {"completed_verified", "repairing", "blocked", "partial", "cancelling", "failed"}
     ),
     "partial": frozenset(
-        {"investigating", "executing", "verifying", "delivering", "cancelling", "cancelled"}
+        {
+            "investigating",
+            "executing",
+            "verifying",
+            "repairing",
+            "delivering",
+            "cancelling",
+            "cancelled",
+        }
     ),
     "blocked": frozenset(
         {

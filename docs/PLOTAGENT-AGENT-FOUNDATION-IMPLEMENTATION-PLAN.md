@@ -453,6 +453,20 @@
 - 语义变化生成新 TaskIntentVersion 并重新确认；
 - 用户可接受 partial、仅重试失败项或取消剩余项。
 
+### 当前实现进度（2026-08-18）
+
+- v2 Main 入口已从 P6 的单数据/单图类限制扩为 1–8 个不可变数据源与有界多图类任务；Core
+  接受 1–64 个显式 TaskItem，并继续逐项校验 source/profile authority；
+- 确认后的批量执行按 TaskItem 串行原子推进，成功项立即持久化 PlotDocument、receipt 与 passed
+  VerificationReport；后续项失败不会回滚或重复执行成功项；
+- 执行错误已分类并生成 failed VerificationReport。可修复项进入 `repairable_failed`，任务进入
+  `partial`；不可修复项保持独立失败证据；
+- `verification_failed` activation 会把真实失败报告注入 AgentContext，只允许在失败 item/report 范围内
+  返回 `retry_execution`，不允许借修复改变已确认字段、图类或输出范围；
+- 修复只重试失败项；一次同构重试仍失败即以 `REPAIR_NO_PROGRESS` 收口，不形成 Agent 循环。最终成功时
+  completion 仅引用每项最新 passed report 与 receipt；
+- Main 已能从 partial 重新进入耐久 repair pump；用户稍后也可从任务卡显式触发“仅重试失败项”。
+
 ### 测试
 
 - renderer 技术错误自动修复且无需重新确认；
