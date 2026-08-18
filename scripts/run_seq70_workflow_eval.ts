@@ -596,7 +596,7 @@ function aggregate(taskSetValue: TaskSet, results: CaseResult[], usage: UsageRec
     required_inspection_rate: ratio(inspections.filter((result) => (result.inspection_calls ?? 0) > 0).length, inspections.length),
     runtime_success_rate: ratio(runtime.filter((result) => result.passed).length, runtime.length),
     confirmation_no_side_effect_rate: ratio(confirmationCases.filter((result) => result.confirmation_no_side_effect).length, confirmationCases.length),
-    model_error_rate: ratio(modelErrors.length, modelCases.length),
+    model_error_rate: modelCases.length === 0 ? 0 : ratio(modelErrors.length, modelCases.length),
     latency_median_seconds: percentile(modelLatencies, 0.5),
     latency_p95_seconds: percentile(modelLatencies, 0.95),
     latency_max_seconds: percentile(modelLatencies, 1),
