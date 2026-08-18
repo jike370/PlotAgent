@@ -9,6 +9,7 @@ import pytest
 from plotagent.contracts.agent_tasks import (
     AgentBlocked,
     AgentIntentReady,
+    SelectedPlotRef,
     TaskBudgetLimits,
     TaskEnvelope,
     TaskIntent,
@@ -16,7 +17,7 @@ from plotagent.contracts.agent_tasks import (
 from plotagent.contracts.agent_tools import ToolInvocation
 from plotagent.contracts.base import SourceDatasetRef
 from plotagent.contracts.canonical import JsonValue, canonical_hash
-from plotagent.contracts.workflows import DraftFieldBinding, TaskDraftItem
+from plotagent.contracts.workflows import DraftFieldBinding, DraftSetTitle, TaskDraftItem
 from plotagent.desktop_core.agent_foundation import (
     AgentFoundationError,
     DurableAgentCoreHost,
@@ -473,3 +474,94 @@ def test_core_host_rejects_invalid_intent_before_confirmation(tmp_path: Path) ->
         assert caught.value.code == "FIELD_ALIAS_INVALID"
         assert ledger.get_task(task_envelope.task_id).state == "created"
         assert domain.revision == task_envelope.project_revision
+
+
+def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        task_envelope = TaskEnvelope(
+            task_id="task:edit-existing",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction="Set the selected plot title to Temperature response.",
+            selected_plots=(
+                SelectedPlotRef(
+                    plot_id="plot:existing",
+                    plot_version=3,
+                    profile_id="K01",
+                ),
+            ),
+            budget=TaskBudgetLimits(),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        )
+        ledger.create_task(task_envelope)
+        coordinator = DurableTaskCoordinator(ledger)
+        directive = coordinator.next_action(task_envelope.task_id)
+        activation_id = str(directive["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        host = DurableAgentCoreHost(
+            project,
+            domain,
+            ledger,
+            plot_lookup=lambda plot_id: (3, "K01")
+            if plot_id == "plot:existing"
+            else (-1, "unknown"),
+        )
+        prepared = host.prepare(activation_id)
+        context = cast(dict[str, object], prepared["context"])
+        assert context["selected_sources"] == []
+        assert context["selected_plots"] == [
+            {
+                "plot_id": "plot:existing",
+                "plot_version": 3,
+                "profile_id": "K01",
+            }
+        ]
+        source_contexts = cast(list[dict[str, object]], context["source_contexts"])
+        assert source_contexts == []
+
+        item = TaskDraftItem(
+            task_kind="edit",
+            item_id="item:edit-existing.1",
+            plot_alias="plot_result",
+            profile_id="K01",
+            target_plot_alias="plot_1",
+            visual_actions=(DraftSetTitle(text="Temperature response"),),
+        )
+        draft = TaskIntent(
+            intent_id="intent:edit-existing",
+            intent_version=1,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            created_by_activation_id=activation_id,
+            summary="Update the selected plot title.",
+            items=(item,),
+            context_hash=cast(str, context["content_hash"]),
+            content_hash="0" * 64,
+        )
+        draft = draft.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    draft.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        candidate = AgentIntentReady(
+            activation_id=activation_id,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            intent=draft,
+        )
+        validated = host.validate_yield(
+            activation_id,
+            cast(JsonValue, candidate.model_dump(mode="json")),
+        )
+        checkpoint = host.accept_yield(validated)
+        assert checkpoint.state == "intent_staged"
+        plan = ledger.get_plan(task_envelope.task_id)
+        assert plan.items[0].task_kind == "edit"
+        assert plan.items[0].target_plot_id == "plot:existing"
+        assert plan.items[0].target_plot_version == 3
+        assert plan.items[0].visual_actions[0].operation == "set_title"

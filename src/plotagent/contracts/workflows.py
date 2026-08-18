@@ -159,7 +159,7 @@ class WorkflowContext(StrictModel):
     plots: Annotated[tuple[WorkflowPlot, ...], Field(max_length=64)] = ()
     selected_source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=8)] = ()
     selected_plot_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=8)] = ()
-    selected_profile_ids: Annotated[tuple[Token, ...], Field(max_length=8)] = ()
+    selected_profile_ids: Annotated[tuple[Token, ...], Field(max_length=64)] = ()
     allowed_profile_ids: Annotated[tuple[Token, ...], Field(min_length=1)]
     budget: WorkflowBudget
 

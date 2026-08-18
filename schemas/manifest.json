@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "e2c7e3c462642449cde31b0d18647d40adfc113ceb035c441451718b1a100c1c"
+      "sha256": "1828d3cf4e5291ae22d3fbd0c46afac35825cbdb484a890f93982d8c26b493c3"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -194,7 +194,7 @@
     },
     {
       "path": "schemas/workflow-context.schema.json",
-      "sha256": "0209924deca9b7bf0de0344b0e74a160b4b252c9c7bd2fe72674ab6594cb262a"
+      "sha256": "12e29f97c6e2324e8b7695a7eb385b1f814200478ed641ac61ad393f5361ea9a"
     },
     {
       "path": "schemas/workflow-decision.schema.json",

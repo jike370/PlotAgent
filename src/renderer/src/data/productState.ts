@@ -307,12 +307,6 @@ export interface WorkflowOutcome {
   executionCount?: number
 }
 
-export interface WorkflowRecipeView {
-  recipeId: string
-  displayName: string
-  profileIds: string[]
-}
-
 type JsonRecord = Record<string, JsonValue>
 
 export function isJsonRecord(value: JsonValue | undefined): value is JsonRecord {
@@ -835,29 +829,6 @@ export function readWorkflowOutcome(value: JsonValue): WorkflowOutcome {
   }
   if (outcome === 'unsupported' && root !== undefined) return { kind: 'unsupported', title: '当前不支持', message: decisionMessage(root) }
   return { kind: 'rejected', title: '无法识别结果', message: 'Core 未返回受支持的工作流结果。' }
-}
-
-export function readWorkflowRecipes(value: JsonValue): WorkflowRecipeView[] {
-  if (!isJsonRecord(value) || !Array.isArray(value.workflow_recipes)) return []
-  return value.workflow_recipes.flatMap((item): WorkflowRecipeView[] => {
-    if (
-      !isJsonRecord(item)
-      || typeof item.recipe_id !== 'string'
-      || typeof item.display_name !== 'string'
-    ) return []
-    const template = isJsonRecord(item.draft_template) ? item.draft_template : undefined
-    const items = template && Array.isArray(template.items) ? template.items : []
-    const profileIds = [...new Set(items.flatMap((draftItem) => (
-      isJsonRecord(draftItem) && typeof draftItem.profile_id === 'string'
-        ? [draftItem.profile_id]
-        : []
-    )))]
-    return [{
-      recipeId: item.recipe_id,
-      displayName: item.display_name,
-      profileIds,
-    }]
-  })
 }
 
 export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined {

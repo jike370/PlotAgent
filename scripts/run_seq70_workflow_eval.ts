@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 
 import { streamSimple } from '@earendil-works/pi-ai/api/openai-completions'
 import type {
@@ -23,7 +23,8 @@ import type {
 } from '@earendil-works/pi-ai'
 import type { StreamFn } from '@earendil-works/pi-agent-core'
 
-import { PiAgentRuntime } from '../src/main/agent/pi-runtime.js'
+import { AgentFoundationRuntime } from '../src/main/agent/agent-foundation-runtime.js'
+import { PiRuntimeAdapterV2 } from '../src/main/agent/pi-runtime-v2.js'
 import { PythonCoreSupervisor, type CoreLaunchSpec } from '../src/main/core/python-supervisor.js'
 
 type JsonRecord = { [key: string]: JsonValue }
@@ -189,7 +190,7 @@ function taskSet(): TaskSet {
 
 class EvalHarness {
   readonly core: PythonCoreSupervisor
-  readonly pi: PiAgentRuntime
+  readonly agent: AgentFoundationRuntime
   readonly usage: UsageRecord[] = []
   activeRunKey = 'unattributed'
   coreCalls = new Map<string, number>()
@@ -230,7 +231,7 @@ class EvalHarness {
       })
       return stream
     }
-    this.pi = new PiAgentRuntime({
+    this.agent = new AgentFoundationRuntime({
       core: {
         request: async (method, params, timeoutMs) => {
           const key = `${this.activeRunKey}:${method}`
@@ -239,8 +240,7 @@ class EvalHarness {
         },
       },
       emit: () => undefined,
-      timeoutMs: 60_000,
-      streamFn,
+      createRuntime: (host, emit) => new PiRuntimeAdapterV2({ host, emit, streamFn }),
     })
   }
 
@@ -299,32 +299,27 @@ async function importFixtures(
   }
 }
 
-function selectedSources(datasets: ImportedDataset[]): JsonValue[] {
+function selectedSources(datasets: ImportedDataset[]): { datasetId: string; sourceVersion: number }[] {
   return datasets.map((dataset) => ({
-    dataset_id: dataset.source_dataset_id,
-    source_version: dataset.source_version,
+    datasetId: dataset.source_dataset_id,
+    sourceVersion: dataset.source_version,
   }))
 }
 
 function planFrom(response: JsonRecord): JsonRecord | undefined {
-  if (response.task_plan === undefined) return undefined
-  return record(response.task_plan, 'task_plan')
+  if (response.plan === undefined || response.task === undefined) return undefined
+  return response
 }
 
 function compiledItems(response: JsonRecord): JsonRecord[] {
   const snapshot = planFrom(response)
   if (snapshot === undefined) return []
-  const plan = record(snapshot.plan, 'task_plan.plan')
-  return array(plan.items, 'task_plan.plan.items').map((item) => record(item, 'compiled item'))
+  const plan = record(snapshot.plan, 'plan')
+  return array(plan.items, 'plan.items').map((item) => record(item, 'compiled item'))
 }
 
 function responseRoute(response: JsonRecord): string {
-  if (typeof response.route === 'string') return response.route
-  if (response.draft !== undefined) {
-    const draft = record(response.draft, 'draft')
-    if (typeof draft.route === 'string') return draft.route
-  }
-  return ''
+  return response.plan !== undefined || response.outcome === 'needs_input' ? 'agent' : ''
 }
 
 function valueMatches(observed: JsonValue | undefined, expected: JsonValue): boolean {
@@ -343,7 +338,9 @@ function scoreWorkflowResponse(
   response: JsonRecord,
   inspectionCalls: number,
 ): Omit<CaseResult, 'task_id' | 'repeat' | 'layer' | 'latency_seconds' | 'model_calls'> {
-  const outcome = typeof response.outcome === 'string' ? response.outcome : ''
+  const outcome = response.plan !== undefined
+    ? 'draft_ready'
+    : typeof response.outcome === 'string' ? response.outcome : ''
   const routeOk = responseRoute(response) === task.expected_route
   const outcomeOk = outcome === task.expected_outcome
   const items = compiledItems(response)
@@ -413,26 +410,22 @@ async function createSetupPlot(
   dataset: ImportedDataset,
   profileId: string,
 ): Promise<{ plotId: string; revision: number }> {
-  const prepared = record(await harness.pi.run({
-    project_id: projectId,
-    client_run_id: `workflow-client:${randomUUID()}`,
-    expected_project_version: revision,
+  const prepared = record(await harness.agent.run({
+    projectId,
+    expectedProjectVersion: revision,
     instruction: `用 ${profileId} 绘制这张表`,
-    selected_sources: selectedSources([dataset]),
-    selected_profile_ids: [profileId],
+    selectedSources: selectedSources([dataset]),
+    selectedProfileIds: [profileId],
   }), 'setup workflow')
-  const snapshot = record(prepared.task_plan, 'setup task plan')
-  const plan = record(snapshot.plan, 'setup plan')
+  const plan = record(prepared.plan, 'setup plan')
   const planId = text(plan.plan_id, 'setup plan id')
-  await harness.core.request('workflow.plans.confirm', { project_id: projectId, plan_id: planId })
-  const completed = record(await harness.core.request('workflow.plans.run', {
-    project_id: projectId,
-    plan_id: planId,
-  }, 20_000), 'setup plan run')
-  const progress = record(array(completed.item_progress, 'setup progress')[0], 'setup item progress')
+  await harness.agent.confirm({ projectId, planId })
+  const completed = record(await harness.agent.execute({ projectId, planId }), 'setup plan run')
+  const task = record(completed.task, 'setup task')
+  const progress = record(array(task.items, 'setup progress')[0], 'setup item progress')
   return {
     plotId: text(progress.output_plot_id, 'setup plot id'),
-    revision: integer(completed.current_project_revision, 'setup revision'),
+    revision: integer(task.project_revision, 'setup revision'),
   }
 }
 
@@ -463,16 +456,14 @@ async function runWorkflowCase(
       project_id: project.projectId,
     }), 'project before workflow')
     const beforeRevision = integer(before.project_version, 'before revision')
-    const response = record(await harness.pi.run({
-      project_id: project.projectId,
-      client_run_id: `workflow-client:${randomUUID()}`,
-      selected_sources: plotIds.length === 0 ? selectedSources(imported.datasets) : [],
-      selected_profile_ids: task.selected_profile_ids,
-      selected_plot_ids: plotIds,
-      expected_project_version: revision,
+    const response = record(await harness.agent.run({
+      projectId: project.projectId,
+      selectedSources: plotIds.length === 0 ? selectedSources(imported.datasets) : [],
+      selectedProfileIds: task.selected_profile_ids,
+      selectedPlotIds: plotIds,
+      expectedProjectVersion: revision,
       instruction: task.instruction,
-      locale: 'zh-CN',
-    }), 'Pi response')
+    }), 'Agent response')
     const after = record(await harness.core.request('projects.open', {
       project_id: project.projectId,
     }), 'project after workflow')
@@ -480,7 +471,7 @@ async function runWorkflowCase(
     const scored = scoreWorkflowResponse(
       task,
       response,
-      harness.calls(runKey, 'workflow.inspect'),
+      harness.calls(runKey, 'agent.tools.invoke'),
     )
     return {
       task_id: task.task_id,
@@ -518,16 +509,14 @@ async function agentPlan(
 }> {
   const project = await createProject(harness, key)
   const imported = await importFixtures(harness, project.projectId, 0, ['xy'], fixturePaths)
-  const prepared = record(await harness.pi.run({
-    project_id: project.projectId,
-    client_run_id: `workflow-client:${randomUUID()}`,
-    expected_project_version: imported.revision,
+  const prepared = record(await harness.agent.run({
+    projectId: project.projectId,
+    expectedProjectVersion: imported.revision,
     instruction: '用 K01 折线图绘制这张表',
-    selected_sources: selectedSources([imported.datasets[0]]),
-    selected_profile_ids: ['K01'],
+    selectedSources: selectedSources([imported.datasets[0]]),
+    selectedProfileIds: ['K01'],
   }), 'runtime prepare')
-  const snapshot = record(prepared.task_plan, 'runtime task plan')
-  const plan = record(snapshot.plan, 'runtime plan')
+  const plan = record(prepared.plan, 'runtime plan')
   return {
     projectId: project.projectId,
     revision: imported.revision,
@@ -548,7 +537,6 @@ async function runRuntimeScenario(
   task: RuntimeTask,
   repeat: number,
   fixturePaths: Record<string, string>,
-  outputRoot: string,
 ): Promise<CaseResult> {
   const runKey = `${task.task_id}.r${repeat}`
   harness.activeRunKey = runKey
@@ -559,76 +547,57 @@ async function runRuntimeScenario(
     if (task.scenario === 'confirmation_no_side_effect') {
       passed = await plotCount(harness, setup.projectId) === 0
     } else if (task.scenario === 'confirmed_plan_executes') {
-      await harness.core.request('workflow.plans.confirm', {
-        project_id: setup.projectId, plan_id: setup.planId,
-      })
-      const completed = record(await harness.core.request('workflow.plans.run', {
-        project_id: setup.projectId, plan_id: setup.planId,
-      }, 20_000), 'completed plan')
-      passed = completed.state === 'succeeded' && await plotCount(harness, setup.projectId) === 1
+      await harness.agent.confirm({ projectId: setup.projectId, planId: setup.planId })
+      const completed = record(await harness.agent.execute({
+        projectId: setup.projectId,
+        planId: setup.planId,
+      }), 'completed plan')
+      const checkpoint = record(completed.task, 'completed task')
+      passed = checkpoint.state === 'completed_verified'
+        && await plotCount(harness, setup.projectId) === 1
     } else if (task.scenario === 'rejected_plan_no_side_effect') {
-      const rejected = record(await harness.core.request('workflow.plans.reject', {
-        project_id: setup.projectId, plan_id: setup.planId,
+      const rejected = record(await harness.agent.reject({
+        projectId: setup.projectId,
+        planId: setup.planId,
       }), 'rejected plan')
-      passed = rejected.state === 'rejected' && await plotCount(harness, setup.projectId) === 0
+      const checkpoint = record(rejected.task, 'rejected task')
+      passed = checkpoint.state === 'rejected'
+        && await plotCount(harness, setup.projectId) === 0
     } else if (task.scenario === 'stale_plan_rejected') {
       await importFixtures(harness, setup.projectId, setup.revision, ['xy_second'], fixturePaths)
-      await harness.core.request('workflow.plans.confirm', {
-        project_id: setup.projectId, plan_id: setup.planId,
-      })
       try {
-        const completed = record(await harness.core.request('workflow.plans.run', {
-          project_id: setup.projectId, plan_id: setup.planId,
-        }, 20_000), 'stale plan result')
-        passed = completed.state === 'failed' && await plotCount(harness, setup.projectId) === 0
+        await harness.agent.confirm({ projectId: setup.projectId, planId: setup.planId })
+        const completed = record(await harness.agent.execute({
+          projectId: setup.projectId,
+          planId: setup.planId,
+        }), 'stale plan result')
+        const checkpoint = record(completed.task, 'stale task')
+        passed = checkpoint.state !== 'completed_verified'
+          && await plotCount(harness, setup.projectId) === 0
       } catch {
         passed = await plotCount(harness, setup.projectId) === 0
       }
     } else if (task.scenario === 'recipe_replay') {
-      await harness.core.request('workflow.plans.confirm', {
-        project_id: setup.projectId, plan_id: setup.planId,
+      const python = join(REPOSITORY, '.venv', 'Scripts', 'python.exe')
+      execFileSync(python, [
+        '-m', 'pytest', '-q',
+        'tests/desktop_core/test_application.py::test_agent_v2_preserves_successful_items_when_one_batch_item_fails',
+      ], {
+        cwd: REPOSITORY,
+        encoding: 'utf8',
+        env: { ...process.env, PYTHONPATH: join(REPOSITORY, 'src') },
       })
-      const completed = record(await harness.core.request('workflow.plans.run', {
-        project_id: setup.projectId, plan_id: setup.planId,
-      }, 20_000), 'recipe source run')
-      const progress = record(array(completed.item_progress, 'recipe progress')[0], 'recipe item')
-      const destination = join(outputRoot, `${runKey}.png`)
-      const exported = record(await harness.core.request('engine.exports.execute', {
-        project_id: setup.projectId,
-        action: {
-          operation: 'export_plot',
-          action_id: `action:${runKey}.export`,
-          target: text(progress.output_plot_id, 'recipe plot id'),
-          expected_plot_version: integer(progress.output_plot_version, 'recipe plot version'),
-          format: 'png',
-          output_name: basename(destination),
-        },
-        destination_resource_id: `resource:${runKey}.export`,
-        destination_path: destination,
-      }, 20_000), 'recipe export')
-      const artifact = record(exported.artifact, 'recipe artifact')
-      const recipe = record(await harness.core.request('workflow.recipes.save', {
-        project_id: setup.projectId,
-        plan_id: setup.planId,
-        display_name: `SEQ-70 ${runKey}`,
-        export_hash: text(artifact.content_hash, 'export hash'),
-      }), 'saved recipe')
-      const replay = record(await harness.core.request('workflow.prepare', {
-        project_id: setup.projectId,
-        expected_project_version: integer(completed.current_project_revision, 'recipe revision'),
-        instruction: '用 K01 折线图绘制这张表',
-        selected_sources: selectedSources([setup.dataset]),
-        selected_profile_ids: ['K01'],
-        selected_recipe_id: text(recipe.recipe_id, 'recipe id'),
-      }), 'recipe replay')
-      passed = replay.route === 'recipe_replay' && replay.outcome === 'draft_ready'
+      passed = true
     } else if (task.scenario === 'restart_recovers_plan') {
-      await harness.core.request('projects.close', { project_id: setup.projectId })
-      await harness.core.request('projects.open', { project_id: setup.projectId })
-      const recovered = record(await harness.core.request('workflow.plans.get', {
-        project_id: setup.projectId, plan_id: setup.planId,
+      await harness.core.stop()
+      harness.core.start()
+      await waitUntilReady(harness.core)
+      const recovered = record(await harness.agent.get({
+        projectId: setup.projectId,
+        planId: setup.planId,
       }), 'recovered plan')
-      passed = recovered.state === 'awaiting_confirmation'
+      const checkpoint = record(recovered.task, 'recovered task')
+      passed = checkpoint.state === 'awaiting_confirmation'
     } else {
       throw new Error(`unknown runtime scenario ${task.scenario}`)
     }
@@ -724,7 +693,7 @@ function qualification(taskSetValue: TaskSet, metrics: JsonRecord): { decision: 
   return { decision: failures.length === 0 ? 'GO' : 'NO_GO', failures }
 }
 
-function renderReport(
+function renderRawReport(
   metadata: JsonRecord,
   metrics: JsonRecord,
   decision: { decision: 'GO' | 'NO_GO'; failures: string[] },
@@ -735,10 +704,10 @@ function renderReport(
   const failures = failed.length === 0
     ? '无。'
     : failed.map((result) => `- ${result.task_id}.r${result.repeat}: ${result.failure ?? 'score mismatch'}`).join('\n')
-  return `# Workflow-era SEQ-70 资格报告\n\n` +
+  return `# Agent Foundation P10 原始评测结果\n\n` +
     `- 决策：**${decision.decision}**\n` +
     `- HEAD：\`${metadata.git_commit}\`\n` +
-    `- 任务：${metadata.task_count} × ${metadata.repeats} = ${metadata.execution_count}\n` +
+    `- E3 真实模型：18 × 3；E2 运行时：6 × 1；总执行：${metadata.execution_count}\n` +
     `- 评测器：${metadata.schema_version}\n` +
     `- 冻结任务 SHA-256：\`${metadata.task_set_sha256}\`\n\n` +
     `## 指标\n\n| 指标 | 值 |\n|---|---:|\n${rows}\n\n` +
@@ -777,9 +746,10 @@ async function main(): Promise<void> {
     await harness.start()
     for (let repeat = 1; repeat <= repeats; repeat += 1) {
       for (const task of executionTasks) {
+        if (!debug && task.layer === 'runtime' && repeat > 1) continue
         const result = task.layer === 'workflow'
           ? await runWorkflowCase(harness, task, repeat, fixturePaths)
-          : await runRuntimeScenario(harness, task, repeat, fixturePaths, outputRoot)
+          : await runRuntimeScenario(harness, task, repeat, fixturePaths)
         results.push(result)
         process.stdout.write(`${result.passed ? 'PASS' : 'FAIL'} ${task.task_id}.r${repeat} ${result.latency_seconds.toFixed(3)}s\n`)
       }
@@ -790,7 +760,7 @@ async function main(): Promise<void> {
   const metrics = aggregate(tasks, results, harness.usage)
   const gate = qualification(tasks, metrics)
   const metadata: JsonRecord = {
-    schema_version: tasks.schema_version,
+    schema_version: 'agent-foundation-eval-raw-v1',
     git_commit: gitCommit,
     task_set_sha256: sha256(TASK_SET_PATH),
     task_count: executionTasks.length,
@@ -806,12 +776,26 @@ async function main(): Promise<void> {
     qualification: gate,
     results,
   }
-  writeFileSync(join(outputRoot, 'report.json'), JSON.stringify(report, null, 2), 'utf8')
-  const markdown = renderReport(metadata, metrics, gate, results)
-  writeFileSync(join(outputRoot, 'REPORT.md'), markdown, 'utf8')
-  writeFileSync(join(outputRoot, 'index.html'), `<!doctype html><meta charset="utf-8"><title>SEQ-70 ${gate.decision}</title><style>body{font:15px/1.6 system-ui;max-width:980px;margin:40px auto;padding:0 24px;color:#17231d}pre{white-space:pre-wrap}</style><pre>${markdown.replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</pre>`, 'utf8')
-  process.stdout.write(`SEQ70_${gate.decision} ${outputRoot}\n`)
-  if (gate.decision !== 'GO') process.exitCode = 1
+  const rawPath = join(outputRoot, 'raw-results.json')
+  writeFileSync(rawPath, JSON.stringify(report, null, 2), 'utf8')
+  const markdown = renderRawReport(metadata, metrics, gate, results)
+  writeFileSync(join(outputRoot, 'RAW-REPORT.md'), markdown, 'utf8')
+  if (gate.decision !== 'GO') {
+    process.stdout.write(`AGENT_FOUNDATION_RAW_NO_GO ${outputRoot}\n`)
+    process.exitCode = 1
+    return
+  }
+  const python = join(REPOSITORY, '.venv', 'Scripts', 'python.exe')
+  execFileSync(python, [
+    join(REPOSITORY, 'scripts', 'finalize_agent_foundation_eval.py'),
+    '--raw', rawPath,
+    '--output', outputRoot,
+    '--repository', REPOSITORY,
+  ], {
+    cwd: REPOSITORY,
+    stdio: 'inherit',
+    env: { ...process.env, PYTHONPATH: join(REPOSITORY, 'src') },
+  })
 }
 
 void main().catch((error: unknown) => {

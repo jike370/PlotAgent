@@ -21,6 +21,15 @@ class FakeCore {
         content_hash: 'a'.repeat(64),
       }
     }
+    if (method === 'engine.plots.get') {
+      return {
+        document: {
+          plot_id: 'plot:existing',
+          plot_version: 3,
+          profile_id: 'K01',
+        },
+      }
+    }
     if (method === 'agent.tasks.create') return { state: 'created' }
     if (method === 'agent.tasks.list') {
       return {
@@ -371,6 +380,52 @@ describe('AgentFoundationRuntime', () => {
           selected_profile_ids: ['K01', 'K02'],
           parent_task_id: 'task:previous',
           relationship: 'follow_up',
+        },
+      },
+    })
+  })
+
+  it('accepts an existing plot without a source or explicit chart selection', async () => {
+    const core = new FakeCore()
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+      id: () => 'fixed',
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
+          outcome: 'cancelled',
+          activation_id: activation.activation_id,
+          task_id: activation.task_id,
+          task_version: activation.task_version,
+          message: 'Fake typed yield.',
+        }),
+      }),
+    })
+
+    const input = {
+      projectId: 'project:test',
+      selectedSources: [],
+      selectedPlotIds: ['plot:existing'],
+      expectedProjectVersion: 4,
+      instruction: '把标题改成温度响应。',
+    }
+    expect(runtime.canRun(input)).toBe(true)
+    await runtime.run(input)
+
+    expect(core.calls.find((call) => call.method === 'engine.plots.get')).toMatchObject({
+      params: { project_id: 'project:test', plot_id: 'plot:existing' },
+    })
+    expect(core.calls.find((call) => call.method === 'agent.tasks.create')).toMatchObject({
+      params: {
+        envelope: {
+          selected_sources: [],
+          selected_plots: [{
+            plot_id: 'plot:existing',
+            plot_version: 3,
+            profile_id: 'K01',
+          }],
+          selected_profile_ids: [],
         },
       },
     })

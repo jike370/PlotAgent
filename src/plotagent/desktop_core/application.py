@@ -171,20 +171,6 @@ class DesktopApplication:
             "engine.exports.execute": self._engine_exports_execute,
             "engine.plots.list": self._engine_plots_list,
             "engine.plots.get": self._engine_plots_get,
-            "workflow.prepare": self._workflow_prepare,
-            "workflow.submit_draft": self._workflow_submit_draft,
-            "workflow.inspect": self._workflow_inspect,
-            "workflow.preview_operation": self._workflow_preview_operation,
-            "workflow.ask_user": self._workflow_ask_user,
-            "workflow.report_unsupported": self._workflow_report_unsupported,
-            "workflow.plans.get": self._workflow_plan_get,
-            "workflow.plans.list": self._workflow_plan_list,
-            "workflow.plans.confirm": self._workflow_plan_confirm,
-            "workflow.plans.reject": self._workflow_plan_reject,
-            "workflow.plans.run": self._workflow_plan_run,
-            "workflow.plans.resume": self._workflow_plan_run,
-            "workflow.recipes.save": self._workflow_recipe_save,
-            "workflow.recipes.list": self._workflow_recipe_list,
             "agent.tasks.create": self._agent_task_create,
             "agent.tasks.get": self._agent_task_get,
             "agent.tasks.list": self._agent_task_list,
@@ -544,190 +530,6 @@ class DesktopApplication:
         values = _object(params, required={"project_id"})
         session = self._session(_text(values["project_id"], "project_id"))
         return cast(RpcJsonValue, session.engine.catalog_payload())
-
-    def _workflow_prepare(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
-        values = _object(
-            params,
-            required={
-                "project_id",
-                "expected_project_version",
-                "instruction",
-                "selected_sources",
-            },
-            optional={
-                "selected_profile_id",
-                "selected_profile_ids",
-                "selected_plot_ids",
-                "selected_recipe_id",
-                "continuation_workflow_run_id",
-                "locale",
-            },
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(RpcJsonValue, session.workflow.prepare(cast(dict[str, object], values)))
-
-    def _workflow_submit_draft(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(
-            params,
-            required={"project_id", "workflow_run_id", "task_draft"},
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(
-            RpcJsonValue,
-            session.workflow.submit_draft(
-                _text(values["workflow_run_id"], "workflow_run_id"),
-                values["task_draft"],
-            ),
-        )
-
-    def _workflow_inspect(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
-        values = _object(
-            params,
-            required={"project_id", "workflow_run_id", "tool_name", "arguments"},
-        )
-        arguments = values["arguments"]
-        if not isinstance(arguments, dict):
-            raise RpcServiceError("INVALID_PARAMS", "Inspection arguments must be an object.")
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(
-            RpcJsonValue,
-            session.workflow.inspect(
-                _text(values["workflow_run_id"], "workflow_run_id"),
-                _text(values["tool_name"], "tool_name"),
-                cast(dict[str, object], arguments),
-            ),
-        )
-
-    def _workflow_plan_get(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "plan_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(
-            RpcJsonValue,
-            session.workflow.repository.get_plan(_text(values["plan_id"], "plan_id")).model_dump(
-                mode="json"
-            ),
-        )
-
-    def _workflow_plan_list(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        return {
-            "task_plans": [
-                item.model_dump(mode="json") for item in session.workflow.repository.list_plans()
-            ]
-        }
-
-    def _workflow_plan_confirm(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "plan_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(
-            RpcJsonValue,
-            session.workflow.confirm(_text(values["plan_id"], "plan_id"), True),
-        )
-
-    def _workflow_plan_reject(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "plan_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(
-            RpcJsonValue,
-            session.workflow.confirm(_text(values["plan_id"], "plan_id"), False),
-        )
-
-    def _workflow_plan_run(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "plan_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(
-            RpcJsonValue,
-            session.workflow.run(_text(values["plan_id"], "plan_id")),
-        )
-
-    def _workflow_recipe_save(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(
-            params,
-            required={"project_id", "plan_id", "display_name", "export_hash"},
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(
-            RpcJsonValue,
-            session.workflow.save_recipe(
-                plan_id=_text(values["plan_id"], "plan_id"),
-                display_name=_text(values["display_name"], "display_name"),
-                export_hash=_text(values["export_hash"], "export_hash"),
-            ),
-        )
-
-    def _workflow_recipe_list(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(params, required={"project_id"})
-        session = self._session(_text(values["project_id"], "project_id"))
-        return {
-            "workflow_recipes": [
-                item.model_dump(mode="json") for item in session.workflow.repository.list_recipes()
-            ]
-        }
-
-    def _workflow_ask_user(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
-        values = _object(
-            params,
-            required={"project_id", "workflow_run_id", "questions"},
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(
-            RpcJsonValue,
-            session.workflow.ask_user(
-                _text(values["workflow_run_id"], "workflow_run_id"),
-                values["questions"],
-            ),
-        )
-
-    def _workflow_report_unsupported(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(
-            params,
-            required={"project_id", "workflow_run_id", "reason_code", "message"},
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        return cast(
-            RpcJsonValue,
-            session.workflow.report_unsupported(
-                _text(values["workflow_run_id"], "workflow_run_id"),
-                _text(values["reason_code"], "reason_code"),
-                _text(values["message"], "message"),
-            ),
-        )
-
-    def _workflow_preview_operation(
-        self, _context: RpcContext, params: RpcJsonValue | None
-    ) -> RpcJsonValue:
-        values = _object(
-            params,
-            required={"project_id", "workflow_run_id", "operation"},
-            optional={"limit"},
-        )
-        session = self._session(_text(values["project_id"], "project_id"))
-        limit = values.get("limit", 5)
-        if not isinstance(limit, int) or isinstance(limit, bool):
-            raise RpcServiceError("INVALID_PARAMS", "limit must be an integer.")
-        return cast(
-            RpcJsonValue,
-            session.workflow.preview_operation(
-                _text(values["workflow_run_id"], "workflow_run_id"),
-                values["operation"],
-                limit=limit,
-            ),
-        )
 
     def _engine_actions_execute(
         self, context: RpcContext, params: RpcJsonValue | None
@@ -1207,11 +1009,17 @@ class DesktopApplication:
             engine=engine,
             repository=workflow_repository,
         )
+
+        def lookup_plot(plot_id: str) -> tuple[int, str]:
+            document = engine.documents.get(plot_id).document
+            return document.plot_version, document.profile_id
+
         task_host = DurableAgentCoreHost(
             store,
             domain,
             durable_tasks,
             catalog=engine.catalog,
+            plot_lookup=lookup_plot,
         )
         session = ProjectSession(
             store=store,

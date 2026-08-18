@@ -179,8 +179,8 @@ function stoppedBeforeConfirmation(result: TaskPumpResult): AgentFoundationRunti
 /**
  * Test-gated Main coordinator for the durable Agent foundation.
  *
- * P7 accepts a bounded batch of immutable sources and user-selected chart
- * profiles while pre-existing plot targets remain outside this creation slice.
+ * The desktop coordinator accepts bounded immutable source and plot selections;
+ * Core remains the authority for profile, target, confirmation, and execution scope.
  */
 export class AgentFoundationRuntime {
   private readonly core: PiRuntimeCoreBridgeV2
@@ -205,11 +205,11 @@ export class AgentFoundationRuntime {
 
   canRun(input: AgentFoundationRunInput): boolean {
     const durableContinuation = input.continuationWorkflowRunId?.startsWith('task:') === true
-    return (durableContinuation || input.selectedSources.length >= 1)
+    const plotCount = input.selectedPlotIds?.length ?? 0
+    return (durableContinuation || input.selectedSources.length >= 1 || plotCount >= 1)
       && input.selectedSources.length <= 8
-      && (durableContinuation || (input.selectedProfileIds?.length ?? 0) >= 1)
       && (input.selectedProfileIds?.length ?? 0) <= 34
-      && (input.selectedPlotIds === undefined || input.selectedPlotIds.length === 0)
+      && plotCount <= 8
   }
 
   ownsPlan(planId: string): boolean {
@@ -264,16 +264,13 @@ export class AgentFoundationRuntime {
     if (!this.canRun(input)) {
       throw new AgentFoundationRuntimeError(
         'AGENT_V2_SLICE_UNSUPPORTED',
-        '当前新 Agent 入口支持 1–8 个数据表和已选择图类的新建批量任务。',
+        '当前 Agent 入口需要已选择的数据表、图形对象，或一项等待回复的任务。',
       )
     }
     if (input.continuationWorkflowRunId?.startsWith('task:') === true) {
       return await this.continueTask(input, input.continuationWorkflowRunId)
     }
-    const profileIds = input.selectedProfileIds
-    if (profileIds === undefined || profileIds.length === 0) {
-      throw new AgentFoundationRuntimeError('AGENT_V2_SLICE_UNSUPPORTED', '任务范围不完整。')
-    }
+    const profileIds = input.selectedProfileIds ?? []
     const runToken = this.id()
     const taskId = `task:${runToken}`
     const runId = `workflow:${runToken}`
@@ -297,6 +294,25 @@ export class AgentFoundationRuntime {
         content_hash: contentHash,
       }
     }))
+    const selectedPlots = await Promise.all((input.selectedPlotIds ?? []).map(async (plotId) => {
+      const described = record(await this.core.request('engine.plots.get', {
+        project_id: input.projectId,
+        plot_id: plotId,
+      }, 15_000), 'selected plot')
+      const document = record(described.document, 'selected plot document')
+      const resolvedPlotId = string(document.plot_id, 'selected plot ID')
+      if (resolvedPlotId !== plotId) {
+        throw new AgentFoundationRuntimeError(
+          'AGENT_V2_PLOT_IDENTITY_MISMATCH',
+          '所选图形身份已经变化，请重新选择图形。',
+        )
+      }
+      return {
+        plot_id: resolvedPlotId,
+        plot_version: integer(document.plot_version, 'selected plot version'),
+        profile_id: string(document.profile_id, 'selected plot profile'),
+      }
+    }))
     await this.core.request('agent.tasks.create', {
       project_id: input.projectId,
       envelope: {
@@ -311,7 +327,7 @@ export class AgentFoundationRuntime {
           : { parent_task_id: input.parentTaskId, relationship: 'follow_up' }),
         locale: 'zh-CN',
         selected_sources: selectedSources,
-        selected_plots: [],
+        selected_plots: selectedPlots,
         selected_profile_ids: [...profileIds],
         authorized_resources: [],
         // Core owns the durable task ceiling. A zero cost budget is a hard stop,

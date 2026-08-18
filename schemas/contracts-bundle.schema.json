@@ -15967,7 +15967,7 @@
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
             "type": "string"
           },
-          "maxItems": 8,
+          "maxItems": 64,
           "title": "Selected Profile Ids",
           "type": "array"
         },

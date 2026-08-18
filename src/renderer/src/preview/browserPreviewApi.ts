@@ -369,7 +369,6 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       workflowPlans.set(plan.planId, plan)
       return ok({ outcome: 'draft_ready', task_plan: workflowPlanRecord(plan) })
     },
-    submitWorkflowDraft: async () => missing('界面预览不直接提交外部任务草稿。'),
     getTaskPlan: async ({ planId }) => {
       const plan = workflowPlans.get(planId)
       return plan === undefined ? missing('未找到任务计划。') : ok(workflowPlanRecord(plan))
@@ -379,10 +378,6 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
         .filter((plan) => plan.projectId === projectId)
         .map(workflowPlanRecord),
     }),
-    saveWorkflowRecipe: async ({ displayName }) => ok({
-      recipe_id: 'recipe:preview', recipe_version: 1, display_name: displayName,
-    }),
-    listWorkflowRecipes: async () => ok({ workflow_recipes: [] }),
     confirmTaskPlan: async ({ planId, accept }) => {
       const plan = workflowPlans.get(planId)
       if (plan === undefined) return missing('未找到任务计划。')

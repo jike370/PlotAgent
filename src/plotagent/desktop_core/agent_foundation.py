@@ -29,6 +29,7 @@ from plotagent.contracts.workflows import (
     WorkflowBudget,
     WorkflowContext,
     WorkflowField,
+    WorkflowPlot,
     WorkflowScalar,
     WorkflowSource,
 )
@@ -130,6 +131,7 @@ class DurableAgentCoreHost:
     domain: ProjectDomainRepository
     ledger: TaskLedgerRepository
     catalog: EngineCatalog = field(default_factory=lambda: EngineCatalog(ENGINE_PROFILES))
+    plot_lookup: Callable[[str], tuple[int, str]] | None = None
     _runtimes: dict[str, _ActivationRuntime] = field(default_factory=dict)
 
     def prepare(self, activation_id: str) -> dict[str, object]:
@@ -380,20 +382,45 @@ class DurableAgentCoreHost:
         validated = intent
         selected_sources = set(workflow_context.selected_source_aliases)
         selected_profiles = set(workflow_context.selected_profile_ids)
+        selected_plots = {
+            plot.plot_alias: plot
+            for plot in workflow_context.plots
+            if plot.plot_alias in workflow_context.selected_plot_aliases
+        }
         for item in validated.items:
-            if item.task_kind != "create":
-                raise AgentFoundationError(
-                    "P7_TASK_KIND_UNSUPPORTED",
-                    "The durable batch slice currently accepts create-plot items.",
-                )
-            if (
+            if item.task_kind == "create" and (
                 not item.source_aliases
                 or not set(item.source_aliases) <= selected_sources
                 or item.profile_id not in selected_profiles
+                or item.target_plot_alias is not None
             ):
                 raise AgentFoundationError(
                     "INTENT_SELECTION_MISMATCH",
-                    "The Agent intent changed the user-selected source or chart profile.",
+                    "The Agent create intent changed the authorized source or chart profile.",
+                )
+            if item.task_kind in {"edit", "update_data"}:
+                target = (
+                    None
+                    if item.target_plot_alias is None
+                    else selected_plots.get(item.target_plot_alias)
+                )
+                if target is None or item.profile_id != target.profile_id:
+                    raise AgentFoundationError(
+                        "INTENT_SELECTION_MISMATCH",
+                        "The Agent intent changed the authorized plot target.",
+                    )
+                if item.task_kind == "update_data" and (
+                    not item.source_aliases
+                    or not set(item.source_aliases) <= selected_sources
+                ):
+                    raise AgentFoundationError(
+                        "INTENT_SELECTION_MISMATCH",
+                        "The Agent data update changed the authorized source selection.",
+                    )
+            if item.task_kind not in {"create", "edit", "update_data"}:
+                raise AgentFoundationError(
+                    "INTENT_SELECTION_MISMATCH",
+                    "The Agent intent used an unsupported task kind.",
                 )
         token = validated.intent_id.removeprefix("intent:")
         draft = TaskDraft(
@@ -416,9 +443,9 @@ class DurableAgentCoreHost:
         tuple[UntrustedSourceContext, ...],
         _InspectionRows,
     ]:
-        if not 1 <= len(envelope.selected_sources) <= 8:
+        if len(envelope.selected_sources) > 8:
             raise AgentFoundationError(
-                "SOURCE_SCOPE_INVALID", "The first Agent slice requires one to eight sources."
+                "SOURCE_SCOPE_INVALID", "Agent tasks accept at most eight selected sources."
             )
         records = {
             (item.source_dataset.source_dataset_id, item.source_dataset.source_version): item
@@ -429,11 +456,11 @@ class DurableAgentCoreHost:
         source_contexts: list[UntrustedSourceContext] = []
         rows: dict[str, tuple[tuple[WorkflowScalar, ...], ...]] = {}
         metadata: dict[str, dict[str, str]] = {}
-        for source_position, reference in enumerate(envelope.selected_sources, start=1):
+        for source_position, source_reference in enumerate(envelope.selected_sources, start=1):
             source = self.domain.source_record(
-                reference.source_dataset_id, reference.source_version
+                source_reference.source_dataset_id, source_reference.source_version
             )
-            if source.content_hash != reference.content_hash:
+            if source.content_hash != source_reference.content_hash:
                 raise AgentFoundationError(
                     "SOURCE_VERSION_STALE",
                     "The selected source content no longer matches the task envelope.",
@@ -495,6 +522,39 @@ class DurableAgentCoreHost:
             raise AgentFoundationError(
                 "PROFILE_NOT_ALLOWED", "The selected chart profile is not available."
             )
+        plots: list[WorkflowPlot] = []
+        for position, plot_reference in enumerate(envelope.selected_plots, start=1):
+            if self.plot_lookup is not None:
+                version, profile_id = self.plot_lookup(plot_reference.plot_id)
+                if (
+                    version != plot_reference.plot_version
+                    or profile_id != plot_reference.profile_id
+                ):
+                    raise AgentFoundationError(
+                        "PLOT_VERSION_STALE",
+                        "The selected plot no longer matches the task envelope.",
+                    )
+            plots.append(
+                WorkflowPlot(
+                    plot_alias=f"plot_{position}",
+                    plot_id=plot_reference.plot_id,
+                    plot_version=plot_reference.plot_version,
+                    profile_id=plot_reference.profile_id,
+                )
+            )
+        if not sources and not plots:
+            raise AgentFoundationError(
+                "TASK_SCOPE_INVALID", "Agent tasks require a selected source or plot."
+            )
+        explicitly_selected = tuple(envelope.selected_profile_ids)
+        plot_profiles = tuple(plot.profile_id for plot in plots)
+        effective_profiles = tuple(
+            dict.fromkeys((*explicitly_selected, *plot_profiles))
+        )
+        if not effective_profiles and sources:
+            # No chart was selected in the UI. The Agent may resolve an explicitly named
+            # supported chart from the catalog, but must ask when the instruction is ambiguous.
+            effective_profiles = allowed_profiles
         workflow_context = WorkflowContext(
             workflow_run_id=f"workflow:{envelope.task_id.removeprefix('task:')}",
             project_id=envelope.project_id,
@@ -503,8 +563,10 @@ class DurableAgentCoreHost:
             locale=envelope.locale,
             sources=tuple(sources),
             fields=tuple(fields),
+            plots=tuple(plots),
             selected_source_aliases=tuple(item.source_alias for item in sources),
-            selected_profile_ids=envelope.selected_profile_ids,
+            selected_plot_aliases=tuple(plot.plot_alias for plot in plots),
+            selected_profile_ids=effective_profiles,
             allowed_profile_ids=allowed_profiles,
             budget=WorkflowBudget(
                 max_agent_turns=min(envelope.budget.max_model_turns, 6),
@@ -558,8 +620,10 @@ class DurableAgentCoreHost:
             "and read-only tools in the current context. When the user explicitly names fields "
             "and their types are already present in the context snapshot, bind them directly "
             "without calling inspection tools. Inspect rows only when unresolved data shape or "
-            "field semantics blocks a safe plan; do not infer unseen values. The user's selected "
-            "chart profile is authoritative. "
+            "field semantics blocks a safe plan; do not infer unseen values. A user-selected "
+            "chart profile or plot target is authoritative. If no chart profile is selected, "
+            "choose from the supplied catalog only when the instruction names one unambiguously; "
+            "otherwise ask one blocking profile question. "
             "Return exactly one terminal AgentYield through submit_agent_yield. For intent_ready, "
             "produce one TaskIntent containing 1–64 independently identified items. Preserve the "
             "user's explicit source-to-chart mapping; do not merge sources, aggregate values, or "

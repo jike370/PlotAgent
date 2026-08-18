@@ -12,7 +12,6 @@ import {
   parseTaskPlanInput,
   parseTaskEvent,
   parseTaskId,
-  parseWorkflowDraftSubmitInput,
   parseWorkflowRunInput,
 } from './desktop-contract.js'
 
@@ -135,11 +134,6 @@ describe('desktop contract validation', () => {
       .toEqual({ projectId: 'project:one', planId: 'plan:one', accept: true })
     expect(parseTaskPlanConfirmInput({ projectId: 'project:one', planId: 'plan:one', accept: 'yes' }))
       .toBeNull()
-    expect(parseWorkflowDraftSubmitInput({
-      projectId: 'project:one',
-      workflowRunId: 'workflow:one',
-      taskDraft: { schema_version: 'task-draft.v1' },
-    })).not.toBeNull()
   })
 
   it('accepts a bounded explicit multi-source workflow context', () => {

@@ -9,30 +9,9 @@ import {
   readImportSummary,
   readPlot,
   readPlots,
-  readWorkflowRecipes,
 } from './productState'
 
 describe('product plot state', () => {
-  it('reads explicit saved workflow choices without inferring a natural-language trigger', () => {
-    expect(readWorkflowRecipes({
-      workflow_recipes: [{
-        recipe_id: 'recipe:line',
-        display_name: '折线图流程',
-        draft_template: {
-          items: [
-            { profile_id: 'K01' },
-            { profile_id: 'K01' },
-            { profile_id: 'K03' },
-          ],
-        },
-      }],
-    })).toEqual([{
-      recipeId: 'recipe:line',
-      displayName: '折线图流程',
-      profileIds: ['K01', 'K03'],
-    }])
-  })
-
   it('prefers file and worksheet identity and summarizes per-file import outcomes', () => {
     const value: JsonValue = {
       selected_files: ['仪器记录.xlsx', '损坏.csv'],

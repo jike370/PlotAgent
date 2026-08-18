@@ -9,10 +9,8 @@ import {
   DESKTOP_API_VERSION,
   IPC_CHANNELS,
   parseWorkflowRunInput,
-  parseWorkflowDraftSubmitInput,
   parseTaskPlanConfirmInput,
   parseTaskPlanInput,
-  parseWorkflowRecipeSaveInput,
   parseCloseResponse,
   parseCustomProviderConfigureInput,
   parseDatasetDescribeInput,
@@ -36,7 +34,6 @@ import {
   publicAgentFoundationError,
   type AgentFoundationRuntime,
 } from '../agent/agent-foundation-runtime.js'
-import { publicPiAgentError, type PiAgentRuntime } from '../agent/pi-runtime.js'
 import type { AppCloseController } from '../lifecycle/app-close-controller.js'
 import type { ResourceRegistry } from '../single-instance-routing.js'
 import { isTaskCancellable, type TaskTracker } from '../tasks/task-state.js'
@@ -105,8 +102,7 @@ export interface RegisterDesktopIpcOptions {
   readonly getWindow: () => BrowserWindow | undefined
   readonly resources: ResourceRegistry
   readonly ensureSampleSource: () => Promise<string>
-  readonly piAgentRuntime: PiAgentRuntime
-  readonly agentFoundationRuntime?: AgentFoundationRuntime
+  readonly agentFoundationRuntime: AgentFoundationRuntime
 }
 
 function invalidArgument(message: string): DesktopActionResult {
@@ -128,26 +124,6 @@ function cancelled(): DesktopDataResult {
     ok: false,
     error: { code: 'DIALOG_CANCELLED', message: '操作已取消。', retryable: false },
   }
-}
-
-export function mergeTaskPlanLists(...values: JsonValue[]): JsonValue {
-  const taskPlans = values.flatMap((value) => (
-    value !== null
-    && !Array.isArray(value)
-    && typeof value === 'object'
-    && Array.isArray(value.task_plans)
-      ? value.task_plans
-      : []
-  ))
-  const durableTasks = values.flatMap((value) => (
-    value !== null
-    && !Array.isArray(value)
-    && typeof value === 'object'
-    && Array.isArray(value.durable_tasks)
-      ? value.durable_tasks
-      : []
-  ))
-  return { task_plans: taskPlans, durable_tasks: durableTasks }
 }
 
 async function existingFileSha256(path: string): Promise<string | undefined> {
@@ -431,7 +407,6 @@ export function registerDesktopIpc({
   getWindow,
   resources,
   ensureSampleSource,
-  piAgentRuntime,
   agentFoundationRuntime,
 }: RegisterDesktopIpcOptions): () => void {
   const datasetIdentities = new Map<string, DatasetIdentity>()
@@ -493,7 +468,7 @@ export function registerDesktopIpc({
   ipcMain.handle(IPC_CHANNELS.cancelTask, async (_event, value: unknown) => {
     const taskId = parseTaskId(value)
     if (taskId === null) return invalidArgument('A valid task ID is required.')
-    if (agentFoundationRuntime?.ownsTask(taskId) === true) {
+    if (agentFoundationRuntime.ownsTask(taskId)) {
       try {
         await agentFoundationRuntime.cancel(taskId)
         return { ok: true } satisfies DesktopActionResult
@@ -781,7 +756,7 @@ export function registerDesktopIpc({
   ipcMain.handle(IPC_CHANNELS.workflowRun, (_event, value: unknown) => {
     const input = parseWorkflowRunInput(value)
     if (input === null) return invalidDataArgument('任务目标、数据来源或图形选择无效。')
-    if (agentFoundationRuntime?.canRun(input) === true) {
+    if (agentFoundationRuntime.canRun(input)) {
       return agentFoundationRuntime.run(input).then((result) => ({
         ok: true,
         value: sanitizeCoreResult(result, resources),
@@ -790,94 +765,36 @@ export function registerDesktopIpc({
         error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
       } satisfies DesktopDataResult))
     }
-    return piAgentRuntime.run({
-        project_id: input.projectId,
-        client_run_id: `workflow-client:${randomUUID()}`,
-        selected_sources: input.selectedSources.map((item) => ({
-          dataset_id: item.datasetId,
-          source_version: item.sourceVersion,
-        })),
-        expected_project_version: input.expectedProjectVersion,
-        instruction: input.instruction,
-        locale: 'zh-CN',
-        ...(input.selectedProfileIds === undefined ? {} : {
-          selected_profile_ids: [...input.selectedProfileIds],
-        }),
-        ...(input.selectedPlotIds === undefined ? {} : {
-          selected_plot_ids: [...input.selectedPlotIds],
-        }),
-        ...(input.selectedRecipeId === undefined ? {} : {
-          selected_recipe_id: input.selectedRecipeId,
-        }),
-        ...(input.continuationWorkflowRunId === undefined ? {} : {
-          continuation_workflow_run_id: input.continuationWorkflowRunId,
-        }),
-      }).then((result) => ({
+    return invalidDataArgument('任务缺少可授权的数据表、图形对象或待回复任务。')
+  })
+
+  for (const channel of [
+    IPC_CHANNELS.taskPlanGet,
+    IPC_CHANNELS.taskPlanRun,
+    IPC_CHANNELS.taskPlanResume,
+  ] as const) {
+    ipcMain.handle(channel, (_event, value: unknown) => {
+      const input = parseTaskPlanInput(value)
+      if (input === null) return invalidDataArgument('任务计划参数无效。')
+      const operation = channel === IPC_CHANNELS.taskPlanGet
+        ? agentFoundationRuntime.get(input)
+        : agentFoundationRuntime.execute(input)
+      return operation.then((result) => ({
         ok: true,
         value: sanitizeCoreResult(result, resources),
       } satisfies DesktopDataResult)).catch((error: unknown) => ({
         ok: false,
-        error: publicPiAgentError(error) ?? supervisor.toPublicResult(error),
+        error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
       } satisfies DesktopDataResult))
-  })
-
-  ipcMain.handle(IPC_CHANNELS.workflowDraftSubmit, (_event, value: unknown) => {
-    const input = parseWorkflowDraftSubmitInput(value)
-    return input === null
-      ? invalidDataArgument('任务草稿无效。')
-      : requestCoreData(supervisor, resources, 'workflow.submit_draft', {
-        project_id: input.projectId,
-        workflow_run_id: input.workflowRunId,
-        task_draft: input.taskDraft,
-      })
-  })
-
-  for (const [channel, method] of [
-    [IPC_CHANNELS.taskPlanGet, 'workflow.plans.get'],
-    [IPC_CHANNELS.taskPlanRun, 'workflow.plans.run'],
-    [IPC_CHANNELS.taskPlanResume, 'workflow.plans.resume'],
-  ] as const) {
-    ipcMain.handle(channel, (_event, value: unknown) => {
-      const input = parseTaskPlanInput(value)
-      if (
-        input !== null
-        && agentFoundationRuntime !== undefined
-        && agentFoundationRuntime.ownsPlan(input.planId)
-      ) {
-        const operation = channel === IPC_CHANNELS.taskPlanGet
-          ? agentFoundationRuntime.get(input)
-          : agentFoundationRuntime.execute(input)
-        return operation.then((result) => ({
-          ok: true,
-          value: sanitizeCoreResult(result, resources),
-        } satisfies DesktopDataResult)).catch((error: unknown) => ({
-          ok: false,
-          error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
-        } satisfies DesktopDataResult))
-      }
-      return input === null
-        ? invalidDataArgument('任务计划参数无效。')
-        : requestCoreData(supervisor, resources, method, {
-          project_id: input.projectId,
-          plan_id: input.planId,
-        })
     })
   }
 
   ipcMain.handle(IPC_CHANNELS.taskPlanList, (_event, value: unknown) => {
     const input = parseProjectIdInput(value)
     if (input === null) return invalidDataArgument('任务计划上下文无效。')
-    if (agentFoundationRuntime === undefined) {
-      return requestCoreData(supervisor, resources, 'workflow.plans.list', {
-        project_id: input.projectId,
-      })
-    }
-    return Promise.all([
-      supervisor.request('workflow.plans.list', { project_id: input.projectId }),
-      agentFoundationRuntime.list(input.projectId),
-    ]).then(([legacy, durable]) => ({
+    return agentFoundationRuntime.list(input.projectId).then((durable) => ({
       ok: true,
-      value: sanitizeCoreResult(mergeTaskPlanLists(legacy, durable), resources),
+      value: sanitizeCoreResult(durable, resources),
     } satisfies DesktopDataResult)).catch((error: unknown) => ({
       ok: false,
       error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
@@ -888,7 +805,6 @@ export function registerDesktopIpc({
     const input = parseTaskPlanConfirmInput(value)
     if (
       input !== null
-      && agentFoundationRuntime !== undefined
       && agentFoundationRuntime.ownsPlan(input.planId)
     ) {
       const operation = input.accept
@@ -902,35 +818,7 @@ export function registerDesktopIpc({
         error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
       } satisfies DesktopDataResult))
     }
-    return input === null
-      ? invalidDataArgument('任务计划确认参数无效。')
-      : requestCoreData(supervisor, resources, input.accept
-        ? 'workflow.plans.confirm'
-        : 'workflow.plans.reject', {
-        project_id: input.projectId,
-        plan_id: input.planId,
-      })
-  })
-
-  ipcMain.handle(IPC_CHANNELS.workflowRecipeSave, (_event, value: unknown) => {
-    const input = parseWorkflowRecipeSaveInput(value)
-    return input === null
-      ? invalidDataArgument('固化流程参数无效。')
-      : requestCoreData(supervisor, resources, 'workflow.recipes.save', {
-        project_id: input.projectId,
-        plan_id: input.planId,
-        display_name: input.displayName,
-        export_hash: input.exportHash,
-      })
-  })
-
-  ipcMain.handle(IPC_CHANNELS.workflowRecipeList, (_event, value: unknown) => {
-    const input = parseProjectIdInput(value)
-    return input === null
-      ? invalidDataArgument('流程列表上下文无效。')
-      : requestCoreData(supervisor, resources, 'workflow.recipes.list', {
-        project_id: input.projectId,
-      })
+    return invalidDataArgument('当前桌面会话中找不到该 Agent 计划。')
   })
 
   /*

@@ -10,14 +10,11 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 export const IPC_CHANNELS = {
   workflowRun: 'plotagent:workflow:run',
   workflowRuntimeEvent: 'plotagent:workflow:runtime-event',
-  workflowDraftSubmit: 'plotagent:workflow:draft-submit',
   taskPlanConfirm: 'plotagent:workflow:plan-confirm',
   taskPlanGet: 'plotagent:workflow:plan-get',
   taskPlanList: 'plotagent:workflow:plan-list',
   taskPlanResume: 'plotagent:workflow:plan-resume',
   taskPlanRun: 'plotagent:workflow:plan-run',
-  workflowRecipeSave: 'plotagent:workflow:recipe-save',
-  workflowRecipeList: 'plotagent:workflow:recipe-list',
   cancelTask: 'plotagent:tasks:cancel',
   closeResponse: 'plotagent:lifecycle:close-response',
   coreStatusChanged: 'plotagent:core:status-changed',
@@ -231,14 +228,8 @@ export interface WorkflowRunInput extends ProjectIdInput {
   readonly expectedProjectVersion: number
   readonly selectedProfileIds?: readonly string[]
   readonly selectedPlotIds?: readonly string[]
-  readonly selectedRecipeId?: string
   readonly continuationWorkflowRunId?: string
   readonly instruction: string
-}
-
-export interface WorkflowDraftSubmitInput extends ProjectIdInput {
-  readonly workflowRunId: string
-  readonly taskDraft: JsonValue
 }
 
 export type WorkflowRuntimeStage =
@@ -266,11 +257,6 @@ export interface TaskPlanInput extends ProjectIdInput {
 
 export interface TaskPlanConfirmInput extends TaskPlanInput {
   readonly accept: boolean
-}
-
-export interface WorkflowRecipeSaveInput extends TaskPlanInput {
-  readonly displayName: string
-  readonly exportHash: string
 }
 
 export interface PngSvgExportInput extends ProjectIdInput {
@@ -332,14 +318,11 @@ export interface PlotAgentDesktopApi {
   getPlot(input: PlotIdInput): Promise<DesktopDataResult>
   listPlots(input: ProjectIdInput): Promise<DesktopDataResult>
   runWorkflow(input: WorkflowRunInput): Promise<DesktopDataResult>
-  submitWorkflowDraft(input: WorkflowDraftSubmitInput): Promise<DesktopDataResult>
   getTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
   listTaskPlans(input: ProjectIdInput): Promise<DesktopDataResult>
   confirmTaskPlan(input: TaskPlanConfirmInput): Promise<DesktopDataResult>
   runTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
   resumeTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
-  saveWorkflowRecipe(input: WorkflowRecipeSaveInput): Promise<DesktopDataResult>
-  listWorkflowRecipes(input: ProjectIdInput): Promise<DesktopDataResult>
   exportPngSvg(input: PngSvgExportInput): Promise<DesktopDataResult>
   exportOrigin(input: OriginExportInput): Promise<DesktopDataResult>
   respondToCloseRequest(response: CloseResponse): Promise<DesktopActionResult>
@@ -598,7 +581,6 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
     [
       'selectedProfileIds',
       'selectedPlotIds',
-      'selectedRecipeId',
       'continuationWorkflowRunId',
     ],
   )) return null
@@ -628,14 +610,11 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
       && value.selectedPlotIds.length <= 8
       && value.selectedPlotIds.every((item) => parseId(item) !== null)
       ? value.selectedPlotIds as string[] : null
-  const selectedRecipeId = value.selectedRecipeId === undefined
-    ? undefined : parseId(value.selectedRecipeId)
   const continuationWorkflowRunId = value.continuationWorkflowRunId === undefined
     ? undefined : parseId(value.continuationWorkflowRunId)
   if (
     selectedProfileIds === null
     || selectedPlotIds === null
-    || selectedRecipeId === null
     || continuationWorkflowRunId === null
   ) return null
   if (
@@ -650,18 +629,9 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
     expectedProjectVersion,
     ...(selectedProfileIds === undefined ? {} : { selectedProfileIds }),
     ...(selectedPlotIds === undefined ? {} : { selectedPlotIds }),
-    ...(selectedRecipeId === undefined ? {} : { selectedRecipeId }),
     ...(continuationWorkflowRunId === undefined ? {} : { continuationWorkflowRunId }),
     instruction,
   }
-}
-
-export function parseWorkflowDraftSubmitInput(value: unknown): WorkflowDraftSubmitInput | null {
-  if (!isRecord(value) || !hasExactKeys(value, ['projectId', 'workflowRunId', 'taskDraft'])) return null
-  const projectId = parseId(value.projectId)
-  const workflowRunId = parseId(value.workflowRunId)
-  return projectId === null || workflowRunId === null || !isSafeRendererPayload(value.taskDraft)
-    ? null : { projectId, workflowRunId, taskDraft: value.taskDraft }
 }
 
 export function parseTaskPlanInput(value: unknown): TaskPlanInput | null {
@@ -677,22 +647,6 @@ export function parseTaskPlanConfirmInput(value: unknown): TaskPlanConfirmInput 
   return parsed === null || typeof value.accept !== 'boolean'
     ? null
     : { ...parsed, accept: value.accept }
-}
-
-export function parseWorkflowRecipeSaveInput(value: unknown): WorkflowRecipeSaveInput | null {
-  if (!isRecord(value) || !hasExactKeys(
-    value,
-    ['projectId', 'planId', 'displayName', 'exportHash'],
-  )) return null
-  const parsed = parseTaskPlanInput({ projectId: value.projectId, planId: value.planId })
-  const displayName = typeof value.displayName === 'string' ? value.displayName.trim() : ''
-  const exportHash = typeof value.exportHash === 'string' ? value.exportHash : ''
-  return parsed === null
-    || !displayName
-    || displayName.length > 128
-    || !/^[0-9a-f]{64}$/i.test(exportHash)
-    ? null
-    : { ...parsed, displayName, exportHash: exportHash.toLocaleLowerCase('en-US') }
 }
 
 export function parsePngSvgExportInput(value: unknown): PngSvgExportInput | null {

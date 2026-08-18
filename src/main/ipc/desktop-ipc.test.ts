@@ -5,7 +5,6 @@ import type { PythonCoreSupervisor } from '../core/python-supervisor.js'
 import {
   importOptionLabel,
   importOptionPatch,
-  mergeTaskPlanLists,
   normalizeOriginStatus,
   ORIGIN_EXPORT_REQUEST_TIMEOUT_MS,
   ORIGIN_STATUS_REQUEST_TIMEOUT_MS,
@@ -18,18 +17,6 @@ import {
 } from './desktop-ipc.js'
 
 describe('desktop product IPC boundary', () => {
-  it('merges legacy and durable task plans for restart recovery', () => {
-    expect(mergeTaskPlanLists(
-      { task_plans: [{ plan: { plan_id: 'plan:legacy' } }] },
-      { task_plans: [{ plan: { plan_id: 'plan:durable' } }] },
-    )).toEqual({
-      task_plans: [
-        { plan: { plan_id: 'plan:legacy' } },
-        { plan: { plan_id: 'plan:durable' } },
-      ],
-    })
-  })
-
   it('turns supported import clarifications into safe retry options', () => {
     expect(readImportClarification({
       kind: 'clarification',

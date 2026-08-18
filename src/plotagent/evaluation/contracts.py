@@ -34,6 +34,10 @@ EvalId = Annotated[
     str,
     StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$", strict=True),
 ]
+GitObjectId = Annotated[
+    str,
+    StringConstraints(pattern=r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$", strict=True),
+]
 RelativeArtifactPath = Annotated[
     str,
     StringConstraints(pattern=r"^[^:\r\n]{1,240}$", strict=True),
@@ -208,7 +212,7 @@ class EvidenceManifest(StrictModel):
     manifest_id: EvalId
     eval_case_id: EvalId
     trial_id: EvalId
-    git_commit: Sha256
+    git_commit: GitObjectId
     generated_at: datetime
     artifacts: tuple[EvidenceArtifact, ...]
     environment: dict[str, str]
@@ -229,7 +233,7 @@ class EvalTrial(StrictModel):
     status: EvalStatus
     started_at: datetime
     completed_at: datetime
-    git_commit: Sha256
+    git_commit: GitObjectId
     evidence_manifest_id: EvalId
     grader_results: tuple[GraderResult, ...]
     metrics: dict[str, Annotated[float, Field(allow_inf_nan=False)]] = Field(default_factory=dict)
@@ -267,7 +271,7 @@ class EvalRunReport(StrictModel):
     policy_id: EvalId
     suite_id: EvalId
     suite_version: Annotated[int, Field(ge=1)]
-    git_commit: Sha256
+    git_commit: GitObjectId
     generated_at: datetime
     decision: Literal["GO", "NO_GO", "EVAL_INVALID"]
     case_results: tuple[EvalCaseResult, ...]

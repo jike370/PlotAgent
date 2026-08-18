@@ -9,10 +9,8 @@ import {
   type CustomProviderConfigureInput,
   type WorkflowRunInput,
   type WorkflowRuntimeEvent,
-  type WorkflowDraftSubmitInput,
   type TaskPlanConfirmInput,
   type TaskPlanInput,
-  type WorkflowRecipeSaveInput,
   type DatasetDescribeInput,
   type EngineActionInput,
   type OpenResourceRequest,
@@ -89,8 +87,6 @@ const desktop = {
   getPlot: (input: PlotIdInput) => ipcRenderer.invoke(IPC_CHANNELS.enginePlotGet, input),
   listPlots: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.enginePlotList, input),
   runWorkflow: (input: WorkflowRunInput) => ipcRenderer.invoke(IPC_CHANNELS.workflowRun, input),
-  submitWorkflowDraft: (input: WorkflowDraftSubmitInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.workflowDraftSubmit, input),
   getTaskPlan: (input: TaskPlanInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.taskPlanGet, input),
   listTaskPlans: (input: ProjectIdInput) =>
@@ -101,10 +97,6 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.taskPlanRun, input),
   resumeTaskPlan: (input: TaskPlanInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.taskPlanResume, input),
-  saveWorkflowRecipe: (input: WorkflowRecipeSaveInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.workflowRecipeSave, input),
-  listWorkflowRecipes: (input: ProjectIdInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.workflowRecipeList, input),
   exportPngSvg: (input: PngSvgExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportPngSvg, input),
   exportOrigin: (input: OriginExportInput) => ipcRenderer.invoke(IPC_CHANNELS.exportOrigin, input),
   respondToCloseRequest: (response: CloseResponse) =>
