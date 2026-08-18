@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P5 已完成；P6 单任务端到端垂直切片已进入正式 Electron 测试 gate 验收。
+> 状态：P0–P6 已完成；P6 单任务端到端垂直切片已通过正式 Electron 阶段门禁，下一施工阶段为 P7。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -67,6 +67,14 @@
 | P8 | 取消、重启、lease 与完整权限 | gate 下增强 | chaos/restart/side effects |
 | P9 | 对话 UI、任务中心与可观察性 | 正式 UI 切换 | Vitest + Windows 黑盒 |
 | P10 | 评测、发布门与旧链清理 | 新链成为唯一入口 | E0–E6 + 删除兼容 |
+
+### 验收时序（2026-08-18 冻结）
+
+- P6 的 11 项正式 Electron 测试只是单任务垂直切片的阶段门禁，不是完整产品黑盒或发布验收；
+- P7、P8、P9、P10 按顺序施工，每阶段先完成代码、自动化测试、静态门禁和必要的机械证据；
+- P7–P10 期间不提前发起新一轮探索性黑盒，避免用未完成产品反复消耗黑盒窗口并混淆阶段结论；
+- P10 完成、旧链清理、全量发布门通过并冻结 clean commit 后，才向探索性测试会话索取独立测试计划；
+- 最终探索性黑盒由本窗口在正式 Windows Electron 入口执行，结果与 P6 阶段报告分开归档。
 
 ## 5. P0：冻结基线
 
@@ -404,7 +412,9 @@
   create、ToolReceipt、PlotDocument 读回、VerificationReport 和 `completed_verified`；
 - Main 在 `PLOTAGENT_AGENT_FOUNDATION_V2=1` 下只接管“一份数据 + 一个已选图类 + 新建一图”，其他请求
   保持 v1；正式对话可看到真实读取/检查/规划/校验阶段，并复用字段确认卡完成确认与执行；
-- gate 默认关闭，下一节点是完成正式 Windows Electron 黑盒与中断恢复证据，再决定是否扩大切片。
+- gate 默认关闭；P6 已在正式 Windows Electron 中完成 11 项阶段门禁，结果为 11 PASS / 0 FAIL /
+  0 BLOCKED / 0 UNVERIFIED。该结果只证明单任务切片满足 P6 退出条件；P7 才开始扩大到批量、partial
+  与 scoped repair。
 
 ### 测试
 
