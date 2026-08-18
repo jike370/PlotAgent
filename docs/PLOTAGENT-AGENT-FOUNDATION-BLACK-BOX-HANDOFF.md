@@ -67,3 +67,14 @@
 ## 6. 收口
 
 本轮输出单独保存，不覆盖旧冻结回归。最终报告应包含环境、用例、证据索引、PASS/FAIL/BLOCKED/UNVERIFIED 计数、产品缺陷、环境问题和未覆盖风险。任何产品 FAIL 修复后必须在新的干净提交上定向复测；若修改 renderer source scope，再按影响范围补视觉/Origin 证据。
+
+## 7. 执行结果（2026-08-19）
+
+探索性黑盒、修复和定向复测已完成。收口代码为 `a03a04a6bdbba7146ad870da8ed483947076d9a7`。
+
+- 本地缺陷定向复测通过：模型余额诊断与任务终态、首次编辑撤销/重做、K03 Origin 轴语义；
+- 完整机械门禁通过；
+- 新的 SEQ-70 因供应商对 54 个真实推理 trial 全部返回 HTTP 402 而 NO_GO；6 个确定性运行时用例通过；
+- 在更换或充值模型服务并重跑 SEQ-70 前，不宣称真实模型发布资格 GO。
+
+详细事实、路径和判定见 `docs/PLOTAGENT-AGENT-FOUNDATION-QUALIFICATION-RESULTS.md`。

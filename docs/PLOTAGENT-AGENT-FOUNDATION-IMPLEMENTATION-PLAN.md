@@ -704,3 +704,13 @@
 6. 门禁通过后提交 `feat(agent-contracts): define durable task protocol`。
 
 该节点的完成只证明新架构有稳定语言，不宣称新 Agent 已经上线。
+
+## 20. 探索性黑盒后的收口（2026-08-19）
+
+- 探索性 Windows Electron 黑盒发现了 Provider 诊断泛化、durable task 终态未及时刷新、首次聚焦编辑缺少逆快照和 K03 Origin 轴标题漂移；
+- `69caed8` 修复上述本地问题，`a03a04a` 保留可恢复 Provider 诊断；
+- 在 `a03a04a` 的正式桌面定向复测中，余额不足提示/任务终态、4.5→8 pt 首次编辑、撤销回 4.5、重做回 8 均通过；
+- K03 已用两个独立 Origin 进程完成生成与 fresh reopen，X/Y 轴标题保持实际字段名；
+- Python 714、Node 191、Ruff、mypy 184、codegen、production build 与系统 Windows PowerShell 5.1 发布脚本断言通过；
+- 同一代码上的 SEQ-70 新跑因供应商对全部 54 个真实模型 trial 返回 HTTP 402 而 NO_GO，6 个确定性运行时 trial 通过。模型余额恢复前不得沿用历史 GO 代替本次资格；
+- 完整报告见 `docs/PLOTAGENT-AGENT-FOUNDATION-QUALIFICATION-RESULTS.md`。
