@@ -1,0 +1,50 @@
+{
+  "schema_version": "eval-suite.v1",
+  "suite_id": "agent-foundation-regression",
+  "suite_version": 1,
+  "legacy_source": {
+    "path": "tests/fixtures/seq70/workflow_tasks.json",
+    "sha256": "c396f22b213a5173bb20add091aa6f009031393339090a8bf892a836e6ff755b",
+    "byte_length": 11189
+  },
+  "defaults": {
+    "suite_kind": "regression",
+    "locale": "zh-CN",
+    "blocks_release": true,
+    "budget": {
+      "max_wall_time_seconds": 30,
+      "max_model_turns": 8,
+      "max_tool_calls": 16,
+      "max_repairs": 2,
+      "max_input_tokens": 20000,
+      "max_output_tokens": 4000,
+      "max_estimated_cost": 0.25
+    }
+  },
+  "cases": [
+    {"legacy_task_id":"W01","layer":"E3","claim":"明确图类和字段时生成一项 K01 创建计划，不做无效追问。"},
+    {"legacy_task_id":"W02","layer":"E3","claim":"两份数据分别生成两项 K01，数据与任务对应关系稳定。"},
+    {"legacy_task_id":"W03","layer":"E3","claim":"未指定图类且存在多个合法候选时必须追问图类，不得猜测。"},
+    {"legacy_task_id":"W04","layer":"E3","claim":"自然语言标题、线色、线型与线宽被翻译为结构化共同视觉动作。"},
+    {"legacy_task_id":"W05","layer":"E3","claim":"散点符号形状、大小、填充与边缘宽度被精确写入 K03 计划。"},
+    {"legacy_task_id":"W06","layer":"E3","claim":"柱填充、边框和数据标签被精确写入 K08 计划。"},
+    {"legacy_task_id":"W07","layer":"E3","claim":"K20 色板、反转、范围、中点与色标标题被精确写入计划。"},
+    {"legacy_task_id":"W08","layer":"E3","claim":"K06 六个方向角色和误差棒参数全部绑定正确。"},
+    {"legacy_task_id":"W09","layer":"E3","claim":"筛选和排序由 Agent 选择确定性数据工具并保留操作顺序。"},
+    {"legacy_task_id":"W10","layer":"E3","claim":"混合批量任务将 data_1 绑定 K01、data_2 绑定 K03，不串图。"},
+    {"legacy_task_id":"W11","layer":"E3","claim":"两份同构数据可合并进同一 K02，并保留来源身份。"},
+    {"legacy_task_id":"W12","layer":"E3","claim":"当前图标题和 y 轴标题编辑绑定到所选 plot，不新建或误改其他对象。"},
+    {"legacy_task_id":"W13","layer":"E3","claim":"当前图第一系列与图例编辑绑定到正确系列和图例对象。"},
+    {"legacy_task_id":"W14","layer":"E3","claim":"已删除的组合图能力被明确拒绝，不以其他图类替代。"},
+    {"legacy_task_id":"W15","layer":"E3","claim":"用户已明确歧义列语义时直接采用显式绑定，不重复追问。"},
+    {"legacy_task_id":"W16","layer":"E3","claim":"Agent 先检查两份数据结构，再分别创建同构批量图。"},
+    {"legacy_task_id":"W17","layer":"E3","claim":"Agent 检查字段、计算中位数、筛选后创建图，不能由关键词路由伪造。"},
+    {"legacy_task_id":"W18","layer":"E3","claim":"X40 配对、分组、连接器样式和标题语义全部保留。"},
+    {"legacy_task_id":"R01","layer":"E2","claim":"等待确认的 durable task 不产生正式项目副作用。"},
+    {"legacy_task_id":"R02","layer":"E2","claim":"确认后的计划执行一次并生成 completed_verified 结果。"},
+    {"legacy_task_id":"R03","layer":"E2","claim":"拒绝计划后不写入项目且任务保持可审计。"},
+    {"legacy_task_id":"R04","layer":"E2","claim":"stale revision 被拒绝，不产生半成品或重复版本。"},
+    {"legacy_task_id":"R05","layer":"E2","claim":"partial 任务保留成功项，并且恢复时只重试失败项。"},
+    {"legacy_task_id":"R06","layer":"E2","claim":"关闭并重启 Core 后可从 durable checkpoint 恢复等待确认计划。"}
+  ]
+}
