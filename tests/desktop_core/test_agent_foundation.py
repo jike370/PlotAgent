@@ -356,6 +356,8 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "call compare_schemas only when those sequences differ" in system_prompt
         assert "represent palette identity and reverse as independent fields" in system_prompt
         assert "Core derives that integrity field" in system_prompt
+        assert "perform a completeness check against the original instruction" in system_prompt
+        assert "Never silently omit one requested change" in system_prompt
         assert "never use needs_input to ask the user to confirm a plan" in system_prompt
         assert "product's confirmation card request authorization" in system_prompt
         yield_schema = cast(dict[str, object], environment["yield_schema"])
