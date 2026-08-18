@@ -4,6 +4,33 @@ import { describe, expect, it, vi } from 'vitest'
 import { TaskDrawer } from './TaskDrawer'
 
 describe('TaskDrawer', () => {
+  it('shows and cancels a durable Agent task while the model is still planning', () => {
+    const onCancel = vi.fn()
+    render(<TaskDrawer
+      tasks={[]}
+      durableTasks={[]}
+      plans={[]}
+      runtimeEvent={{
+        schemaVersion: '1.0',
+        runId: 'workflow:test',
+        projectId: 'project:test',
+        taskId: 'task:test',
+        sequence: 3,
+        stage: 'planning',
+        label: 'Agent 正在检查数据并规划…',
+      }}
+      onCancel={onCancel}
+      onRetryPlan={vi.fn()}
+      onClose={vi.fn()}
+    />)
+
+    const dialog = screen.getByRole('dialog', { name: '任务中心' })
+    expect(within(dialog).getByRole('button', { name: '进行中 1' })).toBeInTheDocument()
+    expect(within(dialog).getByText('Agent 正在检查数据并规划…')).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: '停止任务' }))
+    expect(onCancel).toHaveBeenCalledWith('task:test')
+  })
+
   it('shows durable partial results, safe diagnostics, and retries failed items only', () => {
     const onRetryPlan = vi.fn()
     const onCancel = vi.fn()

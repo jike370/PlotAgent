@@ -11,6 +11,68 @@ from typing import Any
 
 from .contracts import EngineCapability, EngineProfile
 
+_NUMERIC = ("numeric",)
+_CATEGORY = ("categorical", "text", "numeric", "boolean")
+_X_GENERAL = ("numeric", "categorical", "datetime", "text")
+
+# Renderer input types are a reviewed product contract, not a runtime guess.
+# Repeatable entries such as ``series`` apply to series_1, series_2, ... .
+_ROLE_FIELD_TYPES: dict[str, dict[str, tuple[str, ...]]] = {
+    "K01": {"x": _X_GENERAL, "y": _NUMERIC, "group": _CATEGORY},
+    "K02": {"x": _X_GENERAL, "y": _NUMERIC, "group": _CATEGORY},
+    "K03": {"x": _NUMERIC, "y": _NUMERIC, "group": _CATEGORY},
+    "K04": {"x": _NUMERIC, "y": _NUMERIC, "size": _NUMERIC, "color": _NUMERIC},
+    "K06": {
+        "x": _NUMERIC,
+        "center": _NUMERIC,
+        "x_err_minus": _NUMERIC,
+        "x_err_plus": _NUMERIC,
+        "y_err_minus": _NUMERIC,
+        "y_err_plus": _NUMERIC,
+        "group": _CATEGORY,
+    },
+    "K07": {
+        "x": _NUMERIC,
+        "center": _NUMERIC,
+        "lower": _NUMERIC,
+        "upper": _NUMERIC,
+        "group": _CATEGORY,
+    },
+    "K08": {"category": _CATEGORY, "value": _NUMERIC, "label": _CATEGORY},
+    "K09": {"category": _CATEGORY, "group": _CATEGORY, "value": _NUMERIC},
+    "K10": {"category": _CATEGORY, "component": _CATEGORY, "value": _NUMERIC},
+    "K11": {"category": _CATEGORY, "component": _CATEGORY, "value": _NUMERIC},
+    "K12": {"value": _NUMERIC, "group": _CATEGORY},
+    "K13": {"value": _NUMERIC, "group": _CATEGORY},
+    "K14": {"value": _NUMERIC, "group": _CATEGORY},
+    "K15": {"value": _NUMERIC},
+    "K18": {"x": _X_GENERAL, "series_1": _NUMERIC, "series": _NUMERIC, "group": _CATEGORY},
+    "K19": {"time": ("datetime",), "series_1": _NUMERIC, "series": _NUMERIC, "group": _CATEGORY},
+    "K20": {"row": _CATEGORY, "column": _CATEGORY, "value": _NUMERIC},
+    "K21": {"row_label": _CATEGORY, "column_label": _CATEGORY, "value": _NUMERIC},
+    "K22": {"x": _NUMERIC, "y": _NUMERIC, "z": _NUMERIC},
+    "K24": {"facet": _CATEGORY, "base_x": _NUMERIC, "base_y": _NUMERIC},
+    "S34": {
+        "z_real": _NUMERIC,
+        "z_imaginary": _NUMERIC,
+        "frequency": _NUMERIC,
+        "series": _CATEGORY,
+    },
+    "S61": {"actual": _CATEGORY, "predicted": _CATEGORY, "count": _NUMERIC},
+    "X02": {"x": _X_GENERAL, "y": _NUMERIC, "label": _CATEGORY},
+    "X03": {"category": _CATEGORY, "series_1": _NUMERIC, "series_2": _NUMERIC, "series": _NUMERIC},
+    "X05": {"value": _NUMERIC, "group": _CATEGORY},
+    "X09": {"category": _CATEGORY, "start": _NUMERIC, "end": _NUMERIC, "middle": _NUMERIC},
+    "X13": {"category": _CATEGORY, "left": _NUMERIC, "right": _NUMERIC},
+    "X23": {"x": _X_GENERAL, "left": _NUMERIC, "right": _NUMERIC},
+    "X24": {"category": _CATEGORY, "value": _NUMERIC},
+    "X35": {"category": _CATEGORY, "left": _NUMERIC, "right": _NUMERIC},
+    "X36": {"category": _CATEGORY, "left": _NUMERIC, "right": _NUMERIC},
+    "X38": {"x": _X_GENERAL, "series_1": _NUMERIC, "series": _NUMERIC},
+    "X39": {"series_1": _NUMERIC, "series_2": _NUMERIC, "series": _NUMERIC},
+    "X40": {"label": _CATEGORY, "series_1": _NUMERIC, "series_2": _NUMERIC, "group": _CATEGORY},
+}
+
 _TITLE_T1 = ("text", "font_family", "font_size_pt", "font_weight", "italic", "color")
 _AXIS_T1 = (
     "title_font_family",
@@ -126,9 +188,11 @@ def _profile(
     labels: bool = False,
     chart: tuple[str, ...] = (),
 ) -> EngineProfile:
+    profile_id = str(data["profile_id"])
     return EngineProfile.model_validate(
         {
             **data,
+            "role_field_types": _ROLE_FIELD_TYPES[profile_id],
             "capabilities": _capabilities(
                 axis=axis,
                 series=series,

@@ -133,6 +133,68 @@ def test_compiler_resolves_agent_aliases_and_rejects_unknown_targets() -> None:
     assert validation.error_code == "TARGET_ALIAS_INVALID"
 
 
+def test_compiler_rejects_incompatible_field_types_before_confirmation() -> None:
+    context = _context().model_copy(
+        update={
+            "fields": tuple(
+                field.model_copy(update={"logical_type": "text"})
+                if field.field_alias in {"data_1_time", "data_1_response"}
+                else field
+                for field in _context().fields
+            ),
+            "selected_profile_ids": ("K03",),
+        }
+    )
+    draft = _draft(context).model_copy(
+        update={
+            "items": (
+                _draft(context).items[0].model_copy(update={"profile_id": "K03"}),
+            )
+        }
+    )
+
+    validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(draft, context)
+
+    assert not validation.valid
+    assert validation.error_code == "FIELD_TYPE_INCOMPATIBLE"
+    assert validation.message is not None
+    assert "x 字段需要 numeric 类型" in validation.message
+
+
+def test_datetime_profile_rejects_numeric_time_before_confirmation() -> None:
+    context = _context().model_copy(update={"selected_profile_ids": ("K19",)})
+    draft = _draft(context).model_copy(
+        update={
+            "items": (
+                _draft(context).items[0].model_copy(
+                    update={
+                        "profile_id": "K19",
+                        "bindings": (
+                            DraftFieldBinding(
+                                role="time",
+                                source_alias="data_1",
+                                field_alias="data_1_time",
+                            ),
+                            DraftFieldBinding(
+                                role="series_1",
+                                source_alias="data_1",
+                                field_alias="data_1_response",
+                            ),
+                        ),
+                    }
+                ),
+            )
+        }
+    )
+
+    validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(draft, context)
+
+    assert not validation.valid
+    assert validation.error_code == "FIELD_TYPE_INCOMPATIBLE"
+    assert validation.message is not None
+    assert "time 字段需要 datetime 类型" in validation.message
+
+
 def test_task_draft_rejects_binding_outside_declared_sources() -> None:
     with pytest.raises(ValidationError):
         TaskDraftItem(
@@ -205,7 +267,12 @@ def test_long_to_wide_requires_explicit_bindable_output_fields() -> None:
     context = base.model_copy(
         update={
             "selected_profile_ids": ("K19",),
-            "fields": base.fields
+            "fields": tuple(
+                field.model_copy(update={"logical_type": "datetime"})
+                if field.field_alias == "data_1_time"
+                else field
+                for field in base.fields
+            )
             + (
                 WorkflowField(
                     field_alias="data_1_series",

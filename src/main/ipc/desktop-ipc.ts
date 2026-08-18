@@ -149,6 +149,48 @@ function resourceInvalid(): DesktopDataResult {
   }
 }
 
+function exportArtifactInvalid(message: string): DesktopDataResult {
+  return {
+    ok: false,
+    error: { code: 'RESOURCE_INVALID', message, retryable: true },
+  }
+}
+
+function exportArtifactMetadata(value: JsonValue): { size: number; contentHash: string } | undefined {
+  if (value === null || Array.isArray(value) || typeof value !== 'object') return undefined
+  const artifact = value.artifact
+  if (
+    artifact === null || Array.isArray(artifact) || typeof artifact !== 'object' ||
+    typeof artifact.size !== 'number' || !Number.isSafeInteger(artifact.size) || artifact.size <= 0 ||
+    typeof artifact.content_hash !== 'string' || !/^[0-9a-f]{64}$/i.test(artifact.content_hash)
+  ) return undefined
+  return { size: artifact.size, contentHash: artifact.content_hash.toLocaleLowerCase('en-US') }
+}
+
+export async function verifyExportArtifact(
+  result: DesktopDataResult,
+  destinationPath: string,
+): Promise<DesktopDataResult> {
+  if (!result.ok) return result
+  const expected = exportArtifactMetadata(result.value)
+  if (expected === undefined) {
+    return exportArtifactInvalid('导出结果缺少可验证的文件记录，未报告成功。请重试导出。')
+  }
+  try {
+    const metadata = await stat(destinationPath)
+    if (!metadata.isFile() || metadata.size <= 0 || metadata.size !== expected.size) {
+      return exportArtifactInvalid('导出文件未完整写入，未报告成功。请重试导出。')
+    }
+    const contentHash = await existingFileSha256(destinationPath)
+    if (contentHash?.toLocaleLowerCase('en-US') !== expected.contentHash) {
+      return exportArtifactInvalid('导出文件校验未通过，未报告成功。请重试导出。')
+    }
+  } catch {
+    return exportArtifactInvalid('未找到已导出的文件，未报告成功。请重试导出。')
+  }
+  return result
+}
+
 function sanitizeCoreValue(
   value: JsonValue,
   resources: ResourceRegistry,
@@ -837,7 +879,7 @@ export function registerDesktopIpc({
       filters: [{ name: input.format.toLocaleUpperCase('en-US'), extensions: [input.format] }],
     })
     if (choice.canceled || choice.filePath === undefined) return cancelled()
-    return requestCoreData(supervisor, resources, 'engine.exports.execute', {
+    const result = await requestCoreData(supervisor, resources, 'engine.exports.execute', {
       project_id: input.projectId,
       action: {
         operation: 'export_plot',
@@ -850,6 +892,7 @@ export function registerDesktopIpc({
       destination_resource_id: resources.registerFile(choice.filePath, 'export').resourceId,
       destination_path: choice.filePath,
     }, 'export')
+    return verifyExportArtifact(result, choice.filePath)
   })
   ipcMain.handle(IPC_CHANNELS.exportOrigin, async (_event, value: unknown) => {
     const input = parseOriginExportInput(value)
@@ -864,7 +907,7 @@ export function registerDesktopIpc({
     })
     if (choice.canceled || choice.filePath === undefined) return cancelled()
     const expectedExistingSha256 = await existingFileSha256(choice.filePath)
-    return requestOriginExport(supervisor, resources, {
+    const result = await requestOriginExport(supervisor, resources, {
       project_id: input.projectId,
       action: {
         operation: 'export_plot',
@@ -880,6 +923,7 @@ export function registerDesktopIpc({
         ? {}
         : { expected_existing_sha256: expectedExistingSha256 }),
     })
+    return verifyExportArtifact(result, choice.filePath)
   })
 
   return () => {

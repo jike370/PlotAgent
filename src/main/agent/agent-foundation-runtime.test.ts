@@ -268,6 +268,7 @@ describe('AgentFoundationRuntime', () => {
       plan: { plan_id: 'plan:fixed' },
     })
     expect(events).toContainEqual(expect.objectContaining({ stage: 'completed', label: '计划已生成，等待确认' }))
+    expect(events).toContainEqual(expect.objectContaining({ taskId: 'task:fixed', stage: 'planning' }))
     expect(events.at(-1)).toMatchObject({ stage: 'completed', label: '任务结果已验证' })
   })
 

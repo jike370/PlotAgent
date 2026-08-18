@@ -244,6 +244,16 @@ export type BindFields = {
   readonly bindings: ReadonlyArray<FieldBinding>;
 }
 
+export type BucketizeNumeric = {
+  readonly operation?: "bucketize_numeric";
+  readonly source_alias: string;
+  readonly field_alias: string;
+  readonly boundaries: ReadonlyArray<number>;
+  readonly labels: ReadonlyArray<string>;
+  readonly output_field_alias: string;
+  readonly output_name: string;
+}
+
 export type CalculationContract = {
   readonly schema_version?: "calculation-contract.v1";
   readonly contract_id: string;
@@ -346,7 +356,7 @@ export type CompiledTaskItem = {
   readonly target_plot_version?: number | null;
   readonly sources?: ReadonlyArray<WorkflowSource>;
   readonly resolved_fields?: ReadonlyArray<ResolvedWorkflowField>;
-  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | RenameField | DeriveColumn | ConvertUnit>;
+  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<ResolvedFieldBinding>;
   readonly visual_actions: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
   readonly depends_on?: ReadonlyArray<string>;
@@ -821,6 +831,7 @@ export type EngineProfile = {
   readonly required_roles: ReadonlyArray<string>;
   readonly optional_roles?: ReadonlyArray<string>;
   readonly repeatable_role_prefixes?: ReadonlyArray<string>;
+  readonly role_field_types?: Readonly<Record<string, never>>;
   readonly objects?: ReadonlyArray<EngineObjectTemplate>;
   readonly repeatable_objects?: ReadonlyArray<EngineRepeatableObjectTemplate>;
   readonly capabilities: ReadonlyArray<EngineCapability>;
@@ -1756,7 +1767,7 @@ export type TaskDraftItem = {
   readonly profile_id: string;
   readonly target_plot_alias?: string | null;
   readonly source_aliases?: ReadonlyArray<string>;
-  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | RenameField | DeriveColumn | ConvertUnit>;
+  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<DraftFieldBinding>;
   readonly visual_actions?: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
 }

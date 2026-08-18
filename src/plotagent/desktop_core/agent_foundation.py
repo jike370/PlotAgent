@@ -679,7 +679,10 @@ class DurableAgentCoreHost:
             "item's bindings must refer only to those exact aliases. Omit "
             "TaskIntent.content_hash; Core derives that "
             "integrity field after validating the semantic payload. Ask only the minimum "
-            "blocking question. Never execute, "
+            "blocking question. needs_input is only for an unresolved semantic fact that "
+            "prevents a safe draft; never use needs_input to ask the user to confirm a plan "
+            "or execution. When all semantic inputs are available, emit intent_ready and let "
+            "the product's confirmation card request authorization. Never execute, "
             "export, invent paths, or emit backend commands. Use this Core-owned scaffold: "
             f"{canonical_json(cast(JsonValue, scaffold))}"
         )

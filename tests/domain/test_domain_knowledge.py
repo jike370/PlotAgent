@@ -77,6 +77,50 @@ def envelope(
     )
 
 
+def continued_activation(
+    *,
+    version: int,
+    reason: str = "user_answered",
+    state: str = "investigating",
+    task_budget: TaskBudgetSnapshot | None = None,
+) -> AgentActivation:
+    return AgentActivation(
+        activation_id="activation:continued",
+        task_id="task:test",
+        task_version=version,
+        reason=reason,
+        task_state=state,
+        original_instruction="Create the selected chart from the selected data.",
+        current_user_message="Continue with the supplied answer.",
+        allowed_tools=("inspect_source", "list_chart_catalog"),
+        permission_phase="p0_read",
+        activation_budget=ActivationBudget(max_disclosed_scalars=10),
+        task_budget=task_budget or budget(),
+        deadline=LATER,
+        created_at=NOW,
+    )
+
+
+def continued_checkpoint(
+    *,
+    version: int,
+    state: str = "investigating",
+    task_budget: TaskBudgetSnapshot | None = None,
+) -> TaskCheckpoint:
+    return TaskCheckpoint(
+        checkpoint_id="checkpoint:continued",
+        task_id="task:test",
+        task_version=version,
+        state=state,
+        project_revision=0,
+        last_event_sequence=7,
+        active_activation_id="activation:continued",
+        budget=task_budget or budget(),
+        updated_at=NOW,
+        content_hash=HASH_A,
+    )
+
+
 def activation(
     *,
     task_budget: TaskBudgetSnapshot | None = None,
@@ -321,6 +365,30 @@ def test_selected_profile_injects_only_its_card_and_linked_calculation() -> None
     )
     assert tuple(item.profile_id for item in plot_only_context.chart_catalog) == ("K01",)
     assert plot_only_context.tools == ()
+
+
+@pytest.mark.parametrize("reason", ["user_answered", "external_blocker_cleared"])
+def test_continuation_context_uses_current_checkpoint_version(reason: str) -> None:
+    """Immutable envelope v1 must not make later activations look stale."""
+
+    task_budget = budget()
+    context = ContextBuilder().build(
+        context_snapshot_id=f"context:{reason}",
+        context_version=3,
+        envelope=envelope(profiles=("K01",)),
+        checkpoint=continued_checkpoint(version=4, task_budget=task_budget),
+        activation=continued_activation(
+            version=4,
+            reason=reason,
+            task_budget=task_budget,
+        ),
+        source_contexts=(source_context(),),
+        tools=tool_contracts(),
+    )
+
+    assert context.task_version == 4
+    assert context.task_state == "investigating"
+    assert context.activation_reason == reason
 
 
 def test_context_rejects_unauthorized_data_tool_drift_and_budget_overflow() -> None:

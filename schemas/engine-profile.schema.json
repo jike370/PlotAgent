@@ -168,6 +168,25 @@
       "minItems": 1,
       "title": "Required Roles",
       "type": "array"
+    },
+    "role_field_types": {
+      "patternProperties": {
+        "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$": {
+          "items": {
+            "enum": [
+              "numeric",
+              "categorical",
+              "datetime",
+              "boolean",
+              "text"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "title": "Role Field Types",
+      "type": "object"
     }
   },
   "required": [

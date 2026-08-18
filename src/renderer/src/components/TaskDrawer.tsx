@@ -8,7 +8,7 @@ import {
   X,
 } from 'lucide-react'
 
-import type { TaskEvent } from '../../../shared/desktop-contract'
+import type { TaskEvent, WorkflowRuntimeEvent } from '../../../shared/desktop-contract'
 import type { DurableTaskView, WorkflowPlanView } from '../data/productState'
 import { useDialogFocus } from './useDialogFocus'
 
@@ -16,6 +16,7 @@ interface TaskDrawerProps {
   tasks: TaskEvent[]
   durableTasks: DurableTaskView[]
   plans: WorkflowPlanView[]
+  runtimeEvent?: WorkflowRuntimeEvent
   onCancel: (taskId: string) => void
   onRetryPlan: (planId: string) => void
   onClose: () => void
@@ -76,6 +77,7 @@ export function TaskDrawer({
   tasks,
   durableTasks,
   plans,
+  runtimeEvent,
   onCancel,
   onRetryPlan,
   onClose,
@@ -93,9 +95,17 @@ export function TaskDrawer({
     !durableIds.has(task.taskId)
     && (view === 'all' || !legacyTerminalStates.has(task.state))
   ))
+  const runtimeTerminal = runtimeEvent === undefined
+    || ['completed', 'cancelled', 'failed'].includes(runtimeEvent.stage)
+  const showRuntime = !runtimeTerminal
+    && runtimeEvent.taskId !== undefined
+    && !durableIds.has(runtimeEvent.taskId)
+    && !tasks.some((task) => task.taskId === runtimeEvent.taskId)
   const activeCount = durableTasks.filter((task) => !durableTerminalStates.has(task.state)).length
     + tasks.filter((task) => !durableIds.has(task.taskId) && !legacyTerminalStates.has(task.state)).length
+    + (showRuntime ? 1 : 0)
   const totalCount = durableTasks.length + tasks.filter((task) => !durableIds.has(task.taskId)).length
+    + (showRuntime ? 1 : 0)
 
   return (
     <div className="drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
@@ -109,9 +119,17 @@ export function TaskDrawer({
           <button className={view === 'all' ? 'is-active' : ''} type="button" aria-pressed={view === 'all'} onClick={() => setView('all')}>全部 {totalCount}</button>
         </div>
         <div className="task-list">
-          {shownDurable.length === 0 && shownLegacy.length === 0 ? (
+          {shownDurable.length === 0 && shownLegacy.length === 0 && !showRuntime ? (
             <div className="task-empty"><Clock3 size={20} /><strong>{view === 'active' ? '当前没有进行中的任务' : '还没有任务记录'}</strong></div>
           ) : null}
+          {showRuntime && runtimeEvent.taskId && <article className="task-item task-item--running" key={runtimeEvent.taskId}>
+            <div className="task-item__icon"><LoaderCircle className="spin" size={17} /></div>
+            <div className="task-item__content">
+              <header><strong>Agent 绘图任务</strong><span>{runtimeEvent.label}</span></header>
+              <p>{runtimeEvent.taskId}</p>
+              <div className="task-item__actions"><button type="button" onClick={() => onCancel(runtimeEvent.taskId as string)}><X size={14} />停止任务</button></div>
+            </div>
+          </article>}
           {[...shownDurable].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).map((task) => {
             const terminal = durableTerminalStates.has(task.state)
             const warning = task.state === 'partial' || task.state === 'blocked' || task.state === 'failed'

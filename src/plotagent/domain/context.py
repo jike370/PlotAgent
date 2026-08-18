@@ -105,7 +105,10 @@ class ContextBuilder:
             "context_snapshot_id": context_snapshot_id,
             "context_version": context_version,
             "task_id": envelope.task_id,
-            "task_version": envelope.task_version,
+            # The envelope is immutable and remains at the version at which the
+            # task was created.  Continuations, recovery activations and repair
+            # turns must expose the current durable checkpoint version instead.
+            "task_version": checkpoint.task_version,
             "activation_id": activation.activation_id,
             "activation_reason": activation.reason,
             "task_state": checkpoint.state,

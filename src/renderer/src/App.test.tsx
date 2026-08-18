@@ -327,8 +327,8 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     confirmTaskPlan: vi.fn(async () => ok(workflowPlanFixture('ready', 'ready'))),
     runTaskPlan: vi.fn(async () => ok({ task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
     resumeTaskPlan: vi.fn(async () => ok({ task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
-    exportPngSvg: vi.fn(async () => ok({ export_id: 'export:one', artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: 'plot.png' } } })),
-    exportOrigin: vi.fn(async () => ok({ export_id: 'export:origin', result: { status: 'succeeded' } })),
+    exportPngSvg: vi.fn(async () => ok({ export_id: 'export:one', artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: 'plot.png' }, content_hash: 'a'.repeat(64), size: 1_024 } })),
+    exportOrigin: vi.fn(async () => ok({ export_id: 'export:origin', artifact: { resource: { resourceId: 'resource:origin', kind: 'export', fileName: 'plot.opju' }, content_hash: 'b'.repeat(64), size: 29_999 } })),
     respondToCloseRequest: vi.fn(actionOk),
     onCoreStatus: vi.fn((listener) => { coreListener = listener; return () => { coreListener = undefined } }),
     onTaskEvent: vi.fn((listener) => { taskListener = listener; return () => { taskListener = undefined } }),
@@ -1069,6 +1069,21 @@ describe('PlotAgent real desktop workflow', () => {
     expect(result).toHaveTextContent('bbbbbbbbbbbb…')
     expect(screen.queryByText('正在生成并验证 OPJU…')).not.toBeInTheDocument()
     expect(screen.getByText('已导出 OPJU')).toHaveClass('composer-success')
+  })
+
+  it('does not announce OPJU success when the desktop boundary omits file proof', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop({
+      exportOrigin: vi.fn(async () => ok({ export_id: 'export:unverified' })),
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '导出 OPJU' }))
+
+    expect(await screen.findByText(/缺少可验证的文件记录/)).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: '导出记录' })).not.toBeInTheDocument()
+    expect(screen.queryByText('已导出 OPJU')).not.toBeInTheDocument()
   })
 
   it('preflights Origin before OPJU export and keeps the save flow closed when unavailable', async () => {

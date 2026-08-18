@@ -7,11 +7,20 @@ import {
   readWorkflowPlan,
   readDatasets,
   readImportSummary,
+  readWorkflowOutcome,
   readPlot,
   readPlots,
 } from './productState'
 
 describe('product plot state', () => {
+  it('renders a cancelled Agent run as a no-change terminal outcome', () => {
+    expect(readWorkflowOutcome({ outcome: 'cancelled', workflow_run_id: 'task:test' })).toEqual({
+      kind: 'no_change',
+      title: '任务已取消',
+      message: '任务已停止，项目未发生更改。',
+    })
+  })
+
   it('prefers file and worksheet identity and summarizes per-file import outcomes', () => {
     const value: JsonValue = {
       selected_files: ['仪器记录.xlsx', '损坏.csv'],

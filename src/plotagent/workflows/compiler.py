@@ -159,7 +159,12 @@ class DraftCompiler:
                             logical_type=value_field.logical_type,
                             unit_label=value_field.unit_label,
                         )
-                elif operation.operation in {"rename_field", "derive_column", "convert_unit"}:
+                elif operation.operation in {
+                    "rename_field",
+                    "derive_column",
+                    "convert_unit",
+                    "bucketize_numeric",
+                }:
                     derived_operation = cast(Any, operation)
                     alias = derived_operation.output_field_alias
                     if alias in fields or alias in synthetic_fields:
@@ -182,6 +187,9 @@ class DraftCompiler:
                     elif operation.operation == "derive_column":
                         original = fields.get(derived_operation.input_field_aliases[0])
                         unit_label = original.unit_label if original is not None else None
+                    elif operation.operation == "bucketize_numeric":
+                        logical_type = "categorical"
+                        unit_label = None
                     synthetic_fields[alias] = ResolvedWorkflowField(
                         field_alias=alias,
                         source_alias=derived_operation.source_alias,
@@ -296,6 +304,31 @@ class DraftCompiler:
                     for prefix in profile.repeatable_role_prefixes
                 ):
                     raise WorkflowCompileError("ROLE_NOT_ALLOWED", "草稿包含图形不支持的字段角色。")
+            for binding in item.bindings:
+                candidate_field = synthetic_fields.get(binding.field_alias) or fields.get(
+                    binding.field_alias
+                )
+                if candidate_field is None:
+                    continue
+                accepted = profile.role_field_types.get(binding.role)
+                if accepted is None:
+                    accepted = next(
+                        (
+                            profile.role_field_types[prefix]
+                            for prefix in profile.repeatable_role_prefixes
+                            if binding.role.startswith(prefix + "_")
+                            and binding.role.removeprefix(prefix + "_").isdigit()
+                            and prefix in profile.role_field_types
+                        ),
+                        None,
+                    )
+                if accepted is not None and candidate_field.logical_type not in accepted:
+                    expected = "、".join(accepted)
+                    raise WorkflowCompileError(
+                        "FIELD_TYPE_INCOMPATIBLE",
+                        f"{profile.display_name} 的 {binding.role} 字段需要 {expected} 类型，"
+                        f"但 {candidate_field.name} 是 {candidate_field.logical_type}。",
+                    )
             self._validate_visual_actions(profile, item.visual_actions)
             plot_id = (
                 target.plot_id
@@ -394,6 +427,8 @@ class DraftCompiler:
         if operation.operation == "derive_column":
             return operation.input_field_aliases, (operation.output_field_alias,)
         if operation.operation == "convert_unit":
+            return (operation.field_alias,), (operation.output_field_alias,)
+        if operation.operation == "bucketize_numeric":
             return (operation.field_alias,), (operation.output_field_alias,)
         return (), (operation.source_label_field,)
 

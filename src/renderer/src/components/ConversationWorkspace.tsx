@@ -80,6 +80,7 @@ interface ConversationWorkspaceProps {
   notice?: ProductNotice
   busyAction?: string
   agentRuntimeLabel?: string
+  agentRuntimeTaskId?: string
   workflowOutcome?: WorkflowOutcome
   workflowPlan?: WorkflowPlanView
   agentConfigured: boolean
@@ -235,6 +236,13 @@ function InlineNotice({ notice }: { notice: ProductNotice }): React.JSX.Element 
       {notice.actionLabel && notice.onAction && <button type="button" onClick={notice.onAction}>{notice.actionLabel}</button>}
     </div>
   )
+}
+
+function NoticeMessage({ notice }: { notice: ProductNotice }): React.JSX.Element {
+  return <div className="message message--agent conversation-history-message">
+    <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div>
+    <div className="agent-response"><InlineNotice notice={notice} /></div>
+  </div>
 }
 
 function DatasetObject({
@@ -770,11 +778,13 @@ const terminalTaskStates = new Set(['succeeded', 'failed', 'cancelled', 'partial
 function ActivityMessage({
   busyAction,
   agentRuntimeLabel,
+  agentRuntimeTaskId,
   tasks,
   onCancel,
 }: {
   busyAction?: string
   agentRuntimeLabel?: string
+  agentRuntimeTaskId?: string
   tasks: TaskEvent[]
   onCancel: (taskId: string) => void
 }): React.JSX.Element | null {
@@ -798,7 +808,7 @@ function ActivityMessage({
   return <div className="message message--agent conversation-activity" role="status" aria-live="polite">
     <div className="agent-avatar" aria-hidden="true"><span>PA</span></div>
     <div className="activity-message"><span className="activity-pulse" aria-hidden="true" />{label}
-      {task && task.state !== 'committing' && <button type="button" onClick={() => onCancel(task.taskId)}><StopCircle size={14} />停止</button>}
+      {(task?.state !== 'committing' && (task?.taskId ?? agentRuntimeTaskId)) && <button type="button" onClick={() => onCancel((task?.taskId ?? agentRuntimeTaskId) as string)}><StopCircle size={14} />停止</button>}
     </div>
   </div>
 }
@@ -881,14 +891,14 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       {!project ? <Startup {...props} /> : (
         <div className="conversation-scroll">
           <div className="conversation-feed product-conversation-feed">
-            {notice && notice.kind !== 'success' && <InlineNotice notice={notice} />}
+            {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
             {datasets.length === 0 ? (
               <div className="message message--agent conversation-prompt"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>上传数据文件，并告诉我你想画什么图。</p></div></div>
             ) : (
               <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></div></div>
             )}
             <ConversationHistory messages={visibleMessages} />
-            <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} tasks={props.taskEvents} onCancel={props.onCancelTask} />
+            <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />
             {props.workflowOutcome && props.workflowOutcome.kind !== 'task_plan' && <div className={`message message--agent conversation-history-message conversation-history-message--${props.workflowOutcome.kind === 'rejected' ? 'error' : props.workflowOutcome.kind === 'needs_input' ? 'warning' : 'info'}`} role={props.workflowOutcome.kind === 'rejected' ? 'alert' : 'status'}>
               <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><strong>{props.workflowOutcome.title}</strong><p>{props.workflowOutcome.message}</p>{props.workflowOutcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div>
             </div>}

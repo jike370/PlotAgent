@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from bisect import bisect_right
 from typing import Any, Protocol, cast
 
 from plotagent.contracts.canonical import canonical_hash
@@ -153,6 +154,15 @@ def preview_data_operation(
             _preview_field_id(operation.output_field_alias),
             operation.output_name,
         )
+    elif operation.operation == "bucketize_numeric":
+        result = _bucketize_numeric(
+            views[operation.source_alias],
+            _preview_field_id(operation.field_alias),
+            operation.boundaries,
+            operation.labels,
+            _preview_field_id(operation.output_field_alias),
+            operation.output_name,
+        )
     else:
         source_by_alias = {source.source_alias: source for source in context.sources}
         labels = operation.source_labels or tuple(
@@ -276,6 +286,15 @@ def prepare_task_data(
                 views[operation.source_alias],
                 _field_id(item, operation.field_alias),
                 operation.target_unit,
+                _field_id(item, operation.output_field_alias),
+                operation.output_name,
+            )
+        elif operation.operation == "bucketize_numeric":
+            views[operation.source_alias] = _bucketize_numeric(
+                views[operation.source_alias],
+                _field_id(item, operation.field_alias),
+                operation.boundaries,
+                operation.labels,
                 _field_id(item, operation.output_field_alias),
                 operation.output_name,
             )
@@ -553,6 +572,38 @@ def _convert_unit(
             unit_label=target_definition.symbol,
         ),
         values=tuple(converted),
+    )
+    return view.model_copy(update={"columns": view.columns + (derived,)})
+
+
+def _bucketize_numeric(
+    view: EngineDataView,
+    field_id: str,
+    boundaries: tuple[float, ...],
+    labels: tuple[str, ...],
+    output_field_id: str,
+    output_name: str,
+) -> EngineDataView:
+    column = next((item for item in view.columns if item.field.field_id == field_id), None)
+    if column is None:
+        raise WorkflowDataError("FIELD_ALIAS_INVALID", "分组字段不属于数据表。")
+    if column.field.logical_type != "numeric":
+        raise WorkflowDataError("WORKFLOW_BUCKET_TYPE_INVALID", "阈值分组只接受数值字段。")
+    categorized: list[WorkflowScalar] = []
+    for value in column.values:
+        if value is None:
+            categorized.append(None)
+        elif isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise WorkflowDataError("WORKFLOW_BUCKET_TYPE_INVALID", "阈值分组遇到非数值。")
+        else:
+            categorized.append(labels[bisect_right(boundaries, float(value))])
+    derived = EngineColumn(
+        field=EngineField(
+            field_id=output_field_id,
+            name=output_name,
+            logical_type="categorical",
+        ),
+        values=tuple(categorized),
     )
     return view.model_copy(update={"columns": view.columns + (derived,)})
 

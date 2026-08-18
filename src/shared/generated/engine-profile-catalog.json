@@ -116,7 +116,24 @@
       "required_roles": [
         "x",
         "y"
-      ]
+      ],
+      "role_field_types": {
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "x": [
+          "numeric",
+          "categorical",
+          "datetime",
+          "text"
+        ],
+        "y": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -240,7 +257,24 @@
       "required_roles": [
         "x",
         "y"
-      ]
+      ],
+      "role_field_types": {
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "x": [
+          "numeric",
+          "categorical",
+          "datetime",
+          "text"
+        ],
+        "y": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -360,7 +394,21 @@
       "required_roles": [
         "x",
         "y"
-      ]
+      ],
+      "role_field_types": {
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "x": [
+          "numeric"
+        ],
+        "y": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -504,7 +552,21 @@
       "required_roles": [
         "x",
         "y"
-      ]
+      ],
+      "role_field_types": {
+        "color": [
+          "numeric"
+        ],
+        "size": [
+          "numeric"
+        ],
+        "x": [
+          "numeric"
+        ],
+        "y": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -640,7 +702,33 @@
         "x_err_plus",
         "y_err_minus",
         "y_err_plus"
-      ]
+      ],
+      "role_field_types": {
+        "center": [
+          "numeric"
+        ],
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "x": [
+          "numeric"
+        ],
+        "x_err_minus": [
+          "numeric"
+        ],
+        "x_err_plus": [
+          "numeric"
+        ],
+        "y_err_minus": [
+          "numeric"
+        ],
+        "y_err_plus": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -771,7 +859,27 @@
         "center",
         "lower",
         "upper"
-      ]
+      ],
+      "role_field_types": {
+        "center": [
+          "numeric"
+        ],
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "lower": [
+          "numeric"
+        ],
+        "upper": [
+          "numeric"
+        ],
+        "x": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -903,7 +1011,24 @@
       "required_roles": [
         "category",
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "category": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "label": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -1035,7 +1160,24 @@
         "category",
         "group",
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "category": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -1167,7 +1309,24 @@
         "category",
         "component",
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "category": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "component": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -1299,7 +1458,24 @@
         "category",
         "component",
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "category": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "component": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -1418,7 +1594,18 @@
       "repeatable_role_prefixes": [],
       "required_roles": [
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -1542,7 +1729,18 @@
       "repeatable_role_prefixes": [],
       "required_roles": [
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -1663,7 +1861,18 @@
       "repeatable_role_prefixes": [],
       "required_roles": [
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -1777,7 +1986,12 @@
       "repeatable_role_prefixes": [],
       "required_roles": [
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -1901,7 +2115,27 @@
       "required_roles": [
         "x",
         "series_1"
-      ]
+      ],
+      "role_field_types": {
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "series": [
+          "numeric"
+        ],
+        "series_1": [
+          "numeric"
+        ],
+        "x": [
+          "numeric",
+          "categorical",
+          "datetime",
+          "text"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -2020,7 +2254,24 @@
       "required_roles": [
         "time",
         "series_1"
-      ]
+      ],
+      "role_field_types": {
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "series": [
+          "numeric"
+        ],
+        "series_1": [
+          "numeric"
+        ],
+        "time": [
+          "datetime"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -2136,7 +2387,24 @@
         "row",
         "column",
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "column": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "row": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -2258,7 +2526,24 @@
         "row_label",
         "column_label",
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "column_label": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "row_label": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -2366,7 +2651,18 @@
         "x",
         "y",
         "z"
-      ]
+      ],
+      "role_field_types": {
+        "x": [
+          "numeric"
+        ],
+        "y": [
+          "numeric"
+        ],
+        "z": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -2474,7 +2770,21 @@
         "facet",
         "base_x",
         "base_y"
-      ]
+      ],
+      "role_field_types": {
+        "base_x": [
+          "numeric"
+        ],
+        "base_y": [
+          "numeric"
+        ],
+        "facet": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -2604,7 +2914,24 @@
       "required_roles": [
         "z_real",
         "z_imaginary"
-      ]
+      ],
+      "role_field_types": {
+        "frequency": [
+          "numeric"
+        ],
+        "series": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "z_imaginary": [
+          "numeric"
+        ],
+        "z_real": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -2727,7 +3054,24 @@
       "required_roles": [
         "actual",
         "predicted"
-      ]
+      ],
+      "role_field_types": {
+        "actual": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "count": [
+          "numeric"
+        ],
+        "predicted": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -2850,7 +3194,24 @@
       "required_roles": [
         "x",
         "y"
-      ]
+      ],
+      "role_field_types": {
+        "label": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "x": [
+          "numeric",
+          "categorical",
+          "datetime",
+          "text"
+        ],
+        "y": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -2975,7 +3336,24 @@
         "category",
         "series_1",
         "series_2"
-      ]
+      ],
+      "role_field_types": {
+        "category": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "series": [
+          "numeric"
+        ],
+        "series_1": [
+          "numeric"
+        ],
+        "series_2": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -3094,7 +3472,18 @@
       "repeatable_role_prefixes": [],
       "required_roles": [
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -3227,7 +3616,24 @@
         "category",
         "start",
         "end"
-      ]
+      ],
+      "role_field_types": {
+        "category": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "end": [
+          "numeric"
+        ],
+        "middle": [
+          "numeric"
+        ],
+        "start": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -3362,7 +3768,21 @@
         "category",
         "left",
         "right"
-      ]
+      ],
+      "role_field_types": {
+        "category": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "left": [
+          "numeric"
+        ],
+        "right": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -3494,7 +3914,21 @@
         "x",
         "left",
         "right"
-      ]
+      ],
+      "role_field_types": {
+        "left": [
+          "numeric"
+        ],
+        "right": [
+          "numeric"
+        ],
+        "x": [
+          "numeric",
+          "categorical",
+          "datetime",
+          "text"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -3635,7 +4069,18 @@
       "required_roles": [
         "category",
         "value"
-      ]
+      ],
+      "role_field_types": {
+        "category": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "value": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -3776,7 +4221,21 @@
         "category",
         "left",
         "right"
-      ]
+      ],
+      "role_field_types": {
+        "category": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "left": [
+          "numeric"
+        ],
+        "right": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -3928,7 +4387,21 @@
         "category",
         "left",
         "right"
-      ]
+      ],
+      "role_field_types": {
+        "category": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "left": [
+          "numeric"
+        ],
+        "right": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -4044,7 +4517,21 @@
       "required_roles": [
         "x",
         "series_1"
-      ]
+      ],
+      "role_field_types": {
+        "series": [
+          "numeric"
+        ],
+        "series_1": [
+          "numeric"
+        ],
+        "x": [
+          "numeric",
+          "categorical",
+          "datetime",
+          "text"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -4173,7 +4660,18 @@
       "required_roles": [
         "series_1",
         "series_2"
-      ]
+      ],
+      "role_field_types": {
+        "series": [
+          "numeric"
+        ],
+        "series_1": [
+          "numeric"
+        ],
+        "series_2": [
+          "numeric"
+        ]
+      }
     },
     {
       "capabilities": [
@@ -4303,7 +4801,27 @@
         "label",
         "series_1",
         "series_2"
-      ]
+      ],
+      "role_field_types": {
+        "group": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "label": [
+          "categorical",
+          "text",
+          "numeric",
+          "boolean"
+        ],
+        "series_1": [
+          "numeric"
+        ],
+        "series_2": [
+          "numeric"
+        ]
+      }
     }
   ],
   "schema_version": "engine-profile.v1"

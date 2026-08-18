@@ -6,7 +6,7 @@
     },
     {
       "path": "schemas/agent-context-v2.schema.json",
-      "sha256": "fbfa443082729a1f4a98fadb5cfc565d6c00b49cdf90fe0daacf535b92d488cb"
+      "sha256": "405abe2c39d79cc50e80dafd9ed580e368240327ba489a1d3de1171112327ae8"
     },
     {
       "path": "schemas/agent-tool-error-v2.schema.json",
@@ -18,7 +18,7 @@
     },
     {
       "path": "schemas/agent-yield-v2.schema.json",
-      "sha256": "1957b1f71e12fcfcf10c58c6a248df17cae07c2a97bfd18f9fc235ccc724fdfb"
+      "sha256": "78b0cc6b9954ad5fa23f35b089007edc63d9dac32d03d422e9b7af71adaffbd4"
     },
     {
       "path": "schemas/calculation-contract-v1.schema.json",
@@ -30,7 +30,7 @@
     },
     {
       "path": "schemas/chart-knowledge-v1.schema.json",
-      "sha256": "e9491ba526f0ad321149ce0b680a7c1561c3120b18a586aa734ffff3a17dd22c"
+      "sha256": "b144564c17b37f9b8bcd00c16de5c02a432872cebc88295a9e524aa9f6aceea9"
     },
     {
       "path": "schemas/chart-profile-comparison-v1.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "2eb6704ac3822fe35de4d1ba8617a41fc94e16e99384669024ef3c7d3b1586aa"
+      "sha256": "6178fa97fb6a45b377d3a78ec9689584b807b6617a1f522a305b2c809e7a6346"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -74,11 +74,11 @@
     },
     {
       "path": "schemas/engine-profile-catalog.json",
-      "sha256": "73909206d59454ab18bee1998502157d1985ba30d1033b82afb2f8847452ba5c"
+      "sha256": "efccfe7ab96eebf62cc37b4acbd27fae2635191dea820115a0352556e9732b33"
     },
     {
       "path": "schemas/engine-profile.schema.json",
-      "sha256": "2f3ffd077dc27d21d65edcc950265f3b727f8bcff8703d840deb87f429b12143"
+      "sha256": "15fe228f268a286dfe1ae724ecde02ff60f4ed062384042744414fe40faa25d4"
     },
     {
       "path": "schemas/engine-readback.schema.json",
@@ -146,7 +146,7 @@
     },
     {
       "path": "schemas/task-draft.schema.json",
-      "sha256": "4991d6e4d7b7c1dd05f4baa5e371e4ebc5b7233d380a4c3205353e6e1b8436ac"
+      "sha256": "cb70a9a775910a8d99a57fc4e2ebe2d620913a8e2330e186459deeb23864f170"
     },
     {
       "path": "schemas/task-envelope-v2.schema.json",
@@ -162,15 +162,15 @@
     },
     {
       "path": "schemas/task-intent-v2.schema.json",
-      "sha256": "f9c0964f950c2ab4c79f8cfacf368dcae72f1cfb879d39fc1b251051b2b04691"
+      "sha256": "6354fe8ab2d51aebff4b46e9e7cb1f30bc118d1e795aa7746456839b26e4ac8e"
     },
     {
       "path": "schemas/task-plan-snapshot.schema.json",
-      "sha256": "2178edba46c9410f701fc0993395cfc78c47e1d04f83d34fc63a97b80a5f6fcb"
+      "sha256": "036c0249522cd8334de10661bdc70de32e650e14675d32890c6c571bab409f2c"
     },
     {
       "path": "schemas/task-plan.schema.json",
-      "sha256": "4d6d3a86ac92f762e8ddc19f9770487f2dd9518114d01b5e8d90734eb2df6665"
+      "sha256": "c736da73835e35354d8ddd8f044455ec8ca64fe9c990d8b7b61e32d283bb9e5d"
     },
     {
       "path": "schemas/tool-contract-v2.schema.json",
@@ -198,11 +198,11 @@
     },
     {
       "path": "schemas/workflow-decision.schema.json",
-      "sha256": "c90d2023954048687495d79c0f7e8d87a51c792120cf419670f8fe0bf88eef3a"
+      "sha256": "588c5c2257b1a7b084d793269ebb75faf8938bac0ead00cf12b814f508ff555a"
     },
     {
       "path": "schemas/workflow-recipe.schema.json",
-      "sha256": "9cd99bfa44455f507b741870171c4ebdd6e04f6bced707614704af76c78b49bf"
+      "sha256": "6e22aa23d4fc687d05511f5058064b0221b8c99036a7ecdfc9691f6948fc3f4b"
     },
     {
       "path": "schemas/workflow-run-snapshot.schema.json",
@@ -210,11 +210,11 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "cef97825c84d945bcc7fa72d58c587e10b43c283b2f62816b12542f6c5a75f43"
+      "sha256": "b3734aae4846b9c348fa7ca585a5c9a5cab87c76444fa732cb9c87abb1231afd"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",
-      "sha256": "73909206d59454ab18bee1998502157d1985ba30d1033b82afb2f8847452ba5c"
+      "sha256": "efccfe7ab96eebf62cc37b4acbd27fae2635191dea820115a0352556e9732b33"
     }
   ],
   "generator": "plotagent.contracts.codegen",

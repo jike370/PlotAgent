@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
+import { createHash } from 'node:crypto'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import { InMemoryResourceRegistry } from '../single-instance-routing.js'
 import type { PythonCoreSupervisor } from '../core/python-supervisor.js'
@@ -13,6 +17,7 @@ import {
   requestPlotList,
   readImportClarification,
   sanitizeCoreResult,
+  verifyExportArtifact,
   withImportSourceIdentity,
 } from './desktop-ipc.js'
 
@@ -211,5 +216,35 @@ describe('desktop product IPC boundary', () => {
         retryable: false,
       },
     })
+  })
+
+  it('reports export success only after the authorized file matches Core metadata', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'plotagent-export-proof-'))
+    try {
+      const destination = join(directory, 'verified.opju')
+      const payload = Buffer.from('native editable project')
+      const contentHash = createHash('sha256').update(payload).digest('hex')
+      const result = {
+        ok: true as const,
+        value: {
+          export_id: 'export:verified',
+          artifact: { size: payload.length, content_hash: contentHash },
+        },
+      }
+
+      await expect(verifyExportArtifact(result, destination)).resolves.toMatchObject({
+        ok: false,
+        error: { code: 'RESOURCE_INVALID' },
+      })
+      await writeFile(destination, payload)
+      await expect(verifyExportArtifact(result, destination)).resolves.toEqual(result)
+      await writeFile(destination, Buffer.from('corrupted'))
+      await expect(verifyExportArtifact(result, destination)).resolves.toMatchObject({
+        ok: false,
+        error: { code: 'RESOURCE_INVALID' },
+      })
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 })

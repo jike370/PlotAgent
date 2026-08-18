@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from plotagent.contracts.workflows import (
+    BucketizeNumeric,
     CompiledTaskItem,
     ConcatenateSources,
     ConvertUnit,
@@ -295,3 +296,79 @@ def test_agent_can_request_a_registered_unit_conversion_before_concatenation() -
     assert registrar.registered is not None
     assert registrar.registered.columns[1].field.unit_label == "mV"
     assert registrar.registered.columns[1].values == (2.0, 3.0, 5.0, 8.0)
+
+
+def test_agent_can_bucketize_an_explicit_numeric_field_with_confirmed_thresholds() -> None:
+    source = WorkflowSource(
+        source_alias="data_1",
+        source_dataset_id="source:one",
+        source_version=1,
+        content_hash="a" * 64,
+        display_name="signal.csv",
+        row_count=5,
+    )
+    output_id = "field:workflow_bucket_level"
+    item = CompiledTaskItem(
+        task_kind="create",
+        item_id="item:bucket.1",
+        plot_alias="plot_1",
+        plot_id="plot:bucket",
+        profile_id="K03",
+        sources=(source,),
+        resolved_fields=(
+            ResolvedWorkflowField(
+                field_alias="time",
+                source_alias="data_1",
+                field_id="field:one_time",
+                name="Time",
+                logical_type="numeric",
+            ),
+            ResolvedWorkflowField(
+                field_alias="signal",
+                source_alias="data_1",
+                field_id="field:one_signal",
+                name="Signal",
+                logical_type="numeric",
+                unit_label="mV",
+            ),
+            ResolvedWorkflowField(
+                field_alias="level",
+                source_alias="data_1",
+                field_id=output_id,
+                name="Level",
+                logical_type="categorical",
+            ),
+        ),
+        data_operations=(
+            BucketizeNumeric(
+                source_alias="data_1",
+                field_alias="signal",
+                boundaries=(2.0, 5.0),
+                labels=("低", "中", "高"),
+                output_field_alias="level",
+                output_name="Level",
+            ),
+        ),
+        bindings=(
+            ResolvedFieldBinding(role="x", source_alias="data_1", field_id="field:one_time"),
+            ResolvedFieldBinding(role="y", source_alias="data_1", field_id="field:one_signal"),
+            ResolvedFieldBinding(role="group", source_alias="data_1", field_id=output_id),
+        ),
+        visual_actions=(),
+        idempotency_key="workflow.bucket.1",
+    )
+    registrar = _Registrar()
+    view = _view(
+        "source:one",
+        "one",
+        ((1, 1.0), (2, 2.0), (3, 4.0), (4, 5.0), (5, 8.0)),
+        signal_unit="mV",
+    )
+
+    prepare_task_data(item, _Provider({"source:one": view}), registrar)
+
+    assert registrar.registered is not None
+    level = next(
+        column for column in registrar.registered.columns if column.field.field_id == output_id
+    )
+    assert level.values == ("低", "中", "中", "高", "高")

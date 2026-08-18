@@ -36,6 +36,7 @@ export interface AgentFoundationRuntimeEvent {
   readonly schemaVersion: '1.0'
   readonly runId: string
   readonly projectId: string
+  readonly taskId?: string
   readonly sequence: number
   readonly stage:
     | 'preparing_context'
@@ -188,6 +189,7 @@ export class AgentFoundationRuntime {
   private readonly createRuntime: NonNullable<AgentFoundationRuntimeOptions['createRuntime']>
   private readonly clock: () => Date
   private readonly id: () => string
+  private readonly taskByRunId = new Map<string, string>()
   private readonly authorityByPlan = new Map<string, PlanAuthority>()
   private readonly authorityByTask = new Map<string, string>()
   private readonly activePumps = new Map<string, AgentTaskPump>()
@@ -338,6 +340,8 @@ export class AgentFoundationRuntime {
       },
     })
     this.authorityByTask.set(taskId, input.projectId)
+    this.taskByRunId.set(runId, taskId)
+    this.emit(runId, input.projectId, 'preparing_context', 'Agent 任务已创建，正在准备上下文…')
 
     const host = new CorePiRuntimeHostV2(this.core, input.projectId)
     const runtime = this.createRuntime(host, (event) => this.forwardRuntime(runId, input.projectId, event))
@@ -383,6 +387,7 @@ export class AgentFoundationRuntime {
       message: input.instruction,
     }, 15_000)
     const runId = `workflow:continue:${taskId.replace(/^task:/, '')}`
+    this.taskByRunId.set(runId, taskId)
     this.emit(runId, input.projectId, 'preparing_context', '正在继续这项任务…')
     const host = new CorePiRuntimeHostV2(this.core, input.projectId)
     const runtime = this.createRuntime(
@@ -410,6 +415,10 @@ export class AgentFoundationRuntime {
     runId: string,
     drained: TaskPumpResult,
   ): Promise<JsonValue> {
+    if (drained.reason === 'terminal' && drained.taskState === 'cancelled') {
+      this.emit(runId, projectId, 'cancelled', 'Agent 任务已取消')
+      return json({ outcome: 'cancelled', workflow_run_id: taskId })
+    }
     if (drained.reason === 'awaiting_input' && drained.terminalYield?.outcome === 'needs_input') {
       this.emit(runId, projectId, 'completed', '等待你的回复')
       return json({
@@ -474,6 +483,7 @@ export class AgentFoundationRuntime {
   async execute(input: AgentFoundationPlanInput): Promise<JsonValue> {
     const authority = this.authority(input)
     const runId = `workflow:execute:${authority.taskId.replace(/^task:/, '')}`
+    this.taskByRunId.set(runId, authority.taskId)
     this.emit(runId, authority.projectId, 'planning', '正在调用绘图引擎并验证结果…')
     try {
       let view = record(await this.get(input), 'durable task plan view')
@@ -599,6 +609,9 @@ export class AgentFoundationRuntime {
       schemaVersion: '1.0',
       runId,
       projectId,
+      ...(this.taskByRunId.get(runId) === undefined
+        ? {}
+        : { taskId: this.taskByRunId.get(runId) }),
       sequence: this.sequence,
       stage,
       label,

@@ -433,6 +433,35 @@ class ConvertUnit(StrictModel):
     output_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
 
 
+class BucketizeNumeric(StrictModel):
+    """Create a categorical field from explicit ordered numeric boundaries."""
+
+    operation: Literal["bucketize_numeric"] = "bucketize_numeric"
+    source_alias: WorkflowAlias
+    field_alias: WorkflowAlias
+    boundaries: Annotated[tuple[FiniteNumber, ...], Field(min_length=1, max_length=32)]
+    labels: Annotated[
+        tuple[WorkflowDisplayLabel, ...],
+        Field(min_length=2, max_length=33),
+    ]
+    output_field_alias: WorkflowAlias
+    output_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+
+    @model_validator(mode="after")
+    def ordered_bins(self) -> BucketizeNumeric:
+        if len(self.labels) != len(self.boundaries) + 1:
+            raise ValueError("bucket labels must have exactly one more value than boundaries")
+        if any(
+            left >= right
+            for left, right in zip(self.boundaries, self.boundaries[1:], strict=False)
+        ):
+            raise ValueError("bucket boundaries must be strictly increasing")
+        normalized = tuple(label.strip().casefold() for label in self.labels)
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("bucket labels must be unique")
+        return self
+
+
 DataOperation = Annotated[
     SelectFields
     | FilterRows
@@ -442,7 +471,8 @@ DataOperation = Annotated[
     | ConcatenateSources
     | RenameField
     | DeriveColumn
-    | ConvertUnit,
+    | ConvertUnit
+    | BucketizeNumeric,
     Field(discriminator="operation"),
 ]
 

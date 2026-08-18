@@ -828,6 +828,7 @@ export function readWorkflowOutcome(value: JsonValue): WorkflowOutcome {
     }
   }
   if (outcome === 'unsupported' && root !== undefined) return { kind: 'unsupported', title: '当前不支持', message: decisionMessage(root) }
+  if (outcome === 'cancelled') return { kind: 'no_change', title: '任务已取消', message: '任务已停止，项目未发生更改。' }
   return { kind: 'rejected', title: '无法识别结果', message: 'Core 未返回受支持的工作流结果。' }
 }
 

@@ -246,6 +246,7 @@ export interface WorkflowRuntimeEvent {
   readonly schemaVersion: DesktopApiVersion
   readonly runId: string
   readonly projectId: string
+  readonly taskId?: string
   readonly sequence: number
   readonly stage: WorkflowRuntimeStage
   readonly label: string

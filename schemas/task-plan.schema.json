@@ -1,5 +1,68 @@
 {
   "$defs": {
+    "BucketizeNumeric": {
+      "additionalProperties": false,
+      "description": "Create a categorical field from explicit ordered numeric boundaries.",
+      "properties": {
+        "boundaries": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Boundaries",
+          "type": "array"
+        },
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 33,
+          "minItems": 2,
+          "title": "Labels",
+          "type": "array"
+        },
+        "operation": {
+          "const": "bucketize_numeric",
+          "default": "bucketize_numeric",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_alias",
+        "boundaries",
+        "labels",
+        "output_field_alias",
+        "output_name"
+      ],
+      "title": "BucketizeNumeric",
+      "type": "object"
+    },
     "CompiledTaskItem": {
       "additionalProperties": false,
       "properties": {
@@ -15,6 +78,7 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "bucketize_numeric": "#/$defs/BucketizeNumeric",
                 "concatenate_sources": "#/$defs/ConcatenateSources",
                 "convert_unit": "#/$defs/ConvertUnit",
                 "derive_column": "#/$defs/DeriveColumn",
@@ -54,6 +118,9 @@
               },
               {
                 "$ref": "#/$defs/ConvertUnit"
+              },
+              {
+                "$ref": "#/$defs/BucketizeNumeric"
               }
             ]
           },
