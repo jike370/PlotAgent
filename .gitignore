@@ -5,6 +5,7 @@ __pycache__/
 *.pyd
 *.so
 .pytest_cache/
+.pytest-tmp/
 .mypy_cache/
 .ruff_cache/
 .coverage
@@ -13,6 +14,7 @@ htmlcov/
 # Build artifacts
 build/
 dist/
+/outputs/
 *.egg-info/
 
 # Local configuration and credentials

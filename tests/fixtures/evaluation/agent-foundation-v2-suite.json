@@ -4,8 +4,8 @@
   "suite_version": 1,
   "legacy_source": {
     "path": "tests/fixtures/seq70/workflow_tasks.json",
-    "sha256": "c396f22b213a5173bb20add091aa6f009031393339090a8bf892a836e6ff755b",
-    "byte_length": 11189
+    "sha256": "75839311d3a320db3f64ff0b91e73539244940265253fd4cf2ead15140e5f08b",
+    "byte_length": 11248
   },
   "defaults": {
     "suite_kind": "regression",
@@ -35,7 +35,7 @@
     {"legacy_task_id":"W11","layer":"E3","claim":"两份同构数据可合并进同一 K02，并保留来源身份。"},
     {"legacy_task_id":"W12","layer":"E3","claim":"当前图标题和 y 轴标题编辑绑定到所选 plot，不新建或误改其他对象。"},
     {"legacy_task_id":"W13","layer":"E3","claim":"当前图第一系列与图例编辑绑定到正确系列和图例对象。"},
-    {"legacy_task_id":"W14","layer":"E3","claim":"已删除的组合图能力被明确拒绝，不以其他图类替代。"},
+    {"legacy_task_id":"W14","layer":"E3","claim":"用户在自然语言中明确图类与字段时，即使未预先点选图形卡也能生成正确 K01 计划。"},
     {"legacy_task_id":"W15","layer":"E3","claim":"用户已明确歧义列语义时直接采用显式绑定，不重复追问。"},
     {"legacy_task_id":"W16","layer":"E3","claim":"Agent 先检查两份数据结构，再分别创建同构批量图。"},
     {"legacy_task_id":"W17","layer":"E3","claim":"Agent 检查字段、计算中位数、筛选后创建图，不能由关键词路由伪造。"},

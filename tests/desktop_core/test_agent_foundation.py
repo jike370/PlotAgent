@@ -30,6 +30,7 @@ from plotagent.storage import (
     ProjectImportService,
     ProjectStore,
 )
+from plotagent.storage.errors import StorageProblem
 from plotagent.tasking import TaskLedgerRepository
 
 NOW = datetime(2026, 8, 18, 10, 0, tzinfo=UTC)
@@ -200,6 +201,50 @@ def test_context_authority_stays_current_until_yield_then_waits_for_confirmation
             "task_state": "awaiting_confirmation",
         }
         assert ledger.get_task("task:test").task_version == 4
+
+
+def test_rejected_intent_is_terminal_and_cannot_be_confirmed(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        directive = coordinator.next_action("task:test")
+        activation_id = str(directive["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        ledger.accept_yield(
+            AgentIntentReady(
+                activation_id=activation_id,
+                task_id="task:test",
+                task_version=1,
+                intent=intent(activation_id),
+            )
+        )
+        waiting = coordinator.next_action("task:test")
+        assert waiting["reason"] == "awaiting_confirmation"
+        pending = ledger.get_task("task:test")
+
+        rejected = ledger.record_user_event(
+            "task:test",
+            expected_task_version=pending.task_version,
+            action="rejected",
+            user_event_id="user-event:reject.1",
+            payload_hash=pending.intent.content_hash,
+        )
+        assert rejected.state == "rejected"
+        assert rejected.items == pending.items
+        assert coordinator.next_action("task:test") == {
+            "kind": "wait",
+            "reason": "terminal",
+            "task_state": "rejected",
+        }
+        with pytest.raises(StorageProblem):
+            ledger.record_user_event(
+                "task:test",
+                expected_task_version=rejected.task_version,
+                action="confirmed",
+                user_event_id="user-event:confirm-after-reject.1",
+                payload_hash=pending.intent.content_hash,
+            )
 
 
 def test_user_correction_creates_next_intent_version_and_requires_reconfirmation(

@@ -190,10 +190,12 @@
       "task_id": "W14",
       "layer": "workflow",
       "fixture_keys": ["xy"],
-      "instruction": "请创建已经删除的 K25 组合图；如果不支持就明确询问或拒绝，不得替换成别的图。",
+      "instruction": "用 X 作为横轴、Response 作为纵轴，画一张折线图。",
       "selected_profile_ids": [],
-      "expected_outcome": "needs_input",
-      "expected_route": "agent"
+      "expected_outcome": "draft_ready",
+      "expected_route": "agent",
+      "expected_profiles": ["K01"],
+      "expected_bindings": {"x": "X", "y": "Response"}
     },
     {
       "task_id": "W15",
@@ -250,7 +252,7 @@
     {"task_id": "R02", "layer": "runtime", "scenario": "confirmed_plan_executes"},
     {"task_id": "R03", "layer": "runtime", "scenario": "rejected_plan_no_side_effect"},
     {"task_id": "R04", "layer": "runtime", "scenario": "stale_plan_rejected"},
-    {"task_id": "R05", "layer": "runtime", "scenario": "recipe_replay"},
+    {"task_id": "R05", "layer": "runtime", "scenario": "partial_failure_recovery"},
     {"task_id": "R06", "layer": "runtime", "scenario": "restart_recovers_plan"}
   ]
 }

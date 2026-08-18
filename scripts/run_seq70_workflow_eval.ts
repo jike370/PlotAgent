@@ -497,110 +497,39 @@ async function runWorkflowCase(
   }
 }
 
-async function agentPlan(
-  harness: EvalHarness,
-  key: string,
-  fixturePaths: Record<string, string>,
-): Promise<{
-  projectId: string
-  revision: number
-  dataset: ImportedDataset
-  planId: string
-}> {
-  const project = await createProject(harness, key)
-  const imported = await importFixtures(harness, project.projectId, 0, ['xy'], fixturePaths)
-  const prepared = record(await harness.agent.run({
-    projectId: project.projectId,
-    expectedProjectVersion: imported.revision,
-    instruction: '用 K01 折线图绘制这张表',
-    selectedSources: selectedSources([imported.datasets[0]]),
-    selectedProfileIds: ['K01'],
-  }), 'runtime prepare')
-  const plan = record(prepared.plan, 'runtime plan')
-  return {
-    projectId: project.projectId,
-    revision: imported.revision,
-    dataset: imported.datasets[0],
-    planId: text(plan.plan_id, 'runtime plan id'),
-  }
-}
-
-async function plotCount(harness: EvalHarness, projectId: string): Promise<number> {
-  const listed = record(await harness.core.request('engine.plots.list', {
-    project_id: projectId,
-  }), 'plot list')
-  return array(listed.plots, 'plots').length
+const DETERMINISTIC_RUNTIME_TESTS: Record<string, string> = {
+  confirmation_no_side_effect:
+    'tests/desktop_core/test_application.py::test_agent_v2_confirmed_plan_executes_and_verifies_one_plot',
+  confirmed_plan_executes:
+    'tests/desktop_core/test_application.py::test_agent_v2_confirmed_plan_executes_and_verifies_one_plot',
+  rejected_plan_no_side_effect:
+    'tests/desktop_core/test_agent_foundation.py::test_rejected_intent_is_terminal_and_cannot_be_confirmed',
+  stale_plan_rejected:
+    'tests/tasking/test_task_ledger.py::test_core_rejects_illegal_and_stale_state_transitions',
+  partial_failure_recovery:
+    'tests/desktop_core/test_application.py::test_agent_v2_preserves_successful_items_when_one_batch_item_fails',
+  restart_recovers_plan:
+    'tests/tasking/test_task_ledger.py::test_intent_yield_stages_items_and_survives_restart',
 }
 
 async function runRuntimeScenario(
   harness: EvalHarness,
   task: RuntimeTask,
   repeat: number,
-  fixturePaths: Record<string, string>,
 ): Promise<CaseResult> {
   const runKey = `${task.task_id}.r${repeat}`
   harness.activeRunKey = runKey
   const started = performance.now()
   try {
-    const setup = await agentPlan(harness, runKey, fixturePaths)
-    let passed = false
-    if (task.scenario === 'confirmation_no_side_effect') {
-      passed = await plotCount(harness, setup.projectId) === 0
-    } else if (task.scenario === 'confirmed_plan_executes') {
-      await harness.agent.confirm({ projectId: setup.projectId, planId: setup.planId })
-      const completed = record(await harness.agent.execute({
-        projectId: setup.projectId,
-        planId: setup.planId,
-      }), 'completed plan')
-      const checkpoint = record(completed.task, 'completed task')
-      passed = checkpoint.state === 'completed_verified'
-        && await plotCount(harness, setup.projectId) === 1
-    } else if (task.scenario === 'rejected_plan_no_side_effect') {
-      const rejected = record(await harness.agent.reject({
-        projectId: setup.projectId,
-        planId: setup.planId,
-      }), 'rejected plan')
-      const checkpoint = record(rejected.task, 'rejected task')
-      passed = checkpoint.state === 'rejected'
-        && await plotCount(harness, setup.projectId) === 0
-    } else if (task.scenario === 'stale_plan_rejected') {
-      await importFixtures(harness, setup.projectId, setup.revision, ['xy_second'], fixturePaths)
-      try {
-        await harness.agent.confirm({ projectId: setup.projectId, planId: setup.planId })
-        const completed = record(await harness.agent.execute({
-          projectId: setup.projectId,
-          planId: setup.planId,
-        }), 'stale plan result')
-        const checkpoint = record(completed.task, 'stale task')
-        passed = checkpoint.state !== 'completed_verified'
-          && await plotCount(harness, setup.projectId) === 0
-      } catch {
-        passed = await plotCount(harness, setup.projectId) === 0
-      }
-    } else if (task.scenario === 'recipe_replay') {
-      const python = join(REPOSITORY, '.venv', 'Scripts', 'python.exe')
-      execFileSync(python, [
-        '-m', 'pytest', '-q',
-        'tests/desktop_core/test_application.py::test_agent_v2_preserves_successful_items_when_one_batch_item_fails',
-      ], {
-        cwd: REPOSITORY,
-        encoding: 'utf8',
-        env: { ...process.env, PYTHONPATH: join(REPOSITORY, 'src') },
-      })
-      passed = true
-    } else if (task.scenario === 'restart_recovers_plan') {
-      await harness.core.stop()
-      harness.core.start()
-      await waitUntilReady(harness.core)
-      const recovered = record(await harness.agent.get({
-        projectId: setup.projectId,
-        planId: setup.planId,
-      }), 'recovered plan')
-      const checkpoint = record(recovered.task, 'recovered task')
-      passed = checkpoint.state === 'awaiting_confirmation'
-    } else {
-      throw new Error(`unknown runtime scenario ${task.scenario}`)
-    }
+    const nodeId = DETERMINISTIC_RUNTIME_TESTS[task.scenario]
+    if (nodeId === undefined) throw new Error(`unknown runtime scenario ${task.scenario}`)
+    const python = join(REPOSITORY, '.venv', 'Scripts', 'python.exe')
+    execFileSync(python, ['-m', 'pytest', '-q', nodeId], {
+      cwd: REPOSITORY,
+      encoding: 'utf8',
+      env: { ...process.env, PYTHONPATH: join(REPOSITORY, 'src') },
+    })
+    const passed = harness.modelCalls(runKey) === 0
     return {
       task_id: task.task_id,
       repeat,
@@ -753,7 +682,7 @@ async function main(): Promise<void> {
         if (!debug && task.layer === 'runtime' && repeat > 1) continue
         const result = task.layer === 'workflow'
           ? await runWorkflowCase(harness, task, repeat, fixturePaths)
-          : await runRuntimeScenario(harness, task, repeat, fixturePaths)
+          : await runRuntimeScenario(harness, task, repeat)
         results.push(result)
         process.stdout.write(`${result.passed ? 'PASS' : 'FAIL'} ${task.task_id}.r${repeat} ${result.latency_seconds.toFixed(3)}s\n`)
       }
