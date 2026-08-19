@@ -525,6 +525,10 @@ export class AgentFoundationRuntime {
     try {
       let view = record(await this.get(input), 'durable task plan view')
       let task = record(view.task, 'durable execution task')
+      if (task.state === 'completed_verified') {
+        this.emit(runId, authority.projectId, 'completed', '任务结果已验证')
+        return json(view)
+      }
       if (task.state !== 'partial') {
         const executed = record(await this.core.request(
           'agent.tasks.execute',

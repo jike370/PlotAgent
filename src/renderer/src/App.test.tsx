@@ -1205,20 +1205,28 @@ describe('PlotAgent real desktop workflow', () => {
       planId: 'plan:batch',
       failure: { code: 'INVALID_DATA', message: '失败项数据不适用。', retryable: true },
     })
+    const confirmTaskPlan = vi.fn()
+      .mockResolvedValueOnce(ok(batchPlanFixture('ready')))
+      .mockResolvedValueOnce(ok(workflowPlanFixture(
+        'succeeded',
+        'succeeded',
+        { planId: 'plan:revised', plotVersion: 1 },
+      )))
+    const runTaskPlan = vi.fn(async () => ok({
+      outcome: 'needs_input',
+      workflow_run_id: 'task:partial-repair',
+      questions: [{
+        question_key: 'repair_choice',
+        prompt: '失败项应取消，还是提供替代数据后重试？',
+        answer_kind: 'text',
+        choices: [],
+        required: true,
+      }],
+    }))
     const api = fakeDesktop({
       runWorkflow,
-      confirmTaskPlan: vi.fn(async () => ok(batchPlanFixture('ready'))),
-      runTaskPlan: vi.fn(async () => ok({
-        outcome: 'needs_input',
-        workflow_run_id: 'task:partial-repair',
-        questions: [{
-          question_key: 'repair_choice',
-          prompt: '失败项应取消，还是提供替代数据后重试？',
-          answer_kind: 'text',
-          choices: [],
-          required: true,
-        }],
-      })),
+      confirmTaskPlan,
+      runTaskPlan,
       getTaskPlan: vi.fn(async () => ok(partial)),
     })
     installApi(api)
@@ -1237,6 +1245,9 @@ describe('PlotAgent real desktop workflow', () => {
     }))
     expect(await screen.findByRole('button', { name: '确认修订计划' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('等待重新确认')
+    await user.click(screen.getByRole('button', { name: '确认修订计划' }))
+    expect(await screen.findByText('更改已保存')).toBeInTheDocument()
+    expect(runTaskPlan).toHaveBeenCalledTimes(1)
   })
 
   it('labels a rendered plot from its actual profile instead of the selected library card', async () => {

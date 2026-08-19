@@ -754,6 +754,37 @@ describe('AgentFoundationRuntime', () => {
       })
   })
 
+  it('treats an already verified revised plan as an idempotent execution success', async () => {
+    const calls: string[] = []
+    const view = {
+      task: {
+        task_id: 'task:already-complete', task_version: 12, state: 'completed_verified',
+        items: [{ item_id: 'item:already-complete.1', state: 'succeeded', attempt_count: 1 }],
+      },
+      plan: { plan_id: 'plan:already-complete', items: [] },
+      plan_hash: 'd'.repeat(64),
+      confirmation_state: 'confirmed',
+    }
+    const runtime = new AgentFoundationRuntime({
+      core: {
+        request: async (method: string): Promise<unknown> => {
+          calls.push(method)
+          if (method === 'agent.tasks.list') {
+            return { tasks: [{ task_id: 'task:already-complete', intent: { intent_id: 'intent:already-complete' } }] }
+          }
+          if (method === 'agent.tasks.plan.get') return view
+          throw new Error(`Unexpected method ${method}`)
+        },
+      },
+      emit: () => undefined,
+    })
+
+    await runtime.list('project:test')
+    await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:already-complete' }))
+      .resolves.toEqual(view)
+    expect(calls).not.toContain('agent.tasks.execute')
+  })
+
   it.each([
     {
       yielded: {

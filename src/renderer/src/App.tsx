@@ -1044,17 +1044,22 @@ export function App(): React.JSX.Element {
   const confirmWorkflowPlan = async (planId: string): Promise<void> => {
     if (!api || !project || busyAction !== undefined) return
     setBusyAction('agent-plan')
+    let confirmedPlan: WorkflowPlanView | undefined
     try {
       const confirmed = valueOrThrow(await api.confirmTaskPlan({ projectId: project.projectId, planId, accept: true }))
       mergeDurableResult(confirmed)
-      const plan = readWorkflowPlan(confirmed)
-      if (plan) setWorkflowPlan(plan)
+      confirmedPlan = readWorkflowPlan(confirmed)
+      if (confirmedPlan) setWorkflowPlan(confirmedPlan)
+      if (confirmedPlan?.state === 'succeeded') {
+        setWorkflowOutcome(readWorkflowOutcome(confirmed))
+      }
     } catch (error) {
       setWorkflowOutcome({ kind: 'rejected', title: '计划未确认', message: errorNotice(error).message })
       setBusyAction(undefined)
       return
     }
     setBusyAction(undefined)
+    if (confirmedPlan?.state === 'succeeded') return
     await executeWorkflowPlan(planId)
   }
 
