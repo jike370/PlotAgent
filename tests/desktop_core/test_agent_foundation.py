@@ -462,8 +462,17 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "a draft containing only x/y bindings is incomplete" in system_prompt
         assert "never use needs_input to ask the user to confirm a plan" in system_prompt
         assert "product's confirmation card request authorization" in system_prompt
+        assert "Never return cancelled from submit_agent_yield" in system_prompt
         yield_schema = cast(dict[str, object], environment["yield_schema"])
         definitions = cast(dict[str, object], yield_schema["$defs"])
+        assert "AgentCancelled" not in definitions
+        discriminator = cast(dict[str, object], yield_schema["discriminator"])
+        mapping = cast(dict[str, object], discriminator["mapping"])
+        assert "cancelled" not in mapping
+        assert all(
+            cast(dict[str, object], variant).get("$ref") != "#/$defs/AgentCancelled"
+            for variant in cast(list[object], yield_schema["oneOf"])
+        )
         intent_schema = cast(dict[str, object], definitions["TaskIntent"])
         assert "content_hash" not in cast(dict[str, object], intent_schema["properties"])
         assert "content_hash" not in cast(list[str], intent_schema["required"])
@@ -493,6 +502,19 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
             tool_names.add(contract["tool_name"])
         activation = directive["activation"]
         assert tool_names == set(cast(list[str], activation["allowed_tools"]))
+
+        with pytest.raises(AgentFoundationError) as cancellation:
+            host.validate_yield(
+                activation_id,
+                {
+                    "outcome": "cancelled",
+                    "activation_id": activation_id,
+                    "task_id": task_envelope.task_id,
+                    "task_version": 1,
+                    "message": "Cancel this activation.",
+                },
+            )
+        assert cancellation.value.code == "MODEL_CANCELLATION_FORBIDDEN"
 
         arguments: JsonValue = {"source_alias": "data_1"}
         now = datetime.now(UTC)

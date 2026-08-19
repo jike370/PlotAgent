@@ -265,6 +265,13 @@ class DurableAgentCoreHost:
             raise AgentFoundationError(
                 "YIELD_IDENTITY_MISMATCH", "The Agent yield belongs to another activation."
             )
+        if yielded.outcome == "cancelled":
+            raise AgentFoundationError(
+                "MODEL_CANCELLATION_FORBIDDEN",
+                "Task cancellation requires the product's explicit cancel control. "
+                "For a user continuation, return a revised intent, needs_input, blocked, "
+                "or unsupported instead.",
+            )
         if yielded.outcome == "intent_ready":
             intent = yielded.intent
             if activation.reason in {"user_answered", "user_corrected"}:
@@ -800,6 +807,9 @@ class DurableAgentCoreHost:
             "does not request a plot, data mutation, edit, or export, use the read-only inspection "
             "tools and return information_ready with the concise factual answer. Do not force a "
             "read-only answer into TaskIntent, needs_input, blocked, or unsupported. Use this "
+            "Never return cancelled from submit_agent_yield. Cancellation is owned by the "
+            "product's explicit stop control; a message that drops, skips, or keeps task items "
+            "must instead be represented by the next complete TaskIntent version. "
             "Core-owned scaffold: "
             f"{canonical_json(cast(JsonValue, scaffold))}"
         )
@@ -829,7 +839,10 @@ class DurableAgentCoreHost:
                 system_prompt += (
                     " The user has supplied a durable continuation message. Re-evaluate the prior "
                     "intent against that message, emit the next TaskIntent version, and preserve "
-                    "unchanged decisions. Any semantic change will be shown for reconfirmation. "
+                    "unchanged decisions and already-succeeded items. If the user chooses to skip "
+                    "a failed item or retain only successful items, remove only the declined item "
+                    "from the next intent; do not cancel the task and do not repeat successful "
+                    "items. Any semantic change will be shown for reconfirmation. "
                     f"Current message: {runtime.activation.current_user_message}"
                 )
         return {
@@ -863,6 +876,26 @@ class DurableAgentCoreHost:
             raise AgentFoundationError("YIELD_SCHEMA_INVALID", "TaskIntent schema is invalid.")
         properties.pop("content_hash", None)
         task_intent["required"] = [name for name in required if name != "content_hash"]
+
+        # Cancellation is a product control, not a semantic outcome the model may choose.
+        # Programmatic Pi aborts still create AgentCancelled internally and bypass this
+        # model-facing schema, so explicit stop/supersede behavior remains unchanged.
+        definitions.pop("AgentCancelled", None)
+        one_of = schema.get("oneOf")
+        if isinstance(one_of, list):
+            schema["oneOf"] = [
+                variant
+                for variant in one_of
+                if not (
+                    isinstance(variant, dict)
+                    and variant.get("$ref") == "#/$defs/AgentCancelled"
+                )
+            ]
+        discriminator = schema.get("discriminator")
+        if isinstance(discriminator, dict):
+            mapping = discriminator.get("mapping")
+            if isinstance(mapping, dict):
+                mapping.pop("cancelled", None)
         return cast(dict[str, object], schema)
 
 
