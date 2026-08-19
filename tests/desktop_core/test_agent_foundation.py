@@ -410,6 +410,128 @@ def test_first_intent_after_clarification_is_grounded_in_the_user_answer(
         assert ledger.get_plan(task_envelope.task_id).items[0].profile_id == "K01"
 
 
+def test_chart_selection_conflict_requires_one_answer_before_intent(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(resource_id="resource:basic", path=FILES / "csv_basic.csv")
+        )
+        assert isinstance(imported, ImportCommitResult)
+        source = imported.datasets[0].source_dataset
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        task_envelope = TaskEnvelope(
+            task_id="task:profile-conflict",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction="用这张表创建 K03 散点图。",
+            selected_sources=(
+                SourceDatasetRef(
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                    content_hash=source.content_hash,
+                ),
+            ),
+            selected_profile_ids=("K01",),
+            budget=TaskBudgetLimits(),
+            created_at="2026-08-18T10:00:00Z",
+        )
+        ledger.create_task(task_envelope)
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        first = coordinator.next_action(task_envelope.task_id)
+        first_id = str(first["activation"]["activation_id"])
+        ledger.mark_activation_running(first_id)
+        host = DurableAgentCoreHost(project, domain, ledger)
+        environment = host.prepare(first_id)
+        context = cast(dict[str, object], environment["context"])
+        silent_override = AgentIntentReady(
+            activation_id=first_id,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            intent=intent(
+                first_id,
+                task_id=task_envelope.task_id,
+                context_hash=cast(str, context["content_hash"]),
+            ),
+        )
+        with pytest.raises(AgentFoundationError) as conflict:
+            host.validate_yield(
+                first_id,
+                cast(JsonValue, silent_override.model_dump(mode="json")),
+            )
+        assert conflict.value.code == "CHART_SELECTION_CONFLICT"
+
+        needs_input = AgentNeedsInput(
+            activation_id=first_id,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            questions=(
+                InputQuestion(
+                    question_key="chart-conflict",
+                    prompt="界面选择了 K01，要求中写了 K03，请选择一个。",
+                    answer_kind="profile",
+                    choices=("K01", "K03"),
+                ),
+            ),
+        )
+        awaiting = host.accept_yield(needs_input)
+        answered = ledger.record_user_event(
+            task_envelope.task_id,
+            expected_task_version=awaiting.task_version,
+            action="answered",
+            user_event_id="user-event:profile-conflict",
+            payload_hash="b" * 64,
+            message="使用 K03 散点图。",
+        )
+        continuation = coordinator.next_action(task_envelope.task_id)
+        continuation_id = str(continuation["activation"]["activation_id"])
+        continuation_version = int(continuation["activation"]["task_version"])
+        ledger.mark_activation_running(continuation_id)
+        continuation_host = DurableAgentCoreHost(project, domain, ledger)
+        continuation_environment = continuation_host.prepare(continuation_id)
+        continuation_context = cast(
+            dict[str, object], continuation_environment["context"]
+        )
+        clarified = intent(
+            continuation_id,
+            task_id=task_envelope.task_id,
+            task_version=continuation_version,
+            context_hash=cast(str, continuation_context["content_hash"]),
+        )
+        clarified_item = clarified.items[0].model_copy(update={"profile_id": "K03"})
+        clarified = clarified.model_copy(
+            update={
+                "summary": "Create one K03 scatter plot.",
+                "items": (clarified_item,),
+            }
+        )
+        clarified = clarified.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    clarified.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        validated = continuation_host.validate_yield(
+            continuation_id,
+            cast(
+                JsonValue,
+                AgentIntentReady(
+                    activation_id=continuation_id,
+                    task_id=task_envelope.task_id,
+                    task_version=continuation_version,
+                    intent=clarified,
+                ).model_dump(mode="json"),
+            ),
+        )
+        staged = continuation_host.accept_yield(validated)
+        assert answered.state == "investigating"
+        assert staged.state == "intent_staged"
+        assert ledger.get_plan(task_envelope.task_id).items[0].profile_id == "K03"
+
+
 def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Path) -> None:
     with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
         imported = ProjectImportService(project).import_resource(

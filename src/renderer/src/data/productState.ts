@@ -255,7 +255,15 @@ export interface WorkflowPlanStep {
   changes: string[]
   state: string
   attemptCount: number
-  failure?: { code: string; message: string; retryable: boolean }
+  failure?: {
+    code: string
+    message: string
+    retryable: boolean
+    category?: string
+    requiresUser?: boolean
+    sideEffectState?: string
+    diagnosticId?: string
+  }
   outputPlot?: { plotId: string; plotVersion: number }
 }
 
@@ -285,7 +293,15 @@ export interface DurableTaskItemView {
   state: string
   attemptCount: number
   outputPlot?: { plotId: string; plotVersion: number }
-  failure?: { code: string; message: string; retryable: boolean; diagnosticId?: string }
+  failure?: {
+    code: string
+    message: string
+    retryable: boolean
+    category?: string
+    requiresUser?: boolean
+    sideEffectState?: string
+    diagnosticId?: string
+  }
 }
 
 export interface DurableTaskView {
@@ -294,6 +310,8 @@ export interface DurableTaskView {
   state: string
   projectRevision: number
   updatedAt?: string
+  completionOutcome?: 'all_succeeded' | 'completed_with_skips'
+  skippedItemIds?: string[]
   items: DurableTaskItemView[]
 }
 
@@ -863,6 +881,15 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       isJsonRecord(item) && typeof item.item_id === 'string' ? [[item.item_id, item]] : []
     )),
   )
+  const completion = isJsonRecord(snapshot.completion) ? snapshot.completion : undefined
+  const completionOutcome = completion === undefined
+    ? undefined
+    : stringValue(completion, 'outcome')
+  const skippedItemIds = new Set(
+    completion !== undefined && Array.isArray(completion.skipped_item_ids)
+      ? completion.skipped_item_ids.filter((item): item is string => typeof item === 'string')
+      : [],
+  )
   const bindings: WorkflowBindingView[] = []
   const boundActions: JsonValue[] = []
   const steps = plan.items.flatMap((item): WorkflowPlanStep[] => {
@@ -910,7 +937,8 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     boundActions.push(...visualActions)
     const changes = visualActions.flatMap(workflowActionSummary)
     const rawItemState = stringValue(itemProgress, 'state') ?? 'pending'
-    const state = rawItemState === 'staged' ? 'pending'
+    const state = skippedItemIds.has(item.item_id) ? 'cancelled'
+      : rawItemState === 'staged' ? 'pending'
       : rawItemState === 'repairable_failed' ? 'failed'
         : rawItemState
     const rawTaskKind = stringValue(item, 'task_kind')
@@ -932,6 +960,10 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       : typeof durableError?.retryable === 'boolean'
         ? durableError.retryable
       : undefined
+    const errorCategory = durableError === undefined ? undefined : stringValue(durableError, 'category')
+    const errorSideEffectState = durableError === undefined ? undefined : stringValue(durableError, 'side_effect_state')
+    const errorRequiresUser = durableError?.requires_user === true
+    const diagnosticId = durableError === undefined ? undefined : stringValue(durableError, 'diagnostic_id')
     return [{
       taskItemId: item.item_id,
       actionType: 'workflow_item',
@@ -952,6 +984,10 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
           code: errorCode,
           message: errorMessage,
           retryable: errorRetryable,
+          ...(errorCategory === undefined ? {} : { category: errorCategory }),
+          ...(errorSideEffectState === undefined ? {} : { sideEffectState: errorSideEffectState }),
+          ...(errorRequiresUser ? { requiresUser: true } : {}),
+          ...(diagnosticId === undefined ? {} : { diagnosticId }),
         },
       }),
       ...(outputPlotId === undefined || outputPlotVersion === undefined ? {} : {
@@ -960,7 +996,8 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     }]
   })
   const rawState = snapshot.state as string
-  const state = rawState === 'completed_verified' ? 'succeeded'
+  const state = rawState === 'completed_verified'
+    ? completionOutcome === 'completed_with_skips' ? 'completed_with_skips' : 'succeeded'
     : rawState === 'executing' ? 'ready'
       : rawState === 'partial' ? 'partially_succeeded'
         : rawState
@@ -1026,6 +1063,15 @@ export function readDurableTasks(value: JsonValue): DurableTaskView[] {
                 code,
                 message,
                 retryable: error?.retryable === true,
+                ...(typeof error?.category === 'string'
+                  ? { category: error.category }
+                  : {}),
+                ...(error?.requires_user === true
+                  ? { requiresUser: true }
+                  : {}),
+                ...(typeof error?.side_effect_state === 'string'
+                  ? { sideEffectState: error.side_effect_state }
+                  : {}),
                 ...(typeof error?.diagnostic_id === 'string'
                   ? { diagnosticId: error.diagnostic_id }
                   : {}),
@@ -1033,12 +1079,23 @@ export function readDurableTasks(value: JsonValue): DurableTaskView[] {
             }),
       }]
     })
+    const completion = isJsonRecord(entry.completion) ? entry.completion : undefined
+    const completionOutcome = completion === undefined
+      ? undefined
+      : stringValue(completion, 'outcome')
+    const skippedItemIds = completion !== undefined && Array.isArray(completion.skipped_item_ids)
+      ? completion.skipped_item_ids.filter((item): item is string => typeof item === 'string')
+      : []
     return [{
       taskId: entry.task_id,
       taskVersion: entry.task_version,
       state: entry.state,
       projectRevision: entry.project_revision,
       ...(typeof entry.updated_at === 'string' ? { updatedAt: entry.updated_at } : {}),
+      ...(completionOutcome === 'all_succeeded' || completionOutcome === 'completed_with_skips'
+        ? { completionOutcome }
+        : {}),
+      ...(skippedItemIds.length > 0 ? { skippedItemIds } : {}),
       items,
     }]
   })

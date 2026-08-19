@@ -358,7 +358,9 @@ def test_cancel_waits_for_a_running_item_to_reach_its_atomic_boundary(tmp_path) 
             bounded.task_id,
             expected_task_version=bounded.task_version,
         )
-        assert finalized.state == "partial"
+        assert finalized.state == "cancelled"
+        assert finalized.items[0].state == "succeeded"
+        assert finalized.items[0].output_plot_id == "plot:test"
         assert finalized.items[0].state == "succeeded"
 
 

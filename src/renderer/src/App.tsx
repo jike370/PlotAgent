@@ -999,17 +999,25 @@ export function App(): React.JSX.Element {
       if (!plan) throw new Error('Core 未返回任务计划状态。')
       setWorkflowPlan(plan)
       await syncPlanOutput(plan)
-      if (plan.state === 'succeeded' && historyEntry) {
+      if ((plan.state === 'succeeded' || plan.state === 'completed_with_skips') && historyEntry) {
         setUndoStack((current) => [...current, historyEntry].slice(-50))
         setRedoStack([])
       }
       setWorkflowOutcome({
         kind: 'task_plan',
-        title: plan.state === 'succeeded' ? '任务已完成' : plan.state === 'partially_succeeded' ? '任务部分完成' : '任务未完成',
-        message: plan.state === 'succeeded' ? '更改已保存为可追溯版本。' : '已保留完成项，可继续未完成步骤。',
+        title: plan.state === 'succeeded'
+          ? '任务已完成'
+          : plan.state === 'completed_with_skips'
+            ? '任务已完成（含跳过项）'
+            : plan.state === 'partially_succeeded' ? '任务等待处理' : '任务未完成',
+        message: plan.state === 'succeeded'
+          ? '更改已保存为可追溯版本。'
+          : plan.state === 'completed_with_skips'
+            ? '成功项已保留，未执行或失败项已按你的选择跳过。'
+            : '已保留完成项，可继续处理未完成步骤。',
         plan,
       })
-      if (plan.state === 'succeeded') setNotice(undefined)
+      if (plan.state === 'succeeded' || plan.state === 'completed_with_skips') setNotice(undefined)
     } catch (error) {
       const stored = await api.getTaskPlan({ projectId: project.projectId, planId })
       if (stored.ok) setWorkflowPlan(readWorkflowPlan(stored.value))
@@ -1028,10 +1036,15 @@ export function App(): React.JSX.Element {
     }
     if (agentRuntimeEvent?.taskId === taskId) {
       invalidateAgentRequest()
+      const retainedCount = durableTasks
+        .find((task) => task.taskId === taskId)
+        ?.items.filter((item) => item.state === 'succeeded').length ?? 0
       setWorkflowOutcome({
         kind: 'no_change',
         title: '任务已取消',
-        message: '任务已停止，项目未发生更改。',
+        message: retainedCount > 0
+          ? `任务已停止，已保留 ${retainedCount} 项成功结果。`
+          : '任务已停止，项目未发生更改。',
       })
     }
     const listed = await api.listTaskPlans({ projectId: project.projectId })

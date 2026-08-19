@@ -1766,10 +1766,12 @@ export type TaskCheckpoint = {
 }
 
 export type TaskCompletion = {
+  readonly outcome?: "all_succeeded" | "completed_with_skips";
   readonly completed_at: string;
   readonly final_project_revision: number;
   readonly required_report_ids: ReadonlyArray<string>;
   readonly artifact_receipt_ids?: ReadonlyArray<string>;
+  readonly skipped_item_ids?: ReadonlyArray<string>;
 }
 
 export type TaskDraft = {

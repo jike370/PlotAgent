@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "e93487a148e2de3802e20f2b31a3d4aa3e65358f8b1b353734eaf461813fe9ab"
+      "sha256": "7cd865a2ddd43befa9c89ba0e09016a81f31b2707c8d08f09fc3807164c7568a"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -142,7 +142,7 @@
     },
     {
       "path": "schemas/task-checkpoint-v2.schema.json",
-      "sha256": "4172f72e2d0137f0a4ce380780b981c2ba950f806dc7c234cb441f00850611ea"
+      "sha256": "07b1148950ac3e1712cd80651a7a0e2ce0421a4fcd22a295f9a75bc3fef63f5d"
     },
     {
       "path": "schemas/task-draft.schema.json",
@@ -210,7 +210,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "c4c101add3b042423fcefd300df96073cd30483b1d0641201eecaffd47678d70"
+      "sha256": "8948bc2d0c13d09ea4688d92ffe0f1431289b688dc5070dd2c526c6f2873c6f6"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

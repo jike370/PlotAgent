@@ -597,6 +597,10 @@ class DurableTaskExecutionService:
             retryable=retryable,
             requires_user=requires_user,
             side_effect_state="known_applied" if after > before else "known_none",
+            diagnostic_id=(
+                f"diag:{task_id.removeprefix('task:')}."
+                f"{item.item_id.removeprefix('item:')}.a{attempt_count}"
+            )[:128],
         )
         side_effects = (
             (

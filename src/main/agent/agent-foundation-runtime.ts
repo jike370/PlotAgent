@@ -446,6 +446,17 @@ export class AgentFoundationRuntime {
         message: drained.terminalYield.message,
       })
     }
+    if (drained.reason === 'terminal' && drained.taskState === 'completed_verified') {
+      const view = await this.core.request(
+        'agent.tasks.plan.get',
+        { project_id: projectId, task_id: taskId },
+        15_000,
+      )
+      const identity = planIdentity(view)
+      this.authorityByPlan.set(identity.planId, { projectId, taskId })
+      this.emit(runId, projectId, 'completed', '成功项已保留，其余项目已跳过')
+      return json(view)
+    }
     if (drained.reason === 'awaiting_input' && drained.terminalYield?.outcome === 'needs_input') {
       this.emit(runId, projectId, 'completed', '等待你的回复')
       return json({

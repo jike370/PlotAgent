@@ -379,6 +379,44 @@ def test_completed_checkpoint_requires_every_item_and_verification_evidence() ->
                 ),
             }
         )
+
+
+def test_completed_checkpoint_can_distinguish_a_verified_subset_with_skips() -> None:
+    checkpoint = TaskCheckpoint(
+        checkpoint_id="checkpoint:subset",
+        task_id="task:subset",
+        task_version=7,
+        state="completed_verified",
+        project_revision=2,
+        last_event_sequence=12,
+        intent=intent_ref(),
+        items=(
+            TaskItemSnapshot(
+                item_id="item:test.1",
+                state="succeeded",
+                output_plot_id="plot:test",
+                output_plot_version=1,
+                verification_report_ids=("verification:test",),
+            ),
+            TaskItemSnapshot(
+                item_id="item:test.2",
+                state="failed",
+                last_error=technical_error(retryable=False),
+            ),
+        ),
+        budget=budget(),
+        completion=TaskCompletion(
+            outcome="completed_with_skips",
+            completed_at=LATER,
+            final_project_revision=2,
+            required_report_ids=("verification:test",),
+            skipped_item_ids=("item:test.2",),
+        ),
+        updated_at=LATER,
+        content_hash=HASH_A,
+    )
+    assert checkpoint.completion is not None
+    assert checkpoint.completion.outcome == "completed_with_skips"
     with pytest.raises(ValidationError, match="Only completed tasks|only completed tasks"):
         TaskCheckpoint.model_validate({**checkpoint.model_dump(), "state": "partial"})
 

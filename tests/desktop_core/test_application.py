@@ -809,7 +809,7 @@ def test_agent_v2_cancel_waits_for_the_running_item_and_preserves_its_receipt(
     )
 
     assert requested is True
-    assert result["task"]["state"] == "partial"
+    assert result["task"]["state"] == "cancelled"
     assert [item["state"] for item in result["task"]["items"]] == [
         "succeeded",
         "cancelled",
@@ -976,6 +976,232 @@ def test_agent_v2_stops_after_a_scoped_retry_makes_no_progress(
     )
     assert checkpoint["items"][1]["state"] == "failed"
     assert checkpoint["items"][0]["state"] == "succeeded"
+
+
+def test_agent_v2_accepts_verified_subset_without_reconfirmation_or_rerun(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="accept-subset")
+    execute = TaskPlanExecutor.execute_compiled_item
+
+    def fail_second(
+        self: TaskPlanExecutor,
+        item: Any,
+        current_revision: int,
+    ) -> tuple[int, int]:
+        if item.profile_id == "K02":
+            raise ValueError("The second item cannot be rendered from this data.")
+        return execute(self, item, current_revision)
+
+    monkeypatch.setattr(TaskPlanExecutor, "execute_compiled_item", fail_second)
+    first = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="accept-subset",
+        profiles=("K01", "K02"),
+    )
+    assert first["task"]["state"] == "partial"
+    successful = first["task"]["items"][0]
+    project_revision_after_success = first["task"]["project_revision"]
+
+    repair = harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:accept-subset"},
+    )
+    repair_activation = cast(dict[str, Any], repair["activation"])
+    repair_activation_id = cast(str, repair_activation["activation_id"])
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": repair_activation_id},
+    )
+    harness.call(
+        "agent.activations.prepare",
+        {"project_id": project_id, "activation_id": repair_activation_id},
+    )
+    needs_input = harness.call(
+        "agent.yields.validate",
+        {
+            "project_id": project_id,
+            "activation_id": repair_activation_id,
+            "yield": {
+                "outcome": "needs_input",
+                "activation_id": repair_activation_id,
+                "task_id": "task:accept-subset",
+                "task_version": repair_activation["task_version"],
+                "questions": [
+                    {
+                        "question_key": "failed-item-resolution",
+                        "prompt": "Should the failed item be revised or skipped?",
+                        "answer_kind": "single_choice",
+                        "choices": ["revise", "skip"],
+                    }
+                ],
+            },
+        },
+    )
+    waiting = harness.call(
+        "agent.tasks.yield.accept",
+        {"project_id": project_id, "yield": needs_input},
+    )
+    answered = harness.call(
+        "agent.tasks.user_event",
+        {
+            "project_id": project_id,
+            "task_id": "task:accept-subset",
+            "expected_task_version": waiting["task_version"],
+            "action": "answered",
+            "user_event_id": "user-event:accept-subset-skip",
+            "payload_hash": "c" * 64,
+            "message": "Skip the failed item and keep the successful result.",
+        },
+    )
+    assert answered["state"] == "investigating"
+    continuation = harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:accept-subset"},
+    )
+    activation = cast(dict[str, Any], continuation["activation"])
+    activation_id = cast(str, activation["activation_id"])
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    prepared = harness.call(
+        "agent.activations.prepare",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    context = cast(dict[str, Any], prepared["context"])
+    source_context = cast(list[dict[str, Any]], context["source_contexts"])[0]
+    numeric_aliases = [
+        cast(str, field["field_alias"])
+        for field in cast(list[dict[str, object]], source_context["fields"])
+        if field["logical_type"] == "numeric"
+    ]
+    revised_intent = TaskIntent(
+        intent_id="intent:accept-subset",
+        intent_version=2,
+        task_id="task:accept-subset",
+        task_version=cast(int, activation["task_version"]),
+        created_by_activation_id=activation_id,
+        summary="Keep the verified K01 result and skip the failed K02 item.",
+        items=(
+            TaskDraftItem(
+                task_kind="create",
+                item_id="item:accept-subset.1",
+                plot_alias="plot_1",
+                profile_id="K01",
+                source_aliases=("data_1",),
+                bindings=(
+                    DraftFieldBinding(
+                        role="x",
+                        source_alias="data_1",
+                        field_alias=numeric_aliases[0],
+                    ),
+                    DraftFieldBinding(
+                        role="y",
+                        source_alias="data_1",
+                        field_alias=numeric_aliases[1],
+                    ),
+                ),
+            ),
+        ),
+        context_hash=cast(str, context["content_hash"]),
+        content_hash="0" * 64,
+    )
+    revised_intent = revised_intent.model_copy(
+        update={
+            "content_hash": canonical_hash(
+                revised_intent.model_dump(mode="json", exclude={"content_hash"})
+            )
+        }
+    )
+    validated = harness.call(
+        "agent.yields.validate",
+        {
+            "project_id": project_id,
+            "activation_id": activation_id,
+            "yield": AgentIntentReady(
+                activation_id=activation_id,
+                task_id="task:accept-subset",
+                task_version=cast(int, activation["task_version"]),
+                intent=revised_intent,
+            ).model_dump(mode="json"),
+        },
+    )
+    completed = harness.call(
+        "agent.tasks.yield.accept",
+        {"project_id": project_id, "yield": validated},
+    )
+    assert completed["state"] == "completed_verified"
+    assert completed["completion"]["outcome"] == "completed_with_skips"
+    assert completed["completion"]["skipped_item_ids"] == ["item:accept-subset.2"]
+    assert completed["project_revision"] == project_revision_after_success
+    assert completed["items"][0]["attempt_count"] == successful["attempt_count"] == 1
+    assert completed["items"][1]["attempt_count"] == 1
+    assert harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:accept-subset"},
+    ) == {
+        "kind": "wait",
+        "reason": "terminal",
+        "task_state": "completed_verified",
+    }
+
+
+def test_agent_v2_retries_one_transient_failure_without_model_activation(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="transient-retry")
+    execute = TaskPlanExecutor.execute_compiled_item
+    failed_once = False
+
+    def timeout_once(
+        self: TaskPlanExecutor,
+        item: Any,
+        current_revision: int,
+    ) -> tuple[int, int]:
+        nonlocal failed_once
+        if item.profile_id == "K02" and not failed_once:
+            failed_once = True
+            error = RuntimeError("Temporary renderer timeout.")
+            error.code = "RENDERER_TIMEOUT"  # type: ignore[attr-defined]
+            raise error
+        return execute(self, item, current_revision)
+
+    monkeypatch.setattr(TaskPlanExecutor, "execute_compiled_item", timeout_once)
+    first = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="transient-retry",
+        profiles=("K01", "K02"),
+    )
+    assert first["task"]["state"] == "partial"
+    directive = harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:transient-retry"},
+    )
+    assert directive == {
+        "kind": "wait",
+        "reason": "execution_pending",
+        "task_state": "executing",
+    }
+    second = harness.call(
+        "agent.tasks.execute",
+        {"project_id": project_id, "task_id": "task:transient-retry"},
+    )
+    assert second["task"]["state"] == "completed_verified"
+    assert {
+        item["item_id"]: item["attempt_count"] for item in second["task"]["items"]
+    } == {
+        "item:transient-retry.1": 1,
+        "item:transient-retry.2": 2,
+    }
 
 
 def test_agent_v2_scoped_repair_can_request_missing_semantic_input(

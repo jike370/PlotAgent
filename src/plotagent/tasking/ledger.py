@@ -608,7 +608,12 @@ class TaskLedgerRepository:
                 self._append_event_and_checkpoint(connection, event, current, now)
             return current
 
-    def accept_yield(self, yielded: AgentYield) -> TaskCheckpoint:
+    def accept_yield(
+        self,
+        yielded: AgentYield,
+        *,
+        scope_reduction_item_ids: tuple[str, ...] = (),
+    ) -> TaskCheckpoint:
         with self._transaction() as connection:
             activation, current, status = self._activation_context(
                 connection, yielded.activation_id
@@ -690,6 +695,7 @@ class TaskLedgerRepository:
             next_state = self._yield_state(yielded)
             intent_ref: IntentRef | None = checkpoint.intent
             items = checkpoint.items
+            completion: TaskCompletion | None = None
             if yielded.outcome == "intent_ready":
                 intent = yielded.intent
                 connection.execute(
@@ -715,25 +721,77 @@ class TaskLedgerRepository:
                     content_hash=intent.content_hash,
                 )
                 prior_items = {item.item_id: item for item in checkpoint.items}
-                items = tuple(
-                    prior_items[item.item_id]
-                    if item.item_id in prior_items
-                    and prior_items[item.item_id].state == "succeeded"
-                    else prior_items[item.item_id].model_copy(
-                        update={"state": "staged", "last_error": None}
+                if scope_reduction_item_ids:
+                    skipped = set(scope_reduction_item_ids)
+                    if skipped != {
+                        item.item_id for item in checkpoint.items if item.state != "succeeded"
+                    }:
+                        raise self._conflict(
+                            "Scope reduction must identify every unfinished or failed item."
+                        )
+                    succeeded = tuple(
+                        item for item in checkpoint.items if item.state == "succeeded"
                     )
-                    if item.item_id in prior_items
-                    else TaskItemSnapshot(item_id=item.item_id, state="staged")
-                    for item in intent.items
-                )
+                    if not succeeded or any(
+                        not item.verification_report_ids for item in succeeded
+                    ):
+                        raise self._conflict(
+                            "Scope reduction requires verified successful results to retain."
+                        )
+                    report_ids = tuple(
+                        item.verification_report_ids[-1] for item in succeeded
+                    )
+                    rows = connection.execute(
+                        """
+                        SELECT report_id, status FROM agent_verification_reports_v2
+                        WHERE task_id = ?
+                        """,
+                        (checkpoint.task_id,),
+                    ).fetchall()
+                    report_status = {str(row[0]): str(row[1]) for row in rows}
+                    if any(report_status.get(report_id) != "passed" for report_id in report_ids):
+                        raise self._conflict(
+                            "Retained results require passed verification reports."
+                        )
+                    next_state = "completed_verified"
+                    items = checkpoint.items
+                    completion = TaskCompletion(
+                        outcome="completed_with_skips",
+                        completed_at=now,
+                        final_project_revision=checkpoint.project_revision,
+                        required_report_ids=report_ids,
+                        artifact_receipt_ids=tuple(
+                            item.receipt_ids[-1]
+                            for item in succeeded
+                            if item.receipt_ids
+                        ),
+                        skipped_item_ids=scope_reduction_item_ids,
+                    )
+                else:
+                    items = tuple(
+                        prior_items[item.item_id]
+                        if item.item_id in prior_items
+                        and prior_items[item.item_id].state == "succeeded"
+                        else prior_items[item.item_id].model_copy(
+                            update={"state": "staged", "last_error": None}
+                        )
+                        if item.item_id in prior_items
+                        else TaskItemSnapshot(item_id=item.item_id, state="staged")
+                        for item in intent.items
+                    )
 
             updated = self._transition(
                 connection,
                 checkpoint,
                 next_state=next_state,
-                reason_code=f"AGENT_{yielded.outcome.upper()}",
+                reason_code=(
+                    "USER_ACCEPTED_VERIFIED_SUBSET"
+                    if scope_reduction_item_ids
+                    else f"AGENT_{yielded.outcome.upper()}"
+                ),
                 intent=intent_ref,
                 items=items,
+                completion=completion,
             )
             if yielded.outcome == "cancelled":
                 return self._transition(
@@ -790,9 +848,8 @@ class TaskLedgerRepository:
                 "cancelling",
             ),
             "budget_extended": (frozenset(ALLOWED_TASK_TRANSITIONS), None),
-            # ``partial`` is the durable terminal projection for a user-accepted
-            # subset. Recording acceptance must not pretend every required claim
-            # passed or route the task through verified completion.
+            # Accepting a verified subset is a terminal resolution distinct from
+            # both waiting in ``partial`` and explicit task cancellation.
             "partial_accepted": (frozenset({"partial"}), None),
             "resumed": (frozenset({"blocked"}), "investigating"),
         }
@@ -850,6 +907,56 @@ class TaskLedgerRepository:
                 updated_at=now,
             )
             self._append_event_and_checkpoint(connection, event, updated, now)
+            if action == "partial_accepted":
+                succeeded = tuple(
+                    item for item in updated.items if item.state == "succeeded"
+                )
+                skipped = tuple(
+                    item for item in updated.items if item.state != "succeeded"
+                )
+                if (
+                    not succeeded
+                    or not skipped
+                    or any(item.state == "running" for item in skipped)
+                    or any(not item.verification_report_ids for item in succeeded)
+                ):
+                    raise self._conflict(
+                        "A partial result can close only after verified successes "
+                        "and an atomic boundary."
+                    )
+                report_ids = tuple(
+                    item.verification_report_ids[-1] for item in succeeded
+                )
+                rows = connection.execute(
+                    """
+                    SELECT report_id, status FROM agent_verification_reports_v2
+                    WHERE task_id = ?
+                    """,
+                    (task_id,),
+                ).fetchall()
+                report_status = {str(row[0]): str(row[1]) for row in rows}
+                if any(report_status.get(report_id) != "passed" for report_id in report_ids):
+                    raise self._conflict(
+                        "Retained results require passed verification reports."
+                    )
+                return self._transition(
+                    connection,
+                    updated,
+                    next_state="completed_verified",
+                    reason_code="USER_ACCEPTED_VERIFIED_SUBSET",
+                    completion=TaskCompletion(
+                        outcome="completed_with_skips",
+                        completed_at=now,
+                        final_project_revision=updated.project_revision,
+                        required_report_ids=report_ids,
+                        artifact_receipt_ids=tuple(
+                            item.receipt_ids[-1]
+                            for item in succeeded
+                            if item.receipt_ids
+                        ),
+                        skipped_item_ids=tuple(item.item_id for item in skipped),
+                    ),
+                )
             if next_state is None:
                 return updated
             return self._transition(
@@ -1030,16 +1137,13 @@ class TaskLedgerRepository:
                 next_state="cancelled",
                 reason_code="USER_CANCELLED_REMAINING_ITEM",
             )
-        target: TaskState = (
-            "partial" if any(item.state == "succeeded" for item in current.items) else "cancelled"
-        )
         return self.advance(
             task_id,
             expected_task_version=current.task_version,
-            next_state=target,
+            next_state="cancelled",
             reason_code=(
                 "CANCELLED_AFTER_PARTIAL_COMMIT"
-                if target == "partial"
+                if any(item.state == "succeeded" for item in current.items)
                 else "USER_CANCELLED_FINALIZED"
             ),
         )

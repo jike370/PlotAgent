@@ -230,6 +230,15 @@
           "title": "Final Project Revision",
           "type": "integer"
         },
+        "outcome": {
+          "default": "all_succeeded",
+          "enum": [
+            "all_succeeded",
+            "completed_with_skips"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
         "required_report_ids": {
           "items": {
             "pattern": "^verification:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
@@ -238,6 +247,16 @@
           "maxItems": 512,
           "minItems": 1,
           "title": "Required Report Ids",
+          "type": "array"
+        },
+        "skipped_item_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Skipped Item Ids",
           "type": "array"
         }
       },

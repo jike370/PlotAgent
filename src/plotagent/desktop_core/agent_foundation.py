@@ -14,6 +14,7 @@ from plotagent.contracts.agent_tasks import (
     TERMINAL_TASK_STATES,
     ActivationBudget,
     AgentActivation,
+    AgentIntentReady,
     AgentYield,
     TaskCheckpoint,
     TaskEnvelope,
@@ -373,10 +374,59 @@ class DurableAgentCoreHost:
                     "The activation context must be prepared before accepting its intent.",
                 )
             plan = self._compile_intent(yielded.intent, runtime.workflow_context)
-            checkpoint = self.ledger.accept_yield(yielded)
+            scope_reduction_item_ids = self._scope_reduction_item_ids(yielded, runtime)
+            checkpoint = self.ledger.accept_yield(
+                yielded,
+                scope_reduction_item_ids=scope_reduction_item_ids,
+            )
+            if checkpoint.state == "completed_verified":
+                return checkpoint
             self.ledger.stage_plan(checkpoint.task_id, plan)
             return checkpoint
         return self.ledger.accept_yield(yielded)
+
+    def _scope_reduction_item_ids(
+        self,
+        yielded: AgentIntentReady,
+        runtime: _ActivationRuntime,
+    ) -> tuple[str, ...]:
+        """Recognize a typed, side-effect-free acceptance of prior successes.
+
+        The Agent still interprets the user's natural language. Core does not route on
+        keywords: it compares the revised structured intent with the durable item ledger.
+        Only an exact subset containing every already-succeeded item and no unfinished
+        item can close without another confirmation.
+        """
+
+        activation = runtime.activation
+        if (
+            activation.reason not in {"user_answered", "user_corrected"}
+            or activation.confirmed_intent is None
+            or not activation.item_states
+        ):
+            return ()
+        state_by_id = dict(activation.item_states)
+        succeeded_ids = {
+            item_id for item_id, state in activation.item_states if state == "succeeded"
+        }
+        skipped_ids = tuple(
+            item_id for item_id, state in activation.item_states if state != "succeeded"
+        )
+        if not succeeded_ids or not skipped_ids:
+            return ()
+        prior = self.ledger.get_intent(yielded.task_id)
+        prior_by_id = {item.item_id: item for item in prior.items}
+        revised_ids = {item.item_id for item in yielded.intent.items}
+        if revised_ids != succeeded_ids:
+            return ()
+        if any(
+            item.item_id not in prior_by_id or item != prior_by_id[item.item_id]
+            for item in yielded.intent.items
+        ):
+            return ()
+        if set(state_by_id) != set(prior_by_id):
+            return ()
+        return skipped_ids
 
     def ensure_plan(self, task_id: str) -> TaskPlan:
         """Recover the pure intent projection after a desktop restart or crash boundary."""
@@ -418,12 +468,56 @@ class DurableAgentCoreHost:
             )
         selected_sources = set(workflow_context.selected_source_aliases)
         selected_profiles = set(workflow_context.selected_profile_ids)
+        explicitly_named_profiles = {
+            profile_id
+            for profile_id in workflow_context.allowed_profile_ids
+            if self._instruction_explicitly_names_profile(
+                envelope.original_instruction,
+                cast(ChartTypeId, profile_id),
+            )
+        }
+        resolved_profiles = (
+            set()
+            if latest_user_event is None
+            or latest_user_event.action not in {"answered", "corrected"}
+            or latest_user_event.message is None
+            else {
+                profile_id
+                for profile_id in workflow_context.allowed_profile_ids
+                if self._instruction_explicitly_names_profile(
+                    latest_user_event.message or "",
+                    cast(ChartTypeId, profile_id),
+                )
+            }
+        )
+        if (
+            envelope.selected_profile_ids
+            and explicitly_named_profiles
+            and explicitly_named_profiles != set(envelope.selected_profile_ids)
+            and not resolved_profiles
+        ):
+            raise AgentFoundationError(
+                "CHART_SELECTION_CONFLICT",
+                "The UI-selected chart and the chart named in the instruction conflict. "
+                "Ask one question that shows both choices before producing an intent.",
+            )
         selected_plots = {
             plot.plot_alias: plot
             for plot in workflow_context.plots
             if plot.plot_alias in workflow_context.selected_plot_aliases
         }
         for item in validated.items:
+            profile_authorized = item.profile_id in selected_profiles or (
+                latest_user_event is not None
+                and latest_user_event.action in {"answered", "corrected"}
+                and latest_user_event.message is not None
+                and self._instruction_explicitly_names_profile(
+                    latest_user_event.message,
+                    cast(ChartTypeId, item.profile_id),
+                )
+            )
+            if resolved_profiles:
+                profile_authorized = item.profile_id in resolved_profiles
             if (
                 item.task_kind == "create"
                 and not envelope.selected_profile_ids
@@ -439,7 +533,7 @@ class DurableAgentCoreHost:
             if item.task_kind == "create" and (
                 not item.source_aliases
                 or not set(item.source_aliases) <= selected_sources
-                or item.profile_id not in selected_profiles
+                or not profile_authorized
                 or item.target_plot_alias is not None
             ):
                 raise AgentFoundationError(
@@ -742,8 +836,12 @@ class DurableAgentCoreHost:
             "and read-only tools in the current context. When the user explicitly names fields "
             "and their types are already present in the context snapshot, bind them directly "
             "without calling inspection tools. Inspect rows only when unresolved data shape or "
-            "field semantics blocks a safe plan; do not infer unseen values. A user-selected "
-            "chart profile or plot target is authoritative. For a selected-plot-only task, "
+            "field semantics blocks a safe plan; do not infer unseen values. A selected plot "
+            "target is authoritative. A UI-selected chart profile is the default only when the "
+            "instruction does not explicitly name a different chart. If both are present and "
+            "conflict, show both choices in one needs_input question; never silently prefer or "
+            "overwrite either choice. After the user answers that conflict, the answer is "
+            "authoritative. For a selected-plot-only task, "
             "map selected_plots by ordinal to plot_1, plot_2, and so on, and use that alias only "
             "for TaskDraftItem.target_plot_alias. Visual action target_alias values come from "
             "the injected EngineProfile: use plot for set_title, x_axis/y_axis for set_axis, "
@@ -1010,6 +1108,22 @@ class DurableTaskCoordinator:
                 "activation": activation.model_dump(mode="json"),
             }
         if checkpoint.state == "partial":
+            repairable = tuple(
+                item for item in checkpoint.items if item.state == "repairable_failed"
+            )
+            if repairable and all(
+                item.attempt_count < 2
+                and item.last_error is not None
+                and item.last_error.category == "transient_external"
+                for item in repairable
+            ):
+                checkpoint = self._ledger.advance(
+                    task_id,
+                    expected_task_version=checkpoint.task_version,
+                    next_state="executing",
+                    reason_code="TRANSIENT_FAILURE_AUTO_RETRY_ONCE",
+                )
+                return self._wait(checkpoint)
             for item in tuple(checkpoint.items):
                 if item.state != "repairable_failed" or item.attempt_count < 2:
                     continue

@@ -66,6 +66,23 @@ const durableStateLabels: Readonly<Record<string, string>> = {
   completed_verified: '已完成并验证',
 }
 
+const failureCategoryLabels: Readonly<Record<string, string>> = {
+  transient_external: '临时外部故障',
+  deterministic_technical: '确定性技术错误',
+  semantic_conflict: '语义冲突',
+  stale_or_concurrent: '版本或并发冲突',
+  unsupported: '能力不支持',
+  safety_or_permission: '权限或安全限制',
+  budget: '预算限制',
+  runtime: 'Agent 运行错误',
+}
+
+function sideEffectLabel(value?: string): string {
+  if (value === 'known_none') return '项目未发生更改'
+  if (value === 'known_applied') return '项目已保留已提交更改'
+  return '项目变化待核验'
+}
+
 function updateLabel(value?: string): string | undefined {
   if (!value) return undefined
   const date = new Date(value)
@@ -135,6 +152,7 @@ export function TaskDrawer({
             const warning = task.state === 'partial' || task.state === 'blocked' || task.state === 'failed'
             const plan = planByTask.get(task.taskId)
             const completed = task.items.filter((item) => item.state === 'succeeded').length
+            const skipped = new Set(task.skippedItemIds ?? [])
             const retryable = plan?.resumable === true
             const Icon = warning ? TriangleAlert : terminal ? CircleCheck : durableActiveStates.has(task.state) ? LoaderCircle : Clock3
             const updated = updateLabel(task.updatedAt)
@@ -142,13 +160,24 @@ export function TaskDrawer({
               <article className={`task-item task-item--${warning ? 'warning' : terminal ? 'success' : 'running'}`} key={task.taskId}>
                 <div className="task-item__icon"><Icon className={durableActiveStates.has(task.state) ? 'spin' : undefined} size={17} /></div>
                 <div className="task-item__content">
-                  <header><strong>{plan?.steps.length === 1 ? plan.steps[0]?.title : `${task.items.length || 1} 项绘图任务`}</strong><span>{durableStateLabels[task.state] ?? task.state}</span></header>
-                  <p>{task.items.length > 0 ? `${completed}/${task.items.length} 项已完成` : 'Agent 正在整理任务目标'}{updated ? ` · ${updated}` : ''}</p>
+                  <header><strong>{plan?.steps.length === 1 ? plan.steps[0]?.title : `${task.items.length || 1} 项绘图任务`}</strong><span>{task.completionOutcome === 'completed_with_skips' ? '已完成（含跳过项）' : durableStateLabels[task.state] ?? task.state}</span></header>
+                  <p>{task.items.length > 0
+                    ? task.state === 'cancelled' && completed > 0
+                      ? `已停止，保留 ${completed} 项成功结果`
+                      : task.completionOutcome === 'completed_with_skips'
+                        ? `${completed} 项已完成 · ${skipped.size} 项已跳过`
+                        : `${completed}/${task.items.length} 项已完成`
+                    : 'Agent 正在整理任务目标'}{updated ? ` · ${updated}` : ''}</p>
                   {task.items.map((item) => (
                     <div className={`task-subitem task-subitem--${item.state}`} key={item.itemId}>
                       <span>{plan?.steps.find((step) => step.taskItemId === item.itemId)?.title ?? item.itemId}</span>
-                      <small>{item.outputPlot ? `${item.outputPlot.plotId} · v${item.outputPlot.plotVersion}` : durableStateLabels[item.state] ?? item.state}</small>
-                      {item.failure && <p role="alert">{item.failure.message}{item.failure.diagnosticId ? ` · 诊断 ${item.failure.diagnosticId}` : ''}</p>}
+                      <small>{item.outputPlot ? `${item.outputPlot.plotId} · v${item.outputPlot.plotVersion}` : skipped.has(item.itemId) ? '已跳过' : durableStateLabels[item.state] ?? item.state}</small>
+                      {item.failure && <div role="alert" className="task-subitem__failure">
+                        <p>{item.failure.message}</p>
+                        <small>阶段：绘图引擎执行与验证 · 类别：{failureCategoryLabels[item.failure.category ?? ''] ?? item.failure.category ?? '技术错误'}</small>
+                        <small>{sideEffectLabel(item.failure.sideEffectState)} · 下一步：{item.failure.retryable ? '仅重试此失败项' : item.failure.requiresUser ? '修改要求或字段绑定' : '修改后重试，或跳过此项'}</small>
+                        {item.failure.diagnosticId && <small>诊断 {item.failure.diagnosticId}</small>}
+                      </div>}
                     </div>
                   ))}
                   {(retryable || (!terminal && task.state !== 'cancelling')) && <div className="task-item__actions">

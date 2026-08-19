@@ -675,6 +675,7 @@ function WorkflowPlanObject({
     ready: '待执行',
     running: '执行中',
     partially_succeeded: '部分完成',
+    completed_with_skips: '已完成（含跳过项）',
     succeeded: '已完成',
     failed: '未完成',
     cancelled: '已取消',
@@ -762,7 +763,12 @@ function WorkflowPlanObject({
                 {step.changes.map((change) => <li key={change}>{change}</li>)}
               </ul>}
               {step.outputPlot && <p className="agent-plan-step__output">{step.outputPlot.plotId} · v{step.outputPlot.plotVersion}</p>}
-              {step.failure && <p>{step.failure.message}</p>}
+              {step.failure && <div className="agent-plan-step__failure" role="alert">
+                <p>{step.failure.message}</p>
+                <small>阶段：绘图引擎执行与验证 · {step.failure.sideEffectState === 'known_applied' ? '已保留已提交更改' : step.failure.sideEffectState === 'known_none' ? '项目未发生更改' : '项目变化待核验'}</small>
+                <small>下一步：{step.failure.retryable ? '仅重试此失败项' : step.failure.requiresUser ? '修改要求或字段绑定' : '修改后重试，或跳过此项'}</small>
+                {step.failure.diagnosticId && <small>诊断 ID：{step.failure.diagnosticId}</small>}
+              </div>}
             </div>
             {step.attemptCount > 0 && <span className="agent-plan-step__attempt">{step.attemptCount} 次</span>}
           </li>
@@ -774,13 +780,13 @@ function WorkflowPlanObject({
         {plan.state === 'awaiting_reconfirmation' && <><button type="button" onClick={() => onReject(plan.planId)} disabled={busy}>取消修订</button><button className="primary-button" type="button" onClick={() => onConfirm(plan.planId)} disabled={busy}>确认修订计划</button></>}
         {plan.state === 'ready' && <button className="primary-button" type="button" onClick={() => onRun(plan.planId)} disabled={busy}>执行计划</button>}
         {plan.resumable && <button className="primary-button" type="button" onClick={() => onResume(plan.planId)} disabled={busy}>继续未完成步骤</button>}
-        {plan.state === 'succeeded' && <><span className="agent-plan__saved"><CircleCheck size={14} />更改已保存</span>{canUndo && <button type="button" onClick={onUndo} disabled={busy}><Undo2 size={14} />撤销本轮</button>}</>}
+        {(plan.state === 'succeeded' || plan.state === 'completed_with_skips') && <><span className="agent-plan__saved"><CircleCheck size={14} />{plan.state === 'completed_with_skips' ? '成功项已保存，其余已跳过' : '更改已保存'}</span>{canUndo && <button type="button" onClick={onUndo} disabled={busy}><Undo2 size={14} />撤销本轮</button>}</>}
       </footer>
     </section>
   )
 }
 
-const terminalTaskStates = new Set(['succeeded', 'failed', 'cancelled', 'partially_succeeded', 'interrupted'])
+const terminalTaskStates = new Set(['succeeded', 'completed_with_skips', 'failed', 'cancelled', 'partially_succeeded', 'interrupted'])
 
 function ActivityMessage({
   busyAction,

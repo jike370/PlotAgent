@@ -744,19 +744,27 @@ class TaskItemSnapshot(StrictModel):
 
 
 class TaskCompletion(StrictModel):
+    outcome: Literal["all_succeeded", "completed_with_skips"] = "all_succeeded"
     completed_at: IsoTimestamp
     final_project_revision: NonNegativeInt
     required_report_ids: Annotated[
         tuple[VerificationReportId, ...], Field(min_length=1, max_length=512)
     ]
     artifact_receipt_ids: Annotated[tuple[ToolReceiptId, ...], Field(max_length=512)] = ()
+    skipped_item_ids: Annotated[tuple[TaskItemIdV2, ...], Field(max_length=64)] = ()
 
     @model_validator(mode="after")
     def evidence_ids_are_unique(self) -> TaskCompletion:
-        if len(self.required_report_ids) != len(set(self.required_report_ids)) or len(
-            self.artifact_receipt_ids
-        ) != len(set(self.artifact_receipt_ids)):
+        if (
+            len(self.required_report_ids) != len(set(self.required_report_ids))
+            or len(self.artifact_receipt_ids) != len(set(self.artifact_receipt_ids))
+            or len(self.skipped_item_ids) != len(set(self.skipped_item_ids))
+        ):
             raise ValueError("task completion evidence ids must be unique")
+        if self.outcome == "all_succeeded" and self.skipped_item_ids:
+            raise ValueError("all-succeeded completion cannot retain skipped items")
+        if self.outcome == "completed_with_skips" and not self.skipped_item_ids:
+            raise ValueError("skip completion requires at least one skipped item")
         return self
 
 
@@ -785,8 +793,25 @@ class TaskCheckpoint(StrictModel):
             if self.items:
                 if self.completion is None:
                     raise ValueError("completed mutating tasks require completion evidence")
-                if any(item.state != "succeeded" for item in self.items):
-                    raise ValueError("completed tasks require every task item to succeed")
+                if self.completion.outcome == "all_succeeded":
+                    if any(item.state != "succeeded" for item in self.items):
+                        raise ValueError("completed tasks require every task item to succeed")
+                else:
+                    succeeded = tuple(item for item in self.items if item.state == "succeeded")
+                    skipped = tuple(item for item in self.items if item.state != "succeeded")
+                    if (
+                        not succeeded
+                        or any(item.state == "running" for item in skipped)
+                    ):
+                        raise ValueError(
+                            "skip completion requires succeeded items and no running remainder"
+                        )
+                    if set(self.completion.skipped_item_ids) != {
+                        item.item_id for item in skipped
+                    }:
+                        raise ValueError(
+                            "skip completion must identify every non-success remainder"
+                        )
             elif self.completion is not None:
                 raise ValueError("read-only task completion cannot carry artifact evidence")
         elif self.completion is not None:
@@ -863,6 +888,7 @@ ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
             "delivering",
             "cancelling",
             "cancelled",
+            "completed_verified",
         }
     ),
     "blocked": frozenset(
