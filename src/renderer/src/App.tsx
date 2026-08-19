@@ -984,6 +984,17 @@ export function App(): React.JSX.Element {
         ? await api.resumeTaskPlan({ projectId: project.projectId, planId })
         : await api.runTaskPlan({ projectId: project.projectId, planId }))
       mergeDurableResult(value)
+      const outcome = readWorkflowOutcome(value)
+      if (outcome.kind === 'needs_input') {
+        const stored = await api.getTaskPlan({ projectId: project.projectId, planId })
+        const pendingPlan = stored.ok ? readWorkflowPlan(stored.value) : undefined
+        if (pendingPlan) {
+          setWorkflowPlan(pendingPlan)
+          await syncPlanOutput(pendingPlan)
+        }
+        setWorkflowOutcome(outcome)
+        return
+      }
       const plan = readWorkflowPlan(value)
       if (!plan) throw new Error('Core 未返回任务计划状态。')
       setWorkflowPlan(plan)

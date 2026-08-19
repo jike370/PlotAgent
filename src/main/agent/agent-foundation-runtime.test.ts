@@ -680,6 +680,80 @@ describe('AgentFoundationRuntime', () => {
     expect(core.calls).toContain('agent.tasks.yield.accept')
   })
 
+  it('returns a typed repair question instead of hiding it behind the partial task view', async () => {
+    let pumpCalls = 0
+    const core = {
+      request: async (method: string): Promise<unknown> => {
+        if (method === 'agent.tasks.list') {
+          return { tasks: [{ task_id: 'task:repair-question', intent: { intent_id: 'intent:repair-question' } }] }
+        }
+        if (method === 'agent.tasks.plan.get') return {
+          task: {
+            task_id: 'task:repair-question', task_version: 8, state: 'partial',
+            items: [
+              { item_id: 'item:repair-question.1', state: 'succeeded', attempt_count: 1 },
+              { item_id: 'item:repair-question.2', state: 'repairable_failed', attempt_count: 1 },
+            ],
+          },
+          plan: { plan_id: 'plan:repair-question', items: [] },
+          plan_hash: 'b'.repeat(64),
+          confirmation_state: 'confirmed',
+        }
+        if (method === 'agent.tasks.pump.next') {
+          pumpCalls += 1
+          return pumpCalls === 1
+            ? {
+                kind: 'run_activation',
+                activation: {
+                  activation_id: 'activation:repair-question',
+                  task_id: 'task:repair-question',
+                  task_version: 9,
+                  task_state: 'repairing',
+                  permission_phase: 'p0_read',
+                  allowed_tools: ['inspect_source'],
+                },
+              }
+            : { kind: 'wait', reason: 'awaiting_input', task_state: 'awaiting_input' }
+        }
+        if (method === 'agent.tasks.activation.running') return { state: 'repairing' }
+        if (method === 'agent.tasks.yield.accept') return { state: 'awaiting_input' }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
+          outcome: 'needs_input',
+          activation_id: activation.activation_id,
+          task_id: activation.task_id,
+          task_version: activation.task_version,
+          questions: [{
+            question_key: 'repair_choice',
+            prompt: '失败项应取消，还是提供替代数据后重试？',
+            answer_kind: 'text',
+            required: true,
+          }],
+        }),
+      }),
+    })
+
+    await runtime.list('project:test')
+    await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:repair-question' }))
+      .resolves.toEqual({
+        outcome: 'needs_input',
+        workflow_run_id: 'task:repair-question',
+        questions: [{
+          question_key: 'repair_choice',
+          prompt: '失败项应取消，还是提供替代数据后重试？',
+          answer_kind: 'text',
+          required: true,
+        }],
+      })
+  })
+
   it.each([
     {
       yielded: {

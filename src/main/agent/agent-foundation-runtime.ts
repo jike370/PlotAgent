@@ -554,6 +554,17 @@ export class AgentFoundationRuntime {
           this.activePumps.delete(authority.taskId)
         }
       }
+        if (
+          drained.reason === 'awaiting_input'
+          || drained.reason === 'awaiting_reconfirmation'
+        ) {
+          return await this.finishPlanningPump(
+            authority.projectId,
+            authority.taskId,
+            runId,
+            drained,
+          )
+        }
         if (drained.reason === 'execution_pending') {
           this.emit(runId, authority.projectId, 'planning', '正在仅重试失败项…')
           await this.core.request(

@@ -1192,6 +1192,57 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.queryByText('Core 未返回批量任务计划。')).not.toBeInTheDocument()
   })
 
+  it('shows a repair question returned after partial execution and continues the same task', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn()
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(batchPlanFixture())))
+      .mockResolvedValueOnce(ok({
+        outcome: 'needs_input',
+        workflow_run_id: 'task:partial-repair',
+        questions: [{
+          question_key: 'repair_choice',
+          prompt: '失败项应取消，还是提供替代数据后重试？',
+          answer_kind: 'text',
+          choices: [],
+          required: true,
+        }],
+      }))
+    const partial = workflowPlanFixture('partially_failed', 'failed', {
+      planId: 'plan:batch',
+      failure: { code: 'INVALID_DATA', message: '失败项数据不适用。', retryable: true },
+    })
+    const api = fakeDesktop({
+      runWorkflow,
+      confirmTaskPlan: vi.fn(async () => ok(batchPlanFixture('ready'))),
+      runTaskPlan: vi.fn(async () => ok({
+        outcome: 'needs_input',
+        workflow_run_id: 'task:partial-repair',
+        questions: [{
+          question_key: 'repair_choice',
+          prompt: '失败项应取消，还是提供替代数据后重试？',
+          answer_kind: 'text',
+          choices: [],
+          required: true,
+        }],
+      })),
+      getTaskPlan: vi.fn(async () => ok(partial)),
+    })
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+    await user.click(screen.getByRole('button', { name: /创建批次/ }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+
+    expect((await screen.findAllByText('失败项应取消，还是提供替代数据后重试？')).length).toBeGreaterThan(0)
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '取消失败项，保留成功结果。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(runWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
+      continuationWorkflowRunId: 'task:partial-repair',
+      instruction: '取消失败项，保留成功结果。',
+    }))
+  })
+
   it('labels a rendered plot from its actual profile instead of the selected library card', async () => {
     const user = userEvent.setup()
     installApi(fakeDesktop({
