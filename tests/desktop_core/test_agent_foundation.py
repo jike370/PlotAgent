@@ -118,7 +118,7 @@ def test_next_action_creates_one_idempotent_activation(tmp_path: Path) -> None:
         assert activation["task_version"] == 1
         assert activation["task_state"] == "created"
         assert activation["permission_phase"] == "p0_read"
-        assert activation["activation_budget"]["max_model_turns"] == 6
+        assert activation["activation_budget"]["max_model_turns"] == 10
         assert activation["activation_budget"]["timeout_ms"] is None
         assert activation["deadline"] is None
         assert "inspect_source" in cast(list[str], activation["allowed_tools"])

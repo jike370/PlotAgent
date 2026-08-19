@@ -6,7 +6,7 @@
       "properties": {
         "max_agent_turns": {
           "default": 2,
-          "maximum": 6,
+          "maximum": 10,
           "minimum": 0,
           "title": "Max Agent Turns",
           "type": "integer"

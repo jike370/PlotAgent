@@ -47,11 +47,11 @@ def budget() -> TaskBudgetSnapshot:
 
 
 def test_activation_allows_data_inspection_before_terminal_planning() -> None:
-    assert ActivationBudget().max_model_turns == 6
-    assert WorkflowBudget(max_agent_turns=6).max_agent_turns == 6
+    assert ActivationBudget().max_model_turns == 10
+    assert WorkflowBudget(max_agent_turns=10).max_agent_turns == 10
 
     with pytest.raises(ValidationError):
-        WorkflowBudget(max_agent_turns=7)
+        WorkflowBudget(max_agent_turns=11)
 
 
 def intent() -> TaskIntent:

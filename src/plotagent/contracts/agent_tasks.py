@@ -162,7 +162,7 @@ class TaskBudgetSnapshot(StrictModel):
 
 
 class ActivationBudget(StrictModel):
-    max_model_turns: Annotated[int, Field(ge=1, le=32)] = 6
+    max_model_turns: Annotated[int, Field(ge=1, le=32)] = 10
     max_tool_calls: Annotated[int, Field(ge=0, le=128)] = 24
     max_disclosed_scalars: Annotated[int, Field(ge=0, le=200_000)] = 20_000
     timeout_ms: Annotated[int, Field(ge=1_000, le=3_600_000)] | None = None

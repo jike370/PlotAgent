@@ -11,7 +11,7 @@
           "type": "integer"
         },
         "max_model_turns": {
-          "default": 6,
+          "default": 10,
           "maximum": 32,
           "minimum": 1,
           "title": "Max Model Turns",
@@ -16038,7 +16038,7 @@
       "properties": {
         "max_agent_turns": {
           "default": 2,
-          "maximum": 6,
+          "maximum": 10,
           "minimum": 0,
           "title": "Max Agent Turns",
           "type": "integer"

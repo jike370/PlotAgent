@@ -114,7 +114,7 @@ WorkflowRoute = Literal[
 class WorkflowBudget(StrictModel):
     """Hard ceilings selected by Core before any model call."""
 
-    max_agent_turns: Annotated[int, Field(ge=0, le=6)] = 2
+    max_agent_turns: Annotated[int, Field(ge=0, le=10)] = 2
     max_tool_calls: Annotated[int, Field(ge=0, le=24)] = 8
     max_preview_rows: Annotated[int, Field(ge=0, le=200)] = 40
     max_profiled_fields: Annotated[int, Field(ge=0, le=128)] = 24

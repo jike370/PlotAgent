@@ -2,11 +2,11 @@
   "files": [
     {
       "path": "schemas/agent-activation-v2.schema.json",
-      "sha256": "aa2165ac315774609b1a128ef6bf750f1af8821c393e0921d14deccce3754943"
+      "sha256": "590e2a2419dc5dd0e473803e96da8b6c08cd328553bfd9d3f8cf4c99be9a8e1d"
     },
     {
       "path": "schemas/agent-context-v2.schema.json",
-      "sha256": "d58a21e485d8ba4af129f701277022e36def6fde227112e6d412efc66b64f6b8"
+      "sha256": "9f8766fee412179f441e91f6a1a59917209adeca645a2e4b49571895d671ebc7"
     },
     {
       "path": "schemas/agent-tool-error-v2.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "78404954094a387aca582e08b263b413b80d800137376616361a6bd3096edd05"
+      "sha256": "44aa2ddac3d60e9bbcc14311c67f25b1ea0e569f026eacdb9a65f1223219c8e9"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -194,7 +194,7 @@
     },
     {
       "path": "schemas/workflow-context.schema.json",
-      "sha256": "12e29f97c6e2324e8b7695a7eb385b1f814200478ed641ac61ad393f5361ea9a"
+      "sha256": "5a2d438bcb4388b6118f5431ba3c780cf60b609fd82593841fa7deb8ebb27b54"
     },
     {
       "path": "schemas/workflow-decision.schema.json",

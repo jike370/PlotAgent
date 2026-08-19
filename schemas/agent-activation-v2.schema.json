@@ -11,7 +11,7 @@
           "type": "integer"
         },
         "max_model_turns": {
-          "default": 6,
+          "default": 10,
           "maximum": 32,
           "minimum": 1,
           "title": "Max Model Turns",

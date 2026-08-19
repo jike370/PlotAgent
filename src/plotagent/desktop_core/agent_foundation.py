@@ -652,7 +652,7 @@ class DurableAgentCoreHost:
             selected_profile_ids=effective_profiles,
             allowed_profile_ids=allowed_profiles,
             budget=WorkflowBudget(
-                max_agent_turns=min(envelope.budget.max_model_turns, 6),
+                max_agent_turns=min(envelope.budget.max_model_turns, 10),
                 max_tool_calls=min(envelope.budget.max_tool_calls, 24),
                 max_preview_rows=40,
                 max_profiled_fields=24,
