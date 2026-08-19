@@ -978,6 +978,204 @@ def test_agent_v2_stops_after_a_scoped_retry_makes_no_progress(
     assert checkpoint["items"][0]["state"] == "succeeded"
 
 
+def test_agent_v2_scoped_repair_can_request_missing_semantic_input(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="repair-needs-input")
+    execute = TaskPlanExecutor.execute_compiled_item
+
+    def fail_second(
+        self: TaskPlanExecutor,
+        item: Any,
+        revision: int,
+    ) -> tuple[int, int]:
+        if item.profile_id == "K02":
+            raise ValueError("The second item needs a semantic correction.")
+        return execute(self, item, revision)
+
+    monkeypatch.setattr(TaskPlanExecutor, "execute_compiled_item", fail_second)
+    first = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="repair-needs-input",
+        profiles=("K01", "K02"),
+    )
+    assert first["task"]["state"] == "partial"
+
+    directive = harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:repair-needs-input"},
+    )
+    activation = cast(dict[str, Any], directive["activation"])
+    activation_id = cast(str, activation["activation_id"])
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    harness.call(
+        "agent.activations.prepare",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    validated = harness.call(
+        "agent.yields.validate",
+        {
+            "project_id": project_id,
+            "activation_id": activation_id,
+            "yield": {
+                "outcome": "needs_input",
+                "activation_id": activation_id,
+                "task_id": "task:repair-needs-input",
+                "task_version": activation["task_version"],
+                "questions": [
+                    {
+                        "question_key": "repair_second_item",
+                        "prompt": "How should the second item be corrected?",
+                        "answer_kind": "text",
+                        "choices": [],
+                    }
+                ],
+            },
+        },
+    )
+    accepted = harness.call(
+        "agent.tasks.yield.accept",
+        {"project_id": project_id, "yield": validated},
+    )
+    assert accepted["state"] == "awaiting_input"
+    assert {
+        item["item_id"]: item["state"] for item in accepted["items"]
+    } == {
+        "item:repair-needs-input.1": "succeeded",
+        "item:repair-needs-input.2": "repairable_failed",
+    }
+
+    answered = harness.call(
+        "agent.tasks.user_event",
+        {
+            "project_id": project_id,
+            "task_id": "task:repair-needs-input",
+            "expected_task_version": accepted["task_version"],
+            "action": "answered",
+            "user_event_id": "user-event:repair-needs-input-answer",
+            "payload_hash": "b" * 64,
+            "message": "Keep the successful item and revise only the failed item.",
+        },
+    )
+    assert answered["state"] == "investigating"
+    continuation = harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:repair-needs-input"},
+    )
+    revised_activation = cast(dict[str, Any], continuation["activation"])
+    revised_activation_id = cast(str, revised_activation["activation_id"])
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": revised_activation_id},
+    )
+    prepared = harness.call(
+        "agent.activations.prepare",
+        {"project_id": project_id, "activation_id": revised_activation_id},
+    )
+    context = cast(dict[str, Any], prepared["context"])
+    source_context = cast(list[dict[str, Any]], context["source_contexts"])[0]
+    numeric_aliases = [
+        cast(str, field["field_alias"])
+        for field in cast(list[dict[str, object]], source_context["fields"])
+        if field["logical_type"] == "numeric"
+    ]
+    revised_intent = TaskIntent(
+        intent_id="intent:repair-needs-input",
+        intent_version=2,
+        task_id="task:repair-needs-input",
+        task_version=cast(int, revised_activation["task_version"]),
+        created_by_activation_id=revised_activation_id,
+        summary="Keep the successful item and revise only the failed item.",
+        items=tuple(
+            TaskDraftItem(
+                task_kind="create",
+                item_id=f"item:repair-needs-input.{position}",
+                plot_alias=f"plot_{position}",
+                profile_id=profile,
+                source_aliases=("data_1",),
+                bindings=(
+                    DraftFieldBinding(
+                        role="x",
+                        source_alias="data_1",
+                        field_alias=numeric_aliases[0],
+                    ),
+                    DraftFieldBinding(
+                        role="y",
+                        source_alias="data_1",
+                        field_alias=numeric_aliases[1],
+                    ),
+                ),
+            )
+            for position, profile in enumerate(("K01", "K02"), start=1)
+        ),
+        context_hash=cast(str, context["content_hash"]),
+        content_hash="0" * 64,
+    )
+    revised_intent = revised_intent.model_copy(
+        update={
+            "content_hash": canonical_hash(
+                revised_intent.model_dump(mode="json", exclude={"content_hash"})
+            )
+        }
+    )
+    revised_yield = AgentIntentReady(
+        activation_id=revised_activation_id,
+        task_id="task:repair-needs-input",
+        task_version=cast(int, revised_activation["task_version"]),
+        intent=revised_intent,
+    )
+    validated_revision = harness.call(
+        "agent.yields.validate",
+        {
+            "project_id": project_id,
+            "activation_id": revised_activation_id,
+            "yield": revised_yield.model_dump(mode="json"),
+        },
+    )
+    harness.call(
+        "agent.tasks.yield.accept",
+        {"project_id": project_id, "yield": validated_revision},
+    )
+    reconfirm = harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:repair-needs-input"},
+    )
+    assert reconfirm["reason"] == "awaiting_reconfirmation"
+    revised_view = harness.call(
+        "agent.tasks.plan.get",
+        {"project_id": project_id, "task_id": "task:repair-needs-input"},
+    )
+    assert revised_view["confirmation_state"] == "pending"
+    harness.call(
+        "agent.tasks.plan.confirm",
+        {
+            "project_id": project_id,
+            "task_id": "task:repair-needs-input",
+            "expected_task_version": revised_view["task"]["task_version"],
+            "user_event_id": "user-event:repair-needs-input-reconfirm",
+            "plan_hash": revised_view["plan_hash"],
+        },
+    )
+    retried = harness.call(
+        "agent.tasks.execute",
+        {"project_id": project_id, "task_id": "task:repair-needs-input"},
+    )
+    assert retried["task"]["state"] == "partial"
+    assert {
+        item["item_id"]: item["attempt_count"] for item in retried["task"]["items"]
+    } == {
+        "item:repair-needs-input.1": 1,
+        "item:repair-needs-input.2": 2,
+    }
+
+
 def _dataset_and_fields(imported: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     dataset = cast(dict[str, Any], cast(list[object], imported["datasets"])[0])
     numeric = [

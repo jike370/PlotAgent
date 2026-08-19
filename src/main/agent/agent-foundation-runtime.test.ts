@@ -298,6 +298,83 @@ describe('AgentFoundationRuntime', () => {
     })
   })
 
+  it('returns a revised confirmation plan after a repair clarification', async () => {
+    let nextCalls = 0
+    const events: AgentFoundationRuntimeEvent[] = []
+    const core = {
+      request: async (method: string): Promise<unknown> => {
+        if (method === 'agent.tasks.get') return {
+          task_id: 'task:repair', task_version: 8, state: 'awaiting_input', items: [
+            { item_id: 'item:repair.1', state: 'succeeded', attempt_count: 1 },
+            { item_id: 'item:repair.2', state: 'repairable_failed', attempt_count: 1 },
+          ],
+        }
+        if (method === 'agent.tasks.user_event') return { state: 'investigating' }
+        if (method === 'agent.tasks.pump.next') {
+          nextCalls += 1
+          return nextCalls === 1
+            ? {
+                kind: 'run_activation',
+                activation: {
+                  activation_id: 'activation:repair-answer',
+                  task_id: 'task:repair',
+                  task_version: 9,
+                  task_state: 'investigating',
+                  permission_phase: 'p0_read',
+                  allowed_tools: ['inspect_source'],
+                },
+              }
+            : {
+                kind: 'wait',
+                reason: 'awaiting_reconfirmation',
+                task_state: 'awaiting_reconfirmation',
+              }
+        }
+        if (method === 'agent.tasks.activation.running') return {}
+        if (method === 'agent.tasks.yield.accept') return { state: 'intent_staged' }
+        if (method === 'agent.tasks.plan.get') return {
+          task: {
+            task_id: 'task:repair', task_version: 11, state: 'awaiting_reconfirmation', items: [],
+          },
+          plan: { plan_id: 'plan:repair.v2', items: [] },
+          plan_hash: 'b'.repeat(64),
+          confirmation_state: 'pending',
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: (event) => events.push(event),
+      id: () => 'fixed',
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
+          outcome: 'cancelled',
+          activation_id: activation.activation_id,
+          task_id: activation.task_id,
+          task_version: activation.task_version,
+          message: 'Synthetic revised intent accepted by the fake Core.',
+        }),
+      }),
+    })
+
+    await expect(runtime.run({
+      projectId: 'project:test',
+      selectedSources: [],
+      expectedProjectVersion: 1,
+      continuationWorkflowRunId: 'task:repair',
+      instruction: '只修改失败项。',
+    })).resolves.toMatchObject({
+      task: { state: 'awaiting_reconfirmation' },
+      plan: { plan_id: 'plan:repair.v2' },
+      confirmation_state: 'pending',
+    })
+    expect(events).toContainEqual(expect.objectContaining({
+      stage: 'completed', label: '修订计划已生成，等待重新确认',
+    }))
+  })
+
   it('runs one selected source to confirmation and executes only after approval', async () => {
     const core = new FakeCore()
     const events: AgentFoundationRuntimeEvent[] = []

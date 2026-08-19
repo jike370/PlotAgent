@@ -974,7 +974,7 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     ...(typeof snapshot.updated_at === 'string' ? { updatedAt: snapshot.updated_at } : {}),
     state,
     confirmationState: durableConfirmation ?? (
-      state === 'awaiting_confirmation' ? 'pending'
+      state === 'awaiting_confirmation' || state === 'awaiting_reconfirmation' ? 'pending'
         : state === 'rejected' ? 'rejected' : 'confirmed'
     ),
     warnings: [],

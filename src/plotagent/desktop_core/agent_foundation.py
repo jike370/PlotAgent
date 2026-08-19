@@ -158,7 +158,10 @@ class DurableAgentCoreHost:
                 "ACTIVATION_STALE", "The Agent activation is not the active task owner."
             )
 
-        workflow_context, source_contexts, provider, plot_contexts = self._source_context(envelope)
+        workflow_context, source_contexts, provider, plot_contexts = self._source_context(
+            envelope,
+            project_revision=checkpoint.project_revision,
+        )
         inspection = DataInspectionService(workflow_context, provider)
         gateway = ToolGateway()
         registered = (
@@ -470,9 +473,14 @@ class DurableAgentCoreHost:
             confidence=1,
         )
         try:
-            return DraftCompiler(self.catalog).compile(draft, workflow_context)
+            plan = DraftCompiler(self.catalog).compile(draft, workflow_context)
         except WorkflowCompileError as error:
             raise AgentFoundationError(error.code, error.message) from error
+        if validated.intent_version == 1:
+            return plan
+        return plan.model_copy(
+            update={"plan_id": f"{plan.plan_id}.v{validated.intent_version}"}
+        )
 
     @staticmethod
     def _instruction_explicitly_names_profile(
@@ -490,7 +498,10 @@ class DurableAgentCoreHost:
         return any(alias.casefold() in normalized for alias in aliases)
 
     def _source_context(
-        self, envelope: TaskEnvelope
+        self,
+        envelope: TaskEnvelope,
+        *,
+        project_revision: int | None = None,
     ) -> tuple[
         WorkflowContext,
         tuple[UntrustedSourceContext, ...],
@@ -657,7 +668,11 @@ class DurableAgentCoreHost:
         workflow_context = WorkflowContext(
             workflow_run_id=f"workflow:{envelope.task_id.removeprefix('task:')}",
             project_id=envelope.project_id,
-            project_revision=envelope.project_revision,
+            project_revision=(
+                envelope.project_revision
+                if project_revision is None
+                else project_revision
+            ),
             instruction=envelope.original_instruction,
             locale=envelope.locale,
             sources=tuple(sources),

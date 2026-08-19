@@ -80,7 +80,8 @@ class DurableTaskExecutionService:
             "plan_hash": canonical_hash(plan),
             "confirmation_state": (
                 "pending"
-                if checkpoint.state == "awaiting_confirmation"
+                if checkpoint.state
+                in {"awaiting_confirmation", "awaiting_reconfirmation"}
                 else "confirmed"
                 if checkpoint.state
                 in {"executing", "verifying", "delivering", "completed_verified"}

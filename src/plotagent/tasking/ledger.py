@@ -714,8 +714,16 @@ class TaskLedgerRepository:
                     intent_version=intent.intent_version,
                     content_hash=intent.content_hash,
                 )
+                prior_items = {item.item_id: item for item in checkpoint.items}
                 items = tuple(
-                    TaskItemSnapshot(item_id=item.item_id, state="staged")
+                    prior_items[item.item_id]
+                    if item.item_id in prior_items
+                    and prior_items[item.item_id].state == "succeeded"
+                    else prior_items[item.item_id].model_copy(
+                        update={"state": "staged", "last_error": None}
+                    )
+                    if item.item_id in prior_items
+                    else TaskItemSnapshot(item_id=item.item_id, state="staged")
                     for item in intent.items
                 )
 
@@ -879,7 +887,10 @@ class TaskLedgerRepository:
         with self._transaction() as connection:
             current = self._get_task_in_transaction(connection, task_id)
             self._expect_version(current, expected_task_version)
-            if current.state != "awaiting_confirmation" or current.intent is None:
+            if current.state not in {
+                "awaiting_confirmation",
+                "awaiting_reconfirmation",
+            } or current.intent is None:
                 raise self._conflict("Task is not awaiting plan confirmation.")
             plan_row = connection.execute(
                 """

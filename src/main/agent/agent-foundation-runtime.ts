@@ -454,7 +454,10 @@ export class AgentFoundationRuntime {
         questions: drained.terminalYield.questions,
       })
     }
-    if (drained.reason !== 'awaiting_confirmation') {
+    if (
+      drained.reason !== 'awaiting_confirmation'
+      && drained.reason !== 'awaiting_reconfirmation'
+    ) {
       throw stoppedBeforeConfirmation(drained)
     }
     const view = await this.core.request(
@@ -467,7 +470,14 @@ export class AgentFoundationRuntime {
       throw new AgentFoundationRuntimeError('AGENT_V2_TASK_MISMATCH', '计划不属于当前任务。')
     }
     this.authorityByPlan.set(identity.planId, { projectId, taskId })
-    this.emit(runId, projectId, 'completed', '计划已生成，等待确认')
+    this.emit(
+      runId,
+      projectId,
+      'completed',
+      drained.reason === 'awaiting_reconfirmation'
+        ? '修订计划已生成，等待重新确认'
+        : '计划已生成，等待确认',
+    )
     return json(view)
   }
 

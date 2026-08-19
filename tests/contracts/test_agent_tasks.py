@@ -411,6 +411,8 @@ def test_read_only_information_can_complete_without_mutation_artifacts() -> None
 
 def test_state_transition_tables_close_terminal_states_and_allow_repair() -> None:
     assert is_legal_task_transition("verifying", "repairing")
+    assert is_legal_task_transition("repairing", "awaiting_input")
+    assert is_legal_task_transition("repairing", "unsupported")
     assert is_legal_task_transition("partial", "executing")
     assert not is_legal_task_transition("completed_verified", "executing")
     assert is_legal_task_item_transition("repairable_failed", "running")

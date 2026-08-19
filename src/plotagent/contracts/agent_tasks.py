@@ -839,9 +839,11 @@ ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
         {
             "executing",
             "verifying",
+            "awaiting_input",
             "awaiting_reconfirmation",
             "partial",
             "blocked",
+            "unsupported",
             "cancelling",
             "failed",
         }
