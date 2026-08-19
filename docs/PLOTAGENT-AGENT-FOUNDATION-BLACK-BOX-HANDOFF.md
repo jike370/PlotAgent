@@ -1,6 +1,6 @@
 # PlotAgent Agent Foundation 探索性黑盒交接
 
-> 原始探索性运行时代码：`29bfefdb1fcb7611528c7e354fdfa0131e27c826`。黑盒后修复运行时代码：`a03a04a6bdbba7146ad870da8ed483947076d9a7`；两者的证据不得混用，后续定向/最终执行以当前 clean HEAD 的非文档内容等同于 `a03a04a` 为准。
+> 原始探索性运行时代码：`29bfefdb1fcb7611528c7e354fdfa0131e27c826`。最终运行时冻结：`c6ecbab582d209360ca008c522652c10feff2be6`；两者的证据不得混用。若交接文档另有后续 docs-only commit，最终执行必须确认非文档内容与 `c6ecbab` 相同。
 >
 > 测试角色：探索性会话只根据功能简报设计测试；本主任务窗口负责正式 Windows Electron 执行、证据保存和判定。
 
@@ -29,7 +29,7 @@
 - 仓库：`D:\plotv3`
 - 唯一正式入口：`pnpm dev`
 - 禁止：`pnpm dev:web`、静态审计页、浏览器 mock、Core 内部接口、单测替代 UI。
-- 开始前保存 `git rev-parse HEAD`、`git status --short` 和 `git diff --exit-code 29bfefdb1fcb7611528c7e354fdfa0131e27c826 -- . ':(exclude)docs/**'`。
+- 开始前保存 `git rev-parse HEAD`、`git status --short` 和 `git diff --exit-code c6ecbab -- . ':(exclude)docs/**'`；允许后续交接文档自身变化，非文档差异必须为 0。
 - 工作树必须干净；非文档差异必须为 0。
 - 使用全新项目与全新输出目录，不复用旧图、截图或导出。
 - 不读取、截图或记录模型 API key。
@@ -57,8 +57,8 @@
 
 ## 5. 研发前置证据（不可替代黑盒）
 
-- Python 714 passed；Node 188 passed；Ruff、mypy 184 模块、contracts codegen、两套 typecheck、ESLint、production build 均通过。
-- Agent Foundation regression suite v2：真实模型 18 × 3、运行时 6 × 1，共 60/60 PASS，决策 GO。
+- Python 714 passed；Node 192 passed；Ruff、mypy 184 模块、contracts codegen、两套 typecheck、ESLint、production build 均通过。
+- Agent Foundation regression suite v2：真实模型 18 × 3、运行时 6 × 1，共 60/60 PASS，决策 GO；证据 `build/seq70-workflow-eval/20260819110057-c6ecbab/`。
 - task exact、validator、route、binding、visual action、data operation、inspection、runtime、确认前无副作用均为 1.0；模型错误率 0；median 6.500 秒，p95 16.633 秒，max 92.225 秒。
 - Agent 总任务不设产品时长硬截止；Provider/工具仍有传输 timeout，用户取消仍可用。
 
@@ -70,11 +70,11 @@
 
 ## 7. 执行结果（2026-08-19）
 
-探索性黑盒、修复和定向复测已完成。收口代码为 `a03a04a6bdbba7146ad870da8ed483947076d9a7`。
+探索性黑盒、修复和定向复测已完成。最终运行时收口代码为 `c6ecbab582d209360ca008c522652c10feff2be6`。
 
 - 本地缺陷定向复测通过：模型余额诊断与任务终态、首次编辑撤销/重做、K03 Origin 轴语义；
 - 完整机械门禁通过；
-- 新的 SEQ-70 因供应商对 54 个真实推理 trial 全部返回 HTTP 402 而 NO_GO；6 个确定性运行时用例通过；
-- 在更换或充值模型服务并重跑 SEQ-70 前，不宣称真实模型发布资格 GO。
+- 当前新的 SEQ-70 已在账户恢复后从零执行，54 个真实推理 trial 与 6 个确定性运行时用例全部通过；
+- 历史 HTTP 402 和 59/60 NO_GO 证据仍保留在旧评测目录，不与当前 GO 混用。
 
 详细事实、路径和判定见 `docs/PLOTAGENT-AGENT-FOUNDATION-QUALIFICATION-RESULTS.md`。

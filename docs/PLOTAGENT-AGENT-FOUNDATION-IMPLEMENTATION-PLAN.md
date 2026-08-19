@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P10、旧公开链清理与 2026-08-19 黑盒后加固均已完成。当前运行时代码为 `a03a04a6bdbba7146ad870da8ed483947076d9a7`，完整机械门禁和本地缺陷定向黑盒通过；历史 suite v2 GO 属于旧运行时证据，当前真实模型服务因 HTTP 402 使新 SEQ-70 为 NO_GO，必须在可用模型服务上重跑后才能取得发布资格。
+> 状态：P0–P10、旧公开链清理与 2026-08-19 黑盒后加固均已完成。当前运行时代码冻结为 `c6ecbab582d209360ca008c522652c10feff2be6`；完整机械门禁和当前真实模型 SEQ-70 均通过。此前 `20260818224414-a03a04a` 的 HTTP 402 保留为历史 provider 失败证据，不是当前发布状态。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -714,3 +714,12 @@
 - Python 714、Node 191、Ruff、mypy 184、codegen、production build 与系统 Windows PowerShell 5.1 发布脚本断言通过；
 - 同一代码上的 SEQ-70 新跑因供应商对全部 54 个真实模型 trial 返回 HTTP 402 而 NO_GO，6 个确定性运行时 trial 通过。模型余额恢复前不得沿用历史 GO 代替本次资格；
 - 完整报告见 `docs/PLOTAGENT-AGENT-FOUNDATION-QUALIFICATION-RESULTS.md`。
+
+## 21. 当前冻结收口（2026-08-19）
+
+- `c6ecbab` 在 Pi provider 请求边界增加最多一次有界重试，仅覆盖尚未产生模型输出或工具副作用的断连、408、409、429 和 5xx；401、402、非法参数和余额错误不重试；
+- 真实 DeepSeek 最小请求返回 HTTP 200；PlotAgent Pi/Core W01 与 W09 均真实 PASS；
+- 当前 SEQ-70 从零执行 24 case、60 trial，54 个真实模型 trial 与 6 个运行时 trial 全部 PASS，发布决策 GO；
+- 正确性指标 task/validator/route/binding/visual/data/inspection/runtime/confirmation-no-side-effect 全部为 1.0，model error rate=0；
+- 当前评测证据：`build/seq70-workflow-eval/20260819110057-c6ecbab/`；median 8.244s、p95 29.735s、max 104.723s、估算成本 ¥0.503156。时长仅记录，不作为任务终止或 GO/NO-GO 门槛；
+- 评测前的 59/60 NO_GO 与历史 HTTP 402 均原样保留，不覆盖为成功；本节只记录当前冻结 commit 的新证据。

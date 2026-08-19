@@ -1,6 +1,6 @@
 # PlotAgent Agent Foundation 资格结果
 
-> 收口代码：`a03a04a6bdbba7146ad870da8ed483947076d9a7`
+> 收口代码：`c6ecbab582d209360ca008c522652c10feff2be6`
 >
 > 日期：2026-08-19
 
@@ -11,9 +11,10 @@
 - 本地产品缺陷的定向复测已通过；
 - Python、Node、静态检查、生产构建和 Windows 发布脚本断言均通过；
 - K03 散点图的 Origin 原生轴标题已在两个独立 Origin 进程中完成生成与重开读回；
-- 当前模型服务真实推理请求被供应商以 HTTP 402 拒绝，因此新的 SEQ-70 不能取得模型资格 GO。该项属于外部模型账户余额阻断，不得被写成产品通过，也不等同于本地 Agent 运行时失效。
+- 历史运行 `20260818224414-a03a04a` 曾收到供应商 HTTP 402；账户恢复后，当前冻结 commit 的真实最小请求返回 HTTP 200，Pi/Core W01、W09 均通过。
+- 当前冻结 commit 的完整 SEQ-70 已从零执行并取得 GO；此前 402/59-of-60 NO_GO 仍作为历史证据保留。
 
-所以当前候选版本的准确状态是：**本地修复与确定性主链合格；真实模型发布资格等待可用模型服务重跑。**
+所以当前候选版本的准确状态是：**本地机械门禁、真实模型评测和 P7–P10 主链均合格；可以进入最终探索性 Windows 黑盒。**
 
 ## 2. 首轮探索性黑盒
 
@@ -114,9 +115,20 @@
 
 报告中的失败信息已准确呈现“余额不足”。`/models` 可访问只证明模型列表接口可读，不能替代 `/chat/completions` 的真实推理成功。
 
-## 7. 下一步发布动作
+## 7. 历史发布动作（已由第 8 节完成）
 
-1. 配置一个能够成功完成真实推理的模型服务；
-2. 在新的 clean commit 上从零重跑完整 SEQ-70，不复用 checkpoint；
-3. 要求所有正确性发布门继续通过，模型错误率恢复为 0；
-4. 若仅更换模型账户且运行时代码不变，无需重做 34 图视觉；若 renderer source scope 再变化，则按影响范围补视觉与 Origin 证据。
+1. 配置一个能够成功完成真实推理的模型服务；（已完成）
+2. 在新的 clean commit 上从零重跑完整 SEQ-70，不复用 checkpoint；（已完成）
+3. 要求所有正确性发布门继续通过，模型错误率恢复为 0；（已完成）
+4. 若仅更换模型账户且运行时代码不变，无需重做 34 图视觉；若 renderer source scope 再变化，则按影响范围补视觉/Origin 证据。（仍适用）
+
+## 8. 当前冻结 commit 的真实模型复评
+
+证据目录：`D:\plotv3\build\seq70-workflow-eval\20260819110057-c6ecbab`
+
+- 冻结 commit：`c6ecbab582d209360ca008c522652c10feff2be6`；
+- 24 个 case、60 个 trial：54 个真实模型 trial + 6 个运行时 trial，全部 PASS；
+- task exact、validator、route、binding、visual action、data operation、inspection、runtime、确认前无副作用：全部 1.0；
+- model error rate：0；
+- latency median：8.244 秒；p95：29.735 秒；max：104.723 秒；估算成本：¥0.503156。时长和成本进入报告，不作为终止条件；
+- `c6ecbab` 同时增加 provider 请求边界的一次有界瞬时错误重试，未扩大工具权限，也未重复任何 Core 副作用。
