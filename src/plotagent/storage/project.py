@@ -79,6 +79,80 @@ def _lock_owner_pid(path: Path) -> int | None:
     return pid if isinstance(pid, int) and pid > 0 else None
 
 
+def _lock_owner_start_marker(path: Path) -> str | None:
+    try:
+        value = json.loads(path.read_text(encoding="ascii").strip())
+    except (OSError, TypeError, ValueError):
+        return None
+    if not isinstance(value, dict):
+        return None
+    marker = value.get("process_start")
+    return marker if isinstance(marker, str) and marker else None
+
+
+def _windows_process_started_at(pid: int) -> tuple[str, float] | None:
+    import ctypes
+    from ctypes import wintypes
+
+    process_query_limited_information = 0x1000
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.GetProcessTimes.argtypes = (
+        wintypes.HANDLE,
+        ctypes.POINTER(wintypes.FILETIME),
+        ctypes.POINTER(wintypes.FILETIME),
+        ctypes.POINTER(wintypes.FILETIME),
+        ctypes.POINTER(wintypes.FILETIME),
+    )
+    kernel32.GetProcessTimes.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        return None
+    try:
+        created = wintypes.FILETIME()
+        exited = wintypes.FILETIME()
+        kernel = wintypes.FILETIME()
+        user = wintypes.FILETIME()
+        if not kernel32.GetProcessTimes(
+            handle,
+            ctypes.byref(created),
+            ctypes.byref(exited),
+            ctypes.byref(kernel),
+            ctypes.byref(user),
+        ):
+            return None
+        ticks = (int(created.dwHighDateTime) << 32) | int(created.dwLowDateTime)
+        # FILETIME is the count of 100 ns intervals since 1601-01-01 UTC.
+        started_at_epoch = ticks / 10_000_000 - 11_644_473_600
+        return str(ticks), started_at_epoch
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _pid_start_marker(pid: int) -> str | None:
+    if pid <= 0:
+        return None
+    if sys.platform == "win32":
+        started = _windows_process_started_at(pid)
+        return None if started is None else started[0]
+    try:
+        # Linux field 22 is the process start time in clock ticks since boot.
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="ascii")
+        return stat.rsplit(")", 1)[1].split()[19]
+    except (IndexError, OSError):
+        return None
+
+
+def _pid_started_at_epoch(pid: int) -> float | None:
+    if sys.platform != "win32":
+        return None
+    started = _windows_process_started_at(pid)
+    return None if started is None else started[1]
+
+
 def _pid_is_running(pid: int) -> bool:
     if pid <= 0:
         return False
@@ -119,6 +193,29 @@ def _pid_is_running(pid: int) -> bool:
     return True
 
 
+def _lock_owner_is_active(path: Path) -> bool:
+    owner = _lock_owner_pid(path)
+    if owner is None or not _pid_is_running(owner):
+        return False
+    expected_start = _lock_owner_start_marker(path)
+    if expected_start is not None:
+        observed_start = _pid_start_marker(owner)
+        # If Windows denies the process-time query, preserve the foreign lock.
+        return observed_start is None or observed_start == expected_start
+
+    # Legacy locks only stored a PID. On Windows, distinguish a live writer from
+    # PID reuse by comparing the current process creation time to the old lock.
+    # Other platforms remain conservative until the lock is rewritten once.
+    observed_started_at = _pid_started_at_epoch(owner)
+    if observed_started_at is None:
+        return True
+    try:
+        lock_written_at = path.stat().st_mtime
+    except OSError:
+        return False
+    return observed_started_at <= lock_written_at
+
+
 def _recover_stale_lock(lock_path: Path) -> bool:
     """Remove a crash-left lock while serializing competing recovery attempts."""
 
@@ -127,12 +224,20 @@ def _recover_stale_lock(lock_path: Path) -> bool:
     for _attempt in range(_LOCK_RECOVERY_RETRIES):
         try:
             recovery_fd = os.open(recovery_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(recovery_fd, str(os.getpid()).encode("ascii"))
+            recovery_payload = json.dumps(
+                {
+                    "pid": os.getpid(),
+                    "process_start": _pid_start_marker(os.getpid()),
+                    "token": uuid.uuid4().hex,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            os.write(recovery_fd, recovery_payload.encode("ascii"))
             os.fsync(recovery_fd)
             break
         except FileExistsError:
-            recovery_owner = _lock_owner_pid(recovery_path)
-            if recovery_owner is not None and not _pid_is_running(recovery_owner):
+            if not _lock_owner_is_active(recovery_path):
                 with suppress(OSError):
                     recovery_path.unlink()
                 continue
@@ -144,7 +249,7 @@ def _recover_stale_lock(lock_path: Path) -> bool:
             return True
         owner = _lock_owner_pid(lock_path)
         if owner is not None:
-            if _pid_is_running(owner):
+            if _lock_owner_is_active(lock_path):
                 return False
         else:
             try:
@@ -234,7 +339,11 @@ class ProjectStore:
                     os.O_CREAT | os.O_EXCL | os.O_WRONLY,
                 )
                 self._lock_payload = json.dumps(
-                    {"pid": os.getpid(), "token": uuid.uuid4().hex},
+                    {
+                        "pid": os.getpid(),
+                        "process_start": _pid_start_marker(os.getpid()),
+                        "token": uuid.uuid4().hex,
+                    },
                     separators=(",", ":"),
                     sort_keys=True,
                 )

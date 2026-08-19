@@ -1151,6 +1151,49 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
   })
 
+  it('keeps a batch clarification in the conversation instead of reporting a missing plan', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn(async () => ok({
+      outcome: 'needs_input',
+      workflow_run_id: 'workflow:batch-clarification',
+      questions: [{
+        question_key: 'field_mapping',
+        prompt: '第二个数据表的 Y 字段是哪一列？',
+        answer_kind: 'field',
+        choices: [],
+        required: true,
+      }],
+    }))
+    installApi(fakeDesktop({
+      runWorkflow,
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '确认并绘图' }))
+    await user.click(screen.getByText('提供给 Agent 的数据表'))
+    await user.click(screen.getByRole('checkbox', { name: /pressure\.csv/ }))
+    await user.click(screen.getByRole('button', { name: /创建批次/ }))
+
+    expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({
+      selectedSources: [
+        { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
+      ],
+    }))
+    expect((await screen.findAllByText('第二个数据表的 Y 字段是哪一列？')).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Core 未返回批量任务计划。')).not.toBeInTheDocument()
+  })
+
   it('labels a rendered plot from its actual profile instead of the selected library card', async () => {
     const user = userEvent.setup()
     installApi(fakeDesktop({

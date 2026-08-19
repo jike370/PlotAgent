@@ -11,6 +11,7 @@ import pytest
 from plotagent.contracts import SourceDataset
 from plotagent.importing import Clarification, Rejection
 from plotagent.storage import Catalog, ImportResource, ProjectImportService, ProjectStore
+from plotagent.storage import project as project_storage
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 
 FILES_ROOT = Path(__file__).parents[1] / "fixtures" / "import" / "files"
@@ -69,6 +70,7 @@ def test_project_open_recovers_a_lock_left_by_a_dead_writer(storage_root: Path) 
         assert reopened.project_id == "project:stale-lock"
         payload = json.loads(lock_path.read_text(encoding="ascii"))
         assert payload["pid"] == os.getpid()
+        assert isinstance(payload["process_start"], str)
         assert isinstance(payload["token"], str)
 
     assert not lock_path.exists()
@@ -89,6 +91,48 @@ def test_project_open_does_not_remove_a_live_foreign_writer_lock(
         assert lock_path.read_text(encoding="ascii") == str(os.getpid())
     finally:
         lock_path.unlink()
+
+
+def test_project_open_recovers_a_legacy_lock_after_pid_reuse(
+    storage_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = storage_root / "project"
+    with ProjectStore.create(workspace, project_id="project:reused-pid"):
+        pass
+
+    lock_path = workspace / "project.lock"
+    lock_path.write_text(str(os.getpid()), encoding="ascii")
+    lock_written_at = lock_path.stat().st_mtime
+    monkeypatch.setattr(project_storage, "_pid_is_running", lambda _pid: True)
+    monkeypatch.setattr(
+        project_storage,
+        "_pid_started_at_epoch",
+        lambda _pid: lock_written_at + 60,
+    )
+
+    with ProjectStore.open(workspace) as reopened:
+        assert reopened.project_id == "project:reused-pid"
+
+
+def test_project_open_recovers_a_versioned_lock_after_pid_reuse(
+    storage_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = storage_root / "project"
+    with ProjectStore.create(workspace, project_id="project:reused-versioned-pid"):
+        pass
+
+    lock_path = workspace / "project.lock"
+    lock_path.write_text(
+        json.dumps({"pid": os.getpid(), "process_start": "old-process"}),
+        encoding="ascii",
+    )
+    monkeypatch.setattr(project_storage, "_pid_is_running", lambda _pid: True)
+    monkeypatch.setattr(project_storage, "_pid_start_marker", lambda _pid: "new-process")
+
+    with ProjectStore.open(workspace) as reopened:
+        assert reopened.project_id == "project:reused-versioned-pid"
 
 
 def test_fresh_project_creates_only_the_workflow_schema(

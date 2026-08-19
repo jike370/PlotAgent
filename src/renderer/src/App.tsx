@@ -1204,11 +1204,19 @@ export function App(): React.JSX.Element {
 
   const createBatch = async (): Promise<void> => {
     if (!api || !project || !selectedChart || datasets.length === 0 || !activeDataset) return
+    const selectedIds = [
+      activeDataset.datasetId,
+      ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId),
+    ].slice(0, 8)
+    const selectedBatchDatasets = selectedIds.flatMap((datasetId) => {
+      const dataset = datasets.find((candidate) => candidate.datasetId === datasetId)
+      return dataset === undefined ? [] : [dataset]
+    })
     setBusyAction('batch'); setNotice(undefined)
     try {
       const created = valueOrThrow(await api.runWorkflow({
         projectId: project.projectId,
-        selectedSources: datasets.slice(0, 8).map((dataset) => ({
+        selectedSources: selectedBatchDatasets.map((dataset) => ({
           datasetId: dataset.datasetId,
           sourceVersion: dataset.sourceVersion,
         })),
@@ -1217,15 +1225,9 @@ export function App(): React.JSX.Element {
         instruction: `分别为每个数据表创建 ${selectedChart.id} ${selectedChart.name}，保持原始数据不变。`,
       }))
       mergeDurableResult(created)
-      const plan = readWorkflowPlan(created)
-      if (!plan) throw new Error('Core 未返回批量任务计划。')
-      setWorkflowPlan(plan)
-      setWorkflowOutcome({
-        kind: 'task_plan',
-        title: '批量任务计划',
-        message: `${Math.min(datasets.length, 8)} 个数据表将分别生成一张图。`,
-        plan,
-      })
+      const outcome = readWorkflowOutcome(created)
+      setWorkflowPlan(outcome.plan)
+      setWorkflowOutcome(outcome)
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
