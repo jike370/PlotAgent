@@ -17,12 +17,21 @@ from plotagent.contracts.agent_tasks import (
 from plotagent.contracts.agent_tools import ToolInvocation
 from plotagent.contracts.base import SourceDatasetRef
 from plotagent.contracts.canonical import JsonValue, canonical_hash
-from plotagent.contracts.workflows import DraftFieldBinding, DraftSetTitle, TaskDraftItem
+from plotagent.contracts.workflows import (
+    DraftFieldBinding,
+    DraftSetTitle,
+    FilterPredicate,
+    FilterRows,
+    SortKey,
+    SortRows,
+    TaskDraftItem,
+)
 from plotagent.desktop_core.agent_foundation import (
     AgentFoundationError,
     DurableAgentCoreHost,
     DurableTaskCoordinator,
 )
+from plotagent.engine import EngineDataRef, FieldBinding, PlotDocument
 from plotagent.storage import (
     ImportCommitResult,
     ImportResource,
@@ -109,6 +118,7 @@ def test_next_action_creates_one_idempotent_activation(tmp_path: Path) -> None:
         assert activation["task_version"] == 1
         assert activation["task_state"] == "created"
         assert activation["permission_phase"] == "p0_read"
+        assert activation["activation_budget"]["max_model_turns"] == 6
         assert activation["activation_budget"]["timeout_ms"] is None
         assert activation["deadline"] is None
         assert "inspect_source" in cast(list[str], activation["allowed_tools"])
@@ -589,9 +599,19 @@ def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: P
             project,
             domain,
             ledger,
-            plot_lookup=lambda plot_id: (3, "K01")
-            if plot_id == "plot:existing"
-            else (-1, "unknown"),
+            plot_lookup=lambda plot_id: PlotDocument(
+                plot_id=plot_id,
+                plot_version=3,
+                parent_version=2,
+                profile_id="K01",
+                data=EngineDataRef(
+                    kind="source",
+                    dataset_id="source:not-selected",
+                    version=1,
+                    content_hash="f" * 64,
+                ),
+                bindings=(FieldBinding(role="x", field_id="field:not-selected"),),
+            ),
         )
         prepared = host.prepare(activation_id)
         context = cast(dict[str, object], prepared["context"])
@@ -603,6 +623,16 @@ def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: P
                 "plot_id": "plot:existing",
                 "plot_version": 3,
                 "profile_id": "K01",
+            }
+        ]
+        assert context["selected_plot_contexts"] == [
+            {
+                "plot_alias": "plot_1",
+                "plot_id": "plot:existing",
+                "plot_version": 3,
+                "profile_id": "K01",
+                "source_aliases": [],
+                "bindings": [],
             }
         ]
         source_contexts = cast(list[dict[str, object]], context["source_contexts"])
@@ -659,4 +689,161 @@ def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: P
         assert plan.items[0].task_kind == "edit"
         assert plan.items[0].target_plot_id == "plot:existing"
         assert plan.items[0].target_plot_version == 3
+        assert plan.items[0].visual_actions[0].operation == "set_title"
+
+
+def test_current_plot_context_preserves_bindings_for_data_update(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(resource_id="resource:basic", path=FILES / "csv_basic.csv")
+        )
+        assert isinstance(imported, ImportCommitResult)
+        source = imported.datasets[0].source_dataset
+        x_field, y_field = source.field_schema
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        plot_document = PlotDocument(
+            plot_id="plot:existing",
+            plot_version=1,
+            profile_id="K01",
+            data=EngineDataRef(
+                kind="source",
+                dataset_id=source.source_dataset_id,
+                version=source.source_version,
+                content_hash=source.content_hash,
+            ),
+            bindings=(
+                FieldBinding(role="x", field_id=x_field.field_id),
+                FieldBinding(role="y", field_id=y_field.field_id),
+            ),
+        )
+        task_envelope = TaskEnvelope(
+            task_id="task:update-existing",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction=(
+                "Exclude signal values greater than or equal to 2, sort time ascending, "
+                "and set the title to Filtered."
+            ),
+            selected_sources=(
+                SourceDatasetRef(
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                    content_hash=source.content_hash,
+                ),
+            ),
+            selected_plots=(
+                SelectedPlotRef(plot_id="plot:existing", plot_version=1, profile_id="K01"),
+            ),
+            budget=TaskBudgetLimits(),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        )
+        ledger.create_task(task_envelope)
+        directive = DurableTaskCoordinator(ledger).next_action(task_envelope.task_id)
+        activation_id = str(directive["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        host = DurableAgentCoreHost(
+            project,
+            domain,
+            ledger,
+            plot_lookup=lambda _plot_id: plot_document,
+        )
+
+        prepared = host.prepare(activation_id)
+        context = cast(dict[str, object], prepared["context"])
+        assert context["selected_plot_contexts"] == [
+            {
+                "plot_alias": "plot_1",
+                "plot_id": "plot:existing",
+                "plot_version": 1,
+                "profile_id": "K01",
+                "source_aliases": ["data_1"],
+                "bindings": [
+                    {
+                        "role": "x",
+                        "source_alias": "data_1",
+                        "field_alias": "data_1_field_1",
+                    },
+                    {
+                        "role": "y",
+                        "source_alias": "data_1",
+                        "field_alias": "data_1_field_2",
+                    },
+                ],
+            }
+        ]
+        prompt = cast(str, prepared["system_prompt"])
+        assert "task_kind=update_data" in prompt
+        assert "filter_rows keeps rows that match" in prompt
+        assert "exclude values >= 100" in prompt
+
+        item = TaskDraftItem(
+            task_kind="update_data",
+            item_id="item:update-existing.1",
+            plot_alias="plot_result",
+            profile_id="K01",
+            target_plot_alias="plot_1",
+            source_aliases=("data_1",),
+            data_operations=(
+                FilterRows(
+                    source_alias="data_1",
+                    predicates=(
+                        FilterPredicate(
+                            field_alias="data_1_field_2",
+                            operator="less_than",
+                            value=2,
+                        ),
+                    ),
+                ),
+                SortRows(
+                    source_alias="data_1",
+                    keys=(SortKey(field_alias="data_1_field_1", direction="ascending"),),
+                ),
+            ),
+            bindings=(
+                DraftFieldBinding(
+                    role="x", source_alias="data_1", field_alias="data_1_field_1"
+                ),
+                DraftFieldBinding(
+                    role="y", source_alias="data_1", field_alias="data_1_field_2"
+                ),
+            ),
+            visual_actions=(DraftSetTitle(text="Filtered"),),
+        )
+        intent_value = TaskIntent(
+            intent_id="intent:update-existing",
+            intent_version=1,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            created_by_activation_id=activation_id,
+            summary="Filter and sort the selected plot data, then update its title.",
+            items=(item,),
+            context_hash=cast(str, context["content_hash"]),
+            content_hash="0" * 64,
+        )
+        intent_value = intent_value.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    intent_value.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        candidate = AgentIntentReady(
+            activation_id=activation_id,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            intent=intent_value,
+        )
+        validated = host.validate_yield(
+            activation_id, cast(JsonValue, candidate.model_dump(mode="json"))
+        )
+        checkpoint = host.accept_yield(validated)
+        assert checkpoint.state == "intent_staged"
+        plan = ledger.get_plan(task_envelope.task_id)
+        assert plan.items[0].task_kind == "update_data"
+        assert [operation.operation for operation in plan.items[0].data_operations] == [
+            "filter_rows",
+            "sort_rows",
+        ]
         assert plan.items[0].visual_actions[0].operation == "set_title"

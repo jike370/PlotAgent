@@ -41,7 +41,7 @@ from plotagent.contracts.base import (
     VersionId,
 )
 from plotagent.contracts.canonical import canonical_hash
-from plotagent.contracts.workflows import RowPage, WorkflowField, WorkflowSource
+from plotagent.contracts.workflows import RowPage, WorkflowAlias, WorkflowField, WorkflowSource
 from plotagent.engine.contracts import EngineProfile
 
 KnowledgeId = Annotated[
@@ -296,6 +296,36 @@ class ContextToolContract(StrictModel):
         return self
 
 
+class SelectedPlotBindingContext(StrictModel):
+    """One existing plot binding expressed only with activation-local aliases."""
+
+    role: Token
+    source_alias: WorkflowAlias
+    field_alias: WorkflowAlias
+
+
+class SelectedPlotContext(StrictModel):
+    """Pinned current plot state needed to plan edits and data updates safely."""
+
+    plot_alias: WorkflowAlias
+    plot_id: Token
+    plot_version: VersionId
+    profile_id: Token
+    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=8)] = ()
+    bindings: Annotated[tuple[SelectedPlotBindingContext, ...], Field(max_length=128)] = ()
+
+    @model_validator(mode="after")
+    def aligned_bindings(self) -> SelectedPlotContext:
+        if len(self.source_aliases) != len(set(self.source_aliases)):
+            raise ValueError("selected plot source aliases must be unique")
+        roles = tuple(binding.role for binding in self.bindings)
+        if len(roles) != len(set(roles)):
+            raise ValueError("selected plot binding roles must be unique")
+        if any(binding.source_alias not in self.source_aliases for binding in self.bindings):
+            raise ValueError("selected plot bindings must use a selected plot source")
+        return self
+
+
 class AgentContextSnapshot(StrictModel):
     """Rebuildable, hash-addressed input to one Agent activation."""
 
@@ -324,6 +354,7 @@ class AgentContextSnapshot(StrictModel):
     permission_phase: PermissionPhase
     selected_sources: tuple[SourceDatasetRef, ...] = ()
     selected_plots: tuple[SelectedPlotRef, ...] = ()
+    selected_plot_contexts: tuple[SelectedPlotContext, ...] = ()
     selected_profile_ids: tuple[ChartTypeId, ...] = ()
     source_contexts: Annotated[tuple[UntrustedSourceContext, ...], Field(max_length=64)] = ()
     chart_catalog: Annotated[tuple[ChartCatalogEntry, ...], Field(min_length=1, max_length=64)]
@@ -345,6 +376,7 @@ class AgentContextSnapshot(StrictModel):
         groups = (
             tuple(item.source_dataset_id for item in self.selected_sources),
             tuple(item.plot_id for item in self.selected_plots),
+            tuple(item.plot_alias for item in self.selected_plot_contexts),
             self.selected_profile_ids,
             tuple(item_id for item_id, _state in self.item_states),
             self.verification_report_ids,
@@ -358,6 +390,15 @@ class AgentContextSnapshot(StrictModel):
         )
         if any(len(group) != len(set(group)) for group in groups):
             raise ValueError("context identities must be unique")
+        plot_refs = tuple(
+            (item.plot_id, item.plot_version, item.profile_id) for item in self.selected_plots
+        )
+        plot_context_refs = tuple(
+            (item.plot_id, item.plot_version, item.profile_id)
+            for item in self.selected_plot_contexts
+        )
+        if plot_context_refs != plot_refs:
+            raise ValueError("selected plot contexts must match selected plot references")
         if tuple(item.report_id for item in self.verification_reports) != (
             self.verification_report_ids
         ):
@@ -368,6 +409,18 @@ class AgentContextSnapshot(StrictModel):
             (item.source_dataset_id, item.source_version, item.content_hash)
             for item in self.selected_sources
         }
+        source_fields = {
+            source.source.source_alias: {field.field_alias for field in source.fields}
+            for source in self.source_contexts
+        }
+        for plot in self.selected_plot_contexts:
+            if not set(plot.source_aliases) <= set(source_fields):
+                raise ValueError("selected plot context references an unauthorized source alias")
+            if any(
+                binding.field_alias not in source_fields[binding.source_alias]
+                for binding in plot.bindings
+            ):
+                raise ValueError("selected plot context references an unauthorized field alias")
         if not {
             (
                 item.source.source_dataset_id,

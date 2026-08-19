@@ -6,7 +6,7 @@
     },
     {
       "path": "schemas/agent-context-v2.schema.json",
-      "sha256": "405abe2c39d79cc50e80dafd9ed580e368240327ba489a1d3de1171112327ae8"
+      "sha256": "d58a21e485d8ba4af129f701277022e36def6fde227112e6d412efc66b64f6b8"
     },
     {
       "path": "schemas/agent-tool-error-v2.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "85b38b1e256a33d2f7c75f36270796f104509b59b42da9926c399fabb8dc55a3"
+      "sha256": "78404954094a387aca582e08b263b413b80d800137376616361a6bd3096edd05"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -210,7 +210,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "02bf4310e3ed1ea6e7fabf9c6d65a4a588824b9bd9a9dbb03f611e9ef5b62cfe"
+      "sha256": "f7393be0c5998a6193747a4fcc7aed337fd266de2016bcc6d508fc5ae4aa2f6e"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

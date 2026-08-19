@@ -51,6 +51,7 @@ from plotagent.desktop_core.workflow_service import (
 )
 from plotagent.engine import (
     EngineVersionConflict,
+    PlotDocument,
     PlotEngineAction,
 )
 from plotagent.engine.backends.origin import preflight_origin
@@ -1012,9 +1013,8 @@ class DesktopApplication:
             repository=workflow_repository,
         )
 
-        def lookup_plot(plot_id: str) -> tuple[int, str]:
-            document = engine.documents.get(plot_id).document
-            return document.plot_version, document.profile_id
+        def lookup_plot(plot_id: str) -> PlotDocument:
+            return engine.documents.get(plot_id).document
 
         task_host = DurableAgentCoreHost(
             store,

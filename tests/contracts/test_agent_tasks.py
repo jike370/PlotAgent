@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from plotagent.contracts.agent_tasks import (
     AGENT_YIELD_ADAPTER,
     TASK_EVENT_ADAPTER,
+    ActivationBudget,
     AgentActivation,
     AgentIntentReady,
     AgentRuntimeFailed,
@@ -33,7 +34,7 @@ from plotagent.contracts.agent_tasks import (
     is_legal_task_transition,
 )
 from plotagent.contracts.base import ResourceRef
-from plotagent.contracts.workflows import DraftFieldBinding, TaskDraftItem
+from plotagent.contracts.workflows import DraftFieldBinding, TaskDraftItem, WorkflowBudget
 
 HASH_A = "a" * 64
 HASH_B = "b" * 64
@@ -43,6 +44,14 @@ LATER = "2026-08-18T10:05:00Z"
 
 def budget() -> TaskBudgetSnapshot:
     return TaskBudgetSnapshot(limits=TaskBudgetLimits(max_estimated_cost=10))
+
+
+def test_activation_allows_data_inspection_before_terminal_planning() -> None:
+    assert ActivationBudget().max_model_turns == 6
+    assert WorkflowBudget(max_agent_turns=6).max_agent_turns == 6
+
+    with pytest.raises(ValidationError):
+        WorkflowBudget(max_agent_turns=7)
 
 
 def intent() -> TaskIntent:

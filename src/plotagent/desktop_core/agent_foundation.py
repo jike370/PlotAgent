@@ -23,7 +23,12 @@ from plotagent.contracts.agent_tasks import (
 from plotagent.contracts.agent_tools import AgentToolResult, ToolInvocation
 from plotagent.contracts.base import ChartTypeId
 from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
-from plotagent.contracts.domain_knowledge import AgentContextSnapshot, UntrustedSourceContext
+from plotagent.contracts.domain_knowledge import (
+    AgentContextSnapshot,
+    SelectedPlotBindingContext,
+    SelectedPlotContext,
+    UntrustedSourceContext,
+)
 from plotagent.contracts.workflows import (
     TaskDraft,
     TaskPlan,
@@ -36,7 +41,7 @@ from plotagent.contracts.workflows import (
 )
 from plotagent.domain.context import ContextBuilder
 from plotagent.domain.knowledge import DOMAIN_KNOWLEDGE
-from plotagent.engine import EngineCatalog
+from plotagent.engine import EngineCatalog, PlotDocument
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.storage import ProjectDomainRepository, ProjectStore, SourceDatasetRecord
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
@@ -132,7 +137,7 @@ class DurableAgentCoreHost:
     domain: ProjectDomainRepository
     ledger: TaskLedgerRepository
     catalog: EngineCatalog = field(default_factory=lambda: EngineCatalog(ENGINE_PROFILES))
-    plot_lookup: Callable[[str], tuple[int, str]] | None = None
+    plot_lookup: Callable[[str], PlotDocument] | None = None
     _runtimes: dict[str, _ActivationRuntime] = field(default_factory=dict)
 
     def prepare(self, activation_id: str) -> dict[str, object]:
@@ -153,7 +158,7 @@ class DurableAgentCoreHost:
                 "ACTIVATION_STALE", "The Agent activation is not the active task owner."
             )
 
-        workflow_context, source_contexts, provider = self._source_context(envelope)
+        workflow_context, source_contexts, provider, plot_contexts = self._source_context(envelope)
         inspection = DataInspectionService(workflow_context, provider)
         gateway = ToolGateway()
         registered = (
@@ -172,6 +177,7 @@ class DurableAgentCoreHost:
             checkpoint=checkpoint,
             activation=activation,
             source_contexts=source_contexts,
+            selected_plot_contexts=plot_contexts,
             tools=gateway.context_contracts(activation),
             verification_reports=tuple(
                 self.ledger.get_verification_report(report_id)
@@ -371,7 +377,9 @@ class DurableAgentCoreHost:
             )
         envelope = self.ledger.get_envelope(task_id)
         self.domain.require_revision(checkpoint.project_revision)
-        workflow_context, _source_contexts, _provider = self._source_context(envelope)
+        workflow_context, _source_contexts, _provider, _plot_contexts = self._source_context(
+            envelope
+        )
         plan = self._compile_intent(self.ledger.get_intent(task_id), workflow_context)
         return self.ledger.stage_plan(task_id, plan)
 
@@ -471,6 +479,7 @@ class DurableAgentCoreHost:
         WorkflowContext,
         tuple[UntrustedSourceContext, ...],
         _InspectionRows,
+        tuple[SelectedPlotContext, ...],
     ]:
         if len(envelope.selected_sources) > 8:
             raise AgentFoundationError(
@@ -551,24 +560,69 @@ class DurableAgentCoreHost:
             raise AgentFoundationError(
                 "PROFILE_NOT_ALLOWED", "The selected chart profile is not available."
             )
+        source_alias_by_identity = {
+            (
+                source.source_dataset_id,
+                source.source_version,
+                source.content_hash,
+            ): source.source_alias
+            for source in sources
+        }
+        field_alias_by_identity = {
+            (field.source_alias, field.field_id): field.field_alias for field in fields
+        }
         plots: list[WorkflowPlot] = []
+        plot_contexts: list[SelectedPlotContext] = []
         for position, plot_reference in enumerate(envelope.selected_plots, start=1):
+            document: PlotDocument | None = None
             if self.plot_lookup is not None:
-                version, profile_id = self.plot_lookup(plot_reference.plot_id)
+                document = self.plot_lookup(plot_reference.plot_id)
                 if (
-                    version != plot_reference.plot_version
-                    or profile_id != plot_reference.profile_id
+                    document.plot_version != plot_reference.plot_version
+                    or document.profile_id != plot_reference.profile_id
                 ):
                     raise AgentFoundationError(
                         "PLOT_VERSION_STALE",
                         "The selected plot no longer matches the task envelope.",
                     )
+            plot_alias = f"plot_{position}"
             plots.append(
                 WorkflowPlot(
-                    plot_alias=f"plot_{position}",
+                    plot_alias=plot_alias,
                     plot_id=plot_reference.plot_id,
                     plot_version=plot_reference.plot_version,
                     profile_id=plot_reference.profile_id,
+                )
+            )
+            plot_source_aliases: tuple[str, ...] = ()
+            plot_bindings: tuple[SelectedPlotBindingContext, ...] = ()
+            if document is not None:
+                plot_source_alias = source_alias_by_identity.get(
+                    (document.data.dataset_id, document.data.version, document.data.content_hash)
+                )
+                if plot_source_alias is not None:
+                    mapped_bindings = tuple(
+                        SelectedPlotBindingContext(
+                            role=binding.role,
+                            source_alias=plot_source_alias,
+                            field_alias=field_alias_by_identity[
+                                (plot_source_alias, binding.field_id)
+                            ],
+                        )
+                        for binding in document.bindings
+                        if (plot_source_alias, binding.field_id) in field_alias_by_identity
+                    )
+                    if len(mapped_bindings) == len(document.bindings):
+                        plot_source_aliases = (plot_source_alias,)
+                        plot_bindings = mapped_bindings
+            plot_contexts.append(
+                SelectedPlotContext(
+                    plot_alias=plot_alias,
+                    plot_id=plot_reference.plot_id,
+                    plot_version=plot_reference.plot_version,
+                    profile_id=plot_reference.profile_id,
+                    source_aliases=plot_source_aliases,
+                    bindings=plot_bindings,
                 )
             )
         if not sources and not plots:
@@ -609,6 +663,7 @@ class DurableAgentCoreHost:
             workflow_context,
             tuple(source_contexts),
             _InspectionRows(rows_by_alias=rows, metadata_by_alias=metadata),
+            tuple(plot_contexts),
         )
 
     @staticmethod
@@ -657,6 +712,15 @@ class DurableAgentCoreHost:
             "series_1 etc. for series actions, and legend for set_legend. Emit only the "
             "requested edit actions and preserve every unspecified property. Do not inspect "
             "sources or search the chart catalog for such a task. "
+            "The selected_plot_contexts array is the authoritative current data state for each "
+            "selected plot. A task_kind=edit item is visual-only and therefore has no sources, "
+            "bindings, or data_operations. If the user asks to filter, sort, reshape, convert, or "
+            "otherwise change the data used by an existing plot, emit task_kind=update_data, copy "
+            "that plot context's target plot alias, profile, source aliases, and complete bindings "
+            "exactly, then add the requested data_operations. update_data may also contain "
+            "requested "
+            "visual actions such as set_title. If the plot context has no complete bindings, ask "
+            "only for the missing binding rather than guessing. "
             "Preserve every explicit Field-to-role mapping exactly and case-insensitively; do "
             "not swap roles to match a preferred visual orientation. For set_colormap, target "
             "the colormap-capable series alias from the injected EngineProfile, never plot, and "
@@ -681,7 +745,10 @@ class DurableAgentCoreHost:
             ">= 30, then order Response_mV high to low' requires both a filter_rows predicate "
             "with greater_or_equal value 30 and a following sort_rows key with direction "
             "descending; a draft containing only x/y bindings is incomplete and must not be "
-            "submitted. Preserve the user's operation order and use exact opaque aliases. "
+            "submitted. filter_rows keeps rows that match its predicates: 'keep values >= 100' "
+            "uses greater_or_equal 100, while 'exclude values >= 100' uses the complementary "
+            "less_than 100 predicate. Preserve the user's operation order and use exact opaque "
+            "aliases. "
             "Every source_alias and "
             "field_alias is an opaque Core identifier: "
             "copy it exactly from source_contexts and fields in the current context, never use a "

@@ -1162,6 +1162,87 @@
       "title": "RowPage",
       "type": "object"
     },
+    "SelectedPlotBindingContext": {
+      "additionalProperties": false,
+      "description": "One existing plot binding expressed only with activation-local aliases.",
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "source_alias",
+        "field_alias"
+      ],
+      "title": "SelectedPlotBindingContext",
+      "type": "object"
+    },
+    "SelectedPlotContext": {
+      "additionalProperties": false,
+      "description": "Pinned current plot state needed to plan edits and data updates safely.",
+      "properties": {
+        "bindings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SelectedPlotBindingContext"
+          },
+          "maxItems": 128,
+          "title": "Bindings",
+          "type": "array"
+        },
+        "plot_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Plot Alias",
+          "type": "string"
+        },
+        "plot_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "plot_version": {
+          "minimum": 1,
+          "title": "Plot Version",
+          "type": "integer"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "source_aliases": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Source Aliases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "plot_alias",
+        "plot_id",
+        "plot_version",
+        "profile_id"
+      ],
+      "title": "SelectedPlotContext",
+      "type": "object"
+    },
     "SelectedPlotRef": {
       "additionalProperties": false,
       "properties": {
@@ -2024,6 +2105,14 @@
       "default": "agent-context.v2",
       "title": "Schema Version",
       "type": "string"
+    },
+    "selected_plot_contexts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SelectedPlotContext"
+      },
+      "title": "Selected Plot Contexts",
+      "type": "array"
     },
     "selected_plots": {
       "default": [],

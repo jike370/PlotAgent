@@ -114,6 +114,7 @@ export type AgentContextSnapshot = {
   readonly permission_phase: "p0_read" | "p1_staged" | "p2_confirmed" | "p3_expanded";
   readonly selected_sources?: ReadonlyArray<SourceDatasetRef>;
   readonly selected_plots?: ReadonlyArray<SelectedPlotRef>;
+  readonly selected_plot_contexts?: ReadonlyArray<SelectedPlotContext>;
   readonly selected_profile_ids?: ReadonlyArray<"K01" | "K02" | "K03" | "K04" | "K06" | "K07" | "K08" | "K09" | "K10" | "K11" | "K12" | "K13" | "K14" | "K15" | "K18" | "K19" | "K20" | "K21" | "K22" | "K24" | "S34" | "S61" | "X02" | "X03" | "X05" | "X09" | "X13" | "X23" | "X24" | "X35" | "X36" | "X38" | "X39" | "X40">;
   readonly source_contexts?: ReadonlyArray<UntrustedSourceContext>;
   readonly chart_catalog: ReadonlyArray<ChartCatalogEntry>;
@@ -1418,6 +1419,21 @@ export type SelectFieldsSpec = {
   readonly compiler_version: string;
   readonly kind?: "select_fields";
   readonly field_ids: ReadonlyArray<string>;
+}
+
+export type SelectedPlotBindingContext = {
+  readonly role: string;
+  readonly source_alias: string;
+  readonly field_alias: string;
+}
+
+export type SelectedPlotContext = {
+  readonly plot_alias: string;
+  readonly plot_id: string;
+  readonly plot_version: number;
+  readonly profile_id: string;
+  readonly source_aliases?: ReadonlyArray<string>;
+  readonly bindings?: ReadonlyArray<SelectedPlotBindingContext>;
 }
 
 export type SelectedPlotRef = {

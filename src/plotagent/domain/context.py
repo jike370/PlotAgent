@@ -12,6 +12,7 @@ from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.domain_knowledge import (
     AgentContextSnapshot,
     ContextToolContract,
+    SelectedPlotContext,
     UntrustedSourceContext,
 )
 from plotagent.domain.knowledge import DOMAIN_KNOWLEDGE, DomainKnowledgeRegistry
@@ -55,6 +56,7 @@ class ContextBuilder:
         source_contexts: tuple[UntrustedSourceContext, ...],
         tools: tuple[ContextToolContract, ...],
         verification_reports: tuple[VerificationReport, ...] = (),
+        selected_plot_contexts: tuple[SelectedPlotContext, ...] | None = None,
     ) -> AgentContextSnapshot:
         self._validate_task(envelope, checkpoint, activation)
         self._validate_sources(envelope, source_contexts)
@@ -89,6 +91,19 @@ class ContextBuilder:
             if source.preview is not None
         )
         full_catalog = self._knowledge.list_chart_catalog()
+        plot_contexts = (
+            tuple(
+                SelectedPlotContext(
+                    plot_alias=f"plot_{position}",
+                    plot_id=plot.plot_id,
+                    plot_version=plot.plot_version,
+                    profile_id=plot.profile_id,
+                )
+                for position, plot in enumerate(envelope.selected_plots, start=1)
+            )
+            if selected_plot_contexts is None
+            else selected_plot_contexts
+        )
         selected_profile_set = set(selected_profile_ids)
         # A user-selected profile or existing plot is authoritative. Sending the
         # entire catalog adds no decision value and invites needless tool turns.
@@ -127,6 +142,7 @@ class ContextBuilder:
             "permission_phase": activation.permission_phase,
             "selected_sources": envelope.selected_sources,
             "selected_plots": envelope.selected_plots,
+            "selected_plot_contexts": plot_contexts,
             "selected_profile_ids": tuple(card.profile_id for card in cards),
             "source_contexts": source_contexts,
             "chart_catalog": chart_catalog,
