@@ -1,7 +1,8 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P10、旧公开链清理与 2026-08-19 黑盒后加固均已完成。当前运行时代码冻结为 `43cae4ce09bedfee8fcebeb17377c24f479fcc72`；完整机械门禁和当前真实模型 SEQ-70 均通过。此前 `20260818224414-a03a04a` 的 HTTP 402 保留为历史 provider 失败证据，不是当前发布状态。
+> 状态：P0–P10 首轮实现已完成，但 2026-08-20 正式长链黑盒证明 P7–P10 的任务状态合同尚未完全收口，现重新进入施工。历史 `43cae4c` 与其 SEQ-70 结果只证明当时冻结范围，不代表当前候选版本发布合格。施工必须以《Agent 任务状态合同》和完整状态转换矩阵为准。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
+> 权威状态合同：[PLOTAGENT-AGENT-TASK-STATE-CONTRACT.md](./PLOTAGENT-AGENT-TASK-STATE-CONTRACT.md)
 > 编制日期：2026-08-18。
 
 ## 1. 目标与非目标

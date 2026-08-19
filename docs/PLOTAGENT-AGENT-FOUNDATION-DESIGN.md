@@ -1,12 +1,13 @@
 # PlotAgent Agent 基础设施设计记录
 
-> 状态：权威决策记录；P0–P10 与 2026-08-19 黑盒后加固均已完成。当前运行时代码冻结为 `43cae4ce09bedfee8fcebeb17377c24f479fcc72`；完整机械门禁和真实模型发布评测均通过。`20260818224414-a03a04a` 的 HTTP 402 是历史 provider 失败证据，不能代表当前账户或当前运行时状态。
+> 状态：权威决策记录。P0–P10 的首轮实现与 2026-08-19 资格评测曾完成，但 2026-08-20 正式长链黑盒暴露了图类上下文冲突、部分失败收口、修订确认、模型取消越权和取消后恢复等状态合同缺口；P7–P10 已重新打开，当前不得宣称发布合格。最新权威语义见《Agent 任务状态合同》；历史 HTTP 402 只作 provider 证据，不代表当前账户状态。
 > 历史起点：`c477b34`，当时回退 DataPreparationRecipe、自动候选、发布与复用流程，恢复基础 Pi Agent。
 > 规则：本文件区分“提案”和“已确认”。只有用户明确确认的内容才构成施工依据；每轮讨论结束后必须同步更新本文件。
 
 相关文档：
 
 - [Agent 基础设施施工计划](./PLOTAGENT-AGENT-FOUNDATION-IMPLEMENTATION-PLAN.md)
+- [Agent 任务状态合同](./PLOTAGENT-AGENT-TASK-STATE-CONTRACT.md)
 - [程序—Agent 编排架构](./AGENT-ORCHESTRATION-ARCHITECTURE.md)
 - [Pi Agent 运行时](./PI-AGENT-RUNTIME.md)
 - [任务运行时](./TASK-RUNTIME.md)

@@ -7,15 +7,16 @@
 3. [Agent Native 绘图引擎](./AGENT-NATIVE-PLOTTING-ENGINE.md)：Pi、Core 与 renderer 边界。
 4. [程序—Agent 编排架构](./AGENT-ORCHESTRATION-ARCHITECTURE.md)：自然语言、数据工具、TaskDraft、WorkflowRecipe 与确定性执行边界。
 5. [Agent 基础设施设计记录](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)：十项 Agent 设计的逐轮提案、确认结果与施工边界。
-6. [Origin 视觉能力全集与覆盖矩阵](./ORIGIN-VISUAL-CAPABILITY-MATRIX.md)：Origin 能力、Matplotlib 等价性、当前缺口与 T1/T2/T3 边界。
-7. [Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)：34 图逐图官方路线。
-8. [Origin Recipes](./ORIGIN-RECIPES.md)：运行时 recipe 合同。
-9. [绘图引擎验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md)：机械、视觉和黑盒门禁。
-10. [黑盒能力说明](./PLOTAGENT-V3-BLACK-BOX-CAPABILITY.md)：只描述用户可见能力和边界。
-11. [探索性黑盒功能简报](./PLOTAGENT-V3-EXPLORATORY-BLACK-BOX-BRIEF.md)：只提供用户可见功能和边界，不提供测试答案。
-12. [冻结黑盒回归](./PLOTAGENT-V3-BLACK-BOX-ACCEPTANCE-HANDOFF.md)：正式 Windows Electron 回归执行清单。
-13. [对话交互](./CONVERSATIONAL-INTERACTION.md)：确认卡、阶段反馈、撤销和错误恢复。
-14. [发布门禁](./PERFORMANCE-TEST-RELEASE.md)：Beta qualification。
+6. [Agent 任务状态合同](./PLOTAGENT-AGENT-TASK-STATE-CONTRACT.md)：图类冲突、确认、修订、跳过、取消、恢复、终态和完整状态转换矩阵。
+7. [Origin 视觉能力全集与覆盖矩阵](./ORIGIN-VISUAL-CAPABILITY-MATRIX.md)：Origin 能力、Matplotlib 等价性、当前缺口与 T1/T2/T3 边界。
+8. [Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md)：34 图逐图官方路线。
+9. [Origin Recipes](./ORIGIN-RECIPES.md)：运行时 recipe 合同。
+10. [绘图引擎验收基线](./PLOTTING-ENGINE-REFACTOR-ACCEPTANCE.md)：机械、视觉和黑盒门禁。
+11. [黑盒能力说明](./PLOTAGENT-V3-BLACK-BOX-CAPABILITY.md)：只描述用户可见能力和边界。
+12. [探索性黑盒功能简报](./PLOTAGENT-V3-EXPLORATORY-BLACK-BOX-BRIEF.md)：只提供用户可见功能和边界，不提供测试答案。
+13. [冻结黑盒回归](./PLOTAGENT-V3-BLACK-BOX-ACCEPTANCE-HANDOFF.md)：正式 Windows Electron 回归执行清单。
+14. [对话交互](./CONVERSATIONAL-INTERACTION.md)：确认卡、阶段反馈、撤销和错误恢复。
+15. [发布门禁](./PERFORMANCE-TEST-RELEASE.md)：Beta qualification。
 
 ## 阅读规则
 
