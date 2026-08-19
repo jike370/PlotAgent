@@ -290,6 +290,49 @@ describe('product plot state', () => {
     })
   })
 
+  it('surfaces ordered filter and sort operations in the confirmation plan', () => {
+    const plan = readWorkflowPlan({
+      plan: {
+        plan_id: 'plan:data-ops',
+        items: [{
+          item_id: 'item:data-ops',
+          task_kind: 'update_data',
+          profile_id: 'K03',
+          sources: [{ source_alias: 'source_1', source_dataset_id: 'dataset:temperature' }],
+          resolved_fields: [
+            { field_alias: 'field_temperature', name: '温度' },
+            { field_alias: 'field_response', name: 'Response_mV' },
+          ],
+          data_operations: [
+            {
+              operation: 'filter_rows',
+              source_alias: 'source_1',
+              predicates: [{ field_alias: 'field_temperature', operator: 'greater_or_equal', value: 30 }],
+              combine: 'all',
+            },
+            {
+              operation: 'sort_rows',
+              source_alias: 'source_1',
+              keys: [{ field_alias: 'field_response', direction: 'descending', missing: 'last' }],
+            },
+          ],
+          bindings: [
+            { role: 'x', source_alias: 'source_1', field_id: 'field:temperature' },
+            { role: 'y', source_alias: 'source_1', field_id: 'field:response' },
+          ],
+          visual_actions: [],
+        }],
+      },
+      state: 'awaiting_confirmation',
+      item_progress: [{ item_id: 'item:data-ops', state: 'pending', attempt_count: 0 }],
+    })
+
+    expect(plan?.steps[0]).toMatchObject({
+      detail: '1 个数据来源 · 2 个字段角色 · 2 项数据处理 · 0 项视觉修改',
+      dataOperations: ['筛选：温度 ≥ 30', '排序：Response_mV 降序'],
+    })
+  })
+
   it('uses per-item progress for isolated batch failures and retry attempts', () => {
     const plan = readWorkflowPlan({
       plan: {

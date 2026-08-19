@@ -753,6 +753,10 @@ function WorkflowPlanObject({
                 <div className="agent-plan-step__section-label"><dt>字段绑定</dt><dd /></div>
                 {step.bindings.map((binding) => <div key={`${binding.role}:${binding.fieldId}`}><dt>{binding.role}</dt><dd>{fieldLabel(binding)}</dd></div>)}
               </dl>}
+              {step.dataOperations.length > 0 && <div className="agent-plan-step__operations" aria-label={`${step.title} 数据处理`}>
+                <strong>数据处理</strong>
+                <ol>{step.dataOperations.map((operation, index) => <li key={`${index}:${operation}`}>{operation}</li>)}</ol>
+              </div>}
               {step.changes.length > 0 && <ul className="agent-plan-step__changes" aria-label={`${step.title} 视觉修改`}>
                 {step.changes.map((change) => <li key={change}>{change}</li>)}
               </ul>}

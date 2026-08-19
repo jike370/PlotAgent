@@ -5118,6 +5118,9 @@ input[type="checkbox"] {
 .agent-plan-step__bindings dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 600; }
 .agent-plan-step__bindings .agent-plan-step__section-label { display: block; }
 .agent-plan-step__bindings .agent-plan-step__section-label dt { color: var(--text); font-weight: 650; }
+.agent-plan-step__operations { margin-top: 8px; }
+.agent-plan-step__operations > strong { font-size: 10px; font-weight: 650; }
+.agent-plan-step__operations ol { display: grid; gap: 3px; margin: 4px 0 0; padding-left: 18px; color: var(--muted-strong); font-size: 11px; line-height: 1.45; }
 .agent-plan-step__changes { display: grid; gap: 3px; margin: 8px 0 0; padding-left: 17px; color: var(--muted-strong); font-size: 11px; line-height: 1.45; }
 .agent-plan-step__attempt { color: var(--muted); font-size: 10px; }
 

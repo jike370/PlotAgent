@@ -250,6 +250,7 @@ export interface WorkflowPlanStep {
   title: string
   detail?: string
   sourceDatasetIds: string[]
+  dataOperations: string[]
   bindings: WorkflowBindingView[]
   changes: string[]
   state: string
@@ -890,6 +891,18 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
         }
       }
     }
+    const fieldNames = new Map<string, string>()
+    if (Array.isArray(item.resolved_fields)) {
+      for (const field of item.resolved_fields) {
+        if (!isJsonRecord(field)) continue
+        const alias = stringValue(field, 'field_alias')
+        const name = stringValue(field, 'name')
+        if (alias !== undefined && name !== undefined) fieldNames.set(alias, name)
+      }
+    }
+    const dataOperations = Array.isArray(item.data_operations)
+      ? item.data_operations.flatMap((operation) => workflowDataOperationSummary(operation, fieldNames))
+      : []
     const visualActions = Array.isArray(item.visual_actions) ? item.visual_actions : []
     boundActions.push(...visualActions)
     const changes = visualActions.flatMap(workflowActionSummary)
@@ -924,8 +937,9 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       title: `${taskKind === 'edit' ? '修改' : taskKind === 'update_data' ? '更新数据' : '创建'} ${profileId}`,
       detail: taskKind === 'edit'
         ? `${changes.length} 项视觉修改`
-        : `${Array.isArray(item.sources) ? item.sources.length : 0} 个数据来源 · ${stepBindings.length} 个字段角色${taskKind === 'update_data' ? ` · ${changes.length} 项视觉修改` : ''}`,
+        : `${Array.isArray(item.sources) ? item.sources.length : 0} 个数据来源 · ${stepBindings.length} 个字段角色 · ${dataOperations.length} 项数据处理${taskKind === 'update_data' ? ` · ${changes.length} 项视觉修改` : ''}`,
       sourceDatasetIds: [...sourceIds.values()],
+      dataOperations,
       bindings: stepBindings,
       changes,
       state,
@@ -1048,6 +1062,58 @@ function workflowActionSummary(value: JsonValue): string[] {
   }
   const prefix = operation === undefined ? '视觉修改' : (operationLabel[operation] ?? operation)
   return [`${prefix}${target === undefined || target === 'plot' ? '' : `（${target}）`}：${values.join('，')}`]
+}
+
+function workflowDataOperationSummary(value: JsonValue, fieldNames: ReadonlyMap<string, string>): string[] {
+  if (!isJsonRecord(value)) return []
+  const operation = stringValue(value, 'operation')
+  const fieldLabel = (alias: string | undefined): string => alias === undefined
+    ? '字段'
+    : (fieldNames.get(alias) ?? alias)
+  const scalar = (item: JsonValue | undefined): string => Array.isArray(item)
+    ? item.map((entry) => String(entry)).join('、')
+    : String(item ?? '')
+  if (operation === 'filter_rows' && Array.isArray(value.predicates)) {
+    const operatorLabels: Record<string, string> = {
+      equal: '=',
+      not_equal: '≠',
+      less_than: '<',
+      less_or_equal: '≤',
+      greater_than: '>',
+      greater_or_equal: '≥',
+      is_missing: '为空',
+      is_not_missing: '不为空',
+      in_values: '属于',
+    }
+    const predicates = value.predicates.flatMap((predicate): string[] => {
+      if (!isJsonRecord(predicate)) return []
+      const alias = stringValue(predicate, 'field_alias')
+      const operator = stringValue(predicate, 'operator')
+      if (operator === undefined) return []
+      const label = operatorLabels[operator] ?? operator
+      return [`${fieldLabel(alias)} ${label}${operator.startsWith('is_') ? '' : ` ${scalar(predicate.value)}`}`]
+    })
+    return predicates.length === 0 ? ['筛选数据'] : [`筛选：${predicates.join(value.combine === 'any' ? ' 或 ' : ' 且 ')}`]
+  }
+  if (operation === 'sort_rows' && Array.isArray(value.keys)) {
+    const keys = value.keys.flatMap((key): string[] => {
+      if (!isJsonRecord(key)) return []
+      const direction = stringValue(key, 'direction') === 'descending' ? '降序' : '升序'
+      return [`${fieldLabel(stringValue(key, 'field_alias'))} ${direction}`]
+    })
+    return keys.length === 0 ? ['排序数据'] : [`排序：${keys.join('，')}`]
+  }
+  const labels: Record<string, string> = {
+    select_fields: '选择字段',
+    reshape_long_to_wide: '长表转宽表',
+    reshape_wide_to_long: '宽表转长表',
+    concatenate_sources: '合并数据表',
+    rename_field: '重命名字段',
+    derive_column: '计算派生列',
+    convert_unit: '单位换算',
+    bucketize_numeric: '数值分组',
+  }
+  return operation === undefined ? [] : [labels[operation] ?? operation]
 }
 
 function workflowParameterLabel(key: string): string {
