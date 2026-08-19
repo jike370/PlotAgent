@@ -1,6 +1,6 @@
 # PlotAgent Agent 基础设施施工计划
 
-> 状态：P0–P10、旧公开链清理与 2026-08-19 黑盒后加固均已完成。当前运行时代码冻结为 `c6ecbab582d209360ca008c522652c10feff2be6`；完整机械门禁和当前真实模型 SEQ-70 均通过。此前 `20260818224414-a03a04a` 的 HTTP 402 保留为历史 provider 失败证据，不是当前发布状态。
+> 状态：P0–P10、旧公开链清理与 2026-08-19 黑盒后加固均已完成。当前运行时代码冻结为 `43cae4ce09bedfee8fcebeb17377c24f479fcc72`；完整机械门禁和当前真实模型 SEQ-70 均通过。此前 `20260818224414-a03a04a` 的 HTTP 402 保留为历史 provider 失败证据，不是当前发布状态。
 > 权威设计：[PLOTAGENT-AGENT-FOUNDATION-DESIGN.md](./PLOTAGENT-AGENT-FOUNDATION-DESIGN.md)
 > 编制日期：2026-08-18。
 
@@ -715,7 +715,7 @@
 - 同一代码上的 SEQ-70 新跑因供应商对全部 54 个真实模型 trial 返回 HTTP 402 而 NO_GO，6 个确定性运行时 trial 通过。模型余额恢复前不得沿用历史 GO 代替本次资格；
 - 完整报告见 `docs/PLOTAGENT-AGENT-FOUNDATION-QUALIFICATION-RESULTS.md`。
 
-## 21. 当前冻结收口（2026-08-19）
+## 21. 上一冻结收口（2026-08-19，已由第 22 节取代）
 
 - `c6ecbab` 在 Pi provider 请求边界增加最多一次有界重试，仅覆盖尚未产生模型输出或工具副作用的断连、408、409、429 和 5xx；401、402、非法参数和余额错误不重试；
 - 真实 DeepSeek 最小请求返回 HTTP 200；PlotAgent Pi/Core W01 与 W09 均真实 PASS；
@@ -723,3 +723,14 @@
 - 正确性指标 task/validator/route/binding/visual/data/inspection/runtime/confirmation-no-side-effect 全部为 1.0，model error rate=0；
 - 当前评测证据：`build/seq70-workflow-eval/20260819110057-c6ecbab/`；median 8.244s、p95 29.735s、max 104.723s、估算成本 ¥0.503156。时长仅记录，不作为任务终止或 GO/NO-GO 门槛；
 - 评测前的 59/60 NO_GO 与历史 HTTP 402 均原样保留，不覆盖为成功；本节只记录当前冻结 commit 的新证据。
+
+## 22. P7–P10 最终运行时冻结（2026-08-19）
+
+- `5b18d92552a` 完成批量和恢复收口：Windows 项目 writer lock 以 PID 与进程启动时间共同识别，能够安全识别 PID 复用形成的陈旧锁；正式 UI 批量入口只提交当前选中的数据源；`needs_input` 作为对话追问返回，不再误报为 Core 没有计划。
+- 正式 Electron 定向实证在未预选图形的全新项目中导入两个 Excel sheet 和一个 CSV 数据块，Agent 正确生成 K01、K03、K02 三个异构任务，字段绑定分别指向对应数据源；确认后 3/3 各执行一次并产生三个独立 plot v1。确认前项目无新增图形。
+- `5b18d92` 的完整 SEQ-70 原样保留为有效 NO_GO：W07.r2、W18.r2 在 provider 正常通信的情况下命中本地 `model_turns=6` 上限，结果为 58/60；这不是账户额度、代理、HTTP 或 renderer 失败。
+- `43cae4c` 只把单次 AgentActivation 的模型轮数从 6 调整为 10；task-wide 64 turns、24 model calls、工具权限、ExecutionGrant、确认边界和副作用约束均未扩大。达到新上限仍安全终止且不修改项目。
+- 同一运行时冻结 `43cae4ce09bedfee8fcebeb17377c24f479fcc72` 已从零完成 suite v2：24/24 case、60/60 trial PASS，发布决策 `AGENT_FOUNDATION_GO`；全部正确性指标为 1.0，模型错误率为 0。
+- 最终证据位于 `build/seq70-workflow-eval/20260819140106-43cae4c/`；median 8.536 秒、p95 25.458 秒、max 38.315 秒，87 次模型调用，估算成本 ¥0.548544。时长和成本只记录，不构成终止门。
+- 最终机械门禁：Python 718 passed；Vitest 27 files / 193 tests passed；Ruff、mypy 184 source files、contracts codegen、TypeScript typecheck、ESLint、Electron production build、Windows PowerShell release tools 和 `git diff --check` 全部通过。
+- 本轮未修改 renderer source scope，因此不要求重跑完整图形视觉资格；最终探索性 Windows 黑盒仍需在文档冻结后由独立会话设计、本主窗口执行。

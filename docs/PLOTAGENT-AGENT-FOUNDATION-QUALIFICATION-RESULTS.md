@@ -1,6 +1,6 @@
 # PlotAgent Agent Foundation 资格结果
 
-> 收口代码：`c6ecbab582d209360ca008c522652c10feff2be6`
+> 收口代码：`43cae4ce09bedfee8fcebeb17377c24f479fcc72`
 >
 > 日期：2026-08-19
 
@@ -14,7 +14,7 @@
 - 历史运行 `20260818224414-a03a04a` 曾收到供应商 HTTP 402；账户恢复后，当前冻结 commit 的真实最小请求返回 HTTP 200，Pi/Core W01、W09 均通过。
 - 当前冻结 commit 的完整 SEQ-70 已从零执行并取得 GO；此前 402/59-of-60 NO_GO 仍作为历史证据保留。
 
-所以当前候选版本的准确状态是：**本地机械门禁、真实模型评测和 P7–P10 主链均合格；可以进入最终探索性 Windows 黑盒。**
+所以当前候选版本的准确状态是：**本地机械门禁、真实模型评测和 P7–P10 主链均合格；可以进入最终探索性 Windows 黑盒。** 历史 `UNVERIFIED` 只表示当时未执行或证据不足，不表示模型额度不足。
 
 ## 2. 首轮探索性黑盒
 
@@ -132,3 +132,42 @@
 - model error rate：0；
 - latency median：8.244 秒；p95：29.735 秒；max：104.723 秒；估算成本：¥0.503156。时长和成本进入报告，不作为终止条件；
 - `c6ecbab` 同时增加 provider 请求边界的一次有界瞬时错误重试，未扩大工具权限，也未重复任何 Core 副作用。
+
+## 9. P7–P10 最终运行时资格
+
+### 9.1 历史失败没有被覆盖
+
+`D:\plotv3\build\seq70-workflow-eval\20260819134502-5b18d92` 的 58/60 结果继续保留为 NO_GO。W07.r2 和 W18.r2 均在 provider 可用时命中本地 ActivationBudget 的 `model_turns=6`，没有 HTTP、余额、代理或 renderer 错误；两次失败都没有项目副作用。
+
+`43cae4c` 将单次 activation 的模型轮次上限调整为 10，同时保持 task-wide 64 turns / 24 model calls、工具权限、确认与执行授权不变。W07、W18 的定向从零运行随后均 PASS。
+
+### 9.2 最终完整 SEQ-70：GO
+
+证据目录：`D:\plotv3\build\seq70-workflow-eval\20260819140106-43cae4c`
+
+- 冻结运行时代码：`43cae4ce09bedfee8fcebeb17377c24f479fcc72`；
+- 24/24 case、60/60 trial PASS，决策 `AGENT_FOUNDATION_GO`；
+- task exact、validator、route、binding、visual action、data operation、inspection、runtime、确认前无副作用全部为 1.0；
+- model error rate 为 0；
+- median 8.536 秒，p95 25.458 秒，max 38.315 秒；87 次模型调用；输入 1,158,099 token，输出 79,508 token；估算成本 ¥0.548544。
+
+该结果与账户仍有额度的事实一致，也说明当前模型通信链路可用。它不能证明任意 VPN/TUN 配置永远无影响，但没有证据支持把本轮失败归因于全局代理。
+
+### 9.3 正式 Electron 定向证据
+
+- 全新项目、未预选图形，导入 Excel 的 Run A / Run B 与一个 CSV 数据块；
+- 自然语言一次声明三个数据源分别创建 K01 折线图、K03 散点图和 K02 线点图；
+- Agent 确认卡逐项保存正确 source、profile 与字段绑定；确认后 3/3 完成，每项只执行一次并产生独立 plot v1；
+- 陈旧 writer lock 的 PID 复用场景能够恢复打开项目；
+- 执行本身小于 0.25 秒，UI 中来不及人工点击取消，因此取消与原子边界仍由确定性运行时回归证明，不能伪记为 UI PASS。
+
+### 9.4 最终机械门禁
+
+- Python：718 passed；
+- Node/Vitest：27 files、193 tests passed；
+- Ruff：PASS；
+- mypy：184 source files PASS；
+- contracts codegen `--check`、TypeScript typecheck、ESLint、production build：PASS；
+- Windows PowerShell release tools、`git diff --check`：PASS。
+
+本次没有修改 renderer source scope，因此不触发完整图形视觉重审。最终探索性 Windows 黑盒仍是发布结论的独立门槛。

@@ -1,6 +1,6 @@
 # PlotAgent Agent Foundation 探索性黑盒交接
 
-> 原始探索性运行时代码：`29bfefdb1fcb7611528c7e354fdfa0131e27c826`。最终运行时冻结：`c6ecbab582d209360ca008c522652c10feff2be6`；两者的证据不得混用。若交接文档另有后续 docs-only commit，最终执行必须确认非文档内容与 `c6ecbab` 相同。
+> 原始探索性运行时代码：`29bfefdb1fcb7611528c7e354fdfa0131e27c826`。最终运行时冻结：`43cae4ce09bedfee8fcebeb17377c24f479fcc72`；两者的证据不得混用。若交接文档另有后续 docs-only commit，最终执行必须确认非文档内容与 `43cae4c` 相同。
 >
 > 测试角色：探索性会话只根据功能简报设计测试；本主任务窗口负责正式 Windows Electron 执行、证据保存和判定。
 
@@ -29,7 +29,7 @@
 - 仓库：`D:\plotv3`
 - 唯一正式入口：`pnpm dev`
 - 禁止：`pnpm dev:web`、静态审计页、浏览器 mock、Core 内部接口、单测替代 UI。
-- 开始前保存 `git rev-parse HEAD`、`git status --short` 和 `git diff --exit-code c6ecbab -- . ':(exclude)docs/**'`；允许后续交接文档自身变化，非文档差异必须为 0。
+- 开始前保存 `git rev-parse HEAD`、`git status --short` 和 `git diff --exit-code 43cae4c -- . ':(exclude)docs/**'`；允许后续交接文档自身变化，非文档差异必须为 0。
 - 工作树必须干净；非文档差异必须为 0。
 - 使用全新项目与全新输出目录，不复用旧图、截图或导出。
 - 不读取、截图或记录模型 API key。
@@ -57,9 +57,9 @@
 
 ## 5. 研发前置证据（不可替代黑盒）
 
-- Python 714 passed；Node 192 passed；Ruff、mypy 184 模块、contracts codegen、两套 typecheck、ESLint、production build 均通过。
-- Agent Foundation regression suite v2：真实模型 18 × 3、运行时 6 × 1，共 60/60 PASS，决策 GO；证据 `build/seq70-workflow-eval/20260819110057-c6ecbab/`。
-- task exact、validator、route、binding、visual action、data operation、inspection、runtime、确认前无副作用均为 1.0；模型错误率 0；median 6.500 秒，p95 16.633 秒，max 92.225 秒。
+- Python 718 passed；Node/Vitest 27 files / 193 tests passed；Ruff、mypy 184 模块、contracts codegen、TypeScript typecheck、ESLint、production build、Windows release tools 均通过。
+- Agent Foundation regression suite v2：真实模型 18 × 3、运行时 6 × 1，共 60/60 PASS，决策 GO；证据 `build/seq70-workflow-eval/20260819140106-43cae4c/`。
+- task exact、validator、route、binding、visual action、data operation、inspection、runtime、确认前无副作用均为 1.0；模型错误率 0；median 8.536 秒，p95 25.458 秒，max 38.315 秒。
 - Agent 总任务不设产品时长硬截止；Provider/工具仍有传输 timeout，用户取消仍可用。
 
 这些结果只说明候选版本可以进入正式桌面探索性黑盒。
@@ -70,7 +70,7 @@
 
 ## 7. 执行结果（2026-08-19）
 
-探索性黑盒、修复和定向复测已完成。最终运行时收口代码为 `c6ecbab582d209360ca008c522652c10feff2be6`。
+上一轮探索性黑盒、修复和定向复测已完成；当前最终运行时收口代码已更新为 `43cae4ce09bedfee8fcebeb17377c24f479fcc72`。
 
 - 本地缺陷定向复测通过：模型余额诊断与任务终态、首次编辑撤销/重做、K03 Origin 轴语义；
 - 完整机械门禁通过；
@@ -78,3 +78,17 @@
 - 历史 HTTP 402 和 59/60 NO_GO 证据仍保留在旧评测目录，不与当前 GO 混用。
 
 详细事实、路径和判定见 `docs/PLOTAGENT-AGENT-FOUNDATION-QUALIFICATION-RESULTS.md`。
+
+## 8. 最终探索性测试重点
+
+独立测试设计应在总量有界的前提下优先覆盖：
+
+1. 未预选图形，从三个已选择数据源发起一次异构批量；确认卡必须逐项显示正确的数据源、图类和字段绑定，确认前无新增 plot；
+2. 批量中的一项信息不足或验证失败时，成功项被保留，失败项可单独修复/重试，不重复成功项；
+3. 规划阶段与执行阶段分别尝试取消，观察任务中心、项目版本和已提交 TaskItem 的一致性；执行过快无法点击时必须记为 UNVERIFIED，不用单测补成 UI PASS；
+4. 完全关闭后重启，项目、最近 plot、任务状态可恢复，且 PID 复用形成的陈旧 writer lock 不误报“已有写入器”；
+5. `needs_input` 保持为同一对话中的可继续追问，不出现笼统“Core rejected/missing plan”；
+6. 抽样导出一个图，检查用户可见成功反馈、文件身份和适用的 OPJU 重开；
+7. 不重新遍历全部 34 张图。只有发现 renderer 相关症状时，才按影响范围补相应视觉/Origin 证据。
+
+探索性会话只负责据此和公开功能简报设计独立计划，不读取源码、不运行产品；正式 Windows Electron 操作与证据判定由本主窗口完成。
