@@ -1196,17 +1196,11 @@ describe('PlotAgent real desktop workflow', () => {
     const user = userEvent.setup()
     const runWorkflow = vi.fn()
       .mockResolvedValueOnce(ok(workflowResultWithPlan(batchPlanFixture())))
-      .mockResolvedValueOnce(ok({
-        outcome: 'needs_input',
-        workflow_run_id: 'task:partial-repair',
-        questions: [{
-          question_key: 'repair_choice',
-          prompt: '失败项应取消，还是提供替代数据后重试？',
-          answer_kind: 'text',
-          choices: [],
-          required: true,
-        }],
-      }))
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(workflowPlanFixture(
+        'awaiting_reconfirmation',
+        'succeeded',
+        { planId: 'plan:revised', plotVersion: 1 },
+      ))))
     const partial = workflowPlanFixture('partially_failed', 'failed', {
       planId: 'plan:batch',
       failure: { code: 'INVALID_DATA', message: '失败项数据不适用。', retryable: true },
@@ -1241,6 +1235,8 @@ describe('PlotAgent real desktop workflow', () => {
       continuationWorkflowRunId: 'task:partial-repair',
       instruction: '取消失败项，保留成功结果。',
     }))
+    expect(await screen.findByRole('button', { name: '确认修订计划' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('等待重新确认')
   })
 
   it('labels a rendered plot from its actual profile instead of the selected library card', async () => {

@@ -671,6 +671,7 @@ function WorkflowPlanObject({
 }): React.JSX.Element {
   const stateLabels: Record<string, string> = {
     awaiting_confirmation: '等待确认',
+    awaiting_reconfirmation: '等待重新确认',
     ready: '待执行',
     running: '执行中',
     partially_succeeded: '部分完成',
@@ -770,6 +771,7 @@ function WorkflowPlanObject({
       {plan.warnings.length > 0 && <div className="agent-plan__warnings">{plan.warnings.map((warning) => <p key={warning}><TriangleAlert size={14} />{warning}</p>)}</div>}
       <footer className="agent-plan__actions">
         {plan.state === 'awaiting_confirmation' && <><button type="button" onClick={() => onReject(plan.planId)} disabled={busy}>取消</button><button type="button" onClick={() => onEdit(plan.planId)} disabled={busy}>修改绑定</button><button className="primary-button" type="button" onClick={() => onConfirm(plan.planId)} disabled={busy}>确认并执行</button></>}
+        {plan.state === 'awaiting_reconfirmation' && <><button type="button" onClick={() => onReject(plan.planId)} disabled={busy}>取消修订</button><button className="primary-button" type="button" onClick={() => onConfirm(plan.planId)} disabled={busy}>确认修订计划</button></>}
         {plan.state === 'ready' && <button className="primary-button" type="button" onClick={() => onRun(plan.planId)} disabled={busy}>执行计划</button>}
         {plan.resumable && <button className="primary-button" type="button" onClick={() => onResume(plan.planId)} disabled={busy}>继续未完成步骤</button>}
         {plan.state === 'succeeded' && <><span className="agent-plan__saved"><CircleCheck size={14} />更改已保存</span>{canUndo && <button type="button" onClick={onUndo} disabled={busy}><Undo2 size={14} />撤销本轮</button>}</>}
