@@ -10,6 +10,7 @@ from plotagent.contracts.agent_tasks import (
     TASK_EVENT_ADAPTER,
     ActivationBudget,
     AgentActivation,
+    AgentInformationReady,
     AgentIntentReady,
     AgentRuntimeFailed,
     ExecutionGrant,
@@ -380,6 +381,32 @@ def test_completed_checkpoint_requires_every_item_and_verification_evidence() ->
         )
     with pytest.raises(ValidationError, match="Only completed tasks|only completed tasks"):
         TaskCheckpoint.model_validate({**checkpoint.model_dump(), "state": "partial"})
+
+
+def test_read_only_information_can_complete_without_mutation_artifacts() -> None:
+    checkpoint = TaskCheckpoint(
+        checkpoint_id="checkpoint:information",
+        task_id="task:test",
+        task_version=1,
+        state="completed_verified",
+        project_revision=0,
+        last_event_sequence=3,
+        items=(),
+        budget=budget(),
+        updated_at=LATER,
+        content_hash=HASH_A,
+    )
+    assert checkpoint.completion is None
+    assert is_legal_task_transition("investigating", "completed_verified")
+    decoded = AGENT_YIELD_ADAPTER.validate_python(
+        AgentInformationReady(
+            activation_id="activation:test",
+            task_id="task:test",
+            task_version=1,
+            message="共有 4 列，其中 1 个值缺失。",
+        )
+    )
+    assert decoded.outcome == "information_ready"
 
 
 def test_state_transition_tables_close_terminal_states_and_allow_repair() -> None:

@@ -1180,8 +1180,6 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
     await user.click(screen.getByRole('button', { name: '手动映射' }))
     await user.click(screen.getByRole('button', { name: '确认并绘图' }))
-    await user.click(screen.getByText('提供给 Agent 的数据表'))
-    await user.click(screen.getByRole('checkbox', { name: /pressure\.csv/ }))
     await user.click(screen.getByRole('button', { name: /创建批次/ }))
 
     expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({
@@ -1226,8 +1224,6 @@ describe('PlotAgent real desktop workflow', () => {
     }))
     render(<App />)
     await user.click(await screen.findByRole('button', { name: '示例' }))
-    await user.click(screen.getByText('提供给 Agent 的数据表'))
-    await user.click(screen.getByRole('checkbox', { name: /pressure\.csv/ }))
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K03')
     await user.click(screen.getByRole('button', { name: /K03.*散点图/ }))
@@ -1343,7 +1339,7 @@ describe('PlotAgent real desktop workflow', () => {
     }))
   })
 
-  it('does not infer a data selection from a file name in natural language', async () => {
+  it('authorizes every imported worksheet without parsing a file name from the instruction', async () => {
     const user = userEvent.setup()
     const prepareWorkflow = vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture())))
     installApi(fakeDesktop({
@@ -1370,12 +1366,13 @@ describe('PlotAgent real desktop workflow', () => {
     expect(prepareWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
       selectedSources: [
         { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
       instruction: '把 pressure.csv 和当前数据画在同一张 K03 散点图中',
     }))
   })
 
-  it('does not infer a data selection from a count in natural language', async () => {
+  it('authorizes every imported worksheet without parsing a source count from the instruction', async () => {
     const user = userEvent.setup()
     const prepareWorkflow = vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture())))
     installApi(fakeDesktop({
@@ -1403,6 +1400,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(prepareWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
       selectedSources: [
         { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
       instruction: '将已提供的 2 个数据表画在同一张 K03 散点图中。',
     }))
@@ -1425,8 +1423,6 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
     await user.click(await screen.findByRole('button', { name: '示例' }))
 
-    await user.click(screen.getByText('提供给 Agent 的数据表'))
-    await user.click(screen.getByRole('checkbox', { name: /pressure\.csv/ }))
     await user.type(
       screen.getByRole('textbox', { name: '描述绘图要求' }),
       '数据一画 K01 折线图，数据二画 K03 散点图',
@@ -1548,6 +1544,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({
       selectedSources: [
         { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
       instruction: '仅重试上个批次失败的任务：K19 改为 linear，不要重复成功项。',
     }))
@@ -1564,6 +1561,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(runWorkflow.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
       selectedSources: [
         { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
       continuationWorkflowRunId: 'workflow:retry',
       instruction: '仅重试上个批次失败的任务：K19 改为 linear，不要重复成功项。',

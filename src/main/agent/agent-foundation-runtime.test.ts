@@ -130,6 +130,71 @@ describe('AgentFoundationRuntime', () => {
     })
   })
 
+  it('returns a verified read-only answer without requiring a confirmation plan', async () => {
+    let nextCalls = 0
+    const calls: { method: string; params: unknown }[] = []
+    const events: AgentFoundationRuntimeEvent[] = []
+    const core = {
+      request: async (method: string, params?: unknown): Promise<unknown> => {
+        calls.push({ method, params })
+        if (method === 'datasets.describe') return {
+          source_dataset_id: 'source:test', source_version: 1, content_hash: 'a'.repeat(64),
+        }
+        if (method === 'agent.tasks.create') return { state: 'created' }
+        if (method === 'agent.tasks.pump.next') {
+          nextCalls += 1
+          return nextCalls === 1
+            ? {
+                kind: 'run_activation',
+                activation: {
+                  activation_id: 'activation:inspection',
+                  task_id: 'task:fixed',
+                  task_version: 1,
+                  task_state: 'created',
+                  permission_phase: 'p0_read',
+                  allowed_tools: ['inspect_source'],
+                },
+              }
+            : { kind: 'wait', reason: 'terminal', task_state: 'completed_verified' }
+        }
+        if (method === 'agent.tasks.activation.running') return {}
+        if (method === 'agent.tasks.yield.accept') return { state: 'completed_verified' }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: (event) => events.push(event),
+      id: () => 'fixed',
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
+          outcome: 'information_ready',
+          activation_id: activation.activation_id,
+          task_id: activation.task_id,
+          task_version: activation.task_version,
+          message: '共有 4 列，其中 1 个值缺失。',
+        }),
+      }),
+    })
+
+    await expect(runtime.run({
+      projectId: 'project:test',
+      selectedSources: [{ datasetId: 'source:test', sourceVersion: 1 }],
+      selectedProfileIds: [],
+      expectedProjectVersion: 0,
+      instruction: '只读检查列类型和缺失值。',
+    })).resolves.toEqual({
+      outcome: 'information_ready',
+      workflow_run_id: 'task:fixed',
+      message: '共有 4 列，其中 1 个值缺失。',
+    })
+    expect(calls.some((call) => call.method === 'agent.tasks.plan.get')).toBe(false)
+    expect(events).toContainEqual(expect.objectContaining({
+      stage: 'completed', label: '只读检查已完成',
+    }))
+  })
+
   it('returns a typed question and continues the same durable task after the reply', async () => {
     let phase: 'initial' | 'waiting' | 'continued' = 'initial'
     let nextCalls = 0

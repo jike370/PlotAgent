@@ -7,6 +7,7 @@ import pytest
 from plotagent.contracts.agent_tasks import (
     AgentActivation,
     AgentActivationEvent,
+    AgentInformationReady,
     AgentIntentReady,
     AgentNeedsInput,
     SideEffectReceipt,
@@ -144,7 +145,7 @@ def test_core_rejects_illegal_and_stale_state_transitions(tmp_path) -> None:
             ledger.advance(
                 "task:test",
                 expected_task_version=2,
-                next_state="completed_verified",
+                next_state="delivering",
                 reason_code="SKIP_VERIFICATION",
             )
         assert illegal.value.code == StorageErrorCode.VERSION_CONFLICT
@@ -215,6 +216,30 @@ def test_activation_needs_input_and_user_answer_are_ordered(tmp_path) -> None:
         assert conflict.value.code == StorageErrorCode.IDEMPOTENCY_CONFLICT
         sequences = [event.sequence for event in ledger.list_events("task:test")]
         assert sequences == list(range(1, len(sequences) + 1))
+
+
+def test_read_only_information_yield_completes_without_task_items(tmp_path) -> None:
+    with ProjectStore.create(
+        tmp_path / "project", project_id="project:test"
+    ) as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        ledger.start_activation(activation())
+        ledger.mark_activation_running("activation:test")
+        completed = ledger.accept_yield(
+            AgentInformationReady(
+                activation_id="activation:test",
+                task_id="task:test",
+                task_version=1,
+                message="共有 4 列，其中 1 个值缺失。",
+            )
+        )
+        assert completed.state == "completed_verified"
+        assert completed.items == ()
+        assert completed.completion is None
+        activation_value, status = ledger.get_activation("activation:test")
+        assert status == "yielded"
+        assert activation_value.activation_id == "activation:test"
 
 
 def test_intent_yield_stages_items_and_survives_restart(tmp_path) -> None:

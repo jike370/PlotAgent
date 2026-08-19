@@ -9,6 +9,7 @@ import pytest
 from plotagent.contracts.agent_tasks import (
     AgentBlocked,
     AgentIntentReady,
+    AgentNeedsInput,
     SelectedPlotRef,
     TaskBudgetLimits,
     TaskEnvelope,
@@ -22,6 +23,7 @@ from plotagent.contracts.workflows import (
     DraftSetTitle,
     FilterPredicate,
     FilterRows,
+    InputQuestion,
     SortKey,
     SortRows,
     TaskDraftItem,
@@ -319,6 +321,93 @@ def test_user_correction_creates_next_intent_version_and_requires_reconfirmation
             "task_state": "awaiting_reconfirmation",
         }
         assert ledger.get_intent("task:test").intent_version == 2
+
+
+def test_first_intent_after_clarification_is_grounded_in_the_user_answer(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(resource_id="resource:basic", path=FILES / "csv_basic.csv")
+        )
+        assert isinstance(imported, ImportCommitResult)
+        source = imported.datasets[0].source_dataset
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        task_envelope = TaskEnvelope(
+            task_id="task:clarified-profile",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction="用这张表画一张合适的图。",
+            selected_sources=(
+                SourceDatasetRef(
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                    content_hash=source.content_hash,
+                ),
+            ),
+            budget=TaskBudgetLimits(),
+            created_at="2026-08-18T10:00:00Z",
+        )
+        ledger.create_task(task_envelope)
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        first = coordinator.next_action(task_envelope.task_id)
+        first_id = str(first["activation"]["activation_id"])
+        ledger.mark_activation_running(first_id)
+        first_host = DurableAgentCoreHost(project, domain, ledger)
+        first_host.prepare(first_id)
+        needs_input = AgentNeedsInput(
+            activation_id=first_id,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            questions=(
+                InputQuestion(
+                    question_key="chart_type",
+                    prompt="请选择图表类型。",
+                    answer_kind="profile",
+                    choices=("K01", "K03"),
+                ),
+            ),
+        )
+        awaiting = first_host.accept_yield(needs_input)
+        assert awaiting.state == "awaiting_input"
+
+        answered = ledger.record_user_event(
+            task_envelope.task_id,
+            expected_task_version=awaiting.task_version,
+            action="answered",
+            user_event_id="user-event:clarified-profile.1",
+            payload_hash="b" * 64,
+            message="创建 K01 折线图，time 作为 X，信号作为 Y。",
+        )
+        assert answered.state == "investigating"
+        continuation = coordinator.next_action(task_envelope.task_id)
+        continuation_id = str(continuation["activation"]["activation_id"])
+        continuation_version = int(continuation["activation"]["task_version"])
+        ledger.mark_activation_running(continuation_id)
+        continuation_host = DurableAgentCoreHost(project, domain, ledger)
+        environment = continuation_host.prepare(continuation_id)
+        context = cast(dict[str, object], environment["context"])
+        clarified_intent = intent(
+            continuation_id,
+            task_id=task_envelope.task_id,
+            task_version=continuation_version,
+            context_hash=cast(str, context["content_hash"]),
+        )
+        candidate = AgentIntentReady(
+            activation_id=continuation_id,
+            task_id=task_envelope.task_id,
+            task_version=continuation_version,
+            intent=clarified_intent,
+        )
+        validated = continuation_host.validate_yield(
+            continuation_id,
+            cast(JsonValue, candidate.model_dump(mode="json")),
+        )
+        staged = continuation_host.accept_yield(validated)
+        assert staged.state == "intent_staged"
+        assert ledger.get_plan(task_envelope.task_id).items[0].profile_id == "K01"
 
 
 def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Path) -> None:

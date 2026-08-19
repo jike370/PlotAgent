@@ -604,6 +604,16 @@ class AgentNeedsInput(StrictModel):
     questions: Annotated[tuple[InputQuestion, ...], Field(min_length=1, max_length=4)]
 
 
+class AgentInformationReady(StrictModel):
+    """A verified read-only answer that intentionally creates no task items."""
+
+    outcome: Literal["information_ready"] = "information_ready"
+    activation_id: AgentActivationId
+    task_id: TaskId
+    task_version: VersionId
+    message: NonEmptyText
+
+
 class RepairProposal(StrictModel):
     failed_report_ids: Annotated[
         tuple[VerificationReportId, ...], Field(min_length=1, max_length=64)
@@ -695,6 +705,7 @@ class AgentRuntimeFailed(StrictModel):
 AgentYield = Annotated[
     AgentIntentReady
     | AgentNeedsInput
+    | AgentInformationReady
     | AgentTechnicalRepairReady
     | AgentUnsupported
     | AgentBlocked
@@ -771,10 +782,13 @@ class TaskCheckpoint(StrictModel):
         if len(item_ids) != len(set(item_ids)):
             raise ValueError("task checkpoint item ids must be unique")
         if self.state == "completed_verified":
-            if self.completion is None or not self.items:
-                raise ValueError("completed tasks require completion evidence and task items")
-            if any(item.state != "succeeded" for item in self.items):
-                raise ValueError("completed tasks require every task item to succeed")
+            if self.items:
+                if self.completion is None:
+                    raise ValueError("completed mutating tasks require completion evidence")
+                if any(item.state != "succeeded" for item in self.items):
+                    raise ValueError("completed tasks require every task item to succeed")
+            elif self.completion is not None:
+                raise ValueError("read-only task completion cannot carry artifact evidence")
         elif self.completion is not None:
             raise ValueError("only completed tasks may retain completion evidence")
         if self.active_activation_id is not None and self.state not in {
@@ -792,7 +806,15 @@ TERMINAL_TASK_STATES: frozenset[TaskState] = frozenset(
 ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
     "created": frozenset({"investigating", "cancelling", "cancelled", "failed"}),
     "investigating": frozenset(
-        {"awaiting_input", "intent_staged", "blocked", "unsupported", "cancelling", "failed"}
+        {
+            "awaiting_input",
+            "intent_staged",
+            "blocked",
+            "unsupported",
+            "cancelling",
+            "failed",
+            "completed_verified",
+        }
     ),
     "awaiting_input": frozenset({"investigating", "cancelling", "cancelled", "failed"}),
     "intent_staged": frozenset(
@@ -925,6 +947,7 @@ class AgentActivationEvent(TaskEventBase):
     yield_outcome: Literal[
         "intent_ready",
         "needs_input",
+        "information_ready",
         "technical_repair_ready",
         "unsupported",
         "blocked",

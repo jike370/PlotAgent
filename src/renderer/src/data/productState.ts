@@ -234,7 +234,7 @@ export interface ProductPlot {
   preview?: DesktopResource
 }
 
-export type WorkflowOutcomeKind = 'task_plan' | 'needs_input' | 'unsupported' | 'no_change' | 'rejected'
+export type WorkflowOutcomeKind = 'task_plan' | 'needs_input' | 'information' | 'unsupported' | 'no_change' | 'rejected'
 
 export interface WorkflowQuestion {
   questionKey: string
@@ -827,6 +827,9 @@ export function readWorkflowOutcome(value: JsonValue): WorkflowOutcome {
       questions,
       ...(workflowRunId === undefined ? {} : { workflowRunId }),
     }
+  }
+  if (outcome === 'information_ready' && root !== undefined) {
+    return { kind: 'information', title: '检查完成', message: decisionMessage(root) }
   }
   if (outcome === 'unsupported' && root !== undefined) return { kind: 'unsupported', title: '当前不支持', message: decisionMessage(root) }
   if (outcome === 'cancelled') return { kind: 'no_change', title: '任务已取消', message: '任务已停止，项目未发生更改。' }

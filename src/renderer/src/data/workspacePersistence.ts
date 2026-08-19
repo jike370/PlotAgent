@@ -38,7 +38,6 @@ export function readWorkspaceSelection(
     const datasetId = isSafeId(record.datasetId) ? record.datasetId : undefined
     const workflowSourceIds = record.workflowSourceMode === WORKFLOW_SOURCE_MODE
       && Array.isArray(record.workflowSourceIds)
-      && record.workflowSourceIds.length > 0
       && record.workflowSourceIds.length <= 8
       && record.workflowSourceIds.every(isSafeId)
       && new Set(record.workflowSourceIds).size === record.workflowSourceIds.length

@@ -18,7 +18,7 @@
     },
     {
       "path": "schemas/agent-yield-v2.schema.json",
-      "sha256": "c2b17726d6714b5d5cd957c11b16bf79c2dcf8e00d8930f68e7f9d09fdc2a995"
+      "sha256": "a7f01515b8a197d0a593aefc2e0b7015eb725be988f7515000084c3e3a41c58e"
     },
     {
       "path": "schemas/calculation-contract-v1.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "44aa2ddac3d60e9bbcc14311c67f25b1ea0e569f026eacdb9a65f1223219c8e9"
+      "sha256": "e93487a148e2de3802e20f2b31a3d4aa3e65358f8b1b353734eaf461813fe9ab"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -158,7 +158,7 @@
     },
     {
       "path": "schemas/task-event-v2.schema.json",
-      "sha256": "a6b983e791bf08b5f480c1ae76b7448e2f04904ca6f218633ce3f7d27284e7e3"
+      "sha256": "9cffef5b3c4e214516378f57b872bb22b08b2259951e2977c72a24589674c007"
     },
     {
       "path": "schemas/task-intent-v2.schema.json",
@@ -210,7 +210,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "f7393be0c5998a6193747a4fcc7aed337fd266de2016bcc6d508fc5ae4aa2f6e"
+      "sha256": "c4c101add3b042423fcefd300df96073cd30483b1d0641201eecaffd47678d70"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

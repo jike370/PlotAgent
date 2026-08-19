@@ -1469,6 +1469,7 @@ class TaskLedgerRepository:
         states: dict[str, TaskState] = {
             "intent_ready": "intent_staged",
             "needs_input": "awaiting_input",
+            "information_ready": "completed_verified",
             "technical_repair_ready": "executing",
             "unsupported": "unsupported",
             "blocked": "blocked",

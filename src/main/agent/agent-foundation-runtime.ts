@@ -438,6 +438,14 @@ export class AgentFoundationRuntime {
       this.emit(runId, projectId, 'cancelled', 'Agent 任务已取消')
       return json({ outcome: 'cancelled', workflow_run_id: taskId })
     }
+    if (drained.reason === 'terminal' && drained.terminalYield?.outcome === 'information_ready') {
+      this.emit(runId, projectId, 'completed', '只读检查已完成')
+      return json({
+        outcome: 'information_ready',
+        workflow_run_id: taskId,
+        message: drained.terminalYield.message,
+      })
+    }
     if (drained.reason === 'awaiting_input' && drained.terminalYield?.outcome === 'needs_input') {
       this.emit(runId, projectId, 'completed', '等待你的回复')
       return json({

@@ -21,6 +21,18 @@ describe('product plot state', () => {
     })
   })
 
+  it('renders a verified read-only Agent answer as information', () => {
+    expect(readWorkflowOutcome({
+      outcome: 'information_ready',
+      workflow_run_id: 'task:inspection',
+      message: '共有 4 列，其中 1 个值缺失。',
+    })).toEqual({
+      kind: 'information',
+      title: '检查完成',
+      message: '共有 4 列，其中 1 个值缺失。',
+    })
+  })
+
   it('prefers file and worksheet identity and summarizes per-file import outcomes', () => {
     const value: JsonValue = {
       selected_files: ['仪器记录.xlsx', '损坏.csv'],

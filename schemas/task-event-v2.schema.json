@@ -56,6 +56,7 @@
               "enum": [
                 "intent_ready",
                 "needs_input",
+                "information_ready",
                 "technical_repair_ready",
                 "unsupported",
                 "blocked",

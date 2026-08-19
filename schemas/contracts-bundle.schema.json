@@ -475,6 +475,7 @@
               "enum": [
                 "intent_ready",
                 "needs_input",
+                "information_ready",
                 "technical_repair_ready",
                 "unsupported",
                 "blocked",
@@ -1030,6 +1031,47 @@
       "title": "AgentContextSnapshot",
       "type": "object"
     },
+    "AgentInformationReady": {
+      "additionalProperties": false,
+      "description": "A verified read-only answer that intentionally creates no task items.",
+      "properties": {
+        "activation_id": {
+          "pattern": "^activation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Activation Id",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "information_ready",
+          "default": "information_ready",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "task_id": {
+          "pattern": "^task:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_version": {
+          "minimum": 1,
+          "title": "Task Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "activation_id",
+        "task_id",
+        "task_version",
+        "message"
+      ],
+      "title": "AgentInformationReady",
+      "type": "object"
+    },
     "AgentIntentReady": {
       "additionalProperties": false,
       "properties": {
@@ -1516,6 +1558,7 @@
           "blocked": "#/$defs/AgentBlocked",
           "budget_exhausted": "#/$defs/AgentBudgetExhausted",
           "cancelled": "#/$defs/AgentCancelled",
+          "information_ready": "#/$defs/AgentInformationReady",
           "intent_ready": "#/$defs/AgentIntentReady",
           "needs_input": "#/$defs/AgentNeedsInput",
           "runtime_failed": "#/$defs/AgentRuntimeFailed",
@@ -1530,6 +1573,9 @@
         },
         {
           "$ref": "#/$defs/AgentNeedsInput"
+        },
+        {
+          "$ref": "#/$defs/AgentInformationReady"
         },
         {
           "$ref": "#/$defs/AgentTechnicalRepairReady"

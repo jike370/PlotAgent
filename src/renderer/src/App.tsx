@@ -319,7 +319,7 @@ export function App(): React.JSX.Element {
     const mapping = selection.mapping === null ? undefined : selection.mapping ?? confirmedMapping
     writeWorkspaceSelection(window.localStorage, project.projectId, {
       ...(datasetId === undefined ? {} : { datasetId }),
-      ...((selection.workflowSourceIds ?? workflowSourceIds).length === 0 ? {} : { workflowSourceIds: selection.workflowSourceIds ?? workflowSourceIds }),
+      workflowSourceIds: selection.workflowSourceIds ?? workflowSourceIds,
       ...(chartId === undefined ? {} : { chartId }),
       ...(mapping === undefined ? {} : { mapping }),
     })
@@ -469,7 +469,7 @@ export function App(): React.JSX.Element {
     if (nextDatasets.length > 0) {
       setDatasets(nextDatasets)
       setActiveDatasetId(nextDatasets[0].datasetId)
-      setWorkflowSourceIds([])
+      setWorkflowSourceIds(nextDatasets.slice(1, 8).map((dataset) => dataset.datasetId))
     }
     return nextProject
   }, [mergeProjects])
@@ -636,7 +636,12 @@ export function App(): React.JSX.Element {
     ))
     if (datasets.length === 0 && imported[0]) {
       setActiveDatasetId(imported[0].datasetId)
-      setWorkflowSourceIds([])
+      setWorkflowSourceIds(imported.slice(1, 8).map((dataset) => dataset.datasetId))
+    } else if (imported.length > 0) {
+      setWorkflowSourceIds((current) => [...new Set([
+        ...current,
+        ...imported.map((dataset) => dataset.datasetId),
+      ])].filter((datasetId) => datasetId !== activeDatasetId).slice(0, 7))
     }
     const version = projectVersionFrom(value, targetProject.projectVersion)
     const nextProject = projectWithVersion(targetProject, version)
@@ -772,7 +777,10 @@ export function App(): React.JSX.Element {
       const persisted = readWorkspaceSelection(window.localStorage, projectId)
       const nextDataset = nextDatasets.find((item) => item.datasetId === persisted?.datasetId) ?? nextDatasets[0]
       const availableDatasetIds = new Set(nextDatasets.map((item) => item.datasetId))
-      const nextWorkflowSourceIds = (persisted?.workflowSourceIds ?? [])
+      const nextWorkflowSourceIds = (
+        persisted?.workflowSourceIds
+        ?? nextDatasets.map((dataset) => dataset.datasetId)
+      )
         .filter((datasetId) => availableDatasetIds.has(datasetId) && datasetId !== nextDataset?.datasetId)
         .slice(0, 7)
       const persistedChart = chartCatalog.find((item) => item.id === persisted?.chartId)

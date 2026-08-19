@@ -266,9 +266,15 @@ class DurableAgentCoreHost:
             intent = yielded.intent
             if activation.reason in {"user_answered", "user_corrected"}:
                 prior = activation.confirmed_intent
-                if (
-                    prior is None
-                    or intent.intent_id != prior.intent_id
+                if prior is None:
+                    if intent.intent_version != 1:
+                        raise AgentFoundationError(
+                            "INTENT_REVISION_INVALID",
+                            "The first complete intent after a clarification must start "
+                            "at version 1.",
+                        )
+                elif (
+                    intent.intent_id != prior.intent_id
                     or intent.intent_version != prior.intent_version + 1
                 ):
                     raise AgentFoundationError(
@@ -390,6 +396,16 @@ class DurableAgentCoreHost:
     ) -> TaskPlan:
         validated = intent
         envelope = self.ledger.get_envelope(intent.task_id)
+        latest_user_event = self.ledger.latest_user_event(intent.task_id)
+        grounding_instruction = envelope.original_instruction
+        if (
+            latest_user_event is not None
+            and latest_user_event.action in {"answered", "corrected"}
+            and latest_user_event.message
+        ):
+            grounding_instruction = (
+                f"{grounding_instruction}\n{latest_user_event.message}"
+            )
         selected_sources = set(workflow_context.selected_source_aliases)
         selected_profiles = set(workflow_context.selected_profile_ids)
         selected_plots = {
@@ -402,7 +418,7 @@ class DurableAgentCoreHost:
                 item.task_kind == "create"
                 and not envelope.selected_profile_ids
                 and not self._instruction_explicitly_names_profile(
-                    envelope.original_instruction, cast(ChartTypeId, item.profile_id)
+                    grounding_instruction, cast(ChartTypeId, item.profile_id)
                 )
             ):
                 raise AgentFoundationError(
@@ -764,7 +780,12 @@ class DurableAgentCoreHost:
             "prevents a safe draft; never use needs_input to ask the user to confirm a plan "
             "or execution. When all semantic inputs are available, emit intent_ready and let "
             "the product's confirmation card request authorization. Never execute, "
-            "export, invent paths, or emit backend commands. Use this Core-owned scaffold: "
+            "export, invent paths, or emit backend commands. When the user explicitly asks only "
+            "to inspect, summarize, compare, or explain currently authorized data and explicitly "
+            "does not request a plot, data mutation, edit, or export, use the read-only inspection "
+            "tools and return information_ready with the concise factual answer. Do not force a "
+            "read-only answer into TaskIntent, needs_input, blocked, or unsupported. Use this "
+            "Core-owned scaffold: "
             f"{canonical_json(cast(JsonValue, scaffold))}"
         )
 
@@ -781,12 +802,21 @@ class DurableAgentCoreHost:
                 "unsupported; never emit a new TaskIntent from this activation."
             )
         elif runtime.activation.reason in {"user_answered", "user_corrected"}:
-            system_prompt += (
-                " The user has supplied a durable continuation message. Re-evaluate the prior "
-                "intent against that message, emit the next TaskIntent version, and preserve "
-                "unchanged decisions. Any semantic change will be shown for reconfirmation. "
-                f"Current message: {runtime.activation.current_user_message}"
-            )
+            if runtime.activation.confirmed_intent is None:
+                system_prompt += (
+                    " The user has answered a blocking clarification before any TaskIntent was "
+                    "staged. Combine the original instruction and this durable answer into the "
+                    "first complete TaskIntent at intent_version 1. Do not require or invent a "
+                    "prior intent. "
+                    f"Current message: {runtime.activation.current_user_message}"
+                )
+            else:
+                system_prompt += (
+                    " The user has supplied a durable continuation message. Re-evaluate the prior "
+                    "intent against that message, emit the next TaskIntent version, and preserve "
+                    "unchanged decisions. Any semantic change will be shown for reconfirmation. "
+                    f"Current message: {runtime.activation.current_user_message}"
+                )
         return {
             "context": runtime.context.model_dump(mode="json"),
             "system_prompt": system_prompt,

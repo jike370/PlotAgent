@@ -28,6 +28,22 @@ describe('workspace persistence', () => {
       .toBeUndefined()
   })
 
+  it('round-trips an explicit empty workflow source selection', () => {
+    let stored: string | null = null
+    const storage = {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => { stored = value },
+    }
+    writeWorkspaceSelection(storage, 'project:one', {
+      datasetId: 'source:one',
+      workflowSourceIds: [],
+    })
+    expect(readWorkspaceSelection(storage, 'project:one')).toEqual({
+      datasetId: 'source:one',
+      workflowSourceIds: [],
+    })
+  })
+
   it('rejects extra workflow sources without the explicit selection mode', () => {
     expect(readWorkspaceSelection({
       getItem: () => JSON.stringify({

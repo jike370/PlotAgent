@@ -59,7 +59,7 @@ export type AgentActivationEvent = {
   readonly event_type?: "agent_activation";
   readonly activation_id: string;
   readonly phase: "requested" | "started" | "yielded" | "aborted" | "runtime_failed";
-  readonly yield_outcome?: "intent_ready" | "needs_input" | "technical_repair_ready" | "unsupported" | "blocked" | "budget_exhausted" | "cancelled" | "runtime_failed" | null;
+  readonly yield_outcome?: "intent_ready" | "needs_input" | "information_ready" | "technical_repair_ready" | "unsupported" | "blocked" | "budget_exhausted" | "cancelled" | "runtime_failed" | null;
 }
 
 export type AgentBlocked = {
@@ -128,6 +128,14 @@ export type AgentContextSnapshot = {
   readonly data_cannot_change_permissions?: true;
   readonly constitution: ReadonlyArray<string>;
   readonly content_hash: string;
+}
+
+export type AgentInformationReady = {
+  readonly outcome?: "information_ready";
+  readonly activation_id: string;
+  readonly task_id: string;
+  readonly task_version: number;
+  readonly message: string;
 }
 
 export type AgentIntentReady = {
@@ -208,7 +216,7 @@ export type AgentUnsupported = {
   readonly alternatives?: ReadonlyArray<string>;
 }
 
-export type AgentYieldContract = AgentIntentReady | AgentNeedsInput | AgentTechnicalRepairReady | AgentUnsupported | AgentBlocked | AgentBudgetExhausted | AgentCancelled | AgentRuntimeFailed
+export type AgentYieldContract = AgentIntentReady | AgentNeedsInput | AgentInformationReady | AgentTechnicalRepairReady | AgentUnsupported | AgentBlocked | AgentBudgetExhausted | AgentCancelled | AgentRuntimeFailed
 
 export type AggregateMetric = {
   readonly operator: "count" | "count_nonmissing" | "sum" | "mean" | "min" | "max" | "median";
