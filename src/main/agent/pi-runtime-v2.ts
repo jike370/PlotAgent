@@ -350,7 +350,16 @@ export class PiRuntimeAdapterV2 {
   constructor(options: PiRuntimeAdapterV2Options) {
     this.host = options.host
     this.emitEvent = options.emit
-    this.streamFn = options.streamFn ?? (streamSimple as StreamFn)
+    const providerStream = options.streamFn ?? (streamSimple as StreamFn)
+    this.streamFn = (model, context, streamOptions) => providerStream(model, context, {
+      ...streamOptions,
+      // The provider adapter retries only request-creation failures that are safe by
+      // HTTP semantics (disconnect/408/409/429/5xx). No model output or Core tool can
+      // exist yet at this boundary, so one bounded retry cannot duplicate a side
+      // effect. Authentication, balance and invalid-request responses remain terminal.
+      maxRetries: 1,
+      maxRetryDelayMs: 5_000,
+    })
     this.clock = options.clock ?? (() => new Date())
   }
 

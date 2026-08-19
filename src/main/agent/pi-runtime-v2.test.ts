@@ -2,6 +2,7 @@ import {
   createAssistantMessageEventStream,
   type AssistantMessage,
   type JsonValue,
+  type SimpleStreamOptions,
   type TSchema,
 } from '@earendil-works/pi-ai'
 import type { StreamFn } from '@earendil-works/pi-agent-core'
@@ -273,6 +274,7 @@ describe('PiRuntimeAdapterV2', () => {
     const candidate = needsInput(input)
     const base = environment(input)
     const models: Array<{ maxTokens: number; samplingParams?: Record<string, unknown> }> = []
+    const requestOptions: SimpleStreamOptions[] = []
     const runtime = new PiRuntimeAdapterV2({
       host: hostFor(input, {
         prepare: async () => ({
@@ -281,8 +283,9 @@ describe('PiRuntimeAdapterV2', () => {
         }),
       }),
       emit: () => undefined,
-      streamFn: ((model) => {
+      streamFn: ((model, _context, options) => {
         models.push(model)
+        requestOptions.push(options ?? {})
         return toolCallStream(
           'provider-call-yield',
           'submit_agent_yield',
@@ -296,6 +299,11 @@ describe('PiRuntimeAdapterV2', () => {
     expect(models[0]).toMatchObject({
       maxTokens: 2_048,
       samplingParams,
+    })
+    expect(requestOptions).toHaveLength(1)
+    expect(requestOptions[0]).toMatchObject({
+      maxRetries: 1,
+      maxRetryDelayMs: 5_000,
     })
   })
 
