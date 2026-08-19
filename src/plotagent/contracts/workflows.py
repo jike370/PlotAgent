@@ -567,7 +567,6 @@ class DraftSetSeriesStyle(StrictModel):
     marker_interior: WorkflowMarkerInterior | None = None
     marker_fill_color: WorkflowColor | None = None
     marker_stroke_color: WorkflowColor | None = None
-    marker_stroke_width_pt: Annotated[float, Field(ge=0, le=20, allow_inf_nan=False)] | None = None
     marker_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
     fill_color: WorkflowColor | None = None
     fill_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None

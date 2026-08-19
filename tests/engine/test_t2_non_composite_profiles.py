@@ -550,7 +550,6 @@ def test_k24_agent_surface_matches_native_trellis_editability() -> None:
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_stroke_width_pt",
         "marker_opacity",
     } == set(capabilities["set_series_style"])
     assert "color" not in capabilities["set_series_style"]

@@ -988,6 +988,11 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByText(/已导入：有效数据.xlsx/)).toBeInTheDocument()
     expect(screen.getByText(/未导入：损坏数据.txt/)).toBeInTheDocument()
     expect(screen.getByText(/未导入：未回执.dat：未返回处理结果，请重试。/)).toBeInTheDocument()
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '继续分析已导入的数据')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await waitFor(() => expect(screen.getByText(/未导入：损坏数据.txt/)).toBeInTheDocument())
+    expect(screen.getByText(/未导入：未回执.dat：未返回处理结果，请重试。/)).toBeInTheDocument()
   })
 
   it('prevents a second import while the first import request is pending', async () => {

@@ -714,7 +714,6 @@ export type DraftSetSeriesStyle = {
   readonly marker_interior?: "solid" | "open" | "hollow" | null;
   readonly marker_fill_color?: string | null;
   readonly marker_stroke_color?: string | null;
-  readonly marker_stroke_width_pt?: number | null;
   readonly marker_opacity?: number | null;
   readonly fill_color?: string | null;
   readonly fill_opacity?: number | null;

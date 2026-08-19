@@ -78,6 +78,7 @@ interface ConversationWorkspaceProps {
   plot?: ProductPlot
   exportRecord?: ExportRecordView
   notice?: ProductNotice
+  importNotice?: ProductNotice
   busyAction?: string
   agentRuntimeLabel?: string
   agentRuntimeTaskId?: string
@@ -895,7 +896,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             {datasets.length === 0 ? (
               <div className="message message--agent conversation-prompt"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>上传数据文件，并告诉我你想画什么图。</p></div></div>
             ) : (
-              <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></div></div>
+              <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p>{props.importNotice && <InlineNotice notice={props.importNotice} />}<DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></div></div>
             )}
             <ConversationHistory messages={visibleMessages} />
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />

@@ -213,6 +213,7 @@ export function App(): React.JSX.Element {
   const [previousPlot, setPreviousPlot] = useState<ProductPlot>()
   const [exportRecord, setExportRecord] = useState<ExportRecordView>()
   const [notice, setNotice] = useState<ProductNotice>()
+  const [importNotice, setImportNotice] = useState<ProductNotice>()
   const [workflowOutcome, setWorkflowOutcome] = useState<WorkflowOutcome>()
   const [workflowPlan, setWorkflowPlan] = useState<WorkflowPlanView>()
   const [workflowPlans, setWorkflowPlans] = useState<WorkflowPlanView[]>([])
@@ -489,6 +490,7 @@ export function App(): React.JSX.Element {
     setPlot(undefined)
     setPreviousPlot(undefined)
     setExportRecord(undefined)
+    setImportNotice(undefined)
     setWorkflowOutcome(undefined)
     setWorkflowPlan(undefined)
     setWorkflowPlans([])
@@ -647,13 +649,15 @@ export function App(): React.JSX.Element {
       ...summary.attentionDetails.map((detail) => `待确认：${detail}`),
       ...summary.failedDetails.map((detail) => `未导入：${detail}`),
     ]
-    setNotice(partial ? {
+    const nextImportNotice: ProductNotice | undefined = partial ? {
       kind: 'warning',
       title: '部分文件未导入',
       message: outcomeLines.join('\n'),
       actionLabel: summary.attentionCount > 0 ? '继续处理' : '重新选择文件',
       onAction: () => { retryImportIntoProject(targetProject) },
-    } : {
+    } : undefined
+    setImportNotice(nextImportNotice)
+    setNotice(partial ? undefined : {
       kind: 'success',
       title: '数据已导入',
       message: previewMode
@@ -667,6 +671,7 @@ export function App(): React.JSX.Element {
     importInFlight.current = true
     setBusyAction('import')
     setNotice(undefined)
+    setImportNotice(undefined)
     void importIntoProject(targetProject)
       .then(refreshProjects)
       .catch((error: unknown) => {
@@ -681,7 +686,7 @@ export function App(): React.JSX.Element {
 
   const openSample = async (): Promise<void> => {
     if (!api) return
-    setBusyAction('sample'); setNotice(undefined)
+    setBusyAction('sample'); setNotice(undefined); setImportNotice(undefined)
     try {
       const value = valueOrThrow(await api.openSampleProject())
       hydrateProject(value, '温度响应示例')
@@ -697,7 +702,7 @@ export function App(): React.JSX.Element {
   const importData = async (): Promise<void> => {
     if (!api || importInFlight.current || busyAction !== undefined) return
     importInFlight.current = true
-    setBusyAction('import'); setNotice(undefined)
+    setBusyAction('import'); setNotice(undefined); setImportNotice(undefined)
     try {
       let target = project
       if (!target) {
@@ -721,7 +726,7 @@ export function App(): React.JSX.Element {
 
   const openProject = async (): Promise<void> => {
     if (!api) return
-    setBusyAction('open-project'); setNotice(undefined)
+    setBusyAction('open-project'); setNotice(undefined); setImportNotice(undefined)
     try {
       const value = valueOrThrow(await api.openProject())
       const nextProject = hydrateProject(value)
@@ -750,7 +755,7 @@ export function App(): React.JSX.Element {
   const activateProject = async (projectId: string): Promise<void> => {
     if (!api || project?.projectId === projectId) return
     invalidateAgentRequest()
-    setBusyAction('activate-project'); setNotice(undefined)
+    setBusyAction('activate-project'); setNotice(undefined); setImportNotice(undefined)
     try {
       const known = projects.find((item) => item.projectId === projectId)
       const opened = valueOrThrow(await api.activateProject({ projectId }))
@@ -1291,7 +1296,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onClose={() => setScreen('workspace')} />}
       </div>

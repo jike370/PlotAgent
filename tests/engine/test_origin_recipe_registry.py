@@ -22,6 +22,12 @@ def test_recipe_registry_covers_the_public_catalog_and_closes_the_origin_scope()
     assert ORIGIN_RECIPES["S61"].support_status == "renderable"
 
 
+def test_public_agent_profiles_preserve_origin_default_marker_edge_width() -> None:
+    for profile in ENGINE_PROFILES:
+        for capability in profile.capabilities:
+            assert "marker_stroke_width_pt" not in capability.parameters
+
+
 def test_renderable_recipes_have_closed_routes_and_pinned_template_assets() -> None:
     for profile_id, recipe in ORIGIN_RENDERABLE_RECIPES.items():
         assert recipe.binder_key == profile_id

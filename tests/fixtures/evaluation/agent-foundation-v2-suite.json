@@ -4,8 +4,8 @@
   "suite_version": 2,
   "legacy_source": {
     "path": "tests/fixtures/seq70/workflow_tasks.json",
-    "sha256": "12139fbf4f6722158cf906c45620c2c764e8752ff058aa907a3c0d767871ba7f",
-    "byte_length": 11253
+    "sha256": "8b70703338e88b9403d4f19dec48ba319a7c82306f37d2cb5d02ee172340b2ec",
+    "byte_length": 11204
   },
   "defaults": {
     "suite_kind": "regression",
@@ -26,7 +26,7 @@
     {"legacy_task_id":"W02","layer":"E3","claim":"两份数据分别生成两项 K01，数据与任务对应关系稳定。"},
     {"legacy_task_id":"W03","layer":"E3","claim":"未指定图类且存在多个合法候选时必须追问图类，不得猜测。"},
     {"legacy_task_id":"W04","layer":"E3","claim":"自然语言标题、线色、线型与线宽被翻译为结构化共同视觉动作。"},
-    {"legacy_task_id":"W05","layer":"E3","claim":"散点符号形状、大小、填充与边缘宽度被精确写入 K03 计划。"},
+    {"legacy_task_id":"W05","layer":"E3","claim":"散点符号形状、大小、填充与边缘颜色被精确写入 K03 计划。"},
     {"legacy_task_id":"W06","layer":"E3","claim":"柱填充、边框和数据标签被精确写入 K08 计划。"},
     {"legacy_task_id":"W07","layer":"E3","claim":"K20 色板、反转、范围、中点与色标标题被精确写入计划。"},
     {"legacy_task_id":"W08","layer":"E3","claim":"K06 六个方向角色和误差棒参数全部绑定正确。"},

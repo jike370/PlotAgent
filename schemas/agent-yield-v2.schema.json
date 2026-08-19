@@ -2089,20 +2089,6 @@
           "default": null,
           "title": "Marker Stroke Color"
         },
-        "marker_stroke_width_pt": {
-          "anyOf": [
-            {
-              "maximum": 20,
-              "minimum": 0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Marker Stroke Width Pt"
-        },
         "operation": {
           "const": "set_series_style",
           "default": "set_series_style",

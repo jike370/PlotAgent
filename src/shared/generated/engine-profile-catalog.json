@@ -196,7 +196,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -333,7 +332,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -467,7 +465,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -625,7 +622,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -1534,7 +1530,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -1669,7 +1664,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -2725,7 +2719,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -2846,7 +2839,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -3134,7 +3126,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -3274,7 +3265,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -3412,7 +3402,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -3845,7 +3834,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -4298,7 +4286,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity",
             "fill_color",
             "fill_opacity",
@@ -4594,7 +4581,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },
@@ -4734,7 +4720,6 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_stroke_width_pt",
             "marker_opacity"
           ]
         },

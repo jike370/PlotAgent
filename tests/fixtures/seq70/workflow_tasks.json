@@ -68,14 +68,14 @@
       "task_id": "W05",
       "layer": "workflow",
       "fixture_keys": ["xy"],
-      "instruction": "创建 K03 散点图，X 映射 X，Y 映射 Response；点使用蓝色实心圆，大小 8 pt，边缘宽度 1 pt。",
+      "instruction": "创建 K03 散点图，X 映射 X，Y 映射 Response；点使用蓝色实心圆，大小 8 pt。",
       "selected_profile_ids": ["K03"],
       "expected_outcome": "draft_ready",
       "expected_route": "agent",
       "expected_profiles": ["K03"],
       "expected_bindings": {"x": "X", "y": "Response"},
       "expected_visual_actions": [
-        {"operation": "set_series_style", "target_alias": "series_1", "marker_shape": "circle", "marker_size_pt": 8, "marker_interior": "solid", "marker_stroke_width_pt": 1}
+        {"operation": "set_series_style", "target_alias": "series_1", "marker_shape": "circle", "marker_size_pt": 8, "marker_interior": "solid"}
       ]
     },
     {

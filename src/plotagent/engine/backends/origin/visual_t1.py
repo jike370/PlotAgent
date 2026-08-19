@@ -7,12 +7,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 from plotagent.engine.backends.origin.native_visual_t1 import (
-    SYMBOL_EDGE_WIDTH,
     read_color_scale_title,
     read_color_scale_title_show,
-    read_native_visual_value,
     set_color_scale_title,
-    set_symbol_edge_width,
 )
 from plotagent.engine.backends.origin.readback import axis_scale_matches
 from plotagent.engine.contracts import (
@@ -486,6 +483,9 @@ def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
         commands.append(f'set {plot_ref} -csf color("{action.marker_fill_color}")')
     if action.marker_stroke_color is not None:
         commands.append(f'set {plot_ref} -cse color("{action.marker_stroke_color}")')
+    # Origin 2024 does not expose a stable native read/write contract for
+    # marker edge width. Keep the official template default, including when a
+    # legacy action still carries marker_stroke_width_pt.
     if action.fill_color is not None:
         commands.extend(
             (
@@ -505,15 +505,6 @@ def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
         )
         commands.append(f"set {plot_ref} {fill_only_option} 1")
     _execute_plot_commands(op, commands, operation="series style")
-    layer_index = _layer_index(layer)
-    if action.marker_stroke_width_pt is not None:
-        set_symbol_edge_width(
-            op,
-            graph.name,
-            layer_index,
-            plot_index,
-            action.marker_stroke_width_pt,
-        )
     if action.line_opacity is not None:
         _set_plot_property(
             op,
@@ -906,18 +897,6 @@ def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, obj
         value = _get_plot_option(op, plot_range, option)
         _require_number(name, value, expected)
         observed[name] = value
-    layer_index = _layer_index(layer)
-    if action.marker_stroke_width_pt is not None:
-        edge_width = read_native_visual_value(
-            op,
-            graph.name,
-            layer_index,
-            plot_index,
-            SYMBOL_EDGE_WIDTH,
-            numeric_type="double",
-        )
-        _require_number("marker stroke width", edge_width, action.marker_stroke_width_pt)
-        observed["marker_stroke_width"] = edge_width
     for name, requested, property_path in (
         ("line_opacity", action.line_opacity, "transparency"),
         ("marker_opacity", action.marker_opacity, "symbol.transparency"),
