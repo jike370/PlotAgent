@@ -220,11 +220,12 @@ describe('FocusEditor Agent Native actions', () => {
     expect(screen.getByRole('combobox', { name: '轴尺度' })).toHaveValue('log10')
     await user.clear(screen.getByRole('textbox', { name: '轴标题' }))
     await user.type(screen.getByRole('textbox', { name: '轴标题' }), 'Response')
-    await user.click(screen.getByRole('button', { name: '应用轴标题' }))
+    await user.click(screen.getByRole('button', { name: '应用坐标轴设置' }))
 
-    await waitFor(() => expect(onPatch).toHaveBeenCalledWith({
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
       operation: 'set_axis', target: 'axis:test.y', label: 'Response',
-    }))
+      scale: 'log10',
+    })))
   })
 
   it('edits series visibility and axis visibility without phrase routing', async () => {
@@ -240,13 +241,13 @@ describe('FocusEditor Agent Native actions', () => {
     await user.click(screen.getByRole('checkbox', { name: '显示刻度标签' }))
     await user.click(screen.getByRole('checkbox', { name: '显示次刻度线' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '刻度线方向' }), 'inout')
-    await user.click(screen.getByRole('button', { name: '应用显示状态' }))
+    await user.click(screen.getByRole('button', { name: '应用坐标轴设置' }))
 
     await waitFor(() => expect(onPatch).toHaveBeenCalledTimes(2))
     expect(onPatch).toHaveBeenNthCalledWith(1, expect.objectContaining({
       operation: 'set_series_style', target: 'series:test.primary', visible: false,
     }))
-    expect(onPatch).toHaveBeenNthCalledWith(2, {
+    expect(onPatch).toHaveBeenNthCalledWith(2, expect.objectContaining({
       operation: 'set_axis',
       target: 'axis:test.y',
       tick_labels_visible: false,
@@ -255,7 +256,7 @@ describe('FocusEditor Agent Native actions', () => {
       tick_direction: 'inout',
       axis_line_visible: true,
       axis_title_visible: true,
-    })
+    }))
   })
 
   it('maps the visible legend placement to a public anchor', async () => {
@@ -266,11 +267,11 @@ describe('FocusEditor Agent Native actions', () => {
     await user.click(screen.getByRole('button', { name: '编辑面板' }))
     await user.click(screen.getByRole('tab', { name: '图例' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '图例位置' }), 'outside_right')
-    await user.click(screen.getByRole('button', { name: '应用图例位置' }))
+    await user.click(screen.getByRole('button', { name: '应用图例设置' }))
 
-    await waitFor(() => expect(onPatch).toHaveBeenCalledWith({
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
       operation: 'set_legend', target: 'legend:test.main', anchor: 'right',
-    }))
+    })))
   })
 
   it('adds only the public text annotation shape', async () => {

@@ -458,6 +458,12 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
   const hasSpecialistEdits = chartParameterNames.length > 0
   const selectedSeriesId = plot?.seriesIds[seriesTargetIndex]
   const selectedAxisId = plot?.axisIds[axisTarget]
+  const legendTargetId = plot?.legendId
+    ?? (plot ? `legend:${plot.plotId.replace('plot:', '')}.main` : undefined)
+  const axisBoundsInvalid = editCapabilities.has('axis_range') && (
+    (axisMinimum === '') !== (axisMaximum === '')
+    || (axisMinimum !== '' && axisMaximum !== '' && Number(axisMinimum) >= Number(axisMaximum))
+  )
 
   const applyPatch = async (
     operation: string,
@@ -512,6 +518,60 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
       values.fill_stroke_width_pt = fillStrokeWidth
     }
     await applyPatch('set_series_style', selectedSeriesId, values)
+  }
+
+  const applyAxisSettings = async (): Promise<void> => {
+    const values: Record<string, JsonValue> = {}
+    if (editCapabilities.has('axis_label') && axisLabel.trim()) values.label = axisLabel.trim()
+    if (editCapabilities.has('axis_scale')) values.scale = axisScale
+    if (editCapabilities.has('axis_range') && axisMinimum !== '' && axisMaximum !== '') {
+      values.minimum = Number(axisMinimum)
+      values.maximum = Number(axisMaximum)
+    }
+    if (editCapabilities.has('axis_reverse')) values.reverse = axisReverse
+    if (editCapabilities.has('tick_labels_visibility')) {
+      values.tick_labels_visible = tickLabelsVisible
+    }
+    if (editCapabilities.has('major_ticks_visibility')) {
+      values.major_ticks_visible = majorTicksVisible
+    }
+    if (editCapabilities.has('minor_ticks_visibility')) {
+      values.minor_ticks_visible = minorTicksVisible
+    }
+    if (editCapabilities.has('tick_direction')) values.tick_direction = tickDirection
+    if (editCapabilities.has('axis_line_visibility')) values.axis_line_visible = axisLineVisible
+    if (editCapabilities.has('axis_title_visibility')) {
+      values.axis_title_visible = axisTitleVisible
+    }
+    if (axisParameters.has('title_font_size_pt')) values.title_font_size_pt = axisTitleSize
+    if (axisParameters.has('title_color')) values.title_color = axisTitleColor
+    if (axisParameters.has('tick_format')) values.tick_format = axisTickFormat
+    if (axisParameters.has('tick_rotation_deg')) values.tick_rotation_deg = axisTickRotation
+    if (axisParameters.has('tick_font_size_pt')) values.tick_font_size_pt = axisTickSize
+    if (axisParameters.has('axis_line_color')) values.axis_line_color = axisLineColor
+    if (axisParameters.has('axis_line_width_pt')) values.axis_line_width_pt = axisLineWidth
+    if (axisParameters.has('major_grid_visible')) values.major_grid_visible = majorGridVisible
+    if (axisParameters.has('minor_grid_visible')) values.minor_grid_visible = minorGridVisible
+    if (axisParameters.has('grid_color')) values.grid_color = gridColor
+    if (axisParameters.has('grid_line_width_pt')) values.grid_line_width_pt = gridLineWidth
+    await applyPatch('set_axis', selectedAxisId, values)
+  }
+
+  const applyLegendSettings = async (): Promise<void> => {
+    const values: Record<string, JsonValue> = {}
+    if (editCapabilities.has('legend_visibility')) values.visible = legendVisible
+    if (editCapabilities.has('legend_position')) {
+      values.anchor = legendPlacement === 'outside_right'
+        ? 'right'
+        : legendPlacement === 'outside_bottom' ? 'bottom' : 'inside'
+    }
+    if (legendParameters.has('columns')) values.columns = legendColumns
+    if (legendParameters.has('title')) values.title = legendTitle
+    if (legendParameters.has('font_size_pt')) values.font_size_pt = legendFontSize
+    if (legendParameters.has('font_color')) values.font_color = legendFontColor
+    if (legendParameters.has('frame_visible')) values.frame_visible = legendFrameVisible
+    if (legendParameters.has('frame_color')) values.frame_color = legendFrameColor
+    await applyPatch('set_legend', legendTargetId, values)
   }
 
   const applyColorMap = async (): Promise<void> => {
@@ -802,26 +862,40 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
             )}
 
             {parameterTab === 'axis' && (
-              <>
-                <section className="parameter-section">
+              <form className="parameter-operation-form" onSubmit={(event) => { event.preventDefault(); void applyAxisSettings() }}>
+                <section className="parameter-section parameter-section--target">
                   <h3>作用坐标轴</h3>
                   <label><span>坐标轴</span><select aria-label="作用坐标轴" value={axisTarget} onChange={(event) => selectAxis(event.target.value as 'x' | 'y' | 'yRight')}><option value="x">X 轴</option><option value="y">左 Y 轴</option>{plot?.axisIds.yRight && <option value="yRight">右 Y 轴</option>}</select></label>
+                  <p className="parameter-note">本页设置会合并为一次坐标轴修改，并生成一个可撤销版本。</p>
                 </section>
-                {editCapabilities.has('axis_label') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { label: axisLabel }) }}><h3>轴标题</h3><label><span>标题</span><input aria-label="轴标题" required value={axisLabel} onChange={(event) => setAxisLabel(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisLabel.trim().length === 0}>应用轴标题</button></form>}
-                {editCapabilities.has('axis_scale') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { scale: axisScale }) }}><h3>轴尺度</h3><label><span>尺度</span><select aria-label="轴尺度" value={axisScale} onChange={(event) => setAxisScale(event.target.value)}><option value="linear">线性</option><option value="log10">Log10</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴尺度</button></form>}
-                {editCapabilities.has('axis_range') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { minimum: Number(axisMinimum), maximum: Number(axisMaximum) }) }}><h3>固定范围</h3><label><span>最小值</span><input aria-label="轴最小值" type="number" required value={axisMinimum} onChange={(event) => setAxisMinimum(event.target.value)} /></label><label><span>最大值</span><input aria-label="轴最大值" type="number" required value={axisMaximum} onChange={(event) => setAxisMaximum(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisMinimum === '' || axisMaximum === '' || Number(axisMinimum) >= Number(axisMaximum)}>应用固定范围</button></form>}
-                {editCapabilities.has('axis_reverse') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { reverse: axisReverse }) }}><h3>轴方向</h3><label className="parameter-check"><input aria-label="反向坐标轴" type="checkbox" checked={axisReverse} onChange={(event) => setAxisReverse(event.target.checked)} /><span>反向显示</span></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴方向</button></form>}
-                {editCapabilities.has('tick_labels_visibility') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { tick_labels_visible: tickLabelsVisible, major_ticks_visible: majorTicksVisible, minor_ticks_visible: minorTicksVisible, tick_direction: tickDirection, axis_line_visible: axisLineVisible, axis_title_visible: axisTitleVisible }) }}><h3>显示与刻度方向</h3><label className="parameter-check"><input aria-label="显示轴标题" type="checkbox" checked={axisTitleVisible} onChange={(event) => setAxisTitleVisible(event.target.checked)} /><span>显示轴标题</span></label><label className="parameter-check"><input aria-label="显示刻度标签" type="checkbox" checked={tickLabelsVisible} onChange={(event) => setTickLabelsVisible(event.target.checked)} /><span>显示刻度标签</span></label><label className="parameter-check"><input aria-label="显示主刻度线" type="checkbox" checked={majorTicksVisible} onChange={(event) => setMajorTicksVisible(event.target.checked)} /><span>显示主刻度线</span></label><label className="parameter-check"><input aria-label="显示次刻度线" type="checkbox" checked={minorTicksVisible} onChange={(event) => setMinorTicksVisible(event.target.checked)} /><span>显示次刻度线</span></label><label className="parameter-check"><input aria-label="显示轴线" type="checkbox" checked={axisLineVisible} onChange={(event) => setAxisLineVisible(event.target.checked)} /><span>显示轴线</span></label><label><span>刻度线方向</span><select aria-label="刻度线方向" value={tickDirection} onChange={(event) => setTickDirection(event.target.value)}><option value="in">向内</option><option value="out">向外</option><option value="inout">内外两侧</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用显示状态</button></form>}
-                {axisParameters.has('title_font_size_pt') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { title_font_size_pt: axisTitleSize, title_color: axisTitleColor, tick_format: axisTickFormat, tick_rotation_deg: axisTickRotation, tick_font_size_pt: axisTickSize, axis_line_color: axisLineColor, axis_line_width_pt: axisLineWidth, major_grid_visible: majorGridVisible, minor_grid_visible: minorGridVisible, grid_color: gridColor, grid_line_width_pt: gridLineWidth }) }}><h3>刻度、轴线与网格</h3><details className="parameter-subsection" open><summary>轴标题</summary><label><span>字号</span><div className="unit-input"><input aria-label="轴标题字号" type="number" min="5" max="72" step="0.5" value={axisTitleSize} onChange={(event) => setAxisTitleSize(event.target.valueAsNumber)} /><span>pt</span></div></label><label><span>颜色</span><input aria-label="轴标题颜色" type="color" value={axisTitleColor} onChange={(event) => setAxisTitleColor(event.target.value)} /></label></details><details className="parameter-subsection"><summary>刻度标签</summary><label><span>数值格式</span><select aria-label="刻度数值格式" value={axisTickFormat} onChange={(event) => setAxisTickFormat(event.target.value)}><option value="auto">自动</option><option value="decimal">小数</option><option value="scientific">科学计数</option><option value="percent">百分比</option><option value="date">日期</option><option value="time">时间</option></select></label><label><span>旋转</span><div className="unit-input"><input aria-label="刻度旋转" type="number" min="-180" max="180" value={axisTickRotation} onChange={(event) => setAxisTickRotation(event.target.valueAsNumber)} /><span>°</span></div></label><label><span>字号</span><div className="unit-input"><input aria-label="刻度字号" type="number" min="5" max="72" step="0.5" value={axisTickSize} onChange={(event) => setAxisTickSize(event.target.valueAsNumber)} /><span>pt</span></div></label></details><details className="parameter-subsection"><summary>轴线与网格</summary><label><span>轴线颜色</span><input aria-label="轴线颜色" type="color" value={axisLineColor} onChange={(event) => setAxisLineColor(event.target.value)} /></label><label><span>轴线宽度</span><div className="unit-input"><input aria-label="轴线宽度" type="number" min="0.1" max="20" step="0.1" value={axisLineWidth} onChange={(event) => setAxisLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label><label className="parameter-check"><input aria-label="主网格" type="checkbox" checked={majorGridVisible} onChange={(event) => setMajorGridVisible(event.target.checked)} /><span>主网格</span></label><label className="parameter-check"><input aria-label="次网格" type="checkbox" checked={minorGridVisible} onChange={(event) => setMinorGridVisible(event.target.checked)} /><span>次网格</span></label><label><span>网格颜色</span><input aria-label="网格颜色" type="color" value={gridColor} onChange={(event) => setGridColor(event.target.value)} /></label><label><span>网格线宽</span><div className="unit-input"><input aria-label="网格线宽" type="number" min="0.1" max="20" step="0.1" value={gridLineWidth} onChange={(event) => setGridLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label></details><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴视觉</button></form>}
-              </>
+                {(editCapabilities.has('axis_label') || editCapabilities.has('axis_scale') || editCapabilities.has('axis_range') || editCapabilities.has('axis_reverse')) && <section className="parameter-section">
+                  <h3>标题与范围</h3>
+                  {editCapabilities.has('axis_label') && <label><span>标题</span><input aria-label="轴标题" value={axisLabel} onChange={(event) => setAxisLabel(event.target.value)} /></label>}
+                  {editCapabilities.has('axis_scale') && <label><span>尺度</span><select aria-label="轴尺度" value={axisScale} onChange={(event) => setAxisScale(event.target.value)}><option value="linear">线性</option><option value="log10">Log10</option></select></label>}
+                  {editCapabilities.has('axis_range') && <details className="parameter-subsection" open><summary>显示范围</summary><label><span>最小值</span><input aria-label="轴最小值" type="number" value={axisMinimum} placeholder="自动" onChange={(event) => setAxisMinimum(event.target.value)} /></label><label><span>最大值</span><input aria-label="轴最大值" type="number" value={axisMaximum} placeholder="自动" onChange={(event) => setAxisMaximum(event.target.value)} /></label><p className="parameter-note">两项都留空时继续使用自动范围。</p></details>}
+                  {editCapabilities.has('axis_reverse') && <label className="parameter-check"><input aria-label="反向坐标轴" type="checkbox" checked={axisReverse} onChange={(event) => setAxisReverse(event.target.checked)} /><span>反向显示</span></label>}
+                </section>}
+                {[...editCapabilities].some((item) => item.endsWith('_visibility') || item === 'tick_direction') && <section className="parameter-section">
+                  <h3>可见性与刻度</h3>
+                  {editCapabilities.has('axis_title_visibility') && <label className="parameter-check"><input aria-label="显示轴标题" type="checkbox" checked={axisTitleVisible} onChange={(event) => setAxisTitleVisible(event.target.checked)} /><span>显示轴标题</span></label>}
+                  {editCapabilities.has('tick_labels_visibility') && <label className="parameter-check"><input aria-label="显示刻度标签" type="checkbox" checked={tickLabelsVisible} onChange={(event) => setTickLabelsVisible(event.target.checked)} /><span>显示刻度标签</span></label>}
+                  {editCapabilities.has('major_ticks_visibility') && <label className="parameter-check"><input aria-label="显示主刻度线" type="checkbox" checked={majorTicksVisible} onChange={(event) => setMajorTicksVisible(event.target.checked)} /><span>显示主刻度线</span></label>}
+                  {editCapabilities.has('minor_ticks_visibility') && <label className="parameter-check"><input aria-label="显示次刻度线" type="checkbox" checked={minorTicksVisible} onChange={(event) => setMinorTicksVisible(event.target.checked)} /><span>显示次刻度线</span></label>}
+                  {editCapabilities.has('axis_line_visibility') && <label className="parameter-check"><input aria-label="显示轴线" type="checkbox" checked={axisLineVisible} onChange={(event) => setAxisLineVisible(event.target.checked)} /><span>显示轴线</span></label>}
+                  {editCapabilities.has('tick_direction') && <label><span>刻度线方向</span><select aria-label="刻度线方向" value={tickDirection} onChange={(event) => setTickDirection(event.target.value)}><option value="in">向内</option><option value="out">向外</option><option value="inout">内外两侧</option></select></label>}
+                </section>}
+                {axisParameters.has('title_font_size_pt') && <section className="parameter-section"><h3>视觉样式</h3><details className="parameter-subsection" open><summary>轴标题</summary><label><span>字号</span><div className="unit-input"><input aria-label="轴标题字号" type="number" min="5" max="72" step="0.5" value={axisTitleSize} onChange={(event) => setAxisTitleSize(event.target.valueAsNumber)} /><span>pt</span></div></label><label><span>颜色</span><input aria-label="轴标题颜色" type="color" value={axisTitleColor} onChange={(event) => setAxisTitleColor(event.target.value)} /></label></details><details className="parameter-subsection"><summary>刻度标签</summary><label><span>数值格式</span><select aria-label="刻度数值格式" value={axisTickFormat} onChange={(event) => setAxisTickFormat(event.target.value)}><option value="auto">自动</option><option value="decimal">小数</option><option value="scientific">科学计数</option><option value="percent">百分比</option><option value="date">日期</option><option value="time">时间</option></select></label><label><span>旋转</span><div className="unit-input"><input aria-label="刻度旋转" type="number" min="-180" max="180" value={axisTickRotation} onChange={(event) => setAxisTickRotation(event.target.valueAsNumber)} /><span>°</span></div></label><label><span>字号</span><div className="unit-input"><input aria-label="刻度字号" type="number" min="5" max="72" step="0.5" value={axisTickSize} onChange={(event) => setAxisTickSize(event.target.valueAsNumber)} /><span>pt</span></div></label></details><details className="parameter-subsection"><summary>轴线与网格</summary><label><span>轴线颜色</span><input aria-label="轴线颜色" type="color" value={axisLineColor} onChange={(event) => setAxisLineColor(event.target.value)} /></label><label><span>轴线宽度</span><div className="unit-input"><input aria-label="轴线宽度" type="number" min="0.1" max="20" step="0.1" value={axisLineWidth} onChange={(event) => setAxisLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label><label className="parameter-check"><input aria-label="主网格" type="checkbox" checked={majorGridVisible} onChange={(event) => setMajorGridVisible(event.target.checked)} /><span>主网格</span></label><label className="parameter-check"><input aria-label="次网格" type="checkbox" checked={minorGridVisible} onChange={(event) => setMinorGridVisible(event.target.checked)} /><span>次网格</span></label><label><span>网格颜色</span><input aria-label="网格颜色" type="color" value={gridColor} onChange={(event) => setGridColor(event.target.value)} /></label><label><span>网格线宽</span><div className="unit-input"><input aria-label="网格线宽" type="number" min="0.1" max="20" step="0.1" value={gridLineWidth} onChange={(event) => setGridLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label></details></section>}
+                <div className="parameter-form-actions"><span>{axisBoundsInvalid ? '请填写完整且有效的范围。' : '仅提交当前坐标轴可稳定映射的设置。'}</span><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisBoundsInvalid}>应用坐标轴设置</button></div>
+              </form>
             )}
 
             {parameterTab === 'legend' && (
-              <>
-                {editCapabilities.has('legend_visibility') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_legend', `legend:${plot?.plotId.replace('plot:', '')}.main`, { visible: legendVisible }) }}><h3>显示</h3><label className="parameter-check"><input type="checkbox" checked={legendVisible} onChange={(event) => setLegendVisible(event.target.checked)} /><span>显示图例</span></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用显示状态</button></form>}
-                {editCapabilities.has('legend_position') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_legend', `legend:${plot?.plotId.replace('plot:', '')}.main`, { anchor: legendPlacement === 'outside_right' ? 'right' : legendPlacement === 'outside_bottom' ? 'bottom' : 'inside' }) }}><h3>位置</h3><label><span>布局</span><select aria-label="图例位置" value={legendPlacement} onChange={(event) => setLegendPlacement(event.target.value)}><option value="inside">图内</option><option value="outside_right">图外右侧</option><option value="outside_bottom">图外下方</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图例位置</button></form>}
-                {legendParameters.has('columns') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_legend', `legend:${plot?.plotId.replace('plot:', '')}.main`, { columns: legendColumns, title: legendTitle, font_size_pt: legendFontSize, font_color: legendFontColor, frame_visible: legendFrameVisible, frame_color: legendFrameColor }) }}><h3>排版与边框</h3><label><span>标题</span><input aria-label="图例标题" value={legendTitle} onChange={(event) => setLegendTitle(event.target.value)} /></label><label><span>列数</span><input aria-label="图例列数" type="number" min="1" max="8" value={legendColumns} onChange={(event) => setLegendColumns(event.target.valueAsNumber)} /></label><label><span>字号</span><div className="unit-input"><input aria-label="图例字号" type="number" min="5" max="72" step="0.5" value={legendFontSize} onChange={(event) => setLegendFontSize(event.target.valueAsNumber)} /><span>pt</span></div></label><label><span>文字颜色</span><input aria-label="图例文字颜色" type="color" value={legendFontColor} onChange={(event) => setLegendFontColor(event.target.value)} /></label><label className="parameter-check"><input aria-label="图例边框" type="checkbox" checked={legendFrameVisible} onChange={(event) => setLegendFrameVisible(event.target.checked)} /><span>显示边框</span></label>{legendFrameVisible && <label><span>边框颜色</span><input aria-label="图例边框颜色" type="color" value={legendFrameColor} onChange={(event) => setLegendFrameColor(event.target.value)} /></label>}<button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图例排版</button></form>}
-              </>
+              <form className="parameter-operation-form" onSubmit={(event) => { event.preventDefault(); void applyLegendSettings() }}>
+                <section className="parameter-section parameter-section--target"><h3>图例</h3><p className="parameter-note">显示、位置和排版会合并为一次图例修改。</p></section>
+                {(editCapabilities.has('legend_visibility') || editCapabilities.has('legend_position')) && <section className="parameter-section"><h3>显示与位置</h3>{editCapabilities.has('legend_visibility') && <label className="parameter-check"><input aria-label="显示图例" type="checkbox" checked={legendVisible} onChange={(event) => setLegendVisible(event.target.checked)} /><span>显示图例</span></label>}{editCapabilities.has('legend_position') && <label><span>位置</span><select aria-label="图例位置" value={legendPlacement} onChange={(event) => setLegendPlacement(event.target.value)}><option value="inside">图内</option><option value="outside_right">图外右侧</option><option value="outside_bottom">图外下方</option></select></label>}</section>}
+                {legendParameters.has('columns') && <section className="parameter-section"><h3>排版与边框</h3>{legendParameters.has('title') && <label><span>标题</span><input aria-label="图例标题" value={legendTitle} onChange={(event) => setLegendTitle(event.target.value)} /></label>}<label><span>列数</span><input aria-label="图例列数" type="number" min="1" max="8" value={legendColumns} onChange={(event) => setLegendColumns(event.target.valueAsNumber)} /></label>{legendParameters.has('font_size_pt') && <label><span>字号</span><div className="unit-input"><input aria-label="图例字号" type="number" min="5" max="72" step="0.5" value={legendFontSize} onChange={(event) => setLegendFontSize(event.target.valueAsNumber)} /><span>pt</span></div></label>}{legendParameters.has('font_color') && <label><span>文字颜色</span><input aria-label="图例文字颜色" type="color" value={legendFontColor} onChange={(event) => setLegendFontColor(event.target.value)} /></label>}{legendParameters.has('frame_visible') && <label className="parameter-check"><input aria-label="图例边框" type="checkbox" checked={legendFrameVisible} onChange={(event) => setLegendFrameVisible(event.target.checked)} /><span>显示边框</span></label>}{legendFrameVisible && legendParameters.has('frame_color') && <label><span>边框颜色</span><input aria-label="图例边框颜色" type="color" value={legendFrameColor} onChange={(event) => setLegendFrameColor(event.target.value)} /></label>}</section>}
+                <div className="parameter-form-actions"><span>仅显示当前图形支持的图例设置。</span><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !legendTargetId}>应用图例设置</button></div>
+              </form>
             )}
 
             {parameterTab === 'annotation' && (

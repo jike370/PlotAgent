@@ -3114,6 +3114,44 @@ input[type="checkbox"] {
   border-bottom: 1px solid var(--border);
 }
 
+.focus-body.is-simple .parameter-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-height: none;
+  overflow-y: visible;
+}
+
+.parameter-operation-form {
+  min-height: calc(100% - 98px);
+  display: flex;
+  flex-direction: column;
+}
+
+.parameter-section--target {
+  background: var(--surface);
+}
+
+.parameter-form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin-top: auto;
+  padding: 9px 11px 11px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--canvas) 94%, transparent);
+  box-shadow: 0 -4px 12px color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+.parameter-form-actions > span {
+  display: block;
+  color: var(--faint);
+  font-size: 7.5px;
+  line-height: 1.4;
+}
+
+.parameter-form-actions .parameter-apply {
+  margin-top: 7px;
+}
+
 .parameter-section h3 {
   margin: 0 0 9px;
   font-size: 9.5px;
