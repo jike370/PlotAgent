@@ -15,6 +15,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from plotagent.storage.import_service import ProjectImportService
 from plotagent.storage.models import ImportResource
@@ -75,23 +76,29 @@ class _ProcessMemoryCounters(ctypes.Structure):
     ]
 
 
-def _windows_working_set_bytes() -> int | None:
-    if os.name != "nt":
-        return None
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    psapi = ctypes.WinDLL("psapi", use_last_error=True)
-    kernel32.GetCurrentProcess.restype = ctypes.c_void_p
-    psapi.GetProcessMemoryInfo.argtypes = [
+if os.name == "nt":
+    _kernel32: Any = ctypes.WinDLL("kernel32", use_last_error=True)
+    _psapi: Any = ctypes.WinDLL("psapi", use_last_error=True)
+    _kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+    _get_process_memory_info: Any = _psapi.GetProcessMemoryInfo
+    _get_process_memory_info.argtypes = [
         ctypes.c_void_p,
         ctypes.POINTER(_ProcessMemoryCounters),
         ctypes.c_ulong,
     ]
-    psapi.GetProcessMemoryInfo.restype = ctypes.c_int
+    _get_process_memory_info.restype = ctypes.c_int
+    _current_process: int | None = _kernel32.GetCurrentProcess()
+else:
+    _get_process_memory_info = None
+    _current_process = None
+
+
+def _windows_working_set_bytes() -> int | None:
+    if _get_process_memory_info is None or _current_process is None:
+        return None
     counters = _ProcessMemoryCounters()
     counters.cb = ctypes.sizeof(counters)
-    if not psapi.GetProcessMemoryInfo(
-        kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb
-    ):
+    if not _get_process_memory_info(_current_process, ctypes.byref(counters), counters.cb):
         return None
     return int(counters.working_set_size)
 

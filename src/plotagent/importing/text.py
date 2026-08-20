@@ -324,11 +324,12 @@ def inspect_text(
     decimal_mark = _detect_decimal_mark(all_table_rows, delimiter, options.decimal_mark)
     excluded_lines = {row.line.number for row in all_table_rows}
     metadata = _metadata(lines, excluded_lines)
+    first_table_line = min(excluded_lines)
     last_table_line = max(excluded_lines)
     postamble = tuple(
         line.text for line in lines if line.number > last_table_line and line.text.strip()
     )
-    preamble_lines = tuple(line for line in lines if line.number < min(excluded_lines))
+    preamble_lines = tuple(line for line in lines if line.number < first_table_line)
     suffix = path.suffix.casefold().lstrip(".")
     source_format = "tsv" if suffix == "tsv" else suffix
 

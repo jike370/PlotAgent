@@ -1,7 +1,10 @@
 from pathlib import Path
+from typing import Any
 
+import pytest
 from openpyxl import Workbook
 
+import plotagent.importing.text as text_module
 from plotagent.importing import Imported, inspect_source
 
 
@@ -125,6 +128,32 @@ def test_instrument_table_header_after_preamble_is_detected_and_trailing_empty_f
     assert artifact.instrument_metadata == {"Instrument": "Analyzer 7", "Operator": "Lab A"}
     parsed = next(event for event in artifact.trace if event.code == "IMPORT_TEXT_BLOCK_PARSED")
     assert parsed.details == {"rows": 3, "columns": 2, "discarded_empty_columns": 1}
+
+
+def test_large_text_preamble_boundary_is_computed_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "large.csv"
+    source.write_text(
+        "x,y\n" + "\n".join(f"{index},{index * 2}" for index in range(2000)) + "\n",
+        encoding="utf-8",
+    )
+    builtin_min = min
+    calls = 0
+
+    def counting_min(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        return builtin_min(*args, **kwargs)
+
+    monkeypatch.setattr(text_module, "min", counting_min, raising=False)
+
+    result = inspect_source(source)
+
+    assert isinstance(result, Imported)
+    assert result.sources[0].source_dataset.data_ref.row_count == 2000
+    assert calls == 1
 
 
 def test_sparse_real_field_is_not_dropped_as_trailing_empty_serialization(tmp_path: Path) -> None:
